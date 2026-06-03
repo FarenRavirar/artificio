@@ -1,0 +1,99 @@
+# Arquitetura & Contratos — Artifício G1
+
+> **T1. Ler por seção, nunca o arquivo inteiro.** Fonte canônica de arquitetura/contratos técnicos (vence AGENTS.md em conflito técnico). Decisões macro em `.specify/memory/decisions.md`.
+
+## Índice
+1. Layout do monorepo
+2. Contrato de módulo
+3. SSO / Auth
+4. Gateway / Roteamento
+5. Banco de dados
+6. Conteúdo / SEO / SSG
+7. CI/CD / Deploy
+8. Engine de crosslink (SRD ↔ Wiki)
+9. Convenções de código
+
+---
+
+## 1. Layout do monorepo
+```
+artificio/
+  apps/        site/ glossario/ mesas/ downloads/ wiki-sop/ srd/ links/
+  packages/    auth/ ui/ analytics/ config/ content/ crosslink/
+  infra/       docker/(compose.beta.yml) cloudflare/(tunnel ingress hostname→container)
+  specs/  sessoes/  docs/  .specify/  .claude/  .github/workflows/
+  pnpm-workspace.yaml  turbo.json  package.json  tsconfig.base.json
+```
+Nomes de pacote: `@artificio/<nome>`. Workspace via pnpm. Build via Turbo (affected graph). Cada `apps/*` tem `CONTEXT.md` (T2: contexto local do módulo) e `module.manifest.ts`.
+
+## 2. Contrato de módulo
+Cada `apps/*` roda no **próprio subdomínio**, root `/` próprio (sem basename). Exporta `module.manifest.ts`:
+```ts
+export const manifest = {
+  host: '<sub>.artificiorpg.com',  // subdomínio do módulo
+  navLabel, navIcon,               // entrada na nav unificada (URL absoluta)
+  requiresAuth: boolean,           // consome sessão SSO
+  analyticsNamespace,              // stream/dimension GA4
+  sitemapProvider: boolean,        // serve /sitemap.xml próprio
+}
+```
+Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` para auth/ui/analytics/SEO. Não implementa login próprio, não diverge do design system, não inventa stack. Nav entre módulos = URLs absolutas. Playbook: skill `add-module`.
+
+## 3. SSO / Auth (`packages/auth` + serviço `accounts.artificiorpg.com`, D018)
+- **1 OAuth client Google** (web). Host de auth dedicado: **`accounts.artificiorpg.com`**. Callback: `accounts.artificiorpg.com/api/auth/google/callback` (única redirect URI no Google Console).
+- Fluxo cross-subdomínio: módulo precisa de login → redirect a `accounts.artificiorpg.com/login?return=<url>` → Google → callback → set cookie → redirect de volta ao `return`.
+- Login → emite **JWT** → cookie `httpOnly; Secure; SameSite=Lax; Domain=.artificiorpg.com`. Cookie de domínio raiz ⇒ enviado a **todos** os subdomínios ⇒ sessão única.
+- Validação: cada backend verifica o mesmo JWT (segredo compartilhado via env / JWKS de `accounts`). `accounts` provê sessão/refresh/logout.
+- `requiresAuth: false` → módulo público + reage a sessão se presente. `true` → exige sessão.
+- **Cuidado:** o cookie raiz também chega ao host do WP (`artificiorpg.com`) — inofensivo (WP ignora), mas escopar/`SameSite` com cuidado; nunca expor segredo no front.
+- **Sagrado:** mudança aqui = SDD Completo + smoke de todos os consumidores. Nunca quebrar sessão compartilhada. Mesas (refeito) e glossário consomem este serviço central.
+
+## 4. Roteamento — subdomínio-por-módulo (D017)
+**Sem gateway de path.** Cada módulo é um host:
+| Subdomínio | Módulo | Auth |
+|---|---|---|
+| `beta.artificiorpg.com` | `site` (blog/portal, BETA; → raiz `artificiorpg.com` no futuro, D016/D019) | público |
+| `glossariorpg.artificiorpg.com` | `glossario` (fica, prod) | opcional |
+| `mesas.artificiorpg.com` | `mesas` (refeito) | sim |
+| `downloads.artificiorpg.com` | `downloads` | opcional |
+| `spheres.artificiorpg.com` | `wiki-sop` | público |
+| `srd.artificiorpg.com` | `srd` | público |
+| `links.artificiorpg.com` | `links` | público |
+| `accounts.artificiorpg.com` | SSO central | — |
+| `artificiorpg.com` (raiz) | **WordPress, intocável** | — |
+
+- **Cloudflare Tunnel**: um `cloudflared`, várias regras de ingress `hostname → container:port`. Nada de porta exposta. Cert wildcard `*.artificiorpg.com`.
+- Cada app roda no próprio root `/` (Vite `base: '/'`, sem React Router basename). API do módulo sob `/api/...` do próprio host.
+- Nav entre módulos = URLs absolutas (de `packages/ui`), com destaque do módulo atual.
+- Nenhum host hardcoded fora de env/config (permite trocar domínio/host sem refactor).
+
+## 5. Banco de dados
+- Postgres 16. **Isolamento lógico por módulo**: schema/banco próprio por módulo. O único cross-cutting é `users`/sessão (de `auth`).
+- Migrations por módulo, versionadas; nunca `DROP/TRUNCATE/ALTER` em prod sem dump + checklist (ver AGENTS).
+- Acesso local via RaiDrive = read-only padrão.
+- Tabelas do `site`: `posts, pages, categories, tags, media, redirects`.
+
+## 6. Conteúdo / SEO / SSG (`packages/content` + `apps/site`)
+- **SSG**: conteúdo do Postgres → HTML estático no build/deploy. Rebuild incremental disparado pelo admin ao salvar (Turbo rebuilda só o afetado). Sem servidor de render runtime para o blog.
+- Por página: `<title>`, meta description, canonical, OG, Twitter, JSON-LD (Article/Breadcrumb/Org), heading hierárquico, alt, lang.
+- **Subdomínio (D017/D019):** blog (aposta de SEO) na **raiz** `artificiorpg.com`; módulos-ferramenta em subdomínio rankeiam por mérito próprio. Cada módulo serve seu `/sitemap.xml` e `robots.txt`; RSS no blog.
+- **Search Console:** 1 **Domain property** (`artificiorpg.com`) cobre todos os subdomínios (D020).
+- **GA4:** 1 property, `cookie_domain: 'artificiorpg.com'` + lista de exclusão de referral interno (mede sessão cross-subdomínio como uma só). Stream/dimension por módulo (`analyticsNamespace`).
+- **301**: `redirects` (permalink WP → novo). Nenhuma rota legada vira 404. Slugs preservados.
+- Validar com `seo-usability-auditor` antes de promover.
+
+## 7. CI/CD / Deploy
+- GitHub Actions: `ci` (lint/test/build affected via Turbo), `deploy-beta` (auto em `dev`), `smoke`, `preflight`, `promote-to-prod` (depois). Espelha mesas.
+- Imagem **GHCR por app**. `docker-compose.beta.yml` na rede externa compartilhada. Watchtower só beta; prod = deploy controlado (`watchtower.enable=false`).
+- Fluxo: `feat/<modulo>-NNN` → `dev`/Beta → `main`/Prod. Push a `dev`/`main` e qualquer ação na VM = aprovação (AGENTS).
+
+## 8. Engine de crosslink (`packages/crosslink`)
+- Padrão compartilhado entre `srd` e `wiki-sop`: detectar termos referenciados e gerar **tooltip com resumo estruturado estático** + link profundo para a página do termo.
+- Resolução **no import/build**, não em runtime: dado bruto → índice de termos → varredura do texto → injeção de `<a>`+tooltip. Resumos pré-gerados e persistidos (não consulta cara em runtime).
+- SRD DnD 5.2.1: termos = magias/condições/regras. Wiki SoP: termos = talents/spheres, com interreferência entre talents.
+
+## 9. Convenções de código
+- Stack canônica única (§1, D007). TS estrito. Mudança mínima e reversível.
+- Dado externo é `unknown` até normalizador tipado (sem `.map/.filter` sobre payload não validado; `Array.isArray`/schema/fallback). Ver AGENTS → Regras Gerais de Código.
+- HTML do WP sanitizado (DOMPurify) antes de persistir/renderizar.
+- Segredos só em `.env` (gitignored) e secrets do Actions/Cloudflare.

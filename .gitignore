@@ -1,0 +1,34 @@
+# Dependências
+node_modules/
+.pnpm-store/
+
+# Build
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# Ambiente / segredos — NUNCA versionar
+.env
+.env.*
+!.env.example
+*.key
+*.keypublica.pub
+*client_secret*.json
+secrets*.txt
+
+# Backups (ficam fora do repo, em C:\projetos\artificiobackup)
+*.dump
+*.sql.gz
+backup/
+artificiobackup/
+
+# Logs / temporários
+logs/
+*.log
+tmp/
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": ["Bash(ls *)","Bash(cat *)","Bash(grep *)","Bash(find *)",
+      "Bash(docker ps *)","Bash(docker logs *)","Bash(docker inspect *)",
+      "Bash(curl -s *)","Bash(pnpm --filter * test)","Bash(pnpm --filter * lint)",
+      "Bash(gh repo *)","Bash(gh api *)","Bash(gh run *)"],
+    "deny": ["Bash(docker stop *)","Bash(docker rm *)","Bash(rsync *)","Bash(scp *)"]
+  }
+}
