@@ -18,7 +18,7 @@
 ## 1. Layout do monorepo
 ```
 artificio/
-  apps/        site/ glossario/ mesas/ downloads/ wiki-sop/ srd/ links/
+  apps/        site/ glossario/ mesas/ downloads/ esferas/ srd/ links/
   packages/    auth/ ui/ analytics/ config/ content/ crosslink/
   infra/       docker/(compose.beta.yml) cloudflare/(tunnel ingress hostname→container)
   specs/  sessoes/  docs/  .specify/  .claude/  .github/workflows/
@@ -56,7 +56,7 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 | `glossariorpg.artificiorpg.com` | `glossario` (fica, prod) | opcional |
 | `mesas.artificiorpg.com` | `mesas` (refeito) | sim |
 | `downloads.artificiorpg.com` | `downloads` | opcional |
-| `spheres.artificiorpg.com` | `wiki-sop` | público |
+| `esferas.artificiorpg.com` | `esferas` (Spheres of Power, multi-sistema) | público |
 | `srd.artificiorpg.com` | `srd` | público |
 | `links.artificiorpg.com` | `links` | público |
 | `accounts.artificiorpg.com` | SSO central | — |
@@ -88,9 +88,15 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 - Fluxo: `feat/<modulo>-NNN` → `dev`/Beta → `main`/Prod. Push a `dev`/`main` e qualquer ação na VM = aprovação (AGENTS).
 
 ## 8. Engine de crosslink (`packages/crosslink`)
-- Padrão compartilhado entre `srd` e `wiki-sop`: detectar termos referenciados e gerar **tooltip com resumo estruturado estático** + link profundo para a página do termo.
+- Padrão compartilhado entre `srd` e `esferas`: detectar termos referenciados e gerar **tooltip com resumo estruturado estático** + link profundo para a página do termo.
 - Resolução **no import/build**, não em runtime: dado bruto → índice de termos → varredura do texto → injeção de `<a>`+tooltip. Resumos pré-gerados e persistidos (não consulta cara em runtime).
-- SRD DnD 5.2.1: termos = magias/condições/regras. Wiki SoP: termos = talents/spheres, com interreferência entre talents.
+- SRD DnD 5.2.1: termos = magias/condições/regras (2024). `esferas`: termos = talents/spheres, interreferência entre talents.
+
+### `esferas` — modelo multi-sistema (D028)
+- Eixo **`sistema × edição`**. `sistema`: `dnd` (principal), `pathfinder` (futuro), …; `edição` por sistema: `dnd`→{`2014`,`2024`}, `pathfinder`→{`1e`,`2e`,…}.
+- Cada sphere/talent é marcado por `sistema`+`edição`. **Interreferência só dentro do mesmo `sistema`+`edição`** (índice de crosslink particionado por par).
+- UI: seletor de sistema/edição persistente; conteúdo e tooltips filtram pelo par ativo. Default = `dnd`/`2024` (com toggle p/ 2014).
+- Importador da tradução SoP popula por par; novos sistemas/edições entram sem reescrever o engine.
 
 ## 9. Convenções de código
 - Stack canônica única (§1, D007). TS estrito. Mudança mínima e reversível.

@@ -40,6 +40,15 @@ Não ler além do tier necessário. Não reabrir o que já está no contexto.
 - Fan-out só quando o ganho paga o custo de spawn. Tarefa pequena → inline.
 
 ## Divisão de modelo (custo)
-- Claude Opus (principal): arquitetura, SSO, importador, engine SRD/crosslink, SEO, specs, gates.
-- Codex (secundário/barato): UI, testes, migração mecânica, lint, boilerplate.
-- Não usar o modelo caro para trabalho mecânico.
+- Claude Opus (principal): arquitetura, SSO, importador, engine SRD/crosslink, SEO, specs, gates, **definir tarefas Codex**, **validar resultado**.
+- Codex (secundário/barato): UI, testes, migração mecânica, lint, boilerplate, **execução de comandos (VM/transfer/checksums)**.
+- Não usar o modelo caro para trabalho mecânico nem pra rodar comando que o Codex roda.
+
+## Tarefas para Codex (handoff de execução)
+Opus **define** tarefas pequenas e auto-contidas; Codex **executa**; mantenedor confirma; Opus **valida** e avança. Economiza token do principal.
+- Vivem na sessão ativa em `## Tarefas para Codex`, IDs `CDX-NNN`.
+- Cada tarefa é **auto-contida** (Codex parte do zero): objetivo, contexto mínimo, comandos exatos, **`✓ Validar`** (auto-check que o Codex roda ANTES de retornar — só reporta se passar), e **o que colar de volta**.
+- Passo local do mantenedor (ex.: setar senha): escrever **guia claro, passo-a-passo**, pois ele não conhece os comandos.
+- Gatilho do mantenedor: **"realize as tarefas para codex na sessão"** → Codex abre a sessão ativa e executa os `CDX-*` pendentes em ordem, colando a saída.
+- Comandos que escrevem na VM/transferem seguem a aprovação pétrea (a tarefa já traz o bloco; mantenedor autoriza no Codex).
+- Opus valida pela saída colada; marca `CDX-NNN ✅` ou devolve correção.

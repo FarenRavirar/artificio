@@ -7,7 +7,7 @@ Construindo o **Artifício G1**: suite modular em **subdomínios** sob `*.artifi
 
 ## Topologia (subdomínio-por-módulo — D017)
 Cada módulo no **próprio subdomínio**, root `/` próprio, **sem basename/gateway de path**:
-`glossariorpg.` (glossário, fica) · `mesas.` · `downloads.` · `spheres.` (wiki SoP) · `srd.` · `links.` · `beta.artificiorpg.com` (blog/site novo, BETA — único que valida; → raiz `artificiorpg.com` no futuro, D016) · `accounts.` (SSO central, D018). WP fica na **raiz** `artificiorpg.com` agora (intocável). Une tudo: **cookie `.artificiorpg.com` + nav + design system**. Cloudflare Tunnel mapeia hostname→container. Blog na raiz = aposta de SEO (D019). Não hardcodar credencial/host fora de env.
+`glossariorpg.` (glossário, fica) · `mesas.` · `downloads.` · `esferas.` (Spheres of Power, multi-sistema) · `srd.` · `links.` · `beta.artificiorpg.com` (blog/site novo, BETA — único que valida; → raiz `artificiorpg.com` no futuro, D016) · `accounts.` (SSO central, D018). WP fica na **raiz** `artificiorpg.com` agora (intocável). Une tudo: **cookie `.artificiorpg.com` + nav + design system**. Cloudflare Tunnel mapeia hostname→container. Blog na raiz = aposta de SEO (D019). Não hardcodar credencial/host fora de env.
 
 ## Onde estamos
 Ver `.specify/memory/project-state.md`. Hoje: **Fase 0 — Governança + Backup**, gate **pré-A**. Nada destrutivo autorizado.
@@ -30,7 +30,7 @@ Back: Express/TS/Kysely/PG16/JWT/Google OAuth/Cloudinary.
 Infra: Docker/nginx(por app)/Cloudflare Tunnel(ingress hostname→container)/GHCR/Watchtower(beta)/Oracle 24GB-200GB.
 
 ## Módulos
-`site` (portal+blog, SSG), `glossario`, `mesas`, `downloads`, `wiki-sop`, `srd`, `links`.
+`site` (portal+blog, SSG), `glossario`, `mesas`, `downloads`, `esferas` (multi-sistema), `srd`, `links`.
 Pacotes: `auth`, `ui`, `analytics`, `config`, `content`, `crosslink`.
 
 ## Ferramentas / divisão
