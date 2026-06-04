@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Artifício UI — preview da marca (D038)</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+    <style>
+      body {
+        background: #eef0f4;
+        font-family: "Inter", system-ui, sans-serif;
+        margin: 0;
+        padding: 32px;
+      }
+      .wrap {
+        margin: 0 auto;
+        max-width: 1040px;
+      }
+      h2 {
+        color: #10103a;
+        font-family: "Oswald", sans-serif;
+        font-size: 14px;
+        letter-spacing: 0.08em;
+        margin: 28px 0 8px;
+        text-transform: uppercase;
+      }
+      .card {
+        border: 1px solid #e3e5ec;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .swatches {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .sw {
+        border-radius: 8px;
+        font-size: 11px;
+        height: 72px;
+        overflow: hidden;
+        width: 132px;
+      }
+      .sw b {
+        background: rgba(255, 255, 255, 0.85);
+        display: block;
+        padding: 2px 6px;
+      }
+      .sw small {
+        color: #fff;
+        display: block;
+        padding: 6px;
+      }
+      /* mini nav/header replicado p/ render estático sem React */
+      .hdr {
+        align-items: center;
+        background: #fff;
+        border-bottom: 1px solid #e3e5ec;
+        display: grid;
+        gap: 16px;
+        grid-template-columns: auto 1fr auto;
+        min-height: 64px;
+        padding: 0 24px;
+      }
+      .hdr.dark {
+        background: #0f1014;
+      }
+      .logo {
+        height: 30px;
+      }
+      .nav {
+        display: flex;
+        gap: 4px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .nav a {
+        border-bottom: 2px solid transparent;
+        color: #5a6172;
+        font-size: 14px;
+        padding: 10px 12px;
+        text-decoration: none;
+      }
+      .nav a.active {
+        border-bottom-color: #fc9054;
+        color: #10103a;
+        font-weight: 600;
+      }
+      .dark .nav a {
+        color: #c7cad6;
+      }
+      .dark .nav a.active {
+        color: #fff;
+      }
+      .btn {
+        background: #10103a;
+        border-radius: 8px;
+        color: #fff;
+        font-weight: 600;
+        padding: 10px 18px;
+      }
+      .av {
+        align-items: center;
+        display: inline-flex;
+        gap: 10px;
+      }
+      .avf {
+        align-items: center;
+        background: #fc9054;
+        border: 1px solid #e0712f;
+        border-radius: 999px;
+        color: #10103a;
+        display: inline-flex;
+        font-weight: 700;
+        height: 32px;
+        justify-content: center;
+        width: 32px;
+      }
+      .dark .name {
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h2>Paleta real (amostrada de /midias)</h2>
+      <div class="swatches">
+        <div class="sw" style="background:#fc9054">
+          <b>brand #FC9054</b><small>hexágono + RPG</small>
+        </div>
+        <div class="sw" style="background:#e0712f">
+          <b>brand-deep #E0712F</b><small>hover/foco</small>
+        </div>
+        <div class="sw" style="background:#10103a">
+          <b style="color:#10103a">ink #10103A</b><small>texto/navy</small>
+        </div>
+        <div class="sw" style="background:#0f1014">
+          <b style="color:#0f1014">charcoal #0F1014</b><small>superfície escura</small>
+        </div>
+        <div class="sw" style="background:#9c6b43">
+          <b>bronze #9C6B43</b><small>secundário</small>
+        </div>
+        <div class="sw" style="background:#5a6172">
+          <b>muted #5A6172</b><small>texto 2º (AA)</small>
+        </div>
+      </div>
+
+      <h2>Header — deslogado (light)</h2>
+      <div class="card">
+        <div class="hdr">
+          <img class="logo" alt="Artifício RPG" src="./src/_logo.png" />
+          <ul class="nav">
+            <li><a class="active" href="#">Portal</a></li>
+            <li><a href="#">Glossario</a></li>
+            <li><a href="#">Mesas</a></li>
+            <li><a href="#">Downloads</a></li>
+            <li><a href="#">Esferas</a></li>
+            <li><a href="#">SRD</a></li>
+          </ul>
+          <span class="btn">Entrar</span>
+        </div>
+      </div>
+
+      <h2>Header — logado (light)</h2>
+      <div class="card">
+        <div class="hdr">
+          <img class="logo" alt="Artifício RPG" src="./src/_logo.png" />
+          <ul class="nav">
+            <li><a href="#">Portal</a></li>
+            <li><a class="active" href="#">Mesas</a></li>
+            <li><a href="#">Glossario</a></li>
+            <li><a href="#">Downloads</a></li>
+          </ul>
+          <span class="av"><span class="avf">AA</span><span class="name">Ana Artifice</span></span>
+        </div>
+      </div>
+
+      <h2>Header — variante dark (charcoal)</h2>
+      <div class="card">
+        <div class="hdr dark">
+          <img class="logo" alt="Artifício RPG" src="./src/_logo_neg.png" />
+          <ul class="nav">
+            <li><a class="active" href="#">Portal</a></li>
+            <li><a href="#">Mesas</a></li>
+            <li><a href="#">Glossario</a></li>
+          </ul>
+          <span class="btn" style="background:#fc9054;color:#10103a">Entrar</span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

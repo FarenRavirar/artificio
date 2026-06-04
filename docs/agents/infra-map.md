@@ -1,11 +1,12 @@
-# Mapa de Infraestrutura — VM Oracle (verificado 2026-06-03)
+# Mapa de Infraestrutura — VM Oracle (verificado 2026-06-04)
 
 > Saída da T1 (spec 001). **Referência canônica do que existe na VM.** Atualizar se mudar. Evita re-rodar inventário (economia de token). Acesso: `ssh faren` (ver AGENTS → Acesso à VM).
 
 ## Host
-- **Alias SSH:** `faren` (também `oracle`, `ubuntu`, IP) → Oracle Cloud, **ARM `aarch64`**, Ubuntu 24.04, Docker 29.1.3.
-- **Disco:** `/dev/sda1` 146G, **23G usados / 123G livres** (16%). Recriar → 200G.
-- **Rede Docker compartilhada:** `gerenciador_telegram_default` (bridge). Tunnel e serviços públicos passam por ela.
+- **Alias SSH:** `faren` (também `oracle`, `ubuntu`, IP) → Oracle Cloud, **ARM `aarch64`**, Ubuntu 24.04, Docker.
+- **IP:** `164.152.39.46`.
+- **Estrutura G1:** `/opt/artificio/<servico>`.
+- **Rede Docker compartilhada:** `artificio_net` (bridge). Tunnel e serviços públicos passam por ela.
 
 ## Postgres do G1 (4 bancos → 4 dumps)
 | Container | DB | User | Volume | Tamanho |
@@ -16,7 +17,25 @@
 | `glossario-db` | `glossario_v2` | `admin` | `glossario_pgdata_prod` | 85MB |
 | _(órfão)_ | — | — | `glossario_pgdata_producao` (LINKS=0, legado) | 49MB |
 
-Stacks em `/opt/`: `glossario/` (prod), `glossario-beta/`, `mesas/` (prod), `mesas-beta/`. Cada um com compose `.yml/.beta/.prod/.producao`.
+Stacks em `/opt/artificio/`: `glossario/` (prod), `glossario-beta/`, `mesas/` (prod), `mesas-beta/`, `accounts/`.
+
+## Accounts / SSO
+| Item | Valor |
+|---|---|
+| Host público | `https://accounts.artificiorpg.com` |
+| Container API | `accounts-api` |
+| Container DB | `accounts-db` |
+| Diretório | `/opt/artificio/accounts` |
+| Rede | `artificio_net` |
+| Callback OAuth | `https://accounts.artificiorpg.com/api/auth/google/callback` |
+| Rota Cloudflare | `accounts.artificiorpg.com` → `http://accounts-api:3000` |
+
+Smoke validado:
+```text
+https://accounts.artificiorpg.com/health -> 200
+https://accounts.artificiorpg.com/login -> 200
+https://accounts.artificiorpg.com/api/auth/me -> 401 sem cookie
+```
 
 ## WordPress
 - **Externo** (não está em Docker nesta VM). Backup = **Ramo B**: `mysqldump` remoto / plugin + WP REST API. Host/credenciais a obter (painel de hospedagem do `artificiorpg.com`).
@@ -31,8 +50,10 @@ Mantenedor decidiu refazer do zero; **não backupear**:
 Backupear mesmo assim (pequeno, segurança): credenciais home (`.aws`, `.oci`, `.docker`, `.ssh`) → `secrets.7z`. Opcional: scripts ops (`auditoria.sh`, `testes.sh`). AI tooling (`.codex`/`.gemini`/`.antigravity`) = ignorar.
 
 ## Cloudflare Tunnel
-- Atual: `gerenciador_telegram-cloudflared-1`, definido em `/opt/gerenciador_telegram/docker-compose.yml`. Roteia o tráfego público hoje.
-- **Como o telegram morre, o tunnel velho morre junto.** Fase 1 cria um **tunnel novo** para a instância G1 (D022). Backup só do **DNS export** (T8) para saber todos os hostnames a re-apontar. Token velho **não** precisa de backup.
+- Atual: container standalone `cloudflared` em `/opt/artificio/cloudflared`.
+- Tunnel: `6417d3a0-b98b-42ed-97da-3fb9f6ecfac2`.
+- Rede: `artificio_net`.
+- `accounts-api` e `cloudflared` estao na mesma rede. Probe em 2026-06-04: `http://accounts-api:3000/health = 200`.
 
 ## Estimativa de backup total
 G1 (dumps+volumes) < 1GB · WP uploads 6.34GB · gerenciador_telegram pg 1.35GB · foundry 1.9GB · libs/config ~1GB → **~11–12GB**. Destino `C:\projetos\artificiobackup` (300GB livre) folga.

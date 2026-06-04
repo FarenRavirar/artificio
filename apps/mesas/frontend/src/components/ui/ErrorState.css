@@ -1,0 +1,65 @@
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+  gap: 1rem;
+}
+
+.error-state-icon {
+  font-size: 3rem;
+  opacity: 0.8;
+}
+
+.error-state-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+}
+
+.error-state-message {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  max-width: 400px;
+  margin: 0;
+}
+
+.error-state-retry {
+  margin-top: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--color-artificio-orange);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.error-state-retry:hover {
+  background: #e65c00;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 102, 0, 0.3);
+}
+
+.error-state-retry:active {
+  transform: translateY(0);
+}
+
+/* Variantes */
+.error-state-network .error-state-icon {
+  color: #fbbf24;
+}
+
+.error-state-auth .error-state-icon {
+  color: #ef4444;
+}
+
+.error-state-generic .error-state-icon {
+  color: #f97316;
+}

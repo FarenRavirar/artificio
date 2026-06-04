@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "./app.js";
+import { createApp, sanitizeReturnUrl } from "./app.js";
 import type { AccountsEnv } from "./env.js";
 
 const originalSecret = process.env.JWT_SECRET;
@@ -59,5 +59,40 @@ describe("/api/auth/me", () => {
         role: "user",
       },
     });
+  });
+});
+
+describe("return URL allowlist", () => {
+  it("allows HTTPS subdomains under artificiorpg.com", () => {
+    expect(
+      sanitizeReturnUrl("https://mesas.artificiorpg.com/campanhas", env),
+    ).toBe("https://mesas.artificiorpg.com/campanhas");
+  });
+
+  it("blocks external hosts", () => {
+    expect(sanitizeReturnUrl("https://evil.com", env)).toBe(env.PUBLIC_URL);
+  });
+
+  it("blocks lookalike domains", () => {
+    expect(sanitizeReturnUrl("https://evilartificiorpg.com", env)).toBe(
+      env.PUBLIC_URL,
+    );
+  });
+
+  it("stores only sanitized return URL in Google state", async () => {
+    const app = createApp(env, null as never);
+
+    const response = await request(app)
+      .get("/api/auth/google")
+      .query({ return: "https://evil.com" })
+      .expect(302);
+    const location = response.headers.location as string;
+    const state = new URL(location).searchParams.get("state");
+
+    expect(state).not.toBeNull();
+    const body = JSON.parse(
+      Buffer.from(state ?? "", "base64url").toString("utf8"),
+    ) as { returnUrl: string };
+    expect(body.returnUrl).toBe(env.PUBLIC_URL);
   });
 });

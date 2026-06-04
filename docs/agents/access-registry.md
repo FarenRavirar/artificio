@@ -20,13 +20,34 @@
 | GHCR PAT | bundle | pull de imagem na VM | bundle |
 | Cloudflare token | bundle | DNS/tunnel | bundle |
 | OAuth Google (client) | `C:\projetos\artificiobackup\accounts-oauth.env` (fora do git) + futuro env do `accounts.` | SSO | bundle |
+| GitHub Actions deploy `accounts` | Repo secrets (`FarenRavirar/artificio`) + cofre local `C:\projetos\Secrets\artificio` | CI/CD e deploy VM | cofre local |
 | Chave SSH `faren` | `*.key` local (gitignored) | acesso VM | **nunca no repo/bundle versionado** |
+
+## GitHub Actions — `accounts`
+Secrets cadastrados no repo `FarenRavirar/artificio` (valores nunca lidos/impressos):
+```text
+ACCOUNTS_ENV
+DEPLOY_HOST
+DEPLOY_KNOWN_HOSTS
+DEPLOY_PORT
+DEPLOY_SSH_PRIVATE_KEY
+DEPLOY_USER
+```
+
+Cofre local sem git:
+```text
+C:\projetos\Secrets\artificio\accounts.env
+C:\projetos\Secrets\artificio\deploy-known-hosts
+```
+
+Detalhe operacional: `docs/agents/github-actions-secrets.md`.
 
 ## Política (pétrea)
 - **Agentes NUNCA** imprimem, ecoam, logam ou commitam segredo. Ler só via `env` em runtime.
 - Filtrar saída de inventário: nunca exibir `*PASSWORD*|*TOKEN*|*SECRET*|*KEY*`.
 - Segredo **jamais** no git. `.gitignore` cobre `.env/*.key/secrets*/client_secret*`.
 - OAuth `accounts.`: `GOOGLE_CLIENT_SECRET` e JSON `client_secret_*.json` nunca entram em chat, issue, commit, log ou doc público. Docs registram só caminho/nomes de variáveis e client id público quando necessário.
+- GitHub Actions: validar secrets só por nome/presença/tamanho. Nunca `echo` de `ACCOUNTS_ENV`, chave SSH, tokens JWT ou senha de banco.
 - Bundle de segredos: **`secrets.tar.gz` plaintext** em `C:\projetos\artificiobackup` (fora do git), **sem encriptação por ora** (D030 — local-only, sem fricção). `wp-hostinger.env` idem (fora do git). **Encriptação real + ROTAÇÃO de todas as creds = obrigatório no setup da instância nova.** Pasta `artificiobackup` não pode ir pra cloud-sync.
 - **Rotação obrigatória** de qualquer credencial exposta em chat/log (ex.: WP DB+FTP de 2026-06-03) **após a migração**.
 - Princípio do menor privilégio: cada serviço só com os segredos que precisa; sem reuso de senha entre serviços no setup novo.

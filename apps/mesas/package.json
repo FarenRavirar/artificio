@@ -1,0 +1,15 @@
+{
+  "name": "@artificio/mesas",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "pnpm --filter @artificio/auth build && pnpm --filter @artificio/ui build && pnpm --filter @artificio/mesas-frontend build && pnpm --filter @artificio/mesas-backend build",
+    "dev": "pnpm --parallel --filter @artificio/mesas-frontend --filter @artificio/mesas-backend dev",
+    "lint": "pnpm --filter @artificio/mesas-frontend lint",
+    "test": "pnpm --filter @artificio/mesas-frontend test && pnpm --filter @artificio/mesas-backend test"
+  },
+  "dependencies": {
+    "@artificio/mesas-backend": "workspace:*",
+    "@artificio/mesas-frontend": "workspace:*"
+  }
+}

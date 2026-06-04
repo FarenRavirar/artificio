@@ -8,6 +8,7 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./styles.css": "./src/styles.css",
     "./tailwind-preset": "./tailwind-preset.js"
   },
   "scripts": {

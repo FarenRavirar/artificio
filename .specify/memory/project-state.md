@@ -3,11 +3,11 @@
 > Atualizar a cada mudança de estado operacional. Fonte de verdade do "onde estamos".
 
 ## Fase atual
-**Fase 2 — monorepo + SSO (início).** Fase 1 ✅ (VM limpa, glossário/mesas no ar 200, dados intactos, sem telegram). Próximo: scaffold monorepo + accounts. (Opus desenha).
+**Fase 2 — monorepo + SSO ✅ Gate B APROVADO (D037, 2026-06-04).** Fase 1 ✅. `accounts.artificiorpg.com` no ar (SSO Google/JWT), cross-subdomínio provado, CI/CD `deploy-accounts.yml`. CDX-307/D038 design system real em mudanças locais. **CDX-308A+B concluídos localmente:** `apps/mesas` importado, consome `@artificio/ui`, frontend redireciona para SSO accounts, backend valida `artificio_session` via `@artificio/auth`. **Próximo:** CDX-308C deploy/smoke browser real em `mesas.artificiorpg.com` para fechar 1º Gate D. Dívidas: redeploy do open-redirect `return`; browser E2E real no 1º módulo.
 
 ## Gates (ativos: A, B, D · Gate C adiado — D016)
 - ✅ **Gate A** — Backups completos/verificados/off-VM. **APROVADO pelo mantenedor 2026-06-04.** Libera Fase 1.
-- [ ] **Gate B** — SSO (`accounts.`) no ar + 1º módulo em subdomínio → libera import de conteúdo / construir módulos.
+- ✅ **Gate B** — SSO (`accounts.`) no ar + cross-subdomínio provado. **APROVADO pelo mantenedor 2026-06-04 (D037).** Libera import de conteúdo / construir módulos. (Integração de módulo real ao SSO = Gate D.)
 - [ ] **Gate D** — (por módulo) smoke → próximo módulo.
 - ⏸️ **Gate C (adiado/futuro)** — Site validado em beta → cutover DNS raiz + desligar WP. **Fora do escopo destes ~3 meses.** WP intocável todo o projeto.
 
@@ -36,10 +36,10 @@
 
 ## Construído neste monorepo
 - Governança: `AGENTS.md`, `.specify/memory/{constitution,project-state,errors,decisions}.md`, `.specify/arquiteture.md`, `docs/agents/{operating-model,context-capsule,token-economy}.md`, `.claude/agents/*` (3), `.claude/skills/*` (2), `README.md`, `.gitignore`, `sessoes/index.md`. ✅ coração de governança + economia de contexto fechado.
-- Código de aplicação: **nada ainda.**
+- Código de aplicação: `packages/{config,auth,ui}`; `apps/accounts` SSO; `apps/mesas` importado do legado (`frontend` + `backend` + DB/scripts/docs), ainda pendente de integração SSO/UI.
 
 ## Próximo passo
-**Fase 1 concluída (D036):** VM nova `164.152.39.46` (ARM A1, Ubuntu24, 193G), Docker + `artificio_net`, tunnel Cloudflare próprio, glossário/mesas restaurados e no ar 200, dados intactos, sem telegram/foundry. **Próximo:** Fase 2 — **spec `003-fase2-monorepo-sso` JÁ ESCRITA** (Opus, contexto pleno). Executar CDX-301..306 (scaffold monorepo + `packages/{config,auth,ui}` + `apps/accounts` SSO → Gate B). Sessão `26-06-04_3`. Modo: **Opus orquestra, Codex executa**. 2 passos do mantenedor: OAuth client Google + rota Cloudflare `accounts.`. Pendência segurança (mantenedor trata): rotacionar tunnel token, PAT, WP creds.
+**Fase 2 CDX-301..306 executados e Gate B aprovado:** monorepo + `packages/{config,auth,ui}` + `apps/accounts` SSO deployado. `accounts-api`/`accounts-db` rodam em `/opt/artificio/accounts` na `artificio_net`; Cloudflare `accounts.artificiorpg.com` smoke 200/200/401; OAuth criou user; `/me` com sessão válida 200; cross-subdomínio via `@artificio/auth verifyToken` OK. **CDX-308A+B:** `apps/mesas` importado/buildado e integrado localmente ao SSO/UI; próximo CDX-308C deploy/smoke browser real em `mesas.artificiorpg.com`. Pendência segurança (mantenedor trata): rotacionar tunnel token, PAT, WP creds.
 
 ## Log
 - 2026-06-03 — Plano G1 aprovado em decisões macro. Camada de governança criada (13 arq).
@@ -50,3 +50,5 @@
 - 2026-06-03 — **T1 executada** via `ssh faren` (D023). Mapa em `docs/agents/infra-map.md`. 4 bancos G1, WP externo, telegram/foundry fora (D021).
 - 2026-06-03 — Escopo backup final: **VM only** (WP fora=Hostinger cloud D024; uploads on-demand D025; secrets→`secrets.7z` D026). Criado `access-registry.md`. tasks T3 dropada, T4 diferida p/ Fase 3, T7 = `.env` dos serviços.
 - 2026-06-03 — Módulo **`esferas`** (`esferas.artificiorpg.com`), multi-sistema sistema×edição (D&D 2014/2024 principal, PF futuro) — D028. Rename `spheres`/`wiki-sop`→`esferas` em todos os docs.
+- 2026-06-04 — **CDX-308A concluído:** legado `C:\projetos\mesas_rpg_artificio` importado para `apps/mesas` sem segredos reais. `pnpm install` OK; `pnpm --filter @artificio/mesas build` OK; frontend tests 13/13; backend tests 104/104 com env dummy local. VM/deploy não tocados.
+- 2026-06-04 — **CDX-308B concluído local:** mesas usa `@artificio/ui` + `@artificio/auth`; backend valida `artificio_session`; OAuth local aposentado. Turbo build OK; accounts tests 6/6; auth tests 3/3; mesas frontend 15/15; mesas backend 106/106. VM/deploy não tocados.

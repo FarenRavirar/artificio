@@ -4,7 +4,7 @@ import "./styles.css";
 
 function getReturnUrl() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("return") ?? "https://beta.artificiorpg.com";
+  return params.get("return") ?? window.location.origin;
 }
 
 function App() {

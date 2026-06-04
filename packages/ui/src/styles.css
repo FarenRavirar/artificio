@@ -1,13 +1,19 @@
+/* Design system Artifício RPG — paleta real (D038). Laranja = acento; navy = texto. */
+@import url("https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap");
+
 :root {
-  --artificio-ink: #1f2933;
-  --artificio-muted: #5f6b7a;
-  --artificio-line: #d9e1ec;
+  --artificio-ink: #10103a;
+  --artificio-muted: #5a6172;
+  --artificio-line: #e3e5ec;
   --artificio-surface: #ffffff;
-  --artificio-canvas: #f7f9fc;
-  --artificio-red: #b42318;
-  --artificio-gold: #b98900;
-  --artificio-blue: #2563eb;
-  --artificio-focus: #1a73e8;
+  --artificio-canvas: #f6f7fa;
+  --artificio-charcoal: #0f1014;
+  --artificio-brand: #fc9054;
+  --artificio-brand-deep: #e0712f;
+  --artificio-bronze: #9c6b43;
+  --artificio-focus: #e0712f;
+  --artificio-font-display: "Oswald", "Arial Narrow", system-ui, sans-serif;
+  --artificio-font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 .artificio-header {
@@ -16,6 +22,7 @@
   border-bottom: 1px solid var(--artificio-line);
   color: var(--artificio-ink);
   display: grid;
+  font-family: var(--artificio-font-sans);
   gap: 16px;
   grid-template-columns: auto 1fr auto;
   min-height: 64px;
@@ -24,24 +31,15 @@
 
 .artificio-brand {
   align-items: center;
-  color: var(--artificio-ink);
   display: inline-flex;
-  font-weight: 700;
-  gap: 10px;
   min-height: 44px;
   text-decoration: none;
 }
 
-.artificio-brand-mark {
-  align-items: center;
-  background: var(--artificio-red);
-  border-radius: 8px;
-  color: white;
-  display: inline-flex;
-  font-weight: 800;
-  height: 32px;
-  justify-content: center;
-  width: 32px;
+.artificio-brand-logo {
+  display: block;
+  height: 30px;
+  width: auto;
 }
 
 .artificio-nav-list {
@@ -54,27 +52,34 @@
 }
 
 .artificio-nav-link {
-  border-radius: 8px;
+  border-bottom: 2px solid transparent;
+  border-radius: 6px 6px 0 0;
   color: var(--artificio-muted);
   display: inline-flex;
   font-size: 14px;
+  font-weight: 500;
   min-height: 40px;
   padding: 10px 12px;
   text-decoration: none;
   white-space: nowrap;
 }
 
-.artificio-nav-link:hover,
-.artificio-nav-link[aria-current="page"] {
+.artificio-nav-link:hover {
   background: var(--artificio-canvas);
   color: var(--artificio-ink);
+}
+
+.artificio-nav-link[aria-current="page"] {
+  border-bottom-color: var(--artificio-brand);
+  color: var(--artificio-ink);
+  font-weight: 600;
 }
 
 .artificio-session {
   align-items: center;
   display: inline-flex;
-  min-width: 96px;
   justify-content: flex-end;
+  min-width: 96px;
 }
 
 .artificio-session-muted {
@@ -82,16 +87,23 @@
   font-size: 14px;
 }
 
+/* Ação primária = navy sólido + texto branco (AA). Laranja fica no acento/hover. */
 .artificio-login-button {
-  background: var(--artificio-blue);
+  background: var(--artificio-ink);
   border: 0;
   border-radius: 8px;
-  color: white;
+  color: #ffffff;
   cursor: pointer;
   font: inherit;
   font-weight: 600;
   min-height: 40px;
-  padding: 0 16px;
+  padding: 0 18px;
+  transition: background 120ms ease;
+}
+
+.artificio-login-button:hover {
+  background: #1c1c52;
+  box-shadow: inset 0 -2px 0 var(--artificio-brand);
 }
 
 .artificio-avatar-link {
@@ -110,10 +122,12 @@
   width: 32px;
 }
 
+/* Fallback = laranja com texto navy (alto contraste). */
 .artificio-avatar-fallback {
   align-items: center;
-  background: var(--artificio-gold);
-  color: white;
+  background: var(--artificio-brand);
+  border: 1px solid var(--artificio-brand-deep);
+  color: var(--artificio-ink);
   font-size: 13px;
   font-weight: 700;
   justify-content: center;
@@ -133,10 +147,19 @@
   border-top: 1px solid var(--artificio-line);
   color: var(--artificio-muted);
   display: flex;
+  font-family: var(--artificio-font-sans);
   font-size: 14px;
   gap: 16px;
   justify-content: space-between;
   padding: 20px 24px;
+}
+
+.artificio-footer-brand {
+  color: var(--artificio-ink);
+  font-family: var(--artificio-font-display);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .artificio-header a:focus-visible,
@@ -144,6 +167,22 @@
 .artificio-footer a:focus-visible {
   outline: 3px solid var(--artificio-focus);
   outline-offset: 2px;
+}
+
+/* Variante escura (header/hero sobre charcoal) — laranja vira texto/acento legível. */
+.artificio-header[data-variant="dark"],
+.artificio-footer[data-variant="dark"] {
+  background: var(--artificio-charcoal);
+  color: #ffffff;
+}
+
+.artificio-header[data-variant="dark"] .artificio-nav-link {
+  color: #c7cad6;
+}
+
+.artificio-header[data-variant="dark"] .artificio-nav-link:hover,
+.artificio-header[data-variant="dark"] .artificio-nav-link[aria-current="page"] {
+  color: #ffffff;
 }
 
 @media (max-width: 860px) {

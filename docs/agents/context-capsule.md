@@ -10,7 +10,7 @@ Cada módulo no **próprio subdomínio**, root `/` próprio, **sem basename/gate
 `glossariorpg.` (glossário, fica) · `mesas.` · `downloads.` · `esferas.` (Spheres of Power, multi-sistema) · `srd.` · `links.` · `beta.artificiorpg.com` (blog/site novo, BETA — único que valida; → raiz `artificiorpg.com` no futuro, D016) · `accounts.` (SSO central, D018). WP fica na **raiz** `artificiorpg.com` agora (intocável). Une tudo: **cookie `.artificiorpg.com` + nav + design system**. Cloudflare Tunnel mapeia hostname→container. Blog na raiz = aposta de SEO (D019). Não hardcodar credencial/host fora de env.
 
 ## Onde estamos
-Ver `.specify/memory/project-state.md`. Hoje: **Fase 0 — Governança + Backup**, gate **pré-A**. Nada destrutivo autorizado.
+Ver `.specify/memory/project-state.md`. Hoje: **Fase 2 — Gate B aprovado (D037)**. `accounts.artificiorpg.com` no ar. CDX-307 design system real em mudanças locais. CDX-308 ativo: `apps/mesas` importado e integrado localmente ao SSO/UI (CDX-308A+B); próximo é CDX-308C deploy/smoke browser real em `mesas.artificiorpg.com` com aprovação para fechar Gate D.
 
 ## Reload (Tier 0 — só estes 3)
 `project-state.md` + este capsule + `decisions.md`. Resto sob demanda. Caveman default. Disciplina: `docs/agents/token-economy.md`.

@@ -24,7 +24,7 @@ artificio/
   specs/  sessoes/  docs/  .specify/  .claude/  .github/workflows/
   pnpm-workspace.yaml  turbo.json  package.json  tsconfig.base.json
 ```
-Nomes de pacote: `@artificio/<nome>`. Workspace via pnpm. Build via Turbo (affected graph). Cada `apps/*` tem `CONTEXT.md` (T2: contexto local do módulo) e `module.manifest.ts`.
+Nomes de pacote: `@artificio/<nome>`. Workspace via pnpm. Build via Turbo (affected graph). Cada `apps/*` tem `CONTEXT.md` (T2: contexto local do módulo) e `module.manifest.ts`. Módulo legado importado com frontend/backend separados pode expor subpacotes `apps/*/frontend` e `apps/*/backend`, com `apps/<modulo>/package.json` como orquestrador.
 
 ## 2. Contrato de módulo
 Cada `apps/*` roda no **próprio subdomínio**, root `/` próprio (sem basename). Exporta `module.manifest.ts`:
@@ -86,6 +86,8 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 - GitHub Actions: `ci` (lint/test/build affected via Turbo), `deploy-beta` (auto em `dev`), `smoke`, `preflight`, `promote-to-prod` (depois). Espelha mesas.
 - Imagem **GHCR por app**. `docker-compose.beta.yml` na rede externa compartilhada. Watchtower só beta; prod = deploy controlado (`watchtower.enable=false`).
 - Fluxo: `feat/<modulo>-NNN` → `dev`/Beta → `main`/Prod. Push a `dev`/`main` e qualquer ação na VM = aprovação (AGENTS).
+- Deploy inicial do `accounts` usa repo secrets do GitHub Actions: `ACCOUNTS_ENV`, `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_PORT`, `DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_USER`. O workflow valida presença por tamanho/existência e nunca imprime valores.
+- Cofre local fora do git: `C:\projetos\Secrets\artificio\accounts.env` e `C:\projetos\Secrets\artificio\deploy-known-hosts`. Documentação operacional em `docs/agents/github-actions-secrets.md`.
 
 ## 8. Engine de crosslink (`packages/crosslink`)
 - Padrão compartilhado entre `srd` e `esferas`: detectar termos referenciados e gerar **tooltip com resumo estruturado estático** + link profundo para a página do termo.

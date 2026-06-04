@@ -1,0 +1,907 @@
+.profile-edit-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem; /* REFINAMENTO: reduzido de 2rem */
+  min-height: 100vh;
+}
+
+/* Loading & Error States */
+.loading-state,
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 1rem;
+  color: white;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-left-color: var(--color-artificio-orange);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner-small {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-left-color: var(--color-artificio-orange);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Header */
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  justify-content: space-between; /* CIRÚRGICO: usar espaço direito */
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.profile-info {
+  flex: 1; /* CIRÚRGICO: ocupar espaço disponível */
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem; /* CIRÚRGICO: espaçamento entre main e meta */
+}
+
+.profile-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem; /* CIRÚRGICO: compacto */
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.profile-info h1 {
+  margin: 0;
+  font-size: 1.625rem; /* CIRÚRGICO: reduzido de 1.75rem */
+  color: white;
+  font-weight: 700;
+  letter-spacing: -0.01em; /* CIRÚRGICO: mais refinado */
+}
+
+.profile-role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.profile-role-badge.badge-gm {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+}
+
+.profile-role-badge.badge-admin {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+}
+
+.profile-email {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+}
+
+.profile-username {
+  margin: 0;
+  color: var(--color-artificio-orange);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.profile-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem; /* CIRÚRGICO: espaçamento entre botão e autosave */
+  flex-wrap: wrap;
+}
+
+.btn-view-public-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0; /* CIRÚRGICO: sem margin-top */
+  padding: 0.5rem 0.875rem; /* CIRÚRGICO: mais compacto */
+  background: var(--color-artificio-orange);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.8125rem; /* CIRÚRGICO: menor */
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.3);
+}
+
+.btn-view-public-profile:hover {
+  background: #ea580c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+}
+
+.btn-view-public-profile span {
+  font-size: 1rem;
+}
+
+.profile-public-link {
+  display: inline-block;
+  margin: 0.5rem 0 0 0;
+  padding: 0.5rem 1rem;
+  background: rgba(249, 115, 22, 0.1);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  border-radius: 8px;
+  color: var(--color-artificio-orange);
+  font-size: 0.75rem;
+  text-decoration: none;
+  transition: all 0.2s;
+  word-break: break-all;
+}
+
+.profile-public-link:hover {
+  background: rgba(249, 115, 22, 0.2);
+  border-color: var(--color-artificio-orange);
+}
+
+
+.autosave-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem; /* CIRÚRGICO: reduzido de 0.5rem 1rem */
+  border-radius: 6px; /* CIRÚRGICO: reduzido de 8px */
+  font-size: 0.8125rem; /* CIRÚRGICO: reduzido de 0.875rem */
+  transition: all 0.3s ease;
+}
+
+.autosave-indicator.saving {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+}
+
+.autosave-indicator.saved {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tabs */
+.profile-tabs {
+  display: flex;
+  gap: 0.25rem; /* REFINAMENTO: reduzido de 0.5rem */
+  margin-bottom: 1.5rem; /* REFINAMENTO: reduzido de 2rem */
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.tab {
+  padding: 0.75rem 1.25rem; /* REFINAMENTO: reduzido de 1rem 1.5rem */
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9375rem; /* REFINAMENTO: reduzido de 1rem */
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: -2px;
+  border-radius: 8px 8px 0 0; /* REFINAMENTO: adicionar radius no topo */
+}
+
+.tab:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.03); /* REFINAMENTO: adicionar hover sutil */
+}
+
+.tab.active {
+  color: var(--color-artificio-orange);
+  border-bottom-color: var(--color-artificio-orange);
+  background: rgba(249, 115, 22, 0.08); /* REFINAMENTO: background ativo */
+  font-weight: 600; /* REFINAMENTO: peso maior quando ativo */
+}
+
+/* Tab Content */
+.tab-content {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem; /* REFINAMENTO: reduzido de 2rem */
+}
+
+/* Form Sections */
+.form-section {
+  margin-bottom: 1.5rem; /* REFINAMENTO: reduzido de 2rem */
+}
+
+.form-section:last-child {
+  margin-bottom: 0;
+}
+
+.form-section h2 {
+  margin: 0 0 0.75rem 0; /* REFINAMENTO: reduzido de 1rem */
+  font-size: 1.125rem; /* REFINAMENTO: reduzido de 1.25rem */
+  color: white;
+  font-weight: 600; /* REFINAMENTO: adicionar peso */
+}
+
+.section-description {
+  margin: 0 0 0.75rem 0; /* REFINAMENTO: reduzido de 1rem */
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+  line-height: 1.5; /* REFINAMENTO: melhorar legibilidade */
+}
+
+.field-description {
+  margin: 0 0 0.75rem 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-style: italic;
+}
+
+/* Form Groups */
+.form-group {
+  margin-bottom: 1.25rem; /* REFINAMENTO: reduzido de 1.5rem */
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: white; /* CORREÇÃO P21: label branco para contraste */
+  font-size: 0.875rem;
+}
+
+.form-group input[type='text'],
+.form-group input[type='number'],
+.form-group input[type='url'], /* CORREÇÃO P21: adicionar type url */
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2); /* CORREÇÃO P21: borda clara */
+  background: rgba(255, 255, 255, 0.1); /* CORREÇÃO CONTRASTE: aumentado de 0.05 para 0.1 */
+  color: white; /* CORREÇÃO P21: texto branco */
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+/* Estilos para options dos selects */
+.form-group select option {
+  background: #1e293b; /* Fundo escuro consistente */
+  color: white;
+  padding: 0.5rem;
+}
+
+.form-group select option:checked {
+  background: var(--color-artificio-orange);
+  color: white;
+}
+
+.form-group select.app-select {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.form-group select.app-select option,
+.form-group select.app-select optgroup {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--color-artificio-orange); /* CORREÇÃO P21: focus laranja */
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.form-group small {
+  display: block;
+  margin-top: 0.5rem;
+  color: rgba(255, 255, 255, 0.6); /* CORREÇÃO P21: small text claro */
+  font-size: 0.75rem;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Playstyle Grid */
+.playstyle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* CIRÚRGICO: grid 2x2 fixo */
+  gap: 1rem; /* CIRÚRGICO: reduzido de 1.25rem */
+}
+
+.playstyle-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  background: rgba(255, 255, 255, 0.04); /* CIRÚRGICO: card leve */
+  border: 1px solid rgba(255, 255, 255, 0.08); /* CIRÚRGICO: borda sutil */
+  padding: 0.75rem; /* CIRÚRGICO: padding interno */
+  border-radius: 10px; /* CIRÚRGICO: arredondado */
+  transition: all 0.2s; /* CIRÚRGICO: transição suave */
+}
+
+.playstyle-item:hover {
+  border-color: rgba(249, 115, 22, 0.3); /* CIRÚRGICO: hover laranja */
+  background: rgba(255, 255, 255, 0.06); /* CIRÚRGICO: destaque no hover */
+}
+
+.playstyle-item label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8125rem; /* CIRÚRGICO: reduzido de 0.875rem */
+  font-weight: 500;
+  color: white;
+  letter-spacing: 0.02em; /* CIRÚRGICO: mais refinado */
+  opacity: 0.9; /* CIRÚRGICO: menos chamativo */
+  margin-bottom: 0.25rem;
+}
+
+.playstyle-item span {
+  font-weight: 600; /* CIRÚRGICO: reduzido de 700 */
+  font-size: 0.8125rem; /* CIRÚRGICO: tamanho consistente */
+  color: rgba(255, 255, 255, 0.8); /* CIRÚRGICO: menos chamativo */
+}
+
+.playstyle-item input[type='range'] {
+  width: 100%;
+  height: 4px; /* CIRÚRGICO: reduzido de 6px */
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15); /* CIRÚRGICO: mais sutil */
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.playstyle-item input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-artificio-orange);
+  cursor: pointer;
+  transition: transform 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.playstyle-item input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.playstyle-item input[type='range']::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-artificio-orange);
+  cursor: pointer;
+  border: none;
+  transition: transform 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.playstyle-item input[type='range']::-moz-range-thumb:hover {
+  transform: scale(1.15);
+}
+
+.playstyle-item span {
+  font-weight: 700; /* REFINAMENTO: aumentado de 600 */
+  color: var(--color-artificio-orange); /* CORREÇÃO P21: valor laranja */
+  font-size: 1rem; /* REFINAMENTO: reduzido de 1.25rem */
+  min-width: 1.5rem; /* REFINAMENTO: largura mínima para alinhamento */
+  text-align: right; /* REFINAMENTO: alinhar à direita */
+}
+
+/* CORREÇÃO P21: Placeholder styles para inputs */
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.form-group input::-webkit-input-placeholder,
+.form-group textarea::-webkit-input-placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.form-group input::-moz-placeholder,
+.form-group textarea::-moz-placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* CORREÇÃO P21: Error text */
+.error-text {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+/* Discord Section */
+.discord-connected,
+.discord-disconnected {
+  padding: 1.25rem; /* REFINAMENTO: reduzido de 1.5rem */
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05); /* CORREÇÃO P21: background escuro */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.discord-connected {
+  border: 2px solid #10b981;
+  background: rgba(16, 185, 129, 0.05); /* REFINAMENTO: adicionar tint verde */
+}
+
+.discord-disconnected {
+  border: 2px solid rgba(255, 255, 255, 0.15); /* REFINAMENTO: borda mais sutil */
+}
+
+.discord-connected p,
+.discord-disconnected p {
+  margin: 0 0 0.75rem 0; /* REFINAMENTO: reduzido de 1rem */
+  font-weight: 500;
+  font-size: 0.9375rem; /* REFINAMENTO: tamanho consistente */
+}
+
+.covil-badge {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* REFINAMENTO: sombra sutil */
+}
+
+.btn-connect-discord {
+  padding: 0.75rem 1.5rem;
+  background: #5865f2;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s; /* REFINAMENTO: all para incluir transform */
+  font-size: 0.9375rem; /* REFINAMENTO: tamanho consistente */
+}
+
+.btn-connect-discord:hover {
+  background: #4752c4;
+  transform: translateY(-1px); /* REFINAMENTO: lift sutil */
+  box-shadow: 0 4px 8px rgba(88, 101, 242, 0.3); /* REFINAMENTO: sombra no hover */
+}
+
+.btn-disconnect-discord {
+  padding: 0.5rem 1rem;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s; /* REFINAMENTO: all para incluir transform */
+  margin-top: 0.75rem; /* REFINAMENTO: reduzido de 1rem */
+  font-size: 0.875rem; /* REFINAMENTO: tamanho menor */
+}
+
+.btn-disconnect-discord:hover {
+  background: #dc2626;
+  transform: translateY(-1px); /* REFINAMENTO: lift sutil */
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3); /* REFINAMENTO: sombra no hover */
+}
+
+.discord-username {
+  font-weight: 600;
+  color: #5865f2;
+}
+
+.discord-disconnected ul {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+.discord-disconnected li {
+  margin: 0.5rem 0;
+  color: #6b7280;
+}
+
+
+/* Responsive */
+@media (max-width: 768px) {
+  .profile-edit-page {
+    padding: 1rem;
+  }
+
+  .profile-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .profile-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab {
+    white-space: nowrap;
+  }
+
+  .tab-content {
+    padding: 1.5rem;
+  }
+
+  .playstyle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* User Systems Selector */
+.user-systems-selector {
+  margin-top: 1rem;
+}
+
+.user-systems-selector-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  justify-content: center;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.systems-selector-header {
+  margin-bottom: 1rem;
+}
+
+.systems-count {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #8b5cf6;
+  margin: 0;
+}
+
+/* Avatar Premium Container */
+.avatar-premium-container {
+  display: flex;
+  align-items: flex-start; /* CIRÚRGICO: horizontal, não centralizado */
+  gap: 1.25rem; /* CIRÚRGICO: reduzido de 1rem */
+  padding: 1rem; /* CIRÚRGICO: reduzido de 1.5rem */
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.avatar-premium-preview {
+  width: 96px; /* CIRÚRGICO: reduzido de 120px */
+  height: 96px; /* CIRÚRGICO: reduzido de 120px */
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 2px solid rgba(249, 115, 22, 0.25); /* CIRÚRGICO: mais sutil */
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.avatar-premium-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-premium-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* CIRÚRGICO: alinhado à esquerda */
+  gap: 0.5rem; /* CIRÚRGICO: reduzido de 0.75rem */
+  width: 100%;
+}
+
+.avatar-source-hint {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8125rem;
+  font-style: italic;
+}
+
+.avatar-button-group {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-start; /* CIRÚRGICO: não centralizado */
+}
+
+.btn-avatar-action {
+  padding: 0.4rem 0.75rem; /* CIRÚRGICO: reduzido de 0.5rem 1rem */
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8125rem; /* CIRÚRGICO: reduzido de 0.875rem */
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-avatar-action.btn-remove {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-avatar-action.btn-remove:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  transform: translateY(-1px);
+}
+
+.btn-avatar-action.btn-manual {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-avatar-action.btn-manual:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.btn-avatar-action.btn-upload {
+  background: var(--color-artificio-orange);
+  color: white;
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+
+.btn-avatar-action.btn-upload:hover {
+  background: #ea580c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(249, 115, 22, 0.3);
+}
+
+.btn-avatar-action.btn-google {
+  background: #4285f4;
+  color: white;
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+
+.btn-avatar-action.btn-google:hover {
+  background: #357ae8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(66, 133, 244, 0.3);
+}
+
+.avatar-button-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.avatar-upload-section {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.avatar-manual-details {
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.avatar-manual-details summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.avatar-manual-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.avatar-manual-details[open] summary {
+  margin-bottom: 0.5rem;
+}
+
+.avatar-manual-input {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.5rem; /* CIRÚRGICO: reduzido de 0.75rem */
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.avatar-manual-input input {
+  width: 100%;
+  padding: 0.5rem; /* CIRÚRGICO: reduzido de 0.625rem */
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  border-radius: 8px;
+  font-size: 0.8125rem; /* CIRÚRGICO: reduzido de 0.875rem */
+}
+
+.avatar-manual-input input:focus {
+  outline: none;
+  border-color: var(--color-artificio-orange);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.avatar-manual-input small {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+}
+
+.avatar-direct-link-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.75rem;
+  cursor: help;
+}
+
+.avatar-direct-link-option input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-artificio-orange);
+  cursor: pointer;
+}
+
+/* Legacy avatar styles (manter para compatibilidade) */
+.avatar-upload-container {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.avatar-preview {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 3px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-preview-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 3rem;
+  font-weight: bold;
+}
+
+.avatar-input-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .avatar-upload-container {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .avatar-preview {
+    width: 100px;
+    height: 100px;
+  }
+
+  .avatar-input-wrapper {
+    width: 100%;
+  }
+  
+  .avatar-premium-preview {
+    width: 100px;
+    height: 100px;
+  }
+}
