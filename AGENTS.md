@@ -79,6 +79,8 @@ Nunca executar sem aprovação explícita do mantenedor:
 
 Read-only permitido sem aprovação: `docker ps|logs|stats|inspect`, `ls`, `cat`, `grep`, `find`, `head`, `tail`, `curl -s` GET, `psql` com `SELECT`, leitura via RaiDrive.
 
+**Pacotes apt ausentes:** se, durante uma tarefa já autorizada, faltar pacote `apt` necessário para executar/validar a operação (ex.: `git`, `jq`, `tree`, `p7zip-full`, `postgresql-client`, `curl`, `ca-certificates`), o agente pode rodar `sudo apt-get update` e `sudo apt-get install -y <pacote>` sem nova aprovação. Escopo: utilitário operacional padrão em VM Ubuntu/Debian. Proibido usar esta exceção para instalar serviço persistente novo, alterar arquitetura, mexer em WP/DNS/tunnel, instalar runtime/framework pesado não aprovado, ou executar deploy.
+
 **Escopo da aprovação (pétrea):** aprovação vale **por ação, não por sessão**. Um "pode prosseguir" autoriza APENAS o bloco de comandos apresentado naquele momento. Não se estende a commits/pushes/deploys/correções posteriores. Editar arquivo local não precisa de aprovação; `git commit`/`git push` sempre precisa, a cada vez.
 
 Formato obrigatório para pedir aprovação:

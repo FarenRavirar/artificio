@@ -1,0 +1,83 @@
+import { useEffect, useState } from "react";
+import type { User } from "./types";
+
+const ACCOUNTS_ORIGIN = "https://accounts.artificiorpg.com";
+
+export interface UseSessionResult {
+  user: User | null;
+  loading: boolean;
+}
+
+function normalizeUser(value: unknown): User | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Partial<User>;
+
+  if (
+    typeof record.id !== "string" ||
+    typeof record.email !== "string" ||
+    typeof record.name !== "string" ||
+    (record.role !== "user" && record.role !== "admin")
+  ) {
+    return null;
+  }
+
+  return {
+    id: record.id,
+    email: record.email,
+    name: record.name,
+    role: record.role,
+    avatar: typeof record.avatar === "string" ? record.avatar : null,
+  };
+}
+
+export function useSession(): UseSessionResult {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadSession() {
+      try {
+        const response = await fetch(`${ACCOUNTS_ORIGIN}/api/auth/me`, {
+          credentials: "include",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          setUser(null);
+          return;
+        }
+
+        const body: unknown = await response.json();
+        const userValue =
+          body && typeof body === "object" && "user" in body
+            ? (body as { user: unknown }).user
+            : body;
+        setUser(normalizeUser(userValue));
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setUser(null);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadSession();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  return { user, loading };
+}
+
+export function redirectToLogin(returnUrl = window.location.href): void {
+  const loginUrl = new URL("/login", ACCOUNTS_ORIGIN);
+  loginUrl.searchParams.set("return", returnUrl);
+  window.location.assign(loginUrl.toString());
+}

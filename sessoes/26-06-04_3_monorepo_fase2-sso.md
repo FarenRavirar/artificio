@@ -9,8 +9,8 @@
 
 | CDX | O quê | Estado |
 |---|---|---|
-| 301 | scaffold monorepo + `packages/config` | ⬜ |
-| 302 | `packages/auth` (sessão) | ⬜ |
+| 301 | scaffold monorepo + `packages/config` | ✅ |
+| 302 | `packages/auth` (sessão) | ✅ |
 | 303 | `packages/ui` (tokens + Header/Nav/Footer) | ⬜ |
 | — | [mantenedor] OAuth client Google | ⬜ |
 | 304 | `apps/accounts` backend (OAuth/JWT/users) | ⬜ |
@@ -23,3 +23,8 @@
 
 ## Estado atual
 Spec 003 criada (Opus, contexto pleno da Fase 0+1). Aguardando início da execução pelo chat novo (orquestra Codex). glossário/mesas **não** se tocam aqui.
+
+## Log Codex
+- 2026-06-04 — Início CDX-301/CDX-302. Escopo: scaffold monorepo + `packages/config` + `packages/auth`. Não tocar glossário/mesas nem VM. `pnpm` ausente local; instalar/ativar antes da validação.
+- 2026-06-04 — CDX-301 concluído: scaffold monorepo criado (`pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `package.json`, `apps/`, `packages/`) + `packages/config` com `parseEnv(schema)` usando `zod`. Validação: `npm install -g pnpm@10.12.1`; `pnpm install` OK; `pnpm -w turbo run build` OK (2 tasks).
+- 2026-06-04 — CDX-302 concluído: `packages/auth` criado com `verifyToken`, `requireAuth`, `useSession`, `redirectToLogin`, tipos `Session`/`User`, testes unit de token válido/expirado/forjado. Validação: `pnpm --filter @artificio/auth build` OK; `pnpm --filter @artificio/auth test` OK (3 passed).
