@@ -3,7 +3,7 @@
 > Atualizar a cada mudança de estado operacional. Fonte de verdade do "onde estamos".
 
 ## Fase atual
-**Fase 1 — Instância Oracle 200GB.** Gate A ✅ aprovado (2026-06-04). Backup G1 íntegro off-VM.
+**Fase 2 — monorepo + SSO (início).** Fase 1 ✅ (VM limpa, glossário/mesas no ar 200, dados intactos, sem telegram). Próximo: scaffold monorepo + accounts. (Opus desenha).
 
 ## Gates (ativos: A, B, D · Gate C adiado — D016)
 - ✅ **Gate A** — Backups completos/verificados/off-VM. **APROVADO pelo mantenedor 2026-06-04.** Libera Fase 1.
@@ -39,8 +39,7 @@
 - Código de aplicação: **nada ainda.**
 
 ## Próximo passo
-**Backup G1 100% completo + Gate A aprovado (2026-06-04).** CDX-001..006 ✅ (DBs+volumes+secrets+deploy-dirs, 14/14 checksums, restore-test OK). VM destruível.
-**Fase 1 (`specs/002-fase1-instancia`) = RECRIAÇÃO LIMPA (D034):** terminar VM atual → criar nova 200GB (ARM A1, Ubuntu24) → Docker + rede **`artificio_net`** → **tunnel Cloudflare novo standalone** (sem telegram, D035) → `pg_restore` dos dumps → deploy glossário+mesas em `/opt/artificio/<svc>` (composes editados) → DNS → smoke. **Telegram/foundry NÃO voltam.** Console (Oracle/Cloudflare) = mantenedor (Opus guia); software = Codex (CDX-201..206, montadas após a VM nova existir). **Rotacionar PAT+WP+`.env`.** 1º passo: mantenedor cria a VM nova.
+**Fase 1 concluída (D036):** VM nova `<IP_DA_VM>` (ARM A1, Ubuntu24, 193G), Docker + `artificio_net`, tunnel Cloudflare próprio, glossário/mesas restaurados e no ar 200, dados intactos, sem telegram/foundry. **Próximo:** Fase 2 — **spec `003-fase2-monorepo-sso` JÁ ESCRITA** (Opus, contexto pleno). Executar CDX-301..306 (scaffold monorepo + `packages/{config,auth,ui}` + `apps/accounts` SSO → Gate B). Sessão `26-06-04_3`. Modo: **Opus orquestra, Codex executa**. 2 passos do mantenedor: OAuth client Google + rota Cloudflare `accounts.`. Pendência segurança (mantenedor trata): rotacionar tunnel token, PAT, WP creds.
 
 ## Log
 - 2026-06-03 — Plano G1 aprovado em decisões macro. Camada de governança criada (13 arq).
