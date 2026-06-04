@@ -1,11 +1,16 @@
-import { redirectToLogin, useSession } from "@artificio/auth";
+import { redirectToLogin, useSession } from "@artificio/auth/client";
 import type { User } from "@artificio/auth";
+import { brandLogoNavy } from "./brand.js";
 import { defaultNavItems, type NavItem } from "./modules.js";
 import { Nav } from "./Nav.js";
 
 export interface HeaderProps {
   currentHref?: string;
   navItems?: NavItem[];
+  /** "light" (padrão, logo navy sobre branco) ou "dark" (sobre charcoal). */
+  variant?: "light" | "dark";
+  /** URL do logo ao clicar (padrão: portal). */
+  brandHref?: string;
   sessionOverride?: {
     user: User | null;
     loading?: boolean;
@@ -24,18 +29,23 @@ function getInitials(name: string) {
 export function Header({
   currentHref,
   navItems = defaultNavItems,
+  variant = "light",
+  brandHref = "https://beta.artificiorpg.com",
   sessionOverride,
 }: HeaderProps) {
   const session = useSession();
   const { user, loading } = sessionOverride ?? session;
 
   return (
-    <header className="artificio-header">
-      <a className="artificio-brand" href="https://beta.artificiorpg.com">
-        <span aria-hidden="true" className="artificio-brand-mark">
-          A
-        </span>
-        <span>Artificio G1</span>
+    <header className="artificio-header" data-variant={variant}>
+      <a className="artificio-brand" href={brandHref}>
+        <img
+          alt={brandLogoNavy.alt}
+          className="artificio-brand-logo"
+          height={brandLogoNavy.height}
+          src={brandLogoNavy.src}
+          width={brandLogoNavy.width}
+        />
       </a>
       <Nav currentHref={currentHref} items={navItems} />
       <div className="artificio-session" aria-live="polite">

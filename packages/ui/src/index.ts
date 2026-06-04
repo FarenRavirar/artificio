@@ -1,3 +1,4 @@
+export { brandLogoNavy } from "./brand.js";
 export { Footer } from "./Footer.js";
 export { Header } from "./Header.js";
 export { Nav } from "./Nav.js";

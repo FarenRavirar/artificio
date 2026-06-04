@@ -1,0 +1,39 @@
+#!/bin/sh
+# Pre-commit hook: adiciona automaticamente alterações e valida TypeScript
+
+# Incluir automaticamente todas as alterações (M/D/R + novos arquivos)
+PENDING_CHANGES=$(git status --porcelain)
+if [ -n "$PENDING_CHANGES" ]; then
+    echo "ℹ️ Alterações detectadas fora do stage. Aplicando git add -A automaticamente..."
+    git add -A
+fi
+
+# Segurança: bloquear somente mudanças NÃO staged (working tree sujo)
+# Observação: git status --porcelain inclui mudanças staged no índice (coluna X),
+# então não pode ser usado aqui para bloquear commit após git add -A.
+REMAINING_UNSTAGED=$(git diff --name-only)
+if [ -n "$REMAINING_UNSTAGED" ]; then
+    echo "❌ COMMIT BLOQUEADO: Ainda há alterações não incluídas no commit:"
+    echo ""
+    echo "$REMAINING_UNSTAGED" | sed 's/^/  - /'
+    echo ""
+    echo "Aplique manualmente: git add -A"
+    exit 1
+fi
+
+# Verificar se há arquivos TypeScript/TSX com erros de tipo
+if git diff --cached --name-only | grep -E '\.(ts|tsx)$' > /dev/null; then
+    echo "🔍 Verificando tipos TypeScript..."
+
+    # Executar tsc apenas para validação rápida
+    cd frontend 2>/dev/null || exit 0
+    if ! npx tsc --noEmit --skipLibCheck 2>/dev/null; then
+        echo "❌ COMMIT BLOQUEADO: Erros de tipo TypeScript detectados"
+        echo "Execute 'cd frontend && npx tsc --noEmit' para ver os erros"
+        exit 1
+    fi
+
+    echo "✅ Tipos TypeScript válidos"
+fi
+
+exit 0

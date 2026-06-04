@@ -1,33 +1,31 @@
+// Preset Tailwind Artifício RPG — paleta real da marca (D038).
+// Laranja = acento; navy/charcoal = texto/superfície escura. Ver src/tokens.ts.
 export default {
   theme: {
     extend: {
       colors: {
         artificio: {
-          ink: "#1f2933",
-          muted: "#5f6b7a",
-          line: "#d9e1ec",
-          surface: "#ffffff",
-          canvas: "#f7f9fc",
-          red: "#b42318",
-          gold: "#b98900",
-          blue: "#2563eb",
-          focus: "#1a73e8",
+          ink: "#10103A",
+          muted: "#5A6172",
+          line: "#E3E5EC",
+          surface: "#FFFFFF",
+          canvas: "#F6F7FA",
+          charcoal: "#0F1014",
+          brand: "#FC9054",
+          "brand-deep": "#E0712F",
+          bronze: "#9C6B43",
+          focus: "#E0712F",
         },
       },
       borderRadius: {
         ui: "8px",
       },
       boxShadow: {
-        ui: "0 1px 2px rgba(31, 41, 51, 0.08)",
+        ui: "0 1px 2px rgba(16, 16, 58, 0.08)",
       },
       fontFamily: {
-        sans: [
-          "Inter",
-          "Roboto",
-          "ui-sans-serif",
-          "system-ui",
-          "sans-serif",
-        ],
+        display: ["Oswald", "Arial Narrow", "system-ui", "sans-serif"],
+        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
       },
     },
   },

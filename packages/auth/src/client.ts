@@ -1,7 +1,26 @@
 import { useEffect, useState } from "react";
 import type { User } from "./types.js";
 
-const ACCOUNTS_ORIGIN = "https://accounts.artificiorpg.com";
+const DEFAULT_ACCOUNTS_ORIGIN = "https://accounts.artificiorpg.com";
+
+function readConfiguredAccountsOrigin(): string | null {
+  const meta = import.meta as unknown as {
+    env?: { VITE_ACCOUNTS_URL?: string };
+  };
+  const value = meta.env?.VITE_ACCOUNTS_URL;
+
+  if (!value) return null;
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+export function getAccountsOrigin(): string {
+  return readConfiguredAccountsOrigin() ?? DEFAULT_ACCOUNTS_ORIGIN;
+}
 
 export interface UseSessionResult {
   user: User | null;
@@ -39,7 +58,7 @@ export function useSession(): UseSessionResult {
 
     async function loadSession() {
       try {
-        const response = await fetch(`${ACCOUNTS_ORIGIN}/api/auth/me`, {
+        const response = await fetch(`${getAccountsOrigin()}/api/auth/me`, {
           credentials: "include",
           signal: controller.signal,
         });
@@ -77,7 +96,7 @@ export function useSession(): UseSessionResult {
 }
 
 export function redirectToLogin(returnUrl = window.location.href): void {
-  const loginUrl = new URL("/login", ACCOUNTS_ORIGIN);
+  const loginUrl = new URL("/login", getAccountsOrigin());
   loginUrl.searchParams.set("return", returnUrl);
   window.location.assign(loginUrl.toString());
 }

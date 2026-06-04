@@ -1,0 +1,168 @@
+/* CORREÇÃO DT-12: Prefixar classes para evitar conflitos globais */
+.setting-styles-field {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.setting-styles-field .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.setting-styles-field .form-group label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #2c3e50;
+}
+
+.setting-styles-field .optional {
+  font-weight: 400;
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+.setting-styles-field .form-input {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.setting-styles-field .form-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.setting-styles-field .form-hint {
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+/* Chips de estilos selecionados */
+.setting-styles-field .styles-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.setting-styles-field .style-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #3498db;
+  color: white;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.setting-styles-field .chip-remove {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.setting-styles-field .chip-remove:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Sugestões */
+.setting-styles-field .suggestions-loading {
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  color: #7f8c8d;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.setting-styles-field .suggestions-error {
+  padding: 0.75rem;
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 6px;
+  color: #c33;
+  font-size: 0.9rem;
+}
+
+.setting-styles-field .suggestions-container {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.setting-styles-field .suggestions-label {
+  display: block;
+  color: #7f8c8d;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.setting-styles-field .suggestions-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.setting-styles-field .suggestion-button {
+  padding: 0.5rem 0.75rem;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #2c3e50;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.setting-styles-field .suggestion-button:hover:not(:disabled) {
+  background: #3498db;
+  color: white;
+  border-color: #3498db;
+  transform: translateY(-1px);
+}
+
+.setting-styles-field .suggestion-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.setting-styles-field .suggestion-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Cenário selecionado na etapa anterior */
+.setting-styles-field .selected-scenario-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.setting-styles-field .scenario-selected-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--color-artificio-orange, #e85a1b);
+  color: white;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+}

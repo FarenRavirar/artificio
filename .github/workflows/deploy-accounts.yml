@@ -1,0 +1,211 @@
+name: deploy-accounts
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+  push:
+    branches:
+      - main
+      - dev
+      - "feat/**"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "validate = secrets/SSH/preflight only; deploy = update /opt/artificio/accounts"
+        required: true
+        default: validate
+        type: choice
+        options:
+          - validate
+          - deploy
+
+permissions:
+  contents: read
+
+concurrency:
+  group: accounts-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: Build and test accounts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.12.1 --activate
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build accounts
+        run: pnpm -w turbo run build --filter=@artificio/accounts
+
+      - name: Test accounts
+        run: pnpm --filter @artificio/accounts test
+
+  deploy:
+    name: Validate secrets and deploy accounts
+    runs-on: ubuntu-latest
+    needs: ci
+    if: github.event_name == 'workflow_dispatch'
+    env:
+      MODE: ${{ inputs.mode }}
+      ACCOUNTS_ENV: ${{ secrets.ACCOUNTS_ENV }}
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate secret presence
+        run: |
+          set -euo pipefail
+          for name in ACCOUNTS_ENV DEPLOY_HOST DEPLOY_KNOWN_HOSTS DEPLOY_PORT DEPLOY_SSH_PRIVATE_KEY DEPLOY_USER; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "$name=missing"
+              exit 1
+            fi
+            echo "$name=present length=${#value}"
+          done
+
+      - name: Prepare SSH
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/artificio_deploy_key
+          chmod 600 ~/.ssh/artificio_deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Validate ACCOUNTS_ENV keys
+        run: |
+          set -euo pipefail
+          accounts_env="$RUNNER_TEMP/accounts.env"
+          printf '%s\n' "$ACCOUNTS_ENV" > "$accounts_env"
+          chmod 600 "$accounts_env"
+          required=(
+            GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET
+            GOOGLE_CALLBACK_URL
+            PUBLIC_URL
+            COOKIE_DOMAIN
+            JWT_SECRET
+            JWT_REFRESH_SECRET
+            POSTGRES_PASSWORD
+            DATABASE_URL
+          )
+          for key in "${required[@]}"; do
+            if ! grep -q "^${key}=" "$accounts_env"; then
+              echo "$key=missing"
+              exit 1
+            fi
+            echo "$key=present"
+          done
+
+      - name: Validate SSH and remote preflight
+        run: |
+          set -euo pipefail
+          ssh_base=(ssh -i ~/.ssh/artificio_deploy_key -p "$DEPLOY_PORT" -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST")
+          scp_base=(scp -i ~/.ssh/artificio_deploy_key -P "$DEPLOY_PORT" -o BatchMode=yes)
+
+          "${ssh_base[@]}" 'set -e; echo ssh_ok; hostname; docker --version; docker compose version'
+
+          remote_env="/tmp/accounts-env-${GITHUB_RUN_ID}"
+          "${scp_base[@]}" "$RUNNER_TEMP/accounts.env" "$DEPLOY_USER@$DEPLOY_HOST:$remote_env"
+          "${ssh_base[@]}" "set -euo pipefail
+            chmod 600 '$remote_env'
+            for key in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_CALLBACK_URL PUBLIC_URL COOKIE_DOMAIN JWT_SECRET JWT_REFRESH_SECRET POSTGRES_PASSWORD DATABASE_URL; do
+              if ! grep -q \"^\${key}=\" '$remote_env'; then
+                echo \"\${key}=missing_remote\"
+                rm -f '$remote_env'
+                exit 1
+              fi
+              echo \"\${key}=present_remote\"
+            done
+            rm -f '$remote_env'
+            docker network inspect artificio_net >/dev/null
+            echo artificio_net=present
+            docker ps --format 'table {{.Names}}\t{{.Status}}' | sed -n '1,30p'
+            if docker ps --format '{{.Names}}' | grep -qx cloudflared; then
+              docker inspect cloudflared --format '{{json .NetworkSettings.Networks}}' | grep -q artificio_net
+              echo cloudflared_network=artificio_net
+            else
+              echo cloudflared=missing
+              exit 1
+            fi
+            if docker ps --format '{{.Names}}' | grep -qx accounts-api; then
+              docker inspect accounts-api --format '{{json .NetworkSettings.Networks}}' | grep -q artificio_net
+              echo accounts_api_network=artificio_net
+              docker run --rm --network artificio_net curlimages/curl:8.11.1 -s -o /dev/null -w 'accounts_api_internal=%{http_code}\n' http://accounts-api:3000/health
+            else
+              echo accounts_api=not_running_yet
+            fi"
+
+      - name: Package accounts workspace
+        if: inputs.mode == 'deploy'
+        run: |
+          set -euo pipefail
+          tar -czf "$RUNNER_TEMP/accounts-src.tgz" \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='*/node_modules' \
+            --exclude='dist' \
+            --exclude='*/dist' \
+            --exclude='.turbo' \
+            --exclude='*/.turbo' \
+            --exclude='.env' \
+            --exclude='*.log' \
+            package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json .dockerignore \
+            packages/config packages/auth packages/ui apps/accounts
+
+      - name: Deploy accounts
+        if: inputs.mode == 'deploy'
+        run: |
+          set -euo pipefail
+          ssh_base=(ssh -i ~/.ssh/artificio_deploy_key -p "$DEPLOY_PORT" -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST")
+          scp_base=(scp -i ~/.ssh/artificio_deploy_key -P "$DEPLOY_PORT" -o BatchMode=yes)
+
+          remote_src="/tmp/accounts-src-${GITHUB_RUN_ID}.tgz"
+          remote_env="/tmp/accounts-env-${GITHUB_RUN_ID}"
+          "${scp_base[@]}" "$RUNNER_TEMP/accounts-src.tgz" "$DEPLOY_USER@$DEPLOY_HOST:$remote_src"
+          "${scp_base[@]}" "$RUNNER_TEMP/accounts.env" "$DEPLOY_USER@$DEPLOY_HOST:$remote_env"
+
+          "${ssh_base[@]}" "set -euo pipefail
+            echo existing_accounts_state
+            docker ps -a --filter name=accounts --format 'table {{.Names}}\t{{.Status}}' || true
+            ls -la /opt/artificio/accounts 2>/dev/null | sed -n '1,40p' || true
+
+            mkdir -p /opt/artificio/accounts
+            cp '$remote_env' /opt/artificio/accounts/.env
+            chmod 600 /opt/artificio/accounts/.env
+            find /opt/artificio/accounts -mindepth 1 ! -name .env -exec rm -rf {} +
+            tar xzf '$remote_src' -C /opt/artificio/accounts
+            rm -f '$remote_src' '$remote_env'
+
+            cd /opt/artificio/accounts
+            docker compose -f apps/accounts/docker-compose.yml --env-file .env build --no-cache accounts-api
+            docker compose -f apps/accounts/docker-compose.yml --env-file .env up -d
+            sleep 15
+            docker compose -f apps/accounts/docker-compose.yml --env-file .env ps
+            docker logs accounts-api --tail 80
+            docker exec accounts-db psql -U admin -d artificio_auth -c '\\dt'
+            docker run --rm --network artificio_net curlimages/curl:8.11.1 -s -o /dev/null -w 'accounts_api_internal=%{http_code}\n' http://accounts-api:3000/health
+            echo cf_health=\$(curl -s -o /dev/null -w '%{http_code}' https://accounts.artificiorpg.com/health)
+            echo cf_login=\$(curl -s -o /dev/null -w '%{http_code}' https://accounts.artificiorpg.com/login)
+            echo cf_me_without_cookie=\$(curl -s -o /dev/null -w '%{http_code}' https://accounts.artificiorpg.com/api/auth/me)"

@@ -1,0 +1,10 @@
+﻿
+Path                                                       LineNumber Line                                                                                                               
+----                                                       ---------- ----                                                                                                               
+C:\projetos\mesas_rpg_artificio\backend\src\server.ts              40 // Compatibilidade OAuth: mantém rota canônica em /api/v1/auth e aceita callback legado em /auth                   
+C:\projetos\mesas_rpg_artificio\backend\src\server.ts              41 app.use('/api/v1/auth', authRoutes);                                                                               
+C:\projetos\mesas_rpg_artificio\backend\src\routes\auth.ts         12 const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/v1/auth/google/callback';
+C:\projetos\mesas_rpg_artificio\backend\src\routes\auth.ts         36 router.get('/google/callback', async (req: Request, res: Response) => {                                            
+
+
+

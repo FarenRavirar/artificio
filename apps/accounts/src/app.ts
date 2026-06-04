@@ -13,6 +13,43 @@ import { createGoogleClient, readGoogleProfile } from "./google.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./tokens.js";
 import { upsertGoogleUser } from "./users.js";
 
+export function isAllowedReturnUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname.endsWith(".artificiorpg.com");
+  } catch {
+    return false;
+  }
+}
+
+export function sanitizeReturnUrl(value: unknown, env: AccountsEnv): string {
+  if (typeof value !== "string" || !isAllowedReturnUrl(value)) {
+    return env.PUBLIC_URL;
+  }
+
+  return value;
+}
+
+function readStateReturnUrl(value: unknown, env: AccountsEnv): string {
+  if (typeof value !== "string") {
+    return env.PUBLIC_URL;
+  }
+
+  try {
+    const state: unknown = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    );
+    const returnUrl =
+      state && typeof state === "object" && "returnUrl" in state
+        ? (state as { returnUrl: unknown }).returnUrl
+        : null;
+
+    return sanitizeReturnUrl(returnUrl, env);
+  } catch {
+    return env.PUBLIC_URL;
+  }
+}
+
 export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Express {
   const app = express();
   const googleClient = createGoogleClient(env);
@@ -32,8 +69,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   });
 
   app.get("/api/auth/google", (req, res) => {
-    const returnUrl =
-      typeof req.query.return === "string" ? req.query.return : env.PUBLIC_URL;
+    const returnUrl = sanitizeReturnUrl(req.query.return, env);
     const state = Buffer.from(JSON.stringify({ returnUrl })).toString("base64url");
     const url = googleClient.generateAuthUrl({
       access_type: "offline",
@@ -71,14 +107,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
         signRefreshToken(user, env),
       );
 
-      const state =
-        typeof req.query.state === "string"
-          ? JSON.parse(Buffer.from(req.query.state, "base64url").toString("utf8"))
-          : null;
-      const returnUrl =
-        state && typeof state.returnUrl === "string"
-          ? state.returnUrl
-          : env.PUBLIC_URL;
+      const returnUrl = readStateReturnUrl(req.query.state, env);
 
       res.redirect(returnUrl);
     } catch (error) {

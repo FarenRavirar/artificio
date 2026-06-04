@@ -1,0 +1,169 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-artificio-blue: #1B2A4A;
+  --color-artificio-blue-light: #2A3F6D;
+  --color-artificio-orange: #E8521A;
+  --color-artificio-orange-hover: #F26733;
+}
+
+/* ============================================================================
+   Design Tokens — Artifício Mesas Design System
+   ============================================================================ */
+:root {
+  /* Surfaces (do mais profundo ao padrão) */
+  --surface-deepest: #0a1628;
+  --surface-deep:    #0e1a30;
+  --surface-input:   #0F1A2E;
+  --surface-panel:   #10203a;
+  --surface-chip:    #13213f;
+  --surface-card:    #1B2A4A;
+
+  /* Foreground (branco com opacidades) */
+  --fg:       #FFFFFF;
+  --fg-muted: rgba(255, 255, 255, 0.75);
+  --fg-soft:  rgba(255, 255, 255, 0.70);
+  --fg-low:   rgba(255, 255, 255, 0.60);
+  --fg-faint: rgba(255, 255, 255, 0.50);
+  --fg-ghost: rgba(255, 255, 255, 0.40);
+
+  /* Bordas */
+  --border-soft:        rgba(255, 255, 255, 0.05);
+  --border:             rgba(255, 255, 255, 0.10);
+  --border-strong:      rgba(255, 255, 255, 0.20);
+  --border-orange:      rgba(232, 82, 26, 0.40);
+  --border-orange-soft: rgba(232, 82, 26, 0.20);
+
+  /* Fills translúcidos */
+  --fill-5:  rgba(255, 255, 255, 0.05);
+  --fill-10: rgba(255, 255, 255, 0.10);
+  --fill-20: rgba(255, 255, 255, 0.20);
+
+  /* Semântico */
+  --success:        #34D399;
+  --success-strong: #10B981;
+  --warn:           #FBBF24;
+  --warn-strong:    #F59E0B;
+  --danger:         #EF4444;
+  --danger-soft:    #F87171;
+  --info:           #38BDF8;
+  --special:        #A855F7;
+
+  /* Vagas / urgência */
+  --slot-ok:   var(--success);
+  --slot-warn: #FB923C;
+  --slot-full: var(--danger);
+
+  /* Sombras */
+  --shadow-card:              0 10px 15px -3px rgba(0,0,0,0.30), 0 4px 6px -4px rgba(0,0,0,0.25);
+  --shadow-lg:                0 25px 50px -12px rgba(0,0,0,0.50);
+  --shadow-glow-orange:       0 0 30px rgba(232,82,26,0.15);
+  --shadow-glow-orange-strong:0 0 60px rgba(232,82,26,0.25);
+
+  /* Blur (painéis glassy) */
+  --blur-md: 12px;
+  --blur-xl: 24px;
+
+  /* Motion */
+  --ease-standard:  cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast:  150ms;
+  --duration:       200ms;
+  --duration-slow:  300ms;
+  --duration-slower:500ms;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-artificio-blue);
+    color: white;
+    font-family: 'Inter', system-ui, sans-serif;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: rgba(255, 255, 255, 0.4) !important;
+    opacity: 1 !important;
+  }
+
+  .section-container input::placeholder,
+  .section-container textarea::placeholder {
+    color: rgba(255, 255, 255, 0.4) !important;
+    opacity: 1 !important;
+  }
+
+  select {
+    color-scheme: dark;
+  }
+
+  select option,
+  select optgroup {
+    background: #ffffff;
+    color: #0f172a;
+  }
+}
+
+@layer components {
+  /* Eyebrow — label em maiúsculo com tracking largo */
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--fg-low);
+  }
+
+  /* Brilho laranja decorativo (hero + login) */
+  .orange-glow {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 9999px;
+    background: var(--color-artificio-orange);
+    filter: blur(150px);
+    opacity: 0.10;
+    width: 600px;
+    height: 600px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Painel glassy */
+  .glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border);
+  }
+
+  .app-select {
+    width: auto;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    outline: none;
+    transition: border-color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
+    cursor: pointer;
+  }
+
+  .app-select:focus {
+    border-color: rgba(232, 82, 26, 0.6);
+  }
+
+  .app-select:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .app-select option,
+  .app-select optgroup {
+    background: #ffffff;
+    color: #0f172a;
+  }
+}

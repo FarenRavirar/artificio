@@ -1,0 +1,143 @@
+services:
+  mesas-app:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_ENABLE_DEVTOOLS: ${VITE_ENABLE_DEVTOOLS:-false}
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_CLOUDINARY_CLOUD_NAME: ${VITE_CLOUDINARY_CLOUD_NAME}
+        VITE_CLOUDINARY_UPLOAD_PRESET: ${VITE_CLOUDINARY_UPLOAD_PRESET}
+    container_name: mesas-app
+    restart: always
+    expose:
+      - "80"
+    networks:
+      - gerenciador_telegram_default
+    environment:
+      - NODE_ENV=production
+      - VITE_ENV=production
+      - API_UPSTREAM=mesas-api
+      - VITE_API_URL=${VITE_API_URL}
+      - VITE_CLOUDINARY_CLOUD_NAME=${VITE_CLOUDINARY_CLOUD_NAME}
+    command:
+      - /bin/sh
+      - -c
+      - rm -rf /frontend-dist/* && cp -r /usr/share/nginx/html/. /frontend-dist/ && exec /docker-entrypoint.sh nginx -g 'daemon off;'
+    volumes:
+      - frontend_dist_prod:/frontend-dist
+    depends_on:
+      - mesas-api
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:80 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  mesas-api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: mesas-api
+    restart: always
+    expose:
+      - "3000"
+    networks:
+      - gerenciador_telegram_default
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=production
+      - PORT=3000
+      - DB_HOST=mesas-db
+      - POSTGRES_USER=${POSTGRES_USER:-admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=mesas_rpg
+      - DATABASE_URL=${DATABASE_URL}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_CALLBACK_URL=https://mesas.artificiorpg.com/api/v1/auth/google/callback
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - JWT_REFRESH_EXPIRES_IN=7d
+      - FRONTEND_URL=https://mesas.artificiorpg.com
+      - PUBLIC_SITE_URL=https://mesas.artificiorpg.com
+      - INDEX_HTML_PATH=/app/frontend-dist/index.html
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+    depends_on:
+      mesas-db:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+      - frontend_dist_prod:/app/frontend-dist:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 256m
+
+  mesas-cron:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: mesas-cron
+    restart: always
+    networks:
+      - gerenciador_telegram_default
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=mesas-db
+      - POSTGRES_USER=${POSTGRES_USER:-admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=mesas_rpg
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      mesas-api:
+        condition: service_healthy
+    command: npm run og:cron
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
+
+  mesas-db:
+    image: postgres:16-alpine
+    container_name: mesas-db
+    restart: always
+    networks:
+      - gerenciador_telegram_default
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: mesas_rpg
+    volumes:
+      - pgdata_mesas_prod:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/00_init.sql
+      - ./database/migration_01_base_schema.sql:/docker-entrypoint-initdb.d/01_base_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d mesas_rpg"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata_mesas_prod:
+  frontend_dist_prod:
+
+networks:
+  gerenciador_telegram_default:
+    external: true

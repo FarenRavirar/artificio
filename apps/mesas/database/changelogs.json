@@ -1,0 +1,130 @@
+[
+  {
+    "id": "2026-06-02-feedback-desenvolvimento",
+    "title": "Agora você pode relatar problemas e sugerir melhorias",
+    "body": "Adicionamos um canal direto para você falar com a equipe sem sair da página:\n\n• **Botão fixo em qualquer página** - Um botão \"Reportar / Sugerir\" no canto da tela abre um formulário rápido para relatar um problema ou sugerir uma melhoria\n• **Mais fácil para a equipe ajudar** - Ao enviar, o site anexa automaticamente a página onde você estava e detalhes técnicos do momento, para acelerar a correção\n• **Você no controle** - Antes de enviar, você decide se quer incluir a captura da tela e os detalhes técnicos\n\n_Atualização publicada em 02/06/2026_",
+    "type": "app",
+    "published": false,
+    "created_at": "2026-06-02T15:00:00-03:00"
+  },
+  {
+    "id": "2026-06-02-agenda-a-definir",
+    "title": "Cadastro de mesa aceita agenda a combinar",
+    "body": "Publicamos um ajuste para mesas que ainda vão combinar agenda com o grupo:\n\n• **Dia e horário a definir** - No cadastro de mesa, agora é possível marcar explicitamente quando o dia da semana ou o horário ainda serão combinados\n• **Página da mesa mais clara** - Mesas sem agenda fechada mostram \"Dia a definir\" ou \"Horário a definir\" em vez de parecerem incompletas\n\n_Atualização publicada em 02/06/2026 às 00:00_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-06-02T00:00:00-03:00"
+  },
+  {
+    "id": "2026-06-01-atualizacoes-do-dia",
+    "title": "Cadastro de mesa e imagens ficaram mais estáveis",
+    "body": "Publicamos ajustes para evitar tentativas de carregar imagens antigas do Discord e deixar a criação de mesa mais confortável:\n\n• **Imagem padrão sem erro visual** - Mesas com capa expirada agora usam a imagem padrão diretamente, sem quebrar a navegação ou poluir o console do navegador\n• **Descrição da mesa mais legível** - O editor de texto do cadastro agora mantém contraste adequado no tema escuro\n• **Sugestão de sistema sem sair do cadastro** - Enviar uma sugestão pelo formulário de nova mesa não deve mais jogar você de volta para o painel\n• **Cadastro direto pela equipe** - Quando uma pessoa administradora adiciona sistema pelo cadastro de mesa, ele entra direto no catálogo e já pode ser selecionado\n• **Sugestões de cenários na gestão** - A área administrativa passa a considerar sugestões de sistemas e de cenários na mesma fila de análise\n• **Sugestão vira apelido ou edição, não cópia repetida** - Ao analisar uma sugestão de sistema, a equipe agora escolhe se ela é um sistema novo, um nome alternativo, uma edição/variante ou se já está coberta por algo existente; o site mostra nomes, apelidos e edições já cadastrados antes da confirmação, evitando catálogo duplicado\n• **Avisos da equipe mais organizados** - O sino de notificações agrupa por tipo (sistemas e cenários sugeridos, mesas publicadas, novos membros), permite marcar tudo como lido de uma vez e deixa de repetir as próprias ações de quem revisa\n\n_Atualização unificada publicada em 01/06/2026 às 00:00_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-06-01T00:00:00-03:00"
+  },
+  {
+    "id": "2026-05-06-atualizacoes-do-dia",
+    "title": "Revisão do Discord e sugestões de sistemas ficaram mais confiáveis",
+    "body": "Publicamos ajustes para deixar a importação do Discord e a análise de sugestões mais úteis para a equipe:\n\n• **Mensagens do Discord com conteúdo completo** - Posts de fóruns passam a ser lidos pelo corpo real da publicação, evitando rascunhos vazios\n• **Sistema identificado pelo campo correto** - A importação usa o campo Sistema do post e não confunde cenário, campanha ou aventura com sistema de RPG\n• **Sugestão automática para sistema novo** - Quando um post usa um sistema ainda não cadastrado, ele entra na fila certa para revisão\n• **Revisão de sugestões mais rápida** - A equipe pode selecionar sugestões uma a uma, selecionar todas as pendentes e descartar em lote sem preencher motivo obrigatório\n\n_Atualização unificada publicada em 06/05/2026 às 17:55_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-05-06T17:55:00-03:00"
+  },
+  {
+    "id": "2026-05-04-atualizacoes-do-dia",
+    "title": "Menus de escolha ficaram mais consistentes",
+    "body": "Publicamos ajustes para deixar escolhas e revisão de mensagens mais confortáveis:\n\n• **Menus mais fáceis de ler** - As listas de escolha agora seguem o mesmo visual em diferentes telas, evitando contraste ruim ao abrir as opções\n• **Busca do Discord com período definido** - Antes de carregar mensagens, a equipe pode escolher uma janela de tempo para evitar trazer conteúdo antigo demais\n• **Conferência de mensagens importadas** - As mensagens trazidas do Discord agora ficam em uma tela de trabalho com resumo, leitura completa e organização do status\n\n_Atualização unificada publicada em 04/05/2026 às 09:28_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-05-04T09:28:00-03:00"
+  },
+  {
+    "id": "2026-05-03-atualizacoes-do-dia",
+    "title": "Sugestões agora chegam mais rápido para a equipe responsável",
+    "body": "Publicamos uma melhoria para deixar o acompanhamento de sugestões mais confiável:\n\n• **Aviso para a equipe responsável** - Toda sugestão enviada por usuários agora gera uma notificação para quem cuida da análise\n• **Confirmação mais clara** - Ao sugerir um sistema, a confirmação só aparece depois que o envio foi registrado com sucesso\n\n_Atualização unificada publicada em 03/05/2026 às 07:40_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-05-03T07:39:56-03:00"
+  },
+  {
+    "id": "2026-04-29-atualizacoes-do-dia",
+    "title": "Catálogo, imagens e exclusão de mesas ficaram mais confiáveis",
+    "body": "Publicamos melhorias para evitar capas perdidas, deixar a navegação mais consistente e tornar ações importantes mais claras:\n\n• **Links de imagem mais seguros nas mesas** - Ao informar um link externo para a capa, o sistema tenta salvar uma cópia estável para evitar que a imagem suma quando o link original expirar\n• **Capas corretas no perfil do mestre** - Mesas com imagem cadastrada voltam a mostrar a arte real no perfil público do mestre\n• **Imagem padrão mais consistente** - Quando uma imagem realmente não está disponível, as páginas usam o mesmo comportamento visual\n• **Escolha consciente no perfil** - Quem preferir pode manter um link direto de imagem, com aviso sobre o risco de o link parar de funcionar\n• **Edição do perfil do mestre mais clara** - O botão de edição agora leva para a aba Mestre do perfil, usando os mesmos campos e o mesmo visual já conhecidos\n• **Exclusão de mesa mais segura** - Ao excluir uma mesa, a confirmação agora aparece dentro da própria página, mostrando qual mesa será removida antes da ação final\n• **Exclusão pela gestão corrigida** - A remoção feita pela equipe responsável agora usa a permissão correta e evita erro de mesa não encontrada\n• **Catálogo mais confortável** - A busca e os filtros ficaram melhor organizados, os cards ganharam mais estabilidade visual e a navegação em telas menores ficou mais previsível\n\n_Atualização unificada publicada em 29/04/2026 às 14:20_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-04-29T09:45:00-03:00"
+  },
+  {
+    "id": "2026-04-24-atualizacoes-do-dia",
+    "title": "Melhorias visuais nos cards e selos do painel do mestre",
+    "body": "Publicamos ajustes para deixar o painel mais consistente e organizado:\n\n• **Selos especiais nas mesas** - Os marcadores como Covil do Lich e DDAL agora aparecem corretamente nos cards do seu painel\n• **Imagens reais no painel** - Resolvemos o problema onde mesas com capas válidas mostravam a imagem padrão provisória no painel do mestre\n\n_Atualização unificada publicada em 24/04/2026 às 12:45_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-04-24T12:45:00-03:00"
+  },
+  {
+    "id": "2026-04-19-atualizacoes-do-dia",
+    "title": "Ajustes de usabilidade deixaram a navegação mais estável",
+    "body": "Publicamos uma atualização unificada para melhorar manutenção e leitura nas telas principais:\n\n• **Lista de sistemas voltou a rolar normalmente na gestão** - Agora dá para navegar por muitos itens sem travar\n• **Painel de edição da gestão ficou mais utilizável** - A manutenção de itens não exige mais voltar manualmente ao topo\n• **Rodapé ganhou mais respiro visual e alinhamento mais equilibrado** - O conteúdo ficou melhor separado da seção anterior e mais estável em telas largas\n• **Contato e plataformas do mestre aparecem antes das mesas disponíveis** - A ordem da página pública ficou mais alinhada com prioridade de conversão\n• **Card do mestre deixou de ficar dinâmico no scroll da mesa** - Ele permanece abaixo de “Como participar”, sem deslocamento durante a rolagem\n• **Ícone do sistema voltou a aparecer ao lado do nome nas mesas configuradas** - Quando o sistema tem imagem cadastrada, ela é exibida corretamente\n• **Card lateral do mestre agora respeita quem publicou a mesa** - Em mesas publicadas por anunciante, o card lateral não aparece, mas o conteúdo sobre o mestre no anúncio continua visível\n\n_Atualização unificada publicada em 19/04/2026 às 12:28_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-04-19T12:28:00-03:00"
+  },
+  {
+    "id": "2026-04-18-atualizacoes-do-dia",
+    "title": "Painel do mestre e gestão de sistemas ficaram mais claros e confiáveis",
+    "body": "Publicamos uma atualização unificada para melhorar leitura de desempenho e operação no painel de gestão:\n\n• **Comparação de desempenho mais justa no painel do mestre** - Em vez de metas fixas, o painel compara sua mesa com o comportamento real das outras mesas\n• **Faixas de comparação mais fáceis de entender** - A posição da sua mesa fica mais clara, sem leitura técnica\n• **Contexto visível da análise** - O painel mostra quando os dados foram atualizados e qual a base usada\n• **Feedback mais transparente para contas com pouco histórico** - Quando ainda não há base suficiente para comparação, o sistema mostra tendência recente\n• **Gestão de sistemas mais rápida em consultas repetidas** - A lista de sistemas da gestão responde melhor em usos seguidos\n• **Aviso prévio antes de exclusão com impacto** - Antes de excluir, o painel informa quando há mesas vinculadas ou itens dependentes\n• **Mensagens de bloqueio mais claras** - Quando a exclusão não pode acontecer, o motivo aparece de forma direta\n\n_Atualização unificada publicada em 18/04/2026 às 13:08_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-04-18T13:08:00-03:00"
+  },
+  {
+    "id": "2026-04-17-atualizacoes-do-dia",
+    "title": "Perfil de mestre e gerenciamento de fotos ficaram mais completos",
+    "body": "Publicamos melhorias importantes para o painel de mestres e gerenciamento de perfil:\n\n• **Upload de foto direto no perfil** - Agora você pode enviar sua foto de perfil direto do computador ou celular, sem precisar de links externos\n• **Usar foto do Google com um clique** - Botão para aplicar automaticamente a foto da sua conta Google\n• **Foto de mestre separada da foto de usuário** - Você pode ter uma foto diferente para quando estiver mestrando (configurável na aba Mestre do perfil)\n• **Textos explicativos mais claros** - Cada campo de foto explica onde ela aparece e para que serve\n• **Cadastro de links instantâneo** - Adicionar redes sociais e sites não sofre mais travamentos\n• **Carregamento de links mais limpo e rápido** - Seus links agora carregam mais padronizados, respeitando a identidade do seu perfil\n• **Compartilhamento de perfil com prévia mais confiável** - A exibição de título, descrição e imagem ficou mais estável ao compartilhar links\n• **Aviso de urgência mais inteligente no perfil público do mestre** - O destaque final agora adapta o texto automaticamente conforme a situação real de vagas\n• **Central de Ajuda completa no painel** - Nova seção acessível pelo botão Ajuda com 8 guias práticos: como funciona o CTA dinâmico, otimização de perfil, gestão de vagas, interpretação de métricas (visualizações, contatos e taxa de conversão), criação de mesas eficazes, escolha de imagens profissionais, sistemas populares e como reportar bugs ou sugerir melhorias via GitHub\n\n_Atualização unificada publicada em 17/04/2026 às 12:14_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-04-17T12:14:00-03:00"
+  },
+  {
+    "id": "2026-04-16-atualizacoes-do-dia",
+    "title": "Perfil e cadastro de mesas ficaram mais claros e estáveis",
+    "body": "Publicamos melhorias importantes no mesmo dia para deixar a experiência mais simples e confiável:\n\n• **Página pública do mestre mais organizada** - As informações ficaram melhor distribuídas para leitura rápida\n• **Privacidade reforçada nos dados do mestre** - Informações internas continuam visíveis só para quem tem permissão\n• **Links da aba de mestre com carregamento estável** - Corrigimos uma falha que podia exibir erro ao abrir a lista\n• **Faixa etária mais fácil de entender no cadastro** - As opções ficaram mais claras para evitar escolha incorreta\n\n_Atualização publicada em 16/04/2026 às 23:57_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-04-16T23:57:00-03:00"
+  },
+  {
+    "id": "2026-04-15-atualizacoes-do-dia",
+    "title": "Cadastro de mesa ficou mais simples, colaborativo e claro",
+    "body": "Neste dia lançamos várias melhorias integradas no portal:\n\n• **Logo da plataforma online nas mesas** - Agora fica mais fácil reconhecer rapidamente onde a mesa acontece\n• **Upload de imagem direto do celular ou computador** - Sem precisar copiar links de outros sites\n• **Prévia da imagem na hora** - Você vê como a capa da mesa vai ficar antes de salvar\n• **Sugestão de sistemas e cenários no próprio formulário** - Se não encontrar uma opção, você pode sugerir sem sair da tela\n• **Melhor identificação no catálogo e detalhe da mesa** - A navegação ficou mais direta\n\n_Atualização unificada publicada em 15/04/2026 às 20:24_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-04-15T20:24:00-03:00"
+  },
+  {
+    "id": "2026-04-13-painel-mestre-melhorias",
+    "title": "Painel do mestre ficou mais confiável para gerenciar mesas",
+    "body": "O painel recebeu correções importantes para o dia a dia de quem mestra:\n\n• **Editar mesa voltou a funcionar corretamente** - O formulário abre preenchido com os dados da mesa\n• **Ativar e desativar mesa sem erro** - O controle de status está estável\n• **Mesas pausadas com visual claro** - Fica fácil diferenciar o que está ativo e o que está desativado\n\n_Atualização publicada em 13/04/2026 às 18:18_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-04-13T18:18:00-03:00"
+  },
+  {
+    "id": "2026-04-08-atualizacoes-do-dia",
+    "title": "Perfil, vagas e catálogo ficaram mais claros e rápidos",
+    "body": "Focamos em leitura visual e rapidez na plataforma hoje:\n\n• **Layout do perfil mais limpo** - Campos e seções mais bem distribuídos\n• **Cargos visíveis no perfil** - Você identifica com clareza quando é mestre ou responsável pela plataforma\n• **Indicadores visuais de lotação** - Dá para perceber rapidamente se a mesa está enchendo\n• **Texto de vagas mais direto** - Informação mais clara sobre quantas vagas restam\n• **Catálogo mais rápido** - Filtros e navegação respondem sem lentidão com links mais confiáveis\n\n_Atualização unificada publicada em 08/04/2026 às 23:02_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-04-08T23:02:00-03:00"
+  },
+  {
+    "id": "2026-04-07-atualizacoes-do-dia",
+    "title": "Filtros do catálogo ficaram mais simples de usar",
+    "body": "A busca por mesas ficou mais amigável, principalmente em telas menores:\n\n• **Filtros mais organizados** - Menos confusão para montar sua busca\n• **Melhor uso no celular** - Fluxo de filtro mais confortável no mobile\n• **Visual mais claro do que foi selecionado** - Você enxerga com facilidade os filtros ativos\n\n_Atualização publicada em 07/04/2026 às 16:15_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-04-07T16:15:00-03:00"
+  }
+]
