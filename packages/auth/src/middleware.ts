@@ -1,6 +1,6 @@
 import type { Request, RequestHandler } from "express";
-import { verifyToken } from "./jwt";
-import type { Session } from "./types";
+import { verifyToken } from "./jwt.js";
+import type { Session } from "./types.js";
 
 export interface AuthenticatedRequest extends Request {
   session?: Session;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { User } from "./types";
+import type { User } from "./types.js";
 
 const ACCOUNTS_ORIGIN = "https://accounts.artificiorpg.com";
 

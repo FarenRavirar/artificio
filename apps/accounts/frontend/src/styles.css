@@ -1,0 +1,82 @@
+:root {
+  --accounts-ink: #1f2933;
+  --accounts-muted: #5f6b7a;
+  --accounts-line: #d9e1ec;
+  --accounts-surface: #ffffff;
+  --accounts-canvas: #f7f9fc;
+  --accounts-red: #b42318;
+  --accounts-blue: #2563eb;
+}
+
+body {
+  background: var(--accounts-canvas);
+  color: var(--accounts-ink);
+  font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif;
+  margin: 0;
+}
+
+.accounts-page {
+  align-items: center;
+  display: grid;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.accounts-panel {
+  background: var(--accounts-surface);
+  border: 1px solid var(--accounts-line);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(31, 41, 51, 0.08);
+  margin: 0 auto;
+  max-width: 420px;
+  padding: 28px;
+  width: 100%;
+}
+
+.accounts-brand {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 700;
+  gap: 10px;
+}
+
+.accounts-mark {
+  align-items: center;
+  background: var(--accounts-red);
+  border-radius: 8px;
+  color: white;
+  display: inline-flex;
+  font-weight: 800;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.accounts-panel h1 {
+  font-size: 28px;
+  margin: 28px 0 8px;
+}
+
+.accounts-panel p {
+  color: var(--accounts-muted);
+  line-height: 1.5;
+  margin: 0 0 24px;
+}
+
+.accounts-login {
+  align-items: center;
+  background: var(--accounts-blue);
+  border-radius: 8px;
+  color: white;
+  display: inline-flex;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  text-decoration: none;
+}
+
+.accounts-login:focus-visible {
+  outline: 3px solid #1a73e8;
+  outline-offset: 2px;
+}

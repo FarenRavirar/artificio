@@ -1,0 +1,41 @@
+services:
+  accounts-db:
+    image: postgres:16-alpine
+    container_name: accounts-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: artificio_auth
+    volumes:
+      - accounts_pgdata:/var/lib/postgresql/data
+    networks:
+      - artificio_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d artificio_auth"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  accounts-api:
+    build:
+      context: ../..
+      dockerfile: apps/accounts/Dockerfile
+    container_name: accounts-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      accounts-db:
+        condition: service_healthy
+    networks:
+      - artificio_net
+    ports:
+      - "3000:3000"
+
+volumes:
+  accounts_pgdata:
+
+networks:
+  artificio_net:
+    external: true

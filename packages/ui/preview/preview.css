@@ -1,0 +1,25 @@
+body {
+  background: #f7f9fc;
+  font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif;
+  margin: 0;
+}
+
+.preview-shell {
+  display: grid;
+  gap: 28px;
+  padding: 32px;
+}
+
+.preview-shell section {
+  background: white;
+  border: 1px solid #d9e1ec;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.preview-shell h1 {
+  color: #1f2933;
+  font-size: 16px;
+  margin: 0;
+  padding: 16px 24px;
+}

@@ -18,6 +18,18 @@ Erguer o **coração técnico** do G1: o monorepo real + o **login único** (`ac
 5. **`packages/ui`**: preset Tailwind + tokens (sóbrio estilo Google, cores+logo Artifício), `Header`/`Nav`/`Footer` (mostra módulos + estado de login via `useSession`). Respeita **Nielsen 10 + ISO 9241-11**.
 6. **Deploy:** `apps/accounts` + `accounts-db` na VM (`faren`, `artificio_net`); rota Cloudflare `accounts.artificiorpg.com` → container. Imagem GHCR.
 
+## Checkpoint externo validado (2026-06-04)
+- Domínio público: `https://accounts.artificiorpg.com`.
+- Callback OAuth oficial: `https://accounts.artificiorpg.com/api/auth/google/callback`.
+- OAuth client Google criado como Aplicativo da Web: `Artificio Accounts`.
+- Client ID público: `764267281239-hp1vl6cqq6q72k33j9q4kmpn7vlk9ibh.apps.googleusercontent.com`.
+- Env local fora do git: `C:\projetos\artificiobackup\accounts-oauth.env`.
+- Variáveis esperadas: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `PUBLIC_URL`, `COOKIE_DOMAIN`.
+- Cloudflare tunnel: `<TUNNEL_UUID>`.
+- Rota criada: `accounts.artificiorpg.com` → `http://accounts-api:3000`.
+- Estado pré-backend esperado: `curl -I https://accounts.artificiorpg.com` retorna `502 Bad Gateway` via Cloudflare.
+- Segurança: nunca expor `GOOGLE_CLIENT_SECRET`, JSON OAuth, `.env` ou secrets em commit, issue, chat, log ou doc público.
+
 ## Critérios de aceite (Gate B)
 - [ ] `pnpm install` + `turbo build` verdes na raiz.
 - [ ] `https://accounts.artificiorpg.com/login` carrega; fluxo Google → callback → cookie setado.
