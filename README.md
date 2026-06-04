@@ -13,7 +13,7 @@ Topologia **subdomínio-por-módulo** (D017). Cada módulo no próprio host, roo
 | `glossario` | `glossariorpg.artificiorpg.com` | Glossário RPG PT/EN (fica, prod) | a integrar (código→monorepo) |
 | `mesas` | `mesas.artificiorpg.com` | Anúncio de mesas (refeito) | a construir |
 | `downloads` | `downloads.artificiorpg.com` | Materiais traduzidos | a construir |
-| `wiki-sop` | `spheres.artificiorpg.com` | Wiki Spheres of Power | a construir |
+| `esferas` | `esferas.artificiorpg.com` | Wiki Spheres of Power (multi-sistema: D&D 2014/2024, PF futuro) | a construir |
 | `srd` | `srd.artificiorpg.com` | SRD DnD 5.2.1 + tooltips | a construir |
 | `links` | `links.artificiorpg.com` | Links: WhatsApp + parceiros | a integrar |
 | _(SSO)_ | `accounts.artificiorpg.com` | Login Google central | a construir |

@@ -30,10 +30,10 @@ docker exec glossario-db      sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -Fc
 ```
 **Feito quando:** 4 `.dump` > 0 bytes; `pg_restore -l <NOME>.dump | head` lista objetos.
 
-## T3 — WordPress: DB + uploads + config  `[APROVAÇÃO 1]`
-**← ATIVO: Ramo B** (WP é externo, confirmado na T1). `WP_DB_*`/uploads vêm do painel de hospedagem do `artificiorpg.com`.
+## T3 — WordPress: **FORA do backup** (D024)
+WP de `artificiorpg.com` tem backup em nuvem da Hostinger → não backupear aqui. Só guardar **creds (DB+FTP) no `secrets.7z`** (T7) para a migração. Comandos abaixo ficam de referência, **não executar nesta fase.**
 
-**Ramo A (WP em Docker na VM) — N/A aqui:**
+**~~Ramo A (WP em Docker na VM)~~ — N/A (WP externo):**
 ```bash
 docker exec <WP_DB_CONTAINER> sh -c 'exec mysqldump -u<WP_DB_USER> -p"<WP_DB_PASS>" <WP_DB_NAME>' | gzip > "$BK/wordpress/wp-db.sql.gz"
 docker run --rm -v <UPLOADS_VOL>:/data -v "$BK/wordpress":/bk alpine tar czf /bk/uploads.tar.gz -C /data .
@@ -47,7 +47,8 @@ tar czf "$BK/wordpress/uploads.tar.gz" -C <WP_UPLOADS_PATH> .
 ```
 **Feito quando:** `gunzip -t wp-db.sql.gz` OK; `uploads.tar.gz` ≈ 6.34GB; `wp-config.php` presente.
 
-## T4 — WordPress: export REST API JSON  *(read-only; pode rodar do local)*
+## T4 — WordPress: export REST API JSON  → **DIFERIDA p/ Fase 3 (migração), D025**
+Não é backup. O importador puxa conteúdo+mídia **on-demand** na migração. Script de referência:
 ```bash
 BASE=https://artificiorpg.com/wp-json/wp/v2
 for t in posts pages media categories tags; do
@@ -84,13 +85,17 @@ gh repo create artificio-servidorvirtual --private --source "...\code\servidorvi
 **Feito quando:** código copiado **e** repos GitHub privados criados com push (R4).
 
 ## T7 — Segredos → bundle encriptado  `[APROVAÇÃO 1]`
-Coletar todos `.env`, OAuth secrets, JWT, tunnel token, GHCR PAT, senhas DB (descobertos na T1).
+Alvos: `.env` dos serviços G1 + WP creds + Cloudinary/GHCR/CF. Registro: `docs/agents/access-registry.md`.
 ```bash
-# juntar num dir temporário e encriptar com AES-256 (header tb encriptado)
-7z a -p -mhe=on "$BK/secrets.7z" <lista de arquivos/segredos>
-# alternativa: age/gpg
+ssh faren 'BK=/tmp/artificio-backup-$(date +%F); mkdir -p "$BK/secrets-stage";
+for d in mesas mesas-beta glossario glossario-beta; do
+  [ -f "/opt/$d/.env" ] && cp "/opt/$d/.env" "$BK/secrets-stage/$d.env"; done;
+# WP Hostinger creds: criar wp-hostinger.env no stage (valores fornecidos pelo mantenedor, fora deste arquivo)
+ls "$BK/secrets-stage"'
+# encriptar (na VM ou local): AES-256 com header encriptado
+7z a -p -mhe=on "$BK/secrets.7z" "$BK/secrets-stage/"* && rm -rf "$BK/secrets-stage"
 ```
-**Feito quando:** `secrets.7z` abre com a senha; **nenhum** segredo solto fora dele. Senha guardada no teu cofre, **fora** do backup.
+**Feito quando:** `secrets.7z` abre com a senha; `secrets-stage` removido; **nenhum** segredo solto. Senha do bundle só no cofre do mantenedor.
 
 ## T8 — Cloudflare: DNS + tunnel  *(maior parte read-only)*
 ```bash

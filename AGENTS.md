@@ -11,7 +11,7 @@ Toda comunicação com o mantenedor é em português. Nomes de arquivos, comando
 
 Suite modular em **subdomínios** sob `*.artificiorpg.com` (D017), login Google único (SSO via `accounts.artificiorpg.com`), leve (TypeScript/React/Express/Postgres), SEO forte. Monorepo `artificio` com `apps/*` (módulos) e `packages/*` (compartilhados). Cada módulo é plugável, no próprio subdomínio/deploy isolado, mas compartilha auth, design e analytics. Modelo Google-suite (`docs.`/`mail.`).
 
-Módulos: `site` (portal+blog), `glossario`, `mesas`, `downloads`, `wiki-sop` (Spheres of Power), `srd` (DnD 5.2.1), `links`.
+Módulos: `site` (portal+blog), `glossario`, `mesas`, `downloads`, `esferas` (Spheres of Power, multi-sistema), `srd` (DnD 5.2.1), `links`.
 Pacotes: `auth`, `ui`, `analytics`, `config`, `content`, `crosslink`.
 
 ---
@@ -41,7 +41,7 @@ O G1 avança por gates. **Nenhum gate é pulado.** Cada gate exige aprovação e
 | **C** | **adiado (fora de escopo)** | Apontar DNS de `artificiorpg.com` ao novo site e desligar WordPress | Site validado em beta (conteúdo + SEO + 301 + Nielsen/ISO) **e decisão explícita de cutover** |
 | **D** | ativo | Próximo módulo | Módulo atual passou smoke |
 
-**Topologia (subdomínio-por-módulo, D017):** cada módulo no próprio subdomínio (`glossariorpg.`, `mesas.`, `downloads.`, `spheres.`, `srd.`, `links.`), root próprio, sem basename. Blog novo em `beta.artificiorpg.com` (BETA; → raiz `artificiorpg.com` no futuro, Gate C). WP fica na raiz agora. SSO central em `accounts.artificiorpg.com` (D018). Une tudo: cookie `.artificiorpg.com` + nav + design. Cloudflare Tunnel mapeia hostname→container.
+**Topologia (subdomínio-por-módulo, D017):** cada módulo no próprio subdomínio (`glossariorpg.`, `mesas.`, `downloads.`, `esferas.`, `srd.`, `links.`), root próprio, sem basename. Blog novo em `beta.artificiorpg.com` (BETA; → raiz `artificiorpg.com` no futuro, Gate C). WP fica na raiz agora. SSO central em `accounts.artificiorpg.com` (D018). Une tudo: cookie `.artificiorpg.com` + nav + design. Cloudflare Tunnel mapeia hostname→container.
 
 **Antes do Gate A:** nada destrutivo na Oracle. Nenhum `docker stop/rm`, nenhum drop de volume, nenhuma recriação de instância.
 **Sempre (Gate C adiado):** o WordPress de produção e o DNS de `artificiorpg.com` são **intocáveis** todo o projeto. WP roda em paralelo. Importador só **lê** do WP (REST API / dump), nunca escreve. Nenhum cutover de raiz sem reabrir o Gate C com aprovação explícita.
@@ -187,5 +187,7 @@ Concluída só quando: busca final relevante retorna o esperado; checklist da se
 | Estado atual (fase/gate) | `.specify/memory/project-state.md` |
 | Erros conhecidos | `.specify/memory/errors.md` |
 | Contexto de retomada | `docs/agents/context-capsule.md` |
+| Mapa da VM/infra (verificado) | `docs/agents/infra-map.md` |
+| Registro de acesso & segredos | `docs/agents/access-registry.md` |
 | Modelo de operação (SDD) | `docs/agents/operating-model.md` |
 | Subagentes | `.claude/agents/` |
