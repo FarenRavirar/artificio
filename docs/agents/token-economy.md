@@ -39,10 +39,11 @@ Não ler além do tier necessário. Não reabrir o que já está no contexto.
 - Tarefa de localizar código / revisar diff / auditar → **subagente** (saída comprimida, ~60% menos token no chat principal). Ver `cavecrew` (investigator/builder/reviewer) e os agentes G1 em `.claude/agents/`.
 - Fan-out só quando o ganho paga o custo de spawn. Tarefa pequena → inline.
 
-## Divisão de modelo (custo)
-- Claude Opus (principal): arquitetura, SSO, importador, engine SRD/crosslink, SEO, specs, gates, **definir tarefas Codex**, **validar resultado**.
-- Codex (secundário/barato): UI, testes, migração mecânica, lint, boilerplate, **execução de comandos (VM/transfer/checksums)**.
-- Não usar o modelo caro para trabalho mecânico nem pra rodar comando que o Codex roda.
+## Divisão de modelo (custo) — Opus orquestra, Codex executa
+**Default: delegar ao Codex.** Provou-se confiável e pegou coisas que o Opus não pegou (rename de rede, fix `uuid-ossp`, rebuild de `dist`, limpeza de segredos). Opus só faz o que Codex não pode.
+- **Opus (orquestrador):** desenhar arquitetura/specs/decisões, definir tarefas `CDX-*`, **validar** a saída do Codex, decidir gates. Não roda comando nem escreve boilerplate que o Codex faça.
+- **Codex (executor, default):** TODA execução — VM, transfer, scaffolding, código, migração, testes, lint, deploy, **e atualização mecânica de docs/rastreabilidade**.
+- Regra: se a tarefa é executável e bem-especificada, vira `CDX-*`. Opus escreve o "o quê + ✓Validar", Codex faz o "como".
 
 ## Tarefas para Codex (handoff de execução)
 Opus **define** tarefas pequenas e auto-contidas; Codex **executa**; mantenedor confirma; Opus **valida** e avança. Economiza token do principal.
