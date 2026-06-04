@@ -14,8 +14,8 @@ Lib TS: `verifyToken(jwt)` (HS256, `JWT_SECRET` env), `requireAuth` (Express mw,
 Preset Tailwind + tokens (sóbrio Google-like, cores+logo Artifício). Componentes `Header` (nav dos módulos + login/avatar via `useSession`), `Nav`, `Footer`. Acessível (foco, contraste, teclado — ISO 9241-11 / Nielsen).
 **✓ Validar:** `pnpm --filter @artificio/ui build` ok; Storybook/preview do Header em 2 estados (deslogado/logado). **Reportar:** build + screenshot/preview.
 
-## [MANTENEDOR] — OAuth client Google
-Google Cloud Console → criar OAuth client "Artifício G1" (Web): authorized redirect `https://accounts.artificiorpg.com/api/auth/google/callback`, origin `https://accounts.artificiorpg.com`. Entregar `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` ao Codex (env, **não versionar**).
+## [MANTENEDOR] — OAuth client Google ✅
+Google Cloud Console → OAuth client Web `Artificio Accounts` criado. Authorized origin `https://accounts.artificiorpg.com`; redirect `https://accounts.artificiorpg.com/api/auth/google/callback`. Env local fora do git: `C:\projetos\artificiobackup\accounts-oauth.env` com `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `PUBLIC_URL`, `COOKIE_DOMAIN`. **Não versionar segredo.**
 
 ## CDX-304 — `apps/accounts` backend
 Express+Kysely+pg. Rotas: `/api/auth/google`, `/api/auth/google/callback`, `/api/auth/me`, `/api/auth/logout`, `/api/auth/refresh`. Cookie `artificio_session` (`Domain=.artificiorpg.com;HttpOnly;Secure;SameSite=Lax`) + refresh. `accounts-db` (postgres:16) + migration `users` (ver plan). Upsert por `google_sub`. Usa `packages/auth`.
@@ -25,8 +25,8 @@ Express+Kysely+pg. Rotas: `/api/auth/google`, `/api/auth/google/callback`, `/api
 Vite+React: página `/login?return=` (botão Google), pós-login redireciona `return`. Dockerfile (multi-stage) + `docker-compose` (`accounts-db` + `accounts-api`) na `artificio_net`. Env via `.env` (não versionar).
 **✓ Validar:** `docker compose build` ok; sobe local; `/login` renderiza. **Reportar:** build + up.
 
-## [MANTENEDOR] — rota Cloudflare
-Tunnel → Public Hostname `accounts.artificiorpg.com` → `http://accounts-api:<porta>`.
+## [MANTENEDOR] — rota Cloudflare ✅
+Tunnel correto `6417d3a0-b98b-42ed-97da-3fb9f6ecfac2` → Public Hostname `accounts.artificiorpg.com` → `http://accounts-api:3000`. DNS resolve via Cloudflare. `502 Bad Gateway` atual é esperado até `accounts-api:3000` subir.
 
 ## CDX-306 — Deploy VM + smoke (fecha Gate B)
 Deploy `apps/accounts` na `faren` (`/opt/artificio/accounts`, `artificio_net`). Subir. Smoke do fluxo real: `accounts.artificiorpg.com/login` → Google → cookie setado → `/api/auth/me` retorna user. **Teste cross-subdomínio:** endpoint mínimo noutro host (ex.: container teste) que use `verifyToken` lê o mesmo cookie → confirma sessão compartilhada.

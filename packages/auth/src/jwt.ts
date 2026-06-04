@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import type { JwtClaims, Session, UserRole } from "./types";
+import type { JwtClaims, Session, UserRole } from "./types.js";
 
 function isRole(value: unknown): value is UserRole {
   return value === "user" || value === "admin";

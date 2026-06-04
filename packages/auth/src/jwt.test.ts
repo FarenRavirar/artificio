@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { verifyToken } from "./jwt";
+import { verifyToken } from "./jwt.js";
 
 const originalSecret = process.env.JWT_SECRET;
 

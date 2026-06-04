@@ -1,4 +1,5 @@
-export { verifyToken } from "./jwt";
-export { requireAuth } from "./middleware";
-export { redirectToLogin, useSession } from "./client";
-export type { JwtClaims, Session, User, UserRole } from "./types";
+export { verifyToken } from "./jwt.js";
+export { requireAuth } from "./middleware.js";
+export type { AuthenticatedRequest } from "./middleware.js";
+export { redirectToLogin, useSession } from "./client.js";
+export type { JwtClaims, Session, User, UserRole } from "./types.js";

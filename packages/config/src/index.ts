@@ -1,1 +1,1 @@
-export { parseEnv } from "./env";
+export { parseEnv } from "./env.js";

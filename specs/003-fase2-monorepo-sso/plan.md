@@ -30,6 +30,15 @@ SSO flow: módulo → `accounts.artificiorpg.com/login?return=<url>` → Google 
 - **`packages/auth` API:** `verifyToken(jwt): Session|null`, `requireAuth` (401 se inválido), `useSession(): {user,loading}`, `redirectToLogin(returnUrl)`.
 - **Env (accounts):** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `DATABASE_URL`, `COOKIE_DOMAIN=.artificiorpg.com`, `PUBLIC_URL=https://accounts.artificiorpg.com`.
 
+## Infra externa pronta (2026-06-04)
+- OAuth Google pronto; segredo vive só em `C:\projetos\artificiobackup\accounts-oauth.env`.
+- Authorized origin: `https://accounts.artificiorpg.com`.
+- Authorized redirect: `https://accounts.artificiorpg.com/api/auth/google/callback`.
+- Cloudflare tunnel correto: `6417d3a0-b98b-42ed-97da-3fb9f6ecfac2`.
+- Public hostname já criado: `accounts.artificiorpg.com` → `http://accounts-api:3000`.
+- `502 Bad Gateway` em `https://accounts.artificiorpg.com` é esperado até o container `accounts-api` existir/responder.
+- CDX-304+ deve usar exatamente `GOOGLE_CALLBACK_URL=https://accounts.artificiorpg.com/api/auth/google/callback` para evitar `redirect_uri_mismatch`.
+
 ## Stack
 React19/Vite/TS/Tailwind (front) · Express/TS/Kysely/PG16 (back) · `google-auth-library` + `jsonwebtoken` (= padrão do mesas). pnpm + Turbo.
 
