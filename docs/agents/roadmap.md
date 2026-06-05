@@ -23,8 +23,8 @@
 
 | Módulo | Subdomínio | Estado | Falta p/ Gate D |
 |---|---|---|---|
-| `accounts` (SSO) | `accounts.artificiorpg.com` | ✅ no ar (Gate B) | 🔄 redeploy com marca nova (CDX-311); retrofit deploy (CDX-310) |
-| `mesas` | `mesas.artificiorpg.com` | 🔄 técnico ✅ + deploy real ✅ (CDX-309E) + login real ✅ | ⬜ E2E **logout** + **allowlist prod**; ⬜ redeploy marca; ⬜ beta `mesasbeta` `deleted_client` (rebuild do main ou aposentar) |
+| `accounts` (SSO) | `accounts.artificiorpg.com` | ✅ no ar (Gate B) + marca CDX-311 ✅ no ar | ⬜ retrofit deploy (CDX-310) |
+| `mesas` | `mesas.artificiorpg.com` | 🔄 técnico ✅ + deploy real ✅ (CDX-309E) + login real ✅ + marca CDX-311 ✅ no ar | ⬜ E2E **logout** + **allowlist prod**; 🔄 beta `mesasbeta` rebuild via **spec 005** (D041; mata `deleted_client`) |
 | `glossario` | `glossariorpg.artificiorpg.com` | ⬜ roda em prod fora do monorepo | ⬜ importar código→monorepo, integrar SSO/UI, deploy canônico, smoke |
 | `site` (blog) | `beta.artificiorpg.com` (→ raiz futuro) | ⬜ a construir | ⬜ SSG + importador WP one-shot + SEO; maior risco (300+ posts) |
 | `downloads` | `downloads.artificiorpg.com` | ⬜ a construir | ⬜ construir + SSO/UI + deploy |
@@ -52,6 +52,7 @@
 | `_deploy-module.yml` reusável (build/test→snapshot→migrations→health→smoke→rollback) | ✅ |
 | `deploy-mesas.yml` (dispatch mode=deploy) | ✅ (CDX-309E) |
 | `deploy-accounts.yml` → reconciliar ao `_deploy-module.yml` + compose versionado | ⬜ **CDX-310** |
+| Esteira beta genérica (`dev`→beta, `main`→prod, invariante `main ⊆ dev`, `env=beta\|prod`) | 🔄 **spec 005 / D041** — T3-T7 código pronto; T2 protection bloqueada por GitHub privado sem Pro; T8/T9 aguardam aprovação |
 | Rotacionar segredos vazados (tunnel token, PAT, WP creds, senha do 7z) | ⬜ 🔒 |
 
 ## Cross-cutting / qualidade
