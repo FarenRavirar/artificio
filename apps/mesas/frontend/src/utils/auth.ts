@@ -19,9 +19,13 @@ export function getMesasPublicOrigin(): string {
     ?? DEFAULT_MESAS_PUBLIC_ORIGIN;
 }
 
-export function getMesasReturnUrl(path = `${window.location.pathname}${window.location.search}${window.location.hash}`): string {
+export function getMesasReturnUrl(path?: string): string {
+  const defaultPath = typeof window !== 'undefined'
+    ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+    : '/';
+  const resolvedPath = path ?? defaultPath;
   const origin = getMesasPublicOrigin();
-  const url = new URL(path || '/', origin);
+  const url = new URL(resolvedPath || '/', origin);
   return new URL(`${url.pathname}${url.search}${url.hash}`, origin).toString();
 }
 

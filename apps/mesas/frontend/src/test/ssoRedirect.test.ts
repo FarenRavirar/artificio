@@ -27,6 +27,14 @@ describe('SSO redirect', () => {
     expect(getMesasReturnUrl('/painel?tab=mesas')).toBe('http://localhost:3000/painel?tab=mesas');
   });
 
+  it('does not read window in the default parameter before runtime guards', async () => {
+    vi.stubGlobal('window', undefined);
+
+    const { getMesasReturnUrl } = await import('../utils/auth');
+
+    expect(getMesasReturnUrl()).toBe('https://mesas.artificiorpg.com/');
+  });
+
   it('builds beta return URL from VITE_API_URL', async () => {
     vi.stubEnv('VITE_API_URL', 'https://mesasbeta.artificiorpg.com');
 
