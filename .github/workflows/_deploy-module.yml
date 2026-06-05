@@ -1,0 +1,272 @@
+name: _deploy-module
+
+on:
+  workflow_call:
+    inputs:
+      module:
+        required: true
+        type: string
+      compose_file:
+        required: true
+        type: string
+      db_service:
+        required: true
+        type: string
+      db_name:
+        required: true
+        type: string
+      db_user:
+        required: false
+        default: admin
+        type: string
+      health_containers:
+        required: true
+        type: string
+      critical_routes:
+        required: true
+        type: string
+      deploy:
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI ${{ inputs.module }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: artificio_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U admin -d artificio_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.12.1 --activate
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build module
+        run: pnpm -w turbo run build --filter=@artificio/${{ inputs.module }}*
+
+      - name: Test module
+        env:
+          DATABASE_URL: postgres://admin:admin@localhost:5432/artificio_test
+          JWT_SECRET: ci_dummy_jwt_secret_do_not_use
+          JWT_REFRESH_SECRET: ci_dummy_refresh_secret_do_not_use
+          CLOUDINARY_CLOUD_NAME: ci
+          CLOUDINARY_API_KEY: ci
+          CLOUDINARY_API_SECRET: ci
+        run: pnpm -w turbo run test --filter=@artificio/${{ inputs.module }}* --env-mode=loose
+
+  deploy:
+    name: Deploy ${{ inputs.module }}
+    needs: ci
+    if: inputs.deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    concurrency:
+      group: artificio-${{ inputs.module }}-deploy-lock
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      MODULE: ${{ inputs.module }}
+      COMPOSE_FILE: ${{ inputs.compose_file }}
+      DB_SERVICE: ${{ inputs.db_service }}
+      DB_NAME: ${{ inputs.db_name }}
+      DB_USER: ${{ inputs.db_user }}
+      HEALTH_CONTAINERS: ${{ inputs.health_containers }}
+      CRITICAL_ROUTES: ${{ inputs.critical_routes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate secrets
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_KNOWN_HOSTS DEPLOY_PORT DEPLOY_SSH_PRIVATE_KEY DEPLOY_USER; do
+            if [ -z "${!name:-}" ]; then
+              echo "$name=missing"
+              exit 1
+            fi
+            echo "$name=present"
+          done
+
+      - name: Prepare SSH
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/artificio_deploy_key
+          chmod 600 ~/.ssh/artificio_deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # Canonico G1: deploy/codigo rodam via GitHub Actions para rastreabilidade.
+      # Acesso direto na VM fica reservado a bootstrap, instalacao operacional, conexao, diagnose/rollback aprovado.
+      - name: Deploy module on VM
+        run: |
+          set -euo pipefail
+          ssh_base=(ssh -i ~/.ssh/artificio_deploy_key -p "$DEPLOY_PORT" -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST")
+
+          routes_b64=$(printf '%s' "$CRITICAL_ROUTES" | base64 -w0)
+          health_b64=$(printf '%s' "$HEALTH_CONTAINERS" | base64 -w0)
+
+          "${ssh_base[@]}" "set -euo pipefail
+            export MODULE='$MODULE'
+            export COMPOSE_FILE='$COMPOSE_FILE'
+            export DB_SERVICE='$DB_SERVICE'
+            export DB_NAME='$DB_NAME'
+            export DB_USER='$DB_USER'
+            export HEALTH_CONTAINERS_B64='$health_b64'
+            export CRITICAL_ROUTES_B64='$routes_b64'
+            export GITHUB_RUN_ID='$GITHUB_RUN_ID'
+            bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          cd /opt/artificio
+
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "ERRO: jq ausente na VM. Rode bootstrap CDX-309 Parte C para instalar prereqs antes do deploy."
+            exit 1
+          fi
+
+          if [ ! -d .git ]; then
+            echo "ERRO: /opt/artificio ainda nao e clone git. Rode CDX-309 Parte C bootstrap com aprovacao."
+            exit 1
+          fi
+
+          exec 9>"/tmp/artificio-${MODULE}-deploy.lock"
+          if ! flock -w 180 9; then
+            echo "ERRO: timeout aguardando lock de deploy $MODULE"
+            exit 1
+          fi
+
+          module_dir="apps/${MODULE}"
+          env_file="${module_dir}/.env"
+          if [ ! -f "$env_file" ]; then
+            echo "ERRO: $env_file ausente"
+            exit 1
+          fi
+
+          if [ "$MODULE" != "accounts" ] && [ -f "apps/accounts/.env" ]; then
+            accounts_jwt=$(awk -F= '$1=="JWT_SECRET"{print substr($0,index($0,"=")+1)}' apps/accounts/.env | tail -n1)
+            module_jwt=$(awk -F= '$1=="JWT_SECRET"{print substr($0,index($0,"=")+1)}' "$env_file" | tail -n1)
+            if [ -z "$accounts_jwt" ] || [ -z "$module_jwt" ] || [ "$accounts_jwt" != "$module_jwt" ]; then
+              echo "ERRO: JWT_SECRET de $MODULE diverge de accounts"
+              exit 1
+            fi
+            echo "jwt_secret_shared=true"
+          fi
+
+          git fetch origin main --tags
+          git reset --hard origin/main
+
+          cd "$module_dir"
+          snapshot_file="/tmp/artificio-${MODULE}-predeploy-${GITHUB_RUN_ID}.dump"
+
+          rollback() {
+            echo "ROLLBACK: restaurando snapshot e containers de $MODULE..."
+            if [ -f "$snapshot_file" ]; then
+              docker cp "$snapshot_file" "${DB_SERVICE}:/tmp/predeploy.dump" || true
+              docker exec "$DB_SERVICE" pg_restore -U "$DB_USER" -d "$DB_NAME" --clean --if-exists /tmp/predeploy.dump || true
+              docker exec "$DB_SERVICE" rm -f /tmp/predeploy.dump || true
+            fi
+            docker compose -f "$COMPOSE_FILE" --env-file .env up -d --force-recreate || true
+            echo "ROLLBACK: tentativa concluida; verificar manualmente."
+          }
+          trap rollback ERR
+
+          docker compose -f "$COMPOSE_FILE" --env-file .env up -d "$DB_SERVICE"
+
+          for i in $(seq 1 60); do
+            if docker compose -f "$COMPOSE_FILE" --env-file .env exec -T "$DB_SERVICE" pg_isready -U "$DB_USER" -d "$DB_NAME" >/dev/null 2>&1; then
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "ERRO: banco $DB_SERVICE nao ficou pronto"
+              exit 1
+            fi
+            sleep 2
+          done
+
+          docker exec "$DB_SERVICE" pg_dump -U "$DB_USER" -d "$DB_NAME" -Fc -f /tmp/predeploy.dump
+          docker cp "${DB_SERVICE}:/tmp/predeploy.dump" "$snapshot_file"
+          docker exec "$DB_SERVICE" rm -f /tmp/predeploy.dump
+          echo "snapshot_created=$snapshot_file"
+
+          bash ../../scripts/deploy/apply_required_migrations.sh "$COMPOSE_FILE" "$DB_SERVICE" "$DB_NAME" "$DB_USER" "database"
+
+          docker compose -f "$COMPOSE_FILE" --env-file .env down --remove-orphans
+          docker compose -f "$COMPOSE_FILE" --env-file .env build --no-cache --pull
+          docker compose -f "$COMPOSE_FILE" --env-file .env up -d --force-recreate
+
+          HEALTH_CONTAINERS=$(printf '%s' "$HEALTH_CONTAINERS_B64" | base64 -d)
+          while IFS= read -r container; do
+            [ -z "$container" ] && continue
+            for i in $(seq 1 60); do
+              status=$(docker inspect --format '{{.State.Health.Status}}' "$container" 2>/dev/null || echo missing)
+              if [ "$status" = "healthy" ]; then
+                echo "healthy_${container}=true"
+                break
+              fi
+              if [ "$i" -eq 60 ]; then
+                echo "ERRO: $container nao ficou healthy"
+                docker logs "$container" --tail=120 || true
+                exit 1
+              fi
+              sleep 3
+            done
+          done < <(printf '%s' "$HEALTH_CONTAINERS" | jq -r '.[]')
+
+          CRITICAL_ROUTES=$(printf '%s' "$CRITICAL_ROUTES_B64" | base64 -d)
+          while IFS= read -r route; do
+            name=$(echo "$route" | jq -r '.name')
+            url=$(echo "$route" | jq -r '.url')
+            expected=$(echo "$route" | jq -r '.expected')
+            contains=$(echo "$route" | jq -r '.location_contains // empty')
+            headers="/tmp/${MODULE}-${name}.headers"
+            code=$(curl -sS -D "$headers" -o /dev/null -w '%{http_code}' "$url" || echo 000)
+            echo "smoke_${name}=$code"
+            if [ "$code" != "$expected" ]; then
+              echo "ERRO: smoke $name esperava $expected recebeu $code"
+              exit 1
+            fi
+            if [ -n "$contains" ] && ! grep -qi "location: .*${contains}" "$headers"; then
+              echo "ERRO: smoke $name location sem $contains"
+              exit 1
+            fi
+          done < <(printf '%s' "$CRITICAL_ROUTES" | jq -c '.[]')
+
+          rm -f "$snapshot_file"
+          trap - ERR
+          docker image prune -f
+          docker builder prune -f --filter "until=168h"
+          docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | sed -n '1,40p'
+          REMOTE

@@ -1,0 +1,75 @@
+name: _enforce-migration-dir
+
+# Reusável: bloqueia PR que adiciona/altera .sql fora de apps/<modulo>/database/.
+# Mantém migrations rastreáveis e dentro do contrato de módulo (D039 / contrato de módulo G1).
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  enforce:
+    name: Enforce migration dir
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate changed SQL paths
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+
+          allowlist_file=".github/migration-dir-allowlist"
+          if [ ! -f "$allowlist_file" ]; then
+            echo "ERRO: $allowlist_file ausente"
+            exit 1
+          fi
+
+          # Padrões permitidos (ignora comentários/linhas vazias), glob '*' -> regex
+          mapfile -t patterns < <(grep -vE '^[[:space:]]*(#|$)' "$allowlist_file")
+          if [ "${#patterns[@]}" -eq 0 ]; then
+            echo "ERRO: allowlist vazia"
+            exit 1
+          fi
+
+          git fetch origin "$BASE_REF" --depth=1
+          base_sha=$(git rev-parse "origin/${BASE_REF}")
+
+          # Apenas arquivos .sql adicionados (A) ou modificados (M)
+          mapfile -t changed_sql < <(git diff --name-only --diff-filter=AM "${base_sha}...HEAD" -- '*.sql')
+
+          if [ "${#changed_sql[@]}" -eq 0 ]; then
+            echo "Sem .sql adicionado/alterado. OK."
+            exit 0
+          fi
+
+          fail=0
+          for f in "${changed_sql[@]}"; do
+            [ -z "$f" ] && continue
+            ok=0
+            for p in "${patterns[@]}"; do
+              # transforma prefixo glob (apps/*/database/) em regex ancorada
+              regex="^$(printf '%s' "$p" | sed -e 's/[.[\(){}+?^$|]/\\&/g' -e 's/\*/[^/]*/g')"
+              if printf '%s' "$f" | grep -qE "$regex"; then
+                ok=1
+                break
+              fi
+            done
+            if [ "$ok" -eq 1 ]; then
+              echo "permitido: $f"
+            else
+              echo "::error file=$f::migration fora de apps/<modulo>/database/ (allowlist)"
+              fail=1
+            fi
+          done
+
+          if [ "$fail" -ne 0 ]; then
+            echo "BLOCKED: mova as migrations para apps/<modulo>/database/."
+            exit 1
+          fi
+          echo "Todas as migrations dentro do contrato. OK."

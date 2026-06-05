@@ -1,0 +1,5 @@
+# Allowlist de diretórios de migration (G1).
+# Migrations SQL só podem viver em apps/<modulo>/database/.
+# Qualquer .sql adicionado/alterado fora daqui bloqueia o PR (_enforce-migration-dir.yml).
+# Uma regra por linha (prefixo de caminho relativo à raiz do repo).
+apps/*/database/

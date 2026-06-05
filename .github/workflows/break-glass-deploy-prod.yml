@@ -1,0 +1,56 @@
+name: break-glass-deploy-prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: "Modulo a deployar em emergencia"
+        required: true
+        type: choice
+        options:
+          - mesas
+      confirm:
+        description: "Digite BREAK_GLASS para confirmar emergencia"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: break-glass-${{ inputs.module }}-deploy-lock
+  cancel-in-progress: false
+
+# Uso restrito: emergencia operacional. Caminho canonico = deploy-<modulo>.yml.
+# Ainda assim usa GitHub Actions para rastreabilidade; nao usar SSH manual para deploy normal.
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.confirm }}" != "BREAK_GLASS" ]; then
+            echo "ERRO: confirm precisa ser BREAK_GLASS"
+            exit 1
+          fi
+
+  mesas:
+    needs: guard
+    if: inputs.module == 'mesas'
+    uses: ./.github/workflows/_deploy-module.yml
+    with:
+      module: mesas
+      compose_file: docker-compose.prod.yml
+      db_service: mesas-db
+      db_name: mesas_rpg
+      db_user: admin
+      deploy: true
+      health_containers: '["mesas-api","mesas-app"]'
+      critical_routes: >-
+        [
+          {"name":"home","url":"https://mesas.artificiorpg.com/","expected":"200"},
+          {"name":"private_no_cookie","url":"https://mesas.artificiorpg.com/api/v1/me/options","expected":"401"},
+          {"name":"auth_redirect","url":"https://mesas.artificiorpg.com/api/v1/auth/google","expected":"302","location_contains":"accounts.artificiorpg.com/login"}
+        ]
+    secrets: inherit

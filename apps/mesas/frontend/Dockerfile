@@ -6,7 +6,8 @@
 # Estágio 1: build Vite
 FROM node:25.9.0-alpine AS builder
 
-WORKDIR /app
+WORKDIR /repo
+RUN npm install -g pnpm@10.12.1
 
 ARG VITE_ENABLE_DEVTOOLS=false
 ENV VITE_ENABLE_DEVTOOLS=${VITE_ENABLE_DEVTOOLS}
@@ -20,13 +21,15 @@ ENV VITE_CLOUDINARY_CLOUD_NAME=${VITE_CLOUDINARY_CLOUD_NAME}
 ARG VITE_CLOUDINARY_UPLOAD_PRESET
 ENV VITE_CLOUDINARY_UPLOAD_PRESET=${VITE_CLOUDINARY_UPLOAD_PRESET}
 
-COPY package*.json ./
-RUN npm install -g npm@11.13.0
-RUN npm ci
+ARG VITE_ACCOUNTS_URL
+ENV VITE_ACCOUNTS_URL=${VITE_ACCOUNTS_URL}
 
-COPY . .
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/mesas ./apps/mesas
 
-RUN npm run build
+RUN pnpm install --frozen-lockfile
+RUN pnpm -w turbo run build --filter=@artificio/mesas-frontend
 
 # =============================================================================
 # Estágio 2: Nginx servindo o build estático
@@ -36,10 +39,10 @@ FROM nginx:alpine AS production
 RUN rm /etc/nginx/conf.d/default.conf
 
 # Copiar config customizada (proxy para a API com substituição de ENV)
-COPY nginx.conf /etc/nginx/templates/default.conf.template
+COPY apps/mesas/frontend/nginx.conf /etc/nginx/templates/default.conf.template
 
 # Copiar build do Vite
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /repo/apps/mesas/frontend/dist /usr/share/nginx/html
 
 EXPOSE 80
 

@@ -10,7 +10,7 @@ Cada módulo no **próprio subdomínio**, root `/` próprio, **sem basename/gate
 `glossariorpg.` (glossário, fica) · `mesas.` · `downloads.` · `esferas.` (Spheres of Power, multi-sistema) · `srd.` · `links.` · `beta.artificiorpg.com` (blog/site novo, BETA — único que valida; → raiz `artificiorpg.com` no futuro, D016) · `accounts.` (SSO central, D018). WP fica na **raiz** `artificiorpg.com` agora (intocável). Une tudo: **cookie `.artificiorpg.com` + nav + design system**. Cloudflare Tunnel mapeia hostname→container. Blog na raiz = aposta de SEO (D019). Não hardcodar credencial/host fora de env.
 
 ## Onde estamos
-Ver `.specify/memory/project-state.md`. Hoje: **Fase 2 — Gate B aprovado (D037)**. `accounts.artificiorpg.com` no ar. CDX-307 design system real em mudanças locais. CDX-308 ativo: `apps/mesas` importado e integrado localmente ao SSO/UI (CDX-308A+B); próximo é CDX-308C deploy/smoke browser real em `mesas.artificiorpg.com` com aprovação para fechar Gate D.
+Ver `.specify/memory/project-state.md`. Hoje: **Fase 2 — Gate B aprovado (D037)**. `accounts.artificiorpg.com` no ar. CDX-307 design system real em mudanças locais. CDX-308A+B concluídos; CDX-308C deploy técnico do `mesas` concluído na VM (`mesas-api/app/cron` healthy; smoke 200/200/401; login legado redireciona para `accounts.`). Falta E2E browser real Google/logout + allowlist prod para Opus validar Gate D mesas.
 
 ## Reload (Tier 0 — só estes 3)
 `project-state.md` + este capsule + `decisions.md`. Resto sob demanda. Caveman default. Disciplina: `docs/agents/token-economy.md`.
@@ -23,7 +23,8 @@ Ver `.specify/memory/project-state.md`. Hoje: **Fase 2 — Gate B aprovado (D037
 4. **Isolamento de módulo:** não tocar outro `apps/*` ou `packages/*` fora do escopo sem aprovação.
 5. **Auth é sagrado:** nunca quebrar a sessão SSO compartilhada.
 6. **SEO inegociável:** preservar slugs e 301; sem regressão.
-7. Comunicação em PT. Segredos nunca versionados. HTML do WP é hostil (sanitizar).
+7. **Deploy/código via GitHub Actions.** VM manual só bootstrap/conexão/instalação operacional/diagnóstico/rollback aprovado; deploy normal usa branch/PR/workflow/secrets.
+8. Comunicação em PT. Segredos nunca versionados. HTML do WP é hostil (sanitizar).
 
 ## Stack canônica
 Front: React19/Vite/TS/Tailwind/React Router/TanStack Query.

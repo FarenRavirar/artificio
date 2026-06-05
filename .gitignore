@@ -24,6 +24,11 @@ secrets*.txt
 backup/
 artificiobackup/
 
+# Artefatos de deploy descartáveis (modelo tarball antigo — deploy canônico = git-pull, D039)
+*.tgz
+*.tar.gz
+artificio-mesas-*.tgz
+
 # Logs / temporários
 logs/
 *.log
