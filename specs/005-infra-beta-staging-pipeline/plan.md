@@ -4,15 +4,15 @@
 
 ### Modelo de branch (divergência-proof, D041)
 ```
-feat/*  --PR-->  dev  --PR(standing)-->  main
+feat/*  --PR-->  dev  --fast-forward/rebase-->  main
                   |                        |
             auto-deploy beta         dispatch/auto deploy prod
             /opt/artificio-beta      /opt/artificio
             <modulo>beta.artificio   <modulo>.artificio
 ```
-- `dev` protegida (CI obrigatório); `main` protegida (sem push direto; só merge `dev→main`).
+- `dev` protegida (CI obrigatório); `main` protegida (sem push direto; só fast-forward/rebase `dev→main`).
 - Invariante `main ⊆ dev` garantida por: (a) proibir push em main, (b) gate no deploy prod que checa `git merge-base --is-ancestor origin/main origin/dev`.
-- Promoção 1-clique: action mantém PR `dev→main` aberto e atualizado (cria se não existe). Merge dele = promover.
+- Promoção 1-clique: action mantém PR `dev→main` aberto e atualizado para revisão. Promover só por workflow `promote-prod-fast-forward.yml` (preferido) ou "Rebase and merge"; **nunca** squash/merge commit, pois isso cria commit em `main` que não existe em `dev` e quebra `main ⊆ dev`.
 
 ### Parametrização `env` no `_deploy-module.yml`
 Novo input `env` (`beta`|`prod`, default `prod`). Deriva (sem duplicar script):
@@ -45,6 +45,7 @@ Religar `apps/mesas/backend` rota admin `/sync/hydrate` (portada do legado `admi
   - `.github/workflows/_deploy-module.yml` — input `env` + parametrização ref/dir/env_file/compose/rotas; REMOTE usa vars.
   - `.github/workflows/deploy-mesas.yml` — add trigger `push: dev` (path-filtered) chamando reusável com `env=beta`; mantém prod em `main`/dispatch.
   - `.github/workflows/promote-dev-to-main.yml` (novo) — mantém PR standing `dev→main` atualizado.
+  - `.github/workflows/promote-prod-fast-forward.yml` (novo) — promove `dev` para `main` por fast-forward após confirmação explícita.
   - `.github/workflows/_guard-main-ancestor.yml` ou step no deploy prod — gate invariante.
   - branch protection `main` e `dev` (config via GitHub, ação Codex/mantenedor).
 - **apps/mesas:**
