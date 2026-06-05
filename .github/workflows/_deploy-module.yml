@@ -137,17 +137,10 @@ jobs:
 
           routes_b64=$(printf '%s' "$CRITICAL_ROUTES" | base64 -w0)
           health_b64=$(printf '%s' "$HEALTH_CONTAINERS" | base64 -w0)
+          remote_script="/tmp/artificio-${MODULE}-deploy-${GITHUB_RUN_ID}.sh"
+          local_script=$(mktemp)
 
-          "${ssh_base[@]}" "set -euo pipefail
-            export MODULE='$MODULE'
-            export COMPOSE_FILE='$COMPOSE_FILE'
-            export DB_SERVICE='$DB_SERVICE'
-            export DB_NAME='$DB_NAME'
-            export DB_USER='$DB_USER'
-            export HEALTH_CONTAINERS_B64='$health_b64'
-            export CRITICAL_ROUTES_B64='$routes_b64'
-            export GITHUB_RUN_ID='$GITHUB_RUN_ID'
-            bash -s" <<'REMOTE'
+          cat > "$local_script" <<'REMOTE'
           set -euo pipefail
 
           cd /opt/artificio
@@ -276,3 +269,20 @@ jobs:
           docker builder prune -f --filter "until=168h"
           docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | sed -n '1,40p'
           REMOTE
+
+          scp -i ~/.ssh/artificio_deploy_key -P "$DEPLOY_PORT" -o BatchMode=yes "$local_script" "$DEPLOY_USER@$DEPLOY_HOST:$remote_script"
+          rm -f "$local_script"
+
+          "${ssh_base[@]}" "set -euo pipefail
+            chmod 700 '$remote_script'
+            cleanup() { rm -f '$remote_script'; }
+            trap cleanup EXIT
+            export MODULE='$MODULE'
+            export COMPOSE_FILE='$COMPOSE_FILE'
+            export DB_SERVICE='$DB_SERVICE'
+            export DB_NAME='$DB_NAME'
+            export DB_USER='$DB_USER'
+            export HEALTH_CONTAINERS_B64='$health_b64'
+            export CRITICAL_ROUTES_B64='$routes_b64'
+            export GITHUB_RUN_ID='$GITHUB_RUN_ID'
+            bash '$remote_script'"
