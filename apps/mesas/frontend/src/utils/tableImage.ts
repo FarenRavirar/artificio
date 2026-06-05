@@ -1,9 +1,9 @@
 import type { SyntheticEvent } from 'react';
 import bannerPlaceholder from '../assets/banner_placeholder.webp';
+import { safeImageSrc } from './imageSource';
 
 export function resolveTableImageSource(src?: string | null): string {
-  const trimmed = typeof src === 'string' ? src.trim() : '';
-  return trimmed || bannerPlaceholder;
+  return safeImageSrc(src, bannerPlaceholder);
 }
 
 export function applyTableImageFallback(event: SyntheticEvent<HTMLImageElement>): void {

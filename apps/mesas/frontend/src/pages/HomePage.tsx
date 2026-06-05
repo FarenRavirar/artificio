@@ -28,7 +28,7 @@ export const HomePage = () => {
       'Artifício Mesas | Descubra sua próxima aventura',
       'Catálogo colaborativo para descobrir e publicar mesas de RPG online e presenciais com filtros avançados.'
     );
-    track('hero_view');
+    track('hero_view', { page: 'home' });
   }, []);
 
   // Detecção de drop-off
