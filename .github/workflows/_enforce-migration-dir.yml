@@ -30,12 +30,34 @@ jobs:
             exit 1
           fi
 
-          # Padrões permitidos (ignora comentários/linhas vazias), glob '*' -> regex
+          # Padroes permitidos (ignora comentarios/linhas vazias), glob bash nativo.
           mapfile -t patterns < <(grep -vE '^[[:space:]]*(#|$)' "$allowlist_file")
           if [ "${#patterns[@]}" -eq 0 ]; then
             echo "ERRO: allowlist vazia"
             exit 1
           fi
+
+          is_allowed_sql_path() {
+            local path="$1"
+            local pattern=""
+            for pattern in "${patterns[@]}"; do
+              # shellcheck disable=SC2053  # pattern contem glob intencional.
+              if [[ "$path" == ${pattern}* ]]; then
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          if ! is_allowed_sql_path "apps/mesas/database/migration_999_selftest.sql"; then
+            echo "::error::self-test allowlist falhou para path permitido"
+            exit 1
+          fi
+          if is_allowed_sql_path "database/migration_999_selftest.sql"; then
+            echo "::error::self-test allowlist permitiu path proibido"
+            exit 1
+          fi
+          echo "Self-test allowlist: permitido/bloqueado OK."
 
           git fetch origin "$BASE_REF" --depth=1
           base_sha=$(git rev-parse "origin/${BASE_REF}")
@@ -52,14 +74,9 @@ jobs:
           for f in "${changed_sql[@]}"; do
             [ -z "$f" ] && continue
             ok=0
-            for p in "${patterns[@]}"; do
-              # transforma prefixo glob (apps/*/database/) em regex ancorada
-              regex="^$(printf '%s' "$p" | sed -e 's/[.[\(){}+?^$|]/\\&/g' -e 's/\*/[^/]*/g')"
-              if printf '%s' "$f" | grep -qE "$regex"; then
-                ok=1
-                break
-              fi
-            done
+            if is_allowed_sql_path "$f"; then
+              ok=1
+            fi
             if [ "$ok" -eq 1 ]; then
               echo "permitido: $f"
             else

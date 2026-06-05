@@ -15,6 +15,7 @@ MIGRATIONS_DIR="${5:-${MIGRATIONS_DIR:-./apps/mesas/database}}"
 LOCK_TIMEOUT_MS="${LOCK_TIMEOUT_MS:-30000}"
 STATEMENT_TIMEOUT_MS="${STATEMENT_TIMEOUT_MS:-600000}"
 MAX_AUTO_PENDING="${MAX_AUTO_PENDING:-5}"
+MIGRATION_LOCK_ID="${MIGRATION_LOCK_ID:-918273645}"
 ALLOW_MANUAL_MIGRATIONS="${ALLOW_MANUAL_MIGRATIONS:-false}"
 REQUIRE_PROD_BACKUP_FOR_MANUAL="${REQUIRE_PROD_BACKUP_FOR_MANUAL:-true}"
 PROD_BACKUP_FILE="${PROD_BACKUP_FILE:-}"
@@ -47,10 +48,18 @@ load_header_vars() {
   fi
 }
 
+if ! [[ "$MIGRATION_LOCK_ID" =~ ^-?[0-9]+$ ]]; then
+  echo "::error::MIGRATION_LOCK_ID precisa ser numerico."
+  exit 1
+fi
+
 if [ ! -d "$MIGRATIONS_DIR" ]; then
   echo "[migrations] diretorio ausente: $MIGRATIONS_DIR; nada a aplicar."
   exit 0
 fi
+
+acquire_migration_lock "$DB_SERVICE" "$DB_NAME"
+trap 'release_migration_lock' EXIT
 
 echo "[migrations] garantindo schema_migrations em $DB_NAME..."
 # shellcheck disable=SC2046
@@ -62,9 +71,6 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
   applied_by TEXT
 );
 SQL
-
-acquire_lock "$COMPOSE_FILE" "$DB_SERVICE" "$DB_USER" "$DB_NAME" "$PG_OPTS"
-trap 'release_lock "$COMPOSE_FILE" "$DB_SERVICE" "$DB_USER" "$DB_NAME" "$PG_OPTS"' EXIT
 
 PENDING=()
 if ! PENDING_OUTPUT=$(list_pending_by_set_diff "$COMPOSE_FILE" "$DB_SERVICE" "$DB_USER" "$DB_NAME" "$MIGRATIONS_DIR"); then
@@ -114,6 +120,7 @@ for file in "${PENDING[@]}"; do
   docker compose $(compose_project_flag) -f "$COMPOSE_FILE" exec -T -e PGOPTIONS="$PG_OPTS" "$DB_SERVICE" \
     psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" <<SQL
 BEGIN;
+SELECT pg_advisory_xact_lock($MIGRATION_LOCK_ID);
 $(cat "$path")
 INSERT INTO schema_migrations (migration_name, applied_by) VALUES ('$file', 'ci:$(whoami)@$(hostname)');
 COMMIT;

@@ -38,6 +38,11 @@ O que Codex fez:
   - JWT lido por `grep/cut`;
   - SQL destrutivo bloqueado mesmo em comentario multi-linha;
   - loops health/smoke sem pipe-subshell.
+- CDX-309C corrigiu:
+  - `_enforce-migration-dir.yml` sem `sed`, usando glob bash nativo e self-test;
+  - migrations com `flock` interno autoritativo do antes-de-listar ate fim;
+  - `pg_advisory_xact_lock` por migration dentro da transaction;
+  - self-test concorrente `scripts/deploy/test_migration_lock.sh` rodando no `_lint-shell.yml`.
 
 Checks verdes no PR:
 - ShellCheck success.
@@ -51,7 +56,7 @@ Pedir revisao:
 2. Decidir se `deploy-mesas.yml` deve manter `_lint-shell.yml` como gate proprio ou confiar so em `pr-checks.yml`.
 3. Revisar se `pr-checks.yml` e `deploy-mesas.yml` duplicam paths/triggers de modo aceitavel.
 4. Revisar `_deploy-module.yml` para riscos de quoting, command injection, rollback, `git reset --hard`, health/smoke e secrets.
-5. Revisar scripts migration: headers, drift, lock, transacao, bloqueio destrutivo, manual-risk, `schema_migrations`.
+5. Revisar scripts migration: headers, drift, `flock`, `pg_advisory_xact_lock`, transacao, bloqueio destrutivo, manual-risk, `schema_migrations`.
 6. Definir CDX-310: reconciliar `deploy-accounts.yml` para o modelo `_deploy-module.yml` ou manter excecao documentada.
 7. Revisar docs e apontar onde condensar:
    - `AGENTS.md` deve ficar regra petrea curta;

@@ -21,6 +21,9 @@ jobs:
         with:
           scandir: ./scripts
 
+      - name: Migration lock self-test
+        run: bash scripts/deploy/test_migration_lock.sh
+
   actionlint:
     name: actionlint
     runs-on: ubuntu-latest

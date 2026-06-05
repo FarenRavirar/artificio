@@ -21,7 +21,7 @@ Nao usar `scp`, tarball, bundle local ou `docker compose up/down` manual como ca
 2. Abrir PR para `main`.
 3. GitHub roda `pr-checks.yml`:
    - `_lint-shell.yml` = ShellCheck + actionlint.
-   - `_enforce-migration-dir.yml` = migrations SQL so em `apps/<modulo>/database/`.
+   - `_enforce-migration-dir.yml` = migrations SQL so em `apps/<modulo>/database/`, com self-test permitido/bloqueado.
 4. Workflow do modulo roda CI em PR. Exemplo: `deploy-mesas.yml` chama `_deploy-module.yml` com `deploy=false`.
 5. Merge para `main` so apos revisao/aprovacao.
 6. Deploy real so por `workflow_dispatch mode=deploy` no workflow do modulo.
@@ -54,7 +54,8 @@ Regras:
 - `online-safe` bloqueia `DROP`, `TRUNCATE`, `DELETE FROM`;
 - sem `eval`;
 - `schema_migrations` registra aplicado;
-- `pg_advisory_lock` evita concorrencia;
+- `flock` interno do script segura a execucao inteira antes de listar pendentes ate aplicar tudo;
+- `pg_advisory_xact_lock` roda dentro de cada transaction de migration;
 - manual-risk exige `ALLOW_MANUAL_MIGRATIONS=true` e backup quando configurado.
 
 ## Bootstrap VM — Parte C
@@ -84,5 +85,6 @@ Checks esperados:
 - `lint-shell / ShellCheck` = success;
 - `lint-shell / actionlint` = success;
 - `enforce-migration-dir / Enforce migration dir` = success;
+- `Migration lock self-test` dentro do ShellCheck job = success;
 - `mesas / CI mesas` = success;
 - `mesas / Deploy ...` = skipped em PR.

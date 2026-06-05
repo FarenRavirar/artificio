@@ -116,50 +116,40 @@ list_pending_by_set_diff() {
   fi
 }
 
-acquire_lock() {
-  local compose_file="$1"
-  local db_service="$2"
-  local db_user="$3"
-  local db_name="$4"
-  local pg_opts="$5"
-  local lock_id="${MIGRATION_LOCK_ID:-918273645}"
-  local retry=0
-  local max_retries="${MIGRATION_LOCK_RETRIES:-60}"
+_migration_lock_file() {
+  local db_service="$1"
+  local db_name="$2"
+  local scope=""
 
-  echo "[migrations] tentando pg_advisory_lock..."
-  while [ "$retry" -lt "$max_retries" ]; do
-    local locked
-    # shellcheck disable=SC2046
-    locked=$(docker compose $(compose_project_flag) -f "$compose_file" exec -T -e PGOPTIONS="$pg_opts" "$db_service" \
-      psql -U "$db_user" -d "$db_name" -tAc "SELECT pg_try_advisory_lock($lock_id);" < /dev/null 2>/dev/null || echo "f")
+  if [ -n "${MIGRATION_FLOCK_FILE:-}" ]; then
+    printf '%s\n' "$MIGRATION_FLOCK_FILE"
+    return 0
+  fi
 
-    if [ "$locked" = "t" ]; then
-      echo "[migrations] pg_advisory_lock adquirido."
-      return 0
-    fi
-
-    if [ "$retry" -eq 30 ]; then
-      echo "[migrations] warning: lock >30s."
-    fi
-    retry=$((retry + 1))
-    sleep 1
-  done
-
-  echo "::error::pg_advisory_lock falhou apos timeout."
-  return 1
+  scope="${COMPOSE_PROJECT:-default}-${db_service}-${db_name}"
+  scope=$(printf '%s' "$scope" | tr -c 'A-Za-z0-9_.-' '_')
+  printf '/tmp/artificio-migrations-%s.lock\n' "$scope"
 }
 
-release_lock() {
-  local compose_file="$1"
-  local db_service="$2"
-  local db_user="$3"
-  local db_name="$4"
-  local pg_opts="$5"
-  local lock_id="${MIGRATION_LOCK_ID:-918273645}"
+acquire_migration_lock() {
+  local db_service="$1"
+  local db_name="$2"
+  local lock_file=""
+  local timeout="${MIGRATION_FLOCK_TIMEOUT:-180}"
 
-  echo "[migrations] liberando pg_advisory_lock..."
-  # shellcheck disable=SC2046
-  docker compose $(compose_project_flag) -f "$compose_file" exec -T -e PGOPTIONS="$pg_opts" "$db_service" \
-    psql -U "$db_user" -d "$db_name" -tAc "SELECT pg_advisory_unlock($lock_id);" \
-    < /dev/null >/dev/null 2>&1 || true
+  lock_file=$(_migration_lock_file "$db_service" "$db_name")
+  mkdir -p "$(dirname "$lock_file")"
+
+  exec 8>"$lock_file"
+  echo "[migrations] tentando flock: $lock_file"
+  if ! flock -w "$timeout" 8; then
+    echo "::error::flock de migrations falhou apos ${timeout}s: $lock_file"
+    return 1
+  fi
+  echo "[migrations] flock adquirido."
+}
+
+release_migration_lock() {
+  flock -u 8 2>/dev/null || true
+  echo "[migrations] flock liberado."
 }
