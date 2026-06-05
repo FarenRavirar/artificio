@@ -1,0 +1,78 @@
+---
+import Base from "../../layouts/Base.astro";
+import Card from "../../components/Card.astro";
+import { posts, getPost, related } from "../../lib/content";
+
+export function getStaticPaths() {
+  return posts.map((p) => ({ params: { slug: p.slug } }));
+}
+
+const { slug } = Astro.params;
+const post = getPost(slug as string);
+if (!post) return Astro.redirect("/404");
+
+const cat = post.cats[0];
+const rel = related(post);
+// canonical = URL final no domínio raiz (D047/D019); preserva /blog/<slug>/ no cutover.
+const canonical = `https://artificiorpg.com/blog/${post.slug}/`;
+const jsonld = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: post.title,
+  datePublished: post.date,
+  image: post.image || undefined,
+  author: { "@type": "Organization", name: "Artifício RPG" },
+  publisher: { "@type": "Organization", name: "Artifício RPG" },
+  mainEntityOfPage: canonical,
+};
+---
+<Base
+  title={`${post.title} — Artifício RPG`}
+  description={post.seo.description}
+  canonical={canonical}
+  ogType="article"
+  image={post.image}
+  jsonld={jsonld}
+>
+  <main class="article-wrap">
+    <nav class="breadcrumb" aria-label="Trilha">
+      <a href="/">Início</a> <span>/</span> <a href="/blog/">Blog</a>
+      {cat && (<><span>/</span> <a href={`/?cat=${cat.slug}`}>{cat.name}</a></>)}
+    </nav>
+    <article class="article" data-pagefind-body>
+      <header class="article-head">
+        {cat && <a class="chip" href={`/?cat=${cat.slug}`}>{cat.name}</a>}
+        <h1>{post.title}</h1>
+        <div class="article-meta">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+          <span>{post.readingTime} min de leitura</span><span class="dot">·</span><span>{post.dateFmt}</span>
+        </div>
+      </header>
+      {post.image && (
+        <figure class="article-cover"><img src={post.image} alt="" width="1200" height="630" /></figure>
+      )}
+      <div class="article-body prose" set:html={post.contentHtml} />
+      {post.tags.length > 0 && (
+        <div class="tags">
+          {post.tags.map((t) => <a class="tag" href={`/?tag=${t.slug}`}>#{t.name}</a>)}
+        </div>
+      )}
+    </article>
+    {post.toc.length > 0 && (
+      <aside class="toc-rail">
+        <nav class="toc" aria-label="Conteúdo">
+          <span class="toc-title">Neste artigo</span>
+          <ul>
+            {post.toc.map((t) => (
+              <li class={`toc-l${t.level}`}><a href={`#${t.id}`}>{t.text}</a></li>
+            ))}
+          </ul>
+        </nav>
+      </aside>
+    )}
+  </main>
+  <section class="related container">
+    <div class="section-head"><h2>Leia também</h2></div>
+    <div class="grid">{rel.map((r) => <Card post={r} />)}</div>
+  </section>
+</Base>

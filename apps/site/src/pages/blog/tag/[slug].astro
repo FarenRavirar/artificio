@@ -1,0 +1,31 @@
+---
+import Base from "../../../layouts/Base.astro";
+import Card from "../../../components/Card.astro";
+import { allTags, postsByTag, tagName } from "../../../lib/content";
+
+export function getStaticPaths() {
+  return allTags().map((t) => ({ params: { slug: t.slug } }));
+}
+
+const { slug } = Astro.params;
+const list = postsByTag(slug as string);
+const name = tagName(slug as string);
+const canonical = `https://artificiorpg.com/blog/tag/${slug}/`;
+---
+<Base
+  title={`#${name} — Blog Artifício RPG`}
+  canonical={canonical}
+  description={`Artigos marcados com #${name}.`}
+>
+  <main class="container">
+    <nav class="breadcrumb" aria-label="Trilha">
+      <a href="/">Início</a> <span>/</span> <a href="/blog/">Blog</a> <span>/</span> <span>#{name}</span>
+    </nav>
+    <header class="archive-head">
+      <span class="kicker">Tag</span>
+      <h1>#{name}</h1>
+      <p class="archive-count">{list.length} artigo{list.length === 1 ? "" : "s"}</p>
+    </header>
+    <section class="grid">{list.map((p) => <Card post={p} />)}</section>
+  </main>
+</Base>

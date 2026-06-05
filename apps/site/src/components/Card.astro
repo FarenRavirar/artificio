@@ -1,0 +1,22 @@
+---
+import type { Post } from "../lib/content";
+interface Props {
+  post: Post;
+  big?: boolean;
+}
+const { post, big = false } = Astro.props;
+const cat = post.cats[0];
+---
+<a class={`card${big ? " card-big" : ""}`} href={`/blog/${post.slug}/`}>
+  {post.image && (
+    <div class="card-media"><img src={post.image} alt="" loading="lazy" /></div>
+  )}
+  <div class="card-body">
+    {cat && <span class="chip">{cat.name}</span>}
+    <h3 class="card-title">{post.title}</h3>
+    {big && <p class="card-excerpt">{post.excerpt}</p>}
+    <div class="card-meta">
+      <span>{post.dateFmt}</span><span class="dot">·</span><span>{post.readingTime} min</span>
+    </div>
+  </div>
+</a>

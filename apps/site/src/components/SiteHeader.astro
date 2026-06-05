@@ -1,0 +1,40 @@
+---
+// Etapa 1: header .astro reusando o CSS do design system (@artificio/ui/styles.css) + marca real.
+// Etapa 2: trocar por <Header client:load /> (React island) p/ session/dropdown/menu mobile.
+import { logos, SECTIONS } from "../lib/content";
+interface Props {
+  currentHref?: string;
+}
+const { currentHref } = Astro.props;
+const ACCOUNTS = "https://accounts.artificiorpg.com";
+---
+<header class="artificio-header" data-sticky="true">
+  <div class="artificio-header-main">
+    <a class="artificio-brand" href="/">
+      <img class="artificio-brand-logo logo-navy" src={logos.logoNavy} alt="Artifício RPG" width="300" height="100" />
+      <img class="artificio-brand-logo logo-neg" src={logos.logoNeg} alt="Artifício RPG" width="300" height="100" />
+    </a>
+    <nav aria-label="Seções">
+      <ul class="artificio-nav-list">
+        {SECTIONS.map((s) => (
+          <li>
+            <a
+              class="artificio-nav-link"
+              href={s.href}
+              aria-current={currentHref === s.href ? "page" : undefined}
+            >{s.label}</a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+    <div class="artificio-header-actions">
+      <button class="artificio-header-action" id="search-toggle" aria-label="Buscar" title="Busca = Pagefind (Etapa 2)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+      </button>
+      <button class="artificio-header-action" id="theme-toggle" aria-label="Alternar tema">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path></svg>
+      </button>
+      <a class="artificio-login-button" href={`${ACCOUNTS}/login`}>Entrar</a>
+    </div>
+  </div>
+</header>

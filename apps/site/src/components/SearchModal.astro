@@ -1,0 +1,89 @@
+---
+// Busca estática Pagefind. Os assets /pagefind/* são gerados no postbuild (pagefind --site dist),
+// então a busca funciona no build/preview (não no `astro dev`). Lazy-load no 1º open.
+---
+<div id="search-modal" class="search-modal" hidden>
+  <div class="search-backdrop" data-close></div>
+  <div class="search-panel" role="dialog" aria-modal="true" aria-label="Buscar no blog">
+    <button class="search-close" data-close aria-label="Fechar busca">✕</button>
+    <div id="pagefind-search"></div>
+  </div>
+</div>
+
+<script is:inline>
+  (function () {
+    var modal = document.getElementById("search-modal");
+    var toggle = document.getElementById("search-toggle");
+    if (!modal || !toggle) return;
+    var inited = false;
+
+    function loadCss(href) {
+      var l = document.createElement("link");
+      l.rel = "stylesheet";
+      l.href = href;
+      document.head.appendChild(l);
+    }
+    function loadScript(src) {
+      return new Promise(function (res, rej) {
+        var s = document.createElement("script");
+        s.src = src;
+        s.onload = res;
+        s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    async function ensureUI() {
+      if (inited) return;
+      inited = true;
+      loadCss("/pagefind/pagefind-ui.css");
+      try {
+        await loadScript("/pagefind/pagefind-ui.js");
+        // eslint-disable-next-line no-undef
+        new PagefindUI({
+          element: "#pagefind-search",
+          showImages: false,
+          showSubResults: true,
+          translations: {
+            placeholder: "Buscar artigos…",
+            clear_search: "Limpar",
+            load_more: "Carregar mais resultados",
+            search_label: "Buscar no blog",
+            zero_results: "Nada encontrado para [SEARCH_TERM]",
+            many_results: "[COUNT] resultados para [SEARCH_TERM]",
+            one_result: "[COUNT] resultado para [SEARCH_TERM]",
+          },
+        });
+      } catch (e) {
+        document.getElementById("pagefind-search").innerHTML =
+          '<p style="color:var(--muted)">Busca disponível no site publicado (índice Pagefind gerado no build).</p>';
+      }
+    }
+    function open() {
+      modal.hidden = false;
+      document.body.style.overflow = "hidden";
+      ensureUI();
+      setTimeout(function () {
+        var input = modal.querySelector("input");
+        if (input) input.focus();
+      }, 50);
+    }
+    function close() {
+      modal.hidden = true;
+      document.body.style.overflow = "";
+    }
+    toggle.addEventListener("click", open);
+    modal.addEventListener("click", function (e) {
+      if (e.target.hasAttribute("data-close")) close();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !modal.hidden) close();
+      if ((e.key === "/" || (e.key === "k" && (e.metaKey || e.ctrlKey))) && modal.hidden) {
+        var tag = (document.activeElement && document.activeElement.tagName) || "";
+        if (tag !== "INPUT" && tag !== "TEXTAREA") {
+          e.preventDefault();
+          open();
+        }
+      }
+    });
+  })();
+</script>

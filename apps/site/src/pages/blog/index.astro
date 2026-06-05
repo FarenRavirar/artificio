@@ -1,0 +1,25 @@
+---
+import Base from "../../layouts/Base.astro";
+import Card from "../../components/Card.astro";
+import { posts, allCategories } from "../../lib/content";
+
+const cats = allCategories();
+---
+<Base
+  title="Blog — Artifício RPG"
+  canonical="https://artificiorpg.com/blog/"
+  description="Todos os artigos do Artifício RPG: notícias, análises, guias e traduções."
+>
+  <main class="container">
+    <header class="archive-head">
+      <span class="kicker">Blog</span>
+      <h1>Todos os artigos</h1>
+      <nav class="cat-pills" aria-label="Categorias">
+        {cats.map((c) => (
+          <a class="cat-pill" href={`/blog/categoria/${c.slug}/`}>{c.name}<span>{c.count}</span></a>
+        ))}
+      </nav>
+    </header>
+    <section class="grid">{posts.map((p) => <Card post={p} />)}</section>
+  </main>
+</Base>
