@@ -9,8 +9,8 @@
 - [x] T7 — `deploy-mesas.yml` trigger beta · feito quando: push em `dev` path-filtered chama reusável `env=beta`; push só de outro módulo não dispara; prod segue em `main`/dispatch.
 - [x] T7b — Alarme push-em-main · feito quando: `guard-main-ancestor.yml` `on push:main` falha se `main` não-ancestral de `dev`; self-test cobre OK e violação.
 - [x] T8 — Clone beta na VM (realm Opção 1, D042) · feito quando: `/opt/artificio-beta` é clone `dev` deploy key read-only; `apps/mesas/.env.beta` presente **sem OAuth Google**; `apps/accounts/.env.beta` presente como anchor com **só `JWT_SECRET` = valor do prod** (beta reusa realm prod); segredos fora do git. *(executado; valores não impressos)*
-- [ ] T9 — Cloudflare hostname beta · feito quando: `mesasbeta.artificiorpg.com` → `mesas-beta-app` no tunnel, resolve 200. *(Cloudflare atual aponta `mesasbeta` → `mesas-beta-frontend`; falta trocar no dashboard/API para `mesas-beta-app`)*
+- [x] T9 — Cloudflare hostname beta · feito quando: `mesasbeta.artificiorpg.com` → `mesas-beta-app` no tunnel. *(config Cloudflare version=9 confirmou service `http://mesas-beta-app:80`; 200 depende do T11 subir o container)*
 - [x] T10 — Religar hydrate prod→beta · feito quando: `/sync/hydrate` portado com auth admin `@artificio/auth`, gate `NODE_ENV!=production`, `PROD_DB_URL` read; teste cobre 403 em prod e dry-run beta.
-- [ ] T11 — 1º deploy beta real · feito quando: push em `dev` sobe `mesasbeta.` 200; prod 200 durante o deploy (E144 não viola); snapshot/health/smoke OK.
+- [ ] T11 — 1º deploy beta real · feito quando: push em `dev` sobe `mesasbeta.` 200; prod 200 durante o deploy (E144 não viola); snapshot/health/smoke OK. *(1ª tentativa falhou antes de SSH por checkout raso no gate; corrigir e reexecutar)*
 - [ ] T12 — E2E beta · feito quando: depois do T11 rodar hydrate p/ popular users no DB beta; login accounts (sem `deleted_client`), rota privada 401→OK, logout limpam sessão.
 - [ ] T13 — Validar não-regressão prod + docs · feito quando: deploy prod via `env=prod` inalterado; `deploy-accounts` segue verde; `project-state.md`/`roadmap.md`/AGENTS (alvo PR=dev) atualizados.

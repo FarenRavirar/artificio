@@ -39,8 +39,13 @@ jobs:
           )
 
           if [ -n "$number" ]; then
-            gh pr edit "$number" --title "$title" --body "$body"
-            echo "promotion_pr=$number"
+            if gh pr edit "$number" --title "$title" --body "$body"; then
+              echo "promotion_pr=$number"
+            else
+              echo "::warning::GitHub Actions nao pode editar PRs neste repo. PR standing existente: #$number."
+            fi
+          elif gh pr create --base main --head dev --title "$title" --body "$body"; then
+            echo "promotion_pr=created"
           else
-            gh pr create --base main --head dev --title "$title" --body "$body"
+            echo "::warning::GitHub Actions nao pode criar PR standing neste repo. Crie/atualize manualmente PR dev->main."
           fi
