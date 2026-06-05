@@ -1,11 +1,13 @@
 # Tasks — 007 (CDX-314)
 
-- [ ] T1 — `moduleNav` no Header · feito quando: prop `moduleNav?: NavItem[]` renderiza 2ª linha de nav (subnav) abaixo do portal; sem prop = 1 nav (retrocompat); `aria-current` ativo.
-- [ ] T2 — Sticky + polish · feito quando: header sticky (top:0, z-index acima do conteúdo) com blur+shadow, fundo opaco no dark, sem cobrir conteúdo.
-- [ ] T3 — Menu mobile · feito quando: abaixo do breakpoint, navs colapsam em hambúrguer acessível (aria-expanded, Esc/clique-fora, foco); itens navegáveis.
-- [ ] T4 — Login copy · feito quando: botão deslogado = "Entrar com Google".
-- [ ] T5 — mesas passa `moduleNav` + `currentHref` · feito quando: Início/Catálogo/Painel no subnav, ativo destacado por rota (`useLocation`).
-- [ ] T6 — Remover dead code · feito quando: `SiteHeader.tsx`/`SiteFooter.tsx` removidos após grep zero-imports; build/lint verdes.
-- [ ] T7 — Build + unit · feito quando: turbo build verde; testes ui (subnav/sticky/mobile) passam; CDX-312/313 intactos.
-- [ ] T8 — Deploy beta + validar · feito quando: push `dev` → mesasbeta 2 navs/sticky/mobile/copy + menu/changelog/sino OK; accounts beta sem regressão. *(push/deploy só com autorização)*
-- [ ] T9 — FF prod + revalidar + docs · feito quando: após beta OK e autorização, FF + deploy prod; mesas+accounts revalidados; project-state/roadmap/sessão atualizados.
+- [x] T1 — `moduleNav` no Header · 2ª linha de nav (subnav) + `moduleCurrentHref` highlight; sem prop = 1 nav (retrocompat).
+- [x] T2 — Sticky + polish · header sticky (top:0, z-index 50, shadow); dark opaco.
+- [x] T3 — Menu mobile · hambúrguer acessível (aria-expanded, Esc), navs colapsam.
+- [x] T4 — Login copy · "Entrar com Google".
+- [x] T5 — mesas passa `moduleNav` + `moduleCurrentHref` · Início/Catálogo/Painel, ativo por `useLocation().pathname`.
+- [x] T6 — Remover dead code · `SiteHeader.tsx`/`SiteFooter.tsx` removidos (grep zero-imports); build verde.
+- [x] T7 — Build + unit · turbo build 5/5; ui/mesas-frontend/accounts ok; CDX-312/313 intactos.
+- [x] T8 — Deploy beta + validar · PR #8 (313+314) → `dev` → deploy beta `27040048340` verde; servido contém `artificio-subnav/menu-toggle/mobile-nav/data-sticky` + "Entrar com Google"+"Catálogo"; **validado pelo mantenedor** (2 navs/sticky/mobile/sino/changelog/menu).
+- [ ] T9 — FF prod + revalidar + docs · **pendente autorização de FF prod** (mantenedor). Ao autorizar: `promote-prod-fast-forward` → deploy mesas+accounts prod → revalidar → atualizar project-state/roadmap.
+
+> **Status 007: beta CONCLUÍDO e validado; produção aguardando autorização de FF.** Follow-up documentado: unificar fonte de sessão (`@artificio/auth useSession` × mesas `useAuth`).
