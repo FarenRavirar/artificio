@@ -26,7 +26,7 @@
 | `accounts` (SSO) | `accounts.artificiorpg.com` | ✅ no ar (Gate B) + marca CDX-311 ✅ no ar | ⬜ retrofit deploy (CDX-310) |
 | `mesas` | `mesas.artificiorpg.com` | 🔄 técnico ✅ + deploy real ✅ (CDX-309E) + login real ✅ + marca CDX-311 ✅ no ar | ⬜ E2E **logout** + **allowlist prod**; 🔄 beta `mesasbeta` rebuild via **spec 005** (D041; mata `deleted_client`) |
 | `glossario` | `glossariorpg.artificiorpg.com` | ⬜ roda em prod fora do monorepo | ⬜ importar código→monorepo, integrar SSO/UI, deploy canônico, smoke |
-| `site` (blog) | `beta.artificiorpg.com` (→ raiz futuro) | ⬜ a construir | ⬜ SSG + importador WP one-shot + SEO; maior risco (300+ posts) |
+| `site` (blog) | `beta.artificiorpg.com` (→ raiz futuro) | 🔄 **spec 008** (F1 ✅ levantamento/decisão/doc; D044–D047) | ⬜ F2 store → F3 importador REST → F4 SSG → F5/F6 content/analytics → F7 deploy beta. **Risco re-dimensionado: 125 posts (não 300+), Gutenberg limpo, Yoast presente** (`wp-content-inventory.md`) |
 | `downloads` | `downloads.artificiorpg.com` | ⬜ a construir | ⬜ construir + SSO/UI + deploy |
 | `esferas` | `esferas.artificiorpg.com` | ⬜ a construir | ⬜ multi-sistema (sistema×edição, D&D 2014/2024, PF futuro, D028) + SSO/UI |
 | `srd` | `srd.artificiorpg.com` | ⬜ a construir | ⬜ SRD DnD 5.2.1 + tooltips (depende de `crosslink`) |
@@ -39,8 +39,8 @@
 | `config` | tsconfig/eslint/env | ✅ |
 | `auth` | SSO Google + JWT cookie raiz (verifyToken/requireAuth/useSession) | ✅ |
 | `ui` | design system (Header/Nav/Footer hub, tokens marca real) | ✅ (marca corrigida CDX-311) |
-| `analytics` | GA4 cross-subdomínio (D020) | ⬜ |
-| `content` | SEO: meta, sitemap, JSON-LD | ⬜ |
+| `analytics` | GA4 cross-subdomínio (D020) | ⬜ (spec 008 F6) |
+| `content` | SEO: meta, sitemap, JSON-LD | ⬜ (spec 008 F5) |
 | `crosslink` | tooltips/interreferência SRD↔Esferas | ⬜ |
 
 ## Infra / CI-CD

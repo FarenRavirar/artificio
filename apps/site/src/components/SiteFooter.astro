@@ -1,0 +1,36 @@
+---
+// Etapa 1: footer .astro hub reusando CSS @artificio/ui + marca. Etapa 2: <Footer /> React server-render.
+import { logos } from "../lib/content";
+const MODULES = [
+  { label: "Portal", href: "https://beta.artificiorpg.com" },
+  { label: "Glossário", href: "https://glossariorpg.artificiorpg.com" },
+  { label: "Mesas", href: "https://mesas.artificiorpg.com" },
+  { label: "Downloads", href: "https://downloads.artificiorpg.com" },
+  { label: "Esferas", href: "https://esferas.artificiorpg.com" },
+  { label: "SRD", href: "https://srd.artificiorpg.com" },
+];
+const year = 2026;
+---
+<footer class="artificio-footer">
+  <div class="artificio-footer-inner">
+    <div class="artificio-footer-brand-col">
+      <a class="artificio-footer-brand-link" href="/">
+        <img class="artificio-footer-logo logo-navy" src={logos.logoNavy} alt="Artifício RPG" />
+        <img class="artificio-footer-logo logo-neg" src={logos.logoNeg} alt="Artifício RPG" />
+      </a>
+      <p class="artificio-footer-tagline">Hub modular de RPG em português. Gratuito, sem anúncios, sem coleta desnecessária.</p>
+    </div>
+    <nav class="artificio-footer-nav" aria-label="Módulos do Artifício">
+      <span class="artificio-footer-nav-title">Módulos</span>
+      <ul class="artificio-footer-nav-list">
+        {MODULES.map((m) => (
+          <li><a class="artificio-footer-nav-link" href={m.href}>{m.label}</a></li>
+        ))}
+      </ul>
+    </nav>
+  </div>
+  <div class="artificio-footer-base">
+    <span class="artificio-footer-brand">Artifício RPG</span>
+    <span>© {year} · artificiorpg.com</span>
+  </div>
+</footer>

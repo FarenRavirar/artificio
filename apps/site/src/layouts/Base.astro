@@ -1,0 +1,92 @@
+---
+import "../styles/global.css";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+import SearchModal from "../components/SearchModal.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+  canonical: string;
+  ogType?: "website" | "article";
+  image?: string;
+  jsonld?: Record<string, unknown>;
+  currentHref?: string;
+}
+const {
+  title,
+  description = "Conteúdo de RPG em português: notícias, análises, guias e traduções.",
+  canonical,
+  ogType = "website",
+  image,
+  jsonld,
+  currentHref,
+} = Astro.props;
+---
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    {image && <meta property="og:image" content={image} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    {jsonld && <script type="application/ld+json" set:html={JSON.stringify(jsonld)} />}
+    <script is:inline>
+      (function () {
+        try {
+          var t = localStorage.getItem("theme") ||
+            (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+          document.documentElement.dataset.theme = t;
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <SiteHeader currentHref={currentHref} />
+    <slot />
+    <SiteFooter />
+    <SearchModal />
+    <script is:inline>
+      (function () {
+        function applyVariant(t) {
+          var v = t === "dark" ? "dark" : "light";
+          document.querySelectorAll(".artificio-header, .artificio-footer").forEach(function (el) {
+            if (v === "dark") el.setAttribute("data-variant", "dark");
+            else el.removeAttribute("data-variant");
+          });
+        }
+        applyVariant(document.documentElement.dataset.theme);
+        var btn = document.getElementById("theme-toggle");
+        if (btn) btn.addEventListener("click", function () {
+          var r = document.documentElement;
+          var t = r.dataset.theme === "dark" ? "light" : "dark";
+          r.dataset.theme = t;
+          applyVariant(t);
+          try { localStorage.setItem("theme", t); } catch (e) {}
+        });
+        var links = Array.prototype.slice.call(document.querySelectorAll(".toc a"));
+        if (links.length) {
+          var io = new IntersectionObserver(function (es) {
+            es.forEach(function (e) {
+              if (e.isIntersecting) {
+                links.forEach(function (l) {
+                  l.classList.toggle("active", l.getAttribute("href") === "#" + e.target.id);
+                });
+              }
+            });
+          }, { rootMargin: "-10% 0px -80% 0px" });
+          document.querySelectorAll("article h2[id], article h3[id]").forEach(function (h) { io.observe(h); });
+        }
+      })();
+    </script>
+  </body>
+</html>

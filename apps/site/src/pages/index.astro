@@ -1,0 +1,23 @@
+---
+import Base from "../layouts/Base.astro";
+import Card from "../components/Card.astro";
+import { posts } from "../lib/content";
+
+const [hero, ...rest] = posts;
+---
+<Base
+  title="Artifício RPG — Blog"
+  canonical="https://artificiorpg.com/blog/"
+  description="Conteúdo de RPG em português: notícias, análises, guias e traduções de D&D e além."
+>
+  <main class="container">
+    <section class="hero"><Card post={hero} big /></section>
+    <div class="section-head">
+      <h2>Mais recentes</h2>
+      <a class="see-all" href="/blog/">Ver tudo →</a>
+    </div>
+    <section class="grid">
+      {rest.map((p) => <Card post={p} />)}
+    </section>
+  </main>
+</Base>
