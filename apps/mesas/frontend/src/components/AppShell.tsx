@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
-import { Footer, Header, type UserMenuItem } from '@artificio/ui';
+import { useLocation } from 'react-router-dom';
+import { Footer, Header, type NavItem, type UserMenuItem } from '@artificio/ui';
 import { getAccountsOrigin } from '@artificio/auth/client';
 import { FeedbackButton } from '../features/dev-feedback/FeedbackButton';
+import { HeaderActions } from './HeaderActions';
 import { getMesasPublicOrigin } from '../utils/auth';
 
 interface AppShellProps {
@@ -15,8 +17,15 @@ const userMenu: UserMenuItem[] = [
   { label: 'Conta', href: getAccountsOrigin(), external: true },
 ];
 
+const moduleNav: NavItem[] = [
+  { label: 'Início', href: '/' },
+  { label: 'Catálogo', href: '/catalogo' },
+  { label: 'Painel', href: '/painel' },
+];
+
 export const AppShell = ({ children }: AppShellProps) => {
   const publicOrigin = getMesasPublicOrigin();
+  const { pathname } = useLocation();
 
   return (
     <div className="min-h-screen bg-[var(--color-artificio-blue)] text-white flex flex-col">
@@ -24,7 +33,10 @@ export const AppShell = ({ children }: AppShellProps) => {
         variant="dark"
         brandHref={publicOrigin}
         currentHref={publicOrigin}
+        moduleNav={moduleNav}
+        moduleCurrentHref={pathname}
         userMenu={userMenu}
+        actions={<HeaderActions />}
       />
       <div className="flex-1 pt-6">
         {children}
