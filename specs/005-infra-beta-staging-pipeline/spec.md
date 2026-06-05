@@ -13,7 +13,7 @@ O monorepo G1 só tem esteira de produção (`main` → `/opt/artificio` → `<m
 4. Beta de cada módulo roda em subdomínio `<modulo>beta.artificiorpg.com`, em clone separado `/opt/artificio-beta` trackeando `dev`.
 5. Beta tem **DB próprio** (volume isolado), nunca escreve no DB de produção.
 6. Existe endpoint admin de **hydrate on-demand** que copia dados prod→beta, com safety gate que bloqueia execução quando `NODE_ENV=production` (comportamento legado mesas religado).
-7. Promoção a produção = merge `dev→main` (PR) → dispara deploy prod existente. Há um PR `dev→main` standing mantido atualizado p/ promover em 1 merge.
+7. Promoção a produção = fast-forward/rebase de `dev→main` (sem squash, sem merge commit) → dispara/permite deploy prod existente. Há um PR `dev→main` standing para revisão, mas a promoção canônica usa workflow `promote-prod-fast-forward.yml`.
 8. Gate de produção **recusa** o deploy se `main` não for ancestral de `dev` (cinto de segurança da invariante R2).
 9. O workflow reusável `_deploy-module.yml` aceita parâmetro `env` (`beta`|`prod`) que seleciona ref git, diretório na VM, compose file, env file, nomes de container, domínio e rotas de smoke — sem duplicar a lógica de deploy.
 10. Deploy de beta herda as cicatrizes do legado: `down` por compose file (nunca por prefixo global — E144), `flock` no host, snapshot pré-deploy, rollback banco+containers, health `healthy`, smoke de rotas críticas.

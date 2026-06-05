@@ -38,6 +38,7 @@ Spec `005-infra-beta-staging-pipeline` (spec/plan/tasks T1–T13). Parametrizar 
 - 2026-06-05 — T9 confirmado pelo mantenedor/Cloudflare: `mesasbeta.artificiorpg.com` agora aponta para `http://mesas-beta-app:80`; antes do deploy retorna 502 esperado porque container novo ainda não existe.
 - 2026-06-05 — PR #3 mergeado em `dev` (`7987556`) para T11; deploy beta falhou antes de tocar VM: falso negativo no gate `main ⊆ dev` por checkout raso (`fetch-depth: 1`) no runner. Localmente `main ⊆ dev` OK (`main=c5ff42d`, `dev=7987556`). Correção em andamento: checkout full-depth no job deploy antes do gate.
 - 2026-06-05 — Workflow `promote-dev-to-main` falhou porque GitHub Actions token do repo não tem permissão para criar PR (`createPullRequest`). PR standing criado manualmente pelo Codex: #4 `dev→main`. Correção em andamento: workflow passa a emitir warning e não quebrar a esteira quando GitHub bloquear create/edit PR.
+- 2026-06-05 — Feedback Codex PR #4/#5: PR normal `dev→main` com squash/merge commit quebraria `main ⊆ dev`. Correção: PR standing virou revisão, com aviso forte para não usar squash/merge commit; promoção canônica agora é workflow `promote-prod-fast-forward.yml` (dispatch + confirmação `PROMOTE_DEV_TO_MAIN`) que só avança `main` para `dev` por fast-forward após validar a invariante.
 
 ## Bloqueios / aprovações pendentes
 - T11 = corrigir checkout raso no deploy e reexecutar deploy beta.
