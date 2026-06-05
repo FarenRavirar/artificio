@@ -1,4 +1,4 @@
-# AGENTS.md — Governança de Agentes de IA · Artifício G1
+# AGENTS.md — Governança de Agentes de IA · Artifício RPG
 
 **Projeto:** Artifício RPG — Plataforma G1 (monorepo modular)
 **Fonte canônica de governança operacional.** Em conflito com qualquer documento operacional, este arquivo prevalece. Em conflito sobre arquitetura ou contratos técnicos, prevalece `.specify/arquiteture.md`.

@@ -178,7 +178,7 @@ export const DevFeedbackPanel = () => {
 
       {/* Barra de mescla */}
       {selectedIds.length >= 2 && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-[#E8521A]/40 bg-[#E8521A]/10 p-3">
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-[#FF9457]/40 bg-[#FF9457]/10 p-3">
           <span className="text-sm text-white/80">{selectedIds.length} selecionados.</span>
           <label className="text-sm text-white/70">
             Destino:{' '}
@@ -196,7 +196,7 @@ export const DevFeedbackPanel = () => {
           <button
             onClick={() => void handleMerge()}
             disabled={merging || !primaryId}
-            className="rounded-lg bg-[#E8521A] px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#F26733] disabled:opacity-50"
+            className="rounded-lg bg-[#FF9457] px-4 py-1.5 text-sm font-semibold text-[#020740] transition-colors hover:bg-[#E0712F] hover:text-white disabled:opacity-50"
           >
             {merging ? 'Mesclando...' : 'Mesclar no destino'}
           </button>
@@ -220,7 +220,7 @@ export const DevFeedbackPanel = () => {
               key={item.id}
               className={`rounded-lg border bg-white/5 p-4 ${
                 primaryId === item.id && selectedIds.includes(item.id)
-                  ? 'border-[#E8521A]'
+                  ? 'border-[#FF9457]'
                   : 'border-white/10'
               }`}
             >
@@ -272,7 +272,7 @@ export const DevFeedbackPanel = () => {
                 <div>
                   Pagina:{' '}
                   {item.page_url ? (
-                    <a href={item.page_url} target="_blank" rel="noreferrer" className="text-[#F26733] hover:underline">
+                    <a href={item.page_url} target="_blank" rel="noreferrer" className="text-[#E0712F] hover:underline">
                       {item.route_path || item.page_url}
                     </a>
                   ) : (item.route_path || '-')}
@@ -326,7 +326,7 @@ export const DevFeedbackPanel = () => {
                           {s.created_at && <span>{new Date(s.created_at).toLocaleString('pt-BR')}</span>}
                         </div>
                         {s.screenshot_url && (
-                          <a href={s.screenshot_url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-[#F26733] hover:underline">
+                          <a href={s.screenshot_url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-[#E0712F] hover:underline">
                             ver captura
                           </a>
                         )}

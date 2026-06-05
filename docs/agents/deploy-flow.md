@@ -1,4 +1,4 @@
-# Deploy Flow — Artificio G1
+# Deploy Flow — Artifício RPG
 
 > Fonte operacional do fluxo de deploy D039. Segredo nunca aqui. Deploy/codigo via GitHub Actions; VM manual so bootstrap, diagnostico ou rollback aprovado.
 

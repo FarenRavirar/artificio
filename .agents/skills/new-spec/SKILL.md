@@ -1,6 +1,6 @@
 ---
 name: new-spec
-description: Cria o esqueleto de uma spec SDD do Artifício G1 em specs/NNN-<modulo>-<slug>/ com spec.md, plan.md e tasks.md a partir dos templates. Use ao iniciar qualquer trabalho SDD Completo (compartilhado, infra, migration, auth, importador, SEO, feature grande).
+description: Cria o esqueleto de uma spec SDD do Artifício RPG em specs/NNN-<modulo>-<slug>/ com spec.md, plan.md e tasks.md a partir dos templates. Use ao iniciar qualquer trabalho SDD Completo (compartilhado, infra, migration, auth, importador, SEO, feature grande).
 ---
 
 # Nova spec SDD

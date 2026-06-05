@@ -3,14 +3,16 @@
 > Deve sobreviver a compactações. Só o necessário para retomar com segurança. Atualizar quando o essencial mudar.
 
 ## Em uma frase
-Construindo o **Artifício G1**: suite modular em **subdomínios** sob `*.artificiorpg.com`, unida por login Google único (SSO), leve (TS/React/Express/Postgres), saindo do WordPress, em monorepo `artificio` com pnpm+Turborepo.
+Construindo o **Artifício RPG**: suite modular em **subdomínios** sob `*.artificiorpg.com`, unida por login Google único (SSO), leve (TS/React/Express/Postgres), saindo do WordPress, em monorepo `artificio` com pnpm+Turborepo.
+
+> **Nome × conceito:** produto = **Artifício RPG**. "G1" = só referência conceitual (hub interconectado que direciona aos módulos, estilo portal de notícias G1) — não é nome. Codinome técnico interno pode usar "G1"; UI/produto nunca.
 
 ## Topologia (subdomínio-por-módulo — D017)
 Cada módulo no **próprio subdomínio**, root `/` próprio, **sem basename/gateway de path**:
 `glossariorpg.` (glossário, fica) · `mesas.` · `downloads.` · `esferas.` (Spheres of Power, multi-sistema) · `srd.` · `links.` · `beta.artificiorpg.com` (blog/site novo, BETA — único que valida; → raiz `artificiorpg.com` no futuro, D016) · `accounts.` (SSO central, D018). WP fica na **raiz** `artificiorpg.com` agora (intocável). Une tudo: **cookie `.artificiorpg.com` + nav + design system**. Cloudflare Tunnel mapeia hostname→container. Blog na raiz = aposta de SEO (D019). Não hardcodar credencial/host fora de env.
 
 ## Onde estamos
-Ver `.specify/memory/project-state.md`. Hoje: **Fase 2 — Gate B aprovado (D037)**. `accounts.artificiorpg.com` no ar. CDX-307 design system real em mudanças locais. CDX-308A+B concluídos; CDX-308C deploy técnico do `mesas` concluído na VM (`mesas-api/app/cron` healthy; smoke 200/200/401; login legado redireciona para `accounts.`). CDX-309D concluído: PR #1 mergeado em `main` (`3cf08d0`) e VM `/opt/artificio` convertida para clone git sem deploy/rebuild/migration; serviços seguiram no ar e smoke pós-conversão OK. Falta aprovação do mantenedor para 1º deploy via dispatch, depois E2E browser real Google/logout + allowlist prod para Opus validar Gate D mesas.
+Ver `.specify/memory/project-state.md`. Hoje: **Fase 2 — Gate B aprovado (D037)**. `accounts.artificiorpg.com` no ar. CDX-307 design system real em mudanças locais. CDX-308A+B concluídos; CDX-308C deploy técnico do `mesas` concluído na VM (`mesas-api/app/cron` healthy; smoke 200/200/401; login legado redireciona para `accounts.`). CDX-309E concluído: PR #1 mergeado, VM `/opt/artificio` clone git, e 1º deploy real do `mesas` via GitHub Actions passou (`deploy-mesas.yml mode=deploy`, run `26994910262`) com snapshot, migrations, build/recreate, health e smoke OK. Falta E2E browser real Google/logout + allowlist prod para Opus validar Gate D mesas.
 
 ## Reload (Tier 0 — só estes 3)
 `project-state.md` + este capsule + `decisions.md`. Resto sob demanda. Caveman default. Disciplina: `docs/agents/token-economy.md`.

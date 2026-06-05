@@ -13,7 +13,7 @@ export const AppShell = ({ children }: AppShellProps) => {
       <div className="flex-1 pt-6">
         {children}
       </div>
-      <Footer />
+      <Footer variant="dark" />
       <FeedbackButton />
     </div>
   );

@@ -1,6 +1,6 @@
 import { redirectToLogin, useSession } from "@artificio/auth/client";
 import type { User } from "@artificio/auth";
-import { brandLogoNavy } from "./brand.js";
+import { brandLogoNavy, brandLogoNeg } from "./brand.js";
 import { defaultNavItems, type NavItem } from "./modules.js";
 import { Nav } from "./Nav.js";
 
@@ -35,16 +35,17 @@ export function Header({
 }: HeaderProps) {
   const session = useSession();
   const { user, loading } = sessionOverride ?? session;
+  const logo = variant === "dark" ? brandLogoNeg : brandLogoNavy;
 
   return (
     <header className="artificio-header" data-variant={variant}>
       <a className="artificio-brand" href={brandHref}>
         <img
-          alt={brandLogoNavy.alt}
+          alt={logo.alt}
           className="artificio-brand-logo"
-          height={brandLogoNavy.height}
-          src={brandLogoNavy.src}
-          width={brandLogoNavy.width}
+          height={logo.height}
+          src={logo.src}
+          width={logo.width}
         />
       </a>
       <Nav currentHref={currentHref} items={navItems} />

@@ -90,7 +90,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
       to={`/mesas/${table.slug}`}
       onClick={handleClick}
       onMouseEnter={handleMouseEnter}
-      className="group relative flex h-full min-h-[430px] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1B2A4A] shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-[var(--color-artificio-orange)]/40 hover:shadow-[0_0_30px_rgba(232,82,26,0.15)]"
+      className="group relative flex h-full min-h-[430px] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1B2A4A] shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-[var(--color-artificio-orange)]/40 hover:shadow-[0_0_30px_rgba(255,148,87,0.15)]"
       id={`table-card-${table.slug}`}
     >
       {/* BLOCO 1: HEADER (Imagem + Badges críticos) */}

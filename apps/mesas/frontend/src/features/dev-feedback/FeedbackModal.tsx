@@ -131,7 +131,7 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
             type="button"
             onClick={() => setKind('bug')}
             className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
-              kind === 'bug' ? 'bg-[#E8521A] text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'
+              kind === 'bug' ? 'bg-[#FF9457] text-[#020740]' : 'bg-white/5 text-white/60 hover:bg-white/10'
             }`}
           >
             🐞 Problema
@@ -140,7 +140,7 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
             type="button"
             onClick={() => setKind('suggestion')}
             className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
-              kind === 'suggestion' ? 'bg-[#E8521A] text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'
+              kind === 'suggestion' ? 'bg-[#FF9457] text-[#020740]' : 'bg-white/5 text-white/60 hover:bg-white/10'
             }`}
           >
             💡 Sugestao
@@ -155,7 +155,7 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
           maxLength={160}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={kind === 'bug' ? 'O que deu errado?' : 'O que voce sugere?'}
-          className="mb-4 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-white/40 focus:border-[#E8521A] focus:outline-none"
+          className="mb-4 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-white/40 focus:border-[#FF9457] focus:outline-none"
         />
 
         <label className="mb-1 block text-sm text-white/80" htmlFor="feedback-description">Descricao</label>
@@ -166,7 +166,7 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
           rows={4}
           onChange={(e) => setDescription(e.target.value)}
           placeholder={kind === 'bug' ? 'Descreva o passo a passo que levou ao problema.' : 'Descreva sua ideia com detalhes.'}
-          className="mb-4 w-full resize-y rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-white/40 focus:border-[#E8521A] focus:outline-none"
+          className="mb-4 w-full resize-y rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-white/40 focus:border-[#FF9457] focus:outline-none"
         />
 
         {!isAuthenticated && (
@@ -181,7 +181,7 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
               maxLength={254}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="voce@exemplo.com"
-              className="mb-4 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-white/40 focus:border-[#E8521A] focus:outline-none"
+              className="mb-4 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-white/40 focus:border-[#FF9457] focus:outline-none"
             />
           </>
         )}
@@ -213,7 +213,7 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="rounded-lg bg-[#E8521A] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#F26733] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-[#FF9457] px-5 py-2 text-sm font-semibold text-[#020740] transition-colors hover:bg-[#E0712F] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? 'Enviando...' : 'Enviar'}
           </button>
