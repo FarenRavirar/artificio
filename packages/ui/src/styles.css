@@ -18,16 +18,74 @@
 }
 
 .artificio-header {
-  align-items: center;
   background: var(--artificio-surface);
   border-bottom: 1px solid var(--artificio-line);
   color: var(--artificio-ink);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   font-family: var(--artificio-font-sans);
+}
+
+.artificio-header[data-sticky="true"] {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 2px 12px rgba(2, 7, 64, 0.12);
+}
+
+.artificio-header-main {
+  align-items: center;
+  display: grid;
   gap: 16px;
   grid-template-columns: auto 1fr auto;
   min-height: 64px;
   padding: 0 24px;
+}
+
+/* 2ª linha: nav interno do módulo (Catálogo/Painel). */
+.artificio-subnav {
+  border-top: 1px solid var(--artificio-line);
+  padding: 0 24px;
+}
+
+.artificio-subnav .artificio-nav-list {
+  gap: 2px;
+}
+
+.artificio-subnav .artificio-nav-link {
+  font-size: 13px;
+  min-height: 36px;
+  padding: 8px 10px;
+}
+
+/* Hambúrguer: escondido no desktop, visível no mobile. */
+.artificio-menu-toggle {
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  display: none;
+  font-size: 22px;
+  line-height: 1;
+  min-height: 40px;
+  min-width: 40px;
+}
+
+.artificio-menu-toggle:hover {
+  background: rgba(2, 7, 64, 0.06);
+}
+
+.artificio-mobile-nav {
+  border-top: 1px solid var(--artificio-line);
+  display: none;
+  flex-direction: column;
+  padding: 8px 16px 12px;
+}
+
+.artificio-mobile-nav .artificio-nav-list {
+  flex-direction: column;
+  gap: 2px;
 }
 
 .artificio-brand {
@@ -118,6 +176,48 @@
   gap: 10px;
   min-height: 44px;
   text-decoration: none;
+}
+
+.artificio-header-actions {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.artificio-header-action {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--artificio-ink);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 40px;
+  min-width: 40px;
+  position: relative;
+}
+
+.artificio-header-action:hover {
+  background: rgba(2, 7, 64, 0.06);
+}
+
+.artificio-header-action-badge {
+  background: #e5484d;
+  border-radius: 999px;
+  height: 9px;
+  position: absolute;
+  right: 7px;
+  top: 7px;
+  width: 9px;
+}
+
+.artificio-header[data-variant="dark"] .artificio-header-action {
+  color: #ffffff;
+}
+
+.artificio-header[data-variant="dark"] .artificio-header-action:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .artificio-usermenu {
@@ -348,14 +448,34 @@
   color: #ffffff;
 }
 
+.artificio-header[data-variant="dark"] .artificio-subnav,
+.artificio-header[data-variant="dark"] .artificio-mobile-nav {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.artificio-header[data-variant="dark"] .artificio-menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 @media (max-width: 860px) {
-  .artificio-header {
-    align-items: stretch;
+  .artificio-header-main {
     grid-template-columns: 1fr auto;
     padding: 8px 16px;
   }
 
-  .artificio-header nav {
-    grid-column: 1 / -1;
+  /* Esconde navs inline; nav vai pro menu colapsável. */
+  .artificio-header-main > nav,
+  .artificio-subnav {
+    display: none;
+  }
+
+  .artificio-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .artificio-mobile-nav {
+    display: flex;
   }
 }
