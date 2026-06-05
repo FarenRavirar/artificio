@@ -15,7 +15,7 @@ Cada módulo no **próprio subdomínio**, root `/` próprio, **sem basename/gate
 Ver `.specify/memory/project-state.md`. Hoje: **Fase 2 — Gate B aprovado (D037)**. `accounts.artificiorpg.com` no ar. CDX-307 design system real em mudanças locais. CDX-308A+B concluídos; CDX-308C deploy técnico do `mesas` concluído na VM (`mesas-api/app/cron` healthy; smoke 200/200/401; login legado redireciona para `accounts.`). CDX-309E concluído: PR #1 mergeado, VM `/opt/artificio` clone git, e 1º deploy real do `mesas` via GitHub Actions passou (`deploy-mesas.yml mode=deploy`, run `26994910262`) com snapshot, migrations, build/recreate, health e smoke OK. Falta E2E browser real Google/logout + allowlist prod para Opus validar Gate D mesas.
 
 ## Reload (Tier 0 — só estes 3)
-`project-state.md` + este capsule + `decisions.md`. Resto sob demanda. Caveman default. Disciplina: `docs/agents/token-economy.md`.
+`project-state.md` + este capsule + `decisions.md`. Resto sob demanda. Caveman default. Disciplina: `docs/agents/token-economy.md`. **Mapa macro até conclusão: `docs/agents/roadmap.md` (T1).**
 
 ## Regras que não posso esquecer
 1. **Gates A→B→C→D**, cada um com aprovação. Nada destrutivo na Oracle antes do Gate A. WP/DNS intocáveis até Gate C.
