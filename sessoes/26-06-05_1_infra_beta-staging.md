@@ -33,7 +33,10 @@ Spec `005-infra-beta-staging-pipeline` (spec/plan/tasks T1–T13). Parametrizar 
 - 2026-06-05 — Validação local: `test_branch_invariant.sh` OK via Git Bash; `git diff --check` OK. `docker compose config` não rodou porque Docker local ausente; `test_migration_lock.sh` não roda no Git Bash Windows por falta de `flock` (Actions Ubuntu cobre).
 - 2026-06-05 — Feedback Amazon Q/Codex PR #3 endereçado: removido fallback beta→prod para `apps/accounts/.env`; deploy beta agora exige `apps/accounts/.env.beta` explícito; gate `main ⊆ dev` roda em todo deploy (prod e beta); `docker compose` recebe `-p mesas`/`-p mesas-beta` para isolar projects e impedir `down --remove-orphans` do beta tocar prod.
 - 2026-06-05 — Opus validou D042: realm prod compartilhado (sem `accountsbeta`); `mesasbeta` usa `accounts.artificiorpg.com` e cookie prod; `apps/accounts/.env.beta` anchor só com `JWT_SECRET` prod; zero OAuth em env beta. T7b criado (`guard-main-ancestor.yml` on push main). T10 confirmado/reforçado: `/sync/hydrate` já portado, debug removido, teste de gate prod 403 + dry-run beta.
+- 2026-06-05 — T8 executado na VM (aprovado): criado `/opt/artificio-beta` clone `dev` (`c5ff42d`, sem deploy); criados `apps/accounts/.env.beta` (somente `JWT_SECRET`) e `apps/mesas/.env.beta` (sem `GOOGLE_*`, `ACCOUNTS_URL=https://accounts.artificiorpg.com`, `VITE_ACCOUNTS_URL`, `PROD_DB_URL` herdado do beta/prod quando presente, DB host `mesas-beta-db`). Valores não impressos. `artificio_net` presente.
+- 2026-06-05 — T9 investigado: Cloudflare dashboard config atual já tem `mesasbeta.artificiorpg.com` mas aponta para `http://mesas-beta-frontend:80` (legado). Precisa trocar para `http://mesas-beta-app:80`. Não há Cloudflare API token local/GitHub; cloudflared roda via token dashboard-managed; Chrome plugin falhou bootstrap. Ação externa/mantenedor ou token API necessário.
 
 ## Bloqueios / aprovações pendentes
-- T8 (clone beta na VM) e T9 (hostname Cloudflare beta) = write na VM/CF → aprovação do mantenedor liberada para este escopo.
+- T9 (hostname Cloudflare beta) = pendente: trocar service `mesas-beta-frontend` → `mesas-beta-app` no dashboard/API.
+- T11 (merge PR #3 → dev para disparar beta) = requer aprovação explícita de merge PR.
 - T2 branch protection = bloqueado pelo plano/recurso do GitHub (API 403 em branch protection e rulesets).
