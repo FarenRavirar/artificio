@@ -1,14 +1,16 @@
 name: pr-checks
 
-# Gates de PR para main: lint de shell/workflows + contrato de migration.
+# Gates de PR para dev/main: lint de shell/workflows + contrato de migration.
 # Canônico G1: validação roda no GitHub, não local.
 on:
   pull_request:
     branches:
       - main
+      - dev
   push:
     branches:
       - main
+      - dev
 
 permissions:
   contents: read

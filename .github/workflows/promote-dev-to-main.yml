@@ -1,0 +1,46 @@
+name: promote-dev-to-main
+
+# PR standing: todo push em dev cria/atualiza PR de promocao para main.
+# Deploy/codigo seguem rastreaveis via GitHub; main nao recebe push direto.
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  promotion-pr:
+    name: Promotion PR dev -> main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update standing PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          number=$(gh pr list \
+            --base main \
+            --head dev \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+
+          title="Promover dev para main"
+          body=$(cat <<'EOF'
+          PR standing automatico.
+
+          Promove o estado validado em `dev` para `main` depois dos gates verdes e aprovacao do mantenedor.
+          EOF
+          )
+
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --title "$title" --body "$body"
+            echo "promotion_pr=$number"
+          else
+            gh pr create --base main --head dev --title "$title" --body "$body"
+          fi
