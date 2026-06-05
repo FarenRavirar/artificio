@@ -100,3 +100,18 @@ export function redirectToLogin(returnUrl = window.location.href): void {
   loginUrl.searchParams.set("return", returnUrl);
   window.location.assign(loginUrl.toString());
 }
+
+/**
+ * Encerra a sessão SSO no `accounts` (limpa o cookie `Domain=.artificiorpg.com`)
+ * e redireciona. `redirectTo` default = origin atual = home do módulo.
+ */
+export function logout(redirectTo = window.location.origin): void {
+  void fetch(`${getAccountsOrigin()}/api/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  })
+    .catch(() => undefined)
+    .finally(() => {
+      window.location.assign(redirectTo);
+    });
+}

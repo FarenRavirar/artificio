@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CheckCircle2, Sparkles, Crown, Award, Users, Star, MessageSquare } from 'lucide-react';
 import type { TableCard } from '../../types/tables';
 import type { MestrePublicData } from '../../hooks/useMestre';
+import { isUsableImageSrc } from '../../utils/imageSource';
 
 interface MestreHeroProps {
   profile: MestrePublicData;
@@ -29,7 +30,7 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
 
   return (
     <section className="hero-section">
-      {profile.banner_url && !bannerLoadFailed ? (
+      {isUsableImageSrc(profile.banner_url) && !bannerLoadFailed ? (
         <img
           src={profile.banner_url}
           alt=""
@@ -50,7 +51,7 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
         )}
 
         <div className="hero-avatar">
-          {profile.avatar_url && !avatarLoadFailed ? (
+          {isUsableImageSrc(profile.avatar_url) && !avatarLoadFailed ? (
             <img
               src={profile.avatar_url}
               alt={profile.display_name}
