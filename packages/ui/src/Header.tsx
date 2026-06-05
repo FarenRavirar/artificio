@@ -1,6 +1,6 @@
 import { logout, redirectToLogin, useSession } from "@artificio/auth/client";
 import type { User } from "@artificio/auth";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { brandLogoNavy, brandLogoNeg } from "./brand.js";
 import { defaultNavItems, type NavItem } from "./modules.js";
 import { Nav } from "./Nav.js";
@@ -24,6 +24,8 @@ export interface HeaderProps {
   brandHref?: string;
   /** Itens do menu de conta (avatar). "Sair" é sempre adicionado. */
   userMenu?: UserMenuItem[];
+  /** Ações do módulo antes do avatar (ex.: changelog, sino de notificações). */
+  actions?: ReactNode;
   sessionOverride?: {
     user: User | null;
     loading?: boolean;
@@ -45,6 +47,7 @@ export function Header({
   variant = "light",
   brandHref = "https://beta.artificiorpg.com",
   userMenu,
+  actions,
   sessionOverride,
 }: HeaderProps) {
   const session = useSession();
@@ -89,6 +92,7 @@ export function Header({
       </a>
       <Nav currentHref={currentHref} items={navItems} />
       <div className="artificio-session" aria-live="polite">
+        {actions ? <div className="artificio-header-actions">{actions}</div> : null}
         {loading ? (
           <span className="artificio-session-muted">Carregando</span>
         ) : user ? (
