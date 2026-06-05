@@ -1,0 +1,22 @@
+name: pr-checks
+
+# Gates de PR para main: lint de shell/workflows + contrato de migration.
+# Canônico G1: validação roda no GitHub, não local.
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  lint-shell:
+    uses: ./.github/workflows/_lint-shell.yml
+
+  enforce-migration-dir:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/_enforce-migration-dir.yml

@@ -1,0 +1,60 @@
+name: deploy-mesas
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/mesas/**"
+      - "packages/**"
+      - "scripts/deploy/**"
+      - ".github/workflows/_deploy-module.yml"
+      - ".github/workflows/_lint-shell.yml"
+      - ".github/workflows/deploy-mesas.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/mesas/**"
+      - "packages/**"
+      - "scripts/deploy/**"
+      - ".github/workflows/_deploy-module.yml"
+      - ".github/workflows/deploy-mesas.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "ci = build/test only; deploy = deploy via git-pull on VM"
+        required: true
+        default: ci
+        type: choice
+        options:
+          - ci
+          - deploy
+
+permissions:
+  contents: read
+
+# Deploy/codigo do G1 devem passar pelo GitHub para branch safety e rastreabilidade.
+# VM manual fica para bootstrap/conexao/instalacao operacional/rollback aprovado.
+jobs:
+  lint-shell:
+    uses: ./.github/workflows/_lint-shell.yml
+
+  mesas:
+    needs: lint-shell
+    uses: ./.github/workflows/_deploy-module.yml
+    with:
+      module: mesas
+      compose_file: docker-compose.prod.yml
+      db_service: mesas-db
+      db_name: mesas_rpg
+      db_user: admin
+      deploy: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy' }}
+      health_containers: '["mesas-api","mesas-app"]'
+      critical_routes: >-
+        [
+          {"name":"home","url":"https://mesas.artificiorpg.com/","expected":"200"},
+          {"name":"private_no_cookie","url":"https://mesas.artificiorpg.com/api/v1/me/options","expected":"401"},
+          {"name":"auth_redirect","url":"https://mesas.artificiorpg.com/api/v1/auth/google","expected":"302","location_contains":"accounts.artificiorpg.com/login"}
+        ]
+    secrets: inherit

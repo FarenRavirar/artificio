@@ -1,19 +1,20 @@
 services:
   mesas-beta-frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: apps/mesas/frontend/Dockerfile
       args:
         VITE_ENABLE_DEVTOOLS: ${VITE_ENABLE_DEVTOOLS:-true}
         VITE_API_URL: ${VITE_API_URL:-https://mesasbeta.artificiorpg.com}
         VITE_CLOUDINARY_CLOUD_NAME: ${VITE_CLOUDINARY_CLOUD_NAME}
         VITE_CLOUDINARY_UPLOAD_PRESET: ${VITE_CLOUDINARY_UPLOAD_PRESET}
+        VITE_ACCOUNTS_URL: ${VITE_ACCOUNTS_URL:-https://accounts.artificiorpg.com}
     container_name: mesas-beta-frontend
     restart: always
     expose:
       - "80"
     networks:
-      - gerenciador_telegram_default
+      - artificio_net
     environment:
       - NODE_ENV=production
       - VITE_ENV=beta
@@ -38,14 +39,14 @@ services:
 
   mesas-beta-api:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ../..
+      dockerfile: apps/mesas/backend/Dockerfile
     container_name: mesas-beta-api
     restart: always
     expose:
       - "3000"
     networks:
-      - gerenciador_telegram_default
+      - artificio_net
     environment:
       - NODE_ENV=development
       - PROD_DB_URL=${PROD_DB_URL}
@@ -63,6 +64,7 @@ services:
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
       - JWT_REFRESH_EXPIRES_IN=7d
+      - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
       - FRONTEND_URL=https://mesasbeta.artificiorpg.com
       - PUBLIC_SITE_URL=https://mesasbeta.artificiorpg.com
       - INDEX_HTML_PATH=/app/frontend-dist/index.html
@@ -93,7 +95,7 @@ services:
     container_name: mesas-beta-db
     restart: always
     networks:
-      - gerenciador_telegram_default
+      - artificio_net
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -113,5 +115,5 @@ volumes:
   frontend_dist_beta:
 
 networks:
-  gerenciador_telegram_default:
+  artificio_net:
     external: true

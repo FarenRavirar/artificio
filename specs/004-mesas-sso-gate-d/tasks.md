@@ -6,5 +6,5 @@
 - [x] T4 — Integrar UI/auth no frontend mesas · feito quando: `Header`, `Footer`, `useSession`, `redirectToLogin` funcionam.
 - [x] T5 — Integrar auth no backend mesas · feito quando: rota privada valida `artificio_session` com mesmo `JWT_SECRET`.
 - [x] T6 — Validar env/compose sem segredo · feito quando: `JWT_SECRET` fonte única documentada e não impressa.
-- [ ] T7 — Deploy mesas com aprovação · feito quando: serviço sobe sem tocar dados.
+- [x] T7 — Deploy mesas com aprovação · feito quando: serviço sobe sem tocar dados.
 - [ ] T8 — Browser E2E · feito quando: login/logout/rota privada/allowlist passam.
