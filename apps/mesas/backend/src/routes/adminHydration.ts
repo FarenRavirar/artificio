@@ -315,11 +315,19 @@ router.post('/sync/hydrate', authMiddleware, async (req: Request, res: Response)
               case 'table_schedules':
               case 'table_history':
               case 'imported_tables':
-              case 'table_metrics':
               case 'table_interests':
                 result = await trx.insertInto(tableName as any)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('id').doUpdateSet(updateObj))
+                  .returning(['id', sql<string>`xmax`.as('xmax')])
+                  .executeTakeFirst();
+                break;
+
+              case 'table_metrics':
+                delete updateObj.table_id;
+                result = await trx.insertInto(tableName as any)
+                  .values(safeRecord)
+                  .onConflict((oc) => oc.column('table_id').doUpdateSet(updateObj))
                   .returning(['id', sql<string>`xmax`.as('xmax')])
                   .executeTakeFirst();
                 break;
@@ -367,12 +375,20 @@ router.post('/sync/hydrate', authMiddleware, async (req: Request, res: Response)
               case 'gm_profiles':
               case 'user_preferences':
               case 'user_links':
-              case 'gm_profile_metrics':
               case 'questions':
               case 'answers':
                 result = await trx.insertInto(tableName as any)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('id').doNothing())
+                  .returning(['id', sql<string>`xmax`.as('xmax')])
+                  .executeTakeFirst();
+                break;
+
+              case 'gm_profile_metrics':
+                delete updateObj.gm_profile_id;
+                result = await trx.insertInto(tableName as any)
+                  .values(safeRecord)
+                  .onConflict((oc) => oc.column('gm_profile_id').doUpdateSet(updateObj))
                   .returning(['id', sql<string>`xmax`.as('xmax')])
                   .executeTakeFirst();
                 break;

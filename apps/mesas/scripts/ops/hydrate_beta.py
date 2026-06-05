@@ -47,6 +47,15 @@ TOPOLOGY = [
 
 EXCLUDED_TABLES = {"activity_log", "update_log", "schema_migrations"}
 
+# Tabelas cujo PK e' serial mas tem UNIQUE semantico no FK 1:1. O schema auto-popula
+# essas metricas (migration_16/108), entao ON CONFLICT (id) nao pega a colisao de
+# UNIQUE(table_id)/UNIQUE(gm_profile_id). Conflitar pela chave semantica (paridade com
+# adminHydration.ts) e descartar o id serial p/ nao colidir com a sequencia local do beta.
+CONFLICT_OVERRIDE = {
+    "table_metrics": ["table_id"],
+    "gm_profile_metrics": ["gm_profile_id"],
+}
+
 def get_columns(conn, table_name):
     with conn.cursor() as cur:
         cur.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = %s", (table_name,))
@@ -151,13 +160,19 @@ def sync_table(source_conn, dest_conn, table_name, args):
             continue
 
         # INSERT ON CONFLICT DO UPDATE
-        insert_cols = common_cols
+        conflict_cols = CONFLICT_OVERRIDE.get(table_name, pks)
+
+        insert_cols = list(common_cols)
+        # Override: descartar o PK serial p/ nao colidir com a sequencia local do beta.
+        if table_name in CONFLICT_OVERRIDE:
+            insert_cols = [c for c in insert_cols if c not in pks]
+
         insert_vals = [row_dict[c] for c in insert_cols]
         placeholders = ", ".join(["%s"] * len(insert_cols))
 
-        update_cols = [c for c in insert_cols if c not in pks]
+        update_cols = [c for c in insert_cols if c not in conflict_cols]
 
-        conflict_target = ", ".join(pks)
+        conflict_target = ", ".join(conflict_cols)
 
         if not update_cols:
             query = f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({placeholders}) ON CONFLICT ({conflict_target}) DO NOTHING RETURNING 1;"

@@ -8,6 +8,7 @@ import { SlotsIndicator } from './SlotsIndicator';
 import { SystemBadge } from './SystemBadge';
 import { CertificationBadges } from './CertificationBadges';
 import { applyTableImageFallback, resolveTableImageSource } from '../utils/tableImage';
+import { isUsableImageSrc } from '../utils/imageSource';
 
 const modalityLabels: Record<string, string> = {
   online: 'Online',
@@ -179,9 +180,9 @@ export function TableCardComponent({ table }: { table: TableCard }) {
         <div className="mt-auto min-w-0 space-y-3">
           {table.gm_display_name && (
             <div className="flex min-w-0 items-center gap-2">
-              {table.gm_avatar_url ? (
-                <img 
-                  src={table.gm_avatar_url} 
+              {isUsableImageSrc(table.gm_avatar_url) ? (
+                <img
+                  src={table.gm_avatar_url}
                   alt={table.gm_display_name}
                   className="w-6 h-6 rounded-full border border-white/20"
                 />
