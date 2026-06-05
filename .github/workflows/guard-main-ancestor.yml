@@ -1,0 +1,29 @@
+name: guard-main-ancestor
+
+# D042: alarme compensatorio enquanto branch protection/rulesets estao indisponiveis no repo privado.
+# Todo avanco em main precisa permanecer contido em dev: main deve ser ancestral de dev.
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Guard main subset dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate main is ancestor of dev
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --prune origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/dev:refs/remotes/origin/dev
+          bash scripts/deploy/validate_branch_invariant.sh origin/main origin/dev

@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - dev
     paths:
       - "apps/mesas/**"
       - "packages/**"
@@ -14,11 +15,13 @@ on:
   push:
     branches:
       - main
+      - dev
     paths:
       - "apps/mesas/**"
       - "packages/**"
       - "scripts/deploy/**"
       - ".github/workflows/_deploy-module.yml"
+      - ".github/workflows/_lint-shell.yml"
       - ".github/workflows/deploy-mesas.yml"
   workflow_dispatch:
     inputs:
@@ -45,16 +48,29 @@ jobs:
     uses: ./.github/workflows/_deploy-module.yml
     with:
       module: mesas
+      env: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' && 'beta' || 'prod' }}
       compose_file: docker-compose.prod.yml
+      compose_file_beta: docker-compose.beta.yml
+      compose_project: mesas
+      compose_project_beta: mesas-beta
       db_service: mesas-db
+      db_service_beta: mesas-beta-db
       db_name: mesas_rpg
+      db_name_beta: mesas_rpg
       db_user: admin
-      deploy: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy' }}
+      deploy: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy') || (github.event_name == 'push' && github.ref == 'refs/heads/dev') }}
       health_containers: '["mesas-api","mesas-app"]'
+      health_containers_beta: '["mesas-beta-api","mesas-beta-app"]'
       critical_routes: >-
         [
           {"name":"home","url":"https://mesas.artificiorpg.com/","expected":"200"},
           {"name":"private_no_cookie","url":"https://mesas.artificiorpg.com/api/v1/me/options","expected":"401"},
           {"name":"auth_redirect","url":"https://mesas.artificiorpg.com/api/v1/auth/google","expected":"302","location_contains":"accounts.artificiorpg.com/login"}
+        ]
+      critical_routes_beta: >-
+        [
+          {"name":"home","url":"https://mesasbeta.artificiorpg.com/","expected":"200"},
+          {"name":"private_no_cookie","url":"https://mesasbeta.artificiorpg.com/api/v1/me/options","expected":"401"},
+          {"name":"auth_redirect","url":"https://mesasbeta.artificiorpg.com/api/v1/auth/google","expected":"302","location_contains":"accounts.artificiorpg.com/login"}
         ]
     secrets: inherit

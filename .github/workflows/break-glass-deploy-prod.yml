@@ -42,6 +42,7 @@ jobs:
     with:
       module: mesas
       compose_file: docker-compose.prod.yml
+      compose_project: mesas
       db_service: mesas-db
       db_name: mesas_rpg
       db_user: admin
