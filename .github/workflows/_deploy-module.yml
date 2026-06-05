@@ -175,9 +175,15 @@ jobs:
             exit 1
           fi
 
+          read_env_value() {
+            local key="$1"
+            local file="$2"
+            grep "^${key}=" "$file" | tail -n1 | cut -d= -f2- || true
+          }
+
           if [ "$MODULE" != "accounts" ] && [ -f "apps/accounts/.env" ]; then
-            accounts_jwt=$(awk -F= '$1=="JWT_SECRET"{print substr($0,index($0,"=")+1)}' apps/accounts/.env | tail -n1)
-            module_jwt=$(awk -F= '$1=="JWT_SECRET"{print substr($0,index($0,"=")+1)}' "$env_file" | tail -n1)
+            accounts_jwt=$(read_env_value "JWT_SECRET" apps/accounts/.env)
+            module_jwt=$(read_env_value "JWT_SECRET" "$env_file")
             if [ -z "$accounts_jwt" ] || [ -z "$module_jwt" ] || [ "$accounts_jwt" != "$module_jwt" ]; then
               echo "ERRO: JWT_SECRET de $MODULE diverge de accounts"
               exit 1

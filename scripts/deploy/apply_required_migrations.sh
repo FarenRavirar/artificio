@@ -24,6 +24,29 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib_migrations.sh"
 
+load_header_vars() {
+  local path="$1"
+  local header_vars=""
+  local key=""
+  local value=""
+
+  CLASS=""
+  REQUIRES_BACKUP=""
+
+  header_vars=$(parse_header "$path") || return 1
+  while IFS='=' read -r key value; do
+    case "$key" in
+      CLASS) CLASS="$value" ;;
+      REQUIRES_BACKUP) REQUIRES_BACKUP="$value" ;;
+    esac
+  done <<< "$header_vars"
+
+  if [ -z "$CLASS" ] || [ -z "$REQUIRES_BACKUP" ]; then
+    echo "::error::$path falhou ao carregar cabecalho parseado."
+    return 1
+  fi
+}
+
 if [ ! -d "$MIGRATIONS_DIR" ]; then
   echo "[migrations] diretorio ausente: $MIGRATIONS_DIR; nada a aplicar."
   exit 0
@@ -63,8 +86,7 @@ MANUAL_PENDING=()
 for file in "${PENDING[@]}"; do
   [ -z "$file" ] && continue
   path="$MIGRATIONS_DIR/$file"
-  header_vars=$(parse_header "$path")
-  eval "$header_vars"
+  load_header_vars "$path"
   validate_sql_against_class "$path" "$CLASS"
   if [ "$CLASS" = "manual-risk" ]; then
     MANUAL_PENDING+=("$file")
@@ -85,8 +107,7 @@ fi
 for file in "${PENDING[@]}"; do
   [ -z "$file" ] && continue
   path="$MIGRATIONS_DIR/$file"
-  header_vars=$(parse_header "$path")
-  eval "$header_vars"
+  load_header_vars "$path"
   echo "[migrations] aplicando $CLASS: $file"
 
   # shellcheck disable=SC2046
