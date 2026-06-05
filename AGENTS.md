@@ -120,6 +120,7 @@ Fluxo: `feat/NNN-nome` → `dev`/Beta → `main`/Produção. Branch nomeado por 
 - `git push origin main`: aprovação explícita.
 - Merge de PR: só com autorização explícita.
 - Nunca `git checkout` entre `dev` e `main` durante deploy. Usar PR e comparações sem checkout.
+- **Doc-only nunca sozinho:** mudança só de documentação não vai sozinha para `dev`/`main`. Push/merge em `dev` dispara deploy beta (Actions) — desperdício de tokens/ações para um delta sem código. Docs viajam **junto** com o próximo commit de código que as motiva (ou acumulam local até haver código). Exceção: correção documental urgente aprovada explicitamente pelo mantenedor.
 
 ### Acesso à VM (Oracle)
 
