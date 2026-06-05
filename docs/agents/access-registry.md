@@ -1,4 +1,4 @@
-# Registro de Acesso & Segredos — Artifício G1
+# Registro de Acesso & Segredos — Artifício RPG
 
 > O "ter acesso / não ter acesso". Registra **onde** vivem credenciais e **quem/o quê** pode usá-las. **Nunca contém valores de segredo** — só localização e política. Valores ficam em `.env` (gitignored) e no `secrets.7z` (AES-256, off-VM).
 

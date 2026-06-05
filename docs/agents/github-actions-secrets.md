@@ -1,4 +1,4 @@
-# GitHub Actions Secrets — Artificio G1
+# GitHub Actions Secrets — Artifício RPG
 
 > Operacional. Registra nomes, caminhos e validacoes. Nunca colocar valores aqui.
 

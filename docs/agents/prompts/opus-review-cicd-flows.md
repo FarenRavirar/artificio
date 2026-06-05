@@ -1,6 +1,6 @@
 # Prompt Para Opus — Revisar Fluxos CI/CD G1
 
-Opus, revisar CDX-309/CDX-309B do Artificio G1 antes de merge/Parte C.
+Opus, revisar CDX-309/CDX-309B do Artifício RPG antes de merge/Parte C.
 
 Contexto:
 - Repo: `FarenRavirar/artificio`.

@@ -1,10 +1,13 @@
 @import 'tailwindcss';
 
 @theme {
+  /* Cores da marca real (D038): navy #020740 (contraste) + laranja #FF9457 (padrão máximo).
+     Header/footer compartilhados fundem com este navy. Surfaces (cards) seguem na escala
+     navy-azulada abaixo, criando profundidade sobre o fundo mais profundo. */
   --color-artificio-blue: #1B2A4A;
   --color-artificio-blue-light: #2A3F6D;
-  --color-artificio-orange: #E8521A;
-  --color-artificio-orange-hover: #F26733;
+  --color-artificio-orange: #FF9457;
+  --color-artificio-orange-hover: #E0712F;
 }
 
 /* ============================================================================
@@ -31,8 +34,8 @@
   --border-soft:        rgba(255, 255, 255, 0.05);
   --border:             rgba(255, 255, 255, 0.10);
   --border-strong:      rgba(255, 255, 255, 0.20);
-  --border-orange:      rgba(232, 82, 26, 0.40);
-  --border-orange-soft: rgba(232, 82, 26, 0.20);
+  --border-orange:      rgba(255,148,87, 0.40);
+  --border-orange-soft: rgba(255,148,87, 0.20);
 
   /* Fills translúcidos */
   --fill-5:  rgba(255, 255, 255, 0.05);
@@ -57,8 +60,8 @@
   /* Sombras */
   --shadow-card:              0 10px 15px -3px rgba(0,0,0,0.30), 0 4px 6px -4px rgba(0,0,0,0.25);
   --shadow-lg:                0 25px 50px -12px rgba(0,0,0,0.50);
-  --shadow-glow-orange:       0 0 30px rgba(232,82,26,0.15);
-  --shadow-glow-orange-strong:0 0 60px rgba(232,82,26,0.25);
+  --shadow-glow-orange:       0 0 30px rgba(255,148,87,0.15);
+  --shadow-glow-orange-strong:0 0 60px rgba(255,148,87,0.25);
 
   /* Blur (painéis glassy) */
   --blur-md: 12px;
@@ -153,7 +156,7 @@
   }
 
   .app-select:focus {
-    border-color: rgba(232, 82, 26, 0.6);
+    border-color: rgba(255,148,87, 0.6);
   }
 
   .app-select:disabled {

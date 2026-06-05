@@ -1,5 +1,6 @@
-export { brandLogoNavy } from "./brand.js";
+export { brandLogoNavy, brandLogoNeg } from "./brand.js";
 export { Footer } from "./Footer.js";
+export type { FooterProps } from "./Footer.js";
 export { Header } from "./Header.js";
 export { Nav } from "./Nav.js";
 export { defaultNavItems } from "./modules.js";

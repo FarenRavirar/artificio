@@ -1,4 +1,4 @@
-# Arquitetura & Contratos — Artifício G1
+# Arquitetura & Contratos — Artifício RPG
 
 > **T1. Ler por seção, nunca o arquivo inteiro.** Fonte canônica de arquitetura/contratos técnicos (vence AGENTS.md em conflito técnico). Decisões macro em `.specify/memory/decisions.md`.
 

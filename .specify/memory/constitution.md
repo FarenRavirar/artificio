@@ -1,4 +1,4 @@
-# Constituição — Artifício G1
+# Constituição — Artifício RPG
 
 Princípios inegociáveis. Mudança aqui exige decisão explícita e registrada do mantenedor. Em conflito, a Constituição vence sobre conveniência de implementação.
 
