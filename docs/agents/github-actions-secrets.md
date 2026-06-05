@@ -3,7 +3,11 @@
 > Operacional. Registra nomes, caminhos e validacoes. Nunca colocar valores aqui.
 
 ## Escopo
-Workflow de deploy do `apps/accounts` no repo `FarenRavirar/artificio`.
+Secrets de CI/CD do repo `FarenRavirar/artificio`.
+
+Fluxo canonico: `docs/agents/deploy-flow.md`.
+
+`deploy-accounts.yml` ainda e transicional. Modulos novos devem usar `_deploy-module.yml` + `deploy-<modulo>.yml`.
 
 ## Repo GitHub
 ```text
@@ -58,6 +62,29 @@ Validado localmente em 2026-06-04:
 accounts.env: 9/9 chaves presentes
 deploy-known-hosts: 3 linhas nao-comentadas para 164.152.39.46
 ```
+
+## Deploy De Modulos
+
+Workflow reutilizavel:
+```text
+.github/workflows/_deploy-module.yml
+```
+
+Secrets compartilhados por modulo:
+```text
+DEPLOY_HOST
+DEPLOY_KNOWN_HOSTS
+DEPLOY_PORT
+DEPLOY_SSH_PRIVATE_KEY
+DEPLOY_USER
+```
+
+Regra:
+```text
+PR = CI/checks; deploy real = workflow_dispatch mode=deploy.
+```
+
+O workflow nao imprime valor de segredo e nao instala pacote na VM. Prereqs da VM ficam no bootstrap documentado em `deploy-flow.md`.
 
 ## SSO Accounts
 Dominio publico:

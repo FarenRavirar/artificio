@@ -39,3 +39,7 @@ Quando houver PR, criar `pr-description.md`: sumário executivo, evidências de 
 ## Regra de ouro do monorepo
 
 Escopo isolado num módulo → pode ser Lite. Qualquer toque no compartilhado → Completo + smoke dos consumidores. Nunca ampliar escopo pra outro módulo/pacote sem aprovação.
+
+## Deploy e VM
+
+Deploy/codificação canônicos passam por GitHub: branch/PR, checks, workflow_dispatch e GitHub Actions com secrets. A VM não é caminho normal de entrega de código; acesso direto fica para bootstrap do clone, instalação operacional, conexão, diagnóstico, rollback aprovado ou ação que o GitHub ainda não cobre. Isso aumenta rastreabilidade, respeita branch safety e reduz drift manual. Fluxo operacional: `docs/agents/deploy-flow.md`.

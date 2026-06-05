@@ -111,6 +111,8 @@ Posso prosseguir?
 
 Fluxo: `feat/NNN-nome` → `dev`/Beta → `main`/Produção. Branch nomeado por módulo: `feat/srd-001-tooltips`.
 
+**Deploy/código canônico:** entrega normal passa por GitHub (branch/PR/checks/workflow_dispatch/Actions/secrets) e a VM faz `git fetch/reset` no clone. Acesso SSH direto à VM é exceção para bootstrap do clone, instalar utilitários operacionais, conexão, diagnóstico ou rollback aprovado — não é caminho normal de deploy/codificação. Se GitHub cobre a ação, use GitHub para rastreabilidade e branch safety.
+
 - Criar branch `feat/*`: automático.
 - `git push origin feat/*`: automático.
 - Abrir PR para `dev`: automático.

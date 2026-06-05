@@ -3,7 +3,7 @@
 > Atualizar a cada mudança de estado operacional. Fonte de verdade do "onde estamos".
 
 ## Fase atual
-**Fase 2 — monorepo + SSO ✅ Gate B APROVADO (D037, 2026-06-04).** Fase 1 ✅. `accounts.artificiorpg.com` no ar (SSO Google/JWT), cross-subdomínio provado, CI/CD `deploy-accounts.yml`. CDX-307/D038 design system real em mudanças locais. **CDX-308A+B concluídos localmente:** `apps/mesas` importado, consome `@artificio/ui`, frontend redireciona para SSO accounts, backend valida `artificio_session` via `@artificio/auth`. **Próximo:** CDX-308C deploy/smoke browser real em `mesas.artificiorpg.com` para fechar 1º Gate D. Dívidas: redeploy do open-redirect `return`; browser E2E real no 1º módulo.
+**Fase 2 — monorepo + SSO ✅ Gate B APROVADO (D037, 2026-06-04).** Fase 1 ✅. `accounts.artificiorpg.com` no ar (SSO Google/JWT), cross-subdomínio provado, CI/CD `deploy-accounts.yml`. CDX-307/D038 design system real em mudanças locais. **CDX-308A+B concluídos localmente; CDX-308C deploy técnico concluído:** `mesas.artificiorpg.com` agora roda build monorepo, usa UI G1, backend valida `artificio_session` via `@artificio/auth`, `JWT_SECRET` igual ao accounts, smoke `200/200/401` e login legado redireciona para `accounts.`. **Falta p/ fechar Gate D:** E2E browser real Google/logout + allowlist prod de `accounts` (D037 local ainda precisa redeploy).
 
 ## Gates (ativos: A, B, D · Gate C adiado — D016)
 - ✅ **Gate A** — Backups completos/verificados/off-VM. **APROVADO pelo mantenedor 2026-06-04.** Libera Fase 1.
@@ -39,7 +39,7 @@
 - Código de aplicação: `packages/{config,auth,ui}`; `apps/accounts` SSO; `apps/mesas` importado do legado (`frontend` + `backend` + DB/scripts/docs), ainda pendente de integração SSO/UI.
 
 ## Próximo passo
-**Fase 2 CDX-301..306 executados e Gate B aprovado:** monorepo + `packages/{config,auth,ui}` + `apps/accounts` SSO deployado. `accounts-api`/`accounts-db` rodam em `/opt/artificio/accounts` na `artificio_net`; Cloudflare `accounts.artificiorpg.com` smoke 200/200/401; OAuth criou user; `/me` com sessão válida 200; cross-subdomínio via `@artificio/auth verifyToken` OK. **CDX-308A+B:** `apps/mesas` importado/buildado e integrado localmente ao SSO/UI; próximo CDX-308C deploy/smoke browser real em `mesas.artificiorpg.com`. Pendência segurança (mantenedor trata): rotacionar tunnel token, PAT, WP creds.
+**Fase 2 CDX-301..306 executados e Gate B aprovado:** monorepo + `packages/{config,auth,ui}` + `apps/accounts` SSO deployado. `accounts-api`/`accounts-db` rodam em `/opt/artificio/accounts` na `artificio_net`; Cloudflare `accounts.artificiorpg.com` smoke 200/200/401; OAuth criou user; `/me` com sessão válida 200; cross-subdomínio via `@artificio/auth verifyToken` OK. **CDX-308A+B+C técnico:** `apps/mesas` importado/buildado/integrado e deployado em `mesas.artificiorpg.com`; smoke técnico OK. **CDX-309B:** PR #1 aberto/verde com CI/CD canonico de modulos; falta Opus revisar fluxo/redundancias antes de merge/Parte C. Próximo: teste browser Google real + logout + allowlist prod para Opus validar Gate D mesas. Pendência segurança (mantenedor trata): rotacionar tunnel token, PAT, WP creds.
 
 ## Log
 - 2026-06-03 — Plano G1 aprovado em decisões macro. Camada de governança criada (13 arq).
@@ -52,3 +52,6 @@
 - 2026-06-03 — Módulo **`esferas`** (`esferas.artificiorpg.com`), multi-sistema sistema×edição (D&D 2014/2024 principal, PF futuro) — D028. Rename `spheres`/`wiki-sop`→`esferas` em todos os docs.
 - 2026-06-04 — **CDX-308A concluído:** legado `C:\projetos\mesas_rpg_artificio` importado para `apps/mesas` sem segredos reais. `pnpm install` OK; `pnpm --filter @artificio/mesas build` OK; frontend tests 13/13; backend tests 104/104 com env dummy local. VM/deploy não tocados.
 - 2026-06-04 — **CDX-308B concluído local:** mesas usa `@artificio/ui` + `@artificio/auth`; backend valida `artificio_session`; OAuth local aposentado. Turbo build OK; accounts tests 6/6; auth tests 3/3; mesas frontend 15/15; mesas backend 106/106. VM/deploy não tocados.
+- 2026-06-04 — **CDX-308C deploy técnico concluído:** `mesas-api`, `mesas-app`, `mesas-cron` rebuildados na VM com Docker no-cache; `mesas-api` e `mesas-app` healthy; smoke `internal_api=200`, `public_home=200`, `private_no_cookie=401`, `/api/v1/auth/google` → `302 accounts.artificiorpg.com/login`. Falta E2E browser real para fechar Gate D.
+- 2026-06-05 — **CDX-309B PR #1 verde:** CI/CD canonico de modulos via GitHub Actions (`_deploy-module`, `deploy-mesas`, lint/enforce migration, break-glass, scripts migration). Amazon Q blockers corrigidos. Deploy job skipped em PR. Sem VM.
+- 2026-06-05 — **CDX-309C aplicado:** allowlist migration sem `sed`, self-test permitido/bloqueado; migration lock com `flock` interno autoritativo + `pg_advisory_xact_lock` por transaction; self-test concorrente no Actions. Sem VM.
