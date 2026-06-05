@@ -65,12 +65,12 @@ jobs:
         [
           {"name":"home","url":"https://mesas.artificiorpg.com/","expected":"200"},
           {"name":"private_no_cookie","url":"https://mesas.artificiorpg.com/api/v1/me/options","expected":"401"},
-          {"name":"auth_redirect","url":"https://mesas.artificiorpg.com/api/v1/auth/google","expected":"302","location_contains":"accounts.artificiorpg.com/login"}
+          {"name":"auth_redirect","url":"https://mesas.artificiorpg.com/api/v1/auth/google","expected":"302","location_contains":"accounts.artificiorpg.com/login?return=https%3A%2F%2Fmesas.artificiorpg.com%2F"}
         ]
       critical_routes_beta: >-
         [
           {"name":"home","url":"https://mesasbeta.artificiorpg.com/","expected":"200"},
           {"name":"private_no_cookie","url":"https://mesasbeta.artificiorpg.com/api/v1/me/options","expected":"401"},
-          {"name":"auth_redirect","url":"https://mesasbeta.artificiorpg.com/api/v1/auth/google","expected":"302","location_contains":"accounts.artificiorpg.com/login"}
+          {"name":"auth_redirect","url":"https://mesasbeta.artificiorpg.com/api/v1/auth/google","expected":"302","location_contains":"accounts.artificiorpg.com/login?return=https%3A%2F%2Fmesasbeta.artificiorpg.com%2F"}
         ]
     secrets: inherit

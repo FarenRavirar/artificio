@@ -6,6 +6,7 @@ services:
       args:
         VITE_ENABLE_DEVTOOLS: ${VITE_ENABLE_DEVTOOLS:-false}
         VITE_API_URL: ${VITE_API_URL}
+        VITE_PUBLIC_SITE_URL: ${VITE_PUBLIC_SITE_URL:-https://mesas.artificiorpg.com}
         VITE_CLOUDINARY_CLOUD_NAME: ${VITE_CLOUDINARY_CLOUD_NAME}
         VITE_CLOUDINARY_UPLOAD_PRESET: ${VITE_CLOUDINARY_UPLOAD_PRESET}
         VITE_ACCOUNTS_URL: ${VITE_ACCOUNTS_URL:-https://accounts.artificiorpg.com}
@@ -20,6 +21,7 @@ services:
       - VITE_ENV=production
       - API_UPSTREAM=mesas-api
       - VITE_API_URL=${VITE_API_URL}
+      - VITE_PUBLIC_SITE_URL=${VITE_PUBLIC_SITE_URL:-https://mesas.artificiorpg.com}
       - VITE_CLOUDINARY_CLOUD_NAME=${VITE_CLOUDINARY_CLOUD_NAME}
     command:
       - /bin/sh
