@@ -17,6 +17,14 @@ on:
         required: false
         default: ""
         type: string
+      compose_project:
+        required: false
+        default: ""
+        type: string
+      compose_project_beta:
+        required: false
+        default: ""
+        type: string
       db_service:
         required: true
         type: string
@@ -124,6 +132,7 @@ jobs:
       DEPLOY_ENV: ${{ inputs.env }}
       MODULE: ${{ inputs.module }}
       COMPOSE_FILE: ${{ inputs.env == 'beta' && inputs.compose_file_beta || inputs.compose_file }}
+      COMPOSE_PROJECT: ${{ inputs.env == 'beta' && inputs.compose_project_beta || inputs.compose_project }}
       DB_SERVICE: ${{ inputs.env == 'beta' && inputs.db_service_beta || inputs.db_service }}
       DB_NAME: ${{ inputs.env == 'beta' && inputs.db_name_beta || inputs.db_name }}
       DB_USER: ${{ inputs.db_user }}
@@ -149,6 +158,10 @@ jobs:
               exit 1
             fi
           done
+          if [ "$DEPLOY_ENV" = "beta" ] && [ -z "${COMPOSE_PROJECT:-}" ]; then
+            echo "COMPOSE_PROJECT=missing para beta; defina compose_project_beta distinto do prod."
+            exit 1
+          fi
           for name in DEPLOY_HOST DEPLOY_KNOWN_HOSTS DEPLOY_PORT DEPLOY_SSH_PRIVATE_KEY DEPLOY_USER; do
             if [ -z "${!name:-}" ]; then
               echo "$name=missing"
@@ -157,8 +170,7 @@ jobs:
             echo "$name=present"
           done
 
-      - name: Validate prod branch invariant
-        if: inputs.env == 'prod'
+      - name: Validate branch invariant
         run: |
           set -euo pipefail
           git fetch --no-tags --prune origin \
@@ -189,6 +201,10 @@ jobs:
 
           cat > "$local_script" <<'REMOTE'
           set -euo pipefail
+          if [ -z "${COMPOSE_PROJECT:-}" ]; then
+            COMPOSE_PROJECT="$MODULE"
+          fi
+          export COMPOSE_PROJECT
 
           case "$DEPLOY_ENV" in
             prod)
@@ -240,11 +256,12 @@ jobs:
             grep "^${key}=" "$file" | tail -n1 | cut -d= -f2- | tr -d '\r' || true
           }
 
-          accounts_env_file="apps/accounts/${env_file_name}"
-          if [ "$DEPLOY_ENV" = "beta" ] && [ ! -f "$accounts_env_file" ] && [ -f "/opt/artificio/apps/accounts/.env" ]; then
-            accounts_env_file="/opt/artificio/apps/accounts/.env"
-          fi
-          if [ "$MODULE" != "accounts" ] && [ -f "$accounts_env_file" ]; then
+          if [ "$MODULE" != "accounts" ]; then
+            accounts_env_file="apps/accounts/${env_file_name}"
+            if [ ! -f "$accounts_env_file" ]; then
+              echo "ERRO: $accounts_env_file ausente; crie o anchor SSO explicito do ambiente antes do deploy."
+              exit 1
+            fi
             accounts_jwt=$(read_env_value "JWT_SECRET" "$accounts_env_file")
             module_jwt=$(read_env_value "JWT_SECRET" "$env_file")
             if [ -z "$accounts_jwt" ] || [ -z "$module_jwt" ] || [ "$accounts_jwt" != "$module_jwt" ]; then
@@ -267,15 +284,15 @@ jobs:
               docker exec "$DB_SERVICE" pg_restore -U "$DB_USER" -d "$DB_NAME" --clean --if-exists /tmp/predeploy.dump || true
               docker exec "$DB_SERVICE" rm -f /tmp/predeploy.dump || true
             fi
-            docker compose -f "$COMPOSE_FILE" --env-file "$env_file_name" up -d --force-recreate || true
+            docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" up -d --force-recreate || true
             echo "ROLLBACK: tentativa concluida; verificar manualmente."
           }
           trap rollback ERR
 
-          docker compose -f "$COMPOSE_FILE" --env-file "$env_file_name" up -d "$DB_SERVICE"
+          docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" up -d "$DB_SERVICE"
 
           for i in $(seq 1 60); do
-            if docker compose -f "$COMPOSE_FILE" --env-file "$env_file_name" exec -T "$DB_SERVICE" pg_isready -U "$DB_USER" -d "$DB_NAME" >/dev/null 2>&1; then
+            if docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" exec -T "$DB_SERVICE" pg_isready -U "$DB_USER" -d "$DB_NAME" >/dev/null 2>&1; then
               break
             fi
             if [ "$i" -eq 60 ]; then
@@ -292,9 +309,9 @@ jobs:
 
           bash ../../scripts/deploy/apply_required_migrations.sh "$COMPOSE_FILE" "$DB_SERVICE" "$DB_NAME" "$DB_USER" "database"
 
-          docker compose -f "$COMPOSE_FILE" --env-file "$env_file_name" down --remove-orphans
-          docker compose -f "$COMPOSE_FILE" --env-file "$env_file_name" build --no-cache --pull
-          docker compose -f "$COMPOSE_FILE" --env-file "$env_file_name" up -d --force-recreate
+          docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" down --remove-orphans
+          docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" build --no-cache --pull
+          docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" up -d --force-recreate
 
           HEALTH_CONTAINERS=$(printf '%s' "$HEALTH_CONTAINERS_B64" | base64 -d)
           while IFS= read -r container; do
@@ -350,6 +367,7 @@ jobs:
             export MODULE='$MODULE'
             export DEPLOY_ENV='$DEPLOY_ENV'
             export COMPOSE_FILE='$COMPOSE_FILE'
+            export COMPOSE_PROJECT='$COMPOSE_PROJECT'
             export DB_SERVICE='$DB_SERVICE'
             export DB_NAME='$DB_NAME'
             export DB_USER='$DB_USER'

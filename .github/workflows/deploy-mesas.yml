@@ -51,6 +51,8 @@ jobs:
       env: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' && 'beta' || 'prod' }}
       compose_file: docker-compose.prod.yml
       compose_file_beta: docker-compose.beta.yml
+      compose_project: mesas
+      compose_project_beta: mesas-beta
       db_service: mesas-db
       db_service_beta: mesas-beta-db
       db_name: mesas_rpg

@@ -31,6 +31,7 @@ Spec `005-infra-beta-staging-pipeline` (spec/plan/tasks T1–T13). Parametrizar 
 - 2026-06-05 — Codex T2-T7 código: branch `dev` criada de `main`; `_deploy-module.yml` parametrizado `env=prod|beta`; gate prod `main ⊆ dev` + self-test; workflow PR standing `dev→main`; `deploy-mesas.yml` dispara beta em push path-filtered para `dev`; `docker-compose.beta.yml` usa `mesas-beta-{api,app,db}` sem OAuth próprio; PDF indevido removido do repo.
 - 2026-06-05 — T2 branch protection/rulesets tentou via GitHub API e falhou com 403: recurso indisponível para repo privado sem GitHub Pro ou repo público. Não fingir proteção. Compensações atuais: T3 gate prod + T4 PR standing; pendência externa = habilitar plano/recurso ou tornar repo público para proteger `dev`/`main`.
 - 2026-06-05 — Validação local: `test_branch_invariant.sh` OK via Git Bash; `git diff --check` OK. `docker compose config` não rodou porque Docker local ausente; `test_migration_lock.sh` não roda no Git Bash Windows por falta de `flock` (Actions Ubuntu cobre).
+- 2026-06-05 — Feedback Amazon Q/Codex PR #3 endereçado: removido fallback beta→prod para `apps/accounts/.env`; deploy beta agora exige `apps/accounts/.env.beta` explícito; gate `main ⊆ dev` roda em todo deploy (prod e beta); `docker compose` recebe `-p mesas`/`-p mesas-beta` para isolar projects e impedir `down --remove-orphans` do beta tocar prod.
 
 ## Bloqueios / aprovações pendentes
 - T8 (clone beta na VM) e T9 (hostname Cloudflare beta) = write na VM → aprovação do mantenedor.

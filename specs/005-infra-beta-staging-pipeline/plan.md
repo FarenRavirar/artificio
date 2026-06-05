@@ -22,13 +22,14 @@ Novo input `env` (`beta`|`prod`, default `prod`). Deriva (sem duplicar script):
 | dir VM | `/opt/artificio` | `/opt/artificio-beta` |
 | env file | `apps/<m>/.env` | `apps/<m>/.env.beta` |
 | compose | input `compose_file` (prod) | input `compose_file_beta` |
+| compose project | `mesas` / input `compose_project` | `mesas-beta` / input `compose_project_beta` obrigatório |
 | containers/db | inputs prod | inputs beta (`*-beta-*`) |
 | domínio/smoke | `critical_routes` | `critical_routes_beta` |
 
 O bloco REMOTE passa a receber `DEPLOY_REF`, `DEPLOY_DIR`, `ENV_FILE` por env var; troca os literais hardcoded (`cd /opt/artificio`, `origin/main`, `apps/${MODULE}/.env`). Caminho prod produz exatamente os mesmos valores de hoje (prova de não-regressão).
 
 ### Beta clone na VM
-`/opt/artificio-beta` = 2º clone do monorepo, deploy key read-only, checkout `dev`. `.env.beta` por módulo (gitignored, fonte segura). DB beta = volume próprio do `docker-compose.beta.yml`.
+`/opt/artificio-beta` = 2º clone do monorepo, deploy key read-only, checkout `dev`. `.env.beta` por módulo (gitignored, fonte segura). DB beta = volume próprio do `docker-compose.beta.yml`. O beta não faz fallback para `/opt/artificio` prod: todo módulo precisa de `.env.beta`, e `apps/accounts/.env.beta` existe como anchor SSO explícito para comparar `JWT_SECRET` (sem copiar OAuth prod).
 
 ### Hydrate prod→beta
 Religar `apps/mesas/backend` rota admin `/sync/hydrate` (portada do legado `adminHydration.ts` + `db/prod.ts`), conexão `PROD_DB_URL` read, gate `NODE_ENV!=production`, transação única, auth `@artificio/auth` admin.
@@ -59,7 +60,7 @@ Religar `apps/mesas/backend` rota admin `/sync/hydrate` (portada do legado `admi
 - `break-glass-deploy-prod.yml` continua como escape hatch p/ hotfix direto em prod.
 
 ## Rollback
-- CI/CD: reverter os workflows via git (PR). Caminho prod inalterado se `env=prod` default mantido.
+- CI/CD: reverter os workflows via git (PR). Caminho prod inalterado se `env=prod` default mantido. Beta usa `docker compose -p mesas-beta`, separado de `mesas`, para `down --remove-orphans` nunca enxergar containers prod como órfãos.
 - Beta na VM: `docker compose -f docker-compose.beta.yml down` + remover `/opt/artificio-beta` não afeta prod (E144 respeitado — composes/nomes distintos).
 - Deploy beta tem rollback próprio (snapshot+containers) herdado do reusável.
 - Branch protection reversível na config do GitHub.
