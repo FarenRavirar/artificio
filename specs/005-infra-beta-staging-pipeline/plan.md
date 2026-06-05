@@ -31,6 +31,12 @@ O bloco REMOTE passa a receber `DEPLOY_REF`, `DEPLOY_DIR`, `ENV_FILE` por env va
 ### Beta clone na VM
 `/opt/artificio-beta` = 2º clone do monorepo, deploy key read-only, checkout `dev`. `.env.beta` por módulo (gitignored, fonte segura). DB beta = volume próprio do `docker-compose.beta.yml`. O beta não faz fallback para `/opt/artificio` prod: todo módulo precisa de `.env.beta`, e `apps/accounts/.env.beta` existe como anchor SSO explícito para comparar `JWT_SECRET` (sem copiar OAuth prod).
 
+### Realm SSO do beta (Opção 1 — D042)
+Beta **reusa o accounts PROD**. mesasbeta → `redirectToLogin` aponta pro `accounts.artificiorpg.com` prod; cookie assinado com JWT_SECRET prod vale no beta (`Domain=.artificiorpg.com`). `apps/accounts/.env.beta` no clone beta contém **só `JWT_SECRET` = valor prod** (anchor de comparação, sem fallback de leitura do `.env` prod). Nenhuma credencial Google em env beta. Sem accountsbeta. Google console e allowlist `return` (suffix `.artificiorpg.com`) já cobrem `mesasbeta.` — zero mudança. **Cuidado:** backend beta valida cookie (id/email) contra DB beta → `hydrate` deve popular `users` antes, senão rotas de usuário 401/404. Upgrade futuro p/ realm isolado = Opção 2 (accountsbeta + JWT novo + cookie `artificio_session_beta` em `packages/auth`).
+
+### Alarme push-em-main (compensa branch protection 403)
+Workflow `.github/workflows/guard-main-ancestor.yml` `on push: main` que roda `git merge-base --is-ancestor origin/main origin/dev` e **falha ruidoso** se violar. Não previne o push, mas alarma na hora; gate de deploy já é fail-closed.
+
 ### Hydrate prod→beta
 Religar `apps/mesas/backend` rota admin `/sync/hydrate` (portada do legado `adminHydration.ts` + `db/prod.ts`), conexão `PROD_DB_URL` read, gate `NODE_ENV!=production`, transação única, auth `@artificio/auth` admin.
 

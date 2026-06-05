@@ -34,11 +34,7 @@ const SYNC_FIELDS: Record<string, string[]> = {
 
 const router = Router();
 
-// T004: Middleware de proteção
-// T005: Safety gate de ambiente
 router.post('/sync/hydrate', authMiddleware, async (req: Request, res: Response) => {
-  console.log('[HYDRATE-DEBUG] req.user:', JSON.stringify((req as any).user));
-  console.log('[HYDRATE-DEBUG] authHeader:', req.headers.authorization?.substring(0, 30));
   const userRole = (req as any).user?.role;
   const userId = (req as any).user?.userId;
 
