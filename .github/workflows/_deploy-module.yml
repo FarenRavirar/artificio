@@ -178,7 +178,7 @@ jobs:
           read_env_value() {
             local key="$1"
             local file="$2"
-            grep "^${key}=" "$file" | tail -n1 | cut -d= -f2- || true
+            grep "^${key}=" "$file" | tail -n1 | cut -d= -f2- | tr -d '\r' || true
           }
 
           if [ "$MODULE" != "accounts" ] && [ -f "apps/accounts/.env" ]; then
