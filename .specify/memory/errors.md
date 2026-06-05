@@ -1,4 +1,4 @@
-# Erros Conhecidos — Artifício G1
+# Erros Conhecidos — Artifício RPG
 
 > Registro de erros/regressões e suas soluções validadas. Antes de tentar de novo, procure aqui por `E###` ou pelo sintoma. Ao resolver algo novo e não trivial, registre.
 

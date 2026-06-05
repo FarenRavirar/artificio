@@ -4,7 +4,7 @@
 
 ---
 
-Este chat é a **continuação direta** do trabalho do Artifício G1. As Fases 0 e 1 já foram feitas noutro chat; tu retomas pra **executar a Fase 2** (spec já escrita). Caveman mode, português.
+Este chat é a **continuação direta** do trabalho do Artifício RPG. As Fases 0 e 1 já foram feitas noutro chat; tu retomas pra **executar a Fase 2** (spec já escrita). Caveman mode, português.
 
 ## Antes de tudo — contextualiza (lê nesta ordem)
 1. `.specify/memory/project-state.md` — onde estamos.
@@ -17,7 +17,7 @@ Este chat é a **continuação direta** do trabalho do Artifício G1. As Fases 0
 8. `sessoes/26-06-04_3_monorepo_fase2-sso.md` — sessão ativa.
 
 ## O projeto (resumo)
-**Artifício G1** = suite modular de RPG em **subdomínios** sob `*.artificiorpg.com` (D017), unida por **login Google único** (cookie `.artificiorpg.com`, D018), leve (TS), saindo do WordPress. Monorepo em `C:\projetos\artificio` (pnpm+Turbo). Módulos: site(blog), glossario, mesas, downloads, **esferas** (Spheres of Power, multi-sistema D&D 2014/2024 + PF futuro, D028), srd, links. Pacotes: auth, ui, analytics, config, content, crosslink.
+**Artifício RPG** = suite modular de RPG em **subdomínios** sob `*.artificiorpg.com` (D017), unida por **login Google único** (cookie `.artificiorpg.com`, D018), leve (TS), saindo do WordPress. Monorepo em `C:\projetos\artificio` (pnpm+Turbo). Módulos: site(blog), glossario, mesas, downloads, **esferas** (Spheres of Power, multi-sistema D&D 2014/2024 + PF futuro, D028), srd, links. Pacotes: auth, ui, analytics, config, content, crosslink.
 
 ## Já feito (Fases 0+1)
 - Governança completa (specs/skills/agentes/caveman, gates A→B→C→D, log de decisões append-only).

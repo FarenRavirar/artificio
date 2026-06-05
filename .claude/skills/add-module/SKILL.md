@@ -1,6 +1,6 @@
 ---
 name: add-module
-description: Playbook para plugar um novo módulo no monorepo Artifício G1 seguindo o contrato de módulo (próprio subdomínio, SSO compartilhado via accounts., design system, analytics, sitemap, deploy). Use quando for criar um app novo em apps/* ou integrar um serviço existente como módulo G1.
+description: Playbook para plugar um novo módulo no monorepo Artifício RPG seguindo o contrato de módulo (próprio subdomínio, SSO compartilhado via accounts., design system, analytics, sitemap, deploy). Use quando for criar um app novo em apps/* ou integrar um serviço existente como módulo G1.
 ---
 
 # Adicionar um módulo ao G1

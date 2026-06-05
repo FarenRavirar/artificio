@@ -1,4 +1,4 @@
-# Decisões — Artifício G1 (append-only)
+# Decisões — Artifício RPG (append-only)
 
 > ADR-lite. Uma decisão = uma linha. **Append-only:** nunca reescrever histórico; para reverter, adicionar nova linha que supera (`supera D0NN`). Ler este arquivo evita re-decidir = evita retrabalho. Manter MINÚSCULO: sem prosa.
 >

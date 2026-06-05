@@ -1,6 +1,8 @@
-# Artifício G1
+# Artifício RPG
 
 Suite modular do Artifício RPG: cada serviço no seu **subdomínio** sob `*.artificiorpg.com`, unida por login Google único (SSO), leve (TypeScript), SEO forte. Monorepo com `pnpm` + `Turborepo`. Modelo Google-suite (`docs.`/`mail.`).
+
+> **Nome × conceito.** O produto chama-se **Artifício RPG** (domínio `artificiorpg.com`). "G1" **não** faz parte do nome — é apenas a *referência conceitual*: queremos um hub interconectado que direciona para os módulos, no estilo do portal de notícias G1. Codinome técnico interno (ex.: `g1-governance-reviewer`) pode usar "G1", mas nunca como nome do produto.
 
 > **Comece pela governança.** Antes de qualquer código, leia nesta ordem: `.specify/memory/project-state.md` → `AGENTS.md` → `docs/agents/context-capsule.md`.
 
