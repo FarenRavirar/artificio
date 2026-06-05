@@ -39,7 +39,8 @@ Spec `005-infra-beta-staging-pipeline` (spec/plan/tasks T1–T13). Parametrizar 
 - 2026-06-05 — PR #3 mergeado em `dev` (`7987556`) para T11; deploy beta falhou antes de tocar VM: falso negativo no gate `main ⊆ dev` por checkout raso (`fetch-depth: 1`) no runner. Localmente `main ⊆ dev` OK (`main=c5ff42d`, `dev=7987556`). Correção em andamento: checkout full-depth no job deploy antes do gate.
 - 2026-06-05 — Workflow `promote-dev-to-main` falhou porque GitHub Actions token do repo não tem permissão para criar PR (`createPullRequest`). PR standing criado manualmente pelo Codex: #4 `dev→main`. Correção em andamento: workflow passa a emitir warning e não quebrar a esteira quando GitHub bloquear create/edit PR.
 - 2026-06-05 — Feedback Codex PR #4/#5: PR normal `dev→main` com squash/merge commit quebraria `main ⊆ dev`. Correção: PR standing virou revisão, com aviso forte para não usar squash/merge commit; promoção canônica agora é workflow `promote-prod-fast-forward.yml` (dispatch + confirmação `PROMOTE_DEV_TO_MAIN`) que só avança `main` para `dev` por fast-forward após validar a invariante.
+- 2026-06-05 — T11 reexecutado após correção de checkout raso: PR #5 mergeado em `dev` (`0b4f89c`); deploy beta run `27029123773` passou. Snapshot criado, migrations em conformidade, `mesas-beta-api/app` healthy, smoke `home=200`, `private=401`, `auth_redirect=302`. Pós-smoke achou bug de contrato: `auth_redirect` em `mesasbeta.` voltava com `return=https://mesas.artificiorpg.com/` porque rota backend reconstruía retorno com base fixa de prod. Correção em andamento antes de hydrate/T12: base dinâmica por `PUBLIC_SITE_URL/FRONTEND_URL` + smoke beta exigindo `return=mesasbeta`.
 
 ## Bloqueios / aprovações pendentes
-- T11 = corrigir checkout raso no deploy e reexecutar deploy beta.
+- T12/E2E bloqueado até corrigir redirect beta para `return=mesasbeta`.
 - T2 branch protection = bloqueado pelo plano/recurso do GitHub (API 403 em branch protection e rulesets).

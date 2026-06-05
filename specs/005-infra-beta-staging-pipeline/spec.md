@@ -23,6 +23,7 @@ O monorepo G1 só tem esteira de produção (`main` → `/opt/artificio` → `<m
 ## Critérios de aceite
 - Push em `dev` tocando `apps/mesas/**` sobe `https://mesasbeta.artificiorpg.com` (200) automaticamente; push tocando só `apps/glossario/**` **não** mexe no mesas-beta.
 - `mesasbeta.artificiorpg.com` faz login via `accounts.` (sem `deleted_client`), rota privada `401` sem cookie e OK com cookie, logout limpa sessão.
+- `GET https://mesasbeta.artificiorpg.com/api/v1/auth/google` retorna `302` para `accounts.artificiorpg.com/login` com `return=https://mesasbeta.artificiorpg.com/` (não `mesas.artificiorpg.com`).
 - Recriar containers do beta **não derruba** `mesas.artificiorpg.com` (prod segue 200 durante o deploy beta).
 - Endpoint hydrate copia prod→beta com sucesso em beta e retorna `403` se `NODE_ENV=production`.
 - Tentativa de deploy prod com `main` não-ancestral de `dev` é **bloqueada** com erro claro.
