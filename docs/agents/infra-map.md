@@ -21,7 +21,7 @@ Stacks em `/opt/artificio/`: `glossario/` (prod), `glossario-beta/`, `mesas/` (p
 
 ## Regra operacional de deploy
 
-Depois do CDX-309, `/opt/artificio` deve virar clone do monorepo. Deploy de código passa por GitHub Actions (`git fetch/reset` na VM, checks, secrets, health/smoke). SSH manual na VM fica para bootstrap do clone, instalação de utilitários operacionais, conexão, diagnóstico ou rollback aprovado. Não usar `scp`/bundle manual como caminho normal de deploy.
+Depois do CDX-309, `/opt/artificio` deve virar clone do monorepo. Deploy de código passa por GitHub Actions (`git fetch/reset` na VM, checks, secrets, health/smoke). SSH manual na VM fica para bootstrap do clone, instalação de utilitários operacionais, conexão, diagnóstico ou rollback aprovado. Não usar `scp`/bundle manual como caminho normal de deploy. Fluxo completo: `docs/agents/deploy-flow.md`.
 
 Pré-requisitos do bootstrap CDX-309 Parte C na VM: `git`, `docker`, `docker compose`, `flock`, `curl`, `jq`, `postgresql-client`/ferramentas PG via containers, clone `/opt/artificio`, remote `origin` GitHub e `.env` preservado por módulo. O workflow aborta se `jq` faltar; deploy não instala pacote com `sudo`.
 
