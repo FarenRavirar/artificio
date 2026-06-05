@@ -12,7 +12,7 @@ const readReturnUrl = (req: Request): string => {
 
   try {
     const url = new URL(raw);
-    return new URL(`${url.pathname}${url.search}${url.hash}`, 'https://mesas.artificiorpg.com').toString();
+    return new URL(`${url.pathname}${url.search}${url.hash}`, getMesasOrigin()).toString();
   } catch {
     return getMesasOrigin();
   }

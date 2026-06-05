@@ -75,8 +75,9 @@ Religar `apps/mesas/backend` rota admin `/sync/hydrate` (portada do legado `admi
 ## Validação (como provo que funciona)
 1. CI: `env=prod` gera deploy idêntico ao atual (diff do script renderizado / smoke prod 200/401/302 inalterado).
 2. Push de teste em `dev` tocando `apps/mesas/**` → `mesasbeta.` sobe 200, prod segue 200 durante o deploy.
-3. Push em `dev` tocando só outro path → mesas-beta **não** redeploya.
-4. E2E beta: login accounts (sem `deleted_client`), rota privada 401→OK, logout.
-5. Hydrate: roda em beta OK; retorna 403 simulando `NODE_ENV=production`; contagens prod inalteradas.
-6. Gate: PR/dispatch prod com `main` artificialmente à frente de `dev` → bloqueado com mensagem.
-7. Push direto em `main` → rejeitado pela proteção.
+3. Smoke beta de auth exige `302` para `accounts.artificiorpg.com/login?return=https%3A%2F%2Fmesasbeta.artificiorpg.com%2F`; aceitar só `accounts...login` é fraco e deixa beta voltar para prod sem falhar.
+4. Push em `dev` tocando só outro path → mesas-beta **não** redeploya.
+5. E2E beta: login accounts (sem `deleted_client`), rota privada 401→OK, logout.
+6. Hydrate: roda em beta OK; retorna 403 simulando `NODE_ENV=production`; contagens prod inalteradas.
+7. Gate: PR/dispatch prod com `main` artificialmente à frente de `dev` → bloqueado com mensagem.
+8. Push direto em `main` → rejeitado pela proteção.
