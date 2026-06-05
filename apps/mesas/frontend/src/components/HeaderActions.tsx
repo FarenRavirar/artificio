@@ -15,8 +15,13 @@ export function HeaderActions() {
   const { user } = useAuth();
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [hasNewUpdate, setHasNewUpdate] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem('mesas_last_seen_update') !== UPDATE_MARKER;
+    try {
+      if (typeof window === 'undefined') return false;
+      return window.localStorage.getItem('mesas_last_seen_update') !== UPDATE_MARKER;
+    } catch {
+      // localStorage existe mas acesso bloqueado (modo privado/política): sem badge.
+      return false;
+    }
   });
 
   const openChangelog = () => {
