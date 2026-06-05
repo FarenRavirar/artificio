@@ -1,7 +1,8 @@
 name: promote-dev-to-main
 
-# PR standing: todo push em dev cria/atualiza PR de promocao para main.
-# Deploy/codigo seguem rastreaveis via GitHub; main nao recebe push direto.
+# PR standing: todo push em dev cria/atualiza PR de revisao para promocao.
+# ATENCAO: nao usar squash/merge commit neste PR, pois isso quebra main ⊆ dev.
+# Promocao segura = workflow promote-prod-fast-forward.yml ou Rebase and merge.
 on:
   push:
     branches:
@@ -30,17 +31,30 @@ jobs:
             --json number \
             --jq '.[0].number // empty')
 
-          title="Promover dev para main"
+          title="Revisar promocao dev para main"
           body=$(cat <<'EOF'
-          PR standing automatico.
+          PR standing automatico para revisar o que sera promovido de `dev` para `main`.
 
-          Promove o estado validado em `dev` para `main` depois dos gates verdes e aprovacao do mantenedor.
+          **Regra critica:** `main` deve continuar ancestral de `dev` (`main ⊆ dev`).
+
+          Nao use "Squash and merge" nem "Create a merge commit": ambos criam commit novo em `main` que nao existe em `dev`, quebrando o guard e bloqueando deploy prod.
+
+          Promocao aprovada:
+          1. Preferido: rodar workflow `promote-prod-fast-forward.yml` com confirmacao `PROMOTE_DEV_TO_MAIN`.
+          2. Alternativa manual: usar somente "Rebase and merge" no GitHub.
+
+          Depois da promocao, `main` deve apontar para o mesmo commit de `dev` ou para commit contido em `dev`.
           EOF
           )
 
           if [ -n "$number" ]; then
-            gh pr edit "$number" --title "$title" --body "$body"
-            echo "promotion_pr=$number"
+            if gh pr edit "$number" --title "$title" --body "$body"; then
+              echo "promotion_pr=$number"
+            else
+              echo "::warning::GitHub Actions nao pode editar PRs neste repo. PR standing existente: #$number."
+            fi
+          elif gh pr create --base main --head dev --title "$title" --body "$body"; then
+            echo "promotion_pr=created"
           else
-            gh pr create --base main --head dev --title "$title" --body "$body"
+            echo "::warning::GitHub Actions nao pode criar PR standing neste repo. Crie/atualize manualmente PR dev->main."
           fi

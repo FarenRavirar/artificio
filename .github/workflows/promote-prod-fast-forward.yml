@@ -1,0 +1,43 @@
+name: promote-prod-fast-forward
+
+# Promocao canonica dev -> main preservando a invariante main ⊆ dev.
+# Nao cria commit de merge/squash: main avanca por fast-forward para dev.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Digite PROMOTE_DEV_TO_MAIN para promover dev -> main"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  fast-forward:
+    name: Fast-forward main to dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate confirmation and invariant
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.confirm }}" != "PROMOTE_DEV_TO_MAIN" ]; then
+            echo "ERRO: confirm precisa ser PROMOTE_DEV_TO_MAIN"
+            exit 1
+          fi
+
+          git fetch --no-tags --prune origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/dev:refs/remotes/origin/dev
+          bash scripts/deploy/validate_branch_invariant.sh origin/main origin/dev
+
+      - name: Promote main by fast-forward
+        run: |
+          set -euo pipefail
+          git push origin refs/remotes/origin/dev:refs/heads/main
+          echo "promoted_ref=$(git rev-parse --short origin/dev)"
