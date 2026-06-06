@@ -350,6 +350,9 @@ importers:
 
   apps/site:
     dependencies:
+      '@artificio/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@artificio/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -412,6 +415,12 @@ importers:
       zod:
         specifier: ^3.25.57
         version: 3.25.76
+
+  packages/content:
+    devDependencies:
+      '@artificio/config':
+        specifier: workspace:*
+        version: link:../config
 
   packages/ui:
     dependencies:

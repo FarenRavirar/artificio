@@ -39,8 +39,8 @@
 
 ## F5 — `packages/content` (SEO)
 
-- [ ] **T17** — Pacote `content`: meta tags + JSON-LD (Article/Breadcrumb/Organization) · feito quando: post renderiza meta+JSON-LD válidos (R13).
-- [~] **T18** — **sitemap.xml** (@astrojs/sitemap) + **RSS** (@astrojs/rss) + canonical (domínio raiz) + JSON-LD Article ✅ no `apps/site` (provisório, pré-`packages/content`). ⬜ `robots.txt`, mapa 301, extrair p/ `packages/content`, Rich Results Test (R14/R15/CA4).
+- [x] **T17** — Pacote `@artificio/content` (TS puro, zero deps): `buildMeta` (OG/Twitter), `articleLd`/`breadcrumbLd`/`organizationLd`/`websiteLd`, `sitemapXml`, `robotsTxt`, `SITE`/`canonicalUrl`. 6/6 testes. Integrado no site (Base/[slug]/index/robots.txt) (R13). Reusável por mesas/glossário.
+- [~] **T18** — **sitemap.xml** (@astrojs/sitemap) + **RSS** (@astrojs/rss) + **robots.txt** (via `@artificio/content`) + canonical raiz + JSON-LD via `content` ✅. ⬜ mapa 301 (gera no cutover), Rich Results Test, `sitemapXml` do content p/ módulos não-Astro (R14/R15/CA4).
 
 ## F6 — `packages/analytics` (GA4 cross)
 

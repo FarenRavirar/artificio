@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import { buildMeta, renderJsonLd, SITE } from "@artificio/content";
 import SiteHeader from "../components/SiteHeader.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import SearchModal from "../components/SearchModal.astro";
@@ -10,18 +11,21 @@ interface Props {
   canonical: string;
   ogType?: "website" | "article";
   image?: string;
-  jsonld?: Record<string, unknown>;
+  jsonld?: object | object[];
   currentHref?: string;
 }
 const {
   title,
-  description = "Conteúdo de RPG em português: notícias, análises, guias e traduções.",
+  description = SITE.description,
   canonical,
   ogType = "website",
   image,
   jsonld,
   currentHref,
 } = Astro.props;
+
+const metaTags = buildMeta({ title, description, canonical, type: ogType, image });
+const lds = jsonld ? (Array.isArray(jsonld) ? jsonld : [jsonld]) : [];
 ---
 <!doctype html>
 <html lang="pt-BR" data-theme="light">
@@ -31,15 +35,10 @@ const {
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <title>{title}</title>
-    <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
-    <meta property="og:type" content={ogType} />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonical} />
-    {image && <meta property="og:image" content={image} />}
-    <meta name="twitter:card" content="summary_large_image" />
-    {jsonld && <script type="application/ld+json" set:html={JSON.stringify(jsonld)} />}
+    {metaTags.map((m) => (m.name ? <meta name={m.name} content={m.content} /> : <meta property={m.property} content={m.content} />))}
+    <link rel="alternate" type="application/rss+xml" title="Artifício RPG — Blog" href="/rss.xml" />
+    {lds.map((ld) => <script type="application/ld+json" set:html={renderJsonLd(ld)} />)}
     <script is:inline>
       (function () {
         try {

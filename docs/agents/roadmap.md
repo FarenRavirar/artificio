@@ -40,7 +40,7 @@
 | `auth` | SSO Google + JWT cookie raiz (verifyToken/requireAuth/useSession) | ✅ |
 | `ui` | design system (Header/Nav/Footer hub, tokens marca real) | ✅ (marca corrigida CDX-311) |
 | `analytics` | GA4 cross-subdomínio (D020) | ⬜ (spec 008 F6) |
-| `content` | SEO: meta, sitemap, JSON-LD | ⬜ (spec 008 F5) |
+| `content` | SEO: meta, sitemap, JSON-LD, robots | ✅ (spec 008 F5; usado no site; 6/6 testes) |
 | `crosslink` | tooltips/interreferência SRD↔Esferas | ⬜ |
 
 ## Infra / CI-CD

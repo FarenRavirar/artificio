@@ -16,6 +16,7 @@
     "test": "echo \"(site) test TODO\""
   },
   "dependencies": {
+    "@artificio/content": "workspace:*",
     "@artificio/ui": "workspace:*",
     "@electric-sql/pglite": "^0.2.17",
     "dotenv": "^16.4.7",
