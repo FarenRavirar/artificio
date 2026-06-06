@@ -38,3 +38,4 @@ tmp/
 # Editor
 .vscode/
 .idea/
+.claude/launch.json
