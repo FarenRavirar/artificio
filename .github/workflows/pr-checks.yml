@@ -22,3 +22,12 @@ jobs:
   enforce-migration-dir:
     if: github.event_name == 'pull_request'
     uses: ./.github/workflows/_enforce-migration-dir.yml
+
+  # spec 009 R2: scripts de ENTRYPOINT/CMD em Dockerfiles devem ser 100755 (evita
+  # "exec: ./entrypoint.sh: permission denied" no deploy).
+  guard-entrypoint-exec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ENTRYPOINT scripts executaveis (100755)
+        run: bash scripts/ci/check_entrypoint_exec_bit.sh
