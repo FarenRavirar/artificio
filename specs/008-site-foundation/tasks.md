@@ -18,27 +18,29 @@
   - **Etapa-2** (build **35 páginas**, limpo): arquivos `/blog/` + `/blog/categoria/<slug>/` + `/blog/tag/<slug>/` + pills de categoria; **busca Pagefind** (índice estático, modal marca, `/` e Cmd/Ctrl+K); **RSS** (8 itens) + **sitemap** + **404**.
   - **Pendente Etapa-2:** Header/Footer como **island React** (`@artificio/ui` + session) — risco SSR (`@artificio/auth/client` é browser-only → exigiria `client:only`); recomendação = manter `.astro` zero-JS no header público (perf/leitura), island só se quiser estado de sessão vivo no blog. **Decisão do mantenedor.**
   - Protótipo aprovado (look+UX, desktop). Visual híbrido A+B, marca D040. Bônus: Gutenberg renderiza limpo pós-sanitize (de-risca F3).
-- [ ] **T7** — Schema Postgres (`posts`/`taxonomies`/`media`/`pages`/`comments`/`redirects`) + migrations frameworkadas · feito quando: migra limpo em PG vazio; slug único; categoria com hierarquia pai/filho (R1–R3).
-- [ ] **T8** — Camada de acesso ao store (queries Kysely tipadas) + testes · feito quando: CRUD de post/taxonomia/redirect testado.
+- [x] **T7** — Schema Postgres (`posts`/`taxonomies`/`media`/`pages`/`comments`/`redirects`) + migration runner (schema_migrations + advisory lock pg + transacional) · `db/migrations/001_init.sql` + `db/migrate.ts`; slug único, categoria pai/filho via `parent_id`, N:N `post_taxonomies` (R1–R3). Dev=pglite / prod=pg (`db/connection.ts`).
+- [~] **T8** — Camada de acesso ao store · adapter `query()` cru (pglite/pg) usado por importador + `export.ts`. **Kysely tipado** = backend HTTP/admin futuro (anotado).
 
 ## F3 — Importador WP→store (one-shot, descartável) — agente `wp-importer`
 
-- [ ] **T9** — Cliente REST + paginação + rate-limit gentil · feito quando: lê post/page/category/tag/comment/media sem tocar o WP (só GET).
-- [ ] **T10** — Sanitização HTML por allowlist (regra pétrea) + teste de XSS · feito quando: `<script>`/on*/iframe não-allowlist removidos; Gutenberg preservado (R6).
-- [ ] **T11** — Mapeamento WP→store (slug imutável, taxonomia aninhada, Yoast→meta SEO) · feito quando: import idempotente por slug; meta migrada 1:1 (R4/R7).
-- [ ] **T12** — Mídia: puxa original via REST → Cloudinary → reescreve `src` · feito quando: imagens dos posts servem via Cloudinary; mídia faltante listada (R8, D025).
-- [ ] **T13** — Filtro de escopo (só `post`+taxonomias+pages institucionais+comments; ignora CPTs/woo/mesas) · feito quando: relatório mostra só o escopo `site` (R5, D046).
-- [ ] **T14** — Relatório de paridade + mapa 301 · feito quando: contagem origem vs store, diff de slugs, 0 perdas, 301 100% (R9/R15, CA2).
+- [x] **T9** — Cliente REST (`importer/wp.ts`) + paginação (X-WP-TotalPages) + sequencial gentil · só GET, WP intocável (R4/D045).
+- [x] **T10** — Sanitização allowlist (`importer/sanitize.ts`: script/style/on*/iframe/js: removidos) · Gutenberg preservado (R6). ⬜ teste de XSS dedicado.
+- [x] **T11** — Mapeamento WP→store idempotente (`ON CONFLICT id`); slug imutável (UNIQUE); taxonomia aninhada (2 passes parent); Yoast→seo_title/description/canonical/og (R4/R7).
+- [~] **T12** — Mídia: **dry-run** grava `media` + `featured_url`=URL WP (sem Cloudinary ainda). ⬜ upload Cloudinary + reescrita de `src` (R8/D025).
+- [x] **T13** — Escopo (`post`+categorias+tags+comentários); CPTs/woo/mesas não buscados; categoria genérica `blog` filtrada no read (R5/D046). ⬜ pages institucionais.
+- [x] **T14** — Relatório de paridade · **rodado: posts WP=125 store=125 ✓, taxonomias 82/82, comentários 25/25** (R9/CA2). ⬜ mapa 301 (gera no cutover).
+
+> **F2/F3 rodados local (pglite):** `migrate → import → export → build` = **209 páginas** (125 artigos+arquivos+home) de conteúdo WP real. Pipeline em `apps/site/README.md`.
 
 ## F4 — SSG + rebuild incremental
 
-- [ ] **T15** — Pré-render estático das rotas (`/blog/<slug>/`, pages, arquivos cat/tag aninhados) · feito quando: build gera HTML por rota; post novo aparece no índice pós-rebuild (R10/R12).
+- [x] **T15** — Pré-render estático das rotas (`/blog/<slug>/`, `/blog/`, `/blog/categoria/<slug>/`, `/blog/tag/<slug>/`, home, 404) · build gera HTML por rota (209 páginas) (R10/R12). ⬜ pages institucionais.
 - [ ] **T16** — Trigger de rebuild pelo admin (endpoint protegido `role==='admin'`) · feito quando: publish/edit dispara rebuild; não há SSR em runtime (R11).
 
 ## F5 — `packages/content` (SEO)
 
 - [ ] **T17** — Pacote `content`: meta tags + JSON-LD (Article/Breadcrumb/Organization) · feito quando: post renderiza meta+JSON-LD válidos (R13).
-- [ ] **T18** — `sitemap.xml` + `robots.txt` + canonical + 301 (preparado, ativa no cutover) · feito quando: sitemap lista todos; todo slug WP tem destino; Rich Results Test passa (R14/R15, CA4).
+- [~] **T18** — **sitemap.xml** (@astrojs/sitemap) + **RSS** (@astrojs/rss) + canonical (domínio raiz) + JSON-LD Article ✅ no `apps/site` (provisório, pré-`packages/content`). ⬜ `robots.txt`, mapa 301, extrair p/ `packages/content`, Rich Results Test (R14/R15/CA4).
 
 ## F6 — `packages/analytics` (GA4 cross)
 
