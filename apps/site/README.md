@@ -35,6 +35,14 @@ pnpm --filter @artificio/site dev           # astro dev (busca Pagefind só no b
 
 `posts.json` versionado = **seed pequeno** (amostra). `pnpm sync` regenera o conteúdo completo do WP (125 posts) localmente; `.pgdata/` é gitignored.
 
+## Mídia (Cloudinary)
+
+O importador migra mídia **env-gated** (`importer/media.ts`, D025/R8):
+- **`CLOUDINARY_URL`** (ou `CLOUDINARY_CLOUD_NAME`+`API_KEY`+`API_SECRET`) presente → faz upload do original WP, reescreve `src` (featured + inline) p/ URL Cloudinary, cacheia em `media_map` (idempotente).
+- ausente → **dry-run**: mantém URLs do WP (zero credencial, zero rede). É o default local.
+
+Creds = segredo (mantenedor/VM), nunca versionado. Rodar a migração real de mídia = setar `CLOUDINARY_URL` no `.env` e `pnpm sync`.
+
 ## Status (spec 008)
 
 - ✅ F2 store (schema/migrations/runner), F3 importador (paridade 125/125), SSG + arquivos + busca Pagefind + RSS/sitemap + SEO.

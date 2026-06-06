@@ -4,6 +4,7 @@
 import { getDb } from "../db/connection";
 import { fetchAll, countOf, type WpTerm } from "./wp";
 import { sanitize, withToc, stripTags, decode, readingTime, toDate } from "./sanitize";
+import { buildMediaMap, extractImageUrls, rewriteUrls, cloudinaryEnabled } from "./media";
 
 interface WpRendered { rendered: string; }
 interface WpPost {
@@ -25,7 +26,7 @@ const iso = (s?: string): string | null => {
 
 async function main() {
   const db = await getDb();
-  console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — DRY-RUN (sem Cloudinary)`);
+  console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — mídia=${cloudinaryEnabled() ? "Cloudinary (upload)" : "DRY-RUN (URLs WP)"}`);
 
   // 1) Taxonomias (categorias + tags). 2 passes p/ parent_id (forward refs).
   const cats = await fetchAll<WpCat>("categories");
@@ -55,15 +56,19 @@ async function main() {
   );
   let linked = 0;
   for (const p of posts) {
-    const { html, toc } = withToc(sanitize(p.content.rendered));
+    const { html: rawHtml, toc } = withToc(sanitize(p.content.rendered));
     const media = p._embedded?.["wp:featuredmedia"]?.[0];
-    let featuredUrl: string | null = null;
+    const wpFeatured = media?.source_url ?? null;
+    // mídia: featured + inline -> Cloudinary (ou mantém URL WP em dry-run). Idempotente (media_map).
+    const mmap = await buildMediaMap(db, [wpFeatured, ...extractImageUrls(rawHtml)].filter((u): u is string => Boolean(u)));
+    const contentHtml = rewriteUrls(rawHtml, mmap);
+    const featuredUrl = wpFeatured ? mmap.get(wpFeatured) ?? wpFeatured : null;
     if (media?.source_url) {
-      featuredUrl = media.source_url;
+      const cloud = mmap.get(media.source_url);
       await db.query(
-        `INSERT INTO media (id, wp_url, alt, width, height, mime) VALUES ($1,$2,$3,$4,$5,$6)
-         ON CONFLICT (id) DO UPDATE SET wp_url=EXCLUDED.wp_url, alt=EXCLUDED.alt, width=EXCLUDED.width, height=EXCLUDED.height, mime=EXCLUDED.mime`,
-        [media.id, media.source_url, media.alt_text ?? null, media.media_details?.width ?? null, media.media_details?.height ?? null, media.mime_type ?? null],
+        `INSERT INTO media (id, wp_url, cloudinary_url, alt, width, height, mime) VALUES ($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (id) DO UPDATE SET wp_url=EXCLUDED.wp_url, cloudinary_url=EXCLUDED.cloudinary_url, alt=EXCLUDED.alt, width=EXCLUDED.width, height=EXCLUDED.height, mime=EXCLUDED.mime`,
+        [media.id, media.source_url, cloud && cloud !== media.source_url ? cloud : null, media.alt_text ?? null, media.media_details?.width ?? null, media.media_details?.height ?? null, media.mime_type ?? null],
       );
     }
     const seo = p.yoast_head_json ?? {};
@@ -76,7 +81,7 @@ async function main() {
          updated_at=EXCLUDED.updated_at, reading_time=EXCLUDED.reading_time, featured_url=EXCLUDED.featured_url,
          seo_title=EXCLUDED.seo_title, seo_description=EXCLUDED.seo_description, canonical=EXCLUDED.canonical, og_image=EXCLUDED.og_image`,
       [
-        p.id, p.slug, decode(p.title.rendered), stripTags(p.excerpt.rendered).slice(0, 300), html,
+        p.id, p.slug, decode(p.title.rendered), stripTags(p.excerpt.rendered).slice(0, 300), contentHtml,
         JSON.stringify(toc), p.status, iso(p.date), iso(p.modified), readingTime(p.content.rendered),
         featuredUrl, seo.title ? decode(seo.title) : null, seo.description ?? null,
         seo.canonical ?? `https://artificiorpg.com/blog/${p.slug}/`, ogImage,
