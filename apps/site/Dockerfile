@@ -18,5 +18,6 @@ RUN pnpm -w turbo run build \
   --filter=@artificio/content --filter=@artificio/analytics
 
 WORKDIR /repo/apps/site
+RUN chmod +x docker-entrypoint.sh
 EXPOSE 4322
 ENTRYPOINT ["./docker-entrypoint.sh"]
