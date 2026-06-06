@@ -8,6 +8,7 @@ import { getDb } from "./connection";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(here, "../src/data/posts.json");
+const PAGES_OUT = resolve(here, "../src/data/pages.json");
 
 interface PostRow {
   id: number; slug: string; title: string; excerpt: string; content_html: string;
@@ -59,6 +60,21 @@ async function main() {
 
   writeFileSync(OUT, JSON.stringify(out, null, 2));
   console.log(`export: ${out.length} posts -> ${OUT}`);
+
+  // pages institucionais
+  const pageRows = (await db.query<{ id: number; slug: string; title: string; content_html: string; seo_description: string | null }>(
+    `SELECT id, slug, title, content_html, seo_description FROM pages WHERE status = 'publish' ORDER BY slug`,
+  )).rows;
+  const pagesOut = pageRows.map((p) => ({
+    id: p.id,
+    slug: p.slug,
+    title: p.title,
+    contentHtml: p.content_html,
+    seo: { description: p.seo_description ?? "" },
+  }));
+  writeFileSync(PAGES_OUT, JSON.stringify(pagesOut, null, 2));
+  console.log(`export: ${pagesOut.length} pages -> ${PAGES_OUT}`);
+
   await db.close();
 }
 

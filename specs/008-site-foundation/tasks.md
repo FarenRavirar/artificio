@@ -27,14 +27,14 @@
 - [x] **T10** — Sanitização allowlist (`importer/sanitize.ts`: script/style/on*/iframe/js: removidos) · Gutenberg preservado (R6). ⬜ teste de XSS dedicado.
 - [x] **T11** — Mapeamento WP→store idempotente (`ON CONFLICT id`); slug imutável (UNIQUE); taxonomia aninhada (2 passes parent); Yoast→seo_title/description/canonical/og (R4/R7).
 - [x] **T12** — Mídia Cloudinary **env-gated** (`importer/media.ts` + migration `002_media_map`): com `CLOUDINARY_URL` → upload original WP + reescreve `src` (featured+inline) + cache `media_map` idempotente; sem creds → dry-run mantém URLs WP. Funções puras (extract/rewrite/publicId) verificadas. **Falta:** rodar com creds reais (segredo do mantenedor) p/ migração efetiva (R8/D025).
-- [x] **T13** — Escopo (`post`+categorias+tags+comentários); CPTs/woo/mesas não buscados; categoria genérica `blog` filtrada no read (R5/D046). ⬜ pages institucionais.
+- [x] **T13** — Escopo (`post`+categorias+tags+comentários+**pages institucionais**); CPTs/woo/mesas não buscados; categoria `blog` filtrada no read; pages por **allow-list** (10/10: sobre-nos/contato/políticas/termos/media-kit/newsletter/grupos-whatsapp/material-online/curso/coyote) excluindo mesas/woo/outros (R5/D046).
 - [x] **T14** — Relatório de paridade · **rodado: posts WP=125 store=125 ✓, taxonomias 82/82, comentários 25/25** (R9/CA2). ⬜ mapa 301 (gera no cutover).
 
 > **F2/F3 rodados local (pglite):** `migrate → import → export → build` = **209 páginas** (125 artigos+arquivos+home) de conteúdo WP real. Pipeline em `apps/site/README.md`.
 
 ## F4 — SSG + rebuild incremental
 
-- [x] **T15** — Pré-render estático das rotas (`/blog/<slug>/`, `/blog/`, `/blog/categoria/<slug>/`, `/blog/tag/<slug>/`, home, 404) · build gera HTML por rota (209 páginas) (R10/R12). ⬜ pages institucionais.
+- [x] **T15** — Pré-render estático das rotas (`/blog/<slug>/`, `/blog/`, `/blog/categoria/<slug>/`, `/blog/tag/<slug>/`, **`/<slug>/` institucionais**, home, 404) · build gera HTML por rota (**219 páginas**) (R10/R12). Rota raiz `[slug].astro` limitada aos slugs de pages (não colide c/ rotas explícitas).
 - [x] **T16** — Backend HTTP (`server/`, Express + `@artificio/auth`): `GET /healthz`, `GET /admin/status`, `POST /admin/rebuild` (export+build+pagefind, gatilho SSG D006), `POST /admin/import` — admin endpoints gated `role==='admin'`; jobs single-flight (`server/jobs.ts`). Smoke: health 200 `{posts:125}`, admin 401 sem cookie (R11). ⬜ UI de admin, webhook→GH Actions p/ prod.
 
 ## F5 — `packages/content` (SEO)
