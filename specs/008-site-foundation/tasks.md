@@ -35,7 +35,7 @@
 ## F4 — SSG + rebuild incremental
 
 - [x] **T15** — Pré-render estático das rotas (`/blog/<slug>/`, `/blog/`, `/blog/categoria/<slug>/`, `/blog/tag/<slug>/`, home, 404) · build gera HTML por rota (209 páginas) (R10/R12). ⬜ pages institucionais.
-- [ ] **T16** — Trigger de rebuild pelo admin (endpoint protegido `role==='admin'`) · feito quando: publish/edit dispara rebuild; não há SSR em runtime (R11).
+- [x] **T16** — Backend HTTP (`server/`, Express + `@artificio/auth`): `GET /healthz`, `GET /admin/status`, `POST /admin/rebuild` (export+build+pagefind, gatilho SSG D006), `POST /admin/import` — admin endpoints gated `role==='admin'`; jobs single-flight (`server/jobs.ts`). Smoke: health 200 `{posts:125}`, admin 401 sem cookie (R11). ⬜ UI de admin, webhook→GH Actions p/ prod.
 
 ## F5 — `packages/content` (SEO)
 
