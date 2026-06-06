@@ -4,6 +4,7 @@ import Card from "../components/Card.astro";
 import { posts } from "../lib/content";
 
 const [hero, ...rest] = posts;
+const recent = rest.slice(0, 9);
 ---
 <Base
   title="Artifício RPG — Blog"
@@ -17,7 +18,7 @@ const [hero, ...rest] = posts;
       <a class="see-all" href="/blog/">Ver tudo →</a>
     </div>
     <section class="grid">
-      {rest.map((p) => <Card post={p} />)}
+      {recent.map((p) => <Card post={p} />)}
     </section>
   </main>
 </Base>
