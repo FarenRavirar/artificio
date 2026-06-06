@@ -26,7 +26,7 @@
 - [x] **T9** — Cliente REST (`importer/wp.ts`) + paginação (X-WP-TotalPages) + sequencial gentil · só GET, WP intocável (R4/D045).
 - [x] **T10** — Sanitização allowlist (`importer/sanitize.ts`: script/style/on*/iframe/js: removidos) · Gutenberg preservado (R6). ⬜ teste de XSS dedicado.
 - [x] **T11** — Mapeamento WP→store idempotente (`ON CONFLICT id`); slug imutável (UNIQUE); taxonomia aninhada (2 passes parent); Yoast→seo_title/description/canonical/og (R4/R7).
-- [~] **T12** — Mídia: **dry-run** grava `media` + `featured_url`=URL WP (sem Cloudinary ainda). ⬜ upload Cloudinary + reescrita de `src` (R8/D025).
+- [x] **T12** — Mídia Cloudinary **env-gated** (`importer/media.ts` + migration `002_media_map`): com `CLOUDINARY_URL` → upload original WP + reescreve `src` (featured+inline) + cache `media_map` idempotente; sem creds → dry-run mantém URLs WP. Funções puras (extract/rewrite/publicId) verificadas. **Falta:** rodar com creds reais (segredo do mantenedor) p/ migração efetiva (R8/D025).
 - [x] **T13** — Escopo (`post`+categorias+tags+comentários); CPTs/woo/mesas não buscados; categoria genérica `blog` filtrada no read (R5/D046). ⬜ pages institucionais.
 - [x] **T14** — Relatório de paridade · **rodado: posts WP=125 store=125 ✓, taxonomias 82/82, comentários 25/25** (R9/CA2). ⬜ mapa 301 (gera no cutover).
 

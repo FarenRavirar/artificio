@@ -19,6 +19,7 @@
     "@artificio/content": "workspace:*",
     "@artificio/ui": "workspace:*",
     "@electric-sql/pglite": "^0.2.17",
+    "cloudinary": "^2.5.1",
     "dotenv": "^16.4.7",
     "pg": "^8.21.0"
   },
