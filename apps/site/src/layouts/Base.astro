@@ -52,7 +52,16 @@ const lds = jsonld ? (Array.isArray(jsonld) ? jsonld : [jsonld]) : [];
     <script is:inline>
       (function () {
         try {
-          var t = localStorage.getItem("theme") ||
+          function readCookie(name) {
+            var prefix = name + "=";
+            var parts = document.cookie.split(";");
+            for (var i = 0; i < parts.length; i++) {
+              var value = parts[i].trim();
+              if (value.indexOf(prefix) === 0) return decodeURIComponent(value.slice(prefix.length));
+            }
+            return null;
+          }
+          var t = readCookie("artificio_theme") || localStorage.getItem("theme") ||
             (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
           document.documentElement.dataset.theme = t;
         } catch (e) {}
@@ -73,13 +82,32 @@ const lds = jsonld ? (Array.isArray(jsonld) ? jsonld : [jsonld]) : [];
             else el.removeAttribute("data-variant");
           });
         }
+        function updateLoginLink(t) {
+          var link = document.getElementById("site-login-link");
+          if (!link) return;
+          try {
+            var url = new URL(link.getAttribute("href") || "https://accounts.artificiorpg.com/login");
+            url.searchParams.set("return", window.location.href);
+            var v = t === "dark" ? "dark" : "light";
+            url.searchParams.set("theme", v);
+            link.setAttribute("href", url.toString());
+          } catch (e) {}
+        }
+        function writeThemeCookie(t) {
+          var v = t === "dark" ? "dark" : "light";
+          document.cookie = "artificio_theme=" + v + "; Path=/; Domain=.artificiorpg.com; Max-Age=31536000; SameSite=Lax; Secure";
+        }
         applyVariant(document.documentElement.dataset.theme);
+        updateLoginLink(document.documentElement.dataset.theme);
+        writeThemeCookie(document.documentElement.dataset.theme);
         var btn = document.getElementById("theme-toggle");
         if (btn) btn.addEventListener("click", function () {
           var r = document.documentElement;
           var t = r.dataset.theme === "dark" ? "light" : "dark";
           r.dataset.theme = t;
           applyVariant(t);
+          updateLoginLink(t);
+          writeThemeCookie(t);
           try { localStorage.setItem("theme", t); } catch (e) {}
         });
         var links = Array.prototype.slice.call(document.querySelectorAll(".toc a"));

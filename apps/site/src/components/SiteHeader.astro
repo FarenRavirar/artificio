@@ -7,6 +7,8 @@ interface Props {
 }
 const { currentHref } = Astro.props;
 const ACCOUNTS = "https://accounts.artificiorpg.com";
+const loginUrl = new URL("/login", ACCOUNTS);
+loginUrl.searchParams.set("return", Astro.url.href);
 ---
 <header class="artificio-header" data-sticky="true">
   <div class="artificio-header-main">
@@ -34,7 +36,7 @@ const ACCOUNTS = "https://accounts.artificiorpg.com";
       <button class="artificio-header-action" id="theme-toggle" aria-label="Alternar tema">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path></svg>
       </button>
-      <a class="artificio-login-button" href={`${ACCOUNTS}/login`}>Entrar</a>
+      <a class="artificio-login-button" id="site-login-link" href={loginUrl.toString()}>Entrar</a>
     </div>
   </div>
   <nav class="artificio-subnav" aria-label="Seções do blog">
