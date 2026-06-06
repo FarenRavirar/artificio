@@ -2,6 +2,7 @@
 import Base from "../../layouts/Base.astro";
 import Card from "../../components/Card.astro";
 import { posts, getPost, related } from "../../lib/content";
+import { articleLd, breadcrumbLd, SITE } from "@artificio/content";
 
 export function getStaticPaths() {
   return posts.map((p) => ({ params: { slug: p.slug } }));
@@ -14,17 +15,24 @@ if (!post) return Astro.redirect("/404");
 const cat = post.cats[0];
 const rel = related(post);
 // canonical = URL final no domínio raiz (D047/D019); preserva /blog/<slug>/ no cutover.
-const canonical = `https://artificiorpg.com/blog/${post.slug}/`;
-const jsonld = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: post.title,
-  datePublished: post.date,
-  image: post.image || undefined,
-  author: { "@type": "Organization", name: "Artifício RPG" },
-  publisher: { "@type": "Organization", name: "Artifício RPG" },
-  mainEntityOfPage: canonical,
-};
+const canonical = `${SITE.origin}/blog/${post.slug}/`;
+const crumbs = [
+  { name: "Início", url: `${SITE.origin}/` },
+  { name: "Blog", url: `${SITE.origin}/blog/` },
+  ...(cat ? [{ name: cat.name, url: `${SITE.origin}/blog/categoria/${cat.slug}/` }] : []),
+  { name: post.title, url: canonical },
+];
+const jsonld = [
+  articleLd({
+    headline: post.title,
+    url: canonical,
+    description: post.seo.description,
+    datePublished: post.date,
+    image: post.image || undefined,
+    section: cat?.name,
+  }),
+  breadcrumbLd(crumbs),
+];
 ---
 <Base
   title={`${post.title} — Artifício RPG`}
