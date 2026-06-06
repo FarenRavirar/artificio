@@ -1,4 +1,10 @@
 dist/
+dist.a/
+dist.b/
+dist.next/
+dist.old/
+dist.legacy.*/
+dist.lnk.*
 .astro/
 node_modules/
 .pgdata/

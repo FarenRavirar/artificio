@@ -17,6 +17,14 @@ export interface SeoInput {
   siteName?: string;
   /** BCP-47, ex.: "pt-BR". */
   locale?: string;
+  /** Override do og:title/twitter:title (default = title). */
+  ogTitle?: string;
+  /** Override do og:description/twitter:description (default = description). */
+  ogDescription?: string;
+  /** Card do Twitter (default = summary_large_image se houver image, senão summary). */
+  twitterCard?: string;
+  /** Se true, emite robots noindex,nofollow. */
+  noindex?: boolean;
 }
 
 export interface BreadcrumbItem {

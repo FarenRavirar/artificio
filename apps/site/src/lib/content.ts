@@ -26,7 +26,18 @@ export interface Post {
   image: string;
   cats: Term[];
   tags: Term[];
-  seo: { description: string };
+  seo: SeoMeta;
+}
+
+export interface SeoMeta {
+  title?: string;
+  description: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage?: string;
+  canonical?: string;
+  twitterCard?: string;
+  noindex?: boolean;
 }
 
 export interface Page {
@@ -34,7 +45,7 @@ export interface Page {
   slug: string;
   title: string;
   contentHtml: string;
-  seo: { description: string };
+  seo: SeoMeta;
 }
 
 export const posts = postsData as Post[];

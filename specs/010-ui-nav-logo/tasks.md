@@ -6,6 +6,8 @@
 - [x] **T4** — R2 corrigido: re-encodado `packages/ui/src/_logo_neg.png` (fonte válida 300×100 RGBA) → novo data-URI em `brand.ts`; `brand.json` regenerado via `prep`. Preview confirma `logo-neg` `naturalWidth=300` e wordmark branco visível no header dark.
 - [x] **T5** — `packages/ui/src/modules.ts` `Glossario`→`Glossário` (acento). Builds de mesas (front+back) e accounts verdes (sem quebrar consumidores).
 - [x] **T6** — `pnpm --filter @artificio/site build` verde; ui/mesas/accounts verdes; preview confere nav cross-módulo + subnav + logo (CA1/CA2/CA3). `pr-checks` roda no PR.
-- [ ] **T7** — 🔒 Mantenedor: autorizar push + redeploy p/ ver no ar (CA2 no AR). Fix do logo (brand.ts/brand.json) afeta site **e mesas/accounts** → ao deployar, todos os headers dark passam a mostrar o logo. (Inclui aplicar R6 da spec 009 pendente, se quiser, no mesmo deploy.)
+- [x] **T7** — Push + deploy autorizados e feitos (2026-06-06). `c488e77..7f2fbd1 dev` (inclui R6 da spec 009 / `2681612`). Runs verdes: `deploy-site` dispatch `27066789645` (beta), `deploy-mesas` push `27066781539` (mesasbeta), `deploy-accounts` dispatch `27066790328` (accountsbeta); `pr-checks`+`promote-dev-to-main` verdes. Smoke AR 200 (beta/mesas/accounts) + WP raiz 200 intocável. HTML servido em beta confirma nav unificado + `logo-navy`/`logo-neg` 300×100 decode OK (asset corrompido eliminado). Prod (`mesas.`/`accounts.`/raiz) segue logo velho até promote `main`.
+
+> **010 concluída.** Nav cross-módulo unificado + logo neg corrigido, no ar nos betas.
 
 > Deploy/push **bloqueados** até autorização explícita do mantenedor (ver plan.md notas).

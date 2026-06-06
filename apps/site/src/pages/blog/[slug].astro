@@ -15,7 +15,8 @@ if (!post) return Astro.redirect("/404");
 const cat = post.cats[0];
 const rel = related(post);
 // canonical = URL final no domínio raiz (D047/D019); preserva /blog/<slug>/ no cutover.
-const canonical = `${SITE.origin}/blog/${post.slug}/`;
+// override editorial (admin) tem precedência.
+const canonical = post.seo.canonical || `${SITE.origin}/blog/${post.slug}/`;
 const crumbs = [
   { name: "Início", url: `${SITE.origin}/` },
   { name: "Blog", url: `${SITE.origin}/blog/` },
@@ -35,11 +36,15 @@ const jsonld = [
 ];
 ---
 <Base
-  title={`${post.title} — Artifício RPG`}
+  title={`${post.seo.title ?? post.title} — Artifício RPG`}
   description={post.seo.description}
   canonical={canonical}
   ogType="article"
-  image={post.image}
+  image={post.seo.ogImage || post.image}
+  ogTitle={post.seo.ogTitle}
+  ogDescription={post.seo.ogDescription}
+  twitterCard={post.seo.twitterCard}
+  noindex={post.seo.noindex}
   jsonld={jsonld}
 >
   <main class="article-wrap">

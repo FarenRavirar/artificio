@@ -6,18 +6,21 @@ import { SITE } from "./site.js";
 export function buildMeta(input: SeoInput): MetaTag[] {
   const siteName = input.siteName ?? SITE.name;
   const locale = input.locale ?? SITE.locale;
+  const ogTitle = input.ogTitle ?? input.title;
+  const ogDesc = input.ogDescription ?? input.description;
   const tags: MetaTag[] = [
     { name: "description", content: input.description },
     { property: "og:type", content: input.type ?? "website" },
-    { property: "og:title", content: input.title },
-    { property: "og:description", content: input.description },
+    { property: "og:title", content: ogTitle },
+    { property: "og:description", content: ogDesc },
     { property: "og:url", content: input.canonical },
     { property: "og:site_name", content: siteName },
     { property: "og:locale", content: locale.replace("-", "_") },
-    { name: "twitter:card", content: input.image ? "summary_large_image" : "summary" },
-    { name: "twitter:title", content: input.title },
-    { name: "twitter:description", content: input.description },
+    { name: "twitter:card", content: input.twitterCard ?? (input.image ? "summary_large_image" : "summary") },
+    { name: "twitter:title", content: ogTitle },
+    { name: "twitter:description", content: ogDesc },
   ];
+  if (input.noindex) tags.push({ name: "robots", content: "noindex,nofollow" });
   if (SITE.twitter) tags.push({ name: "twitter:site", content: SITE.twitter });
   if (input.image) {
     tags.push({ property: "og:image", content: input.image });

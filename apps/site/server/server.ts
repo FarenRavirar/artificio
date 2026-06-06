@@ -9,6 +9,9 @@ import cookieParser from "cookie-parser";
 import { requireAuth, type AuthenticatedRequest } from "@artificio/auth";
 import { getDb } from "../db/connection.js";
 import { runJob, jobState } from "./jobs.js";
+import { adminApi } from "./admin-api.js";
+import { renderPreview } from "./preview.js";
+import { reloadRedirects, lookupRedirect } from "./redirect-cache.js";
 
 const DIST = process.env.SITE_DIST || resolve(dirname(fileURLToPath(import.meta.url)), "../dist");
 
@@ -62,6 +65,43 @@ app.post("/admin/import", requireAuth, requireAdmin, (_req, res) => {
   const r = runJob("import", "import");
   res.status(r.started ? 202 : 409).json(r);
 });
+
+// API de autoria (CRUD posts/pages/taxonomias/redirects). Gated requireAuth+requireAdmin.
+app.use("/api/admin/v1", adminApi(requireAuth, requireAdmin));
+
+// Preview de rascunho (D053): renderiza post/page do store no shell do artigo, SEM publicar. Admin.
+app.get("/admin/preview/:type/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const type = req.params.type === "page" ? "page" : "post";
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) { res.status(400).send("id inválido"); return; }
+    const html = await renderPreview(type, id);
+    if (!html) { res.status(404).send("não encontrado"); return; }
+    res.type("html").send(html);
+  } catch (e) {
+    res.status(500).send("erro no preview: " + String(e));
+  }
+});
+
+// Redirects 301 (spec 011): aplica a tabela `redirects` ANTES do estático (slug antigo -> novo).
+// Cache compartilhado (redirect-cache.ts): recarregado no boot, por intervalo, e na hora após gravar.
+void reloadRedirects();
+setInterval(() => void reloadRedirects(), 30_000).unref?.();
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  const hit = lookupRedirect(req.path);
+  if (hit && hit.to !== req.path) { res.redirect(hit.code, hit.to); return; }
+  next();
+});
+
+// SPA admin (spec 011): build do @artificio/site-admin (vite) servido em /admin.
+// As rotas /admin/status|rebuild|import|preview acima têm precedência (registradas antes).
+const ADMIN_DIST = process.env.SITE_ADMIN_DIST || resolve(dirname(fileURLToPath(import.meta.url)), "../../site-admin/dist");
+if (existsSync(ADMIN_DIST)) {
+  app.use("/admin", express.static(ADMIN_DIST));
+  // fallback SPA: rotas client-side (/admin/posts/123 etc) → index.html
+  app.use("/admin", (_req, res) => res.sendFile(resolve(ADMIN_DIST, "index.html")));
+}
 
 // Estático: serve o Astro dist/ (depois das rotas /healthz e /admin). Em deploy = 1 container.
 if (existsSync(DIST)) {

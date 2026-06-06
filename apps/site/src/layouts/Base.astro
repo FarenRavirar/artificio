@@ -12,6 +12,10 @@ interface Props {
   canonical: string;
   ogType?: "website" | "article";
   image?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  twitterCard?: string;
+  noindex?: boolean;
   jsonld?: object | object[];
   currentHref?: string;
 }
@@ -21,11 +25,15 @@ const {
   canonical,
   ogType = "website",
   image,
+  ogTitle,
+  ogDescription,
+  twitterCard,
+  noindex = false,
   jsonld,
   currentHref,
 } = Astro.props;
 
-const metaTags = buildMeta({ title, description, canonical, type: ogType, image });
+const metaTags = buildMeta({ title, description, canonical, type: ogType, image, ogTitle, ogDescription, twitterCard, noindex });
 const lds = jsonld ? (Array.isArray(jsonld) ? jsonld : [jsonld]) : [];
 ---
 <!doctype html>
