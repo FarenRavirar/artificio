@@ -1,6 +1,7 @@
 // Acesso ao conteúdo do blog. Etapa 1: lê posts.json (fixtures WP normalizados).
 // Etapa futura: vira Content Layer loader lendo o store Postgres (D005/D048).
 import postsData from "../data/posts.json";
+import pagesData from "../data/pages.json";
 import brand from "../data/brand.json";
 
 export interface Term {
@@ -28,8 +29,21 @@ export interface Post {
   seo: { description: string };
 }
 
+export interface Page {
+  id: number;
+  slug: string;
+  title: string;
+  contentHtml: string;
+  seo: { description: string };
+}
+
 export const posts = postsData as Post[];
+export const pages = pagesData as Page[];
 export const logos = brand as { logoNavy: string; logoNeg: string };
+
+export function getPageBySlug(slug: string): Page | undefined {
+  return pages.find((p) => p.slug === slug);
+}
 
 export function getPost(slug: string): Post | undefined {
   return posts.find((p) => p.slug === slug);

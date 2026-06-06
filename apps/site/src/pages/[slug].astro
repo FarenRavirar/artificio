@@ -1,0 +1,32 @@
+---
+// Pages institucionais (sobre, contato, políticas...) na raiz `/<slug>/`. getStaticPaths limita
+// aos slugs importados → não colide com rotas explícitas (/blog, /rss.xml, etc.).
+import Base from "../layouts/Base.astro";
+import { pages, getPageBySlug } from "../lib/content";
+import { SITE, breadcrumbLd } from "@artificio/content";
+
+export function getStaticPaths() {
+  return pages.map((p) => ({ params: { slug: p.slug } }));
+}
+
+const { slug } = Astro.params;
+const page = getPageBySlug(slug as string);
+if (!page) return Astro.redirect("/404");
+
+const canonical = `${SITE.origin}/${page.slug}/`;
+const jsonld = breadcrumbLd([
+  { name: "Início", url: `${SITE.origin}/` },
+  { name: page.title, url: canonical },
+]);
+---
+<Base title={`${page.title} — Artifício RPG`} description={page.seo.description} canonical={canonical} jsonld={jsonld}>
+  <main class="article-wrap" style="grid-template-columns: minmax(0, 1fr);">
+    <nav class="breadcrumb" aria-label="Trilha">
+      <a href="/">Início</a> <span>/</span> <span>{page.title}</span>
+    </nav>
+    <article class="article">
+      <header class="article-head"><h1>{page.title}</h1></header>
+      <div class="article-body prose" set:html={page.contentHtml} />
+    </article>
+  </main>
+</Base>

@@ -17,6 +17,18 @@ interface WpMedia { id: number; source_url: string; alt_text?: string; mime_type
 interface WpCat { id: number; slug: string; name: string; parent: number; count: number; }
 interface WpTag { id: number; slug: string; name: string; count: number; }
 interface WpComment { id: number; post: number; author_name: string; content: WpRendered; date: string; parent: number; }
+interface WpPage {
+  id: number; slug: string; status: string; modified: string;
+  title: WpRendered; content: WpRendered;
+  yoast_head_json?: { description?: string };
+}
+
+// Pages institucionais do site (D046). Allow-list: exclui mesas/woo/outros módulos e a home (rota / própria).
+const PAGES_ALLOW = new Set<string>([
+  "sobre-nos", "contato", "politica-de-privacidade", "termos-de-servico",
+  "media-kit", "newsletter", "grupos-de-whatsapp-de-rpg-de-mesa",
+  "material-online", "curso-de-traducao-de-rpg", "coyote-e-crow-portugues",
+]);
 
 const iso = (s?: string): string | null => {
   if (!s) return null;
@@ -114,6 +126,27 @@ async function main() {
     importedComments += 1;
   }
   console.log(`[import] comentários: ${importedComments}`);
+
+  // 3.5) Pages institucionais (allow-list D046). HTML pode ser Elementor → sanitize + media map.
+  const wpPages = await fetchAll<WpPage>(
+    "pages?_fields=id,slug,title,content,status,modified,yoast_head_json&per_page=100",
+  );
+  let importedPages = 0;
+  for (const pg of wpPages) {
+    if (!PAGES_ALLOW.has(pg.slug)) continue;
+    const cleaned = sanitize(pg.content.rendered);
+    const pmap = await buildMediaMap(db, extractImageUrls(cleaned));
+    const contentHtml = rewriteUrls(cleaned, pmap);
+    await db.query(
+      `INSERT INTO pages (id, slug, title, content_html, status, updated_at, seo_description)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (id) DO UPDATE SET slug=EXCLUDED.slug, title=EXCLUDED.title, content_html=EXCLUDED.content_html,
+         status=EXCLUDED.status, updated_at=EXCLUDED.updated_at, seo_description=EXCLUDED.seo_description`,
+      [pg.id, pg.slug, decode(pg.title.rendered), contentHtml, pg.status, iso(pg.modified), pg.yoast_head_json?.description ?? null],
+    );
+    importedPages += 1;
+  }
+  console.log(`[import] pages institucionais: ${importedPages}/${PAGES_ALLOW.size} (de ${wpPages.length} no WP)`);
 
   // 4) Relatório de paridade vs WP (R9).
   const wpPosts = await countOf("posts");
