@@ -103,15 +103,96 @@ Recomendação: **A** (mais fiel, um adapter; o público segue SSG).
 - Build: `pnpm --filter @artificio/site build` verde com posts nativos+importados; turbo 3 módulos verde; `pr-checks` verde.
 - No ar (com autorização): deploy beta; smoke; rebuild sem downtime (CA7); SSO intacto (CA8); WP raiz 200.
 
+## Checkpoint pós-deploy da Fase 1 (2026-06-06)
+
+**Veredito técnico:** a arquitetura está provada e minimamente funcional para um administrador técnico: CRUD de posts/pages, editor BlockNote, campos editoriais básicos, preview stateless, publish→rebuild e SEO/OG público. O admin ainda não é confortável o bastante para substituir o WordPress no fluxo diário de editoria.
+
+**Gargalo principal imediato:** operações editoriais básicas e honestidade de publicação. A Fase 1 permite abrir editor, salvar/publicar e trocar status, mas ainda não entrega uma superfície administrativa tipo WordPress para arquivar, mover para lixeira, restaurar e apagar permanentemente com confirmação. Também expõe campos/status que parecem completos sem fechar toda a semântica: slug sem aviso claro de colisão/301, `scheduled` sem job real, `private` sem regra de acesso, `noindex` sem controle de sitemap, e OG parcial na UI.
+
+**Gargalo principal seguinte:** mídia. Sem biblioteca/upload/seleção de imagem, o editor precisa colar URL manualmente e não consegue gerenciar alt/legenda/dimensões/Cloudinary pelo admin. Isto torna o fluxo menos prático que WordPress mesmo que o editor de texto funcione.
+
+**Gargalos secundários, em ordem de impacto:**
+1. Lista editorial incompleta: sem filtros/paginação/bulk/quick edit.
+2. Workflow incompleto: `scheduled` é só status; falta job de publicação; falta autosave/revisões.
+3. Permissões incompletas: só `admin` global; falta papel editorial por site.
+4. Operação editorial incompleta: dashboard/build status/logs/atividade.
+5. Portal incompleto: home ainda é automática por posts recentes; falta curadoria.
+
+**Regra de implementação daqui para frente:** priorizar o que remove bloqueio real de uso editorial antes de refinos visuais. A ordem recomendada é: operações editoriais básicas + publicação honesta → mídia → lista editorial → agendamento/autosave/revisões → roles → dashboard → curadoria.
+
+## Plano de implementação do delta até "WordPress-like"
+
+### 1. Operações editoriais básicas + publicação honesta primeiro (Fase 2A)
+
+Antes de mídia, fechar o mínimo administrativo que o WordPress dá por padrão.
+
+- **API:** confirmar/implementar endpoints para `archive`, `trash`, `restore`, `unpublish/draft` e `DELETE` permanente em posts e pages, com validação de id, capacidade, confirmação no front e rebuild quando o item afetava o público.
+- **Semântica:** `trash` e `archived` ficam fora de export/listagens/sitemap; `restore` volta para `draft` por padrão, salvo regra documentada; delete permanente só permitido em `trash` ou com confirmação forte.
+- **Frontend:** ações por item nas listas e no editor: Editar, Ver/Preview, Publicar, Despublicar, Arquivar, Mover para lixeira, Restaurar, Apagar permanentemente. Ações destrutivas usam confirmação e feedback de erro/sucesso.
+- **Slug:** UI chama `slug-check` também ao editar slug manualmente; mostra disponibilidade, sugestão alternativa, URL final e aviso de 301 quando slug publicado muda.
+- **Status:** esconder/desabilitar `scheduled` e `private` enquanto não houver semântica real, ou mostrar estado indisponível. `scheduled` só volta como ação quando tiver data obrigatória + job; `private` só volta quando houver regra de acesso.
+- **SEO/OG básico:** expor `og_title`, `og_description` e `twitter_card` ou mostrar fallback explícito; `noindex` deve controlar sitemap ou a UI deve deixar claro que ainda é só meta tag.
+- **Integridade:** manter redirects automáticos de slug; não apagar redirect histórico sem ação explícita; não deixar relações órfãs (`post_taxonomies`, media refs se houver); rebuild coalesced após remover conteúdo publicado.
+- **Aceite:** CA2b/CA2c passam em post importado e nativo; item arquivado/lixeira/delete some do público após rebuild; restauração funciona sem publicação acidental.
+
+### 2. Mídia (Fase 2B)
+
+Criar uma superfície nativa de mídia antes de mexer em curadoria ou dashboard sofisticado.
+
+- **Schema:** estender/normalizar `media` para itens nativos além do import WP: `id`, `source` (`wp|cloudinary|local`), `url`, `cloudinary_public_id`, `mime`, `size_bytes`, `width`, `height`, `alt`, `caption`, `title`, `created_by`, `created_at`, `updated_at`.
+- **API:** `/api/admin/v1/media` com upload, listagem, busca, update de metadados e seleção. Upload deve validar tipo/tamanho no backend.
+- **Frontend:** nova rota `Mídia`, modal/seletor de mídia no `PostEditor`/`PageEditor`, botão de inserir imagem no BlockNote, e campo de imagem destacada usando seletor em vez de URL manual.
+- **Cloudinary:** usar Cloudinary quando `CLOUDINARY_URL` estiver setado; sem credencial, permitir dry-run/local somente para dev. Nunca hardcodar segredo.
+- **Dependências prováveis:** SDK Cloudinary já existe no importador; para upload multipart considerar `multer` ou `busboy`, validação com `file-type`, e limites Express. Evitar `sharp`/`ffmpeg` inicialmente: Cloudinary cobre transformações; instalar binários na VM só se uma necessidade concreta aparecer.
+- **Aceite:** editor sobe imagem, define alt, escolhe no corpo e no `og:image`, publica, rebuilda, e a imagem aparece no público.
+
+### 3. Lista editorial de verdade (Fase 2C / Fase 4 parcial)
+
+- **API:** `GET /posts` e `/pages` com `q`, `status`, `category`, `tag`, `author`, `limit`, `offset`, `sort`, `direction` e total count.
+- **UI:** filtros persistentes na URL, paginação, ordenação por título/status/data, seleção múltipla, bulk publish/trash/archive, quick edit de título/slug/status.
+- **Aceite:** localizar rapidamente posts importados e nativos; mover múltiplos itens para lixeira/arquivar; alterar status sem abrir editor.
+
+### 4. Workflow editorial (Fase 4A)
+
+- **Agendamento:** job periódico no processo do site ou script chamado por scheduler de deploy/VM; publica `scheduled` com `published_at <= now()` e dispara rebuild. Começar simples com timer no backend; evoluir para cron/systemd apenas se necessário e aprovado.
+- **Autosave:** endpoint `/autosave` ou update parcial com debounce; estado visual "salvo/salvando/erro".
+- **Revisões:** tabelas `post_revisions` e `page_revisions` com snapshot de título, bloco, HTML, status e usuário; UI para comparar/restaurar.
+- **Aceite:** post agendado entra no ar sozinho; edição longa não se perde; revisão anterior pode ser restaurada.
+
+### 5. Roles editoriais sem mexer no SSO (Fase 4B)
+
+- **Schema:** `site_users(user_id, email, name, editorial_role, created_at, updated_at)` e talvez `site_user_invites` se necessário.
+- **Middleware:** `requireCapability(cap)` no `apps/site`, com mapa Admin/Editor/Autor/Contribuidor. `@artificio/auth` permanece intocado.
+- **UI:** gestão de usuários editores no admin; atribuir/revogar papel.
+- **Aceite:** Contribuidor cria mas não publica; Autor edita só próprio; Editor edita todos; Admin gerencia roles.
+
+### 6. Dashboard e observabilidade editorial (Fase 3/4)
+
+- **API:** `/dashboard` retorna contagens por status, últimas edições, estado de rebuild, erros recentes e links rápidos.
+- **Jobs:** persistir histórico de jobs em tabela ou arquivo controlado, não só memória, para sobreviver restart.
+- **UI:** dashboard inicial com "Novo post", "Upload mídia", "Rebuild", último build e erro se houver.
+
+### 7. Portal/hub e redirects (Fase 3)
+
+- **Curadoria:** `site_settings`, `curation`, `nav_items`; `export.ts` gera `home.json`/`nav.json`; `index.astro` deixa de escolher hero só pelo post mais recente.
+- **Redirects UI:** CRUD da tabela `redirects` com validação, busca, teste de destino e reload imediato.
+- **Invariante:** nav cross-módulo do `@artificio/ui` continua fixo; admin edita só blog secundário/footer/curadoria do hub.
+
+### 8. Pacotes e VM
+
+- **`packages/auth`:** não mexer para roles editoriais; manter a decisão D052. Só criar helper compartilhado se mais de um módulo precisar do mesmo mapa de capabilities, com SDD próprio e testes de consumidores.
+- **`packages/ui`:** pode receber componentes de admin reutilizáveis (tabela, modal, toolbar, seletor de mídia) se surgirem em mais de um módulo; caso contrário manter local em `apps/site-admin`.
+- **VM/programas:** não instalar serviços novos para Fase 2. Cloudinary evita processamento local. Instalar utilitários como `ffmpeg`, `imagemagick` ou `sharp`/binários só se uma tarefa concreta exigir processamento local e com aprovação quando envolver VM/deploy.
+
 ## Faseamento sugerido (entregar valor cedo, sem big-bang)
 
 > Cada fase = PR(s) deployável e validável. P0 primeiro.
 
 - **Fase 0 — Spikes & fundação:** Spike 0 (pipeline preview/rebuild SSG), Spike 1 (capabilities/roles + `site_users`), escolha do editor (Decisão 1). Migrations base (`author_id`, `revisions`, OG completo). Camada Kysely `repo/`. **Sem UI ainda.**
-- **Fase 1 — MVP de autoria + Dashboard [P0]:** API CRUD posts + sanitização + slug/sugestão/301; SPA admin com **shell + Dashboard (R44)** (overview/build/ações rápidas); lista + editor de blocos da escolha T4 + categorias/tags + excerpt + featured + SEO/OG; status draft/publish/trash/archive; rebuild on publish; capabilities no backend; preview. → **CA1, CA2, CA5, CA6, CA7 parciais, CA9 (dashboard).** Substitui o essencial do WP.
-- **Fase 2 — Mídia & taxonomias completas [P0/P1]:** biblioteca de mídia (upload, alt, srcset, Cloudinary), inserção no editor; áudio/vídeo/embeds; CRUD completo de taxonomias com aninhamento. → **CA3, CA4.**
-- **Fase 3 — Portal/Hub: curadoria + navegação + redirects [P1]:** curadoria da home (hero/sticky/ordem/blocos — R45) refletindo no SSG; gestão do nav secundário/footer hub (R46, sem tocar nav cross-módulo); gestão de redirects 301 pela UI (R47). → **CA9 (curadoria+redirect).**
-- **Fase 4 — Workflow & usuários [P1]:** agendamento + cron; autosave + revisões + restaurar; gestão de usuários editores/roles (R33); lista com busca/filtro/paginação; bulk/quick edit; **log de auditoria (R48)**.
+- **Fase 1 — MVP de autoria [P0] ✅:** API CRUD posts/pages + sanitização robusta + slug/sugestão/301; SPA admin com shell, lista simples e editor BlockNote; categorias/tags inline; excerpt; featured por URL; SEO/OG/canonical/noindex; campo/status endpoint; preview stateless; rebuild server-side on publish. → **CA1/CA2/CA5/CA6/CA7 parciais.** Prova a arquitetura, mas **não substitui o WordPress no uso diário** sem as fases seguintes.
+- **Fase 2 — Operações editoriais básicas + mídia/taxonomias [P0/P1]:** primeiro fechar ações por item (editar existente, despublicar, arquivar, lixeira, restaurar, apagar permanente com confirmação, rebuild quando sair do público) e honestidade de publicação (slug, 301, status, noindex/sitemap, OG); depois biblioteca de mídia (upload, alt, srcset, Cloudinary), inserção no editor; áudio/vídeo/embeds; CRUD completo de taxonomias com aninhamento. → **CA2b, CA2c, CA3, CA4.** Esta é a próxima fase recomendada.
+- **Fase 3 — Portal/Hub: dashboard + curadoria + navegação + redirects [P1]:** dashboard R44 (contagens, build, ações rápidas), curadoria da home (hero/sticky/ordem/blocos — R45) refletindo no SSG; gestão do nav secundário/footer hub (R46, sem tocar nav cross-módulo); gestão de redirects 301 pela UI (R47). → **CA9.**
+- **Fase 4 — Workflow & usuários [P1]:** lista editorial completa com busca/filtro/paginação/bulk/quick edit; agendamento + cron/timer; autosave + revisões + restaurar; gestão de usuários editores/roles (R33) sem mexer no SSO; **log de auditoria (R48)**.
 - **Fase 5 — Páginas, snippets, refinos [P1/P2]:** CRUD de pages; snippets/reutilizáveis; HTML cru/download; moderação de comentários; settings do site (R42); métricas GA4 no dashboard (R49); legibilidade/SEO assist.
 
 ## Notas de contexto (estado ao abrir esta spec)
@@ -120,4 +201,4 @@ Recomendação: **A** (mais fiel, um adapter; o público segue SSG).
 - Backend admin atual: `server/server.ts` (`/healthz`, `/admin/status|rebuild|import`, `requireAdmin`), `jobs.ts` (single-flight). Store: `db/migrations/001_init.sql` + `002_media_map.sql`. Export: `db/export.ts`.
 - Regras pétreas: SSO sagrado, WP raiz intocável, segredos fora do git, push/deploy/VM com autorização explícita por ação, `packages/*` = SDD Completo + testar consumidores.
 - **Regra de versões (mantenedor, 2026-06-06):** usar **sempre as versões mais recentes e boas práticas**, sem pinar p/ baixo / gambiarra. Node já no latest (Docker `node:25.9-slim`). Bump major do monorepo (Astro 5→6, TS 5→6) toca todos os módulos → é **decisão/spec própria**, não inline numa feature (por isso o admin virou pacote isolado no latest, D054).
-- **Estado de implementação (Fase 0 + parte da Fase 1 feitas, local, sem deploy):** spikes D051/D052/D053 ✅; migration 003 ✅; repos+lib+API+preview+rebuild atômico ✅; SPA admin (`apps/site-admin`) com editor BlockNote + CRUD de posts/pages ✅. Falta: emitir OG no público (T12), mídia/upload (Fase 2), E2E autenticado (no deploy).
+- **Estado de implementação (pós-deploy beta, 2026-06-06):** Fase 0 + Fase 1 no ar em `beta.artificiorpg.com/admin` via commit `a24f187`; duas rodadas de revisão corrigiram 13 achados; T12 público concluído (OG/canonical/noindex emitidos). Falta validação E2E autenticada do mantenedor e, para paridade operacional com WordPress, principalmente operações editoriais básicas (arquivar/lixeira/restaurar/apagar), honestidade de publicação (slug/status/noindex/sitemap/OG), mídia/upload (Fase 2), lista editorial completa, agendamento/autosave/revisões, roles, dashboard, curadoria e redirects UI.

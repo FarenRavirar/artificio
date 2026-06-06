@@ -1,12 +1,41 @@
 # Handoff de revisão — spec 011 (área administrativa do site)
 
-> Inventário da entrega para revisão de código. Estado: **local, não commitado, não deployado.**
-> Branch base: `dev` = `origin/dev` = `7f2fbd1` (spec 010 fechada).
+> Inventário da entrega para revisão de código. Estado original da revisão: **local, não commitado, não deployado**.
+> Estado pós-revisões: Fase 1 commitada em `a24f187`, deployada no beta e validada por smoke técnico em 2026-06-06. Este handoff permanece como inventário técnico da Fase 1 e como registro dos achados corrigidos.
+> Branch base original: `dev` = `origin/dev` = `7f2fbd1` (spec 010 fechada).
 
 ## Escopo entregue
 Fase 0 (spikes/decisões) + Fase 1 (MVP de autoria de **posts e páginas**) da spec 011.
 Backend de autoria + SPA admin (`/admin`) com editor de blocos + emissão de SEO/OG no público.
-Fora desta entrega: mídia/upload (Fase 2), dashboard, curadoria portal/hub, roles granulares, agendamento/revisões.
+Fora desta entrega: mídia/upload (Fase 2), dashboard, curadoria portal/hub, roles granulares, agendamento/revisões, lista editorial completa, redirects UI e auditoria.
+
+## Checkpoint pós-deploy — paridade WordPress
+
+Após deploy beta, a Fase 1 deve ser tratada como **MVP técnico funcional**, não como substituto operacional do WordPress.
+
+Funciona hoje:
+- admin SPA em `/admin` com shell, listas simples de posts/pages e editor BlockNote;
+- criação/edição de posts e páginas com slug, excerpt, status, taxonomias básicas, featured por URL e SEO/OG;
+- preview stateless;
+- publicação com rebuild SSG server-side;
+- rotas de escrita protegidas por SSO + `requireAdmin`;
+- SEO/OG/canonical/noindex emitidos no HTML público;
+- redirects automáticos por mudança de slug e middleware público para servi-los.
+
+Ainda falta para ficar minimamente parecido com a rotina do WordPress:
+- operações editoriais básicas por item: editar existente com segurança, publicar/despublicar, arquivar, mover para lixeira, restaurar e apagar permanentemente com confirmação;
+- publicação honesta: slug com aviso de colisão/301, status `scheduled`/`private` sem falsa promessa, `noindex` coerente com sitemap, OG title/description/twitter card editáveis ou fallbacks visíveis;
+- biblioteca/upload de mídia com alt/legenda/dimensões/Cloudinary e inserção no editor;
+- lista editorial com filtros, paginação, ordenação, bulk actions e quick edit;
+- agendamento real, autosave e revisões/restauração;
+- roles editoriais no site (`site_users`/capabilities), sem alterar `@artificio/auth`;
+- CRUD completo de taxonomias;
+- dashboard com contagens, estado do rebuild, erros e ações rápidas;
+- curadoria da home/portal;
+- UI de redirects;
+- auditoria.
+
+Próxima implementação recomendada: **Fase 2A — operações editoriais básicas + publicação honesta**. Só depois avançar para mídia. Para mídia, não instalar ferramentas novas na VM antes de necessidade concreta; Cloudinary deve cobrir transformações. Dependências locais prováveis: `multer` ou `busboy` para multipart e `file-type` para validação backend.
 
 ## Decisões (em `.specify/memory/decisions.md`)
 - **D051** editor = BlockNote (persistir `block_doc` JSON + `content_html` sanitizado).

@@ -1,6 +1,6 @@
 # Tasks — 011 CMS / autoria nativa do site
 
-> Super spec faseada. P0 = MVP que substitui o essencial do WP. Cada fase é PR deployável.
+> Super spec faseada. P0 = núcleo mínimo de autoria/administração; paridade prática com WordPress depende das fases seguintes. Cada fase é PR deployável.
 > Push/deploy/VM **só com autorização explícita do mantenedor** (regra pétrea).
 
 ## Fase 0 — Spikes & fundação
@@ -21,36 +21,91 @@
 - [x] **T13** — **Status/workflow** draft/pending/publish/scheduled/private/trash/archived (API `:id/status` + create/update). *(Checagem por capacidade adiada com roles.)*
 - [x] **T14** — **Rebuild atômico on publish** (`scripts/rebuild.mjs`: build→`dist.next`→swap; reusa `runJob`/`/admin/rebuild`). Sem downtime (R37/D053).
 - [x] **T15** — **Preview** de rascunho `/admin/preview/:type/:id` (render no Express, CSS do design system, noindex). (R8/R38/D053).
-- [ ] **T16** — Validação Fase 1: E2E local CA1 (post do zero → preview → publish → SSG via UI); builds turbo + `pr-checks` verdes; SSO intacto.
+- [ ] **T16** — Validação Fase 1 no beta: E2E autenticado CA1 (post do zero → preview stateless → publish → rebuild → SSG via UI); builds/pr-checks/deploy verdes; SSO intacto; WP raiz intocado.
 
 > **Fase 1 ✅ (backend + UI + OG público).** SPA admin (`apps/site-admin`, pacote próprio toolchain latest) + editor BlockNote + CRUD posts/pages.
 > **2 rodadas de revisão Codex — 13 achados, todos corrigidos/verificados** (ver `handoff-review.md`): sanitização robusta (`sanitize-html`), 301 servidos (middleware+reload imediato), rebuild atômico (symlink A/B), rebuild server-side no publish + coalescing, validação de id, taxonomias pré-filtradas, SPA respeita status, pages canonical, preview stateless (não publica).
 > **Deploy beta feito** (autorizado). T16/E2E autenticado = validação do mantenedor no ar.
+> **Checkpoint pós-deploy:** o admin está funcional como MVP técnico, mas ainda não é paridade WordPress. Bloqueadores para uso editorial real: operações editoriais básicas (arquivar/lixeira/restaurar/apagar), honestidade de publicação (slug/status/noindex/sitemap/OG), mídia/upload, lista editorial completa, agendamento/autosave/revisões, roles editoriais, dashboard/build status, curadoria da home, redirects UI e auditoria. Ver `spec.md` "Checkpoint pós-Fase 1" e `plan.md` "Plano de implementação do delta".
 
-## Fase 2 — Mídia & taxonomias [P0/P1]
-- [ ] **T17** — **Biblioteca de mídia**: upload (validação tipo/tamanho no backend), listagem/busca, alt/legenda/título, dimensões/`srcset`, Cloudinary gated (R18/R19). · feito quando: CA3.
-- [ ] **T18** — Inserir mídia no editor (da biblioteca/upload na hora) + **áudio/vídeo/embeds oEmbed** com allowlist (R13/R15/R20). · feito quando: embed sanitizado, sem `<script>` arbitrário.
-- [ ] **T19** — **CRUD taxonomias** completo: categorias aninhadas + tags, descrição/slug, apagar com órfãos tratados, `count` atualizado (R22/R24). · feito quando: CA4.
+## Fase 2 — Operações editoriais básicas + mídia & taxonomias [P0/P1]
 
-## Fase 3 — Portal/Hub: curadoria + navegação + redirects [P1]
-- [ ] **T20** — Migration `site_settings`/`curation`/`nav_items`/`audit_log` (online-safe, D039) + export emite `home.json`/`nav.json`. · feito quando: migrate roda pglite+PG; export gera os JSON.
-- [ ] **T21** — **Curadoria da home (R45)**: hero/destaque, posts fixados (sticky), ordem das seções, blocos editoriais (banner/CTA/destaque de módulo); `index.astro` lê a curadoria. · feito quando: home reflete hero+sticky+ordem após rebuild (parte de CA9).
-- [ ] **T22** — **Navegação editável (R46)**: nav secundário do blog + links do footer hub (ordenáveis). · feito quando: muda no admin → reflete no SSG; nav cross-módulo do `@artificio/ui` **intacto**.
-- [ ] **T23** — **Redirects 301 UI (R47)**: CRUD da tabela `redirects` (inclui os gerados por mudança de slug). · feito quando: redirect criado responde no público (parte de CA9).
+> Prioridade: **operações editoriais básicas + publicação honesta primeiro**. Antes de biblioteca de mídia, o admin precisa administrar o ciclo de vida do conteúdo como o WordPress e não pode expor slug/status/SEO como se estivessem completos quando ainda têm semântica parcial.
+
+- [ ] **T17 — Operações editoriais básicas + publicação honesta (R3a/R4/R4a/R4b/R4c/R9/R27/R28/CA2b/CA2c).**
+  - [ ] Backend posts/pages: endpoints ou actions explícitas para publicar, despublicar para draft, arquivar, mover para lixeira, restaurar e apagar permanentemente.
+  - [ ] Semântica de delete: apagar permanente exige confirmação no front e capacidade backend; preferencialmente só permitido a partir de `trash` ou com confirmação forte documentada.
+  - [ ] Export/SSG: `trash` e `archived` ficam fora de posts/pages públicos, sitemap, RSS e listas; se o item era `publish`, a ação dispara rebuild coalesced.
+  - [ ] Integridade: limpar/validar relações (`post_taxonomies`, dados auxiliares) sem remover redirects históricos por acidente; 404/redirect ficam previsíveis.
+  - [ ] UI lista/editor: botões/menus por item para Editar, Preview/Ver, Publicar, Despublicar, Arquivar, Mover para lixeira, Restaurar, Apagar permanentemente; mostrar feedback de sucesso/erro.
+  - [ ] Filtros mínimos por status, ao menos para enxergar `trash`/`archived` e restaurar itens.
+  - [ ] Slug UX: checar disponibilidade ao editar slug manualmente, mostrar URL final, sugestão alternativa e aviso explícito de 301 quando mudar slug publicado.
+  - [ ] Status UX: ocultar/desabilitar `scheduled` e `private` enquanto não houver job/regra de acesso reais, ou exibir aviso claro de indisponibilidade.
+  - [ ] SEO/OG básico: UI expõe `og_title`, `og_description`, `twitter_card` ou mostra fallbacks; `noindex` remove do sitemap ou a UI/documentação deixa claro que ainda é só meta tag.
+  - [ ] Testes/smoke: post importado e nativo passam pelo ciclo editar→rascunho→publicar→arquivar→restaurar→lixeira→delete; sem auth/sem admin falha; público reflete remoção.
+  - **Feito quando:** CA2b/CA2c passam no beta e o admin permite administrar lifecycle básico sem tocar banco/API manualmente.
+
+- [ ] **T18 — Biblioteca de mídia / schema + API (R18/R19).**
+  - [ ] Migration online-safe para mídia nativa: suportar `source` (`wp|cloudinary|local`), `url`, `cloudinary_public_id`, `mime`, `size_bytes`, `width`, `height`, `alt`, `caption`, `title`, `created_by`, `created_at`, `updated_at`; preservar compatibilidade com `media`/`media_map` importados.
+  - [ ] API `GET /api/admin/v1/media` com busca, paginação e filtro por tipo.
+  - [ ] API `POST /api/admin/v1/media` multipart com validação backend de MIME, extensão e tamanho; rejeitar SVG sem sanitização.
+  - [ ] API `PUT /api/admin/v1/media/:id` para alt/legenda/título; `DELETE` só se não quebrar referências ou com regra clara.
+  - [ ] Cloudinary gated: com `CLOUDINARY_URL`, upload real e persistência de public id/secure url; sem credencial, modo dev/local/dry-run documentado.
+  - [ ] Testes: tipo inválido, arquivo grande, sem auth, sem admin, upload válido, update metadata.
+  - **Feito quando:** CA3 passa: upload de imagem com alt aparece no corpo e no `og:image`; público serve URL correta após rebuild.
+
+- [ ] **T19 — UI de mídia + inserção no editor (R11/R13/R15/R20).**
+  - [ ] Nova rota `Mídia` no `apps/site-admin` com grid/lista, busca, preview, metadados e botão upload.
+  - [ ] Modal/seletor de mídia reutilizável para imagem destacada, OG image e blocos do editor.
+  - [ ] Integrar BlockNote: inserir imagem a partir da biblioteca ou upload na hora; preservar alt/legenda no HTML sanitizado.
+  - [ ] Embeds por URL com allowlist de provedores; nada de `<script>` arbitrário. Áudio/vídeo começam por URL/Cloudinary antes de processamento local.
+  - [ ] Dependências prováveis: `multer` ou `busboy` para multipart, `file-type` para validação. Evitar instalar `ffmpeg`/ImageMagick/Sharp na VM até necessidade concreta.
+  - **Feito quando:** editor cria post com imagem inline + featured + OG usando mídia cadastrada, preview e publicação funcionam.
+
+- [ ] **T20 — CRUD taxonomias completo (R22/R24).**
+  - [ ] Tela `Categorias/Tags` com criar/editar nome, slug, descrição e parent de categoria.
+  - [ ] Validação de slug único por kind, prevenção de ciclo em categoria parent.
+  - [ ] Tratamento de exclusão: bloquear se em uso, reatribuir, ou remover associação com aviso explícito.
+  - [ ] Recalcular/atualizar `count` após edição/publicação/rebuild.
+  - [ ] Filtros de posts por categoria/tag usam estes dados.
+  - **Feito quando:** CA4 passa; páginas de arquivo refletem alterações após rebuild.
+
+## Fase 3 — Portal/Hub: dashboard + curadoria + navegação + redirects [P1]
+- [ ] **T21 — Migration/config do hub.** Migration `site_settings`/`curation`/`nav_items`/`audit_log` (online-safe, D039) + export emite `home.json`/`nav.json`. · feito quando: migrate roda pglite+PG; export gera JSON estável.
+- [ ] **T22 — Dashboard mínimo (R44).**
+  - [ ] API `/api/admin/v1/dashboard`: contagens por status, mídia, taxonomias, último job, erro de build, atividade recente.
+  - [ ] UI inicial do admin troca a lista direta de posts por dashboard com ações rápidas: novo post, upload mídia, rebuild, ver site.
+  - [ ] Histórico de job persistente ou ao menos log consultável pós-restart; memória pura é insuficiente para operação.
+- [ ] **T23 — Curadoria da home (R45).** Hero/destaque, posts fixados (sticky), ordem das seções, blocos editoriais (banner/CTA/destaque de módulo); `index.astro` lê curadoria em vez de escolher sempre o post mais recente. · feito quando: home reflete hero+sticky+ordem após rebuild (parte de CA9).
+- [ ] **T24 — Navegação editável (R46).** Nav secundário do blog + links do footer hub (ordenáveis). · feito quando: muda no admin → reflete no SSG; nav cross-módulo do `@artificio/ui` **intacto**.
+- [ ] **T25 — Redirects 301 UI (R47).** CRUD da tabela `redirects` (inclui os gerados por mudança de slug), busca, validação `from!=to`, code {301,302,307,308}, teste visual do destino. · feito quando: redirect criado responde no público (parte de CA9).
 
 ## Fase 4 — Workflow & usuários [P1]
-- [ ] **T24** — **Agendamento** (`scheduled` + cron de publicação) (R6). · feito quando: post agendado entra no ar na data via rebuild.
-- [ ] **T25** — **Autosave + revisões + restaurar** (R7). · feito quando: histórico navegável e restauração funciona.
-- [ ] **T26** — **Gestão de usuários editores/roles** no site (R33) sem tocar SSO. · feito quando: atribuir/revogar papel editorial; backend valida.
-- [ ] **T27** — Lista de posts com **busca/filtro/ordenação/paginação** + **bulk/quick edit** (R9/R41). · feito quando: filtros funcionam server-side.
-- [ ] **T28** — **Log de auditoria (R48)**: middleware grava ação/usuário/alvo/timestamp em toda mutação; dashboard mostra. · feito quando: criar/editar/publicar/apagar aparecem no log.
+- [ ] **T26 — Lista editorial completa (R9/R41).**
+  - [ ] API posts/pages retorna total count e aceita `q`, `status`, `category`, `tag`, `author`, `limit`, `offset`, `sort`, `direction`.
+  - [ ] UI com filtros por status/categoria/autor, paginação, ordenação, seleção múltipla.
+  - [ ] Bulk actions: publicar, rascunho, arquivar, lixeira, recategorizar.
+  - [ ] Quick edit: título, slug, status, data.
+  - **Feito quando:** filtros funcionam server-side e a lista serve para administrar acervo importado + nativo.
+- [ ] **T27 — Agendamento real (R6).** `scheduled` + job periódico publica posts com `published_at <= now()` e dispara rebuild. Começar com timer no backend; cron/systemd/VM somente se necessário e aprovado. · feito quando: post agendado entra no ar na data.
+- [ ] **T28 — Autosave + revisões + restaurar (R7).**
+  - [ ] Tabelas `post_revisions`/`page_revisions` com snapshot de título, `block_doc`, `content_html`, status, usuário e timestamp.
+  - [ ] Autosave com debounce e estado visual salvando/salvo/erro.
+  - [ ] UI para listar revisões e restaurar.
+  - **Feito quando:** histórico navegável e restauração funciona sem publicar acidentalmente.
+- [ ] **T29 — Gestão de usuários editores/roles (R30–R34).**
+  - [ ] `site_users` com `editorial_role`; SSO/login continua em `accounts.`.
+  - [ ] `requireCapability(cap)` no `apps/site`, sem alterar `@artificio/auth`.
+  - [ ] UI para listar usuários conhecidos, atribuir/revogar papel editorial.
+  - [ ] Testes: Contribuidor não publica; Autor não edita post de outro; Editor edita todos.
+- [ ] **T30 — Log de auditoria (R48).** Middleware grava ação/usuário/alvo/timestamp em toda mutação; dashboard mostra. · feito quando: criar/editar/publicar/apagar/arquivar/restaurar aparecem no log.
 
 ## Fase 5 — Páginas, snippets, refinos [P1/P2]
-- [ ] **T29** — **CRUD de pages** com o mesmo editor + slug/301 (R25).
-- [ ] **T30** — **Snippets/blocos reutilizáveis** (R14) + bloco HTML cru (capacidade elevada) + download/arquivo (R16).
-- [ ] **T31** — **Moderação de comentários** importados (R35) + ligar/desligar por post.
-- [ ] **T32** — **Settings** do site (R42) + **métricas GA4 no dashboard (R49)** + assist de legibilidade/SEO (R29).
-- [ ] **T33** — 🔒 Mantenedor: autorizar deploy beta de cada fase; smoke + validação Opus; rumo ao **Gate D do site**.
+- [ ] **T31** — **CRUD de pages** com o mesmo editor + slug/301 (R25). *(Já existe MVP; refino aqui = lista/filtros/preview/roles/revisões com paridade dos posts.)*
+- [ ] **T32** — **Snippets/blocos reutilizáveis** (R14) + bloco HTML cru (capacidade elevada) + download/arquivo (R16).
+- [ ] **T33** — **Moderação de comentários** importados (R35) + ligar/desligar por post.
+- [ ] **T34** — **Settings** do site (R42) + **métricas GA4 no dashboard (R49)** + assist de legibilidade/SEO (R29).
+- [ ] **T35** — 🔒 Mantenedor: autorizar deploy beta de cada fase; smoke + validação Opus; rumo ao **Gate D do site**.
 
 ## Dependências / ordem
 - T2–T4 (spikes) **antes** de T7+. T5/T6 antes da API. Fase 1 inteira antes da 2. Deploy de cada fase só com autorização.
