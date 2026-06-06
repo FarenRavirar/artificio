@@ -13,7 +13,9 @@ const PAGES_OUT = resolve(here, "../src/data/pages.json");
 interface PostRow {
   id: number; slug: string; title: string; excerpt: string; content_html: string;
   toc: unknown; published_at: string | Date | null; reading_time: number;
-  featured_url: string | null; seo_description: string | null;
+  featured_url: string | null; seo_title: string | null; seo_description: string | null;
+  canonical: string | null; og_title: string | null; og_description: string | null;
+  og_image: string | null; twitter_card: string | null; noindex: boolean | null;
 }
 interface LinkRow { post_id: number; kind: string; slug: string; name: string; }
 
@@ -23,7 +25,8 @@ const fmt = (d: Date): string =>
 async function main() {
   const db = await getDb();
   const posts = (await db.query<PostRow>(
-    `SELECT id, slug, title, excerpt, content_html, toc, published_at, reading_time, featured_url, seo_description
+    `SELECT id, slug, title, excerpt, content_html, toc, published_at, reading_time, featured_url,
+            seo_title, seo_description, canonical, og_title, og_description, og_image, twitter_card, noindex
      FROM posts WHERE status = 'publish' ORDER BY published_at DESC NULLS LAST`,
   )).rows;
   const links = (await db.query<LinkRow>(
@@ -54,7 +57,16 @@ async function main() {
       image: p.featured_url ?? "",
       cats: terms.cats,
       tags: terms.tags,
-      seo: { description: p.seo_description ?? p.excerpt.slice(0, 160) },
+      seo: {
+        title: p.seo_title ?? undefined,
+        description: p.seo_description ?? p.excerpt.slice(0, 160),
+        ogTitle: p.og_title ?? undefined,
+        ogDescription: p.og_description ?? undefined,
+        ogImage: p.og_image ?? undefined,
+        canonical: p.canonical ?? undefined,
+        twitterCard: p.twitter_card ?? undefined,
+        noindex: Boolean(p.noindex),
+      },
     };
   });
 
@@ -62,15 +74,26 @@ async function main() {
   console.log(`export: ${out.length} posts -> ${OUT}`);
 
   // pages institucionais
-  const pageRows = (await db.query<{ id: number; slug: string; title: string; content_html: string; seo_description: string | null }>(
-    `SELECT id, slug, title, content_html, seo_description FROM pages WHERE status = 'publish' ORDER BY slug`,
+  const pageRows = (await db.query<{ id: number; slug: string; title: string; content_html: string;
+    seo_title: string | null; seo_description: string | null; canonical: string | null; og_title: string | null;
+    og_description: string | null; og_image: string | null; noindex: boolean | null }>(
+    `SELECT id, slug, title, content_html, seo_title, seo_description, canonical, og_title, og_description, og_image, noindex
+     FROM pages WHERE status = 'publish' ORDER BY slug`,
   )).rows;
   const pagesOut = pageRows.map((p) => ({
     id: p.id,
     slug: p.slug,
     title: p.title,
     contentHtml: p.content_html,
-    seo: { description: p.seo_description ?? "" },
+    seo: {
+      title: p.seo_title ?? undefined,
+      description: p.seo_description ?? "",
+      canonical: p.canonical ?? undefined,
+      ogTitle: p.og_title ?? undefined,
+      ogDescription: p.og_description ?? undefined,
+      ogImage: p.og_image ?? undefined,
+      noindex: Boolean(p.noindex),
+    },
   }));
   writeFileSync(PAGES_OUT, JSON.stringify(pagesOut, null, 2));
   console.log(`export: ${pagesOut.length} pages -> ${PAGES_OUT}`);

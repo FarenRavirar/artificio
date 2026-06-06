@@ -26,7 +26,7 @@
 | `accounts` (SSO) | `accounts.artificiorpg.com` | ✅ no ar (Gate B) + marca CDX-311 ✅ no ar | ⬜ retrofit deploy (CDX-310) |
 | `mesas` | `mesas.artificiorpg.com` | 🔄 técnico ✅ + deploy real ✅ (CDX-309E) + login real ✅ + marca CDX-311 ✅ no ar | ⬜ E2E **logout** + **allowlist prod**; 🔄 beta `mesasbeta` rebuild via **spec 005** (D041; mata `deleted_client`) |
 | `glossario` | `glossariorpg.artificiorpg.com` | ⬜ roda em prod fora do monorepo | ⬜ importar código→monorepo, integrar SSO/UI, deploy canônico, smoke |
-| `site` (blog) | **`beta.artificiorpg.com` NO AR** (→ raiz futuro) | 🔄 **spec 008** — F1–F7 ✅: store+importador(125/125)+SSG(219 pág)+content+analytics+cloudinary(gated)+backend admin+pages+**deploy beta LIVE** (run `27065214548`) | ⬜ Gate D final (validação Opus); auto-deploy push-dev; opc Cloudinary/GA reais; Header island. WP intocável (cutover=Gate C) |
+| `site` (blog) | **`beta.artificiorpg.com` NO AR** (→ raiz futuro) | 🔄 **spec 008** F1–F7 ✅ + **spec 010** ✅ (nav cross-módulo unificado + fix logo) no ar nos betas | ⬜ **spec 011 — CMS/authoring (paridade WordPress):** editor de posts/categorias, slug+sugestão, OG, mídia (img/áudio/vídeo), snippets, drafts/arquivar, resumos, usuários editores/roles. ⬜ Gate D final; auto-deploy push-dev; opc Cloudinary/GA reais. WP intocável (cutover=Gate C) |
 | `downloads` | `downloads.artificiorpg.com` | ⬜ a construir | ⬜ construir + SSO/UI + deploy |
 | `esferas` | `esferas.artificiorpg.com` | ⬜ a construir | ⬜ multi-sistema (sistema×edição, D&D 2014/2024, PF futuro, D028) + SSO/UI |
 | `srd` | `srd.artificiorpg.com` | ⬜ a construir | ⬜ SRD DnD 5.2.1 + tooltips (depende de `crosslink`) |

@@ -13,6 +13,7 @@ on:
     branches: [main, dev]
     paths:
       - "apps/site/**"
+      - "apps/site-admin/**"
       - "packages/**"
       - ".github/workflows/_deploy-module.yml"
       - ".github/workflows/_lint-shell.yml"
@@ -21,6 +22,7 @@ on:
     branches: [dev]
     paths:
       - "apps/site/**"
+      - "apps/site-admin/**"
       - "packages/**"
       - ".github/workflows/_deploy-module.yml"
       - ".github/workflows/deploy-site.yml"

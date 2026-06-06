@@ -10,12 +10,15 @@ RUN npm install -g pnpm@10.12.1
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/site ./apps/site
+COPY apps/site-admin ./apps/site-admin
 RUN pnpm install --frozen-lockfile
 
-# Builda os pacotes que o site consome (tsc -> dist).
+# Builda os pacotes que o site consome (tsc -> dist) + a SPA admin (vite -> apps/site-admin/dist).
+# A SPA admin builda na imagem (não depende de DB/WP, ao contrário do Astro público que builda no entrypoint).
 RUN pnpm -w turbo run build \
   --filter=@artificio/config --filter=@artificio/auth --filter=@artificio/ui \
-  --filter=@artificio/content --filter=@artificio/analytics
+  --filter=@artificio/content --filter=@artificio/analytics \
+  --filter=@artificio/site-admin
 
 WORKDIR /repo/apps/site
 RUN chmod +x docker-entrypoint.sh
