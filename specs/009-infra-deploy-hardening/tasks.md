@@ -8,4 +8,5 @@
 - [ ] **T6** — D050 (hardening aplicado; container_name fixo adiado) em `decisions.md`.
 - [x] **T7** — Lint CA1: `actionlint`+`ShellCheck` verdes no CI (pr-checks); guard CA2 testado local (falha 100644, passa 100755).
 - [x] **T8** — **Validação R5 ✅** (push `c488e77`): `deploy-mesas` mesasbeta verde (healthy api+app, smoke 200/401/302), `deploy-accounts` verde, `guard-entrypoint-exec` ✓, `Resumo do deploy` (R4) rodou. **Reconcile no-op** em VM limpa (nenhuma remoção) = zero regressão (CA4). Esteira blindada confiável p/ prod.
+- [x] **T10** — **R6 resiliência de restart** (`apps/site/docker-entrypoint.sh`): serve `dist/` direto se já existe (restart/OOM/reboot = instantâneo, sem re-importar WP/rebuildar); rebuild só em container novo (deploy) ou `SITE_FORCE_REBUILD=true`. Corrige downtime ~1-2min observado quando o site reiniciava sob pressão de build vizinho. Aplicar = redeploy do site.
 - [ ] **T9** — (futuro) refactor `container_name` → nomes por projeto compose (fora do escopo 009).
