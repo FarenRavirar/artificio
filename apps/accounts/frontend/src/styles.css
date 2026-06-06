@@ -12,6 +12,15 @@
   --accounts-brand-deep: #e0712f;
 }
 
+:root[data-theme="dark"] {
+  --accounts-ink: #ffffff;
+  --accounts-muted: #d8dbe6;
+  --accounts-line: rgba(255, 255, 255, 0.16);
+  --accounts-surface: #1b2a4a;
+  --accounts-canvas: #0f1014;
+  --accounts-brand-deep: #ffb383;
+}
+
 body {
   background: var(--accounts-canvas);
   color: var(--accounts-ink);
@@ -24,6 +33,23 @@ body {
   display: grid;
   min-height: 100vh;
   padding: 24px;
+}
+
+.accounts-theme-toggle {
+  background: transparent;
+  border: 1px solid var(--accounts-line);
+  border-radius: 999px;
+  color: var(--accounts-ink);
+  cursor: pointer;
+  font: 600 13px/1 "Inter", ui-sans-serif, system-ui, sans-serif;
+  padding: 10px 14px;
+  position: fixed;
+  right: 24px;
+  top: 24px;
+}
+
+.accounts-theme-toggle:hover {
+  border-color: var(--accounts-brand);
 }
 
 .accounts-panel {
@@ -79,6 +105,10 @@ body {
   width: 100%;
 }
 
+:root[data-theme="dark"] .accounts-login {
+  color: #020740;
+}
+
 .accounts-login svg {
   background: #fff;
   border-radius: 4px;
@@ -89,6 +119,10 @@ body {
 .accounts-login:hover {
   background: var(--accounts-brand-deep);
   color: #ffffff;
+}
+
+:root[data-theme="dark"] .accounts-login:hover {
+  color: #020740;
 }
 
 .accounts-login:focus-visible {

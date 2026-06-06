@@ -69,6 +69,12 @@ describe("return URL allowlist", () => {
     ).toBe("https://mesas.artificiorpg.com/campanhas");
   });
 
+  it("allows HTTPS apex domain for the future portal", () => {
+    expect(sanitizeReturnUrl("https://artificiorpg.com/blog/", env)).toBe(
+      "https://artificiorpg.com/blog/",
+    );
+  });
+
   it("blocks external hosts", () => {
     expect(sanitizeReturnUrl("https://evil.com", env)).toBe(env.PUBLIC_URL);
   });
@@ -94,5 +100,23 @@ describe("return URL allowlist", () => {
       Buffer.from(state ?? "", "base64url").toString("utf8"),
     ) as { returnUrl: string };
     expect(body.returnUrl).toBe(env.PUBLIC_URL);
+  });
+
+  it("preserves beta origin return URL in Google state", async () => {
+    const app = createApp(env, null as never);
+    const betaReturn = "https://beta.artificiorpg.com/admin/";
+
+    const response = await request(app)
+      .get("/api/auth/google")
+      .query({ return: betaReturn })
+      .expect(302);
+    const location = response.headers.location as string;
+    const state = new URL(location).searchParams.get("state");
+
+    expect(state).not.toBeNull();
+    const body = JSON.parse(
+      Buffer.from(state ?? "", "base64url").toString("utf8"),
+    ) as { returnUrl: string };
+    expect(body.returnUrl).toBe(betaReturn);
   });
 });

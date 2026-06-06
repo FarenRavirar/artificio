@@ -16,7 +16,10 @@ import { upsertGoogleUser } from "./users.js";
 export function isAllowedReturnUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && url.hostname.endsWith(".artificiorpg.com");
+    return (
+      url.protocol === "https:" &&
+      (url.hostname === "artificiorpg.com" || url.hostname.endsWith(".artificiorpg.com"))
+    );
   } catch {
     return false;
   }
