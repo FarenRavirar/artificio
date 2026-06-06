@@ -1,0 +1,12 @@
+---
+// GA4 cross-subdomínio (D020) via @artificio/analytics. Gated por PUBLIC_GA_ID (público, não segredo).
+// Sem o id, nada é renderizado (dev/preview ficam limpos).
+import { gtagSrc, gtagInlineConfig } from "@artificio/analytics";
+const id = import.meta.env.PUBLIC_GA_ID;
+---
+{id && (
+  <Fragment>
+    <script async src={gtagSrc(id)}></script>
+    <script is:inline set:html={gtagInlineConfig(id)}></script>
+  </Fragment>
+)}

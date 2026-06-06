@@ -44,7 +44,7 @@
 
 ## F6 — `packages/analytics` (GA4 cross)
 
-- [ ] **T19** — Pacote `analytics`: GA4 `cookie_domain` raiz + exclusão de referral interno · feito quando: dispara com cookie `.artificiorpg.com`; 1 property cobre subdomínios (R16, D020).
+- [x] **T19** — Pacote `@artificio/analytics` (TS puro): `gtagSrc`/`gtagInlineConfig` (cookie_domain raiz `.artificiorpg.com` = cross-subdomínio) + `trackEvent`/`trackPageview`. 3/3 testes. Integrado no site (`Analytics.astro`, gated `PUBLIC_GA_ID`; verificado loader+config injetados). Reusável por mesas/glossário (R16, D020). ⬜ exclusão de referral interno + 1 property = config no painel GA4 (mantenedor); G-ID real (mantenedor).
 
 ## F7 — Deploy beta + Gate D
 
