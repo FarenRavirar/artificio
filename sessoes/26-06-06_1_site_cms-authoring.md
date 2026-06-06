@@ -43,3 +43,15 @@
 - Fluxo autenticado UI↔API: validar no deploy com cookie SSO real.
 - Fidelidade do HTML do BlockNote em conteúdo real (posts WP importados): validar no deploy.
 - Patch SSO pós-login: Opus precisa commitar/deployar e mantenedor validar no browser real.
+
+## CI/security review pós-PR (2026-06-06)
+- **pr-checks falhou em `enforce-migration-dir`:** causa = migrations do site em `apps/site/db/migrations/{001,002,003}.sql`; gate só permitia `apps/*/database/`. Correção local: `.github/migration-dir-allowlist` agora aceita também `apps/*/db/migrations/`; `_enforce-migration-dir.yml` mensagem de erro ficou genérica para diretórios allowlisted.
+- **Amazon Q security review:** corrigidos localmente os achados procedentes/defensivos:
+  - importador usa `cleanHtml()` allowlist em vez de regex (`apps/site/importer/sanitize.ts`);
+  - `withToc` escapa atributo `id`;
+  - preview sanitiza explicitamente no endpoint e já sanitizava em `renderPreviewFromContent`;
+  - redirects manuais aceitam só caminhos internos (`/...`, sem `//` e sem CR/LF);
+  - `express.json({ limit: "10mb" })`;
+  - Pool PG com `connectionTimeoutMillis: 30000`;
+  - `setPostTaxonomies` virou uma statement CTE com lock do post, evitando janela DELETE+INSERT.
+- **Validação local:** `pnpm --filter @artificio/site exec tsc --noEmit` ✅; `pnpm --filter @artificio/site build` ✅; smoke `setPostTaxonomies(-1, [], [])` ✅; reprodução local da allowlist contra `origin/main...origin/dev` permite os 3 SQL do site ✅.

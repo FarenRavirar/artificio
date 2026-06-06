@@ -121,21 +121,29 @@ export async function setPostStatus(id: number, status: PostStatus): Promise<boo
 export async function setPostTaxonomies(id: number, cats: number[], tags: number[]): Promise<void> {
   const db = await getDb();
   const requested = [...new Set([...cats, ...tags])].filter((n) => Number.isInteger(n));
-  // Pré-filtra p/ ids de termos EXISTENTES (evita FK inválido deixar o post sem taxonomias).
-  let valid: number[] = [];
-  if (requested.length) {
-    const r = await db.query<{ id: number }>(`SELECT id FROM taxonomies WHERE id = ANY($1)`, [requested]);
-    valid = r.rows.map((x) => Number(x.id));
-  }
-  // delete + 1 insert (janela mínima; transação plena exige client dedicado no adapter — follow-up).
-  await db.query(`DELETE FROM post_taxonomies WHERE post_id=$1`, [id]);
-  if (valid.length) {
-    const values = valid.map((_, i) => `($1,$${i + 2})`).join(",");
-    await db.query(
-      `INSERT INTO post_taxonomies (post_id, taxonomy_id) VALUES ${values} ON CONFLICT DO NOTHING`,
-      [id, ...valid],
-    );
-  }
+  // Atualiza o conjunto inteiro de taxonomias em uma única statement.
+  // O lock do post serializa updates concorrentes do mesmo post; ids inexistentes são ignorados.
+  await db.query(
+    `WITH locked AS (
+       SELECT id FROM posts WHERE id = $1 FOR UPDATE
+     ),
+     valid AS (
+       SELECT id FROM taxonomies WHERE id = ANY($2)
+     ),
+     deleted AS (
+       DELETE FROM post_taxonomies pt
+       USING locked
+       WHERE pt.post_id = locked.id
+     ),
+     inserted AS (
+       INSERT INTO post_taxonomies (post_id, taxonomy_id)
+       SELECT locked.id, valid.id
+       FROM locked CROSS JOIN valid
+       ON CONFLICT DO NOTHING
+     )
+     SELECT 1`,
+    [id, requested],
+  );
 }
 
 export async function getPostSlug(id: number): Promise<string | null> {

@@ -17,7 +17,7 @@ const DIST = process.env.SITE_DIST || resolve(dirname(fileURLToPath(import.meta.
 
 const app = express();
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 const requireAdmin: RequestHandler = (req, res, next) => {
   const session = (req as AuthenticatedRequest).session;
