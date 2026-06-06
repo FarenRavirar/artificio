@@ -48,8 +48,8 @@
 
 ## F7 — Deploy beta + Gate D
 
-- [~] **T20** — Artefatos de deploy autorados (D049): `Dockerfile` (build in-container), `docker-entrypoint.sh` (migrate→import→export→astro build→pagefind→serve), `docker-compose.beta.yml` (`site-beta-app`+`site-beta-db`, `artificio_net`), `deploy-site.yml` (DRAFT, espelha deploy-mesas via `_deploy-module`, env=beta). Server único valida static+admin (smoke local 200/401/404). 🔒 **Falta mantenedor:** GitHub Environment + secrets + validar passo migração do reusável; rodar pipeline verde (R18, D039/D041).
-- [ ] **T21** — Subir `beta.artificiorpg.com` (Cloudflare Tunnel `beta.→site-beta-app:4322`) · smoke home/blog/sitemap 200, 404 ok, GA4 dispara (CA5). 🔒 DNS/Tunnel/secrets = mantenedor.
+- [x] **T20** — Deploy via `deploy-site.yml`→`_deploy-module` (env=beta) **rodou verde** (run `27065214548`): build in-container, snapshot, migração no-op, health, smoke, rollback-safe (R18, D039/D041). Fixes: gate dispatch-only + `chmod +x` entrypoint. Mantenedor: Environment+secrets+Cloudflare feitos.
+- [x] **T21** — **`beta.artificiorpg.com` NO AR** (Cloudflare Tunnel→`site-beta-app:4322`): smoke externo `/`,`/blog/`,`/blog/<slug>/`,`/robots.txt`,`/sitemap-index.xml`=200, `/admin`=401, `/healthz` posts=125, WP raiz intocável=200 (CA5/CA6). ⬜ GA4 real (PUBLIC_GA_ID) opcional.
 - [ ] **T22** — Validação Opus (Gate D site) · feito quando: paridade + SEO + smoke + WP inalterado (CA6) conferidos; módulo marcado no roadmap.
 
 ## Notas de execução
