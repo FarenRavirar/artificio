@@ -63,7 +63,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   app.use(
     cors({
       credentials: true,
-      origin: /\.artificiorpg\.com$/,
+      origin: /^https:\/\/(?:[^.]+\.)?artificiorpg\.com$/,
     }),
   );
 
