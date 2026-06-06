@@ -1,5 +1,8 @@
 # Allowlist de diretórios de migration (G1).
-# Migrations SQL só podem viver em apps/<modulo>/database/.
+# Migrations SQL só podem viver em diretório de migration do módulo.
+# Padrão da esteira compartilhada: apps/<modulo>/database/.
+# Módulos com runner próprio in-container, como site+pglite, podem usar apps/<modulo>/db/migrations/.
 # Qualquer .sql adicionado/alterado fora daqui bloqueia o PR (_enforce-migration-dir.yml).
 # Uma regra por linha (prefixo de caminho relativo à raiz do repo).
 apps/*/database/
+apps/*/db/migrations/

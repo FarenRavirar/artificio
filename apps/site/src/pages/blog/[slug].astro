@@ -13,6 +13,7 @@ const post = getPost(slug as string);
 if (!post) return Astro.redirect("/404");
 
 const cat = post.cats[0];
+const catHref = cat ? `/blog/categoria/${cat.slug}/` : "";
 const rel = related(post);
 // canonical = URL final no domínio raiz (D047/D019); preserva /blog/<slug>/ no cutover.
 // override editorial (admin) tem precedência.
@@ -50,11 +51,11 @@ const jsonld = [
   <main class="article-wrap">
     <nav class="breadcrumb" aria-label="Trilha">
       <a href="/">Início</a> <span>/</span> <a href="/blog/">Blog</a>
-      {cat && (<><span>/</span> <a href={`/?cat=${cat.slug}`}>{cat.name}</a></>)}
+      {cat && (<><span>/</span> <a href={catHref}>{cat.name}</a></>)}
     </nav>
     <article class="article" data-pagefind-body>
       <header class="article-head">
-        {cat && <a class="chip" href={`/?cat=${cat.slug}`}>{cat.name}</a>}
+        {cat && <a class="chip" href={catHref}>{cat.name}</a>}
         <h1>{post.title}</h1>
         <div class="article-meta">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
@@ -67,7 +68,7 @@ const jsonld = [
       <div class="article-body prose" set:html={post.contentHtml} />
       {post.tags.length > 0 && (
         <div class="tags">
-          {post.tags.map((t) => <a class="tag" href={`/?tag=${t.slug}`}>#{t.name}</a>)}
+          {post.tags.map((t) => <a class="tag" href={`/blog/tag/${t.slug}/`}>#{t.name}</a>)}
         </div>
       )}
     </article>

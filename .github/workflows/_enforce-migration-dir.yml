@@ -1,6 +1,6 @@
 name: _enforce-migration-dir
 
-# Reusável: bloqueia PR que adiciona/altera .sql fora de apps/<modulo>/database/.
+# Reusável: bloqueia PR que adiciona/altera .sql fora de diretórios de migration allowlisted.
 # Mantém migrations rastreáveis e dentro do contrato de módulo (D039 / contrato de módulo G1).
 on:
   workflow_call:
@@ -80,13 +80,13 @@ jobs:
             if [ "$ok" -eq 1 ]; then
               echo "permitido: $f"
             else
-              echo "::error file=$f::migration fora de apps/<modulo>/database/ (allowlist)"
+              echo "::error file=$f::migration fora dos diretórios allowlisted em .github/migration-dir-allowlist"
               fail=1
             fi
           done
 
           if [ "$fail" -ne 0 ]; then
-            echo "BLOCKED: mova as migrations para apps/<modulo>/database/."
+            echo "BLOCKED: mova as migrations para um diretório allowlisted em .github/migration-dir-allowlist."
             exit 1
           fi
           echo "Todas as migrations dentro do contrato. OK."

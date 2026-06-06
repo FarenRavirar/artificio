@@ -32,7 +32,7 @@ export function getDb(): Promise<Db> {
     const url = process.env.DATABASE_URL;
     if (url) {
       const { Pool } = await import("pg");
-      const pool = new Pool({ connectionString: url, max: 10 });
+      const pool = new Pool({ connectionString: url, max: 10, connectionTimeoutMillis: 30_000 });
       return {
         isPg: true,
         query: (sql, params) => pool.query(sql, params as unknown[]) as Promise<QueryResult<never>>,

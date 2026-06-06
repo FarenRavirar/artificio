@@ -157,6 +157,7 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
     const to = String(req.body?.to_path || "").trim();
     if (!from || !to) { res.status(400).json({ error: "from_to_required" }); return; }
     if (from === to) { res.status(400).json({ error: "from_equals_to" }); return; }
+    if (!isInternalPath(from) || !isInternalPath(to)) { res.status(400).json({ error: "invalid_redirect_path" }); return; }
     const reqCode = asInt(req.body?.code) ?? 301;
     const code = REDIRECT_CODES.includes(reqCode) ? reqCode : 301;
     await Redirects.addRedirect(from, to, code);
@@ -169,7 +170,7 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
     const html = renderPreviewFromContent(
       String(req.body?.title || ""),
       String(req.body?.status || "rascunho"),
-      String(req.body?.content_html || ""),
+      cleanHtml(String(req.body?.content_html || "")),
     );
     res.type("html").send(html);
   });
@@ -184,6 +185,10 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
 }
 
 const STATUSES: Posts.PostStatus[] = ["draft", "pending", "publish", "scheduled", "private", "trash", "archived"];
+
+function isInternalPath(path: string): boolean {
+  return path.startsWith("/") && !path.startsWith("//") && !/[\r\n]/.test(path);
+}
 
 // Dispara rebuild SSG no servidor quando a mudança afeta o público (publicar OU despublicar).
 // Single-flight (jobs.ts); o cliente não precisa de uma 2ª requisição (corrige inconsistência DB↔SSG).
