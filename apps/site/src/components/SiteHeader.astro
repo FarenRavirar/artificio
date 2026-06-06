@@ -1,7 +1,7 @@
 ---
-// Etapa 1: header .astro reusando o CSS do design system (@artificio/ui/styles.css) + marca real.
-// Etapa 2: trocar por <Header client:load /> (React island) p/ session/dropdown/menu mobile.
-import { logos, SECTIONS } from "../lib/content";
+// Header .astro zero-JS (R4=A, spec 010): nav primário = portal cross-módulo (MODULES),
+// 2ª linha = categorias do blog (SECTIONS). Reusa CSS do design system (@artificio/ui/styles.css).
+import { logos, MODULES, SECTIONS } from "../lib/content";
 interface Props {
   currentHref?: string;
 }
@@ -14,15 +14,15 @@ const ACCOUNTS = "https://accounts.artificiorpg.com";
       <img class="artificio-brand-logo logo-navy" src={logos.logoNavy} alt="Artifício RPG" width="300" height="100" />
       <img class="artificio-brand-logo logo-neg" src={logos.logoNeg} alt="Artifício RPG" width="300" height="100" />
     </a>
-    <nav aria-label="Seções">
+    <nav aria-label="Módulos do Artifício">
       <ul class="artificio-nav-list">
-        {SECTIONS.map((s) => (
+        {MODULES.map((m) => (
           <li>
             <a
               class="artificio-nav-link"
-              href={s.href}
-              aria-current={currentHref === s.href ? "page" : undefined}
-            >{s.label}</a>
+              href={m.href}
+              aria-current={m.label === "Portal" ? "page" : undefined}
+            >{m.label}</a>
           </li>
         ))}
       </ul>
@@ -37,4 +37,17 @@ const ACCOUNTS = "https://accounts.artificiorpg.com";
       <a class="artificio-login-button" href={`${ACCOUNTS}/login`}>Entrar</a>
     </div>
   </div>
+  <nav class="artificio-subnav" aria-label="Seções do blog">
+    <ul class="artificio-nav-list">
+      {SECTIONS.map((s) => (
+        <li>
+          <a
+            class="artificio-nav-link"
+            href={s.href}
+            aria-current={currentHref === s.href ? "page" : undefined}
+          >{s.label}</a>
+        </li>
+      ))}
+    </ul>
+  </nav>
 </header>
