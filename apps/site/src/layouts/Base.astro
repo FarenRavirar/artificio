@@ -4,6 +4,7 @@ import { buildMeta, renderJsonLd, SITE } from "@artificio/content";
 import SiteHeader from "../components/SiteHeader.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import SearchModal from "../components/SearchModal.astro";
+import Analytics from "../components/Analytics.astro";
 
 interface Props {
   title: string;
@@ -39,6 +40,7 @@ const lds = jsonld ? (Array.isArray(jsonld) ? jsonld : [jsonld]) : [];
     {metaTags.map((m) => (m.name ? <meta name={m.name} content={m.content} /> : <meta property={m.property} content={m.content} />))}
     <link rel="alternate" type="application/rss+xml" title="Artifício RPG — Blog" href="/rss.xml" />
     {lds.map((ld) => <script type="application/ld+json" set:html={renderJsonLd(ld)} />)}
+    <Analytics />
     <script is:inline>
       (function () {
         try {

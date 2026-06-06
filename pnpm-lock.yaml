@@ -350,6 +350,9 @@ importers:
 
   apps/site:
     dependencies:
+      '@artificio/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@artificio/content':
         specifier: workspace:*
         version: link:../../packages/content
@@ -396,6 +399,12 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+
+  packages/analytics:
+    devDependencies:
+      '@artificio/config':
+        specifier: workspace:*
+        version: link:../config
 
   packages/auth:
     dependencies:
