@@ -56,7 +56,19 @@ export function related(p: Post, n = 3): Post[] {
   return (r.length ? r : posts.filter((o) => o.id !== p.id)).slice(0, n);
 }
 
-// Nav de seções do blog (categorias principais). Cross-módulo do portal fica no Footer (hub).
+// Nav cross-módulo do portal (unidade D017: une módulos por nav + SSO + design system).
+// Espelha `defaultNavItems` do @artificio/ui; replicado local (zero-JS no Astro, sem puxar
+// o barrel React/@artificio/auth do header). Mantido em sync com packages/ui/src/modules.ts.
+export const MODULES: { label: string; href: string }[] = [
+  { label: "Portal", href: "https://beta.artificiorpg.com" },
+  { label: "Glossário", href: "https://glossariorpg.artificiorpg.com" },
+  { label: "Mesas", href: "https://mesas.artificiorpg.com" },
+  { label: "Downloads", href: "https://downloads.artificiorpg.com" },
+  { label: "Esferas", href: "https://esferas.artificiorpg.com" },
+  { label: "SRD", href: "https://srd.artificiorpg.com" },
+];
+
+// Nav secundário (2ª linha): categorias principais do blog. Não substitui o nav do portal.
 export const SECTIONS: { label: string; href: string }[] = [
   { label: "Notícias", href: "/blog/categoria/noticias/" },
   { label: "Análises", href: "/blog/categoria/analises/" },
