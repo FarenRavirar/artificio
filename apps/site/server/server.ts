@@ -1,11 +1,16 @@
 // Backend HTTP do site: health + admin (SSO role=admin) p/ disparar rebuild SSG (D006) e re-import WP.
 // Canon: Express + @artificio/auth (cookie artificio_session). Estático servido à parte (Astro dist).
 import "dotenv/config";
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import express, { type RequestHandler } from "express";
 import cookieParser from "cookie-parser";
 import { requireAuth, type AuthenticatedRequest } from "@artificio/auth";
 import { getDb } from "../db/connection.js";
 import { runJob, jobState } from "./jobs.js";
+
+const DIST = process.env.SITE_DIST || resolve(dirname(fileURLToPath(import.meta.url)), "../dist");
 
 const app = express();
 app.use(cookieParser());
@@ -58,5 +63,15 @@ app.post("/admin/import", requireAuth, requireAdmin, (_req, res) => {
   res.status(r.started ? 202 : 409).json(r);
 });
 
+// Estático: serve o Astro dist/ (depois das rotas /healthz e /admin). Em deploy = 1 container.
+if (existsSync(DIST)) {
+  app.use(express.static(DIST, { extensions: ["html"] }));
+  app.use((_req, res) => {
+    const notFound = resolve(DIST, "404.html");
+    if (existsSync(notFound)) res.status(404).sendFile(notFound);
+    else res.status(404).send("404");
+  });
+}
+
 const PORT = Number(process.env.PORT || 4322);
-app.listen(PORT, () => console.log(`[site-api] on :${PORT}`));
+app.listen(PORT, () => console.log(`[site-api] on :${PORT} (static=${existsSync(DIST) ? DIST : "off"})`));

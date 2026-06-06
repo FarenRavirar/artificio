@@ -55,6 +55,16 @@ O importador migra mídia **env-gated** (`importer/media.ts`, D025/R8):
 
 Creds = segredo (mantenedor/VM), nunca versionado. Rodar a migração real de mídia = setar `CLOUDINARY_URL` no `.env` e `pnpm sync`.
 
+## Deploy beta (D044/D049)
+
+2 containers em `artificio_net` (`docker-compose.beta.yml`):
+- **`site-beta-app`** — `Dockerfile` (Node/Express). Entrypoint (`docker-entrypoint.sh`) roda IN-CONTAINER: `migrate → import(WP) → export → astro build → pagefind → serve`. O Express serve o `dist/` estático + `/healthz` + `/admin/*`.
+- **`site-beta-db`** — `postgres:16-alpine` (o store; vol `pgdata_site_beta`).
+
+`beta.artificiorpg.com` → `site-beta-app:4322` via Cloudflare Tunnel. Esteira = `deploy-site.yml` (push `dev`, espelha `deploy-mesas` via `_deploy-module.yml`). Smoke local do server único: `/ /blog/ /sobre-nos/ /healthz /robots.txt` 200, `/admin/*` 401, inexistente 404.
+
+**Ação do mantenedor p/ habilitar:** GitHub Environment + secrets (`POSTGRES_PASSWORD`, `DATABASE_URL`, `JWT_SECRET`=prod, opc. `CLOUDINARY_URL`/`PUBLIC_GA_ID`); rota Cloudflare `beta.→site-beta-app`; validar passo de migração do `_deploy-module` (site migra no entrypoint).
+
 ## Status (spec 008)
 
 - ✅ F2 store (schema/migrations/runner), F3 importador (paridade 125/125), SSG + arquivos + busca Pagefind + RSS/sitemap + SEO.

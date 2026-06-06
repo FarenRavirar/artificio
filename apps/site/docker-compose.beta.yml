@@ -1,0 +1,59 @@
+# Deploy beta do site (D044/D049). 2 containers: app (Express serve Astro dist + admin) + db (store).
+# Domínio beta.artificiorpg.com -> site-beta-app via Cloudflare Tunnel (rota = ação do mantenedor).
+# Secrets via env (GitHub Environment): POSTGRES_PASSWORD, DATABASE_URL, JWT_SECRET(=prod, SSO D042),
+# opc. CLOUDINARY_URL, PUBLIC_GA_ID.
+services:
+  site-beta-app:
+    build:
+      context: ../..
+      dockerfile: apps/site/Dockerfile
+    container_name: site-beta-app
+    restart: always
+    expose:
+      - "4322"
+    networks:
+      - artificio_net
+    environment:
+      - NODE_ENV=production
+      - PORT=4322
+      - DATABASE_URL=${DATABASE_URL}
+      - WP_BASE=${WP_BASE:-https://artificiorpg.com/wp-json/wp/v2}
+      - SITE_IMPORT_ON_START=${SITE_IMPORT_ON_START:-true}
+      - CLOUDINARY_URL=${CLOUDINARY_URL:-}
+      - PUBLIC_GA_ID=${PUBLIC_GA_ID:-}
+      - PUBLIC_SITE_URL=https://beta.artificiorpg.com
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      site-beta-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:4322/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
+  site-beta-db:
+    image: postgres:16-alpine
+    container_name: site-beta-db
+    restart: always
+    networks:
+      - artificio_net
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: site
+    volumes:
+      - pgdata_site_beta:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d site"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata_site_beta:
+
+networks:
+  artificio_net:
+    external: true

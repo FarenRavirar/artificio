@@ -48,8 +48,8 @@
 
 ## F7 — Deploy beta + Gate D
 
-- [ ] **T20** — `deploy-site.yml` via `_deploy-module.yml` (env=beta) + compose + `artificio_net` · feito quando: pipeline verde; snapshot/health/smoke (R18, D039/D041). 🔒 secrets/VM = mantenedor/Codex.
-- [ ] **T21** — Subir `beta.artificiorpg.com` (Cloudflare Tunnel hostname→container) · feito quando: smoke home/post/sitemap 200, 404 ok, SSO redireciona p/ `accounts.`, GA4 dispara (CA5). 🔒 DNS/Tunnel = mantenedor.
+- [~] **T20** — Artefatos de deploy autorados (D049): `Dockerfile` (build in-container), `docker-entrypoint.sh` (migrate→import→export→astro build→pagefind→serve), `docker-compose.beta.yml` (`site-beta-app`+`site-beta-db`, `artificio_net`), `deploy-site.yml` (DRAFT, espelha deploy-mesas via `_deploy-module`, env=beta). Server único valida static+admin (smoke local 200/401/404). 🔒 **Falta mantenedor:** GitHub Environment + secrets + validar passo migração do reusável; rodar pipeline verde (R18, D039/D041).
+- [ ] **T21** — Subir `beta.artificiorpg.com` (Cloudflare Tunnel `beta.→site-beta-app:4322`) · smoke home/blog/sitemap 200, 404 ok, GA4 dispara (CA5). 🔒 DNS/Tunnel/secrets = mantenedor.
 - [ ] **T22** — Validação Opus (Gate D site) · feito quando: paridade + SEO + smoke + WP inalterado (CA6) conferidos; módulo marcado no roadmap.
 
 ## Notas de execução
