@@ -55,7 +55,10 @@ jobs:
       db_name: site
       db_name_beta: site
       db_user: admin
-      deploy: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy') || (github.event_name == 'push' && github.ref == 'refs/heads/dev') }}
+      # Bootstrap-safe: 1ª subida via workflow_dispatch mode=deploy (apps/site/.env.beta precisa existir
+      # na VM antes; push-dev auto-deploy falharia no check do .env.beta). Após 1º deploy OK + .env.beta
+      # no lugar, dá p/ habilitar auto-deploy em push dev (D041): adicionar `|| (push && ref==dev)`.
+      deploy: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy' }}
       health_containers: '["site-beta-app"]'
       health_containers_beta: '["site-beta-app"]'
       critical_routes: >-
