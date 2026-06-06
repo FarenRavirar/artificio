@@ -1,5 +1,7 @@
 # Tasks — 009 Hardening da esteira
 
+> **FINALIZADA (2026-06-06):** R1–R5 live em origin/dev (`c488e77`) + validados nos betas (mesasbeta/accountsbeta verdes, reconcile no-op). R6 (restart-resilience) code-complete commit `2681612` **local, NÃO deployado** (aguarda autorização de push+redeploy). T9 (refactor container_name) = futuro. Commits locais pendentes de push: `861128d`, `2681612`.
+
 - [x] **T1** — Spec/plan/tasks 009 · feito quando: 3 arquivos criados.
 - [ ] **T2** — R2 guard exec-bit: `scripts/ci/check_entrypoint_exec_bit.sh` + wire em `pr-checks.yml` · feito: falha em `.sh` 100644 referenciado por ENTRYPOINT, passa em 100755 (CA2).
 - [ ] **T3** — R1 reconcile de leftover no remote script do `_deploy-module.yml` · feito: remove container de nome esperado com project ≠ alvo; no-op quando limpo; não toca volume (R1).
