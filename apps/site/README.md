@@ -29,9 +29,21 @@ pnpm --filter @artificio/site migrate      # aplica db/migrations (schema_migrat
 pnpm --filter @artificio/site run import    # WP REST -> store (dry-run). 'run' evita o builtin pnpm import
 pnpm --filter @artificio/site export        # store -> src/data/posts.json
 pnpm --filter @artificio/site sync          # migrate + import + export (pipeline completo)
+pnpm --filter @artificio/site rebuild       # export + astro build + pagefind (gatilho SSG, D006)
 pnpm --filter @artificio/site build         # astro build + pagefind index
+pnpm --filter @artificio/site serve         # backend HTTP (admin + rebuild webhook) :4322
 pnpm --filter @artificio/site dev           # astro dev (busca Pagefind só no build/preview)
 ```
+
+## Backend HTTP (`server/`)
+
+Express + `@artificio/auth` (cookie `artificio_session`, SSO compartilhado). Estático (Astro `dist/`) é servido à parte; o backend só faz admin/health:
+- `GET /healthz` — `{ ok, posts }` (deploy/smoke, sem auth).
+- `GET /admin/status` — stats do store + último job (**role=admin**).
+- `POST /admin/rebuild` — dispara `rebuild` (export+build+pagefind) — gatilho de publicação SSG incremental (D006). **role=admin**.
+- `POST /admin/import` — re-import WP→store. **role=admin**.
+
+Jobs = single-flight (um por vez, lock em memória; `server/jobs.ts`). Smoke verificado: health 200, admin 401 sem cookie.
 
 `posts.json` versionado = **seed pequeno** (amostra). `pnpm sync` regenera o conteúdo completo do WP (125 posts) localmente; `.pgdata/` é gitignored.
 
