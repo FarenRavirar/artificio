@@ -250,7 +250,10 @@ jobs:
           module_dir="apps/${MODULE}"
           env_file="${module_dir}/${env_file_name}"
           if [ ! -f "$env_file" ]; then
-            echo "ERRO: $env_file ausente"
+            echo "ERRO: $env_file ausente na VM (bootstrap de modulo novo, spec 009 R3)."
+            echo "  1) cd $deploy_dir && git fetch origin $deploy_branch && git reset --hard $deploy_ref"
+            echo "  2) criar $env_file (gitignored) com os segredos do ambiente"
+            echo "  3) re-rodar este deploy (workflow_dispatch mode=deploy)"
             exit 1
           fi
 
@@ -292,6 +295,26 @@ jobs:
             echo "ROLLBACK: tentativa concluida; verificar manualmente."
           }
           trap rollback ERR
+
+          # spec 009 R1: reconcile de leftover — remove container cujo NOME e esperado por este modulo
+          # mas pertence a OUTRO projeto compose (ex.: subida manual). Evita conflito de nome no 'up'.
+          # Nunca remove volume; nunca toca containers de outro nome (mesas/accounts intactos).
+          reconcile_leftover() {
+            local name="$1"
+            [ -z "$name" ] && return 0
+            if docker container inspect "$name" >/dev/null 2>&1; then
+              local proj
+              proj=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$name" 2>/dev/null || echo "")
+              if [ "$proj" != "$COMPOSE_PROJECT" ]; then
+                echo "reconcile: removendo leftover '$name' (project='${proj:-<none>}' != alvo '$COMPOSE_PROJECT')"
+                docker rm -f "$name" >/dev/null 2>&1 || true
+              fi
+            fi
+          }
+          reconcile_leftover "$DB_SERVICE"
+          while IFS= read -r _rc_name; do
+            [ -n "$_rc_name" ] && reconcile_leftover "$_rc_name"
+          done < <(printf '%s' "$HEALTH_CONTAINERS_B64" | base64 -d | jq -r '.[]')
 
           docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" up -d "$DB_SERVICE"
 
@@ -378,4 +401,26 @@ jobs:
             export HEALTH_CONTAINERS_B64='$health_b64'
             export CRITICAL_ROUTES_B64='$routes_b64'
             export GITHUB_RUN_ID='$GITHUB_RUN_ID'
-            bash '$remote_script'"
+            bash '$remote_script'" | tee "$RUNNER_TEMP/deploy-out.txt"
+
+      # spec 009 R4: resumo de smoke/health/snapshot no Summary do run (observabilidade).
+      - name: Resumo do deploy
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/deploy-out.txt"
+          {
+            echo "### Deploy ${MODULE:-?} (${DEPLOY_ENV:-?})"
+            echo ""
+            echo "| check | valor |"
+            echo "|---|---|"
+            if [ -f "$out" ]; then
+              grep -E '^(jwt_secret_shared|snapshot_created|healthy_|smoke_|reconcile:)' "$out" \
+                | while IFS= read -r line; do
+                    k="${line%%=*}"; v="${line#*=}"
+                    [ "$k" = "$v" ] && v=""
+                    echo "| ${k} | ${v} |"
+                  done
+            else
+              echo "| status | sem saida capturada |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY" || true
