@@ -3,8 +3,9 @@
 - **Data:** 2026-06-07
 - **Módulo/Escopo:** infra/CI-CD — limpeza periódica de Docker na VM
 - **Gate:** D (manutenção operacional; não destrutivo de dados)
-- **Modo:** SDD Lite (1 workflow novo + stub de desativação; isolado, reversível)
-- **Vínculos:** D041 (esteira deploy/locks), D050 (hardening `_deploy-module`), D055 (esta sessão)
+- **Modo:** SDD Lite → **elevado a SDD Completo** na rev 2 (o lock RW toca o pipeline
+  compartilhado `_deploy-module.yml` + `deploy-accounts.yml` → exige smoke de mesas/site/accounts).
+- **Vínculos:** D041 (esteira deploy/locks), D050 (hardening `_deploy-module`), D055, D056 (lock RW)
 
 ## Objetivo
 
@@ -69,6 +70,42 @@ canônico (`DEPLOY_*` + key file), e blindar contra corrida com deploy.
 - [ ] Ordem: artificio em `main` ANTES de desativar mesas (evita janela sem limpeza;
       sobreposição temporária = limpeza dupla idempotente, inofensiva).
 - [ ] 1º run via `workflow_dispatch` validado (smoke: `docker system df` antes/depois, ps).
+- [ ] `project-state.md` atualizado no fechamento.
+
+## Atualização rev 2 (2026-06-07) — review Amazon Q + Codex (PR #11)
+
+PR #11 mergeado em `dev` (CI verde). Dois bots revisaram. Veredito + ação:
+
+| Achado | Fonte | Veredito | Ação |
+|---|---|---|---|
+| Q1 `GITHUB_RUN_ID` injeção | Amazon Q | parcial (é inteiro do GitHub) | guard numérico `^[0-9]+$` (defense-in-depth) |
+| Q2 "sem lock = estado inesperado" | Amazon Q | **rejeitado** (sem lock = ocioso; abortar travaria VM rebootada) | mantido; guard de `flock` ausente add |
+| Q3 sort `{{.CreatedAt}}` timezone | Amazon Q | válido (robustez) | keep-3 passa a usar ordem-default do docker (sem parsear TZ) |
+| C1 race pós-checagem | Codex | válido (janela check→prune) | **lock RW** segura exclusive durante prune |
+| C2 accounts sem lock | Codex | válido (deploy-accounts não criava lock) | accounts passa a pegar o lock shared |
+
+**D056 — lock RW VM-wide** `/tmp/artificio-vm-mutate.lock`:
+- Deploys (`_deploy-module` mesas/site + `deploy-accounts`) pegam **shared** (`flock -s -w 600`,
+  FD 8) → continuam concorrendo entre si; só esperam se a manutenção segura exclusive.
+- Cleanup pega **exclusive** (`flock -n -x`, FD 8), polling 5/5 min, e **segura durante todo o
+  prune** → nunca prune durante deploy. Fecha C1 + C2.
+- Sem deadlock: cleanup só pega FD8; deploy pega FD8(shared)→FD9(por-módulo). Sem inversão.
+- Risco: se o prune segurar exclusive >600s, um deploy concorrente dá timeout (raro; domingo 03h).
+
+**Arquivos tocados na rev 2:** `docker-cleanup.yml`, `_deploy-module.yml` (SHARED), `deploy-accounts.yml` (SHARED).
+
+**Validação rev 2:** YAML dos 3 ok; `bash -n` do corpo remoto (acquire exclusive + keep-3) e do
+snippet `_deploy-module` ok; semântica RW do `flock` é padrão util-linux (sem flock local p/ teste
+empírico — **smoke real na VM**). Merge em `dev` redeploya **mesasbeta + sitebeta** (path inclui
+`_deploy-module.yml`) = smoke do lado deploy automático no beta.
+
+## Critério de conclusão (rev 2)
+
+- [ ] Aprovação p/ push (toca pipeline compartilhado = SDD Completo).
+- [ ] Merge `dev` → smoke beta verde (mesasbeta + sitebeta deployam COM o lock shared).
+- [ ] (opcional) smoke manual do mutual-exclusion: rodar cleanup dispatch enquanto um deploy beta roda.
+- [ ] artificio → ff `main` (cron + dispatch só valem em `main`) — decisão de release do backlog à parte.
+- [ ] mesas: stub na `dev` (default) p/ parar cron legado, APÓS artificio em `main`.
 - [ ] `project-state.md` atualizado no fechamento.
 
 ## Sugestão futura (separada — write na VM, aprovação à parte)
