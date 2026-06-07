@@ -1,0 +1,166 @@
+# ============================================================================
+# WORKFLOW: Docker Cleanup
+# RESPONSABILIDADE: Manutenção da VM (limpeza periódica de recursos Docker)
+# TRIGGER: Agendado (domingos 03:00 UTC) ou manual (workflow_dispatch)
+# ESCOPO: VM Oracle (uma daemon Docker → cobre prod + beta de todos os módulos)
+# ORIGEM: migrado do legado mesas_rpg_artificio (unificado no monorepo).
+#         Usa os secrets canônicos DEPLOY_* (mesmo mecanismo de _deploy-module).
+# NOTES: Remove dangling/cache/órfãos e mantém só as 3 imagens mais recentes
+#        por repositório. Nunca toca volumes (dados preservados). Imagem em uso
+#        pelo container atual é a mais recente → fica entre as 3 mantidas.
+# ============================================================================
+
+name: Docker Cleanup
+
+# IMPORTANTE: o gatilho `schedule` só dispara a partir da branch default (main).
+# Em `dev` este workflow só roda por `workflow_dispatch`. Para a limpeza semanal
+# valer, o arquivo precisa estar em `main` (promoção ff dev->main, D041).
+on:
+  schedule:
+    - cron: '0 3 * * 0' # domingos 03:00 UTC, semanal
+  workflow_dispatch:
+
+# Job nao faz checkout nem chama a API → token sem escopo (I3).
+permissions: {}
+
+# Secrets DEPLOY_* sao repo-level (nao environment); nao usar `environment:` aqui
+# para nao registrar deployments fantasmas no log do environment de producao.
+jobs:
+  cleanup:
+    name: Docker cleanup na VM
+    runs-on: ubuntu-latest
+    timeout-minutes: 45 # I1: cobre ate ~30min de espera por deploy ocioso + limpeza
+    concurrency:
+      group: artificio-docker-cleanup-lock
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+    steps:
+      - name: Validate secrets
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_KNOWN_HOSTS DEPLOY_PORT DEPLOY_SSH_PRIVATE_KEY DEPLOY_USER; do
+            if [ -z "${!name:-}" ]; then
+              echo "$name=missing"
+              exit 1
+            fi
+            echo "$name=present"
+          done
+
+      - name: Prepare SSH
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/artificio_deploy_key
+          chmod 600 ~/.ssh/artificio_deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # Canonico G1: manutenção da VM roda via GitHub Actions para rastreabilidade.
+      - name: Cleanup Docker na VM
+        run: |
+          set -euo pipefail
+          # ServerAlive* mantem a conexao viva durante as esperas de 5 min por deploy ocioso.
+          ssh_base=(ssh -i ~/.ssh/artificio_deploy_key -p "$DEPLOY_PORT" -o BatchMode=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=10 "$DEPLOY_USER@$DEPLOY_HOST")
+
+          remote_script="/tmp/artificio-docker-cleanup-${GITHUB_RUN_ID}.sh"
+          local_script=$(mktemp)
+
+          cat > "$local_script" <<'REMOTE'
+          set -euo pipefail
+
+          # ----------------------------------------------------------------
+          # R1: espera o deploy ficar OCIOSO antes de mexer em cache/imagens.
+          # Padrao REUSAVEL por futuros workflows de manutencao da VM.
+          # _deploy-module segura um flock por modulo em /tmp/artificio-<mod>-deploy.lock.
+          # `flock -n` testa SEM bloquear e libera na hora (nao trava o deploy).
+          # Se algum lock estiver em uso, re-checa a cada 5 min.
+          # ----------------------------------------------------------------
+          wait_for_deploy_quiescence() {
+            local max_waits=6   # ate ~30 min; timeout-minutes do job e a guarda final
+            local waited=0
+            while :; do
+              local busy=""
+              shopt -s nullglob
+              for lock in /tmp/artificio-*-deploy.lock; do
+                if ! flock -n "$lock" true 2>/dev/null; then
+                  busy="$lock"
+                  break
+                fi
+              done
+              shopt -u nullglob
+              if [ -z "$busy" ]; then
+                [ "$waited" -gt 0 ] && echo "deploy ocioso; prosseguindo"
+                return 0
+              fi
+              if [ "$waited" -ge "$max_waits" ]; then
+                echo "ERRO: deploy ativo ($busy) apos $((max_waits * 5)) min; abortando limpeza"
+                return 1
+              fi
+              waited=$((waited + 1))
+              echo "deploy ativo ($busy); aguardando 5 min (tentativa $waited/$max_waits)"
+              sleep 300
+            done
+          }
+
+          if ! wait_for_deploy_quiescence; then
+            exit 1
+          fi
+
+          echo "== docker system df (ANTES) =="
+          docker system df || true
+          df -h /var/lib/docker 2>/dev/null || df -h / || true
+
+          # Dangling images, containers parados ha >7d e CACHE DE BUILD ANTIGO (>7d).
+          # builder prune until=168h remove cache ocioso ha mais de 7 dias e PRESERVA
+          # o cache recente (acelera rebuilds). NAO remove volumes (dados intactos)
+          # nem redes (artificio_net e compartilhada; prune de rede nao libera disco).
+          docker image prune -f
+          docker container prune -f --filter "until=168h"
+          docker builder prune -f --filter "until=168h"
+
+          # Mantém só as 3 imagens mais recentes por repositório.
+          # A imagem do container atual é a mais nova → preservada.
+          docker images --format "{{.Repository}}" | sort -u | while read -r repo; do
+            if [ "$repo" != "<none>" ]; then
+              docker images "$repo" --format "{{.ID}} {{.CreatedAt}}" \
+                | sort -k2 -r | tail -n +4 | awk '{print $1}' \
+                | xargs -r docker rmi -f 2>/dev/null || true
+            fi
+          done
+
+          echo "== docker system df (DEPOIS) =="
+          docker system df || true
+          df -h /var/lib/docker 2>/dev/null || df -h / || true
+          echo "== Containers no ar =="
+          docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | sed -n '1,40p'
+          REMOTE
+
+          scp -i ~/.ssh/artificio_deploy_key -P "$DEPLOY_PORT" -o BatchMode=yes "$local_script" "$DEPLOY_USER@$DEPLOY_HOST:$remote_script"
+          rm -f "$local_script"
+
+          "${ssh_base[@]}" "set -euo pipefail
+            chmod 700 '$remote_script'
+            cleanup() { rm -f '$remote_script'; }
+            trap cleanup EXIT
+            bash '$remote_script'" | tee "$RUNNER_TEMP/cleanup-out.txt"
+
+      - name: Resumo da limpeza
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/cleanup-out.txt"
+          {
+            echo "### Docker cleanup na VM"
+            echo ""
+            if [ -f "$out" ]; then
+              echo '```'
+              sed -n '1,200p' "$out"
+              echo '```'
+            else
+              echo "sem saida capturada"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY" || true
