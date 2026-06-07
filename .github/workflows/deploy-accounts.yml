@@ -187,6 +187,12 @@ jobs:
           "${scp_base[@]}" "$RUNNER_TEMP/accounts.env" "$DEPLOY_USER@$DEPLOY_HOST:$remote_env"
 
           "${ssh_base[@]}" "set -euo pipefail
+            # Lock VM-wide (RW) SHARED: exclui a manutencao (docker-cleanup.yml) durante
+            # build/recreate do accounts (fecha C2). FD 8 libera no exit do shell remoto.
+            if command -v flock >/dev/null 2>&1; then
+              exec 8>/tmp/artificio-vm-mutate.lock
+              flock -s -w 600 8 || { echo lock_vm_timeout; exit 1; }
+            fi
             echo existing_accounts_state
             docker ps -a --filter name=accounts --format 'table {{.Names}}\t{{.Status}}' || true
             ls -la /opt/artificio/accounts 2>/dev/null | sed -n '1,40p' || true

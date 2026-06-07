@@ -241,6 +241,18 @@ jobs:
             exit 1
           fi
 
+          # Lock VM-wide (RW): deploy = SHARED (concorre com outros deploys); a
+          # manutencao (docker-cleanup.yml) pega EXCLUSIVE e nunca prune durante deploy.
+          # FD 8 fica aberto ate o fim do script → libera no exit. -w 600: se a limpeza
+          # semanal estiver segurando o exclusive, espera ate 10 min antes de falhar.
+          if command -v flock >/dev/null 2>&1; then
+            exec 8>"/tmp/artificio-vm-mutate.lock"
+            if ! flock -s -w 600 8; then
+              echo "ERRO: timeout aguardando lock VM (manutencao em curso?)"
+              exit 1
+            fi
+          fi
+
           exec 9>"/tmp/artificio-${MODULE}-deploy.lock"
           if ! flock -w 180 9; then
             echo "ERRO: timeout aguardando lock de deploy $MODULE"

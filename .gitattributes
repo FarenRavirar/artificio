@@ -4,3 +4,7 @@
 # Shell scripts e entrypoints rodam em Linux (containers/VM) — sempre LF.
 *.sh text eol=lf
 docker-entrypoint.sh text eol=lf
+
+# Workflows do GitHub Actions executam shell embutido em runners Linux — sempre LF.
+# CRLF no heredoc/script remoto quebra bash na VM (ver b5c172d). Pinar evita regressao.
+.github/workflows/*.yml text eol=lf
