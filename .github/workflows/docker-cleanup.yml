@@ -64,6 +64,12 @@ jobs:
       - name: Cleanup Docker na VM
         run: |
           set -euo pipefail
+          # Q1: GITHUB_RUN_ID e controlado pelo GitHub (inteiro); validar = defense-in-depth
+          # antes de interpolar no path do script remoto.
+          if ! printf '%s' "${GITHUB_RUN_ID:-}" | grep -Eq '^[0-9]+$'; then
+            echo "ERRO: GITHUB_RUN_ID nao numerico: '${GITHUB_RUN_ID:-}'"
+            exit 1
+          fi
           # ServerAlive* mantem a conexao viva durante as esperas de 5 min por deploy ocioso.
           ssh_base=(ssh -i ~/.ssh/artificio_deploy_key -p "$DEPLOY_PORT" -o BatchMode=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=10 "$DEPLOY_USER@$DEPLOY_HOST")
 
@@ -74,40 +80,37 @@ jobs:
           set -euo pipefail
 
           # ----------------------------------------------------------------
-          # R1: espera o deploy ficar OCIOSO antes de mexer em cache/imagens.
-          # Padrao REUSAVEL por futuros workflows de manutencao da VM.
-          # _deploy-module segura um flock por modulo em /tmp/artificio-<mod>-deploy.lock.
-          # `flock -n` testa SEM bloquear e libera na hora (nao trava o deploy).
-          # Se algum lock estiver em uso, re-checa a cada 5 min.
+          # Lock VM-wide (RW) em /tmp/artificio-vm-mutate.lock. Padrao REUSAVEL.
+          # Deploys pegam SHARED (flock -s): concorrem entre si normalmente.
+          # Manutencao pega EXCLUSIVE (flock -x): espera TODOS os deploys
+          # liberarem e SEGURA o lock durante todo o prune (fecha a janela C1).
+          # Cobre _deploy-module (mesas/site) E deploy-accounts (C2), pois ambos
+          # passam a pegar o mesmo lock shared. Re-checa a cada 5 min (flock -n)
+          # so p/ logar progresso; FD 8 fica aberto ate o fim → lock so libera no exit.
           # ----------------------------------------------------------------
-          wait_for_deploy_quiescence() {
+          if ! command -v flock >/dev/null 2>&1; then
+            echo "ERRO: flock ausente na VM; nao da p/ garantir exclusao com deploy"
+            exit 1
+          fi
+          exec 8>"/tmp/artificio-vm-mutate.lock"
+          acquire_vm_lock() {
             local max_waits=6   # ate ~30 min; timeout-minutes do job e a guarda final
             local waited=0
             while :; do
-              local busy=""
-              shopt -s nullglob
-              for lock in /tmp/artificio-*-deploy.lock; do
-                if ! flock -n "$lock" true 2>/dev/null; then
-                  busy="$lock"
-                  break
-                fi
-              done
-              shopt -u nullglob
-              if [ -z "$busy" ]; then
-                [ "$waited" -gt 0 ] && echo "deploy ocioso; prosseguindo"
+              if flock -n -x 8; then
+                [ "$waited" -gt 0 ] && echo "lock VM (exclusive) adquirido; prosseguindo"
                 return 0
               fi
               if [ "$waited" -ge "$max_waits" ]; then
-                echo "ERRO: deploy ativo ($busy) apos $((max_waits * 5)) min; abortando limpeza"
+                echo "ERRO: deploy ativo apos $((max_waits * 5)) min; abortando limpeza"
                 return 1
               fi
               waited=$((waited + 1))
-              echo "deploy ativo ($busy); aguardando 5 min (tentativa $waited/$max_waits)"
+              echo "deploy ativo (lock VM ocupado); aguardando 5 min (tentativa $waited/$max_waits)"
               sleep 300
             done
           }
-
-          if ! wait_for_deploy_quiescence; then
+          if ! acquire_vm_lock; then
             exit 1
           fi
 
@@ -124,11 +127,14 @@ jobs:
           docker builder prune -f --filter "until=168h"
 
           # Mantém só as 3 imagens mais recentes por repositório.
-          # A imagem do container atual é a mais nova → preservada.
+          # Q3: `docker images` lista por criacao DECRESCENTE (mais nova primeiro) por
+          # padrao, entao `tail -n +4` descarta as 3 mais novas SEM parsear timestamp/
+          # timezone (parsing de {{.CreatedAt}} string e fragil). A imagem do container
+          # atual e a mais nova → preservada.
           docker images --format "{{.Repository}}" | sort -u | while read -r repo; do
             if [ "$repo" != "<none>" ]; then
-              docker images "$repo" --format "{{.ID}} {{.CreatedAt}}" \
-                | sort -k2 -r | tail -n +4 | awk '{print $1}' \
+              docker images "$repo" --format "{{.ID}}" \
+                | tail -n +4 \
                 | xargs -r docker rmi -f 2>/dev/null || true
             fi
           done
