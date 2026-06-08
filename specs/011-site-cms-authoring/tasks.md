@@ -45,7 +45,7 @@
   - [x] Testes/smoke: harness `scripts/t17-validate.ts` (repo + filtro de export, 15 checks ✓) + smoke HTTP (401 sem token, 403 user, 409 must_trash_first, 200 delete-from-trash, 404 pós-delete). Ciclo draft→publish→archive→restore→trash→delete ✓.
   - **Feito quando:** CA2b/CA2c passam no beta (mantenedor) e o admin administra lifecycle básico sem tocar banco/API manualmente. *(local ✓; beta autenticado pendente.)*
 
-- [~] **T18 — Biblioteca de mídia / schema + API (R18/R19).** Implementado + validado LOCAL (2026-06-08); falta E2E autenticado no beta (mantenedor).
+- [x] **T18 — Biblioteca de mídia / schema + API (R18/R19).** Implementado + validado LOCAL + **DEPLOYADO no beta** (2026-06-08, `292dd06`/`206c780`/`e5ee84e`; `main=dev`). Cloudinary ativo (3 vars reusadas do mesas em `.env.beta`). **Incidente+fix:** deploy caiu (502) por bulk upload WP→Cloudinary no boot → migração em massa virou **opt-in `SITE_MIGRATE_MEDIA=true`** (`e5ee84e`); uploads novos do admin seguem no Cloudinary. Smoke pós-recovery OK. Falta: E2E autenticado do mantenedor.
   - [x] Migration `004_media_library.sql` (online-safe, ADD COLUMN IF NOT EXISTS): `source` (`wp|cloudinary|local`), `url`, `cloudinary_public_id`, `size_bytes`, `caption`, `title`, `created_by`, `created_at`, `updated_at`; ids nativos do `site_content_id_seq` (≥1e6); `wp_url` vira opcional; backfill `url` p/ importados; preserva `media`/`media_map`.
   - [x] `GET /api/admin/v1/media` (busca q em título/alt/url, filtro `type=image|audio|video`, paginação limit/offset, total).
   - [x] `POST /media` multipart (`multer` memória, limite 15MB→413) com validação de **MIME real por magic bytes** (`file-type`), allowlist (img/áudio/vídeo), **rejeita SVG/desconhecido (415)**.
@@ -54,7 +54,7 @@
   - [x] Testes: harness `scripts/t18-validate.ts` 10/10 ✓ + smoke HTTP (401 sem token, 201 PNG, /uploads 200, SVG 415, TXT 415, PUT 200, filtro, DELETE).
   - **Feito quando:** CA3 — upload com alt no corpo + `og:image`; público serve URL após rebuild. *(local ✓; beta autenticado pendente.)*
 
-- [~] **T19 — UI de mídia + inserção no editor (R11/R13/R15/R20).** Implementado LOCAL (build vite ✓); falta E2E no beta.
+- [x] **T19 — UI de mídia + inserção no editor (R11/R13/R15/R20).** Implementado + **DEPLOYADO no beta** (build vite ✓; `292dd06`). Embeds de provedores (oEmbed) adiados p/ refino. Falta E2E autenticado do mantenedor.
   - [x] Rota `Mídia` (`apps/site-admin`): grid/upload/busca/filtro por tipo/preview/editar metadados (alt/legenda/título)/apagar (`MediaLibrary` + `MediaPage`).
   - [x] Seletor reutilizável `MediaPicker` (modal) p/ imagem destacada, OG image e inserção no editor.
   - [x] BlockNote: `EditorHandle.insertImage(url, alt)` insere bloco de imagem; featured/OG via picker com preview.
