@@ -1,5 +1,6 @@
 // CORREÇÃO C01, C02, C03, C04: Helper centralizado para requests autenticadas
 // Todas as requests autenticadas devem usar credentials: 'include' para enviar cookie
+import { refreshSession } from '@artificio/auth/client';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -9,7 +10,8 @@ interface FetchOptions extends RequestInit {
 
 /**
  * Wrapper para fetch que adiciona automaticamente credentials: 'include'
- * para enviar cookie de sessão HttpOnly
+ * para enviar cookie de sessão HttpOnly. Ao tomar 401 (access de 15min expirado),
+ * tenta UM refresh (cookie de 7d) e repete — login persiste a janela do refresh.
  */
 export const authenticatedFetch = async (
   endpoint: string,
@@ -21,12 +23,16 @@ export const authenticatedFetch = async (
     'Content-Type': 'application/json',
     ...options.headers,
   };
-
-  return fetch(url, {
+  const init: RequestInit = {
     ...options,
     headers: defaultHeaders,
     credentials: 'include', // SEMPRE envia cookie artificio_session
-  });
+  };
+
+  const res = await fetch(url, init);
+  if (res.status !== 401) return res;
+  const refreshed = await refreshSession();
+  return refreshed ? fetch(url, init) : res;
 };
 
 /**

@@ -1,8 +1,30 @@
 // Cliente da API de autoria. Cookie SSO (artificio_session) vai junto (same-origin/credentials).
 const BASE = "/api/admin/v1";
 
+// Origem do SSO p/ refresh de sessão (override por env em dev).
+const ACCOUNTS_ORIGIN =
+  (import.meta as unknown as { env?: { VITE_ACCOUNTS_URL?: string } }).env?.VITE_ACCOUNTS_URL ||
+  "https://accounts.artificiorpg.com";
+
+// Refresh single-flight: troca o cookie de refresh (7d) por novo access (15m) no accounts.
+// Mantém o login persistente — ao tomar 401, tenta refresh e repete a request.
+let refreshInFlight: Promise<boolean> | null = null;
+async function refreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${ACCOUNTS_ORIGIN}/api/auth/refresh`, { credentials: "include" })
+      .then((r) => r.ok).catch(() => false);
+  }
+  try { return await refreshInFlight; } finally { refreshInFlight = null; }
+}
+
+async function authFetch(url: string, init: RequestInit): Promise<Response> {
+  const res = await fetch(url, init);
+  if (res.status !== 401) return res;
+  return (await refreshSession()) ? fetch(url, init) : res;
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(BASE + path, {
+  const res = await authFetch(BASE + path, {
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     ...init,
@@ -64,7 +86,7 @@ export const api = {
 
   // Preview stateless: renderiza o buffer atual (não persiste, não publica). Retorna HTML.
   previewHtml: async (body: { type: "post" | "page"; title: string; status: string; content_html: string }): Promise<string> => {
-    const res = await fetch(`${BASE}/preview`, {
+    const res = await authFetch(`${BASE}/preview`, {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
