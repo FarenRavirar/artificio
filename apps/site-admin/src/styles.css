@@ -91,3 +91,21 @@ textarea { resize: vertical; min-height: 64px; }
 
 /* Editor BlockNote: garante fundo claro / texto escuro legível */
 .bn-wrap .bn-container, .bn-wrap .bn-editor { background: #fff; color: var(--ink); }
+
+/* ---- Mídia (T19) ---- */
+.featured-thumb { display: block; max-width: 100%; max-height: 120px; border-radius: 8px; border: 1px solid var(--line); margin-bottom: 8px; object-fit: cover; }
+.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+.media-cell { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; cursor: pointer; position: relative; transition: border-color .12s, box-shadow .12s; }
+.media-cell:hover { border-color: var(--navy); }
+.media-cell.on { border-color: var(--orange); box-shadow: 0 0 0 2px rgba(255,148,87,.35); }
+.media-thumb { height: 110px; background: #eef0f6; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.media-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.media-ph { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.media-name { padding: 6px 8px; font-size: 12px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.media-pick { position: absolute; top: 6px; right: 6px; opacity: 0; }
+.media-cell:hover .media-pick { opacity: 1; }
+.media-detail { margin-top: 16px; }
+.media-detail-img { max-width: 100%; max-height: 260px; border-radius: 8px; border: 1px solid var(--line); object-fit: contain; background: #f6f7fb; }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(2,7,64,.45); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 50; overflow: auto; }
+.modal { background: #f6f7fb; border-radius: 14px; padding: 20px 22px; width: min(900px, 100%); box-shadow: 0 20px 60px rgba(0,0,0,.3); }

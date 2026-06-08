@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, openPreview, type PostFull, type Term } from "../api";
+import { api, openPreview, type PostFull, type Term, type MediaItem } from "../api";
 import { BlockEditor, type EditorHandle } from "../editor/BlockEditor";
 import { SeoPanel } from "../editor/SeoPanel";
+import { MediaPicker } from "../media/MediaPicker";
 
 const EMPTY: PostFull = {
   title: "", slug: "", excerpt: "", content_html: "", block_doc: null, status: "draft",
@@ -25,7 +26,16 @@ export function PostEditor() {
   const [origSlug, setOrigSlug] = useState("");
   const [origStatus, setOrigStatus] = useState("draft");
   const [slugTaken, setSlugTaken] = useState(false);
+  // Seletor de mídia: alvo do pick (imagem destacada, OG, ou inserir no texto).
+  const [picker, setPicker] = useState<null | "featured" | "og" | "insert">(null);
   const editorRef = useRef<EditorHandle | null>(null);
+
+  const onPickMedia = (m: MediaItem) => {
+    if (picker === "featured") set("featured_url", m.url);
+    else if (picker === "og") set("og_image", m.url);
+    else if (picker === "insert") editorRef.current?.insertImage(m.url, m.alt ?? undefined);
+    setPicker(null);
+  };
 
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
 
@@ -109,6 +119,7 @@ export function PostEditor() {
         <h2 className="title">{isNew ? "Novo post" : "Editar post"}</h2>
         <span className={`badge ${post.status}`}>{post.status}</span>
         <div className="spacer" />
+        <button className="btn" onClick={() => setPicker("insert")} disabled={saving}>🖼 Inserir imagem</button>
         <button className="btn" onClick={preview} disabled={saving}>Pré-visualizar ↗</button>
         <button className="btn" onClick={save} disabled={saving}>Salvar ({post.status})</button>
         <button className="btn primary" onClick={publish} disabled={saving}>Publicar</button>
@@ -153,8 +164,14 @@ export function PostEditor() {
             <h3>Resumo & imagem</h3>
             <label>Resumo (excerpt)</label>
             <textarea value={post.excerpt} onChange={(e) => set("excerpt", e.target.value)} placeholder="vazio = auto do conteúdo" />
-            <label>Imagem destacada (URL)</label>
-            <input type="url" value={post.featured_url ?? ""} onChange={(e) => set("featured_url", e.target.value || null)} />
+            <label>Imagem destacada</label>
+            {post.featured_url && <img className="featured-thumb" src={post.featured_url} alt="" />}
+            <div className="slug-row">
+              <input type="url" value={post.featured_url ?? ""} placeholder="URL ou escolha da biblioteca"
+                onChange={(e) => set("featured_url", e.target.value || null)} />
+              <button className="btn" type="button" onClick={() => setPicker("featured")}>Biblioteca</button>
+            </div>
+            {post.featured_url && <button className="btn tiny" type="button" onClick={() => set("featured_url", null)}>remover</button>}
           </div>
 
           <div className="card">
@@ -182,10 +199,12 @@ export function PostEditor() {
             fallbackDescription={post.excerpt || post.seo_description || ""}
             fallbackImage={post.featured_url}
             showTwitter
+            onPickOgImage={() => setPicker("og")}
           />
         </aside>
       </div>
       {toast && <div className={`toast ${toast.err ? "err" : ""}`}>{toast.msg}</div>}
+      {picker && <MediaPicker onPick={onPickMedia} onClose={() => setPicker(null)} />}
     </div>
   );
 }

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, openPreview, type PageFull } from "../api";
+import { api, openPreview, type PageFull, type MediaItem } from "../api";
 import { BlockEditor, type EditorHandle } from "../editor/BlockEditor";
 import { SeoPanel } from "../editor/SeoPanel";
+import { MediaPicker } from "../media/MediaPicker";
 
 const EMPTY: PageFull = {
   title: "", slug: "", excerpt: "", content_html: "", block_doc: null, status: "draft",
@@ -20,7 +21,14 @@ export function PageEditor() {
   const [err, setErr] = useState("");
   const [origSlug, setOrigSlug] = useState("");
   const [origStatus, setOrigStatus] = useState("draft");
+  const [picker, setPicker] = useState<null | "og" | "insert">(null);
   const editorRef = useRef<EditorHandle | null>(null);
+
+  const onPickMedia = (m: MediaItem) => {
+    if (picker === "og") set("og_image", m.url);
+    else if (picker === "insert") editorRef.current?.insertImage(m.url, m.alt ?? undefined);
+    setPicker(null);
+  };
 
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
 
@@ -69,6 +77,7 @@ export function PageEditor() {
         <h2 className="title">{isNew ? "Nova página" : "Editar página"}</h2>
         <span className={`badge ${page.status}`}>{page.status}</span>
         <div className="spacer" />
+        <button className="btn" onClick={() => setPicker("insert")} disabled={saving}>🖼 Inserir imagem</button>
         <button className="btn" onClick={preview} disabled={saving}>Pré-visualizar ↗</button>
         <button className="btn" onClick={save} disabled={saving}>Salvar ({page.status})</button>
         <button className="btn primary" onClick={publish} disabled={saving}>Publicar</button>
@@ -107,10 +116,12 @@ export function PageEditor() {
             url={`https://beta.artificiorpg.com/${page.slug || "…"}/`}
             fallbackTitle={page.title}
             fallbackDescription={page.excerpt || page.seo_description || ""}
+            onPickOgImage={() => setPicker("og")}
           />
         </aside>
       </div>
       {toast && <div className={`toast ${toast.err ? "err" : ""}`}>{toast.msg}</div>}
+      {picker && <MediaPicker onPick={onPickMedia} onClose={() => setPicker(null)} />}
     </div>
   );
 }

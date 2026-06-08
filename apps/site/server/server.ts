@@ -12,6 +12,7 @@ import { runJob, jobState } from "./jobs.js";
 import { adminApi } from "./admin-api.js";
 import { renderPreview } from "./preview.js";
 import { reloadRedirects, lookupRedirect } from "./redirect-cache.js";
+import { UPLOADS_DIR } from "./lib/media-store.js";
 
 const DIST = process.env.SITE_DIST || resolve(dirname(fileURLToPath(import.meta.url)), "../dist");
 
@@ -66,8 +67,12 @@ app.post("/admin/import", requireAuth, requireAdmin, (_req, res) => {
   res.status(r.started ? 202 : 409).json(r);
 });
 
-// API de autoria (CRUD posts/pages/taxonomias/redirects). Gated requireAuth+requireAdmin.
+// API de autoria (CRUD posts/pages/taxonomias/redirects/mídia). Gated requireAuth+requireAdmin.
 app.use("/api/admin/v1", adminApi(requireAuth, requireAdmin));
+
+// Mídia em modo local/dev (sem Cloudinary): serve apps/site/uploads em /uploads (público, só leitura).
+// Montado sempre (dir pode não existir ainda no boot; static cai p/ 404 até o 1º upload criá-lo).
+app.use("/uploads", express.static(UPLOADS_DIR));
 
 // Preview de rascunho (D053): renderiza post/page do store no shell do artigo, SEM publicar. Admin.
 app.get("/admin/preview/:type/:id", requireAuth, requireAdmin, async (req, res) => {
