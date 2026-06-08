@@ -10,13 +10,17 @@ export function GET(context: APIContext) {
     title: "Artifício RPG — Blog",
     description: "Conteúdo de RPG em português: notícias, análises, guias e traduções de D&D e além.",
     site: context.site ?? "https://beta.artificiorpg.com",
-    items: posts.map((p) => ({
-      title: p.title,
-      pubDate: toDate(p.date),
-      description: p.excerpt,
-      link: `/blog/${p.slug}/`,
-      categories: p.cats.map((c) => c.name),
-    })),
+    // Só itens com data válida: @astrojs/rss rejeita pubDate inválido e quebra o build inteiro.
+    items: posts
+      .map((p) => ({ p, d: toDate(p.date) }))
+      .filter(({ d }) => !Number.isNaN(d.getTime()))
+      .map(({ p, d }) => ({
+        title: p.title,
+        pubDate: d,
+        description: p.excerpt,
+        link: `/blog/${p.slug}/`,
+        categories: p.cats.map((c) => c.name),
+      })),
     customData: "<language>pt-BR</language>",
   });
 }

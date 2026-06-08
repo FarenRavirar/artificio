@@ -17,13 +17,18 @@ export function PageEditor() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
   const [err, setErr] = useState("");
+  const [origSlug, setOrigSlug] = useState("");
+  const [origStatus, setOrigStatus] = useState("draft");
   const editorRef = useRef<EditorHandle | null>(null);
 
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
 
   useEffect(() => {
-    if (id) api.getPage(Number(id)).then((p) => { setPage({ ...EMPTY, ...p }); setReady(true); }).catch((e) => setErr(String(e.message)));
+    if (id) api.getPage(Number(id)).then((p) => {
+      setPage({ ...EMPTY, ...p }); setOrigSlug(p.slug); setOrigStatus(p.status); setReady(true);
+    }).catch((e) => setErr(String(e.message)));
   }, [id]);
+  const slugChangedOnPublished = !isNew && origStatus === "publish" && page.slug !== origSlug;
 
   const set = <K extends keyof PageFull>(k: K, v: PageFull[K]) => setPage((p) => ({ ...p, [k]: v }));
 
@@ -88,7 +93,8 @@ export function PageEditor() {
               <input type="text" value={page.slug} onChange={(e) => set("slug", e.target.value)} placeholder="auto do título" />
               <button className="btn" type="button" onClick={() => set("slug", "")} title="Re-sugerir">↻</button>
             </div>
-            <p className="muted">/{page.slug || "…"}/</p>
+            <p className="muted">URL: /{page.slug || "…"}/</p>
+            {slugChangedOnPublished && <p className="warn">Mudar o slug de uma página publicada cria um 301 de /{origSlug}/ → novo slug.</p>}
           </div>
           <div className="card">
             <h3>SEO & Open Graph</h3>
@@ -100,9 +106,14 @@ export function PageEditor() {
             <textarea value={page.seo_description ?? ""} onChange={(e) => set("seo_description", e.target.value || null)} />
             <label>Canonical (URL)</label>
             <input type="url" value={page.canonical ?? ""} onChange={(e) => set("canonical", e.target.value || null)} />
+            <label>OG title <span className="muted">(vazio = título)</span></label>
+            <input type="text" value={page.og_title ?? ""} onChange={(e) => set("og_title", e.target.value || null)} placeholder="vazio = título" />
+            <label>OG description <span className="muted">(vazio = excerpt)</span></label>
+            <textarea value={page.og_description ?? ""} onChange={(e) => set("og_description", e.target.value || null)} placeholder="vazio = excerpt" />
             <label>OG image (URL)</label>
             <input type="url" value={page.og_image ?? ""} onChange={(e) => set("og_image", e.target.value || null)} />
             <label className="row" style={{ gap: 8 }}><input type="checkbox" style={{ width: "auto" }} checked={page.noindex} onChange={(e) => set("noindex", e.target.checked)} /> noindex</label>
+            {page.noindex && <p className="warn">noindex emite a meta tag no HTML. A remoção do sitemap ocorre quando a página sai de "publish".</p>}
           </div>
         </aside>
       </div>
