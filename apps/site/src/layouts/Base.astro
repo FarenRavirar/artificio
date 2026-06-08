@@ -107,11 +107,17 @@ const lds = jsonld ? (Array.isArray(jsonld) ? jsonld : [jsonld]) : [];
         function updateSessionLink() {
           var link = document.getElementById("site-login-link");
           if (!link) return;
-          fetch("https://accounts.artificiorpg.com/api/auth/me", {
-            credentials: "include",
-          })
+          var ACC = "https://accounts.artificiorpg.com";
+          function getMe() { return fetch(ACC + "/api/auth/me", { credentials: "include" }); }
+          getMe()
             .then(function (res) {
-              if (!res.ok) return null;
+              if (res.ok) return res;
+              // Access (15min) expirado: tenta refresh (cookie 7d) e repete o /me — login persiste.
+              return fetch(ACC + "/api/auth/refresh", { credentials: "include" })
+                .then(function (r) { return r.ok ? getMe() : res; });
+            })
+            .then(function (res) {
+              if (!res || !res.ok) return null;
               return res.json();
             })
             .then(function (body) {
