@@ -4,7 +4,7 @@
 import { getDb } from "../db/connection";
 import { fetchAll, countOf, type WpTerm } from "./wp";
 import { sanitize, withToc, stripTags, decode, readingTime, toDate } from "./sanitize";
-import { buildMediaMap, extractImageUrls, rewriteUrls, cloudinaryEnabled } from "./media";
+import { buildMediaMap, extractImageUrls, rewriteUrls, mediaMigrationEnabled } from "./media";
 
 interface WpRendered { rendered: string; }
 interface WpPost {
@@ -38,7 +38,7 @@ const iso = (s?: string): string | null => {
 
 async function main() {
   const db = await getDb();
-  console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — mídia=${cloudinaryEnabled() ? "Cloudinary (upload)" : "DRY-RUN (URLs WP)"}`);
+  console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — mídia=${mediaMigrationEnabled() ? "Cloudinary (upload)" : "DRY-RUN (URLs WP)"}`);
 
   // 1) Taxonomias (categorias + tags). 2 passes p/ parent_id (forward refs).
   const cats = await fetchAll<WpCat>("categories");

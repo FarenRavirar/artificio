@@ -11,6 +11,14 @@ export function cloudinaryEnabled(): boolean {
   return Boolean(process.env.CLOUDINARY_URL || process.env.CLOUDINARY_CLOUD_NAME);
 }
 
+// Migração em massa das mídias WP -> Cloudinary é OPT-IN (SITE_MIGRATE_MEDIA=true).
+// Sem isso, o import-on-start mantém as URLs do WP (dry-run, boot rápido) mesmo com
+// Cloudinary configurado — uploads NOVOS pelo admin (server/lib/media-store) seguem indo
+// pro Cloudinary normalmente. Evita estourar o healthcheck subindo ~485 mídias no boot.
+export function mediaMigrationEnabled(): boolean {
+  return cloudinaryEnabled() && process.env.SITE_MIGRATE_MEDIA === "true";
+}
+
 function ensureConfig(): void {
   if (configured) return;
   if (process.env.CLOUDINARY_URL) {
@@ -75,7 +83,7 @@ export async function resolveMediaUrl(db: Db, wpUrl: string): Promise<string> {
     [wpUrl],
   )).rows[0];
   if (cached) return cached.cloudinary_url;
-  if (!cloudinaryEnabled()) return wpUrl; // dry-run
+  if (!mediaMigrationEnabled()) return wpUrl; // dry-run (default): mantém URL WP, boot rápido
   const url = await uploadToCloudinary(wpUrl);
   await db.query(
     "INSERT INTO media_map (wp_url, cloudinary_url) VALUES ($1,$2) ON CONFLICT (wp_url) DO UPDATE SET cloudinary_url=EXCLUDED.cloudinary_url",
