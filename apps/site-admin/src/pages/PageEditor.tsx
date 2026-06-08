@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, openPreview, type PageFull } from "../api";
 import { BlockEditor, type EditorHandle } from "../editor/BlockEditor";
+import { SeoPanel } from "../editor/SeoPanel";
 
 const EMPTY: PageFull = {
   title: "", slug: "", excerpt: "", content_html: "", block_doc: null, status: "draft",
@@ -97,24 +98,16 @@ export function PageEditor() {
             {slugChangedOnPublished && <p className="warn">Mudar o slug de uma página publicada cria um 301 de /{origSlug}/ → novo slug.</p>}
           </div>
           <div className="card">
-            <h3>SEO & Open Graph</h3>
-            <label>Resumo</label>
-            <textarea value={page.excerpt} onChange={(e) => set("excerpt", e.target.value)} placeholder="vazio = auto" />
-            <label>SEO title</label>
-            <input type="text" value={page.seo_title ?? ""} onChange={(e) => set("seo_title", e.target.value || null)} />
-            <label>Meta description</label>
-            <textarea value={page.seo_description ?? ""} onChange={(e) => set("seo_description", e.target.value || null)} />
-            <label>Canonical (URL)</label>
-            <input type="url" value={page.canonical ?? ""} onChange={(e) => set("canonical", e.target.value || null)} />
-            <label>OG title <span className="muted">(vazio = título)</span></label>
-            <input type="text" value={page.og_title ?? ""} onChange={(e) => set("og_title", e.target.value || null)} placeholder="vazio = título" />
-            <label>OG description <span className="muted">(vazio = excerpt)</span></label>
-            <textarea value={page.og_description ?? ""} onChange={(e) => set("og_description", e.target.value || null)} placeholder="vazio = excerpt" />
-            <label>OG image (URL)</label>
-            <input type="url" value={page.og_image ?? ""} onChange={(e) => set("og_image", e.target.value || null)} />
-            <label className="row" style={{ gap: 8 }}><input type="checkbox" style={{ width: "auto" }} checked={page.noindex} onChange={(e) => set("noindex", e.target.checked)} /> noindex</label>
-            {page.noindex && <p className="warn">noindex emite a meta tag no HTML. A remoção do sitemap ocorre quando a página sai de "publish".</p>}
+            <h3>Resumo</h3>
+            <textarea value={page.excerpt} onChange={(e) => set("excerpt", e.target.value)} placeholder="vazio = auto do conteúdo" />
           </div>
+          <SeoPanel
+            value={page}
+            onChange={(k, v) => set(k as keyof PageFull, v as never)}
+            url={`https://beta.artificiorpg.com/${page.slug || "…"}/`}
+            fallbackTitle={page.title}
+            fallbackDescription={page.excerpt || page.seo_description || ""}
+          />
         </aside>
       </div>
       {toast && <div className={`toast ${toast.err ? "err" : ""}`}>{toast.msg}</div>}
