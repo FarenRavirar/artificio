@@ -40,13 +40,18 @@ export const api = {
   getPost: (id: number) => req<PostFull>(`/posts/${id}`),
   createPost: (body: Partial<PostFull>) => req<SaveResult>(`/posts`, { method: "POST", body: JSON.stringify(body) }),
   updatePost: (id: number, body: Partial<PostFull>) => req<SaveResult>(`/posts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-  setPostStatus: (id: number, status: string) => req(`/posts/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+  setPostStatus: (id: number, status: string) =>
+    req<{ ok: boolean; rebuild?: { started: boolean; busy?: boolean } }>(`/posts/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+  deletePost: (id: number) => req<{ ok: boolean }>(`/posts/${id}`, { method: "DELETE" }),
 
-  listPages: (q = "") => req<{ items: PageListItem[] }>(`/pages?q=${encodeURIComponent(q)}`).then((r) => r.items),
+  listPages: (q = "", status = "") =>
+    req<{ items: PageListItem[] }>(`/pages?q=${encodeURIComponent(q)}${status ? `&status=${status}` : ""}`).then((r) => r.items),
   getPage: (id: number) => req<PageFull>(`/pages/${id}`),
   createPage: (body: Partial<PageFull>) => req<SaveResult>(`/pages`, { method: "POST", body: JSON.stringify(body) }),
   updatePage: (id: number, body: Partial<PageFull>) => req<SaveResult>(`/pages/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-  setPageStatus: (id: number, status: string) => req(`/pages/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+  setPageStatus: (id: number, status: string) =>
+    req<{ ok: boolean; rebuild?: { started: boolean; busy?: boolean } }>(`/pages/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+  deletePage: (id: number) => req<{ ok: boolean }>(`/pages/${id}`, { method: "DELETE" }),
 
   listTerms: (kind?: "category" | "tag") => req<{ items: Term[] }>(`/taxonomies${kind ? `?kind=${kind}` : ""}`).then((r) => r.items),
   createTerm: (kind: "category" | "tag", name: string, parent_id?: number | null) =>

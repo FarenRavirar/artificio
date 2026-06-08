@@ -29,6 +29,10 @@ h2.title { margin: 0 0 18px; font-size: 22px; }
 .btn.primary { background: var(--orange); border-color: var(--orange); color: #20160c; font-weight: 600; }
 .btn.dark { background: var(--navy); border-color: var(--navy); color: #fff; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.tiny { padding: 4px 9px; font-size: 12px; border-radius: 6px; }
+.btn.danger { border-color: #d98a8a; color: #7a2b2b; }
+.btn.danger:hover { background: #fdeaea; border-color: #7a2b2b; }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
 table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); font-size: 14px; }
@@ -49,6 +53,9 @@ textarea { resize: vertical; min-height: 64px; }
 .slug-row { display: flex; gap: 8px; align-items: center; }
 .slug-row code { background: #f1f2f7; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
 .muted { color: var(--muted); font-size: 12px; }
+.warn { color: #7a5b00; background: #fdf0d5; border: 1px solid #ecd9a0; padding: 7px 10px; border-radius: 6px; font-size: 12px; margin: 6px 0 0; }
+.badge.pending { background: #e4e9fb; color: #2b3d7a; }
+.badge.scheduled, .badge.private { background: #ede1f1; color: #5a2b7a; }
 .checks { max-height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 .checks label { display: flex; gap: 8px; align-items: center; margin: 2px 0; color: var(--ink); }
 .checks input { width: auto; }

@@ -20,6 +20,10 @@ export function PostEditor() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
   const [err, setErr] = useState("");
+  // Slug honesto (R4/R27): disponibilidade ao vivo + aviso de 301 ao mudar slug publicado.
+  const [origSlug, setOrigSlug] = useState("");
+  const [origStatus, setOrigStatus] = useState("draft");
+  const [slugTaken, setSlugTaken] = useState(false);
   const editorRef = useRef<EditorHandle | null>(null);
 
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
@@ -27,10 +31,23 @@ export function PostEditor() {
   useEffect(() => {
     api.listTerms().then(setTerms).catch(() => {});
     if (id) {
-      api.getPost(Number(id)).then((p) => { setPost({ ...EMPTY, ...p }); setReady(true); })
-        .catch((e) => setErr(String(e.message)));
+      api.getPost(Number(id)).then((p) => {
+        setPost({ ...EMPTY, ...p }); setOrigSlug(p.slug); setOrigStatus(p.status); setReady(true);
+      }).catch((e) => setErr(String(e.message)));
     }
   }, [id]);
+
+  // Checa disponibilidade do slug (debounce) quando o usuário edita manualmente.
+  useEffect(() => {
+    if (!post.slug) { setSlugTaken(false); return; }
+    const t = setTimeout(() => {
+      api.slugCheck("post", post.slug, id ? Number(id) : undefined)
+        .then((r) => setSlugTaken(r.slug === post.slug && !r.available))
+        .catch(() => setSlugTaken(false));
+    }, 400);
+    return () => clearTimeout(t);
+  }, [post.slug, id]);
+  const slugChangedOnPublished = !isNew && origStatus === "publish" && post.slug !== origSlug;
 
   const set = <K extends keyof PostFull>(k: K, v: PostFull[K]) => setPost((p) => ({ ...p, [k]: v }));
 
@@ -110,14 +127,22 @@ export function PostEditor() {
             <h3>Publicação</h3>
             <label>Status</label>
             <select value={post.status} onChange={(e) => set("status", e.target.value)}>
-              {["draft", "pending", "publish", "scheduled", "private", "archived", "trash"].map((s) => <option key={s} value={s}>{s}</option>)}
+              {["draft", "pending", "publish", "archived", "trash"].map((s) => <option key={s} value={s}>{s}</option>)}
+              {/* scheduled/private ainda sem job/regra de acesso reais (R4/CA2c): desabilitados p/ não prometer o que não existe */}
+              <option value="scheduled" disabled>scheduled (indisponível)</option>
+              <option value="private" disabled>private (indisponível)</option>
             </select>
+            {(post.status === "scheduled" || post.status === "private") && (
+              <p className="warn">"{post.status}" ainda não tem agendamento/controle de acesso reais. Use draft ou publish.</p>
+            )}
             <label>Slug</label>
             <div className="slug-row">
               <input type="text" value={post.slug} onChange={(e) => set("slug", e.target.value)} placeholder="auto do título" />
               <button className="btn" type="button" onClick={() => set("slug", "")} title="Re-sugerir">↻</button>
             </div>
-            <p className="muted">/blog/{post.slug || "…"}/</p>
+            <p className="muted">URL: /blog/{post.slug || "…"}/</p>
+            {slugTaken && <p className="warn">Slug já em uso — será ajustado para um único ao salvar.</p>}
+            {slugChangedOnPublished && <p className="warn">Mudar o slug de um post publicado cria um 301 de /blog/{origSlug}/ → novo slug.</p>}
             <label>Data de publicação</label>
             <input type="text" value={post.published_at ?? ""} placeholder="ISO (vazio = agora ao publicar)"
               onChange={(e) => set("published_at", e.target.value || null)} />
@@ -156,9 +181,18 @@ export function PostEditor() {
             <textarea value={post.seo_description ?? ""} onChange={(e) => set("seo_description", e.target.value || null)} placeholder="vazio = excerpt" />
             <label>Canonical (URL)</label>
             <input type="url" value={post.canonical ?? ""} onChange={(e) => set("canonical", e.target.value || null)} />
-            <label>OG image (URL)</label>
+            <label>OG title <span className="muted">(vazio = título)</span></label>
+            <input type="text" value={post.og_title ?? ""} onChange={(e) => set("og_title", e.target.value || null)} placeholder="vazio = título" />
+            <label>OG description <span className="muted">(vazio = excerpt)</span></label>
+            <textarea value={post.og_description ?? ""} onChange={(e) => set("og_description", e.target.value || null)} placeholder="vazio = excerpt" />
+            <label>OG image (URL) <span className="muted">(vazio = imagem destacada)</span></label>
             <input type="url" value={post.og_image ?? ""} onChange={(e) => set("og_image", e.target.value || null)} placeholder="vazio = imagem destacada" />
+            <label>Twitter card</label>
+            <select value={post.twitter_card} onChange={(e) => set("twitter_card", e.target.value)}>
+              {["summary_large_image", "summary"].map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
             <label className="row" style={{ gap: 8 }}><input type="checkbox" style={{ width: "auto" }} checked={post.noindex} onChange={(e) => set("noindex", e.target.checked)} /> noindex</label>
+            {post.noindex && <p className="warn">noindex emite a meta tag no HTML. A remoção do sitemap/RSS ocorre quando o post sai de "publish".</p>}
           </div>
         </aside>
       </div>

@@ -91,10 +91,23 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
     if (id == null) { res.status(400).json({ error: "bad_id" }); return; }
     const status = String(req.body?.status || "") as Posts.PostStatus;
     if (!STATUSES.includes(status)) { res.status(400).json({ error: "bad_status" }); return; }
+    const prev = await Posts.getPostStatus(id);
+    if (prev == null) { res.status(404).json({ error: "not_found" }); return; }
     const ok = await Posts.setPostStatus(id, status);
     if (!ok) { res.status(404).json({ error: "not_found" }); return; }
-    const rebuild = maybeRebuild(status, "publish"); // mudança de status sempre pode afetar o SSG
+    const rebuild = maybeRebuild(status, prev); // só rebuilda se publish entra/sai do público
     res.json({ ok: true, rebuild });
+  });
+
+  // Apagar permanentemente um post. Exige estar na lixeira (R4b): só deleta a partir de `trash`.
+  r.delete("/posts/:id", async (req, res) => {
+    const id = parseId(req.params.id);
+    if (id == null) { res.status(400).json({ error: "bad_id" }); return; }
+    const prev = await Posts.getPostStatus(id);
+    if (prev == null) { res.status(404).json({ error: "not_found" }); return; }
+    if (prev !== "trash") { res.status(409).json({ error: "must_trash_first" }); return; }
+    const ok = await Posts.deletePost(id);
+    res.json({ ok }); // já estava em trash = fora do público; sem rebuild
   });
 
   // ================= PAGES =================
@@ -131,9 +144,22 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
     if (id == null) { res.status(400).json({ error: "bad_id" }); return; }
     const status = String(req.body?.status || "") as Pages.PageStatus;
     if (!["draft", "publish", "trash", "archived"].includes(status)) { res.status(400).json({ error: "bad_status" }); return; }
+    const prev = await Pages.getPageStatus(id);
+    if (prev == null) { res.status(404).json({ error: "not_found" }); return; }
     const ok = await Pages.setPageStatus(id, status);
     if (!ok) { res.status(404).json({ error: "not_found" }); return; }
-    res.json({ ok: true, rebuild: maybeRebuild(status, "publish") });
+    res.json({ ok: true, rebuild: maybeRebuild(status, prev) });
+  });
+
+  // Apagar permanentemente uma page. Exige estar na lixeira (R4b).
+  r.delete("/pages/:id", async (req, res) => {
+    const id = parseId(req.params.id);
+    if (id == null) { res.status(400).json({ error: "bad_id" }); return; }
+    const prev = await Pages.getPageStatus(id);
+    if (prev == null) { res.status(404).json({ error: "not_found" }); return; }
+    if (prev !== "trash") { res.status(409).json({ error: "must_trash_first" }); return; }
+    const ok = await Pages.deletePage(id);
+    res.json({ ok });
   });
 
   // ================= TAXONOMIAS =================

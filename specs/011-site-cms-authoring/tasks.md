@@ -21,7 +21,7 @@
 - [x] **T13** — **Status/workflow** draft/pending/publish/scheduled/private/trash/archived (API `:id/status` + create/update). *(Checagem por capacidade adiada com roles.)*
 - [x] **T14** — **Rebuild atômico on publish** (`scripts/rebuild.mjs`: build→`dist.next`→swap; reusa `runJob`/`/admin/rebuild`). Sem downtime (R37/D053).
 - [x] **T15** — **Preview** de rascunho `/admin/preview/:type/:id` (render no Express, CSS do design system, noindex). (R8/R38/D053).
-- [ ] **T16** — Validação Fase 1 no beta: E2E autenticado CA1 (post do zero → preview stateless → publish → rebuild → SSG via UI); builds/pr-checks/deploy verdes; SSO intacto; WP raiz intocado.
+- [~] **T16** — Validação Fase 1: E2E autenticado CA1 (post do zero → preview stateless → publish → rebuild → SSG). **Núcleo validado LOCAL (2026-06-08)** com token admin HS256 + pglite: gate 401(sem token)/200(admin); criar draft; preview stateless com `noindex` + XSS sanitizado; preview persistido; **rebuild/SSG completo verde** (astro build 219 arquivos + pagefind 125 páginas + swap atômico via junction). Smoke beta público OK (home/blog/healthz=200, /admin/status=401, sitemap/robots=200, WP raiz=200). **Achado:** publish via `/posts/:id/status` não carimbava `published_at` → `date:""` → quebrava RSS no build → corrigido no T17. **Falta (mantenedor):** E2E com login Google real no beta (sessão SSO não-forjável + sem JWT_SECRET prod local).
 
 > **Fase 1 ✅ (backend + UI + OG público).** SPA admin (`apps/site-admin`, pacote próprio toolchain latest) + editor BlockNote + CRUD posts/pages.
 > **2 rodadas de revisão Codex — 13 achados, todos corrigidos/verificados** (ver `handoff-review.md`): sanitização robusta (`sanitize-html`), 301 servidos (middleware+reload imediato), rebuild atômico (symlink A/B), rebuild server-side no publish + coalescing, validação de id, taxonomias pré-filtradas, SPA respeita status, pages canonical, preview stateless (não publica).
@@ -32,18 +32,18 @@
 
 > Prioridade: **operações editoriais básicas + publicação honesta primeiro**. Antes de biblioteca de mídia, o admin precisa administrar o ciclo de vida do conteúdo como o WordPress e não pode expor slug/status/SEO como se estivessem completos quando ainda têm semântica parcial.
 
-- [ ] **T17 — Operações editoriais básicas + publicação honesta (R3a/R4/R4a/R4b/R4c/R9/R27/R28/CA2b/CA2c).**
-  - [ ] Backend posts/pages: endpoints ou actions explícitas para publicar, despublicar para draft, arquivar, mover para lixeira, restaurar e apagar permanentemente.
-  - [ ] Semântica de delete: apagar permanente exige confirmação no front e capacidade backend; preferencialmente só permitido a partir de `trash` ou com confirmação forte documentada.
-  - [ ] Export/SSG: `trash` e `archived` ficam fora de posts/pages públicos, sitemap, RSS e listas; se o item era `publish`, a ação dispara rebuild coalesced.
-  - [ ] Integridade: limpar/validar relações (`post_taxonomies`, dados auxiliares) sem remover redirects históricos por acidente; 404/redirect ficam previsíveis.
-  - [ ] UI lista/editor: botões/menus por item para Editar, Preview/Ver, Publicar, Despublicar, Arquivar, Mover para lixeira, Restaurar, Apagar permanentemente; mostrar feedback de sucesso/erro.
-  - [ ] Filtros mínimos por status, ao menos para enxergar `trash`/`archived` e restaurar itens.
-  - [ ] Slug UX: checar disponibilidade ao editar slug manualmente, mostrar URL final, sugestão alternativa e aviso explícito de 301 quando mudar slug publicado.
-  - [ ] Status UX: ocultar/desabilitar `scheduled` e `private` enquanto não houver job/regra de acesso reais, ou exibir aviso claro de indisponibilidade.
-  - [ ] SEO/OG básico: UI expõe `og_title`, `og_description`, `twitter_card` ou mostra fallbacks; `noindex` remove do sitemap ou a UI/documentação deixa claro que ainda é só meta tag.
-  - [ ] Testes/smoke: post importado e nativo passam pelo ciclo editar→rascunho→publicar→arquivar→restaurar→lixeira→delete; sem auth/sem admin falha; público reflete remoção.
-  - **Feito quando:** CA2b/CA2c passam no beta e o admin permite administrar lifecycle básico sem tocar banco/API manualmente.
+- [~] **T17 — Operações editoriais básicas + publicação honesta (R3a/R4/R4a/R4b/R4c/R9/R27/R28/CA2b/CA2c).** Implementado + validado LOCAL (2026-06-08); falta validação autenticada no beta (mantenedor).
+  - [x] Backend posts/pages: lifecycle via `POST /:id/status` (publish/draft=despublicar/archived/trash/restore) com `prev`-status correto no gatilho de rebuild; **fix `published_at` carimbado ao publicar** (`setPostStatus`/`setPageStatus`).
+  - [x] Semântica de delete: `DELETE /posts/:id` e `DELETE /pages/:id` (novos) **só a partir de `trash`** (409 `must_trash_first` caso contrário) + confirmação `window.confirm` no front; `deletePost` limpa `post_taxonomies` na mesma statement; `deletePage`.
+  - [x] Export/SSG: export já filtra `status='publish'` (trash/archived/draft fora de posts, sitemap via páginas buildadas, RSS, listas); status que entra/sai de `publish` dispara rebuild coalesced (`maybeRebuild(new, prev)`).
+  - [x] Integridade: delete remove vínculos de taxonomia; **NÃO** remove `redirects` históricos (R4c) — validado no harness; RSS endurecido p/ ignorar item com data inválida (não quebra build).
+  - [x] UI lista/editor: ações por item em PostsList/PagesList (Editar, Ver↗, Publicar, Despublicar, Arquivar, Lixeira, Restaurar, Apagar) + toast de feedback.
+  - [x] Filtros por status (dropdown) incl. ver `trash`/`archived` e restaurar.
+  - [x] Slug UX: disponibilidade ao vivo (debounce `slug-check`), URL final, aviso explícito de 301 ao mudar slug publicado (PostEditor + PageEditor).
+  - [x] Status UX: `scheduled`/`private` desabilitados no select + aviso de indisponibilidade (sem job/regra reais ainda).
+  - [x] SEO/OG: UI expõe `og_title`/`og_description`/`twitter_card` (+fallbacks visíveis); `noindex` com aviso honesto (meta tag; remoção de sitemap/RSS ocorre ao sair de `publish`).
+  - [x] Testes/smoke: harness `scripts/t17-validate.ts` (repo + filtro de export, 15 checks ✓) + smoke HTTP (401 sem token, 403 user, 409 must_trash_first, 200 delete-from-trash, 404 pós-delete). Ciclo draft→publish→archive→restore→trash→delete ✓.
+  - **Feito quando:** CA2b/CA2c passam no beta (mantenedor) e o admin administra lifecycle básico sem tocar banco/API manualmente. *(local ✓; beta autenticado pendente.)*
 
 - [ ] **T18 — Biblioteca de mídia / schema + API (R18/R19).**
   - [ ] Migration online-safe para mídia nativa: suportar `source` (`wp|cloudinary|local`), `url`, `cloudinary_public_id`, `mime`, `size_bytes`, `width`, `height`, `alt`, `caption`, `title`, `created_by`, `created_at`, `updated_at`; preservar compatibilidade com `media`/`media_map` importados.

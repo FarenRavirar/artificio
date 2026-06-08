@@ -87,8 +87,25 @@ export async function updatePage(id: number, p: PageWrite): Promise<void> {
 export async function setPageStatus(id: number, status: PageStatus): Promise<boolean> {
   const db = await getDb();
   const r = await db.query<{ id: number }>(
-    `UPDATE pages SET status=$2, updated_at=now() WHERE id=$1 RETURNING id`, [id, status],
+    `UPDATE pages SET status=$2, updated_at=now(),
+       published_at = CASE WHEN $2 = 'publish' AND published_at IS NULL THEN now() ELSE published_at END
+     WHERE id=$1 RETURNING id`,
+    [id, status],
   );
+  return r.rows.length > 0;
+}
+
+/** Status atual da page (p/ confirmar delete permanente). */
+export async function getPageStatus(id: number): Promise<PageStatus | null> {
+  const db = await getDb();
+  const r = await db.query<{ status: PageStatus }>(`SELECT status FROM pages WHERE id=$1`, [id]);
+  return r.rows[0]?.status ?? null;
+}
+
+/** Apaga permanentemente a page. NÃO remove redirects (histórico de slug preservado, R4c). */
+export async function deletePage(id: number): Promise<boolean> {
+  const db = await getDb();
+  const r = await db.query<{ id: number }>(`DELETE FROM pages WHERE id = $1 RETURNING id`, [id]);
   return r.rows.length > 0;
 }
 

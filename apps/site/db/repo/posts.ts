@@ -112,8 +112,31 @@ export async function updatePost(id: number, p: PostWrite): Promise<void> {
 
 export async function setPostStatus(id: number, status: PostStatus): Promise<boolean> {
   const db = await getDb();
+  // Ao publicar, carimba published_at se ainda vazio (senão o SSG exporta date="" e quebra RSS/datas).
   const r = await db.query<{ id: number }>(
-    `UPDATE posts SET status=$2, updated_at=now() WHERE id=$1 RETURNING id`, [id, status],
+    `UPDATE posts SET status=$2, updated_at=now(),
+       published_at = CASE WHEN $2 = 'publish' AND published_at IS NULL THEN now() ELSE published_at END
+     WHERE id=$1 RETURNING id`,
+    [id, status],
+  );
+  return r.rows.length > 0;
+}
+
+/** Status atual do post (p/ decidir confirmação de delete / necessidade de rebuild). */
+export async function getPostStatus(id: number): Promise<PostStatus | null> {
+  const db = await getDb();
+  const r = await db.query<{ status: PostStatus }>(`SELECT status FROM posts WHERE id=$1`, [id]);
+  return r.rows[0]?.status ?? null;
+}
+
+/** Apaga permanentemente: remove vínculos de taxonomia + o post numa única statement.
+ *  NÃO remove redirects (histórico de slug é preservado de propósito, R4c). */
+export async function deletePost(id: number): Promise<boolean> {
+  const db = await getDb();
+  const r = await db.query<{ id: number }>(
+    `WITH del_tax AS (DELETE FROM post_taxonomies WHERE post_id = $1)
+     DELETE FROM posts WHERE id = $1 RETURNING id`,
+    [id],
   );
   return r.rows.length > 0;
 }
