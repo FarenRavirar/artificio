@@ -44,5 +44,6 @@ export function BlockEditor({ initialHtml, initialBlockDoc, handleRef }: Props) 
     },
   };
 
-  return <BlockNoteView editor={editor as unknown as BlockNoteEditor} />;
+  // theme fixo light: o admin é claro; sem isso o BlockNote herda dark do SO e fica ilegível.
+  return <BlockNoteView editor={editor as unknown as BlockNoteEditor} theme="light" />;
 }

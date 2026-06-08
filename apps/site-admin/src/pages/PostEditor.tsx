@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, openPreview, type PostFull, type Term } from "../api";
 import { BlockEditor, type EditorHandle } from "../editor/BlockEditor";
+import { SeoPanel } from "../editor/SeoPanel";
 
 const EMPTY: PostFull = {
   title: "", slug: "", excerpt: "", content_html: "", block_doc: null, status: "draft",
@@ -173,27 +174,15 @@ export function PostEditor() {
             </div>
           </div>
 
-          <div className="card">
-            <h3>SEO & Open Graph</h3>
-            <label>SEO title</label>
-            <input type="text" value={post.seo_title ?? ""} onChange={(e) => set("seo_title", e.target.value || null)} placeholder="vazio = título" />
-            <label>Meta description</label>
-            <textarea value={post.seo_description ?? ""} onChange={(e) => set("seo_description", e.target.value || null)} placeholder="vazio = excerpt" />
-            <label>Canonical (URL)</label>
-            <input type="url" value={post.canonical ?? ""} onChange={(e) => set("canonical", e.target.value || null)} />
-            <label>OG title <span className="muted">(vazio = título)</span></label>
-            <input type="text" value={post.og_title ?? ""} onChange={(e) => set("og_title", e.target.value || null)} placeholder="vazio = título" />
-            <label>OG description <span className="muted">(vazio = excerpt)</span></label>
-            <textarea value={post.og_description ?? ""} onChange={(e) => set("og_description", e.target.value || null)} placeholder="vazio = excerpt" />
-            <label>OG image (URL) <span className="muted">(vazio = imagem destacada)</span></label>
-            <input type="url" value={post.og_image ?? ""} onChange={(e) => set("og_image", e.target.value || null)} placeholder="vazio = imagem destacada" />
-            <label>Twitter card</label>
-            <select value={post.twitter_card} onChange={(e) => set("twitter_card", e.target.value)}>
-              {["summary_large_image", "summary"].map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <label className="row" style={{ gap: 8 }}><input type="checkbox" style={{ width: "auto" }} checked={post.noindex} onChange={(e) => set("noindex", e.target.checked)} /> noindex</label>
-            {post.noindex && <p className="warn">noindex emite a meta tag no HTML. A remoção do sitemap/RSS ocorre quando o post sai de "publish".</p>}
-          </div>
+          <SeoPanel
+            value={post}
+            onChange={(k, v) => set(k as keyof PostFull, v as never)}
+            url={`https://beta.artificiorpg.com/blog/${post.slug || "…"}/`}
+            fallbackTitle={post.title}
+            fallbackDescription={post.excerpt || post.seo_description || ""}
+            fallbackImage={post.featured_url}
+            showTwitter
+          />
         </aside>
       </div>
       {toast && <div className={`toast ${toast.err ? "err" : ""}`}>{toast.msg}</div>}
