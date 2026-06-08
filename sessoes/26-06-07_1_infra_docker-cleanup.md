@@ -101,12 +101,28 @@ empírico — **smoke real na VM**). Merge em `dev` redeploya **mesasbeta + site
 
 ## Critério de conclusão (rev 2)
 
-- [ ] Aprovação p/ push (toca pipeline compartilhado = SDD Completo).
-- [ ] Merge `dev` → smoke beta verde (mesasbeta + sitebeta deployam COM o lock shared).
-- [ ] (opcional) smoke manual do mutual-exclusion: rodar cleanup dispatch enquanto um deploy beta roda.
-- [ ] artificio → ff `main` (cron + dispatch só valem em `main`) — decisão de release do backlog à parte.
-- [ ] mesas: stub na `dev` (default) p/ parar cron legado, APÓS artificio em `main`.
-- [ ] `project-state.md` atualizado no fechamento.
+- [x] Aprovação p/ push (toca pipeline compartilhado = SDD Completo).
+- [x] Merge `dev` → smoke beta verde (mesasbeta + sitebeta deployam COM o lock shared).
+- [x] Smoke real do cleanup via `workflow_dispatch` em `main` (`27097763454`) verde.
+- [x] artificio → ff `main` (cron + dispatch só valem em `main`) — `origin/main=origin/dev=22fe461`.
+- [x] mesas: stub na `dev` (default) p/ parar cron legado, APÓS artificio em `main`.
+- [x] `project-state.md` atualizado no fechamento.
+
+## Fechamento (2026-06-08)
+
+Retomada para fechar rastreabilidade. Validações read-only feitas:
+
+- `artificio`: `origin/main` e `origin/dev` apontam para `22fe461`; `main ⊆ dev` OK; worktree limpa.
+- GitHub Actions: `promote-prod-fast-forward`, `deploy-site`, `deploy-mesas`, `deploy-accounts`,
+  `pr-checks` e `Docker Cleanup` verdes em 2026-06-07.
+- `docker-cleanup.yml` no monorepo tem `schedule`, `workflow_dispatch`, `permissions: {}`,
+  `timeout-minutes: 45`, `docker system df` antes/depois, `builder prune` e lock RW
+  `/tmp/artificio-vm-mutate.lock`.
+- `mesas_rpg_artificio`: `dev` limpo e alinhado com `origin/dev`; workflow legado sem
+  `schedule`, só `workflow_dispatch`, job `if: false`.
+
+**Estado:** concluída. Próximo bloco recomendado: fechar Gate D do `mesas`
+(E2E logout + allowlist prod) antes de abrir módulo novo.
 
 ## Sugestão futura (separada — write na VM, aprovação à parte)
 

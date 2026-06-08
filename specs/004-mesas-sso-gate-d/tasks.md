@@ -7,4 +7,4 @@
 - [x] T5 — Integrar auth no backend mesas · feito quando: rota privada valida `artificio_session` com mesmo `JWT_SECRET`.
 - [x] T6 — Validar env/compose sem segredo · feito quando: `JWT_SECRET` fonte única documentada e não impressa.
 - [x] T7 — Deploy mesas com aprovação · feito quando: serviço sobe sem tocar dados.
-- [ ] T8 — Browser E2E · feito quando: login/logout/rota privada/allowlist passam.
+- [x] T8 — Browser E2E · login real validado pelo mantenedor; rota privada sem cookie 401; login/return para `accounts` OK; allowlist prod validada por HTTP (`evil.com` sanitizado, `mesas.` preservado). Gate D mesas fechado em 2026-06-08.
