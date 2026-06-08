@@ -45,22 +45,22 @@
   - [x] Testes/smoke: harness `scripts/t17-validate.ts` (repo + filtro de export, 15 checks ✓) + smoke HTTP (401 sem token, 403 user, 409 must_trash_first, 200 delete-from-trash, 404 pós-delete). Ciclo draft→publish→archive→restore→trash→delete ✓.
   - **Feito quando:** CA2b/CA2c passam no beta (mantenedor) e o admin administra lifecycle básico sem tocar banco/API manualmente. *(local ✓; beta autenticado pendente.)*
 
-- [ ] **T18 — Biblioteca de mídia / schema + API (R18/R19).**
-  - [ ] Migration online-safe para mídia nativa: suportar `source` (`wp|cloudinary|local`), `url`, `cloudinary_public_id`, `mime`, `size_bytes`, `width`, `height`, `alt`, `caption`, `title`, `created_by`, `created_at`, `updated_at`; preservar compatibilidade com `media`/`media_map` importados.
-  - [ ] API `GET /api/admin/v1/media` com busca, paginação e filtro por tipo.
-  - [ ] API `POST /api/admin/v1/media` multipart com validação backend de MIME, extensão e tamanho; rejeitar SVG sem sanitização.
-  - [ ] API `PUT /api/admin/v1/media/:id` para alt/legenda/título; `DELETE` só se não quebrar referências ou com regra clara.
-  - [ ] Cloudinary gated: com `CLOUDINARY_URL`, upload real e persistência de public id/secure url; sem credencial, modo dev/local/dry-run documentado.
-  - [ ] Testes: tipo inválido, arquivo grande, sem auth, sem admin, upload válido, update metadata.
-  - **Feito quando:** CA3 passa: upload de imagem com alt aparece no corpo e no `og:image`; público serve URL correta após rebuild.
+- [~] **T18 — Biblioteca de mídia / schema + API (R18/R19).** Implementado + validado LOCAL (2026-06-08); falta E2E autenticado no beta (mantenedor).
+  - [x] Migration `004_media_library.sql` (online-safe, ADD COLUMN IF NOT EXISTS): `source` (`wp|cloudinary|local`), `url`, `cloudinary_public_id`, `size_bytes`, `caption`, `title`, `created_by`, `created_at`, `updated_at`; ids nativos do `site_content_id_seq` (≥1e6); `wp_url` vira opcional; backfill `url` p/ importados; preserva `media`/`media_map`.
+  - [x] `GET /api/admin/v1/media` (busca q em título/alt/url, filtro `type=image|audio|video`, paginação limit/offset, total).
+  - [x] `POST /media` multipart (`multer` memória, limite 15MB→413) com validação de **MIME real por magic bytes** (`file-type`), allowlist (img/áudio/vídeo), **rejeita SVG/desconhecido (415)**.
+  - [x] `PUT /media/:id` (alt/legenda/título); `DELETE /media/:id` (aviso: referências por URL não são removidas).
+  - [x] Cloudinary gated por `CLOUDINARY_URL` (`server/lib/media-store.ts`, upload_stream → secure_url/public_id/w/h); sem credencial = modo **local** (grava `apps/site/uploads`, serve `/uploads`).
+  - [x] Testes: harness `scripts/t18-validate.ts` 10/10 ✓ + smoke HTTP (401 sem token, 201 PNG, /uploads 200, SVG 415, TXT 415, PUT 200, filtro, DELETE).
+  - **Feito quando:** CA3 — upload com alt no corpo + `og:image`; público serve URL após rebuild. *(local ✓; beta autenticado pendente.)*
 
-- [ ] **T19 — UI de mídia + inserção no editor (R11/R13/R15/R20).**
-  - [ ] Nova rota `Mídia` no `apps/site-admin` com grid/lista, busca, preview, metadados e botão upload.
-  - [ ] Modal/seletor de mídia reutilizável para imagem destacada, OG image e blocos do editor.
-  - [ ] Integrar BlockNote: inserir imagem a partir da biblioteca ou upload na hora; preservar alt/legenda no HTML sanitizado.
-  - [ ] Embeds por URL com allowlist de provedores; nada de `<script>` arbitrário. Áudio/vídeo começam por URL/Cloudinary antes de processamento local.
-  - [ ] Dependências prováveis: `multer` ou `busboy` para multipart, `file-type` para validação. Evitar instalar `ffmpeg`/ImageMagick/Sharp na VM até necessidade concreta.
-  - **Feito quando:** editor cria post com imagem inline + featured + OG usando mídia cadastrada, preview e publicação funcionam.
+- [~] **T19 — UI de mídia + inserção no editor (R11/R13/R15/R20).** Implementado LOCAL (build vite ✓); falta E2E no beta.
+  - [x] Rota `Mídia` (`apps/site-admin`): grid/upload/busca/filtro por tipo/preview/editar metadados (alt/legenda/título)/apagar (`MediaLibrary` + `MediaPage`).
+  - [x] Seletor reutilizável `MediaPicker` (modal) p/ imagem destacada, OG image e inserção no editor.
+  - [x] BlockNote: `EditorHandle.insertImage(url, alt)` insere bloco de imagem; featured/OG via picker com preview.
+  - [~] Embeds por URL com allowlist: adiado (áudio/vídeo entram por upload/URL Cloudinary; embed de provedores = refino futuro).
+  - [x] Deps: `multer` + `file-type` (backend). Sem `ffmpeg`/Sharp na VM.
+  - **Feito quando:** editor cria post com imagem inline + featured + OG usando mídia cadastrada; preview e publicação funcionam. *(fluxo no ar p/ validar no beta.)*
 
 - [ ] **T20 — CRUD taxonomias completo (R22/R24).**
   - [ ] Tela `Categorias/Tags` com criar/editar nome, slug, descrição e parent de categoria.

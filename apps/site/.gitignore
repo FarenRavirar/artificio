@@ -9,3 +9,6 @@ dist.lnk.*
 node_modules/
 .pgdata/
 .env
+
+# uploads de mídia em modo local/dev (Cloudinary em prod)
+uploads/

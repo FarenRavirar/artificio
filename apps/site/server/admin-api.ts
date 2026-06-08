@@ -1,17 +1,29 @@
 // API de autoria do admin (spec 011). CRUD de posts/pages/taxonomias/redirects + slug-check + rebuild.
 // Gate atual = requireAdmin (role SSO 'admin'); roles editoriais granulares = fase futura (D052).
-import { Router, type RequestHandler } from "express";
+import { Router, type RequestHandler, type Request } from "express";
+import multer from "multer";
+import { fileTypeFromBuffer } from "file-type";
 import type { AuthenticatedRequest } from "@artificio/auth";
 import { cleanHtml, withToc, readingTime, slugify, uniqueSlug, excerptFromHtml } from "./lib/content.js";
 import { renderPreviewFromContent } from "./preview.js";
+import { storeUpload } from "./lib/media-store.js";
 import { runJob } from "./jobs.js";
 import * as Posts from "../db/repo/posts.js";
 import * as Pages from "../db/repo/pages.js";
 import * as Tax from "../db/repo/taxonomies.js";
 import * as Redirects from "../db/repo/redirects.js";
+import * as Media from "../db/repo/media.js";
 import { reloadRedirects } from "./redirect-cache.js";
 
 const REDIRECT_CODES = [301, 302, 307, 308];
+
+// Upload: buffer em memória (vai pro Cloudinary/disco), limite 15MB.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
+// Allowlist por MIME REAL (magic bytes, file-type) — não confia na extensão. SVG fora (XSS).
+const ALLOWED_MIME = new Set<string>([
+  "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif",
+  "audio/mpeg", "audio/ogg", "audio/wav", "video/mp4", "video/webm",
+]);
 
 const asInt = (v: unknown): number | undefined => {
   const n = Number(v); return Number.isFinite(n) ? n : undefined;
@@ -189,6 +201,64 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
     await Redirects.addRedirect(from, to, code);
     await reloadRedirects();
     res.status(201).json({ ok: true, code });
+  });
+
+  // ================= MÍDIA (T18) =================
+  r.get("/media", async (req, res) => {
+    const out = await Media.listMedia({
+      q: req.query.q ? String(req.query.q) : undefined,
+      type: req.query.type ? String(req.query.type) : undefined,
+      limit: asInt(req.query.limit), offset: asInt(req.query.offset),
+    });
+    res.json(out);
+  });
+
+  // Upload multipart. Valida MIME real (magic bytes), rejeita SVG/desconhecido, sobe e registra.
+  r.post("/media", (req, res) => {
+    upload.single("file")(req, res, async (err: unknown) => {
+      if (err) {
+        const code = (err as { code?: string }).code === "LIMIT_FILE_SIZE" ? 413 : 400;
+        res.status(code).json({ error: "upload_error", detail: String((err as Error).message) });
+        return;
+      }
+      const file = (req as Request & { file?: { buffer: Buffer; size: number; originalname: string } }).file;
+      if (!file) { res.status(400).json({ error: "no_file" }); return; }
+      const ft = await fileTypeFromBuffer(file.buffer);
+      if (!ft || !ALLOWED_MIME.has(ft.mime)) {
+        res.status(415).json({ error: "unsupported_type", detail: ft?.mime ?? "desconhecido" });
+        return;
+      }
+      try {
+        const stored = await storeUpload(file.buffer, `.${ft.ext}`);
+        const id = await Media.createMedia({
+          source: stored.source, url: stored.url, cloudinary_public_id: stored.public_id,
+          mime: ft.mime, size_bytes: file.size, width: stored.width, height: stored.height,
+          alt: strOrNull(req.body?.alt), caption: strOrNull(req.body?.caption),
+          title: strOrNull(req.body?.title) ?? file.originalname, created_by: authorOf(req),
+        });
+        res.status(201).json({ id, url: stored.url, source: stored.source, mime: ft.mime, width: stored.width, height: stored.height });
+      } catch (e) {
+        res.status(500).json({ error: "store_failed", detail: String((e as Error).message) });
+      }
+    });
+  });
+
+  r.put("/media/:id", async (req, res) => {
+    const id = parseId(req.params.id);
+    if (id == null) { res.status(400).json({ error: "bad_id" }); return; }
+    const ok = await Media.updateMediaMeta(id, {
+      alt: strOrNull(req.body?.alt), caption: strOrNull(req.body?.caption), title: strOrNull(req.body?.title),
+    });
+    if (!ok) { res.status(404).json({ error: "not_found" }); return; }
+    res.json({ ok: true });
+  });
+
+  r.delete("/media/:id", async (req, res) => {
+    const id = parseId(req.params.id);
+    if (id == null) { res.status(400).json({ error: "bad_id" }); return; }
+    const ok = await Media.deleteMedia(id);
+    if (!ok) { res.status(404).json({ error: "not_found" }); return; }
+    res.json({ ok: true });
   });
 
   // ============ PREVIEW STATELESS (não persiste, não publica) ============

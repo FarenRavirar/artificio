@@ -7,6 +7,7 @@ import type { BlockNoteEditor } from "@blocknote/core";
 
 export interface EditorHandle {
   getContent: () => Promise<{ html: string; blockDoc: unknown }>;
+  insertImage: (url: string, alt?: string) => void;
 }
 
 interface Props {
@@ -41,6 +42,15 @@ export function BlockEditor({ initialHtml, initialBlockDoc, handleRef }: Props) 
     getContent: async () => {
       const html = await editor.blocksToHTMLLossy(editor.document);
       return { html, blockDoc: editor.document };
+    },
+    // Insere um bloco de imagem após o cursor (mídia vinda da biblioteca).
+    insertImage: (url: string, alt?: string) => {
+      const ref = editor.getTextCursorPosition().block;
+      editor.insertBlocks(
+        [{ type: "image", props: { url, caption: alt ?? "" } }] as Parameters<typeof editor.insertBlocks>[0],
+        ref,
+        "after",
+      );
     },
   };
 

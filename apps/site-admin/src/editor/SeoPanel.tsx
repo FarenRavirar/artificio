@@ -21,6 +21,7 @@ interface Props {
   fallbackDescription: string;  // excerpt (fallback da meta/OG description)
   fallbackImage?: string | null; // imagem destacada (fallback do OG image)
   showTwitter?: boolean;        // pages não têm twitter_card
+  onPickOgImage?: () => void;   // abre seletor de mídia p/ OG image
 }
 
 // Faixas ideais (chars). Verde = ideal, laranja = curto/quase, vermelho = longo demais.
@@ -42,7 +43,7 @@ function Counter({ len, min, max }: { len: number; min: number; max: number }) {
   );
 }
 
-export function SeoPanel({ value, onChange, url, fallbackTitle, fallbackDescription, fallbackImage, showTwitter }: Props) {
+export function SeoPanel({ value, onChange, url, fallbackTitle, fallbackDescription, fallbackImage, showTwitter, onPickOgImage }: Props) {
   const [tab, setTab] = useState<"seo" | "social" | "adv">("seo");
 
   const effTitle = value.seo_title || fallbackTitle || "Título do conteúdo";
@@ -106,8 +107,11 @@ export function SeoPanel({ value, onChange, url, fallbackTitle, fallbackDescript
             onChange={(e) => onChange("og_description", e.target.value || null)} />
 
           <label>OG image (URL) <span className="muted">(vazio = imagem destacada)</span></label>
-          <input type="url" value={value.og_image ?? ""} placeholder={fallbackImage || "https://…"}
-            onChange={(e) => onChange("og_image", e.target.value || null)} />
+          <div className={onPickOgImage ? "slug-row" : ""}>
+            <input type="url" value={value.og_image ?? ""} placeholder={fallbackImage || "https://…"}
+              onChange={(e) => onChange("og_image", e.target.value || null)} />
+            {onPickOgImage && <button className="btn" type="button" onClick={onPickOgImage}>Biblioteca</button>}
+          </div>
 
           {showTwitter && (
             <>

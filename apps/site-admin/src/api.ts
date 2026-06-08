@@ -42,6 +42,12 @@ export interface PostListItem {
 export interface PageListItem { id: number; slug: string; title: string; status: string; updated_at: string | null; }
 export interface Term { id: number; kind: "category" | "tag"; slug: string; name: string; parent_id: number | null; count: number; }
 export interface SaveResult { id: number; slug: string; rebuild?: { started: boolean; busy?: boolean }; }
+export interface MediaItem {
+  id: number; source: string; url: string; mime: string | null;
+  size_bytes: number | null; width: number | null; height: number | null;
+  alt: string | null; caption: string | null; title: string | null; created_at: string | null;
+}
+export interface MediaUploadResult { id: number; url: string; source: string; mime: string; width: number | null; height: number | null; }
 
 export interface PostFull {
   id?: number; title: string; slug: string; excerpt: string; content_html: string;
@@ -83,6 +89,29 @@ export const api = {
     req<{ slug: string; available: boolean; suggestion: string }>(`/slug-check?type=${type}&title=${encodeURIComponent(title)}${id ? `&id=${id}` : ""}`),
 
   rebuild: () => req<{ started: boolean }>(`/rebuild`, { method: "POST" }),
+
+  // ---- Mídia (T18/T19) ----
+  listMedia: (q = "", type = "", limit = 60, offset = 0) =>
+    req<{ items: MediaItem[]; total: number }>(`/media?q=${encodeURIComponent(q)}${type ? `&type=${type}` : ""}&limit=${limit}&offset=${offset}`),
+  uploadMedia: async (file: File, meta?: { alt?: string; title?: string; caption?: string }): Promise<MediaUploadResult> => {
+    const fd = new FormData();
+    fd.append("file", file);
+    if (meta?.alt) fd.append("alt", meta.alt);
+    if (meta?.title) fd.append("title", meta.title);
+    if (meta?.caption) fd.append("caption", meta.caption);
+    // sem Content-Type manual: o browser define o boundary do multipart.
+    const res = await authFetch(`${BASE}/media`, { method: "POST", credentials: "include", body: fd });
+    if (res.status === 401) throw new Error("Sessão expirada — entre novamente.");
+    if (res.status === 403) throw new Error("Sem permissão (precisa ser admin).");
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error((body as { error?: string; detail?: string }).detail || (body as { error?: string }).error || `${res.status}`);
+    }
+    return res.json() as Promise<MediaUploadResult>;
+  },
+  updateMedia: (id: number, meta: { alt?: string | null; caption?: string | null; title?: string | null }) =>
+    req<{ ok: boolean }>(`/media/${id}`, { method: "PUT", body: JSON.stringify(meta) }),
+  deleteMedia: (id: number) => req<{ ok: boolean }>(`/media/${id}`, { method: "DELETE" }),
 
   // Preview stateless: renderiza o buffer atual (não persiste, não publica). Retorna HTML.
   previewHtml: async (body: { type: "post" | "page"; title: string; status: string; content_html: string }): Promise<string> => {
