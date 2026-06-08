@@ -70,7 +70,7 @@
 301–306 Fase 2 (monorepo+SSO) ✅ · 307 design system (D038) ✅ · 308A/B/C mesas (import/integra/deploy técnico) ✅ · 309B/C/D/E CI-CD + 1º deploy real ✅ · 310 retrofit accounts ⬜ · **311 marca real + footer hub + nome ✅ (local, aguarda deploy)**
 
 ## Ordem sugerida (Fase 3)
-1. **Spec 011 / site CMS** — T16 núcleo validado LOCAL + **T17 (operações editoriais + publicação honesta) implementado LOCAL** (2026-06-08). Aguarda: revisão Codex → aprovação commit/deploy beta → E2E Google real no beta (mantenedor) → Fase 2 mídia (T18/T19).
+1. **Spec 011 / site CMS** — **T17 (operações editoriais + publicação honesta) + refino UX (editor light + SEO/OG Yoast-like) deployados no beta** (`11f1736`/`12ce2ab`, Codex aprovou). **Fix de persistência de sessão SSO (refresh-retry, `packages/auth`) live em beta + mesas prod** (`356b650`). Aguarda: E2E Google real no beta (mantenedor) p/ fechar T16 → Fase 2 mídia (T18/T19).
 2. **CDX-310** (retrofit accounts) — durabiliza deploy do SSO.
 3. **Spec auditoria visual** — gate de consistência antes de escalar módulos.
 4. **glossario** → monorepo (já existe, menor risco; valida o playbook `add-module`).
