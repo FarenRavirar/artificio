@@ -1,4 +1,4 @@
-# Prompt para Claude — próximo bloco (Spec 011 Fase 2: mídia)
+# Prompt para Claude — próximo bloco (Spec 011 T20: CRUD de taxonomias)
 
 Continuação direta de `C:\projetos\artificio` (**Artifício RPG**). Você é o executor; o Codex orquestra/revisa. Comunicação em português.
 
@@ -8,42 +8,48 @@ Continuação direta de `C:\projetos\artificio` (**Artifício RPG**). Você é o
 3. `.specify/memory/decisions.md`
 4. `AGENTS.md`
 5. `sessoes/26-06-06_1_site_cms-authoring.md`
-6. `specs/011-site-cms-authoring/{spec.md,plan.md,tasks.md}` (foco: **T18, T19**; Apêndice A = paridade WordPress)
+6. `specs/011-site-cms-authoring/{spec.md,plan.md,tasks.md}` (foco: **T20**)
 
 Não redecida arquitetura fechada. Gate C adiado; WordPress raiz e DNS raiz intocáveis.
 
 ## Estado atual (2026-06-08)
-- Gates A/B fechados; **Gate D `mesas` fechado**.
-- **Spec 011: Fase 1 + T16 + T17 FECHADOS e no ar no beta.** Admin (`/admin`) autora posts/páginas: CRUD, editor BlockNote (light), preview stateless, publicar→rebuild SSG, operações editoriais (publicar/despublicar/arquivar/lixeira/restaurar/apagar com confirm), filtro por status, slug+301, painel **SEO/OG estilo Yoast** (snippet Google, contadores, preview social).
-- **Fix de persistência de sessão SSO** (refresh-retry no cliente, `packages/auth`) live em beta + mesas prod. `main = dev`.
-- Pendente conhecido: mídia ainda depende de **URL manual** (sem upload/biblioteca).
+- Gates A/B fechados; Gate D `mesas` fechado.
+- **Spec 011 no ar no beta:** Fase 1 + T16 + T17 (operações editoriais + publicação honesta) + refino UX (editor BlockNote light + SEO/OG Yoast-like) + **Fase 2 mídia (T18 backend + T19 UI)**. `main = dev`.
+- **Mídia:** biblioteca nativa (`media` estendida pela migration 004), API `/api/admin/v1/media`, upload Cloudinary (gated; **migração em massa WP→Cloudinary é opt-in `SITE_MIGRATE_MEDIA=true`** — fora do boot), UI Mídia + `MediaPicker` (featured/OG/inserir no editor).
+- **Fix de sessão SSO** (refresh-retry, `packages/auth`) live em beta + mesas prod.
+- Pendência de validação: E2E autenticado de mídia no beta (mantenedor).
 
-## Objetivo deste bloco — Fase 2 mídia (T18 + T19)
-1. Registrar na sessão (`26-06-06_1` ou nova sessão de fase) que retoma pela Fase 2 mídia.
-2. **T18 — Biblioteca de mídia / schema + API:**
-   - Migration online-safe (D039): mídia nativa com `source` (`wp|cloudinary|local`), `url`, `cloudinary_public_id`, `mime`, `size_bytes`, `width`, `height`, `alt`, `caption`, `title`, `created_by`, timestamps; preservar compat com `media`/`media_map` importados.
-   - `GET /api/admin/v1/media` (busca, paginação, filtro por tipo); `POST` multipart com validação backend de MIME/extensão/tamanho (rejeitar SVG sem sanitização); `PUT /:id` (alt/legenda/título); `DELETE` com regra de referência.
-   - Cloudinary **env-gated por `CLOUDINARY_URL`**: com credencial faz upload real + persiste public id/secure url; sem credencial = modo dev/local/dry-run documentado.
-   - Deps prováveis backend: `multer` ou `busboy` + `file-type`. **Não** instalar `ffmpeg`/ImageMagick/Sharp na VM até necessidade concreta.
-   - Testes: tipo inválido, arquivo grande, sem auth, sem admin, upload válido, update metadata. **Feito quando:** CA3 — imagem com alt aparece no corpo e no `og:image`; público serve URL após rebuild.
-3. **T19 — UI de mídia + inserção no editor:**
-   - Rota `Mídia` no `apps/site-admin` (grid/lista, busca, preview, metadados, upload).
-   - Modal/seletor reutilizável p/ imagem destacada, OG image e blocos do editor (integra BlockNote, preserva alt/legenda no HTML sanitizado).
-   - Embeds por URL com allowlist de provedores (sem `<script>` arbitrário); áudio/vídeo começam por URL/Cloudinary.
-   - **Feito quando:** editor cria post com imagem inline + featured + OG usando mídia cadastrada; preview e publicação funcionam.
+## Objetivo deste bloco — T20: CRUD de taxonomias completo (R22/R24)
+1. Registrar na sessão que retoma pela T20.
+2. **Backend** (`apps/site`): API de taxonomias além do atual (hoje só `GET /taxonomies` + `POST` criar):
+   - editar nome/slug/descrição/parent de categoria; `PUT /taxonomies/:id`; `DELETE /taxonomies/:id`.
+   - validação de **slug único por kind**; **prevenção de ciclo** em parent de categoria.
+   - exclusão: bloquear se em uso, OU reatribuir, OU remover associação com aviso explícito (decidir e documentar).
+   - recalcular/atualizar `count` após edição/publicação/rebuild.
+3. **Frontend** (`apps/site-admin`): tela `Categorias/Tags` (criar/editar/apagar, parent de categoria, contagem); filtros de posts por categoria/tag usam estes dados.
+4. **SSG:** páginas de arquivo (categoria/tag) refletem alterações após rebuild.
+
+**Feito quando:** CA4 passa; páginas de arquivo refletem alterações após rebuild; sem quebrar vínculos `post_taxonomies` existentes.
 
 ## Restrições
 - Escopo: `apps/site` + `apps/site-admin`. Não tocar `packages/*`, `apps/accounts`, `apps/mesas`, infra, DNS, tunnel, WP ou banco prod fora do necessário sem ampliar escopo e pedir aprovação.
 - Tocar `packages/*` = SDD Completo (testar mesas/accounts/site antes de mergear).
-- Commit, push, deploy/dispatch, write na VM, SQL com escrita e secrets = **aprovação explícita por ação** (formato `AGENTS.md`). `CLOUDINARY_URL` (secret) = mantenedor.
+- Commit, push, deploy/dispatch, write na VM, SQL com escrita e secrets = **aprovação explícita por ação** (formato `AGENTS.md`).
+- **Migrations online-safe** (D039, `ADD COLUMN IF NOT EXISTS`); diretório `apps/site/db/migrations/` (allowlist do gate já cobre).
+- **Deploy do site:** o import-on-start é dry-run rápido por padrão; não reative bulk media no boot. Healthcheck do `site-beta-app` é sensível a boot longo.
 - Não imprimir segredo; não inspecionar cookie/token bruto.
 
 ## Validação mínima antes de entregar
-- Typecheck/build dos pacotes afetados (`@artificio/site`, `@artificio/site-admin`).
-- Testes de API/repo de mídia (incl. rejeições de MIME/tamanho/SVG).
-- Smoke: upload (dry-run sem Cloudinary), `GET /media` paginado, gate 401 sem sessão.
-- Evidência de que o público serve a URL correta após rebuild e que `og:image` reflete a mídia.
-- Registro final: sessão, `specs/011/tasks.md`, `project-state.md`, `roadmap.md`.
+- Typecheck/build (`@artificio/site`, `@artificio/site-admin`).
+- Testes de repo/API de taxonomias (slug único, ciclo de parent, exclusão em uso).
+- Smoke: gate 401 sem sessão; CRUD via API; recálculo de count.
+- Registro final: sessão, `tasks.md`, `project-state.md`, `roadmap.md`.
 
 ## Entrega para revisão do Codex
-Arquivos alterados; comandos de validação + resultados; pendências; se houve commit/push/deploy; pontos para o Codex revisar primeiro (segurança do upload: MIME real vs extensão, limite de tamanho, SVG, path traversal, autorização).
+Arquivos alterados; comandos de validação + resultados; pendências; se houve commit/push/deploy; pontos para o Codex revisar primeiro (integridade de `post_taxonomies`, prevenção de ciclo, semântica de exclusão).
+
+## Pendências conhecidas (fora deste bloco)
+- E2E autenticado de mídia no beta (mantenedor): upload no `/admin` → confirmar URL Cloudinary; inserir imagem/featured/OG; publicar.
+- Migração das mídias WP antigas p/ Cloudinary: rodar import com `SITE_MIGRATE_MEDIA=true` (tarefa à parte, fora do boot).
+- `secrets.7z` do backup deu erro de senha/corrupção — verificar à parte.
+- Embeds de provedores (oEmbed) no editor — refino futuro (T32).
