@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@types/multer>@types/express': ^4.17.21
+
 importers:
 
   .:
@@ -9044,7 +9047,7 @@ snapshots:
 
   '@types/multer@2.1.0':
     dependencies:
-      '@types/express': 5.0.6
+      '@types/express': 4.17.25
 
   '@types/nlcst@2.0.3':
     dependencies:
