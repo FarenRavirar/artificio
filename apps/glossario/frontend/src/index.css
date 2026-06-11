@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  THEME-MIGRATION — Notificações + Perfil
+  Data: 31/03/2026
+  Issues resolvidas: inputs dark → light, ALL CAPS labels, e-mail disabled state
+  Tokens adicionados: ver :root abaixo
+  Arquivos alterados: frontend/src/index.css, frontend/src/pages/NotificationsPage.tsx, frontend/src/pages/ProfilePage.tsx
+*/
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: #333333;
+  background-color: #ffffff;
+
+  --color-brand-navy: #1a2744;
+  --color-brand-accent: #e85d26;
+  --color-input-bg: #ffffff;
+  --color-input-border: #d1d5db;
+  --color-input-text: #1a2744;
+  --color-input-placeholder: #9ca3af;
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f9fafb;
+  --color-text-primary: #1a2744;
+  --color-text-secondary: #6b7280;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #F4F4F4;
+}
+
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}

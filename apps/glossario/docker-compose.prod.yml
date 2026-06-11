@@ -1,0 +1,88 @@
+services:
+  # FRONTEND (nginx servindo o build Vite; proxy /api/ -> glossario-api)
+  glossario-app:
+    build:
+      context: ../..
+      dockerfile: apps/glossario/frontend/Dockerfile
+    container_name: glossario-app
+    restart: always
+    expose:
+      - "80"
+    networks:
+      - artificio_net
+    environment:
+      - NODE_ENV=production
+      - VITE_ENV=production
+      - API_UPSTREAM=glossario-api
+    depends_on:
+      - glossario-api
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:80 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # BACKEND (Node.js API)
+  glossario-api:
+    build:
+      context: ../..
+      dockerfile: apps/glossario/backend/Dockerfile
+    container_name: glossario-api
+    restart: always
+    expose:
+      - "3000"
+    networks:
+      - artificio_net
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=production
+      - PORT=3000
+      - DB_HOST=glossario-db
+      - POSTGRES_USER=${POSTGRES_USER:-admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=glossario_v2
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      glossario-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 384m
+        reservations:
+          memory: 128m
+
+  # DATABASE (PostgreSQL)
+  glossario-db:
+    image: postgres:16-alpine
+    container_name: glossario-db
+    restart: always
+    networks:
+      - artificio_net
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: glossario_v2
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d glossario_v2"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# Nome externo do volume preservado: projeto compose `glossario` -> `glossario_pgdata_prod`
+# (mesmo volume do legado restaurado na Fase 1 — dados de producao intactos).
+volumes:
+  pgdata_prod:
+
+networks:
+  artificio_net:
+    external: true
