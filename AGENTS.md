@@ -121,8 +121,9 @@ Fluxo: `feat/NNN-nome` → `dev`/Beta → `main`/Produção. Branch nomeado por 
 - `git push origin dev`: aprovação explícita.
 - `git push origin main`: aprovação explícita.
 - Merge de PR: só com autorização explícita.
-- Nunca `git checkout` entre `dev` e `main` durante deploy. Usar PR e comparações sem checkout.
-- **Doc-only nunca sozinho:** mudança só de documentação não vai sozinha para `dev`/`main`. Push/merge em `dev` dispara deploy beta (Actions) — desperdício de tokens/ações para um delta sem código. Docs viajam **junto** com o próximo commit de código que as motiva (ou acumulam local até haver código). Exceção: correção documental urgente aprovada explicitamente pelo mantenedor.
+- **Doc-only autorizado: `dev→main` por fast-forward.** Para documentação sem código, quando o mantenedor pedir explicitamente push/promover docs, usar `promote-prod-fast-forward.yml` ou comando equivalente explicitamente autorizado que avance `main` para `dev` sem merge commit/squash. Para **código**, seguir o fluxo normal: branch/PR/checks/revisão/merge autorizado; não promover código por fast-forward direto só para "resolver logo". Se o GitHub sugerir PR de `dev`, verificar `origin/main...origin/dev` e o conteúdo antes de agir.
+- Nunca `git checkout` entre `dev` e `main` durante deploy. Usar `git fetch`, `git rev-parse`, `git log origin/main...origin/dev`, `gh run` e comparações sem checkout.
+- **Doc-only nunca sozinho, nem em PR.** Mudança só de documentação não vai sozinha para `dev`/`main`, não abre PR e não é pushada, salvo se o mantenedor pedir explicitamente **documentar/commitar/pushar docs agora**. Push/merge em `dev` dispara workflows (e pode acionar deploy/CI beta) — desperdício e risco para delta sem código. Docs viajam junto com o próximo commit de código que as motiva, ou ficam locais acumuladas. Exceção única: correção documental urgente aprovada explicitamente pelo mantenedor; nesse caso registrar na sessão "doc-only autorizado".
 
 ### Acesso à VM (Oracle)
 
