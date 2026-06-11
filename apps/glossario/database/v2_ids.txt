@@ -1,0 +1,113 @@
+8060b7a9-f5f5-493b-9659-6fabcd6c81a6
+079ab580-5eb6-45af-bd8c-0c19f3b1132b
+Sistema|cabe012f-ced1-43e2-b9c9-38eedbf1c54e
+Regras Gerais|34a2bd6b-445f-4784-b8dd-931d1c0c509f
+Conceitos gerais de regra|ee75fcca-b354-4051-a319-3fd3430fd33c
+Mecânicas|98011de9-af91-4772-8abf-97718827fcf6
+Personagens|93ef9f15-9436-4e6f-b95e-96ac58243a2b
+Espécie e linhagem|6259d5d7-a286-4d04-b53f-9376f15f24c3
+Antecedente|23007bc1-7de3-49f0-a4f5-9f85471dfd26
+Talento|4ca9c009-5299-42c7-b86c-63c73510e898
+Atributos, perícias e proficiências|79e1a938-4377-42cf-8e35-c551df330ae2
+Classes|05ad2c71-6683-44e4-a2a3-f9b4a5f3c59a
+Classe|3dec5408-48f9-4fbf-ac10-62df12e28f47
+Subclasse|ea87fec2-cc47-40b2-8cb2-063ca84a764c
+Habilidades e recursos de classe|c04ce02a-30d7-4bbb-ad48-3a92a8f9f5c8
+Combate|96c8ebea-1722-460f-ba89-3205827579a6
+Regras de combate|02dfe1cc-a540-4e57-bde1-0e16e1674cf9
+Ações, ataques e defesa|d7d468a0-fb0c-4ce2-a3bb-fcde8035436a
+Condições, dano, cura e morte|ab6479e0-1d05-4199-afad-c6176a0abd0a
+Magias|1bc61540-bda2-4133-97ed-84e8a579cc44
+Magias|cccade1c-028b-4c09-a0f0-c077b71a4784
+Mecânicas de magias|b277683e-c9e4-4097-b220-2d8aa239cb7b
+Itens|a10aebf4-38bc-4b5c-aecd-bf694cfd54dd
+Itens comuns|ed374acb-478e-4525-b316-b3969cd9545d
+Itens mágicos|e869870c-6edd-4939-a6ba-9bdbaa6788fb
+Armas e armaduras|200568e9-7165-4ce4-809a-80395a83989e
+Ferramentas e consumíveis|b5a3cbfc-863a-48f2-bf52-3ff4aecc450d
+Criaturas|6bf8ab04-54b5-416a-b21d-d5d287155226
+Tipos de criatura e traços|8111581f-3b5a-4969-85ff-32712a7a48c6
+Habilidades, ações e reações|fcf80a1d-3932-48cb-b96f-6a85b0e9cede
+Bloco de estatísticas|e29e48bc-5b46-47b7-944b-ee44749cad32
+Estrutura Editorial|fdc81054-0810-4d61-866f-566e9a5a4f5e
+Termos editoriais|6fc5d66b-aaea-46c1-a36c-1a494d5cedbf
+Estruturas de documentos|116f9aa6-98aa-4d0b-8d82-e0f266f8087c
+Nomes de Tabelas|d8307304-45b0-4392-a327-d1026eac6ff7
+Títulos e Subtítulos|0e94c157-bb21-4a10-bcaa-59a1fbb7a9b7
+Nomes de Produtos|48c02300-946c-480f-849b-b8ac5ea69db6
+Estilo|77b31e9a-2f00-46df-a8dc-ccd26bf51b8c
+Padrão para descrições|27234168-7a06-4cc9-aa39-1c7371b326b1
+Regras de estilo|60b67934-0267-4bc6-9bc7-cf87c4638d25
+Cenário|5914952c-f924-4e88-a969-c60b3650419e
+Locais|6c50eae5-d128-4cdb-a3cb-4e43ec96845f
+Regiões e acidentes geográficos|667e087c-61d8-4329-b969-eefdefc2df8a
+Assentamentos e divisões urbanas|a649192d-9a81-4656-b927-8bda20458828
+Estruturas e locais nomeados|edbb93a5-f1d2-49ab-acf1-7c734c65215b
+Personagens|85cbfb82-26a6-4a3a-8ee5-7f6ba8b92f2d
+NPCs e figuras notáveis|59ec9d18-79ee-4a6f-b6eb-7562b66be295
+Títulos, cargos e formas de tratamento|47296965-b796-41a7-baed-5ddd44c80132
+Facções e Sociedade|130dfedc-e78e-4860-a8d3-0f555ef5d8a5
+Facções e organizações|de590fa2-a2ac-4c42-88f0-9776c512cb34
+Povos, culturas e linhagens sociais|7e757515-c1e9-48d5-b237-eaed61e5326b
+Reinos, governos e instituições|f6955b43-af14-4f76-941d-ed88a021c6aa
+Religião e Cosmologia|afecd0d4-b936-4827-832e-e458edb65714
+Deuses, entidades e figuras sagradas|f4828355-dc98-4739-8061-3bebdab1e912
+Cultos, igrejas e ordens religiosas|c032b576-db21-4081-b0e2-74c89f5d91ff
+Planos, reinos e conceitos cosmológicos|e9280caa-787e-4f2a-a16c-c8dbe3f88ec4
+História|0bc59c85-0ff3-4ab5-8f1e-3ef6436aa261
+Acontecimentos, eventos e eras|89a5a5c9-c4b8-4d83-acb0-a8c73f428a88
+Guerras, catástrofes e marcos históricos|1720504a-ac9c-450d-a48a-354422b91b1d
+Elementos Únicos|35695403-a1ad-426f-b534-cc3f104415f4
+Artefatos, relíquias e itens nomeados|b3e6a2ac-2cee-48d4-87b1-8232b9576bff
+Estruturas, fenômenos e elementos únicos|7d598e87-752c-46a7-b8cb-78b681dfe5e4
+Nomes próprios diversos|6fc4fb7a-3c00-444b-a5b9-c728314c9366
+Magias|ac6aee0f-4e08-403b-9f06-b6fd4193b5e0
+Classes|17ca00c0-9808-47f1-a22d-08f07ab41c4e
+Espécies e Raças|d98ed638-eb02-4ba5-bd17-d1ac5a529f45
+Monstros e Criaturas|96844a0e-bac0-4821-87d2-226f812883c6
+Itens e Equipamentos|7df01bd9-3d7c-463f-87ae-267930358a4e
+Regras e Mecânicas|1018973c-d3cf-489b-91a8-fd3e70f34a68
+Atributos e Perícias|dfa08612-0d65-4482-97ef-e3784d2ee92b
+Talentos e Feitos|5abbd322-10d2-4134-9927-e6b5549f0a00
+Antecedentes|cdaf3160-9f79-472f-a898-59fdcd298d48
+Escolas de Magia|77933abe-877f-416b-9a84-dc2347b9495d
+Truques (Cantrips)|442cb4d5-2877-458a-8a97-732b96952303
+Magias por Nível|6d6d8a70-c960-4a36-9eb4-82fe70938cd5
+Rituais|9395f0dc-7960-4d59-8206-1afa70736a22
+Arquétipos e Subclasses|21111624-eac6-408f-bc05-5eefb7849c02
+Habilidades de Classe|dc0dd4d3-01ab-423b-b23d-b07e8778ed13
+Tipos de Criaturas|5ae29122-ecbd-477f-b5b9-b1d5153b43f5
+Tags de Criatura|5d997fa0-cb88-488e-8324-b758545f502e
+Ações de Monstros|01608cc4-d62a-4b0d-a392-44d2f685b277
+Itens Mágicos|a119b0f8-e2d6-4001-963d-2fa5f374ac39
+Armas|213127e8-390e-46ad-a9ca-b0937dcbd772
+Armaduras e Escudos|94cbf74a-c5e4-4cc4-834e-0e5276957239
+Equipamentos e Ferramentas|deef3fd5-89fa-4dfa-94d5-f040993be1b7
+Poções e Pergaminhos|e417c874-253f-44a3-b013-1b51e42cf532
+Ações de Combate|b1f8f8f0-0eec-4361-8764-678880ac6fe0
+Condições|b0044a0a-c1e0-4656-bf8c-6e31bdec422a
+Terreno e Ambiente|4be3a252-4215-4f32-adc8-716b245f3c88
+Descanso e Recuperação|1c4b373b-8368-4814-921b-b4344c287906
+Testes e Salvaguardas|66c591b0-c5d3-4b5d-8e82-4954187de823
+Atributos Base|c738b959-6016-4db6-a8d2-1c18923405d5
+Perícias|a3d7918b-3ccc-4c8a-81ad-6ab6fa95718f
+Jogadas de Resistência|435b621e-7857-437c-9465-ffabdb88d127
+Locais|f5b4d2f0-a2f4-4a03-aa8d-b6a78c8166eb
+Personagens e NPCs|dde77fd8-fdb2-4595-acdb-c40e1cd153e0
+Organizações e Facções|f0a317c2-1568-4d71-8d63-5010d4bc1666
+Eventos e História|903def7e-e673-48bd-9f1f-e8e243a9b0fd
+Criaturas Únicas|b7940c20-dbd3-4229-9b88-2dd5a331b375
+Artefatos e Relíquias|3dadbb21-6a3d-468e-8094-9226d88d8045
+Títulos e Honrarias|2ed2bf6a-cf64-44de-99b3-3e7240c1581b
+Reinos e Nações|96fbcf12-af12-4fac-9aff-eda2953e2c61
+Cidades e Vilas|324846c8-33b2-480b-991c-c18eb82d06f0
+Dungeons e Masmorras|2f8562c9-0f16-4d24-9850-6e6bf0fba05c
+Planos de Existência|783689c0-4e78-4750-97cf-5abc8a7ede83
+Pontos de Interesse|7ccce67f-b919-476d-ae4a-4df8b41e8476
+Heróis e Lendas|012f6723-747f-47f4-bb9c-0bf7e7f69162
+Vilões e Antagonistas|49fded52-6f40-4d7d-88a9-8ff272086ca0
+Divindades e Panteões|a0b90fdc-7020-4efb-8275-41a62d47371a
+NPCs Notáveis|b8634df2-f844-4b76-b2cd-00d96b2696e5
+Guerras e Conflitos|6f131740-de29-4df2-b422-9641158d74b3
+Profecias e Mitos|4da92b25-e134-408e-a56a-a82734529368
+Eventos Cósmicos|1a8a1b82-d5fa-4b47-8441-abf0b03e18b2

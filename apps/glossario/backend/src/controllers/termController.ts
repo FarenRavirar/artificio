@@ -1,0 +1,340 @@
+import { Request, Response } from 'express';
+import { db } from '../config/database';
+import { sanitizeTermFields } from '../utils/sanitizeText';
+import { notifyTermOwnerOnModeration } from '../services/notificationService';
+
+export const listTerms = async (req: Request, res: Response) => {
+  try {
+    const { search, system, category, status } = req.query;
+
+    let query = `
+      SELECT t.*,
+             t.nucleus as source_tier,
+             s.name as system_name,
+             e.name as edition_name,
+             sc.name as scenario_name,
+             CASE
+               WHEN cg.id IS NOT NULL THEN cp.name
+               WHEN cp.id IS NOT NULL AND cp.parent_id IS NULL THEN c.name
+               ELSE c.name
+             END as category_name,
+             CASE
+               WHEN cg.id IS NOT NULL THEN c.name
+               ELSE NULL
+             END as subcategory_name,
+             u.full_name as added_by_name,
+             th.last_changed_at
+      FROM terms t
+      LEFT JOIN systems s ON t.system_id = s.id
+      LEFT JOIN editions e ON t.edition_id = e.id
+      LEFT JOIN scenarios sc ON t.scenario_id = sc.id
+      LEFT JOIN categories c ON t.category_id = c.id
+      LEFT JOIN categories cp ON c.parent_id = cp.id
+      LEFT JOIN categories cg ON cp.parent_id = cg.id
+      LEFT JOIN users u ON t.added_by = u.id
+      LEFT JOIN (
+        SELECT term_id, MAX(changed_at) AS last_changed_at
+        FROM public.term_history
+        GROUP BY term_id
+      ) th ON th.term_id = t.id
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    if (search) {
+      params.push(`%${search}%`);
+      query += ` AND (t.name_en ILIKE $${params.length} OR t.name_pt ILIKE $${params.length})`;
+    }
+
+    if (system) {
+      params.push(system);
+      query += ` AND t.system_id = $${params.length}`;
+    }
+
+    if (category) {
+      params.push(category);
+      query += ` AND t.category_id = $${params.length}`;
+    }
+
+    // Por padrão, não-admins só veem verificados ou suas próprias sugestões
+    // Mas para o beta, vamos mostrar tudo que não foi rejeitado
+    query += ` AND t.status != 'rejeitado'`;
+
+    query += ` ORDER BY t.created_at DESC`;
+
+    const result = await db.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erro ao buscar termos.' });
+  }
+};
+
+export const createTerm = async (req: any, res: Response) => {
+  const raw = req.body;
+  const sanitized = sanitizeTermFields(raw);
+  const {
+    name_en, name_pt, nucleus, source_type,
+    system_id, edition_id, scenario_id, category_id,
+    book_reference, page_reference, additional_info
+  } = { ...raw, ...sanitized };
+
+  try {
+    // Validação básica para termo Oficial
+    if (nucleus === 'oficial' && (!book_reference || !page_reference)) {
+      return res.status(400).json({ message: 'Termos oficiais exigem Livro e Página de referência.' });
+    }
+
+    // Se for Admin, já nasce verificado. Se for membro, nasce pendente.
+    const status = req.user.role === 'admin' ? 'verificado' : 'pendente';
+
+    const result = await db.query(
+      `INSERT INTO terms (
+        name_en, name_pt, nucleus, status, source_type,
+        system_id, edition_id, scenario_id, category_id,
+        book_reference, page_reference, additional_info, added_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+      [
+        name_en, name_pt, nucleus, status, source_type,
+        system_id, edition_id, scenario_id, category_id,
+        book_reference, page_reference, additional_info, req.user.id
+      ]
+    );
+
+    const term = result.rows[0];
+    res.status(201).json({ ...term, source_tier: term.nucleus });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erro ao sugerir termo.' });
+  }
+};
+
+export const approveTerm = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  req.body = { ...req.body, ...sanitizeTermFields(req.body) };
+  const { nucleus, category_id, status } = req.body; // Permite ao admin corrigir no ato da aprovação
+
+  try {
+    const result = await db.query(
+      `UPDATE terms
+       SET status = $1,
+           nucleus = COALESCE($2, nucleus),
+           category_id = COALESCE($3, category_id),
+           reviewed_by = $4,
+           reviewed_at = NOW()
+       WHERE id = $5 RETURNING *`,
+      [status || 'verificado', nucleus || null, category_id || null, (req as any).user.id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Termo não encontrado.' });
+    }
+
+    const term = result.rows[0];
+    try {
+      await notifyTermOwnerOnModeration({
+        termId: term.id,
+        actorId: (req as any).user.id,
+        status: term.status ?? null,
+        eventType: 'term.moderated',
+      });
+    } catch (notifyError) {
+      console.error('[notifications] Falha ao gerar notificação de moderação:', notifyError);
+    }
+
+    res.json({ ...term, source_tier: term.nucleus });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erro ao moderar termo.' });
+  }
+};
+
+export const updateTerm = async (req: any, res: Response) => {
+  const { id } = req.params;
+  req.body = { ...req.body, ...sanitizeTermFields(req.body) };
+
+  const allowedFields = [
+    'name_en',
+    'name_pt',
+    'nucleus',
+    'status',
+    'source_type',
+    'system_id',
+    'edition_id',
+    'scenario_id',
+    'category_id',
+    'book_reference',
+    'page_reference',
+    'additional_info',
+  ] as const;
+
+  const hasField = (field: (typeof allowedFields)[number]) =>
+    Object.prototype.hasOwnProperty.call(req.body, field);
+
+  const hasText = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
+
+  try {
+    const existing = await db.query('SELECT * FROM terms WHERE id = $1', [id]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ message: 'Termo não encontrado.' });
+    }
+
+    const current = existing.rows[0];
+    const finalNucleus = hasField('nucleus') ? req.body.nucleus : current.nucleus;
+    const finalBookReference = hasField('book_reference') ? req.body.book_reference : current.book_reference;
+    const finalPageReference = hasField('page_reference') ? req.body.page_reference : current.page_reference;
+    const finalSourceType = hasField('source_type') ? req.body.source_type : current.source_type;
+    const finalSystemId = hasField('system_id') ? req.body.system_id : current.system_id;
+    const finalScenarioId = hasField('scenario_id') ? req.body.scenario_id : current.scenario_id;
+
+    if (finalNucleus === 'oficial' && (!hasText(finalBookReference) || !hasText(finalPageReference))) {
+      return res.status(400).json({ message: 'Termos oficiais exigem Livro e Página de referência.' });
+    }
+
+    if (finalSourceType === 'sistema' && !finalSystemId) {
+      return res.status(400).json({ message: 'Termos do tipo sistema exigem um sistema vinculado.' });
+    }
+
+    if (finalSourceType === 'cenario' && !finalScenarioId) {
+      return res.status(400).json({ message: 'Termos do tipo cenário exigem um cenário vinculado.' });
+    }
+
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    for (const field of allowedFields) {
+      if (hasField(field)) {
+        values.push(req.body[field]);
+        updates.push(`${field} = $${values.length}`);
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ message: 'Nenhum campo válido foi enviado para atualização.' });
+    }
+
+    values.push(id);
+
+    const updateResult = await db.query(
+      `UPDATE terms
+       SET ${updates.join(', ')}
+       WHERE id = $${values.length}
+       RETURNING *`,
+      values
+    );
+
+    const updatedId = updateResult.rows[0]?.id;
+    const hydrated = await db.query(
+      `SELECT t.*,
+              t.nucleus as source_tier,
+              s.name as system_name,
+              e.name as edition_name,
+              sc.name as scenario_name,
+              CASE
+                WHEN cg.id IS NOT NULL THEN cp.name
+                WHEN cp.id IS NOT NULL AND cp.parent_id IS NULL THEN c.name
+                ELSE c.name
+              END as category_name,
+              CASE
+                WHEN cg.id IS NOT NULL THEN c.name
+                ELSE NULL
+              END as subcategory_name,
+              u.full_name as added_by_name
+       FROM terms t
+       LEFT JOIN systems s ON t.system_id = s.id
+       LEFT JOIN editions e ON t.edition_id = e.id
+       LEFT JOIN scenarios sc ON t.scenario_id = sc.id
+       LEFT JOIN categories c ON t.category_id = c.id
+       LEFT JOIN categories cp ON c.parent_id = cp.id
+       LEFT JOIN categories cg ON cp.parent_id = cg.id
+       LEFT JOIN users u ON t.added_by = u.id
+       WHERE t.id = $1`,
+      [updatedId]
+    );
+
+    const updatedTerm = hydrated.rows[0];
+    try {
+      await notifyTermOwnerOnModeration({
+        termId: updatedTerm.id,
+        actorId: req.user.id,
+        status: updatedTerm.status ?? null,
+        eventType: 'term.updated',
+      });
+    } catch (notifyError) {
+      console.error('[notifications] Falha ao gerar notificação de atualização de termo:', notifyError);
+    }
+
+    res.json(updatedTerm);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erro ao atualizar termo.' });
+  }
+};
+
+export const deleteTerm = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const result = await db.query('DELETE FROM terms WHERE id = $1 RETURNING id', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Termo não encontrado.' });
+    }
+
+    res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erro ao excluir termo.' });
+  }
+};
+
+export const getTermHistory = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const result = await db.query(
+      `SELECT th.id,
+              th.field,
+              th.old_value,
+              th.new_value,
+              th.changed_at,
+              u.full_name AS changed_by_name
+       FROM public.term_history th
+       LEFT JOIN public.users u ON u.id = th.changed_by
+       WHERE th.term_id = $1
+       ORDER BY th.changed_at DESC, th.id DESC
+       LIMIT 100`,
+      [id]
+    );
+
+    const groupedMap = new Map<
+      string,
+      { changed_at: string; changed_by_name: string | null; changes: Array<{ field: string; old_value: string | null; new_value: string | null }> }
+    >();
+
+    for (const row of result.rows) {
+      const key = String(row.changed_at);
+      if (!groupedMap.has(key)) {
+        groupedMap.set(key, {
+          changed_at: row.changed_at,
+          changed_by_name: row.changed_by_name ?? null,
+          changes: [],
+        });
+      }
+      groupedMap.get(key)!.changes.push({
+        field: row.field,
+        old_value: row.old_value,
+        new_value: row.new_value,
+      });
+    }
+
+    const events = Array.from(groupedMap.values());
+    return res.json({
+      term_id: id,
+      last_changed_at: events[0]?.changed_at ?? null,
+      events,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Erro ao carregar histórico do termo.' });
+  }
+};

@@ -1,0 +1,89 @@
+services:
+  # FRONTEND (nginx servindo o build Vite; proxy /api/ -> glossario-beta-api)
+  glossario-beta-app:
+    build:
+      context: ../..
+      dockerfile: apps/glossario/frontend/Dockerfile
+    container_name: glossario-beta-app
+    restart: always
+    expose:
+      - "80"
+    networks:
+      - artificio_net
+    environment:
+      - NODE_ENV=production
+      - VITE_ENV=beta
+      - API_UPSTREAM=glossario-beta-api
+    depends_on:
+      - glossario-beta-api
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:80 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # BACKEND (Node.js API)
+  glossario-beta-api:
+    build:
+      context: ../..
+      dockerfile: apps/glossario/backend/Dockerfile
+    container_name: glossario-beta-api
+    restart: always
+    expose:
+      - "3000"
+    networks:
+      - artificio_net
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=beta
+      - PORT=3000
+      - BETA_READONLY_MEMBERS=${BETA_READONLY_MEMBERS:-true}
+      - DB_HOST=glossario-beta-db
+      - POSTGRES_USER=${POSTGRES_USER:-admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=glossario_v2
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      glossario-beta-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 384m
+        reservations:
+          memory: 128m
+
+  # DATABASE (PostgreSQL)
+  glossario-beta-db:
+    image: postgres:16-alpine
+    container_name: glossario-beta-db
+    restart: always
+    networks:
+      - artificio_net
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: glossario_v2
+    volumes:
+      - pgdata_beta:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d glossario_v2"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# Nome externo do volume preservado: projeto compose `glossario-beta` -> `glossario-beta_pgdata_beta`
+# (mesmo volume do legado restaurado na Fase 1).
+volumes:
+  pgdata_beta:
+
+networks:
+  artificio_net:
+    external: true
