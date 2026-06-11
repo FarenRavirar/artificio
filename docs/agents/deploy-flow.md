@@ -47,11 +47,11 @@ Nao usar `scp`, tarball, bundle local ou `docker compose up/down` manual como ca
 
 `deploy-glossario.yml` usa `_deploy-module.yml` e preserva os volumes legados:
 - BETA: `/opt/artificio-beta`, branch `dev`, `.env.beta`, compose project `glossario-beta`, volume `glossario-beta_pgdata_beta`, rota `glossariobeta.artificiorpg.com` -> `http://glossario-beta-app:80`.
-- PROD: `/opt/artificio`, branch `main`, `.env`, compose project `glossario`, volume `glossario_pgdata_prod`, rota futura `glossario.artificiorpg.com` -> `http://glossario-app:80`.
+- PROD: `/opt/artificio`, branch `main`, `.env`, compose project `glossario`, volume `glossario_pgdata_prod`, rota `glossario.artificiorpg.com` -> `http://glossario-app:80`.
 
 No primeiro cutover beta/prod, o legado usa o mesmo compose project (`glossario-beta`/`glossario`) com service labels antigas (`app-beta`/`api-beta`/`db-beta` ou `app-prod`/`api-prod`/`db-prod`). Isso nao e coberto pelo R1 original da spec 009 (outro project). Por isso `deploy-glossario.yml` liga `reconcile_same_project_orphans`: o reusable workflow roda `docker compose down --remove-orphans` no project alvo, sem `-v`, antes do primeiro `up` do DB.
 
-Nao fazer deploy prod enquanto `origin/main` nao contiver `apps/glossario`. Nao redirecionar `glossariorpg.artificiorpg.com` no bootstrap beta.
+Nao fazer deploy prod enquanto `origin/main` nao contiver `apps/glossario`. `glossariorpg.artificiorpg.com` era alias historico pre-monorepo e nao e rota ativa a preservar; o host canonico do modulo e `glossario.artificiorpg.com`.
 
 ## Migration Contract
 

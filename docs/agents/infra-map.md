@@ -64,8 +64,8 @@ Backupear mesmo assim (pequeno, segurança): credenciais home (`.aws`, `.oci`, `
 - Rotas relevantes:
   - `accounts.artificiorpg.com` -> `http://accounts-api:3000`.
   - `glossariobeta.artificiorpg.com` -> `http://glossario-beta-app:80` (criada para bootstrap beta do monorepo em 2026-06-11).
-  - `glossario.artificiorpg.com` -> `http://glossario-app:80` (futura, somente depois de `main` conter `apps/glossario`).
-  - `glossariorpg.artificiorpg.com` permanece legado/intocado neste bootstrap; redirect 301 para `glossario.` e etapa posterior.
+  - `glossario.artificiorpg.com` -> `http://glossario-app:80` (host canônico do glossário no monorepo; DNS público ainda precisa resolver para fechar smoke PROD).
+  - `glossariorpg.artificiorpg.com` era alias histórico pré-monorepo e não é rota ativa a preservar.
 
 ## DNS Oracle
 Em 2026-06-11, a VM nao resolvia `glossariobeta.artificiorpg.com` via resolver Oracle `169.254.169.254`, embora Cloudflare/Google resolvessem publicamente. Foi aplicado workaround de runtime:

@@ -53,7 +53,7 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 | Subdomínio | Módulo | Auth |
 |---|---|---|
 | `beta.artificiorpg.com` | `site` (blog/portal, BETA; → raiz `artificiorpg.com` no futuro, D016/D019) | público |
-| `glossariorpg.artificiorpg.com` | `glossario` (fica, prod) | opcional |
+| `glossario.artificiorpg.com` | `glossario` (prod canônico; `glossariorpg.` foi alias histórico desativado) | opcional |
 | `mesas.artificiorpg.com` | `mesas` (refeito) | sim |
 | `downloads.artificiorpg.com` | `downloads` | opcional |
 | `esferas.artificiorpg.com` | `esferas` (Spheres of Power, multi-sistema) | público |

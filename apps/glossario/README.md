@@ -9,8 +9,8 @@ Workflow: `.github/workflows/deploy-glossario.yml`, via `_deploy-module.yml`.
 Bootstrap seguro:
 - Fazer primeiro o BETA em `dev`: `gh workflow run deploy-glossario.yml --ref dev -f mode=deploy`.
 - Nao fazer PROD enquanto `origin/main` nao contiver `apps/glossario`.
-- Nao mexer em `glossariorpg.artificiorpg.com` durante o bootstrap beta.
-- O redirect `glossariorpg.` -> `glossario.` e uma etapa posterior.
+- Host canonico PROD: `glossario.artificiorpg.com`.
+- `glossariorpg.artificiorpg.com` era alias historico pre-monorepo e nao e rota ativa a preservar.
 
 Nota do primeiro cutover beta/prod: os containers legados usam o mesmo project alvo (`glossario-beta`/`glossario`), mas service labels antigas (`app-beta`/`api-beta`/`db-beta` ou `app-prod`/`api-prod`/`db-prod`). O workflow ativa `reconcile_same_project_orphans`, removendo esses orphans com `docker compose down --remove-orphans` sem apagar volumes antes de subir o DB novo.
 
@@ -21,7 +21,7 @@ BETA:
 /opt/artificio-beta/apps/glossario/.env.beta
 ```
 
-PROD futuro:
+PROD:
 ```text
 /opt/artificio/apps/glossario/.env
 ```
@@ -49,8 +49,7 @@ O `POSTGRES_PASSWORD` precisa ser o mesmo que inicializou o volume legado corres
 ## Rotas Tunnel
 
 - BETA: `glossariobeta.artificiorpg.com` -> `http://glossario-beta-app:80`
-- PROD futuro: `glossario.artificiorpg.com` -> `http://glossario-app:80`
-- Legado intocado no bootstrap: `glossariorpg.artificiorpg.com`
+- PROD canonico: `glossario.artificiorpg.com` -> `http://glossario-app:80`
 
 ## Validacao pos-deploy BETA
 

@@ -43,7 +43,7 @@ O G1 avança por gates. **Nenhum gate é pulado.** Cada gate exige aprovação e
 | **C** | **adiado (fora de escopo)** | Apontar DNS de `artificiorpg.com` ao novo site e desligar WordPress | Site validado em beta (conteúdo + SEO + 301 + Nielsen/ISO) **e decisão explícita de cutover** |
 | **D** | ativo | Próximo módulo | Módulo atual passou smoke |
 
-**Topologia (subdomínio-por-módulo, D017):** cada módulo no próprio subdomínio (`glossariorpg.`, `mesas.`, `downloads.`, `esferas.`, `srd.`, `links.`), root próprio, sem basename. Blog novo em `beta.artificiorpg.com` (BETA; → raiz `artificiorpg.com` no futuro, Gate C). WP fica na raiz agora. SSO central em `accounts.artificiorpg.com` (D018). Une tudo: cookie `.artificiorpg.com` + nav + design. Cloudflare Tunnel mapeia hostname→container.
+**Topologia (subdomínio-por-módulo, D017/D057):** cada módulo no próprio subdomínio (`glossario.`, `mesas.`, `downloads.`, `esferas.`, `srd.`, `links.`), root próprio, sem basename. `glossariorpg.` foi alias histórico pré-monorepo e não é hostname ativo a preservar. Blog novo em `beta.artificiorpg.com` (BETA; → raiz `artificiorpg.com` no futuro, Gate C). WP fica na raiz agora. SSO central em `accounts.artificiorpg.com` (D018). Une tudo: cookie `.artificiorpg.com` + nav + design. Cloudflare Tunnel mapeia hostname→container.
 
 **Antes do Gate A:** nada destrutivo na Oracle. Nenhum `docker stop/rm`, nenhum drop de volume, nenhuma recriação de instância.
 **Sempre (Gate C adiado):** o WordPress de produção e o DNS de `artificiorpg.com` são **intocáveis** todo o projeto. WP roda em paralelo. Importador só **lê** do WP (REST API / dump), nunca escreve. Nenhum cutover de raiz sem reabrir o Gate C com aprovação explícita.

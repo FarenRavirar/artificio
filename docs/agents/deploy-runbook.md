@@ -27,15 +27,15 @@ Estado seguro antes do primeiro deploy:
 - **BETA primeiro:** `/opt/artificio-beta` deve estar em `dev` alinhado com `origin/dev`, que contém `apps/glossario`.
 - **PROD depois:** `/opt/artificio` permanece em `main`; não fazer deploy prod enquanto `origin/main` não contiver `apps/glossario`.
 - Env beta: `/opt/artificio-beta/apps/glossario/.env.beta` com permissão `600`.
-- Env prod futuro: `/opt/artificio/apps/glossario/.env`, só quando `main` já tiver o módulo.
+- Env prod: `/opt/artificio/apps/glossario/.env`, criado quando `main` já tem o módulo.
 - `POSTGRES_PASSWORD` precisa ser exatamente o segredo original do volume legado correspondente; validar por fingerprint/tamanho, nunca por impressão do valor.
 - `JWT_SECRET` precisa ser igual ao `apps/accounts` do mesmo clone (`apps/accounts/.env.beta` no beta; `apps/accounts/.env` no prod), pois o workflow recusa divergência.
 - Volumes reaproveitados: BETA `glossario-beta_pgdata_beta`; PROD `glossario_pgdata_prod`.
 
 Rotas Cloudflare Tunnel:
 - BETA: `glossariobeta.artificiorpg.com` -> `http://glossario-beta-app:80`.
-- PROD futuro: `glossario.artificiorpg.com` -> `http://glossario-app:80`.
-- Não mexer em `glossariorpg.artificiorpg.com` no bootstrap beta; o redirect `glossariorpg.` -> `glossario.` é etapa posterior.
+- PROD canônico: `glossario.artificiorpg.com` -> `http://glossario-app:80`.
+- `glossariorpg.artificiorpg.com` era alias histórico pré-monorepo e não é rota ativa a preservar; não há requisito de redirect imediato a partir dele.
 
 Ordem:
 1. Disparar BETA em `dev`: `gh workflow run deploy-glossario.yml --ref dev -f mode=deploy`.
