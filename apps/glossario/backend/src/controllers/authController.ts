@@ -4,10 +4,26 @@ import jwt from 'jsonwebtoken';
 import { db } from '../config/database';
 import { notifyAdminsOnUserRegistration } from '../services/notificationService';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
+
+// E-mail do superusuário inicial vem do ambiente (sem hardcode de PII/escalonamento).
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
 
 export const register = async (req: Request, res: Response) => {
   const { full_name, username, email, password } = req.body;
+
+  if (!full_name || !username || !email || !password) {
+    return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
+  }
+  if (typeof email !== 'string' || !email.includes('@')) {
+    return res.status(400).json({ message: 'E-mail inválido.' });
+  }
+  if (typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ message: 'Senha deve ter no mínimo 8 caracteres.' });
+  }
 
   try {
     const userExists = await db.query('SELECT * FROM users WHERE email = $1 OR username = $2', [email, username]);
@@ -17,8 +33,8 @@ export const register = async (req: Request, res: Response) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Promoção automática para Admin se for o e-mail do mantenedor
-    const role = email === 'paulohenriquercc@gmail.com' ? 'admin' : 'member';
+    // Promoção automática para Admin só se ADMIN_EMAIL estiver setado e bater.
+    const role = ADMIN_EMAIL && email === ADMIN_EMAIL ? 'admin' : 'member';
 
     const result = await db.query(
       'INSERT INTO users (full_name, username, email, password_hash, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, full_name, username, email, role',
@@ -48,6 +64,10 @@ export const register = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   const { identifier, password } = req.body;
+
+  if (!identifier || !password || typeof identifier !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ message: 'E-mail/usuário e senha são obrigatórios.' });
+  }
 
   try {
     const result = await db.query('SELECT * FROM users WHERE email = $1 OR username = $1', [identifier]);
