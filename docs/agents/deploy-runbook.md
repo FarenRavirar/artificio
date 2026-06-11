@@ -45,9 +45,11 @@ Ordem:
 Observações:
 - Como o `JWT_SECRET` do glossário novo fica igual ao `accounts`, tokens antigos do glossário legado podem expirar. Usuários podem precisar logar de novo; isso é aceitável e transitório.
 - Na VM Oracle, o resolver `169.254.169.254` pode demorar a resolver hostname novo. Em 2026-06-11 foi aplicado runtime via `resolvectl` para `1.1.1.1` e `8.8.8.8`. Se precisar sobreviver a reboot, persistir na configuração adequada do sistema/rede sem quebrar resolução interna da Oracle.
+- O legado beta roda com `com.docker.compose.project=glossario-beta`, mas service labels antigas (`app-beta`/`api-beta`/`db-beta`). Para o primeiro cutover beta, `deploy-glossario.yml` liga `reconcile_same_project_orphans`; a esteira executa `down --remove-orphans` no project alvo, sem remover volumes, antes do primeiro `up` do DB.
 
 ## Blindagens ativas (spec 009)
 - **R1 reconcile:** antes do 1º `up`, remove container de nome esperado pertencente a outro projeto compose (leftover). Não toca volume nem containers de outro nome.
+- **R1b opt-in same-project orphan:** para bootstrap legado com mesmo compose project e service label antiga, `_deploy-module.yml` pode rodar `down --remove-orphans` no project alvo antes do primeiro `up`. Usar só quando o modulo optar explicitamente.
 - **R2 guard exec-bit:** `pr-checks` falha se `ENTRYPOINT/CMD ["./*.sh"]` referenciar `.sh` não-`100755` no git. Corrigir: `git add --chmod=+x <arquivo>`.
 - **R3:** erro de `.env` ausente instrui o bootstrap; este runbook.
 - **R4:** resumo de smoke/health no `GITHUB_STEP_SUMMARY` do run.
