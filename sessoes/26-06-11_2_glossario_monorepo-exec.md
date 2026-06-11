@@ -31,5 +31,31 @@
 - Frontend: React 18 + Vite 5 + Tailwind 3 + Fuse.js. Sem bump de major nesta spec (D054: bump = decisão à parte).
 - nginx do app proxy `/api/` → `glossario-api:3000`.
 
+## Commit/PR (2026-06-11)
+- Branch `feat/glossario-monorepo`, commit `6a03111` (121 arq), **PR #14 → dev**.
+- CI: **glossário verde**, deploy **skipped** (gated dispatch-only, bootstrap-safe), site/accounts verde.
+- **mesas CI vermelho = PRÉ-EXISTENTE no dev** (provado em worktree limpo `origin/dev` + `--frozen-lockfile`): `apps/mesas/backend/src/routes/upload.ts:25` TS2769 — `@types/multer@2.1.0` traz tipos express-5 vs express-4 do mesas. **Não causado por este PR** (glossário/`packages/ui` inocentes). Task spawnada `task_a4c674e9` (SDD Lite, isolamento de módulo).
+- Lockfile additive (só subtree do glossário; `packages/ui` change aditiva, default SSO).
+
+## Deploy = BLOQUEADO em bootstrap da VM (mantenedor/segredo)
+Glossário roda **vivo em prod** na VM (legado Fase 1). Deploy via dispatch precisa antes:
+1. `.env.beta` (e `.env` prod) do glossário em `/opt/artificio[-beta]/apps/glossario/` com **`POSTGRES_PASSWORD` igual ao do volume existente** (`glossario[-beta]_pgdata*`, senão o postgres não sobe) + `JWT_SECRET`.
+2. Rota Cloudflare `glossario.artificiorpg.com` → container `glossario[-beta]-app`.
+3. Decisão de DB: novo compose reusa volume existente (nomes preservados) — confirmar senha do volume vivo (do `/opt/glossario*/.env` legado ou `secrets.7z`).
+Depois: `gh workflow run deploy-glossario.yml -f mode=deploy` (beta primeiro). 301 + nav + prod = T7–T10.
+
+## Review do PR #14 (Amazon Q + Codex) — corrigido
+**Bloqueadores de deploy (Codex):**
+- **E002** `nginx.conf.template` ausente (Dockerfile referenciava, não versionado) → criado.
+- **E003** runner de migrations tentaria reaplicar 12 migrations no DB vivo → movidas p/ `database/legacy/` (runner no-op, D059).
+
+**Segurança (Amazon Q):**
+- JWT_SECRET fallback `'secret'` removido (authController + authMiddleware → throw se ausente).
+- Admin email hardcoded → `process.env.ADMIN_EMAIL` (composes passam `ADMIN_EMAIL`).
+- CORS `cors()` aberto → allowlist `*.artificiorpg.com` + localhost + `ALLOWED_ORIGINS` (same-origin via nginx; Bearer, sem credentials).
+- Validação de input em `register`/`login`; fail-fast de `POSTGRES_PASSWORD` em `config/database.ts`.
+
+Build glossário verde pós-fixes. **E004** (mesas express-4 vs `@types/multer@2`) documentado + **spec 016** (padronizar monorepo em express 5, D060) + task `task_a4c674e9`.
+
 ## Critério de conclusão
 Tasks T1–T10 da spec 012 fechadas com evidência; `project-state.md` atualizado.
