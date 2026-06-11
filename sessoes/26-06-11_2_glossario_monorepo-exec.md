@@ -91,3 +91,10 @@ Tasks T1–T10 da spec 012 fechadas com evidência; `project-state.md` atualizad
 - Achado E (dívida aceita): `deploy-accounts.yml` é exceção/tarball, roda CI em push `feat/**`/`dev`/`main`, deploy só dispatch; documentado como transicional CDX-310.
 - Achado F (atenção): `_deploy-module` valida `main ⊆ dev` em qualquer deploy, inclusive beta/break-glass; docs falam mais de gate prod. Hoje ok; se hotfix em `main` deixar dev atrás, beta também bloqueia.
 - Achado G (atenção): `break-glass-deploy-prod` só cobre `mesas` e ainda passa pelo `_deploy-module`/invariante; serve como emergência rastreada, não ignora branch invariant.
+
+## Deploy BETA — tentativa 2 e correção R1b (2026-06-11)
+- Commit `b3e1fc3` pushado em `dev`; run `27382032090` passou lint/CI e entrou corretamente em `Deploy glossario beta`.
+- Falha no compose: containers legados `glossario-beta-{app,api,db}` existem com `com.docker.compose.project=glossario-beta`, mas service labels antigas (`app-beta`/`api-beta`/`db-beta`) e workdir `/opt/artificio/glossario-beta`. O novo compose quer os mesmos `container_name`; Docker recusou criar `glossario-beta-db`.
+- Isso é diferente da spec 009 R1 original: R1 remove leftover de **outro** project; aqui o project é igual e o service virou orphan.
+- Fix local: `_deploy-module.yml` ganhou input opt-in `reconcile_same_project_orphans`; quando ligado, detecta nome esperado com mesmo project mas service ausente no compose novo e roda `docker compose ... down --remove-orphans` sem `-v` antes do primeiro `up` do DB. `deploy-glossario.yml` liga isso somente em `dev`/beta.
+- Read-only pós-falha: legado beta/prod segue `Up`; nenhum volume removido.

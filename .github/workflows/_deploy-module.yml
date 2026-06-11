@@ -61,6 +61,10 @@ on:
         required: false
         default: false
         type: boolean
+      reconcile_same_project_orphans:
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -140,6 +144,7 @@ jobs:
       DB_USER: ${{ inputs.db_user }}
       HEALTH_CONTAINERS: ${{ inputs.env == 'beta' && inputs.health_containers_beta || inputs.health_containers }}
       CRITICAL_ROUTES: ${{ inputs.env == 'beta' && inputs.critical_routes_beta || inputs.critical_routes }}
+      RECONCILE_SAME_PROJECT_ORPHANS: ${{ inputs.reconcile_same_project_orphans }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -328,6 +333,35 @@ jobs:
             [ -n "$_rc_name" ] && reconcile_leftover "$_rc_name"
           done < <(printf '%s' "$HEALTH_CONTAINERS_B64" | base64 -d | jq -r '.[]')
 
+          # Bootstrap de legado no mesmo compose project: containers antigos podem ter
+          # o nome esperado, mas service label antigo (ex.: db-beta). Compose os trata
+          # como orphans do mesmo project e conflita antes do primeiro up. Opt-in por
+          # modulo; remove apenas containers do proprio project e nunca volumes.
+          if [ "${RECONCILE_SAME_PROJECT_ORPHANS:-false}" = "true" ]; then
+            target_services=$(docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" config --services)
+            needs_orphan_down=false
+            check_same_project_orphan() {
+              local name="$1"
+              [ -z "$name" ] && return 0
+              if docker container inspect "$name" >/dev/null 2>&1; then
+                local proj service
+                proj=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$name" 2>/dev/null || echo "")
+                service=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$name" 2>/dev/null || echo "")
+                if [ "$proj" = "$COMPOSE_PROJECT" ] && [ -n "$service" ] && ! printf '%s\n' "$target_services" | grep -Fxq "$service"; then
+                  echo "reconcile: same-project orphan '$name' (service='$service', project='$COMPOSE_PROJECT')"
+                  needs_orphan_down=true
+                fi
+              fi
+            }
+            check_same_project_orphan "$DB_SERVICE"
+            while IFS= read -r _rc_name; do
+              [ -n "$_rc_name" ] && check_same_project_orphan "$_rc_name"
+            done < <(printf '%s' "$HEALTH_CONTAINERS_B64" | base64 -d | jq -r '.[]')
+            if [ "$needs_orphan_down" = "true" ]; then
+              docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" down --remove-orphans
+            fi
+          fi
+
           docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" up -d "$DB_SERVICE"
 
           for i in $(seq 1 60); do
@@ -412,6 +446,7 @@ jobs:
             export DB_USER='$DB_USER'
             export HEALTH_CONTAINERS_B64='$health_b64'
             export CRITICAL_ROUTES_B64='$routes_b64'
+            export RECONCILE_SAME_PROJECT_ORPHANS='$RECONCILE_SAME_PROJECT_ORPHANS'
             export GITHUB_RUN_ID='$GITHUB_RUN_ID'
             bash '$remote_script'" | tee "$RUNNER_TEMP/deploy-out.txt"
 
