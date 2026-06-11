@@ -30,4 +30,4 @@ Reescrever lógica do mesas. Migrar outros módulos que já são express 5. Muda
 - mesas roda em **prod** (Gate D fechado) → migração com cuidado; snapshot + smoke; rollback pelo `_deploy-module`.
 - Auth do mesas valida `artificio_session` (`@artificio/auth`) — não mexer no contrato SSO.
 - path-to-regexp v8 é a maior fonte de quebra silenciosa: auditar TODAS as rotas com wildcard/regex.
-- Paliativo de baixo risco se a migração atrasar: pin `@types/multer@^1.4.x` ou `pnpm.overrides "@types/multer>@types/express": "^4.17.21"` só p/ destravar o build (anotar como dívida, não fecha a spec).
+- **Ponte JÁ aplicada (2026-06-11):** `pnpm.overrides "@types/multer>@types/express": "^4.17.21"` no root destrava o build (E004). **T0 desta spec = REMOVER esse override** ao migrar p/ express 5 (senão o multer volta a usar tipos express-4 e diverge do express-5 do mesas).

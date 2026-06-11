@@ -44,6 +44,6 @@
 - **Módulo/Pacote:** apps/mesas (backend) — **pré-existente no `dev`**, exposto por CI
 - **Sintoma:** `apps/mesas/backend/src/routes/upload.ts(25,40) TS2769: No overload matches this call` — `IRouterMatcher`/`RequestHandler` de `@types/express-serve-static-core@5.1.1` vs `@4.19.8`. Reproduzido em worktree limpo de `origin/dev` com `--frozen-lockfile`.
 - **Causa raiz:** mesas usa `express ^4.19.2` + `@types/express ^4.17.21` (express 4), mas `@types/multer ^2.1.0` (par do multer 2.x) traz tipos de **express 5**; o `upload.single()` fica tipado contra express 5, incompatível com o router express 4.
-- **Solução (pendente, fora do escopo do PR #14):** task `task_a4c674e9` + **spec 016** — padronizar o monorepo em **express 5** (converter mesas-backend), eliminando o skew. Paliativo possível: pin `@types/multer@^1.4.x` ou `pnpm.overrides "@types/multer>@types/express": "^4.17.21"`.
+- **Solução (PONTE aplicada 2026-06-11):** `pnpm.overrides` no root `package.json` — `"@types/multer>@types/express": "^4.17.21"` força o `@types/multer@2` a usar tipos express-4 (runtime do multer inalterado). `turbo build --filter=@artificio/mesas-backend --force` **verde**. **Fix definitivo = spec 016** (migrar mesas p/ express 5, D060) → ao migrar, **remover o override** (senão volta a divergir). Não fecha o E004; é unblock do CI/deploy.
 - **Prevenção:** uma única major de express no monorepo (stack canônica). Não misturar express 4 e 5. CI de build deve rodar sem cache turbo mascarando (deploys via imagem podem esconder build TS quebrado).
 - **Data:** 2026-06-11

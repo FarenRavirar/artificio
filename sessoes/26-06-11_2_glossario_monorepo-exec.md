@@ -57,5 +57,11 @@ Depois: `gh workflow run deploy-glossario.yml -f mode=deploy` (beta primeiro). 3
 
 Build glossário verde pós-fixes. **E004** (mesas express-4 vs `@types/multer@2`) documentado + **spec 016** (padronizar monorepo em express 5, D060) + task `task_a4c674e9`.
 
+## Merge + push:dev (2026-06-11)
+- **PR #14 rebase-merged → `dev`** (`a286f6b`/`f2d1308`). `promote-dev-to-main` verde (invariante `main ⊆ dev` ok). pr-checks verde.
+- Push:dev redeployou betas (toque em `packages/ui`): **deploy-accounts ✓, deploy-site ✓** (mudança aditiva do Header validada no metal). **deploy-glossario = CI ✓ + deploy SKIPPED** (gated dispatch-only, bootstrap-safe).
+- **deploy-mesas = FAILURE** (E004 pré-existente; aborta no CI build, não toca VM → mesasbeta intacto). Ficará vermelho a cada push:dev até a **spec 016** (express 5). Não-regressão deste trabalho.
+- **Deploy real do glossário = pendente de bootstrap VM** (mantenedor): `.env.beta`/`.env` com `POSTGRES_PASSWORD` do volume vivo + `JWT_SECRET`(=accounts) + rota Cloudflare `glossario.` → depois `gh workflow run deploy-glossario.yml -f mode=deploy`.
+
 ## Critério de conclusão
 Tasks T1–T10 da spec 012 fechadas com evidência; `project-state.md` atualizado.
