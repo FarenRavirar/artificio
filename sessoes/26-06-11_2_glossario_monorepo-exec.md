@@ -109,3 +109,10 @@ Tasks T1–T10 da spec 012 fechadas com evidência; `project-state.md` atualizad
   - `https://glossariobeta.artificiorpg.com/login` -> HTTP 200.
   - `docker exec glossario-beta-api ... /health` -> `{"status":"OK","message":"Backend v2 operacional!"}`.
 - Não houve remoção de volume; `glossariorpg.` e PROD intocados. Login real com credencial ainda precisa validação manual do mantenedor/browser.
+
+## Promoção PROD — parcial por DNS (2026-06-11)
+- `dev -> main` promovido por fast-forward nos runs `27382873086` e `27383125796`; `origin/main=origin/dev=7229031`.
+- Fix extra `7229031`: `deploy-glossario.yml` liga `reconcile_same_project_orphans` tambem em PROD, porque os containers legados prod tinham `project=glossario` com service labels antigas (`app-prod`/`api-prod`/`db-prod`).
+- Bootstrap VM PROD executado: `/opt/artificio` resetado para `origin/main`; `/opt/artificio/apps/glossario/.env` criado com permissão `600`; `POSTGRES_PASSWORD` conferido igual ao legado prod e `JWT_SECRET` igual ao accounts prod sem imprimir valores.
+- Deploy prod run `27383164490`: lint/CI verde; build/recreate/health verdes; containers `glossario-{db,api,app}` agora rodam imagens monorepo `glossario-glossario-*`, services novos e rede `artificio_net`; backend `/health` OK.
+- Falha restante: smoke público do workflow falhou por DNS (`curl: Could not resolve host: glossario.artificiorpg.com`). `dig @1.1.1.1` e `@8.8.8.8` não retornam A/AAAA para `glossario.artificiorpg.com`; `glossariorpg.artificiorpg.com` também não resolveu no teste. Próximo passo é corrigir/criar DNS Cloudflare para `glossario.` e re-rodar smoke/deploy.
