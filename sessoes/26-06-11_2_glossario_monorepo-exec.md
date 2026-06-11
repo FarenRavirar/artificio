@@ -116,3 +116,9 @@ Tasks T1–T10 da spec 012 fechadas com evidência; `project-state.md` atualizad
 - Bootstrap VM PROD executado: `/opt/artificio` resetado para `origin/main`; `/opt/artificio/apps/glossario/.env` criado com permissão `600`; `POSTGRES_PASSWORD` conferido igual ao legado prod e `JWT_SECRET` igual ao accounts prod sem imprimir valores.
 - Deploy prod run `27383164490`: lint/CI verde; build/recreate/health verdes; containers `glossario-{db,api,app}` agora rodam imagens monorepo `glossario-glossario-*`, services novos e rede `artificio_net`; backend `/health` OK.
 - Falha restante: smoke público do workflow falhou por DNS (`curl: Could not resolve host: glossario.artificiorpg.com`). `dig @1.1.1.1` e `@8.8.8.8` não retornam A/AAAA para `glossario.artificiorpg.com`; `glossariorpg.artificiorpg.com` também não resolveu no teste. Próximo passo é corrigir/criar DNS Cloudflare para `glossario.` e re-rodar smoke/deploy.
+
+## Fechamento operacional / higiene Git (2026-06-11)
+- Verificado: local `dev`, `origin/dev` e `origin/main` em `ae69ea3`; sem diff local antes do reforço documental final.
+- VM: PROD `/opt/artificio` em `main@7229031` e BETA `/opt/artificio-beta` em `dev@d410787` porque commits posteriores eram documentação; containers glossário prod/beta seguem healthy. Não há necessidade de reset/deploy só por docs.
+- PR aberto #15 (`fix/mesas-multer-express-types -> dev`) é stale: contém commits antigos/equivalentes já integrados em `dev/main` por outros commits e está `DIRTY`; fechar para remover alerta de PR em `dev`, sem merge.
+- Regra corrigida após feedback do mantenedor: **fast-forward `dev->main` direto é só para doc-only explicitamente autorizado**. Código segue fluxo normal branch/PR/checks/revisão/merge autorizado.
