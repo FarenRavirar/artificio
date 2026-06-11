@@ -86,6 +86,30 @@ PR = CI/checks; deploy real = workflow_dispatch mode=deploy.
 
 O workflow nao imprime valor de segredo e nao instala pacote na VM. Prereqs da VM ficam no bootstrap documentado em `deploy-flow.md`.
 
+### `deploy-glossario.yml`
+
+Nao usa secret de repo especifico do modulo; depende dos secrets compartilhados de deploy. Os segredos runtime ficam nos env files gitignored da VM:
+```text
+BETA: /opt/artificio-beta/apps/glossario/.env.beta
+PROD: /opt/artificio/apps/glossario/.env
+```
+
+Chaves esperadas:
+```text
+POSTGRES_USER
+POSTGRES_PASSWORD
+POSTGRES_DB
+JWT_SECRET
+ADMIN_EMAIL
+ALLOWED_ORIGINS
+BETA_READONLY_MEMBERS   # beta
+```
+
+Regras:
+- `POSTGRES_PASSWORD` deve ser o segredo original do volume legado (`glossario-beta_pgdata_beta` ou `glossario_pgdata_prod`).
+- `JWT_SECRET` deve ser igual ao `apps/accounts` do mesmo clone.
+- Validar por presenca/fingerprint, nunca imprimir valores.
+
 ## SSO Accounts
 Dominio publico:
 ```text

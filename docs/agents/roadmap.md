@@ -25,7 +25,7 @@
 |---|---|---|---|
 | `accounts` (SSO) | `accounts.artificiorpg.com` | ✅ no ar (Gate B) + marca CDX-311 ✅ no ar | ⬜ retrofit deploy (CDX-310) |
 | `mesas` | `mesas.artificiorpg.com` | ✅ Gate D fechado: técnico ✅ + deploy real ✅ (CDX-309E) + login real ✅ + allowlist prod ✅ + marca CDX-311 ✅ no ar | Pendência isolada fora do Gate D: hydrate beta precisa `PROD_DB_URL` + restart autorizado |
-| `glossario` | `glossario.artificiorpg.com` (alvo; hoje `glossariorpg.`) | ⬜ roda em prod fora do monorepo | ⬜ **spec 012** (→monorepo + hostname novo + 301) + **spec 015** (SSO accounts + compat login antigo; fecha Gate D) |
+| `glossario` | `glossariobeta.artificiorpg.com` (BETA) / `glossario.artificiorpg.com` (prod futuro; hoje legado em `glossariorpg.`) | 🔄 `apps/glossario` em `dev`; bootstrap beta pronto; prod legado intacto | ⬜ **spec 012**: dispatch beta + smoke, depois prod quando `main` tiver o módulo + 301 posterior; **spec 015**: SSO accounts + compat login antigo (fecha Gate D) |
 | `site` (blog) | **`beta.artificiorpg.com` NO AR** (→ raiz futuro) | 🔄 **spec 008** F1–F7 ✅ + **spec 010** ✅ (nav cross-módulo unificado + fix logo) no ar nos betas | ⬜ **spec 011 — CMS/authoring (paridade WordPress):** editor de posts/categorias, slug+sugestão, OG, mídia (img/áudio/vídeo), snippets, drafts/arquivar, resumos, usuários editores/roles. ⬜ Gate D final; auto-deploy push-dev; opc Cloudinary/GA reais. WP intocável (cutover=Gate C) |
 | `downloads` | `downloads.artificiorpg.com` | ⬜ a construir | ⬜ construir + SSO/UI + deploy |
 | `esferas` | `esferas.artificiorpg.com` | ⬜ a construir | ⬜ multi-sistema (sistema×edição, D&D 2014/2024, PF futuro, D028) + SSO/UI |
@@ -73,7 +73,7 @@
 1. **Spec 011 / site CMS** — T16/T17 fechados; refino UX (editor light + SEO Yoast) + fix de sessão SSO live. **Fase 2 mídia (T18 backend + T19 UI) deployada no beta** (`e5ee84e`): biblioteca + upload Cloudinary + picker no editor (bulk WP→Cloudinary = opt-in). **Próximo: T20 (CRUD taxonomias)** fecha Fase 2 → Fase 3 (dashboard/curadoria/nav/redirects). E2E de mídia no beta = mantenedor.
 2. **CDX-310** (retrofit accounts) — durabiliza deploy do SSO.
 3. **Spec auditoria visual** — gate de consistência antes de escalar módulos.
-4. **glossario** → monorepo (já existe, menor risco; valida o playbook `add-module`).
+4. **glossario** → monorepo (em andamento; beta bootstrap pronto; valida o playbook `add-module`).
 5. **site/blog** continua por fases de CMS/autoria (mídia, curadoria, roles) antes do Gate D final.
 6. **downloads** · **esferas** · **srd** (+`crosslink`) · **links**.
 7. (futuro/⏸️) Gate C — cutover raiz + desligar WP.

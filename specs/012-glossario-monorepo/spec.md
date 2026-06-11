@@ -11,8 +11,8 @@ Glossário (Grande Glossário de RPG, v2) roda em produção **fora do monorepo*
 1. Código legado importado para `apps/glossario` (frontend React + backend Express + `database/`), **sem segredos reais** (modelo CDX-308A do mesas).
 2. Builda no monorepo: `pnpm --filter @artificio/glossario... build` verde + testes existentes verdes.
 3. Design system G1: header/nav/footer/marca via `@artificio/ui` (D040, contrato D043), **incluindo o nav cross-módulo** (`defaultNavItems`: Portal/Glossário/Mesas/Downloads/Esferas/SRD — e WhatsApp quando spec 014 entrar); sem divergência visual.
-4. Servido em **`glossario.artificiorpg.com`** via Cloudflare Tunnel (hostname→container), rede `artificio_net`.
-5. **`glossariorpg.artificiorpg.com` → 301 → `glossario.artificiorpg.com`** (mesmo path). SEO pétreo: nenhuma URL legada quebra.
+4. Servido primeiro em **`glossariobeta.artificiorpg.com`** via Cloudflare Tunnel (`glossario-beta-app:80`), depois em **`glossario.artificiorpg.com`** quando `main` contiver o módulo.
+5. **`glossariorpg.artificiorpg.com` → 301 → `glossario.artificiorpg.com`** (mesmo path) só depois do smoke prod. SEO pétreo: nenhuma URL legada quebra.
 6. Dados preservados: DB `glossario_v2` prod intacto (mesmas contagens de `terms`/`users` antes/depois).
 7. Deploy canônico: workflow `deploy-glossario.yml` via `_deploy-module.yml` (esteira D041: `dev`→beta, `main`→prod; snapshot, health, smoke, rollback, lock D056).
 8. Login legado (email/senha BCrypt + JWT custom) **continua funcionando como está** nesta spec (transitório, documentado; troca por SSO = spec 015).
@@ -20,8 +20,9 @@ Glossário (Grande Glossário de RPG, v2) roda em produção **fora do monorepo*
 10. Analytics GA4 via `packages/analytics` (D020) nas páginas públicas.
 
 ## Critérios de aceite
-- [ ] `https://glossario.artificiorpg.com` 200, busca de termo conhecido funciona (ex.: "Fireball").
-- [ ] `https://glossariorpg.artificiorpg.com/<rota>` → 301 → `glossario.…/<rota>`.
+- [ ] `https://glossariobeta.artificiorpg.com` 200, `/api/terms` 200, busca de termo conhecido funciona (ex.: "Fireball").
+- [ ] Depois de `main` conter o módulo: `https://glossario.artificiorpg.com` 200.
+- [ ] Após smoke prod: `https://glossariorpg.artificiorpg.com/<rota>` → 301 → `glossario.…/<rota>`.
 - [ ] Login legado: usuário existente loga e vê painel.
 - [ ] `select count(*) from terms` igual pré/pós-migração.
 - [ ] Deploy via Actions verde (beta e prod); rollback testado em beta.

@@ -28,6 +28,8 @@ Projeto longo (~3 meses, N chats, N agentes). Reload paga × centenas de sessõe
 
 Depois verificar `sessoes/` por sessão ativa incompleta. Se houver, continuar nela salvo pedido explícito de abrir sessão dedicada. Antes de qualquer alteração, registrar na sessão: o que vai fazer, o que falta, o que já foi feito.
 
+**Anti-retrabalho:** se um fluxo parecer estranho, contraditório ou perigoso (CI/CD, deploy, branch, DNS/tunnel, auth, banco, SEO, importador, pacote compartilhado), **não corrigir no chute**. Primeiro pesquisar decisões, specs, sessões e docs operacionais relevantes (`decisions.md`, `project-state.md`, `errors.md`, `specs/`, `sessoes/`, `docs/agents/`). Identificar se o comportamento é decisão histórica, exceção temporária ou bug real; só então corrigir e registrar evidência.
+
 ---
 
 ## Gates do Programa (regra pétrea de sequência)

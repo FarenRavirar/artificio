@@ -5,7 +5,7 @@
 ## Host
 - **Alias SSH:** `faren` (também `oracle`, `ubuntu`, IP) → Oracle Cloud, **ARM `aarch64`**, Ubuntu 24.04, Docker.
 - **IP:** `164.152.39.46`.
-- **Estrutura G1:** `/opt/artificio/<servico>`.
+- **Estrutura G1:** `/opt/artificio/<servico>`; monorepo prod em `/opt/artificio` (`main`) e beta em `/opt/artificio-beta` (`dev`).
 - **Rede Docker compartilhada:** `artificio_net` (bridge). Tunnel e serviços públicos passam por ela.
 
 ## Postgres do G1 (4 bancos → 4 dumps)
@@ -17,7 +17,7 @@
 | `glossario-db` | `glossario_v2` | `admin` | `glossario_pgdata_prod` | 85MB |
 | _(órfão)_ | — | — | `glossario_pgdata_producao` (LINKS=0, legado) | 49MB |
 
-Stacks em `/opt/artificio/`: `glossario/` (prod), `glossario-beta/`, `mesas/` (prod), `mesas-beta/`, `accounts/`.
+Stacks legadas do glossário preservadas para bootstrap: `/opt/artificio/glossario/` (prod) e `/opt/artificio/glossario-beta/` guardam envs legados. No monorepo, o caminho novo é `/opt/artificio[-beta]/apps/glossario/`.
 
 ## Regra operacional de deploy
 
@@ -60,6 +60,21 @@ Backupear mesmo assim (pequeno, segurança): credenciais home (`.aws`, `.oci`, `
 - Tunnel: `6417d3a0-b98b-42ed-97da-3fb9f6ecfac2`.
 - Rede: `artificio_net`.
 - `accounts-api` e `cloudflared` estao na mesma rede. Probe em 2026-06-04: `http://accounts-api:3000/health = 200`.
+- O container usa token remoto (`--token`); ingress/hostnames sao gerenciados no painel Cloudflare Zero Trust, nao por `config.yml` local.
+- Rotas relevantes:
+  - `accounts.artificiorpg.com` -> `http://accounts-api:3000`.
+  - `glossariobeta.artificiorpg.com` -> `http://glossario-beta-app:80` (criada para bootstrap beta do monorepo em 2026-06-11).
+  - `glossario.artificiorpg.com` -> `http://glossario-app:80` (futura, somente depois de `main` conter `apps/glossario`).
+  - `glossariorpg.artificiorpg.com` permanece legado/intocado neste bootstrap; redirect 301 para `glossario.` e etapa posterior.
+
+## DNS Oracle
+Em 2026-06-11, a VM nao resolvia `glossariobeta.artificiorpg.com` via resolver Oracle `169.254.169.254`, embora Cloudflare/Google resolvessem publicamente. Foi aplicado workaround de runtime:
+```bash
+sudo resolvectl dns enp0s6 1.1.1.1 8.8.8.8
+sudo resolvectl domain enp0s6 "~."
+sudo resolvectl flush-caches
+```
+Se precisar sobreviver a reboot, persistir em configuracao apropriada do sistema/rede sem quebrar resolucao interna da Oracle.
 
 ## Estimativa de backup total
 G1 (dumps+volumes) < 1GB · WP uploads 6.34GB · gerenciador_telegram pg 1.35GB · foundry 1.9GB · libs/config ~1GB → **~11–12GB**. Destino `C:\projetos\artificiobackup` (300GB livre) folga.

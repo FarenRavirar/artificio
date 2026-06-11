@@ -12,7 +12,7 @@ Topologia **subdomínio-por-módulo** (D017). Cada módulo no próprio host, roo
 | Módulo | Subdomínio | O que é | Status |
 |---|---|---|---|
 | `site` | `beta.artificiorpg.com` (BETA → raiz futuro) | Portal + blog (ex-WordPress), SSG | a construir |
-| `glossario` | `glossariorpg.artificiorpg.com` | Glossário RPG PT/EN (fica, prod) | a integrar (código→monorepo) |
+| `glossario` | `glossariobeta.artificiorpg.com` (BETA) / `glossario.artificiorpg.com` (prod futuro) | Glossário RPG PT/EN | monorepo em `dev`; bootstrap beta pronto; prod legado ainda em `glossariorpg.` |
 | `mesas` | `mesas.artificiorpg.com` | Anúncio de mesas (refeito) | a construir |
 | `downloads` | `downloads.artificiorpg.com` | Materiais traduzidos | a construir |
 | `esferas` | `esferas.artificiorpg.com` | Wiki Spheres of Power (multi-sistema: D&D 2014/2024, PF futuro) | a construir |

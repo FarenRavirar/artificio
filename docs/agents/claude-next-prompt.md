@@ -12,9 +12,10 @@ Continuação direta de `C:\projetos\artificio` (**Artifício RPG**). Você é o
 
 Não redecida arquitetura fechada. Gate C adiado; WordPress raiz e DNS raiz intocáveis.
 
-## Estado atual (2026-06-08)
+## Estado atual (atualizado 2026-06-11)
 - Gates A/B fechados; Gate D `mesas` fechado.
-- **Spec 011 no ar no beta:** Fase 1 + T16 + T17 (operações editoriais + publicação honesta) + refino UX (editor BlockNote light + SEO/OG Yoast-like) + **Fase 2 mídia (T18 backend + T19 UI)**. `main = dev`.
+- **Spec 011 no ar no beta:** Fase 1 + T16 + T17 (operações editoriais + publicação honesta) + refino UX (editor BlockNote light + SEO/OG Yoast-like) + **Fase 2 mídia (T18 backend + T19 UI)**.
+- **Glossário:** `apps/glossario` está em `dev`; bootstrap BETA pronto (`glossariobeta.` + `.env.beta` + volume legado), aguardando dispatch. `dev` está à frente de `main`; não fazer prod glossário até `main` conter o módulo.
 - **Mídia:** biblioteca nativa (`media` estendida pela migration 004), API `/api/admin/v1/media`, upload Cloudinary (gated; **migração em massa WP→Cloudinary é opt-in `SITE_MIGRATE_MEDIA=true`** — fora do boot), UI Mídia + `MediaPicker` (featured/OG/inserir no editor).
 - **Fix de sessão SSO** (refresh-retry, `packages/auth`) live em beta + mesas prod.
 - Pendência de validação: E2E autenticado de mídia no beta (mantenedor).

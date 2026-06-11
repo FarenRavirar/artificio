@@ -21,6 +21,31 @@ A esteira faz `git reset --hard origin/<branch>` na VM, mas o `.env.<env>` (giti
 
 > **Não** subir containers manualmente p/ "validar" antes do deploy — cria leftover de outro projeto compose. A esteira reconcilia leftovers de nome conhecido (spec 009 R1), mas evite o caso.
 
+## Bootstrap do `glossario` (spec 012)
+
+Estado seguro antes do primeiro deploy:
+- **BETA primeiro:** `/opt/artificio-beta` deve estar em `dev` alinhado com `origin/dev`, que contém `apps/glossario`.
+- **PROD depois:** `/opt/artificio` permanece em `main`; não fazer deploy prod enquanto `origin/main` não contiver `apps/glossario`.
+- Env beta: `/opt/artificio-beta/apps/glossario/.env.beta` com permissão `600`.
+- Env prod futuro: `/opt/artificio/apps/glossario/.env`, só quando `main` já tiver o módulo.
+- `POSTGRES_PASSWORD` precisa ser exatamente o segredo original do volume legado correspondente; validar por fingerprint/tamanho, nunca por impressão do valor.
+- `JWT_SECRET` precisa ser igual ao `apps/accounts` do mesmo clone (`apps/accounts/.env.beta` no beta; `apps/accounts/.env` no prod), pois o workflow recusa divergência.
+- Volumes reaproveitados: BETA `glossario-beta_pgdata_beta`; PROD `glossario_pgdata_prod`.
+
+Rotas Cloudflare Tunnel:
+- BETA: `glossariobeta.artificiorpg.com` -> `http://glossario-beta-app:80`.
+- PROD futuro: `glossario.artificiorpg.com` -> `http://glossario-app:80`.
+- Não mexer em `glossariorpg.artificiorpg.com` no bootstrap beta; o redirect `glossariorpg.` -> `glossario.` é etapa posterior.
+
+Ordem:
+1. Disparar BETA em `dev`: `gh workflow run deploy-glossario.yml --ref dev -f mode=deploy`.
+2. Validar home, `/api/terms`, busca e login.
+3. Só preparar PROD depois que `main` receber `apps/glossario`.
+
+Observações:
+- Como o `JWT_SECRET` do glossário novo fica igual ao `accounts`, tokens antigos do glossário legado podem expirar. Usuários podem precisar logar de novo; isso é aceitável e transitório.
+- Na VM Oracle, o resolver `169.254.169.254` pode demorar a resolver hostname novo. Em 2026-06-11 foi aplicado runtime via `resolvectl` para `1.1.1.1` e `8.8.8.8`. Se precisar sobreviver a reboot, persistir na configuração adequada do sistema/rede sem quebrar resolução interna da Oracle.
+
 ## Blindagens ativas (spec 009)
 - **R1 reconcile:** antes do 1º `up`, remove container de nome esperado pertencente a outro projeto compose (leftover). Não toca volume nem containers de outro nome.
 - **R2 guard exec-bit:** `pr-checks` falha se `ENTRYPOINT/CMD ["./*.sh"]` referenciar `.sh` não-`100755` no git. Corrigir: `git add --chmod=+x <arquivo>`.
@@ -43,6 +68,7 @@ docker volume rm <projeto>_<volume>
 ## Migrations
 - mesas: `apps/mesas/database/` (aplicadas pelo `apply_required_migrations.sh`, frameworkado).
 - site: migra **no entrypoint do container** (`db/migrations/`), não pela esteira → o passo `apply_required_migrations.sh ... database` é no-op gracioso (dir ausente).
+- glossário: migrations legadas ficam em `apps/glossario/database/legacy/`; o runner do monorepo deve ser no-op até uma futura baseline explícita (D059).
 
 ## Promoção a prod
 `promote-prod-fast-forward.yml` (dispatch + confirmação), preserva `main ⊆ dev`. Nunca squash/merge commit em `dev→main`.

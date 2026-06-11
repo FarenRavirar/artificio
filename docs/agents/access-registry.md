@@ -14,11 +14,12 @@
 | Segredo | Onde vive | Uso | Backup |
 |---|---|---|---|
 | `.env` de mesas (beta+prod) | `/opt/mesas*/.env` (VM) | OAuth, JWT, DB pass, Cloudinary, Discord | → `secrets.7z` |
-| `.env` de glossário (beta+prod) | `/opt/glossario*/.env` (VM) | DB pass, JWT, etc. | → `secrets.7z` |
+| `.env` de glossário legado (beta+prod) | `/opt/artificio/glossario*/.env` (VM) | DB pass legado, JWT legado | → `secrets.7z` |
+| `.env` de glossário monorepo (beta+prod) | `/opt/artificio-beta/apps/glossario/.env.beta` e futuro `/opt/artificio/apps/glossario/.env` | DB pass do volume legado + JWT igual ao accounts do clone | VM + bundle futuro |
 | WP Hostinger (DB + FTP) | `secrets.7z` (off-VM) | **Fase 3** (migração: media on-demand) | bundle |
 | Cloudinary keys | `.env` dos serviços | upload de imagem (signed) | → bundle |
 | GHCR PAT | bundle | pull de imagem na VM | bundle |
-| Cloudflare token | bundle | DNS/tunnel | bundle |
+| Cloudflare token | bundle / painel Zero Trust | DNS/tunnel remoto | bundle |
 | OAuth Google (client) | `C:\projetos\artificiobackup\accounts-oauth.env` (fora do git) + futuro env do `accounts.` | SSO | bundle |
 | GitHub Actions deploy `accounts` | Repo secrets (`FarenRavirar/artificio`) + cofre local `C:\projetos\Secrets\artificio` | CI/CD e deploy VM | cofre local |
 | Chave SSH `faren` | `*.key` local (gitignored) | acesso VM | **nunca no repo/bundle versionado** |
@@ -50,6 +51,7 @@ Detalhe operacional: `docs/agents/github-actions-secrets.md`.
 - GitHub Actions: validar secrets só por nome/presença/tamanho. Nunca `echo` de `ACCOUNTS_ENV`, chave SSH, tokens JWT ou senha de banco.
 - Bundle de segredos: **`secrets.tar.gz` plaintext** em `C:\projetos\artificiobackup` (fora do git), **sem encriptação por ora** (D030 — local-only, sem fricção). `wp-hostinger.env` idem (fora do git). **Encriptação real + ROTAÇÃO de todas as creds = obrigatório no setup da instância nova.** Pasta `artificiobackup` não pode ir pra cloud-sync.
 - **Rotação obrigatória** de qualquer credencial exposta em chat/log (ex.: WP DB+FTP de 2026-06-03) **após a migração**.
+- Em 2026-06-11, o token do container `cloudflared` apareceu em saida de processo antes de sanitizacao. Rotacionar no Cloudflare Zero Trust quando a janela operacional permitir; isso nao bloqueia o bootstrap do `glossario`.
 - Princípio do menor privilégio: cada serviço só com os segredos que precisa; sem reuso de senha entre serviços no setup novo.
 
 ## Não ter acesso (explícito)

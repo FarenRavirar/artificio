@@ -18,16 +18,17 @@ Nao usar `scp`, tarball, bundle local ou `docker compose up/down` manual como ca
 ## Fluxo Normal
 
 1. Desenvolver em `feat/*`.
-2. Abrir PR para `main`.
+2. Abrir PR para `dev`.
 3. GitHub roda `pr-checks.yml`:
    - `_lint-shell.yml` = ShellCheck + actionlint.
    - `_enforce-migration-dir.yml` = migrations SQL so em `apps/<modulo>/database/`, com self-test permitido/bloqueado.
 4. Workflow do modulo roda CI em PR. Exemplo: `deploy-mesas.yml` chama `_deploy-module.yml` com `deploy=false`.
-5. Merge para `main` so apos revisao/aprovacao.
-6. Deploy real so por `workflow_dispatch mode=deploy` no workflow do modulo.
-7. Runner entra por SSH e a VM faz `git fetch origin main --tags` + `git reset --hard origin/main`.
+5. Merge para `dev` so apos revisao/aprovacao; beta roda em `/opt/artificio-beta`.
+6. Deploy real so por `workflow_dispatch mode=deploy` no workflow do modulo, ou por push `dev` quando o modulo ja estiver fora do bootstrap inicial.
+7. Runner entra por SSH e a VM faz `git fetch origin <branch> --tags` + `git reset --hard origin/<branch>` (`dev` para beta, `main` para prod).
 8. Workflow valida `.env`, `JWT_SECRET` compartilhado, DB, snapshot, migrations, build, health e smoke.
 9. Falha em deploy aciona rollback por snapshot + `docker compose up -d`.
+10. Promocao para prod usa `promote-prod-fast-forward.yml` preservando `main ⊆ dev`; nao usar squash/merge commit em `dev→main`.
 
 ## Workflows
 
@@ -38,8 +39,17 @@ Nao usar `scp`, tarball, bundle local ou `docker compose up/down` manual como ca
 | `.github/workflows/_enforce-migration-dir.yml` | Reutilizavel: bloqueia `.sql` fora de `apps/*/database/` | Nunca |
 | `.github/workflows/_deploy-module.yml` | Reutilizavel: CI + deploy parametrizado | So quando input `deploy=true` |
 | `.github/workflows/deploy-mesas.yml` | CI/deploy do modulo `mesas` | So `workflow_dispatch mode=deploy` |
+| `.github/workflows/deploy-glossario.yml` | CI/deploy do modulo `glossario` | Bootstrap dispatch-only; beta em `dev`, prod em `main` apos modulo existir |
 | `.github/workflows/break-glass-deploy-prod.yml` | Emergencia rastreada, ainda via GitHub | So `workflow_dispatch` com `BREAK_GLASS` |
 | `.github/workflows/deploy-accounts.yml` | Legado/transicional de `accounts` | Reconciliar em CDX-310 |
+
+## Caso `glossario`
+
+`deploy-glossario.yml` usa `_deploy-module.yml` e preserva os volumes legados:
+- BETA: `/opt/artificio-beta`, branch `dev`, `.env.beta`, compose project `glossario-beta`, volume `glossario-beta_pgdata_beta`, rota `glossariobeta.artificiorpg.com` -> `http://glossario-beta-app:80`.
+- PROD: `/opt/artificio`, branch `main`, `.env`, compose project `glossario`, volume `glossario_pgdata_prod`, rota futura `glossario.artificiorpg.com` -> `http://glossario-app:80`.
+
+Nao fazer deploy prod enquanto `origin/main` nao contiver `apps/glossario`. Nao redirecionar `glossariorpg.artificiorpg.com` no bootstrap beta.
 
 ## Migration Contract
 
@@ -76,6 +86,7 @@ Checklist:
 - `deploy-accounts.yml` ainda e transicional e usa padrao diferente do `_deploy-module.yml`; alvo CDX-310.
 - `deploy-mesas.yml` chama `_lint-shell.yml`, e `pr-checks.yml` tambem chama. Redundancia aceita como defesa; Opus deve decidir se centraliza so no PR gate ou mantem gate local do workflow.
 - Comentarios de GitHub-first existem em varios docs; este arquivo deve ser a fonte operacional longa.
+- Path-filters dos deploys de modulo ainda nao cobrem todos os manifests raiz (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `turbo.json`). Isso pode deixar mudanca de dependencia/root sem CI/deploy de modulo; E004 expôs a classe. Corrigir em spec/PR proprio, pois tocar `deploy-mesas.yml`/`deploy-site.yml` pode disparar betas existentes.
 
 ## Sucesso CDX-309B
 
