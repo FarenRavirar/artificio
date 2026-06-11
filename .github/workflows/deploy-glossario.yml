@@ -64,11 +64,12 @@ jobs:
       # senha do volume `glossario[-beta]_pgdata*`). Habilitar push:dev só APÓS o
       # 1º deploy dispatch verde (espelha o que o site fez).
       deploy: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy') }}
-      # Primeiro cutover beta: os containers legados usam o mesmo compose project
-      # `glossario-beta`, mas services antigos (`app-beta`/`api-beta`/`db-beta`).
+      # Primeiro cutover beta/prod: os containers legados usam o mesmo compose
+      # project, mas services antigos (`app-beta`/`api-beta`/`db-beta` ou
+      # `app-prod`/`api-prod`/`db-prod`).
       # O reusable workflow remove estes orphans com `down --remove-orphans`, sem
       # volumes, antes do primeiro `up`.
-      reconcile_same_project_orphans: ${{ github.ref == 'refs/heads/dev' }}
+      reconcile_same_project_orphans: true
       health_containers: '["glossario-api","glossario-app"]'
       health_containers_beta: '["glossario-beta-api","glossario-beta-app"]'
       critical_routes: >-

@@ -12,7 +12,7 @@ Bootstrap seguro:
 - Nao mexer em `glossariorpg.artificiorpg.com` durante o bootstrap beta.
 - O redirect `glossariorpg.` -> `glossario.` e uma etapa posterior.
 
-Nota do primeiro cutover beta: os containers legados usam `project=glossario-beta`, mas service labels antigas (`app-beta`/`api-beta`/`db-beta`). O workflow ativa `reconcile_same_project_orphans` em `dev`, removendo esses orphans com `docker compose down --remove-orphans` sem apagar volumes antes de subir o DB novo.
+Nota do primeiro cutover beta/prod: os containers legados usam o mesmo project alvo (`glossario-beta`/`glossario`), mas service labels antigas (`app-beta`/`api-beta`/`db-beta` ou `app-prod`/`api-prod`/`db-prod`). O workflow ativa `reconcile_same_project_orphans`, removendo esses orphans com `docker compose down --remove-orphans` sem apagar volumes antes de subir o DB novo.
 
 ## Env files na VM
 
