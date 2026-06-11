@@ -21,7 +21,7 @@
 - `apps/glossario/package.json` raiz (`@artificio/glossario`) p/ o filtro `@artificio/glossario*` do deploy casar (hoje só `-frontend`/`-backend`; build local usa wildcard, ok; conferir no workflow).
 - lucide-react 0.363 peer warning (react<=18) — funciona no 19; bump opcional.
 - Smoke visual do chrome no beta (Nielsen).
-- T5+: rota tunnel `glossario.`, 301 `glossariorpg.`→`glossario.`, deploy beta→prod, nav compartilhado, desativar workflows do repo legado.
+- T5+: rota tunnel `glossario.`, deploy beta→prod, nav compartilhado, desativar workflows do repo legado. `glossariorpg.` é alias histórico pré-monorepo, não rota ativa a preservar.
 - **Nada commitado/pushado** (doc+código viajam juntos no 1º commit; push/deploy = aprovação).
 
 ## Achados de recon (p/ adaptação)
@@ -70,13 +70,13 @@ Tasks T1–T10 da spec 012 fechadas com evidência; `project-state.md` atualizad
 - Mantenedor confirmou bootstrap read/write já executado na VM para o **primeiro deploy BETA** via `deploy-glossario.yml`: `/opt/artificio-beta` está em `dev`/`origin/dev` (`d38307d`) com `apps/glossario`; `/opt/artificio` segue em `main` e **não** tem `apps/glossario`, então PROD permanece bloqueado.
 - Volumes legados a preservar: BETA `glossario-beta_pgdata_beta`; PROD `glossario_pgdata_prod`. Não apagar volumes, não dropar banco, não usar `docker compose down` global.
 - `.env.beta` existe em `/opt/artificio-beta/apps/glossario/.env.beta` com permissão `600`; `POSTGRES_PASSWORD` igual ao segredo do volume legado beta e `JWT_SECRET` igual ao `apps/accounts/.env.beta` do mesmo clone. Segredos não devem ser impressos.
-- Rota Cloudflare BETA criada: `glossariobeta.artificiorpg.com` -> `http://glossario-beta-app:80`; rota pública validada antes do deploy (`/` e `/api/terms` = 200). Não mexer em `glossariorpg.artificiorpg.com` neste bootstrap; 301 para `glossario.` fica para etapa posterior.
+- Rota Cloudflare BETA criada: `glossariobeta.artificiorpg.com` -> `http://glossario-beta-app:80`; rota pública validada antes do deploy (`/` e `/api/terms` = 200). `glossariorpg.artificiorpg.com` foi depois esclarecido pelo mantenedor como alias histórico pré-monorepo, não rota ativa.
 - Pendência antes de qualquer git/push/merge/deploy: atualizar documentação canônica do repositório com pré-requisitos, volumes, rotas Tunnel, ordem de deploy, caveat de login/JWT e observação de DNS Oracle.
 - Documentação local atualizada nesta retomada: `README.md`, `apps/glossario/README.md`, `docs/agents/{deploy-runbook,deploy-flow,infra-map,github-actions-secrets,access-registry,context-capsule,roadmap}.md`, `specs/012-glossario-monorepo/{spec,plan,tasks}.md`, `project-state.md` e `sessoes/index.md`.
 
 ## Deploy BETA autorizado (2026-06-11)
 - Mantenedor: "pode seguir" para `gh workflow run deploy-glossario.yml --ref dev -f mode=deploy` + smoke read-only.
-- Escopo: BETA (`glossariobeta.`) apenas. PROD/301/`glossariorpg.` intocados.
+- Escopo: BETA (`glossariobeta.`) apenas; PROD aguardava promoção. Observação posterior: `glossariorpg.` era alias histórico, não rota ativa.
 - Run `27381628683` falhou antes de tocar containers: workflow dispatch em `dev` escolheu `env=prod` por bug no `deploy-glossario.yml` (`env` só tratava `push dev`). Erro: `apps/glossario/.env ausente na VM`; sem snapshot/down/build. Read-only pós-falha: containers glossário prod/beta seguem `Up 7 days`; `glossariobeta.` `/` e `/api/terms` seguem 200.
 - Fix local preparado: `env` agora usa `github.ref == 'refs/heads/dev'` para beta também em `workflow_dispatch`.
 
@@ -108,17 +108,18 @@ Tasks T1–T10 da spec 012 fechadas com evidência; `project-state.md` atualizad
   - Busca por termo real `Azure Sea` -> HTTP 200, 1 resultado.
   - `https://glossariobeta.artificiorpg.com/login` -> HTTP 200.
   - `docker exec glossario-beta-api ... /health` -> `{"status":"OK","message":"Backend v2 operacional!"}`.
-- Não houve remoção de volume; `glossariorpg.` e PROD intocados. Login real com credencial ainda precisa validação manual do mantenedor/browser.
+- Não houve remoção de volume; PROD ainda intocado neste ponto. Login real com credencial ainda precisa validação manual do mantenedor/browser.
 
 ## Promoção PROD — parcial por DNS (2026-06-11)
 - `dev -> main` promovido por fast-forward nos runs `27382873086` e `27383125796`; `origin/main=origin/dev=7229031`.
 - Fix extra `7229031`: `deploy-glossario.yml` liga `reconcile_same_project_orphans` tambem em PROD, porque os containers legados prod tinham `project=glossario` com service labels antigas (`app-prod`/`api-prod`/`db-prod`).
 - Bootstrap VM PROD executado: `/opt/artificio` resetado para `origin/main`; `/opt/artificio/apps/glossario/.env` criado com permissão `600`; `POSTGRES_PASSWORD` conferido igual ao legado prod e `JWT_SECRET` igual ao accounts prod sem imprimir valores.
 - Deploy prod run `27383164490`: lint/CI verde; build/recreate/health verdes; containers `glossario-{db,api,app}` agora rodam imagens monorepo `glossario-glossario-*`, services novos e rede `artificio_net`; backend `/health` OK.
-- Falha restante: smoke público do workflow falhou por DNS (`curl: Could not resolve host: glossario.artificiorpg.com`). `dig @1.1.1.1` e `@8.8.8.8` não retornam A/AAAA para `glossario.artificiorpg.com`; `glossariorpg.artificiorpg.com` também não resolveu no teste. Próximo passo é corrigir/criar DNS Cloudflare para `glossario.` e re-rodar smoke/deploy.
+- Falha restante: smoke público do workflow falhou por DNS (`curl: Could not resolve host: glossario.artificiorpg.com`). `dig @1.1.1.1` e `@8.8.8.8` não retornam A/AAAA para `glossario.artificiorpg.com`. `glossariorpg.` também não resolveu e isso é esperado: era alias histórico pré-monorepo, não rota ativa. Próximo passo é corrigir/criar DNS Cloudflare para `glossario.` e re-rodar smoke/deploy.
 
 ## Fechamento operacional / higiene Git (2026-06-11)
 - Verificado: local `dev`, `origin/dev` e `origin/main` em `ae69ea3`; sem diff local antes do reforço documental final.
 - VM: PROD `/opt/artificio` em `main@7229031` e BETA `/opt/artificio-beta` em `dev@d410787` porque commits posteriores eram documentação; containers glossário prod/beta seguem healthy. Não há necessidade de reset/deploy só por docs.
 - PR aberto #15 (`fix/mesas-multer-express-types -> dev`) é stale: contém commits antigos/equivalentes já integrados em `dev/main` por outros commits e está `DIRTY`; fechar para remover alerta de PR em `dev`, sem merge.
 - Regra corrigida após feedback do mantenedor: **fast-forward `dev->main` direto é só para doc-only explicitamente autorizado**. Código segue fluxo normal branch/PR/checks/revisão/merge autorizado.
+- Correção de contexto do mantenedor: `glossariorpg.artificiorpg.com` não existe mais; era alias antigo antes do monorepo. Documentação atual deve tratar `glossario.artificiorpg.com` como único host PROD canônico do glossário e não planejar redirect obrigatório de `glossariorpg.`.
