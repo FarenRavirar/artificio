@@ -19,7 +19,26 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+// CORS restrito: o front é servido same-origin (nginx faz proxy de /api/),
+// então só liberamos origens do próprio domínio Artifício + localhost (dev).
+// Extra via ALLOWED_ORIGINS (CSV). Sem cookies (auth via Bearer), credentials off.
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Requisições same-origin/SSR/curl não mandam Origin → liberar.
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (/^https:\/\/([a-z0-9-]+\.)*artificiorpg\.com$/.test(origin)) return callback(null, true);
+      if (/^http:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+      return callback(new Error('Origem não permitida pelo CORS'));
+    },
+  })
+);
 app.use(express.json());
 
 // Rota de Healthcheck básica para o Docker/Github Actions
