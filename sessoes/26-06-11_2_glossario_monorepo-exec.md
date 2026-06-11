@@ -65,3 +65,29 @@ Build glossário verde pós-fixes. **E004** (mesas express-4 vs `@types/multer@2
 
 ## Critério de conclusão
 Tasks T1–T10 da spec 012 fechadas com evidência; `project-state.md` atualizado.
+
+## Retomada bootstrap BETA (2026-06-11)
+- Mantenedor confirmou bootstrap read/write já executado na VM para o **primeiro deploy BETA** via `deploy-glossario.yml`: `/opt/artificio-beta` está em `dev`/`origin/dev` (`d38307d`) com `apps/glossario`; `/opt/artificio` segue em `main` e **não** tem `apps/glossario`, então PROD permanece bloqueado.
+- Volumes legados a preservar: BETA `glossario-beta_pgdata_beta`; PROD `glossario_pgdata_prod`. Não apagar volumes, não dropar banco, não usar `docker compose down` global.
+- `.env.beta` existe em `/opt/artificio-beta/apps/glossario/.env.beta` com permissão `600`; `POSTGRES_PASSWORD` igual ao segredo do volume legado beta e `JWT_SECRET` igual ao `apps/accounts/.env.beta` do mesmo clone. Segredos não devem ser impressos.
+- Rota Cloudflare BETA criada: `glossariobeta.artificiorpg.com` -> `http://glossario-beta-app:80`; rota pública validada antes do deploy (`/` e `/api/terms` = 200). Não mexer em `glossariorpg.artificiorpg.com` neste bootstrap; 301 para `glossario.` fica para etapa posterior.
+- Pendência antes de qualquer git/push/merge/deploy: atualizar documentação canônica do repositório com pré-requisitos, volumes, rotas Tunnel, ordem de deploy, caveat de login/JWT e observação de DNS Oracle.
+- Documentação local atualizada nesta retomada: `README.md`, `apps/glossario/README.md`, `docs/agents/{deploy-runbook,deploy-flow,infra-map,github-actions-secrets,access-registry,context-capsule,roadmap}.md`, `specs/012-glossario-monorepo/{spec,plan,tasks}.md`, `project-state.md` e `sessoes/index.md`.
+
+## Deploy BETA autorizado (2026-06-11)
+- Mantenedor: "pode seguir" para `gh workflow run deploy-glossario.yml --ref dev -f mode=deploy` + smoke read-only.
+- Escopo: BETA (`glossariobeta.`) apenas. PROD/301/`glossariorpg.` intocados.
+- Run `27381628683` falhou antes de tocar containers: workflow dispatch em `dev` escolheu `env=prod` por bug no `deploy-glossario.yml` (`env` só tratava `push dev`). Erro: `apps/glossario/.env ausente na VM`; sem snapshot/down/build. Read-only pós-falha: containers glossário prod/beta seguem `Up 7 days`; `glossariobeta.` `/` e `/api/terms` seguem 200.
+- Fix local preparado: `env` agora usa `github.ref == 'refs/heads/dev'` para beta também em `workflow_dispatch`.
+
+## Investigação de workflows (2026-06-11)
+- Mantenedor pediu pausar rerun e investigar todos os fluxos de workflow, consultando docs/histórico para qualquer coisa estranha. Sem commit/push/deploy.
+- Inventário: `_deploy-module`, `_lint-shell`, `_enforce-migration-dir`, `pr-checks`, `guard-main-ancestor`, `promote-dev-to-main`, `promote-prod-fast-forward`, `break-glass-deploy-prod`, `deploy-{accounts,mesas,site,glossario}`, `docker-cleanup`.
+- Contexto histórico: D039 = deploy GitHub-first; D041/spec 005 = `dev` beta + `main` prod, `push dev` auto beta por módulo quando habilitado, prod via promoção + dispatch; D044/D049 = `site` beta-only; D055/D056 = cleanup com lock RW VM-wide; CDX-310 = `deploy-accounts` ainda transicional.
+- Achado A (bloqueador glossário): `deploy-glossario.yml` copiou seletor de env do `deploy-mesas` (`push dev` -> beta; dispatch -> prod). Isso contradiz spec 012/runbook para bootstrap, que exige `workflow_dispatch --ref dev` -> beta. Fix local certo: `github.ref == 'refs/heads/dev' ? beta : prod`.
+- Achado B (intencional): `deploy-mesas.yml` dispatch -> prod é histórico CDX-309E; beta do mesas é auto em `push dev` (spec 005 T7). Não é bug para mesas.
+- Achado C (intencional): `deploy-site.yml` hardcode `env: beta` por D044/D049; site não tem prod até Gate C.
+- Achado D (dívida): deploy workflows path-filter não cobrem root `package.json`/`pnpm-lock.yaml`/`pnpm-workspace.yaml`/`turbo.json`; já doeu no E004 e foi anotado no project-state. Risco: mudança de deps/root pode não disparar CI/deploy de módulo. Recomendação futura: adicionar root manifests aos path filters de `deploy-{mesas,glossario,site}`.
+- Achado E (dívida aceita): `deploy-accounts.yml` é exceção/tarball, roda CI em push `feat/**`/`dev`/`main`, deploy só dispatch; documentado como transicional CDX-310.
+- Achado F (atenção): `_deploy-module` valida `main ⊆ dev` em qualquer deploy, inclusive beta/break-glass; docs falam mais de gate prod. Hoje ok; se hotfix em `main` deixar dev atrás, beta também bloqueia.
+- Achado G (atenção): `break-glass-deploy-prod` só cobre `mesas` e ainda passa pelo `_deploy-module`/invariante; serve como emergência rastreada, não ignora branch invariant.
