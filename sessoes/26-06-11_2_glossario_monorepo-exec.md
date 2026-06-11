@@ -98,3 +98,14 @@ Tasks T1–T10 da spec 012 fechadas com evidência; `project-state.md` atualizad
 - Isso é diferente da spec 009 R1 original: R1 remove leftover de **outro** project; aqui o project é igual e o service virou orphan.
 - Fix local: `_deploy-module.yml` ganhou input opt-in `reconcile_same_project_orphans`; quando ligado, detecta nome esperado com mesmo project mas service ausente no compose novo e roda `docker compose ... down --remove-orphans` sem `-v` antes do primeiro `up` do DB. `deploy-glossario.yml` liga isso somente em `dev`/beta.
 - Read-only pós-falha: legado beta/prod segue `Up`; nenhum volume removido.
+
+## Deploy BETA — sucesso (2026-06-11)
+- Commit `d410787` pushado em `dev`; run `27382386493` verde (`lint-shell` actionlint/ShellCheck, CI glossario, Deploy glossario beta).
+- Resultado VM: `glossario-beta-app`, `glossario-beta-api`, `glossario-beta-db` recriados pelo monorepo, `project=glossario-beta`, services novos `glossario-beta-{app,api,db}`, rede `artificio_net`, todos `healthy`.
+- Smoke público/read-only:
+  - `https://glossariobeta.artificiorpg.com/` -> HTTP 200.
+  - `https://glossariobeta.artificiorpg.com/api/terms` -> HTTP 200, 8785 termos.
+  - Busca por termo real `Azure Sea` -> HTTP 200, 1 resultado.
+  - `https://glossariobeta.artificiorpg.com/login` -> HTTP 200.
+  - `docker exec glossario-beta-api ... /health` -> `{"status":"OK","message":"Backend v2 operacional!"}`.
+- Não houve remoção de volume; `glossariorpg.` e PROD intocados. Login real com credencial ainda precisa validação manual do mantenedor/browser.
