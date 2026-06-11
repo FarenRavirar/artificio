@@ -1,0 +1,29 @@
+{
+  "Personagens": {
+    "Espécie": "especie-e-linhagem",
+    "Antecedente": "antecedente",
+    "Talento": "talento",
+    "Atributos": "atributos-pericias-e-proficiencias",
+    "Classe": "classe",
+    "Subclasse": "subclasse"
+  },
+  "Magias": {
+    "Magias": "magias-termos",
+    "Mecânica": "mecanicas-de-magias"
+  },
+  "Mecânica": {
+    "Estilo": "padrao-para-descricoes",
+    "Combate": "regras-de-combate",
+    "Itens": "itens-comuns",
+    "*": "mecanicas"
+  },
+  "Monstros": {
+    "*": "tipos-de-criatura-e-tracos"
+  },
+  "Estrutura": {
+    "*": "termos-editoriais"
+  },
+  "Nomeações": {
+    "*": "nomes-proprios-diversos"
+  }
+}

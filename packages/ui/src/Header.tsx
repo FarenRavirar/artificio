@@ -37,6 +37,18 @@ export interface HeaderProps {
     user: User | null;
     loading?: boolean;
   };
+  /**
+   * Handler de logout. Default = logout SSO (`@artificio/auth/client`).
+   * Módulos com auth legado (ex.: glossário pré-SSO) injetam o próprio.
+   */
+  onLogout?: () => void;
+  /**
+   * Handler do botão "Entrar". Default = redirect SSO (`redirectToLogin`).
+   * Módulos com auth legado injetam o próprio (ex.: navegar p/ /login).
+   */
+  onLoginClick?: () => void;
+  /** Rótulo do botão de login (default "Entrar com Google"). */
+  loginLabel?: string;
 }
 
 function getInitials(name: string) {
@@ -59,6 +71,9 @@ export function Header({
   userMenu,
   actions,
   sessionOverride,
+  onLogout,
+  onLoginClick,
+  loginLabel = "Entrar com Google",
 }: HeaderProps) {
   const session = useSession();
   const { user, loading } = sessionOverride ?? session;
@@ -144,7 +159,7 @@ export function Header({
                 type="button"
                 role="menuitem"
                 className="artificio-usermenu-item artificio-usermenu-item-danger"
-                onClick={() => logout(window.location.origin)}
+                onClick={() => (onLogout ? onLogout() : logout(window.location.origin))}
               >
                 Sair
               </button>
@@ -157,9 +172,9 @@ export function Header({
       <button
         className="artificio-login-button"
         type="button"
-        onClick={() => redirectToLogin()}
+        onClick={() => (onLoginClick ? onLoginClick() : redirectToLogin())}
       >
-        Entrar com Google
+        {loginLabel}
       </button>
     );
   }

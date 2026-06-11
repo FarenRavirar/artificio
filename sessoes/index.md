@@ -13,3 +13,4 @@ Formato: `AA-MM-DD_N_<modulo>_<escopo>.md`. `N` = sequencial do dia. Sessões en
 | `26-06-05_2_site_foundation` | 2026-06-05 | site | Spec 008: módulo site (portal+blog), fundação + importador WP | aberta (F1 ✅ levantamento/decisão/doc; aguarda exec F2) |
 | `26-06-06_1_site_cms-authoring` | 2026-06-06 | site | Spec 011: CMS/autoria nativa (paridade WordPress) | aberta (Fase 0 ✅ D051-D054; backend+SPA admin funcional local; falta OG público/mídia/deploy) |
 | `26-06-07_1_infra_docker-cleanup` | 2026-06-07 | infra/CI-CD | Docker cleanup semanal (migra do legado mesas) + lock RW VM-wide | concluída (D055/D056 ✅; main + cleanup + stub legado verdes) |
+| `26-06-11_1_glossario-links_specs` | 2026-06-11 | glossario/links/ui | Specs 012–015: glossário→monorepo+`glossario.`, links/regras, nav WhatsApp, SSO compat | concluída (specs criadas; execução em sessões próprias) |

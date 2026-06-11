@@ -1,0 +1,79 @@
+name: deploy-glossario
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - "apps/glossario/**"
+      - "packages/**"
+      - "scripts/deploy/**"
+      - ".github/workflows/_deploy-module.yml"
+      - ".github/workflows/_lint-shell.yml"
+      - ".github/workflows/deploy-glossario.yml"
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "apps/glossario/**"
+      - "packages/**"
+      - "scripts/deploy/**"
+      - ".github/workflows/_deploy-module.yml"
+      - ".github/workflows/_lint-shell.yml"
+      - ".github/workflows/deploy-glossario.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "ci = build/test only; deploy = deploy via git-pull on VM"
+        required: true
+        default: ci
+        type: choice
+        options:
+          - ci
+          - deploy
+
+permissions:
+  contents: read
+
+# Deploy/codigo do G1 devem passar pelo GitHub para branch safety e rastreabilidade.
+# VM manual fica para bootstrap/conexao/instalacao operacional/rollback aprovado.
+jobs:
+  lint-shell:
+    uses: ./.github/workflows/_lint-shell.yml
+
+  glossario:
+    needs: lint-shell
+    uses: ./.github/workflows/_deploy-module.yml
+    with:
+      module: glossario
+      env: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' && 'beta' || 'prod' }}
+      compose_file: docker-compose.prod.yml
+      compose_file_beta: docker-compose.beta.yml
+      compose_project: glossario
+      compose_project_beta: glossario-beta
+      db_service: glossario-db
+      db_service_beta: glossario-beta-db
+      db_name: glossario_v2
+      db_name_beta: glossario_v2
+      db_user: admin
+      # 1º deploy do glossário = BOOTSTRAP-SAFE (dispatch-only). O glossário roda
+      # vivo na VM (legado Fase 1); auto-deploy em push:dev poderia reconciliar/
+      # derrubar os containers existentes antes do bootstrap (.env, rota tunnel,
+      # senha do volume `glossario[-beta]_pgdata*`). Habilitar push:dev só APÓS o
+      # 1º deploy dispatch verde (espelha o que o site fez).
+      deploy: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy') }}
+      health_containers: '["glossario-api","glossario-app"]'
+      health_containers_beta: '["glossario-beta-api","glossario-beta-app"]'
+      critical_routes: >-
+        [
+          {"name":"home","url":"https://glossario.artificiorpg.com/","expected":"200"},
+          {"name":"api_terms","url":"https://glossario.artificiorpg.com/api/terms","expected":"200"}
+        ]
+      critical_routes_beta: >-
+        [
+          {"name":"home","url":"https://glossariobeta.artificiorpg.com/","expected":"200"},
+          {"name":"api_terms","url":"https://glossariobeta.artificiorpg.com/api/terms","expected":"200"}
+        ]
+    secrets: inherit
