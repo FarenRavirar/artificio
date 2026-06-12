@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import bcrypt from 'bcrypt';
 
 // migrationController importa ../config/database (exige POSTGRES_PASSWORD) e
 // migrationToken (exige JWT_SECRET). Setamos antes do import dinâmico; os testes
@@ -51,13 +52,14 @@ describe('runVerify', () => {
 
   it('falha: email inexistente → ok:false (sem enumeração)', async () => {
     const exec = execReturning([]);
-    let compared = false;
+    let comparedHash = '';
     const result = await ctrl.runVerify(
       { email: 'naoexiste@x.com', password: 'qualquer' },
-      { exec, compare: async () => { compared = true; return false; } }
+      { exec, compare: async (_plain, hash) => { comparedHash = hash; return false; } }
     );
     expect(result.ok).toBe(false);
-    expect(compared).toBe(true); // compare dummy roda mesmo sem usuário (timing)
+    expect(comparedHash).toBeTruthy(); // compare dummy roda mesmo sem usuário (timing)
+    expect(bcrypt.getRounds(comparedHash)).toBe(10); // mesmo cost do cadastro legado
   });
 
   it('falha: usuário SSO-provisionado (senha sentinela) nunca migra', async () => {
@@ -101,7 +103,7 @@ describe('runClaim', () => {
   it('vincula: sem auto-provisionado, grava sso_user_id + email Google', async () => {
     const token = issueMigrationToken('leg-9');
     const client = fakeClient([
-      (t) => (/FOR UPDATE/.test(t) ? { rows: [{ id: 'leg-9', sso_user_id: null, email: 'velho@x.com' }] } : undefined),
+      (t) => (/WHERE id = \$1 FOR UPDATE/.test(t) ? { rows: [{ id: 'leg-9', sso_user_id: null, email: 'velho@x.com' }] } : undefined),
       (t) => (/sso_user_id = \$1 AND id <> \$2/.test(t) ? { rows: [] } : undefined),
     ]);
     const out = await ctrl.runClaim(
@@ -116,11 +118,11 @@ describe('runClaim', () => {
     expect(client.released()).toBe(true);
   });
 
-  it('merge: auto-provisionado existe → repoint FKs + dedup voto + delete auto', async () => {
+  it('merge: auto-provisionado sentinel existe → repoint FKs + dedup voto + delete auto', async () => {
     const token = issueMigrationToken('leg-7');
     const client = fakeClient([
-      (t) => (/FOR UPDATE/.test(t) ? { rows: [{ id: 'leg-7', sso_user_id: null, email: 'velho@x.com' }] } : undefined),
-      (t) => (/sso_user_id = \$1 AND id <> \$2/.test(t) ? { rows: [{ id: 'auto-7' }] } : undefined),
+      (t) => (/WHERE id = \$1 FOR UPDATE/.test(t) ? { rows: [{ id: 'leg-7', sso_user_id: null, email: 'velho@x.com' }] } : undefined),
+      (t) => (/sso_user_id = \$1 AND id <> \$2/.test(t) ? { rows: [{ id: 'auto-7', password_hash: SSO_NO_PASSWORD }] } : undefined),
     ]);
     const out = await ctrl.runClaim(
       { sub: 'sub-7', googleEmail: 'novo@gmail.com', migrationToken: token },
@@ -137,10 +139,25 @@ describe('runClaim', () => {
     expect(client.calls.some((c) => /DELETE FROM public\.users WHERE id = \$1/.test(c.text) && c.params[0] === 'auto-7')).toBe(true);
   });
 
+  it('conflito: Google já vinculado a outra conta legada real → 409, sem merge', async () => {
+    const token = issueMigrationToken('leg-8');
+    const client = fakeClient([
+      (t) => (/WHERE id = \$1 FOR UPDATE/.test(t) ? { rows: [{ id: 'leg-8', sso_user_id: null, email: 'velho@x.com' }] } : undefined),
+      (t) => (/sso_user_id = \$1 AND id <> \$2/.test(t) ? { rows: [{ id: 'leg-real-2', password_hash: '$2b$10$hashlegado' }] } : undefined),
+    ]);
+    const out = await ctrl.runClaim(
+      { sub: 'sub-8', googleEmail: 'novo@gmail.com', migrationToken: token },
+      { getClient: async () => client as any }
+    );
+    expect(out.status).toBe(409);
+    expect(client.calls.some((c) => /DELETE FROM public\.users WHERE id = \$1/.test(c.text))).toBe(false);
+    expect(client.calls.some((c) => c.text === 'ROLLBACK')).toBe(true);
+  });
+
   it('idempotente: legado já vinculado ao mesmo sub → 200 already_linked', async () => {
     const token = issueMigrationToken('leg-5');
     const client = fakeClient([
-      (t) => (/FOR UPDATE/.test(t) ? { rows: [{ id: 'leg-5', sso_user_id: 'sub-5', email: 'g@gmail.com' }] } : undefined),
+      (t) => (/WHERE id = \$1 FOR UPDATE/.test(t) ? { rows: [{ id: 'leg-5', sso_user_id: 'sub-5', email: 'g@gmail.com' }] } : undefined),
     ]);
     const out = await ctrl.runClaim(
       { sub: 'sub-5', googleEmail: 'g@gmail.com', migrationToken: token },
@@ -153,7 +170,7 @@ describe('runClaim', () => {
   it('conflito: legado vinculado a OUTRO sub → 409 + rollback', async () => {
     const token = issueMigrationToken('leg-3');
     const client = fakeClient([
-      (t) => (/FOR UPDATE/.test(t) ? { rows: [{ id: 'leg-3', sso_user_id: 'sub-outro', email: 'x@x.com' }] } : undefined),
+      (t) => (/WHERE id = \$1 FOR UPDATE/.test(t) ? { rows: [{ id: 'leg-3', sso_user_id: 'sub-outro', email: 'x@x.com' }] } : undefined),
     ]);
     const out = await ctrl.runClaim(
       { sub: 'sub-3', googleEmail: 'g@gmail.com', migrationToken: token },
