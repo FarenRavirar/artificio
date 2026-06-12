@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { brandLogoNavy, brandLogoNeg } from "@artificio/ui";
+import { brandLogoNavy, brandLogoNeg, applyFavicon, ThemeIcon } from "@artificio/ui";
 import "./styles.css";
+
+applyFavicon();
 
 const PORTAL_URL = "https://beta.artificiorpg.com";
 const THEME_COOKIE = "artificio_theme";
@@ -112,9 +114,11 @@ function App() {
       <button
         className="accounts-theme-toggle"
         type="button"
+        aria-label="Alternar tema"
+        title="Alternar tema"
         onClick={() => setTheme((value) => (value === "dark" ? "light" : "dark"))}
       >
-        {theme === "dark" ? "Tema claro" : "Tema escuro"}
+        <ThemeIcon theme={theme} />
       </button>
       <section className="accounts-panel" aria-labelledby="login-title">
         <a className="accounts-brand" href={PORTAL_URL}>
@@ -128,7 +132,7 @@ function App() {
         </a>
         <p className="accounts-kicker">Login único Artifício RPG</p>
         <h1 id="login-title">Entrar</h1>
-        <p className="accounts-subtitle">Use sua conta Google para acessar os módulos do Artifício.</p>
+        <p className="accounts-subtitle">Use sua conta Google para acessar os projetos do Artifício.</p>
         {checkingSession ? (
           <div className="accounts-checking" role="status">
             <span className="accounts-spinner" aria-hidden="true" />

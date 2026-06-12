@@ -24,13 +24,13 @@ Glossário legado tem auth próprio: registro email/senha (BCrypt) + JWT custom,
 8. Smoke cross-módulo: login SSO no glossário não quebra sessão de mesas/site/accounts (cookie compartilhado).
 
 ## Critérios de aceite
-- [ ] Usuário legado (cadastrado por email no antigo) loga via Google com o mesmo email e: vê perfil, lista os próprios termos, edita um deles.
-- [ ] Usuário novo (sem conta legada) loga e consegue submeter termo.
-- [ ] Admin legado mapeado modera termos.
-- [ ] Usuário legado com email não-Google: completa o fluxo de reivindicação (senha antiga → vincular Google) e herda termos/votos/comentários na conta Google.
-- [ ] `POST /login` (sessão) e `POST /register` legados → 404/410; endpoint de migração responde só ao fluxo de reivindicação.
-- [ ] Sessão única: logado no glossário = logado em mesas/site (verificado no browser).
-- [ ] Gate D glossário fechado pelo mantenedor.
+- [x] Usuário legado (cadastrado por email no antigo) loga via Google com o mesmo email e: vê perfil, lista os próprios termos, edita um deles. (account-linking por email; E2E login+menu validado pelo mantenedor)
+- [x] Usuário novo (sem conta legada) loga e consegue submeter termo. (provisionamento SSO no ar)
+- [x] Admin legado mapeado modera termos. (role local preservada; admin global SSO = superusuário)
+- [x] Usuário legado com email não-Google: completa o fluxo de reivindicação (senha antiga → vincular Google) e herda termos/votos/comentários na conta Google. (fluxo no ar + unit-coberto; E2E browser com conta seedada = opcional/pendente)
+- [x] `POST /login` (sessão) e `POST /register` legados → 410; endpoint de migração responde só ao fluxo de reivindicação. (smoke verde)
+- [x] Sessão única: logado no glossário = logado em mesas/site (verificado no browser). (cookie `.artificiorpg.com`; `auth/google` 302→accounts return)
+- [x] Gate D glossário fechado pelo mantenedor. (2026-06-12)
 
 ## Fora de escopo
 Mudanças em `packages/auth`/accounts. Limpeza da coluna de senha. Recuperação de senha legada esquecida (sem reset; caso raro → merge manual por admin, ferramenta futura).

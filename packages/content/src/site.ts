@@ -5,7 +5,7 @@ export const SITE = {
   name: "Artifício RPG",
   origin: "https://artificiorpg.com",
   locale: "pt-BR",
-  description: "Hub modular de RPG em português: notícias, análises, guias e traduções.",
+  description: "Hub de projetos de RPG em português: notícias, análises, guias e traduções.",
   /** Handle do Twitter/X, se houver. */
   twitter: undefined as string | undefined,
   /** Logo absoluto p/ JSON-LD Organization. */

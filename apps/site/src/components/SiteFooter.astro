@@ -10,10 +10,10 @@ const year = 2026;
         <img class="artificio-footer-logo logo-navy" src={logos.logoNavy} alt="Artifício RPG" />
         <img class="artificio-footer-logo logo-neg" src={logos.logoNeg} alt="Artifício RPG" />
       </a>
-      <p class="artificio-footer-tagline">Hub modular de RPG em português. Gratuito, sem anúncios, sem coleta desnecessária.</p>
+      <p class="artificio-footer-tagline">Hub de projetos de RPG em português. Gratuito, sem anúncios, sem coleta desnecessária.</p>
     </div>
-    <nav class="artificio-footer-nav" aria-label="Módulos do Artifício">
-      <span class="artificio-footer-nav-title">Módulos</span>
+    <nav class="artificio-footer-nav" aria-label="Projetos do Artifício">
+      <span class="artificio-footer-nav-title">Projetos</span>
       <ul class="artificio-footer-nav-list">
         {MODULES.map((m) => (
           <li><a class="artificio-footer-nav-link" href={m.href}>{m.label}</a></li>
@@ -21,6 +21,7 @@ const year = 2026;
       </ul>
     </nav>
   </div>
+  <p class="artificio-footer-gift">Este é um presente da Artifício RPG para toda a comunidade brasileira de RPG. Compartilhe com seus grupos!</p>
   <div class="artificio-footer-base">
     <span class="artificio-footer-brand">Artifício RPG</span>
     <span>© {year} · artificiorpg.com</span>

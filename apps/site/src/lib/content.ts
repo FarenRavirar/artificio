@@ -67,7 +67,7 @@ export function related(p: Post, n = 3): Post[] {
   return (r.length ? r : posts.filter((o) => o.id !== p.id)).slice(0, n);
 }
 
-// Nav cross-módulo do portal (unidade D017: une módulos por nav + SSO + design system).
+// Nav cross-projetos do portal (unidade D017: une apps por nav + SSO + design system).
 // Espelha `defaultNavItems` do @artificio/ui; replicado local (zero-JS no Astro, sem puxar
 // o barrel React/@artificio/auth do header). Mantido em sync com packages/ui/src/modules.ts.
 export const MODULES: { label: string; href: string }[] = [
