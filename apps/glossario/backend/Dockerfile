@@ -28,6 +28,11 @@ COPY packages ./packages
 COPY apps/glossario/backend/package.json ./apps/glossario/backend/package.json
 RUN pnpm install --prod --filter @artificio/glossario-backend --frozen-lockfile
 
+# Workspace packages are linked in production; copy built outputs they export at runtime.
+COPY --from=builder /repo/packages/config/dist ./packages/config/dist
+COPY --from=builder /repo/packages/auth/dist ./packages/auth/dist
+COPY --from=builder /repo/packages/auth/dist-cjs ./packages/auth/dist-cjs
+
 COPY --from=builder /repo/apps/glossario/backend/dist ./apps/glossario/backend/dist
 
 WORKDIR /repo/apps/glossario/backend
