@@ -21,6 +21,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+export function getSsoReturnUrl(currentHref = window.location.href): string {
+  const currentUrl = new URL(currentHref);
+  const normalizedPath = currentUrl.pathname.replace(/\/+$/, '') || '/';
+
+  if (normalizedPath === '/login') {
+    return `${currentUrl.origin}/`;
+  }
+
+  return currentUrl.href;
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,8 +64,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Login = Google OAuth via accounts. (D018). Volta para a URL atual.
-  const login = () => redirectToLogin();
+  // Login = Google OAuth via accounts. (D018). A tela /login volta para a home
+  // do próprio host; demais rotas voltam para a rota atual.
+  const login = () => redirectToLogin(getSsoReturnUrl());
 
   // Logout = encerra a sessão SSO no accounts (limpa cookie do domínio) e recarrega.
   const logout = () => ssoLogout(window.location.origin);

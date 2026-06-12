@@ -168,7 +168,7 @@ body {
 .accounts-login:hover {
   background: var(--accounts-brand-deep);
   box-shadow: 0 16px 34px -10px rgba(224, 113, 47, 0.7);
-  color: #ffffff;
+  color: var(--accounts-on-brand);
   transform: translateY(-1px);
 }
 
