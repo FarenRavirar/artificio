@@ -52,13 +52,15 @@ body {
 }
 
 .accounts-theme-toggle {
+  align-items: center;
   background: transparent;
   border: 1px solid var(--accounts-line);
   border-radius: 999px;
   color: var(--accounts-muted);
   cursor: pointer;
-  font: 600 13px/1 "Inter", ui-sans-serif, system-ui, sans-serif;
-  padding: 9px 15px;
+  display: inline-flex;
+  justify-content: center;
+  padding: 9px;
   position: fixed;
   right: 24px;
   top: 24px;

@@ -86,9 +86,6 @@ export function LandingSection({ totalTermos }: LandingSectionProps) {
             Gratuito para sempre · Sem anúncios · Sem coleta de dados pessoais
           </p>
         </div>
-        <p className="text-gray-300 text-xs text-center md:text-right max-w-xs">
-          Este é um presente da Artifício RPG para toda a comunidade brasileira de RPG. Compartilhe com seus grupos!
-        </p>
       </div>
     </div>
   );

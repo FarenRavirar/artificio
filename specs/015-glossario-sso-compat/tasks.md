@@ -6,28 +6,28 @@
 - [x] T4 — Backend: fluxo de reivindicação (`/api/migration/verify` + `/api/migration/claim`, rate-limit, merge transacional de FKs) · **testes unit 10/10 verdes** (verify ok/falha/sentinela/dummy cost; claim vincula/merge sentinel/idempotente/conflito; dedup de voto; bloqueia merge de duas contas legadas reais).
 - [x] T5 — Backend: remover login de sessão/register legados (410; BCrypt só no verify) · implementado (410 routes; bcrypt só no /migration/verify). Smoke runtime no deploy (T7).
 - [x] T6 — Frontend: `useSession`/`authFetch`, Header D043 com userMenu, telas legadas removidas + UI de migração · **build verde** (tsc + vite). api cookie+refresh-retry; AuthContext SSO; Login landing + aviso; `/migrar` (verify→Google→claim→confirmação); register→redirect; Bearer legado removido em 4 telas. E2E autenticado = T7 (precisa stack/SSO real).
-- [~] T7 — [APROVAÇÃO] snapshot DB + migration + deploy beta · PR #16 e #17 já mergeados em `dev`; deploy beta ainda bloqueado por runtime Docker workspace deps. Fixes locais pendentes: `NODE_PATH` no Dockerfile + review security/UX. Feito quando: beta verde; E2E (a) conta legada email-Google→login direto herda; (b) conta legada não-Google→reivindicação→Google herda e edita termo próprio.
-- [ ] T8 — Smoke cross-módulo (glossário/mesas/site/accounts no browser, sessão única) · feito quando: evidência na sessão.
-- [ ] T9 — [APROVAÇÃO] promote prod + smoke + fechar Gate D glossário c/ mantenedor · feito quando: aprovação registrada; `project-state.md`/roadmap/decisions atualizados (registrar exceção autorizada do fluxo de migração por senha).
+- [x] T7 — [APROVAÇÃO] snapshot DB + migration + deploy beta · PRs #16/#17/#18 (+ #19 docs, #20 accounts login, #21 retorno SSO) em `dev`; deploy beta verde após fixes runtime Docker (`NODE_PATH`) + review. migration_13 aplicada (online-safe, snapshot auto). Smoke técnico beta verde (me=401, login/register=410, verify uniforme/429, DDL `sso_user_id`+índices). E2E mantenedor: login SSO + ownership OK no browser.
+- [x] T8 — Smoke cross-módulo · sessão única provada: glossário logado → `mesas`/`accounts` sem re-login; prod `auth/google` 302→`accounts/login?return=mesas` (cookie `.artificiorpg.com`). Deploy do glossário não quebrou sessão dos outros módulos.
+- [x] T9 — [APROVAÇÃO] promote prod + Gate D · promote `dev→main` (FF) + deploy prod glossario/accounts/mesas (2026-06-12); smoke prod verde (glossário 200/terms 200/me 401; accounts 200; mesas 200/options 401; **WP raiz 200 intocado**). **Gate D glossário FECHADO** pelo mantenedor. Decisão **D061** registrada (exceção do fluxo de migração por senha). Hotfix #22 (guards esperam sessão SSO) também em prod.
 
 ---
 
-## Estado atualizado — 2026-06-12
+## ✅ CONCLUÍDA — 2026-06-12 (Gate D glossário fechado)
 
-- Branches já publicadas/mergeadas em `dev`: PR #16 (`feat/glossario-015-sso-compat`, commit base `0f590f5`) e PR #17 (`feat/glossario-015-docker-runtime`, fix copia `packages/auth` buildados).
-- Deploy beta falhou 2x:
-  - run `27390686273`: faltava `packages/auth/dist-cjs/index-cjs.js` na imagem runtime.
-  - run `27391072535`: `@artificio/auth` carregou, mas faltava resolver `jsonwebtoken` a partir do package workspace; fix local atual adiciona `ENV NODE_PATH=/repo/apps/glossario/backend/node_modules`.
-- Review incorporado localmente:
-  - dummy BCrypt usa `GLOSSARIO_LEGACY_BCRYPT_COST` com default `10`, documentado pelo legado (`bcrypt.hash(password, 10)`), teste garante rounds=10.
-  - `/migration/claim` só mergeia usuário auto-provisionado com `password_hash = SSO_NO_PASSWORD`; se o mesmo Google já estiver ligado a outra conta legada real, retorna 409 e não apaga/mergeia.
-  - `/migrar` preserva estado `done` após `sessionStorage.removeItem()` + `refresh()`.
-- Validação local atual: `pnpm --filter @artificio/glossario-backend test` = 14/14; backend build OK; frontend build OK. Docker local indisponível.
-- Próximo commit autorizado pelo mantenedor: publicar esses fixes, PR p/ `dev`, merge, rerun `deploy-glossario.yml --ref dev -f mode=deploy`.
+Spec 015 no ar em prod. SSO Google via `accounts.` é o único login do glossário; compat legado por email-linking + fluxo de reivindicação para contas não-Google.
 
-## Handoff de execução bloqueada (VM/deploy/aprovação) — histórico original
+- **Backend:** `resolveLocalUser` (sso_id→email→provisiona, preserva id legado/ownership), `authMiddleware` via `@artificio/auth verifyToken` (cookie/Bearer resiliente), `/api/migration/{verify,claim}` (BCrypt só no verify, anti-enum, rate-limit, merge transacional + dedup voto), login/register legados → 410. `packages/auth` intocado. Testes **14/14**.
+- **Frontend:** api cookie+refresh-retry, AuthContext SSO, Login landing + aviso, `/migrar` (verify→Google→claim→herança), Bearer legado removido. Hotfix #22: guards de rota esperam a sessão resolver (não jogam logado p/ `/login`).
+- **DB:** `migration_13_sso_link.sql` (aditiva, online-safe) aplicada em beta e prod (snapshot auto).
+- **Decisão:** **D061** (exceção autorizada do fluxo de migração por senha; BCrypt residual só no `/verify`; limpeza futura da coluna).
+- **Entrega:** PRs #16–#22; promote `dev→main` + deploy prod glossario/accounts/mesas; smoke prod verde; WP raiz intocado.
+- **Follow-up (fora desta spec):** limpeza da coluna `password_hash` legada; E2E browser do cenário (b) com conta não-Google seedada (opcional — coberto por unit; baixo risco).
 
-Tudo abaixo precisa de acesso à VM e/ou aprovação por ação (pétreas de AGENTS.md: commit/push/merge/deploy/comando-write-VM = aprovação explícita a cada vez). T2–T6 já foram publicados em PR #16; manter esta seção como plano/critério de validação.
+---
+
+## Handoff de execução (VM/deploy/aprovação) — HISTÓRICO (mantido como referência/critério)
+
+Seção histórica do plano de execução. Tudo abaixo foi executado; manter como referência de critérios de validação e rollback.
 
 ### H0 — Pré-condições (verificar antes de tudo)
 - Código local verde: `pnpm --filter @artificio/glossario-backend test` (14/14), `pnpm --filter @artificio/glossario-backend build`, `pnpm --filter @artificio/glossario-frontend build`. Reproduzir antes de subir.

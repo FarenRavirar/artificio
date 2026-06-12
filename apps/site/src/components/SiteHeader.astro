@@ -1,5 +1,5 @@
 ---
-// Header .astro zero-JS (R4=A, spec 010): nav primário = portal cross-módulo (MODULES),
+// Header .astro zero-JS (R4=A, spec 010): nav primário = portal cross-projetos (MODULES),
 // 2ª linha = categorias do blog (SECTIONS). Reusa CSS do design system (@artificio/ui/styles.css).
 import { logos, MODULES, SECTIONS } from "../lib/content";
 interface Props {
@@ -16,7 +16,7 @@ loginUrl.searchParams.set("return", Astro.url.href);
       <img class="artificio-brand-logo logo-navy" src={logos.logoNavy} alt="Artifício RPG" width="300" height="100" />
       <img class="artificio-brand-logo logo-neg" src={logos.logoNeg} alt="Artifício RPG" width="300" height="100" />
     </a>
-    <nav aria-label="Módulos do Artifício">
+    <nav aria-label="Projetos do Artifício">
       <ul class="artificio-nav-list">
         {MODULES.map((m) => (
           <li>

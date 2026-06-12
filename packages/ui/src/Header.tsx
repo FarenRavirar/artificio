@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { brandLogoNavy, brandLogoNeg } from "./brand.js";
 import { defaultNavItems, type NavItem } from "./modules.js";
 import { Nav } from "./Nav.js";
+import { ThemeToggle } from "./theme.js";
 
 export interface UserMenuItem {
   label: string;
@@ -17,11 +18,11 @@ export interface UserMenuItem {
 
 export interface HeaderProps {
   currentHref?: string;
-  /** Nav principal = módulos do portal (cross-subdomínio). */
+  /** Nav principal = projetos do portal (cross-subdomínio). */
   navItems?: NavItem[];
-  /** Nav secundário = rotas internas do módulo (ex.: Catálogo/Painel). 2ª linha. */
+  /** Nav secundário = rotas internas do projeto (ex.: Catálogo/Painel). 2ª linha. */
   moduleNav?: NavItem[];
-  /** Href ativo do nav de módulo (ex.: pathname). Highlight do subnav. */
+  /** Href ativo do nav de projeto (ex.: pathname). Highlight do subnav. */
   moduleCurrentHref?: string;
   /** "light" (padrão, logo navy sobre branco) ou "dark" (sobre charcoal). */
   variant?: "light" | "dark";
@@ -31,7 +32,7 @@ export interface HeaderProps {
   brandHref?: string;
   /** Itens do menu de conta (avatar). "Sair" é sempre adicionado. */
   userMenu?: UserMenuItem[];
-  /** Ações do módulo antes do avatar (ex.: changelog, sino de notificações). */
+  /** Ações do projeto antes do avatar (ex.: changelog, sino de notificações). */
   actions?: ReactNode;
   sessionOverride?: {
     user: User | null;
@@ -49,6 +50,11 @@ export interface HeaderProps {
   onLoginClick?: () => void;
   /** Rótulo do botão de login (default "Entrar com Google"). */
   loginLabel?: string;
+  /**
+   * Exibe o toggle de tema (lua/sol) reusando o cookie cross-subdomínio
+   * `artificio_theme`. Default false — só habilitar em projetos com CSS dark.
+   */
+  showThemeToggle?: boolean;
 }
 
 function getInitials(name: string) {
@@ -74,6 +80,7 @@ export function Header({
   onLogout,
   onLoginClick,
   loginLabel = "Entrar com Google",
+  showThemeToggle = false,
 }: HeaderProps) {
   const session = useSession();
   const { user, loading } = sessionOverride ?? session;
@@ -200,6 +207,7 @@ export function Header({
           {actions ? (
             <div className="artificio-header-actions">{actions}</div>
           ) : null}
+          {showThemeToggle ? <ThemeToggle /> : null}
           {renderSession()}
           <button
             type="button"

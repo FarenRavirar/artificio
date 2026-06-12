@@ -16,3 +16,6 @@ Formato: `AA-MM-DD_N_<modulo>_<escopo>.md`. `N` = sequencial do dia. Sessões en
 | `26-06-11_1_glossario-links_specs` | 2026-06-11 | glossario/links/ui | Specs 012–015: glossário→monorepo+`glossario.`, links/regras, nav WhatsApp, SSO compat | concluída (specs criadas; execução em sessões próprias) |
 | `26-06-11_2_glossario_monorepo-exec` | 2026-06-11 | glossario | Spec 012: glossário no monorepo + bootstrap beta/prod | concluída (012 ✅ no ar PROD+BETA; E005 DNS/redirect; SSO = spec 015) |
 | `26-06-12_1_accounts_login-redesign` | 2026-06-12 | accounts | Correção visual da tela central de login SSO, sem mudar contrato/auth | aberta |
+| `26-06-11_3_glossario_sso-compat` | 2026-06-11 | glossario | Spec 015: SSO accounts + compat legado (migração) | concluída (Gate D glossário ✅ prod 2026-06-12; D061) |
+| `26-06-12_2_debitos_ux-marca` | 2026-06-12 | accounts/glossario/mesas/site/ui | Backlog de débitos UX/marca: toggle tema, dedup+rodapé, rename "serviços", favicon | aberta (só registro; cada item em sessão própria) |
+| `26-06-12_3_ui-marca_debitos-exec` | 2026-06-12 | accounts/glossario/mesas/site/ui | Execução do backlog UX/marca (D-INFRA1, D-UX3, D-UX2, D-UX1, D-MARCA1) | aberta |

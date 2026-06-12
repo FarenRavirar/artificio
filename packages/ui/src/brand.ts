@@ -10,6 +10,29 @@ export const brandLogoNavy = {
   alt: "Artifício RPG",
 } as const;
 
+// Favicon Artifício RPG (faviconV2 — ícone hexágono 16x16, 421 bytes), embutido
+// como data-URI: fonte ÚNICA importável pelos apps (sem cópia/sync de arquivos).
+// Fonte histórica: apps/mesas/frontend/public/faviconV2.png.
+export const faviconV2 = {
+  src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAhFBMVEVHcExROChALSE9LSKTclpPQzumdlNBJRMcCgQ1JBuGZk47JRedclOOd2YAAAAAAABPPTBKMiNtSCxCLyJ5YE2relYAAAFvaGBkX1oFCQxFQT1cU0srKScbFxRTTkh+enRfRTCEgX5QOCVZTEJcWFMQEhM9NzKZmZc+LR95bmWRkI5qW0+CglaLAAAAFnRSTlMA3+HyTvskdy5U12Ru9gQC4eJ1g/cnMUiXGgAAALpJREFUGJVNj+lygzAMhJUMBMg0vSPJlg+MDyB5//eLCe203y9Jo5V2AZ6cmuYEf7xcaJX1+/O3P7MnSt7z4W3vKWi0CjXRx3OfglFqWRRaR10dXLxWeawoNC4CXO8BbR6naVIZWXpovM8KcRotoiEZoHGC83wLsw83q8sA15gwcLnHpBl16QGEDVbJskmcrl86cfXGRnbytRk5UDKoLRrWx936MXJyhdf4/voTpmulLdJ2//L2w9Dv1QPrSRKHlv3SHgAAAABJRU5ErkJggg==",
+  type: "image/png",
+  width: 16,
+  height: 16,
+} as const;
+
+// Upsert do <link rel="icon"> a partir da fonte única. Para apps SPA (Vite) que
+// não renderizam o <head> via build: chamar no boot (main.tsx). Idempotente.
+export function applyFavicon(doc: Document = document): void {
+  let link = doc.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (!link) {
+    link = doc.createElement("link");
+    link.rel = "icon";
+    doc.head.appendChild(link);
+  }
+  link.type = faviconV2.type;
+  link.href = faviconV2.src;
+}
+
 export const brandLogoNeg = {
   // Wordmark "ARTIFÍCIO RPG" negativo (branco) — usar sobre superfícies escuras
   // (header/footer dark, hero navy). Fonte: midias/_logo_neg.png (300x100).
