@@ -12,6 +12,7 @@ import { Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import MigrationPage from './pages/MigrationPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminReviewPage from './pages/AdminReviewPage';
@@ -270,6 +271,7 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/migrar" element={<MigrationPage />} />
                 <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
                 <Route path="/notificacoes" element={<PrivateRoute><NotificationsPage /></PrivateRoute>} />
                 <Route path="/importar" element={<PrivateRoute><ImportPage /></PrivateRoute>} />

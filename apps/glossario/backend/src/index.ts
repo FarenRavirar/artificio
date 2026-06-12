@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes';
 import termRoutes from './routes/termRoutes';
@@ -13,11 +14,15 @@ import exportRoutes from './routes/exportRoutes';
 import importRoutes from './routes/importRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import adminActivityRoutes from './routes/adminActivityRoutes';
+import migrationRoutes from './routes/migrationRoutes';
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Atrás do nginx (1 hop): habilita req.ip correto para rate-limit do /api/migration.
+app.set('trust proxy', 1);
 
 // CORS restrito: o front é servido same-origin (nginx faz proxy de /api/),
 // então só liberamos origens do próprio domínio Artifício + localhost (dev).
@@ -40,6 +45,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(cookieParser());
 
 // Rota de Healthcheck básica para o Docker/Github Actions
 app.get('/health', (req: Request, res: Response) => {
@@ -48,6 +54,7 @@ app.get('/health', (req: Request, res: Response) => {
 
 // Rotas da API
 app.use('/api/auth', authRoutes);
+app.use('/api/migration', migrationRoutes);
 app.use('/api/terms/import', importRoutes);
 app.use('/api/terms', termRoutes);
 app.use('/api/users', userRoutes);
