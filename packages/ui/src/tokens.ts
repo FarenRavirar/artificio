@@ -1,7 +1,7 @@
-// Design tokens Artifício RPG — paleta REAL da marca (D038).
-// Padrão MÁXIMO de cor = midias/cropped-Logo-PNG-Negativo-2.png; azul de
-// midias/cropped-logo-header-site-azul.png = contraste. Hex amostrados por pixel:
-//   brand   #FF9457  → cropped-Logo-PNG-Negativo-2.png (hexágono/bússola + "RPG")
+// Design tokens Artifício RPG — paleta REAL da marca (D064 supera D040 no laranja).
+// Laranja de marca = acento vermelho-laranja da UI (midias/telaprincipal.png), NÃO o
+// pêssego do hexágono do logo que o D040 amostrou. Navy de contraste = D040. Hex:
+//   brand   #FF5722  → acento de marca/UI (Material Deep Orange 500), D064
 //   ink     #020740  → cropped-logo-header-site-azul.png (navy da marca; texto/contraste)
 //   navy    #1B2A4A  → superfície escura do app (header/footer dark); NÃO é cor de marca
 //   bronze  #9C6B43  → Banner-Geral.jpg (tagline "SEU CONTEÚDO EM PORTUGUÊS")
@@ -17,10 +17,10 @@ export const tokens = {
     canvas: "#F6F7FA",
     charcoal: "#0F1014", // superfície escura alternativa
     navy: "#1B2A4A", // superfície escura (header/footer dark = navy do hero do app)
-    brand: "#FF9457", // laranja-assinatura — acento/marca (padrão máximo)
-    brandDeep: "#E0712F", // laranja escuro — hover/pressed/foco
+    brand: "#FF5722", // laranja-assinatura — acento/marca (D064, Deep Orange 500)
+    brandDeep: "#E64A19", // laranja escuro — hover/pressed/foco (Deep Orange 700)
     bronze: "#9C6B43", // secundário decorativo
-    focus: "#E0712F",
+    focus: "#E64A19",
   },
   font: {
     display: '"Oswald", "Arial Narrow", system-ui, sans-serif', // headings condensados

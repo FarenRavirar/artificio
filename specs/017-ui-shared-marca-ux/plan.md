@@ -1,5 +1,8 @@
 # Plano — 017
 
+## Status final
+Fechada em 2026-06-12. PR #23 mergeado em `dev` por squash (`7d90cb8`) e promovido para `main` por fast-forward. Deploy prod verde para `accounts` (`27434803027`), `glossario` (`27434806734`) e `mesas` (`27434810258`); `site` atualizado em beta (`27433587211`). WP raiz/Gate C intocados. A ativação do toggle visual em glossário/mesas foi adiada para specs próprias porque ainda falta CSS dark completo nesses projetos.
+
 ## Arquitetura da solução
 Fonte única em `packages/ui`, consumida por **importação** (sem cópia/sync de arquivos), espelhando o padrão já aceito dos logos (`brand.ts` data-URI):
 
@@ -7,7 +10,7 @@ Fonte única em `packages/ui`, consumida por **importação** (sem cópia/sync d
   - site (Astro/SSG): `import { faviconV2 } from "@artificio/ui"` em `Base.astro` → `<link rel="icon" type="image/png" href={faviconV2.src} />` (build-time, sem flash).
   - accounts/glossário/mesas (Vite SPA): `import { applyFavicon } from "@artificio/ui"` em `main.tsx`; chamar `applyFavicon()` no boot.
 - **Rodapé "presente":** `Footer.tsx` passa a renderizar o texto fixo "Este é um presente da Artifício RPG…". Remover as duas ocorrências no glossário.
-- **Toggle de tema:** `Header.tsx` ganha prop aditiva (ex.: `showThemeToggle?: boolean`, default conservador) que renderiza botão lua/sol; handler lê/grava cookie `artificio_theme` e alterna `dataset.theme`. Lógica espelha `apps/site/src/layouts/Base.astro`. glossário/mesas ativam a prop.
+- **Toggle de tema:** `Header.tsx` ganha prop aditiva (`showThemeToggle?: boolean`, default conservador) que renderiza botão lua/sol; handler lê/grava cookie `artificio_theme` e alterna `dataset.theme`. Lógica espelha `apps/site/src/layouts/Base.astro`. O mecanismo foi entregue; glossário/mesas não ativaram a prop neste fluxo por falta de CSS dark completo.
 
 ## Arquivos afetados (por módulo/pacote)
 - `packages/ui/src/brand.ts` — `faviconV2` + `applyFavicon()`.
@@ -16,8 +19,8 @@ Fonte única em `packages/ui`, consumida por **importação** (sem cópia/sync d
 - `packages/ui/src/Header.tsx` — toggle de tema (prop aditiva).
 - `apps/site/src/layouts/Base.astro` — favicon via import (substitui o `<link href="/faviconV2.png">` adicionado).
 - `apps/accounts/frontend/index.html` — remover `<link>` estático; `apps/accounts/frontend/src/main.tsx` — `applyFavicon()`.
-- `apps/glossario/frontend/index.html` — remover `<link>` estático; `apps/glossario/frontend/src/main.tsx` — `applyFavicon()`; `LandingSection.tsx` + `App.tsx` — remover texto duplicado; header glossário ativa toggle.
-- `apps/mesas/frontend/index.html` — remover `<link>` estático; `main.tsx` — `applyFavicon()`; header mesas ativa toggle.
+- `apps/glossario/frontend/index.html` — remover `<link>` estático; `apps/glossario/frontend/src/main.tsx` — `applyFavicon()`; `LandingSection.tsx` — remover texto duplicado; badge do hero mantido por decisão do mantenedor.
+- `apps/mesas/frontend/index.html` — remover `<link>` estático; `main.tsx` — `applyFavicon()`.
 - Remover assets: `apps/{site,glossario/frontend,accounts/frontend,mesas/frontend}/public/faviconV2.png`.
 
 ## Contratos/interfaces tocados
@@ -33,4 +36,4 @@ Fonte única em `packages/ui`, consumida por **importação** (sem cópia/sync d
 - `turbo build` (ou `pnpm --filter` por pacote) verde em packages/ui + 4 apps.
 - Favicon: confirmar `<link rel="icon">` presente no HTML buildado do site e, nos SPAs, que `applyFavicon` injeta o link (preview/DOM). Zero `faviconV2.png` em `public/`/`dist` (exceto se gerado por import — não deve haver via /public).
 - Rodapé: texto "presente" aparece 1× no Footer de cada app; ausente em LandingSection/App do glossário.
-- Toggle: preview local — clique alterna `data-theme`, grava cookie `artificio_theme`, persiste em reload; site/accounts não regridem.
+- Toggle: preview local em accounts — clique alterna `data-theme`, grava cookie `artificio_theme`, persiste em reload; site/accounts não regridem. Mecanismo compartilhado disponível em `packages/ui`; ativação em glossário/mesas fica para backlog futuro.

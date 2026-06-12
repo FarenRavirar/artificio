@@ -1,5 +1,8 @@
 # Plano — 018
 
+## Status final
+Fechada em 2026-06-12 junto da spec 017. PR #23 mergeado em `dev` por squash (`7d90cb8`) e promovido para `main`; deploy prod verde em `accounts`, `glossario` e `mesas`; `site` atualizado em beta. D063 registrada: linguagem pública/produto usa "projetos"; "módulo" segue termo técnico interno.
+
 ## Arquitetura da solucao
 Manter a estrutura tecnica do G1 como monorepo modular, mas ajustar a camada de comunicacao: "projetos" e o nome publico da colecao de experiencias; "modulos" e termo tecnico interno quando descreve isolamento, gates, deploy, `apps/*` e contratos.
 

@@ -33,7 +33,7 @@ export function renderPreviewShell(title: string, status: string, bodyHtml: stri
 <style>
   body { margin:0; }
   .preview-banner { background:#020740; color:#fff; padding:8px 16px; font:600 13px/1.4 system-ui,sans-serif; position:sticky; top:0; z-index:10; }
-  .preview-banner b { color:#FF9457; }
+  .preview-banner b { color:var(--artificio-brand); }
   .preview-article { max-width:72ch; margin:0 auto; padding:32px 20px 80px; }
   .preview-article h1 { font-size:2rem; line-height:1.2; margin:0 0 24px; }
   .preview-article img { max-width:100%; height:auto; }

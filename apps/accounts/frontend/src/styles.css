@@ -9,12 +9,12 @@
   --accounts-line: #e6e8f0;
   --accounts-surface: #ffffff;
   --accounts-canvas: #f3f4f9;
-  --accounts-brand: #ff9457; /* laranja padrão máximo */
-  --accounts-brand-deep: #e0712f;
-  --accounts-brand-soft: #fff0e8;
+  --accounts-brand: #ff5722; /* laranja de marca (D064, Deep Orange 500) */
+  --accounts-brand-deep: #e64a19;
+  --accounts-brand-soft: #ffe9e3;
   --accounts-card-shadow: 0 24px 60px -24px rgba(2, 7, 64, 0.35);
   --accounts-canvas-bg:
-    linear-gradient(180deg, rgba(255, 148, 87, 0.16) 0 35%, transparent 35%),
+    linear-gradient(180deg, rgba(255, 87, 34, 0.16) 0 35%, transparent 35%),
     var(--accounts-canvas);
   --accounts-on-brand: #020740; /* texto sobre o laranja */
 }
@@ -25,10 +25,10 @@
   --accounts-line: rgba(255, 255, 255, 0.12);
   --accounts-surface: #111936;
   --accounts-canvas: #080b18;
-  --accounts-brand-soft: rgba(255, 148, 87, 0.12);
+  --accounts-brand-soft: rgba(255, 87, 34, 0.12);
   --accounts-card-shadow: 0 30px 70px -28px rgba(0, 0, 0, 0.8);
   --accounts-canvas-bg:
-    linear-gradient(180deg, rgba(255, 148, 87, 0.14) 0 35%, transparent 35%),
+    linear-gradient(180deg, rgba(255, 87, 34, 0.14) 0 35%, transparent 35%),
     linear-gradient(180deg, #0b1126 0%, #080b18 100%);
 }
 
