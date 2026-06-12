@@ -97,7 +97,8 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
       let finalScenarioId = scenarioId;
       let finalCategoryId = categoryId;
 
-      const authHeaders = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+      // Sessão via cookie SSO (api.withCredentials). Sem Bearer manual.
+      const authHeaders = {};
 
       // Sequencial: Se o sistema é novo, cria primeiro
       if (sourceType === 'sistema' && systemId === 'new') {
