@@ -3,22 +3,35 @@
 - [x] T1 — Levantar volume de usuários legados + emails não-Google (read-only no DB) · prod: total=38, non_google=5, with_hash=38, admins=2; beta: total=17, non_google=3, with_hash=17, admins=2. Sem PII/hashes.
 - [x] T2 — Migration aditiva `sso_user_id` + índice `lower(email)` · `migration_13_sso_link.sql` (online-safe, aditiva, idempotente). Sem PG local → aplica no deploy (T7).
 - [x] T3 — Backend: `verifyToken` + `resolveLocalUser` (link por sso_id → email → cria) + ownership/roles locais · **testes unit 4/4 verdes**; tsc limpo.
-- [x] T4 — Backend: fluxo de reivindicação (`/api/migration/verify` + `/api/migration/claim`, rate-limit, merge transacional de FKs) · **testes unit 9/9 verdes** (verify ok/falha/sentinela; claim vincula/merge/idempotente/conflito; dedup de voto).
+- [x] T4 — Backend: fluxo de reivindicação (`/api/migration/verify` + `/api/migration/claim`, rate-limit, merge transacional de FKs) · **testes unit 10/10 verdes** (verify ok/falha/sentinela/dummy cost; claim vincula/merge sentinel/idempotente/conflito; dedup de voto; bloqueia merge de duas contas legadas reais).
 - [x] T5 — Backend: remover login de sessão/register legados (410; BCrypt só no verify) · implementado (410 routes; bcrypt só no /migration/verify). Smoke runtime no deploy (T7).
 - [x] T6 — Frontend: `useSession`/`authFetch`, Header D043 com userMenu, telas legadas removidas + UI de migração · **build verde** (tsc + vite). api cookie+refresh-retry; AuthContext SSO; Login landing + aviso; `/migrar` (verify→Google→claim→confirmação); register→redirect; Bearer legado removido em 4 telas. E2E autenticado = T7 (precisa stack/SSO real).
-- [ ] T7 — [APROVAÇÃO] snapshot DB + migration + deploy beta · feito quando: beta verde; E2E (a) conta legada email-Google→login direto herda; (b) conta legada não-Google→reivindicação→Google herda e edita termo próprio.
+- [~] T7 — [APROVAÇÃO] snapshot DB + migration + deploy beta · PR #16 e #17 já mergeados em `dev`; deploy beta ainda bloqueado por runtime Docker workspace deps. Fixes locais pendentes: `NODE_PATH` no Dockerfile + review security/UX. Feito quando: beta verde; E2E (a) conta legada email-Google→login direto herda; (b) conta legada não-Google→reivindicação→Google herda e edita termo próprio.
 - [ ] T8 — Smoke cross-módulo (glossário/mesas/site/accounts no browser, sessão única) · feito quando: evidência na sessão.
 - [ ] T9 — [APROVAÇÃO] promote prod + smoke + fechar Gate D glossário c/ mantenedor · feito quando: aprovação registrada; `project-state.md`/roadmap/decisions atualizados (registrar exceção autorizada do fluxo de migração por senha).
 
 ---
 
-## Handoff de execução bloqueada (VM/deploy/aprovação) — p/ Codex
+## Estado atualizado — 2026-06-12
 
-Tudo abaixo precisa de acesso à VM e/ou aprovação por ação (pétreas de AGENTS.md: commit/push/merge/deploy/comando-write-VM = aprovação explícita a cada vez). Código de T2–T6 está pronto e verde no working tree (branch a criar). Nada commitado/pushado ainda.
+- Branches já publicadas/mergeadas em `dev`: PR #16 (`feat/glossario-015-sso-compat`, commit base `0f590f5`) e PR #17 (`feat/glossario-015-docker-runtime`, fix copia `packages/auth` buildados).
+- Deploy beta falhou 2x:
+  - run `27390686273`: faltava `packages/auth/dist-cjs/index-cjs.js` na imagem runtime.
+  - run `27391072535`: `@artificio/auth` carregou, mas faltava resolver `jsonwebtoken` a partir do package workspace; fix local atual adiciona `ENV NODE_PATH=/repo/apps/glossario/backend/node_modules`.
+- Review incorporado localmente:
+  - dummy BCrypt usa `GLOSSARIO_LEGACY_BCRYPT_COST` com default `10`, documentado pelo legado (`bcrypt.hash(password, 10)`), teste garante rounds=10.
+  - `/migration/claim` só mergeia usuário auto-provisionado com `password_hash = SSO_NO_PASSWORD`; se o mesmo Google já estiver ligado a outra conta legada real, retorna 409 e não apaga/mergeia.
+  - `/migrar` preserva estado `done` após `sessionStorage.removeItem()` + `refresh()`.
+- Validação local atual: `pnpm --filter @artificio/glossario-backend test` = 14/14; backend build OK; frontend build OK. Docker local indisponível.
+- Próximo commit autorizado pelo mantenedor: publicar esses fixes, PR p/ `dev`, merge, rerun `deploy-glossario.yml --ref dev -f mode=deploy`.
+
+## Handoff de execução bloqueada (VM/deploy/aprovação) — histórico original
+
+Tudo abaixo precisa de acesso à VM e/ou aprovação por ação (pétreas de AGENTS.md: commit/push/merge/deploy/comando-write-VM = aprovação explícita a cada vez). T2–T6 já foram publicados em PR #16; manter esta seção como plano/critério de validação.
 
 ### H0 — Pré-condições (verificar antes de tudo)
-- Código local verde: `pnpm --filter @artificio/glossario-backend test` (13/13), `pnpm --filter @artificio/glossario-backend build`, `pnpm --filter @artificio/glossario-frontend build`. Reproduzir antes de subir.
-- Branch ainda não existe. Criar `feat/glossario-015-sso-compat` a partir de `dev`.
+- Código local verde: `pnpm --filter @artificio/glossario-backend test` (14/14), `pnpm --filter @artificio/glossario-backend build`, `pnpm --filter @artificio/glossario-frontend build`. Reproduzir antes de subir.
+- Branch inicial já existiu/foi mergeada; próximos fixes devem sair de `dev` atualizado.
 - `packages/*` intocados → smoke pós-deploy ainda exige mesas/accounts/site (sessão compartilhada).
 
 ### T1 — Contagem read-only (dimensiona o fluxo de reivindicação) [read-only, sem aprovação de write]

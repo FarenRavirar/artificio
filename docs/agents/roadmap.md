@@ -25,7 +25,7 @@
 |---|---|---|---|
 | `accounts` (SSO) | `accounts.artificiorpg.com` | ✅ no ar (Gate B) + marca CDX-311 ✅ no ar | ⬜ retrofit deploy (CDX-310) |
 | `mesas` | `mesas.artificiorpg.com` | ✅ Gate D fechado: técnico ✅ + deploy real ✅ (CDX-309E) + login real ✅ + allowlist prod ✅ + marca CDX-311 ✅ no ar | Pendência isolada fora do Gate D: hydrate beta precisa `PROD_DB_URL` + restart autorizado |
-| `glossario` | `glossario.artificiorpg.com` (PROD, no ar) / `glossariobeta.` (BETA) | ✅ **spec 012 fechada** — no ar pelo monorepo (PROD+BETA 200), login legado (E005: DNS+redirect Cloudflare) | ⬜ **spec 015**: SSO accounts + compat login antigo (fecha Gate D). Isolado: login real no browser + desativar workflows do repo legado |
+| `glossario` | `glossario.artificiorpg.com` (PROD, no ar) / `glossariobeta.` (BETA) | 🔄 **spec 015 T7 beta** — spec 012 fechada; SSO+compat mergeado em `dev` por PR #16/#17; deploy beta bloqueado por runtime Docker workspace deps; fix local pronto (`NODE_PATH` + review security/UX), validação local 14/14 + builds OK | ⬜ Publicar fix → PR `dev` → rerun `deploy-glossario` beta → smoke T7; depois T8 sessão cross-módulo e T9 prod/Gate D. Isolado: desativar workflows do repo legado |
 | `site` (blog) | **`beta.artificiorpg.com` NO AR** (→ raiz futuro) | 🔄 **spec 008** F1–F7 ✅ + **spec 010** ✅ (nav cross-módulo unificado + fix logo) no ar nos betas | ⬜ **spec 011 — CMS/authoring (paridade WordPress):** editor de posts/categorias, slug+sugestão, OG, mídia (img/áudio/vídeo), snippets, drafts/arquivar, resumos, usuários editores/roles. ⬜ Gate D final; auto-deploy push-dev; opc Cloudinary/GA reais. WP intocável (cutover=Gate C) |
 | `downloads` | `downloads.artificiorpg.com` | ⬜ a construir | ⬜ construir + SSO/UI + deploy |
 | `esferas` | `esferas.artificiorpg.com` | ⬜ a construir | ⬜ multi-sistema (sistema×edição, D&D 2014/2024, PF futuro, D028) + SSO/UI |
@@ -73,7 +73,7 @@
 1. **Spec 011 / site CMS** — T16/T17 fechados; refino UX (editor light + SEO Yoast) + fix de sessão SSO live. **Fase 2 mídia (T18 backend + T19 UI) deployada no beta** (`e5ee84e`): biblioteca + upload Cloudinary + picker no editor (bulk WP→Cloudinary = opt-in). **Próximo: T20 (CRUD taxonomias)** fecha Fase 2 → Fase 3 (dashboard/curadoria/nav/redirects). E2E de mídia no beta = mantenedor.
 2. **CDX-310** (retrofit accounts) — durabiliza deploy do SSO.
 3. **Spec auditoria visual** — gate de consistência antes de escalar módulos.
-4. **glossario** → monorepo ✅ fechado (spec 012, no ar PROD+BETA); falta spec 015 (SSO+compat) p/ Gate D.
+4. **glossario** → monorepo ✅ fechado (spec 012, no ar PROD+BETA); spec 015 em T7 beta (SSO+compat já em `dev`; falta fix runtime/review + redeploy beta, T8, T9) p/ Gate D.
 5. **site/blog** continua por fases de CMS/autoria (mídia, curadoria, roles) antes do Gate D final.
 6. **downloads** · **esferas** · **srd** (+`crosslink`) · **links**.
 7. (futuro/⏸️) Gate C — cutover raiz + desligar WP.

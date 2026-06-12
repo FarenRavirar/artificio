@@ -21,6 +21,7 @@ RUN pnpm -w turbo run build --filter=@artificio/glossario-backend
 FROM node:25.9.0-alpine AS production
 
 WORKDIR /repo
+ENV NODE_PATH=/repo/apps/glossario/backend/node_modules
 RUN npm install -g pnpm@10.12.1
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
