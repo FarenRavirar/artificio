@@ -224,15 +224,28 @@ function HomePage() {
   );
 }
 
+// Tela de espera enquanto a sessão SSO resolve (/auth/me). Sem isso, num reload
+// full (links do userMenu são <a href>), o guard veria user=null durante o load
+// e redirecionaria a /login mesmo logado.
+function RouteLoading() {
+  return (
+    <div className="flex items-center justify-center p-16 text-azul-escuro">
+      <Loader2 className="animate-spin" size={40} />
+    </div>
+  );
+}
+
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return <RouteLoading />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== 'admin') return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return <RouteLoading />;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
