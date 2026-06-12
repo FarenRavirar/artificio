@@ -26,7 +26,7 @@ Ver `.specify/memory/project-state.md`. Hoje: **Fase 3 — módulos + conteúdo*
 5. **Auth é sagrado:** nunca quebrar a sessão SSO compartilhada.
 6. **SEO inegociável:** preservar slugs e 301; sem regressão.
 7. **Deploy/código via GitHub Actions.** VM manual só bootstrap/conexão/instalação operacional/diagnóstico/rollback aprovado; deploy normal usa branch/PR/workflow/secrets.
-8. **Doc-only não sobe sozinho**, não abre PR, salvo pedido explícito do mantenedor. Doc-only explicitamente autorizado pode ir `dev→main` por fast-forward. Código segue fluxo normal branch/PR/checks/revisão/merge autorizado. Se GitHub sugerir PR de `dev`, verificar `origin/main...origin/dev` antes de agir.
+8. **Doc-only não libera git automático.** `commit`, `push` e promoção ainda exigem pedido explícito por ação. Se o mantenedor pedir para subir/promover e o diff for só documentação, usar fast-forward `dev→main`. Código segue fluxo normal branch/PR/checks/revisão/merge autorizado. Se GitHub sugerir PR de `dev`, verificar `origin/main...origin/dev` antes de agir.
 9. Comunicação em PT. Segredos nunca versionados. HTML do WP é hostil (sanitizar).
 
 ## Stack canônica

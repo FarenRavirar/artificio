@@ -79,11 +79,13 @@ Nunca executar sem aprovação explícita do mantenedor:
 - Copiar/sobrescrever arquivos em produção
 - Modificar arquivos fora do escopo solicitado, ou de outro módulo/pacote não autorizado
 
+**Regra de obediência estrita:** se uma ação está nesta lista, o agente **não infere autorização** de frases genéricas como "pode seguir", "corrija", "resolve isso", "faz o resto", "promova" ou "termina". A autorização precisa nomear a ação perigosa ou o bloco de comandos (`commit`, `push`, `merge`, `workflow_dispatch`, comando VM, deploy etc.). Na dúvida, parar e pedir aprovação no formato abaixo.
+
 Read-only permitido sem aprovação: `docker ps|logs|stats|inspect`, `ls`, `cat`, `grep`, `find`, `head`, `tail`, `curl -s` GET, `psql` com `SELECT`, leitura via RaiDrive.
 
 **Pacotes apt ausentes:** se, durante uma tarefa já autorizada, faltar pacote `apt` necessário para executar/validar a operação (ex.: `git`, `jq`, `tree`, `p7zip-full`, `postgresql-client`, `curl`, `ca-certificates`), o agente pode rodar `sudo apt-get update` e `sudo apt-get install -y <pacote>` sem nova aprovação. Escopo: utilitário operacional padrão em VM Ubuntu/Debian. Proibido usar esta exceção para instalar serviço persistente novo, alterar arquitetura, mexer em WP/DNS/tunnel, instalar runtime/framework pesado não aprovado, ou executar deploy.
 
-**Escopo da aprovação (pétrea):** aprovação vale **por ação, não por sessão**. Um "pode prosseguir" autoriza APENAS o bloco de comandos apresentado naquele momento. Não se estende a commits/pushes/deploys/correções posteriores. Editar arquivo local não precisa de aprovação; `git commit`/`git push` sempre precisa, a cada vez.
+**Escopo da aprovação (pétrea):** aprovação vale **por ação, não por sessão**. Um "pode prosseguir" autoriza APENAS o bloco de comandos apresentado naquele momento. Não se estende a commits/pushes/deploys/correções posteriores. Editar arquivo local dentro do escopo pedido não precisa de aprovação; `git commit`, `git push`, merge, promoção, deploy e comando write na VM sempre precisam de aprovação explícita própria, a cada vez.
 
 Formato obrigatório para pedir aprovação:
 
@@ -121,7 +123,8 @@ Fluxo: `feat/NNN-nome` → `dev`/Beta → `main`/Produção. Branch nomeado por 
 - `git push origin dev`: aprovação explícita.
 - `git push origin main`: aprovação explícita.
 - Merge de PR: só com autorização explícita.
-- **Doc-only autorizado: `dev→main` por fast-forward.** Para documentação sem código, quando o mantenedor pedir explicitamente push/promover docs, usar `promote-prod-fast-forward.yml` ou comando equivalente explicitamente autorizado que avance `main` para `dev` sem merge commit/squash. Para **código**, seguir o fluxo normal: branch/PR/checks/revisão/merge autorizado; não promover código por fast-forward direto só para "resolver logo". Se o GitHub sugerir PR de `dev`, verificar `origin/main...origin/dev` e o conteúdo antes de agir.
+- **Nunca fazer `git commit`/`git push` por interpretação.** "Corrija", "documente", "ajuste", "pode seguir" ou "resolve logo" autorizam no máximo editar arquivos locais dentro do escopo. Para commitar/pushar, a mensagem precisa pedir explicitamente algo como "commite", "faça push", "suba para dev/main", "promova agora" ou aprovar um bloco de comandos que inclua essas ações.
+- **Doc-only não libera commit/push automático.** `git commit`, `git push` e promoção continuam exigindo aprovação explícita por ação, mesmo quando o diff é só documentação. Quando o mantenedor pedir explicitamente para subir/promover um diff que é **somente documentação**, então a promoção `dev→main` deve ser por fast-forward (`promote-prod-fast-forward.yml` ou comando equivalente autorizado), sem merge commit/squash. Para **código**, seguir o fluxo normal: branch/PR/checks/revisão/merge autorizado; não promover código por fast-forward direto só para "resolver logo". Se o GitHub sugerir PR de `dev`, verificar `origin/main...origin/dev` e o conteúdo antes de agir.
 - Nunca `git checkout` entre `dev` e `main` durante deploy. Usar `git fetch`, `git rev-parse`, `git log origin/main...origin/dev`, `gh run` e comparações sem checkout.
 - **Doc-only nunca sozinho, nem em PR.** Mudança só de documentação não vai sozinha para `dev`/`main`, não abre PR e não é pushada, salvo se o mantenedor pedir explicitamente **documentar/commitar/pushar docs agora**. Push/merge em `dev` dispara workflows (e pode acionar deploy/CI beta) — desperdício e risco para delta sem código. Docs viajam junto com o próximo commit de código que as motiva, ou ficam locais acumuladas. Exceção única: correção documental urgente aprovada explicitamente pelo mantenedor; nesse caso registrar na sessão "doc-only autorizado".
 

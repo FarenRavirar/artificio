@@ -47,3 +47,11 @@
 - **Solução (PONTE aplicada 2026-06-11):** `pnpm.overrides` no root `package.json` — `"@types/multer>@types/express": "^4.17.21"` força o `@types/multer@2` a usar tipos express-4 (runtime do multer inalterado). `turbo build --filter=@artificio/mesas-backend --force` **verde**. **Fix definitivo = spec 016** (migrar mesas p/ express 5, D060) → ao migrar, **remover o override** (senão volta a divergir). Não fecha o E004; é unblock do CI/deploy.
 - **Prevenção:** uma única major de express no monorepo (stack canônica). Não misturar express 4 e 5. CI de build deve rodar sem cache turbo mascarando (deploys via imagem podem esconder build TS quebrado).
 - **Data:** 2026-06-11
+
+### E005 — `glossario.` "não no ar": DNS ausente + redirect legado do Cloudflare
+- **Módulo/Pacote:** apps/glossario · infra/cloudflare (DNS + tunnel + rules)
+- **Sintoma:** `https://glossario.artificiorpg.com` "não funcionava" — ora não resolvia (DNS), ora dava **301** para `https://glossariorpg.artificiorpg.com`. Containers prod (`glossario-app/api/db`) sempre **healthy** na `artificio_net`; BETA `glossariobeta.` 200; nginx servia o HTML internamente. Logo NÃO era app/deploy.
+- **Causa raiz:** dois itens de Cloudflare faltando/errados, independentes dos containers: (1) o **public hostname** do tunnel foi criado mas **sem o registro DNS CNAME** `glossario`→`<tunnel>.cfargotunnel.com` (proxied); (2) havia uma **regra de redirect legada** no Cloudflare (`glossario.`→`glossariorpg.` 301) — o corpo do 301 dizia `cloudflare` (não nginx), provando origem na borda.
+- **Solução:** (1) criar CNAME `glossario`→`6417d3a0-...cfargotunnel.com` (proxy ON), igual ao `glossariobeta`; (2) remover a regra de redirect (Rules→Redirect Rules / Page Rules / Bulk Redirects). Depois: `curl -sI https://glossario.artificiorpg.com/` = **200** servindo o glossário novo, `/api/terms` 200.
+- **Prevenção:** ao publicar hostname novo no tunnel, conferir que o **DNS CNAME** foi criado de fato (não assumir auto-criação) e **varrer redirect/page rules** por regra antiga apontando o hostname novo p/ legado. Diagnóstico rápido: `curl -sSI` (status+Location) e olhar `Server`/corpo (`cloudflare` = borda; `nginx` = origem).
+- **Data:** 2026-06-12
