@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import { buildMeta, renderJsonLd, SITE } from "@artificio/content";
+import { faviconV2 } from "@artificio/ui";
 import SiteHeader from "../components/SiteHeader.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import SearchModal from "../components/SearchModal.astro";
@@ -41,6 +42,7 @@ const lds = jsonld ? (Array.isArray(jsonld) ? jsonld : [jsonld]) : [];
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type={faviconV2.type} href={faviconV2.src} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <title>{title}</title>

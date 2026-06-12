@@ -4,7 +4,7 @@ import { defaultNavItems, type NavItem } from "./modules.js";
 export interface FooterProps {
   /** "light" (padrão) ou "dark" (sobre navy/charcoal). */
   variant?: "light" | "dark";
-  /** Itens de módulo listados no footer (padrão: módulos do hub). */
+  /** Itens de projeto listados no footer (padrão: projetos do hub). */
   navItems?: NavItem[];
   /** URL do logo ao clicar (padrão: portal). */
   brandHref?: string;
@@ -32,13 +32,13 @@ export function Footer({
             />
           </a>
           <p className="artificio-footer-tagline">
-            Hub modular de RPG em português. Gratuito, sem anúncios, sem coleta
+            Hub de projetos de RPG em português. Gratuito, sem anúncios, sem coleta
             desnecessária.
           </p>
         </div>
 
-        <nav className="artificio-footer-nav" aria-label="Módulos do Artifício">
-          <span className="artificio-footer-nav-title">Módulos</span>
+        <nav className="artificio-footer-nav" aria-label="Projetos do Artifício">
+          <span className="artificio-footer-nav-title">Projetos</span>
           <ul className="artificio-footer-nav-list">
             {navItems.map((item) => (
               <li key={item.href}>
@@ -50,6 +50,11 @@ export function Footer({
           </ul>
         </nav>
       </div>
+
+      <p className="artificio-footer-gift">
+        Este é um presente da Artifício RPG para toda a comunidade brasileira de
+        RPG. Compartilhe com seus grupos!
+      </p>
 
       <div className="artificio-footer-base">
         <span className="artificio-footer-brand">Artifício RPG</span>
