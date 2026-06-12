@@ -5,7 +5,12 @@
 - **Modulo/Pacote:** `packages/ui` (consumidores validados em build)
 - **Gate relacionado:** nenhum. WP raiz/DNS/VM/deploy/producao fora de escopo.
 - **Spec vinculada:** `specs/020-ui-theme-artificio-padrao/` (T1, T2, T13 Fase B)
-- **Estado:** em andamento
+- **Estado:** concluída (commit `a48a518` em `dev`; deploys beta verdes)
+
+## Commit + deploy dev (autorizado)
+- Commit `a48a518` em `dev` (`7d90cb8..a48a518`), 36 arq. Worktree theme/marca coerente (impl + specs 019/020 + sessões 4-6 + docs). `main ⊆ dev` verificado antes do push.
+- Push `dev` disparou betas (`packages/**` tocado, D041). Runs no SHA `a48a518`: **deploy-accounts ✓, deploy-site ✓, deploy-glossario ✓, deploy-mesas ✓** (todos success); pr-checks ✓; invariante `promote-dev-to-main` ✓.
+- Prod NÃO tocado (sem promote `main`).
 
 ## Objetivo
 Primeira fatia segura da Spec 020: decisao de paleta (T1) + mapa de tokens (T2) + fonte unica de tokens em `packages/ui` com paridade interna (T13 Fase B). NAO migrar telas grandes. NAO habilitar lua/sol. Sem commit/push.

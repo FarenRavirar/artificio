@@ -97,7 +97,7 @@ textarea { resize: vertical; min-height: 64px; }
 .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
 .media-cell { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; cursor: pointer; position: relative; transition: border-color .12s, box-shadow .12s; }
 .media-cell:hover { border-color: var(--navy); }
-.media-cell.on { border-color: var(--orange); box-shadow: 0 0 0 2px rgba(255,148,87,.35); }
+.media-cell.on { border-color: var(--orange); box-shadow: 0 0 0 2px rgba(255,87,34,.35); }
 .media-thumb { height: 110px; background: #eef0f6; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .media-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .media-ph { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
