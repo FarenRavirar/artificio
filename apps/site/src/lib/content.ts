@@ -72,7 +72,7 @@ export function related(p: Post, n = 3): Post[] {
 // o barrel React/@artificio/auth do header). Mantido em sync com packages/ui/src/modules.ts.
 export const MODULES: { label: string; href: string }[] = [
   { label: "Portal", href: "https://beta.artificiorpg.com" },
-  { label: "Glossário", href: "https://glossariorpg.artificiorpg.com" },
+  { label: "Glossário", href: "https://glossario.artificiorpg.com" },
   { label: "Mesas", href: "https://mesas.artificiorpg.com" },
   { label: "Downloads", href: "https://downloads.artificiorpg.com" },
   { label: "Esferas", href: "https://esferas.artificiorpg.com" },
