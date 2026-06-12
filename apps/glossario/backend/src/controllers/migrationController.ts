@@ -7,7 +7,14 @@ import { mergeUsers, TxClient } from '../auth/mergeUsers';
 
 // Hash BCrypt válido só para igualar o tempo de resposta quando o email não
 // existe (anti-enumeração por timing). Nunca casa com senha real.
-const DUMMY_HASH = bcrypt.hashSync('artificio-dummy-password', 10);
+// O glossário legado gerava hashes com cost 10 (`bcrypt.hash(password, 10)`).
+// Env permite ajuste se aparecerem hashes importados com outro cost.
+const configuredCost = Number(process.env.GLOSSARIO_LEGACY_BCRYPT_COST || 10);
+const LEGACY_BCRYPT_COST =
+  Number.isInteger(configuredCost) && configuredCost >= 4 && configuredCost <= 31
+    ? configuredCost
+    : 10;
+const DUMMY_HASH = bcrypt.hashSync('artificio-dummy-password', LEGACY_BCRYPT_COST);
 
 type Executor = { query: (text: string, params?: any[]) => Promise<{ rows: any[] }> };
 
@@ -128,12 +135,21 @@ export async function runClaim(
     }
 
     // Usuário auto-provisionado pelo login Google deste sub (se existir) → funde no legado.
+    // Se for outra conta legada real já vinculada ao mesmo Google, não funde:
+    // exigiria senha antiga dessa segunda conta também.
     const autoRes = await client.query(
-      'SELECT id FROM public.users WHERE sso_user_id = $1 AND id <> $2 LIMIT 1',
+      'SELECT id, password_hash FROM public.users WHERE sso_user_id = $1 AND id <> $2 FOR UPDATE',
       [input.sub, legacyId]
     );
     const auto = autoRes.rows[0];
     if (auto) {
+      if (auto.password_hash !== SSO_NO_PASSWORD) {
+        await client.query('ROLLBACK');
+        return {
+          status: 409,
+          body: { message: 'Esta conta Google já está vinculada a outra conta legada.' },
+        };
+      }
       await mergeUsers(client, String(auto.id), String(legacyId));
     }
 

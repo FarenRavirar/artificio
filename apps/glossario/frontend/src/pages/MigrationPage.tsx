@@ -24,6 +24,7 @@ const MigrationPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState<Step>('form');
+  const [completed, setCompleted] = useState(false);
 
   const doClaim = useCallback(async () => {
     const token = sessionStorage.getItem(TOKEN_KEY);
@@ -36,6 +37,7 @@ const MigrationPage: React.FC = () => {
     try {
       await api.post('/migration/claim', { migration_token: token });
       sessionStorage.removeItem(TOKEN_KEY);
+      setCompleted(true);
       await refresh();
       setStep('done');
     } catch (err: any) {
@@ -48,6 +50,7 @@ const MigrationPage: React.FC = () => {
   // sem sessão → pede conexão Google; sem token → começa pelo formulário.
   useEffect(() => {
     if (loading) return;
+    if (completed) return;
     const hasToken = !!sessionStorage.getItem(TOKEN_KEY);
     if (!hasToken) {
       setStep('form');
@@ -59,7 +62,7 @@ const MigrationPage: React.FC = () => {
       setStep('connect');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, user]);
+  }, [loading, user, completed]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,6 +204,7 @@ const MigrationPage: React.FC = () => {
                 type="button"
                 onClick={() => {
                   sessionStorage.removeItem(TOKEN_KEY);
+                  setCompleted(false);
                   setError('');
                   setStep('form');
                 }}
