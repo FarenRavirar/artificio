@@ -10,20 +10,23 @@ Três débitos de UX/marca registrados em `sessoes/26-06-12_2_debitos_ux-marca.m
 2. **Rodapé (D-UX3):** o texto "Este é um presente da Artifício RPG para toda a comunidade brasileira de RPG. Compartilhe com seus grupos!" vive duplicado no glossário (`LandingSection.tsx` + `App.tsx`). Deve viver no rodapé compartilhado (`packages/ui/src/Footer.tsx`) e aparecer em todos os projetos.
 3. **Toggle de tema (D-UX2):** glossário e mesas não têm alternância de tema. O `packages/ui/src/Header.tsx` (shell compartilhado) deve oferecer um toggle lua/sol reusando o cookie cross-subdomínio `artificio_theme` (`Domain=.artificiorpg.com`), já usado por site/accounts. Projetos podem herdar o mecanismo quando tiverem CSS dark.
 
+## Status final
+Fechada em 2026-06-12. O mecanismo compartilhado foi entregue em `packages/ui`; o toggle visual foi aplicado ao `accounts` (D-UX1). Por decisão do mantenedor, glossário e mesas não ativaram o botão neste fluxo porque ainda não têm CSS dark completo; essa ativação ficou para specs próprias. O badge "presente" do hero do glossário foi mantido como elemento de design.
+
 ## Requisitos (numerados, testáveis)
 - **R1** — `packages/ui` exporta o favicon `faviconV2` (data-URI, mesmo padrão de `brandLogoNeg`) e um helper `applyFavicon()` que cria/atualiza o `<link rel="icon">` do documento a partir desse data-URI.
 - **R2** — site (Astro) renderiza o favicon em build importando de `@artificio/ui` (sem flash); accounts/glossário/mesas (Vite SPA) aplicam via `applyFavicon()` importado no `main.tsx`.
 - **R3** — Nenhuma cópia versionada de `faviconV2.png` em `apps/*/public`; nenhum `<link rel="icon" href="/faviconV2.png">` estático remanescente. Fonte = só `packages/ui`.
-- **R4** — O texto "presente" deixa de ser duplicado no glossário (removido de `LandingSection.tsx` e `App.tsx`) e passa a ser emitido pelo `Footer` compartilhado em todos os projetos.
+- **R4** — O texto "presente" deixa de ser duplicado no glossário (removido de `LandingSection.tsx`; badge do hero mantido por decisão do mantenedor) e passa a ser emitido pelo `Footer` compartilhado em todos os projetos aplicáveis.
 - **R5** — `Header` compartilhado oferece toggle de tema lua/sol opcional (prop aditiva, retrocompatível), que lê/grava o cookie `artificio_theme` (`Domain=.artificiorpg.com`, `SameSite=Lax`, `Secure`) e alterna `document.documentElement.dataset.theme`. Comportamento espelha `apps/site` (`SiteHeader.astro` `#theme-toggle` + `Base.astro`).
-- **R6** — glossário e mesas passam a exibir o toggle; site/accounts seguem funcionando (não regredir o mecanismo de tema existente).
+- **R6** — `accounts` troca o toggle textual por ícone lua/sol usando o mecanismo compartilhado; glossário e mesas mantêm o mecanismo disponível em `packages/ui`, mas a exibição do toggle fica adiada até haver CSS dark completo.
 - **R7** — `D-MARCA1` (rename público "módulo"→"projetos") foi movido para a spec 018 e decisão D063.
 
 ## Critérios de aceite
 - `turbo build` verde em packages/ui + os 4 consumidores (site/glossario/mesas/accounts).
 - Favicon servido nos 4 apps a partir da fonte única (verificado em build/preview); zero cópia em `public/`.
-- Texto "presente" aparece uma vez (no rodapé) em cada módulo; sem duplicação no glossário.
-- Toggle alterna tema e persiste via cookie cross-subdomínio; tema compartilhado entre subdomínios mantido.
+- Texto "presente" aparece no rodapé dos projetos que usam/espelham o footer; duplicação de `LandingSection` removida no glossário; badge do hero preservado.
+- Toggle do `accounts` alterna tema e persiste via cookie cross-subdomínio; mecanismo compartilhado fica pronto para adoção posterior por glossário/mesas; tema compartilhado entre subdomínios mantido.
 - Smoke de todos os consumidores do `packages/ui` (auth/design sagrado): nenhum quebra de Header/Footer/SSO.
 
 ## Fora de escopo

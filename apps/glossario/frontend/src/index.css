@@ -19,7 +19,7 @@
   background-color: #ffffff;
 
   --color-brand-navy: #1a2744;
-  --color-brand-accent: #e85d26;
+  --color-brand-accent: var(--artificio-brand); /* fonte única @artificio/ui (D064) */
   --color-input-bg: #ffffff;
   --color-input-border: #d1d5db;
   --color-input-text: #1a2744;

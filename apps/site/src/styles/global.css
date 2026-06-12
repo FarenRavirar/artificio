@@ -9,8 +9,8 @@
   --fg: #020740;
   --muted: #5a6172;
   --line: #e6e8ef;
-  --accent: #ff9457;
-  --accent-deep: #e0712f;
+  --accent: var(--artificio-brand);
+  --accent-deep: var(--artificio-brand-deep);
   --chip-bg: #fff1e8;
   --chip-fg: #b4541b;
   --maxread: 720px;

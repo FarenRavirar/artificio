@@ -13,9 +13,9 @@
 
 ## Toggle de tema (D-UX2)
 - [x] T8 — `packages/ui/theme.tsx` (mecanismo) + `Header.tsx` prop aditiva `showThemeToggle` + CSS. tsc verde.
-- [~] T9 — glossário + mesas: **adiado** (sem CSS dark; backlog futuro). Em vez disso, **D-UX1 (accounts)** entregue: ícone lua/sol na login, validado em preview (:4323).
+- [x] T9 — decisão registrada: glossário + mesas **adiados** (sem CSS dark; backlog futuro). Em vez disso, **D-UX1 (accounts)** entregue: ícone lua/sol na login, validado em preview (:4323) e prod.
 
 ## Validação / fechamento
 - [x] T10 — build smoke verde (packages/content + packages/ui + site + accounts + glossario-fe + mesas-fe).
 - [x] T11 — validação preview: site (favicon data-URI + gift 1×), accounts (favicon injetado + toggle SVG flipa light↔dark).
-- [ ] T12 — [APROVAÇÃO] commit/push/PR→dev → deploy beta → smoke → promote prod → smoke cross-módulo.
+- [x] T12 — [APROVAÇÃO] commit/push/PR→dev → deploy beta → smoke → promote prod → smoke cross-módulo.

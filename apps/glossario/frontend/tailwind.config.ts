@@ -8,7 +8,7 @@ export default {
     extend: {
       colors: {
         'azul-escuro': '#1B2A4A',
-        'laranja': '#E8521A',
+        'laranja': '#FF5722',
         'branco': '#FFFFFF',
         'cinza-fundo': '#F4F4F4',
         'cinza-texto': '#555555',

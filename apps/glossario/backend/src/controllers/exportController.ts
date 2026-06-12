@@ -53,7 +53,7 @@ export const exportToMateCat = async (req: Request, res: Response) => {
     worksheet.getRow(1).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFE8521A' } // Laranja Artifício
+      fgColor: { argb: 'FFFF5722' } // Laranja Artifício (D064)
     };
     worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
 

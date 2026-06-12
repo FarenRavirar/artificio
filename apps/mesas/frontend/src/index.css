@@ -1,13 +1,14 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Cores da marca real (D038): navy #020740 (contraste) + laranja #FF9457 (padrão máximo).
-     Header/footer compartilhados fundem com este navy. Surfaces (cards) seguem na escala
+  /* Cores da marca real (D064): navy #020740 (contraste) + laranja #FF5722 (Deep Orange).
+     Laranja puxa da fonte única @artificio/ui (--artificio-brand), importada em main.tsx.
+     Header/footer compartilhados fundem com o navy. Surfaces (cards) seguem na escala
      navy-azulada abaixo, criando profundidade sobre o fundo mais profundo. */
   --color-artificio-blue: #1B2A4A;
   --color-artificio-blue-light: #2A3F6D;
-  --color-artificio-orange: #FF9457;
-  --color-artificio-orange-hover: #E0712F;
+  --color-artificio-orange: var(--artificio-brand);
+  --color-artificio-orange-hover: var(--artificio-brand-deep);
 }
 
 /* ============================================================================

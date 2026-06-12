@@ -17,5 +17,8 @@ Formato: `AA-MM-DD_N_<modulo>_<escopo>.md`. `N` = sequencial do dia. Sessões en
 | `26-06-11_2_glossario_monorepo-exec` | 2026-06-11 | glossario | Spec 012: glossário no monorepo + bootstrap beta/prod | concluída (012 ✅ no ar PROD+BETA; E005 DNS/redirect; SSO = spec 015) |
 | `26-06-12_1_accounts_login-redesign` | 2026-06-12 | accounts | Correção visual da tela central de login SSO, sem mudar contrato/auth | aberta |
 | `26-06-11_3_glossario_sso-compat` | 2026-06-11 | glossario | Spec 015: SSO accounts + compat legado (migração) | concluída (Gate D glossário ✅ prod 2026-06-12; D061) |
-| `26-06-12_2_debitos_ux-marca` | 2026-06-12 | accounts/glossario/mesas/site/ui | Backlog de débitos UX/marca: toggle tema, dedup+rodapé, rename "serviços", favicon | aberta (só registro; cada item em sessão própria) |
-| `26-06-12_3_ui-marca_debitos-exec` | 2026-06-12 | accounts/glossario/mesas/site/ui | Execução do backlog UX/marca (D-INFRA1, D-UX3, D-UX2, D-UX1, D-MARCA1) | aberta |
+| `26-06-12_2_debitos_ux-marca` | 2026-06-12 | accounts/glossario/mesas/site/ui | Backlog de débitos UX/marca: toggle tema, dedup+rodapé, rename "serviços", favicon | parcialmente executada (017/018 ✅; D-INFRA2/D-MARCA2 futuros) |
+| `26-06-12_3_ui-marca_debitos-exec` | 2026-06-12 | accounts/glossario/mesas/site/ui | Execução do backlog UX/marca (D-INFRA1, D-UX3, D-UX2, D-UX1, D-MARCA1) | concluída (017/018 prod ✅; site beta-only) |
+| `26-06-12_4_infra_fonte-unica-auditoria` | 2026-06-12 | infra/monorepo | Spec 019: auditoria D-INFRA2 de duplicações/candidatos a fonte única | concluída (spec organizada; sem implementação) |
+| `26-06-12_5_ui-theme-artificio-padrao` | 2026-06-12 | ui/packages | Spec 020: Theme Artifício padrão (somente comum: tokens, dark/light, primitives, nav/actions) | concluída (spec montada; sem implementação) |
+| `26-06-12_6_ui-theme-020-tokens` | 2026-06-12 | ui/packages + apps | Spec 020 Fase B: D064 laranja `#FF5722` + fonte única de tokens (consumidores puxam `var(--artificio-brand)`) | aberta (build 13/13; fonte única no ar; lua/sol e navy glossário pendentes) |

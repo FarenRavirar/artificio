@@ -9,10 +9,10 @@
   --artificio-canvas: #f6f7fa;
   --artificio-charcoal: #0f1014;
   --artificio-navy: #1b2a4a; /* superfície dark = navy do hero (header/footer casam com app) */
-  --artificio-brand: #ff9457; /* laranja padrão máximo (cropped-Logo-PNG-Negativo-2) */
-  --artificio-brand-deep: #e0712f;
+  --artificio-brand: #ff5722; /* laranja de marca — acento UI (D064, Deep Orange 500) */
+  --artificio-brand-deep: #e64a19;
   --artificio-bronze: #9c6b43;
-  --artificio-focus: #e0712f;
+  --artificio-focus: #e64a19;
   --artificio-font-display: "Oswald", "Arial Narrow", system-ui, sans-serif;
   --artificio-font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
