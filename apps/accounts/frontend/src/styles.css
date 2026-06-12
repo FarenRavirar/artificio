@@ -1,24 +1,39 @@
-/* Tela de login do SSO (accounts.artificiorpg.com) — paleta real Artifício (D038).
-   Card claro: laranja = ação/acento, navy = texto. Sem vermelho/azul off-brand. */
+/* Tela de login do SSO (accounts.artificiorpg.com) — paleta real Artifício (D038/D040).
+   Sóbrio/minimalista estilo Google, com calor da marca: navy + laranja + Oswald.
+   Acento laranja = ação; navy = estrutura. Sem vermelho/azul off-brand. */
 @import url("https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
   --accounts-ink: #020740; /* navy da marca */
   --accounts-muted: #5a6172;
-  --accounts-line: #e3e5ec;
+  --accounts-line: #e6e8f0;
   --accounts-surface: #ffffff;
-  --accounts-canvas: #f6f7fa;
+  --accounts-canvas: #f3f4f9;
   --accounts-brand: #ff9457; /* laranja padrão máximo */
   --accounts-brand-deep: #e0712f;
+  --accounts-brand-soft: #fff0e8;
+  --accounts-card-shadow: 0 24px 60px -24px rgba(2, 7, 64, 0.35);
+  --accounts-canvas-bg:
+    linear-gradient(180deg, rgba(255, 148, 87, 0.16) 0 35%, transparent 35%),
+    var(--accounts-canvas);
+  --accounts-on-brand: #020740; /* texto sobre o laranja */
 }
 
 :root[data-theme="dark"] {
   --accounts-ink: #ffffff;
-  --accounts-muted: #d8dbe6;
-  --accounts-line: rgba(255, 255, 255, 0.16);
-  --accounts-surface: #1b2a4a;
-  --accounts-canvas: #0f1014;
-  --accounts-brand-deep: #ffb383;
+  --accounts-muted: #bcc5dc;
+  --accounts-line: rgba(255, 255, 255, 0.12);
+  --accounts-surface: #111936;
+  --accounts-canvas: #080b18;
+  --accounts-brand-soft: rgba(255, 148, 87, 0.12);
+  --accounts-card-shadow: 0 30px 70px -28px rgba(0, 0, 0, 0.8);
+  --accounts-canvas-bg:
+    linear-gradient(180deg, rgba(255, 148, 87, 0.14) 0 35%, transparent 35%),
+    linear-gradient(180deg, #0b1126 0%, #080b18 100%);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
@@ -30,6 +45,7 @@ body {
 
 .accounts-page {
   align-items: center;
+  background: var(--accounts-canvas-bg);
   display: grid;
   min-height: 100vh;
   padding: 24px;
@@ -39,99 +55,199 @@ body {
   background: transparent;
   border: 1px solid var(--accounts-line);
   border-radius: 999px;
-  color: var(--accounts-ink);
+  color: var(--accounts-muted);
   cursor: pointer;
   font: 600 13px/1 "Inter", ui-sans-serif, system-ui, sans-serif;
-  padding: 10px 14px;
+  padding: 9px 15px;
   position: fixed;
   right: 24px;
   top: 24px;
+  z-index: 2;
+  transition: color 140ms ease, border-color 140ms ease;
 }
 
 .accounts-theme-toggle:hover {
   border-color: var(--accounts-brand);
+  color: var(--accounts-ink);
+}
+
+.accounts-theme-toggle:focus-visible {
+  outline: 3px solid var(--accounts-brand);
+  outline-offset: 3px;
 }
 
 .accounts-panel {
   background: var(--accounts-surface);
   border: 1px solid var(--accounts-line);
-  border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(2, 7, 64, 0.12);
+  border-radius: 18px;
+  box-shadow: var(--accounts-card-shadow);
   margin: 0 auto;
-  max-width: 420px;
-  padding: 40px 36px;
+  max-width: 416px;
+  overflow: hidden;
+  padding: 48px 40px 36px;
+  position: relative;
   text-align: center;
   width: 100%;
 }
 
+/* Faixa de acento da marca no topo do card — ancora o navy ao laranja. */
+.accounts-panel::before {
+  background: linear-gradient(90deg, var(--accounts-brand), var(--accounts-brand-deep));
+  content: "";
+  height: 4px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
 .accounts-brand {
   display: inline-flex;
-  margin-bottom: 28px;
-  min-height: 44px;
+  margin-bottom: 22px;
+  min-height: 48px;
 }
 
 .accounts-brand-logo {
   display: block;
-  height: 36px;
+  height: 44px;
   width: auto;
+}
+
+.accounts-kicker {
+  color: var(--accounts-brand);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  margin: 0 0 10px;
+  text-transform: uppercase;
 }
 
 .accounts-panel h1 {
   font-family: "Oswald", "Arial Narrow", system-ui, sans-serif;
-  font-size: 30px;
-  letter-spacing: 0.01em;
-  margin: 0 0 8px;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin: 0 0 10px;
+  text-transform: uppercase;
 }
 
-.accounts-panel p {
+.accounts-subtitle {
   color: var(--accounts-muted);
-  line-height: 1.5;
-  margin: 0 0 28px;
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0 auto 30px;
+  max-width: 30ch;
 }
 
 .accounts-login {
   align-items: center;
   background: var(--accounts-brand);
-  border-radius: 10px;
-  color: var(--accounts-ink);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px -10px rgba(255, 148, 87, 0.65);
+  color: var(--accounts-on-brand);
   display: inline-flex;
+  font-size: 15px;
   font-weight: 700;
-  gap: 10px;
+  gap: 12px;
   justify-content: center;
-  min-height: 48px;
-  padding: 0 20px;
+  min-height: 52px;
+  padding: 0 22px;
   text-decoration: none;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 140ms ease, color 140ms ease, transform 140ms ease,
+    box-shadow 140ms ease;
   width: 100%;
-}
-
-:root[data-theme="dark"] .accounts-login {
-  color: #020740;
 }
 
 .accounts-login svg {
   background: #fff;
-  border-radius: 4px;
+  border-radius: 5px;
   flex-shrink: 0;
-  padding: 2px;
+  padding: 3px;
 }
 
 .accounts-login:hover {
   background: var(--accounts-brand-deep);
+  box-shadow: 0 16px 34px -10px rgba(224, 113, 47, 0.7);
   color: #ffffff;
+  transform: translateY(-1px);
 }
 
-:root[data-theme="dark"] .accounts-login:hover {
-  color: #020740;
+.accounts-login:active {
+  transform: translateY(0);
 }
 
 .accounts-login:focus-visible {
   outline: 3px solid var(--accounts-brand-deep);
-  outline-offset: 2px;
+  outline-offset: 3px;
+}
+
+/* Estado "validando sessão" — mantém o ritmo visual do botão. */
+.accounts-checking {
+  align-items: center;
+  background: var(--accounts-brand-soft);
+  border-radius: 12px;
+  color: var(--accounts-muted);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 10px;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 22px;
+  width: 100%;
+}
+
+.accounts-spinner {
+  animation: accounts-spin 0.8s linear infinite;
+  border: 2px solid var(--accounts-line);
+  border-radius: 50%;
+  border-top-color: var(--accounts-brand);
+  height: 18px;
+  width: 18px;
+}
+
+@keyframes accounts-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.accounts-divider {
+  background: var(--accounts-line);
+  border: 0;
+  height: 1px;
+  margin: 28px 0 18px;
 }
 
 .accounts-note {
   color: var(--accounts-muted);
   font-size: 13px;
-  margin: 24px 0 0;
+  line-height: 1.5;
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .accounts-page {
+    align-items: center;
+    min-height: 100dvh;
+    padding: 72px 16px 24px;
+  }
+
+  .accounts-panel {
+    border-radius: 16px;
+    padding: 36px 22px 28px;
+  }
+
+  .accounts-theme-toggle {
+    right: 16px;
+    top: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accounts-login,
+  .accounts-spinner {
+    transition: none;
+    animation: none;
+  }
 }
