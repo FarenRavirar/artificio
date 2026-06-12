@@ -32,8 +32,7 @@ const AdminReviewPage: React.FC = () => {
   const fetchTerms = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await api.get('/terms?status=pendente', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/terms?status=pendente');
       setTerms(res.data);
     } catch (e) {
       console.error(e);
@@ -45,8 +44,7 @@ const AdminReviewPage: React.FC = () => {
   useEffect(() => { fetchTerms(); }, []);
 
   const moderate = async (id: string, status: 'verificado' | 'rejeitado') => {
-    const token = localStorage.getItem('token');
-    await api.patch(`/terms/${id}/approve`, { status }, { headers: { Authorization: `Bearer ${token}` } });
+    await api.patch(`/terms/${id}/approve`, { status });
     setTerms(prev => prev.filter(t => t.id !== id));
   };
 

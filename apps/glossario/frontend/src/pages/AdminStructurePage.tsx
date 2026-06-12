@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { PlusCircle, X, CheckCircle, Edit2, AlertCircle, ChevronUp, ChevronDown, Download } from 'lucide-react';
 import api from '../services/api';
 
-const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('glossario_token')}` });
+// Sessão via cookie SSO (api.withCredentials). Sem Bearer manual.
+const headers = () => ({});
 
 interface Category { id: string; name: string; slug: string; type: string; parent_id: string | null; position: number; status: string; }
 interface System { id: string; name: string; slug: string; status: string; position: number; }

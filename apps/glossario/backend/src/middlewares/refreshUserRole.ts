@@ -25,9 +25,12 @@ export const refreshUserRole = async (req: any, res: Response, next: NextFunctio
       );
     }
 
+    // Admin GLOBAL do SSO (superusuário) não é rebaixado pela role local.
+    const isGlobalAdmin = req?.user?.is_global_admin === true;
+
     req.user = {
       ...req.user,
-      role: roleFromDb,
+      role: isGlobalAdmin ? 'admin' : roleFromDb,
       role_source: 'db',
     };
 

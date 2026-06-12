@@ -19,8 +19,7 @@ const AdminUsersPage: React.FC = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await api.get('/users/admin', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/users/admin');
       setUsers(res.data);
     } catch (e) {
       console.error(e);
@@ -32,8 +31,7 @@ const AdminUsersPage: React.FC = () => {
   useEffect(() => { fetchUsers(); }, []);
 
   const toggleBan = async (id: string, banned: boolean) => {
-    const token = localStorage.getItem('token');
-    await api.post(`/users/admin/${id}/ban`, { banned: !banned }, { headers: { Authorization: `Bearer ${token}` } });
+    await api.post(`/users/admin/${id}/ban`, { banned: !banned });
     fetchUsers();
   };
 
