@@ -126,10 +126,14 @@ function App() {
             width={logo.width}
           />
         </a>
+        <p className="accounts-kicker">Login único Artifício RPG</p>
         <h1 id="login-title">Entrar</h1>
-        <p>Use sua conta Google para acessar os módulos do Artifício.</p>
+        <p className="accounts-subtitle">Use sua conta Google para acessar os módulos do Artifício.</p>
         {checkingSession ? (
-          <p className="accounts-note">Validando sessão...</p>
+          <div className="accounts-checking" role="status">
+            <span className="accounts-spinner" aria-hidden="true" />
+            Validando sessão...
+          </div>
         ) : (
           <a className="accounts-login" href={googleUrl.toString()}>
             <svg aria-hidden="true" viewBox="0 0 18 18" width="18" height="18">
@@ -153,6 +157,7 @@ function App() {
             Entrar com Google
           </a>
         )}
+        <div className="accounts-divider" aria-hidden="true" />
         <p className="accounts-note">
           Gratuito, sem anúncios, sem coleta desnecessária.
         </p>
