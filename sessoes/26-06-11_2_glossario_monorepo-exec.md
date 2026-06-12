@@ -123,3 +123,6 @@ Tasks T1–T10 da spec 012 fechadas com evidência; `project-state.md` atualizad
 - PR aberto #15 (`fix/mesas-multer-express-types -> dev`) é stale: contém commits antigos/equivalentes já integrados em `dev/main` por outros commits e está `DIRTY`; fechar para remover alerta de PR em `dev`, sem merge.
 - Regra corrigida após feedback do mantenedor: **fast-forward `dev->main` direto é só para doc-only explicitamente autorizado**. Código segue fluxo normal branch/PR/checks/revisão/merge autorizado.
 - Correção de contexto do mantenedor: `glossariorpg.artificiorpg.com` não existe mais; era alias antigo antes do monorepo. Documentação atual deve tratar `glossario.artificiorpg.com` como único host PROD canônico do glossário e não planejar redirect obrigatório de `glossariorpg.`.
+
+## FECHAMENTO 012 (2026-06-12)
+Glossário **no ar em PROD** `https://glossario.artificiorpg.com/` (200) + BETA (200) pelo monorepo. Spec 012 fechada (T1–T10). "Não tá on" = infra Cloudflare (E005): CNAME `glossario` faltando + regra de redirect legada `glossario.`→`glossariorpg.` 301; containers sempre healthy. Nav → `glossario.` (commit `1d8d060`, betas verdes). Login legado (SSO = spec 015). **Isolado:** login real no browser (mantenedor) + desativar workflows do repo legado `glossario_rpg_artificio`. **Sessão encerrada; próximo = spec 015 em chat novo.**
