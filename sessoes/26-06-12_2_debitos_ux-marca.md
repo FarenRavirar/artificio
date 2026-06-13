@@ -105,6 +105,13 @@
 - **Alvo:** limpar em fatia futura movendo import de fonte para ordem CSS válida ou criando mecanismo static-friendly equivalente para fontes.
 - **Nível SDD:** Completo se tocar `packages/ui` (CSS compartilhado); Lite se a correção ficar restrita ao `apps/site`.
 
+## D-SHELL1 — Unificar nav e footer entre todos os projetos
+- **Origem:** pedido do mantenedor em 2026-06-13 durante revisão B6/B7.
+- **O quê:** `apps/glossario` ainda destoa do shell visto em `beta.artificiorpg.com` e `apps/mesas`. Todos os projetos precisam ter o mesmo nav e footer, consumindo fonte compartilhada e não variações locais divergentes.
+- **Escopo:** glossário, mesas, site/beta, accounts e novos projetos. Separar shell compartilhado (nav/footer/brand/actions visuais) de dados locais de cada app.
+- **Não fazer agora:** débito registrado apenas; não corrigir nav/footer junto do ajuste de contraste de `/perfil`.
+- **Nível SDD:** SDD Completo se tocar `packages/ui` ou contrato compartilhado; validar com smoke visual dos consumidores afetados.
+
 ## D-MARCA2 — Laranja padrão geral = #E8521A (não #FF9457)
 - **O quê:** o laranja padrão geral do projeto é **`#E8521A`**, não `#FF9457`. Atualizar onde o laranja de marca está como `#FF9457` para `#E8521A`.
 - **CONFLITO com decisão firme D040:** D040 fixou `#FF9457` (amostra pixel de `midias/cropped-Logo-PNG-Negativo-2.png`) como laranja-padrão e a CDX-311 já trocou `#E8521A`→`#FF9457` em vários arquivos. Esta dívida **reverte** isso. Antes de aplicar: registrar **decisão nova que supera D040** em `.specify/memory/decisions.md` (confirmar com mantenedor o hex canônico e a fonte) — senão volta o vai-e-vem.
@@ -146,7 +153,8 @@
 5. ⏳ D-MESAS1 — arquivar mesas manual/auto prod-only após 1 mês.
 6. ⏳ D-FEEDBACK1 — portar reportar bug/sugerir melhoria para site e glossário.
 7. ⏳ D-CSS1 — limpar aviso CSS `@import` de fontes no build Astro.
-8. ⏳ Specs não-visuais derivadas da 019: config/auth, auth client, deploy, analytics, SEO, normalizers.
+8. ⏳ D-SHELL1 — unificar nav/footer em todos os projetos, incluindo glossário.
+9. ⏳ Specs não-visuais derivadas da 019: config/auth, auth client, deploy, analytics, SEO, normalizers.
 
 ## Fechamento
 Sessão de registro/backlog. Itens D-INFRA1, D-UX1, D-UX3 e D-MARCA1 foram executados na sessão `26-06-12_3_ui-marca_debitos-exec` via specs 017/018. D-INFRA2 foi auditado na spec 019. D-UX2 visual completo e D-MARCA2 foram absorvidos pela spec 020, evitando specs visuais concorrentes. Em 2026-06-13 foram adicionados D-CONT1 (urgente), D-MESAS1, D-FEEDBACK1 e D-CSS1; B8 da logo foi quitado na spec 020 como responsividade mobile. D-CONT1 foi resolvido localmente no mesmo dia com changelogs de mesas/glossário atualizados. Itens não-visuais da 019 seguem no backlog derivado. Commit/push/deploy seguem exigindo aprovação por ação.

@@ -885,6 +885,195 @@
   gap: 0.5rem;
 }
 
+/* ===========================================================
+   LIGHT MODE (Spec 020 B7) — perfil usa CSS dedicado dark-coded.
+   Superficies e textos vêm dos tokens compartilhados.
+   =========================================================== */
+[data-theme="light"] .profile-edit-page {
+  --profile-ink: var(--artificio-light-ink);
+  --profile-surface: var(--artificio-light-surface);
+  --profile-subtle: var(--artificio-light-subtle);
+  --profile-line: color-mix(in srgb, var(--artificio-brand-deep) 12%, transparent);
+  --profile-line-strong: color-mix(in srgb, var(--artificio-brand-deep) 18%, transparent);
+  --profile-line-emphasis: color-mix(in srgb, var(--artificio-brand-deep) 24%, transparent);
+  --profile-text: var(--artificio-light-ink);
+  --profile-muted: color-mix(in srgb, var(--artificio-light-ink) 72%, transparent);
+  --profile-subtle-text: color-mix(in srgb, var(--artificio-light-ink) 62%, transparent);
+  --profile-placeholder: color-mix(in srgb, var(--artificio-light-ink) 48%, transparent);
+  --profile-brand-tint: color-mix(in srgb, var(--artificio-brand) 8%, transparent);
+  --profile-brand-focus: color-mix(in srgb, var(--artificio-brand) 18%, transparent);
+  --profile-brand-line: color-mix(in srgb, var(--artificio-brand) 34%, transparent);
+  --profile-success-tint: color-mix(in srgb, var(--artificio-success-text) 6%, transparent);
+  --profile-danger-tint: color-mix(in srgb, var(--artificio-danger) 10%, transparent);
+  --profile-danger-line: color-mix(in srgb, var(--artificio-danger) 30%, transparent);
+  --profile-shadow: color-mix(in srgb, var(--artificio-brand-deep) 8%, transparent);
+  --profile-shadow-strong: color-mix(in srgb, var(--artificio-brand-deep) 12%, transparent);
+  color: var(--artificio-light-ink);
+}
+
+[data-theme="light"] .profile-header,
+[data-theme="light"] .tab-content,
+[data-theme="light"] .avatar-premium-container,
+[data-theme="light"] .playstyle-item,
+[data-theme="light"] .discord-connected,
+[data-theme="light"] .discord-disconnected {
+  background: var(--artificio-light-surface);
+  border-color: var(--profile-line);
+  color: var(--artificio-light-ink);
+}
+
+[data-theme="light"] .profile-header,
+[data-theme="light"] .tab-content {
+  box-shadow: 0 18px 40px var(--profile-shadow);
+}
+
+[data-theme="light"] .profile-info h1,
+[data-theme="light"] .form-section h2,
+[data-theme="light"] .form-group label,
+[data-theme="light"] .playstyle-item label,
+[data-theme="light"] .loading-state,
+[data-theme="light"] .error-state {
+  color: var(--artificio-light-ink);
+}
+
+[data-theme="light"] .profile-email,
+[data-theme="light"] .section-description,
+[data-theme="light"] .discord-connected p,
+[data-theme="light"] .discord-disconnected p {
+  color: var(--profile-muted);
+}
+
+[data-theme="light"] .field-description,
+[data-theme="light"] .form-group small,
+[data-theme="light"] .avatar-source-hint,
+[data-theme="light"] .avatar-manual-input small,
+[data-theme="light"] .avatar-direct-link-option {
+  color: var(--profile-subtle-text);
+}
+
+[data-theme="light"] .profile-username,
+[data-theme="light"] .profile-public-link {
+  color: var(--artificio-brand);
+}
+
+[data-theme="light"] .profile-tabs {
+  border-bottom-color: var(--profile-line-strong);
+}
+
+[data-theme="light"] .tab {
+  color: var(--profile-muted);
+}
+
+[data-theme="light"] .tab:hover {
+  color: var(--artificio-light-ink);
+  background: color-mix(in srgb, var(--artificio-brand-deep) 5%, transparent);
+}
+
+[data-theme="light"] .tab.active {
+  color: var(--artificio-brand);
+  background: var(--profile-brand-tint);
+  border-bottom-color: var(--artificio-brand);
+}
+
+[data-theme="light"] .form-group input[type='text'],
+[data-theme="light"] .form-group input[type='number'],
+[data-theme="light"] .form-group input[type='url'],
+[data-theme="light"] .form-group select,
+[data-theme="light"] .form-group textarea,
+[data-theme="light"] .avatar-manual-input input {
+  background: var(--artificio-light-surface);
+  border-color: var(--profile-line-strong);
+  color: var(--artificio-light-ink);
+}
+
+[data-theme="light"] .form-group input:focus,
+[data-theme="light"] .form-group select:focus,
+[data-theme="light"] .form-group textarea:focus,
+[data-theme="light"] .avatar-manual-input input:focus {
+  background: var(--artificio-light-surface);
+  border-color: var(--artificio-brand);
+  box-shadow: 0 0 0 3px var(--profile-brand-focus);
+}
+
+[data-theme="light"] .form-group input::placeholder,
+[data-theme="light"] .form-group textarea::placeholder,
+[data-theme="light"] .form-group input::-webkit-input-placeholder,
+[data-theme="light"] .form-group textarea::-webkit-input-placeholder,
+[data-theme="light"] .form-group input::-moz-placeholder,
+[data-theme="light"] .form-group textarea::-moz-placeholder {
+  color: var(--profile-placeholder);
+}
+
+[data-theme="light"] .form-group select option,
+[data-theme="light"] .form-group select.app-select option,
+[data-theme="light"] .form-group select.app-select optgroup {
+  background: var(--artificio-light-surface);
+  color: var(--artificio-light-ink);
+}
+
+[data-theme="light"] .playstyle-item:hover {
+  background: var(--artificio-light-subtle);
+  border-color: var(--profile-brand-line);
+}
+
+[data-theme="light"] .playstyle-item span {
+  color: var(--artificio-brand);
+}
+
+[data-theme="light"] .playstyle-item input[type='range'] {
+  background: color-mix(in srgb, var(--artificio-brand-deep) 16%, transparent);
+}
+
+[data-theme="light"] .avatar-premium-preview {
+  background: var(--artificio-light-subtle);
+  border-color: color-mix(in srgb, var(--artificio-brand) 28%, transparent);
+  box-shadow: 0 8px 22px var(--profile-shadow-strong);
+}
+
+[data-theme="light"] .avatar-manual-input {
+  border-top-color: var(--profile-line);
+}
+
+[data-theme="light"] .btn-avatar-action.btn-manual {
+  background: color-mix(in srgb, var(--artificio-brand-deep) 5%, transparent);
+  color: var(--artificio-light-ink);
+  border-color: color-mix(in srgb, var(--artificio-brand-deep) 16%, transparent);
+}
+
+[data-theme="light"] .btn-avatar-action.btn-manual:hover {
+  background: color-mix(in srgb, var(--artificio-brand-deep) 9%, transparent);
+  color: var(--artificio-light-ink);
+  border-color: var(--profile-line-emphasis);
+}
+
+[data-theme="light"] .btn-avatar-action.btn-remove,
+[data-theme="light"] .error-text {
+  color: var(--artificio-danger-text);
+}
+
+[data-theme="light"] .btn-avatar-action.btn-remove {
+  background: var(--profile-danger-tint);
+  border-color: var(--profile-danger-line);
+}
+
+[data-theme="light"] .discord-connected {
+  border-color: var(--artificio-success-text);
+  background: var(--profile-success-tint);
+}
+
+[data-theme="light"] .discord-disconnected {
+  border-color: color-mix(in srgb, var(--artificio-brand-deep) 16%, transparent);
+}
+
+[data-theme="light"] .discord-disconnected li,
+[data-theme="light"] .user-systems-selector-loading {
+  color: color-mix(in srgb, var(--artificio-light-ink) 68%, transparent);
+}
+
+[data-theme="light"] .discord-username {
+  color: var(--artificio-info-text);
+}
+
 @media (max-width: 640px) {
   .avatar-upload-container {
     flex-direction: column;
