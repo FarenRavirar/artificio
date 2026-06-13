@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Header, type UserMenuItem } from '@artificio/ui';
+import { Header, type UserMenuItem, ThemeIcon, setTheme, resolveTheme, type Theme } from '@artificio/ui';
 import type { User as ArtificioUser } from '@artificio/auth';
 import { Zap, PlusCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -23,6 +23,20 @@ export function GlossarioHeader() {
 
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [hasNewUpdate, setHasNewUpdate] = useState(false);
+
+  // Tema lua/sol (Spec 020). Estado local p/ alternar o logo (variant) reativo;
+  // a persistência/cookie é do runtime canônico (@artificio/ui setTheme).
+  const [theme, setThemeState] = useState<Theme>('light');
+
+  useEffect(() => {
+    setThemeState(resolveTheme());
+  }, []);
+
+  const toggleTheme = () => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    setThemeState(next);
+  };
 
   useEffect(() => {
     const lastSeen = localStorage.getItem('glossario_last_seen_update');
@@ -60,8 +74,21 @@ export function GlossarioHeader() {
     { label: 'Meu Perfil', href: '/profile' },
   ];
 
+  const themeBtn = (
+    <button
+      type="button"
+      className="artificio-header-action"
+      title="Alternar tema"
+      aria-label="Alternar tema"
+      onClick={toggleTheme}
+    >
+      <ThemeIcon theme={theme} />
+    </button>
+  );
+
   const actions = user ? (
     <>
+      {themeBtn}
       <button
         type="button"
         className="artificio-header-action"
@@ -97,21 +124,25 @@ export function GlossarioHeader() {
       </button>
     </>
   ) : (
-    <button
-      type="button"
-      className="artificio-header-action"
-      title="Notas de Atualização"
-      aria-label="Notas de Atualização"
-      onClick={openChangelog}
-    >
-      <Zap size={20} />
-    </button>
+    <>
+      {themeBtn}
+      <button
+        type="button"
+        className="artificio-header-action"
+        title="Notas de Atualização"
+        aria-label="Notas de Atualização"
+        onClick={openChangelog}
+      >
+        <Zap size={20} />
+      </button>
+    </>
   );
 
   return (
     <>
       <Header
         brandHref="https://artificiorpg.com"
+        variant={theme === 'dark' ? 'dark' : 'light'}
         sessionOverride={{ user: sessionUser, loading }}
         userMenu={userMenu}
         actions={actions}

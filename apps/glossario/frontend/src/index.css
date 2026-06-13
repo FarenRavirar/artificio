@@ -18,15 +18,15 @@
   color: #333333;
   background-color: #ffffff;
 
-  --color-brand-navy: #1a2744;
+  --color-brand-navy: #020740;
   --color-brand-accent: var(--artificio-brand); /* fonte única @artificio/ui (D064) */
   --color-input-bg: #ffffff;
   --color-input-border: #d1d5db;
-  --color-input-text: #1a2744;
+  --color-input-text: #020740;
   --color-input-placeholder: #9ca3af;
   --color-surface: #ffffff;
   --color-surface-secondary: #f9fafb;
-  --color-text-primary: #1a2744;
+  --color-text-primary: #020740;
   --color-text-secondary: #6b7280;
 
   font-synthesis: none;
@@ -49,3 +49,143 @@ body {
   margin: 0 auto;
   width: 100%;
 }
+
+/* ============================================================================
+   DARK MODE (Spec 020 R4/R8/D065) — variante FALTANTE do glossário.
+   Ativada pelo runtime canônico @artificio/ui (theme.tsx): <html data-theme="dark">.
+   Paleta navy alinhada à suite (site/mesas/accounts): surface #1B2A4A, canvas #0F1830,
+   texto #EEF1F8, brand #FF5722 (var --artificio-brand). Técnica = remap de utilities
+   (não toca os 21 componentes). Especificidade [data-theme] .util vence .util sem !important.
+   Backdrops (bg-black/NN) e hover:bg-black ficam de fora de propósito.
+   ============================================================================ */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  color: #eef1f8;
+  background-color: #0f1830;
+
+  /* tokens semânticos consumidos por Notifications/Profile (var(--color-*)) */
+  --color-input-bg: #16223e;
+  --color-input-border: rgba(255, 255, 255, 0.18);
+  --color-input-text: #eef1f8;
+  --color-input-placeholder: #8a94ab;
+  --color-surface: #1b2a4a;
+  --color-surface-secondary: #16223e;
+  --color-text-primary: #eef1f8;
+  --color-text-secondary: #aab3c7;
+  /* foco visível no escuro (navy #020740 sumiria): usa o laranja de marca */
+  --color-brand-navy: var(--artificio-brand);
+}
+
+[data-theme="dark"] body {
+  background-color: #0f1830;
+}
+
+/* --- remap de superfícies --- */
+[data-theme="dark"] .bg-white { background-color: #1b2a4a; }
+[data-theme="dark"] .bg-gray-50 { background-color: #16223e; }
+[data-theme="dark"] .bg-gray-100 { background-color: #1b2a4a; }
+[data-theme="dark"] .bg-gray-200 { background-color: #22325a; }
+
+/* --- remap de texto (não toca text-white nem o laranja) --- */
+[data-theme="dark"] .text-gray-900 { color: #eef1f8; }
+[data-theme="dark"] .text-gray-800 { color: #eef1f8; }
+[data-theme="dark"] .text-gray-700 { color: #e2e7f1; }
+[data-theme="dark"] .text-gray-600 { color: #c2cad9; }
+[data-theme="dark"] .text-gray-500 { color: #aab3c7; }
+[data-theme="dark"] .text-gray-400 { color: #8a94ab; }
+[data-theme="dark"] .text-gray-300 { color: #8a94ab; }
+[data-theme="dark"] .text-black { color: #eef1f8; }
+
+/* --- remap de bordas --- */
+[data-theme="dark"] .border-gray-50 { border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .border-gray-100 { border-color: rgba(255, 255, 255, 0.12); }
+[data-theme="dark"] .border-gray-200 { border-color: rgba(255, 255, 255, 0.14); }
+[data-theme="dark"] .border-gray-300 { border-color: rgba(255, 255, 255, 0.18); }
+[data-theme="dark"] .border-white { border-color: rgba(255, 255, 255, 0.18); }
+
+/* --- estados hover (variantes não herdam do remap base) --- */
+[data-theme="dark"] .hover\:bg-white:hover { background-color: #22325a; }
+[data-theme="dark"] .hover\:bg-gray-50:hover { background-color: #22325a; }
+[data-theme="dark"] .hover\:bg-gray-100:hover { background-color: #22325a; }
+[data-theme="dark"] .hover\:bg-gray-200:hover { background-color: #2a3c66; }
+[data-theme="dark"] .hover\:border-gray-200:hover { border-color: rgba(255, 255, 255, 0.18); }
+[data-theme="dark"] .hover\:text-gray-700:hover { color: #c2cad9; }
+[data-theme="dark"] .hover\:text-black:hover { color: #eef1f8; }
+
+/* --- cores custom do glossário (azul-escuro/azul-medio/cinza-fundo) --- */
+[data-theme="dark"] .text-azul-escuro { color: #eef1f8; }
+[data-theme="dark"] .text-azul-medio { color: #b7c4e6; }
+[data-theme="dark"] .bg-azul-escuro { background-color: #2e4a7a; } /* CTA navy destaca do surface */
+[data-theme="dark"] .bg-azul-medio { background-color: #3a5894; }
+[data-theme="dark"] .bg-cinza-fundo { background-color: #16223e; }
+[data-theme="dark"] .border-azul-escuro { border-color: rgba(255, 255, 255, 0.18); }
+[data-theme="dark"] .border-azul-medio { border-color: rgba(255, 255, 255, 0.18); }
+[data-theme="dark"] .border-azul-escuro\/10 { border-color: rgba(255, 255, 255, 0.10); }
+[data-theme="dark"] .border-azul-medio\/30 { border-color: rgba(255, 255, 255, 0.22); }
+[data-theme="dark"] .bg-\[\#f0f4ff\] { background-color: #16223e; }
+[data-theme="dark"] .hover\:text-azul-escuro:hover { color: #eef1f8; }
+[data-theme="dark"] .hover\:text-azul-medio:hover { color: #b7c4e6; }
+[data-theme="dark"] .hover\:bg-azul-escuro:hover { background-color: #2e4a7a; }
+[data-theme="dark"] .hover\:bg-azul-medio:hover { background-color: #3a5894; }
+[data-theme="dark"] .group:hover .group-hover\:text-azul-escuro { color: #eef1f8; }
+
+/* --- tints semânticos (badges/alertas): fundo claro -50/-100 → translúcido escuro;
+       texto saturado -600..900 → clareado; bordas → alpha da própria cor --- */
+[data-theme="dark"] .bg-blue-50,
+[data-theme="dark"] .bg-blue-100 { background-color: rgba(59, 130, 246, 0.16); }
+[data-theme="dark"] .bg-green-50,
+[data-theme="dark"] .bg-green-100 { background-color: rgba(34, 197, 94, 0.16); }
+[data-theme="dark"] .bg-red-50,
+[data-theme="dark"] .bg-red-100 { background-color: rgba(239, 68, 68, 0.16); }
+[data-theme="dark"] .bg-amber-50,
+[data-theme="dark"] .bg-amber-100 { background-color: rgba(245, 158, 11, 0.16); }
+[data-theme="dark"] .bg-cyan-50 { background-color: rgba(34, 211, 238, 0.16); }
+[data-theme="dark"] .bg-orange-50 { background-color: rgba(255, 87, 34, 0.16); }
+[data-theme="dark"] .bg-yellow-50 { background-color: rgba(234, 179, 8, 0.16); }
+
+[data-theme="dark"] .text-blue-600,
+[data-theme="dark"] .text-blue-700,
+[data-theme="dark"] .text-blue-800,
+[data-theme="dark"] .text-blue-900 { color: #93c5fd; }
+[data-theme="dark"] .text-green-500,
+[data-theme="dark"] .text-green-600,
+[data-theme="dark"] .text-green-700,
+[data-theme="dark"] .text-green-800 { color: #86efac; }
+[data-theme="dark"] .text-red-500,
+[data-theme="dark"] .text-red-600,
+[data-theme="dark"] .text-red-700 { color: #fca5a5; }
+[data-theme="dark"] .text-amber-600,
+[data-theme="dark"] .text-amber-700,
+[data-theme="dark"] .text-amber-800,
+[data-theme="dark"] .text-amber-900 { color: #fcd34d; }
+[data-theme="dark"] .text-cyan-600,
+[data-theme="dark"] .text-cyan-700,
+[data-theme="dark"] .text-cyan-800 { color: #67e8f9; }
+[data-theme="dark"] .text-yellow-700 { color: #fde047; }
+[data-theme="dark"] .text-purple-600 { color: #d8b4fe; }
+[data-theme="dark"] .text-orange-600 { color: #ffb486; }
+
+[data-theme="dark"] .border-blue-100,
+[data-theme="dark"] .border-blue-200 { border-color: rgba(59, 130, 246, 0.30); }
+[data-theme="dark"] .border-green-100,
+[data-theme="dark"] .border-green-200 { border-color: rgba(34, 197, 94, 0.30); }
+[data-theme="dark"] .border-red-200 { border-color: rgba(239, 68, 68, 0.30); }
+[data-theme="dark"] .border-amber-100,
+[data-theme="dark"] .border-amber-200,
+[data-theme="dark"] .border-amber-300,
+[data-theme="dark"] .border-amber-500 { border-color: rgba(245, 158, 11, 0.30); }
+[data-theme="dark"] .border-cyan-100,
+[data-theme="dark"] .border-cyan-200 { border-color: rgba(34, 211, 238, 0.30); }
+
+/* --- variantes de OPACIDADE de fundos claros (frosted/overlay panels):
+       não herdam do remap sólido → viram navy translúcido no escuro --- */
+[data-theme="dark"] .bg-white\/60,
+[data-theme="dark"] .bg-white\/50,
+[data-theme="dark"] .bg-white\/10 { background-color: rgba(27, 42, 74, 0.60); }
+[data-theme="dark"] .bg-gray-50\/70,
+[data-theme="dark"] .bg-gray-50\/50,
+[data-theme="dark"] .bg-gray-50\/30 { background-color: rgba(22, 34, 62, 0.65); }
+[data-theme="dark"] .bg-gray-200\/50 { background-color: rgba(34, 50, 90, 0.55); }
+[data-theme="dark"] .bg-blue-50\/50,
+[data-theme="dark"] .bg-blue-50\/30 { background-color: rgba(59, 130, 246, 0.16); }
