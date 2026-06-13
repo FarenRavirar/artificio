@@ -88,7 +88,7 @@ Resultado:
 - `@artificio/auth` aparece em `apps/site/package.json` e `apps/site/server/*`, nao no `apps/site/src` publico;
 - `react` aparece em `apps/site-admin`, nao no `apps/site/src` publico.
 
-Aviso observado no build: `@import rules must precede all rules` por causa de `@import url(...)` em `packages/ui/src/styles.css` apos import/compilacao. Nao bloqueia T9; pode virar limpeza de CSS em fatia propria.
+Aviso observado no build: `@import rules must precede all rules` por causa de `@import url(...)` em `packages/ui/src/styles.css` apos import/compilacao. Nao bloqueia T9; pode virar limpeza de CSS em fatia propria. Alem da ordem de bundle, esse `@import url("https://fonts.googleapis.com/...")` e um **fetch externo render-blocking + questao de privacidade** (Google Fonts): a limpeza deve considerar self-host das fontes (Oswald/Inter) ou ao menos `<link rel="preconnect">` + `<link rel="stylesheet">` no lugar do `@import`, removendo a dependencia de terceiro do caminho critico do publico.
 
 ## Criterio de fechamento T9
 

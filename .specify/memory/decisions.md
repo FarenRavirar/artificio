@@ -15,7 +15,7 @@
 | D007 | 2026-06-03 | Stack canônica = stack do mesas (React19/Vite/Tailwind + Express/Kysely/PG16/Cloudinary) | consistência, reuso, 1 stack só | firme |
 | D008 | 2026-06-03 | Infra: Oracle 24GB/200GB, Docker, Cloudflare Tunnel, GHCR, Watchtower(beta) | já é o padrão do ecossistema | firme |
 | D009 | 2026-06-03 | Backup off-VM em `C:\projetos\artificiobackup` (local, 300GB livre) | fora da VM antes de destruir | firme |
-| D010 | 2026-06-03 | Acesso DB da VM via RaiDrive = read-only por padrão; escrita exige aprovação | segurança operacional | firme |
+| D010 | 2026-06-03 | Acesso DB da VM por linha de comando local/PowerShell via `ssh faren` = read-only por padrão; escrita exige aprovação | segurança operacional | firme |
 | D011 | 2026-06-03 | Site sobe como `beta.artificiorpg.com`; demais serviços integram em versão principal | site é o maior risco (300+ posts) | refinada por D015 |
 | D012 | 2026-06-03 | Governança antes de código; avanço por gates A→B→C→D | controlar risco por processo | firme |
 | D013 | 2026-06-03 | Caveman default na saída de todos os agentes; docs de reload mantidos minúsculos | economia de tokens em projeto de ~3 meses | firme |

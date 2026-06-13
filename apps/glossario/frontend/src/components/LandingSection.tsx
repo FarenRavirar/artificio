@@ -3,9 +3,11 @@ import { BookOpen, Users, Globe, Heart } from 'lucide-react';
 
 interface LandingSectionProps {
   totalTermos: number;
+  isAuthenticated: boolean;
+  onContribute: () => void;
 }
 
-export function LandingSection({ totalTermos }: LandingSectionProps) {
+export function LandingSection({ totalTermos, isAuthenticated, onContribute }: LandingSectionProps) {
   return (
     <div className="w-full">
       {/* Hero */}
@@ -26,12 +28,22 @@ export function LandingSection({ totalTermos }: LandingSectionProps) {
         </p>
 
         <div className="flex flex-wrap gap-3 justify-center mb-10">
-          <Link
-            to="/register"
-            className="bg-laranja text-white font-bold px-8 py-3 rounded-full hover:opacity-90 transition-all shadow-lg shadow-laranja/30 hover:scale-105 active:scale-95"
-          >
-            Cadastre-se e contribua →
-          </Link>
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={onContribute}
+              className="bg-laranja text-white font-bold px-8 py-3 rounded-full hover:opacity-90 transition-all shadow-lg shadow-laranja/30 hover:scale-105 active:scale-95"
+            >
+              Contribua →
+            </button>
+          ) : (
+            <Link
+              to="/register"
+              className="bg-laranja text-white font-bold px-8 py-3 rounded-full hover:opacity-90 transition-all shadow-lg shadow-laranja/30 hover:scale-105 active:scale-95"
+            >
+              Cadastre-se e contribua →
+            </Link>
+          )}
         </div>
 
         {/* Contagem real */}
