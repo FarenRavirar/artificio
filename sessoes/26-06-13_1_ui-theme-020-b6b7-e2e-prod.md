@@ -118,10 +118,12 @@ comentário cedo (CssSyntaxError). Corrigido (sem `*/` no texto).
 branco+ink, cta-secondary navy-alpha+ink, badge-mestre `#c2410c`, featured-price `#a16207` — todos AA.
 
 ## Estado final da sessão
-- **B6 (glossário dark):** telas com dados revisadas pelo mantenedor em prod = OK. Fix do CTA (D-GLOS-CTA) aplicado local. Fecha após deploy autorizado.
-- **B7 (mesas light):** 4 falhas reais corrigidas em `apps/mesas` (index.css + MestrePage.css), build verde, remaps verificados por sonda/screenshot. **Só fecha após re-verificação do mantenedor em PROD** (catálogo/painel/detalhe/mestre são auth-gated, não renderizam local) + deploy autorizado.
-- **Arquivos tocados:** `apps/glossario/frontend/src/{App.tsx,components/LandingSection.tsx}`; `apps/mesas/frontend/src/{index.css,pages/MestrePage.css}`; docs/sessões. **Zero `packages/*`.**
-- **Sem commit/push/deploy.** WP raiz/DNS/VM intocados. Worktree suja de outras sessões preservada.
+- **B6 (glossário dark): FECHADO em PROD.** Telas com dados revisadas pelo mantenedor em prod = OK; CTA logado `Contribua ->` abre `AddTermModal`; modal/form/selects dark legiveis; header/auth/toggle OK.
+- **B7 (mesas light): REABERTO por achado posterior em `/perfil`; corrigido LOCAL, pendente commit/push/deploy/revalidacao.** 4 falhas originais corrigidas e revalidadas em producao autenticada: landing, catalogo, painel, pagina de mestre e detalhe de mesa em light. Em seguida, mantenedor achou `https://mesasbeta.artificiorpg.com/perfil` ainda ilegivel no light e P2 de hero com banner custom; ver Fatia 4.
+- **Arquivos que subiram no PR #26:** `apps/glossario/frontend/src/{App.tsx,components/LandingSection.tsx,index.css}`; `apps/mesas/frontend/src/{index.css,pages/MestrePage.css}`; `packages/ui/{src/tokens.ts,src/styles.css,tailwind-preset.js,scripts/check-token-parity.mjs}`; docs/spec/sessoes.
+- **GitHub:** branch `fix/020-b6-b7-readiness`; commit `160290e`; PR #26 draft criado, checks verdes, marcado ready e squash-mergeado em `dev` (`c573e09`).
+- **Promocao/deploy:** `dev -> main` por `promote-prod-fast-forward.yml` verde; `origin/dev == origin/main == c573e090958f070a67cbcea1fc7ef46fff575891`. Deploy prod autorizado e verde: `accounts`, `glossario`, `mesas`.
+- **WP raiz/DNS:** intocados; smoke `https://artificiorpg.com/` = 200.
 
 ---
 
@@ -143,12 +145,36 @@ branco+ink, cta-secondary navy-alpha+ink, badge-mestre `#c2410c`, featured-price
 - **Validação:** `node packages/ui/scripts/check-token-parity.mjs` OK (31 papéis); `pnpm --filter=@artificio/glossario-frontend build` OK; `pnpm --filter=@artificio/mesas-frontend build` OK; `git diff --check` OK; `pnpm turbo run build` OK (13/13, warnings de chunk e `@import` de fonte já conhecidos/B12).
 - **Estado:** B10b fechado localmente. B6/B7 ainda dependem de deploy autorizado + re-verificação autenticada em prod das telas com dados.
 
+## Evidencia pos-deploy PROD (2026-06-13)
+- **Checks PR #26:** Amazon Q, accounts build/test, glossario CI, mesas CI, site CI, lint/actionlint/ShellCheck/guard/enforce = verdes.
+- **Betas pos-merge:** `deploy-accounts` run `27469895276`, `deploy-mesas` `27469895270`, `deploy-glossario` `27469895278`, `deploy-site` `27469895291`, `pr-checks` `27469895304` = verdes.
+- **Prod:** `promote-prod-fast-forward` run `27470039839`; `deploy-accounts` `27470051792`, `deploy-mesas` `27470051852`, `deploy-glossario` `27470051853` = verdes.
+- **Smoke HTTP prod:** `accounts_health=200`, `accounts_login=200`, `accounts_me_no_cookie=401`, `glossario_home=200`, `glossario_terms=200`, `mesas_home=200`, `mesas_me_options_no_cookie=401`, `wp_root=200`.
+- **CSS prod servido:** glossario CSS `/assets/index-oEWP_f_7.css` com `glossario_dark_tokens=100`; mesas CSS `/assets/index-CjM622kE.css` com `mesas_light_tokens=157`, `mesas_mestre_light_selectors=39`, `mesas_glass_surface=11`.
+- **Glossario autenticado/dark (Chrome):** sessao ativa `Faren Ravirar`; body dark `rgb(15,24,48)`; CTA logado `Contribua ->` e nao `Cadastre-se`; `AddTermModal` abre; inputs/selects/textarea dark com texto `rgb(238,241,248)` e bordas visiveis.
+- **Mesas autenticado/light (Chrome):** sessao ativa `Paulo Henrique`; catalogo light `body=rgb(244,246,251)`, `darkPanelCount=0`, cards brancos/ink; painel light `darkPanelCount=0`, paineis navy-alpha/ink; mestre `/mestre/farenravirar` light `hasMestrePage=true`, `body=rgb(244,246,251)`, `darkPanelCount=0`; detalhe `/mesas/a-praga-de-valekar-mpvknfrz` light `notFound=false`, `darkPanelCount=0`.
+
 ## Criterio de conclusao
-- B6 fechado: glossario dark passa itens 1-7 nas telas com dados; evidencia anexada.
-- B7 fechado: mesas light passa itens 1-7 nas telas com dados; evidencia anexada.
-- `project-state.md` atualizado.
-- Se algum item falhar: achado registrado + fatia de correcao proposta (sem codigo aqui).
+- B6 fechado: glossario dark passa itens 1-7 nas telas com dados; evidencia registrada.
+- B7 ainda nao fechado depois do achado `/perfil`: precisa subir fix local e revalidar `/perfil` + mestre com banner custom em beta/prod.
+- `project-state.md` atualizado localmente.
+- Sem achado bloqueante restante para B6; B7 tem fix local pendente de publicacao.
 
 ## Restricoes
-- ZERO codigo se passar. Sem commit/push/deploy. WP raiz/DNS/VM intocados.
-- Worktree suja de outras sessoes: nao commitar nem reverter.
+- Codigo ja promovido por autorizacao nominal do mantenedor nesta sessao. Novas alteracoes documentais pos-deploy ficam locais ate nova aprovacao de commit/push.
+- WP raiz/DNS/VM intocados. Worktree de docs pos-deploy nao comitada.
+
+---
+
+## Fatia 4 — ajuste local pos-review: Mesas `/perfil` light + hero com banner
+- **Pedido do mantenedor:** `https://mesasbeta.artificiorpg.com/perfil` em light ainda esta ilegivel (texto quase da cor do fundo no print). Tambem revisar achado P2: `MestreHero` com `banner_url` custom fica com texto dark sobre banner arbitrario e scrim claro fraco.
+- **Escopo autorizado:** `apps/mesas/frontend` CSS local. Sem commit/push/deploy nesta fatia.
+- **Plano de edicao:** padronizar `/perfil` light para usar `--artificio-light-*`/semanticos centrais; fortalecer hero light com overlay seguro sobre imagens reais, preservando contraste AA sobre banners custom.
+- **Debito novo pedido, sem corrigir agora:** nav/footer do `apps/glossario` destoa de `beta.artificiorpg.com` e `mesas`; registrar debito para unificar shell (nav+footer) de todos os modulos via fonte compartilhada, sem implementacao nesta fatia.
+- **Mudancas locais:** `ProfileEditPage.css` recebeu bloco `[data-theme="light"]` com `--artificio-light-*`/semanticos (`success/info/dangerText`) para header, tabs, tab-content, labels, inputs, hints, avatar actions e discord/playstyle. `MestrePage.css` recebeu regra light especifica para `.hero-section:has(.hero-banner)`: scrim dark forte + texto/CTA em `--artificio-dark-text`, preservando contraste sobre banner custom.
+- **Debito criado:** D-SHELL1 em `sessoes/26-06-12_2_debitos_ux-marca.md` + B13 em `specs/020-ui-theme-artificio-padrao/tasks.md`. Sem alteracao no glossario.
+- **Validacao local:** `pnpm --filter=@artificio/mesas-frontend build` OK; `node packages/ui/scripts/check-token-parity.mjs` OK (31 papeis); `git diff --check` OK (somente avisos CRLF). Browser sintético com CSS buildado: perfil light mostra header/tab-content/input em `rgb(255,255,255)` + ink `rgb(11,18,32)`; hints `rgba(11,18,32,.62)`; hero com banner custom usa texto `rgb(238,241,248)`/bio `.88`/stat `.72` e CTA dark-safe. Interacao: input preenchido com `Faren Ajustado`, foco/borda brand e texto ink.
+- **Limite:** `/perfil` real beta/prod e banner real precisam revalidacao autenticada apos deploy. Sem commit/push/deploy nesta fatia.
+- **Ajuste pedido pelo mantenedor:** o bloco novo de `ProfileEditPage.css` deve respeitar integralmente os tokens compartilhados. Refino local: substituir alphas hardcoded do bloco light por aliases locais derivados de `--artificio-light-*`, `--artificio-brand`, `--artificio-brand-deep`, `--artificio-success/danger/info` e variantes `*Text`.
+- **Validação do refino:** bloco `[data-theme="light"]` novo de `ProfileEditPage.css` ficou sem `#`, `rgb()` ou `rgba()` literais; usa `--profile-*` derivados dos tokens compartilhados. `pnpm --filter=@artificio/mesas-frontend build` OK; `check-token-parity` OK; `git diff --check` OK (só avisos CRLF).
+- **Handoff para continuação no Codex:** `C:\Users\paulo\AppData\Local\Temp\artificio-handoff-b7-perfil-light.md`. Próximo foco: revisar diff local, pedir aprovação nominal para commit/push/PR/deploy se for publicar, e revalidar `/perfil` light + mestre com banner custom após deploy.
