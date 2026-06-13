@@ -1051,3 +1051,129 @@
 .links-section {
   scroll-margin-top: 5rem;
 }
+
+/* ===========================================================
+   LIGHT MODE (Spec 020 B7 / D066 / D067) — MestrePage usa CSS dedicado
+   (classes .hero- .mestre- .stat- .benefit- etc), nao utilities, logo nao
+   responde a [data-theme=light] pelo remap do index.css. Identidade UNICA: o
+   mestre se adapta ao tema light como o resto (sem excecao). ink #0b1220 ·
+   surfaces brancas/cinza-azulado · acentos semanticos escurecidos p/ AA ·
+   laranja de marca preservado (icones/CTA). Ativo so com <html data-theme=light>.
+   =========================================================== */
+[data-theme="light"] .mestre-page {
+  background: var(--artificio-light-canvas);
+  color: var(--artificio-light-ink);
+}
+
+/* Hero: cover claro + scrim claro + texto ink */
+[data-theme="light"] .hero-section { border-bottom-color: rgba(2, 7, 64, 0.12); }
+[data-theme="light"] .hero-banner-gradient {
+  background: linear-gradient(135deg, var(--artificio-light-strong) 0%, var(--artificio-light-subtle) 50%, var(--artificio-light-canvas) 100%);
+}
+[data-theme="light"] .hero-overlay {
+  background: linear-gradient(to bottom, rgba(244, 246, 251, 0.10), rgba(244, 246, 251, 0.55));
+}
+[data-theme="light"] .hero-avatar {
+  border-color: rgba(2, 7, 64, 0.18);
+  background: rgba(2, 7, 64, 0.06);
+}
+[data-theme="light"] .hero-title { text-shadow: none; }
+[data-theme="light"] .hero-bio { color: rgba(11, 18, 32, 0.82); }
+[data-theme="light"] .stat-label { color: rgba(11, 18, 32, 0.62); }
+[data-theme="light"] .trust-item { color: rgba(11, 18, 32, 0.78); }
+[data-theme="light"] .trust-item svg,
+[data-theme="light"] .mestre-featured-table-features svg { color: #15803d; }
+
+/* Badges: tints pálidos + texto escuro p/ AA */
+[data-theme="light"] .badge-mestre { color: #c2410c; }
+[data-theme="light"] .badge-covil,
+[data-theme="light"] .closed-group-badge { color: #a16207; }
+[data-theme="light"] .hero-promo-badge { color: #c2410c; }
+
+/* CTA secundario: superficie/borda/texto navy-alpha */
+[data-theme="light"] .cta-button.cta-secondary {
+  background: rgba(2, 7, 64, 0.05);
+  border-color: rgba(2, 7, 64, 0.20);
+  color: var(--artificio-light-ink);
+}
+[data-theme="light"] .cta-button.cta-secondary:hover { background: rgba(2, 7, 64, 0.09); }
+[data-theme="light"] .cta-button-disabled { background: rgba(2, 7, 64, 0.20) !important; }
+
+/* Secoes com bg dark/gradient → light */
+[data-theme="light"] .why-section {
+  background: linear-gradient(to bottom, var(--artificio-light-canvas), var(--artificio-light-strong));
+}
+[data-theme="light"] .how-it-works-section,
+[data-theme="light"] .mestre-bio-section { background: rgba(2, 7, 64, 0.02); }
+[data-theme="light"] .final-cta-section {
+  background: linear-gradient(to bottom, rgba(2, 7, 64, 0.04), rgba(2, 7, 64, 0.08));
+}
+
+/* Cards/superficies glassy brancas (rgba(255,255,255,.0X)) → branco/navy-alpha */
+[data-theme="light"] .benefit-card,
+[data-theme="light"] .no-tables,
+[data-theme="light"] .insight-card,
+[data-theme="light"] .recommendation-item,
+[data-theme="light"] .mestre-featured-table-link,
+[data-theme="light"] .mestre-private-item {
+  background: var(--artificio-light-surface);
+  border-color: rgba(2, 7, 64, 0.12);
+}
+[data-theme="light"] .metric,
+[data-theme="light"] .closed-group-price { background: rgba(2, 7, 64, 0.05); }
+[data-theme="light"] .mestre-private-panel { border-top-color: rgba(2, 7, 64, 0.12); }
+[data-theme="light"] .mestre-featured-table-footer { border-top-color: rgba(2, 7, 64, 0.10); }
+[data-theme="light"] .mestre-featured-table-tag {
+  background: var(--artificio-light-subtle);
+  border-color: rgba(2, 7, 64, 0.10);
+  color: rgba(11, 18, 32, 0.82);
+}
+[data-theme="light"] .mestre-bio-photo img { border-color: rgba(2, 7, 64, 0.12); }
+[data-theme="light"] .mestre-bio-chip--outline {
+  background: rgba(2, 7, 64, 0.05);
+  border-color: rgba(2, 7, 64, 0.18);
+  color: rgba(11, 18, 32, 0.88);
+}
+[data-theme="light"] .closed-group-chip {
+  background: rgba(2, 7, 64, 0.05);
+  color: var(--artificio-light-ink);
+}
+
+/* Textos brancos hardcoded das secoes → ink (corpo/muted/titulos) */
+[data-theme="light"] .benefit-card p,
+[data-theme="light"] .step-card p,
+[data-theme="light"] .tables-subtitle,
+[data-theme="light"] .no-tables p,
+[data-theme="light"] .how-it-works-note,
+[data-theme="light"] .final-cta-subtitle,
+[data-theme="light"] .closed-group-description,
+[data-theme="light"] .mestre-bio-text p,
+[data-theme="light"] .mestre-bio-tagline,
+[data-theme="light"] .mestre-private-panel-note,
+[data-theme="light"] .mestre-private-panel-loading,
+[data-theme="light"] .recommendation-message,
+[data-theme="light"] .mestre-featured-table-features li,
+[data-theme="light"] .mestre-featured-table-description { color: rgba(11, 18, 32, 0.78); }
+[data-theme="light"] .insight-title,
+[data-theme="light"] .metric-value,
+[data-theme="light"] .mestre-featured-table-title { color: var(--artificio-light-ink); }
+[data-theme="light"] .no-tables-hint,
+[data-theme="light"] .metric-label,
+[data-theme="light"] .recommendation-label,
+[data-theme="light"] .final-cta-hint,
+[data-theme="light"] .mestre-featured-table-price-suffix { color: rgba(11, 18, 32, 0.58); }
+[data-theme="light"] .mestre-private-panel-empty {
+  color: rgba(11, 18, 32, 0.62);
+  background: rgba(2, 7, 64, 0.03);
+  border-color: rgba(2, 7, 64, 0.15);
+}
+
+/* Precos/acentos semanticos → escurecidos p/ AA */
+[data-theme="light"] .mestre-featured-table-price,
+[data-theme="light"] .closed-group-price strong { color: #a16207; }
+[data-theme="light"] .mestre-featured-table-price--free { color: #15803d; }
+[data-theme="light"] .owner-only-banner { color: #a16207; }
+
+/* Painel privado tints */
+[data-theme="light"] .mestre-private-panel--insights { background: rgba(255, 87, 34, 0.06); }
+[data-theme="light"] .mestre-private-panel--recommendations { background: rgba(21, 128, 61, 0.07); }

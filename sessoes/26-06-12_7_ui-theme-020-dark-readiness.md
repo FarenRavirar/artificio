@@ -342,3 +342,55 @@ Edicao feita:
 Validacao:
 - `rg` de `T10|rollout-pilots|accounts|glossario|mesas|site-admin|rollback`.
 - `git diff --check` nos arquivos tocados.
+
+## Revisao T11/B2 — paridade brand/static shell (2026-06-13)
+
+Pedido do mantenedor: continuar pendencias da Spec 020, item **paridade brand/static shell**, focado so em documentacao.
+
+Pesquisa:
+- `Base.astro` ainda importa `faviconV2` pelo barrel `@artificio/ui`.
+- `SiteHeader.astro` e `SiteFooter.astro` continuam `.astro` e static-friendly.
+- `global.css` consome `@artificio/ui/styles.css`, entao o CSS/tokens do shell ja vem da fonte comum.
+- `lib/content.ts` ainda importa `brand.json` e declara `MODULES` local.
+- `brand.json` espelha `brandLogoNavy`/`brandLogoNeg`.
+- `prep-fixtures.mjs` gera `brand.json` lendo `packages/ui/src/brand.ts` por regex.
+- `packages/ui/src/modules.ts` e `MODULES` local estao iguais hoje, mas sem teste/trava.
+
+Decisao tecnica:
+- Nao fechar T11 em rodada doc-only. O estado atual funciona, mas ainda permite drift.
+- Fechar so quando houver `@artificio/ui/static` (subpath sem React/auth/theme) ou teste real de paridade.
+- Manter o site sem React island no publico; Header/Footer seguem Astro.
+
+Edicao feita:
+- Criado `specs/020-ui-theme-artificio-padrao/brand-static-shell.md`.
+- `tasks.md`: T11 revisado, mas aberto; B2 segue parcial com referencia ao novo documento.
+
+Validacao documental:
+- `rg` de `T11|B2|brand-static-shell|@artificio/ui/static|brand.json|MODULES`.
+- `git diff --check` nos arquivos tocados.
+
+## Revisao B2-B7 — backlog 020 (2026-06-13)
+
+Pedido do mantenedor: revisar, focado so em documentacao, os debitos **B2, B3, B4, B5, B6, B7**.
+
+Pesquisa:
+- B2: cruzado `astro-zero-js.md`, `brand-static-shell.md`, `Base.astro`, `SiteHeader.astro`, `SiteFooter.astro`, `lib/content.ts` e `brand.json`.
+- B3: cruzado `header-nav-actions.md`, `packages/ui/src/Header.tsx`, actions do mesas (`HeaderActions`, `NotificationBell`) e glossario (`GlossarioHeader`, `ChangelogModal`).
+- B4/B5: cruzado `primitives-form-state.md`, `page-recipes.md`, exemplos vivos em mesas/glossario/site-admin.
+- B6/B7: cruzado D065/D066/D067, `rollout-pilots.md`, CSS/boot/toggle atuais de glossario e mesas.
+
+Decisao tecnica:
+- B2 continua parcial: estrategia fechada, mas sem `@artificio/ui/static`/teste real.
+- B3 sai de aberto bruto para parcial: slot/classes/actions existem e API proposta esta documentada; falta componente `HeaderAction`.
+- B4 continua parcial: contrato fechado, implementacao `packages/ui` pendente; variantes semanticas dependem de B11.
+- B5 fica fechado: debito era documental, recipes estao descritas.
+- B6 continua parcial: dark do glossario ja esta promovido, mas falta E2E autenticado com dados/admin/forms.
+- B7 continua parcial: light do mesas ja esta promovido, mas falta E2E autenticado das telas operacionais.
+
+Edicao feita:
+- Criado `specs/020-ui-theme-artificio-padrao/backlog-b2-b7-review.md`.
+- Atualizado `tasks.md` para refletir status real de B2-B7 e corrigir B6/B7 de "local/sem commit" para "implementado/promovido + residual E2E".
+
+Validacao documental:
+- `rg` de `B2|B3|B4|B5|B6|B7|backlog-b2-b7-review`.
+- `git diff --check` nos arquivos tocados.

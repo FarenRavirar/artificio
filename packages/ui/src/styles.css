@@ -13,6 +13,32 @@
   --artificio-brand-deep: #e64a19;
   --artificio-bronze: #9c6b43;
   --artificio-focus: #e64a19;
+
+  /* Semânticos (B11) — acento ancora no mesas; *-text = AA sobre claro (bug B7). */
+  --artificio-success: #10b981;
+  --artificio-success-text: #15803d;
+  --artificio-warning: #f59e0b;
+  --artificio-warning-text: #a16207;
+  --artificio-danger: #ef4444;
+  --artificio-danger-text: #b91c1c;
+  --artificio-info: #38bdf8;
+  --artificio-info-text: #1d4ed8;
+
+  /* Superfícies dark estruturadas (B10b, glossário D065); dark-surface = navy. */
+  --artificio-dark-canvas: #0f1830;
+  --artificio-dark-subtle: #16223e;
+  --artificio-dark-surface: #1b2a4a;
+  --artificio-dark-strong: #22325a;
+  --artificio-dark-text: #eef1f8;
+  --artificio-dark-muted: #aab3c7;
+
+  /* Superfícies light estruturadas (B10b, mesas D066). */
+  --artificio-light-canvas: #f4f6fb;
+  --artificio-light-subtle: #eef2f8;
+  --artificio-light-surface: #ffffff;
+  --artificio-light-strong: #e6ebf4;
+  --artificio-light-ink: #0b1220;
+
   --artificio-font-display: "Oswald", "Arial Narrow", system-ui, sans-serif;
   --artificio-font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }

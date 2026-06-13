@@ -161,6 +161,8 @@ Os recipes dependem dos contratos de `primitives-form-state.md`:
 
 Enquanto primitives nao existem em `packages/ui`, apps continuam usando componentes locais. O contrato evita drift em novas telas.
 
+**Cadeia de dependencia (sequenciamento):** recipes (T8/B5) -> primitives (T7/B4) -> tokens semanticos `success/warning/danger/info` (**B11**) + shadow/spacing canonicos (token-contract "fora do T3", futuro). As variantes coloridas de `Button`/`Badge`/`Panel`/`State` so ficam implementaveis apos B11; recipes que as usam herdam esse bloqueio. Implementar de baixo p/ cima: tokens -> primitives -> recipes.
+
 ## Fora de escopo
 
 - Migrar telas existentes.

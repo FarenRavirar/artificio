@@ -82,6 +82,21 @@
 - **Atenção:** se a solução virar componente compartilhado ou contrato cross-app, aplicar SDD Completo e smoke em consumidores; se for port local por app, SDD Lite por módulo.
 - **Nível SDD:** provável SDD Completo se reutilizar estrutura comum; Lite se apenas replicar localmente em `site` ou `glossario`.
 
+## D-GLOS-CTA — Glossário: CTA "Cadastre-se e contribua" não reage a sessão logada
+- **Origem:** E2E B6/B7 prod, sessão `26-06-13_1` (2026-06-13). Mantenedor logado.
+- **Bug:** estando logado, o botão hero `https://glossario.artificiorpg.com/` continua "Cadastre-se e contribua →" e leva para `/login`.
+- **Esperado (só após logado):** rótulo vira **"Contribua"** (ou similar) e o destino vai direto para o fluxo de contribuição (AddTerm/contribuir), não para `/login`.
+- **Anônimo:** comportamento atual preservado ("Cadastre-se e contribua →" → `/login`).
+- **Locais prováveis:** `apps/glossario/frontend/src/components/LandingSection.tsx` / `App.tsx` (CTA do hero) + `AuthContext` (estado de sessão). Conferir destino (rota de contribuição) e gate por `isAuthenticated`.
+- **Nível SDD:** Lite (isolado em `apps/glossario`; sem `packages/*`). Sem commit/push/deploy sem autorização nominal.
+
+## D-SYNC1 — Sincronização inteligente sistemas/cenários entre mesas e glossário
+- **Origem:** pedido do mantenedor, E2E sessão `26-06-13_1` (2026-06-13). "coloque como uma nova feature".
+- **O quê:** feature para **puxar e sincronizar** de forma inteligente os **sistemas** e **cenários** entre os bancos do `mesas` e do `glossario`, com **merge inteligente** (sem erros/duplicatas) e **backup** antes de qualquer escrita.
+- **Por que é grande:** toca **dois bancos** de apps distintos, dados de produção, merge/dedupe e backup → cross-module + dados pessoais/produtivos. **SDD Completo obrigatório** (spec própria futura: contrato de origem-da-verdade, chave de match sistema/cenário, estratégia de merge/conflito, idempotência, dry-run, backup/rollback, quem dispara). Migration/SQL em prod = aprovação + checklist.
+- **Pré-perguntas (definir na spec, não agora):** fonte da verdade (mesas? glossário? bidirecional?); chave canônica de sistema/cenário; o que é "cenário" em cada app (mesas = cenários de mesa; glossário = tags/escopo de termo?); periodicidade (one-shot, cron, on-demand); direção (uni/bi).
+- **Nível SDD:** **Completo** (cross-module + banco + backup). Não implementar sem spec aprovada.
+
 ## D-CSS1 — Limpeza futura do aviso CSS no build Astro
 - **Origem:** revisão Spec 020 T9/B2 (caminho Astro/zero-JS), 2026-06-13.
 - **Evidência:** `pnpm --filter @artificio/site build` verde com `output: static`, 45 páginas + Pagefind; aviso não bloqueante: `@import rules must precede all rules`.
@@ -96,6 +111,31 @@
 - **Locais prováveis:** `packages/ui` (tokens/`brand.ts`/`styles.css`), `apps/mesas` (vars + arquivos tocados na CDX-311), demais usos do token de marca.
 - **Estado:** absorvido pela **Spec 020 — Theme Artifício padrão** como decisão de paleta antes de runtime. Não aplicar sem decisão formal superando/reinterpretando D040.
 - **Nível SDD:** Completo (`packages/ui` = compartilhado; afeta todos os módulos).
+
+## Revisão AGENTS.md — bloco inicial/gates (2026-06-13)
+- **Pedido:** revisar `AGENTS.md` linha a linha, pausar após o primeiro bloco aprovado, editar só os pontos aceitos pelo mantenedor.
+- **Escopo aprovado agora:** L3, L10, L12-L15, L21, L27, L37-L44, L41-L42, L44 e L46.
+- **Mudanças planejadas:** remover ambiguidade de `G1` como nome; explicar `G1` apenas como analogia ao portal de notícias; ajustar terminologia pública para projetos/apps; corrigir frase sobre custo de reload; permitir leitura completa de `AGENTS.md` quando a tarefa for revisar governança; separar regra durável dos gates de status operacional; marcar Gate A/B como aprovados/guardrails e Gate D como por projeto; atualizar topologia com refs atuais.
+- **Executado:** `AGENTS.md` atualizado no bloco inicial/T0/gates/topologia. `G1` ficou apenas como analogia/codinome técnico nesse bloco; usos restantes fora do escopo aprovado seguem para a próxima rodada.
+- **Fora de escopo agora:** L48 em diante; regras de Git/doc-only/aprovação ficam para próxima rodada.
+- **Sem código/runtime/build/deploy.**
+
+## Revisão AGENTS.md — lote 2 (2026-06-13)
+- **Escopo aprovado:** atualizar refs/topologia (D028/D063), remover regra histórica "Antes do Gate A", precisar leitura WP como `export/dump read-only`, linkar exemplos no `operating-model.md`, reforçar Sem SDD sem commit/push automático, quebrar SDD Completo para legibilidade, corrigir VM write vs read-only, ajustar regra de `git commit`/push, precisar SQL write em DB real/VM/prod, trocar WP/DNS para WP prod/DNS raiz, atualizar read-only com `rg` e `git status/diff/log`, detalhar instalação de apt com aviso/tamanho/motivo, distinguir docs vs code em `packages/ui`/`accounts`, ajustar branch naming por tipo (`feat|fix|chore|docs|infra|...`) e explicitar exceção doc-only em branch/push/PR automáticos.
+- **Decisão pendente:** regra de modificar arquivo fora do escopo (linha antiga L80) precisa desenho melhor para permitir pequenas edições pedidas no meio da sessão; não alterar agora.
+- **Critério:** manter redundância de aprovação/doc-only onde ela existe para evitar que agentes ignorem.
+- **Executado:** `AGENTS.md` atualizado no lote aprovado. Mantida redundância forte em aprovação/doc-only. `packages/ui`/`accounts` agora distinguem código (aprovação + SDD Completo + smoke proporcional) de docs (sem smoke runtime por padrão). Instalação de `apt` operacional segue permitida, mas com aviso prévio de pacote/motivo/tamanho quando disponível.
+
+## Revisão AGENTS.md — acesso DB sem drive montado (2026-06-13)
+- **Pedido:** remover menções a drive montado antigo; acesso atual é por linha de comando local (PowerShell) usando alias SSH `faren` do `~/.ssh/config`.
+- **Escopo:** canônicos de governança/arquitetura/estado/acesso. Sessões históricas antigas podem continuar como registro factual, mas não devem ser usadas como orientação atual.
+- **Regra nova:** leitura de DB/VM deve ser via `ssh faren` + comandos read-only (`psql SELECT`, `pg_dump`, `docker exec` read-only), disparados do PowerShell/local shell. Escrita em DB/VM continua aprovação explícita.
+- **Executado:** removidas as citações do mecanismo antigo em `AGENTS.md`, `.specify/arquiteture.md`, `.specify/memory/project-state.md`, `.specify/memory/decisions.md` e `docs/agents/access-registry.md`. Busca final pelo nome antigo não retorna ocorrências.
+
+## Revisão AGENTS.md — lote 3 (2026-06-13)
+- **Escopo aprovado:** ajustar escopo fora de sessão; `apt` só sugerir e instalar com aprovação; criar matriz de smoke para `packages/auth`, `packages/ui` e `accounts`; ajustar regra SQL/migration prod com simulação e destrutivo só com permissão; registrar exceção D061 ao Google-only; corrigir conclusão parcial; unificar read-only geral/VM; organizar doc-only sem perder força; atualizar branch flow; SEO/Search Console/Lighthouse só após portal completo e DNS; reformular analytics; atualizar stack; formato de sessão; documentação canônica incluindo token-economy/roadmap/specs/sessoes; confirmar `.specify/arquiteture.md` como canônico de arquitetura/contratos e obrigatório atualizar quando necessário; quebrar linhas longas e modos SDD sem perder peso.
+- **Decisão sobre `.specify/arquiteture.md`:** segue necessária e canônica para contratos técnicos. Evidência: citada em `AGENTS.md`, `docs/agents/token-economy.md`, handoffs e project-state. Problema: pode ficar stale se agentes só atualizam specs/sessões; `AGENTS.md` deve exigir revisão/atualização dela quando contrato técnico/arquitetura mudar.
+- **Executado:** `AGENTS.md` atualizado conforme lote 3. `apt` agora exige aprovação; doc-only virou regra reforçada; SQL/migration prod exige simulação/rollback e destrutivo exige permissão nominal; `.specify/arquiteture.md` ficou marcado como canônico e obrigatório revisar/atualizar quando contrato técnico/arquitetura mudar.
 
 ## Sugestão de ordem
 0. ✅ D-CONT1 — atualizar changelogs de mesas e glossário (resolvido localmente; publicar exige fluxo Git/deploy).

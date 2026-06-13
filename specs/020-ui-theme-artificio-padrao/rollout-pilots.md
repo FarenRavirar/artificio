@@ -14,6 +14,8 @@ Ordem canonica para esta spec:
 4. `site`
 5. `site-admin`
 
+> **Nota:** esta ordem governa a **consolidacao/primitives restante** (dedup de helpers de tema, primitives/forms), onde `accounts` e o canario. A **variante lua/sol** (D065 glossario dark, D066 mesas light) ja executou **fora desta ordem** — glossario -> mesas primeiro, por prioridade do mantenedor — e ja esta em prod (D067). Portanto "accounts = piloto 1" se refere a consolidacao, nao a variante de tema, que ja rodou em glossario/mesas.
+
 ## Estado atual ja executado
 
 - Fonte unica de tokens: feita em `packages/ui` (`tokens.ts`, CSS vars, Tailwind preset, paridade).
@@ -160,7 +162,7 @@ Saida:
 Papel: area operacional React isolada; boa candidata a primitives de forms/estado.
 
 Escopo recomendado:
-- so iniciar apos primitives minimas fecharem implementacao;
+- so iniciar apos primitives minimas fecharem implementacao. **Dependencia transitiva:** site-admin -> primitives (T7/B4) -> tokens semanticos `success/warning/danger/info` (**B11**) + shadow/spacing canonicos. As variantes coloridas de `Button`/`Badge`/`Panel`/`State` (usadas pelo admin) so existem apos B11;
 - migrar botao/campo/badge/panel/state de forma incremental;
 - nao misturar admin React no bundle publico Astro;
 - preservar fluxo editorial BlockNote/preview/rebuild.

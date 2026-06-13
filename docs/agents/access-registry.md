@@ -6,7 +6,7 @@
 | Recurso | Como | Política |
 |---|---|---|
 | VM Oracle | `ssh faren` (chave em `~/.ssh/config` local) | Read-only sem aprovação; **write = aprovação pétrea** (AGENTS) |
-| DB da VM (Postgres) | via `docker exec` / RaiDrive | Read-only padrão (D010); escrita = aprovação |
+| DB da VM (Postgres) | linha de comando local/PowerShell via `ssh faren` (`docker exec`, `psql`, `pg_dump`) | Read-only padrão (D010); escrita = aprovação |
 | GitHub | `gh` CLI | repos privados; PAT no bundle |
 | Cloudflare | API token | DNS/tunnel; token no bundle |
 

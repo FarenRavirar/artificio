@@ -80,6 +80,106 @@ const roles = {
     grab(styles, /--artificio-bronze:\s*(#[0-9a-fA-F]{6})/),
     grab(preset, /\bbronze:\s*"(#[0-9a-fA-F]{6})"/),
   ],
+
+  // Semânticos (B11) — 3 saídas (tokens.ts / styles.css / preset.js).
+  success: [
+    grab(tokens, /\bsuccess:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-success:\s*(#[0-9a-fA-F]{6})/),
+    grab(preset, /\bsuccess:\s*"(#[0-9a-fA-F]{6})"/),
+  ],
+  successText: [
+    grab(tokens, /\bsuccessText:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-success-text:\s*(#[0-9a-fA-F]{6})/),
+    grab(preset, /"success-text":\s*"(#[0-9a-fA-F]{6})"/),
+  ],
+  warning: [
+    grab(tokens, /\bwarning:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-warning:\s*(#[0-9a-fA-F]{6})/),
+    grab(preset, /\bwarning:\s*"(#[0-9a-fA-F]{6})"/),
+  ],
+  warningText: [
+    grab(tokens, /\bwarningText:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-warning-text:\s*(#[0-9a-fA-F]{6})/),
+    grab(preset, /"warning-text":\s*"(#[0-9a-fA-F]{6})"/),
+  ],
+  danger: [
+    grab(tokens, /\bdanger:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-danger:\s*(#[0-9a-fA-F]{6})/),
+    grab(preset, /\bdanger:\s*"(#[0-9a-fA-F]{6})"/),
+  ],
+  dangerText: [
+    grab(tokens, /\bdangerText:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-danger-text:\s*(#[0-9a-fA-F]{6})/),
+    grab(preset, /"danger-text":\s*"(#[0-9a-fA-F]{6})"/),
+  ],
+  info: [
+    grab(tokens, /\binfo:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-info:\s*(#[0-9a-fA-F]{6})/),
+    grab(preset, /\binfo:\s*"(#[0-9a-fA-F]{6})"/),
+  ],
+  infoText: [
+    grab(tokens, /\binfoText:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-info-text:\s*(#[0-9a-fA-F]{6})/),
+    grab(preset, /"info-text":\s*"(#[0-9a-fA-F]{6})"/),
+  ],
+
+  // Superfícies dark/light estruturadas (B10b) — sem alias no preset (preset=null),
+  // valida tokens.ts vs styles.css (mesmo padrão do navy).
+  darkCanvas: [
+    grab(tokens, /\bdarkCanvas:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-dark-canvas:\s*(#[0-9a-fA-F]{6})/),
+    null,
+  ],
+  darkSubtle: [
+    grab(tokens, /\bdarkSubtle:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-dark-subtle:\s*(#[0-9a-fA-F]{6})/),
+    null,
+  ],
+  darkSurface: [
+    grab(tokens, /\bdarkSurface:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-dark-surface:\s*(#[0-9a-fA-F]{6})/),
+    null,
+  ],
+  darkStrong: [
+    grab(tokens, /\bdarkStrong:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-dark-strong:\s*(#[0-9a-fA-F]{6})/),
+    null,
+  ],
+  darkText: [
+    grab(tokens, /\bdarkText:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-dark-text:\s*(#[0-9a-fA-F]{6})/),
+    null,
+  ],
+  darkMuted: [
+    grab(tokens, /\bdarkMuted:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-dark-muted:\s*(#[0-9a-fA-F]{6})/),
+    null,
+  ],
+  lightCanvas: [
+    grab(tokens, /\blightCanvas:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-light-canvas:\s*(#[0-9a-fA-F]{6})/),
+    null,
+  ],
+  lightSubtle: [
+    grab(tokens, /\blightSubtle:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-light-subtle:\s*(#[0-9a-fA-F]{6})/),
+    null,
+  ],
+  lightSurface: [
+    grab(tokens, /\blightSurface:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-light-surface:\s*(#[0-9a-fA-F]{6})/),
+    null,
+  ],
+  lightStrong: [
+    grab(tokens, /\blightStrong:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-light-strong:\s*(#[0-9a-fA-F]{6})/),
+    null,
+  ],
+  lightInk: [
+    grab(tokens, /\blightInk:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-light-ink:\s*(#[0-9a-fA-F]{6})/),
+    null,
+  ],
 };
 
 const labels = ["tokens.ts", "styles.css", "preset.js"];
