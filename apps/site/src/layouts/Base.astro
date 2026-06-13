@@ -140,7 +140,9 @@ const lds = jsonld ? (Array.isArray(jsonld) ? jsonld : [jsonld]) : [];
         }
         applyVariant(document.documentElement.dataset.theme);
         updateLoginLink(document.documentElement.dataset.theme);
-        writeThemeCookie(document.documentElement.dataset.theme);
+        // NÃO gravar o cookie no boot: persistiria a preferência do SO como falso
+        // opt-in no cookie compartilhado (quebra o default-dark do mesas). O cookie
+        // só é escrito no toggle explícito abaixo. Spec 020 D067 / review Codex PR #24.
         updateSessionLink();
         var btn = document.getElementById("theme-toggle");
         if (btn) btn.addEventListener("click", function () {
