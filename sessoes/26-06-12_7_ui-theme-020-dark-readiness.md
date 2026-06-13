@@ -150,16 +150,16 @@ modais, sino de notificacao). So a landing publica `/` renderiza local. O remap 
 Mantenedor: "corrija os reviews da amazon e codex e registre o resto como debito" + 2 ajustes de UI. **Sem commit.**
 1. **Amazon Q (flash de tema)** — `GlossarioHeader`: init `useState<Theme>('light')`+useEffect → `useState(() => resolveTheme())`
    (sem flash de icone/logo no mount; useEffect redundante removido). Verificado: boot dark → ícone **sol** correto no 1º paint.
-2. **Codex (default-dark furado por cookie implícito)** — `accounts` grava `artificio_theme` da pref do SO no boot, então o
+2. **Codex (default-dark furado por cookie implícito) — histórico, superado por D067** — `accounts` gravava `artificio_theme` da pref do SO no boot, então o
    cookie compartilhado nao e opt-in confiavel. Fix no mesas: boot so vira light com **marcador proprio `mesas_theme==='light'`**
    (grava so ao alternar dentro do mesas); cookie compartilhado ignorado p/ o default. `main.tsx` + `index.html` (inline boot) +
-   `AppShell` (toggle grava `mesas_theme`). **Verificado:** cookie `artificio_theme=light` SEM marcador → mesas boota **dark**
-   (`#1B2A4A`); com `mesas_theme=light` → light; toggle ao vivo atualiza marcador. Causa-raiz accounts = **débito B9**.
+   `AppShell` (toggle grava `mesas_theme`). **Verificado naquele momento:** cookie `artificio_theme=light` SEM marcador → mesas boota **dark**
+   (`#1B2A4A`); com `mesas_theme=light` → light; toggle ao vivo atualiza marcador. Depois D067 corrigiu a causa-raiz e removeu o marcador local.
 3. **"Entrar com Google" → "Entrar"** — `packages/ui` Header `loginLabel` default. Verificado no mesas mobile.
 4. **Logo deformada no mobile** — era flex-item espremido no grid `1fr` do header. Fix `packages/ui` `.artificio-brand-logo`:
    `object-fit:contain` + `flex-shrink:0` (mantem proporcao, nao estica). Verificado mobile 375: logo intacta + "Entrar" cabe.
 
-**Débitos registrados:** B8 (dinamismo/animação da logo — precisa direção de design) · B9 (accounts grava cookie de tema do OS-pref no boot).
+**Débitos registrados naquela revisão:** B8 foi reclassificado pelo mantenedor em 2026-06-13 e está quitado: "dinamismo" = logo responsiva sem deformar no mobile, já resolvida com `object-fit:contain` + `flex-shrink:0`; sem débito de animação. B9 era "accounts grava cookie de tema do OS-pref no boot", mas foi corrigido depois por D067.
 **Validação:** `turbo build` **13/13** + `check-token-parity` OK (packages/ui tocado = SDD/cross-módulo). **Sem commit/push/deploy.**
 **ATENÇÃO:** beta (PR #24) ainda roda a versão PRÉ-fix (flash, "Entrar com Google", logo deformada, cookie). Subir os fixes ao beta = novo commit+push+deploy (aguardando autorização nominal).
 
@@ -168,3 +168,177 @@ T4 (checklist) entregue. **DOIS pilotos implementados, validados LOCAL e NO BETA
 glossario **+dark** (D065, navy migrado junto) e mesas **+light** (D066, default-dark preservado). lua/sol habilitado em
 ambos no CODIGO LOCAL; **nenhum em prod** (cada um so habilita apos dark-readiness completo com dados = E2E mantenedor).
 Build verde nos dois; smoke claro/escuro/mobile + AA medido; troca ao vivo sem flash; runtime de tema unico. Sem commit/push/deploy.
+
+## Revisao T3 — contrato de tokens (2026-06-13)
+Pedido do mantenedor: revisar 1 a 1 pendencias da Spec 020, comecando por **contrato de tokens**.
+
+Pesquisa:
+- Lidos `spec.md`, `plan.md`, `tasks.md`, sessoes `26-06-12_6`/`26-06-12_7`.
+- Lidos `packages/ui/src/tokens.ts`, `src/styles.css`, `tailwind-preset.js`, `scripts/check-token-parity.mjs`, exports do pacote e consumidores principais.
+- Rodado `node packages/ui/scripts/check-token-parity.mjs` → OK.
+
+Decisao tecnica:
+- Nao precisa alterar codigo para fechar T3: `dev` ja tem fonte unica, CSS vars, Tailwind preset e trava de paridade.
+- Lacuna real era documental: nomes, papeis, aliases temporarios e limites do contrato nao estavam reunidos em uma pagina canonica.
+
+Edicao planejada:
+- Criar `specs/020-ui-theme-artificio-padrao/token-contract.md`.
+- Marcar T3 como fechado apontando para esse contrato.
+- Registrar lacunas futuras: estados semanticos, spacing/shadow completos e tokens dark estruturados continuam em primitives/recipes/T14, nao bloqueiam T3.
+
+## Revisao T5 — consolidacao `artificio_theme` (2026-06-13)
+Pedido do mantenedor: continuar pendencias da Spec 020, item **consolidacao `artificio_theme`**.
+
+Pesquisa:
+- `packages/ui/src/theme.tsx` segue fonte canonica: `artificio_theme`, `readThemeCookie`, `writeThemeCookie`, `resolveTheme`, `applyTheme`, `setTheme`, `ThemeIcon`, `ThemeToggle`.
+- `glossario` consome API canonica no runtime (`applyTheme`, `resolveTheme`, `setTheme`); o inline boot em `index.html` e espelho zero-flash.
+- `mesas` consome `setTheme` no toggle e tem boot proprio deliberado: le cookie compartilhado; sem cookie cai em `dark` para preservar default operacional.
+- `accounts` tem comportamento D067 correto (nao grava cookie no boot; grava so no toggle), mas ainda duplica helpers locais (`THEME_COOKIE`, cookie/localStorage/matchMedia/dataset).
+- `site` Astro tem comportamento D067 correto, mas ainda duplica scripts inline de leitura/escrita por causa do requisito zero-JS/sem flash.
+- Trechos anteriores desta sessao que falam em `mesas_theme` sao historico pre-D067; a verdade atual e D067: sem marcador local, cookie unico compartilhado, mesas default-dark sem cookie.
+
+Decisao tecnica:
+- T5 nao exige migrar codigo agora; exige plano de consolidacao com rollback.
+- Fechar T5 por documento canonico e deixar a remocao real da duplicacao em `accounts`/`site` para T14 ou fatia futura autorizada.
+
+Edicao feita:
+- Criado `specs/020-ui-theme-artificio-padrao/theme-consolidation.md`.
+- Marcado T5 como fechado em `tasks.md`.
+
+Validacao planejada:
+- `rg` de `artificio_theme`/`matchMedia`/`dataset.theme` deve mostrar apenas ocorrencias permitidas enquanto a migracao nao ocorrer.
+- Quando virar codigo: build de `accounts`/`site`, smoke sem flash, cross-subdominio e mesas sem cookie = dark.
+
+## Revisao T6 — header/nav/actions (2026-06-13)
+Pedido do mantenedor: continuar pendencias da Spec 020, item **header/nav/actions**.
+
+Pesquisa:
+- Lidos `packages/ui/src/Header.tsx`, `Nav.tsx`, `modules.ts`, `styles.css`.
+- Lidos consumidores: `apps/mesas/frontend/src/components/AppShell.tsx`, `HeaderActions.tsx`, `NotificationBell.tsx`; `apps/glossario/frontend/src/components/GlossarioHeader.tsx`; `apps/site/src/components/SiteHeader.astro`, `Base.astro`, `lib/content.ts`.
+- `Header` ja expõe o contrato D058: `navItems`, `moduleNav`, `userMenu`, `actions`, `sessionOverride`, `onLogout`, `onLoginClick`, `showThemeToggle`.
+- `mesas` e a referencia visual mais completa para actions: tema, changelog com badge, notificacoes logado. Dados ficam no app.
+- `glossario` usa o mesmo shell e injeta tema, adicionar sugestao e changelog. Comentario de auth legado estava obsoleto pos-spec 015.
+- `site` e excecao static/zero-JS: espelha `defaultNavItems` em `MODULES` e usa `SECTIONS` como subnav; paridade static continua em T9/T11.
+
+Decisao tecnica:
+- Nao mover fetch de changelog/notificacao/feedback para `packages/ui`.
+- Fechar T6 por contrato escrito e propor helper futuro `HeaderAction` somente visual.
+- Corrigir comentario obsoleto do `GlossarioHeader` (documentacao inline), sem alterar runtime.
+
+Edicao feita:
+- Criado `specs/020-ui-theme-artificio-padrao/header-nav-actions.md`.
+- Marcado T6 como fechado em `tasks.md`.
+- Atualizado comentario em `apps/glossario/frontend/src/components/GlossarioHeader.tsx`.
+
+Validacao:
+- `rg "<Header|moduleNav|actions=|userMenu|artificio-header-action"` usado para inventario.
+- `git diff --check` nos arquivos tocados.
+
+## Revisao T7/B4 — primitives de formulario e estado (2026-06-13)
+Pedido do mantenedor: continuar pendencias da Spec 020, item **primitives de formulario/estado**.
+
+Pesquisa:
+- `packages/ui/src` hoje tem marca, Header/Footer/Nav, tema, tokens e CSS; nao tem primitives.
+- `mesas` tem bons candidatos vivos: `features/admin/components/Field.tsx`, `CatalogToolbar.tsx`, `components/ui/LoadingState.tsx`, `ErrorState.tsx`, `FilterDrawer.tsx`, `SystemSuggestionModal.tsx`, `FeedbackModal.tsx`.
+- `glossario` repete wrappers/classes de formulario em `AddTermModal.tsx`, `FilterPanel.tsx` e telas admin.
+- `site-admin` ja possui CSS proprio para `.btn`, `.card`, `label`, `input`, `.badge`, `.modal`, counters e estados editoriais.
+- `accounts` e tela compacta de auth; deve esperar `AuthPage`/recipe antes de puxar primitives.
+
+Decisao tecnica:
+- Nao implementar primitives agora: `packages/ui` e pacote compartilhado; codigo exige SDD Completo e smoke dos consumidores.
+- Fechar T7 como especificacao, nao como runtime.
+- B4 fica parcial: contrato pronto, implementacao pendente em T14/fatia propria.
+
+Edicao feita:
+- Criado `specs/020-ui-theme-artificio-padrao/primitives-form-state.md`.
+- Marcado T7 como fechado em `tasks.md`.
+- Marcado B4 como parcial em `tasks.md`.
+
+Validacao:
+- Inventario por `rg --files` e leitura dos candidatos principais.
+- `git diff --check` nos arquivos tocados.
+
+## Revisao T8/B5 — recipes de pagina (2026-06-13)
+Pedido do mantenedor: continuar pendencias da Spec 020, item **recipes de pagina**.
+
+Pesquisa:
+- `PublicSearchPage`: `apps/glossario/frontend/src/App.tsx` (`HomePage`) usa busca, landing, filtros, resultados agrupados, loading/error/empty e footer.
+- `CatalogPage`: `apps/mesas/frontend/src/pages/CatalogoPage.tsx` usa header de catalogo, filtros desktop/mobile, chips ativos, refresh, empty, grid e paginacao.
+- `AdminWorkspacePage`: `apps/mesas/frontend/src/pages/GestaoPage.tsx` e `apps/site-admin/src/App.tsx`/`PostsList.tsx`/`PostEditor.tsx` mostram abas/sidebar, toolbar, tabelas, editor, modais/drawers, busy/toast.
+- `AuthPage`: `apps/accounts/frontend/src/main.tsx`, `apps/mesas/frontend/src/pages/LoginPage.tsx` e `apps/glossario/frontend/src/pages/Login.tsx` cobrem painel curto, logo, CTA Google, retorno e validacao de sessao.
+- `EditorialPage`: `apps/site/src/pages/blog/[slug].astro` e `apps/site/src/pages/[slug].astro` cobrem Astro/SSG, breadcrumb, meta/canonical/json-ld, prose sanitizado, capa, TOC, tags e relacionados.
+- `DetailPage`: `apps/mesas/frontend/src/pages/MesaPage.tsx`, `features/table/TableView.tsx`, `features/master/MasterProfilePage.tsx` e `glossario/ResultCard.tsx` cobrem hero/detalhe, blocos, CTA/sidebar, owner/admin actions e estados.
+
+Decisao tecnica:
+- Recipes sao guias de composicao: slots, ordem, estados e fronteiras.
+- Nao implementar agora em `packages/ui`: shared code exigiria SDD Completo + builds/smokes. T8/B5 pedem documentacao, nao runtime.
+- `EditorialPage` precisa continuar static-friendly para Astro/zero-JS; isso conversa com T9, mas nao resolve T9.
+
+Edicao feita:
+- Criado `specs/020-ui-theme-artificio-padrao/page-recipes.md`.
+- Marcado T8 como fechado em `tasks.md`.
+- Marcado B5 como fechado em `tasks.md`.
+
+Validacao:
+- Inventario por `rg --files` + leitura dos exemplos vivos.
+- `rg` de `T8|B5|page-recipes|PublicSearchPage|CatalogPage|AdminWorkspacePage|AuthPage|EditorialPage|DetailPage`.
+- `git diff --check` nos arquivos tocados.
+
+## Revisao T9/B2 — caminho Astro/zero-JS (2026-06-13)
+Pedido do mantenedor: continuar pendencias da Spec 020, item **caminho Astro/zero-JS**.
+
+Pesquisa:
+- `apps/site/src/layouts/Base.astro`: compoe shell Astro, injeta favicon, meta/json-ld, scripts vanilla de tema/sessao/TOC.
+- `SiteHeader.astro`/`SiteFooter.astro`: shell publico em `.astro`, reusando classes/CSS do design system, sem componente React.
+- `SearchModal.astro`: Pagefind lazy-load apenas no abrir da busca.
+- `Analytics.astro`: GA4 so quando `PUBLIC_GA_ID` existe.
+- `lib/content.ts`: `MODULES` espelha `defaultNavItems` para nao puxar barrel React/auth no nav.
+- `apps/site/server/*`: usa `@artificio/auth` server-side para admin; fora do publico SSG.
+- `apps/site-admin`: React isolado em `/admin`; fora do blog publico.
+
+Validacao executada:
+- `pnpm --filter @artificio/site build` → verde; Astro `output: "static"`; 45 paginas; Pagefind indexou 8 paginas.
+- `apps/site/dist/_astro` contem somente CSS (`_slug_*.css`), sem JS de shell.
+- `rg --files apps/site/dist | rg '\.js$'` mostra apenas `/pagefind/*`.
+- Grep do `dist` mostra scripts inline permitidos (`artificio_theme`, `api/auth/me`, Pagefind lazy), sem React.
+- Aviso nao bloqueante: `@import rules must precede all rules` vindo de `packages/ui/src/styles.css`/font import apos compilacao.
+
+Decisao tecnica:
+- Fechar T9 por estrategia documentada: publico = Astro SSG + `.astro` shell + CSS vars/classes + vanilla JS curto.
+- Nao implementar agora export static em `packages/ui` (shared code).
+- B2 fica parcial: estrategia fechada, mas export/paridade real ainda depende de T11.
+- Lacuna registrada: `Base.astro` importa `faviconV2` pelo barrel `@artificio/ui`; HTML segue sem React, mas contrato melhor e criar subpath static (`@artificio/ui/brand-static`/`static`) ou teste de paridade.
+- Debito novo registrado: build T9 confirmou `output: static`, 45 paginas + Pagefind; aviso CSS antigo `@import rules must precede all rules` (font import depois de regra) nao quebra T9, mas deve virar limpeza futura (**B12 / D-CSS1**).
+
+Edicao feita:
+- Criado `specs/020-ui-theme-artificio-padrao/astro-zero-js.md`.
+- Marcado T9 como fechado em `tasks.md`.
+- Marcado B2 como parcial em `tasks.md`.
+- Registrado B12 em `tasks.md` e D-CSS1 no backlog de debitos.
+
+Validacao documental:
+- `rg` de `T9|B2|astro-zero-js|zero-JS|Pagefind|brand-static`.
+- `git diff --check` nos arquivos tocados.
+
+## Revisao T10 — rollout piloto (2026-06-13)
+Pedido do mantenedor: continuar pendencias da Spec 020, item **rollout piloto**.
+
+Pesquisa:
+- Estado real cruzado: tokens/paridade (T13), tema compartilhado D067, glossario+dark (B6 residual), mesas+light (B7 residual), site Astro/zero-JS (T9), B2/T11 static parity e T14 primitives/recipes.
+- `accounts` ja funciona como canario de SSO/tema, mas ainda tem helper local de tema.
+- `glossario` e `mesas` ja tiveram codigo promovido; o plano precisa separar "promovido" de "E2E autenticado com dados fechado".
+- `site` nao deve receber React/auth client no publico; rollout dele e static parity/export.
+- `site-admin` e React isolado; rollout dele deve esperar primitives reais.
+
+Decisao tecnica:
+- Fechar T10 como plano/documento, nao como execucao.
+- Ordem canonica: accounts → glossario → mesas → site → site-admin.
+- B6/B7 continuam parciais ate E2E autenticado com dados; B2/T11 continuam abertos ate export/paridade static; T14 continua para implementacao compartilhada futura.
+
+Edicao feita:
+- Criado `specs/020-ui-theme-artificio-padrao/rollout-pilots.md`.
+- Marcado T10 como fechado em `tasks.md`.
+
+Validacao:
+- `rg` de `T10|rollout-pilots|accounts|glossario|mesas|site-admin|rollback`.
+- `git diff --check` nos arquivos tocados.

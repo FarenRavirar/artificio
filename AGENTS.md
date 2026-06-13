@@ -3,7 +3,7 @@
 **Projeto:** Artifício RPG — Plataforma G1 (monorepo modular)
 **Fonte canônica de governança operacional.** Em conflito com qualquer documento operacional, este arquivo prevalece. Em conflito sobre arquitetura ou contratos técnicos, prevalece `.specify/arquiteture.md`.
 
-Toda comunicação com o mantenedor é em português. Nomes de arquivos, comandos, funções e identificadores permanecem no formato original.
+Toda comunicação com o mantenedor é em português e, por padrão, em **caveman ultra**. Nomes de arquivos, comandos, funções e identificadores permanecem no formato original.
 
 ---
 
@@ -24,7 +24,7 @@ Projeto longo (~3 meses, N chats, N agentes). Reload paga × centenas de sessõe
 2. `docs/agents/context-capsule.md` — regras críticas + stack.
 3. `.specify/memory/decisions.md` — decisões fechadas (não re-decidir = não retrabalhar).
 
-**Não** ler `AGENTS.md` inteiro por hábito — é T1 (consulta de regra sob demanda). `arquiteture.md` só por seção. Disciplina completa em `docs/agents/token-economy.md`. Caveman default na saída.
+**Não** ler `AGENTS.md` inteiro por hábito — é T1 (consulta de regra sob demanda). `arquiteture.md` só por seção. Disciplina completa em `docs/agents/token-economy.md`. Caveman ultra default na saída.
 
 Depois verificar `sessoes/` por sessão ativa incompleta. Se houver, continuar nela salvo pedido explícito de abrir sessão dedicada. Antes de qualquer alteração, registrar na sessão: o que vai fazer, o que falta, o que já foi feito.
 
