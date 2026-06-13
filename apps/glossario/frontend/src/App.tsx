@@ -29,6 +29,7 @@ export const useUI = () => useContext(UIContext);
 
 function HomePage() {
   const { user } = useAuth();
+  const { openAddTerm } = useUI();
   const { dados, buscar, loading, error, editarTermo, excluirTermo } = useGlossario();
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -132,7 +133,7 @@ function HomePage() {
 
       {/* O resto da Landing Section (Título, CTAs e Cards) só aparece sem busca */}
       {!isSearching && !loading && (
-        <LandingSection totalTermos={dados.length} />
+        <LandingSection totalTermos={dados.length} isAuthenticated={!!user} onContribute={openAddTerm} />
       )}
 
       {/* Filtros só aparecem quando o usuário já está pesquisando */}

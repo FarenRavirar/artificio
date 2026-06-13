@@ -16,6 +16,15 @@ export default {
           "brand-deep": "#E64A19",
           bronze: "#9C6B43",
           focus: "#E64A19",
+          // Semânticos (B11) — acento ancora no mesas; "*-text" = AA sobre claro (bug B7).
+          success: "#10B981",
+          "success-text": "#15803D",
+          warning: "#F59E0B",
+          "warning-text": "#A16207",
+          danger: "#EF4444",
+          "danger-text": "#B91C1C",
+          info: "#38BDF8",
+          "info-text": "#1D4ED8",
         },
       },
       borderRadius: {

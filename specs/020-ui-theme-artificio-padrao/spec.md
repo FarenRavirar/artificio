@@ -3,6 +3,10 @@
 - **Modulo/Pacote:** `packages/ui` + consumidores em `apps/accounts`, `apps/glossario`, `apps/mesas`, `apps/site`, `apps/site-admin`
 - **Gate relacionado:** nenhum
 
+> **▶ PRÓXIMOS PASSOS / ordem de execução: ver [`execution-priority.md`](./execution-priority.md).** Prioridade definida em 2026-06-13 a partir da revisão de todos os docs da spec. Caminho crítico: **B6/B7** (E2E valida o lua/sol que já está em prod) ∥ **B11+B10b** (tokens, destravam primitives) → **B4+B3** (primitives) → T5/B5 (cleanup). **B2/B12** em paralelo. **Novos chats começam por aí.**
+>
+> Docs da spec: `token-contract` (T3), `theme-consolidation` (T5), `header-nav-actions` (T6), `primitives-form-state` (T7), `page-recipes` (T8), `astro-zero-js` (T9), `rollout-pilots` (T10), `brand-static-shell` (T11), `dark-readiness-checklist` (T4), `backlog-b2-b7-review`, `execution-priority`.
+
 ## Problema
 As specs 017/018 fecharam parte da identidade compartilhada, e a Spec 019 encontrou duplicacoes em tema, cores, nav, header actions, estrutura de paginas, forms, estados e tokens. A ideia correta nao e "unificar tudo" nem transformar todos os apps na mesma tela. O problema e outro: falta uma **fonte unica importavel para a linguagem visual comum**.
 

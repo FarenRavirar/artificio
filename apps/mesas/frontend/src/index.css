@@ -183,15 +183,15 @@
 
 :root[data-theme="light"] {
   /* Surfaces dark → light (do mais profundo ao card) */
-  --surface-deepest: #e6ebf4;
-  --surface-deep:    #eef2f8;
-  --surface-input:   #ffffff;
-  --surface-panel:   #ffffff;
-  --surface-chip:    #eef2f8;
-  --surface-card:    #ffffff;
+  --surface-deepest: var(--artificio-light-strong);
+  --surface-deep:    var(--artificio-light-subtle);
+  --surface-input:   var(--artificio-light-surface);
+  --surface-panel:   var(--artificio-light-surface);
+  --surface-chip:    var(--artificio-light-subtle);
+  --surface-card:    var(--artificio-light-surface);
 
   /* Foreground branco → ink (mesma hierarquia de opacidade) */
-  --fg:       #0b1220;
+  --fg:       var(--artificio-light-ink);
   --fg-muted: rgba(11, 18, 32, 0.74);
   --fg-soft:  rgba(11, 18, 32, 0.68);
   --fg-low:   rgba(11, 18, 32, 0.60);
@@ -215,17 +215,21 @@
 
 /* --- base layer (body/placeholder/select/glass/app-select) --- */
 [data-theme="light"] body {
-  background-color: #f4f6fb;
+  background-color: var(--artificio-light-canvas);
   color: var(--fg);
 }
-[data-theme="light"] input::placeholder,
-[data-theme="light"] textarea::placeholder,
-[data-theme="light"] .section-container input::placeholder,
-[data-theme="light"] .section-container textarea::placeholder {
-  color: rgba(11, 18, 32, 0.45) !important;
+/* Placeholder light DENTRO de @layer base: a regra dark base usa !important
+   em layer; pela cascata de camadas, !important layered vence !important
+   unlayered. Mesmo layer + maior especificidade ([data-theme] attr) → light vence. */
+@layer base {
+  [data-theme="light"] input::placeholder,
+  [data-theme="light"] textarea::placeholder,
+  [data-theme="light"] .section-container input::placeholder,
+  [data-theme="light"] .section-container textarea::placeholder {
+    color: rgba(11, 18, 32, 0.55) !important;
+  }
 }
 [data-theme="light"] select { color-scheme: light; }
-[data-theme="light"] .glass { background: rgba(2, 7, 64, 0.04); }
 [data-theme="light"] .app-select {
   background: rgba(2, 7, 64, 0.04);
   color: var(--fg);
@@ -233,10 +237,10 @@
 }
 
 /* --- page base (AppShell wrapper usa bg-[var(--color-artificio-blue)] text-white) --- */
-[data-theme="light"] .bg-\[var\(--color-artificio-blue\)\] { background-color: #f4f6fb; }
+[data-theme="light"] .bg-\[var\(--color-artificio-blue\)\] { background-color: var(--artificio-light-canvas); }
 
 /* --- remap das utilities brancas → ink (texto) --- */
-[data-theme="light"] .text-white { color: #0b1220; }
+[data-theme="light"] .text-white { color: var(--artificio-light-ink); }
 [data-theme="light"] .text-white\/90 { color: rgba(11, 18, 32, 0.92); }
 [data-theme="light"] .text-white\/85 { color: rgba(11, 18, 32, 0.88); }
 [data-theme="light"] .text-white\/80 { color: rgba(11, 18, 32, 0.82); }
@@ -270,25 +274,63 @@
 
 /* --- hexes hardcoded de superficie (dark) → light --- */
 [data-theme="light"] .bg-\[\#13213f\],
-[data-theme="light"] .bg-\[\#1A233A\] { background-color: #eef2f8; }
+[data-theme="light"] .bg-\[\#1A233A\] { background-color: var(--artificio-light-subtle); }
 [data-theme="light"] .bg-\[\#0F1A2E\],
 [data-theme="light"] .bg-\[\#1B2A4A\],
 [data-theme="light"] .bg-\[\#1a2a4a\],
-[data-theme="light"] .bg-\[\#10203a\] { background-color: #ffffff; }
+[data-theme="light"] .bg-\[\#10203a\] { background-color: var(--artificio-light-surface); }
 [data-theme="light"] .bg-\[\#0a1628\],
 [data-theme="light"] .bg-\[\#0B1628\],
 [data-theme="light"] .bg-\[\#0B1220\],
-[data-theme="light"] .bg-\[\#1a1a2e\] { background-color: #e6ebf4; }
+[data-theme="light"] .bg-\[\#1a1a2e\] { background-color: var(--artificio-light-strong); }
 [data-theme="light"] .text-\[\#a8b8d8\] { color: #475569; }
 /* text-[#020740] (navy) preservado: bom contraste em light */
 
 /* --- gradientes (hero/landing) dark → light --- */
-[data-theme="light"] .from-\[\#2A3F6D\] { --tw-gradient-from: #e6ebf4; }
+[data-theme="light"] .from-\[\#2A3F6D\] { --tw-gradient-from: var(--artificio-light-strong); }
 [data-theme="light"] .from-\[\#0d1a30\],
 [data-theme="light"] .from-\[\#0a1628\],
-[data-theme="light"] .from-\[\#0F1A2E\] { --tw-gradient-from: #eef2f8; }
+[data-theme="light"] .from-\[\#0F1A2E\] { --tw-gradient-from: var(--artificio-light-subtle); }
 [data-theme="light"] .via-\[\#1B2A4A\],
-[data-theme="light"] .via-\[\#0d1a30\] { --tw-gradient-via: #f4f6fb; }
+[data-theme="light"] .via-\[\#0d1a30\] { --tw-gradient-via: var(--artificio-light-canvas); }
 [data-theme="light"] .to-\[\#1B2A4A\],
 [data-theme="light"] .to-\[\#13213f\],
-[data-theme="light"] .to-\[\#0F1A2E\] { --tw-gradient-to: #ffffff; }
+[data-theme="light"] .to-\[\#0F1A2E\] { --tw-gradient-to: var(--artificio-light-surface); }
+
+/* --- B7 fix (E2E prod 2026-06-13): hexes de superficie COM opacidade ---
+   Tailwind v4 gera classe distinta p/ `bg-[#hex]/NN` (color-mix), nao coberta
+   pelos seletores `.bg-\[\#hex\]` acima → catalogo ficava cinza em light. */
+[data-theme="light"] .bg-\[\#0a1628\]\/90,
+[data-theme="light"] .bg-\[\#0a1628\]\/65 { background-color: var(--artificio-light-subtle); }
+[data-theme="light"] .bg-\[\#10203a\]\/80 { background-color: var(--artificio-light-surface); }
+
+/* --- B7 fix: painel glassy (hero/busca) precisa ser visivel em light ---
+   rgba(2,7,64,0.04) sumia sobre var(--artificio-light-canvas) (search da landing invisivel). */
+[data-theme="light"] .glass {
+  background: var(--artificio-light-surface);
+  border-color: rgba(2, 7, 64, 0.14);
+}
+
+/* --- B7 fix: cores semanticas dark-design (texto claro) → escuro p/ AA em light ---
+   Botoes de acao (Editar/Desativar/Reativar/Lotada/Encerrada), status, preco,
+   info-box e badges usam text-{cor}-300/400/100 sobre tint pálido → invisivel.
+   Mapeia p/ -700/-800 (AA >=4.5 sobre branco/tint claro). Tints bg-*-500/10-20
+   permanecem (pálidos sobre branco). Acento de marca usa --color-artificio-orange,
+   intocado. */
+[data-theme="light"] .text-blue-400,
+[data-theme="light"] .text-blue-300 { color: #1d4ed8; }
+[data-theme="light"] .text-blue-100,
+[data-theme="light"] .text-blue-100\/90,
+[data-theme="light"] .text-blue-100\/70 { color: #1e40af; }
+[data-theme="light"] .text-green-400,
+[data-theme="light"] .text-green-300 { color: #15803d; }
+[data-theme="light"] .text-yellow-400,
+[data-theme="light"] .text-yellow-300 { color: #a16207; }
+[data-theme="light"] .text-orange-400,
+[data-theme="light"] .text-orange-300 { color: #c2410c; }
+[data-theme="light"] .text-red-400,
+[data-theme="light"] .text-red-300 { color: #b91c1c; }
+[data-theme="light"] .text-red-400\/60 { color: rgba(185, 28, 28, 0.78); }
+[data-theme="light"] .text-purple-300 { color: #7e22ce; }
+[data-theme="light"] .text-purple-300\/90 { color: rgba(126, 34, 206, 0.92); }
+[data-theme="light"] .text-gray-300 { color: #475569; }

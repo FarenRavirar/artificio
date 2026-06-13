@@ -70,7 +70,7 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 ## 5. Banco de dados
 - Postgres 16. **Isolamento lógico por módulo**: schema/banco próprio por módulo. O único cross-cutting é `users`/sessão (de `auth`).
 - Migrations por módulo, versionadas; nunca `DROP/TRUNCATE/ALTER` em prod sem dump + checklist (ver AGENTS).
-- Acesso local via RaiDrive = read-only padrão.
+- Acesso DB da VM por linha de comando local/PowerShell via `ssh faren` = read-only padrão.
 - Tabelas do `site`: `posts, pages, categories, tags, media, redirects`.
 
 ## 6. Conteúdo / SEO / SSG (`packages/content` + `apps/site`)
