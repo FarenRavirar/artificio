@@ -67,6 +67,14 @@ const roles = {
     grab(styles, /--artificio-charcoal:\s*(#[0-9a-fA-F]{6})/),
     grab(preset, /\bcharcoal:\s*"(#[0-9a-fA-F]{6})"/),
   ],
+  // navy = superfície dark canônica (header/footer dark + dark variants D065/D066).
+  // Cross-app de verdade após os pilotos lua/sol → entra na trava. Sem alias no
+  // preset (preset=null não compara); valida tokens.ts vs styles.css.
+  navy: [
+    grab(tokens, /\bnavy:\s*"(#[0-9a-fA-F]{6})"/),
+    grab(styles, /--artificio-navy:\s*(#[0-9a-fA-F]{6})/),
+    null,
+  ],
   bronze: [
     grab(tokens, /\bbronze:\s*"(#[0-9a-fA-F]{6})"/),
     grab(styles, /--artificio-bronze:\s*(#[0-9a-fA-F]{6})/),

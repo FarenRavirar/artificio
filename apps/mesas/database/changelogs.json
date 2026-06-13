@@ -1,10 +1,18 @@
 [
   {
+    "id": "2026-06-13-login-unico-visual-artificio",
+    "title": "Login único e visual do Artifício chegaram ao Mesas",
+    "body": "Publicamos a integração do Mesas com a conta única do Artifício RPG e alinhamos a interface ao restante dos projetos:\n\n• **Uma conta para tudo** - O acesso agora usa o login Google central em accounts.artificiorpg.com, mantendo a sessão entre os projetos do Artifício\n• **Menu de conta preservado** - Perfil, painel, gestão e saída continuam acessíveis pelo menu da conta, agora dentro do cabeçalho compartilhado\n• **Identidade visual unificada** - Cabeçalho, rodapé, favicon, cores e linguagem pública foram alinhados com o design comum do Artifício RPG\n• **Navegação entre projetos** - O topo passa a conectar Portal, Glossário, Mesas e os próximos projetos da suíte com a mesma estrutura visual\n\n_Atualização publicada em 13/06/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-06-13T09:00:00-03:00"
+  },
+  {
     "id": "2026-06-02-feedback-desenvolvimento",
     "title": "Agora você pode relatar problemas e sugerir melhorias",
     "body": "Adicionamos um canal direto para você falar com a equipe sem sair da página:\n\n• **Botão fixo em qualquer página** - Um botão \"Reportar / Sugerir\" no canto da tela abre um formulário rápido para relatar um problema ou sugerir uma melhoria\n• **Mais fácil para a equipe ajudar** - Ao enviar, o site anexa automaticamente a página onde você estava e detalhes técnicos do momento, para acelerar a correção\n• **Você no controle** - Antes de enviar, você decide se quer incluir a captura da tela e os detalhes técnicos\n\n_Atualização publicada em 02/06/2026_",
     "type": "app",
-    "published": false,
+    "published": true,
     "created_at": "2026-06-02T15:00:00-03:00"
   },
   {

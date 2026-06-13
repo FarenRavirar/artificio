@@ -13,8 +13,9 @@ import { ChangelogModal } from './ChangelogModal';
  * marca + menu de conta) e injeta as ESPECIALIDADES do glossário via props
  * (userMenu, actions, sessionOverride, onLogout, onLoginClick).
  *
- * Auth = legado (AuthContext localStorage/JWT) até a spec 015 (SSO accounts).
- * A sessão legada entra via `sessionOverride`; logout/login via handlers.
+ * Auth = SSO accounts (spec 015). A sessão entra via `sessionOverride`
+ * porque o glossário mantém um AuthContext local que adapta o usuário SSO
+ * ao contrato do Header.
  */
 export function GlossarioHeader() {
   const { user, logout, loading } = useAuth();
@@ -47,7 +48,7 @@ export function GlossarioHeader() {
     localStorage.setItem('glossario_last_seen_update', '2026-03-30-db-sanitize-script');
   };
 
-  // Adapta o usuário legado ao contrato @artificio/auth (name/role/avatar).
+  // Adapta o usuário local do glossário ao contrato @artificio/auth (name/role/avatar).
   const sessionUser: ArtificioUser | null = user
     ? {
         id: user.id,

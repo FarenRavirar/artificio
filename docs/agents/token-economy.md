@@ -24,9 +24,9 @@ Não ler além do tier necessário. Não reabrir o que já está no contexto.
 - **Ler por seção.** `arquiteture.md` e specs longas: por seção/anchor.
 - **Não re-explorar.** Antes de mapear código, checar se já há mapa/índice. Resultado de exploração relevante vira nota curta na sessão para o próximo agente reusar.
 
-## Caveman default
-- Saída de **todos os agentes** em caveman (full) salvo código/commits/segurança. Já embutido nos prompts dos subagentes.
-- Comunicação com mantenedor: PT, caveman. Sem preâmbulo, sem resumo redundante.
+## Caveman ultra default
+- Saída de **todos os agentes** em caveman ultra salvo código/commits/segurança. Já embutido nos prompts dos subagentes.
+- Comunicação com mantenedor: PT, caveman ultra. Sem preâmbulo, sem resumo redundante.
 - Docs operacionais de reload (capsule, decisions, project-state) mantidos compactos; comprimir com a skill `caveman-compress` se incharem.
 
 ## Anti-retrabalho
