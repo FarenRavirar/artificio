@@ -35,7 +35,7 @@ export const AppShell = ({ children }: AppShellProps) => {
 
   const toggleTheme = () => {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next); // persiste (cookie canônico + dataset + localStorage)
+    setTheme(next); // escolha explícita → cookie compartilhado cross-subdomínio (D067)
     setThemeState(next);
   };
 

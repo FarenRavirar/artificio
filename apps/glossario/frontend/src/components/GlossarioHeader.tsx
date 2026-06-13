@@ -24,13 +24,9 @@ export function GlossarioHeader() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [hasNewUpdate, setHasNewUpdate] = useState(false);
 
-  // Tema lua/sol (Spec 020). Estado local p/ alternar o logo (variant) reativo;
-  // a persistência/cookie é do runtime canônico (@artificio/ui setTheme).
-  const [theme, setThemeState] = useState<Theme>('light');
-
-  useEffect(() => {
-    setThemeState(resolveTheme());
-  }, []);
+  // Tema lua/sol (Spec 020). Init já com o tema resolvido (cookie/boot) p/ não
+  // dar flash de ícone/logo errado no mount; persistência via @artificio/ui setTheme.
+  const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
 
   const toggleTheme = () => {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';

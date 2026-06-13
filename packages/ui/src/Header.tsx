@@ -48,7 +48,7 @@ export interface HeaderProps {
    * Módulos com auth legado injetam o próprio (ex.: navegar p/ /login).
    */
   onLoginClick?: () => void;
-  /** Rótulo do botão de login (default "Entrar com Google"). */
+  /** Rótulo do botão de login (default "Entrar"). */
   loginLabel?: string;
   /**
    * Exibe o toggle de tema (lua/sol) reusando o cookie cross-subdomínio
@@ -79,7 +79,7 @@ export function Header({
   sessionOverride,
   onLogout,
   onLoginClick,
-  loginLabel = "Entrar com Google",
+  loginLabel = "Entrar",
   showThemeToggle = false,
 }: HeaderProps) {
   const session = useSession();

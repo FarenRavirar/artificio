@@ -99,15 +99,26 @@ function App() {
     };
   }, [returnUrl]);
 
+  // Boot: só APLICA o tema resolvido (não persiste). Persistir no boot gravaria
+  // a preferência do SO no cookie compartilhado, poluindo-o como falso opt-in
+  // (quebra o default-dark do mesas). O cookie só é escrito em escolha explícita
+  // (toggle abaixo). Spec 020 D067 / review Codex PR #24.
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    writeThemeCookie(theme);
-    try {
-      localStorage.setItem("theme", theme);
-    } catch {
-      // Persistência de tema é conveniência, não requisito para logar.
-    }
   }, [theme]);
+
+  function toggleTheme() {
+    setTheme((value) => {
+      const next = value === "dark" ? "light" : "dark";
+      writeThemeCookie(next); // opt-in EXPLÍCITO → cookie compartilhado cross-subdomínio
+      try {
+        localStorage.setItem("theme", next);
+      } catch {
+        // Persistência é conveniência, não requisito para logar.
+      }
+      return next;
+    });
+  }
 
   return (
     <main className="accounts-page">
@@ -116,7 +127,7 @@ function App() {
         type="button"
         aria-label="Alternar tema"
         title="Alternar tema"
-        onClick={() => setTheme((value) => (value === "dark" ? "light" : "dark"))}
+        onClick={toggleTheme}
       >
         <ThemeIcon theme={theme} />
       </button>
