@@ -9,6 +9,19 @@
     <meta property="og:description" content="Glossário colaborativo e gratuito de tradução para RPG de mesa. Explore termos de D&D 5e, Pathfinder, cenários de fantasia e contribua com a comunidade." />
     <meta property="og:url" content="https://glossario.artificiorpg.com" />
 
+    <!-- Tema lua/sol sem flash: espelha resolveTheme (@artificio/ui) antes do paint (Spec 020) -->
+    <script>
+      (function () {
+        try {
+          var m = document.cookie.match(/(?:^|;\s*)artificio_theme=(dark|light)/);
+          var t = m ? m[1] : (localStorage.getItem('theme') === 'dark' || localStorage.getItem('theme') === 'light'
+            ? localStorage.getItem('theme')
+            : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+          document.documentElement.dataset.theme = t;
+        } catch (e) { document.documentElement.dataset.theme = 'light'; }
+      })();
+    </script>
+
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-XMRHY3FE58"></script>
     <script>

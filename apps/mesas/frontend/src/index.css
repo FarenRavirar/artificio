@@ -171,3 +171,124 @@
     color: #0f172a;
   }
 }
+
+/* ============================================================================
+   LIGHT MODE (Spec 020 R4/R8/D066) — variante FALTANTE do mesas (dark→light).
+   Ativada SOMENTE com <html data-theme="light"> (cookie/toggle explicito).
+   DEFAULT preservado dark (sem atributo ou [data-theme="dark"]) → app operacional
+   nao regride em prod. Tecnica = override de tokens + remap das utilities brancas/
+   hexes hardcoded (nao toca os 134 componentes). Regras unlayered vencem o Tailwind v4.
+   ink #0B1220 · navy de marca #020740 (texto preservado) · surfaces brancas/cinza-azulado.
+   ============================================================================ */
+
+:root[data-theme="light"] {
+  /* Surfaces dark → light (do mais profundo ao card) */
+  --surface-deepest: #e6ebf4;
+  --surface-deep:    #eef2f8;
+  --surface-input:   #ffffff;
+  --surface-panel:   #ffffff;
+  --surface-chip:    #eef2f8;
+  --surface-card:    #ffffff;
+
+  /* Foreground branco → ink (mesma hierarquia de opacidade) */
+  --fg:       #0b1220;
+  --fg-muted: rgba(11, 18, 32, 0.74);
+  --fg-soft:  rgba(11, 18, 32, 0.68);
+  --fg-low:   rgba(11, 18, 32, 0.60);
+  --fg-faint: rgba(11, 18, 32, 0.52);
+  --fg-ghost: rgba(11, 18, 32, 0.44);
+
+  /* Bordas branco → navy-alpha */
+  --border-soft:   rgba(2, 7, 64, 0.08);
+  --border:        rgba(2, 7, 64, 0.14);
+  --border-strong: rgba(2, 7, 64, 0.24);
+
+  /* Fills branco → navy-alpha */
+  --fill-5:  rgba(2, 7, 64, 0.04);
+  --fill-10: rgba(2, 7, 64, 0.08);
+  --fill-20: rgba(2, 7, 64, 0.14);
+
+  /* Sombras mais suaves no claro */
+  --shadow-card: 0 8px 16px -6px rgba(2, 7, 64, 0.12), 0 2px 6px -3px rgba(2, 7, 64, 0.10);
+  --shadow-lg:   0 24px 48px -16px rgba(2, 7, 64, 0.20);
+}
+
+/* --- base layer (body/placeholder/select/glass/app-select) --- */
+[data-theme="light"] body {
+  background-color: #f4f6fb;
+  color: var(--fg);
+}
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder,
+[data-theme="light"] .section-container input::placeholder,
+[data-theme="light"] .section-container textarea::placeholder {
+  color: rgba(11, 18, 32, 0.45) !important;
+}
+[data-theme="light"] select { color-scheme: light; }
+[data-theme="light"] .glass { background: rgba(2, 7, 64, 0.04); }
+[data-theme="light"] .app-select {
+  background: rgba(2, 7, 64, 0.04);
+  color: var(--fg);
+  border-color: rgba(2, 7, 64, 0.14);
+}
+
+/* --- page base (AppShell wrapper usa bg-[var(--color-artificio-blue)] text-white) --- */
+[data-theme="light"] .bg-\[var\(--color-artificio-blue\)\] { background-color: #f4f6fb; }
+
+/* --- remap das utilities brancas → ink (texto) --- */
+[data-theme="light"] .text-white { color: #0b1220; }
+[data-theme="light"] .text-white\/90 { color: rgba(11, 18, 32, 0.92); }
+[data-theme="light"] .text-white\/85 { color: rgba(11, 18, 32, 0.88); }
+[data-theme="light"] .text-white\/80 { color: rgba(11, 18, 32, 0.82); }
+[data-theme="light"] .text-white\/75 { color: rgba(11, 18, 32, 0.78); }
+[data-theme="light"] .text-white\/70 { color: rgba(11, 18, 32, 0.74); }
+[data-theme="light"] .text-white\/65 { color: rgba(11, 18, 32, 0.70); }
+[data-theme="light"] .text-white\/60 { color: rgba(11, 18, 32, 0.66); }
+[data-theme="light"] .text-white\/55 { color: rgba(11, 18, 32, 0.62); }
+[data-theme="light"] .text-white\/50 { color: rgba(11, 18, 32, 0.58); }
+[data-theme="light"] .text-white\/40 { color: rgba(11, 18, 32, 0.52); }
+[data-theme="light"] .text-white\/30 { color: rgba(11, 18, 32, 0.46); }
+[data-theme="light"] .text-white\/20 { color: rgba(11, 18, 32, 0.40); }
+
+/* --- fills brancos translucidos → navy-alpha --- */
+[data-theme="light"] .bg-white\/20 { background-color: rgba(2, 7, 64, 0.10); }
+[data-theme="light"] .bg-white\/15 { background-color: rgba(2, 7, 64, 0.08); }
+[data-theme="light"] .bg-white\/10 { background-color: rgba(2, 7, 64, 0.06); }
+[data-theme="light"] .bg-white\/5  { background-color: rgba(2, 7, 64, 0.04); }
+[data-theme="light"] .bg-white\/3  { background-color: rgba(2, 7, 64, 0.03); }
+/* bg-white solido (card) permanece branco */
+
+/* --- bordas brancas → navy-alpha --- */
+[data-theme="light"] .border-white\/40 { border-color: rgba(2, 7, 64, 0.30); }
+[data-theme="light"] .border-white\/35 { border-color: rgba(2, 7, 64, 0.26); }
+[data-theme="light"] .border-white\/30 { border-color: rgba(2, 7, 64, 0.24); }
+[data-theme="light"] .border-white\/20 { border-color: rgba(2, 7, 64, 0.18); }
+[data-theme="light"] .border-white\/15 { border-color: rgba(2, 7, 64, 0.14); }
+[data-theme="light"] .border-white\/10 { border-color: rgba(2, 7, 64, 0.12); }
+[data-theme="light"] .border-white\/8  { border-color: rgba(2, 7, 64, 0.10); }
+[data-theme="light"] .border-white\/5  { border-color: rgba(2, 7, 64, 0.08); }
+
+/* --- hexes hardcoded de superficie (dark) → light --- */
+[data-theme="light"] .bg-\[\#13213f\],
+[data-theme="light"] .bg-\[\#1A233A\] { background-color: #eef2f8; }
+[data-theme="light"] .bg-\[\#0F1A2E\],
+[data-theme="light"] .bg-\[\#1B2A4A\],
+[data-theme="light"] .bg-\[\#1a2a4a\],
+[data-theme="light"] .bg-\[\#10203a\] { background-color: #ffffff; }
+[data-theme="light"] .bg-\[\#0a1628\],
+[data-theme="light"] .bg-\[\#0B1628\],
+[data-theme="light"] .bg-\[\#0B1220\],
+[data-theme="light"] .bg-\[\#1a1a2e\] { background-color: #e6ebf4; }
+[data-theme="light"] .text-\[\#a8b8d8\] { color: #475569; }
+/* text-[#020740] (navy) preservado: bom contraste em light */
+
+/* --- gradientes (hero/landing) dark → light --- */
+[data-theme="light"] .from-\[\#2A3F6D\] { --tw-gradient-from: #e6ebf4; }
+[data-theme="light"] .from-\[\#0d1a30\],
+[data-theme="light"] .from-\[\#0a1628\],
+[data-theme="light"] .from-\[\#0F1A2E\] { --tw-gradient-from: #eef2f8; }
+[data-theme="light"] .via-\[\#1B2A4A\],
+[data-theme="light"] .via-\[\#0d1a30\] { --tw-gradient-via: #f4f6fb; }
+[data-theme="light"] .to-\[\#1B2A4A\],
+[data-theme="light"] .to-\[\#13213f\],
+[data-theme="light"] .to-\[\#0F1A2E\] { --tw-gradient-to: #ffffff; }
