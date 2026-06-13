@@ -5,11 +5,27 @@
 - **Modulo/Pacote:** `packages/ui` (consumidores validados em build)
 - **Gate relacionado:** nenhum. WP raiz/DNS/VM/deploy/producao fora de escopo.
 - **Spec vinculada:** `specs/020-ui-theme-artificio-padrao/` (T1, T2, T13 Fase B)
-- **Estado:** concluída (commit `a48a518` em `dev`; deploys beta verdes)
+- **Estado:** concluída (commits `a48a518`+`d9c6d8a` em `dev`; betas no ar com `#FF5722`)
 
 ## Commit + deploy dev (autorizado)
 - Commit `a48a518` em `dev` (`7d90cb8..a48a518`), 36 arq. Worktree theme/marca coerente (impl + specs 019/020 + sessões 4-6 + docs). `main ⊆ dev` verificado antes do push.
-- Push `dev` disparou betas (`packages/**` tocado, D041). Runs no SHA `a48a518`: **deploy-accounts ✓, deploy-site ✓, deploy-glossario ✓, deploy-mesas ✓** (todos success); pr-checks ✓; invariante `promote-dev-to-main` ✓.
+- Push `dev` disparou betas (`packages/**` tocado, D041). Runs no SHA `a48a518`: **deploy-accounts ✓, deploy-site ✓ (CI), deploy-glossario ✓ (CI), deploy-mesas ✓** (todos success); pr-checks ✓; invariante `promote-dev-to-main` ✓.
+
+## Correção pós-deploy — peach em rgba + gate de deploy (commit `d9c6d8a`)
+Mantenedor reportou betas ainda com laranja velho. Diagnóstico (fetch do CSS servido):
+1. **`mesas.artificiorpg.com` = PROD**, não beta (beta = `mesasbeta.`). Prod não foi tocado → velho é correto.
+2. **`beta.artificiorpg.com` (site) e `glossariobeta` serviam build VELHO** apesar de "deploy success": o job **Deploy** de `deploy-site`/`deploy-glossario` é **gated dispatch-only** (bootstrap/volume legado). Push-dev roda só **CI** neles; `deploy-mesas`/`deploy-accounts` auto-deployam. Armadilha: run verde ≠ deploy real. Fix: `gh workflow run deploy-site.yml --ref dev -f mode=deploy` e idem glossário → Deploy beta success.
+3. **Tints/sombras em rgba escaparam do grep de hex** (`rgba(255,148,87)`/`rgba(224,113,47)` = peach em rgb): mesas (`index.css`,`TableCard.tsx`), site (`global.css` chip/card/pagefind), site-admin (`media-cell`), accounts (login shadow). Trocados p/ `rgba(255,87,34)`/`rgba(230,74,25)`. Commit `d9c6d8a` (7 arq). Build 13/13; CSS buildado do mesas `ff9457=0`.
+
+### Estado final dos betas (CSS servido verificado)
+- `beta.artificiorpg.com` (site) → `_slug_.Bt-t8epJ.css` ff5722=4, velho=0 ✓
+- `mesasbeta.artificiorpg.com` → `index-CQepCUrE.css` ff5722=7, velho=0 ✓
+- `glossariobeta.artificiorpg.com` → `index-91QgOJpu.css` ff5722=6, velho=0 ✓
+- accounts: betas reusam **accounts PROD** p/ login (D042; sem host `accountsbeta`) → tela de login só muda no deploy de prod.
+- **PROD intocado** (`mesas.`/`glossario.`/`accounts.`): só com promote `dev→main` + deploy prod autorizado nominalmente.
+
+### Aprendizado operacional (reusável)
+"deploy-X run = success" **não** garante redeploy: site e glossário têm job Deploy gated a `workflow_dispatch mode=deploy`. Para atualizar esses betas após push, **dispatchar mode=deploy**. Verificar sempre o **CSS/asset servido** (hash + cor), não só o status do run.
 - Prod NÃO tocado (sem promote `main`).
 
 ## Objetivo
