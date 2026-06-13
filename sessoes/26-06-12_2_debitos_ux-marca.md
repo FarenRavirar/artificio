@@ -106,6 +106,7 @@
 - **Nível SDD:** Completo se tocar `packages/ui` (CSS compartilhado); Lite se a correção ficar restrita ao `apps/site`.
 
 ## D-SHELL1 — Unificar nav e footer entre todos os projetos
+- **Status:** ⏳ parcial. **Fatia 1 (fonte única do nav/marca) FEITA + PROD** em 2026-06-13 (PR #28 `25be29a`, estratégia A): `packages/ui` exporta `./brand`+`./modules` data-only; `apps/site` consome `defaultNavItems`+logos compartilhados (espelhos `MODULES`/`src/data/brand.json` removidos); `apps/glossario` brandHref WP-raiz→home próprio. Mantenedor confirmou que o objetivo era a fonte única do nav. **Residual:** markup Astro de `SiteHeader`/`SiteFooter` ainda espelhado (estratégia B / overlap B2); accounts sem nav/footer compartilhado. Detalhe em `specs/020-.../tasks.md` B13.
 - **Origem:** pedido do mantenedor em 2026-06-13 durante revisão B6/B7.
 - **O quê:** `apps/glossario` ainda destoa do shell visto em `beta.artificiorpg.com` e `apps/mesas`. Todos os projetos precisam ter o mesmo nav e footer, consumindo fonte compartilhada e não variações locais divergentes.
 - **Escopo:** glossário, mesas, site/beta, accounts e novos projetos. Separar shell compartilhado (nav/footer/brand/actions visuais) de dados locais de cada app.
