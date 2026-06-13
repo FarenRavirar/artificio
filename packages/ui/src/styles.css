@@ -99,6 +99,10 @@
   display: block;
   height: 30px;
   width: auto;
+  /* Não deformar quando o grid do header aperta a coluna do brand no mobile:
+     mantém a proporção (sem esticar) e não encolhe dentro do inline-flex. */
+  flex-shrink: 0;
+  object-fit: contain;
 }
 
 .artificio-nav-list {

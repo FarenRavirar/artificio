@@ -23,15 +23,14 @@
     <meta name="twitter:description" content="Plataforma gratuita para encontrar mesas de RPG." />
     <meta name="twitter:image" content="https://mesas.artificiorpg.com/og-default.png" />
 
-    <!-- Tema lua/sol sem flash (Spec 020 D066). DEFAULT-DARK: só light se escolha
-         explícita (cookie/localStorage); ausência/OS-prefers → dark (app operacional). -->
+    <!-- Tema lua/sol sem flash (Spec 020 D067). COMPARTILHADO: honra o cookie único
+         `artificio_theme` (escolha do usuário em qualquer módulo). Sem cookie → dark
+         (default operacional do mesas; ignora OS-prefers). -->
     <script>
       (function () {
         try {
           var m = document.cookie.match(/(?:^|;\s*)artificio_theme=(dark|light)/);
-          var ls = localStorage.getItem('theme');
-          var t = m ? m[1] : (ls === 'light' || ls === 'dark' ? ls : 'dark');
-          document.documentElement.dataset.theme = t;
+          document.documentElement.dataset.theme = m ? m[1] : 'dark';
         } catch (e) { document.documentElement.dataset.theme = 'dark'; }
       })();
     </script>

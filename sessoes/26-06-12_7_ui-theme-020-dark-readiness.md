@@ -136,8 +136,35 @@ mesas auth-gateia as telas operacionais (catalogo com dados, detalhe de mesa, pa
 modais, sino de notificacao). So a landing publica `/` renderiza local. O remap cobre as familias de cor dessas telas
 (white-utils + hexes + tokens), mas a confirmacao visual AA delas no claro fica para E2E autenticado com backend (mantenedor).
 
+## Deploy BETA (autorizado: "commit + push + deploy de todo o diff")
+- Branch `feat/020-lua-sol-pilots` → commit `464b5e5` → PR **#24** → `pr-checks` verde (mesas/glossario/accounts CI + Amazon Q + lints) → **squash-merge em `dev`** (`69feb8e`).
+- Deploys: `deploy-mesas` **auto** (mesasbeta) ✓ · `deploy-glossario` **dispatch mode=deploy** (glossariobeta) ✓ · `deploy-accounts` auto ✓ · `promote-dev-to-main` = invariante `main ⊆ dev` (NÃO é promote prod) ✓.
+- **Smoke beta (CSS/HTTP servido):**
+  - `glossariobeta` 200 · CSS `index-792W88UE.css` com `[data-theme=dark]` ×93 + remap `.text-azul-escuro` + `eef1f8` · inline boot `dataset.theme` presente · `/api/terms` **200** (dados carregam p/ E2E).
+  - `mesasbeta` 200 · CSS `index-DcGhWdSo.css` com `[data-theme=light]` ×56 + `0b1220` ×23 · inline boot com fallback `: 'dark'` (**default-dark** confirmado) · `/api/v1/me/options` **401** (auth ok).
+  - `accounts` 200 · **WP raiz `artificiorpg.com` 200 intocado**.
+- **PROD intocado** (sem promote `dev→main` de código; sem deploy prod).
+- **Pendente E2E mantenedor (provas com dados):** logar nos betas, alternar lua/sol, validar AA nas telas auth-gated — glossariobeta (cards de termo/admin/forms) no dark; mesasbeta (catálogo/painel/gestão/forms/modais) no light, confirmando que o default segue dark.
+
+## Reviews do PR #24 corrigidos (LOCAL, pos-beta — aguardando permissao p/ commit)
+Mantenedor: "corrija os reviews da amazon e codex e registre o resto como debito" + 2 ajustes de UI. **Sem commit.**
+1. **Amazon Q (flash de tema)** — `GlossarioHeader`: init `useState<Theme>('light')`+useEffect → `useState(() => resolveTheme())`
+   (sem flash de icone/logo no mount; useEffect redundante removido). Verificado: boot dark → ícone **sol** correto no 1º paint.
+2. **Codex (default-dark furado por cookie implícito)** — `accounts` grava `artificio_theme` da pref do SO no boot, então o
+   cookie compartilhado nao e opt-in confiavel. Fix no mesas: boot so vira light com **marcador proprio `mesas_theme==='light'`**
+   (grava so ao alternar dentro do mesas); cookie compartilhado ignorado p/ o default. `main.tsx` + `index.html` (inline boot) +
+   `AppShell` (toggle grava `mesas_theme`). **Verificado:** cookie `artificio_theme=light` SEM marcador → mesas boota **dark**
+   (`#1B2A4A`); com `mesas_theme=light` → light; toggle ao vivo atualiza marcador. Causa-raiz accounts = **débito B9**.
+3. **"Entrar com Google" → "Entrar"** — `packages/ui` Header `loginLabel` default. Verificado no mesas mobile.
+4. **Logo deformada no mobile** — era flex-item espremido no grid `1fr` do header. Fix `packages/ui` `.artificio-brand-logo`:
+   `object-fit:contain` + `flex-shrink:0` (mantem proporcao, nao estica). Verificado mobile 375: logo intacta + "Entrar" cabe.
+
+**Débitos registrados:** B8 (dinamismo/animação da logo — precisa direção de design) · B9 (accounts grava cookie de tema do OS-pref no boot).
+**Validação:** `turbo build` **13/13** + `check-token-parity` OK (packages/ui tocado = SDD/cross-módulo). **Sem commit/push/deploy.**
+**ATENÇÃO:** beta (PR #24) ainda roda a versão PRÉ-fix (flash, "Entrar com Google", logo deformada, cookie). Subir os fixes ao beta = novo commit+push+deploy (aguardando autorização nominal).
+
 ## Estado
-T4 (checklist) entregue. **DOIS pilotos implementados LOCAL e validados** ate o limite local:
+T4 (checklist) entregue. **DOIS pilotos implementados, validados LOCAL e NO BETA** ate o limite local:
 glossario **+dark** (D065, navy migrado junto) e mesas **+light** (D066, default-dark preservado). lua/sol habilitado em
 ambos no CODIGO LOCAL; **nenhum em prod** (cada um so habilita apos dark-readiness completo com dados = E2E mantenedor).
 Build verde nos dois; smoke claro/escuro/mobile + AA medido; troca ao vivo sem flash; runtime de tema unico. Sem commit/push/deploy.
