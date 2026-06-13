@@ -178,3 +178,13 @@ branco+ink, cta-secondary navy-alpha+ink, badge-mestre `#c2410c`, featured-price
 - **Ajuste pedido pelo mantenedor:** o bloco novo de `ProfileEditPage.css` deve respeitar integralmente os tokens compartilhados. Refino local: substituir alphas hardcoded do bloco light por aliases locais derivados de `--artificio-light-*`, `--artificio-brand`, `--artificio-brand-deep`, `--artificio-success/danger/info` e variantes `*Text`.
 - **Validação do refino:** bloco `[data-theme="light"]` novo de `ProfileEditPage.css` ficou sem `#`, `rgb()` ou `rgba()` literais; usa `--profile-*` derivados dos tokens compartilhados. `pnpm --filter=@artificio/mesas-frontend build` OK; `check-token-parity` OK; `git diff --check` OK (só avisos CRLF).
 - **Handoff para continuação no Codex:** `C:\Users\paulo\AppData\Local\Temp\artificio-handoff-b7-perfil-light.md`. Próximo foco: revisar diff local, pedir aprovação nominal para commit/push/PR/deploy se for publicar, e revalidar `/perfil` light + mestre com banner custom após deploy.
+
+## Fatia 5 — PUBLICACAO B7 (commit/push/PR/promote/deploy autorizados: "autorizo tudo")
+- **Branch/commit:** `fix/020-b7-profile-light`, commit `e6f0d4d` (`fix(ui): mesas /perfil light legível + hero banner custom dark-safe (Spec 020 B7)`).
+- **PR:** [#27](https://github.com/FarenRavirar/artificio/pull/27) -> `dev`. Checks verdes: Amazon Q, accounts build/test, mesas CI (3m11s), enforce-migration-dir, guard-entrypoint-exec, lint-shell/actionlint/ShellCheck. Deploys gated = skipping (esperado). Squash-merge em `dev` (`05c9117`).
+- **Beta pos-merge:** `deploy-accounts` (run 27479632365) e `deploy-mesas` (run 27479632360) = success; `promote-dev-to-main` (invariante main⊆dev) + `pr-checks` verdes.
+- **Promote prod:** `promote-prod-fast-forward.yml` ref dev confirm=PROMOTE_DEV_TO_MAIN (run 27479772211) = success. `origin/main == origin/dev == 05c9117`.
+- **Deploy prod:** `deploy-mesas.yml` ref main mode=deploy (run 27479794040) = success (inclui smoke de rotas criticas do workflow). accounts/glossario nao redeployados (sem mudanca de codigo; FF so trouxe CSS do mesas + docs).
+- **Smoke HTTP prod:** `mesas_home=200`, `mesas_me_options_no_cookie=401`, `wp_root=200` (WP raiz intocado).
+- **CSS prod servido (`/assets/index-BcYl4OdG.css`):** `profile-edit-page{--profile-ink` presente (bloco light novo do perfil deployado), aliases `--profile-*` presentes, `artificio-dark-text` presente no hero com banner (`hero-section:has(.hero-banner)`).
+- **B7 ainda NAO fechado:** falta E2E autenticado do mantenedor em PROD — `/perfil` light legivel com dados reais + perfil publico de mestre com `banner_url` custom em light + smoke catalogo/painel anti-regressao. So fechar B7 apos esse OK.
