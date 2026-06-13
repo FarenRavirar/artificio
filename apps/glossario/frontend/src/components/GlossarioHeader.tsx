@@ -138,7 +138,7 @@ export function GlossarioHeader() {
   return (
     <>
       <Header
-        brandHref="https://artificiorpg.com"
+        brandHref="https://glossario.artificiorpg.com"
         variant={theme === 'dark' ? 'dark' : 'light'}
         sessionOverride={{ user: sessionUser, loading }}
         userMenu={userMenu}
