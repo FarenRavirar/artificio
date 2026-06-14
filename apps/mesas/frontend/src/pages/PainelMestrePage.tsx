@@ -68,6 +68,7 @@ interface MyTable {
   ddal_name?: string | null;
   ddal_tier?: number | null;
   created_at: string;
+  archived_at?: string | null; // D-MESAS1
 }
 
 // Tipos para dashboard de métricas
@@ -81,6 +82,7 @@ interface TableMetrics {
 interface MyTableEnhanced extends MyTable {
   image_url?: string | null;
   metrics?: TableMetrics;
+  archived?: boolean; // D-MESAS1
 }
 
 interface MyTableApi extends MyTable {
@@ -128,6 +130,7 @@ function toEnhancedTable(table: MyTableApi): MyTableEnhanced {
   return {
     ...table,
     image_url: table.image_url ?? null,
+    archived: !!table.archived_at,
     metrics: {
       views: table.metrics_views ?? 0,
       clicks: table.metrics_clicks ?? 0,
@@ -277,6 +280,7 @@ export const PainelMestrePage = () => {
   const [editingTableData, setEditingTableData] = useState<Partial<FormState> | null>(null);
   const [togglingTableId, setTogglingTableId] = useState<string | null>(null); // CORREÇÃO B3
   const [deletingTableId, setDeletingTableId] = useState<string | null>(null); // CORREÇÃO B4
+  const [archivingTableId, setArchivingTableId] = useState<string | null>(null); // D-MESAS1
 
   useEffect(() => {
     if (!user || !isAuthenticated) {
@@ -473,6 +477,37 @@ export const PainelMestrePage = () => {
       toast.error(`Erro ao ${action} mesa`);
     } finally {
       setTogglingTableId(null);
+    }
+  };
+
+  // D-MESAS1: arquivar/desarquivar (tira do catálogo público, reversível)
+  const handleArchiveTable = async (tableId: string, archived: boolean, title: string) => {
+    if (!isAuthenticated) return;
+    const verb = archived ? 'arquivar' : 'desarquivar';
+
+    if (!confirm(`${verb.charAt(0).toUpperCase() + verb.slice(1)} mesa "${title}"?`)) return;
+
+    setArchivingTableId(tableId);
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/gm/tables/${tableId}/archive`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ archived }),
+      });
+
+      if (response.ok) {
+        toast.success(`Mesa ${archived ? 'arquivada' : 'desarquivada'}!`);
+        refreshData();
+      } else {
+        const data = await response.json().catch(() => null);
+        toast.error(data?.error || `Erro ao ${verb} mesa`);
+      }
+    } catch (error) {
+      console.error('[PainelMestrePage] Erro ao arquivar mesa:', error);
+      toast.error(`Erro ao ${verb} mesa`);
+    } finally {
+      setArchivingTableId(null);
     }
   };
 
@@ -682,8 +717,10 @@ export const PainelMestrePage = () => {
                       onEdit={(id: string) => navigate(`/painel?edit=${id}`)}
                       onToggle={(table) => handleToggleTableStatus(table.id, table.status, table.title)}
                       onDelete={(table) => handleDeleteTable(table.id)}
+                      onArchive={(table) => handleArchiveTable(table.id, !table.archived, table.title)}
                       isToggling={togglingTableId === table.id}
                       isDeleting={deletingTableId === table.id}
+                      isArchiving={archivingTableId === table.id}
                     />
                   ))}
                 </div>

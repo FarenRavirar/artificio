@@ -38,6 +38,7 @@ export interface TableCard {
   cover_url: string | null;
   cover_crop_data?: { x: number; y: number; width: number; height: number } | null;
   status: TableStatus;
+  archived_at?: string | null; // D-MESAS1: timestamp de arquivamento (null = ativa)
   type: string;
   audience: string;
   modality: TableModality;

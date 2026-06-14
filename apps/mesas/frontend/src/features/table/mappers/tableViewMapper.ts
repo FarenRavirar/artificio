@@ -284,6 +284,7 @@ export function mapTableToView(table: TableDetail): TableViewModel {
     coverUrl: table.cover_url ?? undefined,
     coverCropData: table.cover_crop_data ?? undefined,
     status: table.status,
+    archived: !!table.archived_at,
     origin: table.origin,
     publisherRole: table.publisher_role,
     actualGmName: table.actual_gm_name ?? undefined,

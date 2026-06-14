@@ -2,8 +2,47 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { TableRepository } from '../repositories/tableRepository';
+import { autoArchiveStaleTables, AUTO_ARCHIVE_AFTER_DAYS } from '../services/tableArchiving';
+import { logActivity } from '../services/activityLogger';
 
 const router = Router();
+
+// POST /api/v1/admin/tables/auto-archive — rotina de auto-arquivamento (D-MESAS1).
+// PROD-only por decisão de produto (beta/local não auto-arquivam por idade, p/ não
+// bagunçar teste/hydrate). Autenticada por SEGREDO de cron (header x-cron-secret =
+// env MESAS_CRON_SECRET) — chamada por workflow agendado, sem sessão. Idempotente.
+router.post('/tables/auto-archive', async (req: Request, res: Response) => {
+  const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
+  const isProd = nodeEnv === 'production' || nodeEnv === 'prod';
+  if (!isProd) {
+    return res.status(403).json({ error: 'Auto-arquivamento só roda em produção.' });
+  }
+
+  const cronSecret = process.env.MESAS_CRON_SECRET;
+  if (!cronSecret) {
+    return res.status(503).json({ error: 'MESAS_CRON_SECRET não configurado.' });
+  }
+  if (req.header('x-cron-secret') !== cronSecret) {
+    return res.status(401).json({ error: 'Segredo de cron inválido.' });
+  }
+
+  try {
+    const archived = await autoArchiveStaleTables();
+    void logActivity({
+      actorId: null,
+      actorRole: null,
+      action: 'table.archived',
+      entityType: 'table',
+      entityId: null,
+      summary: `Auto-arquivamento: ${archived.length} mesa(s) publicada(s) há mais de ${AUTO_ARCHIVE_AFTER_DAYS} dias arquivada(s).`,
+      metadata: { count: archived.length, slugs: archived.map((t) => t.slug), after_days: AUTO_ARCHIVE_AFTER_DAYS },
+    });
+    return res.json({ data: { count: archived.length, tables: archived } });
+  } catch (error: any) {
+    console.error('[POST /admin/tables/auto-archive]', error);
+    return res.status(500).json({ error: 'Erro no auto-arquivamento.' });
+  }
+});
 
 // PUT /api/v1/admin/tables/:id — Ações administrativas (status, covil, etc.)
 router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) => {

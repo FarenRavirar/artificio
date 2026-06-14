@@ -113,6 +113,7 @@ router.get('/', async (req: Request, res: Response) => {
         't.game_platform_custom', // CORREÇÃO A-HIGH-01: Retornar custom VTT para cards
       ])
       .where('t.status', '=', 'active')
+      .where('t.archived_at', 'is', null) // D-MESAS1: arquivadas somem do catalogo publico
       .orderBy('t.created_at', 'desc');
 
     if (system) query = query.where('s.slug', '=', system);

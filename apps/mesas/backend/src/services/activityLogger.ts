@@ -5,6 +5,7 @@ import { Database, UserRole } from '../db/types';
 export type ActivityAction =
   | 'user.registered' | 'user.role_changed'
   | 'table.created' | 'table.updated' | 'table.deleted' | 'table.status_changed'
+  | 'table.archived' | 'table.unarchived'
   | 'system.created' | 'system.updated' | 'system.deleted'
   | 'scenario.created' | 'scenario.updated' | 'scenario.deleted'
   | 'system_suggestion.created' | 'system_suggestion.approved' | 'system_suggestion.rejected'
