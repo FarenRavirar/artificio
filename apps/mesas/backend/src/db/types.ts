@@ -301,6 +301,8 @@ export interface TablesTable {
   benefits_text: string | null;
   features: unknown; // JSONB: string[]
   table_gm_bio: string | null;
+  archived_at: Date | null;
+  published_at: Date | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

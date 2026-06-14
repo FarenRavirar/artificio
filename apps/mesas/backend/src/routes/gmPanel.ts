@@ -845,6 +845,8 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
         't.ddal_tier',
         't.created_at',
         't.updated_at',
+        't.archived_at',
+        't.published_at',
         't.master_display_name',
         't.campaign_length',
         't.level_range',
@@ -962,7 +964,7 @@ router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Res
   try {
     const table = await db
       .selectFrom('tables')
-      .select(['id', 'gm_id', 'status', 'title'])
+      .select(['id', 'gm_id', 'status', 'title', 'published_at'])
       .where('id', '=', id)
       .executeTakeFirst();
 
@@ -970,10 +972,15 @@ router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Res
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
+    // 1a publicacao (status -> active e ainda sem ancora) grava published_at.
+    // Ancora da regra de auto-arquivamento (D-MESAS1); republicar nao reseta.
+    const publishPatch =
+      status === 'active' && !table.published_at ? { published_at: new Date() } : {};
+
     if (userRole === 'admin') {
       const result = await db
         .updateTable('tables')
-        .set({ status })
+        .set({ status, ...publishPatch })
         .where('id', '=', id)
         .returning(['id', 'slug', 'title', 'status'])
         .executeTakeFirst();
@@ -1013,7 +1020,7 @@ router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Res
 
     const result = await db
       .updateTable('tables')
-      .set({ status })
+      .set({ status, ...publishPatch })
       .where('id', '=', id)
       .returning(['id', 'slug', 'title', 'status'])
       .executeTakeFirst();
@@ -1054,6 +1061,66 @@ router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Res
   } catch (error: any) {
     console.error('[PATCH /gm/tables/:id/status]', error);
     return res.status(500).json({ error: 'Erro ao atualizar status.' });
+  }
+});
+
+// PATCH /api/v1/gm/tables/:id/archive — Arquiva/desarquiva mesa (dono ou admin). D-MESAS1.
+// Arquivar tira do catalogo publico sem perder a mesa nem o status; reversivel.
+router.patch('/tables/:id/archive', authMiddleware, async (req: Request, res: Response) => {
+  const userId = (req as any).user.userId;
+  const userRole = (req as any).user.role;
+  const { id } = req.params;
+  const archived = req.body?.archived !== false; // default = arquivar; { archived: false } = desarquivar
+
+  try {
+    const table = await db
+      .selectFrom('tables')
+      .select(['id', 'gm_id', 'title', 'archived_at'])
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    if (!table) {
+      return res.status(404).json({ error: 'Mesa não encontrada.' });
+    }
+
+    if (userRole !== 'admin') {
+      const gmProfile = await db
+        .selectFrom('gm_profiles')
+        .select('id')
+        .where('user_id', '=', userId)
+        .executeTakeFirst();
+
+      if (!gmProfile || table.gm_id !== gmProfile.id) {
+        return res.status(403).json({ error: 'Sem permissão.' });
+      }
+    }
+
+    const result = await db
+      .updateTable('tables')
+      .set({ archived_at: archived ? new Date() : null })
+      .where('id', '=', id)
+      .returning(['id', 'slug', 'title', 'status', 'archived_at'])
+      .executeTakeFirst();
+
+    if (result) {
+      const actorName = await resolveActorName(userId);
+      void logActivity({
+        actorId: userId,
+        actorRole: userRole,
+        action: archived ? 'table.archived' : 'table.unarchived',
+        entityType: 'table',
+        entityId: result.id,
+        entityLabel: result.title,
+        targetUserId: userRole === 'admin' ? null : userId,
+        summary: `${actorName} ${archived ? 'arquivou' : 'desarquivou'} a mesa "${result.title}".`,
+        metadata: { table_slug: result.slug, archived },
+      });
+    }
+
+    return res.json({ data: result });
+  } catch (error: any) {
+    console.error('[PATCH /gm/tables/:id/archive]', error);
+    return res.status(500).json({ error: 'Erro ao arquivar mesa.' });
   }
 });
 

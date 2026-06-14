@@ -1,0 +1,60 @@
+# ============================================================================
+# WORKFLOW: Mesas Auto-Archive (D-MESAS1)
+# RESPONSABILIDADE: arquivar automaticamente mesas publicadas ha mais de 1 mes.
+# TRIGGER: Agendado (diario 04:00 UTC) ou manual (workflow_dispatch).
+# ESCOPO: PROD apenas. Chama o endpoint da app (nao toca a VM/DB direto):
+#         POST https://mesas.artificiorpg.com/api/v1/admin/tables/auto-archive
+#         autenticado pelo header x-cron-secret = secret MESAS_CRON_SECRET.
+# NOTES: o backend ja gateia PROD-only e valida o segredo. Idempotente: roda de
+#        novo so pega as mesas que cruzaram o limite desde a ultima execucao.
+#        Mesas arquivadas somem do catalogo publico; o dono pode desarquivar.
+# PRE-REQUISITO (mantenedor): definir o secret MESAS_CRON_SECRET no repo com o
+#        mesmo valor configurado no ambiente de producao do backend do mesas.
+# ============================================================================
+
+name: Mesas Auto-Archive
+
+# O gatilho `schedule` so dispara a partir da branch default (main). Em `dev` este
+# workflow so roda por `workflow_dispatch`. Para o cron valer, o arquivo precisa
+# estar em `main` (promocao ff dev->main, D041).
+on:
+  schedule:
+    - cron: '0 4 * * *' # diario 04:00 UTC
+  workflow_dispatch:
+
+# Job nao faz checkout nem usa o GITHUB_TOKEN → sem escopo.
+permissions: {}
+
+jobs:
+  auto-archive:
+    name: Auto-arquivar mesas antigas (prod)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: artificio-mesas-auto-archive
+      cancel-in-progress: false
+    steps:
+      - name: Chamar endpoint de auto-arquivamento
+        env:
+          CRON_SECRET: ${{ secrets.MESAS_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::Secret MESAS_CRON_SECRET nao configurado."
+            exit 1
+          fi
+          url="https://mesas.artificiorpg.com/api/v1/admin/tables/auto-archive"
+          tmp="$(mktemp)"
+          code="$(curl -sS -o "$tmp" -w '%{http_code}' \
+            -X POST "$url" \
+            -H "x-cron-secret: ${CRON_SECRET}" \
+            -H 'content-type: application/json')"
+          echo "HTTP $code"
+          cat "$tmp"
+          echo ""
+          if [ "$code" != "200" ]; then
+            echo "::error::Auto-arquivamento falhou (HTTP $code)."
+            exit 1
+          fi
+          count="$(node -e 'const fs=require("fs");try{const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));console.log(d?.data?.count ?? "?")}catch{console.log("?")}' "$tmp")"
+          echo "Mesas arquivadas: $count" >> "$GITHUB_STEP_SUMMARY"
