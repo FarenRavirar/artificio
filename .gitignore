@@ -44,6 +44,10 @@ logs/
 tmp/
 .DS_Store
 
+# Docs internas de operação — NÃO publicar (recon de infra: containers, rotas, cofre)
+# Mantidas só localmente + em C:\projetos\artificiobackup\docs-agents-internal-*
+docs/agents/
+
 # Editor
 .vscode/
 .idea/
