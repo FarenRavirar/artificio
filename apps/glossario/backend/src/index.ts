@@ -46,7 +46,10 @@ app.use(
     },
   })
 );
-app.use(express.json());
+// 10mb: o widget de feedback (Spec 021) envia screenshot base64 (até ~7MB, limite do
+// validador). Default do express.json (~100KB) rejeitaria com 413 no caminho padrão
+// (captura marcada). Espelha o mesas (express.json({ limit: '10mb' })).
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
 // Rota de Healthcheck básica para o Docker/Github Actions
