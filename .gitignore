@@ -14,8 +14,17 @@ build/
 .env.*
 !.env.example
 *.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.jks
+*.keystore
+id_rsa
+id_rsa.*
 *.keypublica.pub
 *client_secret*.json
+service-account*.json
 secrets*.txt
 
 # Backups (ficam fora do repo, em C:\projetos\artificiobackup)
