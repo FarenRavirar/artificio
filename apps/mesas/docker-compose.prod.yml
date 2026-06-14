@@ -73,6 +73,11 @@ services:
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      # Auto-archive de mesas (PROD-only, D-MESAS1): endpoint protegido por
+      # x-cron-secret == MESAS_CRON_SECRET, chamado pelo workflow mesas-auto-archive.yml.
+      # Sem esta var o backend responde 503 no /admin/tables/auto-archive (arquivar
+      # manual independe). Valor vem do .env prod (gitignored) + secret GH casado.
+      - MESAS_CRON_SECRET=${MESAS_CRON_SECRET:-}
     depends_on:
       mesas-db:
         condition: service_healthy
