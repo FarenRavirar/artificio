@@ -151,12 +151,13 @@
 1. ✅ D-INFRA1 + D-UX3 + mecanismo D-UX2 + D-UX1 — entregues pela spec 017.
 2. ✅ D-MARCA1 — entregue pela spec 018.
 3. ✅ D-INFRA2 — auditoria executada pela spec 019.
-4. ⏳ Spec 020 — executar o Theme Artifício padrão: D-UX2 visual completo + D-MARCA2/paleta + achados visuais da 019.
-5. ⏳ D-MESAS1 — arquivar mesas manual/auto prod-only após 1 mês.
+4. ⏳ Spec 020 — executar o Theme Artifício padrão: D-UX2 visual completo + D-MARCA2/paleta + achados visuais da 019. **B7 publicado (falta E2E autenticado do mantenedor p/ fechar); B13 fatia 1 (fonte única do nav) em PROD.**
+5. ✅ D-MESAS1 — arquivar mesas manual/auto prod-only após 1 mês. **Implementado em dev/beta (PR #29 `e8b3acc`); prod pendente aprovação + `MESAS_CRON_SECRET`.**
 6. ⏳ D-FEEDBACK1 — portar reportar bug/sugerir melhoria para site e glossário.
-7. ⏳ D-CSS1 — limpar aviso CSS `@import` de fontes no build Astro.
-8. ⏳ D-SHELL1 — unificar nav/footer em todos os projetos, incluindo glossário.
-9. ⏳ Specs não-visuais derivadas da 019: config/auth, auth client, deploy, analytics, SEO, normalizers.
+7. ⏳ D-CSS1 / B12 — self-host das fontes (tira `@import` Google render-blocking do shell público).
+8. ⏳ D-SHELL1 / B13 — **fatia 2:** markup Astro de `SiteHeader`/`SiteFooter` ainda espelhado (estratégia B / overlap B2); accounts sem nav/footer compartilhado.
+9. ⏳ D-SYNC1 — sync sistemas/cenários mesas↔glossário (SDD Completo, exige spec própria).
+10. ⏳ Specs não-visuais derivadas da 019: config/auth, auth client, deploy (CDX-310), analytics, SEO, normalizers.
 
 ## Fechamento
-Sessão de registro/backlog. Itens D-INFRA1, D-UX1, D-UX3 e D-MARCA1 foram executados na sessão `26-06-12_3_ui-marca_debitos-exec` via specs 017/018. D-INFRA2 foi auditado na spec 019. D-UX2 visual completo e D-MARCA2 foram absorvidos pela spec 020, evitando specs visuais concorrentes. Em 2026-06-13 foram adicionados D-CONT1 (urgente), D-MESAS1, D-FEEDBACK1 e D-CSS1; B8 da logo foi quitado na spec 020 como responsividade mobile. D-CONT1 foi resolvido localmente no mesmo dia com changelogs de mesas/glossário atualizados. Itens não-visuais da 019 seguem no backlog derivado. Commit/push/deploy seguem exigindo aprovação por ação.
+Sessão de registro/backlog. Itens D-INFRA1, D-UX1, D-UX3 e D-MARCA1 foram executados na sessão `26-06-12_3_ui-marca_debitos-exec` via specs 017/018. D-INFRA2 foi auditado na spec 019. D-UX2 visual completo e D-MARCA2 foram absorvidos pela spec 020, evitando specs visuais concorrentes. Em 2026-06-13 foram adicionados D-CONT1 (urgente), D-MESAS1, D-FEEDBACK1 e D-CSS1; B8 da logo foi quitado na spec 020 como responsividade mobile. D-CONT1 foi resolvido localmente no mesmo dia com changelogs de mesas/glossário atualizados. Em 2026-06-14, **D-MESAS1 (arquivar mesas) foi implementado e publicado em dev/beta** (PR #29, prod pendente aprovação + secret de cron). Itens não-visuais da 019 seguem no backlog derivado. Commit/push/deploy seguem exigindo aprovação por ação.
