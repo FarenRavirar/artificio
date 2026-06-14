@@ -1,0 +1,237 @@
+---
+// Widget de feedback (problema/sugestão) do site público (Spec 021).
+// Island vanilla: markup estático + UM script hoisted (sem framework). Não quebra o
+// zero-JS do shell (D048) — segue o mesmo molde dos scripts vanilla já usados
+// (tema/TOC/Pagefind/GA4). Copy/contrato vêm do módulo data-only @artificio/ui/feedback.
+import { FEEDBACK_COPY } from "@artificio/ui/feedback";
+const c = FEEDBACK_COPY;
+---
+
+<button
+  type="button"
+  id="af-feedback-trigger"
+  aria-label={c.trigger.ariaLabel}
+  title={c.trigger.ariaLabel}
+  class="af-fb-trigger"
+>
+  <span aria-hidden="true">{c.trigger.icon}</span>
+  <span class="af-fb-trigger-label">{c.trigger.label}</span>
+</button>
+
+<div id="af-feedback-overlay" class="af-fb-overlay" hidden>
+  <div role="dialog" aria-modal="true" aria-labelledby="af-fb-title" class="af-fb-modal">
+    <div class="af-fb-head">
+      <div>
+        <h2 id="af-fb-title">{c.modal.title}</h2>
+        <p class="af-fb-sub">{c.modal.subtitle}</p>
+      </div>
+      <button type="button" id="af-fb-close" aria-label={c.modal.closeAria} class="af-fb-x">✕</button>
+    </div>
+
+    <div class="af-fb-kinds" role="group" aria-label={c.kinds.groupAria}>
+      <button type="button" data-kind="bug" class="af-fb-kind is-active">{c.kinds.bug.label}</button>
+      <button type="button" data-kind="suggestion" class="af-fb-kind">{c.kinds.suggestion.label}</button>
+    </div>
+
+    <label class="af-fb-label" for="af-fb-title-input">{c.fields.titleLabel}</label>
+    <input id="af-fb-title-input" maxlength="160" class="af-fb-input"
+      data-ph-bug={c.fields.titlePlaceholder.bug} data-ph-suggestion={c.fields.titlePlaceholder.suggestion}
+      placeholder={c.fields.titlePlaceholder.bug} />
+
+    <label class="af-fb-label" for="af-fb-desc">{c.fields.descriptionLabel}</label>
+    <textarea id="af-fb-desc" maxlength="4000" rows="4" class="af-fb-input af-fb-textarea"
+      data-ph-bug={c.fields.descriptionPlaceholder.bug} data-ph-suggestion={c.fields.descriptionPlaceholder.suggestion}
+      placeholder={c.fields.descriptionPlaceholder.bug}></textarea>
+
+    <label class="af-fb-label" for="af-fb-email">
+      {c.fields.emailLabel} <span class="af-fb-opt">{c.fields.emailOptional}</span>
+    </label>
+    <input id="af-fb-email" type="email" maxlength="254" class="af-fb-input" placeholder={c.fields.emailPlaceholder} />
+
+    <div class="af-fb-context">
+      <p class="af-fb-context-head">{c.context.heading}</p>
+      <p class="af-fb-context-line">{c.context.page} <span id="af-fb-ctx-page"></span></p>
+      <p class="af-fb-context-line">{c.context.viewport} <span id="af-fb-ctx-vp"></span></p>
+      <p class="af-fb-context-line">{c.context.errors} <span id="af-fb-ctx-err">0</span></p>
+      <label class="af-fb-check"><input type="checkbox" id="af-fb-shot" checked /> {c.context.includeScreenshot}</label>
+      <label class="af-fb-check"><input type="checkbox" id="af-fb-diag" checked /> {c.context.includeDiagnostics} (<span id="af-fb-ctx-err2">0</span>)</label>
+    </div>
+
+    <div class="af-fb-actions">
+      <button type="button" id="af-fb-cancel" class="af-fb-btn-ghost">{c.actions.cancel}</button>
+      <button type="button" id="af-fb-submit" class="af-fb-btn-primary"
+        data-submit={c.actions.submit} data-submitting={c.actions.submitting}>{c.actions.submit}</button>
+    </div>
+    <p id="af-fb-msg" class="af-fb-msg" hidden></p>
+  </div>
+</div>
+
+<style>
+  .af-fb-trigger {
+    position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 900;
+    display: inline-flex; align-items: center; gap: .5rem;
+    border: none; border-radius: 999px; cursor: pointer;
+    padding: .75rem 1rem; font-size: .875rem; font-weight: 600;
+    background: var(--artificio-brand); color: #020740; box-shadow: 0 6px 20px rgba(0,0,0,.25);
+  }
+  .af-fb-trigger:hover { opacity: .9; }
+  .af-fb-trigger:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  @media (max-width: 640px) { .af-fb-trigger-label { display: none; } }
+  .af-fb-overlay {
+    position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.6); padding: 1rem;
+  }
+  .af-fb-overlay[hidden] { display: none; }
+  .af-fb-modal {
+    width: 100%; max-width: 32rem; max-height: 90vh; overflow-y: auto;
+    border-radius: 1rem; border: 1px solid rgba(255,255,255,.1); background: #1B2A4A;
+    padding: 1.5rem; color: #fff; box-shadow: 0 20px 50px rgba(0,0,0,.5);
+  }
+  .af-fb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+  .af-fb-head h2 { font-size: 1.25rem; font-weight: 700; margin: 0; }
+  .af-fb-sub { margin: .25rem 0 0; font-size: .875rem; color: rgba(255,255,255,.6); }
+  .af-fb-x { background: none; border: none; color: rgba(255,255,255,.6); cursor: pointer; font-size: 1rem; padding: .25rem .5rem; border-radius: .5rem; }
+  .af-fb-x:hover { background: rgba(255,255,255,.1); color: #fff; }
+  .af-fb-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: 1rem; }
+  .af-fb-kind { border: none; cursor: pointer; border-radius: .5rem; padding: .5rem 1rem; font-size: .875rem; font-weight: 600; background: rgba(255,255,255,.05); color: rgba(255,255,255,.6); }
+  .af-fb-kind.is-active { background: var(--artificio-brand); color: #020740; }
+  .af-fb-label { display: block; margin-bottom: .25rem; font-size: .875rem; color: rgba(255,255,255,.8); }
+  .af-fb-opt { color: rgba(255,255,255,.4); }
+  .af-fb-input { width: 100%; margin-bottom: 1rem; border-radius: .5rem; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); padding: .5rem .75rem; color: #fff; }
+  .af-fb-input::placeholder { color: rgba(255,255,255,.4); }
+  .af-fb-input:focus { outline: none; border-color: var(--artificio-brand); }
+  .af-fb-textarea { resize: vertical; }
+  .af-fb-context { margin-bottom: 1rem; border-radius: .5rem; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); padding: .75rem; font-size: .875rem; color: rgba(255,255,255,.7); }
+  .af-fb-context-head { margin: 0 0 .5rem; font-weight: 600; color: rgba(255,255,255,.8); }
+  .af-fb-context-line { margin: 0; font-size: .75rem; color: rgba(255,255,255,.5); }
+  .af-fb-check { display: flex; align-items: center; gap: .5rem; margin-top: .5rem; font-size: .75rem; }
+  .af-fb-actions { display: flex; justify-content: flex-end; gap: .75rem; }
+  .af-fb-btn-ghost { border: none; cursor: pointer; border-radius: .5rem; padding: .5rem 1rem; font-size: .875rem; color: rgba(255,255,255,.7); background: none; }
+  .af-fb-btn-ghost:hover { background: rgba(255,255,255,.1); }
+  .af-fb-btn-primary { border: none; cursor: pointer; border-radius: .5rem; padding: .5rem 1.25rem; font-size: .875rem; font-weight: 600; background: var(--artificio-brand); color: #020740; }
+  .af-fb-btn-primary:hover { opacity: .9; }
+  .af-fb-btn-primary:disabled, .af-fb-btn-ghost:disabled { opacity: .5; cursor: not-allowed; }
+  .af-fb-msg { margin: .75rem 0 0; font-size: .8125rem; }
+  .af-fb-msg.is-ok { color: #86efac; }
+  .af-fb-msg.is-err { color: #fca5a5; }
+</style>
+
+<script>
+  import { FEEDBACK_COPY } from "@artificio/ui/feedback";
+
+  type DiagBuf = {
+    console: { level: string; message: string; ts: string }[];
+    network: { url: string; method: string; status: number; ts: string }[];
+  };
+  const diag: DiagBuf = (window as unknown as { __afFeedbackDiag?: DiagBuf }).__afFeedbackDiag
+    ?? { console: [], network: [] };
+
+  const $ = (id: string) => document.getElementById(id);
+  const trigger = $("af-feedback-trigger");
+  const overlay = $("af-feedback-overlay");
+  if (trigger && overlay) {
+    const titleInput = $("af-fb-title-input") as HTMLInputElement;
+    const descInput = $("af-fb-desc") as HTMLTextAreaElement;
+    const emailInput = $("af-fb-email") as HTMLInputElement;
+    const shot = $("af-fb-shot") as HTMLInputElement;
+    const diagChk = $("af-fb-diag") as HTMLInputElement;
+    const submitBtn = $("af-fb-submit") as HTMLButtonElement;
+    const cancelBtn = $("af-fb-cancel") as HTMLButtonElement;
+    const closeBtn = $("af-fb-close") as HTMLButtonElement;
+    const msg = $("af-fb-msg") as HTMLParagraphElement;
+    let kind: "bug" | "suggestion" = "bug";
+
+    const setMsg = (text: string, ok: boolean) => {
+      msg.textContent = text;
+      msg.className = "af-fb-msg " + (ok ? "is-ok" : "is-err");
+      msg.hidden = false;
+    };
+    const refreshPlaceholders = () => {
+      titleInput.placeholder = titleInput.dataset["ph" + (kind === "bug" ? "Bug" : "Suggestion")] ?? "";
+      descInput.placeholder = descInput.dataset["ph" + (kind === "bug" ? "Bug" : "Suggestion")] ?? "";
+    };
+
+    const open = () => {
+      const errCount = diag.console.length + diag.network.length;
+      ($("af-fb-ctx-page") as HTMLElement).textContent = location.pathname || "/";
+      ($("af-fb-ctx-vp") as HTMLElement).textContent = window.innerWidth + "x" + window.innerHeight;
+      ($("af-fb-ctx-err") as HTMLElement).textContent = String(errCount);
+      ($("af-fb-ctx-err2") as HTMLElement).textContent = String(errCount);
+      msg.hidden = true;
+      overlay.hidden = false;
+      titleInput.focus();
+    };
+    const close = () => { overlay.hidden = true; };
+
+    trigger.addEventListener("click", open);
+    cancelBtn.addEventListener("click", close);
+    closeBtn.addEventListener("click", close);
+    overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !overlay.hidden) close(); });
+
+    document.querySelectorAll(".af-fb-kind").forEach((b) => {
+      b.addEventListener("click", () => {
+        kind = (b as HTMLElement).dataset.kind === "suggestion" ? "suggestion" : "bug";
+        document.querySelectorAll(".af-fb-kind").forEach((x) => x.classList.remove("is-active"));
+        b.classList.add("is-active");
+        refreshPlaceholders();
+      });
+    });
+
+    async function captureViewport(): Promise<string | null> {
+      try {
+        const mod = await import("html2canvas-pro");
+        const html2canvas = mod.default;
+        const scale = Math.min(1, 1280 / Math.max(window.innerWidth, 1));
+        const canvas = await html2canvas(document.body, {
+          x: window.scrollX, y: window.scrollY, width: window.innerWidth, height: window.innerHeight,
+          windowWidth: document.documentElement.scrollWidth, windowHeight: document.documentElement.scrollHeight,
+          useCORS: true, logging: false, scale,
+        });
+        return canvas.toDataURL("image/jpeg", 0.7);
+      } catch (e) {
+        console.warn("[feedback] captura falhou.", e);
+        return null;
+      }
+    }
+
+    submitBtn.addEventListener("click", async () => {
+      const title = titleInput.value.trim();
+      const description = descInput.value.trim();
+      if (!title || !description) { setMsg(FEEDBACK_COPY.toasts.missingFields, false); return; }
+      submitBtn.disabled = true;
+      submitBtn.textContent = submitBtn.dataset.submitting ?? "...";
+      try {
+        let screenshot: string | null = null;
+        if (shot.checked) screenshot = await captureViewport();
+        const res = await fetch("/api/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            kind, title, description,
+            contact_email: emailInput.value.trim() || null,
+            page_url: location.href, route_path: location.pathname, page_title: document.title,
+            environment: location.hostname.startsWith("beta.") ? "beta" : (location.hostname.includes("artificiorpg.com") ? "production" : "development"),
+            user_agent: navigator.userAgent, viewport: window.innerWidth + "x" + window.innerHeight,
+            console_errors: diagChk.checked ? diag.console : [],
+            network_errors: diagChk.checked ? diag.network : [],
+            screenshot,
+          }),
+        });
+        if (!res.ok) throw new Error("status " + res.status);
+        setMsg(FEEDBACK_COPY.toasts.success, true);
+        titleInput.value = ""; descInput.value = ""; emailInput.value = "";
+        setTimeout(close, 1500);
+      } catch (e) {
+        console.error("[feedback] envio falhou.", e);
+        setMsg(FEEDBACK_COPY.toasts.error, false);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = submitBtn.dataset.submit ?? "Enviar";
+      }
+    });
+
+    refreshPlaceholders();
+  }
+</script>

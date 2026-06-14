@@ -6,13 +6,15 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type RequestHandler } from "express";
 import cookieParser from "cookie-parser";
-import { requireAuth, type AuthenticatedRequest } from "@artificio/auth";
+import { requireAuth, verifyToken, type AuthenticatedRequest } from "@artificio/auth";
 import { getDb } from "../db/connection.js";
 import { runJob, jobState } from "./jobs.js";
 import { adminApi } from "./admin-api.js";
 import { renderPreview } from "./preview.js";
 import { reloadRedirects, lookupRedirect } from "./redirect-cache.js";
-import { UPLOADS_DIR } from "./lib/media-store.js";
+import { UPLOADS_DIR, storeUpload } from "./lib/media-store.js";
+import { parseFeedbackInput, decodeScreenshotDataUri } from "./lib/feedback-validator.js";
+import * as Feedback from "../db/repo/feedback.js";
 
 const DIST = process.env.SITE_DIST || resolve(dirname(fileURLToPath(import.meta.url)), "../dist");
 
@@ -65,6 +67,73 @@ app.post("/admin/rebuild", requireAuth, requireAdmin, (_req, res) => {
 app.post("/admin/import", requireAuth, requireAdmin, (_req, res) => {
   const r = runJob("import", "import");
   res.status(r.started ? 202 : 409).json(r);
+});
+
+// ===== Feedback público (Spec 021) — anônimo permitido, SEM auth =====
+// Rate-limit simples em memória por IP (sem nova dependência): janela de 15min, 20 envios.
+const FEEDBACK_WINDOW_MS = 15 * 60 * 1000;
+const FEEDBACK_MAX = 20;
+const feedbackHits = new Map<string, { count: number; reset: number }>();
+const feedbackLimiter: RequestHandler = (req, res, next) => {
+  const ip = req.ip || "unknown";
+  const now = Date.now();
+  const hit = feedbackHits.get(ip);
+  if (!hit || now > hit.reset) {
+    feedbackHits.set(ip, { count: 1, reset: now + FEEDBACK_WINDOW_MS });
+    next();
+    return;
+  }
+  if (hit.count >= FEEDBACK_MAX) {
+    res.status(429).json({ error: "Muitos envios. Tente novamente mais tarde." });
+    return;
+  }
+  hit.count += 1;
+  next();
+};
+
+app.post("/api/feedback", feedbackLimiter, async (req, res) => {
+  try {
+    const parsed = parseFeedbackInput(req.body);
+    if (!parsed.ok) { res.status(400).json({ error: parsed.error }); return; }
+    const input = parsed.value;
+
+    // Sessão OPCIONAL: enriquece o registro se houver cookie SSO válido (não bloqueia anônimo).
+    let reporterId: string | null = null;
+    let reporterRole = "visitor";
+    const cookie = (req as { cookies?: Record<string, string> }).cookies?.artificio_session;
+    if (typeof cookie === "string" && cookie) {
+      const session = verifyToken(cookie);
+      if (session) { reporterId = session.user.id; reporterRole = session.user.role ?? "visitor"; }
+    }
+
+    // Screenshot é não-fatal (FR-006): reusa storeUpload (Cloudinary ou disco local).
+    let screenshotUrl: string | null = null;
+    let screenshotPublicId: string | null = null;
+    if (input.screenshot) {
+      const decoded = decodeScreenshotDataUri(input.screenshot);
+      if (decoded) {
+        try {
+          const stored = await storeUpload(decoded.buffer, decoded.ext);
+          screenshotUrl = stored.url;
+          screenshotPublicId = stored.public_id;
+        } catch (e) {
+          console.warn("[feedback] upload de captura falhou; gravando sem imagem.", String(e));
+        }
+      }
+    }
+
+    const { id } = await Feedback.createFeedback({
+      ...input,
+      reporter_id: reporterId,
+      reporter_role: reporterRole,
+      screenshot_url: screenshotUrl,
+      screenshot_public_id: screenshotPublicId,
+    });
+    res.status(201).json({ data: { id } });
+  } catch (e) {
+    console.error("[POST /api/feedback]", e);
+    res.status(500).json({ error: "Erro ao registrar feedback." });
+  }
 });
 
 // API de autoria (CRUD posts/pages/taxonomias/redirects/mídia). Gated requireAuth+requireAdmin.

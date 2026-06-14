@@ -77,6 +77,7 @@
 - **Nível SDD:** SDD Lite se restrito ao `apps/mesas`; SDD Completo se tocar shared, CI/CD/cron compartilhado ou migration produtiva.
 
 ## D-FEEDBACK1 — Site principal e glossário com ferramenta de reportar bug/sugerir melhoria
+- **Status:** ✅ implementado LOCAL em 2026-06-13 — **Spec 021** (`specs/021-feedback-site-glossario/`), sessão `26-06-13_2`. **SEM commit/push/deploy.** Decisão (AskUserQuestion): **Híbrido B+** (contrato data-only `@artificio/ui/feedback` + port por app), **island vanilla no site** (zero-JS D048 preservado), **paridade total de dados**. Glossário: tabela `dev_feedback` (migration_16 D059), `POST /api/feedback` público + admin + `AdminFeedbackPage`. Site: tabela via migration 005 (descoberto que `site/server` TEM Postgres), `POST /api/feedback` + island `FeedbackWidget.astro` + triagem no `site-admin`. mesas inalterado. Validação `turbo` 13/13 + vitest glossário 22/22 + site static + parity + diff-check limpos. Changelog glossário migration_17. **Pendências p/ publicar:** PR→dev, migrations, env Cloudinary por app (degrada sem), smokes — tudo sob autorização nominal.
 - **O quê:** levar para `site` e `glossario` a mesma ferramenta que o `mesas` já tem para **reportar bug** e **sugerir melhoria**.
 - **Referência:** `apps/mesas/frontend/src/features/dev-feedback/FeedbackButton.tsx`, `FeedbackModal.tsx` e painel/admin correspondente.
 - **Escopo desejado:** experiência e linguagem iguais entre projetos; persistência pode ser por app no começo, mas avaliar se deve virar fonte única em `packages/ui`/backend compartilhado antes de duplicar.
@@ -153,7 +154,7 @@
 3. ✅ D-INFRA2 — auditoria executada pela spec 019.
 4. ⏳ Spec 020 — executar o Theme Artifício padrão: D-UX2 visual completo + D-MARCA2/paleta + achados visuais da 019. **B7 publicado (falta E2E autenticado do mantenedor p/ fechar); B13 fatia 1 (fonte única do nav) em PROD.**
 5. ✅ D-MESAS1 — arquivar mesas manual/auto prod-only após 1 mês. **Implementado em dev/beta (PR #29 `e8b3acc`); prod pendente aprovação + `MESAS_CRON_SECRET`.**
-6. ⏳ D-FEEDBACK1 — portar reportar bug/sugerir melhoria para site e glossário.
+6. ✅ D-FEEDBACK1 — portar reportar bug/sugerir melhoria para site e glossário. **Implementado local (Spec 021); publicar pendente autorização.**
 7. ⏳ D-CSS1 / B12 — self-host das fontes (tira `@import` Google render-blocking do shell público).
 8. ⏳ D-SHELL1 / B13 — **fatia 2:** markup Astro de `SiteHeader`/`SiteFooter` ainda espelhado (estratégia B / overlap B2); accounts sem nav/footer compartilhado.
 9. ⏳ D-SYNC1 — sync sistemas/cenários mesas↔glossário (SDD Completo, exige spec própria).

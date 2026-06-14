@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useRef, createContext, useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { Footer } from '@artificio/ui';
+import { FeedbackButton } from './features/dev-feedback/FeedbackButton';
 import { GlossarioHeader } from './components/GlossarioHeader';
 import { SearchBar } from './components/SearchBar';
 import { ResultCard } from './components/ResultCard';
@@ -18,6 +20,7 @@ import AdminUsersPage from './pages/AdminUsersPage';
 import AdminReviewPage from './pages/AdminReviewPage';
 import AdminStructurePage from './pages/AdminStructurePage';
 import AdminActivityPage from './pages/AdminActivityPage';
+import AdminFeedbackPage from './pages/AdminFeedbackPage';
 import NotificationsPage from './pages/NotificationsPage';
 import AddTermModal from './components/AddTermModal';
 import ImportPage from './pages/ImportPage';
@@ -293,6 +296,7 @@ function App() {
                 <Route path="/admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
                 <Route path="/admin/structure" element={<AdminRoute><AdminStructurePage /></AdminRoute>} />
                 <Route path="/admin/activity" element={<AdminRoute><AdminActivityPage /></AdminRoute>} />
+                <Route path="/admin/feedback" element={<AdminRoute><AdminFeedbackPage /></AdminRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>
@@ -305,7 +309,9 @@ function App() {
             )}
 
             <Footer variant="dark" />
+            <FeedbackButton />
           </div>
+          <Toaster position="bottom-center" />
         </BrowserRouter>
       </AuthProvider>
     </UIContext.Provider>

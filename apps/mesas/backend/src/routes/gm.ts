@@ -205,6 +205,7 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
       ])
       .where('t.gm_id', '=', gm.id)
       .where('t.status', '=', 'active')
+      .where('t.archived_at', 'is', null) // D-MESAS1: arquivadas somem do perfil público do mestre
       .orderBy('t.featured', 'desc')
       .orderBy('t.created_at', 'desc')
       .execute();

@@ -16,6 +16,10 @@
       "types": "./dist/modules.d.ts",
       "import": "./dist/modules.js"
     },
+    "./feedback": {
+      "types": "./dist/feedback.d.ts",
+      "import": "./dist/feedback.js"
+    },
     "./styles.css": "./src/styles.css",
     "./tailwind-preset": "./tailwind-preset.js"
   },
