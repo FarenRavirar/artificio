@@ -44,6 +44,12 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+      # Cloudinary compartilhado (mesma conta do mesas/site) p/ screenshot do feedback (Spec 021).
+      # Aceita URL única OU o trio (mesmas vars que mesas/site já usam na VM); ausente = degrada.
+      - CLOUDINARY_URL=${CLOUDINARY_URL:-}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
     depends_on:
       glossario-db:
         condition: service_healthy
