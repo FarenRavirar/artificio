@@ -37,16 +37,16 @@
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
   background-color: #F4F4F4;
 }
 
+/* Shell full-bleed igual mesas/beta (D-SHELL1): removidos os leftovers do template
+   Vite (`display:flex; place-items:center` no body e `max-width:1280px; margin:auto`
+   no #root) que centralizavam e capavam o app — o nav ficava "curto". O conteúdo
+   das páginas continua centralizado pelos próprios wrappers (max-w-5xl mx-auto). */
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
   width: 100%;
 }
 
