@@ -12,6 +12,10 @@ server {
 
     # Proxy API requests to backend container (separado por ambiente)
     location /api/ {
+        # Screenshot do widget de feedback (Spec 021) chega como base64 (até ~7MB,
+        # limite do validador/Express). Sem isto, nginx corta com 413 no default 1MB
+        # antes do backend. Alinha com express.json({ limit: '10mb' }).
+        client_max_body_size 10m;
         proxy_pass http://${API_UPSTREAM}:3000/api/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;

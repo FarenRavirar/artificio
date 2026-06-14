@@ -8,17 +8,25 @@ import { v2 as cloudinary } from 'cloudinary';
  * upload falha e o feedback e gravado sem imagem (nao-fatal — FR-006).
  */
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// Reusa a MESMA conta Cloudinary do projeto (mesas/site). Aceita as duas formas que já
+// existem na VM: CLOUDINARY_URL única OU o trio CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET.
+if (process.env.CLOUDINARY_URL) {
+  cloudinary.config(); // SDK lê CLOUDINARY_URL do ambiente
+} else {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  });
+}
 
 export function isCloudinaryConfigured(): boolean {
   return Boolean(
-    process.env.CLOUDINARY_CLOUD_NAME
-    && process.env.CLOUDINARY_API_KEY
-    && process.env.CLOUDINARY_API_SECRET,
+    process.env.CLOUDINARY_URL
+    || (process.env.CLOUDINARY_CLOUD_NAME
+      && process.env.CLOUDINARY_API_KEY
+      && process.env.CLOUDINARY_API_SECRET),
   );
 }
 
