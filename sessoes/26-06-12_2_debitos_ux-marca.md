@@ -84,6 +84,24 @@
 - **Atenção:** se a solução virar componente compartilhado ou contrato cross-app, aplicar SDD Completo e smoke em consumidores; se for port local por app, SDD Lite por módulo.
 - **Nível SDD:** provável SDD Completo se reutilizar estrutura comum; Lite se apenas replicar localmente em `site` ou `glossario`.
 
+## D-NGINX1 — Glossário: nginx não repassa X-Forwarded-For → rate-limiters por IP bucketam num IP só
+- **Origem:** review da PR #31 (Spec 021), 2026-06-14. Mesmo padrão do achado do site (resolvido lá com `trust proxy`; o site não tem nginx, fala direto do CF Tunnel → Express).
+- **Bug:** `apps/glossario/frontend/nginx.conf.template` faz proxy de `/api/` **sem** setar `X-Real-IP`/`X-Forwarded-For`/`X-Forwarded-Proto`. O backend tem `app.set('trust proxy', 1)`, mas sem o header XFF o `req.ip` cai pro IP do container nginx **para todos os visitantes**.
+- **Impacto:** os rate-limiters por IP compartilham um balde único do nginx → podem bloquear usuários legítimos. Afeta o limiter novo de **feedback** (`POST /api/feedback`, Spec 021, 20/15min) **e** o **pré-existente de migração** (`/api/migration/verify` `verifyLimiter`, spec 015) que bucketa por IP+email. Pré-existente em prod desde a 015.
+- **Fix:** adicionar no `location /api/` do template (espelha `apps/mesas/frontend/nginx.conf`):
+  `proxy_set_header X-Real-IP $remote_addr;`
+  `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`
+  `proxy_set_header X-Forwarded-Proto $scheme;`
+  Depois rebuild do container do frontend glossário. Validar `req.ip` real (não o do nginx) num envio autenticado/anônimo.
+- **Escopo:** `apps/glossario/frontend/nginx.conf.template` (+ rebuild). Isolado, sem `packages/*`.
+- **Nível SDD:** Lite. Sem commit/push/deploy sem autorização nominal.
+
+## D-SHELL1b — Glossário: shell capado pelo leftover do template Vite (RESOLVIDO LOCAL)
+- **Origem:** mantenedor notou que o nav do glossário ficava "curto" (não preenchia a tela) vs mesas/beta, 2026-06-14.
+- **Causa:** `apps/glossario/frontend/src/index.css` carregava o leftover do create-vite — `body { display:flex; place-items:center }` + `#root { max-width:1280px; margin:0 auto }` — capando o app inteiro (header/footer inclusos) em 1280px centralizado. mesas/beta não têm isso → full-bleed.
+- **Fix (LOCAL, uncommitted):** removidos os dois leftovers; `#root { width:100% }`. Header/footer agora edge-to-edge; conteúdo segue centralizado pelos wrappers próprios (`max-w-* mx-auto`). Verificado em preview @1440/1600 (root=header=footer=largura do viewport); auditadas todas as páginas (Login centra pelo próprio flex; Register é redirect) — sem regressão. Parte do D-SHELL1.
+- **Nível SDD:** Lite (isolado em `apps/glossario`). Pendente commit + redeploy beta sob autorização.
+
 ## D-GLOS-CTA — Glossário: CTA "Cadastre-se e contribua" não reage a sessão logada
 - **Origem:** E2E B6/B7 prod, sessão `26-06-13_1` (2026-06-13). Mantenedor logado.
 - **Bug:** estando logado, o botão hero `https://glossario.artificiorpg.com/` continua "Cadastre-se e contribua →" e leva para `/login`.
