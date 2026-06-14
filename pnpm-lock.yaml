@@ -123,6 +123,9 @@ importers:
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0
+      cloudinary:
+        specifier: ^2.5.1
+        version: 2.10.0
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
@@ -196,6 +199,9 @@ importers:
       fuse.js:
         specifier: ^7.0.0
         version: 7.4.2
+      html2canvas-pro:
+        specifier: ^2.0.4
+        version: 2.0.4
       lucide-react:
         specifier: ^0.363.0
         version: 0.363.0(react@19.2.7)
@@ -205,6 +211,9 @@ importers:
       react-dom:
         specifier: ^19.1.0
         version: 19.2.7(react@19.2.7)
+      react-hot-toast:
+        specifier: ^2.6.0
+        version: 2.6.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react-router-dom:
         specifier: ^7.13.2
         version: 7.17.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -520,6 +529,9 @@ importers:
       file-type:
         specifier: ^22.0.1
         version: 22.0.1
+      html2canvas-pro:
+        specifier: ^2.0.4
+        version: 2.0.4
       multer:
         specifier: ^2.1.1
         version: 2.1.1

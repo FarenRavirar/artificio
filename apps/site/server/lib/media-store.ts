@@ -61,3 +61,14 @@ export async function storeUpload(buffer: Buffer, ext: string): Promise<StoredMe
   writeFileSync(resolve(UPLOADS_DIR, name), buffer);
   return { source: "local", url: `/uploads/${name}`, public_id: null, width: null, height: null };
 }
+
+/** Remove asset do Cloudinary por public_id. Não-fatal (usado p/ limpar feedback excluído). */
+export async function deleteStoredMedia(publicId: string | null): Promise<void> {
+  if (!publicId || !cloudinaryEnabled()) return;
+  ensureConfig();
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+  } catch (err) {
+    console.error("[media-store] delete falhou:", publicId, String(err));
+  }
+}

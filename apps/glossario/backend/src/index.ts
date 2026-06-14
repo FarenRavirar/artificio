@@ -15,6 +15,8 @@ import importRoutes from './routes/importRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import adminActivityRoutes from './routes/adminActivityRoutes';
 import migrationRoutes from './routes/migrationRoutes';
+import feedbackRoutes from './routes/feedbackRoutes';
+import feedbackAdminRoutes from './routes/feedbackAdminRoutes';
 
 dotenv.config();
 
@@ -66,6 +68,8 @@ app.use('/api/social', socialRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin/activity', adminActivityRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/admin/feedback', feedbackAdminRoutes);
 
 app.listen(port, () => {
   console.log(`[server]: Servidor rodando na porta ${port}`);

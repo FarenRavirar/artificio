@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { timingSafeEqual } from 'node:crypto';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { TableRepository } from '../repositories/tableRepository';
@@ -22,7 +23,11 @@ router.post('/tables/auto-archive', async (req: Request, res: Response) => {
   if (!cronSecret) {
     return res.status(503).json({ error: 'MESAS_CRON_SECRET não configurado.' });
   }
-  if (req.header('x-cron-secret') !== cronSecret) {
+  // Comparação em tempo constante (anti-timing-attack). timingSafeEqual exige buffers
+  // de mesmo tamanho — checa o comprimento antes (diferença de tamanho já invalida).
+  const provided = Buffer.from(req.header('x-cron-secret') || '', 'utf8');
+  const expected = Buffer.from(cronSecret, 'utf8');
+  if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
     return res.status(401).json({ error: 'Segredo de cron inválido.' });
   }
 
@@ -70,6 +75,20 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'Nenhum dado para atualizar.' });
+    }
+
+    // 1a publicacao via ativacao admin grava published_at (mesma ancora do fluxo GM,
+    // gmPanel). Sem isso, ativar um rascunho/importado antigo deixaria o auto-arquivamento
+    // (D-MESAS1) arquivá-lo de imediato por created_at em vez de 30 dias após publicar.
+    if (updateData.status === 'active') {
+      const current = await db
+        .selectFrom('tables')
+        .select(['published_at'])
+        .where('id', '=', id)
+        .executeTakeFirst();
+      if (current && !current.published_at) {
+        updateData.published_at = new Date();
+      }
     }
 
     const [result] = await db

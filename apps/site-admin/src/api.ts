@@ -49,6 +49,15 @@ export interface MediaItem {
 }
 export interface MediaUploadResult { id: number; url: string; source: string; mime: string; width: number | null; height: number | null; }
 
+export interface FeedbackItem {
+  id: number; kind: "bug" | "suggestion"; title: string; description: string;
+  reporter_id: string | null; reporter_role: string | null; contact_email: string | null;
+  page_url: string | null; route_path: string | null; environment: string | null; viewport: string | null;
+  console_errors: unknown[]; network_errors: unknown[];
+  screenshot_url: string | null; status: string; admin_notes: string | null;
+  archived_at: string | null; created_at: string;
+}
+
 export interface PostFull {
   id?: number; title: string; slug: string; excerpt: string; content_html: string;
   block_doc: unknown | null; status: string; published_at: string | null;
@@ -112,6 +121,13 @@ export const api = {
   updateMedia: (id: number, meta: { alt?: string | null; caption?: string | null; title?: string | null }) =>
     req<{ ok: boolean }>(`/media/${id}`, { method: "PUT", body: JSON.stringify(meta) }),
   deleteMedia: (id: number) => req<{ ok: boolean }>(`/media/${id}`, { method: "DELETE" }),
+
+  // ---- Feedback (Spec 021) ----
+  listFeedback: (status = "", kind = "", archived = "false") =>
+    req<{ items: FeedbackItem[] }>(`/feedback?archived=${archived}${status ? `&status=${status}` : ""}${kind ? `&kind=${kind}` : ""}`).then((r) => r.items),
+  updateFeedback: (id: number, patch: { status?: string; admin_notes?: string | null; archived?: boolean }) =>
+    req<{ item: FeedbackItem }>(`/feedback/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteFeedback: (id: number) => req<{ ok: boolean }>(`/feedback/${id}`, { method: "DELETE" }),
 
   // Preview stateless: renderiza o buffer atual (não persiste, não publica). Retorna HTML.
   previewHtml: async (body: { type: "post" | "page"; title: string; status: string; content_html: string }): Promise<string> => {

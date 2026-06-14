@@ -6,6 +6,7 @@ import SiteHeader from "../components/SiteHeader.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import SearchModal from "../components/SearchModal.astro";
 import Analytics from "../components/Analytics.astro";
+import FeedbackWidget from "../components/FeedbackWidget.astro";
 
 interface Props {
   title: string;
@@ -69,12 +70,41 @@ const lds = jsonld ? (Array.isArray(jsonld) ? jsonld : [jsonld]) : [];
         } catch (e) {}
       })();
     </script>
+    <script is:inline>
+      /* Diagnóstico do widget de feedback (Spec 021): captura cedo console/rede em buffer
+         global. Só url/método/status (sem corpo/headers/tokens). Vanilla — não quebra zero-JS. */
+      (function () {
+        var CAP = 30, MAX = 500;
+        var d = { console: [], network: [] };
+        window.__afFeedbackDiag = d;
+        function push(buf, e) { buf.push(e); if (buf.length > CAP) buf.splice(0, buf.length - CAP); }
+        function tr(s) { return String(s).length > MAX ? String(s).slice(0, MAX) : String(s); }
+        function rec(level, msg) { var m = String(msg).trim(); if (m) push(d.console, { level: level, message: tr(m), ts: new Date().toISOString() }); }
+        var oe = console.error.bind(console), ow = console.warn.bind(console);
+        console.error = function () { rec("error", Array.prototype.join.call(arguments, " ")); oe.apply(null, arguments); };
+        console.warn = function () { rec("warn", Array.prototype.join.call(arguments, " ")); ow.apply(null, arguments); };
+        window.addEventListener("error", function (ev) { rec("window.onerror", ev.message || "Erro desconhecido"); });
+        window.addEventListener("unhandledrejection", function (ev) { rec("unhandledrejection", ev.reason && ev.reason.message ? ev.reason.message : String(ev.reason)); });
+        if (typeof window.fetch === "function") {
+          var of = window.fetch.bind(window);
+          window.fetch = function (input, init) {
+            var method = (init && init.method) || "GET";
+            var url = typeof input === "string" ? input : (input && input.url) || String(input);
+            return of(input, init).then(function (r) {
+              if (r.status >= 400) push(d.network, { url: tr(url), method: String(method).toUpperCase(), status: r.status, ts: new Date().toISOString() });
+              return r;
+            }).catch(function (err) { push(d.network, { url: tr(url), method: String(method).toUpperCase(), status: 0, ts: new Date().toISOString() }); throw err; });
+          };
+        }
+      })();
+    </script>
   </head>
   <body>
     <SiteHeader currentHref={currentHref} />
     <slot />
     <SiteFooter />
     <SearchModal />
+    <FeedbackWidget />
     <script is:inline>
       (function () {
         function applyVariant(t) {
