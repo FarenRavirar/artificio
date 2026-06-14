@@ -104,6 +104,36 @@ export async function handleStatus(id: string, status: string): Promise<void> {
 }
 
 /**
+ * Handler para arquivar/desarquivar mesa (D-MESAS1).
+ * Arquivar tira do catálogo público sem perder a mesa nem o status; reversível.
+ */
+export async function handleArchive(id: string, archived: boolean): Promise<void> {
+  const verb = archived ? 'arquivar' : 'desarquivar';
+  if (!confirm(`Tem certeza que deseja ${verb} esta mesa?`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/v1/gm/tables/${id}/archive`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ archived }),
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => null);
+      alert(error?.error || `Erro ao ${verb} mesa.`);
+      return;
+    }
+
+    window.location.reload();
+  } catch {
+    alert(`Erro ao ${verb} mesa. Tente novamente.`);
+  }
+}
+
+/**
  * Handler para editar mesa
  * Navega para /painel?edit=<id> — rota tratada por PainelMestrePage via searchParams
  */

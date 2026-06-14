@@ -165,6 +165,7 @@ export interface TableViewModel {
   coverUrl?: string;
   coverCropData?: { x: number; y: number; width: number; height: number };
   status: string;
+  archived?: boolean; // D-MESAS1: mesa arquivada (fora do catálogo público)
   origin?: 'manual' | 'imported';
   publisherRole: string;
   actualGmName?: string;

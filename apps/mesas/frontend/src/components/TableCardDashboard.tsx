@@ -17,6 +17,7 @@ interface MyTableEnhanced {
   slug: string;
   title: string;
   status: string;
+  archived?: boolean; // D-MESAS1: fora do catálogo público
   modality: string;
   slots_total: number;
   slots_filled: number;
@@ -42,8 +43,10 @@ interface TableCardDashboardProps {
   onEdit: (id: string) => void;
   onToggle: (table: MyTableEnhanced) => void;
   onDelete: (table: MyTableEnhanced) => void;
+  onArchive?: (table: MyTableEnhanced) => void;
   isToggling: boolean;
   isDeleting: boolean;
+  isArchiving?: boolean;
 }
 
 export function TableCardDashboard({
@@ -51,8 +54,10 @@ export function TableCardDashboard({
   onEdit,
   onToggle,
   onDelete,
+  onArchive,
   isToggling,
   isDeleting,
+  isArchiving,
 }: TableCardDashboardProps) {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const { open: openSlots } = getSlotsVisualState(table);
@@ -74,6 +79,13 @@ export function TableCardDashboard({
       {isInactive && (
         <div className="absolute top-2 right-2 bg-gray-500/80 text-white text-xs px-2 py-1 rounded-md font-medium z-10">
           {table.status === 'cancelled' ? '⏸️ Desativada' : '🏁 Encerrada'}
+        </div>
+      )}
+
+      {/* BADGE DE ARQUIVAMENTO (D-MESAS1) — some do catálogo público */}
+      {table.archived && (
+        <div className="absolute top-2 left-2 bg-slate-600/85 text-white text-xs px-2 py-1 rounded-md font-medium z-20">
+          🗄️ Arquivada
         </div>
       )}
 
@@ -202,6 +214,16 @@ export function TableCardDashboard({
         >
           {isToggling ? '⏳' : table.status === 'active' ? 'Desativar' : 'Ativar'}
         </button>
+
+        {onArchive && (
+          <button
+            onClick={() => onArchive(table)}
+            disabled={isArchiving}
+            className="col-span-2 py-2 text-xs bg-slate-600/70 hover:bg-slate-600 disabled:opacity-50 rounded-lg transition-colors"
+          >
+            {isArchiving ? '⏳' : table.archived ? '♻️ Desarquivar' : '🗄️ Arquivar'}
+          </button>
+        )}
 
         <InlineDeleteConfirmation
           title={table.title}

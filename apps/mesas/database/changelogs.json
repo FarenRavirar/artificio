@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-06-13-arquivar-mesas",
+    "title": "Arquive suas mesas antigas",
+    "body": "Agora você pode tirar uma mesa do catálogo sem perdê-la:\n\n• **Arquivar/Desarquivar** - No painel do mestre e na página da mesa, arquive uma mesa para escondê-la do catálogo público mantendo todo o histórico; desarquive quando quiser de volta\n• **Catálogo mais limpo** - Mesas arquivadas somem da busca pública por padrão, mas seguem acessíveis por link direto\n• **Limpeza automática** - Em produção, mesas publicadas há mais de um mês passam a ser arquivadas automaticamente, mantendo o catálogo atual; é só desarquivar se ainda estiver recrutando\n\n_Atualização publicada em 13/06/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-06-13T12:00:00-03:00"
+  },
+  {
     "id": "2026-06-13-login-unico-visual-artificio",
     "title": "Login único e visual do Artifício chegaram ao Mesas",
     "body": "Publicamos a integração do Mesas com a conta única do Artifício RPG e alinhamos a interface ao restante dos projetos:\n\n• **Uma conta para tudo** - O acesso agora usa o login Google central em accounts.artificiorpg.com, mantendo a sessão entre os projetos do Artifício\n• **Menu de conta preservado** - Perfil, painel, gestão e saída continuam acessíveis pelo menu da conta, agora dentro do cabeçalho compartilhado\n• **Identidade visual unificada** - Cabeçalho, rodapé, favicon, cores e linguagem pública foram alinhados com o design comum do Artifício RPG\n• **Navegação entre projetos** - O topo passa a conectar Portal, Glossário, Mesas e os próximos projetos da suíte com a mesma estrutura visual\n\n_Atualização publicada em 13/06/2026_",

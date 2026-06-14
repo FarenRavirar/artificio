@@ -2,7 +2,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import type { TableViewModel, TableActionPanelVariant } from '../types/tableView.types';
 import { InlineDeleteConfirmation } from '../../../components/InlineDeleteConfirmation';
-import { getButtonStyle, getUrgencyColor, handleCTA, handleEdit, handleStatus } from '../utils/uiHelpers';
+import { getButtonStyle, getUrgencyColor, handleCTA, handleEdit, handleStatus, handleArchive } from '../utils/uiHelpers';
 import { TableContactsBlock } from './TableContactsBlock';
 import { useTracking } from '../../../hooks/useTracking';
 
@@ -104,6 +104,23 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
               className="w-full py-2 rounded-lg bg-gray-500/20 hover:bg-gray-500/30 text-gray-300 text-sm font-medium transition"
             >
               ✓ Marcar como encerrada
+            </button>
+          )}
+
+          {/* Arquivamento (D-MESAS1): tira do catálogo público, reversível */}
+          {!vm.archived ? (
+            <button
+              onClick={() => handleArchive(vm.id, true)}
+              className="w-full py-2 rounded-lg bg-slate-500/20 hover:bg-slate-500/30 text-slate-300 text-sm font-medium transition"
+            >
+              🗄️ Arquivar mesa
+            </button>
+          ) : (
+            <button
+              onClick={() => handleArchive(vm.id, false)}
+              className="w-full py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-300 text-sm font-medium transition"
+            >
+              ♻️ Desarquivar mesa
             </button>
           )}
         </div>
@@ -219,6 +236,12 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
                 {vm.status === 'ended' && '✕ Encerrada'}
               </span>
             </div>
+            {vm.archived && (
+              <div className="flex justify-between">
+                <span className="text-white/60">Catálogo</span>
+                <span className="font-medium text-slate-400">🗄️ Arquivada</span>
+              </div>
+            )}
           </div>
 
           {/* Plataformas */}
