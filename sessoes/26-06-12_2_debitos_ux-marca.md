@@ -88,13 +88,15 @@
 - **Origem:** review da PR #31 (Spec 021), 2026-06-14. Mesmo padrão do achado do site (resolvido lá com `trust proxy`; o site não tem nginx, fala direto do CF Tunnel → Express).
 - **Bug:** `apps/glossario/frontend/nginx.conf.template` faz proxy de `/api/` **sem** setar `X-Real-IP`/`X-Forwarded-For`/`X-Forwarded-Proto`. O backend tem `app.set('trust proxy', 1)`, mas sem o header XFF o `req.ip` cai pro IP do container nginx **para todos os visitantes**.
 - **Impacto:** os rate-limiters por IP compartilham um balde único do nginx → podem bloquear usuários legítimos. Afeta o limiter novo de **feedback** (`POST /api/feedback`, Spec 021, 20/15min) **e** o **pré-existente de migração** (`/api/migration/verify` `verifyLimiter`, spec 015) que bucketa por IP+email. Pré-existente em prod desde a 015.
-- **Fix:** adicionar no `location /api/` do template (espelha `apps/mesas/frontend/nginx.conf`):
-  `proxy_set_header X-Real-IP $remote_addr;`
-  `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`
+- **Fix v1 (PR #32, INCORRETO p/ esta topologia):** adicionou `X-Real-IP $remote_addr` + `X-Forwarded-For $proxy_add_x_forwarded_for` + `X-Forwarded-Proto $scheme` (espelhando mesas). Review da PR #32 (2026-06-14) apontou o erro: topologia é **Cloudflare Tunnel → nginx → backend**; `$proxy_add_x_forwarded_for` **anexa** o peer do túnel/nginx no fim do XFF e, com `trust proxy 1`, o Express escolhe esse último hop (= túnel), não o visitante → continua no balde único.
+- **Fix v2 (correto):** passar o IP autoritativo do Cloudflare, único e não-poluível:
+  `proxy_set_header X-Real-IP $http_cf_connecting_ip;`
+  `proxy_set_header X-Forwarded-For $http_cf_connecting_ip;`
   `proxy_set_header X-Forwarded-Proto $scheme;`
-  Depois rebuild do container do frontend glossário. Validar `req.ip` real (não o do nginx) num envio autenticado/anônimo.
+  Com XFF = só o IP do visitante (V), `trust proxy 1` resolve `req.ip = V`. Rebuild do container frontend glossário. Validar `req.ip` real num envio autenticado/anônimo (linha admin).
 - **Escopo:** `apps/glossario/frontend/nginx.conf.template` (+ rebuild). Isolado, sem `packages/*`.
 - **Nível SDD:** Lite. Sem commit/push/deploy sem autorização nominal.
+- **Débito derivado (D-NGINX2, mesas):** `apps/mesas/frontend/nginx.conf` usa o mesmo `$proxy_add_x_forwarded_for`. Se mesas também é CF Tunnel → nginx → backend com `trust proxy 1`, tem o **mesmo bug latente** de bucket único nos rate-limiters por IP. Auditar/corrigir igual (CF-Connecting-IP). Não tocado nesta fatia.
 
 ## D-SHELL1b — Glossário: shell capado pelo leftover do template Vite (RESOLVIDO LOCAL)
 - **Origem:** mantenedor notou que o nav do glossário ficava "curto" (não preenchia a tela) vs mesas/beta, 2026-06-14.

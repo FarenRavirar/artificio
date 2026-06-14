@@ -21,12 +21,17 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        # XFF p/ o backend (trust proxy 1) derivar req.ip real — sem isto todos os
-        # visitantes viram o IP do container nginx e os rate-limiters por IP
-        # (feedback Spec 021 + verifyLimiter migração spec 015) bucketam num balde só.
-        # Espelha apps/mesas/frontend/nginx.conf. (D-NGINX1)
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # IP real do visitante p/ o backend (trust proxy 1) derivar req.ip e os
+        # rate-limiters por IP (feedback Spec 021 + verifyLimiter migração spec 015)
+        # bucketarem por visitante, não num balde único.
+        #
+        # Topologia: Cloudflare Tunnel → nginx → backend. NÃO usar
+        # $proxy_add_x_forwarded_for: ele ANEXA o peer do túnel/nginx no fim do XFF;
+        # com trust proxy 1 o Express escolhe esse último hop (= túnel), não o
+        # visitante → volta ao balde único. Passa o IP autoritativo do Cloudflare
+        # (CF-Connecting-IP), que é único e não-poluível. (D-NGINX1)
+        proxy_set_header X-Real-IP $http_cf_connecting_ip;
+        proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
