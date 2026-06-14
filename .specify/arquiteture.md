@@ -87,7 +87,7 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 - Imagem **GHCR por app**. `docker-compose.beta.yml` na rede externa compartilhada. Watchtower só beta; prod = deploy controlado (`watchtower.enable=false`).
 - Fluxo: `feat/<modulo>-NNN` → `dev`/Beta → `main`/Prod. Push a `dev`/`main` e qualquer ação na VM = aprovação (AGENTS).
 - Deploy inicial do `accounts` usa repo secrets do GitHub Actions: `ACCOUNTS_ENV`, `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_PORT`, `DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_USER`. O workflow valida presença por tamanho/existência e nunca imprime valores.
-- Cofre local fora do git: `C:\projetos\Secrets\artificio\accounts.env` e `C:\projetos\Secrets\artificio\deploy-known-hosts`. Documentação operacional em `docs/agents/github-actions-secrets.md`.
+- Cofre local de segredos fica fora do git (caminho não publicado). Documentação operacional em doc interna fora do repositório público (`docs/agents/`, gitignored).
 
 ## 8. Engine de crosslink (`packages/crosslink`)
 - Padrão compartilhado entre `srd` e `esferas`: detectar termos referenciados e gerar **tooltip com resumo estruturado estático** + link profundo para a página do termo.

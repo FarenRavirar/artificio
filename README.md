@@ -4,7 +4,7 @@ Suite de projetos do Artifício RPG: cada projeto no seu **subdomínio** sob `*.
 
 > **Nome × conceito.** O produto chama-se **Artifício RPG** (domínio `artificiorpg.com`). "G1" **não** faz parte do nome — é apenas a *referência conceitual*: queremos um hub interconectado que direciona para os projetos, no estilo do portal de notícias G1. Codinome técnico interno (ex.: `g1-governance-reviewer`) pode usar "G1", mas nunca como nome do produto.
 
-> **Comece pela governança.** Antes de qualquer código, leia nesta ordem: `.specify/memory/project-state.md` → `AGENTS.md` → `docs/agents/context-capsule.md`.
+> **Comece pela governança.** Antes de qualquer código, leia nesta ordem: `.specify/memory/project-state.md` → `AGENTS.md` → `docs/agents/context-capsule.md` (interno, fora do git público — só no clone local do mantenedor).
 
 ## Projetos (`apps/*`, tecnicamente módulos)
 Topologia técnica **subdomínio-por-módulo** (D017). Na linguagem pública, cada app é um projeto no próprio host, root próprio, sem basename. Unidos por SSO (cookie `.artificiorpg.com`) + nav + design. WP fica na raiz `artificiorpg.com` (intocável).
@@ -31,8 +31,7 @@ Topologia técnica **subdomínio-por-módulo** (D017). Na linguagem pública, ca
 | `.specify/memory/project-state.md` | Onde estamos (fase/gate) |
 | `.specify/memory/errors.md` | Erros conhecidos |
 | `.specify/arquiteture.md` | Arquitetura e contratos (a escrever) |
-| `docs/agents/operating-model.md` | Quando usar Sem SDD / Lite / Completo |
-| `docs/agents/context-capsule.md` | Retomada mínima |
+| `docs/agents/*` (interno, fora do git público) | Modelo de operação, retomada, infra, acesso — só no clone local do mantenedor |
 | `.claude/agents/` | Subagentes: governance-reviewer, wp-importer, seo-usability-auditor |
 | `.claude/skills/` | Skills: add-module, new-spec |
 | `sessoes/` | Diário de sessões |
