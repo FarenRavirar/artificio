@@ -69,6 +69,7 @@
 - **Nível SDD:** Lite por app se for só conteúdo local de changelog; Completo se virar componente compartilhado ou migration/produção.
 
 ## D-MESAS1 — Arquivar mesas manualmente e autoarquivar após 1 mês em produção
+- **Status:** ✅ implementado e EM DEV/BETA em 2026-06-14 (PR #29 `e8b3acc`; sem prod por decisão do mantenedor). Coluna `tables.archived_at` (ortogonal ao status, reversível) + `published_at` (âncora); `PATCH /gm/tables/:id/archive` (dono/admin); catálogo filtra `archived_at IS NULL`; `POST /admin/tables/auto-archive` PROD-only + segredo de cron, arquiva `active/full` há +30d; workflow `mesas-auto-archive.yml` diário; UI (botão + badge no painel/mesa); changelog publicado. migration_127 aplicou no beta. **Pendências p/ prod:** aprovar deploy prod + setar `MESAS_CRON_SECRET` (cron; manual não depende).
 - **O quê:** adicionar no `mesas` a função de **arquivar mesas**.
 - **Regra automática:** mesas publicadas há mais de **1 mês** devem ser arquivadas automaticamente **apenas no PROD**. Beta/local não devem autoarquivar por idade para não bagunçar teste/hydrate.
 - **Requisitos mínimos:** status/flag de arquivamento; ação manual para responsável/admin conforme regra do produto; filtro no catálogo público para esconder arquivadas por padrão; rotina agendada/cron prod-only; registro em changelog quando entregue.
