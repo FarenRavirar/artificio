@@ -14,8 +14,17 @@ build/
 .env.*
 !.env.example
 *.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.jks
+*.keystore
+id_rsa
+id_rsa.*
 *.keypublica.pub
 *client_secret*.json
+service-account*.json
 secrets*.txt
 
 # Backups (ficam fora do repo, em C:\projetos\artificiobackup)
@@ -34,6 +43,10 @@ logs/
 *.log
 tmp/
 .DS_Store
+
+# Docs internas de operação — NÃO publicar (recon de infra: containers, rotas, cofre)
+# Mantidas só localmente + em C:\projetos\artificiobackup\docs-agents-internal-*
+docs/agents/
 
 # Editor
 .vscode/

@@ -41,6 +41,6 @@ Rotacionar segredos vazados: tunnel token, PAT GitHub, WP creds, senha do `secre
 - Segredo nunca no git. Compartilhado/SSO/infra = SDD Completo. Atualiza rastreabilidade ao avançar (pode delegar mecânico ao Codex).
 
 ## Infra/refs
-`ssh faren` (chave `C:/projetos/Secrets/ssh-key-MINHAVM.key`) · rede `artificio_net` · tunnel CF próprio · `/opt/artificio/<svc>` · backup `C:\projetos\artificiobackup`. Gatilho do mantenedor pro Codex: **"realize as tarefas para codex na sessão"**.
+`ssh faren` (chave `<chave/segredo local fora do git>`) · rede `artificio_net` · tunnel CF próprio · `/opt/artificio/<svc>` · backup `C:\projetos\artificiobackup`. Gatilho do mantenedor pro Codex: **"realize as tarefas para codex na sessão"**.
 
 Começa contextualizando (T0 + roadmap) e retoma pela Spec 011. Este handoff é histórico; o prompt atualizado para o próximo Claude está em `docs/agents/claude-next-prompt.md`.

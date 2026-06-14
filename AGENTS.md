@@ -150,7 +150,7 @@ Fluxo: `<tipo>/<escopo>` → `dev`/Beta → `main`/Produção. Tipos comuns: `fe
 
 ### Acesso à VM (Oracle)
 
-- Acesso direto por alias SSH: **`ssh faren`** (host/IP/chave em `~/.ssh/config` local, **não versionado**). Aliases equivalentes: `oracle`, `ubuntu`, IP. VM = Oracle ARM `aarch64`, Ubuntu 24.04. Mapa: `docs/agents/infra-map.md`.
+- Acesso direto por alias SSH configurado em `~/.ssh/config` local (**não versionado**; host/IP/chave fora do git). Mapa de infra: doc interna fora do repositório público (`docs/agents/`, gitignored).
 - **Read-only sem aprovação via VM:** `ssh faren '<cmd read-only>'` com `docker ps|logs|inspect|stats`, `df`, `ls/cat/rg/grep`, `git status|diff|log|show`, `psql ... SELECT`, `pg_dump` (read-only no DB). Filtrar segredos da saída (nunca imprimir `*PASSWORD*|*TOKEN*|*SECRET*`).
 - **Aprovação obrigatória (pétrea):** qualquer write na VM — `docker stop|rm|up|restart`, escrever/copiar arquivo, migration, `scp/rsync`, subir/derrubar serviço, mexer no tunnel.
 - A chave privada (`*.key`) é segredo: gitignored, nunca commitar/expor/imprimir.
@@ -217,12 +217,14 @@ Concluída só quando: busca final relevante retorna o esperado; checklist da se
 | Arquitetura/contratos técnicos | `.specify/arquiteture.md` (canônica; revisar/atualizar quando mudar contrato técnico/arquitetura) |
 | Estado atual (fase/gate) | `.specify/memory/project-state.md` |
 | Erros conhecidos | `.specify/memory/errors.md` |
-| Contexto de retomada | `docs/agents/context-capsule.md` |
-| Economia de contexto/reload | `docs/agents/token-economy.md` |
-| Mapa da VM/infra (verificado) | `docs/agents/infra-map.md` |
-| Registro de acesso & segredos | `docs/agents/access-registry.md` |
-| Modelo de operação (SDD) | `docs/agents/operating-model.md` |
-| Roadmap macro | `docs/agents/roadmap.md` |
+| Contexto de retomada | `docs/agents/context-capsule.md` ⃰ |
+| Economia de contexto/reload | `docs/agents/token-economy.md` ⃰ |
+| Mapa da VM/infra (verificado) | `docs/agents/infra-map.md` ⃰ |
+| Registro de acesso & segredos | `docs/agents/access-registry.md` ⃰ |
+| Modelo de operação (SDD) | `docs/agents/operating-model.md` ⃰ |
+| Roadmap macro | `docs/agents/roadmap.md` ⃰ |
+
+⃰ `docs/agents/*` = docs internas de operação, **fora do repositório público** (gitignored, só local + backup do mantenedor).
 | Sessões | `sessoes/index.md` + `sessoes/*.md` |
 | Specs SDD | `specs/*/{spec.md,plan.md,tasks.md}` |
 | Subagentes | `.claude/agents/` |

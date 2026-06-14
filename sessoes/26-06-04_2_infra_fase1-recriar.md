@@ -5,7 +5,7 @@
 - **Spec:** `specs/002-fase1-instancia/` · **Decisões:** D034, D035 · **Backup:** `C:\projetos\artificiobackup\2026-06-04\`
 
 ## Parâmetros
-- Alias SSH: `faren` · chave nova: `C:/projetos/Secrets/ssh-key-MINHAVM.key` · IP novo: **<mantenedor preenche>**
+- Alias SSH: `faren` · chave nova: `<chave/segredo local fora do git>` · IP novo: **<mantenedor preenche>**
 - Rede: `artificio_net` · Estrutura: `/opt/artificio/<svc>` · Tunnel: novo, standalone
 - Bancos: `mesas-*-db` → `mesas_rpg` (admin) · `glossario-*-db` → `glossario_v2` (admin)
 
@@ -15,7 +15,7 @@
 > Gatilho: "realize as tarefas para codex na sessão". Ordem. **Cada uma: rodar `✓ Validar` antes de retornar; só reporta se passou.** VM nova é Ubuntu **fresh** (sem Docker/composes — vêm do backup).
 
 ### CDX-201 — Atualizar `~/.ssh/config` + testar acesso  ⬜
-Editar o bloco `Host faren` em `C:\Users\paulo\.ssh\config`: `HostName <IP_NOVO>` (mantenedor informa) e `IdentityFile "C:/projetos/Secrets/ssh-key-MINHAVM.key"`. Mesmo p/ `oracle`/`ubuntu` se existirem.
+Editar o bloco `Host faren` em `C:\Users\paulo\.ssh\config`: `HostName <IP_NOVO>` (mantenedor informa) e `IdentityFile <chave/segredo local fora do git>`. Mesmo p/ `oracle`/`ubuntu` se existirem.
 **✓ Validar:** `ssh -o BatchMode=yes faren 'echo ok; uname -m; lsb_release -ds'` → `ok` + `aarch64` + Ubuntu 24.04. **Reportar:** a saída.
 
 ### CDX-202 — Docker + rede (VM nova)  ⬜  `[sudo → aprovação]`
@@ -97,7 +97,7 @@ ssh faren 'docker ps --format "{{.Names}} {{.Status}}"'
 - 2026-06-04 — CDX-201..204 validados ✅ (dados intactos, 8808 terms). Falta CDX-205 (apps) + CDX-206 (rotas+smoke). Rotas mapeadas acima. Alerta: chave privada + CHAVES_PRODUCAO.txt vazaram no backup → rotacionar/limpar.
 
 ## Log Codex
-- 2026-06-04 — CDX-201 testado/corrigido: `Host faren` aponta para `<IP_DA_VM>`; `IdentityFile` trocado para `C:/projetos/Secrets/ssh-key-MINHAVM.key`; ACL da chave restringida ao usuário local; host key nova aceita. Validação passou: `ok`, `aarch64`, `Ubuntu 24.04.4 LTS`.
+- 2026-06-04 — CDX-201 testado/corrigido: `Host faren` aponta para `<IP_DA_VM>`; `IdentityFile` trocado para `<chave/segredo local fora do git>`; ACL da chave restringida ao usuário local; host key nova aceita. Validação passou: `ok`, `aarch64`, `Ubuntu 24.04.4 LTS`.
 - 2026-06-04 — CDX-202 concluído e validado: Docker instalado/habilitado na VM nova (`Docker version 29.5.3, build d1c06ef`); rede `artificio_net` criada/listada (`bridge`, `local`).
 - 2026-06-04 — VM minimal atualizada (`apt update/upgrade`) e pacotes base instalados: `ca-certificates curl git unzip p7zip-full postgresql-client jq htop nano rsync tree ufw`.
 - 2026-06-04 — CDX-203 concluído e validado: backup `2026-06-04` copiado para `/home/ubuntu/bk`; `/opt/artificio/{glossario,glossario-beta,mesas,mesas-beta}` restaurado; 4 `.env` instalados; compose files presentes. Limpeza pós-restore: removidos dos deploy dirs arquivos sensíveis/entulho `ssh-key-*privada.key` e `CHAVES_PRODUCAO.txt` (backup original preservado).

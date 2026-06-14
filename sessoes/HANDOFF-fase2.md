@@ -47,6 +47,6 @@ Executar `specs/003-fase2-monorepo-sso` (tasks CDX-301..306):
 - Atualiza rastreabilidade (project-state, sessão, decisions) ao avançar — pode delegar a parte mecânica ao Codex.
 
 ## Infra/refs
-`ssh faren` (chave `C:/projetos/Secrets/ssh-key-MINHAVM.key`) · rede `artificio_net` · tunnel Cloudflare próprio · estrutura `/opt/artificio/<svc>` · backup em `C:\projetos\artificiobackup\2026-06-04`. Referência de robustez/stack: `C:\projetos\mesas_rpg_artificio`.
+`ssh faren` (chave `<chave/segredo local fora do git>`) · rede `artificio_net` · tunnel Cloudflare próprio · estrutura `/opt/artificio/<svc>` · backup em `C:\projetos\artificiobackup\2026-06-04`. Referência de robustez/stack: `C:\projetos\mesas_rpg_artificio`.
 
 Começa contextualizando (T0 + spec 003), confirma comigo o entendimento, e dispara a primeira leva de tarefas Codex (301→303). Pergunta o que precisar definir.
