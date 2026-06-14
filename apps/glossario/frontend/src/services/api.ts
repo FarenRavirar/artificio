@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { refreshSession } from '@artificio/auth/client';
+import { recordNetworkEntry } from '../features/dev-feedback/diagnostics';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
@@ -14,6 +15,12 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
+    // Captura de rede p/ widget de feedback (Spec 021): só url/método/status.
+    const status = error?.response?.status;
+    if (typeof status === 'number' && status >= 400 && original) {
+      const url = `${original.baseURL ?? ''}${original.url ?? ''}`;
+      recordNetworkEntry(url, (original.method ?? 'GET').toUpperCase(), status);
+    }
     if (error?.response?.status === 401 && original && !original._retry) {
       original._retry = true;
       const refreshed = await refreshSession();

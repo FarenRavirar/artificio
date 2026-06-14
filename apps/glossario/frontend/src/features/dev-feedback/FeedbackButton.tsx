@@ -1,0 +1,30 @@
+import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { FEEDBACK_COPY } from '@artificio/ui/feedback';
+import { FeedbackModal } from './FeedbackModal';
+
+// Esconde nas telas de auth/migração (espelha mesas, que esconde em /login).
+const HIDDEN_PATHS = ['/login', '/register', '/migrar'];
+
+export const FeedbackButton = () => {
+  const location = useLocation();
+  const [open, setOpen] = useState(false);
+
+  if (HIDDEN_PATHS.includes(location.pathname)) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={FEEDBACK_COPY.trigger.ariaLabel}
+        title={FEEDBACK_COPY.trigger.ariaLabel}
+        className="fixed bottom-5 right-5 z-[900] flex items-center gap-2 rounded-full bg-[var(--artificio-brand)] px-4 py-3 text-sm font-semibold text-[#020740] shadow-lg transition-all hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1B2A4A]"
+      >
+        <span aria-hidden="true">{FEEDBACK_COPY.trigger.icon}</span>
+        <span className="hidden sm:inline">{FEEDBACK_COPY.trigger.label}</span>
+      </button>
+      {open && <FeedbackModal onClose={() => setOpen(false)} />}
+    </>
+  );
+};

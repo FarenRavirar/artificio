@@ -66,6 +66,7 @@ export function GlossarioHeader() {
     { label: 'Gestão de Membros', href: '/admin/users', adminOnly: true },
     { label: 'Gestão de Estrutura', href: '/admin/structure', adminOnly: true },
     { label: 'Atividade Admin', href: '/admin/activity', adminOnly: true },
+    { label: 'Feedback', href: '/admin/feedback', adminOnly: true },
     { label: 'Importação em Lote', href: '/importar' },
     { label: 'Notificações', href: '/notificacoes' },
     { label: 'Meu Perfil', href: '/profile' },

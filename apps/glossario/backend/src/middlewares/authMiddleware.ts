@@ -67,6 +67,37 @@ export const authMiddleware = (req: any, res: Response, next: NextFunction) => {
 };
 
 /**
+ * Sessão OPCIONAL: usado por endpoints públicos (ex.: feedback anônimo, Spec 021).
+ * Se houver token válido, popula `req.user` (best-effort) para enriquecer o registro;
+ * sem token, segue como visitante (não bloqueia). Falha ao resolver usuário local
+ * NÃO derruba a requisição — apenas segue anônimo.
+ */
+export const optionalAuthMiddleware = (req: any, _res: Response, next: NextFunction) => {
+  const session = resolveSession(req);
+  if (!session) return next();
+
+  resolveLocalUser(session)
+    .then((local) => {
+      const isGlobalAdmin = session.user.role === 'admin';
+      req.user = {
+        id: local.id,
+        role: isGlobalAdmin ? 'admin' : local.role,
+        role_source: 'sso',
+        is_global_admin: isGlobalAdmin,
+        email: local.email,
+        name: session.user.name,
+        sub: session.user.id,
+        sso_email: session.user.email,
+      };
+      return next();
+    })
+    .catch((err) => {
+      console.warn('[optionalAuthMiddleware] Sessão presente mas falhou ao resolver; seguindo anônimo:', err?.message || err);
+      return next();
+    });
+};
+
+/**
  * Restringe acesso a administradores. Usar APÓS o authMiddleware.
  * Admin global do SSO passa direto; admin LOCAL é revalidado no banco.
  */

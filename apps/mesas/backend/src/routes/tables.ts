@@ -325,6 +325,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
         't.actual_gm_name',
         't.featured',
         't.created_at',
+        't.archived_at', // D-MESAS1: detalhe expõe estado de arquivamento (botão Arquivar/Desarquivar)
         't.origin',
         't.is_ddal',
         't.is_covil', // CORREÇÃO A01: Retornar flag Covil do Lich

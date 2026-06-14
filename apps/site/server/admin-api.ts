@@ -13,6 +13,8 @@ import * as Pages from "../db/repo/pages.js";
 import * as Tax from "../db/repo/taxonomies.js";
 import * as Redirects from "../db/repo/redirects.js";
 import * as Media from "../db/repo/media.js";
+import * as Feedback from "../db/repo/feedback.js";
+import { deleteStoredMedia } from "./lib/media-store.js";
 import { reloadRedirects } from "./redirect-cache.js";
 
 const REDIRECT_CODES = [301, 302, 307, 308];
@@ -269,6 +271,40 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
       cleanHtml(String(req.body?.content_html || "")),
     );
     res.type("html").send(html);
+  });
+
+  // ================= FEEDBACK (Spec 021) — triagem admin =================
+  r.get("/feedback", async (req, res) => {
+    const items = await Feedback.listFeedback({
+      status: req.query.status ? String(req.query.status) : undefined,
+      kind: req.query.kind ? String(req.query.kind) : undefined,
+      archived: req.query.archived ? String(req.query.archived) : undefined,
+    });
+    res.json({ items });
+  });
+
+  r.patch("/feedback/:id", async (req, res) => {
+    const id = parseId(req.params.id);
+    if (id == null) { res.status(400).json({ error: "bad_id" }); return; }
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const row = await Feedback.updateFeedback(id, {
+      status: typeof body.status === "string" ? body.status : undefined,
+      admin_notes: body.admin_notes !== undefined ? strOrNull(body.admin_notes) : undefined,
+      archived: typeof body.archived === "boolean" ? body.archived : undefined,
+      reviewed_by: authorOf(req),
+    });
+    if (!row) { res.status(404).json({ error: "not_found" }); return; }
+    res.json({ item: row });
+  });
+
+  r.delete("/feedback/:id", async (req, res) => {
+    const id = parseId(req.params.id);
+    if (id == null) { res.status(400).json({ error: "bad_id" }); return; }
+    const found = await Feedback.getFeedbackScreenshotId(id);
+    if (!found.found) { res.status(404).json({ error: "not_found" }); return; }
+    if (found.public_id) await deleteStoredMedia(found.public_id);
+    const ok = await Feedback.deleteFeedback(id);
+    res.json({ ok });
   });
 
   // ================= REBUILD (publicação) =================

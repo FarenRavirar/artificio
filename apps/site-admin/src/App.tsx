@@ -4,6 +4,7 @@ import { PostEditor } from "./pages/PostEditor";
 import { PagesList } from "./pages/PagesList";
 import { PageEditor } from "./pages/PageEditor";
 import { MediaPage } from "./pages/MediaPage";
+import { FeedbackPage } from "./pages/FeedbackPage";
 
 export function App() {
   return (
@@ -16,6 +17,7 @@ export function App() {
           <NavLink to="/pages">Páginas</NavLink>
           <NavLink to="/pages/new">+ Nova página</NavLink>
           <NavLink to="/media">Mídia</NavLink>
+          <NavLink to="/feedback">Feedback</NavLink>
           <a href="/" target="_blank" rel="noreferrer">Ver site ↗</a>
         </nav>
       </aside>
@@ -28,6 +30,7 @@ export function App() {
           <Route path="/pages/new" element={<PageEditor />} />
           <Route path="/pages/:id" element={<PageEditor />} />
           <Route path="/media" element={<MediaPage />} />
+          <Route path="/feedback" element={<FeedbackPage />} />
         </Routes>
       </main>
     </div>
