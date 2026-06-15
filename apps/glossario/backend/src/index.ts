@@ -23,8 +23,9 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Atrás do nginx (1 hop): habilita req.ip correto para rate-limit do /api/migration.
-app.set('trust proxy', 1);
+// Atras do nginx na artificio_net: confia somente no proxy interno definido por
+// TRUSTED_PROXY_CIDR. O nginx ja validou CF-Connecting-IP e repassa $remote_addr.
+app.set('trust proxy', process.env.TRUSTED_PROXY_CIDR || '172.18.0.0/16');
 
 // CORS restrito: o front é servido same-origin (nginx faz proxy de /api/),
 // então só liberamos origens do próprio domínio Artifício + localhost (dev).

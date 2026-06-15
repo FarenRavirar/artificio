@@ -63,6 +63,10 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 | `artificiorpg.com` (raiz) | **WordPress, intocável** | — |
 
 - **Cloudflare Tunnel**: um `cloudflared`, várias regras de ingress `hostname → container:port`. Nada de porta exposta. Cert wildcard `*.artificiorpg.com`.
+- **Contrato Real IP (D069/spec 023):** o unico caminho publico confiavel e `Cloudflare Tunnel -> cloudflared -> artificio_net -> app`. `artificio_net` verificada em 2026-06-15 como `172.18.0.0/16`.
+  - Apps com nginx (`mesas`, `glossario`): `set_real_ip_from ${TRUSTED_REAL_IP_FROM}` (default `172.18.0.0/16`) + `real_ip_header CF-Connecting-IP`; repassar `X-Real-IP` e `X-Forwarded-For` como `$remote_addr`, nunca `$http_cf_connecting_ip` cru nem `$proxy_add_x_forwarded_for`.
+  - Apps Express, diretos ou atras de nginx (`accounts`, `site`, backends de `mesas`/`glossario`): `app.set("trust proxy", TRUSTED_PROXY_CIDR)` com default `172.18.0.0/16`, nunca `trust proxy = 1` como regra duravel.
+  - Motivo: rate-limit/logs devem usar o IP do visitante validado; header de visitante so e aceito quando o hop anterior e o proxy interno confiavel.
 - Cada app roda no próprio root `/` (Vite `base: '/'`, sem React Router basename). API do módulo sob `/api/...` do próprio host.
 - Nav entre módulos = URLs absolutas (de `packages/ui`), com destaque do módulo atual.
 - Nenhum host hardcoded fora de env/config (permite trocar domínio/host sem refactor).

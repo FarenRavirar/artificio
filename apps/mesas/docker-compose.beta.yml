@@ -24,6 +24,7 @@ services:
       - VITE_PUBLIC_SITE_URL=${VITE_PUBLIC_SITE_URL:-https://mesasbeta.artificiorpg.com}
       - VITE_CLOUDINARY_CLOUD_NAME=${VITE_CLOUDINARY_CLOUD_NAME}
       - VITE_CLOUDINARY_UPLOAD_PRESET=${VITE_CLOUDINARY_UPLOAD_PRESET}
+      - TRUSTED_REAL_IP_FROM=${TRUSTED_REAL_IP_FROM:-172.18.0.0/16}
     command:
       - /bin/sh
       - -c
@@ -70,6 +71,7 @@ services:
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
     depends_on:
       mesas-beta-db:
         condition: service_healthy

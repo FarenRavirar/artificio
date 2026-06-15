@@ -1,0 +1,49 @@
+# Specs SDD — mapa geral
+
+> Fonte de orientacao para achar specs, debitos e pendencias sem reconstruir o projeto pelo chat.
+
+## Como usar
+- Estado operacional atual: `.specify/memory/project-state.md`.
+- Decisoes fechadas: `.specify/memory/decisions.md`.
+- Erros conhecidos: `.specify/memory/errors.md`.
+- **Pendencias acionaveis por spec/debito:** `specs/backlog.md`.
+- Sessao ativa/evidencia: `sessoes/index.md` + `sessoes/*.md`.
+
+## Regra para toda spec nova
+Toda spec SDD deve:
+
+1. Criar/atualizar `spec.md`, `plan.md`, `tasks.md`.
+2. Registrar no `tasks.md` uma tarefa de manutencao do mapa logo no inicio ou no fechamento:
+   `Atualizar specs/backlog.md e project-state.md`.
+3. Ao abrir debito, adicionar linha em `specs/backlog.md`.
+4. Ao fechar debito, marcar `status = fechado` ou remover da lista ativa e registrar evidencia.
+
+## Status rapido das specs
+
+| Spec | Tema | Estado resumido |
+|---|---|---|
+| 001 | infra backup | Fechada/Gate A aprovado; pendencias antigas sao historicas. |
+| 002 | recriar VM | Fechada; VM nova e `artificio_net` em uso. |
+| 003 | monorepo + SSO | Fechada/Gate B aprovado; `accounts.` no ar. |
+| 004 | mesas SSO Gate D | Fechada/Gate D mesas. |
+| 005 | beta pipeline | Em uso; pendencia isolada de hydrate `PROD_DB_URL`. |
+| 008 | site foundation | Parcial/aberta para Gate D site e pendencias editoriais/SEO. |
+| 009 | deploy hardening | R1-R5 fechados; R6/T9 viraram futuro. |
+| 011 | site CMS | MVP local/deployado em partes; paridade WP/editorial ainda grande. |
+| 012 | glossario monorepo | Fechada; pendencias manuais residuais no backlog. |
+| 013 | links/regras restore | Aberta/bloqueada por localizar artefato ou refazer. |
+| 014 | nav WhatsApp/links | Aberta; depende de `links.` no ar. |
+| 015 | glossario SSO compat | Fechada/Gate D glossario; follow-up limpeza legado. |
+| 016 | mesas Express 5 | Aberta/pendente; relacionada ao E004. |
+| 019 | auditoria fonte unica | Fechada como auditoria; backlog derivado em `backlog.md`. |
+| 020 | theme Artificio padrao | Parcial; varios B-items ainda abertos. |
+| 021 | feedback site/glossario | Implementado/promovido segundo project-state; conferir pendencias runtime no backlog. |
+| 022 | paleta/fontes global | Aberta/local conforme spec propria. |
+| 023 | Real IP ingress | Local/aberta; falta publicar e smoke runtime. |
+
+## Convencao de status no backlog
+- `aberto`: ainda precisa execucao.
+- `bloqueado`: precisa decisao, segredo, aprovacao nominal ou artefato externo.
+- `local`: implementado localmente, falta commit/push/deploy.
+- `validacao`: codigo no ar/local, falta smoke manual/E2E.
+- `fechado`: manter apenas quando a linha ajuda historico recente; depois pode sair da lista ativa.

@@ -11,6 +11,7 @@ export const accountsEnvSchema = z.object({
   JWT_SECRET: z.string().min(32),
   PORT: z.coerce.number().int().positive().default(3000),
   PUBLIC_URL: z.string().url().default("https://accounts.artificiorpg.com"),
+  TRUSTED_PROXY_CIDR: z.string().default("172.18.0.0/16"),
 });
 
 export type AccountsEnv = z.infer<typeof accountsEnvSchema>;

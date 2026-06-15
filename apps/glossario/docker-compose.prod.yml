@@ -14,6 +14,7 @@ services:
       - NODE_ENV=production
       - VITE_ENV=production
       - API_UPSTREAM=glossario-api
+      - TRUSTED_REAL_IP_FROM=${TRUSTED_REAL_IP_FROM:-172.18.0.0/16}
     depends_on:
       - glossario-api
     healthcheck:
@@ -50,6 +51,7 @@ services:
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
+      - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
     depends_on:
       glossario-db:
         condition: service_healthy

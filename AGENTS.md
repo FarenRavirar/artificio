@@ -204,7 +204,9 @@ Conteúdo mínimo: cabeçalho (data/objetivo/app ou projeto/gate), vínculos, pl
 
 ## Conclusão de Tarefas
 
-Concluída só quando: busca final relevante retorna o esperado; checklist da sessão fechada; nenhum arquivo parcialmente modificado; `project-state.md` atualizado; validação técnica/manual registrada. Não declarar conclusão usando "parcial", "restante", "maioria", "principais", "alguns" ou percentual incompleto. Status parcial pode ser registrado em backlog/revisão, nunca como conclusão final.
+Concluída só quando: busca final relevante retorna o esperado; checklist da sessão fechada; nenhum arquivo parcialmente modificado; `project-state.md` atualizado; `specs/backlog.md` atualizado quando a tarefa cria débito, fecha débito, muda status de spec/tarefa ou descobre pendência acionável; validação técnica/manual registrada. Não declarar conclusão usando "parcial", "restante", "maioria", "principais", "alguns" ou percentual incompleto. Status parcial pode ser registrado em backlog/revisão, nunca como conclusão final.
+
+**Obrigatório:** toda spec nova, retomada de spec, fechamento de tarefa, review que gere débito, ou descoberta de pendência deve verificar `specs/backlog.md` e registrar uma das duas coisas na sessão: (1) backlog atualizado; ou (2) nada a atualizar, com motivo curto. Isso evita pendência presa só no chat, em `tasks.md` isolado ou na memória do agente.
 
 ---
 
@@ -226,6 +228,6 @@ Concluída só quando: busca final relevante retorna o esperado; checklist da se
 
 ⃰ `docs/agents/*` = docs internas de operação, **fora do repositório público** (gitignored, só local + backup do mantenedor).
 | Sessões | `sessoes/index.md` + `sessoes/*.md` |
-| Specs SDD | `specs/*/{spec.md,plan.md,tasks.md}` |
+| Specs SDD | `specs/README.md` + `specs/backlog.md` + `specs/*/{spec.md,plan.md,tasks.md}` |
 | Subagentes | `.claude/agents/` |
 | Skills/playbooks locais | `.agents/skills/` |

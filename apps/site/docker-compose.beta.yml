@@ -27,6 +27,7 @@ services:
       - PUBLIC_GA_ID=${PUBLIC_GA_ID:-}
       - PUBLIC_SITE_URL=https://beta.artificiorpg.com
       - JWT_SECRET=${JWT_SECRET}
+      - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
     depends_on:
       site-beta-db:
         condition: service_healthy
