@@ -360,19 +360,19 @@ const ImportPage: React.FC = () => {
 
   // ---- Render ----
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4 sm:px-6">
+    <div className="min-h-screen bg-[var(--surface-subtle)] py-10 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
 
         <header className="mb-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-azul-escuro/10 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <FileUp size={22} className="text-azul-escuro" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface)] shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+              <FileUp size={22} className="text-[var(--fg)]" />
             </div>
             <div>
-              <h1 className="text-3xl font-black text-azul-escuro uppercase tracking-tight">
+              <h1 className="text-3xl font-black text-[var(--fg)] uppercase tracking-tight">
                 Importação de Termos
               </h1>
-              <p className="text-gray-600 text-sm mt-1">
+              <p className="text-[var(--fg-muted)] text-sm mt-1">
                 Envie uma planilha <strong>.xlsx</strong> (recomendado) ou arquivo <strong>.csv</strong> com seus termos.
                 O sistema classifica cada linha antes de confirmar.
               </p>
@@ -381,21 +381,21 @@ const ImportPage: React.FC = () => {
         </header>
 
         <div className="space-y-8">
-          <section className="rounded-xl border border-blue-100 bg-blue-50 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-            <h2 className="text-[11px] font-black uppercase tracking-widest text-blue-800">
+          <section className="rounded-xl border border-[var(--state-info-line)] bg-[var(--state-info-bg)] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+            <h2 className="text-[11px] font-black uppercase tracking-widest text-[var(--state-info-fg)]">
               Colunas esperadas
             </h2>
-            <p className="mt-2 text-xs text-blue-700">
+            <p className="mt-2 text-xs text-[var(--state-info-fg)]">
               Aceita nomes de colunas em português ou inglês.
             </p>
 
             <div className="mt-4">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-blue-900">Obrigatórias</p>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--state-info-fg)]">Obrigatórias</p>
               <div className="flex flex-wrap gap-2">
                 {REQUIRED_COLUMNS.map((column) => (
                   <span
                     key={column}
-                    className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-900"
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--state-warning-line)] bg-[var(--state-warning-bg)] px-3 py-1 text-[11px] font-semibold text-[var(--state-warning-fg)]"
                   >
                     <Asterisk size={11} aria-hidden="true" />
                     <code className="font-mono">{column}</code>
@@ -405,12 +405,12 @@ const ImportPage: React.FC = () => {
             </div>
 
             <div className="mt-4">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-blue-900">Opcionais</p>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--state-info-fg)]">Opcionais</p>
               <div className="flex flex-wrap gap-2">
                 {OPTIONAL_COLUMNS.map((column) => (
                   <span
                     key={column}
-                    className="inline-flex items-center rounded-full border border-blue-200 bg-[#f0f4ff] px-3 py-1 text-[11px] font-semibold text-blue-900"
+                    className="inline-flex items-center rounded-full border border-[var(--state-info-line)] bg-[var(--surface-subtle)] px-3 py-1 text-[11px] font-semibold text-[var(--state-info-fg)]"
                   >
                     <code className="font-mono">{column}</code>
                   </span>
@@ -419,23 +419,23 @@ const ImportPage: React.FC = () => {
             </div>
 
             {!isAdmin && (
-              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+              <div className="mt-4 rounded-lg border border-[var(--state-warning-line)] bg-[var(--state-warning-bg)] px-3 py-2 text-[11px] text-[var(--state-warning-fg)]">
                 Importações de membros sempre entram como <strong>Sugestão</strong>.
               </div>
             )}
           </section>
 
-          <section className="border-t border-gray-200 pt-8">
-            <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <section className="border-t border-[var(--line)] pt-8">
+            <div className="rounded-xl border border-[var(--state-warning-line)] bg-gradient-to-br from-[var(--state-warning-bg)] via-[var(--surface)] to-[var(--state-warning-bg)] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
               <div className="flex items-start gap-3 mb-5">
-                <div className="p-2 rounded-lg bg-amber-100 border border-amber-200">
-                  <BookOpenText size={18} className="text-amber-800" />
+                <div className="p-2 rounded-lg bg-[var(--state-warning-bg)] border border-[var(--state-warning-line)]">
+                  <BookOpenText size={18} className="text-[var(--state-warning-fg)]" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-black uppercase tracking-widest text-amber-900">
+                  <h2 className="text-sm font-black uppercase tracking-widest text-[var(--state-warning-fg)]">
                     Como Funciona
                   </h2>
-                  <p className="text-xs text-amber-800 mt-1">
+                  <p className="text-xs text-[var(--state-warning-fg)] mt-1">
                     Fluxo colaborativo com validação prévia antes da gravação no banco.
                   </p>
                 </div>
@@ -447,29 +447,29 @@ const ImportPage: React.FC = () => {
                     {index < FLOW_STEPS.length - 1 && (
                       <span
                         aria-hidden="true"
-                        className="absolute left-[15px] top-8 h-[calc(100%+8px)] w-[2px] bg-amber-200"
+                        className="absolute left-[15px] top-8 h-[calc(100%+8px)] w-[2px] bg-[var(--state-warning-bg)]"
                       />
                     )}
-                    <span className="absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-amber-600 text-xs font-black text-white shadow-sm">
+                    <span className="absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--state-warning-bg)] text-xs font-black text-[var(--navy-block-fg)] shadow-sm">
                       {index + 1}
                     </span>
-                    <p className="text-sm font-bold text-amber-950">{stepItem.title}</p>
-                    <p className="text-xs text-amber-900">{stepItem.description}</p>
+                    <p className="text-sm font-bold text-[var(--state-warning-fg)]">{stepItem.title}</p>
+                    <p className="text-xs text-[var(--state-warning-fg)]">{stepItem.description}</p>
                   </li>
                 ))}
               </ol>
             </div>
           </section>
 
-          <section className="border-t border-gray-200 pt-8">
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <section className="border-t border-[var(--line)] pt-8">
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
               <div className="flex flex-col gap-4">
                 {isAdmin && (
                   <div>
-                    <label htmlFor="admin-nucleus-select" className="block text-[11px] font-black uppercase tracking-widest text-azul-escuro mb-1">
+                    <label htmlFor="admin-nucleus-select" className="block text-[11px] font-black uppercase tracking-widest text-[var(--fg)] mb-1">
                       Núcleo da importação (admin)
                     </label>
-                    <small className="block text-xs text-gray-600 mb-2">
+                    <small className="block text-xs text-[var(--fg-muted)] mb-2">
                       Núcleo define se os termos entram como validação oficial ou como base informal de rigor editorial.
                     </small>
                     <select
@@ -477,7 +477,7 @@ const ImportPage: React.FC = () => {
                       aria-label="Selecionar núcleo da importação administrativa"
                       value={adminNucleus}
                       onChange={(e) => setAdminNucleus(e.target.value as 'oficial' | 'artificio')}
-                      className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-gray-800 transition-all duration-200 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                      className="w-full rounded-lg border border-[var(--state-warning-line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)] transition-all duration-200 focus:border-[var(--state-warning-line)] focus:outline-none focus:ring-2 focus:ring-[var(--state-warning-line)]"
                     >
                       <option value="oficial">Oficial</option>
                       <option value="artificio">Informal (Rigor Artifício)</option>
@@ -491,12 +491,12 @@ const ImportPage: React.FC = () => {
                     type="button"
                     aria-label="Baixar modelo de planilha Excel para importação de termos"
                     onClick={handleDownloadTemplate}
-                    className="group inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-amber-600 text-white text-xs font-bold uppercase tracking-wide transition-all duration-200 ease-out hover:bg-amber-700 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]"
+                    className="group inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[var(--state-warning-bg)] text-[var(--navy-block-fg)] text-xs font-bold uppercase tracking-wide transition-all duration-200 ease-out hover:bg-[var(--state-warning-bg)] hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]"
                   >
                     <Download size={15} className="transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:rotate-12" />
                     Baixar modelo Excel (.xlsx)
                   </button>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-[var(--fg-muted)]">
                     Dica: use o modelo para evitar falhas de coluna e acelerar o preview.
                   </p>
                 </div>
@@ -511,14 +511,14 @@ const ImportPage: React.FC = () => {
                   role="button"
                   tabIndex={0}
                   aria-label="Área de envio de arquivo por arrastar e soltar ou clique para selecionar"
-                  className="mt-6 border-2 border-dashed border-gray-300 rounded-xl p-10 sm:p-12 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-azul-escuro hover:bg-blue-50/30 transition-all group"
+                  className="mt-6 border-2 border-dashed border-[var(--line)] rounded-xl p-10 sm:p-12 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-[var(--line-strong)] hover:bg-[var(--state-info-bg)] transition-all group"
                 >
-                  <div className="p-5 rounded-full bg-gray-100 group-hover:bg-blue-100 transition-colors">
-                    <Upload size={32} className="text-gray-500 group-hover:text-azul-escuro transition-colors" />
+                  <div className="p-5 rounded-full bg-[var(--surface-subtle)] group-hover:bg-[var(--state-info-bg)] transition-colors">
+                    <Upload size={32} className="text-[var(--fg-muted)] group-hover:text-[var(--fg)] transition-colors" />
                   </div>
                   <div className="text-center">
-                    <p className="font-bold text-azul-escuro text-sm">Arraste seu arquivo aqui</p>
-                    <p className="text-gray-600 text-xs mt-1">ou clique para selecionar (.xlsx, .csv)</p>
+                    <p className="font-bold text-[var(--fg)] text-sm">Arraste seu arquivo aqui</p>
+                    <p className="text-[var(--fg-muted)] text-xs mt-1">ou clique para selecionar (.xlsx, .csv)</p>
                   </div>
                   <input
                     ref={fileInputRef}
@@ -536,14 +536,14 @@ const ImportPage: React.FC = () => {
 
         {/* Arquivo carregado — aguardando preview */}
         {step === 'parsed' && (
-          <div className="mt-8 bg-white rounded-xl border border-gray-200 shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-6 space-y-5">
+          <div className="mt-8 bg-[var(--surface)] rounded-xl border border-[var(--line)] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-6 space-y-5">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-green-50 border border-green-100">
-                <FileSpreadsheet size={24} className="text-green-600" />
+              <div className="p-3 rounded-xl bg-[var(--state-success-bg)] border border-[var(--state-success-line)]">
+                <FileSpreadsheet size={24} className="text-[var(--state-success-fg)]" />
               </div>
               <div>
-                <p className="font-bold text-azul-escuro text-sm">{fileName}</p>
-                <p className="text-gray-500 text-xs">{parsedTerms.length} termos detectados</p>
+                <p className="font-bold text-[var(--fg)] text-sm">{fileName}</p>
+                <p className="text-[var(--fg-muted)] text-xs">{parsedTerms.length} termos detectados</p>
               </div>
             </div>
 
@@ -551,7 +551,7 @@ const ImportPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleReset}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 text-xs font-bold uppercase tracking-wide hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 rounded-lg border border-[var(--line)] text-[var(--fg-muted)] text-xs font-bold uppercase tracking-wide hover:bg-[var(--surface-subtle)] transition-colors"
               >
                 Trocar arquivo
               </button>
@@ -560,7 +560,7 @@ const ImportPage: React.FC = () => {
                 onClick={handlePreview}
                 disabled={isLoading}
                 aria-label="Analisar planilha e gerar preview da importação"
-                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-azul-escuro text-white text-xs font-bold uppercase tracking-wide transition-all duration-200 ease-out hover:bg-black hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)] disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)] text-xs font-bold uppercase tracking-wide transition-all duration-200 ease-out hover:bg-[var(--btn-primary-bg-hover)] hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)] disabled:opacity-50"
               >
                 {isLoading ? 'Analisando...' : 'Analisar e ver preview'}
               </button>
@@ -570,8 +570,8 @@ const ImportPage: React.FC = () => {
 
         {/* Preview */}
         {step === 'previewing' && (
-          <div className="mt-8 bg-white rounded-xl border border-gray-200 shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-6">
-            <h2 className="text-sm font-black uppercase tracking-widest text-azul-escuro mb-5">
+          <div className="mt-8 bg-[var(--surface)] rounded-xl border border-[var(--line)] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-6">
+            <h2 className="text-sm font-black uppercase tracking-widest text-[var(--fg)] mb-5">
               Preview da importação — {fileName}
             </h2>
             <ImportPreview
@@ -585,34 +585,34 @@ const ImportPage: React.FC = () => {
 
         {/* Concluído */}
         {step === 'done' && summary && (
-          <div className="mt-8 bg-white rounded-xl border border-green-200 shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-8 text-center space-y-4">
+          <div className="mt-8 bg-[var(--surface)] rounded-xl border border-[var(--state-success-line)] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-8 text-center space-y-4">
             <div className="flex justify-center">
-              <div className="p-4 rounded-full bg-green-50 border border-green-100">
-                <CheckCircle2 size={36} className="text-green-600" />
+              <div className="p-4 rounded-full bg-[var(--state-success-bg)] border border-[var(--state-success-line)]">
+                <CheckCircle2 size={36} className="text-[var(--state-success-fg)]" />
               </div>
             </div>
-            <h2 className="text-xl font-black text-azul-escuro uppercase tracking-tight">
+            <h2 className="text-xl font-black text-[var(--fg)] uppercase tracking-tight">
               Importação concluída!
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl mx-auto">
-              <div className="bg-green-50 rounded-xl p-3 border border-green-100">
-                <p className="text-2xl font-black text-green-600">{summary.inserted}</p>
-                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Inseridos</p>
+              <div className="bg-[var(--state-success-bg)] rounded-xl p-3 border border-[var(--state-success-line)]">
+                <p className="text-2xl font-black text-[var(--state-success-fg)]">{summary.inserted}</p>
+                <p className="text-[10px] text-[var(--fg-muted)] uppercase tracking-widest">Inseridos</p>
               </div>
-              <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
-                <p className="text-2xl font-black text-blue-600">{summary.updated}</p>
-                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Atualizados</p>
+              <div className="bg-[var(--state-info-bg)] rounded-xl p-3 border border-[var(--state-info-line)]">
+                <p className="text-2xl font-black text-[var(--state-info-fg)]">{summary.updated}</p>
+                <p className="text-[10px] text-[var(--fg-muted)] uppercase tracking-widest">Atualizados</p>
               </div>
-              <div className="bg-cyan-50 rounded-xl p-3 border border-cyan-100">
-                <p className="text-2xl font-black text-cyan-600">{summary.overrides ?? 0}</p>
-                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Override</p>
+              <div className="bg-[var(--state-info-bg)] rounded-xl p-3 border border-[var(--state-info-line)]">
+                <p className="text-2xl font-black text-[var(--state-info-fg)]">{summary.overrides ?? 0}</p>
+                <p className="text-[10px] text-[var(--fg-muted)] uppercase tracking-widest">Override</p>
               </div>
-              <div className="bg-amber-50 rounded-xl p-3 border border-amber-100">
-                <p className="text-2xl font-black text-amber-600">{summary.duplicates}</p>
-                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Sugestões</p>
+              <div className="bg-[var(--state-warning-bg)] rounded-xl p-3 border border-[var(--state-warning-line)]">
+                <p className="text-2xl font-black text-[var(--state-warning-fg)]">{summary.duplicates}</p>
+                <p className="text-[10px] text-[var(--fg-muted)] uppercase tracking-widest">Sugestões</p>
               </div>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-[var(--fg-muted)]">
               {isAdmin
                 ? 'Importação administrativa aplicada com atualização imediata dos termos.'
                 : 'Os termos pendentes aguardam revisão de um administrador.'}
@@ -621,7 +621,7 @@ const ImportPage: React.FC = () => {
               type="button"
               onClick={handleReset}
               aria-label="Iniciar uma nova importação de termos"
-              className="mt-2 px-5 py-2 rounded-lg bg-azul-escuro text-white text-xs font-bold uppercase tracking-wide transition-all duration-200 ease-out hover:bg-black hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]"
+              className="mt-2 px-5 py-2 rounded-lg bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)] text-xs font-bold uppercase tracking-wide transition-all duration-200 ease-out hover:bg-[var(--btn-primary-bg-hover)] hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]"
             >
               Nova importação
             </button>
@@ -630,8 +630,8 @@ const ImportPage: React.FC = () => {
 
         {/* Erro */}
         {error && (
-          <div className="mt-4 flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-            <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-500" />
+          <div className="mt-4 flex items-start gap-3 p-4 rounded-xl bg-[var(--state-danger-bg)] border border-[var(--state-danger-line)] text-[var(--state-danger-fg)] text-sm">
+            <AlertCircle size={16} className="shrink-0 mt-0.5 text-[var(--state-danger-fg)]" />
             <p>{error}</p>
           </div>
         )}

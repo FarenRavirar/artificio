@@ -374,9 +374,9 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
   };
 
   return (
-    <div className="bg-white border rounded-lg shadow-sm border-gray-200 relative overflow-visible transition-all hover:shadow-md">
+    <div className="bg-[var(--surface)] border rounded-lg shadow-sm border-[var(--line)] relative overflow-visible transition-all hover:shadow-md">
       {(system || scenario) && (
-        <div className="bg-azul-escuro text-[10px] font-black uppercase tracking-widest text-white px-5 py-1.5 flex items-center gap-2 border-b-2 border-laranja rounded-t-lg">
+        <div className="bg-[var(--navy-block-bg)] text-[10px] font-black uppercase tracking-widest text-[var(--navy-block-fg)] px-5 py-1.5 flex items-center gap-2 border-b-2 border-[var(--artificio-brand)] rounded-t-lg">
           {system ? `⚔️ SISTEMA: ${system}` : `🌍 CENÁRIO: ${scenario}`}
         </div>
       )}
@@ -385,11 +385,11 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-1">
-              <h2 className="text-2xl font-bold text-azul-escuro uppercase tracking-tight">
+              <h2 className="text-2xl font-bold text-[var(--fg)] uppercase tracking-tight">
                 {nameEn}
               </h2>
             </div>
-            <h3 className="text-xl text-azul-medio font-semibold">
+            <h3 className="text-xl text-[var(--fg-muted)] font-semibold">
               {namePt}
             </h3>
           </div>
@@ -400,7 +400,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                 <button
                   type="button"
                   onClick={() => setIsEditing((prev) => !prev)}
-                  className="flex items-center gap-1 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 text-xs font-bold uppercase tracking-wide hover:bg-blue-100 transition-colors"
+                  className="flex items-center gap-1 bg-[var(--state-info-bg)] text-[var(--state-info-fg)] px-3 py-1.5 rounded-lg border border-[var(--state-info-line)] text-xs font-bold uppercase tracking-wide hover:bg-[var(--state-info-bg)] transition-colors"
                 >
                   {isEditing ? <X size={12} /> : <Pencil size={12} />}
                   {isEditing ? 'Fechar edição' : 'Editar'}
@@ -409,7 +409,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                   type="button"
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className="flex items-center gap-1 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg border border-red-200 text-xs font-bold uppercase tracking-wide hover:bg-red-100 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1 bg-[var(--state-danger-bg)] text-[var(--state-danger-fg)] px-3 py-1.5 rounded-lg border border-[var(--state-danger-line)] text-xs font-bold uppercase tracking-wide hover:bg-[var(--state-danger-bg)] transition-colors disabled:opacity-50"
                 >
                   <Trash2 size={12} />
                   {isDeleting ? 'Excluindo...' : 'Excluir'}
@@ -420,20 +420,20 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
             <div className="flex flex-col items-end gap-2 mt-1">
               <div className="flex items-center gap-2">
                 {/* Barra de Votação Social */}
-                <div className="flex items-center bg-gray-100 rounded-full px-2 py-0.5 gap-1">
+                <div className="flex items-center bg-[var(--surface-subtle)] rounded-full px-2 py-0.5 gap-1">
                   <button 
                     onClick={() => handleVote('up')}
-                    className="p-1 text-gray-400 hover:text-green-600 transition-colors"
+                    className="p-1 text-[var(--fg-muted)] hover:text-[var(--state-success-fg)] transition-colors"
                     title="Gostei"
                   >
                     <ThumbsUp size={14} />
                   </button>
-                  <span className={`text-xs font-black min-w-[20px] text-center ${voteScore > 0 ? 'text-green-600' : voteScore < 0 ? 'text-red-500' : 'text-gray-500'}`}>
+                  <span className={`text-xs font-black min-w-[20px] text-center ${voteScore > 0 ? 'text-[var(--state-success-fg)]' : voteScore < 0 ? 'text-[var(--state-danger-fg)]' : 'text-[var(--fg-muted)]'}`}>
                     {voteScore > 0 ? `+${voteScore}` : voteScore}
                   </span>
                   <button 
                     onClick={() => handleVote('down')}
-                    className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                    className="p-1 text-[var(--fg-muted)] hover:text-[var(--state-danger-fg)] transition-colors"
                     title="Não gostei"
                   >
                     <ThumbsDown size={14} />
@@ -447,8 +447,8 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                     onMouseEnter={showRigorTooltip}
                     onMouseLeave={hideRigorTooltipWithDelay}
                   >
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-blue-200 bg-blue-50 text-blue-800 text-[10px] font-bold tracking-widest cursor-help">
-                      <Award size={12} className="text-blue-600" />
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--state-info-line)] bg-[var(--state-info-bg)] text-[var(--state-info-fg)] text-[10px] font-bold tracking-widest cursor-help">
+                      <Award size={12} className="text-[var(--state-info-fg)]" />
                       {badgeLabel}
                     </span>
                     
@@ -460,29 +460,29 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                       onMouseEnter={showRigorTooltip}
                       onMouseLeave={hideRigorTooltipWithDelay}
                     >
-                      <div className="bg-white p-4 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 text-sm leading-relaxed text-gray-600 relative text-left">
+                      <div className="bg-[var(--surface)] p-4 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-[var(--line)] text-sm leading-relaxed text-[var(--fg-muted)] relative text-left">
                         Termo padronizado pela Artifício RPG a partir de um{' '}
                         <a href="https://artificiorpg.com/doc/traducao-de-rpg/documentos/como-fazer-um-pre-projeto-de-traducao-de-rpg/" 
-                           className="font-bold text-azul-escuro hover:text-laranja underline"
+                           className="font-bold text-[var(--fg)] hover:text-[var(--artificio-brand)] underline"
                            target="_blank" rel="noopener noreferrer">
                           pré-projeto de tradução
                         </a>
                         , com glossário, padronização de frases, critérios de desempate e análise do contexto mecânico. Também leva em conta o histórico de localização oficial de D&D em múltiplos idiomas, conduzido pela Gale Force Nine em parceria com a Wizards of the Coast.
-                        <div className="absolute -bottom-2 right-6 w-4 h-4 bg-white border-b border-r border-gray-100 transform rotate-45"></div>
+                        <div className="absolute -bottom-2 right-6 w-4 h-4 bg-[var(--surface)] border-b border-r border-[var(--line)] transform rotate-45"></div>
                       </div>
                     </div>
                   </div>
                 )}
 
                 {badgeType === 'oficial' && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-green-200 bg-green-50 text-green-700 text-[10px] font-bold tracking-widest">
-                    <CheckCircle2 size={12} className="text-green-600" />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--state-success-line)] bg-[var(--state-success-bg)] text-[var(--state-success-fg)] text-[10px] font-bold tracking-widest">
+                    <CheckCircle2 size={12} className="text-[var(--state-success-fg)]" />
                     {badgeLabel}
                   </span>
                 )}
 
                 {badgeType === 'sugestao' && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-cyan-200 bg-cyan-50 text-cyan-700 text-[10px] font-bold tracking-widest">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--state-info-line)] bg-[var(--state-info-bg)] text-[var(--state-info-fg)] text-[10px] font-bold tracking-widest">
                     {rawStatus === 'pendente' ? <HelpCircle size={12} /> : <CheckCircle2 size={12} />}
                     {badgeLabel}
                   </span>
@@ -496,8 +496,8 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
           {category && !unwanted.includes(category.toUpperCase()) && (() => {
             const isDarkBlueCategory = form.source_type === 'sistema' || termo.source_type === 'sistema' || rawCategoryString.includes('MAGIAS') || rawCategoryString.includes('ITENS MÁGICOS');
             const catClass = isDarkBlueCategory
-              ? "bg-azul-escuro text-white px-3 py-1 rounded-full uppercase font-bold text-[9px]"
-              : "bg-gray-900 border-none text-white px-3 py-1 rounded-full uppercase font-bold text-[9px]";
+              ? "bg-[var(--navy-block-bg)] text-[var(--navy-block-fg)] px-3 py-1 rounded-full uppercase font-bold text-[9px]"
+              : "bg-[var(--navy-block-bg)] border-none text-[var(--navy-block-fg)] px-3 py-1 rounded-full uppercase font-bold text-[9px]";
             return (
               <span className={catClass}>
                 CAT: {category}
@@ -506,44 +506,44 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
           })()}
 
           {subcategory && !unwanted.includes(subcategory.toUpperCase()) && (
-            <span className="bg-blue-100 text-blue-900 px-3 py-1 rounded-full uppercase font-bold text-[9px] border border-blue-200">
+            <span className="bg-[var(--state-info-bg)] text-[var(--state-info-fg)] px-3 py-1 rounded-full uppercase font-bold text-[9px] border border-[var(--state-info-line)]">
               SUB: {subcategory}
             </span>
           )}
 
           {refStr && (
-            <span className="text-gray-500 flex items-center gap-1 italic border border-gray-100 bg-gray-50 px-2 py-0.5 rounded-full">
+            <span className="text-[var(--fg-muted)] flex items-center gap-1 italic border border-[var(--line)] bg-[var(--surface-subtle)] px-2 py-0.5 rounded-full">
               <BookOpen size={10} /> {refStr}
             </span>
           )}
 
           {termo.added_by_name && (
-            <span className="text-gray-400 flex items-center gap-1 text-[10px]">
+            <span className="text-[var(--fg-muted)] flex items-center gap-1 text-[10px]">
               <UserIcon size={10} /> {termo.added_by_name}
             </span>
           )}
 
           {lastUpdateAt && (
-            <span className="text-gray-500 flex items-center gap-1 text-[10px]">
+            <span className="text-[var(--fg-muted)] flex items-center gap-1 text-[10px]">
               <Clock3 size={10} /> Atualizado em {new Date(lastUpdateAt).toLocaleString('pt-BR')}
             </span>
           )}
         </div>
 
-        <div className="h-px bg-gray-50 my-4" />
+        <div className="h-px bg-[var(--surface-subtle)] my-4" />
 
-        <div className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm italic">
+        <div className="text-[var(--fg)] leading-relaxed whitespace-pre-wrap text-sm italic">
           {additionalInfo || (
-            <span className="text-gray-300">Sem notas adicionais.</span>
+            <span className="text-[var(--fg-muted)]">Sem notas adicionais.</span>
           )}
         </div>
 
         {hasTermHistory && (
-          <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50/70">
+          <div className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--surface-subtle)]">
             <button
               type="button"
               onClick={handleToggleHistory}
-              className="w-full flex items-center justify-between px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-azul-escuro hover:bg-gray-100 rounded-xl transition-colors"
+              className="w-full flex items-center justify-between px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-[var(--fg)] hover:bg-[var(--surface-subtle)] rounded-xl transition-colors"
             >
               <span className="inline-flex items-center gap-2">
                 <History size={14} />
@@ -555,26 +555,26 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
             {showHistory && (
               <div className="px-4 pb-4 pt-1 space-y-3">
                 {loadingHistory && (
-                  <p className="text-[11px] text-gray-400 uppercase tracking-widest">Carregando histórico...</p>
+                  <p className="text-[11px] text-[var(--fg-muted)] uppercase tracking-widest">Carregando histórico...</p>
                 )}
 
                 {!loadingHistory && historyEvents.length === 0 && (
-                  <p className="text-[11px] text-gray-500">Ainda não há histórico registrado para este termo.</p>
+                  <p className="text-[11px] text-[var(--fg-muted)]">Ainda não há histórico registrado para este termo.</p>
                 )}
 
                 {!loadingHistory && historyEvents.map((event, idx) => (
-                  <div key={`${event.changed_at}-${idx}`} className="bg-white border border-gray-100 rounded-lg p-3">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                  <div key={`${event.changed_at}-${idx}`} className="bg-[var(--surface)] border border-[var(--line)] rounded-lg p-3">
+                    <p className="text-[10px] font-bold text-[var(--fg-muted)] uppercase tracking-widest">
                       {new Date(event.changed_at).toLocaleString('pt-BR')}
                       {event.changed_by_name ? ` · por ${event.changed_by_name}` : ''}
                     </p>
 
                     <div className="mt-2 space-y-1">
                       {event.changes.map((change, changeIdx) => (
-                        <p key={`${event.changed_at}-${change.field}-${changeIdx}`} className="text-xs text-gray-700">
+                        <p key={`${event.changed_at}-${change.field}-${changeIdx}`} className="text-xs text-[var(--fg)]">
                           <strong>{FIELD_LABELS[change.field] || change.field}:</strong>{' '}
-                          <span className="text-gray-500">{formatHistoryValue(change.old_value)}</span>{' '}
-                          <span className="text-gray-400">→</span>{' '}
+                          <span className="text-[var(--fg-muted)]">{formatHistoryValue(change.old_value)}</span>{' '}
+                          <span className="text-[var(--fg-muted)]">→</span>{' '}
                           <span>{formatHistoryValue(change.new_value)}</span>
                         </p>
                       ))}
@@ -587,27 +587,27 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
         )}
 
         {isAdmin && isEditing && (
-          <div className="mt-5 border border-blue-100 bg-blue-50/30 rounded-xl p-4 space-y-3">
-            <p className="text-xs font-black uppercase tracking-widest text-azul-escuro">Edição Administrativa</p>
+          <div className="mt-5 border border-[var(--state-info-line)] bg-[var(--state-info-bg)] rounded-xl p-4 space-y-3">
+            <p className="text-xs font-black uppercase tracking-widest text-[var(--fg)]">Edição Administrativa</p>
 
             {loadingStructure && (
-              <p className="text-xs text-gray-500">Carregando estrutura de sistema, cenário e categoria...</p>
+              <p className="text-xs text-[var(--fg-muted)]">Carregando estrutura de sistema, cenário e categoria...</p>
             )}
 
             <div className="grid md:grid-cols-2 gap-3">
-              <label className="text-xs text-azul-escuro font-semibold">
+              <label className="text-xs text-[var(--fg)] font-semibold">
                 Nome em inglês
                 <input
-                  className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
                   value={form.name_en}
                   onChange={(e) => setForm((prev) => ({ ...prev, name_en: e.target.value }))}
                 />
               </label>
 
-              <label className="text-xs text-azul-escuro font-semibold">
+              <label className="text-xs text-[var(--fg)] font-semibold">
                 Nome em português
                 <input
-                  className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
                   value={form.name_pt}
                   onChange={(e) => setForm((prev) => ({ ...prev, name_pt: e.target.value }))}
                 />
@@ -615,10 +615,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
             </div>
 
             <div className="grid md:grid-cols-3 gap-3">
-              <label className="text-xs text-azul-escuro font-semibold">
+              <label className="text-xs text-[var(--fg)] font-semibold">
                 Núcleo
                 <select
-                  className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
                   value={form.nucleus}
                   onChange={(e) => setForm((prev) => ({ ...prev, nucleus: e.target.value as Nucleus }))}
                 >
@@ -627,10 +627,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                 </select>
               </label>
 
-              <label className="text-xs text-azul-escuro font-semibold">
+              <label className="text-xs text-[var(--fg)] font-semibold">
                 Status
                 <select
-                  className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
                   value={form.status}
                   onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as Status }))}
                 >
@@ -640,10 +640,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                 </select>
               </label>
 
-              <label className="text-xs text-azul-escuro font-semibold">
+              <label className="text-xs text-[var(--fg)] font-semibold">
                 Contexto
                 <select
-                  className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
                   value={form.source_type}
                   onChange={(e) => {
                     const nextSourceType = e.target.value as SourceType;
@@ -665,10 +665,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
 
             {form.source_type === 'sistema' ? (
               <div className="grid md:grid-cols-2 gap-3">
-                <label className="text-xs text-azul-escuro font-semibold">
+                <label className="text-xs text-[var(--fg)] font-semibold">
                   Sistema
                   <select
-                    className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
                     value={form.system_id}
                     onChange={(e) => setForm((prev) => ({ ...prev, system_id: e.target.value, edition_id: '' }))}
                   >
@@ -679,10 +679,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                   </select>
                 </label>
 
-                <label className="text-xs text-azul-escuro font-semibold">
+                <label className="text-xs text-[var(--fg)] font-semibold">
                   Edição
                   <select
-                    className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
                     value={form.edition_id}
                     onChange={(e) => setForm((prev) => ({ ...prev, edition_id: e.target.value }))}
                     disabled={!form.system_id}
@@ -696,10 +696,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
               </div>
             ) : (
               <div className="grid md:grid-cols-1 gap-3">
-                <label className="text-xs text-azul-escuro font-semibold">
+                <label className="text-xs text-[var(--fg)] font-semibold">
                   Cenário
                   <select
-                    className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
                     value={form.scenario_id}
                     onChange={(e) => setForm((prev) => ({ ...prev, scenario_id: e.target.value }))}
                   >
@@ -712,10 +712,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
               </div>
             )}
 
-            <label className="text-xs text-azul-escuro font-semibold">
+            <label className="text-xs text-[var(--fg)] font-semibold">
               Categoria / Subcategoria
               <select
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
                 value={form.category_id}
                 onChange={(e) => setForm((prev) => ({ ...prev, category_id: e.target.value }))}
               >
@@ -734,36 +734,36 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
             </label>
 
             <div className="grid md:grid-cols-2 gap-3">
-              <label className="text-xs text-azul-escuro font-semibold">
+              <label className="text-xs text-[var(--fg)] font-semibold">
                 Livro de referência
                 <input
-                  className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
                   value={form.book_reference}
                   onChange={(e) => setForm((prev) => ({ ...prev, book_reference: e.target.value }))}
                 />
               </label>
 
-              <label className="text-xs text-azul-escuro font-semibold">
+              <label className="text-xs text-[var(--fg)] font-semibold">
                 Página de referência
                 <input
-                  className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
                   value={form.page_reference}
                   onChange={(e) => setForm((prev) => ({ ...prev, page_reference: e.target.value }))}
                 />
               </label>
             </div>
 
-            <label className="text-xs text-azul-escuro font-semibold block">
+            <label className="text-xs text-[var(--fg)] font-semibold block">
               Informações adicionais
               <textarea
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm min-h-[100px]"
+                className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm min-h-[100px]"
                 value={form.additional_info}
                 onChange={(e) => setForm((prev) => ({ ...prev, additional_info: e.target.value }))}
               />
             </label>
 
             {actionError && (
-              <p className="text-xs text-red-600 font-semibold">{actionError}</p>
+              <p className="text-xs text-[var(--state-danger-fg)] font-semibold">{actionError}</p>
             )}
 
             <div className="flex items-center justify-end gap-2 pt-1">
@@ -774,7 +774,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                   setIsEditing(false);
                   setActionError(null);
                 }}
-                className="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 text-xs font-bold uppercase tracking-wide hover:bg-gray-100 transition-colors"
+                className="px-3 py-2 rounded-lg border border-[var(--line)] text-[var(--fg-muted)] text-xs font-bold uppercase tracking-wide hover:bg-[var(--surface-subtle)] transition-colors"
               >
                 Cancelar
               </button>
@@ -782,7 +782,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                 type="button"
                 onClick={handleSave}
                 disabled={isSaving}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-azul-escuro text-white text-xs font-bold uppercase tracking-wide hover:bg-black transition-colors disabled:opacity-60"
+                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)] text-xs font-bold uppercase tracking-wide hover:bg-[var(--btn-primary-bg-hover)] transition-colors disabled:opacity-60"
               >
                 <Save size={12} />
                 {isSaving ? 'Salvando...' : 'Salvar alterações'}
@@ -792,11 +792,11 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
         )}
 
         {/* Footer com comentários */}
-        <div className="border-t border-gray-100 bg-gray-50/50 mt-4 rounded-b-2xl">
+        <div className="border-t border-[var(--line)] bg-[var(--surface-subtle)] mt-4 rounded-b-2xl">
           <button 
             type="button"
             onClick={handleToggleComments}
-            className="w-full flex items-center justify-between px-6 py-3 text-xs font-bold text-azul-escuro hover:bg-gray-100 transition-colors uppercase tracking-widest"
+            className="w-full flex items-center justify-between px-6 py-3 text-xs font-bold text-[var(--fg)] hover:bg-[var(--surface-subtle)] transition-colors uppercase tracking-widest"
           >
             <div className="flex items-center gap-2">
               <MessageSquare size={16} />
@@ -810,28 +810,28 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
               {/* Lista de Comentários */}
               <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                 {loadingComments ? (
-                  <div className="text-center py-4 text-gray-400 text-[10px] font-bold uppercase tracking-widest animate-pulse">Carregando...</div>
+                  <div className="text-center py-4 text-[var(--fg-muted)] text-[10px] font-bold uppercase tracking-widest animate-pulse">Carregando...</div>
                 ) : comments.length === 0 ? (
-                  <div className="text-center py-4 text-gray-400 text-[10px] font-bold uppercase tracking-widest">Seja o primeiro a comentar!</div>
+                  <div className="text-center py-4 text-[var(--fg-muted)] text-[10px] font-bold uppercase tracking-widest">Seja o primeiro a comentar!</div>
                 ) : (
                   comments.map(comment => (
-                    <div key={comment.id} className={`p-3 rounded-xl border ${comment.deleted ? 'bg-gray-100 border-gray-200' : 'bg-white border-gray-100 shadow-sm'}`}>
+                    <div key={comment.id} className={`p-3 rounded-xl border ${comment.deleted ? 'bg-[var(--surface-subtle)] border-[var(--line)]' : 'bg-[var(--surface)] border-[var(--line)] shadow-sm'}`}>
                       <div className="flex justify-between items-center mb-1">
-                        <span className="text-[10px] font-black text-azul-escuro uppercase tracking-wider">{comment.author_name}</span>
+                        <span className="text-[10px] font-black text-[var(--fg)] uppercase tracking-wider">{comment.author_name}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[9px] text-gray-400">{new Date(comment.created_at).toLocaleDateString('pt-BR')}</span>
+                          <span className="text-[9px] text-[var(--fg-muted)]">{new Date(comment.created_at).toLocaleDateString('pt-BR')}</span>
                           {!comment.deleted && (user?.id === comment.user_id || user?.role === 'admin') && (
                             <button 
                               type="button"
                               onClick={() => handleDeleteComment(comment.id)}
-                              className="text-gray-300 hover:text-red-500 transition-colors"
+                              className="text-[var(--fg-muted)] hover:text-[var(--state-danger-fg)] transition-colors"
                             >
                               <X size={12} />
                             </button>
                           )}
                         </div>
                       </div>
-                      <p className={`text-xs ${comment.deleted ? 'text-gray-400 italic' : 'text-gray-600'}`}>
+                      <p className={`text-xs ${comment.deleted ? 'text-[var(--fg-muted)] italic' : 'text-[var(--fg-muted)]'}`}>
                         {comment.body}
                       </p>
                     </div>
@@ -847,19 +847,19 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="Escreva um comentário..."
-                    className="w-full bg-white border border-gray-200 rounded-full py-2 pl-4 pr-12 text-sm focus:ring-2 focus:ring-laranja focus:border-laranja outline-none transition-all"
+                    className="w-full bg-[var(--surface)] border border-[var(--line)] rounded-full py-2 pl-4 pr-12 text-sm focus:ring-2 focus:ring-[var(--artificio-brand)] focus:border-[var(--artificio-brand)] outline-none transition-all"
                   />
                   <button 
                     disabled={isSubmittingComment || !newComment.trim()}
                     type="submit"
-                    className="absolute right-1 top-1 p-2 bg-laranja text-white rounded-full hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="absolute right-1 top-1 p-2 bg-[var(--artificio-brand)] text-[var(--navy-block-fg)] rounded-full hover:bg-[var(--btn-primary-bg-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send size={14} />
                   </button>
                 </form>
               ) : (
-                <div className="text-center p-3 bg-blue-50 rounded-xl border border-blue-100">
-                  <p className="text-[10px] font-bold text-azul-escuro uppercase tracking-widest">Faça login para participar da conversa</p>
+                <div className="text-center p-3 bg-[var(--state-info-bg)] rounded-xl border border-[var(--state-info-line)]">
+                  <p className="text-[10px] font-bold text-[var(--fg)] uppercase tracking-widest">Faça login para participar da conversa</p>
                 </div>
               )}
             </div>

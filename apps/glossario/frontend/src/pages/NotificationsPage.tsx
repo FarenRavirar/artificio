@@ -31,13 +31,13 @@ type MemberOption = {
 };
 
 const FILTER_LABEL_CLASS =
-  'text-[13px] font-medium text-[var(--color-text-secondary)] normal-case tracking-normal';
+  'text-[13px] font-medium text-[var(--fg-muted)] normal-case tracking-normal';
 
 const FILTER_INPUT_CLASS =
-  'mt-[6px] w-full rounded-[6px] border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-[14px] py-[10px] text-[14px] text-[var(--color-input-text)] placeholder:text-[var(--color-input-placeholder)] focus:outline focus:outline-2 focus:outline-[var(--color-brand-navy)] focus:outline-offset-0 transition-[border-color,outline] duration-150 ease-in';
+  'mt-[6px] w-full rounded-[6px] border border-[var(--line)] bg-[var(--surface)] px-[14px] py-[10px] text-[14px] text-[var(--fg)] placeholder:text-[var(--fg-muted)] focus:outline focus:outline-2 focus:outline-[var(--artificio-brand)] focus:outline-offset-0 transition-[border-color,outline] duration-150 ease-in';
 
 const FILTER_SELECT_CLASS =
-  'mt-[6px] w-full rounded-[6px] border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-[14px] py-[10px] pr-9 text-[14px] text-[var(--color-input-text)] appearance-none [-webkit-appearance:none] cursor-pointer focus:outline focus:outline-2 focus:outline-[var(--color-brand-navy)] focus:outline-offset-0 transition-[border-color,outline] duration-150 ease-in';
+  'mt-[6px] w-full rounded-[6px] border border-[var(--line)] bg-[var(--surface)] px-[14px] py-[10px] pr-9 text-[14px] text-[var(--fg)] appearance-none [-webkit-appearance:none] cursor-pointer focus:outline focus:outline-2 focus:outline-[var(--artificio-brand)] focus:outline-offset-0 transition-[border-color,outline] duration-150 ease-in';
 
 const FILTER_SELECT_ARROW_STYLE: React.CSSProperties = {
   backgroundImage:
@@ -227,17 +227,17 @@ const NotificationsPage: React.FC = () => {
     <div className="max-w-6xl mx-auto px-4 py-10">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-black text-azul-escuro flex items-center gap-2">
+          <h1 className="text-2xl font-black text-[var(--fg)] flex items-center gap-2">
             <Bell size={24} /> Central de Notificações
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-[var(--fg-muted)] mt-1">
             {unreadCount} não lida{unreadCount !== 1 ? 's' : ''} · {totalCount} no total
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchNotifications}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--line)] text-sm font-semibold text-[var(--fg-muted)] hover:bg-[var(--surface-subtle)]"
           >
             <RefreshCw size={14} /> Atualizar
           </button>
@@ -245,7 +245,7 @@ const NotificationsPage: React.FC = () => {
             onClick={markAllAsRead}
             disabled={unreadCount === 0 || updating}
             // [UX-FIX] CRÍTICO-3 — CTA desabilitado com feedback visual e cursor correto.
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-azul-escuro text-white text-sm font-semibold hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)] text-sm font-semibold hover:bg-[var(--btn-primary-bg-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <CheckCheck size={14} /> Marcar todas como lidas
           </button>
@@ -253,10 +253,10 @@ const NotificationsPage: React.FC = () => {
       </div>
 
       {/* [THEME-MIGRATION] painel de filtros — light theme */}
-      <section className="bg-[var(--color-surface)] border border-[var(--color-input-border)] rounded-[10px] px-6 py-5 mb-6">
+      <section className="bg-[var(--surface)] border border-[var(--line)] rounded-[10px] px-6 py-5 mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <Filter size={16} className="text-azul-escuro" />
-          <h2 className="text-sm font-black uppercase tracking-widest text-azul-escuro">Filtros</h2>
+          <Filter size={16} className="text-[var(--fg)]" />
+          <h2 className="text-sm font-black uppercase tracking-widest text-[var(--fg)]">Filtros</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -294,14 +294,14 @@ const NotificationsPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowAdvancedFilters((prev) => !prev)}
-            className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50"
+            className="px-4 py-2 rounded-xl border border-[var(--line)] text-sm font-bold text-[var(--fg-muted)] hover:bg-[var(--surface-subtle)]"
           >
             {showAdvancedFilters ? 'Ocultar filtros avançados' : 'Filtros avançados'}
           </button>
           {/* [UX-FIX] MÉDIO-2 — botão Limpar exibido só quando há filtros ativos com badge de contagem. */}
           {hasActiveFilters && (
-            <button onClick={resetFilters} className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50">
-              Limpar <span className="ml-1 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-gray-100 text-[11px]">{activeFiltersCount}</span>
+            <button onClick={resetFilters} className="px-4 py-2 rounded-xl border border-[var(--line)] text-sm font-bold text-[var(--fg-muted)] hover:bg-[var(--surface-subtle)]">
+              Limpar <span className="ml-1 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-[var(--surface-subtle)] text-[11px]">{activeFiltersCount}</span>
             </button>
           )}
         </div>
@@ -406,15 +406,15 @@ const NotificationsPage: React.FC = () => {
         )}
       </section>
 
-      <section className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+      <section className="bg-[var(--surface)] border border-[var(--line)] rounded-2xl shadow-sm overflow-hidden">
         {error && (
-          <div className="p-4 bg-red-50 border-b border-red-200 text-red-700 text-sm font-semibold">
+          <div className="p-4 bg-[var(--state-danger-bg)] border-b border-[var(--state-danger-line)] text-[var(--state-danger-fg)] text-sm font-semibold">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="p-8 text-center text-gray-500">Carregando notificações...</div>
+          <div className="p-8 text-center text-[var(--fg-muted)]">Carregando notificações...</div>
         ) : items.length === 0 ? (
           // [UX-FIX] CRÍTICO-4 — empty state contextual para sem filtros vs filtros ativos.
           <EmptyState
@@ -438,20 +438,20 @@ const NotificationsPage: React.FC = () => {
         )}
       </section>
 
-      <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+      <div className="mt-4 flex items-center justify-between text-sm text-[var(--fg-muted)]">
         <span>Página {currentPage} de {totalPages}</span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setOffset(Math.max(0, offset - limit))}
             disabled={offset === 0}
-            className="px-3 py-1.5 rounded-lg border border-gray-200 disabled:opacity-40"
+            className="px-3 py-1.5 rounded-lg border border-[var(--line)] disabled:opacity-40"
           >
             Anterior
           </button>
           <button
             onClick={() => setOffset(offset + limit)}
             disabled={offset + limit >= totalCount}
-            className="px-3 py-1.5 rounded-lg border border-gray-200 disabled:opacity-40"
+            className="px-3 py-1.5 rounded-lg border border-[var(--line)] disabled:opacity-40"
           >
             Próxima
           </button>
@@ -477,27 +477,27 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ item, read, isLast,
   return (
     <article
       // [UX-FIX] MENOR-3 — divisor visual 0.5px entre cards, exceto no último.
-      style={{ borderBottom: isLast ? 'none' : '0.5px solid var(--color-border-tertiary, #E5E7EB)' }}
+      style={{ borderBottom: isLast ? 'none' : '0.5px solid var(--line, #E5E7EB)' }}
       // [UX-FIX] MÉDIO-1 — hover/cursor somente quando card é clicável.
-      className={`p-4 transition-[background] duration-150 ease-in ${isClickable ? 'cursor-pointer hover:bg-[var(--color-background-secondary,#F9FAFB)]' : 'cursor-default'} ${read ? 'bg-white' : 'bg-laranja/5'}`}
+      className={`p-4 transition-[background] duration-150 ease-in ${isClickable ? 'cursor-pointer hover:bg-[var(--surface-subtle,#F9FAFB)]' : 'cursor-default'} ${read ? 'bg-[var(--surface)]' : 'bg-[rgba(255,87,34,0.05)]'}`}
       onClick={isClickable ? onMarkRead : undefined}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-start gap-2">
             {/* [UX-FIX] CRÍTICO-2 — não lidas recebem dot azul de 8px na esquerda. */}
-            {!read && <span className="mt-1.5 inline-block w-2 h-2 rounded-full bg-blue-500 shrink-0" />}
+            {!read && <span className="mt-1.5 inline-block w-2 h-2 rounded-full bg-[var(--state-info-bg)] shrink-0" />}
             {/* [UX-FIX] CRÍTICO-2 — título de não lida em cor primária; lida em secundária. */}
-            <p className={`text-sm font-medium ${read ? 'text-gray-500' : 'text-azul-escuro'}`}>{formatMessage(item)}</p>
+            <p className={`text-sm font-medium ${read ? 'text-[var(--fg-muted)]' : 'text-[var(--fg)]'}`}>{formatMessage(item)}</p>
           </div>
-          <div className="mt-1 text-xs text-gray-500 flex flex-wrap gap-3">
+          <div className="mt-1 text-xs text-[var(--fg-muted)] flex flex-wrap gap-3">
             <span><strong>Quem fez:</strong> {item.actor_name || item.actor_username || 'Sistema'}</span>
             <span><strong>Usuário alvo:</strong> {item.target_user_name || item.target_username || item.user_id}</span>
             <span><strong>Ação:</strong> {item.event_type}</span>
             <span><strong>Data:</strong> {formatNotificationDate(item.created_at)}</span>
           </div>
           {item.payload?.excerpt && (
-            <p className="text-xs text-gray-500 mt-2 italic">"{item.payload.excerpt}"</p>
+            <p className="text-xs text-[var(--fg-muted)] mt-2 italic">"{item.payload.excerpt}"</p>
           )}
         </div>
         {!read && (
@@ -507,7 +507,7 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ item, read, isLast,
               onMarkRead();
             }}
             disabled={updating}
-            className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-azul-escuro border border-blue-200 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-[var(--fg)] border border-[var(--state-info-line)] hover:bg-[var(--state-info-bg)] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Marcar lida
           </button>
@@ -524,13 +524,13 @@ type EmptyStateProps = {
 
 const EmptyState: React.FC<EmptyStateProps> = ({ hasActiveFilters, onClearFilters }) => {
   if (!hasActiveFilters) {
-    return <div className="p-8 text-center text-gray-500">Você está em dia.</div>;
+    return <div className="p-8 text-center text-[var(--fg-muted)]">Você está em dia.</div>;
   }
 
   return (
-    <div className="p-8 text-center text-gray-500">
+    <div className="p-8 text-center text-[var(--fg-muted)]">
       <p>Nenhuma notificação corresponde aos filtros.</p>
-      <button onClick={onClearFilters} className="mt-3 px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50">
+      <button onClick={onClearFilters} className="mt-3 px-4 py-2 rounded-xl border border-[var(--line)] text-sm font-bold text-[var(--fg-muted)] hover:bg-[var(--surface-subtle)]">
         Limpar filtros
       </button>
     </div>

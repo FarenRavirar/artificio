@@ -121,7 +121,7 @@ function HomePage() {
           Como pedido, a busca fica abaixo do presente e acima do título. */}
       {!isSearching && !loading && (
         <div className="text-center pt-4 md:pt-6 mb-8">
-          <div className="inline-flex items-center gap-2 bg-laranja/10 text-laranja text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full border border-laranja/20">
+          <div className="inline-flex items-center gap-2 bg-[rgba(255,87,34,0.10)] text-[var(--artificio-brand)] text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full border border-[rgba(255,87,34,0.20)]">
             {/* Sparkles inline para evitar imports extras no App */}
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
             Um presente da Artifício RPG para a comunidade
@@ -152,14 +152,14 @@ function HomePage() {
 
       <section className="grid gap-4">
         {loading && (
-          <div className="flex flex-col items-center justify-center p-12 text-azul-escuro">
+          <div className="flex flex-col items-center justify-center p-12 text-[var(--fg)]">
             <Loader2 className="animate-spin mb-4" size={48} />
             <p className="font-semibold text-lg">Carregando Glossário...</p>
           </div>
         )}
 
         {error && (
-          <div className="bg-red-50 border-2 border-red-200 text-red-700 p-6 rounded-lg text-center">
+          <div className="bg-[var(--state-danger-bg)] border-2 border-[var(--state-danger-line)] text-[var(--state-danger-fg)] p-6 rounded-lg text-center">
             <p className="font-bold text-xl mb-2">Ops! Algo deu errado.</p>
             <p>{error}</p>
           </div>
@@ -168,10 +168,10 @@ function HomePage() {
         {!loading && !error && (
           <>
             {filteredResults.length > 0 && (
-              <div className="text-sm text-gray-500 mb-2 px-2">
+              <div className="text-sm text-[var(--fg-muted)] mb-2 px-2">
                 Exibindo {filteredResults.length} resultado{filteredResults.length !== 1 ? 's' : ''}
                 {groupedResults.length !== filteredResults.length && (
-                  <span className="ml-1 text-gray-400">({groupedResults.length} termo{groupedResults.length !== 1 ? 's' : ''} únicos)</span>
+                  <span className="ml-1 text-[var(--fg-muted)]">({groupedResults.length} termo{groupedResults.length !== 1 ? 's' : ''} únicos)</span>
                 )}
               </div>
             )}
@@ -192,13 +192,13 @@ function HomePage() {
                   {/* Variantes (duplicatas) colapsáveis */}
                   {variants.length > 0 && (
                     <details className="group">
-                      <summary className="cursor-pointer list-none flex items-center gap-2 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-azul-escuro transition-colors">
+                      <summary className="cursor-pointer list-none flex items-center gap-2 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors">
                         <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                         </svg>
                         {variants.length} outr{variants.length === 1 ? 'a versão' : 'as versões'} deste termo
                       </summary>
-                      <div className="mt-1 ml-6 space-y-1 border-l-2 border-gray-200 pl-3">
+                      <div className="mt-1 ml-6 space-y-1 border-l-2 border-[var(--line)] pl-3">
                         {variants.map((v) => (
                           <ResultCard
                             key={v.id}
@@ -216,9 +216,9 @@ function HomePage() {
             })}
 
             {isSearching && filteredResults.length === 0 && (
-              <div className="bg-white p-12 rounded-lg border-2 border-dashed border-gray-300 text-center">
-                <p className="text-2xl font-bold text-azul-escuro mb-2">Nenhum termo encontrado</p>
-                <p className="text-gray-500">Tente buscar por outro termo ou limpe os filtros.</p>
+              <div className="bg-[var(--surface)] p-12 rounded-lg border-2 border-dashed border-[var(--line)] text-center">
+                <p className="text-2xl font-bold text-[var(--fg)] mb-2">Nenhum termo encontrado</p>
+                <p className="text-[var(--fg-muted)]">Tente buscar por outro termo ou limpe os filtros.</p>
               </div>
             )}
           </>
@@ -233,7 +233,7 @@ function HomePage() {
 // e redirecionaria a /login mesmo logado.
 function RouteLoading() {
   return (
-    <div className="flex items-center justify-center p-16 text-azul-escuro">
+    <div className="flex items-center justify-center p-16 text-[var(--fg)]">
       <Loader2 className="animate-spin" size={40} />
     </div>
   );
@@ -281,7 +281,7 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <RouteTracker />
-          <div className="min-h-screen flex flex-col bg-cinza-fundo font-sans">
+          <div className="min-h-screen flex flex-col bg-[var(--surface-subtle)] font-sans">
             <GlossarioHeader />
             <main className="flex-1">
               <Routes>

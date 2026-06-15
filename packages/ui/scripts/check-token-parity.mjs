@@ -199,6 +199,46 @@ for (const [role, vals] of Object.entries(roles)) {
   }
 }
 
+// --- Vars semânticas de tema (Spec 022 T3) ---------------------------------
+// Não têm hex único (derivam via var()/rgba e viram por tema), então em vez de
+// comparar valor travamos PRESENÇA: cada nome canônico deve existir no bloco
+// :root (light) E no bloco :root[data-theme="dark"] de styles.css. Falta em
+// qualquer tema = fail (garante "vars têm valor nos 2 temas", T3).
+// Grupo A: viram por tema → devem existir em :root (light) E em :root[data-theme="dark"].
+const bothThemeVars = [
+  "--fg", "--fg-muted",
+  "--canvas", "--surface", "--surface-subtle", "--surface-strong",
+  "--line", "--line-strong",
+  "--fill-subtle", "--fill", "--fill-strong", "--special",
+  "--state-success-fg", "--state-warning-fg", "--state-danger-fg", "--state-info-fg",
+  "--btn-primary-bg", "--btn-primary-fg", "--btn-primary-bg-hover",
+  "--navy-block-bg", "--navy-block-fg",
+];
+// Grupo B: theme-agnósticos (rgba leve serve nos 2 fundos) → só :root, NÃO redefinir no dark.
+const lightOnlyVars = [
+  "--state-success-bg", "--state-success-line",
+  "--state-warning-bg", "--state-warning-line",
+  "--state-danger-bg", "--state-danger-line",
+  "--state-info-bg", "--state-info-line",
+];
+const darkBlock = (styles.match(/:root\[data-theme="dark"\]\s*\{([^}]*)\}/) || [, ""])[1];
+// :root light = primeiro bloco :root { ... } que NÃO seja o [data-theme].
+const lightBlocks = styles.match(/(?<!\])\:root\s*\{([^}]*)\}/g) || [];
+const lightBody = lightBlocks.join("\n");
+const decl = (name) => new RegExp(`\\${name}\\s*:`);
+for (const name of bothThemeVars) {
+  const inLight = decl(name).test(lightBody);
+  const inDark = decl(name).test(darkBlock);
+  if (!inLight || !inDark) {
+    fails.push(
+      `${name}: ausente em ${[!inLight && ":root(light)", !inDark && ":root[data-theme=dark]"].filter(Boolean).join(" + ")}`,
+    );
+  }
+}
+for (const name of lightOnlyVars) {
+  if (!decl(name).test(lightBody)) fails.push(`${name}: ausente em :root(light)`);
+}
+
 if (fails.length) {
   console.error("PARITY FAIL (tokens.ts vs styles.css vs preset.js):");
   for (const f of fails) console.error("  " + f);

@@ -13,9 +13,9 @@ interface Props {
   onSuccess: () => void;
 }
 
-const inputClass = "w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:ring-2 focus:ring-laranja focus:border-transparent outline-none transition-all placeholder-gray-400 text-sm";
-const labelClass = "block text-[10px] font-black text-azul-escuro mb-1 uppercase tracking-widest";
-const selectClass = "w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:ring-2 focus:ring-laranja focus:border-transparent outline-none transition-all text-sm";
+const inputClass = "w-full px-4 py-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--fg)] focus:ring-2 focus:ring-[var(--artificio-brand)] focus:border-transparent outline-none transition-all placeholder-[var(--fg-muted)] text-sm";
+const labelClass = "block text-[10px] font-black text-[var(--fg)] mb-1 uppercase tracking-widest";
+const selectClass = "w-full px-4 py-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--fg)] focus:ring-2 focus:ring-[var(--artificio-brand)] focus:border-transparent outline-none transition-all text-sm";
 
 const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
   const { user } = useAuth();
@@ -207,21 +207,21 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
         {/* Header Standardized */}
-        <div className="bg-azul-escuro p-6 text-center border-b-4 border-laranja font-black italic uppercase tracking-tighter relative">
-          <h2 className="text-white text-xl flex items-center justify-center gap-2">
+        <div className="bg-[var(--navy-block-bg)] p-6 text-center border-b-4 border-[var(--artificio-brand)] font-black italic uppercase tracking-tighter relative">
+          <h2 className="text-[var(--navy-block-fg)] text-xl flex items-center justify-center gap-2">
             <PlusCircle size={22} /> Adicionar Sugestão
           </h2>
-          <p className="text-blue-200 text-xs mt-1 normal-case font-medium not-italic tracking-normal">Contribua com a base do Glossário Artifício</p>
-          <button onClick={onClose} className="absolute right-6 top-1/2 -translate-y-1/2 text-blue-300 hover:text-white transition-colors">
+          <p className="text-[var(--state-info-fg)] text-xs mt-1 normal-case font-medium not-italic tracking-normal">Contribua com a base do Glossário Artifício</p>
+          <button onClick={onClose} className="absolute right-6 top-1/2 -translate-y-1/2 text-[var(--state-info-fg)] hover:text-[var(--navy-block-fg)] transition-colors">
             <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {error && <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2"><AlertCircle size={16} /> {error}</div>}
-          {successMsg && <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2 animation-fade-in"><PlusCircle size={16} /> {successMsg}</div>}
+          {error && <div className="bg-[var(--state-danger-bg)] border border-[var(--state-danger-line)] text-[var(--state-danger-fg)] px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2"><AlertCircle size={16} /> {error}</div>}
+          {successMsg && <div className="bg-[var(--state-success-bg)] border border-[var(--state-success-line)] text-[var(--state-success-fg)] px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2 animation-fade-in"><PlusCircle size={16} /> {successMsg}</div>}
 
           {/* Núcleo */}
           <div>
@@ -229,13 +229,13 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
             <div className="grid grid-cols-2 gap-2">
               {(['sugestao', 'oficial'] as const).map(n => (
                 <button key={n} type="button" onClick={() => setNucleus(n)}
-                  className={`py-3 rounded-xl border-2 text-sm font-black transition-all ${nucleus === n ? 'border-azul-escuro bg-azul-escuro text-white shadow-lg' : 'border-gray-100 text-gray-400 bg-gray-50 hover:bg-gray-100 hover:border-gray-200'}`}>
+                  className={`py-3 rounded-xl border-2 text-sm font-black transition-all ${nucleus === n ? 'border-[var(--line)] bg-[var(--navy-block-bg)] text-[var(--navy-block-fg)] shadow-lg' : 'border-[var(--line)] text-[var(--fg-muted)] bg-[var(--surface-subtle)] hover:bg-[var(--surface-subtle)] hover:border-[var(--line)]'}`}>
                   {n === 'sugestao' ? '💡 SUGESTÃO' : '📖 OFICIAL'}
                 </button>
               ))}
             </div>
             {nucleus === 'oficial' && (
-              <p className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-3 py-2 rounded-lg mt-2 uppercase tracking-wide">
+              <p className="text-[10px] font-bold text-[var(--state-info-fg)] bg-[var(--state-info-bg)] border border-[var(--state-info-line)] px-3 py-2 rounded-lg mt-2 uppercase tracking-wide">
                 Termos oficiais exigem referência bibliográfica obrigatória.
               </p>
             )}
@@ -247,7 +247,7 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
             <div className="grid grid-cols-2 gap-2">
               {(['sistema', 'cenario'] as const).map(t => (
                 <button key={t} type="button" onClick={() => { setSourceType(t); setCategoryId(''); }}
-                  className={`py-3 rounded-xl border-2 text-sm font-black transition-all ${sourceType === t ? 'border-laranja bg-laranja text-white shadow-lg' : 'border-gray-100 text-gray-400 bg-gray-50 hover:bg-gray-100 hover:border-gray-200'}`}>
+                  className={`py-3 rounded-xl border-2 text-sm font-black transition-all ${sourceType === t ? 'border-[var(--artificio-brand)] bg-[var(--artificio-brand)] text-[var(--navy-block-fg)] shadow-lg' : 'border-[var(--line)] text-[var(--fg-muted)] bg-[var(--surface-subtle)] hover:bg-[var(--surface-subtle)] hover:border-[var(--line)]'}`}>
                   {t === 'sistema' ? '⚔️ SISTEMA' : '🌍 CENÁRIO'}
                 </button>
               ))}
@@ -262,7 +262,7 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
                   <label className={labelClass}>Sistema (Regras)</label>
                   <select className={selectClass} value={systemId} onChange={e => setSystemId(e.target.value)} required={!isAdmin}>
                     <option value="">Selecione...</option>
-                    <option value="new" className="font-bold text-laranja">✨ SUGERIR NOVO...</option>
+                    <option value="new" className="font-bold text-[var(--artificio-brand)]">✨ SUGERIR NOVO...</option>
                     {systems.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                   {systemId === 'new' && (
@@ -273,7 +273,7 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
                   <label className={labelClass}>Edição</label>
                   <select className={selectClass} value={editionId} onChange={e => setEditionId(e.target.value)} disabled={!systemId && !isAdmin}>
                     <option value="">Selecione...</option>
-                    {(systemId || isAdmin) && <option value="new" className="font-bold text-laranja">✨ SUGERIR NOVA...</option>}
+                    {(systemId || isAdmin) && <option value="new" className="font-bold text-[var(--artificio-brand)]">✨ SUGERIR NOVA...</option>}
                     {editions.map(ed => <option key={ed.id} value={ed.id}>{ed.name}</option>)}
                   </select>
                   {editionId === 'new' && (
@@ -286,7 +286,7 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
                 <label className={labelClass}>Cenário (Lore/Mundo)</label>
                 <select className={selectClass} value={scenarioId} onChange={e => setScenarioId(e.target.value)} required={!isAdmin}>
                   <option value="">Selecione...</option>
-                  <option value="new" className="font-bold text-laranja">✨ SUGERIR NOVO...</option>
+                  <option value="new" className="font-bold text-[var(--artificio-brand)]">✨ SUGERIR NOVO...</option>
                   {scenarios.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
                 </select>
                 {scenarioId === 'new' && (
@@ -301,7 +301,7 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
             <label className={labelClass}>Categoria / Subcategoria</label>
             <select className={selectClass} value={categoryId} onChange={e => setCategoryId(e.target.value)} required={!isAdmin}>
               <option value="">Selecione uma categoria...</option>
-              <option value="new" className="font-bold text-laranja">✨ SUGERIR NOVA CATEGORIA...</option>
+              <option value="new" className="font-bold text-[var(--artificio-brand)]">✨ SUGERIR NOVA CATEGORIA...</option>
               {filteredCategories.filter(c => !c.parent_id).map(c => (
                 <optgroup key={c.id} label={c.name}>
                   <option value={c.id}>{c.name}</option>
@@ -312,10 +312,10 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
               ))}
             </select>
             {categoryId === 'new' && (
-              <div className="p-4 bg-laranja/5 rounded-2xl border border-laranja/10 space-y-3">
+              <div className="p-4 bg-[rgba(255,87,34,0.05)] rounded-2xl border border-[rgba(255,87,34,0.10)] space-y-3">
                 <input className={inputClass} value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="Nome da Nova Categoria..." required={!isAdmin} />
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-laranja uppercase tracking-tighter">Vincular a uma categoria pai? (Opcional)</label>
+                  <label className="text-[9px] font-black text-[var(--artificio-brand)] uppercase tracking-tighter">Vincular a uma categoria pai? (Opcional)</label>
                   <select className={selectClass} value={newCategoryParentId} onChange={e => setNewCategoryParentId(e.target.value)}>
                     <option value="">Nenhuma (Raiz)</option>
                     {parentCategories.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -341,7 +341,7 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
 
           {/* Referência (Oficial) */}
           {nucleus === 'oficial' && (
-            <div className="grid grid-cols-3 gap-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+            <div className="grid grid-cols-3 gap-3 p-4 bg-[var(--state-info-bg)] rounded-2xl border border-[var(--state-info-line)]">
               <div className="col-span-2">
                 <label className={labelClass}>Livro</label>
                 <input type="text" value={bookRef} onChange={e => setBookRef(e.target.value)}
@@ -364,18 +364,18 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
 
           <div className="flex flex-col gap-4 pt-2">
             <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setStayOpen(!stayOpen)}>
-              <div className={`w-10 h-6 rounded-full transition-all flex items-center p-1 ${stayOpen ? 'bg-laranja' : 'bg-gray-200'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${stayOpen ? 'translate-x-4' : 'translate-x-0'}`} />
+              <div className={`w-10 h-6 rounded-full transition-all flex items-center p-1 ${stayOpen ? 'bg-[var(--artificio-brand)]' : 'bg-[var(--surface-strong)]'}`}>
+                <div className={`w-4 h-4 bg-[var(--surface)] rounded-full shadow-sm transition-transform ${stayOpen ? 'translate-x-4' : 'translate-x-0'}`} />
               </div>
-              <span className="text-[11px] font-black text-azul-escuro uppercase tracking-widest group-hover:text-laranja transition-colors">
+              <span className="text-[11px] font-black text-[var(--fg)] uppercase tracking-widest group-hover:text-[var(--artificio-brand)] transition-colors">
                 Manter este modal aberto após enviar sugestão
               </span>
             </div>
 
             <div className="flex gap-3">
-              <button type="button" onClick={onClose} className="flex-1 py-4 border border-gray-200 rounded-2xl text-sm font-black text-gray-400 hover:bg-gray-50 transition-all uppercase tracking-widest">Cancelar</button>
+              <button type="button" onClick={onClose} className="flex-1 py-4 border border-[var(--line)] rounded-2xl text-sm font-black text-[var(--fg-muted)] hover:bg-[var(--surface-subtle)] transition-all uppercase tracking-widest">Cancelar</button>
               <button type="submit" disabled={loading}
-                className="flex-[2] bg-azul-escuro hover:bg-black text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-900/10 transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-50">
+                className="flex-[2] bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-bg-hover)] text-[var(--btn-primary-fg)] font-black py-4 rounded-2xl shadow-xl shadow-blue-900/10 transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-50">
                 {loading ? <Loader2 size={20} className="animate-spin" /> : <PlusCircle size={20} />}
                 {loading ? 'Processando...' : 'Enviar Sugestão'}
               </button>

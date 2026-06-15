@@ -86,33 +86,33 @@ const MigrationPage: React.FC = () => {
   const connectGoogle = () => redirectToLogin(`${window.location.origin}/migrar`);
 
   return (
-    <div className="flex items-center justify-center p-8 bg-cinza-fundo">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
-        <div className="bg-azul-escuro p-8 text-center border-b-4 border-laranja">
-          <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Migrar Conta Antiga</h2>
-          <p className="text-blue-200 text-sm mt-2">Sem perder seus termos, votos e comentários</p>
+    <div className="flex items-center justify-center p-8 bg-[var(--surface-subtle)]">
+      <div className="max-w-md w-full bg-[var(--surface)] rounded-2xl shadow-xl overflow-hidden border border-[var(--line)]">
+        <div className="bg-[var(--navy-block-bg)] p-8 text-center border-b-4 border-[var(--artificio-brand)]">
+          <h2 className="text-2xl font-black text-[var(--navy-block-fg)] italic uppercase tracking-tighter">Migrar Conta Antiga</h2>
+          <p className="text-[var(--state-info-fg)] text-sm mt-2">Sem perder seus termos, votos e comentários</p>
         </div>
 
         <div className="p-8">
           {error && step !== 'error' && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm font-medium mb-6">
+            <div className="bg-[var(--state-danger-bg)] border border-[var(--state-danger-line)] text-[var(--state-danger-fg)] px-4 py-3 rounded-lg text-sm font-medium mb-6">
               {error}
             </div>
           )}
 
           {step === 'form' && (
             <form onSubmit={handleVerify} className="space-y-6">
-              <div className="flex items-start gap-3 text-sm text-gray-600">
-                <KeyRound size={20} className="text-laranja shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 text-sm text-[var(--fg-muted)]">
+                <KeyRound size={20} className="text-[var(--artificio-brand)] shrink-0 mt-0.5" />
                 <p>Confirme a senha que você usava no glossário antigo. Isso só prova que a conta é sua — não cria login.</p>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-azul-escuro mb-1 uppercase tracking-widest">E-mail do cadastro antigo</label>
+                <label className="block text-[10px] font-black text-[var(--fg)] mb-1 uppercase tracking-widest">E-mail do cadastro antigo</label>
                 <input
                   type="email"
                   required
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:ring-2 focus:ring-laranja focus:border-transparent outline-none transition-all placeholder-gray-400"
+                  className="w-full px-4 py-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--fg)] focus:ring-2 focus:ring-[var(--artificio-brand)] focus:border-transparent outline-none transition-all placeholder-[var(--fg-muted)]"
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -120,11 +120,11 @@ const MigrationPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-azul-escuro mb-1 uppercase tracking-widest">Senha antiga</label>
+                <label className="block text-[10px] font-black text-[var(--fg)] mb-1 uppercase tracking-widest">Senha antiga</label>
                 <input
                   type="password"
                   required
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:ring-2 focus:ring-laranja focus:border-transparent outline-none transition-all placeholder-gray-400"
+                  className="w-full px-4 py-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--fg)] focus:ring-2 focus:ring-[var(--artificio-brand)] focus:border-transparent outline-none transition-all placeholder-[var(--fg-muted)]"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -134,15 +134,15 @@ const MigrationPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-azul-escuro hover:bg-black text-white font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-50"
+                className="w-full bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-bg-hover)] text-[var(--btn-primary-fg)] font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-50"
               >
                 {submitting ? <Loader2 className="animate-spin" size={20} /> : <ShieldCheck size={20} />}
                 {submitting ? 'Validando...' : 'Validar identidade'}
               </button>
 
-              <p className="text-center text-gray-500 text-sm">
+              <p className="text-center text-[var(--fg-muted)] text-sm">
                 Já usa Google?{' '}
-                <Link to="/login" className="text-laranja font-bold hover:underline">
+                <Link to="/login" className="text-[var(--artificio-brand)] font-bold hover:underline">
                   Entrar normalmente
                 </Link>
               </p>
@@ -151,17 +151,17 @@ const MigrationPage: React.FC = () => {
 
           {step === 'connect' && (
             <div className="space-y-6 text-center">
-              <CheckCircle2 size={48} className="text-green-500 mx-auto" />
+              <CheckCircle2 size={48} className="text-[var(--state-success-fg)] mx-auto" />
               <div>
-                <p className="font-bold text-azul-escuro text-lg mb-1">Identidade confirmada</p>
-                <p className="text-gray-600 text-sm">
+                <p className="font-bold text-[var(--fg)] text-lg mb-1">Identidade confirmada</p>
+                <p className="text-[var(--fg-muted)] text-sm">
                   Agora conecte sua conta Google. Ela passará a ser o login desta conta e herdará tudo que você adicionou.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={connectGoogle}
-                className="w-full bg-azul-escuro hover:bg-black text-white font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                className="w-full bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-bg-hover)] text-[var(--btn-primary-fg)] font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
               >
                 Conectar conta Google
               </button>
@@ -169,7 +169,7 @@ const MigrationPage: React.FC = () => {
           )}
 
           {step === 'claiming' && (
-            <div className="flex flex-col items-center justify-center py-8 text-azul-escuro">
+            <div className="flex flex-col items-center justify-center py-8 text-[var(--fg)]">
               <Loader2 className="animate-spin mb-4" size={40} />
               <p className="font-semibold">Vinculando sua conta e herdando seu conteúdo...</p>
             </div>
@@ -177,16 +177,16 @@ const MigrationPage: React.FC = () => {
 
           {step === 'done' && (
             <div className="space-y-6 text-center">
-              <CheckCircle2 size={48} className="text-green-500 mx-auto" />
+              <CheckCircle2 size={48} className="text-[var(--state-success-fg)] mx-auto" />
               <div>
-                <p className="font-bold text-azul-escuro text-lg mb-1">Migração concluída!</p>
-                <p className="text-gray-600 text-sm">
+                <p className="font-bold text-[var(--fg)] text-lg mb-1">Migração concluída!</p>
+                <p className="text-[var(--fg-muted)] text-sm">
                   Sua conta Google agora controla os termos, votos e comentários que você já tinha. A partir de agora, entre só com o Google.
                 </p>
               </div>
               <Link
                 to="/"
-                className="inline-block w-full bg-azul-escuro hover:bg-black text-white font-black py-4 rounded-xl shadow-lg transition-all uppercase tracking-widest"
+                className="inline-block w-full bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-bg-hover)] text-[var(--btn-primary-fg)] font-black py-4 rounded-xl shadow-lg transition-all uppercase tracking-widest"
               >
                 Ir para o glossário
               </Link>
@@ -195,10 +195,10 @@ const MigrationPage: React.FC = () => {
 
           {step === 'error' && (
             <div className="space-y-6 text-center">
-              <AlertTriangle size={48} className="text-red-500 mx-auto" />
+              <AlertTriangle size={48} className="text-[var(--state-danger-fg)] mx-auto" />
               <div>
-                <p className="font-bold text-azul-escuro text-lg mb-1">Não deu certo</p>
-                <p className="text-gray-600 text-sm">{error}</p>
+                <p className="font-bold text-[var(--fg)] text-lg mb-1">Não deu certo</p>
+                <p className="text-[var(--fg-muted)] text-sm">{error}</p>
               </div>
               <button
                 type="button"
@@ -208,7 +208,7 @@ const MigrationPage: React.FC = () => {
                   setError('');
                   setStep('form');
                 }}
-                className="w-full bg-azul-escuro hover:bg-black text-white font-black py-4 rounded-xl shadow-lg transition-all uppercase tracking-widest"
+                className="w-full bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-bg-hover)] text-[var(--btn-primary-fg)] font-black py-4 rounded-xl shadow-lg transition-all uppercase tracking-widest"
               >
                 Tentar de novo
               </button>
