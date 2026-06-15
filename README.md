@@ -4,7 +4,7 @@ Suite de projetos do Artifício RPG: cada projeto no seu **subdomínio** sob `*.
 
 > **Nome × conceito.** O produto chama-se **Artifício RPG** (domínio `artificiorpg.com`). "G1" **não** faz parte do nome — é apenas a *referência conceitual*: queremos um hub interconectado que direciona para os projetos, no estilo do portal de notícias G1. Codinome técnico interno (ex.: `g1-governance-reviewer`) pode usar "G1", mas nunca como nome do produto.
 
-> **Comece pela governança.** Antes de qualquer código, leia nesta ordem: `.specify/memory/project-state.md` → `AGENTS.md` → `docs/agents/context-capsule.md` (interno, fora do git público — só no clone local do mantenedor).
+> **Comece pela retomada mínima (T0).** Antes de qualquer código, leia só: `.specify/memory/project-state.md` → `docs/agents/context-capsule.md` → `.specify/memory/decisions.md`. Use `AGENTS.md` sob demanda para regras operacionais. Pendências acionáveis vivem em `specs/backlog.md`.
 
 ## Projetos (`apps/*`, tecnicamente módulos)
 Topologia técnica **subdomínio-por-módulo** (D017). Na linguagem pública, cada app é um projeto no próprio host, root próprio, sem basename. Unidos por SSO (cookie `.artificiorpg.com`) + nav + design. WP fica na raiz `artificiorpg.com` (intocável).
@@ -17,8 +17,11 @@ Topologia técnica **subdomínio-por-módulo** (D017). Na linguagem pública, ca
 | `downloads` | `downloads.artificiorpg.com` | Materiais traduzidos | a construir |
 | `esferas` | `esferas.artificiorpg.com` | Wiki Spheres of Power (multi-sistema: D&D 2014/2024, PF futuro) | a construir |
 | `srd` | `srd.artificiorpg.com` | SRD DnD 5.2.1 + tooltips | a construir |
-| `links` | `links.artificiorpg.com` | Links: WhatsApp + parceiros | a integrar |
+| `links` | `links.artificiorpg.com` | Links: WhatsApp + parceiros | bloqueado por localizar/refazer artefato |
 | _(SSO)_ | `accounts.artificiorpg.com` | Login Google central | no ar |
+
+## Estado curto
+Fase atual: **Fase 3 — projetos + conteúdo**. Gates A/B fechados; Gate D `mesas` e `glossario` fechados; Gate C adiado. `site` roda em `beta.artificiorpg.com`; WP segue na raiz e é intocável até Gate C. RealIP do ingress Cloudflare Tunnel foi padronizado em prod (Spec 023); residual: avaliar `accounts` expor porta direta (`BL-ACCOUNTS-PORT`). Backlog vivo: `specs/backlog.md`.
 
 ## Pacotes compartilhados (`packages/*`)
 `auth` (SSO Google + JWT cookie raiz) · `ui` (design system sóbrio) · `analytics` (GA4) · `config` (tsconfig/eslint/env) · `content` (SEO: meta, sitemap, JSON-LD) · `crosslink` (tooltips/interreferência SRD↔Wiki).
@@ -29,16 +32,22 @@ Topologia técnica **subdomínio-por-módulo** (D017). Na linguagem pública, ca
 | `AGENTS.md` | Regras pétreas, aprovações, gates, isolamento de módulo |
 | `.specify/memory/constitution.md` | Princípios inegociáveis |
 | `.specify/memory/project-state.md` | Onde estamos (fase/gate) |
+| `.specify/memory/decisions.md` | Decisões fechadas (append-only) |
 | `.specify/memory/errors.md` | Erros conhecidos |
 | `.specify/arquiteture.md` | Arquitetura e contratos (a escrever) |
 | `docs/agents/*` (interno, fora do git público) | Modelo de operação, retomada, infra, acesso — só no clone local do mantenedor |
 | `.claude/agents/` | Subagentes: governance-reviewer, wp-importer, seo-usability-auditor |
-| `.claude/skills/` | Skills: add-module, new-spec |
+| `.agents/skills/` | Skills/playbooks locais: add-module, new-spec |
 | `sessoes/` | Diário de sessões |
-| `specs/` | Specs SDD |
+| `specs/` | Specs SDD + `specs/backlog.md` (débitos acionáveis) |
 
 ## Gates
 `A` backups → recriar Oracle · `B` SSO (`accounts.`) + 1º módulo no ar → import/build · `D` (por módulo técnico/projeto público) smoke → próximo. `C` (blog beta→raiz + desligar WP) = adiado, fora de escopo.
 
 ## Stack
-React19/Vite/TS/Tailwind · Express/TS/Kysely/PG16 · Docker/nginx/Cloudflare Tunnel/GHCR/Oracle.
+React 19/Vite/TS/Tailwind · Express 5/TS/Kysely/PG16 · Docker/nginx/Cloudflare Tunnel/GHCR/Oracle.
+
+## Fluxo rápido
+- Trabalho normal: branch de trabalho → `dev`/beta → promoção explícita para `main`/prod.
+- Commit, push, deploy, VM write, DNS/Cloudflare e SQL write em prod exigem autorização nominal conforme `AGENTS.md`.
+- Toda spec nova, fechamento de tarefa ou débito novo deve atualizar `specs/backlog.md` ou registrar “backlog verificado, nada a atualizar” na sessão.

@@ -49,6 +49,7 @@ Auditar `specs/backlog.md`, `tasks.md`, `specs/README.md`, `project-state.md` e 
   - `023` alinhado como fechado em prod; residual `BL-ACCOUNTS-PORT`.
 - 2026-06-15 — Backlog atualizado: `D-FEEDBACK1` normalizado para `validacao`; `D-CONT1` e `D-MESAS-UI1` movidos para fechados/absorvidos; adicionado `BL-DEP-CONTAINER-NAMES`; `BL-DOCS-AUDIT-024` registrado como fechado. `project-state.md` alinhado: B7 nao e mais fix local, falta so E2E autenticado.
 - 2026-06-15 — Validacao: `git diff --check` sem erros (apenas avisos CRLF do Windows); busca por divergencias ativas nao encontrou status ativo incorreto. Ocorrencias restantes de "fix local pendente"/D-NGINX2 aberto sao historicas em log antigo, nao instrucao ativa.
+- 2026-06-15 — Retomada pontual a pedido do mantenedor: README central auditado contra T0/backlog. Atualizado para T0 correto, `specs/backlog.md` como mapa vivo, status curto Fase 3/Gates/RealIP, `links` bloqueado, `.agents/skills` e regra de manutencao documental. Backlog verificado: nada novo a abrir; esta mudanca so corrige mapa central.
 
 ## Fechamento
 - [x] `specs/backlog.md` atualizado.
