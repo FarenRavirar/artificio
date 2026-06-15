@@ -1,5 +1,12 @@
-@import "tailwindcss";
+/* Ordem proposital (D-CSS1): `@artificio/ui/styles.css` ANTES de tailwindcss.
+   O styles.css importa fontes via `@import url(google fonts)`; se tailwindcss vier
+   primeiro (expande em regras), esse @import aninhado cai depois de regras e o
+   Lightning CSS avisa e o descarta ("@import must precede all rules") → fontes do
+   site iam pro fallback. Com o ui primeiro, o @import de fonte fica no topo (válido).
+   As regras unlayered do ui vencem os @layer do tailwind em qualquer ordem, então a
+   cascata não muda (verificado em preview: sem regressão visual). NÃO reordenar. */
 @import "@artificio/ui/styles.css";
+@import "tailwindcss";
 
 /* Blog Artifício RPG — editorial minimalista + cards, marca real (D040).
    Tokens próprios da página (não conflitam com --artificio-* do componente). Dark via [data-theme]. */
