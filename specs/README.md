@@ -17,6 +17,7 @@ Toda spec SDD deve:
    `Atualizar specs/backlog.md e project-state.md`.
 3. Ao abrir debito, adicionar linha em `specs/backlog.md`.
 4. Ao fechar debito, marcar `status = fechado` ou remover da lista ativa e registrar evidencia.
+5. Se uma task antiga foi superada por decisao posterior, marcar como fechada/absorvida e apontar a decisao ou backlog atual.
 
 ## Status rapido das specs
 
@@ -39,7 +40,8 @@ Toda spec SDD deve:
 | 020 | theme Artificio padrao | Parcial; varios B-items ainda abertos. |
 | 021 | feedback site/glossario | Implementado/promovido segundo project-state; conferir pendencias runtime no backlog. |
 | 022 | paleta/fontes global | Aberta/local conforme spec propria. |
-| 023 | Real IP ingress | Local/aberta; falta publicar e smoke runtime. |
+| 023 | Real IP ingress | Fechada em prod; residual `BL-ACCOUNTS-PORT` no backlog. |
+| 024 | auditoria docs/specs/backlog | Fechada; auditoria documental alinhou tasks, backlog e sessoes. |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.

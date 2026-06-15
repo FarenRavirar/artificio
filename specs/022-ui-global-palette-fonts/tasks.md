@@ -51,7 +51,7 @@
   parity OK. Vars resolvem nos 2 temas (light `--state-warning-fg`=#a16207 AA = bug corrigido por
   construção; dark unificado #eef1f8). Prova visual com dados vivos = beta (backend off no preview).
   Resto abaixo (descrição original):
-- [ ] **T8 (orig) — Área PERFIL/MestrePage primeiro (resolve o bug reportado).** Migrar `.tsx`
+- [x] **T8 (orig) — Área PERFIL/MestrePage primeiro (resolve o bug reportado).** Substituida pela T8 consolidada acima (`022-mesas-t8-perfil`), que migrou TSX + CSS da area e removeu remaps locais. Descricao original preservada abaixo como criterio historico:
   `features/table/components/{MasterCard,TableActionPanel,TableMaster}.tsx`,
   `components/{LinksDisplay,TableCardDashboard}.tsx` às vars semânticas **+ todo o CSS próprio da
   área** (decisão 2026-06-14: corrigir o `.css` hardcoded junto, senão refaz depois):

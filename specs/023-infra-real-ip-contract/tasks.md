@@ -7,3 +7,5 @@
 - [x] T6 — Atualizar documentacao canonica · feito quando: arquitetura, infra-map, decisions, errors e project-state registram o contrato.
 - [x] T7 — Validar local · feito quando: smoke, busca final e `git diff --check` passam.
 - [x] T8 — Deixar pendencias de publicacao claras · feito quando: sessao lista commit/push/deploy/smoke runtime pendentes de autorizacao nominal.
+- [x] T9 — Publicar em beta e prod · feito quando: PR #39 mergeado em `dev`, `dev -> main` promovido, deploys prod de `accounts`, `mesas` e `glossario` verdes.
+- [x] T10 — Validar runtime · feito quando: `nginx -t`, config renderizada RealIP e smokes HTTP passam em beta e prod.

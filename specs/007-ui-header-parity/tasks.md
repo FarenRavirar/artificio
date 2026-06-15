@@ -8,6 +8,6 @@
 - [x] T6 — Remover dead code · `SiteHeader.tsx`/`SiteFooter.tsx` removidos (grep zero-imports); build verde.
 - [x] T7 — Build + unit · turbo build 5/5; ui/mesas-frontend/accounts ok; CDX-312/313 intactos.
 - [x] T8 — Deploy beta + validar · PR #8 (313+314) → `dev` → deploy beta `27040048340` verde; servido contém `artificio-subnav/menu-toggle/mobile-nav/data-sticky` + "Entrar com Google"+"Catálogo"; **validado pelo mantenedor** (2 navs/sticky/mobile/sino/changelog/menu).
-- [ ] T9 — FF prod + revalidar + docs · **pendente autorização de FF prod** (mantenedor). Ao autorizar: `promote-prod-fast-forward` → deploy mesas+accounts prod → revalidar → atualizar project-state/roadmap.
+- [x] T9 — FF prod + revalidar + docs · **absorvido por releases posteriores**: CDX-312/313/314 e specs 017/020 chegaram a prod; header/nav/menu seguiram evoluindo em `@artificio/ui`. Reabrir apenas com regressao nova.
 
-> **Status 007: beta CONCLUÍDO e validado; produção aguardando autorização de FF.** Follow-up documentado: unificar fonte de sessão (`@artificio/auth useSession` × mesas `useAuth`).
+> **Status 007: CONCLUÍDA/absorvida.** Follow-up documentado: unificar fonte de sessão (`@artificio/auth useSession` × mesas `useAuth`) entra em backlog futuro se voltar a doer.

@@ -10,4 +10,4 @@
 
 > **010 concluída.** Nav cross-módulo unificado + logo neg corrigido, no ar nos betas.
 
-> Deploy/push **bloqueados** até autorização explícita do mantenedor (ver plan.md notas).
+> Nota historica: o bloqueio de deploy/push foi superado pela autorizacao e deploy beta de 2026-06-06 registrados em T7.

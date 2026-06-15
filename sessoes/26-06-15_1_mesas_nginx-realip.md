@@ -5,7 +5,7 @@
 - Spec: `specs/023-infra-real-ip-contract/`
 - Tipo: SDD Completo (contrato compartilhado de ingress/infra; sem VM write/deploy)
 - Gate: D
-- Estado: aberta
+- Estado: concluída
 
 ## Objetivo
 Corrigir D-NGINX2 e elevar para contrato unico: todo `*.artificiorpg.com` na VM deve aceitar IP real do visitante somente pelo caminho confiavel Cloudflare Tunnel -> `cloudflared` -> `artificio_net` -> app.
@@ -65,6 +65,11 @@ Corrigir D-NGINX2 e elevar para contrato unico: todo `*.artificiorpg.com` na VM 
 - 2026-06-15 — Pedido do mantenedor: reforcar em `AGENTS.md` a obrigatoriedade de atualizar `specs/backlog.md` para nao depender de memoria do chat. Regra adicionada em "Conclusao de Tarefas", como criterio antes de declarar trabalho concluido.
 - 2026-06-15 — Retomada final Codex. T0, sessao, spec 023, backlog, arquitetura D069, infra-map, deploy-runbook e E006 lidos. Proximo: revisar diff local, revalidar smokes/testes/builds, rodar buscas anti-regressao e preparar pedido nominal para publicacao se verde.
 - 2026-06-15 — Revisao local final: diff conferido em nginx, Express, compose e smoke. Corrigido apenas comentario stale em `apps/mesas/frontend/nginx.conf` que ainda citava `trust proxy 1`; comportamento ja estava em CIDR. Validacoes verdes: `pnpm smoke:ingress-realip`; `pnpm --filter @artificio/accounts test` (8/8); `pnpm --filter @artificio/mesas-backend build`; `pnpm --filter @artificio/glossario-backend build`; `git diff --check`. Buscas anti-regressao em config/codigo ativo deram zero achados para `$proxy_add_x_forwarded_for`, `proxy_set_header X-Forwarded-For $http_cf_connecting_ip` e `app.set("trust proxy", 1)`. Busca ampla ainda acha apenas o proprio script de smoke e doc historico antigo em `apps/mesas/docs/Realizados/Reformulacao_mestre_v4.md`. Backlog verificado: sem atualizar status, pois `BL-REALIP-023` segue local ate commit/push/PR/deploy aprovados.
+- 2026-06-15 — PR #39 mergeado em `dev` (aprovado pelo mantenedor) e actions acompanhadas. `pr-checks`, `deploy-accounts`, `deploy-site`, `deploy-mesas` e CI/deploy beta mesas verdes; `deploy-glossario` teve CI verde mas job `Deploy glossario beta` ficou `skipped`. Validacao runtime read-only aprovada: `mesas-beta-app nginx -t` OK e config renderizada contem `set_real_ip_from 172.18.0.0/16`, `real_ip_header CF-Connecting-IP`, `X-Real-IP $remote_addr`, `X-Forwarded-For $remote_addr`. `glossario-beta-app nginx -t` OK, mas config renderizada ainda esta antiga (`X-Real-IP $http_cf_connecting_ip`, `X-Forwarded-For $http_cf_connecting_ip`) porque container foi criado em 2026-06-14 e nao redeployou. Proximo: pedir aprovacao nominal para dispatch/deploy beta do glossario e repetir `nginx -t`/config.
+- 2026-06-15 — Dispatch/deploy beta do glossario aprovado e executado: `deploy-glossario.yml --ref dev -f mode=deploy`, run `27554166969`, verde. `glossario-beta-app` recriado em 2026-06-15T14:43:26Z. Validacao runtime: `docker exec glossario-beta-app nginx -t` OK; config renderizada contem `set_real_ip_from 172.18.0.0/16`, `real_ip_header CF-Connecting-IP`, `X-Real-IP $remote_addr`, `X-Forwarded-For $remote_addr`. Smoke HTTP beta: `glossario_beta_home=200`, `glossario_beta_terms=200`, `mesas_beta_home=200`, `mesas_beta_api_v1_me=200`. Observacao: chute inicial em `/api/v1/auth/me` deu 404 porque a rota correta do mesas e `/api/v1/me`.
+- 2026-06-15 — Promocao `dev -> main` autorizada nominalmente e executada via `promote-prod-fast-forward.yml --ref dev -f confirm=PROMOTE_DEV_TO_MAIN`, run `27554918556`, verde. `origin/main == origin/dev == c785bb8`.
+- 2026-06-15 — Deploy prod autorizado nominalmente e executado via Actions: `deploy-accounts` run `27554992761` verde; `deploy-mesas` run `27554992843` verde; `deploy-glossario` run `27554992730` verde. Site prod nao existe por Gate C/WP raiz. Smoke HTTP prod local: `accounts_login=200`, `accounts_me=401`, `mesas_home=200`, `mesas_me_options=401`, `glossario_home=200`, `glossario_terms=200`, `wp_root=200`.
+- 2026-06-15 — Validacao runtime prod read-only autorizada e executada. `docker exec mesas-app nginx -t` OK; `docker exec glossario-app nginx -t` OK. Config renderizada prod: mesas e glossario contem `set_real_ip_from 172.18.0.0/16`, `real_ip_header CF-Connecting-IP`, `X-Real-IP $remote_addr` e `X-Forwarded-For $remote_addr`. `BL-REALIP-023` fechado em `specs/backlog.md`; `tasks.md` da spec 023 e `project-state.md` atualizados. Residual mantido: `BL-ACCOUNTS-PORT`.
 
 ## Fechamento local
 - [x] Config RealIP adicionada no nginx do mesas.
@@ -76,5 +81,5 @@ Corrigir D-NGINX2 e elevar para contrato unico: todo `*.artificiorpg.com` na VM 
 - [x] Documentacao canonica atualizada.
 - [x] Backlog `specs/` criado e curado com debitos das specs 015-023.
 - [x] Smoke/testes finais desta rodada.
-- [ ] Commit/push/PR/deploy: pendente de autorizacao nominal.
-- [ ] Smoke runtime em beta/prod apos deploy: pendente.
+- [x] Commit/push/PR/deploy: PR #39 mergeado; `dev -> main`; deploys prod accounts/mesas/glossario verdes.
+- [x] Smoke runtime em beta/prod apos deploy.
