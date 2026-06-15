@@ -48,7 +48,7 @@
 |---|---|---|---|---|---|
 | BL-UI-B3-HEADERACTION | aberto | `specs/020` B3 | `packages/ui` | componente/primitive visual-only `HeaderAction` | implementar em shared com smoke consumidores |
 | BL-UI-B4-PRIMITIVES | aberto | `specs/020` B4 | `packages/ui` | primitives de formulario/estado; contrato ja descrito em `primitives-form-state.md` | implementar tokens -> primitives -> consumers |
-| BL-UI-B12-FONTS | aberto | `specs/020` B12, `specs/022` T13 | `packages/ui`, site publico, apps | remover `@import` Google Fonts render-blocking e sistematizar Inter/Oswald em declaracao unica | criar fatia shared CSS/perf |
+| BL-UI-B12-FONTS | fechado | `specs/020` B12, `sessoes/26-06-15_4_ui-020-b12-fonts.md` | `packages/ui`, site publico | `@import` Google Fonts removido do CSS compartilhado; preconnects Google Fonts removidos do site publico; tipografia local-first com fallbacks equivalentes; residual `apps/accounts` fora do shell publico/site | builds `ui`/`site`, zero-JS e grep validados |
 | BL-UI-RADIUS-SPACING | aberto | `specs/019` FSU-021 | `packages/ui`, apps consumidores | revisar escala visual de radius/shadow/spacing para evitar drift entre apps | tratar junto de primitives/recipes |
 | BL-UI-T5-THEME-DEDUP | baixo | `specs/020` execution-priority Tier 4 | `apps/accounts`, `apps/site`, `packages/ui` | deduplicar helpers de tema em API `@artificio/ui/theme` | fazer quando voltar a tocar theme runtime |
 | BL-022-SEMANTIC-VARS | aberto | `specs/022` T2/T3/T4 | `packages/ui/styles.css`, consumidores | implementar/validar variaveis semanticas e checklist AA por tela | concluir camada vars + parity antes de novas migrações grandes |
@@ -89,7 +89,7 @@
 | D-MESAS1 | fechado | release 2026-06-14 / `project-state.md` | Arquivar mesas e `MESAS_CRON_SECRET` foram promovidos; reabrir so com nova evidencia. |
 | D-CONT1 | fechado/absorvido | `sessoes/26-06-12_2_debitos_ux-marca.md`, release 2026-06-14 | Changelogs entraram no acumulado publicado; reabrir so se smoke visual mostrar ausencia. |
 | D-MESAS-UI1 | fechado | `sessoes/26-06-12_2_debitos_ux-marca.md`, `apps/mesas/frontend/src/components/TableCardDashboard.tsx` | Botao/badge Arquivar usam `--artificio-bronze`; `bg-slate-600` removido do componente. |
-| BL-UI-B2-STATIC | fechado | `specs/020` B2/T11, `sessoes/26-06-15_3_ui-020-b6-b2.md` | `@artificio/ui/static` criado; site Astro consome favicon/logos/nav por subpath data-only; `ui` e `site` builds verdes; shell segue static/zero-JS. |
+| BL-UI-B2-STATIC | fechado | `specs/020` B2/T11, `sessoes/26-06-15_3_ui-020-b6-b2.md` | `@artificio/ui/static` criado; site Astro consome favicon/logos/nav por subpath data-only; `ui` e `site` builds verdes; deploy beta + validação manual logada OK. |
 | D-UX2 | fechado | `sessoes/26-06-13_1_ui-theme-020-b6b7-e2e-prod.md`, `specs/020` B6/B7 | Glossario dark e mesas light foram promovidos; B6 aprovado pelo mantenedor em prod, B7 validado pelo mantenedor em 2026-06-15. |
 | BL-UI-B6-E2E | fechado | `specs/020` B6, `sessoes/26-06-13_1_ui-theme-020-b6b7-e2e-prod.md` | Glossario dark readiness com dados/admin/forms/selects/validacao aprovado pelo mantenedor em prod; evidencias AA e fluxos registrados na sessao. |
 | BL-UI-B7-E2E | fechado | `specs/020` B7, validação mantenedor 2026-06-15 | `/perfil` light com dados + mestre com `banner_url` custom validados em prod pelo mantenedor. |

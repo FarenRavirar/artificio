@@ -1,5 +1,4 @@
 /* Design system Artifício RPG — paleta real (D038). Laranja = acento; navy = texto. */
-@import url("https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
   --artificio-ink: #020740; /* navy da marca (cropped-logo-header-site-azul) */
@@ -39,8 +38,8 @@
   --artificio-light-strong: #e6ebf4;
   --artificio-light-ink: #0b1220;
 
-  --artificio-font-display: "Oswald", "Arial Narrow", system-ui, sans-serif;
-  --artificio-font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --artificio-font-display: "Oswald", "Arial Narrow", "Roboto Condensed", ui-sans-serif, system-ui, sans-serif;
+  --artificio-font-sans: "Inter", "Segoe UI", Roboto, ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ============================================================================
