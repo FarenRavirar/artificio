@@ -24,7 +24,7 @@
   margin-bottom: 1.5rem;
   color: var(--fg);
   padding-left: 0.5rem;
-  border-left: 3px solid var(--color-artificio-orange);
+  border-left: 3px solid var(--artificio-brand);
 }
 
 .links-display-grid {
@@ -64,13 +64,13 @@
   justify-content: center;
   background: rgba(249, 115, 22, 0.1);
   border-radius: 8px;
-  color: var(--color-artificio-orange);
+  color: var(--artificio-brand);
 }
 
 .link-card-type {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--color-artificio-orange);
+  color: var(--artificio-brand);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -122,7 +122,7 @@
 }
 
 .link-card-social-preview svg {
-  color: var(--color-artificio-orange);
+  color: var(--artificio-brand);
   margin-bottom: 0.5rem;
 }
 
@@ -167,7 +167,7 @@
   gap: 0.5rem;
   padding: 0.5rem 1rem;
   background: rgba(249, 115, 22, 0.1);
-  color: var(--color-artificio-orange);
+  color: var(--artificio-brand);
   border: 1px solid rgba(249, 115, 22, 0.3);
   border-radius: 6px;
   font-size: 0.875rem;
@@ -177,9 +177,9 @@
 }
 
 .link-card-cta:hover {
-  background: var(--color-artificio-orange);
+  background: var(--artificio-brand);
   color: #ffffff;
-  border-color: var(--color-artificio-orange);
+  border-color: var(--artificio-brand);
 }
 
 /* Channel Preview (YouTube sem embed) */
@@ -195,7 +195,7 @@
 .link-card-channel-handle {
   font-size: 1.125rem;
   font-weight: 700;
-  color: var(--color-artificio-orange);
+  color: var(--artificio-brand);
   margin-bottom: 0.25rem;
 }
 
