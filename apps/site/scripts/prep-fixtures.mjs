@@ -8,9 +8,6 @@ import { dirname, resolve } from "node:path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC = process.env.WP_FIXTURES || "C:/projetos/site-proto/fixtures.json";
 const OUT = resolve(__dirname, "../src/data/posts.json");
-const BRAND_OUT = resolve(__dirname, "../src/data/brand.json");
-// Logos da marca (data-URI) extraídos do @artificio/ui/brand.ts — fonte única, sem React no build.
-const UI_BRAND = process.env.UI_BRAND || "C:/projetos/artificio/packages/ui/src/brand.ts";
 
 const decode = (s = "") =>
   s
@@ -85,10 +82,3 @@ const posts = raw.map((p) => {
 mkdirSync(resolve(__dirname, "../src/data"), { recursive: true });
 writeFileSync(OUT, JSON.stringify(posts, null, 2));
 console.log(`wrote ${posts.length} posts -> ${OUT}`);
-
-// extrai os 2 logos data-URI do brand.ts (marca real D040)
-const brandTs = readFileSync(UI_BRAND, "utf8");
-const logoNavy = brandTs.match(/brandLogoNavy[\s\S]*?src:\s*"([^"]+)"/)[1];
-const logoNeg = brandTs.match(/brandLogoNeg[\s\S]*?src:\s*"([^"]+)"/)[1];
-writeFileSync(BRAND_OUT, JSON.stringify({ logoNavy, logoNeg }, null, 2));
-console.log(`wrote brand logos -> ${BRAND_OUT}`);

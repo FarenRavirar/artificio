@@ -44,13 +44,13 @@ Esses scripts devem permanecer vanilla, curtos, sem bundler de React e sem impor
 
 ## Ponto de atencao: `@artificio/ui` barrel
 
-Hoje `Base.astro` importa `faviconV2` de `@artificio/ui`. O HTML gerado continua sem React, mas o import pelo barrel passa por um pacote cujo `index.ts` tambem reexporta `Header`, `Footer` e `theme` React. Isso nao quebra o publico agora, mas nao e o melhor contrato static-friendly.
+Antes do B2, `Base.astro` importava `faviconV2` de `@artificio/ui`. O HTML gerado continuava sem React, mas o import pelo barrel passava por um pacote cujo `index.ts` tambem reexporta `Header`, `Footer` e `theme` React. Isso nao quebrava o publico, mas nao era o melhor contrato static-friendly. **Atualizacao 2026-06-15:** `Base.astro` agora usa `@artificio/ui/static`.
 
 Caminho correto para B2/T11:
 
-1. criar export static oficial em `@artificio/ui`, por exemplo `@artificio/ui/brand-static` ou `@artificio/ui/static`, contendo apenas dados serializaveis: `faviconV2`, logos, dimensoes, alt, `defaultNavItems` e textos estaticos;
+1. **feito 2026-06-15:** export static oficial `@artificio/ui/static`, contendo apenas dados serializaveis: `faviconV2`, logos e `defaultNavItems`;
 2. `apps/site/src` passa a importar apenas esse subpath static ou JSON gerado;
-3. `brand.json` e `MODULES` deixam de ser espelhos manuais ou ganham teste de paridade contra a fonte unica;
+3. **feito 2026-06-15:** `brand.json` nao e mais gerado/usado, e `MODULES` deriva de `defaultNavItems` via `@artificio/ui/static`;
 4. `SiteHeader.astro`/`SiteFooter.astro` continuam `.astro` e consomem dados/classes static, nao componentes React;
 5. build valida que `_astro` nao contem `.js` de shell, apenas CSS; JS de Pagefind segue isolado em `/pagefind`.
 

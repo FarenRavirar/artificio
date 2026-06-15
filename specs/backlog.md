@@ -46,11 +46,8 @@
 
 | ID | Status | Origem | Escopo | Falta para fechar | Proximo passo |
 |---|---|---|---|---|---|
-| BL-UI-B2-STATIC | aberto | `specs/020` B2/T11 | `packages/ui`, `apps/site` | `@artificio/ui/static` ou teste de paridade real para brand/nav/footer Astro zero-JS | decidir abordagem static export vs teste de paridade |
 | BL-UI-B3-HEADERACTION | aberto | `specs/020` B3 | `packages/ui` | componente/primitive visual-only `HeaderAction` | implementar em shared com smoke consumidores |
 | BL-UI-B4-PRIMITIVES | aberto | `specs/020` B4 | `packages/ui` | primitives de formulario/estado; contrato ja descrito em `primitives-form-state.md` | implementar tokens -> primitives -> consumers |
-| BL-UI-B6-E2E | validacao | `specs/020` B6, `specs/022` T7 | `apps/glossario` | readiness dark autenticado com dados/admin/forms/selects/validacao e medicao AA numerica formal | executar E2E/manual autenticado e registrar evidencias |
-| BL-UI-B7-E2E | validacao | `specs/020` B7 | `apps/mesas` | E2E autenticado do mantenedor em prod: `/perfil` light com dados + mestre com `banner_url` custom | validar manualmente e fechar B7 |
 | BL-UI-B12-FONTS | aberto | `specs/020` B12, `specs/022` T13 | `packages/ui`, site publico, apps | remover `@import` Google Fonts render-blocking e sistematizar Inter/Oswald em declaracao unica | criar fatia shared CSS/perf |
 | BL-UI-RADIUS-SPACING | aberto | `specs/019` FSU-021 | `packages/ui`, apps consumidores | revisar escala visual de radius/shadow/spacing para evitar drift entre apps | tratar junto de primitives/recipes |
 | BL-UI-T5-THEME-DEDUP | baixo | `specs/020` execution-priority Tier 4 | `apps/accounts`, `apps/site`, `packages/ui` | deduplicar helpers de tema em API `@artificio/ui/theme` | fazer quando voltar a tocar theme runtime |
@@ -63,7 +60,6 @@
 | BL-022-ACCOUNTS-R7 | aberto | `specs/022` T14 | `apps/accounts` | decidir/migrar accounts para styles/tokens globais ou documentar excecao R7 | se migrar, rodar smoke SSO login/me/logout |
 | BL-022-FINAL | bloqueado | `specs/022` T15 | tema global | validacao final, changelog e fechamento dependem das T2-T14 | fechar somente depois das fatias anteriores |
 | BL-SHELL-B13 | aberto | `project-state.md`, `specs/020` | shell/nav/footer | unificar nav/footer entre projetos restantes, incluindo markup Astro/site e accounts quando aplicavel | dividir por fonte unica data/static e runtime React |
-| D-UX2 | validacao | `sessoes/26-06-12_2_debitos_ux-marca.md`, `specs/020` B6/B7 | glossario + mesas tema | mecanismo existe; falta fechar readiness autenticado com dados em glossario/mesas | E2E mantenedor e registrar fechamento |
 | D-SHELL1 | aberto | `sessoes/26-06-12_2_debitos_ux-marca.md`, `specs/020` B13 | shell/nav/footer | fonte unica de dados feita; residual Astro markup/accounts | seguir BL-SHELL-B13 |
 
 ## P2 — Shared / Conteudo / Observabilidade
@@ -93,6 +89,10 @@
 | D-MESAS1 | fechado | release 2026-06-14 / `project-state.md` | Arquivar mesas e `MESAS_CRON_SECRET` foram promovidos; reabrir so com nova evidencia. |
 | D-CONT1 | fechado/absorvido | `sessoes/26-06-12_2_debitos_ux-marca.md`, release 2026-06-14 | Changelogs entraram no acumulado publicado; reabrir so se smoke visual mostrar ausencia. |
 | D-MESAS-UI1 | fechado | `sessoes/26-06-12_2_debitos_ux-marca.md`, `apps/mesas/frontend/src/components/TableCardDashboard.tsx` | Botao/badge Arquivar usam `--artificio-bronze`; `bg-slate-600` removido do componente. |
+| BL-UI-B2-STATIC | fechado | `specs/020` B2/T11, `sessoes/26-06-15_3_ui-020-b6-b2.md` | `@artificio/ui/static` criado; site Astro consome favicon/logos/nav por subpath data-only; `ui` e `site` builds verdes; shell segue static/zero-JS. |
+| D-UX2 | fechado | `sessoes/26-06-13_1_ui-theme-020-b6b7-e2e-prod.md`, `specs/020` B6/B7 | Glossario dark e mesas light foram promovidos; B6 aprovado pelo mantenedor em prod, B7 validado pelo mantenedor em 2026-06-15. |
+| BL-UI-B6-E2E | fechado | `specs/020` B6, `sessoes/26-06-13_1_ui-theme-020-b6b7-e2e-prod.md` | Glossario dark readiness com dados/admin/forms/selects/validacao aprovado pelo mantenedor em prod; evidencias AA e fluxos registrados na sessao. |
+| BL-UI-B7-E2E | fechado | `specs/020` B7, validação mantenedor 2026-06-15 | `/perfil` light com dados + mestre com `banner_url` custom validados em prod pelo mantenedor. |
 | D-GLOS-CTA | fechado/stale | commit `652cf20` | CTA logado do glossario ja corrigido; resta so validacao visual se suspeita nova. |
 | D-CSS1 | fechado local/site-only | sessao 26-06-12_2 | Higiene local; residual compartilhado de fontes e BL-UI-B12-FONTS. |
 | D-MARCA2 | superado/absorvido | D064/spec 020 | Canonico atual e `#FF5722`, nao reabrir sem nova decisao. |

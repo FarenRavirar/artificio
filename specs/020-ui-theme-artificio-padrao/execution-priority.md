@@ -2,7 +2,7 @@
 
 > Definida em 2026-06-13 a partir da revisão de todos os docs da spec (token-contract, theme-consolidation, header-nav-actions, primitives-form-state, page-recipes, astro-zero-js, rollout-pilots, brand-static-shell, backlog-b2-b7-review). Pondera: (a) validar/proteger o que já está em prod, (b) desbloquear o máximo, (c) custo baixo cedo.
 >
-> **Caminho crítico:** B6/B7 (valida) ∥ B11+B10b (destrava) → B4+B3 (constrói). B2 e B12 correm de lado sem bloquear.
+> **Caminho crítico atualizado:** B4/B3 sao as proximas fatias. B6, B7 e B2 foram fechados; B11+B10b ja foram feitos.
 
 ## Estado de partida (já em produção)
 
@@ -13,10 +13,9 @@
 
 ## Tier 0 — AGORA (valida o que já está no ar; custo ~zero; não-bloqueante)
 
-### B6 + B7 — E2E autenticado (glossário dark / mesas light)
-- **O que faz:** logar em PROD e testar as telas com dados que o smoke local não alcançou — glossário (cards de termo, admin, AddTermModal, forms/selects/validação) no dark; mesas (catálogo com dados, detalhe de mesa, painel, gestão, forms multi-step, modais/notificações) no light. Medir AA, registrar prints/medições. Checklist `dark-readiness-checklist.md` completo p/ esses fluxos.
-- **Por que primeiro:** o lua/sol **já está em produção** como opt-in; é a única coisa que fecha a dark/light-readiness (regra pétrea) e confirma que nenhuma tela real quebrou. **Zero código** se passar. Se adiar, um usuário acha a tela quebrada antes. 
-- **Fecha:** B6, B7.
+### B6 + B7 — E2E autenticado
+- **Estado:** fechado por validacao do mantenedor. B6 glossario dark tem evidencia em `sessoes/26-06-13_1`; B7 mesas light foi validado em prod em 2026-06-15.
+- **Proximo:** nao repetir E2E salvo nova suspeita de regressao.
 
 ## Tier 1 — FUNDAÇÃO DE TOKENS (barato, desbloqueia o resto)
 
@@ -32,9 +31,8 @@
 ## Tier 2 — ANTI-DRIFT (paralelo ao Tier 0/1; benefício prático imediato; independe da cadeia)
 
 ### B2 / T11 — `@artificio/ui/static` + paridade do site
-- **O que faz:** subpath static-only (`faviconV2`/logos/`defaultNavItems`) que o site Astro consome; OU teste de paridade `brand.json`/`MODULES` × `packages/ui` que falha no CI em drift. Detalhe em `brand-static-shell.md`.
-- **Por que cedo/paralelo:** risco de drift é **live** — `Base.astro` puxa `faviconV2` pelo barrel React e `brand.json`/`MODULES` são espelhos sem trava; logo/nav podem divergir em silêncio. Protege o público SEO. Não bloqueia nada.
-- **Fecha:** B2, T11.
+- **Estado:** fechado em 2026-06-15. `@artificio/ui/static` data-only existe; site Astro consome favicon/logos/nav por esse subpath; build do site segue static.
+- **Proximo:** nao reabrir salvo novo drift de shell static.
 
 ### B12 — limpeza do `@import` de fontes
 - **O que faz:** tira o Google Fonts do `@import url()` em `packages/ui/src/styles.css` (self-host das fontes Oswald/Inter OU `preconnect`+`link`).
@@ -63,7 +61,7 @@
 ## Resumo
 
 ```
-Tier 0  B6+B7 E2E ───────────────► fecha lua/sol (já em prod)        [já!]
+Tier 0  B6+B7 E2E ────────────────► fechado por mantenedor
 Tier 1  B11 semânticos + B10b ────► DESTRAVA primitives              [barato, blocker]
 Tier 2  B2/T11 static · B12 fonts ► anti-drift + perf (paralelo)     [independente]
 Tier 3  B4 primitives + B3 HeaderAction ► o grosso (precisa B11)     [caro, SDD]

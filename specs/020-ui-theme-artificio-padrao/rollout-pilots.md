@@ -21,9 +21,9 @@ Ordem canonica para esta spec:
 - Fonte unica de tokens: feita em `packages/ui` (`tokens.ts`, CSS vars, Tailwind preset, paridade).
 - Tema compartilhado: D067 em producao para apps afetados; cookie `artificio_theme` so e escrito em escolha explicita.
 - `accounts`: ja tem login SSO, toggle lua/sol e comportamento D067 correto; ainda duplica helpers locais de tema.
-- `glossario`: variante dark implementada e promovida; residual B6 = E2E autenticado em telas com dados/admin/forms.
-- `mesas`: variante light implementada e promovida com default-dark; residual B7 = E2E autenticado em catalogo/painel/gestao/forms/modais.
-- `site`: caminho Astro/zero-JS fechado em T9; B2/T11 ainda abertos para export/paridade static oficial.
+- `glossario`: variante dark implementada e promovida; B6 fechado por aprovacao do mantenedor em prod registrada na sessao `26-06-13_1`.
+- `mesas`: variante light implementada e promovida com default-dark; B7 fechado em 2026-06-15 por validacao do mantenedor em prod (`/perfil` light com dados + mestre com `banner_url` custom + smoke anti-regressao).
+- `site`: caminho Astro/zero-JS fechado em T9; B2/T11 fechados com `@artificio/ui/static`.
 - `site-admin`: admin React isolado; ainda candidato a primitives/forms/estado quando estas existirem.
 
 ## Regra de entrada comum
@@ -93,7 +93,7 @@ Rollback:
 - nao tocar SSO/migration de dados.
 
 Saida:
-- B6 so fecha quando E2E autenticado com dados estiver registrado.
+- B6 fechado; nova fatia so reabre com evidencia de regressao.
 
 ## Piloto 3 — mesas
 
@@ -102,7 +102,7 @@ Papel: app operacional pesado; referencia dark/actions; maior risco visual.
 Escopo recomendado:
 - preservar default-dark sem cookie;
 - light so por escolha explicita via cookie compartilhado;
-- validar telas auth-gated antes de considerar B7 fechado;
+- manter telas auth-gated cobertas por regressao visual quando mexer no tema; B7 ja esta fechado por validacao do mantenedor;
 - nao centralizar regra de negocio de mesa no theme.
 
 Validacao:
@@ -125,7 +125,7 @@ Rollback:
 - se apenas visual quebrar, nao reverter SSO/backend.
 
 Saida:
-- B7 so fecha quando E2E autenticado com dados estiver registrado.
+- B7 fechado em 2026-06-15; nova fatia so reabre com evidencia de regressao.
 
 ## Piloto 4 — site
 
@@ -150,12 +150,12 @@ Validacao:
 - WP raiz fora de escopo.
 
 Rollback:
-- manter espelho local `brand.json`/`MODULES` temporariamente;
-- voltar `Base.astro` ao favicon atual se export static falhar;
+- voltar imports do site para `@artificio/ui/brand`/`@artificio/ui/modules` se o subpath static falhar;
+- voltar `Base.astro` ao import anterior de favicon;
 - remover mudanca de shell static sem tocar conteudo/importador.
 
 Saida:
-- B2/T11 fecham apenas com export/paridade static oficial ou teste de paridade.
+- B2/T11 fechados; nova fatia do site deve preservar `@artificio/ui/static` e zero-JS do shell.
 
 ## Piloto 5 — site-admin
 
@@ -190,8 +190,8 @@ Saida:
 | Ordem | Consumidor | Tipo | Estado | Fecha |
 |---|---|---|---|---|
 | 1 | `accounts` | SSO/login canario | runtime atual ok; duplicacao local futura | theme runtime consolidado sem regressao auth |
-| 2 | `glossario` | base clara + dark opt-in | codigo promovido; E2E dados pendente | B6 |
-| 3 | `mesas` | dark operacional + light opt-in | codigo promovido; E2E dados pendente | B7 |
+| 2 | `glossario` | base clara + dark opt-in | codigo promovido; E2E B6 validado pelo mantenedor | B6 fechado |
+| 3 | `mesas` | dark operacional + light opt-in | codigo promovido; E2E B7 validado pelo mantenedor | B7 fechado |
 | 4 | `site` | Astro/SSG/SEO | T9 fechado; B2/T11 pendente | B2/T11 |
 | 5 | `site-admin` | admin React/forms | aguarda primitives | T14/primitives |
 
@@ -219,4 +219,4 @@ Todo piloto fecha com:
 
 ## Criterio de fechamento T10
 
-T10 fecha porque a ordem accounts → glossario → mesas → site/site-admin esta definida, cada piloto tem criterio de entrada, validacao, saida e rollback, e o estado real ja executado em dev/prod foi separado dos residuais B2/B6/B7/T11/T14.
+T10 fecha porque a ordem accounts → glossario → mesas → site/site-admin esta definida, cada piloto tem criterio de entrada, validacao, saida e rollback, e o estado real ja executado em dev/prod foi separado do residual T14. B6, B7 e B2 foram fechados depois.

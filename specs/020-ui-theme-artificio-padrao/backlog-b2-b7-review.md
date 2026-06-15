@@ -10,12 +10,12 @@ Revisar os debitos B2-B7 a partir do que esta em `dev`, separar o que fecha por 
 
 | Debito | Estado | Decisao |
 |---|---|---|
-| B2 — export static-friendly site Astro | **parcial** | Estrategia fechada em `astro-zero-js.md` e revisao T11 em `brand-static-shell.md`; implementacao/paridade real ainda aberta. |
+| B2 — export static-friendly site Astro | **fechado** | `@artificio/ui/static` criado e consumido pelo site Astro; sem barrel React/auth para dados static. |
 | B3 — HeaderAction/changelog/notification shell | **parcial** | Slot/classes/actions ja existem; contrato e fronteira documentados em `header-nav-actions.md`; helper runtime `HeaderAction` ainda nao existe. |
 | B4 — primitives | **parcial** | Contrato fechado em `primitives-form-state.md`; implementacao em `packages/ui` fica para T14/fatia propria. |
 | B5 — recipes | **fechado** | Recipes documentadas em `page-recipes.md`; runtime em `packages/ui` nao faz parte do debito. |
-| B6 — dark readiness glossario | **parcial** | Variante dark implementada/promovida; falta E2E autenticado com dados/admin/forms para fechar readiness. |
-| B7 — light readiness mesas | **parcial** | Variante light implementada/promovida com default-dark preservado; falta E2E autenticado nas telas operacionais para fechar readiness. |
+| B6 — dark readiness glossario | **fechado** | Variante dark implementada/promovida; telas com dados/admin/forms aprovadas pelo mantenedor em prod conforme sessão `26-06-13_1`. |
+| B7 — light readiness mesas | **fechado** | Variante light implementada/promovida com default-dark preservado; E2E autenticado final validado pelo mantenedor em prod em 2026-06-15. |
 
 ## B2 — export static-friendly site Astro
 
@@ -25,14 +25,13 @@ O site publico ja cumpre a estrategia static/zero-JS:
 - `global.css` consome `@artificio/ui/styles.css`;
 - build T9 ficou static, com JS de shell ausente em `_astro`.
 
-Mas B2 nao fecha porque:
+B2 fecha em 2026-06-15 porque:
 
-- `Base.astro` ainda importa `faviconV2` pelo barrel principal `@artificio/ui`;
-- `brand.json` ainda espelha logos;
-- `MODULES` ainda espelha `defaultNavItems`;
-- nao ha teste de paridade.
-
-Criterio de fechamento: `@artificio/ui/static` ou teste de paridade real, conforme `brand-static-shell.md`.
+- `@artificio/ui/static` exporta `faviconV2`, logos e `defaultNavItems` sem React/auth/theme;
+- `Base.astro` usa `faviconV2` por `@artificio/ui/static`;
+- `content.ts` usa logos/nav por `@artificio/ui/static`;
+- `prep-fixtures.mjs` nao gera mais `brand.json`;
+- builds `@artificio/ui` e `@artificio/site` verdes, site segue `output: "static"`.
 
 ## B3 — HeaderAction/changelog/notification shell
 
@@ -86,52 +85,34 @@ Os recipes sao guias de composicao, nao componentes obrigatorios. Implementacao 
 
 ## B6 — dark readiness glossario
 
-Estado atual:
+Estado final:
 
 - dark do glossario **em producao** (`glossario.artificiorpg.com`): D065 + PR #24, smoke prod confirmou CSS `[data-theme=dark]` servido;
 - usa `[data-theme="dark"]` e remap de utilities; navy proprio migrado `#1a2744`->`#020740`;
 - toggle usa `ThemeIcon`/`setTheme` canonicos via `actions` (nao `showThemeToggle`), com `variant` reativo;
 - AA medido nos estados principais;
-- smoke publico/local cobriu home, login, modal, mobile e troca ao vivo.
+- smoke publico/local cobriu home, login, modal, mobile e troca ao vivo;
+- sessao `26-06-13_1` registra aprovacao do mantenedor em prod para cards de termo, detalhe, AddTermModal, select/foco/validacao, admin e mobile.
 
-Nao fecha porque faltam telas autenticadas/com dados:
-
-- cards reais de termo;
-- admin;
-- AddTermModal;
-- forms com validacao;
-- selects/dropdowns e estados disabled/erro com dados reais.
-
-Criterio de fechamento: E2E autenticado registrado com prints/medidas AA e checklist T4 completo para esses fluxos.
+Criterio de fechamento cumprido; reabrir so com nova evidencia visual de regressao em prod.
 
 ## B7 — light readiness mesas
 
-Estado atual:
+Estado final:
 
 - light do mesas **em producao** (`mesas.artificiorpg.com`): D066/D067 + PR #25, smoke prod confirmou CSS `[data-theme=light]` servido + boot default-dark;
+- fixes de `/perfil` light e hero com `banner_url` custom publicados via PR #27/#28;
 - `resolveMesasTheme` **honra o cookie compartilhado** (`cookie ? cookie : 'dark'`); sem cookie continua dark;
 - cookie `artificio_theme` so vem de escolha explicita (D067: `accounts`/`site` deixaram de grava-lo no boot);
 - folha `[data-theme="light"]` cobre tokens, white-utils (~1873) e hexes hardcoded principais;
 - smoke publico/local cobriu landing, mobile, troca ao vivo e AA principal.
+- E2E final do mantenedor em 2026-06-15 confirmou `/perfil` light com dados reais, perfil publico de mestre com `banner_url` custom e smoke anti-regressao em prod.
 
-Nao fecha porque faltam telas operacionais autenticadas:
-
-- catalogo com dados;
-- detalhe de mesa;
-- painel;
-- gestao/admin;
-- forms multi-step;
-- modais/drawers;
-- notificacao/changelog no contexto real.
-
-Criterio de fechamento: E2E autenticado registrado com prints/medidas AA e checklist T4 completo, confirmando default-dark sem cookie e light somente por escolha/cookie.
+Criterio de fechamento cumprido por validacao do mantenedor; reabrir so com nova evidencia visual de regressao em prod.
 
 ## Ordem recomendada
 
-1. Fechar B6/B7 com E2E autenticado, sem novo codigo se os fluxos passarem.
-2. Implementar B2 via `@artificio/ui/static` ou teste de paridade.
-3. Cadeia de tokens: B10a (`navy` na trava — **feito**) -> B10b (superficies dark/light ad-hoc dos pilotos) -> **B11** (semanticos `success/warning/danger/info` + shadow/spacing). B11 destrava as variantes coloridas.
-4. Implementar B4 primitives neutras primeiro; variantes coloridas (`Button`/`Badge`/`Panel`/`State`) so apos B11.
-5. Implementar B3 `HeaderAction` junto das primitives.
-6. Usar B5 como guia para novas telas; extrair recipe runtime so quando houver duplicacao real.
-7. Em paralelo, B12 (limpeza do `@import` de fontes: ordem + perf/privacidade) quando tocar o CSS compartilhado.
+1. B6, B7 e B2 estao fechados.
+2. Proximo: B4 primitives neutras e B3 `HeaderAction`.
+3. Usar B5 como guia para novas telas; extrair recipe runtime so quando houver duplicacao real.
+4. Em paralelo, B12 (limpeza do `@import` de fontes: ordem + perf/privacidade) quando tocar o CSS compartilhado.

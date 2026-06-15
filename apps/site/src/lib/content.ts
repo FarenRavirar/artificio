@@ -2,9 +2,8 @@
 // Etapa futura: vira Content Layer loader lendo o store Postgres (D005/D048).
 import postsData from "../data/posts.json";
 import pagesData from "../data/pages.json";
-// Marca + nav do portal = FONTE ÚNICA em @artificio/ui (D062/D-SHELL1). Sem espelho local.
-import { brandLogoNavy, brandLogoNeg } from "@artificio/ui/brand";
-import { defaultNavItems } from "@artificio/ui/modules";
+// Marca + nav do portal = FONTE ÚNICA static-safe em @artificio/ui (D062/D-SHELL1/B2).
+import { brandLogoNavy, brandLogoNeg, defaultNavItems } from "@artificio/ui/static";
 
 export interface Term {
   name: string;
@@ -72,10 +71,7 @@ export function related(p: Post, n = 3): Post[] {
   return (r.length ? r : posts.filter((o) => o.id !== p.id)).slice(0, n);
 }
 
-// Nav cross-projetos do portal (unidade D017: une apps por nav + SSO + design system).
-// Espelha `defaultNavItems` do @artificio/ui; replicado local (zero-JS no Astro, sem puxar
-// o barrel React/@artificio/auth do header). Mantido em sync com packages/ui/src/modules.ts.
-// Nav primário do portal = FONTE ÚNICA `defaultNavItems` (@artificio/ui). Sem espelho local.
+// Nav cross-projetos do portal (D017): fonte unica static-safe, sem barrel React/auth.
 export const MODULES: { label: string; href: string }[] = defaultNavItems;
 
 // Nav secundário (2ª linha): categorias principais do blog. Não substitui o nav do portal.

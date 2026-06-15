@@ -16,6 +16,10 @@
       "types": "./dist/modules.d.ts",
       "import": "./dist/modules.js"
     },
+    "./static": {
+      "types": "./dist/static.d.ts",
+      "import": "./dist/static.js"
+    },
     "./feedback": {
       "types": "./dist/feedback.d.ts",
       "import": "./dist/feedback.js"

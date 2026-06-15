@@ -5,12 +5,14 @@
 - **Modulo/Pacote:** `apps/glossario` (dark) + `apps/mesas` (light) — somente verificacao em PROD
 - **Gate relacionado:** nenhum. WP raiz/DNS/VM/deploy/producao fora de escopo. Sem commit/push/deploy.
 - **Spec vinculada:** `specs/020-ui-theme-artificio-padrao/` (B6, B7), checklist `dark-readiness-checklist.md` (T4)
-- **Estado:** ABERTA — guiando E2E com o mantenedor logado em prod
+- **Estado:** ABERTA para B6/residuais historicos; B7 fechado depois por validacao do mantenedor em 2026-06-15.
 
 ## Objetivo
 Fechar B6 e B7 com E2E autenticado em PRODUCAO. lua/sol JA esta em prod como opt-in
 (D065 glossario dark, D066/D067 mesas light, tema compartilhado cross-subdominio).
 Falta a unica coisa que o smoke local nao alcancou: as telas COM DADOS (auth-gated).
+
+Atualizacao 2026-06-15: B7 foi fechado por validacao do mantenedor em prod (`/perfil` light com dados + mestre com `banner_url` custom + smoke anti-regressao). As instrucoes de revalidar B7 abaixo ficam como historico ate a data da sessao, nao como proximo passo ativo.
 
 Regra petrea (R4/R8): so se considera dark/light-readiness fechada quando a variante
 faltante passa o checklist nas telas reais com dados. Se passar = ZERO codigo. Se falhar
@@ -143,7 +145,7 @@ branco+ink, cta-secondary navy-alpha+ink, badge-mestre `#c2410c`, featured-price
 - **Mudanças:** `apps/glossario/frontend/src/index.css` consome `--artificio-dark-*` no bloco dark; `apps/mesas/frontend/src/index.css` consome `--artificio-light-*` em surfaces/ink, remaps de hex com opacidade e `.glass`; `apps/mesas/frontend/src/pages/MestrePage.css` consome `--artificio-light-*` em canvas/surface/subtle/strong/ink do bloco light da página do mestre.
 - **Limite intencional:** hexes restantes nesses blocos são seletores Tailwind originais (`.bg-[#...]`), alphas derivados (`rgba(11,18,32,...)`), semânticos AA (`#15803d`, `#a16207`, etc.) ou comentários históricos; não são nova fonte de superfície/ink.
 - **Validação:** `node packages/ui/scripts/check-token-parity.mjs` OK (31 papéis); `pnpm --filter=@artificio/glossario-frontend build` OK; `pnpm --filter=@artificio/mesas-frontend build` OK; `git diff --check` OK; `pnpm turbo run build` OK (13/13, warnings de chunk e `@import` de fonte já conhecidos/B12).
-- **Estado:** B10b fechado localmente. B6/B7 ainda dependem de deploy autorizado + re-verificação autenticada em prod das telas com dados.
+- **Estado em 2026-06-13:** B10b fechado localmente; B6/B7 ainda dependiam de deploy autorizado + re-verificação autenticada em prod das telas com dados. **Atualizacao 2026-06-15:** B7 fechado por validacao do mantenedor.
 
 ## Evidencia pos-deploy PROD (2026-06-13)
 - **Checks PR #26:** Amazon Q, accounts build/test, glossario CI, mesas CI, site CI, lint/actionlint/ShellCheck/guard/enforce = verdes.
@@ -156,7 +158,7 @@ branco+ink, cta-secondary navy-alpha+ink, badge-mestre `#c2410c`, featured-price
 
 ## Criterio de conclusao
 - B6 fechado: glossario dark passa itens 1-7 nas telas com dados; evidencia registrada.
-- B7 ainda nao fechado depois do achado `/perfil`: precisa subir fix local e revalidar `/perfil` + mestre com banner custom em beta/prod.
+- B7 ainda nao estava fechado depois do achado `/perfil`: precisava subir fix local e revalidar `/perfil` + mestre com banner custom em beta/prod. **Superado em 2026-06-15 por validacao do mantenedor em prod.**
 - `project-state.md` atualizado localmente.
 - Sem achado bloqueante restante para B6; B7 tem fix local pendente de publicacao.
 
@@ -187,4 +189,4 @@ branco+ink, cta-secondary navy-alpha+ink, badge-mestre `#c2410c`, featured-price
 - **Deploy prod:** `deploy-mesas.yml` ref main mode=deploy (run 27479794040) = success (inclui smoke de rotas criticas do workflow). accounts/glossario nao redeployados (sem mudanca de codigo; FF so trouxe CSS do mesas + docs).
 - **Smoke HTTP prod:** `mesas_home=200`, `mesas_me_options_no_cookie=401`, `wp_root=200` (WP raiz intocado).
 - **CSS prod servido (`/assets/index-BcYl4OdG.css`):** `profile-edit-page{--profile-ink` presente (bloco light novo do perfil deployado), aliases `--profile-*` presentes, `artificio-dark-text` presente no hero com banner (`hero-section:has(.hero-banner)`).
-- **B7 ainda NAO fechado:** falta E2E autenticado do mantenedor em PROD — `/perfil` light legivel com dados reais + perfil publico de mestre com `banner_url` custom em light + smoke catalogo/painel anti-regressao. So fechar B7 apos esse OK.
+- **B7 FECHADO depois, em 2026-06-15:** mantenedor validou em PROD `/perfil` light legivel com dados reais + perfil publico de mestre com `banner_url` custom em light + smoke anti-regressao. Registro consolidado em `sessoes/26-06-15_2_docs-specs-backlog-audit.md`, `specs/backlog.md`, `tasks.md` e `project-state.md`.
