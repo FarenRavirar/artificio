@@ -72,19 +72,19 @@ export function TableCardDashboard({
   return (
     <div className={`relative rounded-2xl border p-4 flex flex-col gap-3 hover:scale-[1.01] transition-all ${
       isInactive 
-        ? 'border-white/5 bg-[#13213f]/40 opacity-60' // Desativada: borda sutil, fundo escurecido, opacidade reduzida
-        : 'border-white/10 bg-[#13213f]' // Ativa: estilo normal
+        ? 'border-[var(--line)] bg-[var(--surface-subtle)] opacity-60' // Desativada: borda sutil, fundo escurecido, opacidade reduzida
+        : 'border-[var(--line)] bg-[var(--surface-subtle)]' // Ativa: estilo normal
     }`}>
       {/* BADGE DE STATUS - Apenas para mesas desativadas */}
       {isInactive && (
-        <div className="absolute top-2 right-2 bg-gray-500/80 text-white text-xs px-2 py-1 rounded-md font-medium z-10">
+        <div className="absolute top-2 right-2 bg-[var(--fill-strong)] text-[var(--fg)] text-xs px-2 py-1 rounded-md font-medium z-10">
           {table.status === 'cancelled' ? '⏸️ Desativada' : '🏁 Encerrada'}
         </div>
       )}
 
       {/* BADGE DE ARQUIVAMENTO (D-MESAS1) — some do catálogo público */}
       {table.archived && (
-        <div className="absolute top-2 left-2 bg-[var(--artificio-bronze)] text-white text-xs px-2 py-1 rounded-md font-medium z-20">
+        <div className="absolute top-2 left-2 bg-[var(--artificio-bronze)] text-[var(--fg)] text-xs px-2 py-1 rounded-md font-medium z-20">
           🗄️ Arquivada
         </div>
       )}
@@ -92,7 +92,7 @@ export function TableCardDashboard({
       {/* IMAGE */}
       <a 
         href={`/mesas/${table.slug}`}
-        className={`relative block h-32 rounded-lg overflow-hidden bg-white/10 hover:opacity-90 transition-opacity cursor-pointer ${
+        className={`relative block h-32 rounded-lg overflow-hidden bg-[var(--fill)] hover:opacity-90 transition-opacity cursor-pointer ${
           isInactive ? 'grayscale' : '' // Desativada: imagem em escala de cinza
         }`}
       >
@@ -113,7 +113,7 @@ export function TableCardDashboard({
               href={table.vtt_platform.website_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="absolute bottom-2 right-2 h-8 min-w-8 px-1.5 rounded-md bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center hover:bg-black/70 hover:border-white/40 transition-colors"
+              className="absolute bottom-2 right-2 h-8 min-w-8 px-1.5 rounded-md bg-black/55 border border-[var(--line-strong)] backdrop-blur-sm inline-flex items-center justify-center hover:bg-black/70 hover:border-[var(--line-strong)] transition-colors"
               title={`${table.vtt_platform.name} - Abrir site oficial`}
               onClick={(e) => e.stopPropagation()}
             >
@@ -128,7 +128,7 @@ export function TableCardDashboard({
             </a>
           ) : (
             <span
-              className="absolute bottom-2 right-2 h-8 min-w-8 px-1.5 rounded-md bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center"
+              className="absolute bottom-2 right-2 h-8 min-w-8 px-1.5 rounded-md bg-black/55 border border-[var(--line-strong)] backdrop-blur-sm inline-flex items-center justify-center"
               title={table.vtt_platform.name}
             >
               <img
@@ -149,12 +149,12 @@ export function TableCardDashboard({
         <a 
           href={`/mesas/${table.slug}`}
           className={`font-semibold line-clamp-2 hover:text-[var(--color-artificio-orange)] transition-colors cursor-pointer ${
-            isInactive ? 'text-white/50' : 'text-white' // Desativada: texto mais apagado
+            isInactive ? 'text-[var(--fg-muted)]' : 'text-[var(--fg)]' // Desativada: texto mais apagado
           }`}
         >
           {table.title}
         </a>
-        <div className="flex items-center gap-2 text-xs text-white/50 mt-1">
+        <div className="flex items-center gap-2 text-xs text-[var(--fg-muted)] mt-1">
           {table.system_name && (
             <SystemBadge
               name={table.system_name}
@@ -172,20 +172,20 @@ export function TableCardDashboard({
       {/* STATUS HUMANO */}
       <div className="text-sm">
         {isInactive ? (
-          <span className="text-gray-400">
+          <span className="text-[var(--fg-muted)]">
             {table.status === 'cancelled' ? '⏸️ Mesa pausada' : '🏁 Mesa encerrada'}
           </span>
         ) : openSlots === 0 ? (
-          <span className="text-red-400">🔥 Mesa cheia</span>
+          <span className="text-[var(--state-danger-fg)]">🔥 Mesa cheia</span>
         ) : openSlots <= 2 ? (
-          <span className="text-yellow-400">⚡ Últimas vagas ({openSlots})</span>
+          <span className="text-[var(--state-warning-fg)]">⚡ Últimas vagas ({openSlots})</span>
         ) : (
-          <span className="text-green-400">✅ {openSlots} vagas abertas</span>
+          <span className="text-[var(--state-success-fg)]">✅ {openSlots} vagas abertas</span>
         )}
       </div>
 
       {/* METRICS */}
-      <div className="flex gap-3 text-xs text-white/60">
+      <div className="flex gap-3 text-xs text-[var(--fg-muted)]">
         <span title="Visualizações">👁️ {metrics.views}</span>
         <span title="Contatos">💬 {metrics.contacts}</span>
         <span title="Favoritos">❤️ {metrics.favorites}</span>
@@ -193,7 +193,7 @@ export function TableCardDashboard({
 
       {/* INSIGHT AUTOMÁTICO */}
       {hasPerformanceIssue && !isInactive && (
-        <div className="text-xs bg-yellow-500/10 border border-yellow-500/20 p-2 rounded-lg text-yellow-300">
+        <div className="text-xs bg-[var(--state-warning-bg)] border border-[var(--state-warning-line)] p-2 rounded-lg text-[var(--state-warning-fg)]">
           💡 Muitas visualizações, poucos contatos. Tente melhorar título ou imagem.
         </div>
       )}
@@ -202,7 +202,7 @@ export function TableCardDashboard({
       <div className="mt-2 grid grid-cols-2 gap-2">
         <button
           onClick={() => onEdit(table.id)}
-          className="py-2 text-xs bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+          className="py-2 text-xs bg-[var(--artificio-info)] hover:bg-[var(--state-info-bg)] rounded-lg transition-colors"
         >
           Editar
         </button>
@@ -210,7 +210,7 @@ export function TableCardDashboard({
         <button
           onClick={() => onToggle(table)}
           disabled={isToggling}
-          className="py-2 text-xs bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 rounded-lg transition-colors"
+          className="py-2 text-xs bg-[var(--artificio-warning)] hover:bg-[var(--state-warning-bg)] disabled:opacity-50 rounded-lg transition-colors"
         >
           {isToggling ? '⏳' : table.status === 'active' ? 'Desativar' : 'Ativar'}
         </button>
@@ -219,7 +219,7 @@ export function TableCardDashboard({
           <button
             onClick={() => onArchive(table)}
             disabled={isArchiving}
-            className="col-span-2 py-2 text-xs bg-[var(--artificio-bronze)] hover:brightness-110 text-white disabled:opacity-50 rounded-lg transition"
+            className="col-span-2 py-2 text-xs bg-[var(--artificio-bronze)] hover:brightness-110 text-[var(--fg)] disabled:opacity-50 rounded-lg transition"
           >
             {isArchiving ? '⏳' : table.archived ? '♻️ Desarquivar' : '🗄️ Arquivar'}
           </button>

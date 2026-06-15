@@ -44,7 +44,14 @@
 
 ## Fase 2 — Mesas por áreas (dark-default; ~2000 ocorrências, 134 tsx; default-dark deve ficar pixel-igual)
 
-- [ ] **T8 — Área PERFIL/MestrePage primeiro (resolve o bug reportado).** Migrar `.tsx`
+- [x] **T8 — Área PERFIL/MestrePage (resolve o bug)** (feito 2026-06-15, branch
+  `022-mesas-t8-perfil`). tsx via `migrate-mesas-t8.mjs` + 6 CSS reescritos (MestrePage.css,
+  ProfileEditPage.css com blocos `[data-theme=light]` REMOVIDOS; LinksDisplay/LinksManager/
+  UserSystemsSelector/SettingStylesField.css). Guia pétreo em `style-guide.md`. Build 13/13,
+  parity OK. Vars resolvem nos 2 temas (light `--state-warning-fg`=#a16207 AA = bug corrigido por
+  construção; dark unificado #eef1f8). Prova visual com dados vivos = beta (backend off no preview).
+  Resto abaixo (descrição original):
+- [ ] **T8 (orig) — Área PERFIL/MestrePage primeiro (resolve o bug reportado).** Migrar `.tsx`
   `features/table/components/{MasterCard,TableActionPanel,TableMaster}.tsx`,
   `components/{LinksDisplay,TableCardDashboard}.tsx` às vars semânticas **+ todo o CSS próprio da
   área** (decisão 2026-06-14: corrigir o `.css` hardcoded junto, senão refaz depois):

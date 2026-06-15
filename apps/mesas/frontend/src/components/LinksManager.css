@@ -1,4 +1,4 @@
-/* LinksManager Component */
+/* LinksManager Component. Spec 022 T8: cores via vars canônicas. */
 
 .links-manager {
   margin-top: 2rem;
@@ -15,7 +15,7 @@
 }
 
 .links-manager-subtitle {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--fg-muted);
   font-size: 0.875rem;
 }
 
@@ -25,15 +25,15 @@
   align-items: center;
   gap: 1rem;
   padding: 3rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--fg-muted);
 }
 
 .links-manager-error {
   padding: 1rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--state-danger-bg);
+  border: 1px solid var(--state-danger-line);
   border-radius: 8px;
-  color: #ef4444;
+  color: var(--state-danger-fg);
   margin-bottom: 1rem;
 }
 
@@ -50,10 +50,10 @@
 .links-add-input {
   flex: 1;
   padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: white;
+  color: var(--fg);
   font-size: 0.875rem;
   transition: all 0.2s;
 }
@@ -61,7 +61,7 @@
 .links-add-input:focus {
   outline: none;
   border-color: var(--color-artificio-orange);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface);
 }
 
 .links-add-input:disabled {
@@ -75,7 +75,7 @@
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
   background: var(--color-artificio-orange);
-  color: white;
+  color: #ffffff;
   border: none;
   border-radius: 8px;
   font-weight: 600;
@@ -95,13 +95,13 @@
 
 .links-add-error {
   margin-top: 0.5rem;
-  color: #ef4444;
+  color: var(--state-danger-fg);
   font-size: 0.875rem;
 }
 
 .links-limit-warning {
   margin-top: 0.5rem;
-  color: #fbbf24;
+  color: var(--state-warning-fg);
   font-size: 0.875rem;
 }
 
@@ -116,15 +116,15 @@
   display: flex;
   gap: 1rem;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 12px;
   transition: all 0.2s;
 }
 
 .link-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--surface-strong);
+  border-color: var(--line-strong);
 }
 
 .link-item-icon {
@@ -169,7 +169,7 @@
 
 .link-item-description {
   font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--fg-muted);
   margin-bottom: 0.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -178,7 +178,7 @@
 
 .link-item-url {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--fg-muted);
   text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -199,17 +199,17 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--fg-muted);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .link-item-remove:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #ef4444;
+  background: var(--state-danger-bg);
+  border-color: var(--state-danger-line);
+  color: var(--state-danger-fg);
 }
 
 /* Empty State */
@@ -219,25 +219,25 @@
   align-items: center;
   padding: 3rem 2rem;
   text-align: center;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border: 1px dashed var(--line-strong);
   border-radius: 12px;
 }
 
 .links-empty-icon {
   width: 3rem;
   height: 3rem;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--fg-muted);
   margin-bottom: 1rem;
 }
 
 .links-empty p {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--fg-muted);
   margin-bottom: 0.5rem;
 }
 
 .links-empty-hint {
   font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--fg-muted);
 }
 
 /* Spinner */
@@ -254,9 +254,7 @@
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 /* Responsive */
@@ -264,12 +262,10 @@
   .links-add-input-wrapper {
     flex-direction: column;
   }
-
   .link-item {
     flex-direction: column;
     gap: 0.75rem;
   }
-
   .link-item-remove {
     align-self: flex-end;
   }

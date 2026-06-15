@@ -26,7 +26,7 @@ export function MasterCard({ masterName, masterSlug, masterAvatar, masterBio, ma
   return (
     <a
       href={`/mestre/${masterSlug}`}
-      className="block p-6 rounded-xl bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 hover:border-purple-500/40 transition-all hover:scale-[1.02] group"
+      className="block p-6 rounded-xl bg-gradient-to-br from-[rgba(168,85,247,0.10)] to-[var(--state-info-bg)] border border-[rgba(168,85,247,0.20)] hover:border-[rgba(168,85,247,0.40)] transition-all hover:scale-[1.02] group"
     >
       <div className="flex items-start gap-4">
         {/* Avatar */}
@@ -35,11 +35,11 @@ export function MasterCard({ masterName, masterSlug, masterAvatar, masterBio, ma
             <img
               src={masterAvatar}
               alt={masterName}
-              className="w-16 h-16 rounded-full object-cover border-2 border-purple-500/30 group-hover:border-purple-500/60 transition"
+              className="w-16 h-16 rounded-full object-cover border-2 border-[rgba(168,85,247,0.30)] group-hover:border-[rgba(168,85,247,0.60)] transition"
             />
           ) : (
-            <div className="w-16 h-16 rounded-full bg-purple-500/20 border-2 border-purple-500/30 group-hover:border-purple-500/60 transition flex items-center justify-center">
-              <User className="w-8 h-8 text-purple-300" />
+            <div className="w-16 h-16 rounded-full bg-[rgba(168,85,247,0.20)] border-2 border-[rgba(168,85,247,0.30)] group-hover:border-[rgba(168,85,247,0.60)] transition flex items-center justify-center">
+              <User className="w-8 h-8 text-[var(--special)]" />
             </div>
           )}
         </div>
@@ -47,16 +47,16 @@ export function MasterCard({ masterName, masterSlug, masterAvatar, masterBio, ma
         {/* Conteúdo */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-lg font-bold text-white group-hover:text-purple-300 transition">
+            <h3 className="text-lg font-bold text-[var(--fg)] group-hover:text-[var(--special)] transition">
               {masterName}
             </h3>
-            <span className="text-xs text-purple-300/60 uppercase tracking-wide">
+            <span className="text-xs text-[var(--special)] uppercase tracking-wide">
               Mestre
             </span>
           </div>
 
           {masterBio && (
-            <p className="text-sm text-white/70 line-clamp-2 mb-3">
+            <p className="text-sm text-[var(--fg-muted)] line-clamp-2 mb-3">
               {masterBio}
             </p>
           )}
@@ -65,8 +65,8 @@ export function MasterCard({ masterName, masterSlug, masterAvatar, masterBio, ma
           {masterVttPlatforms && masterVttPlatforms.length > 0 && (
             <div className="mb-3">
               <div className="flex items-center gap-1.5 mb-2">
-                <Gamepad2 className="w-3.5 h-3.5 text-purple-300/70" />
-                <span className="text-xs text-purple-300/70 font-semibold uppercase tracking-wide">
+                <Gamepad2 className="w-3.5 h-3.5 text-[var(--special)]" />
+                <span className="text-xs text-[var(--special)] font-semibold uppercase tracking-wide">
                   Plataformas que uso
                 </span>
               </div>
@@ -74,7 +74,7 @@ export function MasterCard({ masterName, masterSlug, masterAvatar, masterBio, ma
                 {masterVttPlatforms.map((platform) => (
                   <div
                     key={platform.id}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20"
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[rgba(168,85,247,0.10)] border border-[rgba(168,85,247,0.20)]"
                   >
                     {platform.logo_filename && (
                       <img
@@ -83,14 +83,14 @@ export function MasterCard({ masterName, masterSlug, masterAvatar, masterBio, ma
                         className="w-4 h-4 object-contain"
                       />
                     )}
-                    <span className="text-xs text-white/80">{platform.name}</span>
+                    <span className="text-xs text-[var(--fg-muted)]">{platform.name}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <div className="flex items-center gap-2 text-sm text-purple-300 group-hover:text-purple-200 transition">
+          <div className="flex items-center gap-2 text-sm text-[var(--special)] group-hover:text-[var(--special)] transition">
             <span>Ver perfil completo</span>
             <svg
               className="w-4 h-4 group-hover:translate-x-1 transition-transform"
