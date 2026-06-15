@@ -1,7 +1,12 @@
+/* ProfileEditPage — Spec 022 T8: cores via vars canônicas (@artificio/ui), viram por
+   [data-theme]. Bloco de override [data-theme=light] removido (tema vira só nas vars).
+   Exceções mantidas: marca laranja (CTA/acento), identidade de plataforma (Discord #5865f2,
+   Google #4285f4), gradientes decorativos (avatar, badges de papel), scrims rgba(0,0,0,*). */
+
 .profile-edit-page {
   max-width: 900px;
   margin: 0 auto;
-  padding: 1.5rem; /* REFINAMENTO: reduzido de 2rem */
+  padding: 1.5rem;
   min-height: 100vh;
 }
 
@@ -14,13 +19,13 @@
   justify-content: center;
   min-height: 400px;
   gap: 1rem;
-  color: white;
+  color: var(--fg);
 }
 
 .spinner {
   width: 48px;
   height: 48px;
-  border: 4px solid rgba(255, 255, 255, 0.1);
+  border: 4px solid var(--line);
   border-left-color: var(--color-artificio-orange);
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -30,16 +35,14 @@
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid var(--line);
   border-left-color: var(--color-artificio-orange);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 /* Header */
@@ -48,12 +51,11 @@
   align-items: center;
   gap: 1.25rem;
   padding: 1.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 12px;
   margin-bottom: 1.5rem;
-  justify-content: space-between; /* CIRÚRGICO: usar espaço direito */
+  justify-content: space-between;
 }
 
 .profile-avatar {
@@ -77,22 +79,22 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  color: #ffffff;
   font-size: 2rem;
   font-weight: bold;
 }
 
 .profile-info {
-  flex: 1; /* CIRÚRGICO: ocupar espaço disponível */
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem; /* CIRÚRGICO: espaçamento entre main e meta */
+  gap: 0.75rem;
 }
 
 .profile-main {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem; /* CIRÚRGICO: compacto */
+  gap: 0.25rem;
 }
 
 .profile-name-row {
@@ -104,10 +106,10 @@
 
 .profile-info h1 {
   margin: 0;
-  font-size: 1.625rem; /* CIRÚRGICO: reduzido de 1.75rem */
-  color: white;
+  font-size: 1.625rem;
+  color: var(--fg);
   font-weight: 700;
-  letter-spacing: -0.01em; /* CIRÚRGICO: mais refinado */
+  letter-spacing: -0.01em;
 }
 
 .profile-role-badge {
@@ -123,19 +125,19 @@
 
 .profile-role-badge.badge-gm {
   background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  color: white;
+  color: #ffffff;
   box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
 }
 
 .profile-role-badge.badge-admin {
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
+  color: #ffffff;
   box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
 }
 
 .profile-email {
   margin: 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--fg-muted);
   font-size: 0.875rem;
 }
 
@@ -149,7 +151,7 @@
 .profile-meta {
   display: flex;
   align-items: center;
-  gap: 0.75rem; /* CIRÚRGICO: espaçamento entre botão e autosave */
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
@@ -157,13 +159,13 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  margin: 0; /* CIRÚRGICO: sem margin-top */
-  padding: 0.5rem 0.875rem; /* CIRÚRGICO: mais compacto */
+  margin: 0;
+  padding: 0.5rem 0.875rem;
   background: var(--color-artificio-orange);
   border: none;
   border-radius: 8px;
-  color: white;
-  font-size: 0.8125rem; /* CIRÚRGICO: menor */
+  color: #ffffff;
+  font-size: 0.8125rem;
   font-weight: 600;
   text-decoration: none;
   transition: all 0.2s;
@@ -171,7 +173,7 @@
 }
 
 .btn-view-public-profile:hover {
-  background: #ea580c;
+  background: var(--color-artificio-orange-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
 }
@@ -184,8 +186,8 @@
   display: inline-block;
   margin: 0.5rem 0 0 0;
   padding: 0.5rem 1rem;
-  background: rgba(249, 115, 22, 0.1);
-  border: 1px solid rgba(249, 115, 22, 0.3);
+  background: rgba(255, 87, 34, 0.1);
+  border: 1px solid rgba(255, 87, 34, 0.3);
   border-radius: 8px;
   color: var(--color-artificio-orange);
   font-size: 0.75rem;
@@ -195,91 +197,83 @@
 }
 
 .profile-public-link:hover {
-  background: rgba(249, 115, 22, 0.2);
+  background: rgba(255, 87, 34, 0.2);
   border-color: var(--color-artificio-orange);
 }
-
 
 .autosave-indicator {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.375rem 0.75rem; /* CIRÚRGICO: reduzido de 0.5rem 1rem */
-  border-radius: 6px; /* CIRÚRGICO: reduzido de 8px */
-  font-size: 0.8125rem; /* CIRÚRGICO: reduzido de 0.875rem */
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
   transition: all 0.3s ease;
 }
 
 .autosave-indicator.saving {
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  color: #60a5fa;
+  background: var(--state-info-bg);
+  border: 1px solid var(--state-info-line);
+  color: var(--state-info-fg);
 }
 
 .autosave-indicator.saved {
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  color: #4ade80;
+  background: var(--state-success-bg);
+  border: 1px solid var(--state-success-line);
+  color: var(--state-success-fg);
   animation: fadeIn 0.3s ease;
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Tabs */
 .profile-tabs {
   display: flex;
-  gap: 0.25rem; /* REFINAMENTO: reduzido de 0.5rem */
-  margin-bottom: 1.5rem; /* REFINAMENTO: reduzido de 2rem */
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--line);
 }
 
 .tab {
-  padding: 0.75rem 1.25rem; /* REFINAMENTO: reduzido de 1rem 1.5rem */
+  padding: 0.75rem 1.25rem;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.9375rem; /* REFINAMENTO: reduzido de 1rem */
+  color: var(--fg-muted);
+  font-size: 0.9375rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
   margin-bottom: -2px;
-  border-radius: 8px 8px 0 0; /* REFINAMENTO: adicionar radius no topo */
+  border-radius: 8px 8px 0 0;
 }
 
 .tab:hover {
-  color: white;
-  background: rgba(255, 255, 255, 0.03); /* REFINAMENTO: adicionar hover sutil */
+  color: var(--fg);
+  background: var(--fill-subtle);
 }
 
 .tab.active {
   color: var(--color-artificio-orange);
   border-bottom-color: var(--color-artificio-orange);
-  background: rgba(249, 115, 22, 0.08); /* REFINAMENTO: background ativo */
-  font-weight: 600; /* REFINAMENTO: peso maior quando ativo */
+  background: rgba(255, 87, 34, 0.08);
+  font-weight: 600;
 }
 
 /* Tab Content */
 .tab-content {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 1.5rem; /* REFINAMENTO: reduzido de 2rem */
+  padding: 1.5rem;
 }
 
 /* Form Sections */
 .form-section {
-  margin-bottom: 1.5rem; /* REFINAMENTO: reduzido de 2rem */
+  margin-bottom: 1.5rem;
 }
 
 .form-section:last-child {
@@ -287,22 +281,22 @@
 }
 
 .form-section h2 {
-  margin: 0 0 0.75rem 0; /* REFINAMENTO: reduzido de 1rem */
-  font-size: 1.125rem; /* REFINAMENTO: reduzido de 1.25rem */
-  color: white;
-  font-weight: 600; /* REFINAMENTO: adicionar peso */
+  margin: 0 0 0.75rem 0;
+  font-size: 1.125rem;
+  color: var(--fg);
+  font-weight: 600;
 }
 
 .section-description {
-  margin: 0 0 0.75rem 0; /* REFINAMENTO: reduzido de 1rem */
-  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 0.75rem 0;
+  color: var(--fg-muted);
   font-size: 0.875rem;
-  line-height: 1.5; /* REFINAMENTO: melhorar legibilidade */
+  line-height: 1.5;
 }
 
 .field-description {
   margin: 0 0 0.75rem 0;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--fg-muted);
   font-size: 0.8125rem;
   line-height: 1.4;
   font-style: italic;
@@ -310,7 +304,7 @@
 
 /* Form Groups */
 .form-group {
-  margin-bottom: 1.25rem; /* REFINAMENTO: reduzido de 1.5rem */
+  margin-bottom: 1.25rem;
 }
 
 .form-group:last-child {
@@ -321,20 +315,20 @@
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 500;
-  color: white; /* CORREÇÃO P21: label branco para contraste */
+  color: var(--fg);
   font-size: 0.875rem;
 }
 
 .form-group input[type='text'],
 .form-group input[type='number'],
-.form-group input[type='url'], /* CORREÇÃO P21: adicionar type url */
+.form-group input[type='url'],
 .form-group select,
 .form-group textarea {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2); /* CORREÇÃO P21: borda clara */
-  background: rgba(255, 255, 255, 0.1); /* CORREÇÃO CONTRASTE: aumentado de 0.05 para 0.1 */
-  color: white; /* CORREÇÃO P21: texto branco */
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--fg);
   border-radius: 8px;
   font-size: 1rem;
   transition: all 0.2s;
@@ -342,24 +336,25 @@
 
 /* Estilos para options dos selects */
 .form-group select option {
-  background: #1e293b; /* Fundo escuro consistente */
-  color: white;
+  background: var(--surface);
+  color: var(--fg);
   padding: 0.5rem;
 }
 
 .form-group select option:checked {
   background: var(--color-artificio-orange);
-  color: white;
+  color: #ffffff;
 }
 
 .form-group select.app-select {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
-  color: #ffffff;
+  border: 1px solid var(--line);
+  background: var(--fill-subtle);
+  color: var(--fg);
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
 }
 
+/* dropdown nativo: fundo branco do SO (acessibilidade), exceção */
 .form-group select.app-select option,
 .form-group select.app-select optgroup {
   background: #ffffff;
@@ -370,15 +365,15 @@
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: var(--color-artificio-orange); /* CORREÇÃO P21: focus laranja */
+  border-color: var(--color-artificio-orange);
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface);
 }
 
 .form-group small {
   display: block;
   margin-top: 0.5rem;
-  color: rgba(255, 255, 255, 0.6); /* CORREÇÃO P21: small text claro */
+  color: var(--fg-muted);
   font-size: 0.75rem;
 }
 
@@ -390,49 +385,43 @@
 /* Playstyle Grid */
 .playstyle-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* CIRÚRGICO: grid 2x2 fixo */
-  gap: 1rem; /* CIRÚRGICO: reduzido de 1.25rem */
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
 }
 
 .playstyle-item {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
-  background: rgba(255, 255, 255, 0.04); /* CIRÚRGICO: card leve */
-  border: 1px solid rgba(255, 255, 255, 0.08); /* CIRÚRGICO: borda sutil */
-  padding: 0.75rem; /* CIRÚRGICO: padding interno */
-  border-radius: 10px; /* CIRÚRGICO: arredondado */
-  transition: all 0.2s; /* CIRÚRGICO: transição suave */
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  padding: 0.75rem;
+  border-radius: 10px;
+  transition: all 0.2s;
 }
 
 .playstyle-item:hover {
-  border-color: rgba(249, 115, 22, 0.3); /* CIRÚRGICO: hover laranja */
-  background: rgba(255, 255, 255, 0.06); /* CIRÚRGICO: destaque no hover */
+  border-color: rgba(255, 87, 34, 0.3);
+  background: var(--surface-strong);
 }
 
 .playstyle-item label {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.8125rem; /* CIRÚRGICO: reduzido de 0.875rem */
+  font-size: 0.8125rem;
   font-weight: 500;
-  color: white;
-  letter-spacing: 0.02em; /* CIRÚRGICO: mais refinado */
-  opacity: 0.9; /* CIRÚRGICO: menos chamativo */
+  color: var(--fg);
+  letter-spacing: 0.02em;
+  opacity: 0.9;
   margin-bottom: 0.25rem;
-}
-
-.playstyle-item span {
-  font-weight: 600; /* CIRÚRGICO: reduzido de 700 */
-  font-size: 0.8125rem; /* CIRÚRGICO: tamanho consistente */
-  color: rgba(255, 255, 255, 0.8); /* CIRÚRGICO: menos chamativo */
 }
 
 .playstyle-item input[type='range'] {
   width: 100%;
-  height: 4px; /* CIRÚRGICO: reduzido de 6px */
+  height: 4px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.15); /* CIRÚRGICO: mais sutil */
+  background: var(--fill-strong);
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -470,106 +459,107 @@
 }
 
 .playstyle-item span {
-  font-weight: 700; /* REFINAMENTO: aumentado de 600 */
-  color: var(--color-artificio-orange); /* CORREÇÃO P21: valor laranja */
-  font-size: 1rem; /* REFINAMENTO: reduzido de 1.25rem */
-  min-width: 1.5rem; /* REFINAMENTO: largura mínima para alinhamento */
-  text-align: right; /* REFINAMENTO: alinhar à direita */
+  font-weight: 700;
+  color: var(--color-artificio-orange);
+  font-size: 1rem;
+  min-width: 1.5rem;
+  text-align: right;
 }
 
-/* CORREÇÃO P21: Placeholder styles para inputs */
+/* Placeholder styles para inputs */
 .form-group input::placeholder,
 .form-group textarea::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--fg-muted);
 }
 
 .form-group input::-webkit-input-placeholder,
 .form-group textarea::-webkit-input-placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--fg-muted);
 }
 
 .form-group input::-moz-placeholder,
 .form-group textarea::-moz-placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--fg-muted);
 }
 
-/* CORREÇÃO P21: Error text */
+/* Error text */
 .error-text {
-  color: #ef4444;
+  color: var(--state-danger-fg);
   font-weight: 500;
 }
 
 /* Discord Section */
 .discord-connected,
 .discord-disconnected {
-  padding: 1.25rem; /* REFINAMENTO: reduzido de 1.5rem */
+  padding: 1.25rem;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05); /* CORREÇÃO P21: background escuro */
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--line);
 }
 
 .discord-connected {
-  border: 2px solid #10b981;
-  background: rgba(16, 185, 129, 0.05); /* REFINAMENTO: adicionar tint verde */
+  border: 2px solid var(--state-success-line);
+  background: var(--state-success-bg);
 }
 
 .discord-disconnected {
-  border: 2px solid rgba(255, 255, 255, 0.15); /* REFINAMENTO: borda mais sutil */
+  border: 2px solid var(--line-strong);
 }
 
 .discord-connected p,
 .discord-disconnected p {
-  margin: 0 0 0.75rem 0; /* REFINAMENTO: reduzido de 1rem */
+  margin: 0 0 0.75rem 0;
   font-weight: 500;
-  font-size: 0.9375rem; /* REFINAMENTO: tamanho consistente */
+  font-size: 0.9375rem;
 }
 
 .covil-badge {
   display: inline-block;
   padding: 0.5rem 1rem;
   background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  color: white;
+  color: #ffffff;
   border-radius: 8px;
   font-weight: 600;
   font-size: 0.875rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* REFINAMENTO: sombra sutil */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* Discord = identidade de plataforma (exceção, cor própria preservada) */
 .btn-connect-discord {
   padding: 0.75rem 1.5rem;
   background: #5865f2;
-  color: white;
+  color: #ffffff;
   border: none;
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s; /* REFINAMENTO: all para incluir transform */
-  font-size: 0.9375rem; /* REFINAMENTO: tamanho consistente */
+  transition: all 0.2s;
+  font-size: 0.9375rem;
 }
 
 .btn-connect-discord:hover {
   background: #4752c4;
-  transform: translateY(-1px); /* REFINAMENTO: lift sutil */
-  box-shadow: 0 4px 8px rgba(88, 101, 242, 0.3); /* REFINAMENTO: sombra no hover */
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(88, 101, 242, 0.3);
 }
 
 .btn-disconnect-discord {
   padding: 0.5rem 1rem;
-  background: #ef4444;
-  color: white;
+  background: var(--artificio-danger);
+  color: #ffffff;
   border: none;
   border-radius: 8px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s; /* REFINAMENTO: all para incluir transform */
-  margin-top: 0.75rem; /* REFINAMENTO: reduzido de 1rem */
-  font-size: 0.875rem; /* REFINAMENTO: tamanho menor */
+  transition: all 0.2s;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .btn-disconnect-discord:hover {
-  background: #dc2626;
-  transform: translateY(-1px); /* REFINAMENTO: lift sutil */
-  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3); /* REFINAMENTO: sombra no hover */
+  background: var(--artificio-danger-text);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
 }
 
 .discord-username {
@@ -584,37 +574,17 @@
 
 .discord-disconnected li {
   margin: 0.5rem 0;
-  color: #6b7280;
+  color: var(--fg-muted);
 }
-
 
 /* Responsive */
 @media (max-width: 768px) {
-  .profile-edit-page {
-    padding: 1rem;
-  }
-
-  .profile-header {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .profile-tabs {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .tab {
-    white-space: nowrap;
-  }
-
-  .tab-content {
-    padding: 1.5rem;
-  }
-
-  .playstyle-grid {
-    grid-template-columns: 1fr;
-  }
+  .profile-edit-page { padding: 1rem; }
+  .profile-header { flex-direction: column; text-align: center; }
+  .profile-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab { white-space: nowrap; }
+  .tab-content { padding: 1.5rem; }
+  .playstyle-grid { grid-template-columns: 1fr; }
 }
 
 /* User Systems Selector */
@@ -628,7 +598,7 @@
   gap: 0.75rem;
   padding: 2rem;
   justify-content: center;
-  color: #6b7280;
+  color: var(--fg-muted);
   font-size: 0.875rem;
 }
 
@@ -639,29 +609,29 @@
 .systems-count {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #8b5cf6;
+  color: var(--special);
   margin: 0;
 }
 
 /* Avatar Premium Container */
 .avatar-premium-container {
   display: flex;
-  align-items: flex-start; /* CIRÚRGICO: horizontal, não centralizado */
-  gap: 1.25rem; /* CIRÚRGICO: reduzido de 1rem */
-  padding: 1rem; /* CIRÚRGICO: reduzido de 1.5rem */
-  background: rgba(255, 255, 255, 0.03);
+  align-items: flex-start;
+  gap: 1.25rem;
+  padding: 1rem;
+  background: var(--surface-subtle);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
 }
 
 .avatar-premium-preview {
-  width: 96px; /* CIRÚRGICO: reduzido de 120px */
-  height: 96px; /* CIRÚRGICO: reduzido de 120px */
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  border: 2px solid rgba(249, 115, 22, 0.25); /* CIRÚRGICO: mais sutil */
-  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 87, 34, 0.25);
+  background: var(--surface);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
@@ -674,13 +644,13 @@
 .avatar-premium-actions {
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* CIRÚRGICO: alinhado à esquerda */
-  gap: 0.5rem; /* CIRÚRGICO: reduzido de 0.75rem */
+  align-items: flex-start;
+  gap: 0.5rem;
   width: 100%;
 }
 
 .avatar-source-hint {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--fg-muted);
   font-size: 0.8125rem;
   font-style: italic;
 }
@@ -689,14 +659,14 @@
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  justify-content: flex-start; /* CIRÚRGICO: não centralizado */
+  justify-content: flex-start;
 }
 
 .btn-avatar-action {
-  padding: 0.4rem 0.75rem; /* CIRÚRGICO: reduzido de 0.5rem 1rem */
+  padding: 0.4rem 0.75rem;
   border: none;
   border-radius: 8px;
-  font-size: 0.8125rem; /* CIRÚRGICO: reduzido de 0.875rem */
+  font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -704,45 +674,46 @@
 }
 
 .btn-avatar-action.btn-remove {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--state-danger-bg);
+  color: var(--state-danger-fg);
+  border: 1px solid var(--state-danger-line);
 }
 
 .btn-avatar-action.btn-remove:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: #ef4444;
+  background: var(--state-danger-bg);
+  border-color: var(--state-danger-fg);
   transform: translateY(-1px);
 }
 
 .btn-avatar-action.btn-manual {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--fill-subtle);
+  color: var(--fg-muted);
+  border: 1px solid var(--line);
 }
 
 .btn-avatar-action.btn-manual:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: white;
-  border-color: rgba(255, 255, 255, 0.25);
+  background: var(--fill);
+  color: var(--fg);
+  border-color: var(--line-strong);
 }
 
 .btn-avatar-action.btn-upload {
   background: var(--color-artificio-orange);
-  color: white;
+  color: #ffffff;
   border: 1px solid transparent;
   font-weight: 600;
 }
 
 .btn-avatar-action.btn-upload:hover {
-  background: #ea580c;
+  background: var(--color-artificio-orange-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(249, 115, 22, 0.3);
 }
 
+/* Google = identidade de plataforma (exceção) */
 .btn-avatar-action.btn-google {
   background: #4285f4;
-  color: white;
+  color: #ffffff;
   border: 1px solid transparent;
   font-weight: 600;
 }
@@ -789,41 +760,35 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding-top: 0.5rem; /* CIRÚRGICO: reduzido de 0.75rem */
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
   animation: slideDown 0.2s ease;
 }
 
 @keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .avatar-manual-input input {
   width: 100%;
-  padding: 0.5rem; /* CIRÚRGICO: reduzido de 0.625rem */
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.05);
-  color: white;
+  padding: 0.5rem;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--fg);
   border-radius: 8px;
-  font-size: 0.8125rem; /* CIRÚRGICO: reduzido de 0.875rem */
+  font-size: 0.8125rem;
 }
 
 .avatar-manual-input input:focus {
   outline: none;
   border-color: var(--color-artificio-orange);
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface);
 }
 
 .avatar-manual-input small {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--fg-muted);
   font-size: 0.75rem;
 }
 
@@ -831,7 +796,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--fg-muted);
   font-size: 0.75rem;
   cursor: help;
 }
@@ -856,8 +821,8 @@
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  border: 3px solid #e5e7eb;
-  background: #f9fafb;
+  border: 3px solid var(--line);
+  background: var(--surface-subtle);
 }
 
 .avatar-preview img {
@@ -873,7 +838,7 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  color: #ffffff;
   font-size: 3rem;
   font-weight: bold;
 }
@@ -885,210 +850,18 @@
   gap: 0.5rem;
 }
 
-/* ===========================================================
-   LIGHT MODE (Spec 020 B7) — perfil usa CSS dedicado dark-coded.
-   Superficies e textos vêm dos tokens compartilhados.
-   =========================================================== */
-[data-theme="light"] .profile-edit-page {
-  --profile-ink: var(--artificio-light-ink);
-  --profile-surface: var(--artificio-light-surface);
-  --profile-subtle: var(--artificio-light-subtle);
-  --profile-line: color-mix(in srgb, var(--artificio-brand-deep) 12%, transparent);
-  --profile-line-strong: color-mix(in srgb, var(--artificio-brand-deep) 18%, transparent);
-  --profile-line-emphasis: color-mix(in srgb, var(--artificio-brand-deep) 24%, transparent);
-  --profile-text: var(--artificio-light-ink);
-  --profile-muted: color-mix(in srgb, var(--artificio-light-ink) 72%, transparent);
-  --profile-subtle-text: color-mix(in srgb, var(--artificio-light-ink) 62%, transparent);
-  --profile-placeholder: color-mix(in srgb, var(--artificio-light-ink) 48%, transparent);
-  --profile-brand-tint: color-mix(in srgb, var(--artificio-brand) 8%, transparent);
-  --profile-brand-focus: color-mix(in srgb, var(--artificio-brand) 18%, transparent);
-  --profile-brand-line: color-mix(in srgb, var(--artificio-brand) 34%, transparent);
-  --profile-success-tint: color-mix(in srgb, var(--artificio-success-text) 6%, transparent);
-  --profile-danger-tint: color-mix(in srgb, var(--artificio-danger) 10%, transparent);
-  --profile-danger-line: color-mix(in srgb, var(--artificio-danger) 30%, transparent);
-  --profile-shadow: color-mix(in srgb, var(--artificio-brand-deep) 8%, transparent);
-  --profile-shadow-strong: color-mix(in srgb, var(--artificio-brand-deep) 12%, transparent);
-  color: var(--artificio-light-ink);
-}
-
-[data-theme="light"] .profile-header,
-[data-theme="light"] .tab-content,
-[data-theme="light"] .avatar-premium-container,
-[data-theme="light"] .playstyle-item,
-[data-theme="light"] .discord-connected,
-[data-theme="light"] .discord-disconnected {
-  background: var(--artificio-light-surface);
-  border-color: var(--profile-line);
-  color: var(--artificio-light-ink);
-}
-
-[data-theme="light"] .profile-header,
-[data-theme="light"] .tab-content {
-  box-shadow: 0 18px 40px var(--profile-shadow);
-}
-
-[data-theme="light"] .profile-info h1,
-[data-theme="light"] .form-section h2,
-[data-theme="light"] .form-group label,
-[data-theme="light"] .playstyle-item label,
-[data-theme="light"] .loading-state,
-[data-theme="light"] .error-state {
-  color: var(--artificio-light-ink);
-}
-
-[data-theme="light"] .profile-email,
-[data-theme="light"] .section-description,
-[data-theme="light"] .discord-connected p,
-[data-theme="light"] .discord-disconnected p {
-  color: var(--profile-muted);
-}
-
-[data-theme="light"] .field-description,
-[data-theme="light"] .form-group small,
-[data-theme="light"] .avatar-source-hint,
-[data-theme="light"] .avatar-manual-input small,
-[data-theme="light"] .avatar-direct-link-option {
-  color: var(--profile-subtle-text);
-}
-
-[data-theme="light"] .profile-username,
-[data-theme="light"] .profile-public-link {
-  color: var(--artificio-brand);
-}
-
-[data-theme="light"] .profile-tabs {
-  border-bottom-color: var(--profile-line-strong);
-}
-
-[data-theme="light"] .tab {
-  color: var(--profile-muted);
-}
-
-[data-theme="light"] .tab:hover {
-  color: var(--artificio-light-ink);
-  background: color-mix(in srgb, var(--artificio-brand-deep) 5%, transparent);
-}
-
-[data-theme="light"] .tab.active {
-  color: var(--artificio-brand);
-  background: var(--profile-brand-tint);
-  border-bottom-color: var(--artificio-brand);
-}
-
-[data-theme="light"] .form-group input[type='text'],
-[data-theme="light"] .form-group input[type='number'],
-[data-theme="light"] .form-group input[type='url'],
-[data-theme="light"] .form-group select,
-[data-theme="light"] .form-group textarea,
-[data-theme="light"] .avatar-manual-input input {
-  background: var(--artificio-light-surface);
-  border-color: var(--profile-line-strong);
-  color: var(--artificio-light-ink);
-}
-
-[data-theme="light"] .form-group input:focus,
-[data-theme="light"] .form-group select:focus,
-[data-theme="light"] .form-group textarea:focus,
-[data-theme="light"] .avatar-manual-input input:focus {
-  background: var(--artificio-light-surface);
-  border-color: var(--artificio-brand);
-  box-shadow: 0 0 0 3px var(--profile-brand-focus);
-}
-
-[data-theme="light"] .form-group input::placeholder,
-[data-theme="light"] .form-group textarea::placeholder,
-[data-theme="light"] .form-group input::-webkit-input-placeholder,
-[data-theme="light"] .form-group textarea::-webkit-input-placeholder,
-[data-theme="light"] .form-group input::-moz-placeholder,
-[data-theme="light"] .form-group textarea::-moz-placeholder {
-  color: var(--profile-placeholder);
-}
-
-[data-theme="light"] .form-group select option,
-[data-theme="light"] .form-group select.app-select option,
-[data-theme="light"] .form-group select.app-select optgroup {
-  background: var(--artificio-light-surface);
-  color: var(--artificio-light-ink);
-}
-
-[data-theme="light"] .playstyle-item:hover {
-  background: var(--artificio-light-subtle);
-  border-color: var(--profile-brand-line);
-}
-
-[data-theme="light"] .playstyle-item span {
-  color: var(--artificio-brand);
-}
-
-[data-theme="light"] .playstyle-item input[type='range'] {
-  background: color-mix(in srgb, var(--artificio-brand-deep) 16%, transparent);
-}
-
-[data-theme="light"] .avatar-premium-preview {
-  background: var(--artificio-light-subtle);
-  border-color: color-mix(in srgb, var(--artificio-brand) 28%, transparent);
-  box-shadow: 0 8px 22px var(--profile-shadow-strong);
-}
-
-[data-theme="light"] .avatar-manual-input {
-  border-top-color: var(--profile-line);
-}
-
-[data-theme="light"] .btn-avatar-action.btn-manual {
-  background: color-mix(in srgb, var(--artificio-brand-deep) 5%, transparent);
-  color: var(--artificio-light-ink);
-  border-color: color-mix(in srgb, var(--artificio-brand-deep) 16%, transparent);
-}
-
-[data-theme="light"] .btn-avatar-action.btn-manual:hover {
-  background: color-mix(in srgb, var(--artificio-brand-deep) 9%, transparent);
-  color: var(--artificio-light-ink);
-  border-color: var(--profile-line-emphasis);
-}
-
-[data-theme="light"] .btn-avatar-action.btn-remove,
-[data-theme="light"] .error-text {
-  color: var(--artificio-danger-text);
-}
-
-[data-theme="light"] .btn-avatar-action.btn-remove {
-  background: var(--profile-danger-tint);
-  border-color: var(--profile-danger-line);
-}
-
-[data-theme="light"] .discord-connected {
-  border-color: var(--artificio-success-text);
-  background: var(--profile-success-tint);
-}
-
-[data-theme="light"] .discord-disconnected {
-  border-color: color-mix(in srgb, var(--artificio-brand-deep) 16%, transparent);
-}
-
-[data-theme="light"] .discord-disconnected li,
-[data-theme="light"] .user-systems-selector-loading {
-  color: color-mix(in srgb, var(--artificio-light-ink) 68%, transparent);
-}
-
-[data-theme="light"] .discord-username {
-  color: var(--artificio-info-text);
-}
-
 @media (max-width: 640px) {
   .avatar-upload-container {
     flex-direction: column;
     align-items: center;
   }
-
   .avatar-preview {
     width: 100px;
     height: 100px;
   }
-
   .avatar-input-wrapper {
     width: 100%;
   }
-  
   .avatar-premium-preview {
     width: 100px;
     height: 100px;

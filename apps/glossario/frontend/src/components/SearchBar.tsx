@@ -19,12 +19,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, placeholder = "B
           onChange={handleChange}
           autoFocus
           placeholder={placeholder}
-          className="w-full p-4 pl-6 text-lg bg-cinza-fundo border-2 border-r-0 border-azul-escuro rounded-l-md outline-none transition-colors focus:border-laranja placeholder:text-gray-400"
+          className="w-full p-4 pl-6 text-lg bg-[var(--surface-subtle)] border-2 border-r-0 border-[var(--line)] rounded-l-md outline-none transition-colors focus:border-[var(--artificio-brand)] placeholder:text-[var(--fg-muted)]"
         />
       </div>
       <button 
         type="button"
-        className="bg-laranja text-white p-4 px-8 border-2 border-azul-escuro border-l-0 rounded-r-md hover:opacity-90 transition-opacity flex items-center justify-center"
+        className="bg-[var(--artificio-brand)] text-[var(--navy-block-fg)] p-4 px-8 border-2 border-[var(--line)] border-l-0 rounded-r-md hover:opacity-90 transition-opacity flex items-center justify-center"
       >
         <Search size={24} strokeWidth={3} />
       </button>

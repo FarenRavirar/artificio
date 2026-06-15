@@ -59,14 +59,14 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
     return (
       <aside className="space-y-4">
         {/* Gestão */}
-        <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
-          <p className="text-xs font-semibold text-white/60 uppercase tracking-wide mb-3">
+        <div className="p-4 rounded-xl bg-[var(--fill-subtle)] border border-[var(--line)] space-y-2">
+          <p className="text-xs font-semibold text-[var(--fg-muted)] uppercase tracking-wide mb-3">
             Gerenciamento
           </p>
 
           <button
             onClick={() => handleEdit(vm.id)}
-            className="w-full py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-sm font-medium transition"
+            className="w-full py-2 rounded-lg bg-[var(--state-info-bg)] hover:bg-[var(--state-info-bg)] text-[var(--state-info-fg)] text-sm font-medium transition"
           >
             ✏️ Editar mesa
           </button>
@@ -74,7 +74,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
           {vm.status !== 'cancelled' && (
             <button
               onClick={() => handleStatus(vm.id, 'cancelled')}
-              className="w-full py-2 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 text-sm font-medium transition"
+              className="w-full py-2 rounded-lg bg-[var(--state-warning-bg)] hover:bg-[var(--state-warning-bg)] text-[var(--state-warning-fg)] text-sm font-medium transition"
             >
               ⏸️ Desativar mesa
             </button>
@@ -83,7 +83,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
           {vm.status === 'cancelled' && (
             <button
               onClick={() => handleStatus(vm.id, 'active')}
-              className="w-full py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-300 text-sm font-medium transition"
+              className="w-full py-2 rounded-lg bg-[var(--state-success-bg)] hover:bg-[var(--state-success-bg)] text-[var(--state-success-fg)] text-sm font-medium transition"
             >
               ▶️ Reativar mesa
             </button>
@@ -92,7 +92,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
           {vm.status !== 'full' && vm.slotsLeft === 0 && (
             <button
               onClick={() => handleStatus(vm.id, 'full')}
-              className="w-full py-2 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 text-sm font-medium transition"
+              className="w-full py-2 rounded-lg bg-[var(--state-warning-bg)] hover:bg-[var(--state-warning-bg)] text-[var(--state-warning-fg)] text-sm font-medium transition"
             >
               🔒 Marcar como lotada
             </button>
@@ -101,7 +101,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
           {vm.status !== 'ended' && (
             <button
               onClick={() => handleStatus(vm.id, 'ended')}
-              className="w-full py-2 rounded-lg bg-gray-500/20 hover:bg-gray-500/30 text-gray-300 text-sm font-medium transition"
+              className="w-full py-2 rounded-lg bg-[var(--fill)] hover:bg-[var(--fill)] text-[var(--fg-muted)] text-sm font-medium transition"
             >
               ✓ Marcar como encerrada
             </button>
@@ -111,14 +111,14 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
           {!vm.archived ? (
             <button
               onClick={() => handleArchive(vm.id, true)}
-              className="w-full py-2 rounded-lg bg-slate-500/20 hover:bg-slate-500/30 text-slate-300 text-sm font-medium transition"
+              className="w-full py-2 rounded-lg bg-[var(--fill)] hover:bg-[var(--fill)] text-[var(--fg-muted)] text-sm font-medium transition"
             >
               🗄️ Arquivar mesa
             </button>
           ) : (
             <button
               onClick={() => handleArchive(vm.id, false)}
-              className="w-full py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-300 text-sm font-medium transition"
+              className="w-full py-2 rounded-lg bg-[var(--state-success-bg)] hover:bg-[var(--state-success-bg)] text-[var(--state-success-fg)] text-sm font-medium transition"
             >
               ♻️ Desarquivar mesa
             </button>
@@ -126,7 +126,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
         </div>
 
         {/* Ação destrutiva isolada */}
-        <div className="pt-3 border-t border-red-500/20">
+        <div className="pt-3 border-t border-[var(--state-danger-line)]">
           <InlineDeleteConfirmation
             title={vm.title}
             isOpen={isDeleteConfirmOpen}
@@ -135,27 +135,27 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
             onConfirm={handleDeleteTable}
             isProcessing={isDeleting}
             triggerLabel="Excluir permanentemente"
-            className="w-full bg-red-500/10 text-red-300 hover:bg-red-500/20"
+            className="w-full bg-[var(--state-danger-bg)] text-[var(--state-danger-fg)] hover:bg-[var(--state-danger-bg)]"
           />
-          <p className="text-xs text-red-400/60 mt-2 text-center">
+          <p className="text-xs text-[var(--state-danger-fg)] mt-2 text-center">
             Ação irreversível
           </p>
         </div>
 
         {/* PREVIEW: Como visitantes veem */}
-        <div className="pt-4 border-t border-white/10">
-          <p className="text-xs font-semibold text-white/40 uppercase tracking-wide mb-3">
+        <div className="pt-4 border-t border-[var(--line)]">
+          <p className="text-xs font-semibold text-[var(--fg-muted)] uppercase tracking-wide mb-3">
             👁 Preview Público
           </p>
 
           {/* Preço */}
           {vm.visibility.showPrice && vm.price !== undefined && (
-            <div className="p-4 rounded-xl bg-[#13213f] border border-orange-400/30 mb-3">
-              <p className="text-xs text-white/60 uppercase tracking-wide">Investimento</p>
-              <p className="text-2xl font-bold text-orange-400 mt-1">
+            <div className="p-4 rounded-xl bg-[var(--surface-subtle)] border border-[var(--state-warning-line)] mb-3">
+              <p className="text-xs text-[var(--fg-muted)] uppercase tracking-wide">Investimento</p>
+              <p className="text-2xl font-bold text-[var(--state-warning-fg)] mt-1">
                 R$ {vm.price}
                 {vm.priceFrequency && (
-                  <span className="text-sm text-white/60 font-normal ml-1">
+                  <span className="text-sm text-[var(--fg-muted)] font-normal ml-1">
                     / {vm.priceFrequency}
                   </span>
                 )}
@@ -164,9 +164,9 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
           )}
 
           {/* Info Rápida */}
-          <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2 text-sm mb-3">
+          <div className="p-4 rounded-xl bg-[var(--fill-subtle)] border border-[var(--line)] space-y-2 text-sm mb-3">
             <div className="flex justify-between items-center">
-              <span className="text-white/60">Sistema</span>
+              <span className="text-[var(--fg-muted)]">Sistema</span>
               {vm.systemLogoFilename || vm.systemWebsiteUrl ? (
                 vm.systemWebsiteUrl ? (
                   <a
@@ -176,7 +176,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
                     className="flex items-center gap-2 hover:opacity-80 transition"
                     title={vm.system}
                   >
-                    <span className="text-white font-medium">{vm.system}</span>
+                    <span className="text-[var(--fg)] font-medium">{vm.system}</span>
                     {vm.systemLogoFilename && (
                       <img
                         src={`/sys-logos/${vm.systemLogoFilename}`}
@@ -190,7 +190,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
                   </a>
                 ) : (
                   <span className="flex items-center gap-2">
-                    <span className="text-white font-medium">{vm.system}</span>
+                    <span className="text-[var(--fg)] font-medium">{vm.system}</span>
                     {vm.systemLogoFilename && (
                       <img
                         src={`/sys-logos/${vm.systemLogoFilename}`}
@@ -204,31 +204,31 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
                   </span>
                 )
               ) : (
-                <span className="text-white font-medium">{vm.system}</span>
+                <span className="text-[var(--fg)] font-medium">{vm.system}</span>
               )}
             </div>
             <div className="flex justify-between">
-              <span className="text-white/60">Experiência</span>
-              <span className="text-white font-medium">{vm.experience}</span>
+              <span className="text-[var(--fg-muted)]">Experiência</span>
+              <span className="text-[var(--fg)] font-medium">{vm.experience}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-white/60">Modalidade</span>
-              <span className="text-white font-medium">{vm.modality}</span>
+              <span className="text-[var(--fg-muted)]">Modalidade</span>
+              <span className="text-[var(--fg)] font-medium">{vm.modality}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-white/60">Vagas</span>
-              <span className="text-white font-medium">
+              <span className="text-[var(--fg-muted)]">Vagas</span>
+              <span className="text-[var(--fg)] font-medium">
                 {vm.slotsLeft} {vm.slotsLeft === 1 ? 'disponível' : 'disponíveis'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-white/60">Status</span>
+              <span className="text-[var(--fg-muted)]">Status</span>
               <span className={`font-medium ${
-                vm.status === 'active' ? 'text-green-400' :
-                vm.status === 'cancelled' ? 'text-yellow-400' :
-                vm.status === 'full' ? 'text-orange-400' :
-                vm.status === 'ended' ? 'text-red-400' :
-                'text-white'
+                vm.status === 'active' ? 'text-[var(--state-success-fg)]' :
+                vm.status === 'cancelled' ? 'text-[var(--state-warning-fg)]' :
+                vm.status === 'full' ? 'text-[var(--state-warning-fg)]' :
+                vm.status === 'ended' ? 'text-[var(--state-danger-fg)]' :
+                'text-[var(--fg)]'
               }`}>
                 {vm.status === 'active' && '✓ Ativa'}
                 {vm.status === 'cancelled' && '⏸ Desativada'}
@@ -238,21 +238,21 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
             </div>
             {vm.archived && (
               <div className="flex justify-between">
-                <span className="text-white/60">Catálogo</span>
-                <span className="font-medium text-slate-400">🗄️ Arquivada</span>
+                <span className="text-[var(--fg-muted)]">Catálogo</span>
+                <span className="font-medium text-[var(--fg-muted)]">🗄️ Arquivada</span>
               </div>
             )}
           </div>
 
           {/* Plataformas */}
           {(vm.modality === 'online' || vm.modality === 'hibrida') && (vm.vttPlatform || vm.gamePlatformCustom || vm.communicationPlatform) && (
-            <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 space-y-2 text-sm mb-3">
-              <h3 className="text-xs font-semibold text-purple-300/90 uppercase tracking-wide mb-2">
+            <div className="p-4 rounded-xl bg-[rgba(168,85,247,0.10)] border border-[rgba(168,85,247,0.20)] space-y-2 text-sm mb-3">
+              <h3 className="text-xs font-semibold text-[var(--special)] uppercase tracking-wide mb-2">
                 🎮 Plataformas
               </h3>
               {vm.vttPlatform && (
                 <div className="flex justify-between items-center">
-                  <span className="text-white/60">Jogo</span>
+                  <span className="text-[var(--fg-muted)]">Jogo</span>
                   {vm.vttPlatform.website_url ? (
                     <a 
                       href={vm.vttPlatform.website_url} 
@@ -269,7 +269,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
                           className="h-6 w-auto object-contain"
                         />
                       )}
-                      <span className="text-white font-medium text-sm">{vm.vttPlatform.name}</span>
+                      <span className="text-[var(--fg)] font-medium text-sm">{vm.vttPlatform.name}</span>
                     </a>
                   ) : (
                     <div className="flex items-center gap-2">
@@ -280,21 +280,21 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
                           className="h-6 w-auto object-contain"
                         />
                       )}
-                      <span className="text-white font-medium text-sm">{vm.vttPlatform.name}</span>
+                      <span className="text-[var(--fg)] font-medium text-sm">{vm.vttPlatform.name}</span>
                     </div>
                   )}
                 </div>
               )}
               {!vm.vttPlatform && vm.gamePlatformCustom && (
                 <div className="flex justify-between">
-                  <span className="text-white/60">Jogo</span>
-                  <span className="text-white font-medium">{vm.gamePlatformCustom}</span>
+                  <span className="text-[var(--fg-muted)]">Jogo</span>
+                  <span className="text-[var(--fg)] font-medium">{vm.gamePlatformCustom}</span>
                 </div>
               )}
               {vm.communicationPlatform && (
                 <div className="flex justify-between">
-                  <span className="text-white/60">Comunicação</span>
-                  <span className="text-white font-medium">{vm.communicationPlatform}</span>
+                  <span className="text-[var(--fg-muted)]">Comunicação</span>
+                  <span className="text-[var(--fg)] font-medium">{vm.communicationPlatform}</span>
                 </div>
               )}
             </div>
@@ -330,12 +330,12 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
 
       {/* Preço */}
       {vm.visibility.showPrice && vm.price !== undefined && (
-        <div className="p-4 rounded-xl bg-[#13213f] border border-orange-400/30">
-          <p className="text-xs text-white/60 uppercase tracking-wide">Investimento</p>
-          <p className="text-2xl font-bold text-orange-400 mt-1">
+        <div className="p-4 rounded-xl bg-[var(--surface-subtle)] border border-[var(--state-warning-line)]">
+          <p className="text-xs text-[var(--fg-muted)] uppercase tracking-wide">Investimento</p>
+          <p className="text-2xl font-bold text-[var(--state-warning-fg)] mt-1">
             R$ {vm.price}
             {vm.priceFrequency && (
-              <span className="text-sm text-white/60 font-normal ml-1">
+              <span className="text-sm text-[var(--fg-muted)] font-normal ml-1">
                 / {vm.priceFrequency}
               </span>
             )}
@@ -344,9 +344,9 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
       )}
 
       {/* Info Rápida */}
-      <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2 text-sm">
+      <div className="p-4 rounded-xl bg-[var(--fill-subtle)] border border-[var(--line)] space-y-2 text-sm">
         <div className="flex justify-between items-center">
-          <span className="text-white/60">Sistema</span>
+          <span className="text-[var(--fg-muted)]">Sistema</span>
           {vm.systemLogoFilename || vm.systemWebsiteUrl ? (
             vm.systemWebsiteUrl ? (
               <a
@@ -356,7 +356,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
                 className="flex items-center gap-2 hover:opacity-80 transition"
                 title={vm.system}
               >
-                <span className="text-white font-medium">{vm.system}</span>
+                <span className="text-[var(--fg)] font-medium">{vm.system}</span>
                 {vm.systemLogoFilename && (
                   <img
                     src={`/sys-logos/${vm.systemLogoFilename}`}
@@ -370,7 +370,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
               </a>
             ) : (
               <span className="flex items-center gap-2">
-                <span className="text-white font-medium">{vm.system}</span>
+                <span className="text-[var(--fg)] font-medium">{vm.system}</span>
                 {vm.systemLogoFilename && (
                   <img
                     src={`/sys-logos/${vm.systemLogoFilename}`}
@@ -384,20 +384,20 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
               </span>
             )
           ) : (
-            <span className="text-white font-medium">{vm.system}</span>
+            <span className="text-[var(--fg)] font-medium">{vm.system}</span>
           )}
         </div>
         <div className="flex justify-between">
-          <span className="text-white/60">Experiência</span>
-          <span className="text-white font-medium">{vm.experience}</span>
+          <span className="text-[var(--fg-muted)]">Experiência</span>
+          <span className="text-[var(--fg)] font-medium">{vm.experience}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-white/60">Modalidade</span>
-          <span className="text-white font-medium">{vm.modality}</span>
+          <span className="text-[var(--fg-muted)]">Modalidade</span>
+          <span className="text-[var(--fg)] font-medium">{vm.modality}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-white/60">Vagas</span>
-          <span className="text-white font-medium">
+          <span className="text-[var(--fg-muted)]">Vagas</span>
+          <span className="text-[var(--fg)] font-medium">
             {vm.slotsLeft} {vm.slotsLeft === 1 ? 'disponível' : 'disponíveis'}
           </span>
         </div>
@@ -405,14 +405,14 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
 
       {/* CORREÇÃO C06: Plataformas (apenas para online/híbrida) */}
       {(vm.modality === 'online' || vm.modality === 'hibrida') && (vm.vttPlatform || vm.gamePlatformCustom || vm.communicationPlatform) && (
-        <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 space-y-2 text-sm">
-          <h3 className="text-xs font-semibold text-purple-300/90 uppercase tracking-wide mb-2">
+        <div className="p-4 rounded-xl bg-[rgba(168,85,247,0.10)] border border-[rgba(168,85,247,0.20)] space-y-2 text-sm">
+          <h3 className="text-xs font-semibold text-[var(--special)] uppercase tracking-wide mb-2">
             🎮 Plataformas
           </h3>
           {/* VTT Platform com logo */}
           {vm.vttPlatform && (
             <div className="flex justify-between items-center">
-              <span className="text-white/60">Jogo</span>
+              <span className="text-[var(--fg-muted)]">Jogo</span>
               {vm.vttPlatform.website_url ? (
                 <a 
                   href={vm.vttPlatform.website_url} 
@@ -428,7 +428,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
                       className="h-6 w-auto object-contain"
                     />
                   )}
-                  <span className="text-white font-medium text-sm">{vm.vttPlatform.name}</span>
+                  <span className="text-[var(--fg)] font-medium text-sm">{vm.vttPlatform.name}</span>
                 </a>
               ) : (
                 <div className="flex items-center gap-2">
@@ -439,7 +439,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
                       className="h-6 w-auto object-contain"
                     />
                   )}
-                  <span className="text-white font-medium text-sm">{vm.vttPlatform.name}</span>
+                  <span className="text-[var(--fg)] font-medium text-sm">{vm.vttPlatform.name}</span>
                 </div>
               )}
             </div>
@@ -447,14 +447,14 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
           {/* Plataforma customizada (quando não tem VTT cadastrada) */}
           {!vm.vttPlatform && vm.gamePlatformCustom && (
             <div className="flex justify-between">
-              <span className="text-white/60">Jogo</span>
-              <span className="text-white font-medium">{vm.gamePlatformCustom}</span>
+              <span className="text-[var(--fg-muted)]">Jogo</span>
+              <span className="text-[var(--fg)] font-medium">{vm.gamePlatformCustom}</span>
             </div>
           )}
           {vm.communicationPlatform && (
             <div className="flex justify-between">
-              <span className="text-white/60">Comunicação</span>
-              <span className="text-white font-medium">{vm.communicationPlatform}</span>
+              <span className="text-[var(--fg-muted)]">Comunicação</span>
+              <span className="text-[var(--fg)] font-medium">{vm.communicationPlatform}</span>
             </div>
           )}
         </div>

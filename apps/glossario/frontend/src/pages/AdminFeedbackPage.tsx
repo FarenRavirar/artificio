@@ -94,38 +94,38 @@ const AdminFeedbackPage: React.FC = () => {
     <div className="max-w-5xl mx-auto px-4 py-10">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-black text-azul-escuro flex items-center gap-2">
+          <h1 className="text-2xl font-black text-[var(--fg)] flex items-center gap-2">
             <MessageSquare size={24} /> Feedback
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Relatos de problema e sugestões enviados pelos usuários.</p>
+          <p className="text-sm text-[var(--fg-muted)] mt-1">Relatos de problema e sugestões enviados pelos usuários.</p>
         </div>
         <button
           onClick={fetchFeedback}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--line)] text-sm font-semibold text-[var(--fg-muted)] hover:bg-[var(--surface-subtle)]"
         >
           <RefreshCw size={14} /> Atualizar
         </button>
       </div>
 
-      <section className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+      <section className="bg-[var(--surface)] border border-[var(--line)] rounded-2xl shadow-sm p-5 mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <label className="text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">
           Status
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800">
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)]">
             <option value="">Todos</option>
             {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </label>
-        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+        <label className="text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">
           Tipo
-          <select value={kind} onChange={(e) => setKind(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800">
+          <select value={kind} onChange={(e) => setKind(e.target.value)} className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)]">
             <option value="">Todos</option>
             <option value="bug">Problema</option>
             <option value="suggestion">Sugestão</option>
           </select>
         </label>
-        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+        <label className="text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">
           Arquivados
-          <select value={archived} onChange={(e) => setArchived(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800">
+          <select value={archived} onChange={(e) => setArchived(e.target.value)} className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)]">
             <option value="false">Ativos</option>
             <option value="true">Só arquivados</option>
             <option value="all">Todos</option>
@@ -134,37 +134,37 @@ const AdminFeedbackPage: React.FC = () => {
       </section>
 
       {error && (
-        <div className="p-4 mb-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-semibold">{error}</div>
+        <div className="p-4 mb-4 bg-[var(--state-danger-bg)] border border-[var(--state-danger-line)] rounded-xl text-[var(--state-danger-fg)] text-sm font-semibold">{error}</div>
       )}
 
       {loading ? (
-        <div className="p-8 text-center text-gray-500">Carregando feedbacks...</div>
+        <div className="p-8 text-center text-[var(--fg-muted)]">Carregando feedbacks...</div>
       ) : items.length === 0 ? (
-        <div className="p-8 text-center text-gray-500 bg-white border border-gray-100 rounded-2xl">Nenhum feedback encontrado.</div>
+        <div className="p-8 text-center text-[var(--fg-muted)] bg-[var(--surface)] border border-[var(--line)] rounded-2xl">Nenhum feedback encontrado.</div>
       ) : (
         <div className="space-y-4">
           {items.map((it) => (
-            <article key={it.id} className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+            <article key={it.id} className="bg-[var(--surface)] border border-[var(--line)] rounded-2xl shadow-sm p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <span className={`inline-block text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full mb-1 ${it.kind === 'bug' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                  <span className={`inline-block text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full mb-1 ${it.kind === 'bug' ? 'bg-[var(--state-danger-bg)] text-[var(--state-danger-fg)]' : 'bg-[var(--state-info-bg)] text-[var(--state-info-fg)]'}`}>
                     {it.kind === 'bug' ? '🐞 Problema' : '💡 Sugestão'}
                   </span>
-                  <h2 className="text-lg font-bold text-azul-escuro">{it.title}</h2>
+                  <h2 className="text-lg font-bold text-[var(--fg)]">{it.title}</h2>
                 </div>
-                <span className="text-xs text-gray-400 whitespace-nowrap">{formatDate(it.created_at)}</span>
+                <span className="text-xs text-[var(--fg-muted)] whitespace-nowrap">{formatDate(it.created_at)}</span>
               </div>
 
-              <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{it.description}</p>
+              <p className="mt-2 text-sm text-[var(--fg)] whitespace-pre-wrap">{it.description}</p>
 
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
+              <div className="mt-3 flex flex-wrap gap-3 text-xs text-[var(--fg-muted)]">
                 <span><strong>De:</strong> {it.reporter_name || 'Anônimo'}{it.contact_email ? ` (${it.contact_email})` : ''}</span>
                 <span><strong>Página:</strong> {it.route_path || '-'}</span>
                 <span><strong>Ambiente:</strong> {it.environment || '-'}</span>
                 <span><strong>Tela:</strong> {it.viewport || '-'}</span>
                 <span><strong>Erros:</strong> {len(it.console_errors)} console / {len(it.network_errors)} rede</span>
                 {it.screenshot_url && (
-                  <a href={it.screenshot_url} target="_blank" rel="noreferrer" className="font-bold text-azul-medio hover:underline">Ver captura</a>
+                  <a href={it.screenshot_url} target="_blank" rel="noreferrer" className="font-bold text-[var(--fg-muted)] hover:underline">Ver captura</a>
                 )}
               </div>
 
@@ -172,7 +172,7 @@ const AdminFeedbackPage: React.FC = () => {
                 <select
                   value={it.status}
                   onChange={(e) => patch(it.id, { status: e.target.value }, 'Status atualizado.')}
-                  className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
+                  className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)]"
                 >
                   {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
@@ -181,26 +181,26 @@ const AdminFeedbackPage: React.FC = () => {
                   onChange={(e) => setNotes((prev) => ({ ...prev, [it.id]: e.target.value }))}
                   rows={2}
                   placeholder="Notas internas (admin)"
-                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
+                  className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)]"
                 />
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   onClick={() => patch(it.id, { admin_notes: notes[it.id] ?? '' }, 'Notas salvas.')}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--line)] text-sm font-semibold text-[var(--fg-muted)] hover:bg-[var(--surface-subtle)]"
                 >
                   <Save size={14} /> Salvar notas
                 </button>
                 <button
                   onClick={() => patch(it.id, { archived: it.archived_at === null }, it.archived_at === null ? 'Arquivado.' : 'Desarquivado.')}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--line)] text-sm font-semibold text-[var(--fg-muted)] hover:bg-[var(--surface-subtle)]"
                 >
                   {it.archived_at === null ? <><Archive size={14} /> Arquivar</> : <><ArchiveRestore size={14} /> Desarquivar</>}
                 </button>
                 <button
                   onClick={() => remove(it.id)}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-red-200 text-sm font-semibold text-red-600 hover:bg-red-50"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--state-danger-line)] text-sm font-semibold text-[var(--state-danger-fg)] hover:bg-[var(--state-danger-bg)]"
                 >
                   <Trash2 size={14} /> Excluir
                 </button>

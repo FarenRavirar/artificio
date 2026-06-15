@@ -38,10 +38,10 @@ const FIELD_LABEL: Record<string, string> = {
 };
 
 const actionMeta: Record<ImportAction, { label: string; color: string; icon: React.ReactNode }> = {
-  insert:     { label: 'Novo',          color: 'bg-green-50 border-green-200 text-green-800',  icon: <PlusCircle   size={12} className="text-green-600"  /> },
-  update_own: { label: 'Atualização',   color: 'bg-blue-50  border-blue-200  text-blue-800',   icon: <CheckCircle2 size={12} className="text-blue-600"   /> },
-  override:   { label: 'Override',      color: 'bg-cyan-50 border-cyan-200 text-cyan-800', icon: <CheckCircle2 size={12} className="text-cyan-600" /> },
-  duplicate:  { label: 'Duplicata',     color: 'bg-amber-50 border-amber-200 text-amber-800',  icon: <Users        size={12} className="text-amber-600"  /> },
+  insert:     { label: 'Novo',          color: 'bg-[var(--state-success-bg)] border-[var(--state-success-line)] text-[var(--state-success-fg)]',  icon: <PlusCircle   size={12} className="text-[var(--state-success-fg)]"  /> },
+  update_own: { label: 'Atualização',   color: 'bg-[var(--state-info-bg)]  border-[var(--state-info-line)]  text-[var(--state-info-fg)]',   icon: <CheckCircle2 size={12} className="text-[var(--state-info-fg)]"   /> },
+  override:   { label: 'Override',      color: 'bg-[var(--state-info-bg)] border-[var(--state-info-line)] text-[var(--state-info-fg)]', icon: <CheckCircle2 size={12} className="text-[var(--state-info-fg)]" /> },
+  duplicate:  { label: 'Duplicata',     color: 'bg-[var(--state-warning-bg)] border-[var(--state-warning-line)] text-[var(--state-warning-fg)]',  icon: <Users        size={12} className="text-[var(--state-warning-fg)]"  /> },
 };
 
 // ---------------------------------------------------------------------------
@@ -60,12 +60,12 @@ const PreviewRow: React.FC<{ row: PreviewRow }> = ({ row }) => {
             <span className="text-[10px] opacity-70 italic">{row.system_name}</span>
           )}
           {row.category_name && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/60 border border-current/20">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface)] border border-current/20">
               CAT: {row.category_name}
             </span>
           )}
           {row.subcategory_name && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/60 border border-current/20">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface)] border border-current/20">
               SUB: {row.subcategory_name}
             </span>
           )}
@@ -74,7 +74,7 @@ const PreviewRow: React.FC<{ row: PreviewRow }> = ({ row }) => {
         {row.action === 'update_own' && row.changed_fields && row.changed_fields.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
             {row.changed_fields.map(f => (
-              <span key={f} className="text-[10px] px-1.5 py-0.5 rounded bg-white/60 border border-blue-200 text-blue-700">
+              <span key={f} className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface)] border border-[var(--state-info-line)] text-[var(--state-info-fg)]">
                 {FIELD_LABEL[f] ?? f}
               </span>
             ))}
@@ -115,7 +115,7 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({ rows, onConfirm, onCancel
           <div className={`flex items-center gap-2 text-xs font-black uppercase tracking-widest ${accent}`}>
             <ChevronRight size={14} />
             {title}
-            <span className="ml-auto font-mono bg-white px-2 py-0.5 rounded-full border text-gray-500 text-[10px]">{count}</span>
+            <span className="ml-auto font-mono bg-[var(--surface)] px-2 py-0.5 rounded-full border text-[var(--fg-muted)] text-[10px]">{count}</span>
           </div>
           <div className="space-y-1.5">{children}</div>
         </div>
@@ -127,41 +127,41 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({ rows, onConfirm, onCancel
       {/* Resumo */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
         {[
-          { label: 'Novos',       value: inserts.length,    color: 'text-green-600' },
-          { label: 'Atualizações',value: updates.length,    color: 'text-blue-600'  },
-          { label: 'Override',    value: overrides.length,  color: 'text-purple-600' },
-          { label: 'Duplicatas',  value: duplicates.length, color: 'text-amber-600' },
+          { label: 'Novos',       value: inserts.length,    color: 'text-[var(--state-success-fg)]' },
+          { label: 'Atualizações',value: updates.length,    color: 'text-[var(--state-info-fg)]'  },
+          { label: 'Override',    value: overrides.length,  color: 'text-[var(--special)]' },
+          { label: 'Duplicatas',  value: duplicates.length, color: 'text-[var(--state-warning-fg)]' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+          <div key={label} className="bg-[var(--surface-subtle)] rounded-xl p-3 border border-[var(--line)]">
             <p className={`text-2xl font-black ${color}`}>{value}</p>
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">{label}</p>
+            <p className="text-[10px] text-[var(--fg-muted)] uppercase tracking-widest mt-0.5">{label}</p>
           </div>
         ))}
       </div>
 
       {/* Listas por grupo */}
       <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
-        <Section title="Novos termos" count={inserts.length} accent="text-green-700">
+        <Section title="Novos termos" count={inserts.length} accent="text-[var(--state-success-fg)]">
           {inserts.map((r, i) => <PreviewRow key={i} row={r} />)}
         </Section>
-        <Section title="Atualizações (seus termos)" count={updates.length} accent="text-blue-700">
+        <Section title="Atualizações (seus termos)" count={updates.length} accent="text-[var(--state-info-fg)]">
           {updates.map((r, i) => <PreviewRow key={i} row={r} />)}
         </Section>
-        <Section title="Overrides administrativos" count={overrides.length} accent="text-cyan-700">
+        <Section title="Overrides administrativos" count={overrides.length} accent="text-[var(--state-info-fg)]">
           {overrides.map((r, i) => <PreviewRow key={i} row={r} />)}
         </Section>
-        <Section title="Duplicatas de outros autores" count={duplicates.length} accent="text-amber-700">
+        <Section title="Duplicatas de outros autores" count={duplicates.length} accent="text-[var(--state-warning-fg)]">
           {duplicates.map((r, i) => <PreviewRow key={i} row={r} />)}
         </Section>
       </div>
 
       {/* Ações */}
-      <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
+      <div className="flex items-center justify-end gap-3 pt-2 border-t border-[var(--line)]">
         <button
           type="button"
           onClick={onCancel}
           disabled={isLoading}
-          className="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 text-xs font-bold uppercase tracking-wide hover:bg-gray-50 transition-colors disabled:opacity-50"
+          className="px-4 py-2 rounded-lg border border-[var(--line)] text-[var(--fg-muted)] text-xs font-bold uppercase tracking-wide hover:bg-[var(--surface-subtle)] transition-colors disabled:opacity-50"
         >
           Cancelar
         </button>
@@ -169,7 +169,7 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({ rows, onConfirm, onCancel
           type="button"
           onClick={onConfirm}
           disabled={isLoading || rows.length === 0}
-          className="flex items-center gap-2 px-5 py-2 rounded-lg bg-azul-escuro text-white text-xs font-bold uppercase tracking-wide hover:bg-black transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-5 py-2 rounded-lg bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)] text-xs font-bold uppercase tracking-wide hover:bg-[var(--btn-primary-bg-hover)] transition-colors disabled:opacity-50"
         >
           {isLoading ? 'Importando...' : `Confirmar importação (${rows.length} termos)`}
         </button>

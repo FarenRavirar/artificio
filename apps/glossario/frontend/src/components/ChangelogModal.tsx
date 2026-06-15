@@ -49,40 +49,40 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-gray-100 animate-in zoom-in-95 duration-200">
+      <div className="bg-[var(--surface)] w-full max-w-2xl max-h-[85vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-[var(--line)] animate-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="bg-azul-escuro px-6 py-8 relative">
+        <div className="bg-[var(--navy-block-bg)] px-6 py-8 relative">
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-full"
+            className="absolute top-4 right-4 text-[rgba(255,255,255,0.7)] hover:text-[var(--navy-block-fg)] transition-colors p-2 hover:bg-[var(--fill)] rounded-full"
           >
             <X size={24} />
           </button>
           <div className="flex items-center gap-3 mb-2">
-            <div className="bg-laranja text-white p-2 rounded-xl shadow-lg">
+            <div className="bg-[var(--artificio-brand)] text-[var(--navy-block-fg)] p-2 rounded-xl shadow-lg">
               <Zap size={24} fill="currentColor" />
             </div>
-            <h2 className="text-2xl font-black text-white uppercase tracking-tighter">
+            <h2 className="text-2xl font-black text-[var(--navy-block-fg)] uppercase tracking-tighter">
               Notas de Atualização
             </h2>
           </div>
-          <p className="text-white/60 text-sm font-medium">
+          <p className="text-[rgba(255,255,255,0.6)] text-sm font-medium">
             Confira as últimas melhorias e novos termos inseridos no Glossário.
           </p>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8 bg-gray-50/30">
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8 bg-[var(--surface-subtle)]">
           {loading && (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <div className="w-10 h-10 border-4 border-laranja border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-gray-400 font-bold text-sm uppercase tracking-widest">Carregando Novidades...</span>
+              <div className="w-10 h-10 border-4 border-[var(--artificio-brand)] border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-[var(--fg-muted)] font-bold text-sm uppercase tracking-widest">Carregando Novidades...</span>
             </div>
           )}
 
           {!loading && Object.keys(groupedLogs).length === 0 && (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-[var(--fg-muted)]">
               Nenhuma atualização encontrada.
             </div>
           )}
@@ -90,13 +90,13 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
           {!loading && Object.entries(groupedLogs).map(([date, dailyLogs]) => (
             <div key={date} className="relative pl-8">
               {/* Vertical line decoration */}
-              <div className="absolute left-[11px] top-8 bottom-0 w-px bg-gray-200"></div>
+              <div className="absolute left-[11px] top-8 bottom-0 w-px bg-[var(--surface-strong)]"></div>
               
               <div className="flex items-center gap-2 mb-4 -ml-8">
-                <div className="bg-white border-2 border-laranja w-6 h-6 rounded-full flex items-center justify-center z-10">
-                  <div className="w-2 h-2 bg-laranja rounded-full"></div>
+                <div className="bg-[var(--surface)] border-2 border-[var(--artificio-brand)] w-6 h-6 rounded-full flex items-center justify-center z-10">
+                  <div className="w-2 h-2 bg-[var(--artificio-brand)] rounded-full"></div>
                 </div>
-                <span className="bg-laranja/10 text-laranja px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                <span className="bg-[rgba(255,87,34,0.10)] text-[var(--artificio-brand)] px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5">
                   <Calendar size={12} />
                   {date}
                 </span>
@@ -104,28 +104,28 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
 
               <div className="space-y-4">
                 {dailyLogs.map((log) => (
-                  <div key={log.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                  <div key={log.id} className="bg-[var(--surface)] p-5 rounded-2xl shadow-sm border border-[var(--line)] hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between mb-2">
                       <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter ${
-                        log.type === 'dados' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                        log.type === 'dados' ? 'bg-[var(--state-success-bg)] text-[var(--state-success-fg)]' : 'bg-[var(--state-info-bg)] text-[var(--state-info-fg)]'
                       }`}>
                         {log.type === 'dados' ? 'BASE DE DADOS' : 'SISTEMA'}
                       </span>
                     </div>
-                    <h3 className="text-azul-escuro font-black text-base uppercase leading-tight mb-2">
+                    <h3 className="text-[var(--fg)] font-black text-base uppercase leading-tight mb-2">
                        {log.title}
                     </h3>
                     {(() => {
                       const isLongText = log.body.length > 120 || log.body.includes('\n');
                       return (
                         <>
-                          <p className={`text-gray-600 text-sm leading-relaxed whitespace-pre-wrap ${!expandedLogs[log.id] && isLongText ? 'line-clamp-2' : ''}`}>
+                          <p className={`text-[var(--fg-muted)] text-sm leading-relaxed whitespace-pre-wrap ${!expandedLogs[log.id] && isLongText ? 'line-clamp-2' : ''}`}>
                             {log.body}
                           </p>
                           {isLongText && (
                             <div 
                               onClick={() => setExpandedLogs(prev => ({ ...prev, [log.id]: !prev[log.id] }))}
-                              className="mt-3 flex items-center gap-1 text-[10px] text-laranja font-bold uppercase tracking-widest group cursor-pointer hover:text-black transition-all max-w-max"
+                              className="mt-3 flex items-center gap-1 text-[10px] text-[var(--artificio-brand)] font-bold uppercase tracking-widest group cursor-pointer hover:text-[var(--fg)] transition-all max-w-max"
                             >
                               {expandedLogs[log.id] ? 'Recolher' : 'Ver detalhes'} <ArrowRight size={12} className={`transition-transform ${expandedLogs[log.id] ? 'rotate-90' : ''}`} />
                             </div>
@@ -141,10 +141,10 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose 
         </div>
 
         {/* Footer */}
-        <div className="p-6 bg-white border-t border-gray-100 flex justify-end">
+        <div className="p-6 bg-[var(--surface)] border-t border-[var(--line)] flex justify-end">
           <button 
             onClick={onClose}
-            className="bg-azul-escuro text-white px-8 py-3 rounded-xl font-bold uppercase tracking-widest text-sm hover:bg-azul-medio transition-all shadow-lg hover:shadow-azul-escuro/20"
+            className="bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)] px-8 py-3 rounded-xl font-bold uppercase tracking-widest text-sm hover:bg-[var(--btn-primary-bg-hover)] transition-all shadow-lg"
           >
             Entendido
           </button>

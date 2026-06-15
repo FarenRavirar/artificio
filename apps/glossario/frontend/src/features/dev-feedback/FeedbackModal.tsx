@@ -108,20 +108,20 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
         role="dialog"
         aria-modal="true"
         aria-labelledby="feedback-modal-title"
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#1B2A4A] p-6 shadow-2xl"
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 shadow-2xl"
       >
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 id="feedback-modal-title" className="text-xl font-bold text-white">
+            <h2 id="feedback-modal-title" className="text-xl font-bold text-[var(--navy-block-fg)]">
               {c.modal.title}
             </h2>
-            <p className="mt-1 text-sm text-white/60">{c.modal.subtitle}</p>
+            <p className="mt-1 text-sm text-[rgba(255,255,255,0.6)]">{c.modal.subtitle}</p>
           </div>
           <button
             onClick={onClose}
             disabled={submitting}
             aria-label={c.modal.closeAria}
-            className="rounded-lg px-2 py-1 text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
+            className="rounded-lg px-2 py-1 text-[rgba(255,255,255,0.6)] transition-colors hover:bg-[var(--fill)] hover:text-[var(--navy-block-fg)] disabled:opacity-50"
           >
             ✕
           </button>
@@ -132,7 +132,7 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
             type="button"
             onClick={() => setKind('bug')}
             className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
-              kind === 'bug' ? 'bg-[var(--artificio-brand)] text-[#020740]' : 'bg-white/5 text-white/60 hover:bg-white/10'
+              kind === 'bug' ? 'bg-[var(--artificio-brand)] text-[var(--fg)]' : 'bg-[var(--fill-subtle)] text-[rgba(255,255,255,0.6)] hover:bg-[var(--fill)]'
             }`}
           >
             {c.kinds.bug.label}
@@ -141,14 +141,14 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
             type="button"
             onClick={() => setKind('suggestion')}
             className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
-              kind === 'suggestion' ? 'bg-[var(--artificio-brand)] text-[#020740]' : 'bg-white/5 text-white/60 hover:bg-white/10'
+              kind === 'suggestion' ? 'bg-[var(--artificio-brand)] text-[var(--fg)]' : 'bg-[var(--fill-subtle)] text-[rgba(255,255,255,0.6)] hover:bg-[var(--fill)]'
             }`}
           >
             {c.kinds.suggestion.label}
           </button>
         </div>
 
-        <label className="mb-1 block text-sm text-white/80" htmlFor="feedback-title">{c.fields.titleLabel}</label>
+        <label className="mb-1 block text-sm text-[rgba(255,255,255,0.8)]" htmlFor="feedback-title">{c.fields.titleLabel}</label>
         <input
           id="feedback-title"
           ref={titleRef}
@@ -156,10 +156,10 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
           maxLength={160}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={kind === 'bug' ? c.fields.titlePlaceholder.bug : c.fields.titlePlaceholder.suggestion}
-          className="mb-4 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-white/40 focus:border-[var(--artificio-brand)] focus:outline-none"
+          className="mb-4 w-full rounded-lg border border-[var(--line)] bg-[var(--fill-subtle)] px-3 py-2 text-[var(--navy-block-fg)] placeholder-[rgba(255,255,255,0.4)] focus:border-[var(--artificio-brand)] focus:outline-none"
         />
 
-        <label className="mb-1 block text-sm text-white/80" htmlFor="feedback-description">{c.fields.descriptionLabel}</label>
+        <label className="mb-1 block text-sm text-[rgba(255,255,255,0.8)]" htmlFor="feedback-description">{c.fields.descriptionLabel}</label>
         <textarea
           id="feedback-description"
           value={description}
@@ -167,13 +167,13 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
           rows={4}
           onChange={(e) => setDescription(e.target.value)}
           placeholder={kind === 'bug' ? c.fields.descriptionPlaceholder.bug : c.fields.descriptionPlaceholder.suggestion}
-          className="mb-4 w-full resize-y rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-white/40 focus:border-[var(--artificio-brand)] focus:outline-none"
+          className="mb-4 w-full resize-y rounded-lg border border-[var(--line)] bg-[var(--fill-subtle)] px-3 py-2 text-[var(--navy-block-fg)] placeholder-[rgba(255,255,255,0.4)] focus:border-[var(--artificio-brand)] focus:outline-none"
         />
 
         {!isAuthenticated && (
           <>
-            <label className="mb-1 block text-sm text-white/80" htmlFor="feedback-email">
-              {c.fields.emailLabel} <span className="text-white/40">{c.fields.emailOptional}</span>
+            <label className="mb-1 block text-sm text-[rgba(255,255,255,0.8)]" htmlFor="feedback-email">
+              {c.fields.emailLabel} <span className="text-[rgba(255,255,255,0.4)]">{c.fields.emailOptional}</span>
             </label>
             <input
               id="feedback-email"
@@ -182,16 +182,16 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
               maxLength={254}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={c.fields.emailPlaceholder}
-              className="mb-4 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-white/40 focus:border-[var(--artificio-brand)] focus:outline-none"
+              className="mb-4 w-full rounded-lg border border-[var(--line)] bg-[var(--fill-subtle)] px-3 py-2 text-[var(--navy-block-fg)] placeholder-[rgba(255,255,255,0.4)] focus:border-[var(--artificio-brand)] focus:outline-none"
             />
           </>
         )}
 
-        <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-white/70">
-          <p className="mb-2 font-semibold text-white/80">{c.context.heading}</p>
-          <p className="text-xs text-white/50">{c.context.page} {pageContext.route_path || '/'}</p>
-          <p className="text-xs text-white/50">{c.context.viewport} {pageContext.viewport}</p>
-          <p className="text-xs text-white/50">{c.context.errors} {errorCount}</p>
+        <div className="mb-4 rounded-lg border border-[var(--line)] bg-[var(--fill-subtle)] p-3 text-sm text-[rgba(255,255,255,0.7)]">
+          <p className="mb-2 font-semibold text-[rgba(255,255,255,0.8)]">{c.context.heading}</p>
+          <p className="text-xs text-[rgba(255,255,255,0.5)]">{c.context.page} {pageContext.route_path || '/'}</p>
+          <p className="text-xs text-[rgba(255,255,255,0.5)]">{c.context.viewport} {pageContext.viewport}</p>
+          <p className="text-xs text-[rgba(255,255,255,0.5)]">{c.context.errors} {errorCount}</p>
           <label className="mt-3 flex items-center gap-2 text-xs">
             <input type="checkbox" checked={includeScreenshot} onChange={(e) => setIncludeScreenshot(e.target.checked)} className="h-4 w-4" />
             {c.context.includeScreenshot}
@@ -206,14 +206,14 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
           <button
             onClick={onClose}
             disabled={submitting}
-            className="rounded-lg px-4 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 disabled:opacity-50"
+            className="rounded-lg px-4 py-2 text-sm text-[rgba(255,255,255,0.7)] transition-colors hover:bg-[var(--fill)] disabled:opacity-50"
           >
             {c.actions.cancel}
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="rounded-lg bg-[var(--artificio-brand)] px-5 py-2 text-sm font-semibold text-[#020740] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-[var(--artificio-brand)] px-5 py-2 text-sm font-semibold text-[var(--fg)] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? c.actions.submitting : c.actions.submit}
           </button>

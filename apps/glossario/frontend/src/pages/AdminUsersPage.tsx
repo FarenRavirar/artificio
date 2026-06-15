@@ -38,51 +38,51 @@ const AdminUsersPage: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-black text-azul-escuro flex items-center gap-2"><Users size={24} /> Gestão de Membros</h1>
-        <button onClick={fetchUsers} className="flex items-center gap-2 text-sm text-gray-500 hover:text-azul-escuro transition-colors">
+        <h1 className="text-2xl font-black text-[var(--fg)] flex items-center gap-2"><Users size={24} /> Gestão de Membros</h1>
+        <button onClick={fetchUsers} className="flex items-center gap-2 text-sm text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors">
           <RefreshCw size={14} /> Atualizar
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-[var(--surface)] rounded-2xl shadow-sm border border-[var(--line)] overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-gray-400">Carregando membros...</div>
+          <div className="p-12 text-center text-[var(--fg-muted)]">Carregando membros...</div>
         ) : (
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="bg-[var(--surface-subtle)] border-b border-[var(--line)]">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-widest">Membro</th>
-                <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-widest">E-mail</th>
-                <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-widest">Papel</th>
-                <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-widest">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-widest">Desde</th>
+                <th className="text-left px-4 py-3 text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">Membro</th>
+                <th className="text-left px-4 py-3 text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">E-mail</th>
+                <th className="text-left px-4 py-3 text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">Papel</th>
+                <th className="text-left px-4 py-3 text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">Status</th>
+                <th className="text-left px-4 py-3 text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">Desde</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {users.map(u => (
-                <tr key={u.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${u.banned ? 'opacity-50' : ''}`}>
+                <tr key={u.id} className={`border-b border-[var(--line)] hover:bg-[var(--surface-subtle)] transition-colors ${u.banned ? 'opacity-50' : ''}`}>
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-sm text-gray-800">{u.full_name}</div>
-                    <div className="text-xs text-gray-400">@{u.username}</div>
+                    <div className="font-semibold text-sm text-[var(--fg)]">{u.full_name}</div>
+                    <div className="text-xs text-[var(--fg-muted)]">@{u.username}</div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{u.email}</td>
+                  <td className="px-4 py-3 text-sm text-[var(--fg-muted)]">{u.email}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${u.role === 'admin' ? 'bg-orange-50 text-laranja' : 'bg-blue-50 text-azul-escuro'}`}>
+                    <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${u.role === 'admin' ? 'bg-[var(--state-warning-bg)] text-[var(--artificio-brand)]' : 'bg-[var(--state-info-bg)] text-[var(--fg)]'}`}>
                       {u.role}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-bold uppercase ${u.banned ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                    <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-bold uppercase ${u.banned ? 'bg-[var(--state-danger-bg)] text-[var(--state-danger-fg)]' : 'bg-[var(--state-success-bg)] text-[var(--state-success-fg)]'}`}>
                       {u.banned ? 'Banido' : 'Ativo'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-400">{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
+                  <td className="px-4 py-3 text-xs text-[var(--fg-muted)]">{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => toggleBan(u.id, u.banned)}
                       title={u.banned ? 'Desbanir' : 'Banir'}
-                      className={`p-2 rounded-lg transition-colors ${u.banned ? 'text-green-500 hover:bg-green-50' : 'text-red-400 hover:bg-red-50'}`}
+                      className={`p-2 rounded-lg transition-colors ${u.banned ? 'text-[var(--state-success-fg)] hover:bg-[var(--state-success-bg)]' : 'text-[var(--state-danger-fg)] hover:bg-[var(--state-danger-bg)]'}`}
                     >
                       {u.banned ? <ShieldCheck size={16} /> : <ShieldX size={16} />}
                     </button>

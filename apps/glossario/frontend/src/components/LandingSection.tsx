@@ -12,18 +12,18 @@ export function LandingSection({ totalTermos, isAuthenticated, onContribute }: L
     <div className="w-full">
       {/* Hero */}
       <section className="text-center py-2 px-4">
-        <h2 className="text-4xl md:text-5xl font-black text-azul-escuro uppercase tracking-tighter leading-tight mb-4">
+        <h2 className="text-4xl md:text-5xl font-black text-[var(--fg)] uppercase tracking-tighter leading-tight mb-4">
           O Grande Glossário<br/>
-          <span className="text-laranja">de RPG de Mesa</span>
+          <span className="text-[var(--artificio-brand)]">de RPG de Mesa</span>
         </h2>
 
-        <p className="text-gray-600 text-lg max-w-2xl mx-auto mb-3 leading-relaxed">
+        <p className="text-[var(--fg-muted)] text-lg max-w-2xl mx-auto mb-3 leading-relaxed">
           A maior base colaborativa de tradução bilíngue para RPG em português.
           Por enquanto, com foco no vasto acervo de <strong>D&D 5e</strong> — mas feito
           para crescer com a comunidade, abrangendo qualquer sistema ou cenário.
         </p>
 
-        <p className="text-gray-400 text-sm max-w-xl mx-auto mb-8">
+        <p className="text-[var(--fg-muted)] text-sm max-w-xl mx-auto mb-8">
           The Witcher · Forgotten Realms · Cosmere · Pathfinder · Vampire · e muito mais...
         </p>
 
@@ -32,14 +32,14 @@ export function LandingSection({ totalTermos, isAuthenticated, onContribute }: L
             <button
               type="button"
               onClick={onContribute}
-              className="bg-laranja text-white font-bold px-8 py-3 rounded-full hover:opacity-90 transition-all shadow-lg shadow-laranja/30 hover:scale-105 active:scale-95"
+              className="bg-[var(--artificio-brand)] text-[var(--navy-block-fg)] font-bold px-8 py-3 rounded-full hover:opacity-90 transition-all shadow-lg shadow-laranja/30 hover:scale-105 active:scale-95"
             >
               Contribua →
             </button>
           ) : (
             <Link
               to="/register"
-              className="bg-laranja text-white font-bold px-8 py-3 rounded-full hover:opacity-90 transition-all shadow-lg shadow-laranja/30 hover:scale-105 active:scale-95"
+              className="bg-[var(--artificio-brand)] text-[var(--navy-block-fg)] font-bold px-8 py-3 rounded-full hover:opacity-90 transition-all shadow-lg shadow-laranja/30 hover:scale-105 active:scale-95"
             >
               Cadastre-se e contribua →
             </Link>
@@ -47,7 +47,7 @@ export function LandingSection({ totalTermos, isAuthenticated, onContribute }: L
         </div>
 
         {/* Contagem real */}
-        <div className="inline-flex items-center gap-2 bg-blue-50 text-azul-escuro font-bold px-5 py-2 rounded-full border border-blue-100 text-sm shadow-sm">
+        <div className="inline-flex items-center gap-2 bg-[var(--state-info-bg)] text-[var(--fg)] font-bold px-5 py-2 rounded-full border border-[var(--state-info-line)] text-sm shadow-sm">
           <BookOpen size={14} />
           {totalTermos > 0 ? (
             <>{totalTermos.toLocaleString('pt-BR')} termos cadastrados</>
@@ -59,41 +59,41 @@ export function LandingSection({ totalTermos, isAuthenticated, onContribute }: L
 
       {/* Proposta de valor — 3 cards */}
       <section className="grid md:grid-cols-3 gap-4 mb-10 px-4">
-        <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center mb-4">
-            <Globe size={20} className="text-azul-escuro" />
+        <div className="bg-[var(--surface)] rounded-xl border border-[var(--line)] p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="w-10 h-10 rounded-lg bg-[var(--state-info-bg)] flex items-center justify-center mb-4">
+            <Globe size={20} className="text-[var(--fg)]" />
           </div>
-          <h3 className="font-black text-azul-escuro text-base uppercase mb-2">Sistemas & Cenários</h3>
-          <p className="text-gray-500 text-sm leading-relaxed">
+          <h3 className="font-black text-[var(--fg)] text-base uppercase mb-2">Sistemas & Cenários</h3>
+          <p className="text-[var(--fg-muted)] text-sm leading-relaxed">
             D&D · Pathfinder · Vampire · The Witcher · Cosmere · Thedas · e qualquer universo que a comunidade trouxer.
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-          <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center mb-4">
-            <BookOpen size={20} className="text-laranja" />
+        <div className="bg-[var(--surface)] rounded-xl border border-[var(--line)] p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="w-10 h-10 rounded-lg bg-[var(--state-warning-bg)] flex items-center justify-center mb-4">
+            <BookOpen size={20} className="text-[var(--artificio-brand)]" />
           </div>
-          <h3 className="font-black text-azul-escuro text-base uppercase mb-2">Tradução com Rigor</h3>
-          <p className="text-gray-500 text-sm leading-relaxed">
+          <h3 className="font-black text-[var(--fg)] text-base uppercase mb-2">Tradução com Rigor</h3>
+          <p className="text-[var(--fg-muted)] text-sm leading-relaxed">
             Base oficial com selos de validação: Tradução Oficial, Rigor Artifício e Sugestão da Comunidade para total transparência.
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-          <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center mb-4">
-            <Users size={20} className="text-green-600" />
+        <div className="bg-[var(--surface)] rounded-xl border border-[var(--line)] p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="w-10 h-10 rounded-lg bg-[var(--state-success-bg)] flex items-center justify-center mb-4">
+            <Users size={20} className="text-[var(--state-success-fg)]" />
           </div>
-          <h3 className="font-black text-azul-escuro text-base uppercase mb-2">Comunidade Aberta</h3>
-          <p className="text-gray-500 text-sm leading-relaxed">
+          <h3 className="font-black text-[var(--fg)] text-base uppercase mb-2">Comunidade Aberta</h3>
+          <p className="text-[var(--fg-muted)] text-sm leading-relaxed">
             Qualquer jogador ou mestre pode se cadastrar, sugerir termos e contribuir para o glossário crescer junto com a cena nacional.
           </p>
         </div>
       </section>
 
       {/* Faixa "sem ads" */}
-      <div className="bg-azul-escuro text-white rounded-xl p-5 mb-10 mx-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="bg-[var(--navy-block-bg)] text-[var(--navy-block-fg)] rounded-xl p-5 mb-10 mx-4 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Heart size={20} className="text-laranja flex-shrink-0" />
+          <Heart size={20} className="text-[var(--artificio-brand)] flex-shrink-0" />
           <p className="text-sm font-semibold">
             Gratuito para sempre · Sem anúncios · Sem coleta de dados pessoais
           </p>

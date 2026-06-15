@@ -15,7 +15,7 @@ export function TableMaster({ vm }: TableMasterProps) {
   }
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+    <section className="rounded-2xl border border-[var(--line)] bg-[var(--fill-subtle)] p-5">
       <h2 className="text-lg font-bold mb-4">🎭 Sobre o Mestre</h2>
       
       <div className="flex items-start gap-4">
@@ -24,20 +24,20 @@ export function TableMaster({ vm }: TableMasterProps) {
           <img
             src={vm.masterAvatar}
             alt={vm.masterName}
-            className="w-16 h-16 rounded-full border-2 border-white/20"
+            className="w-16 h-16 rounded-full border-2 border-[var(--line-strong)]"
           />
         )}
         
         <div className="flex-1">
           {/* Nome */}
           <div className="flex items-center gap-2 mb-2">
-            <p className="font-semibold text-white text-lg">
+            <p className="font-semibold text-[var(--fg)] text-lg">
               {vm.masterName}
             </p>
             
             {/* Badge Covil do Lich (confiança do mestre) */}
             {vm.certifications.covil && (
-              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-purple-500/20 border border-purple-400/30">
+              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-[rgba(168,85,247,0.20)] border border-[rgba(168,85,247,0.30)]">
                 <img
                   src="https://covildolich.com/wp-content/uploads/2025/09/Mestres.webp"
                   alt="Covil do Lich"
@@ -47,14 +47,14 @@ export function TableMaster({ vm }: TableMasterProps) {
                     e.currentTarget.style.display = 'none';
                   }}
                 />
-                <span className="text-purple-300 text-xs font-semibold">Mestre do Covil do Lich</span>
+                <span className="text-[var(--special)] text-xs font-semibold">Mestre do Covil do Lich</span>
               </span>
             )}
           </div>
 
           {/* Bio */}
           {vm.masterBio && (
-            <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">
+            <p className="text-[var(--fg-muted)] text-sm leading-relaxed whitespace-pre-wrap">
               {vm.masterBio}
             </p>
           )}
@@ -63,7 +63,7 @@ export function TableMaster({ vm }: TableMasterProps) {
           {vm.masterSlug && (
             <a
               href={`/mestre/${vm.masterSlug}`}
-              className="inline-block mt-3 text-sm text-orange-400 hover:text-orange-300 transition"
+              className="inline-block mt-3 text-sm text-[var(--state-warning-fg)] hover:text-[var(--state-warning-fg)] transition"
             >
               Ver perfil completo →
             </a>

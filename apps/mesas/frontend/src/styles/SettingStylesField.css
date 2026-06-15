@@ -1,4 +1,5 @@
-/* CORREÇÃO DT-12: Prefixar classes para evitar conflitos globais */
+/* SettingStylesField (DT-12: classes prefixadas). Spec 022 T8: cores via vars canônicas.
+   Era light-coded (cinzas/azul/branco hardcoded) → agora segue tema via vars. */
 .setting-styles-field {
   display: flex;
   flex-direction: column;
@@ -14,18 +15,20 @@
 .setting-styles-field .form-group label {
   font-weight: 600;
   font-size: 0.95rem;
-  color: #2c3e50;
+  color: var(--fg);
 }
 
 .setting-styles-field .optional {
   font-weight: 400;
-  color: #7f8c8d;
+  color: var(--fg-muted);
   font-size: 0.85rem;
 }
 
 .setting-styles-field .form-input {
   padding: 0.75rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--fg);
   border-radius: 6px;
   font-size: 1rem;
   transition: border-color 0.2s;
@@ -33,12 +36,12 @@
 
 .setting-styles-field .form-input:focus {
   outline: none;
-  border-color: #3498db;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  border-color: var(--color-artificio-orange);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
 }
 
 .setting-styles-field .form-hint {
-  color: #7f8c8d;
+  color: var(--fg-muted);
   font-size: 0.85rem;
 }
 
@@ -55,8 +58,9 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  background: #3498db;
-  color: white;
+  background: var(--state-info-bg);
+  color: var(--state-info-fg);
+  border: 1px solid var(--state-info-line);
   border-radius: 20px;
   font-size: 0.9rem;
   font-weight: 500;
@@ -65,7 +69,7 @@
 .setting-styles-field .chip-remove {
   background: none;
   border: none;
-  color: white;
+  color: var(--state-info-fg);
   font-size: 1.2rem;
   cursor: pointer;
   padding: 0;
@@ -79,38 +83,38 @@
 }
 
 .setting-styles-field .chip-remove:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: var(--fill);
 }
 
 /* Sugestões */
 .setting-styles-field .suggestions-loading {
   padding: 0.75rem;
-  background: #f8f9fa;
+  background: var(--surface-subtle);
   border-radius: 6px;
-  color: #7f8c8d;
+  color: var(--fg-muted);
   font-size: 0.9rem;
   text-align: center;
 }
 
 .setting-styles-field .suggestions-error {
   padding: 0.75rem;
-  background: #fee;
-  border: 1px solid #fcc;
+  background: var(--state-danger-bg);
+  border: 1px solid var(--state-danger-line);
   border-radius: 6px;
-  color: #c33;
+  color: var(--state-danger-fg);
   font-size: 0.9rem;
 }
 
 .setting-styles-field .suggestions-container {
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--surface-subtle);
   border-radius: 6px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--line);
 }
 
 .setting-styles-field .suggestions-label {
   display: block;
-  color: #7f8c8d;
+  color: var(--fg-muted);
   font-size: 0.85rem;
   margin-bottom: 0.5rem;
   font-weight: 500;
@@ -124,19 +128,19 @@
 
 .setting-styles-field .suggestion-button {
   padding: 0.5rem 0.75rem;
-  background: white;
-  border: 1px solid #ddd;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
   border-radius: 6px;
   font-size: 0.9rem;
-  color: #2c3e50;
+  color: var(--fg);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .setting-styles-field .suggestion-button:hover:not(:disabled) {
-  background: #3498db;
-  color: white;
-  border-color: #3498db;
+  background: var(--state-info-bg);
+  color: var(--state-info-fg);
+  border-color: var(--state-info-line);
   transform: translateY(-1px);
 }
 
@@ -160,8 +164,8 @@
   display: inline-flex;
   align-items: center;
   padding: 0.5rem 1rem;
-  background: var(--color-artificio-orange, #e85a1b);
-  color: white;
+  background: var(--color-artificio-orange);
+  color: #ffffff;
   border-radius: 6px;
   font-size: 0.95rem;
   font-weight: 500;

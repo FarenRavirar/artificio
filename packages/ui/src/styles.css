@@ -43,6 +43,100 @@
   --artificio-font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
+/* ============================================================================
+   Vars semânticas de tema (Spec 022 T3) — vocabulário canônico ÚNICO e ENXUTO.
+   Espelha o site (modelo provado) + R1. Sem alias, sem variedade redundante: as
+   ~13 opacidades de branco e as escalas gray/slate dos apps COLAPSAM nestes papéis
+   (mapping.md §2). Derivam dos tokens base e VIRAM por tema: :root = light,
+   [data-theme="dark"] = dark. INERTE até os apps consumirem: apps importam este
+   styles.css ANTES do próprio index.css → o :root do app ainda vence; default-dark
+   do mesas e default-light do glossário ficam idênticos. Estados usam as variantes
+   --artificio-{success,warning,danger,info}(-text) já AA-safe (não duplicar aqui).
+   ============================================================================ */
+:root {
+  /* foreground: 2 níveis (primário / secundário) */
+  --fg:        var(--artificio-light-ink);
+  --fg-muted:  rgba(11, 18, 32, 0.66);
+
+  /* superfícies: fundo da página + 3 elevações */
+  --canvas:         var(--artificio-light-canvas);
+  --surface:        var(--artificio-light-surface);
+  --surface-subtle: var(--artificio-light-subtle);
+  --surface-strong: var(--artificio-light-strong);
+
+  /* bordas (navy-alpha no claro) */
+  --line:        rgba(2, 7, 64, 0.14);
+  --line-strong: rgba(2, 7, 64, 0.24);
+
+  /* fills translúcidos (overlay sobre superfície) */
+  --fill-subtle: rgba(2, 7, 64, 0.04);
+  --fill:        rgba(2, 7, 64, 0.08);
+  --fill-strong: rgba(2, 7, 64, 0.14);
+
+  /* acento especial (roxo) — AA sobre claro */
+  --special: #7e22ce;
+
+  /* estados (badges/alertas) — bg/line theme-agnósticos (rgba leve funciona sobre claro
+     e escuro); só o texto vira por tema p/ AA. Base = tokens de estado --artificio. */
+  --state-success-bg:   rgba(16, 185, 129, 0.14);
+  --state-success-line: rgba(16, 185, 129, 0.30);
+  --state-success-fg:   var(--artificio-success-text);
+  --state-warning-bg:   rgba(245, 158, 11, 0.14);
+  --state-warning-line: rgba(245, 158, 11, 0.30);
+  --state-warning-fg:   var(--artificio-warning-text);
+  --state-danger-bg:    rgba(239, 68, 68, 0.14);
+  --state-danger-line:  rgba(239, 68, 68, 0.30);
+  --state-danger-fg:    var(--artificio-danger-text);
+  --state-info-bg:      rgba(56, 189, 248, 0.16);
+  --state-info-line:    rgba(56, 189, 248, 0.30);
+  --state-info-fg:      var(--artificio-info-text);
+
+  /* botão primário unificado (espelha .artificio-login-button): navy sólido + texto branco
+     no claro; laranja sólido + texto navy no escuro (acento de marca legível). */
+  --btn-primary-bg: var(--artificio-ink);
+  --btn-primary-fg: #ffffff;
+  --btn-primary-bg-hover: #1c1c52;
+
+  /* bloco navy decorativo (header de modal, banner, ribbon de card): navy + texto branco
+     nos 2 temas; no escuro clareia p/ separar do --surface (que também é navy). NÃO vira laranja. */
+  --navy-block-bg: var(--artificio-navy);
+  --navy-block-fg: #ffffff;
+}
+
+:root[data-theme="dark"] {
+  --fg:        var(--artificio-dark-text);
+  --fg-muted:  var(--artificio-dark-muted);
+
+  --canvas:         var(--artificio-dark-canvas);
+  --surface:        var(--artificio-dark-surface);
+  --surface-subtle: var(--artificio-dark-subtle);
+  --surface-strong: var(--artificio-dark-strong);
+
+  --line:        rgba(255, 255, 255, 0.10);
+  --line-strong: rgba(255, 255, 255, 0.20);
+
+  --fill-subtle: rgba(255, 255, 255, 0.05);
+  --fill:        rgba(255, 255, 255, 0.10);
+  --fill-strong: rgba(255, 255, 255, 0.20);
+
+  --special: #a855f7;
+
+  /* estados: bg/line herdam do :root (theme-agnósticos); só o texto clareia p/ AA no escuro */
+  --state-success-fg: #86efac;
+  --state-warning-fg: #fcd34d;
+  --state-danger-fg:  #fca5a5;
+  --state-info-fg:    #93c5fd;
+
+  /* botão primário no escuro: laranja sólido + texto navy */
+  --btn-primary-bg: var(--artificio-brand);
+  --btn-primary-fg: var(--artificio-ink);
+  --btn-primary-bg-hover: var(--artificio-brand-deep);
+
+  /* bloco navy no escuro: navy mais claro p/ destacar do surface; texto segue branco */
+  --navy-block-bg: #2e4a7a;
+  --navy-block-fg: #ffffff;
+}
+
 .artificio-header {
   background: var(--artificio-surface);
   border-bottom: 1px solid var(--artificio-line);

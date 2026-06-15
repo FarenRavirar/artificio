@@ -2,32 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-/*
-  THEME-MIGRATION — Notificações + Perfil
-  Data: 31/03/2026
-  Issues resolvidas: inputs dark → light, ALL CAPS labels, e-mail disabled state
-  Tokens adicionados: ver :root abaixo
-  Arquivos alterados: frontend/src/index.css, frontend/src/pages/NotificationsPage.tsx, frontend/src/pages/ProfilePage.tsx
-*/
+/* Glossário — tema via fonte única @artificio/ui (Spec 022 T5/T6).
+   As vars semânticas (--fg/--surface/--line/--canvas/estados/botão) vêm de
+   @artificio/ui/styles.css e viram por [data-theme]. Os 24 componentes consomem
+   essas vars direto (arbitrary `*-[var(--…)]`) — o remap de utilities por-app
+   (94 linhas [data-theme="dark"]) e os tokens locais --color-* foram REMOVIDOS:
+   não há mais suposição de tema no componente nem paleta duplicada. */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: var(--artificio-font-sans);
   line-height: 1.5;
   font-weight: 400;
-
   color-scheme: light dark;
-  color: #333333;
-  background-color: #ffffff;
-
-  --color-brand-navy: #020740;
-  --color-brand-accent: var(--artificio-brand); /* fonte única @artificio/ui (D064) */
-  --color-input-bg: #ffffff;
-  --color-input-border: #d1d5db;
-  --color-input-text: #020740;
-  --color-input-placeholder: #9ca3af;
-  --color-surface: #ffffff;
-  --color-surface-secondary: #f9fafb;
-  --color-text-primary: #020740;
-  --color-text-secondary: #6b7280;
+  color: var(--fg);
+  background-color: var(--canvas);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -35,11 +22,16 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #F4F4F4;
+  background-color: var(--canvas);
+  color: var(--fg);
 }
 
 /* Shell full-bleed igual mesas/beta (D-SHELL1): removidos os leftovers do template
@@ -49,143 +41,3 @@ body {
 #root {
   width: 100%;
 }
-
-/* ============================================================================
-   DARK MODE (Spec 020 R4/R8/D065) — variante FALTANTE do glossário.
-   Ativada pelo runtime canônico @artificio/ui (theme.tsx): <html data-theme="dark">.
-   Paleta navy alinhada à suite (site/mesas/accounts): surface #1B2A4A, canvas #0F1830,
-   texto #EEF1F8, brand #FF5722 (var --artificio-brand). Técnica = remap de utilities
-   (não toca os 21 componentes). Especificidade [data-theme] .util vence .util sem !important.
-   Backdrops (bg-black/NN) e hover:bg-black ficam de fora de propósito.
-   ============================================================================ */
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  color: var(--artificio-dark-text);
-  background-color: var(--artificio-dark-canvas);
-
-  /* tokens semânticos consumidos por Notifications/Profile (var(--color-*)) */
-  --color-input-bg: var(--artificio-dark-subtle);
-  --color-input-border: rgba(255, 255, 255, 0.18);
-  --color-input-text: var(--artificio-dark-text);
-  --color-input-placeholder: #8a94ab;
-  --color-surface: var(--artificio-dark-surface);
-  --color-surface-secondary: var(--artificio-dark-subtle);
-  --color-text-primary: var(--artificio-dark-text);
-  --color-text-secondary: var(--artificio-dark-muted);
-  /* foco visível no escuro (navy #020740 sumiria): usa o laranja de marca */
-  --color-brand-navy: var(--artificio-brand);
-}
-
-[data-theme="dark"] body {
-  background-color: var(--artificio-dark-canvas);
-}
-
-/* --- remap de superfícies --- */
-[data-theme="dark"] .bg-white { background-color: var(--artificio-dark-surface); }
-[data-theme="dark"] .bg-gray-50 { background-color: var(--artificio-dark-subtle); }
-[data-theme="dark"] .bg-gray-100 { background-color: var(--artificio-dark-surface); }
-[data-theme="dark"] .bg-gray-200 { background-color: var(--artificio-dark-strong); }
-
-/* --- remap de texto (não toca text-white nem o laranja) --- */
-[data-theme="dark"] .text-gray-900 { color: var(--artificio-dark-text); }
-[data-theme="dark"] .text-gray-800 { color: var(--artificio-dark-text); }
-[data-theme="dark"] .text-gray-700 { color: #e2e7f1; }
-[data-theme="dark"] .text-gray-600 { color: #c2cad9; }
-[data-theme="dark"] .text-gray-500 { color: var(--artificio-dark-muted); }
-[data-theme="dark"] .text-gray-400 { color: #8a94ab; }
-[data-theme="dark"] .text-gray-300 { color: #8a94ab; }
-[data-theme="dark"] .text-black { color: var(--artificio-dark-text); }
-
-/* --- remap de bordas --- */
-[data-theme="dark"] .border-gray-50 { border-color: rgba(255, 255, 255, 0.08); }
-[data-theme="dark"] .border-gray-100 { border-color: rgba(255, 255, 255, 0.12); }
-[data-theme="dark"] .border-gray-200 { border-color: rgba(255, 255, 255, 0.14); }
-[data-theme="dark"] .border-gray-300 { border-color: rgba(255, 255, 255, 0.18); }
-[data-theme="dark"] .border-white { border-color: rgba(255, 255, 255, 0.18); }
-
-/* --- estados hover (variantes não herdam do remap base) --- */
-[data-theme="dark"] .hover\:bg-white:hover { background-color: var(--artificio-dark-strong); }
-[data-theme="dark"] .hover\:bg-gray-50:hover { background-color: var(--artificio-dark-strong); }
-[data-theme="dark"] .hover\:bg-gray-100:hover { background-color: var(--artificio-dark-strong); }
-[data-theme="dark"] .hover\:bg-gray-200:hover { background-color: #2a3c66; }
-[data-theme="dark"] .hover\:border-gray-200:hover { border-color: rgba(255, 255, 255, 0.18); }
-[data-theme="dark"] .hover\:text-gray-700:hover { color: #c2cad9; }
-[data-theme="dark"] .hover\:text-black:hover { color: var(--artificio-dark-text); }
-
-/* --- cores custom do glossário (azul-escuro/azul-medio/cinza-fundo) --- */
-[data-theme="dark"] .text-azul-escuro { color: var(--artificio-dark-text); }
-[data-theme="dark"] .text-azul-medio { color: #b7c4e6; }
-[data-theme="dark"] .bg-azul-escuro { background-color: #2e4a7a; } /* CTA navy destaca do surface */
-[data-theme="dark"] .bg-azul-medio { background-color: #3a5894; }
-[data-theme="dark"] .bg-cinza-fundo { background-color: var(--artificio-dark-subtle); }
-[data-theme="dark"] .border-azul-escuro { border-color: rgba(255, 255, 255, 0.18); }
-[data-theme="dark"] .border-azul-medio { border-color: rgba(255, 255, 255, 0.18); }
-[data-theme="dark"] .border-azul-escuro\/10 { border-color: rgba(255, 255, 255, 0.10); }
-[data-theme="dark"] .border-azul-medio\/30 { border-color: rgba(255, 255, 255, 0.22); }
-[data-theme="dark"] .bg-\[\#f0f4ff\] { background-color: var(--artificio-dark-subtle); }
-[data-theme="dark"] .hover\:text-azul-escuro:hover { color: var(--artificio-dark-text); }
-[data-theme="dark"] .hover\:text-azul-medio:hover { color: #b7c4e6; }
-[data-theme="dark"] .hover\:bg-azul-escuro:hover { background-color: #2e4a7a; }
-[data-theme="dark"] .hover\:bg-azul-medio:hover { background-color: #3a5894; }
-[data-theme="dark"] .group:hover .group-hover\:text-azul-escuro { color: var(--artificio-dark-text); }
-
-/* --- tints semânticos (badges/alertas): fundo claro -50/-100 → translúcido escuro;
-       texto saturado -600..900 → clareado; bordas → alpha da própria cor --- */
-[data-theme="dark"] .bg-blue-50,
-[data-theme="dark"] .bg-blue-100 { background-color: rgba(59, 130, 246, 0.16); }
-[data-theme="dark"] .bg-green-50,
-[data-theme="dark"] .bg-green-100 { background-color: rgba(34, 197, 94, 0.16); }
-[data-theme="dark"] .bg-red-50,
-[data-theme="dark"] .bg-red-100 { background-color: rgba(239, 68, 68, 0.16); }
-[data-theme="dark"] .bg-amber-50,
-[data-theme="dark"] .bg-amber-100 { background-color: rgba(245, 158, 11, 0.16); }
-[data-theme="dark"] .bg-cyan-50 { background-color: rgba(34, 211, 238, 0.16); }
-[data-theme="dark"] .bg-orange-50 { background-color: rgba(255, 87, 34, 0.16); }
-[data-theme="dark"] .bg-yellow-50 { background-color: rgba(234, 179, 8, 0.16); }
-
-[data-theme="dark"] .text-blue-600,
-[data-theme="dark"] .text-blue-700,
-[data-theme="dark"] .text-blue-800,
-[data-theme="dark"] .text-blue-900 { color: #93c5fd; }
-[data-theme="dark"] .text-green-500,
-[data-theme="dark"] .text-green-600,
-[data-theme="dark"] .text-green-700,
-[data-theme="dark"] .text-green-800 { color: #86efac; }
-[data-theme="dark"] .text-red-500,
-[data-theme="dark"] .text-red-600,
-[data-theme="dark"] .text-red-700 { color: #fca5a5; }
-[data-theme="dark"] .text-amber-600,
-[data-theme="dark"] .text-amber-700,
-[data-theme="dark"] .text-amber-800,
-[data-theme="dark"] .text-amber-900 { color: #fcd34d; }
-[data-theme="dark"] .text-cyan-600,
-[data-theme="dark"] .text-cyan-700,
-[data-theme="dark"] .text-cyan-800 { color: #67e8f9; }
-[data-theme="dark"] .text-yellow-700 { color: #fde047; }
-[data-theme="dark"] .text-purple-600 { color: #d8b4fe; }
-[data-theme="dark"] .text-orange-600 { color: #ffb486; }
-
-[data-theme="dark"] .border-blue-100,
-[data-theme="dark"] .border-blue-200 { border-color: rgba(59, 130, 246, 0.30); }
-[data-theme="dark"] .border-green-100,
-[data-theme="dark"] .border-green-200 { border-color: rgba(34, 197, 94, 0.30); }
-[data-theme="dark"] .border-red-200 { border-color: rgba(239, 68, 68, 0.30); }
-[data-theme="dark"] .border-amber-100,
-[data-theme="dark"] .border-amber-200,
-[data-theme="dark"] .border-amber-300,
-[data-theme="dark"] .border-amber-500 { border-color: rgba(245, 158, 11, 0.30); }
-[data-theme="dark"] .border-cyan-100,
-[data-theme="dark"] .border-cyan-200 { border-color: rgba(34, 211, 238, 0.30); }
-
-/* --- variantes de OPACIDADE de fundos claros (frosted/overlay panels):
-       não herdam do remap sólido → viram navy translúcido no escuro --- */
-[data-theme="dark"] .bg-white\/60,
-[data-theme="dark"] .bg-white\/50,
-[data-theme="dark"] .bg-white\/10 { background-color: rgba(27, 42, 74, 0.60); }
-[data-theme="dark"] .bg-gray-50\/70,
-[data-theme="dark"] .bg-gray-50\/50,
-[data-theme="dark"] .bg-gray-50\/30 { background-color: rgba(22, 34, 62, 0.65); }
-[data-theme="dark"] .bg-gray-200\/50 { background-color: rgba(34, 50, 90, 0.55); }
-[data-theme="dark"] .bg-blue-50\/50,
-[data-theme="dark"] .bg-blue-50\/30 { background-color: rgba(59, 130, 246, 0.16); }
