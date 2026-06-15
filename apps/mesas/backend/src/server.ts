@@ -60,6 +60,13 @@ const allowedFrontendOrigins = Array.from(new Set(frontendUrls));
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Atrás do nginx (1 hop): Cloudflare Tunnel → nginx → backend. Sem isto o
+// express-rate-limit usa req.ip = IP do container nginx para TODOS os visitantes
+// (default trust proxy = false), bucketando os limiters (public/global/auth/strict)
+// num balde único. Com trust proxy 1 + nginx repassando o IP real do visitante
+// (X-Forwarded-For = $http_cf_connecting_ip), req.ip resolve o visitante. (D-NGINX2)
+app.set('trust proxy', 1);
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) {
