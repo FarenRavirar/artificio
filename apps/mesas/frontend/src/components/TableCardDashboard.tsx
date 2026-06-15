@@ -84,7 +84,7 @@ export function TableCardDashboard({
 
       {/* BADGE DE ARQUIVAMENTO (D-MESAS1) — some do catálogo público */}
       {table.archived && (
-        <div className="absolute top-2 left-2 bg-slate-600/85 text-white text-xs px-2 py-1 rounded-md font-medium z-20">
+        <div className="absolute top-2 left-2 bg-[var(--artificio-bronze)] text-white text-xs px-2 py-1 rounded-md font-medium z-20">
           🗄️ Arquivada
         </div>
       )}
@@ -219,7 +219,7 @@ export function TableCardDashboard({
           <button
             onClick={() => onArchive(table)}
             disabled={isArchiving}
-            className="col-span-2 py-2 text-xs bg-slate-600/70 hover:bg-slate-600 disabled:opacity-50 rounded-lg transition-colors"
+            className="col-span-2 py-2 text-xs bg-[var(--artificio-bronze)] hover:brightness-110 text-white disabled:opacity-50 rounded-lg transition"
           >
             {isArchiving ? '⏳' : table.archived ? '♻️ Desarquivar' : '🗄️ Arquivar'}
           </button>
