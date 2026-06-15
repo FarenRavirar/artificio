@@ -84,7 +84,7 @@
 - **Atenção:** se a solução virar componente compartilhado ou contrato cross-app, aplicar SDD Completo e smoke em consumidores; se for port local por app, SDD Lite por módulo.
 - **Nível SDD:** provável SDD Completo se reutilizar estrutura comum; Lite se apenas replicar localmente em `site` ou `glossario`.
 
-## D-NGINX1 — Glossário: nginx não repassa X-Forwarded-For → rate-limiters por IP bucketam num IP só
+## D-NGINX1 — Glossário: nginx não repassa X-Forwarded-For → rate-limiters por IP bucketam num IP só [RESOLVIDO PROD 2026-06-14, fix v2 CF-Connecting-IP]
 - **Origem:** review da PR #31 (Spec 021), 2026-06-14. Mesmo padrão do achado do site (resolvido lá com `trust proxy`; o site não tem nginx, fala direto do CF Tunnel → Express).
 - **Bug:** `apps/glossario/frontend/nginx.conf.template` faz proxy de `/api/` **sem** setar `X-Real-IP`/`X-Forwarded-For`/`X-Forwarded-Proto`. O backend tem `app.set('trust proxy', 1)`, mas sem o header XFF o `req.ip` cai pro IP do container nginx **para todos os visitantes**.
 - **Impacto:** os rate-limiters por IP compartilham um balde único do nginx → podem bloquear usuários legítimos. Afeta o limiter novo de **feedback** (`POST /api/feedback`, Spec 021, 20/15min) **e** o **pré-existente de migração** (`/api/migration/verify` `verifyLimiter`, spec 015) que bucketa por IP+email. Pré-existente em prod desde a 015.
@@ -98,13 +98,14 @@
 - **Nível SDD:** Lite. Sem commit/push/deploy sem autorização nominal.
 - **Débito derivado (D-NGINX2, mesas):** `apps/mesas/frontend/nginx.conf` usa o mesmo `$proxy_add_x_forwarded_for`. Se mesas também é CF Tunnel → nginx → backend com `trust proxy 1`, tem o **mesmo bug latente** de bucket único nos rate-limiters por IP. Auditar/corrigir igual (CF-Connecting-IP). Não tocado nesta fatia.
 
-## D-SHELL1b — Glossário: shell capado pelo leftover do template Vite (RESOLVIDO LOCAL)
+## D-SHELL1b — Glossário: shell capado pelo leftover do template Vite [RESOLVIDO PROD 2026-06-14]
 - **Origem:** mantenedor notou que o nav do glossário ficava "curto" (não preenchia a tela) vs mesas/beta, 2026-06-14.
 - **Causa:** `apps/glossario/frontend/src/index.css` carregava o leftover do create-vite — `body { display:flex; place-items:center }` + `#root { max-width:1280px; margin:0 auto }` — capando o app inteiro (header/footer inclusos) em 1280px centralizado. mesas/beta não têm isso → full-bleed.
 - **Fix (LOCAL, uncommitted):** removidos os dois leftovers; `#root { width:100% }`. Header/footer agora edge-to-edge; conteúdo segue centralizado pelos wrappers próprios (`max-w-* mx-auto`). Verificado em preview @1440/1600 (root=header=footer=largura do viewport); auditadas todas as páginas (Login centra pelo próprio flex; Register é redirect) — sem regressão. Parte do D-SHELL1.
 - **Nível SDD:** Lite (isolado em `apps/glossario`). Pendente commit + redeploy beta sob autorização.
 
-## D-GLOS-CTA — Glossário: CTA "Cadastre-se e contribua" não reage a sessão logada
+## D-GLOS-CTA — Glossário: CTA "Cadastre-se e contribua" não reage a sessão logada [RESOLVIDO — já em prod via commit 652cf20]
+**Nota 2026-06-14:** `LandingSection.tsx` já tem o branch `isAuthenticated` (logado → "Contribua →" → `openAddTerm`/fluxo de contribuição; anônimo → "Cadastre-se e contribua →" → login). `App.tsx:139` passa `isAuthenticated={!!user}`. Entrou no commit `652cf20` (2026-06-13, depois do report) e está em `origin/main`/prod. Débito era stale; só falta confirmação visual logado em prod.
 - **Origem:** E2E B6/B7 prod, sessão `26-06-13_1` (2026-06-13). Mantenedor logado.
 - **Bug:** estando logado, o botão hero `https://glossario.artificiorpg.com/` continua "Cadastre-se e contribua →" e leva para `/login`.
 - **Esperado (só após logado):** rótulo vira **"Contribua"** (ou similar) e o destino vai direto para o fluxo de contribuição (AddTerm/contribuir), não para `/login`.
@@ -119,7 +120,9 @@
 - **Pré-perguntas (definir na spec, não agora):** fonte da verdade (mesas? glossário? bidirecional?); chave canônica de sistema/cenário; o que é "cenário" em cada app (mesas = cenários de mesa; glossário = tags/escopo de termo?); periodicidade (one-shot, cron, on-demand); direção (uni/bi).
 - **Nível SDD:** **Completo** (cross-module + banco + backup). Não implementar sem spec aprovada.
 
-## D-CSS1 — Limpeza futura do aviso CSS no build Astro
+## D-CSS1 — Limpeza futura do aviso CSS no build Astro [RESOLVIDO LOCAL 2026-06-14]
+- **Fix (Lite, site-only):** em `apps/site/src/styles/global.css`, importar `@artificio/ui/styles.css` **antes** de `tailwindcss`. Assim o `@import url(google fonts)` aninhado do styles.css fica no topo (válido) em vez de cair depois das regras expandidas do tailwind. Build `@artificio/site` sem warning; preview público sem regressão visual (Oswald/Inter carregam, nav/hero/cards/tema dark ok, console limpo). Regras unlayered do ui vencem `@layer` do tailwind em qualquer ordem → cascata inalterada. Comentário no arquivo trava a ordem. Sem tocar `packages/ui` (não virou Completo). Bônus: corrige fontes do site que iam pro fallback (o @import descartado não carregava).
+
 - **Origem:** revisão Spec 020 T9/B2 (caminho Astro/zero-JS), 2026-06-13.
 - **Evidência:** `pnpm --filter @artificio/site build` verde com `output: static`, 45 páginas + Pagefind; aviso não bloqueante: `@import rules must precede all rules`.
 - **Causa provável:** `@import url(...)` de fontes em `packages/ui/src/styles.css` fica depois de regra quando o site importa `@artificio/ui/styles.css` via `apps/site/src/styles/global.css`.
@@ -141,6 +144,29 @@
 - **Locais prováveis:** `packages/ui` (tokens/`brand.ts`/`styles.css`), `apps/mesas` (vars + arquivos tocados na CDX-311), demais usos do token de marca.
 - **Estado:** absorvido pela **Spec 020 — Theme Artifício padrão** como decisão de paleta antes de runtime. Não aplicar sem decisão formal superando/reinterpretando D040.
 - **Nível SDD:** Completo (`packages/ui` = compartilhado; afeta todos os módulos).
+
+## D-MESAS-UI1 — Mesas: botão "Arquivar" (e badge "Arquivada") baixo contraste vs fundo do card [RESOLVIDO LOCAL 2026-06-14]
+- **Origem:** mantenedor, `mesasbeta.artificiorpg.com/mesas/` (Painel do Mestre), 2026-06-14. "tanto o hover quanto o normal estão em cor bem parecida com o fundo, mal dá pra ver."
+- **Bug:** `apps/mesas/frontend/src/components/TableCardDashboard.tsx` — botão Arquivar (`bg-slate-600/70 hover:bg-slate-600`) e badge "Arquivada" (`bg-slate-600/85`) usavam slate-600 (#475569) sobre card navy `#13213f` → baixo contraste, quase invisível. Cores cruas (não puxadas da marca).
+- **Fix (LOCAL):** ambos passam a usar o token global `var(--artificio-bronze)` (#9C6B43, `packages/ui/styles.css`) — tan quente, visível sobre navy, semântico (arquivo = bronze/sépia) e distinto de Editar(azul)/Ativar(amarelo)/Contribua(laranja). Texto branco sobre bronze = 4.58:1 (AA). Botão: `bg-[var(--artificio-bronze)] hover:brightness-110 text-white`. Build mesas-frontend verde; CSS buildado tem a var + utility; `slate-600` zerado no bundle (eram as únicas ocorrências).
+- **Outras "iguais" verificadas (NÃO alteradas — semântica diferente, mudo de propósito):** badge "Desativada/Encerrada" `bg-gray-500/80` (:80) e botão "Marcar como encerrada" `bg-gray-500/20` (`TableActionPanel.tsx:104`) = status/estado, não arquivamento. Avaliar à parte se o mantenedor quiser.
+- **Nível SDD:** Lite (isolado em `apps/mesas` frontend; consome token já existente de `packages/ui`, sem mudar o pacote). Sem commit/push/deploy sem autorização nominal.
+
+## D-DEP1 — Migrar toda a estrutura para Express 5
+- **Origem:** mantenedor, 2026-06-14. **REGISTRO APENAS — não implementar agora.**
+- **O quê:** atualizar todos os backends Express do monorepo (`apps/mesas/backend`, `apps/glossario/backend`, `apps/site/server`, `apps/accounts`, `packages/auth` e qualquer outro que use Express) de Express 4 → **Express 5**.
+- **OBRIGATÓRIO antes de tocar código:** investigar e testar. Express 5 tem **breaking changes** que precisam auditoria por app: roteamento de path (sem regex implícito, `*` vira `/*splat`, `:param?` muda), `app.del`→`app.delete`, mudança no comportamento de `req.body`/`req.query` (query parser, `req.query` agora getter), middleware de erro async (Express 5 captura rejeições de Promise → revisar try/catch e `next(err)`), `res.status` validação, remoção de métodos depreciados, mudanças no `trust proxy`/`req.host`→`req.hostname`. Conferir compat de TODAS as deps de middleware (cors, cookie-parser, express-rate-limit, helmet, multer, etc.) com Express 5.
+- **Plano sugerido (definir em spec própria):** matriz de uso por app (rotas, params, error handlers, middlewares), upgrade isolado por app em branch própria, suíte de testes verde por app (vitest existentes + smokes), deploy beta por app antes de prod. **NÃO fazer big-bang.** Backup/rollback por app.
+- **Nível SDD:** **Completo** (cross-cutting, múltiplos backends prod). Spec + checklist + smoke por consumidor. Migration/infra se afetar runtime.
+- **Riscos:** quebrar auth/SSO (`packages/auth` compartilhado), rate-limiters (keyGenerator/req.ip — ver D-NGINX1/D-NGINX2), upload Cloudinary, rotas de feedback/migração. Auth é sagrado → testar SSO ponta-a-ponta.
+
+## D-DEP2 — Atualizar todas as dependências de sistema e toolchain (apt, npm, Node) para a versão mais recente
+- **Origem:** mantenedor, 2026-06-14. **REGISTRO APENAS — não implementar agora.**
+- **O quê:** atualizar para as versões mais recentes: pacotes de sistema da VM (`apt`/`apt upgrade` no Ubuntu 24.04 ARM), **Node.js** (runtime dos containers e da VM), **npm**/**pnpm**, imagens base Docker (`node:*-alpine`, `postgres:16-alpine`), e dependências npm dos apps/packages.
+- **OBRIGATÓRIO antes de tocar:** investigar e testar. Node major bump = revisar compat de TODAS as libs (ver também D-DEP1 Express 5), engines em `package.json`, lockfile (`pnpm-lock.yaml`), Dockerfiles (FROM node:X), CI (actions/setup-node — nota: runners já avisam Node 20→24 em set/2026). `apt upgrade` na VM pode reiniciar serviços/Docker → janela de manutenção + backup antes. Postgres major NÃO subir sem dump/restore planejado (16→17 = migração de dados).
+- **Plano sugerido (spec própria):** separar em fatias — (1) toolchain de build/CI (Node/pnpm/setup-node), (2) imagens base Docker por app, (3) deps npm (audit + bump incremental, não `latest` cego), (4) `apt upgrade` da VM em janela controlada com backup/rollback. Testar build+smoke por app em beta antes de prod. **NÃO subir tudo de uma vez.**
+- **Nível SDD:** **Completo** (infra + runtime + todos os apps). Backup Gate A antes de mexer na VM. Postgres = aprovação explícita + checklist de dados.
+- **Riscos:** downtime de prod, incompat de lib com Node novo, quebra de build no CI, perda de dados em bump de Postgres. Coordenar com D-DEP1 (Express 5 pode exigir Node mínimo).
 
 ## Revisão AGENTS.md — bloco inicial/gates (2026-06-13)
 - **Pedido:** revisar `AGENTS.md` linha a linha, pausar após o primeiro bloco aprovado, editar só os pontos aceitos pelo mantenedor.
