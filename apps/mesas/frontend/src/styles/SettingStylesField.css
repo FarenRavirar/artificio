@@ -36,7 +36,7 @@
 
 .setting-styles-field .form-input:focus {
   outline: none;
-  border-color: var(--color-artificio-orange);
+  border-color: var(--artificio-brand);
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
 }
 
@@ -164,7 +164,7 @@
   display: inline-flex;
   align-items: center;
   padding: 0.5rem 1rem;
-  background: var(--color-artificio-orange);
+  background: var(--artificio-brand);
   color: #ffffff;
   border-radius: 6px;
   font-size: 0.95rem;
