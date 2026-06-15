@@ -55,3 +55,11 @@
 - **Solução:** (1) criar CNAME `glossario`→`6417d3a0-...cfargotunnel.com` (proxy ON), igual ao `glossariobeta`; (2) remover a regra de redirect (Rules→Redirect Rules / Page Rules / Bulk Redirects). Depois: `curl -sI https://glossario.artificiorpg.com/` = **200** servindo o glossário novo, `/api/terms` 200.
 - **Prevenção:** ao publicar hostname novo no tunnel, conferir que o **DNS CNAME** foi criado de fato (não assumir auto-criação) e **varrer redirect/page rules** por regra antiga apontando o hostname novo p/ legado. Diagnóstico rápido: `curl -sSI` (status+Location) e olhar `Server`/corpo (`cloudflare` = borda; `nginx` = origem).
 - **Data:** 2026-06-12
+
+### E006 — IP real inseguro/inconsistente atras do Cloudflare Tunnel
+- **Módulo/Pacote:** infra/Cloudflare Tunnel · apps/mesas · apps/glossario · apps/site · apps/accounts
+- **Sintoma:** rate-limit por IP bloqueia usuarios legitimos em balde unico, ou atacante com caminho de bypass consegue falsificar IP via `CF-Connecting-IP`/`X-Forwarded-For`. Logs mostram IP do tunnel/nginx ou IP arbitrario em vez do visitante validado.
+- **Causa raiz:** topologia real e `Cloudflare Tunnel -> cloudflared -> app`. Em nginx, `$proxy_add_x_forwarded_for` anexa o hop interno e o Express com `trust proxy 1` pode escolher o hop errado. Repassar `$http_cf_connecting_ip` cru corrige o balde unico, mas nao valida se a conexao veio do proxy confiavel. Em Express direto ou atras de nginx, `trust proxy = 1` confia genericamente em um hop sem amarrar ao CIDR interno.
+- **Solução:** contrato D069/spec 023. Nginx: `set_real_ip_from ${TRUSTED_REAL_IP_FROM}` (default `172.18.0.0/16`, subnet da `artificio_net`) + `real_ip_header CF-Connecting-IP`, e repassar `$remote_addr`. Express direto: `app.set("trust proxy", TRUSTED_PROXY_CIDR)` com default `172.18.0.0/16`.
+- **Prevenção:** rodar `node scripts/ci/check_ingress_realip_contract.mjs`; busca final por `$proxy_add_x_forwarded_for`, `proxy_set_header X-Forwarded-For $http_cf_connecting_ip` e `app.set("trust proxy", 1)`. Ao recriar rede Docker, atualizar env `TRUSTED_REAL_IP_FROM`/`TRUSTED_PROXY_CIDR`.
+- **Data:** 2026-06-15

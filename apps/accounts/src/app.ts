@@ -57,7 +57,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   const app = express();
   const googleClient = createGoogleClient(env);
 
-  app.set("trust proxy", 1);
+  app.set("trust proxy", env.TRUSTED_PROXY_CIDR);
   app.use(express.json());
   app.use(cookieParser());
   app.use(

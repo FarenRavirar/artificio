@@ -60,12 +60,9 @@ const allowedFrontendOrigins = Array.from(new Set(frontendUrls));
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Atrás do nginx (1 hop): Cloudflare Tunnel → nginx → backend. Sem isto o
-// express-rate-limit usa req.ip = IP do container nginx para TODOS os visitantes
-// (default trust proxy = false), bucketando os limiters (public/global/auth/strict)
-// num balde único. Com trust proxy 1 + nginx repassando o IP real do visitante
-// (X-Forwarded-For = $http_cf_connecting_ip), req.ip resolve o visitante. (D-NGINX2)
-app.set('trust proxy', 1);
+// Atras do nginx na artificio_net: confia somente no proxy interno definido por
+// TRUSTED_PROXY_CIDR. O nginx ja validou CF-Connecting-IP e repassa $remote_addr.
+app.set('trust proxy', process.env.TRUSTED_PROXY_CIDR || '172.18.0.0/16');
 
 app.use(cors({
   origin: (origin, callback) => {

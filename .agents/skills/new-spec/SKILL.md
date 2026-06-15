@@ -12,7 +12,8 @@ SDD Completo (ver `docs/agents/operating-model.md`): toca `packages/*`, infra (t
 1. Descobrir o próximo `NNN` (sequencial global em `specs/`).
 2. Criar `specs/NNN-<modulo>-<slug>/` com três arquivos.
 3. Abrir/atualizar a sessão em `sessoes/` vinculando a spec.
-4. Atualizar `project-state.md` se mudar o estado operacional.
+4. Atualizar `specs/backlog.md` se a spec abrir, mover ou fechar débito/tarefa acionável.
+5. Atualizar `project-state.md` se mudar o estado operacional.
 
 ## spec.md (o quê e por quê)
 ```markdown
@@ -42,7 +43,8 @@ SDD Completo (ver `docs/agents/operating-model.md`): toca `packages/*`, infra (t
 # Tasks — NNN
 - [ ] T1 — <ação> · feito quando: <critério verificável>
 - [ ] T2 — ...
+- [ ] T-final — Atualizar `specs/backlog.md`, sessão e `project-state.md` · feito quando: pendências novas/fechadas estão refletidas no mapa geral e na memória operacional.
 ```
 
 ## Regra
-Spec antes de código. Sem solução técnica no `spec.md` (isso é `plan.md`). Tasks pequenas e verificáveis. Atualizar a sessão a cada etapa.
+Spec antes de código. Sem solução técnica no `spec.md` (isso é `plan.md`). Tasks pequenas e verificáveis. Atualizar a sessão a cada etapa. Nenhuma spec com pendência nova deve ficar sem linha em `specs/backlog.md`.

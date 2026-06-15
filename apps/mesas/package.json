@@ -6,6 +6,7 @@
     "build": "pnpm --filter @artificio/auth build && pnpm --filter @artificio/ui build && pnpm --filter @artificio/mesas-frontend build && pnpm --filter @artificio/mesas-backend build",
     "dev": "pnpm --parallel --filter @artificio/mesas-frontend --filter @artificio/mesas-backend dev",
     "lint": "pnpm --filter @artificio/mesas-frontend lint",
+    "smoke:nginx-realip": "node ../../scripts/ci/check_ingress_realip_contract.mjs",
     "test": "pnpm --filter @artificio/mesas-frontend test && pnpm --filter @artificio/mesas-backend test"
   },
   "dependencies": {

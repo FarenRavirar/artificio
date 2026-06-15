@@ -16,6 +16,7 @@ const env: AccountsEnv = {
   JWT_SECRET: "access-secret-access-secret-access",
   PORT: 3000,
   PUBLIC_URL: "https://accounts.artificiorpg.com",
+  TRUSTED_PROXY_CIDR: "172.18.0.0/16",
 };
 
 describe("/api/auth/me", () => {

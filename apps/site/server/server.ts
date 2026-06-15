@@ -19,10 +19,9 @@ import * as Feedback from "../db/repo/feedback.js";
 const DIST = process.env.SITE_DIST || resolve(dirname(fileURLToPath(import.meta.url)), "../dist");
 
 const app = express();
-// CF Tunnel → site-beta-app (1 hop): confia 1 proxy p/ req.ip refletir o IP real do
-// cliente (X-Forwarded-For). Sem isso, o rate-limit de feedback (por IP) viraria um
-// balde único do túnel e bloquearia todos os visitantes. Espelha glossário (trust proxy 1).
-app.set("trust proxy", 1);
+// CF Tunnel -> site-beta-app: confia somente no proxy interno da artificio_net.
+// Assim req.ip usa X-Forwarded-For apenas quando o hop anterior e confiavel.
+app.set("trust proxy", process.env.TRUSTED_PROXY_CIDR || "172.18.0.0/16");
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 
