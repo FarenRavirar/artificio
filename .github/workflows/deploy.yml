@@ -1,0 +1,198 @@
+name: deploy
+
+# Spec 026 F4: workflow unico de deploy de modulo, declarativo via .github/deploy-manifest.json.
+# Substitui os 3 clones deploy-{mesas,glossario,site}.yml (~95% identicos; diferencas = DADO).
+# Jobs: build-matrix (carrega manifesto + decide deploy por modulo, absorve o `detect` do F11)
+# -> deploy (matrix chamando ./_deploy-module.yml com `with:` 100% do manifesto). accounts
+# fica fora (snowflake = F5). break-glass-deploy-prod.yml continua chamando _deploy-module direto.
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "scripts/deploy/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - ".github/deploy-manifest.json"
+      - ".github/workflows/deploy.yml"
+      - ".github/workflows/_deploy-module.yml"
+      - ".github/workflows/_lint-shell.yml"
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "scripts/deploy/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - ".github/deploy-manifest.json"
+      - ".github/workflows/deploy.yml"
+      - ".github/workflows/_deploy-module.yml"
+      - ".github/workflows/_lint-shell.yml"
+  workflow_dispatch:
+    inputs:
+      module:
+        description: "Modulo a operar (dispatch)."
+        required: true
+        type: choice
+        options:
+          - mesas
+          - glossario
+          - site
+      mode:
+        description: "ci = build/test only; deploy = deploy via git-pull on VM"
+        required: true
+        default: ci
+        type: choice
+        options:
+          - ci
+          - deploy
+      env:
+        description: "Override de env (default = deriva do ref/manifesto; beta/prod = forca)"
+        required: false
+        default: default
+        type: choice
+        options:
+          - default
+          - beta
+          - prod
+
+permissions:
+  contents: read
+
+# Deploy/codigo do G1 devem passar pelo GitHub para branch safety e rastreabilidade.
+# VM manual fica para bootstrap/conexao/instalacao operacional/rollback aprovado.
+jobs:
+  lint-shell:
+    uses: ./.github/workflows/_lint-shell.yml
+
+  # Carrega o manifesto e decide, por modulo, se este evento deve DEPLOYAR (nao so CI).
+  # Absorve o job `detect` do F11: dispatch(mode=deploy) sempre deploya o modulo escolhido;
+  # push so auto-deploya quando (auto_deploy_on_push && ref em push_branches && um deploy_paths
+  # do modulo mudou neste push). PR/CI: matrix com todos os modulos, deploy=false (so build/test).
+  build-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+      count: ${{ steps.gen.outputs.count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Historico p/ git diff incremental no push (BEFORE..SHA por deploy_paths).
+          fetch-depth: 0
+
+      - name: Build deploy matrix from manifest
+        id: gen
+        env:
+          MANIFEST: .github/deploy-manifest.json
+          EVENT: ${{ github.event_name }}
+          MODE: ${{ inputs.mode }}
+          MODULE_INPUT: ${{ inputs.module }}
+          ENV_INPUT: ${{ inputs.env }}
+          REF: ${{ github.ref }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          branch="${REF#refs/heads/}"
+          include='[]'
+          modules=$(jq -r '.modules[].module' "$MANIFEST")
+          # Manifesto vazio/sem .modules = erro de config explicito (em vez de matrix vazia
+          # silenciosa). jq malformado ja quebra antes via set -e/pipefail.
+          if [ -z "$modules" ]; then
+            echo "ERRO: nenhum modulo em $MANIFEST (manifesto vazio ou .modules ausente)."
+            exit 1
+          fi
+          for m in $modules; do
+            entry=$(jq -c --arg m "$m" '.modules[] | select(.module==$m)' "$MANIFEST")
+
+            # Dispatch e direcionado a UM modulo: ignorar os demais.
+            # ${MODULE_INPUT:-}: defensivo sob `set -u` (em push/PR o input vem vazio).
+            if [ "$EVENT" = "workflow_dispatch" ] && [ "${MODULE_INPUT:-}" != "$m" ]; then
+              continue
+            fi
+
+            deploy=false
+            if [ "$EVENT" = "workflow_dispatch" ]; then
+              if [ "${MODE:-}" = "deploy" ]; then deploy=true; fi
+            elif [ "$EVENT" = "push" ]; then
+              auto=$(echo "$entry" | jq -r '.auto_deploy_on_push')
+              in_branch=$(echo "$entry" | jq -r --arg b "$branch" '(.push_branches // []) | index($b) != null')
+              if [ "$auto" = "true" ] && [ "$in_branch" = "true" ]; then
+                # before invalido (1o push/force-push/zeros) => deploya por seguranca.
+                if ! git rev-parse --verify --quiet "${BEFORE}^{commit}" >/dev/null 2>&1; then
+                  deploy=true
+                else
+                  while IFS= read -r p; do
+                    [ -z "$p" ] && continue
+                    if git diff --name-only "$BEFORE" "$SHA" -- "$p" | grep -q .; then
+                      deploy=true
+                      break
+                    fi
+                  done < <(echo "$entry" | jq -r '.deploy_paths[]')
+                fi
+              fi
+            fi
+
+            # Override de env so em dispatch (default = manifesto/ref). Permite validar BETA
+            # a partir da branch do PR sem que o ref resolva prod no _deploy-module.
+            eo=$(echo "$entry" | jq -r '.env_override')
+            if [ "$EVENT" = "workflow_dispatch" ] && [ -n "${ENV_INPUT:-}" ] && [ "${ENV_INPUT}" != "default" ]; then
+              eo="$ENV_INPUT"
+            fi
+
+            entry=$(echo "$entry" | jq -c --argjson d "$deploy" --arg eo "$eo" '. + {deploy: $d, env_override: $eo}')
+            include=$(echo "$include" | jq -c --argjson e "$entry" '. + [$e]')
+            echo "module=$m deploy=$deploy env_override=$eo event=$EVENT ref=$REF"
+          done
+
+          count=$(echo "$include" | jq 'length')
+          matrix=$(jq -cn --argjson inc "$include" '{include: $inc}')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "resolved matrix: $matrix"
+
+  deploy:
+    needs: [lint-shell, build-matrix]
+    if: ${{ needs.build-matrix.outputs.count != 0 }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}
+    uses: ./.github/workflows/_deploy-module.yml
+    with:
+      module: ${{ matrix.module }}
+      # env vazio => _deploy-module deriva de github.ref (dev->beta, senao prod). site passa
+      # override "beta" (D044). F3 resolve em um lugar so.
+      env: ${{ matrix.env_override }}
+      compose_file: ${{ matrix.compose_file }}
+      compose_file_beta: ${{ matrix.compose_file_beta }}
+      compose_project: ${{ matrix.compose_project }}
+      compose_project_beta: ${{ matrix.compose_project_beta }}
+      db_service: ${{ matrix.db_service }}
+      db_service_beta: ${{ matrix.db_service_beta }}
+      db_name: ${{ matrix.db_name }}
+      db_name_beta: ${{ matrix.db_name_beta }}
+      db_user: ${{ matrix.db_user }}
+      deploy: ${{ matrix.deploy }}
+      reconcile_same_project_orphans: ${{ matrix.reconcile_same_project_orphans }}
+      # _deploy-module espera STRING JSON; toJSON reserializa o objeto/array do manifesto.
+      health_containers: ${{ toJSON(matrix.health_containers) }}
+      health_containers_beta: ${{ toJSON(matrix.health_containers_beta) }}
+      critical_routes: ${{ toJSON(matrix.critical_routes) }}
+      critical_routes_beta: ${{ toJSON(matrix.critical_routes_beta) }}
+    secrets:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
