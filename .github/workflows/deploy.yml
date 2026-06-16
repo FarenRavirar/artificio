@@ -56,6 +56,15 @@ on:
         options:
           - ci
           - deploy
+      env:
+        description: "Override de env (default = deriva do ref/manifesto; beta/prod = forca)"
+        required: false
+        default: default
+        type: choice
+        options:
+          - default
+          - beta
+          - prod
 
 permissions:
   contents: read
@@ -89,6 +98,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           MODE: ${{ inputs.mode }}
           MODULE_INPUT: ${{ inputs.module }}
+          ENV_INPUT: ${{ inputs.env }}
           REF: ${{ github.ref }}
           BEFORE: ${{ github.event.before }}
           SHA: ${{ github.sha }}
@@ -134,9 +144,16 @@ jobs:
               fi
             fi
 
-            entry=$(echo "$entry" | jq -c --argjson d "$deploy" '. + {deploy: $d}')
+            # Override de env so em dispatch (default = manifesto/ref). Permite validar BETA
+            # a partir da branch do PR sem que o ref resolva prod no _deploy-module.
+            eo=$(echo "$entry" | jq -r '.env_override')
+            if [ "$EVENT" = "workflow_dispatch" ] && [ -n "${ENV_INPUT:-}" ] && [ "${ENV_INPUT}" != "default" ]; then
+              eo="$ENV_INPUT"
+            fi
+
+            entry=$(echo "$entry" | jq -c --argjson d "$deploy" --arg eo "$eo" '. + {deploy: $d, env_override: $eo}')
             include=$(echo "$include" | jq -c --argjson e "$entry" '. + [$e]')
-            echo "module=$m deploy=$deploy event=$EVENT ref=$REF"
+            echo "module=$m deploy=$deploy env_override=$eo event=$EVENT ref=$REF"
           done
 
           count=$(echo "$include" | jq 'length')
