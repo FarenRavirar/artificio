@@ -199,9 +199,6 @@ importers:
       axios:
         specifier: ^1.14.0
         version: 1.17.0
-      fuse.js:
-        specifier: ^7.0.0
-        version: 7.4.2
       html2canvas-pro:
         specifier: ^2.0.4
         version: 2.0.4
@@ -4570,10 +4567,6 @@ packages:
 
   function-bind@1.1.2:
     resolution: {integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==}
-
-  fuse.js@7.4.2:
-    resolution: {integrity: sha512-LVbzjD4WA6UP5B1UnP8wuaXJiLnqMdM/E4fiJXTJ5haJ5b/MBNsK29h2fm6swEoQaVQjvYFWKLE2RanyZIoRVQ==}
-    engines: {node: '>=10'}
 
   gaxios@7.1.4:
     resolution: {integrity: sha512-bTIgTsM2bWn3XklZISBTQX7ZSddGW+IO3bMdGaemHZ3tbqExMENHLx6kKZ/KlejgrMtj8q7wBItt51yegqalrA==}
@@ -11896,8 +11889,6 @@ snapshots:
       rimraf: 2.7.1
 
   function-bind@1.1.2: {}
-
-  fuse.js@7.4.2: {}
 
   gaxios@7.1.4:
     dependencies:

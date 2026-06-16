@@ -1,15 +1,31 @@
 ---
 import type { Post } from "../lib/content";
+import { optimizedImageUrl, responsiveSrcSet } from "../lib/images";
 interface Props {
   post: Post;
   big?: boolean;
 }
 const { post, big = false } = Astro.props;
 const cat = post.cats[0];
+const imageWidth = big ? 720 : 360;
+const imageHeight = big ? 405 : 203;
+const sizes = big ? "(max-width: 860px) 100vw, 55vw" : "(max-width: 860px) 100vw, 362px";
+const srcset = post.image ? responsiveSrcSet(post.image) : "";
 ---
 <a class={`card${big ? " card-big" : ""}`} href={`/blog/${post.slug}/`}>
   {post.image && (
-    <div class="card-media"><img src={post.image} alt="" loading="lazy" /></div>
+    <div class="card-media">
+      <img
+        src={optimizedImageUrl(post.image, imageWidth)}
+        srcset={srcset || undefined}
+        sizes={sizes}
+        alt=""
+        loading={big ? "eager" : "lazy"}
+        decoding="async"
+        width={imageWidth}
+        height={imageHeight}
+      />
+    </div>
   )}
   <div class="card-body">
     {cat && <span class="chip">{cat.name}</span>}

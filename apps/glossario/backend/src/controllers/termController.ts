@@ -5,7 +5,12 @@ import { notifyTermOwnerOnModeration } from '../services/notificationService';
 
 export const listTerms = async (req: Request, res: Response) => {
   try {
-    const { search, system, category, status } = req.query;
+    const { search, system, category } = req.query;
+    const rawLimit = Number(req.query.limit ?? 80);
+    const rawOffset = Number(req.query.offset ?? 0);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.trunc(rawLimit), 1), 100) : 80;
+    const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : 0;
+    const normalizedSearch = typeof search === 'string' ? search.trim() : '';
 
     let query = `
       SELECT t.*,
@@ -41,8 +46,8 @@ export const listTerms = async (req: Request, res: Response) => {
     `;
     const params: any[] = [];
 
-    if (search) {
-      params.push(`%${search}%`);
+    if (normalizedSearch) {
+      params.push(`%${normalizedSearch}%`);
       query += ` AND (t.name_en ILIKE $${params.length} OR t.name_pt ILIKE $${params.length})`;
     }
 
@@ -60,7 +65,22 @@ export const listTerms = async (req: Request, res: Response) => {
     // Mas para o beta, vamos mostrar tudo que não foi rejeitado
     query += ` AND t.status != 'rejeitado'`;
 
-    query += ` ORDER BY t.created_at DESC`;
+    if (normalizedSearch) {
+      query += ` ORDER BY
+        CASE
+          WHEN t.name_en ILIKE $1 OR t.name_pt ILIKE $1 THEN 0
+          ELSE 1
+        END,
+        t.name_en ASC,
+        t.created_at DESC`;
+    } else {
+      query += ` ORDER BY t.created_at DESC`;
+    }
+
+    params.push(limit);
+    query += ` LIMIT $${params.length}`;
+    params.push(offset);
+    query += ` OFFSET $${params.length}`;
 
     const result = await db.query(query, params);
     res.json(result.rows);

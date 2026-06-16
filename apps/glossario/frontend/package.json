@@ -13,7 +13,6 @@
     "@artificio/auth": "workspace:*",
     "@artificio/ui": "workspace:*",
     "axios": "^1.14.0",
-    "fuse.js": "^7.0.0",
     "html2canvas-pro": "^2.0.4",
     "lucide-react": "^0.363.0",
     "react": "^19.1.0",

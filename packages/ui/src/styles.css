@@ -483,8 +483,9 @@
 
 .artificio-footer-logo {
   display: block;
+  aspect-ratio: 3 / 1;
   height: 34px;
-  width: auto;
+  width: 102px;
 }
 
 .artificio-footer-tagline {

@@ -48,5 +48,16 @@
 - `project-state.md` atualizado.
 
 ## Falta
-- Deploy/validacao em `glossariobeta` para confirmar CLS real no host.
-- Se confirmar, abrir/promover subfatia para `packages/ui` (Footer logo) com SDD Completo/aprovacao, porque o problema e contrato compartilhado.
+- Deploy/validacao em `glossariobeta` concluido apos autorizacao nominal do mantenedor.
+- Abrir/promover subfatia para `packages/ui` (Footer logo/shell) com SDD Completo/aprovacao, porque o problema e contrato compartilhado.
+
+## Deploy beta e validacao remota
+- Autorizado pelo mantenedor: commit/push/deploy de todo o diff para beta.
+- Commit: `e6e0755` (`chore: publish quality harness and beta fixes`) em `dev`.
+- Push: `origin/dev` atualizado de `a9a4437` para `e6e0755`.
+- Primeiro dispatch `deploy-glossario.yml --ref dev` rodou so CI porque `workflow_dispatch` default e `mode=ci`; job deploy ficou `skipped`.
+- Dispatch correto: `gh workflow run deploy-glossario.yml --ref dev -f mode=deploy`; run `27626668163` verde (lint-shell, CI glossario, Deploy glossario beta).
+- Lighthouse remoto pedido: `pnpm quality:lighthouse --url https://glossariobeta.artificiorpg.com/ --profile mobile --runs 1`.
+- Artefato: `artifacts/lighthouse/2026-06-16T150016Z/summary.json`.
+- Resultado remoto mobile: performance 0.45; accessibility 0.90; best-practices 0.77; SEO 0.92; FCP 7323ms; LCP 9252ms; TBT 509.5ms; CLS 0.000353.
+- Conclusao: CLS do `glossariobeta` foi corrigido no host beta (baseline limpo era CLS 0.647 mobile). Performance geral continua ruim e segue em `BL-QA-GLOSSARIO-PERF`.

@@ -95,6 +95,7 @@ Estas falhas já aconteceram e viraram regra operacional. Todo agente deve trat�
 - **Nunca deixar tarefa "fechada" após uma validação real provar que ela não roda.** Reabrir imediatamente, registrar o erro e só fechar depois do comando real passar.
 - **Nunca deixar servidor/processo auxiliar rodando ao final.** Encerrar dev server, preview, servidor estático e helpers iniciados pelo agente, salvo pedido explícito do mantenedor para manter.
 - **Nunca esconder erro com justificativa de economia de contexto.** O T0 é obrigatório; T1 é obrigatório quando o assunto exige. Economia de token serve a continuidade do projeto, não a atalhos.
+- **Nunca deixar bug descoberto só no chat, na cabeça do agente ou em nota solta.** Todo bug, regressão, falha de validação, comportamento estranho recorrente ou defeito de ferramenta descoberto durante a tarefa deve ser registrado no mesmo turno em sessão + `specs/backlog.md` (ou na `tasks.md` da spec se já houver item rastreável claro). Se não for corrigido agora, vira débito acionável com origem, evidência, escopo e próximo passo. Ex.: bug no harness, workflow falhando, backlog/index desatualizado, validação que contradiz status anterior.
 
 ### Aprovação Obrigatória
 
@@ -231,6 +232,15 @@ Concluída só quando: busca final relevante retorna o esperado; comando/teste r
 Se uma validação real expõe que a tarefa "fechada" ainda não roda, reabrir a task/backlog imediatamente, corrigir o artefato até ficar usável ou registrar bloqueio concreto. Dry-run, plano ou documentação não fecham tarefa cujo aceite exige execução real.
 
 **Obrigatório:** toda spec nova, retomada de spec, fechamento de tarefa, review que gere débito, ou descoberta de pendência deve verificar `specs/backlog.md` e registrar uma das duas coisas na sessão: (1) backlog atualizado; ou (2) nada a atualizar, com motivo curto. Isso evita pendência presa só no chat, em `tasks.md` isolado ou na memória do agente.
+
+**Bug achado = registro obrigatório:** se durante qualquer investigação o agente encontra bug real ou provável (incluindo bug de script/harness, workflow CI/CD recorrente, status inconsistente, index/backlog desatualizado, contrato quebrado, smoke que falha, ou comportamento que exige futura correção), deve registrar antes de encerrar:
+
+- na sessão atual, com evidência concreta (comando, run, arquivo, trecho, métrica ou URL);
+- em `specs/backlog.md`, salvo se já existir item ativo cobrindo exatamente o mesmo problema;
+- em `tasks.md` da spec quando a bug muda status, critério de aceite ou próxima ação da spec;
+- em `project-state.md` quando afeta retomada/gate/próximo passo operacional.
+
+Se o agente decidir que não há backlog novo, deve escrever na sessão o motivo objetivo. “Não deu tempo”, “era lateral” ou “parece pequeno” não dispensam registro; só dispensam correção imediata.
 
 ---
 

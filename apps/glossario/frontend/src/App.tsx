@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, createContext, useContext } from 'react';
+import { lazy, Suspense, useState, useMemo, useEffect, useRef, createContext, useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Footer } from '@artificio/ui';
@@ -12,19 +12,20 @@ import { useGlossario } from './hooks/useGlossario';
 import { Loader2 } from 'lucide-react';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import MigrationPage from './pages/MigrationPage';
-import ProfilePage from './pages/ProfilePage';
-import AdminUsersPage from './pages/AdminUsersPage';
-import AdminReviewPage from './pages/AdminReviewPage';
-import AdminStructurePage from './pages/AdminStructurePage';
-import AdminActivityPage from './pages/AdminActivityPage';
-import AdminFeedbackPage from './pages/AdminFeedbackPage';
-import NotificationsPage from './pages/NotificationsPage';
 import AddTermModal from './components/AddTermModal';
-import ImportPage from './pages/ImportPage';
 import { trackPageView, trackSearch } from './utils/analytics';
+
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const MigrationPage = lazy(() => import('./pages/MigrationPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
+const ImportPage = lazy(() => import('./pages/ImportPage'));
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
+const AdminReviewPage = lazy(() => import('./pages/AdminReviewPage'));
+const AdminStructurePage = lazy(() => import('./pages/AdminStructurePage'));
+const AdminActivityPage = lazy(() => import('./pages/AdminActivityPage'));
+const AdminFeedbackPage = lazy(() => import('./pages/AdminFeedbackPage'));
 
 // Contexto para abrir o modal de sugestão de qualquer componente
 export const UIContext = createContext<{ openAddTerm: () => void }>({ openAddTerm: () => {} });
@@ -33,26 +34,41 @@ export const useUI = () => useContext(UIContext);
 function HomePage() {
   const { user } = useAuth();
   const { openAddTerm } = useUI();
-  const { dados, buscar, loading, error, editarTermo, excluirTermo } = useGlossario();
+  const { dados, buscar, loading, error, recarregar, editarTermo, excluirTermo } = useGlossario();
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const queryWasActiveRef = useRef(false);
   const isAdmin = user?.role === 'admin';
+  const hasSearchQuery = query.trim().length >= 2;
 
   // Rastreia buscas no GA4 com debounce de 800ms
   useEffect(() => {
     if (!query || query.trim().length < 2) return;
     const timer = setTimeout(() => {
       trackSearch(query);
+      void buscar(query);
     }, 800);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [buscar, query]);
+
+  useEffect(() => {
+    if (query.trim().length > 0) {
+      queryWasActiveRef.current = true;
+      return;
+    }
+    if (queryWasActiveRef.current) {
+      queryWasActiveRef.current = false;
+      recarregar();
+    }
+  }, [query, recarregar]);
 
   // -------------------------------------------------------------------------
   // Filtro de resultados
   // -------------------------------------------------------------------------
   const filteredResults = useMemo(() => {
     if (!query && !activeCategory) return [];
-    let results = query ? buscar(query) : dados;
+    if (query && !hasSearchQuery) return [];
+    let results = dados;
     if (activeCategory) {
       results = results.filter(item =>
         item.category_name === activeCategory ||
@@ -62,7 +78,7 @@ function HomePage() {
       );
     }
     return results;
-  }, [query, activeCategory, dados, buscar]);
+  }, [query, hasSearchQuery, activeCategory, dados]);
 
   // -------------------------------------------------------------------------
   // Hierarquia para ordenar variantes de um mesmo termo
@@ -112,7 +128,7 @@ function HomePage() {
     return filteredCats.sort();
   }, [dados]);
 
-  const isSearching = !!query || !!activeCategory;
+  const isSearching = hasSearchQuery || !!activeCategory;
 
   return (
     <div className="w-full max-w-5xl mx-auto px-4 py-8">
@@ -284,21 +300,23 @@ function App() {
           <div className="min-h-screen flex flex-col bg-[var(--surface-subtle)] font-sans">
             <GlossarioHeader />
             <main className="flex-1">
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/migrar" element={<MigrationPage />} />
-                <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-                <Route path="/notificacoes" element={<PrivateRoute><NotificationsPage /></PrivateRoute>} />
-                <Route path="/importar" element={<PrivateRoute><ImportPage /></PrivateRoute>} />
-                <Route path="/admin/review" element={<AdminRoute><AdminReviewPage /></AdminRoute>} />
-                <Route path="/admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
-                <Route path="/admin/structure" element={<AdminRoute><AdminStructurePage /></AdminRoute>} />
-                <Route path="/admin/activity" element={<AdminRoute><AdminActivityPage /></AdminRoute>} />
-                <Route path="/admin/feedback" element={<AdminRoute><AdminFeedbackPage /></AdminRoute>} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              <Suspense fallback={<RouteLoading />}>
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/migrar" element={<MigrationPage />} />
+                  <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+                  <Route path="/notificacoes" element={<PrivateRoute><NotificationsPage /></PrivateRoute>} />
+                  <Route path="/importar" element={<PrivateRoute><ImportPage /></PrivateRoute>} />
+                  <Route path="/admin/review" element={<AdminRoute><AdminReviewPage /></AdminRoute>} />
+                  <Route path="/admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+                  <Route path="/admin/structure" element={<AdminRoute><AdminStructurePage /></AdminRoute>} />
+                  <Route path="/admin/activity" element={<AdminRoute><AdminActivityPage /></AdminRoute>} />
+                  <Route path="/admin/feedback" element={<AdminRoute><AdminFeedbackPage /></AdminRoute>} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
             </main>
 
             {addTermOpen && (

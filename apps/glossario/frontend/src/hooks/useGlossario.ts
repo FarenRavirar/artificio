@@ -1,5 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
-import Fuse from 'fuse.js';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { Termo } from '../types/glossario';
 import api from '../services/api';
 import { sanitizeInlineText, sanitizeTermForUi } from '../utils/textSanitizer';
@@ -22,13 +21,15 @@ export type AtualizacaoTermoPayload = Partial<{
 export function useGlossario() {
   const [dados, setDados] = useState<Termo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lastSearchRef = useRef('');
 
-  const carregarDados = () => {
+  const carregarDados = useCallback(() => {
     setLoading(true);
     setError(null);
 
-    api.get('/terms')
+    api.get('/terms', { params: { limit: 60 } })
       .then((res) => {
         const payload = Array.isArray(res.data) ? res.data : [];
         setDados(payload.map((item: Termo) => sanitizeTermForUi(item)));
@@ -39,33 +40,35 @@ export function useGlossario() {
         setError('O servidor de termos está offline ou inacessível.');
         setLoading(false);
       });
-  };
+  }, []);
 
   useEffect(() => {
     carregarDados();
   }, []);
 
-  const fuse = useMemo(() => {
-    if (dados.length === 0) return null;
-    return new Fuse(dados, {
-      keys: ['name_en', 'name_pt', 'nome_en', 'nome_pt'], // Aceita novos e antigos
-      threshold: 0.05,
-      distance: 100,
-      minMatchCharLength: 2,
-      findAllMatches: true,
-      ignoreLocation: true,
-      shouldSort: false,
-    });
-  }, [dados]);
-
-  const buscar = (query: string) => {
-    if (!fuse) return [];
-
+  const buscar = useCallback(async (query: string) => {
     const normalizedQuery = sanitizeInlineText(query);
     if (!normalizedQuery) return [];
 
-    return fuse.search(normalizedQuery).map((result) => result.item);
-  };
+    lastSearchRef.current = normalizedQuery;
+    setSearching(true);
+    try {
+      const { data } = await api.get('/terms', {
+        params: { search: normalizedQuery, limit: 80 },
+      });
+      if (lastSearchRef.current !== normalizedQuery) return [];
+      const payload = Array.isArray(data) ? data : [];
+      const sanitized = payload.map((item: Termo) => sanitizeTermForUi(item));
+      setDados(sanitized);
+      return sanitized;
+    } catch (err) {
+      console.error('Erro ao buscar termos:', err);
+      setError('A busca está temporariamente indisponível.');
+      return [];
+    } finally {
+      if (lastSearchRef.current === normalizedQuery) setSearching(false);
+    }
+  }, []);
 
   const editarTermo = async (id: string | number, payload: AtualizacaoTermoPayload) => {
     const { data } = await api.patch(`/terms/${id}`, payload);
@@ -83,5 +86,5 @@ export function useGlossario() {
     setDados((prev) => prev.filter((item) => String(item.id) !== String(id)));
   };
 
-  return { dados, buscar, loading, error, recarregar: carregarDados, editarTermo, excluirTermo };
+  return { dados, buscar, loading: loading || searching, error, recarregar: carregarDados, editarTermo, excluirTermo };
 }

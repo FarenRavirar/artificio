@@ -37,6 +37,7 @@ function parseArgs(argv) {
     keepProfiles: false,
     skipExisting: false,
   };
+  let urlsProvided = false;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -47,7 +48,9 @@ function parseArgs(argv) {
     };
 
     if (arg === "--url" || arg === "--urls") {
-      options.urls = next().split(",").map((value) => value.trim()).filter(Boolean);
+      const urls = next().split(",").map((value) => value.trim()).filter(Boolean);
+      options.urls = urlsProvided ? [...options.urls, ...urls] : urls;
+      urlsProvided = true;
     } else if (arg === "--runs") {
       const runs = Number(next());
       if (!Number.isInteger(runs) || runs < 1) throw new Error("--runs deve ser inteiro >= 1");
