@@ -1,0 +1,16 @@
+# F2 (spec 026): mantem os SHAs pinados das GitHub Actions atualizados sem esforco manual.
+# Dependabot abre PR semanal quando sai versao nova de uma action usada nos workflows,
+# ja com o novo SHA pinado, para revisao/merge. Casa com a politica de pin por SHA
+# (supply-chain): pinado E mantido.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - dependencies
+      - github-actions
+    open-pull-requests-limit: 5

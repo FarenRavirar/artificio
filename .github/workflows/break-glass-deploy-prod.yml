@@ -41,6 +41,7 @@ jobs:
     uses: ./.github/workflows/_deploy-module.yml
     with:
       module: mesas
+      env: prod # override explicito: break-glass e sempre PROD (F3)
       compose_file: docker-compose.prod.yml
       compose_project: mesas
       db_service: mesas-db
@@ -54,4 +55,9 @@ jobs:
           {"name":"private_no_cookie","url":"https://mesas.artificiorpg.com/api/v1/me/options","expected":"401"},
           {"name":"auth_redirect","url":"https://mesas.artificiorpg.com/api/v1/auth/google","expected":"302","location_contains":"accounts.artificiorpg.com/login"}
         ]
-    secrets: inherit
+    secrets:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}

@@ -6,9 +6,11 @@ on:
       module:
         required: true
         type: string
+      # F3 (spec 026): vazio = derivar de github.ref no job `resolve` (dev->beta,
+      # senao prod). Passar valor explicito so como OVERRIDE (ex.: break-glass=prod).
       env:
         required: false
-        default: prod
+        default: ""
         type: string
       compose_file:
         required: true
@@ -65,11 +67,53 @@ on:
         required: false
         default: false
         type: boolean
+    # F2 (spec 026): secrets explicitos (era `secrets: inherit` no caller). So os 5
+    # DEPLOY_* necessarios trafegam ao reusavel; nada alem disso.
+    secrets:
+      DEPLOY_HOST:
+        required: true
+      DEPLOY_KNOWN_HOSTS:
+        required: true
+      DEPLOY_PORT:
+        required: true
+      DEPLOY_SSH_PRIVATE_KEY:
+        required: true
+      DEPLOY_USER:
+        required: true
 
 permissions:
   contents: read
 
 jobs:
+  resolve:
+    name: Resolve env
+    runs-on: ubuntu-latest
+    outputs:
+      env: ${{ steps.r.outputs.env }}
+    steps:
+      - id: r
+        env:
+          ENV_OVERRIDE: ${{ inputs.env }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          # F3 (spec 026): env derivado em UM lugar a partir de github.ref. Override
+          # opcional (break-glass passa env=prod). dispatch em dev => beta; mata a classe
+          # de bug BL-DEP-MESAS-DISPATCH-ENV em todos os modulos de uma vez.
+          if [ -n "${ENV_OVERRIDE}" ]; then
+            resolved="${ENV_OVERRIDE}"
+          elif [ "${REF}" = "refs/heads/dev" ]; then
+            resolved="beta"
+          else
+            resolved="prod"
+          fi
+          case "$resolved" in
+            beta|prod) ;;
+            *) echo "ERRO: env resolvido invalido: $resolved"; exit 1 ;;
+          esac
+          echo "env=$resolved" >> "$GITHUB_OUTPUT"
+          echo "resolved_env=$resolved override='${ENV_OVERRIDE}' ref='${REF}'"
+
   ci:
     name: CI ${{ inputs.module }}
     runs-on: ubuntu-latest
@@ -120,14 +164,14 @@ jobs:
         run: pnpm -w turbo run test --filter=@artificio/${{ inputs.module }}* --env-mode=loose
 
   deploy:
-    name: Deploy ${{ inputs.module }} ${{ inputs.env }}
-    needs: ci
+    name: Deploy ${{ inputs.module }} ${{ needs.resolve.outputs.env }}
+    needs: [resolve, ci]
     if: inputs.deploy
     runs-on: ubuntu-latest
     environment:
-      name: ${{ inputs.env == 'beta' && 'beta' || 'production' }}
+      name: ${{ needs.resolve.outputs.env == 'beta' && 'beta' || 'production' }}
     concurrency:
-      group: artificio-${{ inputs.module }}-${{ inputs.env }}-deploy-lock
+      group: artificio-${{ inputs.module }}-${{ needs.resolve.outputs.env }}-deploy-lock
       cancel-in-progress: false
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -135,15 +179,15 @@ jobs:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-      DEPLOY_ENV: ${{ inputs.env }}
+      DEPLOY_ENV: ${{ needs.resolve.outputs.env }}
       MODULE: ${{ inputs.module }}
-      COMPOSE_FILE: ${{ inputs.env == 'beta' && inputs.compose_file_beta || inputs.compose_file }}
-      COMPOSE_PROJECT: ${{ inputs.env == 'beta' && inputs.compose_project_beta || inputs.compose_project }}
-      DB_SERVICE: ${{ inputs.env == 'beta' && inputs.db_service_beta || inputs.db_service }}
-      DB_NAME: ${{ inputs.env == 'beta' && inputs.db_name_beta || inputs.db_name }}
+      COMPOSE_FILE: ${{ needs.resolve.outputs.env == 'beta' && inputs.compose_file_beta || inputs.compose_file }}
+      COMPOSE_PROJECT: ${{ needs.resolve.outputs.env == 'beta' && inputs.compose_project_beta || inputs.compose_project }}
+      DB_SERVICE: ${{ needs.resolve.outputs.env == 'beta' && inputs.db_service_beta || inputs.db_service }}
+      DB_NAME: ${{ needs.resolve.outputs.env == 'beta' && inputs.db_name_beta || inputs.db_name }}
       DB_USER: ${{ inputs.db_user }}
-      HEALTH_CONTAINERS: ${{ inputs.env == 'beta' && inputs.health_containers_beta || inputs.health_containers }}
-      CRITICAL_ROUTES: ${{ inputs.env == 'beta' && inputs.critical_routes_beta || inputs.critical_routes }}
+      HEALTH_CONTAINERS: ${{ needs.resolve.outputs.env == 'beta' && inputs.health_containers_beta || inputs.health_containers }}
+      CRITICAL_ROUTES: ${{ needs.resolve.outputs.env == 'beta' && inputs.critical_routes_beta || inputs.critical_routes }}
       RECONCILE_SAME_PROJECT_ORPHANS: ${{ inputs.reconcile_same_project_orphans }}
     steps:
       - name: Checkout

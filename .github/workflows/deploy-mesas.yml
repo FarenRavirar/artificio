@@ -9,6 +9,10 @@ on:
       - "apps/mesas/**"
       - "packages/**"
       - "scripts/deploy/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
       - ".github/workflows/_deploy-module.yml"
       - ".github/workflows/_lint-shell.yml"
       - ".github/workflows/deploy-mesas.yml"
@@ -20,6 +24,10 @@ on:
       - "apps/mesas/**"
       - "packages/**"
       - "scripts/deploy/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
       - ".github/workflows/_deploy-module.yml"
       - ".github/workflows/_lint-shell.yml"
       - ".github/workflows/deploy-mesas.yml"
@@ -48,7 +56,7 @@ jobs:
     uses: ./.github/workflows/_deploy-module.yml
     with:
       module: mesas
-      env: ${{ github.ref == 'refs/heads/dev' && 'beta' || 'prod' }}
+      # env derivado central no _deploy-module (F3): dev->beta, senao prod.
       compose_file: docker-compose.prod.yml
       compose_file_beta: docker-compose.beta.yml
       compose_project: mesas
@@ -73,4 +81,9 @@ jobs:
           {"name":"private_no_cookie","url":"https://mesasbeta.artificiorpg.com/api/v1/me/options","expected":"401"},
           {"name":"auth_redirect","url":"https://mesasbeta.artificiorpg.com/api/v1/auth/google","expected":"302","location_contains":"accounts.artificiorpg.com/login?return=https%3A%2F%2Fmesasbeta.artificiorpg.com%2F"}
         ]
-    secrets: inherit
+    secrets:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}

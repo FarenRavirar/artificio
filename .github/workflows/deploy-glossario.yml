@@ -9,6 +9,10 @@ on:
       - "apps/glossario/**"
       - "packages/**"
       - "scripts/deploy/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
       - ".github/workflows/_deploy-module.yml"
       - ".github/workflows/_lint-shell.yml"
       - ".github/workflows/deploy-glossario.yml"
@@ -20,6 +24,10 @@ on:
       - "apps/glossario/**"
       - "packages/**"
       - "scripts/deploy/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
       - ".github/workflows/_deploy-module.yml"
       - ".github/workflows/_lint-shell.yml"
       - ".github/workflows/deploy-glossario.yml"
@@ -48,7 +56,7 @@ jobs:
     uses: ./.github/workflows/_deploy-module.yml
     with:
       module: glossario
-      env: ${{ github.ref == 'refs/heads/dev' && 'beta' || 'prod' }}
+      # env derivado central no _deploy-module (F3): dev->beta, senao prod.
       compose_file: docker-compose.prod.yml
       compose_file_beta: docker-compose.beta.yml
       compose_project: glossario
@@ -82,4 +90,9 @@ jobs:
           {"name":"home","url":"https://glossariobeta.artificiorpg.com/","expected":"200"},
           {"name":"api_terms","url":"https://glossariobeta.artificiorpg.com/api/terms","expected":"200"}
         ]
-    secrets: inherit
+    secrets:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}

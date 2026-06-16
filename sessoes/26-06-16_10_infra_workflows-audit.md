@@ -89,6 +89,22 @@ Aplicado:
 Insight registrado (regra bug-registry): cap de imagem sem inspecao real teria entrado
 como no-op; inspecao read-only na VM e barata e deveria preceder fix de infra "no chute".
 
+## F1+F2+F3 IMPLEMENTADOS LOCAL (2026-06-16, autorizado "ataque a bagunca")
+
+- **F1 path-filters raiz:** `package.json`/`pnpm-lock.yaml`/`pnpm-workspace.yaml`/`turbo.json`
+  nos `paths:` (PR+push) de `deploy-mesas`/`glossario`/`site`. `BL-DEP-PATHFILTERS` -> local.
+- **F2 pin + secrets:** `ludeeus/action-shellcheck@00cae500...# 2.0.0`,
+  `reviewdog/action-actionlint@6fb7acc9...# v1.72.0` (SHAs via `gh api tags`). `_deploy-module`
+  declara `secrets:` (5 DEPLOY_* required); 4 callers passam mapa explicito (era `inherit`).
+- **F3 env central:** job `resolve` no `_deploy-module` deriva env de `github.ref` (dev->beta,
+  senao prod; override `inputs.env`). Inline removido de mesas/glossario; `site` `env: beta`
+  (D044) e `break-glass` `env: prod` como overrides. Absorve `BL-DEP-MESAS-DISPATCH-ENV`.
+- Validacao local: `python yaml.safe_load` ok em todos; `inputs.env` so no resolve; zero
+  `secrets: inherit` ativo. actionlint roda no CI no push.
+- Falta (aprovacao nominal): commit/push -> actionlint/CI verde + mesas beta auto-deploy
+  provando resolve/secrets no caminho real. Risco: toca o `_deploy-module` compartilhado
+  (engine que acabou de deployar 4 modulos); CI gateia, deploy e beta com rollback/snapshot.
+
 ## Furo do prune em accounts + governanca read-only (2026-06-16)
 
 - **Furo fechado:** `accounts` (snowflake, nao usa `_deploy-module`) builda `--no-cache

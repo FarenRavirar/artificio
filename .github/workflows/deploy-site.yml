@@ -15,6 +15,10 @@ on:
       - "apps/site/**"
       - "apps/site-admin/**"
       - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
       - ".github/workflows/_deploy-module.yml"
       - ".github/workflows/_lint-shell.yml"
       - ".github/workflows/deploy-site.yml"
@@ -24,6 +28,10 @@ on:
       - "apps/site/**"
       - "apps/site-admin/**"
       - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
       - ".github/workflows/_deploy-module.yml"
       - ".github/workflows/deploy-site.yml"
   workflow_dispatch:
@@ -77,4 +85,9 @@ jobs:
           {"name":"blog_index","url":"https://beta.artificiorpg.com/blog/","expected":"200"},
           {"name":"admin_protected","url":"https://beta.artificiorpg.com/admin/status","expected":"401"}
         ]
-    secrets: inherit
+    secrets:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}

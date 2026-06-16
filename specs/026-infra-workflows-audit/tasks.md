@@ -20,15 +20,23 @@
 
 Cada fatia = SDD Lite/Completo proprio, com pre-condicao de aprovacao, smoke e rollback.
 
-- [ ] F1 — **Path-filters raiz** (`BL-DEP-PATHFILTERS`). Incluir `package.json`,
-  `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `turbo.json` nos `paths:` de CI sem disparar
-  deploy indevido. Risco baixo. Smoke: PR de bump dispara CI de modulo, nao deploy.
-  · Pre: aprovacao + cuidado p/ nao acionar beta.
-- [ ] F2 — **Pin de actions + secrets explicitos** (seguranca). `@master`/`@v1` → SHA;
-  `secrets: inherit` → lista. Risco baixo. Smoke: `pr-checks` verde.
-- [ ] F3 — **`env`-by-ref central** (absorve `BL-DEP-MESAS-DISPATCH-ENV`). Uma derivacao
-  unica ref→env; remover copia inline dos 3 deploys. Smoke: dispatch em `dev` = beta,
-  push `main` = prod, em todos os modulos. · Pre: aprovacao; validar por dispatch.
+- [x] F1 — **Path-filters raiz** (`BL-DEP-PATHFILTERS`) — IMPLEMENTADO LOCAL. Adicionado
+  `package.json`/`pnpm-lock.yaml`/`pnpm-workspace.yaml`/`turbo.json` aos `paths:` (PR+push)
+  de `deploy-mesas`/`deploy-glossario`/`deploy-site`. `deploy-accounts` ja roda sem filtro.
+  Mudanca de dep raiz agora dispara CI/deploy de modulo.
+- [x] F2 — **Pin de actions + secrets explicitos** — IMPLEMENTADO LOCAL.
+  `ludeeus/action-shellcheck@00cae500...# 2.0.0` e `reviewdog/action-actionlint@6fb7acc9...# v1.72.0`
+  pinados por SHA. `_deploy-module.yml` declara `secrets:` (5 DEPLOY_* required); callers
+  (`mesas`/`glossario`/`site`/`break-glass`) passam mapa explicito (era `secrets: inherit`).
+  `.github/dependabot.yml` (github-actions semanal) mantem os SHAs pinados frescos via PR.
+- [x] F3 — **`env`-by-ref central** (absorve `BL-DEP-MESAS-DISPATCH-ENV`) — IMPLEMENTADO
+  LOCAL. Novo job `resolve` no `_deploy-module.yml` deriva env de `github.ref` em UM lugar
+  (dev->beta, senao prod; override opcional `inputs.env`). Removida a expressao inline dos
+  3 deploys; `site` mantem `env: beta` (beta-only D044) e `break-glass` `env: prod` como
+  overrides legitimos. Estruturalmente impossivel dispatch-em-dev virar prod.
+  · Validacao local: YAML parseia, `inputs.env` so no resolve, zero `secrets: inherit`.
+  · Falta (aprovacao): commit/push -> actionlint/CI verde + mesas beta auto-deploy provando
+  resolve/secrets no caminho real.
 - [ ] F4 — **Consolidacao manifesto + matrix** (absorve clones; `BL-DEP-CONTAINER-NAMES`
   avaliado junto). Manifesto declarativo + 1 workflow. Risco medio (toca todos os deploys).
   · Pre: SDD Completo, aprovacao, validar 1 modulo por vez por dispatch.
@@ -54,5 +62,6 @@ Cada fatia = SDD Lite/Completo proprio, com pre-condicao de aprovacao, smoke e r
   - **Cap de imagem por repo DESCARTADO** (no-op no naming atual); scripts
     `lib_image_cache.sh`/`prune_module_image_cache.sh`/`check_image_cache_policy.sh` e o
     self-test no `_lint-shell.yml` REMOVIDOS — sem codigo morto.
-  - Falta (bloqueado por aprovacao): commit/push + 1 deploy provando `system df` cair (build
-    cache ~0 pos-deploy). Mapeado: `BL-INFRA-CACHE-CAP-F10`.
+  - FECHADO: commits `06a5ded`/`a727ab2`, push dev, deploy mesas beta (run `27633842040`)
+    verde. Prova real (`docker system df` na VM): build cache 20.89GB reclaimable -> **0B**,
+    images 28->10GB. `BL-INFRA-CACHE-CAP-F10` fechado.
