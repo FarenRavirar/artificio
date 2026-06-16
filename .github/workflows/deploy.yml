@@ -3,8 +3,9 @@ name: deploy
 # Spec 026 F4: workflow unico de deploy de modulo, declarativo via .github/deploy-manifest.json.
 # Substitui os 3 clones deploy-{mesas,glossario,site}.yml (~95% identicos; diferencas = DADO).
 # Jobs: build-matrix (carrega manifesto + decide deploy por modulo, absorve o `detect` do F11)
-# -> deploy (matrix chamando ./_deploy-module.yml com `with:` 100% do manifesto). accounts
-# fica fora (snowflake = F5). break-glass-deploy-prod.yml continua chamando _deploy-module direto.
+# -> deploy (matrix chamando ./_deploy-module.yml com `with:` 100% do manifesto). F5
+# (BL-CDX-310) trouxe accounts p/ o manifesto (PROD-only, D042) e deletou deploy-accounts.yml.
+# break-glass-deploy-prod.yml continua chamando _deploy-module direto.
 on:
   pull_request:
     branches:
@@ -48,6 +49,7 @@ on:
           - mesas
           - glossario
           - site
+          - accounts
       mode:
         description: "ci = build/test only; deploy = deploy via git-pull on VM"
         required: true
@@ -149,6 +151,15 @@ jobs:
             eo=$(echo "$entry" | jq -r '.env_override')
             if [ "$EVENT" = "workflow_dispatch" ] && [ -n "${ENV_INPUT:-}" ] && [ "${ENV_INPUT}" != "default" ]; then
               eo="$ENV_INPUT"
+            fi
+
+            # F5 (spec 026): accounts e PROD-only (D042 nao tem accountsbeta). Bloqueia
+            # qualquer caminho que resolva beta p/ accounts (input env=beta), em vez de
+            # subir um accountsbeta quebrado sem OAuth proprio. env_override=prod no
+            # manifesto ja forca prod no caso default; este guard fecha o override manual.
+            if [ "$m" = "accounts" ] && [ "$eo" = "beta" ]; then
+              echo "ERRO: accounts nao tem realm beta (D042). Use env=prod/default."
+              exit 1
             fi
 
             entry=$(echo "$entry" | jq -c --argjson d "$deploy" --arg eo "$eo" '. + {deploy: $d, env_override: $eo}')

@@ -1,0 +1,73 @@
+# Spec 026 F5 (BL-CDX-310): compose PROD versionado do accounts, substitui o shim
+# operacional `/opt/artificio/accounts/apps/accounts/docker-compose.yml` (deploy por tarball)
+# pela esteira reusavel `_deploy-module.yml` (git-pull + snapshot/rollback/health/smoke/lock VM).
+#
+# Diferencas vs docker-compose.yml (dev/local), exigidas pelo contrato do _deploy-module:
+#  - accounts-api ganha HEALTHCHECK (a esteira porteja em .State.Health.Status==healthy;
+#    sem isso o deploy nunca passaria do gate de saude). busybox `wget` existe no node:20-alpine.
+#  - env injetado via `environment: ${VAR}` (expandido pelo `--env-file` que a esteira passa:
+#    apps/accounts/.env em prod), em vez de `env_file: ../../.env` fixo do shim.
+#  - project=`accounts` + volume key `accounts_pgdata` PRESERVADOS => volume existente
+#    `accounts_accounts_pgdata` continua o mesmo (zero perda do DB SSO no cutover).
+#  - `ports: "3000:3000"` mantido por paridade; trocar por `expose` = F6 (BL-ACCOUNTS-PORT),
+#    fatia separada.
+# accounts e PROD-only (D042: beta reusa accounts PROD; nao ha accountsbeta). Validacao F5 =
+# dry-run de build no clone + deploy prod real com rollback por snapshot.
+services:
+  accounts-db:
+    image: postgres:16-alpine
+    container_name: accounts-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: artificio_auth
+    volumes:
+      - accounts_pgdata:/var/lib/postgresql/data
+    networks:
+      - artificio_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d artificio_auth"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  accounts-api:
+    build:
+      context: ../..
+      dockerfile: apps/accounts/Dockerfile
+    container_name: accounts-api
+    restart: unless-stopped
+    depends_on:
+      accounts-db:
+        condition: service_healthy
+    networks:
+      - artificio_net
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
+      - PUBLIC_URL=${PUBLIC_URL}
+      - COOKIE_DOMAIN=${COOKIE_DOMAIN}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  accounts_pgdata:
+
+networks:
+  artificio_net:
+    external: true
