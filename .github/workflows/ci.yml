@@ -1,0 +1,83 @@
+name: ci
+
+# Spec 026 F-SEC: CI holistico de PR para o monorepo (lint + build + test).
+# Complementa o CI por-modulo do _deploy-module.yml (que so roda no caminho de deploy).
+# NAO faz deploy, nao usa secrets, nao toca VM/prod. Env de teste = placeholders dummy
+# (NAO sao segredos; mesmos valores ja usados no job CI do _deploy-module).
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+  push:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-build-test:
+    name: lint + build + test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: artificio_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U admin -d artificio_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.12.1 --activate
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-ci-${{ github.sha }}
+          restore-keys: |
+            turbo-ci-
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm -w turbo run lint --cache-dir=.turbo
+
+      - name: Build
+        run: pnpm -w turbo run build --cache-dir=.turbo
+
+      - name: Test
+        env:
+          # Placeholders NAO-SECRETOS para tests que tocam Postgres/JWT/Cloudinary.
+          DATABASE_URL: postgres://admin:admin@localhost:5432/artificio_test
+          JWT_SECRET: ci_dummy_jwt_secret_do_not_use
+          JWT_REFRESH_SECRET: ci_dummy_refresh_secret_do_not_use
+          CLOUDINARY_CLOUD_NAME: ci
+          CLOUDINARY_API_KEY: ci
+          CLOUDINARY_API_SECRET: ci
+        run: pnpm -w turbo run test --env-mode=loose --cache-dir=.turbo

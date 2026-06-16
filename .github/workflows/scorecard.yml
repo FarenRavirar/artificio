@@ -1,0 +1,41 @@
+name: scorecard
+
+# Spec 026 F-SEC: OpenSSF Scorecard avalia a postura de supply-chain do repo.
+# publish_results=false (NAO envia dados a API externa da OpenSSF nesta etapa).
+# SARIF vai para Security -> Code scanning. Gratis em repo publico, sem cadastro.
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "13 5 * * 1" # semanal, segunda 05:13 UTC
+  branch_protection_rule:
+
+permissions:
+  contents: read
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        # F2: terceiro pinado por SHA (v2.4.3). Bump via Dependabot.
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: false
+
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
+        with:
+          sarif_file: results.sarif
