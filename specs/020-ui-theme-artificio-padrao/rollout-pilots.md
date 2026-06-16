@@ -24,7 +24,7 @@ Ordem canonica para esta spec:
 - `glossario`: variante dark implementada e promovida; B6 fechado por aprovacao do mantenedor em prod registrada na sessao `26-06-13_1`.
 - `mesas`: variante light implementada e promovida com default-dark; B7 fechado em 2026-06-15 por validacao do mantenedor em prod (`/perfil` light com dados + mestre com `banner_url` custom + smoke anti-regressao).
 - `site`: caminho Astro/zero-JS fechado em T9; B2/T11 fechados com `@artificio/ui/static`.
-- `site-admin`: admin React isolado; ainda candidato a primitives/forms/estado quando estas existirem.
+- `site-admin`: admin React isolado; candidato a piloto de consumo das primitives/forms/estado ja existentes.
 
 ## Regra de entrada comum
 
@@ -162,7 +162,7 @@ Saida:
 Papel: area operacional React isolada; boa candidata a primitives de forms/estado.
 
 Escopo recomendado:
-- so iniciar apos primitives minimas fecharem implementacao. **Dependencia transitiva:** site-admin -> primitives (T7/B4) -> tokens semanticos `success/warning/danger/info` (**B11**) + shadow/spacing canonicos. As variantes coloridas de `Button`/`Badge`/`Panel`/`State` (usadas pelo admin) so existem apos B11;
+- iniciar quando houver tela piloto clara. **Dependencia transitiva ja cumprida:** tokens semanticos `success/warning/danger/info` (**B11**) -> primitives (T7/B4). As variantes coloridas de `Button`/`Badge`/`Panel`/`State` ja existem;
 - migrar botao/campo/badge/panel/state de forma incremental;
 - nao misturar admin React no bundle publico Astro;
 - preservar fluxo editorial BlockNote/preview/rebuild.
@@ -193,7 +193,7 @@ Saida:
 | 2 | `glossario` | base clara + dark opt-in | codigo promovido; E2E B6 validado pelo mantenedor | B6 fechado |
 | 3 | `mesas` | dark operacional + light opt-in | codigo promovido; E2E B7 validado pelo mantenedor | B7 fechado |
 | 4 | `site` | Astro/SSG/SEO | T9 fechado; B2/T11 pendente | B2/T11 |
-| 5 | `site-admin` | admin React/forms | aguarda primitives | T14/primitives |
+| 5 | `site-admin` | admin React/forms | primitives disponiveis; aguarda piloto | consumo incremental de primitives |
 
 ## Rollback global
 

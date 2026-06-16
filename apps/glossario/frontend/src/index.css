@@ -41,3 +41,12 @@ body {
 #root {
   width: 100%;
 }
+
+/* Spec 025 / BL-QA-SHELL-CLS: Lighthouse limpo marcou o logo do footer
+   compartilhado como "media lacking explicit size" no glossario. Reservar
+   largura e altura no consumidor evita o shift sem tocar packages/ui nesta fatia. */
+.artificio-footer-logo {
+  aspect-ratio: 3 / 1;
+  height: 34px;
+  width: 102px;
+}

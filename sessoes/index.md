@@ -29,3 +29,9 @@ Formato: `AA-MM-DD_N_<modulo>_<escopo>.md`. `N` = sequencial do dia. Sessões en
 | `26-06-15_2_docs-specs-backlog-audit` | 2026-06-15 | docs/specs | Spec 024: auditoria documental de specs, tasks e backlog | concluída |
 | `26-06-15_3_ui-020-b6-b2` | 2026-06-15 | ui/site/glossário | Spec 020: fechar B6 por evidência + B2 static shell | concluída (dev/beta verde; validação manual mantenedor OK) |
 | `26-06-15_4_ui-020-b12-fonts` | 2026-06-15 | ui/site | Spec 020 B12: remover Google Fonts do CSS compartilhado/shell público | concluída (builds verdes; warning removido; backlog atualizado) |
+| `26-06-15_5_ui-020-b3-b4-primitives` | 2026-06-15 | ui/packages | Spec 020 B3/B4: HeaderAction + primitives compartilhadas | concluída (B3/B4 fechados; tests 8/8; rollout consumidor futuro) |
+| `26-06-15_6_ui-primitives-consumers-spec` | 2026-06-15 | ui/site-admin | Spec piloto para consumidores de primitives compartilhadas | concluída (spec criada; baseline site-admin verde) |
+| `26-06-15_7_lighthouse-quality-specs` | 2026-06-15 | qualidade/site/apps | Programa de specs Lighthouse/Core Web Vitals/acessibilidade | concluída (Spec 025 + backlog QA criados) |
+| `26-06-16_1_quality_lighthouse-harness` | 2026-06-16 | qualidade/site/apps | Spec 025 T1/T2: harness Lighthouse limpo + baseline dos betas | concluída (lighthouse instalado; smoke real + baseline completo) |
+| `26-06-16_2_governanca_contexto-longo` | 2026-06-16 | governança | Tornar pétrea a alma operacional multi-chat e escalada T1 obrigatória | concluída (D070 + AGENTS/T0 atualizados) |
+| `26-06-16_3_quality_glossario-cls` | 2026-06-16 | qualidade/glossário | Spec 025 BL-QA-SHELL-CLS: reduzir CLS do glossário | local (build + Lighthouse local verde; falta beta/deploy) |

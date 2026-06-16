@@ -2,7 +2,7 @@
 
 > Definida em 2026-06-13 a partir da revisão de todos os docs da spec (token-contract, theme-consolidation, header-nav-actions, primitives-form-state, page-recipes, astro-zero-js, rollout-pilots, brand-static-shell, backlog-b2-b7-review). Pondera: (a) validar/proteger o que já está em prod, (b) desbloquear o máximo, (c) custo baixo cedo.
 >
-> **Caminho crítico atualizado:** B4/B3 sao as proximas fatias. B6, B7 e B2 foram fechados; B11+B10b ja foram feitos.
+> **Caminho crítico atualizado em 2026-06-15:** B2, B3, B4, B6, B7, B10b, B11 e B12 estao fechados. Proximo recomendado: piloto consumidor de primitives ou T5/theme dedup quando voltar a tocar theme runtime.
 
 ## Estado de partida (já em produção)
 
@@ -35,18 +35,19 @@
 - **Proximo:** nao reabrir salvo novo drift de shell static.
 
 ### B12 — limpeza do `@import` de fontes
-- **O que faz:** tira o Google Fonts do `@import url()` em `packages/ui/src/styles.css` (self-host das fontes Oswald/Inter OU `preconnect`+`link`).
-- **Por que cedo/paralelo:** perf real (fetch externo render-blocking no caminho crítico do público) + privacidade + mata o warning `@import must precede all rules`. Independente, baixo risco. **SDD** (CSS compartilhado).
+- **Estado:** fechado e promovido `dev→main` em 2026-06-15 (`a9a4437`).
+- **Resultado:** Google Fonts saiu do CSS compartilhado/site publico; warning `@import must precede all rules` sumiu; tipografia ficou local-first com fallbacks equivalentes.
 
 ## Tier 3 — PRIMITIVES (o grosso; depende do Tier 1)
 
 ### B4 — primitives
-- **O que faz:** componentes visuais compartilhados em `packages/ui`, baixos de opinião, sem domínio. Ordem: `Button`/`Field`/`TextInput`/`Textarea`/`Select`/`Badge` neutros primeiro; depois `Panel`/`Toolbar`/`FilterPanel`/`State`/`Modal`/`Drawer`. Contrato em `primitives-form-state.md`.
-- **Por que aqui:** SDD Completo + build/smoke de todos os consumidores = caro. Variantes coloridas **só após B11**. Piloto = `site-admin` (rollout-pilots). Só vale com tokens prontos e B6/B7 fechados (sem retrabalho).
+- **Estado:** fechado localmente em 2026-06-15.
+- **Resultado:** componentes visuais compartilhados em `packages/ui`, baixos de opinião, sem domínio: `Button`, `Badge`, `Field`, controles, `Panel`, `Toolbar`, states, `Modal`, `Drawer`. Contrato em `primitives-form-state.md`.
+- **Proximo:** piloto consumidor por app quando houver tela adequada.
 
 ### B3 — HeaderAction (junto do B4)
-- **O que faz:** helper visual-only do botão de action do header (aria/badge/classes), mantendo fetch/changelog/notificação por app. Contrato em `header-nav-actions.md`.
-- **Por que com B4:** mesma natureza (visual-only em `packages/ui`), pequeno, reusa o padrão de badge.
+- **Estado:** fechado localmente em 2026-06-15.
+- **Resultado:** helper visual-only do botao de action do header (aria/badge/classes), mantendo fetch/changelog/notificacao por app. Contrato em `header-nav-actions.md`.
 
 ## Tier 4 — CONSOLIDAÇÃO / OPORTUNÍSTICO (baixa urgência)
 
@@ -63,8 +64,8 @@
 ```
 Tier 0  B6+B7 E2E ────────────────► fechado por mantenedor
 Tier 1  B11 semânticos + B10b ────► DESTRAVA primitives              [barato, blocker]
-Tier 2  B2/T11 static · B12 fonts ► anti-drift + perf (paralelo)     [independente]
-Tier 3  B4 primitives + B3 HeaderAction ► o grosso (precisa B11)     [caro, SDD]
+Tier 2  B2/T11 static · B12 fonts ► fechado
+Tier 3  B4 primitives + B3 HeaderAction ► fechado localmente
 Tier 4  T5 dedup tema · B5 recipes runtime ► cleanup/oportunístico   [baixa urgência]
 ```
 

@@ -159,9 +159,9 @@ Os recipes dependem dos contratos de `primitives-form-state.md`:
 - Campos (`Field`, `TextInput`, `Textarea`, `Select`) para admin/auth/catalogo.
 - Tokens de theme, foco, surface, line, radius e shadow.
 
-Enquanto primitives nao existem em `packages/ui`, apps continuam usando componentes locais. O contrato evita drift em novas telas.
+Primitives iniciais ja existem em `packages/ui` desde B4 (2026-06-15). Apps podem migrar de forma incremental quando a tela piloto justificar; ate la, componentes locais seguem validos.
 
-**Cadeia de dependencia (sequenciamento):** recipes (T8/B5) -> primitives (T7/B4) -> tokens semanticos `success/warning/danger/info` (**B11**) + shadow/spacing canonicos (token-contract "fora do T3", futuro). As variantes coloridas de `Button`/`Badge`/`Panel`/`State` so ficam implementaveis apos B11; recipes que as usam herdam esse bloqueio. Implementar de baixo p/ cima: tokens -> primitives -> recipes.
+**Cadeia de dependencia:** tokens semanticos `success/warning/danger/info` (**B11**) -> primitives (**B4**) -> recipes runtime. B11 e B4 ja fecharam; recipes runtime continuam oportunisticos e so devem virar codigo quando dois apps repetirem a mesma composicao com baixa divergencia.
 
 ## Fora de escopo
 
@@ -174,7 +174,7 @@ Enquanto primitives nao existem em `packages/ui`, apps continuam usando componen
 ## Rollout futuro
 
 1. Manter este documento como checklist de design para novas telas.
-2. Implementar primitives compartilhadas primeiro.
+2. Usar primitives compartilhadas em piloto pequeno quando reduzir duplicacao.
 3. Extrair recipes somente quando dois apps repetirem a mesma composicao com baixa divergencia.
 4. Validar por app tocado: desktop/mobile, contraste AA, loading/error/empty, foco, keyboard e smoke de rota.
 5. Rollback: app volta ao wrapper local mantendo tokens compartilhados.

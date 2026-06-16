@@ -3,7 +3,7 @@
 - **Modulo/Pacote:** `packages/ui` + consumidores em `apps/accounts`, `apps/glossario`, `apps/mesas`, `apps/site`, `apps/site-admin`
 - **Gate relacionado:** nenhum
 
-> **▶ PRÓXIMOS PASSOS / ordem de execução: ver [`execution-priority.md`](./execution-priority.md).** Prioridade definida em 2026-06-13 a partir da revisão de todos os docs da spec. Caminho crítico: **B6/B7** (E2E valida o lua/sol que já está em prod) ∥ **B11+B10b** (tokens, destravam primitives) → **B4+B3** (primitives) → T5/B5 (cleanup). **B2/B12** em paralelo. **Novos chats começam por aí.**
+> **▶ PRÓXIMOS PASSOS / ordem de execução: ver [`execution-priority.md`](./execution-priority.md).** Atualizado em 2026-06-15: **B2, B3, B4, B6, B7, B10b, B11 e B12 fechados**. Proximo recomendado: piloto consumidor de primitives ou T5/theme dedup quando voltar a tocar theme runtime. **Novos chats começam por aí.**
 >
 > Docs da spec: `token-contract` (T3), `theme-consolidation` (T5), `header-nav-actions` (T6), `primitives-form-state` (T7), `page-recipes` (T8), `astro-zero-js` (T9), `rollout-pilots` (T10), `brand-static-shell` (T11), `dark-readiness-checklist` (T4), `backlog-b2-b7-review`, `execution-priority`.
 

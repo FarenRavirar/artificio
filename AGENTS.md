@@ -3,6 +3,8 @@
 **Projeto:** Artifício RPG — plataforma modular (monorepo)
 **Fonte canônica de governança operacional.** Em conflito com qualquer documento operacional, este arquivo prevalece. Em conflito sobre arquitetura ou contratos técnicos, prevalece `.specify/arquiteture.md`.
 
+**Regra zero, pétrea e omnipresente:** todo chat novo, todo agente, antes de qualquer análise, plano, comando, edição ou resposta de mérito, deve ler o T0 completo (`project-state.md` + `context-capsule.md` + `decisions.md`). Sem T0 lido, o agente não está autorizado a dizer que entendeu o estado do projeto nem a agir. Isto não é contexto opcional; é o mecanismo de continuidade do projeto longo multi-chat.
+
 Toda comunicação com o mantenedor é em português e, por padrão, em **caveman ultra**. Nomes de arquivos, comandos, funções e identificadores permanecem no formato original.
 
 ---
@@ -20,7 +22,9 @@ Pacotes compartilhados: `auth`, `ui`, `analytics`, `config`, `content`, `crossli
 
 ## Leitura Mínima de Retomada (Tier 0 — todo chat, todo agente)
 
-Projeto longo (~3 meses, muitos chats/agentes). Cada reload custa tokens. Ler **só** o T0:
+**Pétrea:** isto é um projeto longo, multi-chat e multi-agente; não é "um toque de contexto". Cada agente entra no meio de uma obra contínua, com histórico, gates, sessões, specs e decisões já tomadas. O objetivo do reload não é economizar por si só: é carregar a alma operacional suficiente para não redecidir, não fingir conclusão e não perder continuidade entre chats.
+
+Projeto longo (~3 meses, muitos chats/agentes). Cada reload custa tokens, mas o T0 é obrigatório e deve ser lido como contrato vivo, não como dica. **Todo chat novo começa aqui. Antes do T0 não existe contexto confiável.**
 
 1. `.specify/memory/project-state.md` — onde estamos (fase/gate).
 2. `docs/agents/context-capsule.md` — regras críticas + stack.
@@ -28,9 +32,13 @@ Projeto longo (~3 meses, muitos chats/agentes). Cada reload custa tokens. Ler **
 
 **Não** ler `AGENTS.md` inteiro por hábito — é T1 (consulta de regra sob demanda), salvo quando a tarefa for revisar/editar governança ou o próprio `AGENTS.md`. `arquiteture.md` só por seção. Disciplina completa em `docs/agents/token-economy.md`. Caveman ultra default na saída.
 
+**Escalada T1 obrigatória:** se a tarefa tocar ou questionar governança, infra, deploy, CI/CD, VM, DNS/tunnel, banco, auth, SEO/Lighthouse/qualidade transversal, pacotes compartilhados, specs/backlog/sessões ou conclusão de tarefa, o agente deve ler as seções/documentos T1 pertinentes antes de agir ou encerrar. Ex.: infra/deploy → `docs/agents/infra-map.md`, `docs/agents/deploy-runbook.md` quando existir, seções "Acesso à VM", "Banco, Infra e Segredos", "Git, Branch e Deploy"; specs/backlog → `specs/README.md` + spec/tasks/backlog; governança → `AGENTS.md` seções relevantes. Se não leu o T1 pertinente, não pode afirmar que a tarefa está resolvida.
+
 Depois verificar `sessoes/` por sessão ativa incompleta. Se houver, continuar nela salvo pedido explícito de abrir sessão dedicada. Antes de qualquer alteração, registrar na sessão: o que vai fazer, o que falta, o que já foi feito.
 
-**Anti-retrabalho:** se um fluxo parecer estranho, contraditório ou perigoso (CI/CD, deploy, branch, DNS/tunnel, auth, banco, SEO, importador, pacote compartilhado), **não corrigir no chute**. Primeiro pesquisar decisões, specs, sessões e docs operacionais relevantes (`decisions.md`, `project-state.md`, `errors.md`, `specs/`, `sessoes/`, `docs/agents/`). Identificar se o comportamento é decisão histórica, exceção temporária ou bug real; só então corrigir e registrar evidência.
+**Anti-retrabalho:** se um fluxo parecer estranho, contraditório ou perigoso (CI/CD, deploy, branch, DNS/tunnel, auth, banco, SEO, Lighthouse/qualidade, importador, pacote compartilhado), **não corrigir no chute**. Primeiro pesquisar decisões, specs, sessões e docs operacionais relevantes (`decisions.md`, `project-state.md`, `errors.md`, `specs/`, `sessoes/`, `docs/agents/`). Identificar se o comportamento é decisão histórica, exceção temporária ou bug real; só então corrigir e registrar evidência.
+
+**Quando descobrir falha de processo:** se a tarefa revela que a governança, T0/T1, spec, backlog ou definição de "feito" deixou margem para erro, corrigir a fonte canônica adequada no mesmo escopo (ou registrar débito explícito se não puder). Não basta atualizar só `project-state.md`; regras operacionais duráveis entram em `AGENTS.md`/`context-capsule.md`/docs T1, e tarefas entram em `specs/backlog.md`/`tasks.md`.
 
 ---
 
@@ -74,6 +82,19 @@ Regra Artifício: **tudo que é compartilhado é SDD Completo.** Um app/projeto 
 ---
 
 ## Regras Pétreas
+
+### Erros que não podem se repetir
+
+Estas falhas já aconteceram e viraram regra operacional. Todo agente deve tratá-las como bloqueios de conclusão:
+
+- **Nunca fechar tarefa executável só com dry-run, plano ou documentação.** Se o aceite diz "comando/script executável", rodar o comando real mínimo. Se falhar, reabrir task/backlog e corrigir ou registrar bloqueio.
+- **Nunca declarar "resolvido" quando falta dependência necessária para rodar.** Pacote npm/devDependency local necessário para validação deve ser instalado quando permitido pelo escopo; se houver dúvida de aprovação, pedir antes e deixar a task aberta, não fechada.
+- **Nunca confundir "local", "parcial", "validado em dist local" ou "falta deploy" com concluído.** Status correto vai para sessão/backlog/tasks; conclusão só após o critério de aceite completo.
+- **Nunca tocar governança/infra/qualidade transversal sem T1 pertinente.** Se a tarefa envolve ou questiona `AGENTS.md`, specs, backlog, infra, CI/CD, deploy, VM, DNS/tunnel, banco, auth, SEO/Lighthouse ou pacote compartilhado, ler docs/seções T1 relevantes antes de agir/encerrar.
+- **Nunca atualizar só `project-state.md` quando o aprendizado muda o modo de operação dos agentes.** Regra durável entra na fonte canônica correta (`AGENTS.md`, `context-capsule.md`, `decisions.md`, docs T1, specs/backlog). `project-state.md` registra estado, não substitui governança.
+- **Nunca deixar tarefa "fechada" após uma validação real provar que ela não roda.** Reabrir imediatamente, registrar o erro e só fechar depois do comando real passar.
+- **Nunca deixar servidor/processo auxiliar rodando ao final.** Encerrar dev server, preview, servidor estático e helpers iniciados pelo agente, salvo pedido explícito do mantenedor para manter.
+- **Nunca esconder erro com justificativa de economia de contexto.** O T0 é obrigatório; T1 é obrigatório quando o assunto exige. Economia de token serve a continuidade do projeto, não a atalhos.
 
 ### Aprovação Obrigatória
 
@@ -205,7 +226,9 @@ Conteúdo mínimo: cabeçalho (data/objetivo/app ou projeto/gate), vínculos, pl
 
 ## Conclusão de Tarefas
 
-Concluída só quando: busca final relevante retorna o esperado; checklist da sessão fechada; nenhum arquivo parcialmente modificado; `project-state.md` atualizado; `specs/backlog.md` atualizado quando a tarefa cria débito, fecha débito, muda status de spec/tarefa ou descobre pendência acionável; validação técnica/manual registrada. Não declarar conclusão usando "parcial", "restante", "maioria", "principais", "alguns" ou percentual incompleto. Status parcial pode ser registrado em backlog/revisão, nunca como conclusão final.
+Concluída só quando: busca final relevante retorna o esperado; comando/teste real executou quando a tarefa promete executabilidade; checklist da sessão fechada; nenhum arquivo parcialmente modificado; `project-state.md` atualizado; `specs/backlog.md` atualizado quando a tarefa cria débito, fecha débito, muda status de spec/tarefa ou descobre pendência acionável; validação técnica/manual registrada. Não declarar conclusão usando "parcial", "restante", "maioria", "principais", "alguns" ou percentual incompleto. Status parcial pode ser registrado em backlog/revisão, nunca como conclusão final.
+
+Se uma validação real expõe que a tarefa "fechada" ainda não roda, reabrir a task/backlog imediatamente, corrigir o artefato até ficar usável ou registrar bloqueio concreto. Dry-run, plano ou documentação não fecham tarefa cujo aceite exige execução real.
 
 **Obrigatório:** toda spec nova, retomada de spec, fechamento de tarefa, review que gere débito, ou descoberta de pendência deve verificar `specs/backlog.md` e registrar uma das duas coisas na sessão: (1) backlog atualizado; ou (2) nada a atualizar, com motivo curto. Isso evita pendência presa só no chat, em `tasks.md` isolado ou na memória do agente.
 

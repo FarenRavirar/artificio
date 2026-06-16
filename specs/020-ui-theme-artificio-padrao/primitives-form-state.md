@@ -1,10 +1,10 @@
 # Primitives de formulario e estado
 
-> Spec 020 T7/B4. Estado em 2026-06-13: `@artificio/ui` ainda nao tem primitives; este arquivo fecha a especificacao minima e separa implementacao futura.
+> Spec 020 T7/B4. Estado em 2026-06-15: contrato especificado e implementacao inicial em `@artificio/ui` fechada localmente por B4 (`sessoes/26-06-15_5_ui-020-b3-b4-primitives.md`).
 
 ## Diagnostico
 
-Hoje `packages/ui/src` contem shell, tokens, nav, tema e marca. Nao existem `Button`, `Field`, `Select`, `Badge`, `Panel`, `Toolbar`, `FilterPanel`, `State`, `Modal` ou `Drawer` compartilhados.
+Em 2026-06-13, `packages/ui/src` continha shell, tokens, nav, tema e marca, mas nao tinha primitives compartilhados. Em 2026-06-15, B4 adicionou primitives visuais shared de baixa opiniao em `packages/ui/src/primitives.tsx` e CSS tokenizado em `styles.css`.
 
 Exemplos vivos:
 
@@ -13,7 +13,7 @@ Exemplos vivos:
 - `site-admin`: tem CSS proprio (`.btn`, `.card`, `label`, `input`, `.badge`, `.modal`) para editor editorial.
 - `accounts`: tela compacta de auth; nao precisa puxar primitives antes de `AuthPage`.
 
-Conclusao: ha duplicacao suficiente para especificar primitives, mas ainda nao e seguro mover codigo agora. Implementar em `packages/ui` toca pacote compartilhado e exige fatia propria com builds/smokes dos consumidores.
+Conclusao: havia duplicacao suficiente para especificar primitives; B4 fechou a implementacao shared minima. Migrar consumidores continua fatia propria, por app, quando reduzir duplicacao real.
 
 ## Principios
 
@@ -195,35 +195,35 @@ Definido em `header-nav-actions.md`. Entra junto com primitives, mas continua vi
 
 ## Dependencias (pre-requisito de tokens)
 
-Varias variantes deste contrato dependem de **tokens semanticos canonicos que ainda NAO existem em `packages/ui`**:
+As variantes coloridas dependiam de **tokens semanticos canonicos** em `packages/ui`:
 
 - `Button` variants `danger`, `success`;
 - `Badge` variants `success`, `warning`, `danger`, `info`;
 - `Panel` tones `danger`, `warning`;
 - `State` `SuccessState`/`ErrorState`.
 
-Hoje `success/warning/danger/info` so existem **locais no mesas** (`apps/mesas/.../index.css`: `--success/--warn/--danger/--info`); `tokens.ts`/`styles.css`/`tailwind-preset.js` nao tem esses papeis (so ha a classe one-off `.artificio-usermenu-item-danger`). O `token-contract.md` lista "estados semanticos completos (`success`, `warning`, `danger`, `info`)" como **fora do fechamento T3 (futuro)**.
+B11 fechou esses papeis antes de B4: `success/warning/danger/info` e variantes `*Text` existem em `tokens.ts`, `styles.css`, `tailwind-preset.js` e na trava `check-token-parity.mjs`. B4 usa esses tokens nas variants de `Button`, `Badge`, `Panel` e states.
 
-**Regra de ordem:** landar os tokens semanticos canonicos (`tokens.ts` + CSS vars + preset + entrada na trava `check-token-parity.mjs`, ancorados nos valores do mesas) **antes** de implementar as variantes coloridas acima. As primitives neutras (`primary`/`secondary`/`ghost`, `neutral`/`brand`, `default`/`subtle`/`elevated`) nao dependem disso e podem vir primeiro.
+**Regra de ordem cumprida:** tokens semanticos canonicos landaram antes das variants coloridas. Manter essa ordem para qualquer novo papel visual.
 
-## Ordem de implementacao futura
+## Ordem de implementacao
 
-0. **Pre-requisito:** tokens semanticos canonicos (`success/warning/danger/info`) em `packages/ui` + trava de paridade (ver Dependencias). Bloqueia as variantes coloridas de `Button`/`Badge`/`Panel`/`State`.
-1. `Button` (neutras), `Field`, `TextInput`, `Textarea`, `Select`, `Badge` (`neutral`/`brand`); variantes semanticas so apos o passo 0.
-2. `Panel`, `Toolbar`, `State`.
-3. `Modal`, `Drawer`, `HeaderAction`.
-4. Piloto pequeno: `site-admin` ou uma tela admin do glossario.
+0. **Feito:** tokens semanticos canonicos (`success/warning/danger/info`) em `packages/ui` + trava de paridade.
+1. **Feito:** `Button`, `Field`, `TextInput`, `Textarea`, `Select`, `Badge`.
+2. **Feito:** `Panel`, `Toolbar`, `LoadingState`, `EmptyState`, `ErrorState`, `SuccessState`.
+3. **Feito:** `Modal`, `Drawer`, `HeaderAction`.
+4. **Proximo rollout:** piloto pequeno em `site-admin` ou tela admin do glossario.
 5. Depois migrar pontos do mesas onde a duplicacao for clara.
 
-## Validacao futura
+## Validacao
 
-- `pnpm --filter @artificio/ui build`.
-- Build do app piloto.
-- Smoke desktop/mobile do app piloto.
-- Contraste AA em light/dark.
-- Focus visible, disabled, loading e error states.
-- `rg` confirmando que primitives nao importam API/fetch/auth/router de app.
+- `pnpm --filter @artificio/ui test` OK (8/8).
+- `pnpm --filter @artificio/ui build` OK.
+- `pnpm --filter @artificio/site build` OK.
+- `rg` confirmou que primitives nao importam API/fetch/auth/router de app.
+- Build/smoke do app piloto fica para a fatia de consumo.
+- Contraste AA em light/dark deve ser revalidado por tela migrada.
 
 ## Resultado T7/B4
 
-T7 fecha como especificacao minima. B4 fica parcial: contrato pronto, implementacao em `packages/ui` pendente para T14/fatia propria, porque shared code exige SDD Completo e smoke de consumidores.
+T7 fechou como especificacao minima. B4 fechou em 2026-06-15 com implementacao shared em `packages/ui`, testes e builds verdes. Rollout consumidor fica fora deste fechamento.

@@ -2,17 +2,19 @@
 
 Status: **revisao documental** (2026-06-13). Nao altera runtime. Estado de B6/B7 reflete o que ja foi a producao (PRs #24/#25, D065/D066/D067).
 
+> Atualizacao 2026-06-15: B2, B3, B4, B6 e B7 estao fechados. B3/B4 foram implementados localmente em `packages/ui` na sessao `26-06-15_5_ui-020-b3-b4-primitives.md`.
+
 ## Objetivo
 
-Revisar os debitos B2-B7 a partir do que esta em `dev`, separar o que fecha por documentacao do que continua parcial, e deixar criterio de saida claro para as proximas fatias.
+Revisar os debitos B2-B7 a partir do que esta em `dev`, separar o que fecha por documentacao do que continua parcial, e deixar criterio de saida claro para etapas seguintes.
 
 ## Matriz
 
 | Debito | Estado | Decisao |
 |---|---|---|
 | B2 — export static-friendly site Astro | **fechado** | `@artificio/ui/static` criado e consumido pelo site Astro; sem barrel React/auth para dados static. |
-| B3 — HeaderAction/changelog/notification shell | **parcial** | Slot/classes/actions ja existem; contrato e fronteira documentados em `header-nav-actions.md`; helper runtime `HeaderAction` ainda nao existe. |
-| B4 — primitives | **parcial** | Contrato fechado em `primitives-form-state.md`; implementacao em `packages/ui` fica para T14/fatia propria. |
+| B3 — HeaderAction/changelog/notification shell | **fechado** | `HeaderAction` visual-only existe em `packages/ui`; contrato e fronteira documentados em `header-nav-actions.md`; dados/fetch/modais seguem por app. |
+| B4 — primitives | **fechado** | Contrato fechado em `primitives-form-state.md`; implementacao shared em `packages/ui` feita/testada. Rollout consumidor fica para fatia propria. |
 | B5 — recipes | **fechado** | Recipes documentadas em `page-recipes.md`; runtime em `packages/ui` nao faz parte do debito. |
 | B6 — dark readiness glossario | **fechado** | Variante dark implementada/promovida; telas com dados/admin/forms aprovadas pelo mantenedor em prod conforme sessão `26-06-13_1`. |
 | B7 — light readiness mesas | **fechado** | Variante light implementada/promovida com default-dark preservado; E2E autenticado final validado pelo mantenedor em prod em 2026-06-15. |
@@ -43,11 +45,11 @@ O que ja existe:
 - mesas tem `NotificationBell`, restrito a usuario logado;
 - dados/fetch/modais seguem por app.
 
-Decisao: **nao fechar**. O contrato visual esta documentado, mas o componente/helper `HeaderAction` ainda nao existe em `packages/ui`.
+Decisao atual: **fechado** em 2026-06-15. O contrato visual esta documentado e o componente/helper `HeaderAction` existe em `packages/ui`.
 
 Criterio de fechamento:
 
-- implementar `HeaderAction` visual-only em `packages/ui`;
+- implementar `HeaderAction` visual-only em `packages/ui` (feito);
 - manter `ChangelogAction`, `NotificationBell` e dados por app ate duplicacao real;
 - builds/smokes dos consumidores tocados;
 - acessibilidade de icon-only (`aria-label`, foco, badge sem depender so de cor).
@@ -66,9 +68,9 @@ O contrato minimo esta fechado em `primitives-form-state.md`:
 - `Modal`/`Drawer`;
 - `HeaderAction`.
 
-Decisao: **parcial**. A documentacao esta suficiente; a implementacao fica em T14/fatia propria porque toca `packages/ui` e exige SDD Completo.
+Decisao atual: **fechado** em 2026-06-15. A documentacao esta suficiente e a implementacao inicial existe em `packages/ui`.
 
-Dependencia: variantes semanticas dependem de B11 (`success/warning/danger/info` canonicos) antes de implementar cores de `Button`/`Badge`/`Panel`/`State`.
+Dependencia cumprida: variantes semanticas dependiam de B11 (`success/warning/danger/info` canonicos), fechado antes de B4.
 
 ## B5 — recipes
 
@@ -113,6 +115,6 @@ Criterio de fechamento cumprido por validacao do mantenedor; reabrir so com nova
 ## Ordem recomendada
 
 1. B6, B7 e B2 estao fechados.
-2. Proximo: B4 primitives neutras e B3 `HeaderAction`.
+2. B3/B4 estao fechados; proximo e piloto consumidor de primitives quando houver tela adequada.
 3. Usar B5 como guia para novas telas; extrair recipe runtime so quando houver duplicacao real.
-4. Em paralelo, B12 (limpeza do `@import` de fontes: ordem + perf/privacidade) quando tocar o CSS compartilhado.
+4. B12 tambem esta fechado/promovido.

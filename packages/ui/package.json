@@ -30,7 +30,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "eslint .",
-    "preview": "vite --host 127.0.0.1"
+    "preview": "vite --host 127.0.0.1",
+    "test": "vitest run"
   },
   "dependencies": {
     "@artificio/auth": "workspace:*",

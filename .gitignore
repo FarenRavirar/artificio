@@ -42,6 +42,7 @@ artificio-mesas-*.tgz
 logs/
 *.log
 tmp/
+artifacts/lighthouse/
 .DS_Store
 
 # Docs internas de operação — NÃO publicar (recon de infra: containers, rotas, cofre)

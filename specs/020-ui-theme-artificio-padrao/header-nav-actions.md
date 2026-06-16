@@ -1,6 +1,6 @@
 # Header, nav e actions
 
-> Spec 020 T6. Estado em 2026-06-13: contrato base ja existe em `@artificio/ui`; falta so documentar fronteiras e proxima evolucao.
+> Spec 020 T6/B3. Estado em 2026-06-15: contrato base existe em `@artificio/ui`; `HeaderAction` visual-only foi implementado/exportado por B3.
 
 ## Decisoes vigentes
 
@@ -76,9 +76,9 @@ Nao mover essas queries para `packages/ui`: isso acoplaria regra de negocio ao s
 | `site` Astro | Espelho static de `defaultNavItems` + `SECTIONS` do blog | busca, tema, login/session link | Excecao zero-JS. Paridade static fica em T9/T11. |
 | `accounts` | Nao usa `Header`; tela de login e shell compacto | tema na propria tela | OK por ser servico de auth, nao app de conteudo. |
 
-## API proposta para a proxima fatia
+## API `HeaderAction`
 
-Manter `HeaderProps` atual. Adicionar, quando houver implementacao de primitives, um helper pequeno para actions:
+`HeaderProps` segue estavel. B3 adicionou um helper pequeno para actions:
 
 ```ts
 export interface HeaderActionProps {
@@ -112,7 +112,7 @@ No mobile, manter icon-only com `aria-label` e `title`. Texto fica reservado par
 ## Rollback
 
 - Como `actions` e slot externo, rollback e remover a action do consumidor.
-- Se `HeaderAction` futuro quebrar visual, app volta para `<button className="artificio-header-action">`.
+- Se `HeaderAction` quebrar visual, app volta para `<button className="artificio-header-action">`.
 - Se `moduleNav` poluir mobile, app remove `moduleNav` sem afetar nav cross-projetos.
 - Se paridade Astro quebrar, `site` continua com `SiteHeader.astro` local e CSS comum.
 
@@ -125,4 +125,4 @@ No mobile, manter icon-only com `aria-label` e `title`. Texto fica reservado par
 
 ## Resultado T6
 
-T6 esta fechado como especificacao: nav base, subnav, user menu e action slot ja existem; fronteiras foram documentadas; API futura de `HeaderAction` foi proposta sem mover regra de negocio para `packages/ui`.
+T6 esta fechado como especificacao: nav base, subnav, user menu e action slot existem; fronteiras foram documentadas. B3 fechou `HeaderAction` visual-only sem mover regra de negocio para `packages/ui`.

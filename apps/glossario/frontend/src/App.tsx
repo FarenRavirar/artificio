@@ -119,7 +119,7 @@ function HomePage() {
 
       {/* Hero Badge sempre no topo (mesmo se buscando ou não, para manter a consistência, ou apenas na landing?) 
           Como pedido, a busca fica abaixo do presente e acima do título. */}
-      {!isSearching && !loading && (
+      {!isSearching && (
         <div className="text-center pt-4 md:pt-6 mb-8">
           <div className="inline-flex items-center gap-2 bg-[rgba(255,87,34,0.10)] text-[var(--artificio-brand)] text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full border border-[rgba(255,87,34,0.20)]">
             {/* Sparkles inline para evitar imports extras no App */}
@@ -135,7 +135,7 @@ function HomePage() {
       </section>
 
       {/* O resto da Landing Section (Título, CTAs e Cards) só aparece sem busca */}
-      {!isSearching && !loading && (
+      {!isSearching && (
         <LandingSection totalTermos={dados.length} isAuthenticated={!!user} onContribute={openAddTerm} />
       )}
 

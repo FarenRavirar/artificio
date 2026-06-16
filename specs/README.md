@@ -42,6 +42,7 @@ Toda spec SDD deve:
 | 022 | paleta/fontes global | Aberta/local conforme spec propria. |
 | 023 | Real IP ingress | Fechada em prod; residual `BL-ACCOUNTS-PORT` no backlog. |
 | 024 | auditoria docs/specs/backlog | Fechada; auditoria documental alinhou tasks, backlog e sessoes. |
+| 025 | Lighthouse/qualidade publica | Aberta; T1/T2 fechados com harness limpo + baseline 2026-06-16; proximos: CLS/perf glossario, robots, imagens site, a11y, mesas perf, headers/terceiros. |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.
