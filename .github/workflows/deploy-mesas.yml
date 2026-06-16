@@ -48,7 +48,7 @@ jobs:
     uses: ./.github/workflows/_deploy-module.yml
     with:
       module: mesas
-      env: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' && 'beta' || 'prod' }}
+      env: ${{ github.ref == 'refs/heads/dev' && 'beta' || 'prod' }}
       compose_file: docker-compose.prod.yml
       compose_file_beta: docker-compose.beta.yml
       compose_project: mesas

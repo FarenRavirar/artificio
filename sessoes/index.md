@@ -40,3 +40,4 @@ Formato: `AA-MM-DD_N_<modulo>_<escopo>.md`. `N` = sequencial do dia. Sessões en
 | `26-06-16_6_quality_perf-images-robots` | 2026-06-16 | qualidade/glossario/site/seo | Spec 025: BL-QA-GLOSSARIO-PERF + BL-QA-SITE-IMAGES + BL-QA-ROBOTS-SEO | local (builds + Lighthouse local verde; falta beta/Cloudinary real) |
 | `26-06-16_7_governanca_bug-registry` | 2026-06-16 | governança/docs | Tornar obrigatório registrar bugs achados e abrir auditoria backlog/index | concluída (AGENTS reforçado; BL-DOCS-BACKLOG-INDEX-DRIFT aberto) |
 | `26-06-16_8_docs-backlog-harness-audit` | 2026-06-16 | docs/qualidade | Auditar backlog/index e corrigir harness Lighthouse multi-url | concluída (BL-DOCS-BACKLOG-INDEX-DRIFT + BL-QA-LH-MULTIURL fechados localmente) |
+| `26-06-16_9_quality-beta-deploy` | 2026-06-16 | qualidade/CI-CD | Commit/push/deploy beta do pacote QA | parcial (glossário/site beta verdes; mesas beta bloqueado por drift; incidente dispatch-prod registrado) |
