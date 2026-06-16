@@ -97,11 +97,18 @@ jobs:
           branch="${REF#refs/heads/}"
           include='[]'
           modules=$(jq -r '.modules[].module' "$MANIFEST")
+          # Manifesto vazio/sem .modules = erro de config explicito (em vez de matrix vazia
+          # silenciosa). jq malformado ja quebra antes via set -e/pipefail.
+          if [ -z "$modules" ]; then
+            echo "ERRO: nenhum modulo em $MANIFEST (manifesto vazio ou .modules ausente)."
+            exit 1
+          fi
           for m in $modules; do
             entry=$(jq -c --arg m "$m" '.modules[] | select(.module==$m)' "$MANIFEST")
 
             # Dispatch e direcionado a UM modulo: ignorar os demais.
-            if [ "$EVENT" = "workflow_dispatch" ] && [ "$MODULE_INPUT" != "$m" ]; then
+            # ${MODULE_INPUT:-}: defensivo sob `set -u` (em push/PR o input vem vazio).
+            if [ "$EVENT" = "workflow_dispatch" ] && [ "${MODULE_INPUT:-}" != "$m" ]; then
               continue
             fi
 
@@ -140,7 +147,7 @@ jobs:
 
   deploy:
     needs: [lint-shell, build-matrix]
-    if: ${{ needs.build-matrix.outputs.count != '0' }}
+    if: ${{ needs.build-matrix.outputs.count != 0 }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}
