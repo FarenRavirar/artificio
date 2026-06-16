@@ -8,12 +8,15 @@ export interface FooterProps {
   navItems?: NavItem[];
   /** URL do logo ao clicar (padrão: portal). */
   brandHref?: string;
+  /** URL dos termos de uso e direitos autorais. */
+  copyrightHref?: string;
 }
 
 export function Footer({
   variant = "light",
   navItems = defaultNavItems,
   brandHref = "https://beta.artificiorpg.com",
+  copyrightHref = "https://beta.artificiorpg.com/termos-de-uso-e-direitos-autorais/",
 }: FooterProps) {
   const logo = variant === "dark" ? brandLogoNeg : brandLogoNavy;
   const year = new Date().getFullYear();
@@ -54,6 +57,13 @@ export function Footer({
       <p className="artificio-footer-gift">
         Este é um presente da Artifício RPG para toda a comunidade brasileira de
         RPG. Compartilhe com seus grupos!
+      </p>
+      <p className="artificio-footer-copyright-summary">
+        Artifício RPG © {year}. Todos os direitos reservados. Leitura, citação
+        curta e compartilhamento de links são permitidos com crédito e link para a
+        fonte. Reprodução integral, espelhamento, raspagem e uso comercial dependem
+        de autorização prévia.{" "}
+        <a href={copyrightHref}>Ver termos de uso e direitos autorais</a>.
       </p>
 
       <div className="artificio-footer-base">

@@ -137,21 +137,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
+      # F11 (spec 026): pnpm ANTES do setup-node p/ habilitar cache do pnpm store
+      # (keyed por pnpm-lock.yaml) — corta o re-download de deps a cada run.
       - name: Setup pnpm
         run: |
           corepack enable
           corepack prepare pnpm@10.12.1 --activate
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # F11: cache do turbo (build/test incrementais por modulo).
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ inputs.module }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ inputs.module }}-
+
       - name: Install
         run: pnpm install --frozen-lockfile
 
       - name: Build module
-        run: pnpm -w turbo run build --filter=@artificio/${{ inputs.module }}*
+        run: pnpm -w turbo run build --filter=@artificio/${{ inputs.module }}* --cache-dir=.turbo
 
       - name: Test module
         env:
@@ -161,7 +173,7 @@ jobs:
           CLOUDINARY_CLOUD_NAME: ci
           CLOUDINARY_API_KEY: ci
           CLOUDINARY_API_SECRET: ci
-        run: pnpm -w turbo run test --filter=@artificio/${{ inputs.module }}* --env-mode=loose
+        run: pnpm -w turbo run test --filter=@artificio/${{ inputs.module }}* --env-mode=loose --cache-dir=.turbo
 
   deploy:
     name: Deploy ${{ inputs.module }} ${{ needs.resolve.outputs.env }}

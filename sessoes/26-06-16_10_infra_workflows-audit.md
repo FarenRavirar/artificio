@@ -101,9 +101,30 @@ como no-op; inspecao read-only na VM e barata e deveria preceder fix de infra "n
   (D044) e `break-glass` `env: prod` como overrides. Absorve `BL-DEP-MESAS-DISPATCH-ENV`.
 - Validacao local: `python yaml.safe_load` ok em todos; `inputs.env` so no resolve; zero
   `secrets: inherit` ativo. actionlint roda no CI no push.
-- Falta (aprovacao nominal): commit/push -> actionlint/CI verde + mesas beta auto-deploy
-  provando resolve/secrets no caminho real. Risco: toca o `_deploy-module` compartilhado
-  (engine que acabou de deployar 4 modulos); CI gateia, deploy e beta com rollback/snapshot.
+- FECHADO: commit `8713ee0` + `.github/dependabot.yml` (mantenedor pediu p/ pin nao
+  envelhecer). `pr-checks`/actionlint verde (F1/F2/F3 validos, pins SHA resolveram). mesas
+  beta run `27635199357` verde com `resolved_env=beta override='' ref='refs/heads/dev'`,
+  smoke mesasbeta `/`=200/`me/options`=401; glossario/site/accounts verdes. F1/F2/F3
+  provados em prod-beta. `BL-DEP-PATHFILTERS` fechado; `BL-DEP-MESAS-DISPATCH-ENV` absorvido.
+
+## F11 eficiencia — diagnostico + fix (2026-06-16)
+
+Mantenedor: mesas sempre demora >5min e parece disparar toda vez. Diagnostico com dados
+(runs `27635199357` mesas vs `27635198756` glossario):
+- mesas e o UNICO que auto-deploya no push (glossario/site/accounts pulam deploy =
+  dispatch-only) -> por isso e sempre o longo e "dispara toda vez".
+- F1 ampliou paths do mesas -> auto-deployava ate em commit de infra (sem tocar app).
+- CI sem cache: `pnpm install` re-baixa + turbo rebuilda (~2m18s). Deploy VM `--no-cache`
+  (~2m08s) reconstroi 2 imagens do zero. Passo "Deploy module on VM" so 2min; o resto e CI.
+
+Fix (IMPLEMENTADO local, decisao do mantenedor: gating por app + cache CI agora):
+- `_deploy-module.yml` CI: pnpm antes do setup-node + `cache: pnpm` + `actions/cache@v4`
+  em `.turbo` + `--cache-dir=.turbo`.
+- `deploy-mesas.yml`: job `detect` (git diff `apps/mesas/**`); auto-deploy beta so quando
+  app mesas muda (ou dispatch). before invalido -> deploya por seguranca.
+- GHCR (build em CI -> push -> VM pull) registrado como F12/`BL-INFRA-GHCR-F12` (planejado,
+  reconcilia F10).
+Validacao local YAML ok. Falta commit/push (aprovacao) p/ provar gating + cache quente.
 
 ## Furo do prune em accounts + governanca read-only (2026-06-16)
 

@@ -1,0 +1,166 @@
+---
+import Base from "../layouts/Base.astro";
+import { SITE, breadcrumbLd } from "@artificio/content";
+
+const title = "Termos de uso e direitos autorais";
+const description =
+  "Regras de uso, citação, compartilhamento, reprodução e autorização de conteúdos do Artifício RPG.";
+const canonical = `${SITE.origin}/termos-de-uso-e-direitos-autorais/`;
+const jsonld = breadcrumbLd([
+  { name: "Início", url: `${SITE.origin}/` },
+  { name: title, url: canonical },
+]);
+---
+<Base
+  title={`${title} — Artifício RPG`}
+  description={description}
+  canonical={canonical}
+  jsonld={jsonld}
+>
+  <main class="article-wrap" style="grid-template-columns: minmax(0, 1fr);">
+    <nav class="breadcrumb" aria-label="Trilha">
+      <a href="/">Início</a> <span>/</span> <span>{title}</span>
+    </nav>
+    <article class="article">
+      <header class="article-head">
+        <h1>{title}</h1>
+        <p>Última atualização: 16 de junho de 2026.</p>
+      </header>
+      <div class="article-body prose">
+        <p>O Artifício RPG é uma plataforma brasileira dedicada a conteúdos, ferramentas, glossários, anúncios de mesas, guias, análises e materiais relacionados a RPG de mesa. O acesso ao site é gratuito, mas a gratuidade de acesso não significa autorização para copiar, republicar, vender, monetizar ou redistribuir integralmente os conteúdos publicados.</p>
+
+        <h2>1. Titularidade dos conteúdos</h2>
+        <p>Salvo indicação expressa em sentido contrário, todos os textos, artigos, guias, análises, traduções autorais, estruturas editoriais, compilações, escolhas terminológicas, organização de dados, interfaces, marcas, identidade visual e materiais publicados pelo Artifício RPG são protegidos por direitos autorais.</p>
+        <p>O conteúdo do Artifício RPG pode dialogar com obras, marcas, sistemas, livros, editoras e materiais de terceiros. Essas referências pertencem aos seus respectivos titulares. O Artifício RPG não reivindica propriedade sobre marcas, obras ou conteúdos de terceiros mencionados para fins informativos, críticos, editoriais, educacionais ou comunitários.</p>
+
+        <h2>2. Regra geral de uso</h2>
+        <p>Os conteúdos do Artifício RPG são disponibilizados para leitura, consulta, estudo, referência, crítica, divulgação comunitária e uso pessoal.</p>
+        <p>É permitido, sem autorização prévia:</p>
+        <ol type="a">
+          <li>compartilhar links para páginas do Artifício RPG;</li>
+          <li>citar pequenos trechos de artigos, guias ou análises, desde que a citação seja proporcional ao fim pretendido;</li>
+          <li>usar trechos em debates, resenhas, estudos, aulas, vídeos, podcasts, postagens ou materiais comunitários, desde que haja crédito claro ao Artifício RPG e link para a página original;</li>
+          <li>mencionar dados, conclusões, escolhas terminológicas ou informações publicadas no Artifício RPG, desde que a fonte seja indicada.</li>
+        </ol>
+
+        <h2>3. Crédito obrigatório</h2>
+        <p>Toda citação ou uso parcial de conteúdo do Artifício RPG deve indicar, de forma visível:</p>
+        <ul>
+          <li>Fonte: Artifício RPG;</li>
+          <li>autor, quando informado na página original;</li>
+          <li>título do conteúdo citado;</li>
+          <li>link direto para a página original.</li>
+        </ul>
+        <p>Modelo recomendado:</p>
+        <blockquote>
+          <p>Fonte: Artifício RPG, "[título do artigo]", por [autor, se informado]. Disponível em: [link direto].</p>
+        </blockquote>
+        <p>Quando o conteúdo for usado em vídeo, podcast, apresentação, postagem em rede social ou material sem corpo textual extenso, o crédito deve aparecer na descrição, nos créditos, na tela ou em local equivalente de fácil acesso.</p>
+
+        <h2>4. O que não é permitido</h2>
+        <p>Sem autorização prévia e expressa do Artifício RPG, não é permitido:</p>
+        <ol type="a">
+          <li>republicar artigos, guias, análises ou posts na íntegra em outros sites, blogs, newsletters, repositórios, plataformas, fóruns, wikis, redes sociais ou agregadores;</li>
+          <li>copiar parte substancial de um conteúdo de modo que a reprodução substitua a leitura da página original;</li>
+          <li>publicar versões espelhadas, raspadas, automatizadas ou reformatadas dos conteúdos do Artifício RPG;</li>
+          <li>usar conteúdo do Artifício RPG em páginas com anúncios, monetização, programas de afiliados, venda de serviços, captação de leads, paywall, assinatura, impulsionamento comercial ou qualquer forma de vantagem econômica direta ou indireta;</li>
+          <li>remover autoria, links, avisos legais, créditos, referências ou indicações de origem;</li>
+          <li>apresentar conteúdo do Artifício RPG como se fosse próprio;</li>
+          <li>usar os textos do Artifício RPG para treinar, alimentar, compilar ou redistribuir bases de dados, produtos automatizados, modelos de linguagem, ferramentas comerciais ou sistemas de geração de conteúdo sem autorização expressa;</li>
+          <li>vender, licenciar, empacotar ou redistribuir conteúdos do Artifício RPG como produto, bônus, apostila, curso, livro, PDF, banco de dados ou material promocional.</li>
+        </ol>
+
+        <h2>5. Uso gratuito e comunitário</h2>
+        <p>O Artifício RPG permite o uso parcial e gratuito de seus conteúdos em iniciativas comunitárias, não comerciais e não remuneradas, desde que:</p>
+        <ol type="a">
+          <li>o uso seja proporcional e não substitua o conteúdo original;</li>
+          <li>o crédito ao Artifício RPG seja mantido;</li>
+          <li>o link para a página original seja informado;</li>
+          <li>o conteúdo não seja usado para gerar receita, tráfego monetizado, vantagem comercial, publicidade, venda de produto ou promoção de serviço pago;</li>
+          <li>o material não seja reproduzido integralmente.</li>
+        </ol>
+        <p>Essa permissão existe para facilitar a circulação de conhecimento na comunidade de RPG, não para autorizar republicação integral, espelhamento de posts ou exploração comercial do trabalho editorial do Artifício RPG.</p>
+
+        <h2>6. Sites, blogs e agregadores</h2>
+        <p>Sites, blogs, portais, agregadores, newsletters e páginas automatizadas podem divulgar conteúdos do Artifício RPG por meio de título, chamada, resumo curto e link para o original.</p>
+        <p>Não é permitido reproduzir o texto integral de um artigo nem copiar trechos extensos que tornem desnecessário acessar a publicação original.</p>
+        <p>Quando houver dúvida, o limite recomendado é citar apenas o trecho necessário para contextualizar a discussão, análise, crítica ou notícia, sempre com crédito e link direto.</p>
+
+        <h2>7. Materiais com licenças específicas</h2>
+        <p>Alguns materiais publicados pelo Artifício RPG podem ter licenças próprias, incluindo Creative Commons, SRD, OGL, licenças abertas, autorizações de terceiros ou condições específicas de uso.</p>
+        <p>Quando uma página, arquivo ou material indicar uma licença própria, prevalecem os termos daquela licença apenas para aquele material.</p>
+        <p>Na ausência de indicação expressa de licença aberta, aplica-se a regra geral: todos os direitos reservados, com permissão gratuita apenas para citação, referência, uso parcial e compartilhamento de link, nos termos desta página.</p>
+
+        <h2>8. Creative Commons</h2>
+        <p>O Artifício RPG pode, caso a caso, publicar determinados materiais sob licença Creative Commons. Quando isso ocorrer, a licença aplicável será indicada de forma expressa na própria página ou no próprio arquivo.</p>
+        <p>Os artigos, posts, guias e análises editoriais do Artifício RPG não devem ser presumidos como Creative Commons apenas por estarem disponíveis gratuitamente.</p>
+        <p>Quando um material estiver marcado como Creative Commons, a autorização vale somente para aquele material específico, nos termos da licença indicada.</p>
+
+        <h2>9. Conteúdo enviado por usuários</h2>
+        <p>Ao publicar, cadastrar ou enviar conteúdo para projetos do Artifício RPG, como anúncios de mesas, sugestões de termos, comentários, formulários ou materiais comunitários, o usuário declara que possui direito ou autorização para publicar aquele conteúdo.</p>
+        <p>O usuário mantém os direitos sobre o conteúdo que enviar, mas concede ao Artifício RPG uma autorização gratuita, não exclusiva e necessária para exibir, armazenar, organizar, moderar, adaptar tecnicamente e divulgar esse conteúdo dentro da plataforma.</p>
+        <p>O usuário não deve enviar conteúdo que viole direitos autorais, marcas, privacidade, imagem, dados pessoais, regras de plataformas terceiras ou direitos de qualquer pessoa ou entidade.</p>
+        <p>O Artifício RPG pode remover, ocultar, editar tecnicamente ou recusar conteúdos enviados por usuários quando houver indício de violação legal, abuso, spam, fraude, erro, conteúdo duplicado, informação enganosa, risco à comunidade ou descumprimento destes termos.</p>
+
+        <h2>10. Conteúdo de terceiros</h2>
+        <p>O Artifício RPG pode mencionar, citar, analisar ou referenciar obras de terceiros, incluindo livros, sistemas, editoras, plataformas, marcas, autores, financiamentos coletivos, documentos públicos e materiais oficiais.</p>
+        <p>Essas menções são feitas para fins informativos, críticos, jornalísticos, educacionais, documentais ou comunitários. Marcas, nomes, logos, imagens, sistemas e obras citadas pertencem aos seus respectivos titulares.</p>
+        <p>Quando houver conteúdo de terceiros reproduzido sob licença aberta, autorização específica ou exceção legal, o uso será limitado ao necessário e, sempre que aplicável, acompanhado da atribuição correspondente.</p>
+
+        <h2>11. Pedidos de autorização</h2>
+        <p>Para republicação ampliada, uso comercial, inclusão em livros, cursos, apostilas, produtos, ferramentas, bancos de dados, vídeos monetizados, newsletters comerciais ou qualquer uso fora das permissões acima, é necessário solicitar autorização prévia.</p>
+        <p>Pedidos devem informar:</p>
+        <ol type="a">
+          <li>qual conteúdo será usado;</li>
+          <li>onde será publicado;</li>
+          <li>se haverá monetização, anúncio, venda, assinatura, patrocínio, afiliado ou benefício comercial;</li>
+          <li>qual trecho ou material será utilizado;</li>
+          <li>por quanto tempo e em qual formato o conteúdo ficará disponível.</li>
+        </ol>
+        <p>Contato: <a href="mailto:artificiorpg@gmail.com">artificiorpg@gmail.com</a></p>
+
+        <h2>12. Solicitação de remoção ou correção</h2>
+        <p>Caso algum conteúdo do Artifício RPG viole direito autoral, marca, imagem, privacidade ou outro direito de terceiro, o titular ou representante pode solicitar análise e remoção.</p>
+        <p>A solicitação deve indicar:</p>
+        <ol type="a">
+          <li>identificação do solicitante;</li>
+          <li>conteúdo questionado;</li>
+          <li>link da página no Artifício RPG;</li>
+          <li>fundamento do pedido;</li>
+          <li>comprovação de titularidade ou representação, quando aplicável;</li>
+          <li>forma de contato para retorno.</li>
+        </ol>
+        <p>O Artifício RPG analisará a solicitação e poderá remover, corrigir, creditar, restringir ou manter o conteúdo, conforme o caso.</p>
+
+        <h2>13. Violação destes termos</h2>
+        <p>O uso indevido de conteúdos do Artifício RPG pode resultar em pedido de remoção, denúncia à plataforma hospedeira, solicitação de desindexação, bloqueio de acesso, cobrança por uso não autorizado e adoção de medidas cabíveis.</p>
+        <p>A republicação integral de conteúdo do Artifício RPG em outro site, especialmente quando associada a publicidade, monetização, captura de tráfego ou benefício comercial, não é considerada uso comunitário gratuito.</p>
+
+        <h2>14. Resumo simples</h2>
+        <p>Pode:</p>
+        <ul>
+          <li>compartilhar o link;</li>
+          <li>citar pequenos trechos;</li>
+          <li>usar como referência;</li>
+          <li>comentar, criticar, estudar e divulgar;</li>
+          <li>dar crédito ao Artifício RPG;</li>
+          <li>linkar a página original.</li>
+        </ul>
+        <p>Não pode:</p>
+        <ul>
+          <li>copiar artigo inteiro;</li>
+          <li>republicar post integral em outro site;</li>
+          <li>usar em site monetizado sem autorização;</li>
+          <li>remover autoria;</li>
+          <li>apresentar como conteúdo próprio;</li>
+          <li>criar espelho, raspagem ou banco de dados com o conteúdo;</li>
+          <li>usar comercialmente sem autorização.</li>
+        </ul>
+
+        <h2>15. Alterações</h2>
+        <p>Estes termos podem ser atualizados para refletir mudanças na plataforma, nos projetos do Artifício RPG, nas licenças aplicáveis ou nas necessidades da comunidade.</p>
+        <p>A versão publicada nesta página será a referência principal para o uso dos conteúdos do Artifício RPG.</p>
+      </div>
+    </article>
+  </main>
+</Base>

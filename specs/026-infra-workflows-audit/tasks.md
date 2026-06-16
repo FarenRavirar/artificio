@@ -34,9 +34,10 @@ Cada fatia = SDD Lite/Completo proprio, com pre-condicao de aprovacao, smoke e r
   (dev->beta, senao prod; override opcional `inputs.env`). Removida a expressao inline dos
   3 deploys; `site` mantem `env: beta` (beta-only D044) e `break-glass` `env: prod` como
   overrides legitimos. Estruturalmente impossivel dispatch-em-dev virar prod.
-  · Validacao local: YAML parseia, `inputs.env` so no resolve, zero `secrets: inherit`.
-  · Falta (aprovacao): commit/push -> actionlint/CI verde + mesas beta auto-deploy provando
-  resolve/secrets no caminho real.
+  · FECHADO: commit `8713ee0`, push dev. `pr-checks`/actionlint verde (F1/F2/F3 validos,
+  pins SHA resolveram). mesas beta deploy run `27635199357` verde com log
+  `resolved_env=beta override='' ref='refs/heads/dev'` + smoke mesasbeta `/`=200,
+  `/me/options`=401. glossario/site/accounts verdes. F1/F2/F3 provados em prod-beta.
 - [ ] F4 — **Consolidacao manifesto + matrix** (absorve clones; `BL-DEP-CONTAINER-NAMES`
   avaliado junto). Manifesto declarativo + 1 workflow. Risco medio (toca todos os deploys).
   · Pre: SDD Completo, aprovacao, validar 1 modulo por vez por dispatch.
@@ -65,3 +66,24 @@ Cada fatia = SDD Lite/Completo proprio, com pre-condicao de aprovacao, smoke e r
   - FECHADO: commits `06a5ded`/`a727ab2`, push dev, deploy mesas beta (run `27633842040`)
     verde. Prova real (`docker system df` na VM): build cache 20.89GB reclaimable -> **0B**,
     images 28->10GB. `BL-INFRA-CACHE-CAP-F10` fechado.
+- [x] F11 — **Eficiencia da esteira (CI cache + auto-deploy gating)** — IMPLEMENTADO LOCAL.
+  Diagnostico (runs `27635199357` mesas vs `27635198756` glossario): mesas demora porque e
+  o UNICO que auto-deploya no push (glossario/site/accounts pulam deploy = dispatch-only);
+  CI sem cache (~2m18s mesas) + deploy VM `--no-cache` (~2m08s). A F1 ainda ampliou os paths
+  -> mesas auto-deployava ate em commit de infra.
+  - CI cache (`_deploy-module.yml`): pnpm movido antes do setup-node + `cache: pnpm`
+    (pnpm store keyed por lock) + `actions/cache@v4` em `.turbo` + `--cache-dir=.turbo` em
+    build/test. Corta re-download/rebuild em TODOS os modulos.
+  - Auto-deploy gating (`deploy-mesas.yml`): novo job `detect` (git diff `apps/mesas/**`);
+    `deploy` so true em push:dev quando o app do mesas muda, ou dispatch mode=deploy. before
+    invalido -> deploya por seguranca. Mata o "dispara toda vez".
+  - Decisao do mantenedor: gating por app mesas (nao packages/infra) + cache CI agora.
+  · Validacao local: YAML ok. Falta (aprovacao): commit/push -> CI verde + provar 2 coisas:
+    (a) este push (toca `_deploy-module`/workflow, NAO apps/mesas) NAO auto-deploya mesas;
+    (b) run seguinte com cache quente cai o tempo de CI. Mapeado: `BL-INFRA-CI-EFFICIENCY-F11`.
+- [ ] F12 — **Build em CI + GHCR + VM pull** (planejado; reconcilia F10). Hoje a VM builda
+  `--no-cache --pull` (lento; cache local inutil). Alvo: GitHub Actions builda a imagem (com
+  cache), push GHCR, VM so `docker compose pull` + `up`. Elimina build na VM, deploy vira
+  pull+migrate+up+smoke. GHCR ja e stack decidida (D008) mas nao usada. · Pre: SDD Completo,
+  registry/auth, refs de imagem no compose, reconciliar F10 (cache vive no CI/GHCR).
+  Mapeado: `BL-INFRA-GHCR-F12`.
