@@ -38,9 +38,12 @@ jobs:
         run: pip install setuptools "semgrep==1.99.0"
 
       - name: Semgrep scan (SARIF)
-        # --config auto: rulesets publicos do registry, sem token/cloud. Nao falha o job
-        # em achados (so reporta no code scanning); endurecer depois de calibrar ruido.
-        run: semgrep scan --config auto --sarif --output semgrep.sarif || true
+        # --config auto: busca rulesets publicos do registry Semgrep (sem token/cloud).
+        # `--metrics=off`: NAO envia metricas/metadata pseudonima do repo (premissa "sem
+        # servico externo"). O fetch de regras no registry e a unica chamada de rede
+        # externa e e decisao consciente aprovada (alternativa = ruleset local versionado).
+        # Nao falha o job em achados (so reporta no code scanning); endurecer depois.
+        run: semgrep scan --config auto --metrics=off --sarif --output semgrep.sarif || true
 
       - name: Upload SARIF to code scanning
         if: ${{ hashFiles('semgrep.sarif') != '' }}
