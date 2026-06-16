@@ -28,6 +28,8 @@ jobs:
     services:
       postgres:
         image: postgres:16
+        # Creds dummy de um service container EFEMERO do job (vida = 1 run, sem rede externa,
+        # banco descartado ao fim). Nao e segredo; casa com os placeholders do step Test.
         env:
           POSTGRES_USER: admin
           POSTGRES_PASSWORD: admin
@@ -41,7 +43,7 @@ jobs:
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup pnpm
         run: |
@@ -49,13 +51,13 @@ jobs:
           corepack prepare pnpm@10.12.1 --activate
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: 20
           cache: pnpm
 
       - name: Cache turbo
-        uses: actions/cache@v4
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: .turbo
           key: turbo-ci-${{ github.sha }}

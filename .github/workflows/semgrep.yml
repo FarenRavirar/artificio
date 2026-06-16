@@ -26,10 +26,10 @@ jobs:
       security-events: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.12"
 
@@ -42,8 +42,11 @@ jobs:
         # `--metrics=off`: NAO envia metricas/metadata pseudonima do repo (premissa "sem
         # servico externo"). O fetch de regras no registry e a unica chamada de rede
         # externa e e decisao consciente aprovada (alternativa = ruleset local versionado).
-        # Nao falha o job em achados (so reporta no code scanning); endurecer depois.
-        run: semgrep scan --config auto --metrics=off --sarif --output semgrep.sarif || true
+        # Report-only por ora (so popula code scanning); endurecer depois. `continue-on-error`
+        # em vez de `|| true`: mascara so achados do Semgrep, NAO erros de infra/install do
+        # step (que devem quebrar o job). Upload do SARIF roda mesmo com achados.
+        continue-on-error: true
+        run: semgrep scan --config auto --metrics=off --sarif --output semgrep.sarif
 
       - name: Upload SARIF to code scanning
         if: ${{ hashFiles('semgrep.sarif') != '' }}
