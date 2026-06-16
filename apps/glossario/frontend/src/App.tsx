@@ -5,16 +5,16 @@ import { Footer } from '@artificio/ui';
 import { FeedbackButton } from './features/dev-feedback/FeedbackButton';
 import { GlossarioHeader } from './components/GlossarioHeader';
 import { SearchBar } from './components/SearchBar';
-import { ResultCard } from './components/ResultCard';
 import { FilterPanel } from './components/FilterPanel';
 import { LandingSection } from './components/LandingSection';
 import { useGlossario } from './hooks/useGlossario';
 import { Loader2 } from 'lucide-react';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
-import AddTermModal from './components/AddTermModal';
 import { trackPageView, trackSearch } from './utils/analytics';
 
+const ResultCard = lazy(() => import('./components/ResultCard'));
+const AddTermModal = lazy(() => import('./components/AddTermModal'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const MigrationPage = lazy(() => import('./pages/MigrationPage'));
@@ -192,44 +192,46 @@ function HomePage() {
               </div>
             )}
             
-            {groupedResults.map((group) => {
-              const primary = group[0];
-              const variants = group.slice(1);
+            <Suspense fallback={<RouteLoading />}>
+              {groupedResults.map((group) => {
+                const primary = group[0];
+                const variants = group.slice(1);
 
-              return (
-                <div key={primary.id} className="space-y-1">
-                  <ResultCard
-                    termo={primary}
-                    isAdmin={isAdmin}
-                    onSave={editarTermo}
-                    onDelete={excluirTermo}
-                  />
+                return (
+                  <div key={primary.id} className="space-y-1">
+                    <ResultCard
+                      termo={primary}
+                      isAdmin={isAdmin}
+                      onSave={editarTermo}
+                      onDelete={excluirTermo}
+                    />
 
-                  {/* Variantes (duplicatas) colapsáveis */}
-                  {variants.length > 0 && (
-                    <details className="group">
-                      <summary className="cursor-pointer list-none flex items-center gap-2 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors">
-                        <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
-                        {variants.length} outr{variants.length === 1 ? 'a versão' : 'as versões'} deste termo
-                      </summary>
-                      <div className="mt-1 ml-6 space-y-1 border-l-2 border-[var(--line)] pl-3">
-                        {variants.map((v) => (
-                          <ResultCard
-                            key={v.id}
-                            termo={v}
-                            isAdmin={isAdmin}
-                            onSave={editarTermo}
-                            onDelete={excluirTermo}
-                          />
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                </div>
-              );
-            })}
+                    {/* Variantes (duplicatas) colapsáveis */}
+                    {variants.length > 0 && (
+                      <details className="group">
+                        <summary className="cursor-pointer list-none flex items-center gap-2 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors">
+                          <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                          {variants.length} outr{variants.length === 1 ? 'a versão' : 'as versões'} deste termo
+                        </summary>
+                        <div className="mt-1 ml-6 space-y-1 border-l-2 border-[var(--line)] pl-3">
+                          {variants.map((v) => (
+                            <ResultCard
+                              key={v.id}
+                              termo={v}
+                              isAdmin={isAdmin}
+                              onSave={editarTermo}
+                              onDelete={excluirTermo}
+                            />
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                );
+              })}
+            </Suspense>
 
             {isSearching && filteredResults.length === 0 && (
               <div className="bg-[var(--surface)] p-12 rounded-lg border-2 border-dashed border-[var(--line)] text-center">
@@ -320,10 +322,12 @@ function App() {
             </main>
 
             {addTermOpen && (
-              <AddTermModal
-                onClose={() => setAddTermOpen(false)}
-                onSuccess={() => setAddTermOpen(false)}
-              />
+              <Suspense fallback={null}>
+                <AddTermModal
+                  onClose={() => setAddTermOpen(false)}
+                  onSuccess={() => setAddTermOpen(false)}
+                />
+              </Suspense>
             )}
 
             <Footer variant="dark" />

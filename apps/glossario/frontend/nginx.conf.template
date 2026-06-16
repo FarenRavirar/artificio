@@ -9,6 +9,12 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    location = /robots.txt {
+        default_type text/plain;
+        add_header Cache-Control "public, max-age=300, no-transform";
+        try_files /robots.txt =404;
+    }
+
     # Support for SPA routing
     location / {
         try_files $uri $uri/ /index.html;
