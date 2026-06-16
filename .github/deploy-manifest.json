@@ -1,0 +1,94 @@
+{
+  "$comment": "Spec 026 F4: fonte unica declarativa dos deploys de modulo. deploy.yml carrega isto, gera matrix.include via fromJSON e chama _deploy-module.yml por modulo. Diferencas entre modulos sao DADO aqui, nao logica duplicada em 3 workflows. accounts fica fora (snowflake = F5).",
+  "modules": [
+    {
+      "module": "mesas",
+      "env_override": "",
+      "compose_file": "docker-compose.prod.yml",
+      "compose_file_beta": "docker-compose.beta.yml",
+      "compose_project": "mesas",
+      "compose_project_beta": "mesas-beta",
+      "db_service": "mesas-db",
+      "db_service_beta": "mesas-beta-db",
+      "db_name": "mesas_rpg",
+      "db_name_beta": "mesas_rpg",
+      "db_user": "admin",
+      "reconcile_same_project_orphans": false,
+      "auto_deploy_on_push": true,
+      "push_branches": ["dev"],
+      "deploy_paths": ["apps/mesas"],
+      "health_containers": ["mesas-api", "mesas-app"],
+      "health_containers_beta": ["mesas-beta-api", "mesas-beta-app"],
+      "critical_routes": [
+        {"name": "home", "url": "https://mesas.artificiorpg.com/", "expected": "200"},
+        {"name": "private_no_cookie", "url": "https://mesas.artificiorpg.com/api/v1/me/options", "expected": "401"},
+        {"name": "auth_redirect", "url": "https://mesas.artificiorpg.com/api/v1/auth/google", "expected": "302", "location_contains": "accounts.artificiorpg.com/login?return=https%3A%2F%2Fmesas.artificiorpg.com%2F"}
+      ],
+      "critical_routes_beta": [
+        {"name": "home", "url": "https://mesasbeta.artificiorpg.com/", "expected": "200"},
+        {"name": "private_no_cookie", "url": "https://mesasbeta.artificiorpg.com/api/v1/me/options", "expected": "401"},
+        {"name": "auth_redirect", "url": "https://mesasbeta.artificiorpg.com/api/v1/auth/google", "expected": "302", "location_contains": "accounts.artificiorpg.com/login?return=https%3A%2F%2Fmesasbeta.artificiorpg.com%2F"}
+      ]
+    },
+    {
+      "module": "glossario",
+      "_comment": "Bootstrap-safe (dispatch-only): auto_deploy_on_push=false. Habilitar push:dev apos 1o deploy dispatch verde. reconcile_same_project_orphans=true p/ remover services legados no 1o cutover.",
+      "env_override": "",
+      "compose_file": "docker-compose.prod.yml",
+      "compose_file_beta": "docker-compose.beta.yml",
+      "compose_project": "glossario",
+      "compose_project_beta": "glossario-beta",
+      "db_service": "glossario-db",
+      "db_service_beta": "glossario-beta-db",
+      "db_name": "glossario_v2",
+      "db_name_beta": "glossario_v2",
+      "db_user": "admin",
+      "reconcile_same_project_orphans": true,
+      "auto_deploy_on_push": false,
+      "push_branches": ["dev"],
+      "deploy_paths": ["apps/glossario"],
+      "health_containers": ["glossario-api", "glossario-app"],
+      "health_containers_beta": ["glossario-beta-api", "glossario-beta-app"],
+      "critical_routes": [
+        {"name": "home", "url": "https://glossario.artificiorpg.com/", "expected": "200"},
+        {"name": "api_terms", "url": "https://glossario.artificiorpg.com/api/terms", "expected": "200"}
+      ],
+      "critical_routes_beta": [
+        {"name": "home", "url": "https://glossariobeta.artificiorpg.com/", "expected": "200"},
+        {"name": "api_terms", "url": "https://glossariobeta.artificiorpg.com/api/terms", "expected": "200"}
+      ]
+    },
+    {
+      "module": "site",
+      "_comment": "Beta-only (D044): env_override=beta. Bootstrap-safe (dispatch-only): apps/site/.env.beta precisa existir na VM antes. Habilitar auto_deploy_on_push apos 1o deploy OK + .env.beta no lugar. deploy_paths cobre site + site-admin.",
+      "env_override": "beta",
+      "compose_file": "docker-compose.beta.yml",
+      "compose_file_beta": "docker-compose.beta.yml",
+      "compose_project": "site",
+      "compose_project_beta": "site-beta",
+      "db_service": "site-beta-db",
+      "db_service_beta": "site-beta-db",
+      "db_name": "site",
+      "db_name_beta": "site",
+      "db_user": "admin",
+      "reconcile_same_project_orphans": false,
+      "auto_deploy_on_push": false,
+      "push_branches": ["dev"],
+      "deploy_paths": ["apps/site", "apps/site-admin"],
+      "health_containers": ["site-beta-app"],
+      "health_containers_beta": ["site-beta-app"],
+      "critical_routes": [
+        {"name": "home", "url": "https://beta.artificiorpg.com/", "expected": "200"},
+        {"name": "healthz", "url": "https://beta.artificiorpg.com/healthz", "expected": "200"},
+        {"name": "blog_index", "url": "https://beta.artificiorpg.com/blog/", "expected": "200"},
+        {"name": "admin_protected", "url": "https://beta.artificiorpg.com/admin/status", "expected": "401"}
+      ],
+      "critical_routes_beta": [
+        {"name": "home", "url": "https://beta.artificiorpg.com/", "expected": "200"},
+        {"name": "healthz", "url": "https://beta.artificiorpg.com/healthz", "expected": "200"},
+        {"name": "blog_index", "url": "https://beta.artificiorpg.com/blog/", "expected": "200"},
+        {"name": "admin_protected", "url": "https://beta.artificiorpg.com/admin/status", "expected": "401"}
+      ]
+    }
+  ]
+}
