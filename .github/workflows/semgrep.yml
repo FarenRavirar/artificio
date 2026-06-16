@@ -34,14 +34,16 @@ jobs:
           python-version: "3.12"
 
       - name: Install Semgrep (OSS)
-        run: pip install "semgrep==1.99.0"
+        # setuptools: Python 3.12 nao traz mais `pkg_resources`; semgrep importa-o no boot.
+        run: pip install setuptools "semgrep==1.99.0"
 
       - name: Semgrep scan (SARIF)
         # --config auto: rulesets publicos do registry, sem token/cloud. Nao falha o job
         # em achados (so reporta no code scanning); endurecer depois de calibrar ruido.
-        run: semgrep scan --config auto --sarif --output semgrep.sarif --error || true
+        run: semgrep scan --config auto --sarif --output semgrep.sarif || true
 
       - name: Upload SARIF to code scanning
+        if: ${{ hashFiles('semgrep.sarif') != '' }}
         uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
         with:
           sarif_file: semgrep.sarif
