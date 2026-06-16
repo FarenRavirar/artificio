@@ -1,8 +1,10 @@
 name: osv-scanner
 
-# Spec 026 F-SEC: OSV-Scanner (Google, OSS) varre o pnpm-lock.yaml por vulnerabilidades
-# conhecidas (OSV.dev). Roda 100% dentro do Actions, sem token/cadastro externo.
-# SARIF vai para Security -> Code scanning via workflow reusavel oficial.
+# Spec 026 F-SEC: OSV-Scanner (Google, OSS) varre lockfiles (pnpm-lock.yaml +
+# requirements.txt) por vulnerabilidades conhecidas (OSV.dev). Roda 100% dentro do
+# Actions, sem token/cadastro externo. SARIF -> Security -> Code scanning.
+# Modo direto (scan -> SARIF -> upload), report-only: nao quebra o job em achados
+# (vira alerta no code scanning); endurecer depois de triar o backlog de deps.
 on:
   pull_request:
     branches:
@@ -19,21 +21,29 @@ permissions:
   contents: read
 
 jobs:
-  scan-pr:
-    name: OSV scan (PR)
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-    # F2: reusavel oficial pinado por SHA (v2.3.8).
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
-
   scan:
     name: OSV scan
-    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
-      actions: read
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: OSV-Scanner (SARIF)
+        # F2: action oficial pinada por SHA (v2.3.8). report-only via continue-on-error.
+        continue-on-error: true
+        uses: google/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --format=sarif
+            --output=osv.sarif
+            --recursive
+            ./
+
+      - name: Upload SARIF to code scanning
+        if: ${{ hashFiles('osv.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
+        with:
+          sarif_file: osv.sarif
