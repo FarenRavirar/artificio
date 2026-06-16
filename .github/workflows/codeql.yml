@@ -1,0 +1,48 @@
+name: codeql
+
+# Spec 026 F-SEC: CodeQL (SAST nativo do GitHub) para JS/TS. Grátis em repo público.
+# Resultados vao para Security -> Code scanning. Sem secret, sem servico externo.
+# Linguagem unica `javascript-typescript` cobre .js/.ts/.tsx/.mjs. Python (3 scripts
+# fora do runtime) ficou de fora p/ manter o build-mode simples; reavaliar se crescer.
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+  push:
+    branches:
+      - main
+      - dev
+  schedule:
+    - cron: "27 4 * * 1" # semanal, segunda 04:27 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - javascript-typescript
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Initialize CodeQL
+        # F2: terceiro pinado por SHA (v3). Bump = trocar SHA + comentario (Dependabot).
+        uses: github/codeql-action/init@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
+        with:
+          category: "/language:${{ matrix.language }}"

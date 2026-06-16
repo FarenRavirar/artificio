@@ -1,0 +1,55 @@
+name: semgrep
+
+# Spec 026 F-SEC: Semgrep em modo OSS (`semgrep scan --config auto`). SEM Semgrep Cloud,
+# SEM SEMGREP_APP_TOKEN, SEM `semgrep ci`. `--config auto` baixa rulesets PUBLICOS do
+# registry Semgrep (sem login/cadastro). SARIF vai para Security -> Code scanning.
+# Instalado via pip (versao fixa) p/ build deterministico, sem container externo.
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+  push:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: Semgrep OSS scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install Semgrep (OSS)
+        # setuptools: Python 3.12 nao traz mais `pkg_resources`; semgrep importa-o no boot.
+        run: pip install setuptools "semgrep==1.99.0"
+
+      - name: Semgrep scan (SARIF)
+        # --config auto: busca rulesets publicos do registry Semgrep (sem token/cloud).
+        # `--metrics=off`: NAO envia metricas/metadata pseudonima do repo (premissa "sem
+        # servico externo"). O fetch de regras no registry e a unica chamada de rede
+        # externa e e decisao consciente aprovada (alternativa = ruleset local versionado).
+        # Report-only por ora (so popula code scanning); endurecer depois. `continue-on-error`
+        # em vez de `|| true`: mascara so achados do Semgrep, NAO erros de infra/install do
+        # step (que devem quebrar o job). Upload do SARIF roda mesmo com achados.
+        continue-on-error: true
+        run: semgrep scan --config auto --metrics=off --sarif --output semgrep.sarif
+
+      - name: Upload SARIF to code scanning
+        if: ${{ hashFiles('semgrep.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
+        with:
+          sarif_file: semgrep.sarif

@@ -1,0 +1,33 @@
+name: osv-scanner
+
+# Spec 026 F-SEC: OSV-Scanner (Google, OSS) varre lockfiles (pnpm-lock.yaml +
+# requirements.txt) por vulnerabilidades conhecidas (OSV.dev). Roda 100% dentro do
+# Actions, sem token/cadastro externo. SARIF -> Security -> Code scanning.
+# Usa o workflow reusavel oficial com `fail-on-vuln: false` (report-only): publica os
+# achados no code scanning sem quebrar o job; endurecer depois de triar o backlog.
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+  push:
+    branches:
+      - main
+      - dev
+  schedule:
+    - cron: "41 4 * * 1" # semanal, segunda 04:41 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: OSV scan
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    # F2: reusavel oficial pinado por SHA (v2.3.8).
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+    with:
+      fail-on-vuln: false
