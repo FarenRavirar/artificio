@@ -118,13 +118,15 @@ jobs:
           docker system df || true
           df -h /var/lib/docker 2>/dev/null || df -h / || true
 
-          # Dangling images, containers parados ha >7d e CACHE DE BUILD ANTIGO (>7d).
-          # builder prune until=168h remove cache ocioso ha mais de 7 dias e PRESERVA
-          # o cache recente (acelera rebuilds). NAO remove volumes (dados intactos)
-          # nem redes (artificio_net e compartilhada; prune de rede nao libera disco).
+          # Dangling images, containers parados ha >7d e CACHE DE BUILD.
+          # builder prune TOTAL: o deploy builda com `--no-cache --pull`, entao o cache de
+          # build nunca e reusado => preservar cache recente nao acelera nada e so acumula
+          # (verificado 2026-06-16: ~20GB reclaimable <7d sobreviviam ao filtro until=168h).
+          # O deploy ja faz prune total pos-deploy; aqui e a rede de seguranca. NAO remove
+          # volumes (dados intactos) nem redes (artificio_net compartilhada).
           docker image prune -f
           docker container prune -f --filter "until=168h"
-          docker builder prune -f --filter "until=168h"
+          docker builder prune -f
 
           # Mantém só as 3 imagens mais recentes por repositório.
           # Q3: `docker images` lista por criacao DECRESCENTE (mais nova primeiro) por

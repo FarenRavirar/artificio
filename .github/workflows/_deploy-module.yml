@@ -425,8 +425,15 @@ jobs:
 
           rm -f "$snapshot_file"
           trap - ERR
+
+          # spec 026 F10: o que acumula disco e o BUILD CACHE, nao imagens. Verificado na
+          # VM (2026-06-16): 1 imagem tagueada por repo (tag movel :latest), dangling=0,
+          # mas build cache ~20GB reclaimable. Como o build usa `--no-cache --pull`, o cache
+          # de build NUNCA e reusado => 100% descartavel. Prune TOTAL pos-deploy recupera
+          # tudo sem perda de velocidade; BuildKit preserva cache de build ativo (deploy
+          # concorrente seguro). `image prune -f` mantem dangling em zero.
           docker image prune -f
-          docker builder prune -f --filter "until=168h"
+          docker builder prune -f
           docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | sed -n '1,40p'
           REMOTE
 

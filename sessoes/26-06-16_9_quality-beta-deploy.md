@@ -88,4 +88,24 @@ Conclusao atual: drift nao reproduz no estado atual. Fechamento real exige rerun
 - [x] Site beta deploy verde.
 - [x] Mesas beta tentativa rastreada e falha registrada.
 - [x] Incidente prod registrado.
-- [ ] Corrigir workflow e drift com nova autorizacao nominal.
+- [x] Corrigir workflow e drift com nova autorizacao nominal.
+
+## Fechamento dos debitos
+
+Autorizacao posterior do mantenedor: "pode seguir" para o bloco `commit/push/deploy beta`.
+
+Executado:
+
+- commit `485b363 fix: route mesas dispatch to beta on dev`
+- push `origin dev`
+- `gh workflow run deploy-mesas.yml --ref dev -f mode=deploy`
+- run `27630434690`
+
+Resultado:
+
+- `lint-shell / ShellCheck`: success
+- `lint-shell / actionlint`: success
+- `mesas / CI mesas`: success
+- `mesas / Deploy mesas beta`: success
+
+O bug dispatch-prod foi corrigido: o job apareceu como beta, nao prod. O drift de migration nao voltou: deploy beta passou migrations, build, health e smokes.

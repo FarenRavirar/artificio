@@ -113,7 +113,7 @@ Nunca executar sem aprovação explícita do mantenedor:
 
 **Regra de obediência estrita:** se uma ação está nesta lista, o agente **não infere autorização** de frases genéricas como "pode seguir", "corrija", "resolve isso", "faz o resto", "promova" ou "termina". A autorização precisa nomear a ação perigosa ou o bloco de comandos (`commit`, `push`, `merge`, `workflow_dispatch`, comando VM, deploy etc.). Na dúvida, parar e pedir aprovação no formato abaixo.
 
-Read-only permitido sem aprovação, local ou via PowerShell/`ssh faren`: `docker ps|logs|stats|inspect`, `ls`, `cat`, `rg`/`grep`, `find`, `head`, `tail`, `curl -s` GET, `psql` com `SELECT`, `git status|diff|log|show`.
+**Read-only é SEMPRE permitido (pétrea), nunca exige aprovação por ação** — local ou via PowerShell/`ssh faren`: `docker ps|logs|stats|inspect|images|system df`, `df`, `ls`, `cat`, `rg`/`grep`, `find`, `head`, `tail`, `curl -s` GET, `psql` com `SELECT`, `pg_dump` (read-only no DB), `git status|diff|log|show`, e qualquer subcomando de inspeção/diagnóstico que não muta estado. Inspeção read-only na VM é barata e **deve preceder** qualquer correção de infra "no chute" (anti-retrabalho). Única obrigação: filtrar segredos da saída (nunca imprimir `*PASSWORD*|*TOKEN*|*SECRET*`). Se uma ferramenta/harness bloquear um comando comprovadamente read-only, tratar como falso-bloqueio: explicar ao mantenedor e pedir liberação pontual — não é motivo para pular a inspeção nem para inferir que precisa de aprovação de mérito.
 
 **Pacotes apt ausentes:** se faltar pacote `apt` necessário para executar/validar a operação (ex.: `git`, `jq`, `tree`, `p7zip-full`, `postgresql-client`, `curl`, `ca-certificates`, ferramenta moderna de leitura/inspeção), o agente deve sugerir a instalação, explicar por que o pacote é necessário e informar tamanho aproximado do download/instalação quando disponível. Só depois de aprovação explícita pode rodar `sudo apt-get update` e `sudo apt-get install -y <pacote>`. Proibido usar aprovação de utilitário para instalar serviço persistente novo, alterar arquitetura, mexer em WP/DNS/tunnel, instalar runtime/framework pesado não aprovado, ou executar deploy.
 
@@ -174,7 +174,7 @@ Fluxo: `<tipo>/<escopo>` → `dev`/Beta → `main`/Produção. Tipos comuns: `fe
 ### Acesso à VM (Oracle)
 
 - Acesso direto por alias SSH configurado em `~/.ssh/config` local (**não versionado**; host/IP/chave fora do git). Mapa de infra: doc interna fora do repositório público (`docs/agents/`, gitignored).
-- **Read-only sem aprovação via VM:** `ssh faren '<cmd read-only>'` com `docker ps|logs|inspect|stats`, `df`, `ls/cat/rg/grep`, `git status|diff|log|show`, `psql ... SELECT`, `pg_dump` (read-only no DB). Filtrar segredos da saída (nunca imprimir `*PASSWORD*|*TOKEN*|*SECRET*`).
+- **Read-only via VM é SEMPRE permitido (pétrea), sem aprovação:** `ssh faren '<cmd read-only>'` com `docker ps|logs|inspect|stats|images|system df`, `df`, `ls/cat/rg/grep`, `git status|diff|log|show`, `psql ... SELECT`, `pg_dump` (read-only no DB) e qualquer inspeção que não mute estado. Não inferir necessidade de aprovação por ser "na VM/prod": ler estado nunca é ação de mérito. Filtrar segredos da saída (nunca imprimir `*PASSWORD*|*TOKEN*|*SECRET*`). Só a **escrita** na VM (próximo item) exige aprovação nominal.
 - **Aprovação obrigatória (pétrea):** qualquer write na VM — `docker stop|rm|up|restart`, escrever/copiar arquivo, migration, `scp/rsync`, subir/derrubar serviço, mexer no tunnel.
 - A chave privada (`*.key`) é segredo: gitignored, nunca commitar/expor/imprimir.
 

@@ -214,4 +214,9 @@ jobs:
             docker run --rm --network artificio_net curlimages/curl:8.11.1 -s -o /dev/null -w 'accounts_api_internal=%{http_code}\n' http://accounts-api:3000/health
             echo cf_health=\$(curl -s -o /dev/null -w '%{http_code}' https://accounts.artificiorpg.com/health)
             echo cf_login=\$(curl -s -o /dev/null -w '%{http_code}' https://accounts.artificiorpg.com/login)
-            echo cf_me_without_cookie=\$(curl -s -o /dev/null -w '%{http_code}' https://accounts.artificiorpg.com/api/auth/me)"
+            echo cf_me_without_cookie=\$(curl -s -o /dev/null -w '%{http_code}' https://accounts.artificiorpg.com/api/auth/me)
+            # spec 026 F10: accounts builda --no-cache => cache de build descartavel; poda
+            # total pos-deploy p/ nao acumular (igual ao _deploy-module). Imagens/volumes
+            # intactos. Provisorio ate accounts migrar para _deploy-module (BL-CDX-310/F5).
+            docker image prune -f || true
+            docker builder prune -f || true"
