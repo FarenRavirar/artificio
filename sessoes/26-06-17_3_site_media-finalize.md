@@ -71,8 +71,24 @@ Registrado `BL-SITE-ADMIN-TS-VARIANCE` (baixo).
   Fase C real (Gates B-F do plano) provar residual-zero.
 - Novo: `BL-SITE-ADMIN-TS-VARIANCE` (cosmetico).
 
+## Gate A fechado + fix review (PR #51 -> PR #52)
+
+PR #51 mergeado em `dev` (`3c2cd2a`). CodeRabbit apontou 2 bugs reais no `run.ts`; corrigidos em
+PR #52 (branch `fix/site-media-dryrun-guard`):
+
+1. **Dry-run apagava mídia (CRITICO).** `docker-entrypoint.sh` roda `pnpm run import` todo boot
+   (`SITE_IMPORT_ON_START` default true) SEM `SITE_MIGRATE_MEDIA` => dry-run. O prune + `cleanMapped`
+   removiam toda mídia WP do HTML e zeravam featured/OG => deploy normal sobrescreveria o store com
+   posts sem imagem/áudio/PDF. Fix: `finalizing = mediaMigrationEnabled()`; prune e nulling de
+   featured/OG só ocorrem em finalização. Dry-run preserva URL WP (comportamento antigo).
+2. **Residual só logava warning.** Agora, em finalização, residual servido > 0 seta `exitReason` e o
+   import sai com código 1; `set -e` do entrypoint aborta o `rebuild`, impedindo publicar HTML com
+   URL WP. Em dry-run residual > 0 é esperado e NÃO falha (senão o boot normal entraria em crash-loop).
+
+Validacoes: `test` 17/17, `build` verde, `tsc` importer 0 erros. Sem teste unitario para o gating do
+`run.ts` (script com main()/db, sem scaffold); coberto por revisao + pruneWpAssets/cleanMapped testados.
+
 ## Proximo
 
-Gate A: commit + push branch + PR base `dev`; aguardar check `lint+build+test` verde antes de pedir merge.
-Depois Gates B (deploy beta), C (backup pg_dump), D (re-import controlado), E (smoke + residual-zero),
-F (registro/fechamento) — cada um com aprovacao nominal separada.
+Apos PR #52 verde+merge: Gates B (deploy beta), C (backup pg_dump), D (re-import controlado),
+E (smoke + residual-zero), F (registro/fechamento) — cada um com aprovacao nominal separada.
