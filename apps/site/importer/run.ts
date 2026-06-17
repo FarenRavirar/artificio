@@ -4,7 +4,16 @@
 import { getDb } from "../db/connection";
 import { fetchAll, countOf, type WpTerm } from "./wp";
 import { sanitize, withToc, stripTags, decode, readingTime, toDate } from "./sanitize";
-import { buildMediaMap, extractImageUrls, rewriteUrls, mediaMigrationEnabled } from "./media";
+import {
+  buildMediaMap,
+  cloudinaryEnabled,
+  extractImageUrls,
+  getMediaReport,
+  mediaMigrationEnabled,
+  resetMediaReport,
+  rewriteUrls,
+} from "./media";
+import { PAGES_ALLOW } from "./pages";
 
 interface WpRendered { rendered: string; }
 interface WpPost {
@@ -23,13 +32,6 @@ interface WpPage {
   yoast_head_json?: { description?: string };
 }
 
-// Pages institucionais do site (D046). Allow-list: exclui mesas/woo/outros módulos e a home (rota / própria).
-const PAGES_ALLOW = new Set<string>([
-  "sobre-nos", "contato", "politica-de-privacidade", "termos-de-servico",
-  "media-kit", "newsletter", "grupos-de-whatsapp-de-rpg-de-mesa",
-  "material-online", "curso-de-traducao-de-rpg", "coyote-e-crow-portugues",
-]);
-
 const iso = (s?: string): string | null => {
   if (!s) return null;
   const d = toDate(s);
@@ -38,6 +40,10 @@ const iso = (s?: string): string | null => {
 
 async function main() {
   const db = await getDb();
+  resetMediaReport();
+  if (process.env.SITE_MIGRATE_MEDIA === "true" && !cloudinaryEnabled()) {
+    throw new Error("SITE_MIGRATE_MEDIA=true exige configuracao Cloudinary presente");
+  }
   console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — mídia=${mediaMigrationEnabled() ? "Cloudinary (upload)" : "DRY-RUN (URLs WP)"}`);
 
   // 1) Taxonomias (categorias + tags). 2 passes p/ parent_id (forward refs).
@@ -147,6 +153,14 @@ async function main() {
     importedPages += 1;
   }
   console.log(`[import] pages institucionais: ${importedPages}/${PAGES_ALLOW.size} (de ${wpPages.length} no WP)`);
+
+  const mediaReport = getMediaReport();
+  console.log("\n=== MÍDIA ===");
+  console.log(`migradas=${mediaReport.migrated} falhas=${mediaReport.failures.length}`);
+  for (const failure of mediaReport.failures) {
+    console.log(`- ${failure.wpUrl} :: ${failure.motivo}`);
+  }
+  console.log("=============\n");
 
   // 4) Relatório de paridade vs WP (R9).
   const wpPosts = await countOf("posts");

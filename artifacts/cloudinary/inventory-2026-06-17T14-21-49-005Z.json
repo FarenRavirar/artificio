@@ -1,0 +1,5951 @@
+{
+  "generatedAt": "2026-06-17T14:21:48.996Z",
+  "source": "WP REST read-only",
+  "summary": {
+    "total": 366,
+    "status200": 338,
+    "status404": 28,
+    "outros": 0,
+    "derivados404ComOriginal200": 22
+  },
+  "items": [
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2026/03/Glossario-Unificado-para-Traducoes-de-DD.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2026/03/Glossario-Unificado-para-Traducoes-de-DD.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18623,
+          "slug": "glossario-unificado-para-traducoes-de-dnd",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2026/03/image-1-865x630.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2026/03/image-1.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18623,
+          "slug": "glossario-unificado-para-traducoes-de-dnd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2026/01/cold-open-no-rpg-capa-design-narrativo.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2026/01/cold-open-no-rpg-capa-design-narrativo.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18601,
+          "slug": "cold-open-no-rpg-engenharia-inicio-prende-mesa",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2026/01/infografico-cold-open-no-rpg-impacto-imediato-1129x630.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2026/01/infografico-cold-open-no-rpg-impacto-imediato.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18601,
+          "slug": "cold-open-no-rpg-engenharia-inicio-prende-mesa",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2026/01/mudanca-linha-editorial-mesmo-compromisso-banner-artificio.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2026/01/mudanca-linha-editorial-mesmo-compromisso-banner-artificio.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18589,
+          "slug": "mudanca-de-linha-editorial-mesmo-compromisso",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2026/01/old-school-vs-new-school-consistencia-decisoes-do-mestre-banner-1200x680-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2026/01/old-school-vs-new-school-consistencia-decisoes-do-mestre-banner-1200x680-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18577,
+          "slug": "old-school-vs-new-school-rules-vs-rulings",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2026/01/analise-unearthed-arcana-subclasses-misticas-banner-1200x680-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2026/01/analise-unearthed-arcana-subclasses-misticas-banner-1200x680-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18559,
+          "slug": "ua-2026-subclasses-misticas-analise-e-traducao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2026/01/Unearthed-Arcana-2026-Subclasses-Misticas-PT-BR-Versao-Ilustrada-488x630.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2026/01/Unearthed-Arcana-2026-Subclasses-Misticas-PT-BR-Versao-Ilustrada.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18559,
+          "slug": "ua-2026-subclasses-misticas-analise-e-traducao",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2026/01/infografico-ua-2026-subclasses-misticas-engenharia-da-interferencia-1129x630.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2026/01/infografico-ua-2026-subclasses-misticas-engenharia-da-interferencia.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18559,
+          "slug": "ua-2026-subclasses-misticas-analise-e-traducao",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2026/01/burnout-no-rpg-a-pausa-banner-artificio-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2026/01/burnout-no-rpg-a-pausa-banner-artificio-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18554,
+          "slug": "burnout-no-rpg-parabola-do-heroi-que-precisou-pausar",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/11/fantasy-grounds-virtual-tabletop-gratuito-banner.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/11/fantasy-grounds-virtual-tabletop-gratuito-banner.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18485,
+          "slug": "fantasy-grounds-gratis-o-que-muda-no-rpg-online",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/11/Grand-Cathay-Ressurge-o-Antigo-Mundo-de-Warhammer.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/11/Grand-Cathay-Ressurge-o-Antigo-Mundo-de-Warhammer.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18475,
+          "slug": "grand-cathay-ressurge-o-antigo-mundo-de-warhammer",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/11/retorno-dark-sun-destaque-deserto-arena.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/11/retorno-dark-sun-destaque-deserto-arena.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18443,
+          "slug": "retorno-dark-sun-wizards-cenario-que-volta-ao-radar",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/11/atualizacao-de-subclasses-2025-pdf-gratuito-analise-ptbr-banner.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/11/atualizacao-de-subclasses-2025-pdf-gratuito-analise-ptbr-banner.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18421,
+          "slug": "ua-2025-atualizacao-de-subclasses-pdf-traduzido-analise",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/10/Guia-Visual-Sistema-Jogo-e-Cenario-livro-e-d20-1200x675-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/10/Guia-Visual-Sistema-Jogo-e-Cenario-livro-e-d20-1200x675-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18403,
+          "slug": "guia-definitivo-sistema-jogo-cenario",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/10/banner-psionico-revisado-ua-2025-analise-pdf-artificio-rpg-e1759777643354.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/10/banner-psionico-revisado-ua-2025-analise-pdf-artificio-rpg-e1759777643354.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18339,
+          "slug": "psionico-revisado-ua-setembro-2025-analise-pdf",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/10/Unearthed-Arcana-2025-setembro-Atualizacao-dos-Psionicos-PT-BR.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/10/Unearthed-Arcana-2025-setembro-Atualizacao-dos-Psionicos-PT-BR.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18339,
+          "slug": "psionico-revisado-ua-setembro-2025-analise-pdf",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/09/one-shot-preparacao-parte-2-banner-minuto-1-1200x675-1-e1759003614979.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/09/one-shot-preparacao-parte-2-banner-minuto-1-1200x675-1-e1759003614979.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18312,
+          "slug": "one-shot-super-guia-parte-2-preparacao-pre-sessao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/09/cosmere-rpg-demiplane-tres-novos-titulos-banner-1200x675-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/09/cosmere-rpg-demiplane-tres-novos-titulos-banner-1200x675-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18296,
+          "slug": "cosmere-rpg-expande-catalogo-no-demiplane-com-3-titulos",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/09/stormlight-scenarios-cosmere-rpg-demiplane.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/09/stormlight-scenarios-cosmere-rpg-demiplane.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18296,
+          "slug": "cosmere-rpg-expande-catalogo-no-demiplane-com-3-titulos",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/09/stormlight-advanced-adversaries-cosmere-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/09/stormlight-advanced-adversaries-cosmere-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18296,
+          "slug": "cosmere-rpg-expande-catalogo-no-demiplane-com-3-titulos",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/09/speak-the-words-cosmere-rpg-demiplane.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/09/speak-the-words-cosmere-rpg-demiplane.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18296,
+          "slug": "cosmere-rpg-expande-catalogo-no-demiplane-com-3-titulos",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/09/artificio-rpg-one-shot-essencial.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/09/artificio-rpg-one-shot-essencial.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18250,
+          "slug": "guia-one-shot-parte-1-essencial",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/lunatar-rpg-smzinho-colucci-new-order.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/lunatar-rpg-smzinho-colucci-new-order.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18000,
+          "slug": "lunatar-rpg-smzinho-colucci",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/lunatar-rpg-capa-provisoria-livro-basico-974x630.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/lunatar-rpg-capa-provisoria-livro-basico.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18000,
+          "slug": "lunatar-rpg-smzinho-colucci",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/lunatar-rpg-escuridao-eco-floresta-1100x630.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/lunatar-rpg-escuridao-eco-floresta.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 18000,
+          "slug": "lunatar-rpg-smzinho-colucci",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/pathfinder-2e-season-of-ghosts-compilacao.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/pathfinder-2e-season-of-ghosts-compilacao.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17989,
+          "slug": "pathfinder-2e-season-of-ghosts-volume-unico",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/pathfinder-2e-season-of-ghosts-deluxe-568x630.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/pathfinder-2e-season-of-ghosts-deluxe.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17989,
+          "slug": "pathfinder-2e-season-of-ghosts-volume-unico",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/pathfinder-2e-season-of-ghosts-standard-630x630.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/pathfinder-2e-season-of-ghosts-standard.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17989,
+          "slug": "pathfinder-2e-season-of-ghosts-volume-unico",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/critical-role-dnd-vs-daggerheart-campanha-4.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/critical-role-dnd-vs-daggerheart-campanha-4.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17978,
+          "slug": "critical-role-campanha-4-dnd-ou-daggerheart",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/critical-role-campanha-4-logo-dnd.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/critical-role-campanha-4-logo-dnd.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17978,
+          "slug": "critical-role-campanha-4-dnd-ou-daggerheart",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/critical-role-campanha-4-anuncio-brennan.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/critical-role-campanha-4-anuncio-brennan.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17978,
+          "slug": "critical-role-campanha-4-dnd-ou-daggerheart",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/critical-role-matt-mercer-escolha-dnd-daggerheart.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/critical-role-matt-mercer-escolha-dnd-daggerheart.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17978,
+          "slug": "critical-role-campanha-4-dnd-ou-daggerheart",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/ua-2025-subclasses-apocalipticas-traducao-analise.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/ua-2025-subclasses-apocalipticas-traducao-analise.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17961,
+          "slug": "critica-traducao-ua-2025-subclasses-apocalipticas",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/ua-2025-subclasses-apocalipticas-versao-brasileira-488x630.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/ua-2025-subclasses-apocalipticas-versao-brasileira.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17961,
+          "slug": "critica-traducao-ua-2025-subclasses-apocalipticas",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/dark-sun-subclasses-apocalipticas-855x630.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/dark-sun-subclasses-apocalipticas.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17961,
+          "slug": "critica-traducao-ua-2025-subclasses-apocalipticas",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/thas-dark-sun-subclasses-apocalipticas.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/thas-dark-sun-subclasses-apocalipticas.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17961,
+          "slug": "critica-traducao-ua-2025-subclasses-apocalipticas",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/bruxo-patrono-rei-feiticeiro-subclasses-apocalipticas-203x630.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/bruxo-patrono-rei-feiticeiro-subclasses-apocalipticas.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17961,
+          "slug": "critica-traducao-ua-2025-subclasses-apocalipticas",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/druida-circulo-preservacao-subclasses-apocalipticas-205x630.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/druida-circulo-preservacao-subclasses-apocalipticas.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17961,
+          "slug": "critica-traducao-ua-2025-subclasses-apocalipticas",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/feiticeiro-feitica-profana-subclasses-apocalipticas-204x630.png",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/feiticeiro-feitica-profana-subclasses-apocalipticas.png",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17961,
+          "slug": "critica-traducao-ua-2025-subclasses-apocalipticas",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/guerreiro-gladiador-subclasses-apocalipticas-206x630.png",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/guerreiro-gladiador-subclasses-apocalipticas.png",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17961,
+          "slug": "critica-traducao-ua-2025-subclasses-apocalipticas",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/exodus-rpg-armaduras-futuristas.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/exodus-rpg-armaduras-futuristas.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17948,
+          "slug": "exodus-rpg-dnd-ficcao-cientifica",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/exodus-rpg-travelers-handbook-630x630.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/exodus-rpg-travelers-handbook.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17948,
+          "slug": "exodus-rpg-dnd-ficcao-cientifica",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/exodus-rpg-encyclopedia-630x630.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/exodus-rpg-encyclopedia.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17948,
+          "slug": "exodus-rpg-dnd-ficcao-cientifica",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/exodus-rpg-exploradores-centauri.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/exodus-rpg-exploradores-centauri.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17948,
+          "slug": "exodus-rpg-dnd-ficcao-cientifica",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/devir-suspende-ace-of-spades-banner.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/devir-suspende-ace-of-spades-banner.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17932,
+          "slug": "devir-suspende-ace-of-spades-criticas-escravidao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/interpretar-um-dragao-smaug-dragon-delves.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/interpretar-um-dragao-smaug-dragon-delves.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17914,
+          "slug": "como-interpretar-um-dragao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/interpretar-um-dragao-dragon-magazine-annual-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/interpretar-um-dragao-dragon-magazine-annual-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17914,
+          "slug": "como-interpretar-um-dragao",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/interpretar-um-dragao-jade-china-antiga.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/interpretar-um-dragao-jade-china-antiga.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17914,
+          "slug": "como-interpretar-um-dragao",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/interpretar-um-dragao-geminado-majestade.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/interpretar-um-dragao-geminado-majestade.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17914,
+          "slug": "como-interpretar-um-dragao",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/interpretar-um-dragao-cult-of-the-dragon-1998.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/interpretar-um-dragao-cult-of-the-dragon-1998.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17914,
+          "slug": "como-interpretar-um-dragao",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/08/guia-de-conversao-dnd-2024-download-gratis.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/08/guia-de-conversao-dnd-2024-download-gratis.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17806,
+          "slug": "guia-conversao-dnd-2024-srd-portugues",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/thundercats-rpg-capa-oficial-dynamite.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/thundercats-rpg-capa-oficial-dynamite.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17837,
+          "slug": "thundercats-rpg-dynamite-5e-lynnvander",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-weird-wizard-capa-analise-tria.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-weird-wizard-capa-analise-tria.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17820,
+          "slug": "shadow-of-the-weird-wizard-analise",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-of-the-weird-wizard-combate-magico-herois-vs-ogro.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-of-the-weird-wizard-combate-magico-herois-vs-ogro.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17820,
+          "slug": "shadow-of-the-weird-wizard-analise",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-of-the-weird-wizard-combate-vida-dano.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-of-the-weird-wizard-combate-vida-dano.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17820,
+          "slug": "shadow-of-the-weird-wizard-analise",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-of-the-weird-wizard-trilhas-personagens.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-of-the-weird-wizard-trilhas-personagens.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17820,
+          "slug": "shadow-of-the-weird-wizard-analise",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-of-the-weird-wizard-perseguicao-magia-voadora.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-of-the-weird-wizard-perseguicao-magia-voadora.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17820,
+          "slug": "shadow-of-the-weird-wizard-analise",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-of-the-weird-wizard-confronto-simbolico.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-of-the-weird-wizard-confronto-simbolico.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17820,
+          "slug": "shadow-of-the-weird-wizard-analise",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-of-the-weird-wizard-recompensas-catarse-2025.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/shadow-of-the-weird-wizard-recompensas-catarse-2025.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17820,
+          "slug": "shadow-of-the-weird-wizard-analise",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/dungeon-master-university-logo-evento-dnd-2026.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/dungeon-master-university-logo-evento-dnd-2026.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17811,
+          "slug": "dungeon-master-university-faculdade-para-dms",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/brumas-de-nivellon-rpg-resistencia-espaco.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/brumas-de-nivellon-rpg-resistencia-espaco.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17794,
+          "slug": "nivellon-rpg-ze-trevisan-brumas-nao-jogo",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/capa-brumas-de-nivellon.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/capa-brumas-de-nivellon.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17794,
+          "slug": "nivellon-rpg-ze-trevisan-brumas-nao-jogo",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/mapa-planisferia-brumas-de-nivellon-fragmentos-contra-nao-jogo.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/mapa-planisferia-brumas-de-nivellon-fragmentos-contra-nao-jogo.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17794,
+          "slug": "nivellon-rpg-ze-trevisan-brumas-nao-jogo",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/black-flag-rpg-creative-commons-koboldpress-ccby4.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/black-flag-rpg-creative-commons-koboldpress-ccby4.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17787,
+          "slug": "kobold-press-black-flag-creative-commons",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/starter-set-heroes-borderlands-artificio-capa.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/starter-set-heroes-borderlands-artificio-capa.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17776,
+          "slug": "heroes-of-the-borderlands-starter-set-critica",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/b2-keep-on-the-borderlands-tsr-1981.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/b2-keep-on-the-borderlands-tsr-1981.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17776,
+          "slug": "heroes-of-the-borderlands-starter-set-critica",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/7th-sea-studio-agate-chaosium-nova-fase.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/7th-sea-studio-agate-chaosium-nova-fase.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17767,
+          "slug": "7th-sea-nova-direcao-studio-agate-pesquisa-patreon",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/mutants-masterminds-4e-herois-rpg-green-roni.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/mutants-masterminds-4e-herois-rpg-green-roni.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17727,
+          "slug": "mutants-masterminds-4e-origem-nova-edicao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/dragon-delves-critica-artificio-dragao-sem-eco.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/dragon-delves-critica-artificio-dragao-sem-eco.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17712,
+          "slug": "dragon-delves-critica-suplemento-wizards",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/alencia-diamond-green-ronin-paizo-crise-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/alencia-diamond-green-ronin-paizo-crise-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17693,
+          "slug": "green-ronin-paizo-diamond-falencia",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Jess-Lanzillo-deixa-a-Wizards-of-the-Coast.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Jess-Lanzillo-deixa-a-Wizards-of-the-Coast.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17689,
+          "slug": "jess-lanzillo-white-wolf-world-of-darkness",
+          "field": "featured"
+        },
+        {
+          "kind": "post",
+          "id": 17467,
+          "slug": "jess-lanzillo-saida-wizards-dnd",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/camazotz-eddie-munson-stranger-things-5-vilao.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/camazotz-eddie-munson-stranger-things-5-vilao.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17675,
+          "slug": "camazotz-a-sombra-maia-referenciada-em-stranger-things-5",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/camazotz-eddie-munson-puzzle-tales-stranger-things-5.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/camazotz-eddie-munson-puzzle-tales-stranger-things-5.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17675,
+          "slug": "camazotz-a-sombra-maia-referenciada-em-stranger-things-5",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/camazotz-altar-yawning-portal-tamoachan-dnd.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/camazotz-altar-yawning-portal-tamoachan-dnd.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17675,
+          "slug": "camazotz-a-sombra-maia-referenciada-em-stranger-things-5",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/camazotz-aspect-zotzilaha-dungeon-143-mahy.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/camazotz-aspect-zotzilaha-dungeon-143-mahy.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17675,
+          "slug": "camazotz-a-sombra-maia-referenciada-em-stranger-things-5",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/camazotz-tamoachan-erol-otus-1980.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/camazotz-tamoachan-erol-otus-1980.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17675,
+          "slug": "camazotz-a-sombra-maia-referenciada-em-stranger-things-5",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/entrevista-rafael-mendes-castles-crusades-brasil.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/entrevista-rafael-mendes-castles-crusades-brasil.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17660,
+          "slug": "rafael-mendes-castles-crusades",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-crusades-reforged-edicao-brasileira-aithos.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-crusades-reforged-edicao-brasileira-aithos.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17660,
+          "slug": "rafael-mendes-castles-crusades",
+          "field": "content"
+        },
+        {
+          "kind": "post",
+          "id": 17598,
+          "slug": "financiamento-castles-crusades",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/the-witcher-toussaint-fantasia-medieval-idealizada.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/the-witcher-toussaint-fantasia-medieval-idealizada.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17660,
+          "slug": "rafael-mendes-castles-crusades",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-e-cruzades-reforged-batalha-herois-orcs.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-e-cruzades-reforged-batalha-herois-orcs.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17660,
+          "slug": "rafael-mendes-castles-crusades",
+          "field": "content"
+        },
+        {
+          "kind": "post",
+          "id": 17598,
+          "slug": "financiamento-castles-crusades",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/rafael-mendes-fragged-empire-evento-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/rafael-mendes-fragged-empire-evento-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17660,
+          "slug": "rafael-mendes-castles-crusades",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/macaco-dumal-logotipo-oficial-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/macaco-dumal-logotipo-oficial-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17598,
+          "slug": "financiamento-castles-crusades",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-e-cruzades-emerson-martens-ceo.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-e-cruzades-emerson-martens-ceo.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17598,
+          "slug": "financiamento-castles-crusades",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-e-cruzades-aithos-editora-logo-cultura-brasileira.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-e-cruzades-aithos-editora-logo-cultura-brasileira.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17598,
+          "slug": "financiamento-castles-crusades",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-e-cruzades-livro-do-jogador-edicao-brasileira-reforged.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-e-cruzades-livro-do-jogador-edicao-brasileira-reforged.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17598,
+          "slug": "financiamento-castles-crusades",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-e-cruzades-reforged-dragao-vermelho-tesouro.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-e-cruzades-reforged-dragao-vermelho-tesouro.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17598,
+          "slug": "financiamento-castles-crusades",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-e-cruzades-metas-financiamento-brasil.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/castles-e-cruzades-metas-financiamento-brasil.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17598,
+          "slug": "financiamento-castles-crusades",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/Voce-e-o-Jogador-ou-o-PJ-A-Imersao-no-RPG-que-Desafia.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/Voce-e-o-Jogador-ou-o-PJ-A-Imersao-no-RPG-que-Desafia.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17568,
+          "slug": "imersao-rpg-identidade-jogador-personagem",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Arte-conceitual-das-subclasses-arcanas-2025-o-retorno-da-magia-classica-com-identidade-fragmentada.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Arte-conceitual-das-subclasses-arcanas-2025-o-retorno-da-magia-classica-com-identidade-fragmentada.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17542,
+          "slug": "ua-subclasses-arcanas-2025-pdf-traduzido-e-analise-critica",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Subclasses-Arcanas-2025-—-Capa-da-Traducao-Brasileira.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Subclasses-Arcanas-2025-%E2%80%94-Capa-da-Traducao-Brasileira.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17542,
+          "slug": "ua-subclasses-arcanas-2025-pdf-traduzido-e-analise-critica",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Subclasses-Arcanas-2025-—-Versao-Ilustrada-Completa-em-Portugues.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Subclasses-Arcanas-2025-%E2%80%94-Versao-Ilustrada-Completa-em-Portugues.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17542,
+          "slug": "ua-subclasses-arcanas-2025-pdf-traduzido-e-analise-critica",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/notbya2sxyt71.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/notbya2sxyt71.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17542,
+          "slug": "ua-subclasses-arcanas-2025-pdf-traduzido-e-analise-critica",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/TJN_Simon.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/TJN_Simon.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17542,
+          "slug": "ua-subclasses-arcanas-2025-pdf-traduzido-e-analise-critica",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Entropia-RPG-baixe-agora-o-Entropia-Playtest-com-analise-historia-e-entrevista-exclusiva.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Entropia-RPG-baixe-agora-o-Entropia-Playtest-com-analise-historia-e-entrevista-exclusiva.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17526,
+          "slug": "entropia-rpg-0-1-e-lancado-pela-d20-culture",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/O-dragao-e-o-criador-Peterson-Rodrigues-lanca-Entropia-RPG-Playtest.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/O-dragao-e-o-criador-Peterson-Rodrigues-lanca-Entropia-RPG-Playtest.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17526,
+          "slug": "entropia-rpg-0-1-e-lancado-pela-d20-culture",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Mojuba-vence-3-Goblins-de-Ouro-no-DOFF-2024-Lucas-Conti-celebra-vitoria-historica.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Mojuba-vence-3-Goblins-de-Ouro-no-DOFF-2024-Lucas-Conti-celebra-vitoria-historica.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17526,
+          "slug": "entropia-rpg-0-1-e-lancado-pela-d20-culture",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/d20-culture-anuncia-sistema-de-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/d20-culture-anuncia-sistema-de-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17526,
+          "slug": "entropia-rpg-0-1-e-lancado-pela-d20-culture",
+          "field": "content"
+        },
+        {
+          "kind": "post",
+          "id": 14259,
+          "slug": "d20-culture-revela-seu-proprio-sistema-de-rpg-nacional",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Conheca-os-herois-e-viloes-da-campanha-de-RPG-da-D20-Culture.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Conheca-os-herois-e-viloes-da-campanha-de-RPG-da-D20-Culture.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17526,
+          "slug": "entropia-rpg-0-1-e-lancado-pela-d20-culture",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/O-caos-tem-forma-conheca-a-capa-do-Entropia-RPG-Playtest-0.1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/O-caos-tem-forma-conheca-a-capa-do-Entropia-RPG-Playtest-0.1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17526,
+          "slug": "entropia-rpg-0-1-e-lancado-pela-d20-culture",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/DriveThruRPG-remove-RPG-antifascista-Rebel-Scum.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/DriveThruRPG-remove-RPG-antifascista-Rebel-Scum.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17512,
+          "slug": "rebel-scum-removido-no-drivethru-por-ser-antifascista",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Rebel-Scum-—-RPG-antifascista-que-convida-a-enfrentar-nazistas-espaciais.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Rebel-Scum-%E2%80%94-RPG-antifascista-que-convida-a-enfrentar-nazistas-espaciais.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17512,
+          "slug": "rebel-scum-removido-no-drivethru-por-ser-antifascista",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Visual-epico-do-RPG-Project-Dante-cancelado.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Visual-epico-do-RPG-Project-Dante-cancelado.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17506,
+          "slug": "project-dante-cancelado-wizards-enterra-mais-um-game",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Visual-do-RPG-O-Caminho-dos-Yokais-com-versao-fisica-e-digital.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Visual-do-RPG-O-Caminho-dos-Yokais-com-versao-fisica-e-digital.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17500,
+          "slug": "financiamento-rpg-brasileiro-o-caminho-dos-yokais",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Ilustracao-O-Caminho-dos-Yokais.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Ilustracao-O-Caminho-dos-Yokais.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17500,
+          "slug": "financiamento-rpg-brasileiro-o-caminho-dos-yokais",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Ilustracao-tabela-Financiamento-Coletivo-O-Caminho-dos-Yokais-.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Ilustracao-tabela-Financiamento-Coletivo-O-Caminho-dos-Yokais-.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17500,
+          "slug": "financiamento-rpg-brasileiro-o-caminho-dos-yokais",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Critical-Role-contrata-os-criadores-da-5e-Perkins-e-Crawford-na-nova-fase-da-editora.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Critical-Role-contrata-os-criadores-da-5e-Perkins-e-Crawford-na-nova-fase-da-editora.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17473,
+          "slug": "critical-role-contrata-criadores-5e",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Darrington-Press-quando-o-simbolo-vira-bandeira.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Darrington-Press-quando-o-simbolo-vira-bandeira.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17473,
+          "slug": "critical-role-contrata-criadores-5e",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Os-criadores-da-5e-agora-estao-com-a-Critical-Role.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Os-criadores-da-5e-agora-estao-com-a-Critical-Role.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17473,
+          "slug": "critical-role-contrata-criadores-5e",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/critical-role.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/critical-role.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17473,
+          "slug": "critical-role-contrata-criadores-5e",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/image.png",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/image.png",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17473,
+          "slug": "critical-role-contrata-criadores-5e",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Como-Anunciar-Mesa-de-RPG-e-Atrair-Jogadores-Interessados.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Como-Anunciar-Mesa-de-RPG-e-Atrair-Jogadores-Interessados.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17457,
+          "slug": "como-anunciar-mesa-de-rpg",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/DD-e-Giant-Skull-anunciam-RPG-de-acao.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/DD-e-Giant-Skull-anunciam-RPG-de-acao.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17442,
+          "slug": "giant-skull-e-wizards-anunciam-novo-rpg-de-acao-aaa-de-dd",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Baldurs-Gate-3-o-RPG-de-acao-que-redefiniu-DD-nos-videogames.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Baldurs-Gate-3-o-RPG-de-acao-que-redefiniu-DD-nos-videogames.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17442,
+          "slug": "giant-skull-e-wizards-anunciam-novo-rpg-de-acao-aaa-de-dd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Giant-Skull-assume-novo-RPG-de-acao-de-DD.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Giant-Skull-assume-novo-RPG-de-acao-de-DD.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17442,
+          "slug": "giant-skull-e-wizards-anunciam-novo-rpg-de-acao-aaa-de-dd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/RPG-de-acao-de-DD-sera-comandado-pelo-diretor-de-Jedi-Fallen-Order.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/RPG-de-acao-de-DD-sera-comandado-pelo-diretor-de-Jedi-Fallen-Order.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17442,
+          "slug": "giant-skull-e-wizards-anunciam-novo-rpg-de-acao-aaa-de-dd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Arte-de-personagem-de-DD-evoca-acao-e-fantasia-no-RPG-classico.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Arte-de-personagem-de-DD-evoca-acao-e-fantasia-no-RPG-classico.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17442,
+          "slug": "giant-skull-e-wizards-anunciam-novo-rpg-de-acao-aaa-de-dd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/A-arte-amadora-que-fundou-o-DD.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/A-arte-amadora-que-fundou-o-DD.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17404,
+          "slug": "arte-dnd-1974-origem-estetica",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Box-Original-de-Dungeons-Dragons-1974.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Box-Original-de-Dungeons-Dragons-1974.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17404,
+          "slug": "arte-dnd-1974-origem-estetica",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Dragao-por-Keenan-Powell-–-Arte-Original-de-DD-1974.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Dragao-por-Keenan-Powell-%E2%80%93-Arte-Original-de-DD-1974.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17404,
+          "slug": "arte-dnd-1974-origem-estetica",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/06/Andrzej-e-os-Livros-Quando-a-Fantasia-Vale-Menos-que-o-Lucro.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/06/Andrzej-e-os-Livros-Quando-a-Fantasia-Vale-Menos-que-o-Lucro.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17404,
+          "slug": "arte-dnd-1974-origem-estetica",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Ficha-DD-5.5-Download.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Ficha-DD-5.5-Download.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17382,
+          "slug": "ficha-dnd-55-2024-pdf-baixar-editavel-impressao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Unearthed-Arcana-2025-O-Psionico-Portugues.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Unearthed-Arcana-2025-O-Psionico-Portugues.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17338,
+          "slug": "unearthed-arcana-2025-o-psionico-traducao-e-analise",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Capa-da-traducao-O-Psionico-—-Unearthed-Arcana-2025.jpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Capa-da-traducao-O-Psionico-%E2%80%94-Unearthed-Arcana-2025.jpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17338,
+          "slug": "unearthed-arcana-2025-o-psionico-traducao-e-analise",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Unearthed-Arcana-2025-O-Psionico-Ilustrado1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Unearthed-Arcana-2025-O-Psionico-Ilustrado1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17338,
+          "slug": "unearthed-arcana-2025-o-psionico-traducao-e-analise",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Dark-Sun-cenario-psionico-classico-de-DD-4a-edicao.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Dark-Sun-cenario-psionico-classico-de-DD-4a-edicao.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17338,
+          "slug": "unearthed-arcana-2025-o-psionico-traducao-e-analise",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Githyanki-e-Githzerai-—-Icones-Psionicos-no-DD.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Githyanki-e-Githzerai-%E2%80%94-Icones-Psionicos-no-DD.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17338,
+          "slug": "unearthed-arcana-2025-o-psionico-traducao-e-analise",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Dark-Sun-Athas-em-sua-forma-mais-brutal-e-psionica.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Dark-Sun-Athas-em-sua-forma-mais-brutal-e-psionica.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17338,
+          "slug": "unearthed-arcana-2025-o-psionico-traducao-e-analise",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Jason-Carl-e-a-Nova-Face-da-White-Wolf.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Jason-Carl-e-a-Nova-Face-da-White-Wolf.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17331,
+          "slug": "retorno-da-white-wolf-a-nova-era-do-mundo-das-trevas",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/paizo-con-2025.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/paizo-con-2025.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17295,
+          "slug": "paizocon-2025-resumo-lancamentos-pathfinder-starfinder",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Critica-Anime-5e.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Critica-Anime-5e.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17197,
+          "slug": "critica-anime-5e-tria-financiamento",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Big-Eyes-Small-Mouth-3a-Edicao-—-Magia-estilo-e-RPG.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Big-Eyes-Small-Mouth-3a-Edicao-%E2%80%94-Magia-estilo-e-RPG.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17197,
+          "slug": "critica-anime-5e-tria-financiamento",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Weapon-Enhancements.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Weapon-Enhancements.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17197,
+          "slug": "critica-anime-5e-tria-financiamento",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Slime.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Slime.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17197,
+          "slug": "critica-anime-5e-tria-financiamento",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Adventuring-Party.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Adventuring-Party.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17197,
+          "slug": "critica-anime-5e-tria-financiamento",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/anime-core-hardcover.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/anime-core-hardcover.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17197,
+          "slug": "critica-anime-5e-tria-financiamento",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Anime-5E-—-Racas-e-Criacao-de-Personagem-no-Sistema-d20.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Anime-5E-%E2%80%94-Racas-e-Criacao-de-Personagem-no-Sistema-d20.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17197,
+          "slug": "critica-anime-5e-tria-financiamento",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Anime-5E-—-Financiado-em-14-Horas-PDF-ja-Disponivel.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Anime-5E-%E2%80%94-Financiado-em-14-Horas-PDF-ja-Disponivel.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17197,
+          "slug": "critica-anime-5e-tria-financiamento",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Lancamento-de-Daggerheart-—-RPG-da-Critical-Role.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Lancamento-de-Daggerheart-%E2%80%94-RPG-da-Critical-Role.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17168,
+          "slug": "lancamento-daggerheart-critical-role",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/daggerheart-art.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/daggerheart-art.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17168,
+          "slug": "lancamento-daggerheart-critical-role",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Ficha-Daggerheart.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Ficha-Daggerheart.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17168,
+          "slug": "lancamento-daggerheart-critical-role",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/cartas.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/cartas.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17168,
+          "slug": "lancamento-daggerheart-critical-role",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Age_of_umbra_keyart_1920x1080-1600x900-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Age_of_umbra_keyart_1920x1080-1600x900-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17168,
+          "slug": "lancamento-daggerheart-critical-role",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Entre-castelos-e-sessoes-o-simbolo-vira-caminho-e-o-jogo-vira-cura.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Entre-castelos-e-sessoes-o-simbolo-vira-caminho-e-o-jogo-vira-cura.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17150,
+          "slug": "rpg-psicologia-analitica-wilsius-norte",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Wilsius-Norte.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Wilsius-Norte.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17150,
+          "slug": "rpg-psicologia-analitica-wilsius-norte",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/A-Lendaria-Caixa-Preta-do-DD-no-Brasil-da-Grow.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/A-Lendaria-Caixa-Preta-do-DD-no-Brasil-da-Grow.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17150,
+          "slug": "rpg-psicologia-analitica-wilsius-norte",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Jacob-Levy-Moreno.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Jacob-Levy-Moreno.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17150,
+          "slug": "rpg-psicologia-analitica-wilsius-norte",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/meu-briquedo-favorito-eduardo-caetano.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/meu-briquedo-favorito-eduardo-caetano.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17150,
+          "slug": "rpg-psicologia-analitica-wilsius-norte",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Alien-RPG-Atravessando-o-Medo-na-Ficcao-e-na-Clinica.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Alien-RPG-Atravessando-o-Medo-na-Ficcao-e-na-Clinica.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17150,
+          "slug": "rpg-psicologia-analitica-wilsius-norte",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/fui-condenado-a-ser-diabetico.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/fui-condenado-a-ser-diabetico.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17150,
+          "slug": "rpg-psicologia-analitica-wilsius-norte",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/a-hora-da-aventura-rpg-capa.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/a-hora-da-aventura-rpg-capa.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17150,
+          "slug": "rpg-psicologia-analitica-wilsius-norte",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/capa-violentina.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/capa-violentina.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17150,
+          "slug": "rpg-psicologia-analitica-wilsius-norte",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/ovelha.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/ovelha.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17150,
+          "slug": "rpg-psicologia-analitica-wilsius-norte",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/O-Pequeno-Astralnauta-The-Little-Astralnaut.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/O-Pequeno-Astralnauta-The-Little-Astralnaut.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17150,
+          "slug": "rpg-psicologia-analitica-wilsius-norte",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Cena-furtiva-em-DD-2024-mecanica-de-esconder-se-em-destaque.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Cena-furtiva-em-DD-2024-mecanica-de-esconder-se-em-destaque.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17143,
+          "slug": "dnd-esconder-furtividade-2024",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Furtividade-nas-florestas-acao-Esconder-em-DD-2024.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Furtividade-nas-florestas-acao-Esconder-em-DD-2024.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17143,
+          "slug": "dnd-esconder-furtividade-2024",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Banner-Subclasses-de-Horror.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Banner-Subclasses-de-Horror.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17119,
+          "slug": "ua-subclasses-horror-analise-traducao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Eberron-Forge-of-the-Artificer-e-Anunciado-em-Pre-Venda.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Eberron-Forge-of-the-Artificer-e-Anunciado-em-Pre-Venda.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17110,
+          "slug": "eberron-forge-artificer-dd5e",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/eberron-forge-of-the-artificer-physical-05.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/eberron-forge-of-the-artificer-physical-05.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17110,
+          "slug": "eberron-forge-artificer-dd5e",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/eberron-forge-of-the-artificer-physical-04.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/eberron-forge-of-the-artificer-physical-04.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17110,
+          "slug": "eberron-forge-artificer-dd5e",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/eberron-forge-of-the-artificer-digital-01.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/eberron-forge-of-the-artificer-digital-01.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17110,
+          "slug": "eberron-forge-artificer-dd5e",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/eberron-forge-of-the-artificer-physical-02.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/eberron-forge-of-the-artificer-physical-02.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17110,
+          "slug": "eberron-forge-artificer-dd5e",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/como-usar-detectar-pensamentos-magia-dnd.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/como-usar-detectar-pensamentos-magia-dnd.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17081,
+          "slug": "como-usar-detectar-pensamentos-dnd",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/deteccao-de-pensamentos-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/deteccao-de-pensamentos-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17081,
+          "slug": "como-usar-detectar-pensamentos-dnd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/detectar-pensamentos-interrogar-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/detectar-pensamentos-interrogar-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17081,
+          "slug": "como-usar-detectar-pensamentos-dnd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/lancamentos-nacionais-maio.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/lancamentos-nacionais-maio.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17060,
+          "slug": "psicomaquia-book-of-the-dead-rpg-brasil",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/capa-pscomaquia-playtest-2-475x630.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/capa-pscomaquia-playtest-2.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17060,
+          "slug": "psicomaquia-book-of-the-dead-rpg-brasil",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/05/Capa-Book-of-the-Dead-507x630.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/05/Capa-Book-of-the-Dead.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 17060,
+          "slug": "psicomaquia-book-of-the-dead-rpg-brasil",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/classificacao-indicativa-jogos-e-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/classificacao-indicativa-jogos-e-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16987,
+          "slug": "consulta-publica-classificacao-rpg-2025",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/hasbro-q1-2025-earnings-.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/hasbro-q1-2025-earnings-.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16945,
+          "slug": "dd-impulsiona-lucro-da-hasbro-em-2025",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Resultados-do-Magic-The-Gathering-1200x675.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Resultados-do-Magic-The-Gathering.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16945,
+          "slug": "dd-impulsiona-lucro-da-hasbro-em-2025",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Destaques-do-primeiro-Trimestre.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Destaques-do-primeiro-Trimestre.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16945,
+          "slug": "dd-impulsiona-lucro-da-hasbro-em-2025",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/a-aventura-comeca-quando-o-mestre-se-cala.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/a-aventura-comeca-quando-o-mestre-se-cala.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16937,
+          "slug": "comecar-aventura-rpg-impacto",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Regras-Disney.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Regras-Disney.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16937,
+          "slug": "comecar-aventura-rpg-impacto",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Regras-pixar-1200x675.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Regras-pixar.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16937,
+          "slug": "comecar-aventura-rpg-impacto",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/a-saga-da-traducao-de-dungeons-dragons-no-brasil.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/a-saga-da-traducao-de-dungeons-dragons-no-brasil.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16926,
+          "slug": "historia-do-dnd-5e-no-brasil",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/reuniao-em-niteroi.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/reuniao-em-niteroi.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16926,
+          "slug": "historia-do-dnd-5e-no-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Logo-aventureiro-dos-reinos.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Logo-aventureiro-dos-reinos.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16926,
+          "slug": "historia-do-dnd-5e-no-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/DRS.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/DRS.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16926,
+          "slug": "historia-do-dnd-5e-no-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/imagem-do-livro-do-jogador-5e-em-portugues.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/imagem-do-livro-do-jogador-5e-em-portugues.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16926,
+          "slug": "historia-do-dnd-5e-no-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/8776aded-b338-465d-af21-cd1be6d9d1c2.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/8776aded-b338-465d-af21-cd1be6d9d1c2.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16926,
+          "slug": "historia-do-dnd-5e-no-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/22-de-abr.-de-2025-18_31_39.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/22-de-abr.-de-2025-18_31_39.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16901,
+          "slug": "guia-de-direitos-autorais-de-rpg",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/AD_4nXfQ-JK-WlE3c04rFEG6wkXJIQ12jwTIoI4CIJ05d14SGyS7zpnNzTwngjYjdC3KHOtntaIz-DI1xzGhdtA8aN10-AMHAsHaZ4USaWZwMKLUKa23FcG9zygzt3hssmOpijPEp_z0WQ.png",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/AD_4nXfQ-JK-WlE3c04rFEG6wkXJIQ12jwTIoI4CIJ05d14SGyS7zpnNzTwngjYjdC3KHOtntaIz-DI1xzGhdtA8aN10-AMHAsHaZ4USaWZwMKLUKa23FcG9zygzt3hssmOpijPEp_z0WQ.png",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16901,
+          "slug": "guia-de-direitos-autorais-de-rpg",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192815_0017.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192815_0017.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16754,
+          "slug": "tria-editora-anuncia-cosmere-rpg-de-brandon-sanderson",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192814_0003.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192814_0003.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16754,
+          "slug": "tria-editora-anuncia-cosmere-rpg-de-brandon-sanderson",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192815_0006.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192815_0006.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16754,
+          "slug": "tria-editora-anuncia-cosmere-rpg-de-brandon-sanderson",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192814_0004.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192814_0004.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16754,
+          "slug": "tria-editora-anuncia-cosmere-rpg-de-brandon-sanderson",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192815_0008.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192815_0008.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16754,
+          "slug": "tria-editora-anuncia-cosmere-rpg-de-brandon-sanderson",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192815_0009.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192815_0009.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16754,
+          "slug": "tria-editora-anuncia-cosmere-rpg-de-brandon-sanderson",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192814_0000.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/imagens-site-1080x700_20250413_192814_0000.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16754,
+          "slug": "tria-editora-anuncia-cosmere-rpg-de-brandon-sanderson",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/DnD-Symbol_srd-scaled.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/DnD-Symbol_srd-scaled.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16744,
+          "slug": "srd-52-portugues-artificio-rpg-traducao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/DnD-Symbol_srd-1200x675.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/DnD-Symbol_srd.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16744,
+          "slug": "srd-52-portugues-artificio-rpg-traducao",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Jeremy-Crawford-e-Chris-Perkins-banner.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Jeremy-Crawford-e-Chris-Perkins-banner.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16720,
+          "slug": "jeremy-crawford-chris-perkins-saida-wizards-6e",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Jeremy-Crawford-e-Chris-Perkins.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Jeremy-Crawford-e-Chris-Perkins.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16720,
+          "slug": "jeremy-crawford-chris-perkins-saida-wizards-6e",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Dragon-Delves-e-o-DD-2024-2.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Dragon-Delves-e-o-DD-2024-2.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16714,
+          "slug": "dragon-delves-entrevista",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/dnd-dragon-delves-4.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/dnd-dragon-delves-4.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16714,
+          "slug": "dragon-delves-entrevista",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/como-e-bom-trair.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/como-e-bom-trair.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16709,
+          "slug": "e-bom-trair-no-rpg-e-maravilhoso-ser-infiel",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Vermilium-banner.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Vermilium-banner.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16689,
+          "slug": "vermilium-rpg-brasil",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/maxresdefault.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/maxresdefault.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16689,
+          "slug": "vermilium-rpg-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Vermilium-bann.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Vermilium-bann.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16689,
+          "slug": "vermilium-rpg-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/maxresdefault-1-1200x675.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/maxresdefault-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16689,
+          "slug": "vermilium-rpg-brasil",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Vermilium-fastplay.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Vermilium-fastplay.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16689,
+          "slug": "vermilium-rpg-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Dragon-Delves-e-o-DD-2024.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Dragon-Delves-e-o-DD-2024.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16674,
+          "slug": "dragon-delves-e-o-dd-2024-a-mudanca-que-nao-muda",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Dnd-dragon-delves-gold-wyrmling.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Dnd-dragon-delves-gold-wyrmling.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16674,
+          "slug": "dragon-delves-e-o-dd-2024-a-mudanca-que-nao-muda",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Dnd-dragonbdelves-flee-modrons.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Dnd-dragonbdelves-flee-modrons.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16674,
+          "slug": "dragon-delves-e-o-dd-2024-a-mudanca-que-nao-muda",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Dnd-dragon-delves-bnw.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Dnd-dragon-delves-bnw.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16674,
+          "slug": "dragon-delves-e-o-dd-2024-a-mudanca-que-nao-muda",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Dnd-dragon-delves-lantern.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Dnd-dragon-delves-lantern.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16674,
+          "slug": "dragon-delves-e-o-dd-2024-a-mudanca-que-nao-muda",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/capa-do-video.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/capa-do-video.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16674,
+          "slug": "dragon-delves-e-o-dd-2024-a-mudanca-que-nao-muda",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Greg-Bilsland-volta-a-Wizards-o-editor-por-tras-do-MM3-4e-esta-de-volta.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Greg-Bilsland-volta-a-Wizards-o-editor-por-tras-do-MM3-4e-esta-de-volta.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16662,
+          "slug": "greg-bilsland-retorna-wizards-dnd",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Greg-Bilsland.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Greg-Bilsland.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16662,
+          "slug": "greg-bilsland-retorna-wizards-dnd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Novo-Livro-de-Salvatore.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Novo-Livro-de-Salvatore.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16656,
+          "slug": "novo-livro-de-salvatore-foca-em-breezy",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/The-Finest-Edge-of-Twilight_Final-Cover-789x1200.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/The-Finest-Edge-of-Twilight_Final-Cover.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16656,
+          "slug": "novo-livro-de-salvatore-foca-em-breezy",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/chris-perkins-aposentadoria-dnd.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/chris-perkins-aposentadoria-dnd.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16599,
+          "slug": "chris-perkins-aposentadoria-dnd",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/tarifa-critica-trump-e-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/tarifa-critica-trump-e-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16282,
+          "slug": "tarifas-eua-impacto-rpg",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Remessa-dos-Livros-do-Editor-do-EnWorld.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Remessa-dos-Livros-do-Editor-do-EnWorld.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16282,
+          "slug": "tarifas-eua-impacto-rpg",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Grafico-de-Pesquisa-de-RPG.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Grafico-de-Pesquisa-de-RPG.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16282,
+          "slug": "tarifas-eua-impacto-rpg",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/Chainmail-A-Origem-de-Dungeons-Dragons.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/Chainmail-A-Origem-de-Dungeons-Dragons.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16078,
+          "slug": "chainmail-origem-dungeons-dragons",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/mfca-battle-tolkien-courier.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/mfca-battle-tolkien-courier.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16078,
+          "slug": "chainmail-origem-dungeons-dragons",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/chainmail-810x1200.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/chainmail.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16078,
+          "slug": "chainmail-origem-dungeons-dragons",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/caixa-marrom-dnd.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/caixa-marrom-dnd.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16078,
+          "slug": "chainmail-origem-dungeons-dragons",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/patt-tolkien-rules.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/patt-tolkien-rules.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 16078,
+          "slug": "chainmail-origem-dungeons-dragons",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Chega-ao-brasil.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Chega-ao-brasil.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15984,
+          "slug": "a-lenda-de-drizzt-vol-13-mar-de-espadas-e-lancado-no-brasil",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Pagina_Produto-Mockups-Mar_de_Espadas-1200x1030.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Pagina_Produto-Mockups-Mar_de_Espadas.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15984,
+          "slug": "a-lenda-de-drizzt-vol-13-mar-de-espadas-e-lancado-no-brasil",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Pagina_Produto-Mar_de_Espadas-mockup-aberto-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Pagina_Produto-Mar_de_Espadas-mockup-aberto-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15984,
+          "slug": "a-lenda-de-drizzt-vol-13-mar-de-espadas-e-lancado-no-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/A-campanha-mais-longa-da-historia-do-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/A-campanha-mais-longa-da-historia-do-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15974,
+          "slug": "a-mais-longa-campanha-de-dnd-43-anos",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/500_Mortos-Vivos_Handout.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/500_Mortos-Vivos_Handout.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15705,
+          "slug": "rpg-online-9-dias-de-mesas-e-concursos-no-covil-do-lich",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Facebook_e_Newsletter.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Facebook_e_Newsletter.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15705,
+          "slug": "rpg-online-9-dias-de-mesas-e-concursos-no-covil-do-lich",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Urban-Shadows-2e-Capa-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Urban-Shadows-2e-Capa-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15687,
+          "slug": "tria-anuncia-urban-shadows-2e-em-portugues",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/tria-live-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/tria-live-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15687,
+          "slug": "tria-anuncia-urban-shadows-2e-em-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Urban-Shadows-2e-IMG-1-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Urban-Shadows-2e-IMG-1-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15687,
+          "slug": "tria-anuncia-urban-shadows-2e-em-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Urban-Shadows-2e-IMG-3-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Urban-Shadows-2e-IMG-3-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15687,
+          "slug": "tria-anuncia-urban-shadows-2e-em-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Urban-Shadows-2e-IMG-2-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Urban-Shadows-2e-IMG-2-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15687,
+          "slug": "tria-anuncia-urban-shadows-2e-em-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Urban-Shadows-2e-IMG-5-2.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Urban-Shadows-2e-IMG-5-2.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15687,
+          "slug": "tria-anuncia-urban-shadows-2e-em-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/urban-shadows-2-tria-cartase-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/urban-shadows-2-tria-cartase-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15687,
+          "slug": "tria-anuncia-urban-shadows-2e-em-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/imobilizado.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/imobilizado.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15555,
+          "slug": "dd-2024-guia-completo-de-deslocamento-movimento-e-imobilizacao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/LOGO-FREE5E-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/LOGO-FREE5E-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15311,
+          "slug": "free5e-e-dd-quando-a-imaginacao-nao-tem-custo",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Free5e-Free-Range-Monsters.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Free5e-Free-Range-Monsters.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15311,
+          "slug": "free5e-e-dd-quando-a-imaginacao-nao-tem-custo",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Free5e-Players-Guide.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Free5e-Players-Guide.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15311,
+          "slug": "free5e-e-dd-quando-a-imaginacao-nao-tem-custo",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Free5e-Game-Masters-Handbook.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Free5e-Game-Masters-Handbook.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15311,
+          "slug": "free5e-e-dd-quando-a-imaginacao-nao-tem-custo",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/GroupFlat_-_Venom_Free.png",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/GroupFlat_-_Venom_Free.png",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15311,
+          "slug": "free5e-e-dd-quando-a-imaginacao-nao-tem-custo",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Campanhas-Covil-do-Lich.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Campanhas-Covil-do-Lich.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15055,
+          "slug": "servidores-de-discord-para-rpg-e-covil-do-lich-o-novo-lar-das-aventuras-de-mesa",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Covil-do-Lich-1200x1200.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Covil-do-Lich.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15055,
+          "slug": "servidores-de-discord-para-rpg-e-covil-do-lich-o-novo-lar-das-aventuras-de-mesa",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/exemplo-de-campanha.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/exemplo-de-campanha.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15055,
+          "slug": "servidores-de-discord-para-rpg-e-covil-do-lich-o-novo-lar-das-aventuras-de-mesa",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Phantasmal-Force-Forca-Espectral.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Phantasmal-Force-Forca-Espectral.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 15011,
+          "slug": "dnd-2024-como-funciona-phantasmal-force-forca-espectral",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/censura-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/censura-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14984,
+          "slug": "rpg-sob-ataque-texas-e-brasil-na-mira-da-censura",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/sigil-project.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/sigil-project.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14973,
+          "slug": "o-colapso-do-sigil-como-a-wotc-enterrou-seu-proprio-vtt",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/mestre-profissional.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/mestre-profissional.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14948,
+          "slug": "o-fim-do-rpg-gratuito-a-verdade-sobre-as-mesas-pagas",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/04/mesas-remuneradas.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/04/mesas-remuneradas.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14948,
+          "slug": "o-fim-do-rpg-gratuito-a-verdade-sobre-as-mesas-pagas",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/grimwild-splash.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/grimwild-splash.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14900,
+          "slug": "grimwild-versao-gratuita-do-rpg-de-aventura-cinematica",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/grimwild-capa-free.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/grimwild-capa-free.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14900,
+          "slug": "grimwild-versao-gratuita-do-rpg-de-aventura-cinematica",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Como-Jogar-RPG-de-Mesa-Guia-Completo-Para-Iniciantes-Regras-Dicas-e-Primeira-Sessao-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Como-Jogar-RPG-de-Mesa-Guia-Completo-Para-Iniciantes-Regras-Dicas-e-Primeira-Sessao-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14877,
+          "slug": "como-jogar-rpg-de-mesa-guia-completo-para-iniciantes",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/guia-de-rpg-2-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/guia-de-rpg-2-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14877,
+          "slug": "como-jogar-rpg-de-mesa-guia-completo-para-iniciantes",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/guia-de-rpg-3-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/guia-de-rpg-3-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14877,
+          "slug": "como-jogar-rpg-de-mesa-guia-completo-para-iniciantes",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-6.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-6.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14855,
+          "slug": "financiamento-coletivo-de-achtung-cthulhu",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-5.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-5.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14855,
+          "slug": "financiamento-coletivo-de-achtung-cthulhu",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-4.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-4.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14855,
+          "slug": "financiamento-coletivo-de-achtung-cthulhu",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-3.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-3.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14855,
+          "slug": "financiamento-coletivo-de-achtung-cthulhu",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-2.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-2.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14855,
+          "slug": "financiamento-coletivo-de-achtung-cthulhu",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-8.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-8.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14855,
+          "slug": "financiamento-coletivo-de-achtung-cthulhu",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14855,
+          "slug": "financiamento-coletivo-de-achtung-cthulhu",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-7.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Achtung-Cthulhu-7.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14855,
+          "slug": "financiamento-coletivo-de-achtung-cthulhu",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/sddefault-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/sddefault-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14788,
+          "slug": "ronin-chega-ao-brasil-pela-tria-editora",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/santo_da_espada.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/santo_da_espada.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14788,
+          "slug": "ronin-chega-ao-brasil-pela-tria-editora",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/samurai-1105x1200.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/samurai.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14788,
+          "slug": "ronin-chega-ao-brasil-pela-tria-editora",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 200,
+      "originalOk": true
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/samurai-olhos-azuis.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/samurai-olhos-azuis.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14788,
+          "slug": "ronin-chega-ao-brasil-pela-tria-editora",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/ronin-core-tablet-lado.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/ronin-core-tablet-lado.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14788,
+          "slug": "ronin-chega-ao-brasil-pela-tria-editora",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/diagramacao.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/diagramacao.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14788,
+          "slug": "ronin-chega-ao-brasil-pela-tria-editora",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/historias-na-umbanda-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/historias-na-umbanda-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14717,
+          "slug": "financiamento-coletivo-historias-na-umbanda-rpg",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/historias-na-umbanda-rpg-fastplay.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/historias-na-umbanda-rpg-fastplay.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14717,
+          "slug": "financiamento-coletivo-historias-na-umbanda-rpg",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/NeoGhaluni-Remaster.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/NeoGhaluni-Remaster.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14699,
+          "slug": "neoghaluni-remaster-esta-gratuito-e-ha-algo-grande",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/lampiao-studio.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/lampiao-studio.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14699,
+          "slug": "neoghaluni-remaster-esta-gratuito-e-ha-algo-grande",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/NeoGhaluni-Remaster-testes-.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/NeoGhaluni-Remaster-testes-.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14699,
+          "slug": "neoghaluni-remaster-esta-gratuito-e-ha-algo-grande",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/ChrisCocks_Hasbro.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/ChrisCocks_Hasbro.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14682,
+          "slug": "hasbro-e-dnd-surto-de-ia-e-monetizacao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://knightedgemedia.com/wp-content/uploads/2024/11/hasbro-transformers-gijoe-power-rangers-banner.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://knightedgemedia.com/wp-content/uploads/2024/11/hasbro-transformers-gijoe-power-rangers-banner.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14682,
+          "slug": "hasbro-e-dnd-surto-de-ia-e-monetizacao",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/banner-tipos-de-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/banner-tipos-de-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14660,
+          "slug": "tipos-de-rpg-de-mesa-as-tres-formas-de-jogar",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/mesa-presencial-2.webp?_t=1741364008",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/mesa-presencial-2.webp?_t=1741364008",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14660,
+          "slug": "tipos-de-rpg-de-mesa-as-tres-formas-de-jogar",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/foundry_demo-2.webp?_t=1741364029",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/foundry_demo-2.webp?_t=1741364029",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14660,
+          "slug": "tipos-de-rpg-de-mesa-as-tres-formas-de-jogar",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Exemplo-covil-do-lich-1200x635.webp?_t=1741364045",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Exemplo-covil-do-lich.webp?_t=1741364045",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14660,
+          "slug": "tipos-de-rpg-de-mesa-as-tres-formas-de-jogar",
+          "field": "content"
+        }
+      ],
+      "originalStatus": 404,
+      "originalOk": false
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/larp-exemplo-1.webp?_t=1741364081",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/larp-exemplo-1.webp?_t=1741364081",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14660,
+          "slug": "tipos-de-rpg-de-mesa-as-tres-formas-de-jogar",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/foco-arcano.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/foco-arcano.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14481,
+          "slug": "dnd-2024-guia-completo-de-foco-arcano-e-de-conjuracao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/cetro.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/cetro.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14481,
+          "slug": "dnd-2024-guia-completo-de-foco-arcano-e-de-conjuracao",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/foco-druidico.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/foco-druidico.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14481,
+          "slug": "dnd-2024-guia-completo-de-foco-arcano-e-de-conjuracao",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/Capa-Guardioes-do-Limbo.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/Capa-Guardioes-do-Limbo.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14296,
+          "slug": "financiamento-coletivo-nacional-guardioes-do-limbo",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/metas-guardioes-do-limbo.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/metas-guardioes-do-limbo.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14296,
+          "slug": "financiamento-coletivo-nacional-guardioes-do-limbo",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/banner-d20-culture.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/banner-d20-culture.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14259,
+          "slug": "d20-culture-revela-seu-proprio-sistema-de-rpg-nacional",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/capa-do-artigo.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/capa-do-artigo.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14218,
+          "slug": "download-gratuito-do-pdf-unearthed-arcana-eberron-updates-em-portugues",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/UA-Versao-Brasileira-Ilustrada.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/UA-Versao-Brasileira-Ilustrada.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14218,
+          "slug": "download-gratuito-do-pdf-unearthed-arcana-eberron-updates-em-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/artificer-cartografo.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/artificer-cartografo.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14218,
+          "slug": "download-gratuito-do-pdf-unearthed-arcana-eberron-updates-em-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/dnd-artificer-cartographer-subclass-5.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/dnd-artificer-cartographer-subclass-5.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14218,
+          "slug": "download-gratuito-do-pdf-unearthed-arcana-eberron-updates-em-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/pixelcut-export.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/pixelcut-export.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14203,
+          "slug": "desabafo-do-pior-tradutor-do-mundo",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/banner-Personagens-Missoes.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/banner-Personagens-Missoes.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14161,
+          "slug": "dnd-5e-lancamento-de-personagens-e-missoes-pela-excelsior",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/capa-Personagens-Missoes.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/capa-Personagens-Missoes.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14161,
+          "slug": "dnd-5e-lancamento-de-personagens-e-missoes-pela-excelsior",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/capa-invencible.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/capa-invencible.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14088,
+          "slug": "invencible-free-league-anuncia-rpg-da-animacao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/videoframe_44648.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/videoframe_44648.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14088,
+          "slug": "invencible-free-league-anuncia-rpg-da-animacao",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/videoframe_23018.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/videoframe_23018.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14088,
+          "slug": "invencible-free-league-anuncia-rpg-da-animacao",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Invincible-RPG-Cover-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Invincible-RPG-Cover-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 14088,
+          "slug": "invencible-free-league-anuncia-rpg-da-animacao",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/hasbro-banner.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/hasbro-banner.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13998,
+          "slug": "hasbro-magic-e-dd-em-crise-queda-nas-vendas-e-lancamento-em-2025",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/magic_o_senhor_dos_aneis.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/magic_o_senhor_dos_aneis.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13998,
+          "slug": "hasbro-magic-e-dd-em-crise-queda-nas-vendas-e-lancamento-em-2025",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/magic-final-fantasy.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/magic-final-fantasy.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13998,
+          "slug": "hasbro-magic-e-dd-em-crise-queda-nas-vendas-e-lancamento-em-2025",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/homem-aranha-magic-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/homem-aranha-magic-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13998,
+          "slug": "hasbro-magic-e-dd-em-crise-queda-nas-vendas-e-lancamento-em-2025",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Dragon-Delves.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Dragon-Delves.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13998,
+          "slug": "hasbro-magic-e-dd-em-crise-queda-nas-vendas-e-lancamento-em-2025",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Nomad-Kithkin_Tonal-plate-Jesper-Ejsing.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Nomad-Kithkin_Tonal-plate-Jesper-Ejsing.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13998,
+          "slug": "hasbro-magic-e-dd-em-crise-queda-nas-vendas-e-lancamento-em-2025",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/paladinos-2024.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/paladinos-2024.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13923,
+          "slug": "como-interpretar-um-paladino-em-dd-sem-ser-chato-dicas-e-exemplos",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Planestriders-Journal-for-Level-Up-A5E-and-DD-5E-project-video-thumbnail.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Planestriders-Journal-for-Level-Up-A5E-and-DD-5E-project-video-thumbnail.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13815,
+          "slug": "dnd-5e-planestriders-journal-ate-que-enfim-lancaram",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Planestriders-Journal-racas.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Planestriders-Journal-racas.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13815,
+          "slug": "dnd-5e-planestriders-journal-ate-que-enfim-lancaram",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Planestriders-Journal-portais.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Planestriders-Journal-portais.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13815,
+          "slug": "dnd-5e-planestriders-journal-ate-que-enfim-lancaram",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Planestriders-Journal-cristais.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Planestriders-Journal-cristais.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13815,
+          "slug": "dnd-5e-planestriders-journal-ate-que-enfim-lancaram",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/imagens-aranhas-2-Planestriders-Journal.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/imagens-aranhas-2-Planestriders-Journal.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13815,
+          "slug": "dnd-5e-planestriders-journal-ate-que-enfim-lancaram",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Planestriders-Journal-paginas.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Planestriders-Journal-paginas.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13815,
+          "slug": "dnd-5e-planestriders-journal-ate-que-enfim-lancaram",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/shadowdark-brasileiro.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/shadowdark-brasileiro.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13779,
+          "slug": "financiamento-shadowdark-rpg-um-marco-ou-mais-do-mesmo",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/shadowdark-2.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/shadowdark-2.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13779,
+          "slug": "financiamento-shadowdark-rpg-um-marco-ou-mais-do-mesmo",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/novo-ranger.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/novo-ranger.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13760,
+          "slug": "guardiao-no-dd-5-5e-principais-diferencas-entre-o-velho",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/altaris-rpg-2.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/altaris-rpg-2.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13493,
+          "slug": "financiamento-de-altaris-rpg-2-o-que-esperar",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/altaris-2-livros.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/altaris-2-livros.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13493,
+          "slug": "financiamento-de-altaris-rpg-2-o-que-esperar",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/videoframe_7175699.png",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/videoframe_7175699.png",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13394,
+          "slug": "livro-dos-monstros-de-dd-2024-melhorias-problemas-por-mike-she",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/DD-Nova-Capa-do-Manual-dos-Monstros-2024-e-Anunciada-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/DD-Nova-Capa-do-Manual-dos-Monstros-2024-e-Anunciada-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13394,
+          "slug": "livro-dos-monstros-de-dd-2024-melhorias-problemas-por-mike-she",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/IMG_20200323_172423285.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/IMG_20200323_172423285.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13394,
+          "slug": "livro-dos-monstros-de-dd-2024-melhorias-problemas-por-mike-she",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Shawn-Levy-Dungeons-Dragons-and-Drew-Crevello.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Shawn-Levy-Dungeons-Dragons-and-Drew-Crevello.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13314,
+          "slug": "serie-de-dungeons-dragons-na-netflix-o-que-sabemos-ate-agora",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/dungeons-dragons-pine-smith-lillis-rodriguez.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/dungeons-dragons-pine-smith-lillis-rodriguez.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13314,
+          "slug": "serie-de-dungeons-dragons-na-netflix-o-que-sabemos-ate-agora",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/capa-sobre-disclaimers.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/capa-sobre-disclaimers.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13242,
+          "slug": "dd-entra-em-uma-nova-era-e-o-humor-foi-a-primeira-vitima",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/capa-a-arte-da-guerra-odyssey.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/capa-a-arte-da-guerra-odyssey.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13195,
+          "slug": "arte-da-guerra-nova-era-um-novo-horizonte-para-o-savage-worlds-no-brasil",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/arte-da-guerra-guia-inicial-v22.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/arte-da-guerra-guia-inicial-v22.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13195,
+          "slug": "arte-da-guerra-nova-era-um-novo-horizonte-para-o-savage-worlds-no-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/arte-da-guerra-guia-inicial-v2.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/arte-da-guerra-guia-inicial-v2.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13195,
+          "slug": "arte-da-guerra-nova-era-um-novo-horizonte-para-o-savage-worlds-no-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/hqdefault.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/hqdefault.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13195,
+          "slug": "arte-da-guerra-nova-era-um-novo-horizonte-para-o-savage-worlds-no-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/metas-a-arte-da-uerra-scaled.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/metas-a-arte-da-uerra-scaled.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 13195,
+          "slug": "arte-da-guerra-nova-era-um-novo-horizonte-para-o-savage-worlds-no-brasil",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Banner-Daggerheart.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Banner-Daggerheart.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12647,
+          "slug": "critical-role-daggerheart-data-de-lancamento-e-o-divorcio-com-dd",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Ficha-Daggerheart.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Ficha-Daggerheart.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12647,
+          "slug": "critical-role-daggerheart-data-de-lancamento-e-o-divorcio-com-dd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Daggerheart-Core-Set.avif",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Daggerheart-Core-Set.avif",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12647,
+          "slug": "critical-role-daggerheart-data-de-lancamento-e-o-divorcio-com-dd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Daggerheart-Expanded-Set.avif",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Daggerheart-Expanded-Set.avif",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12647,
+          "slug": "critical-role-daggerheart-data-de-lancamento-e-o-divorcio-com-dd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Critical-Role-Capa.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Critical-Role-Capa.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12647,
+          "slug": "critical-role-daggerheart-data-de-lancamento-e-o-divorcio-com-dd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Matt-Mercer-Behind-DM-Screen.avif",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Matt-Mercer-Behind-DM-Screen.avif",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12647,
+          "slug": "critical-role-daggerheart-data-de-lancamento-e-o-divorcio-com-dd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Vox-Machine-Personagens.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Vox-Machine-Personagens.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12647,
+          "slug": "critical-role-daggerheart-data-de-lancamento-e-o-divorcio-com-dd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/elenco-critical-role.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/elenco-critical-role.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12647,
+          "slug": "critical-role-daggerheart-data-de-lancamento-e-o-divorcio-com-dd",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/dados-rpg-abertura.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/dados-rpg-abertura.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12611,
+          "slug": "o-que-e-rpg-de-mesa-historia-no-brasil-e-beneficios",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/big-bang-theory-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/big-bang-theory-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12611,
+          "slug": "o-que-e-rpg-de-mesa-historia-no-brasil-e-beneficios",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/critical-role-terry-crews-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/critical-role-terry-crews-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12611,
+          "slug": "o-que-e-rpg-de-mesa-historia-no-brasil-e-beneficios",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/stranger-things-rpg.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/stranger-things-rpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12611,
+          "slug": "o-que-e-rpg-de-mesa-historia-no-brasil-e-beneficios",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/RPG-criancas-jogando.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/RPG-criancas-jogando.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12611,
+          "slug": "o-que-e-rpg-de-mesa-historia-no-brasil-e-beneficios",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/HeadingRALEIGHandOda.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/HeadingRALEIGHandOda.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12119,
+          "slug": "analise-financiamento-de-lancer-pela-tria-editora-e-o-que-esperar",
+          "field": "featured"
+        },
+        {
+          "kind": "post",
+          "id": 12119,
+          "slug": "analise-financiamento-de-lancer-pela-tria-editora-e-o-que-esperar",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/ldr-ep4-protecao-contra-alienigenas.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/ldr-ep4-protecao-contra-alienigenas.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12119,
+          "slug": "analise-financiamento-de-lancer-pela-tria-editora-e-o-que-esperar",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Cosimo_Meeting.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Cosimo_Meeting.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12119,
+          "slug": "analise-financiamento-de-lancer-pela-tria-editora-e-o-que-esperar",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/lancer-core-tablet-lado.png",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/lancer-core-tablet-lado.png",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12119,
+          "slug": "analise-financiamento-de-lancer-pela-tria-editora-e-o-que-esperar",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/e8d6c71c-e945-4f2c-887a-7437b37755bd.png",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/e8d6c71c-e945-4f2c-887a-7437b37755bd.png",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12119,
+          "slug": "analise-financiamento-de-lancer-pela-tria-editora-e-o-que-esperar",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Ladino-Unearthed-Arcana-2025.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Ladino-Unearthed-Arcana-2025.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 12358,
+          "slug": "opiniao-dnd-ua-2025-como-concertar-o-ladino-adepto-da-trindade",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/mikemearls3.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/mikemearls3.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 11695,
+          "slug": "artigo-para-o-criador-da-5o-edicao-dd-esta-em-declinio",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/orcs-dnd-2024.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/orcs-dnd-2024.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 11482,
+          "slug": "dd-2024-orcs-monstros-ou-personagens",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/Banner-Tormenta-A-Libertacao-de-Valkaria.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/Banner-Tormenta-A-Libertacao-de-Valkaria.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 11255,
+          "slug": "tormenta-20-a-libertacao-de-valkaria-o-que-esperar",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/01/mtg-lorehold-apprentice-art-1200x640-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/01/mtg-lorehold-apprentice-art-1200x640-1.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 11227,
+          "slug": "unearthed-arcana-2025-o-clerigo-do-conhecimento-funcionou",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/01/todas-as-aventuras.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/01/todas-as-aventuras.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 11123,
+          "slug": "guia-de-todas-as-aventuras-oficiais-de-dd-5e",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/01/hopefinder_capas.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/01/hopefinder_capas.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 11098,
+          "slug": "hopefinder-do-que-se-trata-o-financimanento-da-tria-editora",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/01/Jason-Bulmahn-1024x577.jpg.webp",
+      "status": 404,
+      "method": "GET",
+      "ok": false,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/01/Jason-Bulmahn-1024x577.jpg.webp",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 11098,
+          "slug": "hopefinder-do-que-se-trata-o-financimanento-da-tria-editora",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/01/Unearthed_Arcana_Guide_Dungeons_and_Dragons_5e_1280x500_crop_center.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/01/Unearthed_Arcana_Guide_Dungeons_and_Dragons_5e_1280x500_crop_center.jpg",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 11078,
+          "slug": "ua-2025-subclasses-de-forgotten-realms-em-portugues-e-opiniao",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/01/Logo-PNG-Negativo-2.png",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/01/Logo-PNG-Negativo-2.png",
+      "sources": [
+        {
+          "kind": "post",
+          "id": 10420,
+          "slug": "toca-do-coruja-agora-e-artificio-rpg",
+          "field": "featured"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/coyote-crow-banner-cahokia.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/coyote-crow-banner-cahokia.webp",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 17851,
+          "slug": "coyote-e-crow-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/coyote-e-crow-simbolo-dualidade.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/coyote-e-crow-simbolo-dualidade.webp",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 17851,
+          "slug": "coyote-e-crow-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/Connor-Alexander-—-Criador-de-Coyote-Crow.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/Connor-Alexander-%E2%80%94-Criador-de-Coyote-Crow.webp",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 17851,
+          "slug": "coyote-e-crow-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/Dois-Caminhos-Uma-Jornada-Explorando-Makasing.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/Dois-Caminhos-Uma-Jornada-Explorando-Makasing.webp",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 17851,
+          "slug": "coyote-e-crow-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/Um-Dia-Bonito-em-Makasing-—-Cultura-Viva-e-Futuro-Indigena.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/Um-Dia-Bonito-em-Makasing-%E2%80%94-Cultura-Viva-e-Futuro-Indigena.webp",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 17851,
+          "slug": "coyote-e-crow-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/Porto-de-Siahl-—-Um-Futuro-Fluido-e-Ancestral.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/Porto-de-Siahl-%E2%80%94-Um-Futuro-Fluido-e-Ancestral.webp",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 17851,
+          "slug": "coyote-e-crow-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/07/coyote-crow-aholi-digital.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/07/coyote-crow-aholi-digital.webp",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 17851,
+          "slug": "coyote-e-crow-portugues",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/banner-capa-principal.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/banner-capa-principal.webp",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 17186,
+          "slug": "media-kit",
+          "field": "content"
+        },
+        {
+          "kind": "page",
+          "id": 339,
+          "slug": "contato",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/cap-grupos-do-whatsapp-1-768x238.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/cap-grupos-do-whatsapp-1.webp",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 14544,
+          "slug": "grupos-de-whatsapp-de-rpg-de-mesa",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/cap-grupos-do-whatsapp-1.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/cap-grupos-do-whatsapp-1.webp",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 14544,
+          "slug": "grupos-de-whatsapp-de-rpg-de-mesa",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/03/regras-de-convivencia.webp",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/03/regras-de-convivencia.webp",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 14544,
+          "slug": "grupos-de-whatsapp-de-rpg-de-mesa",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/02/5th-srd-logo-red.png",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": false,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/02/5th-srd-logo-red.png",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 12541,
+          "slug": "material-online",
+          "field": "content"
+        }
+      ]
+    },
+    {
+      "url": "https://artificiorpg.com/wp-content/uploads/2025/01/Banner-Geral-1200x630.jpg",
+      "status": 200,
+      "method": "HEAD",
+      "ok": true,
+      "isDerivado": true,
+      "urlOriginal": "https://artificiorpg.com/wp-content/uploads/2025/01/Banner-Geral.jpg",
+      "sources": [
+        {
+          "kind": "page",
+          "id": 320,
+          "slug": "sobre-nos",
+          "field": "content"
+        }
+      ]
+    }
+  ]
+}

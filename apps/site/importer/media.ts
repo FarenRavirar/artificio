@@ -7,6 +7,23 @@ import type { Db } from "../db/connection.js";
 
 let configured = false;
 
+export interface MediaFailure {
+  wpUrl: string;
+  motivo: string;
+}
+
+export interface MediaReport {
+  migrated: number;
+  failures: MediaFailure[];
+}
+
+const mediaReport: MediaReport = {
+  migrated: 0,
+  failures: [],
+};
+
+let uploadImpl: ((wpUrl: string) => Promise<string>) | null = null;
+
 export function cloudinaryEnabled(): boolean {
   return Boolean(process.env.CLOUDINARY_URL || process.env.CLOUDINARY_CLOUD_NAME);
 }
@@ -17,6 +34,22 @@ export function cloudinaryEnabled(): boolean {
 // pro Cloudinary normalmente. Evita estourar o healthcheck subindo ~485 mídias no boot.
 export function mediaMigrationEnabled(): boolean {
   return cloudinaryEnabled() && process.env.SITE_MIGRATE_MEDIA === "true";
+}
+
+export function resetMediaReport(): void {
+  mediaReport.migrated = 0;
+  mediaReport.failures = [];
+}
+
+export function getMediaReport(): MediaReport {
+  return {
+    migrated: mediaReport.migrated,
+    failures: [...mediaReport.failures],
+  };
+}
+
+export function __setUploadForTest(upload: ((wpUrl: string) => Promise<string>) | null): void {
+  uploadImpl = upload;
 }
 
 function ensureConfig(): void {
@@ -65,7 +98,18 @@ export function publicIdFor(wpUrl: string): string {
   }
 }
 
+export function stripSizeSuffix(wpUrl: string): string {
+  try {
+    const url = new URL(wpUrl);
+    url.pathname = url.pathname.replace(/-\d+x\d+(\.[a-z0-9]+)$/i, "$1");
+    return url.toString();
+  } catch {
+    return wpUrl.replace(/-\d+x\d+(\.[a-z0-9]+)(\?.*)?$/i, "$1$2");
+  }
+}
+
 async function uploadToCloudinary(wpUrl: string): Promise<string> {
+  if (uploadImpl) return uploadImpl(wpUrl);
   ensureConfig();
   const res = await cloudinary.uploader.upload(wpUrl, {
     public_id: publicIdFor(wpUrl),
@@ -73,6 +117,39 @@ async function uploadToCloudinary(wpUrl: string): Promise<string> {
     resource_type: "image",
   });
   return res.secure_url;
+}
+
+function failureReason(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+async function uploadWithFallback(wpUrl: string): Promise<string> {
+  try {
+    const url = await uploadToCloudinary(wpUrl);
+    mediaReport.migrated += 1;
+    return url;
+  } catch (firstError) {
+    const originalUrl = stripSizeSuffix(wpUrl);
+    if (originalUrl !== wpUrl) {
+      try {
+        const url = await uploadToCloudinary(originalUrl);
+        mediaReport.migrated += 1;
+        return url;
+      } catch (secondError) {
+        mediaReport.failures.push({
+          wpUrl,
+          motivo: `upload falhou; fallback original tambem falhou: ${failureReason(secondError)}`,
+        });
+        return wpUrl;
+      }
+    }
+    mediaReport.failures.push({
+      wpUrl,
+      motivo: `upload falhou: ${failureReason(firstError)}`,
+    });
+    return wpUrl;
+  }
 }
 
 /** Resolve uma URL WP -> Cloudinary (com cache media_map). Dry-run devolve a própria URL WP. */
@@ -84,7 +161,8 @@ export async function resolveMediaUrl(db: Db, wpUrl: string): Promise<string> {
   )).rows[0];
   if (cached) return cached.cloudinary_url;
   if (!mediaMigrationEnabled()) return wpUrl; // dry-run (default): mantém URL WP, boot rápido
-  const url = await uploadToCloudinary(wpUrl);
+  const url = await uploadWithFallback(wpUrl);
+  if (url === wpUrl) return wpUrl;
   await db.query(
     "INSERT INTO media_map (wp_url, cloudinary_url) VALUES ($1,$2) ON CONFLICT (wp_url) DO UPDATE SET cloudinary_url=EXCLUDED.cloudinary_url",
     [wpUrl, url],
