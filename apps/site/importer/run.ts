@@ -59,13 +59,28 @@ async function main() {
   }
   const db = await getDb();
   let exitReason = "";
-  // finalizing = migração real (SITE_MIGRATE_MEDIA=true + Cloudinary). Só aí removemos asset WP do
-  // HTML e zeramos featured/OG (D074). Dry-run (boot normal) preserva URLs WP, senão o import-on-start
-  // de um deploy comum sobrescreveria o store com posts sem imagem/áudio/PDF.
+  // finalizing = migração real em curso (SITE_MIGRATE_MEDIA=true + Cloudinary): faz upload.
   const finalizing = mediaMigrationEnabled();
+  const wpLike = "%wp-content/uploads%";
   try {
     resetMediaReport();
-    console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — mídia=${finalizing ? "Cloudinary (upload)" : "DRY-RUN (URLs WP)"}`);
+
+    // pruneMode decide se removemos asset WP do HTML e zeramos featured/OG (D074). É ligado quando:
+    //  (a) finalizing (migração real), OU
+    //  (b) o store JÁ está finalizado (media_map populado + zero residual WP servido). Sem (b), um
+    //      boot dry-run posterior (import-on-start default true, WP ainda vivo pré-EOL) re-importaria
+    //      HTML cru e desfaria o prune, republicando links wp-content mortos.
+    // Pré-migração (media_map vazio) pruneMode fica FALSO: dry-run preserva URLs WP vivas — senão um
+    // deploy comum zeraria mídia do store antes da migração.
+    const priorResidual = Number((await db.query<{ n: string }>(
+      `SELECT (SELECT count(*) FROM posts WHERE content_html LIKE $1 OR featured_url LIKE $1 OR og_image LIKE $1 OR coalesce(seo_description,'') LIKE $1)
+            + (SELECT count(*) FROM pages WHERE content_html LIKE $1 OR coalesce(seo_description,'') LIKE $1) AS n`,
+      [wpLike],
+    )).rows[0].n);
+    const mmapCount = Number((await db.query<{ n: string }>("SELECT count(*) n FROM media_map")).rows[0].n);
+    const finalizedStore = mmapCount > 0 && priorResidual === 0;
+    const pruneMode = finalizing || finalizedStore;
+    console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — mídia=${finalizing ? "Cloudinary (upload)" : "DRY-RUN (URLs WP)"} — pruneMode=${pruneMode} (finalizing=${finalizing} finalizedStore=${finalizedStore} mmap=${mmapCount} priorResidual=${priorResidual})`);
 
     // 1) Taxonomias (categorias + tags). 2 passes p/ parent_id (forward refs).
     const cats = await fetchAll<WpCat>("categories");
@@ -105,11 +120,11 @@ async function main() {
       db,
       [wpFeatured, wpOg, ...extractImageUrls(rawHtml), ...extractMediaUrls(rawHtml)].filter((u): u is string => Boolean(u)),
     );
-    // Política D074 (só na finalização): asset não migrado é removido do HTML; dry-run preserva.
+    // Política D074 (só em pruneMode): asset não migrado é removido do HTML; dry-run pré-migração preserva.
     const rewritten = rewriteUrls(rawHtml, mmap);
-    const { html: contentHtml, removed } = finalizing ? pruneWpAssets(rewritten) : { html: rewritten, removed: [] as string[] };
+    const { html: contentHtml, removed } = pruneMode ? pruneWpAssets(rewritten) : { html: rewritten, removed: [] as string[] };
     if (removed.length) recordPruned(removed);
-    const featuredUrl = cleanMapped(wpFeatured, mmap, finalizing);
+    const featuredUrl = cleanMapped(wpFeatured, mmap, pruneMode);
     if (media?.source_url) {
       const cloud = mmap.get(media.source_url);
       await db.query(
@@ -118,7 +133,7 @@ async function main() {
         [media.id, media.source_url, cloud && cloud !== media.source_url ? cloud : null, media.alt_text ?? null, media.media_details?.width ?? null, media.media_details?.height ?? null, media.mime_type ?? null],
       );
     }
-    const ogImage = cleanMapped(wpOg, mmap, finalizing) ?? featuredUrl;
+    const ogImage = cleanMapped(wpOg, mmap, pruneMode) ?? featuredUrl;
     await db.query(
       `INSERT INTO posts (id, slug, title, excerpt, content_html, toc, status, published_at, updated_at, reading_time, featured_url, seo_title, seo_description, canonical, og_image)
        VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15)
@@ -171,7 +186,7 @@ async function main() {
     const cleaned = sanitize(pg.content.rendered);
     const pmap = await buildMediaMap(db, [...extractImageUrls(cleaned), ...extractMediaUrls(cleaned)]);
     const rewrittenPg = rewriteUrls(cleaned, pmap);
-    const { html: contentHtml, removed } = finalizing ? pruneWpAssets(rewrittenPg) : { html: rewrittenPg, removed: [] as string[] };
+    const { html: contentHtml, removed } = pruneMode ? pruneWpAssets(rewrittenPg) : { html: rewrittenPg, removed: [] as string[] };
     if (removed.length) recordPruned(removed);
     await db.query(
       `INSERT INTO pages (id, slug, title, content_html, status, updated_at, seo_description)
@@ -199,9 +214,8 @@ async function main() {
     }
 
     // Verificação residual-zero (D074): nenhuma coluna SERVIDA pode conter wp-content/uploads.
-    // Em dry-run isso é esperado (>0) e NÃO falha; só falha na finalização — set -e do entrypoint
-    // então aborta o rebuild, impedindo publicar HTML com URL WP.
-    const wpLike = "%wp-content/uploads%";
+    // Em dry-run pré-migração (pruneMode=false) residual>0 é esperado e NÃO falha; em pruneMode
+    // residual>0 falha — set -e do entrypoint aborta o rebuild, impedindo publicar HTML com URL WP.
     const residualPosts = (await db.query<{ n: string }>(
       "SELECT count(*) n FROM posts WHERE content_html LIKE $1 OR featured_url LIKE $1 OR og_image LIKE $1 OR coalesce(seo_description,'') LIKE $1",
       [wpLike],
@@ -212,10 +226,10 @@ async function main() {
     )).rows[0].n;
     const residualTotal = Number(residualPosts) + Number(residualPages);
     console.log("=== RESIDUAL WP (servido) ===");
-    console.log(`posts=${residualPosts} pages=${residualPages} ${residualTotal === 0 ? "✓ ZERO" : finalizing ? "⚠ RESIDUAL (falha)" : "⚠ RESIDUAL (dry-run, ok)"}`);
+    console.log(`posts=${residualPosts} pages=${residualPages} ${residualTotal === 0 ? "✓ ZERO" : pruneMode ? "⚠ RESIDUAL (falha)" : "⚠ RESIDUAL (dry-run pré-migração, ok)"}`);
     console.log("media_map.wp_url / media.wp_url são chaves de idempotência (não servidas), fora deste critério.");
     console.log("=============================\n");
-    if (finalizing && residualTotal > 0 && !exitReason) {
+    if (pruneMode && residualTotal > 0 && !exitReason) {
       exitReason = `residual WP servido > 0 (posts=${residualPosts} pages=${residualPages}); D074 exige zero`;
     }
 

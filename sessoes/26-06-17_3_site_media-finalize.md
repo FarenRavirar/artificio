@@ -88,7 +88,30 @@ PR #52 (branch `fix/site-media-dryrun-guard`):
 Validacoes: `test` 17/17, `build` verde, `tsc` importer 0 erros. Sem teste unitario para o gating do
 `run.ts` (script com main()/db, sem scaffold); coberto por revisao + pruneWpAssets/cleanMapped testados.
 
+## Gate B fechado + review PR #52 -> PR #53
+
+Gate B (deploy beta) verde: run `27715665207` exit=0, beta head `5f6bbeb`, containers healthy,
+HTTP home/post/page 200, healthz posts=125. Prova do fix #52: boot rodou import dry-run e NAO apagou
+midia (store posts_wp=38 preservado, featured_wp=0, media_map=357 intacto).
+
+CodeRabbit apontou 3o bug real no PR #52: apos a finalizacao, um boot dry-run posterior
+(`SITE_IMPORT_ON_START` default true, WP ainda vivo pre-EOL) re-importa HTML cru do WP e DESFAZ o
+prune, republicando links wp-content mortos (gate `finalizing=false` pulava o prune).
+
+Fix em PR #53 (branch `fix/site-media-finalized-state`): pruneMode auto-detecta estado finalizado.
+`pruneMode = finalizing || finalizedStore`, onde `finalizedStore = media_map>0 AND residual servido
+stored == 0` (snapshot pre-loop). Assim:
+- pre-migracao (media_map vazio): pruneMode falso, dry-run preserva URLs WP vivas (sem regressao #52);
+- pos-finalizacao: dry-run re-detecta finalizado, segue podando os mortos e mantendo Cloudinary do
+  media_map -> store permanece zero, idempotente, sem clobber;
+- residual-fail tambem passa a valer em pruneMode (nao so finalizing).
+Sem env nova, sem migration. `finalizing` ainda controla upload + check migrated==0.
+
+Validacoes: test 17/17, build verde, tsc importer 0 erros.
+
 ## Proximo
 
-Apos PR #52 verde+merge: Gates B (deploy beta), C (backup pg_dump), D (re-import controlado),
-E (smoke + residual-zero), F (registro/fechamento) — cada um com aprovacao nominal separada.
+Apos PR #53 verde+merge: re-deploy beta (Gate B') p/ subir o pruneMode, depois Gates C (backup pg_dump),
+D (re-import real SITE_MIGRATE_MEDIA=true), E (smoke + residual-zero), F (registro/fechamento) — cada um
+com aprovacao nominal. Operacional pos-Gate D: avaliar `SITE_IMPORT_ON_START=false` no beta apos WP EOL
+(importador descartavel, D005; store vira canonico).
