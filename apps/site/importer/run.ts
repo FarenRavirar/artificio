@@ -41,11 +41,16 @@ const iso = (s?: string): string | null => {
   return isNaN(d.getTime()) ? null : d.toISOString();
 };
 
-/** Resolve uma URL WP via media_map; se não migrou (continua WP) devolve null (D074: nada de URL WP servida). */
-const cleanMapped = (wpUrl: string | null, map: Map<string, string>): string | null => {
+/**
+ * Resolve uma URL WP via media_map. Em finalização (migração real), se não migrou (continua WP)
+ * devolve null (D074: nada de URL WP servida). Em dry-run (boot normal sem SITE_MIGRATE_MEDIA),
+ * preserva a URL WP — senão um deploy normal zeraria featured/OG do store.
+ */
+const cleanMapped = (wpUrl: string | null, map: Map<string, string>, finalizing: boolean): string | null => {
   if (!wpUrl) return null;
   const mapped = map.get(wpUrl) ?? wpUrl;
-  return /\/wp-content\/uploads\//.test(mapped) ? null : mapped;
+  if (finalizing && /\/wp-content\/uploads\//.test(mapped)) return null;
+  return mapped;
 };
 
 async function main() {
@@ -53,10 +58,14 @@ async function main() {
     throw new Error("SITE_MIGRATE_MEDIA=true exige configuracao Cloudinary presente");
   }
   const db = await getDb();
-  let exitAfterClose = false;
+  let exitReason = "";
+  // finalizing = migração real (SITE_MIGRATE_MEDIA=true + Cloudinary). Só aí removemos asset WP do
+  // HTML e zeramos featured/OG (D074). Dry-run (boot normal) preserva URLs WP, senão o import-on-start
+  // de um deploy comum sobrescreveria o store com posts sem imagem/áudio/PDF.
+  const finalizing = mediaMigrationEnabled();
   try {
     resetMediaReport();
-    console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — mídia=${mediaMigrationEnabled() ? "Cloudinary (upload)" : "DRY-RUN (URLs WP)"}`);
+    console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — mídia=${finalizing ? "Cloudinary (upload)" : "DRY-RUN (URLs WP)"}`);
 
     // 1) Taxonomias (categorias + tags). 2 passes p/ parent_id (forward refs).
     const cats = await fetchAll<WpCat>("categories");
@@ -96,10 +105,11 @@ async function main() {
       db,
       [wpFeatured, wpOg, ...extractImageUrls(rawHtml), ...extractMediaUrls(rawHtml)].filter((u): u is string => Boolean(u)),
     );
-    // Política D074: asset não migrado é removido do HTML (a URL WP morre), nunca pendurado.
-    const { html: contentHtml, removed } = pruneWpAssets(rewriteUrls(rawHtml, mmap));
+    // Política D074 (só na finalização): asset não migrado é removido do HTML; dry-run preserva.
+    const rewritten = rewriteUrls(rawHtml, mmap);
+    const { html: contentHtml, removed } = finalizing ? pruneWpAssets(rewritten) : { html: rewritten, removed: [] as string[] };
     if (removed.length) recordPruned(removed);
-    const featuredUrl = cleanMapped(wpFeatured, mmap);
+    const featuredUrl = cleanMapped(wpFeatured, mmap, finalizing);
     if (media?.source_url) {
       const cloud = mmap.get(media.source_url);
       await db.query(
@@ -108,7 +118,7 @@ async function main() {
         [media.id, media.source_url, cloud && cloud !== media.source_url ? cloud : null, media.alt_text ?? null, media.media_details?.width ?? null, media.media_details?.height ?? null, media.mime_type ?? null],
       );
     }
-    const ogImage = cleanMapped(wpOg, mmap) ?? featuredUrl;
+    const ogImage = cleanMapped(wpOg, mmap, finalizing) ?? featuredUrl;
     await db.query(
       `INSERT INTO posts (id, slug, title, excerpt, content_html, toc, status, published_at, updated_at, reading_time, featured_url, seo_title, seo_description, canonical, og_image)
        VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15)
@@ -160,7 +170,8 @@ async function main() {
     if (!PAGES_ALLOW.has(pg.slug)) continue;
     const cleaned = sanitize(pg.content.rendered);
     const pmap = await buildMediaMap(db, [...extractImageUrls(cleaned), ...extractMediaUrls(cleaned)]);
-    const { html: contentHtml, removed } = pruneWpAssets(rewriteUrls(cleaned, pmap));
+    const rewrittenPg = rewriteUrls(cleaned, pmap);
+    const { html: contentHtml, removed } = finalizing ? pruneWpAssets(rewrittenPg) : { html: rewrittenPg, removed: [] as string[] };
     if (removed.length) recordPruned(removed);
     await db.query(
       `INSERT INTO pages (id, slug, title, content_html, status, updated_at, seo_description)
@@ -183,9 +194,13 @@ async function main() {
       console.log(`- removida do HTML: ${url}`);
     }
     console.log("=============\n");
-    exitAfterClose = mediaMigrationEnabled() && mediaReport.migrated === 0 && mediaReport.failures.length > 0;
+    if (finalizing && mediaReport.migrated === 0 && mediaReport.failures.length > 0) {
+      exitReason = "nenhuma mídia migrou e houve falhas de mídia";
+    }
 
     // Verificação residual-zero (D074): nenhuma coluna SERVIDA pode conter wp-content/uploads.
+    // Em dry-run isso é esperado (>0) e NÃO falha; só falha na finalização — set -e do entrypoint
+    // então aborta o rebuild, impedindo publicar HTML com URL WP.
     const wpLike = "%wp-content/uploads%";
     const residualPosts = (await db.query<{ n: string }>(
       "SELECT count(*) n FROM posts WHERE content_html LIKE $1 OR featured_url LIKE $1 OR og_image LIKE $1 OR coalesce(seo_description,'') LIKE $1",
@@ -195,10 +210,14 @@ async function main() {
       "SELECT count(*) n FROM pages WHERE content_html LIKE $1 OR coalesce(seo_description,'') LIKE $1",
       [wpLike],
     )).rows[0].n;
+    const residualTotal = Number(residualPosts) + Number(residualPages);
     console.log("=== RESIDUAL WP (servido) ===");
-    console.log(`posts=${residualPosts} pages=${residualPages} ${Number(residualPosts) + Number(residualPages) === 0 ? "✓ ZERO" : "⚠ RESIDUAL"}`);
+    console.log(`posts=${residualPosts} pages=${residualPages} ${residualTotal === 0 ? "✓ ZERO" : finalizing ? "⚠ RESIDUAL (falha)" : "⚠ RESIDUAL (dry-run, ok)"}`);
     console.log("media_map.wp_url / media.wp_url são chaves de idempotência (não servidas), fora deste critério.");
     console.log("=============================\n");
+    if (finalizing && residualTotal > 0 && !exitReason) {
+      exitReason = `residual WP servido > 0 (posts=${residualPosts} pages=${residualPages}); D074 exige zero`;
+    }
 
     // 4) Relatório de paridade vs WP (R9).
     const wpPosts = await countOf("posts");
@@ -214,8 +233,8 @@ async function main() {
   } finally {
     await db.close();
   }
-  if (exitAfterClose) {
-    console.error("[import] ERRO: nenhuma mídia migrou e houve falhas de mídia");
+  if (exitReason) {
+    console.error(`[import] ERRO: ${exitReason}`);
     process.exit(1);
   }
 }
