@@ -57,7 +57,13 @@ Cada fatia = SDD Lite/Completo proprio, com pre-condicao de aprovacao, smoke e r
   · FALTA fechar PR #40: corrigir TruffleHog `version: 3.95.5` (tag sem `v`; unico check
     vermelho), esperar+validar re-revisao dos revisores externos, merge dev com aprovacao
     nominal. Debito exposto: `BL-CI-ESLINT-FLAT-CONFIG` (lint advisory ate corrigir flat config).
-- [~] F5 — **`accounts` → `_deploy-module`** (`BL-CDX-310`) — IMPLEMENTADO LOCAL (este PR).
+- [x] F5 — **`accounts` → `_deploy-module`** (`BL-CDX-310`) — FECHADO EM PROD (PR #45 merge
+  `0b4ec43`, promote `dev→main` ff, deploy prod run `27656716758` verde). Prova real: run
+  `healthy_accounts-api=true`, `smoke_health=200`/`login=200`/`me_no_cookie=401`, snapshot
+  criado; VM pos-deploy: `accounts-api` configfile agora = `/opt/artificio/apps/accounts/
+  docker-compose.prod.yml` (clone git, era tarball), `health=healthy`, project=`accounts` +
+  volume `accounts_accounts_pgdata` preservados (DB SSO intacto). Dry-run de build no clone
+  validado antes. Fix de seguranca (review): `POSTGRES_PASSWORD` sem default `admin` (`${VAR:?}`).
   Apos inspecao read-only na VM (accounts-api project=`accounts`, **NO-HEALTHCHECK**, deploy
   por tarball em `/opt/artificio/accounts`, volume `accounts_accounts_pgdata`; anchor prod
   `/opt/artificio/apps/accounts/.env` com 9 chaves SSO; **sem accountsbeta** = D042).
@@ -70,9 +76,8 @@ Cada fatia = SDD Lite/Completo proprio, com pre-condicao de aprovacao, smoke e r
   - `deploy.yml`: `accounts` no choice + guard que BLOQUEIA env=beta p/ accounts (D042).
   - `deploy-accounts.yml` DELETADO (historico preserva -> rollback = revert + re-dispatch).
   - Validacao local: YAML lint 3/3, manifest parse 4 modulos, runner no-op confirmado.
-  · Decisao do mantenedor: validar por **dry-run VM (build no clone, sem recreate) -> deploy
-    prod real** com rollback por snapshot (accounts so tem realm prod). · FALTA (aprovacao
-    nominal): commit/push/PR -> CI verde -> dry-run -> deploy prod -> smoke login/me/logout.
+  · Validado: dry-run VM (build no clone) + deploy prod (run `27656716758`) + smoke
+    `/health`/`login`/`me` verdes. Rollback = revert F5 em main + re-dispatch.
   · `BL-DEP-MESAS-LEGACY-SCRIPTS` (limpeza `apps/mesas/scripts/deploy/*`) deixado FORA deste
     PR SSO-focado (toca outro modulo + orfa refs em docs); fatia mesas separada.
 - [ ] F6 — **`accounts` `ports`→`expose`** (`BL-ACCOUNTS-PORT`). Hardening. · Pre:
@@ -97,21 +102,14 @@ Cada fatia = SDD Lite/Completo proprio, com pre-condicao de aprovacao, smoke e r
   - FECHADO: commits `06a5ded`/`a727ab2`, push dev, deploy mesas beta (run `27633842040`)
     verde. Prova real (`docker system df` na VM): build cache 20.89GB reclaimable -> **0B**,
     images 28->10GB. `BL-INFRA-CACHE-CAP-F10` fechado.
-- [x] F11 — **Eficiencia da esteira (CI cache + auto-deploy gating)** — IMPLEMENTADO LOCAL.
-  Diagnostico (runs `27635199357` mesas vs `27635198756` glossario): mesas demora porque e
-  o UNICO que auto-deploya no push (glossario/site/accounts pulam deploy = dispatch-only);
-  CI sem cache (~2m18s mesas) + deploy VM `--no-cache` (~2m08s). A F1 ainda ampliou os paths
-  -> mesas auto-deployava ate em commit de infra.
-  - CI cache (`_deploy-module.yml`): pnpm movido antes do setup-node + `cache: pnpm`
-    (pnpm store keyed por lock) + `actions/cache@v4` em `.turbo` + `--cache-dir=.turbo` em
-    build/test. Corta re-download/rebuild em TODOS os modulos.
-  - Auto-deploy gating (`deploy-mesas.yml`): novo job `detect` (git diff `apps/mesas/**`);
-    `deploy` so true em push:dev quando o app do mesas muda, ou dispatch mode=deploy. before
-    invalido -> deploya por seguranca. Mata o "dispara toda vez".
-  - Decisao do mantenedor: gating por app mesas (nao packages/infra) + cache CI agora.
-  · Validacao local: YAML ok. Falta (aprovacao): commit/push -> CI verde + provar 2 coisas:
-    (a) este push (toca `_deploy-module`/workflow, NAO apps/mesas) NAO auto-deploya mesas;
-    (b) run seguinte com cache quente cai o tempo de CI. Mapeado: `BL-INFRA-CI-EFFICIENCY-F11`.
+- [ ] F11 — **Eficiencia da esteira (CI cache)** — pendente. Verificado 2026-06-17: o cache
+  pnpm/turbo **nao esta em `origin/main`** (0 matches). Foi trabalho "local"; pode ter se
+  perdido na reescrita de historico (repo publico) — NAO e "extraviado/falso positivo", e
+  reaplicar do desenho. (SHA ausente != trabalho desfeito — ver memoria `repo-public-history-rewrite`.)
+  - CI cache (`_deploy-module.yml`): pnpm antes do setup-node + `cache: pnpm` + `actions/cache`
+    em `.turbo` + `--cache-dir=.turbo`. Reaplicar + PR.
+  - Auto-deploy gating: obsoleto — `deploy-mesas.yml` deletado no F4; `build-matrix` ja gateia por path.
+  - Mapeado: `BL-INFRA-CI-EFFICIENCY-F11`.
 - [ ] F12 — **Build em CI + GHCR + VM pull** (planejado; reconcilia F10). Hoje a VM builda
   `--no-cache --pull` (lento; cache local inutil). Alvo: GitHub Actions builda a imagem (com
   cache), push GHCR, VM so `docker compose pull` + `up`. Elimina build na VM, deploy vira
