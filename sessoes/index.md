@@ -44,3 +44,5 @@ Formato: `AA-MM-DD_N_<modulo>_<escopo>.md`. `N` = sequencial do dia. Sessões en
 | `26-06-16_10_infra_workflows-audit` | 2026-06-16 | infra/CI-CD | Spec 026: auditoria da esteira + F10 build-cache prune + governanca read-only VM | F10 deployado/provado beta (cache 20.89GB→0B); F1-F9 auditoria; `BL-INFRA-CACHE-CAP-F10` fechado |
 | `26-06-16_11_ui-copyright-usage` | 2026-06-16 | ui/site | Spec 027: página de termos de uso e direitos autorais + resumo no rodapé universal | publicado: beta site 200, UI em prod via accounts/glossario/mesas deploys; WP raiz intocado |
 | `26-06-16_12_mesas_perf-025` | 2026-06-16 | mesas/qualidade | Spec 025: BL-QA-MESAS-PERF diagnostico e quick wins pequenos | aberta |
+| `26-06-17_1_site_cloudinary-used-images` | 2026-06-17 | site/qualidade | Spec 025: BL-QA-SITE-IMAGES inventario e importador tolerante para Cloudinary | Fase A/B mergeadas em dev via PR #49; Fase C bloqueada por aprovacao nominal |
+| `26-06-17_2_site_cloudinary-real-migration` | 2026-06-17 | site/qualidade | Spec 025: BL-QA-SITE-IMAGES Fase C migracao Cloudinary real no beta | Passo 1 deploy beta verde; aguardando aprovacao nominal para import real |

@@ -3,6 +3,7 @@
 //   - ausente => dry-run: mantém URLs do WP (zero rede, zero credencial).
 // Cloudinary regenera variantes; guardamos só o secure_url do original. Idempotente via media_map.
 import { v2 as cloudinary } from "cloudinary";
+import sharp from "sharp";
 import type { Db } from "../db/connection.js";
 
 let configured = false;
@@ -25,6 +26,7 @@ const mediaReport: MediaReport = {
 const failedThisRun = new Set<string>();
 
 let uploadImpl: ((wpUrl: string) => Promise<string>) | null = null;
+let avifFallbackImpl: ((wpUrl: string) => Promise<string | null>) | null = null;
 
 export function cloudinaryEnabled(): boolean {
   return Boolean(process.env.CLOUDINARY_URL || process.env.CLOUDINARY_CLOUD_NAME);
@@ -53,6 +55,10 @@ export function getMediaReport(): MediaReport {
 
 export function __setUploadForTest(upload: ((wpUrl: string) => Promise<string>) | null): void {
   uploadImpl = upload;
+}
+
+export function __setAvifFallbackForTest(upload: ((wpUrl: string) => Promise<string | null>) | null): void {
+  avifFallbackImpl = upload;
 }
 
 function ensureConfig(): void {
@@ -122,8 +128,68 @@ async function uploadToCloudinary(wpUrl: string): Promise<string> {
   return res.secure_url;
 }
 
+function isAvifUrl(wpUrl: string): boolean {
+  try {
+    return new URL(wpUrl).pathname.toLowerCase().endsWith(".avif");
+  } catch {
+    return /\.avif(?:[?#].*)?$/i.test(wpUrl);
+  }
+}
+
+function isAvifBuffer(buffer: Buffer): boolean {
+  return buffer.length >= 12 && buffer.subarray(4, 12).toString("ascii") === "ftypavif";
+}
+
+async function uploadWebpBufferToCloudinary(buffer: Buffer, wpUrl: string): Promise<string> {
+  ensureConfig();
+  const dataUri = `data:image/webp;base64,${buffer.toString("base64")}`;
+  const res = await cloudinary.uploader.upload(dataUri, {
+    public_id: `${publicIdFor(wpUrl)}-webp`,
+    overwrite: false,
+    resource_type: "image",
+  });
+  return res.secure_url;
+}
+
+// Cloudinary aceita upload por data-URI base64; acima disto evitamos montar uma string
+// gigante e o asset cai no caminho de falha (relatado; tratado pela política de remoção do
+// HTML na finalização, já que a origem WP vai sair do ar). Capas do blog ficam muito abaixo
+// — guarda só defensiva.
+const MAX_WEBP_DATAURI_BYTES = 10 * 1024 * 1024;
+
+async function uploadConvertedAvifToCloudinary(wpUrl: string): Promise<string | null> {
+  if (avifFallbackImpl) return avifFallbackImpl(wpUrl);
+  if (!isAvifUrl(wpUrl)) return null;
+
+  // fetch + decode + sharp são locais (não-Cloudinary): falha aqui => não é o caminho AVIF,
+  // devolve null e segue o fallback normal. O upload fica FORA deste try p/ que erro fatal
+  // do Cloudinary continue propagando para isFatalCloudinaryError upstream.
+  let webp: Buffer;
+  try {
+    const response = await fetch(wpUrl);
+    if (!response.ok) return null;
+    const input = Buffer.from(await response.arrayBuffer());
+    if (!isAvifBuffer(input)) return null;
+    webp = await sharp(input).webp({ quality: 88 }).toBuffer();
+  } catch {
+    return null;
+  }
+  if (webp.length > MAX_WEBP_DATAURI_BYTES) return null;
+  return uploadWebpBufferToCloudinary(webp, wpUrl);
+}
+
 function failureReason(error: unknown): string {
   if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const maybeMessage = (error as { message?: unknown; error?: { message?: unknown } }).message
+      ?? (error as { error?: { message?: unknown } }).error?.message;
+    if (typeof maybeMessage === "string" && maybeMessage.trim()) return maybeMessage;
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return Object.prototype.toString.call(error);
+    }
+  }
   return String(error);
 }
 
@@ -152,6 +218,15 @@ async function uploadWithFallback(wpUrl: string): Promise<string> {
     return url;
   } catch (firstError) {
     if (isFatalCloudinaryError(firstError)) throw firstError;
+    try {
+      const convertedAvifUrl = await uploadConvertedAvifToCloudinary(wpUrl);
+      if (convertedAvifUrl) {
+        mediaReport.migrated += 1;
+        return convertedAvifUrl;
+      }
+    } catch (avifError) {
+      if (isFatalCloudinaryError(avifError)) throw avifError;
+    }
     const originalUrl = stripSizeSuffix(wpUrl);
     if (originalUrl !== wpUrl) {
       try {

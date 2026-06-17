@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { Db } from "../db/connection";
 import {
+  __setAvifFallbackForTest,
   __setUploadForTest,
   buildMediaMap,
   getMediaReport,
@@ -28,6 +29,7 @@ afterEach(() => {
   delete process.env.CLOUDINARY_CLOUD_NAME;
   delete process.env.SITE_MIGRATE_MEDIA;
   __setUploadForTest(null);
+  __setAvifFallbackForTest(null);
   resetMediaReport();
   inserts.length = 0;
 });
@@ -102,6 +104,70 @@ describe("buildMediaMap", () => {
 
     await expect(buildMediaMap(mockDb(), ["https://artificiorpg.com/wp-content/uploads/fatal.webp"]))
       .rejects.toThrow("Invalid API key");
+    expect(getMediaReport().failures).toHaveLength(0);
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("propaga erro fatal de credencial quando Cloudinary retorna objeto comum com message", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    process.env.SITE_MIGRATE_MEDIA = "true";
+    __setUploadForTest(async () => {
+      throw { message: "Invalid API key" };
+    });
+
+    await expect(buildMediaMap(mockDb(), ["https://artificiorpg.com/wp-content/uploads/fatal.webp"]))
+      .rejects.toEqual({ message: "Invalid API key" });
+    expect(getMediaReport().failures).toHaveLength(0);
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("registra message de objeto comum em falha toleravel", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    process.env.SITE_MIGRATE_MEDIA = "true";
+    __setUploadForTest(async () => {
+      throw { message: "Resource not found" };
+    });
+
+    const wpUrl = "https://artificiorpg.com/wp-content/uploads/missing.webp";
+    await expect(resolveMediaUrl(mockDb(), wpUrl)).resolves.toBe(wpUrl);
+
+    expect(getMediaReport().failures).toEqual([
+      { wpUrl, motivo: "upload falhou: Resource not found" },
+    ]);
+  });
+
+  it("converte AVIF legado quando upload remoto falha mas fallback local funciona", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    process.env.SITE_MIGRATE_MEDIA = "true";
+    __setUploadForTest(async () => {
+      throw { message: "Invalid image file" };
+    });
+    __setAvifFallbackForTest(async (url) => {
+      expect(url).toBe("https://artificiorpg.com/wp-content/uploads/legacy.avif");
+      return "https://res.cloudinary.com/demo/legacy-webp.webp";
+    });
+
+    const wpUrl = "https://artificiorpg.com/wp-content/uploads/legacy.avif";
+    const map = await buildMediaMap(mockDb(), [wpUrl]);
+
+    expect(map.get(wpUrl)).toBe("https://res.cloudinary.com/demo/legacy-webp.webp");
+    expect(getMediaReport().migrated).toBe(1);
+    expect(getMediaReport().failures).toHaveLength(0);
+    expect(inserts[0]).toEqual([wpUrl, "https://res.cloudinary.com/demo/legacy-webp.webp"]);
+  });
+
+  it("propaga erro fatal vindo do fallback local AVIF", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    process.env.SITE_MIGRATE_MEDIA = "true";
+    __setUploadForTest(async () => {
+      throw { message: "Invalid image file" };
+    });
+    __setAvifFallbackForTest(async () => {
+      throw { message: "Invalid API key" };
+    });
+
+    await expect(buildMediaMap(mockDb(), ["https://artificiorpg.com/wp-content/uploads/legacy.avif"]))
+      .rejects.toEqual({ message: "Invalid API key" });
     expect(getMediaReport().failures).toHaveLength(0);
     expect(inserts).toHaveLength(0);
   });
