@@ -3,6 +3,7 @@
 //   - ausente => dry-run: mantém URLs do WP (zero rede, zero credencial).
 // Cloudinary regenera variantes; guardamos só o secure_url do original. Idempotente via media_map.
 import { v2 as cloudinary } from "cloudinary";
+import sharp from "sharp";
 import type { Db } from "../db/connection.js";
 
 let configured = false;
@@ -25,6 +26,7 @@ const mediaReport: MediaReport = {
 const failedThisRun = new Set<string>();
 
 let uploadImpl: ((wpUrl: string) => Promise<string>) | null = null;
+let avifFallbackImpl: ((wpUrl: string) => Promise<string | null>) | null = null;
 
 export function cloudinaryEnabled(): boolean {
   return Boolean(process.env.CLOUDINARY_URL || process.env.CLOUDINARY_CLOUD_NAME);
@@ -53,6 +55,10 @@ export function getMediaReport(): MediaReport {
 
 export function __setUploadForTest(upload: ((wpUrl: string) => Promise<string>) | null): void {
   uploadImpl = upload;
+}
+
+export function __setAvifFallbackForTest(upload: ((wpUrl: string) => Promise<string | null>) | null): void {
+  avifFallbackImpl = upload;
 }
 
 function ensureConfig(): void {
@@ -122,8 +128,55 @@ async function uploadToCloudinary(wpUrl: string): Promise<string> {
   return res.secure_url;
 }
 
+function isAvifUrl(wpUrl: string): boolean {
+  try {
+    return new URL(wpUrl).pathname.toLowerCase().endsWith(".avif");
+  } catch {
+    return /\.avif(?:[?#].*)?$/i.test(wpUrl);
+  }
+}
+
+function isAvifBuffer(buffer: Buffer): boolean {
+  return buffer.length >= 12 && buffer.subarray(4, 12).toString("ascii") === "ftypavif";
+}
+
+async function uploadWebpBufferToCloudinary(buffer: Buffer, wpUrl: string): Promise<string> {
+  ensureConfig();
+  const dataUri = `data:image/webp;base64,${buffer.toString("base64")}`;
+  const res = await cloudinary.uploader.upload(dataUri, {
+    public_id: `${publicIdFor(wpUrl)}-webp`,
+    overwrite: false,
+    resource_type: "image",
+  });
+  return res.secure_url;
+}
+
+async function uploadConvertedAvifToCloudinary(wpUrl: string): Promise<string | null> {
+  if (avifFallbackImpl) return avifFallbackImpl(wpUrl);
+  if (!isAvifUrl(wpUrl)) return null;
+
+  const response = await fetch(wpUrl);
+  if (!response.ok) return null;
+
+  const input = Buffer.from(await response.arrayBuffer());
+  if (!isAvifBuffer(input)) return null;
+
+  const webp = await sharp(input).webp({ quality: 88 }).toBuffer();
+  return uploadWebpBufferToCloudinary(webp, wpUrl);
+}
+
 function failureReason(error: unknown): string {
   if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const maybeMessage = (error as { message?: unknown; error?: { message?: unknown } }).message
+      ?? (error as { error?: { message?: unknown } }).error?.message;
+    if (typeof maybeMessage === "string" && maybeMessage.trim()) return maybeMessage;
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return Object.prototype.toString.call(error);
+    }
+  }
   return String(error);
 }
 
@@ -152,6 +205,15 @@ async function uploadWithFallback(wpUrl: string): Promise<string> {
     return url;
   } catch (firstError) {
     if (isFatalCloudinaryError(firstError)) throw firstError;
+    try {
+      const convertedAvifUrl = await uploadConvertedAvifToCloudinary(wpUrl);
+      if (convertedAvifUrl) {
+        mediaReport.migrated += 1;
+        return convertedAvifUrl;
+      }
+    } catch (avifError) {
+      if (isFatalCloudinaryError(avifError)) throw avifError;
+    }
     const originalUrl = stripSizeSuffix(wpUrl);
     if (originalUrl !== wpUrl) {
       try {
