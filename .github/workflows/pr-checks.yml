@@ -28,6 +28,6 @@ jobs:
   guard-entrypoint-exec:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: ENTRYPOINT scripts executaveis (100755)
         run: bash scripts/ci/check_entrypoint_exec_bit.sh
