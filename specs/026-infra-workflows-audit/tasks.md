@@ -76,9 +76,8 @@ Cada fatia = SDD Lite/Completo proprio, com pre-condicao de aprovacao, smoke e r
   - `deploy.yml`: `accounts` no choice + guard que BLOQUEIA env=beta p/ accounts (D042).
   - `deploy-accounts.yml` DELETADO (historico preserva -> rollback = revert + re-dispatch).
   - Validacao local: YAML lint 3/3, manifest parse 4 modulos, runner no-op confirmado.
-  · Decisao do mantenedor: validar por **dry-run VM (build no clone, sem recreate) -> deploy
-    prod real** com rollback por snapshot (accounts so tem realm prod). · FALTA (aprovacao
-    nominal): commit/push/PR -> CI verde -> dry-run -> deploy prod -> smoke login/me/logout.
+  · Validado: dry-run VM (build no clone) + deploy prod (run `27656716758`) + smoke
+    `/health`/`login`/`me` verdes. Rollback = revert F5 em main + re-dispatch.
   · `BL-DEP-MESAS-LEGACY-SCRIPTS` (limpeza `apps/mesas/scripts/deploy/*`) deixado FORA deste
     PR SSO-focado (toca outro modulo + orfa refs em docs); fatia mesas separada.
 - [ ] F6 — **`accounts` `ports`→`expose`** (`BL-ACCOUNTS-PORT`). Hardening. · Pre:
@@ -103,9 +102,13 @@ Cada fatia = SDD Lite/Completo proprio, com pre-condicao de aprovacao, smoke e r
   - FECHADO: commits `06a5ded`/`a727ab2`, push dev, deploy mesas beta (run `27633842040`)
     verde. Prova real (`docker system df` na VM): build cache 20.89GB reclaimable -> **0B**,
     images 28->10GB. `BL-INFRA-CACHE-CAP-F10` fechado.
-- [ ] F11 — **Eficiencia da esteira (CI cache + auto-deploy gating)** — **ALERTA AUDITORIA 2026-06-16:** Marcado como [x] em sessão anterior, mas a auditoria Git provou que os arquivos `.github/workflows/*.yml` **não foram alterados**. Status: Pendente/Falso Positivo.
-  - CI cache (`_deploy-module.yml`): pendente.
-  - Auto-deploy gating (`deploy-mesas.yml`): pendente.
+- [ ] F11 — **Eficiencia da esteira (CI cache)** — pendente. Verificado 2026-06-17: o cache
+  pnpm/turbo **nao esta em `origin/main`** (0 matches). Foi trabalho "local"; pode ter se
+  perdido na reescrita de historico (repo publico) — NAO e "extraviado/falso positivo", e
+  reaplicar do desenho. (SHA ausente != trabalho desfeito — ver memoria `repo-public-history-rewrite`.)
+  - CI cache (`_deploy-module.yml`): pnpm antes do setup-node + `cache: pnpm` + `actions/cache`
+    em `.turbo` + `--cache-dir=.turbo`. Reaplicar + PR.
+  - Auto-deploy gating: obsoleto — `deploy-mesas.yml` deletado no F4; `build-matrix` ja gateia por path.
   - Mapeado: `BL-INFRA-CI-EFFICIENCY-F11`.
 - [ ] F12 — **Build em CI + GHCR + VM pull** (planejado; reconcilia F10). Hoje a VM builda
   `--no-cache --pull` (lento; cache local inutil). Alvo: GitHub Actions builda a imagem (com

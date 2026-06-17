@@ -14,22 +14,52 @@
 
 name: Mesas Auto-Archive
 
-# O gatilho `schedule` so dispara a partir da branch default (main). Em `dev` este
-# workflow so roda por `workflow_dispatch`. Para o cron valer, o arquivo precisa
-# estar em `main` (promocao ff dev->main, D041).
+# Default branch = `dev` desde 2026-06-17 (D073). Como `schedule` so dispara da branch
+# DEFAULT, este cron agora roda da copia de `dev`. Para nao executar acao de PROD com
+# versao NAO PROMOVIDA (furo do gate dev->prod), o job `guard` so libera o
+# auto-arquivamento se este workflow estiver IDENTICO a `origin/main` (= promovido).
+# Diferiu de main => pula com warning ate o promote ff dev->main (D041). Fail-safe.
 on:
   schedule:
     - cron: '0 4 * * *' # diario 04:00 UTC
   workflow_dispatch:
 
-# Job nao faz checkout nem usa o GITHUB_TOKEN → sem escopo.
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
+  # Gate dev->prod (D073): so prossegue se a versao rodando ja esta em origin/main.
+  guard:
+    name: Guard - so versao promovida (main)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      promoted: ${{ steps.check.outputs.promoted }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Comparar workflow com origin/main
+        id: check
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if git diff --quiet origin/main -- .github/workflows/mesas-auto-archive.yml; then
+            echo "promoted=true" >> "$GITHUB_OUTPUT"
+            echo "workflow == origin/main: ok para acao de PROD"
+          else
+            echo "promoted=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::mesas-auto-archive.yml difere de origin/main (nao promovido). Pulando acao de PROD ate promover (ff dev->main)."
+          fi
+
   auto-archive:
     name: Auto-arquivar mesas antigas (prod)
+    needs: guard
+    if: needs.guard.outputs.promoted == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions: {}
     concurrency:
       group: artificio-mesas-auto-archive
       cancel-in-progress: false
