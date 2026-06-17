@@ -20,7 +20,9 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: admin
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      # PROD SSO: sem default. Falha rapido se POSTGRES_PASSWORD ausente (nao expor DB
+      # com senha fraca). Anchor prod apps/accounts/.env sempre define a chave.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio para accounts-db}
       POSTGRES_DB: artificio_auth
     volumes:
       - accounts_pgdata:/var/lib/postgresql/data
@@ -54,7 +56,7 @@ services:
       - COOKIE_DOMAIN=${COOKIE_DOMAIN}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio para accounts-api}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
     ports:
       - "3000:3000"
