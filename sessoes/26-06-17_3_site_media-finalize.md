@@ -109,9 +109,24 @@ Sem env nova, sem migration. `finalizing` ainda controla upload + check migrated
 
 Validacoes: test 17/17, build verde, tsc importer 0 erros.
 
+## Review PR #53 -> PR #54 (residual filtra status=publish)
+
+Gate B executado (deploy beta `5f6bbeb`); PR #53 mergeado em `dev` (`fb7463d`). CodeRabbit apontou 4o
+bug real: `priorResidual`/residual contavam posts/pages de QUALQUER status, mas `db/export.ts` so
+publica `status='publish'`. Um `draft`/`trash`/`archived` com `wp-content/uploads` deixava
+`priorResidual>0` -> `finalizedStore=false` -> boot dry-run posterior pulava o prune e regravava HTML
+cru nos publicados, recriando links mortos.
+
+Fix em PR #54 (branch `fix/site-media-residual-published`): helper unico `servedWpResidual(db)` filtra
+`status='publish'` (mesmo predicado do export) e cobre todas as colunas servidas (posts: content_html,
+featured_url, og_image, seo_description; pages: content_html, og_image, seo_description). Usado no
+snapshot pre-loop (finalizedStore) e na verificacao residual-zero pos-loop -> sem drift de predicado.
+
+Validacoes: test 17/17, build verde, tsc importer 0 erros.
+
 ## Proximo
 
-Apos PR #53 verde+merge: re-deploy beta (Gate B') p/ subir o pruneMode, depois Gates C (backup pg_dump),
-D (re-import real SITE_MIGRATE_MEDIA=true), E (smoke + residual-zero), F (registro/fechamento) — cada um
-com aprovacao nominal. Operacional pos-Gate D: avaliar `SITE_IMPORT_ON_START=false` no beta apos WP EOL
-(importador descartavel, D005; store vira canonico).
+Apos PR #54 verde+merge: re-deploy beta (Gate B') p/ subir pruneMode + residual filtrado, depois Gates
+C (backup pg_dump), D (re-import real SITE_MIGRATE_MEDIA=true), E (smoke + residual-zero), F (registro/
+fechamento) — cada um com aprovacao nominal. Operacional pos-Gate D: avaliar `SITE_IMPORT_ON_START=false`
+no beta apos WP EOL (importador descartavel, D005; store vira canonico).
