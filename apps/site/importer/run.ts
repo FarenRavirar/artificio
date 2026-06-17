@@ -8,8 +8,11 @@ import {
   buildMediaMap,
   cloudinaryEnabled,
   extractImageUrls,
+  extractMediaUrls,
   getMediaReport,
   mediaMigrationEnabled,
+  pruneWpAssets,
+  recordPruned,
   resetMediaReport,
   rewriteUrls,
 } from "./media";
@@ -36,6 +39,13 @@ const iso = (s?: string): string | null => {
   if (!s) return null;
   const d = toDate(s);
   return isNaN(d.getTime()) ? null : d.toISOString();
+};
+
+/** Resolve uma URL WP via media_map; se não migrou (continua WP) devolve null (D074: nada de URL WP servida). */
+const cleanMapped = (wpUrl: string | null, map: Map<string, string>): string | null => {
+  if (!wpUrl) return null;
+  const mapped = map.get(wpUrl) ?? wpUrl;
+  return /\/wp-content\/uploads\//.test(mapped) ? null : mapped;
 };
 
 async function main() {
@@ -79,10 +89,17 @@ async function main() {
     const { html: rawHtml, toc } = withToc(sanitize(p.content.rendered));
     const media = p._embedded?.["wp:featuredmedia"]?.[0];
     const wpFeatured = media?.source_url ?? null;
-    // mídia: featured + inline -> Cloudinary (ou mantém URL WP em dry-run). Idempotente (media_map).
-    const mmap = await buildMediaMap(db, [wpFeatured, ...extractImageUrls(rawHtml)].filter((u): u is string => Boolean(u)));
-    const contentHtml = rewriteUrls(rawHtml, mmap);
-    const featuredUrl = wpFeatured ? mmap.get(wpFeatured) ?? wpFeatured : null;
+    const seo = p.yoast_head_json ?? {};
+    const wpOg = seo.og_image?.[0]?.url ?? null;
+    // mídia: featured + og + inline (img + não-imagem) -> Cloudinary (ou URL WP em dry-run). Idempotente (media_map).
+    const mmap = await buildMediaMap(
+      db,
+      [wpFeatured, wpOg, ...extractImageUrls(rawHtml), ...extractMediaUrls(rawHtml)].filter((u): u is string => Boolean(u)),
+    );
+    // Política D074: asset não migrado é removido do HTML (a URL WP morre), nunca pendurado.
+    const { html: contentHtml, removed } = pruneWpAssets(rewriteUrls(rawHtml, mmap));
+    if (removed.length) recordPruned(removed);
+    const featuredUrl = cleanMapped(wpFeatured, mmap);
     if (media?.source_url) {
       const cloud = mmap.get(media.source_url);
       await db.query(
@@ -91,8 +108,7 @@ async function main() {
         [media.id, media.source_url, cloud && cloud !== media.source_url ? cloud : null, media.alt_text ?? null, media.media_details?.width ?? null, media.media_details?.height ?? null, media.mime_type ?? null],
       );
     }
-    const seo = p.yoast_head_json ?? {};
-    const ogImage = seo.og_image?.[0]?.url ?? featuredUrl;
+    const ogImage = cleanMapped(wpOg, mmap) ?? featuredUrl;
     await db.query(
       `INSERT INTO posts (id, slug, title, excerpt, content_html, toc, status, published_at, updated_at, reading_time, featured_url, seo_title, seo_description, canonical, og_image)
        VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15)
@@ -143,8 +159,9 @@ async function main() {
   for (const pg of wpPages) {
     if (!PAGES_ALLOW.has(pg.slug)) continue;
     const cleaned = sanitize(pg.content.rendered);
-    const pmap = await buildMediaMap(db, extractImageUrls(cleaned));
-    const contentHtml = rewriteUrls(cleaned, pmap);
+    const pmap = await buildMediaMap(db, [...extractImageUrls(cleaned), ...extractMediaUrls(cleaned)]);
+    const { html: contentHtml, removed } = pruneWpAssets(rewriteUrls(cleaned, pmap));
+    if (removed.length) recordPruned(removed);
     await db.query(
       `INSERT INTO pages (id, slug, title, content_html, status, updated_at, seo_description)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
@@ -158,12 +175,30 @@ async function main() {
 
     const mediaReport = getMediaReport();
     console.log("\n=== MÍDIA ===");
-    console.log(`migradas=${mediaReport.migrated} falhas=${mediaReport.failures.length}`);
+    console.log(`migradas=${mediaReport.migrated} falhas=${mediaReport.failures.length} removidas_html=${mediaReport.pruned.length}`);
     for (const failure of mediaReport.failures) {
-      console.log(`- ${failure.wpUrl} :: ${failure.motivo}`);
+      console.log(`- falha: ${failure.wpUrl} :: ${failure.motivo}`);
+    }
+    for (const url of mediaReport.pruned) {
+      console.log(`- removida do HTML: ${url}`);
     }
     console.log("=============\n");
     exitAfterClose = mediaMigrationEnabled() && mediaReport.migrated === 0 && mediaReport.failures.length > 0;
+
+    // Verificação residual-zero (D074): nenhuma coluna SERVIDA pode conter wp-content/uploads.
+    const wpLike = "%wp-content/uploads%";
+    const residualPosts = (await db.query<{ n: string }>(
+      "SELECT count(*) n FROM posts WHERE content_html LIKE $1 OR featured_url LIKE $1 OR og_image LIKE $1 OR coalesce(seo_description,'') LIKE $1",
+      [wpLike],
+    )).rows[0].n;
+    const residualPages = (await db.query<{ n: string }>(
+      "SELECT count(*) n FROM pages WHERE content_html LIKE $1 OR coalesce(seo_description,'') LIKE $1",
+      [wpLike],
+    )).rows[0].n;
+    console.log("=== RESIDUAL WP (servido) ===");
+    console.log(`posts=${residualPosts} pages=${residualPages} ${Number(residualPosts) + Number(residualPages) === 0 ? "✓ ZERO" : "⚠ RESIDUAL"}`);
+    console.log("media_map.wp_url / media.wp_url são chaves de idempotência (não servidas), fora deste critério.");
+    console.log("=============================\n");
 
     // 4) Relatório de paridade vs WP (R9).
     const wpPosts = await countOf("posts");

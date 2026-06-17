@@ -1,0 +1,78 @@
+# Sessao 26-06-17_3 — site media finalize (BL-QA-SITE-IMAGES + BL-SITE-NONIMG-MEDIA)
+
+Data: 2026-06-17
+Modulo/projeto: `apps/site` (importador descartavel)
+Gate: Codigo (Gate A do plano de finalizacao); WP raiz/DNS fora de escopo
+
+## Objetivo
+
+Zerar dependencia WP no conteudo do site antes do EOL ~2026-06-20 (D074): importador captura midia
+NAO-imagem, aplica politica remover-ao-falhar e prova residual-zero.
+
+## T0/T1 lidos
+
+`project-state.md`, `context-capsule.md`, `decisions.md` (D074), `specs/backlog.md`
+(BL-QA-SITE-IMAGES, BL-SITE-NONIMG-MEDIA, BL-SITE-AVIF-FAIL, BL-SITE-MEDIA-ERR-SERIAL),
+`infra-map.md`, `deploy-flow.md`, sessoes `26-06-17_1_*codex-handoff` + `26-06-17_2_*real-migration`.
+
+## Estado de partida
+
+- PR #49 (importador tolerante) e PR #50 (AVIF->WebP + serializa erro) ja mergeados em `dev` (`9589922`).
+- Fase C real rodou: migradas=332, falhas=9. Residual: 58 URLs WP em posts (maioria nao-imagem
+  `.ogg/.mp3/.pdf/.webm` + 9 imagens: 6 HTTP 404, 3 AVIF cobertos pelo PR #50).
+
+## Codigo (branch `fix/site-media-finalize`, base `dev`)
+
+`apps/site/importer/media.ts`:
+- `extractMediaUrls(html)`: toda ref `/wp-content/uploads/` em `href/src/poster` (`<a>`, `<audio>`,
+  `<video>`, `<source>`), nao so `<img>`.
+- `mediaResourceType(url)`: image / video (inclui audio mp3/ogg) / raw (pdf/zip/doc).
+- `uploadToCloudinary` passa `resource_type` correto; `raw` mantem extensao no `public_id`.
+- `pruneWpAssets(html)`: remove player de midia WP, desembrulha `<a>` (preserva texto), remove
+  `<img>/<source>` WP, e remove QUALQUER ref WP restante -> zero por construcao. Retorna lista p/ relatorio.
+- `recordPruned` + campo `pruned` no `MediaReport`.
+
+`apps/site/importer/run.ts`:
+- posts+pages: migra featured + og_image + img + nao-imagem; pos-rewrite -> `pruneWpAssets`.
+- `cleanMapped()`: featured/og que nao migrou vira `null` (nunca URL WP servida).
+- Relatorio `migradas/falhas/removidas_html`; seção RESIDUAL WP (servido) via SQL conta
+  wp-content em posts (content_html/featured_url/og_image/seo) + pages -> prova residual-zero in-process.
+
+`apps/site/importer/media.test.ts`: +9 testes (extract nao-imagem, resource_type, pruning incl.
+`<a>` envolvendo `<img>`, migra pdf/mp3).
+
+### Politica residual-zero (Gate F)
+
+Criterio "zero wp-content no store" aplicado a colunas SERVIDAS (posts.content_html/featured_url/
+og_image/seo, pages.content_html) + dist exportado. `media_map.wp_url` e `media.wp_url` sao chaves
+de idempotencia (nao servidas), fora do criterio; documentado no log RESIDUAL.
+
+## Validacoes locais
+
+```text
+pnpm --filter @artificio/site test  -> 17/17
+pnpm --filter @artificio/site build -> verde (220 pages, Pagefind)
+pnpm --filter @artificio/site lint  -> stub TODO
+tsc --noEmit importer (run/media)   -> 0 erros
+```
+
+## Bug pre-existente investigado (a pedido do mantenedor)
+
+`server/admin-api.ts:220` `error TS2345`: multer `upload.single("file")(req,res,cb)` — route handler
+infere `Request<{}>`, multer espera `RequestHandler<ParamsDictionary>`. Variancia de tipo conhecida.
+ZERO impacto operacional: nao esta no gate CI (`import`/`export` via `tsx` sem typecheck; `build`=astro
+so frontend; `lint`=stub; sem script `typecheck`); runtime executa normal. Origem `e7d737a` (T18).
+Registrado `BL-SITE-ADMIN-TS-VARIANCE` (baixo).
+
+## Backlog
+
+- `BL-QA-SITE-IMAGES` segue `parcial-beta`; codigo de finalizacao pronto em branch (nao mergeado).
+- `BL-SITE-NONIMG-MEDIA` enderecado pelo codigo desta sessao (migra nao-imagem + prune); fecha apos
+  Fase C real (Gates B-F do plano) provar residual-zero.
+- Novo: `BL-SITE-ADMIN-TS-VARIANCE` (cosmetico).
+
+## Proximo
+
+Gate A: commit + push branch + PR base `dev`; aguardar check `lint+build+test` verde antes de pedir merge.
+Depois Gates B (deploy beta), C (backup pg_dump), D (re-import controlado), E (smoke + residual-zero),
+F (registro/fechamento) — cada um com aprovacao nominal separada.

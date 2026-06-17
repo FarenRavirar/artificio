@@ -16,11 +16,13 @@ export interface MediaFailure {
 export interface MediaReport {
   migrated: number;
   failures: MediaFailure[];
+  pruned: string[];
 }
 
 const mediaReport: MediaReport = {
   migrated: 0,
   failures: [],
+  pruned: [],
 };
 
 const failedThisRun = new Set<string>();
@@ -43,6 +45,7 @@ export function mediaMigrationEnabled(): boolean {
 export function resetMediaReport(): void {
   mediaReport.migrated = 0;
   mediaReport.failures = [];
+  mediaReport.pruned = [];
   failedThisRun.clear();
 }
 
@@ -50,7 +53,13 @@ export function getMediaReport(): MediaReport {
   return {
     migrated: mediaReport.migrated,
     failures: [...mediaReport.failures],
+    pruned: [...mediaReport.pruned],
   };
+}
+
+/** Registra URLs WP removidas/desembrulhadas do HTML (política D074: asset não migrado morre). */
+export function recordPruned(urls: string[]): void {
+  for (const u of urls) if (!mediaReport.pruned.includes(u)) mediaReport.pruned.push(u);
 }
 
 export function __setUploadForTest(upload: ((wpUrl: string) => Promise<string>) | null): void {
@@ -76,6 +85,8 @@ function ensureConfig(): void {
   configured = true;
 }
 
+const WP_UPLOADS_RE = /\/wp-content\/uploads\//;
+
 /** Extrai URLs de imagem do WP (/wp-content/) do HTML. */
 export function extractImageUrls(html: string): string[] {
   const re = /<img[^>]+src="([^"]+)"/gi;
@@ -85,6 +96,78 @@ export function extractImageUrls(html: string): string[] {
     if (/\/wp-content\//.test(m[1])) out.add(m[1]);
   }
   return [...out];
+}
+
+/**
+ * Extrai TODA referência a /wp-content/uploads/ do HTML, não só <img>: cobre
+ * <a href>, <audio|video src|poster>, <source src> e enclosures embutidas (D074).
+ * Pega qualquer atributo href/src/poster apontando para uploads; buildMediaMap deduplica.
+ */
+export function extractMediaUrls(html: string): string[] {
+  const out = new Set<string>();
+  const re = /\b(?:href|src|poster)="([^"]+)"/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    if (WP_UPLOADS_RE.test(m[1])) out.add(m[1]);
+  }
+  return [...out];
+}
+
+const IMAGE_EXT = new Set(["jpg", "jpeg", "png", "gif", "webp", "avif", "svg", "bmp", "tiff", "tif", "ico"]);
+// Cloudinary trata áudio sob resource_type "video"; agrupamos áudio+vídeo aqui.
+const VIDEO_EXT = new Set(["mp4", "webm", "mov", "m4v", "ogv", "ogg", "oga", "mp3", "wav", "m4a", "flac", "aac"]);
+
+function urlExt(u: string): string {
+  let path = u;
+  try {
+    path = new URL(u).pathname;
+  } catch {
+    path = u.split(/[?#]/)[0] ?? u;
+  }
+  return (path.match(/\.([a-z0-9]+)$/i)?.[1] ?? "").toLowerCase();
+}
+
+/** resource_type do Cloudinary por extensão: image / video (inclui áudio) / raw (pdf/zip/doc...). */
+export function mediaResourceType(u: string): "image" | "video" | "raw" {
+  const ext = urlExt(u);
+  if (IMAGE_EXT.has(ext)) return "image";
+  if (VIDEO_EXT.has(ext)) return "video";
+  return "raw";
+}
+
+/**
+ * Remove do HTML qualquer elemento que ainda referencie /wp-content/uploads/ (asset não migrado;
+ * a origem WP morre ~2026-06-20, D074). <a> é desembrulhado (preserva o texto); mídia é removida.
+ * Garante zero wp-content/uploads no HTML servido por construção. Retorna as URLs tocadas p/ relatório.
+ */
+export function pruneWpAssets(html: string): { html: string; removed: string[] } {
+  const removed = new Set<string>();
+  const mark = (u?: string): void => {
+    if (u && WP_UPLOADS_RE.test(u)) removed.add(u);
+  };
+  let out = html;
+  // 1) Players inteiros <audio>/<video> que referenciem WP (no src/poster ou <source> interno).
+  out = out.replace(/<(audio|video)\b[^>]*>[\s\S]*?<\/\1>/gi, (block) => {
+    if (!WP_UPLOADS_RE.test(block)) return block;
+    for (const m of block.matchAll(/\b(?:src|poster)="([^"]+)"/gi)) mark(m[1]);
+    return "";
+  });
+  // 2) <a href="...wp...">inner</a> -> inner (desembrulha; link morto vira texto).
+  out = out.replace(/<a\b[^>]*\bhref="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (whole, href: string, inner: string) => {
+    if (!WP_UPLOADS_RE.test(href)) return whole;
+    mark(href);
+    return inner;
+  });
+  // 3) <source> e <img> remanescentes apontando WP (inclui <img> exposto após desembrulhar <a>).
+  out = out.replace(/<(?:source|img)\b[^>]*>/gi, (tag) => {
+    const src = tag.match(/\bsrc="([^"]+)"/i)?.[1];
+    if (src && WP_UPLOADS_RE.test(src)) {
+      mark(src);
+      return "";
+    }
+    return tag;
+  });
+  return { html: out, removed: [...removed] };
 }
 
 /** Substitui ocorrências de URLs pelo destino (mapa from->to). */
@@ -120,10 +203,14 @@ export function stripSizeSuffix(wpUrl: string): string {
 async function uploadToCloudinary(wpUrl: string): Promise<string> {
   if (uploadImpl) return uploadImpl(wpUrl);
   ensureConfig();
+  const resourceType = mediaResourceType(wpUrl);
+  const ext = urlExt(wpUrl);
+  // raw mantém o arquivo cru => public_id precisa carregar a extensão p/ servir corretamente.
+  const publicId = resourceType === "raw" && ext ? `${publicIdFor(wpUrl)}.${ext}` : publicIdFor(wpUrl);
   const res = await cloudinary.uploader.upload(wpUrl, {
-    public_id: publicIdFor(wpUrl),
+    public_id: publicId,
     overwrite: false,
-    resource_type: "image",
+    resource_type: resourceType,
   });
   return res.secure_url;
 }

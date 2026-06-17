@@ -108,6 +108,7 @@
 | BL-COPY-PUBLICA | aberto | `specs/019` B8/FSU-013 | copy publica compartilhada | decidir se textos publicos repetidos devem virar pacote/helper compartilhado ou permanecer por app | registrar decisao antes de criar abstracao |
 | BL-GLOSSARIO-LEGACY-CLEAN | aberto | D061/project-state | `apps/glossario` | limpeza futura de `password_hash` legado apos migracao SSO estabilizada | spec/migration propria com backup e smoke |
 | BL-GLOSSARIO-NONGOOGLE-E2E | baixo | `specs/015-glossario-sso-compat/` | `apps/glossario` login legado/migracao | E2E browser opcional para cenario seedado de usuario nao-Google/compat legado | fazer apenas se reabrir fluxo legado D061 ou houver regressao |
+| BL-SITE-ADMIN-TS-VARIANCE | baixo | `sessoes/26-06-17_3_site_media-finalize.md`, commit `e7d737a` | `apps/site/server/admin-api.ts:220` | `tsc --noEmit` aponta `error TS2345` em `upload.single("file")(req,res,cb)` (multer): route handler infere `Request<{}>`, multer espera `RequestHandler<ParamsDictionary>`. Variancia de tipo conhecida multer x express. ZERO impacto operacional: nao esta no gate CI (`import`/`export` rodam via `tsx` sem typecheck; `build`=astro so frontend; `lint`=stub; sem script `typecheck`); runtime executa normal (upload de midia admin funciona). | dívida cosmetica: tipar `req` como `Request` generico no handler ou alinhar versao @types/multer; nao bloqueia nada, fazer junto de outra fatia do site server |
 
 ## Debitos fechados ou absorvidos (nao acionar sem nova evidencia)
 
