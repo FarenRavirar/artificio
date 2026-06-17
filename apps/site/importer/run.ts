@@ -39,16 +39,18 @@ const iso = (s?: string): string | null => {
 };
 
 async function main() {
-  const db = await getDb();
-  resetMediaReport();
   if (process.env.SITE_MIGRATE_MEDIA === "true" && !cloudinaryEnabled()) {
     throw new Error("SITE_MIGRATE_MEDIA=true exige configuracao Cloudinary presente");
   }
-  console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — mídia=${mediaMigrationEnabled() ? "Cloudinary (upload)" : "DRY-RUN (URLs WP)"}`);
+  const db = await getDb();
+  let exitAfterClose = false;
+  try {
+    resetMediaReport();
+    console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — mídia=${mediaMigrationEnabled() ? "Cloudinary (upload)" : "DRY-RUN (URLs WP)"}`);
 
-  // 1) Taxonomias (categorias + tags). 2 passes p/ parent_id (forward refs).
-  const cats = await fetchAll<WpCat>("categories");
-  const tags = await fetchAll<WpTag>("tags");
+    // 1) Taxonomias (categorias + tags). 2 passes p/ parent_id (forward refs).
+    const cats = await fetchAll<WpCat>("categories");
+    const tags = await fetchAll<WpTag>("tags");
   for (const c of cats) {
     await db.query(
       `INSERT INTO taxonomies (id, kind, slug, name, count) VALUES ($1,'category',$2,$3,$4)
@@ -154,27 +156,33 @@ async function main() {
   }
   console.log(`[import] pages institucionais: ${importedPages}/${PAGES_ALLOW.size} (de ${wpPages.length} no WP)`);
 
-  const mediaReport = getMediaReport();
-  console.log("\n=== MÍDIA ===");
-  console.log(`migradas=${mediaReport.migrated} falhas=${mediaReport.failures.length}`);
-  for (const failure of mediaReport.failures) {
-    console.log(`- ${failure.wpUrl} :: ${failure.motivo}`);
+    const mediaReport = getMediaReport();
+    console.log("\n=== MÍDIA ===");
+    console.log(`migradas=${mediaReport.migrated} falhas=${mediaReport.failures.length}`);
+    for (const failure of mediaReport.failures) {
+      console.log(`- ${failure.wpUrl} :: ${failure.motivo}`);
+    }
+    console.log("=============\n");
+    exitAfterClose = mediaMigrationEnabled() && mediaReport.migrated === 0 && mediaReport.failures.length > 0;
+
+    // 4) Relatório de paridade vs WP (R9).
+    const wpPosts = await countOf("posts");
+    const wpComments = await countOf("comments");
+    const storePosts = (await db.query<{ n: string }>("SELECT count(*) n FROM posts")).rows[0].n;
+    const storeTax = (await db.query<{ n: string }>("SELECT count(*) n FROM taxonomies")).rows[0].n;
+    const storeComments = (await db.query<{ n: string }>("SELECT count(*) n FROM comments")).rows[0].n;
+    console.log("\n=== PARIDADE ===");
+    console.log(`posts:      WP=${wpPosts}  store=${storePosts}  ${Number(storePosts) >= wpPosts ? "✓" : "⚠ FALTAM"}`);
+    console.log(`taxonomias: WP=${cats.length + tags.length}  store=${storeTax}`);
+    console.log(`comentários:WP(total)=${wpComments}  store(dos posts)=${storeComments}`);
+    console.log("================\n");
+  } finally {
+    await db.close();
   }
-  console.log("=============\n");
-
-  // 4) Relatório de paridade vs WP (R9).
-  const wpPosts = await countOf("posts");
-  const wpComments = await countOf("comments");
-  const storePosts = (await db.query<{ n: string }>("SELECT count(*) n FROM posts")).rows[0].n;
-  const storeTax = (await db.query<{ n: string }>("SELECT count(*) n FROM taxonomies")).rows[0].n;
-  const storeComments = (await db.query<{ n: string }>("SELECT count(*) n FROM comments")).rows[0].n;
-  console.log("\n=== PARIDADE ===");
-  console.log(`posts:      WP=${wpPosts}  store=${storePosts}  ${Number(storePosts) >= wpPosts ? "✓" : "⚠ FALTAM"}`);
-  console.log(`taxonomias: WP=${cats.length + tags.length}  store=${storeTax}`);
-  console.log(`comentários:WP(total)=${wpComments}  store(dos posts)=${storeComments}`);
-  console.log("================\n");
-
-  await db.close();
+  if (exitAfterClose) {
+    console.error("[import] ERRO: nenhuma mídia migrou e houve falhas de mídia");
+    process.exit(1);
+  }
 }
 
 main().catch((e) => {

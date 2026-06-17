@@ -51,6 +51,22 @@
 - Commit/push/PR base `dev` ainda exigem aprovacao nominal por acao, conforme AGENTS/D073.
 - Depois do PR/checks/merge, Fase C exige nova aprovacao nominal antes de qualquer upload real/DB rewrite.
 
+### Revisao PR #49 — aplicada localmente
+- Achados aceitos:
+  - `media.ts`: erro fatal Cloudinary (`401/403`, `420/429`, credencial/config invalida) agora e re-lancado; somente erro de asset/origem continua tolerante.
+  - `media.ts`: `failedThisRun` evita repetir upload da mesma URL que ja falhou no mesmo run; nao persiste falha em `media_map`, preservando retry em proxima execucao.
+  - `run.ts`: validacao `SITE_MIGRATE_MEDIA=true` sem Cloudinary ocorre antes de `getDb()`; corpo fica em `try/finally` com `db.close()`.
+  - `run.ts`: se `migradas=0` e `falhas>0` em migracao real, o processo sai com erro apos fechar DB.
+  - `inventory.ts`: payload WP e normalizado antes de acessar HTML/slug; `HEAD`/`GET` usam timeout de 15s.
+  - `media.test.ts`: `mockDb.exec` adicionado; novos testes cobrem erro fatal e cache de falha em memoria.
+- Achados pulados por decisao do mantenedor:
+  - nao persistir falha em `media_map`;
+  - nao adicionar Zod;
+  - nao trocar `process.cwd()` por `import.meta.url`.
+- Nao foi feito:
+  - nenhuma resposta/comentario para CodeRabbit ou bot no PR;
+  - nenhuma Fase C, upload real, DB rewrite ou deploy.
+
 ## Causa raiz do incidente 2026-06-17
 - `apps/site/importer/media.ts` `uploadToCloudinary` (linha ~68) chama
   `cloudinary.uploader.upload(wpUrl)`; Cloudinary baixa a URL server-side.

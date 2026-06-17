@@ -66,9 +66,9 @@ function isDerived(url: string): boolean {
 
 async function checkUrl(url: string): Promise<StatusResult> {
   try {
-    const head = await fetch(url, { method: "HEAD", redirect: "follow" });
+    const head = await fetchWithTimeout(url, "HEAD");
     if (head.ok) return { status: head.status, method: "HEAD", ok: true };
-    const get = await fetch(url, { method: "GET", redirect: "follow" });
+    const get = await fetchWithTimeout(url, "GET");
     return { status: get.status, method: "GET", ok: get.ok };
   } catch (error) {
     return {
@@ -77,6 +77,16 @@ async function checkUrl(url: string): Promise<StatusResult> {
       ok: false,
       error: error instanceof Error ? error.message : String(error),
     };
+  }
+}
+
+async function fetchWithTimeout(url: string, method: "HEAD" | "GET"): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    return await fetch(url, { method, redirect: "follow", signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -92,6 +102,7 @@ async function main(): Promise<void> {
   const posts = await fetchAll<WpPost>(
     "posts?_embed=wp:featuredmedia&_fields=id,slug,content,_embedded,_links",
   );
+  if (!Array.isArray(posts)) throw new Error("WP posts payload invalido");
   for (const post of posts) {
     addUrl(urls, post._embedded?.["wp:featuredmedia"]?.[0]?.source_url, {
       kind: "post",
@@ -99,16 +110,23 @@ async function main(): Promise<void> {
       slug: post.slug,
       field: "featured",
     });
-    for (const url of extractImageUrls(sanitize(post.content.rendered))) {
-      addUrl(urls, url, { kind: "post", id: post.id, slug: post.slug, field: "content" });
+    const html = post.content?.rendered;
+    if (typeof html === "string") {
+      for (const url of extractImageUrls(sanitize(html))) {
+        addUrl(urls, url, { kind: "post", id: post.id, slug: post.slug, field: "content" });
+      }
     }
   }
 
   const pages = await fetchAll<WpPage>("pages?_fields=id,slug,content&per_page=100");
+  if (!Array.isArray(pages)) throw new Error("WP pages payload invalido");
   for (const page of pages) {
-    if (!PAGES_ALLOW.has(page.slug)) continue;
-    for (const url of extractImageUrls(sanitize(page.content.rendered))) {
-      addUrl(urls, url, { kind: "page", id: page.id, slug: page.slug, field: "content" });
+    if (typeof page.slug !== "string" || !PAGES_ALLOW.has(page.slug)) continue;
+    const html = page.content?.rendered;
+    if (typeof html === "string") {
+      for (const url of extractImageUrls(sanitize(html))) {
+        addUrl(urls, url, { kind: "page", id: page.id, slug: page.slug, field: "content" });
+      }
     }
   }
 

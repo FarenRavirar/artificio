@@ -90,6 +90,14 @@ Um caminho seguro de migracao fica pronto: relatorio read-only de URLs usadas, c
 ## Backlog
 Backlog consultado. Bug novo registrado em `specs/backlog.md`: migracao Cloudinary do site aborta em asset WP usado que retorna 404.
 
+## Links
+- Handoff Codex: `sessoes/26-06-17_1_site_cloudinary-codex-handoff.md`.
+- Backlog: `specs/backlog.md` (`BL-QA-SITE-IMAGES`).
+- PR #49: https://github.com/FarenRavirar/artificio/pull/49
+
+## Project-state
+- `BL-QA-SITE-IMAGES`: Fase A/B feitas na branch `fix/site-cloudinary-tolerant-import`; Fase C (`SITE_MIGRATE_MEDIA=true` real, rewrite DB beta e smoke) aguarda nova aprovacao nominal em sessao separada.
+
 ## Planejamento Claude 2026-06-17 — handoff Codex
 - Causa raiz isolada: `media.ts` `uploadToCloudinary` sem try/catch; `resolveMediaUrl`/`buildMediaMap` nao capturam; erro sobe a `run.ts` `main().catch` → `process.exit(1)`. 1 asset 404 mata lote.
 - Insight: 404 e derivado de tamanho (`-1100x630.webp`); original `nome.webp` pode existir. Fallback = strip `-\d+x\d+`.

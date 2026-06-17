@@ -22,6 +22,8 @@ const mediaReport: MediaReport = {
   failures: [],
 };
 
+const failedThisRun = new Set<string>();
+
 let uploadImpl: ((wpUrl: string) => Promise<string>) | null = null;
 
 export function cloudinaryEnabled(): boolean {
@@ -39,6 +41,7 @@ export function mediaMigrationEnabled(): boolean {
 export function resetMediaReport(): void {
   mediaReport.migrated = 0;
   mediaReport.failures = [];
+  failedThisRun.clear();
 }
 
 export function getMediaReport(): MediaReport {
@@ -124,12 +127,31 @@ function failureReason(error: unknown): string {
   return String(error);
 }
 
+function errorHttpCode(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const code = (error as { http_code?: unknown }).http_code;
+  return typeof code === "number" ? code : null;
+}
+
+function isFatalCloudinaryError(error: unknown): boolean {
+  const code = errorHttpCode(error);
+  if (code === 401 || code === 403 || code === 420 || code === 429) return true;
+  const reason = failureReason(error).toLowerCase();
+  return /credential|api key|api secret|cloud name|signature|unauthorized|forbidden|invalid config|configuration/.test(reason);
+}
+
+function recordMediaFailure(wpUrl: string, motivo: string): void {
+  failedThisRun.add(wpUrl);
+  mediaReport.failures.push({ wpUrl, motivo });
+}
+
 async function uploadWithFallback(wpUrl: string): Promise<string> {
   try {
     const url = await uploadToCloudinary(wpUrl);
     mediaReport.migrated += 1;
     return url;
   } catch (firstError) {
+    if (isFatalCloudinaryError(firstError)) throw firstError;
     const originalUrl = stripSizeSuffix(wpUrl);
     if (originalUrl !== wpUrl) {
       try {
@@ -137,17 +159,12 @@ async function uploadWithFallback(wpUrl: string): Promise<string> {
         mediaReport.migrated += 1;
         return url;
       } catch (secondError) {
-        mediaReport.failures.push({
-          wpUrl,
-          motivo: `upload falhou; fallback original tambem falhou: ${failureReason(secondError)}`,
-        });
+        if (isFatalCloudinaryError(secondError)) throw secondError;
+        recordMediaFailure(wpUrl, `upload falhou; fallback original tambem falhou: ${failureReason(secondError)}`);
         return wpUrl;
       }
     }
-    mediaReport.failures.push({
-      wpUrl,
-      motivo: `upload falhou: ${failureReason(firstError)}`,
-    });
+    recordMediaFailure(wpUrl, `upload falhou: ${failureReason(firstError)}`);
     return wpUrl;
   }
 }
@@ -161,6 +178,7 @@ export async function resolveMediaUrl(db: Db, wpUrl: string): Promise<string> {
   )).rows[0];
   if (cached) return cached.cloudinary_url;
   if (!mediaMigrationEnabled()) return wpUrl; // dry-run (default): mantém URL WP, boot rápido
+  if (failedThisRun.has(wpUrl)) return wpUrl;
   const url = await uploadWithFallback(wpUrl);
   if (url === wpUrl) return wpUrl;
   await db.query(

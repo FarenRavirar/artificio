@@ -4,6 +4,7 @@ import {
   __setUploadForTest,
   buildMediaMap,
   getMediaReport,
+  resolveMediaUrl,
   resetMediaReport,
   stripSizeSuffix,
 } from "./media";
@@ -16,6 +17,7 @@ function mockDb(): Db {
       inserts.push(params);
       return { rows: [] };
     },
+    async exec(_sql: string) {},
     async close() {},
   };
 }
@@ -88,5 +90,38 @@ describe("buildMediaMap", () => {
     expect(inserts[0]).toEqual([wpUrl, "https://res.cloudinary.com/demo/original.webp"]);
     expect(getMediaReport().failures).toHaveLength(0);
     expect(getMediaReport().migrated).toBe(1);
+  });
+
+  it("propaga erro fatal de credencial Cloudinary", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    process.env.SITE_MIGRATE_MEDIA = "true";
+    const fatal = Object.assign(new Error("Invalid API key"), { http_code: 401 });
+    __setUploadForTest(async () => {
+      throw fatal;
+    });
+
+    await expect(buildMediaMap(mockDb(), ["https://artificiorpg.com/wp-content/uploads/fatal.webp"]))
+      .rejects.toThrow("Invalid API key");
+    expect(getMediaReport().failures).toHaveLength(0);
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("nao tenta subir novamente a mesma URL falhada no mesmo run", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    process.env.SITE_MIGRATE_MEDIA = "true";
+    let calls = 0;
+    __setUploadForTest(async () => {
+      calls += 1;
+      throw new Error("Resource not found");
+    });
+    const db = mockDb();
+    const wpUrl = "https://artificiorpg.com/wp-content/uploads/missing.webp";
+
+    await expect(resolveMediaUrl(db, wpUrl)).resolves.toBe(wpUrl);
+    await expect(resolveMediaUrl(db, wpUrl)).resolves.toBe(wpUrl);
+
+    expect(calls).toBe(1);
+    expect(getMediaReport().failures).toHaveLength(1);
+    expect(inserts).toHaveLength(0);
   });
 });
