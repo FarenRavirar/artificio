@@ -151,17 +151,30 @@ async function uploadWebpBufferToCloudinary(buffer: Buffer, wpUrl: string): Prom
   return res.secure_url;
 }
 
+// Cloudinary aceita upload por data-URI base64; acima disto evitamos montar uma string
+// gigante e o asset cai no caminho de falha (relatado; tratado pela política de remoção do
+// HTML na finalização, já que a origem WP vai sair do ar). Capas do blog ficam muito abaixo
+// — guarda só defensiva.
+const MAX_WEBP_DATAURI_BYTES = 10 * 1024 * 1024;
+
 async function uploadConvertedAvifToCloudinary(wpUrl: string): Promise<string | null> {
   if (avifFallbackImpl) return avifFallbackImpl(wpUrl);
   if (!isAvifUrl(wpUrl)) return null;
 
-  const response = await fetch(wpUrl);
-  if (!response.ok) return null;
-
-  const input = Buffer.from(await response.arrayBuffer());
-  if (!isAvifBuffer(input)) return null;
-
-  const webp = await sharp(input).webp({ quality: 88 }).toBuffer();
+  // fetch + decode + sharp são locais (não-Cloudinary): falha aqui => não é o caminho AVIF,
+  // devolve null e segue o fallback normal. O upload fica FORA deste try p/ que erro fatal
+  // do Cloudinary continue propagando para isFatalCloudinaryError upstream.
+  let webp: Buffer;
+  try {
+    const response = await fetch(wpUrl);
+    if (!response.ok) return null;
+    const input = Buffer.from(await response.arrayBuffer());
+    if (!isAvifBuffer(input)) return null;
+    webp = await sharp(input).webp({ quality: 88 }).toBuffer();
+  } catch {
+    return null;
+  }
+  if (webp.length > MAX_WEBP_DATAURI_BYTES) return null;
   return uploadWebpBufferToCloudinary(webp, wpUrl);
 }
 
