@@ -1,7 +1,7 @@
 // Importador WP -> store (one-shot, idempotente por id/slug). DRY-RUN: sem Cloudinary
 // (featured_url = URL original do WP). Escopo D046: post + taxonomias + comentários.
 // Roda: pnpm --filter @artificio/site import   (precisa migrate antes)
-import { getDb } from "../db/connection";
+import { getDb, type Db } from "../db/connection";
 import { fetchAll, countOf, type WpTerm } from "./wp";
 import { sanitize, withToc, stripTags, decode, readingTime, toDate } from "./sanitize";
 import {
@@ -53,6 +53,31 @@ const cleanMapped = (wpUrl: string | null, map: Map<string, string>, finalizing:
   return mapped;
 };
 
+/**
+ * Conta posts/pages PUBLICADOS (status='publish' — mesmo predicado de db/export.ts) com
+ * /wp-content/uploads em qualquer coluna SERVIDA. Draft/trash/archived não são exportados, logo não
+ * contam: senão um rascunho com link WP travaria a deteção de store finalizado (finalizedStore) e o
+ * boot dry-run posterior voltaria a gravar HTML cru nos posts publicados, recriando links mortos.
+ *
+ * Escopo deliberado: publish-only. Importador só processa conteúdo WP-publicado (WP REST sem auth);
+ * drafts no store são admin-nativos, fora do prune do import. Alargar o gate p/ drafts faria o import
+ * sair !=0 (set -e aborta o rebuild) por causa de um rascunho não-servido — derrubaria o boot.
+ * O risco de admin publicar um draft com link WP pós-EOL é da camada admin (publish/save sanitiza mas
+ * não poda): tratado em BL-SITE-ADMIN-WP-PUBLISH-GUARD, não aqui.
+ */
+async function servedWpResidual(db: Db): Promise<{ posts: number; pages: number; total: number }> {
+  const wpLike = "%wp-content/uploads%";
+  const posts = Number((await db.query<{ n: string }>(
+    "SELECT count(*) n FROM posts WHERE status='publish' AND (content_html LIKE $1 OR coalesce(featured_url,'') LIKE $1 OR coalesce(og_image,'') LIKE $1 OR coalesce(seo_description,'') LIKE $1)",
+    [wpLike],
+  )).rows[0].n);
+  const pages = Number((await db.query<{ n: string }>(
+    "SELECT count(*) n FROM pages WHERE status='publish' AND (content_html LIKE $1 OR coalesce(og_image,'') LIKE $1 OR coalesce(seo_description,'') LIKE $1)",
+    [wpLike],
+  )).rows[0].n);
+  return { posts, pages, total: posts + pages };
+}
+
 async function main() {
   if (process.env.SITE_MIGRATE_MEDIA === "true" && !cloudinaryEnabled()) {
     throw new Error("SITE_MIGRATE_MEDIA=true exige configuracao Cloudinary presente");
@@ -61,7 +86,6 @@ async function main() {
   let exitReason = "";
   // finalizing = migração real em curso (SITE_MIGRATE_MEDIA=true + Cloudinary): faz upload.
   const finalizing = mediaMigrationEnabled();
-  const wpLike = "%wp-content/uploads%";
   try {
     resetMediaReport();
 
@@ -72,11 +96,7 @@ async function main() {
     //      HTML cru e desfaria o prune, republicando links wp-content mortos.
     // Pré-migração (media_map vazio) pruneMode fica FALSO: dry-run preserva URLs WP vivas — senão um
     // deploy comum zeraria mídia do store antes da migração.
-    const priorResidual = Number((await db.query<{ n: string }>(
-      `SELECT (SELECT count(*) FROM posts WHERE content_html LIKE $1 OR featured_url LIKE $1 OR og_image LIKE $1 OR coalesce(seo_description,'') LIKE $1)
-            + (SELECT count(*) FROM pages WHERE content_html LIKE $1 OR coalesce(seo_description,'') LIKE $1) AS n`,
-      [wpLike],
-    )).rows[0].n);
+    const priorResidual = (await servedWpResidual(db)).total;
     const mmapCount = Number((await db.query<{ n: string }>("SELECT count(*) n FROM media_map")).rows[0].n);
     const finalizedStore = mmapCount > 0 && priorResidual === 0;
     const pruneMode = finalizing || finalizedStore;
@@ -216,21 +236,13 @@ async function main() {
     // Verificação residual-zero (D074): nenhuma coluna SERVIDA pode conter wp-content/uploads.
     // Em dry-run pré-migração (pruneMode=false) residual>0 é esperado e NÃO falha; em pruneMode
     // residual>0 falha — set -e do entrypoint aborta o rebuild, impedindo publicar HTML com URL WP.
-    const residualPosts = (await db.query<{ n: string }>(
-      "SELECT count(*) n FROM posts WHERE content_html LIKE $1 OR featured_url LIKE $1 OR og_image LIKE $1 OR coalesce(seo_description,'') LIKE $1",
-      [wpLike],
-    )).rows[0].n;
-    const residualPages = (await db.query<{ n: string }>(
-      "SELECT count(*) n FROM pages WHERE content_html LIKE $1 OR coalesce(seo_description,'') LIKE $1",
-      [wpLike],
-    )).rows[0].n;
-    const residualTotal = Number(residualPosts) + Number(residualPages);
-    console.log("=== RESIDUAL WP (servido) ===");
-    console.log(`posts=${residualPosts} pages=${residualPages} ${residualTotal === 0 ? "✓ ZERO" : pruneMode ? "⚠ RESIDUAL (falha)" : "⚠ RESIDUAL (dry-run pré-migração, ok)"}`);
+    const residual = await servedWpResidual(db);
+    console.log("=== RESIDUAL WP (servido, status=publish) ===");
+    console.log(`posts=${residual.posts} pages=${residual.pages} ${residual.total === 0 ? "✓ ZERO" : pruneMode ? "⚠ RESIDUAL (falha)" : "⚠ RESIDUAL (dry-run pré-migração, ok)"}`);
     console.log("media_map.wp_url / media.wp_url são chaves de idempotência (não servidas), fora deste critério.");
     console.log("=============================\n");
-    if (pruneMode && residualTotal > 0 && !exitReason) {
-      exitReason = `residual WP servido > 0 (posts=${residualPosts} pages=${residualPages}); D074 exige zero`;
+    if (pruneMode && residual.total > 0 && !exitReason) {
+      exitReason = `residual WP servido > 0 (posts=${residual.posts} pages=${residual.pages}); D074 exige zero`;
     }
 
     // 4) Relatório de paridade vs WP (R9).
