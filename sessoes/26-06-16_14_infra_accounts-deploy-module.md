@@ -44,5 +44,13 @@ Migrations: no-op (accounts migra in-container no boot via Dockerfile CMD `node 
 ## Git hygiene
 Branch `infra/026-f5-accounts-deploy-module` off `origin/dev`. Alheio mesas-perf-025 (App.tsx, FeedbackButton, backlog/tasks 025) guardado em stash holdout, fora do commit F5. Stash `f4-wip-docs-t3` (closure docs F4 + regra AGENTS "nunca responder bots") popado e pega carona neste commit de código F5 (regra doc-only do mantenedor). F4 status forward-corrigido (PR #44 mergeado).
 
-## Falta (aprovação nominal por ação)
-commit → push → `gh pr create --base dev` → CI verde → **dry-run VM** (build no clone, sem recreate; write na VM) → **deploy prod** (`module=accounts mode=deploy`) → smoke login/me/logout. Rollback = revert + re-dispatch deploy-accounts.yml.
+## FECHADO EM PROD (2026-06-16)
+Sequência executada com aprovação nominal por ação:
+1. commit `22c753d` (F5) + push → PR #45 base dev → CI verde.
+2. Review (bot) achou `POSTGRES_PASSWORD:-admin` (risco SSO DB) → fix `${VAR:?}` no db+api, commit `194d124` + push (não respondi o bot no PR, regra pétrea). + débito `BL-INFRA-DEFAULT-BRANCH`.
+3. **Dry-run VM:** build da imagem accounts no clone `/opt/artificio` (projeto throwaway `accounts-dryrun`, sem recreate) → imagem 274MB OK, accounts-api rodando intacto. (efeito colateral: `cp` através do symlink `docker-compose.prod.yml`→`docker-compose.yml` modificou o tracked; restaurado via `git checkout`.)
+4. merge PR #45 → dev (`0b4ec43`) → promote `dev→main` ff (run `27656682336`) → deploy prod `module=accounts mode=deploy` run `27656716758`.
+
+**Prova real:** run `healthy_accounts-api=true`, `smoke_health=200`/`login=200`/`me_no_cookie=401`, snapshot criado. VM pós-deploy: `accounts-api` configfile = `/opt/artificio/apps/accounts/docker-compose.prod.yml` (clone git — **snowflake/tarball aposentado**), `health=healthy`, project=`accounts` + volume `accounts_accounts_pgdata` preservados (DB SSO intacto). `BL-CDX-310` fechado.
+
+Rollback (se preciso): revert F5 em main + re-dispatch `deploy-accounts.yml` (preservado no histórico). Próximo da 026: F6 (`accounts` ports→expose).

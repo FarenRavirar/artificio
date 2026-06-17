@@ -6,7 +6,7 @@ name: scorecard
 on:
   push:
     branches:
-      - main
+      - dev
   schedule:
     - cron: "13 5 * * 1" # semanal, segunda 05:13 UTC
   branch_protection_rule:

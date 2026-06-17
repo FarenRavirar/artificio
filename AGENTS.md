@@ -30,6 +30,8 @@ Projeto longo (~3 meses, muitos chats/agentes). Cada reload custa tokens, mas o 
 2. `docs/agents/context-capsule.md` — regras críticas + stack.
 3. `.specify/memory/decisions.md` — decisões fechadas (não re-decidir = não retrabalhar).
 
+Companheiro (não-T0, consultar ao tocar backlog/priorização): `specs/backlog-audit-map.md` — view consolidada de débitos derivada de `specs/backlog.md` (canônico). É arquivo **trackeado/público** (sem recon de infra); não confundir com os docs locais de `docs/agents/` (gitignored por segurança).
+
 **Não** ler `AGENTS.md` inteiro por hábito — é T1 (consulta de regra sob demanda), salvo quando a tarefa for revisar/editar governança ou o próprio `AGENTS.md`. `arquiteture.md` só por seção. Disciplina completa em `docs/agents/token-economy.md`. Caveman ultra default na saída.
 
 **Escalada T1 obrigatória:** se a tarefa tocar ou questionar governança, infra, deploy, CI/CD, VM, DNS/tunnel, banco, auth, SEO/Lighthouse/qualidade transversal, pacotes compartilhados, specs/backlog/sessões ou conclusão de tarefa, o agente deve ler as seções/documentos T1 pertinentes antes de agir ou encerrar. Ex.: infra/deploy → `docs/agents/infra-map.md`, `docs/agents/deploy-runbook.md` quando existir, seções "Acesso à VM", "Banco, Infra e Segredos", "Git, Branch e Deploy"; specs/backlog → `specs/README.md` + spec/tasks/backlog; governança → `AGENTS.md` seções relevantes. Se não leu o T1 pertinente, não pode afirmar que a tarefa está resolvida.
@@ -152,26 +154,25 @@ Posso prosseguir?
 
 Fluxo: `<tipo>/<escopo>` → `dev`/Beta → `main`/Produção. Tipos comuns: `feat/*`, `fix/*`, `chore/*`, `docs/*`, `infra/*`. Escolha o tipo pelo trabalho, não pelo agente. Ex.: `feat/srd-001-tooltips`, `fix/glossario-login-guard`, `docs/020-theme-review`.
 
-**TRAVA PÉTREA — mudança que afeta LÓGICA/COMPORTAMENTO NUNCA commita direto em `dev`/`main`.** Toda mudança que altera lógica ou comportamento (código de app/pacote, e infra/workflow/config/script que muda comportamento de deploy/CI/runtime) entra em `dev` **só via branch de trabalho + Pull Request** (`git switch -c <tipo>/<escopo>` → push da branch → `gh pr create --base dev`). Commitar reto na branch `dev` (mesmo com aprovação de push) é **proibido** — destrói a trilha de revisão. **Motivo operacional duro:** as revisões da Amazon (code review externo) leem PRs; sem PR, a mudança fica invisível para revisão. **Exceções (não exigem PR):** diff **somente documentação** e mudança **que não impacta lógica** (ex.: texto/copy, comentário, README, specs/sessões) — seguem a regra doc-only/fast-forward `dev→main` quando explicitamente autorizadas. Na dúvida se algo "impacta lógica", tratar como código e abrir PR. Se você se pegar com commits de código na branch `dev` local sem PR aberto, **pare e abra o PR antes de pushar**. Falha de processo histórica (commits `485b363`..`d077185` direto em `dev`, 2026-06-15/16) — não repetir.
+**TRAVA PÉTREA — mudança que afeta LÓGICA/COMPORTAMENTO NUNCA commita direto em `dev`/`main`.** Toda mudança que altera lógica ou comportamento (código de app/pacote, e infra/workflow/config/script que muda comportamento de deploy/CI/runtime) entra em `dev` **só via branch de trabalho + Pull Request** (`git switch -c <tipo>/<escopo>` → push da branch → `gh pr create --base dev`). Commitar reto na branch `dev` (mesmo com aprovação de push) é **proibido** — destrói a trilha de revisão. **Motivo operacional duro:** as revisões da Amazon (code review externo) leem PRs; sem PR, a mudança fica invisível para revisão. **Desde a branch protection em `dev` (`BL-INFRA-DEFAULT-BRANCH`, 2026-06-17, D073): TUDO que entra em `dev` — inclusive doc-only — vai por branch + PR; não há mais ff/push direto para `dev` (a proteção bloqueia, e exige o check `lint + build + test` verde, sem approvals). Doc-only vira um PR pequeno.** A promoção `dev→main` continua por fast-forward (workflow `promote-prod-fast-forward.yml`), igual para código e docs. Na dúvida se algo "impacta lógica", tratar como código. Se você se pegar com commits na branch `dev` local sem PR aberto, **pare e abra o PR antes de tentar pushar** (o push direto falhará). Falha de processo histórica (commits `485b363`..`d077185` direto em `dev`, 2026-06-15/16) — não repetir.
 
 **Deploy/código canônico:** entrega normal passa por GitHub (branch/PR/checks/workflow_dispatch/Actions/secrets) e a VM faz `git fetch/reset` no clone. Acesso SSH direto à VM é exceção para bootstrap do clone, instalar utilitários operacionais, conexão, diagnóstico ou rollback aprovado — não é caminho normal de deploy/codificação. Se GitHub cobre a ação, use GitHub para rastreabilidade e branch safety.
 
 - Criar branch de trabalho (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `infra/*`): automático, exceto se for doc-only acumulado que deve ficar local.
 - `git push origin <branch-de-trabalho>`: automático para código/feature autorizada; **doc-only segue a regra própria abaixo**.
 - Abrir PR para `dev`: automático para código/feature autorizada; **doc-only não abre PR sozinho**.
-- `git push origin dev`: aprovação explícita **e** só via merge de PR (mudança que afeta lógica) ou ff autorizado (doc-only / sem impacto em lógica). Nunca push de commits de código que mexe em lógica feitos direto na branch `dev`.
+- `git push origin dev`: **bloqueado por branch protection** — `dev` só recebe via **merge de PR** (com check `lint + build + test` verde). Vale para código E doc-only. Push direto falha.
 - `git push origin main`: aprovação explícita.
 - Merge de PR: só com autorização explícita.
 - **Nunca fazer `git commit`/`git push` por interpretação.** "Corrija", "documente", "ajuste", "pode seguir" ou "resolve logo" autorizam no máximo editar arquivos locais dentro do escopo. Para commitar/pushar, a mensagem precisa pedir explicitamente algo como "commite", "faça push", "suba para dev/main", "promova agora" ou aprovar um bloco de comandos que inclua essas ações.
 - Nunca `git checkout` entre `dev` e `main` durante deploy. Usar `git fetch`, `git rev-parse`, `git log origin/main...origin/dev`, `gh run` e comparações sem checkout.
 - **TRAVA PÉTREA — NUNCA responder, comentar, resolver thread, reagir ou disparar (`@q`, `@codex`, `@coderabbit`, etc.) revisores externos/bots no PR** (amazon-q-developer, chatgpt-codex-connector, coderabbit, Snyk, Sonar, github-advanced-security e afins). O agente **não** escreve nada na conversa do PR. Toda análise de revisão (procede/descarta/backlog) vive **na documentação** — sessão + `specs/.../tasks.md` + `specs/backlog.md` + `project-state.md` conforme impacto — com o veredicto e o porquê. Aplicar fixes que procedem via commit normal (branch/PR); o resto vira débito documentado. Resposta a revisor no PR é sempre do mantenedor, nunca do agente.
-- **Doc-only (regra reforçada):**
+- **Doc-only (regra atualizada D073 — pós branch protection):**
   - `git commit`, `git push`, PR e promoção continuam exigindo aprovação explícita por ação, mesmo quando o diff é só documentação.
-  - Mudança só de documentação não vai sozinha para `dev`/`main`, não abre PR e não é pushada, salvo se o mantenedor pedir explicitamente **documentar/commitar/pushar docs agora**.
-  - Docs viajam junto com o próximo commit de código que as motiva, ou ficam locais acumuladas.
-  - Exceção: correção documental urgente aprovada explicitamente pelo mantenedor; registrar na sessão "doc-only autorizado".
-  - Se o mantenedor pedir explicitamente para subir/promover um diff **somente documentação**, a promoção `dev→main` deve ser por fast-forward (`promote-prod-fast-forward.yml` ou comando equivalente autorizado), sem merge commit/squash.
-  - Para **código**, seguir fluxo normal: branch/PR/checks/revisão/merge autorizado; não promover código por fast-forward direto só para "resolver logo".
+  - Mudança só de documentação não vai sozinha; commit/push/PR só com pedido explícito (**documentar/commitar/pushar docs agora**).
+  - **Não há mais ff/push direto de doc-only para `dev`** (proteção bloqueia). Doc-only entra em `dev` por **branch + PR**, igual a código (pode pegar carona no PR de código que a motiva, ou PR doc-only próprio).
+  - A promoção `dev→main` (código ou docs) é por fast-forward (`promote-prod-fast-forward.yml`), sem merge commit/squash.
+  - Para **código**, fluxo normal: branch/PR/checks/revisão/merge autorizado.
   - Se o GitHub sugerir PR de `dev`, verificar `origin/main...origin/dev` e o conteúdo antes de agir.
 
 ### Acesso à VM (Oracle)

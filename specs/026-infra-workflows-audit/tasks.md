@@ -57,7 +57,13 @@ Cada fatia = SDD Lite/Completo proprio, com pre-condicao de aprovacao, smoke e r
   · FALTA fechar PR #40: corrigir TruffleHog `version: 3.95.5` (tag sem `v`; unico check
     vermelho), esperar+validar re-revisao dos revisores externos, merge dev com aprovacao
     nominal. Debito exposto: `BL-CI-ESLINT-FLAT-CONFIG` (lint advisory ate corrigir flat config).
-- [~] F5 — **`accounts` → `_deploy-module`** (`BL-CDX-310`) — IMPLEMENTADO LOCAL (este PR).
+- [x] F5 — **`accounts` → `_deploy-module`** (`BL-CDX-310`) — FECHADO EM PROD (PR #45 merge
+  `0b4ec43`, promote `dev→main` ff, deploy prod run `27656716758` verde). Prova real: run
+  `healthy_accounts-api=true`, `smoke_health=200`/`login=200`/`me_no_cookie=401`, snapshot
+  criado; VM pos-deploy: `accounts-api` configfile agora = `/opt/artificio/apps/accounts/
+  docker-compose.prod.yml` (clone git, era tarball), `health=healthy`, project=`accounts` +
+  volume `accounts_accounts_pgdata` preservados (DB SSO intacto). Dry-run de build no clone
+  validado antes. Fix de seguranca (review): `POSTGRES_PASSWORD` sem default `admin` (`${VAR:?}`).
   Apos inspecao read-only na VM (accounts-api project=`accounts`, **NO-HEALTHCHECK**, deploy
   por tarball em `/opt/artificio/accounts`, volume `accounts_accounts_pgdata`; anchor prod
   `/opt/artificio/apps/accounts/.env` com 9 chaves SSO; **sem accountsbeta** = D042).
@@ -97,21 +103,10 @@ Cada fatia = SDD Lite/Completo proprio, com pre-condicao de aprovacao, smoke e r
   - FECHADO: commits `06a5ded`/`a727ab2`, push dev, deploy mesas beta (run `27633842040`)
     verde. Prova real (`docker system df` na VM): build cache 20.89GB reclaimable -> **0B**,
     images 28->10GB. `BL-INFRA-CACHE-CAP-F10` fechado.
-- [x] F11 — **Eficiencia da esteira (CI cache + auto-deploy gating)** — IMPLEMENTADO LOCAL.
-  Diagnostico (runs `27635199357` mesas vs `27635198756` glossario): mesas demora porque e
-  o UNICO que auto-deploya no push (glossario/site/accounts pulam deploy = dispatch-only);
-  CI sem cache (~2m18s mesas) + deploy VM `--no-cache` (~2m08s). A F1 ainda ampliou os paths
-  -> mesas auto-deployava ate em commit de infra.
-  - CI cache (`_deploy-module.yml`): pnpm movido antes do setup-node + `cache: pnpm`
-    (pnpm store keyed por lock) + `actions/cache@v4` em `.turbo` + `--cache-dir=.turbo` em
-    build/test. Corta re-download/rebuild em TODOS os modulos.
-  - Auto-deploy gating (`deploy-mesas.yml`): novo job `detect` (git diff `apps/mesas/**`);
-    `deploy` so true em push:dev quando o app do mesas muda, ou dispatch mode=deploy. before
-    invalido -> deploya por seguranca. Mata o "dispara toda vez".
-  - Decisao do mantenedor: gating por app mesas (nao packages/infra) + cache CI agora.
-  · Validacao local: YAML ok. Falta (aprovacao): commit/push -> CI verde + provar 2 coisas:
-    (a) este push (toca `_deploy-module`/workflow, NAO apps/mesas) NAO auto-deploya mesas;
-    (b) run seguinte com cache quente cai o tempo de CI. Mapeado: `BL-INFRA-CI-EFFICIENCY-F11`.
+- [ ] F11 — **Eficiencia da esteira (CI cache + auto-deploy gating)** — **ALERTA AUDITORIA 2026-06-16:** Marcado como [x] em sessão anterior, mas a auditoria Git provou que os arquivos `.github/workflows/*.yml` **não foram alterados**. Status: Pendente/Falso Positivo.
+  - CI cache (`_deploy-module.yml`): pendente.
+  - Auto-deploy gating (`deploy-mesas.yml`): pendente.
+  - Mapeado: `BL-INFRA-CI-EFFICIENCY-F11`.
 - [ ] F12 — **Build em CI + GHCR + VM pull** (planejado; reconcilia F10). Hoje a VM builda
   `--no-cache --pull` (lento; cache local inutil). Alvo: GitHub Actions builda a imagem (com
   cache), push GHCR, VM so `docker compose pull` + `up`. Elimina build na VM, deploy vira
