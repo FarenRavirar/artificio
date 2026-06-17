@@ -4,7 +4,16 @@
 import { getDb } from "../db/connection";
 import { fetchAll, countOf, type WpTerm } from "./wp";
 import { sanitize, withToc, stripTags, decode, readingTime, toDate } from "./sanitize";
-import { buildMediaMap, extractImageUrls, rewriteUrls, mediaMigrationEnabled } from "./media";
+import {
+  buildMediaMap,
+  cloudinaryEnabled,
+  extractImageUrls,
+  getMediaReport,
+  mediaMigrationEnabled,
+  resetMediaReport,
+  rewriteUrls,
+} from "./media";
+import { PAGES_ALLOW } from "./pages";
 
 interface WpRendered { rendered: string; }
 interface WpPost {
@@ -23,13 +32,6 @@ interface WpPage {
   yoast_head_json?: { description?: string };
 }
 
-// Pages institucionais do site (D046). Allow-list: exclui mesas/woo/outros módulos e a home (rota / própria).
-const PAGES_ALLOW = new Set<string>([
-  "sobre-nos", "contato", "politica-de-privacidade", "termos-de-servico",
-  "media-kit", "newsletter", "grupos-de-whatsapp-de-rpg-de-mesa",
-  "material-online", "curso-de-traducao-de-rpg", "coyote-e-crow-portugues",
-]);
-
 const iso = (s?: string): string | null => {
   if (!s) return null;
   const d = toDate(s);
@@ -37,12 +39,18 @@ const iso = (s?: string): string | null => {
 };
 
 async function main() {
+  if (process.env.SITE_MIGRATE_MEDIA === "true" && !cloudinaryEnabled()) {
+    throw new Error("SITE_MIGRATE_MEDIA=true exige configuracao Cloudinary presente");
+  }
   const db = await getDb();
-  console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — mídia=${mediaMigrationEnabled() ? "Cloudinary (upload)" : "DRY-RUN (URLs WP)"}`);
+  let exitAfterClose = false;
+  try {
+    resetMediaReport();
+    console.log(`[import] driver=${db.isPg ? "pg" : "pglite"} — mídia=${mediaMigrationEnabled() ? "Cloudinary (upload)" : "DRY-RUN (URLs WP)"}`);
 
-  // 1) Taxonomias (categorias + tags). 2 passes p/ parent_id (forward refs).
-  const cats = await fetchAll<WpCat>("categories");
-  const tags = await fetchAll<WpTag>("tags");
+    // 1) Taxonomias (categorias + tags). 2 passes p/ parent_id (forward refs).
+    const cats = await fetchAll<WpCat>("categories");
+    const tags = await fetchAll<WpTag>("tags");
   for (const c of cats) {
     await db.query(
       `INSERT INTO taxonomies (id, kind, slug, name, count) VALUES ($1,'category',$2,$3,$4)
@@ -148,19 +156,33 @@ async function main() {
   }
   console.log(`[import] pages institucionais: ${importedPages}/${PAGES_ALLOW.size} (de ${wpPages.length} no WP)`);
 
-  // 4) Relatório de paridade vs WP (R9).
-  const wpPosts = await countOf("posts");
-  const wpComments = await countOf("comments");
-  const storePosts = (await db.query<{ n: string }>("SELECT count(*) n FROM posts")).rows[0].n;
-  const storeTax = (await db.query<{ n: string }>("SELECT count(*) n FROM taxonomies")).rows[0].n;
-  const storeComments = (await db.query<{ n: string }>("SELECT count(*) n FROM comments")).rows[0].n;
-  console.log("\n=== PARIDADE ===");
-  console.log(`posts:      WP=${wpPosts}  store=${storePosts}  ${Number(storePosts) >= wpPosts ? "✓" : "⚠ FALTAM"}`);
-  console.log(`taxonomias: WP=${cats.length + tags.length}  store=${storeTax}`);
-  console.log(`comentários:WP(total)=${wpComments}  store(dos posts)=${storeComments}`);
-  console.log("================\n");
+    const mediaReport = getMediaReport();
+    console.log("\n=== MÍDIA ===");
+    console.log(`migradas=${mediaReport.migrated} falhas=${mediaReport.failures.length}`);
+    for (const failure of mediaReport.failures) {
+      console.log(`- ${failure.wpUrl} :: ${failure.motivo}`);
+    }
+    console.log("=============\n");
+    exitAfterClose = mediaMigrationEnabled() && mediaReport.migrated === 0 && mediaReport.failures.length > 0;
 
-  await db.close();
+    // 4) Relatório de paridade vs WP (R9).
+    const wpPosts = await countOf("posts");
+    const wpComments = await countOf("comments");
+    const storePosts = (await db.query<{ n: string }>("SELECT count(*) n FROM posts")).rows[0].n;
+    const storeTax = (await db.query<{ n: string }>("SELECT count(*) n FROM taxonomies")).rows[0].n;
+    const storeComments = (await db.query<{ n: string }>("SELECT count(*) n FROM comments")).rows[0].n;
+    console.log("\n=== PARIDADE ===");
+    console.log(`posts:      WP=${wpPosts}  store=${storePosts}  ${Number(storePosts) >= wpPosts ? "✓" : "⚠ FALTAM"}`);
+    console.log(`taxonomias: WP=${cats.length + tags.length}  store=${storeTax}`);
+    console.log(`comentários:WP(total)=${wpComments}  store(dos posts)=${storeComments}`);
+    console.log("================\n");
+  } finally {
+    await db.close();
+  }
+  if (exitAfterClose) {
+    console.error("[import] ERRO: nenhuma mídia migrou e houve falhas de mídia");
+    process.exit(1);
+  }
 }
 
 main().catch((e) => {
