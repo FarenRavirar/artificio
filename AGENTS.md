@@ -152,16 +152,19 @@ Posso prosseguir?
 
 Fluxo: `<tipo>/<escopo>` → `dev`/Beta → `main`/Produção. Tipos comuns: `feat/*`, `fix/*`, `chore/*`, `docs/*`, `infra/*`. Escolha o tipo pelo trabalho, não pelo agente. Ex.: `feat/srd-001-tooltips`, `fix/glossario-login-guard`, `docs/020-theme-review`.
 
+**TRAVA PÉTREA — mudança que afeta LÓGICA/COMPORTAMENTO NUNCA commita direto em `dev`/`main`.** Toda mudança que altera lógica ou comportamento (código de app/pacote, e infra/workflow/config/script que muda comportamento de deploy/CI/runtime) entra em `dev` **só via branch de trabalho + Pull Request** (`git switch -c <tipo>/<escopo>` → push da branch → `gh pr create --base dev`). Commitar reto na branch `dev` (mesmo com aprovação de push) é **proibido** — destrói a trilha de revisão. **Motivo operacional duro:** as revisões da Amazon (code review externo) leem PRs; sem PR, a mudança fica invisível para revisão. **Exceções (não exigem PR):** diff **somente documentação** e mudança **que não impacta lógica** (ex.: texto/copy, comentário, README, specs/sessões) — seguem a regra doc-only/fast-forward `dev→main` quando explicitamente autorizadas. Na dúvida se algo "impacta lógica", tratar como código e abrir PR. Se você se pegar com commits de código na branch `dev` local sem PR aberto, **pare e abra o PR antes de pushar**. Falha de processo histórica (commits `485b363`..`d077185` direto em `dev`, 2026-06-15/16) — não repetir.
+
 **Deploy/código canônico:** entrega normal passa por GitHub (branch/PR/checks/workflow_dispatch/Actions/secrets) e a VM faz `git fetch/reset` no clone. Acesso SSH direto à VM é exceção para bootstrap do clone, instalar utilitários operacionais, conexão, diagnóstico ou rollback aprovado — não é caminho normal de deploy/codificação. Se GitHub cobre a ação, use GitHub para rastreabilidade e branch safety.
 
 - Criar branch de trabalho (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `infra/*`): automático, exceto se for doc-only acumulado que deve ficar local.
 - `git push origin <branch-de-trabalho>`: automático para código/feature autorizada; **doc-only segue a regra própria abaixo**.
 - Abrir PR para `dev`: automático para código/feature autorizada; **doc-only não abre PR sozinho**.
-- `git push origin dev`: aprovação explícita.
+- `git push origin dev`: aprovação explícita **e** só via merge de PR (mudança que afeta lógica) ou ff autorizado (doc-only / sem impacto em lógica). Nunca push de commits de código que mexe em lógica feitos direto na branch `dev`.
 - `git push origin main`: aprovação explícita.
 - Merge de PR: só com autorização explícita.
 - **Nunca fazer `git commit`/`git push` por interpretação.** "Corrija", "documente", "ajuste", "pode seguir" ou "resolve logo" autorizam no máximo editar arquivos locais dentro do escopo. Para commitar/pushar, a mensagem precisa pedir explicitamente algo como "commite", "faça push", "suba para dev/main", "promova agora" ou aprovar um bloco de comandos que inclua essas ações.
 - Nunca `git checkout` entre `dev` e `main` durante deploy. Usar `git fetch`, `git rev-parse`, `git log origin/main...origin/dev`, `gh run` e comparações sem checkout.
+- **TRAVA PÉTREA — NUNCA responder, comentar, resolver thread, reagir ou disparar (`@q`, `@codex`, `@coderabbit`, etc.) revisores externos/bots no PR** (amazon-q-developer, chatgpt-codex-connector, coderabbit, Snyk, Sonar, github-advanced-security e afins). O agente **não** escreve nada na conversa do PR. Toda análise de revisão (procede/descarta/backlog) vive **na documentação** — sessão + `specs/.../tasks.md` + `specs/backlog.md` + `project-state.md` conforme impacto — com o veredicto e o porquê. Aplicar fixes que procedem via commit normal (branch/PR); o resto vira débito documentado. Resposta a revisor no PR é sempre do mantenedor, nunca do agente.
 - **Doc-only (regra reforçada):**
   - `git commit`, `git push`, PR e promoção continuam exigindo aprovação explícita por ação, mesmo quando o diff é só documentação.
   - Mudança só de documentação não vai sozinha para `dev`/`main`, não abre PR e não é pushada, salvo se o mantenedor pedir explicitamente **documentar/commitar/pushar docs agora**.

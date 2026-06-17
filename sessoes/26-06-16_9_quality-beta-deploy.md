@@ -230,3 +230,66 @@ Registrado:
 - Backlog `BL-QA-SITE-IMAGES` movido para `pausado-beta-later`.
 
 Sem execucao de migracao, sem deploy, sem write VM/Cloudinary/WP.
+
+## Publicacao conjunta 2026-06-16 — dev, beta e prod
+
+Pedido do mantenedor: "faça deploy para dev do diff. e depois vamos promover tudo para o prod." Aprovacoes nominais posteriores:
+
+- "pode" para promover `dev -> main`.
+- "sim" para rodar deploy prod `glossario`, `mesas`, `accounts`.
+
+Commit/push:
+
+- `d077185 chore: publish quality infra and copyright updates`
+- `git push origin dev`
+
+Validacoes locais antes do commit:
+
+- `git diff --check` ok, apenas warnings CRLF.
+- `pnpm --filter @artificio/ui build` verde.
+- `pnpm --filter @artificio/site build` verde.
+- `pnpm --filter @artificio/mesas-frontend build` verde.
+
+Beta:
+
+- Push em `dev` disparou CI verde. `site`/`glossario` em push eram CI-only, entao foram disparados por `workflow_dispatch mode=deploy`.
+- `deploy-site.yml --ref dev -f mode=deploy` -> run `27647997860` verde.
+- `deploy-glossario.yml --ref dev -f mode=deploy` -> run `27647997904` verde.
+- `deploy-mesas` beta por push -> run `27647661520` verde.
+
+Smoke beta:
+
+- `https://beta.artificiorpg.com/robots.txt` -> 200 `text/plain`, sitemap beta.
+- `https://glossariobeta.artificiorpg.com/robots.txt` -> 200 `text/plain`, sitemap glossario.
+- `https://mesasbeta.artificiorpg.com/robots.txt` -> 200 `text/plain`, sitemap mesas.
+- `https://beta.artificiorpg.com/termos-de-uso-e-direitos-autorais/` -> 200.
+- Home beta contem resumo/link de direitos autorais no rodape.
+- `https://glossariobeta.artificiorpg.com/api/terms` -> 200.
+
+Promocao:
+
+- `promote-prod-fast-forward.yml --ref dev -f confirm=PROMOTE_DEV_TO_MAIN` -> run `27650787106` verde.
+- `main` e `dev` apontam para `d077185c2fd263dc33a82629bc56930e887c62c6`.
+
+Deploy prod:
+
+- `deploy-glossario.yml --ref main -f mode=deploy` -> run `27650844195` verde.
+- `deploy-mesas.yml --ref main -f mode=deploy` -> run `27650844064` verde.
+- `deploy-accounts.yml --ref main -f mode=deploy` -> run `27650843958` verde.
+- Site raiz/WP nao foi alterado; Gate C continua fora de escopo.
+
+Smoke prod:
+
+- `https://glossario.artificiorpg.com/robots.txt` -> 200 `text/plain`, sitemap glossario.
+- `https://mesas.artificiorpg.com/robots.txt` -> 200 `text/plain`, sitemap mesas.
+- `https://glossario.artificiorpg.com/api/terms` -> 200.
+- `https://mesas.artificiorpg.com/api/v1/me/options` -> 401 esperado sem login.
+- `https://accounts.artificiorpg.com/health` -> 200.
+- `https://accounts.artificiorpg.com/login` -> 200.
+
+Status Spec 025 apos publicacao:
+
+- `BL-QA-ROBOTS-SEO` permanece fechado e agora tambem foi confirmado em prod para glossario/mesas.
+- `BL-QA-SHELL-CLS` e `BL-QA-GLOSSARIO-PERF` seguem fechados para as fatias validadas.
+- `BL-QA-SITE-IMAGES` segue `pausado-beta-later` por decisao do mantenedor; Cloudinary nao executado.
+- Spec 025 continua aberta pelos itens restantes: `BL-QA-MESAS-PERF`, `BL-QA-SECURITY-HEADERS`, `BL-QA-A11Y-SWEEP`, `BL-QA-THIRD-PARTY` e retomada futura de imagens.

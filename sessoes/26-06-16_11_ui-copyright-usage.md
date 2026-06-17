@@ -46,3 +46,32 @@ Builds locais de UI e site verdes; sessão registra evidência; backlog/project-
 
 ## Fechamento
 Implementado localmente. Falta commit/push/deploy se o mantenedor quiser publicar.
+
+## Publicacao 2026-06-16
+
+Autorizacao do mantenedor: "faça deploy para dev do diff" e depois aprovacao nominal para promover/deploy prod.
+
+Incluido no commit conjunto:
+
+- `d077185 chore: publish quality infra and copyright updates`
+- `git push origin dev`
+
+Validacoes antes do commit:
+
+- `pnpm --filter @artificio/ui build` verde.
+- `pnpm --filter @artificio/site build` verde; rota `/termos-de-uso-e-direitos-autorais/` gerada.
+
+Deploy beta:
+
+- `deploy-site.yml --ref dev -f mode=deploy` -> run `27647997860` verde.
+- Smoke: `https://beta.artificiorpg.com/termos-de-uso-e-direitos-autorais/` -> 200.
+- Smoke: home beta contem link `/termos-de-uso-e-direitos-autorais/` e resumo do rodape.
+
+Promocao/prod:
+
+- `promote-prod-fast-forward.yml --ref dev -f confirm=PROMOTE_DEV_TO_MAIN` -> run `27650787106` verde.
+- `main` = `dev` em `d077185c2fd263dc33a82629bc56930e887c62c6`.
+- `deploy-accounts.yml --ref main -f mode=deploy` -> run `27650843958` verde, cobrindo consumidor React do rodape compartilhado.
+- Site raiz `artificiorpg.com` nao foi alterado; Gate C continua fora de escopo.
+
+Status final: publicado em beta site; pacote UI publicado nos consumidores prod aplicaveis (`accounts`, alem de glossario/mesas pelos deploys prod do mesmo pacote). Backlog `BL-UI-COPYRIGHT-027` fechado.

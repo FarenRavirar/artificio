@@ -38,12 +38,43 @@ Cada fatia = SDD Lite/Completo proprio, com pre-condicao de aprovacao, smoke e r
   pins SHA resolveram). mesas beta deploy run `27635199357` verde com log
   `resolved_env=beta override='' ref='refs/heads/dev'` + smoke mesasbeta `/`=200,
   `/me/options`=401. glossario/site/accounts verdes. F1/F2/F3 provados em prod-beta.
-- [ ] F4 — **Consolidacao manifesto + matrix** (absorve clones; `BL-DEP-CONTAINER-NAMES`
-  avaliado junto). Manifesto declarativo + 1 workflow. Risco medio (toca todos os deploys).
-  · Pre: SDD Completo, aprovacao, validar 1 modulo por vez por dispatch.
-- [ ] F5 — **`accounts` → `_deploy-module`** (`BL-CDX-310` + `BL-DEP-MESAS-LEGACY-SCRIPTS`
-  + compose versionado). SSO sagrado. · Pre: SDD Completo, aprovacao nominal, smoke
-  `login/me/logout` + allowlist de retorno, rollback por snapshot.
+- [x] F4 — **Consolidacao manifesto + matrix** — FECHADO (PR #44 mergeado em dev, merge
+  `0ba09e1`; commits `6691b6d`/`f3bb9de`/`2821cb8`). 3 deploy-*.yml clones -> 1
+  `.github/deploy-manifest.json` + 1 `deploy.yml` (job `build-matrix` absorve detect/F11 ->
+  deploy matrix via `fromJSON` -> `uses: _deploy-module.yml`). Validado beta 3/3
+  (glossario/mesas/site), zero prod. `deploy.yml` ganhou input dispatch `env`
+  (default/beta/prod) p/ forcar beta de qualquer branch. accounts ficou DE FORA (= F5).
+  Decisoes resolvidas: F11 absorvido; clones deletados (historico preserva); `on:paths`
+  amplia CI (aceito).
+- [x] F-SEC — **Revisao/checks gratis nativos (sem cadastro/App/token externo)** — IMPLEMENTADO
+  LOCAL + PR #40 (`chore/026-security-ci`). Adiciona: dependabot npm; `ci.yml` (lint+build+test
+  monorepo, postgres+env dummy); `codeql.yml` (js/ts); `dependency-review.yml`; `osv-scanner.yml`
+  (reusavel oficial, `fail-on-vuln:false`); `secret-scan.yml` (TruffleHog OSS); `scorecard.yml`
+  (`publish_results:false`); `semgrep.yml` (OSS `--config auto --metrics=off`). Terceiros pinados
+  por SHA (F2). Permissao minima, zero secret/token externo, nao toca deploy/prod. `sessoes/
+  26-06-16_11`, `BL-INFRA-SEC-SCAN`. Settings habilitados pelo mantenedor: Dependency graph +
+  Secret scanning + Push protection.
+  · FALTA fechar PR #40: corrigir TruffleHog `version: 3.95.5` (tag sem `v`; unico check
+    vermelho), esperar+validar re-revisao dos revisores externos, merge dev com aprovacao
+    nominal. Debito exposto: `BL-CI-ESLINT-FLAT-CONFIG` (lint advisory ate corrigir flat config).
+- [~] F5 — **`accounts` → `_deploy-module`** (`BL-CDX-310`) — IMPLEMENTADO LOCAL (este PR).
+  Apos inspecao read-only na VM (accounts-api project=`accounts`, **NO-HEALTHCHECK**, deploy
+  por tarball em `/opt/artificio/accounts`, volume `accounts_accounts_pgdata`; anchor prod
+  `/opt/artificio/apps/accounts/.env` com 9 chaves SSO; **sem accountsbeta** = D042).
+  - `apps/accounts/docker-compose.prod.yml` versionado (substitui shim/symlink VM): add
+    HEALTHCHECK no accounts-api (gate de saude da esteira), env via `environment: ${VAR}`
+    (`--env-file`), project/volume PRESERVADOS (zero perda do DB SSO), `ports:3000:3000`
+    mantido (F6 troca p/ expose).
+  - Manifesto: 4a entrada `accounts` **PROD-only** (`env_override:prod`, dispatch-only,
+    smoke health/login/me=401). Migrations no-op (accounts migra in-container no boot).
+  - `deploy.yml`: `accounts` no choice + guard que BLOQUEIA env=beta p/ accounts (D042).
+  - `deploy-accounts.yml` DELETADO (historico preserva -> rollback = revert + re-dispatch).
+  - Validacao local: YAML lint 3/3, manifest parse 4 modulos, runner no-op confirmado.
+  · Decisao do mantenedor: validar por **dry-run VM (build no clone, sem recreate) -> deploy
+    prod real** com rollback por snapshot (accounts so tem realm prod). · FALTA (aprovacao
+    nominal): commit/push/PR -> CI verde -> dry-run -> deploy prod -> smoke login/me/logout.
+  · `BL-DEP-MESAS-LEGACY-SCRIPTS` (limpeza `apps/mesas/scripts/deploy/*`) deixado FORA deste
+    PR SSO-focado (toca outro modulo + orfa refs em docs); fatia mesas separada.
 - [ ] F6 — **`accounts` `ports`→`expose`** (`BL-ACCOUNTS-PORT`). Hardening. · Pre:
   aprovacao; smoke SSO (porta interna na `artificio_net`).
 - [ ] F7 — **Cron auto-archive seguro** (`BL-MESAS-AUTO-ARCHIVE-CF`). Caminho interno OU

@@ -1,5 +1,5 @@
 {
-  "$comment": "Spec 026 F4: fonte unica declarativa dos deploys de modulo. deploy.yml carrega isto, gera matrix.include via fromJSON e chama _deploy-module.yml por modulo. Diferencas entre modulos sao DADO aqui, nao logica duplicada em 3 workflows. accounts fica fora (snowflake = F5).",
+  "$comment": "Spec 026 F4/F5: fonte unica declarativa dos deploys de modulo. deploy.yml carrega isto, gera matrix.include via fromJSON e chama _deploy-module.yml por modulo. Diferencas entre modulos sao DADO aqui, nao logica duplicada em workflows. F5 (BL-CDX-310) absorveu accounts (snowflake) como 4a entrada PROD-only; deploy-accounts.yml deletado.",
   "modules": [
     {
       "module": "mesas",
@@ -88,6 +88,36 @@
         {"name": "healthz", "url": "https://beta.artificiorpg.com/healthz", "expected": "200"},
         {"name": "blog_index", "url": "https://beta.artificiorpg.com/blog/", "expected": "200"},
         {"name": "admin_protected", "url": "https://beta.artificiorpg.com/admin/status", "expected": "401"}
+      ]
+    },
+    {
+      "module": "accounts",
+      "_comment": "Spec 026 F5 (BL-CDX-310): SSO central, snowflake reconciliado a _deploy-module. PROD-ONLY: D042 nao tem accountsbeta (beta reusa accounts PROD; .env.beta so tem JWT). env_override=prod forca prod em qualquer ref; build-matrix BLOQUEIA dispatch env=beta p/ accounts. dispatch-only (auto_deploy_on_push=false). Migrations no-op: accounts migra in-container no boot (Dockerfile CMD node dist/migrate.js), sem dir database/ -> runner no-op (como glossario/site). Campos *_beta espelham prod por defensividade; nunca exercitados.",
+      "env_override": "prod",
+      "compose_file": "docker-compose.prod.yml",
+      "compose_file_beta": "docker-compose.prod.yml",
+      "compose_project": "accounts",
+      "compose_project_beta": "accounts",
+      "db_service": "accounts-db",
+      "db_service_beta": "accounts-db",
+      "db_name": "artificio_auth",
+      "db_name_beta": "artificio_auth",
+      "db_user": "admin",
+      "reconcile_same_project_orphans": false,
+      "auto_deploy_on_push": false,
+      "push_branches": ["main"],
+      "deploy_paths": ["apps/accounts"],
+      "health_containers": ["accounts-api"],
+      "health_containers_beta": ["accounts-api"],
+      "critical_routes": [
+        {"name": "health", "url": "https://accounts.artificiorpg.com/health", "expected": "200"},
+        {"name": "login", "url": "https://accounts.artificiorpg.com/login", "expected": "200"},
+        {"name": "me_no_cookie", "url": "https://accounts.artificiorpg.com/api/auth/me", "expected": "401"}
+      ],
+      "critical_routes_beta": [
+        {"name": "health", "url": "https://accounts.artificiorpg.com/health", "expected": "200"},
+        {"name": "login", "url": "https://accounts.artificiorpg.com/login", "expected": "200"},
+        {"name": "me_no_cookie", "url": "https://accounts.artificiorpg.com/api/auth/me", "expected": "401"}
       ]
     }
   ]

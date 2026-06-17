@@ -84,8 +84,8 @@ jobs:
           # Deploys pegam SHARED (flock -s): concorrem entre si normalmente.
           # Manutencao pega EXCLUSIVE (flock -x): espera TODOS os deploys
           # liberarem e SEGURA o lock durante todo o prune (fecha a janela C1).
-          # Cobre _deploy-module (mesas/site) E deploy-accounts (C2), pois ambos
-          # passam a pegar o mesmo lock shared. Re-checa a cada 5 min (flock -n)
+          # Cobre _deploy-module (mesas/glossario/site/accounts), todos pegam o mesmo
+          # lock shared (accounts entrou na esteira via F5). Re-checa a cada 5 min (flock -n)
           # so p/ logar progresso; FD 8 fica aberto ate o fim → lock so libera no exit.
           # ----------------------------------------------------------------
           if ! command -v flock >/dev/null 2>&1; then

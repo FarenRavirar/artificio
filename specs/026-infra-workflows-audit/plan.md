@@ -60,6 +60,57 @@
 
 > Direcao-alvo = norte para as fatias futuras. Esta spec NAO escreve esses workflows.
 
+## F4 — Desenho concreto (manifesto + matrix) — PLANEJADO, nao implementado
+
+**Achado-chave:** os 3 `deploy-*.yml` sao clones ~95%. Diferencas reais = DADO, nao logica:
+
+| Eixo | mesas | glossario | site |
+|---|---|---|---|
+| Gating deploy | job `detect` (git diff `apps/mesas/**`, F11) | dispatch-only (bootstrap) | dispatch-only (bootstrap) |
+| env | by-ref (F3) | by-ref | `beta` fixo (D044) |
+| `reconcile_orphans` | false | true | false |
+| Triggers push | dev+main | dev+main | so dev |
+| `critical_routes` | +auth_redirect | api_terms | healthz/blog/admin |
+| paths | apps/mesas | apps/glossario | apps/site + apps/site-admin |
+
+**Desenho:**
+1. **Manifesto `.github/deploy-manifest.json`** (1 entrada/modulo). Campos = os `with:`
+   atuais + meta: `module`, `compose_file[_beta]`, `compose_project[_beta]`,
+   `db_service[_beta]`, `db_name[_beta]`, `db_user`, `health_containers[_beta]`,
+   `critical_routes[_beta]`, `reconcile_same_project_orphans`, `env_override` (""|"beta"),
+   `deploy_paths` (git-diff gating), `auto_deploy_on_push` (bool), `push_branches`.
+2. **Workflow unico `deploy.yml`** substitui os 3. `on:` superconjunto (dispatch com input
+   `module`+`mode`; push/PR cobrindo `apps/**`+`packages/**`+raiz+workflows). Jobs:
+   `read-manifest` (carrega JSON -> `matrix.include` via `fromJSON`), `detect` por modulo
+   (generaliza F11: git diff contra `deploy_paths`, respeita `auto_deploy_on_push`/
+   `push_branches`/dispatch), `deploy` matrix (`uses: ./_deploy-module.yml` com `with:` 100%
+   do manifesto). Path-filtering fino migra do `on:paths` estatico p/ o `detect`.
+3. `_deploy-module.yml`: **toque minimo** — segue recebendo `deploy: bool` pronto; gating
+   fica no `detect`.
+
+**Bloqueio tecnico a validar cedo:** `uses:` reusavel + matrix dinamica. `strategy.matrix`
+via `fromJSON(needs.read-manifest.outputs.matrix)` E suportado pelo GHA; confirmar no 1o
+dry-run (item bloqueante).
+
+**Fora de escopo F4:** `accounts` (snowflake = F5); `break-glass-deploy-prod.yml` (mantem,
+chama `_deploy-module` direto com `env:prod`, semantica de emergencia); `BL-DEP-CONTAINER-NAMES`
+(so avaliar se normaliza nomes no manifesto ou adia).
+
+**Validacao (SDD Completo, 1 modulo/dispatch, NADA prod):** deletar os 3 clones (senao
+colidem trigger = deploy duplo), validar matrix modulo-a-modulo por dispatch beta:
+glossario (bootstrap-safe + reconcile) -> mesas (testa gating `detect`) -> site. Provar que
+push em `apps/mesas/**` auto-deploya so mesas e push de infra nao auto-deploya nada. Rollback
+= git revert + re-dispatch clones.
+
+**Riscos:** (a) `on:paths`->`detect` amplia CI (roda p/ todo modulo em qualquer push de app;
+mitigado por cache F11) — confirmar aceitavel; (b) parse matrix+reusable (bloqueante, validar
+cedo); (c) F4 reescreve `deploy-mesas.yml` (absorve o `detect` do F11 = F11 morre dentro do F4).
+
+**3 DECISOES PENDENTES do mantenedor (perguntar antes de editar):**
+1. F11 (gating detect) — F4 absorve (recomendado) ou commitar F11 antes?
+2. Os 3 clones na validacao — deletar e validar matrix sozinha (recomendado) ou `.disabled` temporario?
+3. `on:paths` estatico -> `detect` dinamico amplia CI — aceitavel (cache mitiga) ou preservar path-filtering fino?
+
 ## F10 — Limpeza de build cache no deploy (IMPLEMENTADO; revisado pos-inspecao VM)
 
 **Conclusao verificada (read-only VM, 2026-06-16, Docker 29.5.3):**
