@@ -58,6 +58,12 @@ const cleanMapped = (wpUrl: string | null, map: Map<string, string>, finalizing:
  * /wp-content/uploads em qualquer coluna SERVIDA. Draft/trash/archived não são exportados, logo não
  * contam: senão um rascunho com link WP travaria a deteção de store finalizado (finalizedStore) e o
  * boot dry-run posterior voltaria a gravar HTML cru nos posts publicados, recriando links mortos.
+ *
+ * Escopo deliberado: publish-only. Importador só processa conteúdo WP-publicado (WP REST sem auth);
+ * drafts no store são admin-nativos, fora do prune do import. Alargar o gate p/ drafts faria o import
+ * sair !=0 (set -e aborta o rebuild) por causa de um rascunho não-servido — derrubaria o boot.
+ * O risco de admin publicar um draft com link WP pós-EOL é da camada admin (publish/save sanitiza mas
+ * não poda): tratado em BL-SITE-ADMIN-WP-PUBLISH-GUARD, não aqui.
  */
 async function servedWpResidual(db: Db): Promise<{ posts: number; pages: number; total: number }> {
   const wpLike = "%wp-content/uploads%";
