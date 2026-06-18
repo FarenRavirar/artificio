@@ -62,8 +62,8 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 | `links.artificiorpg.com` | `links` | público |
 | `accounts.artificiorpg.com` | SSO central | — |
 
-- **`artificiorpg.com` (raiz):** serve o site novo (Astro SSG) desde a spec 029. O WordPress da Hostinger está desligado da raiz (D075); o flip foi por redirect interno Cloudflare, não o cutover DNS cerimonial do Gate C (adiado).
-- **`beta.artificiorpg.com`:** staging isolado do site (spec 030), com `noindex` (X-Robots-Tag) e `PUBLIC_SITE_URL=beta.artificiorpg.com` (canonical/OG/sitemap próprios, sem duplicar SEO da raiz).
+- **`artificiorpg.com` (raiz):** serve o site novo (Astro SSG) desde a spec 029. O WordPress da Hostinger está desligado da raiz (D075); o flip foi por redirect interno Cloudflare, não o cutover DNS cerimonial do Gate C (adiado). **Estado atual (2026-06-18):** raiz e beta ainda no mesmo container `site-beta-app` (D075). A separação em containers distintos (`site-prod-app`+`site-prod-db`) está codificada (spec 030 Fase 0, PR #58 em `dev`) e será ativada nas Fases 1-4 (stand-up prod → seed DB → flip rota Tunnel → noindex beta).
+- **`beta.artificiorpg.com`:** staging do site. **Atualmente** mesmo container+DB da raiz (D075). **Após spec 030:** container isolado com `noindex` (X-Robots-Tag) e `PUBLIC_SITE_URL=beta.artificiorpg.com` (canonical/OG/sitemap próprios, sem duplicar SEO da raiz).
 - **Todo app tem beta próprio:** `mesasbeta.artificiorpg.com`, `glossariobeta.artificiorpg.com` etc. Site beta usa `beta.artificiorpg.com` (nome curto herdado da era pré-cutover).
 - **Cloudflare Tunnel**: um `cloudflared`, várias regras de ingress `hostname → container:port`. Nada de porta exposta. Cert wildcard `*.artificiorpg.com`.
 - **Contrato Real IP (D069/spec 023):** o unico caminho publico confiavel e `Cloudflare Tunnel -> cloudflared -> artificio_net -> app`. `artificio_net` verificada em 2026-06-15 como `172.18.0.0/16`.
