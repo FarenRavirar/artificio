@@ -29,3 +29,6 @@
 - [ ] **T11** — Atualizar `specs/backlog.md` (fechar `BL-ANALYTICS`, anotar `BL-QA-THIRD-PARTY`), nota em D020 (`decisions.md`), `project-state.md`, `specs/README.md` status 032. · feito quando: backlog/decisions/state coerentes.
 - [ ] **T12** (follow-up mantenedor, não-código) — GA4 admin: confirmar exclusão de referral interno + data streams na property `G-8XN5BGPJP3`; aposentar property `G-XMRHY3FE58`. · feito quando: mantenedor confirma no painel.
 - [ ] **T13** (follow-up mantenedor, não-código) — GA4 admin: registrar **custom dimensions** dos params de BI (`sistema`, `mesa_nome`, `termo`, `search_term`, `filter_value`) para virarem rankings em Explorações. · feito quando: dimensões aparecem nos relatórios e top-N de mesas/sistemas/termos é visível.
+
+## Achados pós-deploy
+- **2026-06-18** — achado pós-deploy beta: site sem `anonymize_ip` (R8) → corrigido (`fix/032-site-anonymize-ip`); React apps (glossario/mesas) já tinham via `initGtag`.
