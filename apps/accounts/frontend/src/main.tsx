@@ -5,7 +5,7 @@ import "./styles.css";
 
 applyFavicon();
 
-const PORTAL_URL = "https://beta.artificiorpg.com";
+const PORTAL_URL = "https://artificiorpg.com";
 const THEME_COOKIE = "artificio_theme";
 
 function isAllowedReturnUrl(value: string): boolean {

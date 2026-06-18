@@ -9,7 +9,7 @@ export function GET(context: APIContext) {
   return rss({
     title: "Artifício RPG — Blog",
     description: "Conteúdo de RPG em português: notícias, análises, guias e traduções de D&D e além.",
-    site: context.site ?? "https://beta.artificiorpg.com",
+    site: context.site ?? "https://artificiorpg.com",
     // Só itens com data válida: @astrojs/rss rejeita pubDate inválido e quebra o build inteiro.
     items: posts
       .map((p) => ({ p, d: toDate(p.date) }))

@@ -194,7 +194,7 @@ export function PostEditor() {
           <SeoPanel
             value={post}
             onChange={(k, v) => set(k as keyof PostFull, v as never)}
-            url={`https://beta.artificiorpg.com/blog/${post.slug || "…"}/`}
+            url={`https://artificiorpg.com/blog/${post.slug || "…"}/`}
             fallbackTitle={post.title}
             fallbackDescription={post.excerpt || post.seo_description || ""}
             fallbackImage={post.featured_url}
