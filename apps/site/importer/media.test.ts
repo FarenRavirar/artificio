@@ -209,6 +209,32 @@ describe("buildMediaMap", () => {
     expect(inserts).toHaveLength(0);
   });
 
+  it("trata 'Error in loading ... 403 Forbidden' (carga remota) como toleravel, nao fatal", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    process.env.SITE_MIGRATE_MEDIA = "true";
+    __setUploadForTest(async () => {
+      throw Object.assign(new Error("Error in loading https://artificiorpg.com/wp-content/uploads/x.webm?_=1 - 403 Forbidden"), { http_code: 400 });
+    });
+
+    const wpUrl = "https://artificiorpg.com/wp-content/uploads/x.webm";
+    await expect(resolveMediaUrl(mockDb(), wpUrl)).resolves.toBe(wpUrl);
+    expect(getMediaReport().failures).toHaveLength(1);
+    expect(getMediaReport().failures[0].motivo).toContain("Error in loading");
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("trata 'Error in loading ... 404 Not Found' como toleravel", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    process.env.SITE_MIGRATE_MEDIA = "true";
+    __setUploadForTest(async () => {
+      throw { message: "Error in loading https://artificiorpg.com/wp-content/uploads/y.mp3 - 404 Not Found" };
+    });
+
+    const wpUrl = "https://artificiorpg.com/wp-content/uploads/y.mp3";
+    await expect(resolveMediaUrl(mockDb(), wpUrl)).resolves.toBe(wpUrl);
+    expect(getMediaReport().failures).toHaveLength(1);
+  });
+
   it("registra message de objeto comum em falha toleravel", async () => {
     process.env.CLOUDINARY_CLOUD_NAME = "test";
     process.env.SITE_MIGRATE_MEDIA = "true";

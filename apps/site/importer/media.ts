@@ -287,9 +287,14 @@ function errorHttpCode(error: unknown): number | null {
 }
 
 function isFatalCloudinaryError(error: unknown): boolean {
+  const reason = failureReason(error).toLowerCase();
+  // "Error in loading <url> - 4xx/5xx" = Cloudinary não conseguiu BUSCAR o asset remoto no WP
+  // (hotlink/403, 404 etc.). É falha POR-ASSET (migra-ou-poda, D074), não credencial nossa. Tem de
+  // vir ANTES dos checks de auth: o "403/Forbidden" embutido no texto do asset não pode ser confundido
+  // com 403 de credencial Cloudinary, senão um único asset bloqueado mata o lote inteiro.
+  if (/error in loading/.test(reason)) return false;
   const code = errorHttpCode(error);
   if (code === 401 || code === 403 || code === 420 || code === 429) return true;
-  const reason = failureReason(error).toLowerCase();
   return /credential|api key|api secret|cloud name|signature|unauthorized|forbidden|invalid config|configuration/.test(reason);
 }
 
