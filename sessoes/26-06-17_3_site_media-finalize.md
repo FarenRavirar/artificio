@@ -146,8 +146,30 @@ poda do HTML (D074 migra-ou-remove). +2 testes (403/404 remote-load toleravel). 
 verde, tsc importer 0 erros. Backlog `BL-SITE-MEDIA-REMOTE-403`: revisar relatorio de podas pos-Gate D;
 assets valiosos podem precisar resgate (fetch local + upload buffer, como o caminho AVIF) antes do EOL.
 
+## Investigacao raiz + resgate por bytes (PR #55 estendido)
+
+Mantenedor pediu p/ investigar a raiz do 403 antes de re-rodar (roda 1x, tem que dar certo). Read-only:
+
+Residual real = so 9 assets distintos (repetidos em 38 posts), nao dezenas. Probe nosso fetch (UA browser):
+- `.webm` quem-e-ela: 200, **22.6MB**, ct=`text/plain` -> VIVO (Cloudinary fetch 403 por MIME/hotlink).
+- 3 `.avif`: 200 ct=`text/plain` -> vivos (path AVIF migra).
+- `Jason-Bulmahn-1024x577.jpg.webp`: derivado 404, **original 200 image/webp** -> stripSizeSuffix migra.
+- 4 `.webp` (Exemplo-covil, foundry_demo-2, larp-exemplo-1, mesa-presencial-2): 404 p/ todos -> mortos, poda.
+
+Raiz: WP/Hostinger serve esses media com `content-type: text/plain` (MIME errado). O fetch SERVER-SIDE
+da Cloudinary rejeita/é bloqueado (403/"Error in loading"); nosso fetch le os bytes (200).
+
+Teste end-to-end ANTES de codar (1 upload controlado no container beta, public_id `_test/twebm`,
+deletado depois): fetch local do webm + tempfile + `uploader.upload(resource_type:"video")` ->
+**UPLOAD_OK** secure_url, bytes=22607372, fmt=webm, dur=124s. Metodo PROVADO.
+
+Implementado em `media.ts`: `uploadRemoteFileToCloudinary(wpUrl)` (fetch local -> tempfile -> upload
+via path com resource_type image/video/raw, limite 100MB, unlink no finally) + `__setRemoteFileForTest`.
+Wired no `uploadWithFallback` apos AVIF/stripSizeSuffix e antes de podar. Resultado previsto no Gate D:
+migra webm + 3 avif + Jason; poda so os 4 webp mortos. +3 testes (resgate ok / morto poda / fatal
+propaga) + beforeEach stub p/ nenhum teste tocar rede. test 22/22, build verde, tsc importer 0 erros.
+
 ## Proximo
 
-Apos esse PR verde+merge: re-deploy beta (Gate B''), depois RE-RUN Gate D, E (smoke + residual-zero),
-F (registro/fechamento). Operacional pos-Gate D: avaliar `SITE_IMPORT_ON_START=false` no beta apos WP EOL
-(importador descartavel, D005; store vira canonico).
+Apos PR #55 verde+merge: re-deploy beta (Gate B''), RE-RUN Gate D, E (smoke + residual-zero),
+F (registro/fechamento). Operacional pos-Gate D: avaliar `SITE_IMPORT_ON_START=false` no beta apos WP EOL.

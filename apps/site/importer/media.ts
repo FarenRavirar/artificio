@@ -4,6 +4,9 @@
 // Cloudinary regenera variantes; guardamos só o secure_url do original. Idempotente via media_map.
 import { v2 as cloudinary } from "cloudinary";
 import sharp from "sharp";
+import { tmpdir } from "node:os";
+import { writeFile, unlink } from "node:fs/promises";
+import { join } from "node:path";
 import type { Db } from "../db/connection.js";
 
 let configured = false;
@@ -29,6 +32,8 @@ const failedThisRun = new Set<string>();
 
 let uploadImpl: ((wpUrl: string) => Promise<string>) | null = null;
 let avifFallbackImpl: ((wpUrl: string) => Promise<string | null>) | null = null;
+let remoteFileImpl: ((wpUrl: string) => Promise<string | null>) | null = null;
+let migTmpCounter = 0;
 
 export function cloudinaryEnabled(): boolean {
   return Boolean(process.env.CLOUDINARY_URL || process.env.CLOUDINARY_CLOUD_NAME);
@@ -68,6 +73,10 @@ export function __setUploadForTest(upload: ((wpUrl: string) => Promise<string>) 
 
 export function __setAvifFallbackForTest(upload: ((wpUrl: string) => Promise<string | null>) | null): void {
   avifFallbackImpl = upload;
+}
+
+export function __setRemoteFileForTest(upload: ((wpUrl: string) => Promise<string | null>) | null): void {
+  remoteFileImpl = upload;
 }
 
 function ensureConfig(): void {
@@ -265,6 +274,44 @@ async function uploadConvertedAvifToCloudinary(wpUrl: string): Promise<string | 
   return uploadWebpBufferToCloudinary(webp, wpUrl);
 }
 
+// Limite defensivo p/ o resgate por bytes (vídeo). Os assets reais do blog ficam bem abaixo
+// (webm medido ~22MB); acima disto devolvemos null e o asset cai no caminho de poda.
+const MAX_REMOTE_FILE_BYTES = 100 * 1024 * 1024;
+
+// Resgate por bytes: o WP/Hostinger serve algumas mídias com content-type errado (text/plain), o que
+// faz o fetch SERVER-SIDE da Cloudinary falhar (403/"Error in loading"); MAS o nosso fetch lê os bytes
+// normalmente. Baixamos local, gravamos em arquivo temporário e subimos via path com o resource_type
+// correto (image/video/raw). Provado end-to-end contra o webm real (22.6MB) antes de codar (D074).
+// Upload fora do try de fetch p/ que erro fatal do Cloudinary continue propagando upstream.
+async function uploadRemoteFileToCloudinary(wpUrl: string): Promise<string | null> {
+  if (remoteFileImpl) return remoteFileImpl(wpUrl);
+  let buf: Buffer;
+  try {
+    const response = await fetch(wpUrl);
+    if (!response.ok) return null;
+    buf = Buffer.from(await response.arrayBuffer());
+  } catch {
+    return null;
+  }
+  if (buf.length === 0 || buf.length > MAX_REMOTE_FILE_BYTES) return null;
+  ensureConfig();
+  const resourceType = mediaResourceType(wpUrl);
+  const ext = urlExt(wpUrl);
+  const publicId = resourceType === "raw" && ext ? `${publicIdFor(wpUrl)}.${ext}` : publicIdFor(wpUrl);
+  const tmpPath = join(tmpdir(), `wpmig-${process.pid}-${migTmpCounter++}${ext ? `.${ext}` : ""}`);
+  try {
+    await writeFile(tmpPath, buf);
+    const res = await cloudinary.uploader.upload(tmpPath, {
+      public_id: publicId,
+      overwrite: false,
+      resource_type: resourceType,
+    });
+    return res.secure_url;
+  } finally {
+    await unlink(tmpPath).catch(() => {});
+  }
+}
+
 function failureReason(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object") {
@@ -319,6 +366,7 @@ async function uploadWithFallback(wpUrl: string): Promise<string> {
     } catch (avifError) {
       if (isFatalCloudinaryError(avifError)) throw avifError;
     }
+    // Derivado 404: tenta o original (strip -NxN) via fetch server-side da Cloudinary.
     const originalUrl = stripSizeSuffix(wpUrl);
     if (originalUrl !== wpUrl) {
       try {
@@ -327,9 +375,19 @@ async function uploadWithFallback(wpUrl: string): Promise<string> {
         return url;
       } catch (secondError) {
         if (isFatalCloudinaryError(secondError)) throw secondError;
-        recordMediaFailure(wpUrl, `upload falhou; fallback original tambem falhou: ${failureReason(secondError)}`);
-        return wpUrl;
+        // não registra falha ainda: o resgate por bytes abaixo ainda pode salvar.
       }
+    }
+    // Resgate por bytes (MIME errado na origem): download local + upload via arquivo. Migra vídeo/
+    // áudio/PDF/imagem que a Cloudinary não consegue buscar server-side mas que está vivo p/ nós.
+    try {
+      const rescued = await uploadRemoteFileToCloudinary(wpUrl);
+      if (rescued) {
+        mediaReport.migrated += 1;
+        return rescued;
+      }
+    } catch (rescueError) {
+      if (isFatalCloudinaryError(rescueError)) throw rescueError;
     }
     recordMediaFailure(wpUrl, `upload falhou: ${failureReason(firstError)}`);
     return wpUrl;

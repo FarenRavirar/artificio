@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Db } from "../db/connection";
 import {
   __setAvifFallbackForTest,
+  __setRemoteFileForTest,
   __setUploadForTest,
   buildMediaMap,
   extractMediaUrls,
@@ -28,11 +29,18 @@ function mockDb(): Db {
 
 const inserts: unknown[] = [];
 
+// Default: resgate por bytes desligado (devolve null) p/ nenhum teste tocar a rede real.
+// Testes específicos de resgate sobrescrevem com seu próprio impl.
+beforeEach(() => {
+  __setRemoteFileForTest(async () => null);
+});
+
 afterEach(() => {
   delete process.env.CLOUDINARY_CLOUD_NAME;
   delete process.env.SITE_MIGRATE_MEDIA;
   __setUploadForTest(null);
   __setAvifFallbackForTest(null);
+  __setRemoteFileForTest(null);
   resetMediaReport();
   inserts.length = 0;
 });
@@ -205,6 +213,57 @@ describe("buildMediaMap", () => {
 
     await expect(buildMediaMap(mockDb(), ["https://artificiorpg.com/wp-content/uploads/fatal.webp"]))
       .rejects.toEqual({ message: "Invalid API key" });
+    expect(getMediaReport().failures).toHaveLength(0);
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("resgata por bytes quando o fetch server-side da Cloudinary falha mas o asset esta vivo", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    process.env.SITE_MIGRATE_MEDIA = "true";
+    __setUploadForTest(async () => {
+      throw Object.assign(new Error("Error in loading https://x/quem-e-ela.webm - 403 Forbidden"), { http_code: 400 });
+    });
+    __setRemoteFileForTest(async (url) => {
+      expect(url).toBe("https://artificiorpg.com/wp-content/uploads/2025/03/quem-e-ela.webm");
+      return "https://res.cloudinary.com/demo/video/upload/quem-e-ela.webm";
+    });
+
+    const wpUrl = "https://artificiorpg.com/wp-content/uploads/2025/03/quem-e-ela.webm";
+    const map = await buildMediaMap(mockDb(), [wpUrl]);
+
+    expect(map.get(wpUrl)).toBe("https://res.cloudinary.com/demo/video/upload/quem-e-ela.webm");
+    expect(getMediaReport().migrated).toBe(1);
+    expect(getMediaReport().failures).toHaveLength(0);
+    expect(inserts[0]).toEqual([wpUrl, "https://res.cloudinary.com/demo/video/upload/quem-e-ela.webm"]);
+  });
+
+  it("poda (falha toleravel) quando nem server-side nem resgate por bytes funcionam (asset morto)", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    process.env.SITE_MIGRATE_MEDIA = "true";
+    __setUploadForTest(async () => {
+      throw { message: "Error in loading https://x/morto.webp - 404 Not Found" };
+    });
+    __setRemoteFileForTest(async () => null); // fetch 404 -> sem bytes
+
+    const wpUrl = "https://artificiorpg.com/wp-content/uploads/morto.webp";
+    await expect(resolveMediaUrl(mockDb(), wpUrl)).resolves.toBe(wpUrl);
+    expect(getMediaReport().migrated).toBe(0);
+    expect(getMediaReport().failures).toHaveLength(1);
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("propaga erro fatal vindo do resgate por bytes", async () => {
+    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    process.env.SITE_MIGRATE_MEDIA = "true";
+    __setUploadForTest(async () => {
+      throw { message: "Error in loading https://x/a.webm - 403 Forbidden" };
+    });
+    __setRemoteFileForTest(async () => {
+      throw Object.assign(new Error("Invalid API key"), { http_code: 401 });
+    });
+
+    await expect(buildMediaMap(mockDb(), ["https://artificiorpg.com/wp-content/uploads/a.webm"]))
+      .rejects.toThrow("Invalid API key");
     expect(getMediaReport().failures).toHaveLength(0);
     expect(inserts).toHaveLength(0);
   });
