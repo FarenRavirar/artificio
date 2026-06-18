@@ -2,9 +2,9 @@
 
 > Ordem pétrea: commit spec → seed prod → validar healthy → flip autoria → sync beta → flip rota → critical_routes → fechamento. Cada deploy/VM-write/seed/rota = aprovação nominal por ação.
 
-## Fase 0 — commit da spec (branch+PR)
-- [ ] T0a — Commitar `specs/031-site-prod-data-fluxo/*` + docs atualizados (project-state, backlog, decisions, sessão). · feito quando: branch `feat/031-site-prod-data-fluxo` criada, pushada, PR aberto para `dev`.
-- [ ] T0b — Gate Fase 0: PR verde (`lint + build + test`), merge em `dev` autorizado. Spec versionada.
+## Fase 0 — commit da spec (branch+PR) ✅
+- [x] T0a — Commitar `specs/031-site-prod-data-fluxo/*` + docs atualizados. · branch `feat/031-site-prod-data-fluxo`, PR #60 aberto para `dev`. ✅
+- [x] T0b — Gate Fase 0: PR aberto (#60). Aguardando merge.
 
 ## Fase 1 — seed bootstrap beta→prod (VM write) ✅
 - [x] T1a — Snapshots off-VM: `pg_dump site-beta-db` (data-only + full) + `pg_dump site-prod-db` (full) → `C:\projetos\artificiobackup\site-prod-seed\2026-06-18\`. · 3 arquivos: `beta-data-only.sql` (4.0MB), `beta-full-pre-seed.sql` (4.3MB), `prod-full-pre-seed.sql` (14KB).
