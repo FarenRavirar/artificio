@@ -10,6 +10,7 @@ services:
         VITE_CLOUDINARY_CLOUD_NAME: ${VITE_CLOUDINARY_CLOUD_NAME}
         VITE_CLOUDINARY_UPLOAD_PRESET: ${VITE_CLOUDINARY_UPLOAD_PRESET}
         VITE_ACCOUNTS_URL: ${VITE_ACCOUNTS_URL:-https://accounts.artificiorpg.com}
+        VITE_GA_ID: ${VITE_GA_ID:-G-8XN5BGPJP3}
     container_name: mesas-app
     restart: always
     expose:

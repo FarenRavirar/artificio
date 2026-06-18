@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@artificio/analytics": "workspace:*",
     "@artificio/auth": "workspace:*",
     "@artificio/ui": "workspace:*",
     "axios": "^1.14.0",

@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
     }
   },
   "scripts": {
@@ -16,7 +20,24 @@
     "lint": "eslint .",
     "test": "vitest run"
   },
+  "peerDependencies": {
+    "react": "^19.1.0",
+    "react-router-dom": "^7.13.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-router-dom": {
+      "optional": true
+    }
+  },
   "devDependencies": {
-    "@artificio/config": "workspace:*"
+    "@artificio/config": "workspace:*",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "jsdom": "^29.0.2",
+    "react": "^19.1.0",
+    "react-router-dom": "^7.13.0"
   }
 }

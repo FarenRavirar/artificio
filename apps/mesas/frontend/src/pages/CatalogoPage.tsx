@@ -11,6 +11,7 @@ import type { SystemTreeNode } from '../types/systems';
 import { applySeo } from '../utils/seo';
 import { useCatalogTables } from '../hooks/useCatalogTables';
 import { useCatalogFilters } from '../hooks/useCatalogFilters';
+import { trackFilterSistema } from '@artificio/analytics';
 import type {
   CatalogFilters,
   ExperienceLevelOption,
@@ -63,6 +64,19 @@ export const CatalogoPage = () => {
     const flatten = (nodes: SystemTreeNode[]) => {
       for (const node of nodes) {
         map.set(node.id, node.slug);
+        if (node.children) flatten(node.children);
+      }
+    };
+    flatten(systemsTree);
+    return map;
+  }, [systemsTree]);
+
+  // Flatten tree para mapear ID -> name (usado em trackFilterSistema)
+  const systemsNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const flatten = (nodes: SystemTreeNode[]) => {
+      for (const node of nodes) {
+        map.set(node.id, node.name);
         if (node.children) flatten(node.children);
       }
     };
@@ -142,9 +156,14 @@ export const CatalogoPage = () => {
 
   const handleSystemToggle = (systemId: string) => {
     const slug = systemsMap.get(systemId);
+    const newSystem = slug || '';
+    if (newSystem && newSystem !== filters.system) {
+      const sistemaNome = systemsNameMap.get(systemId) || '';
+      trackFilterSistema({ sistema: sistemaNome });
+    }
     setFilters(prev => ({
       ...prev,
-      system: slug || '',
+      system: newSystem,
     }));
   };
 

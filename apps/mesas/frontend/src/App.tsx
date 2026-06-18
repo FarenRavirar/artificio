@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useAnalyticsPageviews } from '@artificio/analytics/react';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProfileProvider } from './contexts/ProfileContext';
 import { ConfirmProvider } from './components/ui/ConfirmDialog';
@@ -23,6 +24,11 @@ import { Toaster } from 'react-hot-toast';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 import './index.css';
+
+function AnalyticsPageviews() {
+  useAnalyticsPageviews();
+  return null;
+}
 
 function AppRoutes() {
   return (
@@ -106,6 +112,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <AnalyticsPageviews />
         <AuthProvider>
           <ConfirmProvider>
             <AppShell>

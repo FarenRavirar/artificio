@@ -190,6 +190,9 @@ importers:
 
   apps/glossario/frontend:
     dependencies:
+      '@artificio/analytics':
+        specifier: workspace:*
+        version: link:../../../packages/analytics
       '@artificio/auth':
         specifier: workspace:*
         version: link:../../../packages/auth
@@ -372,6 +375,9 @@ importers:
 
   apps/mesas/frontend:
     dependencies:
+      '@artificio/analytics':
+        specifier: workspace:*
+        version: link:../../../packages/analytics
       '@artificio/auth':
         specifier: workspace:*
         version: link:../../../packages/auth
@@ -627,6 +633,21 @@ importers:
       '@artificio/config':
         specifier: workspace:*
         version: link:../config
+      '@types/react':
+        specifier: ^19.1.0
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.1.0
+        version: 19.2.3(@types/react@19.2.17)
+      jsdom:
+        specifier: ^29.0.2
+        version: 29.1.1(@noble/hashes@1.8.0)
+      react:
+        specifier: ^19.1.0
+        version: 19.2.7
+      react-router-dom:
+        specifier: ^7.13.0
+        version: 7.17.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
 
   packages/auth:
     dependencies:
@@ -6811,9 +6832,6 @@ packages:
   tinyspy@4.0.4:
     resolution: {integrity: sha512-azl+t0z7pw/z958Gy9svOTuzqIk6xq+NSheJzn5MMWtWTFywIacg2wUlzKFGtt3cthx0r2SxMK0yzJOR0IES7Q==}
     engines: {node: '>=14.0.0'}
-
-  tldts-core@7.4.2:
-    resolution: {integrity: sha512-nwEyF4vl4RSJjwSjBUmOSxc3BFPoIFdlRthJ6e+5v9P3bHNsoD06UjuqMUspqp7vsEZ1beaHi1km+optiE17yA==}
 
   tldts-core@7.4.3:
     resolution: {integrity: sha512-27ep5H9PzdBrNd5OFM/j3WCU8F3kPwM9D0BOaOf7uYfxMJfyr0K5Tjj69Gri+sZlh2WXd5buIm47NuPF29CDiw==}
@@ -14699,8 +14717,6 @@ snapshots:
 
   tinyspy@4.0.4: {}
 
-  tldts-core@7.4.2: {}
-
   tldts-core@7.4.3: {}
 
   tldts-icann@7.4.3:
@@ -14709,7 +14725,7 @@ snapshots:
 
   tldts@7.4.2:
     dependencies:
-      tldts-core: 7.4.2
+      tldts-core: 7.4.3
 
   tmp@0.2.7: {}
 
