@@ -43,7 +43,7 @@
 - Simulação pré-seed comprovou: `session_replication_role=replica` resolve FK circular em `taxonomies.parent_id`.
 - `schema_migrations` excluído do dump (ambos DBs têm 5 entradas idênticas — incluir causaria duplicate key).
 - `redirects` e `dev_feedback` vazios no beta (0 rows) — sem dados a migrar, sem risco de sequência.
-- Mecanismo de sync: opção A (dump manual prod→beta a cada deploy do beta). Comando documentado no plan.md.
+- Mecanismo de sync: opção A (truncate + dump manual prod→beta a cada deploy do beta, idempotente). Comando documentado no plan.md. Revisado 2026-06-18 (Codex): dump sem truncate falharia com duplicate key na 2a execução.
 
 ## Lições operacionais
 - **PowerShell pipe para docker exec pode truncar/silenciar stdout** com dados grandes (4MB). Preferir arquivo no disco da VM + `cat | docker exec -i`.

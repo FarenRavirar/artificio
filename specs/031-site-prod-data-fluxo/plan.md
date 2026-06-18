@@ -102,14 +102,21 @@ ANTES (fluxo invertido):                    DEPOIS (corrigido):
 
 ## Mecanismo de sync prod→beta (decisão)
 
-**Opção A — dump→restore manual a cada deploy do beta.** Escolhida pelo mantenedor (2026-06-18).
+**Opção A — truncate + restore manual a cada deploy do beta.** Escolhida pelo mantenedor (2026-06-18).
 
-Comando:
+Comando (idempotente — seguro rodar N vezes):
 ```bash
 (echo "BEGIN; SET session_replication_role = replica;";
+ echo "TRUNCATE TABLE public.posts, public.pages, public.taxonomies, public.media_map, public.comments, public.redirects, public.dev_feedback, public.curated_lists, public.curated_list_items, public.post_taxonomies CASCADE;";
  pg_dump site-prod-db --data-only --exclude-table-data=schema_migrations;
  echo "SET session_replication_role = DEFAULT; COMMIT;") | psql site-beta-db
 ```
+
+`session_replication_role = replica` desabilita FK triggers nas 2 etapas:
+1. **Truncate:** sem o replica, FK circular `taxonomies.parent_id` bloquearia o `TRUNCATE`.
+2. **Restore:** sem o replica, FK circular quebraria o `COPY` (mesmo motivo do seed beta→prod original).
+
+`--exclude-table-data=schema_migrations` evita duplicate key em `schema_migrations` (ambos DBs têm 5 entradas idênticas). `pg_dump --data-only` inclui `setval()` automático — sequences corrigidas ao final.
 
 Executar antes de cada `docker compose up -d` no deploy do beta. Beta é staging descartável — cada deploy puxa snapshot fresco do prod. Sem cron, sem script dedicado, sem risco de drift por automação.
 

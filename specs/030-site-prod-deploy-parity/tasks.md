@@ -11,8 +11,8 @@
 - [x] T3 — `noindex` no beta (R8): `X-Robots-Tag: noindex, nofollow` via env (`SITE_NOINDEX=true` no `docker-compose.beta.yml` → middleware no `server.ts`). · build/test verdes.
 - [x] T4 — Gate Fase 0: PR #58 mergeado em `dev` (`49ef112`), promovido a `main` (`594c9a5`). Check `lint + build + test` verde, `actionlint`, build `site`/`site-admin` OK.
 
-## Fase 1 — stand-up prod na VM ⚠️ PARCIAL
-- [ ] T5 — (mantenedor) Secrets do GitHub Environment prod do site. GitHub Environments `beta`/`production` existem. **Baixa prioridade:** deploy usa `--env-file` do disco, não secrets de Environment. · pendente de decisão do mantenedor.
+## Fase 1 — stand-up prod na VM ✅ CONCLUIDA
+- [x] T5 — Secrets do GitHub Environment `production` do site (8 keys): `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DATABASE_URL`, `JWT_SECRET`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `PUBLIC_GA_ID=G-8XN5BGPJP3`. Setados 2026-06-18. Deploy usa `--env-file` do disco; secrets são paridade/redundância.
 - [x] T5b — `.env` prod criado na VM: `/opt/artificio/apps/site/.env` (7 keys, chmod 600, JWT casado com accounts, CLOUDINARY copiados). · validado com `grep -c` redacted.
 - [x] T6 — Deploy prod dispatch: `gh workflow run deploy.yml -f module=site -f mode=deploy --ref main` (run 27779276620). `site-prod-db` healthy, `site-prod-app` em boot loop. Raiz segue no redirect→beta (D075).
 - [x] T7 — Gate Fase 1: ✅ resolvido via spec 031. `site-prod-app` healthy após seed (T1c 031).
