@@ -7,6 +7,6 @@ const id = import.meta.env.PUBLIC_GA_ID;
 {id && (
   <Fragment>
     <script async src={gtagSrc(id)}></script>
-    <script is:inline set:html={gtagInlineConfig(id)}></script>
+    <script is:inline set:html={gtagInlineConfig(id, { anonymizeIp: true })}></script>
   </Fragment>
 )}
