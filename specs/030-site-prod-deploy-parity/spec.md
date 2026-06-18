@@ -3,6 +3,7 @@
 - **Módulo/Pacote:** apps/site (+ apps/site-admin no build) | infra (deploy-manifest, Tunnel, DB prod)
 - **Gate relacionado:** Gate C-adjacente (toca domínio raiz `artificiorpg.com`). NÃO é a cerimônia DNS do Gate C (provedor/registro intocado); é stand-up de container/rota igual aos demais módulos.
 - **Origem:** decisão do mantenedor 2026-06-18 (esta sessão) — a spec 029 virou principal por **redirect interno Cloudflare** (D075) como gambiarra de prazo (WP EOL ~06-20). Infra precisa ficar no padrão definitivo: beta E prod separados, como mesas/glossario/accounts.
+- **Status:** Fase 0 (código) ✅ concluída (PR #58). Fase 1 parcial (T5b .env ✅, T6 dispatch ✅). **Fases 2-4 delegadas à spec 031** (correção do fluxo de dados + seed + flip autoria + flip rota). **Spec 031 é bloqueadora das Fases 2-4 desta spec.**
 
 ## Problema
 
