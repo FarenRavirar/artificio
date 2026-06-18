@@ -169,7 +169,44 @@ Wired no `uploadWithFallback` apos AVIF/stripSizeSuffix e antes de podar. Result
 migra webm + 3 avif + Jason; poda so os 4 webp mortos. +3 testes (resgate ok / morto poda / fatal
 propaga) + beforeEach stub p/ nenhum teste tocar rede. test 22/22, build verde, tsc importer 0 erros.
 
-## Proximo
+## Gate B''/D(re-run)/E/F — migracao COMPLETA 2026-06-17
 
-Apos PR #55 verde+merge: re-deploy beta (Gate B''), RE-RUN Gate D, E (smoke + residual-zero),
-F (registro/fechamento). Operacional pos-Gate D: avaliar `SITE_IMPORT_ON_START=false` no beta apos WP EOL.
+- PR #55 mergeado em `dev` (`921fd10`). Gate B'' (re-deploy beta) verde: beta `921fd10`, resgate no
+  container, HTTP 200.
+- Gate D re-run (`SITE_MIGRATE_MEDIA=true`) NAO abortou: `pruneMode=true`, `migradas=39 falhas=12
+  removidas_html=12`, **RESIDUAL servido posts=0 pages=0 ✓ ZERO**.
+  - Migrou: webm (video, 22.6MB, ambos forms ?_=1), 3 avif (image), + featured/inline residuais.
+  - Podou 12: 5 webp/img mortas (404), 1 Jason-Bulmahn avatar (original vivo p/ nos mas resgate
+    buscou o derivado 404 -> gap menor), **6 PDFs valiosos 16-22MB** bloqueados pelo limite RAW 10MB
+    do Cloudinary free ("File size too large ... Upgrade your plan").
+- Backup local dos 6 PDFs + Jason (read-only GET, antes do EOL):
+  `C:\projetos\artificiobackup\site-cloudinary\rescued-pdfs\` (104MB, 7 arquivos, todos HTTP 200).
+- Decisao do mantenedor: hospedar os PDFs NA VM via futura feature de upload/gestao de midia dentro do
+  beta (estilo FileBird) -> `BL-SITE-VM-MEDIA-LIBRARY` (mantenedor detalha em prompt proprio). E
+  finalizar export/build agora.
+- Gate D final: `export` (125 posts, 10 pages) + `build` (220 pages, Pagefind 125) OK.
+- Gate E verde: dist grep `wp-content/uploads` = **0 arquivos / 0 ocorrencias**; live home grep = 0;
+  post do webm serve `res.cloudinary.com/.../video/upload/...webm`; HTTP home/post/page 200; healthz 125.
+
+### Resultado
+
+Dependencia WP no conteudo SERVIDO do site = **ZERO** (store + dist + live). webm/avif/imagens vivas
+migradas p/ Cloudinary; so assets mortos (404) e 6 PDFs grandes (salvos, a re-hospedar na VM) foram
+removidos do HTML. Idempotente: futuros boots dry-run detectam `finalizedStore=true` (mmap>0 +
+residual 0) e mantem o prune; store permanece zero.
+
+### Backlog (Gate F)
+
+- `BL-QA-SITE-IMAGES` -> FECHADO (imagens usadas migradas; residual servido 0).
+- `BL-SITE-AVIF-FAIL` -> FECHADO (3 avif migradas via resgate/AVIF path).
+- `BL-SITE-MEDIA-REMOTE-403` -> FECHADO (raiz=MIME text/plain; resgate por bytes migrou webm).
+- `BL-SITE-MEDIA-ERR-SERIAL` -> FECHADO (mergeado no PR #50).
+- `BL-SITE-NONIMG-MEDIA` -> parcial: webm migrado; 6 PDFs pendentes de re-host -> `BL-SITE-VM-MEDIA-LIBRARY`.
+- Novos: `BL-SITE-VM-MEDIA-LIBRARY` (feature de midia na VM + re-host dos 6 PDFs salvos),
+  `BL-SITE-RESCUE-STRIPPED` (resgate por bytes deveria tentar tambem a URL stripped; Jason avatar).
+
+## Operacional pendente
+
+Pos WP EOL (~2026-06-20): setar `SITE_IMPORT_ON_START=false` no beta (store canonico, importador
+descartavel D005) — senao boot dry-run re-fetch do WP morto falha. Enquanto WP vivo, import-on-start
+e idempotente (finalizedStore mantem residual 0).
