@@ -22,7 +22,7 @@ Claude planeja; OpenCode (DeepSeek) executa via MCP `opencode` (escopo local). C
 ### Fase 1 — stand-up prod na VM (dispatch, sem flip de rota)
 - F4: secrets do GitHub Environment prod do site (mantenedor): `POSTGRES_PASSWORD`, `DATABASE_URL`→`site-prod-db`, `JWT_SECRET`, `CLOUDINARY_*`, `PUBLIC_GA_ID`.
 - F4b: **(mantenedor) bootstrap do arquivo `apps/site/.env` no disco da VM** (R12). `_deploy-module.yml:325` lê do disco — sem o arquivo, deploy aborta. Conteúdo: `POSTGRES_PASSWORD`, `JWT_SECRET`, `CLOUDINARY_*`, `PUBLIC_GA_ID`, `DATABASE_URL=postgres://admin:<pwd>@site-prod-db:5432/site`, `POSTGRES_USER=admin`. `JWT_SECRET` deve casar com `apps/accounts/.env` (SSO D042).
-- F5: deploy prod dispatch: `gh workflow run deploy.yml -f module=site -f mode=deploy` (env deriva automaticamente de `refs/heads/main` → prod, sem flag `--ref`). Sobe `site-prod-app`+`site-prod-db`. **Raiz ainda no redirect→beta** (rota intocada). `critical_routes` prod no manifest = internas (health container), não URL pública.
+- F5: deploy prod dispatch: `gh workflow run deploy.yml -f module=site -f mode=deploy --ref main` (env deriva automaticamente de `refs/heads/main` → prod; `--ref main` obrigatório porque default branch = `dev` (D073) → sem `--ref` rodaria em `dev`=beta). Sobe `site-prod-app`+`site-prod-db`. **Raiz ainda no redirect→beta** (rota intocada). `critical_routes` prod no manifest = internas (health container), não URL pública.
 - Gate F1: containers `healthy`; smoke INTERNO (via container/health, NÃO pela raiz pública que ainda redireciona pro beta = falso-positivo).
 
 ### Fase 2 — seed do conteúdo (VM write, mantenedor)
