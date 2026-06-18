@@ -174,7 +174,11 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [termo.id, nameEn, termo.system_name]);
+
+  useEffect(() => {
+    sentRef.current = false;
+  }, [termo.id]);
 
   // Lógica consolidada das Badges Arquiteturais (oficial, artificio, sugestao)
   const rawStatus = termo.status || '';

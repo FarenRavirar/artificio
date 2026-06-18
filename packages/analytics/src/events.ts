@@ -15,9 +15,11 @@ export function trackEvent(name: string, params: Record<string, unknown> = {}): 
   window.gtag!("event", name, cleanParams(params));
 }
 
+/** page_view com apenas o pathname (query string descartada para evitar vazar PII). */
 export function trackPageview(path: string): void {
   if (!hasGtag()) return;
-  window.gtag!("event", "page_view", { page_path: path });
+  const safePath = path.split("?")[0];
+  window.gtag!("event", "page_view", { page_path: safePath });
 }
 
 function cleanParams(params: Record<string, unknown>): Record<string, unknown> {
@@ -30,11 +32,12 @@ function cleanParams(params: Record<string, unknown>): Record<string, unknown> {
 
 // ── Catálogo de eventos (BI agregado, sem PII) ──
 
-/** Busca textual. search_term com pelo menos 2 caracteres. */
+/** Busca textual. search_term com min 2 e max 100 caracteres (cap anti-PII). */
 export function trackSearch(searchTerm: string): void {
   const trimmed = searchTerm.trim();
   if (trimmed.length < 2) return;
-  trackEvent("search", { search_term: trimmed });
+  const capped = trimmed.slice(0, 100);
+  trackEvent("search", { search_term: capped });
 }
 
 /** Visualização de termo (glossário). */

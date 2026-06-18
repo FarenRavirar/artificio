@@ -27,6 +27,11 @@ export function gtagInlineConfig(id: string, opts: GaOptions = {}): string {
 export function initGtag(id: string, opts: GaOptions = {}): void {
   if (typeof window === "undefined" || typeof document === "undefined") return;
 
+  if (!/^G-[A-Z0-9]+$/i.test(id)) {
+    console.warn(`[analytics] measurement id invalido: ${id}`);
+    return;
+  }
+
   const src = gtagSrc(id);
   if (document.querySelector(`script[src="${src}"]`)) return;
 

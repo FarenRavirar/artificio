@@ -22,11 +22,13 @@ Resultado: nenhum app novo alimenta a property canônica; dados fragmentados/aus
 4. **R4** — glossario remove o gtag hardcoded do `index.html` e o `utils/analytics.ts` duplicado; passa a consumir `@artificio/analytics`. Sem `G-XMRHY3FE58` no bundle.
 5. **R5** — mesas carrega GA4 real via `@artificio/analytics` (não placeholder morto); rotas públicas instrumentadas.
 6. **R6** — SPAs (glossario, mesas) disparam `page_view` em cada mudança de rota (React Router), com `send_page_view:false` no config inicial para não duplicar.
-7. **R7** — Eventos de domínio usam o catálogo central de `@artificio/analytics`, não strings soltas por app. Catálogo de BI agregado (sem PII), para gestão:
+7. **R7** — Eventos de domínio usam o catálogo central de `@artificio/analytics`, não strings soltas por app. Catálogo de BI agregado:
    - **glossario:** `search` (`search_term`), `view_termo` (`termo_id`, `termo`, `sistema`).
    - **mesas:** `search` (`search_term`), `select_mesa` (`mesa_id`, `mesa_nome`, `sistema`), `filter_sistema`/`filter_apply` (`sistema`, `filter_type`, `filter_value`).
+   - `search_term` é **texto livre digitado pelo usuário**, podendo conter PII; mitigações obrigatórias: sem `user_id`, `anonymize_ip`, e cap de tamanho (max 100 caracteres após trim).
+   - `termo`, `mesa_nome` e `sistema` são campos de **conteúdo público controlado** (nome de termo/mesa/sistema), não dado de pessoa.
    - Responde: mesas mais buscadas/clicadas, sistemas mais populares, termos mais procurados/vistos. Tudo agregado, sem `user_id`/identificação.
-8. **R8** — Privacidade: `anonymize_ip` ativo; nenhum PII em params; sem `user_id` salvo necessidade aprovada. Compromisso "sem coleta desnecessária".
+8. **R8** — Privacidade: `anonymize_ip` ativo; nenhum PII em params; sem `user_id` salvo necessidade aprovada. `search_term` recebe cap de 100 caracteres (slice+trim) além do min length 2 já existente. Compromisso "sem coleta desnecessária".
 9. **R9** — `G-XMRHY3FE58` (property antiga do glossário) é aposentada; D020 e backlog refletem a convergência.
 
 ## Critérios de aceite

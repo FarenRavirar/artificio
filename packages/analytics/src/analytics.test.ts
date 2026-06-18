@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   gtagSrc,
   gtagInlineConfig,
@@ -9,6 +9,7 @@ import {
   trackSelectMesa,
   trackFilterSistema,
   trackFilterApply,
+  trackPageview,
 } from "./index.js";
 
 describe("gtag", () => {
@@ -31,6 +32,12 @@ describe("gtag", () => {
 
 describe("initGtag", () => {
   const GA_ID = "G-ABC123";
+
+  beforeEach(() => {
+    document.querySelectorAll('script[src*="googletagmanager.com/gtag/js"]').forEach((s) => s.remove());
+    window.dataLayer = [];
+    (window as unknown as Record<string, unknown>).gtag = undefined;
+  });
 
   it("injeta o script do gtag com o src correto", () => {
     initGtag(GA_ID);
@@ -172,4 +179,26 @@ describe("events catalog", () => {
     const [call] = calls as [string, string, Record<string, unknown>][];
     expect(call[2]).not.toHaveProperty("sistema");
   });
+
+  it("trackPageview envia page_view com page_path sem query", () => {
+    const calls: unknown[] = [];
+    window.gtag = (...args: unknown[]) => calls.push(args);
+
+    trackPageview("/x?email=a@b.com");
+    expect(calls.length).toBe(1);
+    const [call] = calls as [string, string, Record<string, unknown>][];
+    expect(call[0]).toBe("event");
+    expect(call[1]).toBe("page_view");
+    expect(call[2]).toEqual({ page_path: "/x" });
+  });
 });
+
+describe("ssr guard", () => {
+  it("initGtag nao lanca com window/document indefinidos", () => {
+    expect(() => {
+      initGtag("G-ABC123");
+    }).not.toThrow();
+  });
+});
+
+// TODO: teste do hook useAnalyticsPageviews (evitar dep nova @testing-library/react)
