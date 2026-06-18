@@ -124,9 +124,52 @@ snapshot pre-loop (finalizedStore) e na verificacao residual-zero pos-loop -> se
 
 Validacoes: test 17/17, build verde, tsc importer 0 erros.
 
+## Execucao gated 2026-06-17 (B' -> D)
+
+- PR #54 mergeado em `dev` (`8ec2203`). Cadeia de review #51->#54 fechada (4 bugs CodeRabbit reais).
+- Gate B' (re-deploy beta) verde: run `27718952555`, beta `8ec2203`, HTTP 200, healthz posts=125.
+  Boot dry-run validou codigo novo: `pruneMode=false (finalizedStore=false mmap=357 priorResidual=77)`,
+  residual `status=publish`, midia preservada (sem wipe). Store: posts_pub_wp=38.
+- Gate C (backup): `C:\projetos\artificiobackup\site-cloudinary\site-beta-before-gated-migration-20260617-214044.sql`
+  (4.060.250 bytes, dump integro).
+- Gate D (import real) ABORTOU -> bug real achado:
+  `[import] ERRO: Error in loading <...quem-e-ela...webm> - 403 Forbidden`. Cloudinary nao consegue
+  buscar o `.webm` server-side (WP/Cloudflare 403, provavel hotlink). `isFatalCloudinaryError` tinha
+  `forbidden` no regex -> tratou 403 do ASSET como credencial fatal -> abortou o lote. Abortou cedo
+  (1o post), nada exportado, backup intacto, idempotente.
+
+### Fix (branch `fix/site-cloudinary-remote-load-tolerant` -> PR proprio)
+
+`media.ts isFatalCloudinaryError`: `Error in loading` (carga remota) agora retorna `false` (toleravel),
+ANTES dos checks de auth — asset bloqueado por-asset nao mata o lote; vai p/ recordMediaFailure ->
+poda do HTML (D074 migra-ou-remove). +2 testes (403/404 remote-load toleravel). test 19/19, build
+verde, tsc importer 0 erros. Backlog `BL-SITE-MEDIA-REMOTE-403`: revisar relatorio de podas pos-Gate D;
+assets valiosos podem precisar resgate (fetch local + upload buffer, como o caminho AVIF) antes do EOL.
+
+## Investigacao raiz + resgate por bytes (PR #55 estendido)
+
+Mantenedor pediu p/ investigar a raiz do 403 antes de re-rodar (roda 1x, tem que dar certo). Read-only:
+
+Residual real = so 9 assets distintos (repetidos em 38 posts), nao dezenas. Probe nosso fetch (UA browser):
+- `.webm` quem-e-ela: 200, **22.6MB**, ct=`text/plain` -> VIVO (Cloudinary fetch 403 por MIME/hotlink).
+- 3 `.avif`: 200 ct=`text/plain` -> vivos (path AVIF migra).
+- `Jason-Bulmahn-1024x577.jpg.webp`: derivado 404, **original 200 image/webp** -> stripSizeSuffix migra.
+- 4 `.webp` (Exemplo-covil, foundry_demo-2, larp-exemplo-1, mesa-presencial-2): 404 p/ todos -> mortos, poda.
+
+Raiz: WP/Hostinger serve esses media com `content-type: text/plain` (MIME errado). O fetch SERVER-SIDE
+da Cloudinary rejeita/é bloqueado (403/"Error in loading"); nosso fetch le os bytes (200).
+
+Teste end-to-end ANTES de codar (1 upload controlado no container beta, public_id `_test/twebm`,
+deletado depois): fetch local do webm + tempfile + `uploader.upload(resource_type:"video")` ->
+**UPLOAD_OK** secure_url, bytes=22607372, fmt=webm, dur=124s. Metodo PROVADO.
+
+Implementado em `media.ts`: `uploadRemoteFileToCloudinary(wpUrl)` (fetch local -> tempfile -> upload
+via path com resource_type image/video/raw, limite 100MB, unlink no finally) + `__setRemoteFileForTest`.
+Wired no `uploadWithFallback` apos AVIF/stripSizeSuffix e antes de podar. Resultado previsto no Gate D:
+migra webm + 3 avif + Jason; poda so os 4 webp mortos. +3 testes (resgate ok / morto poda / fatal
+propaga) + beforeEach stub p/ nenhum teste tocar rede. test 22/22, build verde, tsc importer 0 erros.
+
 ## Proximo
 
-Apos PR #54 verde+merge: re-deploy beta (Gate B') p/ subir pruneMode + residual filtrado, depois Gates
-C (backup pg_dump), D (re-import real SITE_MIGRATE_MEDIA=true), E (smoke + residual-zero), F (registro/
-fechamento) — cada um com aprovacao nominal. Operacional pos-Gate D: avaliar `SITE_IMPORT_ON_START=false`
-no beta apos WP EOL (importador descartavel, D005; store vira canonico).
+Apos PR #55 verde+merge: re-deploy beta (Gate B''), RE-RUN Gate D, E (smoke + residual-zero),
+F (registro/fechamento). Operacional pos-Gate D: avaliar `SITE_IMPORT_ON_START=false` no beta apos WP EOL.
