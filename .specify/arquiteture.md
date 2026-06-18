@@ -94,6 +94,17 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 - **`deploy-manifest.json`** = fonte única declarativa: `module`, `env_override`, `compose_file`/`_beta`, `compose_project`/`_beta`, `db_service`/`_beta`, `db_name`/`_beta`, `health_containers`, `critical_routes`/`_beta`, `auto_deploy_on_push`, `push_branches`, `deploy_paths`, `reconcile_same_project_orphans`.
 - **Env deriva do ref:** `dev`→beta, `main`→prod (exceto `accounts`: `env_override=prod` fixo). Deploy prod usa `--ref main` (default branch = `dev`, D073).
 - **VM:** clone git em `/opt/artificio` (prod) e `/opt/artificio-beta` (beta). `.env` por módulo no disco (`apps/<modulo>/.env` ou `.env.beta`), gitignored, lido pelo deploy via `--env-file`. Secrets GitHub Environment (`production`/`beta`) usados para SSH e CI; vars de runtime do container vêm do `.env` no disco.
+- **`.env` no disco da VM (estado verificado 2026-06-18):**
+
+| Módulo | Prod `/opt/artificio/apps/<mod>/.env` | Beta `/opt/artificio-beta/apps/<mod>/.env.beta` |
+|---|---|---|
+| `accounts` | 9 keys (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL, PUBLIC_URL, COOKIE_DOMAIN, JWT_SECRET, JWT_REFRESH_SECRET, POSTGRES_PASSWORD, DATABASE_URL) | 1 key (JWT_SECRET — D042: beta reusa SSO prod) |
+| `mesas` | 30 keys (POSTGRES_*, JWT_*, DATABASE_URL, GOOGLE_*, CLOUDINARY_*, DISCORD_*, AGGREGATOR_*, FRONTEND_URL, VITE_*, ACCOUNTS_URL, etc.) | 32 keys (espelha prod + VITE_ENABLE_DEVTOOLS) |
+| `glossario` | 9 keys (POSTGRES_USER, POSTGRES_PASSWORD, JWT_SECRET, …) | 10 keys |
+| `site` | 7 keys (POSTGRES_USER, POSTGRES_PASSWORD, DATABASE_URL→site-prod-db, JWT_SECRET, CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET) | 10 keys (POSTGRES_PASSWORD, DATABASE_URL, JWT_SECRET, SITE_IMPORT_ON_START, CLOUDINARY_*×2 duplicados) |
+
+- **`JWT_SECRET`** deve ser idêntico entre `accounts` e cada módulo no mesmo ambiente (validado pelo deploy no `read_env_value`). Contas beta reusam JWT prod (D042).
+- **`.env` ausente no 1º deploy de módulo novo** → deploy aborta com erro (spec 009 R3). Bootstrap: criar o arquivo no disco da VM ANTES do 1º dispatch. **Nunca fazer `cat` do .env** — validar existência com `grep -c '^CHAVE='` (redacted).
 - Imagem buildada NA VM (não GHCR). `docker compose --env-file .env up -d --force-recreate`. Build cache prune pós-deploy (`docker builder prune -f`).
 - Fluxo: branch `feat/*`/`fix/*` → PR → `dev` (merge) → promote `dev→main` ff (`promote-prod-fast-forward.yml`) → dispatch deploy prod. Push a `dev`/`main` e qualquer ação write na VM = aprovação (AGENTS).
 - **Module-level locks:** `flock` shared (deploys concorrentes) + exclusive (manutenção `docker-cleanup.yml`). Snapshot DB pré-deploy + health check + smoke `critical_routes`.
