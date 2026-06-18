@@ -3,5 +3,12 @@
 // Exclusão de referral interno + 1 property = config no painel GA4 (admin).
 export type { GaOptions } from "./config.js";
 export { ANALYTICS_DEFAULTS } from "./config.js";
-export { gtagSrc, gtagInlineConfig } from "./gtag.js";
-export { trackEvent, trackPageview } from "./events.js";
+export { gtagSrc, gtagInlineConfig, initGtag } from "./gtag.js";
+export {
+  trackEvent,
+  trackPageview,
+  trackSearch,
+  trackViewTermo,
+  trackSelectMesa,
+  trackFilterSistema,
+} from "./events.js";

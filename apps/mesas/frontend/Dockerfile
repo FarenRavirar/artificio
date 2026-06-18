@@ -27,6 +27,9 @@ ENV VITE_CLOUDINARY_UPLOAD_PRESET=${VITE_CLOUDINARY_UPLOAD_PRESET}
 ARG VITE_ACCOUNTS_URL
 ENV VITE_ACCOUNTS_URL=${VITE_ACCOUNTS_URL}
 
+ARG VITE_GA_ID
+ENV VITE_GA_ID=${VITE_GA_ID}
+
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/mesas ./apps/mesas

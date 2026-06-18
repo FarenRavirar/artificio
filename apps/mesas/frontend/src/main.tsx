@@ -4,12 +4,18 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from './lib/queryClient'
 import { installDiagnostics } from './lib/diagnostics'
 import { applyFavicon } from '@artificio/ui'
+import { initGtag } from '@artificio/analytics'
 import '@artificio/ui/styles.css'
 import './index.css'
 import App from './App.tsx'
 
 installDiagnostics()
 applyFavicon()
+
+const gaId = import.meta.env.VITE_GA_ID;
+if (gaId) {
+  initGtag(gaId);
+}
 
 // Tema lua/sol (Spec 020 D067). Tema é COMPARTILHADO cross-subdomínio via cookie
 // único `artificio_theme` — a escolha do usuário em qualquer módulo vale aqui.

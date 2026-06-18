@@ -4,6 +4,8 @@ services:
     build:
       context: ../..
       dockerfile: apps/glossario/frontend/Dockerfile
+      args:
+        VITE_GA_ID: ${VITE_GA_ID:-G-8XN5BGPJP3}
     container_name: glossario-beta-app
     restart: always
     expose:

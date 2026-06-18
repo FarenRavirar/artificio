@@ -14,6 +14,7 @@ import { TableTechnical } from '../features/table/components/TableTechnical';
 import { MasterCard } from '../features/table/components/MasterCard';
 import { useAuth } from '../contexts/useAuth'; // CORREÇÃO DT-026: Importar useAuth
 import { handleCTA, getButtonStyle } from '../features/table/utils/uiHelpers';
+import { trackSelectMesa } from '@artificio/analytics';
 
 export const MesaPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -91,6 +92,12 @@ export const MesaPage = () => {
   // Tracking: incrementar visualizações
   useEffect(() => {
     if (!table?.id || !slug) return;
+
+    trackSelectMesa({
+      mesa_id: table.id,
+      mesa_nome: table.title,
+      sistema: table.system_name || undefined,
+    });
 
     const trackView = async () => {
       try {

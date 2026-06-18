@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useMemo, useEffect, useRef, createContext, useContext } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Footer } from '@artificio/ui';
 import { FeedbackButton } from './features/dev-feedback/FeedbackButton';
@@ -11,7 +11,8 @@ import { useGlossario } from './hooks/useGlossario';
 import { Loader2 } from 'lucide-react';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { trackPageView, trackSearch } from './utils/analytics';
+import { trackSearch } from '@artificio/analytics';
+import { useAnalyticsPageviews } from '@artificio/analytics/react';
 
 const ResultCard = lazy(() => import('./components/ResultCard'));
 const AddTermModal = lazy(() => import('./components/AddTermModal'));
@@ -272,22 +273,8 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function RouteTracker() {
-  const location = useLocation();
-  const isFirstRender = useRef(true);
-
-  useEffect(() => {
-    const path = `${location.pathname}${location.search || ''}`;
-
-    // O carregamento inicial já é registrado pelo snippet base do gtag no index.html.
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-
-    trackPageView(path);
-  }, [location.pathname, location.search]);
-
+function AnalyticsPageviews() {
+  useAnalyticsPageviews();
   return null;
 }
 
@@ -298,7 +285,7 @@ function App() {
     <UIContext.Provider value={{ openAddTerm: () => setAddTermOpen(true) }}>
       <AuthProvider>
         <BrowserRouter>
-          <RouteTracker />
+          <AnalyticsPageviews />
           <div className="min-h-screen flex flex-col bg-[var(--surface-subtle)] font-sans">
             <GlossarioHeader />
             <main className="flex-1">

@@ -4,6 +4,7 @@ import { BookOpen, CheckCircle2, HelpCircle, Award, User as UserIcon, Pencil, Tr
 import type { AtualizacaoTermoPayload } from '../hooks/useGlossario';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { trackViewTermo } from '@artificio/analytics';
 
 interface ResultCardProps {
   termo: Termo;
@@ -115,6 +116,8 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
   // Estado do tooltip de Rigor (com delay de fechamento)
   const [isRigorTooltipVisible, setIsRigorTooltipVisible] = useState(false);
   const rigorTooltipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const sentRef = useRef(false);
 
   const clearRigorTooltipTimeout = () => {
     if (rigorTooltipTimeoutRef.current) {
@@ -148,6 +151,34 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
   const pageReference = termo.page_reference || '';
   const lastUpdateAt = termo.last_changed_at || termo.updated_at || null;
   const hasTermHistory = Boolean(termo.last_changed_at);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || sentRef.current) return;
+    if (typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          sentRef.current = true;
+          trackViewTermo({
+            termo_id: String(termo.id),
+            termo: nameEn,
+            sistema: termo.system_name,
+          });
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [termo.id, nameEn, termo.system_name]);
+
+  useEffect(() => {
+    sentRef.current = false;
+  }, [termo.id]);
 
   // Lógica consolidada das Badges Arquiteturais (oficial, artificio, sugestao)
   const rawStatus = termo.status || '';
@@ -374,7 +405,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
   };
 
   return (
-    <div className="bg-[var(--surface)] border rounded-lg shadow-sm border-[var(--line)] relative overflow-visible transition-all hover:shadow-md">
+    <div ref={cardRef} className="bg-[var(--surface)] border rounded-lg shadow-sm border-[var(--line)] relative overflow-visible transition-all hover:shadow-md">
       {(system || scenario) && (
         <div className="bg-[var(--navy-block-bg)] text-[10px] font-black uppercase tracking-widest text-[var(--navy-block-fg)] px-5 py-1.5 flex items-center gap-2 border-b-2 border-[var(--artificio-brand)] rounded-t-lg">
           {system ? `⚔️ SISTEMA: ${system}` : `🌍 CENÁRIO: ${scenario}`}
