@@ -60,7 +60,7 @@
     },
     {
       "module": "site",
-      "_comment": "Paridade (spec 030): env_override=vazio deriva do ref (dev→beta, main→prod). compose_file prod = docker-compose.prod.yml. Bootstrap-safe (dispatch-only): apps/site/.env precisa existir na VM antes do deploy prod (R12). Habilitar auto_deploy_on_push apos estabilizacao. reconcile_same_project_orphans=true no 1o deploy prod (protecao contra orfaos de rename). deploy_paths cobre site + site-admin. critical_routes prod = [ ] na Fase 1 (smoke interno manual, raiz ainda no redirect→beta); substituir por rotas publicas (https://artificiorpg.com/) na Fase 3.",
+      "_comment": "Paridade (spec 030/031): env_override=vazio deriva do ref (dev→beta, main→prod). compose_file prod = docker-compose.prod.yml. Bootstrap-safe (dispatch-only): apps/site/.env precisa existir na VM antes do deploy prod (R12). Habilitar auto_deploy_on_push apos estabilizacao. reconcile_same_project_orphans=true no 1o deploy prod (protecao contra orfaos de rename). deploy_paths cobre site + site-admin. critical_routes prod = URLs publicas raiz (spec 031 T3c, pos-flip rota).",
       "env_override": "",
       "compose_file": "docker-compose.prod.yml",
       "compose_file_beta": "docker-compose.beta.yml",
@@ -77,7 +77,12 @@
       "deploy_paths": ["apps/site", "apps/site-admin"],
       "health_containers": ["site-prod-app"],
       "health_containers_beta": ["site-beta-app"],
-      "critical_routes": [],
+      "critical_routes": [
+        {"name": "healthz", "url": "https://artificiorpg.com/healthz", "expected": "200"},
+        {"name": "home", "url": "https://artificiorpg.com/", "expected": "200"},
+        {"name": "blog", "url": "https://artificiorpg.com/blog/", "expected": "200"},
+        {"name": "admin_protected", "url": "https://artificiorpg.com/admin/status", "expected": "401"}
+      ],
       "critical_routes_beta": [
         {"name": "home", "url": "https://beta.artificiorpg.com/", "expected": "200"},
         {"name": "healthz", "url": "https://beta.artificiorpg.com/healthz", "expected": "200"},
