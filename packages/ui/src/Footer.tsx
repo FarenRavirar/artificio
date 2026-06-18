@@ -15,8 +15,8 @@ export interface FooterProps {
 export function Footer({
   variant = "light",
   navItems = defaultNavItems,
-  brandHref = "https://beta.artificiorpg.com",
-  copyrightHref = "https://beta.artificiorpg.com/termos-de-uso-e-direitos-autorais/",
+  brandHref = "https://artificiorpg.com",
+  copyrightHref = "https://artificiorpg.com/termos-de-uso-e-direitos-autorais/",
 }: FooterProps) {
   const logo = variant === "dark" ? brandLogoNeg : brandLogoNavy;
   const year = new Date().getFullYear();

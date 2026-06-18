@@ -113,7 +113,7 @@ export function PageEditor() {
           <SeoPanel
             value={page}
             onChange={(k, v) => set(k as keyof PageFull, v as never)}
-            url={`https://beta.artificiorpg.com/${page.slug || "…"}/`}
+            url={`https://artificiorpg.com/${page.slug || "…"}/`}
             fallbackTitle={page.title}
             fallbackDescription={page.excerpt || page.seo_description || ""}
             onPickOgImage={() => setPicker("og")}

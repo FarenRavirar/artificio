@@ -73,7 +73,7 @@ export function Header({
   moduleCurrentHref,
   variant = "light",
   sticky = true,
-  brandHref = "https://beta.artificiorpg.com",
+  brandHref = "https://artificiorpg.com",
   userMenu,
   actions,
   sessionOverride,

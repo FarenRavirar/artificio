@@ -18,14 +18,16 @@ services:
       - PORT=4322
       - DATABASE_URL=${DATABASE_URL}
       - WP_BASE=${WP_BASE:-https://artificiorpg.com/wp-json/wp/v2}
-      - SITE_IMPORT_ON_START=${SITE_IMPORT_ON_START:-true}
+      # OFF por padrao pos-cutover (spec 029): migracao WP concluida, store e a fonte de verdade.
+      # Ligar so com opt-in explicito e WP vivo. Ver docker-entrypoint.sh.
+      - SITE_IMPORT_ON_START=${SITE_IMPORT_ON_START:-false}
       # Cloudinary: aceita a forma URL única OU as 3 vars (mesmas que o mesas já usa na VM).
       - CLOUDINARY_URL=${CLOUDINARY_URL:-}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
       - PUBLIC_GA_ID=${PUBLIC_GA_ID:-}
-      - PUBLIC_SITE_URL=https://beta.artificiorpg.com
+      - PUBLIC_SITE_URL=https://artificiorpg.com
       - JWT_SECRET=${JWT_SECRET}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
     depends_on:

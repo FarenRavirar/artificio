@@ -13,11 +13,15 @@ fi
 echo "[site] migrate (store)"
 pnpm run migrate
 
-if [ "${SITE_IMPORT_ON_START:-true}" = "true" ]; then
-  echo "[site] import WP REST -> store"
+# Import-on-start = OFF por padrao (cutover beta->principal concluido, D074/spec 029): a migracao WP
+# acabou e o store/DB e a fonte de verdade. Rodar import com o WP/Hostinger morto (~EOL 2026-06-20)
+# falharia no WP REST e, com `set -e`, derrubaria o boot do site principal. So liga via opt-in
+# explicito SITE_IMPORT_ON_START=true (com o WP ainda vivo).
+if [ "${SITE_IMPORT_ON_START:-false}" = "true" ]; then
+  echo "[site] import WP REST -> store (opt-in)"
   pnpm run import
 else
-  echo "[site] import pulado (SITE_IMPORT_ON_START=false; export usa o que ja esta no store)"
+  echo "[site] import pulado (default pos-cutover; export usa o que ja esta no store)"
 fi
 
 echo "[site] export + astro build + pagefind"
