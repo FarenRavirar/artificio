@@ -25,6 +25,15 @@ app.set("trust proxy", process.env.TRUSTED_PROXY_CIDR || "172.18.0.0/16");
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 
+// noindex no beta (R8, spec 030): X-Robots-Tag quando SITE_NOINDEX=true.
+// Prod nao define a var → header ausente → index normal.
+if (process.env.SITE_NOINDEX === "true") {
+  app.use((_req, res, next) => {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+    next();
+  });
+}
+
 const requireAdmin: RequestHandler = (req, res, next) => {
   const session = (req as AuthenticatedRequest).session;
   if (session?.user.role !== "admin") {

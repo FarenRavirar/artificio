@@ -1,13 +1,13 @@
-# Deploy beta do site (D044/D049). 2 containers: app (Express serve Astro dist + admin) + db (store).
-# Domínio beta.artificiorpg.com -> site-beta-app via Cloudflare Tunnel (rota = ação do mantenedor).
+# Deploy prod do site (spec 030): raiz artificiorpg.com. 2 containers: app (Express serve Astro dist + admin) + db (store).
+# Domínio artificiorpg.com + www → site-prod-app via Cloudflare Tunnel (rota = ação do mantenedor).
 # Secrets via env (GitHub Environment): POSTGRES_PASSWORD, DATABASE_URL, JWT_SECRET(=prod, SSO D042),
 # opc. CLOUDINARY_URL, PUBLIC_GA_ID.
 services:
-  site-beta-app:
+  site-prod-app:
     build:
       context: ../..
       dockerfile: apps/site/Dockerfile
-    container_name: site-beta-app
+    container_name: site-prod-app
     restart: always
     expose:
       - "4322"
@@ -18,22 +18,24 @@ services:
       - PORT=4322
       - DATABASE_URL=${DATABASE_URL}
       - WP_BASE=${WP_BASE:-https://artificiorpg.com/wp-json/wp/v2}
-      # OFF por padrao pos-cutover (spec 029): migracao WP concluida, store e a fonte de verdade.
+      # OFF por padrao (spec 029/030): migracao WP concluida, store e a fonte de verdade.
       # Ligar so com opt-in explicito e WP vivo. Ver docker-entrypoint.sh.
       - SITE_IMPORT_ON_START=${SITE_IMPORT_ON_START:-false}
-      # Cloudinary: aceita a forma URL única OU as 3 vars (mesmas que o mesas já usa na VM).
+      # Cloudinary: aceita a forma URL unica OU as 3 vars (mesmas que o mesas ja usa na VM).
       - CLOUDINARY_URL=${CLOUDINARY_URL:-}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
       - PUBLIC_GA_ID=${PUBLIC_GA_ID:-}
-      - PUBLIC_SITE_URL=https://beta.artificiorpg.com
-      - SITE_NOINDEX=true
+      - PUBLIC_SITE_URL=https://artificiorpg.com
       - JWT_SECRET=${JWT_SECRET}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
     depends_on:
-      site-beta-db:
+      site-prod-db:
         condition: service_healthy
+    # SITE_FORCE_REBUILD: docker-entrypoint.sh:8-11 faz rebuild Astro se nao encontrar dist/index.html.
+    # Com dist cacheado (ex.: reinicio apos seed), defina SITE_FORCE_REBUILD=true para regenerar.
+    # Sem dist (1o boot), rebuild roda naturalmente; SITE_IMPORT_ON_START=false garante que nao tenta importar WP.
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:4322/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
@@ -45,9 +47,9 @@ services:
         limits:
           memory: 512m
 
-  site-beta-db:
+  site-prod-db:
     image: postgres:16-alpine
-    container_name: site-beta-db
+    container_name: site-prod-db
     restart: always
     networks:
       - artificio_net
@@ -56,7 +58,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: site
     volumes:
-      - pgdata_site_beta:/var/lib/postgresql/data
+      - pgdata_site_prod:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d site"]
       interval: 10s
@@ -64,7 +66,7 @@ services:
       retries: 5
 
 volumes:
-  pgdata_site_beta:
+  pgdata_site_prod:
 
 networks:
   artificio_net:

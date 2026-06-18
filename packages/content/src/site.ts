@@ -1,9 +1,9 @@
-// Config canônica de SEO do Artifício RPG. Domínio final = raiz (D019): autoridade concentra aqui,
-// mesmo enquanto o site vive em beta. (canonical sempre aponta p/ a URL final).
+// Config canônica de SEO do Artifício RPG. Domínio derivado de PUBLIC_SITE_URL (env) p/ beta/prod
+// distintos (spec 030 R11). Fallback = raiz (artificiorpg.com).
 
 export const SITE = {
   name: "Artifício RPG",
-  origin: "https://artificiorpg.com",
+  origin: process.env.PUBLIC_SITE_URL || "https://artificiorpg.com",
   locale: "pt-BR",
   description: "Hub de projetos de RPG em português: notícias, análises, guias e traduções.",
   /** Handle do Twitter/X, se houver. */
