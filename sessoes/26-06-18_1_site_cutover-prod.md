@@ -148,3 +148,42 @@ Bug real: `astro.config.mjs:9` hardcodava `site: "https://artificiorpg.com"` e `
 
 ## Item 3 — T5b cat .env expoe secrets
 Bug de seguranca: `ssh faren "cat apps/site/.env"` jogaria `POSTGRES_PASSWORD`, `JWT_SECRET` e secrets Cloudinary no terminal/log. Corrigido em `tasks.md`: check redacted com `grep -c '^CHAVE='` (prova existencia sem expor valores).
+
+---
+
+# Continuacao — T5b (.env prod) + atualizacao docs infra
+
+Data: 2026-06-18 (mesma sessao)
+Gate: Fase 1 (preparacao) + documentacao
+
+## T5b — .env prod criado na VM
+
+- `/opt/artificio/apps/site/.env` criado (350 bytes, 7 linhas, chmod 600):
+  - POSTGRES_USER=admin
+  - POSTGRES_PASSWORD (nova, openssl rand -hex 16, 32 chars)
+  - DATABASE_URL=postgres://admin:<pwd>@site-prod-db:5432/site
+  - JWT_SECRET (copiado de /opt/artificio/apps/accounts/.env — identico, 64 chars)
+  - CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET (copiados do .env.beta)
+- JWT_SECRET validado identico ao accounts (grep + cut + diff)
+- Pronto para T6 (dispatch deploy prod --ref main)
+
+## Atualizacao docs infra (PR #59)
+
+Arquivos atualizados para refletir estado real da infra apos spec 029/030:
+
+### `.specify/arquiteture.md`
+- Secao 4 (Roteamento): tabela de hosts corrigida — raiz=site Astro (nao mais WP), beta=staging noindex
+- Secao 7 (CI/CD): deploy-manifest.json, --env-file, env por ref, tabela completa de .env no disco da VM (modulo, keys, localizacao), regra JWT_SECRET identico, bootstrap .env ausente
+
+### `.specify/memory/project-state.md`
+- Spec 030 Fase 0 concluida (PR #58 mergeado, docker-compose.prod.yml, manifest paridade, noindex beta, PUBLIC_SITE_URL wireado)
+- T5b executado (.env prod na VM)
+- apps/site descrito na raiz (nao mais "no beta")
+- Spec 029 follow-up T9 reescopado para 030
+
+### `.specify/memory/decisions.md`
+- D076: spec 030 — site deploy prod proprio, paridade de infra com mesas/glossario/accounts
+
+## PRs abertos
+- PR #58: Fase 0 codigo → MERGEADO em dev (49ef112)
+- PR #59: docs infra atualizados → aberto, aguardando merge

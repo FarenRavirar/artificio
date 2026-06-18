@@ -52,7 +52,8 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 **Sem gateway de path.** Cada módulo é um host:
 | Subdomínio | Módulo | Auth |
 |---|---|---|
-| `beta.artificiorpg.com` | `site` (blog/portal, BETA; → raiz `artificiorpg.com` no futuro, D016/D019) | público |
+| `artificiorpg.com` (raiz) | `site` (blog/portal, Astro SSG — spec 029, `53e5870`) | público |
+| `beta.artificiorpg.com` | `site` (staging/testes — noindex via X-Robots-Tag, spec 030) | público |
 | `glossario.artificiorpg.com` | `glossario` (prod canônico; `glossariorpg.` foi alias histórico desativado) | opcional |
 | `mesas.artificiorpg.com` | `mesas` (refeito) | sim |
 | `downloads.artificiorpg.com` | `downloads` | opcional |
@@ -60,8 +61,10 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 | `srd.artificiorpg.com` | `srd` | público |
 | `links.artificiorpg.com` | `links` | público |
 | `accounts.artificiorpg.com` | SSO central | — |
-| `artificiorpg.com` (raiz) | **WordPress, intocável** | — |
 
+- **`artificiorpg.com` (raiz):** serve o site novo (Astro SSG) desde a spec 029. O WordPress da Hostinger está desligado da raiz (D075); o flip foi por redirect interno Cloudflare, não o cutover DNS cerimonial do Gate C (adiado). **Estado atual (2026-06-18):** raiz e beta ainda no mesmo container `site-beta-app` (D075). A separação em containers distintos (`site-prod-app`+`site-prod-db`) está codificada (spec 030 Fase 0, PR #58 em `dev`) e será ativada nas Fases 1-4 (stand-up prod → seed DB → flip rota Tunnel → noindex beta).
+- **`beta.artificiorpg.com`:** staging do site. **Atualmente** mesmo container+DB da raiz (D075). **Após spec 030:** container isolado com `noindex` (X-Robots-Tag) e `PUBLIC_SITE_URL=beta.artificiorpg.com` (canonical/OG/sitemap próprios, sem duplicar SEO da raiz).
+- **Todo app tem beta próprio:** `mesasbeta.artificiorpg.com`, `glossariobeta.artificiorpg.com` etc. Site beta usa `beta.artificiorpg.com` (nome curto herdado da era pré-cutover).
 - **Cloudflare Tunnel**: um `cloudflared`, várias regras de ingress `hostname → container:port`. Nada de porta exposta. Cert wildcard `*.artificiorpg.com`.
 - **Contrato Real IP (D069/spec 023):** o unico caminho publico confiavel e `Cloudflare Tunnel -> cloudflared -> artificio_net -> app`. `artificio_net` verificada em 2026-06-15 como `172.18.0.0/16`.
   - Apps com nginx (`mesas`, `glossario`): `set_real_ip_from ${TRUSTED_REAL_IP_FROM}` (default `172.18.0.0/16`) + `real_ip_header CF-Connecting-IP`; repassar `X-Real-IP` e `X-Forwarded-For` como `$remote_addr`, nunca `$http_cf_connecting_ip` cru nem `$proxy_add_x_forwarded_for`.
@@ -87,11 +90,24 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 - Validar com `seo-usability-auditor` antes de promover.
 
 ## 7. CI/CD / Deploy
-- GitHub Actions: `ci` (lint/test/build affected via Turbo), `deploy-beta` (auto em `dev`), `smoke`, `preflight`, `promote-to-prod` (depois). Espelha mesas.
-- Imagem **GHCR por app**. `docker-compose.beta.yml` na rede externa compartilhada. Watchtower só beta; prod = deploy controlado (`watchtower.enable=false`).
-- Fluxo: `feat/<modulo>-NNN` → `dev`/Beta → `main`/Prod. Push a `dev`/`main` e qualquer ação na VM = aprovação (AGENTS).
-- Deploy inicial do `accounts` usa repo secrets do GitHub Actions: `ACCOUNTS_ENV`, `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_PORT`, `DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_USER`. O workflow valida presença por tamanho/existência e nunca imprime valores.
-- Cofre local de segredos fica fora do git (caminho não publicado). Documentação operacional em doc interna fora do repositório público (`docs/agents/`, gitignored).
+- GitHub Actions: `ci.yml` (lint+build+test via Turbo). Deploy via `deploy.yml` (matrix a partir de `deploy-manifest.json`) → `_deploy-module.yml` (reusável por módulo).
+- **`deploy-manifest.json`** = fonte única declarativa: `module`, `env_override`, `compose_file`/`_beta`, `compose_project`/`_beta`, `db_service`/`_beta`, `db_name`/`_beta`, `health_containers`, `critical_routes`/`_beta`, `auto_deploy_on_push`, `push_branches`, `deploy_paths`, `reconcile_same_project_orphans`.
+- **Env deriva do ref:** `dev`→beta, `main`→prod (exceto `accounts`: `env_override=prod` fixo). Deploy prod usa `--ref main` (default branch = `dev`, D073).
+- **VM:** clone git em `/opt/artificio` (prod) e `/opt/artificio-beta` (beta). `.env` por módulo no disco (`apps/<modulo>/.env` ou `.env.beta`), gitignored, lido pelo deploy via `--env-file`. Secrets GitHub Environment (`production`/`beta`) usados para SSH e CI; vars de runtime do container vêm do `.env` no disco.
+- **`.env` no disco da VM (estado verificado 2026-06-18):**
+
+| Módulo | Prod `/opt/artificio/apps/<mod>/.env` | Beta `/opt/artificio-beta/apps/<mod>/.env.beta` |
+|---|---|---|
+| `accounts` | 9 keys (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL, PUBLIC_URL, COOKIE_DOMAIN, JWT_SECRET, JWT_REFRESH_SECRET, POSTGRES_PASSWORD, DATABASE_URL) | 1 key (JWT_SECRET — D042: beta reusa SSO prod) |
+| `mesas` | 30 keys (POSTGRES_*, JWT_*, DATABASE_URL, GOOGLE_*, CLOUDINARY_*, DISCORD_*, AGGREGATOR_*, FRONTEND_URL, VITE_*, ACCOUNTS_URL, etc.) | 32 keys (espelha prod + VITE_ENABLE_DEVTOOLS) |
+| `glossario` | 9 keys (POSTGRES_USER, POSTGRES_PASSWORD, JWT_SECRET, …) | 10 keys |
+| `site` | 7 keys (POSTGRES_USER, POSTGRES_PASSWORD, DATABASE_URL→site-prod-db, JWT_SECRET, CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET) | 10 keys (POSTGRES_PASSWORD, DATABASE_URL, JWT_SECRET, SITE_IMPORT_ON_START, CLOUDINARY_*×2 duplicados) |
+
+- **`JWT_SECRET`** deve ser idêntico entre `accounts` e cada módulo no mesmo ambiente (validado pelo deploy no `read_env_value`). Contas beta reusam JWT prod (D042).
+- **`.env` ausente no 1º deploy de módulo novo** → deploy aborta com erro (spec 009 R3). Bootstrap: criar o arquivo no disco da VM ANTES do 1º dispatch. **Nunca fazer `cat` do .env** — validar existência com `grep -c '^CHAVE='` (redacted).
+- Imagem buildada NA VM (não GHCR). `docker compose --env-file .env up -d --force-recreate`. Build cache prune pós-deploy (`docker builder prune -f`).
+- Fluxo: branch `feat/*`/`fix/*` → PR → `dev` (merge) → promote `dev→main` ff (`promote-prod-fast-forward.yml`) → dispatch deploy prod. Push a `dev`/`main` e qualquer ação write na VM = aprovação (AGENTS).
+- **Module-level locks:** `flock` shared (deploys concorrentes) + exclusive (manutenção `docker-cleanup.yml`). Snapshot DB pré-deploy + health check + smoke `critical_routes`.
 
 ## 8. Engine de crosslink (`packages/crosslink`)
 - Padrão compartilhado entre `srd` e `esferas`: detectar termos referenciados e gerar **tooltip com resumo estruturado estático** + link profundo para a página do termo.
