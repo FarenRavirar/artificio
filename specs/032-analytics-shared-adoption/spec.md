@@ -24,11 +24,11 @@ Resultado: nenhum app novo alimenta a property canônica; dados fragmentados/aus
 6. **R6** — SPAs (glossario, mesas) disparam `page_view` em cada mudança de rota (React Router), com `send_page_view:false` no config inicial para não duplicar.
 7. **R7** — Eventos de domínio usam o catálogo central de `@artificio/analytics`, não strings soltas por app. Catálogo de BI agregado:
    - **glossario:** `search` (`search_term`), `view_termo` (`termo_id`, `termo`, `sistema`).
-   - **mesas:** `search` (`search_term`), `select_mesa` (`mesa_id`, `mesa_nome`, `sistema`), `filter_sistema`/`filter_apply` (`sistema`, `filter_type`, `filter_value`).
-   - `search_term` é **texto livre digitado pelo usuário**, podendo conter PII; mitigações obrigatórias: sem `user_id`, `anonymize_ip`, e cap de tamanho (max 100 caracteres após trim).
+   - **mesas:** `search` (`search_term`), `select_mesa` (`mesa_id`, `mesa_nome`, `sistema`), `filter_sistema` (`sistema`).
+   - `search_term` é **texto livre digitado pelo usuário**, podendo conter PII; mitigações obrigatórias: sem `user_id`, `anonymize_ip`, redação de e-mails/PII óbvia via regex antes do cap, e cap de tamanho (max 100 caracteres após trim e redação).
    - `termo`, `mesa_nome` e `sistema` são campos de **conteúdo público controlado** (nome de termo/mesa/sistema), não dado de pessoa.
    - Responde: mesas mais buscadas/clicadas, sistemas mais populares, termos mais procurados/vistos. Tudo agregado, sem `user_id`/identificação.
-8. **R8** — Privacidade: `anonymize_ip` ativo; nenhum PII em params; sem `user_id` salvo necessidade aprovada. `search_term` recebe cap de 100 caracteres (slice+trim) além do min length 2 já existente. Compromisso "sem coleta desnecessária".
+8. **R8** — Privacidade: `anonymize_ip` ativo; nenhum PII em params; sem `user_id` salvo necessidade aprovada. `search_term` é texto livre do usuário, mitigado por redação de e-mail/PII via regex + cap de 100 caracteres (slice+trim) + min length 2, sem `user_id` e com `anonymize_ip`. Compromisso "sem coleta desnecessária".
 9. **R9** — `G-XMRHY3FE58` (property antiga do glossário) é aposentada; D020 e backlog refletem a convergência.
 
 ## Critérios de aceite

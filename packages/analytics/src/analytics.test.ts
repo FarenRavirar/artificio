@@ -8,7 +8,6 @@ import {
   trackViewTermo,
   trackSelectMesa,
   trackFilterSistema,
-  trackFilterApply,
   trackPageview,
 } from "./index.js";
 
@@ -159,16 +158,16 @@ describe("events catalog", () => {
     expect(call[2]).toEqual({ sistema: "D&D 2014" });
   });
 
-  it("trackFilterApply envia event com params", () => {
+  it("trackSearch redige e-mail do search_term", () => {
     const calls: unknown[] = [];
     window.gtag = (...args: unknown[]) => calls.push(args);
 
-    trackFilterApply({ filter_type: "vagas", filter_value: "com_vaga" });
+    trackSearch("contato a@b.com");
     expect(calls.length).toBe(1);
     const [call] = calls as [string, string, Record<string, unknown>][];
     expect(call[0]).toBe("event");
-    expect(call[1]).toBe("filter_apply");
-    expect(call[2]).toEqual({ filter_type: "vagas", filter_value: "com_vaga" });
+    expect(call[1]).toBe("search");
+    expect(call[2]).toEqual({ search_term: "contato [redacted]" });
   });
 
   it("event params excluem undefined", () => {

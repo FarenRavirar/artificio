@@ -11,5 +11,4 @@ export {
   trackViewTermo,
   trackSelectMesa,
   trackFilterSistema,
-  trackFilterApply,
 } from "./events.js";

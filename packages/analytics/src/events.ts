@@ -32,11 +32,12 @@ function cleanParams(params: Record<string, unknown>): Record<string, unknown> {
 
 // ── Catálogo de eventos (BI agregado, sem PII) ──
 
-/** Busca textual. search_term com min 2 e max 100 caracteres (cap anti-PII). */
+/** Busca textual. Redige e-mail e PII óbvia; cap 100 caracteres; min 2. */
 export function trackSearch(searchTerm: string): void {
   const trimmed = searchTerm.trim();
   if (trimmed.length < 2) return;
-  const capped = trimmed.slice(0, 100);
+  const redacted = trimmed.replace(/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/gi, "[redacted]");
+  const capped = redacted.slice(0, 100);
   trackEvent("search", { search_term: capped });
 }
 
@@ -69,25 +70,8 @@ export function trackSelectMesa(params: {
 /** Filtro por sistema acionado. */
 export function trackFilterSistema(params: {
   sistema: string;
-  filter_type?: string;
-  filter_value?: string;
 }): void {
   trackEvent("filter_sistema", {
     sistema: params.sistema,
-    filter_type: params.filter_type,
-    filter_value: params.filter_value,
-  });
-}
-
-/** Filtro aplicado (genérico). */
-export function trackFilterApply(params: {
-  sistema?: string;
-  filter_type: string;
-  filter_value: string;
-}): void {
-  trackEvent("filter_apply", {
-    sistema: params.sistema,
-    filter_type: params.filter_type,
-    filter_value: params.filter_value,
   });
 }

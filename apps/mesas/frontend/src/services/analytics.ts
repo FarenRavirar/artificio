@@ -9,10 +9,12 @@ export function track(event: string, properties?: Record<string, unknown>): void
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function identify(_userId: string, _traits?: Record<string, unknown>): void {
   // NO-OP: R8 — sem PII, sem user_id
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function setGlobalProperties(_properties: Record<string, unknown>): void {
   // NO-OP: R8 — sem PII
 }
