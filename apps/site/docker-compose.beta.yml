@@ -40,6 +40,10 @@ services:
       timeout: 10s
       retries: 5
       start_period: 180s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
 
   site-beta-db:
     image: postgres:16-alpine
