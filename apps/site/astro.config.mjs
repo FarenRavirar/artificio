@@ -9,6 +9,8 @@ export default defineConfig({
   site: process.env.PUBLIC_SITE_URL || "https://artificiorpg.com",
   trailingSlash: "always", // preserva permalink WP `/blog/<slug>/` (D047)
   integrations: [sitemap()],
+  // Site sem markdown — desabilita syntax highlighting (remove warning CSP/Shiki)
+  markdown: { syntaxHighlight: false },
   vite: {
     plugins: [tailwindcss()],
   },
@@ -20,10 +22,14 @@ export default defineConfig({
       directives: [
         "default-src 'self'",
         "img-src 'self' data: https://res.cloudinary.com",
+        "media-src 'self' https://res.cloudinary.com",
         "connect-src 'self' https://accounts.artificiorpg.com https://www.google-analytics.com",
       ],
       scriptDirective: {
         resources: ["'self'", "https://www.googletagmanager.com"],
+      },
+      styleDirective: {
+        resources: ["'self'"],
       },
     },
   },
