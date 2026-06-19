@@ -133,7 +133,7 @@ jobs:
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb6f51ef654c96127f7b33352a2ff591fcb # v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
@@ -203,7 +203,7 @@ jobs:
       RECONCILE_SAME_PROJECT_ORPHANS: ${{ inputs.reconcile_same_project_orphans }}
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb6f51ef654c96127f7b33352a2ff591fcb # v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
