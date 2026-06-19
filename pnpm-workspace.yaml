@@ -3,3 +3,9 @@ packages:
   - "apps/*/frontend"
   - "apps/*/backend"
   - "packages/*"
+patchedDependencies:
+  "@types/express-serve-static-core@5.1.1": patches/@types__express-serve-static-core@5.1.1.patch
+allowBuilds:
+  sharp: true
+  bcrypt: true
+  esbuild: true

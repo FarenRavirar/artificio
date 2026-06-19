@@ -23,9 +23,9 @@
 - [x] Fase 3 — Express 5 mesas + unificação (T13-T21)
 - [ ] Fase 4 — Deps npm incrementais (T22-T28)
 - [ ] Fase 4B — Unificação majors toolchain (T60-T67)
-- [ ] Fase 5 — Docker e infra (T29-T33) — T29 ✅ · T30 ✅ · T31 ✅
-- [ ] Fase 6 — VM apt (T34-T36)
-- [ ] Fase 7 — Fechamento (T37-T52)
+- [ ] Fase 5 — Docker e infra (T29-T34) — T29 ✅ · T30 ✅ · T31 ✅ · T32 ✅
+- [ ] Fase 6 — VM apt (T35-T37)
+- [ ] Fase 7 — Fechamento (T38-T53)
 
 ## Critério de conclusão
 Smoke prod completo com toolchain alinhado (1 versão de Node, Express 5 em todos, deps npm atualizadas, imagens Docker frescas, VM com apt em dia).
@@ -917,7 +917,24 @@ security: {
 
 **T31b — Build Docker:** impossível localmente (sem Docker no Windows). Validação real será o deploy beta (T32) — `docker build` roda na VM.
 
-**Inventário validado:** `breaking-changes.md` §10 sem drift. Patch ativo (`@types__express-serve-static-core@5.1.1.patch`, 412B).
+### Correção nginx: 1.27 → 1.31 (2026-06-19, revisão PR #71)
+
+**Achado do revisor (chatgpt-codex-connector):** `nginx:alpine` resolve para 1.31.2 (mainline). Confirmado nos 4 containers rodando (`docker exec ... nginx -v`). Pinar `1.27` seria downgrade de 1.31→1.27 com perda de security fixes.
+
+**Corrigido:** `nginx:1.27-alpine` → `nginx:1.31-alpine` em glossario-frontend + mesas-frontend Dockerfiles. Commit `a76abe4` no PR #71.
+
+### Status Fase 5 (2026-06-19)
+
+| Task | Status | Detalhe |
+|---|---|---|
+| T29 | ✅ | Backup: tag + snapshots VM |
+| T30 | ✅ | nginx:1.31-alpine, postgres mantido 16-alpine |
+| T31 | ✅ | COPY patches 6/6 Dockerfiles |
+| T32 | ✅ | 3 deploys beta verdes (PR #71 mergeado, runs 27844601842/27844800289/27845020946) |
+| T33 | ⏳ | GitHub Actions: atualizar SHA pins p/ eliminar warning Node 20 |
+| T34 | ⏳ | Limpar imagens stale na VM (write, aprovação) |
+
+**Próximo:** T33 — atualizar actions/checkout + setup-node p/ versões com Node 24 runtime.
 
 ### Cloudflared — documentação de infra (2026-06-19)
 
