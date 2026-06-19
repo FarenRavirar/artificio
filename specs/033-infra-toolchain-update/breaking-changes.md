@@ -202,7 +202,7 @@ export default defineConfig([ globalIgnores(['dist']), { files:['**/*.{ts,tsx}']
 
 ## Achados transversais (registrar em backlog/sessão)
 
-1. **🔴 `BL-033-GLOSSARIO-LINT-NEVER-RAN`** — glossario-frontend sem config ESLint algum; lint script quebraria sob ESLint 8. T64a deve criar config do zero (não "migrar legado"). Corrigir texto de T64a (não há `.eslintrc` a remover).
+1. **🔴 `BL-033-GLOSSARIO-LINT-NEVER-RAN` (AMPLIADO)** — baseline Fase 2 (2026-06-18) confirmou que **4 pacotes** não têm config ESLint flat: `apps/glossario/frontend`, `packages/content`, `packages/analytics`, `packages/auth` (todos falham "ESLint couldn't find an eslint.config file"). Lint nunca rodou verde nesses. T64a/T65 devem criar config do zero em cada (não "migrar legado"). Não é regressão do Node 24.
 2. **zod risco rebaixado p/ 🟢** — sem `.email()`/`errorMap` no código; bump quase mecânico. Confirma viabilidade de T61.
 3. **dotenv/rate-limit/multer 🟢** — bumps sem mudança de código; só limpeza opcional (`max`→`limit`, `DOTENV_CONFIG_QUIET`).
 4. **mesas/site já Tailwind v4 e Vite 8** — Fase 4B de Tailwind/Vite recai quase só no glossario (lanterna) + accounts/ui (Vite 6→8).

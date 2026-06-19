@@ -93,7 +93,7 @@ Tailwind 3→4 (glossario), Vite 5→8 (glossario), ESLint 8→9 (glossario), Ty
 
 ### 2.0 — Backup pré-Node
 
-- [ ] T6 — **Backup de código antes de mexer no Node**
+- [x] T6 — **Backup de código antes de mexer no Node** ✅ (tag `pre-033-f2-node`, lockfile+snapshots; commit `72da8cb`)
   - `git tag pre-033-f2-node` (local)
   - Copiar `pnpm-lock.yaml` → `C:\projetos\artificiobackup\spec-033\pnpm-lock.yaml.pre-033-f2`
   - `pnpm list --depth 0 -r` → `artifacts/033/pre-f2-dep-list.txt`
@@ -102,7 +102,7 @@ Tailwind 3→4 (glossario), Vite 5→8 (glossario), ESLint 8→9 (glossario), Ty
 
 ### 2.1 — Baseline de testes pré-Node
 
-- [ ] T7 — **Executar baseline completa de builds/tests/lint (Node ATUAL, ANTES de mudar)**
+- [x] T7 — **Executar baseline completa de builds/tests/lint (Node ATUAL, ANTES de mudar)** ✅ build 13/13 · ui 8/8 · glossario 22/22 · lint 2/5 (content/analytics/auth sem eslint.config)
   - `turbo build --force 2>&1 | Tee-Object artifacts/033/pre-f2-build.log` — confirmar 13/13 verde
   - `pnpm lint 2>&1 | Tee-Object artifacts/033/pre-f2-lint.log` — registrar estado atual (com falhas conhecidas)
   - `pnpm --filter @artificio/ui test 2>&1 | Tee-Object artifacts/033/pre-f2-ui-test.log`
@@ -112,7 +112,7 @@ Tailwind 3→4 (glossario), Vite 5→8 (glossario), ESLint 8→9 (glossario), Ty
 
 ### 2.2 — Alteração
 
-- [ ] T8 — **Alinhar Node.js canônico em todo o projeto**
+- [x] T8 — **Alinhar Node.js canônico em todo o projeto** ✅ Node 24 (commit `ae49819`)
   - Atualizar `node-version` em `.github/workflows/ci.yml` (L54-56) e `_deploy-module.yml` (L148-150)
   - Atualizar `FROM node:X` em 6 Dockerfiles
   - Adicionar `"engines": { "node": ">=X.Y.Z" }` no `package.json` raiz
@@ -125,26 +125,26 @@ Tailwind 3→4 (glossario), Vite 5→8 (glossario), ESLint 8→9 (glossario), Ty
   - `pnpm install` → regenerar lockfile
   - **Feito quando:** grep `node.*(20|24\.)` em Dockerfiles/workflows retorna 0 (exceto lockfile); `.nvmrc` existe; `engines.node` presente
 
-- [ ] T9 — **Verificar pnpm (já alinhado)**
+- [x] T9 — **Verificar pnpm (já alinhado)** ✅ 10.12.1, sem bump
   - pnpm `10.12.1` consistente em package.json + CI + dev local
   - Se houver `10.13.x` disponível: bump com mesmo procedimento de backup
 
 ### 2.3 — Testes de impacto pós-Node
 
-- [ ] T10 — **Validar impacto do Node novo — build completo**
+- [x] T10 — **Validar impacto do Node novo — build completo** ✅ 13/13, zero regressão
   - `turbo build --force 2>&1 | Tee-Object artifacts/033/post-f2-build.log`
   - Comparar com baseline: `diff artifacts/033/pre-f2-build.log artifacts/033/post-f2-build.log`
   - **Critério:** 13/13 apps verdes (mesmo número da baseline); zero regressão
   - **Se falhar:** identificar app/pacote que quebrou; documentar breaking change específico; corrigir ou registrar débito
 
-- [ ] T11 — **Validar impacto — lint e testes**
+- [x] T11 — **Validar impacto — lint e testes** ✅ ui 8/8, glossario 22/22; lint sem nova falha
   - `pnpm lint 2>&1 | Tee-Object artifacts/033/post-f2-lint.log`
   - `pnpm --filter @artificio/ui test` — comparar 8/8 com baseline
   - `pnpm --filter @artificio/glossario-backend test` — comparar 22/22 com baseline
   - `pnpm --filter @artificio/mesas-backend test` — se existir
   - **Critério:** mesmo número de passes que baseline; zero nova falha
 
-- [ ] T12 — **Teste de impacto: smoke local por app**
+- [x] T12 — **Teste de impacto: smoke local por app** ✅ tsc mesas-backend limpo; builds 7 artefatos OK
   - **accounts:** build + verificar que `/health`, `/login`, `/api/auth/me` respondem (sem deploy, só build)
   - **mesas:** build frontend+backend OK; verificar tipagem (`tsc --noEmit` em `apps/mesas/backend`)
   - **glossario:** build frontend+backend OK; testes 22/22
