@@ -28,7 +28,7 @@
 
 ## Fase 4 — fechar T9 da 029 + staging real → **SPEC 031**
 - [x] T13 → spec 031 T3e (validar noindex beta, raiz sem) ✅ — resolvido com rebuild imagem `--build` + source `.env.beta` + limpeza cache tsx.
-- [ ] T14 → spec 031 T4b/T4c (registro docs, fechar T9 029)
+- [x] T14 → spec 031 T4b/T4c (registro docs, fechar T9 029) ✅ — PR #60 mergeado em `dev` (`37d9b4d`), promovido a `main`. backlog `BL-SITE-PROD-PARITY-030` FECHADO.
 
 ## Notas
 - DNS autoritativo/registro = intocado (Gate C segue adiado, D016).

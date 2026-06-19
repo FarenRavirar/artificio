@@ -670,29 +670,125 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
   - **Nota:** `docker build` local removido do escopo (sem Docker). Substituído por verificação estrutural + deploy beta como prova real
   - **Feito quando:** todos os Dockerfiles com `COPY patches` antes de cada `pnpm install --frozen-lockfile` ✅
 
-- [ ] T32 — **Deploy beta com novas imagens** (plano revisado 2026-06-19)
-  - **Pré-requisitos:** ✅ COPY patches presente em todos os 6 Dockerfiles (T31a)
-  - **Branch + PR:** `git switch -c infra/033-f5-docker` → commit → push → `gh pr create --base dev`
-    - ⚠️ Merge do PR requer **aprovação nominal**
-  - **Deploy beta — fluxo por app (pós-merge em dev):**
-    - **mesas:** ✅ automático (`auto_deploy_on_push: true`, `push_branches: ["dev"]`). Merge dispara deploy beta.
-    - **glossario:** dispatch manual (`auto_deploy_on_push: false`). `module=glossario mode=deploy`. ⚠️ Requer aprovação nominal.
-    - **site:** dispatch manual (`auto_deploy_on_push: false`). `module=site mode=deploy`. ⚠️ Requer aprovação nominal.
-    - ~~**accounts:**~~ fora de escopo beta (`env_override=prod`, `push_branches: ["main"]`). Accounts não tem beta (D042).
-  - **Smoke beta por app:**
-    - mesasbeta: `/` 200, `/api/v1/me/options` 401, `/api/v1/auth/google` 302
-    - glossariobeta: `/` 200, `/api/terms` 200
-    - beta.artificiorpg.com: `/` 200, `/healthz` 200, `/blog/` 200
-  - **Verificação pós-deploy:** `ssh faren 'docker images --format "table {{.Repository}}\t{{.Tag}}"' | rg 'nginx:1.31-alpine'` → imagem nova presente
-  - **Feito quando:** 3 deploys beta verdes; smoke OK; nginx:1.31-alpine no `docker images` da VM
+- [x] T32 — **Deploy beta com novas imagens** ✅ (2026-06-19)
+  - **PR #71** mergeado em `dev` (`734e10a`)
+  - **mesas beta:** ✅ automático (run `27844601842`). 3 containers healthy, nginx 1.31.2, smoke 200/401/302
+  - **glossario beta:** ✅ dispatch (run `27844800289`). 3 containers healthy, nginx 1.31.2, smoke 200
+  - **site beta:** ✅ dispatch (run `27845020946`). 2 containers healthy, smoke 200/200/200
+  - **nginx:1.31-alpine** pullada e presente na VM (`docker images`)
+  - **Feito quando:** 3 deploys beta verdes; smoke OK; nginx:1.31-alpine no `docker images` da VM ✅
 
-### 5.3 — Limpeza
+### 5.2b — GitHub Actions: eliminar warnings Node 20
 
-- [ ] T33 — **Limpar imagens stale na VM**
-  - Remover 5 imagens de 2026-06-04
-  - `docker image prune -f`
-  - **Teste:** `docker images` sem órfãs; containers healthy
+- [x] T33a — **Atualizar `dependency-review-action` v4→v5 (node24)** ✅ (2026-06-19)
+  - Investigação (2026-06-19): todos os SHA pins de `actions/checkout` (v6.0.3), `actions/setup-node` (v6.4.0), `actions/cache` (v5.0.5) e `actions/setup-python` (v6.2.0) já usam `runs.using: node24`. O warning de Node 20 vem **unicamente** de `actions/dependency-review-action@3b139cfc...` (v4.5.0, `runs.using: node20`).
+  - Ação: trocar SHA `3b139cfc5fae8b618d3eae3675e383bb1769c019` (v4.5.0) pelo SHA de v5.0.0 (`a1d282b36b6f3519aa1f3fc636f609c47dddb294`, node24, 2026-05-08).
+  - **Arquivo:** `.github/workflows/dependency-review.yml:24` (1 SHA, 1 linha)
+  - **Feito quando:** deploy sem warning `Node.js 20 is deprecated`
+
+- [x] T33b — **Atualizar `actions/checkout` v6→v7 (opcional, cosmético)** ✅ (2026-06-19)
+  - v7.0.0 lançado 2026-06-17. Upgrade ESM interno, sem breaking changes para consumidores. v6.0.3 já roda em node24.
+  - Breaking change de v7 (bloqueio de fork PR em `pull_request_target`/`workflow_run`) não nos afeta — não usamos esses eventos.
+  - Ação: trocar SHA `df4cb1c069e1874edd31b4311f1884172cec0e10` (v6.0.3) pelo SHA de v7.0.0 (`9c091bb6f51ef654c96127f7b33352a2ff591fcb`) nos 17 `uses:` + comentários.
+  - **Arquivos:** 13 workflows em `.github/workflows/*.yml` (17 ocorrências)
+  - **Feito quando:** PR checks passam com checkout v7 em todos os workflows
+
+### 5.2c — pnpm 10→11 (major bump)
+
+- [x] T33c — **Migrar pnpm 10.12.1 → 11.8.0** ✅ (2026-06-19)
+  - **Investigação:** apenas 1 breaking change nos afeta — campo `pnpm` em `package.json` não é mais lido. `onlyBuiltDependencies`/`npm_config_*`/`.npmrc`: zero uso no repo (sem migração necessária).
+  - **`package.json`:** `packageManager: pnpm@11.8.0`; campo `pnpm` removido (overrides era `{}` vazio, sem efeito).
+  - **`pnpm-workspace.yaml`:** `patchedDependencies` migrado + `allowBuilds: "*": true` (preserva comportamento pnpm 10; `strictDepBuilds` é `true` por default no 11 e bloquearia scripts de build).
+  - **6 Dockerfiles:** 9 ocorrências de `pnpm@10.12.1` → `pnpm@11.8.0` (`npm install -g` + `corepack prepare`).
+  - **Arquivos:** `package.json`, `pnpm-workspace.yaml`, `apps/accounts/Dockerfile`, `apps/site/Dockerfile`, `apps/glossario/backend/Dockerfile`, `apps/glossario/frontend/Dockerfile`, `apps/mesas/backend/Dockerfile`, `apps/mesas/frontend/Dockerfile`
+  - **Feito quando:** Docker build sem warning `Update available!` e `pnpm install --frozen-lockfile` passa com lockfile auto-migrado
+
+### 5.4 — Limpeza
+
+- [ ] T34 — **Limpar imagens stale na VM** (investigado 2026-06-19)
+  - **Investigação completa:** 20 containers rodando, zero parados. 25 imagens (15 ativas, 10 inativas). `docker system df`: 1.2GB reclaimable.
+  - **9 imagens stale identificadas (2.56GB):**
+
+  | # | Imagem | Data | Tamanho | OBS |
+  |---|---|---|---|---|
+  | 1 | `mesas-beta-mesas-beta-frontend:latest` | Jun 4 | 94MB | nome antigo |
+  | 2 | `glossario-beta-api-beta:latest` | Jun 4 | 270MB | nome antigo |
+  | 3 | `glossario-beta-app-beta:latest` | Jun 4 | 102MB | nome antigo |
+  | 4 | `glossario-api-prod:latest` | Jun 4 | 270MB | nome antigo |
+  | 5 | `glossario-app-prod:latest` | Jun 4 | 102MB | nome antigo |
+  | 6 | `site-site-beta-app:latest` | Jun 18 | 1.46GB | substituído |
+  | 7 | `node:20-alpine` | Abr 15 | 194MB | substituído por 24 |
+  | 8 | `curlimages/curl:8.8.0` | Mai 2024 | 37MB | versão antiga |
+  | 9 | `curlimages/curl:8.11.1` | Dez 2024 | 35MB | não usado |
+
+  - **1 tag flutuante:** `nginx:alpine` (mesmo ID de `nginx:1.31-alpine`). Só remover tag, sem economia de espaço.
+  - **NÃO remover:** `nginx:1.31-alpine` (base de build dos frontends), `postgres:16-alpine` (ativo, 3 beta DBs), imagem dangling `16bc17c64a57` (4 prod DBs ativos — ver T34a).
+  - **Comando:** `docker rmi <cada uma das 9>` — NÃO usar `prune -a` (removeria `nginx:1.31-alpine`).
+  - **Teste:** `docker images` sem as 9 stale; 20 containers healthy.
   - ⚠️ **Requer aprovação nominal**
+
+- [ ] T34a — **Corrigir fluxo de deploy para manter DBs atualizados + corrigir containers stale** (achado T34, investigado 2026-06-19)
+
+  **Evidência:** 4 containers prod de DB (`site-prod-db`, `mesas-db`, `glossario-db`, `accounts-db`) usam imagem postgres sem tag (`sha256:16bc17c64a57`, Mai 14, 389MB). 3 beta DBs usam `postgres:16-alpine` (Jun 16, `e013e867e712`). `docker ps` mostra SHA em vez de tag para os prod DBs — sinal de que a tag foi movida para imagem mais nova após a criação do container.
+
+  **Root cause — fluxo de deploy não puxa `image:` services:**
+
+  O script de deploy (`_deploy-module.yml` linhas 421-443) faz nesta ordem:
+  1. `docker compose up -d "$DB_SERVICE"` — inicia DB com imagem local (linha 421)
+  2. `docker compose down --remove-orphans` — derruba tudo (441)
+  3. `docker compose build --no-cache --pull` — builda APPs com `--pull` (442). **Mas `--pull` no `docker compose build` só puxa imagens base dos Dockerfiles (`FROM`), NÃO puxa serviços definidos com `image:` (como `postgres:16-alpine`).**
+  4. `docker compose up -d --force-recreate` — recria containers com a mesma imagem local cacheada (443)
+  5. `docker image prune -f` — remove dangling mas o postgres velho fica (491) pois está em uso
+
+  **8× docker-compose afetados** (todos os DBs usam `image: postgres:16-alpine` sem `build:`):
+
+  | Arquivo | DB service | Status imagem |
+  |---|---|---|
+  | `accounts/docker-compose.prod.yml` | `accounts-db` | stale (Mai 14) |
+  | `glossario/docker-compose.prod.yml` | `glossario-db` | stale (Mai 14) |
+  | `mesas/docker-compose.prod.yml` | `mesas-db` | stale (Mai 14) |
+  | `site/docker-compose.prod.yml` | `site-prod-db` | stale (Mai 14) |
+  | `glossario/docker-compose.beta.yml` | `glossario-beta-db` | atual (Jun 16) |
+  | `mesas/docker-compose.beta.yml` | `mesas-beta-db` | atual (Jun 16) |
+  | `site/docker-compose.beta.yml` | `site-beta-db` | atual (Jun 16) |
+
+  **Política em vigor:** `postgres:16-alpine` floating major (Opção A, T30) = patches automáticos. O fluxo de deploy deveria usar sempre a imagem mais recente.
+
+  **Correção de fluxo (evitar recorrência):**
+
+  Adicionar `docker compose pull "$DB_SERVICE"` ANTES de `docker compose up -d "$DB_SERVICE"` no `_deploy-module.yml`:
+
+  ```bash
+  # Puxa imagem fresca do DB (postgres:16-alpine floating) antes de subir.
+  # Sem isto, o deploy reusa imagem cacheada local mesmo que o registry
+  # tenha patch novo (ex.: Mai 14 -> Jun 16). build --pull só cobre FROM,
+  # não serviços image:.
+  docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" pull "$DB_SERVICE"
+  docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" up -d "$DB_SERVICE"
+  ```
+
+  **Impacto do `pull`:**
+  - Baixo risco: `16-alpine` é major pin, patches são seguros
+  - Rollback coberto: snapshot pré-deploy (linha 434) + função rollback (linhas 360-370)
+  - Não adiciona latência significativa (imagem ~400MB, pull condicional — só baixa se houver atualização)
+  - **Não afeta builds:** `build --no-cache --pull` na linha 442 continua puxando bases dos Dockerfiles
+
+  **Correção dos 4 containers stale (ação única):**
+
+  Após o `pull` ser adicionado ao fluxo, o próximo deploy de cada app prod corrige automaticamente o container stale (o `pull` traz a imagem nova, o `up --force-recreate` recria o container). Nenhuma ação manual necessária.
+
+  **Alternativa com `pull_policy: always`:** adicionar `pull_policy: always` no serviço DB de cada compose. Mais explícito mas requer editar 7 composes + manter consistência. `docker compose pull` no script é mais simples e centralizado.
+
+  **Arquivos a modificar:**
+  - `.github/workflows/_deploy-module.yml` — adicionar `pull "$DB_SERVICE"` antes do `up`
+  - Zero alteração nos 7 docker-compose files
+
+  **Feito quando:**
+  1. `_deploy-module.yml` com `pull "$DB_SERVICE"` no fluxo
+  2. Próximo deploy prod de cada app mostra `postgres:16-alpine` (não SHA) no `docker ps`
+  3. `docker images` sem postgres dangling (`<none>:<none>`) em uso por containers
+
+  ⚠️ **Requer aprovação nominal** para editar `_deploy-module.yml` (infra compartilhada, SDD Completo)
 
 ---
 
@@ -700,7 +796,7 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
 
 ### 6.0 — Backup pré-apt (Gate A)
 
-- [ ] T34 — **Backup completo da VM antes de apt upgrade**
+- [ ] T35 — **Backup completo da VM antes de apt upgrade**
   - `pg_dump` de TODOS os bancos (conferir contagem real — accounts + mesas prod/beta + glossario prod/beta + site prod/beta = 7, não 6) → leitura na VM, NÃO exige aprovação
   - `docker images` + `docker ps` snapshot → leitura, NÃO exige aprovação
   - `apt list --installed` snapshot → leitura, NÃO exige aprovação
@@ -711,14 +807,14 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
 
 ### 6.1 — Alteração
 
-- [ ] T35 — **apt update && apt upgrade na VM**
+- [ ] T36 — **apt update && apt upgrade na VM**
   - 5 pacotes: fwupd, libjcat1, libnuma1, libtraceevent1, libxmlb2
   - `ssh faren 'sudo apt-get update && sudo apt-get upgrade -y && sudo apt-get autoremove -y'`
   - ⚠️ **Requer aprovação nominal**
 
 ### 6.2 — Teste de impacto pós-apt
 
-- [ ] T36 — **Validar serviços pós-apt**
+- [ ] T37 — **Validar serviços pós-apt**
   - `ssh faren 'docker ps'` — todos healthy
   - Smoke HTTP público: raiz, accounts, glossario, mesas, beta (5 hostnames)
   - `docker logs cloudflared --tail 20` — sem erro novo
@@ -731,12 +827,12 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
 
 ### 7.0 — Deploy prod
 
-- [ ] T37 — **Deploy prod de todos os apps**
+- [ ] T38 — **Deploy prod de todos os apps**
   - Promote `dev→main` via `promote-prod-fast-forward.yml`
   - Deploy prod: accounts, mesas, glossario, site (4 deploys)
   - ⚠️ **Requer aprovação nominal** por ação (promote + cada deploy)
 
-- [ ] T38 — **Smoke prod completo**
+- [ ] T39 — **Smoke prod completo**
   - Todas as rotas críticas (ver `spec.md` → Critérios de aceite)
   - Login SSO cross-subdomínio: accounts → mesas → glossario
   - SEO: canonicals, sitemap-index.xml, robots.txt, meta tags sem regressão
@@ -744,13 +840,13 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
 
 ### 7.1 — Atualizar docs de governança e memória (.specify/memory/)
 
-- [ ] T39 — **Atualizar `.specify/memory/errors.md`**
+- [ ] T40 — **Atualizar `.specify/memory/errors.md`**
   - E001 (linha 23): `node:20-alpine` → `node:24-alpine` no exemplo de solução
   - E004 (linhas 43-48): marcar como **FECHADO** (Express 4→5 concluído, override removido)
   - Adicionar nota: "Fechado pela spec 033 em 2026-06-XX. mesas migrou p/ Express 5; override `@types/multer>@types/express` removido."
   - **Feito quando:** refs a node:20 e Express 4 corrigidas
 
-- [ ] T40 — **Atualizar `.specify/memory/decisions.md`**
+- [ ] T41 — **Atualizar `.specify/memory/decisions.md`**
   - D060 (linha 68): mudar status de "firme" para "firme — concluído (spec 033)"
   - Adicionar nova decisão D0NN: **"Node.js canônico = 24.x LTS"** com data e motivo (alinhamento de 3 versões divergentes; 25.x descartado por ser não-LTS/EOL ~jun/2026)
   - Adicionar nova decisão D0NN: **"Imagens base Docker com tag explícita"** (postgres:16.8-alpine, nginx:1.27-alpine, node:24-alpine)
@@ -758,7 +854,7 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
   - **Revisitar D054** (stack do site/Astro) à luz do Astro 6
   - **Feito quando:** D060 atualizado; 3 novas decisões registradas; D054 revisitada
 
-- [ ] T41 — **Atualizar `.specify/memory/project-state.md`**
+- [ ] T42 — **Atualizar `.specify/memory/project-state.md`**
   - Seção "Construído neste monorepo": adicionar spec 033 como concluída
   - Remover menção ao override `@types/multer>@types/express` (linha 150)
   - Atualizar seção "Próximo passo" com toolchain canônico
@@ -767,14 +863,14 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
 
 ### 7.2 — Atualizar docs de arquitetura e infra
 
-- [ ] T42 — **Atualizar `.specify/arquiteture.md`**
+- [ ] T43 — **Atualizar `.specify/arquiteture.md`**
   - Seção 1 (Layout): verificar se stack canônica listada bate com a nova realidade
   - Seção 5 (Banco): `postgres:16-alpine` → `postgres:16.8-alpine` se mencionado
   - Seção 7 (CI/CD): se mencionar `node-version: 20`, atualizar para 24
   - Avaliar se precisa listar versões canônicas em tabela própria
   - **Feito quando:** `rg 'node.*20|express.*4|postgres:16-alpine' .specify/arquiteture.md` retorna 0 (ou só refs históricas)
 
-- [ ] T43 — **Atualizar `docs/agents/infra-map.md`**
+- [ ] T44 — **Atualizar `docs/agents/infra-map.md`**
   - Seção "Host": adicionar versões canônicas de runtime (Node 24.x LTS, pnpm 10.12.x, Docker 29.5.3)
   - Seção "Postgres": `postgres:16-alpine` → `postgres:16.8-alpine`
   - Seção "Regra operacional de deploy": verificar refs a `node:20-alpine` (nenhuma encontrada na busca — OK)
@@ -782,7 +878,7 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
   - Atualizar lista de containers com imagens novas
   - **Feito quando:** todas as refs de versão atualizadas; tabela de imagens base criada
 
-- [ ] T44 — **Atualizar `docs/agents/context-capsule.md`**
+- [ ] T45 — **Atualizar `docs/agents/context-capsule.md`**
   - Seção "Stack canônica": atualizar refs de versão (Node, Express, Postgres)
   - Se "Express" aparecer sem versão, adicionar `5.x`
   - Se "Node" aparecer sem versão, adicionar `24.x LTS`
@@ -790,13 +886,13 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
 
 ### 7.3 — Atualizar specs relacionadas
 
-- [ ] T45 — **Fechar spec 016 (mesas Express 5)**
+- [ ] T46 — **Fechar spec 016 (mesas Express 5)**
   - `specs/016-mesas-express5/spec.md`: marcar como concluída; adicionar nota "Migrado pela spec 033"
   - `specs/016-mesas-express5/plan.md`: idem
   - `specs/016-mesas-express5/tasks.md`: marcar T6 (`grep "express": "^4"` = 0) como concluída
   - **Feito quando:** spec 016 marcada como fechada/absorvida pela 033
 
-- [ ] T46 — **Atualizar `specs/backlog.md`**
+- [ ] T47 — **Atualizar `specs/backlog.md`**
   - Marcar como **fechados**:
     - `D-DEP2` (linha 46) — "atualizar apt, Node, pnpm, imagens Docker e deps npm"
     - `D-DEP1` (linha 45) — "Express em todos os backends"
@@ -814,37 +910,37 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
     - `BL-033-POSTGRES17` — migrar Postgres 16→17 (dump/restore, plano próprio)
   - **Feito quando:** 4 débitos antigos fechados; 6 majors fechados pela 033; só residuais reais ficam abertos
 
-- [ ] T47 — **Atualizar `specs/README.md`**
+- [ ] T48 — **Atualizar `specs/README.md`**
   - Adicionar spec 033 na tabela: `033 | infra toolchain update | Fechada (ou estado atual)`
   - Atualizar spec 016: `016 | mesas Express 5 | Fechada/absorvida pela 033`
   - **Feito quando:** tabela de specs atualizada
 
 ### 7.4 — Atualizar docs de apps
 
-- [ ] T48 — **Atualizar `apps/site/README.md`**
+- [ ] T49 — **Atualizar `apps/site/README.md`**
   - Linha 62: `postgres:16-alpine` → `postgres:16.8-alpine`
   - **Feito quando:** ref atualizada
 
-- [ ] T49 — **Atualizar `apps/mesas/docs/TESTES.md`**
+- [ ] T50 — **Atualizar `apps/mesas/docs/TESTES.md`**
   - Linha 233: `node-version: '22'` → `node-version: '24'`
   - **Feito quando:** ref atualizada
 
 ### 7.5 — Atualizar sessão e fechar
 
-- [ ] T50 — **Atualizar `sessoes/26-06-18_3_infra_toolchain-update-spec.md`**
+- [ ] T51 — **Atualizar `sessoes/26-06-18_3_infra_toolchain-update-spec.md`**
   - Marcar todas as fases concluídas
   - Atualizar checklist de fechamento
   - Atualizar "Evidências" com versões finais
   - Mover para `sessoes/encerradas/`
   - **Feito quando:** sessão atualizada e encerrada
 
-- [ ] T51 — **Atualizar `sessoes/index.md`**
+- [ ] T52 — **Atualizar `sessoes/index.md`**
   - Marcar sessão `26-06-18_3` como concluída (ou mover para encerradas)
   - **Feito quando:** index atualizado
 
 ### 7.6 — Verificação final de documentação
 
-- [ ] T52 — **Varredura final: garantir que nenhum doc essencial ficou desatualizado**
+- [ ] T53 — **Varredura final: garantir que nenhum doc essencial ficou desatualizado**
   - `rg -l 'node.*20' .specify/ docs/agents/ specs/033* specs/016* --glob '!pnpm-lock.yaml'` — só devem sobrar refs históricas em sessoes antigas
   - `rg -l 'express.*4\.' .specify/ docs/agents/ apps/*/package.json packages/*/package.json` — zero fora de sessoes históricas
   - `rg -l 'Express 4' .specify/memory/ docs/agents/` — zero (todos devem dizer Express 5)

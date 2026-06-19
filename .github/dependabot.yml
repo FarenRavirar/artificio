@@ -14,6 +14,14 @@ updates:
       - dependencies
       - github-actions
     open-pull-requests-limit: 5
+    # Agrupa todas as actions num unico PR semanal (igual ao npm abaixo),
+    # em vez de 1 PR por action. Reduz ruido e evita lote de PRs parados.
+    groups:
+      github-actions:
+        update-types:
+          - major
+          - minor
+          - patch
 
   # Spec 026 F-SEC: dependencias npm/pnpm do monorepo. Dependabot le o pnpm-lock.yaml
   # raiz (workspace) e os manifests de apps/packages via glob de diretorios.

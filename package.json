@@ -2,7 +2,7 @@
   "name": "artificio",
   "private": true,
   "version": "0.0.0",
-  "packageManager": "pnpm@10.12.1",
+  "packageManager": "pnpm@11.8.0",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
@@ -26,11 +26,5 @@
   },
   "engines": {
     "node": ">=24"
-  },
-  "pnpm": {
-    "overrides": {},
-    "patchedDependencies": {
-      "@types/express-serve-static-core@5.1.1": "patches/@types__express-serve-static-core@5.1.1.patch"
-    }
   }
 }

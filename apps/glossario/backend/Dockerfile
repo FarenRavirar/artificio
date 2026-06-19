@@ -7,7 +7,7 @@
 FROM node:24-alpine AS builder
 
 WORKDIR /repo
-RUN npm install -g pnpm@10.12.1
+RUN npm install -g pnpm@11.8.0
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY packages ./packages
@@ -23,7 +23,7 @@ FROM node:24-alpine AS production
 
 WORKDIR /repo
 ENV NODE_PATH=/repo/apps/glossario/backend/node_modules
-RUN npm install -g pnpm@10.12.1
+RUN npm install -g pnpm@11.8.0
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages

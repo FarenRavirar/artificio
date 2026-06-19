@@ -30,8 +30,8 @@
 
 ## Fase 4 — fechamento (parcial)
 - [x] T4a — Snapshots pós-seed: `prod-full-post-seed.sql` (4.0MB) + 3 dumps pré-seed salvos em `C:\projetos\artificiobackup\site-prod-seed\2026-06-18\`. ✅
-- [ ] T4b — Registro docs: `specs/backlog.md`, `project-state.md`, `decisions.md`, `sessoes/index.md`, `specs/030/.../tasks.md` — todos atualizados. Falta commit (branch+PR D073). · feito quando: commitados.
-- [ ] T4c — Fechar tarefas delegadas: T9 spec 029 (noindex beta → T3e ✅), T13 spec 030 (noindex ✅), T14 spec 030 (registro — docs atualizados, falta commit). · feito quando: tasks marcadas done e commitadas.
+- [x] T4b — Registro docs: `specs/backlog.md`, `project-state.md`, `decisions.md`, `sessoes/index.md`, `specs/030/.../tasks.md` atualizados. PR #60 mergeado em `dev` (`37d9b4d`), promovido a `main`. ✅
+- [x] T4c — Fechar tarefas delegadas: T9 spec 029 (noindex beta → T3e ✅), T13 spec 030 (noindex ✅), T14 spec 030 (registro ✅). Backlog `BL-SITE-DATA-FLUXO-031` FECHADO. ✅
 
 ## Notas
 - DNS autoritativo/registro = intocado (Gate C segue adiado, D016).

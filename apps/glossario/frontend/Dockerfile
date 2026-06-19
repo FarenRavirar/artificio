@@ -7,7 +7,7 @@
 FROM node:24-alpine AS builder
 
 WORKDIR /repo
-RUN npm install -g pnpm@10.12.1
+RUN npm install -g pnpm@11.8.0
 
 # Em produção a API é servida pelo mesmo host atrás do nginx (proxy /api/)
 ARG VITE_API_URL=/api
