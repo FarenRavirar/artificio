@@ -1,6 +1,16 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@theme {
+  --color-azul-escuro: #1B2A4A;
+  --color-laranja: #FF5722;
+  --color-branco: #FFFFFF;
+  --color-cinza-fundo: #F4F4F4;
+  --color-cinza-texto: #555555;
+  --color-azul-medio: #2E4A7A;
+  --font-family-sans: 'Inter', system-ui, sans-serif;
+}
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* Glossário — tema via fonte única @artificio/ui (Spec 022 T5/T6).
    As vars semânticas (--fg/--surface/--line/--canvas/estados/botão) vêm de

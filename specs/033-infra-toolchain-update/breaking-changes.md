@@ -135,21 +135,42 @@
 
 ---
 
-## 8. vite 5/6 → 8.0.16 🟡
+## 8. vite 5/6 → 8.0.16 🟡 (investigado 2026-06-19)
 
-**Mudança:** Node mínimo sobe (Node 24 OK); `build.target` default mais novo; plugins precisam de versão compatível. `@vitejs/plugin-react` deve subir (plugin-react 6 exige Vite 8 — ver D054).
+**Mudança:** Node mínimo sobe (Node 24 OK); `build.target` default mais novo; plugins precisam de versão compatível. `@vitejs/plugin-react` v4 incompatível com Vite 8 → bump obrigatório para `^6.0.2` (plugin-react 6 exige Vite 8).
 
-**Uso real (configs):**
-- `apps/accounts/vite.config.ts` — `@vitejs/plugin-react` `^4.2.1`, `react()`, `root:"frontend"`
-- `apps/mesas/frontend/vite.config.ts` (Vite já `^8.0.1`)
-- `apps/site-admin/vite.config.ts` (já `^8.0.16` — D054)
-- `apps/glossario/frontend/vite.config.ts` (Vite `^5.2.0`, plugin-react `^4.2.1` — lanterna)
-- `packages/ui` (Vite `^6.3.5`)
+**Versões por app (lockfile + manifesto, 2026-06-19):**
 
-**Impacto:** config simples (accounts/glossario só `react()`); risco = plugin-react v4 incompatível com Vite 8 → subir plugin junto.
-**Ação:** (T63 accounts+ui; T64a glossario) bump Vite→`^8.0.16` + `@vitejs/plugin-react` p/ versão Vite8-compat; revisar `build.target`.
+| App/Pacote | Vite (lockfile) | Manifesto | Plugin-react (lockfile) | Manifesto |
+|---|---|---|---|---|
+| `accounts` | 6.4.3 | `^6.3.5` | 4.5.2 | `^4.5.2` |
+| `mesas-frontend` | 8.0.16 | `^8.0.1` | 6.0.1 | `^6.0.1` |
+| `site-admin` | 8.0.16 | `^8.0.16` | 6.0.2 | `^6.0.2` |
+| `ui` | 6.4.3 | `^6.3.5` | 4.5.2 | `^4.5.2` |
+| `glossario-frontend` | 5.4.21 | `^5.2.0` | 4.2.1 | `^4.2.1` |
+
+**Configs (4 arquivos):**
+
+| Config | Plugin-react | build.target | Outros |
+|---|---|---|---|
+| `apps/accounts/vite.config.ts` | `react()` | (default) | `root:"frontend"`, `outDir` |
+| `apps/mesas/frontend/vite.config.ts` | `react()` | (default) | `tailwindcss()`, `manualChunks`, `chunkSizeWarningLimit` |
+| `apps/site-admin/vite.config.ts` | `react()` | (default) | `base:"/admin/"`, `proxy` dev |
+| `packages/ui` | — | — | **Sem `vite.config`** — vite usado só no script `preview`; build é `tsc` |
+
+**Build target:** Nenhuma config especifica `build.target` → usa default. Vite 6 default `modules` (ES2015+), Vite 8 default `modules` (browserslist-to-esbuild). Compatível sem ajuste.
+
+**Impacto:** configs simples; risco = plugin-react v4 (accounts/ui/glossario) incompatível com Vite 8 → bump obrigatório para `^6.0.2`. `@vitejs/plugin-react@6.0.2` é a última release.
+**Ação:** (T63 accounts+ui+mesas; T64a glossario) bump Vite→`^8.0.16` + `@vitejs/plugin-react`→`^6.0.2` nos manifests; site-admin sem alteração.
 **Teste:** build accounts/ui/mesas-frontend/site-admin + `ui test` 8/8; diff de bundle vs baseline.
 **Rollback:** `git tag pre-033-f4b-vite` + lockfile.
+
+**Resultado T63 (2026-06-19):** ✅ migração concluída. Vite `8.0.16` único (accounts, mesas-frontend, site-admin, ui); `@vitejs/plugin-react` `6.0.2` único (accounts, mesas-frontend, site-admin, ui). `turbo build --force` 13/13 verde; `@artificio/ui test` 8/8. glossario-frontend permanece em Vite 5/plugin-react 4 → T64a. Builds: accounts 4.3/203.9 KB (estável), mesas-frontend 208.2/1360.4 KB (Vite 8 usa rolldown nativo), site-admin 223.4/1749.6 KB (estável).
+
+**Investigação T64a (glossario Vite, 2026-06-19):** `vite.config.ts` simples (`react()` + alias `@`, 13 linhas) — zero API deprecated, zero `build.target` custom, compatível com Vite 8 sem ajuste. Precedente accounts (T63, mesma config) migrou sem alteração de código.
+
+
+
 
 ---
 
@@ -161,11 +182,14 @@
 - `apps/glossario/frontend/tailwind.config.ts` — v3, `darkMode:['selector','[data-theme="dark"]']`, custom colors (`azul-escuro #1B2A4A`, `laranja #FF5722`, `branco`, `cinza-fundo`, `cinza-texto`, `azul-medio`), `fontFamily.sans:Inter`.
 - `apps/glossario/frontend/postcss.config.js` (v3 + autoprefixer)
 - `apps/mesas/frontend` e `apps/site` — **já v4** (`@tailwindcss/vite`; `apps/site/astro.config.mjs:4,13` usa `@tailwindcss/vite`). Só bump 4.2→4.3 (minor, T24e/T64b).
+  - **Resultado T64b (2026-06-19):** ✅ bump 4.3.0→4.3.1 em mesas-frontend (3 bumps: `tailwindcss`, `@tailwindcss/postcss`, `@tailwindcss/vite`) + site (2 bumps: `tailwindcss`, `@tailwindcss/vite`). `turbo build` 13/13 verde; mesas-frontend 1530.9 KB CSS+JS, site 46 pages OK. Patch release: bugfixes + CSS cosmetica (`calc(var(--spacing)*0)`→`0`, `calc(var(--spacing)*1)`→`var(--spacing)`); sem breaking, sem migração de config. glossario-frontend 3.4.19 → T64a.
 
 **Impacto:** glossario = migração estrutural. Custom colors viram `@theme { --color-azul-escuro:#1B2A4A; ... }`; `darkMode selector` → `@custom-variant dark (&:where([data-theme="dark"] *))`; remap dark do D065 (folha `[data-theme="dark"] .bg-white/...`) **precisa continuar funcionando** — validar visualmente.
 **Ação:** (T64a) `npx @tailwindcss/upgrade` + revisar diff; migrar config→`@theme`; trocar postcss→`@tailwindcss/postcss`; `@tailwind`→`@import`.
 **Teste:** build glossario-frontend; smoke visual público+admin (estilos íntegros, dark D065 intacto); diff bundle CSS.
 **Rollback:** `git tag pre-033-f4b-glossario` + cópia de `tailwind.config.ts`/`postcss.config.js` em `artifacts/033/`.
+
+**CORREÇÃO (investigação T64a, 2026-06-19):** a ação diz "postcss.config.js → @tailwindcss/postcss". **ERRADO para Vite.** Glossario-frontend usa Vite → o correto é **deletar** `postcss.config.js` e usar plugin `@tailwindcss/vite` no `vite.config.ts` (como mesas-frontend/site). `@tailwindcss/postcss` é para projetos sem Vite. `autoprefixer` e `postcss` devDeps viram desnecessários (Tailwind v4 inclui autoprefixer; `@tailwindcss/vite` dispensa postcss standalone). 0 usos de `@apply`, 0 classes utilitárias Tailwind nativas — componentes usam CSS vars de `@artificio/ui` → baixo risco de quebra visual. 31 arquivos fonte.
 
 ---
 
@@ -186,10 +210,12 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([ globalIgnores(['dist']), { files:['**/*.{ts,tsx}'], extends:[js.configs.recommended, tseslint.configs.recommended, reactHooks.configs.flat.recommended, reactRefresh.configs.vite], languageOptions:{ ecmaVersion:2020, globals:globals.browser } } ])
 ```
 
-**Ação:** (T64a) criar `apps/glossario/frontend/eslint.config.js` espelhando mesas; trocar deps: `eslint ^8.57`→`^10.5.0`, `@typescript-eslint/*`→`typescript-eslint@8.61.1`, `react-hooks`→v5 (flat), `react-refresh`→`^0.5.3`; remover `--ext` do script lint; adicionar `@eslint/js` + `globals`.
+**Ação:** (T64a) criar `apps/glossario/frontend/eslint.config.js` espelhando mesas; trocar deps: `eslint ^8.57`→`^10.5.0`, `@typescript-eslint/{eslint-plugin,parser}`→`typescript-eslint ^8.61.1`, `react-hooks ^4.6.0`→`^7.1.1`, `react-refresh ^0.4.6`→`^0.5.3`; adicionar `@eslint/js ^10.0.1` + `globals ^17.6.0`; remover `--ext ts,tsx` do script lint.
 **Teste:** `pnpm --filter @artificio/glossario-frontend lint` roda e termina (sem "no config"); sem erro novo vs baseline.
 **Rollback:** `git tag pre-033-f4b-glossario` + lockfile.
 **Débito a abrir:** `BL-033-GLOSSARIO-LINT-NEVER-RAN` — lint do glossario-frontend sem config; confirmar se CI o ignora.
+
+**Investigação T64a (2026-06-19):** versões verificadas no registry: eslint 10.5.0 ⬆️, typescript-eslint 8.61.1 ⬆️ (latest stable; sem 8.61.2 release), react-hooks 7.1.1 ⬆️ (não v5 como dizia breaking-changes), react-refresh 0.5.3 ⬆️, @eslint/js 10.0.1 ⬆️, globals 17.6.0 ⬆️. Todos com peer eslint `^10` ✅. typescript-eslint peer TS `<6.1.0` compatível com `~6.0.3` ✅. O template `eslint.config.js` do mesas (23 linhas) é copiável verbatim (mesma estrutura TS+React).
 
 ---
 

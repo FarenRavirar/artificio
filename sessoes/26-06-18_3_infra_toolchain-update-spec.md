@@ -407,3 +407,111 @@ Status: BL-KYSELY-029-ESM + BL-MESAS-DB-LAZY-OPTION2 + BL-MESAS-TEST-DB-SIDEEFFE
 - `rg "z\.string\(\)\.url" apps packages`: **zero** deprecated
 - `pnpm list zod -r --depth 0`: **4.4.3** único (accounts, config, mesas-backend, mesas-frontend)
 - **Próximo:** T62 (TypeScript → 6.0.3)
+
+### T62 — TypeScript → 6.0.3 único ✅ (2026-06-19)
+
+**Backup:** `git tag pre-033-f4b-ts` (local); lockfile off-código em `C:\projetos\artificiobackup\spec-033\pnpm-lock.yaml.pre-033-f4b-ts`. Rollback: `git reset --hard pre-033-f4b-ts` + restaurar lockfile.
+
+**Investigação:** 7 manifests com TS (root `^5.8.3`, glossario-back `^5.9.3`, glossario-front `^5.9.3`, site `~5.9.3`, mesas-front `~5.9.3`, mesas-back `^5.4.5`, site-admin `~5.9.3`). accounts sem dep direto. `typescript-eslint@8.60.1` peer `>=4.8.4 <6.1.0`. 17 tsconfig versionados revisados.
+
+**Execução (3 iterações de correção + pin pós-merge):**
+- (1) Bump 7 manifests → `pnpm install` (lockfile `typescript@6.0.3` único)
+- (2a) `packages/auth/tsconfig.cjs.json`: `moduleResolution: "Node"` → `"node10"` + `ignoreDeprecations: "6.0"`
+- (2b) `tsconfig.base.json`: `moduleResolution: "Bundler"` → `"bundler"` (lowercase)
+- (2c) `apps/glossario/frontend/tsconfig.json`: remove `baseUrl`, mantém `allowImportingTsExtensions`
+- (2d) `apps/mesas/frontend/tsconfig.app.json` + `tsconfig.node.json`: mantém `allowImportingTsExtensions`
+- (2e) `apps/mesas/frontend/src/test/setup.ts`: adiciona `scrollMargin` ao mock `IntersectionObserver`
+- (2f) Pin `^6.0.3` → `~6.0.3` nos 7 manifests. **CI quebrou:** `pnpm install --frozen-lockfile` rejeitou mismatch (`lockfile: ^6.0.3, manifest: ~6.0.3`). `pnpm install` local regenerou lockfile; commit `25f7ea7`. CI re-executou, todos checks verdes. PR #68 mergeado em `dev` 2026-06-19 14:48 UTC.
+
+**Aprendizado:** `allowImportingTsExtensions` NÃO removido no TS 6; `moduleResolution: "Node"` NÃO removido (`"node10"` é que dispara TS5107); `baseUrl` deprecated com `bundler`; TS pinado `~6.0.3` por peer `<6.1.0` do typescript-eslint.
+
+**Verificação:** `turbo build --force` 13/13 ✅; `pnpm list typescript -r --depth 0` = 6.0.3 único ✅.
+
+**PR #68:** 3 commits — `b65da49` (T61 zod + T62 TS), `086698c` (pin TS ~), `25f7ea7` (lockfile fix). Merge `9087b9b` em `dev`. Branch `chore/033-ts6-zod4` deletada.
+
+### T63 — Vite → 8.0.16 + plugin-react → 6.0.2 ✅ (2026-06-19)
+
+**Backup:** `git tag pre-033-f4b-vite` (local); lockfile off-código em `C:\projetos\artificiobackup\spec-033\pnpm-lock.yaml.pre-033-f4b-vite`.
+
+**Migração (3 manifests):**
+- `apps/accounts`: vite `^6.3.5` → `^8.0.16`, plugin-react `^4.5.2` → `^6.0.2`
+- `packages/ui`: vite `^6.3.5` → `^8.0.16`, plugin-react `^4.5.2` → `^6.0.2`
+- `apps/mesas/frontend`: vite `^8.0.1` → `^8.0.16`, plugin-react `^6.0.1` → `^6.0.2`
+- `apps/site-admin`: já `^8.0.16` + `^6.0.2` ✅
+
+**Verificação:**
+- `pnpm install` OK; `pnpm list vite -r --depth 0` = 8.0.16 único (exceto glossario-frontend 5.4.21 → T64a)
+- `pnpm list @vitejs/plugin-react -r --depth 0` = 6.0.2 único (exceto glossario-frontend 4.7.0 → T64a)
+- `turbo build --force` 13/13 ✅
+- `@artificio/ui test` 8/8 ✅
+- Sem ajuste de config (`build.target` default OK em todos)
+
+**Achado:** Vite 8 usa rolldown nativo (não rollup) — chunk names diferentes (`rolldown-runtime-*.js`), bundles mesas-frontend levemente maiores (208.2/1360.4 vs baseline 203.3/1328.0 KB). Sem quebra funcional.
+
+**Próximo:** T64b (Tailwind 4.3.1 bump) ou T64a (glossario-frontend Vite+Tailwind+ESLint)
+
+### T64b — Tailwind → 4.3.1 (apps já-v4) ✅ (2026-06-19)
+
+**Backup:** `git tag pre-033-f4b-tw` (local); lockfile off-código em `C:\projetos\artificiobackup\spec-033\pnpm-lock.yaml.pre-033-f4b-tw` + `artifacts/033/`.
+
+**Investigação:** `tailwindcss` 4.3.0→4.3.1 = patch (bugfixes + CSS cosmetica: `calc(var(--spacing)*0)`→`0`, `calc(var(--spacing)*1)`→`var(--spacing)`). Sem breaking, sem migração de config. `@tailwindcss/postcss`/`@tailwindcss/vite` 4.3.0→4.3.1 alinhados.
+
+**Migração (2 manifests, 5 bumps):**
+- `apps/mesas/frontend`: `tailwindcss` `^4.2.2`→`^4.3.1`, `@tailwindcss/postcss` `^4.2.2`→`^4.3.1`, `@tailwindcss/vite` `^4.2.2`→`^4.3.1`
+- `apps/site`: `tailwindcss` `^4.2.2`→`^4.3.1`, `@tailwindcss/vite` `^4.2.2`→`^4.3.1`
+
+**Verificação:**
+- `pnpm install` OK (8 new packages)
+- `pnpm list tailwindcss -r --depth 0` = 4.3.1 nos apps já-v4 (glossario 3.4.19 → T64a)
+- `pnpm list @tailwindcss/postcss -r --depth 0` = 4.3.1
+- `pnpm list @tailwindcss/vite -r --depth 0` = 4.3.1
+- `turbo build --force` 13/13 ✅
+- mesas-frontend: 1530.9 KB CSS+JS (baseline JS 1360.4 KB, variance normal rolldown)
+- site: 46 pages OK, 266.3 KB _astro JS+CSS
+
+**Doc:** tasks.md T64b ✅ + breaking-changes.md seção 9 atualizada
+
+### T64a — glossario-frontend: investigação pré-migração (2026-06-19)
+
+**Backup:** `git tag pre-033-f4b-glossario` + lockfile off-código + `artifacts/033/glossario-{tailwind.config,postcss.config,vite.config}.*`
+
+**Achados principais (CORREÇÕES ao plano original em tasks.md):**
+
+1. **Vite:** `vite.config.ts` (13 linhas: `react()` + alias `@`) — compatível com Vite 8 sem ajuste. Precedente accounts (T63, config idêntica).
+
+2. **Tailwind (CORREÇÃO CRÍTICA):** plano dizia `postcss.config.js → @tailwindcss/postcss`. **ERRADO para Vite.** O correto: **deletar** `postcss.config.js`, usar plugin `@tailwindcss/vite` no `vite.config.ts` (como mesas-frontend/site). `@tailwindcss/postcss` é para builds sem Vite. `autoprefixer`+`postcss` viram devDeps desnecessários.
+
+3. **Tailwind — inventário:**
+   - 6 cores custom: azul-escuro/laranja/branco/cinza-fundo/cinza-texto/azul-medio → `@theme { --color-* }`
+   - darkMode `[data-theme="dark"]` selector → `@custom-variant dark (&:where([data-theme="dark"] *))`
+   - `@tailwind base/components/utilities` → `@import "tailwindcss"`
+   - 0 usos de `@apply`, 0 classes utilitárias Tailwind nativas (componentes usam CSS vars `@artificio/ui`) → baixo risco de quebra visual
+   - `npx @tailwindcss/upgrade@4.3.1` existe (automatiza darkMode+colors+imports)
+
+4. **ESLint:** sem config (confirmado). Criar `eslint.config.js` flat espelhando mesas-frontend (23 linhas, copiável verbatim). Deps verificados no registry:
+   - `eslint` 8.57→10.5.0 (latest) ✅
+   - `@typescript-eslint/{eslint-plugin,parser}` (v7) → `typescript-eslint` 8.61.1 (latest stable) ✅
+   - `react-hooks` 4.6.0→7.1.1 ✅ (breaking-changes dizia "v5" — errado)
+   - `react-refresh` 0.4.6→0.5.3 ✅
+   - Adicionar: `@eslint/js` 10.0.1, `globals` 17.6.0
+   - Todos peer eslint `^10` ✅; ts-eslint peer TS `<6.1.0` compatível ~6.0.3 ✅
+   - `--ext ts,tsx` deve ser removido do script lint (flat config não usa)
+
+**Docs atualizados:** tasks.md T64a (investigação completa + correções), breaking-changes.md seções 8/9/10 (correções e verificações de versão)
+
+### T64a — glossario-frontend: migração executada ✅ (2026-06-19)
+
+**Migração:**
+- **Vite:** `^5.2.0`→`^8.0.16`, `@vitejs/plugin-react` `^4.2.1`→`^6.0.2`. Config sem alteração (só adicionar `@tailwindcss/vite`).
+- **Tailwind 3→4:** removidos `postcss.config.js` + `tailwind.config.ts`. `index.css`: `@import 'tailwindcss'` + `@theme` (6 cores) + `@custom-variant dark`. `vite.config.ts`: +plugin `@tailwindcss/vite`. Removidos `autoprefixer`+`postcss` devDeps.
+- **ESLint 8→10:** `eslint.config.js` flat (23 linhas, espelho mesas). Deps unificados: `eslint` 10.5.0, `typescript-eslint` 8.61.1, `react-hooks` 7.1.1, `react-refresh` 0.5.3, +`@eslint/js` 10.0.1, `globals` 17.6.0. Removido `--ext ts,tsx` do script lint.
+
+**Verificação:**
+- `pnpm install` OK (26 new, 3 removed)
+- `pnpm list vite` = 8.0.16 único (todos 5 apps: accounts, glossario, mesas-frontend, site-admin, ui)
+- `pnpm list @vitejs/plugin-react` = 6.0.2 único (accounts, glossario, mesas-frontend, site-admin, ui)
+- `pnpm list tailwindcss` = 4.3.1 nos v4 apps (glossario, mesas-frontend, site)
+- Build ✅ (vite 8, 982ms, 30 chunks, CSS 61.2 KB)
+- Lint: **52 problemas (50 erros + 2 warnings) — TODOS pré-existentes** (new ESLint rules: `set-state-in-effect`, `static-components`, `preserve-caught-error`, +`no-explicit-any`, `no-unused-vars`, `react-refresh/only-export-components`). O eslint AGORA RODA (antes `--ext` + sem config = abortava).
+
+**ZERO regressão de build.** Correção ao débito `BL-033-GLOSSARIO-LINT-NEVER-RAN`: lint config existe e roda; 52 problemas pré-existentes → T66.
