@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { authMiddleware } from './auth';
 
-jest.mock('../db', () => ({
+vi.mock('../db', () => ({
   db: {
     selectFrom: () => ({
       select: () => ({

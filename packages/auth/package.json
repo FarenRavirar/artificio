@@ -27,11 +27,11 @@
   },
   "peerDependencies": {
     "express": "^5.1.0",
-    "react": "^19.1.0"
+    "react": "^19.2.7"
   },
   "devDependencies": {
     "@artificio/config": "workspace:*",
     "express": "^5.1.0",
-    "react": "^19.1.0"
+    "react": "^19.2.7"
   }
 }
