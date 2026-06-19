@@ -49,13 +49,13 @@
 - **mesas-backend:** CommonJS (sem `"type":"module"`). `require()` dinâmico é válido.
 - **React:** código limpo — sem APIs depreciadas.
 - **Node.js APIs:** sem `fs.rmdir`, `url.parse`, `new Buffer()`, `createCipher`.
-- **126 async route handlers** no mesas sem captura de erro. Express 5 não captura → processo crasha.
+- **126 async route handlers** no mesas: ~125 têm try/catch explícito; 1 sem (discord.ts:11, coberto por express-async-errors). Express 5 lida com async errors nativamente.
 - **Imagens stale na VM:** 5 imagens de 2026-06-04.
 - **apt VM:** 5 pacotes upgradable (baixo risco, libs de sistema).
 
-### Fora de escopo (specs próprias futuras)
+### Fora de escopo (specs próprias futuras) — REVISADO pela Fase 4B
 
-Tailwind 3→4 (glossario), Vite 5→8 (glossario), ESLint 8→9 (glossario), TypeScript 5→6, Astro 5→6, zod 3→4 (accounts/config).
+Itens abaixo foram movidos para DENTRO do escopo na Fase 4B (unificação de majors): Tailwind 3→4 (glossario), Vite 5→8 (glossario/accounts/ui), ESLint 8→flat 10 (glossario), TypeScript 5→6 (todos), Astro 5→6 (site), zod 3→4 (accounts/config/mesas).
 
 ---
 
@@ -180,10 +180,10 @@ Tailwind 3→4 (glossario), Vite 5→8 (glossario), ESLint 8→9 (glossario), Ty
   - `apps/mesas/backend/package.json`: `express: ^4.19.2` → `^5.2.1`; `@types/express: ^4.17.21` → `^5.0.6` ✅
   - `pnpm install` → lockfile sem express 4 ✅
   - **Correções:**
-    - `og.ts:201`: `router.get('*', ...)` → `router.get('/*splat', ...)` (path-to-regexp v8 não aceita `'*'` bare) ✅
+    - `og.ts:201`: `router.get('*', ...)` mantido — `'*'` bare é wildcard válido no path-to-regexp v8 do Express 5 e casa qualquer path inclusive raiz `/` ✅ (nota: `'/*splat'` foi tentado mas não casa raiz; `'/{*splat}'` é sintaxe inválida; voltou ao `'*'` original)
     - `upload.ts:25`: `upload.single('file') as any` — `@types/multer@2.1.0` depende de `@types/express@4`, incompatível com RequestHandler do Express 5 ✅
     - `pnpm patch @types/express-serve-static-core@5.1.1`: `ParamsDictionary[key: string]: string | string[]` → `string` — Express 5 types usam `string | string[]` por causa de wildcards do path-to-regexp v8; código do mesas sempre acessa params como string simples ✅
-  - `express-async-errors@3.1.1`: peer `express@^4.16.2` gera warning; mantido (Express 5 lida com async errors nativamente, mas manter não quebra) ✅
+  - `express-async-errors@3.1.1`: **removido** (PR #64) — peer `express@^4.16.2`, requer `express/lib/router/layer` inexistente no Express 5, crasha no boot. Express 5 lida com async errors nativamente ✅
   - **Feito quando:** `tsc --noEmit` **0 erros**; `turbo build` **3/3 verde**
 
 - [x] T15b — **Unificar Express 5 nos demais (eliminar skew `5.1.0` vs `5.2.1`)** ✅ (2026-06-18)
@@ -225,12 +225,27 @@ Tailwind 3→4 (glossario), Vite 5→8 (glossario), ESLint 8→9 (glossario), Ty
   - Pacotes compartilhados (`auth`, `config`, `content`, `analytics`): builds OK
 
 - [ ] T21 — **Validar mesas beta pós-Express 5**
-  - PR #63 criado (`infra/033-toolchain-update` → `dev`)
-  - ⚠️ Merge em `dev`: **Requer aprovação nominal**
-  - ⚠️ Deploy mesas beta: **Requer aprovação nominal** (ação distinta do merge)
+  - PR #63 mergeado (`c6d037b`), deploy falhou 2x (ENOENT patches/ no builder stage)
+  - PR #64 mergeado (`1161a65`), deploy falhou (ENOENT patches/ no **production stage** `--prod` — mesmo erro, estágio diferente)
+  - Fix aplicado localmente: `COPY patches ./patches` adicionado ao production stage do `apps/mesas/backend/Dockerfile` (linha 34). **Validar com `docker build` local antes do deploy** — se falhar ainda, há outra causa.
+  - ⚠️ Commit + push do fix + PR → merge em `dev` → deploy mesas beta: **Requer aprovação nominal** (cada ação distinta)
   - Smoke beta: `/` 200, `/api/v1/me/options` 401, login SSO + criar mesa + arquivar
   - Healthcheck Docker healthy
   - **Feito quando:** deploy beta verde; smokes OK; zero crash em 5min de operação
+
+### Aprendizados da Fase 3 (registrar para não repetir)
+
+1. **`express-async-errors@3` incompatível com Express 5.** Peer `express@^4.16.2`, requer `express/lib/router/layer` (caminho que não existe no Express 5). Causa crash no boot com `Cannot find module 'express/lib/router/layer'`. Express 5 já encaminha rejeições de async handlers nativamente — o shim deve ser removido (import + package.json). _Descoberto no review do PR #63, confirmado no deploy._
+
+2. **path-to-regexp v8 (Express 5) — wildcard `*`.** Bare `*` é token wildcard válido e casa qualquer path inclusive raiz `/`. `/*splat` não casa raiz (requer `/` literal antes). `/{*splat}` é sintaxe inválida (não é path-to-regexp). Para catch-all que cobre raiz: use `'*'` (bare) ou `'/(.*)'` (regex). _Descoberto: `'*'` original funcionava; `/*splat` quebrou fallback SEO da home._
+
+3. **`pnpm patch` + Docker build.** `pnpm.patchedDependencies` no `package.json` referencia `patches/...` no sistema de arquivos. Dockerfiles que rodam `pnpm install --frozen-lockfile` dentro do container precisam de `COPY patches ./patches` — caso contrário, ENOENT. **Cada estágio** que roda `pnpm install` (inclusive `--prod`) precisa do `COPY patches`; o `--frozen-lockfile` exige o arquivo mesmo se a dep patchada não for instalada naquele estágio (ex.: `@types/*` como devDependency não instalada com `--prod`). `.dockerignore` padrão do projeto NÃO bloqueia `patches/` (só bloqueia `.git`, `node_modules`, `dist`, `.turbo`, secrets, `.env`). _Descoberto: 2 falhas de deploy (builder); 3ª falha (production stage `--prod`) — mesmo erro, estágio diferente._
+
+4. **`@types/express-serve-static-core@5` — ParamsDictionary.** `ParamsDictionary[key: string]` mudou de `string` para `string | string[]` (por causa de wildcards nomeados do path-to-regexp v8). Isso causa ~38 erros de tipo em `req.params.*` por todo o código. Fix via `pnpm patch` no tipo (sobrescrever para `string`), não via module augmentation (não funciona com genéricos). _Descoberto: module augmentation `declare module 'express-serve-static-core'` não sobrepõe parâmetros genéricos de interface._
+
+5. **`@types/multer@2.1.0` depende de `@types/express@4`.** Incompatível com Express 5 `RequestHandler`. Requer `as any` nos pontos de uso (`upload.single('file') as any`). Mesmo após remover o override `@types/multer>@types/express` do root `package.json`. _Descoberto: 2 arquivos afetados (upload.ts mesas + admin-api.ts site)._
+
+6. **`express-rate-limit@8` breaking changes.** Removeu default export → `import { rateLimit }`. Renomeou `max` → `limit`. `message` agora `any | ValueDeterminingMiddleware` (string segue aceito como `any`). _Descoberto: TS1005 parse errors até corrigir import + opções._
 
 ---
 
@@ -338,11 +353,11 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
 
 ### 4.4 — Major bumps (com breaking changes)
 
-- [ ] T26a — `express-rate-limit` 7.5.1 → 8.5.2 (mesas + glossario)
-  - **Pré-requisito:** T16 concluído (Express 5 + shim removido)
+- [x] T26a — `express-rate-limit` 7.5.1 → 8.5.2 (mesas + glossario) ✅ já executado em T15b
+  - **Pré-requisito:** T15b concluído (Express 5 + shim removido)
   - **Impacto:** mesas-backend + glossario-backend (4 rate limiters)
-  - **Teste específico:** T18 (testes de rate-limit)
-  - **Teste:** build mesas-backend + glossario-backend; `tsc --noEmit` ambos
+  - **Teste específico:** T18 (testes de rate-limit) — ✅ 113/113 testes passam
+  - **Teste:** build mesas-backend + glossario-backend; `tsc --noEmit` ambos — ✅ 0 erros
 
 - [ ] T26b — `dotenv` 16.4.5/16.4.7 → 17.4.2
   - **Impacto:** mesas-backend + site (carregamento de .env)
@@ -480,16 +495,19 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
   - `nginx:alpine` → `nginx:1.27-alpine` (glossario-frontend + mesas-frontend)
   - `cloudflare/cloudflared:latest` → tag específica
   - `curlimages/curl`: unificar → `curlimages/curl:8.11.1`
+  - **Oportunidade:** já que vai editar os Dockerfiles, verificar `COPY patches` conforme inventário em `breaking-changes.md` item 10 (aprendizado Fase 3). Se build Docker local do app falhar ENOENT, adicionar o COPY.
   - **Feito quando:** todas as imagens base com tag explícita
 
 ### 5.2 — Teste de impacto
 
 - [ ] T31 — **Build local das imagens Docker**
+  - **Pré-requisito (aprendizado Fase 3):** antes do build, verificar se o Dockerfile de cada app tem `COPY patches ./patches` antes de cada `RUN pnpm install --frozen-lockfile`. Inventário em `breaking-changes.md` item 10. Testar com `docker build`; se falhar ENOENT, adicionar o COPY.
   - `docker build -t test-accounts accounts/` — verificar que nova imagem node funciona
   - `docker build -t test-site apps/site/` — verificar node:slim novo
   - **Feito quando:** builds Docker locais OK
 
 - [ ] T32 — **Deploy beta com novas imagens**
+  - **Pré-requisito (aprendizado Fase 3):** cada app a deployar precisa ter `COPY patches` nos seus Dockerfiles ANTES do deploy. Verificar `breaking-changes.md` item 10 para inventário. Se o build Docker local do app passou em T31, o deploy pode seguir.
   - PR → merge em `dev` — ⚠️ **Requer aprovação nominal** (regra de merge; distinta do push direto, que é proibido)
   - Deploy beta: accounts, mesas, glossario, site (4 deploys) — ⚠️ **Requer aprovação nominal** (por deploy)
   - **Teste:** cada deploy verde; smoke após cada deploy; imagens novas no `docker images`

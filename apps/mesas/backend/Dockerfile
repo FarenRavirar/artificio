@@ -31,6 +31,7 @@ RUN npm install -g pnpm@10.12.1
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
 COPY apps/mesas/backend/package.json ./apps/mesas/backend/package.json
+COPY patches ./patches
 RUN pnpm install --prod --filter @artificio/mesas-backend --frozen-lockfile
 
 # Workspace packages are linked in production; copy built outputs they export at runtime.

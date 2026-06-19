@@ -92,5 +92,16 @@ Smoke prod completo com toolchain alinhado (1 versão de Node, Express 5 em todo
 - T20: build 13/13 monorepo completo (já validado em T15b)
 
 ### ⏳ T21 — Deploy beta pendente (requer aprovação nominal)
-- PR #63 criado: `infra/033-toolchain-update` → `dev`
-- Merge + deploy beta pendentes de aprovação
+- PR #63 mergeado em dev (`c6d037b`), deploy falhou 2x (ENOENT patches/)
+- PR #64 (`infra/033-toolchain-update` → `dev`): checks verdes, mergeable
+  - `b318ba7`: remove express-async-errors + fix og (review PR #63)
+  - `a4e8b40`: COPY patches nos Dockerfiles + og.ts voltar para `'*'`
+- Merge PR #64 + deploy beta pendentes de aprovação
+
+### Aprendizados da Fase 3
+1. **express-async-errors@3 crasha no Express 5** — requer `express/lib/router/layer` (inexistente). Remover.
+2. **path-to-regexp v8 wildcard:** `'*'` bare funciona e casa root. `/*splat` não casa root. `/{*splat}` inválido.
+3. **pnpm patch + Docker:** `COPY patches ./patches` obrigatório nos Dockerfiles.
+4. **ParamsDictionary:** `@types/express-serve-static-core@5` mudou `[key]` → `string | string[]`. Module augmentation não funciona com genéricos.
+5. **@types/multer@2** depende de `@types/express@4` → `as any` nos pontos de uso.
+6. **express-rate-limit@8:** sem default export, `max`→`limit`.
