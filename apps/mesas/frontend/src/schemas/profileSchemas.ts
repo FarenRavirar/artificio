@@ -45,7 +45,7 @@ export const profileSchema = z.object({
   avatar_url: z
     .string()
     .refine(
-      (val) => !val || val.trim() === '' || z.string().url().safeParse(val).success,
+      (val) => !val || val.trim() === '' || z.url().safeParse(val).success,
       { message: 'URL do avatar inválida' }
     )
     .optional()

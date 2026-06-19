@@ -408,18 +408,18 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
   - **Smoke necessário:** teste suite 16/16 + tsc + turbo build + deploy mesas beta (`/health` + `/api/v1/me/options`).
   - **Status:** ✅ implementado na T28d (2026-06-19) — Option 1 (`jest.setup.ts` + `setupFiles`) revertida junto da migração vitest.
 
-- [x] **T28c — Migrar mesas-backend de jest → vitest + unificar kysely `^0.29.2`** ✅ impl+validação local 2026-06-19 (deploy beta pendente/aprovação)
+- [x] **T28c — Migrar mesas-backend de jest → vitest + unificar kysely `^0.29.2`** ✅ FECHADO 2026-06-19 (PR #67 `85063da`, deploy beta verde)
   - **Débito:** `BL-KYSELY-029-ESM`
   - **Motivo:** kysely 0.29 é ESM-only; mesas era o único app em jest+ts-jest (não transpila `.js` ESM). Padronizar no único runner do monorepo (accounts/glossario já vitest) elimina a exceção. `@swc/jest` descartado (manteria jest como exceção).
   - **Executado:** kysely `^0.29.2` (mesas+accounts), `pnpm why kysely` = só `0.29.2`. Removido `jest`/`ts-jest`/`@types/jest` + `jest.config.js`; add `vitest`+`@vitest/coverage-v8`; `vitest.config.ts` (`globals:true`, env node); scripts `test`→`vitest run`; 6 arquivos `jest.*`→`vi.*`; `tsconfig` types `["node","vitest/globals"]`.
   - **Decisões de migração:** `adminDiscordSync.drafts.patch.test.ts` usa imports estáticos + `import type { Mock }` (vitest faz hoist do `vi.mock` acima dos imports) — TLA/`vi.importActual` evitado por `module:CommonJS`. `uploadDiscordImage.test.ts`: `vi.fn<typeof fetch>()`. Factories com vars `mock*`-prefixadas compatíveis com hoisting.
   - **Validação real:** `vitest run` **16/16 suites, 114/114** ✅; `tsc --noEmit` **0** ✅; `turbo build --force` **13/13** ✅; accounts `vitest` 8/8 ✅; runtime CJS `require('kysely')` (Kysely/PostgresDialect/sql = function) ✅.
-  - **Pendente:** deploy beta mesas + smoke (`/health`, `/api/v1/me/options` 401) — aprovação nominal.
+  - **Deploy beta ✅:** PR #67 mergeado em dev (`85063da`, squash); mesas beta auto-deploy SUCCESS (run `27805626853`); smoke `/` 200, `/api/v1/me/options` 401, `/api/v1/auth/google` 302. Runtime `require(esm)` provado na VM. **Fixes de revisão (Amazon Q/CodeRabbit/Snyk/codex): Reflect.get(instance,prop,instance), process.exit→throw, vi.hoisted() — ver sessão.**
 
-- [x] **T28d — `db/index.ts` lazy Proxy (Option 2, correção de raiz)** ✅ impl+validação local 2026-06-19
+- [x] **T28d — `db/index.ts` lazy Proxy (Option 2, correção de raiz)** ✅ FECHADO 2026-06-19 (PR #67, deploy beta verde)
   - **Débito:** `BL-MESAS-DB-LAZY-OPTION2`
   - **Executado:** `db/index.ts` reescrito com `getDb()` privado (valida DATABASE_URL/DT-004 + DT-007 + cria Pool + Kysely no 1º acesso) + `export const db = new Proxy(...)`, idêntico a `db/prod.ts`. Side-effect `process.exit(1)` no nível do módulo eliminado. `jest.setup.ts` removido (Option 1 saiu com o jest).
-  - **Validação real:** `ingestMessages.test.ts` passa com `DATABASE_URL=''` (import não dispara `process.exit`) ✅; 16/16 verde sem dummy env; DT-004 preservada (runtime fail-fast via `getDb()` + `server.ts`).
+  - **Validação real:** `ingestMessages.test.ts` passa com `DATABASE_URL=''` ✅; 16/16 verde sem dummy env; DT-004 preservada (boot fail-fast `server.ts:43-47` + `throw` no 1º uso). Review: `process.exit`→`throw` (não mata server em request); `Reflect.get(instance,prop,instance)` no Proxy (getters Kysely precisam `this`=instância). Deploy beta verde.
 
 ---
 
@@ -431,30 +431,45 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
 
 ### 4B.0 — Baseline geral pré-majors
 
-- [ ] T60 — **Baseline antes dos majors de toolchain** (referência de comparação para todos)
-  - `turbo build --force` + `pnpm lint` + snapshots de bundle CSS/JS por app → `artifacts/033/pre-f4b-*.log`
-  - Registrar nº de passes/erros e tamanhos de bundle (linha de base de não-regressão)
+- [x] T60 — **Baseline antes dos majors de toolchain** ✅ (2026-06-19)
+  - `turbo build --force` **13/13** verde → `artifacts/033/pre-f4b-build.log`
+  - `pnpm lint` **2/5** (config+mesas-frontend OK; content/analytics/auth/glossario-frontend sem eslint.config) → `artifacts/033/pre-f4b-lint.log`
+  - Bundle sizes baseline (CSS/JS KB): accounts 4.3/202.8, glossario 51.2/1123.8, mesas 203.3/1328.0, site-admin 218.2/1737.9, site 35.0/231.3
+  - Skew confirmado: zod 3.x/4.x, TS 5.9.3, Vite 5/6/8, Tailwind 3/4, ESLint 8/9/sem, Astro 5
   - **Feito quando:** baseline salva off-código (cada major compara contra ela)
 
 ### 4B.1 — zod → `^4.4.3` (única)
 
-- [ ] T61 — **Unificar zod em `^4.4.3`**
-  - **Backup:** `git tag pre-033-f4b-zod` + `cp pnpm-lock.yaml artifacts/033/lock.pre-zod`
-  - **Investigação:** ler seção `zod` de `breaking-changes.md` (T5b); `rg -l "from ['\"]zod['\"]" apps packages` → lista de arquivos impactados; mapear usos de `.email()`, `errorMap`, `.parse/.safeParse`
-  - **Migração:** bump `packages/config` (`^3.25.57`), `apps/accounts` (`^3.25.57`), `apps/mesas/backend` (`4.3.6`), `apps/mesas/frontend` (`^4.3.6`) → `^4.4.3`; ajustar APIs zod 3→4 (`z.string().email()`→`z.email()` etc.)
-  - **Teste:** `tsc --noEmit` + build dos 4; testes de schema/validação; smoke de rota que valida input (criar mesa, login)
-  - **Doc:** registrar mudanças de código em `breaking-changes.md`
-  - **Feito quando:** `pnpm why zod` = só `4.4.3`; builds verdes; validações funcionam
+- [x] T61 — **Unificar zod em `^4.4.3`** ✅ (2026-06-19)
+  - **Backup:** ✅ `git tag pre-033-f4b-zod` (local); lockfile off-código `C:\projetos\artificiobackup\spec-033\pnpm-lock.yaml.pre-033-f4b-zod`; lockfile on-repo `artifacts/033/lock.pre-zod`. Rollback: `git reset --hard pre-033-f4b-zod` + restaurar lockfile.
+  - **Investigação:** ✅ `rg "from.*zod" apps packages -g '!node_modules'` → 8 arquivos. `rg "z\.string\(\)\.url" apps packages -g '!node_modules'` → 7 ocorrências deprecated em 3 arquivos. `rg "\.email\(\)" apps packages -l -g '!node_modules'` → 0. `rg "errorMap" apps packages -l -g '!node_modules'` → 0. mesas já em zod `4.4.3` (T25g). Só `packages/config` (`^3.25.57`) e `apps/accounts` (`^3.25.57`) precisam de bump.
+  - **Substituições deprecated→nativo (7 ocorrências, 3 arquivos):**
+    - `apps/accounts/src/env.ts:6` — `z.string().url()` → `z.url()` ✅
+    - `apps/accounts/src/env.ts:7` — `z.string().url()` → `z.url()` ✅
+    - `apps/accounts/src/env.ts:13` — `z.string().url().default(...)` → `z.url().default(...)` ✅
+    - `apps/mesas/backend/src/validators/tableValidators.ts:28` — `z.string().url('URL do Discord inválida')` → `z.url('URL do Discord inválida')` ✅
+    - `apps/mesas/backend/src/validators/tableValidators.ts:87` — `z.string().url().nullable().optional()` → `z.url().nullable().optional()` ✅
+    - `apps/mesas/backend/src/validators/tableValidators.ts:94` — `z.string().url().nullable().optional()` → `z.url().nullable().optional()` ✅
+    - `apps/mesas/frontend/src/schemas/profileSchemas.ts:48` — `z.string().url().safeParse(val)` → `z.url().safeParse(val)` ✅
+  - **API zod 4:** `z.url()` (`params?: string | { message, ... }`); compatível com `.nullable()`, `.optional()`, `.default()`, `.safeParse()`. Fonte: `zod/v4/classic/schemas.ts:653`.
+  - **Execução real:** (1) bump 2 manifests → (2) `pnpm install` (lockfile sem zod 3.x, `zod@4.4.3` único) → (3) 7 edições em 3 arquivos → (4) `turbo build --force` **13/13 verde** → (5) `rg -g '!**/node_modules/**' "z\.string\(\)\.url" apps packages` = **0** → (6) `pnpm list zod -r --depth 0` = **4.4.3** único (accounts, config, mesas-backend, mesas-frontend)
+  - **Aprendizado:** ordem importa — bump manifests + `pnpm install` ANTES de editar código (senão `z.url()` não existe no zod 3.x do accounts). `z.string().url('msg')` → `z.url('msg')` (string param = mensagem, compatível). `.nullable()`, `.optional()`, `.default()`, `.safeParse()` encadeiam em `z.url()` sem quebra.
+  - **Feito quando:** `pnpm list zod -r --depth 0` = só `4.4.3`; `turbo build` 13/13; zero `z.string().url` deprecated no código-fonte
 
 ### 4B.2 — TypeScript → `6.0.3` (única)
 
-- [ ] T62 — **Unificar TypeScript em `6.0.3`**
-  - **Backup:** `git tag pre-033-f4b-ts` + lockfile copiado
-  - **Investigação:** seção `typescript` de `breaking-changes.md`; revisar todos os `tsconfig*.json` por flags removidas/renomeadas no TS 6; confirmar peer `typescript-eslint@8.61.1` aceita TS `<6.1.0` (não subir além de 6.0.x sem rechecar)
-  - **Migração:** bump em TODOS os manifests — root (`^5.8.3`), mesas-backend (`^5.4.5`), e `~5.9.3`/`^5.9.3` (accounts, site, site-admin, glossario-back/front, mesas-front) → `6.0.3`; ajustar tsconfig; corrigir erros de checagem mais estrita
-  - **Teste:** `turbo build --force` 13/13; `pnpm lint` (TS-eslint resolve types); testes completos
-  - **Doc:** breaking changes de tipo documentados
-  - **Feito quando:** `pnpm why typescript` = só `6.0.3`; 13/13 verde; zero erro TS novo sem fix/registro
+- [x] T62 — **Unificar TypeScript em `6.0.3`** ✅ (2026-06-19)
+  - **Backup:** ✅ `git tag pre-033-f4b-ts` (local); lockfile off-código `C:\projetos\artificiobackup\spec-033\pnpm-lock.yaml.pre-033-f4b-ts`. Rollback: `git reset --hard pre-033-f4b-ts` + restaurar lockfile.
+  - **Investigação:** ✅ 7 manifests com TS (root `^5.8.3`, glossario-back `^5.9.3`, glossario-front `^5.9.3`, site `~5.9.3`, mesas-front `~5.9.3`, mesas-back `^5.4.5`, site-admin `~5.9.3`). accounts sem dep direto. `typescript-eslint@8.60.1` peer `>=4.8.4 <6.1.0` → OK. 17 tsconfig versionados revisados.
+  - **Execução real (3 iterações de correção):**
+    - (1) Bump 7 manifests → `pnpm install` (lockfile `typescript@6.0.3` único)
+    - (2a) `packages/auth/tsconfig.cjs.json`: `moduleResolution: "Node"` → `"node10"` + `ignoreDeprecations: "6.0"` (TS5107)
+    - (2b) `tsconfig.base.json`: `moduleResolution: "Bundler"` → `"bundler"` (lowercase)
+    - (2c) `apps/glossario/frontend/tsconfig.json`: remove `baseUrl` (TS5101 deprecated com bundler), mantém `allowImportingTsExtensions` (necessário para `.tsx` imports)
+    - (2d) `apps/mesas/frontend/tsconfig.app.json` + `tsconfig.node.json`: mantém `allowImportingTsExtensions` (necessário para `.tsx` imports)
+    - (2e) `apps/mesas/frontend/src/test/setup.ts`: adiciona `scrollMargin` ao mock `IntersectionObserver` (TS 6 lib DOM mais estrita)
+  - **Aprendizado:** `allowImportingTsExtensions` NÃO foi removido no TS 6 — necessário em projetos que importam `.tsx` com extensão. `moduleResolution: "Node"` foi removido → `"node10"` (com `ignoreDeprecations` pois também deprecated). `baseUrl` deprecated com `moduleResolution: bundler`. `IntersectionObserver` ganhou `scrollMargin` na lib DOM do TS 6.
+  - **Verificação:** `turbo build --force` **13/13** ✅; `pnpm list typescript -r --depth 0` = **6.0.3** único ✅
 
 ### 4B.3 — Vite → `8.0.16` (única, accounts + ui + alinhamento)
 
