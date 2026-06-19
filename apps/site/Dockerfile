@@ -4,7 +4,7 @@
 FROM node:24-slim
 
 WORKDIR /repo
-RUN npm install -g pnpm@11.8.0
+RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
 
 # Deps do workspace (inclui devDeps: astro/tsx/pagefind/tailwind — necessárias p/ o build em runtime).
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./

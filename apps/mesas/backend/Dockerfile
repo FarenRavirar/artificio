@@ -7,7 +7,7 @@
 FROM node:24-alpine AS builder
 
 WORKDIR /repo
-RUN npm install -g pnpm@11.8.0
+RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY packages ./packages
@@ -27,7 +27,7 @@ ENV NODE_PATH=/repo/apps/mesas/backend/node_modules
 # Dependências de runtime do Sharp (processamento de imagem WebP)
 RUN apk add --no-cache vips-dev fftw-dev build-base
 
-RUN npm install -g pnpm@11.8.0
+RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
 COPY apps/mesas/backend/package.json ./apps/mesas/backend/package.json
