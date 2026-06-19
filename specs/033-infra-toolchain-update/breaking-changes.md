@@ -361,7 +361,7 @@ security: {
 }
 ```
 
-**Resultado:** 46/46 páginas geram `<meta http-equiv="content-security-policy">` com 5 hashes SHA-256 (Base.astro×3 + Analytics + SearchModal) + diretivas externas. `turbo build --force` 13/13 verde. Vitest 22/22. `BL-ASTRO6-CSP` FECHADO.
+**Resultado:** 46/46 páginas geram `<meta http-equiv="content-security-policy">` com 5 hashes SHA-256 (Base.astro×3 + Analytics + SearchModal) + diretivas externas. `turbo build --force` 13/13 verde. Vitest 22/22. `BL-ASTRO6-CSP` FECHADO. **Revisão PR #70:** `styleDirective.resources` explícito, `media-src https://res.cloudinary.com`, inline `style=` → classes CSS, `markdown.syntaxHighlight: false`. Mergeado em dev (`c6f21cf`, 2026-06-19).
 
 **Warning residual:** Shiki (syntax highlighting) emite warning de incompatibilidade com CSP — inofensivo (site não usa Shiki/syntax highlighting).
 

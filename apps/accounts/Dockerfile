@@ -4,6 +4,7 @@ RUN corepack enable && corepack prepare pnpm@10.12.1 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/accounts ./apps/accounts
+COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
@@ -16,6 +17,7 @@ RUN corepack enable && corepack prepare pnpm@10.12.1 --activate
 COPY --from=build /repo/package.json /repo/pnpm-lock.yaml /repo/pnpm-workspace.yaml ./
 COPY --from=build /repo/packages ./packages
 COPY --from=build /repo/apps/accounts ./apps/accounts
+COPY --from=build /repo/patches ./patches
 RUN pnpm install --prod --filter @artificio/accounts --frozen-lockfile
 WORKDIR /app/apps/accounts
 EXPOSE 3000

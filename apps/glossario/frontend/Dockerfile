@@ -19,13 +19,14 @@ ENV VITE_GA_ID=${VITE_GA_ID}
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/glossario ./apps/glossario
+COPY patches ./patches
 
 RUN pnpm install --frozen-lockfile
 RUN pnpm -w turbo run build --filter=@artificio/glossario-frontend
 
 # =============================================================================
 # Estágio 2: Nginx servindo o build estático
-FROM nginx:alpine AS production
+FROM nginx:1.31-alpine AS production
 
 ENV API_UPSTREAM=glossario-api
 

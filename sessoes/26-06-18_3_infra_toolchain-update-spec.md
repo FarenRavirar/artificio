@@ -23,7 +23,7 @@
 - [x] Fase 3 — Express 5 mesas + unificação (T13-T21)
 - [ ] Fase 4 — Deps npm incrementais (T22-T28)
 - [ ] Fase 4B — Unificação majors toolchain (T60-T67)
-- [ ] Fase 5 — Docker e infra (T29-T33)
+- [ ] Fase 5 — Docker e infra (T29-T33) — T29 ✅ · T30 ✅ · T31 ✅
 - [ ] Fase 6 — VM apt (T34-T36)
 - [ ] Fase 7 — Fechamento (T37-T52)
 
@@ -813,4 +813,119 @@ security: {
 
 **Spec completa:** `specs/034-glossario-xlsx-replace/{spec,plan,tasks}.md` (13 tasks, ~3-4h estimado).
 
+### Merge PR #70 (2026-06-19)
+
+- **Branch:** `chore/033-f4b-majors` → `dev`
+- **Commits:** `99cd058` (Fase 4B) + `c6f21cf` (revisões CSP)
+- **Checks:** todos verdes (lint+build+test, CodeQL, Semgrep, TruffleHog, OSV, etc.)
+- **Merge:** fast-forward, branch deletada
+- **Aprendizados:**
+  - Astro 6 CSP usa `<meta>` tag — funciona em SSG sem adapter (D079)
+  - Inline `style=` deve ser migrado para classes CSS (não usar `style-src-attr unsafe-inline`)
+  - `media-src` necessário para Cloudinary audio/video
+  - `markdown.syntaxHighlight: false` silencia warning Shiki inofensivo
+  - `xlsx` abandonado sem patch → spec 034 com alternativas `read-excel-file` + `write-excel-file`
+
+### Deploy beta pós-merge (2026-06-19)
+
+- **Run:** `27842590954` (deploy.yml, push dev `0f113fb`)
+- **Mesas beta:** ✅ auto-deploy (`auto_deploy_on_push: true`). Matrix: `module=mesas deploy=true env_override= event=push ref=refs/heads/dev` → beta. Run `success`.
+- **Glossario beta:** ❌ não deployado (`auto_deploy_on_push: false`, dispatch-only)
+- **Site beta:** ❌ não deployado (`auto_deploy_on_push: false`, dispatch-only)
+- **Accounts:** ❌ não deployado (`push_branches: ["main"]`, `env_override=prod`)
+- **Standing PR dev→main:** criado/atualizado automaticamente por `promote-dev-to-main.yml`
+
 **Risco:** CSV pode precisar de parser extra. APIs diferentes exigem reescrita do `parseSheet()` e `handleDownloadTemplate()`.
+
+---
+
+## Fase 5 — Docker e infra
+
+### T29 — Backup pré-Docker ✅ (2026-06-19)
+
+- **`git tag pre-033-f5-docker`**: criado local ✅
+- **`ssh faren 'docker images'`**: `artifacts/033/pre-f5-docker-images.txt` (1662B) ✅
+- **`ssh faren 'docker ps'`**: `artifacts/033/pre-f5-docker-ps.txt` (1472B) ✅
+
+**Estado da VM (snapshot):**
+
+| Item | Detalhe |
+|---|---|
+| Containers ativos | 18 (todos healthy) |
+| Imagens | 24 registradas |
+
+**Imagens stale identificadas (para T33):**
+- `node:20-alpine` — base antiga (Fase 2 migrou p/ 24-alpine, não usada por container)
+- `glossario-beta-api-beta` / `glossario-beta-app-beta` (861a99a0/ d7a587cc) — naming antigo, não em uso
+- `glossario-api-prod` / `glossario-app-prod` (4e81d924/51e7527a) — naming antigo, não em uso
+- `curlimages/curl:8.8.0` — versão velha (8.11.1 já presente)
+
+**Containers ausentes:**
+- `site-beta-app` não está rodando (esperado — site beta é dispatch-only, não deployado pós-Fase 4B)
+- `site-beta-db` não está rodando (idem)
+
+**Ação futura:** T30 (atualizar imagens base Dockerfiles), T31 (build local), T32 (deploy beta), T33 (limpeza stale).
+
+### Revisão do plano T30 (2026-06-19) — investigação pré-execução
+
+**Plano original vs realidade:**
+
+| Imagem | Plano | Real | Arquivos afetados |
+|---|---|---|---|
+| Node | já alinhado T8 | ✅ `24-alpine`/`24-slim` nos 6 Dockerfiles | 0 |
+| Postgres | `→ 16.8-alpine` | VM tem **16.14** (latest 16.x). 16.8 seria downgrade. | 8 composes + 1 Dockerfile |
+| Nginx | `→ 1.27-alpine` | ✅ tag existe | 2 Dockerfiles (glossario + mesas frontend) |
+| Cloudflared | `→ tag específica` | **Não versionado** — container standalone na VM (`docker run`), sem arquivo no repo | 0 |
+| Curl | `unificar 8.11.1` | **Não versionado** — só imagem stale na VM, 8.11.1 já presente | 0 |
+
+**Correções aplicadas ao plano:**
+- Postgres: `16.8` estava errado. Decisão pendente: manter `16-alpine` (floating, patches automáticos) ou pinar `16.14-alpine`.
+- Cloudflared: fora de escopo T30. É ação write na VM (`docker stop/rm/run`) sem arquivo versionado → aprovação nominal separada.
+- Curl: fora de escopo T30. É limpeza de imagem stale → T33.
+- Escopo real do T30: 2 edições (nginx) + 0 ou 9 (Postgres, depende da decisão) = 2 a 11 arquivos.
+
+### Decisão Postgres — Opção A (2026-06-19)
+
+**Decidido:** manter `postgres:16-alpine` (floating major). Motivo:
+- VM já está em 16.14 (latest 16.x), que é o que `16-alpine` resolve hoje.
+- `16.8-alpine` do plano original seria downgrade.
+- Floating major = patches de segurança automáticos, sem manutenção de bump manual.
+- Consistente com a prática atual (todos os 9 arquivos já usam `16-alpine`).
+- **Zero edições.** T30 agora é só nginx (2 Dockerfiles).
+
+**Nota:** se no futuro for necessário pinar versão exata para reprodutibilidade, decisão separada com SDD próprio. Para agora, simplicidade vence.
+
+### T30 — Execução ✅ (2026-06-19)
+
+- **Nginx:** `nginx:alpine` → `nginx:1.27-alpine` em 2 arquivos:
+  - `apps/glossario/frontend/Dockerfile:28`
+  - `apps/mesas/frontend/Dockerfile:43`
+- **Postgres:** mantido `16-alpine` (decisão Opção A). Zero edições.
+- **Node:** já alinhado T8. Zero edições.
+- **Cloudflared/curl:** fora de escopo (não versionados / T33).
+- Verificação: grep `nginx:alpine` em Dockerfiles = 0; grep `nginx:1.27-alpine` = 2 ✅
+
+### T31 — COPY patches + validação estrutural ✅ (2026-06-19)
+
+**T31a — `COPY patches` nos 4 Dockerfiles faltantes:**
+- `apps/accounts/Dockerfile` — estágio deps (L7) + runtime (L20, `--from=build`)
+- `apps/glossario/backend/Dockerfile` — builder (L15) + production (L31)
+- `apps/glossario/frontend/Dockerfile` — builder (L22)
+- `apps/site/Dockerfile` — estágio único (L14)
+
+**Verificação:** 9 `COPY patches` para 9 `RUN pnpm install --frozen-lockfile` em 6 Dockerfiles. Paridade 1:1.
+
+**T31b — Build Docker:** impossível localmente (sem Docker no Windows). Validação real será o deploy beta (T32) — `docker build` roda na VM.
+
+**Inventário validado:** `breaking-changes.md` §10 sem drift. Patch ativo (`@types__express-serve-static-core@5.1.1.patch`, 412B).
+
+### Cloudflared — documentação de infra (2026-06-19)
+
+**Situação:** cloudflared está na VM como container standalone (`docker run`), não versionado no repo. `docs/agents/infra-map.md` atualizado com documentação completa:
+
+- Container: `cloudflared`, imagem `cloudflare/cloudflared:latest`, rede `artificio_net`, `--restart=always`
+- Comando: `tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}`
+- Config: `/opt/artificio/cloudflared/.env` (`TUNNEL_TOKEN=<valor>`, permissão `600`)
+- Hostnames/ingress: gerenciados no painel Cloudflare Zero Trust (não `config.yml`)
+- Comando de recriação documentado (com aprovação nominal)
+- Token nunca exibido; backup em `artificiobackup/cloudflare-tunnel-token.txt`
