@@ -7,7 +7,7 @@
   --color-cinza-fundo: #F4F4F4;
   --color-cinza-texto: #555555;
   --color-azul-medio: #2E4A7A;
-  --font-family-sans: 'Inter', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
 }
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
