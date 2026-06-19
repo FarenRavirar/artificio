@@ -38,7 +38,7 @@ importers:
         specifier: ^2.5.4
         version: 2.9.16
       typescript:
-        specifier: ^6.0.3
+        specifier: ~6.0.3
         version: 6.0.3
       typescript-eslint:
         specifier: ^8.33.1
@@ -184,7 +184,7 @@ importers:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@24.13.0)(typescript@6.0.3)
       typescript:
-        specifier: ^6.0.3
+        specifier: ~6.0.3
         version: 6.0.3
       vitest:
         specifier: ^3.2.4
@@ -260,7 +260,7 @@ importers:
         specifier: ^3.4.3
         version: 3.4.19(tsx@4.22.4)
       typescript:
-        specifier: ^6.0.3
+        specifier: ~6.0.3
         version: 6.0.3
       vite:
         specifier: ^5.2.0
@@ -363,7 +363,7 @@ importers:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@24.13.0)(typescript@6.0.3)
       typescript:
-        specifier: ^6.0.3
+        specifier: ~6.0.3
         version: 6.0.3
       vitest:
         specifier: ^3.2.4
@@ -481,7 +481,7 @@ importers:
         specifier: ^4.2.2
         version: 4.3.0
       typescript:
-        specifier: ^6.0.3
+        specifier: ~6.0.3
         version: 6.0.3
       typescript-eslint:
         specifier: ^8.57.0
@@ -578,7 +578,7 @@ importers:
         specifier: ^4.19.2
         version: 4.22.4
       typescript:
-        specifier: ^6.0.3
+        specifier: ~6.0.3
         version: 6.0.3
 
   apps/site-admin:
@@ -612,7 +612,7 @@ importers:
         specifier: ^6.0.2
         version: 6.0.2(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4))
       typescript:
-        specifier: ^6.0.3
+        specifier: ~6.0.3
         version: 6.0.3
       vite:
         specifier: ^8.0.16
