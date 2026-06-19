@@ -17,6 +17,6 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "zod": "^3.25.57"
+    "zod": "^4.4.3"
   }
 }

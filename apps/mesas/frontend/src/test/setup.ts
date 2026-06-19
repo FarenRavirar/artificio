@@ -29,6 +29,7 @@ Object.defineProperty(window, 'matchMedia', {
 globalThis.IntersectionObserver = class IntersectionObserver implements IntersectionObserver {
   readonly root: Element | Document | null = null;
   readonly rootMargin: string = '';
+  readonly scrollMargin: string = '';
   readonly thresholds: ReadonlyArray<number> = [];
 
   constructor() {}

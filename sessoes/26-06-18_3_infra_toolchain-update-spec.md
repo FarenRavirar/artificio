@@ -320,17 +320,43 @@ Validação real:
 - `tsc --noEmit` mesas: **0**. accounts vitest: **8/8**. `turbo build --force`: **13/13**.
 - runtime CJS: `node -e require('kysely')` → Kysely/PostgresDialect/sql = function (require(esm) OK).
 
-Status: BL-KYSELY-029-ESM + BL-MESAS-DB-LAZY-OPTION2 + BL-MESAS-TEST-DB-SIDEEFFECT = impl+validado local; **deploy beta mesas + smoke pendente (aprovação nominal)** p/ fechar de vez.
+Status: BL-KYSELY-029-ESM + BL-MESAS-DB-LAZY-OPTION2 + BL-MESAS-TEST-DB-SIDEEFFECT = FECHADOS (PR #67 mergeado em dev `85063da`, 2026-06-19). Deploy beta mesas pendente (aprovação nominal).
 
-#### Fixes de revisão aceitos (PR T28c/T28d, 2026-06-19)
+#### Fixes de revisão (PR #67, 2026-06-19)
 
-Revisores externos apontaram; mantenedor revisou e aplicou no diff. Veredictos (regra pétrea: revisão vive na doc, não no PR):
-1. `adminHydration.test.ts:5-9` — `mockProdExecute`/`mockTransactionExecute` movidos p/ `vi.hoisted()`. **Procede:** vitest não tem a exceção `mock`-prefix do jest; var usada em factory hoisted exige `vi.hoisted()` (evita ReferenceError/TDZ). Conversão original dependia de semântica jest.
-2. `db/index.ts:26-36` — `process.exit(1)`→`throw new Error(...)` em `getDb()`. **Procede:** getDb roda lazy no 1º uso (request); `exit` mataria o server por request mal-configurado. Boot segue fail-fast via `server.ts:43-47`. DT-004 preservada.
-3. `breaking-changes.md` item 3 — hipótese→"Confirmado" (deploy verde). **Procede:** aprendizado fechado.
-4. session — "12 de 16"→"16/16, 114/114" (contagem stale pré-fix removida). **Procede.**
+3 revisores externos apontaram problemas. Mantenedor revisou e aplicou no diff (3 commits: `f55946e` + `262c9f7`). Veredictos (regra pétrea: revisão vive na doc, não no PR):
 
-Sem commit/push novo por mim; PR aberto pelo mantenedor (merge pendente).
+1. **Proxy: `Reflect.get(instance, prop, instance)`** (Amazon Q + CodeRabbit)
+   - Original: `(instance as any)[prop]` → frágil na prototype chain
+   - Sugestão inicial: `Reflect.get(instance, prop, receiver)` → `receiver`=proxy faria getters Kysely receberem `this`=proxy
+   - CodeRabbit aprofundou: Kysely 0.29 tem getters (`fn`, `schema`, `dynamic`, `introspection`) que precisam de `this`=instância real, não proxy
+   - **Fix final:** `Reflect.get(instance, prop, instance)` + remover parâmetro `receiver` não usado da assinatura
+   - **Aprendizado:** em Proxy lazy de ORM, sempre passar instância real como `receiver` no `Reflect.get`; getters internos dependem de `this` correto
+
+2. **`process.exit(1)` → `throw new Error(...)`** (CodeRabbit + Snyk)
+   - `getDb()` chamava `process.exit(1)` na validação de `DATABASE_URL`
+   - Com Proxy lazy, `getDb()` roda no 1º uso (durante request) → `exit` mataria o processo inteiro
+   - `server.ts:43-47` já valida no boot (fail-fast seguro); DT-004 preservada
+   - **Fix:** `process.exit(1)` → `throw new Error(...)` com mesma mensagem descritiva
+   - **Aprendizado:** `process.exit` em função lazy sob demanda é perigoso; preferir `throw` + error handler da aplicação
+
+3. **`vi.hoisted()` para mocks** (chatgpt-codex-connector)
+   - `adminHydration.test.ts` declarava `mockProdExecute`/`mockTransactionExecute` como `vi.fn()` no escopo do módulo
+   - Factories de `vi.mock` são hoisted → podiam ler variáveis antes da inicialização (ReferenceError/TDZ)
+   - Padrão já usado em `apps/mesas/frontend/src/test/suggestionModals.test.tsx`
+   - **Fix:** `const { mockProdExecute, mockTransactionExecute } = vi.hoisted(() => ({...}))`
+   - `mockAuthUser` mantido `let` escopo módulo (reassignado `beforeEach`, não referenciado por factory)
+   - **Aprendizado:** toda var referenciada por factory `vi.mock` deve estar em `vi.hoisted()`
+
+4. **`breaking-changes.md`: hipótese → confirmado** (CodeRabbit)
+   - Bloco "Hipótese a verificar" sobre `--prod` + `pnpm patchedDependencies` reescrito como "Confirmado:"
+   - Evidência: deploy mesas-backend verde após `COPY patches` no estágio `--prod`
+
+5. **Contagem de suites conflitante** (CodeRabbit)
+   - "15/16 suites = baseline; 12 de 16 suites passam 100%" (pré-fix T28c/d, stale)
+   - Atualizado para "16/16 suites, 114/114 testes (pós T28c/d; todas passam 100%)"
+
+**PR #67 mergeado em `dev`** (`85063da`, squash). **Deploy mesas beta SUCCESS** (auto-deploy, run `27805626853`); smoke `/` 200, `/api/v1/me/options` 401, `/api/v1/auth/google` 302 — runtime `require(esm)` do kysely 0.29.2 provado na VM node:24-alpine. **3 débitos FECHADOS:** `BL-KYSELY-029-ESM`, `BL-MESAS-DB-LAZY-OPTION2`, `BL-MESAS-TEST-DB-SIDEEFFECT`.
 
 ### Aprendizados da Fase 3
 1. **express-async-errors@3 crasha no Express 5** — requer `express/lib/router/layer` (inexistente). Remover.
@@ -339,3 +365,45 @@ Sem commit/push novo por mim; PR aberto pelo mantenedor (merge pendente).
 4. **ParamsDictionary:** `@types/express-serve-static-core@5` mudou `[key]` → `string | string[]`. Module augmentation não funciona com genéricos.
 5. **@types/multer@2** depende de `@types/express@4` → `as any` nos pontos de uso.
 6. **express-rate-limit@8:** sem default export, `max`→`limit`.
+
+## Fase 4B — Unificação de majors do toolchain (2026-06-19)
+
+### T60 — Baseline pré-majors ✅ (2026-06-19)
+- **Build:** `turbo build --force` **13/13** verde → `artifacts/033/pre-f4b-build.log`
+- **Lint:** `packages/config` ✅, `apps/mesas/frontend` ✅; falham por falta de eslint.config: `packages/auth`, `packages/content`, `packages/analytics`, `apps/glossario/frontend`. `apps/site`/`site-admin`/`accounts`/`ui`/`glossario-backend`/`mesas-backend` não alcançados (turbo aborta no 1º erro). → `artifacts/033/pre-f4b-lint.log`
+- **Bundle sizes (CSS/JS KB):** accounts 4.3/202.8, glossario 51.2/1123.8, mesas 203.3/1328.0, site-admin 218.2/1737.9, site (Astro) 35.0/231.3
+- **Skew confirmado:** zod (3.25.76 vs 4.4.3), TS (todos 5.9.3), Vite (5.4.21/6.4.3/8.0.16), Tailwind (3.4.19/4.3.0), ESLint (8.57.1/9.39.4/sem config), Astro (5.18.2). React 19.2.7 (sem skew).
+- **ESLint configs existentes:** só `packages/config` e `apps/mesas/frontend` (flat, templates p/ migração).
+- **Off-código:** `C:\projetos\artificiobackup\spec-033\pre-f4b-build.log` + `pre-f4b-lint.log` + `pnpm-lock.yaml.pre-033-f4b` (lockfile 466KB)
+- **Próximo:** T61 (zod → 4.4.3)
+
+### T61 — Investigação zod (2026-06-19) — Mapa de substituição `deprecated → nativo`
+
+**API:** `z.url()` aceita `string | { message, ... }`; compatível com `.nullable()`, `.optional()`, `.default()`, `.safeParse()`. Fonte: `zod/v4/classic/schemas.ts:653`.
+
+**Manifests a bump:** `packages/config` (`^3.25.57`→`^4.4.3`) + `apps/accounts` (`^3.25.57`→`^4.4.3`). mesas já `^4.4.3`.
+
+**Substituições (7 ocorrências, 3 arquivos):**
+
+| Arquivo | Linha | `z.string().url(...)` | → `z.url(...)` |
+|---|---|---|---|
+| `apps/accounts/src/env.ts` | 6 | `z.string().url()` | `z.url()` |
+| `apps/accounts/src/env.ts` | 7 | `z.string().url()` | `z.url()` |
+| `apps/accounts/src/env.ts` | 13 | `z.string().url().default(...)` | `z.url().default(...)` |
+| `apps/mesas/backend/.../tableValidators.ts` | 28 | `z.string().url('URL do Discord inválida')` | `z.url('URL do Discord inválida')` |
+| `apps/mesas/backend/.../tableValidators.ts` | 87 | `z.string().url().nullable().optional()` | `z.url().nullable().optional()` |
+| `apps/mesas/backend/.../tableValidators.ts` | 94 | `z.string().url().nullable().optional()` | `z.url().nullable().optional()` |
+| `apps/mesas/frontend/.../profileSchemas.ts` | 48 | `z.string().url().safeParse(val)` | `z.url().safeParse(val)` |
+
+**Padrões sem ocorrência (confirmado):** `.email()`, `errorMap` = 0.
+
+**Após bumps + edições:** `pnpm install` → `tsc --noEmit` accounts+mensas → `turbo build` → `pnpm why zod` = só `4.4.3`.
+
+### T61 — Executado ✅ (2026-06-19)
+- Bumps: `packages/config` `^3.25.57`→`^4.4.3`, `apps/accounts` `^3.25.57`→`^4.4.3`
+- 7 edições em 3 arquivos: `z.string().url(...)` → `z.url(...)`
+- `pnpm install`: zod 4.4.3 resolvido, lockfile sem zod 3.x
+- `turbo build --force`: **13/13** verde
+- `rg "z\.string\(\)\.url" apps packages`: **zero** deprecated
+- `pnpm list zod -r --depth 0`: **4.4.3** único (accounts, config, mesas-backend, mesas-frontend)
+- **Próximo:** T62 (TypeScript → 6.0.3)

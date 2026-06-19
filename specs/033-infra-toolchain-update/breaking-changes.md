@@ -104,20 +104,20 @@
 
 ## 6. zod 3 → 4 (^4.4.3) 🟢
 
-**Mudança 3→4:** top-level `z.email()`/`z.url()`/`z.uuid()` preferidos; formas `z.string().email()/.url()` **deprecadas mas funcionais**. `errorMap` → `error` param. `.parse/.safeParse` iguais.
+**Mudança 3→4:** `z.string().url()`/`.email()` deprecated → `z.url()`/`z.email()` nativos. `.parse/.safeParse` iguais. `errorMap`→`error` param (não usado).
 
-**Uso real (rg `from 'zod'` + validadores):**
-- `apps/accounts/src/env.ts` — `z.string().url()` (3×)
-- `packages/config/src/env.ts`
-- `apps/mesas/backend/src/validators/tableValidators.ts` — `z.string().url()` (2×)
-- `apps/mesas/backend/src/{routes/adminDiscordSync, discord/ingestMessages, discord/discovery}.ts`
-- `apps/mesas/frontend/src/{schemas/profileSchemas, features/discord-sync/api/discordSyncApi}.ts`
+**Uso real (rg `z.string().url` — 7 ocorrências, 3 arquivos):**
+- `apps/accounts/src/env.ts:6,7,13` — `z.string().url()` (3×, sem mensagem custom)
+- `apps/mesas/backend/src/validators/tableValidators.ts:28` — `z.string().url('URL do Discord inválida')` (com mensagem)
+- `apps/mesas/backend/src/validators/tableValidators.ts:87,94` — `z.string().url().nullable().optional()` (2×)
+- `apps/mesas/frontend/src/schemas/profileSchemas.ts:48` — `z.string().url().safeParse(val)` dentro de `.refine()`
 
-**Achado:** **zero** `.email()`, `errorMap`, `invalid_type_error`, `required_error` no código. Único padrão tocado = `.url()`, que segue válido em zod 4.
+**Achado:** **zero** `.email()`, `errorMap`, `invalid_type_error`, `required_error` no código.
 
-**Impacto:** ínfimo. Bump praticamente mecânico.
-**Ação:** (T25g mesas; T61 unificação) bump config/accounts/mesas→`^4.4.3`; opcional migrar `.url()`→`z.url()` (cosmético). `tsc`+build.
-**Teste:** build dos 4; smoke validação (criar mesa, login).
+**Substituição:** `z.string().url(...)` → `z.url(...)` (API: `z.url()`, `z.url('msg')`, `z.url({ message: 'msg' })`). `.nullable()`, `.optional()`, `.default()`, `.safeParse()` compatíveis.
+
+**Ação:** (T61) bump config+accounts→`^4.4.3`; substituir 7 ocorrências.
+**Teste:** `tsc --noEmit` accounts+mensas; `turbo build`; `pnpm why zod`=só `4.4.3`.
 **Rollback:** `git tag pre-033-f4b-zod` + lockfile.
 
 ---
