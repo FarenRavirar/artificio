@@ -230,7 +230,7 @@ export default defineConfig([ globalIgnores(['dist']), { files:['**/*.{ts,tsx}']
 
 **AGRAVANTE (2026-06-19, 3º deploy falho):** `COPY patches` precisa estar em **cada estágio** que roda `pnpm install --frozen-lockfile`. O `--frozen-lockfile` com `--prod` também falhou no mesas-backend porque a dep patchada (`@types/express-serve-static-core`) ainda era parte da árvore de resolução do estágio `--prod`. 
 
-**Hipótese a verificar (T29b):** o `--frozen-lockfile` valida existência de patch apenas para deps que fazem parte da árvore de instalação do estágio. Se uma dep patchada é devDependency e o estágio usa `--prod`, ela **não** deveria entrar na árvore e o patch não deveria ser exigido. Mas o mesas-backend `--prod` falhou — investigar o porquê (workspace link? hoisting?).
+**Hipótese a verificar (incorporada nos pré-requisitos de T30/T31/T32):** o `--frozen-lockfile` valida existência de patch apenas para deps que fazem parte da árvore de instalação do estágio. Se uma dep patchada é devDependency e o estágio usa `--prod`, ela **não** deveria entrar na árvore e o patch não deveria ser exigido. Mas o mesas-backend `--prod` falhou — investigar o porquê (workspace link? hoisting?).
 
 **Dockerfiles afetados (inventário 2026-06-19):**
 
@@ -245,7 +245,9 @@ export default defineConfig([ globalIgnores(['dist']), { files:['**/*.{ts,tsx}']
 
 **Tasks de investigação:** cada Dockerfile acima sem `COPY patches` precisa ser verificado ANTES do próximo deploy do respectivo app (built Docker na VM falha com ENOENT se o `pnpm.patchedDependencies` do root `package.json` estiver ativo). Ver tasks.md Fase 5.
 
-### 11. 🟡 Express 5 `*` wildcard — comportamento confirmado
-**Realidade:** path-to-regexp v8 aceita `*` como bare wildcard (token type "wildcard"). `'*'` casa qualquer path inclusive raiz `/`. `'/*splat'` NÃO casa raiz. `'/{*splat}'` é sintaxe inválida. O `'*'` original do código estava correto. _Descoberto: `/*splat` quebrou fallback SEO da home (og_proxy reescreve `/` → `/og/`)._
+### 11. 🔴 Express 5 `*` wildcard — CORRIGIDO pós-deploy (2026-06-19)
+**Realidade:** path-to-regexp@8.4.2 (instalado no Docker build, `pnpm-lock.yaml`) **rejeita** `'*'` bare wildcard: `Missing parameter name at index 1`. O `'/{*splat}'` é a sintaxe correta do Express 5 (documentada em https://expressjs.com/en/guide/migrating-5/#path-syntax) e casa raiz `/`. O chatgpt-codex-connector **estava certo** ao apontar isso no review do PR — o doc anterior (item 11 original) estava errado.
+**Fix:** `router.get('*', ...)` → `router.get('/{*splat}', ...)` em `apps/mesas/backend/src/routes/og.ts:201`.
+**Impacto:** 4º deploy falho do mesas-beta — crash no boot `PathError: Missing parameter name at index 1: *`.
 
 > Próximo passo (Fase 1 → Fase 2): este doc fecha T5b (mapa de impacto). Antes de QUALQUER migração, T6 (backup git tag + lockfile) — exige aprovação só no push; tag local não. Execução = DeepSeek por task, com ficha fechada Claude + g1-governance-reviewer no diff.
