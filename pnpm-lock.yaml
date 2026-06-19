@@ -301,9 +301,6 @@ importers:
       express:
         specifier: ^5.2.1
         version: 5.2.1
-      express-async-errors:
-        specifier: ^3.1.1
-        version: 3.1.1(express@5.2.1)
       express-rate-limit:
         specifier: 8.5.2
         version: 8.5.2(express@5.2.1)
@@ -4368,11 +4365,6 @@ packages:
   expect@30.4.1:
     resolution: {integrity: sha512-PMARsyh/JtqC20HoGqlFcIlQAyqUtW4PlI1rup1uhYJtKuwAjbvWi3GQMAn+STdHum/dk8xrKfUM1+5SAwpolA==}
     engines: {node: ^18.14.0 || ^20.0.0 || ^22.0.0 || >=24.0.0}
-
-  express-async-errors@3.1.1:
-    resolution: {integrity: sha512-h6aK1da4tpqWSbyCa3FxB/V6Ehd4EEB15zyQq9qe75OZBp0krinNKuH4rAY+S/U/2I36vdLAUFSjQJ+TFmODng==}
-    peerDependencies:
-      express: ^4.16.2
 
   express-rate-limit@8.5.2:
     resolution: {integrity: sha512-5Kb34ipNX694DH48vN9irak1Qx30nb0PLYHXfJgw4YEjiC3ZEmZJhwOp+VfiCYwFzvFTdB9QkArYS5kXa2cx2A==}
@@ -11523,10 +11515,6 @@ snapshots:
       jest-message-util: 30.4.1
       jest-mock: 30.4.1
       jest-util: 30.4.1
-
-  express-async-errors@3.1.1(express@5.2.1):
-    dependencies:
-      express: 5.2.1
 
   express-rate-limit@8.5.2(express@5.2.1):
     dependencies:

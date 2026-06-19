@@ -92,3 +92,5 @@ Smoke prod completo com toolchain alinhado (1 versão de Node, Express 5 em todo
 - T20: build 13/13 monorepo completo (já validado em T15b)
 
 ### ⏳ T21 — Deploy beta pendente (requer aprovação nominal)
+- PR #63 criado: `infra/033-toolchain-update` → `dev`
+- Merge + deploy beta pendentes de aprovação
