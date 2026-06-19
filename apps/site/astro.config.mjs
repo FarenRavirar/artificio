@@ -12,4 +12,19 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
   },
+  security: {
+    csp: {
+      // Astro 6 CSP nativa: gera hashes SHA-256 p/ <script is:inline> + <style>.
+      // Emite <meta http-equiv="content-security-policy"> no <head> de cada pagina.
+      // Funciona em SSG (static) sem adapter — o meta tag vai no HTML gerado.
+      directives: [
+        "default-src 'self'",
+        "img-src 'self' data: https://res.cloudinary.com",
+        "connect-src 'self' https://accounts.artificiorpg.com https://www.google-analytics.com",
+      ],
+      scriptDirective: {
+        resources: ["'self'", "https://www.googletagmanager.com"],
+      },
+    },
+  },
 });

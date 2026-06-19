@@ -156,7 +156,7 @@ export function validateOrThrow<T>(
     if (error instanceof z.ZodError) {
       // Pegar primeira mensagem de erro
       const firstError = error.issues[0];
-      throw new Error(firstError.message);
+      throw new Error(firstError.message, { cause: error });
     }
     throw error;
   }

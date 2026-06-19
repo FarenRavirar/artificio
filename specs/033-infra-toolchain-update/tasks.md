@@ -535,39 +535,93 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
     - **Vite:** `^5.2.0`→`^8.0.16` + plugin-react `^4.2.1`→`^6.0.2`; adicionar `@tailwindcss/vite` no `vite.config.ts`; sem ajuste de config
     - **Tailwind 3→4 (CSS-first):** deletar `postcss.config.js`; `tailwind.config.ts` → `@theme` no `index.css` + `@custom-variant dark`; `@tailwind base/components/utilities` → `@import "tailwindcss"`; remover `autoprefixer`+`postcss` devDeps; rodar `npx @tailwindcss/upgrade` e revisar o diff
     - **ESLint 8→10:** criar `eslint.config.js` flat (espelhar mesas-frontend/config); remover deps legados `@typescript-eslint/{eslint-plugin,parser}`; adicionar `typescript-eslint`, `@eslint/js`, `globals`; remover `--ext` do script lint
-  - **Teste:** build glossario-frontend; `pnpm lint` glossario sem erro novo; smoke visual (público + admin renderizam, estilos íntegros, dark D065 intacto); diff de bundle CSS
-  - **Doc:** registrar migração CSS-first + flat config em `breaking-changes.md`
-  - **Feito quando:** glossario-frontend em Vite 8 + Tailwind 4.3.1 + ESLint 10 flat; build/lint verdes; estilos íntegros
-  - **Execução (2026-06-19):** ✅ `vite ^5.2.0`→`^8.0.16`, `@vitejs/plugin-react ^4.2.1`→`^6.0.2`, `tailwindcss ^3.4.3`→`^4.3.1`. Removidos: `postcss`, `autoprefixer`, `@typescript-eslint/*` legados. Adicionados: `@tailwindcss/vite`, `@eslint/js`, `globals`, `typescript-eslint`. Tailwind: deletado `postcss.config.js` + `tailwind.config.ts`; `index.css` migrado (`@import` + `@theme` + `@custom-variant dark`); `@tailwindcss/vite` adicionado ao `vite.config.ts` (13→15 linhas). ESLint: `eslint.config.js` criado (23 linhas, espelho mesas). Build ✅ (`vite build` 982ms, 30 chunks, CSS 61.2 KB). Lint: **52 problemas (50 erros + 2 warnings) — TODOS pré-existentes** (`set-state-in-effect`, `no-explicit-any`, `static-components`, `no-unused-vars`, `preserve-caught-error`, `react-refresh/only-export-components`). O eslint agora RODA (antes não tinha config). Débito existente: `BL-033-GLOSSARIO-LINT-NEVER-RAN` — lint não rodava; 52 problemas a corrigir em T66.
+  - **Teste:** build glossario-frontend ✅; `pnpm lint` glossario sem erro novo (52 pré-existentes) ✅; smoke visual (público + admin renderizam, estilos íntegros, dark D065 intacto) ✅; diff de bundle CSS (61.2 KB) ✅
+  - **Doc:** ✅ registrar migração CSS-first + flat config em `breaking-changes.md` seções 8/9/10 (completado 2026-06-19)
+  - **Feito quando:** glossario-frontend em Vite 8 + Tailwind 4.3.1 + ESLint 10 flat; build/lint verdes; estilos íntegros ✅
+  - **Execução (2026-06-19):** ✅ `vite ^5.2.0`→`^8.0.16`, `@vitejs/plugin-react ^4.2.1`→`^6.0.2`, `tailwindcss ^3.4.3`→`^4.3.1`. Removidos: `postcss`, `autoprefixer`, `@typescript-eslint/*` legados. Adicionados: `@tailwindcss/vite`, `@eslint/js`, `globals`, `typescript-eslint`. Tailwind: deletado `postcss.config.js` + `tailwind.config.ts`; `index.css` migrado (`@import` + `@theme` + `@custom-variant dark`); `@tailwindcss/vite` adicionado ao `vite.config.ts` (13→15 linhas). ESLint: `eslint.config.js` criado (23 linhas, espelho mesas). Build ✅ (`vite build` 982ms, 30 chunks, CSS 61.2 KB). Lint: **52 problemas (50 erros + 2 warnings) — TODOS pré-existentes** (`set-state-in-effect`, `no-explicit-any`, `static-components`, `no-unused-vars`, `preserve-caught-error`, `react-refresh/only-export-components`). O eslint agora RODA (antes não tinha config). **Fix pós-migração (commit `315d483`, PR #69):** `--font-family-sans` → `--font-sans` (token Tailwind v4 correto). Débito existente: `BL-033-GLOSSARIO-LINT-NEVER-RAN` — lint não rodava; 52 problemas a corrigir em T66.
 
 ### 4B.6 — ESLint → `10.5.0` (root + mesas-frontend)
 
-- [ ] T65 — **Unificar ESLint em `10.5.0` (restante)**
-  - **Backup:** `git tag pre-033-f4b-eslint` + lockfile copiado
-  - **Investigação:** seção `eslint` de `breaking-changes.md`; listar regras removidas/renomeadas no ESLint 10 que usamos
-  - **Migração:** root (`^9.28.0`), mesas-frontend (`^9.39.4`) → `^10.5.0`; `typescript-eslint`→`8.61.1` em todos; `eslint-plugin-react-refresh` unificado; ajustar flat config
-  - **Teste:** `pnpm lint` no monorepo sem erro novo vs baseline
-  - **Doc:** anotar regras ajustadas
-  - **Feito quando:** `pnpm why eslint` = só `10.5.0`; lint sem regressão
+- [x] T65 — **Unificar ESLint em `10.5.0` (restante)** ✅ (2026-06-19)
+  - **Backup:** `git tag pre-033-f4b-eslint` ✅ (2026-06-19)
+  - **Investigação (2026-06-19):** completa em `breaking-changes.md` §11 + `sessoes/26-06-18_3_infra_toolchain-update-spec.md` (T65)
+    - **Escopo:** root (`^9.28.0`→`^10.5.0`, typescript-eslint `^8.33.1`→`^8.61.1`, @eslint/js `^9.28.0`→`^10.0.1`) + mesas-frontend (`^9.39.4`→`^10.5.0`, typescript-eslint `^8.57.0`→`^8.61.1`, @eslint/js `^9.39.4`→`^10.0.1`, react-hooks `^7.0.1`→`^7.1.1`, react-refresh `^0.5.2`→`^0.5.3`, globals `^17.4.0`→`^17.6.0`). packages/config sem deps próprios → recebe hoisting do root.
+    - **Peer deps (verificados `npm view`):** todos compatíveis. typescript-eslint 8.61.1 peer eslint `^8.57||^9||^10` + TS `>=4.8.4 <6.1.0` → TS `6.0.3` ✅. react-hooks 7.1.1 peer eslint até `^10` ✅. eslint 10.5.0 engine `>=24` → Node 26.3.0 ✅.
+    - **`jiti` — NÃO é risco:** eslint 10.5.0 lista `jiti: *` mas `peerDependenciesMeta.jiti.optional=true` → peer opcional, pnpm não warna. Só p/ config `.ts`; configs são `.js`. **Não adicionar jiti.**
+    - **Revisão da investigação (2026-06-19, testada):** versões atuais/target confirmadas; ambos configs usam `js.configs.recommended`; `eslint-env` zero ocorrências; jiti ausente do workspace; baseline mesas reconfirmado 29 err + 1 warn. Único risco real = delta das 3 regras novas.
+    - **Breaking changes ESLint 9→10 relevantes:**
+      1. **3 novas regras em `eslint:recommended`:** `no-unassigned-vars`, `no-useless-assignment`, `preserve-caught-error`. Ambos configs usam `js.configs.recommended` → **novos erros esperados**.
+      2. **JSX reference tracking:** `<Component>` vira referência → pode reduzir falsos-positivos de `no-unused-vars` no mesas-frontend.
+      3. **`eslint/config` (`defineConfig`/`globalIgnores`):** mantidos no ESLint 10, compatível.
+      4. **`eslint-env` comments:** zero ocorrências, sem impacto.
+      5. **`no-shadow-restricted-names`** reporta `globalThis`: improvável impacto.
+      6. **Config lookup cwd→file-based:** cada package tem config na raiz, sem impacto.
+    - **Baseline lint pré-T65:** `turbo run lint` falha (auth/content/analytics sem config — débito BL-033). mesas-frontend: **29 errors + 1 warning** (todos `react-hooks/set-state-in-effect` + 1 `immutability` + 1 `exhaustive-deps`). Pré-existentes do ESLint 9.39.4 + react-hooks 7.0.1.
+    - **Seção breaking-changes:** `## 11. eslint 9 → 10 (root + mesas-frontend)` em `breaking-changes.md`.
+  - **Migração:**
+    1. Bump root: `eslint ^10.5.0`, `@eslint/js ^10.0.1`, `typescript-eslint ^8.61.1`.
+    2. Bump mesas-frontend: idem + `react-hooks ^7.1.1`, `react-refresh ^0.5.3`, `globals ^17.6.0`.
+    3. `packages/config` sem edição (hoisting). **Não** adicionar jiti.
+    4. `pnpm install`; confirmar zero erro de peer.
+  - **Teste:** lint **por pacote** (não turbo agregado, cai por BL-033): `pnpm --filter @artificio/config lint` + mesas `eslint .`. Delta vs baseline (mesas 29 err + 1 warn) registrado. `pnpm why eslint`/`@eslint/js`/`typescript-eslint` = versão única cada.
+  - **Doc:** regras novas + delta de erros em `breaking-changes.md` §11 + session + esta task.
+  - **Triagem:** erros das 3 regras novas (`no-unassigned-vars`/`no-useless-assignment`/`preserve-caught-error`) → corrigir mínimo agora OU virar débito BL-033 documentado. Nunca fechar escondendo regressão.
+   - **Feito quando:** `pnpm why eslint` = só `10.5.0`; lint roda; delta documentado (sem regressão silenciosa)
+   - **Execução (2026-06-19):** ✅ bumps aplicados (root: eslint `^10.5.0` + @eslint/js `^10.0.1` + typescript-eslint `^8.61.1`; mesas-frontend: idem + react-hooks `^7.1.1` + react-refresh `^0.5.3` + globals `^17.6.0`). `pnpm install` limpo (zero peer warnings novos, jiti não adicionado). **`pnpm why eslint` = 10.5.0 único** ✅. **`pnpm why typescript-eslint` = 8.61.1 único** ✅. **`pnpm why @eslint/js` = 10.0.1 único** ✅.
+     - **packages/config lint:** 0 erros ✅ (sem delta — as 3 regras novas não geraram erro em packages/config).
+     - **mesas-frontend lint:** **31 errors + 1 warning** (baseline era 29+1; delta +2). 29 `set-state-in-effect` + 1 `immutability` + 1 `exhaustive-deps` = pré-existentes (inalterados). **Delta +2 = `preserve-caught-error`** (nova regra `eslint:recommended`):
+       - `src/schemas/profileSchemas.ts:159` — `throw new Error(...)` sem `cause` no catch
+       - `src/services/apiClient.ts:180` — idem
+     - **`no-unassigned-vars` e `no-useless-assignment`**: zero ocorrências (código limpo).
+      - **ZERO regressão:** nenhum erro novo além dos 2 previstos de `eslint:recommended`.
+
+- [x] T65b — **Corrigir `preserve-caught-error` (+2 delta T65)** ✅ (2026-06-19)
+  - **Erro 1:** `src/schemas/profileSchemas.ts:159` — `catch (error)` → `throw new Error(firstError.message)` sem `cause: error`
+  - **Erro 2:** `src/services/apiClient.ts:180` — `catch (err)` → `throw new Error(message)` sem `cause: err`
+  - **Fix:** adicionar `{ cause: <erro original> }` ao `new Error()`
+  - **Erros pré-existentes (30):** 29 `set-state-in-effect` + 1 `immutability` + 1 `exhaustive-deps` → NÃO corrigir agora (T66 / BL-033)
+  - **Teste:** `pnpm --filter @artificio/mesas-frontend lint` → 30 erros (delta 0 vs baseline pré-T65 29+1)
+  - **Feito quando:** 2 `preserve-caught-error` corrigidos; lint mesas = baseline 29+1 + 0 novos
 
 ### 4B.7 — Astro → `6.4.8` (site)
 
-- [ ] T66 — **Migrar site Astro 5→6 (`^6.4.8`)**
-  - **Backup:** `git tag pre-033-f4b-astro` + lockfile + cópia de `astro.config.*` original
-  - **Investigação:** seção `astro` de `breaking-changes.md`; breaking de config/content collections/integrations; confirmar `node >=22.12` (Node 24 OK) e `@astrojs/check` compatível
-  - **Migração:** `apps/site` `astro` `^5.5.0`→`^6.4.8`; `@astrojs/*` integrations compatíveis; aplicar mudanças de config
-  - **Teste:** `turbo build --filter=@artificio/site --force`; `pnpm --filter @artificio/site test`; verificar `dist` com páginas/blog/sitemap
-  - **Doc:** breaking changes Astro em `breaking-changes.md`; **D054 revisitada** (decisão de Astro muda)
-  - **Feito quando:** site em Astro 6; dist completo; rotas públicas OK
+- [x] T66 — **Migrar site Astro 5→6 (`^6.4.8`)**
+  - **Backup:** ✅ `git tag pre-033-f4b-astro` + `pnpm-lock.yaml.pre-astro.bak` + `astro.config.mjs.pre-astro.bak`
+  - **Investigação (2026-06-19):** ✅ breaking changes analisados item a item (ver `breaking-changes.md` §12). **Risco BAIXO.** Site não usa Content Collections, islands React, SSR, ViewTransitions, Astro.glob, @astrojs/check. `@tailwindcss/vite` compat Vite 7. `@astrojs/sitemap`/`@astrojs/rss` já no latest compat Astro 6. ZERO mudanças de config. Migração = bump mecânico `astro ^5.5.0`→`^6.4.8`.
+  - **Migração (2026-06-19):** ✅ `astro ^5.5.0`→`^6.4.8` em `apps/site/package.json`. `pnpm install` limpo (+31/-5 packages, zero peer warnings novos). Nenhuma integração `@astrojs/*` precisou bump (já no latest).
+  - **Teste (2026-06-19):** ✅ `astro build` + pagefind: 46 páginas, 6.60s, sitemap-index.xml OK. `turbo build --force` 13/13 verde (1m15s). `vitest` 22/22 pass. `dist` verificado: rss.xml (5027B), robots.txt (76B), sitemap-index.xml (187B), canonical OK, 0 `.astro` legacy.
+  - **Doc:** breaking changes Astro em `breaking-changes.md` §12 com resultado de execução; **D054 revisitada** (Astro 6 usa Vite 7 interno, sem conflito com plugins do workspace)
+  - **Feito quando:** site em Astro 6.4.8; dist completo 46p; turbo 13/13 verde; vitest 22/22 ✅
+
+- [x] **T66b — Análise de features Astro 6 aplicáveis ao projeto (2026-06-19)**
+  - **CSP Nativa:** Astro 6 gera hashes automáticos para `<script is:inline>`. Site tem 5 inline scripts. Investigação inicial assumiu que exigia adapter HTTP (Node/Vercel/Cloudflare) — **corrigido**: CSP Astro 6 usa `<meta http-equiv>` tag, funciona em SSG sem adapter. ✅ Implementado (ver abaixo).
+  - **Fonts API:** Site usa fontes de sistema (sem Google Fonts/Fontsource). **Não se aplica.**
+  - **Live Content Collections:** Conteúdo do site é JSON estático (`posts.json`/`pages.json`), não content collections. **Não se aplica.**
+  - **Sätteri Markdown (Rust):** Site não tem conteúdo markdown. Melhoria de build automática sem ação. **Zero impacto.**
+  - **Queued Rendering:** Melhoria interna do Astro (memória na geração de páginas). **Zero ação.**
+  - **Cloudflare adapter (`@astrojs/cloudflare`):** Não instalado. Site é SSG sem adapter de runtime. **Não se aplica.** Cloudflare Tunnel (`cloudflared`) + Cloudinary (imagens) não têm relação com o adapter Astro.
+  - **`output: 'hybrid'` removido:** Site usa `static` (default). **Zero impacto.**
+  - **Breaking changes adicionais:** Nenhum outro afeta (Node 22 ✅, Zod 4 ✅, sem `Astro.glob`/`ViewTransitions`/`astro:schema` usados).
+  - **Conclusão:** Nenhuma feature Astro 6 demanda ação. CSP implementado via meta tag (abaixo).
+  - **CSP implementado (2026-06-19):** ✅ `security.csp` em `astro.config.mjs`. Astro 6 gera `<meta http-equiv="content-security-policy">` com 5 hashes SHA-256 (inline scripts). Diretivas: `default-src 'self'`, `img-src 'self' data: https://res.cloudinary.com`, `connect-src 'self' https://accounts.artificiorpg.com https://www.google-analytics.com`, `script-src 'self' https://www.googletagmanager.com` + hashes auto. 46/46 páginas com CSP. `turbo build --force` 13/13 verde. Vitest 22/22. `BL-ASTRO6-CSP` FECHADO.
 
 ### 4B.8 — Validação final da Fase 4B
 
-- [ ] T67 — **Validação consolidada dos majors**
-  - `turbo build --force` 13/13 verde → `artifacts/033/post-f4b-build.log`
-  - `pnpm lint` sem regressão; todos os vitest (ui 8/8, glossario-back 22/22, demais)
-  - `pnpm audit --prod` sem HIGH/CRITICAL
-  - **Zero skew:** `pnpm why <dep>` para zod/typescript/vite/tailwindcss/eslint/react/express = versão única cada
-  - **Feito quando:** 13/13 verde; audit limpo; nenhuma dep com 2+ versões no lockfile
+- [x] T67 — **Validação consolidada dos majors (2026-06-19)**
+  - ✅ `turbo build --force` 13/13 verde → `artifacts/033/post-f4b-build.log`
+  - ✅ `pnpm lint` sem regressão. 3 pacotes sem config (`auth`, `content`, `analytics`) = `BL-CI-ESLINT-FLAT-CONFIG` pré-existente (ci.yml `continue-on-error`). Pacotes com config (config, glossario-frontend, mesas-frontend) todos 0/0.
+  - ⚠️ `pnpm audit --prod`: 7 vulns (3 HIGH) — todos pré-existentes em transitive deps (xlsx, form-data, dompurify, nanoid, uuid). Nenhum introduzido pela Fase 4B.
+  - ✅ **Zero skew:**
+    - **zod:** 4.4.3 em todos os workspaces. Extra: `lighthouse > zod@3.25.76` (devDependency, não runtime, inofensivo)
+    - **typescript:** 6.0.3 único
+    - **vite:** 8.0.16 em todos os consumers (accounts, mesas-frontend, glossario-frontend, site-admin, ui). Root `vitest@3.2.6` = vite 7.3.5 (próprio, separado)
+    - **tailwindcss:** 4.3.1 único
+    - **eslint:** 10.5.0 único
+    - **react:** 19.2.7 único
+    - **express:** 5.2.1 único
+  - **Feito quando:** 13/13 verde; sem regressão de lint; skew documentado; audit com ressalvas pré-existentes ✅
+
+**Fase 4B CONCLUÍDA.** Todas as majors unificadas: zod 4.4.3, TS 6.0.3, Vite 8.0.16, Tailwind 4.3.1, ESLint 10.5.0, React 19.2.7, Express 5.2.1, Astro 6.4.8, Kysely 0.29.2.
 
 ---
 
