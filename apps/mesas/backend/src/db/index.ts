@@ -48,9 +48,9 @@ function getDb(): Kysely<Database> {
 
 // Proxy-based lazy loader: inicializa só no primeiro uso, não no import
 export const db = new Proxy({} as Kysely<Database>, {
-  get(_target, prop, receiver) {
+  get(_target, prop) {
     const instance = getDb();
-    const value = Reflect.get(instance, prop, receiver);
+    const value = Reflect.get(instance, prop, instance);
     return typeof value === 'function' ? value.bind(instance) : value;
   },
 });
