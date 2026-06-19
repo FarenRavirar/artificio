@@ -225,8 +225,9 @@ Tailwind 3→4 (glossario), Vite 5→8 (glossario), ESLint 8→9 (glossario), Ty
   - Pacotes compartilhados (`auth`, `config`, `content`, `analytics`): builds OK
 
 - [ ] T21 — **Validar mesas beta pós-Express 5**
-  - PR → merge em `dev` (aprovação nominal)
-  - Deploy mesas beta: `deploy.yml -f module=mesas -f mode=deploy` — ⚠️ **Requer aprovação nominal** (ação distinta do merge; aprovação vale por ação)
+  - PR #63 criado (`infra/033-toolchain-update` → `dev`)
+  - ⚠️ Merge em `dev`: **Requer aprovação nominal**
+  - ⚠️ Deploy mesas beta: **Requer aprovação nominal** (ação distinta do merge)
   - Smoke beta: `/` 200, `/api/v1/me/options` 401, login SSO + criar mesa + arquivar
   - Healthcheck Docker healthy
   - **Feito quando:** deploy beta verde; smokes OK; zero crash em 5min de operação

@@ -30,7 +30,6 @@ import adminDiscordSyncRoutes from './routes/adminDiscordSync';
 import activityLogRoutes from './routes/activityLog';
 import uploadRoutes from './routes/upload';
 import ogRoutes from './routes/og';
-import 'express-async-errors';
 import { db } from './db';
 import { requestLogger } from './middleware/requestLogger';
 import { csrfProtection } from './middleware/csrfProtection';
