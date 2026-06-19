@@ -12,6 +12,7 @@ RUN npm install -g pnpm@10.12.1
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/mesas ./apps/mesas
+COPY patches ./patches
 
 RUN pnpm install --frozen-lockfile
 RUN pnpm -w turbo run build --filter=@artificio/mesas-backend
