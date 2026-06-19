@@ -11,6 +11,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.js
 COPY packages ./packages
 COPY apps/site ./apps/site
 COPY apps/site-admin ./apps/site-admin
+COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
 # Builda os pacotes que o site consome (tsc -> dist) + a SPA admin (vite -> apps/site-admin/dist).

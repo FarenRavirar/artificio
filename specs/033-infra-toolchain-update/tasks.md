@@ -629,36 +629,61 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
 
 ### 5.0 — Backup pré-Docker
 
-- [ ] T29 — **Backup de código + snapshot da VM antes de mexer em imagens**
-  - `git tag pre-033-f5-docker`
-  - `ssh faren 'docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}"' > artifacts/033/pre-f5-docker-images.txt`
-  - `ssh faren 'docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"' > artifacts/033/pre-f5-docker-ps.txt`
+- [x] T29 — **Backup de código + snapshot da VM antes de mexer em imagens** ✅ (2026-06-19)
+  - `git tag pre-033-f5-docker` ✅
+  - `ssh faren 'docker images ...' > artifacts/033/pre-f5-docker-images.txt` ✅ 1662B, 24 imagens
+  - `ssh faren 'docker ps ...' > artifacts/033/pre-f5-docker-ps.txt` ✅ 1472B, 18 containers (todos healthy)
+  - **Imagens stale identificadas (candidatas a T33):**
+    - `node:20-alpine` — base antiga, nenhum container usa (Fase 2 migrou p/ 24-alpine)
+    - `glossario-beta-api-beta` / `glossario-beta-app-beta` (861a99a0/d7a587cc) — naming antigo pré-monorepo, não em uso
+    - `glossario-api-prod` / `glossario-app-prod` (4e81d924/51e7527a) — naming antigo pré-monorepo, não em uso
+    - `curlimages/curl:8.8.0` — versão velha (8.11.1 já presente)
+    - `site-beta-site-beta-app` (04899288) — imagem presente mas container **não está rodando** (site beta dispatch-only, pendente pós-Fase 4B)
+  - **Containers ausentes:** `site-beta-app` + `site-beta-db` não estão rodando (esperado — dispatch-only não deployado no push pós-merge PR #70)
   - **Feito quando:** snapshots salvos off-VM
 
 ### 5.1 — Alteração
 
-- [ ] T30 — **Atualizar imagens base Docker**
-  - `FROM node:X` (já alinhado em T8)
-  - `postgres:16-alpine` → `postgres:16.8-alpine` (última 16.x)
-  - `nginx:alpine` → `nginx:1.27-alpine` (glossario-frontend + mesas-frontend)
-  - `cloudflare/cloudflared:latest` → tag específica
-  - `curlimages/curl`: unificar → `curlimages/curl:8.11.1`
-  - **Oportunidade:** já que vai editar os Dockerfiles, verificar `COPY patches` conforme inventário em `breaking-changes.md` item 10 (aprendizado Fase 3). Se build Docker local do app falhar ENOENT, adicionar o COPY.
-  - **Feito quando:** todas as imagens base com tag explícita
+- [x] T30 — **Atualizar imagens base Docker** ✅ (2026-06-19 — escopo reduzido após investigação)
+  - **Node:** ✅ já alinhado em T8. Zero edições.
+  - **Postgres:** ✅ mantido `postgres:16-alpine` (Opção A, decisão 2026-06-19). Zero edições.
+  - **Nginx:** ✅ `nginx:alpine` → `nginx:1.27-alpine` em 2 Dockerfiles:
+    - `apps/glossario/frontend/Dockerfile:28`
+    - `apps/mesas/frontend/Dockerfile:43`
+  - **Cloudflared:** fora de escopo (não versionado). Documentado em `docs/agents/infra-map.md`.
+  - **Curl:** fora de escopo (só imagem stale na VM). → T33.
+  - **Feito quando:** grep `nginx:alpine` em Dockerfiles = 0; grep `nginx:1.27-alpine` = 2 ✅
 
 ### 5.2 — Teste de impacto
 
-- [ ] T31 — **Build local das imagens Docker**
-  - **Pré-requisito (aprendizado Fase 3):** antes do build, verificar se o Dockerfile de cada app tem `COPY patches ./patches` antes de cada `RUN pnpm install --frozen-lockfile`. Inventário em `breaking-changes.md` item 10. Testar com `docker build`; se falhar ENOENT, adicionar o COPY.
-  - `docker build -t test-accounts accounts/` — verificar que nova imagem node funciona
-  - `docker build -t test-site apps/site/` — verificar node:slim novo
-  - **Feito quando:** builds Docker locais OK
+- [ ] T31 — **Build local das imagens Docker** (plano revisado 2026-06-19 — Docker indisponível no Windows)
+  - **T31a — `COPY patches` em todos os Dockerfiles:** ✅ (2026-06-19)
+    - Inventário validado contra `breaking-changes.md` §10 — sem drift
+    - Adicionado `COPY patches ./patches` (ou `COPY --from=build /repo/patches ./patches`) em 4 Dockerfiles que faltavam:
+      - `apps/accounts/Dockerfile` — estágio deps (L7) + runtime (L20)
+      - `apps/glossario/backend/Dockerfile` — estágio builder (L15) + production (L31)
+      - `apps/glossario/frontend/Dockerfile` — estágio builder (L22)
+      - `apps/site/Dockerfile` — estágio único (L14)
+    - Verificação: 9 `COPY patches` para 9 `RUN pnpm install --frozen-lockfile` em 6 Dockerfiles ✅
+  - **T31b — Build Docker (VM):** impossível localmente (sem Docker no Windows). Validação real = deploy beta (T32) — `docker build` roda na VM
+  - **Nota:** `docker build` local removido do escopo (sem Docker). Substituído por verificação estrutural + deploy beta como prova real
+  - **Feito quando:** todos os Dockerfiles com `COPY patches` antes de cada `pnpm install --frozen-lockfile` ✅
 
-- [ ] T32 — **Deploy beta com novas imagens**
-  - **Pré-requisito (aprendizado Fase 3):** cada app a deployar precisa ter `COPY patches` nos seus Dockerfiles ANTES do deploy. Verificar `breaking-changes.md` item 10 para inventário. Se o build Docker local do app passou em T31, o deploy pode seguir.
-  - PR → merge em `dev` — ⚠️ **Requer aprovação nominal** (regra de merge; distinta do push direto, que é proibido)
-  - Deploy beta: accounts, mesas, glossario, site (4 deploys) — ⚠️ **Requer aprovação nominal** (por deploy)
-  - **Teste:** cada deploy verde; smoke após cada deploy; imagens novas no `docker images`
+- [ ] T32 — **Deploy beta com novas imagens** (plano revisado 2026-06-19)
+  - **Pré-requisitos:** ✅ COPY patches presente em todos os 6 Dockerfiles (T31a)
+  - **Branch + PR:** `git switch -c infra/033-f5-docker` → commit → push → `gh pr create --base dev`
+    - ⚠️ Merge do PR requer **aprovação nominal**
+  - **Deploy beta — fluxo por app (pós-merge em dev):**
+    - **mesas:** ✅ automático (`auto_deploy_on_push: true`, `push_branches: ["dev"]`). Merge dispara deploy beta.
+    - **glossario:** dispatch manual (`auto_deploy_on_push: false`). `module=glossario mode=deploy`. ⚠️ Requer aprovação nominal.
+    - **site:** dispatch manual (`auto_deploy_on_push: false`). `module=site mode=deploy`. ⚠️ Requer aprovação nominal.
+    - ~~**accounts:**~~ fora de escopo beta (`env_override=prod`, `push_branches: ["main"]`). Accounts não tem beta (D042).
+  - **Smoke beta por app:**
+    - mesasbeta: `/` 200, `/api/v1/me/options` 401, `/api/v1/auth/google` 302
+    - glossariobeta: `/` 200, `/api/terms` 200
+    - beta.artificiorpg.com: `/` 200, `/healthz` 200, `/blog/` 200
+  - **Verificação pós-deploy:** `ssh faren 'docker images --format "table {{.Repository}}\t{{.Tag}}"' | rg 'nginx:1.27-alpine'` → imagem nova presente
+  - **Feito quando:** 3 deploys beta verdes; smoke OK; nginx:1.27-alpine no `docker images` da VM
 
 ### 5.3 — Limpeza
 

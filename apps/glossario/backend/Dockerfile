@@ -12,6 +12,7 @@ RUN npm install -g pnpm@10.12.1
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/glossario ./apps/glossario
+COPY patches ./patches
 
 RUN pnpm install --frozen-lockfile
 RUN pnpm -w turbo run build --filter=@artificio/glossario-backend
@@ -27,6 +28,7 @@ RUN npm install -g pnpm@10.12.1
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
 COPY apps/glossario/backend/package.json ./apps/glossario/backend/package.json
+COPY patches ./patches
 RUN pnpm install --prod --filter @artificio/glossario-backend --frozen-lockfile
 
 # Workspace packages are linked in production; copy built outputs they export at runtime.
