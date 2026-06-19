@@ -26,7 +26,7 @@ RUN pnpm -w turbo run build --filter=@artificio/glossario-frontend
 
 # =============================================================================
 # Estágio 2: Nginx servindo o build estático
-FROM nginx:1.27-alpine AS production
+FROM nginx:1.31-alpine AS production
 
 ENV API_UPSTREAM=glossario-api
 

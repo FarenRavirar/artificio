@@ -40,7 +40,7 @@ RUN pnpm -w turbo run build --filter=@artificio/mesas-frontend
 
 # =============================================================================
 # Estágio 2: Nginx servindo o build estático
-FROM nginx:1.27-alpine AS production
+FROM nginx:1.31-alpine AS production
 
 # Remover config padrão do Nginx
 RUN rm /etc/nginx/conf.d/default.conf

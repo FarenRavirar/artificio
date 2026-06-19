@@ -647,12 +647,13 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
 - [x] T30 — **Atualizar imagens base Docker** ✅ (2026-06-19 — escopo reduzido após investigação)
   - **Node:** ✅ já alinhado em T8. Zero edições.
   - **Postgres:** ✅ mantido `postgres:16-alpine` (Opção A, decisão 2026-06-19). Zero edições.
-  - **Nginx:** ✅ `nginx:alpine` → `nginx:1.27-alpine` em 2 Dockerfiles:
+  - **Nginx:** ✅ `nginx:alpine` → `nginx:1.31-alpine` em 2 Dockerfiles:
     - `apps/glossario/frontend/Dockerfile:28`
     - `apps/mesas/frontend/Dockerfile:43`
+    - **Corrigido 2026-06-19:** plano original `1.27` estava errado — `nginx:alpine` resolve para 1.31.2 (confirmado nos 4 containers rodando). 1.27 seria downgrade.
   - **Cloudflared:** fora de escopo (não versionado). Documentado em `docs/agents/infra-map.md`.
   - **Curl:** fora de escopo (só imagem stale na VM). → T33.
-  - **Feito quando:** grep `nginx:alpine` em Dockerfiles = 0; grep `nginx:1.27-alpine` = 2 ✅
+  - **Feito quando:** grep `nginx:alpine` em Dockerfiles = 0; grep `nginx:1.31-alpine` = 2 ✅
 
 ### 5.2 — Teste de impacto
 
@@ -682,8 +683,8 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
     - mesasbeta: `/` 200, `/api/v1/me/options` 401, `/api/v1/auth/google` 302
     - glossariobeta: `/` 200, `/api/terms` 200
     - beta.artificiorpg.com: `/` 200, `/healthz` 200, `/blog/` 200
-  - **Verificação pós-deploy:** `ssh faren 'docker images --format "table {{.Repository}}\t{{.Tag}}"' | rg 'nginx:1.27-alpine'` → imagem nova presente
-  - **Feito quando:** 3 deploys beta verdes; smoke OK; nginx:1.27-alpine no `docker images` da VM
+  - **Verificação pós-deploy:** `ssh faren 'docker images --format "table {{.Repository}}\t{{.Tag}}"' | rg 'nginx:1.31-alpine'` → imagem nova presente
+  - **Feito quando:** 3 deploys beta verdes; smoke OK; nginx:1.31-alpine no `docker images` da VM
 
 ### 5.3 — Limpeza
 
