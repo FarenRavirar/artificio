@@ -8,3 +8,4 @@ patchedDependencies:
 allowBuilds:
   sharp: true
   bcrypt: true
+  esbuild: true

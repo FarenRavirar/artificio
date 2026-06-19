@@ -848,11 +848,12 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
 
 - [ ] T41 — **Atualizar `.specify/memory/decisions.md`**
   - D060 (linha 68): mudar status de "firme" para "firme — concluído (spec 033)"
-  - Adicionar nova decisão D0NN: **"Node.js canônico = 24.x LTS"** com data e motivo (alinhamento de 3 versões divergentes; 25.x descartado por ser não-LTS/EOL ~jun/2026)
-  - Adicionar nova decisão D0NN: **"Imagens base Docker com tag explícita"** (postgres:16.8-alpine, nginx:1.27-alpine, node:24-alpine)
-  - Adicionar nova decisão D0NN: **"Toolchain unificado — versão única por dep em todo o monorepo"** (zod 4.4.3, TypeScript 6.0.3, Vite 8.0.16, Tailwind 4.3.1, ESLint 10.5.0, React 19.2.7, Express 5.2.1; Astro 6.4.8 no site). Motivo: skew vira dor exponencial conforme o monorepo cresce; unificar agora.
+  - Adicionar nova decisão **D081**: **"Node.js canônico = 24.x LTS"** com data e motivo (alinhamento de 3 versões divergentes; 25.x descartado por ser não-LTS/EOL ~jun/2026)
+  - Adicionar nova decisão **D082**: **"Imagens base Docker com tag explícita"** (postgres:16.8-alpine, nginx:1.27-alpine, node:24-alpine)
+  - Adicionar nova decisão **D083**: **"Toolchain unificado — versão única por dep em todo o monorepo"** (zod 4.4.3, TypeScript 6.0.3, Vite 8.0.16, Tailwind 4.3.1, ESLint 10.5.0, React 19.2.7, Express 5.2.1; Astro 6.4.8 no site). Motivo: skew vira dor exponencial conforme o monorepo cresce; unificar agora.
   - **Revisitar D054** (stack do site/Astro) à luz do Astro 6
-  - **Feito quando:** D060 atualizado; 3 novas decisões registradas; D054 revisitada
+  - **Nota (PR #72):** D080 já registrada (política pnpm 11 `allowBuilds`); próximos IDs livres a partir de D081.
+  - **Feito quando:** D060 atualizado; decisões D081/D082/D083 registradas; D054 revisitada
 
 - [ ] T42 — **Atualizar `.specify/memory/project-state.md`**
   - Seção "Construído neste monorepo": adicionar spec 033 como concluída
@@ -871,7 +872,8 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
   - **Feito quando:** `rg 'node.*20|express.*4|postgres:16-alpine' .specify/arquiteture.md` retorna 0 (ou só refs históricas)
 
 - [ ] T44 — **Atualizar `docs/agents/infra-map.md`**
-  - Seção "Host": adicionar versões canônicas de runtime (Node 24.x LTS, pnpm 10.12.x, Docker 29.5.3)
+  - Seção "Host": adicionar versões canônicas de runtime (Node 24.x LTS, pnpm 11.8.0, Docker 29.5.3)
+  - Adicionar nota da política pnpm 11 `allowBuilds` enumerado (D080): dep nova com build-script → enumerar + revalidar `--frozen-lockfile`; nunca `"*": true`
   - Seção "Postgres": `postgres:16-alpine` → `postgres:16.8-alpine`
   - Seção "Regra operacional de deploy": verificar refs a `node:20-alpine` (nenhuma encontrada na busca — OK)
   - Adicionar seção "Imagens base Docker": tabela com imagem, tag, data de atualização

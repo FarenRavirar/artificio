@@ -21,6 +21,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          # Exceção consciente ao artipacked (zizmor): este job faz `git push origin
+          # refs/remotes/origin/dev:refs/heads/main`, que exige o GITHUB_TOKEN persistido
+          # no git-config. NÃO trocar para false — quebraria a promoção dev→main em silêncio.
+          persist-credentials: true
           fetch-depth: 0
 
       - name: Validate confirmation and invariant
