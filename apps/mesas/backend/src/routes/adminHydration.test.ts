@@ -3,8 +3,10 @@ import express from 'express';
 import adminHydrationRoutes from './adminHydration';
 
 let mockAuthUser: { userId: string; role: string } | null = null;
-const mockProdExecute = vi.fn();
-const mockTransactionExecute = vi.fn();
+const { mockProdExecute, mockTransactionExecute } = vi.hoisted(() => ({
+  mockProdExecute: vi.fn(),
+  mockTransactionExecute: vi.fn(),
+}));
 
 vi.mock('../middleware/auth', () => ({
   authMiddleware: (req: any, res: any, next: any) => {

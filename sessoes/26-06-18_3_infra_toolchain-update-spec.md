@@ -111,7 +111,7 @@ Smoke prod completo com toolchain alinhado (1 versão de Node, Express 5 em todo
 **4. 🟢 Zero regressão nos demais**
 - `@artificio/ui`: 8/8 passam
 - `@artificio/glossario-backend`: 22/22 passam
-- `@artificio/mesas-backend`: 15/16 suites = baseline; 12 de 16 suites passam 100%
+- `@artificio/mesas-backend`: 16/16 suites, 114/114 testes (pós T28c/d; todas passam 100%)
 - `apps/mesas/backend`: `^16.4.5` → `^17.4.2`
 - `apps/site`: `^16.4.7` → `^17.4.2`
 - `apps/glossario/backend`: já estava em `^17.3.1` — sem bump necessário
@@ -320,7 +320,17 @@ Validação real:
 - `tsc --noEmit` mesas: **0**. accounts vitest: **8/8**. `turbo build --force`: **13/13**.
 - runtime CJS: `node -e require('kysely')` → Kysely/PostgresDialect/sql = function (require(esm) OK).
 
-Status: BL-KYSELY-029-ESM + BL-MESAS-DB-LAZY-OPTION2 + BL-MESAS-TEST-DB-SIDEEFFECT = impl+validado local; **deploy beta mesas + smoke pendente (aprovação nominal)** p/ fechar de vez. Sem commit/push.
+Status: BL-KYSELY-029-ESM + BL-MESAS-DB-LAZY-OPTION2 + BL-MESAS-TEST-DB-SIDEEFFECT = impl+validado local; **deploy beta mesas + smoke pendente (aprovação nominal)** p/ fechar de vez.
+
+#### Fixes de revisão aceitos (PR T28c/T28d, 2026-06-19)
+
+Revisores externos apontaram; mantenedor revisou e aplicou no diff. Veredictos (regra pétrea: revisão vive na doc, não no PR):
+1. `adminHydration.test.ts:5-9` — `mockProdExecute`/`mockTransactionExecute` movidos p/ `vi.hoisted()`. **Procede:** vitest não tem a exceção `mock`-prefix do jest; var usada em factory hoisted exige `vi.hoisted()` (evita ReferenceError/TDZ). Conversão original dependia de semântica jest.
+2. `db/index.ts:26-36` — `process.exit(1)`→`throw new Error(...)` em `getDb()`. **Procede:** getDb roda lazy no 1º uso (request); `exit` mataria o server por request mal-configurado. Boot segue fail-fast via `server.ts:43-47`. DT-004 preservada.
+3. `breaking-changes.md` item 3 — hipótese→"Confirmado" (deploy verde). **Procede:** aprendizado fechado.
+4. session — "12 de 16"→"16/16, 114/114" (contagem stale pré-fix removida). **Procede.**
+
+Sem commit/push novo por mim; PR aberto pelo mantenedor (merge pendente).
 
 ### Aprendizados da Fase 3
 1. **express-async-errors@3 crasha no Express 5** — requer `express/lib/router/layer` (inexistente). Remover.

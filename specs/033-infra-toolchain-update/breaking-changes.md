@@ -238,7 +238,7 @@ export default defineConfig([ globalIgnores(['dist']), { files:['**/*.{ts,tsx}']
 
 **AGRAVANTE (2026-06-18, 3º deploy falho):** `COPY patches` precisa estar em **cada estágio** que roda `pnpm install --frozen-lockfile`. O `--frozen-lockfile` com `--prod` também falhou no mesas-backend porque a dep patchada (`@types/express-serve-static-core`) ainda era parte da árvore de resolução do estágio `--prod`. 
 
-**Hipótese a verificar (incorporada nos pré-requisitos de T30/T31/T32):** o `--frozen-lockfile` valida existência de patch apenas para deps que fazem parte da árvore de instalação do estágio. Se uma dep patchada é devDependency e o estágio usa `--prod`, ela **não** deveria entrar na árvore e o patch não deveria ser exigido. Mas o mesas-backend `--prod` falhou — investigar o porquê (workspace link? hoisting?).
+**Confirmado:** `pnpm --frozen-lockfile` com `--prod` **exige** os patches de todas as deps patchadas que fazem parte da árvore de instalação do estágio, independentemente de serem `dependencies` ou `devDependencies` no manifesto do pacote (a resolução via workspace/hoisting pode puxá-las). Adicionar `COPY patches ./patches` em cada estágio que executa `pnpm install --frozen-lockfile` **resolve o problema** — o deploy subsequente do mesas-backend ficou verde (run `27801765034`).
 
 **Dockerfiles afetados (inventário 2026-06-18):**
 

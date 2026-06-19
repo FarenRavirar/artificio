@@ -24,15 +24,15 @@ function getDb(): Kysely<Database> {
 
   // CORREÇÃO DT-004: Validar DATABASE_URL no startup (do uso real)
   if (!process.env.DATABASE_URL) {
-    console.error('[DB] ERRO CRÍTICO: DATABASE_URL não está definida no .env');
-    process.exit(1);
+    throw new Error('[DB] ERRO CRÍTICO: DATABASE_URL não está definida no .env');
   }
 
   try {
     new URL(process.env.DATABASE_URL);
   } catch {
-    console.error('[DB] ERRO CRÍTICO: DATABASE_URL tem formato inválido:', sanitizeDbUrl(process.env.DATABASE_URL));
-    process.exit(1);
+    throw new Error(
+      `[DB] ERRO CRÍTICO: DATABASE_URL tem formato inválido: ${sanitizeDbUrl(process.env.DATABASE_URL)}`
+    );
   }
 
   const dialect = new PostgresDialect({
@@ -48,9 +48,9 @@ function getDb(): Kysely<Database> {
 
 // Proxy-based lazy loader: inicializa só no primeiro uso, não no import
 export const db = new Proxy({} as Kysely<Database>, {
-  get(_target, prop) {
+  get(_target, prop, receiver) {
     const instance = getDb();
-    const value = (instance as any)[prop];
+    const value = Reflect.get(instance, prop, receiver);
     return typeof value === 'function' ? value.bind(instance) : value;
   },
 });
