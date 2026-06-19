@@ -5,7 +5,7 @@ describe('listForumThreads', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('paginates public archived forum threads while Discord reports has_more', async () => {
@@ -40,7 +40,7 @@ describe('listForumThreads', () => {
       },
     ];
 
-    const fetchMock = jest.fn(async () => {
+    const fetchMock = vi.fn(async () => {
       const body = responses.shift();
       return new Response(JSON.stringify(body), {
         status: 200,

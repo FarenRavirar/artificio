@@ -31,7 +31,7 @@ export const prodDb = new Proxy({} as Kysely<Database> & { isProdConnection: boo
     if (prop === 'isProdConnection') return true;
     // Lazy-initialize on first method/property access
     const instance = getProdDb();
-    const value = (instance as any)[prop];
+    const value = Reflect.get(instance, prop, instance);
     // Bind methods to the instance to preserve 'this' context
     return typeof value === 'function' ? value.bind(instance) : value;
   },

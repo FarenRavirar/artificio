@@ -3,10 +3,12 @@ import express from 'express';
 import adminHydrationRoutes from './adminHydration';
 
 let mockAuthUser: { userId: string; role: string } | null = null;
-const mockProdExecute = jest.fn();
-const mockTransactionExecute = jest.fn();
+const { mockProdExecute, mockTransactionExecute } = vi.hoisted(() => ({
+  mockProdExecute: vi.fn(),
+  mockTransactionExecute: vi.fn(),
+}));
 
-jest.mock('../middleware/auth', () => ({
+vi.mock('../middleware/auth', () => ({
   authMiddleware: (req: any, res: any, next: any) => {
     if (!mockAuthUser) {
       res.status(401).json({ error: 'Token inválido ou expirado.' });
@@ -18,11 +20,11 @@ jest.mock('../middleware/auth', () => ({
   },
 }));
 
-jest.mock('../db/prod', () => ({
+vi.mock('../db/prod', () => ({
   prodDb: {
-    selectFrom: jest.fn(() => ({
-      select: jest.fn(() => ({
-        limit: jest.fn(() => ({
+    selectFrom: vi.fn(() => ({
+      select: vi.fn(() => ({
+        limit: vi.fn(() => ({
           execute: mockProdExecute,
         })),
       })),
@@ -30,9 +32,9 @@ jest.mock('../db/prod', () => ({
   },
 }));
 
-jest.mock('../db', () => ({
+vi.mock('../db', () => ({
   db: {
-    transaction: jest.fn(() => ({
+    transaction: vi.fn(() => ({
       execute: mockTransactionExecute,
     })),
   },

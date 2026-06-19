@@ -1,27 +1,27 @@
 import express from 'express';
 import request from 'supertest';
+import type { Mock } from 'vitest';
+import adminDiscordSyncRoutes from '../adminDiscordSync';
+import { db } from '../../db';
 
-jest.mock('../../db', () => ({
+vi.mock('../../db', () => ({
   db: {
-    updateTable: jest.fn(),
-    selectFrom: jest.fn(),
+    updateTable: vi.fn(),
+    selectFrom: vi.fn(),
   },
 }));
 
-jest.mock('../../middleware/auth', () => ({
+vi.mock('../../middleware/auth', () => ({
   authMiddleware: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     req.user = { userId: 'admin-test', role: 'admin' };
     next();
   },
 }));
 
-const { db: mockDb } = jest.requireMock('../../db') as {
-  db: {
-    updateTable: jest.Mock;
-    selectFrom: jest.Mock;
-  };
+const mockDb = db as unknown as {
+  updateTable: Mock;
+  selectFrom: Mock;
 };
-const adminDiscordSyncRoutes = jest.requireActual('../adminDiscordSync').default;
 
 function makeApp() {
   const app = express();
@@ -32,9 +32,9 @@ function makeApp() {
 
 function mockCurrentDraft(normalizedPayload: Record<string, unknown>) {
   const selectChain = {
-    select: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    executeTakeFirst: jest.fn().mockResolvedValue({
+    select: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    executeTakeFirst: vi.fn().mockResolvedValue({
       id: 'draft-1',
       normalized_payload: normalizedPayload,
     }),
@@ -45,10 +45,10 @@ function mockCurrentDraft(normalizedPayload: Record<string, unknown>) {
 
 function mockUpdatedDraft() {
   const updateChain = {
-    set: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    returningAll: jest.fn().mockReturnThis(),
-    execute: jest.fn().mockResolvedValue([{
+    set: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    returningAll: vi.fn().mockReturnThis(),
+    execute: vi.fn().mockResolvedValue([{
       id: 'draft-1',
       status: 'ready',
       normalized_payload: {
@@ -62,7 +62,7 @@ function mockUpdatedDraft() {
 
 describe('PATCH /admin/discord-sync/drafts/:id', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockCurrentDraft({ missing_fields: ['day_of_week'] });
     mockUpdatedDraft();
   });

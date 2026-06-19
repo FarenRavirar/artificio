@@ -10,9 +10,9 @@ function imageResponse(body: string, init: ResponseInit = {}): Response {
 
 describe('uploadDiscordImageToCloudinary', () => {
   it('uploads downloaded Discord image bytes to Cloudinary with sha256 public_id', async () => {
-    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+    const fetchImpl = vi.fn<typeof fetch>()
       .mockResolvedValue(imageResponse('image-bytes'));
-    const uploadBuffer = jest.fn()
+    const uploadBuffer = vi.fn()
       .mockResolvedValue({ url: 'https://res.cloudinary.com/demo/image/upload/discord-imports/hash.jpg', public_id: 'discord-imports/hash' });
 
     const result = await uploadDiscordImageToCloudinary('https://cdn.discordapp.com/a.jpg', { fetchImpl, uploadBuffer });
@@ -23,7 +23,7 @@ describe('uploadDiscordImageToCloudinary', () => {
   });
 
   it('categorizes expired Discord CDN URLs', async () => {
-    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+    const fetchImpl = vi.fn<typeof fetch>()
       .mockResolvedValue(new Response('', { status: 404 }));
 
     const result = await uploadDiscordImageToCloudinary('https://cdn.discordapp.com/expired.jpg', { fetchImpl });
@@ -32,9 +32,9 @@ describe('uploadDiscordImageToCloudinary', () => {
   });
 
   it('categorizes Cloudinary upload failures', async () => {
-    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+    const fetchImpl = vi.fn<typeof fetch>()
       .mockResolvedValue(imageResponse('image-bytes'));
-    const uploadBuffer = jest.fn().mockRejectedValue(new Error('cloudinary down'));
+    const uploadBuffer = vi.fn().mockRejectedValue(new Error('cloudinary down'));
 
     const result = await uploadDiscordImageToCloudinary('https://cdn.discordapp.com/a.jpg', { fetchImpl, uploadBuffer });
 

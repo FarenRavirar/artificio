@@ -21,8 +21,8 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "react": "^19.1.0",
-    "react-router-dom": "^7.13.0"
+    "react": "^19.2.7",
+    "react-router-dom": "^7.18.0"
   },
   "peerDependenciesMeta": {
     "react": {
@@ -37,7 +37,7 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "jsdom": "^29.0.2",
-    "react": "^19.1.0",
-    "react-router-dom": "^7.13.0"
+    "react": "^19.2.7",
+    "react-router-dom": "^7.18.0"
   }
 }

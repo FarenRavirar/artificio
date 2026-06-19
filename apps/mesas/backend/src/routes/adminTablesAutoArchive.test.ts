@@ -1,15 +1,15 @@
 import request from 'supertest';
 import express from 'express';
 
-const mockAutoArchive = jest.fn();
+const mockAutoArchive = vi.fn();
 
-jest.mock('../db', () => ({ db: {} }));
-jest.mock('../repositories/tableRepository', () => ({ TableRepository: class {} }));
-jest.mock('../middleware/auth', () => ({
+vi.mock('../db', () => ({ db: {} }));
+vi.mock('../repositories/tableRepository', () => ({ TableRepository: class {} }));
+vi.mock('../middleware/auth', () => ({
   authMiddleware: (_req: any, _res: any, next: any) => next(),
 }));
-jest.mock('../services/activityLogger', () => ({ logActivity: jest.fn() }));
-jest.mock('../services/tableArchiving', () => ({
+vi.mock('../services/activityLogger', () => ({ logActivity: vi.fn() }));
+vi.mock('../services/tableArchiving', () => ({
   AUTO_ARCHIVE_AFTER_DAYS: 30,
   autoArchiveStaleTables: (...args: unknown[]) => mockAutoArchive(...args),
 }));

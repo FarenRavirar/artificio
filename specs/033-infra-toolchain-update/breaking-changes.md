@@ -14,7 +14,7 @@
 |---|---|---|---|
 | express-rate-limit | 7.5.1 → 8.5.2 | 🟢 | só `max`+`message` string; sem `keyGenerator`/store custom |
 | dotenv | 16.4.x → 17.4.2 | 🟢 | só `config()`/`import 'dotenv/config'`; assinatura intacta |
-| kysely | 0.28 → 0.29 | 🟡 | 30 arquivos usam; checar tipos no `tsc --noEmit` |
+| kysely | 0.28 → 0.29 | 🔴 | **ESM-only** (sem CJS); só mesas+accounts; bloqueio = jest do mesas → migrar p/ vitest (D078) |
 | multer | 2.1 → 2.2 | 🟢 | 2 arquivos; minor sem breaking |
 | lucide-react | 0.363 → 1.21 (glossario) | 🟡 | 18 arquivos; confirmar nomes de ícones |
 | zod | 3 → 4 | 🟢 | **sem** `.email()`/`errorMap`; só `.url()` (segue válido) |
@@ -60,17 +60,25 @@
 
 ---
 
-## 3. kysely 0.28 → 0.29 🟡
+## 3. kysely 0.28 → 0.29 🔴 (re-investigado 2026-06-19)
 
-**Mudança:** refinamentos de tipo (mais estritos em alguns helpers); checar changelog oficial p/ remoção de APIs. Runtime estável.
+**Mudança real (release 0.29.0 — https://github.com/kysely-org/kysely/releases/tag/v0.29.0):**
+- **ESM-only:** deixou de shipar CommonJS. `dist/esm/` movido p/ `dist/`. `package.json` 0.29 só tem `exports.import` (0.28.17 ainda era dual: `import`+`require`). Runtime CJS depende de `require(esm)` (Node 22.12+/24 unflagged → mesas em `node:24-alpine` OK).
+- target de build → `es2023`; TS mínimo → 5.4 (mesas `^5.4.5`, accounts `5.9.3` OK).
+- `sql.value`/`sql.literal` removidos → `sql.val`/`sql.lit`. **Não usamos** (zero match no código).
+- migration exports movidos p/ `kysely/migration`. **Não usamos** (sem `Migrator`/`FileMigrationProvider`).
 
-**Uso real:** 30 arquivos — núcleo `apps/mesas/backend/src/{db,routes,services,repositories,discord,scripts}/*` + `apps/accounts/src/{app,users,db}.ts`. `PostgresDialect`/`new Kysely` em `db/index.ts`, `db/prod.ts`, `accounts/src/db.ts`.
+**Uso real:** só `apps/mesas/backend` (25 arquivos src) + `apps/accounts`. glossario/site usam `pg` direto (não kysely). accounts não tem teste importando kysely.
 
-**Impacto:** provável só tipo; runtime de query não muda. Risco = `tsc` mais rígido em query builders complexos.
+**Impacto verdadeiro = ferramenta de teste, não código:**
+- accounts + glossario-backend já usam **vitest** (ESM nativo) → 0.29 funciona sem mexer.
+- mesas-backend é o **único em jest+ts-jest**; ts-jest só transpila `.ts`, não o `.js` ESM do kysely em `node_modules` → `Jest failed to parse`. Foi o que reverteu o T25c.
 
-**Ação:** (T25c) bump accounts+mesas-backend; `tsc --noEmit` em ambos; corrigir erro de tipo a erro de tipo (ou registrar débito se cascata).
-**Teste:** build accounts+mesas-backend; `tsc --noEmit`.
-**Rollback:** lockfile.
+**Decisão (D078):** unificar kysely em `^0.29.2` e **migrar mesas-backend de jest → vitest** (elimina a exceção de runner; padroniza o monorepo num só test runner). Resolve `BL-KYSELY-029-ESM`. Em conjunto, adotar **lazy db Proxy** (Option 2 / T28b) em `db/index.ts` removendo o hack `jest.setup.ts`+dummy `DATABASE_URL`.
+
+**Ação:** T28c (vitest mesas) + T28d (lazy db). Bump kysely `^0.29.2` em mesas+accounts.
+**Teste:** `vitest run` mesas 16/16; `tsc --noEmit` 0; `turbo build`; deploy beta mesas (smoke).
+**Rollback:** lockfile + `git checkout` (1 arquivo db/index.ts; config de teste).
 
 ---
 
@@ -228,15 +236,15 @@ export default defineConfig([ globalIgnores(['dist']), { files:['**/*.{ts,tsx}']
 ### 10. 🟡 `pnpm patch` + Docker build — NÃO previsto
 **Realidade:** `package.json` referencia `pnpm.patchedDependencies` → `patches/...`. Dockerfiles que rodam `pnpm install --frozen-lockfile` precisam de `COPY patches ./patches`. `.dockerignore` do projeto NÃO bloqueia `patches/`. **2 falhas de deploy** com ENOENT antes do fix.
 
-**AGRAVANTE (2026-06-19, 3º deploy falho):** `COPY patches` precisa estar em **cada estágio** que roda `pnpm install --frozen-lockfile`. O `--frozen-lockfile` com `--prod` também falhou no mesas-backend porque a dep patchada (`@types/express-serve-static-core`) ainda era parte da árvore de resolução do estágio `--prod`. 
+**AGRAVANTE (2026-06-18, 3º deploy falho):** `COPY patches` precisa estar em **cada estágio** que roda `pnpm install --frozen-lockfile`. O `--frozen-lockfile` com `--prod` também falhou no mesas-backend porque a dep patchada (`@types/express-serve-static-core`) ainda era parte da árvore de resolução do estágio `--prod`. 
 
-**Hipótese a verificar (incorporada nos pré-requisitos de T30/T31/T32):** o `--frozen-lockfile` valida existência de patch apenas para deps que fazem parte da árvore de instalação do estágio. Se uma dep patchada é devDependency e o estágio usa `--prod`, ela **não** deveria entrar na árvore e o patch não deveria ser exigido. Mas o mesas-backend `--prod` falhou — investigar o porquê (workspace link? hoisting?).
+**Confirmado:** `pnpm --frozen-lockfile` com `--prod` **exige** os patches de todas as deps patchadas que fazem parte da árvore de instalação do estágio, independentemente de serem `dependencies` ou `devDependencies` no manifesto do pacote (a resolução via workspace/hoisting pode puxá-las). Adicionar `COPY patches ./patches` em cada estágio que executa `pnpm install --frozen-lockfile` **resolve o problema** — o deploy subsequente do mesas-backend ficou verde (run `27801765034`).
 
-**Dockerfiles afetados (inventário 2026-06-19):**
+**Dockerfiles afetados (inventário 2026-06-18):**
 
 | Dockerfile | Estágios com `pnpm install` | Tem `COPY patches`? |
 |---|---|---|
-| `apps/mesas/backend` | builder (L17) + production (L35) | ✅ ambos (L15 + L34, corrigido 2026-06-19) |
+| `apps/mesas/backend` | builder (L17) + production (L35) | ✅ ambos (L15 + L34, corrigido 2026-06-18) |
 | `apps/mesas/frontend` | builder (L38) | ✅ (L36) |
 | `apps/accounts` | deps (L7) + runtime (L19) | ❌ nenhum |
 | `apps/glossario/backend` | builder (L16) + production (L30) | ❌ nenhum |
@@ -245,7 +253,7 @@ export default defineConfig([ globalIgnores(['dist']), { files:['**/*.{ts,tsx}']
 
 **Tasks de investigação:** cada Dockerfile acima sem `COPY patches` precisa ser verificado ANTES do próximo deploy do respectivo app (built Docker na VM falha com ENOENT se o `pnpm.patchedDependencies` do root `package.json` estiver ativo). Ver tasks.md Fase 5.
 
-### 11. 🔴 Express 5 `*` wildcard — CORRIGIDO pós-deploy (2026-06-19)
+### 11. 🔴 Express 5 `*` wildcard — CORRIGIDO pós-deploy (2026-06-18)
 **Realidade:** path-to-regexp@8.4.2 (instalado no Docker build, `pnpm-lock.yaml`) **rejeita** `'*'` bare wildcard: `Missing parameter name at index 1`. O `'/{*splat}'` é a sintaxe correta do Express 5 (documentada em https://expressjs.com/en/guide/migrating-5/#path-syntax) e casa raiz `/`. O chatgpt-codex-connector **estava certo** ao apontar isso no review do PR — o doc anterior (item 11 original) estava errado.
 **Fix:** `router.get('*', ...)` → `router.get('/{*splat}', ...)` em `apps/mesas/backend/src/routes/og.ts:201`.
 **Impacto:** 4º deploy falho do mesas-beta — crash no boot `PathError: Missing parameter name at index 1: *`.
