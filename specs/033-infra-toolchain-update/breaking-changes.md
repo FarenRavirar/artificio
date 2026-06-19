@@ -204,8 +204,48 @@ export default defineConfig([ globalIgnores(['dist']), { files:['**/*.{ts,tsx}']
 
 1. **🔴 `BL-033-GLOSSARIO-LINT-NEVER-RAN` (AMPLIADO)** — baseline Fase 2 (2026-06-18) confirmou que **4 pacotes** não têm config ESLint flat: `apps/glossario/frontend`, `packages/content`, `packages/analytics`, `packages/auth` (todos falham "ESLint couldn't find an eslint.config file"). Lint nunca rodou verde nesses. T64a/T65 devem criar config do zero em cada (não "migrar legado"). Não é regressão do Node 24.
 2. **zod risco rebaixado p/ 🟢** — sem `.email()`/`errorMap` no código; bump quase mecânico. Confirma viabilidade de T61.
-3. **dotenv/rate-limit/multer 🟢** — bumps sem mudança de código; só limpeza opcional (`max`→`limit`, `DOTENV_CONFIG_QUIET`).
+3. **dotenv/multer 🟢** — bumps sem mudança de código.
 4. **mesas/site já Tailwind v4 e Vite 8** — Fase 4B de Tailwind/Vite recai quase só no glossario (lanterna) + accounts/ui (Vite 6→8).
 5. **D054 a revisitar** após Astro 6 (já previsto em T40/T66).
+
+---
+
+## Correções pós-execução (Fase 3 — o que a investigação prévia NÃO previu)
+
+### 6. 🔴 `express-rate-limit` 7→8 — risco real > previsto
+**Previsão:** 🟢 só `max`+`message` string; sem `keyGenerator`/store custom.
+**Realidade:** Além de `max`→`limit`, v8 **removeu default export** → quebrou `import rateLimit from 'express-rate-limit'` (TS1005 parse error). Correção: `import { rateLimit }`. `message` string OK (tipo `any | ValueDeterminingMiddleware`). **4 arquivos afetados** (mesas rateLimit.ts + glossario feedbackRoutes.ts + migrationRoutes.ts).
+
+### 7. 🔴 `express-async-errors@3` — NÃO previsto no T5b
+**Realidade:** Package é peer `express@^4.16.2`, requer `express/lib/router/layer` internamente (caminho inexistente no Express 5). Causa crash no boot com `Cannot find module`. Express 5 já encaminha rejeições de async handlers nativamente. **Remoção obrigatória** (import + package.json). _Descoberto no review do PR #63._
+
+### 8. 🔴 `@types/express-serve-static-core@5` — `ParamsDictionary` — NÃO previsto
+**Realidade:** `ParamsDictionary[key: string]` mudou de `string` para `string | string[]` (path-to-regexp v8 wildcards nomeados). **38 erros** de tipo em `req.params.*` por todo `apps/mesas/backend`. Module augmentation (`declare module`) NÃO funciona com parâmetros genéricos de interface. Fix: `pnpm patch` sobrescrevendo o tipo.
+
+### 9. 🟡 `@types/multer@2.1.0` — dependência de `@types/express@4`
+**Realidade:** Mesmo após remover o override `@types/multer>@types/express` do root, `@types/multer@2.1.0` (última versão) depende de `@types/express@4` → `RequestHandler` incompatível com Express 5. `as any` nos 2 pontos de uso (mesas `upload.ts` + site `admin-api.ts`).
+
+### 10. 🟡 `pnpm patch` + Docker build — NÃO previsto
+**Realidade:** `package.json` referencia `pnpm.patchedDependencies` → `patches/...`. Dockerfiles que rodam `pnpm install --frozen-lockfile` precisam de `COPY patches ./patches`. `.dockerignore` do projeto NÃO bloqueia `patches/`. **2 falhas de deploy** com ENOENT antes do fix.
+
+**AGRAVANTE (2026-06-19, 3º deploy falho):** `COPY patches` precisa estar em **cada estágio** que roda `pnpm install --frozen-lockfile`. O `--frozen-lockfile` com `--prod` também falhou no mesas-backend porque a dep patchada (`@types/express-serve-static-core`) ainda era parte da árvore de resolução do estágio `--prod`. 
+
+**Hipótese a verificar (T29b):** o `--frozen-lockfile` valida existência de patch apenas para deps que fazem parte da árvore de instalação do estágio. Se uma dep patchada é devDependency e o estágio usa `--prod`, ela **não** deveria entrar na árvore e o patch não deveria ser exigido. Mas o mesas-backend `--prod` falhou — investigar o porquê (workspace link? hoisting?).
+
+**Dockerfiles afetados (inventário 2026-06-19):**
+
+| Dockerfile | Estágios com `pnpm install` | Tem `COPY patches`? |
+|---|---|---|
+| `apps/mesas/backend` | builder (L17) + production (L35) | ✅ ambos (L15 + L34, corrigido 2026-06-19) |
+| `apps/mesas/frontend` | builder (L38) | ✅ (L36) |
+| `apps/accounts` | deps (L7) + runtime (L19) | ❌ nenhum |
+| `apps/glossario/backend` | builder (L16) + production (L30) | ❌ nenhum |
+| `apps/glossario/frontend` | builder (L23) | ❌ |
+| `apps/site` | único (L14) | ❌ |
+
+**Tasks de investigação:** cada Dockerfile acima sem `COPY patches` precisa ser verificado ANTES do próximo deploy do respectivo app (built Docker na VM falha com ENOENT se o `pnpm.patchedDependencies` do root `package.json` estiver ativo). Ver tasks.md Fase 5.
+
+### 11. 🟡 Express 5 `*` wildcard — comportamento confirmado
+**Realidade:** path-to-regexp v8 aceita `*` como bare wildcard (token type "wildcard"). `'*'` casa qualquer path inclusive raiz `/`. `'/*splat'` NÃO casa raiz. `'/{*splat}'` é sintaxe inválida. O `'*'` original do código estava correto. _Descoberto: `/*splat` quebrou fallback SEO da home (og_proxy reescreve `/` → `/og/`)._
 
 > Próximo passo (Fase 1 → Fase 2): este doc fecha T5b (mapa de impacto). Antes de QUALQUER migração, T6 (backup git tag + lockfile) — exige aprovação só no push; tag local não. Execução = DeepSeek por task, com ficha fechada Claude + g1-governance-reviewer no diff.
