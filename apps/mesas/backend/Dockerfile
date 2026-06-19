@@ -4,7 +4,7 @@
 # =============================================================================
 
 # Estágio 1: build TypeScript
-FROM node:25.9.0-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /repo
 RUN npm install -g pnpm@10.12.1
@@ -18,7 +18,7 @@ RUN pnpm -w turbo run build --filter=@artificio/mesas-backend
 
 # =============================================================================
 # Estágio 2: imagem de produção (apenas o necessário)
-FROM node:25.9.0-alpine AS production
+FROM node:24-alpine AS production
 
 WORKDIR /repo
 ENV NODE_PATH=/repo/apps/mesas/backend/node_modules

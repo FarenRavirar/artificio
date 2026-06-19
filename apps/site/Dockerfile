@@ -1,7 +1,7 @@
 # Site (blog Astro SSG) — imagem única: instala deps + builda pacotes compartilhados.
 # O build do Astro NÃO roda na imagem (depende do DB+WP) → roda no entrypoint (runtime).
 # base slim (glibc) p/ o binário do Pagefind (musl/alpine daria problema).
-FROM node:25.9.0-slim
+FROM node:24-slim
 
 WORKDIR /repo
 RUN npm install -g pnpm@10.12.1
