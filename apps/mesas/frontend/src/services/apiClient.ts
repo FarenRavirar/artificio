@@ -177,7 +177,7 @@ export async function apiClient<T>(
         if (!skipErrorToast) {
           showError(message);
         }
-        throw new Error(message);
+        throw new Error(message, { cause: err });
       }
       
       throw err;

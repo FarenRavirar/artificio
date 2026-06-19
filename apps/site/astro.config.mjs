@@ -9,7 +9,28 @@ export default defineConfig({
   site: process.env.PUBLIC_SITE_URL || "https://artificiorpg.com",
   trailingSlash: "always", // preserva permalink WP `/blog/<slug>/` (D047)
   integrations: [sitemap()],
+  // Site sem markdown — desabilita syntax highlighting (remove warning CSP/Shiki)
+  markdown: { syntaxHighlight: false },
   vite: {
     plugins: [tailwindcss()],
+  },
+  security: {
+    csp: {
+      // Astro 6 CSP nativa: gera hashes SHA-256 p/ <script is:inline> + <style>.
+      // Emite <meta http-equiv="content-security-policy"> no <head> de cada pagina.
+      // Funciona em SSG (static) sem adapter — o meta tag vai no HTML gerado.
+      directives: [
+        "default-src 'self'",
+        "img-src 'self' data: https://res.cloudinary.com",
+        "media-src 'self' https://res.cloudinary.com",
+        "connect-src 'self' https://accounts.artificiorpg.com https://www.google-analytics.com",
+      ],
+      scriptDirective: {
+        resources: ["'self'", "https://www.googletagmanager.com"],
+      },
+      styleDirective: {
+        resources: ["'self'"],
+      },
+    },
   },
 });

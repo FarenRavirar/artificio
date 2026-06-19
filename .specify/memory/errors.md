@@ -63,3 +63,11 @@
 - **Solução:** contrato D069/spec 023. Nginx: `set_real_ip_from ${TRUSTED_REAL_IP_FROM}` (default `172.18.0.0/16`, subnet da `artificio_net`) + `real_ip_header CF-Connecting-IP`, e repassar `$remote_addr`. Express direto: `app.set("trust proxy", TRUSTED_PROXY_CIDR)` com default `172.18.0.0/16`.
 - **Prevenção:** rodar `node scripts/ci/check_ingress_realip_contract.mjs`; busca final por `$proxy_add_x_forwarded_for`, `proxy_set_header X-Forwarded-For $http_cf_connecting_ip` e `app.set("trust proxy", 1)`. Ao recriar rede Docker, atualizar env `TRUSTED_REAL_IP_FROM`/`TRUSTED_PROXY_CIDR`.
 - **Data:** 2026-06-15
+
+### E007 — Push bloqueado: secret em arquivo de diagnóstico/backup no commit
+- **Módulo/Pacote:** git/GitHub Push Protection
+- **Sintoma:** `git push` rejeitado com `GH013: Push cannot contain secrets`. O GitHub detecta token/refresh token em arquivo dentro do commit (ex.: dump SQL de diagnóstico em `artifacts/`).
+- **Causa raiz:** `git add -A` (ou `git add .`) estagiou arquivos untracked em `artifacts/`/diretório de diagnóstico que continham secrets em plaintext (ex.: dump SQL com `refresh_token`). Esses arquivos eram lixo de diagnóstico de fases anteriores, não parte do trabalho atual.
+- **Solução:** (1) remover o arquivo do commit via `git rm --cached` + `git commit --amend`; (2) verificar se outros arquivos no mesmo commit também contêm secrets (`rg -l 'refresh_token\|client_secret\|PRIVATE KEY' artifacts/`); (3) adicionar `artifacts/` ao `.gitignore` se ainda não estiver; (4) force-push do amend (`git push --force-with-lease`).
+- **Prevenção:** nunca `git add -A` em repo com lixo de diagnóstico; usar `git add` por path específico. Verificar arquivos untracked antes de commit. `artifacts/` deve estar no `.gitignore` ou conter apenas arquivos sem secrets.
+- **Data:** 2026-06-19

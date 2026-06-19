@@ -89,6 +89,8 @@ img { max-width: 100%; height: auto; display: block; }
   max-width: 1100px; margin: 0 auto; padding: 24px 24px 64px;
   display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 56px; align-items: start;
 }
+/* Institutional pages without TOC rail — single column */
+.article-wrap.article-wrap--single { grid-template-columns: minmax(0, 1fr); }
 .breadcrumb { grid-column: 1 / -1; color: var(--muted); font-size: 13px; padding: 8px 0 4px; }
 .breadcrumb a { text-decoration: none; }
 .breadcrumb a:hover { color: var(--accent-deep); }
@@ -214,3 +216,6 @@ img { max-width: 100%; height: auto; display: block; }
   .grid { grid-template-columns: 1fr; }
   .prose { font-size: 18px; }
 }
+
+/* Pagefind fallback (busca indisponível no dev) */
+.pagefind-fallback { color: var(--muted); }

@@ -169,6 +169,7 @@
 
 **Investigação T64a (glossario Vite, 2026-06-19):** `vite.config.ts` simples (`react()` + alias `@`, 13 linhas) — zero API deprecated, zero `build.target` custom, compatível com Vite 8 sem ajuste. Precedente accounts (T63, mesma config) migrou sem alteração de código.
 
+**Resultado T64a (2026-06-19):** ✅ glossario-frontend Vite `^5.2.0`→`^8.0.16` + plugin-react `^4.2.1`→`^6.0.2` concluído. Config sem alteração (só adicionado plugin `@tailwindcss/vite`; 13→15 linhas). Vite `8.0.16` unificado nos 5 apps (accounts, glossario, mesas-frontend, site-admin, ui). `@vitejs/plugin-react` `6.0.2` unificado nos 5 apps. Build ✅ (vite 8, 982ms, 30 chunks, CSS 61.2 KB). `turbo build --force` 13/13 verde.
 
 
 
@@ -190,6 +191,8 @@
 **Rollback:** `git tag pre-033-f4b-glossario` + cópia de `tailwind.config.ts`/`postcss.config.js` em `artifacts/033/`.
 
 **CORREÇÃO (investigação T64a, 2026-06-19):** a ação diz "postcss.config.js → @tailwindcss/postcss". **ERRADO para Vite.** Glossario-frontend usa Vite → o correto é **deletar** `postcss.config.js` e usar plugin `@tailwindcss/vite` no `vite.config.ts` (como mesas-frontend/site). `@tailwindcss/postcss` é para projetos sem Vite. `autoprefixer` e `postcss` devDeps viram desnecessários (Tailwind v4 inclui autoprefixer; `@tailwindcss/vite` dispensa postcss standalone). 0 usos de `@apply`, 0 classes utilitárias Tailwind nativas — componentes usam CSS vars de `@artificio/ui` → baixo risco de quebra visual. 31 arquivos fonte.
+
+**Resultado T64a (2026-06-19):** ✅ migração Tailwind 3→4 concluída. Removidos `postcss.config.js` + `tailwind.config.ts`. `index.css`: `@import 'tailwindcss'` + `@theme` (6 cores: azul-escuro, laranja, branco, cinza-fundo, cinza-texto, azul-medio) + `@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *))`. `@tailwindcss/vite` adicionado ao `vite.config.ts`. `autoprefixer`+`postcss` devDeps removidos. Tailwind `4.3.1` unificado (glossario, mesas-frontend, site). Build ✅ CSS 61.2 KB. **Fix pós-migração:** `--font-family-sans` → `--font-sans` (token Tailwind v4 correto; commit `315d483`). Dark mode D065 preservado.
 
 ---
 
@@ -217,20 +220,150 @@ export default defineConfig([ globalIgnores(['dist']), { files:['**/*.{ts,tsx}']
 
 **Investigação T64a (2026-06-19):** versões verificadas no registry: eslint 10.5.0 ⬆️, typescript-eslint 8.61.1 ⬆️ (latest stable; sem 8.61.2 release), react-hooks 7.1.1 ⬆️ (não v5 como dizia breaking-changes), react-refresh 0.5.3 ⬆️, @eslint/js 10.0.1 ⬆️, globals 17.6.0 ⬆️. Todos com peer eslint `^10` ✅. typescript-eslint peer TS `<6.1.0` compatível com `~6.0.3` ✅. O template `eslint.config.js` do mesas (23 linhas) é copiável verbatim (mesma estrutura TS+React).
 
+**Resultado T64a (2026-06-19):** ✅ migração concluída. `eslint.config.js` flat criado (23 linhas, espelho mesas-frontend: `defineConfig` + `globalIgnores(['dist'])` + `tseslint.configs.recommended` + `reactHooks.configs.flat.recommended` + `reactRefresh.configs.vite`). Deps unificados: `eslint` 10.5.0, `typescript-eslint` 8.61.1 (substitui `@typescript-eslint/{eslint-plugin,parser}` v7), `react-hooks` 7.1.1, `react-refresh` 0.5.3, +`@eslint/js` 10.0.1, `globals` 17.6.0. Script lint: removido `--ext ts,tsx` (flat config ignora). **Lint AGORA RODA** (antes abortava "No ESLint configuration found"). **52 problemas pré-existentes** (50 erros + 2 warnings): `set-state-in-effect`, `static-components`, `preserve-caught-error`, `no-explicit-any`, `no-unused-vars`, `react-refresh/only-export-components` — regras novas do ESLint 10 + código antigo; correção em T66. Revisor amazon-q alegou falso-positivo (`defineConfig`/`globalIgnores` inexistentes em `eslint/config`) — verificado com `node -e "import('eslint/config')"` retornou ambos; `pnpm lint` roda sem erro de módulo.
+
 ---
 
-## 11. astro 5 → 6 (site) 🟡
+## 11. eslint 9 → 10 (root + mesas-frontend) 🟡 — T65
+
+**Fonte canônica da investigação:** `tasks.md` T65 + `sessoes/26-06-18_3_infra_toolchain-update-spec.md` (T65).
+
+**Investigação T65 (2026-06-19):** root em eslint `^9.28.0`/typescript-eslint `^8.33.1`; mesas-frontend em eslint `^9.39.4`/typescript-eslint `^8.57.0`/react-hooks `^7.0.1`/react-refresh `^0.5.2`. Ambos já flat config ✅.
+
+**Target:** eslint `^10.5.0`, typescript-eslint `^8.61.1`, @eslint/js `^10.0.1`, react-hooks `^7.1.1`, react-refresh `^0.5.3`, globals `^17.6.0`.
+
+**Peer deps (verificados via `npm view`, revisão 2026-06-19):** todos compatíveis ✅. typescript-eslint 8.61.1 peer eslint `^8.57||^9||^10` ✅ + TS `>=4.8.4 <6.1.0` → TS atual `6.0.3` ✅. react-hooks 7.1.1 peer eslint até `^10` ✅. eslint 10.5.0 engine `^20.19||^22.13||>=24` → Node `26.3.0` ✅. **jiti** = peer **OPCIONAL** (`peerDependenciesMeta.jiti.optional = true`) → pnpm NÃO warna; jiti só serve p/ config `.ts`; nossos configs são `.js` → irrelevante, **não adicionar**.
+
+**Breaking changes ESLint 9→10 impactantes:**
+
+1. **3 novas regras em `eslint:recommended`:** `no-unassigned-vars`, `no-useless-assignment`, `preserve-caught-error`. Ambos configs (root `packages/config/eslint.config.js` e `mesas-frontend/eslint.config.js`) usam `js.configs.recommended` → **novos erros esperados**.
+
+2. **JSX reference tracking:** `<Component>` vira referência. Pode reduzir falsos-positivos de `no-unused-vars` no mesas-frontend (hoje um `<Card>` não era reconhecido como uso do `import Card`).
+
+3. **`jiti` peer dep — NÃO é risco (revisão 2026-06-19):** eslint 10.5.0 lista `jiti: *` mas marcado `optional` em `peerDependenciesMeta` → pnpm não warna por ausência. Só usado p/ config `.ts`/`.mts`; configs do projeto são `.js`. **Não adicionar jiti.**
+
+4. **Config lookup cwd→file-based:** cada package tem `eslint.config.js` na raiz, sem impacto.
+
+5. **`eslint/config` (`defineConfig`/`globalIgnores`):** mantidos no ESLint 10, compatível.
+
+6. **`eslint-env` comments:** zero ocorrências no código (rg confirmou).
+
+7. **`no-shadow-restricted-names`** reporta `globalThis`: improvável impacto.
+
+**Configs afetados:**
+- `packages/config/eslint.config.js` (19 linhas) — sem deps próprios, depende do eslint hoisted do root.
+- `apps/mesas/frontend/eslint.config.js` (23 linhas) — `defineConfig` + `globalIgnores`.
+
+**Baseline lint pré-T65:**
+- `turbo run lint` falha (3 packages sem config: auth/content/analytics — débito BL-033 pré-existente).
+- mesas-frontend: **29 errors + 1 warning** (`react-hooks/set-state-in-effect` + `immutability` + `exhaustive-deps`).
+
+**Verificação da investigação (revisão 2026-06-19 — testada):**
+- Versões atuais root/mesas confirmadas em `package.json` ✅.
+- Target versions todas existem (latest npm): eslint 10.5.0, @eslint/js 10.0.1, typescript-eslint 8.61.1, react-hooks 7.1.1, react-refresh 0.5.3, globals 17.6.0 ✅.
+- Ambos configs usam `js.configs.recommended` (root array; mesas `defineConfig`/`globalIgnores`) ✅.
+- `eslint-env`: zero ocorrências (grep) ✅. `jiti`: ausente do workspace ✅ (e irrelevante, ver ponto 3).
+- Baseline mesas-frontend reconfirmado: **29 errors + 1 warning** (`✖ 30 problems`) ✅.
+- **Único risco real = delta das 3 regras novas** do ponto 1. Nenhum risco de versão/peer (tudo verde).
+
+**Ação (T65 migração):**
+1. Bump root: `eslint ^10.5.0`, `@eslint/js ^10.0.1`, `typescript-eslint ^8.61.1`.
+2. Bump mesas-frontend: idem + `eslint-plugin-react-hooks ^7.1.1`, `eslint-plugin-react-refresh ^0.5.3`, `globals ^17.6.0`.
+3. `packages/config`: sem edição (hoisting). **Não** adicionar jiti.
+4. `pnpm install`; confirmar zero erro de peer.
+5. `pnpm why eslint`=`10.5.0` / `@eslint/js`=`10.0.1` / `typescript-eslint`=`8.61.1` único cada.
+6. Lint **por pacote** (não turbo agregado, que cai por BL-033): `pnpm --filter @artificio/config lint` + mesas `eslint .`. Registrar delta vs baseline (mesas 29+1).
+7. Triar erros das 3 regras novas: corrigir mínimo agora ou virar débito BL-033 documentado — nunca fechar escondendo regressão.
+
+**Feito quando:** `pnpm why eslint`=`10.5.0` único; lint roda; delta documentado.
+
+**Resultado T65 (2026-06-19):** ✅ migração executada. `pnpm install` limpo (zero peer warnings novos; jiti não adicionado). `pnpm why eslint`=10.5.0 único, `typescript-eslint`=8.61.1 único, `@eslint/js`=10.0.1 único. `packages/config` lint 0 erros (sem delta). `mesas-frontend` lint: **31 errors + 1 warning** (baseline 29+1; delta +2). Delta = `preserve-caught-error` em 2 arquivos (`profileSchemas.ts:159`, `apiClient.ts:180`). `no-unassigned-vars`/`no-useless-assignment` zero ocorrências. ZERO regressão.
+
+**T65b — correção `preserve-caught-error` (2026-06-19):** ✅ 2 erros corrigidos com `{ cause: <erro original> }` ao `new Error()`. Lint final: **29 errors + 1 warning** = baseline pré-T65 (delta 0). `turbo build --force` 13/13 verde.
+
+---
+
+## 12. astro 5 → 6 (site) 🟢
 
 **Mudança 5→6:** Node `>=22.12` (Node 24 OK); breaking de config/content collections/integrations; `@astrojs/check` compat. Per D054, "Astro 6 público usa Vite 7" — confirmar Vite que o Astro 6 traz (o site usa o Vite embutido do Astro, não o Vite standalone do toolchain).
 
 **Uso real:**
 - `apps/site/astro.config.mjs` — `defineConfig` com `site`, `trailingSlash:"always"` (D047, preserva permalink WP), `integrations:[sitemap()]`, `vite.plugins:[tailwindcss()]` (já `@tailwindcss/vite` v4).
 - Integrations: `@astrojs/sitemap`. `@tailwindcss/vite`.
+- Conteúdo: `src/data/posts.json`/`pages.json` via `src/lib/content.ts` — **sem Content Collections** (não há `src/content/`).
+- Endpoints: `rss.xml.ts` + `robots.txt.ts` (com extensão de arquivo).
+- 4 rotas com `getStaticPaths()` (blog/[slug], tag, categoria, [slug]) — **sem** `Astro.site`/`Astro.generator` dentro da função.
 
-**Impacto:** config enxuta → migração provavelmente leve. Risco = content collections API e `@astrojs/sitemap`/`@astrojs/check` major-compat.
-**Ação:** (T66) bump `astro ^5.5.0`→`^6.4.8` + `@astrojs/*` compat; aplicar mudanças de config; **revisitar D054**.
+**Impacto:** LOW. Site usa Astro básico (zero adapters, zero islands React, zero content collections, zero SSR, zero ViewTransitions, zero Astro.glob). Riscos analisados item a item abaixo.
+
+**Investigação T66 (2026-06-19):**
+
+| Breaking change | Afeta? | Detalhe |
+|---|---|---|
+| Node 22.12+ | ✅ OK | Node 24 |
+| Vite 7.0 | ✅ OK | `@tailwindcss/vite` peer: `^5 \|\| ^6 \|\| ^7 \|\| ^8` |
+| Content Collections legacy removido | ✅ N/A | Site não usa `src/content/` — conteúdo = JSON fixtures |
+| Zod 4 | ✅ OK | Já zod 4.4.3 no monorepo (T61); sem uso direto no site |
+| Shiki 4.0 | ✅ N/A | Sem syntax highlighting no site |
+| `Astro` em `getStaticPaths()` deprecado | ✅ OK | getStaticPaths só retorna `params`, não acessa `Astro` |
+| `Astro.glob()` removido | ✅ N/A | Não usado |
+| `<ViewTransitions />` removido | ✅ N/A | Não usado |
+| `import.meta.env.ASSETS_PREFIX` deprecado | ✅ N/A | Não usado |
+| `astro:schema` deprecado | ✅ N/A | Não usado |
+| CommonJS config removido | ✅ OK | `.mjs` é ESM |
+| Endpoints com extensão + trailing slash | ✅ OK | `rss.xml`/`robots.txt` linkados sem `/`; Astro 6 força sem `/` |
+| `getStaticPaths()` params number | ✅ OK | Todos slugs = string |
+| `import.meta.env` inline | ✅ OK | `process.env.PUBLIC_SITE_URL` usado só no config |
+| `@astrojs/sitemap@3.7.3` | ✅ OK | Latest, sem peer deps, compatível Astro 6 |
+| `@astrojs/rss@4.0.18` | ✅ OK | Latest, sem peer deps, compatível Astro 6 |
+| `@astrojs/check` | ✅ N/A | Não instalado |
+| D054 revisitar | ✅ OK | Astro 6 usa Vite 7 interno; site não mistura Vite próprio |
+
+**Conclusão:** migração é **bump mecânico**: `astro ^5.5.0`→`^6.4.8`. Nenhuma integração `@astrojs/*` precisa bump (já no latest compatível). Nenhuma mudança de config necessária. Risco = **baixíssimo**.
+
+**Resultado T66 (2026-06-19):** ✅ migração executada. `pnpm install` limpo (+31/-5, zero peer warnings novos). `astro@6.4.8` resolvido. `astro build` 46 páginas em 6.60s, sitemap OK, Pagefind OK. `turbo build --force` **13/13 verde** (1m15s). Vitest 22/22 pass. Dist verificado: `rss.xml` (5027B), `robots.txt` (76B), `sitemap-index.xml` (187B), canonical correto (`https://artificiorpg.com`). ZERO `.astro` legacy. **ZERO regressão. ZERO mudança de config.**
+
+**Ação:** (T66) ✅ concluído.
 **Teste:** `turbo build --filter=@artificio/site --force`; `pnpm --filter @artificio/site test`; verificar `dist` (blog, `/sitemap-index.xml`, páginas, canonicals).
-**Rollback:** `git tag pre-033-f4b-astro` + cópia `astro.config.mjs`.
+**Rollback:** `git tag pre-033-f4b-astro` + cópia `astro.config.mjs` + `pnpm-lock.yaml.pre-astro.bak`.
+
+### 12b. Features Astro 6 — análise de adoção (T66b, 2026-06-19)
+
+Análise das novas funcionalidades estáveis do Astro 6 vs realidade do projeto:
+
+| Feature | Aplicável? | Detalhe |
+|---|---|---|
+| **CSP Nativa** | ✅ implementado | Gera hashes para `<script is:inline>`. Site tem 5 inline scripts. Investigação inicial assumiu que exigia adapter HTTP — **corrigido**: CSP usa `<meta http-equiv>` tag, funciona em SSG sem adapter. Implementado: `security.csp` em `astro.config.mjs`, 5 hashes SHA-256 auto + diretivas, 46/46 páginas. `BL-ASTRO6-CSP` FECHADO. |
+| **Fonts API** | ❌ N/A | Site usa fontes de sistema (sem Google/Fontsource) |
+| **Live Content Collections** | ❌ N/A | Conteúdo = JSON estático, não collections |
+| **Sätteri Markdown (Rust)** | ❌ N/A | Site não tem `.md` — melhoria de build automática, zero ação |
+| **Queued Rendering** | ✅ auto | Melhoria interna de memória, zero ação |
+| **Hono routing** | ❌ N/A | Experimental, não é nossa stack |
+| **`@astrojs/cloudflare` adapter** | ❌ N/A | Não instalado. Cloudflare Tunnel (`cloudflared`) + Cloudinary = infra própria, sem relação com o adapter Astro |
+| **`output: 'hybrid'` removido** | ✅ N/A | Site usa `static` (default) |
+
+**Conclusão T66b:** Nenhuma feature Astro 6 demanda ação adicional. CSP implementado com sucesso via meta tag sem adapter. `BL-ASTRO6-CSP` FECHADO.
+
+**CSP implementado (2026-06-19):** ✅ Descoberta crítica: Astro 6 CSP NÃO requer adapter — usa `<meta http-equiv="content-security-policy">` (funciona em SSG!). Config `security.csp` adicionada em `astro.config.mjs`:
+
+```js
+security: {
+  csp: {
+    directives: [
+      "default-src 'self'",
+      "img-src 'self' data: https://res.cloudinary.com",
+      "connect-src 'self' https://accounts.artificiorpg.com https://www.google-analytics.com",
+    ],
+    scriptDirective: {
+      resources: ["'self'", "https://www.googletagmanager.com"],
+    },
+  },
+}
+```
+
+**Resultado:** 46/46 páginas geram `<meta http-equiv="content-security-policy">` com 5 hashes SHA-256 (Base.astro×3 + Analytics + SearchModal) + diretivas externas. `turbo build --force` 13/13 verde. Vitest 22/22. `BL-ASTRO6-CSP` FECHADO.
+
+**Warning residual:** Shiki (syntax highlighting) emite warning de incompatibilidade com CSP — inofensivo (site não usa Shiki/syntax highlighting).
 
 ---
 
@@ -285,3 +418,64 @@ export default defineConfig([ globalIgnores(['dist']), { files:['**/*.{ts,tsx}']
 **Impacto:** 4º deploy falho do mesas-beta — crash no boot `PathError: Missing parameter name at index 1: *`.
 
 > Próximo passo (Fase 1 → Fase 2): este doc fecha T5b (mapa de impacto). Antes de QUALQUER migração, T6 (backup git tag + lockfile) — exige aprovação só no push; tag local não. Execução = DeepSeek por task, com ficha fechada Claude + g1-governance-reviewer no diff.
+
+---
+
+## 13. `pnpm audit --prod` — 7 vulnerabilidades (T67, 2026-06-19) 🔴
+
+**Achado:** `pnpm audit --prod` retorna 7 vulnerabilidades (3 HIGH, 3 MODERATE, 1 LOW). Todas pré-existentes (não introduzidas pela Fase 4B). Investigadas uma a uma.
+
+### 13a. `xlsx@0.18.5` — 2 HIGH 🔴 não corrigível
+
+- **GHSA-4r6h-8v6p-xvw6** (Prototype Pollution), **GHSA-5pgg-2g8v-p4x9** (ReDoS)
+- **Uso:** `apps/glossario/frontend/src/pages/ImportPage.tsx` — parse de Excel client-side no admin de importação
+- **Cadeia:** dep direta do glossario-frontend
+- **Status no npm:** última versão publicada = `0.18.5` (a mesma). Advisories citam `>=0.19.3`/`>=0.20.2` como patched, mas **essas versões não existem no npm**. Package aparenta estar abandonado (SheetJS).
+- **Risco prático:** BAIXO. Funcionalidade admin-only, client-side. Um admin malicioso teria que fazer upload de xlsx crafted para explorar o próprio browser. Sem exposição a usuários públicos.
+- **Mitigação:** aceitar risco ou substituir xlsx por alternativo (ex.: `exceljs` já usado no backend, mas é Node-only). **SDD Completo se substituir.**
+
+### 13b. `form-data@4.0.5` via `axios@1.18.0` — 1 HIGH 🟡 corrigível
+
+- **GHSA-hmw2-7cc7-3qxx** (CRLF injection em multipart field names/filenames)
+- **Uso:** `apps/glossario/frontend` — axios é usado para chamadas HTTP (API glossario, feedback, etc.)
+- **Cadeia:** `axios@1.18.0` → `form-data@^4.0.5` (resolvido: `4.0.5`)
+- **Patch:** `form-data@4.0.6` já publicado. axios `^4.0.5` range aceita `4.0.6`.
+- **Mitigação:** `pnpm.overrides` no root `package.json`: `"form-data": ">=4.0.6"`. **SDD Lite (override + pnpm install + smoke).**
+
+### 13c. `nanoid@4.0.2` via `react-markdown-editor-lite@1.4.2` — 1 MOD 🟡 parcial
+
+- **GHSA-mwcw-c2x4-8c55** (resultados previsíveis com valores não-inteiros)
+- **Uso:** `apps/mesas/frontend` — editor markdown nos formulários de mesa
+- **Cadeia:** `react-markdown-editor-lite@1.4.2` → `nanoid@^4.0.2` (resolvido: `4.0.2`)
+- **Patch:** `nanoid@5.1.14` disponível, mas é **major** — não compatível com `^4.0.2`. `react-markdown-editor-lite` está ativo (último release 2026-01-21) mas não atualizou o range.
+- **Risco prático:** BAIXO. Vulnerabilidade requer seed não-inteiro intencional. Uso interno no editor.
+- **Mitigação:** aguardar update do upstream ou aceitar risco. Override forçado `nanoid@^5` pode quebrar.
+
+### 13d. `uuid@8.3.2` via `exceljs@4.4.0` — 1 MOD 🟡 parcial
+
+- **GHSA-w5hq-g745-h8pq** (Missing buffer bounds check)
+- **Uso:** `apps/glossario/backend` — geração de Excel server-side
+- **Cadeia:** `exceljs@4.4.0` → `uuid@^8.3.0` (resolvido: `8.3.2`)
+- **Patch:** `uuid@11.1.1` disponível, major incompatível. `exceljs@4.4.1-prerelease.0` ainda usa `^8.3.0`.
+- **Mitigação:** aguardar exceljs 4.4.1+ com uuid atualizado ou aceitar risco.
+
+### 13e. `dompurify@3.4.8` — 1 MOD + 1 LOW 🟢 corrigível
+
+- **GHSA-cmwh-pvxp-8882** (ALLOWED_ATTR pollution via setConfig bypass, MOD), **GHSA-vxr8-fq34-vvx9** (Trusted Types policy survives clearConfig, LOW)
+- **Uso:** `apps/mesas/frontend/src/utils/sanitize.ts` — sanitização de HTML de conteúdo de usuário (descrições de mesa, etc.)
+- **Cadeia:** dep direta do mesas-frontend
+- **Patch:** `dompurify@3.4.11` já publicado. `^3.4.x` compatível.
+- **Risco prático:** MÉDIO. Sanitização de user-content é fronteira de segurança. ALLOWED_ATTR pollution pode permitir bypass em cenários específicos.
+- **Mitigação:** **bump `dompurify ^3.4.x` → `^3.4.11`** em `apps/mesas/frontend/package.json`. **SDD Lite.**
+
+### Resumo e prioridade
+
+| Vuln | Correção | Esforço |
+|---|---|---|
+| dompurify (mesas) | ✅ bump 3.4.8→3.4.11 | SDD Lite (1 arquivo) |
+| form-data (glossario) | ✅ pnpm override → 4.0.6 | SDD Lite (1 linha) |
+| xlsx (glossario) | ❌ sem patch publicado | Aceitar risco ou substituir lib |
+| nanoid (mesas) | ❌ bloqueado por upstream | Aguardar react-markdown-editor-lite |
+| uuid (glossario-back) | ❌ bloqueado por upstream | Aguardar exceljs 4.4.1+ |
+
+**Recomendação:** corrigir dompurify + form-data agora (SDD Lite, 2 ações). xlsx/nanoid/uuid = débito documentado, aceitar risco.
