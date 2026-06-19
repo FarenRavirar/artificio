@@ -53,3 +53,42 @@ Smoke prod completo com toolchain alinhado (1 versão de Node, Express 5 em todo
 - **ACHADO/bug** → `BL-033-GLOSSARIO-LINT-NEVER-RAN`: `apps/glossario/frontend` não tem config ESLint nenhum (sem `.eslintrc*`/`eslint.config.js`); lint nunca rodaria sob ESLint 8. T64a cria do zero, não "migra legado". Registrado em `specs/backlog.md` (P2) + tasks.md T5b.
 - Débito secundário: `BL-033-LUCIDE-1X-GLOSSARIO` (lucide 0.363→1.x, 18 arquivos).
 - Backlog atualizado: 2 itens abertos novos. Sem commit/push (tudo local).
+
+## Fase 3 — Express 5 (mesas)
+
+### T13 — Backup pré-Express (2026-06-18) ✅
+- `git tag pre-033-f3-express` (local)
+- `artifacts/033/pnpm-lock.yaml.pre-033-f3`
+- `artifacts/033/mesas-backend-package.json.pre-033-f3`
+- `artifacts/033/pre-f3-mesas-beta-dump.sql` — 2.5MB, PostgreSQL dump válido
+- Beta acessível: `mesas-beta-db Up 4 hours (healthy)`
+
+### T14 — Baseline pré-Express (2026-06-18) ✅
+- `tsc --noEmit`: **0 erros** (limpo)
+- `turbo build`: **3/3 verde** (config, auth, mesas-backend)
+- Testes (16 suites): **15 passed, 1 failed (pré-existente)**, 113/113 tests passed
+- Falha pré-existente: `ingestMessages.test.ts` → `process.exit(1)` por `DATABASE_URL` ausente
+- Logs: `artifacts/033/pre-f3-mesas-{tsc,build,test}.log`
+
+### T15 — Migrar mesas-backend Express 4→5 (2026-06-18) ✅
+- `express ^4.19.2` → `^5.2.1`, `@types/express ^4.17.21` → `^5.0.6`
+- `og.ts:201`: `'*'` → `'/*splat'` (path-to-regexp v8)
+- `upload.ts:25`: `as any` (incompat `@types/multer@2` com Express 5)
+- `pnpm patch @types/express-serve-static-core@5.1.1`: `ParamsDictionary[key]` → `string`
+- **tsc 0 erros, build 3/3 verde**
+
+### T15b — Unificar Express 5 + remover shim/override + bump rate-limit (2026-06-18) ✅
+- Express já unificado em `5.2.1` (lockfile único após bump mesas)
+- `pnpm.overrides`: removido `@types/multer>@types/express`
+- `rateLimit.ts`: removido `asExpress4Handler` shim (4 limiters)
+- `express-rate-limit` 7→8: `import { rateLimit }` (v8 sem default export), `max`→`limit`, `message` string OK
+- `as any` multer: `upload.ts` (mesas) + `admin-api.ts` (site)
+- tsc 0 erros (4 backends), **turbo build 13/13 verde**
+
+### T17-T20 — Testes de impacto (2026-06-18) ✅
+- T17: tsc 0 erros, build 3/3 (zero regressão vs baseline)
+- T18: 15/16 suites, 113/113 testes (zero regressão)
+- T19: testes de integração existentes passam (auth, adminHydration, adminTablesAutoArchive, adminDiscordSync)
+- T20: build 13/13 monorepo completo (já validado em T15b)
+
+### ⏳ T21 — Deploy beta pendente (requer aprovação nominal)

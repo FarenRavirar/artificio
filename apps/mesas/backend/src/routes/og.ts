@@ -198,7 +198,7 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
   }
 });
 
-router.get('*', async (req: Request, res: Response) => {
+router.get('/*splat', async (req: Request, res: Response) => {
   try {
     const html = await loadIndexHtml();
     const output = injectMetaTags(html, getFallbackMeta(req.path));
