@@ -22,7 +22,7 @@ const upload = multer({
   },
 });
 
-router.post('/upload', authMiddleware, upload.single('file'), async (req, res) => {
+router.post('/upload', authMiddleware, upload.single('file') as any, async (req, res) => {
   try {
     if (!req.file) {
       res.status(400).json({ error: 'Nenhum arquivo enviado' });

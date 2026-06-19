@@ -4,7 +4,7 @@
 # =============================================================================
 
 # Estágio 1: build Vite
-FROM node:25.9.0-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /repo
 RUN npm install -g pnpm@10.12.1

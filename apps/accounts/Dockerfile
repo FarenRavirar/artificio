@@ -1,4 +1,4 @@
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /repo
 RUN corepack enable && corepack prepare pnpm@10.12.1 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
@@ -9,7 +9,7 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 RUN pnpm -w turbo run build --filter=@artificio/accounts
 
-FROM node:20-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 RUN corepack enable && corepack prepare pnpm@10.12.1 --activate

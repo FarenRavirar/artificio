@@ -217,7 +217,7 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
 
   // Upload multipart. Valida MIME real (magic bytes), rejeita SVG/desconhecido, sobe e registra.
   r.post("/media", (req, res) => {
-    upload.single("file")(req, res, async (err: unknown) => {
+    upload.single("file")(req as any, res as any, async (err: unknown) => {
       if (err) {
         const code = (err as { code?: string }).code === "LIMIT_FILE_SIZE" ? 413 : 400;
         res.status(code).json({ error: "upload_error", detail: String((err as Error).message) });
