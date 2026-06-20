@@ -30,9 +30,9 @@ export function parseInviteUrl(raw: string): ParsedInvite | null {
     return { url: `https://chat.whatsapp.com/${code}`, kind: "group" };
   }
   if (host === "whatsapp.com" || host === "www.whatsapp.com") {
-    const m = u.pathname.match(/^\/channel\/([A-Za-z0-9]{8,40})/);
-    if (!m) return null;
-    return { url: `https://whatsapp.com/channel/${m[1]}`, kind: "channel" };
+    const [seg, code = ""] = u.pathname.replace(/^\/+/, "").split("/");
+    if (seg !== "channel" || !/^[A-Za-z0-9]{8,40}$/.test(code)) return null;
+    return { url: `https://whatsapp.com/channel/${code}`, kind: "channel" };
   }
   return null;
 }
@@ -57,6 +57,15 @@ export async function fetchOgImage(inviteUrl: string): Promise<string | null> {
     return null;
   }
   if (!res.ok) return null;
+  // Defesa em profundidade: URL final pós-redirects deve continuar em host WhatsApp.
+  // parseInviteUrl() já valida a URL de entrada (allowlist estrita), mas redirects
+  // podem levar a outros destinos (ex.: servidor WhatsApp comprometido).
+  try {
+    const finalHost = new URL(res.url).hostname;
+    if (!["chat.whatsapp.com", "whatsapp.com", "www.whatsapp.com"].includes(finalHost)) return null;
+  } catch {
+    return null;
+  }
   const html = await res.text();
   const m = OG_IMAGE_RE.exec(html) ?? OG_IMAGE_RE_ALT.exec(html);
   const url = m?.[1];

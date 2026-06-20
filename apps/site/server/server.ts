@@ -36,7 +36,7 @@ if (process.env.SITE_NOINDEX === "true") {
 
 const requireAdmin: RequestHandler = (req, res, next) => {
   const session = (req as AuthenticatedRequest).session;
-  if (session?.user.role !== "admin") {
+  if (!session || session.user.role !== "admin") {
     res.status(403).json({ error: "forbidden" });
     return;
   }

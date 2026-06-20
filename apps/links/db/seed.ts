@@ -1,6 +1,7 @@
 // Seed dos grupos curados (data/groups.ts → tabela groups, source=curated status=active).
-// Idempotente por invite_url (ON CONFLICT). Resolve logo og→Cloudinary se CLOUDINARY_* presente;
-// senão deixa logo nula (não falha). Uso: pnpm --filter @artificio/links seed (requer DATABASE_URL).
+// Idempotente: groups por invite_url (ON CONFLICT), tags por slug (ON CONFLICT).
+// Resolve logo og→Cloudinary se CLOUDINARY_* presente; senão deixa logo nula (não falha).
+// Uso: pnpm --filter @artificio/links seed (requer DATABASE_URL).
 import { db } from "./index.js";
 import { GROUP_CATEGORIES } from "../src/data/groups.js";
 import { fetchOgImage } from "../server/lib/og.js";
@@ -31,7 +32,7 @@ for (const category of GROUP_CATEGORIES) {
     tagSlug.set(g.tag, slug);
     const exists = await db.selectFrom("group_tags").select(["id"]).where("slug", "=", slug).executeTakeFirst();
     if (!exists) {
-      await db.insertInto("group_tags").values({ slug, label: g.tag, sort_order: tagOrder }).execute();
+      await db.insertInto("group_tags").values({ slug, label: g.tag, sort_order: tagOrder }).onConflict((oc) => oc.column("slug").doNothing()).execute();
     }
     tagOrder += 1;
   }
@@ -89,6 +90,7 @@ for (const category of GROUP_CATEGORIES) {
           approved_at: new Date().toISOString(),
           ...(logo ?? {}),
         })
+        .onConflict((oc) => oc.column("invite_url").doNothing())
         .execute();
       inserted += 1;
     }

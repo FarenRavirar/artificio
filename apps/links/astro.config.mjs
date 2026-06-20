@@ -10,8 +10,8 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   site: process.env.PUBLIC_LINKS_URL || "https://links.artificiorpg.com",
   trailingSlash: "ignore",
-  // sitemap exclui /admin (noindex).
-  integrations: [react(), sitemap({ filter: (page) => !page.includes("/admin") })],
+  // sitemap exclui /admin (noindex). Regex ancora /admin como segmento — não exclui /grupo/admin-rpg.
+  integrations: [react(), sitemap({ filter: (page) => !/\/admin(?:\/|$)/.test(page) })],
   markdown: { syntaxHighlight: false },
   vite: {
     plugins: [tailwindcss()],
@@ -22,8 +22,8 @@ export default defineConfig({
         "default-src 'self'",
         // logos dos grupos = Cloudinary (secure_url) + data: (placeholders inline)
         "img-src 'self' data: https://res.cloudinary.com",
-        // ilhas falam com a própria API (mesma origem)
-        "connect-src 'self'",
+        // ilhas falam com a própria API (mesma origem) + SSO (accounts.artificiorpg.com)
+        "connect-src 'self' https://accounts.artificiorpg.com",
       ],
       styleDirective: {
         resources: ["'self'"],

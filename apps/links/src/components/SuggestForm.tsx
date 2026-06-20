@@ -19,7 +19,10 @@ function validInvite(raw: string): boolean {
     if (u.protocol !== "https:") return false;
     const h = u.hostname.toLowerCase();
     if (h === "chat.whatsapp.com") return /^[A-Za-z0-9]{8,40}$/.test(u.pathname.replace(/^\/+/, "").split("/")[0] ?? "");
-    if (h === "whatsapp.com" || h === "www.whatsapp.com") return /^\/channel\/[A-Za-z0-9]{8,40}/.test(u.pathname);
+    if (h === "whatsapp.com" || h === "www.whatsapp.com") {
+      const [seg, code = ""] = u.pathname.replace(/^\/+/, "").split("/");
+      return seg === "channel" && /^[A-Za-z0-9]{8,40}$/.test(code);
+    }
     return false;
   } catch {
     return false;
@@ -74,7 +77,11 @@ export default function SuggestForm() {
         return;
       }
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        const raw = await res.json().catch(() => null);
+        const body =
+          typeof raw === "object" && raw !== null && "error" in raw && typeof raw.error === "string"
+            ? (raw as { error: string })
+            : null;
         setErr(body?.error ?? "Não foi possível enviar. Tente novamente.");
         return;
       }

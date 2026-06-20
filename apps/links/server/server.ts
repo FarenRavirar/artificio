@@ -27,7 +27,7 @@ app.use(express.json({ limit: "256kb" }));
 
 const requireAdmin: RequestHandler = (req, res, next) => {
   const session = (req as AuthenticatedRequest).session;
-  if (session?.user.role !== "admin") {
+  if (!session || session.user.role !== "admin") {
     res.status(403).json({ error: "forbidden" });
     return;
   }
@@ -127,9 +127,14 @@ admin.use(requireAuth, requireAdmin);
 
 // Lista p/ moderação (qualquer status). ?status=pending p/ a fila.
 admin.get("/groups", async (req, res) => {
-  const status = req.query.status as GroupStatus | undefined;
-  const rows = await Groups.listGroups(status ? { status } : {});
-  res.json({ data: rows });
+  try {
+    const status = req.query.status as GroupStatus | undefined;
+    const rows = await Groups.listGroups(status ? { status } : {});
+    res.json({ data: rows });
+  } catch (e) {
+    console.error("[GET /admin/groups]", e);
+    res.status(500).json({ error: "erro interno" });
+  }
 });
 
 // Resolve a logo (og:image do convite → Cloudinary). Não-fatal. Devolve patch parcial.
@@ -147,123 +152,155 @@ async function resolveLogo(inviteUrl: string): Promise<{ logo_url: string; logo_
 
 // Aceitar sugestão → active + resolve logo.
 admin.post("/groups/:id/accept", async (req, res) => {
-  const g = await Groups.findById(req.params.id);
-  if (!g) {
-    res.status(404).json({ error: "não encontrado" });
-    return;
+  try {
+    const g = await Groups.findById(req.params.id);
+    if (!g) {
+      res.status(404).json({ error: "não encontrado" });
+      return;
+    }
+    const logo = g.logo_url ? null : await resolveLogo(g.invite_url);
+    const slug = g.slug ?? (await Groups.ensureUniqueSlug(slugify(g.name), g.id));
+    const approved_at = g.approved_at ? undefined : new Date().toISOString();
+    const updated = await Groups.updateGroup(g.id, { status: "active", slug, approved_at, ...(logo ?? {}) });
+    res.json({ data: updated });
+    runJob("rebuild", "rebuild");
+  } catch (e) {
+    console.error("[POST /admin/groups/:id/accept]", e);
+    res.status(500).json({ error: "erro interno" });
   }
-  const logo = g.logo_url ? null : await resolveLogo(g.invite_url);
-  // slug SEO da página publicada — gerado na ativação (único).
-  const slug = g.slug ?? (await Groups.ensureUniqueSlug(slugify(g.name), g.id));
-  const approved_at = g.approved_at ? undefined : new Date().toISOString();
-  const updated = await Groups.updateGroup(g.id, { status: "active", slug, approved_at, ...(logo ?? {}) });
-  res.json({ data: updated });
-  // Dispara rebuild SSG em background (página /grupo/<slug> entra no sitemap/SEO).
-  runJob("rebuild", "rebuild");
 });
 
 // Editar campos. Trocar invite_url re-busca a logo.
 admin.patch("/groups/:id", async (req, res) => {
-  const g = await Groups.findById(req.params.id);
-  if (!g) {
-    res.status(404).json({ error: "não encontrado" });
-    return;
-  }
-  const b = req.body as Record<string, unknown>;
-  const patch: Groups.AdminPatch = {};
-  if (typeof b.name === "string") patch.name = cleanText(b.name, 80);
-  // slug editável (SEO): admin pode reescrever; mantém único. Não muda sozinho ao editar nome.
-  if (typeof b.slug === "string" && b.slug.trim()) {
-    patch.slug = await Groups.ensureUniqueSlug(slugify(b.slug), g.id);
-  }
-  if (Array.isArray(b.tags)) {
-    const slugs = b.tags.filter((t): t is string => typeof t === "string");
-    patch.tags = await Groups.sanitizeTagSlugs(slugs);
-  }
-  if (typeof b.description === "string") patch.description = cleanText(b.description, 500) || null;
-  if (typeof b.rules === "string") patch.rules = cleanText(b.rules, 4000) || null;
-  if (typeof b.is_adult === "boolean") patch.is_adult = b.is_adult;
-  if (typeof b.category === "string") patch.category = b.category as GroupCategory;
-  if (typeof b.sort_order === "number") patch.sort_order = b.sort_order;
-  if (typeof b.invite_url === "string") {
-    const invite = parseInviteUrl(b.invite_url);
-    if (!invite) {
-      res.status(400).json({ error: "link inválido" });
+  try {
+    const g = await Groups.findById(req.params.id);
+    if (!g) {
+      res.status(404).json({ error: "não encontrado" });
       return;
     }
-    patch.invite_url = invite.url;
-    patch.kind = invite.kind;
-    const logo = await resolveLogo(invite.url);
-    if (logo) Object.assign(patch, logo);
+    const b = req.body as Record<string, unknown>;
+    const patch: Groups.AdminPatch = {};
+    if (typeof b.name === "string") patch.name = cleanText(b.name, 80);
+    if (typeof b.slug === "string" && b.slug.trim()) {
+      patch.slug = await Groups.ensureUniqueSlug(slugify(b.slug), g.id);
+    }
+    if (Array.isArray(b.tags)) {
+      const slugs = b.tags.filter((t): t is string => typeof t === "string");
+      patch.tags = await Groups.sanitizeTagSlugs(slugs);
+    }
+    if (typeof b.description === "string") patch.description = cleanText(b.description, 500) || null;
+    if (typeof b.rules === "string") patch.rules = cleanText(b.rules, 4000) || null;
+    if (typeof b.is_adult === "boolean") patch.is_adult = b.is_adult;
+    if (typeof b.category === "string") patch.category = b.category as GroupCategory;
+    if (typeof b.sort_order === "number") patch.sort_order = b.sort_order;
+    if (typeof b.invite_url === "string") {
+      const invite = parseInviteUrl(b.invite_url);
+      if (!invite) {
+        res.status(400).json({ error: "link inválido" });
+        return;
+      }
+      patch.invite_url = invite.url;
+      patch.kind = invite.kind;
+      const logo = await resolveLogo(invite.url);
+      if (logo) Object.assign(patch, logo);
+    }
+    const updated = await Groups.updateGroup(g.id, patch);
+    res.json({ data: updated });
+  } catch (e) {
+    console.error("[PATCH /admin/groups/:id]", e);
+    res.status(500).json({ error: "erro interno" });
   }
-  const updated = await Groups.updateGroup(g.id, patch);
-  res.json({ data: updated });
 });
 
 admin.post("/groups/:id/archive", async (req, res) => {
-  const updated = await Groups.updateGroup(req.params.id, { status: "archived" });
-  if (!updated) {
-    res.status(404).json({ error: "não encontrado" });
-    return;
+  try {
+    const updated = await Groups.updateGroup(req.params.id, { status: "archived" });
+    if (!updated) {
+      res.status(404).json({ error: "não encontrado" });
+      return;
+    }
+    res.json({ data: updated });
+  } catch (e) {
+    console.error("[POST /admin/groups/:id/archive]", e);
+    res.status(500).json({ error: "erro interno" });
   }
-  res.json({ data: updated });
 });
 
 admin.delete("/groups/:id", async (req, res) => {
-  const removed = await Groups.deleteGroup(req.params.id);
-  if (!removed) {
-    res.status(404).json({ error: "não encontrado" });
-    return;
+  try {
+    const removed = await Groups.deleteGroup(req.params.id);
+    if (!removed) {
+      res.status(404).json({ error: "não encontrado" });
+      return;
+    }
+    await deleteLogo(removed.logo_public_id);
+    res.json({ data: { id: removed.id } });
+  } catch (e) {
+    console.error("[DELETE /admin/groups/:id]", e);
+    res.status(500).json({ error: "erro interno" });
   }
-  await deleteLogo(removed.logo_public_id);
-  res.json({ data: { id: removed.id } });
 });
 
 // ----- Vocabulário de tags (admin: criar/editar/remover) -----
 admin.get("/tags", async (_req, res) => {
-  res.json({ data: await Groups.listTags() });
+  try {
+    res.json({ data: await Groups.listTags() });
+  } catch (e) {
+    console.error("[GET /admin/tags]", e);
+    res.status(500).json({ error: "erro interno" });
+  }
 });
 
 admin.post("/tags", async (req, res) => {
-  const label = cleanText(String((req.body as { label?: unknown }).label ?? ""), 60);
-  if (label.length < 2) {
-    res.status(400).json({ error: "label inválido (mín. 2)" });
-    return;
-  }
-  const slug = slugify(label);
-  if (!slug) {
-    res.status(400).json({ error: "label não gera slug válido" });
-    return;
-  }
   try {
+    const label = cleanText(String((req.body as { label?: unknown }).label ?? ""), 60);
+    if (label.length < 2) {
+      res.status(400).json({ error: "label inválido (mín. 2)" });
+      return;
+    }
+    const slug = slugify(label);
+    if (!slug) {
+      res.status(400).json({ error: "label não gera slug válido" });
+      return;
+    }
     const sortOrder = Number((req.body as { sort_order?: unknown }).sort_order) || 0;
     res.status(201).json({ data: await Groups.createTag(label, slug, sortOrder) });
-  } catch {
-    res.status(409).json({ error: "tag já existe" });
+  } catch (e) {
+    console.error("[POST /admin/tags]", e);
+    res.status(500).json({ error: "erro interno" });
   }
 });
 
 admin.patch("/tags/:id", async (req, res) => {
-  // slug é imutável (grupos referenciam por slug); só label/sort_order editáveis.
-  const b = req.body as Record<string, unknown>;
-  const patch: { label?: string; sort_order?: number } = {};
-  if (typeof b.label === "string") patch.label = cleanText(b.label, 60);
-  if (typeof b.sort_order === "number") patch.sort_order = b.sort_order;
-  const updated = await Groups.updateTag(req.params.id, patch);
-  if (!updated) {
-    res.status(404).json({ error: "não encontrado" });
-    return;
+  try {
+    const b = req.body as Record<string, unknown>;
+    const patch: { label?: string; sort_order?: number } = {};
+    if (typeof b.label === "string") patch.label = cleanText(b.label, 60);
+    if (typeof b.sort_order === "number") patch.sort_order = b.sort_order;
+    const updated = await Groups.updateTag(req.params.id, patch);
+    if (!updated) {
+      res.status(404).json({ error: "não encontrado" });
+      return;
+    }
+    res.json({ data: updated });
+  } catch (e) {
+    console.error("[PATCH /admin/tags/:id]", e);
+    res.status(500).json({ error: "erro interno" });
   }
-  res.json({ data: updated });
 });
 
 admin.delete("/tags/:id", async (req, res) => {
-  const removed = await Groups.deleteTag(req.params.id);
-  if (!removed) {
-    res.status(404).json({ error: "não encontrado" });
-    return;
+  try {
+    const removed = await Groups.deleteTag(req.params.id);
+    if (!removed) {
+      res.status(404).json({ error: "não encontrado" });
+      return;
+    }
+    res.json({ data: { id: removed.id, slug: removed.slug } });
+  } catch (e) {
+    console.error("[DELETE /admin/tags/:id]", e);
+    res.status(500).json({ error: "erro interno" });
   }
-  res.json({ data: { id: removed.id, slug: removed.slug } });
 });
 
 // ----- Rebuild SSG (admin, pós-moderação) -----

@@ -15,7 +15,7 @@ import {
 } from "./media";
 
 function mockDb(): Db {
-  return {
+  const self: Db = {
     isPg: true,
     async query(sql: string, params?: unknown[]) {
       if (sql.startsWith("SELECT")) return { rows: [] };
@@ -23,8 +23,13 @@ function mockDb(): Db {
       return { rows: [] };
     },
     async exec(_sql: string) {},
+    getClient: async () => ({
+      query: self.query,
+      release: () => {},
+    }),
     async close() {},
   };
+  return self;
 }
 
 const inserts: unknown[] = [];

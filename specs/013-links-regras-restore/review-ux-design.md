@@ -86,7 +86,9 @@ Métrica de aceite (mantenedor no Gate C): cada tarefa concluída sem ajuda, sem
 
 ---
 
-## 5. Predição de bugs / inconsistências no código F0 (corrigir antes do deploy)
+## 5. Archive — Predição de bugs / inconsistências no código F0 (revisão histórica, 2026-06-20)
+
+> **Status 2026-06-20:** Itens #1 (CSP Cloudinary), #3 (corrida insertSuggestion), #7 (SSR fallback) **corrigidos** no código. Demais itens documentados como decisões/aceites ou mitigados. Seção preservada como registro histórico da revisão F0.
 
 - **[BUG] CSP bloqueia logos do Cloudinary.** `astro.config.mjs` tem `img-src 'self' data:` (herdado do estático). Cloudinary serve de `res.cloudinary.com` → imagens **não carregam**. **Fix:** `img-src 'self' data: https://res.cloudinary.com`; `connect-src 'self'` (a island chama mesma origem). Rever CSP toda no F2.
 - **[BUG] Remoção de acentos no slugify usa faixa literal frágil.** `server.ts`/`seed.ts` usam `replace(/[<combinantes>]/g,"")` com caracteres literais (risco de corromper no encoding). **Fix:** usar `/[̀-ͯ]/g` explícito. Centralizar `slugify` num único util (hoje duplicado em server+seed → risco de divergência).

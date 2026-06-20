@@ -19,6 +19,8 @@ COPY --from=build /repo/packages ./packages
 COPY --from=build /repo/apps/accounts ./apps/accounts
 COPY --from=build /repo/patches ./patches
 RUN pnpm install --prod --filter @artificio/accounts --frozen-lockfile
+RUN chown -R node:node /app
+USER node
 WORKDIR /app/apps/accounts
 EXPOSE 3000
 CMD ["sh", "-c", "node dist/migrate.js && node dist/index.js"]

@@ -9,10 +9,16 @@ import { fileURLToPath } from "node:url";
 export interface QueryResult<T> {
   rows: T[];
 }
+export interface DbClient {
+  query<T = unknown>(sql: string, params?: unknown[]): Promise<QueryResult<T>>;
+  release(): void;
+}
+
 export interface Db {
   isPg: boolean;
   query<T = unknown>(sql: string, params?: unknown[]): Promise<QueryResult<T>>;
   exec(sql: string): Promise<void>;
+  getClient(): Promise<DbClient>;
   close(): Promise<void>;
 }
 
@@ -39,6 +45,13 @@ export function getDb(): Promise<Db> {
         exec: async (sql) => {
           await pool.query(sql);
         },
+        getClient: async () => {
+          const client = await pool.connect();
+          return {
+            query: (sql, params) => client.query(sql, params as unknown[]) as Promise<QueryResult<never>>,
+            release: () => client.release(),
+          };
+        },
         close: () => pool.end(),
       };
     }
@@ -51,6 +64,11 @@ export function getDb(): Promise<Db> {
       exec: async (sql) => {
         await pg.exec(sql);
       },
+      getClient: async () => ({
+        query: (sql: string, params?: unknown[]) =>
+          pg.query(sql, params as unknown[]) as Promise<QueryResult<never>>,
+        release: () => {},
+      }),
       close: () => pg.close(),
     };
   })();

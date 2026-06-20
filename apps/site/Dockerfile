@@ -23,5 +23,7 @@ RUN pnpm -w turbo run build \
 
 WORKDIR /repo/apps/site
 RUN chmod +x docker-entrypoint.sh
+RUN chown -R node:node /repo
+USER node
 EXPOSE 4322
 ENTRYPOINT ["./docker-entrypoint.sh"]

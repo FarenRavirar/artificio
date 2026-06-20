@@ -12,10 +12,10 @@ fi
 echo "[links] migrate"
 pnpm run migrate
 
-# Seed idempotente (ON CONFLICT invite_url; vocabulário de tags + curados).
+# Seed idempotente (ON CONFLICT invite_url + slug; vocabulário de tags + curados).
 # Sem CLOUDINARY_* as logos ficam nulas (placeholder) — ok, sobem depois no rebuild/admin.
 echo "[links] seed"
-pnpm run seed || echo "[links] seed ignorado (erro não-fatal, tabelas podem já existir)"
+pnpm run seed
 
 echo "[links] astro build"
 pnpm run rebuild

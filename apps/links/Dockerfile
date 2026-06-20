@@ -16,9 +16,12 @@ RUN pnpm install --frozen-lockfile
 
 # Builda os pacotes que o links consome (tsc -> dist).
 # O Astro dist builda no entrypoint (depende de DB, não dá p/ buildar na imagem).
-RUN pnpm -w turbo run build --filter=@artificio/auth --filter=@artificio/ui
+# @artificio/media é consumido só pelo links (não cascateia via ^build de auth/ui) → filtro explícito.
+RUN pnpm -w turbo run build --filter=@artificio/auth --filter=@artificio/ui --filter=@artificio/media
 
 WORKDIR /repo/apps/links
 RUN chmod +x docker-entrypoint.sh
+RUN chown -R node:node /repo
+USER node
 EXPOSE 4324
 ENTRYPOINT ["./docker-entrypoint.sh"]

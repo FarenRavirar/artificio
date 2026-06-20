@@ -12,7 +12,7 @@
 apps/links/
   package.json            ✅ @artificio/links — astro + express^5.2 + kysely^0.29 + pg + cloudinary^2.9
                           #   + express-rate-limit + zod + sanitize-html + @artificio/{ui,auth}
-  astro.config.mjs        ✅ CSP atualizada (img-src Cloudinary + connect-src self)
+  astro.config.mjs        ✅ CSP atualizada (img-src Cloudinary + connect-src self + accounts.artificiorpg.com; sitemap regex ancora /admin)
   database/
     migration_001_init_groups.sql ✅ groups (+slug,tags[]≤3,rules,is_adult,approved_at,submitted_*) + group_tags
   db/
@@ -48,7 +48,7 @@ apps/links/
     styles/global.css     ✅ tokens marca + tema dark/light + chips + gate+18 + foco visível
   public/
     placeholder.svg       ✅ fallback logo nula
-    robots.txt            ✅ Allow /, Disallow /admin/, Sitemap
+    robots.txt            ✅ Allow /, Disallow /admin, Disallow /admin/, Sitemap
     og-default.png        ✅ imagem OG padrão (logo Artifício)
   Dockerfile              ✅ Express+DB multi-stage (espelha apps/site)
   docker-compose.prod.yml ✅ links-app + links-db + volume pgdata_links_prod
@@ -125,7 +125,7 @@ Cada grupo ativo é **publicado** numa página própria indexável: **`/grupo/<s
 - **Sitemap** (`@astrojs/sitemap`) incluindo todas as páginas `/grupo/<slug>` ativas + home. Regenerado no build.
 - **Google Search Console:** meta de verificação (`google-site-verification`) via env `PUBLIC_GSC_VERIFICATION`; `robots.txt` permitindo indexação (prod) e `Sitemap:` apontando o sitemap.
 - **Meta por página:** `<title>`, `<meta description>`, **canonical**, Open Graph (og:title/description/image=logo Cloudinary) e **JSON-LD** (`Organization`/`ItemList`) p/ rich results.
-- **Renderização (DECIDIDO 2026-06-20):** **SSG** das páginas `/grupo/<slug>` ativas no build, lendo o DB (espelha o gatilho de rebuild do site D006). Aprovar/editar no painel admin dispara **rebuild** (job, como `/admin/rebuild` do site). A seção comunitária na home continua **island** (hidrata `/api/groups`) p/ refletir aprovações sem esperar rebuild; já as páginas indexáveis por slug são estáticas (SEO estável). Fallback: se o slug não existir no dist (aprovado e ainda sem rebuild), o Express serve a página via `/api/groups/:slug` (SSR mínimo) até o próximo build.
+- **Renderização (DECIDIDO 2026-06-20):** **SSG** das páginas `/grupo/<slug>` ativas no build, lendo o DB (espelha o gatilho de rebuild do site D006). Aprovar/editar no painel admin dispara **rebuild** (job, como `/admin/rebuild` do site). A seção comunitária na home continua **island** (hidrata `/api/groups`) p/ refletir aprovações sem esperar rebuild; já as páginas indexáveis por slug são estáticas (SEO estável). Fallback: se o slug não existir no dist (aprovado e ainda sem rebuild), o Express serve a página via `/grupo/:slug` (SSR mínimo, renderGroupPage) até o próximo build.
 
 ## Deploy / infra
 

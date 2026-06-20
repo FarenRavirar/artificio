@@ -45,6 +45,7 @@ interface Tag {
 }
 
 const CATEGORIES: Category[] = ["artificio", "tematicos", "parceiros", "comunidade"];
+const STATUS_VALUES: Status[] = ["pending", "active", "archived", "rejected"];
 const STATUS_TONE: Record<Status, "warning" | "success" | "neutral" | "danger"> = {
   pending: "warning",
   active: "success",
@@ -52,10 +53,43 @@ const STATUS_TONE: Record<Status, "warning" | "success" | "neutral" | "danger"> 
   rejected: "danger",
 };
 
-async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await authFetch(url, init);
-  if (!res.ok) throw new Error(String(res.status));
-  return (await res.json()) as T;
+function normalizeGroup(value: unknown): Group | null {
+  if (!value || typeof value !== "object") return null;
+  const r = value as Record<string, unknown>;
+  if (typeof r.id !== "string" || typeof r.name !== "string" || typeof r.invite_url !== "string") return null;
+  if (typeof r.kind !== "string" || (r.kind !== "group" && r.kind !== "channel")) return null;
+  return {
+    id: r.id,
+    name: r.name,
+    invite_url: r.invite_url,
+    kind: r.kind,
+    slug: typeof r.slug === "string" ? r.slug : null,
+    tags: Array.isArray(r.tags) ? r.tags.filter((t: unknown): t is string => typeof t === "string") : [],
+    description: typeof r.description === "string" ? r.description : null,
+    rules: typeof r.rules === "string" ? r.rules : null,
+    category: (typeof r.category === "string" && (CATEGORIES as string[]).includes(r.category)) ? r.category as Category : "comunidade",
+    is_adult: typeof r.is_adult === "boolean" ? r.is_adult : false,
+    status: (typeof r.status === "string" && (STATUS_VALUES as string[]).includes(r.status)) ? r.status as Status : "pending",
+    source: (typeof r.source === "string" && r.source === "community") ? "community" : "curated",
+    submitted_email: typeof r.submitted_email === "string" ? r.submitted_email : null,
+    submitted_name: typeof r.submitted_name === "string" ? r.submitted_name : null,
+    approved_at: typeof r.approved_at === "string" ? r.approved_at : null,
+    created_at: typeof r.created_at === "string" ? r.created_at : "",
+  } satisfies Group;
+}
+
+function normalizeTag(value: unknown): Tag | null {
+  if (!value || typeof value !== "object") return null;
+  const r = value as Record<string, unknown>;
+  if (typeof r.id !== "string" || typeof r.slug !== "string" || typeof r.label !== "string") return null;
+  return { id: r.id, slug: r.slug, label: r.label } satisfies Tag;
+}
+
+function normalizeApiResponse<T>(value: unknown, normalizeItem: (v: unknown) => T | null): T[] {
+  if (!value || typeof value !== "object") return [];
+  const r = value as Record<string, unknown>;
+  if (!Array.isArray(r.data)) return [];
+  return r.data.map(normalizeItem).filter((v): v is T => v !== null);
 }
 
 export default function AdminPanel() {
@@ -67,12 +101,14 @@ export default function AdminPanel() {
 
   const reload = useCallback(async () => {
     try {
-      const [g, t] = await Promise.all([
-        api<{ data: Group[] }>("/api/admin/v1/groups"),
-        api<{ data: Tag[] }>("/api/admin/v1/tags"),
+      const [gRes, tRes] = await Promise.all([
+        authFetch("/api/admin/v1/groups"),
+        authFetch("/api/admin/v1/tags"),
       ]);
-      setGroups(g.data);
-      setTags(t.data);
+      if (!gRes.ok || !tRes.ok) throw new Error("API error");
+      const [gJson, tJson] = await Promise.all([gRes.json(), tRes.json()]);
+      setGroups(normalizeApiResponse(gJson, normalizeGroup));
+      setTags(normalizeApiResponse(tJson, normalizeTag));
     } catch {
       setError(true);
     }
@@ -182,7 +218,7 @@ function GroupRow({
       actions={
         <Toolbar>
           {group.status === "pending" && (
-            <Button variant="success" disabled={busy} onClick={() => act(() => api(`/api/admin/v1/groups/${group.id}/accept`, { method: "POST" }))}>
+            <Button variant="success" disabled={busy} onClick={() => act(() => authFetch(`/api/admin/v1/groups/${group.id}/accept`, { method: "POST" }).then(r => { if (!r.ok) throw new Error(String(r.status)); }))}>
               Aceitar
             </Button>
           )}
@@ -190,7 +226,7 @@ function GroupRow({
             {editing ? "Fechar" : "Editar"}
           </Button>
           {group.status !== "archived" && (
-            <Button variant="ghost" disabled={busy} onClick={() => act(() => api(`/api/admin/v1/groups/${group.id}/archive`, { method: "POST" }))}>
+            <Button variant="ghost" disabled={busy} onClick={() => act(() => authFetch(`/api/admin/v1/groups/${group.id}/archive`, { method: "POST" }).then(r => { if (!r.ok) throw new Error(String(r.status)); }))}>
               Arquivar
             </Button>
           )}
@@ -199,7 +235,7 @@ function GroupRow({
             disabled={busy}
             onClick={() => {
               if (confirm(`Excluir "${group.name}"? Esta ação não pode ser desfeita.`))
-                void act(() => api(`/api/admin/v1/groups/${group.id}`, { method: "DELETE" }));
+                void act(() => authFetch(`/api/admin/v1/groups/${group.id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error(String(r.status)); }));
             }}
           >
             Excluir

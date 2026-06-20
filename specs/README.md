@@ -43,6 +43,7 @@ Toda spec SDD deve:
 | 023 | Real IP ingress | Fechada em prod; residual `BL-ACCOUNTS-PORT` no backlog. |
 | 024 | auditoria docs/specs/backlog | Fechada; auditoria documental alinhou tasks, backlog e sessoes. |
 | 025 | Lighthouse/qualidade publica | Aberta; T1/T2 fechados com harness limpo + baseline 2026-06-16; proximos: CLS/perf glossario, robots, imagens site, a11y, mesas perf, headers/terceiros. |
+| 036 | media shared | Fechada local 2026-06-20; `@artificio/media` com 5 funções atômicas; 3 consumidores migrados; sem commit. |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.

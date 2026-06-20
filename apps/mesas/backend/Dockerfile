@@ -46,6 +46,8 @@ COPY --from=builder /repo/apps/mesas/backend/dist ./apps/mesas/backend/dist
 COPY --from=builder /repo/apps/mesas/backend/sistemas.json ./apps/mesas/backend/sistemas.json
 COPY --from=builder /repo/apps/mesas/backend/cenarios.json ./apps/mesas/backend/cenarios.json
 COPY --from=builder /repo/apps/mesas/database/changelogs.json ./apps/mesas/backend/database/changelogs.json
+RUN chown -R node:node /repo
+USER node
 
 WORKDIR /repo/apps/mesas/backend
 

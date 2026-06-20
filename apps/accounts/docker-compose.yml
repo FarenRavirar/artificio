@@ -32,8 +32,8 @@ services:
       - artificio_net
     environment:
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
 
 volumes:
   accounts_pgdata:

@@ -796,30 +796,39 @@ Cada sub-item abaixo é uma task atômica: bump → `pnpm install` → build do(
 
 ### 6.0 — Backup pré-apt (Gate A)
 
-- [ ] T35 — **Backup completo da VM antes de apt upgrade**
-  - `pg_dump` de TODOS os bancos (conferir contagem real — accounts + mesas prod/beta + glossario prod/beta + site prod/beta = 7, não 6) → leitura na VM, NÃO exige aprovação
-  - `docker images` + `docker ps` snapshot → leitura, NÃO exige aprovação
-  - `apt list --installed` snapshot → leitura, NÃO exige aprovação
-  - Copiar dumps para off-VM (`C:\projetos\artificiobackup\spec-033\`) → **write local** (fora da VM; não é leitura, mas não toca a VM → não exige aprovação de VM)
-  - **Novo snapshot de volume Oracle** (procedimento análogo ao Gate A; o Gate A original já foi aprovado/executado em 2026-06-04 — isto é um snapshot NOVO, não o Gate A pendente) → ⚠️ **Requer aprovação nominal** (write na infra Oracle; ação distinta do pg_dump)
-  - ⚠️ **Recriação de volume/instância Oracle** (destrutivo) → só em rollback; **aprovação nominal própria e separada** do snapshot — nunca coberta pela aprovação do snapshot
-  - **Feito quando:** backup verificado off-VM; dumps íntegros (`pg_restore --list` confirma)
+- [x] T35a — **pg_dump + snapshots (read-only)** ✅ (2026-06-19)
+  - `pg_dump` de 7 bancos → 7 dumps, 12.6MB total, todos válidos (cabeçalho `PostgreSQL database dump` na L2)
+  - `docker images` + `docker ps` + `apt list --installed` + `df -h`/`free -h` snapshot
+  - Tudo em `C:\projetos\artificiobackup\spec-033\pre-f6\` (11 arquivos)
+  - **Capacidade de recuperação:** dados via pg_dump; código via git. **Sem snapshot Oracle, recuperação de VM corrompida = reconstrução do zero** (NÃO é rollback instantâneo).
+
+- [x] T35a-v — **Verificação de prontidão pré-apt (read-only, 2026-06-19 21:19)** ✅
+  - SSH ok; disco `/` 15% (166G livre); RAM 21Gi disponível.
+  - 20/20 containers healthy; restart policy `always`/`unless-stopped` → auto-recuperam após reinício do daemon.
+  - 10 pacotes upgradable batendo a tabela de T36; zero pacote em `hold`.
+  - 7 dumps válidos. **Veredicto:** VM segura para apt upgrade; risco médio = reinício do daemon Docker (~30-120s), mitigado pela restart policy.
+
+- [~] T35b — **Snapshot de volume Oracle — INVIÁVEL** (2026-06-19)
+  - ❌ **Não executável:** sem OCI CLI (local nem VM) e sem espaço de block volume backup no Oracle (free tier). Confirmado com o mantenedor.
+  - **Consequência:** sem rollback instantâneo. Rollback de VM corrompida = reconstruir VM + restaurar os 7 dumps (T35a). Estado de host não-dumpado se perde.
+  - ⚠️ Recriação de volume/instância Oracle (destrutivo) → só em rollback; aprovação nominal própria e separada.
 
 ### 6.1 — Alteração
 
-- [ ] T36 — **apt update && apt upgrade na VM**
-  - 5 pacotes: fwupd, libjcat1, libnuma1, libtraceevent1, libxmlb2
-  - `ssh faren 'sudo apt-get update && sudo apt-get upgrade -y && sudo apt-get autoremove -y'`
-  - ⚠️ **Requer aprovação nominal**
+- [x] T36 — **apt upgrade na VM — FASEADO** ✅ (2026-06-19 21:33)
+  - **Estratégia faseada (decisão do mantenedor, sem snapshot Oracle):** Fase 1 = 5 libs de sistema (sem reiniciar daemon); Fase 2 = 5 pacotes Docker (reinicia daemon).
+  - **Fase 1 ✅:** `fwupd 1.9.34→2.0.20`, `libjcat1 0.2.0→0.2.3`, `libnuma1`, `libtraceevent1`, `libxmlb2 0.3.18→0.3.24` (fwupd puxou libdrm como dep). 20/20 healthy pós-Fase 1.
+  - **Fase 2 ✅:** `docker-ce`/`docker-ce-cli`/`docker-ce-rootless-extras 29.5.3→29.6.0`, `containerd.io 2.2.4→2.2.5`, `docker-model-plugin 1.2.1→1.2.4`. Daemon reiniciou; containers auto-recuperaram via restart policy em ~20-60s.
+  - **Comando real:** `apt-get install --only-upgrade -y <pkgs>` por fase (não `upgrade -y` cego), pra controlar o que reinicia o daemon.
+  - **Verificação pacote-a-pacote:** 10/10 nas versões alvo; `apt list --upgradable` = **0**; `docker --version` = **29.6.0**.
 
 ### 6.2 — Teste de impacto pós-apt
 
-- [ ] T37 — **Validar serviços pós-apt**
-  - `ssh faren 'docker ps'` — todos healthy
-  - Smoke HTTP público: raiz, accounts, glossario, mesas, beta (5 hostnames)
-  - `docker logs cloudflared --tail 20` — sem erro novo
-  - `apt list --upgradable` — 0 pendentes
-  - **Feito quando:** containers healthy; smokes 200; zero regressão
+- [x] T37 — **Validação pós-apt** ✅ (2026-06-19)
+  - 20/20 containers healthy (3 ficaram `health: starting` ~40s, depois healthy).
+  - **Smoke de origem (rede docker, contorna hairpin DNS):** accounts-api `/health` 200; mesas-app/mesas-beta-app 200; glossario-app 200; site-prod-app `:4322/healthz` 200.
+  - **Túnel cloudflared** reconectado (connIndex=3, gru21, QUIC, TCP/UDP precheck PASS).
+  - **Borda externa ✅** confirmada pelo mantenedor no navegador (hostnames públicos). O `000` de dentro da VM/dev era hairpin DNS, não falha de app.
 
 ---
 

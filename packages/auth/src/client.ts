@@ -109,7 +109,7 @@ export function useSession(): UseSessionResult {
             ? (body as { user: unknown }).user
             : body;
         setUser(normalizeUser(userValue));
-      } catch (error) {
+      } catch {
         if (!controller.signal.aborted) {
           setUser(null);
         }

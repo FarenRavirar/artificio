@@ -13,11 +13,6 @@ interface ApiGroup {
   logo_url: string | null;
 }
 
-interface TagEntry {
-  slug: string;
-  label: string;
-}
-
 type State =
   | { kind: "loading" }
   | { kind: "error" }
@@ -42,10 +37,45 @@ export default function CommunityGroups() {
       fetch("/api/tags", { signal: ctrl.signal }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
       fetch("/api/groups?source=community&status=active", { signal: ctrl.signal }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
     ])
-      .then(([tagBody, groupBody]: [{ data: TagEntry[] }, { data: ApiGroup[] }]) => {
+      .then(([tagBody, groupBody]) => {
         const tagLabel = new Map<string, string>();
-        for (const t of tagBody.data ?? []) tagLabel.set(t.slug, t.label);
-        setState({ kind: "ok", groups: groupBody.data ?? [], tagLabel });
+
+        if (tagBody && typeof tagBody === "object" && "data" in tagBody) {
+          const td = (tagBody as { data: unknown }).data;
+          if (Array.isArray(td)) {
+            for (const t of td) {
+              if (t && typeof t === "object" && "slug" in t && "label" in t) {
+                const slug = String((t as { slug: unknown }).slug);
+                const label = String((t as { label: unknown }).label);
+                if (slug) tagLabel.set(slug, label);
+              }
+            }
+          }
+        }
+
+        let groups: ApiGroup[] = [];
+        if (groupBody && typeof groupBody === "object" && "data" in groupBody) {
+          const gd = (groupBody as { data: unknown }).data;
+          if (Array.isArray(gd)) {
+            groups = gd
+              .map((g): ApiGroup | null => {
+                if (!g || typeof g !== "object") return null;
+                const item = g as Record<string, unknown>;
+                if (typeof item.name !== "string" || !item.name) return null;
+                return {
+                  name: item.name,
+                  slug: typeof item.slug === "string" ? item.slug : null,
+                  description: typeof item.description === "string" ? item.description : null,
+                  tags: Array.isArray(item.tags) ? item.tags.filter((t): t is string => typeof t === "string") : [],
+                  is_adult: typeof item.is_adult === "boolean" ? item.is_adult : false,
+                  logo_url: typeof item.logo_url === "string" ? item.logo_url : null,
+                } satisfies ApiGroup;
+              })
+              .filter((g): g is ApiGroup => g !== null);
+          }
+        }
+
+        setState({ kind: "ok", groups, tagLabel });
       })
       .catch(() => {
         if (!ctrl.signal.aborted) setState({ kind: "error" });

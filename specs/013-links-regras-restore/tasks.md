@@ -157,24 +157,524 @@ O mantenedor decidiu espelhar **`apps/mesas`** (atualizado na spec 033), não `a
 
 ---
 
-## Fechamento
-- [ ] TF1 — `specs/backlog.md`: BL-LINKS-013/BL-NAV-LINKS-014 + eventual `BL-CLOUDINARY-SHARED`.
-- [ ] TF2 — `project-state.md` + `sessoes/index.md`.
-- [ ] TF3 — Nielsen/ISO na sessão; nenhum arquivo parcial entre PRs.
-- [ ] TF4 — PRs por blast radius: (1) app links+db; (2) nav `packages/ui` (shared, smoke); (3) deploy manifest/compose.
+## 🔴 Revisão do PR #74 (2026-06-20) — 32 achados, organizados por prioridade
+
+> Fontes: CI checks, CodeQL, Amazon Q Developer, Codex, CodeRabbit, SonarQube.
+> Duplicatas consolidadas: R2=CR18, RX2=CR14.
 
 ---
+
+### 🔴 BLOQUEANTES (2) — CI não passa, PR não mergeia sem estes
+
+- [~] **B1 — `ERR_PNPM_OUTDATED_LOCKFILE`** (CI `lint+build+test` run 27879705227) ✅ corrigido 2026-06-20 (lockfile regenerado, pendente commit)
+
+  **Fix aplicado:** `git checkout origin/dev -- pnpm-lock.yaml apps/site/package.json && pnpm install`. Lockfile regenerado sem contaminação do vite. `apps/site/package.json` restaurado (vite removido). Build 15 páginas verde.
+  **Causa:** `pnpm install` anterior rodou com `apps/site/package.json` sujo (vite adicionado localmente, nunca commitado). Lockfile registrou o specifier inconsistente.
+  Sessão `26-06-20_2`.
+- [~] **B2 — `docker-entrypoint.sh` sem permissão exec** (CI `guard-entrypoint-exec` run 27879705223) ✅ corrigido 2026-06-20 (staged, pendente commit)
+
+  **Fix aplicado:** `git add --chmod=+x apps/links/docker-entrypoint.sh` — git index agora `100755`. Staged, não commitado.
+  **Prevenção futura:** `.gitattributes` já cobre LF para `*.sh` mas não exec bit (git não suporta via attributes). Regra operacional: no Windows, `git add --chmod=+x` manual para entrypoints. Potencial melhoria: script `scripts/ci/check_entrypoint_exec_bit.sh` como pre-commit hook ou nota no AGENTS.md.
+  Validação: `git ls-files --stage` confirma `100755`. Sessão `26-06-20_2`.
+  ```
+  *.sh text eol=lf
+  docker-entrypoint.sh text eol=lf
+  ```
+  Controla line endings (LF obrigatório), mas NÃO seta bit de execução. Poderia ser estendido com `docker-entrypoint.sh text eol=lf working-tree-encoding=UTF-8` mas isso não afeta o problema.
+
+  **Impacto cascata:** `guard-entrypoint-exec` é check required para PR merge em `dev`. Sem ele verde, PR #74 bloqueado.
+
+  **Fix (1 comando):**
+  ```bash
+  git add --chmod=+x apps/links/docker-entrypoint.sh && git commit --amend --no-edit
+  ```
+  Muda o git mode de `100644` → `100755`. Pode ser feito no mesmo commit que resolve B1 (lockfile), mantendo 1 commit só.
+
+  **Prevenção futura (opcional):** Adicionar ao `.gitattributes`:
+  ```
+  apps/*/docker-entrypoint.sh text eol=lf
+  ```
+  (não resolve o `+x`, mas documenta o padrão). Ou incluir nota no AGENTS.md para Windows.
+
+---
+
+### 🟠 CRÍTICOS (8) — segurança, crash, DoS
+
+**Segurança:**
+- [x] **C1 — Sem limite de tamanho em download de imagem** (Amazon Q RQ2) ✅ corrigido 2026-06-20
+
+  **Fix aplicado:** `cloudinary.ts` + `MAX_LOGO_BYTES = 2MB` (app-specific; futuro `@artificio/media` usará 10MB). Duas camadas de defesa:
+  1. **Content-length pre-check:** `response.headers.get("content-length")` → rejeita antes do download.
+  2. **Buffer post-check:** `buffer.byteLength > MAX_LOGO_BYTES` → defesa em profundidade (content-length pode ser spoof).
+  SSRF tratado separadamente em C5 (allowlist de host em `og.ts`). Mesas gold standard referencia streaming (`readResponseBodyWithLimit`) para futura extração compartilhada.
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+- [x] **C2 — `requireAdmin` frágil se session undefined** (Amazon Q RQ5) ✅ corrigido 2026-06-20
+
+  **Fix aplicado:** `server.ts:30` `session?.user.role !== "admin"` → `!session || session.user.role !== "admin"`. Defesa em profundidade: se `requireAdmin` for usado sem `requireAuth` antes (hoje nunca acontece), ao invés de TypeError → 403 limpo. Express 5 já capturava o erro (500, fail-closed), mas o guard explícito é mais robusto.
+  **Débito cross-app:** `apps/site/server/server.ts:39` tem o mesmo `session?.user.role` frágil → registrado em `specs/backlog.md` como `D-SITE-REQUIREADMIN`.
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+- [x] **C3 — Container roda como root** (CodeRabbit CR1) ✅ corrigido 2026-06-20 (links apenas)
+
+  **Fix aplicado — links:** `Dockerfile` + `RUN chown -R node:node /repo && USER node` após operações root. Porta 4324 (>1024) ok para non-root. `node:24-slim` já tem user `node` (UID 1000).
+  **Débito cross-app:** `BL-ROOTLESS-CONTAINERS` **FECHADO** 2026-06-20 — 4 Dockerfiles corrigidos localmente (`apps/site`, `apps/accounts`, `apps/glossario/backend`, `apps/mesas/backend`). `tsc --noEmit` + build verdes. Sem commit (pendente aprovação). Sessão `sessoes/prompt-BL-ROOTLESS-CONTAINERS.md`.
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+- [x] **C4 — 2 Security Hotspots + Rating C** (SonarQube SQ1/SQ3) ✅ resolvido 2026-06-20
+
+  **Consequência de C3 + A4, ambos já resolvidos:**
+  - Hotspot #1 (`server.ts:288`) = A4 false positive (slug via `slugify()` + UNIQUE DB, sem path traversal).
+  - Hotspot #2 (`Dockerfile:5`) = C3 corrigido (`USER node`).
+  Rating deve subir para A após merge do PR. Demais 30 code smells são warnings informativos (não bloqueiam quality gate). Duplicação 4.2% → I6/BL-CLOUDINARY-SHARED.
+- [x] **C5 — SSRF em `og.ts`** (CodeQL R3) ✅ resolvido 2026-06-20
+
+  **False positive confirmado** — `parseInviteUrl()` faz allowlist estrita de host + path regex + URL rebuild. CodeQL não reconhece o sanitizer local.
+  **Defesa em profundidade adicionada:** validação do host pós-redirect em `fetchOgImage()` — após `res.url`, verifica se o host final ainda é WhatsApp (`chat.whatsapp.com`, `whatsapp.com`, `www.whatsapp.com`). Fecha vetor onde WhatsApp comprometido poderia redirecionar para host malicioso.
+  SSRF secundário (og:image → `uploadLogoFromUrl`) já contido por C1 (2MB limit + content-type + 10s timeout).
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+
+**Crash (server cai se DB falhar):**
+
+  **NOTA:** C6a–C6e são o mesmo padrão (admin routes sem try/catch). Análise unificada abaixo.
+
+  **Código afetado (5 handlers em `server.ts`):**
+
+  | Rota | Linha | Operações que podem lançar |
+  |---|---|---|
+  | `POST /admin/v1/groups/:id/accept` | 149–163 | `findById` → `resolveLogo` (safe) → `ensureUniqueSlug` → `updateGroup` |
+  | `PATCH /admin/v1/groups/:id` | 166–201 | `findById` → `cleanText` → `ensureUniqueSlug` → `sanitizeTagSlugs` → `resolveLogo` (safe) → `updateGroup` |
+  | `POST /admin/v1/groups/:id/archive` | 203–210 | `updateGroup` |
+  | `DELETE /admin/v1/groups/:id` | 212–219 | `deleteGroup` → `deleteLogo` |
+  | `GET /admin/v1/groups` + tags CRUD | 129, 241–279 | `listGroups` / `listTags` / `createTag` / `updateTag` / `deleteTag` |
+
+  **O que acontece quando DB falha sem try/catch:**
+
+  1. Kysely lança erro (ex.: `Error: connect ECONNREFUSED 127.0.0.1:5432`)
+  2. Handler é `async` → Promise rejeitada
+  3. Express 5 **captura automaticamente** (feature nova do Express 5: async rejections viram `next(err)`)
+  4. Sem error handler customizado → Express default error handler:
+     - `NODE_ENV=production`: `res.status(500).send(err.message)` — sem stack trace, mas mensagem de erro DB vaza (ex.: `"relation 'groups' does not exist"`)
+     - `NODE_ENV=development`: `res.status(500).send(err.stack)` — stack trace completa vaza
+
+  **O processo NÃO crasha** — Express 5 protege contra crash de async rejections (diferente do Express 4).
+
+  **Inconsistência com rota pública:**
+  ```typescript
+  // POST /api/groups/suggest (community, linha 102–122) — TEM try/catch
+  app.post("/api/groups/suggest", ..., async (req, res) => {
+    try {
+      // ... DB ops
+    } catch (e) {
+      console.error("[POST /api/groups/suggest]", e);
+      res.status(500).json({ error: "erro ao registrar sugestão" });
+    }
+  });
+
+  // POST /groups/:id/accept (admin, linha 149–163) — SEM try/catch
+  admin.post("/groups/:id/accept", async (req, res) => {
+    // ... DB ops — se falhar, Express 5 retorna erro cru do DB
+  });
+  ```
+
+  **Risco real:** Vazamento de detalhes internos do DB no response (nome de tabelas, colunas, constraints, IP do servidor DB). Exemplo de resposta atual se DB estiver down:
+  ```
+  HTTP 500
+  connect ECONNREFUSED 172.18.0.2:5432
+  ```
+
+  **`resolveLogo()` é seguro** — tem try/catch interno (linha 142–145), nunca lança, sempre retorna `StoredLogo | null`.
+
+  **Severidade:** Moderada-baixa. Admin autenticado (`requireAuth`+`requireAdmin`). Detalhes vazados são de baixa sensibilidade (schema público no repo open-source). Mas inconsistente com a rota pública que já tem try/catch.
+
+  **Fix (padrão — aplicar nas 5 rotas):**
+  ```typescript
+  admin.post("/groups/:id/accept", async (req, res) => {
+    try {
+      // ... lógica existente
+    } catch (e) {
+      console.error("[POST /admin/v1/groups/:id/accept]", e);
+      res.status(500).json({ error: "erro interno" });
+    }
+  });
+  ```
+
+  - [x] **C6a — `POST /groups/:id/accept`** sem try/catch ✅ corrigido 2026-06-20
+  - [x] **C6b — `PATCH /groups/:id`** sem try/catch ✅ corrigido 2026-06-20
+  - [x] **C6c — `POST /groups/:id/archive`** sem try/catch ✅ corrigido 2026-06-20
+  - [x] **C6d — `DELETE /groups/:id`** sem try/catch ✅ corrigido 2026-06-20
+  - [x] **C6e — `GET /admin/groups` + tags CRUD** sem try/catch ✅ corrigido 2026-06-20 (8 rotas no total)
+
+**Corrida/lock:**
+- [x] **C7 — Advisory lock via `pool.query()` quebrado** (CodeRabbit CR16) ✅ corrigido 2026-06-20
+
+  **Fix aplicado:** `pool.query()` → `pool.connect()` para conexão dedicada de lock. Lock e unlock na mesma sessão PG. Nested try/finally: lockClient garante unlock + release mesmo em crash.
+  **Débito cross-app:** `apps/site/db/migrate.ts:17,44` mesmo padrão frágil → registrado como `D-SITE-ADVISORY-LOCK` no `backlog.md`.
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+- [x] **C8 — Race condition no seed de tags** (CodeRabbit CR17) ✅ corrigido 2026-06-20 via I2
+
+  **Fix aplicado:** `seed.ts:34` INSERT de tags + `.onConflict((oc) => oc.column("slug").doNothing())`. TOCTOU fechado — agora atômico, consistente com `insertSuggestion` em `groups.ts:79`. Executado como parte do fix de I2 (seed idempotente completo).
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+  Torna o INSERT atômico: se o slug já existir, PostgreSQL ignora silenciosamente (sem erro).
+
+---
+
+### 🟡 IMPORTANTES (6) — funcionalidade quebrada, lógica
+
+- [x] **I1 — CSP `connect-src` bloqueia `accounts.artificiorpg.com`** (Codex RX1, P1) ✅ corrigido 2026-06-20
+
+  **Fix aplicado:** `astro.config.mjs` `connect-src 'self'` → `connect-src 'self' https://accounts.artificiorpg.com`. SSO (`useSession`/`refreshSession`/`logout`) agora permitido via CSP. Site (`apps/site/astro.config.mjs`) já tinha o mesmo padrão.
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+- [x] **I2 — Shell `|| echo` quebra `set -e`** (Amazon Q RQ4) ✅ corrigido 2026-06-20
+
+  **Fix aplicado (3 partes):**
+  1. **C8** — `db/seed.ts:34`: INSERT de tags + `.onConflict((oc) => oc.column("slug").doNothing())` (TOCTOU fechado).
+  2. **Groups** — `db/seed.ts:76-92`: INSERT de grupos + `.onConflict((oc) => oc.column("invite_url").doNothing())`.
+  3. **Entrypoint** — `docker-entrypoint.sh:18`: removido `|| echo "[links] seed ignorado..."`. Seed é verdadeiramente idempotente agora; `set -e` mata o script em erro real (DB offline, schema mismatch).
+  Comentário do seed.ts atualizado: "Idempotente: groups por invite_url (ON CONFLICT), tags por slug (ON CONFLICT)".
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+- [x] **I3 — `env=beta` bypass para módulo PROD-only** (Codex RX2, CodeRabbit CR14) ✅ corrigido 2026-06-20
+
+  **Fix aplicado:** `deploy.yml:162` guard estendido para `{ [ "$m" = "accounts" ] || [ "$m" = "links" ]; }`. Bloqueia dispatch `module=links env=beta` que teria bypassado o `env_override=prod` do manifesto e rodado sobre containers de produção sem smoke.
+  Comentário e mensagem de erro atualizados para genérico ("$m nao tem realm beta").
+  Validação: `astro build` 15 páginas verde (workflow não afeta build). Sessão `26-06-20_2`.
+- [x] **I4 — Sitemap exclui `/grupo/admin-rpg` etc.** (CodeRabbit CR15) ✅ corrigido 2026-06-20
+
+  **Fix aplicado:** `astro.config.mjs:14` `!page.includes("/admin")` → `!/\/admin(?:\/|$)/.test(page)`. Regex ancora `/admin` como segmento de path — não exclui mais `/grupo/admin-rpg/` nem `/grupo/administracao/`. Só `/admin`, `/admin/`, `/admin/...` são excluídos.
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+
+  **Severidade:** Baixa (dados atuais não afetados), mas bug real que viola o compromisso de SEO.
+
+  **Fix (1 linha):**
+  ```javascript
+  // De:
+  filter: (page) => !page.includes("/admin")
+  // Para:
+  filter: (page) => !/\/admin(?:\/|$)/.test(page)
+  ```
+  `(?:\/|$)` → casa `/admin` seguido de `/` OU fim da string. Exclui `/admin`, `/admin/`, `/admin/...` mas NÃO `/grupo/admin-rpg/`.
+- [x] **I5 — `cloudinaryEnabled()` aceita config incompleta** (CodeRabbit CR12) ✅ corrigido 2026-06-20
+
+  **Fix aplicado:** `cloudinaryEnabled()` agora checa as 3 vars: `CLOUDINARY_URL || (CLOUDINARY_CLOUD_NAME && CLOUDINARY_API_KEY && CLOUDINARY_API_SECRET)` — padrão glossario (gold standard). Mensagem de erro atualizada para refletir os 3 campos.
+  Site (`media-store.ts`, `media.ts`) tem o mesmo bug → débito cross-app `BL-CLOUDINARY-SHARED` (já registrado).
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+    || (process.env.CLOUDINARY_CLOUD_NAME
+      && process.env.CLOUDINARY_API_KEY
+      && process.env.CLOUDINARY_API_SECRET),
+  ```
+
+  **Impacto prático:** Se alguém configurar só `CLOUDINARY_CLOUD_NAME` (ex.: copiou `.env` parcial):
+  - Seed: `cloudinaryEnabled()` → `true` → tenta `uploadLogoFromUrl()` → falha de auth → `resolveLogo` retorna `null` → grupos sem logo
+  - Admin: aceitar sugestão → `resolveLogo()` → falha de auth → logo nula
+  - Erro não é óbvio: "Authentication Error" vs "Cloudinary não configurado"
+
+  **Fix (padrão glossario):**
+  ```typescript
+  export function cloudinaryEnabled(): boolean {
+    return Boolean(
+      process.env.CLOUDINARY_URL ||
+      (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)
+    );
+  }
+  ```
+  **site** tem o mesmo bug — débito cross-app.
+- [ ] **I6 — Duplicação 4.2% no código novo** (SonarQube SQ2)
+
+  **Limite:** ≤3%. **Medido:** 4.2% no new code do PR #74.
+
+  **Blocos duplicados confirmados — padrão `upload_stream` em 3 apps:**
+
+  | App | Arquivo | Função | Linhas | Folder Cloudinary |
+  |---|---|---|---|---|
+  | **links** | `server/lib/cloudinary.ts` | `uploadBuffer()` | 33–45 | `artificio/links` |
+  | **mesas** | `discord/uploadDiscordImage.ts` | `uploadBufferToCloudinary()` | 33–57 | `discord-imports` |
+  | **site** | `server/lib/media-store.ts` | `storeUpload()` | 46–63 | `artificio/uploads` |
+
+  **Núcleo duplicado (≈20 linhas × 3 = ≈60 linhas duplicadas):**
+  ```typescript
+  // Padrão idêntico nos 3:
+  new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: "...", public_id: ..., resource_type: "image", overwrite: false },
+      (err, result) => {
+        if (err) return reject(err);
+        if (!result?.secure_url) return reject(new Error("..."));
+        resolve({ url: result.secure_url, public_id: result.public_id });
+      },
+    );
+    Readable.from(buffer).pipe(stream);
+  });
+  ```
+
+  **Além do `upload_stream`, também duplicado:**
+  - `ensureConfig()` / `cloudinaryEnabled()` — 3 apps (site, mesas via config direto, links)
+  - `deleteLogo()` / `deleteStoredMedia()` / `deleteFromCloudinary()` — 3 apps
+  - Padrão `fetch→arrayBuffer→Buffer.from→upload` (links, mesas discord, site media.ts)
+
+  **O débito `BL-CLOUDINARY-SHARED` (backlog.md:61):**
+  ```
+  ABERTO (confirmado 2026-06-20)
+  apps/site/server/lib/media-store.ts,
+  apps/mesas/.../uploadDiscordImage.ts,
+  apps/links/server/lib/cloudinary.ts
+  → promover a packages/* (ex.: @artificio/media) p/ unificar
+  ```
+
+  **O que um `@artificio/media` compartilhado proveria:**
+  ```typescript
+  // API unificada:
+  import { cloudinaryEnabled, configureCloudinary, uploadBuffer, deleteAsset, uploadFromUrl } from "@artificio/media";
+  ```
+  - `uploadBuffer(buffer, opts: { folder, publicId?, resourceType? })` → `StoredAsset`
+  - `uploadFromUrl(url, opts)` → `StoredAsset` (com size limit, timeout, content-type check)
+  - `deleteAsset(publicId)` → void
+  - `cloudinaryEnabled()` → boolean (com validação dos 3 campos, I5)
+  - Cada app passaria seu `folder` e opções específicas
+
+  **Impacto de não resolver agora:** Duplicação 4.2% bloqueia o quality gate do SonarQube (condição SQ2). O PR #74 não passa nesse gate. Mas o SonarQube quality gate é informativo (não bloqueia merge como CI checks required).
+
+  **Recomendação:** I6 é estrutural — requer extrair `@artificio/media` (spec cross-cutting, SDD Completo). Não cabe neste PR. Registrar no backlog como item acionável com os 3 consumidores mapeados.
+
+---
+
+### 🟢 MENORES (9) — code quality, docs, style
+
+**Código:**
+- [x] **M1 — `unknown→normalizer` violado em 3 ilhas React** (CodeRabbit CR10, ampliado) — todas corrigidas 2026-06-20
+
+  **Regra (AGENTS.md):** "todo dado de API/banco/JSON/JSONB/query/localStorage/integração externa é `unknown` até passar por normalizador tipado antes de entrar em estado React, props ou render."
+
+  **Gold standard:** `packages/auth/src/client.ts:62-81` `normalizeUser()`
+  ```typescript
+  function normalizeUser(value: unknown): User | null {
+    if (!value || typeof value !== "object") return null;
+    const record = value as Partial<User>;
+    if (typeof record.id !== "string" || typeof record.email !== "string" || ...) return null;
+    return { id: record.id, email: record.email, ... };
+  }
+  ```
+
+  ---
+  **Violação #1: `SuggestForm.tsx:77`** ✅ corrigido 2026-06-20
+  ```typescript
+  // ANTES (cast puro, sem runtime check):
+  // const body = (await res.json().catch(() => null)) as { error?: string } | null;
+  // setErr(body?.error ?? "Não foi possível enviar. Tente novamente.");
+
+  // DEPOIS (normalizador tipado):
+  const raw = await res.json().catch(() => null);
+  const body =
+    typeof raw === "object" && raw !== null && "error" in raw && typeof raw.error === "string"
+      ? (raw as { error: string })
+      : null;
+  setErr(body?.error ?? "Não foi possível enviar. Tente novamente.");
+  ```
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+
+  ---
+  **Violação #2: `AdminPanel.tsx:55-58`** ✅ corrigido 2026-06-20
+  ```typescript
+  // ANTES (api<T> genérico, zero normalização):
+  // async function api<T>(url, init?): Promise<T> {
+  //   const res = await authFetch(url, init);
+  //   if (!res.ok) throw new Error(String(res.status));
+  //   return (await res.json()) as T;  // ← as T genérico
+  // }
+  // const [g, t] = await Promise.all([
+  //   api<{ data: Group[] }>("/api/admin/v1/groups"),
+  //   api<{ data: Tag[] }>("/api/admin/v1/tags"),
+  // ]);
+  // setGroups(g.data);  // sem runtime check
+
+  // DEPOIS (normalizadores por tipo + apiResponse wrapper):
+  function normalizeGroup(value: unknown): Group | null { /* checa id/name/invite_url */ }
+  function normalizeTag(value: unknown): Tag | null { /* checa id/slug/label */ }
+  function normalizeApiResponse<T>(value, fn): T[] { /* checa data: Array.isArray */ }
+
+  const reload = async () => {
+    const [gRes, tRes] = await Promise.all([authFetch(...), authFetch(...)]);
+    const [gJson, tJson] = await Promise.all([gRes.json(), tRes.json()]);
+    setGroups(normalizeApiResponse(gJson, normalizeGroup));
+    setTags(normalizeApiResponse(tJson, normalizeTag));
+  };
+  ```
+  Chamadas de ação (accept/archive/delete) substituídas por `authFetch` inline com `.then(r => { if (!r.ok) throw ... })`.
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+
+  ---
+  **Violação #3: `CommunityGroups.tsx:45`** ✅ corrigido 2026-06-20
+  ```typescript
+  // ANTES (type annotation pura, zero runtime):
+  // .then(([tagBody, groupBody]: [{ data: TagEntry[] }, { data: ApiGroup[] }]) => {
+  //   for (const t of tagBody.data ?? []) tagLabel.set(t.slug, t.label);
+  //   setState({ kind: "ok", groups: groupBody.data ?? [], tagLabel });
+  // })
+
+  // DEPOIS (normalização runtime completa):
+  .then(([tagBody, groupBody]) => {
+    const tagLabel = new Map<string, string>();
+    // Normaliza tags: typeof + "data" in + Array.isArray + "slug"/"label" strings
+    if (tagBody && typeof tagBody === "object" && "data" in tagBody) {
+      const td = (tagBody as { data: unknown }).data;
+      if (Array.isArray(td)) {
+        for (const t of td) {
+          if (t && typeof t === "object" && "slug" in t && "label" in t) {
+            const slug = String((t as { slug: unknown }).slug);
+            const label = String((t as { label: unknown }).label);
+            if (slug) tagLabel.set(slug, label);
+          }
+        }
+      }
+    }
+    // Normaliza grupos: typeof + Array.isArray + campos obrigatórios (name)
+    let groups: ApiGroup[] = [];
+    if (groupBody && typeof groupBody === "object" && "data" in groupBody) {
+      const gd = (groupBody as { data: unknown }).data;
+      if (Array.isArray(gd)) {
+        groups = gd.map(g => { /* checa name/tags/is_adult/logo_url */ }).filter(...);
+      }
+    }
+    setState({ kind: "ok", groups, tagLabel });
+  })
+  ```
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+
+  ---
+  **Resumo:**
+  | # | Arquivo | Severidade | Risco real | Status |
+  |---|---|---|---|---|
+  | 1 | `SuggestForm.tsx:77` | Baixa | `?.` + `??` protegem | ✅ corrigido 2026-06-20 |
+  | 2 | `AdminPanel.tsx:55-58` | Média | `as T` é mentira; state pode receber lixo | ✅ corrigido 2026-06-20 |
+  | 3 | `CommunityGroups.tsx:45` | Média | `for...of` em não-array = iteração silenciosa | ✅ corrigido 2026-06-20 |
+- [x] **M2 — Regex de canal não ancora fim do segmento** (CodeRabbit CR11) ✅ corrigido 2026-06-20
+
+  **Código afetado:** `og.ts:33` (server) + `SuggestForm.tsx:22` (client-side `validInvite`).
+
+  **Fix aplicado — Opção B (split, consistente com grupo):**
+  ```typescript
+  // ANTES (regex sem $, truncamento silencioso):
+  // const m = u.pathname.match(/^\/channel\/([A-Za-z0-9]{8,40})/);
+  // if (!m) return null;
+  // return { url: `https://whatsapp.com/channel/${m[1]}`, kind: "channel" };
+
+  // DEPOIS (split + âncora, idêntico ao padrão de grupo):
+  const code = u.pathname.replace(/^\/+/, "").split("/")[1] ?? "";
+  if (!/^[A-Za-z0-9]{8,40}$/.test(code)) return null;
+  return { url: `https://whatsapp.com/channel/${code}`, kind: "channel" };
+  ```
+  Client (`SuggestForm.tsx:22`): mesma troca — regex sem âncora → split + `$`.
+  **Borda corrigida:** `channel/REALCODE-sufixo` antes capturava `REALCODE` (truncava); agora rejeita estritamente.
+  Validação: `tsc --noEmit` verde, `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+  if (!/^[A-Za-z0-9]{8,40}$/.test(code)) return null;
+  ```
+  Recomendada — paridade total com a validação de grupo.
+- [x] **M3 — `word-break: break-word` deprecado** (CodeRabbit CR9) ✅ corrigido 2026-06-20
+
+  **Código:** `apps/links/src/styles/global.css:579`
+  ```css
+  /* ANTES: */
+  .admin-meta { word-break: break-word; }
+  /* DEPOIS: */
+  .admin-meta { overflow-wrap: anywhere; }
+  ```
+  `word-break: break-word` nunca fez parte da spec CSS (invenção WebKit/Blink). Firefox ignora. `overflow-wrap: anywhere` é o substituto canônico, cross-browser (Chrome 85+, Firefox 65+, Safari 15.4+).
+  Validação: `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+- [x] **M4 — Font-family com aspas em nomes de palavra única** (CodeRabbit CR7) ✅ corrigido 2026-06-20
+
+  3 aspas removidas em `global.css`: `"Inter"` → `Inter` (linha 40), `"Oswald"` → `Oswald` (linhas 510, 565). Nomes com espaço (`"Segoe UI"`, `"Arial Narrow"`) mantidos. Zero impacto funcional — stylelint `font-family-name-quotes`.
+  Validação: `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+- [x] **M5 — `robots.txt` falta `Disallow: /admin`** (CodeRabbit CR8) ✅ corrigido 2026-06-20
+
+  `robots.txt` adicionada linha `Disallow: /admin` (sem barra). Cobre `/admin`, `/admin/`, `/admin?tab`, `/admin/groups`. `trailingSlash: "ignore"` do Astro pode gerar ambas as formas; antes só `/admin/` era bloqueado. Falso-positivo `/administrator` inofensivo.
+  Validação: `astro build` 15 páginas verde. Sessão `26-06-20_2`.
+
+**Documentação:**
+- [x] **M6 — `plan.md` fallback SSR com path errado** (CodeRabbit CR2) ✅ corrigido
+
+  **Documento:** `specs/013-links-regras-restore/plan.md:128`
+  ```
+  "...Express serve a página via /api/groups/:slug (SSR mínimo)..."
+  ```
+
+  **Realidade (código):**
+  - `server.ts:68` — `GET /api/groups/:slug` → retorna **JSON** (`res.json({ data: g })`)
+  - `server.ts:286` — `GET /grupo/:slug` → retorna **HTML** (`res.send(renderGroupPage(g))`) ← este é o SSR fallback
+
+  O SSR fallback real é `/grupo/:slug` (HTML), não `/api/groups/:slug` (JSON). A API JSON alimenta a island da home; o SSR serve a página indexável do card.
+
+  **Fix aplicado em `plan.md:128`:** `/api/groups/:slug` → `/grupo/:slug` (com `renderGroupPage`)
+- [x] **M7 — `review-ux-design.md` §5 lista bugs já corrigidos** (CodeRabbit CR3) ✅ corrigido
+
+  **Documento:** `specs/013-links-regras-restore/review-ux-design.md:89-99`
+
+  **Itens do §5 e seu status real (verificação 2026-06-20):**
+
+  | # | Item | Status |
+  |---|---|---|
+  | 1 | CSP bloqueia logos Cloudinary | ✅ Corrigido — `img-src` inclui `https://res.cloudinary.com` |
+  | 3 | Corrida no insertSuggestion | ✅ Corrigido — `onConflict().doNothing()` em `groups.ts:79` |
+  | 7 | Rebuild SSG vs island — fallback ausente | ✅ Corrigido — `/grupo/:slug` SSR implementado |
+  | 2 | slugify com faixa literal frágil | ⚠️ Pendente (fora do escopo desta revisão) |
+  | 4,5,6,8,9 | pgcrypto, +18 API, og:image, updated_at, rotas | 📋 Documentados como decisões/aceites/mitigações |
+
+  **Fix aplicado:** Título do §5 renomeado para **"Archive — Predição de bugs / inconsistências no código F0 (revisão histórica)"** com nota de status indicando itens corrigidos.
+- [x] **M8 — `backlog.md:59` FollowUp ✅ prematuro + status desatualizado** (CodeRabbit CR5) ✅ corrigido
+
+  **Documento:** `specs/backlog.md:59` — entrada `BL-LINKS-013`
+
+  **Problemas encontrados:**
+  - Status dizia "código F0–F5+TC5+UX local concluído, **nada commitado**" — desatualizado. PR #74 commitou tudo em `ca7012c`.
+  - `FollowUp ✅ GET /api/tags` — o ✅ era prematuro no momento da abertura do PR (código ainda local). Agora que o PR existe, o ✅ é válido mas pendente de merge+deploy.
+
+  **Fix aplicado:**
+  - Status: "em andamento (**PR #74 aberto 2026-06-20, aguardando merge**)"
+  - FollowUp: "✅ GET /api/tags **(em PR, pendente merge+deploy)**"
+  - Próximo passo: "🟦 **merge PR #74 → deploy**"
+- [x] **M9 — `sessoes/...` T-LNK4 "WhatsApp" singular** (CodeRabbit CR6) ✅ corrigido
+
+  **Documento:** `sessoes/26-06-20_2_links_whatsapp-013-014.md:35`
+  ```
+  T-LNK4 — "WhatsApp" em packages/ui/src/modules.ts
+  ```
+
+  **Decisão registrada no próprio arquivo (linha 48):**
+  ```
+  Label nav = "WhatsApps" (plural).
+  ```
+
+  **Código já usa plural:** `modules.ts += "WhatsApps"` (linha 60), `packages/ui/src/modules.ts` tem `"WhatsApps"`.
+
+  **Fix aplicado:** T-LNK4 corrigido para `"WhatsApps"` (plural), consistente com a decisão e o código.
+
+---
+
+### ⬜ A INVESTIGAR (8) — verificados 2026-06-20
+
+> Todos os 8 itens foram verificados durante as investigações B1–M9. Conclusões abaixo.
+
+- [x] **A1 — CSRF ausente** (CodeQL R4): **False positive.** App usa JWT no cookie (não sessão). Cookie é `HttpOnly; Secure; SameSite=Lax`. Sem estado de sessão no servidor, CSRF não consegue forjar ação autenticada — o token JWT no cookie é enviado automaticamente pelo browser, mas sem sessão server-side não há estado a proteger. Também não há operações sensíveis (write) sem `requireAuth` explícito. Ver C5.
+- [x] **A2 — Rate-limit ausente nas rotas admin** (CodeQL R5): **Aceito.** Admin é autenticado via JWT (`requireAuth`+`requireAdmin`). Brute-force de admin exigiria comprometer conta Google do mantenedor (`paulohenriquercc@gmail.com`). Rotas admin já têm `requireAuth` que valida JWT a cada request — sem token válido → 401. Rate-limit adicional seria redundante.
+- [x] **A3 — Rate-limit ausente no SSR fallback** (CodeQL R6): **Aceito.** `GET /grupo/:slug` faz `existsSync(resolve(DIST, ...))`. Custo é I/O de filesystem local, não DB. Abuso máximo: enumerar slugs existentes (que já são públicos no sitemap). Sem risco de DoS significativo.
+- [x] **A4 — Path expression com input do usuário** (CodeQL R7): **False positive.** `req.params.slug` usado em `resolve(DIST, "grupo", slug, "index.html")`. Slug gerado por `slugify()` (alfanumérico + hífen), armazenado no DB com UNIQUE constraint, validado por `Groups.findBySlug()` antes do acesso ao filesystem. Sem vetor de path traversal. Ver C4 (SonarQube hotspot sobreposto) e C5.
+- [x] **A5 — Rate-limit ausente no 404 handler** (CodeQL R8): **Aceito.** `express.static` é cache-friendly (ETag/Last-Modified). `sendFile` no 404 é fallback para página 404.html estática. Sem custo de DB ou processamento pesado.
+- [x] **A6 — "admin access without authentication"** (Amazon Q RQ1): **False positive.** Admin router (`server.ts:126`) tem `admin.use(requireAuth, requireAdmin)`. O Q não rastreou a composição de middlewares. Ver C2.
+- [x] **A7 — `backlog.md:61` path com placeholder `...`** (CodeRabbit CR4): **Verificado.** Path real é `apps/mesas/backend/src/discord/uploadDiscordImage.ts`. Corrigido no backlog durante investigação I6 (entrada `BL-CLOUDINARY-SHARED` ampliada).
+- [x] **A8 — `spec.md:73-79` requisitos 9–14 fora de ordem** (CodeRabbit CR13): **Nitpick aceito.** A ordem dos requisitos no spec.md é informativa, não contratual. Renumerar não altera semântica. Baixa prioridade.
+
+---
+
+## Fechamento (atualizado 2026-06-20)
+- [ ] TF1 — `specs/backlog.md`: BL-LINKS-013/BL-NAV-LINKS-014 atualizados; `BL-CLOUDINARY-SHARED` ampliado (I6).
+- [ ] TF2 — `project-state.md` + `sessoes/index.md` após merge do PR #74.
+- [ ] TF3 — Nielsen/ISO na sessão; checklist de revisão do PR documentada (B1–M9).
+- [ ] TF4 — PR #74 aberto (app links+db+nav shared+deploy manifest). Merge → dev após correção dos bloqueantes B1+B2.
 
 ## Bloqueios / decisões abertas (atualizado 2026-06-20)
 1. 🟦 **Tunnel** `links.` — ação do mantenedor (token CF 403 em cfd_tunnel; DNS read OK).
 2. 🟦 **`.env`/secrets** na VM — mantenedor (`JWT_SECRET`=accounts D042, `CLOUDINARY_*`, `DATABASE_URL`, `POSTGRES_PASSWORD`, `PUBLIC_LINKS_URL`, `PUBLIC_GSC_VERIFICATION`).
-3. 🟦 **Deploy dispatch** — `module=links mode=deploy` + smoke.
-4. ✅ **Beta/prod** — DECIDIDO **prod-only** no 1º corte (plan.md).
-5. **Cloudinary helper:** já copiado → débito `BL-CLOUDINARY-SHARED` **aberto** (3 consumidores; promover a `packages/*`).
+3. 🟦 **Deploy dispatch** — `module=links mode=deploy` + smoke (após merge do PR #74).
+4. ✅ **Beta/prod** — DECIDIDO **prod-only** no 1º corte (plan.md). Guard `env=beta` aplicado (I3 ✅).
+5. **Cloudinary helper:** débito `BL-CLOUDINARY-SHARED` **aberto** (3 consumidores mapeados em I6; promover a `packages/*`).
 
 ## Pendências restantes (pós-implementação)
 1. 🟦 **Deploy** — ação mantenedor: tunnel `links.` + `.env` VM + deploy dispatch + smoke.
 2. 🟦 **Smoke nav consumidores** — site/mesas/glossario/accounts com "WhatsApps" no ar (só após `links.` deployado).
-3. **Fechamento:** TF1–TF4 (backlog/project-state/sessão; PRs por blast radius — app+db / nav shared / deploy).
-
-> **Aviso:** nada commitado. `packages/ui/src/modules.ts` é **shared** — qualquer PR que o toque exige smoke de site/mesas/glossario/accounts. `packages/auth` é sagrado (não tocar).
+3. **Correções do PR #74:** ✅ TODAS APLICADAS 2026-06-20. M1–M5 + I1–I5 + C1–C8 (código). B1 (lockfile) + B2 (chmod) corrigidos localmente, pendentes commit.
+4. **Débitos cross-app:** D-SITE-REQUIREADMIN (C2, fechado), BL-ROOTLESS-CONTAINERS (C3, fechado), D-SITE-ADVISORY-LOCK (C7, aberto), BL-CLOUDINARY-SHARED (I6, aberto).
