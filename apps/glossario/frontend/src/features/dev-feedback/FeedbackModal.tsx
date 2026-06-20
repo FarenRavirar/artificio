@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import html2canvas from 'html2canvas-pro';
 import toast from 'react-hot-toast';
 import { FEEDBACK_COPY, type FeedbackKind } from '@artificio/ui/feedback';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/auth-context';
 import { collectPageContext, getDiagnosticsSnapshot } from './diagnostics';
 import { submitFeedback } from './feedbackApi';
 

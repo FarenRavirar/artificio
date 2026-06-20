@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [clearSession, session.user]);
 
   useEffect(() => {
-    void refreshSession();
+    void (async () => { await refreshSession(); })();
   }, [refreshSession]);
 
   const logout = useCallback(async () => {

@@ -28,7 +28,7 @@ const AdminUsersPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { void (async () => { await fetchUsers(); })(); }, []);
 
   const toggleBan = async (id: string, banned: boolean) => {
     await api.post(`/users/admin/${id}/ban`, { banned: !banned });

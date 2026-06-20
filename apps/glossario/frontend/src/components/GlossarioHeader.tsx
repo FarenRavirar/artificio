@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header, type UserMenuItem, ThemeIcon, setTheme, resolveTheme, type Theme } from '@artificio/ui';
 import type { User as ArtificioUser } from '@artificio/auth';
 import { Zap, PlusCircle } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useUI } from '../App';
+import { useAuth } from '../context/auth-context';
+import { useUI } from '../context/UIContext';
 import { ChangelogModal } from './ChangelogModal';
+
+const LAST_SEEN_UPDATE = '2026-03-30-db-sanitize-script';
 
 /**
  * Chrome do glossário = shell compartilhado @artificio/ui (Header).
@@ -23,7 +25,15 @@ export function GlossarioHeader() {
   const navigate = useNavigate();
 
   const [changelogOpen, setChangelogOpen] = useState(false);
-  const [hasNewUpdate, setHasNewUpdate] = useState(false);
+  // Init derivado do localStorage (sem effect): "novidade" se nunca viu este update.
+  const [hasNewUpdate, setHasNewUpdate] = useState(() => {
+    try {
+      const lastSeen = localStorage.getItem('glossario_last_seen_update');
+      return !lastSeen || lastSeen !== LAST_SEEN_UPDATE;
+    } catch {
+      return false;
+    }
+  });
 
   // Tema lua/sol (Spec 020). Init já com o tema resolvido (cookie/boot) p/ não
   // dar flash de ícone/logo errado no mount; persistência via @artificio/ui setTheme.
@@ -35,17 +45,10 @@ export function GlossarioHeader() {
     setThemeState(next);
   };
 
-  useEffect(() => {
-    const lastSeen = localStorage.getItem('glossario_last_seen_update');
-    if (!lastSeen || lastSeen !== '2026-03-30-db-sanitize-script') {
-      setHasNewUpdate(true);
-    }
-  }, []);
-
   const openChangelog = () => {
     setChangelogOpen(true);
     setHasNewUpdate(false);
-    localStorage.setItem('glossario_last_seen_update', '2026-03-30-db-sanitize-script');
+    try { localStorage.setItem('glossario_last_seen_update', LAST_SEEN_UPDATE); } catch { /* offline/pvt */ }
   };
 
   // Adapta o usuário local do glossário ao contrato @artificio/auth (name/role/avatar).

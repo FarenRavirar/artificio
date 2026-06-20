@@ -171,6 +171,12 @@
 
 **Resultado T64a (2026-06-19):** ✅ glossario-frontend Vite `^5.2.0`→`^8.0.16` + plugin-react `^4.2.1`→`^6.0.2` concluído. Config sem alteração (só adicionado plugin `@tailwindcss/vite`; 13→15 linhas). Vite `8.0.16` unificado nos 5 apps (accounts, glossario, mesas-frontend, site-admin, ui). `@vitejs/plugin-react` `6.0.2` unificado nos 5 apps. Build ✅ (vite 8, 982ms, 30 chunks, CSS 61.2 KB). `turbo build --force` 13/13 verde.
 
+**⚠️ ARMADILHA — `apps/site` (Astro) NÃO usa vite 8 (2026-06-19, fix PR dependabot #73):**
+- **Sintoma:** `@artificio/site#build` falha com `[@tailwindcss/vite:generate:build] Missing field 'tsconfigPaths' on BindingViteResolvePluginConfig.resolveOptions` (stack: rolldown@1.0.3 → vite@8 oxcResolvePlugin → @tailwindcss/vite). Reproduzível e determinístico (não flaky).
+- **Causa-raiz:** `apps/site` é **Astro 6.4.8**, que usa **vite ^7.3.2** internamente — Astro 6 NÃO é rolldown/vite 8. Mas o site usa `@tailwindcss/vite`, que importa `vite` como peer. Como `apps/site` não declarava `vite`, a resolução dependia da topology de hoisting do lockfile: quando o lock muda (ex.: regen do dependabot), `@tailwindcss/vite` pode resolver o **vite@8 hoisted** (das SPAs React) em vez do vite@7 do Astro. vite@8 (rolldown 1.0.3) tem bug latente no `oxcResolvePlugin` que rejeita config sem `tsconfigPaths`.
+- **Por que não dá pra "subir versão":** `@tailwindcss/vite` (4.3.1) e `vite` (8.0.16) já são latest. `rolldown` latest (1.1.2) é **API-incompatível** com vite@8.0.16 (remove `viteWasmFallbackPlugin`) — override de rolldown quebra o build das SPAs.
+- **FIX (persistente):** declarar `vite: ^7.3.2` em `apps/site/package.json` devDeps (mesma faixa do Astro). `@tailwindcss/vite` do site passa a resolver vite@7.3.5 deterministicamente; `^7` capa <8, então dependabot não pode driftar p/ vite 8 (que quebraria o Astro de qualquer jeito). SPAs React seguem vite@8.0.16. **Vite 8 é APENAS das SPAs React (accounts, mesas-frontend, glossario-frontend, site-admin, ui); o site Astro é vite 7 por design.** Validado: site build ✅, `turbo build --force` 13/13, `pnpm@11.8.0 --frozen-lockfile` ✅. Diff: `apps/site/package.json` +1 linha, `pnpm-lock.yaml` +3.
+
 
 
 ---
@@ -372,7 +378,7 @@ security: {
 1. **🔴 `BL-033-GLOSSARIO-LINT-NEVER-RAN` (AMPLIADO)** — baseline Fase 2 (2026-06-18) confirmou que **4 pacotes** não têm config ESLint flat: `apps/glossario/frontend`, `packages/content`, `packages/analytics`, `packages/auth` (todos falham "ESLint couldn't find an eslint.config file"). Lint nunca rodou verde nesses. T64a/T65 devem criar config do zero em cada (não "migrar legado"). Não é regressão do Node 24.
 2. **zod risco rebaixado p/ 🟢** — sem `.email()`/`errorMap` no código; bump quase mecânico. Confirma viabilidade de T61.
 3. **dotenv/multer 🟢** — bumps sem mudança de código.
-4. **mesas/site já Tailwind v4 e Vite 8** — Fase 4B de Tailwind/Vite recai quase só no glossario (lanterna) + accounts/ui (Vite 6→8).
+4. **mesas já Tailwind v4 e Vite 8; site já Tailwind v4 mas Vite 7 (Astro)** — Fase 4B de Tailwind/Vite recai quase só no glossario (lanterna) + accounts/ui (Vite 6→8). **CORREÇÃO (2026-06-19):** esta nota dizia "site já Vite 8" — IMPRECISO. O `apps/site` é **Astro 6.4.8**, cujo engine de build é **Vite 7** (Astro 6 não é rolldown/Vite 8 — Astro declara `vite ^7.3.2`). O "Vite 8" visto na investigação era o vite@8 hoisted das SPAs, resolvido por acidente pelo `@tailwindcss/vite` do site — exatamente o que quebrou no lock regen do dependabot (ver §8 ARMADILHA). Vite 8 é APENAS das SPAs React; o site é Vite 7 por design do Astro.
 5. **D054 a revisitar** após Astro 6 (já previsto em T40/T66).
 
 ---

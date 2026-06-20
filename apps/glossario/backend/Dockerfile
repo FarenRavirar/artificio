@@ -37,6 +37,8 @@ COPY --from=builder /repo/packages/auth/dist ./packages/auth/dist
 COPY --from=builder /repo/packages/auth/dist-cjs ./packages/auth/dist-cjs
 
 COPY --from=builder /repo/apps/glossario/backend/dist ./apps/glossario/backend/dist
+RUN chown -R node:node /repo
+USER node
 
 WORKDIR /repo/apps/glossario/backend
 

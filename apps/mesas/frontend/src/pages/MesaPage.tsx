@@ -110,7 +110,7 @@ export const MesaPage = () => {
     };
 
     trackView();
-  }, [table?.id, slug]);
+  }, [table?.id, table?.title, table?.system_name, slug]);
 
 
   // Fase 1: ViewModel (isola lógica, UI ainda usa table)

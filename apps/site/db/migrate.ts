@@ -14,7 +14,8 @@ const db = await getDb();
 await db.exec(
   `CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());`,
 );
-if (db.isPg) await db.query("SELECT pg_advisory_lock($1)", [LOCK_KEY]);
+const lockClient = await db.getClient();
+if (db.isPg) await lockClient.query("SELECT pg_advisory_lock($1)", [LOCK_KEY]);
 
 try {
   const applied = new Set(
@@ -41,6 +42,7 @@ try {
   }
   console.log(`migrate: ${n} new, ${files.length} total (driver=${db.isPg ? "pg" : "pglite"})`);
 } finally {
-  if (db.isPg) await db.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]);
+  if (db.isPg) await lockClient.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => {});
+  lockClient.release();
   await db.close();
 }

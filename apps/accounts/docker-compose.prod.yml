@@ -9,8 +9,8 @@
 #    apps/accounts/.env em prod), em vez de `env_file: ../../.env` fixo do shim.
 #  - project=`accounts` + volume key `accounts_pgdata` PRESERVADOS => volume existente
 #    `accounts_accounts_pgdata` continua o mesmo (zero perda do DB SSO no cutover).
-#  - `ports: "3000:3000"` mantido por paridade; trocar por `expose` = F6 (BL-ACCOUNTS-PORT),
-#    fatia separada.
+#  - `expose: ["3000"]` aplicado (spec 035, BL-ACCOUNTS-PORT). Tunnel usa Docker DNS `accounts-api:3000`
+#    (infra-map.md:48); host port era heranca pre-monorepo desnecessaria.
 # accounts e PROD-only (D042: beta reusa accounts PROD; nao ha accountsbeta). Validacao F5 =
 # dry-run de build no clone + deploy prod real com rollback por snapshot.
 services:
@@ -58,8 +58,8 @@ services:
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio para accounts-api}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/health || exit 1"]
       interval: 15s

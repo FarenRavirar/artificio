@@ -4,7 +4,7 @@ import express from "express";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { requireAuth, type Session } from "@artificio/auth";
+import { requireAuth, csrfProtection, type Session } from "@artificio/auth";
 import type { Kysely } from "kysely";
 import { accessCookieName, clearSessionCookies, refreshCookieName, setSessionCookies } from "./cookies.js";
 import type { Database } from "./db.js";
@@ -60,6 +60,13 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   app.set("trust proxy", env.TRUSTED_PROXY_CIDR);
   app.use(express.json());
   app.use(cookieParser());
+  app.use(csrfProtection([
+    "https://artificiorpg.com",
+    "https://links.artificiorpg.com",
+    "https://mesas.artificiorpg.com",
+    "https://glossario.artificiorpg.com",
+    "https://accounts.artificiorpg.com",
+  ]));
   app.use(
     cors({
       credentials: true,

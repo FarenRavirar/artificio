@@ -35,19 +35,18 @@ export const SettingStylesField: React.FC<SettingStylesFieldProps> = ({
   const selectedStylesSet = useMemo(() => new Set(settingStyles), [settingStyles]);
 
   useEffect(() => {
-    // CORREÇÃO DT-06: Resetar erro ao mudar o cenário
-    setSuggestionError(null);
-
-    if (!settingName || settingName.trim().length < 3) {
-      setSuggestions([]);
-      setIsLoadingSuggestions(false);
-      return;
-    }
-
-    // CORREÇÃO DT-07: Adicionar loading state
-    setIsLoadingSuggestions(true);
-
+    // Todos os setState dentro do timer (debounce) — fora do corpo síncrono do
+    // effect, evitando cascading render (react-hooks/set-state-in-effect).
     const timer = setTimeout(async () => {
+      setSuggestionError(null);
+
+      if (!settingName || settingName.trim().length < 3) {
+        setSuggestions([]);
+        setIsLoadingSuggestions(false);
+        return;
+      }
+
+      setIsLoadingSuggestions(true);
       try {
         const response = await fetch(
           `/api/v1/settings/suggest-styles?setting=${encodeURIComponent(settingName.trim())}`

@@ -5,10 +5,10 @@
 - **Nível SDD:** Completo (toca `packages/ui` — shared, pétrea)
 
 ## Problema
-Mantenedor quer `https://links.artificiorpg.com` no nav principal do Artifício, com rótulo **"WhatsApp"** (a página é o hub de grupos de WhatsApp). Nav cross-módulo vive em dois lugares espelhados: `packages/ui` `defaultNavItems` (React, consumido por mesas/accounts) e `apps/site/…/content.ts` `MODULES` (Astro zero-JS, espelho — padrão spec 010).
+Mantenedor quer `https://links.artificiorpg.com` no nav principal do Artifício, com rótulo **"WhatsApps"** (plural; decisão 2026-06-20 — a página é o hub de grupos de WhatsApp). Nav cross-módulo vive em dois lugares espelhados: `packages/ui` `defaultNavItems` (React, consumido por mesas/accounts/glossário) e `apps/site/src/lib/content.ts` `MODULES` (= `defaultNavItems`, herda automático). **Já aplicado em `modules.ts` (2026-06-20):** `{ label: "WhatsApps", href: "https://links.artificiorpg.com" }`.
 
 ## Requisitos (numerados, testáveis)
-1. Item "WhatsApp" → `https://links.artificiorpg.com` em `defaultNavItems` (`packages/ui`).
+1. Item "WhatsApps" → `https://links.artificiorpg.com` em `defaultNavItems` (`packages/ui`). ✅ feito 2026-06-20.
 2. Espelho em `MODULES` (`apps/site`) — mesma ordem/rótulo.
 3. Aparece em todos os módulos que consomem o nav (site, mesas, accounts e **glossário** — consumidor a partir da spec 012) sem regressão visual.
 4. Externo abre na mesma guia (mesmo domínio raiz, suite única) — manter padrão dos demais itens.

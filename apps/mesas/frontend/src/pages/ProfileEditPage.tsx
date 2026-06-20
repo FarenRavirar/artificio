@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useProfileContext } from '../contexts/useProfileContext';
 import type { PlayerProfile, GmProfile } from '../hooks/useProfile';
@@ -28,15 +28,17 @@ const sanitizeTab = (tab: string | null): TabType => {
 export default function ProfileEditPage() {
   const { profile, loading, saving, error, refetch } = useProfileContext();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = sanitizeTab(searchParams.get('tab'));
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const tabFromUrl = sanitizeTab(searchParams.get('tab'));
+  const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl);
   const [showSaved, setShowSaved] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
 
-  useEffect(() => {
-    const tabFromUrl = sanitizeTab(searchParams.get('tab'));
-    setActiveTab((currentTab) => (currentTab === tabFromUrl ? currentTab : tabFromUrl));
-  }, [searchParams]);
+  // Sincroniza a aba com a URL — ajuste durante o render (sem effect).
+  const [prevTabUrl, setPrevTabUrl] = useState(tabFromUrl);
+  if (prevTabUrl !== tabFromUrl) {
+    setPrevTabUrl(tabFromUrl);
+    if (activeTab !== tabFromUrl) setActiveTab(tabFromUrl);
+  }
 
   // Sincronizar aba com URL
   const handleTabChange = (tab: TabType) => {
@@ -45,13 +47,22 @@ export default function ProfileEditPage() {
     track('profile_tab_changed', { from: activeTab, to: tab });
   };
 
-  // Feedback de autosave com timeout
+  // Feedback de autosave com timeout. setState deferido p/ fora do corpo síncrono.
+  // Só dispara na transição saving: true→false (não no load inicial).
+  const prevSavingRef = useRef(saving);
   useEffect(() => {
-    if (!saving && profile) {
+    const wasSaving = prevSavingRef.current;
+    prevSavingRef.current = saving;
+    if (saving || !profile || !wasSaving) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    void (async () => {
+      await Promise.resolve();
+      if (!active) return;
       setShowSaved(true);
-      const timer = setTimeout(() => setShowSaved(false), 2000);
-      return () => clearTimeout(timer);
-    }
+      timer = setTimeout(() => setShowSaved(false), 2000);
+    })();
+    return () => { active = false; if (timer) clearTimeout(timer); };
   }, [saving, profile]);
 
   // Feedback de conexão Discord

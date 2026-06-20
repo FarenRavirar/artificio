@@ -121,7 +121,7 @@ export function useLinks(): UseLinksReturn {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    fetchLinks();
+    void (async () => { await fetchLinks(); })();
   }, [fetchLinks]);
 
   const addLink = useCallback(

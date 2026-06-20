@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import { redirectToLogin } from '@artificio/auth/client';
 import api from '../services/api';
+import { apiErrorMessage } from '../lib/api-error';
 import { KeyRound, Loader2, CheckCircle2, ShieldCheck, AlertTriangle } from 'lucide-react';
 
 const TOKEN_KEY = 'glossario_migration_token';
@@ -40,8 +41,8 @@ const MigrationPage: React.FC = () => {
       setCompleted(true);
       await refresh();
       setStep('done');
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Não foi possível concluir a migração. Tente novamente.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Não foi possível concluir a migração. Tente novamente.'));
       setStep('error');
     }
   }, [refresh]);
@@ -49,20 +50,25 @@ const MigrationPage: React.FC = () => {
   // Ao montar / voltar do Google: com token + sessão Google → conclui; com token
   // sem sessão → pede conexão Google; sem token → começa pelo formulário.
   useEffect(() => {
-    if (loading) return;
-    if (completed) return;
-    const hasToken = !!sessionStorage.getItem(TOKEN_KEY);
-    if (!hasToken) {
-      setStep('form');
-      return;
-    }
-    if (user) {
-      void doClaim();
-    } else {
-      setStep('connect');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, user, completed]);
+    if (loading || completed) return;
+    let active = true;
+    // IIFE async: defere o setState para fora do caminho síncrono do effect.
+    void (async () => {
+      await Promise.resolve();
+      if (!active) return;
+      const hasToken = !!sessionStorage.getItem(TOKEN_KEY);
+      if (!hasToken) {
+        setStep('form');
+        return;
+      }
+      if (user) {
+        await doClaim();
+      } else {
+        setStep('connect');
+      }
+    })();
+    return () => { active = false; };
+  }, [loading, user, completed, doClaim]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,8 +82,8 @@ const MigrationPage: React.FC = () => {
       } else {
         setStep('connect');
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Não foi possível validar suas credenciais legadas.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Não foi possível validar suas credenciais legadas.'));
     } finally {
       setSubmitting(false);
     }

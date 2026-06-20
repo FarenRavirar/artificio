@@ -50,7 +50,7 @@ export const DevFeedbackPanel = () => {
   }, [archivedFilter, kindFilter, statusFilter]);
 
   useEffect(() => {
-    void load();
+    void (async () => { await load(); })();
   }, [load]);
 
   const handleStatusChange = async (item: DevFeedbackItem, status: DevFeedbackStatus) => {

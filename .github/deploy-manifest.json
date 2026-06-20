@@ -91,6 +91,28 @@
       ]
     },
     {
+      "module": "links",
+      "_comment": "Spec 013 F5: links.artificiorpg.com (WhatsApps). PROD-only 1o corte (D-LNK). dispatch-only ate estabilizar. MIGRATIONS_DIR=apps/links/database (framework D039).",
+      "env_override": "prod",
+      "compose_file": "docker-compose.prod.yml",
+      "compose_file_beta": "docker-compose.prod.yml",
+      "compose_project": "links", "compose_project_beta": "links",
+      "db_service": "links-db", "db_service_beta": "links-db",
+      "db_name": "links", "db_name_beta": "links", "db_user": "admin",
+      "reconcile_same_project_orphans": false,
+      "auto_deploy_on_push": false,
+      "push_branches": ["main"],
+      "deploy_paths": ["apps/links"],
+      "health_containers": ["links-app"], "health_containers_beta": ["links-app"],
+      "critical_routes": [
+        {"name": "healthz", "url": "https://links.artificiorpg.com/healthz", "expected": "200"},
+        {"name": "home", "url": "https://links.artificiorpg.com/", "expected": "200"},
+        {"name": "api_groups", "url": "https://links.artificiorpg.com/api/groups", "expected": "200"},
+        {"name": "admin_protected", "url": "https://links.artificiorpg.com/api/admin/v1/groups", "expected": "401"}
+      ],
+      "critical_routes_beta": []
+    },
+    {
       "module": "accounts",
       "_comment": "Spec 026 F5 (BL-CDX-310): SSO central, snowflake reconciliado a _deploy-module. PROD-ONLY: D042 nao tem accountsbeta (beta reusa accounts PROD; .env.beta so tem JWT). env_override=prod forca prod em qualquer ref; build-matrix BLOQUEIA dispatch env=beta p/ accounts. dispatch-only (auto_deploy_on_push=false). Migrations no-op: accounts migra in-container no boot (Dockerfile CMD node dist/migrate.js), sem dir database/ -> runner no-op (como glossario/site). Campos *_beta espelham prod por defensividade; nunca exercitados.",
       "env_override": "prod",

@@ -42,7 +42,7 @@ export function DiscordSettingsPanel() {
   };
 
   useEffect(() => {
-    loadSettings();
+    void (async () => { await loadSettings(); })();
   }, []);
 
   const handleSave = async () => {

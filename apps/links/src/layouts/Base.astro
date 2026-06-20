@@ -1,0 +1,93 @@
+---
+// Layout base do links. SEO completo: canonical/OG/Twitter/robots + verificação GSC + JSON-LD.
+// Reusa o design system @artificio/ui (styles.css) p/ o Header/Footer/primitives.
+import "@artificio/ui/styles.css";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description?: string;
+  /** caminho relativo p/ canonical/OG (ex.: "/grupo/mundo-artificio-rpg"). Default = rota atual. */
+  path?: string;
+  /** og:image absoluta (logo Cloudinary do grupo). Default = OG do portal. */
+  ogImage?: string;
+  /** bloqueia indexação (ex.: páginas admin). */
+  noindex?: boolean;
+  /** objeto JSON-LD (schema.org) serializado no head. */
+  jsonLd?: unknown;
+}
+const { title, description, path, ogImage, noindex, jsonLd } = Astro.props;
+
+const site = Astro.site?.href ?? "https://links.artificiorpg.com/";
+const canonical = new URL(path ?? Astro.url.pathname, site).href;
+const gsc = import.meta.env.PUBLIC_GSC_VERIFICATION;
+const ogImg = ogImage ?? new URL("/og-default.png", site).href;
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {/* Tema canônico (cookie artificio_theme cross-subdomínio); aplica antes do paint (sem flash). */}
+    <script is:inline>
+      (function () {
+        try {
+          var m = document.cookie.match(/(?:^|;\s*)artificio_theme=(light|dark)/);
+          var t =
+            (m && m[1]) ||
+            localStorage.getItem("theme") ||
+            (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+          document.documentElement.dataset.theme = t === "dark" ? "dark" : "light";
+        } catch (e) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    {gsc && <meta name="google-site-verification" content={gsc} />}
+
+    <meta property="og:site_name" content="Artifício RPG" />
+    <meta property="og:title" content={title} />
+    {description && <meta property="og:description" content={description} />}
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImg} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    {
+      jsonLd && (
+        <script
+          type="application/ld+json"
+          set:html={JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
+        />
+      )
+    }
+  </head>
+  <body>
+    <slot />
+    <script is:inline>
+      (function () {
+        try {
+          if (localStorage.getItem("artificio_adult_gate") === "1") {
+            document.querySelectorAll(".card-adult").forEach(function (el) { el.classList.replace("card-adult", "card-adult-unlocked"); });
+            document.querySelectorAll(".group-detail-adult").forEach(function (el) { el.classList.replace("group-detail-adult", "group-detail-unlocked"); });
+            return;
+          }
+          document.querySelectorAll(".adult-overlay .adult-cta").forEach(function (btn) {
+            btn.addEventListener("click", function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              localStorage.setItem("artificio_adult_gate", "1");
+              document.querySelectorAll(".card-adult").forEach(function (el) { el.classList.replace("card-adult", "card-adult-unlocked"); });
+              document.querySelectorAll(".group-detail-adult").forEach(function (el) { el.classList.replace("group-detail-adult", "group-detail-unlocked"); });
+            });
+          });
+        } catch (_) { /* localStorage indisponivel */ }
+      })();
+    </script>
+  </body>
+</html>

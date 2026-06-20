@@ -3,8 +3,9 @@ import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, BookOpenText, Download, FileUp, Asterisk } from 'lucide-react';
 import ImportPreview, { type PreviewRow, type ImportAction } from '../components/ImportPreview';
 import api from '../services/api';
+import { apiErrorMessage } from '../lib/api-error';
 import { sanitizeInlineText, decodeHtmlEntities } from '../utils/textSanitizer';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 
 // ---------------------------------------------------------------------------
 // Tipos que espelham a lógica do backend
@@ -140,7 +141,7 @@ const parseSheet = (workbook: XLSX.WorkBook): ParsedTerm[] => {
 
   // Suporte a planilhas legadas onde a linha de cabeçalho não está na primeira
   // linha (ex: título na linha 1 e cabeçalhos na linha 3).
-  const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: '' });
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
   let headerRowIndex = 0;
 
   for (let i = 0; i < Math.min(rows.length, 25); i += 1) {
@@ -167,7 +168,7 @@ const parseSheet = (workbook: XLSX.WorkBook): ParsedTerm[] => {
         const normalKey = key.toLowerCase().trim();
         const mapped = COL_MAP[normalKey];
         if (mapped) {
-          (term as any)[mapped] = String(value ?? '').trim();
+          (term as Record<string, string>)[mapped] = String(value ?? '').trim();
         }
       }
       // Sanitizar campos de texto inline
@@ -185,7 +186,14 @@ const parseSheet = (workbook: XLSX.WorkBook): ParsedTerm[] => {
 // ---------------------------------------------------------------------------
 // Mapeia resultado do backend para PreviewRow local (para exibição)
 // ---------------------------------------------------------------------------
-const toPreviewRow = (r: any, parsedTerms: ParsedTerm[]): PreviewRow => {
+interface BackendPreviewRow {
+  action: string;
+  name_en: string;
+  name_pt: string;
+  changed_fields?: string[];
+}
+
+const toPreviewRow = (r: BackendPreviewRow, parsedTerms: ParsedTerm[]): PreviewRow => {
   const source = parsedTerms.find(
     (t) => t.name_en.toLowerCase() === r.name_en?.toLowerCase()
   );
@@ -282,7 +290,7 @@ const ImportPage: React.FC = () => {
 
         setParsedTerms(terms);
         setStep('parsed');
-      } catch (err) {
+      } catch {
         setError('Erro ao ler o arquivo. Certifique-se de que é um .xlsx ou .csv válido.');
       }
     };
@@ -321,11 +329,13 @@ const ImportPage: React.FC = () => {
         dry_run: true,
         import_nucleus: isAdmin ? adminNucleus : undefined,
       });
-      const rows: PreviewRow[] = (data.results as any[]).map(r => toPreviewRow(r, parsedTerms));
+      const rows: PreviewRow[] = Array.isArray(data.results)
+        ? (data.results as BackendPreviewRow[]).map(r => toPreviewRow(r, parsedTerms))
+        : [];
       setPreviewRows(rows);
       setStep('previewing');
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Erro ao gerar preview. Tente novamente.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Erro ao gerar preview. Tente novamente.'));
     } finally {
       setIsLoading(false);
     }
@@ -336,13 +346,16 @@ const ImportPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const payload: any = { terms: parsedTerms };
+      const payload: Record<string, unknown> = { terms: parsedTerms };
       if (isAdmin) payload.import_nucleus = adminNucleus;
       const { data } = await api.post('/terms/import', payload);
-      setSummary(data.summary);
+      const s = data.summary;
+      if (s && typeof s.total === 'number' && typeof s.inserted === 'number' && typeof s.updated === 'number' && typeof s.duplicates === 'number') {
+        setSummary(s);
+      }
       setStep('done');
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Erro durante a importação. Nenhum dado foi alterado.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Erro durante a importação. Nenhum dado foi alterado.'));
     } finally {
       setIsLoading(false);
     }

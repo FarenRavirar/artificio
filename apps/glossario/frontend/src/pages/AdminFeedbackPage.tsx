@@ -2,6 +2,7 @@ import React from 'react';
 import { MessageSquare, RefreshCw, Trash2, Archive, ArchiveRestore, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { apiErrorMessage } from '../lib/api-error';
 
 type FeedbackItem = {
   id: string;
@@ -59,23 +60,23 @@ const AdminFeedbackPage: React.FC = () => {
       const rows: FeedbackItem[] = data.data || [];
       setItems(rows);
       setNotes(Object.fromEntries(rows.map((r) => [r.id, r.admin_notes ?? ''])));
-    } catch (err: any) {
+    } catch (err) {
       console.error('[admin-feedback] Falha ao carregar:', err);
-      setError(err?.response?.data?.error || 'Não foi possível carregar os feedbacks.');
+      setError(apiErrorMessage(err, 'Não foi possível carregar os feedbacks.'));
     } finally {
       setLoading(false);
     }
   }, [archived, status, kind]);
 
-  React.useEffect(() => { fetchFeedback(); }, [fetchFeedback]);
+  React.useEffect(() => { void (async () => { await fetchFeedback(); })(); }, [fetchFeedback]);
 
   const patch = async (id: string, body: Record<string, unknown>, okMsg: string) => {
     try {
       await api.patch(`/admin/feedback/${id}`, body);
       toast.success(okMsg);
       fetchFeedback();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Falha ao atualizar.');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Falha ao atualizar.'));
     }
   };
 
@@ -85,8 +86,8 @@ const AdminFeedbackPage: React.FC = () => {
       await api.delete(`/admin/feedback/${id}`);
       toast.success('Feedback excluído.');
       fetchFeedback();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Falha ao excluir.');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Falha ao excluir.'));
     }
   };
 

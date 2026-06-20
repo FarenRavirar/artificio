@@ -174,11 +174,16 @@ function CreateGmProfileForm({ onSuccess }: { onSuccess: () => void }) {
   const [slugEdited, setSlugEdited] = useState(false);
   const [bio, setBio] = useState('');
 
-  useEffect(() => {
+  // slug acompanha o nickname enquanto não editado manualmente — ajuste durante
+  // o render (sem effect).
+  const slugSyncKey = `${nickname}|${slugEdited}`;
+  const [prevSlugSync, setPrevSlugSync] = useState(slugSyncKey);
+  if (prevSlugSync !== slugSyncKey) {
+    setPrevSlugSync(slugSyncKey);
     if (!slugEdited) {
       setSlug(slugifyFromNickname(nickname));
     }
-  }, [nickname, slugEdited]);
+  }
 
   const suggestedSlug = slugifyFromNickname(nickname);
 
@@ -356,33 +361,43 @@ export const PainelMestrePage = () => {
   const editIdFromUrl = searchParams.get('edit');
 
   useEffect(() => {
-    if (editIdFromUrl && isAuthenticated) {
+    if (!editIdFromUrl || !isAuthenticated) {
+      // setState deferido p/ fora do corpo síncrono do effect.
+      void (async () => {
+        await Promise.resolve();
+        setEditingTableId(null);
+        setEditingTableData(null);
+      })();
+      return;
+    };
+    let active = true;
+    // setState deferido p/ fora do corpo síncrono do effect.
+    void (async () => {
+      await Promise.resolve();
+      if (!active) return;
       setEditingTableId(editIdFromUrl);
-
-      const loadTableData = async () => {
-        try {
-          const response = await fetch(`${API_BASE}/api/v1/gm/tables/${editIdFromUrl}`, {
-            credentials: 'include',
-          });
-
-          if (response.ok) {
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/gm/tables/${editIdFromUrl}`, {
+          credentials: 'include',
+        });
+        if (!active) return;
+        if (response.ok) {
           const data: unknown = await response.json();
           const { mapTableApiToInitialData } = await import('../features/create-table/utils/mapTableApiToInitialData');
-            setEditingTableData(mapTableApiToInitialData(getPayloadData(data)));
-            setView('create-table');
-          } else {
-            toast.error('Mesa não encontrada');
-            setEditingTableId(null);
-          }
-        } catch (error) {
-          console.error('[PainelMestrePage] Erro ao carregar mesa para edição:', error);
-          toast.error('Erro ao carregar mesa');
+          if (!active) return;
+          setEditingTableData(mapTableApiToInitialData(getPayloadData(data)));
+          setView('create-table');
+        } else {
+          toast.error('Mesa não encontrada');
           setEditingTableId(null);
         }
-      };
-
-      loadTableData();
-    }
+      } catch (error) {
+        console.error('[PainelMestrePage] Erro ao carregar mesa para edição:', error);
+        toast.error('Erro ao carregar mesa');
+        if (active) setEditingTableId(null);
+      }
+    })();
+    return () => { active = false; };
   }, [isAuthenticated, editIdFromUrl]);
 
   const refreshData = () => {

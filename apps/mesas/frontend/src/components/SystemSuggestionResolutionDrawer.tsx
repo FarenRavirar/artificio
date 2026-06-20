@@ -461,11 +461,18 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
     if (recommended !== 'create_child' || parentId || candidates.length === 0 || systems.length === 0) return;
     const candidate = systemById.get(candidates[0].system_id);
     if (!candidate) return;
-    if (candidate.node_type === 'system') {
-      setParentId(candidate.id);
-    } else if (candidate.parent_id) {
-      setParentId(candidate.parent_id);
-    }
+    let active = true;
+    // Auto-seleção de pai deferida p/ fora do corpo síncrono do effect.
+    void (async () => {
+      await Promise.resolve();
+      if (!active) return;
+      if (candidate.node_type === 'system') {
+        setParentId(candidate.id);
+      } else if (candidate.parent_id) {
+        setParentId(candidate.parent_id);
+      }
+    })();
+    return () => { active = false; };
   }, [recommended, parentId, candidates, systems, systemById]);
 
   // Pais validos por tipo de filho (espelha VALID_PARENT do backend).
@@ -491,7 +498,12 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
 
   useEffect(() => {
     if (!suggestedParentAlias || parentAliases.length > 0) return;
-    setParentAliases([suggestedParentAlias]);
+    let active = true;
+    void (async () => {
+      await Promise.resolve();
+      if (active) setParentAliases([suggestedParentAlias]);
+    })();
+    return () => { active = false; };
   }, [suggestedParentAlias, parentAliases.length]);
 
   const targetChildren = targetSystem ? childrenByParentId.get(targetSystem.id) ?? EMPTY_SYSTEMS : EMPTY_SYSTEMS;

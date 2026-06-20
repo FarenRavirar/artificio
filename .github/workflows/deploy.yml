@@ -50,6 +50,7 @@ on:
           - glossario
           - site
           - accounts
+          - links
       mode:
         description: "ci = build/test only; deploy = deploy via git-pull on VM"
         required: true
@@ -154,12 +155,13 @@ jobs:
               eo="$ENV_INPUT"
             fi
 
-            # F5 (spec 026): accounts e PROD-only (D042 nao tem accountsbeta). Bloqueia
-            # qualquer caminho que resolva beta p/ accounts (input env=beta), em vez de
-            # subir um accountsbeta quebrado sem OAuth proprio. env_override=prod no
-            # manifesto ja forca prod no caso default; este guard fecha o override manual.
-            if [ "$m" = "accounts" ] && [ "$eo" = "beta" ]; then
-              echo "ERRO: accounts nao tem realm beta (D042). Use env=prod/default."
+            # F5 (spec 026): accounts e links sao PROD-only (sem realm beta). Bloqueia
+            # qualquer caminho que resolva beta p/ estes modulos (input env=beta), em vez de
+            # subir containers beta quebrados sem OAuth proprio ou sem separacao de dados.
+            # env_override=prod no manifesto ja forca prod no caso default; este guard fecha
+            # o override manual.
+            if { [ "$m" = "accounts" ] || [ "$m" = "links" ]; } && [ "$eo" = "beta" ]; then
+              echo "ERRO: $m nao tem realm beta. Use env=prod/default."
               exit 1
             fi
 

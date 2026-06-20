@@ -1,13 +1,6 @@
 import { createHash } from 'node:crypto';
-import { Readable } from 'node:stream';
-import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
+import { uploadBuffer as sharedUploadBuffer } from '@artificio/media';
 import type { DiscordImageUploadStatus } from './types';
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 export type DiscordImageUploadFailureStatus = Exclude<
   DiscordImageUploadStatus,
@@ -30,30 +23,8 @@ function categorizeFetchError(error: unknown): DiscordImageUploadFailureStatus {
   return 'network';
 }
 
-function uploadBufferToCloudinary(buffer: Buffer, contentType: string, publicId: string): Promise<{ url: string; public_id: string }> {
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: 'discord-imports',
-        public_id: publicId,
-        resource_type: 'image',
-        overwrite: false,
-      },
-      (error, result?: UploadApiResponse) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        if (!result?.secure_url || !result.public_id) {
-          reject(new Error('Cloudinary não retornou URL da imagem.'));
-          return;
-        }
-        resolve({ url: result.secure_url, public_id: result.public_id });
-      },
-    );
-
-    Readable.from(buffer).pipe(stream);
-  });
+function uploadBufferToCloudinary(buffer: Buffer, _contentType: string, publicId: string): Promise<{ url: string; public_id: string }> {
+  return sharedUploadBuffer(buffer, { folder: 'discord-imports', publicId });
 }
 
 export async function uploadDiscordImageToCloudinary(

@@ -1,36 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { redirectToLogin, logout as ssoLogout } from '@artificio/auth/client';
 import api from '../services/api';
-
-interface User {
-  id: string;
-  full_name: string;
-  username?: string;
-  email: string;
-  role: 'admin' | 'member';
-}
-
-interface AuthContextType {
-  user: User | null;
-  login: () => void;
-  logout: () => void;
-  setUser: (user: User | null) => void;
-  refresh: () => Promise<void>;
-  loading: boolean;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function getSsoReturnUrl(currentHref = window.location.href): string {
-  const currentUrl = new URL(currentHref);
-  const normalizedPath = currentUrl.pathname.replace(/\/+$/, '') || '/';
-
-  if (normalizedPath === '/login') {
-    return `${currentUrl.origin}/`;
-  }
-
-  return currentUrl.href;
-}
+import { AuthContext, getSsoReturnUrl, type User } from './auth-context';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -42,7 +13,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data } = await api.get('/auth/me');
       setUser(data);
-    } catch (err) {
+    } catch {
       setUser(null);
     }
   }, []);
@@ -76,12 +47,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
-  }
-  return context;
 };

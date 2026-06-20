@@ -1,0 +1,143 @@
+---
+import Base from "../layouts/Base.astro";
+import PortalHeader from "../components/PortalHeader.astro";
+import GroupCard from "../components/GroupCard.astro";
+import { defaultNavItems } from "@artificio/ui/modules";
+import { PARTNER_CONTACT } from "../data/groups";
+import { REGRAS_INTRO, REGRAS_SECTIONS } from "../data/regras";
+import { getCategories } from "../lib/groups-source";
+import CommunityGroups from "../components/CommunityGroups.tsx";
+import SuggestForm from "../components/SuggestForm.tsx";
+
+const categories = await getCategories();
+
+const title = "Grupos de WhatsApp · Artifício RPG";
+const description =
+  "Hub de grupos e canais de WhatsApp do Artifício RPG: comunidade, cenários, mestres e parceiros. Mais as regras dos grupos.";
+
+// JSON-LD: lista dos grupos (ItemList) p/ rich results.
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: title,
+  itemListElement: categories
+    .flatMap((c) => c.groups)
+    .map((g, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: g.name,
+      url: new URL(`/grupo/${g.slug}`, "https://links.artificiorpg.com").href,
+    })),
+};
+---
+
+<Base title={title} description={description} jsonLd={jsonLd}>
+  <PortalHeader />
+  <div class="shell">
+    <aside class="sidebar">
+      <details class="nav-group" open>
+        <summary>Grupos<span class="chevron">›</span></summary>
+        <nav class="nav-sub">
+          {categories.map((c) => <a href={`#cat-${c.id}`}>{c.title}</a>)}
+        </nav>
+      </details>
+
+      <a class="nav-solo" href="#comunidade">Grupos de RPG</a>
+
+      <details class="nav-group">
+        <summary>Regras<span class="chevron">›</span></summary>
+        <nav class="nav-sub">
+          {REGRAS_SECTIONS.map((s) => <a href={`#regra-${s.id}`}>{s.title}</a>)}
+        </nav>
+      </details>
+
+      <details class="nav-group">
+        <summary>Projetos<span class="chevron">›</span></summary>
+        <nav class="nav-sub">
+          {defaultNavItems.map((item) => <a href={item.href}>{item.label}</a>)}
+        </nav>
+      </details>
+    </aside>
+
+    <main class="content">
+      <h1 class="page-title">Grupos de WhatsApp de RPG de Mesa</h1>
+      <p class="page-lead">
+        A comunidade do Artifício RPG no WhatsApp: conversa diária sobre RPG de
+        mesa, cenários, mestria e anúncios de mesa. Escolha um grupo e entre.
+      </p>
+
+      {
+        categories.map((cat) => (
+          <section>
+            <h2 class="section-title" id={`cat-${cat.id}`}>
+              {cat.title}
+            </h2>
+            <div class="cards">
+              {cat.groups.map((g) => (
+                <GroupCard
+                  name={g.name}
+                  slug={g.slug}
+                  description={g.description}
+                  tags={g.tags}
+                  isAdult={g.isAdult}
+                  logoUrl={g.logoUrl}
+                />
+              ))}
+            </div>
+          </section>
+        ))
+      }
+
+      <section>
+        <h2 class="section-title" id="comunidade">Grupos de RPG (comunidade)</h2>
+        <p class="page-lead">
+          Grupos sugeridos pela comunidade e aprovados pela moderação. Quer ver o
+          seu aqui? Sugira abaixo.
+        </p>
+        <CommunityGroups client:visible />
+        <div style="margin-top:1.5rem">
+          <SuggestForm client:visible />
+        </div>
+      </section>
+
+      <p class="partner-cta">
+        Tem um grupo de RPG com uma proposta diferente e quer ser parceiro?{" "}
+        <a href={PARTNER_CONTACT} target="_blank" rel="noopener noreferrer">
+          Entre em contato</a
+        >.
+      </p>
+
+      <h2 class="section-title" id="regras" style="margin-top:3.5rem">
+        Regras dos grupos
+      </h2>
+      <p class="regras-intro">{REGRAS_INTRO}</p>
+
+      {
+        REGRAS_SECTIONS.map((s) => (
+          <div class="regra" id={`regra-${s.id}`}>
+            <h3>
+              {s.icon} {s.title}
+            </h3>
+            {s.intro && <p class="intro">{s.intro}</p>}
+            {s.items && (
+              <ul>
+                {s.items.map((it) => (
+                  <li>
+                    {it.strong && <b>{it.strong} </b>}
+                    {it.text}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))
+      }
+
+      <footer class="site">
+        Um presente da Artifício RPG — hub de projetos de RPG em português.
+        Gratuito, sem anúncios, sem coleta desnecessária. ·{" "}
+        <a href="https://artificiorpg.com">artificiorpg.com</a>
+      </footer>
+    </main>
+  </div>
+</Base>

@@ -57,7 +57,7 @@ export function DiscordDraftReviewTable() {
   }, [statusFilter]);
 
   useEffect(() => {
-    loadDrafts();
+    void (async () => { await loadDrafts(); })();
   }, [loadDrafts]);
 
   const handleSyncReady = async () => {

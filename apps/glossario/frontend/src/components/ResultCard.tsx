@@ -3,7 +3,8 @@ import { Termo } from '../types/glossario';
 import { BookOpen, CheckCircle2, HelpCircle, Award, User as UserIcon, Pencil, Trash2, Save, X, ThumbsUp, ThumbsDown, MessageSquare, Send, ChevronDown, Clock3, History } from 'lucide-react';
 import type { AtualizacaoTermoPayload } from '../hooks/useGlossario';
 import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
+import { apiErrorMessage } from '../lib/api-error';
 import { trackViewTermo } from '@artificio/analytics';
 
 interface ResultCardProps {
@@ -207,12 +208,16 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
     [categories, form.source_type]
   );
 
-  useEffect(() => {
+  // Reset do form ao trocar de termo / sair da edição. Ajuste de estado durante
+  // o render (padrão React "you might not need an effect"), sem setState em effect.
+  const [formSnapshot, setFormSnapshot] = useState({ termo, isEditing });
+  if (formSnapshot.termo !== termo || formSnapshot.isEditing !== isEditing) {
+    setFormSnapshot({ termo, isEditing });
     if (!isEditing) {
       setForm(buildInitialState(termo));
       setActionError(null);
     }
-  }, [termo, isEditing]);
+  }
 
   useEffect(() => {
     if (!isAdmin || !isEditing) return;
@@ -241,17 +246,19 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
 
   useEffect(() => {
     if (!isAdmin || !isEditing || form.source_type !== 'sistema') return;
-    if (!form.system_id) {
-      setEditions([]);
-      return;
-    }
-
-    api.get(`/systems/${form.system_id}/editions`)
-      .then((res) => setEditions(res.data))
+    let active = true;
+    // Sem sistema → lista vazia; senão busca. setState só no callback assíncrono.
+    const load = !form.system_id
+      ? Promise.resolve({ data: [] as EditionOption[] })
+      : api.get(`/systems/${form.system_id}/editions`);
+    load
+      .then((res) => { if (active) setEditions(res.data); })
       .catch((err) => {
+        if (!active) return;
         console.error(err);
         setActionError('Não foi possível carregar as edições do sistema selecionado.');
       });
+    return () => { active = false; };
   }, [isAdmin, isEditing, form.source_type, form.system_id]);
 
   useEffect(() => {
@@ -302,8 +309,8 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
         additional_info: form.additional_info.trim() || null,
       });
       setIsEditing(false);
-    } catch (err: any) {
-      setActionError(err?.response?.data?.message || 'Não foi possível atualizar o termo agora.');
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'Não foi possível atualizar o termo agora.'));
     } finally {
       setIsSaving(false);
     }
@@ -379,8 +386,8 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
       setIsDeleting(true);
       setActionError(null);
       await onDelete(termo.id);
-    } catch (err: any) {
-      setActionError(err?.response?.data?.message || 'Não foi possível excluir o termo agora.');
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'Não foi possível excluir o termo agora.'));
     } finally {
       setIsDeleting(false);
     }

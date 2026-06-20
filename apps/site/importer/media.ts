@@ -3,6 +3,7 @@
 //   - ausente => dry-run: mantém URLs do WP (zero rede, zero credencial).
 // Cloudinary regenera variantes; guardamos só o secure_url do original. Idempotente via media_map.
 import { v2 as cloudinary } from "cloudinary";
+import { isConfigured } from "@artificio/media";
 import sharp from "sharp";
 import { tmpdir } from "node:os";
 import { writeFile, unlink } from "node:fs/promises";
@@ -35,9 +36,7 @@ let avifFallbackImpl: ((wpUrl: string) => Promise<string | null>) | null = null;
 let remoteFileImpl: ((wpUrl: string) => Promise<string | null>) | null = null;
 let migTmpCounter = 0;
 
-export function cloudinaryEnabled(): boolean {
-  return Boolean(process.env.CLOUDINARY_URL || process.env.CLOUDINARY_CLOUD_NAME);
-}
+export const cloudinaryEnabled = isConfigured;
 
 // Migração em massa das mídias WP -> Cloudinary é OPT-IN (SITE_MIGRATE_MEDIA=true).
 // Sem isso, o import-on-start mantém as URLs do WP (dry-run, boot rápido) mesmo com
