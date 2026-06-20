@@ -1,0 +1,50 @@
+{
+  "name": "@artificio/links",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "serve": "tsx server/server.ts",
+    "migrate": "tsx db/migrate.ts",
+    "seed": "tsx db/seed.ts",
+    "rebuild": "astro build",
+    "lint": "echo \"(links) lint TODO\"",
+    "test": "echo \"(links) no tests\""
+  },
+  "dependencies": {
+    "@artificio/auth": "workspace:*",
+    "@artificio/ui": "workspace:*",
+    "cloudinary": "^2.9.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "kysely": "^0.29.2",
+    "pg": "^8.20.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "sanitize-html": "^2.17.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@astrojs/react": "^4.4.0",
+    "@astrojs/sitemap": "^3.2.1",
+    "@tailwindcss/vite": "^4.3.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24",
+    "@types/pg": "^8.11.6",
+    "@types/sanitize-html": "^2.16.1",
+    "astro": "^6.4.8",
+    "sharp": "^0.35.1",
+    "tailwindcss": "^4.3.1",
+    "tsx": "^4.19.2",
+    "typescript": "~6.0.3",
+    "vite": "^7.3.2"
+  }
+}

@@ -1,0 +1,51 @@
+---
+// Card de grupo. Linka para a página publicada /grupo/<slug> (SEO), não direto ao convite —
+// o CTA de entrar fica na página do grupo. Exibe chips de tag (máx 3) + badge +18.
+// UX-1: gate +18 — overlay com confirmação; blur removido via script is:inline no Base.astro.
+interface Props {
+  name: string;
+  slug: string;
+  description?: string | null;
+  tags?: string[]; // labels já resolvidos
+  isAdult?: boolean;
+  logoUrl?: string | null;
+}
+const { name, slug, description, tags = [], isAdult = false, logoUrl } = Astro.props;
+const fallback = "/placeholder.svg";
+---
+<a
+  class={`card${isAdult ? " card-adult" : ""}`}
+  href={`/grupo/${slug}`}
+>
+  {
+    isAdult && (
+      <span class="adult-overlay">
+        <p>Conteúdo +18</p>
+        <button type="button">Confirmo ter 18+</button>
+      </span>
+    )
+  }
+  <img
+    class="logo"
+    src={logoUrl || fallback}
+    alt={`Logo do grupo ${name}`}
+    width="104"
+    height="104"
+    loading="lazy"
+    decoding="async"
+  />
+  <span class="body">
+    <span class="name">{name}</span>
+    {
+      (tags.length > 0 || isAdult) && (
+        <span class="chips">
+          {isAdult && <span class="chip chip-adult">+18</span>}
+          {tags.slice(0, 3).map((t) => (
+            <span class="chip">{t}</span>
+          ))}
+        </span>
+      )
+    }
+    {description && <span class="desc">{description}</span>}
+  </span>
+</a>

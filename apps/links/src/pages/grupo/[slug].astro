@@ -1,0 +1,114 @@
+---
+import Base from "../../layouts/Base.astro";
+import PortalHeader from "../../components/PortalHeader.astro";
+import { getAllGroups, type NormalizedGroup } from "../../lib/groups-source";
+
+export async function getStaticPaths() {
+  const groups = await getAllGroups();
+  return groups.map((g) => ({ params: { slug: g.slug }, props: { group: g } }));
+}
+
+interface Props {
+  group: NormalizedGroup;
+}
+const { group } = Astro.props;
+
+const title = `${group.name} · Grupo de WhatsApp · Artifício RPG`;
+const description =
+  group.description ?? `Entre no grupo de WhatsApp ${group.name} da comunidade Artifício RPG.`;
+
+const fmt = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : null;
+const enviado = fmt(group.createdAt);
+const aprovado = fmt(group.approvedAt);
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: group.name,
+  description,
+  ...(group.logoUrl ? { logo: group.logoUrl, image: group.logoUrl } : {}),
+  url: new URL(`/grupo/${group.slug}`, "https://links.artificiorpg.com").href,
+  sameAs: [group.inviteUrl],
+};
+---
+
+<Base
+  title={title}
+  description={description}
+  path={`/grupo/${group.slug}`}
+  ogImage={group.logoUrl ?? undefined}
+  jsonLd={jsonLd}
+>
+  <PortalHeader />
+  <main class="content group-page">
+    <nav class="breadcrumb" aria-label="Trilha">
+      <a href="/">Início</a> <span>›</span>
+      <a href={`/#cat-${group.category}`}>Grupos</a> <span>›</span>
+      <span aria-current="page">{group.name}</span>
+    </nav>
+
+    <article class={`group-detail${group.isAdult ? " group-detail-adult" : ""}`}>
+      {
+        group.isAdult && (
+          <div class="adult-overlay">
+            <p>Este grupo tem conteúdo adulto (+18)</p>
+            <button type="button">Confirmo ter 18+</button>
+          </div>
+        )
+      }
+      <header class="group-head">
+        <img
+          class="logo-lg"
+          src={group.logoUrl || "/placeholder.svg"}
+          alt={`Logo do grupo ${group.name}`}
+          width="128"
+          height="128"
+          loading="eager"
+          decoding="async"
+        />
+        <div>
+          <h1>{group.name}</h1>
+          {
+            (group.tags.length > 0 || group.isAdult) && (
+              <p class="chips">
+                {group.isAdult && <span class="chip chip-adult">+18</span>}
+                {group.tags.slice(0, 3).map((t) => (
+                  <span class="chip">{t}</span>
+                ))}
+              </p>
+            )
+          }
+          <a
+            class="cta-join"
+            href={group.inviteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {group.kind === "channel" ? "Seguir canal" : "Entrar no grupo"}
+          </a>
+        </div>
+      </header>
+
+      {group.description && <p class="group-desc">{group.description}</p>}
+
+      {
+        group.rules && (
+          <section class="group-rules">
+            <h2>Regras do grupo</h2>
+            <p>{group.rules}</p>
+          </section>
+        )
+      }
+
+      {
+        (enviado || aprovado) && (
+          <footer class="group-meta">
+            {enviado && <span>Enviado em {enviado}</span>}
+            {aprovado && <span>Aprovado em {aprovado}</span>}
+          </footer>
+        )
+      }
+    </article>
+  </main>
+</Base>

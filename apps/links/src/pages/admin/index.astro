@@ -1,0 +1,13 @@
+---
+import Base from "../../layouts/Base.astro";
+import PortalHeader from "../../components/PortalHeader.astro";
+import AdminPanel from "../../components/admin/AdminPanel.tsx";
+---
+
+<Base title="Painel admin · Links" noindex>
+  <PortalHeader />
+  <main class="content admin-page">
+    {/* Gate real é server-side (API /api/admin/v1 exige role=admin); a ilha só reflete. */}
+    <AdminPanel client:only="react" />
+  </main>
+</Base>

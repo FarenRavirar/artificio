@@ -54,3 +54,6 @@ docs/agents/
 .idea/
 .claude/launch.json
 opencode.json
+
+# Astro auto-generated types
+.astro/

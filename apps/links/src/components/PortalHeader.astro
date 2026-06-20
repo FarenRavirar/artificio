@@ -1,0 +1,16 @@
+---
+// Header SSO compartilhado como ilha React (login + userMenu). client:load p/ refletir sessão.
+// Nav primário = defaultNavItems (inclui "WhatsApps"). userMenu expõe o Painel admin só p/ role=admin.
+import { Header } from "@artificio/ui";
+
+const userMenu = [
+  { label: "Painel admin", href: "/admin", adminOnly: true },
+];
+---
+<Header
+  client:load
+  currentHref="https://links.artificiorpg.com"
+  loginLabel="Entrar"
+  userMenu={userMenu}
+  showThemeToggle
+/>

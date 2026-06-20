@@ -10,4 +10,5 @@ export const defaultNavItems: NavItem[] = [
   { label: "Downloads", href: "https://downloads.artificiorpg.com" },
   { label: "Esferas", href: "https://esferas.artificiorpg.com" },
   { label: "SRD", href: "https://srd.artificiorpg.com" },
+  { label: "WhatsApps", href: "https://links.artificiorpg.com" },
 ];

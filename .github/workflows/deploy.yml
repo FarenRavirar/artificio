@@ -50,6 +50,7 @@ on:
           - glossario
           - site
           - accounts
+          - links
       mode:
         description: "ci = build/test only; deploy = deploy via git-pull on VM"
         required: true
