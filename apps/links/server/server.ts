@@ -9,6 +9,7 @@ import express, { type RequestHandler } from "express";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import { requireAuth, type AuthenticatedRequest } from "@artificio/auth";
+import { csrfProtection } from "@artificio/auth";
 import * as Groups from "./repo/groups.js";
 import { parseSuggestion, cleanText } from "./lib/validate.js";
 import { parseInviteUrl, fetchOgImage } from "./lib/og.js";
@@ -26,6 +27,9 @@ const app = express();
 app.set("trust proxy", process.env.TRUSTED_PROXY_CIDR || "172.18.0.0/16");
 app.use(cookieParser());
 app.use(express.json({ limit: "256kb" }));
+app.use(csrfProtection([
+  new URL(process.env.PUBLIC_LINKS_URL || "https://links.artificiorpg.com").origin,
+]));
 
 const requireAdmin: RequestHandler = (req, res, next) => {
   const session = (req as AuthenticatedRequest).session;

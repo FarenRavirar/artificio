@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type RequestHandler } from "express";
 import cookieParser from "cookie-parser";
-import { requireAuth, verifyToken, type AuthenticatedRequest } from "@artificio/auth";
+import { requireAuth, verifyToken, csrfProtection, type AuthenticatedRequest } from "@artificio/auth";
 import { getDb } from "../db/connection.js";
 import { runJob, jobState } from "./jobs.js";
 import { adminApi } from "./admin-api.js";
@@ -24,6 +24,9 @@ const app = express();
 app.set("trust proxy", process.env.TRUSTED_PROXY_CIDR || "172.18.0.0/16");
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
+app.use(csrfProtection([
+  "https://artificiorpg.com",
+]));
 
 // noindex no beta (R8, spec 030): X-Robots-Tag quando SITE_NOINDEX=true.
 // Prod nao define a var → header ausente → index normal.

@@ -13,6 +13,7 @@
   },
   "include": [
     "src/index-cjs.ts",
+    "src/csrf.ts",
     "src/jwt.ts",
     "src/middleware.ts",
     "src/types.ts"
