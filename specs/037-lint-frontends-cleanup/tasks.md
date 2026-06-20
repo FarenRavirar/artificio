@@ -30,3 +30,30 @@
 - [x] T13 — `pnpm -w turbo run lint` **13/13 verde**.
 - [x] T14 — build verdes (glossario 1579 mods, mesas 2230 mods) + `tsc --noEmit` verdes nos 2 pacotes.
 - [ ] T15 — PR → dev (pendente autorização nominal de commit/push).
+
+## CodeQL — 7 alertas high da PR #74 (mesma branch/escopo)
+- [x] T16 — Investigação read-only: classificar os 7 alertas + apurar cookie/CSRF/blast-radius. Veredito no spec.md (adendo). **Sem implementar.**
+- [x] T17 — links/server.ts:332: validar slug (`=== slugify(slug)`) + containment check (`filePath.startsWith(GRUPO_DIR)`). Import `sep` de `node:path`. ✔️
+- [x] T18 — links: `publicLimiter` (120/min em `/grupo/:slug` + fallback 404) + `adminLimiter` (60/min no router admin). Espelha `suggestLimiter`. ✔️
+- [ ] T19 — Promover `csrfProtection` de mesas → `@artificio/auth`; montar em links/site/accounts. **BLOQUEADO — exige pré-voo aprovado pelo mantenedor.**
+- [ ] T20 — Re-rodar CodeQL na #74 → 0 high novos; `lint+build+test` verde; smoke origens/Bearer. **BLOQUEADO — depende de T19 + deploy.**
+
+## CodeRabbit — pendências validadas (detalhe em tasks-2.md). ✅ 13/13 executadas.
+### Categoria A — links (7/7 ✅)
+- [x] T21 — CR-A2 `repo/groups.ts:156`: `deleteTag` atômico em `db.transaction().execute()`. ✔️
+- [x] T22 — CR-A5 `AdminPanel.tsx:375`: checar `res.ok` em `add()`/`remove()` de tags. ✔️
+- [x] T23 — CR-A3 `server.ts:321`: `res.json({ busy: jobBusy(), job: jobState() })`. **Consumidor verificado:** frontend não consome `/rebuild/status` (só `/rebuild` POST). Shape change seguro. ✔️
+- [x] T24 — CR-A4 `AdminPanel.tsx:102`: `setError(false)` no sucesso do reload. ✔️
+- [x] T25 — CR-A1 + CR-A7 `render.ts:64` + `Base.astro:65`: `JSON.stringify(x).replace(/</g, "\\u003c")` (defense-in-depth, 2 locais). ✔️
+- [x] T26 — CR-A6 `GroupCard.astro:24`: `<button>`→`<span class="adult-cta" role="button" tabindex="0">` + seletor JS `Base.astro:80` atualizado para `.adult-overlay .adult-cta`. ✔️
+
+### Categoria D — glossario/mesas (6/6 ✅)
+- [x] T27 — CR-D7 `ScenarioEditModal.tsx:39`: `useState<ScenarioEditModalProps['scenario']>(null)`. **REGRESSÃO da 037/T8 corrigida.** ✔️
+- [x] T28 — CR-D4 `PainelMestrePage.tsx:364`: `else` zera `editingTableId`/`editingTableData` com microtask-defer. Ajustado pós-lint (setState síncrono barrado). ✔️
+- [x] T29 — CR-D1 `AddTermModal.tsx:81`: `.catch(() => { if (active) setEditions([]); })` na promise de editions. ✔️
+- [x] T30 — CR-D2 `GlossarioHeader.tsx:30/47`: `try { localStorage.getItem/setItem } catch { fallback }`. ✔️
+- [x] T31 — CR-D3 `CreateTableForm.tsx:204`: `setSelectedScenarioName(null)` no `!res.ok` E no `catch`. ✔️
+- [x] T32 — CR-D6 `ImportPage.tsx:332/350`: `Array.isArray(data.results)` antes do `.map()` + validação de `data.summary` (5 fields numéricos) antes de `setSummary()`. ✔️
+- [x] T33 — CR-D5 `ProfileEditPage.tsx:52`: `useRef(saving)` p/ rastrear transição `true→false`, notificação "salvo" só pós-save real. ✔️
+
+> CR-B1 e CR-C6 = falso-positivo/cosmético (ver tasks-2.md). CR-C1..C5 já corrigidas em commits.

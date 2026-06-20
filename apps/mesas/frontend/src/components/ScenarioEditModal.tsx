@@ -36,7 +36,7 @@ export const ScenarioEditModal = ({ scenario, onClose, onSuccess }: ScenarioEdit
   const [loading, setLoading] = useState(false);
 
   // Sincroniza os campos com o `scenario` — ajuste durante o render (sem effect).
-  const [prevScenario, setPrevScenario] = useState(scenario);
+  const [prevScenario, setPrevScenario] = useState<ScenarioEditModalProps['scenario']>(null);
   if (prevScenario !== scenario) {
     setPrevScenario(scenario);
     if (scenario) {

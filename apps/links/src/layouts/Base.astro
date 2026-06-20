@@ -62,7 +62,7 @@ const ogImg = ogImage ?? new URL("/og-default.png", site).href;
       jsonLd && (
         <script
           type="application/ld+json"
-          set:html={JSON.stringify(jsonLd)}
+          set:html={JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
         />
       )
     }
@@ -77,7 +77,7 @@ const ogImg = ogImage ?? new URL("/og-default.png", site).href;
             document.querySelectorAll(".group-detail-adult").forEach(function (el) { el.classList.replace("group-detail-adult", "group-detail-unlocked"); });
             return;
           }
-          document.querySelectorAll(".adult-overlay button").forEach(function (btn) {
+          document.querySelectorAll(".adult-overlay .adult-cta").forEach(function (btn) {
             btn.addEventListener("click", function (e) {
               e.preventDefault();
               e.stopPropagation();

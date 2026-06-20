@@ -329,7 +329,9 @@ const ImportPage: React.FC = () => {
         dry_run: true,
         import_nucleus: isAdmin ? adminNucleus : undefined,
       });
-      const rows: PreviewRow[] = (data.results as BackendPreviewRow[]).map(r => toPreviewRow(r, parsedTerms));
+      const rows: PreviewRow[] = Array.isArray(data.results)
+        ? (data.results as BackendPreviewRow[]).map(r => toPreviewRow(r, parsedTerms))
+        : [];
       setPreviewRows(rows);
       setStep('previewing');
     } catch (err) {
@@ -347,7 +349,10 @@ const ImportPage: React.FC = () => {
       const payload: Record<string, unknown> = { terms: parsedTerms };
       if (isAdmin) payload.import_nucleus = adminNucleus;
       const { data } = await api.post('/terms/import', payload);
-      setSummary(data.summary);
+      const s = data.summary;
+      if (s && typeof s.total === 'number' && typeof s.inserted === 'number' && typeof s.updated === 'number' && typeof s.duplicates === 'number') {
+        setSummary(s);
+      }
       setStep('done');
     } catch (err) {
       setError(apiErrorMessage(err, 'Erro durante a importação. Nenhum dado foi alterado.'));

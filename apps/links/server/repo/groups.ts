@@ -154,13 +154,14 @@ export async function updateTag(
 
 /** Remove a tag do vocabulário E retira o slug de todos os grupos (array_remove). */
 export async function deleteTag(id: string): Promise<GroupTag | undefined> {
-  const removed = await db.deleteFrom("group_tags").where("id", "=", id).returningAll().executeTakeFirst();
-  if (removed) {
-    await db
+  return db.transaction().execute(async (trx) => {
+    const removed = await trx.deleteFrom("group_tags").where("id", "=", id).returningAll().executeTakeFirst();
+    if (!removed) return removed;
+    await trx
       .updateTable("groups")
       .set({ tags: sql`array_remove(tags, ${removed.slug})` })
       .where(sql<boolean>`${removed.slug} = ANY(tags)`)
       .execute();
-  }
-  return removed;
+    return removed;
+  });
 }

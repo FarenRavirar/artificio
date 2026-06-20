@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useProfileContext } from '../contexts/useProfileContext';
 import type { PlayerProfile, GmProfile } from '../hooks/useProfile';
@@ -48,8 +48,12 @@ export default function ProfileEditPage() {
   };
 
   // Feedback de autosave com timeout. setState deferido p/ fora do corpo síncrono.
+  // Só dispara na transição saving: true→false (não no load inicial).
+  const prevSavingRef = useRef(saving);
   useEffect(() => {
-    if (saving || !profile) return;
+    const wasSaving = prevSavingRef.current;
+    prevSavingRef.current = saving;
+    if (saving || !profile || !wasSaving) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     void (async () => {

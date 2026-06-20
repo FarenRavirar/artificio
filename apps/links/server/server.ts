@@ -3,7 +3,7 @@
 // Serve o Astro dist/ no final (1 container em deploy). Espelha apps/mesas + apps/site.
 import "dotenv/config";
 import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type RequestHandler } from "express";
 import cookieParser from "cookie-parser";
@@ -15,10 +15,11 @@ import { parseInviteUrl, fetchOgImage } from "./lib/og.js";
 import { uploadLogoFromUrl, deleteLogo } from "./lib/cloudinary.js";
 import { slugify } from "./lib/slug.js";
 import { renderGroupPage } from "./lib/render.js";
-import { runJob, jobState } from "./jobs.js";
+import { runJob, jobState, jobBusy } from "./jobs.js";
 import type { GroupCategory, GroupSource, GroupStatus } from "../db/types.js";
 
 const DIST = process.env.LINKS_DIST || resolve(dirname(fileURLToPath(import.meta.url)), "../dist");
+const GRUPO_DIR = resolve(DIST, "grupo") + sep;
 const VALID_CATEGORIES = ["artificio", "tematicos", "parceiros", "comunidade"] as const;
 
 const app = express();
@@ -100,6 +101,22 @@ const suggestLimiter = rateLimit({
   message: { error: "Muitos envios. Tente novamente mais tarde." },
 });
 
+const publicLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições. Aguarde." },
+});
+
+const adminLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições. Aguarde." },
+});
+
 app.post("/api/groups/suggest", suggestLimiter, requireAuth, async (req, res) => {
   try {
     const parsed = parseSuggestion(req.body);
@@ -124,6 +141,7 @@ app.post("/api/groups/suggest", suggestLimiter, requireAuth, async (req, res) =>
 
 // ===== Admin: moderação =====
 const admin = express.Router();
+admin.use(adminLimiter);
 admin.use(requireAuth, requireAdmin);
 
 // Lista p/ moderação (qualquer status). ?status=pending p/ a fila.
@@ -318,7 +336,7 @@ admin.post("/rebuild", (_req, res) => {
 
 // Status do job em curso (p/ o painel exibir progresso).
 admin.get("/rebuild/status", (_req, res) => {
-  res.json({ busy: jobState() });
+  res.json({ busy: jobBusy(), job: jobState() });
 });
 
 app.use("/api/admin/v1", admin);
@@ -327,11 +345,15 @@ app.use("/api/admin/v1", admin);
 if (existsSync(DIST)) {
   // SSR fallback (ANTES do static): slug aprovado que ainda não existe no dist (pré-rebuild).
   // Verifica se o arquivo estático existe; se sim, deixa o express.static servir.
-  app.get("/grupo/:slug", async (req, res, next) => {
-    const filePath = resolve(DIST, "grupo", req.params.slug, "index.html");
+  app.get("/grupo/:slug", publicLimiter, async (req, res, next) => {
+    const raw = req.params.slug;
+    // Path-validation: só slug canônico (alfanumérico, sem traversal); containment check.
+    if (raw !== slugify(raw)) return next();
+    const filePath = resolve(DIST, "grupo", raw, "index.html");
+    if (!filePath.startsWith(GRUPO_DIR)) return next();
     if (existsSync(filePath)) return next(); // static serve
     try {
-      const g = await Groups.findBySlug(req.params.slug);
+      const g = await Groups.findBySlug(raw);
       if (!g || g.status !== "active") return next(); // 404 normal
       res.send(renderGroupPage(g));
     } catch (e) {
@@ -342,7 +364,7 @@ if (existsSync(DIST)) {
 
   app.use(express.static(DIST, { extensions: ["html"] }));
 
-  app.use((_req, res) => {
+  app.use(publicLimiter, (_req, res) => {
     const notFound = resolve(DIST, "404.html");
     if (existsSync(notFound)) res.status(404).sendFile(notFound);
     else res.status(404).send("404");

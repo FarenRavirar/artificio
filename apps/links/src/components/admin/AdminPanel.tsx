@@ -109,6 +109,7 @@ export default function AdminPanel() {
       const [gJson, tJson] = await Promise.all([gRes.json(), tRes.json()]);
       setGroups(normalizeApiResponse(gJson, normalizeGroup));
       setTags(normalizeApiResponse(tJson, normalizeTag));
+      setError(false);
     } catch {
       setError(true);
     }
@@ -376,11 +377,12 @@ function TagManager({ tags, onChanged }: { tags: Tag[]; onChanged: () => Promise
     if (label.trim().length < 2) return;
     setBusy(true);
     try {
-      await authFetch("/api/admin/v1/tags", {
+      const res = await authFetch("/api/admin/v1/tags", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ label }),
       });
+      if (!res.ok) throw new Error(String(res.status));
       setLabel("");
       await onChanged();
     } finally {
@@ -390,7 +392,8 @@ function TagManager({ tags, onChanged }: { tags: Tag[]; onChanged: () => Promise
 
   const remove = async (t: Tag) => {
     if (!confirm(`Remover a tag "${t.label}"? Ela sai de todos os grupos.`)) return;
-    await authFetch(`/api/admin/v1/tags/${t.id}`, { method: "DELETE" });
+    const res = await authFetch(`/api/admin/v1/tags/${t.id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error(String(res.status));
     await onChanged();
   };
 

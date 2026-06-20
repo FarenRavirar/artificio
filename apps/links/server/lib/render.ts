@@ -61,7 +61,7 @@ ${GSC ? `<meta name="google-site-verification" content="${h(GSC)}">` : ""}
 <meta property="og:url" content="${h(canonical)}">
 <meta property="og:image" content="${h(ogImg)}">
 <meta name="twitter:card" content="summary_large_image">
-<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
+<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, "\\u003c")}</script>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 720px; margin: 0 auto; padding: 1.5rem; background: #F4F6FB; color: #0B1220; }
   .breadcrumb { font-size: .875rem; color: #6B7280; margin-bottom: 1.5rem; }

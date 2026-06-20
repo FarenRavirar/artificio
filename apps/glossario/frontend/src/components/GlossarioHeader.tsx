@@ -27,8 +27,12 @@ export function GlossarioHeader() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   // Init derivado do localStorage (sem effect): "novidade" se nunca viu este update.
   const [hasNewUpdate, setHasNewUpdate] = useState(() => {
-    const lastSeen = localStorage.getItem('glossario_last_seen_update');
-    return !lastSeen || lastSeen !== LAST_SEEN_UPDATE;
+    try {
+      const lastSeen = localStorage.getItem('glossario_last_seen_update');
+      return !lastSeen || lastSeen !== LAST_SEEN_UPDATE;
+    } catch {
+      return false;
+    }
   });
 
   // Tema lua/sol (Spec 020). Init já com o tema resolvido (cookie/boot) p/ não
@@ -44,7 +48,7 @@ export function GlossarioHeader() {
   const openChangelog = () => {
     setChangelogOpen(true);
     setHasNewUpdate(false);
-    localStorage.setItem('glossario_last_seen_update', LAST_SEEN_UPDATE);
+    try { localStorage.setItem('glossario_last_seen_update', LAST_SEEN_UPDATE); } catch { /* offline/pvt */ }
   };
 
   // Adapta o usuário local do glossário ao contrato @artificio/auth (name/role/avatar).

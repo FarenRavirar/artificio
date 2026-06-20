@@ -361,7 +361,15 @@ export const PainelMestrePage = () => {
   const editIdFromUrl = searchParams.get('edit');
 
   useEffect(() => {
-    if (!editIdFromUrl || !isAuthenticated) return;
+    if (!editIdFromUrl || !isAuthenticated) {
+      // setState deferido p/ fora do corpo síncrono do effect.
+      void (async () => {
+        await Promise.resolve();
+        setEditingTableId(null);
+        setEditingTableData(null);
+      })();
+      return;
+    };
     let active = true;
     // setState deferido p/ fora do corpo síncrono do effect.
     void (async () => {

@@ -82,6 +82,8 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
       if (!active) return;
       setEditions(res.data);
       setEditionId('');
+    }).catch(() => {
+      if (active) setEditions([]);
     });
     return () => { active = false; };
   }, [systemId]);

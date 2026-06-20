@@ -204,9 +204,12 @@ export function CreateTableForm({
         if (res.ok && active) {
           const data = await res.json();
           if (active) setSelectedScenarioName(data.data?.name || null);
+        } else if (active) {
+          setSelectedScenarioName(null);
         }
       } catch (err) {
         console.error('[CreateTableForm] Erro ao buscar nome do cenário:', err);
+        if (active) setSelectedScenarioName(null);
       }
     })();
     return () => { active = false; };
