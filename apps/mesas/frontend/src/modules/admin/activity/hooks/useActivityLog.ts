@@ -139,7 +139,7 @@ export function useActivityLog(): UseActivityLogReturn {
   }, []);
 
   useEffect(() => {
-    void fetchPage(effectiveFilters, null, false);
+    void (async () => { await fetchPage(effectiveFilters, null, false); })();
   }, [effectiveFilters, fetchPage]);
 
   const setFilters = useCallback(

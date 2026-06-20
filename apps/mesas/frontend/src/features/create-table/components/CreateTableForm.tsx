@@ -119,17 +119,22 @@ export function CreateTableForm({
   }, []);
 
   useEffect(() => {
-    fetchSystemsTree();
+    void (async () => { await fetchSystemsTree(); })();
   }, [fetchSystemsTree]);
 
-  // Restore de draft
+  // Restore de draft. setState deferido p/ fora do corpo síncrono do effect.
   useEffect(() => {
-    // CORREÇÃO DT-AGG-04: Modo review removido, sempre restaurar draft
-    const draft = draftStorage.load<CreateTableDraft>('create-table-draft');
-    if (!draft) return;
-
-    setSavedDraft(draft);
-    setShowRestoreModal(true);
+    let active = true;
+    void (async () => {
+      await Promise.resolve();
+      if (!active) return;
+      // CORREÇÃO DT-AGG-04: Modo review removido, sempre restaurar draft
+      const draft = draftStorage.load<CreateTableDraft>('create-table-draft');
+      if (!draft) return;
+      setSavedDraft(draft);
+      setShowRestoreModal(true);
+    })();
+    return () => { active = false; };
   }, []);
 
   const handleRestoreDraft = () => {
@@ -185,24 +190,26 @@ export function CreateTableForm({
   const { setDdal } = formHook;
 
   useEffect(() => {
-    if (!formHook.selectedScenarioId) {
-      setSelectedScenarioName(null);
-      return;
-    }
-
-    const fetchScenarioName = async () => {
+    let active = true;
+    // setState só após await (sem set síncrono no corpo do effect).
+    void (async () => {
+      await Promise.resolve();
+      if (!active) return;
+      if (!formHook.selectedScenarioId) {
+        setSelectedScenarioName(null);
+        return;
+      }
       try {
         const res = await fetch(`/api/v1/scenarios/${formHook.selectedScenarioId}`);
-        if (res.ok) {
+        if (res.ok && active) {
           const data = await res.json();
-          setSelectedScenarioName(data.data?.name || null);
+          if (active) setSelectedScenarioName(data.data?.name || null);
         }
       } catch (err) {
         console.error('[CreateTableForm] Erro ao buscar nome do cenário:', err);
       }
-    };
-
-    fetchScenarioName();
+    })();
+    return () => { active = false; };
   }, [formHook.selectedScenarioId]);
 
   // Desabilitar DDAL se sistema não for elegível

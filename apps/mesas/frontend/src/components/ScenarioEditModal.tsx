@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -35,21 +35,23 @@ export const ScenarioEditModal = ({ scenario, onClose, onSuccess }: ScenarioEdit
   const [subgenreInput, setSubgenreInput] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  // Sincroniza os campos com o `scenario` — ajuste durante o render (sem effect).
+  const [prevScenario, setPrevScenario] = useState(scenario);
+  if (prevScenario !== scenario) {
+    setPrevScenario(scenario);
     if (scenario) {
       setName(scenario.name);
       setNamePt(scenario.name_pt || '');
       setSlug(scenario.slug);
       setSubgenres(scenario.subgenres || []);
-      return;
+    } else {
+      setName('');
+      setNamePt('');
+      setSlug('');
+      setSubgenres([]);
+      setSubgenreInput('');
     }
-
-    setName('');
-    setNamePt('');
-    setSlug('');
-    setSubgenres([]);
-    setSubgenreInput('');
-  }, [scenario]);
+  }
 
   const handleNameChange = (value: string) => {
     setName(value);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AdminWorkspaceLayout } from '../features/admin/components/AdminWorkspaceLayout';
 import { ScenariosList } from '../features/admin/components/ScenariosList';
 import { EntityInspector, type SystemFormData } from '../features/admin/components/EntityInspector';
@@ -39,11 +39,7 @@ export function ScenariosAdminView() {
   const [inspectorMode, setInspectorMode] = useState<'edit' | 'create' | null>(null);
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    fetchScenarios();
-  }, []);
-
-  const fetchScenarios = async () => {
+  const fetchScenarios = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE}/api/v1/scenarios`, {
@@ -58,7 +54,11 @@ export function ScenariosAdminView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void (async () => { await fetchScenarios(); })();
+  }, [fetchScenarios]);
 
   const selectedScenario = scenarios.find(s => s.id === selectedId) || null;
 

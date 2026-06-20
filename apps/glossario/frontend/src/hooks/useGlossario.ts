@@ -25,6 +25,7 @@ export function useGlossario() {
   const [error, setError] = useState<string | null>(null);
   const lastSearchRef = useRef('');
 
+  // Refetch manual (botão "recarregar"): reseta loading/erro de forma síncrona.
   const carregarDados = useCallback(() => {
     setLoading(true);
     setError(null);
@@ -42,8 +43,25 @@ export function useGlossario() {
       });
   }, []);
 
+  // Carga inicial: IIFE async inline; loading já inicia true e o setState só
+  // ocorre após o await (não-síncrono no corpo do effect).
   useEffect(() => {
-    carregarDados();
+    let active = true;
+    (async () => {
+      try {
+        const res = await api.get('/terms', { params: { limit: 60 } });
+        if (!active) return;
+        const payload = Array.isArray(res.data) ? res.data : [];
+        setDados(payload.map((item: Termo) => sanitizeTermForUi(item)));
+      } catch (err) {
+        if (!active) return;
+        console.error('Erro ao carregar termos:', err);
+        setError('O servidor de termos está offline ou inacessível.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
   }, []);
 
   const buscar = useCallback(async (query: string) => {

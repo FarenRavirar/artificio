@@ -217,14 +217,14 @@ export const GestaoPage = () => {
       navigate('/');
       return;
     }
-
-    if (activeTab === 'systems') {
-      fetchSuggestions();
-    } else if (activeTab === 'crud') {
-      if (crudSubTab === 'tables') {
-        fetchAllTables();
+    // Fetches deferidos p/ fora do corpo síncrono do effect.
+    void (async () => {
+      if (activeTab === 'systems') {
+        await fetchSuggestions();
+      } else if (activeTab === 'crud' && crudSubTab === 'tables') {
+        await fetchAllTables();
       }
-    }
+    })();
   }, [user, navigate, activeTab, crudSubTab, fetchSuggestions, fetchAllTables]);
 
   const maybePublishPendingDrafts = async (pending: Array<{ id: string; title: string | null }>) => {

@@ -102,25 +102,26 @@ const PreviewRow: React.FC<{ row: PreviewRow }> = ({ row }) => {
 // Componente principal
 // ---------------------------------------------------------------------------
 
+// Componente estático (fora do ImportPreview) — não re-criar a cada render.
+const Section: React.FC<{ title: string; count: number; children: React.ReactNode; accent: string }> =
+  ({ title, count, children, accent }) => (
+    count > 0 ? (
+      <div className="space-y-2">
+        <div className={`flex items-center gap-2 text-xs font-black uppercase tracking-widest ${accent}`}>
+          <ChevronRight size={14} />
+          {title}
+          <span className="ml-auto font-mono bg-[var(--surface)] px-2 py-0.5 rounded-full border text-[var(--fg-muted)] text-[10px]">{count}</span>
+        </div>
+        <div className="space-y-1.5">{children}</div>
+      </div>
+    ) : null
+  );
+
 const ImportPreview: React.FC<ImportPreviewProps> = ({ rows, onConfirm, onCancel, isLoading }) => {
   const inserts    = rows.filter(r => r.action === 'insert');
   const updates    = rows.filter(r => r.action === 'update_own');
   const overrides  = rows.filter(r => r.action === 'override');
   const duplicates = rows.filter(r => r.action === 'duplicate');
-
-  const Section: React.FC<{ title: string; count: number; children: React.ReactNode; accent: string }> =
-    ({ title, count, children, accent }) => (
-      count > 0 ? (
-        <div className="space-y-2">
-          <div className={`flex items-center gap-2 text-xs font-black uppercase tracking-widest ${accent}`}>
-            <ChevronRight size={14} />
-            {title}
-            <span className="ml-auto font-mono bg-[var(--surface)] px-2 py-0.5 rounded-full border text-[var(--fg-muted)] text-[10px]">{count}</span>
-          </div>
-          <div className="space-y-1.5">{children}</div>
-        </div>
-      ) : null
-    );
 
   return (
     <div className="space-y-5">

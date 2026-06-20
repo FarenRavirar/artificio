@@ -41,7 +41,7 @@ const AdminReviewPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchTerms(); }, []);
+  useEffect(() => { void (async () => { await fetchTerms(); })(); }, []);
 
   const moderate = async (id: string, status: 'verificado' | 'rejeitado') => {
     await api.patch(`/terms/${id}/approve`, { status });

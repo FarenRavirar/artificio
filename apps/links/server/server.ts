@@ -19,6 +19,7 @@ import { runJob, jobState } from "./jobs.js";
 import type { GroupCategory, GroupSource, GroupStatus } from "../db/types.js";
 
 const DIST = process.env.LINKS_DIST || resolve(dirname(fileURLToPath(import.meta.url)), "../dist");
+const VALID_CATEGORIES = ["artificio", "tematicos", "parceiros", "comunidade"] as const;
 
 const app = express();
 app.set("trust proxy", process.env.TRUSTED_PROXY_CIDR || "172.18.0.0/16");
@@ -191,7 +192,13 @@ admin.patch("/groups/:id", async (req, res) => {
     if (typeof b.description === "string") patch.description = cleanText(b.description, 500) || null;
     if (typeof b.rules === "string") patch.rules = cleanText(b.rules, 4000) || null;
     if (typeof b.is_adult === "boolean") patch.is_adult = b.is_adult;
-    if (typeof b.category === "string") patch.category = b.category as GroupCategory;
+    if (typeof b.category === "string") {
+      if (!(VALID_CATEGORIES as readonly string[]).includes(b.category)) {
+        res.status(400).json({ error: "categoria inválida" });
+        return;
+      }
+      patch.category = b.category as GroupCategory;
+    }
     if (typeof b.sort_order === "number") patch.sort_order = b.sort_order;
     if (typeof b.invite_url === "string") {
       const invite = parseInviteUrl(b.invite_url);

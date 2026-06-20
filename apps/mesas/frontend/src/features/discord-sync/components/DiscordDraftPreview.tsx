@@ -237,25 +237,32 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose }: Props) {
   const [slotsInterpretation, setSlotsInterpretation] = useState<SlotsInterpretation>('filled_total');
   const coverInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
+  // Sincroniza os campos com o draft/payload — ajuste durante o render (sem effect).
+  const syncKey = `${draft.id}|${draft.status}|${draft.review_notes ?? ''}`;
+  const [prevSync, setPrevSync] = useState({ syncKey, initialPayload });
+  if (prevSync.syncKey !== syncKey || prevSync.initialPayload !== initialPayload) {
+    setPrevSync({ syncKey, initialPayload });
     setForm(buildForm(initialPayload));
     setNewStatus(draft.status);
     setReviewNotes(draft.review_notes ?? '');
-  }, [draft.id, draft.review_notes, draft.status, initialPayload]);
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setSystemsLoading(true);
-    loadSystems()
-      .then((items) => {
+    // setState deferido p/ fora do corpo síncrono do effect.
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setSystemsLoading(true);
+      try {
+        const items = await loadSystems();
         if (!cancelled) setSystems(flattenSystems(items));
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!cancelled) toast.error(err instanceof Error ? err.message : 'Erro ao carregar sistemas.');
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setSystemsLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };

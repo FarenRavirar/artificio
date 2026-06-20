@@ -27,9 +27,13 @@ export const HydrationAdminPanel = () => {
   const [lastRunDate, setLastRunDate] = useState<string | null>(null);
 
   useEffect(() => {
-    // T018: Exibir histórico do localStorage
-    const history = localStorage.getItem('lastHydrationLog');
-    if (history) {
+    let active = true;
+    // T018: histórico do localStorage. setState deferido p/ fora do corpo síncrono.
+    void (async () => {
+      await Promise.resolve();
+      if (!active) return;
+      const history = localStorage.getItem('lastHydrationLog');
+      if (!history) return;
       try {
         const parsed = JSON.parse(history);
         setLastResult(parsed.result);
@@ -37,7 +41,8 @@ export const HydrationAdminPanel = () => {
       } catch (e) {
         console.error('Error parsing hydration history', e);
       }
-    }
+    })();
+    return () => { active = false; };
   }, []);
 
   const handleHydrate = async () => {

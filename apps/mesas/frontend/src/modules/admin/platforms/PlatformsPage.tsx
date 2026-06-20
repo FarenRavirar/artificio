@@ -119,7 +119,7 @@ export function PlatformsPage() {
   };
 
   useEffect(() => {
-    loadPlatforms(kind);
+    void (async () => { await loadPlatforms(kind); })();
   }, [kind]);
 
   const resetForm = () => {

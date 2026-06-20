@@ -10,6 +10,13 @@ interface System { id: string; name: string; slug: string; status: string; posit
 interface Edition { id: string; name: string; slug: string; system_id: string; status: string; position: number; }
 interface Scenario { id: string; name: string; slug: string; status: string; position: number; }
 
+// Form dinâmico (add/edit de categoria/sistema/cenário/edição): união opcional
+// das entidades — aceita receber qualquer uma delas via setForm(item).
+type StructureForm = Partial<Category & System & Edition & Scenario>;
+// Item reordenável — campos comuns acessados em reorder() (type/system_id opcionais).
+type ReorderItem = { id: string; position: number; type?: string; system_id?: string };
+type ModalKind = null | 'addCat' | 'addSys' | 'addScenario' | 'addEdition' | 'editCat' | 'editSys' | 'editScenario' | 'editEdition';
+
 const AdminStructurePage: React.FC = () => {
   const [tab, setTab] = useState<'categories' | 'systems' | 'scenarios' | 'pending'>('categories');
   const [exporting, setExporting] = useState(false);
@@ -42,9 +49,9 @@ const AdminStructurePage: React.FC = () => {
   const [editions, setEditions] = useState<Edition[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
 
-  const [modal, setModal] = useState<null | 'addCat' | 'addSys' | 'addScenario' | 'addEdition' | 'editCat' | 'editSys' | 'editScenario' | 'editEdition'>(null);
+  const [modal, setModal] = useState<ModalKind>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<Record<string, any>>({});
+  const [form, setForm] = useState<StructureForm>({});
   const [saving, setSaving] = useState(false);
 
   // Accordion state
@@ -71,7 +78,7 @@ const AdminStructurePage: React.FC = () => {
     } catch (e) { console.error('Erro ao carregar estrutura:', e); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void (async () => { await load(); })(); }, []);
 
   const slugify = (str: string) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
@@ -81,7 +88,7 @@ const AdminStructurePage: React.FC = () => {
   const save = async () => {
     setSaving(true);
     try {
-      const payload = { ...form, slug: form.slug || slugify(form.name) };
+      const payload = { ...form, slug: form.slug || slugify(form.name ?? '') };
       
       if (modal?.startsWith('add')) {
         if (modal === 'addCat') await api.post('/categories', payload, { headers: headers() });
@@ -103,7 +110,7 @@ const AdminStructurePage: React.FC = () => {
     setSaving(false);
   };
 
-  const reorder = async (type: 'categories' | 'systems' | 'scenarios' | 'editions', item: any, direction: 'up' | 'down') => {
+  const reorder = async (type: 'categories' | 'systems' | 'scenarios' | 'editions', item: ReorderItem, direction: 'up' | 'down') => {
     const list = type === 'categories' ? categories.filter(c => c.type === item.type) 
                : type === 'systems' ? systems 
                : type === 'scenarios' ? scenarios 
@@ -131,7 +138,7 @@ const AdminStructurePage: React.FC = () => {
     } catch (e) { console.error('Erro ao reordenar:', e); }
   };
 
-  const approve = async (type: string, id: string, item: any) => {
+  const approve = async (type: string, id: string, item: StructureForm) => {
     try {
       const route = type === 'editions' ? `/systems/editions/${id}` : `/${type}/${id}`;
       await api.put(route, { ...item, status: 'aprovado' }, { headers: headers() });
@@ -374,10 +381,10 @@ const AdminStructurePage: React.FC = () => {
                       <div key={item.id} className="bg-[var(--surface)] rounded-2xl border border-[rgba(255,87,34,0.10)] p-5 flex items-center justify-between shadow-sm hover:border-[rgba(255,87,34,0.30)] transition-all">
                         <div>
                           <p className="font-black text-[var(--fg)]">{item.name}</p>
-                          <p className="text-[10px] text-[var(--fg-muted)] font-mono uppercase mt-0.5">slug: {item.slug} {group.type === 'editions' && `| sys_id: ${(item as any).system_id}`}</p>
+                          <p className="text-[10px] text-[var(--fg-muted)] font-mono uppercase mt-0.5">slug: {item.slug} {group.type === 'editions' && `| sys_id: ${(item as { system_id?: string }).system_id}`}</p>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => { setModal(group.modal as any); setEditingId(item.id); setForm(item); }} className="bg-[var(--surface-subtle)] text-[var(--fg-muted)] p-2.5 rounded-xl hover:bg-[var(--surface-strong)] transition-all"><Edit2 size={18} /></button>
+                          <button onClick={() => { setModal(group.modal as ModalKind); setEditingId(item.id); setForm(item); }} className="bg-[var(--surface-subtle)] text-[var(--fg-muted)] p-2.5 rounded-xl hover:bg-[var(--surface-strong)] transition-all"><Edit2 size={18} /></button>
                           <button onClick={() => deleteItem(group.type === 'editions' ? 'editions' : group.type, item.id)} className="bg-[var(--state-danger-bg)] text-[var(--state-danger-fg)] p-2.5 rounded-xl hover:bg-[var(--state-danger-bg)] transition-all"><X size={18} /></button>
                           <button onClick={() => approve(group.type, item.id, item)} className="bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)] px-6 py-2.5 rounded-xl text-xs font-black hover:bg-[var(--btn-primary-bg-hover)] transition-all flex items-center gap-2 shadow-lg shadow-blue-900/10"><CheckCircle size={14} /> APROVAR</button>
                         </div>

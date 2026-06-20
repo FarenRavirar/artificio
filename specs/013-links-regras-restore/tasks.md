@@ -677,4 +677,163 @@ O mantenedor decidiu espelhar **`apps/mesas`** (atualizado na spec 033), não `a
 1. 🟦 **Deploy** — ação mantenedor: tunnel `links.` + `.env` VM + deploy dispatch + smoke.
 2. 🟦 **Smoke nav consumidores** — site/mesas/glossario/accounts com "WhatsApps" no ar (só após `links.` deployado).
 3. **Correções do PR #74:** ✅ TODAS APLICADAS 2026-06-20. M1–M5 + I1–I5 + C1–C8 (código). B1 (lockfile) + B2 (chmod) corrigidos localmente, pendentes commit.
-4. **Débitos cross-app:** D-SITE-REQUIREADMIN (C2, fechado), BL-ROOTLESS-CONTAINERS (C3, fechado), D-SITE-ADVISORY-LOCK (C7, aberto), BL-CLOUDINARY-SHARED (I6, aberto).
+4. **Débitos cross-app:** ✅ Todos fechados 2026-06-20 (D-SITE-REQUIREADMIN, BL-ROOTLESS-CONTAINERS, D-SITE-ADVISORY-LOCK, BL-CLOUDINARY-SHARED).
+
+---
+
+## Revisões 2 — Novos achados (2026-06-20, CodeRabbit pós-correções)
+
+> Achados de revisão automática após aplicação das correções M1–C8 e débitos cross-app.
+> Catalogados para investigação futura. Nenhuma correção aplicada ainda.
+
+### ⬜ A INVESTIGAR (4)
+
+- [x] **R2-1 — Category cast sem validação** (CodeRabbit, 🟡 Minor, ⚡ Quick win) ✅ corrigido 2026-06-20
+
+  **Código:** `apps/links/server/server.ts:194`
+  ```typescript
+  if (typeof b.category === "string") patch.category = b.category as GroupCategory;
+  ```
+
+  **Investigação completa (2026-06-20):**
+
+  **1. Fluxo do dado:**
+  ```
+  Client (AdminPanel.tsx) → PATCH /api/admin/v1/groups/:id → server.ts:194
+    → Groups.updateGroup() → Kysely UPDATE → PostgreSQL CHECK constraint
+  ```
+  - Client: `<Select>` populado com `CATEGORIES = ["artificio","tematicos","parceiros","comunidade"]` (AdminPanel.tsx:47,331) — UI restringe, mas bypassável via fetch direto.
+  - Server: `b.category as GroupCategory` — cast puro, zero runtime check.
+  - DB: `CHECK (category IN ('artificio','tematicos','parceiros','comunidade'))` (migration_001_init_groups.sql:31).
+
+  **2. O que acontece se um valor inválido é enviado:**
+  ```
+  POST /api/admin/v1/groups/<id>
+  Body: { "category": "hacked" }
+
+  1. typeof "hacked" === "string" → true → entra no if
+  2. patch.category = "hacked" as GroupCategory → TypeScript não emite runtime check
+  3. updateGroup() → db.updateTable("groups").set({ category: "hacked" })
+  4. PostgreSQL: ERROR: new row for relation "groups" violates check constraint "groups_category_check"
+  5. C6 try/catch → res.status(500).json({ error: "erro interno" })
+  ```
+  Resultado: 500 genérico. Admin não sabe qual campo falhou. Log do servidor mostra o erro PG real.
+
+  **3. Gold standard no mesmo codebase (AdminPanel.tsx:70):**
+  ```typescript
+  // normalizeGroup já faz a validação correta:
+  category: (typeof r.category === "string" && (CATEGORIES as string[]).includes(r.category))
+    ? r.category as Category : "comunidade",
+  ```
+  O normalizer do client JÁ valida category contra o conjunto. O server não.
+
+  **4. Mesmo padrão em outros campos do mesmo handler (server.ts PATCH):**
+  - `invite_url` → validado via `parseInviteUrl()` (host allowlist + path regex) ✅
+  - `tags` → validado via `sanitizeTagSlugs()` (array+string+DB lookup) ✅
+  - `name` → sanitizado via `cleanText()` (length+HTML) ✅
+  - `slug` → validado via `ensureUniqueSlug()` (slugify+DB unique) ✅
+  - `description`, `rules` → sanitizados via `cleanText()` ✅
+  - `category` → **único campo sem validação** — só typeof string + cast ❌
+
+  **5. Severidade real:**
+  - Não é bypass de segurança (CHECK constraint barra no DB, fail-closed).
+  - Não causa corrupção de dados (PostgreSQL rejeita a transação inteira).
+  - Impacto: UX ruim (500 genérico), log poluído com erro PG, inconsistência com os outros campos do handler que têm validação explícita.
+  - Autenticação: rota exige `requireAuth`+`requireAdmin` — vetor restrito a admin.
+
+  **6. Fix (3 linhas, antes do cast na linha 194):**
+  ```typescript
+  // De:
+  if (typeof b.category === "string") patch.category = b.category as GroupCategory;
+  // Para:
+  if (typeof b.category === "string") {
+    if (!(["artificio","tematicos","parceiros","comunidade"] as string[]).includes(b.category)) {
+      res.status(400).json({ error: "categoria inválida" });
+      return;
+    }
+    patch.category = b.category as GroupCategory;
+  }
+  ```
+  Ou extrair const `VALID_CATEGORIES` no topo do server.ts (consistente com AdminPanel.tsx:47).
+
+  **Sessão:** `26-06-20_2_links_whatsapp-013-014.md`, revisões 2.
+
+  **Fix aplicado 2026-06-20:** constante `VALID_CATEGORIES` no topo do `server.ts` + validação `includes()` antes do cast, retornando 400 "categoria inválida". Consistente com os outros 6 campos do handler PATCH. `tsc --noEmit` verde, `astro build` 15p verde.
+
+- [x] **R2-2 — Advisory unlock sem garantia de release** (CodeRabbit, 🟠 Major, ⚡ Quick win) ✅ corrigido 2026-06-20
+
+  **Código:** `apps/site/db/migrate.ts:44-46`
+  ```typescript
+  } finally {
+    if (db.isPg) await lockClient.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]);
+    lockClient.release();
+    await db.close();
+  }
+  ```
+
+  **Investigação completa (2026-06-20):**
+
+  **1. Contexto — o fix do D-SITE-ADVISORY-LOCK:**
+  O débito C7 (advisory lock via `db.query()` não-determinístico) foi corrigido adicionando `getClient()` à interface `Db` (connection.ts:48-53). Migrate.ts agora usa `lockClient` dedicado (linha 17) — lock+unlock na mesma conexão PG ✅. Porém, o finally não protege o `release()` contra falha no unlock.
+
+  **2. O bug — unlock pode lançar e bloquear release():**
+  ```typescript
+  if (db.isPg) await lockClient.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]); // ← pode lançar
+  lockClient.release();  // ← NUNCA executa se a linha acima lançar
+  ```
+  Cenários onde `pg_advisory_unlock` pode lançar exceção:
+  | Falha | Causa | Probabilidade |
+  |---|---|---|
+  | `ERR_CONNECTION_RESET` | PostgreSQL reiniciou ou matou a conexão durante o migrate | Baixa |
+  | `ERR_POOL_CLOSED` | `pool.end()` chamado prematuramente (outro caminho de código) | Muito baixa |
+  | `ERR_CONNECTION_TIMEOUT` | Rede entre container app e DB caiu | Baixa |
+  | Lock não existe | `pg_advisory_unlock` retorna `false` (não é exceção — é retorno normal) | N/A (não lança) |
+
+  Se qualquer uma dessas exceções ocorrer, `lockClient.release()` nunca roda → conexão vaza do pool. Com pool `max: 10`, após 10 vazamentos o pool fica exausto e `pool.connect()` pendura infinitamente (30s timeout).
+
+  **3. Gold standard — links (`apps/links/db/migrate.ts:72`):**
+  ```typescript
+  } finally {
+    await lockClient.query("SELECT pg_advisory_unlock($1)", [LOCK_ID]).catch(() => {});
+    lockClient.release();
+  }
+  ```
+  Links usa `.catch(() => {})` no unlock — garante que `release()` SEMPRE executa, mesmo se unlock falhar. Este é o padrão correto.
+
+  **4. Comparação direta:**
+  | Aspecto | links (C7) | site (D-SITE-ADVISORY-LOCK) |
+  |---|---|---|
+  | Conexão dedicada | ✅ `pool.connect()` → lockClient | ✅ `db.getClient()` → lockClient |
+  | Lock+unlock mesma sessão | ✅ | ✅ |
+  | Unlock com `.catch()` | ✅ | ❌ |
+  | `release()` garantido | ✅ | ❌ |
+
+  **5. Severidade real:**
+  - **Não é explorável remotamente:** migrate roda como script local/dev ou no entrypoint do container — single-process, sem input externo.
+  - **Pool exhaustion é teórico:** precisaria de 10 falhas consecutivas de unlock sem restart do processo.
+  - **Impacto prático atual:** baixo. O `db.close()` na linha 47 (`pool.end()`) fecha todas as conexões inclusive as vazadas — então mesmo sem release(), o pool é limpo no fim do script.
+  - **Risco real:** se o código evoluir e `db.close()` for removido ou movido para outro lugar, o vazamento se torna real. Defesa em profundidade.
+
+  **6. Fix (1 caractere — `.catch(() => {})`):**
+  ```typescript
+  // De:
+  if (db.isPg) await lockClient.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]);
+  // Para:
+  if (db.isPg) await lockClient.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => {});
+  ```
+  Idêntico ao padrão links. Garante que `release()` sempre executa no finally.
+
+  **Sessão:** `26-06-20_2_links_whatsapp-013-014.md`, revisões 2.
+
+  **Fix aplicado 2026-06-20:** `.catch(() => {})` adicionado ao unlock. Idêntico ao padrão `apps/links/db/migrate.ts:72`. `tsc --noEmit` em `apps/site` verde.
+
+- [x] **R2-3 — project-state.md não atualizado pós-media-shared** (CodeRabbit, 🟠 Major) ✅ verificado 2026-06-20 — já resolvido
+
+  **Verificação:** `.specify/memory/project-state.md` linha 121 já contém entrada `BL-CLOUDINARY-SHARED FECHADO LOCAL` com detalhes completos (`packages/media` criado, 5 funções, 3 consumidores migrados, turbo build 9/9). Revisor provavelmente inspecionou versão anterior ao registro. Nenhuma ação necessária.
+
+  **Contexto:** `sessoes/26-06-20_4_media-shared.md` — sessão de implementação do `@artificio/media`. Checklist marca `[x] project-state.md atualizado`, mas revisor reporta que o arquivo pode estar ausente ou desatualizado.
+  **Ação:** verificar `.specify/memory/project-state.md` — registrar `@artificio/media` como novo pacote shared e atualizar status dos débitos cross-app fechados.
+
+- [x] **R2-4 — Sessão prompt-D-SITE-ADVISORY-LOCK incompleta** (CodeRabbit, 🟡 Minor) ✅ verificado 2026-06-20 — já resolvido
+
+  **Verificação:** Sessão real `sessoes/26-06-20_4_site_advisory-lock.md` existe (40 linhas) com header completo: data, objetivo, gate, vínculos, plano, checklist 12 itens (`[x]`), arquivos modificados. O arquivo `prompt-D-SITE-ADVISORY-LOCK.md` era apenas a especificação inicial; a sessão real foi criada posteriormente com formato completo. Checklist cobre: `connection.ts` (DbClient+getClient, factories pg/pglite), `migrate.ts` (lockClient, lock+unlock+release), `media.test.ts` (mock), validações (tsc+build), backlog+project-state. R2-2 (`.catch(() => {})`) complementa a sessão como correção adicional.

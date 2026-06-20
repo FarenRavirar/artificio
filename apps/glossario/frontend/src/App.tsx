@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useMemo, useEffect, useRef, createContext, useContext } from 'react';
+import { lazy, Suspense, useState, useMemo, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Footer } from '@artificio/ui';
@@ -10,9 +10,22 @@ import { LandingSection } from './components/LandingSection';
 import { useGlossario } from './hooks/useGlossario';
 import { Loader2 } from 'lucide-react';
 
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/auth-context';
+import { UIContext, useUI } from './context/UIContext';
 import { trackSearch } from '@artificio/analytics';
 import { useAnalyticsPageviews } from '@artificio/analytics/react';
+
+// Hierarquia para ordenar variantes de um mesmo termo. Constantes de módulo
+// (não dependem de render) — fora do componente p/ não entrar em deps de hooks.
+const nucleusRank: Record<string, number> = { oficial: 5, artificio: 4, aprovado: 3, sugestao: 0 };
+const statusRank: Record<string, number> = { verificado: 3, pendente: 1, rejeitado: 0 };
+const sourceRank: Record<string, number> = { sistema: 2, cenario: 1, tabela: 0 };
+
+const termScore = (t: { nucleus?: string; status?: string; source_type?: string }) =>
+  (nucleusRank[t.nucleus ?? ''] ?? 0) * 100 +
+  (statusRank[t.status ?? ''] ?? 0) * 10 +
+  (sourceRank[t.source_type ?? ''] ?? 0);
 
 const ResultCard = lazy(() => import('./components/ResultCard'));
 const AddTermModal = lazy(() => import('./components/AddTermModal'));
@@ -27,10 +40,6 @@ const AdminReviewPage = lazy(() => import('./pages/AdminReviewPage'));
 const AdminStructurePage = lazy(() => import('./pages/AdminStructurePage'));
 const AdminActivityPage = lazy(() => import('./pages/AdminActivityPage'));
 const AdminFeedbackPage = lazy(() => import('./pages/AdminFeedbackPage'));
-
-// Contexto para abrir o modal de sugestão de qualquer componente
-export const UIContext = createContext<{ openAddTerm: () => void }>({ openAddTerm: () => {} });
-export const useUI = () => useContext(UIContext);
 
 function HomePage() {
   const { user } = useAuth();
@@ -80,31 +89,6 @@ function HomePage() {
     }
     return results;
   }, [query, hasSearchQuery, activeCategory, dados]);
-
-  // -------------------------------------------------------------------------
-  // Hierarquia para ordenar variantes de um mesmo termo
-  // -------------------------------------------------------------------------
-  const nucleusRank: Record<string, number> = {
-    oficial:   5,
-    artificio: 4,
-    aprovado:  3,
-    sugestao:  0,
-  };
-  const statusRank: Record<string, number> = {
-    verificado: 3,
-    pendente:   1,
-    rejeitado:  0,
-  };
-  const sourceRank: Record<string, number> = {
-    sistema: 2,
-    cenario: 1,
-    tabela:  0,
-  };
-
-  const termScore = (t: { nucleus?: string; status?: string; source_type?: string }) =>
-    (nucleusRank[t.nucleus ?? ''] ?? 0) * 100 +
-    (statusRank[t.status ?? '']   ?? 0) * 10  +
-    (sourceRank[t.source_type ?? ''] ?? 0);
 
   // Agrupa por name_en normalizado; primeiro da lista = maior hierarquia
   const groupedResults = useMemo(() => {

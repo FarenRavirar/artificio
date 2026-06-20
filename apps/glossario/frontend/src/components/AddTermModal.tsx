@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { X, PlusCircle, Loader2, AlertCircle } from 'lucide-react';
 import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
+import { apiErrorMessage } from '../lib/api-error';
 
 interface System { id: string; name: string; }
 interface Edition { id: string; name: string; system_id: string; }
@@ -71,11 +72,18 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
   }, []);
 
   useEffect(() => {
-    if (!systemId || systemId === 'new') { setEditions([]); setEditionId(''); return; }
-    api.get(`/systems/${systemId}/editions`).then(res => {
+    let active = true;
+    // Sem sistema válido → lista vazia; senão busca no servidor. setState só no
+    // callback assíncrono (sem set síncrono no corpo do effect).
+    const load = !systemId || systemId === 'new'
+      ? Promise.resolve({ data: [] as Edition[] })
+      : api.get(`/systems/${systemId}/editions`);
+    load.then(res => {
+      if (!active) return;
       setEditions(res.data);
       setEditionId('');
     });
+    return () => { active = false; };
   }, [systemId]);
 
   const filteredCategories = categories.filter(c => c.type === sourceType);
@@ -147,7 +155,7 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
           setNewCategoryName('');
           setNewCategoryParentId('');
         } catch (err) {
-          throw new Error('Erro ao criar categoria.');
+          throw new Error('Erro ao criar categoria.', { cause: err });
         }
       }
 
@@ -169,8 +177,8 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
             additional_info: additionalInfo || null,
           });
           wasTermCreated = true;
-        } catch (err: any) {
-          throw new Error(err.response?.data?.message || 'Erro ao criar o termo.');
+        } catch (err) {
+          throw new Error(apiErrorMessage(err, 'Erro ao criar o termo.'), { cause: err });
         }
       }
 
@@ -198,8 +206,8 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
         onSuccess();
         onClose();
       }
-    } catch (err: any) {
-      setError(err.message || 'Erro inesperado.');
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : 'Erro inesperado.');
     } finally {
       setLoading(false);
     }

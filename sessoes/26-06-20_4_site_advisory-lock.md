@@ -38,3 +38,13 @@
 ## Critério de conclusão
 
 Interface `Db` expõe `getClient()` sem quebrar abstração dual pg/pglite. `migrate.ts` garante lock+unlock na mesma conexão PG. `tsc --noEmit` e build Astro passam. Nenhum commit (sem autorização).
+
+## Correção R2-2 (2026-06-20)
+
+**Achado (CodeRabbit):** `migrate.ts:45` unlock sem `.catch(() => {})` — se unlock lançar, `release()` nunca roda → vazamento de conexão.
+
+**Fix aplicado:** `.catch(() => {})` adicionado ao unlock. Padrão idêntico a `apps/links/db/migrate.ts:72`. Sessão `26-06-20_2_links_whatsapp-013-014.md` §R2-2.
+
+**Checklist adicional:**
+- [x] `migrate.ts:45` — `.catch(() => {})` no unlock
+- [x] `tsc --noEmit` verde

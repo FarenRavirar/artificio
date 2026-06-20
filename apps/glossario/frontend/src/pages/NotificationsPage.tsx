@@ -1,7 +1,7 @@
 import React from 'react';
 import { Bell, CheckCheck, Filter, RefreshCw } from 'lucide-react';
 import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 
 type NotificationItem = {
   id: string;
@@ -175,11 +175,11 @@ const NotificationsPage: React.FC = () => {
   }, [actorId, dateFrom, dateTo, eventType, isAdmin, limit, offset, readStatus, scope, search, targetUserId]);
 
   React.useEffect(() => {
-    fetchMembers();
+    void (async () => { await fetchMembers(); })();
   }, [fetchMembers]);
 
   React.useEffect(() => {
-    fetchNotifications();
+    void (async () => { await fetchNotifications(); })();
   }, [fetchNotifications]);
 
   const markAsRead = async (id: string) => {

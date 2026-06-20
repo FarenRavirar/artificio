@@ -124,24 +124,29 @@ export function DiscordSyncPanel() {
   }, [messageSourceFilter, messageStatusFilter, messageWindowFilter]);
 
   useEffect(() => {
-    loadSources();
+    void (async () => { await loadSources(); })();
   }, [loadSources]);
 
   useEffect(() => {
-    if (tab === 'mensagens') {
-      loadMessages();
-    }
+    void (async () => { if (tab === 'mensagens') await loadMessages(); })();
   }, [tab, messageStatusFilter, messageSourceFilter, messageWindowFilter, loadMessages]);
 
   useEffect(() => {
     if (tab !== 'mensagens') return;
-    if (messages.length === 0) {
-      setSelectedMessage(null);
-      return;
-    }
-    if (!selectedMessage || !messages.some(message => message.id === selectedMessage.id)) {
-      setSelectedMessage(messages[0]);
-    }
+    let active = true;
+    // Seleção derivada das mensagens — setState deferido p/ fora do corpo síncrono.
+    void (async () => {
+      await Promise.resolve();
+      if (!active) return;
+      if (messages.length === 0) {
+        setSelectedMessage(null);
+        return;
+      }
+      if (!selectedMessage || !messages.some(message => message.id === selectedMessage.id)) {
+        setSelectedMessage(messages[0]);
+      }
+    })();
+    return () => { active = false; };
   }, [messages, selectedMessage, tab]);
 
   const handleFetchMessages = async (sourceId: string, window: DiscordFetchWindow, windowOption: MessageWindowOption = '7d') => {

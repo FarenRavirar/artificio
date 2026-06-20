@@ -2,6 +2,7 @@ import React from 'react';
 import { Activity, Filter, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { apiErrorMessage } from '../lib/api-error';
 
 type AdminActivityItem = {
   event_id: string;
@@ -16,7 +17,7 @@ type AdminActivityItem = {
   target_user_name: string | null;
   target_username: string | null;
   summary: string | null;
-  payload: Record<string, any> | null;
+  payload: Record<string, unknown> | null;
   created_at: string;
 };
 
@@ -98,20 +99,20 @@ const AdminActivityPage: React.FC = () => {
       const { data } = await api.get('/admin/activity', { params });
       setItems(data.items || []);
       setTotalCount(data.total_count || 0);
-    } catch (err: any) {
+    } catch (err) {
       console.error('[admin-activity] Falha ao carregar timeline:', err);
-      setError(err?.response?.data?.message || 'Não foi possível carregar a timeline administrativa.');
+      setError(apiErrorMessage(err, 'Não foi possível carregar a timeline administrativa.'));
     } finally {
       setLoading(false);
     }
   }, [actorId, dateFrom, dateTo, eventType, limit, offset, search, targetUserId]);
 
   React.useEffect(() => {
-    fetchMembers();
+    void (async () => { await fetchMembers(); })();
   }, [fetchMembers]);
 
   React.useEffect(() => {
-    fetchActivity();
+    void (async () => { await fetchActivity(); })();
   }, [fetchActivity]);
 
   const resetFilters = () => {

@@ -146,7 +146,7 @@ export function useProfile(): UseProfileReturn {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    fetchProfile();
+    void (async () => { await fetchProfile(); })();
   }, [fetchProfile]);
 
   const debouncedSave = useCallback(

@@ -66,44 +66,30 @@ export function EntityInspector(props: Props) {
   const [logoFilename, setLogoFilename] = useState(system?.logo_filename ?? '');
   const [websiteUrl, setWebsiteUrl] = useState(system?.website_url ?? '');
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
-
-  // Reset quando muda o contexto
-  useEffect(() => {
+  // Reset dos campos ao mudar o sistema/contexto — ajuste durante o render
+  // (sem effect): identidade via system.id + parentContext.id.
+  const ctxKey = `${system?.id ?? ''}|${parentContext?.id ?? ''}`;
+  const [prevCtxKey, setPrevCtxKey] = useState(ctxKey);
+  if (prevCtxKey !== ctxKey) {
+    setPrevCtxKey(ctxKey);
     setName(system?.name ?? '');
     setNamePt(system?.name_pt ?? '');
     setNodeType(system?.node_type ?? validTypes[0] ?? 'system');
     setAliases(system?.aliases ?? []);
     setLogoFilename(system?.logo_filename ?? '');
     setWebsiteUrl(system?.website_url ?? '');
-    setDirty(false);
-  }, [
-    system?.id,
-    system?.name,
-    system?.name_pt,
-    system?.node_type,
-    system?.aliases,
-    system?.logo_filename,
-    system?.website_url,
-    parentContext?.id,
-    validTypes,
-  ]);
+  }
 
-  // Marca dirty quando qualquer campo muda
-  useEffect(() => {
-    if (mode === 'create') {
-      setDirty(name.trim().length > 0);
-      return;
-    }
-    if (!system) return;
-    const changed =
-      name !== system.name ||
-      (namePt || null) !== (system.name_pt || null) ||
-      (logoFilename || null) !== (system.logo_filename || null) ||
-      (websiteUrl || null) !== (system.website_url || null) ||
-      JSON.stringify(aliases) !== JSON.stringify(system.aliases ?? []);
-    setDirty(changed);
-  }, [name, namePt, logoFilename, websiteUrl, aliases, system, mode]);
+  // dirty = derivado dos campos vs o sistema atual (sem state/effect).
+  const dirty = mode === 'create'
+    ? name.trim().length > 0
+    : system
+      ? name !== system.name ||
+        (namePt || null) !== (system.name_pt || null) ||
+        (logoFilename || null) !== (system.logo_filename || null) ||
+        (websiteUrl || null) !== (system.website_url || null) ||
+        JSON.stringify(aliases) !== JSON.stringify(system.aliases ?? [])
+      : false;
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -138,7 +124,6 @@ export function EntityInspector(props: Props) {
         logo_filename: logoFilename.trim() || null,
         website_url: websiteUrl.trim() || null,
       });
-      setDirty(false);
     } finally {
       setSaving(false);
     }
