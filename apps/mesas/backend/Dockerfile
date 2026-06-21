@@ -32,15 +32,13 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
 COPY apps/mesas/backend/package.json ./apps/mesas/backend/package.json
 COPY patches ./patches
-RUN pnpm install --prod --filter @artificio/mesas-backend --frozen-lockfile
 
 # pnpm --prod nao instala deps de workspace packages no node_modules local.
-# @artificio/media depende de cloudinary; precisa estar em packages/media/node_modules/
-# para ESM import resolution a partir de packages/media/dist/index.js.
-RUN pnpm install --prod --filter @artificio/media --frozen-lockfile
-
-# Fail-fast: verifica que cloudinary foi instalado.
-RUN test -d packages/media/node_modules/cloudinary || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
+# @artificio/media depende de cloudinary; instalar explicitamente antes do fail-fast.
+RUN pnpm install --prod --filter @artificio/mesas-backend --frozen-lockfile \
+  && pnpm install --prod --filter @artificio/media --frozen-lockfile \
+  && test -d packages/media/node_modules/cloudinary \
+  || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
 
 # Workspace packages are linked in production; copy built outputs they export at runtime.
 COPY --from=builder /repo/packages/config/dist ./packages/config/dist

@@ -174,6 +174,8 @@ export default function AdminPanel() {
       </section>
 
       <TagManager tags={tags} onChanged={reload} />
+      <RehydrateSection />
+      <ReportsSection groups={groups} />
     </div>
   );
 }
@@ -419,6 +421,256 @@ function TagManager({ tags, onChanged }: { tags: Tag[]; onChanged: () => Promise
           </span>
         ))}
       </div>
+    </section>
+  );
+}
+
+interface JobState {
+  name: string;
+  startedAt: string;
+  finishedAt?: string;
+  ok?: boolean;
+  code?: number | null;
+  logTail?: string;
+}
+
+function RehydrateSection() {
+  const [busy, setBusy] = useState(false);
+  const [job, setJob] = useState<JobState | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const pollStatus = async () => {
+    try {
+      const res = await authFetch("/api/admin/v1/groups/rehydrate-logos/status");
+      if (!res.ok) return;
+      const data = (await res.json()) as { busy: boolean; job: JobState | null };
+      if (data.job?.name === "rehydrate") {
+        setJob(data.job);
+        setBusy(data.busy);
+        if (!data.busy && data.job) {
+          const tail = data.job.logTail ?? "";
+          const jsonMatch = tail.match(/\{["']updated["']\s*:\s*\d+[^}]*\}/);
+          setResult(jsonMatch ? jsonMatch[0] : (data.job.ok ? "Concluído." : "Falhou."));
+        }
+        if (data.busy) setTimeout(() => { void pollStatus(); }, 2000);
+      }
+    } catch {
+      setJob(null);
+      setBusy(false);
+    }
+  };
+
+  const start = async () => {
+    setError(null);
+    setResult(null);
+    try {
+      const res = await authFetch("/api/admin/v1/groups/rehydrate-logos", { method: "POST" });
+      const data = (await res.json()) as { started: boolean; busy: boolean; job: JobState };
+      if (data.started) {
+        setBusy(true);
+        setJob(data.job);
+        setTimeout(() => { void pollStatus(); }, 2000);
+      } else if (data.busy) {
+        setResult("Já existe um job em andamento.");
+      } else {
+        setError("Não foi possível iniciar.");
+      }
+    } catch {
+      setError("Falha de rede.");
+    }
+  };
+
+  return (
+    <section>
+      <h2>Reidratação de imagens</h2>
+      <p className="admin-meta">
+        Busca as logos dos grupos ativos no WhatsApp e sobe ao Cloudinary.
+        Grupos com logo inalterada são pulados.
+      </p>
+      <Toolbar
+        trailing={
+          <Button variant="primary" disabled={busy} onClick={start}>
+            {busy ? "Reidratando…" : "Reidratar imagens"}
+          </Button>
+        }
+      >
+        {job && (
+          <span className="admin-meta" style={{ fontSize: "0.8rem" }}>
+            {busy
+              ? `Em andamento desde ${new Date(job.startedAt).toLocaleTimeString("pt-BR")}…`
+              : job.finishedAt
+                ? `Finalizado ${new Date(job.finishedAt).toLocaleTimeString("pt-BR")}`
+                : ""}
+          </span>
+        )}
+      </Toolbar>
+      {result && (
+        <p className="admin-meta" style={{ color: "var(--artificio-brand, #FF5722)", fontWeight: 600 }}>
+          {result}
+        </p>
+      )}
+      {error && (
+        <p className="admin-meta" style={{ color: "#DC2626" }}>
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
+interface Report {
+  id: string;
+  group_id: string;
+  reason: string;
+  note: string | null;
+  reporter_email: string | null;
+  status: string;
+  created_at: string;
+}
+
+function normalizeReport(value: unknown): Report | null {
+  if (!value || typeof value !== "object") return null;
+  const r = value as Record<string, unknown>;
+  if (typeof r.id !== "string" || typeof r.group_id !== "string" || typeof r.reason !== "string") return null;
+  return {
+    id: r.id,
+    group_id: r.group_id,
+    reason: r.reason,
+    note: typeof r.note === "string" ? r.note : null,
+    reporter_email: typeof r.reporter_email === "string" ? r.reporter_email : null,
+    status: typeof r.status === "string" ? r.status : "open",
+    created_at: typeof r.created_at === "string" ? r.created_at : "",
+  } satisfies Report;
+}
+
+const REASON_LABELS: Record<string, string> = {
+  convite_quebrado: "Convite quebrado",
+  conteudo_improprio: "Conteúdo impróprio",
+  grupo_inativo: "Grupo inativo",
+  outro: "Outro",
+};
+
+function ReportsSection({ groups }: { groups: Group[] }) {
+  const [reports, setReports] = useState<Report[] | null>(null);
+  const [error, setError] = useState(false);
+  const [filter, setFilter] = useState("open");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const groupName = (id: string) => groups.find((g) => g.id === id)?.name ?? id.slice(0, 8);
+
+  const load = async (statusFilter?: string) => {
+    try {
+      const qs = statusFilter ? `?status=${statusFilter}` : "";
+      const res = await authFetch(`/api/admin/v1/reports${qs}`);
+      if (!res.ok) throw new Error("API error");
+      const json = (await res.json()) as { data: unknown };
+      if (!Array.isArray(json.data)) return;
+      setReports(json.data.map(normalizeReport).filter((v): v is Report => v !== null));
+      setError(false);
+    } catch {
+      setError(true);
+    }
+  };
+
+  useEffect(() => { void load(filter); }, [filter]);
+
+  const resolve = async (id: string) => {
+    setBusy(id);
+    try {
+      const res = await authFetch(`/api/admin/v1/reports/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: "resolved" }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      await load(filter);
+    } catch {
+      alert("Falha ao atualizar.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const dismiss = async (id: string) => {
+    setBusy(id);
+    try {
+      const res = await authFetch(`/api/admin/v1/reports/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: "dismissed" }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      await load(filter);
+    } catch {
+      alert("Falha ao atualizar.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const total = reports?.length ?? 0;
+
+  return (
+    <section>
+      <h2>Denúncias ({total})</h2>
+      <Toolbar>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.currentTarget.value)}
+          style={{
+            padding: ".3rem .5rem",
+            borderRadius: "6px",
+            border: "1px solid var(--color-border, #ccc)",
+            background: "var(--color-surface, #fff)",
+            color: "var(--color-fg, #0B1220)",
+            fontSize: "0.85rem",
+          }}
+        >
+          <option value="">Todas</option>
+          <option value="open">Abertas</option>
+          <option value="resolved">Resolvidas</option>
+          <option value="dismissed">Dispensadas</option>
+        </select>
+      </Toolbar>
+      {error && <ErrorState title="Erro ao carregar" message="Tente recarregar." variant="inline" />}
+      {!reports && <LoadingState message="Carregando denúncias…" variant="inline" />}
+      {reports && reports.length === 0 && (
+        <EmptyState title="Nenhuma denúncia" message="Nada pendente." variant="inline" />
+      )}
+      {reports?.map((r) => (
+        <Panel
+          key={r.id}
+          tone={r.status === "open" ? "warning" : "subtle"}
+          header={
+            <span>
+              <strong>{groupName(r.group_id)}</strong>{" "}
+              <Badge variant={r.status === "open" ? "warning" : r.status === "resolved" ? "success" : "neutral"}>
+                {r.status}
+              </Badge>
+            </span>
+          }
+          actions={
+            r.status === "open" && (
+              <Toolbar>
+                <Button variant="success" disabled={busy === r.id} onClick={() => resolve(r.id)}>
+                  Resolver
+                </Button>
+                <Button variant="ghost" disabled={busy === r.id} onClick={() => dismiss(r.id)}>
+                  Dispensar
+                </Button>
+              </Toolbar>
+            )
+          }
+        >
+          <p className="admin-meta">
+            {REASON_LABELS[r.reason] ?? r.reason}
+            {r.reporter_email && <> · <strong>{r.reporter_email}</strong></>}
+            {" · "}{new Date(r.created_at).toLocaleString("pt-BR")}
+          </p>
+          {r.note && <p className="admin-meta" style={{ whiteSpace: "pre-wrap" }}>{r.note}</p>}
+        </Panel>
+      ))}
     </section>
   );
 }

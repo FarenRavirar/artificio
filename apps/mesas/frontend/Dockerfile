@@ -45,7 +45,8 @@ FROM nginx:1.31-alpine AS production
 # Remover config padrão do Nginx
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Copiar config customizada (proxy para a API com substituição de ENV)
+RUN apk add --no-cache libexpat=2.8.1-r0
+
 COPY apps/mesas/frontend/nginx.conf /etc/nginx/templates/default.conf.template
 
 # Copiar build do Vite

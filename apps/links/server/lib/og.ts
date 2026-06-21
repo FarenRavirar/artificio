@@ -40,6 +40,16 @@ export function parseInviteUrl(raw: string): ParsedInvite | null {
 const OG_IMAGE_RE = /<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["']/i;
 const OG_IMAGE_RE_ALT = /<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image["']/i;
 
+function decodeHtmlEntities(raw: string): string {
+  return raw
+    .replace(/&amp;/g, "&")
+    .replace(/&#38;/g, "&")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
 /**
  * Busca a página de convite e extrai a og:image. Convites do WhatsApp servem
  * og:image assinado/efêmero — por isso baixamos e subimos ao Cloudinary (não hotlink).
@@ -68,8 +78,9 @@ export async function fetchOgImage(inviteUrl: string): Promise<string | null> {
   }
   const html = await res.text();
   const m = OG_IMAGE_RE.exec(html) ?? OG_IMAGE_RE_ALT.exec(html);
-  const url = m?.[1];
-  if (!url) return null;
+  const raw = m?.[1];
+  if (!raw) return null;
+  const url = decodeHtmlEntities(raw);
   try {
     const parsed = new URL(url);
     return parsed.protocol === "https:" ? parsed.toString() : null;

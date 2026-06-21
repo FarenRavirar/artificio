@@ -9,6 +9,9 @@ import type {
   GroupStatus,
   GroupTag,
   GroupUpdate,
+  GroupReport,
+  ReportReason,
+  ReportStatus,
 } from "../../db/types.js";
 
 export interface ListFilter {
@@ -164,4 +167,45 @@ export async function deleteTag(id: string): Promise<GroupTag | undefined> {
       .execute();
     return removed;
   });
+}
+
+// ===== Reports — denúncias da comunidade (spec 038 R6) =====
+
+export interface InsertReportInput {
+  group_id: string;
+  reason: ReportReason;
+  note?: string | null;
+  reporter_email?: string | null;
+}
+
+export async function insertReport(input: InsertReportInput): Promise<GroupReport> {
+  return db
+    .insertInto("group_reports")
+    .values({
+      group_id: input.group_id,
+      reason: input.reason,
+      note: input.note ?? null,
+      reporter_email: input.reporter_email ?? null,
+    })
+    .returningAll()
+    .executeTakeFirstOrThrow();
+}
+
+export interface ListReportsFilter {
+  status?: ReportStatus;
+}
+
+export async function listReports(filter: ListReportsFilter = {}): Promise<GroupReport[]> {
+  let q = db.selectFrom("group_reports").selectAll();
+  if (filter.status) q = q.where("status", "=", filter.status);
+  return q.orderBy("created_at", "desc").execute();
+}
+
+export async function updateReport(id: string, patch: { status: ReportStatus }): Promise<GroupReport | undefined> {
+  return db
+    .updateTable("group_reports")
+    .set(patch)
+    .where("id", "=", id)
+    .returningAll()
+    .executeTakeFirst();
 }

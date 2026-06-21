@@ -32,7 +32,8 @@ ENV API_UPSTREAM=glossario-api
 
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Template com substituição de ENV (API_UPSTREAM separa beta/prod)
+RUN apk add --no-cache libexpat=2.8.1-r0
+
 COPY apps/glossario/frontend/nginx.conf.template /etc/nginx/templates/default.conf.template
 
 COPY --from=builder /repo/apps/glossario/frontend/dist /usr/share/nginx/html

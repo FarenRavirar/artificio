@@ -4,23 +4,9 @@
 // Uso: pnpm --filter @artificio/links seed (requer DATABASE_URL).
 import { db } from "./index.js";
 import { GROUP_CATEGORIES } from "../src/data/groups.js";
-import { fetchOgImage } from "../server/lib/og.js";
-import { uploadLogoFromUrl, cloudinaryEnabled } from "../server/lib/cloudinary.js";
+import { resolveLogo, cloudinaryEnabled } from "../server/lib/cloudinary.js";
 import { slugify } from "../server/lib/slug.js";
 import type { GroupCategory } from "./types.js";
-
-async function resolveLogo(inviteUrl: string): Promise<{ logo_url: string; logo_public_id: string } | null> {
-  if (!cloudinaryEnabled()) return null;
-  const og = await fetchOgImage(inviteUrl);
-  if (!og) return null;
-  try {
-    const stored = await uploadLogoFromUrl(og);
-    return { logo_url: stored.url, logo_public_id: stored.public_id };
-  } catch (e) {
-    console.warn(`[seed] logo falhou (${inviteUrl}):`, String(e));
-    return null;
-  }
-}
 
 // Vocabulário inicial de tags: deriva dos `tag` dos curados (idempotente por slug).
 const tagSlug = new Map<string, string>(); // label -> slug
@@ -53,7 +39,7 @@ for (const category of GROUP_CATEGORIES) {
       .executeTakeFirst();
 
     const needLogo = !existing?.logo_url;
-    const logo = needLogo ? await resolveLogo(g.href) : null;
+    const logo = needLogo ? await resolveLogo(g.href, "seed") : null;
 
     if (existing) {
       await db

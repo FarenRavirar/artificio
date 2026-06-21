@@ -1,7 +1,7 @@
 # Mapa de Auditoria de Débitos e Tarefas — Artifício RPG
 
 > **View consolidada.** Fonte canônica = [`specs/backlog.md`](backlog.md). Este arquivo = resumo derivado.
-> Atualizado 2026-06-21. PRs #74 e #75 mergeadas. **PR #76 aberta** (fix cloudinary, 24/24 ✅). PR #73 (dependabot) aberta.
+> Atualizado 2026-06-21 ~02:00. PRs #76 e #77 mergeadas. **mesas-beta ✅ NO AR.** PR #73 (dependabot) aberta.
 
 ## Débitos e tarefas
 
@@ -56,8 +56,8 @@
 | **Spec 033 Fase 5c (pnpm 11)** | ✅ Fechado | PR #72 mergeado. |
 | **Spec 033 Fase 6 (apt VM)** | ✅ Fechado | apt na VM atualizado. |
 | | | |
-| **PR #75 — fix(037)** | ✅ Mergeado | `fix/037-media-csrf-x-powered-by` mergeado em `dev` (`f319aac`). T34-T41+T46+T47. Lint 13/13, build 11/11. **⚠️ T46 introduziu bug cloudinary** (media CJS) — corrigido na PR #76. |
-| **PR #76 — fix(037)** | 🟡 Aberto (PR) | `fix/037-cloudinary-media-esm` → `dev`. 24/24 ✅. Corrige cloudinary ESM + fail-fast Dockerfiles + `auto_deploy_on_push: false`. |
+| **PR #76 — fix(037)** | ✅ Mergeado | `fix/037-cloudinary-media-esm` mergeado (`c12167e`). ESM `"type":"module"` + fail-fast Dockerfiles + `auto_deploy_on_push: false`. |
+| **PR #77 — fix(037)** | ✅ Mergeado | `fix/037-cloudinary-pnpm-prod-media` mergeado. `pnpm install --prod --filter @artificio/media` explícito (pnpm bug). 3 RUNs merged. Docs. **mesas-beta deploy ✅** (`27890193745`). |
 | **BL-ACCOUNTS-PORT** | 🟡 Local | Composes alterados (expose), build verde. 🟦 deploy prod pendente. |
 | **BL-CI-ESLINT-FLAT-CONFIG** | ✅ Fechado | Spec 037: 13/13 lint verde. `continue-on-error` removido. Configs criados em todos os pacotes. |
 | **BL-033-SECRET-BLOCK** | ⚪ Aberto | `.gitignore` trocar `artifacts/lighthouse/` → `artifacts/` + destrackear 16 arquivos. |
@@ -120,9 +120,9 @@
 - **`BL-BETA-HYDRATE`**: `PROD_DB_URL` no `.env.beta` — mantenedor seta segredo (write VM).
 - **`BL-CF-TUNNEL-TOKEN-SCOPE`**: Token CF sem permissão Tunnel — mantenedor dashboard CF.
 - **`apps/links` deploy**: Tunnel `links.` + `.env`/secrets VM + dispatch — mantenedor.
-- **PR #76**: `fix/037-cloudinary-media-esm` → 24/24 ✅, aguardando merge.
 - **PR #73**: dependabot dev-dependencies → aguardando merge.
-- **CodeQL dismiss**: 3 alerts `js/missing-token-validation` — mantenedor Security tab pós-merge PR #75.
-- **`mesas-beta` DOWN**: fora do ar desde 2026-06-20 ~21:00. Aguardando merge PR #76 + dispatch manual.
+- **CodeQL dismiss**: 3 alerts `js/missing-token-validation` — mantenedor Security tab.
+- **Promote dev→main**: ✅ concluído (`27890320975`). `main` = `dev` = `df4336e`.
+- **Deploy prod**: 🔄 em andamento (mesas/glossario/site/accounts).
 
 Legenda: ✅ feito · 🟡 local/parcial · 📋 investigado · 🔴 bloqueado · ⚪ aberto · 🟢 baixo · 🔵 futuro.

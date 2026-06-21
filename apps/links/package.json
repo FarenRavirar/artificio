@@ -11,6 +11,7 @@
     "migrate": "tsx db/migrate.ts",
     "seed": "tsx db/seed.ts",
     "rebuild": "astro build",
+    "rehydrate-logos": "tsx server/rehydrate-cli.ts",
     "lint": "echo \"(links) lint TODO\"",
     "test": "echo \"(links) no tests\""
   },
