@@ -2,34 +2,42 @@ import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { brandLogoNavy, brandLogoNeg, applyFavicon, ThemeIcon, useTheme } from "@artificio/ui";
 import { useSession, getAccountsOrigin, logout } from "@artificio/auth/client";
-import { BRAND_TAGLINE_FREE, BRAND_ORIGIN } from "@artificio/config";
+import { BRAND_TAGLINE_FREE, BRAND_ORIGIN, BRAND_DOMAIN } from "@artificio/config";
 import "./styles.css";
 
 applyFavicon();
 
 const PORTAL_URL = BRAND_ORIGIN;
 
-function isAllowedReturnUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return (
-      url.protocol === "https:" &&
-      (url.hostname === "artificiorpg.com" || url.hostname.endsWith(".artificiorpg.com"))
-    );
-  } catch {
-    return false;
-  }
-}
-
-function getReturnUrl() {
+// getSafeReturnUrl: valida e canonicaliza a URL de retorno.
+// CodeQL (github-advanced-security) sinaliza location.replace() com valor de query param
+// como XSS (High) e URL redirect (Medium). Falso positivo: isAllowedReturnUrl (protocolo
+// https + hostname *.artificiorpg.com) já bloqueia javascript:/data: e domínios externos.
+// A canonicalizacao via url.toString() e defesa-em-profundidade: normaliza a URL (remove
+// porta default, ordena querystring etc.) antes de entrar em location.replace().
+function getSafeReturnUrl(): string {
   const params = new URLSearchParams(globalThis.location.search);
   const value = params.get("return");
-  return value && isAllowedReturnUrl(value) ? value : PORTAL_URL;
+  if (!value) return PORTAL_URL;
+
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol === "https:" &&
+      (url.hostname === BRAND_DOMAIN || url.hostname.endsWith(`.${BRAND_DOMAIN}`))
+    ) {
+      return url.toString();
+    }
+  } catch {
+    // URL invalida ou protocolo nao-https → fallback seguro
+  }
+
+  return PORTAL_URL;
 }
 
 function LoginView() {
   const [checkingSession, setCheckingSession] = useState(true);
-  const returnUrl = getReturnUrl();
+  const returnUrl = getSafeReturnUrl();
   const { theme } = useTheme();
   const logo = theme === "dark" ? brandLogoNeg : brandLogoNavy;
   const googleUrl = new URL("/api/auth/google", globalThis.location.origin);
@@ -49,8 +57,9 @@ function LoginView() {
           globalThis.location.replace(returnUrl);
           return;
         }
-      } catch {
-        // Sem sessão válida.
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.error("Falha ao verificar sessao:", error);
       }
 
       if (!controller.signal.aborted) {
