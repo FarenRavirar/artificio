@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { normalizeChangelogEntries, CHANGELOG_CACHE_TTL, type ChangelogEntry } from '@artificio/ui/changelog';
+import { normalizeChangelogEntries, CHANGELOG_CACHE_TTL, type ChangelogEntry } from '@artificio/changelog';
 
 const router = Router();
 

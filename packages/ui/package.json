@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@artificio/auth": "workspace:*",
+    "@artificio/changelog": "workspace:*",
     "@artificio/config": "workspace:*",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
