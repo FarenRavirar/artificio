@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { ChangelogModal as SharedChangelogModal, useChangelogData } from "@artificio/ui";
+import { DynamicChangelogModal } from "@artificio/ui";
 import api from "../services/api";
 
 interface Props {
@@ -16,19 +16,15 @@ const LABELS = {
 
 export function ChangelogModal({ isOpen, onClose }: Props) {
   const fetcher = useCallback(
-    (signal: AbortSignal) => api.get("/changelog", { signal }).then((r) => r.data),
+    (signal: AbortSignal) => api.get("/changelog", { signal }).then((r) => r.data.data),
     [],
   );
-  const { logs, loading, error, retry } = useChangelogData(fetcher, isOpen);
 
   return (
-    <SharedChangelogModal
+    <DynamicChangelogModal
       isOpen={isOpen}
       onClose={onClose}
-      changelogs={logs}
-      loading={loading}
-      error={error}
-      onRetry={retry}
+      fetcher={fetcher}
       labels={LABELS}
     />
   );

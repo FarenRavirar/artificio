@@ -2,6 +2,7 @@ import React, { useCallback, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { ChangelogEntry, ChangelogModalLabels } from "./changelog.js";
 import { DEFAULT_CHANGELOG_LABELS } from "./changelog.js";
+import { useChangelogData } from "./hooks.js";
 
 export function renderMarkdown(text: string): ReactNode {
   const lines = text.split("\n");
@@ -205,97 +206,108 @@ export function ChangelogModal({
 
           {!loading &&
             !error &&
-            Object.entries(groupedLogs).map(([date, dailyLogs]) => (
-              <div key={date} className="mb-8 last:mb-0">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="bg-[var(--artificio-brand)] w-2 h-2 rounded-full" />
-                  <span className="text-[var(--artificio-brand)] text-xs font-bold uppercase flex items-center gap-1.5">
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <rect
-                        x="3"
-                        y="4"
-                        width="18"
-                        height="18"
-                        rx="2"
-                        ry="2"
-                      />
-                      <line x1="16" y1="2" x2="16" y2="6" />
-                      <line x1="8" y1="2" x2="8" y2="6" />
-                      <line x1="3" y1="10" x2="21" y2="10" />
-                    </svg>
-                    {date}
-                  </span>
-                </div>
+            (() => {
+              const entries: ReactNode[] = [];
+              const groupEntries = Object.entries(groupedLogs);
+              for (let i = 0; i < groupEntries.length; i++) {
+                const [date, dailyLogs] = groupEntries[i];
+                const logs: ReactNode[] = [];
+                for (let j = 0; j < dailyLogs.length; j++) {
+                  const log = dailyLogs[j];
+                  const isExpanded = expandedLogs[log.id];
+                  const shouldTruncate =
+                    log.body.length > bodyTruncateAt;
+                  let displayBody = log.body;
 
-                <div className="space-y-4">
-                  {dailyLogs.map((log) => {
-                    const isExpanded = expandedLogs[log.id];
-                    const shouldTruncate =
-                      log.body.length > bodyTruncateAt;
-                    let displayBody = log.body;
-
-                    if (shouldTruncate && !isExpanded) {
-                      const truncated = log.body.slice(0, bodyTruncateAt);
-                      const lastSpace = Math.max(
-                        truncated.lastIndexOf(" "),
-                        truncated.lastIndexOf("\n"),
-                      );
-                      displayBody =
-                        (lastSpace > bodyTruncateAt * 0.8
-                          ? truncated.slice(0, lastSpace)
-                          : truncated) + "...";
-                    }
-
-                    return (
-                      <div
-                        key={log.id}
-                        className="bg-[var(--surface)] p-5 rounded-xl shadow-sm border border-[var(--line)]"
-                      >
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <h3 className="text-[var(--fg)] font-bold text-base leading-tight flex-1">
-                            {log.title}
-                          </h3>
-                          <span
-                            className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase flex-shrink-0 ${
-                              log.type === "dados"
-                                ? "bg-[var(--state-success-bg)] text-[var(--state-success-fg)]"
-                                : "bg-[var(--state-info-bg)] text-[var(--state-info-fg)]"
-                            }`}
-                          >
-                            {log.type === "dados"
-                              ? labels.typeDados
-                              : labels.typeApp}
-                          </span>
-                        </div>
-
-                        <div className="text-[var(--fg-muted)] text-sm leading-relaxed whitespace-pre-wrap">
-                          {bodyRenderer(displayBody)}
-                        </div>
-
-                        {shouldTruncate ? (
-                          <button
-                            onClick={() => toggleExpand(log.id)}
-                            className="text-[var(--artificio-brand)] text-xs font-bold mt-3 hover:underline"
-                            aria-expanded={isExpanded}
-                          >
-                            {isExpanded
-                              ? `▲ ${labels.expandLess}`
-                              : `▼ ${labels.expandMore}`}
-                          </button>
-                        ) : null}
-                      </div>
+                  if (shouldTruncate && !isExpanded) {
+                    const truncated = log.body.slice(0, bodyTruncateAt);
+                    const lastSpace = Math.max(
+                      truncated.lastIndexOf(" "),
+                      truncated.lastIndexOf("\n"),
                     );
-                  })}
-                </div>
-              </div>
-            ))}
+                    displayBody =
+                      (lastSpace > bodyTruncateAt * 0.8
+                        ? truncated.slice(0, lastSpace)
+                        : truncated) + "...";
+                  }
+
+                  logs.push(
+                    <div
+                      key={log.id}
+                      className="bg-[var(--surface)] p-5 rounded-xl shadow-sm border border-[var(--line)]"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <h3 className="text-[var(--fg)] font-bold text-base leading-tight flex-1">
+                          {log.title}
+                        </h3>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase flex-shrink-0 ${
+                            log.type === "dados"
+                              ? "bg-[var(--state-success-bg)] text-[var(--state-success-fg)]"
+                              : "bg-[var(--state-info-bg)] text-[var(--state-info-fg)]"
+                          }`}
+                        >
+                          {log.type === "dados"
+                            ? labels.typeDados
+                            : labels.typeApp}
+                        </span>
+                      </div>
+
+                      <div className="text-[var(--fg-muted)] text-sm leading-relaxed whitespace-pre-wrap">
+                        {bodyRenderer(displayBody)}
+                      </div>
+
+                      {shouldTruncate ? (
+                        <button
+                          onClick={() => toggleExpand(log.id)}
+                          className="text-[var(--artificio-brand)] text-xs font-bold mt-3 hover:underline"
+                          aria-expanded={isExpanded}
+                        >
+                          {isExpanded
+                            ? `▲ ${labels.expandLess}`
+                            : `▼ ${labels.expandMore}`}
+                        </button>
+                      ) : null}
+                    </div>,
+                  );
+                }
+                entries.push(
+                  <div key={date} className="mb-8 last:mb-0">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="bg-[var(--artificio-brand)] w-2 h-2 rounded-full" />
+                      <span className="text-[var(--artificio-brand)] text-xs font-bold uppercase flex items-center gap-1.5">
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <rect
+                            x="3"
+                            y="4"
+                            width="18"
+                            height="18"
+                            rx="2"
+                            ry="2"
+                          />
+                          <line x1="16" y1="2" x2="16" y2="6" />
+                          <line x1="8" y1="2" x2="8" y2="6" />
+                          <line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
+                        {date}
+                      </span>
+                    </div>
+
+                    <div className="space-y-4">
+                      {logs}
+                    </div>
+                  </div>,
+                );
+              }
+              return entries;
+            })()}
         </div>
 
         {/* Footer */}
@@ -313,4 +325,52 @@ export function ChangelogModal({
 
   if (typeof document === "undefined") return modal;
   return createPortal(modal, document.body);
+}
+
+interface StaticChangelogModalProps {
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly changelogs: ChangelogEntry[];
+}
+
+export function StaticChangelogModal({
+  isOpen,
+  onClose,
+  changelogs,
+}: StaticChangelogModalProps) {
+  return (
+    <ChangelogModal
+      isOpen={isOpen}
+      onClose={onClose}
+      changelogs={changelogs}
+    />
+  );
+}
+
+interface DynamicChangelogModalProps {
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly fetcher: (signal: AbortSignal) => Promise<unknown>;
+  readonly labels?: Partial<ChangelogModalLabels>;
+}
+
+export function DynamicChangelogModal({
+  isOpen,
+  onClose,
+  fetcher,
+  labels,
+}: DynamicChangelogModalProps) {
+  const { logs, loading, error, retry } = useChangelogData(fetcher, isOpen);
+
+  return (
+    <ChangelogModal
+      isOpen={isOpen}
+      onClose={onClose}
+      changelogs={logs}
+      loading={loading}
+      error={error}
+      onRetry={retry}
+      labels={labels}
+    />
+  );
 }

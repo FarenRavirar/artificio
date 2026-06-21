@@ -1,12 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Footer, Header, useTheme, useChangelogBadge, type NavItem, type UserMenuItem } from '@artificio/ui';
+import { Footer, Header, useTheme, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type NavItem, type UserMenuItem } from '@artificio/ui';
 import { FeedbackButton } from '../features/dev-feedback/FeedbackButton';
 import { HeaderActions } from './HeaderActions';
 import { getMesasPublicOrigin } from '../utils/auth';
 import { ChangelogModal } from './ChangelogModal';
-
-const UPDATE_MARKER = '2026-06-21-shell-unificado';
 
 interface AppShellProps {
   children: ReactNode;
@@ -29,7 +27,7 @@ export const AppShell = ({ children }: AppShellProps) => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const { hasNewUpdate, markSeen } = useChangelogBadge('mesas_last_seen_update', UPDATE_MARKER);
+  const { hasNewUpdate, markSeen } = useChangelogBadge('mesas_last_seen_update', CHANGELOG_UPDATE_MARKERS.mesas);
 
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
 

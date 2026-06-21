@@ -1,3 +1,11 @@
+export const CHANGELOG_CACHE_TTL = 60_000;
+export const CHANGELOG_UPDATE_MARKERS = {
+  site: "2026-06-21-shell-unificado",
+  links: "2026-06-21-shell-unificado",
+  mesas: "2026-06-21-shell-unificado",
+  glossario: "2026-06-21-shell-unificado",
+} as const;
+
 export interface ChangelogEntry {
   id: string;
   title: string;
@@ -12,15 +20,19 @@ export function isChangelogEntry(value: unknown): value is ChangelogEntry {
   const rec = value as Record<string, unknown>;
   return (
     typeof rec.id === "string" &&
+    rec.id.trim() !== "" &&
     typeof rec.title === "string" &&
+    rec.title.trim() !== "" &&
     typeof rec.body === "string" &&
+    rec.body.trim() !== "" &&
     (rec.type === "app" || rec.type === "dados") &&
     rec.published === true &&
-    typeof rec.created_at === "string"
+    typeof rec.created_at === "string" &&
+    !Number.isNaN(new Date(rec.created_at).getTime())
   );
 }
 
-export function normalizeChangelogEntries(payload: unknown): ChangelogEntry[] {
+export function normalizeChangelogEntries(payload: unknown, limit?: number): ChangelogEntry[] {
   if (!Array.isArray(payload)) {
     if (payload != null) {
       console.warn("[normalizeChangelogEntries] Expected array, got:", typeof payload);
@@ -32,7 +44,7 @@ export function normalizeChangelogEntries(payload: unknown): ChangelogEntry[] {
     if (isChangelogEntry(item)) normalized.push(item);
   }
   normalized.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  return normalized;
+  return limit != null ? normalized.slice(0, limit) : normalized;
 }
 
 export interface ChangelogModalLabels {

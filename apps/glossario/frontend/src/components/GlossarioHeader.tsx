@@ -1,20 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Header, useTheme, useChangelogBadge, type UserMenuItem } from '@artificio/ui';
+import { Header, useTheme, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type UserMenuItem } from '@artificio/ui';
 import type { User as ArtificioUser } from '@artificio/auth';
 import { PlusCircle } from 'lucide-react';
 import { useAuth } from '../context/auth-context';
 import { useUI } from '../context/UIContext';
 import { ChangelogModal } from './ChangelogModal';
 
-const LAST_SEEN_UPDATE = '2026-06-21-shell-unificado';
-
 export function GlossarioHeader() {
   const { user, logout, loading } = useAuth();
   const { openAddTerm } = useUI();
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const { hasNewUpdate, markSeen } = useChangelogBadge('glossario_last_seen_update', LAST_SEEN_UPDATE);
+  const { hasNewUpdate, markSeen } = useChangelogBadge('glossario_last_seen_update', CHANGELOG_UPDATE_MARKERS.glossario);
 
   const [changelogOpen, setChangelogOpen] = useState(false);
 

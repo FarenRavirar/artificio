@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { ChangelogModal as SharedChangelogModal, useChangelogData } from "@artificio/ui";
+import { DynamicChangelogModal } from "@artificio/ui";
 
 interface Props {
   readonly isOpen: boolean;
@@ -11,20 +11,17 @@ export function ChangelogModal({ isOpen, onClose }: Props) {
     const res = await fetch("/api/v1/changelog", { signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json: unknown = await res.json();
-    return typeof json === "object" && json !== null && "data" in json
-      ? (json as { data: unknown }).data
-      : [];
+    if (typeof json === "object" && json !== null && "data" in json) {
+      return (json as { data: unknown }).data;
+    }
+    return [];
   }, []);
-  const { logs, loading, error, retry } = useChangelogData(fetcher, isOpen);
 
   return (
-    <SharedChangelogModal
+    <DynamicChangelogModal
       isOpen={isOpen}
       onClose={onClose}
-      changelogs={logs}
-      loading={loading}
-      error={error}
-      onRetry={retry}
+      fetcher={fetcher}
     />
   );
 }

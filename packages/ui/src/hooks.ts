@@ -37,53 +37,7 @@ export function useChangelogData(
   const cancelledRef = useRef(false);
   const controllerRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    cancelledRef.current = false;
-    if (controllerRef.current) {
-      controllerRef.current.abort();
-    }
-    controllerRef.current = new AbortController();
-    const controller = controllerRef.current;
-
-    const fetchLogs = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const raw = await fetcher(controller.signal);
-        if (!cancelledRef.current) {
-          setLogs(normalizeChangelogEntries(raw));
-        }
-      } catch (err: unknown) {
-        if (cancelledRef.current) return;
-        console.error("Erro ao buscar changelogs:", err);
-        setError("Não foi possível carregar as atualizações.");
-      } finally {
-        if (!cancelledRef.current) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchLogs();
-    return () => {
-      cancelledRef.current = true;
-      if (controllerRef.current) {
-        controllerRef.current.abort();
-        controllerRef.current = null;
-      }
-    };
-  }, [isOpen, fetcher]);
-
-  const retry = useCallback(async () => {
-    cancelledRef.current = false;
-    if (controllerRef.current) {
-      controllerRef.current.abort();
-    }
-    controllerRef.current = new AbortController();
-    const controller = controllerRef.current;
-
+  const executeFetch = useCallback(async (controller: AbortController) => {
     try {
       setLoading(true);
       setError(null);
@@ -101,6 +55,37 @@ export function useChangelogData(
       }
     }
   }, [fetcher]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    cancelledRef.current = false;
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+    }
+    controllerRef.current = new AbortController();
+    const controller = controllerRef.current;
+
+    executeFetch(controller);
+    return () => {
+      cancelledRef.current = true;
+      if (controllerRef.current) {
+        controllerRef.current.abort();
+        controllerRef.current = null;
+      }
+    };
+  }, [isOpen, executeFetch]);
+
+  const retry = useCallback(async () => {
+    cancelledRef.current = false;
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+    }
+    controllerRef.current = new AbortController();
+    const controller = controllerRef.current;
+
+    await executeFetch(controller);
+  }, [executeFetch]);
 
   return { logs, loading, error, retry };
 }

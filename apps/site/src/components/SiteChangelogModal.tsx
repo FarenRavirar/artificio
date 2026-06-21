@@ -1,4 +1,4 @@
-import { ChangelogModal, normalizeChangelogEntries } from "@artificio/ui";
+import { StaticChangelogModal, normalizeChangelogEntries } from "@artificio/ui";
 import rawChangelogs from "../data/changelogs.json";
 
 interface Props {
@@ -9,11 +9,5 @@ interface Props {
 const changelogs = normalizeChangelogEntries(rawChangelogs);
 
 export function SiteChangelogModal({ isOpen, onClose }: Props) {
-  return (
-    <ChangelogModal
-      isOpen={isOpen}
-      onClose={onClose}
-      changelogs={changelogs}
-    />
-  );
+  return <StaticChangelogModal isOpen={isOpen} onClose={onClose} changelogs={changelogs} />;
 }

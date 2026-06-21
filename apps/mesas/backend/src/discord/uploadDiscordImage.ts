@@ -20,7 +20,7 @@ function categorizeFetchError(error: unknown): DiscordImageUploadFailureStatus {
   if (error instanceof Error && /timeout|aborted|network|fetch failed/i.test(error.message)) {
     return 'network';
   }
-  return 'network';
+  return 'expired_url';
 }
 
 function uploadBufferToCloudinary(buffer: Buffer, _contentType: string, publicId: string): Promise<{ url: string; public_id: string }> {

@@ -1,8 +1,6 @@
 import { useState } from "react";
-import { Header, useChangelogBadge, useTheme, type UserMenuItem } from "@artificio/ui";
+import { Header, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS, type UserMenuItem } from "@artificio/ui";
 import { LinksChangelogModal } from "./LinksChangelogModal";
-
-const UPDATE_MARKER = "2026-06-21-shell-unificado";
 
 const userMenu: UserMenuItem[] = [
   { label: "Painel admin", href: "/admin", adminOnly: true },
@@ -10,7 +8,7 @@ const userMenu: UserMenuItem[] = [
 
 export function LinksHeader() {
   const [changelogOpen, setChangelogOpen] = useState(false);
-  const { hasNewUpdate, markSeen } = useChangelogBadge("links_last_seen_update", UPDATE_MARKER);
+  const { hasNewUpdate, markSeen } = useChangelogBadge("links_last_seen_update", CHANGELOG_UPDATE_MARKERS.links);
   const { theme } = useTheme();
 
   const openChangelog = () => {
