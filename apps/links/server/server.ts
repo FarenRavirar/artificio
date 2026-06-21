@@ -8,11 +8,12 @@ import { fileURLToPath } from "node:url";
 import express, { type RequestHandler } from "express";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
-import { requireAuth, csrfProtection, type AuthenticatedRequest } from "@artificio/auth";
+import { requireAuth, csrfProtection, verifyToken, type AuthenticatedRequest } from "@artificio/auth";
+import sanitizeHtml from "sanitize-html";
 import * as Groups from "./repo/groups.js";
 import { parseSuggestion, cleanText } from "./lib/validate.js";
-import { parseInviteUrl, fetchOgImage } from "./lib/og.js";
-import { uploadLogoFromUrl, deleteLogo } from "./lib/cloudinary.js";
+import { parseInviteUrl } from "./lib/og.js";
+import { resolveLogo, deleteLogo } from "./lib/cloudinary.js";
 import { slugify } from "./lib/slug.js";
 import { renderGroupPage } from "./lib/render.js";
 import { runJob, jobState, jobBusy } from "./jobs.js";
@@ -25,6 +26,9 @@ const VALID_CATEGORIES = ["artificio", "tematicos", "parceiros", "comunidade"] a
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", process.env.TRUSTED_PROXY_CIDR || "172.18.0.0/16");
+// Corrente CSRF: cookieParser (lê cookies) → globalLimiter → csrfProtection (protege
+// todas as rotas abaixo). Rotas públicas (ex: report) são cobertas pela middleware
+// global; usuários sem session cookie passam direto (sem token = sem CSRF necessário).
 app.use(cookieParser());
 
 // Rate-limit global (leve): conta TODAS as requests antes do CSRF, inclusive as rejeitadas.
@@ -133,6 +137,14 @@ const adminLimiter = rateLimit({
   message: { error: "Muitas requisições. Aguarde." },
 });
 
+const reportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitos envios. Tente novamente mais tarde." },
+});
+
 app.post("/api/groups/suggest", suggestLimiter, requireAuth, async (req, res) => {
   try {
     const parsed = parseSuggestion(req.body);
@@ -155,10 +167,61 @@ app.post("/api/groups/suggest", suggestLimiter, requireAuth, async (req, res) =>
   }
 });
 
+const VALID_REPORT_REASONS = ["convite_quebrado", "conteudo_improprio", "grupo_inativo", "outro"] as const;
+
+// ===== Comunidade: reportar grupo (público, sem login obrigatório) =====
+app.post("/api/groups/:slug/report", reportLimiter, async (req, res) => {
+  try {
+    const slug = req.params.slug;
+    if (slug !== slugify(slug)) {
+      res.status(400).json({ error: "slug inválido" });
+      return;
+    }
+    const g = await Groups.findBySlug(slug);
+    if (!g || g.status !== "active") {
+      res.status(404).json({ error: "grupo não encontrado" });
+      return;
+    }
+    const body = req.body as Record<string, unknown> | undefined;
+    const reason = typeof body?.reason === "string" ? body.reason : "";
+    if (!(VALID_REPORT_REASONS as readonly string[]).includes(reason)) {
+      res.status(400).json({ error: "motivo inválido" });
+      return;
+    }
+    const rawNote = typeof body?.note === "string" ? body.note : "";
+    const note = sanitizeHtml(rawNote, { allowedTags: [], allowedAttributes: {} }).replace(/\s+/g, " ").trim().slice(0, 1000) || null;
+    // Rota pública (sem requireAuth): verifica o cookie manualmente para
+    // capturar o email de usuários logados. verifyToken retorna null se o
+    // cookie estiver ausente ou inválido — sem quebrar para anônimos.
+    const cookieToken = typeof req.cookies?.artificio_session === "string" ? req.cookies.artificio_session : null;
+    const session = cookieToken ? verifyToken(cookieToken) : null;
+    const reporterEmail = session?.user?.email ?? null;
+    const report = await Groups.insertReport({
+      group_id: g.id,
+      reason: reason as Groups.InsertReportInput["reason"],
+      note,
+      reporter_email: reporterEmail,
+    });
+    res.status(201).json({ data: { id: report.id } });
+  } catch (e) {
+    console.error("[POST /api/groups/:slug/report]", e);
+    res.status(500).json({ error: "erro ao registrar denúncia" });
+  }
+});
+
 // ===== Admin: moderação =====
 const admin = express.Router();
 admin.use(adminLimiter);
 admin.use(requireAuth, requireAdmin);
+
+// Valida UUID em todas as rotas admin com :id (400 em vez de 500 do PG).
+admin.param("id", (req, res, next, id) => {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    res.status(400).json({ error: "id inválido" });
+    return;
+  }
+  next();
+});
 
 // Lista p/ moderação (qualquer status). ?status=pending p/ a fila.
 admin.get("/groups", async (req, res) => {
@@ -172,19 +235,6 @@ admin.get("/groups", async (req, res) => {
   }
 });
 
-// Resolve a logo (og:image do convite → Cloudinary). Não-fatal. Devolve patch parcial.
-async function resolveLogo(inviteUrl: string): Promise<{ logo_url: string; logo_public_id: string } | null> {
-  const og = await fetchOgImage(inviteUrl);
-  if (!og) return null;
-  try {
-    const stored = await uploadLogoFromUrl(og);
-    return { logo_url: stored.url, logo_public_id: stored.public_id };
-  } catch (e) {
-    console.warn("[links/admin] upload de logo falhou:", String(e));
-    return null;
-  }
-}
-
 // Aceitar sugestão → active + resolve logo.
 admin.post("/groups/:id/accept", async (req, res) => {
   try {
@@ -193,7 +243,7 @@ admin.post("/groups/:id/accept", async (req, res) => {
       res.status(404).json({ error: "não encontrado" });
       return;
     }
-    const logo = g.logo_url ? null : await resolveLogo(g.invite_url);
+    const logo = g.logo_url ? null : await resolveLogo(g.invite_url, "admin");
     const slug = g.slug ?? (await Groups.ensureUniqueSlug(slugify(g.name), g.id));
     const approved_at = g.approved_at ? undefined : new Date().toISOString();
     const updated = await Groups.updateGroup(g.id, { status: "active", slug, approved_at, ...(logo ?? {}) });
@@ -242,7 +292,7 @@ admin.patch("/groups/:id", async (req, res) => {
       }
       patch.invite_url = invite.url;
       patch.kind = invite.kind;
-      const logo = await resolveLogo(invite.url);
+      const logo = await resolveLogo(invite.url, "admin");
       if (logo) Object.assign(patch, logo);
     }
     const updated = await Groups.updateGroup(g.id, patch);
@@ -344,6 +394,42 @@ admin.delete("/tags/:id", async (req, res) => {
   }
 });
 
+// ----- Reports: fila de denúncias (admin, spec 038 R6) -----
+admin.get("/reports", async (req, res) => {
+  try {
+    const status = req.query.status as string | undefined;
+    if (status && !["open", "resolved", "dismissed"].includes(status)) {
+      res.status(400).json({ error: "status inválido" });
+      return;
+    }
+    const rows = await Groups.listReports(status ? { status: status as "open" | "resolved" | "dismissed" } : {});
+    res.json({ data: rows });
+  } catch (e) {
+    console.error("[GET /admin/reports]", e);
+    res.status(500).json({ error: "erro interno" });
+  }
+});
+
+admin.patch("/reports/:id", async (req, res) => {
+  try {
+    const b = req.body as Record<string, unknown>;
+    const status = typeof b.status === "string" ? b.status : "";
+    if (!["resolved", "dismissed"].includes(status)) {
+      res.status(400).json({ error: "status inválido (resolved ou dismissed)" });
+      return;
+    }
+    const updated = await Groups.updateReport(req.params.id, { status: status as "resolved" | "dismissed" });
+    if (!updated) {
+      res.status(404).json({ error: "não encontrado" });
+      return;
+    }
+    res.json({ data: updated });
+  } catch (e) {
+    console.error("[PATCH /admin/reports/:id]", e);
+    res.status(500).json({ error: "erro interno" });
+  }
+});
+
 // ----- Rebuild SSG (admin, pós-moderação) -----
 admin.post("/rebuild", (_req, res) => {
   const out = runJob("rebuild", "rebuild");
@@ -352,6 +438,17 @@ admin.post("/rebuild", (_req, res) => {
 
 // Status do job em curso (p/ o painel exibir progresso).
 admin.get("/rebuild/status", (_req, res) => {
+  res.json({ busy: jobBusy(), job: jobState() });
+});
+
+// ----- Reidratação de logos (admin, spec 038 R4) -----
+// Dispara reidratação em lote das logos dos grupos ativos (single-flight). Espelha o padrão rebuild.
+admin.post("/groups/rehydrate-logos", (_req, res) => {
+  const out = runJob("rehydrate", "rehydrate-logos");
+  res.json(out);
+});
+
+admin.get("/groups/rehydrate-logos/status", (_req, res) => {
   res.json({ busy: jobBusy(), job: jobState() });
 });
 

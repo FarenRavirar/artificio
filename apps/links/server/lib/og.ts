@@ -1,5 +1,6 @@
 // Validação de convite WhatsApp + extração de og:image (logo do grupo/canal).
 // Superfície hostil (input da comunidade): host allowlist estrita, timeout, sem seguir p/ outros hosts.
+import { decode } from "html-entities";
 import type { GroupKind } from "../../db/types.js";
 
 export interface ParsedInvite {
@@ -68,8 +69,9 @@ export async function fetchOgImage(inviteUrl: string): Promise<string | null> {
   }
   const html = await res.text();
   const m = OG_IMAGE_RE.exec(html) ?? OG_IMAGE_RE_ALT.exec(html);
-  const url = m?.[1];
-  if (!url) return null;
+  const raw = m?.[1];
+  if (!raw) return null;
+  const url = decode(raw);
   try {
     const parsed = new URL(url);
     return parsed.protocol === "https:" ? parsed.toString() : null;

@@ -56,4 +56,21 @@ export type GroupTagUpdate = Updateable<GroupTagsTable>;
 export interface Database {
   groups: GroupsTable;
   group_tags: GroupTagsTable;
+  group_reports: GroupReportsTable;
 }
+
+export type ReportReason = "convite_quebrado" | "conteudo_improprio" | "grupo_inativo" | "outro";
+export type ReportStatus = "open" | "resolved" | "dismissed";
+
+export interface GroupReportsTable {
+  id: Generated<string>;
+  group_id: string;
+  reason: ReportReason;
+  note: string | null;
+  reporter_email: string | null;
+  status: Generated<ReportStatus>;
+  created_at: ColumnType<Date, never, never>;
+}
+
+export type GroupReport = Selectable<GroupReportsTable>;
+export type NewGroupReport = Insertable<GroupReportsTable>;

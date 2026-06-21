@@ -7,13 +7,9 @@
 
 **Fase 3 — projetos + conteúdo.** Gates A/B ✅; mesas, glossario e site com Gate D fechado. Site em `artificiorpg.com` (Astro SSG, spec 029/030/031). `beta.artificiorpg.com` = staging. WP desligado da raiz; DNS raiz intocado (Gate C adiado). Migração WP→site concluída (D074, residual zero).
 
-**🚨 `mesas-beta` FORA DO AR** desde 2026-06-20 ~21:00. O merge da PR #75 em `dev` (commit `f319aac`) introduziu `@artificio/media` (spec 036) como dependência do mesas-backend. O auto-deploy disparado pelo push falhou: `mesas-beta-api` não sobe (`ERR_MODULE_NOT_FOUND cloudinary`). `mesas-beta-app` (frontend) healthy. Causa: `packages/media/dist/index.js` compilado como CJS (`require("cloudinary")`) quebrou no Node 24 via ESM wrapper.
+**✅ `mesas-beta` NO AR** (2026-06-21 ~02:00). PR #77 mergeada → deploy `27890193745` verde. Containers healthy. Smoke: home 200, me_no_cookie 401, auth_redirect 302. Correção em duas camadas: `"type": "module"` (ESM, PR #76) + `pnpm install --prod --filter @artificio/media` explícito (pnpm bug, PR #77). Fail-fast validado no deploy #1 (`27889891144`) — provou o diagnóstico e protegeu o runtime.
 
-**PR #76** (`fix/037-cloudinary-media-esm` → `dev`) contém a correção: `"type": "module"` + fail-fast nos 3 Dockerfiles + `auto_deploy_on_push: false`. **24/24 checks verdes**, pronta para merge. Após merge, `dev` terá o fix mas NÃO disparará deploy automático (manifesto agora tem `auto_deploy_on_push: false`). Será necessário **dispatch manual** `deploy.yml module=mesas mode=deploy` para subir o beta.
-
-**Demais módulos:** glossario, site, accounts e links NÃO usam `@artificio/media` (exceto site, que tem install completo sem `--prod`). Seus betas não foram afetados. `apps/links` app completo em `dev` (spec 013, PR #74), bloqueado para deploy por `BL-CF-TUNNEL-TOKEN-SCOPE` (token CF sem permissão Tunnel).
-
-**Stack:** Node 24, pnpm 11.8, TS 6, React 19.2, Express 5.2, Kysely 0.29.2, Tailwind 4.3, Astro 6.4. **PRs abertas:** #76 (fix cloudinary) e #73 (dependabot). **PRs #74 e #75** mergeadas. **Spec 037** lint 13/13 verde, CSRF central no `@artificio/auth`, CodeQL/CodeRabbit fixes — tudo em `dev`.
+**PRs abertas:** #73 dependabot. PRs #74, #75, #76, #77 mergeadas. `auto_deploy_on_push: false` em efeito. Betas glossario/site/accounts ✅ (runs `27889891463`/`27889891603`/`27889892103`).
 
 ## Gates
 
@@ -23,7 +19,7 @@
 | **B** | ✅ | SSO `accounts.` no ar, cross-subdomínio provado |
 | **C** | ⏸️ | Cutover DNS raiz — adiado (D016). Site já serve em `artificiorpg.com` por redirect Cloudflare, não pelo cutover cerimonial |
 | **D** | ✅ | `mesas` (2026-06-08), `glossario` (2026-06-12), `site` (2026-06-18 via spec 029/030/031) |
-| **D-link** | 🔴 | `apps/links` código pronto, bloqueado por tunnel/secrets mantenedor |
+| **D-link** | 🟡 | `links.artificiorpg.com` **no ar** (2026-06-21, smoke 200/200/200/401); Tunnel+DNS ok. Falta: spec 038 (mídia/reportar/cron) + propagar nav cross-app |
 
 ## Decisões fechadas (resumo)
 
@@ -67,8 +63,11 @@
 
 ## Log
 
-- 2026-06-20 — **PR #76 aberta** (`fix/037-cloudinary-media-esm` → `dev`). Corrige `ERR_MODULE_NOT_FOUND cloudinary` no deploy mesas-beta: `@artificio/media` compila ESM (`"type":"module"`) + fail-fast nos 3 Dockerfiles (`test -d packages/media/node_modules/cloudinary`) + `auto_deploy_on_push: false` no mesas. PRs #74 e #75 mergeadas em `dev`. Spec 037 lint 13/13, CSRF central no `@artificio/auth` (CodeQL ok), CodeRabbit fixes. Spec 036 (`@artificio/media`) commitada.
-- 2026-06-20 — **`apps/links` app completo em `dev`** (spec 013, PR #74). Astro+Express+Kysely+Cloudinary+SSO, 15 páginas. Bloqueado: tunnel `links.` (token CF sem escopo, 403) + secrets/env VM.
-- 2026-06-19 — **Spec 033 toolchain update concluída** (PRs #63-#72). Node 24, pnpm 11.8, Express 5.2, Kysely 0.29.2, TS 6, Vite 8, Tailwind 4.3, Astro 6.4. CSP Astro 6 via `<meta>`. GitHub Actions endurecido (pnpm 11 `allowBuilds`, `persist-credentials: false`). Dockerfiles rootless.
-- 2026-06-18 — **Site prod próprio** (spec 030/031). `site-prod-app` healthy, seed 125p/10p/82t/444m/25c, raiz `artificiorpg.com` → prod. Beta isolado com noindex. Sync prod→beta = truncate + restore manual idempotente.
-- 2026-06-17 — **Cutover beta→raiz** (spec 029, D075). `artificiorpg.com` serve site novo. WP desligado da raiz. `beta.artificiorpg.com` = staging. `SITE_IMPORT_ON_START=false`. **Migração WP→site concluída** (D074): 332 mídias migradas, 9 falhas, residual servido zero.
+- 2026-06-21 — **links.artificiorpg.com NO AR ✅** (smoke VM 200/200/200/401). Resolvido após 3 falhas: (1/2) `.env` corrompido (`\n` literal do PowerShell em `ssh "...$(grep)..."`); (3) senha presa em volume Postgres (`pg_authid` só grava na 1ª init → `28P01`), diagnóstico enganado por `pg_hba` localhost=`trust` → **E009**. Fix: drop volume `links_pgdata_links_prod` (DB vazio) + redeploy (`27891323485`). Roteamento: mantenedor criou public hostname Tunnel (`links-app:4324`) + CNAME proxied; A record cru removido. Prevenção E009 em 4 camadas (errors/runbook/capsule/backlog). **Spec 038 criada** (mídia Cloudinary/reportar/cron) + 2 bugs (nav cross-app, grupos sem logo).
+- 2026-06-21 — **Deploy prod ✅** (mesas/glossario/site/accounts).
+- 2026-06-21 — **PR #77 aberta** — deploy #1 (`27889891144`) falhou: fail-fast acionou, provou que `pnpm --prod` não instala deps de workspace packages. Rollback preservou containers.
+- 2026-06-20 — **PR #76 aberta** (`fix/037-cloudinary-media-esm`). Corrige `ERR_MODULE_NOT_FOUND cloudinary`: `@artificio/media` ESM + fail-fast Dockerfiles + `auto_deploy_on_push: false`. PRs #74 e #75 mergeadas. Spec 037 lint 13/13, CSRF central no `@artificio/auth`.
+- 2026-06-20 — **`apps/links` app completo em `dev`** (spec 013, PR #74). Bloqueado: `BL-CF-TUNNEL-TOKEN-SCOPE` (token CF sem permissão Tunnel) + secrets/env VM.
+- 2026-06-19 — **Spec 033 toolchain update** (PRs #63-#72). Node 24, pnpm 11.8, Express 5.2, Kysely 0.29.2, TS 6, Vite 8, Tailwind 4.3, Astro 6.4. CSP via meta tag. Dockerfiles rootless.
+- 2026-06-18 — **Site prod próprio** (spec 030/031). `site-prod-app` healthy, raiz `artificiorpg.com` → prod. Beta com noindex.
+- 2026-06-17 — **Cutover beta→raiz** (spec 029, D075). WP desligado. Migração WP concluída (D074, residual zero).

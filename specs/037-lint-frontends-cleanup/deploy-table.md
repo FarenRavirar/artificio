@@ -1,77 +1,52 @@
 # Tabela de PR, Merge, Deploy e Promoção — 2026-06-21
 
-> PR #76 **MERGEADA** (`c12167e`). `dev` = `c12167e`. VM beta em `f319aac` (PR #75, código bugado).
+> PRs #76 e #77 **MERGEADAS**. `mesas-beta` ✅ NO AR. `dev` pronto para promote.
 
-## 1. PR #76 ✅ MERGEADA
+## 1. PRs mergeadas
 
-| # | Arquivo | Ação | Status |
-|---|---------|------|--------|
-| F1 | `packages/media/package.json` | `"type": "module"` (já no HEAD) | ✅ |
-| F2 | `apps/mesas/backend/Dockerfile` | fail-fast cloudinary | ✅ |
-| F3 | `apps/site/Dockerfile` | fail-fast cloudinary | ✅ |
-| F4 | `apps/links/Dockerfile` | fail-fast cloudinary | ✅ |
-| F5 | `.github/deploy-manifest.json` | `auto_deploy_on_push: false` | ✅ |
-| F6 | `specs/037/tasks.md` | documentação do incidente | ✅ |
+| PR | Branch | O que | Status |
+|----|--------|-------|--------|
+| #76 | `fix/037-cloudinary-media-esm` | ESM + fail-fast + auto-deploy | ✅ mergeada (`c12167e`) |
+| #77 | `fix/037-cloudinary-pnpm-prod-media` | pnpm --prod fix + docs | ✅ mergeada |
 
-- Merge commit: `c12167e` → `dev`
+## 2. Deploy beta — ✅ CONCLUÍDO
 
-## 2. Deploy beta — AGORA (dispatch manual, 4 módulos)
+| # | Módulo | Run | Resultado |
+|---|--------|-----|-----------|
+| B1 | **mesas** | `27890193745` | ✅ **SUCCESS** — 3/3 healthy, smoke 200/401/302 |
+| B2 | **glossario** | `27889891463` | ✅ SUCCESS |
+| B3 | **site** | `27889891603` | ✅ SUCCESS |
+| B4 | **accounts** | `27889892103` | ✅ SUCCESS |
 
-> **VM beta:** clone em `f319aac` (PR #75, com bug cloudinary). `dev` em `c12167e` (fix).
-> `auto_deploy_on_push: false` em efeito → merge NÃO disparou deploy. Precisa dispatch manual.
-
-**Pré-voo (read-only VM):**
-```
-mesas-beta-db       Up 47 min (healthy)     ← banco OK
-mesas-beta-app      Up 47 min (healthy)     ← frontend OK
-mesas-beta-api      Restarting (crash)      ← 🔴 bug cloudinary
-site-beta-*         Up 28h (healthy)        ← 🟢
-glossario-beta-*    Up 28h (healthy)        ← 🟢
+**Evidência mesas-beta:**
+```text
+mesas-beta-app   Up (healthy)
+mesas-beta-api   Up (healthy)   ← estava em crash loop
+mesas-beta-db    Up (healthy)
+Smoke: home=200, me_no_cookie=401, auth_redirect=302
 ```
 
-**O que muda por módulo:**
+## 3. Promote dev→main ✅
 
-| # | Módulo | Delta (`f319aac`→`c12167e`) | Risco | Comando |
-|---|--------|------|-------|---------|
-| B1 | **mesas** | Fix cloudinary ESM + fail-fast Dockerfile + `x-powered-by` + csrf/json order + globalLimiter + `auto_deploy_on_push: false` | Baixo | `gh workflow run deploy.yml -f module=mesas -f mode=deploy -f env=beta` |
-| B2 | **glossario** | `x-powered-by` (1 linha no server.ts) | Baixo | `gh workflow run deploy.yml -f module=glossario -f mode=deploy -f env=beta` |
-| B3 | **site** | `x-powered-by` + CSRF allowlist + globalLimiter + fail-fast Dockerfile + `express-rate-limit` dep | Baixo | `gh workflow run deploy.yml -f module=site -f mode=deploy -f env=beta` |
-| B4 | **accounts** | `x-powered-by` + cookieParser/json order | Baixo | `gh workflow run deploy.yml -f module=accounts -f mode=deploy` (prod-only) |
+| # | Ação | Run | Status |
+|---|------|-----|--------|
+| P1 | `promote-prod-fast-forward.yml` | `27890320975` | ✅ SUCCESS — `main` = `dev` = `df4336e` |
 
-**Nada toca:** migrations, schema, auth, contratos compartilhados, DNS/tunnel, prod.
+## 4. Deploy prod
 
-**Critério de sucesso B1:** `mesas-beta-api` healthy + smoke `home=200`, `me_no_cookie=401`, `auth_redirect=302`.
+| # | Módulo | Run | Status |
+|---|--------|-----|--------|
+| R1 | mesas | `27890382339` | ✅ |
+| R2 | glossario | `27890383248` | ✅ |
+| R3 | site | `27890383545` | ✅ |
+| R4 | accounts | `27890383939` | ✅ |
 
-## 3. Pós-deploy beta
+## 5. Deploy links — 3 tentativas
 
-Após B1-B4 verdes:
-- Verificar `mesas-beta` no ar com fix cloudinary
-- Smoke glossario/site/accounts beta
+| # | Run | Resultado |
+|---|-----|-----------|
+| 1 | `27890695988` | ❌ JWT_SECRET diverge — `source` quebrado (variáveis vazias) |
+| 2 | `27890759220` | ❌ `links-app` unhealthy — `DATABASE_URL` corrompido (`\n` do PowerShell literal) |
+| 3 | `27891034346` | 🔄 em andamento — .env reescrito localmente (bytes corretos) |
 
-## 4. Commits restantes (working tree sujo)
-
-| # | Arquivo | Ação | Status |
-|---|---------|------|--------|
-| D1 | `specs/backlog-audit-map.md` | Corrigido (PR #75 merged, PR #76, auto-push) | 📝 local |
-| D2 | `specs/backlog.md` | BL-DEP-MESAS-AUTO-PUSH atualizado | 📝 local |
-| D3 | `.specify/memory/project-state.md` | Reescrito | 📝 local |
-
-## 5. Promoção dev → main (após beta verde)
-
-| # | Ação | Comando | Status |
-|---|------|---------|--------|
-| P1 | Verificar invariante `main ⊆ dev` | `git merge-base --is-ancestor origin/main origin/dev` | ✅ OK |
-| P2 | Disparar promote | `gh workflow run promote-prod-fast-forward.yml` | 🟦 mantenedor |
-| P3 | Confirmar `main` = `dev` | `git log --oneline origin/main..origin/dev` vazio | ⏳ após P2 |
-
-**Commits a promover (41):** PRs #63-#72, #73, #74, #75, #76.
-
-## 6. Deploy prod (main) — após promover
-
-| # | Módulo | Delta | Status |
-|---|--------|-------|--------|
-| R1 | mesas | Dockerfile fail-fast + media ESM + server.ts (csrf, x-powered-by, limiter) | 🔴 pendente |
-| R2 | glossario | server.ts (x-powered-by) | 🔴 pendente |
-| R3 | site | Dockerfile fail-fast + server.ts (x-powered-by, csrf, limiter) | 🔴 pendente |
-| R4 | accounts | server.ts (x-powered-by, csrf/json order) | 🔴 pendente |
-| R5 | links | App TODO (1º deploy) | 🟦 precisa tunnel/secrets |
+**Causa raiz:** Comandos `ssh` com `$(grep...)` dentro de double-quotes do PowerShell tinham `\n` tratado como literal, corrompendo o arquivo. `scp` + heredoc também não propagou variáveis. **Solução:** gerar senha no PowerShell, construir string com here-string (`@""@`), pipe para `ssh cat`.

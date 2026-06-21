@@ -2,6 +2,8 @@
 // Card de grupo. Linka para a página publicada /grupo/<slug> (SEO), não direto ao convite —
 // o CTA de entrar fica na página do grupo. Exibe chips de tag (máx 3) + badge +18.
 // UX-1: gate +18 — overlay com confirmação; blur removido via script is:inline no Base.astro.
+import ReportButton from "./ReportButton.tsx";
+
 interface Props {
   name: string;
   slug: string;
@@ -13,6 +15,7 @@ interface Props {
 const { name, slug, description, tags = [], isAdult = false, logoUrl } = Astro.props;
 const fallback = "/placeholder.svg";
 ---
+<div class="card-wrapper">
 <a
   class={`card${isAdult ? " card-adult" : ""}`}
   href={`/grupo/${slug}`}
@@ -49,3 +52,5 @@ const fallback = "/placeholder.svg";
     {description && <span class="desc">{description}</span>}
   </span>
 </a>
+<ReportButton client:visible slug={slug} groupName={name} />
+</div>
