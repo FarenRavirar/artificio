@@ -491,7 +491,7 @@ jobs:
           # tudo sem perda de velocidade; BuildKit preserva cache de build ativo (deploy
           # concorrente seguro). `image prune -f` mantem dangling em zero.
           docker image prune -f
-          docker builder prune -f
+          docker builder prune --all -f
           docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | sed -n '1,40p'
           REMOTE
 

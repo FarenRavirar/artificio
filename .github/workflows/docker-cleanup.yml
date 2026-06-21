@@ -156,7 +156,7 @@ jobs:
           # volumes (dados intactos) nem redes (artificio_net compartilhada).
           docker image prune -f
           docker container prune -f --filter "until=168h"
-          docker builder prune -f
+          docker builder prune --all -f
 
           # Mantém só as 3 imagens mais recentes por repositório.
           # Q3: `docker images` lista por criacao DECRESCENTE (mais nova primeiro) por
