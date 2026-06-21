@@ -7,7 +7,7 @@ import { useAuth } from '../context/auth-context';
 import { useUI } from '../context/UIContext';
 import { ChangelogModal } from './ChangelogModal';
 
-const LAST_SEEN_UPDATE = '2026-03-30-db-sanitize-script';
+const LAST_SEEN_UPDATE = '2026-06-21-shell-unificado';
 
 export function GlossarioHeader() {
   const { user, logout, loading } = useAuth();

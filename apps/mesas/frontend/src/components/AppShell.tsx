@@ -6,7 +6,7 @@ import { HeaderActions } from './HeaderActions';
 import { getMesasPublicOrigin } from '../utils/auth';
 import { ChangelogModal } from './ChangelogModal';
 
-const UPDATE_MARKER = '2026-04-08-ux-improvements';
+const UPDATE_MARKER = '2026-06-21-shell-unificado';
 
 interface AppShellProps {
   children: ReactNode;

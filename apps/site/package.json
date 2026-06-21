@@ -21,6 +21,7 @@
   "dependencies": {
     "@artificio/analytics": "workspace:*",
     "@artificio/auth": "workspace:*",
+    "@artificio/config": "workspace:*",
     "@artificio/content": "workspace:*",
     "@artificio/media": "workspace:*",
     "@artificio/ui": "workspace:*",

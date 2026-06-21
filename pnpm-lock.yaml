@@ -610,6 +610,9 @@ importers:
       '@artificio/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@artificio/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@artificio/content':
         specifier: workspace:*
         version: link:../../packages/content

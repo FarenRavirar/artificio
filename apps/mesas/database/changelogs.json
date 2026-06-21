@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-06-21-shell-unificado",
+    "title": "Navegacao unificada e busca rapida entre projetos",
+    "body": "O Mesas agora compartilha a mesma navegacao de todos os projetos do Artificio:\n\n• **Cabecalho unificado** - Links para Portal, Glossario, Downloads, Esferas, SRD e Links direto no topo, sem precisar voltar ao portal\n• **Busca rapida** - Icone de lupa no cabecalho para buscar termos, mesas e conteudos em todo o site\n• **Tema claro/escuro consistente** - O alternador de tema mantem sua preferencia em qualquer projeto do Artificio\n• **Menu de conta padronizado** - Perfil, painel e saida com o mesmo visual dos outros projetos\n• **Rodape alinhado** - Informacoes de copyright, termos e contato padronizados com o restante da suite\n• **Indicador de novidades** - Selo de \"novo\" aparece no menu de conta quando ha atualizacoes nao lidas\n\n_Atualizacao publicada em 21/06/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-06-21T18:00:00-03:00"
+  },
+  {
     "id": "2026-06-13-arquivar-mesas",
     "title": "Arquive suas mesas antigas",
     "body": "Agora você pode tirar uma mesa do catálogo sem perdê-la:\n\n• **Arquivar/Desarquivar** - No painel do mestre e na página da mesa, arquive uma mesa para escondê-la do catálogo público mantendo todo o histórico; desarquive quando quiser de volta\n• **Catálogo mais limpo** - Mesas arquivadas somem da busca pública por padrão, mas seguem acessíveis por link direto\n• **Limpeza automática** - Em produção, mesas publicadas há mais de um mês passam a ser arquivadas automaticamente, mantendo o catálogo atual; é só desarquivar se ainda estiver recrutando\n\n_Atualização publicada em 13/06/2026_",

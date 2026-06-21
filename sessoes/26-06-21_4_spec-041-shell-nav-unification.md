@@ -67,5 +67,33 @@ Investiguei `packages/ui/src/styles.css`, `apps/site` (Base.astro, SiteHeader, S
 - **Contrato CSS = segue o site** (R11): `styles.css:50` "Espelha o site"; reusar classes `artificio-*`, 2 eixos de tema (`data-theme` conteúdo / `data-variant` header), tokens navy `#020740`/laranja `#FF5722`. Botões centrais já têm classe (`.artificio-header-action`).
 - Nomes de pacote p/ `--filter` verificados (`@artificio/mesas-frontend` etc.); `getAccountsOrigin()` retorna origin sem path (`/conta` ok).
 
-## Próximo passo
-Mantenedor decide §10 (busca do site) e inicia execução (DeepSeek/OpenCode) pela Fase 0. Cada avanço de fase exige permissão nominal. Commit/PR/merge/deploy = aprovação por ação.
+## Execução (F0-F7)
+Todas as fases executadas 2026-06-21. Build 15/15 ✅ após cada fase. 14 descobertas (D-041-01 a D-041-14) registradas em `tasks-2.md`, todas fechadas.
+
+## F8 — Commit, PR, Revisões, Merge
+- **Commit `ba2b647`:** feat(041) inicial — shell único cross-projeto (52 arquivos, +1899/-481)
+- **Commit `b1c5fa0`:** 31 correções de revisão (15 reviews amazon-q/codex/coderabbit + 16 Sonar)
+- **Commit `632604e`:** #16-#19 (CodeQL XSS/redirect falso-positivo + EventTarget guard + catch error)
+- **PR #80** aberto para `dev`. Checks: lint+build+test ✅, CodeQL ✅, Snyk ✅, Semgrep ✅.
+- **Merge `8981c84`** em `origin/dev` (autorizado pelo mantenedor).
+- **19 achados de revisão** documentados em `task-revisões.md` (#1-#19). 16 Sonar aplicados.
+- **Deploy beta** disparado para site/glossario/mesas (workflow_dispatch). accounts/links = PROD-only.
+
+## F9 — Changelog cross-app
+- `changelogs.json` criados/atualizados em 4 apps. Mesas + glossario + site + links padronizados.
+- Glossario migrado de DB (`public.update_log`) para JSON; controller reescrito; `mergeUsers.ts` limpo.
+- `ChangelogModal` centralizado em `packages/ui` (~500 linhas duplicadas eliminadas). 4 apps migrados.
+- Auditoria independente: 53 ✅, 1 🛑 (AbortController signal corrigido), 6 ⚠️ cosméticos.
+- `BL-GLOSSARIO-CHANGELOG-JSON` fechado. `BL-GLOSSARIO-CHANGELOG-CLEANUP` aberto (dropar tabela pós-deploy).
+- 5 novas descobertas (D-041-16 a D-041-20) registradas em `tasks-2.md`, todas fechadas.
+- Build 15/15 ✅.
+
+## Critério de conclusão (desta sessão)
+- [x] Spec completa aberta (spec+plan+tasks) implementável por terceiro.
+- [x] Achados registrados com evidência file:line.
+- [x] Backlog linkado.
+- [x] F0-F9 executadas. PR #80 mergeado. Deploy beta disparado.
+- [x] Changelog cross-app centralizado e auditado.
+- [x] 20 descobertas (D-041-01 a D-041-20) todas fechadas.
+- [x] 19 revisões de bots documentadas e resolvidas.
+- [x] 16 Sonar code smells aplicados.
