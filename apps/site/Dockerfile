@@ -14,6 +14,9 @@ COPY apps/site-admin ./apps/site-admin
 COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
+# Fail-fast: verifica que cloudinary foi instalado (dep de @artificio/media).
+RUN test -d packages/media/node_modules/cloudinary || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
+
 # Builda os pacotes que o site consome (tsc -> dist) + a SPA admin (vite -> apps/site-admin/dist).
 # A SPA admin builda na imagem (não depende de DB/WP, ao contrário do Astro público que builda no entrypoint).
 RUN pnpm -w turbo run build \

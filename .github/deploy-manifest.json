@@ -14,7 +14,7 @@
       "db_name_beta": "mesas_rpg",
       "db_user": "admin",
       "reconcile_same_project_orphans": false,
-      "auto_deploy_on_push": true,
+      "auto_deploy_on_push": false,
       "push_branches": ["dev"],
       "deploy_paths": ["apps/mesas"],
       "health_containers": ["mesas-api", "mesas-app"],
