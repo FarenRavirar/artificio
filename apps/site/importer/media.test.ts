@@ -34,6 +34,14 @@ function mockDb(): Db {
 
 const inserts: unknown[] = [];
 
+// `isConfigured()` de @artificio/media exige as 3 vars (cloud_name + api_key + api_secret);
+// setar só CLOUDINARY_CLOUD_NAME deixa a migração desligada e o upload injetado nunca roda.
+function enableCloudinary(): void {
+  process.env.CLOUDINARY_CLOUD_NAME = "test";
+  process.env.CLOUDINARY_API_KEY = "test";
+  process.env.CLOUDINARY_API_SECRET = "test";
+}
+
 // Default: resgate por bytes desligado (devolve null) p/ nenhum teste tocar a rede real.
 // Testes específicos de resgate sobrescrevem com seu próprio impl.
 beforeEach(() => {
@@ -42,6 +50,8 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.CLOUDINARY_CLOUD_NAME;
+  delete process.env.CLOUDINARY_API_KEY;
+  delete process.env.CLOUDINARY_API_SECRET;
   delete process.env.SITE_MIGRATE_MEDIA;
   __setUploadForTest(null);
   __setAvifFallbackForTest(null);
@@ -139,7 +149,7 @@ describe("pruneWpAssets", () => {
 
 describe("buildMediaMap", () => {
   it("migra mídia não-imagem (pdf/mp3) reescrevendo a URL", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     __setUploadForTest(async (url) => `https://res.cloudinary.com/demo/${encodeURIComponent(url)}`);
 
@@ -154,7 +164,7 @@ describe("buildMediaMap", () => {
 
 
   it("continua o lote quando uma URL falha e grava as demais", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     __setUploadForTest(async (url) => {
       if (url.includes("missing")) throw new Error("Resource not found");
@@ -179,7 +189,7 @@ describe("buildMediaMap", () => {
   });
 
   it("usa fallback original e grava media_map com a chave da URL original de entrada", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     __setUploadForTest(async (url) => {
       if (url.endsWith("-1100x630.webp")) throw new Error("Resource not found");
@@ -196,7 +206,7 @@ describe("buildMediaMap", () => {
   });
 
   it("propaga erro fatal de credencial Cloudinary", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     const fatal = Object.assign(new Error("Invalid API key"), { http_code: 401 });
     __setUploadForTest(async () => {
@@ -210,7 +220,7 @@ describe("buildMediaMap", () => {
   });
 
   it("propaga erro fatal de credencial quando Cloudinary retorna objeto comum com message", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     __setUploadForTest(async () => {
       throw { message: "Invalid API key" };
@@ -223,7 +233,7 @@ describe("buildMediaMap", () => {
   });
 
   it("resgata por bytes quando o fetch server-side da Cloudinary falha mas o asset esta vivo", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     __setUploadForTest(async () => {
       throw Object.assign(new Error("Error in loading https://x/quem-e-ela.webm - 403 Forbidden"), { http_code: 400 });
@@ -243,7 +253,7 @@ describe("buildMediaMap", () => {
   });
 
   it("poda (falha toleravel) quando nem server-side nem resgate por bytes funcionam (asset morto)", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     __setUploadForTest(async () => {
       throw { message: "Error in loading https://x/morto.webp - 404 Not Found" };
@@ -258,7 +268,7 @@ describe("buildMediaMap", () => {
   });
 
   it("propaga erro fatal vindo do resgate por bytes", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     __setUploadForTest(async () => {
       throw { message: "Error in loading https://x/a.webm - 403 Forbidden" };
@@ -274,7 +284,7 @@ describe("buildMediaMap", () => {
   });
 
   it("trata 'Error in loading ... 403 Forbidden' (carga remota) como toleravel, nao fatal", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     __setUploadForTest(async () => {
       throw Object.assign(new Error("Error in loading https://artificiorpg.com/wp-content/uploads/x.webm?_=1 - 403 Forbidden"), { http_code: 400 });
@@ -288,7 +298,7 @@ describe("buildMediaMap", () => {
   });
 
   it("trata 'Error in loading ... 404 Not Found' como toleravel", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     __setUploadForTest(async () => {
       throw { message: "Error in loading https://artificiorpg.com/wp-content/uploads/y.mp3 - 404 Not Found" };
@@ -300,7 +310,7 @@ describe("buildMediaMap", () => {
   });
 
   it("registra message de objeto comum em falha toleravel", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     __setUploadForTest(async () => {
       throw { message: "Resource not found" };
@@ -315,7 +325,7 @@ describe("buildMediaMap", () => {
   });
 
   it("converte AVIF legado quando upload remoto falha mas fallback local funciona", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     __setUploadForTest(async () => {
       throw { message: "Invalid image file" };
@@ -335,7 +345,7 @@ describe("buildMediaMap", () => {
   });
 
   it("propaga erro fatal vindo do fallback local AVIF", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     __setUploadForTest(async () => {
       throw { message: "Invalid image file" };
@@ -351,7 +361,7 @@ describe("buildMediaMap", () => {
   });
 
   it("nao tenta subir novamente a mesma URL falhada no mesmo run", async () => {
-    process.env.CLOUDINARY_CLOUD_NAME = "test";
+    enableCloudinary();
     process.env.SITE_MIGRATE_MEDIA = "true";
     let calls = 0;
     __setUploadForTest(async () => {

@@ -28,8 +28,15 @@ Subir o deploy prod do links (3 falhas anteriores) e registrar débitos de mídi
 - [x] E009 + prevenção (4 camadas) escritas
 - [x] Spec 038 criada (spec/plan/tasks)
 - [x] Bugs A/B registrados na spec + backlog
-- [ ] Re-dispatch deploy p/ smoke verde no Actions (interrompido pelo mantenedor) — opcional; runtime já provado
-- [ ] Commit/push/PR dos docs+spec (aprovação nominal pendente)
+- [x] T1-T11 implementados (spec 038 Fatias A-D)
+- [x] 20 fixes de review bots (Sessão Revisões 1)
+- [x] `html-entities` lib → `decodeHtmlEntities` manual
+- [x] `D-LINKS-ADMIN-UUID-VALIDATION` → `admin.param("id")`
+- [x] PR #78 mergeada → `dev`
+- [x] Deploys links/glossario/mesas despachados (`27894032104`/`27894032901`/`27894033498`)
+- [ ] T4 — Reidratar logos em prod (aprovação nominal)
+- [ ] T12 — Redeploy nav cross-app (aprovação nominal)
+- [ ] T13 — Smoke E2E em prod
 - [x] T1 (Fatia A): Bug `og.ts` corrigido — `fetchOgImage` agora decodifica entidades HTML (`&amp;`→`&`, etc.) na og:image do WhatsApp. Validado com convite real `BXY5PS8M1YeJkUFas6g6c3`: URL retornada `https://pps.whatsapp.net/v/t61.24694-24/...` sem `&amp;`, protocolo https, `new URL()` ok. Build verde.
 - [x] T2 (Fatia A): `server/lib/rehydrate-logos.ts` criado — `rehydrateLogos(opts?)` varre grupos ativos, busca og:image, faz upload Cloudinary, compara `public_id` (idempotente), atualiza DB + deleta asset antigo ao trocar. Não-fatal por grupo (try/catch). `tsc` limpo, build verde. Teste funcional completo requer DATABASE_URL+Cloudinary (T4/futuro).
 - [x] T3 (Fatia A): `resolveLogo` deduplicada — movida para `server/lib/cloudinary.ts` (canônica). `server.ts`, `seed.ts` e `rehydrate-logos.ts` importam da fonte única. Tag opcional para log (`"admin"`/`"seed"`/`"rehydrate"`). `server.ts`: removida import de `fetchOgImage` (não mais usado). Build verde.
@@ -61,8 +68,26 @@ Subir o deploy prod do links (3 falhas anteriores) e registrar débitos de mídi
 **Escolhas:** `resolveLogo` canônica em `cloudinary.ts` (fim de drift) · cron via **crontab da VM** (decisão mantenedor) · `reportLimiter` 5/15min · CSRF via `xsrf_token` cookie · `sanitize-html` com `allowedTags:[]` · ReportButton fora do `<a>` · `runJob` single-flight no admin
 
 ## Critério de conclusão
-Deploy links: **concluído** (runtime healthy + rotas críticas ok). Spec 038: **scaffold concluído**, execução é trabalho futuro. Docs/spec aguardam commit por PR (aprovação).
+Deploy links: **concluído**. Spec 038 T1-T11: **mergeado em dev** (PR #78). T12-T13: aguardando deploy. Sessão **não fechada** — T4+T12+T13 pendentes.
+
+## Bug deploy 2026-06-21 — Broken pipe no run 27894032104 (links prod)
+
+Deploy de ajustes/bugs falhou: `#18 [13/13] RUN chown -R node:node /repo` → **4m16s de silêncio** (04:56:51→05:01:07) → `client_loop: send disconnect: Broken pipe` + exit 255. **Build completou 13/13** — não é erro de build.
+
+**Causa-raiz:** `chown -R /repo` varre node_modules gigante (pnpm store hardlinked), zero stdout; `ssh_base` em `_deploy-module.yml` sem `ServerAliveInterval` → conexão TCP ociosa dropada por middlebox (Cloudflare/NAT Oracle) → broken pipe; exit 255 = falha de conexão do cliente ssh.
+
+**Descartado:** VM saudável (23Gi RAM/21 livre, disco 14%) → não OOM/disco. `site/Dockerfile` tem `chown` idêntico e deploya → chown funciona; falha intermitente de rede no step silencioso longo.
+
+**Outro agente** co-descobriu o gatilho; proposta dele (mover `chown` antes do `pnpm install`) **inválida**: entrypoint builda Astro em runtime como `USER node` e escreve `dist/`; node_modules/dist root-owned → permission denied.
+
+**Fragilidade de fundo (grave, descoberta na revisão):** deploy acoplado à sessão SSH. Ordem do script remoto: `snapshot→migrations→down→build→up→health→smoke`. Broken pipe ocorreu no build (#18), **após `down`, antes do `up`** → serviço DOWN; e `trap rollback ERR` **não pega SIGHUP** → rollback não dispara. Num módulo já em prod = outage sem rollback. Keepalive sozinho só reduz probabilidade (mantém caminho feliz).
+
+**Fix → spec 040** (`specs/040-infra-deploy-ssh-keepalive/`, spec+plan+tasks **atualizadas p/ caminho robusto**, 2026-06-21). **Decisão mantenedor: não implementar agora.**
+- **Núcleo robusto:** execução remota destacada (`setsid`+logfile+sentinela exit code) + poll do runner + `trap` estendido `ERR INT TERM HUP EXIT` idempotente → queda de SSH não aborta/derruba deploy.
+- **Camada 1 (mitigação):** keepalive `ServerAliveInterval=30`/`CountMax=10` em `ssh_base`+`scp` — **aplicado no workdir, NÃO commitado** (decidir manter/reverter com o núcleo).
+- SDD Completo, validar em **beta** antes de prod, branch+PR.
+- Backlog: **BL-DEPLOY-SSH-KEEPALIVE** (P0) atualizado. Re-disparo do deploy = válido (transiente), mas só keepalive recorre em queda real.
 
 ## project-state.md
-Atualizar: links.artificiorpg.com no ar (Gate D em curso); spec 038 aberta (mídia/reportar/cron); E009 catalogado.
+Atualizar: links.artificiorpg.com no ar (Gate D em curso); spec 038 aberta (mídia/reportar/cron); E009 catalogado; spec 040 aberta (BL-DEPLOY-SSH-KEEPALIVE).
 </content>
