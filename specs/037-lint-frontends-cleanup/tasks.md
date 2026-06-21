@@ -1038,17 +1038,18 @@ O ESM `import` de um pacote CJS (`cloudinary`) é resolvido corretamente pelo No
 
 #### Camada 2 — Fail-fast no Dockerfile (defesa em profundidade)
 
-**O quê:** Após `pnpm install --prod`, verificar que `cloudinary` é importável:
+**O quê:** Após `pnpm install --prod`, verificar que `cloudinary` foi instalado como dependência transitiva de `@artificio/media`:
 ```dockerfile
-RUN pnpm install --prod --filter @artificio/mesas-backend --frozen-lockfile
-RUN node --input-type=module -e "import 'cloudinary'"  # quebra build se dep faltar
+RUN pnpm install --prod --filter @artificio/mesas-backend --frozen-lockfile \
+  && test -d packages/media/node_modules/cloudinary \
+  || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
 ```
 
 **Por quê:** Se houver edge case do pnpm com `--prod` + `workspace:*` que impeça a instalação, o erro aparece no **build** (fail-fast, sem gerar imagem quebrada) em vez de no **runtime** (container sobe e morre em loop, diagnóstico difícil).
 
 **Blast radius:** `apps/mesas/backend/Dockerfile`, `apps/site/Dockerfile`, `apps/links/Dockerfile` (todos consomem `@artificio/media`).
 
-**Status:** ✅ implementado nos 3 Dockerfiles (`apps/mesas/backend/Dockerfile:38`, `apps/site/Dockerfile:18`, `apps/links/Dockerfile:18`).
+**Status:** ✅ implementado. **Incidente 2026-06-21 01:40 (run `27889891144`):** fail-fast acionou no deploy mesas-beta — `pnpm install --prod` NÃO instala deps de workspace packages no `node_modules` local. `cloudinary` ausente em `packages/media/node_modules/`. **Corrigido:** `pnpm install --prod --filter @artificio/media --frozen-lockfile` explícito ANTES do fail-fast em `apps/mesas/backend/Dockerfile:42`. Site e links usam full install (sem `--prod`) → não afetados, fail-fast passa neles.
 
 ### 6. Achado relacionado — `auto_deploy_on_push` (despadronização)
 
@@ -1076,3 +1077,5 @@ Durante investigação do deploy, descobriu-se que **mesas é o único módulo c
 | **Adicionar fail-fast no Dockerfile** | Defesa em profundidade: build quebra em vez de runtime silencioso; aproveitar em todos os consumidores de `@artificio/media` |
 | **Padronizar `auto_deploy_on_push: false`** | Alinhar mesas com os outros 4 módulos; reduzir surpresas; deploy manual dá controle |
 | **Não implementar CJS dual** no `@artificio/media` | Zero consumidores usam `require()`; auth já cobre o padrão dual; YAGNI |
+
+**PR:** [#76](https://github.com/FarenRavirar/artificio/pull/76) — branch `fix/037-cloudinary-media-esm` → `dev`

@@ -1,50 +1,128 @@
 # Mapa de Auditoria de Débitos e Tarefas — Artifício RPG
 
-> **View consolidada para visualização rápida.** A fonte **canônica** é [`specs/backlog.md`](backlog.md); este arquivo é um resumo derivado — manter em sync ao fechar/abrir débitos.
-> Criado 2026-06-16 (Gemini); revisado/corrigido 2026-06-17.
->
-> ⚠️ **SHAs e reescrita de histórico:** o repo foi tornado público com **reescrita de histórico** para evitar vazamento (ver memória `repo-public-history-rewrite`). Commits antigos podem **não existir mais**. **NUNCA reabrir uma task só porque um SHA não existe** — verificar pelo **estado atual** (código em `origin/main`, container/healthcheck na VM, smoke HTTP). Um SHA ausente = histórico reescrito, não trabalho desfeito.
+> **View consolidada.** Fonte canônica = [`specs/backlog.md`](backlog.md). Este arquivo = resumo derivado.
+> Atualizado 2026-06-21. PRs #74 e #75 mergeadas. **PR #76 aberta** (fix cloudinary, 24/24 ✅). PR #73 (dependabot) aberta.
 
-## 🗺️ Débitos e tarefas
+## Débitos e tarefas
 
-| Referência (canônica) | Tipo | Status | Evidência / Estado atual | Ação |
-| :--- | :--- | :--- | :--- | :--- |
-| `BL-CDX-310` (Spec 026 F5) | Infra | ✅ Fechado (prod) | deploy run `27656716758` verde; accounts via `_deploy-module` do clone git, healthcheck `healthy`, snowflake aposentado | — |
-| Spec 009 **T10 / R6** | Infra | ✅ Feito (live) | R6 presente em `origin/main` (`apps/site/docker-entrypoint.sh`, commit `c2aaae9` pós-reescrita) | confirmar se site foi redeployado com R6 |
-| `BL-INFRA-CI-EFFICIENCY-F11` | Infra | 🟡 Local | cache pnpm/turbo NÃO está em `origin/main` ainda | commit/push + provar CI quente mais rápido |
-| `BL-QA-MESAS-PERF` (Spec 025) | Qualidade | 🟡 Dirty (local) | lazy-load `App.tsx`/`FeedbackModal` no working tree, não commitado | abrir PR p/ dev + deploy beta + Lighthouse mesasbeta |
-| `BL-INFRA-DEFAULT-BRANCH` | Infra | ⚪ Aberto | débito novo 2026-06-16 | tornar `dev` o default; verificar/corrigir workflows (refs main/dev, invariante, cron) antes |
-| `BL-ACCOUNTS-PORT` (Spec 026 F6) | Infra | ⚪ Aberto | accounts ainda publica `ports:3000:3000` | trocar por `expose`; smoke SSO |
-| `BL-MESAS-AUTO-ARCHIVE-CF` (F7) | Infra | ⚪ Aberto | cron 403 Cloudflare challenge antes da API | caminho interno seguro ou bypass WAF nomeado |
-| `D-DEP2` (Spec 026 F8) | Infra | ⚪ Aberto | toolchain | atualizar apt/Node/pnpm/imagens base (janela + backup VM) |
-| `D-DEP1`/`BL-MESAS-EXPRESS5-016` (F9) | App | ⚪ Aberto | Spec 016 | migrar backends p/ Express 5 sem big-bang |
-| `BL-INFRA-GHCR-F12` | Infra | ⚪ Aberto | Spec 026 F12 | build em CI → push GHCR → VM `pull` (tira `--no-cache` da VM) |
-| `BL-INFRA-SEC-SCAN` | Infra | ✅ Mergeado (PR #40) | scans nativos em `dev`/`main` (`4c8128a`) | resíduos: `BL-CI-ESLINT-FLAT-CONFIG` |
-| `BL-CI-ESLINT-FLAT-CONFIG` | Infra | ⚪ Aberto | `pnpm lint` quebra (ESLint 9 sem flat config); lint advisory no `ci.yml` | criar `eslint.config.js` flat (PR) + remover `continue-on-error` |
-| `BL-BETA-HYDRATE` (Spec 005) | Infra | 🔴 Bloqueado | falta `PROD_DB_URL` no mesasbeta | mantenedor fornece segredo + restart/deploy |
-| `BL-SHELL-B13` / `D-SHELL1` | UI | ⚪ Aberto | nav/footer: fonte de dados feita; resíduo Astro/accounts | unificar shell restante |
-| `BL-UI-PRIMITIVES` (Spec 020 B3/B4) | UI | ⚪ Aberto | primitives no core; falta consumidor | piloto em `site-admin`/apps |
-| Spec 022 (rollout vars semânticas) | UI | ⚪ Aberto | tokens prontos | aplicar em telas do mesas (catálogo/painel/forms) |
-| Spec 011 F3–F5 | App | ⚪ Aberto | CMS site | dashboard, curadoria, agendamento, moderação de comentários |
-| `BL-LINKS-013` | App | 🔴 Bloqueado | sem GitHub | localizar código de `links.`/`servidorvirtual.` ou aprovar rebuild |
-| `BL-DEP-MESAS-LEGACY-SCRIPTS` | Infra | ⚪ Aberto | `apps/mesas/scripts/deploy/*` morto no monorepo | fatia mesas: arquivar + limpar refs em docs |
-| Spec 001 T4/T6/T7/T13 | Infra | ⚪ Aberto | backup WP final, órfãos, rotação de secrets, teste de restore | pós-fase 3 / mantenedor |
+| Ref | Status | Evidência / Estado |
+|:---|:---|:---|
+| **BL-LINKS-013** | ✅ Fechado | PR #74 mergeada `dev` (`5d83a6e`). App completo: Astro+Express+Kysely+Cloudinary+SSO. 15p build verde. 🟦 pendente: deploy (tunnel/secrets/dispatch). |
+| **BL-NAV-LINKS-014** | ✅ Fechado | "WhatsApps" em `modules.ts` mergeado via #74. |
+| **BL-CLOUDINARY-SHARED** | ✅ Fechado | `@artificio/media` criado (spec 036), 3 consumidores, mergeado na #74. |
+| **BL-INFRA-WORKFLOWS-026** | ✅ Fechado | Auditoria 100%. F1-F5/F10/F-SEC fechados. Subsistentes viram itens individuais. |
+| **BL-INFRA-CACHE-CAP-F10** | ✅ Fechado | Build cache prune em prod-beta. |
+| **BL-CDX-310** | ✅ Fechado (prod) | accounts via `_deploy-module`, healthcheck healthy. |
+| **BL-INFRA-SEC-SCAN** | ✅ Fechado | PR #40 mergeado. 7 workflows de segurança ativos. |
+| **BL-KYSELY-029-ESM** | ✅ Fechado | Kysely 0.29, mesas jest→vitest, Node 24 require(esm) provado. |
+| **BL-MESAS-TEST-DB-SIDEEFFECT** | ✅ Fechado | Proxy lazy em `db/index.ts`. |
+| **BL-MESAS-DB-LAZY-OPTION2** | ✅ Fechado | Idem, deploy beta verde. |
+| **BL-PNPM-11** | ✅ Fechado | pnpm 11.8.0, allowBuilds enumerado (D080). |
+| **BL-INFRA-DEFAULT-BRANCH** | ✅ Fechado | `dev` = default, branch protection ativo (D073). |
+| **BL-INFRA-CI-EFFICIENCY-F11** | ✅ Fechado | Cache pnpm/turbo em `_deploy-module.yml`. |
+| **BL-DEP-PATHFILTERS** | ✅ Fechado | Manifests raiz nos `paths:`. |
+| **BL-DEP-MESAS-DISPATCH-ENV** | ✅ Fechado | F3 absorveu; env derivado central. |
+| **BL-MESAS-BETA-MIGRATION-DRIFT** | ✅ Fechado | Drift não reproduziu. |
+| **BL-SITE-PROD-PARITY-030** | ✅ Fechado | Site em paridade total (specs 030/031). |
+| **BL-SITE-DATA-FLUXO-031** | ✅ Fechado | Seed, flip autoria/rota, noindex beta. D075 aposentado. |
+| **BL-SITE-CUTOVER-029** | ✅ Fechado | Beta→raiz efetivado em prod (D075). |
+| **BL-QA-SITE-IMAGES** | ✅ Fechado | Residual wp-content servido = 0 (D074). |
+| **BL-SITE-MEDIA-ERR-SERIAL** | ✅ Fechado | PR #50, importador tolerante. |
+| **BL-SITE-AVIF-FAIL** | ✅ Fechado | 3 AVIF migrados (resgate por bytes). |
+| **BL-SITE-NONIMG-MEDIA** | ✅ Fechado | Webm migrado, PDFs salvos p/ re-host. |
+| **BL-SITE-MEDIA-REMOTE-403** | ✅ Fechado | Resgate por bytes (PR #55). |
+| **BL-QA-SHELL-CLS** | ✅ Fechado | CLS glossario 0.000862 (baseline 0.647). |
+| **BL-QA-GLOSSARIO-PERF** | ✅ Fechado | Bundle ~340kB, perf 12→61. |
+| **BL-QA-ROBOTS-SEO** | ✅ Fechado | Cloudflare Managed robots desativado, origem OK. |
+| **BL-QA-LH-HARNESS** | ✅ Fechado | Lighthouse harness funcional. |
+| **BL-QA-LH-MULTIURL** | ✅ Fechado | Parser multi-url corrigido. |
+| **BL-ASTRO6-CSP** | ✅ Fechado | CSP via meta tag Astro 6, 46/46 páginas. |
+| **BL-UI-COPYRIGHT-027** | ✅ Fechado | Página + rodapé universal publicados. |
+| **BL-UI-B12-FONTS** | ✅ Fechado | Fontes locais, sem Google Fonts. |
+| **BL-UI-B3-HEADERACTION** | ✅ Fechado | `HeaderAction` no `packages/ui`. |
+| **BL-UI-B4-PRIMITIVES** | ✅ Fechado | Primitives implementadas e testadas. |
+| **BL-UI-B2-STATIC** | ✅ Fechado | `@artificio/ui/static` criado. |
+| **D-SITE-REQUIREADMIN** | ✅ Fechado | Corrigido (mesmo fix do links). |
+| **D-SITE-ADVISORY-LOCK** | ✅ Fechado | Interface `Db` + `getClient()` + lock. |
+| **BL-ROOTLESS-CONTAINERS** | ✅ Fechado | 4 Dockerfiles corrigidos. |
+| **D-DEP1 / BL-MESAS-EXPRESS5-016** | ✅ Fechado | Monorepo 100% Express 5. |
+| **BL-DOCS-BACKLOG-INDEX-DRIFT** | ✅ Fechado | Auditoria leve executada. |
+| **BL-MESAS-EXPRESS5-016** | ✅ Fechado | Mesas em Express 5.2.1. |
+| **D-MESAS1** | ✅ Fechado | Arquivar mesas + MESAS_CRON_SECRET. |
+| **BL-REALIP-023** | ✅ Fechado | Contrato Real IP geral (D069). |
+| **Spec 025 baseline** | ✅ Fechado | Baseline Lighthouse limpo (2026-06-16). |
+| **Spec 033 Fases 1-4B** | ✅ Fechado | Toolchain update completo. |
+| **Spec 033 Fase 5 (Docker)** | ✅ Fechado | Dockerfiles atualizados. |
+| **Spec 033 Fase 5c (pnpm 11)** | ✅ Fechado | PR #72 mergeado. |
+| **Spec 033 Fase 6 (apt VM)** | ✅ Fechado | apt na VM atualizado. |
+| | | |
+| **PR #75 — fix(037)** | ✅ Mergeado | `fix/037-media-csrf-x-powered-by` mergeado em `dev` (`f319aac`). T34-T41+T46+T47. Lint 13/13, build 11/11. **⚠️ T46 introduziu bug cloudinary** (media CJS) — corrigido na PR #76. |
+| **PR #76 — fix(037)** | 🟡 Aberto (PR) | `fix/037-cloudinary-media-esm` → `dev`. 24/24 ✅. Corrige cloudinary ESM + fail-fast Dockerfiles + `auto_deploy_on_push: false`. |
+| **BL-ACCOUNTS-PORT** | 🟡 Local | Composes alterados (expose), build verde. 🟦 deploy prod pendente. |
+| **BL-CI-ESLINT-FLAT-CONFIG** | ✅ Fechado | Spec 037: 13/13 lint verde. `continue-on-error` removido. Configs criados em todos os pacotes. |
+| **BL-033-SECRET-BLOCK** | ⚪ Aberto | `.gitignore` trocar `artifacts/lighthouse/` → `artifacts/` + destrackear 16 arquivos. |
+| **BL-DEP-MESAS-AUTO-PUSH** | ✅ Fechado (PR #76) | `auto_deploy_on_push: false` implementado na PR #76. Mesas agora dispatch-only como os outros 4. |
+| **BL-AUDIT-033** | ⚪ Aberto | dompurify bump + form-data override + xlsx→spec 034. |
+| **BL-DEP-MESAS-LEGACY-SCRIPTS** | ⚪ Aberto | Limpar `apps/mesas/scripts/deploy/`. Spec 035 T6a-d. |
+| **BL-MESAS-AUTO-ARCHIVE-CF** | ⚪ Aberto | Migrar cron p/ SSH interno (padrão docker-cleanup). Spec 035 T8a-d. |
+| **BL-SITE-PRINCIPAL-GAPS** | ⚪ Aberto | GA_ID, newsletter, sitemap.xml, contato, json sujos. Spec 035 T9a-f. |
+| **BL-SITE-ADMIN-WP-PUBLISH-GUARD** | ⚪ Aberto | Guard no save/publish p/ rejeitar wp-content/uploads. Spec 035 T10a. |
+| **BL-BETA-HYDRATE** | 🔴 Bloqueado | `PROD_DB_URL` ausente no `.env.beta`. Mantenedor seta segredo. Spec 035 T-HYDa-d. |
+| **BL-CF-TUNNEL-TOKEN-SCOPE** | 🔴 Bloqueado (mantenedor) | Token CF sem permissão Tunnel Read/Edit. |
+| **BL-ANALYTICS (Spec 032)** | ⚪ Aberto | Código T1-T8b pronto. T9: deploy mesas prod com GA. |
+| **BL-SITE-VM-MEDIA-LIBRARY (Spec 028)** | ⚪ Aberto | 14 tasks, SDD Completo. Re-host 6 PDFs + biblioteca de mídia VM. |
+| **BL-SITE-CMS-PARITY (Spec 011)** | ⚪ Aberto | CRUD taxonomias, lista editorial, agendamento, roles. |
+| **BL-GLOSSARIO-LEGACY-CLEAN** | ⚪ Aberto | Limpar `password_hash` BCrypt de 2 users SSO. Backup + UPDATE. |
+| **BL-CONFIG-AUTH** | ⚪ Aberto | Domínios canônicos + auth HTTP client compartilhado. SDD Completo. |
+| **BL-INFRA-GHCR-F12** | ⚪ Aberto | Build CI→GHCR vs cache incremental VM. Decisão pendente. |
+| **D-DEP2** | ⚪ Aberto | Atualizar toolchain (turbo, @types/react patches). |
+| **BL-SITE-GATED** | ⚪ Aberto | Gate D site: 4 débitos filhos + E2E mantenedor. |
+| **BL-SHELL-B13 / D-SHELL1** | ⚪ Aberto | Nav/footer fonte única; residual Astro markup/accounts. |
+| **BL-UI-PRIMITIVES-CONSUMERS** | ⚪ Aberto | Piloto em `site-admin` com Button/Badge/controles. |
+| **Spec 022 (vars semânticas)** | ⚪ Aberto | Rollout em mesas (catálogo/painel/forms). |
+| **BL-QA-MESAS-PERF** | ⚪ Aberto | Reduzir TBT/main-thread mesas. |
+| **BL-QA-SECURITY-HEADERS** | ⚪ Aberto | CSP/HSTS/COOP/XFO nos apps Express. |
+| **BL-QA-A11Y-SWEEP** | ⚪ Aberto | Contraste, nomes acessíveis, touch targets. |
+| **BL-QA-THIRD-PARTY** | ⚪ Aberto | Inventariar scripts live por host. |
+| **BL-SEO-SHARED** | ⚪ Aberto | Helpers SEO por projeto. |
+| **BL-NORMALIZERS** | ⚪ Aberto | Normalização de payload externo. |
+| **BL-COPY-PUBLICA** | ⚪ Aberto | Textos públicos compartilhados. |
+| **BL-022-MESAS-*** (T8-T15) | ⚪ Aberto | Rollout UI mesas (catálogo, painel, forms, remap). |
+| **BL-022-ACCOUNTS-R7** | ⚪ Aberto | Migrar accounts p/ tokens globais. |
+| **BL-FEEDBACK-MESAS-ANTIDRIFT** | ⚪ Aberto | Mesas consumir `@artificio/ui/feedback`. |
+| **D-SYNC1** | ⚪ Aberto | Sync cross-app sistemas/cenários. |
+| **Spec 001 T4/T6/T7/T13** | ⚪ Aberto | Backup WP final, órfãos, rotação secrets, teste restore. |
+| **BL-CODERABBIT-CONFIG** | ⚪ Aberto | Criar `.coderabbit.yaml` (spec 035 Apêndice A). |
+| **BL-SITE-ADMIN-TS-VARIANCE** | 🟢 Baixo | `as any` em admin-api.ts:220, cosmético. |
+| **BL-SITE-RESCUE-STRIPPED** | 🟢 Baixo | Avatar Jason Bulmahn, gap menor. |
+| **BL-GLOSSARIO-NONGOOGLE-E2E** | 🟢 Baixo | E2E opcional p/ fluxo legado. |
+| **BL-DEP-CONTAINER-NAMES** | 🔵 Futuro | `container_name` fixo → nomes por projeto compose. |
+| **BL-FEEDBACK-MERGE** | 🔵 Futuro | Unificar feedbacks entre projetos. |
 
-Legenda: ✅ feito · 🟡 local/parcial/pausado · 🔴 bloqueado · ⚪ aberto.
+## Spec 037 — achados de segurança/qualidade (PR #75 mergeada, PR #76 aberta)
 
----
+| Ref | Status | Descrição |
+|:---|:---|:---|
+| **D086** | ✅ Decisão | CodeQL `js/missing-token-validation` = falso positivo. Dismiss pós-merge. |
+| **T34** | ✅ Implementado (PR #75) | `app.disable("x-powered-by")` em 5 apps |
+| **T35** | 📋 Investigado | Helmet/security headers — decisão mantenedor |
+| **T36** | ✅ Implementado (PR #75) | `csrfProtection` antes de `express.json()` nos 4 apps |
+| **T37** | ✅ Implementado (PR #75) | Merge 2 imports `@artificio/auth` em links |
+| **T38** | ✅ Implementado (PR #75) | `cookieParser` antes de `json` no accounts |
+| **T39** | ✅ Implementado (PR #75) | `publicLimiter` no `express.static` do links |
+| **T40** | 📋 Info | `cookieParser()` sem `secret` — sem ação |
+| **T41** | ✅ Implementado (PR #75) | Site CSRF allowlist: `PUBLIC_SITE_URL` + `www` |
+| **T46** | ⚠️ Bug (PR #75) → ✅ Corrigido (PR #76) | `@artificio/media` CJS quebrou deploy mesas-beta. PR #76 corrige: `"type":"module"` + fail-fast Dockerfiles |
+| **T47** | ✅ Implementado (PR #75) | `globalRateLimiter` antes de `csrfProtection` nos 3 apps |
 
-## 🔍 Direção e pivôs (resumo)
+## Bloqueios / decisões pendentes
 
-1. **Infra (Spec 026):** esteira unificada (manifesto + matrix); `accounts` (F5) entrou e está em prod. Próximos: F6 (expose), F7 (cron CF), F12 (build CI→GHCR).
-2. **Site (Spec 011):** CMS pivotou de "paridade total" para "MVP operacional primeiro". Fases 3–5 = maior volume de app pendente. Site ainda só em beta (Gate C adiado).
-3. **UI (Spec 020/022):** migração de cor via **vars semânticas**; débito = rollout nas telas do mesas.
-4. **Qualidade (Spec 025):** foco em baseline + CLS/bundle; imagens Cloudinary em hold por custo/risco.
+- **`BL-BETA-HYDRATE`**: `PROD_DB_URL` no `.env.beta` — mantenedor seta segredo (write VM).
+- **`BL-CF-TUNNEL-TOKEN-SCOPE`**: Token CF sem permissão Tunnel — mantenedor dashboard CF.
+- **`apps/links` deploy**: Tunnel `links.` + `.env`/secrets VM + dispatch — mantenedor.
+- **PR #76**: `fix/037-cloudinary-media-esm` → 24/24 ✅, aguardando merge.
+- **PR #73**: dependabot dev-dependencies → aguardando merge.
+- **CodeQL dismiss**: 3 alerts `js/missing-token-validation` — mantenedor Security tab pós-merge PR #75.
+- **`mesas-beta` DOWN**: fora do ar desde 2026-06-20 ~21:00. Aguardando merge PR #76 + dispatch manual.
 
----
-
-## 🚩 Bloqueios / decisões pendentes
-
-- **`BL-BETA-HYDRATE`**: sem `PROD_DB_URL` no mesasbeta, não dá p/ testar perf real com volume de prod (segredo/write VM = mantenedor).
-- **`BL-INFRA-DEFAULT-BRANCH`**: trocar default p/ `dev` exige auditar workflows antes (não quebrar resolução de env/cron/invariante).
-- **`BL-LINKS-013`**: código de `links.` não está no GitHub — localizar ou rebuild.
+Legenda: ✅ feito · 🟡 local/parcial · 📋 investigado · 🔴 bloqueado · ⚪ aberto · 🟢 baixo · 🔵 futuro.
