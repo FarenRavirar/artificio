@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAnalyticsPageviews } from '@artificio/analytics/react';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProfileProvider } from './contexts/ProfileContext';
@@ -36,6 +36,7 @@ function AppRoutes() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/catalogo" element={<CatalogoPage />} />
+      <Route path="/busca" element={<Navigate to="/catalogo" replace />} />
       <Route path="/mesas/:slug" element={<MesaPage />} />
       <Route path="/mestre/:slug" element={<MestrePage />} />
       <Route path="/jogador/:username" element={<PlayerPage />} />

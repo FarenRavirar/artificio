@@ -1,8 +1,8 @@
-import { parseEnv } from "@artificio/config";
+import { parseEnv, BRAND_DOMAIN } from "@artificio/config";
 import { z } from "zod";
 
 export const accountsEnvSchema = z.object({
-  COOKIE_DOMAIN: z.string().default(".artificiorpg.com"),
+  COOKIE_DOMAIN: z.string().default(`.${BRAND_DOMAIN}`),
   DATABASE_URL: z.url(),
   GOOGLE_CALLBACK_URL: z.url(),
   GOOGLE_CLIENT_ID: z.string().min(1),

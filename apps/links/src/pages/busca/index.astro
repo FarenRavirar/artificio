@@ -1,0 +1,10 @@
+---
+import Base from "../../layouts/Base.astro";
+import { LinksSearch } from "../../components/LinksSearch";
+---
+<Base title="Buscar Grupos — Artifício RPG" path="/busca/">
+  <main class="max-w-4xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-6 text-white">Buscar Grupos de WhatsApp</h1>
+    <LinksSearch client:load />
+  </main>
+</Base>

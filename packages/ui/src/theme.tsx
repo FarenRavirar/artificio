@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore, useState } from "react";
 
 // Tema cross-subdomínio do Artifício: cookie ÚNICO `artificio_theme`
 // (Domain=.artificiorpg.com) compartilhado por todos os módulos. Este é o
@@ -46,12 +46,23 @@ export function resolveTheme(doc: Document = document): Theme {
 export function applyTheme(doc: Document = document): Theme {
   const theme = resolveTheme(doc);
   doc.documentElement.dataset.theme = theme;
+  applyHeaderVariant(theme, doc);
   return theme;
 }
 
-/** Persiste o tema (dataset + cookie cross-subdomínio + localStorage). */
+/** Aplica data-variant="dark" no header/footer (CSS .artificio-header[data-variant=dark]). */
+export function applyHeaderVariant(theme: Theme, doc: Document = document): void {
+  const v = theme === "dark" ? "dark" : "light";
+  doc.querySelectorAll(".artificio-header, .artificio-footer").forEach((el) => {
+    if (v === "dark") el.setAttribute("data-variant", "dark");
+    else el.removeAttribute("data-variant");
+  });
+}
+
+/** Persiste o tema (dataset + cookie cross-subdomínio + localStorage + variant header/footer). */
 export function setTheme(theme: Theme, doc: Document = document): void {
   doc.documentElement.dataset.theme = theme;
+  applyHeaderVariant(theme, doc);
   writeThemeCookie(theme, doc);
   try {
     localStorage.setItem("theme", theme);
@@ -102,4 +113,23 @@ export function ThemeToggle({ className }: { className?: string }) {
       <ThemeIcon theme={theme} />
     </button>
   );
+}
+
+function subscribeToTheme(cb: () => void) {
+  const observer = new MutationObserver(() => cb());
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  return () => observer.disconnect();
+}
+
+function getThemeSnapshot(): Theme {
+  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+}
+
+export function useTheme() {
+  const theme = useSyncExternalStore(subscribeToTheme, getThemeSnapshot);
+  const toggleTheme = useCallback(() => {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+  }, [theme]);
+  return { theme, toggleTheme };
 }

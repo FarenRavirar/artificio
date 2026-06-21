@@ -5,6 +5,7 @@ import { Footer } from '@artificio/ui';
 import { FeedbackButton } from './features/dev-feedback/FeedbackButton';
 import { GlossarioHeader } from './components/GlossarioHeader';
 import { SearchBar } from './components/SearchBar';
+import { BuscaPage } from './pages/BuscaPage';
 import { FilterPanel } from './components/FilterPanel';
 import { LandingSection } from './components/LandingSection';
 import { useGlossario } from './hooks/useGlossario';
@@ -279,7 +280,9 @@ function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/migrar" element={<MigrationPage />} />
-                  <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+                  <Route path="/perfil" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+                  <Route path="/busca" element={<BuscaPage />} />
+                  <Route path="/profile" element={<Navigate to="/perfil" replace />} />
                   <Route path="/notificacoes" element={<PrivateRoute><NotificationsPage /></PrivateRoute>} />
                   <Route path="/importar" element={<PrivateRoute><ImportPage /></PrivateRoute>} />
                   <Route path="/admin/review" element={<AdminRoute><AdminReviewPage /></AdminRoute>} />

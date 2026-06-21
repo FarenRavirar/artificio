@@ -8,6 +8,15 @@ import { REGRAS_INTRO, REGRAS_SECTIONS } from "../data/regras";
 import { getCategories } from "../lib/groups-source";
 import CommunityGroups from "../components/CommunityGroups.tsx";
 import SuggestForm from "../components/SuggestForm.tsx";
+import { BRAND_ORIGIN, BRAND_TAGLINE_FREE } from "@artificio/ui/static";
+import PortalHeader from "../components/PortalHeader.astro";
+import GroupCard from "../components/GroupCard.astro";
+import { defaultNavItems } from "@artificio/ui/modules";
+import { PARTNER_CONTACT } from "../data/groups";
+import { REGRAS_INTRO, REGRAS_SECTIONS } from "../data/regras";
+import { getCategories } from "../lib/groups-source";
+import CommunityGroups from "../components/CommunityGroups.tsx";
+import SuggestForm from "../components/SuggestForm.tsx";
 
 const categories = await getCategories();
 
@@ -135,8 +144,8 @@ const jsonLd = {
 
       <footer class="site">
         Um presente da Artifício RPG — hub de projetos de RPG em português.
-        Gratuito, sem anúncios, sem coleta desnecessária. ·{" "}
-        <a href="https://artificiorpg.com">artificiorpg.com</a>
+        {BRAND_TAGLINE_FREE} ·{" "}
+        <a href={BRAND_ORIGIN}>artificiorpg.com</a>
       </footer>
     </main>
   </div>

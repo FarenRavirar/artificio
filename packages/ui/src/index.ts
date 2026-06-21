@@ -30,9 +30,12 @@ export {
   resolveTheme,
   readThemeCookie,
   writeThemeCookie,
+  useTheme,
 } from "./theme.js";
 export type { Theme } from "./theme.js";
 export type { HeaderProps, UserMenuItem } from "./Header.js";
+export { applyHeaderVariant } from "./theme.js";
+export { useChangelogBadge } from "./hooks.js";
 export type { NavProps } from "./Nav.js";
 export type { NavItem } from "./modules.js";
 export type {

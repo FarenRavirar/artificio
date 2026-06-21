@@ -3,6 +3,7 @@
 // Reusa o design system @artificio/ui (styles.css) p/ o Header/Footer/primitives.
 import "@artificio/ui/styles.css";
 import "../styles/global.css";
+import { BRAND_NAME } from "@artificio/ui/static";
 
 interface Props {
   title: string;
@@ -50,7 +51,7 @@ const ogImg = ogImage ?? new URL("/og-default.png", site).href;
     {noindex && <meta name="robots" content="noindex, nofollow" />}
     {gsc && <meta name="google-site-verification" content={gsc} />}
 
-    <meta property="og:site_name" content="Artifício RPG" />
+    <meta property="og:site_name" content={BRAND_NAME} />
     <meta property="og:title" content={title} />
     {description && <meta property="og:description" content={description} />}
     <meta property="og:type" content="website" />
