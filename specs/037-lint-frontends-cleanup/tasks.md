@@ -908,3 +908,34 @@ COPY --from=builder /repo/packages/media/dist ./packages/media/dist
 - [ ] Deploy mesas beta → `mesas-beta-api` healthy, smoke 200/401/302
 
 **Status:** ✅ IMPLEMENTADO — 3 correções aplicadas, 5/6 validações locais verdes. Deploy pendente.
+
+---
+
+## T47 — Codex: `globalRateLimiter` deve vir antes de `csrfProtection` no mesas ✅ INVESTIGADO
+
+- **Severidade:** 🟠 Medium (bypass de rate-limit em requests CSRF-rejeitadas)
+- **Origem:** Codex review na PR #75, `apps/mesas/backend/src/server.ts:85-86`.
+- **Problema:** O T36 inverteu a ordem para `csrfProtection → globalRateLimiter`. Mas isso significa que requests rejeitadas pelo CSRF (403) **nunca passam pelo rate limiter**. Um atacante pode enviar POSTs ilimitados com cookie `artificio_session` dummy + Origin inválida → 403s infinitos sem throttling.
+
+- **Ordem atual (PR #75):**
+  ```
+  parseCookies → csrfProtection → globalRateLimiter → express.json()
+  ```
+
+- **Ordem correta:**
+  ```
+  parseCookies → globalRateLimiter → csrfProtection → express.json()
+  ```
+
+- **Por que esta ordem:**
+  1. `globalRateLimiter` primeiro → conta TODAS as requests (barato, só checa contador em memória)
+  2. `csrfProtection` depois → rejeita requests maliciosas (barato, só checa cookies/headers/Origin)
+  3. `express.json()` por último → parse do body (caro) só em requests que passaram ambos
+
+- **Impacto cross-app:** links e site usam rate-limit por-rota (não global). Nestes, o limiter é middleware na rota, aplicado APÓS `csrfProtection`. Mesmo problema conceitual mas blast radius menor (só as rotas rate-limited individuais têm o gap).
+  - links: `suggestLimiter` em `POST /api/groups/suggest:124` — após csrfProtection global (linha 30)
+  - site: `feedbackLimiter` em `POST /api/feedback:109` — após csrfProtection global (linha 27)
+
+- **Ação:** Inverter `csrfProtection` ↔ `globalRateLimiter` no mesas (`server.ts:85-86`). Para links/site, documentar como débito de baixa prioridade (rate-limit por-rota, não global).
+
+- **Status:** ✅ IMPLEMENTADO — 3 apps corrigidos. Lint 13/13, build 9/9.

@@ -82,8 +82,8 @@ app.use(cors({
 }));
 
 app.use(parseCookies);
-app.use(csrfProtection(allowedFrontendOrigins));
 app.use(globalRateLimiter);
+app.use(csrfProtection(allowedFrontendOrigins));
 app.use(express.json({ limit: '10mb' }));
 
 // Middleware de logging de todas as requisições

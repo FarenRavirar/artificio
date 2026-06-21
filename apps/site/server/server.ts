@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type RequestHandler } from "express";
 import cookieParser from "cookie-parser";
+import { rateLimit } from "express-rate-limit";
 import { requireAuth, verifyToken, csrfProtection, type AuthenticatedRequest } from "@artificio/auth";
 import { getDb } from "../db/connection.js";
 import { runJob, jobState } from "./jobs.js";
@@ -24,6 +25,18 @@ app.disable("x-powered-by");
 // Assim req.ip usa X-Forwarded-For apenas quando o hop anterior e confiavel.
 app.set("trust proxy", process.env.TRUSTED_PROXY_CIDR || "172.18.0.0/16");
 app.use(cookieParser());
+
+// Rate-limit global (leve): conta TODAS as requests antes do CSRF, inclusive as rejeitadas.
+// Sem isso, CSRF-rejeitadas (403) nunca batem nos limiters por-rota → DoS ilimitado.
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições. Aguarde." },
+});
+app.use(globalLimiter);
+
 app.use(csrfProtection([
   new URL(process.env.PUBLIC_SITE_URL || "https://artificiorpg.com").origin,
   "https://www.artificiorpg.com",

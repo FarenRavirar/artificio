@@ -26,6 +26,18 @@ const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", process.env.TRUSTED_PROXY_CIDR || "172.18.0.0/16");
 app.use(cookieParser());
+
+// Rate-limit global (leve): conta TODAS as requests antes do CSRF, inclusive as rejeitadas.
+// Sem isso, CSRF-rejeitadas (403) nunca batem nos limiters por-rota → DoS ilimitado.
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições. Aguarde." },
+});
+app.use(globalLimiter);
+
 app.use(csrfProtection([
   new URL(process.env.PUBLIC_LINKS_URL || "https://links.artificiorpg.com").origin,
 ]));
