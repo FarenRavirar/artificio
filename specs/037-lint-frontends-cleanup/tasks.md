@@ -939,3 +939,140 @@ COPY --from=builder /repo/packages/media/dist ./packages/media/dist
 - **Ação:** Inverter `csrfProtection` ↔ `globalRateLimiter` no mesas (`server.ts:85-86`). Para links/site, documentar como débito de baixa prioridade (rate-limit por-rota, não global).
 
 - **Status:** ✅ IMPLEMENTADO — 3 apps corrigidos. Lint 13/13, build 9/9.
+
+---
+
+## 🚨 INCIDENTE DEPLOY — mesas-beta-api: `ERR_MODULE_NOT_FOUND` cloudinary (2026-06-20)
+
+### 1. Evidência
+
+Deploy beta do mesas (auto-deploy push→dev, run `27888805505`) falhou:
+- `mesas-beta-app` → **healthy** (frontend OK)
+- `mesas-beta-api` → **unhealthy** (falha em startup, container reiniciando em loop)
+
+Erro extraído do log do container:
+```
+node:internal/modules/esm/resolve:1008
+    throw error;
+    ^
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'cloudinary' imported from /repo/packages/media/dist/index.js
+Did you mean to import "cloudinary/cloudinary.js"?
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:740:52)
+    ...
+    at ModuleJobSync.link (node:internal/modules/esm/module_job:489:17) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+```
+
+Observações do log:
+- `[cloudinary] Config loaded: { cloud_name: 'set', api_key: 'set', api_secret: 'set' }` aparece múltiplas vezes **antes** do crash — é log do builder stage durante `turbo build` (onde `configure()` é chamado em testes ou side-effect de import), não do runtime
+- O container reinicia em loop (6 crashes idênticos no log), característico de falha de startup bloqueante
+- `mesas-beta-app` (nginx/frontend) saudável → problema isolado no backend
+
+### 2. Cadeia de imports (do crash ao paciente zero)
+
+```
+server.ts (startup)
+  → discord/index.ts (re-exporta uploadDiscordImageToCloudinary)
+    → discord/uploadDiscordImage.ts:2
+      → import { uploadBuffer as sharedUploadBuffer } from '@artificio/media'
+        → packages/media/dist/index.js
+          → require("cloudinary")   ← CJS em wrapper ESM → crash
+```
+
+### 3. Caminho da investigação (passo a passo)
+
+| Passo | Ação | Descoberta |
+|-------|------|------------|
+| 1 | Ler log do deploy | `ERR_MODULE_NOT_FOUND` em `packages/media/dist/index.js` |
+| 2 | Ler `packages/media/package.json` (HEAD) | `"type": "module"` presente, `exports` com `import` e `require` apontando para mesmo arquivo |
+| 3 | Ler `packages/media/dist/index.js` (local) | **CJS** (`"use strict"`, `require("cloudinary")`, `exports.xxx`) — contradiz `"type":"module"` |
+| 4 | Verificar `git diff` no working tree | `"type": "module"` foi **removido** localmente (não commitado) |
+| 5 | Reverter `packages/media/package.json` ao HEAD | `"type": "module"` restaurado |
+| 6 | Rebuildar `@artificio/media` | Dist agora é **ESM** (`import { v2 as cloudinary } from "cloudinary"`, `export function`) |
+| 7 | Testar import ESM localmente | `node -e "import('@artificio/media')"` → **sucesso** (5 funções exportadas) |
+| 8 | Verificar `cloudinary` no pnpm store | `cloudinary@2.10.0` em `node_modules/.pnpm/`, `cloudinary.js` existe, sem `"exports"`, sem `"type":"module"` |
+| 9 | Verificar `apps/mesas/backend/package.json` | `"cloudinary": "^2.9.0"` é dependência direta ✅ |
+| 10 | Verificar `packages/media/node_modules/` | `cloudinary` está instalado localmente (full install) ✅ |
+| 11 | Inspecionar Dockerfile mesas backend | Estágio produção: `pnpm install --prod --filter @artificio/mesas-backend` + `COPY --from=builder /repo/packages/media/dist` |
+| 12 | Comparar com `@artificio/auth` (referência) | Auth: `"type":"module"`, dual CJS/ESM, build script separado para CJS — modelo correto |
+| 13 | Rastrear `auto_deploy_on_push` | Só mesas tem `true` (despadronização), ver `deploy-manifest.json:17` |
+| 14 | Testar `import '@artificio/media'` a partir de `apps/mesas/backend` | Funciona localmente com full install ✅ |
+
+### 4. Diagnóstico final
+
+**Causa raiz (confirmada):** O `packages/media/dist/index.js` foi compilado como **CJS** (`require("cloudinary")`) porque o working tree local removeu `"type": "module"` do `package.json`. No container Docker, quando o `mesas-backend` (ESM) importa `@artificio/media` via `exports["."].import`, o Node 24 carrega o arquivo CJS dentro de um wrapper ESM. Dentro desse wrapper, `require("cloudinary")` dispara `ERR_MODULE_NOT_FOUND` — o `require()` emprestado do wrapper CJS-in-ESM não alcança o `cloudinary` no `node_modules` do pnpm (caminho de resolução diferente do `require()` nativo).
+
+**Por que o HEAD (`f319aac`) já tem `"type": "module"` mas o deploy falhou:** O `packages/media/dist/` é **gitignored**. O Docker build gera o dist no builder stage a partir do source no commit. Se o `"type": "module"` está no `package.json` commitado, o builder produz ESM. O deploy `27888805505` foi disparado pelo merge da PR #75 (commit `f319aac`), que tem `"type": "module"`. **O Docker build deveria ter produzido ESM.** A falha sugere que ou (a) o cache de layer do Docker não invalidou e usou um dist CJS antigo, ou (b) `pnpm install --prod` não instalou `cloudinary` em local acessível ao ESM `import`.
+
+**Hipóteses descartadas:**
+- ❌ `cloudinary` ausente do `pnpm-lock.yaml` — está presente (`cloudinary@2.10.0`)
+- ❌ `cloudinary` não instalado localmente — está em `node_modules/.pnpm/` e `packages/media/node_modules/`
+- ❌ `cloudinary` quebrado/ESM-only — é CJS puro (`"main":"cloudinary.js"`, sem `"type":"module"`, sem `"exports"`)
+- ❌ `@artificio/media` sem `"type":"module"` no HEAD — o HEAD tem
+
+### 5. Correção (duas camadas)
+
+#### Camada 1 — `"type": "module"` (já no HEAD, restaurado no working tree)
+
+**O quê:** `packages/media/package.json` linha 5: `"type": "module"`.
+
+**Por quê:** Com `"type": "module"` + `tsconfig.json` `"module": "NodeNext"`, o `tsc` compila como ESM. O dist passa de:
+```js
+// CJS (quebrado no Node 24 via ESM wrapper)
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const cloudinary_1 = require("cloudinary");
+```
+Para:
+```js
+// ESM (funciona no Node 24)
+import { v2 as cloudinary } from "cloudinary";
+```
+
+O ESM `import` de um pacote CJS (`cloudinary`) é resolvido corretamente pelo Node via interop CJS→ESM.
+
+**Validação:** `node -e "import('@artificio/media')"` executado em `apps/mesas/backend` → 5 exports, zero erro.
+
+**Status:** ✅ HEAD tem, working tree revertido ao HEAD, dist rebuildado como ESM.
+
+#### Camada 2 — Fail-fast no Dockerfile (defesa em profundidade)
+
+**O quê:** Após `pnpm install --prod`, verificar que `cloudinary` é importável:
+```dockerfile
+RUN pnpm install --prod --filter @artificio/mesas-backend --frozen-lockfile
+RUN node --input-type=module -e "import 'cloudinary'"  # quebra build se dep faltar
+```
+
+**Por quê:** Se houver edge case do pnpm com `--prod` + `workspace:*` que impeça a instalação, o erro aparece no **build** (fail-fast, sem gerar imagem quebrada) em vez de no **runtime** (container sobe e morre em loop, diagnóstico difícil).
+
+**Blast radius:** `apps/mesas/backend/Dockerfile`, `apps/site/Dockerfile`, `apps/links/Dockerfile` (todos consomem `@artificio/media`).
+
+**Status:** ✅ implementado nos 3 Dockerfiles (`apps/mesas/backend/Dockerfile:38`, `apps/site/Dockerfile:18`, `apps/links/Dockerfile:18`).
+
+### 6. Achado relacionado — `auto_deploy_on_push` (despadronização)
+
+Durante investigação do deploy, descobriu-se que **mesas é o único módulo com auto-deploy**:
+
+| Módulo | `auto_deploy_on_push` | `push_branches` |
+|--------|----------------------|-----------------|
+| mesas | **`true`** | `["dev"]` |
+| glossario | `false` | `["dev"]` |
+| site | `false` | `["dev"]` |
+| links | `false` | `["main"]` |
+| accounts | `false` | `["main"]` |
+
+**Mecanismo:** `deploy.yml:132-148` — a job `build-matrix` lê `auto_deploy_on_push` do `deploy-manifest.json`. Quando `true` + push na branch + mudança nos `deploy_paths` → `deploy=true`. Quando `false` → só CI.
+
+**Correção:** `deploy-manifest.json:17`: `"auto_deploy_on_push": true` → `false`.
+
+**Relação com cloudinary:** NENHUMA. Desligar auto-deploy não corrige o bug do cloudinary — qualquer deploy (manual ou automático) falharia. As demandas são independentes. Ordem lógica: corrigir cloudinary → validar deploy manual → depois padronizar auto-deploy.
+
+### 7. Decisão
+
+| Decisão | Fundamentação |
+|---------|---------------|
+| **Manter `"type": "module"`** em `packages/media/package.json` | HEAD já tem; é o padrão do monorepo (`@artificio/auth` idem); CJS comprovadamente quebrado no Node 24 via ESM wrapper |
+| **Adicionar fail-fast no Dockerfile** | Defesa em profundidade: build quebra em vez de runtime silencioso; aproveitar em todos os consumidores de `@artificio/media` |
+| **Padronizar `auto_deploy_on_push: false`** | Alinhar mesas com os outros 4 módulos; reduzir surpresas; deploy manual dá controle |
+| **Não implementar CJS dual** no `@artificio/media` | Zero consumidores usam `require()`; auth já cobre o padrão dual; YAGNI |

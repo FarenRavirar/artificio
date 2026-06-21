@@ -34,6 +34,10 @@ COPY apps/mesas/backend/package.json ./apps/mesas/backend/package.json
 COPY patches ./patches
 RUN pnpm install --prod --filter @artificio/mesas-backend --frozen-lockfile
 
+# Fail-fast: verifica que cloudinary foi instalado como dep transitiva de @artificio/media (workspace:*).
+# Se pnpm --prod nao instalar deps de workspace packages, quebra no build em vez de crash obscuro no runtime.
+RUN test -d packages/media/node_modules/cloudinary || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
+
 # Workspace packages are linked in production; copy built outputs they export at runtime.
 COPY --from=builder /repo/packages/config/dist ./packages/config/dist
 COPY --from=builder /repo/packages/auth/dist ./packages/auth/dist

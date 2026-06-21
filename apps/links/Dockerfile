@@ -14,6 +14,9 @@ COPY apps/links ./apps/links
 COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
+# Fail-fast: verifica que cloudinary foi instalado (dep de @artificio/media).
+RUN test -d packages/media/node_modules/cloudinary || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
+
 # Builda os pacotes que o links consome (tsc -> dist).
 # O Astro dist builda no entrypoint (depende de DB, não dá p/ buildar na imagem).
 # @artificio/media é consumido só pelo links (não cascateia via ^build de auth/ui) → filtro explícito.
