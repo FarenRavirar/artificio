@@ -57,6 +57,7 @@ const frontendUrls = [
 const allowedFrontendOrigins = Array.from(new Set(frontendUrls));
 
 const app = express();
+app.disable("x-powered-by");
 const port = process.env.PORT || 3000;
 
 // Atras do nginx na artificio_net: confia somente no proxy interno definido por
@@ -81,9 +82,9 @@ app.use(cors({
 }));
 
 app.use(parseCookies);
-app.use(express.json({ limit: '10mb' }));
-app.use(globalRateLimiter);
 app.use(csrfProtection(allowedFrontendOrigins));
+app.use(globalRateLimiter);
+app.use(express.json({ limit: '10mb' }));
 
 // Middleware de logging de todas as requisições
 app.use(requestLogger);
