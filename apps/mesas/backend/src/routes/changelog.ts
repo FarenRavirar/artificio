@@ -1,20 +1,20 @@
 import { Router, Request, Response } from 'express';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { normalizeChangelogEntries, CHANGELOG_CACHE_TTL, type ChangelogEntry } from '@artificio/ui/changelog';
 
 const router = Router();
 
 // CORREÇÃO BE-01: Cache em memória para evitar leitura repetida do disco
-let changelogsCache: any[] | null = null;
+let changelogsCache: ChangelogEntry[] | null = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 60000; // 1 minuto
 
 router.get('/', async (req: Request, res: Response) => {
   try {
     const now = Date.now();
     
     // Usar cache se ainda válido
-    if (changelogsCache && (now - cacheTimestamp) < CACHE_TTL) {
+    if (changelogsCache && (now - cacheTimestamp) < CHANGELOG_CACHE_TTL) {
       return res.json({ data: changelogsCache });
     }
 
@@ -23,22 +23,19 @@ router.get('/', async (req: Request, res: Response) => {
     const changelogsData = await readFile(changelogsPath, 'utf-8');
     
     // CORREÇÃO BE-02: Validar JSON antes de parsear
-    let changelogs;
+    let changelogs: unknown[] = [];
     try {
-      changelogs = JSON.parse(changelogsData);
-      if (!Array.isArray(changelogs)) {
+      const parsed: unknown = JSON.parse(changelogsData);
+      if (!Array.isArray(parsed)) {
         throw new Error('Changelogs deve ser um array');
       }
+      changelogs = parsed;
     } catch (parseError: any) {
       console.error('[GET /changelog] JSON inválido:', parseError.message);
       return res.status(500).json({ error: 'Erro ao processar atualizações.' });
     }
     
-    // Filtrar apenas publicados e ordenar por data
-    const published = changelogs
-      .filter((log: any) => log.published && log.id && log.title && log.body)
-      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 50);
+    const published = normalizeChangelogEntries(changelogs, 50);
 
     // Atualizar cache
     changelogsCache = published;

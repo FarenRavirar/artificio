@@ -30,7 +30,7 @@ Regras de preenchimento:
 - [x] Toda entrada deste arquivo com Status `corrigido (testes verdes)` ou `aguardando decisão do mantenedor` (explícita).
 - [x] Nenhuma descoberta deixada só no chat / na cabeça da IA / empurrada ao backlog sem decisão do mantenedor.
 
-**Status final (2026-06-21):** 14 descobertas, todas fechadas. **Aguardando Fase 8** (commit + PR + revisões de bots). Após merge, se revisões gerarem novos achados, registrar em `task-revisões.md`.
+**Status final (2026-06-21):** 20 descobertas, todas fechadas. PR #80 mergeado (`8981c84`). Deploy beta disparado. Changelog cross-app centralizado. Auditoria independente concluída (53 ✅, 1 🛑 corrigido).
 
 ---
 
@@ -167,6 +167,15 @@ Regras de preenchimento:
   - **Grupo 3 — Baixo impacto (4 arquivos):** `brand.ts` alt, `accounts/app.ts`, `links/index.astro`, `links/render.ts`, `site/server.ts`
   - **Grupo 4 — Script de sync (1 arquivo):** `check-footer-sync.ts` (mapa canônico já é a referência, não faz sentido auto-referenciar)
 
+### D-041-15 — Deploy beta falhou: `@artificio/config` não declarado em `apps/site` (gap de cobertura dos bots)
+- Origem: deploy beta pós-PR (CI). Log: `Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@artificio/config' imported from /repo/apps/site/server/server.ts` → `site-beta-app não ficou healthy` → deploy abortado.
+- Causa-raiz: 041 (`ba2b647`) adicionou `import { BRAND_ORIGIN } from "@artificio/config"` em `apps/site/server/server.ts:11` (uso `:42`) **sem** declarar a dependência em `apps/site/package.json`. Workspace package resolve por hoist/symlink em dev; container de produção poda deps (install isolado) → não linka → crash no boot do `tsx server/server.ts`.
+- Idêntico ao achado de revisão **#5** (`apps/links/server/lib/render.ts` + `links/package.json`), que foi corrigido — mas `apps/site` tinha a MESMA falha e **passou batido**.
+- Por que os bots não pegaram: revisores de PR (coderabbit/codex/Snyk/CodeQL) analisam diff estático, **não exercitam o boot do container**. Dep faltante só estoura em runtime de produção (deps podadas). Gap de cobertura: nenhum check de PR roda `docker build` + healthcheck do site.
+- Fix aplicado: `"@artificio/config": "workspace:*"` em `apps/site/package.json` deps + `pnpm install --lockfile-only` (pnpm-lock atualizado, +3 linhas no bloco do site). Veredicto registrado em `task-revisões.md` #20.
+- Recomendação (latente, não implementar sem decisão): grep de garantia "todo import `@artificio/*` em apps tem dep declarada" como check de CI, OU step de smoke `docker build`+healthz no pipeline de PR. Registrado aqui — nada para trás.
+- Status: **resolvido** (fix + lockfile aplicados; aguardando autorização de commit/redeploy).
+
   Todos os 14 locais são seguros (sem circular deps: `ui`→`config`, `accounts`→`config`, `links`→`ui`→`config`, `site`→`ui`→`config`). Nenhum requer nova dependência.
 - **Implementado 2026-06-21 (Grupos 1+2+3, 13 arquivos):**  
   | Arquivo | Mudança |
@@ -217,3 +226,43 @@ Regras de preenchimento:
 - Escopo: `apps/links`
 - Ação: `LinksSearch.tsx` (React island `client:load`) + `busca/index.astro`. Usa `fetch` (não `authFetch` — API pública). Sem `lucide-react` → SVG inline.
 - Status: corrigido (build ✅, 16 páginas)
+
+### D-041-16 — Glossario changelog migrado de DB para JSON (BL-GLOSSARIO-CHANGELOG-JSON)
+- Origem: Pós-F8, revisão do mantenedor (padronização cross-app)
+- Evidência: Glossario era o único app com changelog em DB (`public.update_log` no Postgres). Mesas/site/links usam JSON. Controller tinha 143 linhas com normalização/dedup/mojibake complexos.
+- Escopo: `apps/glossario/backend`, `apps/glossario/database/`
+- Causa-raiz: Decisão histórica pré-monorepo; glossario foi o primeiro app.
+- Ação: (1) 13 entradas exportadas do DB + 1 nova (2026-06-21) → `changelogs.json`; (2) `changelogController.ts` reescrito (63→58 linhas, leitura JSON com cache 60s, sem DB); (3) `mergeUsers.ts:48` removido (sem `created_by` em JSON); (4) `LAST_SEEN_UPDATE` atualizado para `'2026-06-21-shell-unificado'`. Backlog: débito fechado.
+- Status: corrigido (build ✅ 15/15)
+
+### D-041-17 — Changelog system criado para site e links (JSON + badge + modal)
+- Origem: Pós-F8, revisão do mantenedor ("site e links tem que ter changelog")
+- Evidência: Site e links não tinham changelog. Nav já tem função de badge (`useChangelogBadge` no Header) mas nada estava wireado.
+- Escopo: `apps/site`, `apps/links`
+- Causa-raiz: Apps foram criados sem sistema de changelog.
+- Ação: (1) `changelogs.json` criados com entrada 2026-06-21; (2) `SiteHeaderIsland.tsx` ganhou botão sino + badge + `SiteChangelogModal`; (3) `LinksHeader.tsx` ganhou `showChangelog`/`onOpenChangelog`/`changelogHasBadge` + `LinksChangelogModal`; (4) markers atualizados para `'2026-06-21-shell-unificado'`.
+- Status: corrigido (build ✅ 15/15)
+
+### D-041-18 — ChangelogModal centralizado em packages/ui (~500 linhas duplicadas eliminadas)
+- Origem: Pós-D-041-17, análise de duplicação cross-app
+- Evidência: 4 implementações de modal (mesas 277 linhas, glossario 155, site 56, links 56 clone) com ~400 linhas de lógica duplicada (agrupamento, timeline, truncate, loading, error, portal).
+- Escopo: `packages/ui` + 4 consumidores
+- Causa-raiz: Cada app implementou seu próprio modal; a spec 041 não cobriu centralização de changelog.
+- Ação: (1) `packages/ui/src/changelog.ts` — tipo `ChangelogEntry`, `DEFAULT_CHANGELOG_LABELS`; (2) `packages/ui/src/ChangelogModal.tsx` — componente compartilhado (agrupamento, timeline, truncate, portal, loading/error/retry, renderBody slot, labels customizáveis); (3) 4 apps migrados para usar componente compartilhado (mesas com renderBody markdown, glossario com labels custom, site/links com JSON estático); (4) exports em `packages/ui/src/index.ts`.
+- Status: corrigido (build ✅ 15/15, auditoria ✅)
+
+### D-041-19 — Auditoria: AbortController sem signal no fetch do mesas ChangelogModal
+- Origem: Auditoria independente do sistema changelog (T9.7)
+- Evidência: `apps/mesas/frontend/src/components/ChangelogModal.tsx:74-77` — `const controller = new AbortController()` criado no useEffect mas `fetch()` na linha 56 não recebia `{ signal: controller.signal }`. Cleanup chamava `controller.abort()` que não abortava nada.
+- Escopo: `apps/mesas/frontend`
+- Severidade: Baixa — fetch completa normalmente; React 18+ ignora setState pós-unmount. É código morto (signal no-op).
+- Ação: Fetch movido para dentro do useEffect com `{ signal: controller.signal }`. Retry separado com `useCallback` (sem AbortController — retry é ação explícita do usuário). `onRetry={retry}` atualizado.
+- Status: corrigido (build ✅)
+
+### D-041-21 — `useTheme()` quebra SSR do Astro (links `client:load`)
+- Origem: Fix #22 (variant no LinksHeader), auditoria changelog
+- Evidência: `LinksHeader` é renderizado via `client:load` no Astro. `useTheme()` de `@artificio/ui` usa `useSyncExternalStore` (React 19) sem `getServerSnapshot` → Astro tenta prerenderizar → `Error: Missing getServerSnapshot, which is required for server-rendered content`. Build quebrava em 16 páginas.
+- Escopo: `apps/links`; o hook `useTheme()` não é SSR-safe (projetado para SPAs React, não Astro SSG)
+- Causa-raiz: `useTheme()` usa `useSyncExternalStore(subscribe, getSnapshot)` sem 3º argumento `getServerSnapshot`. React 19 exige o 3º para SSR. Mesas/glossario são SPAs puras (sem SSR), então não acusam.
+- Ação: Substituído `useTheme()` por `useEffect` + `useState<Theme>("light")` + `MutationObserver("data-theme")` inline no `LinksHeader`. Sem dependência do hook SSR-incompatível. Observa `html.dataset.theme` e atualiza estado local. Cleanup `observer.disconnect()`.
+- Status: corrigido (build ✅ 16 páginas)

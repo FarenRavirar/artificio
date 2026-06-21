@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import { rateLimit } from 'express-rate-limit';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes';
 import termRoutes from './routes/termRoutes';
@@ -36,6 +37,9 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .map((o) => o.trim())
   .filter(Boolean);
 
+// CORS primeiro: headers CORS precisam estar presentes em TODA resposta,
+// inclusive 429 (rate-limit) e erros. Se rateLimit rodar antes, 429 sai
+// sem Access-Control-Allow-Origin e o navegador reporta erro de CORS.
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -47,6 +51,18 @@ app.use(
       return callback(new Error('Origem não permitida pelo CORS'));
     },
   })
+);
+
+// Rate limit após CORS: garante que 429 inclui headers CORS.
+// skip: OPTIONS não consome cota (preflight não é ataque).
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => req.method === 'OPTIONS',
+  }),
 );
 // 10mb: o widget de feedback (Spec 021) envia screenshot base64 (até ~7MB, limite do
 // validador). Default do express.json (~100KB) rejeitaria com 413 no caminho padrão

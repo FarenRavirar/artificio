@@ -224,6 +224,25 @@ Padrão: serviço com backend expõe **`/busca`** que **chama a API** e roda a q
 - **T8.3** **Revisões dos bots** (amazon-q, codex, coderabbit, Snyk, Sonar, CodeQL etc.): **NUNCA responder/reagir/resolver thread no PR** (regra pétrea). Registrar cada achado em **`task-revisões.md`** com veredicto (procede / descarta / fora de escopo) e o porquê. Se um fix de revisão revelar bugs NOVOS de código, esses vão em `tasks-2.md` (descobertas de execução). Fixes que procedem = novo commit (com nova autorização).
 - **T8.4 Merge só quando as revisões estiverem encerradas** (todos os achados com veredicto registrado e os que procedem aplicados) **e** o mantenedor autorizar nominalmente o merge.
 
+> **F8 executado 2026-06-21.** PR #80 aberto para `dev`. 4 commits: `ba2b647` (feat inicial), `b1c5fa0` (31 correções de revisão: 15 reviews + 15 Sonar), `632604e` (CodeQL #16-#17 + EventTarget #18 + catch #19), `(próximo)` (changelog centralizado). Merge `8981c84` em `origin/dev`. Deploy beta disparado para site/glossario/mesas (accounts/links PROD-only). 19 achados de revisão documentados, 15 Sonar aplicados (17 itens, S10+S11 e S23+S24 agrupados). 53 itens de auditoria changelog verificados. 15/15 FULL TURBO ✅.
+
+---
+
+## Fase 9 — Changelog cross-app (json padrão + modal compartilhado)
+
+> Após o merge da spec 041, o mantenedor pediu para estender o sistema de changelog a todos os apps com fonte única.
+
+- **T9.1** Criar `changelogs.json` para site (`apps/site/src/data/`) e links (`apps/links/src/data/`) com primeira entrada (shell unificado).
+- **T9.2** Migrar glossario changelog de DB (`public.update_log`) para JSON (`apps/glossario/database/changelogs.json`): exportar 13 entradas existentes + nova entrada 2026-06-21. Trocar `changelogController.ts` de leitura DB para leitura JSON com cache (padrão mesas). Remover referência `update_log` em `mergeUsers.ts`. Débito: dropar tabela `update_log` pós-deploy.
+- **T9.3** Atualizar `changelogs.json` do mesas com nova entrada 2026-06-21.
+- **T9.4** Wire `useChangelogBadge` + botão changelog no header do site (`SiteHeaderIsland.tsx`) e links (`LinksHeader.tsx`). Atualizar markers em todos os 4 apps para `'2026-06-21-shell-unificado'`.
+- **T9.5** Centralizar `ChangelogModal` em `packages/ui`: tipo `ChangelogEntry`, labels `DEFAULT_CHANGELOG_LABELS`, componente `<ChangelogModal>` com agrupamento/timeline/truncate/portal/loading/error/retry/renderBody.
+- **T9.6** Migrar os 4 apps para usar `<ChangelogModal>` compartilhado (mesas com renderBody markdown, glossario com labels custom, site/links com JSON estático).
+- **T9.7** Auditoria completa do sistema changelog. Corrigir bug: `AbortController` sem `signal` no fetch do mesas. Registrar débitos cosméticos.
+- **T9.TESTE** `pnpm run build` 15/15 ✅.
+
+> **F9 executado 2026-06-21.** T9.1-T9.7 concluídos (D-041-16 a D-041-19, D-041-21). 4 changelogs.json padronizados. BL-GLOSSARIO-CHANGELOG-JSON fechado. ~500 linhas duplicadas eliminadas via `<ChangelogModal>` compartilhado. Auditoria: 53 ✅, 1 🛑 corrigido (AbortController signal), 6 ⚠️ cosméticos. D-041-21 (useTheme SSR no links) descoberto durante T9.7. Débito BL-GLOSSARIO-CHANGELOG-CLEANUP aberto para dropar tabela `update_log` pós-deploy.
+
 ---
 
 ## Sequência (resumo)

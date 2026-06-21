@@ -35,7 +35,10 @@ export {
 export type { Theme } from "./theme.js";
 export type { HeaderProps, UserMenuItem } from "./Header.js";
 export { applyHeaderVariant } from "./theme.js";
-export { useChangelogBadge } from "./hooks.js";
+export { useChangelogBadge, useChangelogData } from "./hooks.js";
+export { ChangelogModal, renderMarkdown, StaticChangelogModal, DynamicChangelogModal } from "./ChangelogModal.js";
+export type { ChangelogEntry, ChangelogModalLabels } from "./changelog.js";
+export { DEFAULT_CHANGELOG_LABELS, isChangelogEntry, normalizeChangelogEntries, CHANGELOG_CACHE_TTL, CHANGELOG_UPDATE_MARKERS } from "./changelog.js";
 export type { NavProps } from "./Nav.js";
 export type { NavItem } from "./modules.js";
 export type {

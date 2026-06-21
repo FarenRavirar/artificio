@@ -134,6 +134,9 @@ importers:
       '@artificio/auth':
         specifier: workspace:*
         version: link:../../../packages/auth
+      '@artificio/ui':
+        specifier: workspace:*
+        version: link:../../../packages/ui
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0
@@ -389,6 +392,9 @@ importers:
       '@artificio/media':
         specifier: workspace:*
         version: link:../../../packages/media
+      '@artificio/ui':
+        specifier: workspace:*
+        version: link:../../../packages/ui
       '@types/he':
         specifier: ^1.2.3
         version: 1.2.3
@@ -610,6 +616,9 @@ importers:
       '@artificio/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@artificio/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@artificio/content':
         specifier: workspace:*
         version: link:../../packages/content

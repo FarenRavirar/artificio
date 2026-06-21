@@ -1,4 +1,5 @@
 import { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysely';
+import type { ChangelogEntry } from '@artificio/ui/changelog';
 
 export type UserRole = 'visitor' | 'player' | 'gm' | 'admin';
 export type SystemNodeType = 'system' | 'edition' | 'variant' | 'subsystem';
@@ -810,7 +811,7 @@ export type NewTableClickEvent = Insertable<TableClickEventsTable>;
 export type TableClickEventUpdate = Updateable<TableClickEventsTable>;
 
 // Migration 17: Sistema de Changelog/Atualizações
-export type UpdateLogType = 'app' | 'dados';
+export type UpdateLogType = ChangelogEntry['type'];
 
 export interface UpdateLogTable {
   id: Generated<string>;

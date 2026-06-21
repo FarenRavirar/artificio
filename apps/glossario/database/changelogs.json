@@ -1,0 +1,114 @@
+[
+  {
+    "id": "2026-06-21-shell-unificado",
+    "title": "Navegacao unificada e busca rapida entre projetos",
+    "body": "O Glossario agora compartilha a mesma navegacao de todos os projetos do Artificio:\n\n• **Cabecalho unificado** - Links para Portal, Mesas, Downloads, Esferas, SRD e Links direto no topo\n• **Busca rapida** - Icone de lupa no cabecalho para buscar termos em qualquer projeto\n• **Tema claro/escuro consistente** - O alternador de tema mantem sua preferencia entre projetos\n• **Menu de conta padronizado** - Perfil e saida com o mesmo visual dos outros projetos\n• **Rodape alinhado** - Informacoes de copyright, termos e contato padronizados\n• **Indicador de novidades** - Selo de \"novo\" no menu quando ha atualizacoes nao lidas\n\n_Atualizacao publicada em 21/06/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-06-21T18:00:00-03:00"
+  },
+  {
+    "id": "ff057ddd-c1bf-4660-82d2-be779f113d5a",
+    "title": "Reporte problemas e sugira melhorias",
+    "body": "O Glossario ganhou um botao de feedback no canto da tela para voce reportar um problema (bug) ou sugerir uma melhoria, do mesmo jeito que ja existe no Mesas e no site do Artificio. O envio e rapido, funciona ate sem login (com e-mail opcional para retorno) e leva junto o contexto da pagina para a equipe corrigir mais rapido.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-06-13T10:00:00-03:00"
+  },
+  {
+    "id": "500f4521-71b1-4c3a-88d5-03683fe71779",
+    "title": "Visual e navegacao alinhados ao Artificio",
+    "body": "Atualizamos o cabecalho, o rodape, o favicon, as cores e a linguagem publica do Glossario para acompanhar a identidade visual comum do Artificio RPG. A navegacao entre Portal, Glossario, Mesas e os proximos projetos agora segue a mesma estrutura da suite.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-06-13T09:05:00-03:00"
+  },
+  {
+    "id": "078533e7-241c-4fd1-aee2-a1ba16128ca6",
+    "title": "Conta unica do Artificio RPG no Glossario",
+    "body": "O Glossario agora usa o login Google central do Artificio RPG. A mesma sessao vale entre Glossario, Mesas e os demais projetos; quem tinha conta antiga por email e senha pode reivindicar a conta para preservar termos, votos e comentarios.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-06-13T09:00:00-03:00"
+  },
+  {
+    "id": "f1aebd46-87fa-4ed3-8d54-efff4f95605d",
+    "title": "Login unificado do Artificio RPG",
+    "body": "O Glossario agora usa o login unificado do Artificio RPG: entre com sua conta Google pelo accounts.artificiorpg.com e mantenha a mesma sessao entre os modulos. Contas antigas por email e senha podem ser reivindicadas pelo fluxo de migracao para preservar termos, votos e comentarios.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-06-12T00:00:00-03:00"
+  },
+  {
+    "id": "0dc34979-94dc-415f-9ad4-62684fe86682",
+    "title": "Central de Notificacoes em Tema Claro",
+    "body": "Migramos a Central de Notificacoes para o padrao visual light do sistema com inputs e selects em tema claro, alem de refinamentos no painel de filtros. Tambem alinhamos labels e estados de campo na tela de Meu Perfil para melhorar consistencia e legibilidade.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-03-31T21:40:00-03:00"
+  },
+  {
+    "id": "2a3f1d9f-66a3-4d95-bd51-61229fc9e796",
+    "title": "Melhorias na Importacao e Consulta de Termos",
+    "body": "- Visual: a pagina de Importacao ganhou novo cabecalho, separacao clara por secoes, cards com melhor hierarquia, badges de colunas obrigatorias e fluxo visual em etapas.\n- Funcao: validacoes de arquivo foram reforcadas (erros de leitura, planilha vazia/corrompida e limites), com mensagens mais claras para evitar falhas silenciosas no envio.\n- Interatividade: botao de modelo com destaque visual, area de arrastar e soltar mais evidente, estados de hover/foco mais responsivos e acessibilidade aprimorada para selecao de arquivo e controles.\n- Consulta de termos: os resultados agora exibem categoria e subcategoria quando disponiveis, melhorando a leitura do contexto na busca.\n- Qualidade de navegacao: Notas de Atualizacao com deduplicacao reforcada para evitar entradas repetidas/corrompidas no modal.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-03-31T04:21:35-03:00"
+  },
+  {
+    "id": "e4d3ede2-627f-4d24-8896-913ecf76ee54",
+    "title": "Importacao de Termos em Massa",
+    "body": "Adicionamos a aguardada ferramenta de Importacao de Lotes de Termos. Agora a comunidade inteira pode fazer o upload de planilhas (.xlsx e .csv) preenchidas contendo os nomes (Ingles e Portugues), alem de sistemas, referencias de livros, etc.\n\nNossa nova interface faz parsing local de planilhas de ate 2000 linhas, validando antecipadamente as duplicatas e permitindo um controle em interface amigavel (separando visualmente novos termos vs versoes duplicadas de outras pessoas). O botao ja consta no menu do usuario -> Contribuicao.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-03-31T01:53:38-03:00"
+  },
+  {
+    "id": "2bea3706-3622-4d69-8f05-fa71b642fe42",
+    "title": "Importacao em Massa",
+    "body": "8.919 termos oficiais importados do D&D 5E.",
+    "type": "dados",
+    "published": true,
+    "created_at": "2026-03-30T05:26:08-03:00"
+  },
+  {
+    "id": "6a59c302-8e1c-4890-a60e-3f8bacc1115c",
+    "title": "Sistema de Badges",
+    "body": "Novos selos visuais para Traducao Oficial e Rigor Artificio.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-03-29T05:26:08-03:00"
+  },
+  {
+    "id": "26f2f5f9-e13c-427d-87c5-667a284f1910",
+    "title": "Sistema de Selos",
+    "body": "Implementado um novo sistema visual de selos: Tradicao Oficial para traducoes publicadas pela Gale Force Nine, Rigor Artificio para termos documentados com pre-projeto de traducao, e Sugestao para contribuicoes da comunidade em revisao.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-03-28T00:00:00-03:00"
+  },
+  {
+    "id": "a307407d-606f-422c-b11b-57dd860fb8dc",
+    "title": "Categorias do Glossario",
+    "body": "Foram estruturadas e organizadas as categorias de glossario por tipo sistema e cenario, permitindo filtragem e navegacao mais precisa entre os termos.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-03-22T00:00:00-03:00"
+  },
+  {
+    "id": "cd190d90-3b98-4451-ba14-8074d6a7f7d8",
+    "title": "Sistema de Sugestoes",
+    "body": "Membros registrados podem sugerir novos termos de traducao. Apos analise editorial, os termos podem ser marcados como aprovados e gerenciados pelo painel administrativo.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-03-20T00:00:00-03:00"
+  },
+  {
+    "id": "be3616a3-6fe8-4aa4-b989-05b3d285cc24",
+    "title": "Cadastro de Usuarios",
+    "body": "Os usuarios agora podem criar contas e se registrar no Glossario. Membros registrados tambem ganharam a capacidade de enviar sugestoes de novos termos e comentarios.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-03-15T00:00:00-03:00"
+  }
+]

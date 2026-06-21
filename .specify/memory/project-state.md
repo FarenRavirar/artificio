@@ -9,7 +9,15 @@
 
 **Todos os 5 apps em prod** (2026-06-21). Promote `dev→main` (run `27894586895`) + redeploy links/glossario/mesas/site/accounts (`27894598616`..`27894601319`) 5/5 ✅. Containers healthy. **Regressão:** Cloudflare cache servia HTML antigo pré-promote → toggle dark/light quebrado + nav sem "WhatsApps" no site. Cache purgado via API (`purge_everything`).
 
-**PRs abertas:** #73 dependabot. PRs #74, #75, #76, #77, **#78** mergeadas e promovidas a `main`. `auto_deploy_on_push: false` em efeito.
+**PRs abertas:** #73 dependabot. PR #80 **(spec 041 shell unificação)** mergeada em `dev` (`8981c84`). Deploy beta disparado para site/glossario/mesas.
+
+## Destaque: Spec 041 — Shell unificado (merge 2026-06-21)
+- `packages/ui`: Header com busca/changelog/tema/menu cross-app + `useTheme()`/`useChangelogBadge()` hooks + `<ChangelogModal>` centralizado
+- 5 apps consumindo shell único (site Astro híbrido, mesas/glossario/links React, accounts tema)
+- `/busca` uniformizada em 4 apps; `/conta` no accounts; `/perfil` renomeado no glossario
+- Changelogs padronizados em JSON nos 4 apps (glossario migrado de DB)
+- Débitos fechados: `BL-SHELL-B13`, `D-SHELL1`, `BL-UI-THEME-REACT-HEADER-VARIANT`, `BL-UI-THEME-TOGGLE-SITE-REGRESSION`, `BL-GLOSSARIO-CHANGELOG-JSON`
+- 19 revisões de bots + 15 Sonar aplicados (17 itens, 2 agrupados); auditoria changelog 53 ✅
 
 ## Gates
 

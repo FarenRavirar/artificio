@@ -28,9 +28,11 @@ jobs:
           fetch-depth: 0
 
       - name: Validate confirmation and invariant
+        env:
+          CONFIRM: ${{ inputs.confirm }}
         run: |
           set -euo pipefail
-          if [ "${{ inputs.confirm }}" != "PROMOTE_DEV_TO_MAIN" ]; then
+          if [ "$CONFIRM" != "PROMOTE_DEV_TO_MAIN" ]; then
             echo "ERRO: confirm precisa ser PROMOTE_DEV_TO_MAIN"
             exit 1
           fi

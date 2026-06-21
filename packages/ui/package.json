@@ -24,6 +24,10 @@
       "types": "./dist/feedback.d.ts",
       "import": "./dist/feedback.js"
     },
+    "./changelog": {
+      "types": "./dist/changelog.d.ts",
+      "import": "./dist/changelog.js"
+    },
     "./styles.css": "./src/styles.css",
     "./tailwind-preset": "./tailwind-preset.js"
   },

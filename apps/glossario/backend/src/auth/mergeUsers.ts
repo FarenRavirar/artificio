@@ -45,7 +45,6 @@ export async function mergeUsers(client: TxClient, fromId: string, toId: string)
   await client.query('UPDATE public.term_history SET changed_by = $2 WHERE changed_by = $1', [fromId, toId]);
   await client.query('UPDATE public.systems SET created_by = $2 WHERE created_by = $1', [fromId, toId]);
   await client.query('UPDATE public.scenarios SET created_by = $2 WHERE created_by = $1', [fromId, toId]);
-  await client.query('UPDATE public.update_log SET created_by = $2 WHERE created_by = $1', [fromId, toId]);
 
   // 3) remove o usuário auto-provisionado (libera email/sso_user_id para o legado)
   await client.query('DELETE FROM public.users WHERE id = $1', [fromId]);

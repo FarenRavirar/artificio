@@ -164,7 +164,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build module
-        run: pnpm -w turbo run build --filter=@artificio/${{ inputs.module }}* --cache-dir=.turbo
+        env:
+          MODULE_FILTER: "@artificio/${{ inputs.module }}"
+        run: pnpm -w turbo run build --filter="$MODULE_FILTER*" --cache-dir=.turbo
 
       - name: Test module
         env:
@@ -174,7 +176,8 @@ jobs:
           CLOUDINARY_CLOUD_NAME: ci
           CLOUDINARY_API_KEY: ci
           CLOUDINARY_API_SECRET: ci
-        run: pnpm -w turbo run test --filter=@artificio/${{ inputs.module }}* --env-mode=loose --cache-dir=.turbo
+          MODULE_FILTER: "@artificio/${{ inputs.module }}"
+        run: pnpm -w turbo run test --filter="$MODULE_FILTER*" --env-mode=loose --cache-dir=.turbo
 
   deploy:
     name: Deploy ${{ inputs.module }} ${{ needs.resolve.outputs.env }}

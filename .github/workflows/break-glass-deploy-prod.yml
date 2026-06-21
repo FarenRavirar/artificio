@@ -28,9 +28,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Validate confirmation
+        env:
+          CONFIRM: ${{ inputs.confirm }}
         run: |
           set -euo pipefail
-          if [ "${{ inputs.confirm }}" != "BREAK_GLASS" ]; then
+          if [ "$CONFIRM" != "BREAK_GLASS" ]; then
             echo "ERRO: confirm precisa ser BREAK_GLASS"
             exit 1
           fi
