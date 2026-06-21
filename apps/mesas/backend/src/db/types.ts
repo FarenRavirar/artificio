@@ -1,5 +1,5 @@
 import { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysely';
-import type { ChangelogEntry } from '@artificio/ui/changelog';
+import type { ChangelogEntry } from '@artificio/changelog';
 
 export type UserRole = 'visitor' | 'player' | 'gm' | 'admin';
 export type SystemNodeType = 'system' | 'edition' | 'variant' | 'subsystem';
