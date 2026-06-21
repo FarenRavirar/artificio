@@ -1,5 +1,6 @@
 // Validação de convite WhatsApp + extração de og:image (logo do grupo/canal).
 // Superfície hostil (input da comunidade): host allowlist estrita, timeout, sem seguir p/ outros hosts.
+import { decode } from "html-entities";
 import type { GroupKind } from "../../db/types.js";
 
 export interface ParsedInvite {
@@ -40,20 +41,6 @@ export function parseInviteUrl(raw: string): ParsedInvite | null {
 const OG_IMAGE_RE = /<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["']/i;
 const OG_IMAGE_RE_ALT = /<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image["']/i;
 
-// Decodifica entidades HTML comuns da og:image do WhatsApp.
-// Ordem importa: entidades compostas (&quot;/&lt;/&gt;) antes de &amp; para
-// evitar double-unescaping se o input viesse com encoding aninhado.
-// Na prática WhatsApp não faz double-encode, mas a ordem canônica é defesa.
-function decodeHtmlEntities(raw: string): string {
-  return raw
-    .replace(/&quot;/g, "\"")
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
-    .replace(/&#38;/g, "&");
-}
-
 /**
  * Busca a página de convite e extrai a og:image. Convites do WhatsApp servem
  * og:image assinado/efêmero — por isso baixamos e subimos ao Cloudinary (não hotlink).
@@ -84,7 +71,7 @@ export async function fetchOgImage(inviteUrl: string): Promise<string | null> {
   const m = OG_IMAGE_RE.exec(html) ?? OG_IMAGE_RE_ALT.exec(html);
   const raw = m?.[1];
   if (!raw) return null;
-  const url = decodeHtmlEntities(raw);
+  const url = decode(raw);
   try {
     const parsed = new URL(url);
     return parsed.protocol === "https:" ? parsed.toString() : null;

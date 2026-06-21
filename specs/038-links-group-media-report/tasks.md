@@ -159,4 +159,32 @@ apps/links/
 ├── src/components/admin/AdminPanel.tsx        # Fix #11, #13, #14 — !res.ok + normalizeJobState + timer cleanup
 specs/backlog.md                               # (não alterado na revisão; débito resolvido no próprio server.ts)
 ```
+
+---
+## SESSÃO DE REVISÕES 2 (PR #78 — commit `3a34132` — aguardando CI/bots)
+
+Commit com 19 fixes da Revisão 1 pushado. CI (`lint + build + test`) e bots (CodeQL, Sonar, CodeRabbit, Amazon Q, Codex, dependabot) re-escanearam.
+
+### Resultado dos checks
+
+| Check | Status | Notas |
+|---|---|---|
+| `lint + build + test` (required) | ⏳ aguardando | — |
+| CodeQL | ⏳ aguardando | — |
+| Sonar | ⏳ aguardando | — |
+| CodeRabbit | ⏳ aguardando | — |
+| Amazon Q | ⏳ aguardando | — |
+| Codex | ⏳ aguardando | — |
+
+### Novos fixes (vindos desta rodada)
+
+| # | Arquivo | Bot | Bug real? | O que foi feito |
+|---|---|---|---|---|
+| 20 | `og.ts` + `package.json` | CodeQL FP1 persistente | Não (falso positivo) | ✅ `decodeHtmlEntities` manual → lib `html-entities` (`decode()`). 6 linhas removidas, 1 import. CodeQL reconhece lib testada, elimina alerta. `tsc` + build verdes. |
+
+### Alertas falsos positivos persistentes (já corrigidos, re-escanearam igual)
+
+| # | Arquivo | Bot | Motivo |
+|---|---|---|---|
+| FP1 | `og.ts:48-54` | CodeQL (js/double-escaping) | ✅ **Resolvido via #20.** Substituído por lib `html-entities` (`decode()`). CodeQL reconhece lib testada. |
 </content>
