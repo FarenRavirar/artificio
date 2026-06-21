@@ -1,15 +1,12 @@
 import { useState, type ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Footer, Header, ThemeIcon, setTheme, type NavItem, type UserMenuItem, type Theme } from '@artificio/ui';
-import { getAccountsOrigin } from '@artificio/auth/client';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Footer, Header, useTheme, useChangelogBadge, type NavItem, type UserMenuItem } from '@artificio/ui';
 import { FeedbackButton } from '../features/dev-feedback/FeedbackButton';
 import { HeaderActions } from './HeaderActions';
 import { getMesasPublicOrigin } from '../utils/auth';
+import { ChangelogModal } from './ChangelogModal';
 
-/** Tema inicial = o que o boot (main.tsx, default-dark) já aplicou no <html>. */
-function initialTheme(): Theme {
-  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
-}
+const UPDATE_MARKER = '2026-04-08-ux-improvements';
 
 interface AppShellProps {
   children: ReactNode;
@@ -19,7 +16,6 @@ const userMenu: UserMenuItem[] = [
   { label: 'Meu Perfil', href: '/perfil' },
   { label: 'Painel', href: '/painel' },
   { label: 'Gestão', href: '/gestao', adminOnly: true },
-  { label: 'Conta', href: getAccountsOrigin(), external: true },
 ];
 
 const moduleNav: NavItem[] = [
@@ -31,25 +27,20 @@ const moduleNav: NavItem[] = [
 export const AppShell = ({ children }: AppShellProps) => {
   const publicOrigin = getMesasPublicOrigin();
   const { pathname } = useLocation();
-  const [theme, setThemeState] = useState<Theme>(initialTheme);
+  const navigate = useNavigate();
+  const { theme } = useTheme();
+  const { hasNewUpdate, markSeen } = useChangelogBadge('mesas_last_seen_update', UPDATE_MARKER);
 
-  const toggleTheme = () => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next); // escolha explícita → cookie compartilhado cross-subdomínio (D067)
-    setThemeState(next);
+  const [isChangelogOpen, setIsChangelogOpen] = useState(false);
+
+  const openChangelog = () => {
+    setIsChangelogOpen(true);
+    markSeen();
   };
 
-  const themeBtn = (
-    <button
-      type="button"
-      className="artificio-header-action"
-      title="Alternar tema"
-      aria-label="Alternar tema"
-      onClick={toggleTheme}
-    >
-      <ThemeIcon theme={theme} />
-    </button>
-  );
+  const handleSearch = () => {
+    navigate('/busca');
+  };
 
   return (
     <div className="min-h-screen bg-[var(--color-artificio-blue)] text-white flex flex-col">
@@ -60,13 +51,21 @@ export const AppShell = ({ children }: AppShellProps) => {
         moduleNav={moduleNav}
         moduleCurrentHref={pathname}
         userMenu={userMenu}
-        actions={<>{themeBtn}<HeaderActions /></>}
+        showThemeToggle
+        showSearch
+        onSearch={handleSearch}
+        showChangelog
+        onOpenChangelog={openChangelog}
+        changelogHasBadge={hasNewUpdate}
+        serviceAccount={{ label: 'Conta Mesas', href: '/perfil' }}
+        actions={<HeaderActions />}
       />
       <div className="flex-1 pt-6">
         {children}
       </div>
       <Footer variant={theme === 'light' ? 'light' : 'dark'} />
       <FeedbackButton />
+      <ChangelogModal isOpen={isChangelogOpen} onClose={() => setIsChangelogOpen(false)} />
     </div>
   );
 };

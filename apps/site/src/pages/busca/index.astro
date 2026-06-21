@@ -1,0 +1,37 @@
+---
+import Base from "../../layouts/Base.astro";
+const canonical = new URL("/busca/", Astro.site).toString();
+---
+<Base title="Buscar — Artifício RPG" canonical={canonical}>
+  <article class="prose">
+    <h1>Buscar no Blog</h1>
+    <div id="pagefind-search"></div>
+  </article>
+</Base>
+<script is:inline>
+  (function () {
+    var loaded = false;
+    function loadSearch() {
+      if (loaded) return;
+      loaded = true;
+      var css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = "/pagefind/pagefind-ui.css";
+      document.head.appendChild(css);
+      var s = document.createElement("script");
+      s.src = "/pagefind/pagefind-ui.js";
+      s.onload = function () {
+        try {
+          new PagefindUI({ element: "#pagefind-search" });
+        } catch (error) {
+          console.error("Falha ao inicializar PagefindUI", error);
+          var host = document.getElementById("pagefind-search");
+          if (host) host.textContent = "Não foi possível carregar a busca agora.";
+        }
+      };
+      document.head.appendChild(s);
+    }
+    if (document.readyState === "complete") loadSearch();
+    else window.addEventListener("load", loadSearch, { once: true });
+  })();
+</script>

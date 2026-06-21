@@ -1,11 +1,13 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import { rateLimit } from "express-rate-limit";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireAuth, csrfProtection, type Session } from "@artificio/auth";
 import type { Kysely } from "kysely";
+import { BRAND_DOMAIN, BRAND_ORIGIN } from "@artificio/config";
 import { accessCookieName, clearSessionCookies, refreshCookieName, setSessionCookies } from "./cookies.js";
 import type { Database } from "./db.js";
 import type { AccountsEnv } from "./env.js";
@@ -18,7 +20,7 @@ export function isAllowedReturnUrl(value: string): boolean {
     const url = new URL(value);
     return (
       url.protocol === "https:" &&
-      (url.hostname === "artificiorpg.com" || url.hostname.endsWith(".artificiorpg.com"))
+      (url.hostname === BRAND_DOMAIN || url.hostname.endsWith(`.${BRAND_DOMAIN}`))
     );
   } catch {
     return false;
@@ -59,13 +61,21 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   const googleClient = createGoogleClient(env);
 
   app.set("trust proxy", env.TRUSTED_PROXY_CIDR);
+  app.use(
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 200,
+      standardHeaders: true,
+      legacyHeaders: false,
+    }),
+  );
   app.use(cookieParser());
   app.use(csrfProtection([
-    "https://artificiorpg.com",
-    "https://links.artificiorpg.com",
-    "https://mesas.artificiorpg.com",
-    "https://glossario.artificiorpg.com",
-    "https://accounts.artificiorpg.com",
+    BRAND_ORIGIN,
+    `https://links.${BRAND_DOMAIN}`,
+    `https://mesas.${BRAND_DOMAIN}`,
+    `https://glossario.${BRAND_DOMAIN}`,
+    `https://accounts.${BRAND_DOMAIN}`,
   ]));
   app.use(express.json());
   app.use(
@@ -161,7 +171,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   const clientDir = join(currentDir, "client");
   if (existsSync(clientDir)) {
     app.use(express.static(clientDir));
-    app.get(["/", "/login"], (_req, res) => {
+    app.get(["/", "/login", "/conta"], (_req, res) => {
       res.sendFile(join(clientDir, "index.html"));
     });
   }

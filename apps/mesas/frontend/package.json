@@ -22,7 +22,7 @@
     "@types/markdown-it": "^14.1.2",
     "autoprefixer": "^10.4.27",
     "clsx": "^2.1.1",
-    "dompurify": "^3.3.3",
+    "dompurify": "^3.4.11",
     "html2canvas-pro": "^2.0.4",
     "lucide-react": "^1.21.0",
     "markdown-it": "^14.1.1",

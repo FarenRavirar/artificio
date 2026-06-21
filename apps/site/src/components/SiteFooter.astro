@@ -1,19 +1,28 @@
 ---
-// Etapa 1: footer .astro hub reusando CSS @artificio/ui + marca. Etapa 2: <Footer /> React server-render.
 import { logos, MODULES } from "../lib/content";
-const year = 2026;
+import {
+  FOOTER_TAGLINE,
+  FOOTER_GIFT_TEXT,
+  FOOTER_NAV_LABEL,
+  FOOTER_NAV_ARIA,
+  FOOTER_BRAND,
+  FOOTER_COPYRIGHT,
+  FOOTER_TERMS_LABEL,
+  FOOTER_BASE_DOMAIN,
+} from "@artificio/ui/static";
+const year = new Date().getFullYear();
 ---
 <footer class="artificio-footer">
   <div class="artificio-footer-inner">
     <div class="artificio-footer-brand-col">
       <a class="artificio-footer-brand-link" href="/">
-        <img class="artificio-footer-logo logo-navy" src={logos.logoNavy} alt="Artifício RPG" width="300" height="100" />
-        <img class="artificio-footer-logo logo-neg" src={logos.logoNeg} alt="Artifício RPG" width="300" height="100" />
+        <img class="artificio-footer-logo logo-navy" src={logos.logoNavy} alt={FOOTER_BRAND} width="300" height="100" />
+        <img class="artificio-footer-logo logo-neg" src={logos.logoNeg} alt={FOOTER_BRAND} width="300" height="100" />
       </a>
-      <p class="artificio-footer-tagline">Hub de projetos de RPG em português. Gratuito, sem anúncios, sem coleta desnecessária.</p>
+      <p class="artificio-footer-tagline">{FOOTER_TAGLINE}</p>
     </div>
-    <nav class="artificio-footer-nav" aria-label="Projetos do Artifício">
-      <span class="artificio-footer-nav-title">Projetos</span>
+    <nav class="artificio-footer-nav" aria-label={FOOTER_NAV_ARIA}>
+      <span class="artificio-footer-nav-title">{FOOTER_NAV_LABEL}</span>
       <ul class="artificio-footer-nav-list">
         {MODULES.map((m) => (
           <li><a class="artificio-footer-nav-link" href={m.href}>{m.label}</a></li>
@@ -21,13 +30,13 @@ const year = 2026;
       </ul>
     </nav>
   </div>
-  <p class="artificio-footer-gift">Este é um presente da Artifício RPG para toda a comunidade brasileira de RPG. Compartilhe com seus grupos!</p>
+  <p class="artificio-footer-gift">{FOOTER_GIFT_TEXT}</p>
   <p class="artificio-footer-copyright-summary">
-    Artifício RPG © {year}. Todos os direitos reservados. Leitura, citação curta e compartilhamento de links são permitidos com crédito e link para a fonte. Reprodução integral, espelhamento, raspagem e uso comercial dependem de autorização prévia.
-    <a href="/termos-de-uso-e-direitos-autorais/">Ver termos de uso e direitos autorais</a>.
+    {FOOTER_COPYRIGHT.replace("{year}", String(year))}
+    <a href="/termos-de-uso-e-direitos-autorais/">{FOOTER_TERMS_LABEL}</a>.
   </p>
   <div class="artificio-footer-base">
-    <span class="artificio-footer-brand">Artifício RPG</span>
-    <span>© {year} · artificiorpg.com</span>
+    <span class="artificio-footer-brand">{FOOTER_BRAND}</span>
+    <span>© {year} · {FOOTER_BASE_DOMAIN}</span>
   </div>
 </footer>

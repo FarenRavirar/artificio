@@ -1,5 +1,6 @@
-import { logout, redirectToLogin, useSession } from "@artificio/auth/client";
+import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
 import type { User } from "@artificio/auth";
+import { BRAND_ORIGIN } from "@artificio/config";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { brandLogoNavy, brandLogoNeg } from "./brand.js";
 import { defaultNavItems, type NavItem } from "./modules.js";
@@ -32,7 +33,7 @@ export interface HeaderProps {
   brandHref?: string;
   /** Itens do menu de conta (avatar). "Sair" é sempre adicionado. */
   userMenu?: UserMenuItem[];
-  /** Ações do projeto antes do avatar (ex.: changelog, sino de notificações). */
+  /** Ações do projeto antes do avatar (ex.: sino de notificações). */
   actions?: ReactNode;
   sessionOverride?: {
     user: User | null;
@@ -55,6 +56,18 @@ export interface HeaderProps {
    * `artificio_theme`. Default false — só habilitar em projetos com CSS dark.
    */
   showThemeToggle?: boolean;
+  /** Exibe o botão de busca do header (ícone lupa). Ação injetada pelo app. */
+  showSearch?: boolean;
+  /** Handler acionado ao clicar no botão de busca. Sem handler, o botão não é renderizado. */
+  onSearch?: () => void;
+  /** Exibe o botão de changelog central (ícone raio + badge de novidade). Conteúdo/modal é do app. */
+  showChangelog?: boolean;
+  /** Handler acionado ao clicar no botão de changelog. */
+  onOpenChangelog?: () => void;
+  /** Mostra o badge de "novidade" no botão de changelog. */
+  changelogHasBadge?: boolean;
+  /** Conta local do serviço: label e href p/ o item "Conta <Serviço>" no menu. */
+  serviceAccount?: { label: string; href: string };
 }
 
 function getInitials(name: string) {
@@ -73,7 +86,7 @@ export function Header({
   moduleCurrentHref,
   variant = "light",
   sticky = true,
-  brandHref = "https://artificiorpg.com",
+  brandHref = BRAND_ORIGIN,
   userMenu,
   actions,
   sessionOverride,
@@ -81,6 +94,12 @@ export function Header({
   onLoginClick,
   loginLabel = "Entrar",
   showThemeToggle = false,
+  showSearch = false,
+  onSearch,
+  showChangelog = false,
+  onOpenChangelog,
+  changelogHasBadge = false,
+  serviceAccount,
 }: HeaderProps) {
   const session = useSession();
   const { user, loading } = sessionOverride ?? session;
@@ -118,9 +137,22 @@ export function Header({
     return () => document.removeEventListener("keydown", onKey);
   }, [navOpen]);
 
-  const items = (userMenu ?? []).filter(
+  const globalMenuItems: UserMenuItem[] = [
+    {
+      label: "Perfil Artifício",
+      href: `${getAccountsOrigin()}/conta`,
+      external: true,
+    },
+    ...(serviceAccount
+      ? [{ label: serviceAccount.label, href: serviceAccount.href }]
+      : []),
+  ];
+
+  const appItems = (userMenu ?? []).filter(
     (item) => !item.adminOnly || user?.role === "admin",
   );
+
+  const items = [...globalMenuItems, ...appItems];
 
   function renderSession() {
     if (loading) {
@@ -204,10 +236,44 @@ export function Header({
         </a>
         <Nav currentHref={currentHref} items={navItems} />
         <div className="artificio-session" aria-live="polite">
+          {showSearch && onSearch ? (
+            <button
+              type="button"
+              className="artificio-header-action"
+              aria-label="Buscar"
+              title="Buscar"
+              onClick={onSearch}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </button>
+          ) : null}
+          {showChangelog && onOpenChangelog ? (
+            <button
+              type="button"
+              className="artificio-header-action"
+              aria-label="Changelog"
+              title="Changelog"
+              onClick={onOpenChangelog}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M8.56 3.69a9 9 0 0 0-2.92 1.95" />
+                <path d="M3.69 8.56A9 9 0 0 0 3 12" />
+                <path d="M8.56 20.31A9 9 0 0 0 12 21" />
+                <path d="M20.31 15.44A9 9 0 0 0 21 12" />
+                <polygon points="13 2 13 13 18 11 13 13 13 2" />
+              </svg>
+              {changelogHasBadge ? (
+                <span className="artificio-header-action-badge" aria-label="Novidade" />
+              ) : null}
+            </button>
+          ) : null}
+          {showThemeToggle ? <ThemeToggle /> : null}
           {actions ? (
             <div className="artificio-header-actions">{actions}</div>
           ) : null}
-          {showThemeToggle ? <ThemeToggle /> : null}
           {renderSession()}
           <button
             type="button"

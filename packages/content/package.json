@@ -16,7 +16,9 @@
     "lint": "eslint .",
     "test": "vitest run"
   },
-  "devDependencies": {
+  "dependencies": {
     "@artificio/config": "workspace:*"
+  },
+  "devDependencies": {
   }
 }

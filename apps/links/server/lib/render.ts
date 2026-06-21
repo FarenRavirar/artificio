@@ -2,6 +2,7 @@
 // existem no dist (pré-rebuild). SEO completo: title/description/canonical/OG/JSON-LD.
 // Estilo mínimo inline para legibilidade; o CSS completo do Astro carrega no próximo rebuild.
 import type { Group } from "../../db/types.js";
+import { BRAND_NAME } from "@artificio/config";
 
 const SITE = process.env.PUBLIC_LINKS_URL || "https://links.artificiorpg.com";
 const GSC = process.env.PUBLIC_GSC_VERIFICATION || "";
@@ -54,7 +55,7 @@ export function renderGroupPage(g: Group): string {
 <meta name="description" content="${h(desc)}">
 <link rel="canonical" href="${h(canonical)}">
 ${GSC ? `<meta name="google-site-verification" content="${h(GSC)}">` : ""}
-<meta property="og:site_name" content="Artifício RPG">
+<meta property="og:site_name" content="${BRAND_NAME}">
 <meta property="og:title" content="${h(title)}">
 <meta property="og:description" content="${h(desc)}">
 <meta property="og:type" content="website">

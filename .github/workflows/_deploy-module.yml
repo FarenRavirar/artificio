@@ -259,7 +259,12 @@ jobs:
       - name: Deploy module on VM
         run: |
           set -euo pipefail
-          ssh_base=(ssh -i ~/.ssh/artificio_deploy_key -p "$DEPLOY_PORT" -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST")
+          # Keepalive de aplicacao (spec 040): steps remotos silenciosos longos (ex.: `chown -R
+          # node:node /repo` sobre node_modules ~4min sem stdout) deixavam a conexao TCP ociosa,
+          # dropada por middlebox (Cloudflare/NAT) => `client_loop: send disconnect: Broken pipe` +
+          # exit 255. ServerAliveInterval=30 x CountMax=10 mantem o socket vivo por ~5min de silencio
+          # sem mascarar queda real (apos 10 probes sem resposta o ssh ainda declara queda).
+          ssh_base=(ssh -i ~/.ssh/artificio_deploy_key -p "$DEPLOY_PORT" -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=10 "$DEPLOY_USER@$DEPLOY_HOST")
 
           routes_b64=$(printf '%s' "$CRITICAL_ROUTES" | base64 -w0)
           health_b64=$(printf '%s' "$HEALTH_CONTAINERS" | base64 -w0)
@@ -495,7 +500,7 @@ jobs:
           docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | sed -n '1,40p'
           REMOTE
 
-          scp -i ~/.ssh/artificio_deploy_key -P "$DEPLOY_PORT" -o BatchMode=yes "$local_script" "$DEPLOY_USER@$DEPLOY_HOST:$remote_script"
+          scp -i ~/.ssh/artificio_deploy_key -P "$DEPLOY_PORT" -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=10 "$local_script" "$DEPLOY_USER@$DEPLOY_HOST:$remote_script"
           rm -f "$local_script"
 
           "${ssh_base[@]}" "set -euo pipefail

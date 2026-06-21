@@ -1,20 +1,17 @@
 ---
-// Header .astro zero-JS (R4=A, spec 010): nav primário = portal cross-projetos (MODULES),
-// 2ª linha = categorias do blog (SECTIONS). Reusa CSS do design system (@artificio/ui/styles.css).
 import { logos, MODULES, SECTIONS } from "../lib/content";
+import { BRAND_NAME } from "@artificio/ui/static";
+import SiteHeaderIsland from "./SiteHeaderIsland";
 interface Props {
   currentHref?: string;
 }
 const { currentHref } = Astro.props;
-const ACCOUNTS = "https://accounts.artificiorpg.com";
-const loginUrl = new URL("/login", ACCOUNTS);
-loginUrl.searchParams.set("return", Astro.url.href);
 ---
 <header class="artificio-header" data-sticky="true">
   <div class="artificio-header-main">
     <a class="artificio-brand" href="/">
-      <img class="artificio-brand-logo logo-navy" src={logos.logoNavy} alt="Artifício RPG" width="300" height="100" />
-      <img class="artificio-brand-logo logo-neg" src={logos.logoNeg} alt="Artifício RPG" width="300" height="100" />
+      <img class="artificio-brand-logo logo-navy" src={logos.logoNavy} alt={BRAND_NAME} width="300" height="100" />
+      <img class="artificio-brand-logo logo-neg" src={logos.logoNeg} alt={BRAND_NAME} width="300" height="100" />
     </a>
     <nav aria-label="Projetos do Artifício">
       <ul class="artificio-nav-list">
@@ -29,14 +26,8 @@ loginUrl.searchParams.set("return", Astro.url.href);
         ))}
       </ul>
     </nav>
-    <div class="artificio-header-actions">
-      <button class="artificio-header-action" id="search-toggle" aria-label="Buscar" title="Busca = Pagefind (Etapa 2)">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
-      </button>
-      <button class="artificio-header-action" id="theme-toggle" aria-label="Alternar tema">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path></svg>
-      </button>
-      <a class="artificio-login-button" id="site-login-link" href={loginUrl.toString()}>Entrar</a>
+    <div class="artificio-session" aria-live="polite">
+      <SiteHeaderIsland client:idle />
     </div>
   </div>
   <nav class="artificio-subnav" aria-label="Seções do blog">

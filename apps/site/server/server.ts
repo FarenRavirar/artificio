@@ -8,6 +8,7 @@ import express, { type RequestHandler } from "express";
 import cookieParser from "cookie-parser";
 import { rateLimit } from "express-rate-limit";
 import { requireAuth, verifyToken, csrfProtection, type AuthenticatedRequest } from "@artificio/auth";
+import { BRAND_ORIGIN } from "@artificio/config";
 import { getDb } from "../db/connection.js";
 import { runJob, jobState } from "./jobs.js";
 import { adminApi } from "./admin-api.js";
@@ -38,7 +39,7 @@ const globalLimiter = rateLimit({
 app.use(globalLimiter);
 
 app.use(csrfProtection([
-  new URL(process.env.PUBLIC_SITE_URL || "https://artificiorpg.com").origin,
+  new URL(process.env.PUBLIC_SITE_URL || BRAND_ORIGIN).origin,
   "https://www.artificiorpg.com",
 ]));
 app.use(express.json({ limit: "10mb" }));

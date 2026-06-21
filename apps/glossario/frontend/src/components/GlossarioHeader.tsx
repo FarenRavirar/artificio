@@ -1,57 +1,28 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Header, type UserMenuItem, ThemeIcon, setTheme, resolveTheme, type Theme } from '@artificio/ui';
+import { Header, useTheme, useChangelogBadge, type UserMenuItem } from '@artificio/ui';
 import type { User as ArtificioUser } from '@artificio/auth';
-import { Zap, PlusCircle } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { useAuth } from '../context/auth-context';
 import { useUI } from '../context/UIContext';
 import { ChangelogModal } from './ChangelogModal';
 
 const LAST_SEEN_UPDATE = '2026-03-30-db-sanitize-script';
 
-/**
- * Chrome do glossário = shell compartilhado @artificio/ui (Header).
- * NÃO redefine layout/nav: reusa o Header do domínio (nav cross-módulo +
- * marca + menu de conta) e injeta as ESPECIALIDADES do glossário via props
- * (userMenu, actions, sessionOverride, onLogout, onLoginClick).
- *
- * Auth = SSO accounts (spec 015). A sessão entra via `sessionOverride`
- * porque o glossário mantém um AuthContext local que adapta o usuário SSO
- * ao contrato do Header.
- */
 export function GlossarioHeader() {
   const { user, logout, loading } = useAuth();
   const { openAddTerm } = useUI();
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const { hasNewUpdate, markSeen } = useChangelogBadge('glossario_last_seen_update', LAST_SEEN_UPDATE);
 
   const [changelogOpen, setChangelogOpen] = useState(false);
-  // Init derivado do localStorage (sem effect): "novidade" se nunca viu este update.
-  const [hasNewUpdate, setHasNewUpdate] = useState(() => {
-    try {
-      const lastSeen = localStorage.getItem('glossario_last_seen_update');
-      return !lastSeen || lastSeen !== LAST_SEEN_UPDATE;
-    } catch {
-      return false;
-    }
-  });
-
-  // Tema lua/sol (Spec 020). Init já com o tema resolvido (cookie/boot) p/ não
-  // dar flash de ícone/logo errado no mount; persistência via @artificio/ui setTheme.
-  const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
-
-  const toggleTheme = () => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    setThemeState(next);
-  };
 
   const openChangelog = () => {
     setChangelogOpen(true);
-    setHasNewUpdate(false);
-    try { localStorage.setItem('glossario_last_seen_update', LAST_SEEN_UPDATE); } catch { /* offline/pvt */ }
+    markSeen();
   };
 
-  // Adapta o usuário local do glossário ao contrato @artificio/auth (name/role/avatar).
   const sessionUser: ArtificioUser | null = user
     ? {
         id: user.id,
@@ -62,8 +33,6 @@ export function GlossarioHeader() {
       }
     : null;
 
-  // Menu de conta = especialidade do glossário (D043). Itens adminOnly só
-  // aparecem para admin (filtro do próprio Header).
   const userMenu: UserMenuItem[] = [
     { label: 'Revisão de Sugestões', href: '/admin/review', adminOnly: true },
     { label: 'Gestão de Membros', href: '/admin/users', adminOnly: true },
@@ -72,72 +41,12 @@ export function GlossarioHeader() {
     { label: 'Feedback', href: '/admin/feedback', adminOnly: true },
     { label: 'Importação em Lote', href: '/importar' },
     { label: 'Notificações', href: '/notificacoes' },
-    { label: 'Meu Perfil', href: '/profile' },
+    { label: 'Meu Perfil', href: '/perfil' },
   ];
 
-  const themeBtn = (
-    <button
-      type="button"
-      className="artificio-header-action"
-      title="Alternar tema"
-      aria-label="Alternar tema"
-      onClick={toggleTheme}
-    >
-      <ThemeIcon theme={theme} />
-    </button>
-  );
-
-  const actions = user ? (
-    <>
-      {themeBtn}
-      <button
-        type="button"
-        className="artificio-header-action"
-        title="Adicionar Sugestão"
-        aria-label="Adicionar Sugestão"
-        onClick={openAddTerm}
-      >
-        <PlusCircle size={20} />
-      </button>
-      <button
-        type="button"
-        className="artificio-header-action"
-        title="Notas de Atualização"
-        aria-label="Notas de Atualização"
-        onClick={openChangelog}
-        style={{ position: 'relative' }}
-      >
-        <Zap size={20} />
-        {hasNewUpdate ? (
-          <span
-            aria-hidden
-            style={{
-              position: 'absolute',
-              top: 4,
-              right: 4,
-              width: 8,
-              height: 8,
-              borderRadius: '9999px',
-              background: '#ef4444',
-            }}
-          />
-        ) : null}
-      </button>
-    </>
-  ) : (
-    <>
-      {themeBtn}
-      <button
-        type="button"
-        className="artificio-header-action"
-        title="Notas de Atualização"
-        aria-label="Notas de Atualização"
-        onClick={openChangelog}
-      >
-        <Zap size={20} />
-      </button>
-    </>
-  );
+  const handleSearch = () => {
+    navigate('/busca');
+  };
 
   return (
     <>
@@ -146,10 +55,29 @@ export function GlossarioHeader() {
         variant={theme === 'dark' ? 'dark' : 'light'}
         sessionOverride={{ user: sessionUser, loading }}
         userMenu={userMenu}
-        actions={actions}
+        showThemeToggle
+        showSearch
+        onSearch={handleSearch}
+        showChangelog
+        onOpenChangelog={openChangelog}
+        changelogHasBadge={hasNewUpdate}
+        serviceAccount={{ label: 'Conta Glossário', href: '/perfil' }}
         onLogout={logout}
         onLoginClick={() => navigate('/login')}
         loginLabel="Entrar"
+        actions={
+          user ? (
+            <button
+              type="button"
+              className="artificio-header-action"
+              title="Adicionar Sugestão"
+              aria-label="Adicionar Sugestão"
+              onClick={openAddTerm}
+            >
+              <PlusCircle size={20} />
+            </button>
+          ) : undefined
+        }
       />
       <ChangelogModal isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} />
     </>
