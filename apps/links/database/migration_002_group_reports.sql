@@ -1,5 +1,8 @@
 -- @class: online-safe
 -- @requires-backup: false
+-- @approval: spec 038 — SDD Completo, revisado PR #78, mantenedor aprova merge
+-- @dry-run: aplicado em beta (ambiente isolado, DB próprio); tsc + build verdes
+-- @rollback: DROP INDEX IF EXISTS group_reports_status_created_idx; DROP TABLE IF EXISTS group_reports;
 -- @author: Faren Ravirar
 -- @created: 2026-06-21
 -- @description: Tabela group_reports — denúncias da comunidade (convite quebrado, conteúdo impróprio, etc.)

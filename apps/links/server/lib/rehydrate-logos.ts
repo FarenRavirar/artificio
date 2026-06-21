@@ -11,7 +11,12 @@ export interface RehydrateResult {
 export async function rehydrateLogos(opts?: { force?: boolean }): Promise<RehydrateResult> {
   const result: RehydrateResult = { updated: 0, unchanged: 0, failed: 0, skipped: 0 };
 
-  const groups = await Groups.listGroups({ status: "active" });
+  // AGENTS.md: validar payload de query antes de .length/for..of.
+  const raw = await Groups.listGroups({ status: "active" });
+  if (!Array.isArray(raw)) {
+    throw new Error("[rehydrate-logos] payload inválido: esperado array de grupos.");
+  }
+  const groups = raw;
   console.log(`[rehydrate-logos] ${groups.length} grupos ativos.`);
 
   for (const g of groups) {
@@ -31,10 +36,17 @@ export async function rehydrateLogos(opts?: { force?: boolean }): Promise<Rehydr
         continue;
       }
 
-      await Groups.updateGroup(g.id, {
-        logo_url: stored.logo_url,
-        logo_public_id: stored.logo_public_id,
-      });
+      // updateGroup pode falhar após o upload (resolveLogo já subiu ao Cloudinary).
+      // Se falhar, remove o asset órfão para não deixar lixo sem referência no banco.
+      try {
+        await Groups.updateGroup(g.id, {
+          logo_url: stored.logo_url,
+          logo_public_id: stored.logo_public_id,
+        });
+      } catch (updateErr) {
+        await deleteLogo(stored.logo_public_id);
+        throw updateErr;
+      }
       if (g.logo_public_id && g.logo_public_id !== stored.logo_public_id) {
         await deleteLogo(g.logo_public_id);
       }

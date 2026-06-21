@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import express, { type RequestHandler } from "express";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
-import { requireAuth, csrfProtection, type AuthenticatedRequest } from "@artificio/auth";
+import { requireAuth, csrfProtection, verifyToken, type AuthenticatedRequest } from "@artificio/auth";
 import sanitizeHtml from "sanitize-html";
 import * as Groups from "./repo/groups.js";
 import { parseSuggestion, cleanText } from "./lib/validate.js";
@@ -26,6 +26,9 @@ const VALID_CATEGORIES = ["artificio", "tematicos", "parceiros", "comunidade"] a
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", process.env.TRUSTED_PROXY_CIDR || "172.18.0.0/16");
+// Corrente CSRF: cookieParser (lê cookies) → globalLimiter → csrfProtection (protege
+// todas as rotas abaixo). Rotas públicas (ex: report) são cobertas pela middleware
+// global; usuários sem session cookie passam direto (sem token = sem CSRF necessário).
 app.use(cookieParser());
 
 // Rate-limit global (leve): conta TODAS as requests antes do CSRF, inclusive as rejeitadas.
@@ -187,7 +190,11 @@ app.post("/api/groups/:slug/report", reportLimiter, async (req, res) => {
     }
     const rawNote = typeof body?.note === "string" ? body.note : "";
     const note = sanitizeHtml(rawNote, { allowedTags: [], allowedAttributes: {} }).replace(/\s+/g, " ").trim().slice(0, 1000) || null;
-    const session = (req as AuthenticatedRequest).session;
+    // Rota pública (sem requireAuth): verifica o cookie manualmente para
+    // capturar o email de usuários logados. verifyToken retorna null se o
+    // cookie estiver ausente ou inválido — sem quebrar para anônimos.
+    const cookieToken = typeof req.cookies?.artificio_session === "string" ? req.cookies.artificio_session : null;
+    const session = cookieToken ? verifyToken(cookieToken) : null;
     const reporterEmail = session?.user?.email ?? null;
     const report = await Groups.insertReport({
       group_id: g.id,
@@ -206,6 +213,15 @@ app.post("/api/groups/:slug/report", reportLimiter, async (req, res) => {
 const admin = express.Router();
 admin.use(adminLimiter);
 admin.use(requireAuth, requireAdmin);
+
+// Valida UUID em todas as rotas admin com :id (400 em vez de 500 do PG).
+admin.param("id", (req, res, next, id) => {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    res.status(400).json({ error: "id inválido" });
+    return;
+  }
+  next();
+});
 
 // Lista p/ moderação (qualquer status). ?status=pending p/ a fila.
 admin.get("/groups", async (req, res) => {

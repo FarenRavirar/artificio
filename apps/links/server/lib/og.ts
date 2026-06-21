@@ -40,14 +40,18 @@ export function parseInviteUrl(raw: string): ParsedInvite | null {
 const OG_IMAGE_RE = /<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["']/i;
 const OG_IMAGE_RE_ALT = /<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image["']/i;
 
+// Decodifica entidades HTML comuns da og:image do WhatsApp.
+// Ordem importa: entidades compostas (&quot;/&lt;/&gt;) antes de &amp; para
+// evitar double-unescaping se o input viesse com encoding aninhado.
+// Na prática WhatsApp não faz double-encode, mas a ordem canônica é defesa.
 function decodeHtmlEntities(raw: string): string {
   return raw
-    .replace(/&amp;/g, "&")
-    .replace(/&#38;/g, "&")
     .replace(/&quot;/g, "\"")
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&#38;/g, "&");
 }
 
 /**

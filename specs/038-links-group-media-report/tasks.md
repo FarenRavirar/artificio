@@ -106,4 +106,57 @@ apps/links/
 ├── src/components/admin/AdminPanel.tsx       # +RehydrateSection + ReportsSection (T6,T11)
 └── package.json                              # +script "rehydrate-logos" (T5)
 ```
+
+---
+## SESSÃO DE REVISÕES 1 (PR #78 — em andamento)
+
+Fixes aplicados a partir dos bots (Amazon Q, CodeQL, Codex, CodeRabbit, github-advanced-security). Documentado o que foi alterado e por quê. Sujeito a novas revisões enquanto PR aberta.
+
+### Fixes aplicados
+
+| # | Arquivo | Bot | Bug real? | O que foi feito |
+|---|---|---|---|---|
+| 1 | `ReportButton.tsx` | Amazon Q | Não (slug já é slugify) | `encodeURIComponent(slug)` — defesa em profundidade |
+| 2 | `og.ts` | CodeQL | Não (WhatsApp nunca double-encode) | Ordem canônica: `&quot;/&lt;/&gt;` antes de `&amp;` |
+| 3 | `server.ts` (report) | Codex | **SIM** — `reporter_email` sempre `null` | `verifyToken()` manual no cookie em vez de `req.session` (não populado sem `requireAuth`) |
+| 4 | `server.ts` (CSRF) | CodeQL | Não (CSRF global existe na linha 42) | Comentário documentando corrente: `cookieParser → limiter → csrfProtection` |
+| 5 | `CommunityGroups.tsx` | Codex | **SIM** — grupos da comunidade sem Reportar | `<ReportButton>` adicionado nos cards comunitários (wrapper `card-wrapper`) |
+| 6 | `migration_002_group_reports.sql` | CodeRabbit | Governança | Headers `@approval`, `@dry-run`, `@rollback` |
+| 7 | `rehydrate-logos.ts` | CodeRabbit | Governança | `Array.isArray(raw)` antes de `.length`/`for..of` |
+| 8 | `rehydrate-logos.ts` | CodeRabbit | **SIM** — órfão Cloudinary se updateGroup falhar | Try/catch interno: `deleteLogo(stored.logo_public_id)` antes de re-throw |
+| 9 | `rehydrate-cli.ts` | CodeRabbit | **SIM** — falha parcial mascarada | `exitCode = 1` se `failed > 0` (antes só se `updated === 0`) |
+| 10 | `server.ts` (PATCH reports/:id) | CodeRabbit | Boa prática | Validação UUID inline (substituída pelo refactor #12) |
+| 11 | `AdminPanel.tsx` (RehydrateSection) | CodeRabbit | **SIM** — UI trava em busy sem recovery | `!res.ok` → `setError` + `setBusy(false)` no pollStatus e start |
+| 12 | `server.ts` (admin.param) | Refactor próprio | Boa prática (DRY) | `admin.param("id")` substitui 7 validações UUID inline; 1 definição cobre todas as rotas admin com `:id` |
+| 13 | `AdminPanel.tsx` (RehydrateSection) | CodeRabbit | Boa prática (AGENTS.md) | `normalizeJobState` tipado + validação runtime de `busy`/`started` antes de React state; remove `as` cast direto |
+| 14 | `AdminPanel.tsx` (RehydrateSection) | CodeRabbit | **SIM** — timer de polling sem cleanup | `useRef` + `useEffect` cleanup; `clearTimeout` no unmount evita setState em componente desmontado |
+| 15 | `AdminPanel.tsx` (ReportsSection) | CodeRabbit | **SIM** — loading infinito se API retornar formato errado | `!Array.isArray` → `setReports([])` + `setError(true)`; UI mostra erro em vez de "Carregando…" eterno |
+| 16 | `AdminPanel.tsx` (ReportsSection) | CodeRabbit | Não (Array.isArray já validado acima; render usa estado normalizado) | Comentário justificando `.map/.filter`: `Array.isArray` validado antes, `normalizeReport` valida cada item, render opera sobre estado tipado |
+| 17 | `ReportButton.tsx` | CodeRabbit | **SIM** — modal reabre preso em "done" | `closeModal()` reseta reason/note/done/error antes de fechar; reutilizado em Cancelar, Fechar e overlay |
+| 18 | `ReportButton.tsx` | CodeRabbit | Não (REASONS é const interna hardcoded, não payload externo) | Comentário justificando que REASONS é tipada e imutável — `.map` seguro |
+
+### Débitos abertos
+
+| ID | Origem | Escopo | Falta | Próximo passo |
+|---|---|---|---|---|
+| — | — | — | Nenhum débito aberto nesta revisão. | — |
+
+#### D-LINKS-ADMIN-UUID-VALIDATION — investigação (✅ concluído)
+
+7 rotas admin com `:id` validavam UUID inline. **Solução final:** `admin.param("id", callback)` — Express valida automaticamente antes de cada handler. 1 definição → 7 rotas cobertas. PG erro `22P02` → 400 limpo. `tsc` limpo, build verde.
+
+### Arquivos alterados na revisão
+
+```
+apps/links/
+├── server/lib/og.ts                          # Fix #2 — ordem decode entities
+├── server/lib/rehydrate-logos.ts             # Fix #7, #8 — Array.isArray + orphan cleanup
+├── server/rehydrate-cli.ts                   # Fix #9 — exitCode para qualquer failed
+├── server/server.ts                          # Fix #3, #4, #12 — verifyToken + CSRF doc + admin.param
+├── database/migration_002_group_reports.sql   # Fix #6 — headers operacionais
+├── src/components/ReportButton.tsx           # Fix #1, #17 — encodeURIComponent + closeModal
+├── src/components/CommunityGroups.tsx         # Fix #5 — ReportButton nos cards comunitários
+├── src/components/admin/AdminPanel.tsx        # Fix #11, #13, #14 — !res.ok + normalizeJobState + timer cleanup
+specs/backlog.md                               # (não alterado na revisão; débito resolvido no próprio server.ts)
+```
 </content>

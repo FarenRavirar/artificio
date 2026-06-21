@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Button } from "@artificio/ui";
 
+// REASONS é constante interna (hardcoded, tipada, não payload externo).
+// .map no render é seguro — não viola regra de normalização de dado externo.
 const REASONS: { value: string; label: string }[] = [
   { value: "convite_quebrado", label: "Convite quebrado / expirado" },
   { value: "conteudo_improprio", label: "Conteúdo impróprio" },
@@ -17,7 +19,11 @@ async function postReport(slug: string, reason: string, note: string): Promise<R
   const headers: Record<string, string> = { "content-type": "application/json" };
   const token = getXsrfToken();
   if (token) headers["x-xsrf-token"] = token;
-  return fetch(`/api/groups/${slug}/report`, {
+  // encodeURIComponent é defesa em profundidade: slugs são gerados por slugify()
+  // (apenas [a-z0-9-]) e o servidor revalida com slugify() antes de usar. Na prática
+  // nenhum caractere unsafe chega aqui, mas o encode evita injeção de path caso a
+  // invariante do slugify seja violada por regressão futura.
+  return fetch(`/api/groups/${encodeURIComponent(slug)}/report`, {
     method: "POST",
     headers,
     body: JSON.stringify({ reason, note: note || undefined }),
@@ -37,6 +43,14 @@ export default function ReportButton({ slug, groupName }: Props) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function closeModal() {
+    setOpen(false);
+    setReason("");
+    setNote("");
+    setDone(false);
+    setError(null);
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -92,7 +106,7 @@ export default function ReportButton({ slug, groupName }: Props) {
             justifyContent: "center",
             zIndex: 1000,
           }}
-          onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
         >
           <div
             style={{
@@ -113,7 +127,7 @@ export default function ReportButton({ slug, groupName }: Props) {
                   Obrigado! A moderação vai analisar.
                 </p>
                 <div style={{ marginTop: "1rem" }}>
-                  <Button variant="secondary" onClick={() => setOpen(false)}>
+                  <Button variant="secondary" onClick={closeModal}>
                     Fechar
                   </Button>
                 </div>
@@ -174,7 +188,7 @@ export default function ReportButton({ slug, groupName }: Props) {
                   </p>
                 )}
                 <div style={{ display: "flex", gap: ".5rem", justifyContent: "flex-end" }}>
-                  <Button variant="ghost" type="button" disabled={busy} onClick={() => setOpen(false)}>
+                  <Button variant="ghost" type="button" disabled={busy} onClick={closeModal}>
                     Cancelar
                   </Button>
                   <Button variant="primary" type="submit" disabled={busy}>

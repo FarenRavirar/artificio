@@ -14,6 +14,8 @@ const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
 console.log(`[rehydrate-cli] concluído em ${elapsed}s.`);
 console.log(JSON.stringify(result));
 
-if (result.failed > 0 && result.updated === 0) {
+// Falha parcial (alguns grupos ok, outros falharam) também deve alertar o cron.
+// Exit code 1 para qualquer falha — crontab captura e notifica o operador.
+if (result.failed > 0) {
   process.exitCode = 1;
 }

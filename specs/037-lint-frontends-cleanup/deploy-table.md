@@ -19,7 +19,7 @@
 | B4 | **accounts** | `27889892103` | ✅ SUCCESS |
 
 **Evidência mesas-beta:**
-```
+```text
 mesas-beta-app   Up (healthy)
 mesas-beta-api   Up (healthy)   ← estava em crash loop
 mesas-beta-db    Up (healthy)

@@ -1,6 +1,6 @@
 // Ilha do painel CRUD admin (D-LNK-14). Gated por SSO role=admin. Reusa @artificio/auth
 // (useSession/authFetch/redirectToLogin) e os primitivos @artificio/ui. Fala só com /api/admin/v1.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession, authFetch, redirectToLogin } from "@artificio/auth/client";
 import {
   Badge,
@@ -434,26 +434,59 @@ interface JobState {
   logTail?: string;
 }
 
+function normalizeJobState(value: unknown): JobState | null {
+  if (!value || typeof value !== "object") return null;
+  const r = value as Record<string, unknown>;
+  if (typeof r.name !== "string" || typeof r.startedAt !== "string") return null;
+  return {
+    name: r.name,
+    startedAt: r.startedAt,
+    finishedAt: typeof r.finishedAt === "string" ? r.finishedAt : undefined,
+    ok: typeof r.ok === "boolean" ? r.ok : undefined,
+    code: typeof r.code === "number" ? r.code : (r.code === null ? null : undefined),
+    logTail: typeof r.logTail === "string" ? r.logTail : undefined,
+  } satisfies JobState;
+}
+
 function RehydrateSection() {
   const [busy, setBusy] = useState(false);
   const [job, setJob] = useState<JobState | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup do timer de polling no unmount (evita setState em componente desmontado).
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current !== null) clearTimeout(pollTimerRef.current);
+    };
+  }, []);
 
   const pollStatus = async () => {
     try {
       const res = await authFetch("/api/admin/v1/groups/rehydrate-logos/status");
-      if (!res.ok) return;
-      const data = (await res.json()) as { busy: boolean; job: JobState | null };
-      if (data.job?.name === "rehydrate") {
-        setJob(data.job);
-        setBusy(data.busy);
-        if (!data.busy && data.job) {
-          const tail = data.job.logTail ?? "";
-          const jsonMatch = tail.match(/\{["']updated["']\s*:\s*\d+[^}]*\}/);
-          setResult(jsonMatch ? jsonMatch[0] : (data.job.ok ? "Concluído." : "Falhou."));
+      if (!res.ok) {
+        setError(`Erro ao verificar status (HTTP ${res.status}).`);
+        setBusy(false);
+        return;
+      }
+      const raw = await res.json();
+      const data = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+      const busy = typeof data?.busy === "boolean" ? data.busy : false;
+      const job = normalizeJobState(data?.job);
+      if (job?.name === "rehydrate") {
+        setJob(job);
+        setBusy(busy);
+        if (!busy && job) {
+          // logTail é capado em 8000 chars (jobs.ts:37). Regex [^}]* é linear:
+          // [^}] e } não têm overlap → sem backtracking catastrófico. Seguro.
+          const tail = job.logTail ?? "";
+          const jsonMatch = tail.length > 0 && tail.length <= 8000
+            ? tail.match(/\{["']updated["']\s*:\s*\d+[^}]*\}/)
+            : null;
+          setResult(jsonMatch ? jsonMatch[0] : (job.ok ? "Concluído." : "Falhou."));
         }
-        if (data.busy) setTimeout(() => { void pollStatus(); }, 2000);
+        if (busy) pollTimerRef.current = setTimeout(() => { void pollStatus(); }, 2000);
       }
     } catch {
       setJob(null);
@@ -466,12 +499,20 @@ function RehydrateSection() {
     setResult(null);
     try {
       const res = await authFetch("/api/admin/v1/groups/rehydrate-logos", { method: "POST" });
-      const data = (await res.json()) as { started: boolean; busy: boolean; job: JobState };
-      if (data.started) {
+      if (!res.ok) {
+        setError(`Erro ao iniciar (HTTP ${res.status}).`);
+        return;
+      }
+      const raw = await res.json();
+      const data = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+      const started = typeof data?.started === "boolean" ? data.started : false;
+      const busy = typeof data?.busy === "boolean" ? data.busy : false;
+      const job = normalizeJobState(data?.job);
+      if (started && job) {
         setBusy(true);
-        setJob(data.job);
-        setTimeout(() => { void pollStatus(); }, 2000);
-      } else if (data.busy) {
+        setJob(job);
+        pollTimerRef.current = setTimeout(() => { void pollStatus(); }, 2000);
+      } else if (busy) {
         setResult("Já existe um job em andamento.");
       } else {
         setError("Não foi possível iniciar.");
@@ -565,7 +606,13 @@ function ReportsSection({ groups }: { groups: Group[] }) {
       const res = await authFetch(`/api/admin/v1/reports${qs}`);
       if (!res.ok) throw new Error("API error");
       const json = (await res.json()) as { data: unknown };
-      if (!Array.isArray(json.data)) return;
+      if (!Array.isArray(json.data)) {
+        setReports([]);
+        setError(true);
+        return;
+      }
+      // Array.isArray validado acima; normalizeReport valida cada item; .filter remove nulls.
+      // Render com reports?.map opera sobre estado já normalizado — seguro.
       setReports(json.data.map(normalizeReport).filter((v): v is Report => v !== null));
       setError(false);
     } catch {

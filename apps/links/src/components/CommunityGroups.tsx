@@ -3,6 +3,7 @@
 // UX-1: gate +18 (Modal + localStorage). UX-2: chips de tag clicáveis p/ filtrar.
 import { useCallback, useEffect, useState } from "react";
 import { EmptyState, ErrorState, LoadingState, Modal } from "@artificio/ui";
+import ReportButton from "./ReportButton.tsx";
 
 interface ApiGroup {
   name: string;
@@ -154,8 +155,8 @@ export default function CommunityGroups() {
       ) : (
         <div className="cards">
           {filtered.map((g) => (
+            <div className="card-wrapper" key={g.slug ?? g.name}>
             <a
-              key={g.slug ?? g.name}
               className={`card${g.is_adult && !adultGate ? " card-adult" : ""}`}
               href={g.slug ? `/grupo/${g.slug}` : "#"}
             >
@@ -180,6 +181,8 @@ export default function CommunityGroups() {
                 {g.description && <span className="desc">{g.description}</span>}
               </span>
             </a>
+            {g.slug && <ReportButton slug={g.slug} groupName={g.name} />}
+            </div>
           ))}
         </div>
       )}
