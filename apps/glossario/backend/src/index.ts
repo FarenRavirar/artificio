@@ -21,6 +21,7 @@ import feedbackAdminRoutes from './routes/feedbackAdminRoutes';
 dotenv.config();
 
 const app = express();
+app.disable("x-powered-by");
 const port = process.env.PORT || 3000;
 
 // Atras do nginx na artificio_net: confia somente no proxy interno definido por

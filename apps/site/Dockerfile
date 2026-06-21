@@ -19,6 +19,7 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm -w turbo run build \
   --filter=@artificio/config --filter=@artificio/auth --filter=@artificio/ui \
   --filter=@artificio/content --filter=@artificio/analytics \
+  --filter=@artificio/media \
   --filter=@artificio/site-admin
 
 WORKDIR /repo/apps/site

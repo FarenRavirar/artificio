@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type RequestHandler } from "express";
 import cookieParser from "cookie-parser";
+import { rateLimit } from "express-rate-limit";
 import { requireAuth, verifyToken, csrfProtection, type AuthenticatedRequest } from "@artificio/auth";
 import { getDb } from "../db/connection.js";
 import { runJob, jobState } from "./jobs.js";
@@ -19,14 +20,28 @@ import * as Feedback from "../db/repo/feedback.js";
 const DIST = process.env.SITE_DIST || resolve(dirname(fileURLToPath(import.meta.url)), "../dist");
 
 const app = express();
+app.disable("x-powered-by");
 // CF Tunnel -> site-beta-app: confia somente no proxy interno da artificio_net.
 // Assim req.ip usa X-Forwarded-For apenas quando o hop anterior e confiavel.
 app.set("trust proxy", process.env.TRUSTED_PROXY_CIDR || "172.18.0.0/16");
 app.use(cookieParser());
-app.use(express.json({ limit: "10mb" }));
+
+// Rate-limit global (leve): conta TODAS as requests antes do CSRF, inclusive as rejeitadas.
+// Sem isso, CSRF-rejeitadas (403) nunca batem nos limiters por-rota → DoS ilimitado.
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições. Aguarde." },
+});
+app.use(globalLimiter);
+
 app.use(csrfProtection([
-  "https://artificiorpg.com",
+  new URL(process.env.PUBLIC_SITE_URL || "https://artificiorpg.com").origin,
+  "https://www.artificiorpg.com",
 ]));
+app.use(express.json({ limit: "10mb" }));
 
 // noindex no beta (R8, spec 030): X-Robots-Tag quando SITE_NOINDEX=true.
 // Prod nao define a var → header ausente → index normal.

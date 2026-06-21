@@ -55,10 +55,10 @@ function readStateReturnUrl(value: unknown, env: AccountsEnv): string {
 
 export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Express {
   const app = express();
+  app.disable("x-powered-by");
   const googleClient = createGoogleClient(env);
 
   app.set("trust proxy", env.TRUSTED_PROXY_CIDR);
-  app.use(express.json());
   app.use(cookieParser());
   app.use(csrfProtection([
     "https://artificiorpg.com",
@@ -67,6 +67,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
     "https://glossario.artificiorpg.com",
     "https://accounts.artificiorpg.com",
   ]));
+  app.use(express.json());
   app.use(
     cors({
       credentials: true,
