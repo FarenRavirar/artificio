@@ -1,4 +1,4 @@
-import { useSession, redirectToLogin, getAccountsOrigin } from "@artificio/auth/client";
+import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
 import { ThemeToggle, applyHeaderVariant, type Theme } from "@artificio/ui";
 import { useState, useRef, useEffect } from "react";
 
@@ -39,11 +39,6 @@ export function SiteHeaderIsland() {
     };
   }, [menuOpen]);
 
-  function handleSearch() {
-    const btn = document.getElementById("search-toggle");
-    if (btn) btn.click();
-  }
-
   return (
     <>
       <button
@@ -52,7 +47,6 @@ export function SiteHeaderIsland() {
         id="search-toggle"
         aria-label="Buscar"
         title="Buscar"
-        onClick={handleSearch}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <circle cx="11" cy="11" r="7" />
@@ -60,9 +54,9 @@ export function SiteHeaderIsland() {
         </svg>
       </button>
       <ThemeToggle />
-      {loading ? (
-        <span className="artificio-session-muted">Carregando</span>
-      ) : user ? (
+      {(() => {
+        if (loading) return <span className="artificio-session-muted">Carregando</span>;
+        if (user) return (
         <div className="artificio-usermenu" ref={menuRef}>
           <button
             type="button"
@@ -99,26 +93,18 @@ export function SiteHeaderIsland() {
               >
                 Perfil Artifício
               </a>
-              <a
+              <button
+                type="button"
                 role="menuitem"
                 className="artificio-usermenu-item artificio-usermenu-item-danger"
-                href={`${getAccountsOrigin()}/api/auth/logout`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  void fetch(`${getAccountsOrigin()}/api/auth/logout`, {
-                    method: "POST",
-                    credentials: "include",
-                  }).then(() => {
-                    window.location.reload();
-                  });
-                }}
+                onClick={() => logout(globalThis.location.href)}
               >
                 Sair
-              </a>
+              </button>
             </div>
           ) : null}
-        </div>
-      ) : (
+        </div>);
+        return (
         <button
           className="artificio-login-button"
           type="button"
@@ -126,7 +112,8 @@ export function SiteHeaderIsland() {
         >
           Entrar
         </button>
-      )}
+        );
+      })()}
     </>
   );
 }

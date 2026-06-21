@@ -1,21 +1,19 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { BRAND_NAME, BRAND_DOMAIN, BRAND_TAGLINE_FREE } from "../packages/config/src/brand.js";
 
 const ROOT = process.cwd();
 const SITE_FOOTER = join(ROOT, "apps/site/src/components/SiteFooter.astro");
 
 const CANONICALS: Record<string, string> = {
-  FOOTER_TAGLINE:
-    "Hub de projetos de RPG em português. Gratuito, sem anúncios, sem coleta desnecessária.",
-  FOOTER_GIFT_TEXT:
-    "Este é um presente da Artifício RPG para toda a comunidade brasileira de RPG. Compartilhe com seus grupos!",
+  FOOTER_TAGLINE: `Hub de projetos de RPG em português. ${BRAND_TAGLINE_FREE}`,
+  FOOTER_GIFT_TEXT: `Este é um presente da ${BRAND_NAME} para toda a comunidade brasileira de RPG. Compartilhe com seus grupos!`,
   FOOTER_NAV_LABEL: "Projetos",
-  FOOTER_NAV_ARIA: "Projetos do Artifício",
-  FOOTER_BRAND: "Artifício RPG",
-  FOOTER_COPYRIGHT:
-    "Artifício RPG © {year}. Todos os direitos reservados. Leitura, citação curta e compartilhamento de links são permitidos com crédito e link para a fonte. Reprodução integral, espelhamento, raspagem e uso comercial dependem de autorização prévia.",
+  FOOTER_NAV_ARIA: `Projetos do ${BRAND_NAME}`,
+  FOOTER_BRAND: BRAND_NAME,
+  FOOTER_COPYRIGHT: `${BRAND_NAME} © {year}. Todos os direitos reservados. Leitura, citação curta e compartilhamento de links são permitidos com crédito e link para a fonte. Reprodução integral, espelhamento, raspagem e uso comercial dependem de autorização prévia.`,
   FOOTER_TERMS_LABEL: "Ver termos de uso e direitos autorais",
-  FOOTER_BASE_DOMAIN: "artificiorpg.com",
+  FOOTER_BASE_DOMAIN: BRAND_DOMAIN,
 };
 
 function escapeRe(s: string): string {

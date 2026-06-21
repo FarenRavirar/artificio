@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { brandLogoNavy, brandLogoNeg, applyFavicon, ThemeIcon, resolveTheme, setTheme, useTheme, type Theme } from "@artificio/ui";
-import { useSession, getAccountsOrigin } from "@artificio/auth/client";
+import { brandLogoNavy, brandLogoNeg, applyFavicon, ThemeIcon, useTheme } from "@artificio/ui";
+import { useSession, getAccountsOrigin, logout } from "@artificio/auth/client";
 import { BRAND_TAGLINE_FREE, BRAND_ORIGIN } from "@artificio/config";
 import "./styles.css";
 
@@ -12,13 +12,9 @@ const PORTAL_URL = BRAND_ORIGIN;
 function isAllowedReturnUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    const isArtificioHost =
-      url.hostname === "artificiorpg.com" || url.hostname.endsWith(".artificiorpg.com");
-
     return (
       url.protocol === "https:" &&
-      isArtificioHost &&
-      url.origin !== window.location.origin
+      (url.hostname === "artificiorpg.com" || url.hostname.endsWith(".artificiorpg.com"))
     );
   } catch {
     return false;
@@ -26,7 +22,7 @@ function isAllowedReturnUrl(value: string): boolean {
 }
 
 function getReturnUrl() {
-  const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(globalThis.location.search);
   const value = params.get("return");
   return value && isAllowedReturnUrl(value) ? value : PORTAL_URL;
 }
@@ -36,7 +32,7 @@ function LoginView() {
   const returnUrl = getReturnUrl();
   const { theme } = useTheme();
   const logo = theme === "dark" ? brandLogoNeg : brandLogoNavy;
-  const googleUrl = new URL("/api/auth/google", window.location.origin);
+  const googleUrl = new URL("/api/auth/google", globalThis.location.origin);
   googleUrl.searchParams.set("return", returnUrl);
 
   useEffect(() => {
@@ -50,7 +46,7 @@ function LoginView() {
         });
 
         if (response.ok) {
-          window.location.replace(returnUrl);
+          globalThis.location.replace(returnUrl);
           return;
         }
       } catch {
@@ -126,19 +122,13 @@ function ContaView() {
   useEffect(() => {
     if (!loading && !user) {
       const loginUrl = new URL("/login", getAccountsOrigin());
-      loginUrl.searchParams.set("return", window.location.href);
-      window.location.replace(loginUrl.toString());
+      loginUrl.searchParams.set("return", globalThis.location.href);
+      globalThis.location.replace(loginUrl.toString());
     }
   }, [loading, user]);
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await fetch(`${getAccountsOrigin()}/api/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch { /* noop */ }
-    window.location.href = PORTAL_URL;
+  const handleLogout = useCallback(() => {
+    logout(PORTAL_URL);
   }, []);
 
   if (loading || !user) {
@@ -175,7 +165,7 @@ function ContaView() {
 
 function App() {
   const { theme, toggleTheme } = useTheme();
-  const path = window.location.pathname;
+  const path = globalThis.location.pathname;
 
   return (
     <main className="accounts-page">

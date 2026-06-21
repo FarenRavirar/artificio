@@ -14,7 +14,7 @@ export function LinksHeader() {
       showThemeToggle
       showSearch
       onSearch={() => {
-        window.location.href = "/busca";
+        globalThis.location.href = "/busca";
       }}
     />
   );

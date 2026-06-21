@@ -54,8 +54,8 @@ export function applyTheme(doc: Document = document): Theme {
 export function applyHeaderVariant(theme: Theme, doc: Document = document): void {
   const v = theme === "dark" ? "dark" : "light";
   doc.querySelectorAll(".artificio-header, .artificio-footer").forEach((el) => {
-    if (v === "dark") el.setAttribute("data-variant", "dark");
-    else el.removeAttribute("data-variant");
+    if (v === "dark") (el as HTMLElement).dataset.variant = "dark";
+    else delete (el as HTMLElement).dataset.variant;
   });
 }
 
@@ -122,7 +122,9 @@ function subscribeToTheme(cb: () => void) {
 }
 
 function getThemeSnapshot(): Theme {
-  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  const current = document.documentElement.dataset.theme;
+  if (current === "light" || current === "dark") return current;
+  return resolveTheme();
 }
 
 export function useTheme() {

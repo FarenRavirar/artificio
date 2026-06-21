@@ -4,7 +4,11 @@ import { posts } from "../lib/content";
 import { BRAND_ORIGIN, BRAND_NAME } from "@artificio/ui/static";
 
 const toDate = (s: string): Date =>
-  new Date(s.includes("/") ? s.replace(/(\d+)\/(\d+)\/(\d+)/, "$3-$1-$2") : s);
+  new Date(
+    s.includes("/")
+      ? s.replace(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, "$3-$2-$1")
+      : s,
+  );
 
 export function GET(context: APIContext) {
   return rss({

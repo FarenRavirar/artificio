@@ -1,4 +1,8 @@
-# 041 — Tasks 2: descobertas durante a execução (resolver DENTRO da spec)
+# 041 — Tasks 2: descobertas durante a execução (D-041-NN)
+
+> **Propósito:** registrar bugs, regressões, duplicações, efeitos colaterais e achados "fora de escopo" descobertos DURANTE a implementação (Fases 0-7). Cada entrada vira trabalho a fechar ANTES do PR.
+>
+> **NÃO é para revisões de bots do PR.** Revisões de bots (amazon-q, codex, coderabbit, Snyk, CodeQL, Scorecard) vão em `task-revisões.md`. Este arquivo fica congelado após o PR abrir — novas entradas só se a execução de um fix de revisão revelar algo novo.
 
 > **Regra desta spec (mantenedor 2026-06-21): nada para trás.** Tudo que a execução revelar — bug, regressão, comportamento estranho, débito tocado, achado de revisão "fora de escopo", efeito colateral de uma mudança de código — é **investigado, registrado AQUI e resolvido dentro desta spec**. Proibido empurrar para `specs/backlog.md` ou "outra spec/depois". Backlog só recebe item se o mantenedor decidir explicitamente adiar (e mesmo assim o registro de investigação fica aqui).
 >

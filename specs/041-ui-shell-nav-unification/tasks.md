@@ -211,7 +211,7 @@ Padrão: serviço com backend expõe **`/busca`** que **chama a API** e roda a q
 - **T7.5** Atualizar docs de fechamento: marcar `BL-SHELL-B13`, `D-SHELL1`, `BL-UI-THEME-REACT-HEADER-VARIANT` como resolvidos por esta spec; cruzar `BL-UI-THEME-TOGGLE-SITE-REGRESSION` e `D-PROMOTE-033-UPGRADES-REGRESSION`. Atualizar `project-state.md`. Registrar sessão. (Estes são débitos PRÉ-EXISTENTES que a spec FECHA — não confundir com a regra "nada para trás", que proíbe CRIAR débito novo no backlog a partir de descobertas da execução.)
 - **PARADA 7** — reportar tudo verde. Aguardar o mantenedor pedir **commit + PR**.
 
-> **F7 executado 2026-06-21.** T7.1: teste do espelho — "TESTE-ESPELHO" em `modules.ts` → build 15/15 ✅ → link apareceu em site (HTML estático), links, mesas, glossario, accounts sem editar nenhum app → revertido. T7.2: build 15/15 ✅. Grep: zero `themeBtn` manual, zero `MutationObserver`/`useSyncExternalStore` fora de `packages/ui`. T7.3: smoke build-only (runtime depende de deploy/VM). T7.4: `tasks-2.md` 13 descobertas, 11 corrigidas, 2 abertas (D-041-08 SiteFooter fork, D-041-09 dedup accounts — este já corrigido na F5). T7.5: `project-state.md` atualizado. Débitos fechados: `BL-SHELL-B13`, `D-SHELL1`, `BL-UI-THEME-REACT-HEADER-VARIANT`, `BL-UI-THEME-TOGGLE-SITE-REGRESSION`.
+> **F7 executado 2026-06-21.** T7.1: teste do espelho — "TESTE-ESPELHO" em `modules.ts` → build 15/15 ✅ → link apareceu em site (HTML estático), links, mesas, glossario, accounts sem editar nenhum app → revertido. T7.2: build 15/15 ✅. Grep: zero `themeBtn` manual, zero `MutationObserver`/`useSyncExternalStore` fora de `packages/ui`. T7.3: smoke build-only (runtime depende de deploy/VM). T7.4: `tasks-2.md` 14 descobertas, todas fechadas. D-041-13 (footer-content redefinia atômicos) + D-041-14 (13 hardcoded strings migradas p/ `@artificio/config`) resolvidos. T7.5: `project-state.md` atualizado. Débitos fechados: `BL-SHELL-B13`, `D-SHELL1`, `BL-UI-THEME-REACT-HEADER-VARIANT`, `BL-UI-THEME-TOGGLE-SITE-REGRESSION`.
 
 ---
 
@@ -221,7 +221,7 @@ Padrão: serviço com backend expõe **`/busca`** que **chama a API** e roda a q
 
 - **T8.1** Quando o mantenedor disser "commite": `git add` do escopo + commit na branch `feat/041-ui-shell-nav-unification` (mensagem Conventional Commits).
 - **T8.2** Quando disser "abra o PR": `gh pr create --base dev`. Aguardar os checks do GitHub (`lint + build + test`) rodarem.
-- **T8.3** **Revisões dos bots** (amazon-q, codex, coderabbit, Snyk, Sonar, CodeQL etc.): **NUNCA responder/reagir/resolver thread no PR** (regra pétrea). Registrar cada achado em **`task-revisões.md`** com veredicto (procede / descarta / fora de escopo) e o porquê. **Achado "fora de escopo" NÃO vai pro backlog** — investiga, registra em `tasks-2.md` e resolve dentro desta spec (nada para trás). Fixes que procedem = novo commit (com nova autorização).
+- **T8.3** **Revisões dos bots** (amazon-q, codex, coderabbit, Snyk, Sonar, CodeQL etc.): **NUNCA responder/reagir/resolver thread no PR** (regra pétrea). Registrar cada achado em **`task-revisões.md`** com veredicto (procede / descarta / fora de escopo) e o porquê. Se um fix de revisão revelar bugs NOVOS de código, esses vão em `tasks-2.md` (descobertas de execução). Fixes que procedem = novo commit (com nova autorização).
 - **T8.4 Merge só quando as revisões estiverem encerradas** (todos os achados com veredicto registrado e os que procedem aplicados) **e** o mantenedor autorizar nominalmente o merge.
 
 ---

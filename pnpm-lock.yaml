@@ -73,6 +73,9 @@ importers:
       express:
         specifier: ^5.1.0
         version: 5.2.1(supports-color@5.5.0)
+      express-rate-limit:
+        specifier: ^8.5.2
+        version: 8.5.2(express@5.2.1)
       google-auth-library:
         specifier: ^10.7.0
         version: 10.7.0(supports-color@5.5.0)
@@ -277,6 +280,9 @@ importers:
       '@artificio/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@artificio/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@artificio/media':
         specifier: workspace:*
         version: link:../../packages/media

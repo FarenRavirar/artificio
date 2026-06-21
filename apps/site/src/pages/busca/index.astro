@@ -23,7 +23,11 @@ const canonical = new URL("/busca/", Astro.site).toString();
       s.onload = function () {
         try {
           new PagefindUI({ element: "#pagefind-search" });
-        } catch (e) {}
+        } catch (error) {
+          console.error("Falha ao inicializar PagefindUI", error);
+          var host = document.getElementById("pagefind-search");
+          if (host) host.textContent = "Não foi possível carregar a busca agora.";
+        }
       };
       document.head.appendChild(s);
     }

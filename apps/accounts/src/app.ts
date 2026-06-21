@@ -1,6 +1,7 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import { rateLimit } from "express-rate-limit";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -60,6 +61,14 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   const googleClient = createGoogleClient(env);
 
   app.set("trust proxy", env.TRUSTED_PROXY_CIDR);
+  app.use(
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 200,
+      standardHeaders: true,
+      legacyHeaders: false,
+    }),
+  );
   app.use(cookieParser());
   app.use(csrfProtection([
     BRAND_ORIGIN,

@@ -13,8 +13,7 @@
 <script is:inline>
   (function () {
     var modal = document.getElementById("search-modal");
-    var toggle = document.getElementById("search-toggle");
-    if (!modal || !toggle) return;
+    if (!modal) return;
     var inited = false;
 
     function loadCss(href) {
@@ -71,9 +70,12 @@
       modal.hidden = true;
       document.body.style.overflow = "";
     }
-    toggle.addEventListener("click", open);
-    modal.addEventListener("click", function (e) {
-      if (e.target.hasAttribute("data-close")) close();
+    document.addEventListener("click", function (e) {
+      var target = e.target;
+      if (target && (target.id === "search-toggle" || target.closest("#search-toggle"))) {
+        open();
+      }
+      if (target && target.hasAttribute("data-close")) close();
     });
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && !modal.hidden) close();
