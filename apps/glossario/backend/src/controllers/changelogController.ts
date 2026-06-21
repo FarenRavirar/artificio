@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 interface ChangelogEntry {
   id: string;
@@ -23,7 +23,7 @@ export const getChangelogs = async (_req: Request, res: Response) => {
       return res.json(changelogsCache);
     }
 
-    const changelogsPath = join(__dirname, '../..', 'database', 'changelogs.json');
+    const changelogsPath = join(__dirname, '../../../database/changelogs.json');
     const raw = await readFile(changelogsPath, 'utf-8');
 
     let parsed: unknown;
@@ -40,7 +40,7 @@ export const getChangelogs = async (_req: Request, res: Response) => {
     }
 
     const published = (parsed as ChangelogEntry[])
-      .filter((entry) => entry.published && entry.id && entry.title && entry.body)
+      .filter((entry) => entry.published === true && entry.id && entry.title && entry.body && entry.created_at && !isNaN(new Date(entry.created_at).getTime()) && (entry.type === 'app' || entry.type === 'dados'))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 50);
 

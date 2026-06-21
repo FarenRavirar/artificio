@@ -17,7 +17,7 @@
 - `/busca` uniformizada em 4 apps; `/conta` no accounts; `/perfil` renomeado no glossario
 - Changelogs padronizados em JSON nos 4 apps (glossario migrado de DB)
 - Débitos fechados: `BL-SHELL-B13`, `D-SHELL1`, `BL-UI-THEME-REACT-HEADER-VARIANT`, `BL-UI-THEME-TOGGLE-SITE-REGRESSION`, `BL-GLOSSARIO-CHANGELOG-JSON`
-- 19 revisões de bots + 16 Sonar aplicados; auditoria changelog 53 ✅
+- 19 revisões de bots + 15 Sonar aplicados (17 itens, 2 agrupados); auditoria changelog 53 ✅
 
 ## Gates
 

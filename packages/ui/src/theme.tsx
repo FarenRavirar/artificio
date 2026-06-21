@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useSyncExternalStore, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 // Tema cross-subdomínio do Artifício: cookie ÚNICO `artificio_theme`
 // (Domain=.artificiorpg.com) compartilhado por todos os módulos. Este é o
@@ -88,19 +88,9 @@ export function ThemeIcon({ theme }: { theme: Theme }) {
   );
 }
 
-/** Botão de alternância de tema, autocontido (estado próprio via cookie). */
+/** Botão de alternância de tema, autocontido (usa useTheme canônico). */
 export function ThemeToggle({ className }: { className?: string }) {
-  const [theme, setThemeState] = useState<Theme>("light");
-
-  useEffect(() => {
-    setThemeState(resolveTheme());
-  }, []);
-
-  function toggle() {
-    const next: Theme = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    setThemeState(next);
-  }
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <button
@@ -108,7 +98,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       className={className ?? "artificio-theme-toggle"}
       aria-label="Alternar tema"
       title="Alternar tema"
-      onClick={toggle}
+      onClick={toggleTheme}
     >
       <ThemeIcon theme={theme} />
     </button>
@@ -127,8 +117,12 @@ function getThemeSnapshot(): Theme {
   return resolveTheme();
 }
 
+function getServerThemeSnapshot(): Theme {
+  return "light";
+}
+
 export function useTheme() {
-  const theme = useSyncExternalStore(subscribeToTheme, getThemeSnapshot);
+  const theme = useSyncExternalStore(subscribeToTheme, getThemeSnapshot, getServerThemeSnapshot);
   const toggleTheme = useCallback(() => {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);

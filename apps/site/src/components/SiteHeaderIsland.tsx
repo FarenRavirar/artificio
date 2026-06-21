@@ -1,5 +1,5 @@
 import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
-import { ThemeToggle, applyHeaderVariant, useChangelogBadge, type Theme } from "@artificio/ui";
+import { ThemeToggle, applyHeaderVariant, useChangelogBadge, useTheme } from "@artificio/ui";
 import { useState, useRef, useEffect } from "react";
 import { SiteChangelogModal } from "./SiteChangelogModal";
 
@@ -20,16 +20,16 @@ export function SiteHeaderIsland() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { hasNewUpdate, markSeen } = useChangelogBadge("site_last_seen_update", UPDATE_MARKER);
+  const { theme } = useTheme();
+
+  useEffect(() => {
+    applyHeaderVariant(theme);
+  }, [theme]);
 
   const openChangelog = () => {
     setChangelogOpen(true);
     markSeen();
   };
-
-  useEffect(() => {
-    const t = (document.documentElement.dataset.theme || "light") as Theme;
-    applyHeaderVariant(t);
-  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;

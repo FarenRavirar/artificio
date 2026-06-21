@@ -1,11 +1,20 @@
 import { Router, Request, Response } from 'express';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 const router = Router();
 
+interface ChangelogEntry {
+  id: string;
+  title: string;
+  body: string;
+  type: 'app' | 'dados';
+  published: boolean;
+  created_at: string;
+}
+
 // CORREÇÃO BE-01: Cache em memória para evitar leitura repetida do disco
-let changelogsCache: any[] | null = null;
+let changelogsCache: ChangelogEntry[] | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 60000; // 1 minuto
 
@@ -36,8 +45,8 @@ router.get('/', async (req: Request, res: Response) => {
     
     // Filtrar apenas publicados e ordenar por data
     const published = changelogs
-      .filter((log: any) => log.published && log.id && log.title && log.body)
-      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .filter((log: ChangelogEntry) => log.published === true && log.id && log.title && log.body && log.created_at && !isNaN(new Date(log.created_at).getTime()) && (log.type === 'app' || log.type === 'dados'))
+      .sort((a: ChangelogEntry, b: ChangelogEntry) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 50);
 
     // Atualizar cache

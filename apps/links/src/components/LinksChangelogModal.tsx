@@ -1,18 +1,19 @@
-import { ChangelogModal } from "@artificio/ui";
-import changelogs from "../data/changelogs.json";
-import type { ChangelogEntry } from "@artificio/ui";
+import { ChangelogModal, normalizeChangelogEntries } from "@artificio/ui";
+import rawChangelogs from "../data/changelogs.json";
 
 interface Props {
-  isOpen: boolean;
-  onClose: () => void;
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
 }
+
+const changelogs = normalizeChangelogEntries(rawChangelogs);
 
 export function LinksChangelogModal({ isOpen, onClose }: Props) {
   return (
     <ChangelogModal
       isOpen={isOpen}
       onClose={onClose}
-      changelogs={changelogs as ChangelogEntry[]}
+      changelogs={changelogs}
     />
   );
 }

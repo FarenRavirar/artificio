@@ -1,18 +1,67 @@
-import React, { useState, type ReactNode } from "react";
+import React, { useCallback, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { ChangelogEntry, ChangelogModalLabels } from "./changelog.js";
 import { DEFAULT_CHANGELOG_LABELS } from "./changelog.js";
 
+export function renderMarkdown(text: string): ReactNode {
+  const lines = text.split("\n");
+  const elements: ReactNode[] = [];
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
+    if (line.trim() === "") continue;
+
+    const spans: ReactNode[] = [];
+    let currentIndex = 0;
+    const boldRegex = /\*\*([^*]+)\*\*/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = boldRegex.exec(line)) !== null) {
+      if (match.index > currentIndex) {
+        spans.push(
+          <span key={`t-${lineIndex}-${currentIndex}`}>
+            {line.substring(currentIndex, match.index)}
+          </span>,
+        );
+      }
+      spans.push(
+        <strong key={`b-${lineIndex}-${match.index}`}>{match[1]}</strong>,
+      );
+      currentIndex = match.index + match[0].length;
+    }
+
+    if (currentIndex < line.length) {
+      spans.push(
+        <span key={`t-${lineIndex}-${currentIndex}`}>
+          {line.substring(currentIndex)}
+        </span>,
+      );
+    }
+
+    if (spans.length === 0) {
+      spans.push(<span key={`e-${lineIndex}-${line.length}`}>{line}</span>);
+    }
+
+    elements.push(
+      <div key={`l-${lineIndex}-${line.length}`} className="mb-1 last:mb-0">
+        {spans}
+      </div>,
+    );
+  }
+
+  return <>{elements}</>;
+}
+
 interface ChangelogModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  changelogs: ChangelogEntry[];
-  loading?: boolean;
-  error?: string | null;
-  onRetry?: () => void;
-  labels?: Partial<ChangelogModalLabels>;
-  renderBody?: (body: string) => ReactNode;
-  bodyTruncateAt?: number;
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly changelogs: ChangelogEntry[];
+  readonly loading?: boolean;
+  readonly error?: string | null;
+  readonly onRetry?: () => void;
+  readonly labels?: Partial<ChangelogModalLabels>;
+  readonly renderBody?: (body: string) => ReactNode;
+  readonly bodyTruncateAt?: number;
 }
 
 export function ChangelogModal({
@@ -26,23 +75,36 @@ export function ChangelogModal({
   renderBody,
   bodyTruncateAt = 300,
 }: ChangelogModalProps) {
-  const labels = { ...DEFAULT_CHANGELOG_LABELS, ...customLabels };
+  const labels: ChangelogModalLabels = {
+    typeApp: customLabels?.typeApp ?? DEFAULT_CHANGELOG_LABELS.typeApp,
+    typeDados: customLabels?.typeDados ?? DEFAULT_CHANGELOG_LABELS.typeDados,
+    title: customLabels?.title ?? DEFAULT_CHANGELOG_LABELS.title,
+    subtitle: customLabels?.subtitle ?? DEFAULT_CHANGELOG_LABELS.subtitle,
+    close: customLabels?.close ?? DEFAULT_CHANGELOG_LABELS.close,
+    loading: customLabels?.loading ?? DEFAULT_CHANGELOG_LABELS.loading,
+    empty: customLabels?.empty ?? DEFAULT_CHANGELOG_LABELS.empty,
+    errorTitle: customLabels?.errorTitle ?? DEFAULT_CHANGELOG_LABELS.errorTitle,
+    retry: customLabels?.retry ?? DEFAULT_CHANGELOG_LABELS.retry,
+    expandMore: customLabels?.expandMore ?? DEFAULT_CHANGELOG_LABELS.expandMore,
+    expandLess: customLabels?.expandLess ?? DEFAULT_CHANGELOG_LABELS.expandLess,
+  };
   const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
+  const toggleExpand = useCallback((logId: string) => {
+    setExpandedLogs((prev) => ({ ...prev, [logId]: !prev[logId] }));
+  }, []);
 
   if (!isOpen) return null;
 
-  const groupedLogs = changelogs.reduce(
-    (acc: Record<string, ChangelogEntry[]>, log) => {
-      const date = new Date(log.created_at).toLocaleDateString("pt-BR");
-      if (!acc[date]) acc[date] = [];
-      acc[date].push(log);
-      return acc;
-    },
-    {},
-  );
+  const groupedLogs: Record<string, ChangelogEntry[]> = {};
+  for (const log of changelogs) {
+    const dateObj = new Date(log.created_at);
+    if (isNaN(dateObj.getTime())) continue;
+    const date = dateObj.toLocaleDateString("pt-BR");
+    if (!groupedLogs[date]) groupedLogs[date] = [];
+    groupedLogs[date].push(log);
+  }
 
-  const bodyRenderer =
-    renderBody ?? ((text: string) => <>{text}</>);
+  const bodyRenderer = renderBody ?? renderMarkdown;
 
   const modal = (
     <div
@@ -51,6 +113,13 @@ export function ChangelogModal({
     >
       <div
         className="bg-[var(--surface)] w-full max-w-2xl max-h-[calc(100dvh-2rem)] rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-[var(--line)]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="changelog-modal-title"
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+        }}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -91,7 +160,7 @@ export function ChangelogModal({
               </svg>
             </div>
             <div>
-              <h2 className="text-xl font-black text-[var(--navy-block-fg)] uppercase tracking-tight">
+              <h2 id="changelog-modal-title" className="text-xl font-black text-[var(--navy-block-fg)] uppercase tracking-tight">
                 {labels.title}
               </h2>
               {labels.subtitle ? (
@@ -212,12 +281,7 @@ export function ChangelogModal({
 
                         {shouldTruncate ? (
                           <button
-                            onClick={() =>
-                              setExpandedLogs((prev) => ({
-                                ...prev,
-                                [log.id]: !isExpanded,
-                              }))
-                            }
+                            onClick={() => toggleExpand(log.id)}
                             className="text-[var(--artificio-brand)] text-xs font-bold mt-3 hover:underline"
                             aria-expanded={isExpanded}
                           >

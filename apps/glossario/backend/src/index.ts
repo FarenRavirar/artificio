@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import { rateLimit } from 'express-rate-limit';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes';
 import termRoutes from './routes/termRoutes';
@@ -27,6 +28,14 @@ const port = process.env.PORT || 3000;
 // Atras do nginx na artificio_net: confia somente no proxy interno definido por
 // TRUSTED_PROXY_CIDR. O nginx ja validou CF-Connecting-IP e repassa $remote_addr.
 app.set('trust proxy', process.env.TRUSTED_PROXY_CIDR || '172.18.0.0/16');
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+  }),
+);
 
 // CORS restrito: o front é servido same-origin (nginx faz proxy de /api/),
 // então só liberamos origens do próprio domínio Artifício + localhost (dev).

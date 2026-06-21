@@ -94,6 +94,6 @@ Todas as fases executadas 2026-06-21. Build 15/15 ✅ após cada fase. 14 descob
 - [x] Backlog linkado.
 - [x] F0-F9 executadas. PR #80 mergeado. Deploy beta disparado.
 - [x] Changelog cross-app centralizado e auditado.
-- [x] 20 descobertas (D-041-01 a D-041-20) todas fechadas.
+- [x] 20 descobertas (D-041-01 a D-041-19, D-041-21) todas fechadas.
 - [x] 19 revisões de bots documentadas e resolvidas.
-- [x] 16 Sonar code smells aplicados.
+- [x] 15 Sonar code smells aplicados.

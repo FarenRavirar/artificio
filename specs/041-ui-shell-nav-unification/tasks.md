@@ -224,7 +224,7 @@ Padrão: serviço com backend expõe **`/busca`** que **chama a API** e roda a q
 - **T8.3** **Revisões dos bots** (amazon-q, codex, coderabbit, Snyk, Sonar, CodeQL etc.): **NUNCA responder/reagir/resolver thread no PR** (regra pétrea). Registrar cada achado em **`task-revisões.md`** com veredicto (procede / descarta / fora de escopo) e o porquê. Se um fix de revisão revelar bugs NOVOS de código, esses vão em `tasks-2.md` (descobertas de execução). Fixes que procedem = novo commit (com nova autorização).
 - **T8.4 Merge só quando as revisões estiverem encerradas** (todos os achados com veredicto registrado e os que procedem aplicados) **e** o mantenedor autorizar nominalmente o merge.
 
-> **F8 executado 2026-06-21.** PR #80 aberto para `dev`. 4 commits: `ba2b647` (feat inicial), `b1c5fa0` (31 correções de revisão: 15 reviews + 16 Sonar), `632604e` (CodeQL #16-#17 + EventTarget #18 + catch #19), `(próximo)` (changelog centralizado). Merge `8981c84` em `origin/dev`. Deploy beta disparado para site/glossario/mesas (accounts/links PROD-only). 19 achados de revisão documentados, 16 Sonar aplicados. 53 itens de auditoria changelog verificados. 15/15 FULL TURBO ✅.
+> **F8 executado 2026-06-21.** PR #80 aberto para `dev`. 4 commits: `ba2b647` (feat inicial), `b1c5fa0` (31 correções de revisão: 15 reviews + 15 Sonar), `632604e` (CodeQL #16-#17 + EventTarget #18 + catch #19), `(próximo)` (changelog centralizado). Merge `8981c84` em `origin/dev`. Deploy beta disparado para site/glossario/mesas (accounts/links PROD-only). 19 achados de revisão documentados, 15 Sonar aplicados (17 itens, S10+S11 e S23+S24 agrupados). 53 itens de auditoria changelog verificados. 15/15 FULL TURBO ✅.
 
 ---
 
@@ -241,7 +241,7 @@ Padrão: serviço com backend expõe **`/busca`** que **chama a API** e roda a q
 - **T9.7** Auditoria completa do sistema changelog. Corrigir bug: `AbortController` sem `signal` no fetch do mesas. Registrar débitos cosméticos.
 - **T9.TESTE** `pnpm run build` 15/15 ✅.
 
-> **F9 executado 2026-06-21.** T9.1-T9.7 concluídos. 4 changelogs.json padronizados. BL-GLOSSARIO-CHANGELOG-JSON fechado. ~500 linhas duplicadas eliminadas via `<ChangelogModal>` compartilhado. Auditoria: 53 ✅, 1 🛑 corrigido (AbortController signal), 6 ⚠️ cosméticos. Débito BL-GLOSSARIO-CHANGELOG-CLEANUP aberto para dropar tabela `update_log` pós-deploy.
+> **F9 executado 2026-06-21.** T9.1-T9.7 concluídos (D-041-16 a D-041-19, D-041-21). 4 changelogs.json padronizados. BL-GLOSSARIO-CHANGELOG-JSON fechado. ~500 linhas duplicadas eliminadas via `<ChangelogModal>` compartilhado. Auditoria: 53 ✅, 1 🛑 corrigido (AbortController signal), 6 ⚠️ cosméticos. D-041-21 (useTheme SSR no links) descoberto durante T9.7. Débito BL-GLOSSARIO-CHANGELOG-CLEANUP aberto para dropar tabela `update_log` pós-deploy.
 
 ---
 
