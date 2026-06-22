@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { Button } from "@artificio/ui";
 
 // REASONS é constante interna (hardcoded, tipada, não payload externo).
@@ -42,6 +42,7 @@ export default function ReportButton({ slug, groupName }: Props) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [undo, setUndo] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function closeModal() {
@@ -49,6 +50,7 @@ export default function ReportButton({ slug, groupName }: Props) {
     setReason("");
     setNote("");
     setDone(false);
+    setUndo(false);
     setError(null);
   }
 
@@ -73,6 +75,7 @@ export default function ReportButton({ slug, groupName }: Props) {
         return;
       }
       setDone(true);
+      setUndo(true);
     } catch {
       setError("Falha de rede. Tente novamente.");
     } finally {
@@ -80,18 +83,43 @@ export default function ReportButton({ slug, groupName }: Props) {
     }
   }
 
+  async function onUndo() {
+    setBusy(true);
+    setError(null);
+    try {
+      const headers: Record<string, string> = {};
+      const token = getXsrfToken();
+      if (token) headers["x-xsrf-token"] = token;
+      const res = await fetch(`/api/groups/${encodeURIComponent(slug)}/report`, {
+        method: "DELETE",
+        headers,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      closeModal();
+    } catch {
+      setError("Não foi possível desfazer.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!undo) return;
+    const timer = setTimeout(() => setUndo(false), 5000);
+    return () => clearTimeout(timer);
+  }, [undo]);
+
   return (
-    <span style={{ position: "relative" }}>
-      <span
-        role="button"
-        tabIndex={0}
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(true); } }}
-        style={{ fontSize: "0.8rem", color: "var(--artificio-brand, #FF5722)", cursor: "pointer", userSelect: "none" }}
+    <>
+      <button
+        type="button"
+        className="report-trigger"
+        onClick={(e) => { e.preventDefault(); setOpen(true); }}
         title="Reportar grupo"
       >
         Reportar
-      </span>
+      </button>
 
       {open && (
         <div
@@ -126,7 +154,12 @@ export default function ReportButton({ slug, groupName }: Props) {
                 <p style={{ fontSize: "0.9rem", margin: 0 }}>
                   Obrigado! A moderação vai analisar.
                 </p>
-                <div style={{ marginTop: "1rem" }}>
+                <div style={{ marginTop: "1rem", display: "flex", gap: ".5rem", justifyContent: "flex-end" }}>
+                  {undo && (
+                    <Button variant="danger" onClick={onUndo} disabled={busy}>
+                      {busy ? "Desfazendo…" : "Desfazer"}
+                    </Button>
+                  )}
                   <Button variant="secondary" onClick={closeModal}>
                     Fechar
                   </Button>
@@ -200,6 +233,6 @@ export default function ReportButton({ slug, groupName }: Props) {
           </div>
         </div>
       )}
-    </span>
+    </>
   );
 }

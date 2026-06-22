@@ -55,7 +55,7 @@ export function LinksSearch() {
   return (
     <div>
       <div className="relative mb-6">
-        <svg className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <svg className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--faint)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.3-4.3" />
         </svg>
@@ -64,16 +64,16 @@ export function LinksSearch() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar grupos..."
-          className="w-full rounded-lg border border-white/10 bg-[#0F1A2E] py-3 pl-10 pr-4 text-sm outline-none transition-colors focus:border-[#FF5722]"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] py-3 pl-10 pr-4 text-sm text-[var(--text)] outline-none transition-colors focus:border-[var(--brand)]"
           autoFocus
         />
       </div>
 
       {(() => {
-        if (loading) return <p className="text-white/50">Carregando grupos...</p>;
+        if (loading) return <p className="text-[var(--muted)]">Carregando grupos...</p>;
         if (error) return <p className="text-red-400">Erro ao carregar grupos. Tente novamente.</p>;
         if (filtered.length === 0) return (
-          <p className="text-white/50">
+          <p className="text-[var(--muted)]">
             {query ? `Nenhum grupo encontrado para "${query}".` : "Nenhum grupo disponível."}
           </p>
         );
@@ -83,11 +83,11 @@ export function LinksSearch() {
               <li key={g.slug}>
                 <a
                   href={`/grupo/${g.slug}`}
-                  className="block rounded-lg border border-white/10 bg-[#10203a]/80 p-4 transition-colors hover:border-[#FF5722]/30"
+                  className="block rounded-lg border border-[var(--border)] bg-[var(--surface)]/80 p-4 transition-colors hover:border-[var(--brand)]/30"
                 >
-                  <span className="font-semibold text-white">{g.name}</span>
+                  <span className="font-semibold text-[var(--text)]">{g.name}</span>
                   {g.description ? (
-                    <p className="mt-1 text-sm text-white/50 line-clamp-2">{g.description}</p>
+                    <p className="mt-1 text-sm text-[var(--muted)] line-clamp-2">{g.description}</p>
                   ) : null}
                 </a>
               </li>

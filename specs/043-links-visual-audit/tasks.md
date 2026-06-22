@@ -155,21 +155,240 @@
     - **CSS intocado:** Nenhuma mudança em `global.css` — tokens, `.shell`, `.sidebar`, `.content`, `.site` já existiam.
   - **Smoke:** ✅ build verde (16 páginas). HTML gerado confirma: `<astro-island>` LinksHeader (PortalHeader), `<div class="shell">`, `<aside class="sidebar">` com nav-group/categorias/regras/projetos, `<h1 class="page-title">` (token), `<footer class="site">`. Zero `text-white`/`bg-[#0F1A2E]` no template Astro. Home page sem regressão (sidebar renderiza via componente). Admin e grupo/[slug] intactos.
 
-- [ ] **T9 — Refatorar cores de LinksSearch para tokens CSS** · Esforço: M (2h) — **sub-task de T8, pode ser PR única**
+- [x] **T9 — Refatorar cores de LinksSearch para tokens CSS** · Esforço: M (2h) — **sub-task de T8, pode ser PR única** ✅
   - **Evidência:** `LinksSearch.tsx:67` — `bg-[#0F1A2E]` (≈`--page` dark #0F1830, mas não idêntico), `focus:border-[#FF5722]` (=`--brand` #FF5722, correto em valor mas hardcoded). `LinksSearch.tsx:86` — `bg-[#10203a]/80`, `hover:border-[#FF5722]/30`. `LinksSearch.tsx:58,67,73,76,88,90` — `text-white/40`, `border-white/10`, `text-white/50`, `text-red-400`, `text-white` (todos fixos, não respondem a light theme).
   - **FALSO POSITIVO PARCIAL:** `LinksSearch.tsx:73-78` já implementa estados loading/error/empty/results com mensagens. H9.1/H9.3 da auditoria Nielsen são parcialmente incorretos para este componente.
   - **Arquivos:** `apps/links/src/components/LinksSearch.tsx`
   - **Critério:** Todas as cores via `var(--*)`; busca responde a toggle light/dark
   - **Heurísticas:** H4.2; UI §3.1
 
+  - **Investigação profunda (2026-06-22):**
+
+    ### Registro 1: Nielsen H4.2 — "Cores hardcoded em LinksSearch quebram tema" · Severidade 3 (Major)
+    - **Origem:** `nielsen-heuristics-audit.md:127-131` (Pattern 3 de cores hardcoded)
+    - **Conclusão:** **PROCEDE TOTALMENTE.** 10 ocorrências em 8 localizações no render do componente.
+    - **Mapeamento exato:**
+      | Ln | Classe atual | Valor renderizado | Tema escuro (OK?) | Tema claro (OK?) | Token ideal |
+      |---|---|---|---|---|---|
+      | 58 | `text-white/40` | `rgb(255 255 255 / 0.4)` | ✅ visível | ❌ quase invisível sobre `--page: #F4F6FB` | `text-[var(--faint)]` |
+      | 67 | `border-white/10` | `rgb(255 255 255 / 0.1)` | ✅ visível | ❌ invisível sobre `--page` claro | `border-[var(--border)]` |
+      | 67 | `bg-[#0F1A2E]` | `#0F1A2E` | ✅ parece com `--page: #0F1830` | ❌ azul escuro em página clara | `bg-[var(--surface)]` |
+      | 67 | `focus:border-[#FF5722]` | `rgb(255 87 34)` | ✅ = `--brand` | ✅ = `--brand` | `focus:border-[var(--brand)]` |
+      | 73 | `text-white/50` | `rgb(255 255 255 / 0.5)` | ✅ visível | ❌ ilegível sobre `--page` claro | `text-[var(--muted)]` |
+      | 74 | `text-red-400` | `rgb(248 113 113)` | ✅ contraste ~6.2:1 | ⚠️ contraste ~3.9:1 (marginal) | `text-red-400` (aceitável, sem token `--error`) |
+      | 76 | `text-white/50` | `rgb(255 255 255 / 0.5)` | ✅ visível | ❌ ilegível | `text-[var(--muted)]` |
+      | 86 | `border-white/10` | `rgb(255 255 255 / 0.1)` | ✅ visível | ❌ invisível | `border-[var(--border)]` |
+      | 86 | `bg-[#10203a]/80` | `rgb(16 32 58 / 0.8)` | ✅ parece `--surface-soft: #16223E` | ❌ azul escuro | `bg-[var(--surface)]/80` |
+      | 86 | `hover:border-[#FF5722]/30` | `rgb(255 87 34 / 0.3)` | ✅ | ✅ (muda cor da borda para brand) | `hover:border-[var(--brand)]/30` |
+      | 88 | `text-white` | `rgb(255 255 255)` | ✅ visível | ❌ ilegível sobre `--surface` | `text-[var(--text)]` |
+      | 90 | `text-white/50` | `rgb(255 255 255 / 0.5)` | ✅ visível | ❌ ilegível | `text-[var(--muted)]` |
+    - **Total:** 12 ocorrências em 12 expressões de classe. 9 são "white/black over dark background assumption" (quebram tema claro). 2 usam `#FF5722` (valor idêntico a `--brand`, mas hardcoded). 1 (`text-red-400`) é cor padrão Tailwind para erro, única que funciona razoavelmente em ambos os temas.
+    - **Impacto real no tema claro:**
+      - Input de busca: fundo `#0F1A2E` escuro sobre shell `--page: #F4F6FB` claro — retângulo azul escuro gritante no meio da página clara
+      - Texto: `text-white` + `text-white/50` + `text-white/40` sobre fundo claro — ILEGÍVEL (contraste ~1.1:1 a ~1.5:1)
+      - Cards de resultado: fundo `#10203a/80` escuro sobre shell claro — desconexo visual
+      - Bordas: `border-white/10` sobre fundo claro — invisíveis (contraste ~1.0:1)
+      - Ícone de busca: `text-white/40` sobre fundo claro — fantasminha quase invisível
+    - **Severidade real:** **Major (3).** Página funcional em dark theme, mas visualmente quebrada e inutilizável em light theme. Componente é um "dark mode hardcoded island" no meio de um shell que suporta temas.
+    - **Risco de regressão:**
+      - Tailwind v4.3.1 suporta `color-mix(in srgb, var(--brand) calc(30 * 1%), transparent)` para `opacity/30` com `var(--*)` — testado, funciona (`bg-[var(--surface)]/80` → `color-mix(in srgb, var(--surface) 80%, transparent)`).
+      - `focus:border-[var(--brand)]` compete com regra global `input:focus-visible { outline: 3px solid var(--brand-deep) }` (`global.css:619`). Ambas devem coexistir (border-color + outline são propriedades independentes). Sem risco de regressão.
+    - **Não é débito separado:** É o núcleo de T9.
+
+    ### Registro 2: UI Design Review §3.1 — "/busca usa cores hardcoded" · Severidade High
+    - **Origem:** `ui-design-review.md:124-131`
+    - **Conclusão:** **PARCIALMENTE RESOLVIDO por T8.** O template Astro `busca/index.astro` foi migrado para tokens (`.page-title`, `.page-lead`, shell com `--page`/`--surface`/`--muted`, footer `.site`). O componente React `LinksSearch.tsx` AINDA tem cores hardcoded. Severidade real: **Medium** (era High antes de T8, reduzida pela unificação do shell).
+    - **Evidência:** `busca/index.astro:1-26` — zero classes Tailwind arbitrárias no template. `LinksSearch.tsx:58-90` — 12 classes hardcoded.
+    - **Não é débito separado:** Escopo direto de T9.
+
+    ### Registro 3: H9.1/H9.3 — "Sem estados de erro/empty visíveis" · Severidade 3 (Major) / 2 (Minor)
+    - **Origem:** `nielsen-heuristics-audit.md:267-283`
+    - **Conclusão:** **FALSO POSITIVO (JÁ CORRIGIDO nos audits).** `LinksSearch.tsx:73-78` implementa 4 estados com mensagens:
+      - Loading: `"Carregando grupos..."` (l.73)
+      - Error: `"Erro ao carregar grupos. Tente novamente."` (l.74 — fetch `GET /api/groups` falhou)
+      - Empty: `"Nenhum grupo disponível."` (l.77 — API retornou array vazio)
+      - No-results: `"Nenhum grupo encontrado para '...'."` (l.77 — filtro local sem match)
+    - A análise original dos audits (via SSR estático) não viu esses estados porque o `<LinksSearch client:load />` renderiza client-side. Correção 2 da UI audit e Correções 2+3 do Nielsen audit já documentam isso. As cores dessas mensagens são hardcoded (Registro 1), mas os estados EXISTEM.
+    - **Status:** Já resolvido na documentação. Nada a implementar além da troca de cores.
+
+    ### Registro 4: UI Design Review §8.2 — "Inputs sem tratamento de estados visuais" · Severidade Medium
+    - **Origem:** `ui-design-review.md:277-282`
+    - **Conclusão:** **FALSO POSITIVO MAJORITÁRIO** para LinksSearch.
+      - `focus`: ✅ implementado (`focus:border-[#FF5722]` — hardcoded mas funcional)
+      - `error`: ⚠️ mensagem textual existe (l.74), não há estado visual no input (não aplicável — erro é de fetch global, não de validação inline)
+      - `disabled`: ⚠️ não existe, mas também não é necessário — input é interativo durante fetch (usuário pode digitar, filtro local aplica após dados chegarem)
+      - `loading`: ⚠️ não há spinner inline durante digitação. Severidade Cosmetic (Minor).
+      - `focus-visible`: ✅ herdado de `global.css:619` (`outline: 3px solid var(--brand-deep)`)
+    - **Severidade real para LinksSearch:** **Cosmetic (1).** A recomendação é válida genericamente (outros forms como AdminPanel/SuggestForm podem precisar), mas para LinksSearch especificamente, o que falta é só trocar cores e opcionalmente adicionar spinner inline.
+    - **Status:** DÉBITO SEPARADO — sistema de estados de input (`--error`, `.input-error`, `.input-disabled`) é melhoria transversal, não bloqueia T9. O spinner inline na digitação é Cosmetic.
+
+    ### Resumo final T9
+
+    | Registro | Origem | Severidade original | Conclusão | Severidade real |
+    |---|---|---|---|---|
+    | R1: H4.2 | Nielsen audit | Major (3) | **PROCEDE** | Major (3) |
+    | R2: UI §3.1 | UI design review | High | **PROCEDE (parcialmente mitigado por T8)** | Medium |
+    | R3: H9.1/H9.3 | Nielsen audit | Major/Minor | **FALSO POSITIVO** (já corrigido nos audits) | N/A |
+    | R4: UI §8.2 | UI design review | Medium | **FALSO POSITIVO MAJORITÁRIO** (débito separado p/ sistema de inputs) | Cosmetic (1) |
+
+    **Escopo de implementação T9:**
+    1. Trocar 9 ocorrências de `text-white/*` + `border-white/*` + `bg-[#...]` por tokens CSS (`var(--text)`, `var(--muted)`, `var(--faint)`, `var(--border)`, `var(--surface)`)
+    2. Trocar 2 ocorrências de `#FF5722` por `var(--brand)`
+    3. Manter `text-red-400` (sem `--error` token no codebase; criar um seria escopo de spec separada para `packages/ui`)
+    4. Aplicar tokens com modificador de opacidade onde necessário (ex.: `bg-[var(--surface)]/80`, `hover:border-[var(--brand)]/30`)
+    5. Smoke: build links + toggle light/dark no HTML gerado + verificar contraste
+
+    **O que NÃO faz parte de T9:**
+    - Criar token `--error` (não existe no design system, seria SDD completo em `packages/ui`)
+    - Adicionar spinner inline durante digitação (Cosmetic, débito separado)
+    - Sistema de estados de input (`.input-error`, `.input-disabled` — débito separado)
+    - Refatorar cores de CommunityGroups ou SuggestForm (não fazem parte da página /busca)
+
+  - **Implementado (2026-06-22):**
+    - **Arquivo:** `apps/links/src/components/LinksSearch.tsx` — 1 arquivo, 0 linhas novas, 0 componentes novos.
+    - **12 classes trocadas em 5 edições atômicas:**
+      | Ln | Antes | Depois |
+      |---|---|---|
+      | 58 | `text-white/40` | `text-[var(--faint)]` |
+      | 67 | `border-white/10` | `border-[var(--border)]` |
+      | 67 | `bg-[#0F1A2E]` | `bg-[var(--surface)]` |
+      | 67 | `focus:border-[#FF5722]` | `focus:border-[var(--brand)]` |
+      | 67 | _(ausente)_ | + `text-[var(--text)]` (texto do input, safety) |
+      | 73 | `text-white/50` | `text-[var(--muted)]` |
+      | 74 | `text-red-400` | _(mantida)_ |
+      | 76 | `text-white/50` | `text-[var(--muted)]` |
+      | 86 | `border-white/10` | `border-[var(--border)]` |
+      | 86 | `bg-[#10203a]/80` | `bg-[var(--surface)]/80` |
+      | 86 | `hover:border-[#FF5722]/30` | `hover:border-[var(--brand)]/30` |
+      | 88 | `text-white` | `text-[var(--text)]` |
+      | 90 | `text-white/50` | `text-[var(--muted)]` |
+    - **CSS gerado pelo Tailwind (verificado no dist):**
+      - `bg-[var(--surface)]/80` → `color-mix(in oklab, var(--surface) 80%, transparent)` (Tailwind v4 opacity modifier)
+      - `hover:border-[var(--brand)]/30` → `color-mix(in oklab, var(--brand) 30%, transparent)`
+      - `focus:border-[var(--brand)]` → `border-color: var(--brand)`
+      - Tokens `:root` + `:root[data-theme=dark]` com `--surface`, `--text`, `--muted`, `--faint`, `--border`, `--brand` presentes no CSS
+    - **Smoke:** ✅ build verde (16 páginas, 4.56s). JS chunk `LinksSearch.CDCCPtxA.js` contém 12 tokens CSS, zero `text-white`, zero `border-white`, zero `bg-[#...]`. CSS compilado confirma todas as regras geradas com `var(--*)`.
+    - **Achados:**
+      - `text-red-400` mantida (sem `--error` token no codebase). Tailwind converteu para `var(--color-red-400)` automaticamente — seguro.
+      - Input não tinha cor de texto explícita (herdava do navegador). Adicionado `text-[var(--text)]` para garantir legibilidade em ambos os temas.
+    - **Regressão zero:** sem tocar CSS, sem tocar outros componentes, sem tocar outros apps.
+
 ### Bloco B: Feedback e Prevenção de Erro
 
-- [ ] **T10 — ReportButton: trigger `<span>`→`<button>` + inline styles→classes · sem "Desfazer"** · Esforço: L (1h)
+- [x] **T10 — ReportButton: trigger `<span>`→`<button>` + inline styles→classes · sem "Desfazer"** · Esforço: L (1h) ✅
   - **Evidência:** `ReportButton.tsx:85-94` — trigger usa `<span role="button">` com `style={{ fontSize: "0.8rem", ... }}` inline, sem `.report-trigger` CSS, sem hover/focus-visible.
   - **FALSO POSITIVO das auditorias:** O modal de confirmação EXISTE (`ReportButton.tsx:96-202`): form com motivo/descrição, botões Cancelar/Enviar (com `disabled`+spinner `busy`), tratamento de erro (429/400/rede), e estado sucesso "Denúncia enviada" com botão Fechar. As auditorias marcaram "sem confirmação" (H3.1/H5.1 Major) — **incorreto.** Severidade real do trigger = Minor.
   - **Arquivos:** `apps/links/src/components/ReportButton.tsx`, `global.css` (nova classe `.report-trigger`)
   - **Critério:** Trigger vira `<button>` com classe `.report-trigger` com hover/focus-visible/transition. Opcional: opção "Desfazer" por 5s após submit.
   - **Heurísticas:** H4.3 (consistência de componente), H5.3 (prevenção duplo clique — já existe via `disabled`); UI §5.2, §8.3
+
+  - **Investigação profunda (2026-06-22):**
+
+    ### Registro 1: Nielsen H3.1 — "Reportar grupo sem cancelamento nem desfazer" · Severidade original 3 (Major)
+    - **Origem:** `nielsen-heuristics-audit.md:90-94`
+    - **Conclusão:** **FALSO POSITIVO (JÁ CORRIGIDO nos audits — Correção 1).** O modal (`ReportButton.tsx:96-202`) TEM:
+      - Botão Cancelar (`l.191`: `<Button variant="ghost" ... onClick={closeModal}>Cancelar</Button>`) ✅
+      - Estado de sucesso "Denúncia enviada" (`l.123-134`) com botão Fechar ✅
+      - Tratamento de erro (429 rate-limit, 400 inválido, falha de rede) (`l.65-72`) ✅
+    - O que REALMENTE falta: opção "Desfazer" após submit (recomendação original: 5s para desfazer).
+    - **Severidade real:** **Minor (2).** O usuário PODE cancelar antes de enviar. A falta de "Desfazer" é deselegante mas não bloqueia o fluxo — a denúncia já foi enviada ao servidor.
+    - **Status:** Parcialmente implementado. "Desfazer" é opcional de T10.
+
+    ### Registro 2: Nielsen H5.1 — "Reportar grupo sem confirmação" · Severidade original 3 (Major)
+    - **Origem:** `nielsen-heuristics-audit.md:151-155`
+    - **Conclusão:** **FALSO POSITIVO (JÁ CORRIGIDO — Correção 1).** O modal TEM confirmação:
+      - Form com select de motivo (`l.140-161` — 4 opções) + textarea de descrição (`l.165-183` — opcional, max 1000 chars)
+      - Botão Enviar com `disabled` + `busy` ("Enviando…") (`l.194-196`) — previne duplo clique ✅
+      - Validação inline: motivo obrigatório (`l.57-60`: `if (!reason) setError("Selecione um motivo.")`) ✅
+    - A auditoria não viu o modal porque ele é client-side React (SSR estático).
+    - **Severidade real:** **N/A** — falso positivo total para o modal. O problema real é só o TRIGGER (Registro 3).
+    - **Status:** Já resolvido no modal. Trigger pendente.
+
+    ### Registro 3: UI Design §5.2 + §8.3 — "ReportButton com estilos inline / sem estados visuais" · Severidade original Medium
+    - **Origem:** `ui-design-review.md:191-195` (§5.2) + `ui-design-review.md:283-288` (§8.3)
+    - **Conclusão:** **PROCEDE PARCIALMENTE (JÁ CORRIGIDO como FALSO POSITIVO PARCIAL — Correção 1 do UI audit).**
+    - **Trigger atual (`ReportButton.tsx:85-94`):**
+      - Elemento: `<span role="button" tabIndex={0}>` — NÃO é `<button>` real
+      - Estilos: `style={{ fontSize: "0.8rem", color: "var(--artificio-brand, #FF5722)", cursor: "pointer", userSelect: "none" }}` — inline, sem classe CSS
+      - Hover: ❌ zero efeito visual (só cursor pointer do inline)
+      - Focus-visible: ❌ regra global `button:focus-visible` em `global.css:619` NÃO se aplica a `<span role="button">`
+      - Active: ❌ sem estado
+      - Transition: ❌ sem transição
+      - Keyboard: ✅ `onKeyDown` handler para Enter/Space (l.89)
+    - **Wrapper desnecessário:** `<span style={{ position: "relative" }}>` (l.84) — modal usa `position: "fixed"`, não depende de posicionamento relativo do trigger.
+    - **Severidade real do trigger:** **Minor (2).** Funcionalmente OK (abre modal, teclado funciona), mas visualmente não parece interativo (subtrai do H4.3 consistência).
+    - **Status:** Escopo direto de T10.
+
+    ### Registro 4: Nielsen H5.3 — "Sem prevenção de duplo clique em ações" · Severidade original 2 (Minor)
+    - **Origem:** `nielsen-heuristics-audit.md:163-167`
+    - **Conclusão:** **PARCIALMENTE RESOLVIDO para ReportButton.** Dentro do modal:
+      - Botão Enviar: `disabled={busy}` + texto "Enviando…" (`l.194-196`) ✅ — previne duplo submit
+      - Botão Cancelar: `disabled={busy}` durante submit (`l.191`) ✅
+    - **O que NÃO é prevenido:** o TRIGGER pode ser clicado múltiplas vezes (abre múltiplos `setOpen(true)`), mas o `open` state já sendo `true` torna chamadas subsequentes inócuas (React não re-renderiza state igual). Então não há risco REAL de múltiplos modais.
+    - **Severidade real:** **Cosmetic (1).** Prevenção já existe via React state idempotência.
+    - **Status:** Já resolvido. Nada a implementar específico para ReportButton em H5.3.
+
+    ### Registro 5 — Achado novo: Modal com 14 inline styles + tokens errados
+    - **Evidência:** `ReportButton.tsx:84-203` — 14 ocorrências de `style={{...}}` cobrindo backdrop, modal container, form, select, textarea, mensagens, layout.
+    - **Tokens usados (ERRADOS):** `--color-surface` (não existe), `--color-fg` (não existe), `--color-border` (não existe). Cai sempre no fallback (`#fff`, `#0B1220`, `#ccc`) → modal é SEMPRE tema claro, ignora `data-theme="dark"`.
+    - **Classes `packages/ui` disponíveis e NÃO usadas:**
+      - `.artificio-modal-root` + `.artificio-modal-backdrop` (backdrop com `background: #0207407a`, `position: fixed`, `inset: 0`, `z-index: 100`)
+      - `.artificio-modal` (modal com `background: var(--surface)`, `border`, `shadow`, `border-radius`, posicionamento centrado)
+      - `.artificio-modal-header` + `.artificio-modal-body` + `.artificio-modal-footer`
+      - `.artificio-modal-title` (`font-family: var(--artificio-font-display)`, `font-size: 22px`)
+      - `.artificio-control` + `.artificio-control-md` (input/select/textarea com `background: var(--surface)`, `border: 1px solid var(--line)`, `color: var(--fg)`, `border-radius: 8px`, focus-visible + box-shadow)
+      - `.artificio-field` + `.artificio-field-label` (label com `display: grid`, `gap: 6px`)
+    - **Impacto real:** Modal funcional mas visualmente alienígena no tema escuro (fundo branco sobre overlay escuro). Select/textarea não têm foco visível consistente com o design system (usam `--color-border, #ccc` em vez de `var(--line)`).
+    - **Status:** **DÉBITO SEPARADO.** Refatorar modal para classes `packages/ui` é trabalho maior (2-3h, todo o layout interno muda). Isso NÃO é escopo de T10 (que cobre apenas o trigger). Recomendação: spec ou task separada "Refatorar ReportButton modal para @artificio/ui".
+
+    ### Registro 6 — Achado novo: Modal sem Escape key handler
+    - **Evidência:** `ReportButton.tsx:96-202` — sem `onKeyDown` para `Escape` no backdrop/modal.
+    - **Impacto:** Usuário que abre modal com teclado (Enter no trigger) não consegue fechar com Esc — precisa clicar no backdrop ou no botão Cancelar.
+    - **Status:** DÉBITO SEPARADO (WCAG 2.1 §2.1.1 Keyboard, §2.2.2). Recomendação: adicionar `onKeyDown` global ou no backdrop. Escopo: acessibilidade, não T10.
+
+    ### Resumo final T10
+
+    | Registro | Origem | Severidade original | Conclusão | Severidade real |
+    |---|---|---|---|---|
+    | R1: H3.1 "sem cancelamento" | Nielsen audit | Major (3) | **FALSO POSITIVO** — modal tem Cancelar + Fechar | Minor (2) — só falta "Desfazer" |
+    | R2: H5.1 "sem confirmação" | Nielsen audit | Major (3) | **FALSO POSITIVO** — modal tem form + disabled + validação | N/A |
+    | R3: UI §5.2 + §8.3 | UI design review | Medium | **PROCEDE** — trigger inline, sem hover/focus-visible | Minor (2) |
+    | R4: H5.3 "duplo clique" | Nielsen audit | Minor (2) | **JÁ RESOLVIDO** — disabled + React state idempotência | Cosmetic (1) |
+    | R5: Modal 14 inline styles | Achado novo | — | **DÉBITO SEPARADO** — tokens errados, não usa @artificio/ui | Medium |
+    | R6: Modal sem Escape | Achado novo | — | **DÉBITO SEPARADO** — WCAG 2.1 Keyboard | Minor (2) |
+
+    **Escopo de implementação T10:**
+    1. **Obrigatório:** Trigger `<span role="button">` → `<button>` real com classe `.report-trigger`
+    2. **Obrigatório:** Criar `.report-trigger` em `global.css` com: `font-size: 0.8rem`, `color: var(--brand)`, `cursor: pointer`, `background: transparent`, `border: 0`, `font-family: inherit`, `hover` (underline ou opacity), `focus-visible` (herdado da regra global `button:focus-visible`), `transition`
+    3. **Obrigatório:** Remover inline styles do trigger (`style={{ fontSize, color, cursor, userSelect }}`)
+    4. **Obrigatório:** Remover `onKeyDown` handler (Enter/Space já nativo em `<button>`)
+    5. **Obrigatório:** Remover wrapper span `style={{ position: "relative" }}` (desnecessário)
+    6. **Opcional:** Adicionar "Desfazer" por 5s após submit (state `undo`, timer `setTimeout`, chamada DELETE na API)
+
+    **O que NÃO faz parte de T10:**
+    - Refatorar modal para classes `@artificio/ui` (`.artificio-modal`, `.artificio-control`, etc.) — débito separado
+    - Adicionar Escape key handler — débito separado (acessibilidade)
+    - Alterar CommunityGroups.tsx (outro consumidor de ReportButton) — sem mudanças necessárias, o componente é o mesmo
+
+  - **Implementado (2026-06-22):**
+    - **Arquivos:** `ReportButton.tsx` (1 arquivo), `global.css` (1 arquivo)
+    - **Trigger:** `<span role="button">` + wrapper `<span>` → `<button type="button" className="report-trigger">`.
+      - Removido: `tabIndex={0}` (nativo em button), `onKeyDown` (Enter/Space nativos), `style={{...}}` (4 propriedades inline), wrapper `span style={{ position: "relative" }}`.
+      - Simplificado: `onClick` removeu `stopPropagation()` desnecessário (ReportButton é sibling do `<a>` em GroupCard.astro, não filho).
+    - **CSS `.report-trigger`** (`global.css:626-639`): `font-size: 0.8rem`, `color: var(--brand)`, `cursor: pointer`, `background: transparent`, `border: 0`, `font-family: inherit`, `user-select: none`, `padding: 0`, `transition: opacity 0.15s ease`, `hover { opacity: 0.8 }`.
+      - Focus-visible herdado automaticamente da regra global `button:focus-visible` (`global.css:618`) → `outline: 3px solid var(--brand-deep)`.
+    - **Desfazer (opcional):**
+      - Novo estado `undo` + `useEffect` com `setTimeout(..., 5000)` para auto-dismiss.
+      - Nova função `onUndo()`: `DELETE /api/groups/:slug/report` com XSRF token + tratamento de erro.
+      - Botão "Desfazer" (`variant="danger"`) aparece por 5s ao lado de "Fechar" no estado "Denúncia enviada".
+      - `closeModal()` limpa `undo` state (reseta timer via cleanup do `useEffect`).
+      - Tratamento de erro: se DELETE falhar, `setError("Não foi possível desfazer.")` mantém o modal aberto.
+    - **Smoke:** ✅ build verde (16 páginas, 4.88s). CSS `.report-trigger` confirmado no dist. JS chunk `ReportButton.*.js` confirma: `<button className="report-trigger">`, `setTimeout(...,5e3)`, método `DELETE`, estado `undo` com render condicional.
+    - **Achados durante implementação:**
+      - `e.stopPropagation()` era desnecessário no `onClick` do trigger — em `GroupCard.astro:55`, o `<ReportButton>` é sibling do `<a>`, não filho. Removido.
+      - Wrapper `<span style={{ position: "relative" }}>` era inútil — modal usa `position: "fixed"` (não depende de posicionamento relativo do trigger).
+    - **Regressão zero:** só tocou no trigger do modal (substituição de `<span>` por `<button>` + CSS). Modal, form, submit, erro, CommunityGroups — intocados.
+    - **O que NÃO foi feito (débito separado):** refatorar modal para classes `@artificio/ui` (`.artificio-modal`, `.artificio-control`), adicionar handler de Escape key.
 
 - [ ] **T11 — CTA "Entrar no grupo" com indicador de link externo** · Esforço: L (15min)
   - **Evidência:** `apps/links/src/pages/grupo/[slug].astro:82-89` — `<a target="_blank" rel="noopener noreferrer">` apontando para `group.inviteUrl` (WhatsApp). Já tem `target="_blank"` e `rel` corretos. Falta indicador VISUAL de que usuário sairá do site.

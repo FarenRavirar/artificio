@@ -622,3 +622,19 @@ textarea:focus-visible {
   outline: 3px solid var(--brand-deep);
   outline-offset: 2px;
 }
+
+/* ---- Trigger de reportar (T10) ---- */
+.report-trigger {
+  font-size: 0.8rem;
+  color: var(--brand);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  font-family: inherit;
+  user-select: none;
+  padding: 0;
+  transition: opacity 0.15s ease;
+}
+.report-trigger:hover {
+  opacity: 0.8;
+}
