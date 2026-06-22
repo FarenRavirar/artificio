@@ -1,8 +1,8 @@
 ---
 import Base from "../layouts/Base.astro";
 import PortalHeader from "../components/PortalHeader.astro";
+import Sidebar from "../components/Sidebar.astro";
 import GroupCard from "../components/GroupCard.astro";
-import { defaultNavItems } from "@artificio/ui/modules";
 import { PARTNER_CONTACT } from "../data/groups";
 import { REGRAS_INTRO, REGRAS_SECTIONS } from "../data/regras";
 import { getCategories } from "../lib/groups-source";
@@ -35,31 +35,7 @@ const jsonLd = {
 <Base title={title} description={description} jsonLd={jsonLd}>
   <PortalHeader />
   <div class="shell">
-    <aside class="sidebar">
-      <details class="nav-group" open>
-        <summary>Grupos<span class="chevron">›</span></summary>
-        <nav class="nav-sub">
-          {categories.map((c) => <a href={`#cat-${c.id}`}>{c.title}</a>)}
-        </nav>
-      </details>
-
-      <a class="nav-solo" href="#comunidade">Grupos de RPG</a>
-
-      <details class="nav-group">
-        <summary>Regras<span class="chevron">›</span></summary>
-        <nav class="nav-sub">
-          {REGRAS_SECTIONS.map((s) => <a href={`#regra-${s.id}`}>{s.title}</a>)}
-        </nav>
-      </details>
-
-      <details class="nav-group">
-        <summary>Projetos<span class="chevron">›</span></summary>
-        <nav class="nav-sub">
-          {defaultNavItems.map((item) => <a href={item.href}>{item.label}</a>)}
-        </nav>
-      </details>
-    </aside>
-
+    <Sidebar categories={categories} />
     <main class="content">
       <h1 class="page-title">Grupos de WhatsApp de RPG de Mesa</h1>
       <p class="page-lead">

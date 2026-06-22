@@ -430,3 +430,5 @@ Tailwind arbitrário em LinksSearch quebra tema e consistência visual. **Root c
 
 **Correção 3 — H9.3 "Busca sem estado sem resultados": FALSO POSITIVO.** `LinksSearch.tsx:75-78` mostra `Nenhum grupo encontrado para "${query}".` quando filtered.length === 0 e query não vazia.
 
+**Correção 4 — H1.1 "Carregando ambíguo" + H2.1 "não reflete estado real": PROCEDE, MAS SEVERIDADE REDUZIDA (3→2).** Investigação confirmou que o `<span>Carregando</span>` existe (`Header.tsx:158-159`), container já tem `aria-live="polite"`, e o texto desaparece após fetch `/me` (~200ms-2s, incluindo possível refresh 401). A severidade Major é inflada — o estado loading é funcional, só falta contexto + animação. Corrigir via T6 (texto "Verificando acesso…" + animação CSS pulse, `packages/ui`). Severidade real: Minor.
+

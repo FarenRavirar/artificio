@@ -269,6 +269,12 @@
   font-size: 14px;
 }
 
+.artificio-session-loading {
+  animation: artificio-pulse 1.4s ease-in-out infinite;
+  color: var(--artificio-muted);
+  font-size: 14px;
+}
+
 /* Ação primária = navy sólido + texto branco (AA). Laranja fica no acento/hover. */
 .artificio-login-button {
   background: var(--artificio-ink);
@@ -707,6 +713,11 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+@keyframes artificio-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
 }
 
 .artificio-badge {

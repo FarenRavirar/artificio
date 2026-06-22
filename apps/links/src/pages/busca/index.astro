@@ -1,10 +1,26 @@
 ---
 import Base from "../../layouts/Base.astro";
+import PortalHeader from "../../components/PortalHeader.astro";
+import Sidebar from "../../components/Sidebar.astro";
 import { LinksSearch } from "../../components/LinksSearch";
+import { getCategories } from "../../lib/groups-source";
+import { BRAND_ORIGIN, BRAND_TAGLINE_FREE } from "@artificio/ui/static";
+
+const categories = await getCategories();
 ---
 <Base title="Buscar Grupos — Artifício RPG" path="/busca/">
-  <main class="max-w-4xl mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold mb-6 text-white">Buscar Grupos de WhatsApp</h1>
-    <LinksSearch client:load />
-  </main>
+  <PortalHeader />
+  <div class="shell">
+    <Sidebar categories={categories} />
+    <main class="content">
+      <h1 class="page-title">Buscar Grupos de WhatsApp</h1>
+      <p class="page-lead">Encontre grupos de RPG de mesa da comunidade Artifício.</p>
+      <LinksSearch client:load />
+      <footer class="site">
+        Um presente da Artifício RPG — hub de projetos de RPG em português.
+        {BRAND_TAGLINE_FREE} ·{" "}
+        <a href={BRAND_ORIGIN}>artificiorpg.com</a>
+      </footer>
+    </main>
+  </div>
 </Base>
