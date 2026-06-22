@@ -1,0 +1,40 @@
+---
+import Base from "../layouts/Base.astro";
+import PortalHeader from "../components/PortalHeader.astro";
+import Sidebar from "../components/Sidebar.astro";
+import { LinksSearch } from "../components/LinksSearch";
+import { getCategories } from "../lib/groups-source";
+import { BRAND_ORIGIN, BRAND_TAGLINE_FREE } from "@artificio/ui/static";
+
+const categories = await getCategories();
+---
+
+<Base
+  title="Página não encontrada — Artifício RPG"
+  description="A página que você procura não existe. Volte para a home ou busque grupos de RPG."
+  noindex={true}
+>
+  <PortalHeader />
+  <div class="shell">
+    <Sidebar categories={categories} />
+    <main class="content">
+      <h1 class="page-title">Página não encontrada</h1>
+      <p class="page-lead">
+        A página que você procura não existe ou foi movida.
+        <br />
+        <a href="/" style="color:var(--brand);font-weight:700">Voltar para a home</a>
+      </p>
+
+      <p class="page-lead" style="margin-top:2rem">
+        Ou busque um grupo de RPG:
+      </p>
+      <LinksSearch client:load />
+
+      <footer class="site">
+        Um presente da Artifício RPG — hub de projetos de RPG em português.
+        {BRAND_TAGLINE_FREE} ·{" "}
+        <a href={BRAND_ORIGIN}>artificiorpg.com</a>
+      </footer>
+    </main>
+  </div>
+</Base>

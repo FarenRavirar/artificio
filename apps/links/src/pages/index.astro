@@ -37,6 +37,15 @@ const jsonLd = {
   <div class="shell">
     <Sidebar categories={categories} />
     <main class="content">
+      <div class="onboarding-banner" id="onboarding-banner">
+        <h2>Bem-vindo ao hub do Artifício RPG</h2>
+        <p>
+          Explore os grupos de WhatsApp da comunidade — conversa diária sobre
+          RPG de mesa, cenários, mestria e anúncios de mesa. Escolha um grupo
+          e participe!
+        </p>
+        <button type="button" class="onboarding-cta" id="onboarding-dismiss">Entendi</button>
+      </div>
       <h1 class="page-title">Grupos de WhatsApp de RPG de Mesa</h1>
       <p class="page-lead">
         A comunidade do Artifício RPG no WhatsApp: conversa diária sobre RPG de
@@ -91,10 +100,10 @@ const jsonLd = {
 
       {
         REGRAS_SECTIONS.map((s) => (
-          <div class="regra" id={`regra-${s.id}`}>
-            <h3>
-              {s.icon} {s.title}
-            </h3>
+          <details class="regra" id={`regra-${s.id}`}>
+            <summary>
+              {s.icon && <span set:html={s.icon} />} {s.title}
+            </summary>
             {s.intro && <p class="intro">{s.intro}</p>}
             {s.items && (
               <ul>
@@ -106,7 +115,7 @@ const jsonLd = {
                 ))}
               </ul>
             )}
-          </div>
+          </details>
         ))
       }
 
@@ -117,4 +126,20 @@ const jsonLd = {
       </footer>
     </main>
   </div>
+  <script is:inline>
+    (function () {
+      if (typeof window === "undefined") return;
+      try {
+        if (localStorage.getItem("artificio_onboarding_seen") === "1") return;
+      } catch (_) { return; }
+      var banner = document.getElementById("onboarding-banner");
+      var dismiss = document.getElementById("onboarding-dismiss");
+      if (!banner || !dismiss) return;
+      banner.classList.add("onboarding-banner--visible");
+      dismiss.addEventListener("click", function () {
+        banner.classList.remove("onboarding-banner--visible");
+        try { localStorage.setItem("artificio_onboarding_seen", "1"); } catch (_) {}
+      });
+    })();
+  </script>
 </Base>

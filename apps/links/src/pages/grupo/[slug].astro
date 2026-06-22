@@ -48,12 +48,12 @@ const jsonLd = {
       <span aria-current="page">{group.name}</span>
     </nav>
 
-    <article class={`group-detail${group.isAdult ? " group-detail-adult" : ""}`}>
+    <article id="group-detail" class={`group-detail${group.isAdult ? " group-detail-adult" : ""}`}>
       {
         group.isAdult && (
           <div class="adult-overlay">
             <p>Este grupo tem conteúdo adulto (+18)</p>
-            <button type="button">Confirmo ter 18+</button>
+            <button id="unlock-adult" type="button">Confirmo ter 18+</button>
           </div>
         )
       }
@@ -116,5 +116,27 @@ const jsonLd = {
         )
       }
     </article>
+    {
+      group.isAdult && (
+        <script is:inline>
+          (function() {
+            var el = document.getElementById('group-detail');
+            if (!el) return;
+            try {
+              if (localStorage.getItem('artificio_adult_gate') === '1') {
+                el.classList.add('group-detail-unlocked');
+              }
+            } catch (e) {}
+            var btn = document.getElementById('unlock-adult');
+            if (btn) {
+              btn.addEventListener('click', function() {
+                try { localStorage.setItem('artificio_adult_gate', '1'); } catch (e) {}
+                el.classList.add('group-detail-unlocked');
+              });
+            }
+          })();
+        </script>
+      )
+    }
   </main>
 </Base>

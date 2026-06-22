@@ -31,6 +31,11 @@ export default function CommunityGroups() {
     setAdultGate(true);
   }, []);
 
+  const hideAdult = useCallback(() => {
+    try { localStorage.removeItem("artificio_adult_gate"); } catch { /* noop */ }
+    setAdultGate(false);
+  }, []);
+
   useEffect(() => {
     const ctrl = new AbortController();
 
@@ -143,6 +148,13 @@ export default function CommunityGroups() {
           Filtro: <span className="chip chip-active">{state.tagLabel.get(selectedTag) ?? selectedTag}</span>
           <button className="chip" onClick={() => setSelectedTag(null)} type="button">
             ✕ limpar
+          </button>
+        </p>
+      )}
+      {adultGate && hasAdult && (
+        <p className="filter-bar">
+          <button className="chip" onClick={hideAdult} type="button">
+            Esconder conteúdo +18
           </button>
         </p>
       )}

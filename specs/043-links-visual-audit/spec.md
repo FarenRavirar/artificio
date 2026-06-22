@@ -1,11 +1,11 @@
 # 043 — links: auditoria visual (ui-design-review + nielsen-heuristics-audit) + shared `packages/ui`
+
 - **Módulo/Pacote:** apps/links + `packages/ui`
 - **Gate relacionado:** D (projeto links — em curso)
-- **Status:** em andamento (Fase 2 Bloco B concluído — T9+T10 implementados)
+- **Status:** em andamento — Fase 4 com 11/12 implementados (T34 ignorado, DEB-014 pendente)
 - **Sessão:** `sessoes/26-06-21_6_links_visual-audit.md`
-- **Reviews:** `reviews.md`
-- **Débitos:** `debitos.md`
-- **Escopo ampliado (2026-06-22):** T20-T22 (shared packages/ui) promovidos a prioridade máxima por decisão do mantenedor. Spec cobre tudo em um só lugar.
+- **Docs:** `tasks.md` (checklist executiva) · `debitos.md` (DEB-001 a DEB-014) · `reviews.md` (REV-001 a REV-006)
+- **Escopo ampliado (2026-06-22):** spec passou de investigação pura para implementação completa. Cobre `apps/links` + `packages/ui`. Fases 0-3 concluídas. Fase 4 com 11/12 resolvidos.
 
 ## Problema
 O módulo `links.artificiorpg.com` foi lançado recentemente (2026-06-21) e está no ar em produção. A construção foi focada em funcionalidade (catálogo de grupos, busca, reportar, admin, SSO, Cloudinary), sem uma revisão sistemática de qualidade visual e usabilidade. O CSS custom (`global.css`, 624 linhas) e os componentes React (7 ilhas) precisam de uma auditoria para identificar:
@@ -13,28 +13,41 @@ O módulo `links.artificiorpg.com` foi lançado recentemente (2026-06-21) e est�
 1. **Problemas de design visual** — tipografia, cor, espaçamento, hierarquia, consistência com a marca e com o design system (`@artificio/ui`).
 2. **Problemas de usabilidade** — heurísticas de Nielsen (visibilidade de status, controle do usuário, consistência, prevenção de erro, reconhecimento, flexibilidade, estética, recuperação de erro, ajuda).
 
-Sem essa auditoria, débitos visuais e de UX acumulam silenciosamente e viram retrabalho caro depois.
+## Status atual (2026-06-22)
+
+| Fase | Tasks | Status |
+|------|-------|--------|
+| F0 — Auditoria | T1-T4 | ✅ |
+| F1 — Shared (`packages/ui`) | T5-T7 | ✅ |
+| F2 — Local (`apps/links`) | T8-T12 | ✅ |
+| F3 — Melhorias | T15-T20 | ✅ |
+| F4 — Backlog | T30-T39 | ✅ 11/12 (T34 ignorado, DEB-014 pendente) |
+
+**Débitos:** 14 registrados em `debitos.md` — 13 resolvidos, 1 pendente (DEB-014 âncoras sidebar).
 
 ## Requisitos (numerados, testáveis)
-- **R1 — ui-design-review.** Executar a skill `ui-design-review` sobre o módulo links, cobrindo tipografia, cor, espaçamento, hierarquia, consistência, branding. Gerar relatório com achados e recomendações.
-- **R2 — nielsen-heuristics-audit.** Executar a skill `nielsen-heuristics-audit` sobre o módulo links, cobrindo as 10 heurísticas de Nielsen. Gerar relatório com achados e recomendações.
-- **R3 — Compilação de débitos.** Consolidar os achados de R1 e R2 em tarefas acionáveis no `tasks.md`, com prioridade e esforço estimado.
-- **R4 — Priorização.** Marcar o que é "fase 1" (corrigir agora, baixo esforço/alto impacto) vs "fase 2" (melhoria contínua, maior esforço).
+- **R1 — ui-design-review.** ✅ Executado — score 64/100 (C).
+- **R2 — nielsen-heuristics-audit.** ✅ Executado — score 6.2/10 (Fair).
+- **R3 — Compilação de débitos.** ✅ `tasks.md` populado + `debitos.md` com 14 débitos rastreáveis.
+- **R4 — Priorização.** ✅ Fases 0-4 executadas em ordem de prioridade.
 
 ## Critérios de aceite
-- Relatório de `ui-design-review` gerado com achados específicos por componente/tela (home, busca, grupo, admin).
-- Relatório de `nielsen-heuristics-audit` gerado com violações e recomendações por heurística.
-- `tasks.md` populado com tarefas derivadas dos achados, priorizadas (F1/F2).
-- Nenhum código alterado nesta spec — é investigação pura. Implementação = specs ou fatias futuras.
+- Relatório de `ui-design-review` gerado ✅
+- Relatório de `nielsen-heuristics-audit` gerado ✅
+- `tasks.md` populado com tarefas priorizadas ✅
+- Implementações validadas com build ✅ (17 páginas, ~4s)
+- ~~Nenhum código alterado~~ → **Escopo revisado:** implementação completa de 11/12 tarefas da Fase 4
 
 ## Fora de escopo
-- Alterar código ou CSS do links nesta spec.
+- ~~Alterar código ou CSS do links nesta spec.~~ → **Escopo revisado:** implementação autorizada para Fases 0-4.
 - Auditoria de acessibilidade (WCAG) — spec futura se necessário.
 - Auditoria de performance/Lighthouse.
-- Tocar outros apps (mesas, glossario, site, accounts).
-- Mudanças em `packages/ui` — se a auditoria encontrar débito compartilhado, registrar para spec própria.
+- Tocar outros apps (mesas, glossario, site, accounts) — exceto `packages/ui` (Fase 1).
+
+## Pendências (pós-implementação)
+- **DEB-014 / REV-001:** Âncoras da sidebar (`#cat-*`/`#regra-*`/`#comunidade`) quebram em `/busca/` e `/404.html`. Correção investigada: prefixar `/` em 3 `href` do `Sidebar.astro`. 3 caracteres. Não implementado.
 
 ## Riscos e impacto em outros módulos
-- **Nenhum risco de regressão** — spec é só investigação, sem alteração de código.
-- **Possível descoberta de débito em `packages/ui`:** confirmado — 3 débitos shared (logo base64, shimmer SSO, menu emoji). Promovidos a F1 máxima prioridade. Correções em `packages/ui` beneficiam todos os apps (links, mesas, glossario, site, accounts). Smoke cross-app obrigatório.
-- **Escopo pode crescer:** uma auditoria visual básica pode revelar problemas estruturais (ex.: shell quebrado no mobile, contraste insuficiente, cards inconsistentes com outros apps). Cada classe de problema vira tarefa ou spec derivada.
+- **Especificação original** era investigação pura, sem risco de regressão. **Escopo revisado** inclui implementação em `apps/links` + `packages/ui`.
+- **`packages/ui`:** 3 correções shared (logo base64, shimmer SSO, menu SVG). Smoke cross-app executado. Sem regressão.
+- **`apps/links`:** 12 débitos implementados. Build verde (17 páginas, ~4s). CSS cresceu de 624 para ~790 linhas (+27%). Nenhum outro app afetado.

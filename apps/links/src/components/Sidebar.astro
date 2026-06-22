@@ -8,20 +8,35 @@ interface Props {
 }
 const { categories } = Astro.props;
 ---
-<aside class="sidebar">
+<button type="button" class="sidebar-toggle" aria-label="Abrir navegação" aria-expanded="false">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+</button>
+<div class="sidebar-backdrop"></div>
+<aside class="sidebar" id="sidebar">
+  <button type="button" class="sidebar-close" aria-label="Fechar navegação">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  </button>
+
   <details class="nav-group" open>
     <summary>Grupos<span class="chevron">›</span></summary>
     <nav class="nav-sub">
-      {categories.map((c) => <a href={`#cat-${c.id}`}>{c.title}</a>)}
+      {categories.map((c) => <a href={`/#cat-${c.id}`}>{c.title}</a>)}
     </nav>
   </details>
 
-  <a class="nav-solo" href="#comunidade">Grupos de RPG</a>
+  <a class="nav-solo" href="/#comunidade">Grupos de RPG</a>
 
   <details class="nav-group">
     <summary>Regras<span class="chevron">›</span></summary>
     <nav class="nav-sub">
-      {REGRAS_SECTIONS.map((s) => <a href={`#regra-${s.id}`}>{s.title}</a>)}
+      {REGRAS_SECTIONS.map((s) => <a href={`/#regra-${s.id}`}>{s.title}</a>)}
     </nav>
   </details>
 
@@ -32,3 +47,52 @@ const { categories } = Astro.props;
     </nav>
   </details>
 </aside>
+
+<script is:inline>
+  (function () {
+    if (typeof window === "undefined") return;
+    var toggle = document.querySelector(".sidebar-toggle");
+    var sidebar = document.getElementById("sidebar");
+    var backdrop = document.querySelector(".sidebar-backdrop");
+    var closeBtn = document.querySelector(".sidebar-close");
+    if (!toggle || !sidebar || !backdrop || !closeBtn) return;
+
+    function open() {
+      document.body.classList.add("sidebar-open");
+      toggle.setAttribute("aria-expanded", "true");
+      sidebar.setAttribute("aria-hidden", "false");
+      sidebar.focus();
+    }
+    function close() {
+      document.body.classList.remove("sidebar-open");
+      toggle.setAttribute("aria-expanded", "false");
+      sidebar.setAttribute("aria-hidden", "true");
+      toggle.focus();
+    }
+
+    toggle.addEventListener("click", function (e) {
+      e.stopPropagation();
+      open();
+    });
+    closeBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      close();
+    });
+    backdrop.addEventListener("click", function () {
+      close();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && document.body.classList.contains("sidebar-open")) {
+        close();
+      }
+    });
+    // fechar ao navegar (clique em link interno)
+    sidebar.addEventListener(
+      "click",
+      function (e) {
+        if (e.target.tagName === "A") close();
+      },
+      true
+    );
+  })();
+</script>

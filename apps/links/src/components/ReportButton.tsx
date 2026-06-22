@@ -191,10 +191,7 @@ export default function ReportButton({ slug, groupName }: Props) {
         }
       >
         <span className="artificio-modal-description">
-          {error
-            ? error
-            : "Obrigado! A moderação vai analisar."
-          }
+          {error ?? "Obrigado! A moderação vai analisar."}
         </span>
       </Modal>
     </>

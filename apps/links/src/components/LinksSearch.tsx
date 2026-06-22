@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { LoadingState } from "@artificio/ui";
 
 interface Group {
@@ -14,11 +14,20 @@ function isGroup(value: unknown): value is Group {
   return typeof g.slug === "string" && typeof g.name === "string";
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  artificio: "Do Artifício RPG",
+  tematicos: "Temáticos",
+  parceiros: "Parceiros",
+  comunidade: "Comunidade",
+};
+
 export function LinksSearch() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [query, setQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -43,15 +52,24 @@ export function LinksSearch() {
       })
       .finally(() => setLoading(false));
     return () => ctrl.abort();
-  }, []);
+  }, [retryKey]);
+
+  const categoryKeys = useMemo(
+    () => [...new Set(groups.map((g) => g.category).filter(Boolean))] as string[],
+    [groups],
+  );
+
+  const byCategory = selectedCategory
+    ? groups.filter((g) => g.category === selectedCategory)
+    : groups;
 
   const filtered = query.trim()
-    ? groups.filter(
+    ? byCategory.filter(
         (g) =>
           g.name.toLowerCase().includes(query.toLowerCase()) ||
           (g.description ?? "").toLowerCase().includes(query.toLowerCase()),
       )
-    : groups;
+    : byCategory;
 
   return (
     <div>
@@ -70,12 +88,44 @@ export function LinksSearch() {
         />
       </div>
 
+      <div className="chips mb-4">
+        <button
+          type="button"
+          className={`chip ${!selectedCategory ? "chip-active" : ""}`}
+          onClick={() => setSelectedCategory(null)}
+        >
+          Todos os grupos
+        </button>
+        {categoryKeys.map((cat) => (
+          <button
+            key={cat}
+            type="button"
+            className={`chip ${selectedCategory === cat ? "chip-active" : ""}`}
+            onClick={() => setSelectedCategory(cat)}
+          >
+            {CATEGORY_LABELS[cat] ?? cat}
+          </button>
+        ))}
+      </div>
+
       {(() => {
         if (loading) return <LoadingState message="Carregando grupos..." variant="inline" />;
-        if (error) return <p className="text-[var(--state-danger-fg)]">Erro ao carregar grupos. Tente novamente.</p>;
+        if (error) return (
+          <p className="text-[var(--state-danger-fg)]">
+            Erro ao carregar grupos.{" "}
+            <button
+              onClick={() => { setError(false); setLoading(true); setRetryKey((k) => k + 1); }}
+              className="text-[var(--brand)] hover:underline"
+            >
+              Tentar novamente
+            </button>
+          </p>
+        );
         if (filtered.length === 0) return (
           <p className="text-[var(--muted)]">
-            {query ? `Nenhum grupo encontrado para "${query}".` : "Nenhum grupo disponível."}
+            {query || selectedCategory
+              ? `Nenhum grupo encontrado${query ? ` para "${query}"` : ""}${selectedCategory ? ` na categoria "${CATEGORY_LABELS[selectedCategory] ?? selectedCategory}"` : ""}.`
+              : "Nenhum grupo disponível."}
           </p>
         );
         return (
