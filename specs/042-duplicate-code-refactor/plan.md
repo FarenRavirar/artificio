@@ -1,5 +1,8 @@
 # Plano — 042
 
+- **Status:** ✅ **EM PROD** — Mergeada em `dev` (PR #83, 2026-06-21) → promovida `dev→main` → deploy prod mesas/glossario/site.
+- Commits: `af13db6` (spec inicial), `ca7b6dd` (R042-001 a R042-009), `b596755` (R042-010 a R042-013), `57429dd` (merge conflicts), `fa9b787` (merge PR #83). Runs: promote `27926641721`, prod mesas `27926664572`, glossario `27926665007`, site `27926665494`.
+
 ## Arquitetura da solução
 
 ### Fase 1: `packages/feedback` (SDD Completo)

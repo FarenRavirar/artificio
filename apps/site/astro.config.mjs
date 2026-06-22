@@ -13,6 +13,9 @@ export default defineConfig({
   markdown: { syntaxHighlight: false },
   vite: {
     plugins: [tailwindcss()],
+    build: {
+      assetsInlineLimit: 0,
+    },
   },
   security: {
     csp: {
