@@ -129,9 +129,11 @@ const jsonLd = {
   <script is:inline>
     (function () {
       if (typeof window === "undefined") return;
+      var seen = false;
       try {
-        if (localStorage.getItem("artificio_onboarding_seen") === "1") return;
-      } catch (_) { return; }
+        seen = localStorage.getItem("artificio_onboarding_seen") === "1";
+      } catch (_) {}
+      if (seen) return;
       var banner = document.getElementById("onboarding-banner");
       var dismiss = document.getElementById("onboarding-dismiss");
       if (!banner || !dismiss) return;

@@ -27,12 +27,12 @@ export default function CommunityGroups() {
   });
 
   const confirmAdult = useCallback(() => {
-    try { localStorage.setItem("artificio_adult_gate", "1"); } catch { /* noop */ }
+    try { localStorage.setItem("artificio_adult_gate", "1"); } catch (error) { console.error("[CommunityGroups] Falha ao persistir flag de conteúdo +18.", error); }
     setAdultGate(true);
   }, []);
 
   const hideAdult = useCallback(() => {
-    try { localStorage.removeItem("artificio_adult_gate"); } catch { /* noop */ }
+    try { localStorage.removeItem("artificio_adult_gate"); } catch (error) { console.error("[CommunityGroups] Falha ao limpar flag de conteúdo +18.", error); }
     setAdultGate(false);
   }, []);
 
