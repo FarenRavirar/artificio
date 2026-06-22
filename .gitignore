@@ -42,7 +42,7 @@ artificio-mesas-*.tgz
 logs/
 *.log
 tmp/
-artifacts/lighthouse/
+artifacts/
 .DS_Store
 
 # Docs internas de operação — NÃO publicar (recon de infra: containers, rotas, cofre)
@@ -57,3 +57,6 @@ opencode.json
 
 # Astro auto-generated types
 .astro/
+
+# Serena MCP (local, configs e indices nao versionados)
+.serena/
