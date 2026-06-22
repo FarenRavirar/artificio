@@ -1,6 +1,10 @@
 # 043 — links: auditoria visual (ui-design-review + nielsen-heuristics-audit) + shared `packages/ui`
 - **Módulo/Pacote:** apps/links + `packages/ui`
 - **Gate relacionado:** D (projeto links — em curso)
+- **Status:** em andamento (Fase 2 Bloco B concluído — T9+T10 implementados)
+- **Sessão:** `sessoes/26-06-21_6_links_visual-audit.md`
+- **Reviews:** `reviews.md`
+- **Débitos:** `debitos.md`
 - **Escopo ampliado (2026-06-22):** T20-T22 (shared packages/ui) promovidos a prioridade máxima por decisão do mantenedor. Spec cobre tudo em um só lugar.
 
 ## Problema

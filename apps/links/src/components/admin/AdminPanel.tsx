@@ -662,23 +662,12 @@ function ReportsSection({ groups }: { groups: Group[] }) {
     <section>
       <h2>Denúncias ({total})</h2>
       <Toolbar>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.currentTarget.value)}
-          style={{
-            padding: ".3rem .5rem",
-            borderRadius: "6px",
-            border: "1px solid var(--color-border, #ccc)",
-            background: "var(--color-surface, #fff)",
-            color: "var(--color-fg, #0B1220)",
-            fontSize: "0.85rem",
-          }}
-        >
+        <Select value={filter} onChange={(e) => setFilter(e.currentTarget.value)}>
           <option value="">Todas</option>
           <option value="open">Abertas</option>
           <option value="resolved">Resolvidas</option>
           <option value="dismissed">Dispensadas</option>
-        </select>
+        </Select>
       </Toolbar>
       {error && <ErrorState title="Erro ao carregar" message="Tente recarregar." variant="inline" />}
       {!reports && <LoadingState message="Carregando denúncias…" variant="inline" />}

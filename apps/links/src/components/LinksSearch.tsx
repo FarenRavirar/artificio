@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { LoadingState } from "@artificio/ui";
 
 interface Group {
   slug: string;
@@ -70,8 +71,8 @@ export function LinksSearch() {
       </div>
 
       {(() => {
-        if (loading) return <p className="text-[var(--muted)]">Carregando grupos...</p>;
-        if (error) return <p className="text-red-400">Erro ao carregar grupos. Tente novamente.</p>;
+        if (loading) return <LoadingState message="Carregando grupos..." variant="inline" />;
+        if (error) return <p className="text-[var(--state-danger-fg)]">Erro ao carregar grupos. Tente novamente.</p>;
         if (filtered.length === 0) return (
           <p className="text-[var(--muted)]">
             {query ? `Nenhum grupo encontrado para "${query}".` : "Nenhum grupo disponível."}
