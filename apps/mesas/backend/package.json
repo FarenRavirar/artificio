@@ -31,6 +31,7 @@
   "dependencies": {
     "@artificio/auth": "workspace:*",
     "@artificio/changelog": "workspace:*",
+    "@artificio/feedback": "workspace:*",
     "@artificio/media": "workspace:*",
     "@types/he": "^1.2.3",
     "@types/multer": "^2.1.0",

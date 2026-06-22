@@ -3,40 +3,10 @@ import { authMiddleware } from '../middleware/auth';
 import { db } from '../db';
 import { logActivity } from '../services/activityLogger';
 import { notifyAdmins } from '../services/adminNotifications';
+import { resolveActorName } from '../services/actorNameResolver';
+import { listMineHandler } from './suggestionHelpers';
 
 const router = Router();
-
-async function resolveActorName(userId: string): Promise<string> {
-  try {
-    const profile = await db
-      .selectFrom('profiles')
-      .select('display_name')
-      .where('user_id', '=', userId)
-      .executeTakeFirst();
-
-    if (profile?.display_name && profile.display_name.trim().length > 0) {
-      return profile.display_name.trim();
-    }
-
-    const user = await db
-      .selectFrom('users')
-      .select(['username', 'email'])
-      .where('id', '=', userId)
-      .executeTakeFirst();
-
-    if (user?.username && user.username.trim().length > 0) {
-      return user.username.trim();
-    }
-
-    if (user?.email) {
-      return user.email.split('@')[0];
-    }
-  } catch (error) {
-    console.error('[scenarioSuggestions][resolveActorName]', error);
-  }
-
-  return 'Usuário';
-}
 
 router.use(authMiddleware);
 
@@ -66,7 +36,7 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Você já possui 5 sugestões pendentes. Aguarde a revisão.' });
     }
 
-    const userName = await resolveActorName(userId);
+    const userName = await resolveActorName(userId, { logTag: 'scenarioSuggestions' });
 
     const newSuggestion = await db.transaction().execute(async (trx) => {
       const created = await trx
@@ -121,25 +91,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // GET /api/v1/scenario-suggestions/mine - Listar minhas sugestões
-router.get('/mine', async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'Não autenticado.' });
-    }
-
-    const suggestions = await db
-      .selectFrom('scenario_suggestions')
-      .selectAll()
-      .where('user_id', '=', userId)
-      .orderBy('created_at', 'desc')
-      .execute();
-
-    return res.json({ data: suggestions });
-  } catch (error: any) {
-    console.error('[GET /scenario-suggestions/mine]', error);
-    return res.status(500).json({ error: 'Erro ao listar sugestões.' });
-  }
-});
+router.get('/mine', (req, res) =>
+  listMineHandler({ tableName: 'scenario_suggestions', logTag: 'scenario-suggestions' }, req, res));
 
 export default router;

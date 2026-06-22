@@ -68,6 +68,7 @@
 7. **Spec 032** (analytics shared adoption)
 8. **Spec 025** (Lighthouse residual)
 9. **Spec 028** (biblioteca de mídia VM)
+10. **Spec 042** (refatoração código duplicado top 3) — **executada local 2026-06-21 (sem commit).** cpd: 5.57% → 4.60% (-411 linhas, -18 clones). `packages/feedback` criado (fonte única cross-app), `actorNameResolver` unificado (6→1), `suggestionHelpers` com 3 factory functions (reject/listAdmin/listMine). Build 16/16, testes 219/219. Aguardando commit+push+PR (aprovação nominal).
 
 ## Log
 

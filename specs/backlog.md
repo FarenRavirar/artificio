@@ -174,4 +174,5 @@
 | D-GLOS-CTA | fechado/stale | commit `652cf20` | CTA logado do glossario ja corrigido; resta so validacao visual se suspeita nova. |
 | D-CSS1 | fechado local/site-only | sessao 26-06-12_2 | Higiene local; residual compartilhado de fontes e BL-UI-B12-FONTS. |
 | D-MARCA2 | superado/absorvido | D064/spec 020 | Canonico atual e `#FF5722`, nao reabrir sem nova decisao. |
+| BL-DUPLICATE-042 | fechado (local, sem commit) | `specs/042-duplicate-code-refactor/`, `sessoes/26-06-21_5` | `packages/feedback` (novo) + `apps/mesas/backend` + `apps/glossario/backend` + `apps/site/server` | FECHADO 2026-06-21: 3 itens implementados local. cpd: 5.57% → 4.60% (-411 linhas, -18 clones). `packages/feedback` fonte única, `actorNameResolver` fonte única, `suggestionHelpers` com 3 factory functions. Build 16/16, testes 219/219. | Aguardando commit+push+PR (aprovação nominal). |
 | BL-DOCS-AUDIT-024 | fechado | `specs/024-docs-specs-backlog-audit/`, `sessoes/26-06-15_2_docs-specs-backlog-audit.md` | Auditoria documental criada e aplicada; backlog verificado e atualizado. |
