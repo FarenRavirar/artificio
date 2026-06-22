@@ -93,13 +93,13 @@ Estado loading tinha texto estático ("Carregando grupos..."), sem animação ne
 ## DEB-006 — Drawer mobile sidebar (UI §1.1)
 
 - **Origem:** T30 · **Status:** resolvido · **Severidade:** Medium
-- **Problema:** Mobile ≤760px: sidebar virava bloco estático no topo (~30-40% da tela). Sem drawer/hamburger. Após scroll, navegação inacessível.
+- **Problema:** Mobile ≤760px: sidebar virava bloco estático no topo (~30-40% da tela). Sem drawer/hambúrguer. Após scroll, navegação inacessível.
 
 ### Implementado (2026-06-22)
 
 **Arquivos:** `Sidebar.astro` (+50 linhas) + `global.css` (+78 linhas)
 
-- Botão hamburger SVG (3-linhas, `position: fixed` top-left) + backdrop escuro + botão fechar (X SVG)
+- Botão hambúrguer SVG (3-linhas, `position: fixed` top-left) + backdrop escuro + botão fechar (X SVG)
 - Script inline: toggle, backdrop click, Escape key, fecha ao navegar (clique em `<a>`)
 - Sidebar vira overlay off-canvas: `transform: translateX(-100%)` → slide in 0.2s, `z-index: 100`
 - `aria-expanded`/`aria-hidden`/`aria-label` sincronizados
@@ -311,13 +311,13 @@ html {
 1. `/busca/` — usuário digita busca, não acha grupo, clica "Grupos do Artifício" na sidebar → nada acontece. Experiência confusa.
 2. `/404.html` — usuário em URL inexistente, sidebar oferece links "Regras"/"Grupos" que levam a lugar nenhum. Agravado pelo estado de erro (usuário já perdido).
 
-**`/busca/` com sidebar não é meramente decorativo** — o usuário pode chegar via URL direta, bookmark, ou link externo. A sidebar deve prover navegação de volta à home com contexto (seção correta).
+**`/busca/` com sidebar não é meramente decorativo** — o usuário pode chegar via URL direta, marcador, ou link externo. A sidebar deve prover navegação de volta à home com contexto (seção correta).
 
 ### Recomendação
 
 Prefixar `href` com `/` em 3 locais do `Sidebar.astro`:
 
-```
+```diff
 linha 30: href={`#cat-${c.id}`}       → href={`/#cat-${c.id}`}
 linha 34: href="#comunidade"           → href="/#comunidade"
 linha 39: href={`#regra-${s.id}`}     → href={`/#regra-${s.id}`}

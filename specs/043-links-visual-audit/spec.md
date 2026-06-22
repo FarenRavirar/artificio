@@ -2,10 +2,10 @@
 
 - **Módulo/Pacote:** apps/links + `packages/ui`
 - **Gate relacionado:** D (projeto links — em curso)
-- **Status:** em andamento — Fase 4 com 11/12 implementados (T34 ignorado, DEB-014 pendente)
+- **Status:** em andamento — Fase 4 com 9/10 implementados (T34 ignorado, DEB-014 resolvido)
 - **Sessão:** `sessoes/26-06-21_6_links_visual-audit.md`
-- **Docs:** `tasks.md` (checklist executiva) · `debitos.md` (DEB-001 a DEB-014) · `reviews.md` (REV-001 a REV-006)
-- **Escopo ampliado (2026-06-22):** spec passou de investigação pura para implementação completa. Cobre `apps/links` + `packages/ui`. Fases 0-3 concluídas. Fase 4 com 11/12 resolvidos.
+- **Docs:** `tasks.md` (checklist executiva) · `debitos.md` (DEB-001 a DEB-014) · `reviews.md` (REV-001 a REV-017)
+- **Escopo ampliado (2026-06-22):** spec passou de investigação pura para implementação completa. Cobre `apps/links` + `packages/ui`. Fases 0-3 concluídas. Fase 4 com 9/10 resolvidos.
 
 ## Problema
 O módulo `links.artificiorpg.com` foi lançado recentemente (2026-06-21) e está no ar em produção. A construção foi focada em funcionalidade (catálogo de grupos, busca, reportar, admin, SSO, Cloudinary), sem uma revisão sistemática de qualidade visual e usabilidade. O CSS custom (`global.css`, 624 linhas) e os componentes React (7 ilhas) precisam de uma auditoria para identificar:
@@ -21,9 +21,9 @@ O módulo `links.artificiorpg.com` foi lançado recentemente (2026-06-21) e est�
 | F1 — Shared (`packages/ui`) | T5-T7 | ✅ |
 | F2 — Local (`apps/links`) | T8-T12 | ✅ |
 | F3 — Melhorias | T15-T20 | ✅ |
-| F4 — Backlog | T30-T39 | ✅ 11/12 (T34 ignorado, DEB-014 pendente) |
+| F4 — Backlog | T30-T39 | ✅ 9/10 (T34 ignorado) |
 
-**Débitos:** 14 registrados em `debitos.md` — 13 resolvidos, 1 pendente (DEB-014 âncoras sidebar).
+**Débitos:** 14 registrados em `debitos.md` — 14 resolvidos (DEB-014 resolvido 2026-06-22).
 
 ## Requisitos (numerados, testáveis)
 - **R1 — ui-design-review.** ✅ Executado — score 64/100 (C).

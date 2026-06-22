@@ -91,7 +91,7 @@ export function LinksSearch() {
       <div className="chips mb-4">
         <button
           type="button"
-          className={`chip ${!selectedCategory ? "chip-active" : ""}`}
+          className={`chip ${selectedCategory ? "" : "chip-active"}`}
           onClick={() => setSelectedCategory(null)}
         >
           Todos os grupos
@@ -121,13 +121,17 @@ export function LinksSearch() {
             </button>
           </p>
         );
-        if (filtered.length === 0) return (
-          <p className="text-[var(--muted)]">
-            {query || selectedCategory
-              ? `Nenhum grupo encontrado${query ? ` para "${query}"` : ""}${selectedCategory ? ` na categoria "${CATEGORY_LABELS[selectedCategory] ?? selectedCategory}"` : ""}.`
-              : "Nenhum grupo disponível."}
-          </p>
-        );
+        if (filtered.length === 0) {
+          const querySuffix = query ? ` para "${query}"` : "";
+          const categorySuffix = selectedCategory ? ` na categoria "${CATEGORY_LABELS[selectedCategory] ?? selectedCategory}"` : "";
+          return (
+            <p className="text-[var(--muted)]">
+              {query || selectedCategory
+                ? `Nenhum grupo encontrado${querySuffix}${categorySuffix}.`
+                : "Nenhum grupo disponível."}
+            </p>
+          );
+        }
         return (
           <ul className="space-y-3">
             {filtered.map((g) => (

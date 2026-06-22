@@ -1,6 +1,6 @@
 # Tasks — 043 (links: auditoria visual + shared packages/ui)
 
-> **Docs irmãos:** `debitos.md` (DEB-001 a DEB-013) · `reviews.md` (REV-001 a REV-006) · `spec.md`
+> **Docs irmãos:** `debitos.md` (DEB-001 a DEB-014) · `reviews.md` (REV-001 a REV-017) · `spec.md`
 > **Relatórios:** `ui-design-review.md` (64/100) + `nielsen-heuristics-audit.md` (6.2/10)
 
 ---
@@ -19,7 +19,7 @@
 | F1 — Shared (`packages/ui`) | T5-T7 | ~5h | ✅ concluído |
 | F2 — Local (`apps/links`) | T8-T12 | ~8h | ✅ concluído |
 | F3 — Melhorias | T15-T20 | ~5h | ✅ concluído |
-| F4 — Backlog | T30-T39 | ~12h | ✅ 12/12 resolvidos (T34 ignorado) |
+| F4 — Backlog | T30-T39 | ~12h | ✅ 9/10 resolvidos (T34 ignorado) |
 
 ---
 

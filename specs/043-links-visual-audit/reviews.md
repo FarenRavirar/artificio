@@ -10,7 +10,7 @@
 - **Branch:** `feat/043-links-visual-audit`
 - **PR:** [#84](https://github.com/FarenRavirar/artificio/pull/84)
 - **Commits:** `5b4f461` (T5), `8354af0` (T6-T8), `286c1ba` (T9-T10) + commits posteriores (DEB-001 a DEB-013)
-- **Estado:** aberto — 9 reviews (REV-001 a REV-009 todos resolvidos)
+- **Estado:** aberto — 17 reviews resolvidos (todos os 17)
 
 ---
 
@@ -27,6 +27,14 @@
 | REV-007 | coderabbit | CommunityGroups.tsx:34-36 | 🟠→🟡 Minor | `catch { /* noop */ }` no `hideAdult` — erro silencioso | **aplicado** → `console.error` no par L30+L35 | — |
 | REV-008 | coderabbit | Base.astro:109-111 | 🟡 Minor | `scrollTo({ behavior: "smooth" })` ignora `prefers-reduced-motion` | **aplicado** → JS `matchMedia` + CSS `@media reduce` | — |
 | REV-009 | coderabbit | index.astro:132-135 | 🟡 Minor | Onboarding `catch (_) { return }` aborta banner se localStorage falhar | **aplicado** → `var seen` com fallback seguro | — |
+| REV-010 | sonarcloud | LinksSearch.tsx:94 | 🟢 Low | Condição negada desnecessária `!selectedCategory ? "chip-active" : ""` | **aplicado** → `selectedCategory ? "" : "chip-active"` | — |
+| REV-011 | sonarcloud | LinksSearch.tsx:127 | 🟠 Major | Ternário aninhado no template literal (`query ? ...`) | **aplicado** → var `querySuffix` | — |
+| REV-012 | sonarcloud | LinksSearch.tsx:127 | 🟠 Major | Template literals aninhados (brain-overload) | **aplicado** → vars `querySuffix` + `categorySuffix` | — |
+| REV-013 | sonarcloud | LinksSearch.tsx:127 | 🟠 Major | Ternário aninhado no template literal (`selectedCategory ? ...`) | **aplicado** → var `categorySuffix` | — |
+| REV-014 | coderabbit | spec.md:24 + tasks.md:22 | 🟡 Minor | Inconsistência na contagem F4: spec "11/12" vs tasks "12/12" | **aplicado** → 9/10 alinhado | — |
+| REV-015 | coderabbit | tasks.md:22 | 🟡 Minor | F4 mostra "12/12 resolvidos" — T34 ignorado, DEB-014 fora da contagem | **aplicado** → 9/10 alinhado | — |
+| REV-016 | coderabbit/languagetool | spec.md:21 | 🟢 Low | "packages" é estrangeirismo (PT-BR: "pacotes") | **ignorado** — nome de diretório real `packages/` | — |
+| REV-017 | coderabbit/languagetool | tasks.md:19 | 🟢 Low | "packages" é estrangeirismo (PT-BR: "pacotes") | **ignorado** — nome de diretório real `packages/` | — |
 
 ---
 
@@ -198,11 +206,97 @@
 
 **Implementação (2026-06-22):** `var seen = false; try { seen = ... } catch {}; if (seen) return;` em `index.astro:132-134`. Build ✅ 17p, 6.28s. `var seen = false` confirmado no dist.
 
+### REV-010 — LinksSearch: condição negada desnecessária 🟢
+
+- **Origem:** sonarcloud
+- **Tipo:** check (code smell)
+- **Referência:** `apps/links/src/components/LinksSearch.tsx:94`
+- **Resumo:** Ternário `!selectedCategory ? "chip-active" : ""` usa negação na condição. SonarCloud sugere inverter para `selectedCategory ? "" : "chip-active"` (legibilidade).
+- **Severidade declarada:** 🟢 Low
+- **Status:** aplicado
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+
+### REV-011 — LinksSearch: ternário aninhado (`query`) no template literal 🟠
+
+- **Origem:** sonarcloud
+- **Tipo:** check (code smell)
+- **Referência:** `apps/links/src/components/LinksSearch.tsx:127`
+- **Resumo:** Ternário `query ? \` para "${query}"\` : ""` aninhado dentro de template literal `\`Nenhum grupo encontrado${...}\``. SonarCloud sugere extrair em statement independente.
+- **Severidade declarada:** 🟠 Major
+- **Status:** aplicado
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+
+### REV-012 — LinksSearch: template literals aninhados (brain-overload) 🟠
+
+- **Origem:** sonarcloud
+- **Tipo:** check (code smell)
+- **Referência:** `apps/links/src/components/LinksSearch.tsx:127`
+- **Resumo:** Template literals aninhados em L127 — `${... \`...\` ...}` dentro de `${... \`...\` ...}`. Dificulta leitura e manutenção. SonarCloud sugere refatorar para evitar aninhamento.
+- **Severidade declarada:** 🟠 Major
+- **Status:** aplicado
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+
+### REV-013 — LinksSearch: ternário aninhado (`selectedCategory`) no template literal 🟠
+
+- **Origem:** sonarcloud
+- **Tipo:** check (code smell)
+- **Referência:** `apps/links/src/components/LinksSearch.tsx:127`
+- **Resumo:** Ternário `selectedCategory ? \` na categoria "${CATEGORY_LABELS[selectedCategory] ?? selectedCategory}"\` : ""` aninhado dentro do mesmo template literal de L127. Segundo ternário aninhado na mesma linha. SonarCloud sugere extrair em statement independente.
+- **Severidade declarada:** 🟠 Major
+- **Status:** aplicado
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+
+### REV-014 — spec.md vs tasks.md: inconsistência contagem F4 🟡
+
+- **Origem:** coderabbitai · PR #84
+- **Tipo:** comentário
+- **Referência:** `specs/043-links-visual-audit/spec.md:24` + `tasks.md:22`
+- **Resumo:** A contagem da Fase 4 (Backlog) está inconsistente entre spec.md ("11/12") e tasks.md ("12/12"). Com T34 ignorado e DEB-014 resolvido, a contagem real de T30-T39 é 10 tarefas (9 resolvidas + 1 ignorada). É necessário alinhar os dois documentos com o número correto.
+- **Severidade declarada:** 🟡 Minor
+- **Status:** aplicado → 9/10 alinhado em spec.md + tasks.md
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+
+### REV-015 — tasks.md: F4 mostra "12/12" com contagem incorreta 🟡
+
+- **Origem:** coderabbitai · PR #84
+- **Tipo:** comentário
+- **Referência:** `specs/043-links-visual-audit/tasks.md:22`
+- **Resumo:** A linha de status F4 mostra "12/12 resolvidos (T34 ignorado)". A tabela F4 lista 10 tarefas (T30-T39), com T34 ignorado = 9 resolvidas. O número "12" não corresponde à realidade.
+- **Severidade declarada:** 🟡 Minor
+- **Status:** aplicado
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+
+### REV-016 — spec.md: "packages" estrangeirismo (LanguageTool) 🟢
+
+- **Origem:** coderabbitai (LanguageTool) · PR #84
+- **Tipo:** check (lint)
+- **Referência:** `specs/043-links-visual-audit/spec.md:21`
+- **Resumo:** LanguageTool aponta "packages" como estrangeirismo em contexto PT-BR. Sugere "embalagens" ou "pacotes". Ocorre na tabela: `F1 — Shared (packages/ui)`.
+- **Severidade declarada:** 🟢 Low (locale-violation)
+- **Status:** ignorado — falso positivo: `packages/` é nome de diretório real do monorepo
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+
+### REV-017 — tasks.md: "packages" estrangeirismo (LanguageTool) 🟢
+
+- **Origem:** coderabbitai (LanguageTool) · PR #84
+- **Tipo:** check (lint)
+- **Referência:** `specs/043-links-visual-audit/tasks.md:19`
+- **Resumo:** LanguageTool aponta "packages" como estrangeirismo em contexto PT-BR. Ocorre na tabela: `F1 — Shared (packages/ui)`. Mesmo padrão de REV-016.
+- **Severidade declarada:** 🟢 Low (locale-violation)
+- **Status:** aplicado
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+
 ---
 
 ## Gate de merge
 
-- [x] REV-001 a REV-006: veredicto registrado
-- [x] REV-001 → DEB-014 resolvido (`Sidebar.astro` prefixo `/`)
-- [x] REV-007, REV-008, REV-009: aplicados ✅
+- [x] Todos os 17 reviews resolvidos (REV-001 a REV-017)
 - [ ] Mantenedor autorizou merge nominalmente
