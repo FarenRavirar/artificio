@@ -3,7 +3,8 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
 import type { SystemEntry } from '../discord';
-import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../discord';
+import { DraftNotFoundError, DraftStateError } from '../discord/syncHelpers';
+import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../discord';
 import { authMiddleware } from '../middleware/auth';
 import { textToRawMessage } from '../inbox/adapters/textToRawMessage';
 import { segmentAnnouncements } from '../inbox/segmentation';
@@ -84,18 +85,59 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
     for (const segment of segments) {
       const contentHash = crypto.createHash('sha256').update(segment).digest('hex');
 
-      const [importMessage] = await db
-        .insertInto('import_messages')
-        .values({
-          source_type: 'manual_paste',
-          raw_text: segment,
-          content_raw: segment,
-          thread_name: title_hint ?? null,
-          content_hash: contentHash,
-          status: 'pending',
-        })
-        .returning('id')
-        .execute();
+      const existingMessage = await db
+        .selectFrom('import_messages')
+        .select(['id'])
+        .where('content_hash', '=', contentHash)
+        .executeTakeFirst();
+
+      if (existingMessage) {
+        const existingDraft = await db
+          .selectFrom('discord_import_table_drafts')
+          .select(['id', 'status', 'confidence', 'normalized_payload'])
+          .where('import_message_id', '=', existingMessage.id)
+          .executeTakeFirst();
+
+        if (existingDraft) {
+          const payload = normalizeDraftPayload(existingDraft.normalized_payload);
+          const table = payload.table as Record<string, unknown> | undefined;
+          const missingFields: string[] = [];
+          if (!table?.title) missingFields.push('title');
+          if (!table?.system_id) missingFields.push(table?.raw_system_hint ? 'system_name:unmatched_hint' : 'system_name');
+          if (!table?.type) missingFields.push('type');
+          if (!table?.modality) missingFields.push('modality');
+          if (table?.slots_total == null && table?.slots_open == null) missingFields.push('slots_total');
+
+          created.push({
+            id: existingDraft.id,
+            title: (table?.title as string) ?? null,
+            status: existingDraft.status,
+            confidence: existingDraft.confidence,
+            missing_fields: missingFields,
+          });
+          continue;
+        }
+      }
+
+      let importMessageId: string;
+      if (existingMessage) {
+        importMessageId = existingMessage.id;
+      } else {
+        const [inserted] = await db
+          .insertInto('import_messages')
+          .values({
+            source_type: 'manual_paste',
+            raw_text: segment,
+            content_raw: segment,
+            thread_name: title_hint ?? null,
+            content_hash: contentHash,
+            status: 'pending',
+          })
+          .returning('id')
+          .execute();
+        if (!inserted) continue;
+        importMessageId = inserted.id;
+      }
 
       const rawMessage = textToRawMessage(segment, title_hint);
       const parsedDraft = parseDiscordAnnouncement(rawMessage, systems);
@@ -104,7 +146,7 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
         await db
           .updateTable('import_messages')
           .set({ status: 'error', parse_error: 'Mensagem sem conteúdo elegível para virar draft.' })
-          .where('id', '=', importMessage.id)
+          .where('id', '=', importMessageId)
           .execute();
         continue;
       }
@@ -115,7 +157,7 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
         .insertInto('discord_import_table_drafts')
         .values({
           discord_message_id: null,
-          import_message_id: importMessage.id,
+          import_message_id: importMessageId,
           parsed_payload: parsedDraft,
           normalized_payload: normalized.draft,
           confidence: normalized.draft.confidence,
@@ -127,7 +169,7 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
       await db
         .updateTable('import_messages')
         .set({ status: 'parsed' })
-        .where('id', '=', importMessage.id)
+        .where('id', '=', importMessageId)
         .execute();
 
       const missingFields: string[] = [];
@@ -193,8 +235,8 @@ router.get('/drafts', authMiddleware, async (req: Request, res: Response) => {
     const rows = await query.execute();
 
     const drafts = rows.map((row) => {
-      const payload = row.normalized_payload as Record<string, unknown> | null;
-      const table = (payload?.table ?? {}) as Record<string, unknown>;
+      const payload = normalizeDraftPayload(row.normalized_payload);
+      const table = normalizeDraftPayload(payload?.table);
       return {
         id: row.id,
         source_type: row.source_type,
@@ -229,8 +271,14 @@ router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Respon
     const result = await syncImportDraftToTable(draftId, adminDisplayName);
     return res.json({ data: result });
   } catch (error: unknown) {
+    if (error instanceof DraftNotFoundError) {
+      return res.status(404).json({ error: error.message });
+    }
     if (error instanceof DraftSyncValidationError) {
       return res.status(422).json({ error: error.message, missing_fields: error.missingFields });
+    }
+    if (error instanceof DraftStateError) {
+      return res.status(422).json({ error: error.message });
     }
     console.error('[POST /api/v1/admin/inbox/drafts/:id/sync]', error);
     const message = error instanceof Error ? error.message : 'Erro ao sincronizar draft.';
@@ -260,20 +308,36 @@ router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: 
 
     const { corrections, reason } = parsed.data;
 
+    // Carrega draft + import_message para obter raw_text
     const draft = await db
       .selectFrom('discord_import_table_drafts')
-      .select(['parsed_payload', 'normalized_payload', 'import_message_id'])
+      .select(['id', 'status', 'parsed_payload', 'normalized_payload', 'import_message_id'])
       .where('id', '=', draftId)
       .executeTakeFirst();
 
     if (!draft) return res.status(404).json({ error: 'Draft não encontrado.' });
+    if (draft.status === 'synced') return res.status(422).json({ error: 'Draft já sincronizado não pode ser corrigido.' });
+    if (draft.status === 'rejected') return res.status(422).json({ error: 'Draft rejeitado não pode ser corrigido.' });
 
-    const parsedBefore = draft.normalized_payload ?? draft.parsed_payload;
-    const humanCorrected = { ...(parsedBefore as Record<string, unknown>), table: { ...((parsedBefore as Record<string, unknown>)?.table ?? {}), ...corrections } };
+    if (!draft.import_message_id) {
+      return res.status(422).json({ error: 'Draft não é de inbox (import_message_id nulo). Correções só são suportadas para mensagens inbox.' });
+    }
+
+    // Busca raw_text do import_messages (pode ser raw_text ou content_raw)
+    const importMsg = await db
+      .selectFrom('import_messages')
+      .select(['raw_text', 'content_raw'])
+      .where('id', '=', draft.import_message_id)
+      .executeTakeFirst();
+
+    const rawText = importMsg?.raw_text ?? importMsg?.content_raw ?? null;
+
+    const parsedBefore = normalizeDraftPayload(draft.normalized_payload ?? draft.parsed_payload);
+    const humanCorrected = { ...parsedBefore, table: { ...(parsedBefore?.table ?? {}), ...corrections } };
 
     const diff: Record<string, { before: unknown; after: unknown }> = {};
     for (const key of Object.keys(corrections)) {
-      const before = ((parsedBefore as Record<string, unknown>)?.table as Record<string, unknown>)?.[key];
+      const before = (parsedBefore?.table as Record<string, unknown>)?.[key];
       const after = corrections[key];
       if (JSON.stringify(before) !== JSON.stringify(after)) {
         diff[key] = { before, after };
@@ -282,19 +346,31 @@ router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: 
 
     const userId = (req as any).user?.userId ?? null;
 
-    await db
-      .insertInto('import_corrections')
-      .values({
-        draft_id: draftId,
-        import_message_id: draft.import_message_id,
-        raw_text: null,
-        parsed_before: parsedBefore,
-        human_corrected: humanCorrected,
-        diff,
-        reason: reason ?? null,
-        corrected_by: userId,
-      })
-      .execute();
+    // Transação única: grava corpus + atualiza normalized_payload do draft
+    await db.transaction().execute(async (trx) => {
+      await trx
+        .insertInto('import_corrections')
+        .values({
+          draft_id: draftId,
+          import_message_id: draft.import_message_id,
+          raw_text: rawText,
+          parsed_before: parsedBefore,
+          human_corrected: humanCorrected,
+          diff,
+          reason: reason ?? null,
+          corrected_by: userId,
+        })
+        .execute();
+
+      await trx
+        .updateTable('discord_import_table_drafts')
+        .set({
+          normalized_payload: humanCorrected,
+          updated_at: new Date(),
+        })
+        .where('id', '=', draftId)
+        .execute();
+    });
 
     return res.json({ data: { draft_id: draftId, fields_corrected: Object.keys(diff).length, diff } });
   } catch (error: unknown) {

@@ -4,6 +4,9 @@ import type { Mock } from 'vitest';
 import adminInboxRoutes from '../adminImportInbox';
 import { db } from '../../db';
 import { TableRepository } from '../../repositories/tableRepository';
+import { segmentAnnouncements } from '../../inbox/segmentation';
+import { textToRawMessage } from '../../inbox/adapters/textToRawMessage';
+import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord';
 
 vi.mock('../../db', () => ({
   db: {
@@ -32,6 +35,23 @@ vi.mock('../../middleware/auth', () => ({
     next();
   },
 }));
+
+vi.mock('../../inbox/segmentation', () => ({
+  segmentAnnouncements: vi.fn(),
+}));
+
+vi.mock('../../inbox/adapters/textToRawMessage', () => ({
+  textToRawMessage: vi.fn(),
+}));
+
+vi.mock('../../discord', async () => {
+  const actual = await vi.importActual<typeof import('../../discord')>('../../discord');
+  return {
+    ...actual,
+    parseDiscordAnnouncement: vi.fn(),
+    normalizeDiscordTableDraft: vi.fn(),
+  };
+});
 
 const mockDb = db as unknown as {
   insertInto: Mock;
@@ -78,7 +98,7 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
     const response = await request(makeApp())
       .post('/admin/inbox/drafts/nonexistent/sync');
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(404);
     expect(response.body.error).toContain('não encontrado');
   });
 
@@ -95,7 +115,7 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
     const response = await request(makeApp())
       .post('/admin/inbox/drafts/draft-1/sync');
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(422);
     expect(response.body.error).toContain('não é de inbox');
   });
 
@@ -131,7 +151,7 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
     const response = await request(makeApp())
       .post('/admin/inbox/drafts/draft-1/sync');
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(422);
     expect(response.body.error).toContain('rejeitado');
   });
 
@@ -148,7 +168,7 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
     const response = await request(makeApp())
       .post('/admin/inbox/drafts/draft-1/sync');
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(422);
     expect(response.body.error).toContain('ready');
   });
 
@@ -175,7 +195,7 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
     const response = await request(makeApp())
       .post('/admin/inbox/drafts/draft-1/sync');
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(422);
     expect(response.body.error).toContain('não encontrada');
   });
 
@@ -206,6 +226,51 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
 // POST /drafts/:id/correction
 // ────────────────────────────────────────────────────────────────────────────────
 
+function mockDraftRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'draft-1',
+    status: 'ready' as const,
+    parsed_payload: { table: { title: 'Original', type: 'campanha' }, source: {} },
+    normalized_payload: { table: { title: 'Original', type: 'campanha' }, source: {} },
+    import_message_id: 'import-1',
+    ...overrides,
+  };
+}
+
+function mockImportMsg() {
+  return { raw_text: 'Título: Original', content_raw: 'Título: Original\nSistema: D&D' };
+}
+
+function setupCorrectionMocks(draft: Record<string, unknown>, importMsg: Record<string, unknown> | null = null) {
+  // call 0: draft select, call 1: import_messages select
+  let callIdx = 0;
+  const execFn = vi.fn().mockImplementation(() => {
+    callIdx++;
+    if (callIdx === 1) return Promise.resolve(draft);
+    if (callIdx === 2) return Promise.resolve(importMsg);
+    return Promise.resolve(null);
+  });
+
+  mockDb.selectFrom.mockReturnValue(mockChain({ executeTakeFirst: execFn }));
+
+  // transaction mock
+  const mockTrx = {
+    insertInto: vi.fn().mockReturnThis(),
+    updateTable: vi.fn().mockReturnThis(),
+    values: vi.fn().mockReturnThis(),
+    set: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    execute: vi.fn().mockResolvedValue([]),
+  };
+  mockDb.transaction.mockReturnValue({
+    execute: vi.fn().mockImplementation(async (fn: (trx: typeof mockTrx) => Promise<void>) => {
+      await fn(mockTrx);
+    }),
+  });
+
+  return mockTrx;
+}
+
 describe('POST /admin/inbox/drafts/:id/correction', () => {
   it('returns 404 for empty draft_id (Express does not match route)', async () => {
     const response = await request(makeApp())
@@ -215,7 +280,7 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
     expect(response.status).toBe(404);
   });
 
-  it('rejects invalid payload', async () => {
+  it('rejects invalid payload (400)', async () => {
     const response = await request(makeApp())
       .post('/admin/inbox/drafts/draft-1/correction')
       .send({ invalid: true });
@@ -224,11 +289,7 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
   });
 
   it('returns 404 for nonexistent draft', async () => {
-    const chain = mockChain({
-      executeTakeFirst: vi.fn().mockResolvedValue(null),
-    });
-    mockDb.selectFrom.mockReturnValue(chain);
-
+    setupCorrectionMocks(null as any);
     const response = await request(makeApp())
       .post('/admin/inbox/drafts/nonexistent/correction')
       .send({ corrections: { title: 'Novo Título' } });
@@ -236,28 +297,71 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
     expect(response.status).toBe(404);
   });
 
-  it('persists correction and returns diff with zero changed fields when all values match', async () => {
-    const draft = {
-      parsed_payload: { table: { title: 'Título Original', type: 'campanha' }, source: {} },
-      normalized_payload: { table: { title: 'Título Original', type: 'campanha' }, source: {} },
-      import_message_id: 'import-1',
-    };
+  it('returns 422 for Discord draft (import_message_id=null)', async () => {
+    setupCorrectionMocks(mockDraftRow({ import_message_id: null }));
+    const response = await request(makeApp())
+      .post('/admin/inbox/drafts/draft-1/correction')
+      .send({ corrections: { title: 'Novo Título' } });
 
-    const chain = mockChain({
-      executeTakeFirst: vi.fn().mockResolvedValue(draft),
-    });
-    mockDb.selectFrom.mockReturnValue(chain);
+    expect(response.status).toBe(422);
+    expect(response.body.error).toContain('não é de inbox');
+  });
 
-    const returnChain = mockChain({ execute: vi.fn().mockResolvedValue([]) });
-    const setWhereChain = mockChain({ execute: vi.fn().mockResolvedValue([]) });
-    const valuesChain = mockChain({ execute: vi.fn().mockResolvedValue([]) });
-    valuesChain.values = vi.fn().mockReturnValue(setWhereChain);
-    returnChain.values = vi.fn().mockReturnValue(valuesChain);
-    mockDb.insertInto.mockReturnValue(returnChain);
+  it('returns 422 for synced draft', async () => {
+    setupCorrectionMocks(mockDraftRow({ status: 'synced' }));
+    const response = await request(makeApp())
+      .post('/admin/inbox/drafts/draft-1/correction')
+      .send({ corrections: { title: 'Novo Título' } });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error).toContain('já sincronizado');
+  });
+
+  it('returns 422 for rejected draft', async () => {
+    setupCorrectionMocks(mockDraftRow({ status: 'rejected' }));
+    const response = await request(makeApp())
+      .post('/admin/inbox/drafts/draft-1/correction')
+      .send({ corrections: { title: 'Novo Título' } });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error).toContain('rejeitado');
+  });
+
+  it('persists correction with raw_text, updates normalized_payload in transaction', async () => {
+    const draft = mockDraftRow();
+    const importMsg = mockImportMsg();
+    const trx = setupCorrectionMocks(draft, importMsg);
 
     const response = await request(makeApp())
       .post('/admin/inbox/drafts/draft-1/correction')
-      .send({ corrections: { title: 'Título Original' } });
+      .send({ corrections: { title: 'Título Corrigido' }, reason: 'Erro de digitação' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.fields_corrected).toBe(1);
+    expect(response.body.data.diff.title).toBeDefined();
+    expect(response.body.data.diff.title.before).toBe('Original');
+    expect(response.body.data.diff.title.after).toBe('Título Corrigido');
+
+    // Verificou que transação foi usada
+    expect(mockDb.transaction).toHaveBeenCalled();
+
+    // Verificou que raw_text veio do import_messages
+    const insertCall = trx.insertInto.mock.calls.find((c: any) => c[0] === 'import_corrections');
+    expect(insertCall).toBeDefined();
+
+    // Verificou que normalized_payload foi atualizado no draft
+    const updateCall = trx.updateTable.mock.calls.find((c: any) => c[0] === 'discord_import_table_drafts');
+    expect(updateCall).toBeDefined();
+  });
+
+  it('persists correction and returns diff with zero changed fields when all values match', async () => {
+    const draft = mockDraftRow();
+    const importMsg = mockImportMsg();
+    setupCorrectionMocks(draft, importMsg);
+
+    const response = await request(makeApp())
+      .post('/admin/inbox/drafts/draft-1/correction')
+      .send({ corrections: { title: 'Original' } });
 
     expect(response.status).toBe(200);
     expect(response.body.data.fields_corrected).toBe(0);
@@ -265,23 +369,9 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
   });
 
   it('persists correction and returns diff with changed fields', async () => {
-    const draft = {
-      parsed_payload: { table: { title: 'Original', type: 'campanha' }, source: {} },
-      normalized_payload: { table: { title: 'Original', type: 'campanha' }, source: {} },
-      import_message_id: 'import-1',
-    };
-
-    const chain = mockChain({
-      executeTakeFirst: vi.fn().mockResolvedValue(draft),
-    });
-    mockDb.selectFrom.mockReturnValue(chain);
-
-    const returnChain = mockChain({ execute: vi.fn().mockResolvedValue([]) });
-    const setWhereChain = mockChain({ execute: vi.fn().mockResolvedValue([]) });
-    const valuesChain = mockChain({ execute: vi.fn().mockResolvedValue([]) });
-    valuesChain.values = vi.fn().mockReturnValue(setWhereChain);
-    returnChain.values = vi.fn().mockReturnValue(valuesChain);
-    mockDb.insertInto.mockReturnValue(returnChain);
+    const draft = mockDraftRow();
+    const importMsg = mockImportMsg();
+    setupCorrectionMocks(draft, importMsg);
 
     const response = await request(makeApp())
       .post('/admin/inbox/drafts/draft-1/correction')
@@ -426,5 +516,300 @@ describe('syncImportDraftToTable table creation', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.data.created).toBe(true);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────────
+// POST /admin/inbox/import-text
+// ────────────────────────────────────────────────────────────────────────────────
+
+describe('POST /admin/inbox/import-text', () => {
+  it('rejects text shorter than 10 characters (400)', async () => {
+    const response = await request(makeApp())
+      .post('/admin/inbox/import-text')
+      .send({ text: 'curto' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain('mínimo 10');
+  });
+
+  it('rejects payload without text field (400)', async () => {
+    const response = await request(makeApp())
+      .post('/admin/inbox/import-text')
+      .send({ title_hint: 'D&D 5e' });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('returns 200 with drafts_created on valid text with mocked parser', async () => {
+    const mockDraft = {
+      table: {
+        title: 'Mesa Teste',
+        system_name: 'D&D 5e',
+        system_id: 'sys-1',
+        type: 'campanha',
+        modality: 'online',
+        price_type: 'gratuita',
+        slots_total: 5,
+        slots_open: 5,
+        day_of_week: 'sábado',
+        start_time: '19:00',
+        contact_url: 'https://discord.gg/test',
+      },
+      source: { guild_id: '1', channel_id: '2', message_id: '3', message_url: 'https://discord.com' },
+      confidence: 1,
+      missing_fields: [],
+    };
+
+    const mockNormalized = {
+      draft: mockDraft,
+      status: 'ready' as const,
+    };
+
+    vi.mocked(segmentAnnouncements).mockReturnValue(['Título: Mesa Teste\nSistema: D&D 5e\nDia: sábado\nHorário: 19:00']);
+    vi.mocked(textToRawMessage).mockReturnValue({
+      source_kind: 'manual_paste',
+      discord_message_id: 'msg-1',
+      discord_channel_id: '',
+      discord_guild_id: '',
+      discord_author_id: null,
+      discord_author_name: null,
+      discord_message_url: null,
+      content_raw: 'Título: Mesa Teste',
+      attachments: [],
+      embeds: [],
+      message_created_at: new Date(),
+      message_edited_at: null,
+      discord_thread_name: '',
+    });
+    vi.mocked(parseDiscordAnnouncement).mockReturnValue(mockDraft as any);
+    vi.mocked(normalizeDiscordTableDraft).mockReturnValue(mockNormalized as any);
+
+    // DB: loadSystemsForParser (2 calls) + dedup check (2 calls) + insert import_messages + insert draft + update import_messages
+    let selectCall = 0;
+    const emptyAliasChain = mockChain({
+      execute: vi.fn().mockResolvedValue([]),
+    });
+    const systemsChain = mockChain({
+      execute: vi.fn().mockResolvedValue([]),
+    });
+    const dedupNotFoundChain = mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue(null),
+    });
+
+    const insertMsgChain = mockChain({
+      execute: vi.fn().mockResolvedValue([{ id: 'import-1' }]),
+    });
+    const insertDraftChain = mockChain({
+      execute: vi.fn().mockResolvedValue([{ id: 'draft-1', status: 'ready', confidence: 1 }]),
+    });
+    const updateChain = mockChain({
+      execute: vi.fn().mockResolvedValue([]),
+    });
+
+    // returnUpdateChain needs returningAll
+    // returnChain needs returning
+    // setWhere needs where → returning → execute
+    const setWhereChain: Record<string, Mock> = mockChain({ execute: vi.fn().mockResolvedValue([]) });
+    setWhereChain.returning = vi.fn().mockReturnThis();
+    setWhereChain.returningAll = vi.fn().mockReturnThis();
+    const setChain: Record<string, Mock> = {
+      ...mockChain(),
+      where: vi.fn().mockReturnValue(setWhereChain),
+      return: vi.fn().mockReturnThis(),
+    };
+    const valuesDraftChain: Record<string, Mock> = {
+      ...mockChain(),
+      execute: vi.fn().mockResolvedValue([{ id: 'draft-1', status: 'ready', confidence: 1 }]),
+    };
+    const valuesMsgChain: Record<string, Mock> = {
+      ...mockChain(),
+      execute: vi.fn().mockResolvedValue([{ id: 'import-1' }]),
+    };
+
+    // insertInto('import_messages').values(...).returning('id').execute()
+    valuesMsgChain.returning = vi.fn().mockReturnValue({
+      execute: vi.fn().mockResolvedValue([{ id: 'import-1' }]),
+    });
+
+    // insertInto('discord_import_table_drafts').values(...).returning(['id','status','confidence']).execute()
+    valuesDraftChain.returning = vi.fn().mockReturnValue({
+      execute: vi.fn().mockResolvedValue([{ id: 'draft-1', status: 'ready', confidence: 1 }]),
+    });
+
+    const insertMsgBuilder: Record<string, Mock> = {
+      ...mockChain(),
+      values: vi.fn().mockReturnValue(valuesMsgChain),
+    };
+    const insertDraftBuilder: Record<string, Mock> = {
+      ...mockChain(),
+      values: vi.fn().mockReturnValue(valuesDraftChain),
+    };
+    const updateBuilder: Record<string, Mock> = {
+      ...mockChain(),
+      set: vi.fn().mockReturnValue(setChain),
+    };
+
+    mockDb.insertInto.mockImplementation((table: string) => {
+      if (table === 'import_messages') return insertMsgBuilder;
+      if (table === 'discord_import_table_drafts') return insertDraftBuilder;
+      return mockChain({ execute: vi.fn().mockResolvedValue([]) });
+    });
+
+    mockDb.updateTable.mockReturnValue(updateBuilder);
+
+    mockDb.selectFrom.mockImplementation(() => {
+      selectCall++;
+      if (selectCall <= 2) return systemsChain; // loadSystemsForParser
+      if (selectCall <= 4) return dedupNotFoundChain; // dedup: import_messages + discord_import_table_drafts
+      return systemsChain;
+    });
+
+    const response = await request(makeApp())
+      .post('/admin/inbox/import-text')
+      .send({ text: 'Título: Mesa Teste\nSistema: D&D 5e\nDia: sábado\nHorário: 19:00' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.segments_found).toBe(1);
+    expect(response.body.data.drafts_created).toBe(1);
+    expect(response.body.data.drafts).toHaveLength(1);
+    expect(response.body.data.drafts[0].title).toBe('Mesa Teste');
+    expect(response.body.data.drafts[0].status).toBe('ready');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────────
+// GET /admin/inbox/drafts
+// ────────────────────────────────────────────────────────────────────────────────
+
+describe('GET /admin/inbox/drafts', () => {
+  it('returns empty array when no drafts exist', async () => {
+    const chain = mockChain({
+      execute: vi.fn().mockResolvedValue([]),
+    });
+    mockDb.selectFrom.mockReturnValue(chain);
+
+    const response = await request(makeApp())
+      .get('/admin/inbox/drafts');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual([]);
+  });
+
+  it('returns drafts with title extracted from normalized_payload', async () => {
+    const chain = mockChain({
+      execute: vi.fn().mockResolvedValue([
+        {
+          id: 'draft-1',
+          source_type: 'manual_paste',
+          raw_text: 'Título: Mesa A',
+          status: 'ready',
+          confidence: 0.9,
+          normalized_payload: { table: { title: 'Mesa A' } },
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      ]),
+    });
+    mockDb.selectFrom.mockReturnValue(chain);
+
+    const response = await request(makeApp())
+      .get('/admin/inbox/drafts');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0].title).toBe('Mesa A');
+    expect(response.body.data[0].status).toBe('ready');
+    expect(response.body.data[0].confidence).toBe(0.9);
+  });
+
+  it('handles missing table key in payload gracefully (title null)', async () => {
+    const chain = mockChain({
+      execute: vi.fn().mockResolvedValue([
+        {
+          id: 'draft-2',
+          source_type: 'manual_paste',
+          raw_text: 'texto',
+          status: 'needs_review',
+          confidence: null,
+          normalized_payload: { source: {} },
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      ]),
+    });
+    mockDb.selectFrom.mockReturnValue(chain);
+
+    const response = await request(makeApp())
+      .get('/admin/inbox/drafts');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data[0].title).toBeNull();
+  });
+
+  it('handles null normalized_payload gracefully (title null)', async () => {
+    const chain = mockChain({
+      execute: vi.fn().mockResolvedValue([
+        {
+          id: 'draft-3',
+          source_type: 'manual_paste',
+          raw_text: 'texto',
+          status: 'error',
+          confidence: null,
+          normalized_payload: null,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      ]),
+    });
+    mockDb.selectFrom.mockReturnValue(chain);
+
+    const response = await request(makeApp())
+      .get('/admin/inbox/drafts');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data[0].title).toBeNull();
+  });
+
+  it('filters by status query param', async () => {
+    const chain = mockChain({
+      execute: vi.fn().mockResolvedValue([]),
+    });
+    mockDb.selectFrom.mockReturnValue(chain);
+
+    await request(makeApp())
+      .get('/admin/inbox/drafts?status=ready');
+
+    expect(chain.where).toHaveBeenCalledWith(
+      'discord_import_table_drafts.status',
+      '=',
+      'ready'
+    );
+  });
+
+  it('filters by origin query param', async () => {
+    const chain = mockChain({
+      execute: vi.fn().mockResolvedValue([]),
+    });
+    mockDb.selectFrom.mockReturnValue(chain);
+
+    await request(makeApp())
+      .get('/admin/inbox/drafts?origin=manual_paste');
+
+    expect(chain.where).toHaveBeenCalledWith(
+      'import_messages.source_type',
+      '=',
+      'manual_paste'
+    );
+  });
+
+  it('enforces pagination defaults (limit 50, offset 0)', async () => {
+    const chain = mockChain({
+      execute: vi.fn().mockResolvedValue([]),
+    });
+    mockDb.selectFrom.mockReturnValue(chain);
+
+    await request(makeApp())
+      .get('/admin/inbox/drafts');
+
+    expect(chain.limit).toHaveBeenCalledWith(50);
+    expect(chain.offset).toHaveBeenCalledWith(0);
   });
 });

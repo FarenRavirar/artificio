@@ -2,7 +2,7 @@
 
 - **Módulo/Pacote:** `apps/mesas` (backend + frontend)
 - **Gate relacionado:** Gate D (mesas em prod), Gate B (SSO) — ambos fechados
-- **Status:** Fase B1 revisada localmente (2026-06-22), ainda sem commit — backend mínimo + migration beta concluídos; teste novo detectou/corrigiu split indevido em `Sistema:`; migration ganhou constraint de origem única. Testes backend 119/119 e build repo 17/17 verdes. Gate bloqueado por `BL-CI-FEEDBACK-DIST-CJS-LINT`; constraint nova ainda não foi aplicada no banco beta. Depois: commit/PR → Fase B deploy beta → Fase C smoke.
+- **Status:** fechamento técnico pré-Git concluído localmente (2026-06-22), ainda sem commit. Backend da Inbox, sync, corpus de correções, métricas, erros tipados e débitos/reviews implementados. Validação final: lint 15/15, build 17/17, backend 21 arquivos/159 testes e `git diff --check` verdes. Constraint `single_origin` já aplicada no beta; migration 129 permanece para aplicação pela esteira canônica após merge/deploy. Próximo: autorização separada para commit → push → PR; depois merge/deploy beta e smoke.
 - **Reviews:** `reviews.md`
 - **Débitos:** `debitos.md`
 - **Arquitetura:** `plan.md`

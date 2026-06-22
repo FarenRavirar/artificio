@@ -665,7 +665,7 @@ export interface ImportMessagesTable {
   raw_text: string | null;
   content_raw: string;
   thread_name: string | null;
-  metadata: Generated<unknown>;
+  metadata: Generated<unknown | null>;
   content_hash: string;
   status: Generated<string>;
   parse_error: string | null;

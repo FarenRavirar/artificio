@@ -35,6 +35,7 @@ export { normalizeDiscordTableDraft } from './normalizeDiscordTableDraft';
 export type { NormalizedDraftStatus } from './normalizeDiscordTableDraft';
 export { DiscordDraftSyncValidationError, refreshDiscordDraftImage, syncDiscordDraftToTable } from './syncDiscordDraftToTable';
 export type { DiscordImageRefreshResult, SyncResult } from './syncDiscordDraftToTable';
+export { normalizeImportTableDraft, normalizeDraftPayload, DraftNotFoundError, DraftStateError } from './syncHelpers';
 export { assertDraftReadyTransition } from './draftValidation';
 export type { DraftReadyTransitionInput, DraftReadyTransitionResult } from './draftValidation';
 export { uploadDiscordImageToCloudinary } from './uploadDiscordImage';

@@ -1,21 +1,14 @@
 import { db } from '../db';
-import { Insertable } from 'kysely';
-import { TablesTable } from '../db/types';
-import { TableRepository } from '../repositories/tableRepository';
-import { TableService } from '../services/tableService';
-import type { DiscordImageUploadStatus, ImportTableDraft } from './types';
-import { uploadDiscordImageToCloudinary } from './uploadDiscordImage';
+import type { DiscordImageUploadStatus } from './types';
 import {
-  validateDraftForSync,
-  extractContacts,
-  extractSchedules,
-  buildTableData,
+  syncDraftToTable,
   uploadCoverForDraft,
-  notifyAdminsAboutImageFailure,
   readCoverSource,
   withCoverUrl,
   updateDraftImageUploadState,
+  normalizeImportTableDraft,
 } from './syncHelpers';
+import type { SyncDraftCoreConfig } from './syncHelpers';
 
 export interface SyncResult {
   tableId: string;
@@ -46,7 +39,7 @@ export async function refreshDiscordDraftImage(draftId: string): Promise<Discord
 
   if (!draft) throw new Error(`Draft ${draftId} não encontrado.`);
 
-  const payload = (draft.normalized_payload ?? draft.parsed_payload) as ImportTableDraft;
+  const payload = normalizeImportTableDraft(draft.normalized_payload ?? draft.parsed_payload);
   if (!payload?.table) throw new Error(`Draft ${draftId} sem payload válido para upload de imagem.`);
 
   const upload = await uploadCoverForDraft(draftId, withCoverUrl(payload, null), draft.image_upload_attempts ?? 0);
@@ -70,149 +63,17 @@ export async function refreshDiscordDraftImage(draftId: string): Promise<Discord
   };
 }
 
-/**
- * Sincroniza um draft para a tabela `tables`.
- * Idempotente: se já existir mesa com source_id = discord_message_id, atualiza em vez de criar.
- */
+const discordSyncConfig: SyncDraftCoreConfig = {
+  messageFk: 'discord_message_id',
+  sourceName: 'Discord',
+  messageTable: 'discord_import_messages',
+  requireFk: false,
+  getSourceId: (message) => message.discord_message_id as string,
+  getSourceUrl: (message) => (message.discord_message_url as string) ?? null,
+  getGmName: (payload) => payload.source.author_name ?? null,
+  ValidationError: DiscordDraftSyncValidationError,
+};
+
 export async function syncDiscordDraftToTable(draftId: string): Promise<SyncResult> {
-  const draft = await db
-    .selectFrom('discord_import_table_drafts')
-    .selectAll()
-    .where('id', '=', draftId)
-    .executeTakeFirst();
-
-  if (!draft) throw new Error(`Draft ${draftId} não encontrado.`);
-  if (draft.status === 'synced') {
-    if (!draft.table_id) throw new Error(`Draft ${draftId} marcado como synced mas sem table_id.`);
-    return { tableId: draft.table_id, created: false };
-  }
-  if (draft.status === 'rejected') throw new Error(`Draft ${draftId} foi rejeitado e não pode ser sincronizado.`);
-  if (draft.status !== 'ready') throw new Error(`Draft ${draftId} precisa estar com status ready antes de sincronizar.`);
-
-  const message = await db
-    .selectFrom('discord_import_messages')
-    .select(['id', 'discord_message_id', 'discord_message_url'])
-    .where('id', '=', draft.discord_message_id)
-    .executeTakeFirst();
-
-  if (!message) throw new Error(`Mensagem referenciada pelo draft ${draftId} não encontrada.`);
-
-  let payload = (draft.normalized_payload ?? draft.parsed_payload) as ImportTableDraft;
-  if (!payload?.table) throw new Error(`Draft ${draftId} sem payload válido para sincronização.`);
-
-  const missingFields = validateDraftForSync(payload);
-  if (missingFields.length > 0) {
-    throw new DiscordDraftSyncValidationError(missingFields);
-  }
-
-  const contacts = extractContacts(payload);
-  const schedules = extractSchedules(payload);
-  const imageUpload = await uploadCoverForDraft(draftId, payload, draft.image_upload_attempts ?? 0);
-  payload = imageUpload.payload;
-  const coverUrl = imageUpload.coverUrl;
-
-  // Verifica idempotência pelo source_id
-  const existingTable = await db
-    .selectFrom('tables')
-    .select(['id'])
-    .where('source_id', '=', message.discord_message_id)
-    .executeTakeFirst();
-
-  let tableId: string;
-  let created: boolean;
-
-  if (existingTable) {
-    // UPDATE: atualiza campos sem filtrar por gm_id (tabela importada pode ter gm_id null)
-    tableId = existingTable.id;
-    created = false;
-
-    await db.transaction().execute(async (trx) => {
-      const t = payload.table;
-      if (!t.title) throw new DiscordDraftSyncValidationError(['title']);
-      await trx
-        .updateTable('tables')
-        .set({
-          title: t.title,
-          description: t.description ?? null,
-          type: t.type ?? 'campanha',
-          modality: t.modality ?? 'online',
-          price_type: t.price_type ?? 'gratuita',
-          price_value: t.price_value ?? null,
-          price_frequency: t.price_type === 'paga' ? 'sessao' : null,
-          slots_total: t.slots_total ?? t.slots_open ?? 0,
-          slots_filled: t.slots_filled ?? 0,
-          slots_open: t.slots_open ?? t.slots_total ?? 0,
-          system_id: t.system_id ?? null,
-          cover_url: coverUrl,
-          banner_url: coverUrl,
-          actual_gm_name: payload.source.author_name ?? null,
-          is_covil: true,
-          status: 'draft',
-          updated_at: new Date(),
-        })
-        .where('id', '=', tableId)
-        .execute();
-
-      await trx.deleteFrom('table_contacts').where('table_id', '=', tableId).execute();
-      const uniqueContacts = contacts.filter(
-        (c, i, arr) => arr.findIndex((x) => x.channel === c.channel && x.value === c.value) === i
-      );
-      if (uniqueContacts.length > 0) {
-        await trx
-          .insertInto('table_contacts')
-          .values(uniqueContacts.map((c, i) => ({ ...c, table_id: tableId, sort_order: i })))
-          .execute();
-      }
-
-      await trx.deleteFrom('table_schedules').where('table_id', '=', tableId).execute();
-      if (schedules.length > 0) {
-        await trx
-          .insertInto('table_schedules')
-          .values(schedules.map((s, i) => ({ ...s, table_id: tableId, sort_order: i })))
-          .execute();
-      }
-    });
-  } else {
-    // INSERT
-    created = true;
-    if (!payload.table.title) throw new DiscordDraftSyncValidationError(['title']);
-    const slug = TableService.generateSlug(payload.table.title);
-    const tableData = buildTableData(payload, {
-      sourceId: message.discord_message_id,
-      sourceUrl: message.discord_message_url,
-      gmName: payload.source.author_name ?? null,
-    }, slug, coverUrl);
-    const inserted = await TableRepository.createTableWithRelations(tableData, contacts, schedules);
-    tableId = inserted.id;
-  }
-
-  // Marca draft e mensagem como sincronizados
-  await db.transaction().execute(async (trx) => {
-    await trx
-      .updateTable('discord_import_table_drafts')
-      .set({
-        status: 'synced',
-        table_id: tableId,
-        normalized_payload: payload,
-        image_upload_status: imageUpload.status,
-        image_upload_attempts: imageUpload.attempts,
-        image_upload_last_error: imageUpload.error,
-        image_upload_last_at: imageUpload.status ? new Date() : null,
-        updated_at: new Date(),
-      })
-      .where('id', '=', draftId)
-      .execute();
-
-    await trx
-      .updateTable('discord_import_messages')
-      .set({ status: 'synced', updated_at: new Date() })
-      .where('id', '=', message.id)
-      .execute();
-  });
-
-  if (imageUpload.status && imageUpload.status !== 'success') {
-    await notifyAdminsAboutImageFailure(tableId, payload.table.title ?? 'Mesa sem título', imageUpload.status, imageUpload.error);
-  }
-
-  return { tableId, created };
+  return syncDraftToTable(draftId, discordSyncConfig);
 }

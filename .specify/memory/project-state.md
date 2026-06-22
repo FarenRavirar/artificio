@@ -73,7 +73,7 @@
 11. **Spec 043** (auditoria visual links + shared `packages/ui`) — **PR #84 mergeada em `dev` (`39d2c7c`, 2026-06-22).** Fase 1 T5 (logo base64 → PNG estático) completa. `brand.ts` com `import .png?url`, `ambient.d.ts`, build script. `assetsInlineLimit: 0` nos 5 consumidores. 46 arquivos, +6644/-256. CI verde. Próximo: T6 (auditoria Header shared).
 12. **Spec 044** (otimizacao ecossistema OpenCode + Claude Code) — ✅ **FECHADA (2026-06-22).**
 13. **Spec 045** (débitos pendentes em limbo) — **Investigação concluída + T1 ✅ (2026-06-22, PR #85).**
-14. **Spec 047** (mesas inbox importacao) — **Spec criada (2026-06-22).** Auditoria Fase 0 ✅. 5 débitos "Local" investigados: 3 já resolvidos (BL-BUILD-CACHE-PRUNE-ALL em prod, BL-LINKS-NAV-CROSSAPP em prod, BL-033-SECRET-BLOCK fechado no PR #85), 2 reais (BL-ACCOUNTS-PORT deploy = T2; BL-LINKS-GROUP-LOGOS 12/13 = T3). Backlog/audit-map reconciliados (T5). Resta T2/T3/T4 (aprovação nominal). Reviews PR #85: 1 FP (Amazon Q) + 1 procede (Codex, AGENTS MCP condicional).
+14. **Spec 047** (mesas inbox importação) — **fechamento técnico local pré-Git ✅ (2026-06-22).** Backend, sync, corpus/métricas, erros tipados e débitos/reviews implementados. Lint 15/15, build 17/17, backend 21 arquivos/159 testes e diff-check verdes. Sem commit/push/PR/deploy. Próximo: autorizações separadas para fluxo Git; depois deploy beta aplica migration 129 e smoke.
 
 ## Log
 

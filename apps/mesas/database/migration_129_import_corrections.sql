@@ -37,8 +37,8 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'migration_129 falhou: coluna diff nao criada em import_corrections';
   END IF;
+
+  RAISE NOTICE 'migration_129: import_corrections ok';
 END $$;
 
 COMMIT;
-
-RAISE NOTICE 'migration_129: import_corrections ok';

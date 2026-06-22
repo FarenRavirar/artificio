@@ -57,3 +57,22 @@
 - Revisão técnica executada.
 - Não pronta para commit: lint obrigatório não está verde e constraint do beta está dessincronizada do SQL revisado.
 - Nenhum commit, push, PR, deploy, smoke ou write adicional na VM executado.
+
+## Retomada — fechamento pré-Git (2026-06-22)
+
+- **Objetivo:** validar o diff final após resolução dos débitos/reviews e consolidar evidências canônicas da Spec 047.
+- **Escopo autorizado:** inspeção, validações locais e atualização documental; sem commit, push, PR, merge, deploy ou write na VM.
+- **A executar:** `pnpm run lint`, `pnpm run build`, suíte do backend Mesas e `git diff --check`.
+- **A conferir:** coerência de `tasks.md`, `debitos.md`, `reviews.md`, sessão e backlog; exclusão de `spec047-backup/` do futuro commit.
+- **Critério:** gates locais verdes, diff limpo e documentação refletindo exatamente o estado material.
+
+## Evidência final — fechamento pré-Git
+
+- `pnpm run lint`: ✅ 15/15 tasks.
+- `pnpm run build`: ✅ 17/17 tasks.
+- `pnpm --filter @artificio/mesas-backend test`: ✅ 21 arquivos / 159 testes.
+- `git diff --check`: ✅ após remoção de whitespace em `reviews.md`.
+- `spec047-backup/`: permanece untracked; proibido incluir no futuro commit.
+- Documentação reconciliada: `spec.md`, `tasks.md`, `debitos.md`, backlog e `project-state.md` agora refletem o estado material.
+- Backlog atualizado: `BL-MESAS-INBOX-047` = local, pronto para Git; nenhuma pendência nova descoberta.
+- **Estado:** fechamento técnico local concluído. Nenhum commit, push, PR, merge, deploy ou write na VM executado.

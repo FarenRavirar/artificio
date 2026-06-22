@@ -135,12 +135,13 @@
 - **Origem:** Consolidação da spec (2026-06-22)
 - **Descrição:** Toda correção humana (admin ajusta título, corrige sistema, resolve ambiguidade de vagas) é perdida hoje — o parser nunca aprende com os erros. Sem um corpus de treino estruturado (`raw_text` → `parsed_before` → `human_corrected` → `diff` → `reason`), não há como medir acurácia, melhorar heurísticas, treinar modelos futuros, ou priorizar correções no parser.
 - **Ação:** Fase 1.5 (nova): criar tabela `import_corrections` + endpoint `POST /drafts/:id/correction` + métricas básicas de acurácia por campo.
-- **Status:** **implementado localmente; fecha após deploy beta (2026-06-22)**
+- **Status:** **resolvido no código local (2026-06-22)**
   - Migration `migration_129_import_corrections.sql` criada localmente (`online-safe`)
+  - **Correção REV-001 (2026-06-22):** `RAISE NOTICE` movido para dentro do `DO $$` (era standalone após `COMMIT` — erro sintático crítico que bloquearia deploy). Corrigido seguindo padrão de `migration_128:82`.
   - Tipos Kysely `ImportCorrectionsTable` em `db/types.ts` + registro no `Database`
   - Endpoints `POST /drafts/:id/correction` + `GET /metrics` implementados
-  - `tsc --noEmit` verde. 134/134 testes passam.
-  - **Pendente:** deploy beta via esteira canônica → `apply_required_migrations.sh` aplica migration 129 → validação DB + smoke.
+  - Validação final consolidada: lint 15/15, build 17/17 e backend 21 arquivos/159 testes verdes.
+  - A aplicação da migration 129 e o smoke no beta pertencem à etapa operacional pós-merge da spec; não reabrem este débito de implementação.
 
 ## DEB-047-09 — Lint repo-wide inclui artefatos `dist-cjs` de `packages/feedback`
 
@@ -179,7 +180,7 @@
   3. `POST /api/v1/admin/inbox/drafts/:id/correction`: schema, cálculo de diff, persistência, vínculo com usuário/draft e rejeição de draft alheio à Inbox;
   4. `GET /api/v1/admin/inbox/metrics`: admin-only, base vazia, agregação por campo e ordenação/limite;
   5. migration 129: constraints/FKs e comportamento de deleção.
-- **Risco:** o `tsc`, lint e testes legados provam compatibilidade estática e ausência de regressão na suíte existente, mas não provam que os fluxos novos funcionam nem que preservam as invariantes de produto (“não publicar automaticamente”, idempotência e corpus correto).
+- **Risco:** o `tsc`, lint e testes legados provam compatibilidade estática e ausência de regressão na suíte existente, mas não provam que os fluxos novos funcionam nem que preservam as invariantes de produto ("não publicar automaticamente", idempotência e corpus correto).
 - **Ação necessária:** adicionar testes unitários/de rota com DB mockado ou banco de teste cobrindo os casos acima; confirmar explicitamente que sync cria `tables.status = 'draft'` e jamais `published`; executar a suíte e registrar contagem nova.
 - **Status:** **resolvido (2026-06-22)** — `adminImportInbox.test.ts` criado com 15 testes cobrindo 4 das 5 superfícies:
   1. `syncImportDraftToTable`: 404, 422 (sem import_message_id), já-synced, rejected, não-ready, mensagem não encontrada, missing_fields, criação com status draft ✅
@@ -187,4 +188,81 @@
   3. `POST /drafts/:id/correction`: schema inválido, draft inexistente, diff zero, diff com mudanças ✅
   4. `GET /metrics`: base vazia, agregação por campo ✅
   5. migration 129: coberto indiretamente (tipos Kysely compilam, FK referenciada nos inserts) 🔜
-  Suíte: **19 files / 134 tests** (era 18/119). `tsc --noEmit` verde.
+   Suíte: **19 files / 144 tests** (era 19/134; +10 testes adicionados para `POST /import-text` e `GET /drafts` via REV-005). `tsc --noEmit` verde.
+
+## DEB-047-12 — Duplicação entre `syncDiscordDraftToTable` e `syncImportDraftToTable`
+
+- **Severidade:** Média (DRY/manutenção)
+- **Origem:** Auditoria jscpd (2026-06-22) — 3 arquivos escaneados: `syncImportDraftToTable.ts`, `adminImportInbox.ts`, `syncDiscordDraftToTable.ts`
+- **🔍 ANÁLISE (2026-06-22):**
+  - **Métricas:** 14.5% de duplicação (113 linhas, 6 blocos). `adminImportInbox.ts` não é fonte de duplicação — apenas consome `syncImportDraftToTable`.
+  - **6 blocos duplicados** (todos entre `syncDiscordDraftToTable` e `syncImportDraftToTable`):
+
+  | # | Linhas | Impacto | Bloco |
+  |---|--------|---------|-------|
+  | 1 | 14 | 28 | Busca draft + checks status (synced/rejected/ready) |
+  | 2 | 11 | 22 | Valida payload + extrai contacts/schedules + upload imagem |
+  | 3 | 14 | 28 | Idempotência por source_id + setup tableId/created |
+  | 4 | 18 | 36 | UPDATE: `.set()` com mesmos 15 campos |
+  | 5 | 31 | 62 | DELETE/INSERT contacts + schedules; ELSE branch (INSERT path) |
+  | 6 | 25 | 50 | Marca draft e mensagem como `synced` + notifica falha imagem |
+
+  - **Impacto total: 226** (soma `linhas × instâncias`). `syncImportDraftToTable` tem 174 linhas, ~65% são cópia de `syncDiscordDraftToTable` (113/174).
+
+- **Classificação:** Near — mesma estrutura, difere em nomes/literais. Pontos de variação:
+  - Tabela fonte: `import_messages` vs `discord_import_messages`
+  - `source_id`: `importMessage.id` vs `message.discord_message_id`
+  - `sourceUrl`: sempre `null` vs `message.discord_message_url`
+  - `gmName`: `adminDisplayName ?? payload.source.author_name` vs `payload.source.author_name`
+  - Classe de erro: `DraftSyncValidationError` vs `DiscordDraftSyncValidationError`
+
+- **Padrão de refatoração:** **Parameterize (Extract with args)** — extrair função `syncDraftToTable(draftId, sourceConfig)` onde `sourceConfig` injeta tabela fonte, sourceId, sourceUrl, gmName e error class.
+
+- **Estimativa de economia:** ~100 linhas removidas, 2 arquivos tocados, 1 função compartilhada.
+
+- **Risco:** Baixo — lógica idêntica, já compartilham `syncHelpers.ts`. A refatoração unifica o que já é estruturalmente igual. Ambas as funções foram criadas como "espelho" intencional (DEB-047-03, resolvido com `syncHelpers.ts`), mas a extração parou nos helpers menores — o corpo principal das funções continua duplicado.
+
+- **Status:** **resolvido (2026-06-22)** — refatoração implementada via `syncHelpers.ts`:
+  - `syncDraftToTable(draftId, config, adminDisplayName?)` — função central parametrizada (syncHelpers.ts:335)
+  - `SyncDraftCoreConfig` — interface de injeção de dependências com 8 campos (syncHelpers.ts:324)
+  - `syncDiscordDraftToTable.ts`: 218 → **79 linhas** (wrapper)
+  - `syncImportDraftToTable.ts`: 174 → **32 linhas** (wrapper)
+  - **Economia real:** ~281 linhas removidas (estimativa era ~100). `tsc` limpo, 144/144 testes, lint 15/15.
+
+## DEB-047-13 — Cast `as ImportTableDraft` em JSONB sem normalizador tipado
+
+- **Severidade:** Baixa (defesa em profundidade mitiga risco severo)
+- **Origem:** REV-004 (CodeRabbit no PR #87) — `syncImportDraftToTable.ts:56`
+- **Escopo:** Projeto-wide — **5 arquivos, 11 pontos de cast** de JSONB sem validação estrutural em runtime
+- **Descrição:** Colunas `normalized_payload` e `parsed_payload` são JSONB. Kysely retorna `unknown`. Todos os 11 pontos fazem cast sem Zod/type guard/validação estrutural. Se um admin editar o draft via frontend e corromper a estrutura do JSONB, a falha pode ocorrer em pontos imprevisíveis do pipeline.
+
+### Mapeamento preciso dos pontos de cast (2026-06-22)
+
+| # | Arquivo | Linha | Cast | Risco | Grupo |
+|---|---|---|---|---|---|
+| 1 | `syncDiscordDraftToTable.ts` | 41 | `as ImportTableDraft` | Médio | Sync (reparse) |
+| 2 | `syncDiscordDraftToTable.ts` | 100 | `as ImportTableDraft` | Médio | Sync (Discord) |
+| 3 | `syncImportDraftToTable.ts` | 56 | `as ImportTableDraft` | Médio | Sync (inbox) |
+| 4 | `adminDiscordSync.ts` | 1039 | `as { missing_fields?: unknown }` | Baixo | Read (PATCH) |
+| 5 | `adminDiscordSync.ts` | 1040 | `as { missing_fields?: unknown }` | Baixo | Read (PATCH) |
+| 6 | `adminImportInbox.ts` | 196 | `as Record<string, unknown>` | Baixo | Read (GET drafts) |
+| 7 | `adminImportInbox.ts` | 271 | `as Record<string, unknown>` | Baixo | Read (correction diff) |
+| 8 | `systemSuggestionsAdmin.ts` | 49 | `as Record<string, any>` | **Alto** | Write-back |
+| 9 | `systemSuggestionsAdmin.ts` | 65 | `.set({ parsed_payload: updated as any })` | **Alto** | Write-back |
+| 10 | `systemSuggestionsAdmin.ts` | 290 | `as Record<string, any>` | **Alto** | Write-back |
+| 11 | `systemSuggestionsAdmin.ts` | 303 | `.set({ parsed_payload: updated as any })` | **Alto** | Write-back |
+
+**Grupos de risco:**
+- **Sync (1-3):** Payload usado para INSERT/UPDATE em `tables`/`table_schedules`/`table_contacts`. Defesa em profundidade: type guards em `validateDraftForSync` (typeof runtime), `try/catch` em `extractContacts`, constraints PostgreSQL (`TIME`, `INTEGER`, `TEXT`), transaction rollback. Falha → sync aborta com erro controlado, sem corrupção.
+- **Read (4-7):** Payload lido para exibição ou comparação. Acessos com `?.` e `??`. Pior caso: dados incorretos na UI.
+- **Write-back (8-11):** `systemSuggestionsAdmin.ts` lê `parsed_payload` como `Record<string, any>`, muta, escreve de volta com `as any`. Este é o caminho mais perigoso — payload corrompido no DB seria escrito de volta sem validação, potencialmente piorando a corrupção.
+- **Mitigação atual:** `validateDraftForSync` usa type guards (`hasText`, `hasPositiveNumber`, `isDayOfWeek`) que verificam `typeof` em runtime; `extractContacts` tem `try/catch` ao redor de `new URL()`; PostgreSQL rejeita tipos errados; transaction garante rollback.
+- **Cenários residuais:** Objeto com campos de tipos certos mas valores semanticamente inválidos (ex: `title: 123` → PostgreSQL auto-cast para texto, `system_id: "não-uuid"` → INSERT aceita mas JOINs quebram depois).
+- **Ação:** Criar Zod schema para `ImportTableDraft`/`DiscordTableDraftTable` e validar na leitura do JSONB nos 11 pontos. Prioridade: Write-back (grupo 8-11) > Sync (1-3) > Read (4-7). Escopo maior que a spec 047 — débito projeto-wide para ciclo futuro.
+- **Status:** **resolvido (2026-06-22)** — REV-004 implementado:
+  - `syncHelpers.ts`: Zod schemas `draftTableSchema` + `importTableDraftSchema` com `.partial().passthrough()`
+  - `normalizeImportTableDraft(raw)` — valida payload completo, throw se nulo/não-objeto/malformado
+  - `normalizeDraftPayload(raw)` — valida que é objeto, retorna `{}` como fallback seguro
+  - 11/11 cast points substituídos em 5 arquivos
+  - `discord/index.ts`: barrel exports adicionados
+  - `tsc` limpo, 19/19 files, 144/144 testes, 15/15 lint

@@ -86,16 +86,17 @@
 | T1.3 | Tipos Kysely | ✅ |
 | T1.4 | Adaptador `textToRawMessage` | ✅ |
 | T1.5 | Segmentador `segmentation` | ✅ |
-| T1.6 | Rota `adminImportInbox` | ⚠️ PARCIAL — 2/3 endpoints |
+| T1.6 | Rota `adminImportInbox` | ✅ COMPLETO — 3/3 endpoints |
 | T1.7 | Registro em `server.ts` | ✅ |
 | T1.18 | Guards anti-vazamento | ✅ |
 | T1.19 | Migration no banco beta (FASE A) | ✅ |
 | T1.20 | Deploy no beta (FASE B) | 🔜 |
 | T1.13-17 | Smoke test manual | 🔜 bloqueado (FASE B) |
-| T1.6 sync | `syncImportDraftToTable` | 🔜 |
+| T1.6 sync | `syncImportDraftToTable` | ✅ |
 | T1.8-12 | Frontend UI | 🔜 |
 | — | Revert `db/types.ts` | ✅ (correção pós-execução) |
 | — | Branch `feat/mesas-047-inbox-importacao` | ✅ |
+| — | **Suíte de testes** | **21 files / 159 tests** (134→144 via REV-005 → 159 via REV-014) |
 
 ### 1.1 — Preparação (schema + tipos)
 
@@ -837,16 +838,16 @@
 
 ---
 
-## Task recomendada para começar
+## Próxima etapa operacional
 
-**T1.13** — Teste manual: aplicar migration em ambiente dev e testar `POST /api/v1/admin/inbox/import-text` com um anúncio real colado.
+Fechamento técnico local concluído em 2026-06-22: sync e rotas backend implementados; lint 15/15, build 17/17, backend 21 arquivos/159 testes e `git diff --check` verdes.
 
-T1.1 a T1.7 + T1.18 já executados (2026-06-22). Backend compila limpo (`tsc --noEmit` verde). Pendente: T1.6 sync (`POST /drafts/:id/sync`), T1.8-T1.12 frontend, T1.13-T1.17 validação.
+Próximo fluxo, cada ação com autorização própria: commit → push da branch → PR para `dev` → merge → deploy beta pela esteira canônica (aplicação da migration 129) → smoke. UI T1.8-T1.12 e validação manual de produto permanecem nas fases próprias da spec; não são requisito oculto do commit backend atual.
 
 ---
 
 ## Atualizar ao fechar
 
-- [ ] `specs/backlog.md` — adicionar item `BL-MESAS-INBOX-047` na seção P1/Produto
-- [ ] `.specify/memory/project-state.md` — próximo passo
-- [ ] `sessoes/26-06-22_9_mesas-inbox-importacao.md` — sessão
+- [x] `specs/backlog.md` — item `BL-MESAS-INBOX-047` reconciliado
+- [x] `.specify/memory/project-state.md` — próximo passo reconciliado
+- [x] `sessoes/26-06-22_9_mesas-inbox-importacao.md` — evidência final registrada
