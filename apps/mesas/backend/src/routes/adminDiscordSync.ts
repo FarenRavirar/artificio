@@ -1257,7 +1257,6 @@ router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Respon
     const result = await syncDiscordDraftToTable(req.params.id);
     return res.json({ data: result });
   } catch (error: unknown) {
-    console.error('[POST /admin/discord-sync/drafts/:id/sync]', error);
     if (error instanceof DraftNotFoundError) {
       return res.status(404).json({ error: error.message });
     }

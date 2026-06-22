@@ -673,3 +673,48 @@ Justificativas em `plan.md` §2.
   - Inbox: 5 testes de sync atualizados (404/422 em vez de 500)
   - Discord: novo arquivo `adminDiscordSync.sync.test.ts` com 2 testes de erro tipado (404 DraftNotFound + 422 DraftStateError)
 - **Validação:** `tsc` limpo, lint 15/15, **21 files / 159 tests** ✅
+
+---
+
+## 2026-06-22 — CodeRabbit pós-commit `1adc156`
+
+### REV-015 — normalizeTime pode produzir horários inválidos (ex: 99:00)
+
+- **Origem:** coderabbitai (bot, pós-push `1adc156`)
+- **Tipo:** PR (#87)
+- **Referência:** `syncHelpers.ts:61-67` — `normalizeTime` + `syncHelpers.ts:175-195` — `extractSchedules`
+- **Resumo:** `normalizeTime("99h")` → `"99:00"`, `normalizeTime("25h30")` → `"25:30"`. `extractSchedules` só verifica se `normalizeTime` retorna `null`, não se o resultado é semanticamente válido (hora 0-23, minuto 0-59). Output inválido chegaria ao INSERT em `table_schedules.start_time TIME NOT NULL`.
+- **Severidade declarada:** 🟠 Major
+- **Status:** ✅ **investigado — procede (defesa em profundidade)**
+- **Classificação:** procede e deve ser implementado (hardening)
+- **Severidade real:** 🟡 Minor — `isValidTime` bloqueia todos os cenários no fluxo atual; sem path de falha real
+
+#### 🔍 INVESTIGAÇÃO REV-015
+
+- **Path real no fluxo de sync:**
+  1. `syncDraftToTable:392` → `validateDraftForSync(payload)` → `isValidTime(t.start_time)` (linha 139)
+  2. `isValidTime("99h")` → regex `/^\d{2}:\d{2}(:\d{2})?$/` falha (sem `:`) → `start_time` em `missingFields` → sync aborta com `DraftSyncValidationError`
+  3. `isValidTime("99:00")` → regex passa, mas `h=99 > 23` → retorna false → mesmo resultado
+  4. `extractSchedules` (linha 398) SÓ roda se `validateDraftForSync` passou → `normalizeTime` nunca recebe input inválido no fluxo atual
+  
+- **O review está correto sobre a fragilidade de `normalizeTime`:** a função não tem auto-validação. Se alguém no futuro chamar `normalizeTime("99h")` sem o gate do `isValidTime`, o output "99:00" chegaria ao DB. É hardening, não bug ativo.
+
+- **Único local onde `extractSchedules`/`normalizeTime` é chamado:** `syncHelpers.ts:398`, sempre após `validateDraftForSync:392`
+
+- **Recomendação:** Adicionar `isValidTime` como gate interno em `normalizeTime` — se output for inválido, retornar `null`. Isso torna a função auto-contida e segura para qualquer chamador futuro.
+
+- **Falso positivo?** Parcial — o cenário não se materializa no fluxo atual, mas a função é frágil e merece hardening.
+
+- **Investigado por:** OpenCode (DeepSeek-v4-pro)
+- **Data:** 2026-06-22
+- **Implementação:** `syncHelpers.ts:66` — `normalizeTime` agora valida output com `isValidTime(result)` antes de retornar. "99h"→null, "25h30"→null, "12h99"→null. +3 testes em `syncHelpers.test.ts` (9→12). 21 files / 162 testes ✅.
+
+### REV-016 — console.error loga erros esperados (404/422) em adminDiscordSync
+
+- **Origem:** coderabbitai (bot, pós-push `1adc156`)
+- **Tipo:** PR (#87)
+- **Referência:** `adminDiscordSync.ts:1260-1272` — catch do POST /drafts/:id/sync
+- **Resumo:** `console.error` na linha 1260 loga o erro ANTES da classificação por tipo (`DraftNotFoundError`, `DiscordDraftSyncValidationError`, `DraftStateError`). Erros esperados 404/422 viram ruído operacional. Linha 1270 loga o mesmo erro novamente (500).
+- **Status:** ✅ **implementado**
+- **Classificação:** procede (trivial, quick win)
+- **Correção:** Removido `console.error` da linha 1260 (antes dos instanceof). Mantido apenas no fallback 500 (linha 1270). Análogo ao `adminImportInbox.ts` que já segue este padrão (linha 283).

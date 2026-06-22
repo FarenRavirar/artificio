@@ -63,7 +63,8 @@ export function normalizeTime(raw: string): string | null {
   if (!match) return null;
   const h = match[1].padStart(2, '0');
   const m = (match[2] || '00').padStart(2, '0');
-  return `${h}:${m}`;
+  const result = `${h}:${m}`;
+  return isValidTime(result) ? result : null;
 }
 
 const draftTableSchema = z.object({

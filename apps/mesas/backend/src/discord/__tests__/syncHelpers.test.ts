@@ -43,11 +43,23 @@ describe('normalizeTime', () => {
     expect(normalizeTime('20h30')).toBe('20:30');
   });
 
-  it('returns "19:00" unchanged', () => {
+  it('returns "19:00" unchanged (already valid)', () => {
     expect(normalizeTime('19:00')).toBe('19:00');
   });
 
-  it('returns null for invalid input', () => {
+  it('returns null for invalid hour (99h → 99:00 rejected by isValidTime)', () => {
+    expect(normalizeTime('99h')).toBeNull();
+  });
+
+  it('returns null for invalid hour (25h30 → 25:30 rejected by isValidTime)', () => {
+    expect(normalizeTime('25h30')).toBeNull();
+  });
+
+  it('returns null for invalid minute (12h99 → 12:99 rejected by isValidTime)', () => {
+    expect(normalizeTime('12h99')).toBeNull();
+  });
+
+  it('returns null for non-time text', () => {
     expect(normalizeTime('noite')).toBeNull();
     expect(normalizeTime('')).toBeNull();
   });
