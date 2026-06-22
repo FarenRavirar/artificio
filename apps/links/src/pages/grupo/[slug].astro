@@ -48,12 +48,12 @@ const jsonLd = {
       <span aria-current="page">{group.name}</span>
     </nav>
 
-    <article class={`group-detail${group.isAdult ? " group-detail-adult" : ""}`}>
+    <article id="group-detail" class={`group-detail${group.isAdult ? " group-detail-adult" : ""}`}>
       {
         group.isAdult && (
           <div class="adult-overlay">
             <p>Este grupo tem conteúdo adulto (+18)</p>
-            <button type="button">Confirmo ter 18+</button>
+            <button id="unlock-adult" type="button">Confirmo ter 18+</button>
           </div>
         )
       }
@@ -86,6 +86,12 @@ const jsonLd = {
             rel="noopener noreferrer"
           >
             {group.kind === "channel" ? "Seguir canal" : "Entrar no grupo"}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline;vertical-align:middle;margin-left:5px;opacity:0.7">
+              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            <span class="sr-only">(abre no WhatsApp)</span>
           </a>
         </div>
       </header>
@@ -110,5 +116,27 @@ const jsonLd = {
         )
       }
     </article>
+    {
+      group.isAdult && (
+        <script is:inline>
+          (function() {
+            var el = document.getElementById('group-detail');
+            if (!el) return;
+            try {
+              if (localStorage.getItem('artificio_adult_gate') === '1') {
+                el.classList.add('group-detail-unlocked');
+              }
+            } catch (e) {}
+            var btn = document.getElementById('unlock-adult');
+            if (btn) {
+              btn.addEventListener('click', function() {
+                try { localStorage.setItem('artificio_adult_gate', '1'); } catch (e) {}
+                el.classList.add('group-detail-unlocked');
+              });
+            }
+          })();
+        </script>
+      )
+    }
   </main>
 </Base>

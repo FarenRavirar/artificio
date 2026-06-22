@@ -27,8 +27,13 @@ export default function CommunityGroups() {
   });
 
   const confirmAdult = useCallback(() => {
-    try { localStorage.setItem("artificio_adult_gate", "1"); } catch { /* noop */ }
+    try { localStorage.setItem("artificio_adult_gate", "1"); } catch (error) { console.error("[CommunityGroups] Falha ao persistir flag de conteúdo +18.", error); }
     setAdultGate(true);
+  }, []);
+
+  const hideAdult = useCallback(() => {
+    try { localStorage.removeItem("artificio_adult_gate"); } catch (error) { console.error("[CommunityGroups] Falha ao limpar flag de conteúdo +18.", error); }
+    setAdultGate(false);
   }, []);
 
   useEffect(() => {
@@ -143,6 +148,13 @@ export default function CommunityGroups() {
           Filtro: <span className="chip chip-active">{state.tagLabel.get(selectedTag) ?? selectedTag}</span>
           <button className="chip" onClick={() => setSelectedTag(null)} type="button">
             ✕ limpar
+          </button>
+        </p>
+      )}
+      {adultGate && hasAdult && (
+        <p className="filter-bar">
+          <button className="chip" onClick={hideAdult} type="button">
+            Esconder conteúdo +18
           </button>
         </p>
       )}

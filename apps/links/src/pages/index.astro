@@ -1,8 +1,8 @@
 ---
 import Base from "../layouts/Base.astro";
 import PortalHeader from "../components/PortalHeader.astro";
+import Sidebar from "../components/Sidebar.astro";
 import GroupCard from "../components/GroupCard.astro";
-import { defaultNavItems } from "@artificio/ui/modules";
 import { PARTNER_CONTACT } from "../data/groups";
 import { REGRAS_INTRO, REGRAS_SECTIONS } from "../data/regras";
 import { getCategories } from "../lib/groups-source";
@@ -35,32 +35,17 @@ const jsonLd = {
 <Base title={title} description={description} jsonLd={jsonLd}>
   <PortalHeader />
   <div class="shell">
-    <aside class="sidebar">
-      <details class="nav-group" open>
-        <summary>Grupos<span class="chevron">›</span></summary>
-        <nav class="nav-sub">
-          {categories.map((c) => <a href={`#cat-${c.id}`}>{c.title}</a>)}
-        </nav>
-      </details>
-
-      <a class="nav-solo" href="#comunidade">Grupos de RPG</a>
-
-      <details class="nav-group">
-        <summary>Regras<span class="chevron">›</span></summary>
-        <nav class="nav-sub">
-          {REGRAS_SECTIONS.map((s) => <a href={`#regra-${s.id}`}>{s.title}</a>)}
-        </nav>
-      </details>
-
-      <details class="nav-group">
-        <summary>Projetos<span class="chevron">›</span></summary>
-        <nav class="nav-sub">
-          {defaultNavItems.map((item) => <a href={item.href}>{item.label}</a>)}
-        </nav>
-      </details>
-    </aside>
-
+    <Sidebar categories={categories} />
     <main class="content">
+      <div class="onboarding-banner" id="onboarding-banner">
+        <h2>Bem-vindo ao hub do Artifício RPG</h2>
+        <p>
+          Explore os grupos de WhatsApp da comunidade — conversa diária sobre
+          RPG de mesa, cenários, mestria e anúncios de mesa. Escolha um grupo
+          e participe!
+        </p>
+        <button type="button" class="onboarding-cta" id="onboarding-dismiss">Entendi</button>
+      </div>
       <h1 class="page-title">Grupos de WhatsApp de RPG de Mesa</h1>
       <p class="page-lead">
         A comunidade do Artifício RPG no WhatsApp: conversa diária sobre RPG de
@@ -115,10 +100,10 @@ const jsonLd = {
 
       {
         REGRAS_SECTIONS.map((s) => (
-          <div class="regra" id={`regra-${s.id}`}>
-            <h3>
-              {s.icon} {s.title}
-            </h3>
+          <details class="regra" id={`regra-${s.id}`}>
+            <summary>
+              {s.icon && <span set:html={s.icon} />} {s.title}
+            </summary>
             {s.intro && <p class="intro">{s.intro}</p>}
             {s.items && (
               <ul>
@@ -130,7 +115,7 @@ const jsonLd = {
                 ))}
               </ul>
             )}
-          </div>
+          </details>
         ))
       }
 
@@ -141,4 +126,22 @@ const jsonLd = {
       </footer>
     </main>
   </div>
+  <script is:inline>
+    (function () {
+      if (typeof window === "undefined") return;
+      var seen = false;
+      try {
+        seen = localStorage.getItem("artificio_onboarding_seen") === "1";
+      } catch (_) {}
+      if (seen) return;
+      var banner = document.getElementById("onboarding-banner");
+      var dismiss = document.getElementById("onboarding-dismiss");
+      if (!banner || !dismiss) return;
+      banner.classList.add("onboarding-banner--visible");
+      dismiss.addEventListener("click", function () {
+        banner.classList.remove("onboarding-banner--visible");
+        try { localStorage.setItem("artificio_onboarding_seen", "1"); } catch (_) {}
+      });
+    })();
+  </script>
 </Base>

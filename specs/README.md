@@ -44,7 +44,7 @@ Toda spec SDD deve:
 | 024 | auditoria docs/specs/backlog | Fechada; auditoria documental alinhou tasks, backlog e sessoes. |
 | 025 | Lighthouse/qualidade publica | Aberta; T1/T2 fechados com harness limpo + baseline 2026-06-16; proximos: CLS/perf glossario, robots, imagens site, a11y, mesas perf, headers/terceiros. |
 | 036 | media shared | Fechada local 2026-06-20; `@artificio/media` com 5 funções atômicas; 3 consumidores migrados; sem commit. |
-| 042 | duplicate code refactor | Executada local 2026-06-21. cpd 5.57%→4.60%. `packages/feedback` + `actorNameResolver` + `suggestionHelpers`. Build 16/16, testes 219/219. Sem commit. |
+| 042 | duplicate code refactor | ✅ **EM PROD**. Merge dev→main. Deploy prod mesas/glossario/site. cpd 5.57%→4.60% (-411 linhas, -18 clones). 13 revisões resolvidas. |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.

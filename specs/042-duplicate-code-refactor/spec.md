@@ -3,6 +3,7 @@
 - **Módulo/Pacote:** `packages/feedback` (novo) + `apps/mesas/backend`
 - **Gate relacionado:** nenhum
 - **SDD:** Completo (toca `packages/*`)
+- **Status:** ✅ **EM PROD** — Mergeada em `dev` (PR #83, 2026-06-21) → promovida `dev→main` (run `27926641721`) → deploy prod mesas/glossario/site
 
 ## Problema
 

@@ -32,13 +32,18 @@
 - [x] Item 1 concluído: zero clones nos arquivos de feedback
 - [x] Item 2 concluído: 6→1 fonte de resolveActorName
 - [x] Item 3 concluído: 4 pares de handlers → 3 shared factory functions
-- [x] Build 16/16 verde
+- [x] Build 17/17 verde
 - [x] Testes 219/219 verde
 - [x] cpd final: 5.57% → 4.60% (-0.97pp, -411 linhas, -18 clones)
+- [x] 13 revisões de PR resolvidas (R042-001 a R042-013)
+- [x] PR #83 mergeada em `dev` (154 arquivos, +7663/-3040)
+- [x] Deploy beta disparado: mesas + glossario + site
+- [x] Promovido `dev→main` (run `27926641721`)
+- [x] Deploy prod: mesas (`27926664572`), glossario (`27926665007`), site (`27926665494`)
 
 ## Critério de conclusão
 
-Spec 042 implementada. 3 fontes únicas criadas. Duplicação reduzida em 18%.
+Spec 042 implementada, mergeada em `dev` (PR #83), promovida `dev→main` (run `27926641721`) e deploy prod mesas/glossario/site (runs `27926664572`/`27926665007`/`27926665494`). 3 fontes únicas criadas. Duplicação reduzida em 18%. 13 revisões de PR resolvidas.
 
 ## Evidência
 

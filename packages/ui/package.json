@@ -32,7 +32,7 @@
     "./tailwind-preset": "./tailwind-preset.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node -e \"const{cpSync}=require('node:fs');const files=['_logo.png','_logo_neg.png','faviconV2.png'];files.forEach(f=>cpSync('src/'+f,'dist/'+f))\"",
     "lint": "eslint .",
     "preview": "vite --host 127.0.0.1",
     "test": "vitest run"

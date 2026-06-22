@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { Button } from "@artificio/ui";
+import { useState, useEffect, type FormEvent } from "react";
+import { Button, Field, Modal, Select, Textarea } from "@artificio/ui";
 
 // REASONS é constante interna (hardcoded, tipada, não payload externo).
 // .map no render é seguro — não viola regra de normalização de dado externo.
@@ -36,12 +36,15 @@ interface Props {
   groupName: string;
 }
 
+const FORM_ID = "report-form";
+
 export default function ReportButton({ slug, groupName }: Props) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [undo, setUndo] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function closeModal() {
@@ -49,6 +52,7 @@ export default function ReportButton({ slug, groupName }: Props) {
     setReason("");
     setNote("");
     setDone(false);
+    setUndo(false);
     setError(null);
   }
 
@@ -73,6 +77,7 @@ export default function ReportButton({ slug, groupName }: Props) {
         return;
       }
       setDone(true);
+      setUndo(true);
     } catch {
       setError("Falha de rede. Tente novamente.");
     } finally {
@@ -80,126 +85,115 @@ export default function ReportButton({ slug, groupName }: Props) {
     }
   }
 
+  async function onUndo() {
+    setBusy(true);
+    setError(null);
+    try {
+      const headers: Record<string, string> = {};
+      const token = getXsrfToken();
+      if (token) headers["x-xsrf-token"] = token;
+      const res = await fetch(`/api/groups/${encodeURIComponent(slug)}/report`, {
+        method: "DELETE",
+        headers,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      closeModal();
+    } catch {
+      setError("Não foi possível desfazer.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!undo) return;
+    const timer = setTimeout(() => setUndo(false), 5000);
+    return () => clearTimeout(timer);
+  }, [undo]);
+
+  const fieldError = error && !reason ? error : undefined;
+  const formError = error && reason ? error : null;
+
   return (
-    <span style={{ position: "relative" }}>
-      <span
-        role="button"
-        tabIndex={0}
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(true); } }}
-        style={{ fontSize: "0.8rem", color: "var(--artificio-brand, #FF5722)", cursor: "pointer", userSelect: "none" }}
+    <>
+      <button
+        type="button"
+        className="report-trigger"
+        onClick={(e) => { e.preventDefault(); setOpen(true); }}
         title="Reportar grupo"
       >
         Reportar
-      </span>
+      </button>
 
-      {open && (
-        <div
-          role="dialog"
-          aria-label={`Reportar ${groupName}`}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
-        >
-          <div
-            style={{
-              background: "var(--color-surface, #fff)",
-              color: "var(--color-fg, #0B1220)",
-              padding: "1.5rem",
-              borderRadius: "8px",
-              maxWidth: "400px",
-              width: "90%",
-              boxShadow: "0 4px 24px rgba(0,0,0,.15)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {done ? (
-              <>
-                <h3 style={{ margin: "0 0 .5rem" }}>Denúncia enviada</h3>
-                <p style={{ fontSize: "0.9rem", margin: 0 }}>
-                  Obrigado! A moderação vai analisar.
-                </p>
-                <div style={{ marginTop: "1rem" }}>
-                  <Button variant="secondary" onClick={closeModal}>
-                    Fechar
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <form onSubmit={onSubmit} noValidate>
-                <h3 style={{ margin: "0 0 .75rem" }}>Reportar "{groupName}"</h3>
-                <label style={{ display: "block", marginBottom: ".75rem", fontSize: "0.9rem" }}>
-                  Motivo
-                  <select
-                    value={reason}
-                    onChange={(e) => setReason(e.currentTarget.value)}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      marginTop: ".25rem",
-                      padding: ".4rem .5rem",
-                      borderRadius: "6px",
-                      border: "1px solid var(--color-border, #ccc)",
-                      background: "var(--color-surface, #fff)",
-                      color: "var(--color-fg, #0B1220)",
-                      fontSize: "0.9rem",
-                    }}
-                  >
-                    <option value="">Selecione…</option>
-                    {REASONS.map((r) => (
-                      <option key={r.value} value={r.value}>
-                        {r.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label style={{ display: "block", marginBottom: ".75rem", fontSize: "0.9rem" }}>
-                  Descrição (opcional)
-                  <textarea
-                    value={note}
-                    maxLength={1000}
-                    rows={3}
-                    onChange={(e) => setNote(e.currentTarget.value)}
-                    placeholder="Detalhes adicionais…"
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      marginTop: ".25rem",
-                      padding: ".4rem .5rem",
-                      borderRadius: "6px",
-                      border: "1px solid var(--color-border, #ccc)",
-                      background: "var(--color-surface, #fff)",
-                      color: "var(--color-fg, #0B1220)",
-                      fontSize: "0.9rem",
-                      resize: "vertical",
-                    }}
-                  />
-                </label>
-                {error && (
-                  <p style={{ color: "#DC2626", fontSize: "0.85rem", margin: "0 0 .5rem" }}>
-                    {error}
-                  </p>
-                )}
-                <div style={{ display: "flex", gap: ".5rem", justifyContent: "flex-end" }}>
-                  <Button variant="ghost" type="button" disabled={busy} onClick={closeModal}>
-                    Cancelar
-                  </Button>
-                  <Button variant="primary" type="submit" disabled={busy}>
-                    {busy ? "Enviando…" : "Enviar"}
-                  </Button>
-                </div>
-              </form>
+      <Modal
+        open={open && !done}
+        title={`Reportar "${groupName}"`}
+        onClose={closeModal}
+        footer={
+          <>
+            {formError && (
+              <span className="artificio-field-error" role="alert">{formError}</span>
             )}
-          </div>
-        </div>
-      )}
-    </span>
+            <Button variant="ghost" type="button" disabled={busy} onClick={closeModal}>
+              Cancelar
+            </Button>
+            <Button variant="primary" type="submit" form={FORM_ID} disabled={busy}>
+              {busy ? "Enviando…" : "Enviar"}
+            </Button>
+          </>
+        }
+      >
+        <form id={FORM_ID} onSubmit={onSubmit} noValidate>
+          <Field label="Motivo" error={fieldError}>
+            <Select
+              value={reason}
+              onChange={(e) => { setReason(e.currentTarget.value); setError(null); }}
+              invalid={!!fieldError}
+              disabled={busy}
+            >
+              <option value="">Selecione…</option>
+              {REASONS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Descrição (opcional)">
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.currentTarget.value)}
+              placeholder="Detalhes adicionais…"
+              maxLength={1000}
+              rows={3}
+              disabled={busy}
+            />
+          </Field>
+        </form>
+      </Modal>
+
+      <Modal
+        open={open && done}
+        title="Denúncia enviada"
+        onClose={closeModal}
+        footer={
+          <>
+            {undo && (
+              <Button variant="danger" onClick={onUndo} disabled={busy}>
+                {busy ? "Desfazendo…" : "Desfazer"}
+              </Button>
+            )}
+            <Button variant="secondary" onClick={closeModal}>
+              Fechar
+            </Button>
+          </>
+        }
+      >
+        <span className="artificio-modal-description">
+          {error ?? "Obrigado! A moderação vai analisar."}
+        </span>
+      </Modal>
+    </>
   );
 }

@@ -23,5 +23,6 @@ export default defineConfig({
       },
     },
     chunkSizeWarningLimit: 500,
+    assetsInlineLimit: 0,
   },
 })
