@@ -51,7 +51,7 @@ export function parseFeedbackInput<TKind extends string = FeedbackKind>(
   if (!body) return { ok: false, error: 'Corpo da requisicao invalido.' };
 
   const kindRaw = readString(body.kind).trim();
-  const guard = opts.kindGuard as ((v: string) => v is TKind) | undefined;
+  const guard = opts.kindGuard;
   if (guard) {
     if (!guard(kindRaw)) {
       return { ok: false, error: 'Tipo de feedback invalido.' };
@@ -91,7 +91,7 @@ export function parseFeedbackInput<TKind extends string = FeedbackKind>(
   return {
     ok: true,
     value: {
-      kind: kindRaw as TKind,
+      kind: kindRaw,
       title: trunc(title, L.title),
       description: trunc(description, L.description),
       contact_email: contactEmail,

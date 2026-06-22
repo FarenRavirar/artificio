@@ -13,16 +13,13 @@ import {
 } from '@artificio/feedback';
 
 import type {
-  ConsoleErrorEntry,
-  NetworkErrorEntry,
   NormalizedFeedback,
   ParseResult as SharedParseResult,
 } from '@artificio/feedback';
 
 // Re-export com nomes legados do mesas
 export { FEEDBACK_LIMITS as DEV_FEEDBACK_LIMITS };
-
-export type { ConsoleErrorEntry, NetworkErrorEntry };
+export type { ConsoleErrorEntry, NetworkErrorEntry } from '@artificio/feedback';
 
 export type NormalizedDevFeedback = NormalizedFeedback<DevFeedbackKind>;
 

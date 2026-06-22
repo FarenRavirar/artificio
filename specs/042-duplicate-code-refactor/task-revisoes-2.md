@@ -356,3 +356,125 @@ Quantificadores explícitos com limite superior eliminam backtracking exponencia
 | R042-007 | 🟠 Major | `packages/feedback` (CJS — dup R042-003) | CodeRabbit | fechado |
 | R042-008 | 🟡 Minor | `packages/feedback/src/normalize.ts` (HTTP range) | CodeRabbit | fechado |
 | R042-009 | 🟡 Medium | `packages/feedback/src/helpers.ts` (ReDoS) | SonarCloud | fechado |
+| R042-010 | 🔵 Minor | `devFeedbackValidator.ts:25` (re-export ConsoleErrorEntry) | SonarCloud | fechado |
+| R042-011 | 🔵 Minor | `devFeedbackValidator.ts:25` (re-export NetworkErrorEntry) | SonarCloud | fechado |
+| R042-012 | 🔵 Minor | `parse.ts:54` (assertion desnecessária guard) | SonarCloud | fechado |
+| R042-013 | 🔵 Minor | `parse.ts:94` (assertion desnecessária kindRaw) | SonarCloud | fechado |
+
+---
+
+## R042-010 — Code Smell: Use `export…from` para re-exportar `ConsoleErrorEntry`
+
+**Severidade:** 🔵 Minor (code smell)
+**Escopo:** `apps/mesas/backend/src/validators/devFeedbackValidator.ts:25`
+**Origem:** SonarCloud — `es2015` convention
+
+### Descrição
+
+Linha 25 usa import-then-re-export (`export type { ConsoleErrorEntry, NetworkErrorEntry }`) em vez de `export type { ... } from '...'`. Sonar sugere re-export direto para consistência.
+
+### Evidência (file:line)
+
+`devFeedbackValidator.ts:15-25`:
+```ts
+import type {
+  ConsoleErrorEntry,   // ← importado
+  NetworkErrorEntry,   // ← importado
+  ...
+} from '@artificio/feedback';
+
+export type { ConsoleErrorEntry, NetworkErrorEntry };  // ← re-export separado
+```
+
+### Sugestão
+
+```ts
+export type { ConsoleErrorEntry, NetworkErrorEntry } from '@artificio/feedback';
+```
+
+### Status
+
+- [x] **Fechado** — `export type { ConsoleErrorEntry, NetworkErrorEntry } from '@artificio/feedback';` substitui import+re-export. Build + testes 114/114 verdes.
+
+---
+
+## R042-011 — Code Smell: Use `export…from` para re-exportar `NetworkErrorEntry`
+
+**Severidade:** 🔵 Minor (code smell)
+**Escopo:** `apps/mesas/backend/src/validators/devFeedbackValidator.ts:25`
+**Origem:** SonarCloud — `es2015` convention
+
+### Descrição
+
+Mesmo diagnóstico do R042-010, flaggeado separadamente para `NetworkErrorEntry`. Resolvido na mesma linha.
+
+### Status
+
+- [x] **Fechado** — resolvido junto com R042-010. `export type { ConsoleErrorEntry, NetworkErrorEntry } from '@artificio/feedback';`
+
+---
+
+## R042-012 — Code Smell: Assertion desnecessária em `opts.kindGuard`
+
+**Severidade:** 🔵 Minor (code smell)
+**Escopo:** `packages/feedback/src/parse.ts:54`
+**Origem:** SonarCloud — `redundant` `type-dependent`
+
+### Descrição
+
+`const guard = opts.kindGuard as ((v: string) => v is TKind) | undefined;` — o `as` é redundante porque `opts.kindGuard` já é tipado como `((value: string) => value is TKind) | undefined` via interface `ParseOptions`.
+
+### Evidência (file:line)
+
+`parse.ts:17-18` (interface):
+```ts
+export interface ParseOptions<TKind extends string = FeedbackKind> {
+  kindGuard?: (value: string) => value is TKind;
+```
+
+`parse.ts:54` (uso):
+```ts
+const guard = opts.kindGuard as ((v: string) => v is TKind) | undefined;  // ← as desnecessário
+```
+
+### Sugestão
+
+```ts
+const guard = opts.kindGuard;
+```
+
+### Status
+
+- [x] **Fechado** — `const guard = opts.kindGuard;` (sem `as`). Tipo já compatível com a interface `ParseOptions`. Build 17/17 verde.
+
+---
+
+## R042-013 — Code Smell: Assertion desnecessária em `kindRaw as TKind`
+
+**Severidade:** 🔵 Minor (code smell)
+**Escopo:** `packages/feedback/src/parse.ts:94`
+**Origem:** SonarCloud — `redundant` `type-dependent`
+
+### Descrição
+
+`kind: kindRaw as TKind` — o `as TKind` é redundante porque `kindRaw` já foi validado pelo `kindGuard` (branch `guard(kindRaw)`) ou pelo else branch (`'bug' | 'suggestion'`). O tipo já é restrito.
+
+### Evidência (file:line)
+
+`parse.ts:53-94`:
+```ts
+const kindRaw = readString(body.kind).trim();
+// ... validado por guard(kindRaw) ou === 'bug'/'suggestion'
+return {
+  ok: true,
+  value: {
+    kind: kindRaw as TKind,  // ← as desnecessário após validação
+```
+
+### Sugestão
+
+Remover `as TKind` — o fluxo de validação já garante o tipo.
+
+### Status
+
+- [x] **Fechado** — `kind: kindRaw` (sem `as TKind`). TypeScript narrowing via `guard(kindRaw)` type predicate + else-if literal já restringe corretamente. Build 17/17 verde.

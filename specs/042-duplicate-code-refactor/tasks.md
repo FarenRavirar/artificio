@@ -60,6 +60,10 @@
 - [ ] **R042-007** — `exports.require` aponta para ESM (CodeRabbit, 🟠 Major) · Mesmo diagnóstico do R042-003. Ver `task-revisoes-2.md`.
 - [x] **R042-008** — Validação de faixa HTTP no `normalizeNetworkErrors` (CodeRabbit, 🟡 Minor) · Qualquer número finito aceito como status; corrigido: valida 100-599. Ver `task-revisoes-2.md`.
 - [x] **R042-009** — ReDoS no EMAIL_RE (SonarCloud, 🟡 Medium) · Regex `[^\s@]+` vulnerável a backtracking super-linear. Corrigido: quantificadores explícitos `{1,254}`. Ver `task-revisoes-2.md`.
+- [x] **R042-010** — `export type { }` → `export type { } from` para `ConsoleErrorEntry` (SonarCloud, 🔵 Minor) · Re-export direto substitui import+re-export. Build + testes verdes. Ver `task-revisoes-2.md`.
+- [x] **R042-011** — `export type { }` → `export type { } from` para `NetworkErrorEntry` (SonarCloud, 🔵 Minor) · Mesmo do R042-010, resolvido junto. Ver `task-revisoes-2.md`.
+- [x] **R042-012** — Assertion desnecessária `opts.kindGuard as (...)` (SonarCloud, 🔵 Minor) · `parse.ts:54` — removido `as`, tipo já compatível. Build 17/17. Ver `task-revisoes-2.md`.
+- [x] **R042-013** — Assertion desnecessária `kindRaw as TKind` (SonarCloud, 🔵 Minor) · `parse.ts:94` — removido `as TKind`, narrowing cobre. Build 17/17. Ver `task-revisoes-2.md`.
 
 ## Notas
 
