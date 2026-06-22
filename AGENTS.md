@@ -42,6 +42,36 @@ Depois verificar `sessoes/` por sessão ativa incompleta. Se houver, continuar n
 
 **Quando descobrir falha de processo:** se a tarefa revela que a governança, T0/T1, spec, backlog ou definição de "feito" deixou margem para erro, corrigir a fonte canônica adequada no mesmo escopo (ou registrar débito explícito se não puder). Não basta atualizar só `project-state.md`; regras operacionais duráveis entram em `AGENTS.md`/`context-capsule.md`/docs T1, e tarefas entram em `specs/backlog.md`/`tasks.md`.
 
+### Diagnostico local antes de pedir mais contexto
+
+Antes de ler muitos arquivos, usar busca localizada.
+
+Comandos uteis:
+- `pnpm run lint` — ESLint repo-wide
+- `pnpm run test` — vitest repo-wide (via turbo)
+- `pnpm run build` — turbo build repo-wide (cobre tsc)
+- `rg "termo" apps packages -n` — busca textual com numero de linha
+- `rg -l "termo" apps packages` — so lista arquivos (economiza contexto)
+- `rg --files apps packages` — lista todos arquivos monitorados
+- `ast-grep -p "PADRAO" --lang ts` — busca estrutural por AST
+
+Regras:
+- Nao ler o repositorio inteiro.
+- Nao abrir arquivos grandes sem justificar.
+- Procurar simbolos, rotas, imports e chamadas antes de editar.
+- Preferir `rg -l` quando so precisa saber quais arquivos tem o termo.
+- Jamais commitar sem autorizacao explicita.
+- `pnpm run test` e `pnpm run build` sao pesados localmente — preferir validacao CLI pontual do pacote afetado; CI cobre o repo completo.
+
+### Sobre o LSP
+
+O LSP no OpenCode fornece diagnosticos ao agente, mas:
+- Language servers podem ficar fora de sincronia com o codigo real.
+- Podem consumir memoria significativa em monorepo grande.
+- Diagnosticos de LSP nao substituem validacao CLI (`pnpm run lint`, `pnpm run build`, `pnpm run test`).
+
+**Regra:** sempre rodar `pnpm run lint` e `pnpm run build` antes de declarar uma tarefa concluida. Diagnosticos de LSP sao auxiliares, nao fonte unica de verdade.
+
 ---
 
 ## Gates do Programa (regra pétrea de sequência)
@@ -273,3 +303,27 @@ Se o agente decidir que não há backlog novo, deve escrever na sessão o motivo
 | Specs SDD | `specs/README.md` + `specs/backlog.md` + `specs/*/{spec.md,plan.md,tasks.md}` |
 | Subagentes | `.claude/agents/` |
 | Skills/playbooks locais | `.agents/skills/` |
+
+<!-- codebase-memory-mcp:start -->
+# Codebase Knowledge Graph (codebase-memory-mcp)
+
+This project uses codebase-memory-mcp to maintain a knowledge graph of the codebase.
+ALWAYS prefer MCP graph tools over grep/glob/file-search for code discovery.
+
+## Priority Order
+1. `search_graph` — find functions, classes, routes, variables by pattern
+2. `trace_path` — trace who calls a function or what it calls
+3. `get_code_snippet` — read specific function/class source code
+4. `query_graph` — run Cypher queries for complex patterns
+5. `get_architecture` — high-level project summary
+
+## When to fall back to grep/glob
+- Searching for string literals, error messages, config values
+- Searching non-code files (Dockerfiles, shell scripts, configs)
+- When MCP tools return insufficient results
+
+## Examples
+- Find a handler: `search_graph(name_pattern=".*OrderHandler.*")`
+- Who calls it: `trace_path(function_name="OrderHandler", direction="inbound")`
+- Read source: `get_code_snippet(qualified_name="pkg/orders.OrderHandler")`
+<!-- codebase-memory-mcp:end -->

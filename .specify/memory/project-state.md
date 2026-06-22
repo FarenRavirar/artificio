@@ -70,7 +70,8 @@
 8. **Spec 025** (Lighthouse residual)
 9. **Spec 028** (biblioteca de mídia VM)
 10. **Spec 042** (refatoração código duplicado top 3) — **✅ EM PROD (2026-06-21).** PR #83 mergeada → promovida `dev→main` (run `27926641721`) → deploy prod mesas/glossario/site (runs `27926664572`/`27926665007`/`27926665494`). cpd: 5.57% → 4.60% (-411 linhas, -18 clones). `packages/feedback` (CJS+ESM dual build), `actorNameResolver` (6→1), `suggestionHelpers` (3 factory functions). 13 revisões de PR resolvidas.
-11. **Spec 043** (auditoria visual links + shared `packages/ui`) — **Fase 1 T5 concluída (2026-06-22).** Logo base64 → asset estático cacheável implementado. `brand.ts` usa `import from .png?url`, `ambient.d.ts` + build script adaptado. `assetsInlineLimit: 0` nos 5 consumidores (SPAs: vite.config.ts + Astro: astro.config.mjs). Smoke: ✅ 5/5 builds verdes, zero base64, 3 PNGs hasheados por app. Aguardando aprovação para iniciar T6.
+11. **Spec 043** (auditoria visual links + shared `packages/ui`) — **PR #84 mergeada em `dev` (`39d2c7c`, 2026-06-22).** Fase 1 T5 (logo base64 → PNG estático) completa. `brand.ts` com `import .png?url`, `ambient.d.ts`, build script. `assetsInlineLimit: 0` nos 5 consumidores. 46 arquivos, +6644/-256. CI verde. Próximo: T6 (auditoria Header shared).
+12. **Spec 044** (otimizacao ecossistema OpenCode) — **Em andamento (2026-06-22).** Fase 1 concluida (`opencode.json` com `compaction.prune`, `watcher.ignore`, `permission`). DEB-044-01 (Serena MCP v1.5.3) + DEB-044-02 (codebase-memory-mcp v0.8.1) implementados. AGENTS.md com bloco CBM. `opencode.json` com 3 MCP servers. Pendente: T4-impl/T5-impl (diagnostico + LSP no AGENTS.md), T7-impl (ast-grep), smoke test com OpenCode reiniciado.
 
 ## Log
 

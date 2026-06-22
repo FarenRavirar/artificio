@@ -58,3 +58,18 @@
   - **Achado:** Vite inlinea assets < 4KB (padrão 4096). `_logo_neg.png` (3903B) e `faviconV2.png` (421B) eram inlined mesmo com `?url`. Solução: `assetsInlineLimit: 0` nos 5 consumidores. `_logo.png` (5221B > 4KB) já funcionava.
   - **Smoke:** ✅ 5/5 builds verdes. ZERO `data:image/png;base64` em HTML/JS de todos os consumidores. 3 PNGs com hash em cada dist/.
   - Branch `feat/043-links-visual-audit`, diff staged, sem commit.
+- 2026-06-22 03:50 — **PR #84 aberta.** Branch `feat/043-links-visual-audit`, diff staged, sem commit.
+- 2026-06-22 05:30 — **PR #84 reaberta** (novos commits na branch `feat/043-links-visual-audit`). Commits: `286c1ba` (DEB-001 a 013), `2dc1a24` (DEB-014 + REV-001 a 009), `e8c7c77` (REV-010 a 017 + docs sync). 17/17 reviews resolvidos. Build 17p verde.
+- 2026-06-22 07:00 — **Auditoria completa de débitos em todas as specs.** Realizado levantamento documental e atualizados `specs/backlog.md` e `specs/backlog-audit-map.md`:
+  - 11 discrepâncias encontradas e corrigidas
+  - 4 itens fechados: BL-SEC-AUDIT-DEPS, BL-TEST-MESAS-SSO-ENV, BL-TEST-SITE-MEDIA-MOCK (mergeados via PR #80 spec 041)
+  - BL-LINKS-VISUAL-AUDIT-043 → fechado (PR #84 com todos os DEBs/REVs)
+  - DEB-001 a DEB-014 registrados no backlog
+  - Descrições atualizadas: BL-CLOUDINARY-SHARED, BL-LINKS-013, BL-DEPLOY-SSH-KEEPALIVE, BL-033-SECRET-BLOCK
+  - backlog-audit-map.md sincronizado (BL-SHELL-B13/D-SHELL1 fechado, BL-AUDIT-033 absorvido, header atualizado)
+  - 43 specs escaneadas. Apenas `specs/043-links-visual-audit/debitos.md` usa IDs DEB-* (exclusivo). IDs D-* reais: 43 (18 alto nível + 14 D-LNK-* + 21 D-041-*), todos refletidos no backlog.
+- 2026-06-22 08:30 — **Auditoria linha a linha do backlog.md + backlog-audit-map.md.** 190 linhas de backlog, 134 linhas de audit-map auditadas uma por uma:
+  - **3 itens fechados:** BL-CI-ESLINT-FLAT-CONFIG (spec 037 concluiu, 16/16 pacotes com eslint.config.js, continue-on-error removido), D-DOCKERFILE-LONGLINES (commitado em `bfa98be` spec 037), D-PROMOTE-033-UPGRADES-REGRESSION (causa = Cloudflare cache, não código)
+  - **4 descrições corrigidas:** BL-NAV-LINKS-014 (deploy prod concluído), BL-ROOTLESS-CONTAINERS (USER node commitado nos 5 Dockerfiles), BL-SITE-MEDIA-ERR-SERIAL (commit `4b0d073` PR #50), BL-DEP-MESAS-AUTO-PUSH (PR #76 mergeada)
+  - **2 formatações corrigidas:** BL-AUDIT-CHANGELOG-ABORT-NOOP (coluna faltante), audit-map duplicatas BL-LINKS-013/BL-CLOUDINARY-SHARED removidas
+  - Itens verificados corretos: todos os demais (P0 10, P1-Produto 10, P1-UI 16, P1-Qualidade 12, P2 10, Fechados 25)

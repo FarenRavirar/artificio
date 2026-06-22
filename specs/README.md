@@ -45,6 +45,8 @@ Toda spec SDD deve:
 | 025 | Lighthouse/qualidade publica | Aberta; T1/T2 fechados com harness limpo + baseline 2026-06-16; proximos: CLS/perf glossario, robots, imagens site, a11y, mesas perf, headers/terceiros. |
 | 036 | media shared | Fechada local 2026-06-20; `@artificio/media` com 5 funções atômicas; 3 consumidores migrados; sem commit. |
 | 042 | duplicate code refactor | ✅ **EM PROD**. Merge dev→main. Deploy prod mesas/glossario/site. cpd 5.57%→4.60% (-411 linhas, -18 clones). 13 revisões resolvidas. |
+| 043 | auditoria visual links | PR #84 mergeada em `dev`. Fase 1 T5 (logo base64→PNG) completa. 46 arquivos. Proximo: T6. |
+| 044 | opencode ecosystem | Aberta. Fase 1: opencode.json (compact/watcher/permissions). Fase 2: AGENTS.md diagnostico+LSP. Fase 3: ast-grep. Fase 4: investigar MCP/plugins. |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.
