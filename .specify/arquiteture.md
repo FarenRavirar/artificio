@@ -1,6 +1,7 @@
 # Arquitetura & Contratos — Artifício RPG
 
 > **T1. Ler por seção, nunca o arquivo inteiro.** Fonte canônica de arquitetura/contratos técnicos (vence AGENTS.md em conflito técnico). Decisões macro em `.specify/memory/decisions.md`.
+> **Última verificação:** 2026-06-22
 
 ## Índice
 1. Layout do monorepo
@@ -18,35 +19,74 @@
 ## 1. Layout do monorepo
 ```
 artificio/
-  apps/        site/ glossario/ mesas/ downloads/ esferas/ srd/ links/
-  packages/    auth/ ui/ analytics/ config/ content/ crosslink/
-  infra/       docker/(compose.beta.yml) cloudflare/(tunnel ingress hostname→container)
+  apps/        accounts/ glossario/ links/ mesas/ site/ site-admin/
+  packages/    analytics/ auth/ changelog/ config/ content/ feedback/ media/ ui/
   specs/  sessoes/  docs/  .specify/  .claude/  .github/workflows/
   pnpm-workspace.yaml  turbo.json  package.json  tsconfig.base.json
 ```
-Nomes de pacote: `@artificio/<nome>`. Workspace via pnpm. Build via Turbo (affected graph). Cada `apps/*` tem `CONTEXT.md` (T2: contexto local do módulo) e `module.manifest.ts`. Módulo legado importado com frontend/backend separados pode expor subpacotes `apps/*/frontend` e `apps/*/backend`, com `apps/<modulo>/package.json` como orquestrador.
+Nomes de pacote: `@artificio/<nome>`. Workspace via pnpm. Build via Turbo (affected graph). Docker Compose por app em `apps/<app>/docker-compose.*.yml`; não há diretório `infra/` centralizado.
+
+Nav cross-app e metadata de projetos centralizados em `packages/ui/src/modules.ts` (`defaultNavItems`) — fonte única, não per-app. `module.manifest.ts` em `mesas` é código morto (zero consumidores runtime). `CONTEXT.md` existe em `mesas` como documentação; demais apps não têm. Módulo legado com frontend/backend separados (`glossario`) expõe subpacotes `apps/<modulo>/frontend` e `apps/<modulo>/backend` no workspace; orquestrador `apps/<modulo>/package.json` pendente.
 
 ## 2. Contrato de módulo
-Cada `apps/*` roda no **próprio subdomínio**, root `/` próprio (sem basename). Exporta `module.manifest.ts`:
+Cada `apps/*` roda no **próprio subdomínio**, root `/` próprio (sem basename). Metadados cross-app centralizados em `packages/ui/src/modules.ts` (`defaultNavItems`, barrel static-safe em `static.ts` para consumidores sem React):
 ```ts
-export const manifest = {
-  host: '<sub>.artificiorpg.com',  // subdomínio do módulo
-  navLabel, navIcon,               // entrada na nav unificada (URL absoluta)
-  requiresAuth: boolean,           // consome sessão SSO
-  analyticsNamespace,              // stream/dimension GA4
-  sitemapProvider: boolean,        // serve /sitemap.xml próprio
-}
+// packages/ui/src/modules.ts
+export const defaultNavItems: NavItem[] = [
+  { label: 'Blog', href: 'https://artificiorpg.com' },
+  { label: 'Glossário', href: 'https://glossario.artificiorpg.com' },
+  // ...todos os apps registrados aqui
+]
 ```
-Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` para auth/ui/analytics/SEO. Não implementa login próprio, não diverge do design system, não inventa stack. Nav entre módulos = URLs absolutas. Playbook: skill `add-module`.
+Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` para auth/ui/analytics/SEO. Não implementa login próprio, não diverge do design system, não inventa stack. Nav entre módulos = URLs absolutas. Adicionar novo app → registrar em `modules.ts`. Playbook: skill `add-module`.
 
 ## 3. SSO / Auth (`packages/auth` + serviço `accounts.artificiorpg.com`, D018)
-- **1 OAuth client Google** (web). Host de auth dedicado: **`accounts.artificiorpg.com`**. Callback: `accounts.artificiorpg.com/api/auth/google/callback` (única redirect URI no Google Console).
-- Fluxo cross-subdomínio: módulo precisa de login → redirect a `accounts.artificiorpg.com/login?return=<url>` → Google → callback → set cookie → redirect de volta ao `return`.
-- Login → emite **JWT** → cookie `httpOnly; Secure; SameSite=Lax; Domain=.artificiorpg.com`. Cookie de domínio raiz ⇒ enviado a **todos** os subdomínios ⇒ sessão única.
-- Validação: cada backend verifica o mesmo JWT (segredo compartilhado via env / JWKS de `accounts`). `accounts` provê sessão/refresh/logout.
-- `requiresAuth: false` → módulo público + reage a sessão se presente. `true` → exige sessão.
-- **Cuidado:** o cookie raiz também chega ao host do WP (`artificiorpg.com`) — inofensivo (WP ignora), mas escopar/`SameSite` com cuidado; nunca expor segredo no front.
-- **Sagrado:** mudança aqui = SDD Completo + smoke de todos os consumidores. Nunca quebrar sessão compartilhada. Mesas (refeito) e glossário consomem este serviço central.
+
+### Serviço `accounts.artificiorpg.com`
+
+- **1 OAuth client Google** (web). Callback: `accounts.artificiorpg.com/api/auth/google/callback` (única redirect URI no Google Console).
+- Fluxo cross-subdomínio: módulo precisa de login → redirect a `accounts.artificiorpg.com/login?return=<url>` → Google → callback → set cookies → redirect de volta ao `return`.
+- `return` sanitizado com allowlist: **somente `*.artificiorpg.com` HTTPS** (`isAllowedReturnUrl`).
+- **2 cookies** (ambos `Domain=.artificiorpg.com; Path=/; HttpOnly; Secure; SameSite=Lax`):
+  - `artificio_session` — JWT de acesso, **HS256** (simétrico, `JWT_SECRET`), expira em **15 min**.
+  - `artificio_refresh` — JWT de refresh, **HS256** (`JWT_REFRESH_SECRET`, segredo separado), expira em **7 dias**.
+- **Refresh:** `GET /api/auth/refresh` lê o cookie `artificio_refresh`, verifica com `JWT_REFRESH_SECRET`, emite novo par access+refresh.
+- **Logout:** `POST /api/auth/logout` limpa ambos os cookies → 204.
+- **Me:** `GET /api/auth/me` retorna `{ user }` da sessão (requer `requireAuth`).
+- **CSRF:** cookie `xsrf_token` (não-httpOnly) + header `x-xsrf-token` em métodos mutantes; origin allowlist: mesas, glossario, links, accounts, raiz.
+- **CORS:** `credentials: true`, origin `/^https:\/\/(?:[^.]+\.)?artificiorpg\.com$/`.
+- **DB `users`:** `id, google_sub, email, name, avatar, role (user|admin), created_at`. Upsert por `google_sub`.
+
+### `packages/auth` — contratos
+
+**Server-side** (`@artificio/auth`, CJS+ESM):
+- `verifyToken(token): Session | null` — verifica JWT com `JWT_SECRET` (HS256), retorna sessão tipada ou null.
+- `requireAuth` — middleware Express: lê `Authorization: Bearer` ou cookie `artificio_session`, chama `verifyToken`, anexa `req.session`.
+- `csrfProtection` — middleware Express: valida `xsrf_token` ou Bearer token em métodos mutantes.
+
+**Client-side** (`@artificio/auth/client`, ESM-only):
+- `useSession()` — hook React: `GET /api/auth/me` com refresh em 401.
+- `refreshSession()` — single-flight: `GET /api/auth/refresh`.
+- `authFetch(url, init)` — `fetch` com `credentials: include` e refresh em 401.
+- `redirectToLogin(returnUrl)`, `logout(redirectTo)`.
+- `getAccountsOrigin()` — lê `VITE_ACCOUNTS_URL` (default `https://accounts.artificiorpg.com`).
+
+### Consumidores (todos verificados em prod)
+
+| App | Backend | Frontend |
+|---|---|---|
+| `mesas` | `requireAuth` + `optionalAuth` (resolve usuário local) | `useSession`, `redirectToLogin`, `authenticatedFetch` |
+| `glossario` | `authMiddleware` (resolve usuário local + account-linking) | `useSession`, `redirectToLogin`, `logout`, axios 401→refresh |
+| `links` | `requireAuth` em admin + `verifyToken` manual em report | `useSession`, `authFetch`, `redirectToLogin` |
+| `site` | `requireAuth` + `verifyToken` manual em feedback | `useSession`, `getAccountsOrigin`, `logout` (SiteHeaderIsland) |
+| `site-admin` | — (same-origin, cookie SSO vai automático) | `refreshSession`/`authFetch` próprios (não importa `@artificio/auth/client`) |
+
+### Segredos
+
+- **2 secrets obrigatórios no `accounts`:** `JWT_SECRET` + `JWT_REFRESH_SECRET` (mín 32 chars cada).
+- **Consumidores só precisam de `JWT_SECRET`** (mesmo valor do `accounts` no mesmo ambiente) — validado pelo deploy via `read_env_value`.
+- **Sem JWKS / RS256** — HS256 simétrico com segredo compartilhado. JWKS/RS256 é futuro (spec 003).
+- **Sagrado:** mudança aqui = SDD Completo + smoke de todos os consumidores. Nunca quebrar sessão compartilhada.
 
 ## 4. Roteamento — subdomínio-por-módulo (D017)
 **Sem gateway de path.** Cada módulo é um host:
@@ -56,15 +96,15 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 | `beta.artificiorpg.com` | `site` (staging/testes — noindex via X-Robots-Tag, spec 030) | público |
 | `glossario.artificiorpg.com` | `glossario` (prod canônico; `glossariorpg.` foi alias histórico desativado) | opcional |
 | `mesas.artificiorpg.com` | `mesas` (refeito) | sim |
-| `downloads.artificiorpg.com` | `downloads` | opcional |
-| `esferas.artificiorpg.com` | `esferas` (Spheres of Power, multi-sistema) | público |
-| `srd.artificiorpg.com` | `srd` | público |
-| `links.artificiorpg.com` | `links` | público |
-| `accounts.artificiorpg.com` | SSO central | — |
+| `links.artificiorpg.com` | `links` (em prod, spec 038) | público |
+| `accounts.artificiorpg.com` | SSO central | SSO |
+| `downloads.artificiorpg.com` | `downloads` (futuro) | — |
+| `esferas.artificiorpg.com` | `esferas` (futuro) | — |
+| `srd.artificiorpg.com` | `srd` (futuro) | — |
 
-- **`artificiorpg.com` (raiz):** serve o site novo (Astro SSG) desde a spec 029. O WordPress da Hostinger está desligado da raiz (D075); o flip foi por redirect interno Cloudflare, não o cutover DNS cerimonial do Gate C (adiado). **Estado atual (2026-06-18):** raiz e beta ainda no mesmo container `site-beta-app` (D075). A separação em containers distintos (`site-prod-app`+`site-prod-db`) está codificada (spec 030 Fase 0, PR #58 em `dev`) e será ativada nas Fases 1-4 (stand-up prod → seed DB → flip rota Tunnel → noindex beta).
-- **`beta.artificiorpg.com`:** staging do site. **Atualmente** mesmo container+DB da raiz (D075). **Após spec 030:** container isolado com `noindex` (X-Robots-Tag) e `PUBLIC_SITE_URL=beta.artificiorpg.com` (canonical/OG/sitemap próprios, sem duplicar SEO da raiz).
-- **Todo app tem beta próprio:** `mesasbeta.artificiorpg.com`, `glossariobeta.artificiorpg.com` etc. Site beta usa `beta.artificiorpg.com` (nome curto herdado da era pré-cutover).
+- **`artificiorpg.com` (raiz):** serve o site novo (Astro SSG) desde a spec 029. O WordPress da Hostinger está desligado da raiz (D075); o flip foi por redirect interno Cloudflare, não o cutover DNS cerimonial do Gate C (adiado). **Estado atual (2026-06-22):** containers prod e beta separados (`site-prod-app`+`site-prod-db` e `site-beta-app`+`site-beta-db`), specs 030/031 executadas em prod, D075 superado por D076/D077.
+- **`beta.artificiorpg.com`:** staging do site. Container isolado (`site-beta-app`+`site-beta-db`) com `noindex` (X-Robots-Tag) e `PUBLIC_SITE_URL=beta.artificiorpg.com` (canonical/OG/sitemap próprios, sem duplicar SEO da raiz). Sync prod→beta por dump manual a cada deploy (D077).
+- **Betas:** mesas, glossário e site têm beta próprio (`mesasbeta.`, `glossariobeta.`, `beta.artificiorpg.com`). Links e accounts são PROD-only (`env_override=prod`, D042).
 - **Cloudflare Tunnel**: um `cloudflared`, várias regras de ingress `hostname → container:port`. Nada de porta exposta. Cert wildcard `*.artificiorpg.com`.
 - **Contrato Real IP (D069/spec 023):** o unico caminho publico confiavel e `Cloudflare Tunnel -> cloudflared -> artificio_net -> app`. `artificio_net` verificada em 2026-06-15 como `172.18.0.0/16`.
   - Apps com nginx (`mesas`, `glossario`): `set_real_ip_from ${TRUSTED_REAL_IP_FROM}` (default `172.18.0.0/16`) + `real_ip_header CF-Connecting-IP`; repassar `X-Real-IP` e `X-Forwarded-For` como `$remote_addr`, nunca `$http_cf_connecting_ip` cru nem `$proxy_add_x_forwarded_for`.
@@ -72,18 +112,18 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
   - Motivo: rate-limit/logs devem usar o IP do visitante validado; header de visitante so e aceito quando o hop anterior e o proxy interno confiavel.
 - Cada app roda no próprio root `/` (Vite `base: '/'`, sem React Router basename). API do módulo sob `/api/...` do próprio host.
 - Nav entre módulos = URLs absolutas (de `packages/ui`), com destaque do módulo atual.
-- Nenhum host hardcoded fora de env/config (permite trocar domínio/host sem refactor).
+- Hostnames com default hardcoded em ~25 pontos (com fallback env) — débito mapeado como `BL-CONFIG-AUTH` (spec 035). Centralizar em `@artificio/config`.
 
 ## 5. Banco de dados
-- Postgres 16. **Isolamento lógico por módulo**: schema/banco próprio por módulo. O único cross-cutting é `users`/sessão (de `auth`).
+- Postgres 16.14. **Isolamento por container Docker** (cada app tem próprio `db` container + volume), não só schema/banco. O único cross-cutting é `users`/sessão (de `auth`).
 - Migrations por módulo, versionadas; nunca `DROP/TRUNCATE/ALTER` em prod sem dump + checklist (ver AGENTS).
 - Acesso DB da VM por linha de comando local/PowerShell via `ssh faren` = read-only padrão.
-- Tabelas do `site`: `posts, pages, categories, tags, media, redirects`.
+- Tabelas do `site`: `posts, pages, taxonomies, comments, dev_feedback, media, media_map, post_taxonomies, redirects, schema_migrations`.
 
 ## 6. Conteúdo / SEO / SSG (`packages/content` + `apps/site`)
-- **SSG**: conteúdo do Postgres → HTML estático no build/deploy. Rebuild incremental disparado pelo admin ao salvar (Turbo rebuilda só o afetado). Sem servidor de render runtime para o blog.
+- **SSG**: conteúdo do Postgres → HTML estático no build/deploy. Rebuild incremental disparado pelo admin via `spawn("pnpm", ["run", "rebuild"])` (Astro build completo). Sem servidor de render runtime para o blog.
 - Por página: `<title>`, meta description, canonical, OG, Twitter, JSON-LD (Article/Breadcrumb/Org), heading hierárquico, alt, lang.
-- **Subdomínio (D017/D019):** blog (aposta de SEO) na **raiz** `artificiorpg.com`; módulos-ferramenta em subdomínio rankeiam por mérito próprio. Cada módulo serve seu `/sitemap.xml` e `robots.txt`; RSS no blog.
+- **Subdomínio (D017/D019):** blog (aposta de SEO) na **raiz** `artificiorpg.com`; módulos-ferramenta em subdomínio rankeiam por mérito próprio. Glossário, mesas e links servem `/sitemap.xml` e `robots.txt` (links via `@astrojs/sitemap`, configurado em `astro.config.mjs`). RSS no blog.
 - **Search Console:** 1 **Domain property** (`artificiorpg.com`) cobre todos os subdomínios (D020).
 - **GA4:** 1 property, `cookie_domain: 'artificiorpg.com'` + lista de exclusão de referral interno (mede sessão cross-subdomínio como uma só). Stream/dimension por módulo (`analyticsNamespace`).
 - **301**: `redirects` (permalink WP → novo). Nenhuma rota legada vira 404. Slugs preservados.
@@ -91,8 +131,8 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 
 ## 7. CI/CD / Deploy
 - GitHub Actions: `ci.yml` (lint+build+test via Turbo). Deploy via `deploy.yml` (matrix a partir de `deploy-manifest.json`) → `_deploy-module.yml` (reusável por módulo).
-- **`deploy-manifest.json`** = fonte única declarativa: `module`, `env_override`, `compose_file`/`_beta`, `compose_project`/`_beta`, `db_service`/`_beta`, `db_name`/`_beta`, `health_containers`, `critical_routes`/`_beta`, `auto_deploy_on_push`, `push_branches`, `deploy_paths`, `reconcile_same_project_orphans`.
-- **Env deriva do ref:** `dev`→beta, `main`→prod (exceto `accounts`: `env_override=prod` fixo). Deploy prod usa `--ref main` (default branch = `dev`, D073).
+- **`deploy-manifest.json`** = fonte única declarativa: `module`, `env_override`, `compose_file`/`_beta`, `compose_project`/`_beta`, `db_service`/`_beta`, `db_name`/`_beta`, `db_user`/`_beta`, `health_containers`, `critical_routes`/`_beta`, `auto_deploy_on_push`, `push_branches`, `deploy_paths`, `reconcile_same_project_orphans`, `_comment`.
+- **Env deriva do ref:** `dev`→beta, `main`→prod (exceto `accounts` e `links`: `env_override=prod` fixo). Deploy prod usa `--ref main` (default branch = `dev`, D073).
 - **VM:** clone git em `/opt/artificio` (prod) e `/opt/artificio-beta` (beta). `.env` por módulo no disco (`apps/<modulo>/.env` ou `.env.beta`), gitignored, lido pelo deploy via `--env-file`. Secrets GitHub Environment (`production`/`beta`) usados para SSH e CI; vars de runtime do container vêm do `.env` no disco.
 - **`.env` no disco da VM (estado verificado 2026-06-18):**
 
@@ -109,7 +149,9 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 - Fluxo: branch `feat/*`/`fix/*` → PR → `dev` (merge) → promote `dev→main` ff (`promote-prod-fast-forward.yml`) → dispatch deploy prod. Push a `dev`/`main` e qualquer ação write na VM = aprovação (AGENTS).
 - **Module-level locks:** `flock` shared (deploys concorrentes) + exclusive (manutenção `docker-cleanup.yml`). Snapshot DB pré-deploy + health check + smoke `critical_routes`.
 
-## 8. Engine de crosslink (`packages/crosslink`)
+## 8. Engine de crosslink (`packages/crosslink`) — futuro
+> **Status (2026-06-22):** `packages/crosslink`, `apps/srd` e `apps/esferas` não existem. Esta seção descreve arquitetura planejada, não implementada. Zero referências em decisions.md ou specs/.
+
 - Padrão compartilhado entre `srd` e `esferas`: detectar termos referenciados e gerar **tooltip com resumo estruturado estático** + link profundo para a página do termo.
 - Resolução **no import/build**, não em runtime: dado bruto → índice de termos → varredura do texto → injeção de `<a>`+tooltip. Resumos pré-gerados e persistidos (não consulta cara em runtime).
 - SRD DnD 5.2.1: termos = magias/condições/regras (2024). `esferas`: termos = talents/spheres, interreferência entre talents.
@@ -123,5 +165,4 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 ## 9. Convenções de código
 - Stack canônica única (§1, D007). TS estrito. Mudança mínima e reversível.
 - Dado externo é `unknown` até normalizador tipado (sem `.map/.filter` sobre payload não validado; `Array.isArray`/schema/fallback). Ver AGENTS → Regras Gerais de Código.
-- HTML do WP sanitizado (DOMPurify) antes de persistir/renderizar.
 - Segredos só em `.env` (gitignored) e secrets do Actions/Cloudflare.

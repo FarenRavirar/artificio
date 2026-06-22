@@ -35,11 +35,11 @@
 ## Decisões fechadas (resumo)
 
 - Monorepo único `artificio` (pnpm + Turborepo)
-- **Topologia subdomínio-por-projeto** (D017/D057): `glossario.`, `mesas.`, `downloads.`, `esferas.`, `srd.`, `links.`, `accounts.` (SSO). `artificiorpg.com` = site/blog raiz; `beta.artificiorpg.com` = staging.
-- **SSO central `accounts.artificiorpg.com`** (D018): OAuth Google, cookie JWT `Domain=.artificiorpg.com`
+- **Topologia subdomínio-por-projeto** (D017/D057): `glossario.`, `mesas.`, `links.`, `accounts.` (SSO). `artificiorpg.com` = site/blog raiz; `beta.artificiorpg.com` = staging. Futuros: `downloads.`, `esferas.`, `srd.`.
+- **SSO central `accounts.artificiorpg.com`** (D018): OAuth Google, 2 cookies JWT `Domain=.artificiorpg.com` (`artificio_session` 15min + `artificio_refresh` 7d), HS256 simétrico
 - **Blog na raiz** = aposta SEO (D019). Search Console Domain property + GA4 cross-subdomínio (D020). GA4 canônico = `G-8XN5BGPJP3`
 - **Stack canônica:** React19/Vite/Tailwind + Express5/Kysely/PG16/Cloudinary + Astro 6 (site)
-- **Infra:** Oracle 24GB/200GB, Docker, Cloudflare Tunnel, GHCR, Watchtower(beta)
+- **Infra:** Oracle 24GB/200GB, Docker, Cloudflare Tunnel, Watchtower(beta). Imagem buildada na VM (não GHCR).
 - **Backup:** `C:\projetos\artificiobackup` (local, 300GB)
 - **Acesso VM:** `ssh faren`, read-only sempre permitido, write exige aprovação nominal
 - **Tema lua/sol** compartilhado cross-subdomínio (D067): cookie `artificio_theme`, opt-in explícito
@@ -51,9 +51,9 @@
 
 ## Construído neste monorepo
 
-**Pacotes compartilhados:** `config`, `auth`, `ui`, `content`, `analytics`, `media`
+**Pacotes compartilhados:** `config`, `auth`, `ui`, `content`, `analytics`, `media`, `changelog`, `feedback`
 
-**Apps:** `accounts` (SSO), `mesas` (anúncios de mesa), `glossario` (termos RPG), `site` + `site-admin` (blog/portal), `links` (WhatsApp, em `dev`)
+**Apps:** `accounts` (SSO), `mesas` (anúncios de mesa), `glossario` (termos RPG), `site` + `site-admin` (blog/portal), `links` (WhatsApp, em prod)
 
 **Infra/CI:** `deploy.yml` (manifesto declarativo, 5 módulos), `_deploy-module.yml`, `ci.yml` (lint+build+test gate), `deploy-manifest.json`, `docker-cleanup.yml`, `mesas-auto-archive.yml`, CodeQL, Scorecard, lock RW VM-wide
 
@@ -62,8 +62,8 @@
 ## Próximo passo (ordem)
 
 1. **Spec 041 — Shell único cross-projeto ✅ EM PROD (2026-06-21).** Mergeada (#80) + regressão de deploy corrigida (#82, pacote leaf `@artificio/changelog`) + promovida dev→main + deploy PROD glossário/mesas/accounts/links. `BL-UI-THEME-REACT-HEADER-VARIANT`/`BL-UI-THEME-TOGGLE-SITE-REGRESSION`/`BL-SHELL-B13`/`D-SHELL1` fechados pela unificação. Site em beta (raiz = Gate C). Residual: `SiteFooter.astro` fork (D-041-08); fix `turbo.json dist-cjs/**` viaja no commit do PR #83 (042).
-2. **T4 (spec 038)** — Reidratar logos links em prod (aprovação nominal)
-4. **T13 (spec 038)** — Smoke E2E (logos Cloudinary, report, cron VM, nav cross-app, theme toggle)
+2. **T4 (spec 038/045)** — Logos links: ✅ **12/13 reidratados em prod** (reconciliado spec 045, 2026-06-22). Resta só decidir "Canal de Notícias" null (spec 045 T3). Nav cross-app ✅ prod (site/glossário/mesas).
+4. **T13 (spec 038/045)** — Smoke E2E residual: report ponta-a-ponta + cron VM (`crontab -l`). Logos/nav já ✅. (spec 045 T4)
 5. **Merge PR #73** (dependabot)
 6. **`BL-SEC-AUDIT-DEPS` (spec 039)** — commit + branch+PR `fix/039-sec-audit-deps` (aprovação nominal). `xlsx` 2×HIGH residual → spec 034.
 7. **Spec 032** (analytics shared adoption)
@@ -71,7 +71,9 @@
 9. **Spec 028** (biblioteca de mídia VM)
 10. **Spec 042** (refatoração código duplicado top 3) — **✅ EM PROD (2026-06-21).** PR #83 mergeada → promovida `dev→main` (run `27926641721`) → deploy prod mesas/glossario/site (runs `27926664572`/`27926665007`/`27926665494`). cpd: 5.57% → 4.60% (-411 linhas, -18 clones). `packages/feedback` (CJS+ESM dual build), `actorNameResolver` (6→1), `suggestionHelpers` (3 factory functions). 13 revisões de PR resolvidas.
 11. **Spec 043** (auditoria visual links + shared `packages/ui`) — **PR #84 mergeada em `dev` (`39d2c7c`, 2026-06-22).** Fase 1 T5 (logo base64 → PNG estático) completa. `brand.ts` com `import .png?url`, `ambient.d.ts`, build script. `assetsInlineLimit: 0` nos 5 consumidores. 46 arquivos, +6644/-256. CI verde. Próximo: T6 (auditoria Header shared).
-12. **Spec 044** (otimizacao ecossistema OpenCode) — **Em andamento (2026-06-22).** Fase 1 concluida (`opencode.json` com `compaction.prune`, `watcher.ignore`, `permission`). DEB-044-01 (Serena MCP v1.5.3) + DEB-044-02 (codebase-memory-mcp v0.8.1) implementados. AGENTS.md com bloco CBM. `opencode.json` com 3 MCP servers. Pendente: T4-impl/T5-impl (diagnostico + LSP no AGENTS.md), T7-impl (ast-grep), smoke test com OpenCode reiniciado.
+12. **Spec 044** (otimizacao ecossistema OpenCode + Claude Code) — ✅ **FECHADA (2026-06-22).**
+13. **Spec 045** (débitos pendentes em limbo) — **Investigação concluída + T1 ✅ (2026-06-22, PR #85).**
+14. **Spec 047** (mesas inbox importacao) — **Spec criada (2026-06-22).** Auditoria Fase 0 ✅. 5 débitos "Local" investigados: 3 já resolvidos (BL-BUILD-CACHE-PRUNE-ALL em prod, BL-LINKS-NAV-CROSSAPP em prod, BL-033-SECRET-BLOCK fechado no PR #85), 2 reais (BL-ACCOUNTS-PORT deploy = T2; BL-LINKS-GROUP-LOGOS 12/13 = T3). Backlog/audit-map reconciliados (T5). Resta T2/T3/T4 (aprovação nominal). Reviews PR #85: 1 FP (Amazon Q) + 1 procede (Codex, AGENTS MCP condicional).
 
 ## Log
 
@@ -82,4 +84,4 @@
 - 2026-06-21 — **links.artificiorpg.com NO AR ✅** (smoke VM 200/200/200/401). Resolvido após 3 falhas: (1/2) `.env` corrompido (`\n` literal do PowerShell em `ssh "...$(grep)..."`); (3) senha presa em volume Postgres (`pg_authid` só grava na 1ª init → `28P01`), diagnóstico enganado por `pg_hba` localhost=`trust` → **E009**. Fix: drop volume `links_pgdata_links_prod` (DB vazio) + redeploy (`27891323485`). Roteamento: mantenedor criou public hostname Tunnel (`links-app:4324`) + CNAME proxied. Prevenção E009 em 4 camadas (errors/runbook/capsule/backlog).
 - 2026-06-21 — **Deploy prod ✅** (mesas/glossario/site/accounts).
 - 2026-06-21 — **Spec 042 mergeada em `dev`** (PR #83, `fa9b787`). 154 arquivos, +7663/-3040. CI verde. 13 revisões de PR resolvidas. Deploy beta mesas/glossario/site disparado. cpd: 5.57% → 4.60% (-411 linhas, -18 clones).
-- 2026-06-22 — **Spec 043 investigação de código concluída (26 arquivos).** 3 falsos positivos nas auditorias originais (ReportButton, LinksSearch estados erro, CTA target=\_blank) — auditorias atualizadas com seção "Correções pós-investigação". T5: base64 é arquitetural (tsc puro sem bundler), 5 consumidores de brand.ts. T6/T7: 3 consumidores do `<Header>` (links/glossario/mesas). T10 downgrade Major→Minor (M→L esforço). Branch `feat/043-links-visual-audit` criada, todos arquivos staged sem commit. Sessão: `26-06-21_6_links_visual-audit`.
+- 2026-06-22 — **Spec 047 (mesas inbox importação) criada.** Auditoria Fase 0 concluída: 17 arquivos lidos, pipeline Discord mapeado (parse→normalize→sync), adaptador mínimo viável (~15 linhas), 3 opções de arquitetura comparadas (recomendada: Opção B+C — rota separada + tabela paralela). `spec.md`, `plan.md`, `tasks.md`, `reviews.md`, `debitos.md` escritos. 7 fases planejadas (MVP: Fase 1). 3 débitos registrados (DEB-047-01/02/03). Backlog README e project-state atualizados. 3 falsos positivos nas auditorias originais (ReportButton, LinksSearch estados erro, CTA target=\_blank) — auditorias atualizadas com seção "Correções pós-investigação". T5: base64 é arquitetural (tsc puro sem bundler), 5 consumidores de brand.ts. T6/T7: 3 consumidores do `<Header>` (links/glossario/mesas). T10 downgrade Major→Minor (M→L esforço). Branch `feat/043-links-visual-audit` criada, todos arquivos staged sem commit. Sessão: `26-06-21_6_links_visual-audit`.
