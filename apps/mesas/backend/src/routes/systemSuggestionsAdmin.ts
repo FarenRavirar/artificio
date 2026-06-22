@@ -9,6 +9,7 @@ import { listAdminHandler, rejectHandler } from './suggestionHelpers';
 import { scoreSystemCandidates } from '../services/systemSuggestionCandidates';
 import { slugify, VALID_PARENT } from './systems';
 import type { SystemNodeType } from '../db/types';
+import { normalizeDraftPayload } from '../discord';
 
 const router = Router();
 
@@ -46,14 +47,15 @@ async function relinkDiscordDrafts(
       .execute();
 
     for (const draft of drafts) {
-      const payload = draft.parsed_payload as Record<string, any> | null;
-      const hint = payload?.table?.raw_system_hint;
-      if (!hint || !wanted.has(hint)) continue;
+      const payload = normalizeDraftPayload(draft.parsed_payload);
+      const payloadTable = payload.table as Record<string, unknown> | undefined;
+      const hint = payloadTable?.raw_system_hint;
+      if (!hint || !wanted.has(String(hint))) continue;
 
       const updated = {
         ...payload,
         table: {
-          ...payload.table,
+          ...(payloadTable ?? {}),
           system_id: systemId,
           system_name: canonicalName,
           raw_system_hint: null,
@@ -62,10 +64,10 @@ async function relinkDiscordDrafts(
       try {
         await db
           .updateTable('discord_import_table_drafts')
-          .set({ parsed_payload: updated as any, status: 'ready' })
+          .set({ parsed_payload: updated, status: 'ready' })
           .where('id', '=', draft.id)
           .execute();
-        linked.push({ id: draft.id, title: payload?.table?.title ?? null });
+        linked.push({ id: draft.id, title: (payloadTable?.title as string | null) ?? null });
       } catch (perDraftErr) {
         console.error('[resolve] relink draft falhou', draft.id, perDraftErr);
       }
@@ -287,12 +289,13 @@ router.patch('/system-suggestions/:id/approve', async (req: Request, res: Respon
         .execute();
 
       for (const draft of drafts) {
-        const payload = draft.parsed_payload as Record<string, any> | null;
-        if (payload?.table?.raw_system_hint === result.system_name) {
+        const payload = normalizeDraftPayload(draft.parsed_payload);
+        const payloadTable = payload.table as Record<string, unknown> | undefined;
+        if (payloadTable?.raw_system_hint === result.system_name) {
           const updated = {
             ...payload,
             table: {
-              ...payload.table,
+              ...(payloadTable ?? {}),
               system_id: result.system_id,
               system_name: result.system_name,
               raw_system_hint: null,
@@ -300,10 +303,10 @@ router.patch('/system-suggestions/:id/approve', async (req: Request, res: Respon
           };
           await db
             .updateTable('discord_import_table_drafts')
-            .set({ parsed_payload: updated as any, status: 'ready' })
+            .set({ parsed_payload: updated, status: 'ready' })
             .where('id', '=', draft.id)
             .execute();
-          pendingDrafts.push({ id: draft.id, title: payload.table?.title ?? null });
+          pendingDrafts.push({ id: draft.id, title: (payloadTable?.title as string | null) ?? null });
         }
       }
     } catch (linkErr) {

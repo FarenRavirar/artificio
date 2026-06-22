@@ -1,3 +1,4 @@
+/** Frontend: respostas do Discord Sync API. Discord-only — inbox tem API própria. */
 export type DiscordImportSourceKind = 'discord_bot' | 'discord_chat_exporter_json';
 export type DiscordSourceChannelType = 'text' | 'announcement' | 'forum';
 export type DiscordImportMessageStatus = 'pending' | 'parsed' | 'needs_review' | 'synced' | 'ignored' | 'error';
@@ -103,7 +104,8 @@ export interface DiscordDraftPayload extends Record<string, unknown> {
 
 export interface DiscordDraft {
   id: string;
-  discord_message_id: string;
+  discord_message_id: string | null;
+  import_message_id?: string | null;
   table_id: string | null;
   parsed_payload: DiscordDraftPayload;
   normalized_payload: DiscordDraftPayload | null;

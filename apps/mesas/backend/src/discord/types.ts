@@ -1,4 +1,5 @@
-export type DiscordImportSourceKind = 'discord_bot' | 'discord_chat_exporter_json';
+/** Domínio: todas as origens que produzem DiscordRawMessage. Ampla — inclui 'manual_paste' (inbox). */
+export type DiscordImportSourceKind = 'discord_bot' | 'discord_chat_exporter_json' | 'manual_paste';
 export type DiscordSourceChannelType = 'text' | 'announcement' | 'forum';
 
 export type DiscordImportMessageStatus =
@@ -77,15 +78,18 @@ export interface DiscordTableDraftTable {
   _notes: string[];
 }
 
-export interface DiscordTableDraft {
+export interface ImportTableDraft {
   source: DiscordTableDraftSource;
   table: DiscordTableDraftTable;
   confidence: number;
   missing_fields: string[];
 }
 
-/** Mensagem normalizada independente da origem (bot ou ChatExporter). */
-export interface DiscordRawMessage {
+/** @deprecated Use ImportTableDraft. Mantido para compatibilidade do pipeline Discord. */
+export type DiscordTableDraft = ImportTableDraft;
+
+/** Mensagem bruta multi-origem (bot, ChatExporter, texto colado). */
+export interface ImportRawMessage {
   source_kind: DiscordImportSourceKind;
   discord_message_id: string;
   discord_channel_id: string;
@@ -102,3 +106,6 @@ export interface DiscordRawMessage {
   message_created_at: Date | null;
   message_edited_at: Date | null;
 }
+
+/** @deprecated Use ImportRawMessage. Mantido para compatibilidade do pipeline Discord. */
+export type DiscordRawMessage = ImportRawMessage;

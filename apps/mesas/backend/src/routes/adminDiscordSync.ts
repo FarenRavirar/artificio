@@ -4,7 +4,7 @@ import { db } from '../db';
 import type { DiscordSourceChannelType, NewDiscordSetting } from '../db/types';
 import { authMiddleware } from '../middleware/auth';
 import type { DiscordImportMessageStatus, DiscordImportDraftStatus } from '../discord';
-import { DiscordDiscoveryError, DiscordDraftSyncValidationError, DiscordIngestError, assertDraftReadyTransition, discoverDiscordChannels, discoverDiscordGuilds, ingestForumMessages, ingestMessages, refreshDiscordDraftImage, syncDiscordDraftToTable, parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../discord';
+import { DiscordDiscoveryError, DiscordDraftSyncValidationError, DiscordIngestError, DraftNotFoundError, DraftStateError, assertDraftReadyTransition, discoverDiscordChannels, discoverDiscordGuilds, ingestForumMessages, ingestMessages, refreshDiscordDraftImage, syncDiscordDraftToTable, parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../discord';
 import type { SystemEntry } from '../discord';
 import { requireDiscordBotToken } from '../discord/config';
 import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError } from '../discord/settingsCrypto';
@@ -919,6 +919,7 @@ router.get('/drafts', authMiddleware, async (req: Request, res: Response) => {
     let query = db
       .selectFrom('discord_import_table_drafts')
       .selectAll()
+      .where('discord_message_id', 'is not', null)
       .orderBy('created_at', 'desc')
       .limit(Math.min(Number(limit) || 50, 100))
       .offset(Number(offset) || 0);
@@ -961,6 +962,7 @@ router.get('/image-uploads/summary', authMiddleware, async (req: Request, res: R
       .selectFrom('discord_import_table_drafts')
       .select(['image_upload_status'])
       .select((eb) => eb.fn.countAll<string>().as('count'))
+      .where('discord_message_id', 'is not', null)
       .groupBy('image_upload_status')
       .execute();
 
@@ -1034,8 +1036,8 @@ router.patch('/drafts/:id', authMiddleware, async (req: Request, res: Response) 
 
     // T-F1-03: invariante status='ready' => missing_fields=[] aplicado em runtime,
     // espelhando o CHECK CONSTRAINT da migration 118 com mensagem clara para a UI.
-    const patchPayload = parsed.data.normalized_payload as { missing_fields?: unknown } | undefined;
-    const currentPayload = current.normalized_payload as { missing_fields?: unknown } | null;
+    const patchPayload = normalizeDraftPayload(parsed.data.normalized_payload) as { missing_fields?: unknown } | undefined;
+    const currentPayload = normalizeDraftPayload(current.normalized_payload) as { missing_fields?: unknown } | null;
     const transition = assertDraftReadyTransition({
       patchStatus: parsed.data.status,
       patchPayloadMissing: patchPayload?.missing_fields,
@@ -1178,6 +1180,9 @@ router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Res
     if (draft.status === 'synced') {
       return res.status(422).json({ error: 'Draft já sincronizado. Não pode ser reparseado.' });
     }
+    if (!draft.discord_message_id) {
+      return res.status(422).json({ error: 'Draft de inbox não suporta reparse via Discord.' });
+    }
 
     const message = await db
       .selectFrom('discord_import_messages')
@@ -1238,17 +1243,31 @@ router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Res
 router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Response) => {
   if (!isAdmin(req, res)) return;
   try {
+    const draft = await db
+      .selectFrom('discord_import_table_drafts')
+      .select(['id', 'discord_message_id'])
+      .where('id', '=', req.params.id)
+      .executeTakeFirst();
+
+    if (!draft) return res.status(404).json({ error: 'Draft não encontrado.' });
+    if (!draft.discord_message_id) {
+      return res.status(422).json({ error: 'Draft de inbox não suporta sync via Discord.' });
+    }
+
     const result = await syncDiscordDraftToTable(req.params.id);
     return res.json({ data: result });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Erro ao sincronizar draft.';
-    console.error('[POST /admin/discord-sync/drafts/:id/sync]', error);
+    if (error instanceof DraftNotFoundError) {
+      return res.status(404).json({ error: error.message });
+    }
     if (error instanceof DiscordDraftSyncValidationError) {
-      return res.status(422).json({ error: message, details: { missingFields: error.missingFields } });
+      return res.status(422).json({ error: error.message, details: { missingFields: error.missingFields } });
     }
-    if (message.includes('não encontrado') || message.includes('rejeitado') || message.includes('status ready')) {
-      return res.status(422).json({ error: message });
+    if (error instanceof DraftStateError) {
+      return res.status(422).json({ error: error.message });
     }
+    console.error('[POST /admin/discord-sync/drafts/:id/sync]', error);
+    const message = error instanceof Error ? error.message : 'Erro ao sincronizar draft.';
     return res.status(500).json({ error: message });
   }
 });
@@ -1261,6 +1280,7 @@ router.post('/sync-ready', authMiddleware, async (req: Request, res: Response) =
       .selectFrom('discord_import_table_drafts')
       .select('id')
       .where('status', '=', 'ready' as DiscordImportDraftStatus)
+      .where('discord_message_id', 'is not', null)
       .execute();
 
     const results = { synced: 0, failed: 0, errors: [] as string[] };

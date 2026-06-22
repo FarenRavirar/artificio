@@ -85,7 +85,7 @@ type InsertRow = {
   message_created_at: Date | null;
   message_edited_at: Date | null;
   content_hash: string;
-  source_kind: DiscordImportSourceKind;
+  source_kind: 'discord_bot' | 'discord_chat_exporter_json';
   status: 'pending';
 };
 
@@ -257,7 +257,7 @@ async function persistMessages(params: {
         message_created_at: msg.timestamp ? new Date(msg.timestamp) : null,
         message_edited_at: msg.edited_timestamp ? new Date(msg.edited_timestamp) : null,
         content_hash: contentHash,
-        source_kind: sourceKind,
+        source_kind: sourceKind as 'discord_bot' | 'discord_chat_exporter_json',
         status: 'pending',
       });
     } else if (existing.content_hash !== contentHash) {
