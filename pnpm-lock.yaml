@@ -134,9 +134,9 @@ importers:
       '@artificio/auth':
         specifier: workspace:*
         version: link:../../../packages/auth
-      '@artificio/ui':
+      '@artificio/changelog':
         specifier: workspace:*
-        version: link:../../../packages/ui
+        version: link:../../../packages/changelog
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0
@@ -389,12 +389,12 @@ importers:
       '@artificio/auth':
         specifier: workspace:*
         version: link:../../../packages/auth
+      '@artificio/changelog':
+        specifier: workspace:*
+        version: link:../../../packages/changelog
       '@artificio/media':
         specifier: workspace:*
         version: link:../../../packages/media
-      '@artificio/ui':
-        specifier: workspace:*
-        version: link:../../../packages/ui
       '@types/he':
         specifier: ^1.2.3
         version: 1.2.3
@@ -791,6 +791,12 @@ importers:
         specifier: ^19.2.7
         version: 19.2.7
 
+  packages/changelog:
+    devDependencies:
+      '@artificio/config':
+        specifier: workspace:*
+        version: link:../config
+
   packages/config:
     dependencies:
       zod:
@@ -814,6 +820,9 @@ importers:
       '@artificio/auth':
         specifier: workspace:*
         version: link:../auth
+      '@artificio/changelog':
+        specifier: workspace:*
+        version: link:../changelog
       '@artificio/config':
         specifier: workspace:*
         version: link:../config

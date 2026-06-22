@@ -44,6 +44,8 @@ RUN pnpm install --prod --filter @artificio/mesas-backend --frozen-lockfile \
 COPY --from=builder /repo/packages/config/dist ./packages/config/dist
 COPY --from=builder /repo/packages/auth/dist ./packages/auth/dist
 COPY --from=builder /repo/packages/auth/dist-cjs ./packages/auth/dist-cjs
+COPY --from=builder /repo/packages/changelog/dist ./packages/changelog/dist
+COPY --from=builder /repo/packages/changelog/dist-cjs ./packages/changelog/dist-cjs
 COPY --from=builder /repo/packages/media/dist ./packages/media/dist
 
 # Copiar build compilado
