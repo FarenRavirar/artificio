@@ -5,10 +5,11 @@
 > Preencher uma linha por achado. Merge só quando TODOS tiverem veredicto e os que **procedem** estiverem aplicados (com autorização de commit própria).
 
 ## Status do PR
-- Branch: `feat/041-ui-shell-nav-unification`
-- PR: [#80](https://github.com/FarenRavirar/artificio/pull/80)
-- Checks GitHub (`lint + build + test`): pendente
-- Estado das revisões: **aberto** — aguardando bots (amazon-q, codex, coderabbit, Snyk, CodeQL, Scorecard)
+- PR [#80](https://github.com/FarenRavirar/artificio/pull/80) (`feat/041-ui-shell-nav-unification`): **MERGEADO** (`8981c84`) → dev. Achados #1–#22 abaixo (verdict registrado).
+- PR [#82](https://github.com/FarenRavirar/artificio/pull/82) (`fix/041-changelog-leaf-deploy`): **MERGEADO** (`86e2811`) → dev. Corrige regressão de deploy pós-#80 (ver §"Pós-#80" e `tasks-2.md` D-041-22). Achados de bot do #82 resolvidos lá.
+- **PROD**: dev→main promovido (fast-forward); deploy PROD de glossário, mesas, accounts, links = ✅. Site fica em beta (raiz = Gate C, adiado).
+- PR [#83](https://github.com/FarenRavirar/artificio/pull/83) (`feat/042-duplicate-code-refactor`): **aberto** — conflito de merge com #82 resolvido; regressão `turbo.json` corrigida no local (`tasks-2.md` D-041-23).
+- ⚠️ **Nota de merge:** conflitos/merges do trabalho paralelo (042 + changelog JSON) sobrescreveram registros desta planilha (linhas #23–#28 originais perdidas) e renumeraram `D-041-16`. Re-registrado em `tasks-2.md` (D-041-22/23) e na §"Pós-#80" abaixo.
 
 ## Resumo do PR
 
@@ -122,12 +123,28 @@
 | S25 | revertido | `String.raw` + `new RegExp()` perde legibilidade vs regex literal |
 | S26 | revertido | Idem S25 |
 
+## Pós-#80 — Deploy beta→prod (PR #82) e achados de bot
+
+> Re-registro consolidado (os rows originais #23–#28 foram perdidos em merge do trabalho paralelo). Detalhe técnico em `tasks-2.md` D-041-15/22/23.
+
+| # | Bot/Origem | Arquivo | Achado | Veredicto | Ação |
+|---|---|---|---|---|---|
+| P1 | deploy beta (CI) | `apps/site/server/server.ts:11` + `apps/site/package.json` | `ERR_MODULE_NOT_FOUND @artificio/config` — dep não declarada; container site não fica healthy | **procede** | dep `@artificio/config` adicionada + lockfile. `tasks-2.md` D-041-15 |
+| P2 | deploy beta (CI) runs 158/159 | `packages/ui` exports + backends glossário/mesas | `ERR_PACKAGE_PATH_NOT_EXPORTED ./changelog` — backend CJS importa `@artificio/ui` (ESM-only) | **procede** | pacote leaf `@artificio/changelog` dual ESM+CJS (PR #82, mergeado `86e2811`). `tasks-2.md` D-041-22 |
+| P3 | coderabbit (PR #82) | `packages/changelog/src/index.test.ts:48,55` | `.map` viola guideline do repo | **procede** | `.map`→`for...of` (helper `ids()`). commit `e2cd74e` |
+| P4 | coderabbit (PR #82) | `packages/changelog/src/index.ts:51` | `limit` negativo trunca errado (latente, herdado verbatim) | **procede** | endurece: não-finito→tudo, `Math.trunc`, `<=0→[]`. commit `e2cd74e` |
+| P5 | codex (PR #82) | `packages/changelog/tsconfig.json` | test fora do projeto TS → typed-lint falha | **descarta (outdated)** | já resolvido `a3ed6e7` (exclude removido) |
+| P6 | codex (PR #82) | `turbo.json` | `build.outputs` sem `dist-cjs/**` → cache hit não restaura | **procede** | `dist-cjs/**` adicionado. commit `f7b10f0` (afeta changelog+auth) |
+| P7 | conflito merge (PR #83/042) | `turbo.json` | resolução do conflito descartou `dist-cjs/**` (regrediu P6) | **procede** | re-adicionado no local (sem commit). `tasks-2.md` D-041-23 |
+
 ## Veredictos (legenda)
 - **procede** → aplicar fix via novo commit (autorização nominal própria) e referenciar o sha.
 - **descarta** → falso-positivo/decisão de design; justificar por que não se aplica.
 - **fora de escopo** → procede mas não pertence ao foco do PR. **NÃO empurrar para o backlog / nada para trás.** Investigar, registrar em `tasks-2.md` desta spec e **resolver dentro da própria spec**. Linkar aqui o item de `tasks-2.md`.
 
 ## Critério de encerramento (gate de merge)
-- [ ] Todos os achados com veredicto registrado.
-- [ ] Todos os "procede" aplicados (commits referenciados) e checks verdes de novo.
-- [ ] Mantenedor autorizou o merge nominalmente.
+- [x] Todos os achados com veredicto registrado (#1–#22 + P1–P7).
+- [x] Todos os "procede" aplicados e checks verdes (PR #80 e #82 mergeados; commits referenciados).
+- [x] Mantenedor autorizou os merges nominalmente (#80, #82) e a promoção/deploy PROD.
+
+**SPEC 041 ENCERRADA (2026-06-21):** shell unificado em prod (glossário, mesas, accounts, links); site em beta (raiz = Gate C, adiado). Regressões de deploy pós-merge corrigidas (PR #82). Pendência única fora desta spec: o fix `turbo.json dist-cjs/**` (P7/D-041-23) viaja no commit do PR #83 (042) — corrigido no local, aguardando commit do mantenedor.

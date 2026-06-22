@@ -23,6 +23,7 @@
     "@artificio/auth": "workspace:*",
     "@artificio/config": "workspace:*",
     "@artificio/content": "workspace:*",
+    "@artificio/feedback": "workspace:*",
     "@artificio/media": "workspace:*",
     "@artificio/ui": "workspace:*",
     "@electric-sql/pglite": "^0.2.17",

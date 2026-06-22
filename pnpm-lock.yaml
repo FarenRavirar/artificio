@@ -137,6 +137,9 @@ importers:
       '@artificio/changelog':
         specifier: workspace:*
         version: link:../../../packages/changelog
+      '@artificio/feedback':
+        specifier: workspace:*
+        version: link:../../../packages/feedback
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0
@@ -392,6 +395,9 @@ importers:
       '@artificio/changelog':
         specifier: workspace:*
         version: link:../../../packages/changelog
+      '@artificio/feedback':
+        specifier: workspace:*
+        version: link:../../../packages/feedback
       '@artificio/media':
         specifier: workspace:*
         version: link:../../../packages/media
@@ -622,6 +628,9 @@ importers:
       '@artificio/content':
         specifier: workspace:*
         version: link:../../packages/content
+      '@artificio/feedback':
+        specifier: workspace:*
+        version: link:../../packages/feedback
       '@artificio/media':
         specifier: workspace:*
         version: link:../../packages/media
@@ -808,6 +817,8 @@ importers:
       '@artificio/config':
         specifier: workspace:*
         version: link:../config
+
+  packages/feedback: {}
 
   packages/media:
     dependencies:

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { sql } from 'kysely'; // CORREÇÃO G03: Import sql para queries case-insensitive
 import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth'; // CORREÇÃO A02: Import middleware
+import { resolveActorName } from '../services/actorNameResolver';
 
 const router = Router();
 
@@ -64,37 +65,7 @@ const getErrorMessage = (error: unknown): string => {
   return 'Erro interno';
 };
 
-async function resolveActorName(userId: string): Promise<string> {
-  try {
-    const profile = await db
-      .selectFrom('profiles')
-      .select('display_name')
-      .where('user_id', '=', userId)
-      .executeTakeFirst();
 
-    if (profile?.display_name && profile.display_name.trim().length > 0) {
-      return profile.display_name.trim();
-    }
-
-    const user = await db
-      .selectFrom('users')
-      .select(['username', 'email'])
-      .where('id', '=', userId)
-      .executeTakeFirst();
-
-    if (user?.username && user.username.trim().length > 0) {
-      return user.username.trim();
-    }
-
-    if (user?.email) {
-      return user.email.split('@')[0];
-    }
-  } catch (error) {
-    console.error('[vttPlatforms][resolveActorName]', error);
-  }
-
-  return 'Usuário';
-}
 
 /**
  * GET /api/v1/vtt-platforms
@@ -174,7 +145,7 @@ router.post('/suggest', authMiddleware, async (req, res) => {
       });
     }
 
-    const userName = await resolveActorName(userId);
+    const userName = await resolveActorName(userId, { logTag: 'vttPlatforms' });
     const admins = await db
       .selectFrom('users')
       .select('id')

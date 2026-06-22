@@ -9,7 +9,7 @@
 
 **Todos os 5 apps em prod** (2026-06-21). Promote `dev→main` (run `27894586895`) + redeploy links/glossario/mesas/site/accounts (`27894598616`..`27894601319`) 5/5 ✅. Containers healthy. **Regressão:** Cloudflare cache servia HTML antigo pré-promote → toggle dark/light quebrado + nav sem "WhatsApps" no site. Cache purgado via API (`purge_everything`).
 
-**PRs abertas:** #73 dependabot. PR #80 **(spec 041 shell unificação)** mergeada em `dev` (`8981c84`). Deploy beta disparado para site/glossario/mesas.
+**PRs:** #73 dependabot (aberta). PR #80 **(spec 041 shell)** mergeada em `dev` (`8981c84`). Deploy beta pós-#80 **falhou 2x** (site `@artificio/config` não declarado; glossário+mesas `ERR_PACKAGE_PATH_NOT_EXPORTED ./changelog` — backend CJS importando `@artificio/ui` ESM-only). Corrigido via **PR #82** (pacote leaf `@artificio/changelog` dual ESM+CJS) mergeada (`86e2811`). **Promovido dev→main + deploy PROD** de glossário/mesas/accounts/links = ✅ (2026-06-21). Site fica em beta (raiz = Gate C). PR #83 (042 refactor) aberta — conflito de merge com #82 descartou `turbo.json dist-cjs/**`, corrigido no local.
 
 ## Destaque: Spec 041 — Shell unificado (merge 2026-06-21)
 - `packages/ui`: Header com busca/changelog/tema/menu cross-app + `useTheme()`/`useChangelogBadge()` hooks + `<ChangelogModal>` centralizado
@@ -18,6 +18,9 @@
 - Changelogs padronizados em JSON nos 4 apps (glossario migrado de DB)
 - Débitos fechados: `BL-SHELL-B13`, `D-SHELL1`, `BL-UI-THEME-REACT-HEADER-VARIANT`, `BL-UI-THEME-TOGGLE-SITE-REGRESSION`, `BL-GLOSSARIO-CHANGELOG-JSON`
 - 19 revisões de bots + 15 Sonar aplicados (17 itens, 2 agrupados); auditoria changelog 53 ✅
+- **Pós-merge (PR #82):** deploy beta quebrou — contrato de changelog vivia em `@artificio/ui` (ESM-only), backends CJS (glossário/mesas) não conseguiam `require`. Extraído p/ pacote leaf **`@artificio/changelog`** (build dual ESM+CJS, `exports {import,require}`); `@artificio/ui` re-exporta; backends deixam de depender de UI/React. + fix `turbo.json` (`dist-cjs/**` nos outputs). Detalhe em `tasks-2.md` D-041-22/23, `task-revisões.md` §Pós-#80.
+- **PROD (2026-06-21):** glossário, mesas, accounts, links com 041 em prod ✅. Site em beta (raiz `artificiorpg.com` = Gate C, adiado).
+- **Spec 041 ENCERRADA.**
 
 ## Gates
 
@@ -27,7 +30,7 @@
 | **B** | ✅ | SSO `accounts.` no ar, cross-subdomínio provado |
 | **C** | ⏸️ | Cutover DNS raiz — adiado (D016). Site já serve em `artificiorpg.com` por redirect Cloudflare, não pelo cutover cerimonial |
 | **D** | ✅ | `mesas` (2026-06-08), `glossario` (2026-06-12), `site` (2026-06-18 via spec 029/030/031) |
-| **D-link** | 🟡 | `links.artificiorpg.com` **no ar** (2026-06-21, smoke 200/200/200/401). Spec 038 (mídia/reportar/cron) mergeada em `dev` e promovida a `main`. Rebuild forçado na VM resolveu código ausente no container. Falta: T4 reidratar logos em prod, T13 smoke E2E. **Bug ativo:** `BL-UI-THEME-REACT-HEADER-VARIANT` — React `ThemeToggle` não atualiza `data-variant` no header ao trocar tema (nav fica claro). Fix local em `packages/ui/src/theme.tsx` (sem commit). |
+| **D-link** | 🟡 | `links.artificiorpg.com` **no ar** (2026-06-21, smoke 200/200/200/401). Spec 038 (mídia/reportar/cron) mergeada em `dev` e promovida a `main`. Rebuild forçado na VM resolveu código ausente no container. Falta: T4 reidratar logos em prod, T13 smoke E2E. `BL-UI-THEME-REACT-HEADER-VARIANT` **fechado** (em prod via spec 041, PR #80/#82). |
 
 ## Decisões fechadas (resumo)
 
@@ -58,16 +61,15 @@
 
 ## Próximo passo (ordem)
 
-1. **Commmit fix `BL-UI-THEME-REACT-HEADER-VARIANT`** — `packages/ui/src/theme.tsx` (aprov. nominal p/ commit/push/PR)
-2. **Rebuild/redeploy consumidores React** — links/glossario/mesas/accounts (SDD Completo — shared package)
-3. **Spec 041 — Shell único cross-projeto EXECUTADA (local, sem commit)** — Fases F0→F7 concluídas 2026-06-21. Núcleo (`packages/ui`): `useTheme()`, `useChangelogBadge()`, `Header` com busca/changelog/tema/menu de conta padronizados. Consumidores: mesas/glossario/links/accounts/site adotados. Site híbrido (Astro + ilha React), busca uniformizada `/busca` nos 4 apps, `/conta` no accounts. **Débitos fechados:** `BL-SHELL-B13`, `D-SHELL1`, `BL-UI-THEME-REACT-HEADER-VARIANT`, `BL-UI-THEME-TOGGLE-SITE-REGRESSION` (unificação previne recorrência). Build 15/15 ✅. Zero `MutationObserver`/`useSyncExternalStore`/`themeBtn` manual fora de `packages/ui`. `SiteFooter.astro` permanece fork (D-041-08 pendente). **Aguardando commit + PR** (Fase 8, aprovação nominal).
-3. **T4 (spec 038)** — Reidratar logos links em prod (aprovação nominal)
+1. **Spec 041 — Shell único cross-projeto ✅ EM PROD (2026-06-21).** Mergeada (#80) + regressão de deploy corrigida (#82, pacote leaf `@artificio/changelog`) + promovida dev→main + deploy PROD glossário/mesas/accounts/links. `BL-UI-THEME-REACT-HEADER-VARIANT`/`BL-UI-THEME-TOGGLE-SITE-REGRESSION`/`BL-SHELL-B13`/`D-SHELL1` fechados pela unificação. Site em beta (raiz = Gate C). Residual: `SiteFooter.astro` fork (D-041-08); fix `turbo.json dist-cjs/**` viaja no commit do PR #83 (042).
+2. **T4 (spec 038)** — Reidratar logos links em prod (aprovação nominal)
 4. **T13 (spec 038)** — Smoke E2E (logos Cloudinary, report, cron VM, nav cross-app, theme toggle)
 5. **Merge PR #73** (dependabot)
 6. **`BL-SEC-AUDIT-DEPS` (spec 039)** — commit + branch+PR `fix/039-sec-audit-deps` (aprovação nominal). `xlsx` 2×HIGH residual → spec 034.
 7. **Spec 032** (analytics shared adoption)
 8. **Spec 025** (Lighthouse residual)
 9. **Spec 028** (biblioteca de mídia VM)
+10. **Spec 042** (refatoração código duplicado top 3) — **executada local 2026-06-21 (sem commit).** cpd: 5.57% → 4.60% (-411 linhas, -18 clones). `packages/feedback` criado (fonte única cross-app), `actorNameResolver` unificado (6→1), `suggestionHelpers` com 3 factory functions (reject/listAdmin/listMine). Build 16/16, testes 219/219. Aguardando commit+push+PR (aprovação nominal).
 
 ## Log
 

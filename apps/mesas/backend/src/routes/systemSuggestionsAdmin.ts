@@ -4,6 +4,8 @@ import { authMiddleware, requireRole } from '../middleware/auth';
 import { db } from '../db';
 import { Database } from '../db/types';
 import { logActivity } from '../services/activityLogger';
+import { resolveActorName } from '../services/actorNameResolver';
+import { listAdminHandler, rejectHandler } from './suggestionHelpers';
 import { scoreSystemCandidates } from '../services/systemSuggestionCandidates';
 import { slugify, VALID_PARENT } from './systems';
 import type { SystemNodeType } from '../db/types';
@@ -74,60 +76,12 @@ async function relinkDiscordDrafts(
   return linked;
 }
 
-async function resolveActorName(userId: string, trx?: Transaction<Database>): Promise<string> {
-  const executor = trx ?? db;
-
-  try {
-    const profile = await executor
-      .selectFrom('profiles')
-      .select('display_name')
-      .where('user_id', '=', userId)
-      .executeTakeFirst();
-
-    if (profile?.display_name && profile.display_name.trim().length > 0) {
-      return profile.display_name.trim();
-    }
-
-    const adminUser = await executor
-      .selectFrom('users')
-      .select(['username', 'email'])
-      .where('id', '=', userId)
-      .executeTakeFirst();
-
-    if (adminUser?.username && adminUser.username.trim().length > 0) {
-      return adminUser.username.trim();
-    }
-
-    if (adminUser?.email) {
-      return adminUser.email.split('@')[0];
-    }
-  } catch (error) {
-    console.error('[systemSuggestionsAdmin][resolveActorName]', error);
-  }
-
-  return 'Admin';
-}
 
 router.use(authMiddleware, requireRole('admin'));
 
 // GET /api/v1/admin/system-suggestions - Listar todas as sugestões
-router.get('/system-suggestions', async (req: Request, res: Response) => {
-  try {
-    const { status } = req.query;
-
-    let query = db.selectFrom('system_suggestions').selectAll().orderBy('created_at', 'desc');
-
-    if (status && typeof status === 'string') {
-      query = query.where('status', '=', status as any);
-    }
-
-    const suggestions = await query.execute();
-    return res.json({ data: suggestions });
-  } catch (error: any) {
-    console.error('[GET /admin/system-suggestions]', error);
-    return res.status(500).json({ error: 'Erro ao listar sugestões.' });
-  }
-});
+router.get('/system-suggestions', (req, res) =>
+  listAdminHandler({ tableName: 'system_suggestions', logTag: 'system-suggestions' }, req, res));
 
 // GET /api/v1/admin/system-suggestions/:id/candidates - Candidatos provaveis do catalogo
 router.get('/system-suggestions/:id/candidates', async (req: Request, res: Response) => {
@@ -194,7 +148,7 @@ router.patch('/system-suggestions/:id/approve', async (req: Request, res: Respon
         throw new Error('NOT_FOUND_OR_REVIEWED');
       }
 
-      const adminName = await resolveActorName(adminId, trx);
+      const adminName = await resolveActorName(adminId, { trx, fallback: 'Admin', logTag: 'systemSuggestionsAdmin' });
 
       // 2. Verificar se parent_id existe (se fornecido)
       if (suggestion.parent_id) {
@@ -375,89 +329,8 @@ router.patch('/system-suggestions/:id/approve', async (req: Request, res: Respon
 });
 
 // PATCH /api/v1/admin/system-suggestions/:id/reject - Rejeitar sugestão
-router.patch('/system-suggestions/:id/reject', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const rawReason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
-    const reason = rawReason.length > 0 ? rawReason : null;
-    const adminId = req.user?.userId;
-
-    if (!adminId) {
-      return res.status(401).json({ error: 'Não autenticado.' });
-    }
-
-    // Transação: UPDATE status + INSERT notification
-    await db.transaction().execute(async (trx) => {
-      // 1. SELECT sugestão WHERE status='pending'
-      const suggestion = await trx
-        .selectFrom('system_suggestions')
-        .select(['id', 'user_id', 'name'])
-        .where('id', '=', id)
-        .where('status', '=', 'pending')
-        .executeTakeFirst();
-
-      if (!suggestion) {
-        throw new Error('NOT_FOUND_OR_REVIEWED');
-      }
-
-      const adminName = await resolveActorName(adminId, trx);
-
-      // 2. UPDATE status para rejected
-      await trx
-        .updateTable('system_suggestions')
-        .set({
-          status: 'rejected',
-          rejection_reason: reason,
-          reviewed_at: new Date(),
-          reviewed_by: adminId,
-        })
-        .where('id', '=', id)
-        .execute();
-
-      // 3. INSERT em notifications
-      await trx
-        .insertInto('notifications')
-        .values({
-          user_id: suggestion.user_id,
-          type: 'suggestion_rejected',
-          title: 'Sugestão revisada',
-          message: `Sua sugestão "${suggestion.name}" não foi aceita desta vez.`,
-          action_url: `/perfil/minhas-sugestoes/${id}`,
-          metadata: JSON.stringify({
-            suggestion_id: id,
-            suggestion_kind: 'system',
-            ...(reason ? { reason } : {}),
-          }),
-        })
-        .execute();
-
-      await logActivity({
-        actorId: adminId,
-        actorRole: 'admin',
-        action: 'system_suggestion.rejected',
-        entityType: 'system_suggestion',
-        entityId: id,
-        entityLabel: suggestion.name,
-        targetUserId: suggestion.user_id,
-        summary: `${adminName} rejeitou a sugestão "${suggestion.name}".`,
-        metadata: {
-          suggestion_id: id,
-          ...(reason ? { reason } : {}),
-        },
-      }, trx);
-    });
-
-    return res.json({ success: true });
-  } catch (error: any) {
-    console.error('[PATCH /admin/system-suggestions/:id/reject]', error);
-    
-    if (error.message === 'NOT_FOUND_OR_REVIEWED') {
-      return res.status(404).json({ error: 'Sugestão não encontrada ou já foi revisada.' });
-    }
-    
-    return res.status(500).json({ error: 'Erro ao rejeitar sugestão.' });
-  }
-});
+router.patch('/system-suggestions/:id/reject', (req, res) =>
+  rejectHandler({ tableName: 'system_suggestions', suggestionKind: 'system', logTag: 'systemSuggestionsAdmin' }, req, res));
 
 // Insere aliases em system_aliases, deduplicando por slug e ignorando conflitos.
 async function insertSystemAliases(
@@ -547,7 +420,7 @@ router.post('/system-suggestions/:id/resolve', async (req: Request, res: Respons
         throw new Error('NOT_FOUND_OR_REVIEWED');
       }
 
-      const adminName = await resolveActorName(adminId, trx);
+      const adminName = await resolveActorName(adminId, { trx, fallback: 'Admin', logTag: 'systemSuggestionsAdmin' });
 
       // ----- REJEITAR -----
       if (resolutionType === 'reject') {

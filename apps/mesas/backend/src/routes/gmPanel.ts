@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { sql } from 'kysely';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
+import { resolveActorName } from '../services/actorNameResolver';
 import crypto from 'crypto';
 import {
   createTableSchema,
@@ -87,37 +88,7 @@ async function shouldCountMetric(
   return !recentEvent;
 }
 
-async function resolveActorName(userId: string): Promise<string> {
-  try {
-    const profile = await db
-      .selectFrom('profiles')
-      .select('display_name')
-      .where('user_id', '=', userId)
-      .executeTakeFirst();
 
-    if (profile?.display_name && profile.display_name.trim().length > 0) {
-      return profile.display_name.trim();
-    }
-
-    const user = await db
-      .selectFrom('users')
-      .select(['username', 'email'])
-      .where('id', '=', userId)
-      .executeTakeFirst();
-
-    if (user?.username && user.username.trim().length > 0) {
-      return user.username.trim();
-    }
-
-    if (user?.email) {
-      return user.email.split('@')[0];
-    }
-  } catch (error) {
-    console.error('[gmPanel][resolveActorName]', error);
-  }
-
-  return 'Usuário';
-}
 
 // ============================================================================
 // ROTAS DE GM PROFILE
@@ -572,7 +543,7 @@ router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
       data.schedules
     );
 
-    const gmName = await resolveActorName(userId);
+    const gmName = await resolveActorName(userId, { logTag: 'gmPanel' });
 
     void logActivity({
       actorId: userId,
@@ -765,7 +736,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
-    const gmName = await resolveActorName(userId);
+    const gmName = await resolveActorName(userId, { logTag: 'gmPanel' });
 
     void logActivity({
       actorId: userId,
@@ -986,7 +957,7 @@ router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Res
         .executeTakeFirst();
 
       if (result) {
-        const actorName = await resolveActorName(userId);
+        const actorName = await resolveActorName(userId, { logTag: 'gmPanel' });
 
         void logActivity({
           actorId: userId,
@@ -1026,7 +997,7 @@ router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Res
       .executeTakeFirst();
 
     if (result) {
-      const actorName = await resolveActorName(userId);
+      const actorName = await resolveActorName(userId, { logTag: 'gmPanel' });
 
       void logActivity({
         actorId: userId,
@@ -1103,7 +1074,7 @@ router.patch('/tables/:id/archive', authMiddleware, async (req: Request, res: Re
       .executeTakeFirst();
 
     if (result) {
-      const actorName = await resolveActorName(userId);
+      const actorName = await resolveActorName(userId, { logTag: 'gmPanel' });
       void logActivity({
         actorId: userId,
         actorRole: userRole,
@@ -1154,7 +1125,7 @@ router.delete('/tables/:id', authMiddleware, async (req: Request, res: Response)
 
     await TableRepository.deleteTableWithRelations(id);
 
-    const gmName = await resolveActorName(userId);
+    const gmName = await resolveActorName(userId, { logTag: 'gmPanel' });
 
     void logActivity({
       actorId: userId,
