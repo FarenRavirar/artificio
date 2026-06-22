@@ -576,6 +576,7 @@ export type NewVttPlatformSuggestion = Insertable<VttPlatformSuggestionsTable>;
 export type VttPlatformSuggestionUpdate = Updateable<VttPlatformSuggestionsTable>;
 
 // Migration 115: Pipeline de importação Discord/Covil
+/** DB/Kysely: coluna discord_import_messages.source_kind. Discord-only — não inclui 'manual_paste' (inbox vai para import_messages.source_type). */
 export type DiscordImportSourceKind = 'discord_bot' | 'discord_chat_exporter_json';
 export type DiscordSourceChannelType = 'text' | 'announcement' | 'forum';
 export type DiscordImportMessageStatus = 'pending' | 'parsed' | 'needs_review' | 'synced' | 'ignored' | 'error';
@@ -637,7 +638,8 @@ export type DiscordImportMessageUpdate = Updateable<DiscordImportMessagesTable>;
 
 export interface DiscordImportTableDraftsTable {
   id: Generated<string>;
-  discord_message_id: string;
+  discord_message_id: string | null;
+  import_message_id: string | null;
   table_id: string | null;
   parsed_payload: unknown;
   normalized_payload: unknown | null;
@@ -655,6 +657,43 @@ export interface DiscordImportTableDraftsTable {
 export type DiscordImportTableDraft = Selectable<DiscordImportTableDraftsTable>;
 export type NewDiscordImportTableDraft = Insertable<DiscordImportTableDraftsTable>;
 export type DiscordImportTableDraftUpdate = Updateable<DiscordImportTableDraftsTable>;
+
+// Migration 128: Inbox de importação de mesas
+export interface ImportMessagesTable {
+  id: Generated<string>;
+  source_type: Generated<string>;
+  raw_text: string | null;
+  content_raw: string;
+  thread_name: string | null;
+  metadata: Generated<unknown>;
+  content_hash: string;
+  status: Generated<string>;
+  parse_error: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type ImportMessage = Selectable<ImportMessagesTable>;
+export type NewImportMessage = Insertable<ImportMessagesTable>;
+export type ImportMessageUpdate = Updateable<ImportMessagesTable>;
+
+// Migration 129: Corpus de treino do inbox
+export interface ImportCorrectionsTable {
+  id: Generated<string>;
+  draft_id: string;
+  import_message_id: string | null;
+  raw_text: string | null;
+  parsed_before: unknown;
+  human_corrected: unknown;
+  diff: unknown;
+  reason: string | null;
+  corrected_by: string | null;
+  created_at: Generated<Date>;
+}
+
+export type ImportCorrection = Selectable<ImportCorrectionsTable>;
+export type NewImportCorrection = Insertable<ImportCorrectionsTable>;
+export type ImportCorrectionUpdate = Updateable<ImportCorrectionsTable>;
 
 // Migration 116: Configuracoes cifradas do modulo Discord
 export interface DiscordSettingsTable {
@@ -718,6 +757,12 @@ export interface Database {
   discord_import_sources: DiscordImportSourcesTable;
   discord_import_messages: DiscordImportMessagesTable;
   discord_import_table_drafts: DiscordImportTableDraftsTable;
+
+  // Migration 128: Inbox de importação de mesas (multi-origem)
+  import_messages: ImportMessagesTable;
+
+  // Migration 129: Corpus de treino do inbox
+  import_corrections: ImportCorrectionsTable;
 
   // Migration 116: Configuracoes cifradas do modulo Discord
   discord_settings: DiscordSettingsTable;

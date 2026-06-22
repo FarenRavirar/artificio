@@ -1,8 +1,8 @@
 import { parseDiscordAnnouncement } from '../parseDiscordAnnouncement';
 import { normalizeDiscordTableDraft } from '../normalizeDiscordTableDraft';
-import type { DiscordRawMessage } from '../types';
+import type { ImportRawMessage } from '../types';
 
-function makeMessage(overrides: Partial<DiscordRawMessage>): DiscordRawMessage {
+function makeMessage(overrides: Partial<ImportRawMessage>): ImportRawMessage {
   return {
     source_kind: 'discord_bot',
     discord_message_id: '1000',

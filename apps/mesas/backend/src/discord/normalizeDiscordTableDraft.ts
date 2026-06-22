@@ -1,4 +1,4 @@
-import type { DiscordTableDraft, DiscordTableDraftTable } from './types';
+import type { ImportTableDraft, DiscordTableDraftTable } from './types';
 import type { SystemEntry } from './parseDiscordAnnouncement';
 
 export type NormalizedDraftStatus = 'ready' | 'needs_review';
@@ -49,9 +49,9 @@ function getMissingFields(table: DiscordTableDraftTable): string[] {
 }
 
 export function normalizeDiscordTableDraft(
-  draft: DiscordTableDraft,
+  draft: ImportTableDraft,
   systems: SystemEntry[] = [],
-): { draft: DiscordTableDraft; status: NormalizedDraftStatus } {
+): { draft: ImportTableDraft; status: NormalizedDraftStatus } {
   const table: DiscordTableDraftTable = { ...draft.table };
 
   if (!table.system_id) {
@@ -64,7 +64,7 @@ export function normalizeDiscordTableDraft(
   }
 
   const missingFields = Array.from(new Set([...draft.missing_fields, ...getMissingFields(table)]));
-  const normalized: DiscordTableDraft = {
+  const normalized: ImportTableDraft = {
     ...draft,
     table,
     missing_fields: missingFields,

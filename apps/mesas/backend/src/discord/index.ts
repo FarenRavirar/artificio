@@ -5,10 +5,12 @@
 
 // Tipos públicos
 export type {
+  ImportTableDraft,
   DiscordTableDraft,
+  ImportRawMessage,
+  DiscordRawMessage,
   DiscordTableDraftSource,
   DiscordTableDraftTable,
-  DiscordRawMessage,
   DiscordImportSourceKind,
   DiscordSourceChannelType,
   DiscordImportMessageStatus,

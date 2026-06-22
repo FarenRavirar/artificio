@@ -1,10 +1,7 @@
 import { db } from '../db';
-import { Insertable } from 'kysely';
-import { TablesTable } from '../db/types';
 import { TableRepository } from '../repositories/tableRepository';
 import { TableService } from '../services/tableService';
-import type { DiscordImageUploadStatus, ImportTableDraft } from './types';
-import { uploadDiscordImageToCloudinary } from './uploadDiscordImage';
+import type { ImportTableDraft } from '../inbox/types';
 import {
   validateDraftForSync,
   extractContacts,
@@ -12,69 +9,24 @@ import {
   buildTableData,
   uploadCoverForDraft,
   notifyAdminsAboutImageFailure,
-  readCoverSource,
-  withCoverUrl,
-  updateDraftImageUploadState,
-} from './syncHelpers';
+} from '../discord/syncHelpers';
 
 export interface SyncResult {
   tableId: string;
   created: boolean;
 }
 
-export interface DiscordImageRefreshResult {
-  draftId: string;
-  tableId: string | null;
-  status: DiscordImageUploadStatus;
-  url: string | null;
-  error: string | null;
-}
-
-export class DiscordDraftSyncValidationError extends Error {
+export class DraftSyncValidationError extends Error {
   constructor(public readonly missingFields: string[]) {
     super(`Draft incompleto para sincronização: ${missingFields.join(', ')}.`);
-    this.name = 'DiscordDraftSyncValidationError';
+    this.name = 'DraftSyncValidationError';
   }
 }
 
-export async function refreshDiscordDraftImage(draftId: string): Promise<DiscordImageRefreshResult> {
-  const draft = await db
-    .selectFrom('discord_import_table_drafts')
-    .selectAll()
-    .where('id', '=', draftId)
-    .executeTakeFirst();
-
-  if (!draft) throw new Error(`Draft ${draftId} não encontrado.`);
-
-  const payload = (draft.normalized_payload ?? draft.parsed_payload) as ImportTableDraft;
-  if (!payload?.table) throw new Error(`Draft ${draftId} sem payload válido para upload de imagem.`);
-
-  const upload = await uploadCoverForDraft(draftId, withCoverUrl(payload, null), draft.image_upload_attempts ?? 0);
-  const status = upload.status ?? (upload.coverUrl ? 'success' : 'pending');
-  await updateDraftImageUploadState(draftId, upload.payload, status, upload.attempts, upload.error);
-
-  if (upload.coverUrl && draft.table_id) {
-    await db
-      .updateTable('tables')
-      .set({ cover_url: upload.coverUrl, banner_url: upload.coverUrl, updated_at: new Date() })
-      .where('id', '=', draft.table_id)
-      .execute();
-  }
-
-  return {
-    draftId,
-    tableId: draft.table_id,
-    status,
-    url: upload.coverUrl,
-    error: upload.error,
-  };
-}
-
-/**
- * Sincroniza um draft para a tabela `tables`.
- * Idempotente: se já existir mesa com source_id = discord_message_id, atualiza em vez de criar.
- */
-export async function syncDiscordDraftToTable(draftId: string): Promise<SyncResult> {
+export async function syncImportDraftToTable(
+  draftId: string,
+  adminDisplayName?: string
+): Promise<SyncResult> {
   const draft = await db
     .selectFrom('discord_import_table_drafts')
     .selectAll()
@@ -89,20 +41,24 @@ export async function syncDiscordDraftToTable(draftId: string): Promise<SyncResu
   if (draft.status === 'rejected') throw new Error(`Draft ${draftId} foi rejeitado e não pode ser sincronizado.`);
   if (draft.status !== 'ready') throw new Error(`Draft ${draftId} precisa estar com status ready antes de sincronizar.`);
 
-  const message = await db
-    .selectFrom('discord_import_messages')
-    .select(['id', 'discord_message_id', 'discord_message_url'])
-    .where('id', '=', draft.discord_message_id)
+  if (!draft.import_message_id) {
+    throw new Error(`Draft ${draftId} não é de inbox (import_message_id nulo).`);
+  }
+
+  const importMessage = await db
+    .selectFrom('import_messages')
+    .select(['id', 'content_raw'])
+    .where('id', '=', draft.import_message_id)
     .executeTakeFirst();
 
-  if (!message) throw new Error(`Mensagem referenciada pelo draft ${draftId} não encontrada.`);
+  if (!importMessage) throw new Error(`Mensagem de inbox referenciada pelo draft ${draftId} não encontrada.`);
 
   let payload = (draft.normalized_payload ?? draft.parsed_payload) as ImportTableDraft;
   if (!payload?.table) throw new Error(`Draft ${draftId} sem payload válido para sincronização.`);
 
   const missingFields = validateDraftForSync(payload);
   if (missingFields.length > 0) {
-    throw new DiscordDraftSyncValidationError(missingFields);
+    throw new DraftSyncValidationError(missingFields);
   }
 
   const contacts = extractContacts(payload);
@@ -111,24 +67,26 @@ export async function syncDiscordDraftToTable(draftId: string): Promise<SyncResu
   payload = imageUpload.payload;
   const coverUrl = imageUpload.coverUrl;
 
-  // Verifica idempotência pelo source_id
+  const sourceId = importMessage.id;
+  const sourceUrl = null;
+  const gmName = adminDisplayName ?? payload.source.author_name ?? null;
+
   const existingTable = await db
     .selectFrom('tables')
     .select(['id'])
-    .where('source_id', '=', message.discord_message_id)
+    .where('source_id', '=', sourceId)
     .executeTakeFirst();
 
   let tableId: string;
   let created: boolean;
 
   if (existingTable) {
-    // UPDATE: atualiza campos sem filtrar por gm_id (tabela importada pode ter gm_id null)
     tableId = existingTable.id;
     created = false;
 
     await db.transaction().execute(async (trx) => {
       const t = payload.table;
-      if (!t.title) throw new DiscordDraftSyncValidationError(['title']);
+      if (!t.title) throw new DraftSyncValidationError(['title']);
       await trx
         .updateTable('tables')
         .set({
@@ -145,7 +103,7 @@ export async function syncDiscordDraftToTable(draftId: string): Promise<SyncResu
           system_id: t.system_id ?? null,
           cover_url: coverUrl,
           banner_url: coverUrl,
-          actual_gm_name: payload.source.author_name ?? null,
+          actual_gm_name: gmName,
           is_covil: true,
           status: 'draft',
           updated_at: new Date(),
@@ -173,20 +131,18 @@ export async function syncDiscordDraftToTable(draftId: string): Promise<SyncResu
       }
     });
   } else {
-    // INSERT
     created = true;
-    if (!payload.table.title) throw new DiscordDraftSyncValidationError(['title']);
+    if (!payload.table.title) throw new DraftSyncValidationError(['title']);
     const slug = TableService.generateSlug(payload.table.title);
     const tableData = buildTableData(payload, {
-      sourceId: message.discord_message_id,
-      sourceUrl: message.discord_message_url,
-      gmName: payload.source.author_name ?? null,
+      sourceId,
+      sourceUrl,
+      gmName,
     }, slug, coverUrl);
     const inserted = await TableRepository.createTableWithRelations(tableData, contacts, schedules);
     tableId = inserted.id;
   }
 
-  // Marca draft e mensagem como sincronizados
   await db.transaction().execute(async (trx) => {
     await trx
       .updateTable('discord_import_table_drafts')
@@ -204,9 +160,9 @@ export async function syncDiscordDraftToTable(draftId: string): Promise<SyncResu
       .execute();
 
     await trx
-      .updateTable('discord_import_messages')
+      .updateTable('import_messages')
       .set({ status: 'synced', updated_at: new Date() })
-      .where('id', '=', message.id)
+      .where('id', '=', importMessage.id)
       .execute();
   });
 

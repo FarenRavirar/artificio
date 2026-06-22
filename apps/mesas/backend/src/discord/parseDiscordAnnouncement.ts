@@ -1,4 +1,4 @@
-import type { CoverQuality, DiscordRawMessage, DiscordSlotsAmbiguity, DiscordTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType } from './types';
+import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType } from './types';
 
 export interface SystemEntry {
   id: string;
@@ -386,7 +386,7 @@ function calcConfidence(table: DiscordTableDraftTable): number {
 }
 
 /**
- * Parseia uma mensagem Discord importada e retorna um DiscordTableDraft.
+ * Parseia uma mensagem Discord importada e retorna um ImportTableDraft.
  *
  * @param message    Mensagem bruta do banco discord_import_messages
  * @param systems    Lista de sistemas+aliases carregada do banco (systems + system_aliases).
@@ -394,9 +394,9 @@ function calcConfidence(table: DiscordTableDraftTable): number {
  *                   Se omitida, a detecção de sistema não será feita.
  */
 export function parseDiscordAnnouncement(
-  message: DiscordRawMessage,
+  message: ImportRawMessage,
   systems: SystemEntry[] = [],
-): DiscordTableDraft | null {
+): ImportTableDraft | null {
   const threadName = message.discord_thread_name ?? '';
   const rawBody = message.content_raw ?? '';
   // Fóruns Discord frequentemente colocam o conteúdo em embeds em vez do campo content

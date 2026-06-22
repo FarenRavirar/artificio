@@ -919,6 +919,7 @@ router.get('/drafts', authMiddleware, async (req: Request, res: Response) => {
     let query = db
       .selectFrom('discord_import_table_drafts')
       .selectAll()
+      .where('discord_message_id', 'is not', null)
       .orderBy('created_at', 'desc')
       .limit(Math.min(Number(limit) || 50, 100))
       .offset(Number(offset) || 0);
@@ -961,6 +962,7 @@ router.get('/image-uploads/summary', authMiddleware, async (req: Request, res: R
       .selectFrom('discord_import_table_drafts')
       .select(['image_upload_status'])
       .select((eb) => eb.fn.countAll<string>().as('count'))
+      .where('discord_message_id', 'is not', null)
       .groupBy('image_upload_status')
       .execute();
 
@@ -1178,6 +1180,9 @@ router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Res
     if (draft.status === 'synced') {
       return res.status(422).json({ error: 'Draft já sincronizado. Não pode ser reparseado.' });
     }
+    if (!draft.discord_message_id) {
+      return res.status(422).json({ error: 'Draft de inbox não suporta reparse via Discord.' });
+    }
 
     const message = await db
       .selectFrom('discord_import_messages')
@@ -1238,6 +1243,17 @@ router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Res
 router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Response) => {
   if (!isAdmin(req, res)) return;
   try {
+    const draft = await db
+      .selectFrom('discord_import_table_drafts')
+      .select(['id', 'discord_message_id'])
+      .where('id', '=', req.params.id)
+      .executeTakeFirst();
+
+    if (!draft) return res.status(404).json({ error: 'Draft não encontrado.' });
+    if (!draft.discord_message_id) {
+      return res.status(422).json({ error: 'Draft de inbox não suporta sync via Discord.' });
+    }
+
     const result = await syncDiscordDraftToTable(req.params.id);
     return res.json({ data: result });
   } catch (error: unknown) {
@@ -1261,6 +1277,7 @@ router.post('/sync-ready', authMiddleware, async (req: Request, res: Response) =
       .selectFrom('discord_import_table_drafts')
       .select('id')
       .where('status', '=', 'ready' as DiscordImportDraftStatus)
+      .where('discord_message_id', 'is not', null)
       .execute();
 
     const results = { synced: 0, failed: 0, errors: [] as string[] };
