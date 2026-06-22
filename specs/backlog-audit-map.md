@@ -3,6 +3,8 @@
 > **View consolidada.** Fonte canônica = [`specs/backlog.md`](backlog.md).
 > Atualizado 2026-06-22 ~16:30 (auditoria linha a linha + reordenação). Todos os itens verificados com evidência.
 
+> **⚠️ REGRA DE MANUTENÇÃO (pétrea deste arquivo):** este mapa existe para um humano se orientar de relance. **Ao concluir ou mudar o status de um item, MOVA a linha para a seção correta** (✅ concluído → 🟡 local → 🟡 em andamento → ⚪ aberto) e **reordene dentro da seção** (do mais próximo de concluir ao mais distante). Nunca deixe item ✅ sob header 🟡/⚪ nem o contrário. Mudou de estado = move + reordena, no mesmo turno. Mapa fora de ordem é pior que sem mapa: confunde em vez de orientar.
+
 ## Ordenação: do mais próximo de concluir ao mais distante
 
 | Ref | Status | Fase | Specs | O que falta |
@@ -73,20 +75,21 @@
 | D-LINKS-REPORT-UNDO-ERROR | ✅ PR #84 | Completo | 043 | — |
 | D-LINKS-REPORT-TRIGGER-FOCUS | ✅ Falso + | — | 043 | — (focus-visible já existe) |
 | BL-DOCS-AUDIT-024 | ✅ Concluído | Auditoria | 024 | — (auditoria documental) |
+| BL-BUILD-CACHE-PRUNE-ALL | ✅ Prod | Completo | 045 | — `prune --all` em `_deploy-module.yml:502`+`docker-cleanup.yml:159` (commit `bfa98be`, em main) |
+| BL-LINKS-NAV-CROSSAPP | ✅ Prod | Completo | 038, 045 | — nav em site/glossário/mesas; accounts sem nav by design (spec 045 §2) |
+| BL-033-SECRET-BLOCK | ✅ PR #85 | Completo | 045 | — `.gitignore artifacts/` + 16 destrackeados (`git ls-files artifacts/`=0, commit `289364d`) |
 | — | — | — | **🟡 LOCAL / COMMITADO (falta deploy ou merge)** | — |
-| BL-ACCOUNTS-PORT | 🟡 Local | T1-T4 OK | 023, 035 | Deploy prod (expose:["3000"]) — aprovação nominal |
-| BL-LINKS-MEDIA-038 | 🟡 Local | T1-T11 mergeado | 038 | T12 nav cross-app + T13 smoke + reidratar prod |
-| BL-LINKS-GROUP-LOGOS | 🟡 Local | Código pronto | 038 | T4 reidratar em prod (13 logos null → pipeline de mídia) |
-| BL-BUILD-CACHE-PRUNE-ALL | 🟡 Local | Código pronto | — | Trocar `--all` em 2 arquivos (aprovação) |
-| BL-033-SECRET-BLOCK | 🟡 Parcial | Incidente OK | — | Trocar .gitignore + destrackear 16 arquivos |
+| BL-LINKS-GROUP-LOGOS | 🟢 Quase | **12/13 em prod** (Cloudinary) | 038, 045 | Decidir "Canal de Notícias" null (reidratar ou aceitar) — spec 045 T3 |
+| BL-ACCOUNTS-PORT | 🟡 Local | T1-T4 OK | 023, 035, 045 | Deploy prod (expose:["3000"]) — aprovação nominal (spec 045 T2) |
+| BL-LINKS-MEDIA-038 | 🟡 Local | T1-T11 mergeado; T12 nav + reidratar ✅ prod | 038, 045 | Só **T13 smoke E2E** (report + cron VM) → fechar (spec 045 T4) |
 | — | — | — | **🟡 EM ANDAMENTO (fase 1 ok, falta robustez)** | — |
 | BL-DEPLOY-SSH-KEEPALIVE | 🟡 Fase 1 ok | Keepalive commitado | 040 | Robusto: setsid+logfile+sentinel (SDD Completo) |
 | — | — | — | **⚪ ABERTO — PRIORITÁRIO (afeta múltiplos apps)** | — |
 | BL-ANALYTICS | ⚪ Aberto | Código T1-T8b pronto | 032 | Deploy mesas prod com GA + env por app (mantenedor T9/T12/T13) |
 | BL-SITE-PRINCIPAL-GAPS | ⚪ Aberto | Investigado | — | GA_ID, newsletter, sitemap.xml, contato (pós-cutover) |
-| BL-LINKS-NAV-CROSSAPP | ⚪ Aberto | modules.ts OK | 038 | Rebuild/redeploy consumidores (glossario/mesas/site/accounts) |
 | BL-INFRA-GHCR-F12 | ⚪ Aberto | Planejado | 026 | Build CI → push GHCR → VM pull (SDD Completo) |
 | BL-DEPLOY-ENV-PGPASS-FAILFAST | ⚪ Aberto | Investigado | 037 | Script .env à prova de \n + fail-fast 28P01 no deploy |
+| SPEC-047 | ⚪ Aberto | Auditoria F0 concluída | 047 | Inbox de importação de mesas — texto colado → draft. 7 fases. | T1.1 + aprovação mantenedor |
 | — | — | — | **⚪ ABERTO — NORMAL (app/projeto específico)** | — |
 | BL-SITE-GATED | ⚪ Aberto | Planejado | 008, 011 | Gate D site: paridade editorial, E2E admin, SEO |
 | BL-SITE-CMS-PARITY | ⚪ Aberto | Planejado | 011 | CRUD editorial, lixeira, agendamento, roles |

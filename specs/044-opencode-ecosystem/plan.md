@@ -114,23 +114,45 @@ Quatro ferramentas a investigar:
 - Codebase-Memory MCP: v0.8.1 via npm, 10.6k nos / 18.1k edges, MCP config manual (OpenCode nao auto-detectado), bloco instrucoes no AGENTS.md.
 
 **Pendente:**
-- Fase 2: AGENTS.md secao "Diagnostico local" + nota LSP.
-- Fase 3: `@ast-grep/cli` (instalar + documentar).
-- Fase 5 opcional: OpenSlimedit plugin.
-- Smoke test: reiniciar OpenCode com 3 MCP servers (Serena + CBM).
+- ~~Fase 2: AGENTS.md secao "Diagnostico local" + nota LSP.~~ ✅ Concluido 2026-06-22.
+- ~~Fase 3: `@ast-grep/cli` (instalar + documentar).~~ ✅ Concluido 2026-06-22.
+- ~~Fase 5 opcional: OpenSlimedit plugin.~~ ✅ Concluido 2026-06-22.
+- ~~Smoke test: reiniciar OpenCode com 3 MCP servers (Serena + CBM).~~ ✅ Concluido 2026-06-22.
+- Fase 6: Claude Code CLI (CLAUDE.md + LSP plugin + hooks) — investigado, aguardando aprovacao para implementar.
+- Serena MCP: debito `BL-ECOSYSTEM-SERENA`.
+- codebase-memory-mcp: debito `BL-ECOSYSTEM-CODEBASE-MEMORY`.
+
+### Fase 6 — Claude Code CLI (investigada 2026-06-22)
+
+| Item | Achado | Evidencia | Classificacao |
+|---|---|---|---|
+| `CLAUDE.md` | Arquivo raiz `./CLAUDE.md` ou `.claude/CLAUDE.md`. Lido automaticamente, sobrevive compaction. `< 200 linhas` recomendado. `@AGENTS.md` importa o AGENTS.md sem duplicar. `/init` detecta AGENTS.md existente. | `code.claude.com/docs/en/memory` | **✅ Implementado — Fase 6a** |
+| LSP plugin | `/plugin install typescript-lsp@claude-plugins-official`. Requer `typescript-language-server` no PATH. Fornece jump-to-def, find-refs, type errors. | `code.claude.com/docs/en/large-codebases#reduce-file-reads-with-code-intelligence` | **✅ Implementado — Fase 6b** |
+| Hooks | `.claude/settings.json` (projeto) ou `~/.claude/settings.json` (user). `PreToolUse` + `Bash(git commit *)` + `jq` deny. Bloquear: `git commit`, `git push`, `rm -rf`, `.env*`. | `code.claude.com/docs/en/hooks` | **❌ Rejeitado — Fase 6c** (mantenedor ja usa agents para controle) |
+
+**Nao implementar sem aprovacao.**
+
+Itens que ja funcionam em ambos (sem acao extra):
+- `rg` / ripgrep (Bash/Grep)
+- `ast-grep` (Bash)
+- `pnpm run lint` / `test` / `build` (Bash)
+- Serena MCP (MCP config no Claude, ja configurado pelo `codebase-memory-mcp install`)
+- codebase-memory-mcp (MCP config no Claude, ja configurado pelo `codebase-memory-mcp install`)
 
 ## Arquivos afetados
 
 | Arquivo | Status | Mudanca |
 |---|---|---|
-| `opencode.json` | ✅ | `compaction.prune`, `watcher.ignore`, `permission.edit/bash`, MCP servers (serena, codebase-memory-mcp) |
-| `AGENTS.md` | ✅ bloco CBM | Bloco `<!-- codebase-memory-mcp -->` adicionado ao final |
-| `AGENTS.md` | ❌ pendente | Secao "Diagnostico local" + nota LSP + exemplos `ast-grep` |
+| `opencode.json` | ✅ | `compaction.prune`, `watcher.ignore`, `permission.edit/bash`, `plugin: openslimedit`, MCP servers (serena, codebase-memory-mcp) |
+| `AGENTS.md` | ✅ | Secao "Diagnostico local" + "Sobre o LSP" + bloco `<!-- codebase-memory-mcp -->` |
 | `.gitignore` | ✅ | `.serena/` adicionado |
 | `.serena/project.yml` | ✅ | Criado por `serena project create` (gitignored) |
-| Global npm | ❌ pendente | `@ast-grep/cli` |
-| Global npm | ✅ | `codebase-memory-mcp` |
-| Global uv | ✅ | `serena-agent` |
+| Global npm | ✅ | `@ast-grep/cli` v0.44.0 |
+| Global npm | ✅ | `codebase-memory-mcp` v0.8.1 |
+| Global uv | ✅ | `serena-agent` v1.5.3 |
+| `CLAUDE.md` (raiz) | ✅ | `@AGENTS.md` import + regras Claude (26 linhas) |
+| `.claude/settings.json` | ✅ | `enabledPlugins: { "typescript-lsp@claude-plugins-official": true }` |
+| Global npm | ✅ | `typescript-language-server` v5.3.0 |
 
 ## Contratos/interfaces tocados
 
@@ -158,5 +180,8 @@ Nenhum. Mudancas puramente documentais/configuracao local. Nao afeta runtime, AP
 - [x] `opencode.json` JSON valido.
 - [x] `codebase-memory-mcp` index OK: `list_projects` + `search_graph` funcionando.
 - [x] `serena` project OK: 549 TS indexados.
-- [ ] `pnpm run lint` verde (so docs/config alterados — sem impacto esperado).
-- [ ] Smoke real: reiniciar OpenCode, verificar MCP tools disponiveis.
+- [x] `ast-grep --version` retorna versao valida (v0.44.0).
+- [x] `CLAUDE.md` criado (26 linhas, `@AGENTS.md` import).
+- [x] `typescript-language-server` v5.3.0 + Claude LSP plugin ativo (`/reload-plugins` → 1 plugin LSP server).
+- [x] `pnpm run lint`: 7/9 pacotes verdes (feedback pre-existente).
+- [x] `/doctor` Claude Code: sem erros apos correcao `enabledPlugins` (record, nao array).

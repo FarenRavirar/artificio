@@ -49,14 +49,14 @@ Origem: 5 débitos listados como "🟡 Local". Investigação (2026-06-22) provo
 - [ ] Cron VM: confirmar crontab instalado — `ssh faren 'crontab -l'` deve conter `... docker exec links-app tsx server/rehydrate-cli.ts ...` (read-only). Se ausente, registrar como pendência de instalação (write VM = aprovação).
 - **Aceite:** evidência (curls/runs) na sessão; fechar `BL-LINKS-MEDIA-038`.
 
-## T5 — Reconciliação de backlog + project-state (DOCUMENTAL)
+## T5 — Reconciliação de backlog + project-state (DOCUMENTAL) · ✅ feito 2026-06-22 (PR #85)
 
-- [ ] Fechar `BL-BUILD-CACHE-PRUNE-ALL` com evidência (commit `bfa98be`, ancestral de origin/main — `investigacao.md` §1). Corrigir as linhas stale 494/159 → 502/159 na nota de fechamento.
-- [ ] Fechar `BL-LINKS-NAV-CROSSAPP` com evidência (nav em prod; accounts sem nav by design — §2).
-- [ ] Atualizar `BL-LINKS-GROUP-LOGOS` (12/13), `BL-LINKS-MEDIA-038`, `BL-ACCOUNTS-PORT` conforme T2-T4.
-- [ ] Refletir em `project-state.md` "Próximo passo" (itens 2/4 da lista atual = spec 038 T4/T13).
-- [ ] **Não apagar registro sem justificativa** (regra append/evidência). Doc-only entra em `dev` por branch+PR (D073).
-- **Aceite:** backlog sem débito falso-aberto; cada fechamento com origem rastreável.
+- [x] Fechar `BL-BUILD-CACHE-PRUNE-ALL` com evidência (commit `bfa98be`, ancestral de origin/main — `investigacao.md` §1). Linhas stale 494/159 → 502/159 corrigidas. · backlog.md + audit-map.
+- [x] Fechar `BL-LINKS-NAV-CROSSAPP` com evidência (nav em prod; accounts sem nav by design — §2). · backlog.md + audit-map.
+- [x] Atualizar `BL-LINKS-GROUP-LOGOS` (12/13), `BL-LINKS-MEDIA-038` (só T13), `BL-ACCOUNTS-PORT` (ref 045). · backlog.md + audit-map.
+- [x] Refletir em `project-state.md` "Próximo passo" (itens 2/4) + adicionar item 13 (spec 045).
+- [x] Linha SPEC-045 adicionada ao backlog (Especiais). Nenhum registro apagado (regra append/evidência).
+- **Aceite:** backlog sem débito falso-aberto; cada fechamento com origem rastreável. · ✅
 
 ---
 

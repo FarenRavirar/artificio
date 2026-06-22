@@ -17,19 +17,12 @@ apps/<modulo>/
   vite.config.ts        # base: '/'  (root próprio, sem basename)
   src/
   Dockerfile
-  module.manifest.ts    # o contrato (ver abaixo)
 ```
 
-## 3. module.manifest.ts (o contrato)
+## 3. Registrar no nav cross-app
+Adicionar entrada em `packages/ui/src/modules.ts` (`defaultNavItems`) — fonte única da nav, não per-app. Ex.:
 ```ts
-export const manifest = {
-  host: '<sub>.artificiorpg.com',  // subdomínio do módulo
-  navLabel: 'Nome no menu',
-  navIcon: 'lucide-icon-name',
-  requiresAuth: false,             // true se precisa de sessão SSO
-  analyticsNamespace: '<sub>',     // stream/dimension GA4
-  sitemapProvider: true,           // serve /sitemap.xml próprio
-}
+{ label: 'Novo Módulo', href: 'https://novo.artificiorpg.com' }
 ```
 
 ## 4. Conectar compartilhados (packages/*)
@@ -46,7 +39,7 @@ export const manifest = {
 
 ## 6. Deploy
 - Dockerfile + serviço no `docker-compose.beta.yml` (rede externa compartilhada).
-- Imagem GHCR; Turborepo builda só este módulo (affected graph).
+- Imagem buildada na VM (não GHCR); Turborepo builda só este módulo (affected graph).
 - Workflow: entra no `deploy-beta.yml`. Smoke próprio (health no subdomínio).
 
 ## 7. Checklist de aceite (Gate D do módulo)

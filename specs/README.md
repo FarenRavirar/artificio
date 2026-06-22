@@ -46,7 +46,10 @@ Toda spec SDD deve:
 | 036 | media shared | Fechada local 2026-06-20; `@artificio/media` com 5 funções atômicas; 3 consumidores migrados; sem commit. |
 | 042 | duplicate code refactor | ✅ **EM PROD**. Merge dev→main. Deploy prod mesas/glossario/site. cpd 5.57%→4.60% (-411 linhas, -18 clones). 13 revisões resolvidas. |
 | 043 | auditoria visual links | PR #84 mergeada em `dev`. Fase 1 T5 (logo base64→PNG) completa. 46 arquivos. Proximo: T6. |
-| 044 | opencode ecosystem | Aberta. Fase 1: opencode.json (compact/watcher/permissions). Fase 2: AGENTS.md diagnostico+LSP. Fase 3: ast-grep. Fase 4: investigar MCP/plugins. |
+| 044 | opencode ecosystem | ✅ **CONCLUIDA**. OpenCode + Claude Code. 10 ferramentas ativas. Smoke 4/4. |
+| 045 | debitos pendentes deploy | aberto. Investigacao concluida. T1 (PR #85) ✅. T2/T3/T4 pendentes. |
+| 046 | arquiteture docs sync | aberto. Auditoria secao por secao do `arquiteture.md`. §1 corrigido, §2 auditado. |
+| 047 | mesas inbox importacao | aberto. Auditoria Fase 0 concluída. Inbox de importação de mesas (texto colado → draft). 7 fases planejadas. |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.

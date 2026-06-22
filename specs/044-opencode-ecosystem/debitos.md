@@ -23,7 +23,10 @@ Debitos acionaveis tambem devem aparecer em `specs/backlog.md`.
 - **Prioridade:** Baixa — reavaliar quando: (a) monorepo tiver 30+ packages/apps, (b) cross-package refactors forem frequentes, (c) OpenCode (anomalyco) tiver integracao documentada com Serena.
 - **Status:** implementado local (2026-06-22) — `serena-agent` v1.5.3, 549 arquivos TS indexados, MCP config no `opencode.json`, `.serena/` gitignored.
 - **Backlog geral:** sim (`BL-ECOSYSTEM-SERENA`)
-- **Criterio de resolucao:** Aguardar um dos gatilhos acima OU demonstracao de que `rg` + `ast-grep` + LSP nao cobrem caso de uso real. Nao instalar agora.
+- **OpenCode:** ja configurado (`opencode.json` MCP + `serena project`).
+- **Claude Code:** configurado 2026-06-22 via `claude mcp add` (scope `local`, gravado em `~/.claude.json` por projeto — **não-versionado**). Smoke real OK nesta data (`find_symbol("fetchOgImage")` → `apps/links/server/lib/og.ts:48-80`; `list_memories` → 1). Contexto `ide-assistant` (Claude Code), distinto do `ide` do OpenCode.
+- **Ativação para AGENTE FRIO (Claude Code, clone novo):** o registro vive em `~/.claude.json` (gitignored) → clone limpo **não** tem Serena. Para ativar: (1) `serena` instalado (`uv tool install -p 3.13 serena-agent`); (2) `claude mcp add serena -- serena start-mcp-server --context ide-assistant --project C:/projetos/artificio` (forward slashes — bash come backslash); (3) **reiniciar a sessão Claude Code** (MCP carrega no startup). Verificar: `claude mcp get serena` → `✔ Connected`. Reverter: `claude mcp remove serena -s local`. Sem isso, baseline = `rg`/glob + `codebase-memory-mcp` (ver bloco "Semantic Symbol Navigation (Serena MCP)" no `AGENTS.md`).
+- **Criterio de resolucao:** smoke test em sessao real (ambos agentes). · ✅ OpenCode + Claude Code 2026-06-22.
 - **Decisao do mantenedor 2026-06-22:** Instalar localmente (uv + serena-agent), `.serena/` inteiro no `.gitignore`, OpenCode MCP config no `opencode.json`. Sem commit de configs do Serena.
 - **Implementacao 2026-06-22:** `uv tool install -p 3.13 serena-agent` → v1.5.3 (73 pacotes Python). `serena init` → `C:\Users\paulo\.serena\serena_config.yml`. `serena project create --language typescript` → `.serena/project.yml`. `serena project index` → 549 arquivos TS em 17s. `.serena/` adicionado ao `.gitignore`. MCP config `"serena"` adicionada ao `opencode.json` (tipo `local`, comando `serena start-mcp-server --context ide --project C:\projetos\artificio`). Proximo passo: reiniciar OpenCode para carregar MCP server.
 
@@ -50,6 +53,8 @@ Debitos acionaveis tambem devem aparecer em `specs/backlog.md`.
   4. Indexacao consome RAM durante build inicial — monorepo Artificio (~549 arquivos TS) e leve.
 - **Status:** implementado local (2026-06-22) — v0.8.1 instalado via npm, 10.6k nos / 18.1k edges em 4.1s, MCP no `opencode.json`, bloco instrucoes no `AGENTS.md`, OpenCode nao auto-detectado (config manual).
 - **Backlog geral:** sim (`BL-ECOSYSTEM-CODEBASE-MEMORY`)
-- **Criterio de resolucao:** `npm install -g codebase-memory-mcp` → `codebase-memory-mcp install` (seguro, usa marcadores HTML) → index → testar `get_architecture` + `trace_path` em 1 sessao → avaliar.
+- **OpenCode:** ja configurado (`opencode.json` MCP manual).
+- **Claude Code:** ja configurado (`.claude/.mcp.json` + `.claude.json` pelo `cbm install`). MCP server reutilizado.
+- **Criterio de resolucao:** smoke test em sessao real (ambos agentes).
 - **Revisao 2026-06-22:** Recomendacao inicial ("aguardar v1.0") REVISADA. Maturidade real (10.7k stars, 863 commits, SLSA 3) justifica instalar. Install usa marcadores HTML no AGENTS.md (seguro). Porem `install` nao auto-detectou OpenCode no Windows (npm global `.ps1` shim) → MCP adicionado manualmente ao `opencode.json`.
 - **Implementacao 2026-06-22:** `npm install -g codebase-memory-mcp` v0.8.1. `install` detectou 6 agentes (Claude Code, Codex, Gemini, VS Code, Cursor, Kiro) — OpenCode ausente. MCP manual + bloco instrucoes no AGENTS.md. Index: 1097 arquivos, 10627 nos, 18119 edges em 4168ms. `search_graph("*Header*", Function)` → 13 funcoes com assinatura/callers/complexity. Proximo: reiniciar OpenCode + testar MCP tools na sessao.

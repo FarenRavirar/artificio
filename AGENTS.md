@@ -131,6 +131,7 @@ Estas falhas já aconteceram e viraram regra operacional. Todo agente deve trat�
 - **Nunca mascarar erro nem adiar problema com risco de esquecer.** Proibido silenciar lint/tipo/teste/build para "fazer passar": `eslint-disable`/`@ts-ignore`/`continue-on-error`/`.skip`/`xfail`/flag advisory sem justificativa inline rastreável, ou "depois eu vejo". Erro descoberto = **corrigir agora**; se não der, **PARAR e perguntar** ao mantenedor, sempre oferecendo explicitamente a opção de **registrar como débito acionável** (origem, evidência, escopo, próximo passo) — a decisão de adiar é do mantenedor, não do agente. **Endurecer gate** (remover `continue-on-error`, subir severidade, tornar check obrigatório) só **DEPOIS** do verde comprovado localmente — nunca antes, pois transfere a falha mascarada para o próximo PR. Caso real: remover o `continue-on-error` do lint (spec 035) sem o lint estar verde mascarou ~79 erros pré-existentes em glossario/mesas e quebrou a PR #74; a correção virou a spec 037.
 - **Não existe "fora de escopo": o monorepo é um projeto só.** Erro, débito ou regressão encontrado em qualquer app/pacote durante a tarefa é responsabilidade de quem achou — corrigir ou registrar no mesmo turno, nunca empurrar para "outro fazer" ou usar "outra spec/outro app" como desculpa para ignorar. Separar em PR/spec própria é **organização rastreável** (o item segue até o verde), não abandono. O foco é a qualidade do produto inteiro; "deixar para depois" só com decisão explícita do mantenedor e débito registrado. (Isolamento de app — §Isolamento de App/Projeto — é sobre **não quebrar o código alheio**, não licença para **ignorar problema alheio**.)
 - **Nunca reaproveitar autorização de commit/push/PR para ação subsequente.** "Commite" autoriza só o commit daquele momento. "Pode abrir PR" autoriza só abrir o PR. Qualquer novo commit, push adicional, ou edição que você pretenda commitar no mesmo PR precisa de NOVA autorização explícita. A autorização não carrega para "ajustes", "correções" ou "melhorias" descobertas em seguida — mesmo que relacionadas ao mesmo PR.
+- **Nunca confiar em documentação sem verificar o código — numa auditoria/investigação, código é a verdade material.** Documentação pode estar desatualizada, docs de spec podem registrar intenção não executada, e spec pode listar item como "pendente de decisão" quando o código já decidiu e implementou. Toda claim documental sobre estado de código, contrato ou decisão implementada deve ser verificada contra o código real (arquivos, imports, git log, consumidores). Se doc e código divergem, o código prevalece; o achado vira débito documental, não débito de implementação. Caso real: spec 019 listava centralização de metadata como "pendente de decisão do mantenedor", mas o código (`modules.ts`, `static.ts`, `content.ts`) já tinha centralizado em `packages/ui` — a doc estava dessincronizada do código, não o contrário (DEB-002, spec 046, 2026-06-22).
 
 ### Aprovação Obrigatória
 
@@ -304,11 +305,13 @@ Se o agente decidir que não há backlog novo, deve escrever na sessão o motivo
 | Subagentes | `.claude/agents/` |
 | Skills/playbooks locais | `.agents/skills/` |
 
+> Grafo MCP (`codebase-memory-mcp`) = opcional e não-versionado. Tem? Use. Não tem? Baseline = `rg`/grep/glob.
+
 <!-- codebase-memory-mcp:start -->
 # Codebase Knowledge Graph (codebase-memory-mcp)
 
 This project uses codebase-memory-mcp to maintain a knowledge graph of the codebase.
-ALWAYS prefer MCP graph tools over grep/glob/file-search for code discovery.
+**When these MCP graph tools are available**, prefer them over grep/glob/file-search for code discovery; otherwise fall back to grep/glob/file-search (the repo-wide baseline).
 
 ## Priority Order
 1. `search_graph` — find functions, classes, routes, variables by pattern
@@ -327,3 +330,25 @@ ALWAYS prefer MCP graph tools over grep/glob/file-search for code discovery.
 - Who calls it: `trace_path(function_name="OrderHandler", direction="inbound")`
 - Read source: `get_code_snippet(qualified_name="pkg/orders.OrderHandler")`
 <!-- codebase-memory-mcp:end -->
+
+> Serena MCP (`serena__*`) = opcional e não-versionado (configurado em `opencode.json`/config MCP local, ambos gitignored). Tem? Use para navegação/edição semântica por símbolo (LSP-aware). Não tem? Baseline = `rg`/grep/glob + `codebase-memory-mcp`.
+
+# Semantic Symbol Navigation (Serena MCP)
+
+Serena (DEB-044-01) dá navegação e edição **por símbolo** via LSP (resolução exata, não textual). **Quando as ferramentas `serena__*` estiverem disponíveis**, prefira-as a `rg` para localizar/editar símbolos; senão use o baseline (`rg`/glob + `codebase-memory-mcp`).
+
+## Quando usar Serena
+- `get_symbols_overview` — entender um arquivo novo antes de abri-lo inteiro (lista símbolos top-level).
+- `find_symbol` — localizar função/classe/método por name path (ex.: `MyClass/method`); `include_body=true` lê o corpo exato sem Read do arquivo todo.
+- `find_referencing_symbols` — quem chama/usa um símbolo (impacto antes de editar).
+- `replace_symbol_body` / `insert_before_symbol` / `insert_after_symbol` / `rename_symbol` — edição cirúrgica por símbolo (preserva o resto do arquivo).
+- `get_diagnostics_for_file` — diagnósticos LSP (auxiliar, **não** substitui `pnpm run lint`/`build`).
+
+## Quando NÃO usar (fallback)
+- String literal, mensagem de erro, valor de config → `rg`.
+- Arquivo não-código (Dockerfile, shell, JSON/YAML) → `rg`/Read.
+- Símbolo não resolvido pelo LSP (drift do language server) → `rg` + validação CLI.
+
+## Disciplina (pétrea local)
+- Diagnóstico LSP do Serena é auxiliar. **Sempre** `pnpm run lint` + `pnpm run build` antes de declarar tarefa concluída.
+- Edição por símbolo não dispensa revisão do diff nem as regras de escopo/isolamento de app.
