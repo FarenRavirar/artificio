@@ -45,16 +45,23 @@ describe("normalizeChangelogEntries", () => {
     const older = { ...valid, id: "old", created_at: "2026-01-01T00:00:00-03:00" };
     const newer = { ...valid, id: "new", created_at: "2026-06-01T00:00:00-03:00" };
     const out = normalizeChangelogEntries([older, { bad: 1 }, newer]);
-    expect(out.map((e) => e.id)).toEqual(["new", "old"]);
+    expect(ids(out)).toEqual(["new", "old"]);
   });
 
   it("respeita o limit", () => {
     const a = { ...valid, id: "a", created_at: "2026-06-03T00:00:00-03:00" };
     const b = { ...valid, id: "b", created_at: "2026-06-02T00:00:00-03:00" };
     const c = { ...valid, id: "c", created_at: "2026-06-01T00:00:00-03:00" };
-    expect(normalizeChangelogEntries([a, b, c], 2).map((e) => e.id)).toEqual(["a", "b"]);
+    expect(ids(normalizeChangelogEntries([a, b, c], 2))).toEqual(["a", "b"]);
   });
 });
+
+// Helper sem .map (guideline do repo): extrai ids via for...of.
+function ids(entries: ChangelogEntry[]): string[] {
+  const out: string[] = [];
+  for (const e of entries) out.push(e.id);
+  return out;
+}
 
 describe("constantes", () => {
   it("CHANGELOG_CACHE_TTL é 60s", () => {

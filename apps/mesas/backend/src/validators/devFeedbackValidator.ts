@@ -16,6 +16,7 @@ import type {
   ConsoleErrorEntry,
   NetworkErrorEntry,
   NormalizedFeedback,
+  ParseResult as SharedParseResult,
 } from '@artificio/feedback';
 
 // Re-export com nomes legados do mesas
@@ -25,12 +26,14 @@ export type { ConsoleErrorEntry, NetworkErrorEntry };
 
 export type NormalizedDevFeedback = NormalizedFeedback<DevFeedbackKind>;
 
-export type ParseResult =
-  | { ok: true; value: NormalizedDevFeedback }
-  | { ok: false; error: string };
+export type ParseResult = SharedParseResult<DevFeedbackKind>;
 
 export function parseDevFeedbackInput(raw: unknown): ParseResult {
+  const kindGuard = (value: string): value is DevFeedbackKind =>
+    value === 'bug' || value === 'suggestion';
+
   return parseFeedbackInput<DevFeedbackKind>(raw, {
+    kindGuard,
     limits: { ...FEEDBACK_LIMITS },
   });
 }

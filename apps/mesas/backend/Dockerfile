@@ -46,6 +46,8 @@ COPY --from=builder /repo/packages/auth/dist ./packages/auth/dist
 COPY --from=builder /repo/packages/auth/dist-cjs ./packages/auth/dist-cjs
 COPY --from=builder /repo/packages/changelog/dist ./packages/changelog/dist
 COPY --from=builder /repo/packages/changelog/dist-cjs ./packages/changelog/dist-cjs
+COPY --from=builder /repo/packages/feedback/dist ./packages/feedback/dist
+COPY --from=builder /repo/packages/feedback/dist-cjs ./packages/feedback/dist-cjs
 COPY --from=builder /repo/packages/media/dist ./packages/media/dist
 
 # Copiar build compilado

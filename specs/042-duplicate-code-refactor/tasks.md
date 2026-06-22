@@ -49,8 +49,19 @@
 - [x] T36 — Atualizar `specs/backlog.md` e `project-state.md` · feito quando: débitos fechados/novos registrados
 - [x] T37 — Atualizar sessão e `sessoes/index.md` · feito quando: evidência registrada
 
-## Notas
+## Revisões
 
+- [ ] **R042-001** — `kindGuard` ausente em `devFeedbackValidator.ts` (Amazon Q, 🛑 Logic Error) · `parseDevFeedbackInput` chama `parseFeedbackInput<DevFeedbackKind>` sem `kindGuard`. Risco de manutenção: type assertion inseguro se validação padrão do pacote mudar. Sugestão: adicionar `kindGuard` inline. Ver `task-revisoes-2.md`.
+- [ ] **R042-002** — Dockerfiles não copiam `packages/feedback/dist` (Codex, 🛑 P1) · glossario/mesas/site Dockerfiles têm lista fixa de `COPY --from=builder`; `@artificio/feedback` não foi adicionado. Container sobe sem o dist → servidor falha ao importar. Ver `task-revisoes-2.md`.
+- [ ] **R042-003** — `@artificio/feedback` sem build CommonJS (Codex, 🛑 P1) · Pacote é `"type": "module"` com `"require": "./dist/index.js"` (ESM). Backends glossario/mesas são CommonJS → `ERR_REQUIRE_ESM`. Precisa de `dist-cjs/` como `@artificio/changelog`. Ver `task-revisoes-2.md`.
+- [ ] **R042-004** — `ParseResult` redefinido localmente em `devFeedbackValidator.ts` (CodeRabbit, 🔵 Nitpick) · Tipo duplicado localmente em vez de reutilizar `ParseResult<TKind>` do pacote. Ver `task-revisoes-2.md`.
+- [ ] **R042-005** — `DEFAULT_LIMITS` duplicado em `parse.ts` (CodeRabbit, 🔵 Nitpick) · Constante duplica `FEEDBACK_LIMITS` de `types.ts`; deveria usar spread. Ver `task-revisoes-2.md`.
+- [ ] **R042-006** — Condição de corrida no `rejectHandler` (CodeRabbit, 🟠 Major) · SELECT + UPDATE não é atômico; dois admins podem gerar notificações/logs duplicados. UPDATE deveria incluir `WHERE status='pending'` e validar `executeTakeFirst()`. Ver `task-revisoes-2.md`.
+- [ ] **R042-007** — `exports.require` aponta para ESM (CodeRabbit, 🟠 Major) · Mesmo diagnóstico do R042-003. Ver `task-revisoes-2.md`.
+- [x] **R042-008** — Validação de faixa HTTP no `normalizeNetworkErrors` (CodeRabbit, 🟡 Minor) · Qualquer número finito aceito como status; corrigido: valida 100-599. Ver `task-revisoes-2.md`.
+- [x] **R042-009** — ReDoS no EMAIL_RE (SonarCloud, 🟡 Medium) · Regex `[^\s@]+` vulnerável a backtracking super-linear. Corrigido: quantificadores explícitos `{1,254}`. Ver `task-revisoes-2.md`.
+
+## Notas
 
 - **T10 (testes unitários):** testes existentes no glossario (`feedbackValidator.test.ts`, 8 tests) e mesas (`devFeedbackValidator.test.ts`, 19 tests) já validam o contrato da função. Novo teste seria redundante.
 - **T12 (smoke):** requer runtime com DB Postgres. Build+testes comprovam integridade do contrato de tipos e lógica.

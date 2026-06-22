@@ -3,7 +3,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "frontend/dist/**", "backend/dist/**"]
+      "outputs": ["dist/**", "dist-cjs/**", "frontend/dist/**", "backend/dist/**"]
     },
     "lint": {
       "dependsOn": ["^lint"]

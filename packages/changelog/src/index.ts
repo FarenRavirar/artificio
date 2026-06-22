@@ -48,7 +48,10 @@ export function normalizeChangelogEntries(payload: unknown, limit?: number): Cha
     if (isChangelogEntry(item)) normalized.push(item);
   }
   normalized.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  return limit != null ? normalized.slice(0, limit) : normalized;
+  if (typeof limit !== "number" || !Number.isFinite(limit)) return normalized;
+  const safeLimit = Math.trunc(limit);
+  if (safeLimit <= 0) return [];
+  return normalized.slice(0, safeLimit);
 }
 
 export interface ChangelogModalLabels {

@@ -30,7 +30,29 @@ Regras de preenchimento:
 - [x] Toda entrada deste arquivo com Status `corrigido (testes verdes)` ou `aguardando decisão do mantenedor` (explícita).
 - [x] Nenhuma descoberta deixada só no chat / na cabeça da IA / empurrada ao backlog sem decisão do mantenedor.
 
-**Status final (2026-06-21):** 20 descobertas, todas fechadas. PR #80 mergeado (`8981c84`). Deploy beta disparado. Changelog cross-app centralizado. Auditoria independente concluída (53 ✅, 1 🛑 corrigido).
+**Status final (2026-06-21):** PR #80 mergeado (`8981c84`) → dev. Changelog cross-app centralizado. Auditoria independente concluída.
+
+**Pós-#80 — saga de deploy beta→prod (fora do PR #80, registrada aqui por "nada para trás"):**
+- Deploy beta **falhou 2x** após o merge do #80 (dev `88ac2ea`): site (`@artificio/config` não declarado — D-041-15) e glossário+mesas (`ERR_PACKAGE_PATH_NOT_EXPORTED ./changelog` — D-041-22).
+- Fix do changelog: pacote leaf `@artificio/changelog` dual ESM+CJS → **PR #82** (mergeado `86e2811`). Achados de bot do #82 (coderabbit `.map`/`limit`; codex turbo `dist-cjs`) resolvidos no próprio #82.
+- **Promoção dev→main** (fast-forward) + **deploy PROD** de glossário, mesas, accounts, links = todos ✅. **Site fica em beta** (prod = raiz `artificiorpg.com` = Gate C, adiado).
+- **Conflito de merge (PR #83 / 042):** a resolução do conflito descartou o fix de `turbo.json` (`dist-cjs/**`). Detectado e restaurado no local — D-041-23.
+
+### D-041-22 — Deploy beta glossário+mesas falhou: backend CJS importa `@artificio/ui/changelog` (ESM-only)
+- Origem: deploy beta pós-#80 — runs [158 mesas](https://github.com/FarenRavirar/artificio/actions/runs/27920566629) + [159 glossário](https://github.com/FarenRavirar/artificio/actions/runs/27920567093). `<svc>-beta-api não ficou healthy`. Log: `Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './changelog' is not defined by "exports" in @artificio/ui`.
+- Causa-raiz: 041 centralizou `changelog.ts` (puro) em `packages/ui`, mas `@artificio/ui` é `"type":"module"` e `exports["./changelog"]` só tinha condição `import` (ESM). Backends glossário/mesas compilam CommonJS → `require()` não casa condição → erro. Contraprova: `@artificio/auth` (consumido por backend CJS) tem condição `require` + `dist-cjs`.
+- Escopo: `packages/ui` + backends glossário/mesas; regressão do 041 (não pega bots — só estoura no boot do container CJS).
+- Ação (PR #82, mergeado `86e2811`): extraído contrato puro p/ pacote leaf **`@artificio/changelog`** com build dual ESM+CJS (`dist` + `dist-cjs`, `exports {import,require,types}`). `@artificio/ui` re-exporta (frontend inalterado). Backends importam o leaf e **deixam de depender de `@artificio/ui`**. Dockerfiles dos 2 backends copiam `dist`+`dist-cjs`. Achados de bot do #82 (R1 `.map` no teste→`for...of`; R2 `limit` endurecido; codex turbo `dist-cjs/**`) resolvidos no #82.
+- Verificação: `turbo build` ✅, testes ✅, smoke `require()` CJS do controller compilado ✅. Deploy beta + PROD verdes (glossário, mesas).
+- Status: corrigido (mergeado em prod via PR #82)
+
+### D-041-23 — Conflito de merge (PR #83/042) descartou o fix `turbo.json dist-cjs/**`
+- Origem: PR #83 (`feat/042-duplicate-code-refactor`) → conflito com o código já em prod (PR #82). Resolução manual do conflito removeu `"dist-cjs/**"` de `turbo.json build.outputs`.
+- Causa-raiz: `turbo.json` foi tocado por ambos (042 e o fix #82). O merge ficou com a versão sem `dist-cjs/**` → em cache hit o turbo não restaura `dist-cjs` de `@artificio/changelog`/`@artificio/auth` → Dockerfile `COPY .../dist-cjs` / runtime quebra (reintroduz o bug de deploy já corrigido em prod).
+- Escopo: `turbo.json`; regressão de merge (perda de fix mergeado).
+- Verificação: `git diff origin/main -- turbo.json` apontou a divergência; demais arquivos do fix changelog (leaf, ui re-export, imports, Dockerfiles) idênticos a prod. Backends `package.json` corretos (changelog de prod + feedback do 042).
+- Ação: `"dist-cjs/**"` re-adicionado ao `turbo.json` local (sem commit, a pedido do mantenedor); `turbo.json` local == prod confirmado. Entra no commit do #83.
+- Status: corrigido no local (aguardando commit do #83 pelo mantenedor)
 
 ---
 

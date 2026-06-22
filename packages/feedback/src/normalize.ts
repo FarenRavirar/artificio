@@ -51,12 +51,14 @@ export function normalizeNetworkErrors(
     const url = readString(row.url).trim();
     if (url.length === 0) continue;
     if (typeof row.status !== 'number' || !Number.isFinite(row.status)) continue;
+    const status = Math.trunc(row.status);
+    if (status < 100 || status > 599) continue;
     const method = readString(row.method).trim().toUpperCase() || 'GET';
     const ts = readString(row.ts).trim();
     out.push({
       url: trunc(url, opts.urlMax),
       method: trunc(method, 10),
-      status: Math.trunc(row.status),
+      status,
       ts: ts.length > 0 ? trunc(ts, 40) : null,
     });
   }

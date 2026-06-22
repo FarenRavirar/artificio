@@ -1,4 +1,4 @@
-export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const EMAIL_RE = /^[^\s@]{1,254}@[^\s@]{1,253}\.[^\s@]{2,}$/;
 export const SCREENSHOT_RE = /^data:image\/(png|jpe?g|webp);base64,/;
 export const LEVEL_MAX = 24;
 

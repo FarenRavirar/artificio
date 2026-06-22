@@ -1,4 +1,9 @@
-import type { FeedbackKind, NormalizedFeedback, ParseResult } from './types.js';
+import {
+  FEEDBACK_LIMITS,
+  type FeedbackKind,
+  type NormalizedFeedback,
+  type ParseResult,
+} from './types.js';
 import {
   asRecord,
   readString,
@@ -34,18 +39,7 @@ export interface ParseOptions<TKind extends string = FeedbackKind> {
 }
 
 const DEFAULT_LIMITS = {
-  title: 160,
-  description: 4000,
-  url: 2000,
-  routePath: 500,
-  pageTitle: 300,
-  environment: 40,
-  userAgent: 500,
-  viewport: 24,
-  email: 254,
-  message: 500,
-  arrayCap: 30,
-  screenshotChars: 7_000_000,
+  ...FEEDBACK_LIMITS,
   levelMax: 24,
 } as const;
 

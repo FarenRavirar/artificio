@@ -35,7 +35,7 @@ export async function rejectHandler(config: RejectConfig, req: Request, res: Res
 
       const adminName = await resolveActorName(adminId, { trx, fallback: 'Admin', logTag: config.logTag });
 
-      await trx
+      const updated = await trx
         .updateTable(config.tableName)
         .set({
           status: 'rejected',
@@ -44,7 +44,13 @@ export async function rejectHandler(config: RejectConfig, req: Request, res: Res
           reviewed_by: adminId,
         })
         .where('id', '=', id)
-        .execute();
+        .where('status', '=', 'pending')
+        .returning('id')
+        .executeTakeFirst();
+
+      if (!updated) {
+        throw new Error('NOT_FOUND_OR_REVIEWED');
+      }
 
       await trx
         .insertInto('notifications')

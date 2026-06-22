@@ -628,6 +628,9 @@ importers:
       '@artificio/content':
         specifier: workspace:*
         version: link:../../packages/content
+      '@artificio/feedback':
+        specifier: workspace:*
+        version: link:../../packages/feedback
       '@artificio/media':
         specifier: workspace:*
         version: link:../../packages/media
