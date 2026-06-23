@@ -28,36 +28,36 @@
 
 ---
 
-## Fase 0.5 — Pesquisa de ferramentas
+## Fase 0.5 — Pesquisa de ferramentas ✅ CONCLUÍDA
 
-> Objetivo: confirmar quais bibliotecas, schemas e ferramentas externas devem entrar no pipeline antes de começar a implementação. Esta fase não trava a Fase 1, mas deve ser concluída antes de decisões de arquitetura que dependam de bibliotecas externas.
+> Decisão do mantenedor (2026-06-23): TODAS ADOTADAS. Nada adiado.
 
-- [ ] **T0.11** — Avaliar `dateparser` (Python) para datas humanas
-  - Testar com datas em português: "sábado às 19h", "hoje às 20h", "quinzenal", "todo domingo"
-  - Critério: matriz de 10 exemplos com resultado esperado vs real
-  - Referência: https://dateparser.readthedocs.io/
-- [ ] **T0.12** — Avaliar `RapidFuzz` (Python) para fuzzy match de sistemas
-  - Testar contra base real de sistemas do mesas (via dump local)
-  - Medir threshold ótimo (corte entre match e falso positivo)
-  - Critério: matriz com precision/recall em 20 aliases
-  - Referência: https://rapidfuzz.github.io/RapidFuzz/
-- [ ] **T0.13** — Avaliar DeepSeek JSON Output / Tool Calls para extração estruturada
-  - Testar com 10 anúncios reais: medir acerto, latência, custo
-  - Verificar restrições de JSON Schema (modo strict) e comportamento com retorno vazio
-  - Critério: relatório com taxa de acerto, falhas, custo estimado por anúncio
-  - Referências: https://api-docs.deepseek.com/guides/json_mode, https://api-docs.deepseek.com/guides/tool_calls
-- [ ] **T0.14** — Avaliar Playwright para smoke test da interface
-  - Testar fluxo: login → /gestao → colar texto → ver draft criado
-  - Critério: 1 teste E2E funcional (não suite completa)
-  - Referência: https://playwright.dev/docs/best-practices
-- [ ] **T0.15** — Avaliar DiscordChatExporter para export futuro (Fase 7)
-  - Verificar compatibilidade com ToS do Discord (README alerta sobre user accounts)
-  - Critério: decisão documentada de usar ou não; se sim, formato de saída compatível
-  - Referência: https://github.com/Tyrrrz/DiscordChatExporter
-- [ ] **T0.16** — Consolidar decisões da Fase 0.5
-  - Documentar quais ferramentas entram, quais não, e por quê
-  - Atualizar `plan.md` com bibliotecas aprovadas
-  - Critério: seção "Ferramentas" no `plan.md` preenchida
+- [x] **T0.11** — Avaliar `dateparser` (Python) para datas humanas
+  - **Decisão:** ADOTAR `chrono-node` (npm) em vez de dateparser
+  - **Justificativa:** Python é proibido no runtime (AGENTS.md). `chrono-node` tem tipos TS nativos, suporta pt-BR, parseia "sábado às 19h", "hoje", "quinzenal", "todo domingo".
+  - **Impacto:** substituir `extractDayOfWeek` + `extractStartTime` + `deriveFrequency` por 1 chamada `chrono.parseDate(text, { locale: 'pt' })`.
+  - **Evidência:** `parseDiscordAnnouncement.ts:252-284` — ~30 linhas de regex caseiras.
+- [x] **T0.12** — Avaliar `RapidFuzz` (Python) para fuzzy match de sistemas
+  - **Decisão:** ADOTAR `fuzzball` (npm) em vez de RapidFuzz
+  - **Justificativa:** Python proibido. `fuzzball` implementa token_sort_ratio, token_set_ratio, Levenshtein. Tipos TS disponíveis.
+  - **Impacto:** substituir `matchSystemName` (`normalizeDiscordTableDraft.ts:16-36`, ~20 linhas) por `fuzzball.extract(system, candidates, { scorer: fuzzball.token_sort_ratio, limit: 1, cutoff: 85 })`.
+- [x] **T0.13** — Avaliar DeepSeek JSON Output / Tool Calls para extração estruturada
+  - **Decisão:** ADOTAR `deepseek-v4-flash` via API REST
+  - **Justificativa:** Pipeline 2 estágios: parser regex tenta primeiro; se confidence < threshold OU campos críticos ausentes → chama DeepSeek como fallback. Modo `strict` (beta) garante JSON Schema. Custo: ~US$0.0002-0.0005 por chamada (v4-flash).
+  - **Modelo:** `deepseek-chat` (legado, = v4-flash non-thinking) — compatível com SDK OpenAI.
+  - **Risco:** retorno vazio ocasional (documentado) — necessário retry + fallback para parser regex.
+  - **Referências:** https://api-docs.deepseek.com/guides/json_mode, https://api-docs.deepseek.com/guides/tool_calls
+- [x] **T0.14** — Avaliar Playwright para smoke test da interface
+  - **Decisão:** ADOTAR `@playwright/test` como devDependency
+  - **Justificativa:** Criar teste E2E do fluxo Inbox (login SSO → /gestao → colar texto → listar drafts → editar → sync). Substitui smoke manual T1.13-T1.16. Chromium headless instalado via `npx playwright install chromium`.
+  - **Dependência:** sessão SSO pré-existente (cookie exportado) ou login programático via `playwright.auth`.
+- [x] **T0.15** — Avaliar DiscordChatExporter para export (Fase 7)
+  - **Decisão:** ADOTAR `docker pull tyrrrz/discordchatexporter` como ferramenta operacional
+  - **Justificativa:** Container Docker CLI na VM. Exporta canais que o bot do mesas não tem acesso (user token). Formato JSON compatível com pipeline de import. **NUNCA code-to-code** — TOS do Discord proíbe automatizar user account. Uso exclusivamente operacional (admin baixa export, sobe manualmente).
+  - **Comando:** `docker run --rm -v /opt/artificio/exports:/out tyrrrz/discordchatexporter export -t TOKEN -c CHANNEL_ID -f Json -o /out/export.json`
+  - **Risco TOS:** mitigado pelo uso manual (não automatizado).
+- [x] **T0.16** — Consolidar decisões da Fase 0.5
+  - **Decisão:** todas aprovadas. Atualizar `plan.md` com seção "Ferramentas aprovadas". Registrar em `debitos.md` DEB-047-22.
 
 ---
 
@@ -91,7 +91,7 @@
 | T1.18 | Guards anti-vazamento | ✅ |
 | T1.19 | Migration no banco beta (FASE A) | ✅ |
 | T1.20 | Deploy no beta (FASE B) | 🔜 |
-| T1.13-17 | Smoke test manual | 🔜 bloqueado (FASE B) |
+| T1.13-16 | Smoke test manual autenticado | ✅ |
 | T1.6 sync | `syncImportDraftToTable` | ✅ |
 | T1.8-12 | Frontend UI | 🔜 |
 | — | Revert `db/types.ts` | ✅ (correção pós-execução) |
@@ -765,18 +765,23 @@ Sem as três últimas rotas, `DiscordDraftPreview` não consegue carregar/editar
   - ✅ Redeploy manual disparado (run `27996679041`, mode=deploy/env=beta, branch dev) → beta atualizado para `d2262a0`. Health 200.
   - ✅ `schema_migrations` beta tem **128 e 129 aplicadas** (confirmado via ssh read-only, 2026-06-22). Nenhuma migração pendente no beta. Containers `mesas-beta-db` e `mesas-db` ambos up.
   - 📋 PROD `mesas-db`: `import_messages`/`import_corrections` ausentes, constraint `single_origin` ausente, `schema_migrations` sem 128/129. (Esperado — fase é teste; prod fora de escopo.)
-- [ ] **T1.13** — Teste manual: colar 1 anúncio → draft criado
-  - ⏳ Aguardando execução — UI no beta desde redeploy `27996679041` (2026-06-23)
-  - Critério: texto de anúncio real → draft aparece com título, sistema, tipo, vagas
-- [ ] **T1.14** — Teste manual: colar múltiplos anúncios → segmentação
-  - ⏳ Aguardando execução — UI no beta desde redeploy `27996679041`
-  - Critério: 3 anúncios separados por `---` → 3 drafts criados
-- [ ] **T1.15** — Teste manual: revisar draft → editar campos → aprovar → sync
-  - ⏳ Aguardando execução — backend/UI no beta desde redeploy `27996679041`
-  - Critério: `syncImportDraftToTable` cria mesa na tabela `tables` com status `draft` (NÃO `published`)
-- [ ] **T1.16** — Teste manual: rejeitar draft
-  - ⏳ Aguardando execução — UI no beta desde redeploy `27996679041`
-  - Critério: status muda para `rejected`; não aparece na lista de "prontos"
+- [x] **T1.13** — Teste manual: colar 1 anúncio → draft criado
+  - ✅ Executado em 2026-06-23 no beta `b70367c`, via Chrome com sessão admin autorizada.
+  - Evidência: anúncio `SMOKE SPEC047 T1.13 — Mesa teste Codex 2026-06-23` importado via aba Inbox; draft `ae10d78a-c1ae-4a8b-9f97-bc36d69b46aa` apareceu na lista com origem `manual_paste`, confiança 100%.
+- [x] **T1.14** — Teste manual: colar múltiplos anúncios → segmentação
+  - ✅ Executado em 2026-06-23 no beta `b70367c`, via Chrome com sessão admin autorizada.
+  - Evidência: dois anúncios separados por `---` geraram dois drafts distintos:
+    - `SMOKE SPEC047 T1.14-A — Mesa teste Codex múltipla A 2026-06-23` → draft `84d67efe-27bb-45c9-8984-dff0dcec7f39`
+    - `SMOKE SPEC047 T1.14-B — Mesa teste Codex múltipla B 2026-06-23` → draft `59acc3fa-5c65-4668-bae5-811af3bdad70`
+- [x] **T1.15** — Teste manual: revisar draft → editar campos → aprovar → sync
+  - ✅ Executado em 2026-06-23 no beta `b70367c`, via Chrome com sessão admin autorizada.
+  - Evidência UI: draft T1.13 aberto, contato pendente preenchido como `@codex-smoke`, descrição editada, `Salvar campos` mudou status para `Pronto`, botão `Sincronizar como mesa` habilitou e sync mudou status para `Sincronizado`.
+  - Evidência DB read-only:
+    - `discord_import_table_drafts`: draft `ae10d78a-c1ae-4a8b-9f97-bc36d69b46aa` com `status='synced'` e `table_id='f4c56c7e-0283-4ed5-a9ae-2ce43255392d'`.
+    - `tables`: mesa `f4c56c7e-0283-4ed5-a9ae-2ce43255392d`, título `SMOKE SPEC047 T1.13 — Mesa teste Codex 2026-06-23`, `status='draft'` — não publicada automaticamente.
+- [x] **T1.16** — Teste manual: rejeitar draft
+  - ✅ Executado em 2026-06-23 no beta `b70367c`, via Chrome com sessão admin autorizada.
+  - Evidência UI/DB read-only: draft T1.14-A `84d67efe-27bb-45c9-8984-dff0dcec7f39` teve status alterado para `rejected`.
 - [x] **T1-final** — Atualizar `specs/backlog.md`, sessão, `project-state.md`
 
 ---
@@ -942,9 +947,13 @@ Sem as três últimas rotas, `DiscordDraftPreview` não consegue carregar/editar
 
 ## Próxima etapa operacional
 
-Fechamento técnico local concluído em 2026-06-22: sync e rotas backend implementados; lint 15/15, build 17/17, backend 21 arquivos/178 testes e `git diff --check` verdes.
+Fechamento técnico local revalidado em 2026-06-23: sync, rotas backend, UI Inbox e hardenings finais implementados; lint 15/15, build 17/17, test 24/24, backend 21 arquivos/180 testes, frontend 4 arquivos/19 testes e `git diff --check` verdes.
 
-Próximo fluxo, cada ação com autorização própria: commit do REV-024 fix + docs → push da branch → PR para `dev` → merge → deploy beta pela esteira canônica (migration 129 já aplicada; runner fará no-op) → smoke T1.13-T1.16.
+Estado beta read-only em 2026-06-23: `/opt/artificio-beta` no commit `b70367c`; `mesas-beta-app`, `mesas-beta-api`, `mesas-beta-db` healthy; migrations 128/129 aplicadas; constraint `chk_discord_import_table_drafts_single_origin` presente; `/gestao` 200; rotas admin Inbox sem sessão retornam 401.
+
+Spec 047 fechada tecnicamente e validada em produto no beta para T1.13-T1.16 em 2026-06-23. Evidência de banco read-only: 3 drafts smoke criados; T1.13 sincronizado para mesa `status='draft'`; T1.14-A rejeitado; T1.14-B permaneceu `needs_review` como sobra controlada de smoke.
+
+Próximo fluxo, cada ação com autorização própria: commit local do fechamento 047 + docs → push da branch → PR para `dev` se necessário. Sem auto-publicação; promoção para `main` continua fora de escopo.
 
 ---
 

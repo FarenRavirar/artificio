@@ -10,6 +10,11 @@ import { authMiddleware } from '../middleware/auth';
 import { textToRawMessage } from '../inbox/adapters/textToRawMessage';
 import { segmentAnnouncements } from '../inbox/segmentation';
 import { syncImportDraftToTable, DraftSyncValidationError } from '../inbox/syncImportDraftToTable';
+import { enhanceWithDeepSeek } from '../inbox/deepseek';
+
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? '';
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL ?? 'deepseek-chat';
+const DEEPSEEK_CONFIDENCE_THRESHOLD = 0.6;
 
 const router = Router();
 
@@ -158,7 +163,21 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
         continue;
       }
 
-      const normalized = normalizeDiscordTableDraft(parsedDraft, systems);
+      let enrichedDraft = normalizeDiscordTableDraft(parsedDraft, systems);
+
+      if (DEEPSEEK_API_KEY && (enrichedDraft.draft.confidence < DEEPSEEK_CONFIDENCE_THRESHOLD || !enrichedDraft.draft.table.system_id)) {
+        try {
+          const fallback = await enhanceWithDeepSeek(parsedDraft, segment, {
+            apiKey: DEEPSEEK_API_KEY,
+            model: DEEPSEEK_MODEL,
+          });
+          enrichedDraft = normalizeDiscordTableDraft(fallback, systems);
+        } catch {
+          // DeepSeek fallback silencioso — parser regex mantido
+        }
+      }
+
+      const normalized = enrichedDraft;
 
       const [draftRow] = await db
         .insertInto('discord_import_table_drafts')
@@ -350,8 +369,19 @@ router.get('/drafts/:id', authMiddleware, async (req: Request, res: Response) =>
 
 // ─── PATCH /drafts/:id ────────────────────────────────────────────────────────
 
+const patchDraftTableSchema = z.object({
+  type: z.enum(['campanha', 'one-shot', 'oneshot-serie', 'aberta']).nullable().optional(),
+  modality: z.enum(['online', 'presencial', 'hibrida']).nullable().optional(),
+  price_type: z.enum(['gratuita', 'paga']).nullable().optional(),
+  frequency: z.enum(['semanal', 'quinzenal', 'mensal', 'avulsa']).nullable().optional(),
+}).passthrough();
+
+const patchNormalizedPayloadSchema = z.object({
+  table: patchDraftTableSchema.optional(),
+}).passthrough();
+
 const patchDraftSchema = z.object({
-  normalized_payload: z.record(z.string(), z.unknown()).optional(),
+  normalized_payload: patchNormalizedPayloadSchema.optional(),
   status: z.enum(['draft', 'ready', 'needs_review', 'rejected']).optional(),
   review_notes: z.string().optional(),
 });

@@ -79,4 +79,15 @@ describe('PATCH /admin/discord-sync/drafts/:id', () => {
     });
     expect(mockDb.updateTable).not.toHaveBeenCalled();
   });
+
+  it('rejects invalid enum values in normalized_payload.table', async () => {
+    const response = await request(makeApp())
+      .patch('/admin/discord-sync/drafts/draft-1')
+      .send({ normalized_payload: { table: { type: 'banana' } } });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain('inválidos');
+    expect(mockDb.selectFrom).not.toHaveBeenCalled();
+    expect(mockDb.updateTable).not.toHaveBeenCalled();
+  });
 });

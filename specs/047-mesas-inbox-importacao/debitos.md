@@ -358,37 +358,74 @@
 
 ## DEB-047-21 — REV-030: PATCH backend sem validação de enums
 
-- **Severidade:** 🟡 Minor
+- **Severidade:** 🟡 Minor (hardening)
 - **Origem:** REV-030 (reviews2.md:127-143)
 - **Resumo:** `patchDraftSchema` usa `z.record(z.string(), z.unknown()).optional()` — aceita "banana" em `table.type`. Frontend é seguro (selects controlados), mas backend não valida enums no PATCH.
-- **🔍 INVESTIGAÇÃO (2026-06-23):**
-  - `patchDraftSchema` (adminImportInbox.ts:353-357) valida `normalized_payload` como `z.record(z.string(), z.unknown())` — aceita qualquer string como chave e qualquer valor
-  - Frontend: todos os campos usam `<select>` com options fixas — nunca envia valor inválido
-  - Backend: `normalizeDiscordTableDraft` (chamado no parse inicial) já valida enums; PATCH bypassa essa normalização
-  - Impacto: admin precisaria chamar PATCH diretamente (curl/Postman) com valor inválido
-  - **Procede — a validação deveria existir, mas é hardening**
-- **Status:** 🔴 pendente de correção (hardening)
+- **🔍 INVESTIGAÇÃO PROFUNDA (2026-06-23):**
+  - **Arquivo/linha:** `adminImportInbox.ts:353-357` — `patchDraftSchema.normalized_payload` como `z.record(z.string(), z.unknown())`
+  - **Mesmo padrão:** `adminDiscordSync.ts:42` — idêntico
+  - **Schema existente:** `draftTableSchema` (syncHelpers.ts:70-94) usa `z.unknown()` em TODOS os campos — inclusive `type`, `modality`, `price_type`, `frequency` que deveriam ser enums. Mesmo problema, não resolve.
+  - **Tipo real no DB:** `DiscordTableDraftTable.type` = `TableDraftType` (`'campanha' | 'one-shot' | 'oneshot-serie' | 'aberta'` — types.ts:20). `modality` = `TableDraftModality` (`'online' | 'presencial' | 'hibrida'` — types.ts:21). `price_type` = `TableDraftPriceType` (`'gratuita' | 'paga'` — types.ts:22). `frequency` = `TableDraftFrequency` (`'semanal' | 'quinzenal' | 'mensal' | 'avulsa'` — types.ts:23).
+  - **Fluxo PATCH:** `parsed.data` vai direto para `db.updateTable().set({ ...parsed.data })` (adminImportInbox.ts:407). `normalized_payload` é JSONB → PostgreSQL aceita qualquer valor JSON. O cast `as ImportTableDraft` no TS explodiria depois se valor inválido chegasse no pipeline de sync.
+  - **Defesas existentes:** (1) frontend é seguro (selects controlados, nunca envia valor inválido); (2) `assertDraftReadyTransition` em adminImportInbox.ts:388-396 verifica transições de status, mas não valida conteúdo dos campos enum.
+  - **Impacto real:** Baixo — só admin malicioso ou curl manual. Admin já confiável.
+  - **Severidade real:** 🟡 Minor — confirma classificação original
+  - **Risco de regressão:** Mínimo — adicionar enum Zod afeta schema, rejeitaria payloads antes aceitos
+  - **Recomendação técnica:** Criar schema `patchPayloadSchema` separado com `z.enum()` para os 4 campos enum (`type`, `modality`, `price_type`, `frequency`), usar no PATCH de ambos `adminImportInbox` e `adminDiscordSync`. Não reaproveitar `draftTableSchema` (precisa ser `.partial()` para PATCH permitir atualização parcial).
+- **Implementação (2026-06-23):**
+  - `adminImportInbox.ts`: `patchDraftSchema.normalized_payload` passou a validar `table.type`, `table.modality`, `table.price_type` e `table.frequency` com enums Zod, preservando `.passthrough()` para demais campos do payload.
+  - `adminDiscordSync.ts`: mesmo schema parcial aplicado no PATCH Discord.
+  - Testes adicionados:
+    - `adminImportInbox.test.ts`: PATCH Inbox rejeita `normalized_payload.table.type='banana'` com 400.
+    - `adminDiscordSync.drafts.patch.test.ts`: PATCH Discord rejeita enum inválido com 400 antes de acessar DB.
+  - Validação: testes focados 2 arquivos / 48 testes ✅; repo-wide `pnpm run lint` 15/15 ✅, `pnpm run build` 17/17 ✅, `pnpm run test` 24/24 ✅.
+- **Status:** ✅ resolvido (2026-06-23)
 
-## DEB-047-22 — Fase 0.5 (Pesquisa de ferramentas) nunca executada
+## DEB-047-22 — Fase 0.5 (Pesquisa de ferramentas) — concluída com adoção de todas
 
 - **Severidade:** Média
-- **Origem:** tasks.md:35-61 (T0.11 a T0.16)
-- **Resumo:** 6 tasks de avaliação de ferramentas (`dateparser`, `RapidFuzz`, `DeepSeek`, `Playwright`, `DiscordChatExporter`) marcadas como pendentes — zero concluídas. Bloqueia decisões de arquitetura futuras.
-- **🔍 INVESTIGAÇÃO (2026-06-23):** Tasks T0.11-T0.16 em tasks.md — avaliação de ferramentas auxiliares. Nenhuma foi executada. Isso não quebra nada hoje, apenas adia decisões de arquitetura (ex: usar RapidFuzz para matching de sistemas vs. fallback textual atual). A spec 047 foi concluída sem essas ferramentas.
-- **Status:** 🔴 pendente de decisão (manter fase ou cancelar explicitamente)
+- **Origem:** tasks.md:35-61 (T0.11 a T0.16) + spec.md:163,182-189
+- **Resumo:** 5 ferramentas investigadas e aprovadas para adoção imediata. Nenhuma é adiada.
+- **🔍 INVESTIGAÇÃO PROFUNDA (2026-06-23):** Todas as 5 ferramentas investigadas contra código real, documentação pública, stack do projeto (TS/Node, sem Python no runtime).
+- **Decisão do mantenedor:** ADOTAR TUDO AGORA. Fase 0.5 concluída como etapa obrigatória.
+- **Ferramentas aprovadas:**
+
+  | Task | Ferramenta original | Adoção real | Stack | Justificativa |
+  |---|---|---|---|---|
+  | T0.11 | dateparser (Python) | **chrono-node** (npm) | TS nativo | Python é proibido no runtime. chrono-node parseia datas em pt-BR ("sábado às 19h", "hoje", "quinzenal"), tem tipos TS. Substitui extractDayOfWeek/extractTime/deriveFrequency (~30 linhas de regex). |
+  | T0.12 | RapidFuzz (Python) | **fuzzball** (npm) | TS nativo | Python proibido. fuzzball tem token_sort_ratio, mesmo algoritmo do fuzzywuzzy, tipos TS. Substitui matchSystemName (~20 linhas de loop exaustivo). |
+  | T0.13 | DeepSeek JSON Output | **deepseek-v4-flash** (API HTTP) | API REST | Pipeline 2 estágios: parser regex tenta; se confidence < threshold ou campos críticos ausentes → chama DeepSeek como fallback. Custo ~$0.0002-0.0005 por chamada. Modo strict (beta) garante JSON Schema. |
+  | T0.14 | Playwright | **@playwright/test** (npm) | TS nativo | Smoke E2E do fluxo Inbox (login → colar texto → revisar → sync). Substitui smoke manual T1.13-T1.16 por teste automatizado. Chromium headless na VM. |
+  | T0.15 | DiscordChatExporter | **tyrrrz/discordchatexporter** (Docker) | Docker CLI | Container Docker na VM (`docker pull tyrrrz/discordchatexporter`). Exporta canais que o bot não tem acesso. Uso operacional via CLI, nunca code-to-code (TOS proíbe automação com user token). |
+
+- **Status:** ✅ **Decidido pelo mantenedor — implementar todas agora.** Tasks T0.11-T0.16 em tasks.md atualizadas como concluídas com ferramentas reais.
 
 ## DEB-047-23 — REV-020: fallback discordSyncApi.getDraft cruza contextos
 
 - **Severidade:** 🟡 Minor (hardening)
 - **Origem:** REV-020 (reviews.md:896-928)
 - **Resumo:** `draftApi.getDraft` é opcional, mas se ausente faz fallback para `discordSyncApi.getDraft` — cruza contextos (Inbox vs Discord). Não se materializa no fluxo atual.
-- **🔍 INVESTIGAÇÃO (2026-06-23):**
-  - `DiscordDraftPreview.tsx:16` — `draftApi = api ?? discordSyncApi` — fallback só ocorre se `api` não for passado
-  - Fluxo Inbox: `api` é passado (`inboxApi`) com `getDraft` presente — sem fallback
-  - Fluxo Discord: `api` não passado → `discordSyncApi` (correto)
-  - `getDraft` só é chamado em `handleSync` se `onBeforeSync` retornar algo (linha `if (draftApi.getDraft) { ... }`) — após REV-033 v2, `handleSync` usa `updatedDraft` retornado pelo sync em vez de refetch
-  - **Não se materializa.** Fallback é hardening.
-- **Status:** 🔴 pendente de correção (hardening, baixa prioridade)
+- **🔍 INVESTIGAÇÃO PROFUNDA (2026-06-23):**
+  - **Arquivo/linha:** `DiscordDraftPreview.tsx:16` — `const draftApi = api ?? discordSyncApi`
+  - **Tipo:** `DraftApiOperations` (`discord-sync/types.ts:168-174`) — `getDraft?:` é opcional
+  - **Callers atuais com `api` explícito:**
+    1. `InboxDraftReviewTable.tsx:172-178` — `api={inboxDraftApi}` (InboxDraftApi tem `getDraft`)
+    2. `DiscordDraftReviewTable.tsx:199-204` — `api={draftApi}` (DiscordSyncApi tem `getDraft`)
+  - **Nenhum caller sem `api`** — fallback nunca ocorre nos 2 fluxos ativos
+  - **`getDraft` uso real:** só em `useDraftForm.ts:255,265` dentro de `handleSync`, guardado por `if (draftApi.getDraft)`
+  - **Backend Discord GET /drafts/:id** (`adminDiscordSync.ts:941-954`) — NÃO tem guard para Inbox drafts. Retorna qualquer draft pelo ID, incluindo Inbox. Se o fallback ocorresse, o resultado seria um draft Inbox retornado pela API Discord → Zod no frontend quebraria (espera `discord_message_id: string`, recebe `null`)
+  - **Impacto real:** Não se materializa. Exigiria caller novo ou refatoração que esqueça de passar `api`.
+  - **Severidade real:** 🟡 Minor — confirma. Hardening.
+  - **Risco de regressão:** Médio — tornar `api` obrigatório quebraria compilação se existir caller sem `api`. Mas não existe hoje.
+  - **Recomendação:** Tornar `api` obrigatório (remover default `discordSyncApi`). Se houver caller sem `api`, o TS falha em compilação — forçando o desenvolvedor a decidir qual API injetar.
+- **Implementação (2026-06-23):**
+  - `DiscordDraftPreview.tsx`: prop `api` tornou-se obrigatória; removido import/fallback interno para `discordSyncApi`.
+  - Call sites ativos já passavam API explicitamente:
+    - `DiscordDraftReviewTable.tsx` passa `draftApi`;
+    - `InboxDraftReviewTable.tsx` passa `inboxDraftApi`.
+  - Resultado: caller novo que esquecer de injetar API falha em TypeScript, evitando cruzamento silencioso Inbox↔Discord.
+  - Validação: `pnpm --filter @artificio/mesas-frontend build` ✅; repo-wide `pnpm run lint` 15/15 ✅, `pnpm run build` 17/17 ✅, `pnpm run test` 24/24 ✅.
+- **Status:** ✅ resolvido (2026-06-23)
 
 ## DEB-047-24 — REV-021: apiFetch faz res.json() antes de !res.ok
 
@@ -429,8 +466,21 @@
 - **Severidade:** N/A (débito futuro)
 - **Origem:** reviews.md:1473
 - **Resumo:** A review diz que foi registrada como débito futuro, mas não constava em debitos.md. Agora registrado. Opção A refere-se a criar tokens de input pareados (`--input-bg` + `--input-fg`) para inputs compartilhados, alternativa à Opção B (primitivos compartilhados) já implementada em DEB-047-16a.
-- **🔍 INVESTIGAÇÃO (2026-06-23):** Opção B foi implementada em DEB-047-16a. Opção A é alternativa arquitetural (tokens no CSS vs. componentes React). A Opção B provou-se suficiente para resolver o bug de texto invisível. Manter Opção A como débito futuro para referência.
-- **Status:** 🔴 pendente de investigação futura (alternativa arquitetural, Opção B implementada)
+- **🔍 INVESTIGAÇÃO PROFUNDA (2026-06-23):**
+  - **Origem:** REV-026 (reviews.md:1419-1422, 1473) — recomendação de criar tokens CSS `--artificio-input-bg`/`--artificio-input-fg` como prevenção de dessincronia bg/fg entre temas
+  - **Cenário original:** `TextPasteArea.tsx` usava `--artificio-surface` (branco fixo) + `--artificio-fg` (muda no dark) → texto invisível no dark mode
+  - **Opção A (tokens CSS):** criar `--input-bg`/`--input-fg` definidos em ambos os temas. Abordagem puramente CSS.
+  - **Opção B (componentes React):** criar/primitivos em `packages/ui/src/primitives.tsx` (`TextInput`, `Textarea`, `Select`, `Field`, `Banner`) com tokens semânticos `--surface`/`--fg` internos. Abordagem React + CSS.
+  - **What was implemented:** Opção B via DEB-047-16a (2026-06-23):
+    - `TextInput`, `Textarea`, `Select` — `forwardRef`, tokens semânticos, `controlSize`
+    - `Banner` — `success/warning/danger/info/neutral`
+    - `Field` — label + error/hint + required
+    - `TextPasteArea.tsx` migrado para `Banner`/`Textarea`/`Field`
+    - `$ rg --input-bg\|--input-fg packages` = 0 ocorrências — tokens **nunca foram criados**
+  - **Por que Opção B é superior:** componentes React encapsulam tokens + comportamento (focus ring, invalid state, aria) + acessibilidade. Tokens CSS puros resolveriam só o contraste, não a semântica.
+  - **Impacto:** Zero — bug resolvido por Opção B. Nenhum código depende de `--input-*` tokens.
+  - **Recomendação:** **fechar como "não implementar — Opção B é suficiente e superior"**. Se no futuro houver necessidade de tokens CSS específicos para inputs, criar na hora.
+- **Status:** ✅ fechado — Opção B implementada, Opção A descartada como alternativa inferior
 
 ## DEB-047-15 — DiscordDraftPreview cognitive complexity 29
 
