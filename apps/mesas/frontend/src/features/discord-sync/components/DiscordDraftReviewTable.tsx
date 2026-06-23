@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import type { DiscordDraft, DiscordImportDraftStatus } from '../types';
+import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from '../types';
 import { discordSyncApi } from '../api/discordSyncApi';
 import { DiscordDraftPreview } from './DiscordDraftPreview';
+
+interface Props {
+  api?: DraftApiOperations;
+  listDrafts?: (params?: { status?: DiscordImportDraftStatus; limit?: number; offset?: number }) => Promise<DiscordDraft[]>;
+  syncReadyAction?: () => Promise<{ synced: number; failed: number; errors: string[] }>;
+  showSyncReady?: boolean;
+}
 
 const DRAFT_STATUS_LABELS: Record<DiscordImportDraftStatus, string> = {
   draft: 'Rascunho',
@@ -34,7 +41,8 @@ function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
 }
 
-export function DiscordDraftReviewTable() {
+export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true }: Props) {
+  const draftApi = api ?? discordSyncApi;
   const [drafts, setDrafts] = useState<DiscordDraft[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DiscordImportDraftStatus | ''>('');
@@ -44,7 +52,8 @@ export function DiscordDraftReviewTable() {
   const loadDrafts = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await discordSyncApi.getDrafts({
+      const fetchFn = listDraftsProp ?? ((params) => discordSyncApi.getDrafts(params));
+      const data = await fetchFn({
         status: statusFilter || undefined,
         limit: 100,
       });
@@ -54,7 +63,7 @@ export function DiscordDraftReviewTable() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, listDraftsProp]);
 
   useEffect(() => {
     void (async () => { await loadDrafts(); })();
@@ -64,7 +73,8 @@ export function DiscordDraftReviewTable() {
     if (!confirm('Sincronizar todos os drafts com status "pronto" como mesas reais?')) return;
     setSyncingAll(true);
     try {
-      const result = await discordSyncApi.syncReady();
+      const action = syncReadyAction ?? discordSyncApi.syncReady;
+      const result = await action();
       toast.success(`${result.synced} sincronizadas, ${result.failed} falhas.`);
       if (result.errors.length > 0) {
         console.warn('[DiscordDraftReviewTable] erros de sync:', result.errors);
@@ -117,7 +127,7 @@ export function DiscordDraftReviewTable() {
           Recarregar
         </button>
 
-        {readyCount > 0 && (
+        {showSyncReady && readyCount > 0 && (
           <button
             onClick={handleSyncReady}
             disabled={syncingAll}
@@ -190,6 +200,7 @@ export function DiscordDraftReviewTable() {
           draft={selectedDraft}
           onUpdate={handleDraftUpdate}
           onClose={() => setSelectedDraft(null)}
+          api={draftApi}
         />
       )}
     </div>

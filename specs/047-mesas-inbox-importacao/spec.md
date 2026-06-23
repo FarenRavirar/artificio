@@ -2,7 +2,7 @@
 
 - **Módulo/Pacote:** `apps/mesas` (backend + frontend)
 - **Gate relacionado:** Gate D (mesas em prod), Gate B (SSO) — ambos fechados
-- **Status:** fechamento técnico pré-Git concluído localmente (2026-06-22), ainda sem commit. Backend da Inbox, sync, corpus de correções, métricas, erros tipados e débitos/reviews implementados. Validação final: lint 15/15, build 17/17, backend 21 arquivos/159 testes e `git diff --check` verdes. Constraint `single_origin` já aplicada no beta; migration 129 permanece para aplicação pela esteira canônica após merge/deploy. Próximo: autorização separada para commit → push → PR; depois merge/deploy beta e smoke.
+- **Status:** backend + frontend UI implementados localmente (2026-06-22). Backend: PR #87 mergeada, deploy beta `d9c3192`, 3 novas rotas (GET/PATCH /drafts/:id, POST /drafts/:id/reparse). Frontend: types + inboxApi + TextPasteArea + InboxPanel + InboxDraftReviewTable + DiscordDraftPreview/ReviewTable generalizados + aba Inbox no GestaoPage. Lint 15/15, build 17/17, backend 21/178 ✅, frontend 4/19 ✅. Sem commit/push/PR/deploy. Próximo: autorizações Git → deploy beta → smoke E2E T1.13-T1.16.
 - **Reviews:** `reviews.md`
 - **Débitos:** `debitos.md`
 - **Arquitetura:** `plan.md`

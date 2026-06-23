@@ -13,7 +13,9 @@ vi.mock('../../db', () => ({
     insertInto: vi.fn(),
     updateTable: vi.fn(),
     selectFrom: vi.fn(),
-    transaction: vi.fn(),
+    transaction: vi.fn().mockReturnValue({
+      execute: vi.fn(),
+    }),
   },
 }));
 
@@ -82,6 +84,9 @@ function mockChain(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockDb.transaction.mockReturnValue({
+    execute: vi.fn(),
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────────────
@@ -262,11 +267,11 @@ function setupCorrectionMocks(draft: Record<string, unknown>, importMsg: Record<
     where: vi.fn().mockReturnThis(),
     execute: vi.fn().mockResolvedValue([]),
   };
-  mockDb.transaction.mockReturnValue({
-    execute: vi.fn().mockImplementation(async (fn: (trx: typeof mockTrx) => Promise<void>) => {
-      await fn(mockTrx);
-    }),
-  });
+    mockDb.transaction.mockReturnValue({
+      execute: vi.fn().mockImplementation(async (fn: (trx: typeof mockTrx) => Promise<unknown>) => {
+        return await fn(mockTrx);
+      }),
+    });
 
   return mockTrx;
 }
@@ -811,5 +816,393 @@ describe('GET /admin/inbox/drafts', () => {
 
     expect(chain.limit).toHaveBeenCalledWith(50);
     expect(chain.offset).toHaveBeenCalledWith(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────────
+// GET /admin/inbox/drafts/:id
+// ────────────────────────────────────────────────────────────────────────────────
+
+describe('GET /admin/inbox/drafts/:id', () => {
+  it('returns 404 for nonexistent draft', async () => {
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue(null),
+    }));
+
+    const response = await request(makeApp())
+      .get('/admin/inbox/drafts/nonexistent');
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toContain('não encontrado');
+  });
+
+  it('rejects Discord draft (import_message_id=null) with 422', async () => {
+    let callCount = 0;
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve(null);
+        return Promise.resolve({
+          id: 'draft-1',
+          import_message_id: null,
+        });
+      }),
+      innerJoin: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+    }));
+
+    const response = await request(makeApp())
+      .get('/admin/inbox/drafts/draft-1');
+
+    expect(response.status).toBe(422);
+    expect(response.body.error).toContain('Discord');
+  });
+
+  it('returns full draft for inbox draft', async () => {
+    const row = {
+      id: 'draft-1',
+      discord_message_id: null,
+      import_message_id: 'import-1',
+      table_id: null,
+      parsed_payload: null,
+      normalized_payload: { table: { title: 'Mesa A' } },
+      confidence: 0.9,
+      status: 'ready',
+      review_notes: null,
+      image_upload_status: null,
+      image_upload_attempts: 0,
+      image_upload_last_error: null,
+      image_upload_last_at: null,
+      raw_text: 'Texto do anúncio',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    };
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue(row),
+    }));
+
+    const response = await request(makeApp())
+      .get('/admin/inbox/drafts/draft-1');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.id).toBe('draft-1');
+    expect(response.body.data.import_message_id).toBe('import-1');
+    expect(response.body.data.raw_text).toBe('Texto do anúncio');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────────
+// PATCH /admin/inbox/drafts/:id
+// ────────────────────────────────────────────────────────────────────────────────
+
+describe('PATCH /admin/inbox/drafts/:id', () => {
+  it('rejects invalid payload (400)', async () => {
+    const response = await request(makeApp())
+      .patch('/admin/inbox/drafts/draft-1')
+      .send({ invalid: true });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('rejects empty body (400)', async () => {
+    const response = await request(makeApp())
+      .patch('/admin/inbox/drafts/draft-1')
+      .send({});
+
+    expect(response.status).toBe(400);
+  });
+
+  it('returns 404 for nonexistent draft', async () => {
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue(null),
+    }));
+
+    const response = await request(makeApp())
+      .patch('/admin/inbox/drafts/nonexistent')
+      .send({ status: 'ready' });
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toContain('não encontrado');
+  });
+
+  it('rejects Discord draft (import_message_id=null) with 422', async () => {
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue({
+        id: 'draft-1',
+        status: 'draft',
+        import_message_id: null,
+        discord_message_id: 'discord-1',
+        normalized_payload: null,
+      }),
+    }));
+
+    const response = await request(makeApp())
+      .patch('/admin/inbox/drafts/draft-1')
+      .send({ status: 'ready' });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error).toContain('Discord');
+  });
+
+  it('rejects synced draft (422)', async () => {
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue({
+        id: 'draft-1',
+        status: 'synced',
+        import_message_id: 'import-1',
+        normalized_payload: null,
+      }),
+    }));
+
+    const response = await request(makeApp())
+      .patch('/admin/inbox/drafts/draft-1')
+      .send({ status: 'rejected' });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error).toContain('sincronizado');
+  });
+
+  it('rejects table.status=published in normalized_payload (422)', async () => {
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue({
+        id: 'draft-1',
+        status: 'draft',
+        import_message_id: 'import-1',
+        normalized_payload: null,
+      }),
+    }));
+
+    const response = await request(makeApp())
+      .patch('/admin/inbox/drafts/draft-1')
+      .send({ normalized_payload: { table: { status: 'published' } } });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error).toContain('publicar');
+  });
+
+  it('updates draft status successfully', async () => {
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue({
+        id: 'draft-1',
+        status: 'draft',
+        import_message_id: 'import-1',
+        normalized_payload: null,
+      }),
+    }));
+    const updated = {
+      id: 'draft-1',
+      status: 'ready',
+      import_message_id: 'import-1',
+      normalized_payload: null,
+    };
+
+    const updateChain = mockChain({
+      execute: vi.fn().mockResolvedValue([updated]),
+    });
+    updateChain.set = vi.fn().mockReturnThis();
+    updateChain.where = vi.fn().mockReturnThis();
+    updateChain.returningAll = vi.fn().mockReturnValue(updateChain);
+    updateChain.execute = vi.fn().mockResolvedValue([updated]);
+    mockDb.updateTable.mockReturnValue(updateChain);
+
+    const response = await request(makeApp())
+      .patch('/admin/inbox/drafts/draft-1')
+      .send({ status: 'ready' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.status).toBe('ready');
+  });
+
+  it('updates normalized_payload successfully', async () => {
+    const current = {
+      id: 'draft-1',
+      status: 'needs_review',
+      import_message_id: 'import-1',
+      normalized_payload: { table: { title: 'Old' } },
+    };
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue(current),
+    }));
+
+    const updated = {
+      ...current,
+      normalized_payload: { table: { title: 'New' }, source: {} },
+    };
+
+    const updateChain = mockChain({
+      execute: vi.fn().mockResolvedValue([updated]),
+    });
+    updateChain.set = vi.fn().mockReturnThis();
+    updateChain.where = vi.fn().mockReturnThis();
+    updateChain.returningAll = vi.fn().mockReturnValue(updateChain);
+    updateChain.execute = vi.fn().mockResolvedValue([updated]);
+    mockDb.updateTable.mockReturnValue(updateChain);
+
+    const response = await request(makeApp())
+      .patch('/admin/inbox/drafts/draft-1')
+      .send({ normalized_payload: { table: { title: 'New' }, source: {} }, review_notes: 'Corrigido' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.normalized_payload.table.title).toBe('New');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────────
+// POST /admin/inbox/drafts/:id/reparse
+// ────────────────────────────────────────────────────────────────────────────────
+
+describe('POST /admin/inbox/drafts/:id/reparse', () => {
+  it('returns 404 for nonexistent draft', async () => {
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue(null),
+    }));
+
+    const response = await request(makeApp())
+      .post('/admin/inbox/drafts/nonexistent/reparse');
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toContain('não encontrado');
+  });
+
+  it('rejects synced draft (422)', async () => {
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue({
+        id: 'draft-1',
+        status: 'synced',
+        import_message_id: 'import-1',
+      }),
+    }));
+
+    const response = await request(makeApp())
+      .post('/admin/inbox/drafts/draft-1/reparse');
+
+    expect(response.status).toBe(422);
+    expect(response.body.error).toContain('sincronizado');
+  });
+
+  it('rejects Discord draft (import_message_id=null) with 422', async () => {
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue({
+        id: 'draft-1',
+        status: 'draft',
+        import_message_id: null,
+        discord_message_id: 'discord-1',
+      }),
+    }));
+
+    const response = await request(makeApp())
+      .post('/admin/inbox/drafts/draft-1/reparse');
+
+    expect(response.status).toBe(422);
+    expect(response.body.error).toContain('Discord');
+  });
+
+  it('returns 404 when import_message not found', async () => {
+    let callCount = 0;
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve({
+          id: 'draft-1',
+          status: 'draft',
+          import_message_id: 'import-1',
+        });
+        return Promise.resolve(null);
+      }),
+    }));
+
+    const response = await request(makeApp())
+      .post('/admin/inbox/drafts/draft-1/reparse');
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toContain('origem');
+  });
+
+  it('reparses draft successfully', async () => {
+    let callCount = 0;
+    mockDb.selectFrom.mockImplementation(() => {
+      callCount++;
+      const chain = mockChain({
+        executeTakeFirst: vi.fn().mockImplementation(() => {
+          if (callCount === 1) return Promise.resolve({
+            id: 'draft-1',
+            status: 'draft',
+            import_message_id: 'import-1',
+          });
+          if (callCount === 2) return Promise.resolve({
+            content_raw: 'Título: Mesa Reparsada\nSistema: D&D 5e',
+            raw_text: 'Título: Mesa Reparsada\nSistema: D&D 5e',
+          });
+          return Promise.resolve([]);
+        }),
+      });
+      if (callCount >= 3) {
+        chain.execute = vi.fn().mockResolvedValue([]);
+      }
+      return chain;
+    });
+
+    vi.mocked(textToRawMessage).mockReturnValue({
+      source_kind: 'manual_paste',
+      discord_message_id: '',
+      discord_channel_id: '',
+      discord_guild_id: '',
+      discord_author_id: null,
+      discord_author_name: null,
+      discord_message_url: null,
+      content_raw: 'Título: Mesa Reparsada',
+      attachments: [],
+      embeds: [],
+      message_created_at: new Date(),
+      message_edited_at: null,
+      discord_thread_name: '',
+    });
+
+    vi.mocked(parseDiscordAnnouncement).mockReturnValue({
+      table: { title: 'Mesa Reparsada', system_id: 'sys-1' },
+      source: {},
+      confidence: 1,
+      missing_fields: [],
+    } as any);
+
+    vi.mocked(normalizeDiscordTableDraft).mockReturnValue({
+      draft: {
+        table: { title: 'Mesa Reparsada', system_id: 'sys-1' },
+        source: {},
+        confidence: 1,
+        missing_fields: [],
+      } as any,
+      status: 'ready',
+    });
+
+    const updatedDraft = {
+      id: 'draft-1',
+      status: 'ready',
+      confidence: 1,
+    };
+
+    const transactionExecute = vi.fn().mockImplementation(async (fn: (trx: unknown) => Promise<unknown>) => {
+      const mockTrx = {
+        updateTable: vi.fn().mockReturnThis(),
+        insertInto: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        values: vi.fn().mockReturnThis(),
+        returningAll: vi.fn().mockReturnThis(),
+        execute: vi.fn().mockResolvedValue([updatedDraft]),
+      };
+      return await fn(mockTrx);
+    });
+    mockDb.transaction.mockReturnValue({
+      execute: transactionExecute,
+    });
+
+    const response = await request(makeApp())
+      .post('/admin/inbox/drafts/draft-1/reparse');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.status).toBe('ready');
+    expect(transactionExecute).toHaveBeenCalled();
   });
 });

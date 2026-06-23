@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
-import type { DiscordCoverQuality, DiscordDraft, DiscordDraftPayload, DiscordDraftTablePayload, DiscordImportDraftStatus, DiscordSlotsAmbiguity } from '../types';
+import type { DiscordCoverQuality, DiscordDraft, DiscordDraftPayload, DiscordDraftTablePayload, DiscordImportDraftStatus, DiscordSlotsAmbiguity, DraftApiOperations } from '../types';
 import { discordSyncApi } from '../api/discordSyncApi';
 import type { SystemTreeNode } from '../../../types/systems';
 
@@ -8,6 +8,8 @@ interface Props {
   draft: DiscordDraft;
   onUpdate: (updated: DiscordDraft) => void;
   onClose: () => void;
+  api?: DraftApiOperations;
+  onBeforeSync?: (draft: DiscordDraft) => Promise<{ tableId: string; created: boolean } | null>;
 }
 
 type DraftTableType = 'campanha' | 'one-shot' | 'oneshot-serie' | 'aberta';
@@ -216,7 +218,8 @@ async function loadSystems(): Promise<SystemTreeNode[]> {
   return Array.isArray(data) ? data.filter(isRecord) as unknown as SystemTreeNode[] : [];
 }
 
-export function DiscordDraftPreview({ draft, onUpdate, onClose }: Props) {
+export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSync }: Props) {
+  const draftApi = api ?? discordSyncApi;
   const initialPayload = useMemo(
     () => normalizePayload(draft.normalized_payload ?? draft.parsed_payload),
     [draft.normalized_payload, draft.parsed_payload]
@@ -294,7 +297,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose }: Props) {
     setSavingFields(true);
     try {
       const nextMissing = validateForm(form);
-      const updated = await discordSyncApi.updateDraft(draft.id, {
+      const updated = await draftApi.updateDraft(draft.id, {
         normalized_payload: buildUpdatedPayload(initialPayload, form),
         status: nextMissing.length === 0 ? 'ready' : 'needs_review',
         review_notes: nextMissing.length === 0 ? reviewNotes || undefined : `Campos pendentes: ${nextMissing.join(', ')}`,
@@ -381,7 +384,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose }: Props) {
           _slots_ambiguity: null,
         },
       };
-      const updated = await discordSyncApi.updateDraft(draft.id, {
+      const updated = await draftApi.updateDraft(draft.id, {
         normalized_payload,
         status: missing.length === 0 ? 'ready' : 'needs_review',
         review_notes: missing.length === 0 ? reviewNotes || undefined : `Campos pendentes: ${missing.join(', ')}`,
@@ -398,9 +401,23 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose }: Props) {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const result = await discordSyncApi.syncDraft(draft.id);
+      if (onBeforeSync) {
+        const beforeResult = await onBeforeSync(draft);
+        if (beforeResult) {
+          toast.success(`Mesa ${beforeResult.created ? 'criada' : 'atualizada'}: ${beforeResult.tableId}`);
+          const updated = draftApi.getDraft
+            ? await draftApi.getDraft(draft.id)
+            : await discordSyncApi.getDraft(draft.id);
+          onUpdate(updated);
+          return;
+        }
+      }
+
+      const result = await draftApi.syncDraft(draft.id);
       toast.success(`Mesa ${result.created ? 'criada' : 'atualizada'}: ${result.tableId}`);
-      const updated = await discordSyncApi.getDraft(draft.id);
+      const updated = draftApi.getDraft
+        ? await draftApi.getDraft(draft.id)
+        : await discordSyncApi.getDraft(draft.id);
       onUpdate(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao sincronizar draft.');
@@ -412,7 +429,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose }: Props) {
   const handleReparse = async () => {
     setReparsing(true);
     try {
-      const updated = await discordSyncApi.reparseDraft(draft.id);
+      const updated = await draftApi.reparseDraft(draft.id);
       toast.success('Draft reparseado.');
       onUpdate(updated);
     } catch (err) {
@@ -425,7 +442,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose }: Props) {
   const handleSaveStatus = async () => {
     setSavingStatus(true);
     try {
-      const updated = await discordSyncApi.updateDraft(draft.id, {
+      const updated = await draftApi.updateDraft(draft.id, {
         status: newStatus,
         review_notes: reviewNotes || undefined,
       });

@@ -164,3 +164,11 @@ export interface DiscordBotTokenSettings {
 export interface DiscordSettings {
   bot_token: DiscordBotTokenSettings;
 }
+
+export interface DraftApiOperations {
+  updateDraft: (id: string, body: { normalized_payload?: Record<string, unknown>; status?: DiscordImportDraftStatus; review_notes?: string }) => Promise<DiscordDraft>;
+  syncDraft: (id: string) => Promise<{ tableId: string; created: boolean }>;
+  reparseDraft: (id: string) => Promise<DiscordDraft>;
+  getDraft?: (id: string) => Promise<DiscordDraft>;
+  registerCorrection?: (id: string, corrections: Record<string, unknown>, reason?: string) => Promise<unknown>;
+}
