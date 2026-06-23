@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, type FormEvent } from 'react';
 import { Loader2, Send, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Banner, Textarea, Field } from '@artificio/ui';
 import { inboxApi } from '../api/inboxApi';
 import type { InboxImportResult } from '../types';
 
@@ -63,20 +64,16 @@ export function TextPasteArea({ onImportSuccess, titleHint }: TextPasteAreaProps
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <label htmlFor="inbox-paste-textarea" className="text-sm font-medium text-[var(--artificio-fg)]">
-        Colar anúncio de mesa
-      </label>
-
-      <textarea
-        id="inbox-paste-textarea"
-        ref={textareaRef}
-        value={text}
-        onChange={(e) => handleTextChange(e.target.value)}
-        placeholder="Cole aqui o texto do anúncio (um ou vários, separados por ---)..."
-        className="w-full min-h-[200px] p-4 rounded-md border border-[var(--artificio-border)] bg-[var(--artificio-surface)] text-[var(--artificio-fg)] text-sm resize-y placeholder:text-[var(--artificio-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--artificio-brand)] disabled:opacity-60"
-        disabled={state === 'sending'}
-        rows={10}
-      />
+      <Field id="inbox-paste-textarea" label="Colar anúncio de mesa">
+        <Textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => handleTextChange(e.target.value)}
+          placeholder="Cole aqui o texto do anúncio (um ou vários, separados por ---)..."
+          disabled={state === 'sending'}
+          rows={10}
+        />
+      </Field>
 
       <div className="flex items-center gap-3 flex-wrap">
         <button
@@ -97,38 +94,31 @@ export function TextPasteArea({ onImportSuccess, titleHint }: TextPasteAreaProps
           )}
         </button>
 
-        <span className="text-xs text-[var(--artificio-muted)]">
+        <span className="text-xs text-[var(--fg-muted)]">
           {text.trim().length} caracteres
         </span>
       </div>
 
       <div aria-live="polite">
         {state === 'success' && result && (
-          <div className="flex items-start gap-2 p-3 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-sm text-green-800 dark:text-green-200">
-            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-            <span>
-              {result.segments_found} segmento{result.segments_found === 1 ? '' : 's'} encontrado{result.segments_found === 1 ? '' : 's'}
-              , {result.drafts_created} draft{result.drafts_created === 1 ? '' : 's'} criado{result.drafts_created === 1 ? '' : 's'}.
-            </span>
-          </div>
+          <Banner variant="success" icon={<CheckCircle2 className="w-4 h-4" aria-hidden="true" />}>
+            {result.segments_found} segmento{result.segments_found === 1 ? '' : 's'} encontrado{result.segments_found === 1 ? '' : 's'}
+            , {result.drafts_created} draft{result.drafts_created === 1 ? '' : 's'} criado{result.drafts_created === 1 ? '' : 's'}.
+          </Banner>
         )}
 
         {state === 'no-drafts' && result && (
-          <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
-            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-            <span>
-              {result.segments_found > 0
-                ? `${result.segments_found} segmento(s) encontrado(s), mas nenhum draft gerado. Verifique o formato do anúncio.`
-                : 'Nenhum segmento de anúncio encontrado no texto.'}
-            </span>
-          </div>
+          <Banner variant="warning" icon={<AlertTriangle className="w-4 h-4" aria-hidden="true" />}>
+            {result.segments_found > 0
+              ? `${result.segments_found} segmento(s) encontrado(s), mas nenhum draft gerado. Verifique o formato do anúncio.`
+              : 'Nenhum segmento de anúncio encontrado no texto.'}
+          </Banner>
         )}
 
         {state === 'error' && errorMessage && (
-          <div className="flex items-start gap-2 p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200">
-            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-            <span>{errorMessage}</span>
-          </div>
+          <Banner variant="danger" icon={<AlertTriangle className="w-4 h-4" aria-hidden="true" />}>
+            {errorMessage}
+          </Banner>
         )}
       </div>
     </form>

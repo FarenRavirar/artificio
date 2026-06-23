@@ -96,7 +96,7 @@
 | T1.8-12 | Frontend UI | 🔜 |
 | — | Revert `db/types.ts` | ✅ (correção pós-execução) |
 | — | Branch `feat/mesas-047-inbox-importacao` | ✅ |
-| — | **Suíte de testes** | **21 files / 159 tests** (134→144 via REV-005 → 159 via REV-014) |
+| — | **Suíte de testes** | **21 files / 178 tests** (134→144 via REV-005 → 159 via REV-014 → 178 via REV-025/047-backlog) |
 
 ### 1.1 — Preparação (schema + tipos)
 
@@ -760,18 +760,22 @@ Sem as três últimas rotas, `DiscordDraftPreview` não consegue carregar/editar
   - ✅ `pnpm run build`: 17/17
   - ✅ `pnpm run test`: repo-wide verde
 - [x] **T1.20** — Deploy do código no beta (FASE B)
-  - ✅ PR #87 mergeada; run `27989371155` verde; beta `d9c3192`; migration 129 aplicada; health 200.
+  - ✅ PR #87 mergeada; CI deploy **skipped** (`auto_deploy_on_push=false` no manifesto mesas). Beta permaneceu em `d9c3192` (PR #87).
+  - ✅ PR #88 mergeada (merge commit `d2262a0`, 2026-06-23); CI deploy também skipped pelo mesmo motivo. Beta **NÃO** tinha código UI da PR #88.
+  - ✅ Redeploy manual disparado (run `27996679041`, mode=deploy/env=beta, branch dev) → beta atualizado para `d2262a0`. Health 200.
+  - ✅ `schema_migrations` beta tem **128 e 129 aplicadas** (confirmado via ssh read-only, 2026-06-22). Nenhuma migração pendente no beta. Containers `mesas-beta-db` e `mesas-db` ambos up.
+  - 📋 PROD `mesas-db`: `import_messages`/`import_corrections` ausentes, constraint `single_origin` ausente, `schema_migrations` sem 128/129. (Esperado — fase é teste; prod fora de escopo.)
 - [ ] **T1.13** — Teste manual: colar 1 anúncio → draft criado
-  - ⏳ Bloqueado — UI concluída localmente; aguarda revisão, fluxo Git e redeploy beta
+  - ⏳ Aguardando execução — UI no beta desde redeploy `27996679041` (2026-06-23)
   - Critério: texto de anúncio real → draft aparece com título, sistema, tipo, vagas
 - [ ] **T1.14** — Teste manual: colar múltiplos anúncios → segmentação
-  - ⏳ Bloqueado — UI concluída localmente; aguarda revisão, fluxo Git e redeploy beta
+  - ⏳ Aguardando execução — UI no beta desde redeploy `27996679041`
   - Critério: 3 anúncios separados por `---` → 3 drafts criados
 - [ ] **T1.15** — Teste manual: revisar draft → editar campos → aprovar → sync
-  - ⏳ Bloqueado — backend/UI locais concluídos; aguarda revisão, fluxo Git e redeploy beta
+  - ⏳ Aguardando execução — backend/UI no beta desde redeploy `27996679041`
   - Critério: `syncImportDraftToTable` cria mesa na tabela `tables` com status `draft` (NÃO `published`)
 - [ ] **T1.16** — Teste manual: rejeitar draft
-  - ⏳ Bloqueado — UI concluída localmente; aguarda revisão, fluxo Git e redeploy beta
+  - ⏳ Aguardando execução — UI no beta desde redeploy `27996679041`
   - Critério: status muda para `rejected`; não aparece na lista de "prontos"
 - [x] **T1-final** — Atualizar `specs/backlog.md`, sessão, `project-state.md`
 
@@ -938,9 +942,9 @@ Sem as três últimas rotas, `DiscordDraftPreview` não consegue carregar/editar
 
 ## Próxima etapa operacional
 
-Fechamento técnico local concluído em 2026-06-22: sync e rotas backend implementados; lint 15/15, build 17/17, backend 21 arquivos/159 testes e `git diff --check` verdes.
+Fechamento técnico local concluído em 2026-06-22: sync e rotas backend implementados; lint 15/15, build 17/17, backend 21 arquivos/178 testes e `git diff --check` verdes.
 
-Próximo fluxo, cada ação com autorização própria: commit → push da branch → PR para `dev` → merge → deploy beta pela esteira canônica (aplicação da migration 129) → smoke. UI T1.8-T1.12 e validação manual de produto permanecem nas fases próprias da spec; não são requisito oculto do commit backend atual.
+Próximo fluxo, cada ação com autorização própria: commit do REV-024 fix + docs → push da branch → PR para `dev` → merge → deploy beta pela esteira canônica (migration 129 já aplicada; runner fará no-op) → smoke T1.13-T1.16.
 
 ---
 

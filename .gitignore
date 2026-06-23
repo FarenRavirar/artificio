@@ -60,3 +60,4 @@ opencode.json
 
 # Serena MCP (local, configs e indices nao versionados)
 .serena/
+/spec047-backup

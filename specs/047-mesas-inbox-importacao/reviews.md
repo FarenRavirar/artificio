@@ -178,7 +178,7 @@ Justificativas em `plan.md` §2.
   4. `migration_128_import_messages.sql:82` — padrão correto: `RAISE NOTICE` **dentro** do bloco `DO $$ ... END $$` (linhas 48-83)
   5. **30 ocorrências de `RAISE NOTICE`** no projeto (`apps/mesas/database/`), **30/30 dentro** de bloco `DO $$ ... END $$` — migration_129 é a **única** com `RAISE NOTICE` standalone
 - **Risco de regressão:** Nenhum (já está quebrado no deploy)
-- **Já existe tratamento?** Não — migration 129 nunca foi aplicada em banco real
+- **Já existe tratamento?** Não — migration 129 foi aplicada diretamente no beta por codex/deepseek (2026-06-22), não pelo runner de deploy. O runner (`apply_required_migrations.sh`) teria falhado com a versão original (RAISE NOTICE standalone).
 - **Falso positivo?** Não
 - **Recomendação:** Mover `RAISE NOTICE` para dentro do bloco `DO $$` antes do `COMMIT`, seguindo o padrão de migration_128:82. Ou, alternativamente, remover e usar `\echo` no runner (mas isso exigiria mudança de runner).
 - **Investigado por:** OpenCode (DeepSeek-v4-pro)
@@ -646,7 +646,7 @@ Justificativas em `plan.md` §2.
 ### Validação
 
 - `tsc --noEmit`: zero erros
-- Backend tests: **20 files / 157 tests** ✅ (era 19/144; +9 syncHelpers + 4 correction)
+- Backend tests: **21 files / 178 tests** ✅ (era 19/144; +9 syncHelpers + 4 correction + 21 reviews/fixes)
 - `pnpm run lint` (repo-wide): 15/15 ✅
 
 ### Status
@@ -672,7 +672,7 @@ Justificativas em `plan.md` §2.
 - **Testes:**
   - Inbox: 5 testes de sync atualizados (404/422 em vez de 500)
   - Discord: novo arquivo `adminDiscordSync.sync.test.ts` com 2 testes de erro tipado (404 DraftNotFound + 422 DraftStateError)
-- **Validação:** `tsc` limpo, lint 15/15, **21 files / 159 tests** ✅
+- **Validação:** `tsc` limpo, lint 15/15, **21 files / 178 tests** ✅
 
 ---
 
@@ -1090,6 +1090,55 @@ Justificativas em `plan.md` §2.
 - **Investigado por:** OpenCode (DeepSeek-v4-pro)
 - **Data:** 2026-06-22
 
+### REV-024 — Campos removidos não capturados no diff de correções
+
+- **Origem:** CodeRabbit (PR #88, linha 77-83)
+- **Tipo:** PR
+- **Referência:** `apps/mesas/frontend/src/features/inbox/components/InboxDraftReviewTable.tsx:77-83`
+- **Resumo:** O loop `for (const key of Object.keys(currentTable))` só itera sobre chaves que ainda estão em `currentTable`. Se um campo existia em `originalTable` e foi removido (ex: admin apagou um campo no editor), ele nunca entra no diff, então `registerCorrection` não registra a remoção.
+- **Severidade declarada:** 🟠 Major
+- **Status:** ✅ **Investigado — procede e foi implementado**
+
+#### 🔍 INVESTIGAÇÃO
+
+- **Código original:** `InboxDraftReviewTable.tsx:77-83` (antes da correção):
+  ```ts
+  for (const key of Object.keys(currentTable)) {
+    const before = originalTable[key];
+    const after = currentTable[key];
+    if (JSON.stringify(before) !== JSON.stringify(after)) {
+      diff[key] = after;
+    }
+  }
+  ```
+- **Código corrigido** (implementado 2026-06-22):
+  ```ts
+  const originalTable = isRecord(originalNormalized.table) ? originalNormalized.table : {};
+  const currentTable = isRecord(currentNormalized.table) ? currentNormalized.table : {};
+
+  const allKeys = new Set<string>();
+  for (const key of Object.keys(originalTable)) allKeys.add(key);
+  for (const key of Object.keys(currentTable)) allKeys.add(key);
+
+  const diff: Record<string, unknown> = {};
+  for (const key of allKeys) {
+    const before = Object.prototype.hasOwnProperty.call(originalTable, key) ? originalTable[key] : null;
+    const after = Object.prototype.hasOwnProperty.call(currentTable, key) ? currentTable[key] : null;
+    if (JSON.stringify(before) !== JSON.stringify(after)) {
+      diff[key] = after;
+    }
+  }
+  ```
+- **Problema:** Se `originalTable = { title: 'Foo', type: 'campanha' }` e `currentTable = { title: 'Foo' }` (type removido), o loop original só vê `title`, e `diff` fica vazio. A remoção de `type` não era registrada.
+- **Impacto real:** Admin remove campo no editor → diff sem registro → `registerCorrection` não envia a remoção → `normalized_payload` no banco ainda tem o campo antigo → na próxima edição, o campo reaparece.
+- **Severidade real:** 🟠 Major — perda de dados de correção (campo removido não é persistido).
+- **Risco de regressão:** Baixo — expandir o Set de chaves não muda comportamento para caminho feliz.
+- **Classificação:** procede e foi implementado
+- **Achado durante implementação:** `originalTable` e `currentTable` precisaram ser declarados antes do `allKeys` — o código anterior os declarava dentro do loop.
+- **Estado:** ✅ código corrigido localmente em `InboxDraftReviewTable.tsx` (8+/4-: união `originalTable ∪ currentTable` via `allKeys` Set). **Não commitado** — vai em commit separado. Não está em nenhum PR ainda. reviews.md e `spec047-backup/` também modificados/untracked localmente.
+- **Validação:** lint 15/15, build 17/17, backend 21/178 ✅, frontend 4/19 ✅.
+- **Data da implementação:** 2026-06-22
+
 ---
 
 ## 2026-06-22 — SonarCloud Quality Gate (PR #88)
@@ -1295,3 +1344,144 @@ Idêntico a SC-001. Mesma recomendação.
 - **Severidade real:** 🟢 Info.
 - **Classificação:** procede e deve ser implementado (quick win)
 - **Recomendação:** Extrair para variáveis com `??` em vez de `||`.
+
+---
+
+## 2026-06-22 — Smoke beta autenticado (pós-deploy PR #88, run `27996679041`)
+
+> Dois bugs reais reproduzidos no beta (`mesasbeta.artificiorpg.com/gestao` → aba Inbox), sessão admin. Engenheiro fechou diagnóstico; pedreiro só executa o fix descrito. **Não reabrir investigação — causa-raiz confirmada no código.**
+
+### REV-025 — 🔴 `POST /import-text` quebra UI com "Resposta de importação em formato inesperado"
+
+- **Origem:** smoke manual beta (mantenedor autenticado)
+- **Tipo:** bug de runtime (contrato backend↔frontend)
+- **Sintoma reproduzido:** colar anúncio (18310 chars) → clicar "Importar anúncios" → banner vermelho `⚠️ Resposta de importação em formato inesperado.` Nenhum draft aparece na UI. (O segundo erro de console `A listener indicated an asynchronous response... message channel closed` é **ruído de extensão Chrome**, não é nosso — ignorar.)
+- **Severidade real:** 🔴 Critical — bloqueia o fluxo MVP inteiro (T1.13/T1.14 não passam).
+- **Status:** ✅ **implementado (2026-06-23)**
+
+#### 🔍 INVESTIGAÇÃO REV-025
+
+- **Causa-raiz:** a coluna `confidence` é `NUMERIC(4,3)` (`migration_115_discord_import.sql:68`). O driver `node-postgres` (`pg`) devolve `NUMERIC`/`DECIMAL` como **string** (ex.: `"0.750"`), **não** como `number` — comportamento padrão do pg para preservar precisão. O tipo Kysely declara `confidence: number | null` (`db/types.ts:646`), mas o tipo **mente sobre o runtime**: Kysely não coage valores, só tipa.
+- **Onde estoura:** o backend monta `created[].confidence = draftRow.confidence` (`routes/adminImportInbox.ts:188`) e responde `{ data: { segments_found, drafts_created, drafts } }` (`:193-198`). No frontend, `apiFetch` extrai `.data` (`inboxApi.ts:30`) e `parseInboxImportResult` roda `inboxImportResultSchema.safeParse` (`inboxApi.ts:99-101`). O schema do item exige `confidence: z.number().nullable()` (`inboxApi.ts:37`). String `"0.750"` → `safeParse` falha → throw `'Resposta de importação em formato inesperado.'`.
+- **Por que nem sempre quebra:** drafts com `confidence = null` passam no `z.number().nullable()`. Só quebra quando o parser produz confiança não-nula (caso comum em anúncio real). Por isso o sintoma é consistente com anúncio de verdade.
+- **Blast radius (mesma raiz, corrigir todos):** todo endpoint inbox que serializa `confidence` numérica:
+  1. `POST /import-text` → `inboxImportDraftSchema.confidence` (`inboxApi.ts:37`)
+  2. `GET /drafts` → `inboxDraftSummarySchema.confidence` (`inboxApi.ts:54`)
+  3. `GET /drafts/:id` e `PATCH /drafts/:id` → `inboxDraftSchema.confidence` (`inboxApi.ts:64`)
+- **Falso positivo?** Não. Reproduzido no beta.
+- **Por que o painel Discord não quebrou antes:** verificar `discordSyncApi` — ou usa schema diferente, ou já recebia `confidence` null nos drafts testados, ou coage. **O pedreiro deve confirmar que o fix não regride o fluxo Discord** (mesma coluna `discord_import_table_drafts.confidence`).
+
+#### 🔧 INSTRUÇÃO DE OBRA (pedreiro)
+
+- **Fix preferido (na fonte, corrige os 3 endpoints de uma vez):** coagir `confidence` para `number | null` no backend antes de `res.json`, no ponto onde o row vira resposta. Helper único, ex.:
+  ```ts
+  // util compartilhado no backend (ex.: routes/adminImportInbox.ts topo ou um helpers)
+  const toNumberOrNull = (v: unknown): number | null =>
+    v == null ? null : typeof v === 'number' ? v : Number(v);
+  ```
+  Aplicar em:
+  1. `routes/adminImportInbox.ts:188` — `confidence: toNumberOrNull(draftRow.confidence)`
+  2. no montaador de resposta de `GET /drafts` (linha do `res.json({ data: drafts })` ~`:252`) — mapear cada draft coagindo `confidence`
+  3. no `GET /drafts/:id` (`res.json` ~`:333`) e `PATCH` (`:407`) — coagir `confidence` no objeto retornado
+- **Não** trocar o tipo Kysely para `string` — o contrato semântico é numérico; o erro é o driver, não o tipo de domínio. Corrigir na borda de serialização.
+- **Alternativa aceitável SE houver muitos pontos:** no frontend trocar `z.number()` por `z.coerce.number()` nos 3 schemas de confidence (`inboxApi.ts:37,54,64`). Menos correto (esconde o problema em outros consumidores futuros do backend), mas funciona. **Preferir o fix backend.**
+- **Verificação obrigatória:**
+  1. Reproduzir o smoke T1.13 no beta após fix → draft aparece com confidence numérica.
+  2. Smoke do painel **Discord Sync** (colar/listar) → confirmar zero regressão.
+  3. Teste de rota: asserta que `POST /import-text` devolve `confidence` como `number` (não string) quando o parser pontua.
+  4. Gates: `pnpm run lint` + `pnpm run build` + testes mesas verdes, contagem registrada.
+
+### REV-026 — 🟡 Textarea do Inbox: texto invisível (fg claro sobre `--artificio-surface` branca) no tema escuro
+
+- **Origem:** smoke manual beta (mantenedor autenticado)
+- **Tipo:** bug visual + risco sistêmico de tokens de tema
+- **Sintoma reproduzido:** na aba Inbox → "Importar", o texto colado no `<textarea>` fica quase invisível (claro sobre fundo branco) com a página em tema escuro.
+- **Severidade real:** 🟡 Major — quebra usabilidade (Nielsen: visibilidade/legibilidade) do fluxo principal, mas não bloqueia funcionalidade.
+- **Status:** ✅ **implementado (2026-06-23)**
+
+#### 📸 EVIDÊNCIA DUPLA (dark vs light — smoke beta)
+
+- **Textarea é dark-only.** Comparação direta: no tema **claro** o texto colado renderiza preto-sobre-branco, **legível**; no tema **escuro** fica claro-sobre-branco, **invisível**. Isso confirma cirurgicamente a causa-raiz: `--artificio-surface` NÃO troca no dark (fica `#ffffff`), mas `--artificio-fg` troca para claro. No light os dois ficam consistentes (fg escuro + surface branca), por isso só o dark quebra.
+- **Segundo instance da MESMA classe — banner de status.** No mesmo smoke, o banner de erro (`bg-red-50 ... text-red-800` / `dark:bg-red-900/20 dark:text-red-200`, `TextPasteArea.tsx:127-131`) renderiza com texto **apagado/baixo contraste** — só legível ao selecionar. Os banners de `success` (`:107`) e `no-drafts` (`:117`) usam o mesmo padrão de paleta tailwind hardcoded sem verificar contraste contra o fundo realmente renderizado. **Não é token `--artificio-*` aqui** — é paleta tailwind escolhida no olho, mas é a MESMA classe de defeito (cor sem garantia de contraste vs background temático).
+
+#### 🔍 INVESTIGAÇÃO REV-026
+
+- **Causa-raiz:** o textarea casa **manualmente** o par `bg-[var(--artificio-surface)] text-[var(--artificio-fg)]` (`TextPasteArea.tsx:76`). `--artificio-surface` é definido como `#ffffff` fixo no tema base (`packages/ui/src/styles.css:7`). No escopo de tema escuro da `/gestao`, `--artificio-fg` é sobrescrito para um tom claro, mas `--artificio-surface` **não recebe override equivalente nesse escopo** → fg claro sobre surface branca = texto invisível. É **dessincronia de tokens entre temas**: dois tokens que precisam trocar juntos, mas só um troca.
+- **Falso positivo?** Não. Reproduzido visualmente no beta.
+- **Risco sistêmico (o ponto importante levantado pelo mantenedor):** qualquer call-site que case `surface`+`fg` (ou qualquer par bg/fg) à mão sob um escopo que sobrescreve só um dos dois reproduz o mesmo defeito. **Não é bug isolado do textarea — é classe de bug.**
+
+#### 🔧 INSTRUÇÃO DE OBRA (pedreiro) — fix em 2 camadas
+
+**Camada 1 — fix imediato (destrava o smoke):**
+- No `TextPasteArea.tsx:76`, garantir contraste no escopo atual. Trocar o par por tokens que comprovadamente trocam juntos nos dois temas. Confirmar antes qual token escuro existe (ler `packages/ui/src/styles.css` bloco `[data-theme="dark"]`/`.dark` e usar o par bg/fg já pareado lá, ex.: o mesmo par usado por inputs do painel Discord que funcionam no escuro). Espelhar exatamente o que um input legível já usa em `/gestao`.
+
+**Camada 2 — prevenção atômica (impede recorrência da CLASSE de bug):**
+- **Opção A (recomendada, mais barata e cobre o ecossistema):** introduzir **tokens de input pareados** dedicados em `packages/ui/src/styles.css` — `--artificio-input-bg` / `--artificio-input-fg` (+ `--artificio-input-placeholder` / `--artificio-input-border` se útil) — definidos em **ambos** os temas (claro e escuro), garantidos a trocar juntos. Estender o `packages/ui/scripts/check-token-parity.mjs` para **falhar o build se um token de input existir num tema e faltar no outro** (paridade obrigatória). Migrar o textarea (e inputs hand-rolled equivalentes) para esses tokens.
+- **Opção B (mais robusta, maior esforço):** criar primitivo compartilhado `<Textarea>`/`<Input>` em `packages/ui` com as classes theme-aware corretas embutidas, e migrar apps para consumi-lo, eliminando o hand-roll de par bg/fg. SDD Completo (toca `packages/ui`). Registrar como débito de qualidade se não couber agora.
+- **Banners de status (mesmo turno):** auditar os 3 banners de `TextPasteArea.tsx` (`success` `:107`, `no-drafts` `:117`, `error` `:127`) — confirmar contraste WCAG AA do texto contra o fundo em **ambos** os temas. O erro reportado mostra `text-red-800`/`dark:text-red-200` apagado; revisar o tom (ou migrar para o mesmo sistema de tokens/primitivo escolhido na Opção A/B, padronizando "alert/banner" como componente compartilhado com contraste garantido). Não deixar paleta tailwind escolhida no olho.
+- **Mapa de recorrência (fazer antes de escolher escopo):** rodar `rg "bg-\[var\(--artificio-surface\)\].*text-\[var\(--artificio-fg\)\]" apps packages` e variações de par bg/fg manual; **e** `rg "bg-(red|green|amber|yellow)-(50|100).*text-\1-(700|800|900)" apps packages` para banners hardcoded. Listar todos os call-sites afetados na sessão. Decidir Opção A vs B pelo número de ocorrências.
+- **Verificação obrigatória:**
+  1. Smoke beta: colar texto no textarea em tema **escuro** e **claro** → texto legível nos dois.
+  2. Disparar os 3 estados de banner (success/no-drafts/error) em **ambos** os temas → texto legível (contraste AA) nos dois.
+  3. `check-token-parity.mjs` passa (e falharia se faltasse o par num tema — provar com teste).
+  4. Gates lint/build verdes.
+
+> Bugs descobertos em smoke → também devem entrar em `specs/backlog.md` (rastreio) e, se mudarem próximo passo, em `project-state.md`. Engenheiro deixou o diagnóstico aqui; registro de backlog/estado fica para o turno de fechamento da fatia.
+
+---
+
+## 2026-06-23 — Implementação REV-025 + REV-026
+
+**Executor:** OpenCode (DeepSeek-v4-pro)
+**Escopo:** Corrigir confidence NUMERIC string→number + textarea/banners theme tokens
+
+### REV-025 — confidence string→number
+
+**Fix dupla camada (backend + frontend):**
+
+- **Backend** (`adminImportInbox.ts`):
+  - Helper `toNumberOrNull(v)` no topo — coage `unknown` para `number | null`
+  - Aplicado nos 4 pontos de serialização:
+    1. `POST /import-text`: draft existente (linha 116) e draft criado (linha 188)
+    2. `GET /drafts`: `row.confidence` no map (linha 246)
+    3. `GET /drafts/:id`: `res.json` com `confidence: toNumberOrNull(row.confidence)`
+    4. `PATCH /drafts/:id`: objeto do `returningAll()` com coação
+
+- **Frontend** (`inboxApi.ts`):
+  - 3 schemas de confidence trocados de `z.number().nullable()` para `z.coerce.number().nullable()`:
+    - `inboxImportDraftSchema`
+    - `inboxDraftSummarySchema`
+    - `inboxDraftSchema`
+
+**Por que dupla camada:** `z.coerce.number()` absorve qualquer string residual que endpoint futuro ou outro consumidor do backend produza, sem necessidade de caçar cada call-site.
+
+### REV-026 — Textarea + banners theme tokens
+
+- **Textarea** (`TextPasteArea.tsx:76`):
+  - `bg-[var(--artificio-surface)]` → `bg-[var(--surface)]` (token semântico que troca entre claro/escuro)
+  - `text-[var(--artificio-fg)]` → `text-[var(--fg)]` (idem)
+  - `border-[var(--artificio-border)]` → `border-[var(--line)]` (token semântico de borda)
+  - `placeholder:text-[var(--artificio-muted)]` → `placeholder:text-[var(--fg-muted)]`
+
+- **Banners de status** (linhas 107, 117, 128):
+  - `bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200` → `bg-[var(--state-success-bg)] border-[var(--state-success-line)] text-[var(--state-success-fg)]`
+  - `bg-amber-...` → `bg-[var(--state-warning-bg)] border-[var(--state-warning-line)] text-[var(--state-warning-fg)]`
+  - `bg-red-...` → `bg-[var(--state-danger-bg)] border-[var(--state-danger-line)] text-[var(--state-danger-fg)]`
+
+Os tokens de estado (`--state-*-bg/line/fg`) existem em ambos os temas no `packages/ui/styles.css` e garantem contraste WCAG AA.
+
+**Opção A da instrução (tokens de input pareados)** registrada como débito futuro — escopo maior que o necessário para destravar o smoke.
+
+### Validação
+
+- Backend: 21 files / 178 tests ✅
+- Lint: 15/15 ✅
+- Build: 17/17 ✅
+
+### Status
+
+| REV | Gravidade | Status |
+|-----|-----------|--------|
+| REV-025 | 🔴 | ✅ resolvido |
+| REV-026 | 🟡 | ✅ resolvido |
+

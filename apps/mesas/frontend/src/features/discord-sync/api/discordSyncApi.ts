@@ -141,22 +141,26 @@ function parseDiscordBotTokenSettings(value: unknown): DiscordBotTokenSettings {
 
 function parseDiscordDiscoveredGuilds(value: unknown): DiscordDiscoveredGuild[] {
   const parsed = z.array(discordDiscoveredGuildSchema).safeParse(value);
-  return parsed.success ? parsed.data : [];
+  if (!parsed.success) throw new Error('Lista de guilds Discord em formato inesperado.');
+  return parsed.data;
 }
 
 function parseDiscordDiscoveredChannels(value: unknown): DiscordDiscoveredChannel[] {
   const parsed = z.array(discordDiscoveredChannelSchema).safeParse(value);
-  return parsed.success ? parsed.data : [];
+  if (!parsed.success) throw new Error('Lista de canais Discord em formato inesperado.');
+  return parsed.data;
 }
 
 function parseDiscordSources(value: unknown): DiscordSource[] {
   const parsed = z.array(discordSourceSchema).safeParse(value);
-  return parsed.success ? parsed.data : [];
+  if (!parsed.success) throw new Error('Lista de fontes Discord em formato inesperado.');
+  return parsed.data;
 }
 
 function parseDiscordMessages(value: unknown): DiscordMessage[] {
   const parsed = z.array(discordMessageSchema).safeParse(value);
-  return parsed.success ? parsed.data : [];
+  if (!parsed.success) throw new Error('Lista de mensagens Discord em formato inesperado.');
+  return parsed.data;
 }
 
 function parseDiscordMessage(value: unknown): DiscordMessage {

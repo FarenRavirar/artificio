@@ -13,6 +13,12 @@ import { syncImportDraftToTable, DraftSyncValidationError } from '../inbox/syncI
 
 const router = Router();
 
+const toNumberOrNull = (v: unknown): number | null => {
+  if (v == null) return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
 function isAdmin(req: Request, res: Response): boolean {
   if ((req as any).user?.role !== 'admin') {
     res.status(403).json({ error: 'Acesso restrito a administradores.' });
@@ -113,7 +119,7 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
             id: existingDraft.id,
             title: (table?.title as string) ?? null,
             status: existingDraft.status,
-            confidence: existingDraft.confidence,
+            confidence: toNumberOrNull(existingDraft.confidence),
             missing_fields: missingFields,
           });
           continue;
@@ -185,7 +191,7 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
         id: draftRow.id,
         title: table.title ?? null,
         status: draftRow.status,
-        confidence: draftRow.confidence,
+        confidence: toNumberOrNull(draftRow.confidence),
         missing_fields: missingFields,
       });
     }
@@ -243,7 +249,7 @@ router.get('/drafts', authMiddleware, async (req: Request, res: Response) => {
         source_type: row.source_type,
         raw_text: row.raw_text,
         status: row.status,
-        confidence: row.confidence,
+        confidence: toNumberOrNull(row.confidence),
         title: table.title ?? null,
         created_at: row.created_at,
       };
@@ -329,11 +335,11 @@ router.get('/drafts/:id', authMiddleware, async (req: Request, res: Response) =>
       return res.status(500).json({ error: 'Mensagem de origem não encontrada.' });
     }
 
-    const { raw_text: _rawText, ...draftData } = row;
     return res.json({
       data: {
-        ...draftData,
-        raw_text: _rawText,
+        ...row,
+        raw_text: row.raw_text,
+        confidence: toNumberOrNull(row.confidence),
       },
     });
   } catch (error: unknown) {
@@ -404,7 +410,7 @@ router.patch('/drafts/:id', authMiddleware, async (req: Request, res: Response) 
       .execute();
 
     if (!draft) return res.status(404).json({ error: 'Draft não encontrado.' });
-    return res.json({ data: draft });
+    return res.json({ data: { ...draft, confidence: toNumberOrNull(draft.confidence) } });
   } catch (error: unknown) {
     console.error('[PATCH /api/v1/admin/inbox/drafts/:id]', error);
     return res.status(500).json({ error: 'Erro ao atualizar draft.' });
