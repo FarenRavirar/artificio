@@ -10,11 +10,6 @@ import { authMiddleware } from '../middleware/auth';
 import { textToRawMessage } from '../inbox/adapters/textToRawMessage';
 import { segmentAnnouncements } from '../inbox/segmentation';
 import { syncImportDraftToTable, DraftSyncValidationError } from '../inbox/syncImportDraftToTable';
-import { enhanceWithDeepSeek } from '../inbox/deepseek';
-
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? '';
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL ?? 'deepseek-chat';
-const DEEPSEEK_CONFIDENCE_THRESHOLD = 0.6;
 
 const router = Router();
 
@@ -163,19 +158,7 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
         continue;
       }
 
-      let enrichedDraft = normalizeDiscordTableDraft(parsedDraft, systems);
-
-      if (DEEPSEEK_API_KEY && (enrichedDraft.draft.confidence < DEEPSEEK_CONFIDENCE_THRESHOLD || !enrichedDraft.draft.table.system_id)) {
-        try {
-          const fallback = await enhanceWithDeepSeek(parsedDraft, segment, {
-            apiKey: DEEPSEEK_API_KEY,
-            model: DEEPSEEK_MODEL,
-          });
-          enrichedDraft = normalizeDiscordTableDraft(fallback, systems);
-        } catch {
-          // DeepSeek fallback silencioso — parser regex mantido
-        }
-      }
+      const enrichedDraft = normalizeDiscordTableDraft(parsedDraft, systems);
 
       const normalized = enrichedDraft;
 

@@ -226,3 +226,19 @@
   - DB read-only confirmou `84d67efe-27bb-45c9-8984-dff0dcec7f39`, `status='rejected'`.
 - Sobra controlada: T1.14-B permaneceu `needs_review`, útil como evidência de fila revisável e identificável pelo prefixo `SMOKE SPEC047`.
 - Nenhum commit, push, PR, merge, deploy ou write direto na VM executado.
+
+## Correção de CI da PR #90 — DeepSeek fora da 047 (2026-06-23)
+
+- PR #90 (`chore/047-debitos-finais`) abriu com CI quebrado em checkout limpo.
+- Causa material nos logs do GitHub Actions: `adminImportInbox.ts` importava `../inbox/deepseek`, mas `deepseek.ts` era experimento local da Spec 048/futuro e não fazia parte do commit da 047.
+- Decisão: **não** adicionar `deepseek.ts` à PR #90. A 047 deve fechar sem fallback DeepSeek; IA pertence à Spec 048/futuro e precisa de validação/privacidade própria.
+- Correção local aplicada no worktree `C:\projetos\artificio-pr90`:
+  - removido import `enhanceWithDeepSeek`;
+  - removidas constantes `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`, `DEEPSEEK_CONFIDENCE_THRESHOLD`;
+  - removido fallback silencioso no `POST /api/v1/admin/inbox/import-text`;
+  - `manual_paste` volta a usar apenas `normalizeDiscordTableDraft(parsedDraft, systems)`.
+- Validação local após correção:
+  - `pnpm --filter @artificio/mesas-backend test -- adminImportInbox adminDiscordSync.drafts.patch`: ✅ 2 arquivos / 48 testes.
+  - `pnpm run lint`: ✅ 15/15.
+  - `pnpm run build`: ✅ 17/17.
+- Status: correção local pronta. Falta autorização nominal separada para `git commit` e depois para `git push` da branch da PR #90.

@@ -955,6 +955,17 @@ Spec 047 fechada tecnicamente e validada em produto no beta para T1.13-T1.16 em 
 
 Próximo fluxo, cada ação com autorização própria: commit local do fechamento 047 + docs → push da branch → PR para `dev` se necessário. Sem auto-publicação; promoção para `main` continua fora de escopo.
 
+Correção de CI da PR #90 em 2026-06-23:
+
+- [x] Remover referência acidental a DeepSeek de `adminImportInbox.ts`.
+  - Motivo: `deepseek.ts` pertence ao diff/planejamento da Spec 048/futuro, não ao fechamento da Spec 047.
+  - Decisão: não adicionar IA/fallback DeepSeek à PR #90.
+  - Validação local:
+    - `pnpm --filter @artificio/mesas-backend test -- adminImportInbox adminDiscordSync.drafts.patch`: ✅ 48/48.
+    - `pnpm run lint`: ✅ 15/15.
+    - `pnpm run build`: ✅ 17/17.
+  - Pendente: autorização nominal para `git commit` e autorização nominal separada para `git push`.
+
 ---
 
 ## Atualizar ao fechar
