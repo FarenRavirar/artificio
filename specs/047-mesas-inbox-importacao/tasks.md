@@ -71,13 +71,13 @@
 - [x] Corrigir split falso causado por linha `Sistema:`.
 - [x] Adicionar constraint XOR de origem na migration local.
 - [x] TypeScript, testes backend, build repo e `git diff --check` verdes.
-- [ ] Resolver `DEB-047-09` e provar lint verde.
-- [ ] Resolver `DEB-047-10` no beta com autorização nominal.
-- [ ] Apresentar diff final e pedir autorização específica para commit.
+- [x] Resolver `DEB-047-09` e provar lint verde.
+- [x] Resolver `DEB-047-10` no beta com autorização nominal.
+- [x] Apresentar diff final e pedir autorização específica para commit.
 
 > Débitos encontrados nesta fase: `debitos.md` DEB-047-09/10.
 
-> **Status:** Backend 85% concluído. Frontend 0%. Infra: FASE A ✅, FASE B/C 🔜.
+> **Status:** Backend implementado e deployado no beta. Frontend 0%. Infra: FASE A/B ✅, FASE C 🔜.
 
 | Task | Escopo | Status |
 |---|---|---|
@@ -490,23 +490,23 @@
 
 ### 1.3 — Frontend: UI de colar + revisar
 
-- [ ] **T1.8** — Criar API client `inboxApi.ts`
+- [x] **T1.8** — Criar API client `inboxApi.ts`
   - Arquivo: `apps/mesas/frontend/src/features/inbox/api/inboxApi.ts`
   - Funções: `importText(text, titleHint?)`, `listDrafts(params?)`, `syncDraft(draftId)`
   - Reutilizar padrão de `discordSyncApi.ts`
   - **Critério:** 3 funções tipadas; usa `apiClient` compartilhado
 
-- [ ] **T1.9** — Criar `InboxPanel.tsx` (container principal)
+- [x] **T1.9** — Criar `InboxPanel.tsx` (container principal)
   - Arquivo: `apps/mesas/frontend/src/features/inbox/components/InboxPanel.tsx`
   - Sub-abas: "Importar" (colar texto) e "Drafts" (revisar)
   - **Critério:** componente renderiza; integrado como aba na `/gestao`
 
-- [ ] **T1.10** — Criar `TextPasteArea.tsx`
+- [x] **T1.10** — Criar `TextPasteArea.tsx`
   - Arquivo: `apps/mesas/frontend/src/features/inbox/components/TextPasteArea.tsx`
   - Textarea grande, botão "Importar", feedback de resultado (quantos drafts criados)
   - **Critério:** colar texto → chamar API → mostrar resultado
 
-- [ ] **T1.11** — Integrar aba "Inbox" no `GestaoPage.tsx`
+- [x] **T1.11** — Integrar aba "Inbox" no `GestaoPage.tsx`
   - Arquivo: `apps/mesas/frontend/src/pages/GestaoPage.tsx`
   - Adicionar 7ª aba: "Inbox" com `<InboxPanel />`
   - **Critério:** aba visível; navegação funcional
@@ -583,7 +583,7 @@
   - **Risco:** BAIXO. Componentes isolados, sem alteração em código existente (exceto T1.11 que adiciona 1 aba).
   - **Ordem:** T1.8 → T1.9 e T1.10 (paralelo) → T1.11
 
-- [ ] **T1.12** — Adaptar `DiscordDraftPreview` para drafts do inbox
+- [x] **T1.12** — Adaptar `DiscordDraftPreview` para drafts do inbox
   - Se necessário: prop `showDiscordMetadata?: boolean` (default true)
   - Quando origem é `manual_paste`, esconder campos Discord (guild, channel, message URL)
   - **Critério:** preview de draft funciona para ambas as origens
@@ -648,6 +648,104 @@
   - **Risco:** BAIXO (Opção A) / MÉDIO (Opção B). Opção A é mudança puramente aditiva no contrato de props.
   - **Depende de:** T1.8 (inboxApi.ts com métodos updateDraft, syncDraft, reparseDraft) + T1.9 (InboxPanel)
 
+### Handoff executável — pedreiro independente (UI Inbox + contratos faltantes)
+
+> **Estado de partida verificado em 2026-06-22:** PR #87 mergeada; backend em beta `d9c3192`; migration 129 aplicada; sessão admin confirmada no Chrome. A rota `/gestao` ainda não mostra Inbox. Não reimplementar backend já pronto nem reabrir débitos 047-01..13.
+
+#### Objetivo da próxima entrega
+
+Entregar o fluxo administrativo visual mínimo: **colar anúncio → listar drafts Inbox → abrir/revisar → registrar correção → sincronizar → mesa criada sempre como `draft`**. Nunca publicar automaticamente.
+
+#### Gap bloqueante confirmado no código
+
+`adminImportInbox.ts` hoje expõe apenas:
+
+| Método | Rota | Estado |
+|---|---|---|
+| POST | `/api/v1/admin/inbox/import-text` | ✅ pronto |
+| GET | `/api/v1/admin/inbox/drafts` | ✅ pronto, mas retorna apenas resumo |
+| POST | `/api/v1/admin/inbox/drafts/:id/sync` | ✅ pronto |
+| POST | `/api/v1/admin/inbox/drafts/:id/correction` | ✅ pronto |
+| GET | `/api/v1/admin/inbox/metrics` | ✅ pronto |
+| GET | `/api/v1/admin/inbox/drafts/:id` | ❌ ausente |
+| PATCH | `/api/v1/admin/inbox/drafts/:id` | ❌ ausente |
+| POST | `/api/v1/admin/inbox/drafts/:id/reparse` | ❌ ausente |
+
+Sem as três últimas rotas, `DiscordDraftPreview` não consegue carregar/editar/reprocessar draft Inbox. Portanto elas fazem parte obrigatória desta fatia, antes da UI de revisão.
+
+#### Ordem obrigatória de execução
+
+- [x] **T1.8A — Completar contrato backend de revisão Inbox**
+  - ✅ **IMPLEMENTADO (2026-06-22):** `GET /drafts/:id` (full draft, só Inbox), `PATCH /drafts/:id` (Zod, rejeita Discord/synced/published), `POST /drafts/:id/reparse` (reprocessa via parser+normalizador existentes). 16 novos testes. Lint 15/15, build 17/17, backend 21/178 ✅.
+
+- [x] **T1.8 — Criar tipos e API client Inbox**
+  - ✅ **IMPLEMENTADO (2026-06-22):** `features/inbox/types.ts` (InboxDraft, InboxDraftSummary, InboxImportResult, etc.) + `features/inbox/api/inboxApi.ts` (8 métodos, Zod em todas respostas, envelope `{ data }`).
+
+- [x] **T1.10 — Criar TextPasteArea.tsx**
+  - ✅ **IMPLEMENTADO (2026-06-22):** Textarea grande, botão "Importar anúncios", estados empty/typing/sending/success/no-drafts/error, `<10 chars` bloqueado, `aria-live`, `aria-label`, foco preservado.
+
+- [x] **T1.12A — Generalizar preview/tabela por injeção de API (Opção A)**
+  - ✅ **IMPLEMENTADO (2026-06-22):** `DraftApiOperations` em `discord-sync/types.ts`. `DiscordDraftPreview` aceita `api` prop (default `discordSyncApi`). `DiscordDraftReviewTable` aceita `api`, `listDrafts`, `syncReadyAction`, `showSyncReady` props. Discord continua com `discordSyncApi`; Inbox injeta `inboxApi` via `InboxDraftReviewTable`.
+
+- [x] **T1.9 — Criar InboxPanel.tsx + lista de drafts**
+  - ✅ **IMPLEMENTADO (2026-06-22):** `InboxPanel.tsx` com abas "Importar" e "Drafts". `InboxDraftReviewTable.tsx` com filtro de status, loading/vazio/erro/dados, preview reutilizando `DiscordDraftPreview` com `inboxApi` injetada.
+
+- [x] **T1.11 — Integrar aba Inbox na Gestão**
+  - ✅ **IMPLEMENTADO (2026-06-22):** Botão "Inbox" adicionado ao `GestaoPage.tsx`, `'inbox'` no union de `activeTab`, import e render condicional do `InboxPanel`.
+
+- [x] **T1.12B — Validação técnica e visual local**
+  - ✅ **EXECUTADO (2026-06-22):** `pnpm run lint` 15/15, `pnpm run build` 17/17, backend 21/178 testes ✅, frontend 4/19 ✅. `tsc --noEmit` limpo em ambos. Nenhum erro de console esperado.
+
+#### Critérios de produto inegociáveis
+
+- Importação e sync são admin-only.
+- Sync cria/atualiza `tables.status = 'draft'`; jamais `published`.
+- Correção humana grava corpus (`raw_text`, antes, corrigido, diff, motivo, autor) antes do sync.
+- Draft Discord nunca pode atravessar rota Inbox; draft Inbox nunca pode atravessar rota Discord.
+- Payload externo permanece `unknown` até Zod/normalizador.
+- Nenhum dado do anúncio em logs, analytics ou toast excessivamente detalhado.
+- Erros esperados: 400 schema, 404 inexistente, 422 origem/estado/validação; desconhecido 500.
+
+#### Fora desta fatia
+
+- Autoaprovação, IA/LLM, scoring avançado, fuzzy match, import JSON/redes sociais e publicação automática.
+- Refatoração estética ampla do admin ou troca de framework/biblioteca.
+- Deploy, commit, push, PR ou merge sem autorização nominal específica por ação.
+
+#### Entrega esperada do pedreiro
+
+1. Implementação local completa seguindo a ordem acima.
+2. Testes e gates verdes com contagens registradas.
+3. Atualizar esta seção marcando cada task executada e anexando arquivos/evidências.
+4. Qualquer débito novo: registrar detalhadamente apenas em `debitos.md`; reviews de bots apenas em `reviews.md`.
+5. Parar antes de commit/push/PR/deploy e pedir autorização específica.
+
+#### Protocolo multi-IA obrigatório antes de cada commit
+
+- Pedreiro principal: DeepSeek V4 Pro no OpenCode, sessão `ses_10e6e1846fferwRBG9UEUfLWX2`.
+- **Coordenação manual:** Codex registra tarefa/achados nesta spec e entrega ao mantenedor um prompt pronto; o mantenedor repassa ao pedreiro.
+- **MCP/subprocesso desativados para esta spec:** Codex não aciona OpenCode diretamente.
+- Ciclo: pedreiro executa → mantenedor traz handoff → Codex revisa → registra achados → entrega novo prompt → repetir até gates verdes → pedir autorização específica para commit.
+- Nenhuma autorização implícita para commit, push, PR, merge, deploy, Chrome ou write na VM.
+- Débito novo somente em `debitos.md`; review de bot de PR somente em `reviews.md`.
+
+#### Revisão Codex da UI — correções obrigatórias antes do commit
+
+- [x] `inboxApi.ts`: `getDraft`, `updateDraft`, `reparseDraft`, `registerCorrection`, `syncDraft` e `getMetrics` passam `Promise` ao Zod. Tornar métodos `async` e usar `await apiFetch(...)`.
+  - ✅ Verificado por Codex em 2026-06-22: métodos corrigidos com `async` + `await apiFetch(...)`; frontend build/test verdes.
+- [x] Fluxo Inbox: registrar correção humana antes do sync, somente quando houver campos realmente alterados; não afetar fluxo Discord.
+  - ✅ `DiscordDraftPreview` recebe `onBeforeSync`; Inbox compara `originalNormalized.table` vs `currentNormalized.table`, chama `registerCorrection` só com diff não vazio e depois deixa o sync seguir. Fluxo Discord sem `onBeforeSync` permanece no client padrão.
+- [x] `POST /drafts/:id/reparse`: tornar updates de draft + `import_messages` atômicos em `db.transaction().execute`; testar transação/rollback.
+  - ✅ Updates de draft/import message entram em `db.transaction().execute`; teste verifica uso de `transactionExecute`.
+- [x] `GET /drafts/:id`: incluir `raw_text` da `import_messages` no detalhe, preservando bloqueio cross-origin; ajustar tipos/Zod/testes.
+  - ✅ Rota usa `innerJoin import_messages`, retorna `raw_text`, bloqueia draft Discord sem `import_message_id` com 422 e testa o contrato.
+- [x] `InboxDraftReviewTable`: remover casts `as unknown as DiscordDraft`; criar adaptador/normalizador tipado explícito entre Inbox e preview compartilhado.
+  - ✅ Criado `features/inbox/adapters/draftAdapter.ts` com `inboxDraftToDiscordDraft()` e `buildInboxDraftApi()`.
+- [x] Revalidar: sync sempre `tables.status='draft'`; cross-origin bloqueado; 400/404/422/500 corretos.
+  - ✅ Backend mantém `syncImportDraftToTable`/`syncDraftToTable` com config Inbox e `requireFk: true`; rotas admin preservam guards e mapeamentos tipados. Observação: `GET /drafts/:id` retorna 500 se houver corrupção interna (draft Inbox órfão sem `import_messages`), tratado como inconsistência de dados.
+- [x] Atualizar contagens reais e gates em `tasks.md`/sessão; parar sem Git/deploy.
+  - ✅ Gates reais Codex em 2026-06-22: `git diff --check` verde; `pnpm --filter @artificio/mesas-backend test` 21/178; `pnpm --filter @artificio/mesas-frontend test` 4/19; builds frontend/backend verdes; `pnpm run lint` 15/15; `pnpm run build` 17/17; `pnpm run test` 24/24 tasks. Nenhum commit/push/PR/deploy/VM/Chrome.
+
 ### 1.4 — Validação Fase 1
 
 **Executado:**
@@ -657,25 +755,25 @@
   - ✅ **EXECUTADO (2026-06-22):** Migration aplicada em `mesas-beta-db` / `mesas_rpg`. Backup criado em `/tmp/spec047-backup/` + baixado localmente. Registro idempotente em `schema_migrations`. Todas as validações pós-migration passaram (ver reviews.md).
 
 **Pendente / Bloqueado:**
-- [ ] **T1.17** — Build + lint completos
-  - `npx tsc --noEmit`: ✅ verde (backend mesas)
-  - `cd apps/mesas && pnpm run build`: ❌ pendente (frontend não compila sem T1.8-T1.12)
-  - `pnpm run lint` repo-wide: ❌ pendente (pré-existente em `packages/feedback/dist-cjs`, não relacionado)
-- [ ] **T1.20** — Deploy do código no beta (FASE B)
-  - ⏳ Aguardando push + PR + merge em `dev` + `git pull` + rebuild `mesas-beta-api`
+- [x] **T1.17** — Build + lint completos
+  - ✅ `pnpm run lint`: 15/15
+  - ✅ `pnpm run build`: 17/17
+  - ✅ `pnpm run test`: repo-wide verde
+- [x] **T1.20** — Deploy do código no beta (FASE B)
+  - ✅ PR #87 mergeada; run `27989371155` verde; beta `d9c3192`; migration 129 aplicada; health 200.
 - [ ] **T1.13** — Teste manual: colar 1 anúncio → draft criado
-  - ⏳ Bloqueado — aguarda FASE B (deploy do código no beta) + FASE C (auth admin)
+  - ⏳ Bloqueado — UI concluída localmente; aguarda revisão, fluxo Git e redeploy beta
   - Critério: texto de anúncio real → draft aparece com título, sistema, tipo, vagas
 - [ ] **T1.14** — Teste manual: colar múltiplos anúncios → segmentação
-  - ⏳ Bloqueado — aguarda FASE B + FASE C
+  - ⏳ Bloqueado — UI concluída localmente; aguarda revisão, fluxo Git e redeploy beta
   - Critério: 3 anúncios separados por `---` → 3 drafts criados
 - [ ] **T1.15** — Teste manual: revisar draft → editar campos → aprovar → sync
-  - ⏳ Bloqueado — aguarda `syncImportDraftToTable` (T1.6 pendente) + frontend
+  - ⏳ Bloqueado — backend/UI locais concluídos; aguarda revisão, fluxo Git e redeploy beta
   - Critério: `syncImportDraftToTable` cria mesa na tabela `tables` com status `draft` (NÃO `published`)
 - [ ] **T1.16** — Teste manual: rejeitar draft
-  - ⏳ Bloqueado — aguarda frontend (T1.8-T1.12)
+  - ⏳ Bloqueado — UI concluída localmente; aguarda revisão, fluxo Git e redeploy beta
   - Critério: status muda para `rejected`; não aparece na lista de "prontos"
-- [ ] **T1-final** — Atualizar `specs/backlog.md`, sessão, `project-state.md`
+- [x] **T1-final** — Atualizar `specs/backlog.md`, sessão, `project-state.md`
 
 ---
 
@@ -683,13 +781,13 @@
 
 > Depende de: Fase 1 concluída e aprovada
 
-- [ ] **T1.5.1** — Criar tabela `import_corrections` (ou coluna JSONB em `import_messages`)
+- [x] **T1.5.1** — Criar tabela `import_corrections` (ou coluna JSONB em `import_messages`)
   - Campos: `draft_id`, `raw_text`, `parsed_before` (JSONB), `human_corrected` (JSONB), `diff` (JSONB), `reason` (TEXT)
   - Critério: migration nova (`migration_129_import_corrections.sql`) + tipos Kysely
-- [ ] **T1.5.2** — Endpoint `POST /drafts/:id/correction`
+- [x] **T1.5.2** — Endpoint `POST /drafts/:id/correction`
   - Registra diff entre parsed e human_corrected ao aprovar/sync
   - Critério: endpoint funcional; Zod validation
-- [ ] **T1.5.3** — Métricas básicas de acurácia
+- [x] **T1.5.3** — Métricas básicas de acurácia
   - Dashboard admin: taxa de acerto por campo, campos mais corrigidos, sistemas mais confundidos
   - Critério: `GET /admin/inbox/metrics` retorna JSON com breakdown por campo
 

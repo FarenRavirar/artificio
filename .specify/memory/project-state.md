@@ -73,7 +73,7 @@
 11. **Spec 043** (auditoria visual links + shared `packages/ui`) — **PR #84 mergeada em `dev` (`39d2c7c`, 2026-06-22).** Fase 1 T5 (logo base64 → PNG estático) completa. `brand.ts` com `import .png?url`, `ambient.d.ts`, build script. `assetsInlineLimit: 0` nos 5 consumidores. 46 arquivos, +6644/-256. CI verde. Próximo: T6 (auditoria Header shared).
 12. **Spec 044** (otimizacao ecossistema OpenCode + Claude Code) — ✅ **FECHADA (2026-06-22).**
 13. **Spec 045** (débitos pendentes em limbo) — **Investigação concluída + T1 ✅ (2026-06-22, PR #85).**
-14. **Spec 047** (mesas inbox importação) — **fechamento técnico local pré-Git ✅ (2026-06-22).** Backend, sync, corpus/métricas, erros tipados e débitos/reviews implementados. Lint 15/15, build 17/17, backend 21 arquivos/159 testes e diff-check verdes. Sem commit/push/PR/deploy. Próximo: autorizações separadas para fluxo Git; depois deploy beta aplica migration 129 e smoke.
+14. **Spec 047** (mesas inbox importação) — **UI implementada localmente ✅ (2026-06-22).** Backend: 3 novas rotas (GET/PATCH /drafts/:id, POST /drafts/:id/reparse) + 16 testes. Frontend: types + inboxApi (8 métodos, Zod), TextPasteArea, InboxPanel + InboxDraftReviewTable, DiscordDraftPreview/ReviewTable generalizados com injeção de API, aba Inbox integrada no GestaoPage. Lint 15/15, build 17/17, backend 21/178 testes ✅, frontend 4/19 ✅. Sem commit/push/PR/deploy. Próximo: autorizações separadas para fluxo Git; depois deploy beta e smoke E2E T1.13-T1.16.
 
 ## Log
 

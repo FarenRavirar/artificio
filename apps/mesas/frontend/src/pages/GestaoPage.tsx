@@ -12,6 +12,7 @@ import { InlineDeleteConfirmation } from '../components/InlineDeleteConfirmation
 import { DiscordSyncPanel } from '../features/discord-sync/components/DiscordSyncPanel';
 import { SystemSuggestionResolutionDrawer } from '../components/SystemSuggestionResolutionDrawer';
 import { DevFeedbackPanel } from '../modules/admin/dev-feedback/DevFeedbackPanel';
+import { InboxPanel } from '../features/inbox/components/InboxPanel';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -137,7 +138,7 @@ export const GestaoPage = () => {
   const [suggestions, setSuggestions] = useState<CatalogSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
-  const [activeTab, setActiveTab] = useState<'systems' | 'crud' | 'activity' | 'hydration' | 'discord' | 'dev'>('crud');
+  const [activeTab, setActiveTab] = useState<'systems' | 'crud' | 'activity' | 'hydration' | 'discord' | 'inbox' | 'dev'>('crud');
   const [crudSubTab, setCrudSubTab] = useState<'systems' | 'platforms' | 'scenarios' | 'tables'>('systems');
   const [scenarioEditModal, setScenarioEditModal] = useState<ScenarioEditTarget | null>(null);
   const [allTables, setAllTables] = useState<AdminTableRow[]>([]);
@@ -527,6 +528,16 @@ export const GestaoPage = () => {
             Discord Sync
           </button>
           <button
+            onClick={() => setActiveTab('inbox')}
+            className={`px-6 py-3 font-semibold transition-all ${
+              activeTab === 'inbox'
+                ? 'text-white border-b-2 border-blue-500'
+                : 'text-white/60 hover:text-white/80'
+            }`}
+          >
+            Inbox
+          </button>
+          <button
             onClick={() => setActiveTab('dev')}
             className={`px-6 py-3 font-semibold transition-all ${
               activeTab === 'dev'
@@ -682,6 +693,10 @@ export const GestaoPage = () => {
 
         {activeTab === 'discord' && (
           <DiscordSyncPanel />
+        )}
+
+        {activeTab === 'inbox' && (
+          <InboxPanel />
         )}
 
         {activeTab === 'dev' && (

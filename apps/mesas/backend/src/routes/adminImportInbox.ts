@@ -5,6 +5,7 @@ import { db } from '../db';
 import type { SystemEntry } from '../discord';
 import { DraftNotFoundError, DraftStateError } from '../discord/syncHelpers';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../discord';
+import { assertDraftReadyTransition } from '../discord/draftValidation';
 import { authMiddleware } from '../middleware/auth';
 import { textToRawMessage } from '../inbox/adapters/textToRawMessage';
 import { segmentAnnouncements } from '../inbox/segmentation';
@@ -286,11 +287,209 @@ router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Respon
   }
 });
 
+// ─── GET /drafts/:id ──────────────────────────────────────────────────────────
+
+router.get('/drafts/:id', authMiddleware, async (req: Request, res: Response) => {
+  if (!isAdmin(req, res)) return;
+  try {
+    const row = await db
+      .selectFrom('discord_import_table_drafts')
+      .innerJoin('import_messages', 'import_messages.id', 'discord_import_table_drafts.import_message_id')
+      .select([
+        'discord_import_table_drafts.id',
+        'discord_import_table_drafts.discord_message_id',
+        'discord_import_table_drafts.import_message_id',
+        'discord_import_table_drafts.table_id',
+        'discord_import_table_drafts.parsed_payload',
+        'discord_import_table_drafts.normalized_payload',
+        'discord_import_table_drafts.confidence',
+        'discord_import_table_drafts.status',
+        'discord_import_table_drafts.review_notes',
+        'discord_import_table_drafts.image_upload_status',
+        'discord_import_table_drafts.image_upload_attempts',
+        'discord_import_table_drafts.image_upload_last_error',
+        'discord_import_table_drafts.image_upload_last_at',
+        'discord_import_table_drafts.created_at',
+        'discord_import_table_drafts.updated_at',
+        'import_messages.raw_text',
+      ])
+      .where('discord_import_table_drafts.id', '=', req.params.id)
+      .executeTakeFirst();
+
+    if (!row) {
+      const noJoin = await db
+        .selectFrom('discord_import_table_drafts')
+        .select(['id', 'import_message_id'])
+        .where('id', '=', req.params.id)
+        .executeTakeFirst();
+      if (!noJoin) return res.status(404).json({ error: 'Draft não encontrado.' });
+      if (!noJoin.import_message_id) {
+        return res.status(422).json({ error: 'Draft de Discord não acessível via Inbox.' });
+      }
+      return res.status(500).json({ error: 'Mensagem de origem não encontrada.' });
+    }
+
+    const { raw_text: _rawText, ...draftData } = row;
+    return res.json({
+      data: {
+        ...draftData,
+        raw_text: _rawText,
+      },
+    });
+  } catch (error: unknown) {
+    console.error('[GET /api/v1/admin/inbox/drafts/:id]', error);
+    return res.status(500).json({ error: 'Erro ao buscar draft.' });
+  }
+});
+
+// ─── PATCH /drafts/:id ────────────────────────────────────────────────────────
+
+const patchDraftSchema = z.object({
+  normalized_payload: z.record(z.string(), z.unknown()).optional(),
+  status: z.enum(['draft', 'ready', 'needs_review', 'rejected']).optional(),
+  review_notes: z.string().optional(),
+});
+
+router.patch('/drafts/:id', authMiddleware, async (req: Request, res: Response) => {
+  if (!isAdmin(req, res)) return;
+  const parsed = patchDraftSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
+  }
+  if (Object.keys(parsed.data).length === 0) {
+    return res.status(400).json({ error: 'Nenhum dado para atualizar.' });
+  }
+  try {
+    const draftId = req.params.id;
+
+    const current = await db
+      .selectFrom('discord_import_table_drafts')
+      .select(['id', 'status', 'import_message_id', 'normalized_payload'])
+      .where('id', '=', draftId)
+      .executeTakeFirst();
+
+    if (!current) return res.status(404).json({ error: 'Draft não encontrado.' });
+    if (!current.import_message_id) {
+      return res.status(422).json({ error: 'Draft de Discord não pode ser editado via Inbox.' });
+    }
+    if (current.status === 'synced') {
+      return res.status(422).json({ error: 'Draft já sincronizado não pode ser alterado.' });
+    }
+
+    if (parsed.data.status && parsed.data.status !== current.status) {
+      const patchPayload = normalizeDraftPayload(parsed.data.normalized_payload ?? current.normalized_payload);
+      const currentPayload = normalizeDraftPayload(current.normalized_payload);
+      const transition = assertDraftReadyTransition({
+        patchStatus: parsed.data.status,
+        patchPayloadMissing: patchPayload?.missing_fields,
+        currentPayloadMissing: currentPayload?.missing_fields,
+      });
+      if (!transition.allowed) {
+        return res.status(422).json({ error: transition.reason, missing_fields: transition.missingFields });
+      }
+    }
+
+    if (parsed.data.normalized_payload) {
+      const table = (parsed.data.normalized_payload as Record<string, unknown>).table as Record<string, unknown> | undefined;
+      if (table?.status === 'published') {
+        return res.status(422).json({ error: 'Não é permitido publicar mesa diretamente. Use status "draft".' });
+      }
+    }
+
+    const [draft] = await db
+      .updateTable('discord_import_table_drafts')
+      .set({ ...parsed.data, updated_at: new Date() })
+      .where('id', '=', draftId)
+      .returningAll()
+      .execute();
+
+    if (!draft) return res.status(404).json({ error: 'Draft não encontrado.' });
+    return res.json({ data: draft });
+  } catch (error: unknown) {
+    console.error('[PATCH /api/v1/admin/inbox/drafts/:id]', error);
+    return res.status(500).json({ error: 'Erro ao atualizar draft.' });
+  }
+});
+
+// ─── POST /drafts/:id/reparse ─────────────────────────────────────────────────
+
+router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Response) => {
+  if (!isAdmin(req, res)) return;
+  try {
+    const draft = await db
+      .selectFrom('discord_import_table_drafts')
+      .selectAll()
+      .where('id', '=', req.params.id)
+      .executeTakeFirst();
+
+    if (!draft) return res.status(404).json({ error: 'Draft não encontrado.' });
+    if (draft.status === 'synced') {
+      return res.status(422).json({ error: 'Draft já sincronizado. Não pode ser reparseado.' });
+    }
+    if (!draft.import_message_id) {
+      return res.status(422).json({ error: 'Draft de Discord não suporta reparse via Inbox.' });
+    }
+
+    const importMsg = await db
+      .selectFrom('import_messages')
+      .select(['content_raw', 'raw_text', 'thread_name'])
+      .where('id', '=', draft.import_message_id)
+      .executeTakeFirst();
+
+    if (!importMsg) return res.status(404).json({ error: 'Mensagem de origem não encontrada.' });
+
+    const rawContent = importMsg.content_raw || importMsg.raw_text || '';
+    const rawMessage = textToRawMessage(rawContent, importMsg.thread_name ?? undefined);
+    const systems = await loadSystemsForParser();
+    const parsed = parseDiscordAnnouncement(rawMessage, systems);
+
+    if (!parsed) {
+      await db
+        .updateTable('import_messages')
+        .set({ status: 'error', parse_error: 'Mensagem sem conteúdo elegível para virar draft.' })
+        .where('id', '=', draft.import_message_id)
+        .execute();
+      return res.status(422).json({ error: 'Mensagem sem conteúdo elegível para virar draft.' });
+    }
+
+    const normalized = normalizeDiscordTableDraft(parsed, systems);
+
+    const [updated] = await db.transaction().execute(async (trx) => {
+      const [result] = await trx
+        .updateTable('discord_import_table_drafts')
+        .set({
+          parsed_payload: parsed,
+          normalized_payload: normalized.draft,
+          confidence: normalized.draft.confidence,
+          status: normalized.status,
+          updated_at: new Date(),
+        })
+        .where('id', '=', req.params.id)
+        .returningAll()
+        .execute();
+
+      await trx
+        .updateTable('import_messages')
+        .set({ status: 'parsed', parse_error: null })
+        .where('id', '=', draft.import_message_id)
+        .execute();
+
+      return [result];
+    });
+
+    return res.json({ data: updated });
+  } catch (error: unknown) {
+    console.error('[POST /api/v1/admin/inbox/drafts/:id/reparse]', error);
+    return res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao reparsar draft.' });
+  }
+});
+
 // ─── POST /drafts/:id/correction ──────────────────────────────────────────────
 
 const correctionSchema = z.object({
   corrections: z.record(z.string(), z.unknown()),
   reason: z.string().optional(),
+  before: z.record(z.string(), z.unknown()).optional(),
 });
 
 router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: Response) => {
@@ -306,7 +505,7 @@ router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: 
       return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Payload inválido.' });
     }
 
-    const { corrections, reason } = parsed.data;
+    const { corrections, reason, before } = parsed.data;
 
     // Carrega draft + import_message para obter raw_text
     const draft = await db
@@ -337,10 +536,10 @@ router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: 
 
     const diff: Record<string, { before: unknown; after: unknown }> = {};
     for (const key of Object.keys(corrections)) {
-      const before = (parsedBefore?.table as Record<string, unknown>)?.[key];
+      const beforeVal = before?.[key] ?? (parsedBefore?.table as Record<string, unknown>)?.[key];
       const after = corrections[key];
-      if (JSON.stringify(before) !== JSON.stringify(after)) {
-        diff[key] = { before, after };
+      if (JSON.stringify(beforeVal) !== JSON.stringify(after)) {
+        diff[key] = { before: beforeVal, after };
       }
     }
 

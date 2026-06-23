@@ -26,9 +26,15 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (res.status === 204) return undefined as T;
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data.data as T;
+  const text = await res.text();
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Resposta inesperada do servidor (HTTP ${res.status}).`);
+  }
+  if (!res.ok) throw new Error(typeof data === 'object' && data !== null && 'error' in data ? String((data as Record<string, unknown>).error) : `HTTP ${res.status}`);
+  return (data as Record<string, unknown>).data as T;
 }
 
 const discordBotTokenSettingsSchema = z.object({

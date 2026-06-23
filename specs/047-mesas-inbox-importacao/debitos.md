@@ -266,3 +266,12 @@
   - 11/11 cast points substituídos em 5 arquivos
   - `discord/index.ts`: barrel exports adicionados
   - `tsc` limpo, 19/19 files, 144/144 testes, 15/15 lint
+
+## DEB-047-15 — DiscordDraftPreview cognitive complexity 29
+
+- **Severidade:** Média
+- **Origem:** SonarCloud Quality Gate PR #88 (SC-004)
+- **Descrição:** O componente `DiscordDraftPreview.tsx` tem cognitive complexity 29 (limite 15) e 707 linhas. Contribuição da spec 047 é mínima (+2 props `api`/`onBeforeSync`), mas o componente quebrou o Quality Gate.
+- **Ação:** Refatorar extraindo handlers para hooks (`useDraftForm`, `useDraftSync`, `useCoverUpload`, `useSlotsAmbiguity`) e abas para subcomponentes (`DraftEditorTab`, `DraftNormalizedTab`, `DraftParsedTab`).
+- **Dependência de:** Fora do escopo 047. Pode ser feito em spec separada.
+- **Status:** ⏳ Pendente (2026-06-22)
