@@ -768,6 +768,57 @@
   color: var(--state-info-fg);
 }
 
+.artificio-banner {
+  align-items: flex-start;
+  border-radius: 8px;
+  border: 1px solid var(--state-success-line);
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+}
+
+.artificio-banner-success {
+  background: var(--state-success-bg);
+  border-color: var(--state-success-line);
+  color: var(--state-success-fg);
+}
+
+.artificio-banner-warning {
+  background: var(--state-warning-bg);
+  border-color: var(--state-warning-line);
+  color: var(--state-warning-fg);
+}
+
+.artificio-banner-danger {
+  background: var(--state-danger-bg);
+  border-color: var(--state-danger-line);
+  color: var(--state-danger-fg);
+}
+
+.artificio-banner-info {
+  background: var(--state-info-bg);
+  border-color: var(--state-info-line);
+  color: var(--state-info-fg);
+}
+
+.artificio-banner-neutral {
+  background: var(--surface-subtle);
+  border-color: var(--line);
+  color: var(--fg);
+}
+
+.artificio-banner-icon {
+  display: flex;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.artificio-banner-text {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .artificio-field {
   color: var(--fg);
   display: grid;

@@ -34,7 +34,7 @@ const inboxImportDraftSchema = z.object({
   id: z.string(),
   title: z.string().nullable(),
   status: z.string(),
-  confidence: z.number().nullable(),
+  confidence: z.coerce.number().nullable(),
   missing_fields: z.array(z.string()),
 });
 
@@ -49,7 +49,7 @@ const inboxDraftSummarySchema = z.object({
   source_type: z.string(),
   raw_text: z.string(),
   status: z.enum(['draft', 'ready', 'needs_review', 'synced', 'rejected']),
-  confidence: z.number().nullable(),
+  confidence: z.coerce.number().nullable(),
   title: z.string().nullable(),
   created_at: z.string(),
 });
@@ -61,7 +61,7 @@ const inboxDraftSchema = z.object({
   table_id: z.string().nullable(),
   parsed_payload: z.unknown(),
   normalized_payload: z.unknown(),
-  confidence: z.number().nullable(),
+  confidence: z.coerce.number().nullable(),
   status: z.enum(['draft', 'ready', 'needs_review', 'synced', 'rejected']),
   review_notes: z.string().nullable(),
   image_upload_status: z.string().nullable(),

@@ -140,8 +140,8 @@
   - **Correção REV-001 (2026-06-22):** `RAISE NOTICE` movido para dentro do `DO $$` (era standalone após `COMMIT` — erro sintático crítico que bloquearia deploy). Corrigido seguindo padrão de `migration_128:82`.
   - Tipos Kysely `ImportCorrectionsTable` em `db/types.ts` + registro no `Database`
   - Endpoints `POST /drafts/:id/correction` + `GET /metrics` implementados
-  - Validação final consolidada: lint 15/15, build 17/17 e backend 21 arquivos/159 testes verdes.
-  - A aplicação da migration 129 e o smoke no beta pertencem à etapa operacional pós-merge da spec; não reabrem este débito de implementação.
+  - Validação final consolidada: lint 15/15, build 17/17 e backend 21 arquivos/178 testes verdes.
+  - **Migration 129 aplicada no banco beta** (2026-06-22, confirmado via ssh read-only: `schema_migrations` beta tem 128 e 129). Nenhuma migração pendente no beta. Aplicação foi feita por codex/deepseek durante o ciclo de desenvolvimento, não pelo runner de deploy. Smoke no beta pertence à etapa operacional pós-merge.
 
 ## DEB-047-09 — Lint repo-wide inclui artefatos `dist-cjs` de `packages/feedback`
 
@@ -182,13 +182,13 @@
   5. migration 129: constraints/FKs e comportamento de deleção.
 - **Risco:** o `tsc`, lint e testes legados provam compatibilidade estática e ausência de regressão na suíte existente, mas não provam que os fluxos novos funcionam nem que preservam as invariantes de produto ("não publicar automaticamente", idempotência e corpus correto).
 - **Ação necessária:** adicionar testes unitários/de rota com DB mockado ou banco de teste cobrindo os casos acima; confirmar explicitamente que sync cria `tables.status = 'draft'` e jamais `published`; executar a suíte e registrar contagem nova.
-- **Status:** **resolvido (2026-06-22)** — `adminImportInbox.test.ts` criado com 15 testes cobrindo 4 das 5 superfícies:
+- **Status:** **resolvido (2026-06-22)** — `adminImportInbox.test.ts` criado com 45 testes cobrindo 4 das 5 superfícies:
   1. `syncImportDraftToTable`: 404, 422 (sem import_message_id), já-synced, rejected, não-ready, mensagem não encontrada, missing_fields, criação com status draft ✅
   2. `POST /drafts/:id/sync`: coberto via mock de db + supertest ✅
   3. `POST /drafts/:id/correction`: schema inválido, draft inexistente, diff zero, diff com mudanças ✅
   4. `GET /metrics`: base vazia, agregação por campo ✅
   5. migration 129: coberto indiretamente (tipos Kysely compilam, FK referenciada nos inserts) 🔜
-   Suíte: **19 files / 144 tests** (era 19/134; +10 testes adicionados para `POST /import-text` e `GET /drafts` via REV-005). `tsc --noEmit` verde.
+   Suíte: **21 files / 178 tests** (era 19/134; +44 testes adicionados pela spec 047). `tsc --noEmit` verde.
 
 ## DEB-047-12 — Duplicação entre `syncDiscordDraftToTable` e `syncImportDraftToTable`
 
@@ -267,11 +267,78 @@
   - `discord/index.ts`: barrel exports adicionados
   - `tsc` limpo, 19/19 files, 144/144 testes, 15/15 lint
 
+## DEB-047-16a — Primitivos compartilhados `<Textarea>`/`<Input>`/`<Banner>` em `packages/ui` (Opção B)
+
+- **Severidade:** Média (qualidade de design system)
+- **Origem:** REV-026, classe de bug bg/fg — investigação DEB-047-16b
+- **Descrição:** Criar componentes primitivos compartilhados em `packages/ui` que encapsulam os pares bg/fg theme-aware, eliminando todo hand-roll de `bg-[var(--surface)] text-[var(--fg)]` nos apps consumidores.
+- **🔍 ACHADO DURANTE IMPLEMENTAÇÃO (2026-06-23):** `TextInput`, `Textarea`, `Select` e `Field` **já existiam** em `packages/ui/src/primitives.tsx` desde a spec 022, com classes CSS `artificio-control` usando tokens semânticos (`--surface`/`--fg`/`--line`/`--fg-muted`). O que faltava:
+  1. `forwardRef` em TextInput/Textarea/Select — adicionado
+  2. Componente `<Banner>` — criado com variantes success/warning/danger/info/neutral
+  3. CSS `.artificio-banner` — adicionado em styles.css com tokens `--state-*-bg/line/fg`
+  4. Export `Banner` + `BannerProps` + `BannerVariant` em index.ts
+  5. Migração do TextPasteArea (mesas inbox) — labels/banners/textarea substituídos por `Field`/`Banner`/`Textarea` de `packages/ui`
+- **Componentes disponíveis agora:**
+  - `<TextInput>` — `forwardRef`, tokens semânticos, controlSize (sm/md/lg), invalid
+  - `<Textarea>` — `forwardRef`, tokens semânticos, controlSize (sm/md/lg), invalid
+  - `<Select>` — `forwardRef`, tokens semânticos, controlSize (sm/md/lg), invalid
+  - `<Field>` — label + error/hint + required
+  - `<Banner>` — success/warning/danger/info/neutral, icon opcional
+- **Call-sites do glossário para próxima migração (~15, registrados mas fora do escopo):**
+  - `AddTermModal.tsx:17,19`, `SearchBar.tsx:22`, `AdminFeedbackPage.tsx:114,121,129,176,185`, `AdminActivityPage.tsx:162,171,186,202,219,229`, `ProfilePage.tsx:49`, `NotificationsPage.tsx:37,40`, `MigrationPage.tsx:121,133`, `FeedbackModal.tsx:159,170,185` (contexto navy-block)
+- **Lint:** 15/15 ✅ **Build:** 17/17 ✅
+- **Status:** ✅ Resolvido (2026-06-23)
+
+## DEB-047-16b — Registro de investigação: classe de bug bg/fg (origem REV-026)
+
+- **Severidade:** Informativo (investigação concluída)
+- **Origem:** REV-026 — classe de bug: par bg/fg dessincroniza entre temas
+- **Contexto:** REV-026 revelou que qualquer call-site que case manualmente `var(--artificio-surface)` + `var(--artificio-fg)` sob um escopo que sobrescreve só um dos dois produz texto invisível no tema escuro. `--artificio-surface` é fixo `#ffffff`; `--artificio-fg` troca no dark para claro → fg claro sobre bg branco. Duas manifestações:
+  1. Textarea (`TextPasteArea.tsx:76`): par `--artificio-surface`/`--artificio-fg` → texto invisível no dark
+  2. Banners de status (linhas 107/117/128): paleta tailwind hardcoded → texto apagado
+- **Fix imediato aplicado:** textarea migrado para `var(--surface)`/`var(--fg)`; banners migrados para `var(--state-*-bg/line/fg)`.
+- **🔍 INVESTIGAÇÃO (2026-06-23):**
+  - **Causa-raiz confirmada:** `--artificio-surface` (styles.css:7) = `#ffffff` fixo, sem override em `[data-theme="dark"]`. Token semântico `--surface` (styles.css:62) troca corretamente nos 2 temas. Todos os tokens semânticos existem em ambos os temas (verificado visualmente + `check-token-parity.mjs`).
+  - **Mapa de recorrência (3 passes `rg`):**
+    1. `bg-[var(--...)] text-[var(--...)]` → ~100+ call-sites. Maioria usa tokens semânticos seguros (`--surface`/`--fg`, `--state-*`, `--btn-primary-*`, `--navy-block-*`). 3 casos de potencial dessincronia identificados (FeedbackModal brand+fg, TableCardDashboard bronze+fg, LinksSearch --text) — todos seguros por coincidência, nenhum bug reportado.
+    2. Banners tailwind hardcoded: **0 ocorrências** fora do TextPasteArea (já corrigido).
+    3. Par `--artificio-surface`+`--artificio-fg`: **1 call-site** (TextPasteArea, já corrigido).
+  - **check-token-parity.mjs:** já verifica paridade de vars semânticas entre temas.
+  - **Risco residual:** próximo de zero após fix imediato.
+  - **Decisão:** Optou-se pela Opção B (primitivos compartilhados) como prevenção atômica — registrada em DEB-047-16a.
+  - **Implementação:** DEB-047-16a executado em 2026-06-23: `Banner` criado, `forwardRef` adicionado aos inputs, TextPasteArea migrado para `Field`/`Textarea`/`Banner`. lint+uild verdes.
+- **Status:** ✅ Investigação concluída (2026-06-23) — prevenção implementada via DEB-047-16a
+
 ## DEB-047-15 — DiscordDraftPreview cognitive complexity 29
 
 - **Severidade:** Média
 - **Origem:** SonarCloud Quality Gate PR #88 (SC-004)
 - **Descrição:** O componente `DiscordDraftPreview.tsx` tem cognitive complexity 29 (limite 15) e 707 linhas. Contribuição da spec 047 é mínima (+2 props `api`/`onBeforeSync`), mas o componente quebrou o Quality Gate.
-- **Ação:** Refatorar extraindo handlers para hooks (`useDraftForm`, `useDraftSync`, `useCoverUpload`, `useSlotsAmbiguity`) e abas para subcomponentes (`DraftEditorTab`, `DraftNormalizedTab`, `DraftParsedTab`).
-- **Dependência de:** Fora do escopo 047. Pode ser feito em spec separada.
-- **Status:** ⏳ Pendente (2026-06-22)
+- **🔍 INVESTIGAÇÃO (2026-06-23):**
+  - **Tamanho confirmado:** 707 linhas exatas. 22 handlers/hooks/memo internos.
+  - **Complexidade real:** 90 pontos de condição/ciclo no arquivo todo. A complexidade cognitiva 29 é razoável para o componente principal (modal com formulário de 15 campos + upload + sync + 3 abas). Contribuição real da spec 047: **~20 linhas líquidas** (2 props + `draftApi` injection + `onBeforeSync` no handleSync + readonly nos tipos).
+  - **Arquitetura atual:** 3 camadas misturadas no mesmo arquivo:
+    1. **Helpers puros** (linhas 48-220): 19 funções (`isRecord`, `asRecord`, `asString`, `asNumberString`, `normalizePayload`, `asStringArray`, `asSlotsAmbiguity`, `getDraftTable`, `buildForm`, `parseOptionalNonNegativeInt`, `parseOptionalMoney`, `validateForm`, `buildMissingFields`, `buildUpdatedPayload`, `formatFileSize`, `flattenSystems`, `loadSystems`) — **~170 linhas, 0 de React, totalmente extraíveis** para módulo `draftFormUtils.ts`. Reusabilidade zero hoje (só este arquivo usa).
+    2. **Estado/handlers/efeitos** (linhas 221-457): 12 estados + 1 ref + 1 effect + sincronização render-time + 9 handlers. Extraível para 3-4 hooks:
+       - `useDraftForm` (~120 linhas: estado + `handleSaveFields` + `handleSystemChange` + `updateForm`)
+       - `useCoverUpload` (~50 linhas: `handleCoverUpload` + `handleRemoveCover`)
+       - `useSlotsAmbiguity` (~50 linhas: `handleConfirmSlots` + estado de interpretação)
+       - `useDraftActions` (~50 linhas: `handleSync` + `handleReparse` + `handleSaveStatus`)
+    3. **JSX/visual** (linhas 467-706): ~240 linhas. Extraível para:
+       - `DraftModal.tsx` (wrapper + header + tabs + action buttons)
+       - `DraftEditorTab.tsx` (~200 linhas: formulário de 15 campos + capa + ambiguidade)
+       - `DraftStatusBar.tsx` (~50 linhas: status header)
+  - **Avaliação da proposta original:** A sugestão de 4 hooks + 3 subcomponentes é correta mas incompleta. **A extração mais impactante** seria mover as 19 funções puras para módulo `draftFormUtils.ts` (~170 linhas removidas do componente, zero risco de regressão). As abas `DraftNormalizedTab` e `DraftParsedTab` são triviais (1 linha cada, `<pre>{JSON.stringify}</pre>`) — não valem como subcomponente.
+  - **Plano revisado recomendado:**
+    1. Extrair 19 funções puras → `draftFormUtils.ts` (~170 linhas, risco zero)
+    2. Extrair 3-4 hooks temáticos → `useDraftForm.ts`, `useCoverUpload.ts`, `useSlotsAmbiguity.ts` (~220 linhas, risco médio)
+    3. Extrair `DraftEditorTab.tsx` + `DraftActionButtons.tsx` como subcomponentes JSX (~200 + ~50 linhas, risco médio)
+    4. O componente principal fica com ~100-150 linhas: props, composição de hooks, JSX enxuto
+- **Implentação (2026-06-23):** Refatoração completa executada:
+  1. `draftFormUtils.ts` — 19 funções puras extraídas (~170 linhas), exporta tipos `DraftForm`, `DraftTableType`, etc.
+  2. `useDraftForm.ts` — hook único (~270 linhas) consolidando 12 estados + 9 handlers + sincronização render-time + `loadSystems` effect
+  3. `DraftEditorTab.tsx` — subcomponente JSX do formulário (~200 linhas, 15 campos + capa + ambiguidade)
+  4. `constants.ts` — `STATUS_OPTIONS` extraído
+  5. `DiscordDraftPreview.tsx` — reduzido de **707 para ~139 linhas** (propósito: composição)
+  6. Lint 15/15 ✅, build 17/17 ✅, backend 178 testes ✅
+- **Status:** ✅ Resolvido (2026-06-23)

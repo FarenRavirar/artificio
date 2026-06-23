@@ -70,13 +70,17 @@ export function InboxDraftReviewTable() {
       return null;
     }
 
-    const diff: Record<string, unknown> = {};
     const originalTable = isRecord(originalNormalized.table) ? originalNormalized.table : {};
     const currentTable = isRecord(currentNormalized.table) ? currentNormalized.table : {};
 
-    for (const key of Object.keys(currentTable)) {
-      const before = originalTable[key];
-      const after = currentTable[key];
+    const allKeys = new Set<string>();
+    for (const key of Object.keys(originalTable)) allKeys.add(key);
+    for (const key of Object.keys(currentTable)) allKeys.add(key);
+
+    const diff: Record<string, unknown> = {};
+    for (const key of allKeys) {
+      const before = Object.prototype.hasOwnProperty.call(originalTable, key) ? originalTable[key] : null;
+      const after = Object.prototype.hasOwnProperty.call(currentTable, key) ? currentTable[key] : null;
       if (JSON.stringify(before) !== JSON.stringify(after)) {
         diff[key] = after;
       }

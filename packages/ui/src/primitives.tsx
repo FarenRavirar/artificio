@@ -1,12 +1,13 @@
-import type {
-  AnchorHTMLAttributes,
-  ButtonHTMLAttributes,
-  InputHTMLAttributes,
-  ReactNode,
-  SelectHTMLAttributes,
-  TextareaHTMLAttributes,
+import {
+  forwardRef,
+  useEffect,
+  type AnchorHTMLAttributes,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
 } from "react";
-import { useEffect } from "react";
 
 type PrimitiveSize = "sm" | "md" | "lg";
 
@@ -100,6 +101,24 @@ export interface BadgeProps {
   className?: string;
 }
 
+export type BannerVariant = "success" | "warning" | "danger" | "info" | "neutral";
+
+export interface BannerProps {
+  children: ReactNode;
+  variant?: BannerVariant;
+  icon?: ReactNode;
+  className?: string;
+}
+
+export function Banner({ children, variant = "neutral", icon, className }: BannerProps) {
+  return (
+    <div className={cx("artificio-banner", `artificio-banner-${variant}`, className)}>
+      {icon ? <span className="artificio-banner-icon">{icon}</span> : null}
+      <span className="artificio-banner-text">{children}</span>
+    </div>
+  );
+}
+
 export function Badge({ children, variant = "neutral", className }: BadgeProps) {
   return (
     <span className={cx("artificio-badge", `artificio-badge-${variant}`, className)}>
@@ -147,57 +166,60 @@ type ControlStateProps = {
 
 export type TextInputProps = InputHTMLAttributes<HTMLInputElement> & ControlStateProps;
 
-export function TextInput({
+export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function TextInput({
   className,
   invalid,
   controlSize = "md",
   ...props
-}: TextInputProps) {
+}, ref) {
   return (
     <input
+      ref={ref}
       className={cx("artificio-control", `artificio-control-${controlSize}`, className)}
       aria-invalid={invalid || undefined}
       data-invalid={invalid ? "true" : undefined}
       {...props}
     />
   );
-}
+});
 
 export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & ControlStateProps;
 
-export function Textarea({
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea({
   className,
   invalid,
   controlSize = "md",
   ...props
-}: TextareaProps) {
+}, ref) {
   return (
     <textarea
+      ref={ref}
       className={cx("artificio-control", "artificio-textarea", `artificio-control-${controlSize}`, className)}
       aria-invalid={invalid || undefined}
       data-invalid={invalid ? "true" : undefined}
       {...props}
     />
   );
-}
+});
 
 export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & ControlStateProps;
 
-export function Select({
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select({
   className,
   invalid,
   controlSize = "md",
   ...props
-}: SelectProps) {
+}, ref) {
   return (
     <select
+      ref={ref}
       className={cx("artificio-control", `artificio-control-${controlSize}`, className)}
       aria-invalid={invalid || undefined}
       data-invalid={invalid ? "true" : undefined}
       {...props}
     />
   );
-}
+});
 
 export type PanelTone = "default" | "subtle" | "elevated" | "danger" | "warning";
 

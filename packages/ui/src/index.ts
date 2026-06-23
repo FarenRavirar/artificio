@@ -5,6 +5,7 @@ export { Header } from "./Header.js";
 export { Nav } from "./Nav.js";
 export {
   Badge,
+  Banner,
   Button,
   Drawer,
   EmptyState,
@@ -44,6 +45,8 @@ export type { NavItem } from "./modules.js";
 export type {
   BadgeProps,
   BadgeVariant,
+  BannerProps,
+  BannerVariant,
   ButtonProps,
   ButtonSize,
   ButtonVariant,
