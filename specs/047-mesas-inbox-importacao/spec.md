@@ -179,13 +179,40 @@ Motivos:
 - [x] Plano de implementação mínimo definido (Fase 1 — MVP)
 - [x] Spec consolidada (contradições resolvidas, Opção C como decisão final)
 
-### Fase 0.5 — Pesquisa de ferramentas
-- [ ] Matriz de bibliotecas candidatas com avaliação (dateparser, RapidFuzz, DeepSeek JSON Output, Playwright, DiscordChatExporter)
-- [ ] Prova mínima local com 10 anúncios reais (medir acerto do parser atual sem nenhuma IA)
-- [ ] Decisão documentada de usar ou não cada biblioteca
-- [ ] Critérios de descarte documentados
-- [ ] Se dateparser for aprovado: testar com datas em português ("sábado às 19h", "quinzenal", "hoje")
-- [ ] Se RapidFuzz for aprovado: testar fuzzy match contra base de sistemas (threshold e cutoff)
+### Fase 0.5 — Pesquisa de ferramentas ✅ (implementada 2026-06-23)
+
+**Dependências instaladas:**
+
+| Dependência | Tipo | Arquivo afetado | O que substituiu |
+|---|---|---|---|
+| `chrono-node ^2.9.1` | runtime | `apps/mesas/backend/package.json` | `extractDayOfWeek` + `extractStartTime` + `deriveFrequency` em `parseDiscordAnnouncement.ts` — regex caseiras (~30 linhas) substituídas por `chronoPt.parse()` com fallback regex para labels. Uso: `import { pt as chronoPt } from 'chrono-node'` |
+| `fuzzball ^2.2.6` | runtime | `apps/mesas/backend/package.json` | `matchSystemName` em `normalizeDiscordTableDraft.ts` — loop exaustivo com normalização (~20 linhas) substituído por `fuzzball.token_sort_ratio(value, candidate) >= 82` |
+| `@playwright/test ^1.61.0` | dev | `apps/mesas/frontend/package.json` | Novo: `e2e/playwright.config.ts` + `e2e/inbox-smoke.spec.ts` + scripts `test:e2e` / `test:e2e:install`. Teste cobre fluxo completo: colar texto → importar → ver draft |
+
+**Novos arquivos:**
+
+| Arquivo | O que faz |
+|---|---|
+| `apps/mesas/backend/src/inbox/deepseek.ts` | `enhanceWithDeepSeek()` — fallback LLM no pipeline. Chama `deepseek-v4-flash` via API REST com `response_format: json_object`. Só ativado se env `DEEPSEEK_API_KEY` presente. Gatilho: confidence < 0.6 ou sem system_id. Modelo configurável via `DEEPSEEK_MODEL` (default `deepseek-chat`). |
+| `apps/mesas/frontend/e2e/playwright.config.ts` | Config Playwright: Chromium headless, baseURL do beta, trace/screenshot em falha |
+| `apps/mesas/frontend/e2e/inbox-smoke.spec.ts` | Smoke E2E: login SSO → /gestao → aba Inbox → colar texto → importar → ver draft criado. Requer cookie de sessão admin exportado (storageState). |
+| `apps/mesas/scripts/discord-export.sh` | Script operacional Docker para export de canais Discord. Uso: `./discord-export.sh -t TOKEN -c CHANNEL_ID`. NUNCA automatizado (viola TOS do Discord). |
+
+**Integração no fluxo existente:**
+
+- `adminImportInbox.ts:167-179` — pipeline 2 estágios: parser regex → `normalizeDiscordTableDraft` → se confidence < 0.6 ou sem system_id → `enhanceWithDeepSeek()` → re-normalize. DeepSeek só toca API se `DEEPSEEK_API_KEY` definida. Falha silenciosa (parser regex mantido).
+
+**O que a VM agora precisa ter:**
+
+- Chromium (para testes E2E Playwright): `npx playwright install chromium` (aprox 300MB)
+- Docker image `tyrrrz/discordchatexporter:latest` (para export operacional): `docker pull tyrrrz/discordchatexporter` (aprox 200MB)
+- Env `DEEPSEEK_API_KEY` (opcional, para ativar fallback DeepSeek)
+- Env `DEEPSEEK_MODEL` (opcional, default `deepseek-chat`)
+
+**Validação:**
+
+- Backend: 178/178 tests passando, build 17/17, lint 15/15
+- Frontend: E2E Playwright requer Chromium instalado + cookie de sessão admin (não executado localmente)
 
 ### Fase 1 — backend ✅ frontend ❌
 

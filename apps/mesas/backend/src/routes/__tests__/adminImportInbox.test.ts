@@ -981,6 +981,15 @@ describe('PATCH /admin/inbox/drafts/:id', () => {
     expect(response.body.error).toContain('publicar');
   });
 
+  it('rejects invalid enum values in normalized_payload.table (400)', async () => {
+    const response = await request(makeApp())
+      .patch('/admin/inbox/drafts/draft-1')
+      .send({ normalized_payload: { table: { type: 'banana' } } });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain('inválidos');
+  });
+
   it('updates draft status successfully', async () => {
     mockDb.selectFrom.mockReturnValue(mockChain({
       executeTakeFirst: vi.fn().mockResolvedValue({

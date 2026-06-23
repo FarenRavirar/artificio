@@ -158,7 +158,9 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
         continue;
       }
 
-      const normalized = normalizeDiscordTableDraft(parsedDraft, systems);
+      const enrichedDraft = normalizeDiscordTableDraft(parsedDraft, systems);
+
+      const normalized = enrichedDraft;
 
       const [draftRow] = await db
         .insertInto('discord_import_table_drafts')
@@ -350,8 +352,19 @@ router.get('/drafts/:id', authMiddleware, async (req: Request, res: Response) =>
 
 // ─── PATCH /drafts/:id ────────────────────────────────────────────────────────
 
+const patchDraftTableSchema = z.object({
+  type: z.enum(['campanha', 'one-shot', 'oneshot-serie', 'aberta']).nullable().optional(),
+  modality: z.enum(['online', 'presencial', 'hibrida']).nullable().optional(),
+  price_type: z.enum(['gratuita', 'paga']).nullable().optional(),
+  frequency: z.enum(['semanal', 'quinzenal', 'mensal', 'avulsa']).nullable().optional(),
+}).passthrough();
+
+const patchNormalizedPayloadSchema = z.object({
+  table: patchDraftTableSchema.optional(),
+}).passthrough();
+
 const patchDraftSchema = z.object({
-  normalized_payload: z.record(z.string(), z.unknown()).optional(),
+  normalized_payload: patchNormalizedPayloadSchema.optional(),
   status: z.enum(['draft', 'ready', 'needs_review', 'rejected']).optional(),
   review_notes: z.string().optional(),
 });

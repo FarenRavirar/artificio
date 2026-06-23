@@ -163,3 +163,82 @@
 - `spec047-backup/` continua untracked e deve ficar fora do commit.
 - Nenhum commit, push, PR, merge, deploy, Chrome ou write na VM executado.
 - Próxima etapa: pedir autorização nominal para `git commit` local da branch de trabalho; depois autorizações separadas para push/PR/deploy.
+
+## Retomada Codex — fechamento real antes da Spec 048 (2026-06-23)
+
+- Pedido do mantenedor: fechar a Spec 047 antes de assumir a Spec 048.
+- Escopo executado: auditoria do diff local contra `origin/dev`, validações locais, inspeção beta read-only, correção de débitos pendentes e atualização documental.
+- Estado Git observado:
+  - branch local `chore/047-debitos-finais` atrás de `origin/dev` por 1 commit;
+  - `origin/dev` em `b70367c` (PR #89 mergeada/squashada);
+  - diff local contém documentação da Spec 048 e experimentos/ferramentas futuras (`chrono-node`, `fuzzball`, DeepSeek, Playwright E2E, `discord-export.sh`), que não são necessários para o smoke final da 047.
+- Correções executadas na 047:
+  - **DEB-047-21 fechado:** PATCH Inbox e PATCH Discord agora validam enums em `normalized_payload.table` (`type`, `modality`, `price_type`, `frequency`) com Zod e mantêm `.passthrough()` para o restante do payload.
+  - **DEB-047-23 fechado:** `DiscordDraftPreview` não tem mais fallback interno para `discordSyncApi`; a prop `api` é obrigatória. Call sites ativos já injetam API explicitamente.
+- Testes focados:
+  - `pnpm --filter @artificio/mesas-backend test -- adminImportInbox adminDiscordSync.drafts.patch`: ✅ 2 arquivos / 48 testes.
+  - `pnpm --filter @artificio/mesas-frontend build`: ✅.
+  - `pnpm --filter @artificio/mesas-backend build`: ✅.
+- Gates finais repo-wide:
+  - `pnpm run lint`: ✅ 15/15.
+  - `pnpm run build`: ✅ 17/17.
+  - `pnpm run test`: ✅ 24/24.
+  - Backend Mesas: ✅ 21 arquivos / 180 testes.
+  - Frontend Mesas: ✅ 4 arquivos / 19 testes.
+  - `git diff --check`: ✅ sem erro (somente avisos CRLF do Windows).
+- VM beta read-only:
+  - `/opt/artificio-beta`: `b70367c`.
+  - `mesas-beta-app`, `mesas-beta-api`, `mesas-beta-db`: healthy.
+  - `schema_migrations`: `migration_128_import_messages.sql` e `migration_129_import_corrections.sql` aplicadas.
+  - `discord_import_table_drafts`: 6 constraints, incluindo `chk_discord_import_table_drafts_single_origin`.
+  - HTTP público: `/health` 200, `/gestao` 200.
+  - Rotas admin Inbox sem sessão: `/api/v1/admin/inbox/drafts` 401, `/api/v1/admin/inbox/metrics` 401.
+- Smoke autenticado T1.13-T1.16:
+  - Não executado nesta retomada para não fabricar evidência; exige sessão admin/interação autenticada.
+  - Permanece como verificação operacional final antes de chamar a 047 de 100% fechada em produto.
+- Nenhum commit, push, PR, merge, deploy, Chrome efetivo ou write na VM executado.
+
+## Smoke autenticado final — T1.13-T1.16 (2026-06-23)
+
+- Autorização nominal recebida do mantenedor: "autorizado".
+- Chrome/perfil real usado apenas para sessão admin no beta; sem inspeção de cookies/senhas/localStorage.
+- Sessão confirmada: `/gestao` exibiu `Paulo Henrique` e controles admin, incluindo aba `Inbox`.
+- T1.13 ✅ — Colar 1 anúncio:
+  - Anúncio `SMOKE SPEC047 T1.13 — Mesa teste Codex 2026-06-23` importado pela UI.
+  - Draft apareceu na lista com origem `manual_paste`, confiança 100%.
+  - DB read-only: draft `ae10d78a-c1ae-4a8b-9f97-bc36d69b46aa`.
+- T1.14 ✅ — Colar múltiplos anúncios:
+  - Dois anúncios separados por `---` geraram dois drafts distintos.
+  - DB read-only:
+    - `84d67efe-27bb-45c9-8984-dff0dcec7f39` — `SMOKE SPEC047 T1.14-A — Mesa teste Codex múltipla A 2026-06-23`
+    - `59acc3fa-5c65-4668-bae5-811af3bdad70` — `SMOKE SPEC047 T1.14-B — Mesa teste Codex múltipla B 2026-06-23`
+- T1.15 ✅ — Revisar, editar, aprovar/sync:
+  - Draft T1.13 aberto; campo pendente `Contato Discord` preenchido com `@codex-smoke`; descrição editada.
+  - `Salvar campos` mudou status para `Pronto`; `Sincronizar como mesa` habilitou.
+  - Sync executado pela UI; draft mudou para `Sincronizado`.
+  - DB read-only:
+    - `discord_import_table_drafts`: `ae10d78a-c1ae-4a8b-9f97-bc36d69b46aa`, `status='synced'`, `table_id='f4c56c7e-0283-4ed5-a9ae-2ce43255392d'`.
+    - `tables`: `f4c56c7e-0283-4ed5-a9ae-2ce43255392d`, título smoke T1.13, `status='draft'`.
+  - Conclusão crítica: sync não publicou automaticamente.
+- T1.16 ✅ — Rejeitar draft:
+  - Draft T1.14-A aberto; `Editar status` → `rejected` → `Salvar`.
+  - UI exibiu `Status: Rejeitado`.
+  - DB read-only confirmou `84d67efe-27bb-45c9-8984-dff0dcec7f39`, `status='rejected'`.
+- Sobra controlada: T1.14-B permaneceu `needs_review`, útil como evidência de fila revisável e identificável pelo prefixo `SMOKE SPEC047`.
+- Nenhum commit, push, PR, merge, deploy ou write direto na VM executado.
+
+## Correção de CI da PR #90 — DeepSeek fora da 047 (2026-06-23)
+
+- PR #90 (`chore/047-debitos-finais`) abriu com CI quebrado em checkout limpo.
+- Causa material nos logs do GitHub Actions: `adminImportInbox.ts` importava `../inbox/deepseek`, mas `deepseek.ts` era experimento local da Spec 048/futuro e não fazia parte do commit da 047.
+- Decisão: **não** adicionar `deepseek.ts` à PR #90. A 047 deve fechar sem fallback DeepSeek; IA pertence à Spec 048/futuro e precisa de validação/privacidade própria.
+- Correção local aplicada no worktree `C:\projetos\artificio-pr90`:
+  - removido import `enhanceWithDeepSeek`;
+  - removidas constantes `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`, `DEEPSEEK_CONFIDENCE_THRESHOLD`;
+  - removido fallback silencioso no `POST /api/v1/admin/inbox/import-text`;
+  - `manual_paste` volta a usar apenas `normalizeDiscordTableDraft(parsedDraft, systems)`.
+- Validação local após correção:
+  - `pnpm --filter @artificio/mesas-backend test -- adminImportInbox adminDiscordSync.drafts.patch`: ✅ 2 arquivos / 48 testes.
+  - `pnpm run lint`: ✅ 15/15.
+  - `pnpm run build`: ✅ 17/17.
+- Status: correção local pronta. Falta autorização nominal separada para `git commit` e depois para `git push` da branch da PR #90.

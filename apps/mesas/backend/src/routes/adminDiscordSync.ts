@@ -38,8 +38,19 @@ const updateSourceSchema = z.object({
   auto_sync_enabled: z.boolean().optional(),
 });
 
+const updateDraftTableSchema = z.object({
+  type: z.enum(['campanha', 'one-shot', 'oneshot-serie', 'aberta']).nullable().optional(),
+  modality: z.enum(['online', 'presencial', 'hibrida']).nullable().optional(),
+  price_type: z.enum(['gratuita', 'paga']).nullable().optional(),
+  frequency: z.enum(['semanal', 'quinzenal', 'mensal', 'avulsa']).nullable().optional(),
+}).passthrough();
+
+const updateDraftPayloadSchema = z.object({
+  table: updateDraftTableSchema.optional(),
+}).passthrough();
+
 const updateDraftSchema = z.object({
-  normalized_payload: z.record(z.string(), z.unknown()).optional(),
+  normalized_payload: updateDraftPayloadSchema.optional(),
   status: z.enum(['draft', 'ready', 'needs_review', 'rejected']).optional(),
   review_notes: z.string().optional(),
 });

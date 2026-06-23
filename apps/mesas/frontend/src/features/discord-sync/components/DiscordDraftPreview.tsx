@@ -1,6 +1,5 @@
 import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from '../types';
 import { STATUS_OPTIONS } from '../constants';
-import { discordSyncApi } from '../api/discordSyncApi';
 import { useDraftForm } from '../useDraftForm';
 import { DraftEditorTab } from './DraftEditorTab';
 
@@ -8,13 +7,12 @@ interface Props {
   readonly draft: DiscordDraft;
   readonly onUpdate: (updated: DiscordDraft) => void;
   readonly onClose: () => void;
-  readonly api?: DraftApiOperations;
+  readonly api: DraftApiOperations;
   readonly onBeforeSync?: (draft: DiscordDraft) => Promise<{ tableId: string; created: boolean } | null>;
 }
 
 export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSync }: Props) {
-  const draftApi = api ?? discordSyncApi;
-  const h = useDraftForm(draft, draftApi, onUpdate);
+  const h = useDraftForm(draft, api, onUpdate);
 
   const shouldShowSlotsDisambiguation = Boolean(h.slotsAmbiguity && h.payloadMissingFields.includes('slots_open:ambiguous_x_of_y'));
   const selectedPayload = h.activeTab === 'parsed' ? draft.parsed_payload : (draft.normalized_payload ?? draft.parsed_payload);
