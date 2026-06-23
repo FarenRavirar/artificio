@@ -333,3 +333,142 @@ Reviews de bots/PR coletados durante o ciclo de revisão do módulo mesas.
   - `<div role="region" ...>` → `<section ...>` (implicit role=region)
   - Testes: 163/163 frontend ✅
   - Build: sem erros ✅
+
+## REV-015 — Router de drafts montado em /messages expõe rotas de draft sob URL de mensagens
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** `apps/mesas/backend/src/routes/adminDiscordSync.ts:682` + `apps/mesas/backend/src/routes/discord/drafts.ts`
+- **Resumo:** `router.use('/messages', draftsRouter)` reaproveita o router inteiro de drafts em /messages, publicando também `GET /messages/:id`, `POST /messages/:id/reparse` e `POST /messages/:id/refresh-image` onde `:id` passa a ser tratado como draft id dentro de URL de mensagens. Extrair só o parse de mensagem para um router dedicado.
+- **Severidade declarada:** 🟠 Major | 🏗️ Heavy lift
+- **Status:** implementado ✅
+- **Task vinculada:** TE6 (extração de drafts)
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo:** `adminDiscordSync.ts:682` → `router.use('/messages', draftsRouter)`
+  - **Drafts router (`drafts.ts`):** contém `GET /`, `GET /:id`, `PATCH /:id`, `POST /:id/refresh-image`, `POST /:id/reparse`, `POST /:id/parse`
+  - **Rotas intencionais já existentes em `/messages`:** `GET /messages` (L580), `PATCH /messages/:id` (L617), `POST /messages/:id/diagnose-content` (L639), `POST /messages/parse-batch` (L478) — todas registradas ANTES do sub-router (L682), então matcheam primeiro
+  - **Rotas expostas não intencionalmente via sub-router:**
+    - `GET /messages/` (drafts `GET /`): lista drafts em URL de mensagens — **alcançável** se trailing slash
+    - `GET /messages/:id` (drafts `GET /:id`): retorna draft por ID em URL de mensagens — **alcançável**, sem handler `GET /messages/:id` top-level
+    - `POST /messages/:id/reparse` (drafts `POST /:id/reparse`): **alcançável**, mas frontend usa `/drafts/:id/reparse`
+    - `POST /messages/:id/refresh-image` (drafts `POST /:id/refresh-image`): **alcançável**, frontend não chama
+  - **Rota intencional:** `POST /messages/:id/parse` (drafts `POST /:id/parse`, L209) — comentário explícito "mounted at /messages" (L207). Usada pelo frontend em `discordSyncApi.ts:218`
+  - **Sem conflito para `PATCH /messages/:id`** — handler top-level L617 registrado primeiro (Express processa em ordem), sub-router não alcançado
+  - **Frontend não chama:** `GET /messages/:id`, `POST /messages/:id/reparse`, `POST /messages/:id/refresh-image`
+  - **Impacto real:** API surface poluída com 4 rotas fantasmas que operam em drafts mas parecem operar em mensagens. Nenhuma quebra funcional. Todas requerem admin auth. Sem bypass de segurança ou corrupção de dados.
+  - **Severidade real:** 🟡 Minor — confusão de API, sem quebra funcional, sem risco de dados
+  - **Risco de regressão:** baixo-médio — extrair `POST /:id/parse` para router dedicado requer mover handler e atualizar import; erro quebra `parseMessage` do frontend
+  - **Recomendação:** extrair `POST /:id/parse` de `drafts.ts` para router próprio (ex.: `messageParseRouter.ts`) montado em `/messages`; remover `router.use('/messages', draftsRouter)` de adminDiscordSync. Rotas fantasmas somem, rota intencional permanece.
+- **Conclusão:** Procede. Severidade real Minor (não Major). Deve ser implementado: extrair handler de parse para router dedicado.
+- **Implementação:**
+  - Criado `apps/mesas/backend/src/routes/discord/messageParse.ts`: router dedicado com `POST /:id/parse`, copiado de `drafts.ts`
+  - Corrigido indentação do `const parsed` que estava com 8 espaços extras (L223 do drafts.ts original)
+  - `adminDiscordSync.ts`: adicionado import de `messageParseRouter`, substituído `router.use('/messages', draftsRouter)` por `router.use('/messages', messageParseRouter)`
+  - `drafts.ts`: removido handler `POST /:id/parse` (L207-303)
+  - Testes: 223/223 backend ✅
+  - Build: sem erros ✅
+
+## REV-016 — Patch parcial substitui normalized_payload inteiro em vez de mesclar
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** `apps/mesas/backend/src/routes/discord/drafts.ts:104-106`
+- **Resumo:** `updateDraftPayloadSchema` aceita patches parciais, mas `.set({ ...parsed.data })` grava `normalized_payload` como substituição completa. Um PATCH com apenas `{ normalized_payload: { table: { title } } }` apaga source, missing_fields e demais campos já salvos. Mesclar o payload parcial antes de persistir.
+- **Severidade declarada:** 🟠 Major | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** TE6 (extração de drafts)
+- **Débito vinculado:** DEB-017 (merge parcial de normalized_payload no PATCH de drafts)
+- **Investigação:**
+  - **Arquivo:** `drafts.ts:104-106`
+  - **Código:** `.set({ ...parsed.data, updated_at: new Date() })` — spread direto de `parsed.data` no objeto de update do Kysely. `normalized_payload` presente em `parsed.data` → coluna JSONB inteira substituída
+  - **Schema:** `updateDraftPayloadSchema` (L18-20) = `.passthrough()` — aceita qualquer chave em `normalized_payload`, inclusive parciais
+  - **Kysely behavior:** `undefined` em `.set()` é ignorado pelo Kysely — não envia a coluna. Quando `normalized_payload` não está em `parsed.data` (handleSaveStatus), a coluna não é tocada. CORRETO.
+  - **Frontend (`useDraftForm.ts`):** 3 chamadas:
+    - `handleSaveFields` (L133): envia `normalized_payload` **completo** (merge via `buildUpdatedPayload`) ✅
+    - `handleConfirmSlots` (L227): envia `normalized_payload` **completo** com slots corrigidos ✅
+    - `handleSaveStatus` (L292): envia **apenas** `{ status, review_notes }` — sem `normalized_payload`. Kysely não toca a coluna. ✅
+  - **Cenário de risco:** admin envia PATCH manual (`curl`, Postman, ferramenta futura) com `{ normalized_payload: { table: { title } } }` — validação passa (`.passthrough()`), DB sobrescreve coluna inteira, perde `source`, `missing_fields`, `table.system`, `table.owner`, `table.slots`, etc.
+  - **Impacto real:** NENHUM no runtime atual — frontend nunca envia payload parcial. Risco futuro: refatoração ou chamada manual.
+  - **Severidade real:** 🟡 Minor — design flaw sem manifestação atual
+  - **Risco de regressão:** baixo — merge adiciona segurança sem quebrar chamadas existentes (frontend sempre envia payload completo, merge resultaria no mesmo valor)
+  - **Recomendação:** mergear `normalized_payload` recebido com o existente antes de persistir. Ex.: `const mergedPayload = { ...(current.normalized_payload as Record<string, unknown>), ...(parsed.data.normalized_payload ?? {}) }` e usar `mergedPayload` no `.set()` em vez de `parsed.data.normalized_payload`. Isto garante semântica PATCH real.
+- **Conclusão:** Procede tecnicamente, mas impacto real zero no momento. A correção é preventiva. Registrar como débito separado já que depende de mudança no backend (merge) e a tarefa original (TE6) é de extração, não correção de comportamento.
+- **Implementação:**
+  - `drafts.ts:104-112`: adicionado `mergedNormalizedPayload` que faz merge shallow em nível top-level do `normalized_payload` recebido com o existente (`current.normalized_payload`)
+  - Se `normalized_payload` não está presente no PATCH body, o campo não é passado ao `.set()` (coluna não é tocada pelo Kysely)
+  - Testes: 223/223 backend ✅
+  - Build: sem erros ✅
+
+## REV-017 — parseJsonField inconsistente entre branch string e branch objeto
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** `apps/mesas/backend/src/routes/discord/utils.ts:15-16`
+- **Resumo:** Quando o campo antigo vem como string contendo `{ "items": [...] }` ou `{ "data": [...] }`, o branch string retorna `[]`, embora o branch de objeto suporte esses wrappers. Reaproveitar a normalização após `JSON.parse` para manter o comportamento consistente.
+- **Severidade declarada:** 🟡 Minor | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** TE6 (utils.ts)
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo:** `utils.ts:7-19` — função `parseJsonField`
+  - **Branch objeto (L9-14):** suporta `{ items: [...] }` e `{ data: [...] }` via acesso direto a propriedades. ✅
+    - `record.items` → se array, retorna
+    - `record.data` → se array, retorna
+    - fallback: `Object.values(record)`
+  - **Branch string (L15-16):** `JSON.parse(value)` → `Array.isArray(parsed) ? parsed : []`
+    - Se o JSON string contém array puro `'[1,2,3]'` → retorna array ✅
+    - Se o JSON string contém objeto wrapper `'{"items": [1,2,3]}'` → `JSON.parse` → objeto → `Array.isArray` false → retorna `[]` ❌
+  - **Inconsistência:** o branch string NÃO reaproveita a lógica de normalização do branch objeto. O mesmo dado em formatos diferentes produz resultados diferentes.
+  - **Dados reais:** tabela `discord_import_messages` tem colunas `attachments` e `embeds` como JSONB com tipo Kysely `Generated<unknown[]>`. Todos os caminhos de escrita gravam arrays puros (`ingestMessages.ts:240-241`, `chatExporterImportService.ts:85`). Nenhum caminho de escrita atual produz `{"items": [...]}`, `{"data": [...]}` ou string JSON.
+  - **Cenário de risco:** apenas dados legados ou migração manual que armazene attachments/embeds como string JSON com wrapper. Nenhum caminho atual de produção atinge esse cenário.
+  - **Impacto real:** NENHUM no runtime atual — dados sempre chegam como array. Defesa para cenário improvável.
+  - **Severidade real:** 🟡 Minor — inconsistência em código defensivo, sem trigger real
+  - **Risco de regressão:** nulo — reaproveitar a normalização do branch objeto no branch string é aditivo (só muda comportamento para o caso que hoje retorna `[]` incorretamente)
+  - **Recomendação:** no branch string, após `JSON.parse(parsed)`, se não for array, fazer as mesmas verificações de `items`/`data` que o branch objeto faz. Ex.: `if (typeof parsed === 'object' && parsed && Array.isArray((parsed as Record<string, unknown>).items)) return (parsed as Record<string, unknown>).items;`
+- **Conclusão:** Procede. Inconsistência real em código defensivo. Sem trigger atual, mas a correção é trivial e torna o comportamento consistente entre todos os formatos de entrada possíveis.
+- **Implementação:**
+  - `utils.ts:15-26`: branch string de `parseJsonField` agora replica a lógica de normalização do branch objeto — após `JSON.parse`, se não for array, verifica `record.items` e `record.data` antes de retornar `[]`
+  - Testes: 223/223 backend ✅
+  - Build: sem erros ✅
+
+## REV-018 — ensureSystemSuggestionForDraft sem try/catch pode derrubar parse concluído
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** `apps/mesas/backend/src/routes/discord/utils.ts:54-101`
+- **Resumo:** `ensureSystemSuggestionForDraft` é efeito colateral pós-parse; se o select/insert em `system_suggestions` falhar, os endpoints que já criaram/atualizaram o draft retornam 500 e podem deixar mensagem/draft em estado inconsistente. Isolar essa falha com try/catch + console.error.
+- **Severidade declarada:** 🟠 Major | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** TE6 (utils.ts)
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo:** `utils.ts:54-101` — `ensureSystemSuggestionForDraft`
+  - **Código:** SELECT + INSERT em `system_suggestions` + `notifyAdmins`. SELECT e INSERT SEM try/catch interno. `notifyAdmins` (adminNotifications.ts:26-53) já tem try/catch interno que engole erro — não propaga.
+  - **Call sites (4):**
+
+    | # | Local | Tipo | Ocorrência | Impacto do throw |
+    |---|---|---|---|---|
+    | 1 | `adminDiscordSync.ts:169-173` — `createOrUpdateDraftFromMessage()` | Auto-parse em lote | Chamado por `parsePendingMessagesForSource` (L205) | Catch (L208) seta msg status='error', parse_error=msg erro. Parse já tinha setado status='parsed' (L164-167) e draft já foi criado (L137-161). **Msg regride de 'parsed' para 'error' → re-parse no próximo ciclo** |
+    | 2 | `adminDiscordSync.ts:554-558` — POST /messages/parse-batch | Parse em lote manual | Na iteração do for | Catch (L561) seta msg status='error', parse_error. **Mesmo impacto: regride para 'error'** |
+    | 3 | `drafts.ts:194-198` — POST /:id/reparse | Reparse manual | Fora do loop, após update do draft (L181-192) | Catch (L201) retorna 500. Draft já atualizado. **Retorna 500 mesmo com reparse bem-sucedido. Idempotente, sem corrupção.** |
+    | 4 | `drafts.ts:286-290` — POST /:id/parse | Parse manual | Após criar/atualizar draft e setar msg='parsed' (L249-284) | Catch (L293) seta parse_error na msg mas **não altera status** (msg fica 'parsed'). HTTP 500. **Msg fica com parse_error enganoso (sugestão falhou, não o parse).** |
+
+  - **Fluxo de falha (pior caso, path #1):**
+    1. Parse bem-sucedido → draft criado/atualizado ✅
+    2. Message status setado para 'parsed' ✅
+    3. `ensureSystemSuggestionForDraft` falha (DB timeout, constraint) ❌
+    4. Catch do loop seta message de volta para 'error' com parse_error = "violação de chave duplicada em system_suggestions"
+    5. Próximo parse-batch re-processa a mensagem → cria/atualiza draft novamente (idempotente)
+    6. **Trabalho desperdiçado, sem corrupção permanente**
+  - **Cenário pior (path #1):** Se DB de suggestions está persistentemente quebrado (schema issue), a mensagem fica num loop infinito de parse → erro → re-parse → erro, consumindo recursos a cada ciclo.
+  - **Impacto real:** Moderado. Mensagens corretamente parseadas são marcadas como erro e re-processadas. Drafts não são corrompidos (idempotentes). Mas consumo de recursos é desperdiçado e logs ficam poluídos.
+  - **Severidade real:** 🟠 Major — side effect falho contamina o estado da mensagem e causa re-trabalho no ciclo de parse
+  - **Risco de regressão:** nulo — envolver a chamada em try/catch é aditivo, só muda comportamento na falha
+  - **Recomendação:** envolver cada chamada de `ensureSystemSuggestionForDraft` em try/catch local que loga o erro e não propaga. A sugestão é best-effort, não deve abortar o parse. Fix ideal: fazer o catch no próprio `ensureSystemSuggestionForDraft` (assim todos os call sites ganham proteção automática) ou em cada call site. A primeira opção (try/catch dentro da função) é mais robusta contra novos call sites.
+- **Conclusão:** Procede. Mantém severidade 🟠 Major. Correção deve isolar o efeito colateral (sugestão) do fluxo principal (parse), seja por try/catch interno na função ou em cada call site. A falha não deve contaminar o estado da mensagem nem causar re-trabalho.
+- **Implementação:**
+  - `utils.ts:54-102`: função `ensureSystemSuggestionForDraft` agora envolve todo o corpo (após early return) em try/catch que loga o erro via `console.error` e não propaga
+  - A função continua sendo chamada nos mesmos 4 call sites — agora é segura por padrão (proteção automática para novos call sites)
+  - Testes: 223/223 backend ✅
+  - Build: sem erros ✅

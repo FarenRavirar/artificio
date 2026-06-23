@@ -2,18 +2,10 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../../db';
 import type { NewDiscordSetting } from '../../db/types';
-import { authMiddleware } from '../../middleware/auth';
+import { requireAdmin } from '../../middleware/auth';
 import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError, DiscordSettingsDecryptError } from '../../discord/settingsCrypto';
 
 const router = Router();
-
-function isAdmin(req: Request, res: Response): boolean {
-  if ((req as any).user?.role !== 'admin') {
-    res.status(403).json({ error: 'Acesso restrito a administradores.' });
-    return false;
-  }
-  return true;
-}
 
 const botTokenSchema = z.object({
   token: z.string().trim().min(50, 'Token deve ter pelo menos 50 caracteres.').regex(/^\S+$/, 'Token não pode conter espaços.'),
@@ -32,8 +24,7 @@ function sendSettingsError(res: Response, error: unknown, fallbackMessage: strin
 }
 
 // GET /
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.get('/', requireAdmin, async (req: Request, res: Response) => {
   try {
     const setting = await db
       .selectFrom('discord_settings')
@@ -78,8 +69,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // PUT /bot-token
-router.put('/bot-token', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.put('/bot-token', requireAdmin, async (req: Request, res: Response) => {
   const parsed = botTokenSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Token inválido.', details: parsed.error.flatten() });
@@ -126,8 +116,7 @@ router.put('/bot-token', authMiddleware, async (req: Request, res: Response) => 
 });
 
 // DELETE /bot-token
-router.delete('/bot-token', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.delete('/bot-token', requireAdmin, async (req: Request, res: Response) => {
   try {
     await db
       .deleteFrom('discord_settings')

@@ -1,21 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../../db';
-import { authMiddleware } from '../../middleware/auth';
+import { requireAdmin } from '../../middleware/auth';
 import type { DiscordImportDraftStatus } from '../../discord';
 import { syncDiscordDraftToTable, DiscordDraftSyncValidationError, DraftNotFoundError, DraftStateError } from '../../discord';
 
 const router = Router();
 
-function isAdmin(req: Request, res: Response): boolean {
-  if ((req as any).user?.role !== 'admin') {
-    res.status(403).json({ error: 'Acesso restrito a administradores.' });
-    return false;
-  }
-  return true;
-}
-
-router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/drafts/:id/sync', requireAdmin, async (req: Request, res: Response) => {
   try {
     const draft = await db
       .selectFrom('discord_import_table_drafts')
@@ -45,8 +36,7 @@ router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Respon
   }
 });
 
-router.post('/sync-ready', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/sync-ready', requireAdmin, async (req: Request, res: Response) => {
   try {
     const readyDrafts = await db
       .selectFrom('discord_import_table_drafts')

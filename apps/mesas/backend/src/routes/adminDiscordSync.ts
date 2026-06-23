@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
 import type { DiscordSourceChannelType } from '../db/types';
-import { authMiddleware } from '../middleware/auth';
+import { requireAdmin } from '../middleware/auth';
 import type { DiscordImportMessageStatus } from '../discord';
 import { DiscordDiscoveryError, DiscordIngestError, discoverDiscordChannels, discoverDiscordGuilds, ingestForumMessages, ingestMessages, parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../discord';
 import type { SystemEntry } from '../discord';
@@ -15,16 +15,10 @@ import importRouter from './discord/import';
 import syncRouter from './discord/sync';
 import settingsRouter from './discord/settings';
 import draftsRouter from './discord/drafts';
+import messageParseRouter from './discord/messageParse';
 const router = Router();
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 
-function isAdmin(req: Request, res: Response): boolean {
-  if ((req as any).user?.role !== 'admin') {
-    res.status(403).json({ error: 'Acesso restrito a administradores.' });
-    return false;
-  }
-  return true;
-}
 
 // ─── Schemas de validacao ────────────────────────────────────────────────────
 
@@ -263,8 +257,7 @@ function sendDiscordFetchError(res: Response, error: unknown): Response {
 // ─── Descoberta de servidores/canais ─────────────────────────────────────────
 
 // GET /discovery/guilds
-router.get('/discovery/guilds', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.get('/discovery/guilds', requireAdmin, async (req: Request, res: Response) => {
   try {
     const guilds = await discoverDiscordGuilds();
     return res.json({ data: guilds });
@@ -274,8 +267,7 @@ router.get('/discovery/guilds', authMiddleware, async (req: Request, res: Respon
 });
 
 // GET /discovery/guilds/:guildId/channels
-router.get('/discovery/guilds/:guildId/channels', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.get('/discovery/guilds/:guildId/channels', requireAdmin, async (req: Request, res: Response) => {
   const parsed = snowflakeParamSchema.safeParse(req.params);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Servidor Discord inválido.', details: parsed.error.flatten() });
@@ -292,8 +284,7 @@ router.get('/discovery/guilds/:guildId/channels', authMiddleware, async (req: Re
 // ─── Fontes (canais autorizados) ─────────────────────────────────────────────
 
 // GET /sources
-router.get('/sources', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.get('/sources', requireAdmin, async (req: Request, res: Response) => {
   try {
     const sources = await db
       .selectFrom('discord_import_sources')
@@ -308,8 +299,7 @@ router.get('/sources', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // POST /sources
-router.post('/sources', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/sources', requireAdmin, async (req: Request, res: Response) => {
   const parsed = createSourceSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
@@ -339,8 +329,7 @@ router.post('/sources', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // PATCH /sources/:id
-router.patch('/sources/:id', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.patch('/sources/:id', requireAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
   const parsed = updateSourceSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -365,8 +354,7 @@ router.patch('/sources/:id', authMiddleware, async (req: Request, res: Response)
 });
 
 // DELETE /sources/:id
-router.delete('/sources/:id', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.delete('/sources/:id', requireAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
     const source = await db
@@ -386,8 +374,7 @@ router.delete('/sources/:id', authMiddleware, async (req: Request, res: Response
 // ─── Ingestao REST ────────────────────────────────────────────────────────────
 
 // POST /fetch — busca mensagens de um canal via REST API Discord
-router.post('/fetch', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/fetch', requireAdmin, async (req: Request, res: Response) => {
 
   const parsed = fetchSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -445,8 +432,7 @@ router.post('/fetch', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // POST /sources/:sourceId/reingest-force — apaga mensagens pendentes e rebusca no Discord
-router.post('/sources/:sourceId/reingest-force', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/sources/:sourceId/reingest-force', requireAdmin, async (req: Request, res: Response) => {
   const parsed = reingestForceSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
     return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
@@ -490,8 +476,7 @@ router.post('/sources/:sourceId/reingest-force', authMiddleware, async (req: Req
 });
 
 // POST /messages/parse-batch — parseia todas as mensagens pendentes em lote
-router.post('/messages/parse-batch', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/messages/parse-batch', requireAdmin, async (req: Request, res: Response) => {
   try {
     const messages = await db
       .selectFrom('discord_import_messages')
@@ -593,8 +578,7 @@ router.post('/messages/parse-batch', authMiddleware, async (req: Request, res: R
 // ─── Mensagens ────────────────────────────────────────────────────────────────
 
 // GET /messages
-router.get('/messages', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.get('/messages', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { source_id, status, limit = '50', offset = '0', since, until } = req.query as Record<string, string>;
     const sinceDate = since ? new Date(since) : null;
@@ -631,8 +615,7 @@ router.get('/messages', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // PATCH /messages/:id
-router.patch('/messages/:id', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.patch('/messages/:id', requireAdmin, async (req: Request, res: Response) => {
   const parsed = updateMessageSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
@@ -654,8 +637,7 @@ router.patch('/messages/:id', authMiddleware, async (req: Request, res: Response
 });
 
 // POST /messages/:id/diagnose-content — compara DB vs API Discord sem expor token
-router.post('/messages/:id/diagnose-content', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/messages/:id/diagnose-content', requireAdmin, async (req: Request, res: Response) => {
   try {
     const message = await db
       .selectFrom('discord_import_messages')
@@ -698,7 +680,7 @@ router.post('/messages/:id/diagnose-content', authMiddleware, async (req: Reques
 
 router.use('/settings', settingsRouter);
 router.use('/drafts', draftsRouter);
-router.use('/messages', draftsRouter);
+router.use('/messages', messageParseRouter);
 
 router.use('/', syncRouter);
 

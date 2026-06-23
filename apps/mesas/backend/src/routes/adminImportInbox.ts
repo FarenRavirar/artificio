@@ -4,19 +4,18 @@ import { db } from '../db';
 import { DraftNotFoundError, DraftStateError } from '../discord/syncHelpers';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../discord';
 import { assertDraftReadyTransition } from '../discord/draftValidation';
-import { authMiddleware } from '../middleware/auth';
+import { requireAdmin } from '../middleware/auth';
 import { textToRawMessage } from '../inbox/adapters/textToRawMessage';
 import { segmentAnnouncements } from '../inbox/segmentation';
 import { syncImportDraftToTable, DraftSyncValidationError } from '../inbox/syncImportDraftToTable';
 import { loadSystemsForParser } from './discord/utils';
-import { toNumberOrNull, isAdmin, importTextSchema, listDraftsSchema, patchDraftSchema, correctionSchema } from './inbox/utils';
+import { toNumberOrNull, importTextSchema, listDraftsSchema, patchDraftSchema, correctionSchema } from './inbox/utils';
 
 const router = Router();
 
 // ─── POST /import-text ────────────────────────────────────────────────────────
 
-router.post('/import-text', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/import-text', requireAdmin, async (req: Request, res: Response) => {
   try {
     const parsed = importTextSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -159,8 +158,7 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
 
 // ─── GET /drafts ──────────────────────────────────────────────────────────────
 
-router.get('/drafts', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.get('/drafts', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { status, limit = '50', offset = '0', origin } = listDraftsSchema.parse(req.query);
 
@@ -212,8 +210,7 @@ router.get('/drafts', authMiddleware, async (req: Request, res: Response) => {
 
 // ─── POST /drafts/:id/sync ────────────────────────────────────────────────────
 
-router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/drafts/:id/sync', requireAdmin, async (req: Request, res: Response) => {
   try {
     const draftId = req.params.id;
     if (!draftId || typeof draftId !== 'string') {
@@ -243,8 +240,7 @@ router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Respon
 
 // ─── GET /drafts/:id ──────────────────────────────────────────────────────────
 
-router.get('/drafts/:id', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.get('/drafts/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
     const row = await db
       .selectFrom('discord_import_table_drafts')
@@ -298,8 +294,7 @@ router.get('/drafts/:id', authMiddleware, async (req: Request, res: Response) =>
 
 // ─── PATCH /drafts/:id ────────────────────────────────────────────────────────
 
-router.patch('/drafts/:id', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.patch('/drafts/:id', requireAdmin, async (req: Request, res: Response) => {
   const parsed = patchDraftSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
@@ -361,8 +356,7 @@ router.patch('/drafts/:id', authMiddleware, async (req: Request, res: Response) 
 
 // ─── POST /drafts/:id/reparse ─────────────────────────────────────────────────
 
-router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/drafts/:id/reparse', requireAdmin, async (req: Request, res: Response) => {
   try {
     const draft = await db
       .selectFrom('discord_import_table_drafts')
@@ -434,8 +428,7 @@ router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Res
 
 // ─── POST /drafts/:id/correction ──────────────────────────────────────────────
 
-router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/drafts/:id/correction', requireAdmin, async (req: Request, res: Response) => {
   try {
     const draftId = req.params.id;
     if (!draftId || typeof draftId !== 'string') {
@@ -522,8 +515,7 @@ router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: 
 
 // ─── GET /metrics ─────────────────────────────────────────────────────────────
 
-router.get('/metrics', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.get('/metrics', requireAdmin, async (req: Request, res: Response) => {
   try {
     const totalDrafts = await db
       .selectFrom('import_corrections')

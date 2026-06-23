@@ -1,21 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { authMiddleware } from '../../middleware/auth';
+import { requireAdmin } from '../../middleware/auth';
 import { extractJsonPayload } from '../../discord/chatExporterImportService';
 import { discordChatExporterExportSchema } from '../../discord/discordChatExporterTypes';
 
 const router = Router();
 
-function isAdmin(req: Request, res: Response): boolean {
-  if ((req as any).user?.role !== 'admin') {
-    res.status(403).json({ error: 'Acesso restrito a administradores.' });
-    return false;
-  }
-  return true;
-}
-
-router.post('/preview', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/preview', requireAdmin, async (req: Request, res: Response) => {
 
   try {
     const extracted = extractJsonPayload(req.body);

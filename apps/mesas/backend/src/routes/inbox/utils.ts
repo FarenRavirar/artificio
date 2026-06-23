@@ -1,18 +1,9 @@
-import { Request, Response } from 'express';
 import { z } from 'zod';
 
 export function toNumberOrNull(v: unknown): number | null {
   if (v == null) return null;
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) ? n : null;
-}
-
-export function isAdmin(req: Request, res: Response): boolean {
-  if ((req as any).user?.role !== 'admin') {
-    res.status(403).json({ error: 'Acesso restrito a administradores.' });
-    return false;
-  }
-  return true;
 }
 
 export const importTextSchema = z.object({

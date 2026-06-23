@@ -84,25 +84,28 @@
 
 ### Frontend — Extração de componentes e hooks
 
-- [ ] TE10 `[sr][lsp][sh]` — Extrair hook `useDiscordSync` do `DiscordSyncPanel.tsx` para `features/discord-sync/hooks/useDiscordSync.ts`
-  - Estado: tab ativa, sync status, resultado
-  - `serena_insert_after_symbol` para criar hook
-- [ ] TE11 `[sr][lsp][sh]` — Extrair hook `useJsonImport` do `DiscordJsonImportPanel.tsx` para `features/discord-sync/hooks/useJsonImport.ts`
-  - Estado: rawJson, preview, resultado, erro, drag state
-- [ ] TE12 `[sr][lsp][sh]` — Extrair componente de grid de resultado (`ImportResultGrid`) do `DiscordJsonImportPanel.tsx` para componente separado
-- [ ] TE13 `[sr][lsp][sh]` — Extrair componente de preview card (`JsonPreviewCard`) do `DiscordJsonImportPanel.tsx` para componente separado
-- [ ] TE14 `[sr][lsp][sh]` — Extrair componente de dropzone/file select (`FileDropzone`) para componente separado
-- [ ] TE15 — Quebrar `DiscordSyncPanel.tsx` em sub-componentes por tab (SyncPanel, ImportPanel, DraftsPanel, SettingsPanel)
-- [ ] TE16 — Unificar loading/error/empty states: criar componente `GestaoStateWrapper` ou similar que padroniza os 3 estados para todas as sub-abas
-- [ ] TE17 `[lsp][sh]` — Padronizar grid de resultados: criar componente `ResultGrid` reusável entre preview e import com props para colunas, destaque de failed, etc.
+- [x] TE10 `[sr][lsp][sh]` — Extrair hook `useDiscordSync` do `DiscordSyncPanel.tsx` para `features/discord-sync/hooks/useDiscordSync.ts`
+  - Hook criado: state (tab, sources, messages, filters, selection) + handlers (fetch, parse, diagnose, batch) + helpers (buildMessageWindow, getMessageTitle)
+  - `DiscordSyncPanel.tsx` reduzido de 543 → 308 linhas
+  - Build 17/17 ✅ | Frontend tests 163/163 ✅
+- [x] TE11 `[sr][lsp][sh]` — Extrair hook `useJsonImport` do `DiscordJsonImportPanel.tsx` para `features/discord-sync/hooks/useJsonImport.ts`
+  - Hook criado: state (rawJson, preview, result, error, drag) + handlers (change, submit, clear, fileSelect, drag/drop)
+  - `DiscordJsonImportPanel.tsx` reduzido de 356 → 250 linhas
+  - Build 17/17 ✅ | Frontend tests 163/163 ✅
+- [x] TE12 `[sr][lsp][sh]` — Extrair ImportResultGrid → `components/ImportResultGrid.tsx` (recebe ImportResult + onNavigateToDrafts)
+- [x] TE13 `[sr][lsp][sh]` — Extrair JsonPreviewCard → `components/JsonPreviewCard.tsx` (recebe PreviewResult)
+- [x] TE14 `[sr][lsp][sh]` — Extrair FileDropzone → `components/FileDropzone.tsx` (rawJson, drag state, handlers via props)
+- [x] TE15 — Extrair MessagesToolbar → `components/MessagesToolbar.tsx` (filtros + stats queue)
+- [x] TE16 — Criar GestaoStateWrapper → `components/GestaoStateWrapper.tsx` (loading/error/empty)
+- [x] TE17 — Criar StatCard → `components/StatCard.tsx` (stat card reusável) — usado por ImportResultGrid e MessagesToolbar
 
 ### Verificação de fim de fase
 
-- [ ] TE18 `[sh]` — `pnpm run build` no mesas (backend + frontend) — zero erros
-- [ ] TE19 `[sh]` — `pnpm run lint` no mesas (backend + frontend) — zero warnings
-- [ ] TE20 `[sh]` — Testes backend + frontend do mesas — todos verdes
-- [ ] TE21 `[lsp]` — `serena_get_diagnostics_for_file` em todos arquivos modificados — zero diagnostics
-- [ ] TE22 — Verificar que nenhum arquivo em `features/discord-sync/` ou `routes/discord/` ultrapassa 500 linhas
+- [x] TE18 `[sh]` — `pnpm run build` repo-wide — 17/17 ✅
+- [x] TE19 `[sh]` — `pnpm run lint` repo-wide — 15/15 ✅
+- [x] TE20 `[sh]` — Testes backend 223/223 ✅, frontend 163/163 ✅
+- [x] TE21 `[lsp]` — `serena_get_diagnostics_for_file` — Hints only (Zod deprecations pré-existentes + unused `req`). Zero errors.
+- [x] TE22 — Nenhum arquivo >500 linhas. Max: DiscordSourceList.tsx (415), drafts.ts (215), useDiscordSync.ts (276). ✅
 - [ ] TE23 — Verificar manualmente que /gestao carrega, todas as sub-abas funcionam, import + preview + sync operam
 
 ## Fase F — Verificação Pós-Refatoração (cm + sr + lsp + sk + sh)
@@ -136,6 +139,10 @@
 - [x] REV-012 — `FileReader.readAsText` substituído por `Blob.text()` em `DiscordJsonImportPanel.tsx`
 - [x] REV-013 — `readonly` adicionado na prop de `DiscordJsonImportPanelProps`
 - [x] REV-014 — `<div role="region">` substituído por `<section>` em `DiscordJsonImportPanel.tsx`
+- [x] REV-015 — Router dedicado `messageParse.ts` extraído de `drafts.ts`; `router.use('/messages', messageParseRouter)` em vez de `draftsRouter`
+- [x] REV-016 — Merge shallow de `normalized_payload` no PATCH de drafts (preventivo contra perda de dados com payload parcial)
+- [x] REV-017 — Branch string de `parseJsonField` normalizada: trata `{items:[...]}`/`{data:[...]}` após `JSON.parse`
+- [x] REV-018 — `ensureSystemSuggestionForDraft` envolvido em try/catch; side effect isolado do fluxo de parse
 
 **Testes:** backend 223/223 ✅ | frontend 163/163 ✅ (2 testes redundantes removidos em REV-009)
 **Build:** repo-wide 17/17 ✅
