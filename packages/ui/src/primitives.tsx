@@ -104,13 +104,13 @@ export interface BadgeProps {
 export type BannerVariant = "success" | "warning" | "danger" | "info" | "neutral";
 
 export interface BannerProps {
-  children: ReactNode;
-  variant?: BannerVariant;
-  icon?: ReactNode;
-  className?: string;
+  readonly children: ReactNode;
+  readonly variant?: BannerVariant;
+  readonly icon?: ReactNode;
+  readonly className?: string;
 }
 
-export function Banner({ children, variant = "neutral", icon, className }: BannerProps) {
+export function Banner({ children, variant = "neutral", icon, className }: Readonly<BannerProps>) {
   return (
     <div className={cx("artificio-banner", `artificio-banner-${variant}`, className)}>
       {icon ? <span className="artificio-banner-icon">{icon}</span> : null}

@@ -95,7 +95,9 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
 
   useEffect(() => {
     dispatch({ type: 'RESET', draft });
-  }, [draft.id, draft.status, draft.review_notes, draft.normalized_payload, draft.parsed_payload]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Draft como objeto muda de referência a cada render do pai. Props individuais são as dependências reais.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.id, draft.status, draft.review_notes, draft.normalized_payload, draft.parsed_payload]);
 
   useEffect(() => {
     let cancelled = false;
@@ -134,7 +136,9 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
           state.form
         ),
         status: nextMissing.length === 0 ? 'ready' : 'needs_review',
-        review_notes: nextMissing.length === 0 ? (state.reviewNotes === '' ? '' : state.reviewNotes || undefined) : `Campos pendentes: ${nextMissing.join(', ')}`,
+        review_notes: nextMissing.length === 0
+          ? (state.reviewNotes === '' ? '' : state.reviewNotes || undefined)
+          : `Campos pendentes: ${nextMissing.join(', ')}`,
       });
       dispatch({ type: 'MARK_PERSISTED' });
       toast.success(nextMissing.length === 0 ? 'Draft pronto para sincronizar.' : 'Draft salvo para revisão.');
@@ -169,10 +173,15 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
         credentials: 'include',
         body: formData,
       });
+      if (!response.ok) {
+        let errorMsg = 'Falha ao enviar imagem.';
+        try { const errPayload: unknown = await response.json(); errorMsg = asString(isRecord(errPayload) ? errPayload.error : '') || errorMsg; } catch { /* corpo vazio */ }
+        throw new Error(errorMsg);
+      }
       const responsePayload: unknown = await response.json();
       const secureUrl = isRecord(responsePayload) ? asString(responsePayload.secure_url) : '';
-      if (!response.ok || !secureUrl) {
-        throw new Error(isRecord(responsePayload) ? asString(responsePayload.error) || 'Falha ao enviar imagem.' : 'Falha ao enviar imagem.');
+      if (!secureUrl) {
+        throw new Error('Falha ao enviar imagem.');
       }
       dispatch({ type: 'SET_COVER', secureUrl });
     } catch (err) {
@@ -218,7 +227,9 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       const updated = await draftApi.updateDraft(draft.id, {
         normalized_payload,
         status: missing.length === 0 ? 'ready' : 'needs_review',
-        review_notes: missing.length === 0 ? (state.reviewNotes === '' ? '' : state.reviewNotes || undefined) : `Campos pendentes: ${missing.join(', ')}`,
+        review_notes: missing.length === 0
+          ? (state.reviewNotes === '' ? '' : state.reviewNotes || undefined)
+          : `Campos pendentes: ${missing.join(', ')}`,
       });
       dispatch({ type: 'MARK_PERSISTED' });
       toast.success('Vagas desambiguadas.');
@@ -282,10 +293,12 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
         status: state.newStatus,
         review_notes: state.reviewNotes === '' ? '' : (state.reviewNotes || undefined),
       });
-      dispatch({ type: 'MARK_PERSISTED' });
       toast.success('Status atualizado.');
       setEditingStatus(false);
       onUpdate(updated);
+      /* Intencional: NÃO dispara MARK_PERSISTED — handleSaveStatus só persiste
+         status/review_notes, não o form. Se dirty fosse zerado aqui, sync poderia
+         usar normalized_payload desatualizado (REV-045). */
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao atualizar status.');
     } finally {

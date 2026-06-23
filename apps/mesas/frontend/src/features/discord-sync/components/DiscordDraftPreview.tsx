@@ -19,6 +19,15 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
   const shouldShowSlotsDisambiguation = Boolean(h.slotsAmbiguity && h.payloadMissingFields.includes('slots_open:ambiguous_x_of_y'));
   const selectedPayload = h.activeTab === 'parsed' ? draft.parsed_payload : (draft.normalized_payload ?? draft.parsed_payload);
 
+  const statusLabel = h.canSync ? 'Pronto'
+    : draft.status === 'synced' ? 'Sincronizado'
+    : draft.status === 'rejected' ? 'Rejeitado'
+    : 'Revisar';
+
+  const syncTitle = !h.canSync
+    ? (h.dirty ? 'Salve as alterações primeiro.' : 'Preencha todos os campos obrigatórios e deixe o draft como ready.')
+    : undefined;
+
   const tabClass = (tab: typeof h.activeTab) =>
     `px-3 py-1 text-xs rounded-lg transition-colors ${
       h.activeTab === tab ? 'bg-blue-600 text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'
@@ -61,9 +70,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
           ) : (
             <>
               <span className="text-white/60 text-sm">Status:</span>
-              <span className="text-white text-sm font-medium">
-                {h.canSync ? 'Pronto' : draft.status === 'synced' ? 'Sincronizado' : draft.status === 'rejected' ? 'Rejeitado' : 'Revisar'}
-              </span>
+              <span className="text-white text-sm font-medium">{statusLabel}</span>
               {draft.status === 'ready' && !h.canSync && (
                 <span className="text-amber-300 text-xs">({h.missingFields.length} pendência{h.missingFields.length === 1 ? '' : 's'})</span>
               )}
@@ -129,7 +136,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
             onClick={() => h.handleSync(onBeforeSync)}
             disabled={!h.canSync || h.syncing}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors disabled:opacity-40"
-            title={!h.canSync ? (h.dirty ? 'Salve as alterações primeiro.' : 'Preencha todos os campos obrigatórios e deixe o draft como ready.') : undefined}
+            title={syncTitle}
           >
             {h.syncing ? 'Sincronizando...' : 'Sincronizar como mesa'}
           </button>

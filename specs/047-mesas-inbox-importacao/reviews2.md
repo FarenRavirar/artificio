@@ -321,4 +321,342 @@
 - **Falso positivo?** Sim — a preocupação é tecnicamente correta (`z.coerce.number()` aceita mais tipos que `z.number()`), mas no fluxo real o backend nunca produz esses tipos. `z.coerce.number()` foi a escolha deliberada para resolver o mismatch de tipo do driver pg de forma pragmática.
 - **Recomendação:** Manter `z.coerce.number()`. Para defesa extra (opcional): `z.coerce.number().refine(v => v === null || (Number.isFinite(v) && v >= 0 && v <= 1))` — mas isso adicionaria complexidade sem benefício real, dado que o backend controla a serialização.
 - **Investigado por:** OpenCode (DeepSeek-v4-pro)
-- **Data:** 2026-06-23**
+- **Data:** 2026-06-23
+
+---
+
+## REV-036 — SonarCloud: nested ternary em toNumberOrNull (adminImportInbox.ts:17)
+
+- **Origem:** SonarCloud (ferramenta)
+- **Tipo:** check (Quality Gate)
+- **Referência:** `apps/mesas/backend/src/routes/adminImportInbox.ts:17`
+- **Resumo:** Extrair nested ternary em `toNumberOrNull` para statement independente. Sonar aponta legibilidade.
+- **Severidade declarada:** Major (Code Smell)
+- **Status:** ✅ implementado — 2026-06-23
+- **Task vinculada:** sem vínculo claro (inclui fix de REV-027)
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-036
+
+- **Classificação:** implementado
+- **Severidade real:** 🟢 Info — legibilidade
+- **Implementação:** Substituído ternary aninhado por `if/else` + `Number.isFinite()` que também filtra NaN/Infinity (REV-027). `adminImportInbox.ts:16-19`. Testes backend 45/45 ✅, tsc ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-037 — SonarCloud: nested ternary em DiscordDraftPreview.tsx:65 (2 ocorrências)
+
+- **Origem:** SonarCloud (ferramenta)
+- **Tipo:** check (Quality Gate)
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftPreview.tsx:65`
+- **Resumo:** Extrair nested ternary em statement independente. 2 ocorrências na mesma linha.
+- **Severidade declarada:** Major (Code Smell)
+- **Status:** ✅ implementado — 2026-06-23
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-037
+
+- **Classificação:** implementado
+- **Severidade real:** 🟢 Info — legibilidade
+- **Implementação:** Extraído `const statusLabel` em `DiscordDraftPreview.tsx:20-23`. Ternary plano (um nível, sem aninhamento) usado no JSX na linha 65: `{statusLabel}`. Lint 0 ✅, build ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-038 — SonarCloud: negated condition em DiscordDraftPreview.tsx:130
+
+- **Origem:** SonarCloud (ferramenta)
+- **Tipo:** check (Quality Gate)
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftPreview.tsx:130`
+- **Resumo:** Unexpected negated condition — `!h.canSync` como condição negada para o tooltip. Substituir por positiva.
+- **Severidade declarada:** Minor (Code Smell)
+- **Status:** ✅ investigado — falso positivo (padrão idiomático em React JSX)
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-038
+
+- **Classificação:** falso positivo
+- **Severidade real:** 🟢 Info — puramente cosmético
+- **Impacto real:** Nenhum. `disabled={!h.canSync || h.syncing}` (linha 130) e `title={!h.canSync ? ...}` (linha 132) usam `!h.canSync` porque `disabled` é semanticamente "desabilitar quando NÃO pode sincronizar". Reescrever `disabled={h.canSync ? false : true}` seria menos legível e anti-idiomático em JSX. O SonarCloud Minor permite suppress sem comprometimento.
+- **Código atual:** `DiscordDraftPreview.tsx:130,132`
+- **Risco de regressão:** Nenhum
+- **Recomendação:** Manter. Se desejar silenciar Sonar: extrair `const isDisabled = !h.canSync || h.syncing` — mas a negação continuaria.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-039 — SonarCloud: DraftEditorTab props read-only
+
+- **Origem:** SonarCloud (ferramenta)
+- **Tipo:** check (Quality Gate)
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/components/DraftEditorTab.tsx:6-25`
+- **Resumo:** Marcar props do componente como `readonly` (React type pattern).
+- **Severidade declarada:** Minor (Code Smell)
+- **Status:** ✅ implementado — 2026-06-23
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-039
+
+- **Classificação:** implementado
+- **Severidade real:** 🟢 Info — consistência de tipos React
+- **Implementação:** Adicionado `Readonly<DraftEditorTabProps>` no parâmetro da função `DraftEditorTab` (linha 36). Lint 0 ✅, build ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-040 — SonarCloud: isMissing function design (draftFormUtils.ts:125)
+
+- **Origem:** SonarCloud (ferramenta)
+- **Tipo:** check (Quality Gate)
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/draftFormUtils.ts:125`
+- **Resumo:** Prover múltiplos métodos em vez de usar "isMissing" para determinar ação (violação do princípio de responsabilidade única).
+- **Severidade declarada:** Major (Code Smell)
+- **Status:** ✅ investigado — falso positivo (design intencional para helper interno)
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-040
+
+- **Classificação:** falso positivo
+- **Severidade real:** 🟢 Info — design opinionado do Sonar
+- **Impacto real:** Nenhum. `buildMissingFields` (draftFormUtils.ts:123) é função interna (não exportada), usada em 3 call-sites (validateForm, handleSaveFields, handleConfirmSlots). O helper `setByState(field, isMissing)` (linhas 126-129) adiciona ou remove do Set baseado em booleano — é conciso e evita repetir a lógica de add/delete em 10+ campos. Separar em `addMissing`/`removeMissing` adicionaria 2 chamadas por campo (20+ linhas extras) sem ganho real de clareza.
+- **Código atual:** `draftFormUtils.ts:123-129`
+- **Risco de regressão:** Nenhum — é design atual, não mudança
+- **Recomendação:** Manter. Suppress Sonar com justificativa "helper interno, design intencional".
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-041 — SonarCloud: cognitive complexity 16 em InboxDraftReviewTable (limite 15)
+
+- **Origem:** SonarCloud (ferramenta)
+- **Tipo:** check (Quality Gate)
+- **Referência:** `apps/mesas/frontend/src/features/inbox/components/InboxDraftReviewTable.tsx:62`
+- **Resumo:** Cognitive Complexity de 16 excede o limite de 15. Refatorar função para reduzir.
+- **Severidade declarada:** Critical (Code Smell)
+- **Status:** ✅ implementado — 2026-06-23
+- **Task vinculada:** REV-042 (Object.hasOwn resolvido junto)
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-041
+
+- **Classificação:** implementado
+- **Severidade real:** 🟡 Minor
+- **Implementação:** Extraído `function computeTableDiff()` (InboxDraftReviewTable.tsx:62-78). `handleBeforeSync` reduzido de 16 para ~10 de cognitive complexity. Lint 0 ✅, build ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-042 — SonarCloud: Object.hasOwn() em vez de hasOwnProperty.call()
+
+- **Origem:** SonarCloud (ferramenta)
+- **Tipo:** check (Quality Gate)
+- **Referência:** `apps/mesas/frontend/src/features/inbox/components/InboxDraftReviewTable.tsx:82-83`
+- **Resumo:** Usar `Object.hasOwn()` (ES2022) em vez de `Object.prototype.hasOwnProperty.call()`. 2 ocorrências.
+- **Severidade declarada:** Minor (Code Smell)
+- **Status:** ✅ implementado — 2026-06-23 (junto com REV-041)
+- **Task vinculada:** REV-041
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-042
+
+- **Classificação:** implementado
+- **Severidade real:** 🟢 Info
+- **Implementação:** Substituído `Object.prototype.hasOwnProperty.call(originalTable, key)` por `Object.hasOwn(originalTable, key)` na `computeTableDiff` extraída em REV-041. Lint 0 ✅, build ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-043 — SonarCloud: Banner props read-only em packages/ui
+
+- **Origem:** SonarCloud (ferramenta)
+- **Tipo:** check (Quality Gate)
+- **Referência:** `packages/ui/src/primitives.tsx:113`
+- **Resumo:** Marcar props do componente Banner como `readonly` (React type pattern).
+- **Severidade declarada:** Minor (Code Smell)
+- **Status:** ✅ implementado — 2026-06-23
+- **Task vinculada:** DEB-047-16a
+- **Débito vinculado:** DEB-047-16a
+
+#### 🔍 INVESTIGAÇÃO REV-043
+
+- **Classificação:** implementado
+- **Severidade real:** 🟢 Info
+- **Implementação:** Adicionado `readonly` nos 4 campos de `BannerProps` + `Readonly<BannerProps>` no parâmetro da função (packages/ui/src/primitives.tsx:106-113). Build 17/17 ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-044 — CodeRabbit: loadSystems sem checar res.ok antes de res.json()
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/draftFormUtils.ts:229-232`
+- **Resumo:** `res.json()` na linha 231 é chamado antes de verificar `res.ok` na linha 232. Em 401/500 com corpo vazio ou HTML, o SyntaxError substitui a mensagem amigável e o toast mostra erro técnico.
+- **Severidade declarada:** 🟡 Minor
+- **Status:** ✅ implementado — 2026-06-23
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-044
+
+- **Classificação:** implementado
+- **Severidade real:** 🟡 Minor
+- **Implementação:** Invertido `if (!res.ok) throw ...` para antes de `res.json()` em `draftFormUtils.ts:229-235`. Lint 0 ✅, build 17/17 ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-045 — CodeRabbit: MARK_PERSISTED zera dirty ao salvar só status, permitindo sync com dados obsoletos
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/useDraftForm.ts:61-64`
+- **Resumo:** `MARK_PERSISTED` zera o mesmo `dirty` que protege o sync. `handleSaveStatus` só persiste `status`/`review_notes`, não o form. Se usuário editar campos e salvar status antes, dirty vira false com `normalized_payload` antigo, permitindo sincronizar dados obsoletos. Separar `formDirty` de `statusDirty`.
+- **Severidade declarada:** 🟠 Major
+- **Status:** ✅ implementado — 2026-06-23
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-045
+
+- **Classificação:** implementado
+- **Severidade real:** 🟡 Minor
+- **Implementação:** Removido `dispatch({ type: 'MARK_PERSISTED' })` de `handleSaveStatus` (useDraftForm.ts:285). O dirty tracking agora só é zerado quando o form é efetivamente persistido (handleSaveFields, handleConfirmSlots). Lint 0 ✅, build 17/17 ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-046 — CodeRabbit: supressão eslint sem justificativa inline
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/useDraftForm.ts:96-98`
+- **Resumo:** Supressão de `react-hooks/exhaustive-deps` não explica por que `draft` inteiro não entra nas dependências. Adicionar justificativa inline, conforme guideline: "Nunca silenciar erro sem justificativa inline rastreável".
+- **Severidade declarada:** 🟡 Minor
+- **Status:** ✅ implementado — 2026-06-23
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-046
+
+- **Classificação:** implementado
+- **Severidade real:** 🟢 Info
+- **Implementação:** Adicionado comentário justificativo antes da supressão (useDraftForm.ts:97-98): "Draft como objeto muda de referência a cada render do pai. Props individuais são as dependências reais." ESLint v10 não permite texto após o nome da regra no `eslint-disable-next-line` (interpreta como parte do nome), então a justificativa fica em comentário separado. Lint 0 ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-047 — CodeRabbit: handleCoverUpload faz res.json() antes de checar res.ok
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/useDraftForm.ts:167-175`
+- **Resumo:** `res.json()` na linha 172 é chamado antes de verificar `res.ok`. Se backend devolver 413/500 vazio ou HTML, o usuário recebe erro técnico de parse em vez de "Falha ao enviar imagem.".
+- **Severidade declarada:** 🟡 Minor
+- **Status:** ✅ implementado — 2026-06-23
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-047
+
+- **Classificação:** implementado
+- **Severidade real:** 🟡 Minor
+- **Implementação:** Invertido para checar `res.ok` primeiro (useDraftForm.ts:174-180). Se não OK, tenta extrair mensagem de erro do JSON com try/catch (corpo vazio seguro). Depois `res.json()` para extrair `secure_url`. Lint 0 ✅, build 17/17 ✅, backend 178 tests ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-048 — SonarCloud: nested ternary no title do botão sync (DiscordDraftPreview.tsx:132)
+
+- **Origem:** SonarCloud (ferramenta)
+- **Tipo:** check (Quality Gate)
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftPreview.tsx:135`
+- **Resumo:** Extrair nested ternary do `title` do botão "Sincronizar como mesa" em statement independente.
+- **Severidade declarada:** Major (Code Smell)
+- **Status:** ✅ implementado — 2026-06-23
+- **Task vinculada:** REV-049 (negated condition, mesmo código)
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-048
+
+- **Classificação:** implementado
+- **Implementação:** Extraído `const syncTitle` (DiscordDraftPreview.tsx:27-30). Lint 0 ✅, build 17/17 ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-049 — SonarCloud: negated condition no title do botão sync (DiscordDraftPreview.tsx:132)
+
+- **Origem:** SonarCloud (ferramenta)
+- **Tipo:** check (Quality Gate)
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftPreview.tsx:135`
+- **Resumo:** Unexpected negated condition: `!h.canSync` no title do botão.
+- **Severidade declarada:** Minor (Code Smell)
+- **Status:** ✅ implementado (junto com REV-048) — 2026-06-23
+- **Task vinculada:** REV-048
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-049
+
+- **Classificação:** implementado (junto com REV-048)
+- **Implementação:** A extração de `syncTitle` para variável (REV-048) resolveu ambos — o nested ternary e a negação inline. Lint 0 ✅, build 17/17 ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-050 — SonarCloud: nested ternary em useDraftForm.ts:137 (handleSaveFields review_notes)
+
+- **Origem:** SonarCloud (ferramenta)
+- **Tipo:** check (Quality Gate)
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/useDraftForm.ts:139`
+- **Resumo:** Extrair nested ternary em statement independente na lógica de `review_notes` dentro de `handleSaveFields`.
+- **Severidade declarada:** Major (Code Smell)
+- **Status:** ✅ implementado — 2026-06-23
+- **Task vinculada:** REV-051 (mesmo padrão), REV-034
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-050
+
+- **Classificação:** implementado
+- **Implementação:** Expandido o ternary em 3 linhas (useDraftForm.ts:139-141) para eliminar o aninhamento. Lint 0 ✅, build 17/17 ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23
+
+---
+
+## REV-051 — SonarCloud: nested ternary em useDraftForm.ts:221 (handleConfirmSlots review_notes)
+
+- **Origem:** SonarCloud (ferramenta)
+- **Tipo:** check (Quality Gate)
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/useDraftForm.ts:228`
+- **Resumo:** Extrair nested ternary em statement independente na lógica de `review_notes` dentro de `handleConfirmSlots`. Mesmo padrão de REV-050.
+- **Severidade declarada:** Major (Code Smell)
+- **Status:** ✅ implementado — 2026-06-23
+- **Task vinculada:** REV-050
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-051
+
+- **Classificação:** implementado
+- **Implementação:** Expandido o ternary em 3 linhas (useDraftForm.ts:230-232). Lint 0 ✅, build 17/17 ✅.
+- **Investigado por:** OpenCode
+- **Data:** 2026-06-23

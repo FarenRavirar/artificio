@@ -33,7 +33,7 @@ export function DraftEditorTab({
   shouldShowSlotsDisambiguation, slotsAmbiguity, slotsInterpretation, savingFields,
   onUpdateForm, onSystemChange, onCoverUpload, onRemoveCover,
   onSetSlotsInterpretation, onConfirmSlots,
-}: DraftEditorTabProps) {
+}: Readonly<DraftEditorTabProps>) {
   return (
     <div className="space-y-4">
       {missingFields.length > 0 && (

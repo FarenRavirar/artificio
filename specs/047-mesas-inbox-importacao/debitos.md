@@ -309,6 +309,129 @@
   - **Implementação:** DEB-047-16a executado em 2026-06-23: `Banner` criado, `forwardRef` adicionado aos inputs, TextPasteArea migrado para `Field`/`Textarea`/`Banner`. lint+uild verdes.
 - **Status:** ✅ Investigação concluída (2026-06-23) — prevenção implementada via DEB-047-16a
 
+## DEB-047-17 — REV-017: corpus de treino sempre grava diff=0 (registerCorrection)
+
+- **Severidade:** 🟠 Major
+- **Origem:** REV-017 (reviews.md:741-772)
+- **Resumo:** `registerCorrection` registra `fields_corrected = 0` porque `updateDraft` persiste antes da correção, e o backend recalcula o diff contra o banco já atualizado. O propósito do corpus de treino é anulado — toda correção humana fica com diff vazio.
+- **🔍 INVESTIGAÇÃO (2026-06-23):**
+  - O frontend (InboxDraftReviewTable.tsx:91) envia `{ before: originalTable }` explicitamente na chamada `registerCorrection`
+  - O backend (adminImportInbox.ts:545) usa `before?.[key] ?? (parsedBefore?.table ...)` — se `before` for enviado, usa seu valor em vez de ler do banco
+  - `before = originalTable` capturado no snapshot inicial (linha 55) ANTES de qualquer edição
+  - `diff` calculado no frontend compara `originalTable` com `currentNormalized.table` — valores diferentes corretamente identificados
+  - **Bug original foi corrigido** pela adição do parâmetro `before` no frontend + lógica `before?.[key]` no backend
+- **Status:** ✅ já resolvido — o parâmetro `before` explícito foi implementado no frontend (linha 91) e backend (linha 545). Corpus de treino grava diff corretamente.
+
+## DEB-047-18 — REV-018: PATCH Inbox sem assertDraftReadyTransition (500 genérico)
+
+- **Severidade:** 🟠 Major
+- **Origem:** REV-018 (reviews.md:785-828)
+- **Resumo:** PATCH de draft inbox (`adminImportInbox.ts`) não chama `assertDraftReadyTransition` antes de mudar status para `ready`. PostgreSQL rejeita com erro 23514 → 500 genérico. Discord Sync já tem a proteção.
+- **🔍 INVESTIGAÇÃO (2026-06-23):**
+  - Código atual em `adminImportInbox.ts:385-396` já contém a chamada `assertDraftReadyTransition` com os 3 parâmetros (`patchStatus`, `patchPayloadMissing`, `currentPayloadMissing`)
+  - Se transição não permitida, retorna 422 com `transition.reason` e `transition.missingFields` (linha 394)
+  - Implementado entre REV-018 (22/06) e hoje
+- **Status:** ✅ já resolvido — assertDraftReadyTransition implementado no PATCH Inbox (adminImportInbox.ts:385-396)
+
+## DEB-047-19 — REV-019: thread_name ausente no reparse do inbox
+
+- **Severidade:** 🟡 Minor
+- **Origem:** REV-019 (reviews.md:843-883)
+- **Resumo:** `POST /drafts/:id/reparse` faz SELECT sem `thread_name` e chama `textToRawMessage` sem o segundo argumento, degradando o reparse para drafts importados com `title_hint`.
+- **🔍 INVESTIGAÇÃO (2026-06-23):**
+  - Código atual em `adminImportInbox.ts:441`: `select(['content_raw', 'raw_text', 'thread_name'])` — thread_name no SELECT
+  - Linha 448: `textToRawMessage(rawContent, importMsg.thread_name ?? undefined)` — thread_name passado corretamente
+  - Implementado entre REV-019 (22/06) e hoje
+- **Status:** ✅ já resolvido — thread_name selecionado e passado para textToRawMessage (adminImportInbox.ts:441,448)
+
+## DEB-047-20 — REV-024: fix de diff implementado local mas nunca commitado
+
+- **Severidade:** 🟠 Major
+- **Origem:** REV-024 (reviews.md:1098-1140)
+- **Resumo:** Correção para campos removidos não capturados no diff foi implementada localmente mas nunca commitada. Código existe local mas não está versionado em nenhum PR.
+- **🔍 INVESTIGAÇÃO (2026-06-23):**
+  - O fix foi implementado como `computeTableDiff` em `InboxDraftReviewTable.tsx:62-76` (extraído durante REV-041)
+  - Usa `allKeys` (união de `Object.keys(originalTable)` e `Object.keys(currentTable)`) para capturar tanto adições quanto remoções
+  - Código está no branch atual `chore/047-debitos-finais` (commit 6416726 + alterações locais)
+  - **Já commitado nesta branch** via REV-041
+- **Status:** ✅ já resolvido — fix implementado como computeTableDiff (InboxDraftReviewTable.tsx:62-76) e versionado na branch atual
+
+## DEB-047-21 — REV-030: PATCH backend sem validação de enums
+
+- **Severidade:** 🟡 Minor
+- **Origem:** REV-030 (reviews2.md:127-143)
+- **Resumo:** `patchDraftSchema` usa `z.record(z.string(), z.unknown()).optional()` — aceita "banana" em `table.type`. Frontend é seguro (selects controlados), mas backend não valida enums no PATCH.
+- **🔍 INVESTIGAÇÃO (2026-06-23):**
+  - `patchDraftSchema` (adminImportInbox.ts:353-357) valida `normalized_payload` como `z.record(z.string(), z.unknown())` — aceita qualquer string como chave e qualquer valor
+  - Frontend: todos os campos usam `<select>` com options fixas — nunca envia valor inválido
+  - Backend: `normalizeDiscordTableDraft` (chamado no parse inicial) já valida enums; PATCH bypassa essa normalização
+  - Impacto: admin precisaria chamar PATCH diretamente (curl/Postman) com valor inválido
+  - **Procede — a validação deveria existir, mas é hardening**
+- **Status:** 🔴 pendente de correção (hardening)
+
+## DEB-047-22 — Fase 0.5 (Pesquisa de ferramentas) nunca executada
+
+- **Severidade:** Média
+- **Origem:** tasks.md:35-61 (T0.11 a T0.16)
+- **Resumo:** 6 tasks de avaliação de ferramentas (`dateparser`, `RapidFuzz`, `DeepSeek`, `Playwright`, `DiscordChatExporter`) marcadas como pendentes — zero concluídas. Bloqueia decisões de arquitetura futuras.
+- **🔍 INVESTIGAÇÃO (2026-06-23):** Tasks T0.11-T0.16 em tasks.md — avaliação de ferramentas auxiliares. Nenhuma foi executada. Isso não quebra nada hoje, apenas adia decisões de arquitetura (ex: usar RapidFuzz para matching de sistemas vs. fallback textual atual). A spec 047 foi concluída sem essas ferramentas.
+- **Status:** 🔴 pendente de decisão (manter fase ou cancelar explicitamente)
+
+## DEB-047-23 — REV-020: fallback discordSyncApi.getDraft cruza contextos
+
+- **Severidade:** 🟡 Minor (hardening)
+- **Origem:** REV-020 (reviews.md:896-928)
+- **Resumo:** `draftApi.getDraft` é opcional, mas se ausente faz fallback para `discordSyncApi.getDraft` — cruza contextos (Inbox vs Discord). Não se materializa no fluxo atual.
+- **🔍 INVESTIGAÇÃO (2026-06-23):**
+  - `DiscordDraftPreview.tsx:16` — `draftApi = api ?? discordSyncApi` — fallback só ocorre se `api` não for passado
+  - Fluxo Inbox: `api` é passado (`inboxApi`) com `getDraft` presente — sem fallback
+  - Fluxo Discord: `api` não passado → `discordSyncApi` (correto)
+  - `getDraft` só é chamado em `handleSync` se `onBeforeSync` retornar algo (linha `if (draftApi.getDraft) { ... }`) — após REV-033 v2, `handleSync` usa `updatedDraft` retornado pelo sync em vez de refetch
+  - **Não se materializa.** Fallback é hardening.
+- **Status:** 🔴 pendente de correção (hardening, baixa prioridade)
+
+## DEB-047-24 — REV-021: apiFetch faz res.json() antes de !res.ok
+
+- **Severidade:** 🟡 Minor (hardening)
+- **Origem:** REV-021 (reviews.md:941-973)
+- **Resumo:** Ambos `inboxApi.ts` e `discordSyncApi.ts` chamam `res.json()` antes de verificar `!res.ok`. Mesmo padrão de REV-044/047.
+- **🔍 INVESTIGAÇÃO (2026-06-23):**
+  - `inboxApi.ts:22-29`: usa `res.text()` (não `res.json()`) + `try { JSON.parse(text) } catch { throw 'Resposta inesperada...' }` + `if (!res.ok)` depois
+  - `discordSyncApi.ts:29-36`: mesmo padrão
+  - O código atual usa o padrão **mais robusto** que o recomendado: `res.text()` + try/catch + `!res.ok`. Não há SyntaxError em respostas não-JSON.
+  - **Já resolvido** — nunca usou `res.json()` diretamente.
+- **Status:** ✅ já resolvido — ambos os arquivos usam `res.text()` + try/catch, não `res.json()`
+
+## DEB-047-25 — REV-022: fallback silencioso [] esconde breaking change (5 funções)
+
+- **Severidade:** 🟡 Minor (hardening)
+- **Origem:** REV-022 (reviews.md:985-1027)
+- **Resumo:** 5 funções (1 inbox + 4 discord) retornam `[]` se Zod falha, em vez de lançar erro. Breaking change no schema da API fica invisível.
+- **🔍 INVESTIGAÇÃO (2026-06-23):**
+  - Inbox (`inboxApi.ts:104-132`): todas as 5 funções de parse **lançam erro** — resolvido
+  - Discord Sync (`discordSyncApi.ts:144,149,154,159`): 4 funções com fallback `[]` — **pendente**
+- **Implementação (2026-06-23):** Substituído `return parsed.success ? parsed.data : []` por `if (!parsed.success) throw new Error(...)` nas 4 funções (discordSyncApi.ts:142-165). Lint 0 ✅, build 17/17 ✅, tests 24/24 ✅.
+- **Status:** ✅ resolvido (2026-06-23)
+
+## DEB-047-26 — SC-009/SC-012: div com onClick sem acessibilidade de teclado
+
+- **Severidade:** 🟡 Minor (acessibilidade)
+- **Origem:** REV-026/reviews.md (SC-009/SC-012)
+- **Resumo:** `InboxDraftReviewTable.tsx` usa `<div onClick>` sem `role`/`tabIndex`/`onKeyDown`.
+- **🔍 INVESTIGAÇÃO (2026-06-23):**
+  - `InboxDraftReviewTable.tsx:121` e `139`: ambos são `<button>` (não `<div>`)
+  - Botões são semanticamente corretos: focusable por padrão, ativáveis por Enter/Espaço, role="button" implícito
+  - **Já resolvido** — ou o código nunca usou `<div>`, ou foi corrigido entre o review original e hoje
+- **Status:** ✅ já resolvido — os elementos clicáveis são `<button>`, não `<div>`
+
+## DEB-047-27 — REV-026: Opção A (tokens de input pareados) registrada como débito futuro
+
+- **Severidade:** N/A (débito futuro)
+- **Origem:** reviews.md:1473
+- **Resumo:** A review diz que foi registrada como débito futuro, mas não constava em debitos.md. Agora registrado. Opção A refere-se a criar tokens de input pareados (`--input-bg` + `--input-fg`) para inputs compartilhados, alternativa à Opção B (primitivos compartilhados) já implementada em DEB-047-16a.
+- **🔍 INVESTIGAÇÃO (2026-06-23):** Opção B foi implementada em DEB-047-16a. Opção A é alternativa arquitetural (tokens no CSS vs. componentes React). A Opção B provou-se suficiente para resolver o bug de texto invisível. Manter Opção A como débito futuro para referência.
+- **Status:** 🔴 pendente de investigação futura (alternativa arquitetural, Opção B implementada)
+
 ## DEB-047-15 — DiscordDraftPreview cognitive complexity 29
 
 - **Severidade:** Média

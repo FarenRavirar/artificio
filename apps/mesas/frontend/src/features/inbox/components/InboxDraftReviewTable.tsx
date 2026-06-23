@@ -59,36 +59,34 @@ export function InboxDraftReviewTable() {
     }
   };
 
-  const handleBeforeSync = useCallback(async (current: DiscordDraft): Promise<{ tableId: string; created: boolean } | null> => {
-    const originalNormalized = originalPayloadRef.current;
-    if (!originalNormalized) {
-      return null;
-    }
-
-    const currentNormalized = isRecord(current.normalized_payload) ? current.normalized_payload : null;
-    if (!currentNormalized) {
-      return null;
-    }
-
-    const originalTable = isRecord(originalNormalized.table) ? originalNormalized.table : {};
-    const currentTable = isRecord(currentNormalized.table) ? currentNormalized.table : {};
-
+  function computeTableDiff(originalTable: Record<string, unknown>, currentTable: Record<string, unknown>): Record<string, unknown> {
     const allKeys = new Set<string>();
     for (const key of Object.keys(originalTable)) allKeys.add(key);
     for (const key of Object.keys(currentTable)) allKeys.add(key);
 
     const diff: Record<string, unknown> = {};
     for (const key of allKeys) {
-      const before = Object.prototype.hasOwnProperty.call(originalTable, key) ? originalTable[key] : null;
-      const after = Object.prototype.hasOwnProperty.call(currentTable, key) ? currentTable[key] : null;
+      const before = Object.hasOwn(originalTable, key) ? originalTable[key] : null;
+      const after = Object.hasOwn(currentTable, key) ? currentTable[key] : null;
       if (JSON.stringify(before) !== JSON.stringify(after)) {
         diff[key] = after;
       }
     }
+    return diff;
+  }
 
-    if (Object.keys(diff).length === 0) {
-      return null;
-    }
+  const handleBeforeSync = useCallback(async (current: DiscordDraft): Promise<{ tableId: string; created: boolean } | null> => {
+    const originalNormalized = originalPayloadRef.current;
+    if (!originalNormalized) return null;
+
+    const currentNormalized = isRecord(current.normalized_payload) ? current.normalized_payload : null;
+    if (!currentNormalized) return null;
+
+    const originalTable = isRecord(originalNormalized.table) ? originalNormalized.table : {};
+    const currentTable = isRecord(currentNormalized.table) ? currentNormalized.table : {};
+
+    const diff = computeTableDiff(originalTable, currentTable);
+    if (Object.keys(diff).length === 0) return null;
 
     const result = await inboxApi.registerCorrection(current.id, diff, 'Edição humana antes da sincronização', { before: originalTable });
     if (result.fields_corrected === 0) {

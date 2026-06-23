@@ -228,8 +228,8 @@ function normalizeSystemTree(raw: unknown): SystemTreeNode[] {
 
 export async function loadSystems(): Promise<SystemTreeNode[]> {
   const res = await fetch(`${getApiBase()}/api/v1/systems?view=tree`, { credentials: 'include' });
-  const json: unknown = await res.json();
   if (!res.ok) throw new Error('Erro ao carregar sistemas.');
+  const json: unknown = await res.json();
   const data = asRecord(json).data;
   return normalizeSystemTree(data);
 }

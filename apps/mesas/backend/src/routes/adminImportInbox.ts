@@ -13,8 +13,11 @@ import { syncImportDraftToTable, DraftSyncValidationError } from '../inbox/syncI
 
 const router = Router();
 
-const toNumberOrNull = (v: unknown): number | null =>
-  v == null ? null : typeof v === 'number' ? v : Number(v);
+const toNumberOrNull = (v: unknown): number | null => {
+  if (v == null) return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+};
 
 function isAdmin(req: Request, res: Response): boolean {
   if ((req as any).user?.role !== 'admin') {
