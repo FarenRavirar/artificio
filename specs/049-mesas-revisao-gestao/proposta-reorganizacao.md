@@ -7,7 +7,7 @@
 ### Atual
 ```
 routes/
-  adminDiscordSync.ts        ← 1421 linhas (26 endpoints)
+  adminDiscordSync.ts              ← 1278 linhas (26 endpoints, pós-TE1-TE4)
   adminImportInbox.ts        ← 639 linhas (8 endpoints)
   adminHydration.ts          ← 489 linhas (1 endpoint)
   adminTables.ts             ← 137 linhas (3 endpoints)
@@ -50,7 +50,7 @@ routes/admin/
 ```
 
 ### Ganhos esperados
-- Nenhum arquivo >300 linhas (vs 1421 hoje)
+- Nenhum arquivo >300 linhas (vs 1278 hoje no adminDiscordSync)
 - Elimina duplicação draft entre discord-sync e import-inbox
 - Elimina duplicação scenarioSuggestions ↔ systemSuggestions
 - Separação clara de responsabilidades por domínio

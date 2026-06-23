@@ -1,8 +1,6 @@
 import crypto from 'node:crypto';
 import { Router, Request, Response } from 'express';
-import { z } from 'zod';
 import { db } from '../db';
-import type { SystemEntry } from '../discord';
 import { DraftNotFoundError, DraftStateError } from '../discord/syncHelpers';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../discord';
 import { assertDraftReadyTransition } from '../discord/draftValidation';
@@ -10,62 +8,10 @@ import { authMiddleware } from '../middleware/auth';
 import { textToRawMessage } from '../inbox/adapters/textToRawMessage';
 import { segmentAnnouncements } from '../inbox/segmentation';
 import { syncImportDraftToTable, DraftSyncValidationError } from '../inbox/syncImportDraftToTable';
+import { loadSystemsForParser } from './discord/utils';
+import { toNumberOrNull, isAdmin, importTextSchema, listDraftsSchema, patchDraftSchema, correctionSchema } from './inbox/utils';
 
 const router = Router();
-
-const toNumberOrNull = (v: unknown): number | null => {
-  if (v == null) return null;
-  const n = typeof v === 'number' ? v : Number(v);
-  return Number.isFinite(n) ? n : null;
-};
-
-function isAdmin(req: Request, res: Response): boolean {
-  if ((req as any).user?.role !== 'admin') {
-    res.status(403).json({ error: 'Acesso restrito a administradores.' });
-    return false;
-  }
-  return true;
-}
-
-async function loadSystemsForParser(): Promise<SystemEntry[]> {
-  const systems = await db
-    .selectFrom('systems')
-    .select(['id', 'name', 'name_pt'])
-    .execute();
-
-  const aliases = await db
-    .selectFrom('system_aliases')
-    .select(['system_id', 'alias'])
-    .execute();
-
-  const aliasMap = new Map<string, string[]>();
-  for (const a of aliases) {
-    const list = aliasMap.get(a.system_id) ?? [];
-    list.push(a.alias);
-    aliasMap.set(a.system_id, list);
-  }
-
-  return systems.map((s) => ({
-    id: s.id,
-    name: s.name,
-    name_pt: s.name_pt,
-    aliases: aliasMap.get(s.id) ?? [],
-  }));
-}
-
-// ─── Schemas ──────────────────────────────────────────────────────────────────
-
-const importTextSchema = z.object({
-  text: z.string().min(10, 'Texto muito curto para segmentação (mínimo 10 caracteres).'),
-  title_hint: z.string().optional(),
-});
-
-const listDraftsSchema = z.object({
-  status: z.string().optional(),
-  limit: z.string().optional(),
-  offset: z.string().optional(),
-  origin: z.string().optional(),
-});
 
 // ─── POST /import-text ────────────────────────────────────────────────────────
 
@@ -352,23 +298,6 @@ router.get('/drafts/:id', authMiddleware, async (req: Request, res: Response) =>
 
 // ─── PATCH /drafts/:id ────────────────────────────────────────────────────────
 
-const patchDraftTableSchema = z.object({
-  type: z.enum(['campanha', 'one-shot', 'oneshot-serie', 'aberta']).nullable().optional(),
-  modality: z.enum(['online', 'presencial', 'hibrida']).nullable().optional(),
-  price_type: z.enum(['gratuita', 'paga']).nullable().optional(),
-  frequency: z.enum(['semanal', 'quinzenal', 'mensal', 'avulsa']).nullable().optional(),
-}).passthrough();
-
-const patchNormalizedPayloadSchema = z.object({
-  table: patchDraftTableSchema.optional(),
-}).passthrough();
-
-const patchDraftSchema = z.object({
-  normalized_payload: patchNormalizedPayloadSchema.optional(),
-  status: z.enum(['draft', 'ready', 'needs_review', 'rejected']).optional(),
-  review_notes: z.string().optional(),
-});
-
 router.patch('/drafts/:id', authMiddleware, async (req: Request, res: Response) => {
   if (!isAdmin(req, res)) return;
   const parsed = patchDraftSchema.safeParse(req.body);
@@ -504,12 +433,6 @@ router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Res
 });
 
 // ─── POST /drafts/:id/correction ──────────────────────────────────────────────
-
-const correctionSchema = z.object({
-  corrections: z.record(z.string(), z.unknown()),
-  reason: z.string().optional(),
-  before: z.record(z.string(), z.unknown()).optional(),
-});
 
 router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: Response) => {
   if (!isAdmin(req, res)) return;

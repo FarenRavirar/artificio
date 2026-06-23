@@ -36,14 +36,15 @@ router.post('/preview', authMiddleware, async (req: Request, res: Response) => {
         dateRange: exportData.dateRange ?? null,
         exportedAt: exportData.exportedAt ?? null,
         messageCount: exportData.messageCount ?? exportData.messages.length,
-        messagesWithAttachments: attachmentsCount,
-        messagesWithEmbeds: embedsCount,
+        totalAttachments: attachmentsCount,
+        totalEmbeds: embedsCount,
       },
     });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       const issues = error.issues.slice(0, 5).map((i) => `${i.path.join('.')}: ${i.message}`);
-      return res.status(400).json({ error: `JSON inválido ou incompatível com o formato esperado.${issues.length ? ` ${issues.join('; ')}` : ''}` });
+      const detail = issues.length > 0 ? ` ${issues.join('; ')}` : '';
+      return res.status(400).json({ error: `JSON inválido ou incompatível com o formato esperado.${detail}` });
     }
     console.error('[POST /admin/discord-sync/import-json/preview]', error);
     return res.status(500).json({ error: 'Erro ao analisar JSON do DiscordChatExporter.' });

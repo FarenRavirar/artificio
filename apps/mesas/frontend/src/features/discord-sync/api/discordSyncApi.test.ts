@@ -262,8 +262,8 @@ describe('discordSyncApi', () => {
         dateRange: null,
         exportedAt: null,
         messageCount: 100,
-        messagesWithAttachments: 10,
-        messagesWithEmbeds: 5,
+        totalAttachments: 10,
+        totalEmbeds: 5,
       }));
       const result = await discordSyncApi.previewJson({ json: '{}' });
       expect(result.guild.name).toBe('Server');

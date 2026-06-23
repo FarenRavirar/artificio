@@ -270,8 +270,8 @@ export const discordSyncApi = {
       dateRange: z.object({ after: z.string().optional(), before: z.string().optional() }).nullable(),
       exportedAt: z.string().nullable(),
       messageCount: z.number(),
-      messagesWithAttachments: z.number(),
-      messagesWithEmbeds: z.number(),
+      totalAttachments: z.number(),
+      totalEmbeds: z.number(),
     }).safeParse(data);
     if (!parsed.success) throw new Error('Resposta de preview em formato inesperado.');
     return parsed.data;

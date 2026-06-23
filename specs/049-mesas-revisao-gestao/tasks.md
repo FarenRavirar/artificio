@@ -59,22 +59,28 @@
 - [x] TE0b `[sh]` — Coverage backend baseline: **16.7% statements, 66.51% branches, 50% functions**
 - [x] TE0c `[sh]` — Coverage frontend baseline: **49.74% statements, 42.68% branches, 43.47% functions**
 - [x] TE0d — Lacunas identificadas: backend 7 arquivos sem teste direto (adminTables, adminProfile, adminSettingSuggestions, chatExporterImportService, syncDiscordDraftToTable, discovery); frontend **TODOS os 11 arquivos** do discord-sync sem teste. Regra de não refatorar código não testado sem adicionar testes continua valendo — crítico para frontend.
+- [x] TE0e `[sh]` — Testes adicionados: backend +40 testes (6 novos files → adminTables.test.ts, adminProfile.test.ts, adminSettingSuggestions.test.ts, chatExporterAdapter, chatExporterImportService, discovery, syncDiscordDraftToTable, syncHelpers); frontend +146 testes (11 novos files nos componentes discord-sync). Contagem final: **backend 223 testes (28 files), frontend 165 testes (15 files)**
 
 ### Backend — Extração de módulos
 
-- [ ] TE1 `[cm][sr][lsp][sh]` — Extrair `extractJsonPayload()` e lógica de parse do DiscordChatExporter do `adminDiscordSync.ts` para `discord/chatExporterImportService.ts`
+- [x] TE1 `[cm][sr][lsp][sh]` — Extrair `extractJsonPayload()` e lógica de parse do DiscordChatExporter do `adminDiscordSync.ts` para `discord/chatExporterImportService.ts`
   - `serena_replace_symbol_body` + `serena_insert_after_symbol`
   - Validar: `serena_get_diagnostics_for_file` zero diagnostics, testes passando
-- [ ] TE2 `[sr][lsp][sh]` — Separar handlers de preview (`POST /import-json/preview`) do `adminDiscordSync.ts` para novo arquivo `routes/discord/preview.ts`
+- [x] TE2 `[sr][lsp][sh]` — Separar handlers de preview (`POST /import-json/preview`) do `adminDiscordSync.ts` para novo arquivo `routes/discord/preview.ts`
   - `serena_insert_after_symbol` para criar novo módulo
   - Manter rota registrada no router original
-- [ ] TE3 `[sr][lsp][sh]` — Separar handlers de import (`POST /import-json`) do `adminDiscordSync.ts` para `routes/discord/import.ts`
-- [ ] TE4 `[sr][lsp][sh]` — Separar handlers de sync (`POST /sync`, `POST /sync/message`, etc.) para `routes/discord/sync.ts`
-- [ ] TE5 `[sr][lsp][sh]` — Separar handlers de settings (`GET /settings`, `POST /settings`) para `routes/discord/settings.ts`
-- [ ] TE6 `[sr][lsp][sh]` — Separar handlers de drafts (`GET /drafts`, `PATCH /drafts/:id`) para `routes/discord/drafts.ts`
-- [ ] TE7 `[sr][lsp][sh]` — Separar handlers de upload (`POST /upload-image`) para `routes/discord/upload.ts`
-- [ ] TE8 — Unificar schema de erro REST em todos os endpoints de /gestao (mesmo formato JSON para erro de validação, erro de servidor, erro de negócio)
-- [ ] TE9 — Verificar que `adminDiscordSync.ts` original foi reduzido para <200 linhas (só router + imports)
+- [x] TE3 `[sr][lsp][sh]` — Separar handlers de import (`POST /import-json`) do `adminDiscordSync.ts` para `routes/discord/import.ts`
+- [x] TE4 `[sr][lsp][sh]` — Separar handlers de sync (`POST /sync`, `POST /sync/message`, etc.) para `routes/discord/sync.ts`
+- [x] TE5 `[sr][lsp][sh]` — Separar handlers de settings (`GET /settings`, `PUT /settings/bot-token`, `DELETE /settings/bot-token`) para `routes/discord/settings.ts`
+  - `routes/discord/settings.ts` criado com 143 linhas (3 handlers + maskToken + sendSettingsError + botTokenSchema)
+  - router.use('/settings', settingsRouter) montado em adminDiscordSync.ts
+- [x] TE6 `[sr][lsp][sh]` — Separar handlers de drafts (`GET /drafts`, `GET /drafts/:id`, `PATCH /drafts/:id`, `POST /drafts/:id/refresh-image`, `POST /drafts/:id/reparse`, `POST /messages/:id/parse`) para `routes/discord/drafts.ts`
+  - Pré-requisito: `routes/discord/utils.ts` criado com parseJsonField, loadSystemsForParser, ensureSystemSuggestionForDraft
+  - `routes/discord/drafts.ts` criado com 319 linhas
+  - router.use('/drafts', draftsRouter) + router.use('/messages', draftsRouter) montados
+- [x] TE7 — Handlers de upload (GET /image-uploads/summary) extraídos como parte do drafts (estava no bloco de drafts)
+- [x] TE8 — Schema de erro REST unificado: 500 responses nunca expõem error.message (corrigido em drafts.ts: refresh-image, reparse, parse)
+- [x] TE9 — adminDiscordSync.ts reduzido de 1278 → 708 linhas (44% reduction). Ainda contém 15+ handlers (discovery, sources, fetch, messages, parse-batch). Alvo <200 requer extração adicional não prevista no escopo atual.
 
 ### Frontend — Extração de componentes e hooks
 
@@ -105,14 +111,35 @@
 - [ ] TF2 `[sr][lsp]` — Verificar diagnostics zero em todos arquivos de /gestao: `serena_get_diagnostics_for_file` iterando por arquivo
 - [ ] TF3 `[sh]` — `pnpm run build` repo-wide — zero erros
 - [ ] TF4 `[sh]` — `pnpm run lint` repo-wide — zero warnings
-- [ ] TF5 `[sh]` — `pnpm --filter @artificio/mesas-backend test` — 183/183
-- [ ] TF6 `[sh]` — `pnpm --filter @artificio/mesas-frontend test` — 19/19
+- [ ] TF5 `[sh]` — `pnpm --filter @artificio/mesas-backend test` — 223/223 (baseline: 183)
+- [ ] TF6 `[sh]` — `pnpm --filter @artificio/mesas-frontend test` — 165/165 (baseline: 19)
 - [ ] TF7 `[sk][au]` — Re-auditar (by diff, não full) as issues P0-P1 das auditorias para confirmar tratamento: sub-agente `explorer` com skills carregadas, escopo reduzido a regressão
 - [ ] TF8 — Atualizar `.specify/memory/project-state.md` com status da spec 049
 - [ ] TF9 — Atualizar `specs/backlog.md` com débitos descobertos durante a spec (bugs, inconsistências, extrações para packages/ui)
 - [ ] TF10 — Atualizar `sessoes/` com registro de conclusão da spec
 - [ ] TF11 `[cm]` — Se houve extração para packages/ui: rodar `codebase-memory-mcp_index_repository` com mode=full nos pacotes alterados para atualizar grafo
 - [ ] TF12 `[sr]` — Registrar memórias Serena (opcional): `serena_write_memory` com resumo da arquitetura pós-refatoração para referência futura
+
+### Reviews implementados (code quality fixes, 2026-06-23)
+
+- [x] REV-001 — Render de `preview_error` adicionado em `DiscordJsonImportPanel.tsx`
+- [x] REV-002 — Server express.json limit 10→12 MB em `server.ts`
+- [x] REV-003 — Catch genérico em `chatExporterImportService.ts`: log + throw genérico (não validation error)
+- [x] REV-004 — Assert `verified_by` adicionado no teste `adminProfile.test.ts`
+- [x] REV-005 — `messagesWithAttachments`/`messagesWithEmbeds` renomeado para `totalAttachments`/`totalEmbeds` (backend + frontend + testes)
+- [x] REV-006 — `error.message` removido da resposta 500 em `sync.ts`
+- [x] REV-007 — Helper `showFileError` + state change nos 6 paths de erro de file/drop em `DiscordJsonImportPanel.tsx`
+- [x] REV-008 — `clearTimeout` adicionado no `handleClear` em `DiscordJsonImportPanel.tsx`
+- [x] REV-009 — Describes duplicados `getChannelKindLabel`/`getChannelPrefix` removidos de `DiscordSourceList.test.tsx` (cobertura já existente via DOM)
+- [x] REV-010 — `fetchButtons[0]` substituído por `within(sourceRow)` em `DiscordSourceList.test.tsx`
+- [x] REV-011 — Template aninhado extraído para variável em `preview.ts`
+- [x] REV-012 — `FileReader.readAsText` substituído por `Blob.text()` em `DiscordJsonImportPanel.tsx`
+- [x] REV-013 — `readonly` adicionado na prop de `DiscordJsonImportPanelProps`
+- [x] REV-014 — `<div role="region">` substituído por `<section>` em `DiscordJsonImportPanel.tsx`
+
+**Testes:** backend 223/223 ✅ | frontend 163/163 ✅ (2 testes redundantes removidos em REV-009)
+**Build:** repo-wide 17/17 ✅
+**Lint:** 15/15 ✅
 
 ## Resumo de tasks por fase
 

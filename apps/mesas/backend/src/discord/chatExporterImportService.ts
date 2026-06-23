@@ -1,6 +1,6 @@
 import { sql } from 'kysely';
 import { db } from '../db';
-import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from './chatExporterAdapter';
+import { parseDiscordChatExporterJson, adaptMessageToImportRaw } from './chatExporterAdapter';
 import { getContentHash } from './shared';
 import type { ImportResult } from './chatExporterAdapter';
 
@@ -56,8 +56,9 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
   let sourceId: string;
   try {
     sourceId = await ensureDiscordImportSource(channelId, guildId, channelName, channelType);
-  } catch {
-    throw new DiscordChatExporterValidationError('Não foi possível criar a fonte do canal. Verifique se o canal existe no banco.');
+  } catch (err) {
+    console.error('[importDiscordChatExporterJson] Falha ao criar fonte de importação:', err);
+    throw new Error('Erro interno ao criar fonte de importação.');
   }
 
   let inserted = 0;

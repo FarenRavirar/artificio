@@ -215,8 +215,12 @@ Mantenedor testou em `https://mesasbeta.artificiorpg.com/gestao` → Discord Syn
 ### Backlog
 - `BL-MESAS-DISCORD-EXPORTER-048` atualizado com os 3 itens do smoke.
 
+### Correções implementadas pós-smoke (2026-06-23)
+- **DEB-048-10** (P0 embed null): corrigido — `.nullish()`; +3 testes; backend 183/183 ✅
+- **DEB-048-11** (settings 500): hardening aplicado — `DiscordSettingsDecryptError` + handler retorna 200 com `decrypt_error: true`. Inspeção read-only no beta ainda pendente (causa raiz: mismatch JWT_SECRET).
+- **DEB-048-12** (upload arquivo): implementado — `<input type="file">` + dropzone nativo + validação extensão/tamanho; textarea mantido como fallback.
+
 ### Próximo passo (atualizado)
-- Autorização para commit/PR do fix DEB-048-10 (carona na PR #91 ou novo commit).
-- Depois: redeploy beta + re-smoke com `extracao_json.json`.
-- DEB-048-11: inspeção read-only no beta (sem imprimir segredo).
-- DEB-048-12/T-D6: implementar upload por arquivo.
+- Autorização para commit/PR dos fixes (carona na PR #91 ou novo commit).
+- Redeploy beta + re-smoke com `extracao_json.json`.
+- Inspeção read-only no beta para DEB-048-11 (causa do 500).

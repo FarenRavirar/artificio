@@ -89,6 +89,7 @@ describe('PATCH /api/v1/admin/users/:id/covil', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.covil_verified).toBe(false);
     expect(res.body.data.verified_at).toBeNull();
+    expect(res.body.data.verified_by).toBe('admin-user');
   });
 
   it('rejects when verified is not boolean', async () => {

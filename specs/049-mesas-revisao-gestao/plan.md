@@ -42,7 +42,7 @@ Critério de severidade consolidado:
 
 1. Verificar/instalar jscpd
 2. Rodar com `--reporters json` em:
-   - `apps/mesas/backend/src/routes/` (adminDiscordSync, adminHydration, adminTablesAutoArchive)
+   - `apps/mesas/backend/src/routes/` (adminDiscordSync, adminHydration)
    - `apps/mesas/backend/src/discord/`
    - `apps/mesas/backend/src/validators/`
    - `apps/mesas/frontend/src/features/discord-sync/`
@@ -98,7 +98,7 @@ Cada task em branch + PR separado com smoke obrigatório.
   - `routes/discord/settings.ts` — handler de settings
   - `routes/discord/drafts.ts` — handler de drafts
   - `routes/discord/upload.ts` — handler de upload de imagem
-- `routes/adminTablesAutoArchive.ts` — pequeno, avaliar se funde ou mantém
+- `routes/adminHydration.ts` — 489 linhas, avaliar split
 - `routes/adminHydration.ts` — avaliar
 - `discord/chatExporterImportService.ts` — serviço de import
 - `discord/chatExporterAdapter.ts` — adaptador Zod
@@ -149,5 +149,5 @@ Cada task em branch + PR separado com smoke obrigatório.
 ### Final
 - `pnpm run build` — zero erros, repo-wide
 - `pnpm run lint` — zero warnings, repo-wide
-- Testes backend 183/183, frontend 19/19
+- Testes backend 223/223 (28 files), frontend 165/165 (15 files)
 - Verificação manual: /gestao carrega, todas as sub-abas operam, import JSON funcional, preview funcional, sync funcional

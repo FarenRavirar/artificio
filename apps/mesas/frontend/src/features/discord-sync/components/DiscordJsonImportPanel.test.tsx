@@ -57,8 +57,8 @@ describe('DiscordJsonImportPanel', () => {
       dateRange: null,
       exportedAt: '2024-06-01T00:00:00Z',
       messageCount: 50,
-      messagesWithAttachments: 5,
-      messagesWithEmbeds: 3,
+      totalAttachments: 5,
+      totalEmbeds: 3,
     });
 
     render(<DiscordJsonImportPanel />);
@@ -77,8 +77,8 @@ describe('DiscordJsonImportPanel', () => {
       dateRange: null,
       exportedAt: '2024-06-01T00:00:00Z',
       messageCount: 50,
-      messagesWithAttachments: 5,
-      messagesWithEmbeds: 3,
+      totalAttachments: 5,
+      totalEmbeds: 3,
     });
 
     render(<DiscordJsonImportPanel />);

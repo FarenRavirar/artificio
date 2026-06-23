@@ -9,7 +9,7 @@
 
 A aba `/gestao` foi construída em remendos sucessivos — cada feature adicionou seu próprio painel, rota e componente sem revisão de arquitetura geral. Resultado:
 
-- Arquivos enormes com responsabilidade difusa (alguns >1000 linhas, ex.: `adminDiscordSync.ts`, `DiscordSyncPanel.tsx`)
+- Arquivos enormes com responsabilidade difusa (alguns >1000 linhas, ex.: `adminDiscordSync.ts` (~1278 linhas pós-TE1-TE4), `DiscordSyncPanel.tsx`)
 - Rotas com lógica duplicada entre si (parse de JSON, validação Zod, tratamento de erros)
 - Backend e frontend sem padronização de erros, loading states e validação
 - Mix de padrões de componente (classes Tailwind inline vs. componentes compartilhados de packages/ui)

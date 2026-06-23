@@ -41,8 +41,7 @@ router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Respon
       return res.status(422).json({ error: error.message });
     }
     console.error('[POST /admin/discord-sync/drafts/:id/sync]', error);
-    const message = error instanceof Error ? error.message : 'Erro ao sincronizar draft.';
-    return res.status(500).json({ error: message });
+    return res.status(500).json({ error: 'Erro ao sincronizar draft.' });
   }
 });
 

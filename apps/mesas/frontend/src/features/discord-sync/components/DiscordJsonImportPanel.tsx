@@ -18,8 +18,8 @@ interface PreviewResult {
   dateRange: { after?: string; before?: string } | null;
   exportedAt: string | null;
   messageCount: number;
-  messagesWithAttachments: number;
-  messagesWithEmbeds: number;
+  totalAttachments: number;
+  totalEmbeds: number;
 }
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -31,16 +31,7 @@ function formatFileSize(bytes: number): string {
 }
 
 interface DiscordJsonImportPanelProps {
-  onNavigateToDrafts?: () => void;
-}
-
-function readText(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Erro ao ler o arquivo.'));
-    reader.readAsText(file);
-  });
+  readonly onNavigateToDrafts?: () => void;
 }
 
 export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImportPanelProps) {
@@ -109,11 +100,18 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
   }, [rawJson]);
 
   const handleClear = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     setRawJson('');
     setState('empty');
     setPreview(null);
     setResult(null);
     setErrorMessage('');
+  }, []);
+
+  const showFileError = useCallback((msg: string) => {
+    setPreview(null);
+    setState('error');
+    setErrorMessage(msg);
   }, []);
 
   const handleFileSelect = useCallback((event: ChangeEvent<HTMLInputElement>) => {
@@ -123,23 +121,23 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
     if (!file) return;
 
     if (!file.name.endsWith('.json')) {
-      setErrorMessage('Formato inválido. Selecione um arquivo .json.');
+      showFileError('Formato inválido. Selecione um arquivo .json.');
       return;
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      setErrorMessage(`Arquivo muito grande (${formatFileSize(file.size)}). O limite é 10 MB.`);
+      showFileError(`Arquivo muito grande (${formatFileSize(file.size)}). O limite é 10 MB.`);
       return;
     }
 
-    readText(file)
+    file.text()
       .then((content) => {
         schedulePreview(content);
       })
       .catch(() => {
-        setErrorMessage('Erro ao ler o arquivo. Tente novamente.');
+        showFileError('Erro ao ler o arquivo. Tente novamente.');
       });
-  }, [schedulePreview]);
+  }, [schedulePreview, showFileError]);
 
   const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -162,23 +160,23 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
     if (!file) return;
 
     if (!file.name.endsWith('.json')) {
-      setErrorMessage('Formato inválido. Solte apenas arquivos .json.');
+      showFileError('Formato inválido. Solte apenas arquivos .json.');
       return;
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      setErrorMessage(`Arquivo muito grande (${formatFileSize(file.size)}). O limite é 10 MB.`);
+      showFileError(`Arquivo muito grande (${formatFileSize(file.size)}). O limite é 10 MB.`);
       return;
     }
 
-    readText(file)
+    file.text()
       .then((content) => {
         schedulePreview(content);
       })
       .catch(() => {
-        setErrorMessage('Erro ao ler o arquivo. Tente novamente.');
+        showFileError('Erro ao ler o arquivo. Tente novamente.');
       });
-  }, [schedulePreview]);
+  }, [schedulePreview, showFileError]);
 
   return (
     <div className="space-y-4">
@@ -190,8 +188,7 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
           O sistema vai importar as mensagens para revisão.
         </p>
 
-        <div
-          role="region"
+        <section
           aria-label="Área de importação de JSON"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -216,7 +213,7 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
             aria-label="JSON do DiscordChatExporter"
             className="w-full min-h-[280px] resize-y bg-[#0F1A2E] border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none"
           />
-        </div>
+        </section>
 
           <input
           ref={fileInputRef}
@@ -274,12 +271,12 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
               <p className="text-white">{preview.messageCount}</p>
             </div>
             <div>
-              <p className="text-white/40">Com anexos</p>
-              <p className="text-white">{preview.messagesWithAttachments}</p>
+              <p className="text-white/40">Anexos</p>
+              <p className="text-white">{preview.totalAttachments}</p>
             </div>
             <div>
-              <p className="text-white/40">Com embeds</p>
-              <p className="text-white">{preview.messagesWithEmbeds}</p>
+              <p className="text-white/40">Embeds</p>
+              <p className="text-white">{preview.totalEmbeds}</p>
             </div>
             <div>
               <p className="text-white/40">Exportado em</p>
@@ -298,6 +295,12 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {state === 'preview_error' && errorMessage && (
+        <div className="rounded-lg bg-red-900/20 border border-red-600/30 p-3">
+          <p className="text-red-300 text-sm">{errorMessage}</p>
         </div>
       )}
 

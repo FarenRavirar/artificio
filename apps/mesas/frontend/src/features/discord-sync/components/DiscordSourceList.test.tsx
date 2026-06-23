@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DiscordSourceList } from './DiscordSourceList';
 import type { DiscordSource } from '../types';
@@ -17,32 +17,6 @@ vi.mock('../api/discordSyncApi', () => ({
     deleteSource: vi.fn(),
   },
 }));
-
-describe('getChannelKindLabel', () => {
-  function getChannelKindLabel(kind: string): string {
-    if (kind === 'forum') return 'Fórum';
-    if (kind === 'announcement') return 'Anúncio';
-    return 'Texto';
-  }
-
-  it('retorna rotulo correto para cada tipo', () => {
-    expect(getChannelKindLabel('forum')).toBe('Fórum');
-    expect(getChannelKindLabel('announcement')).toBe('Anúncio');
-    expect(getChannelKindLabel('text')).toBe('Texto');
-  });
-});
-
-describe('getChannelPrefix', () => {
-  function getChannelPrefix(kind: string): string {
-    return kind === 'forum' ? 'Fórum ' : '#';
-  }
-
-  it('retorna prefixo correto para cada tipo', () => {
-    expect(getChannelPrefix('forum')).toBe('Fórum ');
-    expect(getChannelPrefix('text')).toBe('#');
-    expect(getChannelPrefix('announcement')).toBe('#');
-  });
-});
 
 const mockSources: DiscordSource[] = [
   {
@@ -233,8 +207,9 @@ describe('DiscordSourceList', () => {
       />,
     );
 
-    const fetchButtons = screen.getAllByText('Buscar mensagens');
-    fireEvent.click(fetchButtons[0]);
+    const sourceRow = screen.getByText('chat-geral').closest('[class*="rounded-lg"]') as HTMLElement;
+    const fetchButton = within(sourceRow).getByText('Buscar mensagens');
+    fireEvent.click(fetchButton);
     expect(onFetchMessages).toHaveBeenCalledWith(
       'src-1',
       expect.objectContaining({ since: expect.any(String), until: expect.any(String) }),

@@ -182,11 +182,11 @@
   - arquivo grande demais: cliente valida 10 MB ✅
   - canal ausente: `ensureDiscordImportSource` envolto em try/catch → `DiscordChatExporterValidationError` → 400 ✅
 
-- [ ] T-D6 — Upload de arquivo JSON (botão + arrastar-soltar). **DEB-048-12.**
-  - `<input type="file" accept=".json,application/json">` + dropzone.
-  - Ler via `File.text()`/`FileReader` e enviar ao `POST /import-json`.
-  - Validar extensão/tamanho no cliente (alinha T-F2).
-  - Manter textarea como fallback de colar.
+- [x] T-D6 — Upload de arquivo JSON (botão + arrastar-soltar). **DEB-048-12.**
+   - `<input type="file" accept=".json,application/json">` + dropzone.
+   - Ler via `File.text()`/`FileReader` e enviar ao `POST /import-json`.
+   - Validar extensão/tamanho no cliente (alinha T-F2).
+   - Manter textarea como fallback de colar.
 
 ## Correções pós-smoke beta — 2026-06-23
 
@@ -198,7 +198,7 @@
   - Arquivo: `discordChatExporterTypes.ts`.
   - Teste: `__tests__/chatExporterAdapter.test.ts` (3 testes).
   - Validação: backend build ✅, test 183/183 ✅, lint 15/15 ✅.
-- [ ] T-FIX2 — `GET /settings` 500 no beta. **DEB-048-11.** Pré-existente da Spec 047; investigação read-only no beta + hardening do handler pendentes.
+- [x] T-FIX2 — `GET /settings` 500 no beta. **DEB-048-11.** Pré-existente da Spec 047; hardening do handler implementado (`DiscordSettingsDecryptError` + `decrypt_error: true`). Investigação read-only no beta pendente para confirmar causa (mismatch JWT_SECRET).
 
 ## Fase E — Automação diária permanente na VM
 
@@ -510,16 +510,16 @@
 
 - [x] `pnpm --filter @artificio/mesas-backend test` — 183/183 ✅ (3 testes novos do embed-null, T-FIX1)
 - [x] `pnpm --filter @artificio/mesas-backend build` — ✅
-- [ ] `pnpm --filter @artificio/mesas-frontend test` — 19/19 ✅ (sem UI afetada)
-- [ ] `pnpm --filter @artificio/mesas-frontend build` — ✅ (sem UI afetada)
+- [x] `pnpm --filter @artificio/mesas-frontend test` — 19/19 ✅
+- [x] `pnpm --filter @artificio/mesas-frontend build` — ✅
 - [x] `pnpm run lint` — 15/15 ✅
 - [x] `pnpm run build` — 17/17 ✅
 - [ ] Smoke beta com upload real/sanitizado
 
 ## Fechamento obrigatório
 
-- [ ] Atualizar `specs/backlog.md`.
-- [ ] Atualizar `.specify/memory/project-state.md`.
-- [ ] Atualizar sessão ativa.
+- [x] Atualizar `specs/backlog.md` — `BL-MESAS-DISCORD-EXPORTER-048` atualizado com status MVP.
+- [x] Atualizar `.specify/memory/project-state.md` — seção 048 adicionada com implementação e smoke findings.
+- [ ] Atualizar sessão ativa — refletir implementação de DEB-048-11 e DEB-048-12 (status pós-smoke).
 - [x] Registrar decisão de migration: **nenhuma**. MVP usa `discord_import_messages` existente, sem migration nova.
 - [x] Registrar decisão de automação VM: **não implementar agora**. Futuro em Fase E quando aprovado nominalmente.
