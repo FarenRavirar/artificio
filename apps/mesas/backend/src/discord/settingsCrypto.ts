@@ -12,6 +12,13 @@ export class DiscordSettingsSecretUnavailableError extends Error {
   }
 }
 
+export class DiscordSettingsDecryptError extends Error {
+  constructor() {
+    super('Credencial Discord ilegível com a chave atual. Regrave o token.');
+    this.name = 'DiscordSettingsDecryptError';
+  }
+}
+
 function getKey(salt: Buffer | string): Buffer {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -37,31 +44,38 @@ export function encryptDiscordSetting(plaintext: string): string {
 
 export function decryptDiscordSetting(value: string): string {
   const parts = value.split(':');
-  if (parts[0] === ENCRYPTION_VERSION) {
-    const [, saltHex, ivHex, authTagHex, ciphertextBase64] = parts;
-    if (!saltHex || !ivHex || !authTagHex || !ciphertextBase64) {
+  try {
+    if (parts[0] === ENCRYPTION_VERSION) {
+      const [, saltHex, ivHex, authTagHex, ciphertextBase64] = parts;
+      if (!saltHex || !ivHex || !authTagHex || !ciphertextBase64) {
+        throw new Error('Formato de credencial Discord cifrada inválido.');
+      }
+
+      const decipher = createDecipheriv('aes-256-gcm', getKey(Buffer.from(saltHex, 'hex')), Buffer.from(ivHex, 'hex'));
+      decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+      const plaintext = Buffer.concat([
+        decipher.update(Buffer.from(ciphertextBase64, 'base64')),
+        decipher.final(),
+      ]);
+      return plaintext.toString('utf8');
+    }
+
+    const [ivHex, authTagHex, ciphertextBase64] = parts;
+    if (!ivHex || !authTagHex || !ciphertextBase64) {
       throw new Error('Formato de credencial Discord cifrada inválido.');
     }
 
-    const decipher = createDecipheriv('aes-256-gcm', getKey(Buffer.from(saltHex, 'hex')), Buffer.from(ivHex, 'hex'));
+    const decipher = createDecipheriv('aes-256-gcm', getKey(LEGACY_SETTINGS_SALT), Buffer.from(ivHex, 'hex'));
     decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
     const plaintext = Buffer.concat([
       decipher.update(Buffer.from(ciphertextBase64, 'base64')),
       decipher.final(),
     ]);
     return plaintext.toString('utf8');
+  } catch (error: unknown) {
+    if (error instanceof DiscordSettingsSecretUnavailableError || error instanceof DiscordSettingsDecryptError) {
+      throw error;
+    }
+    throw new DiscordSettingsDecryptError();
   }
-
-  const [ivHex, authTagHex, ciphertextBase64] = parts;
-  if (!ivHex || !authTagHex || !ciphertextBase64) {
-    throw new Error('Formato de credencial Discord cifrada inválido.');
-  }
-
-  const decipher = createDecipheriv('aes-256-gcm', getKey(LEGACY_SETTINGS_SALT), Buffer.from(ivHex, 'hex'));
-  decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
-  const plaintext = Buffer.concat([
-    decipher.update(Buffer.from(ciphertextBase64, 'base64')),
-    decipher.final(),
-  ]);
-  return plaintext.toString('utf8');
 }

@@ -1,0 +1,78 @@
+import { Router, Request, Response } from 'express';
+import { db } from '../../db';
+import { authMiddleware } from '../../middleware/auth';
+import type { DiscordImportDraftStatus } from '../../discord';
+import { syncDiscordDraftToTable, DiscordDraftSyncValidationError, DraftNotFoundError, DraftStateError } from '../../discord';
+
+const router = Router();
+
+function isAdmin(req: Request, res: Response): boolean {
+  if ((req as any).user?.role !== 'admin') {
+    res.status(403).json({ error: 'Acesso restrito a administradores.' });
+    return false;
+  }
+  return true;
+}
+
+router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Response) => {
+  if (!isAdmin(req, res)) return;
+  try {
+    const draft = await db
+      .selectFrom('discord_import_table_drafts')
+      .select(['id', 'discord_message_id'])
+      .where('id', '=', req.params.id)
+      .executeTakeFirst();
+
+    if (!draft) return res.status(404).json({ error: 'Draft não encontrado.' });
+    if (!draft.discord_message_id) {
+      return res.status(422).json({ error: 'Draft de inbox não suporta sync via Discord.' });
+    }
+
+    const result = await syncDiscordDraftToTable(req.params.id);
+    return res.json({ data: result });
+  } catch (error: unknown) {
+    if (error instanceof DraftNotFoundError) {
+      return res.status(404).json({ error: error.message });
+    }
+    if (error instanceof DiscordDraftSyncValidationError) {
+      return res.status(422).json({ error: error.message, details: { missingFields: error.missingFields } });
+    }
+    if (error instanceof DraftStateError) {
+      return res.status(422).json({ error: error.message });
+    }
+    console.error('[POST /admin/discord-sync/drafts/:id/sync]', error);
+    const message = error instanceof Error ? error.message : 'Erro ao sincronizar draft.';
+    return res.status(500).json({ error: message });
+  }
+});
+
+router.post('/sync-ready', authMiddleware, async (req: Request, res: Response) => {
+  if (!isAdmin(req, res)) return;
+  try {
+    const readyDrafts = await db
+      .selectFrom('discord_import_table_drafts')
+      .select('id')
+      .where('status', '=', 'ready' as DiscordImportDraftStatus)
+      .where('discord_message_id', 'is not', null)
+      .execute();
+
+    const results = { synced: 0, failed: 0, errors: [] as string[] };
+
+    for (const draft of readyDrafts) {
+      try {
+        await syncDiscordDraftToTable(draft.id);
+        results.synced++;
+      } catch (err: unknown) {
+        results.failed++;
+        results.errors.push(`${draft.id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    return res.json({ data: results });
+  } catch (error: unknown) {
+    console.error('[POST /admin/discord-sync/sync-ready]', error);
+    return res.status(500).json({ error: 'Erro ao sincronizar drafts em lote.' });
+  }
+});
+
+export default router;

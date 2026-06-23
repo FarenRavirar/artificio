@@ -536,7 +536,7 @@ export function DiscordSyncPanel() {
       )}
 
       {tab === 'import-json' && (
-        <DiscordJsonImportPanel />
+        <DiscordJsonImportPanel onNavigateToDrafts={() => setTab('drafts')} />
       )}
     </div>
   );

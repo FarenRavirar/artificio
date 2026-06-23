@@ -191,3 +191,32 @@
 - Fase B5 (parse automático pós-import) — opcional, adiado
 - Fase E (VM diária) exige autorização nominal futura
 - Commit/PR pendente de autorização
+
+## Smoke real beta + correção — 2026-06-23 (turno posterior)
+
+Mantenedor testou em `https://mesasbeta.artificiorpg.com/gestao` → Discord Sync → Importar JSON com `D:\extracao_json.json`. Console reportou 2 erros + 1 pedido de UX:
+
+1. **400 no `POST /import-json`** (P0, blocker MVP). Erro Zod:
+   `messages.1.embeds.0.timestamp: Invalid input: expected string, received null` (e demais embeds).
+   - Causa-raiz: `discordChatExporterEmbedSchema` usava `.optional()` (só `undefined`); o DiscordChatExporter emite `null` em campos de embed ausentes. REV-004 cobriu timestamp de **mensagem**, não de **embed**.
+   - Fix: campos string opcionais de embed/author/attachment → `.nullish()`; `embed.image` aceita string ou `{ url }`. `discordChatExporterTypes.ts`.
+   - Teste novo: `__tests__/chatExporterAdapter.test.ts` (3 testes).
+   - **DEB-048-10** registrado (implementado ✅) + tasks.md T-FIX1.
+2. **500 no `GET /settings`** (Média). Pré-existente da Spec 047 (`decryptDiscordSetting` lança Error genérico → catch → 500; provável mismatch de `JWT_SECRET`/credencial no beta). Não é bug da 048.
+   - **DEB-048-11** registrado (aberto; investigação read-only no beta + hardening do handler).
+3. **Falta upload de arquivo** (UX). UI só tem `<textarea>` (colar). Pedido: botão "Selecionar arquivo" + arrastar-soltar.
+   - **DEB-048-12** registrado (aberto) + tasks.md T-D6.
+
+### Validação local do fix
+- `pnpm --filter @artificio/mesas-backend build` ✅
+- `pnpm --filter @artificio/mesas-backend test` — 183/183 ✅
+- `pnpm run lint` — 15/15 ✅
+
+### Backlog
+- `BL-MESAS-DISCORD-EXPORTER-048` atualizado com os 3 itens do smoke.
+
+### Próximo passo (atualizado)
+- Autorização para commit/PR do fix DEB-048-10 (carona na PR #91 ou novo commit).
+- Depois: redeploy beta + re-smoke com `extracao_json.json`.
+- DEB-048-11: inspeção read-only no beta (sem imprimir segredo).
+- DEB-048-12/T-D6: implementar upload por arquivo.

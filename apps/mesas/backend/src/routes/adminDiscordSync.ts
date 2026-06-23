@@ -7,9 +7,12 @@ import type { DiscordImportMessageStatus, DiscordImportDraftStatus } from '../di
 import { DiscordDiscoveryError, DiscordDraftSyncValidationError, DiscordIngestError, DraftNotFoundError, DraftStateError, assertDraftReadyTransition, discoverDiscordChannels, discoverDiscordGuilds, ingestForumMessages, ingestMessages, refreshDiscordDraftImage, syncDiscordDraftToTable, parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../discord';
 import type { SystemEntry } from '../discord';
 import { requireDiscordBotToken } from '../discord/config';
-import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError } from '../discord/settingsCrypto';
+import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError, DiscordSettingsDecryptError } from '../discord/settingsCrypto';
 import { notifyAdmins } from '../services/adminNotifications';
 
+import previewRouter from './discord/preview';
+import importRouter from './discord/import';
+import syncRouter from './discord/sync';
 const router = Router();
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 
@@ -405,16 +408,32 @@ router.get('/settings', authMiddleware, async (req: Request, res: Response) => {
       return res.json({ data: { bot_token: { is_set: false, preview: null, updated_at: null } } });
     }
 
-    const token = decryptDiscordSetting(setting.value);
-    return res.json({
-      data: {
-        bot_token: {
-          is_set: true,
-          preview: maskToken(token),
-          updated_at: setting.updated_at,
+    try {
+      const token = decryptDiscordSetting(setting.value);
+      return res.json({
+        data: {
+          bot_token: {
+            is_set: true,
+            preview: maskToken(token),
+            updated_at: setting.updated_at,
+          },
         },
-      },
-    });
+      });
+    } catch (error: unknown) {
+      if (error instanceof DiscordSettingsDecryptError) {
+        return res.json({
+          data: {
+            bot_token: {
+              is_set: true,
+              preview: null,
+              updated_at: setting.updated_at,
+              decrypt_error: true,
+            },
+          },
+        });
+      }
+      throw error;
+    }
   } catch (error: unknown) {
     return sendSettingsError(res, error, '[GET /admin/discord-sync/settings]');
   }
@@ -1251,104 +1270,10 @@ router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Res
 });
 
 // POST /drafts/:id/sync
-router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
-  try {
-    const draft = await db
-      .selectFrom('discord_import_table_drafts')
-      .select(['id', 'discord_message_id'])
-      .where('id', '=', req.params.id)
-      .executeTakeFirst();
+router.use('/', syncRouter);
 
-    if (!draft) return res.status(404).json({ error: 'Draft não encontrado.' });
-    if (!draft.discord_message_id) {
-      return res.status(422).json({ error: 'Draft de inbox não suporta sync via Discord.' });
-    }
-
-    const result = await syncDiscordDraftToTable(req.params.id);
-    return res.json({ data: result });
-  } catch (error: unknown) {
-    if (error instanceof DraftNotFoundError) {
-      return res.status(404).json({ error: error.message });
-    }
-    if (error instanceof DiscordDraftSyncValidationError) {
-      return res.status(422).json({ error: error.message, details: { missingFields: error.missingFields } });
-    }
-    if (error instanceof DraftStateError) {
-      return res.status(422).json({ error: error.message });
-    }
-    console.error('[POST /admin/discord-sync/drafts/:id/sync]', error);
-    const message = error instanceof Error ? error.message : 'Erro ao sincronizar draft.';
-    return res.status(500).json({ error: message });
-  }
-});
-
-// POST /sync-ready — sincroniza todos os drafts com status 'ready' em lote
-router.post('/sync-ready', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
-  try {
-    const readyDrafts = await db
-      .selectFrom('discord_import_table_drafts')
-      .select('id')
-      .where('status', '=', 'ready' as DiscordImportDraftStatus)
-      .where('discord_message_id', 'is not', null)
-      .execute();
-
-    const results = { synced: 0, failed: 0, errors: [] as string[] };
-
-    for (const draft of readyDrafts) {
-      try {
-        await syncDiscordDraftToTable(draft.id);
-        results.synced++;
-      } catch (err: unknown) {
-        results.failed++;
-        results.errors.push(`${draft.id}: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-
-    return res.json({ data: results });
-  } catch (error: unknown) {
-    console.error('[POST /admin/discord-sync/sync-ready]', error);
-    return res.status(500).json({ error: 'Erro ao sincronizar drafts em lote.' });
-  }
-});
-
-import { importDiscordChatExporterJson } from '../discord/chatExporterImportService';
-import { DiscordChatExporterValidationError } from '../discord/chatExporterAdapter';
-
-router.post('/import-json', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
-
-  try {
-    const rawBody = req.body;
-    let jsonPayload: unknown;
-
-    if (rawBody && typeof rawBody === 'object' && 'json' in rawBody) {
-      jsonPayload = (rawBody as Record<string, unknown>).json;
-    } else if (rawBody && typeof rawBody === 'object' && 'messages' in rawBody) {
-      jsonPayload = rawBody;
-    } else {
-      return res.status(400).json({ error: 'JSON inválido: envie um objeto com o campo "json" ou o próprio export do DiscordChatExporter.' });
-    }
-
-    const result = await importDiscordChatExporterJson(jsonPayload);
-
-    return res.json({
-      data: {
-        total: result.total,
-        inserted: result.inserted,
-        updated: result.updated,
-        ignored: result.ignored,
-      },
-    });
-  } catch (error: unknown) {
-    if (error instanceof DiscordChatExporterValidationError) {
-      return res.status(400).json({ error: error.message });
-    }
-    console.error('[POST /admin/discord-sync/import-json]', error);
-    return res.status(500).json({ error: 'Erro ao importar JSON do DiscordChatExporter.' });
-  }
-});
+router.use('/import-json', previewRouter);
+router.use('/import-json', importRouter);
 
 export default router;
-
+

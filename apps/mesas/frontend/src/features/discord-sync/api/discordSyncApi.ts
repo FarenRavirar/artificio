@@ -256,8 +256,24 @@ export const discordSyncApi = {
       inserted: z.number(),
       updated: z.number(),
       ignored: z.number(),
+      failed: z.number(),
     }).safeParse(data);
     if (!parsed.success) throw new Error('Resposta de importação em formato inesperado.');
+    return parsed.data;
+  },
+
+  previewJson: async (json: unknown) => {
+    const data = await apiFetch<unknown>('/import-json/preview', { method: 'POST', body: JSON.stringify(json) });
+    const parsed = z.object({
+      guild: z.object({ id: z.string(), name: z.string() }),
+      channel: z.object({ id: z.string(), name: z.string() }),
+      dateRange: z.object({ after: z.string().optional(), before: z.string().optional() }).nullable(),
+      exportedAt: z.string().nullable(),
+      messageCount: z.number(),
+      messagesWithAttachments: z.number(),
+      messagesWithEmbeds: z.number(),
+    }).safeParse(data);
+    if (!parsed.success) throw new Error('Resposta de preview em formato inesperado.');
     return parsed.data;
   },
 };
