@@ -5,8 +5,8 @@ import { inboxApi } from '../api/inboxApi';
 import type { InboxImportResult } from '../types';
 
 interface TextPasteAreaProps {
-  onImportSuccess?: (result: InboxImportResult) => void;
-  titleHint?: string;
+  readonly onImportSuccess?: (result: InboxImportResult) => void;
+  readonly titleHint?: string;
 }
 
 type PasteState = 'empty' | 'typing' | 'sending' | 'success' | 'no-drafts' | 'error';
@@ -107,8 +107,8 @@ export function TextPasteArea({ onImportSuccess, titleHint }: TextPasteAreaProps
           <div className="flex items-start gap-2 p-3 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-sm text-green-800 dark:text-green-200">
             <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
             <span>
-              {result.segments_found} segmento{result.segments_found !== 1 ? 's' : ''} encontrado{result.segments_found !== 1 ? 's' : ''}
-              , {result.drafts_created} draft{result.drafts_created !== 1 ? 's' : ''} criado{result.drafts_created !== 1 ? 's' : ''}.
+              {result.segments_found} segmento{result.segments_found === 1 ? '' : 's'} encontrado{result.segments_found === 1 ? '' : 's'}
+              , {result.drafts_created} draft{result.drafts_created === 1 ? '' : 's'} criado{result.drafts_created === 1 ? '' : 's'}.
             </span>
           </div>
         )}

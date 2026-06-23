@@ -2,7 +2,7 @@ import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from 
 import type { InboxDraft, InboxCorrectionResult, InboxSyncResult } from '../types';
 import { inboxApi } from '../api/inboxApi';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 

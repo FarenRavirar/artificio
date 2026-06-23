@@ -4,7 +4,7 @@ import type { DiscordDraft, DiscordImportDraftStatus } from '../../discord-sync/
 import { DiscordDraftPreview } from '../../discord-sync/components/DiscordDraftPreview';
 import { inboxApi } from '../api/inboxApi';
 import type { InboxDraftSummary } from '../types';
-import { buildInboxDraftApi, inboxDraftToDiscordDraft } from '../adapters/draftAdapter';
+import { buildInboxDraftApi, inboxDraftToDiscordDraft, isRecord } from '../adapters/draftAdapter';
 
 const DRAFT_STATUS_LABELS: Record<string, string> = {
   draft: 'Rascunho',
@@ -52,7 +52,7 @@ export function InboxDraftReviewTable() {
     try {
       const full = await inboxApi.getDraft(draft.id);
       const converted = inboxDraftToDiscordDraft(full);
-      originalPayloadRef.current = full.normalized_payload as Record<string, unknown> | null;
+      originalPayloadRef.current = isRecord(full.normalized_payload) ? full.normalized_payload : null;
       setSelectedDraft(converted);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar detalhes do draft.');
@@ -65,14 +65,14 @@ export function InboxDraftReviewTable() {
       return null;
     }
 
-    const currentNormalized = current.normalized_payload as Record<string, unknown> | null;
+    const currentNormalized = isRecord(current.normalized_payload) ? current.normalized_payload : null;
     if (!currentNormalized) {
       return null;
     }
 
     const diff: Record<string, unknown> = {};
-    const originalTable = (originalNormalized.table as Record<string, unknown>) || {};
-    const currentTable = (currentNormalized.table as Record<string, unknown>) || {};
+    const originalTable = isRecord(originalNormalized.table) ? originalNormalized.table : {};
+    const currentTable = isRecord(currentNormalized.table) ? currentNormalized.table : {};
 
     for (const key of Object.keys(currentTable)) {
       const before = originalTable[key];
@@ -86,7 +86,7 @@ export function InboxDraftReviewTable() {
       return null;
     }
 
-    const result = await inboxApi.registerCorrection(current.id, diff, 'Edição humana antes da sincronização');
+    const result = await inboxApi.registerCorrection(current.id, diff, 'Edição humana antes da sincronização', { before: originalTable });
     if (result.fields_corrected === 0) {
       return null;
     }
@@ -130,10 +130,14 @@ export function InboxDraftReviewTable() {
         <p className="text-white/40 text-sm py-4 text-center">Nenhum draft encontrado.</p>
       ) : (
         <div className="space-y-2">
-          {drafts.map(draft => (
-            <div
+          {drafts.map(draft => {
+            const colorClass = DRAFT_STATUS_COLORS[draft.status] ?? 'bg-white/10 text-white/50';
+            const label = DRAFT_STATUS_LABELS[draft.status] ?? draft.status;
+            return (
+            <button
               key={draft.id}
-              className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.08] transition-colors"
+              type="button"
+              className="w-full text-left bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.08] transition-colors"
               onClick={() => handleSelectDraft(draft)}
             >
               <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-white/10 bg-white/5 flex items-center justify-center text-white/20 text-xs">
@@ -141,8 +145,8 @@ export function InboxDraftReviewTable() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span className={`px-2 py-0.5 text-xs rounded-full ${DRAFT_STATUS_COLORS[draft.status] || 'bg-white/10 text-white/50'}`}>
-                    {DRAFT_STATUS_LABELS[draft.status] || draft.status}
+                  <span className={`px-2 py-0.5 text-xs rounded-full ${colorClass}`}>
+                    {label}
                   </span>
                   {draft.confidence != null && (
                     <span className="text-white/30 text-xs">{Math.round(draft.confidence * 100)}%</span>
@@ -156,8 +160,9 @@ export function InboxDraftReviewTable() {
               <div className="text-white/30 text-xs shrink-0 text-right">
                 <p>{new Date(draft.created_at).toLocaleDateString('pt-BR')}</p>
               </div>
-            </div>
-          ))}
+            </button>
+            );
+          })}
         </div>
       )}
 

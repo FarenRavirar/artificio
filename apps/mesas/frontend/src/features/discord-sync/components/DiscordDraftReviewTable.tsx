@@ -5,10 +5,10 @@ import { discordSyncApi } from '../api/discordSyncApi';
 import { DiscordDraftPreview } from './DiscordDraftPreview';
 
 interface Props {
-  api?: DraftApiOperations;
-  listDrafts?: (params?: { status?: DiscordImportDraftStatus; limit?: number; offset?: number }) => Promise<DiscordDraft[]>;
-  syncReadyAction?: () => Promise<{ synced: number; failed: number; errors: string[] }>;
-  showSyncReady?: boolean;
+  readonly api?: DraftApiOperations;
+  readonly listDrafts?: (params?: { status?: DiscordImportDraftStatus; limit?: number; offset?: number }) => Promise<DiscordDraft[]>;
+  readonly syncReadyAction?: () => Promise<{ synced: number; failed: number; errors: string[] }>;
+  readonly showSyncReady?: boolean;
 }
 
 const DRAFT_STATUS_LABELS: Record<DiscordImportDraftStatus, string> = {

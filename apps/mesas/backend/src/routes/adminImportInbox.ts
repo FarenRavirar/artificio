@@ -5,6 +5,7 @@ import { db } from '../db';
 import type { SystemEntry } from '../discord';
 import { DraftNotFoundError, DraftStateError } from '../discord/syncHelpers';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../discord';
+import { assertDraftReadyTransition } from '../discord/draftValidation';
 import { authMiddleware } from '../middleware/auth';
 import { textToRawMessage } from '../inbox/adapters/textToRawMessage';
 import { segmentAnnouncements } from '../inbox/segmentation';
@@ -375,6 +376,19 @@ router.patch('/drafts/:id', authMiddleware, async (req: Request, res: Response) 
       return res.status(422).json({ error: 'Draft já sincronizado não pode ser alterado.' });
     }
 
+    if (parsed.data.status && parsed.data.status !== current.status) {
+      const patchPayload = normalizeDraftPayload(parsed.data.normalized_payload ?? current.normalized_payload);
+      const currentPayload = normalizeDraftPayload(current.normalized_payload);
+      const transition = assertDraftReadyTransition({
+        patchStatus: parsed.data.status,
+        patchPayloadMissing: patchPayload?.missing_fields,
+        currentPayloadMissing: currentPayload?.missing_fields,
+      });
+      if (!transition.allowed) {
+        return res.status(422).json({ error: transition.reason, missing_fields: transition.missingFields });
+      }
+    }
+
     if (parsed.data.normalized_payload) {
       const table = (parsed.data.normalized_payload as Record<string, unknown>).table as Record<string, unknown> | undefined;
       if (table?.status === 'published') {
@@ -418,14 +432,14 @@ router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Res
 
     const importMsg = await db
       .selectFrom('import_messages')
-      .select(['content_raw', 'raw_text'])
+      .select(['content_raw', 'raw_text', 'thread_name'])
       .where('id', '=', draft.import_message_id)
       .executeTakeFirst();
 
     if (!importMsg) return res.status(404).json({ error: 'Mensagem de origem não encontrada.' });
 
     const rawContent = importMsg.content_raw || importMsg.raw_text || '';
-    const rawMessage = textToRawMessage(rawContent);
+    const rawMessage = textToRawMessage(rawContent, importMsg.thread_name ?? undefined);
     const systems = await loadSystemsForParser();
     const parsed = parseDiscordAnnouncement(rawMessage, systems);
 
@@ -475,6 +489,7 @@ router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Res
 const correctionSchema = z.object({
   corrections: z.record(z.string(), z.unknown()),
   reason: z.string().optional(),
+  before: z.record(z.string(), z.unknown()).optional(),
 });
 
 router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: Response) => {
@@ -490,7 +505,7 @@ router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: 
       return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Payload inválido.' });
     }
 
-    const { corrections, reason } = parsed.data;
+    const { corrections, reason, before } = parsed.data;
 
     // Carrega draft + import_message para obter raw_text
     const draft = await db
@@ -521,10 +536,10 @@ router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: 
 
     const diff: Record<string, { before: unknown; after: unknown }> = {};
     for (const key of Object.keys(corrections)) {
-      const before = (parsedBefore?.table as Record<string, unknown>)?.[key];
+      const beforeVal = before?.[key] ?? (parsedBefore?.table as Record<string, unknown>)?.[key];
       const after = corrections[key];
-      if (JSON.stringify(before) !== JSON.stringify(after)) {
-        diff[key] = { before, after };
+      if (JSON.stringify(beforeVal) !== JSON.stringify(after)) {
+        diff[key] = { before: beforeVal, after };
       }
     }
 

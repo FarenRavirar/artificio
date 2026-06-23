@@ -718,3 +718,580 @@ Justificativas em `plan.md` §2.
 - **Status:** ✅ **implementado**
 - **Classificação:** procede (trivial, quick win)
 - **Correção:** Removido `console.error` da linha 1260 (antes dos instanceof). Mantido apenas no fallback 500 (linha 1270). Análogo ao `adminImportInbox.ts` que já segue este padrão (linha 283).
+
+---
+
+## 2026-06-22 — Codex + CodeRabbit pós-PR #88 (UI Inbox)
+
+**PR:** https://github.com/FarenRavirar/artificio/pull/88
+**Branch:** `feat/047-inbox-ui-review`
+**Commit base:** `5609e33`
+
+### REV-017 — registerCorrection registra diff 0 após updateDraft já ter persistido
+
+- **Origem:** chatgpt-codex-connector (bot)
+- **Tipo:** PR
+- **Referência:** `apps/mesas/frontend/src/features/inbox/components/InboxDraftReviewTable.tsx`, trecho que chama `registerCorrection` depois que o botão "Salvar campos" já persistiu via updateDraft
+- **Resumo:** Quando o admin segue o fluxo normal (corrige campos com "Salvar campos" e depois sincroniza), o banco já foi atualizado via updateDraft antes da chamada a registerCorrection. O backend recalcula o diff contra a row atual, então os valores enviados batem com o payload salvo e `fields_corrected` fica 0, deixando o corpus de treino/correção vazio exatamente para as edições humanas que este recurso deveria capturar.
+- **Severidade declarada:** P2 (Codex)
+- **Status:** ✅ **Investigado — procede**
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-017
+
+- **Classificação:** procede e deve ser implementado
+- **Severidade real:** 🟠 Major — corpus de treino fica vazio, anulando o propósito da feature de correções
+- **Impacto real:** O corpus de correções (`import_corrections`) registra `fields_corrected = 0` para edições reais, tornando os dados de treino inúteis. O propósito da Spec 047 (coletar correções humanas para melhorar o parser) é anulado.
+
+- **Anatomia do fluxo (com evidências de código):**
+
+  1. **Snapshot inicial** — `InboxDraftReviewTable.tsx:55`: `originalPayloadRef.current = full.normalized_payload` captura o estado original do draft ao abrir o preview
+  2. **Admin edita + "Salvar campos"** — `DiscordDraftPreview.tsx:296-306` (`handleSaveFields`): chama `draftApi.updateDraft(draft.id, { normalized_payload: {...} })` → **persiste no backend** → `onUpdate(updated)` → `InboxDraftReviewTable.handleDraftUpdate` (linha 98-101) atualiza `selectedDraft`
+  3. **Admin clica Sync** — `DiscordDraftPreview.tsx:401-427` (`handleSync`): chama `onBeforeSync(draft)` → `InboxDraftReviewTable.handleBeforeSync` (linha 62-96)
+  4. **handleBeforeSync** — compara `originalPayloadRef.current` (snapshot original, ex: `{ title: "Old" }`) com `current.normalized_payload` (draft após save, ex: `{ table: { title: "New" } }`) → gera diff `{ title: "New" }`
+  5. **registerCorrection** — envia `{ title: "New" }` para o backend
+  6. **Backend POST /correction** (`adminImportInbox.ts:519-529`): carrega `draft.normalized_payload` do banco (que JÁ tem `{ table: { title: "New" } }` salvo pelo updateDraft). `parsedBefore = normalizeDraftPayload(draft.normalized_payload)` retorna `{ table: { title: "New" } }`. Depois aplica `corrections = { title: "New" }` em cima de `parsedBefore` (`parsedBefore.table = { ...parsedBefore.table, ...corrections }`). O `diff` (linha 522-529) compara `parsedBefore.table.title` ("New") com `corrections.title` ("New") → **igual** → `diff` vazio → `fields_corrected = 0`
+
+- **Causa raiz:** O backend POST /correction foi projetado para receber correções ANTES da persistência (o fluxo original salvava correction + updateDraft juntos na transação). Com o fluxo do frontend (primeiro updateDraft, depois correction), o banco já contém os valores finais quando a correction chega.
+
+- **Soluções possíveis:**
+  - **Opção A (backend):** POST /correction aceitar `before` + `after` explicitamente, em vez de comparar com o banco atual. O frontend envia ambos os valores.
+  - **Opção B (frontend):** Inverter a ordem: primeiro `registerCorrection` com diff calculado no frontend (comparing `originalPayloadRef` vs `form`), depois `updateDraft` e `syncDraft`. Mas isso quebraria a sequência atual dentro do `DiscordDraftPreview.handleSync`.
+  - **Opção C (backend):** POST /correction comparar `corrections[key]` com o valor correspondente no `normalized_payload` do draft obtido via `parsed_before` (que é o payload carregado) — atualmente faz isso, mas o payload já foi sobrescrito. Se o frontend enviasse o valor **original** (before) e o **corrigido** (after), o backend poderia computar o diff corretamente.
+
+- **Risco de regressão:** Alto se mudar a assinatura do endpoint POST /correction (impacta consumidores existentes). Baixo se a mudança for no frontend (só o inbox chama este endpoint).
+
+- **Já existe tratamento?** Não — o fluxo foi implementado como "edit → save → sync" sem considerar que o save persiste antes da correção.
+
+- **Falso positivo?** Não — bug real, corpus fica vazio.
+
+- **Recomendação:** Inverter a ordem dentro de `handleBeforeSync`: primeiro chamar `registerCorrection` com o diff calculado no frontend comparando `originalPayloadRef.current` com `current.normalized_payload`, DEPOIS chamar `syncDraft`. O `updateDraft` já foi chamado em `handleSaveFields` e é necessário para persistir os campos editados — a correção deve capturar o que mudou entre o original e o salvo. Ajuste: `handleBeforeSync` não precisa chamar `syncDraft` — o `handleSync` já o faz no fallback (linha 416). Em vez disso, `handleBeforeSync` só registra a correção e retorna `null` (permitindo que o sync normal ocorra). Para evitar que o backend compute diff 0: adicionar `before` explícito no corpo da requisição, e o backend usar isso em vez de comparar com `normalized_payload` atual.
+
+- **Investigado por:** OpenCode (DeepSeek-v4-pro)
+- **Data:** 2026-06-22**
+
+### REV-018 — Validar ready transitions antes de update em inbox drafts (CHECK constraint)
+
+- **Origem:** chatgpt-codex-connector (bot)
+- **Tipo:** PR
+- **Referência:** `apps/mesas/backend/src/routes/adminImportInbox.ts:385-388`, PATCH /drafts/:id
+- **Resumo:** Se admin muda inbox draft para `ready` enquanto `normalized_payload.missing_fields` ainda não está vazio, o update cego atinge a CHECK constraint do banco (`status='ready' => missing_fields=[]`) e retorna 500 genérico. A rota PATCH do Discord Sync já faz a checagem `assertDraftReadyTransition` antes de atualizar; a inbox PATCH deveria fazer o mesmo para retornar 422 claro.
+- **Severidade declarada:** P2 (Codex)
+- **Status:** ✅ **Investigado — procede**
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-018
+
+- **Classificação:** procede e deve ser implementado
+- **Severidade real:** 🟠 Major — 500 genérico em vez de 422 claro, confunde admin e dificulta debug
+
+- **Evidências de código:**
+
+  1. **CHECK constraint no banco** (`migration_118_discord_drafts_invariant.sql`): `status <> 'ready' OR COALESCE(jsonb_array_length(normalized_payload -> 'missing_fields'), 0) = 0` — quando status='ready', missing_fields deve ser array vazio
+
+  2. **PATCH Discord Sync (com proteção)** (`adminDiscordSync.ts:1037-1051`):
+     - Linha 1039: `const patchPayload = normalizeDraftPayload(parsed.data.normalized_payload)` — extrai payload
+     - Linha 1040: `const currentPayload = normalizeDraftPayload(current.normalized_payload)` — extrai payload atual
+     - Linha 1041: chama `assertDraftReadyTransition` com `patchStatus`, `patchPayloadMissing` e `currentPayloadMissing`
+     - Linhas 1046-1051: se `!transition.allowed`, retorna 422 com `missing_fields` na resposta
+     - Linhas 1053-1058: só executa o update se passou na validação
+
+  3. **assertDraftReadyTransition** (`draftValidation.ts:27-49`): função que:
+     - Se `patchStatus !== 'ready'`: permite sempre (retorna `{ allowed: true }`)
+     - Tenta extrair `missing_fields` do payload patch, depois do atual, depois `[]`
+     - Se `effective.length > 0`: retorna `{ allowed: false, reason, missingFields }`
+     - Verifica que `missing_fields` está vazio
+
+  4. **PATCH Inbox (SEM proteção)** (`adminImportInbox.ts:385-390`):
+     - Update direto via `db.updateTable().set({ ...parsed.data }).where('id', '=', draftId).returningAll().execute()`
+     - NENHUMA chamada a `assertDraftReadyTransition`
+     - Se status='ready' e missing_fields não vazio, o PostgreSQL lança `23514` (check constraint violation) → catch (linha 395) → 500 genérico
+
+- **Cenário de falha:**
+  1. Admin altera campos mas deixa campo obrigatório vazio (ex: system_id)
+  2. Admin muda status manualmente para 'ready' (ou o frontend faz isso via auto-classificação)
+  3. PATCH Inbox executa  `UPDATE SET status='ready'`
+  4. PostgreSQL rejeita com erro da constraint `discord_drafts_n`
+  5. Catch converte para 500 genérico: `{ error: 'Erro ao atualizar draft.' }`
+  6. Admin não entende por que o draft não ficou ready — mensagem é inútil
+
+- **Risco de regressão:** Baixo — adicionar a checagem é puramente aditivo, não remove funcionalidade existente. A função `assertDraftReadyTransition` já está testada (`draftValidation.test.ts: 7 testes`)
+
+- **Já existe tratamento?** Não no PATCH Inbox. Sim no PATCH Discord Sync (linhas 1041-1051)
+
+- **Falso positivo?** Não — o gap é real e material
+
+- **Recomendação:** Importar `assertDraftReadyTransition` de `../discord/draftValidation` no `adminImportInbox.ts` e adicionar a checagem antes do update, seguindo o mesmo padrão de `adminDiscordSync.ts:1041-1051`. Testar: status='ready' com missing_fields não vazio → 422. Status='ready' com missing_fields vazio → 200. Status='draft' com missing_fields não vazio → 200.
+
+- **Investigado por:** OpenCode (DeepSeek-v4-pro)
+- **Data:** 2026-06-22**
+
+### REV-019 — thread_name ausente no reparse pode degradar parsing
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR
+- **Referência:** `apps/mesas/backend/src/routes/adminImportInbox.ts:419-429`, POST /drafts/:id/reparse
+- **Resumo:** O reparse reconstrói a mensagem sem `thread_name`, embora este contexto seja persistido no `import_messages` e usado pelo parser para título/sistema. Isso pode degradar o parse e sobrescrever o draft com dados incorretos. Sugere adicionar `thread_name` ao SELECT e passar para `textToRawMessage`.
+- **Severidade declarada:** 🟠 Major
+- **Status:** ✅ **Investigado — procede**
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-019
+
+- **Classificação:** procede e deve ser implementado
+- **Severidade real:** 🟡 Minor — afeta apenas drafts importados com `title_hint`; parser tem fallback
+
+- **Evidências de código:**
+
+  1. **Parser usa `discord_thread_name`** (`parseDiscordAnnouncement.ts:400-414`):
+     - Linha 400: `const threadName = message.discord_thread_name ?? ''`
+     - Linha 411: `const fullText = ${threadName}\n${body}`
+     - Linha 414: `splitThreadName(threadName || body.split('\n')[0] || 'Mesa sem título')` — thread_name é usado para extrair título e dica de sistema
+     - Se thread_name vazio: fallback para primeira linha do corpo
+
+  2. **textToRawMessage aceita threadName** (`textToRawMessage.ts:4,18`):
+     - Assinatura: `textToRawMessage(rawText: string, threadName?: string)`
+     - Linha 18: `discord_thread_name: threadName ?? ''`
+
+  3. **import_messages tem coluna thread_name** (`migration_128_import_messages.sql`): `thread_name TEXT`
+
+  4. **POST /import-text persiste thread_name** (`adminImportInbox.ts`): `thread_name: title_hint ?? null`
+
+  5. **POST /drafts/:id/reparse NÃO carrega thread_name** (`adminImportInbox.ts:419-428`):
+     - Linha 421: `.select(['content_raw', 'raw_text'])` — **thread_name ausente**
+     - Linha 428: `textToRawMessage(rawContent)` — **sem segundo argumento**
+     - Resultado: `discord_thread_name` vazio no parser
+
+  6. **Reparse do Discord Sync** (`adminDiscordSync.ts`): carrega `discord_thread_name` da tabela `discord_import_messages` e passa para `textToRawMessage` equivalente
+
+- **Impacto real:**
+  - Draft importado SEM `title_hint`: `thread_name = null` no `import_messages`. Reparse sem `thread_name` = mesmo resultado do parse original (que também não tinha). **Sem regressão.**
+  - Draft importado COM `title_hint`: `thread_name = "D&D 5e: Aventura"` no `import_messages`. Reparse SEM `thread_name` perde a dica de título/sistema. O parser usa fallback `body.split('\n')[0]` que pode extrair título mas sem a dica de sistema.
+  - **Cenário mais provável:** admin usa reparse quando o parse original falhou (status `needs_review`). Se o parse original já falhou mesmo com `title_hint`, o reparse sem `thread_name` pode degradar ainda mais.
+
+- **Risco de regressão:** Nenhum — adicionar `thread_name` ao SELECT e passar para `textToRawMessage` é puramente aditivo
+
+- **Já existe tratamento?** Não — o reparse Inbox ignora `thread_name`. O reparse Discord Sync (`adminDiscordSync.ts`) não tem este problema porque a tabela `discord_import_messages` tem `discord_thread_name` e é sempre selecionado.
+
+- **Falso positivo?** Não — a omissão é real, embora o impacto seja menor que o declarado
+
+- **Recomendação:** Alterar linha 421 de `.select(['content_raw', 'raw_text'])` para `.select(['content_raw', 'raw_text', 'thread_name'])` e linha 428 de `textToRawMessage(rawContent)` para `textToRawMessage(rawContent, importMsg.thread_name ?? undefined)`. Testar: reparse de draft com `thread_name` preserva no parser; reparse de draft sem `thread_name` continua funcionando.
+
+- **Investigado por:** OpenCode (DeepSeek-v4-pro)
+- **Data:** 2026-06-22**
+
+### REV-020 — Fallback para discordSyncApi.getDraft quando api customizada injetada sem getDraft
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftPreview.tsx:404-420`, handleSync
+- **Resumo:** Quando `onBeforeSync` é usado (inbox) e `draftApi.getDraft` não está implementado, o código cai para `discordSyncApi.getDraft`, cruzando contextos de integração. Após sync, se `draftApi.getDraft` não existe, não deve fazer fallback — apenas retornar sem `onUpdate`.
+- **Severidade declarada:** 🟠 Major
+- **Status:** ✅ **Investigado — procede, mas é débito de hardening**
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-020
+
+- **Classificação:** procede, mas é débito de hardening (não se materializa no fluxo atual)
+- **Severidade real:** 🟡 Minor — requer injeção de API incompleta para se materializar
+
+- **Evidências de código:**
+
+  1. **handleSync em DiscordDraftPreview** (`DiscordDraftPreview.tsx:401-427`):
+     - Linhas 404-414: se `onBeforeSync` retorna resultado, usa `draftApi.getDraft ?? discordSyncApi.getDraft` para recarregar o draft após sync
+     - Linhas 416-421: mesmo padrão no fallback após `syncDraft`
+     - Ambos: `draftApi.getDraft ? await draftApi.getDraft(draft.id) : await discordSyncApi.getDraft(draft.id)`
+
+  2. **DraftApiOperations.getDraft é opcional** (`discord-sync/types.ts:172`): `getDraft?: (id: string) => Promise<DiscordDraft>;`
+
+  3. **Inbox sempre define getDraft** (`draftAdapter.ts:20`): `getDraft: async (id) => inboxDraftToDiscordDraft(await inboxApi.getDraft(id))`
+
+- **Impacto real:**
+  - **Fluxo Inbox:** `buildInboxDraftApi()` sempre define `getDraft` → fallback nunca ativado → sem problema
+  - **Fluxo Discord:** não usa `api` prop → usa `discordSyncApi` diretamente (não tem fallback)
+  - **Risco futuro:** Se novo consumidor (ex: API de migração de legado) injetar `DraftApiOperations` sem `getDraft`, o fallback para `discordSyncApi.getDraft` retornaria um draft Discord com `discord_message_id` não nulo, quebrando o estado visual do preview. Mas este cenário não existe hoje.
+
+- **Risco de regressão:** Baixo — remover o fallback não afeta o fluxo Inbox (sempre tem `getDraft`) nem o Discord (não usa `api` prop)
+
+- **Já existe tratamento?** Não — o fallback existe como "conveniência" mas é frágil
+
+- **Falso positivo?** Parcial — a preocupação é estruturalmente válida, mas o cenário não se materializa no código atual. É hardening defensivo.
+
+- **Recomendação:** Remover o fallback para `discordSyncApi.getDraft`. Se `draftApi.getDraft` não existe, simplesmente não chamar `onUpdate` após sync (o draft já foi atualizado no backend). O estado local do preview continuará exibindo os dados corretos até o próximo refresh da lista.
+
+  Alternativamente: tornar `getDraft` obrigatório em `DraftApiOperations`, já que todos os consumidores atuais (Discord e Inbox) o implementam. Isso força qualquer novo consumidor a implementá-lo.
+
+- **Investigado por:** OpenCode (DeepSeek-v4-pro)
+- **Data:** 2026-06-22**
+
+### REV-021 — apiFetch frágil: res.json() antes de !res.ok, sem fallback para corpo não-JSON
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR
+- **Referência:** `apps/mesas/frontend/src/features/inbox/api/inboxApi.ts:15-24`, apiFetch
+- **Resumo:** Chamadas não-204 sempre passam por `res.json()` antes da verificação `!res.ok`. Se resposta não for JSON (corpo vazio, proxy HTML, erro de rede), `res.json()` lança `SyntaxError` mascarando status HTTP real. Além disso, `data.error` é acessado sem verificar tipo de `data`. Sugere usar `res.text()` + tentativa de `JSON.parse`.
+- **Severidade declarada:** 🟠 Major
+- **Status:** ✅ **Investigado — procede (hardening)**
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-021
+
+- **Classificação:** procede, mas é hardening (defesa em profundidade)
+- **Severidade real:** 🟡 Minor — fluxo normal nunca falha; cenário de erro só com proxy/nginx
+
+- **Evidências de código:**
+
+  1. **inboxApi.ts:15-24** — `apiFetch` faz `res.json()` antes de `!res.ok`
+  2. **discordSyncApi.ts:22-32** — código IDÊNTICO, mesma vulnerabilidade
+  3. **Nenhum outro apiFetch** no frontend — só estes dois arquivos têm este padrão
+
+- **Impacto real:**
+  - **Fluxo normal** (backend responde JSON): `res.json()` funciona, `data.error` é string → sem problema
+  - **Erro de proxy/nginx** (500 com HTML): `res.json()` → `SyntaxError: Unexpected token '<'` → exceção não tratada → `toast.error("SyntaxError: ...")` genérico
+  - **Backend com erro interno** (500 sem corpo): `res.json()` → `SyntaxError: Unexpected end of JSON input`
+  - **Body vazio 422**: mesmo cenário
+  - **`data.error` sem type guard** (linha 23): se `data` for array ou string, `data.error` é `undefined` → mensagem `"HTTP ${status}"` em vez do erro real
+
+- **Probabilidade de ocorrência:**
+  - Em produção real (VM Oracle com Docker), erros 500 com HTML de proxy são raros mas possíveis (ex: Cloudflare retorna HTML 502 se o container cair)
+  - Em desenvolvimento local (Vite dev server), backend responde sempre JSON — zero risco
+
+- **Risco de regressão:** Baixo — usar `res.text()` + `JSON.parse` com try/catch é defensivo e não muda comportamento no caminho feliz
+
+- **Já existe tratamento?** Não — nenhum dos dois apiFetch tem proteção
+
+- **Falso positivo?** Não — o padrão é frágil, embora a probabilidade de falha seja baixa
+
+- **Recomendação:** Substituir `res.json()` por `res.text()` + `JSON.parse` em ambos os arquivos (`inboxApi.ts` e `discordSyncApi.ts`), com tratamento de erro para corpo não-JSON. Adicionar type guard para `data.error`: `typeof data === 'object' && data !== null && 'error' in data`.
+
+- **Investigado por:** OpenCode (DeepSeek-v4-pro)
+- **Data:** 2026-06-22**
+
+### REV-022 — Fallback silencioso para [] esconde quebra de contrato da lista de drafts
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR
+- **Referência:** `apps/mesas/frontend/src/features/inbox/api/inboxApi.ts:98-101`, `parseInboxDraftSummaries`
+- **Resumo:** Retornar `[]` quando o schema falha oculta quebra de contrato da API e transforma erro real em "nenhum draft encontrado". Sugere lançar exceção em vez de fallback silencioso.
+- **Severidade declarada:** 🟠 Major
+- **Status:** ✅ **Investigado — procede (padrão existente em todo o frontend)**
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-022
+
+- **Classificação:** procede, mas é débito separado (padrão estabelecido no frontend todo)
+- **Severidade real:** 🟡 Minor — schema estável, fallback só ativaria em caso de breaking change não detectado
+
+- **Evidências de código:**
+
+  1. **parseInboxDraftSummaries** (`inboxApi.ts:97-100`):
+     ```ts
+     const parsed = z.array(inboxDraftSummarySchema).safeParse(value);
+     return parsed.success ? parsed.data : [];
+     ```
+
+  2. **Mesmo padrão no Discord Sync** (`discordSyncApi.ts:136-153`):
+     - `parseDiscordDiscoveredGuilds` (linha 138): `return parsed.success ? parsed.data : []`
+     - `parseDiscordDiscoveredChannels` (linha 143): `return parsed.success ? parsed.data : []`
+     - `parseDiscordSources` (linha 148): `return parsed.success ? parsed.data : []`
+     - `parseDiscordMessages` (linha 153): `return parsed.success ? parsed.data : []`
+
+  3. **Padrão contrário (lança exceção):** métodos que retornam objeto único (não array):
+     - `inboxApi.ts:102-106` — `parseInboxDraft`: throw se falha
+     - `inboxApi.ts:108-112` — `parseInboxCorrectionResult`: throw se falha
+     - `inboxApi.ts:114-118` — `parseInboxSyncResult`: throw se falha
+     - `discordSyncApi.ts:156-160` — `parseDiscordMessage`: throw se falha
+
+  4. **Consumidor** (`InboxDraftReviewTable.tsx:32-45` — `loadDrafts`): chama `inboxApi.listDrafts()` → `parseInboxDraftSummaries` → se `[]`, seta `drafts` vazio → UI mostra "Nenhum draft encontrado"
+
+- **Impacto real:**
+  - Breaking change no schema de `InboxDraftSummary` (ex: renomear `source_type` para `origin`) → ZOD rejeita → `[]` → UI mostra "Nenhum draft encontrado" sem nenhum erro visível
+  - Para descobrir, admin precisa abrir DevTools e ver a resposta da API
+  - O mesmo vale para os 4 métodos do Discord Sync — breaking change no schema de `DiscordMessage` silenciosamente mostra lista vazia
+
+- **Risco de regressão:** Baixo — mudar para throw só afeta o caminho de erro. O `loadDrafts` já tem `try/catch` que trata `err` com `toast.error`. Se a API está saudável, zero mudança de comportamento.
+
+- **Já existe tratamento?** Não — o padrão de fallback silencioso para arrays está espalhado em 5 funções (1 inbox + 4 discord).
+
+- **Falso positivo?** Não — o padrão é frágil; mas a severidade real é menor que a declarada porque o schema não muda com frequência
+
+- **Recomendação:** Mudar `parseInboxDraftSummaries` para lançar exceção como as funções irmãs. Para o Discord Sync, criar débito separado (fora do escopo 047) para corrigir os 4 métodos similares.
+
+- **Investigado por:** OpenCode (DeepSeek-v4-pro)
+- **Data:** 2026-06-22**
+
+### REV-023 — Normalize normalized_payload antes de gerar diff no registerCorrection
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR
+- **Referência:** `apps/mesas/frontend/src/features/inbox/components/InboxDraftReviewTable.tsx:55-76`, handleSelectDraft + handleBeforeSync
+- **Resumo:** Casts diretos `as Record<string, unknown>` aceitam payload não-objeto em runtime e podem produzir diff inconsistente. A linha 55 armazena dados brutos da API sem validação; linhas 74-75 fazem cast não-seguro de propriedades aninhadas. Sugere extrair função `toRecord` com guarda `isRecord` para normalizar antes do diff.
+- **Severidade declarada:** 🟠 Major
+- **Status:** ✅ **Investigado — procede (hardening, alinhamento com guideline)**
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:**
+
+#### 🔍 INVESTIGAÇÃO REV-023
+
+- **Classificação:** procede, mas é hardening (alinhamento com guideline AGENTS.md)
+- **Severidade real:** 🟢 Minor/Info — fallbacks existentes protegem contra cenários reais
+
+- **Evidências de código:**
+
+  1. **Cast 1 — snapshot inicial** (`InboxDraftReviewTable.tsx:55`):
+     ```ts
+     originalPayloadRef.current = full.normalized_payload as Record<string, unknown> | null;
+     ```
+     `full` vem de `inboxApi.getDraft(draft.id)`, que passa por `parseInboxDraft` com schema `z.unknown()`. Zod aceita qualquer valor. O cast permite que array/string seja tratado como record.
+
+  2. **Cast 2 — payload atual** (`InboxDraftReviewTable.tsx:68`):
+     ```ts
+     const currentNormalized = current.normalized_payload as Record<string, unknown> | null;
+     ```
+     `current` é `DiscordDraft` que veio do adaptador `inboxDraftToDiscordDraft`. O adaptador (linha 16) já normaliza com `isRecord(raw.normalized_payload) ? raw.normalized_payload : null`. Então `current.normalized_payload` já é `Record<string, unknown> | null` — **este cast é seguro**.
+
+  3. **Cast 3 — acesso aninhado** (`InboxDraftReviewTable.tsx:74-75`):
+     ```ts
+     const originalTable = (originalNormalized.table as Record<string, unknown>) || {};
+     const currentTable = (currentNormalized.table as Record<string, unknown>) || {};
+     ```
+     Se `table` for string/array, o cast aceita mas o `for (const key of Object.keys(currentTable))` em linha 77 itera sobre propriedades da string/array, produzindo diff inesperado.
+
+  4. **Adaptador existe** (`draftAdapter.ts:5-7`):
+     ```ts
+     function isRecord(value: unknown): value is Record<string, unknown> {
+       return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+     }
+     ```
+     Função já disponível e usada em `inboxDraftToDiscordDraft`. Não usada em `InboxDraftReviewTable`.
+
+  5. **Guideline violada** (AGENTS.md): "All external/API/database/JSON/JSONB/query/localStorage/integration data must be typed as unknown and passed through a typed normalizer before entering React state, props, or render."
+
+- **Impacto real:**
+  - Cenário 1: `normalized_payload = null` → cast na linha 55 faz `null as Record<string, unknown> | null` = `null` → `!originalNormalized` na linha 64 retorna null (seguro)
+  - Cenário 2: `normalized_payload = ["a","b"]` → cast na linha 55 faz `["a","b"] as Record<string, unknown>` (TypeScript aceita) → `originalNormalized.table` = `undefined` → `{}` via `|| {}` → `Object.keys({})` = `[]` → diff vazio (seguro, mas silencioso)
+  - Cenário 3: `normalized_payload = { table: ["a"] }` → cast linha 74 faz `["a"] as Record<string, unknown>` → `Object.keys(["a"])` = `["0"]` → itera sobre índice 0 → diff contém `{ "0": "a" }` → registerCorrection tenta corrigir "0" no payload (incorreto)
+  - Cenário 3 é improvável porque o backend nunca armazena array em `table` — só objeto ou null
+
+- **Risco de regressão:** Nenhum — usar `isRecord` é uma substituição direta do cast, sem mudança de comportamento no caminho feliz
+
+- **Já existe tratamento?** Parcialmente — o `draftAdapter.ts` usa `isRecord`, mas `InboxDraftReviewTable.tsx` não. O Zod schema `inboxDraftSchema.normalized_payload: z.unknown()` não rejeita arrays.
+
+- **Falso positivo?** Parcial — a preocupação é estruturalmente válida (guideline violation), mas os fallbacks (null check, `|| {}`) cobrem os cenários mais prováveis. O risco de array em `table` é teórico.
+
+- **Recomendação:** Substituir os 3 casts por `isRecord()` do `draftAdapter.ts` (ou importar `isRecord`). Na linha 55: `originalPayloadRef.current = isRecord(full.normalized_payload) ? full.normalized_payload : null`. Nas linhas 74-75: `const originalTable = isRecord(originalNormalized.table) ? originalNormalized.table : {}`. Isso alinha com a guideline AGENTS.md e elimina o risco de array em `table`.
+
+- **Investigado por:** OpenCode (DeepSeek-v4-pro)
+- **Data:** 2026-06-22
+
+---
+
+## 2026-06-22 — SonarCloud Quality Gate (PR #88)
+
+**Fonte:** SonarCloud, PR #88
+**Motivo:** Quality Gate falhou — Reliability Rating < A. 12 warnings.
+**Investigador:** OpenCode (DeepSeek-v4-pro)
+
+### SC-001/006 — Negated condition (TextPasteArea.tsx:110)
+
+- **Arquivo/linha:** `apps/mesas/frontend/src/features/inbox/components/TextPasteArea.tsx:110`
+- **Problema:** Ternário negado para pluralização manual: `{result.segments_found !== 1 ? 's' : ''}`.
+- **Severidade declarada:** Warning (Code Smell)
+- **Status:** ✅ **Investigado — procede (cosmético, baixo impacto)**
+
+#### 🔍 INVESTIGAÇÃO
+
+- **Origem:** SonarQube rule S3923 (unexpected negated condition). Prefere `=== 1` com branches invertidos.
+- **Código real:** `TextPasteArea.tsx:110`:
+  ```tsx
+  <span>
+    {result.segments_found} segmento{result.segments_found !== 1 ? 's' : ''} encontrado{result.segments_found !== 1 ? 's' : ''}
+    , {result.drafts_created} draft{result.drafts_created !== 1 ? 's' : ''} criado{result.drafts_created !== 1 ? 's' : ''}.
+  </span>
+  ```
+- **Alternativa:** Extrair helper `pluralize(n: number): string` ou inverter ternário: `n === 1 ? '' : 's'`.
+- **Impacto real:** Zero. Código funcionalmente correto.
+- **Severidade real:** 🟢 Info — code smell cosmético.
+- **Risco de regressão:** Nenhum.
+- **Já existe tratamento?** Não.
+- **Falso positivo?** Parcial — a regra é válida como style guide, mas o código é semanticamente correto.
+- **Classificação:** procede e deve ser implementado (quick win trivial)
+- **Recomendação:** Inverter ternário ou extrair `pluralize()`.
+
+### SC-003/008 — Negated condition (TextPasteArea.tsx:111)
+
+- **Arquivo/linha:** `apps/mesas/frontend/src/features/inbox/components/TextPasteArea.tsx:111`
+- **Problema:** Mesmo padrão SC-001, para `drafts_created`.
+- **Severidade declarada:** Warning (Code Smell)
+- **Status:** ✅ **Investigado — procede (cosmético, mesmo caso que SC-001)**
+
+Idêntico a SC-001. Mesma recomendação.
+
+### SC-002 — Nested template literal (inboxApi.ts:141)
+
+- **Arquivo/linha:** `apps/mesas/frontend/src/features/inbox/api/inboxApi.ts:148`
+- **Problema:** Template literal aninhado: `` `/drafts${qsStr ? `?${qsStr}` : ''}` ``.
+- **Severidade declarada:** Warning (Code Smell)
+- **Status:** ✅ **Investigado — procede (cosmético)**
+
+#### 🔍 INVESTIGAÇÃO
+
+- **Origem:** SonarQube rule S1711 (template literals should not be nested).
+- **Código real:** `inboxApi.ts:148`:
+  ```ts
+  return parseInboxDraftSummaries(await apiFetch<unknown>(`/drafts${qsStr ? `?${qsStr}` : ''}`));
+  ```
+- **Alternativa:** Extrair URL para variável: `const url = qsStr ? `/drafts?${qsStr}` : '/drafts';`
+- **Impacto real:** Zero.
+- **Severidade real:** 🟢 Info.
+- **Classificação:** procede e deve ser implementado (quick win trivial)
+- **Recomendação:** Extrair URL para variável.
+
+### SC-004 — Cognitive Complexity 29 (DiscordDraftPreview.tsx:221)
+
+- **Arquivo/linha:** `apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftPreview.tsx:221`
+- **Problema:** Função `DiscordDraftPreview` com Cognitive Complexity 29 (limite 15).
+- **Severidade declarada:** 🔴 Failure (Reliability Rating < A)
+- **Status:** ✅ **Investigado — procede, mas é débito de refactor estrutural (fora do escopo 047)**
+
+#### 🔍 INVESTIGAÇÃO
+
+- **Origem:** SonarQube rule S3776 (Cognitive Complexity). Disparada no PR #88 (commit `5609e33`).
+- **Arquivo:** `DiscordDraftPreview.tsx` — 707 linhas, componente monolítico.
+- **Histórico:** O componente existe desde antes da spec 047. A spec 047 só adicionou 2 props (`api`, `onBeforeSync`) e manteve toda a complexidade pré-existente. **A complexidade não é nova deste PR.**
+- **O que contribui para a complexidade (29 > 15):**
+  - 7 `useState`, 2 `useRef`, 1 `useEffect`, 1 `useMemo`
+  - Sincronização síncrona entre renders (linhas 244-251)
+  - 7 handlers de ação (handleSaveFields, handleCoverUpload, handleRemoveCover, handleConfirmSlots, handleSync, handleReparse, handleSaveStatus)
+  - Render condicional com 3 abas (editor/parsed/normalized)
+  - Formulário com 15 campos + slots ambiguity + upload de imagem + edição de status
+- **Impacto real:** Manutenção difícil, testabilidade reduzida. Quebrou Quality Gate.
+- **Severidade real:** 🟠 Major — problema estrutural real, mas é pré-existente.
+- **Risco de regressão:** Alto — refatorar requer extração cuidadosa em múltiplos componentes.
+- **Já existe tratamento?** Não.
+- **Classificação:** procede, mas é débito separado (refactor estrutural, fora do escopo 047)
+- **Recomendação:**
+  1. Extrair handlers para hooks customizados: `useDraftForm`, `useDraftSync`, `useCoverUpload`, `useSlotsAmbiguity`
+  2. Extrair abas para subcomponentes: `DraftEditorTab`, `DraftNormalizedTab`, `DraftParsedTab`
+  3. Reduzir `DiscordDraftPreview` para ~200 linhas (container que orquestra hooks + tabs)
+  4. Registrar débito em `debitos.md` (DEB-047-15)
+- **Nota:** Este arquivo não é da spec 047 — é do Discord Sync legado. A contribuição da spec 047 para este arquivo é mínima (+2 props). O Quality Gate não deveria exigir refactor completo de componente legado para aprovar PR que só adiciona props.
+
+### SC-005 — Read-only props (DiscordDraftReviewTable.tsx:44)
+
+- **Arquivo/linha:** `apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftReviewTable.tsx:44`
+- **Problema:** Props não marcadas como `readonly`.
+- **Severidade declarada:** Warning (Code Smell)
+- **Status:** ✅ **Investigado — procede (cosmético)**
+
+#### 🔍 INVESTIGAÇÃO
+
+- **Origem:** SonarQube rule S6642 (Props should be marked as read-only).
+- **Código:** `DiscordDraftReviewTable.tsx:7-12`:
+  ```ts
+  interface Props {
+    api?: DraftApiOperations;
+    listDrafts?: (params?: { status?: DiscordImportDraftStatus; limit?: number; offset?: number }) => Promise<DiscordDraft[]>;
+    syncReadyAction?: () => Promise<{ synced: number; failed: number; errors: string[] }>;
+    showSyncReady?: boolean;
+  }
+  ```
+- **Impacto real:** Zero. TS não valida readonly em props de função componente.
+- **Severidade real:** 🟢 Info.
+- **Classificação:** procede e deve ser implementado (quick win)
+- **Recomendação:** Adicionar `readonly` em cada campo da interface `Props`.
+
+### SC-007 — Read-only props (TextPasteArea.tsx:14)
+
+- **Arquivo/linha:** `apps/mesas/frontend/src/features/inbox/components/TextPasteArea.tsx:14`
+- **Problema:** Props não marcadas como `readonly`.
+- **Severidade declarada:** Warning (Code Smell)
+- **Status:** ✅ **Investigado — procede (cosmético, mesmo caso que SC-005)**
+
+- **Código:** `TextPasteArea.tsx:7-10`:
+  ```ts
+  interface TextPasteAreaProps {
+    onImportSuccess?: (result: InboxImportResult) => void;
+    titleHint?: string;
+  }
+  ```
+- **Recomendação:** Adicionar `readonly`.
+
+### SC-010 — Read-only props (DiscordDraftPreview.tsx:221)
+
+- **Arquivo/linha:** `apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftPreview.tsx:221`
+- **Problema:** Props não marcadas como `readonly`.
+- **Severidade declarada:** Warning (Code Smell)
+- **Status:** ✅ **Investigado — procede (cosmético, mesmo caso que SC-005)**
+
+- **Código:** `DiscordDraftPreview.tsx:7-13`:
+  ```ts
+  interface Props {
+    draft: DiscordDraft;
+    onUpdate: (updated: DiscordDraft) => void;
+    onClose: () => void;
+    api?: DraftApiOperations;
+    onBeforeSync?: (draft: DiscordDraft) => Promise<{ tableId: string; created: boolean } | null>;
+  }
+  ```
+- **Recomendação:** Adicionar `readonly`.
+
+### SC-009 — Keyboard listener (InboxDraftReviewTable.tsx:138)
+
+- **Arquivo/linha:** `apps/mesas/frontend/src/features/inbox/components/InboxDraftReviewTable.tsx:138`
+- **Problema:** `<div>` com `onClick` sem `onKeyDown`/`role`/`tabIndex`.
+- **Severidade declarada:** Warning (Code Smell)
+- **Status:** ✅ **Investigado — procede (acessibilidade)**
+
+#### 🔍 INVESTIGAÇÃO
+
+- **Origem:** SonarQube rule S6848 (non-interactive elements should have keyboard listeners).
+- **Código:** `InboxDraftReviewTable.tsx:134-159`:
+  ```tsx
+  <div className="...cursor-pointer..." onClick={() => handleSelectDraft(draft)}>
+  ```
+- **Problemas:** (1) `<div>` não é focado por Tab — inacessível para teclado. (2) Leitor de tela não anuncia como clicável. (3) Usuário com deficiência motora que usa Tab não consegue selecionar draft.
+- **Impacto real:** Admin não consegue navegar drafts sem mouse.
+- **Severidade real:** 🟡 Minor — acessibilidade. O admin usa mouse normalmente, mas afeta usuários com deficiência.
+- **Risco de regressão:** Baixo — adicionar acessibilidade não muda visual.
+- **Já existe tratamento?** Não.
+- **Classificação:** procede e deve ser implementado
+- **Recomendação:** Trocar `<div>` por `<button>` (semântico) ou adicionar `role="button"`, `tabIndex={0}`, `onKeyDown={(e) => e.key === 'Enter' && handleSelectDraft(draft)}`. `<button>` é preferível.
+
+### SC-012 — Non-native interactive element (InboxDraftReviewTable.tsx:138)
+
+- **Arquivo/linha:** `apps/mesas/frontend/src/features/inbox/components/InboxDraftReviewTable.tsx:138`
+- **Problema:** Mesma linha 138 — `<div>` como elemento interativo.
+- **Severidade declarada:** Warning (Code Smell)
+- **Status:** ✅ **Investigado — mesma causa que SC-009**
+
+**Conclusão:** SC-009 resolve SC-012 automaticamente.
+
+### SC-011 — Nested ternary (InboxDraftReviewTable.tsx:162)
+
+- **Arquivo/linha:** `apps/mesas/frontend/src/features/inbox/components/InboxDraftReviewTable.tsx:144`
+- **Problema:** Operador ternário implícito aninhado.
+- **Severidade declarada:** Warning (Code Smell)
+- **Status:** ✅ **Investigado — procede (cosmético)**
+
+#### 🔍 INVESTIGAÇÃO
+
+- **Origem:** SonarQube rule S3358 (Ternary operators should not be nested).
+- **Código:** `InboxDraftReviewTable.tsx:144-145`:
+  ```tsx
+  <span className={`px-2 py-0.5 text-xs rounded-full ${DRAFT_STATUS_COLORS[draft.status] || 'bg-white/10 text-white/50'}`}>
+    {DRAFT_STATUS_LABELS[draft.status] || draft.status}
+  </span>
+  ```
+- `||` é interpretado como ternário implícito.
+- **Alternativa:** Extrair para variáveis: `const colorClass = DRAFT_STATUS_COLORS[draft.status] ?? 'bg-white/10 text-white/50'` e `const label = DRAFT_STATUS_LABELS[draft.status] ?? draft.status`.
+- **Impacto real:** Zero.
+- **Severidade real:** 🟢 Info.
+- **Classificação:** procede e deve ser implementado (quick win)
+- **Recomendação:** Extrair para variáveis com `??` em vez de `||`.

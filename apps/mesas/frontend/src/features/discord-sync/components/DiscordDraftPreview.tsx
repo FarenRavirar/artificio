@@ -5,11 +5,11 @@ import { discordSyncApi } from '../api/discordSyncApi';
 import type { SystemTreeNode } from '../../../types/systems';
 
 interface Props {
-  draft: DiscordDraft;
-  onUpdate: (updated: DiscordDraft) => void;
-  onClose: () => void;
-  api?: DraftApiOperations;
-  onBeforeSync?: (draft: DiscordDraft) => Promise<{ tableId: string; created: boolean } | null>;
+  readonly draft: DiscordDraft;
+  readonly onUpdate: (updated: DiscordDraft) => void;
+  readonly onClose: () => void;
+  readonly api?: DraftApiOperations;
+  readonly onBeforeSync?: (draft: DiscordDraft) => Promise<{ tableId: string; created: boolean } | null>;
 }
 
 type DraftTableType = 'campanha' | 'one-shot' | 'oneshot-serie' | 'aberta';
@@ -405,20 +405,20 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
         const beforeResult = await onBeforeSync(draft);
         if (beforeResult) {
           toast.success(`Mesa ${beforeResult.created ? 'criada' : 'atualizada'}: ${beforeResult.tableId}`);
-          const updated = draftApi.getDraft
-            ? await draftApi.getDraft(draft.id)
-            : await discordSyncApi.getDraft(draft.id);
-          onUpdate(updated);
+          if (draftApi.getDraft) {
+            const updated = await draftApi.getDraft(draft.id);
+            onUpdate(updated);
+          }
           return;
         }
       }
 
       const result = await draftApi.syncDraft(draft.id);
       toast.success(`Mesa ${result.created ? 'criada' : 'atualizada'}: ${result.tableId}`);
-      const updated = draftApi.getDraft
-        ? await draftApi.getDraft(draft.id)
-        : await discordSyncApi.getDraft(draft.id);
-      onUpdate(updated);
+      if (draftApi.getDraft) {
+        const updated = await draftApi.getDraft(draft.id);
+        onUpdate(updated);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao sincronizar draft.');
     } finally {

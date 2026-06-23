@@ -19,9 +19,15 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (res.status === 204) return undefined as T;
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data.data as T;
+  const text = await res.text();
+  let data: unknown;
+  try {
+    data = JSON.parse(text) as unknown;
+  } catch {
+    throw new Error(`Resposta inesperada do servidor (HTTP ${res.status}).`);
+  }
+  if (!res.ok) throw new Error(typeof data === 'object' && data !== null && 'error' in data ? String((data as Record<string, unknown>).error) : `HTTP ${res.status}`);
+  return (data as Record<string, unknown>).data as T;
 }
 
 const inboxImportDraftSchema = z.object({
@@ -97,7 +103,8 @@ function parseInboxImportResult(value: unknown): InboxImportResult {
 
 function parseInboxDraftSummaries(value: unknown): InboxDraftSummary[] {
   const parsed = z.array(inboxDraftSummarySchema).safeParse(value);
-  return parsed.success ? parsed.data : [];
+  if (!parsed.success) throw new Error('Lista de drafts em formato inesperado.');
+  return parsed.data;
 }
 
 function parseInboxDraft(value: unknown): InboxDraft {
@@ -120,7 +127,7 @@ function parseInboxSyncResult(value: unknown): InboxSyncResult {
 
 function parseInboxMetrics(value: unknown): InboxMetrics {
   const parsed = inboxMetricsSchema.safeParse(value);
-  if (!parsed.success) return { total_corrections: 0, most_corrected_fields: [] };
+  if (!parsed.success) throw new Error('Métricas em formato inesperado.');
   return parsed.data;
 }
 
@@ -138,7 +145,8 @@ export const inboxApi = {
     if (params?.offset != null) qs.set('offset', String(params.offset));
     if (params?.origin) qs.set('origin', params.origin);
     const qsStr = qs.toString();
-    return parseInboxDraftSummaries(await apiFetch<unknown>(`/drafts${qsStr ? `?${qsStr}` : ''}`));
+    const url = qsStr ? `/drafts?${qsStr}` : '/drafts';
+    return parseInboxDraftSummaries(await apiFetch<unknown>(url));
   },
 
   getDraft: async (id: string): Promise<InboxDraft> =>
@@ -150,10 +158,10 @@ export const inboxApi = {
   reparseDraft: async (id: string): Promise<InboxDraft> =>
     parseInboxDraft(await apiFetch<unknown>(`/drafts/${id}/reparse`, { method: 'POST' })),
 
-  registerCorrection: async (id: string, corrections: Record<string, unknown>, reason?: string): Promise<InboxCorrectionResult> =>
+  registerCorrection: async (id: string, corrections: Record<string, unknown>, reason?: string, options?: { before?: Record<string, unknown> }): Promise<InboxCorrectionResult> =>
     parseInboxCorrectionResult(await apiFetch<unknown>(`/drafts/${id}/correction`, {
       method: 'POST',
-      body: JSON.stringify({ corrections, reason }),
+      body: JSON.stringify({ corrections, reason, before: options?.before }),
     })),
 
   syncDraft: async (id: string): Promise<InboxSyncResult> =>
