@@ -5,6 +5,7 @@ import { discordSyncApi } from '../api/discordSyncApi';
 import { DiscordSourceList } from './DiscordSourceList';
 import { DiscordDraftReviewTable } from './DiscordDraftReviewTable';
 import { DiscordSettingsPanel } from './DiscordSettingsPanel';
+import { DiscordJsonImportPanel } from './DiscordJsonImportPanel';
 
 const MESSAGE_STATUS_LABELS: Record<DiscordImportMessageStatus, string> = {
   pending: 'Pendente',
@@ -24,7 +25,7 @@ const MESSAGE_STATUS_COLORS: Record<DiscordImportMessageStatus, string> = {
   error: 'bg-red-700/40 text-red-300',
 };
 
-type PanelTab = 'configuracao' | 'fontes' | 'mensagens' | 'drafts';
+type PanelTab = 'configuracao' | 'fontes' | 'mensagens' | 'drafts' | 'import-json';
 
 const REVIEW_ACTIONS: Array<{ status: DiscordImportMessageStatus; label: string; className: string }> = [
   { status: 'needs_review', label: 'Mandar para revisão', className: 'bg-orange-600 hover:bg-orange-700' },
@@ -276,6 +277,7 @@ export function DiscordSyncPanel() {
         <button className={tabClass('fontes')} onClick={() => setTab('fontes')}>Fontes</button>
         <button className={tabClass('mensagens')} onClick={() => setTab('mensagens')}>Mensagens</button>
         <button className={tabClass('drafts')} onClick={() => setTab('drafts')}>Drafts</button>
+        <button className={tabClass('import-json')} onClick={() => setTab('import-json')}>Importar JSON</button>
       </div>
 
       {tab === 'configuracao' && (
@@ -531,6 +533,10 @@ export function DiscordSyncPanel() {
 
       {tab === 'drafts' && (
         <DiscordDraftReviewTable />
+      )}
+
+      {tab === 'import-json' && (
+        <DiscordJsonImportPanel />
       )}
     </div>
   );
