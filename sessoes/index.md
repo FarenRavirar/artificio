@@ -63,3 +63,4 @@ Formato: `AA-MM-DD_N_<modulo>_<escopo>.md`. `N` = sequencial do dia. Sessões en
 | `26-06-21_6_links_visual-audit` | 2026-06-21/22 | links/qualidade | Spec 043: auditoria visual concluída — ui-design-review (64/100) + nielsen (6.2/10). 28 issues, 27 tasks. Fase 1: 7 correções (~10h). | aberta (Fase 0 concluída; Fase 1 aguarda aprovação) |
 | `26-06-22_7_opencode-ecosystem` | 2026-06-22 | governanca/dev-tools | Spec 044: otimizacao ecossistema OpenCode + Claude Code. 10 ferramentas. Smoke 4/4. | fechada ✅ |
 | `26-06-22_5_arquiteture-docs-sync` | 2026-06-22 | governanca documental | Spec 046: auditoria `arquiteture.md` secao por secao + docs Serena. §1 corrigido, §2 auditado. | aberta |
+| `26-06-23_1_mesas-discord-chat-exporter-json` | 2026-06-23 | mesas | Spec 048: continuação da 047 para importador permanente de JSON Tyrrrz/DiscordChatExporter. MVP upload manual admin; futuro ChatExporter diário na VM. | aberta (spec criada; sem implementação) |

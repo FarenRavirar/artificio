@@ -49,7 +49,8 @@ Toda spec SDD deve:
 | 044 | opencode ecosystem | ✅ **CONCLUIDA**. OpenCode + Claude Code. 10 ferramentas ativas. Smoke 4/4. |
 | 045 | debitos pendentes deploy | aberto. Investigacao concluida. T1 (PR #85) ✅. T2/T3/T4 pendentes. |
 | 046 | arquiteture docs sync | aberto. Auditoria secao por secao do `arquiteture.md`. §1 corrigido, §2 auditado. |
-| 047 | mesas inbox importacao | aberto. Auditoria Fase 0 concluída. Inbox de importação de mesas (texto colado → draft). 7 fases planejadas. |
+| 047 | mesas inbox importacao | ✅ fechada em beta. PR #88/#89 mergeadas; UI/backend no beta; smokes autenticados T1.13-T1.16 verdes; sem promoção a main. |
+| 048 | mesas DiscordChatExporter JSON | aberto. Continuação da 047: importador permanente de JSON do Tyrrrz/DiscordChatExporter. MVP = upload manual admin; futuro = ChatExporter diário na VM. |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.

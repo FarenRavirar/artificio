@@ -248,4 +248,16 @@ export const discordSyncApi = {
 
   parseBatch: () =>
     apiFetch<{ processed: number; succeeded: number; failed: number }>('/messages/parse-batch', { method: 'POST' }),
+
+  importJson: async (json: unknown) => {
+    const data = await apiFetch<unknown>('/import-json', { method: 'POST', body: JSON.stringify(json) });
+    const parsed = z.object({
+      total: z.number(),
+      inserted: z.number(),
+      updated: z.number(),
+      ignored: z.number(),
+    }).safeParse(data);
+    if (!parsed.success) throw new Error('Resposta de importação em formato inesperado.');
+    return parsed.data;
+  },
 };

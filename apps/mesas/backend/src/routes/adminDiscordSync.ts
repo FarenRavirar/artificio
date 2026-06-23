@@ -1313,5 +1313,42 @@ router.post('/sync-ready', authMiddleware, async (req: Request, res: Response) =
   }
 });
 
+import { importDiscordChatExporterJson } from '../discord/chatExporterImportService';
+import { DiscordChatExporterValidationError } from '../discord/chatExporterAdapter';
+
+router.post('/import-json', authMiddleware, async (req: Request, res: Response) => {
+  if (!isAdmin(req, res)) return;
+
+  try {
+    const rawBody = req.body;
+    let jsonPayload: unknown;
+
+    if (rawBody && typeof rawBody === 'object' && 'json' in rawBody) {
+      jsonPayload = (rawBody as Record<string, unknown>).json;
+    } else if (rawBody && typeof rawBody === 'object' && 'messages' in rawBody) {
+      jsonPayload = rawBody;
+    } else {
+      return res.status(400).json({ error: 'JSON inválido: envie um objeto com o campo "json" ou o próprio export do DiscordChatExporter.' });
+    }
+
+    const result = await importDiscordChatExporterJson(jsonPayload);
+
+    return res.json({
+      data: {
+        total: result.total,
+        inserted: result.inserted,
+        updated: result.updated,
+        ignored: result.ignored,
+      },
+    });
+  } catch (error: unknown) {
+    if (error instanceof DiscordChatExporterValidationError) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('[POST /admin/discord-sync/import-json]', error);
+    return res.status(500).json({ error: 'Erro ao importar JSON do DiscordChatExporter.' });
+  }
+});
+
 export default router;
 
