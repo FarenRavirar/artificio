@@ -96,7 +96,7 @@
 | T1.8-12 | Frontend UI | 🔜 |
 | — | Revert `db/types.ts` | ✅ (correção pós-execução) |
 | — | Branch `feat/mesas-047-inbox-importacao` | ✅ |
-| — | **Suíte de testes** | **21 files / 159 tests** (134→144 via REV-005 → 159 via REV-014) |
+| — | **Suíte de testes** | **21 files / 178 tests** (134→144 via REV-005 → 159 via REV-014 → 178 via REV-025/047-backlog) |
 
 ### 1.1 — Preparação (schema + tipos)
 
@@ -942,7 +942,7 @@ Sem as três últimas rotas, `DiscordDraftPreview` não consegue carregar/editar
 
 ## Próxima etapa operacional
 
-Fechamento técnico local concluído em 2026-06-22: sync e rotas backend implementados; lint 15/15, build 17/17, backend 21 arquivos/159 testes e `git diff --check` verdes.
+Fechamento técnico local concluído em 2026-06-22: sync e rotas backend implementados; lint 15/15, build 17/17, backend 21 arquivos/178 testes e `git diff --check` verdes.
 
 Próximo fluxo, cada ação com autorização própria: commit do REV-024 fix + docs → push da branch → PR para `dev` → merge → deploy beta pela esteira canônica (migration 129 já aplicada; runner fará no-op) → smoke T1.13-T1.16.
 

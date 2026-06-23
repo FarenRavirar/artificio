@@ -1,48 +1,101 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState, type ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
 import { buildForm, buildUpdatedPayload, flattenSystems, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, loadSystems, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
+import { getApiBase } from '../../hooks/useImageUrlImport';
 import type { DraftForm } from './draftFormUtils';
 import type { DiscordDraft, DiscordImportDraftStatus, DiscordSlotsAmbiguity, DraftApiOperations } from './types';
 import type { SystemTreeNode } from '../../types/systems';
 
 type SlotsInterpretation = 'filled_total' | 'open_total';
 
-export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, onUpdate: (d: DiscordDraft) => void) {
-  const initialPayload = useMemo(
-    () => buildForm(draft.normalized_payload ?? draft.parsed_payload),
-    [draft.normalized_payload, draft.parsed_payload]
-  );
+interface DraftEditorState {
+  form: DraftForm;
+  newStatus: DiscordImportDraftStatus;
+  reviewNotes: string;
+  coverPreviewUrl: string;
+  dirty: boolean;
+}
 
-  const [form, setForm] = useState<DraftForm>(initialPayload);
+type DraftEditorAction =
+  | { type: 'RESET'; draft: DiscordDraft }
+  | { type: 'SET_FIELD'; key: keyof DraftForm; value: DraftForm[keyof DraftForm] }
+  | { type: 'SET_SYSTEM'; systemId: string; systemName: string }
+  | { type: 'SET_COVER'; secureUrl: string }
+  | { type: 'REMOVE_COVER' }
+  | { type: 'SET_STATUS_FIELD'; key: 'newStatus' | 'reviewNotes'; value: string }
+  | { type: 'MARK_PERSISTED' };
+
+function buildEditorState(draft: DiscordDraft): DraftEditorState {
+  const p = buildForm(draft.normalized_payload ?? draft.parsed_payload);
+  return {
+    form: p,
+    newStatus: draft.status,
+    reviewNotes: draft.review_notes ?? '',
+    coverPreviewUrl: p.cover_url.trim() || p.cover_url_source.trim(),
+    dirty: false,
+  };
+}
+
+function editorReducer(state: DraftEditorState, action: DraftEditorAction): DraftEditorState {
+  switch (action.type) {
+    case 'RESET':
+      return buildEditorState(action.draft);
+    case 'SET_FIELD':
+      return { ...state, form: { ...state.form, [action.key]: action.value }, dirty: true };
+    case 'SET_SYSTEM':
+      return { ...state, form: { ...state.form, system_id: action.systemId, system_name: action.systemName }, dirty: true };
+    case 'SET_COVER':
+      return {
+        ...state,
+        form: { ...state.form, cover_url: action.secureUrl, cover_url_source: '', cover_quality: 'standard' },
+        coverPreviewUrl: action.secureUrl,
+        dirty: true,
+      };
+    case 'REMOVE_COVER':
+      return {
+        ...state,
+        form: { ...state.form, cover_url: '', cover_url_source: '', cover_quality: '' },
+        coverPreviewUrl: '',
+        dirty: true,
+      };
+    case 'SET_STATUS_FIELD':
+      return { ...state, [action.key]: action.value, dirty: true };
+    case 'MARK_PERSISTED':
+      return { ...state, dirty: false };
+  }
+}
+
+export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, onUpdate: (d: DiscordDraft) => void) {
+  const [state, dispatch] = useReducer(editorReducer, draft, buildEditorState);
   const [systems, setSystems] = useState<SystemTreeNode[]>([]);
   const [systemsLoading, setSystemsLoading] = useState(false);
   const [savingFields, setSavingFields] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [reparsing, setReparsing] = useState(false);
   const [editingStatus, setEditingStatus] = useState(false);
-  const [newStatus, setNewStatus] = useState<DiscordImportDraftStatus>(draft.status);
-  const [reviewNotes, setReviewNotes] = useState(draft.review_notes ?? '');
   const [savingStatus, setSavingStatus] = useState(false);
   const [activeTab, setActiveTab] = useState<'editor' | 'parsed' | 'normalized'>('editor');
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
-  const [coverPreviewUrl, setCoverPreviewUrl] = useState('');
   const [slotsInterpretation, setSlotsInterpretation] = useState<SlotsInterpretation>('filled_total');
-  const [prevDraftId, setPrevDraftId] = useState(draft.id);
-  const [prevDraftStatus, setPrevDraftStatus] = useState(draft.status);
-  const [prevDraftReviewNotes, setPrevDraftReviewNotes] = useState(draft.review_notes ?? '');
   const coverInputRef = useRef<HTMLInputElement | null>(null);
 
-  if (draft.id !== prevDraftId || draft.status !== prevDraftStatus || draft.review_notes !== prevDraftReviewNotes) {
-    const p = buildForm(draft.normalized_payload ?? draft.parsed_payload);
-    setForm(p);
-    setNewStatus(draft.status);
-    setReviewNotes(draft.review_notes ?? '');
-    setCoverPreviewUrl(p.cover_url.trim() || p.cover_url_source.trim());
-    setPrevDraftId(draft.id);
-    setPrevDraftStatus(draft.status);
-    setPrevDraftReviewNotes(draft.review_notes ?? '');
-  }
+  const missingFields = useMemo(() => validateForm(state.form), [state.form]);
+  const canSync = draft.status === 'ready' && !state.dirty && missingFields.length === 0;
+
+  const payload = useMemo(() => draft.normalized_payload ?? draft.parsed_payload, [draft.normalized_payload, draft.parsed_payload]);
+  const payloadMissingFields = useMemo(
+    () => asStringArray(payload ? asRecord(payload).missing_fields : []),
+    [payload]
+  );
+  const slotsAmbiguity = useMemo<DiscordSlotsAmbiguity | null>(
+    () => asSlotsAmbiguity(asRecord(asRecord(payload).table)._slots_ambiguity),
+    [payload]
+  );
+
+  useEffect(() => {
+    dispatch({ type: 'RESET', draft });
+  }, [draft.id, draft.status, draft.review_notes, draft.normalized_payload, draft.parsed_payload]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let cancelled = false;
@@ -62,34 +115,28 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     return () => { cancelled = true; };
   }, []);
 
-  const missingFields = validateForm(form);
-  const canSync = draft.status === 'ready' && missingFields.length === 0;
-
   const updateForm = <K extends keyof DraftForm>(key: K, value: DraftForm[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    dispatch({ type: 'SET_FIELD', key, value });
   };
 
   const handleSystemChange = (systemId: string) => {
     const selected = systems.find((s) => s.id === systemId);
-    setForm((prev) => ({
-      ...prev,
-      system_id: systemId,
-      system_name: selected?.name_pt || selected?.name || prev.system_name,
-    }));
+    dispatch({ type: 'SET_SYSTEM', systemId, systemName: selected?.name_pt || selected?.name || state.form.system_name });
   };
 
   const handleSaveFields = async () => {
     setSavingFields(true);
     try {
-      const nextMissing = validateForm(form);
+      const nextMissing = validateForm(state.form);
       const updated = await draftApi.updateDraft(draft.id, {
         normalized_payload: buildUpdatedPayload(
           draft.normalized_payload ?? draft.parsed_payload,
-          form
+          state.form
         ),
         status: nextMissing.length === 0 ? 'ready' : 'needs_review',
-        review_notes: nextMissing.length === 0 ? reviewNotes || undefined : `Campos pendentes: ${nextMissing.join(', ')}`,
+        review_notes: nextMissing.length === 0 ? (state.reviewNotes === '' ? '' : state.reviewNotes || undefined) : `Campos pendentes: ${nextMissing.join(', ')}`,
       });
+      dispatch({ type: 'MARK_PERSISTED' });
       toast.success(nextMissing.length === 0 ? 'Draft pronto para sincronizar.' : 'Draft salvo para revisão.');
       onUpdate(updated);
     } catch (err) {
@@ -117,24 +164,17 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/api\/v1$/, '');
-      const response = await fetch(`${apiBase}/api/v1/upload`, {
+      const response = await fetch(`${getApiBase()}/api/v1/upload`, {
         method: 'POST',
         credentials: 'include',
         body: formData,
       });
-      const payload: unknown = await response.json();
-      const secureUrl = isRecord(payload) ? asString(payload.secure_url) : '';
+      const responsePayload: unknown = await response.json();
+      const secureUrl = isRecord(responsePayload) ? asString(responsePayload.secure_url) : '';
       if (!response.ok || !secureUrl) {
-        throw new Error(isRecord(payload) ? asString(payload.error) || 'Falha ao enviar imagem.' : 'Falha ao enviar imagem.');
+        throw new Error(isRecord(responsePayload) ? asString(responsePayload.error) || 'Falha ao enviar imagem.' : 'Falha ao enviar imagem.');
       }
-      setForm((prev) => ({
-        ...prev,
-        cover_url: secureUrl,
-        cover_url_source: '',
-        cover_quality: 'standard',
-      }));
-      setCoverPreviewUrl(secureUrl);
+      dispatch({ type: 'SET_COVER', secureUrl });
     } catch (err) {
       setCoverError(err instanceof Error ? err.message : 'Erro ao substituir capa.');
     } finally {
@@ -144,8 +184,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
 
   const handleRemoveCover = () => {
     setCoverError(null);
-    setForm((prev) => ({ ...prev, cover_url: '', cover_url_source: '', cover_quality: '' }));
-    setCoverPreviewUrl('');
+    dispatch({ type: 'REMOVE_COVER' });
   };
 
   const handleConfirmSlots = async () => {
@@ -156,7 +195,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       const filled = slotsInterpretation === 'filled_total' ? slotsAmbiguity.first : Math.max(0, total - slotsAmbiguity.first);
       const open = slotsInterpretation === 'filled_total' ? Math.max(0, total - slotsAmbiguity.first) : slotsAmbiguity.first;
       const nextForm = {
-        ...form,
+        ...state.form,
         slots_total: String(total),
         slots_open: String(open),
       };
@@ -179,8 +218,9 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       const updated = await draftApi.updateDraft(draft.id, {
         normalized_payload,
         status: missing.length === 0 ? 'ready' : 'needs_review',
-        review_notes: missing.length === 0 ? reviewNotes || undefined : `Campos pendentes: ${missing.join(', ')}`,
+        review_notes: missing.length === 0 ? (state.reviewNotes === '' ? '' : state.reviewNotes || undefined) : `Campos pendentes: ${missing.join(', ')}`,
       });
+      dispatch({ type: 'MARK_PERSISTED' });
       toast.success('Vagas desambiguadas.');
       onUpdate(updated);
     } catch (err) {
@@ -191,6 +231,10 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   };
 
   const handleSync = async (onBeforeSync?: (d: DiscordDraft) => Promise<{ tableId: string; created: boolean } | null>) => {
+    if (state.dirty) {
+      toast.error('Salve as alterações antes de sincronizar.');
+      return;
+    }
     setSyncing(true);
     try {
       if (onBeforeSync) {
@@ -198,8 +242,8 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
         if (beforeResult) {
           toast.success(`Mesa ${beforeResult.created ? 'criada' : 'atualizada'}: ${beforeResult.tableId}`);
           if (draftApi.getDraft) {
-            const updated = await draftApi.getDraft(draft.id);
-            onUpdate(updated);
+            const refetched = await draftApi.getDraft(draft.id);
+            onUpdate(refetched);
           }
           return;
         }
@@ -208,8 +252,8 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       const result = await draftApi.syncDraft(draft.id);
       toast.success(`Mesa ${result.created ? 'criada' : 'atualizada'}: ${result.tableId}`);
       if (draftApi.getDraft) {
-        const updated = await draftApi.getDraft(draft.id);
-        onUpdate(updated);
+        const refetched = await draftApi.getDraft(draft.id);
+        onUpdate(refetched);
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao sincronizar draft.');
@@ -235,9 +279,10 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     setSavingStatus(true);
     try {
       const updated = await draftApi.updateDraft(draft.id, {
-        status: newStatus,
-        review_notes: reviewNotes || undefined,
+        status: state.newStatus,
+        review_notes: state.reviewNotes === '' ? '' : (state.reviewNotes || undefined),
       });
+      dispatch({ type: 'MARK_PERSISTED' });
       toast.success('Status atualizado.');
       setEditingStatus(false);
       onUpdate(updated);
@@ -248,22 +293,19 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     }
   };
 
-  const payload = draft.normalized_payload ?? draft.parsed_payload;
-  const payloadMissingFields = asStringArray(payload ? asRecord(payload).missing_fields : []);
-  const slotsAmbiguity: DiscordSlotsAmbiguity | null = asSlotsAmbiguity(asRecord(asRecord(payload).table)._slots_ambiguity);
-
   return {
-    form, setForm, updateForm,
+    form: state.form, updateForm,
+    dirty: state.dirty,
     systems, systemsLoading,
     missingFields, canSync,
     syncing, reparsing,
     savingFields, savingStatus,
     editingStatus, setEditingStatus,
-    newStatus, setNewStatus,
-    reviewNotes, setReviewNotes,
+    newStatus: state.newStatus, setNewStatus: (v: DiscordImportDraftStatus) => dispatch({ type: 'SET_STATUS_FIELD', key: 'newStatus', value: v }),
+    reviewNotes: state.reviewNotes, setReviewNotes: (v: string) => dispatch({ type: 'SET_STATUS_FIELD', key: 'reviewNotes', value: v }),
     activeTab, setActiveTab,
     coverUploading, coverError,
-    coverPreviewUrl, coverInputRef,
+    coverPreviewUrl: state.coverPreviewUrl, coverInputRef,
     slotsInterpretation, setSlotsInterpretation,
     slotsAmbiguity,
     payloadMissingFields,

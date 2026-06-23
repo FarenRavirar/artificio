@@ -646,7 +646,7 @@ Justificativas em `plan.md` §2.
 ### Validação
 
 - `tsc --noEmit`: zero erros
-- Backend tests: **20 files / 157 tests** ✅ (era 19/144; +9 syncHelpers + 4 correction)
+- Backend tests: **21 files / 178 tests** ✅ (era 19/144; +9 syncHelpers + 4 correction + 21 reviews/fixes)
 - `pnpm run lint` (repo-wide): 15/15 ✅
 
 ### Status
@@ -672,7 +672,7 @@ Justificativas em `plan.md` §2.
 - **Testes:**
   - Inbox: 5 testes de sync atualizados (404/422 em vez de 500)
   - Discord: novo arquivo `adminDiscordSync.sync.test.ts` com 2 testes de erro tipado (404 DraftNotFound + 422 DraftStateError)
-- **Validação:** `tsc` limpo, lint 15/15, **21 files / 159 tests** ✅
+- **Validação:** `tsc` limpo, lint 15/15, **21 files / 178 tests** ✅
 
 ---
 

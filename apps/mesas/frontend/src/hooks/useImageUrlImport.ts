@@ -14,7 +14,7 @@ function isCloudinaryUrl(url: string): boolean {
   }
 }
 
-function getApiBase(): string {
+export function getApiBase(): string {
   return (import.meta.env.VITE_API_URL || '').replace(/\/api\/v1\/?$/, '');
 }
 

@@ -78,11 +78,11 @@ export function DraftEditorTab({
           <p className="font-medium">Como interpretar {slotsAmbiguity.first}/{slotsAmbiguity.second} deste post?</p>
           <div className="mt-3 space-y-2">
             <label className="flex items-center gap-2">
-              <input type="radio" checked={slotsInterpretation === 'filled_total'} onChange={() => onSetSlotsInterpretation('filled_total')} className="accent-amber-400" />
+              <input type="radio" name="slots-interpretation" checked={slotsInterpretation === 'filled_total'} onChange={() => onSetSlotsInterpretation('filled_total')} className="accent-amber-400" />
               <span>{slotsAmbiguity.first} inscritos / {Math.max(slotsAmbiguity.first, slotsAmbiguity.second)} total</span>
             </label>
             <label className="flex items-center gap-2">
-              <input type="radio" checked={slotsInterpretation === 'open_total'} onChange={() => onSetSlotsInterpretation('open_total')} className="accent-amber-400" />
+              <input type="radio" name="slots-interpretation" checked={slotsInterpretation === 'open_total'} onChange={() => onSetSlotsInterpretation('open_total')} className="accent-amber-400" />
               <span>{slotsAmbiguity.first} disponíveis / {Math.max(slotsAmbiguity.first, slotsAmbiguity.second)} máximo</span>
             </label>
           </div>

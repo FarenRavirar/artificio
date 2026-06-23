@@ -68,9 +68,11 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
                 <span className="text-amber-300 text-xs">({h.missingFields.length} pendência{h.missingFields.length === 1 ? '' : 's'})</span>
               )}
               {draft.confidence != null && <span className="text-white/40 text-xs">confiança: {(draft.confidence * 100).toFixed(0)}%</span>}
-              <button onClick={() => h.setEditingStatus(true)} className="ml-auto px-2 py-1 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs rounded-lg transition-colors">
-                Editar status
-              </button>
+              {draft.status !== 'synced' && (
+                <button onClick={() => h.setEditingStatus(true)} className="ml-auto px-2 py-1 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs rounded-lg transition-colors">
+                  Editar status
+                </button>
+              )}
             </>
           )}
         </div>
@@ -127,7 +129,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
             onClick={() => h.handleSync(onBeforeSync)}
             disabled={!h.canSync || h.syncing}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors disabled:opacity-40"
-            title={!h.canSync ? 'Salve todos os campos obrigatórios e deixe o draft como ready.' : undefined}
+            title={!h.canSync ? (h.dirty ? 'Salve as alterações primeiro.' : 'Preencha todos os campos obrigatórios e deixe o draft como ready.') : undefined}
           >
             {h.syncing ? 'Sincronizando...' : 'Sincronizar como mesa'}
           </button>

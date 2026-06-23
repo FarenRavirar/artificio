@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { getApiBase } from '../../hooks/useImageUrlImport';
 import type { DiscordCoverQuality, DiscordDraftPayload, DiscordDraftTablePayload, DiscordSlotsAmbiguity } from './types';
 import type { SystemTreeNode } from '../../types/systems';
 
@@ -196,12 +198,38 @@ export function flattenSystems(nodes: SystemTreeNode[]): SystemTreeNode[] {
   return result;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const systemTreeNodeSchema: z.ZodType<SystemTreeNode> = z.lazy(() => z.object({
+  id: z.string(),
+  name: z.string(),
+  name_pt: z.string().nullable(),
+  slug: z.string(),
+  parent_id: z.string().nullable(),
+  node_type: z.enum(['system', 'edition', 'variant', 'subsystem']),
+  depth: z.number().optional(),
+  path_slug: z.string().nullable(),
+  aliases: z.array(z.string()).optional(),
+  has_children: z.boolean().optional(),
+  children: z.array(systemTreeNodeSchema).optional(),
+}));
+
+function normalizeSystemTreeNode(raw: unknown): SystemTreeNode {
+  const parsed = systemTreeNodeSchema.safeParse(raw);
+  if (!parsed.success) throw new Error('Resposta de sistemas em formato inesperado.');
+  return parsed.data;
+}
+
+function normalizeSystemTree(raw: unknown): SystemTreeNode[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item) => {
+    try { return normalizeSystemTreeNode(item); }
+    catch { return null; }
+  }).filter((x): x is SystemTreeNode => x !== null);
+}
 
 export async function loadSystems(): Promise<SystemTreeNode[]> {
-  const res = await fetch(`${API_BASE}/api/v1/systems?view=tree`, { credentials: 'include' });
+  const res = await fetch(`${getApiBase()}/api/v1/systems?view=tree`, { credentials: 'include' });
   const json: unknown = await res.json();
   if (!res.ok) throw new Error('Erro ao carregar sistemas.');
   const data = asRecord(json).data;
-  return Array.isArray(data) ? data.filter(isRecord) as unknown as SystemTreeNode[] : [];
+  return normalizeSystemTree(data);
 }

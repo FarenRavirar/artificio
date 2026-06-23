@@ -127,7 +127,7 @@ apps/mesas/backend/src/
 │   │   └── textToRawMessage.ts         # ✅ CRIADO — Adaptador: texto colado → DiscordRawMessage
 │   ├── segmentation.ts                 # ✅ CRIADO — Segmentador de múltiplos anúncios (3 estratégias)
 │   ├── scoring.ts                      # 🔜 Planejado (Fase 4)
-│   ├── syncImportDraftToTable.ts       # 🔜 Pendente (T1.6) — sync draft inbox → tables
+│   ├── syncImportDraftToTable.ts       # ✅ CRIADO — sync draft inbox → tables
 │   └── heuristics.ts                   # 🔜 Planejado (Fase 6)
 ├── routes/
 │   ├── adminDiscordSync.ts             # ✅ ALTERADO — 5 guards anti-vazamento (DEB-047-05)
@@ -146,13 +146,15 @@ apps/mesas/database/
 
 apps/mesas/frontend/src/
 └── features/
-    └── inbox/                           # 🔜 Pendente (T1.8-T1.12)
+    └── inbox/                           # ✅ CRIADO (T1.8-T1.12)
         ├── components/
-        │   ├── InboxPanel.tsx           # 🔜 Pendente
-        │   ├── TextPasteArea.tsx        # 🔜 Pendente
-        │   └── InboxDraftReviewTable.tsx # 🔜 Pendente
+        │   ├── InboxPanel.tsx           # ✅ CRIADO
+        │   ├── TextPasteArea.tsx        # ✅ CRIADO
+        │   ├── InboxDraftReviewTable.tsx # ✅ CRIADO
+        │   └── adapters/
+        │       └── draftAdapter.ts      # ✅ CRIADO
         └── api/
-            └── inboxApi.ts             # 🔜 Pendente
+            └── inboxApi.ts             # ✅ CRIADO
 ```
 
 ## 4. Contrato REST (Fase 1)
@@ -296,14 +298,20 @@ function segmentAnnouncements(rawText: string): string[] {
 - **FASE A — Migration no banco beta** — aplicada em `mesas-beta-db` / `mesas_rpg`, backup em `/tmp/spec047-backup/`, registro em `schema_migrations`
 - **Validação** — `tsc --noEmit` verde; lint sem erros nos arquivos mesas
 
-### 🔜 Pendente
+### 🔜 Pendente (fora do escopo da spec ou ciclos futuros)
 
-- **FASE B** — Push + PR + merge em `dev` → `git pull` no clone beta → rebuild `mesas-beta-api`
-- **FASE C** — Smoke test no beta (POST /import-text → verificar DB → testar guards → GET /drafts)
-- **`syncImportDraftToTable`** — endpoint `POST /drafts/:id/sync` (T1.6 pendente, ~130 linhas)
 - **Extrair `loadSystemsForParser`** — duplicada em `adminImportInbox.ts` (~25 linhas), mover para módulo compartilhado (Fase 7)
-- **Frontend** (T1.8–T1.12) — `inboxApi.ts` → `InboxPanel.tsx` → `TextPasteArea.tsx` → aba no `GestaoPage`
 - **Aprovar Fase 1** antes de avançar para Fase 2
+- **Smoke T1.13-T1.16** — testes manuais no beta pós-deploy
+
+### ✅ Concluído (além do planejamento original)
+
+- **`syncImportDraftToTable.ts`** — endpoint `POST /drafts/:id/sync` implementado (T1.6 ✅)
+- **Frontend Inbox** (T1.8–T1.12) — `inboxApi.ts`, `InboxPanel.tsx`, `TextPasteArea.tsx`, `InboxDraftReviewTable.tsx`, `draftAdapter.ts`, aba no `GestaoPage` — todos implementados
+- **Corpus de treino** (Fase 1.5) — migration 129, endpoint `POST /drafts/:id/correction`, `GET /metrics`
+- **Refatoração** — `DiscordDraftPreview.tsx` reduzido de 707→139 linhas; `useDraftForm.ts` + `draftFormUtils.ts` + `DraftEditorTab.tsx` extraídos
+- **Primitivos `packages/ui`** — `<Banner>` + `forwardRef` em TextInput/Textarea/Select
+- **9 revisões CodeRabbit** (REV-027 a REV-035) — todas investigadas; 5 implementadas, 2 falso positivo, 2 débito separado
 
 ## 9. Plano de deploy e validação (FASE A/B/C)
 
