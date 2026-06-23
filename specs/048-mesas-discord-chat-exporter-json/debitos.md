@@ -63,3 +63,82 @@
 - **Descrição:** O smoke E2E aponta para `https://mesasbeta.artificiorpg.com` e pressupõe cookie/sessão admin válido. Sem estratégia de `storageState` segura, ele pode virar teste manual disfarçado, flaky ou dependente do Chrome/cookies reais do mantenedor. O diff também altera `vitest.config.ts` para excluir `e2e/` e `**/*.spec.ts`; hoje os testes unitários são `*.test.*`, mas esse padrão pode esconder futuros unit specs sem perceber.
 - **Ação:** Definir autenticação de teste sem Chrome real; decidir se roda em CI, local ou somente smoke manual; limitar o exclude do Vitest ao diretório E2E se possível. Registrar pré-requisitos e comando real antes de fechar.
 - **Status:** aberto
+
+## DEB-048-09 — Duplicação residual de getContentHash e asJsonbArray em ingestMessages.ts
+
+- **Origem:** REV-006 — após refatoração, `getContentHash` (3ª cópia, aceita `DiscordApiMessage`) e `asJsonbArray` ainda existem em `ingestMessages.ts:9-11` e `ingestMessages.ts:169-176`.
+- **Severidade:** Baixa
+- **Descrição:** `ingestMessages.ts` tem cópias de `getContentHash` e `asJsonbArray` que não foram removidas por estarem fora do escopo dos arquivos novos da spec 048. A remoção exigiria refatorar o tipo do parâmetro de `DiscordApiMessage` para aceitar um tipo unificado, ou criar um shared util.
+- **Ação:** Abrir spec/débito próprio quando houver autorização para refatorar `ingestMessages.ts`.
+- **Status:** implementado ✅
+
+### Implementação — 2026-06-23
+
+#### O que foi feito
+
+1. **Criado `apps/mesas/backend/src/discord/shared.ts`** com:
+   - `HashableMessage` — interface minimalista com `content?: string; embeds?: unknown[] | null; attachments?: unknown[] | null` (só os campos que o hash consome).
+   - `getContentHash(msg: HashableMessage): string` — função genérica de hash sha256.
+   - `asJsonbArray(value: unknown): JsonbArray` — função de cast JSONB.
+   - `JsonbArray` — tipo exportado.
+
+2. **`ingestMessages.ts`:**
+   - Removida função local `asJsonbArray` (3 linhas) — importa de `./shared`.
+   - Removida função local `getContentHash` (7 linhas + `import crypto`) — importa de `./shared`.
+   - Tipo `JsonbParam` agora é alias de `JsonbArray` (do shared).
+
+3. **`chatExporterAdapter.ts`:**
+   - Removida função local `getContentHash` (7 linhas + `import crypto`) — importa de `./shared`.
+
+4. **`chatExporterImportService.ts`:**
+   - Import de `getContentHash` mudou de `./chatExporterAdapter` para `./shared`.
+
+#### Arquivos alterados
+
+- `apps/mesas/backend/src/discord/shared.ts` — **novo** (3 exportações: `getContentHash`, `asJsonbArray`, `JsonbArray`)
+- `apps/mesas/backend/src/discord/ingestMessages.ts` — removidas funções locais, imports de `./shared`
+- `apps/mesas/backend/src/discord/chatExporterAdapter.ts` — removida função local `getContentHash`
+- `apps/mesas/backend/src/discord/chatExporterImportService.ts` — import de `./shared`
+
+#### Validação
+
+- `pnpm --filter @artificio/mesas-backend build` — ✅
+- `pnpm --filter @artificio/mesas-backend test` — 180/180 ✅
+- `pnpm run lint` — ✅ 15/15
+- `pnpm run build` — ✅ 17/17
+
+### Evidência
+
+#### getContentHash
+
+- **Arquivo/linha:** `ingestMessages.ts:169-176`
+- **Tipo do parâmetro:** `DiscordApiMessage` (schema Zod inline no mesmo arquivo, linha 15-23: `id`, `content`, `timestamp`, `edited_timestamp`, `author`, `attachments`, `embeds` — sem `type`, `timestampEdited`, `callEndedTimestamp`, `isPinned`, `stickers`, `reactions`, `mentions`, `inlineEmojis`, `reference`, `forwardedMessage`)
+- **Corpo:** idêntico ao do adapter (`chatExporterAdapter.ts:29-35`) — sha256(content + JSON.stringify(embeds) + JSON.stringify(attachments))
+- **Referências:** 1 — `persistMessages` linha 225
+- **Já existe versão exportada no adapter?** Sim — `chatExporterAdapter.ts:29` exporta `getContentHash(msg: DiscordChatExporterMessage)` com corpo idêntico.
+- **Dá para tipar como tipo unificado?** `DiscordApiMessage` e `DiscordChatExporterMessage` têm overlap nos campos `id`, `content`, `attachments`, `embeds`. O hash só usa esses 3 campos. Um tipo `{ content?: string; embeds?: unknown[]; attachments?: unknown[] }` seria suficiente para ambas. Mas a assinatura atual do adapter exige `DiscordChatExporterMessage`.
+
+#### asJsonbArray
+
+- **Arquivo/linha:** `ingestMessages.ts:9-11`
+- **Corpo:** idêntico ao que existia em `chatExporterImportService.ts:8-10` (removido no REV-006)
+- **Referências:** 4 — `persistMessages` linhas 255, 256, 268, 269 (2 inserts + 2 updates)
+- **Passa por `InsertRow`/`UpdateRow`:** Sim — tipos locais no mesmo arquivo (linhas 70-91)
+- **Já existe versão exportada?** Não — `chatExporterImportService.ts` tinha mas foi removida (não usada após upsert raw). Não há shared util.
+
+#### Impacto real
+
+- **Funcional:** Nenhum. O código compila, testa e funciona. A duplicação é estrutural/de manutenção.
+- **Manutenção:** Se o algoritmo de hash mudar (ex: incluir `author` no hash), precisa alterar em 3 lugares (`adapter.ts`, `ingestMessages.ts`, `chatExporterImportService.ts` — este último importa do adapter). Se `asJsonbArray` precisar de ajuste, precisa alterar em 2 lugares (`ingestMessages.ts` + qualquer futuro arquivo).
+
+#### Risco de regressão
+
+- **Médio.** Para eliminar a duplicação, o caminho mais simples é:
+  1. Criar `apps/mesas/backend/src/discord/shared.ts` com `asJsonbArray` (export).
+  2. Criar `getContentHash` genérico que aceite `{ content?: string; embeds?: unknown[]; attachments?: unknown[] }` (interface mínima) ou criar overload que aceite ambos os tipos.
+  3. Atualizar imports em `ingestMessages.ts` e `chatExporterAdapter.ts`.
+- Risco: mudar import em `ingestMessages.ts` quebra `persistMessages()` — função usada por `ingestMessages` e `ingestForumMessages` (2 callers externos em `adminDiscordSync.ts`). Requer smoke test manual ou confiança nos testes existentes (1 test file: `ingestMessages.test.ts`).
+
+#### Conclusão
+
+**Procede.** A duplicação é real. Impacto funcional zero, mas manutenção futura mais cara. Débito de baixa severidade — não justifica abrir spec SDD própria, mas deve ser resolvido junto com a próxima mexida em `ingestMessages.ts`.

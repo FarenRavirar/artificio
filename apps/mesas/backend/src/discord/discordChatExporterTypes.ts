@@ -69,9 +69,9 @@ export const discordChatExporterInlineEmojiSchema = z.object({
 export const discordChatExporterMessageSchema = z.object({
   id: z.string(),
   type: z.string().optional(),
-  timestamp: z.string(),
-  timestampEdited: z.string().nullable().optional(),
-  callEndedTimestamp: z.string().nullable().optional(),
+  timestamp: z.string().datetime({ offset: true }),
+  timestampEdited: z.string().datetime({ offset: true }).nullable().optional(),
+  callEndedTimestamp: z.string().datetime({ offset: true }).nullable().optional(),
   isPinned: z.boolean().optional(),
   content: z.string().optional().default(''),
   author: discordChatExporterAuthorSchema,

@@ -1,15 +1,9 @@
-import crypto from 'node:crypto';
-import { sql } from 'kysely';
 import { z } from 'zod';
 import { db } from '../db';
 import type { DiscordImportSourceKind, DiscordSourceChannelType } from './types';
 import { requireDiscordBotToken } from './config';
-
-// BUG-004: pg driver converte arrays JS para literal de array Postgres ('{a,b,c}'),
-// formato inválido para colunas JSONB. Serializamos como JSON e fazemos cast explícito.
-function asJsonbArray(value: unknown): ReturnType<typeof sql<unknown[]>> {
-  return sql<unknown[]>`${JSON.stringify(value ?? [])}::jsonb`;
-}
+import { asJsonbArray, getContentHash } from './shared';
+import type { JsonbArray } from './shared';
 
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 
@@ -66,7 +60,7 @@ export interface IngestResult {
   sourceKind: DiscordSourceChannelType;
 }
 
-type JsonbParam = ReturnType<typeof sql<unknown[]>>;
+type JsonbParam = JsonbArray;
 
 type InsertRow = {
   source_id: string;
@@ -165,15 +159,6 @@ async function discordGetUnknown(path: string, token: string): Promise<unknown> 
   } finally {
     clearTimeout(timeoutId);
   }
-}
-
-function getContentHash(msg: DiscordApiMessage): string {
-  return crypto
-    .createHash('sha256')
-    .update(msg.content ?? '')
-    .update(JSON.stringify(msg.embeds ?? []))
-    .update(JSON.stringify(msg.attachments ?? []))
-    .digest('hex');
 }
 
 async function fetchChannelMessages(params: {

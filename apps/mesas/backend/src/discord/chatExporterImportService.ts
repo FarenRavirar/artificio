@@ -1,44 +1,43 @@
-import crypto from 'node:crypto';
 import { sql } from 'kysely';
 import { db } from '../db';
 import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from './chatExporterAdapter';
+import { getContentHash } from './shared';
 import type { ImportResult } from './chatExporterAdapter';
-import type { DiscordChatExporterExport, DiscordChatExporterMessage } from './discordChatExporterTypes';
 
-function asJsonbArray(value: unknown): ReturnType<typeof sql<unknown[]>> {
-  return sql<unknown[]>`${JSON.stringify(value ?? [])}::jsonb`;
+function mapChannelType(type: string | undefined): 'text' | 'announcement' | 'forum' {
+  switch (type) {
+    case 'announcement':
+    case 'news':
+    case 'guild_announcement':
+      return 'announcement';
+    case 'forum':
+    case 'guild_forum':
+      return 'forum';
+    default:
+      return 'text';
+  }
 }
 
-type InsertRow = {
-  source_id: string;
-  discord_message_id: string;
-  discord_channel_id: string;
-  discord_guild_id: string;
-  discord_parent_channel_id: string | null;
-  discord_thread_id: string | null;
-  discord_thread_name: string | null;
-  discord_author_id: string | null;
-  discord_author_name: string | null;
-  discord_message_url: string;
-  content_raw: string;
-  attachments: ReturnType<typeof asJsonbArray>;
-  embeds: ReturnType<typeof asJsonbArray>;
-  message_created_at: Date | null;
-  message_edited_at: Date | null;
-  content_hash: string;
-  source_kind: 'discord_chat_exporter_json';
-  status: 'pending';
-};
-
-type UpdateRow = { id: string; contentRaw: string; contentHash: string; embeds: ReturnType<typeof asJsonbArray>; attachments: ReturnType<typeof asJsonbArray> };
-
-function getContentHash(msg: DiscordChatExporterMessage): string {
-  return crypto
-    .createHash('sha256')
-    .update(msg.content ?? '')
-    .update(JSON.stringify(msg.embeds ?? []))
-    .update(JSON.stringify(msg.attachments ?? []))
-    .digest('hex');
+async function ensureDiscordImportSource(channelId: string, guildId: string, channelName: string | undefined, channelType: string | undefined): Promise<string> {
+  const existing = await db
+    .selectFrom('discord_import_sources')
+    .select('id')
+    .where('channel_id', '=', channelId)
+    .executeTakeFirst();
+  if (existing) return existing.id;
+  const [source] = await db
+    .insertInto('discord_import_sources')
+    .values({
+      guild_id: guildId,
+      channel_id: channelId,
+      channel_name: channelName ?? null,
+      channel_type: mapChannelType(channelType),
+      enabled: true,
+      auto_sync_enabled: false,
+    })
+    .returning('id')
+    .execute();
+  return source.id;
 }
 
 export async function importDiscordChatExporterJson(raw: unknown): Promise<ImportResult> {
@@ -51,86 +50,62 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
 
   const channelId = exportData.channel.id;
   const guildId = exportData.guild.id;
+  const channelName = exportData.channel.name;
+  const channelType = exportData.channel.type;
 
-  const msgData = messages.map((msg) => {
+  const sourceId = await ensureDiscordImportSource(channelId, guildId, channelName, channelType);
+
+  let inserted = 0;
+  let updated = 0;
+  let failed = 0;
+
+  for (const msg of messages) {
     const adapted = adaptMessageToImportRaw(msg, exportData);
-    return {
-      msg,
-      adapted,
-      contentHash: getContentHash(msg),
-    };
-  });
+    const contentHash = getContentHash(msg);
 
-  const existingRecords = await db
-    .selectFrom('discord_import_messages')
-    .select(['id', 'content_hash', 'discord_message_id'])
-    .where('discord_channel_id', '=', channelId)
-    .where('discord_message_id', 'in', msgData.map((m) => m.msg.id))
-    .execute();
+    try {
+      const result = await sql<{ action: string }>`
+        INSERT INTO discord_import_messages (
+          source_id, discord_message_id, discord_channel_id, discord_guild_id,
+          discord_parent_channel_id, discord_thread_id, discord_thread_name,
+          discord_author_id, discord_author_name, discord_message_url,
+          content_raw, attachments, embeds,
+          message_created_at, message_edited_at,
+          content_hash, source_kind, status
+        ) VALUES (
+          ${sourceId}::uuid, ${msg.id}, ${channelId}, ${guildId},
+          ${adapted.discord_parent_channel_id ?? null}, ${adapted.discord_thread_id ?? null}, ${adapted.discord_thread_name ?? null},
+          ${adapted.discord_author_id ?? null}, ${adapted.discord_author_name ?? null}, ${adapted.discord_message_url ?? ''},
+          ${adapted.content_raw}, ${JSON.stringify(adapted.attachments ?? [])}::jsonb, ${JSON.stringify(adapted.embeds ?? [])}::jsonb,
+          ${adapted.message_created_at}::timestamptz, ${adapted.message_edited_at}::timestamptz,
+          ${contentHash}, 'discord_chat_exporter_json', 'pending'
+        )
+        ON CONFLICT (discord_channel_id, discord_message_id) DO UPDATE SET
+          content_raw = EXCLUDED.content_raw,
+          content_hash = EXCLUDED.content_hash,
+          attachments = EXCLUDED.attachments,
+          embeds = EXCLUDED.embeds,
+          message_edited_at = EXCLUDED.message_edited_at,
+          status = 'pending',
+          parse_error = NULL,
+          updated_at = NOW()
+        WHERE discord_import_messages.content_hash IS DISTINCT FROM EXCLUDED.content_hash
+        RETURNING CASE WHEN xmax = 0 THEN 'inserted' ELSE 'updated' END AS action
+      `.execute(db);
 
-  const existingMap = new Map(existingRecords.map((e) => [e.discord_message_id, e]));
-  const toInsert: InsertRow[] = [];
-  const toUpdate: UpdateRow[] = [];
-
-  for (const { msg, adapted, contentHash } of msgData) {
-    const existing = existingMap.get(msg.id);
-    if (!existing) {
-      toInsert.push({
-        source_id: `chat-exporter-${channelId}`,
-        discord_message_id: msg.id,
-        discord_channel_id: channelId,
-        discord_guild_id: guildId,
-        discord_parent_channel_id: adapted.discord_parent_channel_id ?? null,
-        discord_thread_id: adapted.discord_thread_id ?? null,
-        discord_thread_name: adapted.discord_thread_name ?? null,
-        discord_author_id: adapted.discord_author_id ?? null,
-        discord_author_name: adapted.discord_author_name ?? null,
-        discord_message_url: adapted.discord_message_url ?? '',
-        content_raw: adapted.content_raw,
-        attachments: asJsonbArray(adapted.attachments),
-        embeds: asJsonbArray(adapted.embeds),
-        message_created_at: adapted.message_created_at,
-        message_edited_at: adapted.message_edited_at,
-        content_hash: contentHash,
-        source_kind: 'discord_chat_exporter_json',
-        status: 'pending',
-      });
-    } else if (existing.content_hash !== contentHash) {
-      toUpdate.push({
-        id: existing.id,
-        contentRaw: adapted.content_raw,
-        contentHash,
-        embeds: asJsonbArray(adapted.embeds),
-        attachments: asJsonbArray(adapted.attachments),
-      });
+      const action = result.rows[0]?.action ?? 'ignored';
+      if (action === 'inserted') inserted++;
+      else if (action === 'updated') updated++;
+    } catch (err) {
+      failed++;
     }
-  }
-
-  if (toInsert.length > 0) {
-    await db.insertInto('discord_import_messages').values(toInsert).execute();
-  }
-
-  for (const upd of toUpdate) {
-    await db
-      .updateTable('discord_import_messages')
-      .set({
-        content_raw: upd.contentRaw,
-        content_hash: upd.contentHash,
-        embeds: upd.embeds,
-        attachments: upd.attachments,
-        status: 'pending',
-        parse_error: null,
-        updated_at: new Date(),
-      })
-      .where('id', '=', upd.id)
-      .execute();
   }
 
   return {
     total: messages.length,
-    inserted: toInsert.length,
-    updated: toUpdate.length,
-    ignored: messages.length - toInsert.length - toUpdate.length,
-    failed: 0,
+    inserted,
+    updated,
+    ignored: messages.length - inserted - updated - failed,
+    failed,
   };
 }

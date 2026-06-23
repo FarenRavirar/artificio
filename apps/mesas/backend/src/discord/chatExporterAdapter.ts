@@ -1,5 +1,5 @@
-import crypto from 'node:crypto';
 import { discordChatExporterExportSchema } from './discordChatExporterTypes';
+import { getContentHash } from './shared';
 import type { DiscordChatExporterExport, DiscordChatExporterMessage } from './discordChatExporterTypes';
 import type { ImportRawMessage } from './types';
 
@@ -24,15 +24,6 @@ export function parseDiscordChatExporterJson(raw: unknown): DiscordChatExporterE
     );
   }
   return parsed.data;
-}
-
-function getContentHash(msg: DiscordChatExporterMessage): string {
-  return crypto
-    .createHash('sha256')
-    .update(msg.content ?? '')
-    .update(JSON.stringify(msg.embeds ?? []))
-    .update(JSON.stringify(msg.attachments ?? []))
-    .digest('hex');
 }
 
 export interface ImportResult {
