@@ -161,9 +161,9 @@
 - [x] REV-033 — drafts.ts: condição negada invertida para positiva
 - [x] REV-034 — utils.ts parseJsonField: helper `extractArrayFromRecord` extraído, CC reduzida
 - [x] REV-035 — useDiscordSync: `window` → `globalThis` (confirm + requestAnimationFrame)
-- [ ] REV-036 — messageParse.ts: 18.9% duplicação (20 linhas) — extrair core de parse compartilhado
-- [ ] REV-037 — drafts.ts: 17.6% duplicação (38 linhas) — extrair PATCH merge logic
-- [ ] REV-038 — adminImportInbox.ts: 9.1% duplicação — identificar e eliminar
+- [x] REV-036 — messageParse.ts: 18.9% duplicação (20 linhas) — extrair core de parse compartilhado ✅ 2026-06-24: `parseDiscordMessage()` extraída p/ `utils.ts`, 20 linhas eliminadas de `messageParse.ts` e `drafts.ts`. Build 17/17, lint 15/15, testes 223/223 ✅.
+- [x] REV-037 — drafts.ts: 17.6% duplicação (38 linhas) — extrair PATCH merge logic ✅ 2026-06-24: `validateDraftStatusTransition()` extraída p/ `utils.ts`, formato erro 422 padronizado (`details.missing_fields`). Build 17/17, lint 15/15, testes 223/223 ✅.
+- [x] REV-038 — adminImportInbox.ts: 9.1% duplicação — identificar e eliminar ✅ 2026-06-24: `drafts.ts` agora importa `patchDraftSchema` de `inbox/utils.ts` (removida definição local de 16 linhas). Build 17/17, lint 15/15, testes 223/223 ✅.
 
 **Testes:** backend 223/223 ✅ | frontend 163/163 ✅ (2 testes redundantes removidos em REV-009)
 **Build:** repo-wide 17/17 ✅

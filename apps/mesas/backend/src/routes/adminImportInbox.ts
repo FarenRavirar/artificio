@@ -3,12 +3,12 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { DraftNotFoundError, DraftStateError } from '../discord/syncHelpers';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../discord';
-import { assertDraftReadyTransition } from '../discord/draftValidation';
 import { requireAdmin } from '../middleware/auth';
 import { textToRawMessage } from '../inbox/adapters/textToRawMessage';
 import { segmentAnnouncements } from '../inbox/segmentation';
 import { syncImportDraftToTable, DraftSyncValidationError } from '../inbox/syncImportDraftToTable';
-import { loadSystemsForParser } from './discord/utils';
+import { validateDraftStatusTransition } from './discord/utils';
+import { loadSystemsForParser } from '../discord/shared';
 import { toNumberOrNull, importTextSchema, listDraftsSchema, patchDraftSchema, correctionSchema } from './inbox/utils';
 
 const router = Router();
@@ -342,15 +342,12 @@ router.patch('/drafts/:id', requireAdmin, async (req: Request, res: Response) =>
     }
 
     if (parsed.data.status && parsed.data.status !== current.status) {
-      const patchPayload = normalizeDraftPayload(parsed.data.normalized_payload ?? current.normalized_payload);
-      const currentPayload = normalizeDraftPayload(current.normalized_payload);
-      const transition = assertDraftReadyTransition({
-        patchStatus: parsed.data.status,
-        patchPayloadMissing: patchPayload?.missing_fields,
-        currentPayloadMissing: currentPayload?.missing_fields,
-      });
+      const transition = validateDraftStatusTransition(parsed.data, current);
       if (!transition.allowed) {
-        return res.status(422).json({ error: transition.reason, missing_fields: transition.missingFields });
+        return res.status(422).json({
+          error: transition.reason ?? "Draft não pode ser marcado como 'ready'.",
+          details: { missing_fields: transition.missingFields ?? [] },
+        });
       }
     }
 
