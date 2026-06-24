@@ -354,3 +354,94 @@ Serena (DEB-044-01) dá navegação e edição **por símbolo** via LSP (resolu�
 ## Disciplina (pétrea local)
 - Diagnóstico LSP do Serena é auxiliar. **Sempre** `pnpm run lint` + `pnpm run build` antes de declarar tarefa concluída.
 - Edição por símbolo não dispensa revisão do diff nem as regras de escopo/isolamento de app.
+
+---
+
+# Artifício Supervisor Flow
+
+Este projeto usa um fluxo de agentes para OpenCode com um único agente primário: `artificio-orquestrador`.
+
+## Regra central
+
+O usuário conversa apenas com o orquestrador.
+Subagentes trabalham em tarefas fechadas e devolvem relatório ao orquestrador.
+
+## Fases
+
+1. fix ou feature
+2. registro
+3. investigação
+4. implementação
+5. revisão de documentação atualizada
+6. commit
+
+O orquestrador deve pedir autorização antes de cada fase.
+A autorização vale apenas para a fase e o escopo descritos.
+
+## Bloqueios
+
+- Jamais commitar sem autorização explícita.
+- Jamais push sem autorização explícita.
+- Jamais merge sem autorização explícita.
+- Jamais abrir PR sem autorização explícita.
+- Jamais avançar fase sem autorização explícita.
+- Se houver dúvida, parar e perguntar em tom leigo com opções claras.
+
+## Specs
+
+Estrutura padrão:
+
+```text
+specs/NNN-<modulo>-<slug>/
+  spec.md
+  plan.md
+  tasks.md
+  reviews.md
+  debitos.md
+```
+
+`reviews.md` deve receber apenas reviews externos: usuário, bots, PRs ou checks.
+Achados internos de investigação, lint, build ou auditoria entram em `debitos.md`, salvo instrução explícita.
+
+## Ferramentas preferidas
+
+Quando disponíveis, agentes devem preferir:
+
+1. LSP
+2. Serena MCP
+3. codebase-memory-mcp
+4. ast-grep, rg, grep e leitura direta
+
+Se essas ferramentas não estiverem disponíveis, usar fallback local e registrar a limitação.
+
+## Comandos principais
+
+```text
+/fluxo-spec
+/fix-spec
+/feature-spec
+/registrar-spec
+/investigar-spec
+/implementar-spec
+/auditar-spec
+/documentar-spec
+/preparar-git-spec
+/continuar-spec
+```
+
+## Formato final do orquestrador
+
+Ao final de cada fase, responder com:
+
+```md
+## Estado
+- Fase concluída:
+- Próxima fase:
+- Bloqueios ativos:
+
+## Resultado
+...
+
+## Próximo command pronto
+/<comando sugerido>
+```

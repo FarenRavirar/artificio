@@ -22,7 +22,7 @@ assert_pass() {
   printf '%s\n' "$@" > "$file"
   local out rc=0
   out="$(validate_sql_against_class "$file" online-safe 2>&1)" || rc=$?
-  if [ "$rc" -eq 0 ]; then
+  if [[ "$rc" -eq 0 ]]; then
     echo "  ok  $label"
     passed=$((passed + 1))
   else
@@ -37,7 +37,7 @@ assert_block() {
   printf '%s\n' "$@" > "$file"
   local out rc=0
   out="$(validate_sql_against_class "$file" online-safe 2>&1)" || rc=$?
-  if [ "$rc" -ne 0 ]; then
+  if [[ "$rc" -ne 0 ]]; then
     echo "  ok  $label"
     passed=$((passed + 1))
   else
@@ -60,6 +60,8 @@ echo "=== Verdes: comentários (não devem disparar) ==="
 assert_pass "block_comment"   "/* DROP TABLE test */ SELECT 1"
 assert_pass "line_comment"    "-- DROP TABLE destroyed CASCADE"
 assert_pass "inline_comment"  "SELECT 1 -- DROP TABLE test"
+# T28: multilinha
+assert_pass "multiline_block" "/* nota:" "   DROP TABLE x;" "*/" "SELECT 1"
 
 echo ""
 echo "=== Verdes: migrations reais 128 e 129 ==="
@@ -99,8 +101,8 @@ total=$((passed + failed))
 echo ""
 echo "migration_guard_selftest: $passed/$total passaram"
 
-if [ "$failed" -gt 0 ]; then
-  echo "::error::$failed teste(s) falharam no migration guard self-test"
+if [[ "$failed" -gt 0 ]]; then
+  echo "::error::$failed teste(s) falharam no migration guard self-test" >&2
   exit 1
 fi
 

@@ -183,6 +183,50 @@
 > **BL-MIGRATION-RECONCILE-TOOL:** fechado em `specs/backlog.md:47`
 > **Shellcheck:** ambos novos arquivos limpos ✅
 
+## Fase F — Smells SonarCloud nos scripts novos (`debitos.md` DEB-050-01)
+
+> SonarCloud no PR #95 apontou smells de estilo/manutenção nos 3 shell novos. ShellCheck (gate real) verde; não bloqueia. Detalhe + investigação em `debitos.md`. Implementação: DeepSeek.
+- [x] **T26** — Corrigir DEB-050-01 nos 3 arquivos novos: `[`→`[[` (reconcile L19/30/73/90/94/106/138; guard L25/40/102; reconcile-test L45/58/132); erros em `>&2` (reconcile L103, guard L103, reconcile-test L133); constantes no `test_migration_reconcile.sh` (L118 `migration_200_test.sql`, L125 `compose.yml`). · feito quando: ShellCheck verde + `test_migration_guard.sh` 29/29 + `test_migration_reconcile.sh` 9/9 ainda passam, smells resolvidos. **Não** tocar scripts antigos (vai p/ DEB-050-02). ✅ 2026-06-24
+
+- [x] **T27** — Corrigir DEB-050-03 (bug de correção): parsear `--force` antes dos DB args opcionais em `cmd_mark_applied` (`reconcile_migrations.sh:83-91`), para que `--mark-applied <v> <compose-prod> <db_service> --force` funcione (sem precisar passar `admin mesas_rpg` antes). Adicionar caso no `test_migration_reconcile.sh`: prod-force **sem** DB args explícitos → NEW (não rejeitado). · feito quando: ambas as formas (com/sem DB args) ativam `force=true`, `db_user` nunca recebe `--force`, teste cobre, 9/9 verde. ✅ 2026-06-24
+
+- [x] **T28** — Corrigir DEB-050-04: remover comentário de bloco `/* */` **multilinha** antes do grep em `validate_sql_against_class` (`lib_migrations.sh:62`) — strip que cruza newlines (non-greedy, sem comer conteúdo entre blocos distintos). Adicionar caso verde no `test_migration_guard.sh`: `/* DROP TABLE x */` quebrado em múltiplas linhas → return 0. · feito quando: caso multilinha passa, 29/29 verde, ShellCheck limpo. ✅ 2026-06-24
+
+- [x] **T29** — Corrigir DEB-050-05: `cmd_list` (`reconcile_migrations.sh:72-78`) deve **propagar** falhas — capturar exit de `_reconcile_query`, remover `|| true` de `list_pending_by_set_diff`, retornar ≠ 0 com erro em `>&2` quando docker/psql falhar. Cobrir no `test_migration_reconcile.sh` (stub que falha → erro, não vazio-OK). · feito quando: falha de query vira exit ≠ 0, teste cobre, 9/9 verde. ✅ 2026-06-24
+
+> **Ciclo de revisões do PR #95 encerrado (2026-06-24).** Achados registrados: DEB-050-01 (T26, estilo), DEB-050-03 (T27, `--force` parsing — reconfirmado por 2º revisor), DEB-050-04 (T28, comentário multilinha), DEB-050-05 (T29, `--list` engole erro). DEB-050-02 = follow-up separado.
+>
+> **Fase F — T26 a T29 implementados (2026-06-24):**
+>
+> **T26 — Smells SonarCloud:**
+> - `reconcile_migrations.sh`: 7× `[`→`[[` (L19/30/73/94/106/138; L90 removido por T27). `>&2` já corrigido previamente (L95/101/130).
+> - `test_migration_guard.sh`: 3× `[`→`[[` (L25/40/102) + `>&2` adicionado (L103).
+> - `test_migration_reconcile.sh`: 3× `[`→`[[` (L45/58/132) + `>&2` adicionado (L133) + constantes `STUB_VERSION`/`STUB_COMPOSE` extraídas (eram 5× literais cada).
+>
+> **T27 — `--force` parsing:**
+> - `cmd_mark_applied` reescrito: extrai `--force` de qualquer posição via loop `for arg in "$@"`, remove do array `filtered`, depois atribui posicionais limpos.
+> - Teste: "prod force sem DB args" → `--mark-applied <v> <compose-prod> <db_service> --force` → OK (NEW), não rejeitado.
+>
+> **T28 — Comentário multilinha:**
+> - Pipeline: `perl -0777 -pe 's{/\*.*?\*/}{}gs' "$filepath" | sed 's/--.*//'` — perl slurpa o arquivo e remove blocos `/* */` non-greedy multilinha; sed remove `--` (line-based).
+> - Teste: `/* nota:\n   DROP TABLE x;\n*/\nSELECT 1` → passa (return 0).
+>
+> **T29 — Propagação de erros em `--list`:**
+> - `cmd_list`: captura `_reconcile_query` em variável + check de exit (substitui process substitution `< <()` que perdia exit code). Remove `|| true` de `list_pending_by_set_diff`, propaga falha com `>&2`.
+> - `_reconcile_query`: novo stub `MOCK_QUERY_FAIL=true` para teste de falha.
+> - Teste: query falha → `--list` retorna ≠0 (não vazio-OK).
+>
+> **Validação consolidada:**
+> | Check | Comando | Resultado |
+> |-------|---------|-----------|
+> | ShellCheck (4 scripts) | `shellcheck lib_migrations.sh reconcile_migrations.sh test_migration_guard.sh test_migration_reconcile.sh` | ✅ limpo |
+> | Guard self-test | `bash test_migration_guard.sh` | ✅ 29/29 (28 originais + 1 multiline T28) |
+> | Reconcile self-test | `bash test_migration_reconcile.sh` | ✅ 9/9 (7 originais + 1 T27 + 1 T29) |
+>
+> **Fase F ENCERRADA.** Todos os débitos DEB-050-01, -03, -04, -05 fechados.
+
+- [x] **T30** — Corrigir DEB-050-06 (falha-aberto). **Decisão pós-verificação:** perl confirmado na VM (5.38.2) e CI → manter `perl` + adicionar guard de presença **falha-fechado** no topo de `validate_sql_against_class` (`command -v perl >/dev/null 2>&1 || { echo "::error::perl ausente"; return 1; }`). NÃO trocar por sed puro (over-engineering). `lib_migrations.sh`. · feito quando: guard falha-fechado se perl ausente, `test_migration_guard.sh` 29/29 verde, ShellCheck limpo. ✅ 2026-06-24
+
 ## Gate de entrega (autorização do mantenedor por ação)
 
 - Commit/push/PR para `dev`: aprovação nominal (código de infra → branch + PR, regra pétrea).

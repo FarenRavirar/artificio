@@ -56,10 +56,20 @@ validate_sql_against_class() {
     return 0
   fi
 
+  # T30: guard fail-closed — perl faz o strip multilinha de comentários (REV-077 T28).
+  # Só relevante no caminho online-safe (manual-risk retorna acima sem usar perl).
+  # Captura a saída e checa o exit do perl: perl ausente OU com falha em runtime
+  # → fail-closed (return 1), nunca deixa passar por saída vazia/parcial.
+  local stripped
+  if ! stripped=$(perl -0777 -pe 's{/\*.*?\*/}{}gs' "$filepath"); then
+    echo "::error::perl ausente ou falhou ao processar $filepath — guard fail-closed."
+    return 1
+  fi
+
   # REV-077 (spec 050): regex estreito — permite DROP de atributo (NOT NULL, CONSTRAINT, DEFAULT, IDENTITY, EXPRESSION),
   # bloqueia DROP de objeto (TABLE, DATABASE, SCHEMA, COLUMN, VIEW, MATERIALIZED, SEQUENCE, TYPE, INDEX, FUNCTION, TRIGGER,
-  # RULE, EXTENSION, TABLESPACE, ROLE, USER), TRUNCATE e DELETE FROM. Também remove comentários de bloco (/* */) antes do grep.
-  if sed -e 's/--.*//' -e 's/\/\*.*\*\///g' "$filepath" | grep -Eiq '\b(DROP[[:space:]]+(TABLE|DATABASE|SCHEMA|COLUMN|VIEW|MATERIALIZED|SEQUENCE|TYPE|INDEX|FUNCTION|TRIGGER|RULE|EXTENSION|TABLESPACE|ROLE|USER)|TRUNCATE|DELETE[[:space:]]+FROM)\b'; then
+  # RULE, EXTENSION, TABLESPACE, ROLE, USER), TRUNCATE e DELETE FROM. Comentário de linha (-- via sed) removido antes do grep.
+  if printf '%s\n' "$stripped" | sed 's/--.*//' | grep -Eiq '\b(DROP[[:space:]]+(TABLE|DATABASE|SCHEMA|COLUMN|VIEW|MATERIALIZED|SEQUENCE|TYPE|INDEX|FUNCTION|TRIGGER|RULE|EXTENSION|TABLESPACE|ROLE|USER)|TRUNCATE|DELETE[[:space:]]+FROM)\b'; then
     echo "::error::$filepath esta marcada online-safe mas contem instrucao destrutiva."
     return 1
   fi

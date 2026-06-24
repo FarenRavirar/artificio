@@ -16,7 +16,11 @@ source "$SCRIPT_DIR/lib_migrations.sh"
 
 # Stub: MOCK_QUERY_RESULT = newline-separated list of applied migrations
 _reconcile_query() {
-  if [ -n "${MOCK_QUERY_RESULT:-}" ]; then
+  if [[ -n "${MOCK_QUERY_FAIL:-}" ]]; then
+    echo "ERROR: mock query failure" >&2
+    return 1
+  fi
+  if [[ -n "${MOCK_QUERY_RESULT:-}" ]]; then
     printf '%s\n' "$MOCK_QUERY_RESULT"
     return 0
   fi
@@ -27,7 +31,7 @@ _reconcile_query() {
 _reconcile_mark_applied() {
   local compose_file="$1" db_service="$2" db_user="$3" db_name="$4" version="$5" applied_by="$6"
 
-  if [ -n "${MOCK_MARK_FILE:-}" ]; then
+  if [[ -n "${MOCK_MARK_FILE:-}" ]]; then
     printf '%s\t%s\n' "$version" "$applied_by" >> "$MOCK_MARK_FILE"
     echo "$version"
     return 0
@@ -69,29 +73,46 @@ cmd_list() {
   local compose_file="$1" db_service="$2" db_user="${3:-admin}" db_name="${4:-mesas_rpg}" migrations_dir="${5:-./database}"
 
   echo "=== Migrations no banco ==="
+  # T29: capture output + exit code instead of losing it in process substitution
+  local query_out
+  query_out="$(_reconcile_query "$compose_file" "$db_service" "$db_user" "$db_name")" || {
+    echo "::error::Falha ao consultar schema_migrations." >&2
+    return 1
+  }
   while IFS= read -r line; do
-    [ -n "$line" ] && echo "  $line"
-  done < <(_reconcile_query "$compose_file" "$db_service" "$db_user" "$db_name")
+    [[ -n "$line" ]] && echo "  $line"
+  done <<< "$query_out"
 
-  echo ""
+  printf '%s\n' ""
   printf '%s\n' "=== Migrations pendentes (disco \\ banco) ==="
-  list_pending_by_set_diff "$compose_file" "$db_service" "$db_user" "$db_name" "$migrations_dir" || true
+  # T29: propagate failure instead of || true
+  if ! list_pending_by_set_diff "$compose_file" "$db_service" "$db_user" "$db_name" "$migrations_dir"; then
+    echo "::error::Falha ao comparar migrations disco×banco." >&2
+    return 1
+  fi
 }
 
 # ─── --mark-applied ──────────────────────────────────────────────────
 
 cmd_mark_applied() {
-  local version="$1" compose_file="$2" db_service="$3" db_user="${4:-admin}" db_name="${5:-mesas_rpg}"
   local force=false
-  local migrations_dir="${MIGRATIONS_DIR:-./database}"
+  local filtered=()
 
-  # busca --force em args restantes (posicao 6+)
-  for arg in "${@:6}"; do
-    [ "$arg" = "--force" ] && force=true
+  # T27: Extract --force from any position before positional binding
+  for arg in "$@"; do
+    if [[ "$arg" == "--force" ]]; then
+      force=true
+    else
+      filtered+=("$arg")
+    fi
   done
 
+  local version="${filtered[0]:-}" compose_file="${filtered[1]:-}" db_service="${filtered[2]:-}"
+  local db_user="${filtered[3]:-admin}" db_name="${filtered[4]:-mesas_rpg}"
+  local migrations_dir="${MIGRATIONS_DIR:-./database}"
+
   # ── R9a: prod exige --force ──
-  if [[ "$compose_file" == *prod* ]] && [ "$force" != true ]; then
+  if [[ "$compose_file" == *prod* ]] && [[ "$force" != true ]]; then
     echo "::error::$compose_file e prod. Use --force para confirmar." >&2
     return 1
   fi
@@ -103,7 +124,7 @@ cmd_mark_applied() {
   fi
 
   # ── R9c: arquivo deve existir ──
-  if [ ! -f "$migrations_dir/$version" ]; then
+  if [[ ! -f "$migrations_dir/$version" ]]; then
     echo "::error::Arquivo nao encontrado: $migrations_dir/$version" >&2
     return 1
   fi
@@ -135,7 +156,7 @@ cmd_mark_applied() {
 # ─── Main ────────────────────────────────────────────────────────────
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  [ $# -lt 1 ] && usage
+  [[ $# -lt 1 ]] && usage
 
   case "$1" in
     --list)
