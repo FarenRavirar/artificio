@@ -19,7 +19,14 @@ router.post('/:id/parse', requireAdmin, async (req: Request, res: Response) => {
     }
 
     const result = await parseDiscordMessage(message);
-    if (!result) return res.status(422).json({ error: 'Mensagem sem conteudo elegivel para virar draft.' });
+    if (!result) {
+      // REV-068: marcar como ignorada para não ficar pendente eternamente
+      await db.updateTable('discord_import_messages')
+        .set({ status: 'ignored', parse_error: 'Mensagem sem conteúdo elegível para virar draft.', updated_at: new Date() })
+        .where('id', '=', message.id)
+        .execute();
+      return res.status(422).json({ error: 'Mensagem sem conteudo elegivel para virar draft.' });
+    }
     const { parsed, normalized } = result;
 
     const existingDraft = await db

@@ -3,12 +3,11 @@ import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
 import type { DiscordImportDraftStatus } from '../../discord';
 import { refreshDiscordDraftImage } from '../../discord';
-import { parseDiscordMessage, ensureSystemSuggestionForDraft, validateDraftStatusTransition } from './utils';
-import { patchDraftSchema } from '../inbox/utils';
+import { parseDiscordMessage, ensureSystemSuggestionForDraft, handlePatchDraft } from './utils';
 
 const router = Router();
 
-// Schemas compartilhados: patchDraftSchema importado de ../inbox/utils (REV-038)
+// Schemas compartilhados: patchDraftSchema via handlePatchDraft (REV-074)
 
 // ─── GET / ────────────────────────────────────────────────────────────────────
 
@@ -57,45 +56,19 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
 // ─── PATCH /:id ───────────────────────────────────────────────────────────────
 
 router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
-  const parsed = patchDraftSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
-  }
-  if (Object.keys(parsed.data).length === 0) {
-    return res.status(400).json({ error: 'Nenhum dado para atualizar.' });
-  }
   try {
-    const current = await db
-      .selectFrom('discord_import_table_drafts')
-      .select(['id', 'normalized_payload'])
-      .where('id', '=', req.params.id)
-      .executeTakeFirst();
-    if (!current) return res.status(404).json({ error: 'Draft não encontrado.' });
-
-    const transition = validateDraftStatusTransition(parsed.data, current);
-    if (!transition.allowed) {
-      return res.status(422).json({
-        error: transition.reason ?? "Draft não pode ser marcado como 'ready'.",
-        details: { missing_fields: transition.missingFields ?? [] },
-      });
-    }
-
-    const mergedNormalizedPayload = parsed.data.normalized_payload
-      ? { ...(current.normalized_payload as Record<string, unknown>), ...(parsed.data.normalized_payload as Record<string, unknown>) }
-      : undefined;
-
-    const [draft] = await db
-      .updateTable('discord_import_table_drafts')
-      .set({
-        ...parsed.data,
-        ...(mergedNormalizedPayload === undefined ? {} : { normalized_payload: mergedNormalizedPayload }),
-        updated_at: new Date(),
-      })
-      .where('id', '=', req.params.id)
-      .returningAll()
-      .execute();
-    if (!draft) return res.status(404).json({ error: 'Draft não encontrado.' });
-    return res.json({ data: draft });
+    const result = await handlePatchDraft(req, {
+      transformData: (data, current) => {
+        const mergedNormalizedPayload = data.normalized_payload
+          ? { ...(current.normalized_payload as Record<string, unknown>), ...(data.normalized_payload as Record<string, unknown>) }
+          : undefined;
+        return {
+          ...data,
+          ...(mergedNormalizedPayload === undefined ? {} : { normalized_payload: mergedNormalizedPayload }),
+        };
+      },
+    });
+    return res.status(result.status).json(result.body);
   } catch (error: unknown) {
     console.error('[PATCH /admin/discord-sync/drafts/:id]', error);
     return res.status(500).json({ error: 'Erro ao atualizar draft.' });

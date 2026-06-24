@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import { z } from 'zod';
 import { db } from '../../db';
 import type { DiscordSourceChannelType } from '../../db/types';
@@ -8,6 +8,7 @@ import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
 import { loadSystemsForParser } from '../../discord/shared';
 import { notifyAdmins } from '../../services/adminNotifications';
+import { patchDraftSchema } from '../inbox/utils';
 
 function extractArrayFromRecord(record: Record<string, unknown>): unknown[] | null {
   if (Array.isArray(record.items)) return record.items;
@@ -123,7 +124,7 @@ export async function parseDiscordMessage(
     discord_author_id: msg.discord_author_id as string | null,
     discord_author_name: msg.discord_author_name as string | null,
     discord_message_url: msg.discord_message_url as string | null,
-    content_raw: (msg.content_raw as string) ?? '',
+    content_raw: String(msg.content_raw ?? ''),
     attachments: parseJsonField(msg.attachments),
     embeds: parseJsonField(msg.embeds),
     message_created_at: msg.message_created_at ? new Date(msg.message_created_at as string) : null,
@@ -153,6 +154,93 @@ export function validateDraftStatusTransition(
     patchPayloadMissing: patchPayload?.missing_fields,
     currentPayloadMissing: currentPayload?.missing_fields,
   });
+}
+
+// ─── REV-074 — handlePatchDraft (boilerplate compartilhado de PATCH drafts) ────
+
+type PatchCheckResult = { status: number; body: unknown } | null;
+
+interface PatchDraftConfig {
+  /** Validações antes da transição de status. Retorna resultado de erro ou null (prossegue). */
+  preTransitionChecks?: (current: Record<string, unknown>, data: Record<string, unknown>) => PatchCheckResult;
+  /** Validações após a transição de status. Retorna resultado de erro ou null (prossegue). */
+  postTransitionChecks?: (current: Record<string, unknown>, data: Record<string, unknown>) => PatchCheckResult;
+  /** Transforma os dados antes de validar/atualizar (ex.: merge de normalized_payload). */
+  transformData?: (data: Record<string, unknown>, current: Record<string, unknown>) => Record<string, unknown>;
+}
+
+/**
+ * Handler compartilhado de PATCH drafts — extrai ~35 linhas de boilerplate
+ * duplicadas entre inbox/drafts.ts e discord/drafts.ts.
+ *
+ * O call-site faz parse do body com patchDraftSchema e chama esta função,
+ * que lida com fetch, validação de transição e update no banco.
+ *
+ * Sempre faz selectAll() — uma linha a mais na query PATCH, mas elimina
+ * a complexidade de select dinâmico com colunas extras (Kysely typed).
+ */
+export async function handlePatchDraft(
+  req: Request,
+  config: PatchDraftConfig = {},
+): Promise<{ status: number; body: unknown }> {
+  const parsed = patchDraftSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return { status: 400, body: { error: 'Dados inválidos.', details: parsed.error.flatten() } };
+  }
+  if (Object.keys(parsed.data).length === 0) {
+    return { status: 400, body: { error: 'Nenhum dado para atualizar.' } };
+  }
+
+  const current = await db
+    .selectFrom('discord_import_table_drafts')
+    .selectAll()
+    .where('id', '=', req.params.id)
+    .executeTakeFirst();
+
+  if (!current) {
+    return { status: 404, body: { error: 'Draft não encontrado.' } };
+  }
+
+  // Cast básico — callbacks conhecem os campos que precisam
+  const currentRow = current as unknown as Record<string, unknown>;
+
+  if (config.preTransitionChecks) {
+    const check = config.preTransitionChecks(currentRow, parsed.data as Record<string, unknown>);
+    if (check) return check;
+  }
+
+  const data = config.transformData
+    ? config.transformData(parsed.data as Record<string, unknown>, currentRow)
+    : parsed.data;
+
+  const transition = validateDraftStatusTransition(data as { status?: string; normalized_payload?: unknown }, current);
+  if (!transition.allowed) {
+    return {
+      status: 422,
+      body: {
+        error: transition.reason ?? "Draft não pode ser marcado como 'ready'.",
+        details: { missing_fields: transition.missingFields ?? [] },
+      },
+    };
+  }
+
+  if (config.postTransitionChecks) {
+    const check = config.postTransitionChecks(currentRow, data as Record<string, unknown>);
+    if (check) return check;
+  }
+
+  const [draft] = await db
+    .updateTable('discord_import_table_drafts')
+    .set({ ...(data as Record<string, unknown>), updated_at: new Date() })
+    .where('id', '=', req.params.id)
+    .returningAll()
+    .execute();
+
+  if (!draft) {
+    return { status: 404, body: { error: 'Draft não encontrado.' } };
+  }
+
+  return { status: 200, body: { data: draft } };
 }
 
 // ─── D009 — helpers extraídos de adminDiscordSync.ts ──────────────────────────

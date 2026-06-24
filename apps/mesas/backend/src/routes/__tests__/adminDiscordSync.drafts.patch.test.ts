@@ -36,6 +36,7 @@ function makeApp() {
 
 function mockCurrentDraft(normalizedPayload: Record<string, unknown>) {
   const selectChain = {
+    selectAll: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
     executeTakeFirst: vi.fn().mockResolvedValue({

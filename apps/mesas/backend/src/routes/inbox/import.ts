@@ -145,6 +145,12 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
         .returning(['id', 'status', 'confidence'])
         .execute();
 
+      // REV-063: guarda defensiva contra draftRow undefined
+      if (!draftRow) {
+        console.error('[import-text] Insert retornou sem linha. importMessageId:', importMessageId);
+        continue;
+      }
+
       await db
         .updateTable('import_messages')
         .set({ status: 'parsed' })

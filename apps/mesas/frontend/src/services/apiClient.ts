@@ -81,20 +81,39 @@ async function executeHttpRequest(
   init: RequestInit,
   skipRetry: boolean,
 ): Promise<Response> {
+  // REV-055: retry automático só para métodos idempotentes (GET/HEAD)
+  // REV-056: dedup de requisição também só para métodos seguros
+  const isIdempotent = init.method === 'GET' || init.method === 'HEAD' || !init.method;
+  const effectiveSkipRetry = skipRetry || !isIdempotent;
+
   const requestKey = `${init.method || 'GET'}:${url}`;
 
-  // Cancelar requisição duplicada anterior
-  if (pendingRequests.has(requestKey)) {
+  // REV-056: Cancelar requisição duplicada anterior — só para métodos seguros
+  if (isIdempotent && pendingRequests.has(requestKey)) {
     console.log('[api] Cancelando requisição duplicada:', requestKey);
     pendingRequests.get(requestKey)?.abort();
   }
 
   const controller = new AbortController();
-  pendingRequests.set(requestKey, controller);
+  // REV-056: só registrar no mapa de dedup para métodos seguros (GET/HEAD)
+  if (isIdempotent) {
+    pendingRequests.set(requestKey, controller);
+  }
+
+  // REV-039/057: Encadear AbortSignal externo ao controller interno para que
+  // abort() do caller (ex.: useMestre, useMestreInsights) cancele a requisição.
+  if (init.signal) {
+    if (init.signal.aborted) {
+      controller.abort();
+    } else {
+      init.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+  }
 
   let lastError: unknown;
   let authRefreshed = false;
-  const maxAttempts = skipRetry ? 0 : RETRY_CONFIG.maxRetries;
+  // REV-055: usa effectiveSkipRetry que desabilita retry em POST/PUT/PATCH/DELETE
+  const maxAttempts = effectiveSkipRetry ? 0 : RETRY_CONFIG.maxRetries;
 
   for (let attempt = 0; attempt <= maxAttempts; attempt++) {
     try {
@@ -126,9 +145,9 @@ async function executeHttpRequest(
         return response;
       }
 
-      // ── Retry 5xx / 429 ──
+      // ── Retry 5xx / 429 (REV-055: só para métodos idempotentes) ──
       if (
-        !skipRetry &&
+        !effectiveSkipRetry &&
         !response.ok &&
         (response.status >= 500 || response.status === 429) &&
         attempt < RETRY_CONFIG.maxRetries
@@ -149,7 +168,7 @@ async function executeHttpRequest(
 
       lastError = err;
 
-      if (!skipRetry && shouldRetry(err, attempt)) {
+      if (!effectiveSkipRetry && shouldRetry(err, attempt)) {
         const delay = getRetryDelay(attempt);
         console.log(`[api] Retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} em ${delay}ms para ${requestKey}`);
         await sleep(delay);
@@ -258,14 +277,14 @@ export const authPut = (endpoint: string, body?: unknown, options: FetchOptions 
   authenticatedFetch(endpoint, {
     ...options,
     method: 'PUT',
-    body: body ? JSON.stringify(body) : undefined,
+    body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
   });
 
 export const authPatch = (endpoint: string, body?: unknown, options: FetchOptions = {}) =>
   authenticatedFetch(endpoint, {
     ...options,
     method: 'PATCH',
-    body: body ? JSON.stringify(body) : undefined,
+    body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
   });
 
 export const authDelete = (endpoint: string, options: FetchOptions = {}) =>

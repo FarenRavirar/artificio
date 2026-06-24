@@ -139,22 +139,22 @@ export const OnboardingPage = () => {
         }
 
         setOptions({
-          systemsTree: optionsJson.data.systems_tree ?? [],
-          tags: optionsJson.data.tags ?? [],
-          platforms: optionsJson.data.platforms ?? [],
+          systemsTree: Array.isArray(optionsJson.data.systems_tree) ? optionsJson.data.systems_tree : [],
+          tags: Array.isArray(optionsJson.data.tags) ? optionsJson.data.tags : [],
+          platforms: Array.isArray(optionsJson.data.platforms) ? optionsJson.data.platforms : [],
         });
 
         setForm({
           display_name: meJson.data.profile?.display_name ?? user.name ?? '',
           bio: meJson.data.profile?.bio ?? '',
-          systems: meJson.data.preferences.systems ?? [],
-          tags: meJson.data.preferences.tags ?? [],
+          systems: Array.isArray(meJson.data.preferences.systems) ? meJson.data.preferences.systems : [],
+          tags: Array.isArray(meJson.data.preferences.tags) ? meJson.data.preferences.tags : [],
           languages:
             meJson.data.preferences.languages && meJson.data.preferences.languages.length > 0
               ? meJson.data.preferences.languages
               : ['Português'],
-          platforms: meJson.data.preferences.platforms ?? [],
-          weekdays: meJson.data.preferences.weekdays ?? [],
+          platforms: Array.isArray(meJson.data.preferences.platforms) ? meJson.data.preferences.platforms : [],
+          weekdays: Array.isArray(meJson.data.preferences.weekdays) ? meJson.data.preferences.weekdays : [],
         });
       } catch (err: unknown) {
         setError(err instanceof Error && err.message ? err.message : 'Falha ao carregar onboarding.');

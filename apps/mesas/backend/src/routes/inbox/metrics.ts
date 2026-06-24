@@ -13,6 +13,8 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
       .select((eb) => eb.fn.countAll<number>().as('count'))
       .executeTakeFirst();
 
+    // REV-070: Nota — ideal agregar no banco (jsonb_object_keys + GROUP BY),
+    // mas test mock não suporta executeQuery. Mantém iteração JS por ora.
     const fieldsByCount = await db
       .selectFrom('import_corrections')
       .select('diff')
@@ -30,7 +32,7 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
 
     return res.json({
       data: {
-        total_corrections: totalDrafts?.count ?? 0,
+        total_corrections: Number(totalDrafts?.count ?? 0),
         most_corrected_fields: Object.entries(fieldCounts)
           .sort(([, a], [, b]) => b - a)
           .map(([field, count]) => ({ field, count })),

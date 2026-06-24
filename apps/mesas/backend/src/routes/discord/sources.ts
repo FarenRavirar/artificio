@@ -6,8 +6,9 @@ import { requireAdmin } from '../../middleware/auth';
 const router = Router();
 
 const createSourceSchema = z.object({
-  guild_id: z.string().min(1),
-  channel_id: z.string().min(1),
+  // REV-050: validar guild_id e channel_id como snowflake Discord (dígitos)
+  guild_id: z.string().regex(/^\d{5,30}$/, 'Servidor Discord inválido.'),
+  channel_id: z.string().regex(/^\d{5,30}$/, 'Canal Discord inválido.'),
   channel_name: z.string().optional(),
   channel_type: z.enum(['text', 'announcement', 'forum']).optional(),
   enabled: z.boolean().optional(),

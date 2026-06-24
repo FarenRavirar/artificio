@@ -197,7 +197,7 @@ export const GestaoPage = () => {
       const response = await authGet('/api/v1/tables');
       if (response.ok) {
         const data = await response.json();
-        setAllTables(data.data || []);
+        setAllTables(Array.isArray(data.data) ? data.data : []);
       }
     } catch (error) {
       console.error('[GestaoPage] Erro ao buscar mesas:', error);

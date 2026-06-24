@@ -44,7 +44,7 @@ export function ScenariosAdminView() {
       const response = await authGet('/api/v1/scenarios');
       if (response.ok) {
         const data = await response.json();
-        setScenarios(data.data || []);
+        setScenarios(Array.isArray(data.data) ? data.data : []);
       }
     } catch (error) {
       console.error('[ScenariosAdminView] Erro ao buscar cenários:', error);

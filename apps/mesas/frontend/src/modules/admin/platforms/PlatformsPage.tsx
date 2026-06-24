@@ -100,7 +100,7 @@ export function PlatformsPage() {
       }
 
       const data = await response.json();
-      const items = data.data || [];
+      const items = Array.isArray(data.data) ? data.data : [];
 
       if (targetKind === 'vtt') {
         setVttPlatforms(items);

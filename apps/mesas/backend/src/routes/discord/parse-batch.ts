@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
-import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord';
-import { parseJsonField, ensureSystemSuggestionForDraft } from './utils';
+import { parseDiscordMessage, ensureSystemSuggestionForDraft } from './utils';
 import { loadSystemsForParser } from '../../discord/shared';
 
 const router = Router();
@@ -25,38 +24,24 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
 
     for (const message of messages) {
       try {
-        const parsed = parseDiscordAnnouncement({
-          source_kind: message.source_kind,
-          discord_message_id: message.discord_message_id,
-          discord_channel_id: message.discord_channel_id,
-          discord_guild_id: message.discord_guild_id,
-          discord_parent_channel_id: message.discord_parent_channel_id,
-          discord_thread_id: message.discord_thread_id,
-          discord_thread_name: message.discord_thread_name,
-          discord_author_id: message.discord_author_id,
-          discord_author_name: message.discord_author_name,
-          discord_message_url: message.discord_message_url,
-          content_raw: message.content_raw,
-          attachments: parseJsonField(message.attachments),
-          embeds: parseJsonField(message.embeds),
-          message_created_at: message.message_created_at,
-          message_edited_at: message.message_edited_at,
-        }, systems);
-        if (!parsed) {
+        // REV-073/076: usa parseDiscordMessage() compartilhada (D16)
+        const result = await parseDiscordMessage(message, systems);
+        if (!result) {
           await db.updateTable('discord_import_messages')
             .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
             .where('id', '=', message.id)
             .execute();
           continue;
         }
-        const normalized = normalizeDiscordTableDraft(parsed, systems);
+        const { parsed, normalized } = result;
 
         const existing = await db.selectFrom('discord_import_table_drafts')
-          .select('id')
+          .select(['id', 'status'])
           .where('discord_message_id', '=', message.id)
           .executeTakeFirst();
 
-        if (existing) {
+        // REV-049: preservar drafts synced/rejected (igual fetch.ts)
+        if (existing && existing.status !== 'synced' && existing.status !== 'rejected') {
           await db.updateTable('discord_import_table_drafts')
             .set({
               parsed_payload: parsed,
@@ -67,7 +52,12 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
             })
             .where('id', '=', existing.id)
             .execute();
-        } else {
+          // REV-049: só marcar mensagem como parsed se draft foi atualizado
+          await db.updateTable('discord_import_messages')
+            .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
+            .where('id', '=', message.id)
+            .execute();
+        } else if (!existing) {
           await db.insertInto('discord_import_table_drafts')
             .values({
               discord_message_id: message.id,
@@ -77,12 +67,13 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
               status: normalized.status,
             })
             .execute();
+          // REV-049: só marcar mensagem como parsed se draft foi criado
+          await db.updateTable('discord_import_messages')
+            .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
+            .where('id', '=', message.id)
+            .execute();
         }
-
-        await db.updateTable('discord_import_messages')
-          .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
-          .where('id', '=', message.id)
-          .execute();
+        // REV-049: se existing é synced/rejected, não altera nem draft nem mensagem
 
         await ensureSystemSuggestionForDraft(
           normalized.draft,

@@ -25,14 +25,17 @@
 | D17 | ~~validateDraftStatusTransition() — 12 linhas duplicadas entre drafts.ts e adminImportInbox.ts + formato erro 422 divergente~~ | REV-037 | **RESOLVIDO:** `validateDraftStatusTransition()` extraída em `utils.ts`. Formato erro 422 padronizado (`details.missing_fields`). |
 | D18 | ~~Schemas de PATCH de draft duplicados — drafts.ts updateDraftSchema vs inbox/utils.ts patchDraftSchema (16 linhas)~~ | REV-038 | **RESOLVIDO:** drafts.ts agora importa `patchDraftSchema` de inbox/utils.ts. Definição local removida. |
 | D19 | **401 Unauthorized em `POST /api/v1/gm/tables` e `GET /api/v1/notifications` no painel do mesas** — raw `fetch` sem refresh de token JWT expirado (15min). `useCreateTableForm.ts` e `NotificationBell.tsx` usavam `fetch` com `credentials:'include'` mas sem tentar `refreshSession()` no 401. `authenticatedFetch.ts` (com refresh-on-401) já existia mas era usado em só 2 lugares. | Demanda mantenedor 2026-06-24 (`mesas.artificiorpg.com/painel`) | **RESOLVIDO:** `useCreateTableForm.ts:7,229-231` → `authPost`/`authPut`; `NotificationBell.tsx:5,62,93,104` → `authGet`/`authPatch`. Lint 15/15 ✅, build 17/17 ✅. Pendente commit. |
-| D20 | (...) | **RESOLVIDO (2026-06-24):** (...) |
+| D20 | (...) | **RESOLVIDO (2026-06-24):** (...) | — |
 
-| D21 | **Erros avulsos pós-refatoração D20.** Auditoria de 38 arquivos modificados no diff: 1 erro de lint corrigido, 3 avisos catalogados. | Descoberto durante auditoria pré-commit D20 (2026-06-24) | **Catálogo D21:** |
+| D21 | **Erros avulsos pós-refatoração D20.** Auditoria de 38 arquivos modificados no diff: 1 erro de lint corrigido, 2 avisos catalogados. | Descoberto durante auditoria pré-commit D20 (2026-06-24) | **Catálogo D21:** |
 | | `apps/mesas/frontend/src/services/apiClient.ts:233` | ✅ Corrigido | `interface FetchOptions extends RequestInit {}` → `type FetchOptions = RequestInit`. Lint 15/15 ✅. |
 | | Testes frontend (pre-existing) | 📋 Catalogado | `An update to X inside a test was not wrapped in act(...)` — `DiscordSourceList.test.tsx`, `DiscordSyncPanel.test.tsx`. Pre-existing, testes passam. Não introduzido por D20. Corrigir em spec separada (refatoração de testes). |
 | | GestaoPage test ERR_INVALID_URL (pre-existing) | 📋 Catalogado | `ERR_INVALID_URL` — vitest.config.ts zera VITE_API_URL intencionalmente (linha 19). URL relativa `/api/v1/...` já falhava antes do D20 com raw `fetch`. Teste passa (catch interno). Corrigir em spec separada. |
 | | `is declared but its value is never read.` | ✅ Nenhum | Zero variáveis não lidas nos 38 arquivos modificados. |
 | | **🧮 Total: 1 erro corrigido ✅ + 2 avisos catalogados 📋 + 0 pendências.** | | |
+| D22 | Blocos de upload de avatar duplicados em ProfileEditPage.tsx (25 linhas) — profile avatar e GM avatar têm blocos `authPost('/api/v1/upload')` + `authPost('/api/v1/profile/me/google-picture')` quase idênticos. | REV-072 (SonarQube duplication) | Extrair `uploadAvatar(file)` e `importGoogleAvatar()` como funções compartilhadas no mesmo arquivo ou em `utils/upload.ts`. |
+| D23 | Bloco `parseDiscordAnnouncement` com 16 campos duplicado entre `parse-batch.ts` e `fetch.ts` (~19 linhas cada). Mesmo padrão do D16. | REV-073/076 (SonarQube duplication) | **RESOLVIDO (2026-06-24):** Ambos os arquivos substituídos pela chamada `parseDiscordMessage(message, systems)` — função criada na REV-036/D16 em `discord/utils.ts`. 19 linhas inline removidas de cada. Testes: 223/223 ✅. |
+| D24 | Boilerplate estrutural de PATCH handler duplicado entre `inbox/drafts.ts` e `discord/drafts.ts` (~35 linhas). | REV-074 (SonarQube duplication) | **RESOLVIDO (2026-06-24):** Extraída função `handlePatchDraft(req, config)` em `discord/utils.ts` que encapsula schema parse, fetch, 404, validação de transição, update, return e catch. Ambos os handlers (inbox e discord) agora delegam à função compartilhada com callbacks para lógica específica de cada rota. Testes: 223/223 ✅. |
 
 ## Pendências de governança
 

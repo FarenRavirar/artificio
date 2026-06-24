@@ -150,7 +150,8 @@ export function ImageUploader({
         throw new Error(payload?.error || 'Falha ao enviar imagem.');
       }
 
-      onChange(payload.secure_url as string);
+      const url = typeof payload.secure_url === 'string' ? payload.secure_url : String(payload.secure_url ?? '');
+      onChange(url);
       onError(false);
       setUploadError(null);
     } catch (error) {

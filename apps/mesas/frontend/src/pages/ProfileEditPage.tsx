@@ -286,6 +286,27 @@ export default function ProfileEditPage() {
   );
 }
 
+// REV-072: helpers extraídos para eliminar duplicação entre TabGeral e TabMestre
+async function uploadAvatarToCloudinary(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await authPost('/api/v1/upload', formData);
+  const payload = await response.json();
+  if (!response.ok || typeof payload?.secure_url !== 'string') {
+    throw new Error(payload?.error || 'Falha ao enviar imagem.');
+  }
+  return payload.secure_url;
+}
+
+async function fetchGoogleAvatar(): Promise<string> {
+  const response = await authPost('/api/v1/profile/me/google-picture');
+  const payload = await response.json();
+  if (!response.ok || typeof payload?.data?.avatar_url !== 'string') {
+    throw new Error(payload?.error || 'Erro ao buscar foto do Google.');
+  }
+  return payload.data.avatar_url;
+}
+
 // =============================================================================
 // TAB GERAL
 // =============================================================================
@@ -358,20 +379,9 @@ function TabGeral() {
                       return;
                     }
 
-                    // Upload via backend
-                    const formData = new FormData();
-                    formData.append('file', file);
-
                     try {
-                      const response = await authPost('/api/v1/upload', formData);
-
-                      const payload = await response.json();
-
-                      if (!response.ok || !payload?.secure_url) {
-                        throw new Error(payload?.error || 'Falha ao enviar imagem.');
-                      }
-
-                      handleAvatarChange(payload.secure_url);
+                      const url = await uploadAvatarToCloudinary(file);
+                      handleAvatarChange(url);
                     } catch (error) {
                       alert(error instanceof Error ? error.message : 'Erro ao fazer upload.');
                     }
@@ -392,15 +402,8 @@ function TabGeral() {
                     className="btn-avatar-action btn-google"
                     onClick={async () => {
                       try {
-                        const response = await authPost('/api/v1/profile/me/google-picture');
-
-                        const payload = await response.json();
-
-                        if (!response.ok) {
-                          throw new Error(payload?.error || 'Erro ao buscar foto do Google.');
-                        }
-
-                        handleAvatarChange(payload.data.avatar_url);
+                        const url = await fetchGoogleAvatar();
+                        handleAvatarChange(url);
                         showSuccess('Foto do Google aplicada com sucesso!');
                       } catch (error) {
                         showError(error instanceof Error ? error.message : 'Erro ao buscar foto do Google.');
@@ -802,15 +805,8 @@ function TabMestre({
                     formData.append('file', file);
 
                     try {
-                      const response = await authPost('/api/v1/upload', formData);
-
-                      const payload = await response.json();
-
-                      if (!response.ok || !payload?.secure_url) {
-                        throw new Error(payload?.error || 'Falha ao enviar imagem.');
-                      }
-
-                      updateGm({ avatar_url: payload.secure_url });
+                      const url = await uploadAvatarToCloudinary(file);
+                      updateGm({ avatar_url: url });
                     } catch (error) {
                       alert(error instanceof Error ? error.message : 'Erro ao fazer upload.');
                     }
@@ -831,15 +827,8 @@ function TabMestre({
                     className="btn-avatar-action btn-google"
                     onClick={async () => {
                       try {
-                        const response = await authPost('/api/v1/profile/me/google-picture');
-
-                        const payload = await response.json();
-
-                        if (!response.ok) {
-                          throw new Error(payload?.error || 'Erro ao buscar foto do Google.');
-                        }
-
-                        updateGm({ avatar_url: payload.data.avatar_url });
+                        const url = await fetchGoogleAvatar();
+                        updateGm({ avatar_url: url });
                         showSuccess('Foto do Google aplicada como foto de mestre!');
                       } catch (error) {
                         showError(error instanceof Error ? error.message : 'Erro ao buscar foto do Google.');

@@ -5,9 +5,9 @@ import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPay
 import { requireAdmin } from '../../middleware/auth';
 import { textToRawMessage } from '../../inbox/adapters/textToRawMessage';
 import { syncImportDraftToTable, DraftSyncValidationError } from '../../inbox/syncImportDraftToTable';
-import { validateDraftStatusTransition } from '../discord/utils';
+import { handlePatchDraft } from '../discord/utils';
 import { loadSystemsForParser } from '../../discord/shared';
-import { toNumberOrNull, listDraftsSchema, patchDraftSchema } from './utils';
+import { toNumberOrNull, listDraftsSchema } from './utils';
 
 const router = Router();
 
@@ -15,7 +15,11 @@ const router = Router();
 
 router.get('/', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { status, limit = '50', offset = '0', origin } = listDraftsSchema.parse(req.query);
+    const parsed = listDraftsSchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Parâmetros inválidos.', details: parsed.error.flatten() });
+    }
+    const { status, limit = '50', offset = '0', origin } = parsed.data;
 
     let query = db
       .selectFrom('discord_import_table_drafts')
@@ -150,56 +154,34 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
 // ─── PATCH /drafts/:id ────────────────────────────────────────────────────────
 
 router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
-  const parsed = patchDraftSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
-  }
-  if (Object.keys(parsed.data).length === 0) {
-    return res.status(400).json({ error: 'Nenhum dado para atualizar.' });
-  }
   try {
-    const draftId = req.params.id;
+    const result = await handlePatchDraft(req, {
+      preTransitionChecks: (current, _data) => {
+        const importMsgId = current.import_message_id as string | null;
+        if (!importMsgId) {
+          return { status: 422, body: { error: 'Draft de Discord não pode ser editado via Inbox.' } };
+        }
+        if (current.status === 'synced') {
+          return { status: 422, body: { error: 'Draft já sincronizado não pode ser alterado.' } };
+        }
+        return null;
+      },
+      postTransitionChecks: (_current, data) => {
+        if (data.normalized_payload) {
+          const table = (data.normalized_payload as Record<string, unknown>).table as Record<string, unknown> | undefined;
+          if (table?.status === 'published') {
+            return { status: 422, body: { error: 'Não é permitido publicar mesa diretamente. Use status "draft".' } };
+          }
+        }
+        return null;
+      },
+    });
 
-    const current = await db
-      .selectFrom('discord_import_table_drafts')
-      .select(['id', 'status', 'import_message_id', 'normalized_payload'])
-      .where('id', '=', draftId)
-      .executeTakeFirst();
-
-    if (!current) return res.status(404).json({ error: 'Draft não encontrado.' });
-    if (!current.import_message_id) {
-      return res.status(422).json({ error: 'Draft de Discord não pode ser editado via Inbox.' });
+    if (result.status === 200) {
+      const body = result.body as { data: Record<string, unknown> };
+      return res.json({ data: { ...body.data, confidence: toNumberOrNull(body.data.confidence) } });
     }
-    if (current.status === 'synced') {
-      return res.status(422).json({ error: 'Draft já sincronizado não pode ser alterado.' });
-    }
-
-    if (parsed.data.status && parsed.data.status !== current.status) {
-      const transition = validateDraftStatusTransition(parsed.data, current);
-      if (!transition.allowed) {
-        return res.status(422).json({
-          error: transition.reason ?? "Draft não pode ser marcado como 'ready'.",
-          details: { missing_fields: transition.missingFields ?? [] },
-        });
-      }
-    }
-
-    if (parsed.data.normalized_payload) {
-      const table = (parsed.data.normalized_payload as Record<string, unknown>).table as Record<string, unknown> | undefined;
-      if (table?.status === 'published') {
-        return res.status(422).json({ error: 'Não é permitido publicar mesa diretamente. Use status "draft".' });
-      }
-    }
-
-    const [draft] = await db
-      .updateTable('discord_import_table_drafts')
-      .set({ ...parsed.data, updated_at: new Date() })
-      .where('id', '=', draftId)
-      .returningAll()
-      .execute();
-
-    if (!draft) return res.status(404).json({ error: 'Draft não encontrado.' });
-    return res.json({ data: { ...draft, confidence: toNumberOrNull(draft.confidence) } });
+    return res.status(result.status).json(result.body);
   } catch (error: unknown) {
     console.error('[PATCH /api/v1/admin/inbox/drafts/:id]', error);
     return res.status(500).json({ error: 'Erro ao atualizar draft.' });
@@ -270,6 +252,11 @@ router.post('/:id/reparse', requireAdmin, async (req: Request, res: Response) =>
 
       return [result];
     });
+
+    // REV-062: guarda contra draft removido entre check e update
+    if (!updated) {
+      return res.status(404).json({ error: 'Draft não encontrado.' });
+    }
 
     return res.json({ data: updated });
   } catch (error: unknown) {

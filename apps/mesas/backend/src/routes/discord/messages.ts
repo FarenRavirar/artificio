@@ -25,25 +25,33 @@ const discordMessageDiagnosticSchema = z.object({
 
 async function fetchDiscordMessageDiagnostic(channelId: string, messageId: string) {
   const token = (await requireDiscordBotToken()).trim();
-  const response = await fetch(
-    `${DISCORD_API_BASE}/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}`,
-    { headers: { Authorization: `Bot ${token}` } }
-  );
-  const payload = await response.json().catch(() => null);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetch(
+      `${DISCORD_API_BASE}/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}`,
+      { headers: { Authorization: `Bot ${token}` }, signal: controller.signal }
+    );
+    clearTimeout(timeout);
+    const payload = await response.json().catch(() => null);
 
-  if (!response.ok) {
-    const message = payload && typeof payload === 'object' && 'message' in payload
-      ? String((payload as { message?: unknown }).message)
-      : 'Discord não respondeu como esperado.';
-    throw new DiscordIngestError(message, response.status === 403 ? 403 : 502);
+    if (!response.ok) {
+      const message = payload && typeof payload === 'object' && 'message' in payload
+        ? String((payload as { message?: unknown }).message)
+        : 'Discord não respondeu como esperado.';
+      throw new DiscordIngestError(message, response.status === 403 ? 403 : 502);
+    }
+
+    const parsed = discordMessageDiagnosticSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new DiscordIngestError('Discord retornou mensagem em formato inesperado.', 502);
+    }
+
+    return parsed.data;
+  } catch (err) {
+    clearTimeout(timeout);
+    throw err;
   }
-
-  const parsed = discordMessageDiagnosticSchema.safeParse(payload);
-  if (!parsed.success) {
-    throw new DiscordIngestError('Discord retornou mensagem em formato inesperado.', 502);
-  }
-
-  return parsed.data;
 }
 
 // ─── GET /messages
@@ -64,8 +72,8 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
       .selectFrom('discord_import_messages')
       .selectAll()
       .orderBy('message_created_at', 'desc')
-      .limit(Math.min(Number(limit) || 50, 100))
-      .offset(Number(offset) || 0);
+      .limit(Math.max(0, Math.min(Number(limit) || 50, 100)))
+      .offset(Math.max(0, Number(offset) || 0));
 
     if (source_id) query = query.where('source_id', '=', source_id);
     if (sinceDate) query = query.where('message_created_at', '>=', sinceDate);

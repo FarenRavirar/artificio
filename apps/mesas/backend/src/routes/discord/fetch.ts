@@ -2,10 +2,10 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../../db';
 import type { SystemEntry } from '../../discord';
-import { ingestForumMessages, ingestMessages, parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord';
+import { ingestForumMessages, ingestMessages } from '../../discord';
 import { loadSystemsForParser } from '../../discord/shared';
 import { requireAdmin } from '../../middleware/auth';
-import { parseJsonField, ensureSystemSuggestionForDraft, normalizeSourceChannelType, sendDiscordFetchError } from './utils';
+import { parseJsonField, ensureSystemSuggestionForDraft, normalizeSourceChannelType, sendDiscordFetchError, parseDiscordMessage } from './utils';
 
 const router = Router();
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
@@ -34,33 +34,18 @@ async function createOrUpdateDraftFromMessage(
   systems: SystemEntry[],
   adminId?: string,
 ): Promise<'draft' | 'ignored'> {
-  const parsed = parseDiscordAnnouncement({
-    source_kind: message.source_kind,
-    discord_message_id: message.discord_message_id,
-    discord_channel_id: message.discord_channel_id,
-    discord_guild_id: message.discord_guild_id,
-    discord_parent_channel_id: message.discord_parent_channel_id,
-    discord_thread_id: message.discord_thread_id,
-    discord_thread_name: message.discord_thread_name,
-    discord_author_id: message.discord_author_id,
-    discord_author_name: message.discord_author_name,
-    discord_message_url: message.discord_message_url,
-    content_raw: message.content_raw,
-    attachments: parseJsonField(message.attachments),
-    embeds: parseJsonField(message.embeds),
-    message_created_at: message.message_created_at,
-    message_edited_at: message.message_edited_at,
-  }, systems);
-
-  if (!parsed) {
+  // REV-073/076: usa parseDiscordMessage() compartilhada (D16)
+  // também resolve REV-047 (mover update de mensagem para dentro dos branches)
+  const parsedResult = await parseDiscordMessage(message, systems);
+  if (!parsedResult) {
     await db.updateTable('discord_import_messages')
       .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
       .where('id', '=', message.id)
       .execute();
     return 'ignored';
   }
+  const { parsed, normalized } = parsedResult;
 
-  const normalized = normalizeDiscordTableDraft(parsed, systems);
   const existingDraft = await db
     .selectFrom('discord_import_table_drafts')
     .select(['id', 'status'])
@@ -80,6 +65,11 @@ async function createOrUpdateDraftFromMessage(
       })
       .where('id', '=', existingDraft.id)
       .execute();
+    // REV-047: só marcar mensagem como parsed se draft foi atualizado
+    await db.updateTable('discord_import_messages')
+      .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
+      .where('id', '=', message.id)
+      .execute();
   } else if (!existingDraft) {
     await db
       .insertInto('discord_import_table_drafts')
@@ -93,12 +83,13 @@ async function createOrUpdateDraftFromMessage(
         review_notes: null,
       })
       .execute();
+    // REV-047: só marcar mensagem como parsed se draft foi criado
+    await db.updateTable('discord_import_messages')
+      .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
+      .where('id', '=', message.id)
+      .execute();
   }
-
-  await db.updateTable('discord_import_messages')
-    .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
-    .where('id', '=', message.id)
-    .execute();
+  // REV-047: se draft é synced/rejected, não altera status da mensagem
 
   await ensureSystemSuggestionForDraft(
     normalized.draft,
@@ -183,12 +174,12 @@ router.post('/fetch', requireAdmin, async (req: Request, res: Response) => {
           limit, beforeMessageId: before_message_id, since, until,
         });
 
-    if (result.inserted > 0 || result.updated > 0 || result.total === 0) {
-      await db.updateTable('discord_import_sources')
-        .set({ last_synced_at: new Date(), updated_at: new Date() })
-        .where('id', '=', source_id)
-        .execute();
-    }
+    // REV-067: sempre atualizar last_synced_at em fetch bem-sucedido,
+    // mesmo sem mensagens novas (evita que fonte pareça desatualizada).
+    await db.updateTable('discord_import_sources')
+      .set({ last_synced_at: new Date(), updated_at: new Date() })
+      .where('id', '=', source_id)
+      .execute();
 
     const parse = await parsePendingMessagesForSource(source_id, since, until, req.user?.userId);
     return res.json({ data: { ...result, parse } });

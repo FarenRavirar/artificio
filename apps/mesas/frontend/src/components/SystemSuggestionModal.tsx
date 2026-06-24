@@ -79,7 +79,7 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
         }
 
         const data = await response.json();
-        setSystemsTree(data.data || []);
+        setSystemsTree(Array.isArray(data.data) ? data.data : []);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao carregar sistemas';
         setSystemsError(message);
