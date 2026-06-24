@@ -1,267 +1,32 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
-import type { DiscordFetchWindow, DiscordSource, DiscordMessage, DiscordImportMessageStatus, DiscordMessageContentDiagnostic } from '../types';
-import { discordSyncApi } from '../api/discordSyncApi';
+import type { DiscordImportMessageStatus } from '../types';
+import { useDiscordSync, MESSAGE_STATUS_LABELS, MESSAGE_STATUS_COLORS, REVIEW_ACTIONS, getMessageTitle, getMessagePreview, didDiscordApiOmitBody } from '../hooks/useDiscordSync';
 import { DiscordSourceList } from './DiscordSourceList';
 import { DiscordDraftReviewTable } from './DiscordDraftReviewTable';
 import { DiscordSettingsPanel } from './DiscordSettingsPanel';
 import { DiscordJsonImportPanel } from './DiscordJsonImportPanel';
-
-const MESSAGE_STATUS_LABELS: Record<DiscordImportMessageStatus, string> = {
-  pending: 'Pendente',
-  parsed: 'Parseada',
-  needs_review: 'Revisar',
-  synced: 'Sincronizada',
-  ignored: 'Ignorada',
-  error: 'Erro',
-};
-
-const MESSAGE_STATUS_COLORS: Record<DiscordImportMessageStatus, string> = {
-  pending: 'bg-yellow-700/40 text-yellow-300',
-  parsed: 'bg-blue-700/40 text-blue-300',
-  needs_review: 'bg-orange-700/40 text-orange-300',
-  synced: 'bg-green-700/40 text-green-300',
-  ignored: 'bg-white/10 text-white/40',
-  error: 'bg-red-700/40 text-red-300',
-};
-
-type PanelTab = 'configuracao' | 'fontes' | 'mensagens' | 'drafts' | 'import-json';
-
-const REVIEW_ACTIONS: Array<{ status: DiscordImportMessageStatus; label: string; className: string }> = [
-  { status: 'needs_review', label: 'Mandar para revisão', className: 'bg-orange-600 hover:bg-orange-700' },
-  { status: 'parsed', label: 'Marcar conferida', className: 'bg-blue-600 hover:bg-blue-700' },
-  { status: 'ignored', label: 'Ignorar', className: 'bg-white/10 hover:bg-white/20' },
-];
-
-const MESSAGE_WINDOW_OPTIONS = [
-  { value: '24h', label: 'Últimas 24h', days: 1 },
-  { value: '7d', label: 'Últimos 7 dias', days: 7 },
-  { value: '30d', label: 'Últimos 30 dias', days: 30 },
-  { value: '90d', label: 'Últimos 90 dias', days: 90 },
-  { value: 'all', label: 'Sem limite', days: null },
-] as const;
-
-type MessageWindowOption = (typeof MESSAGE_WINDOW_OPTIONS)[number]['value'];
-
-function buildMessageWindow(value: MessageWindowOption): DiscordFetchWindow {
-  const option = MESSAGE_WINDOW_OPTIONS.find((item) => item.value === value);
-  if (!option?.days) return {};
-  const since = new Date();
-  since.setDate(since.getDate() - option.days);
-  return { since: since.toISOString(), until: new Date().toISOString() };
-}
-
-function getMessageTitle(message: DiscordMessage): string {
-  if (message.discord_thread_name) return message.discord_thread_name;
-  const content = message.content_raw.trim();
-  if (content) return content.split('\n').find(Boolean) ?? content;
-  return 'Mensagem sem título';
-}
-
-function getMessagePreview(message: DiscordMessage): string {
-  const content = message.content_raw.trim();
-  if (content) return content;
-  if (message.discord_thread_name) return message.discord_thread_name;
-  return 'Mensagem sem texto disponível.';
-}
-
-function didDiscordApiOmitBody(message: DiscordMessage): boolean {
-  return Boolean(message.discord_thread_id && message.discord_thread_name && !message.content_raw.trim());
-}
+import { MessagesToolbar } from './MessagesToolbar';
 
 export function DiscordSyncPanel() {
-  const [tab, setTab] = useState<PanelTab>('configuracao');
-  const [sources, setSources] = useState<DiscordSource[]>([]);
-  const [messages, setMessages] = useState<DiscordMessage[]>([]);
-  const [loadingSources, setLoadingSources] = useState(false);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [fetchingSourceId, setFetchingSourceId] = useState<string | null>(null);
-  const [reingestingSourceId, setReingestingSourceId] = useState<string | null>(null);
-  const [parsingBatch, setParsingBatch] = useState(false);
-  const [messageStatusFilter, setMessageStatusFilter] = useState<DiscordImportMessageStatus | ''>('');
-  const [messageSourceFilter, setMessageSourceFilter] = useState('');
-  const [messageWindowFilter, setMessageWindowFilter] = useState<MessageWindowOption>('7d');
-  const [selectedMessage, setSelectedMessage] = useState<DiscordMessage | null>(null);
-  const [savingMessageStatus, setSavingMessageStatus] = useState(false);
-  const [parsingMessageId, setParsingMessageId] = useState<string | null>(null);
-  const [diagnosingMessageId, setDiagnosingMessageId] = useState<string | null>(null);
-  const [contentDiagnostic, setContentDiagnostic] = useState<DiscordMessageContentDiagnostic | null>(null);
-  const detailRef = useRef<HTMLElement | null>(null);
+  const {
+    tab, setTab,
+    sources, messages,
+    loadingSources, loadingMessages,
+    fetchingSourceId, reingestingSourceId,
+    parsingBatch, parsingMessageId,
+    savingMessageStatus, diagnosingMessageId,
+    messageStatusFilter, setMessageStatusFilter,
+    messageSourceFilter, setMessageSourceFilter,
+    messageWindowFilter, setMessageWindowFilter,
+    selectedMessage, contentDiagnostic,
+    detailRef, queueStats,
+    loadSources, loadMessages,
+    handleFetchMessages, handleUpdateMessageStatus,
+    handleParseMessage, handleDiagnoseContent,
+    handleReingestForce, handleParseBatch,
+    handleSelectMessage,
+  } = useDiscordSync();
 
-  const queueStats = useMemo(() => ({
-    pending: messages.filter(message => message.status === 'pending').length,
-    review: messages.filter(message => message.status === 'needs_review').length,
-    checked: messages.filter(message => message.status === 'parsed').length,
-    ignored: messages.filter(message => message.status === 'ignored').length,
-  }), [messages]);
-
-  const loadSources = useCallback(async () => {
-    setLoadingSources(true);
-    try {
-      const data = await discordSyncApi.getSources();
-      setSources(Array.isArray(data) ? data : []);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar fontes.');
-    } finally {
-      setLoadingSources(false);
-    }
-  }, []);
-
-  const loadMessages = useCallback(async (override?: { sourceId?: string; window?: DiscordFetchWindow }) => {
-    setLoadingMessages(true);
-    try {
-      const data = await discordSyncApi.getMessages({
-        source_id: override?.sourceId ?? (messageSourceFilter || undefined),
-        status: messageStatusFilter || undefined,
-        ...(override?.window ?? buildMessageWindow(messageWindowFilter)),
-        limit: 100,
-      });
-      setMessages(Array.isArray(data) ? data : []);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar mensagens.');
-    } finally {
-      setLoadingMessages(false);
-    }
-  }, [messageSourceFilter, messageStatusFilter, messageWindowFilter]);
-
-  useEffect(() => {
-    void (async () => { await loadSources(); })();
-  }, [loadSources]);
-
-  useEffect(() => {
-    void (async () => { if (tab === 'mensagens') await loadMessages(); })();
-  }, [tab, messageStatusFilter, messageSourceFilter, messageWindowFilter, loadMessages]);
-
-  useEffect(() => {
-    if (tab !== 'mensagens') return;
-    let active = true;
-    // Seleção derivada das mensagens — setState deferido p/ fora do corpo síncrono.
-    void (async () => {
-      await Promise.resolve();
-      if (!active) return;
-      if (messages.length === 0) {
-        setSelectedMessage(null);
-        return;
-      }
-      if (!selectedMessage || !messages.some(message => message.id === selectedMessage.id)) {
-        setSelectedMessage(messages[0]);
-      }
-    })();
-    return () => { active = false; };
-  }, [messages, selectedMessage, tab]);
-
-  const handleFetchMessages = async (sourceId: string, window: DiscordFetchWindow, windowOption: MessageWindowOption = '7d') => {
-    setFetchingSourceId(sourceId);
-    try {
-      const source = sources.find(item => item.id === sourceId);
-      const result = await discordSyncApi.fetchMessages({ source_id: sourceId, limit: 50, ...window });
-      const draftsText = result.parse ? ` ${result.parse.succeeded} drafts criados/atualizados.` : '';
-      if (source?.channel_type === 'forum') {
-        toast.success(`${result.threadsScanned} posts na janela: +${result.inserted} mensagens, ${result.updated} atualizadas.${draftsText}`);
-      } else {
-        toast.success(`+${result.inserted} mensagens, ${result.updated} atualizadas.${draftsText}`);
-      }
-      setMessageSourceFilter(sourceId);
-      setMessageWindowFilter(windowOption);
-      setTab('mensagens');
-      loadMessages({ sourceId, window });
-      loadSources();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao buscar mensagens.');
-    } finally {
-      setFetchingSourceId(null);
-    }
-  };
-
-  const handleUpdateMessageStatus = async (message: DiscordMessage, status: DiscordImportMessageStatus) => {
-    setSavingMessageStatus(true);
-    try {
-      const updated = await discordSyncApi.updateMessage(message.id, { status });
-      setMessages(prev => prev.map(item => (item.id === updated.id ? updated : item)));
-      setSelectedMessage(updated);
-      toast.success('Status da mensagem atualizado.');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar mensagem.');
-    } finally {
-      setSavingMessageStatus(false);
-    }
-  };
-
-  const handleParseMessage = async (message: DiscordMessage) => {
-    setParsingMessageId(message.id);
-    try {
-      await discordSyncApi.parseMessage(message.id);
-      toast.success('Draft criado! Acesse a aba Drafts para revisar e sincronizar.');
-      // Atualiza a mensagem na lista para refletir status 'parsed'
-      const updated = await discordSyncApi.updateMessage(message.id, { status: 'parsed' });
-      setMessages(prev => prev.map(item => (item.id === updated.id ? updated : item)));
-      setSelectedMessage(updated);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao parsear mensagem.');
-    } finally {
-      setParsingMessageId(null);
-    }
-  };
-
-  const handleDiagnoseContent = async (message: DiscordMessage) => {
-    setDiagnosingMessageId(message.id);
-    setContentDiagnostic(null);
-    try {
-      const diagnostic = await discordSyncApi.diagnoseMessageContent(message.id);
-      setContentDiagnostic(diagnostic);
-      if (diagnostic.likely_missing_message_content_intent) {
-        toast.error('Discord entregou esta mensagem sem corpo para o bot.');
-      } else {
-        toast.success('Diagnóstico de conteúdo concluído.');
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao diagnosticar conteúdo.');
-    } finally {
-      setDiagnosingMessageId(null);
-    }
-  };
-
-  const handleReingestForce = async (sourceId: string, fetchWindow: DiscordFetchWindow, windowOption: MessageWindowOption = '7d') => {
-    if (!window.confirm('Isso vai apagar todas as mensagens pendentes desta fonte e rebuscar tudo do Discord. Confirmar?')) return;
-    setReingestingSourceId(sourceId);
-    try {
-      const result = await discordSyncApi.reingestForce(sourceId, fetchWindow);
-      const draftsText = result.parse ? ` ${result.parse.succeeded} drafts criados/atualizados.` : '';
-      toast.success(`Reidratado: ${result.deleted} apagadas, +${result.inserted} rebuscadas.${draftsText}`);
-      setMessageSourceFilter(sourceId);
-      setMessageWindowFilter(windowOption);
-      setTab('mensagens');
-      loadMessages({ sourceId, window: fetchWindow });
-      loadSources();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao reidratar.');
-    } finally {
-      setReingestingSourceId(null);
-    }
-  };
-
-  const handleParseBatch = async () => {
-    setParsingBatch(true);
-    try {
-      const result = await discordSyncApi.parseBatch();
-      toast.success(`Apuração em lote: ${result.succeeded} criados, ${result.failed} com erro (total: ${result.processed}).`);
-      loadMessages();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro na apuração em lote.');
-    } finally {
-      setParsingBatch(false);
-    }
-  };
-
-  const handleSelectMessage = (message: DiscordMessage) => {
-    setSelectedMessage(message);
-    setContentDiagnostic(null);
-    window.requestAnimationFrame(() => {
-      detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
-  };
-
-  const tabClass = (t: PanelTab) =>
+  const tabClass = (t: typeof tab) =>
     `px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
       tab === t ? 'bg-blue-600 text-white' : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
     }`;
@@ -303,69 +68,19 @@ export function DiscordSyncPanel() {
 
       {tab === 'mensagens' && (
         <div>
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <select
-              value={messageSourceFilter}
-              onChange={e => setMessageSourceFilter(e.target.value)}
-              className="app-select"
-            >
-              <option value="">Todas as fontes</option>
-              {sources.map(source => (
-                <option key={source.id} value={source.id}>{source.channel_name ?? source.channel_id}</option>
-              ))}
-            </select>
-            <select
-              value={messageWindowFilter}
-              onChange={e => setMessageWindowFilter(e.target.value as MessageWindowOption)}
-              className="app-select"
-            >
-              {MESSAGE_WINDOW_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <select
-              value={messageStatusFilter}
-              onChange={e => setMessageStatusFilter(e.target.value as DiscordImportMessageStatus | '')}
-              className="app-select"
-            >
-              <option value="">Todos os status</option>
-              {(Object.keys(MESSAGE_STATUS_LABELS) as DiscordImportMessageStatus[]).map(s => (
-                <option key={s} value={s}>{MESSAGE_STATUS_LABELS[s]}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => loadMessages()}
-              className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
-            >
-              Recarregar
-            </button>
-            <button
-              onClick={handleParseBatch}
-              disabled={parsingBatch}
-              className="px-3 py-2 bg-green-700 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-40"
-            >
-              {parsingBatch ? 'Apurando...' : '✦ Apurar todas pendentes'}
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
-            <div className="bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-              <p className="text-white/40 text-xs">Pendentes</p>
-              <p className="text-yellow-300 text-lg font-bold">{queueStats.pending}</p>
-            </div>
-            <div className="bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-              <p className="text-white/40 text-xs">Em revisão</p>
-              <p className="text-orange-300 text-lg font-bold">{queueStats.review}</p>
-            </div>
-            <div className="bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-              <p className="text-white/40 text-xs">Conferidas</p>
-              <p className="text-blue-300 text-lg font-bold">{queueStats.checked}</p>
-            </div>
-            <div className="bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-              <p className="text-white/40 text-xs">Ignoradas</p>
-              <p className="text-white/70 text-lg font-bold">{queueStats.ignored}</p>
-            </div>
-          </div>
+          <MessagesToolbar
+            sources={sources}
+            messageSourceFilter={messageSourceFilter}
+            messageWindowFilter={messageWindowFilter}
+            messageStatusFilter={messageStatusFilter}
+            parsingBatch={parsingBatch}
+            queueStats={queueStats}
+            onSourceFilterChange={setMessageSourceFilter}
+            onWindowFilterChange={setMessageWindowFilter}
+            onStatusFilterChange={setMessageStatusFilter}
+            onReload={() => loadMessages()}
+            onParseBatch={handleParseBatch}
+          />
 
           {loadingMessages ? (
             <p className="text-white/40 text-sm py-4 text-center">Carregando...</p>
@@ -536,7 +251,7 @@ export function DiscordSyncPanel() {
       )}
 
       {tab === 'import-json' && (
-        <DiscordJsonImportPanel />
+        <DiscordJsonImportPanel onNavigateToDrafts={() => setTab('drafts')} />
       )}
     </div>
   );

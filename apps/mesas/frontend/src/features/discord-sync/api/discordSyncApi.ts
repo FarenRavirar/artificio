@@ -200,7 +200,7 @@ export const discordSyncApi = {
   fetchMessages: (body: { source_id: string; limit?: number; before_message_id?: string } & DiscordFetchWindow) =>
     apiFetch<IngestResult>('/fetch', { method: 'POST', body: JSON.stringify(body) }),
 
-  getMessages: async (params?: { source_id?: string; status?: DiscordImportMessageStatus; limit?: number; offset?: number } & DiscordFetchWindow) => {
+  getMessages: async (params?: { source_id?: string; status?: DiscordImportMessageStatus; limit?: number; offset?: number } & DiscordFetchWindow, options?: { signal?: AbortSignal }) => {
     const qs = new URLSearchParams();
     if (params?.source_id) qs.set('source_id', params.source_id);
     if (params?.status) qs.set('status', params.status);
@@ -208,7 +208,7 @@ export const discordSyncApi = {
     if (params?.until) qs.set('until', params.until);
     if (params?.limit != null) qs.set('limit', String(params.limit));
     if (params?.offset != null) qs.set('offset', String(params.offset));
-    return parseDiscordMessages(await apiFetch<unknown>(`/messages?${qs}`));
+    return parseDiscordMessages(await apiFetch<unknown>(`/messages?${qs}`, { signal: options?.signal }));
   },
 
   updateMessage: async (id: string, body: { status: DiscordImportMessageStatus }) =>
@@ -256,8 +256,24 @@ export const discordSyncApi = {
       inserted: z.number(),
       updated: z.number(),
       ignored: z.number(),
+      failed: z.number(),
     }).safeParse(data);
     if (!parsed.success) throw new Error('Resposta de importação em formato inesperado.');
+    return parsed.data;
+  },
+
+  previewJson: async (json: unknown) => {
+    const data = await apiFetch<unknown>('/import-json/preview', { method: 'POST', body: JSON.stringify(json) });
+    const parsed = z.object({
+      guild: z.object({ id: z.string(), name: z.string() }),
+      channel: z.object({ id: z.string(), name: z.string() }),
+      dateRange: z.object({ after: z.string().optional(), before: z.string().optional() }).nullable(),
+      exportedAt: z.string().nullable(),
+      messageCount: z.number(),
+      totalAttachments: z.number(),
+      totalEmbeds: z.number(),
+    }).safeParse(data);
+    if (!parsed.success) throw new Error('Resposta de preview em formato inesperado.');
     return parsed.data;
   },
 };

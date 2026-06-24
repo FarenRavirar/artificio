@@ -3,32 +3,34 @@ import { z } from 'zod';
 export const discordChatExporterAuthorSchema = z.object({
   id: z.string(),
   name: z.string(),
-  discriminator: z.string().optional(),
-  nickname: z.string().optional(),
-  color: z.string().optional(),
-  isBot: z.boolean().optional(),
-  roles: z.array(z.unknown()).optional(),
-  avatarUrl: z.string().optional(),
+  discriminator: z.string().nullish(),
+  nickname: z.string().nullish(),
+  color: z.string().nullish(),
+  isBot: z.boolean().nullish(),
+  roles: z.array(z.unknown()).nullish(),
+  avatarUrl: z.string().nullish(),
 });
 
 export const discordChatExporterAttachmentSchema = z.object({
   id: z.string(),
   url: z.string(),
-  fileName: z.string().optional(),
-  fileSizeBytes: z.number().optional(),
+  fileName: z.string().nullish(),
+  fileSizeBytes: z.number().nullish(),
 });
 
+// DiscordChatExporter emite `null` (nao `undefined`) para campos de embed ausentes.
+// `.nullish()` aceita ambos; mantem `.passthrough()` para campos extras.
 export const discordChatExporterEmbedSchema = z.object({
-  title: z.string().optional(),
-  url: z.string().optional(),
-  timestamp: z.string().optional(),
-  description: z.string().optional(),
-  image: z.string().optional(),
-  thumbnail: z.object({ url: z.string() }).optional(),
-  footer: z.object({ text: z.string() }).optional(),
-  author: z.object({ name: z.string() }).optional(),
-  color: z.string().optional(),
-  fields: z.array(z.object({ name: z.string(), value: z.string() })).optional(),
+  title: z.string().nullish(),
+  url: z.string().nullish(),
+  timestamp: z.string().nullish(),
+  description: z.string().nullish(),
+  image: z.union([z.string(), z.object({ url: z.string() })]).nullish(),
+  thumbnail: z.object({ url: z.string() }).nullish(),
+  footer: z.object({ text: z.string() }).nullish(),
+  author: z.object({ name: z.string() }).nullish(),
+  color: z.string().nullish(),
+  fields: z.array(z.object({ name: z.string(), value: z.string() })).nullish(),
 }).passthrough();
 
 export const discordChatExporterMentionSchema = z.object({

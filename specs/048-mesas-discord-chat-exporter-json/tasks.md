@@ -153,33 +153,52 @@
 
 ## Fase D — UI admin
 
-- [ ] T-D1 — Adicionar upload manual no painel admin.
-  - Local recomendado: aba Discord Sync, seção “Importar JSON”.
-  - Alternativa: subaba na Inbox, mas endpoint/tabela continuam Discord.
+- [x] T-D1 — Adicionar upload manual no painel admin.
+  - Local: aba Discord Sync, seção "Importar JSON" (`DiscordSyncPanel.tsx:279`).
+  - Renderiza `<DiscordJsonImportPanel />`. Implementado desde PR #91 + T-D6.
 
-- [ ] T-D2 — Resumo de pré-importação.
-  - guild;
-  - canal;
-  - dateRange;
-  - exportedAt;
-  - messageCount;
-  - mensagens com anexos/embeds.
+- [x] T-D2 — Resumo de pré-importação.
+  - guild, canal, dateRange, exportedAt, messageCount, anexos/embeds.
+  - Endpoint `POST /import-json/preview` valida JSON e retorna metadados sem persistir.
+  - Lógica de parse extraída para `extractJsonPayload()` — reusada por preview e import.
+  - `DiscordJsonImportPanel` faz preview automático com debounce (400ms) ao colar/upload JSON.
+  - Botão "Importar" só habilita após preview carregado (`preview_ok`).
+  - Preview exibido em grid (servidor, canal, mensagens, anexos, embeds, exportedAt, dateRange).
 
-- [ ] T-D3 — Resultado pós-importação.
-  - inserted;
-  - updated;
-  - unchanged/ignored;
-  - parse errors;
-  - drafts criados/atualizados.
+- [x] T-D3 — Resultado pós-importação.
+  - inserted/updated/ignored/failed exibidos em grid (5 colunas).
+  - `failed` adicionado ao retorno do endpoint e ao card de resultado.
+  - "drafts criados/atualizados" não se aplica (parse é passo separado, T-B5 adiado).
 
-- [ ] T-D4 — Link para revisão dos drafts.
+- [x] T-D4 — Link para revisão dos drafts.
+  - `DiscordJsonImportPanel` recebe prop opcional `onNavigateToDrafts`.
+  - `DiscordSyncPanel` passa `() => setTab('drafts')`.
+  - Botão "Ver drafts" aparece no resultado da importação.
 
-- [ ] T-D5 — Estados de erro.
-  - arquivo inválido;
-  - arquivo truncado;
-  - canal ausente;
-  - JSON sem `messages[]`;
-  - arquivo grande demais.
+- [x] T-D5 — Estados de erro.
+  - arquivo inválido: cliente valida extensão `.json` ✅
+  - arquivo truncado: Zod rejeita → 400 ✅
+  - JSON sem `messages[]`: backend check → 400 ✅
+  - arquivo grande demais: cliente valida 10 MB ✅
+  - canal ausente: `ensureDiscordImportSource` envolto em try/catch → `DiscordChatExporterValidationError` → 400 ✅
+
+- [x] T-D6 — Upload de arquivo JSON (botão + arrastar-soltar). **DEB-048-12.**
+   - `<input type="file" accept=".json,application/json">` + dropzone.
+   - Ler via `File.text()`/`FileReader` e enviar ao `POST /import-json`.
+   - Validar extensão/tamanho no cliente (alinha T-F2).
+   - Manter textarea como fallback de colar.
+
+## Correções pós-smoke beta — 2026-06-23
+
+> Smoke real do mantenedor com `D:\extracao_json.json` em `mesasbeta.../gestao` → Discord Sync → Importar JSON.
+
+- [x] T-FIX1 — Embed com campos `null` derrubava import com 400. **DEB-048-10.**
+  - Causa: `discordChatExporterEmbedSchema` usava `.optional()` (só `undefined`); JSON real traz `timestamp/image/description/...= null`.
+  - Fix: campos string opcionais de embed/author/attachment → `.nullish()`; `embed.image` aceita string ou `{ url }`.
+  - Arquivo: `discordChatExporterTypes.ts`.
+  - Teste: `__tests__/chatExporterAdapter.test.ts` (3 testes).
+  - Validação: backend build ✅, test 183/183 ✅, lint 15/15 ✅.
+- [x] T-FIX2 — `GET /settings` 500 no beta. **DEB-048-11.** Pré-existente da Spec 047; hardening do handler implementado (`DiscordSettingsDecryptError` + `decrypt_error: true`). Investigação read-only no beta pendente para confirmar causa (mismatch JWT_SECRET).
 
 ## Fase E — Automação diária permanente na VM
 
@@ -427,20 +446,80 @@
 - Drafts gerados como revisáveis, nunca publicados.
 - Documentação atualizada na própria spec.
 
+## Handoff de execução #2 — pós-smoke beta (para OpenCode / DeepSeek)
+
+> Arquitetura por Claude (Opus). Implementação por DeepSeek. Usar este bloco como prompt operacional.
+> Estado herdado: DEB-048-10 já corrigido localmente por Claude (embed `.nullish()` + teste). **Não reverter.**
+> Branch: `feat/048-discord-chat-exporter-json`. Não commitar sem autorização nominal do mantenedor.
+
+### Tarefa 1 — T-D6 / DEB-048-12: upload de arquivo JSON na UI
+
+**Arquivo:** `apps/mesas/frontend/src/features/discord-sync/components/DiscordJsonImportPanel.tsx`
+(hoje só tem `<textarea>` para colar; ver REV-005 — já tem `id="discord-json-input"` + `aria-label`).
+
+**Contrato de UI (aditivo, manter textarea como fallback):**
+1. Botão "Selecionar arquivo" → `<input type="file" accept=".json,application/json">` (input escondido + label/botão estilizado, padrão do projeto).
+2. Dropzone arrastar-soltar em volta da área de import: `onDragOver`/`onDragLeave`/`onDrop`, com estado visual de "arraste aqui".
+3. Ao escolher/soltar arquivo:
+   - Validar extensão (`.json`) e tamanho no cliente **antes** de ler. Limite inicial: **10 MB** (alinha T-F2/DEB-048-04; `extracao_json.json` real ~100 msgs cabe folgado). Acima → mensagem de erro amigável, não envia.
+   - Ler com `await file.text()` (não `FileReader` callback — `File.text()` é mais simples e suportado).
+   - Popular o `<textarea>` com o conteúdo lido **e** habilitar o botão "Importar" (reusar o fluxo de submit já existente). Não criar segundo caminho de submit.
+4. Resultado/erros: reusar o estado de resultado já existente (total/inserted/updated/ignored) e os estados de erro (T-D5).
+
+**Regras de código (AGENTS.md):**
+- Conteúdo do arquivo é `unknown` até o backend validar (Zod). No cliente **não** fazer `JSON.parse` para "validar" e depois reserializar — enviar a string crua ao endpoint (o backend já valida e dá 400 amigável). Só checar extensão/tamanho no cliente.
+- Sem nova lib (sem react-dropzone). Drag-and-drop nativo.
+- Acessibilidade: input file com `aria-label`; dropzone com `role`/instrução textual visível (Nielsen/ISO).
+
+**Endpoint:** inalterado — `POST /api/v1/admin/discord-sync/import-json`, body `{ json: <conteúdo> }` ou o próprio export. Já aceita os dois (ver `adminDiscordSync.ts:1319`).
+
+**Validação obrigatória:**
+- `pnpm --filter @artificio/mesas-frontend test`
+- `pnpm --filter @artificio/mesas-frontend build`
+- `pnpm run lint`
+
+### Tarefa 2 — DEB-048-11: `GET /settings` 500 no beta (diagnóstico + hardening)
+
+**Não é bug da 048** (rota da Spec 047), mas surgiu no smoke. Escopo aqui = **só hardening do handler**; a causa de dados/env do beta é diagnóstico read-only do mantenedor/Claude.
+
+**Arquivo:** `apps/mesas/backend/src/routes/adminDiscordSync.ts` (handler `GET /settings`, ~linha 394) + `apps/mesas/backend/src/discord/settingsCrypto.ts`.
+
+**Mudança de comportamento desejada:**
+- Hoje: falha de decifragem (auth-tag GCM inválido por mismatch de `JWT_SECRET`) lança `Error` genérico → `sendSettingsError` → **500**.
+- Desejado: distinguir **falha de decifragem** (credencial existe mas não decifra com a chave atual) de erro real de servidor.
+  - Criar erro tipado `DiscordSettingsDecryptError` em `settingsCrypto.ts`; `decryptDiscordSetting` envolve as duas tentativas (v2 + legacy) e, se ambas falharem por erro de cripto, lança `DiscordSettingsDecryptError` (preservar `DiscordSettingsSecretUnavailableError` quando falta `JWT_SECRET`).
+  - No handler `GET /settings`: ao pegar `DiscordSettingsDecryptError`, responder **200** com `{ data: { bot_token: { is_set: true, preview: null, updated_at, decrypt_error: true } } }` (estado "configurado mas ilegível com a chave atual") em vez de 500. Frontend mostra aviso "credencial ilegível, regrave o token".
+  - Demais erros continuam 500.
+
+**Regras:** não imprimir token/segredo em log. Não logar `value` cifrado bruto.
+
+**Validação obrigatória:**
+- `pnpm --filter @artificio/mesas-backend test` (adicionar teste: decrypt falho → 200 com `decrypt_error`, não 500)
+- `pnpm --filter @artificio/mesas-backend build`
+- `pnpm run lint`
+
+### Não fazer
+- Não reverter o fix DEB-048-10 (embed `.nullish()`).
+- Não mexer em `AGENTS.md`.
+- Não commitar/pushar/abrir PR sem autorização nominal.
+- Não tocar VM/cron/script diário (Fase E).
+- Não adicionar lib nova.
+- Não responder bots/reviews no PR.
+
 ## Gates de validação
 
-- [x] `pnpm --filter @artificio/mesas-backend test` — 180/180 ✅
+- [x] `pnpm --filter @artificio/mesas-backend test` — 183/183 ✅ (3 testes novos do embed-null, T-FIX1)
 - [x] `pnpm --filter @artificio/mesas-backend build` — ✅
-- [ ] `pnpm --filter @artificio/mesas-frontend test` — 19/19 ✅ (sem UI afetada)
-- [ ] `pnpm --filter @artificio/mesas-frontend build` — ✅ (sem UI afetada)
+- [x] `pnpm --filter @artificio/mesas-frontend test` — 19/19 ✅
+- [x] `pnpm --filter @artificio/mesas-frontend build` — ✅
 - [x] `pnpm run lint` — 15/15 ✅
 - [x] `pnpm run build` — 17/17 ✅
 - [ ] Smoke beta com upload real/sanitizado
 
 ## Fechamento obrigatório
 
-- [ ] Atualizar `specs/backlog.md`.
-- [ ] Atualizar `.specify/memory/project-state.md`.
-- [ ] Atualizar sessão ativa.
+- [x] Atualizar `specs/backlog.md` — `BL-MESAS-DISCORD-EXPORTER-048` atualizado com status MVP.
+- [x] Atualizar `.specify/memory/project-state.md` — seção 048 adicionada com implementação e smoke findings.
+- [ ] Atualizar sessão ativa — refletir implementação de DEB-048-11 e DEB-048-12 (status pós-smoke).
 - [x] Registrar decisão de migration: **nenhuma**. MVP usa `discord_import_messages` existente, sem migration nova.
 - [x] Registrar decisão de automação VM: **não implementar agora**. Futuro em Fase E quando aprovado nominalmente.

@@ -17,6 +17,10 @@ vi.mock('../../middleware/auth', () => ({
     req.user = { userId: 'admin-test', role: 'admin' };
     next();
   },
+  requireAdmin: [(req: express.Request, _res: express.Response, next: express.NextFunction) => {
+    req.user = { userId: 'admin-test', role: 'admin' };
+    next();
+  }],
 }));
 
 const mockDb = db as unknown as {

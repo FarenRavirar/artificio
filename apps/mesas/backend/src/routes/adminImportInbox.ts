@@ -1,76 +1,65 @@
 import crypto from 'node:crypto';
 import { Router, Request, Response } from 'express';
-import { z } from 'zod';
 import { db } from '../db';
-import type { SystemEntry } from '../discord';
 import { DraftNotFoundError, DraftStateError } from '../discord/syncHelpers';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../discord';
 import { assertDraftReadyTransition } from '../discord/draftValidation';
-import { authMiddleware } from '../middleware/auth';
+import { requireAdmin } from '../middleware/auth';
 import { textToRawMessage } from '../inbox/adapters/textToRawMessage';
 import { segmentAnnouncements } from '../inbox/segmentation';
 import { syncImportDraftToTable, DraftSyncValidationError } from '../inbox/syncImportDraftToTable';
+import { loadSystemsForParser } from './discord/utils';
+import { toNumberOrNull, importTextSchema, listDraftsSchema, patchDraftSchema, correctionSchema } from './inbox/utils';
 
 const router = Router();
 
-const toNumberOrNull = (v: unknown): number | null => {
-  if (v == null) return null;
-  const n = typeof v === 'number' ? v : Number(v);
-  return Number.isFinite(n) ? n : null;
-};
+// ─── Helpers para POST /import-text ────────────────────────────────────────────
 
-function isAdmin(req: Request, res: Response): boolean {
-  if ((req as any).user?.role !== 'admin') {
-    res.status(403).json({ error: 'Acesso restrito a administradores.' });
-    return false;
-  }
-  return true;
+interface TableFieldsForMissing {
+  title?: unknown;
+  system_id?: unknown;
+  raw_system_hint?: unknown;
+  type?: unknown;
+  modality?: unknown;
+  slots_total?: unknown;
+  slots_open?: unknown;
 }
 
-async function loadSystemsForParser(): Promise<SystemEntry[]> {
-  const systems = await db
-    .selectFrom('systems')
-    .select(['id', 'name', 'name_pt'])
-    .execute();
-
-  const aliases = await db
-    .selectFrom('system_aliases')
-    .select(['system_id', 'alias'])
-    .execute();
-
-  const aliasMap = new Map<string, string[]>();
-  for (const a of aliases) {
-    const list = aliasMap.get(a.system_id) ?? [];
-    list.push(a.alias);
-    aliasMap.set(a.system_id, list);
-  }
-
-  return systems.map((s) => ({
-    id: s.id,
-    name: s.name,
-    name_pt: s.name_pt,
-    aliases: aliasMap.get(s.id) ?? [],
-  }));
+/** Calcula campos obrigatórios faltantes em um rascunho de mesa. */
+function calcMissingFields(table: TableFieldsForMissing | undefined): string[] {
+  const missing: string[] = [];
+  if (!table?.title) missing.push('title');
+  if (!table?.system_id) missing.push(table?.raw_system_hint ? 'system_name:unmatched_hint' : 'system_name');
+  if (!table?.type) missing.push('type');
+  if (!table?.modality) missing.push('modality');
+  if (table?.slots_total == null && table?.slots_open == null) missing.push('slots_total');
+  return missing;
 }
 
-// ─── Schemas ──────────────────────────────────────────────────────────────────
-
-const importTextSchema = z.object({
-  text: z.string().min(10, 'Texto muito curto para segmentação (mínimo 10 caracteres).'),
-  title_hint: z.string().optional(),
-});
-
-const listDraftsSchema = z.object({
-  status: z.string().optional(),
-  limit: z.string().optional(),
-  offset: z.string().optional(),
-  origin: z.string().optional(),
-});
+/** Cria um novo registro em import_messages e retorna o ID. */
+async function createImportMessage(
+  segment: string,
+  contentHash: string,
+  titleHint: string | null | undefined,
+): Promise<string | null> {
+  const [inserted] = await db
+    .insertInto('import_messages')
+    .values({
+      source_type: 'manual_paste',
+      raw_text: segment,
+      content_raw: segment,
+      thread_name: titleHint ?? null,
+      content_hash: contentHash,
+      status: 'pending',
+    })
+    .returning('id')
+    .execute();
+  return inserted?.id ?? null;
+}
 
 // ─── POST /import-text ────────────────────────────────────────────────────────
 
-router.post('/import-text', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/import-text', requireAdmin, async (req: Request, res: Response) => {
   try {
     const parsed = importTextSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -108,12 +97,7 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
         if (existingDraft) {
           const payload = normalizeDraftPayload(existingDraft.normalized_payload);
           const table = payload.table as Record<string, unknown> | undefined;
-          const missingFields: string[] = [];
-          if (!table?.title) missingFields.push('title');
-          if (!table?.system_id) missingFields.push(table?.raw_system_hint ? 'system_name:unmatched_hint' : 'system_name');
-          if (!table?.type) missingFields.push('type');
-          if (!table?.modality) missingFields.push('modality');
-          if (table?.slots_total == null && table?.slots_open == null) missingFields.push('slots_total');
+          const missingFields = calcMissingFields(table);
 
           created.push({
             id: existingDraft.id,
@@ -130,20 +114,9 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
       if (existingMessage) {
         importMessageId = existingMessage.id;
       } else {
-        const [inserted] = await db
-          .insertInto('import_messages')
-          .values({
-            source_type: 'manual_paste',
-            raw_text: segment,
-            content_raw: segment,
-            thread_name: title_hint ?? null,
-            content_hash: contentHash,
-            status: 'pending',
-          })
-          .returning('id')
-          .execute();
-        if (!inserted) continue;
-        importMessageId = inserted.id;
+        const newId = await createImportMessage(segment, contentHash, title_hint);
+        if (!newId) continue;
+        importMessageId = newId;
       }
 
       const rawMessage = textToRawMessage(segment, title_hint);
@@ -181,17 +154,11 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
         .where('id', '=', importMessageId)
         .execute();
 
-      const missingFields: string[] = [];
-      const table = normalized.draft.table;
-      if (!table.title) missingFields.push('title');
-      if (!table.system_id) missingFields.push(table.raw_system_hint ? 'system_name:unmatched_hint' : 'system_name');
-      if (!table.type) missingFields.push('type');
-      if (!table.modality) missingFields.push('modality');
-      if (table.slots_total == null && table.slots_open == null) missingFields.push('slots_total');
+      const missingFields = calcMissingFields(normalized.draft.table as unknown as TableFieldsForMissing);
 
       created.push({
         id: draftRow.id,
-        title: table.title ?? null,
+        title: normalized.draft.table.title ?? null,
         status: draftRow.status,
         confidence: toNumberOrNull(draftRow.confidence),
         missing_fields: missingFields,
@@ -213,8 +180,7 @@ router.post('/import-text', authMiddleware, async (req: Request, res: Response) 
 
 // ─── GET /drafts ──────────────────────────────────────────────────────────────
 
-router.get('/drafts', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.get('/drafts', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { status, limit = '50', offset = '0', origin } = listDraftsSchema.parse(req.query);
 
@@ -266,8 +232,7 @@ router.get('/drafts', authMiddleware, async (req: Request, res: Response) => {
 
 // ─── POST /drafts/:id/sync ────────────────────────────────────────────────────
 
-router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/drafts/:id/sync', requireAdmin, async (req: Request, res: Response) => {
   try {
     const draftId = req.params.id;
     if (!draftId || typeof draftId !== 'string') {
@@ -297,8 +262,7 @@ router.post('/drafts/:id/sync', authMiddleware, async (req: Request, res: Respon
 
 // ─── GET /drafts/:id ──────────────────────────────────────────────────────────
 
-router.get('/drafts/:id', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.get('/drafts/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
     const row = await db
       .selectFrom('discord_import_table_drafts')
@@ -352,25 +316,7 @@ router.get('/drafts/:id', authMiddleware, async (req: Request, res: Response) =>
 
 // ─── PATCH /drafts/:id ────────────────────────────────────────────────────────
 
-const patchDraftTableSchema = z.object({
-  type: z.enum(['campanha', 'one-shot', 'oneshot-serie', 'aberta']).nullable().optional(),
-  modality: z.enum(['online', 'presencial', 'hibrida']).nullable().optional(),
-  price_type: z.enum(['gratuita', 'paga']).nullable().optional(),
-  frequency: z.enum(['semanal', 'quinzenal', 'mensal', 'avulsa']).nullable().optional(),
-}).passthrough();
-
-const patchNormalizedPayloadSchema = z.object({
-  table: patchDraftTableSchema.optional(),
-}).passthrough();
-
-const patchDraftSchema = z.object({
-  normalized_payload: patchNormalizedPayloadSchema.optional(),
-  status: z.enum(['draft', 'ready', 'needs_review', 'rejected']).optional(),
-  review_notes: z.string().optional(),
-});
-
-router.patch('/drafts/:id', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.patch('/drafts/:id', requireAdmin, async (req: Request, res: Response) => {
   const parsed = patchDraftSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
@@ -432,8 +378,7 @@ router.patch('/drafts/:id', authMiddleware, async (req: Request, res: Response) 
 
 // ─── POST /drafts/:id/reparse ─────────────────────────────────────────────────
 
-router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/drafts/:id/reparse', requireAdmin, async (req: Request, res: Response) => {
   try {
     const draft = await db
       .selectFrom('discord_import_table_drafts')
@@ -505,14 +450,7 @@ router.post('/drafts/:id/reparse', authMiddleware, async (req: Request, res: Res
 
 // ─── POST /drafts/:id/correction ──────────────────────────────────────────────
 
-const correctionSchema = z.object({
-  corrections: z.record(z.string(), z.unknown()),
-  reason: z.string().optional(),
-  before: z.record(z.string(), z.unknown()).optional(),
-});
-
-router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.post('/drafts/:id/correction', requireAdmin, async (req: Request, res: Response) => {
   try {
     const draftId = req.params.id;
     if (!draftId || typeof draftId !== 'string') {
@@ -599,8 +537,7 @@ router.post('/drafts/:id/correction', authMiddleware, async (req: Request, res: 
 
 // ─── GET /metrics ─────────────────────────────────────────────────────────────
 
-router.get('/metrics', authMiddleware, async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
+router.get('/metrics', requireAdmin, async (req: Request, res: Response) => {
   try {
     const totalDrafts = await db
       .selectFrom('import_corrections')

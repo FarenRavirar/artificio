@@ -20,9 +20,30 @@
 
 - **Origem:** auditoria `extracao_json.json`
 - **Severidade:** Média
-- **Descrição:** Amostra real contém `<t:UNIX:...>`, Google Forms, role mentions, contato implícito por autor e formatos variados de vagas/preço.
-- **Ação:** Implementar tasks T-C1..T-C9.
+- **Descrição:** Amostra real contém `<t:UNIX:...>`, Google Forms, role mentions, contato implícito por autor e formatos variados de vagas/preço. O MVP importa, persiste, deduplica e gera drafts; as tasks T-C são **Fase C (parser hardening), pós-MVP**. A perda é de qualidade de extração (falsos negativos em contato, sistema, vagas, preço), não de funcionalidade core.
+- **Ação:** Implementar tasks T-C1..T-C9. Priorizar T-C1 (timestamps), T-C2 (Google Forms), T-C3 (contato), T-C6 (vagas informais) como mínimo para o JSON real não degradar.
 - **Status:** aberto
+
+### Análise detalhada por T-C (2026-06-23, verificado 2026-06-23)
+
+| T-C | Padrão | Status | Arquivo/linha | Detalhes |
+|-----|--------|--------|---------------|----------|
+| T-C1 | Discord timestamp `<t:UNIX:F/t>` | ❌ Não implementado | `parseDiscordAnnouncement.ts` | Nenhuma regex ou parser para `<t:` existe. Amostra: 4 mensagens com esses timestamps. Perda: timestamp de data/hora não extraído. |
+| T-C2 | Google Forms (`forms.gle`, `docs.google.com/forms`) | ❌ Não implementado | — | Amostra: 11 mensagens com Google Forms. Perda: link de formulário não identificado como contato/recrutamento. |
+| T-C3 | Contato implícito por autor ("me mande mensagem", "me chama", "fale comigo", "este perfil") | ❌ Não implementado | `parseDiscordAnnouncement.ts:291` (`extractContactDiscord`) | Só detecta menção explícita (`<#id>`, `<@!id>`) + label contato/ticket/inscrição. Frases de contato implícito não são detectadas. |
+| T-C4 | Role mentions `<@&id>` como tags/evidências brutas | ❌ Não implementado | — | Amostra: 60 mensagens com role mentions. Perda: tags/evidências de sistema ou tema não preservadas. |
+| T-C5 | User mentions `<@id>` / `<@!id>` como possível contato | ⚠️ Parcial | `extractHostDiscordId` (linha 319), `extractContactDiscord` (linha 292) | Extrai como host ou contato quando combinado com labels. Não há extração genérica de menções como campo de metadados. |
+| T-C6 | Vagas (`3 de 5`, `0/5`, `5 vagas`, `1 vaga via forms`, `mesa em andamento`) | ⚠️ Parcial | `extractSlots` (linha 208) | Cobre padrões estruturados ("vagas totais: N"). Não cobre padrões informais como `3 de 5`, `0/5`, `1 vaga via forms`, `mesa em andamento`. |
+| T-C7 | Mesa paga/gratuita (sessão zero gratuita, custo de plataforma) | ⚠️ Parcial | `extractPrice` (linha 191) | Cobre `R$` e `gratuita`/`free`/`sem custo`. Não cobre "sessão zero gratuita" (primeira sessão grátis) ou "gratuita com custo de plataforma". |
+| T-C8 | Sistema próprio/inspirado em | ❌ Não implementado | `matchSystem`/`findSystemMatch` | Só faz match por nome exato/canonical. "Sistema próprio" ou "inspirado em D&D" não são vinculados. |
+| T-C9 | Attachments/embeds como evidências (link, formulário, YouTube, canonicalUrl, `.txt` complementar) | ⚠️ Parcial | `extractCoverFromAttachments` | Só extrai capa de attachments. Não extrai links de formulário/site/YouTube de embeds, nem `.txt` como material complementar, nem canonicalUrl. |
+
+### Observações
+
+- O Handoff #2 (`tasks.md:411-415`) recomenda implementar apenas T-C1, T-C2, T-C3, T-C6 como "mínimo necessário para o JSON real não degradar".
+- T-C4, T-C8 e T-C9 podem ficar para depois do MVP sem impacto funcional.
+- Risco de regressão ao implementar: médio. Adicionar parsing de padrões informais pode introduzir falsos positivos (detectar "me mande mensagem" em contexto não-recruitment) ou conflito de regex.
+- Todas as T-C exigem testes com fixture real (`extracao_json.json`) antes de commit para validar matriz de acertos/erros.
 
 ## DEB-048-04 — Import runs podem precisar de auditoria própria
 
@@ -63,6 +84,37 @@
 - **Descrição:** O smoke E2E aponta para `https://mesasbeta.artificiorpg.com` e pressupõe cookie/sessão admin válido. Sem estratégia de `storageState` segura, ele pode virar teste manual disfarçado, flaky ou dependente do Chrome/cookies reais do mantenedor. O diff também altera `vitest.config.ts` para excluir `e2e/` e `**/*.spec.ts`; hoje os testes unitários são `*.test.*`, mas esse padrão pode esconder futuros unit specs sem perceber.
 - **Ação:** Definir autenticação de teste sem Chrome real; decidir se roda em CI, local ou somente smoke manual; limitar o exclude do Vitest ao diretório E2E se possível. Registrar pré-requisitos e comando real antes de fechar.
 - **Status:** aberto
+
+## DEB-048-10 — Embed com campos `null` derruba import com 400 (smoke beta real)
+
+- **Origem:** smoke real do mantenedor em `https://mesasbeta.artificiorpg.com/gestao` → Discord Sync → Importar JSON, com `D:\extracao_json.json`.
+- **Severidade:** Crítica (P0) — blocker total do MVP; nenhum JSON real importa.
+- **Erro exato:**
+  `JSON inválido ou incompatível com o formato esperado. messages.1.embeds.0.timestamp: Invalid input: expected string, received null; messages.1.embeds.1.timestamp: ...; messages.3.embeds.0.timestamp: ...; messages.6.embeds.0.timestamp: ...`
+- **Causa-raiz:** `discordChatExporterEmbedSchema` declarava campos string com `.optional()`, que em Zod aceita só `undefined`. O DiscordChatExporter emite `null` para campos de embed ausentes (`timestamp`, `image`, `description`, `url`, `color`, `thumbnail`, `footer`, `author`, `fields`). Zod rejeitava → adapter lança `DiscordChatExporterValidationError` → endpoint responde 400. Mesma classe de problema atingia campos opcionais de `author` (`color`/`nickname`/`discriminator`) e `attachment` (`fileName`/`fileSizeBytes`).
+- **Interação com REV-004:** REV-004 endureceu os timestamps de **mensagem** para `z.string().datetime({ offset: true })`, correto. Mas o timestamp de **embed** é coisa distinta e o JSON real o traz como `null` — não coberto pela REV-004.
+- **Ação aplicada:** campos string opcionais de embed/author/attachment migrados de `.optional()` → `.nullish()` (aceita `undefined` e `null`); `embed.image` aceita string ou `{ url }`. Mantido `.passthrough()` no topo do embed para campos extras.
+- **Arquivos:** `apps/mesas/backend/src/discord/discordChatExporterTypes.ts`.
+- **Teste de regressão:** `apps/mesas/backend/src/discord/__tests__/chatExporterAdapter.test.ts` (3 testes; embed com `timestamp/image/description=null` agora aceito).
+- **Validação:** `pnpm --filter @artificio/mesas-backend build` ✅; test 183/183 ✅; `pnpm run lint` 15/15 ✅.
+- **Status:** implementado ✅ (local; pendente commit/PR + redeploy beta + re-smoke com `extracao_json.json`).
+
+## DEB-048-11 — `GET /admin/discord-sync/settings` responde 500 no beta
+
+- **Origem:** smoke real no beta — console: `api/v1/admin/discord-sync/settings:1 Failed to load resource: 500`.
+- **Severidade:** Média — independente do importador JSON (rota é da Spec 047), mas degrada a tela Discord Sync.
+- **Causa provável:** o handler (`adminDiscordSync.ts:394`) chama `decryptDiscordSetting(setting.value)`. Se a credencial no DB beta foi cifrada com um `JWT_SECRET` diferente do atual do container, o `aes-256-gcm` falha no auth-tag e lança `Error` genérico (não `DiscordSettingsSecretUnavailableError`), caindo no `catch` → 500. Hipótese alternativa: `JWT_SECRET` ausente no container beta (geraria 503, não 500) — menos provável dado o código.
+- **Não é bug da 048:** `settingsCrypto.ts`/`/settings` são pré-existentes da Spec 047. Surgiu no smoke da 048.
+- **Ação:** inspeção read-only no beta (sem imprimir segredo): confirmar se `discord_settings` tem linha `bot_token` e se `JWT_SECRET` do container bate com o usado na cifragem. Se mismatch de chave, decidir entre re-salvar o token (PUT) sob a chave atual ou tratar falha de decrypt como estado "is_set=false"/aviso em vez de 500. Endurecer o handler para distinguir falha de decifragem (responder 409/aviso) de erro real.
+- **Status:** implementado ✅ — `DiscordSettingsDecryptError` criado, `decryptDiscordSetting` envolto em try/catch, handler GET responde 200 com `decrypt_error: true` em vez de 500.
+
+## DEB-048-12 — UI de import só aceita colar texto; falta upload de arquivo (botão + arrastar)
+
+- **Origem:** pedido do mantenedor no smoke 2026-06-23.
+- **Severidade:** Média — UX; JSONs reais são arquivos grandes (`D:\extracao_json.json`, ~100 mensagens), colar é frágil/lento.
+- **Descrição:** `DiscordJsonImportPanel.tsx` hoje só tem `<textarea>` (colar JSON). Falta seletor de arquivo (`<input type="file" accept=".json,application/json">`) e/ou área de drag-and-drop que leia o arquivo via `FileReader`/`File.text()` e popule/envie o JSON ao endpoint `POST /import-json`.
+- **Ação:** adicionar à aba "Importar JSON": botão "Selecionar arquivo" + dropzone arrastar-soltar; validar extensão/tamanho no cliente (alinha com DEB-048-04/T-F2 limite de upload); manter o textarea como fallback. Reaproveitar resumo pré-import (T-D2) e resultado (T-D3).
+- **Status:** implementado ✅ — botão "Selecionar arquivo" + dropzone nativo + validação extensão/tamanho + `file.text()` + fallback textarea.
 
 ## DEB-048-09 — Duplicação residual de getContentHash e asJsonbArray em ingestMessages.ts
 

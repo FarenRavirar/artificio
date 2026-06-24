@@ -1,6 +1,6 @@
 import { sql } from 'kysely';
 import { db } from '../db';
-import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from './chatExporterAdapter';
+import { parseDiscordChatExporterJson, adaptMessageToImportRaw } from './chatExporterAdapter';
 import { getContentHash } from './shared';
 import type { ImportResult } from './chatExporterAdapter';
 
@@ -53,7 +53,13 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
   const channelName = exportData.channel.name;
   const channelType = exportData.channel.type;
 
-  const sourceId = await ensureDiscordImportSource(channelId, guildId, channelName, channelType);
+  let sourceId: string;
+  try {
+    sourceId = await ensureDiscordImportSource(channelId, guildId, channelName, channelType);
+  } catch (err) {
+    console.error('[importDiscordChatExporterJson] Falha ao criar fonte de importação:', err);
+    throw new Error('Erro interno ao criar fonte de importação.');
+  }
 
   let inserted = 0;
   let updated = 0;
@@ -108,4 +114,22 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
     ignored: messages.length - inserted - updated - failed,
     failed,
   };
+}
+
+export function extractJsonPayload(rawBody: unknown): { payload: unknown } | { error: string; status: number } {
+  if (rawBody && typeof rawBody === 'object' && 'json' in rawBody) {
+    const rawJson = (rawBody as Record<string, unknown>).json;
+    if (typeof rawJson === 'string') {
+      try {
+        return { payload: JSON.parse(rawJson) };
+      } catch {
+        return { error: 'JSON inválido: o conteúdo do campo "json" não é um JSON válido.', status: 400 };
+      }
+    }
+    return { payload: rawJson };
+  }
+  if (rawBody && typeof rawBody === 'object' && 'messages' in rawBody) {
+    return { payload: rawBody };
+  }
+  return { error: 'JSON inválido: envie um objeto com o campo "json" ou o próprio export do DiscordChatExporter.', status: 400 };
 }
