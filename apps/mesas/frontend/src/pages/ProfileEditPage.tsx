@@ -8,7 +8,7 @@ import { showSuccess, showError } from '../utils/toast';
 import { track } from '../services/analytics';
 import { useImageUrlImport } from '../hooks/useImageUrlImport';
 import { MarkdownEditor } from '../components/MarkdownEditor';
-import { authenticatedFetch } from '../utils/authenticatedFetch';
+import { authenticatedFetch, authPost } from '../utils/authenticatedFetch';
 import './ProfileEditPage.css';
 
 /**
@@ -363,12 +363,7 @@ function TabGeral() {
                     formData.append('file', file);
 
                     try {
-                      const apiUrl = import.meta.env.VITE_API_URL || '';
-                      const response = await fetch(`${apiUrl}/api/v1/upload`, {
-                        method: 'POST',
-                        credentials: 'include',
-                        body: formData,
-                      });
+                      const response = await authPost('/api/v1/upload', formData);
 
                       const payload = await response.json();
 
@@ -397,11 +392,7 @@ function TabGeral() {
                     className="btn-avatar-action btn-google"
                     onClick={async () => {
                       try {
-                        const apiUrl = import.meta.env.VITE_API_URL || '';
-                        const response = await fetch(`${apiUrl}/api/v1/profile/me/google-picture`, {
-                          method: 'POST',
-                          credentials: 'include',
-                        });
+                        const response = await authPost('/api/v1/profile/me/google-picture');
 
                         const payload = await response.json();
 
@@ -811,12 +802,7 @@ function TabMestre({
                     formData.append('file', file);
 
                     try {
-                      const apiUrl = import.meta.env.VITE_API_URL || '';
-                      const response = await fetch(`${apiUrl}/api/v1/upload`, {
-                        method: 'POST',
-                        credentials: 'include',
-                        body: formData,
-                      });
+                      const response = await authPost('/api/v1/upload', formData);
 
                       const payload = await response.json();
 
@@ -845,11 +831,7 @@ function TabMestre({
                     className="btn-avatar-action btn-google"
                     onClick={async () => {
                       try {
-                        const apiUrl = import.meta.env.VITE_API_URL || '';
-                        const response = await fetch(`${apiUrl}/api/v1/profile/me/google-picture`, {
-                          method: 'POST',
-                          credentials: 'include',
-                        });
+                        const response = await authPost('/api/v1/profile/me/google-picture');
 
                         const payload = await response.json();
 

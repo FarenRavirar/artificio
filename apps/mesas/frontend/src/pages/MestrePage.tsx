@@ -20,7 +20,7 @@ import { useMestre } from '../hooks/useMestre';
 import { useMestreInsights } from '../hooks/useMestreInsights';
 import './MestrePage.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authPost } from '../services/apiClient';
 
 export const MestrePage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -76,13 +76,7 @@ export const MestrePage = () => {
 
     sessionStorage.setItem(slugKey, '1');
 
-    fetch(`${API_BASE}/api/v1/gm/${slug}/view`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'x-session-id': sessionId,
-      },
-    }).catch(() => {
+    authPost(`/api/v1/gm/${slug}/view`, undefined, { headers: { 'x-session-id': sessionId } }).catch(() => {
       // Não bloquear renderização por falha de telemetria
     });
   }, [slug, loading, profile]);

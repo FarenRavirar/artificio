@@ -4,8 +4,7 @@ import { ScenariosList } from '../features/admin/components/ScenariosList';
 import { EntityInspector, type SystemFormData } from '../features/admin/components/EntityInspector';
 import type { System } from '../modules/admin/systems/types';
 import toast from 'react-hot-toast';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authGet, authPost, authPut, authDelete } from '../services/apiClient';
 
 interface Scenario {
   id: string;
@@ -42,9 +41,7 @@ export function ScenariosAdminView() {
   const fetchScenarios = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/scenarios`, {
-        credentials: 'include',
-      });
+      const response = await authGet('/api/v1/scenarios');
       if (response.ok) {
         const data = await response.json();
         setScenarios(data.data || []);
@@ -75,15 +72,10 @@ export function ScenariosAdminView() {
   const handleSave = async (data: SystemFormData) => {
     if (inspectorMode === 'create') {
       try {
-        const response = await fetch(`${API_BASE}/api/v1/scenarios/admin`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            name: data.name,
-            name_pt: data.name_pt,
-            aliases: data.aliases,
-          }),
+        const response = await authPost('/api/v1/scenarios/admin', {
+          name: data.name,
+          name_pt: data.name_pt,
+          aliases: data.aliases,
         });
 
         if (response.ok) {
@@ -100,15 +92,10 @@ export function ScenariosAdminView() {
       }
     } else if (inspectorMode === 'edit' && selectedId) {
       try {
-        const response = await fetch(`${API_BASE}/api/v1/scenarios/admin/${selectedId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            name: data.name,
-            name_pt: data.name_pt,
-            aliases: data.aliases,
-          }),
+        const response = await authPut(`/api/v1/scenarios/admin/${selectedId}`, {
+          name: data.name,
+          name_pt: data.name_pt,
+          aliases: data.aliases,
         });
 
         if (response.ok) {
@@ -130,10 +117,7 @@ export function ScenariosAdminView() {
     if (!confirm(`Deletar cenário "${selectedScenario.name}"? Esta ação não pode ser desfeita.`)) return;
 
     try {
-      const response = await fetch(`${API_BASE}/api/v1/scenarios/admin/${selectedScenario.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const response = await authDelete(`/api/v1/scenarios/admin/${selectedScenario.id}`);
 
       if (response.ok) {
         toast.success('Cenário deletado!');

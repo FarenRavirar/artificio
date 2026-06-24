@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/useAuth';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authGet, authPatch } from '../utils/authenticatedFetch';
 
 interface Notification {
   id: string;
@@ -60,7 +59,7 @@ export const NotificationBell = () => {
 
   const fetchNotifications = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/v1/notifications`, { credentials: 'include' });
+      const response = await authGet(`/api/v1/notifications`);
       if (response.ok) {
         const json: unknown = await response.json();
         const rows = json && typeof json === 'object' ? (json as Record<string, unknown>).data : null;
@@ -91,10 +90,7 @@ export const NotificationBell = () => {
 
   const markAsRead = async (id: string) => {
     try {
-      const response = await fetch(`${API_BASE}/api/v1/notifications/${id}/read`, {
-        method: 'PATCH',
-        credentials: 'include',
-      });
+      const response = await authPatch(`/api/v1/notifications/${id}/read`);
       if (response.ok) {
         setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
       }
@@ -105,10 +101,7 @@ export const NotificationBell = () => {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/v1/notifications/read-all`, {
-        method: 'PATCH',
-        credentials: 'include',
-      });
+      const response = await authPatch(`/api/v1/notifications/read-all`);
       if (response.ok) {
         setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       }

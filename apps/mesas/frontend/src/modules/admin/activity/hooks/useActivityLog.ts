@@ -8,7 +8,8 @@ import {
   type ActivityFiltersState,
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authGet } from '../../../../services/apiClient';
+
 const DEFAULT_LIMIT = 30;
 
 interface UseActivityLogReturn {
@@ -100,9 +101,7 @@ export function useActivityLog(): UseActivityLogReturn {
 
     try {
       const query = buildQuery(currentFilters, cursor);
-      const response = await fetch(`${API_BASE}/api/v1/admin/activity${query}`, {
-        credentials: 'include',
-      });
+      const response = await authGet(`/api/v1/admin/activity${query}`);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);

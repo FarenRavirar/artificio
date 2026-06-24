@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
 import { buildForm, buildUpdatedPayload, flattenSystems, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, loadSystems, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
-import { getApiBase } from '../../hooks/useImageUrlImport';
+import { authPost } from '../../services/apiClient';
 import type { DraftForm } from './draftFormUtils';
 import type { DiscordDraft, DiscordImportDraftStatus, DiscordSlotsAmbiguity, DraftApiOperations } from './types';
 import type { SystemTreeNode } from '../../types/systems';
@@ -168,11 +168,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await fetch(`${getApiBase()}/api/v1/upload`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
+      const response = await authPost('/api/v1/upload', formData);
       if (!response.ok) {
         let errorMsg = 'Falha ao enviar imagem.';
         try { const errPayload: unknown = await response.json(); errorMsg = asString(isRecord(errPayload) ? errPayload.error : '') || errorMsg; } catch { /* corpo vazio */ }

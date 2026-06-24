@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useAuth } from '../contexts/useAuth';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authPost } from '../services/apiClient';
 
 interface ScenarioSuggestionModalProps {
   isOpen: boolean;
@@ -29,16 +29,11 @@ export const ScenarioSuggestionModal = ({ isOpen, onClose, onSuccess }: Scenario
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/api/v1/scenario-suggestions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
+      const response = await authPost('/api/v1/scenario-suggestions', {
           name: name.trim(),
           name_pt: namePt.trim() || null,
           description: description.trim() || null,
-        }),
-      });
+        });
 
       if (!response.ok) {
         const data = await response.json();

@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authPost, authPut } from '../services/apiClient';
 
 interface ScenarioEditModalProps {
   scenario: {
@@ -85,21 +84,12 @@ export const ScenarioEditModal = ({ scenario, onClose, onSuccess }: ScenarioEdit
 
     try {
       const url = scenario
-        ? `${API_BASE}/api/v1/scenarios/admin/${scenario.id}`
-        : `${API_BASE}/api/v1/scenarios/admin`;
+        ? `/api/v1/scenarios/admin/${scenario.id}`
+        : '/api/v1/scenarios/admin';
 
-      const method = scenario ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          name,
-          name_pt: namePt.trim() || null,
-          subgenres,
-        }),
-      });
+      const response = scenario
+        ? await authPut(url, { name, name_pt: namePt.trim() || null, subgenres })
+        : await authPost(url, { name, name_pt: namePt.trim() || null, subgenres });
 
       if (response.ok) {
         toast.success(scenario ? 'Cenário atualizado!' : 'Cenário criado!');

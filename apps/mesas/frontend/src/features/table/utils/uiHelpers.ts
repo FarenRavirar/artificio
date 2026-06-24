@@ -1,4 +1,5 @@
 import type { CTAConfig } from '../types/tableView.types';
+import { authPatch } from '../../../services/apiClient';
 
 /**
  * Retorna classes CSS para botões baseado no variant do CTA
@@ -82,14 +83,7 @@ export async function handleStatus(id: string, status: string): Promise<void> {
   }
 
   try {
-    const res = await fetch(`/api/v1/gm/tables/${id}/status`, {
-      method: 'PATCH',
-      headers: { 
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Usa cookie HTTP-only ao invés de Bearer token
-      body: JSON.stringify({ status }),
-    });
+    const res = await authPatch(`/api/v1/gm/tables/${id}/status`, { status });
 
     if (!res.ok) {
       const error = await res.json();
@@ -114,12 +108,7 @@ export async function handleArchive(id: string, archived: boolean): Promise<void
   }
 
   try {
-    const res = await fetch(`/api/v1/gm/tables/${id}/archive`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ archived }),
-    });
+    const res = await authPatch(`/api/v1/gm/tables/${id}/archive`, { archived });
 
     if (!res.ok) {
       const error = await res.json().catch(() => null);

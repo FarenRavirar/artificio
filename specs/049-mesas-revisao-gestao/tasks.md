@@ -164,10 +164,37 @@
 - [x] REV-036 — messageParse.ts: 18.9% duplicação (20 linhas) — extrair core de parse compartilhado ✅ 2026-06-24: `parseDiscordMessage()` extraída p/ `utils.ts`, 20 linhas eliminadas de `messageParse.ts` e `drafts.ts`. Build 17/17, lint 15/15, testes 223/223 ✅.
 - [x] REV-037 — drafts.ts: 17.6% duplicação (38 linhas) — extrair PATCH merge logic ✅ 2026-06-24: `validateDraftStatusTransition()` extraída p/ `utils.ts`, formato erro 422 padronizado (`details.missing_fields`). Build 17/17, lint 15/15, testes 223/223 ✅.
 - [x] REV-038 — adminImportInbox.ts: 9.1% duplicação — identificar e eliminar ✅ 2026-06-24: `drafts.ts` agora importa `patchDraftSchema` de `inbox/utils.ts` (removida definição local de 16 linhas). Build 17/17, lint 15/15, testes 223/223 ✅.
+- [x] D10 — adminImportInbox.ts split por domínio ✅ 2026-06-24: reduzido de 573→29 linhas. 4 submódulos: `inbox/import.ts` (POST /import-text + helpers calcMissingFields/createImportMessage), `inbox/drafts.ts` (5 handlers: GET list, POST sync, GET by id, PATCH, POST reparse), `inbox/corrections.ts` (POST /drafts/:id/correction), `inbox/metrics.ts` (GET /metrics). Build 17/17, lint 15/15, testes 223/223.
+- [x] D07 — adminTablesAutoArchive.test.ts renomeado ✅ 2026-06-24: `git mv` para `adminTables.autoArchive.test.ts`. Nome reflete que testa rota de auto-archive em `adminTables.ts`, não módulo separado.
 
 **Testes:** backend 223/223 ✅ | frontend 163/163 ✅ (2 testes redundantes removidos em REV-009)
 **Build:** repo-wide 17/17 ✅
 **Lint:** 15/15 ✅
+
+## D20 — Migração raw `fetch` → `authenticatedFetch` (em andamento)
+
+Sequência definida 2026-06-24. 3 passos, ordem por robustez/impacto.
+
+### Passo 1 — Unificar wrappers (`apiClient.ts` + `authenticatedFetch.ts`)
+
+- [x] D20-P1 — Fundir `apiClient.ts` e `authenticatedFetch.ts` em wrapper único com refresh-on-401 + retry exp backoff + tipagem forte + deduplication ✅ 2026-06-24
+- [x] D20-P1 — 3 consumidores do apiClient (useProfileQuery, useProfile, devFeedbackApi) ganham refresh automático sem alteração ✅
+- [x] D20-P1 — `authenticatedFetch.ts` reduzido a re-export de `apiClient.ts` (3 linhas) ✅
+- [x] D20-P1 — Validar: build 17/17 ✅, lint 15/15 ✅, testes frontend 163/163 ✅
+
+### Passo 2 — Migrar raw fetch dos arquivos GRANDES (prioridade)
+
+- [x] D20-P2 — `PainelMestrePage.tsx` (11 calls) → wrapper unificado ✅ 2026-06-24
+- [x] D20-P2 — `GestaoPage.tsx` (10 calls) → wrapper unificado ✅ 2026-06-24
+- [x] D20-P2 — `modules/admin/systems/useSystems.ts` (5 calls) → wrapper unificado ✅ 2026-06-24
+- [x] D20-P2 — `PlatformsPage.tsx`, `ScenariosAdminView.tsx`, `useLinks.ts`, `SystemSuggestionResolutionDrawer.tsx`, `ProfileEditPage.tsx` (4 calls cada) → wrapper unificado ✅ 2026-06-24
+- [x] D20-P2 — Validar: build ✅, lint ✅, testes frontend 163/163 ✅
+
+### Passo 3 — Spots isolados (1-2 calls)
+
+- [x] D20-P3 — 20 arquivos spots isolados migrados ✅ 2026-06-24: OnboardingPage (3), AuthContext (1, logout cross-domain skip), SystemSuggestionModal (2), uiHelpers (2), useMestre (1), MestrePage (1), HydrationAdminPanel (1), useActivityLog (1), useMestreInsights (1), useGmInsights (1), ScenarioSuggestionModal (1), ScenarioEditModal (1), discordSyncApi (1), inboxApi (1), draftFormUtils (1), useDraftForm (1), useImageUrlImport (1), TableActionPanel (1), ImageUploader (1), AvatarUploader (1). Build ✅, lint ✅, testes 163/163 ✅.
+- [x] D20-P3 — Validar: build ✅, lint ✅, testes frontend 163/163 ✅
+- [x] D21 — Erro avulso: `apiClient.ts:233` — `interface FetchOptions extends RequestInit {}` → `type FetchOptions = RequestInit` ✅ 2026-06-24. Lint 15/15, build 17/17. 2 avisos catalogados (pre-existing act() + ERR_INVALID_URL).
 
 ## Resumo de tasks por fase
 

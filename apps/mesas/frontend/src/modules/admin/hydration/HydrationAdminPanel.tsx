@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Database, AlertTriangle, ShieldCheck, Download, RefreshCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authPost } from '../../../services/apiClient';
 
 interface HydrationLog {
   table: string;
@@ -60,11 +60,7 @@ export const HydrationAdminPanel = () => {
     setLoading(true);
     try {
       // T016: Consumo do endpoint POST
-      const response = await fetch(`${API_BASE}/api/v1/admin/sync/hydrate?dry_run=${dryRun}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include'
-      });
+      const response = await authPost(`/api/v1/admin/sync/hydrate?dry_run=${dryRun}`);
 
       const data = await response.json();
 

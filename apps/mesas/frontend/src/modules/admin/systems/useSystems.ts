@@ -1,8 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { authGet, authPost, authPut, authDelete } from '../../../services/apiClient';
 import type { System } from './types';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
 
 type BlockedByItem = {
   type: 'tables' | 'children' | string;
@@ -29,9 +28,7 @@ export function useSystems() {
   const fetchSystems = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/systems?view=flat`, {
-        credentials: 'include',
-      });
+      const response = await authGet('/api/v1/systems?view=flat');
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -50,9 +47,7 @@ export function useSystems() {
   const fetchTree = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/systems?view=tree`, {
-        credentials: 'include',
-      });
+      const response = await authGet('/api/v1/systems?view=tree');
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -76,12 +71,7 @@ export function useSystems() {
     aliases: string[];
   }) => {
     try {
-      const response = await fetch(`${API_BASE}/api/v1/systems/admin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(formData),
-      });
+      const response = await authPost('/api/v1/systems/admin', formData);
 
       if (response.ok) {
         toast.success('Sistema criado!');
@@ -108,12 +98,7 @@ export function useSystems() {
     website_url?: string | null;
   }) => {
     try {
-      const response = await fetch(`${API_BASE}/api/v1/systems/admin/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(formData),
-      });
+      const response = await authPut(`/api/v1/systems/admin/${id}`, formData);
 
       if (response.ok) {
         toast.success('Sistema atualizado!');
@@ -140,10 +125,7 @@ export function useSystems() {
     if (shouldConfirm && !confirm(`Deletar sistema "${name}"? Esta ação não pode ser desfeita.`)) return false;
 
     try {
-      const response = await fetch(`${API_BASE}/api/v1/systems/admin/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const response = await authDelete(`/api/v1/systems/admin/${id}`);
 
       if (response.ok) {
         toast.success('Sistema deletado!');

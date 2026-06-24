@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { UserLink } from './useLinks';
 import type { TableCard } from '../types/tables';
+import { authGet } from '../services/apiClient';
 
 export interface ViewerContext {
   is_owner: boolean;
@@ -85,10 +86,7 @@ export function useMestre(slug?: string) {
       setError(null);
 
       try {
-        const res = await fetch(`/api/v1/gm/${slug}`, {
-          signal: controller.signal,
-          credentials: 'include',
-        });
+        const res = await authGet(`/api/v1/gm/${slug}`, { signal: controller.signal });
 
         if (res.status === 404) {
           setError('Mestre não encontrado.');

@@ -8,16 +8,12 @@ import type {
   InboxMetrics,
 } from '../types';
 import { z } from 'zod';
+import { authenticatedFetch } from '../../../services/apiClient';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
-const BASE = `${API_BASE}/api/v1/admin/inbox`;
+const BASE = '/api/v1/admin/inbox';
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    ...options,
-  });
+  const res = await authenticatedFetch(`${BASE}${path}`, options || {});
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   let data: unknown;

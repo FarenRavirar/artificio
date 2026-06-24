@@ -1,3 +1,4 @@
+import { refreshSession } from '@artificio/auth/client';
 import { showError } from '../utils/toast';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -7,38 +8,29 @@ interface ApiClientOptions extends RequestInit {
   skipRetry?: boolean;
 }
 
-/**
- * Configuração de retry
- */
+// ─── Retry config ────────────────────────────────────────────────────────────
+
 const RETRY_CONFIG = {
   maxRetries: 3,
   baseDelay: 1000,
   maxDelay: 10000,
 };
 
-/**
- * Mapa de requisições em andamento para deduplication
- */
+// ─── Deduplication ───────────────────────────────────────────────────────────
+
 const pendingRequests = new Map<string, AbortController>();
 
-/**
- * Sleep helper para retry
- */
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 async function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/**
- * Calcula delay para retry com exponential backoff
- */
 function getRetryDelay(attempt: number): number {
   const delay = RETRY_CONFIG.baseDelay * Math.pow(2, attempt);
   return Math.min(delay, RETRY_CONFIG.maxDelay);
 }
 
-/**
- * Verifica se deve fazer retry
- */
 function hasStatus(error: unknown): error is { status: number } {
   return (
     typeof error === 'object' &&
@@ -59,139 +51,159 @@ function isAbortError(error: unknown): error is { name: 'AbortError' } {
 
 function shouldRetry(error: unknown, attempt: number): boolean {
   if (attempt >= RETRY_CONFIG.maxRetries) return false;
-  
-  // Retry em erros de rede
+
   if (error instanceof TypeError && error.message.includes('fetch')) {
     return true;
   }
-  
-  // Retry em 5xx (server errors)
   if (hasStatus(error) && error.status >= 500 && error.status < 600) {
     return true;
   }
-  
-  // Retry em 429 (rate limit)
   if (hasStatus(error) && error.status === 429) {
     return true;
   }
-  
   return false;
 }
 
 /**
- * Cliente HTTP padronizado para todas as requisições da aplicação
- * 
- * Features:
- * - Configuração global (credentials, headers)
- * - Tratamento de erro centralizado
- * - Retry automático com exponential backoff
- * - AbortController para cancelamento
- * - Request deduplication
- * - Tipagem forte
- * - Toast automático de erros
+ * Resolve URL: adiciona API_BASE se o endpoint for relativo.
  */
-export async function apiClient<T>(
+function resolveUrl(endpoint: string): string {
+  return endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+}
+
+/**
+ * Core HTTP executor — retry + dedup + refresh-on-401.
+ * Retorna Response (sem parse JSON). Ambos os wrappers (apiClient<T> e
+ * authenticatedFetch) compartilham esta engine.
+ */
+async function executeHttpRequest(
   url: string,
-  options: ApiClientOptions = {}
-): Promise<T> {
-  const { skipErrorToast = false, skipRetry = false, ...fetchOptions } = options;
-  
-  // Request deduplication key
-  const requestKey = `${fetchOptions.method || 'GET'}:${url}`;
-  
-  // Cancelar requisição anterior se existir
+  init: RequestInit,
+  skipRetry: boolean,
+): Promise<Response> {
+  const requestKey = `${init.method || 'GET'}:${url}`;
+
+  // Cancelar requisição duplicada anterior
   if (pendingRequests.has(requestKey)) {
-    console.log('[apiClient] Cancelando requisição duplicada:', requestKey);
+    console.log('[api] Cancelando requisição duplicada:', requestKey);
     pendingRequests.get(requestKey)?.abort();
   }
-  
-  // Criar novo AbortController
+
   const controller = new AbortController();
   pendingRequests.set(requestKey, controller);
-  
+
   let lastError: unknown;
-  
-  // Retry loop
-  for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+  let authRefreshed = false;
+  const maxAttempts = skipRetry ? 0 : RETRY_CONFIG.maxRetries;
+
+  for (let attempt = 0; attempt <= maxAttempts; attempt++) {
     try {
-      const response = await fetch(`${API_BASE}${url}`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(fetchOptions.headers || {}),
-        },
+      const isFormData = init.body instanceof FormData;
+      const response = await fetch(url, {
+        ...init,
         signal: controller.signal,
-        ...fetchOptions,
+        credentials: 'include',
+        headers: isFormData
+          ? { ...(init.headers as Record<string, string> | undefined) }
+          : {
+              'Content-Type': 'application/json',
+              ...(init.headers as Record<string, string> | undefined),
+            },
       });
-      
-      // Limpar pending request
+
       pendingRequests.delete(requestKey);
-      
-      if (!response.ok) {
-        const error = await response.json().catch(() => null);
-        const message = error?.error || `Erro na requisição (${response.status})`;
-        
-        lastError = { message, status: response.status };
-        
-        // Verificar se deve fazer retry
-        if (!skipRetry && shouldRetry(lastError, attempt)) {
-          const delay = getRetryDelay(attempt);
-          console.log(`[apiClient] Retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} em ${delay}ms para ${requestKey}`);
-          await sleep(delay);
+
+      // ── Refresh-on-401 (D20-P1) ──
+      if (response.status === 401 && !authRefreshed) {
+        authRefreshed = true;
+        const refreshed = await refreshSession();
+        if (refreshed) {
+          // Repetir a requisição com novo access token
+          attempt = -1; // reinicia contagem
           continue;
         }
-        
-        // Exibir toast de erro
-        if (!skipErrorToast) {
-          showError(message);
-        }
-        
-        throw new Error(message);
+        // Refresh falhou → devolve o 401 original
+        return response;
       }
-      
-      return response.json();
-      
-    } catch (err: unknown) {
-      lastError = err;
-      
-      // Requisição cancelada (não é erro)
-      if (isAbortError(err)) {
-        console.log('[apiClient] Requisição cancelada:', requestKey);
-        throw err;
-      }
-      
-      // Verificar se deve fazer retry
-      if (!skipRetry && shouldRetry(err, attempt)) {
+
+      // ── Retry 5xx / 429 ──
+      if (
+        !skipRetry &&
+        !response.ok &&
+        (response.status >= 500 || response.status === 429) &&
+        attempt < RETRY_CONFIG.maxRetries
+      ) {
         const delay = getRetryDelay(attempt);
-        console.log(`[apiClient] Retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} em ${delay}ms para ${requestKey}`);
+        console.log(`[api] Retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} em ${delay}ms para ${requestKey}`);
         await sleep(delay);
         continue;
       }
-      
-      // Limpar pending request
-      pendingRequests.delete(requestKey);
-      
-      // Erro de rede
-      if (err instanceof TypeError && err.message.includes('fetch')) {
-        const message = 'Erro de conexão. Verifique sua internet e tente novamente.';
-        if (!skipErrorToast) {
-          showError(message);
-        }
-        throw new Error(message, { cause: err });
+
+      return response;
+
+    } catch (err: unknown) {
+      if (isAbortError(err)) {
+        pendingRequests.delete(requestKey);
+        throw err;
       }
-      
+
+      lastError = err;
+
+      if (!skipRetry && shouldRetry(err, attempt)) {
+        const delay = getRetryDelay(attempt);
+        console.log(`[api] Retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} em ${delay}ms para ${requestKey}`);
+        await sleep(delay);
+        continue;
+      }
+
+      pendingRequests.delete(requestKey);
+
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        throw new Error('Erro de conexão. Verifique sua internet e tente novamente.', { cause: err });
+      }
       throw err;
     }
   }
-  
-  // Se chegou aqui, esgotou todas as tentativas
+
   pendingRequests.delete(requestKey);
   throw lastError;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Wrapper tipado (apiClient<T>) — mantido para consumidores existentes
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
- * API helpers com métodos HTTP
+ * Cliente HTTP tipado. Retorna `Promise<T>`, lança erro com toast.
+ *
+ * Features (D20-P1 unificadas):
+ * - refresh-on-401 (antes só do authenticatedFetch)
+ * - retry exp backoff (antes só do apiClient)
+ * - deduplication (antes só do apiClient)
+ * - credenciais automáticas (ambos)
  */
+export async function apiClient<T>(
+  url: string,
+  options: ApiClientOptions = {},
+): Promise<T> {
+  const { skipErrorToast = false, skipRetry = false, ...fetchOptions } = options;
+
+  const fullUrl = resolveUrl(url);
+  const response = await executeHttpRequest(fullUrl, fetchOptions, skipRetry);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    const message = error?.error || `Erro na requisição (${response.status})`;
+
+    if (!skipErrorToast) {
+      showError(message);
+    }
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
 export const api = {
   get: <T>(url: string, options?: ApiClientOptions) =>
     apiClient<T>(url, { ...options, method: 'GET' }),
@@ -213,3 +225,48 @@ export const api = {
   delete: <T>(url: string, options?: ApiClientOptions) =>
     apiClient<T>(url, { ...options, method: 'DELETE' }),
 };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Wrapper raw Response (authenticatedFetch) — mantido para consumidores existentes
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type FetchOptions = RequestInit;
+
+/**
+ * Wrapper que retorna `Response` (ao contrário de apiClient<T>).
+ * Usa a mesma engine `executeHttpRequest` com refresh + retry + dedup.
+ */
+export const authenticatedFetch = async (
+  endpoint: string,
+  options: FetchOptions = {},
+): Promise<Response> => {
+  const url = resolveUrl(endpoint);
+  return executeHttpRequest(url, options, false);
+};
+
+export const authGet = (endpoint: string, options: FetchOptions = {}) =>
+  authenticatedFetch(endpoint, { ...options, method: 'GET' });
+
+export const authPost = (endpoint: string, body?: unknown, options: FetchOptions = {}) =>
+  authenticatedFetch(endpoint, {
+    ...options,
+    method: 'POST',
+    body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
+  });
+
+export const authPut = (endpoint: string, body?: unknown, options: FetchOptions = {}) =>
+  authenticatedFetch(endpoint, {
+    ...options,
+    method: 'PUT',
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+export const authPatch = (endpoint: string, body?: unknown, options: FetchOptions = {}) =>
+  authenticatedFetch(endpoint, {
+    ...options,
+    method: 'PATCH',
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+export const authDelete = (endpoint: string, options: FetchOptions = {}) =>
+  authenticatedFetch(endpoint, { ...options, method: 'DELETE' });

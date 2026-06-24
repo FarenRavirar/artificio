@@ -5,6 +5,7 @@ import { InlineDeleteConfirmation } from '../../../components/InlineDeleteConfir
 import { getButtonStyle, getUrgencyColor, handleCTA, handleEdit, handleStatus, handleArchive } from '../utils/uiHelpers';
 import { TableContactsBlock } from './TableContactsBlock';
 import { useTracking } from '../../../hooks/useTracking';
+import { authDelete } from '../../../services/apiClient';
 
 interface TableActionPanelProps {
   vm: TableViewModel;
@@ -31,13 +32,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
         ? `/api/v1/admin/tables/${vm.id}`
         : `/api/v1/gm/tables/${vm.id}`;
 
-      const res = await fetch(deleteEndpoint, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
+      const res = await authDelete(deleteEndpoint);
 
       if (!res.ok) {
         const error = await res.json().catch(() => null) as { error?: string } | null;
