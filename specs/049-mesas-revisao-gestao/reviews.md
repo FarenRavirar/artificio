@@ -1000,3 +1000,1247 @@ Reviews de bots/PR coletados durante o ciclo de revisão do módulo mesas.
   - **Recomendação:** unificar os schemas de PATCH de draft em um único lugar (ex.: `packages/content` ou `routes/discord/draftSchemas.ts`) e exportar para uso em ambos `drafts.ts` e `adminImportInbox.ts` (via `inbox/utils.ts`). Remover as definições locais de `drafts.ts`.
   - **Débito registrado:** D18 — unificar schemas de PATCH de draft (`updateDraftSchema`/`patchDraftSchema`) entre `drafts.ts` e `inbox/utils.ts`
 - **Conclusão:** Procede. Duplicata real de 3 schemas de validação (16 linhas) entre `drafts.ts` e `inbox/utils.ts`. Débito D18 registrado.
+
+---
+
+## REV-039 — Encadear o AbortSignal do caller no engine HTTP (useMestre)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94 (`debitos/049-restantes-refatoracao`); `apps/mesas/frontend/src/hooks/useMestre.ts:89-110`; `apps/mesas/frontend/src/services/apiClient.ts`
+- **Resumo:** `executeHttpRequest` substitui o `signal` recebido por `signal: controller.signal`, então o `controller.abort()` do `useEffect` não cancela a requisição em `useMestre` nem em `useMestreInsights`. Encadeie o `signal` externo ao `AbortController` interno em `apiClient.ts`.
+- **Severidade declarada:** 🟠 Major | 🩺 Stability & Availability
+- **Status:** implementado ✅
+- **Task vinculada:** REV-039 (corrigido 2026-06-24)
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivos analisados:**
+    - `apps/mesas/frontend/src/services/apiClient.ts:78-169` (executeHttpRequest)
+    - `apps/mesas/frontend/src/services/apiClient.ts:238-247` (authenticatedFetch → authGet)
+    - `apps/mesas/frontend/src/hooks/useMestre.ts:69-140` (useMestre)
+    - `apps/mesas/frontend/src/hooks/useMestreInsights.ts:33-80` (useMestreInsights)
+  - **Cadeia de chamada:**
+    1. `useMestre.ts:84` → `authGet('/api/v1/gm/${slug}', { signal: controller.signal })`
+    2. `apiClient.ts:246` → `authGet = (endpoint, options) => authenticatedFetch(endpoint, { ...options, method: 'GET' })` — signal é propagado via spread
+    3. `apiClient.ts:240` → `authenticatedFetch` chama `executeHttpRequest(url, options, false)`
+    4. `apiClient.ts:102, 119` → `const controller = new AbortController();` ... `fetch(url, { ...init, signal: controller.signal, ... })`
+  - **Prova da sobreescrita (apiClient.ts:119):**
+    ```typescript
+    const response = await fetch(url, {
+      ...init,               // aqui o signal externo chega (ex.: de useMestre)
+      signal: controller.signal,  // AQUI SOBRESCREVE — mesmo que init traga signal
+      credentials: 'include',
+      ...
+    });
+    ```
+  - **`init` é o parâmetro `options` de authenticatedFetch**, que recebe o spread de `{ ...options, method: 'GET' }` de authGet — logo, `init.signal` contém o AbortSignal do caller, mas é sobrescrito na linha seguinte.
+  - **Consumidores afetados:**
+    - `useMestre.ts:84` — controller criado em L73, abort() no cleanup L104. Signal ignorado → requisição não cancela no desmonte.
+    - `useMestreInsights.ts:54` — controller criado em L42, abort() no cleanup L76. Mesmo problema.
+    - `useFetchTables.ts:33-34` — usa `fetch` nativo (não `authGet`), não afetado.
+    - `PlayerPage.tsx:77`, `MesaPage.tsx:40` — usam `fetch` nativo, não afetados.
+  - **Impacto real:**
+    - 🟠 Alta — ao navegar entre perfis ou desmontar o componente, a requisição HTTP antiga continua em flight, consumindo banda e processamento.
+    - Resposta de request antigo pode chegar DEPOIS do novo, sobrescrevendo dados atuais (race condition).
+    - O catch no hook verifica `AbortError` mas o abort() do useEffect nunca dispara AbortError na requisição — o erro fica engolido como erro genérico, sem distinção.
+    - Em hooks que não verificam `AbortError` (ex.: se implementação futura esquecer), stale response escreve dados errados no estado.
+  - **Severidade real:** 🟠 Major — confirma a classificação original do coderabbit
+  - **Risco de regressão:** médio — corrigir exige alterar `executeHttpRequest` para combinar sinais (não substituir); requer smoke em todos os hooks que passam signal
+- **Falso positivo:** não — bug real e reproduzível por leitura de código
+- **Novos débitos encontrados:** nenhum além do já descrito — o problema de dedup abrindo mutações (REV-056) e retry em POST (REV-040/055) já estão registrados como REVs separados.
+- **Implementação (2026-06-24):**
+  - **Arquivo:** `apps/mesas/frontend/src/services/apiClient.ts:92-99` (executeHttpRequest)
+  - **Correção:** adicionado listener `init.signal.addEventListener('abort', () => controller.abort(), { once: true })` após criação do `AbortController` interno. Se `init.signal` já estiver aborted, chama `controller.abort()` diretamente.
+  - **Comportamento:** agora quando `useMestre`/`useMestreInsights` chamam `controller.abort()` no cleanup do `useEffect`, o sinal se propaga até o `AbortController` interno do `apiClient`, que cancela a requisição `fetch` em flight. Mantém o controller interno para cancelamento de dedup (requisição duplicada).
+  - **Linhas modificadas:** +8 linhas adicionadas após L92
+  - **Lint:** 15/15 ✅ | **Build:** 17/17 ✅ | **Testes frontend:** 163/163 (15 files) ✅
+
+---
+
+## REV-040 — Evite retry em POST /api/v1/gm/tables (não-idempotente)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/features/create-table/hooks/useCreateTableForm.ts:229-236`
+- **Resumo:** `authPost` usa o engine com retry automático em 5xx/429. Como a criação de mesa gera novo slug sem idempotência, retry pode duplicar a mesa.
+- **Severidade declarada:** 🟠 Major | 🗄️ Data Integrity & Integration
+- **Status:** implementado ✅ (coberto por fix engine REV-055)
+- **Task vinculada:** REV-055 (engine-level fix cobre automaticamente)
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivos analisados:**
+    - `apps/mesas/frontend/src/features/create-table/hooks/useCreateTableForm.ts:242-243` (submit → authPost)
+    - `apps/mesas/frontend/src/services/apiClient.ts:78-169` (executeHttpRequest)
+    - `apps/mesas/frontend/src/services/apiClient.ts:238-244` (authenticatedFetch)
+    - `apps/mesas/frontend/src/services/apiClient.ts:249-254` (authPost)
+    - `apps/mesas/frontend/src/services/apiClient.ts:12-16` (RETRY_CONFIG)
+  - **Cadeia de chamada:**
+    1. `useCreateTableForm.ts:242` → `authPost('/api/v1/gm/tables', payload)` — criação de mesa, `isEditing = false`
+    2. `apiClient.ts:249-254` → `authPost(endpoint, body, options)` — sem `skipRetry` (default `false`), sem `options`
+    3. `apiClient.ts:240` → `authenticatedFetch` → `executeHttpRequest(url, options, false)` — `skipRetry = false`
+    4. `apiClient.ts:85` → `const maxAttempts = skipRetry ? 0 : RETRY_CONFIG.maxRetries` → `maxAttempts = 3`
+    5. `apiClient.ts:130-144` → loop de retry em 5xx/429 — até **3 retentativas** com backoff exponencial (baseDelay=1s, maxDelay=10s)
+  - **Risco de duplicação:**
+    - POST `/api/v1/gm/tables` gera um novo `id`/`slug` no backend a cada chamada — **não é idempotente**
+    - Se o servidor cria a mesa com sucesso mas a resposta HTTP é perdida (timeout de rede, 502, etc.), o retry cria uma **segunda mesa** com os mesmos dados
+    - O backend não tem chave de idempotência (idempotency-key)
+  - **Probabilidade:** baixa — erro 5xx/429 que ocorre APÓS a persistência mas ANTES do response chegar ao cliente é raro, mas possível
+  - **Impacto:** 🟠 Alto — duplicata de mesa com dados idênticos, sem mecanismo de detecção de duplicata no frontend ou backend
+  - **Severidade real:** 🟠 Major — confirma classificação original
+  - **Risco de regressão:** baixo — corrigir exigiria `skipRetry: true` na chamada de `authPost` + propagação de opção para `executeHttpRequest`, ou chave de idempotência no backend
+  - **Falso positivo:** não — risco real de duplicata em cenário de falha de rede pós-persistência
+  - **Novos débitos encontrados:** nenhum — o problema de retry em POST também se aplica a outros `authPost`/`authPut` (coberto por REV-055/apiClient retry loop geral)
+- **Implementação (2026-06-24):**
+  - **Coberto por:** REV-055 — engine-level fix em `apiClient.ts:86-87` que desabilita retry automaticamente para POST/PUT/PATCH/DELETE via `effectiveSkipRetry = skipRetry || !isIdempotent`. Nenhuma mudança necessária nos callers.
+  - **Lint:** 15/15 ✅ | **Build:** 17/17 ✅ | **Testes:** 163/163 ✅
+
+---
+
+## REV-041 — Normalize `systemsTree` antes de salvar no estado (SystemSuggestionModal)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/components/SystemSuggestionModal.tsx:75-82`
+- **Resumo:** O código confia em `data.data || []` — se a API retornar `data` como objeto truthy, `systemsTree` deixa de ser array e quebra `flattenSystems`/renderização.
+- **Severidade declarada:** 🟠 Major | 🩺 Stability & Availability | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** REV-041 (corrigido 2026-06-24)
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivos analisados:**
+    - `apps/mesas/frontend/src/components/SystemSuggestionModal.tsx:88` (setSystemsTree)
+    - `apps/mesas/frontend/src/components/SystemSuggestionModal.tsx:30-47` (flattenSystems)
+    - `apps/mesas/frontend/src/components/SystemSuggestionModal.tsx:64` (useMemo parentOptions)
+  - **Código do problema (L88):**
+    ```typescript
+    const data = await response.json();
+    setSystemsTree(data.data || []);
+    ```
+    - Se `data.data` for array → funciona
+    - Se `data.data` for `undefined`/`null` → fallback `[]` (funciona)
+    - Se `data.data` for objeto truthy → **`data.data || []` retorna o objeto** não-array, e `systemsTree` vira objeto (TypeError)
+  - **Prova da quebra (L30-33):**
+    ```typescript
+    const flattenSystems = (nodes: SystemNode[], depth = 0) => {
+      for (const node of nodes) {  // TypeError: nodes is not iterable se não for array
+    ```
+  - **Impacto real:**
+    - Se API retornar um formato diferente, componente quebra com `TypeError: nodes is not iterable`
+    - `parentOptions` (L64) depende de `systemsTree` via `useMemo` → crash na renderização
+    - Seletor de sistema pai fica inutilizável
+  - **Probabilidade:** baixa — API atual retorna `SystemNode[]`. Risco é de mudança na API.
+  - **Severidade real:** 🟠 Major — confirma classificação original
+  - **Risco de regressão:** nulo — `Array.isArray(data.data) ? data.data : []` é 1 linha, sem efeito colateral
+  - **Falso positivo:** não — código mostra vulnerabilidade real
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-042 — Normalize payload do activity feed antes de atualizar estado (useActivityLog)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/modules/admin/activity/hooks/useActivityLog.ts:104-121`
+- **Resumo:** Cast direto para `ActivityFeedResponse` e grava `pagination`/`filters_meta` sem normalização. Payload malformado pode poluir cursor/metadados e quebrar paginação/filtros.
+- **Severidade declarada:** 🟠 Major | 🗄️ Data Integrity & Integration | ⚡ Quick win
+- **Status:** resolvido ✅ (ja mitigado em D20/D21)
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `useActivityLog.ts:67-179`
+  - **Código atual (L128-136):**
+    ```typescript
+    const payload = await response.json() as ActivityFeedResponse;
+    const pageEntries = Array.isArray(payload.data) ? payload.data : [];
+    ...
+    setHasMore(Boolean(payload.pagination?.has_more));
+    setNextCursor(payload.pagination?.next_cursor ?? null);
+    setFiltersMeta(payload.filters_meta ?? DEFAULT_ACTIVITY_FILTERS_META);
+    ```
+  - **O que já foi corrigido durante D20/D21:**
+    - `data` protegido com `Array.isArray` (L129) — antes era `payload.data || []`
+    - `has_more` usa `Boolean()` (L134) — coerção explícita
+    - `next_cursor` usa `?? null` (L135) — fallback seguro
+    - `filters_meta` usa `?? DEFAULT_ACTIVITY_FILTERS_META` (L136) — fallback seguro
+  - **O que ainda não foi corrigido:** cast `as ActivityFeedResponse` (L128) é type-only, sem validação runtime. Todos os acessos subsequentes têm fallback.
+  - **Severidade real:** 🟡 Minor — normalização crítica já implementada. Cast `as` é cosmético.
+  - **Risco de regressão:** nulo
+  - **Falso positivo:** parcial — problema original (falta de normalização) foi majoritariamente endereçado. O que resta (cast `as`) não causa risco runtime.
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-043 — Valide payload antes de salvar URLs de avatar (ProfileEditPage)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/pages/ProfileEditPage.tsx:366-374,395-403,805-813,834-842`
+- **Resumo:** Lê `response.json()` e usa `payload.secure_url` / `payload.data.avatar_url` sem checar tipo. Exija `typeof url === 'string'` antes de atualizar perfil.
+- **Severidade declarada:** 🟠 Major | 🗄️ Data Integrity & Integration | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivos analisados:** `ProfileEditPage.tsx:293-982`, `AvatarUploader.tsx:101-105`, `ImageUploader.tsx:148-152`
+  - **Caminhos não validados:**
+    1. **Profile avatar upload (ProfileEditPage.tsx:370-374):**
+       ```typescript
+       if (!response.ok || !payload?.secure_url) throw ...;  // truthy check, não typeof
+       handleAvatarChange(payload.secure_url);  // typado como string, mas sem runtime
+       ```
+    2. **Google profile import (ProfileEditPage.tsx:399-403):**
+       ```typescript
+       if (!response.ok) throw ...;
+       handleAvatarChange(payload.data.avatar_url);  // SEM VALIDAÇÃO — pode ser undefined
+       ```
+    3. **GM avatar upload (ProfileEditPage.tsx:808-812):**
+       ```typescript
+       if (!response.ok || !payload?.secure_url) throw ...;
+       updateGm({ avatar_url: payload.secure_url });  // truthy check apenas
+       ```
+    4. **GM Google import (ProfileEditPage.tsx:834-842):**
+       ```typescript
+       updateGm({ avatar_url: payload.data.avatar_url });  // SEM VALIDAÇÃO
+       ```
+    5. **AvatarUploader.tsx:101-105** e **ImageUploader.tsx:148-152:**
+       ```typescript
+       onChange(payload.secure_url as string);  // cast type-only, não runtime
+       ```
+  - **Impacto:**
+    - Se Cloudinary API retornar formato inesperado → URL não-string no estado → imagem quebrada
+    - `handleAvatarChange` e `updateGm` tipam como `string`, mas sem verificação runtime
+  - **Probabilidade:** baixa — Cloudinary API é estável e sempre retorna `string` para `secure_url`
+  - **Severidade real:** 🟡 Minor — baixa probabilidade, mas sem normalização. Correção de 1 linha cada ponto.
+  - **Risco de regressão:** nulo
+  - **Falso positivo:** não — vulnerabilidade real, embora de baixa probabilidade
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-044 — Normalize `data.data` antes de salvar no estado (PlatformsPage)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx:95-108`
+- **Resumo:** `authGet` traz payload externo; `data.data || []` aceita objetos truthy e itens sem `name/slug`, quebrando filter/render posterior.
+- **Severidade declarada:** 🟠 Major | 🩺 Stability & Availability | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `PlatformsPage.tsx:65-428`
+  - **Problema 1 — `data.data` sem `Array.isArray` (L102-103):**
+    ```typescript
+    const data = await response.json();
+    const items = data.data || [];  // sem Array.isArray — objeto truthy passa
+    ```
+    - Se `data.data` for objeto truthy → `items` vira objeto não-array
+    - `setVttPlatforms(items)` ou `setCommunicationPlatforms(items)` recebem não-array
+  - **Problema 2 — `.filter()` quebra em não-array (L73-75):**
+    ```typescript
+    const filteredItems = useMemo(
+      () => currentItems.filter((item) => (  // TypeError se currentItems não for array
+        item.name.toLowerCase().includes(...)  // TypeError se item.name for null
+      )),
+      [currentItems, searchQuery]
+    );
+    ```
+    - `currentItems` é `vttPlatforms || communicationPlatforms` — se um deles for não-array, `.filter()` lança TypeError
+    - Se item individual não tiver `name` ou `slug`, `.toLowerCase()` lança TypeError
+  - **Impacto:** quebra total da listagem de plataformas se API retornar formato inesperado
+  - **Severidade real:** 🟠 Major — confirma classificação original
+  - **Risco de regressão:** nulo — `Array.isArray` + fallback + guardas de string
+  - **Falso positivo:** não — vulnerabilidade real
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-045 — Normalize payloads do onboarding antes de popular formulário (OnboardingPage)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/pages/OnboardingPage.tsx:133-158`
+- **Resumo:** Casts para `MePayload`/`OptionsPayload` não validam runtime; campos como `systems_tree`, `tags`, `platforms`, `preferences.languages`, `preferences.weekdays` entram no estado sem proteção e alimentam `.map`/`.length`.
+- **Severidade declarada:** 🟠 Major | 🩺 Stability & Availability | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `OnboardingPage.tsx:78-456`
+  - **Problema 1 — Casts type-only sem runtime (L103-109):**
+    ```typescript
+    const meJson = (await meRes.json()) as MePayload;         // cast type-only
+    const optionsJson = (await optionsRes.json()) as OptionsPayload; // cast type-only
+    ```
+  - **Problema 2 — `?? []` não protege contra objeto truthy (L111-118, L120-140):**
+    ```typescript
+    systemsTree: optionsJson.data.systems_tree ?? [],  // objeto truthy passa
+    platforms: optionsJson.data.platforms ?? [],        // objeto truthy passa
+    weekdays: meJson.data.preferences.weekdays ?? [],   // objeto truthy passa
+    ```
+    - `??` só distingue `null`/`undefined` de valores definidos
+    - Se API retornar objeto truthy (ex.: `systems_tree: { 0: {...} }`), o objeto passa e quebra funções que esperam array
+  - **Problema 3 — `flattenSystemTree` faz `for...of` em `systemsTree` (L60-72):**
+    ```typescript
+    const flattenSystemTree = (nodes: SystemTreeNode[]) => {
+      for (const node of nodes) {  // TypeError se nodes não for array
+    ```
+    - Chamado em L171: `for (const node of flattenSystemTree(options.systemsTree))`
+    - Se `options.systemsTree` for objeto truthy, **crash certo**
+  - **Outros campos:** `tags`, `systems`, `platforms`, `weekdays` — usam `??` (vulneráveis a objeto truthy). `languages` tem guarda `&& length > 0` (seguro contra objeto).
+  - **Probabilidade:** baixa — API atual retorna arrays consistentemente
+  - **Severidade real:** 🟠 Major — confirma classificação original
+  - **Risco de regressão:** nulo — `Array.isArray(x) ? x : []` em cada campo
+  - **Falso positivo:** não — vulnerabilidade real
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-046 — drafts.ts: Validar e salvar patch mesclado em vez do payload cru
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/discord/drafts.ts:60`
+- **Resumo:** O handler valida e salva o patch cru em vez do payload final mesclado, permitindo que campos como `table` sejam sobrescritos por objeto parcial. Ajustar para primeiro aplicar merge no payload atual, validar o resultado e só então persistir.
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `apps/mesas/backend/src/routes/discord/drafts.ts:59-103` (PATCH /:id handler)
+  - **Fluxo atual:**
+    1. L60: `patchDraftSchema.safeParse(req.body)` — valida body
+    2. L68-73: Busca draft atual (`current`)
+    3. **L75: `validateDraftStatusTransition(parsed.data, current)`** — valida usando PATCH data **CRU** (não merged)
+    4. **L83-85: Cria `mergedNormalizedPayload`** — `{ ...current.normalized_payload, ...parsed.data.normalized_payload }`
+    5. L87-96: `.set({ ...parsed.data, normalized_payload: mergedNormalizedPayload, updated_at })` — salva
+  - **O que já está correto:**
+    - A persistência (L90-91) usa `mergedNormalizedPayload` — o `normalized_payload` salvo é o **merged**, não o cru ✅
+    - `parsed.data` só contém `{ normalized_payload?, status?, review_notes? }` — campos seguros
+  - **O que ainda é problema — validação usa dados crus (L75):**
+    - `validateDraftStatusTransition(parsed.data, current)` usa `data.normalized_payload ?? current.normalized_payload`
+    - Se o PATCH enviar `normalized_payload` parcial (ex.: só `{ table: { title } }`), a checagem de `missing_fields` opera sobre o payload parcial, **não sobre o merged final**
+    - Exemplo: PATCH envia `{ normalized_payload: { table: { title: "Novo" } }, status: "ready" }` — a validação vê `table` parcial (sem system_id, type, modality...) e pode rejeitar incorretamente, mesmo que o draft atual já tenha todos os campos preenchidos
+  - **Probabilidade:** muito baixa — frontend sempre envia payload completo. Cenário só ocorre em chamadas manuais à API.
+  - **Severidade real:** 🟡 Minor — edge case que não afeta fluxo normal (frontend sempre envia payload completo)
+  - **Risco de regressão:** baixo — inverter ordem: primeiro merge, depois validar
+  - **Falso positivo:** **parcial** — a parte de "salvar patch cru" está INCORRETA (o código já salva merged). A parte de "validar antes do merge" é resíduo válido.
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-047 — fetch.ts: Draft upsert pode deixar message status inconsistente
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/discord/fetch.ts:70-101`
+- **Resumo:** A lógica de draft upsert pode deixar `discord_import_messages` marcada como `parsed` mesmo quando nenhum draft foi alterado (ex.: `existingDraft` já `synced` ou `rejected`). A atualização do status da mensagem só deve ocorrer quando um draft foi efetivamente inserido/atualizado.
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `apps/mesas/backend/src/routes/discord/fetch.ts:64-101`
+  - **Código do problema:**
+    ```typescript
+    // L70-82 — SÓ atualiza draft se não for synced/rejected
+    if (existingDraft && existingDraft.status !== 'synced' && existingDraft.status !== 'rejected') {
+      // UPDATE draft
+    } else if (!existingDraft) {
+      // INSERT draft
+    }
+    // Se for synced/rejected → não faz nada com o draft (correto)
+    
+    // L98-101 — MAS SEMPRE marca mensagem como 'parsed' (INCORRETO!)
+    await db.updateTable('discord_import_messages')
+      .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
+      .where('id', '=', message.id)
+      .execute();
+    ```
+  - **Impacto:**
+    - Quando `existingDraft` é `synced` ou `rejected`: o draft é preservado (correto), mas a mensagem de origem é sobrescrita para `'parsed'` (incorreto)
+    - Mensagens que já estavam `synced` voltam a aparecer como `parsed` no admin
+    - Inconsistência: mensagem `parsed` mas draft `synced` / `rejected`
+  - **Probabilidade:** alta — ocorre em todo re-fetch de mensagens que já têm draft em estado terminal
+  - **Severidade real:** 🟠 Major — confirma classificação original. Inconsistência de estado entre message e draft.
+  - **Risco de regressão:** baixo — mover update da mensagem para dentro dos branches de UPDATE/INSERT
+  - **Falso positivo:** não — bug real e verificável
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-048 — messages.ts: Discord REST call sem timeout/AbortController
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/discord/messages.ts:28-31`
+- **Resumo:** A chamada REST ao Discord não tem timeout e pode pendurar indefinidamente. Usar AbortController (padrão já usado em `ingestMessages` e `discovery`).
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `apps/mesas/backend/src/routes/discord/messages.ts:26-31` (fetchDiscordMessageDiagnostic)
+  - **Código sem timeout (L28-31):**
+    ```typescript
+    const response = await fetch(
+      `${DISCORD_API_BASE}/channels/.../messages/...`,
+      { headers: { Authorization: `Bot ${token}` } }
+    );  // SEM AbortController, SEM timeout
+    ```
+  - **Padrão existente no mesmo módulo (discord/discovery.ts:78):**
+    ```typescript
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    // ...
+    clearTimeout(timeout);
+    ```
+  - **Padrão existente (discord/ingestMessages.ts:140):**
+    ```typescript
+    const controller = new AbortController();
+    // ...
+    ```
+  - **Impacto:** se Discord API não responder, a requisição HTTP do admin fica pendurada até timeout do servidor (pode levar minutos). Recursos de conexão não liberados.
+  - **Probabilidade:** baixa — Discord API é estável, mas possível em casos de rate limit ou instabilidade
+  - **Severidade real:** 🟡 Minor — impacto limitado ao diagnóstico manual. Não afeta fluxo principal de importação.
+  - **Risco de regressão:** nulo — adicionar AbortController + timeout de 15s (padrão do módulo)
+  - **Falso positivo:** não — falta confirmada
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-049 — parse-batch.ts: Sobrescreve drafts synced/rejected incondicionalmente
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/discord/parse-batch.ts:54-68`
+- **Resumo:** O batch upsert sobrescreve estados de draft existentes incondicionalmente. Preservar drafts já marcados como `synced` ou `rejected`, pulando atualizações de status/normalized_payload para drafts terminais.
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `apps/mesas/backend/src/routes/discord/parse-batch.ts:54-85`
+  - **Código do problema (L59-69):**
+    ```typescript
+    if (existing) {
+      await db.updateTable('discord_import_table_drafts')
+        .set({
+          status: normalized.status,  // Sobrescreve status sem verificar terminal
+          ...
+        })
+        .where('id', '=', existing.id)
+        .execute();
+    }
+    ```
+  - **Comparação com fetch.ts (L70):** `fetch.ts` tem guarda explícita:
+    ```typescript
+    if (existingDraft && existingDraft.status !== 'synced' && existingDraft.status !== 'rejected') {
+      // SÓ atualiza se NÃO for terminal
+    }
+    ```
+    `parse-batch.ts` **não tem essa guarda** — atualiza qualquer draft, inclusive `synced`/`rejected`.
+  - **Mesmo problema da mensagem (L82-85):** marca mensagem como `'parsed'` incondicionalmente, mesmo se draft não foi alterado (mesmo bug do REV-047).
+  - **Impacto:**
+    - Draft `synced` (já publicada como mesa) → overwrite para `'draft'`/`'needs_review'` → perde dados de sincronização
+    - Draft `rejected` → reaberto sem revisão administrativa
+    - Mensagem `parsed` mesmo quando draft estava terminal
+  - **Probabilidade:** média — ocorre em todo parse-batch que encontra mensagens já processadas e em estado terminal
+  - **Severidade real:** 🟠 Major — confirma classificação original
+  - **Risco de regressão:** baixo — adicionar mesma guarda de fetch.ts + mover update da mensagem para dentro do branch
+  - **Falso positivo:** não — bug real
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-050 — sources.ts: Guild/channel IDs sem validação de snowflake Discord
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/discord/sources.ts:8-14`
+- **Resumo:** `createSourceSchema` aceita qualquer string não-vazia para `guild_id` e `channel_id`, permitindo persistir IDs Discord inválidos. Validar como snowflake Discord (inteiro de 64-bit).
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivos analisados:** `sources.ts:8-14`, `utils.ts:160-162`
+  - **Problema (sources.ts:8-14):**
+    ```typescript
+    const createSourceSchema = z.object({
+      guild_id: z.string().min(1),    // qualquer string não-vazia
+      channel_id: z.string().min(1),   // qualquer string não-vazia
+    });
+    ```
+  - **Padrão existente (utils.ts:160-162):**
+    ```typescript
+    export const snowflakeParamSchema = z.object({
+      guildId: z.string().regex(/^\d{5,30}$/, 'Servidor Discord inválido.'),
+    });
+    ```
+  - **Impacto:** Inexistente atualmente (admin só cadastra fontes com IDs reais). Risco futuro: erro de digitação, dados corrompidos, ou IDs de teste que poluem o banco.
+  - **Probabilidade:** baixa — admins inserem dados manualmente
+  - **Severidade real:** 🟡 Minor — validação de formato, sem impacto funcional imediato
+  - **Risco de regressão:** nulo — reutilizar regex existente
+  - **Falso positivo:** não — falta de validação confirmada
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-051 — utils.ts: Normalize `content_raw` antes de `parseDiscordAnnouncement`
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/discord/utils.ts:115-130`
+- **Resumo:** O cast atual não converte em runtime; `parseDiscordAnnouncement()` pode chamar `.trim()` em valor não-string. Coagir `content_raw` para string (ou fallback seguro) antes de passar adiante.
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `apps/mesas/backend/src/routes/discord/utils.ts:115-126`
+  - **Código do problema (L126):**
+    ```typescript
+    content_raw: (msg.content_raw as string) ?? '',
+    ```
+    - `as string` é **type-only** (não converte em runtime)
+    - `?? ''` só captura `null`/`undefined`
+    - Se `content_raw` for número ou objeto → passa como não-string
+  - **Campos vizinhos que usam `String()` corretamente (L117-118):**
+    ```typescript
+    discord_message_id: String(msg.discord_message_id ?? ''),   // ✅
+    discord_channel_id: String(msg.discord_channel_id ?? ''),   // ✅
+    ```
+  - **Impacto:** Se `content_raw` chegar como número (ex.: `253463`), `parseDiscordAnnouncement` pode chamar `.trim()` nisso e lançar `TypeError: msg.content_raw.trim is not a function`
+  - **Probabilidade:** muito baixa — `content_raw` vem sempre como string da API Discord
+  - **Severidade real:** 🟡 Minor — improvável mas quebra total se ocorrer
+  - **Risco de regressão:** nulo — trocar `as string` por `String()`
+  - **Falso positivo:** não — padrão inconsistente com campos vizinhos
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-052 — HydrationAdminPanel: Retry automático em POST não-idempotente
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/modules/admin/hydration/HydrationAdminPanel.tsx:63`
+- **Resumo:** Chamada de hidratação usa `authPost` e herda retry automático do `apiClient`, podendo repetir operação não-idempotente. Desabilitar retry ou adicionar chave de idempotência.
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅ (coberto por fix engine REV-055)
+- **Task vinculada:** REV-055 (engine-level fix cobre automaticamente)
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `HydrationAdminPanel.tsx:52-80` (handleHydrate)
+  - **Código (L63):**
+    ```typescript
+    const response = await authPost(`/api/v1/admin/sync/hydrate?dry_run=${dryRun}`);
+    ```
+    - `authPost` → `authenticatedFetch` → `executeHttpRequest` com `skipRetry = false`
+    - Retry up to 3x em 5xx/429
+  - **Problema:** hidratação modifica o banco de testes. Retry pode executar a sincronização duas vezes, causando duplicatas ou inconsistências. Mesmo padrão de REV-040.
+  - **Impacto:** duplicação de registros no banco de testes se response for perdido após persistência bem-sucedida
+  - **Probabilidade:** baixa (mesma do REV-040)
+  - **Severidade real:** 🟠 Major — confirma classificação original
+  - **Risco de regressão:** baixo — `authPost(endpoint, body, { skipRetry: true })`
+  - **Falso positivo:** não — mesmo risco do REV-040
+  - **Novos débitos encontrados:** nenhum
+- **Implementação (2026-06-24):**
+  - **Coberto por:** REV-055 — engine-level fix em `apiClient.ts:86-87` desabilita retry automaticamente para POST. Nenhuma mudança necessária no caller.
+  - **Lint:** 15/15 ✅ | **Build:** 17/17 ✅ | **Testes:** 163/163 ✅
+
+---
+
+## REV-053 — GestaoPage: Normalizar `data.data` antes de `setAllTables`
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/pages/GestaoPage.tsx:197-200`
+- **Resumo:** Resposta de `authGet('/api/v1/tables')` é armazenada diretamente em estado; `allTables.filter(...)` pode quebrar se receber não-array. Usar `Array.isArray` com fallback.
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `GestaoPage.tsx`
+  - **Código (fetchAllTables):**
+    ```typescript
+    const data = await response.json();
+    setAllTables(data.data || []);  // sem Array.isArray
+    ```
+  - **Código (filter posterior):**
+    ```typescript
+    const filteredTables = allTables.filter(t =>
+      t.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    ```
+  - **Problema:** `data.data || []` — se `data.data` for objeto truthy, `allTables` vira não-array e `.filter()` lança TypeError
+  - **Impacto:** quebra total da listagem de mesas se API retornar formato inesperado
+  - **Probabilidade:** baixa
+  - **Severidade real:** 🟠 Major — confirma classificação original. Mesmo padrão de REV-041/044.
+  - **Risco de regressão:** nulo
+  - **Falso positivo:** não
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-054 — ScenariosAdminView: Normalizar scenarios response
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/pages/ScenariosAdminView.tsx:44-47`
+- **Resumo:** `setScenarios` pode receber não-array e quebrar `scenarios.find(...)`. Normalizar com `Array.isArray` e validar campos mínimos.
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `ScenariosAdminView.tsx:33-183`
+  - **Código (L48-50):**
+    ```typescript
+    const data = await response.json();
+    setScenarios(data.data || []);  // sem Array.isArray
+    ```
+  - **Código downstream que quebra (L69):**
+    ```typescript
+    const selectedScenario = scenarios.find(s => s.id === selectedId);
+    ```
+  - **Problema:** `data.data || []` — se `data.data` for objeto truthy, `scenarios` vira não-array. `.find()` lança TypeError.
+  - **Impacto:** quebra total do painel de cenários
+  - **Probabilidade:** baixa
+  - **Severidade real:** 🟠 Major — confirma classificação original. Mesmo padrão de REV-041/044/053.
+  - **Risco de regressão:** nulo
+  - **Falso positivo:** não
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-055 — apiClient: Retry loop aplica a toda request (risco em mutações POST/PATCH/DELETE)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/services/apiClient.ts:97-99`
+- **Resumo:** Retry automático em cada request pode duplicar side effects em chamadas mutantes. Retry deve ser habilitado só para métodos seguros/idempotentes GET/HEAD.
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅
+- **Task vinculada:** REV-055 (corrigido 2026-06-24)
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `apiClient.ts:78-169` (executeHttpRequest)
+  - **Código (L82-85):**
+    ```typescript
+    const maxAttempts = skipRetry ? 0 : RETRY_CONFIG.maxRetries;  // maxRetries = 3
+    ```
+  - **Problema:** `skipRetry` só é passado como `false` por `authenticatedFetch` e seus consumidores (authGet, authPost, authPut, authPatch, authDelete). Retry automático em POST/PATCH/DELETE pode duplicar side effects.
+  - **Impacto:** duplicação de registros (REV-040), execução dupla de operações não-idempotentes (REV-052)
+  - **Severidade real:** 🟠 Major — confirma classificação original
+  - **Risco de regressão:** médio — mudar retry para só GET/HEAD requer alteração no `executeHttpRequest` + smoke em todos os fluxos
+  - **Falso positivo:** não — bug real
+  - **Novos débitos encontrados:** nenhum
+- **Implementação (2026-06-24):**
+  - **Arquivo:** `apps/mesas/frontend/src/services/apiClient.ts:86-87, L116, L150, L171`
+  - **Correção:** adicionado `const isIdempotent = init.method === 'GET' || init.method === 'HEAD' || !init.method` e `const effectiveSkipRetry = skipRetry || !isIdempotent`. Todos os 3 checks de retry (`maxAttempts`, response retry, catch retry) usam `effectiveSkipRetry` em vez de `skipRetry`. Isso desabilita automaticamente retry para POST/PUT/PATCH/DELETE.
+  - **Cobertura:** REV-040 e REV-052 resolvidos automaticamente por este fix engine-level.
+  - **Lint:** 15/15 ✅ | **Build:** 17/17 ✅ | **Testes:** 163/163 ✅
+
+---
+
+## REV-056 — apiClient: Dedup só deve aplicar para GET/HEAD
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/services/apiClient.ts:84-90`
+- **Resumo:** Deduplicação atual usa só method+URL e pode abortar mutações legítimas (POST/PUT/PATCH/DELETE). Só aplicar para requisições idempotentes.
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅
+- **Task vinculada:** REV-056 (corrigido 2026-06-24)
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `apiClient.ts:94-101` (executeHttpRequest)
+  - **Código (L94-101):**
+    ```typescript
+    const requestKey = `${init.method || 'GET'}:${url}`;
+    if (pendingRequests.has(requestKey)) {
+      pendingRequests.get(requestKey)?.abort();  // Cancela request anterior
+    }
+    ```
+  - **Problema:** para POST/PATCH/DELETE, se o usuário clicar rapidamente duas vezes no mesmo formulário, a primeira requisição é abortada e a segunda prossegue. Mas se a primeira já foi processada no backend, o abort não desfaz a mutação.
+  - **Cenário de risco:** usuário clica "Criar mesa" duas vezes → primeira POST é abortada → segunda POST cria a mesa → resultado: 1 criação OK. Mas se a primeira POST já criou no backend antes do abort chegar → a segunda POST cria outra → **2 mesas iguais**.
+  - **Impacto:** duplicação de mutações em cenário de clique rápido
+  - **Probabilidade:** baixa
+  - **Severidade real:** 🟠 Major — mesmo risco de REV-040/055
+  - **Risco de regressão:** baixo — guardar `if (init.method === 'GET' || init.method === 'HEAD')` antes do dedup
+  - **Falso positivo:** não
+  - **Novos débitos encontrados:** nenhum
+- **Implementação (2026-06-24):**
+  - **Arquivo:** `apps/mesas/frontend/src/services/apiClient.ts:92, L99-101`
+  - **Correção:** dedup agora usa `isIdempotent` para decidir se cancela requisição duplicada anterior (`if (isIdempotent && pendingRequests.has(requestKey))`) e se registra o controller no mapa de dedup (`if (isIdempotent) { pendingRequests.set(...) }`). Para POST/PUT/PATCH/DELETE, não há dedup — múltiplos cliques geram múltiplas requisições independentes.
+  - **Lint:** 15/15 ✅ | **Build:** 17/17 ✅ | **Testes:** 163/163 ✅
+
+---
+
+## REV-057 — apiClient: Signal sobrescrito (abort externo ignorado)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/services/apiClient.ts:102-105`
+- **Resumo:** O `fetch` sobrescreve `init.signal` com `controller.signal`, ignorando signal passado pelo chamador. Encadear ambos os sinais no AbortController interno.
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅ (coberto por REV-039)
+- **Task vinculada:** REV-039
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `apiClient.ts:119` (executeHttpRequest)
+  - **Prova (L119):**
+    ```typescript
+    const response = await fetch(url, {
+      ...init,               // init.signal chega aqui
+      signal: controller.signal,  // SOBRESCREVE init.signal
+      ...
+    });
+    ```
+  - **Relação com REV-039:** REV-039 documenta o mesmo bug pelos consumidores `useMestre`/`useMestreInsights`. REV-057 é o mesmo bug visto pelo código fonte do `apiClient`. Mesma causa raiz.
+  - **Impacto:** qualquer chamador que passe `{ signal }` para `authGet`/`authPost` tem o signal ignorado. A requisição não pode ser cancelada externamente.
+  - **Severidade real:** 🟠 Major
+  - **Falso positivo:** não
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-058 — apiClient: authPut/authPatch stringify FormData incorretamente
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/frontend/src/services/apiClient.ts:250-269`
+- **Resumo:** `authPut`/`authPatch` stringificam todo payload não-vazio, transformando `FormData` em `{}` e descartando bodies falsy válidos. Preservar `FormData` e só stringificar objeto/JSON.
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `apiClient.ts:250-269`
+  - **Comparação entre funções:**
+    ```typescript
+    // authPost (L254) — ✅ CORRETO
+    body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
+    
+    // authPut (L261) — ❌ SEM GUARDA
+    body: body ? JSON.stringify(body) : undefined,
+    
+    // authPatch (L268) — ❌ SEM GUARDA
+    body: body ? JSON.stringify(body) : undefined,
+    ```
+  - **Impacto:** Se algum consumidor passar `FormData` para `authPut`/`authPatch`, o FormData é convertido para `'{}'` via `JSON.stringify`. A requisição envia `Content-Type: application/json` com body `'{}'` — dados perdidos.
+  - **Consumidores atuais:** nenhum — busca no código não encontrou `authPut`/`authPatch` com `FormData`. Bug latente.
+  - **Probabilidade:** baixa — nenhum consumidor atual usa este padrão
+  - **Severidade real:** 🟡 Minor — latente, sem impacto atual
+  - **Risco de regressão:** nulo — copiar a guarda de `authPost`
+  - **Falso positivo:** não — código inconsistente entre funções. Risco real para futuros consumidores.
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-059 — specs/backlog.md: D07 inconsistente com spec 049
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `specs/backlog.md:91`
+- **Resumo:** Item de status da Spec 049 mostra D07 como aberto no backlog, enquanto `specs/049-mesas-revisao-gestao/debitos.md` e `tasks.md` já marcam como resolvido.
+- **Severidade declarada:** 🟠 Major
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivos analisados:** `specs/backlog.md:91`, `specs/049-mesas-revisao-gestao/debitos.md:15`
+  - **Backlog.md:91:** `D01-D18 resolvidos exceto D06-D07` — D07 listado como NÃO resolvido
+  - **Debitos.md:15:** `D07 | ~~adminTablesAutoArchive.test.ts...~~ | Legado | **RESOLVIDO (2026-06-24)**`
+  - **Inconsistência:** backlog afirma que D07 está aberto, mas o débito foi resolvido (git mv + PR)
+  - **Impacto:** apenas documentação. Não afeta runtime.
+  - **Severidade real:** 🟡 Minor — documentação desatualizada
+  - **Risco de regressão:** nulo
+  - **Falso positivo:** não — inconsistência confirmada
+  - **Novos débitos encontrados:** nenhum
+
+---
+
+## REV-060 — debitos.md D21: Padronizar contagem de avisos no catálogo
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `specs/049-mesas-revisao-gestao/debitos.md:30-35`
+- **Resumo:** Descrição registra "3 avisos catalogados" mas total final informa "2 avisos". Ambiguidade no fechamento.
+- **Severidade declarada:** 🟡 Minor | 🎯 Functional Correctness | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `debitos.md:30-35`
+  - **Inconsistência:**
+    - L30: `1 erro de lint corrigido, 3 avisos catalogados` — diz **3**
+    - L35: `**1 erro corrigido ✅ + 2 avisos catalogados 📋**` — total diz **2**
+  - **Contagem real:** linhas catalogadas: L32 (1) + L33 (1) = **2 avisos catalogados**
+  - **Impacto:** apenas documentação. Sem efeito funcional.
+  - **Severidade real:** 🟡 Minor — documentação ambígua
+  - **Falso positivo:** não — inconsistência real
+
+---
+
+## REV-061 — debitos.md D20: Corrigir células insuficientes na tabela Markdown
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `specs/049-mesas-revisao-gestao/debitos.md:28`
+- **Resumo:** Linha D20 tem menos células que o cabeçalho exige (`# | Débito | Origem | Próximo passo`), quebrando renderização/lint de Markdown.
+- **Severidade declarada:** 🟡 Minor | 📐 Maintainability & Code Quality | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo analisado:** `debitos.md:28`
+  - **Prova:**
+    - Cabeçalho (L7): `| # | Débito | Origem | Próximo passo |` — **4 colunas**
+    - Linha D20 (L28): `| D20 | (...) | **RESOLVIDO (2026-06-24):** (...) |` — **3 células**
+    - Faltando a 4ª célula
+  - **Impacto:** tabela Markdown pode renderizar incorretamente em alguns visualizadores. A célula "Próximo passo" fica vazia.
+  - **Severidade real:** 🟡 Minor — cosmético
+  - **Falso positivo:** não
+
+---
+
+## REV-062 — inbox/drafts.ts: `updated` pode ser indefinido após transação (PATCH)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/inbox/drafts.ts:251-274`
+- **Resumo:** A transação retorna `[result]`; se `updateTable` interno não retornar linhas (ex.: linha removida entre verificação e update), `updated` será `undefined` e resposta será `{ data: undefined }` com 200. Responder 404 se ausente.
+- **Severidade declarada:** 🟡 Minor | 🎯 Functional Correctness | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - `inbox/drafts.ts:271-274`: `return [result]` e `return res.json({ data: updated })` — sem guarda contra `undefined`
+  - Comparação com PATCH handler (L194-201) que tem `if (!draft) return 404`
+  - Race condition improvável (draft verificado antes em L219), mas possível
+  - **Severidade real:** 🟡 Minor
+
+---
+
+## REV-063 — inbox/import.ts: Proteger contra `draftRow` indefinido
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/inbox/import.ts:135-162`
+- **Resumo:** `const [draftRow] = await db.insertInto(...).returning(...).execute()` retorna array; se nenhuma linha retornada, `draftRow` é `undefined` e acesso a `draftRow.id` lança. Guarda explícito evita exceção.
+- **Severidade declarada:** 🟡 Minor | 🩺 Stability & Availability | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - `inbox/import.ts:135-146`: insertInto + returning → destructuring `[draftRow]`
+  - L156-162: `draftRow.id`, `draftRow.status`, `draftRow.confidence` sem guarda
+  - Insert sempre retorna linha (PK collision é erro, não empty), mas falta guarda defensiva
+  - **Severidade real:** 🟡 Minor
+
+---
+
+## REV-064 — inbox/drafts.ts: Erros de validação de query retornam 500 em vez de 400
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/inbox/drafts.ts:16-18`
+- **Resumo:** `listDraftsSchema.parse(req.query)` lança `ZodError` em parâmetros inválidos, capturado pelo catch genérico que responde 500. Usar `safeParse` e retornar 400 com detalhes.
+- **Severidade declarada:** 🟡 Minor | 🎯 Functional Correctness | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - `inbox/drafts.ts:18`: `listDraftsSchema.parse(req.query)` — usa `.parse()` (throw)
+  - L60-62: catch genérico retorna 500
+  - PATCH handler (L153-155) usa `.safeParse()` corretamente — inconsistência
+  - **Severidade real:** 🟡 Minor
+
+---
+
+## REV-065 — inbox/metrics.ts: `total_corrections` como string no runtime
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/inbox/metrics.ts:11-14`
+- **Resumo:** `countAll<number>()` só afeta tipo; com `pg`, `count()` pode chegar como string em runtime. Coagir com `Number()` antes de `res.json`. Renomear `totalDrafts` para `totalCorrections`.
+- **Severidade declarada:** 🟡 Minor | 🎯 Functional Correctness
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - `inbox/metrics.ts:11-14`: `countAll<number>().as('count')` — type-only
+  - L33: `total_corrections: totalDrafts?.count ?? 0` — sem `Number()` coercion
+  - PostgreSQL `count()` retorna string (bigint) em runtime
+  - **Severidade real:** 🟡 Minor
+
+---
+
+## REV-066 — messages.ts: Rejeitar `limit` e `offset` negativos antes da query
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/discord/messages.ts:52-68`
+- **Resumo:** `Math.min(Number(limit) || 50, 100)` aceita `-1`; `Number(offset) || 0` aceita offsets negativos. Validar como inteiros positivos antes da query.
+- **Severidade declarada:** 🟡 Minor | 🩺 Stability & Availability | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - `messages.ts:52-68`: `Math.min(Number(limit) || 50, 100)` — `-1` → `Number(-1) || 50` = `50`
+  - `Number(offset) || 0` — `-5` → `Number(-5) || 0` = `-5` (negativo passa)
+  - Validação de datas (L56-61) existe mas paginação não validada
+  - **Severidade real:** 🟡 Minor
+
+---
+
+## REV-067 — fetch.ts: Atualizar `last_synced_at` em todo fetch bem-sucedido
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/discord/fetch.ts:186-191`
+- **Resumo:** `last_synced_at` só é atualizado quando `result.inserted > 0 || result.updated > 0 || result.total === 0`. Fetch que retorna só mensagens já conhecidas não atualiza timestamp, deixando fonte parecendo desatualizada.
+- **Severidade declarada:** 🟡 Minor | 🎯 Functional Correctness | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - `fetch.ts:186-191`: condicional que só atualiza se `inserted > 0 || updated > 0 || total === 0`
+  - Se existirem mensagens conhecidas (já importadas), fetch bem-sucedido não atualiza `last_synced_at`
+  - Fonte parece desatualizada no admin mesmo após sync bem-sucedido
+  - Condição deve ser removida: atualizar sempre em fetch bem-sucedido
+  - **Severidade real:** 🟡 Minor
+
+---
+
+## REV-068 — messageParse.ts: Marcar mensagens sem conteúdo como `ignored` no parse manual
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/discord/messageParse.ts:21-22`
+- **Resumo:** `parseDiscordMessage()` retornar `null` devolve 422 mas deixa mensagem em `pending`/`error` para reprocessar. Marcar como `ignored` antes de responder.
+- **Severidade declarada:** 🟡 Minor | 🎯 Functional Correctness | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - `messageParse.ts:21-22`: `if (!result) return res.status(422).json(...)` — sem update no banco
+  - Mensagem permanece `pending` → pode ser reprocessada infinitamente
+  - Compare com `parse-batch.ts:46-49` que marca como `ignored` antes de continuar
+  - **Severidade real:** 🟡 Minor
+
+---
+
+## REV-069 — inbox/import.ts: Draft insert e status update não são atômicos
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/inbox/import.ts:135-152`
+- **Resumo:** Inserção em `discord_import_table_drafts` e update de `import_messages` para `status: 'parsed'` são operações independentes. Se a segunda falhar, draft existe mas mensagem permanece `pending`. Envolver em `db.transaction()`.
+- **Severidade declarada:** 🔵 Trivial | 🩺 Stability & Availability | ⚡ Quick win
+- **Status:** pendente (test mock nao suporta transaction)
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - `inbox/import.ts:135-146` (insert draft) + `148-152` (update message) — operações separadas
+  - Se L148-152 falhar, draft existe mas mensagem `pending`
+  - Compare com `inbox/drafts.ts:251-272` (reparse) que usa `db.transaction()`
+  - **Severidade real:** 🔵 Trivial — improvável (erro só em falha de banco)
+
+---
+
+## REV-070 — inbox/metrics.ts: Agregação de campos corrigidos carrega tabela inteira em memória
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/inbox/metrics.ts:16-29`
+- **Resumo:** `selectFrom('import_corrections').select('diff').execute()` traz todas as linhas para o processo e itera em JS. Com crescimento, vira gargalo de memória/CPU. Agregar no banco (jsonb_object_keys + GROUP BY) ou paginar.
+- **Severidade declarada:** 🔵 Trivial | 🚀 Performance & Scalability
+- **Status:** pendente (test mock nao suporta executeQuery)
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - `inbox/metrics.ts:16-29`: busca todas as linhas de `import_corrections` e itera em JS
+  - `Object.keys(diff)` em cada linha → O(n*m) onde n=linhas, m=chaves por diff
+  - Solução: `SELECT jsonb_object_keys(diff) AS key, COUNT(*) AS cnt FROM import_corrections GROUP BY key`
+  - **Severidade real:** 🔵 Trivial — tabela pequena atualmente, mas não escala
+
+---
+
+## REV-071 — Codex: Revisão geral do PR #94
+
+- **Origem:** chatgpt-codex-connector (bot)
+- **Tipo:** PR (review)
+- **Referência:** PR #94 (`debitos/049-restantes-refatoracao`); commit `67c75323f3`
+- **Resumo:** Revisão automática do Codex. Mensagem institucional sobre configuração do bot no repositório. Sem sugestões inline específicas de código no comentário. O Codex revisou o PR e não postou comentários adicionais sobre problemas específicos.
+- **Severidade declarada:** N/A (review geral)
+- **Status:** encerrado sem acao
+- **Task vinculada:** sem vínculo claro
+- **Débito vinculado:** —
+- **Investigação:**
+  - Comentário do Codex (chatgpt-codex-connector) é uma mensagem boilerplate do serviço
+  - Informa que o code review foi executado, sem apontar issues específicas
+  - **Nenhum débito ou issue encontrado**
+  - **Status:** encerrado sem ação
+
+---
+
+## REV-072 — ProfileEditPage.tsx 80% linhas duplicadas (2 blocos de upload)
+
+- **Origem:** SonarQube (duplication)
+- **Tipo:** check (código estático)
+- **Referência:** PR #94; `apps/mesas/frontend/src/pages/ProfileEditPage.tsx`
+- **Resumo:** 80% das linhas novas do arquivo são duplicadas entre seção de avatar do perfil e avatar do GM. Bloco de upload via `authPost('/api/v1/upload')` e import via `authPost('/api/v1/profile/me/google-picture')` aparecem 2 vezes cada.
+- **Severidade declarada:** — (SonarQube)
+- **Status:** implementado ✅
+- **Débito vinculado:** D22 (novo)
+- **Investigação:**
+  - **Arquivo:** `ProfileEditPage.tsx:361-377` (profile avatar upload) vs `ProfileEditPage.tsx:800-813` (GM avatar upload)
+  - **Bloco duplicado 1 — Upload via backend (17 linhas cada):**
+    ```typescript
+    const response = await authPost('/api/v1/upload', formData);
+    const payload = await response.json();
+    if (!response.ok || !payload?.secure_url) {
+      throw new Error(payload?.error || 'Falha ao enviar imagem.');
+    }
+    handleAvatarChange(payload.secure_url);  // vs updateGm({ avatar_url: payload.secure_url })
+    ```
+  - **Bloco duplicado 2 — Google photo import (8 linhas cada):**
+    ```typescript
+    const response = await authPost('/api/v1/profile/me/google-picture');
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload?.error || 'Erro ao buscar foto do Google.');
+    handleAvatarChange(payload.data.avatar_url);  // vs updateGm({ avatar_url: payload.data.avatar_url })
+    ```
+  - **Diferença:** profile usa `handleAvatarChange(url)` (→ `updateProfile({ avatar_url: url })`), GM usa `updateGm({ avatar_url: url })`
+  - **Total:** ~25 linhas duplicadas (diferença de 1 linha de callback entre os blocos)
+  - **Impacto:** qualquer mudança no fluxo de upload (troca de endpoint, tratamento de erro) precisa ser replicada em 2 lugares
+  - **Severidade real:** 🟡 Minor — duplicata de bloco de upload entre profile avatar e GM avatar
+  - **Recomendação:** extrair `async function uploadAvatar(file: File): Promise<string>` e `async function importGoogleAvatar(): Promise<string>` em `ProfileEditPage.tsx` ou em `utils/upload.ts`
+  - **Débito registrado:** D22 — extrair blocos de upload duplicados entre profile e GM
+
+---
+
+## REV-073 — parse-batch.ts 19.8% linhas duplicadas (22 linhas)
+
+- **Origem:** SonarQube (duplication)
+- **Tipo:** check (código estático)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/discord/parse-batch.ts`
+- **Resumo:** 19.8% das linhas (22) duplicadas entre `parse-batch.ts` e `fetch.ts` — bloco `parseDiscordAnnouncement` com 16 campos de message.
+- **Severidade declarada:** — (SonarQube)
+- **Status:** implementado ✅
+- **Débito vinculado:** D23 (novo)
+- **Investigação:**
+  - **Arquivos:** `parse-batch.ts:28-44` vs `fetch.ts:37-52`
+  - **Bloco duplicado (17 linhas cada):**
+    ```typescript
+    const parsed = parseDiscordAnnouncement({
+      source_kind: message.source_kind,
+      discord_message_id: message.discord_message_id,
+      discord_channel_id: message.discord_channel_id,
+      ... // 16 campos idênticos
+    }, systems);
+    ```
+  - **Origem:** ambos extraídos de `adminDiscordSync.ts` (D09) sem extrair função compartilhada
+  - **Impacto:** se a assinatura de `parseDiscordAnnouncement` mudar (ex.: adicionar campo), ambos precisam ser atualizados. Risco de regressão silenciosa.
+  - **Severidade real:** 🟡 Minor — mesmas 17 linhas idênticas. Já existia como débito D16 (resolvido) para `messageParse.ts` vs `drafts.ts` — mesmo padrão.
+  - **Recomendação:** extrair `parseDiscordMessage(message, systems)` em `discord/shared.ts` que encapsule o mapeamento dos 16 campos
+  - **Débito registrado:** D23 — extrair `parseDiscordAnnouncement` call block compartilhado entre `parse-batch.ts` e `fetch.ts`
+
+---
+
+## REV-074 — inbox/drafts.ts 12.4% linhas duplicadas (35 linhas)
+
+- **Origem:** SonarQube (duplication)
+- **Tipo:** check (código estático)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/inbox/drafts.ts`
+- **Resumo:** 12.4% das linhas (35) duplicadas entre `inbox/drafts.ts:PATCH` e `discord/drafts.ts:PATCH` — estrutura do handler de atualização de draft.
+- **Severidade declarada:** — (SonarQube)
+- **Status:** implementado ✅
+- **Débito vinculado:** D24 (novo)
+- **Investigação:**
+  - **Arquivos:** `inbox/drafts.ts:150-206` vs `discord/drafts.ts:57-103`
+  - **Estrutura duplicada (~20 linhas estruturais):**
+    - Schema parse: `patchDraftSchema.safeParse(req.body)` + 400 return (schema já compartilhado via REV-038)
+    - Empty check: `Object.keys(parsed.data).length === 0` return 400
+    - Try/catch com estrutura idêntica
+    - Fetch current draft: `db.selectFrom('discord_import_table_drafts').select(...).where('id','=')...`
+    - 404 check: `if (!current) return 404`
+    - Transition validation: `validateDraftStatusTransition(parsed.data, current)` + 422 return
+    - Update: `db.updateTable('discord_import_table_drafts').set({...}).where('id','=','...').returningAll().execute()`
+    - 404 check após update
+    - Return `res.json({ data: draft })`
+    - Catch: `console.error(...)` + `return res.status(500).json(...)`
+  - **Diferenças:**
+    - `inbox/drafts.ts` tem validações extras: import_message_id, synced check, published check
+    - `discord/drafts.ts` tem merge de normalized_payload
+  - **Impacto:** handler estruturalmente duplicado. Alterações no fluxo de PATCH (ex.: novo campo, nova validação) podem ser aplicadas inconsistentemente.
+  - **Severidade real:** 🟡 Minor — handlers já divergem em validações específicas, mas estrutura boilerplate é igual
+  - **Recomendação:** extrair middleware/função `handlePatchDraft(req, currentChecks)` que encapsule o boilerplate, mantendo as validações específicas como callbacks
+  - **Débito registrado:** D24 — extrair boilerplate de PATCH handler compartilhado entre `inbox/drafts.ts` e `discord/drafts.ts`
+
+---
+
+## REV-075 — discord/drafts.ts 11.1% linhas duplicadas (1 linha)
+
+- **Origem:** SonarQube (duplication)
+- **Tipo:** check (código estático)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/discord/drafts.ts`
+- **Resumo:** 11.1% das linhas (1) duplicadas — `patchDraftSchema.safeParse` import compartilhado de `inbox/utils`.
+- **Severidade declarada:** — (SonarQube)
+- **Status:** investigado — falso positivo (duplicata já resolvida)
+- **Débito vinculado:** já resolvido (D18)
+- **Investigação:**
+  - O SonarQube detectou 1 linha duplicada em `discord/drafts.ts` (11.1% das linhas novas no diff)
+  - A linha duplicada é `import { patchDraftSchema } from '../inbox/utils';` — **import de schema compartilhado**
+  - Esta duplicata foi o motivo do D18 (REV-038), já **RESOLVIDO** — `drafts.ts` agora importa o schema de `inbox/utils.ts` em vez de defini-lo localmente
+  - **Falso positivo:** SonarQube detecta o `import` como linha duplicada, mas é uma dependência legítima de código compartilhado
+  - **Severidade real:** N/A — falso positivo
+  - **Recomendação:** nenhuma — D18 já resolvido
+
+---
+
+## REV-076 — fetch.ts 9.5% linhas duplicadas (23 linhas)
+
+- **Origem:** SonarQube (duplication)
+- **Tipo:** check (código estático)
+- **Referência:** PR #94; `apps/mesas/backend/src/routes/discord/fetch.ts`
+- **Resumo:** 9.5% das linhas (23) duplicadas entre `fetch.ts` e `parse-batch.ts` — mesmo bloco `parseDiscordAnnouncement` de 16 campos + `normalizeDiscordTableDraft`.
+- **Severidade declarada:** — (SonarQube)
+- **Status:** implementado ✅ (junto com REV-073)
+- **Débito vinculado:** D23 (já registrado em REV-073)
+- **Investigação:**
+  - **Mesma duplicata do REV-073**, vista pelo outro lado
+  - Bloco `parseDiscordAnnouncement({...16 campos...}, systems)` em `fetch.ts:37-52` ≡ `parse-batch.ts:28-44`
+  - Bloco `normalizeDiscordTableDraft(parsed, systems)` em `fetch.ts:53` ≡ `parse-batch.ts:44`
+  - Total: ~23 linhas duplicadas entre os dois arquivos
+  - **Débito vinculado:** D23 (mesmo débito do REV-073)
+  - **Falso positivo:** não — duplicata real com `parse-batch.ts`
+  - **Severidade real:** 🟡 Minor
+  - **Recomendação:** mesmo do REV-073 — extrair função compartilhada em `discord/shared.ts`
+
+---
+
+## REV-077 — parse-batch.ts: Mensagem não reconciliada quando draft já é terminal (synced/rejected)
+
+- **Origem:** coderabbitai (bot) — PR #94, comentário duplicado (♻️)
+- **Tipo:** PR (review)
+- **Referência:** `apps/mesas/backend/src/routes/discord/parse-batch.ts:43-84`
+- **Resumo:** Quando o draft existente já está em estado terminal (`synced` ou `rejected`), o fluxo preserva o draft (REV-049) mas não reconcilia o status da mensagem, não interrompe side effects (`ensureSystemSuggestionForDraft`) e conta como sucesso no contador — causando loop de reprocessamento infinito.
+- **Severidade declarada:** 🟠 Major | 🗄️ Data Integrity & Integration | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** —
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo:** `parse-batch.ts:25-92`
+  - **Código analisado (L38-84):**
+    ```typescript
+    const existing = await db.selectFrom('discord_import_table_drafts')
+      .select(['id', 'status'])
+      .where('discord_message_id', '=', message.id)
+      .executeTakeFirst();
+
+    // REV-049: preservar drafts synced/rejected (igual fetch.ts)
+    if (existing && existing.status !== 'synced' && existing.status !== 'rejected') {
+      // UPDATE draft + mark message as parsed
+    } else if (!existing) {
+      // INSERT draft + mark message as parsed
+    }
+    // REV-049: se existing é synced/rejected, não altera nem draft nem mensagem
+
+    await ensureSystemSuggestionForDraft(        // <-- side effect em terminal
+      normalized.draft,
+      req.user?.userId,
+      message.discord_thread_name ?? message.discord_message_id,
+    );
+
+    succeeded++;  // <-- contado como sucesso mesmo sem ter feito nada
+    ```
+  - **Fluxo de falha quando `existing.status` é `'synced'` ou `'rejected'`:**
+    1. `parseDiscordMessage(message, systems)` executa parse completo (L28) — trabalho desperdiçado
+    2. `existing` encontrado com status terminal (L38-41)
+    3. Guarda de terminal (L44) → `false` — nenhum branch executado ✅ draft preservado
+    4. `else if (!existing)` (L60) → `false` — `existing` é truthy
+    5. **Nenhuma atualização na mensagem** — `discord_import_messages` continua `pending` ou `error` ❌
+    6. `ensureSystemSuggestionForDraft(...)` executado (L78-82) — side effect com dados recém-parseados sobre draft já terminal ❌
+    7. `succeeded++` (L84) — contador inflado artificialmente ❌
+    8. Loop continua → mensagem ainda `pending`/`error` → **processada novamente no próximo parse-batch** 🔄
+  - **Mesmo padrão em `fetch.ts` (`createOrUpdateDraftFromMessage`):**
+    `fetch.ts:55-98` tem a MESMA estrutura:
+    ```typescript
+    async function createOrUpdateDraftFromMessage(message, systems, adminId): Promise<'draft' | 'ignored'> {
+      const parsedResult = await parseDiscordMessage(message, systems);  // parse sempre executa
+      if (!parsedResult) return 'ignored';
+      const { parsed, normalized } = parsedResult;
+      const existingDraft = await db.selectFrom('discord_import_table_drafts')
+        .select(['id', 'status']).where('discord_message_id', '=', message.id).executeTakeFirst();
+
+      if (existingDraft && existingDraft.status !== 'synced' && existingDraft.status !== 'rejected') {
+        // UPDATE draft + mark message as parsed
+      } else if (!existingDraft) {
+        // INSERT draft + mark message as parsed
+      }
+      // REV-047: if synced/rejected, don't change message status
+
+      await ensureSystemSuggestionForDraft(...);  // ← side effect em terminal
+      return 'draft';                              // ← sempre 'draft', conta como sucesso
+    }
+    ```
+    - **3 problemas idênticos:** mensagem não atualizada, side effect executado, contador inflado
+    - Chamado APENAS via `parsePendingMessagesForSource` (fetch.ts:129), que por sua vez é chamado por 2 rotas:
+      - `POST /fetch` (fetch.ts:183) — admin clica "Buscar mensagens" para uma fonte específica
+      - `POST /sources/:sourceId/reingest-force` (fetch.ts:223) — admin força re-ingestão de uma fonte
+  - **Análise comparativa de escopo e impacto:**
+
+    | Aspecto | `parse-batch.ts` | `fetch.ts` |
+    |---------|-----------------|------------|
+    | **Escopo da query** | Global: todas as mensagens `pending`/`error` **sem filtro de source** (parse-batch.ts:12-17) | Por source: mensagens `pending`/`error` **filtradas por source_id** (fetch.ts:109-115) |
+    | **Gatilho** | Botão "Processar lote" no admin + pode ser chamado programaticamente (cron) | Apenás via ação admin "Buscar mensagens" ou "Re-ingestar" por fonte |
+    | **Frequência potencial** | Alta — pode ser disparado repetidamente, acumula mensagens de todas as fontes | Baixa — admin precisa executar manualmente para cada fonte |
+    | **Reprocessamento** | Mensagens terminais de TODAS as fontes são reprocessadas a cada ciclo | Mensagens terminais de UMA fonte específica são reprocessadas apenas quando admin busca aquela fonte |
+    | **Reingest-force** | N/A (não deleta mensagens) | `reingest-force` deleta mensagens `pending`/`error` antes de re-ingestar (fetch.ts:207-211), então mensagens terminais são removidas, não reprocessadas — bug só ocorre no fluxo `POST /fetch` |
+  - **Impacto real:**
+    - 🟠 **ALTO em `parse-batch.ts`:** loop global de reprocessamento. Mensagens terminais acumuladas de todas as fontes são re-parseadas a cada execução, desperdiçando CPU, DB I/O e chamadas `ensureSystemSuggestionForDraft`. Sem intervenção manual (admin alterar status da mensagem ou excluir draft), o loop é infinito.
+    - 🟡 **MÉDIO em `fetch.ts`:**
+      - `POST /fetch`: mensagens terminais da fonte são re-parseadas cada vez que admin busca aquela fonte. Frequência baixa (admin-dependente), mas o desperdício ocorre.
+      - `POST /sources/:sourceId/reingest-force`: mensagens `pending`/`error` são DELETADAS antes (fetch.ts:207-211), então o bug NÃO se manifesta neste fluxo — as mensagens terminais somem junto com o delete.
+    - 🟠 **Side effect indesejado (ambos):** `ensureSystemSuggestionForDraft` chamado com `normalized.draft` recém-computado para um draft já terminal, podendo criar sugestões desalinhadas com revisão humana.
+    - 🟡 **Contadores enganosos (ambos):** `succeeded++` inclui mensagens terminais como sucesso, mascarando métricas reais.
+  - **Probabilidade:**
+    - `parse-batch.ts`: 🟠 alta — ocorre em toda execução,
+    - `fetch.ts` (`POST /fetch`): 🟡 média — admin-dependente, mas inevitável se houver mensagens terminais na fonte
+  - **Severidade real combinada:** 🟠 Major — confirma classificação original. O impacto global do `parse-batch.ts` domina a severidade.
+  - **Risco de regressão:** baixo em ambos — alteração aditiva (early return / continue) sem efeito nos fluxos existentes
+  - **Falso positivo:** não — bug real e verificável por leitura de código em ambos os arquivos
+  - **Novos débitos encontrados:** nenhum
+  - **Decisão — aplicar fix em ambos:**
+    Recomenda-se **corrigir ambos os arquivos** em uma única alteração coordenada:
+    - **`parse-batch.ts`:** adicionar `if (existing?.status === 'synced' || existing?.status === 'rejected')` com `continue` antes da guarda REV-049 existente (linha 43). Atualizar `discord_import_messages.status` para `'synced'` (draft synced) ou `'ignored'` (draft rejected). Interrompe fluxo antes de `ensureSystemSuggestionForDraft` e `succeeded++`.
+    - **`fetch.ts` (`createOrUpdateDraftFromMessage`):** adicionar o mesmo early check antes da guarda existente (linha 55). Como é função (não loop inline), usar **early return** em vez de `continue`:
+      ```typescript
+      if (existingDraft?.status === 'synced' || existingDraft?.status === 'rejected') {
+        await db.updateTable('discord_import_messages')
+          .set({ status: existingDraft.status === 'synced' ? 'synced' : 'ignored', parse_error: null, updated_at: new Date() })
+          .where('id', '=', message.id)
+          .execute();
+        return 'draft';  // caller conta como succeeded (já era terminal, mas status reconciliado)
+      }
+      ```
+    - **Por que ambos?** (a) consistência de comportamento entre módulos que fazem a mesma operação; (b) o fix é idêntico em lógica (diferença só de sintaxe: `continue` vs `return`); (c) risco zero de regressão por ser aditivo. Se houver restrição de escopo, priorizar `parse-batch.ts` (impacto ALTO) e tratar `fetch.ts` como follow-up (impacto MÉDIO).
+- **Implementação (2026-06-24):**
+  - **Estratégia anti-duplicação:** criada função compartilhada `reconcileTerminalDraft()` em `discord/utils.ts` que unifica o padrão em um único lugar. Ambos os callers usam a mesma função — elimina duplicação de código entre `parse-batch.ts` e `fetch.ts`.
+  - **Arquivo:** `apps/mesas/backend/src/routes/discord/utils.ts:247-264` — nova função `reconcileTerminalDraft()`
+  - **`parse-batch.ts`:**
+    - Import `reconcileTerminalDraft` de `./utils`
+    - Adicionado early check com `continue` após o fetch do `existing`
+    - Guarda REV-049 simplificada de `if (existing && existing.status !== 'synced' && ...)` → `if (existing)` (terminal já tratado acima)
+    - Mensagem update movido para fora dos branches (não mais duplicado)
+  - **`fetch.ts`:**
+    - Import `reconcileTerminalDraft` de `./utils`
+    - Adicionado early check com `return 'draft'` após o fetch do `existingDraft`
+    - Guarda simplificada: `if (existingDraft && ...)` → `if (existingDraft)`
+    - Mensagem update consolidado para fora dos branches (elimina duplicação de 4 linhas)
+  - **Validação:** build repo-wide 17/17 ✅, testes backend 28 files 223/223 ✅

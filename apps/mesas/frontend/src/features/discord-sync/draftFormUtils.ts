@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { getApiBase } from '../../hooks/useImageUrlImport';
+import { authGet } from '../../services/apiClient';
 import type { DiscordCoverQuality, DiscordDraftPayload, DiscordDraftTablePayload, DiscordSlotsAmbiguity } from './types';
 import type { SystemTreeNode } from '../../types/systems';
 
@@ -227,7 +227,7 @@ function normalizeSystemTree(raw: unknown): SystemTreeNode[] {
 }
 
 export async function loadSystems(): Promise<SystemTreeNode[]> {
-  const res = await fetch(`${getApiBase()}/api/v1/systems?view=tree`, { credentials: 'include' });
+  const res = await authGet('/api/v1/systems?view=tree');
   if (!res.ok) throw new Error('Erro ao carregar sistemas.');
   const json: unknown = await res.json();
   const data = asRecord(json).data;

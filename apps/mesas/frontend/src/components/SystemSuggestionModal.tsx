@@ -3,8 +3,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/useAuth';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authGet, authPost } from '../services/apiClient';
 
 interface SystemSuggestionModalProps {
   isOpen: boolean;
@@ -73,16 +72,14 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
       setSystemsError(null);
 
       try {
-        const response = await fetch(`${API_BASE}/api/v1/systems?view=tree`, {
-          credentials: 'include',
-        });
+        const response = await authGet('/api/v1/systems?view=tree');
 
         if (!response.ok) {
           throw new Error('Erro ao carregar sistemas');
         }
 
         const data = await response.json();
-        setSystemsTree(data.data || []);
+        setSystemsTree(Array.isArray(data.data) ? data.data : []);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao carregar sistemas';
         setSystemsError(message);
@@ -104,28 +101,24 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
 
     try {
       const isAdmin = user?.role === 'admin';
-      const response = await fetch(`${API_BASE}${isAdmin ? '/api/v1/systems/admin' : '/api/v1/system-suggestions'}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(
-          isAdmin
-            ? {
-                name: name.trim(),
-                name_pt: namePt.trim() || null,
-                description: description.trim() || null,
-                parent_id: suggestionType === 'system' ? null : parentId || null,
-                node_type: suggestionType,
-              }
-            : {
-                name: name.trim(),
-                name_pt: namePt.trim() || null,
-                description: description.trim() || null,
-                parent_id: suggestionType === 'system' ? null : parentId || null,
-                suggestion_type: suggestionType,
-              },
-        ),
-      });
+      const endpoint = isAdmin ? '/api/v1/systems/admin' : '/api/v1/system-suggestions';
+      const body = isAdmin
+        ? {
+            name: name.trim(),
+            name_pt: namePt.trim() || null,
+            description: description.trim() || null,
+            parent_id: suggestionType === 'system' ? null : parentId || null,
+            node_type: suggestionType,
+          }
+        : {
+            name: name.trim(),
+            name_pt: namePt.trim() || null,
+            description: description.trim() || null,
+            parent_id: suggestionType === 'system' ? null : parentId || null,
+            suggestion_type: suggestionType,
+          };
+
+      const response = await authPost(endpoint, body);
 
       if (!response.ok) {
         const data = await response.json();

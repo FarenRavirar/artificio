@@ -14,17 +14,14 @@ function isCloudinaryUrl(url: string): boolean {
   }
 }
 
+import { authPost } from '../services/apiClient';
+
 export function getApiBase(): string {
   return (import.meta.env.VITE_API_URL || '').replace(/\/api\/v1\/?$/, '');
 }
 
 async function importImageUrl(url: string, purpose: ImageImportPurpose): Promise<string> {
-  const response = await fetch(`${getApiBase()}/api/v1/upload/url`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, purpose }),
-  });
+  const response = await authPost('/api/v1/upload/url', { url, purpose });
 
   const payload = await response.json();
 

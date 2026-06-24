@@ -4,8 +4,7 @@ import type { SessionSchedule } from '../../../components/SessionRepeater';
 import type { ContactFormEntry } from '../../../components/ContactsFormBlock';
 import { formStateToPayload } from '../utils/mapper';
 import { validateAll } from '../utils/validation';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authPost, authPut } from '../../../utils/authenticatedFetch';
 
 interface UseCreateTableFormOptions {
   initialData?: Partial<FormState> & { id?: string };
@@ -223,17 +222,13 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
 
       const tableId = typeof initialData?.id === 'string' ? initialData.id : null;
       const isEditing = tableId !== null;
-      const method = isEditing ? 'PUT' : 'POST';
       const endpoint = isEditing 
-        ? `${API_BASE}/api/v1/gm/tables/${tableId}` 
-        : `${API_BASE}/api/v1/gm/tables`;
+        ? `/api/v1/gm/tables/${tableId}` 
+        : `/api/v1/gm/tables`;
 
-      const res = await fetch(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
+      const res = isEditing
+        ? await authPut(endpoint, payload)
+        : await authPost(endpoint, payload);
 
       if (!res.ok) {
         const json = await res.json();

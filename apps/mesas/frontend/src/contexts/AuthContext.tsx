@@ -3,10 +3,9 @@ import type { ReactNode } from 'react';
 import { getAccountsOrigin, useSession } from '@artificio/auth/client';
 import { AuthContext, isValidRole } from './authContextCore';
 import type { User } from './authContextCore';
+import { authGet } from '../services/apiClient';
 
 export type { User } from './authContextCore';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
 
 const mapSsoRole = (role: 'user' | 'admin'): User['role'] => role === 'admin' ? 'admin' : 'player';
 
@@ -27,9 +26,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setIsLocalLoading(true);
     try {
-      const meRes = await fetch(`${API_BASE}/api/v1/me`, {
-        credentials: 'include',
-      });
+      const meRes = await authGet('/api/v1/me');
 
       if (meRes.status === 401 || meRes.status === 403 || meRes.status === 404) {
         return;

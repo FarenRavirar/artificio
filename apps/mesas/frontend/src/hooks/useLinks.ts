@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/useAuth';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authGet, authPost, authPatch, authDelete } from '../utils/authenticatedFetch';
 
 export interface UserLink {
   id: string;
@@ -96,9 +95,7 @@ export function useLinks(): UseLinksReturn {
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`${API_BASE}/api/v1/profile/links`, {
-        credentials: 'include',
-      });
+      const res = await authGet('/api/v1/profile/links');
 
       if (!res.ok) {
         const message = await readApiError(res, 'Erro ao carregar links');
@@ -131,12 +128,7 @@ export function useLinks(): UseLinksReturn {
       try {
         setError(null);
 
-        const res = await fetch(`${API_BASE}/api/v1/profile/links`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ url }),
-        });
+        const res = await authPost('/api/v1/profile/links', { url });
 
         if (!res.ok) {
           const message = await readApiError(res, 'Erro ao adicionar link');
@@ -172,10 +164,7 @@ export function useLinks(): UseLinksReturn {
       try {
         setError(null);
 
-        const res = await fetch(`${API_BASE}/api/v1/profile/links/${linkId}`, {
-          method: 'DELETE',
-          credentials: 'include',
-        });
+        const res = await authDelete(`/api/v1/profile/links/${linkId}`);
 
         if (!res.ok) {
           const message = await readApiError(res, 'Erro ao remover link');
@@ -200,12 +189,7 @@ export function useLinks(): UseLinksReturn {
       try {
         setError(null);
 
-        const res = await fetch(`${API_BASE}/api/v1/profile/links/reorder`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ linkIds }),
-        });
+        const res = await authPatch('/api/v1/profile/links/reorder', { linkIds });
 
         if (!res.ok) {
           const message = await readApiError(res, 'Erro ao reordenar links');

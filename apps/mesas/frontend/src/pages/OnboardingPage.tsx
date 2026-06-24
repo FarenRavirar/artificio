@@ -5,8 +5,7 @@ import { useAuth } from '../contexts/useAuth';
 import { SystemTreeSelector } from '../components/SystemTreeSelector';
 import type { SystemTreeNode } from '../types/systems';
 import { applySeo } from '../utils/seo';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authGet, authPut } from '../services/apiClient';
 
 interface OptionItem {
   id: string;
@@ -123,8 +122,8 @@ export const OnboardingPage = () => {
 
       try {
         const [meRes, optionsRes] = await Promise.all([
-          fetch(`${API_BASE}/api/v1/me`, { credentials: 'include' }),
-          fetch(`${API_BASE}/api/v1/me/options`, { credentials: 'include' }),
+          authGet('/api/v1/me'),
+          authGet('/api/v1/me/options'),
         ]);
 
         if (!meRes.ok || !optionsRes.ok) {
@@ -140,22 +139,22 @@ export const OnboardingPage = () => {
         }
 
         setOptions({
-          systemsTree: optionsJson.data.systems_tree ?? [],
-          tags: optionsJson.data.tags ?? [],
-          platforms: optionsJson.data.platforms ?? [],
+          systemsTree: Array.isArray(optionsJson.data.systems_tree) ? optionsJson.data.systems_tree : [],
+          tags: Array.isArray(optionsJson.data.tags) ? optionsJson.data.tags : [],
+          platforms: Array.isArray(optionsJson.data.platforms) ? optionsJson.data.platforms : [],
         });
 
         setForm({
           display_name: meJson.data.profile?.display_name ?? user.name ?? '',
           bio: meJson.data.profile?.bio ?? '',
-          systems: meJson.data.preferences.systems ?? [],
-          tags: meJson.data.preferences.tags ?? [],
+          systems: Array.isArray(meJson.data.preferences.systems) ? meJson.data.preferences.systems : [],
+          tags: Array.isArray(meJson.data.preferences.tags) ? meJson.data.preferences.tags : [],
           languages:
             meJson.data.preferences.languages && meJson.data.preferences.languages.length > 0
               ? meJson.data.preferences.languages
               : ['Português'],
-          platforms: meJson.data.preferences.platforms ?? [],
-          weekdays: meJson.data.preferences.weekdays ?? [],
+          platforms: Array.isArray(meJson.data.preferences.platforms) ? meJson.data.preferences.platforms : [],
+          weekdays: Array.isArray(meJson.data.preferences.weekdays) ? meJson.data.preferences.weekdays : [],
         });
       } catch (err: unknown) {
         setError(err instanceof Error && err.message ? err.message : 'Falha ao carregar onboarding.');
@@ -195,19 +194,14 @@ export const OnboardingPage = () => {
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/me/preferences`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          display_name: form.display_name,
-          bio: form.bio,
-          systems: form.systems,
-          tags: form.tags,
-          languages: form.languages,
-          platforms: form.platforms,
-          weekdays: form.weekdays,
-        }),
+      const res = await authPut('/api/v1/me/preferences', {
+        display_name: form.display_name,
+        bio: form.bio,
+        systems: form.systems,
+        tags: form.tags,
+        languages: form.languages,
+        platforms: form.platforms,
+        weekdays: form.weekdays,
       });
 
       if (!res.ok) {

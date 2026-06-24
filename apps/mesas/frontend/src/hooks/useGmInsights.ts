@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authGet } from '../services/apiClient';
 
 export interface GmInsightsOverview {
   total_views: number;
@@ -85,9 +85,7 @@ export function useGmInsights() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`${API_BASE}/api/v1/gm/insights`, {
-          credentials: 'include',
-        });
+        const response = await authGet('/api/v1/gm/insights');
 
         if (!response.ok) {
           if (response.status === 404) {

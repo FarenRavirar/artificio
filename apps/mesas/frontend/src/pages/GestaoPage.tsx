@@ -13,8 +13,7 @@ import { DiscordSyncPanel } from '../features/discord-sync/components/DiscordSyn
 import { SystemSuggestionResolutionDrawer } from '../components/SystemSuggestionResolutionDrawer';
 import { DevFeedbackPanel } from '../modules/admin/dev-feedback/DevFeedbackPanel';
 import { InboxPanel } from '../features/inbox/components/InboxPanel';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authGet, authPost, authPatch, authPut, authDelete } from '../services/apiClient';
 
 interface SystemSuggestion {
   kind: 'system';
@@ -129,7 +128,7 @@ const normalizeScenarioSuggestions = (value: unknown): ScenarioSuggestion[] => {
 
 const getSuggestionEndpoint = (suggestion: CatalogSuggestion, action: 'approve' | 'reject') => {
   const resource = suggestion.kind === 'system' ? 'system-suggestions' : 'scenario-suggestions';
-  return `${API_BASE}/api/v1/admin/${resource}/${suggestion.id}/${action}`;
+  return `/api/v1/admin/${resource}/${suggestion.id}/${action}`;
 };
 
 export const GestaoPage = () => {
@@ -158,12 +157,8 @@ export const GestaoPage = () => {
     try {
       const query = filter === 'all' ? '' : `?status=${filter}`;
 
-      const systemResponse = await fetch(`${API_BASE}/api/v1/admin/system-suggestions${query}`, {
-        credentials: 'include',
-      });
-      const scenarioResponse = await fetch(`${API_BASE}/api/v1/admin/scenario-suggestions${query}`, {
-        credentials: 'include',
-      });
+      const systemResponse = await authGet(`/api/v1/admin/system-suggestions${query}`);
+      const scenarioResponse = await authGet(`/api/v1/admin/scenario-suggestions${query}`);
 
       const nextSuggestions: CatalogSuggestion[] = [];
 
@@ -199,12 +194,10 @@ export const GestaoPage = () => {
     if (!isAuthenticated) return;
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/tables`, {
-        credentials: 'include',
-      });
+      const response = await authGet('/api/v1/tables');
       if (response.ok) {
         const data = await response.json();
-        setAllTables(data.data || []);
+        setAllTables(Array.isArray(data.data) ? data.data : []);
       }
     } catch (error) {
       console.error('[GestaoPage] Erro ao buscar mesas:', error);
@@ -237,11 +230,7 @@ export const GestaoPage = () => {
     if (!publish) return;
     const results = await Promise.allSettled(
       pending.map((d) =>
-        fetch(`${API_BASE}/api/v1/admin/discord-sync/drafts/${d.id}/sync`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-        }),
+        authPost(`/api/v1/admin/discord-sync/drafts/${d.id}/sync`),
       ),
     );
     const succeeded = results.filter((r) => r.status === 'fulfilled' && (r.value as Response).ok).length;
@@ -262,12 +251,7 @@ export const GestaoPage = () => {
     setApprovingSuggestionId(suggestion.id);
 
     try {
-      const response = await fetch(getSuggestionEndpoint(suggestion, 'approve'), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(editedData || {}),
-      });
+      const response = await authPatch(getSuggestionEndpoint(suggestion, 'approve'), editedData || {});
 
       if (response.ok) {
         const result = await response.json();
@@ -298,12 +282,7 @@ export const GestaoPage = () => {
     setRejectingSuggestionId(suggestion.id);
 
     try {
-      const response = await fetch(getSuggestionEndpoint(suggestion, 'reject'), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({}),
-      });
+      const response = await authPatch(getSuggestionEndpoint(suggestion, 'reject'), {});
 
       if (response.ok) {
         toast.success(`${suggestion.kind === 'system' ? 'Sistema' : 'Cenário'} rejeitado!`);
@@ -346,12 +325,7 @@ export const GestaoPage = () => {
         suggestions
           .filter((suggestion) => selectedSuggestionIds.includes(suggestion.id))
           .map((suggestion) =>
-          fetch(getSuggestionEndpoint(suggestion, 'reject'), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({}),
-          }),
+          authPatch(getSuggestionEndpoint(suggestion, 'reject'), {}),
         ),
       );
       const succeeded = results.filter((result) => result.status === 'fulfilled' && result.value.ok).length;
@@ -374,10 +348,7 @@ export const GestaoPage = () => {
     setDeletingTableId(id);
     try {
       // CORREÇÃO DT-013: Rota correta é /api/v1/admin/tables/:id
-      const response = await fetch(`${API_BASE}/api/v1/admin/tables/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const response = await authDelete(`/api/v1/admin/tables/${id}`);
 
       if (response.ok) {
         toast.success('Mesa deletada!');
@@ -420,12 +391,7 @@ export const GestaoPage = () => {
 
     try {
       // CORREÇÃO DT-013: Rota correta é /api/v1/admin/tables/:id
-      const response = await fetch(`${API_BASE}/api/v1/admin/tables/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ status: newStatus }),
-      });
+      const response = await authPut(`/api/v1/admin/tables/${id}`, { status: newStatus });
 
       if (response.ok) {
         toast.success(`Mesa ${action === 'ativar' ? 'ativada' : 'desativada'}!`);
@@ -635,12 +601,7 @@ export const GestaoPage = () => {
                               onChange={async (e) => {
                                 const newValue = e.target.checked;
                                 try {
-                                  const res = await fetch(`${API_BASE}/api/v1/admin/tables/${table.id}`, {
-                                    method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    credentials: 'include',
-                                    body: JSON.stringify({ is_covil: newValue }),
-                                  });
+                                  const res = await authPut(`/api/v1/admin/tables/${table.id}`, { is_covil: newValue });
                                   if (!res.ok) throw new Error('Erro ao atualizar');
                                   toast.success(newValue ? 'Mesa marcada como Covil do Lich' : 'Marca Covil removida');
                                   fetchAllTables();

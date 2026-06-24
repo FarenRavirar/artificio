@@ -29,7 +29,7 @@ interface UseMestreInsightsResult {
   insights: string[];
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authGet } from '../services/apiClient';
 
 export function useMestreInsights({
   slug,
@@ -51,10 +51,7 @@ export function useMestreInsights({
 
       setInsightsLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/api/v1/gm/${slug}/insights`, {
-          signal: controller.signal,
-          credentials: 'include',
-        });
+        const res = await authGet(`/api/v1/gm/${slug}/insights`, { signal: controller.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         setMetrics(json?.data?.metrics ?? []);

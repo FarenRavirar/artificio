@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { TagInput } from './TagInput';
 import { SearchableSelect, type SearchableOption } from './SearchableSelect';
+import { authGet, authPost } from '../services/apiClient';
 
 const NODE_TYPE_LABELS: Record<string, string> = {
   system: 'Sistema',
@@ -21,8 +22,6 @@ const toSearchOption = (s: SystemOption): SearchableOption => ({
   chips: s.aliases,
   keywords: [s.name, s.name_pt ?? '', s.path_slug, ...s.aliases],
 });
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
 
 // --- Tipos locais (resposta da API tratada como unknown ate normalizar) ---
 
@@ -351,10 +350,8 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
       setLoading(true);
       try {
         const [candRes, sysRes] = await Promise.all([
-          fetch(`${API_BASE}/api/v1/admin/system-suggestions/${suggestion.id}/candidates`, {
-            credentials: 'include',
-          }),
-          fetch(`${API_BASE}/api/v1/systems`, { credentials: 'include' }),
+          authGet(`/api/v1/admin/system-suggestions/${suggestion.id}/candidates`),
+          authGet('/api/v1/systems'),
         ]);
 
         if (!cancelled && candRes.ok) {
@@ -640,12 +637,10 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
 
     setSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/admin/system-suggestions/${suggestion.id}/resolve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(buildBody()),
-      });
+      const response = await authPost(
+        `/api/v1/admin/system-suggestions/${suggestion.id}/resolve`,
+        buildBody(),
+      );
 
       const json: unknown = await response.json().catch(() => ({}));
       const payload = json && typeof json === 'object' ? (json as Record<string, unknown>) : {};
@@ -691,12 +686,10 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
     if (!window.confirm(`Descartar a sugestão "${suggestion.name}"? Ela sai da fila pendente.`)) return;
     setSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/admin/system-suggestions/${suggestion.id}/resolve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ resolution_type: 'reject' }),
-      });
+      const response = await authPost(
+        `/api/v1/admin/system-suggestions/${suggestion.id}/resolve`,
+        { resolution_type: 'reject' },
+      );
       const json: unknown = await response.json().catch(() => ({}));
       const payload = json && typeof json === 'object' ? (json as Record<string, unknown>) : {};
       if (response.ok) {

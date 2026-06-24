@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PlusCircle, ChevronRight, MapPin, Sparkles, PencilLine } from 'lucide-react';
 import { useAuth } from '../contexts/useAuth';
 import toast from 'react-hot-toast';
+import { authGet, authPost, authPut, authPatch, authDelete } from '../services/apiClient';
 import type { TableContact } from '../types/tables';
 import { TableCardDashboard } from '../components/TableCardDashboard';
 import { LinksManager } from '../components/LinksManager';
@@ -164,8 +165,6 @@ function InputField({ label, id, ...props }: InputHTMLAttributes<HTMLInputElemen
   );
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
-
 function CreateGmProfileForm({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,12 +192,7 @@ function CreateGmProfileForm({ onSuccess }: { onSuccess: () => void }) {
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/gm/profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ slug, nickname, bio_long: bio }),
-      });
+      const res = await authPost('/api/v1/gm/profile', { slug, nickname, bio_long: bio });
       const data: unknown = await res.json();
       const apiError = isRecord(data) && typeof data.error === 'string' ? data.error : 'Erro desconhecido';
       if (!res.ok) throw new Error(apiError);
@@ -297,9 +291,7 @@ export const PainelMestrePage = () => {
       setLoadingProfile(true);
 
       try {
-        const profileRes = await fetch(`${API_BASE}/api/v1/gm/me`, {
-          credentials: 'include',
-        });
+        const profileRes = await authGet('/api/v1/gm/me');
 
         if (!profileRes.ok) {
           if (user.role !== 'gm') {
@@ -324,9 +316,7 @@ export const PainelMestrePage = () => {
 
         setGmProfile(profile);
 
-        const tablesRes = await fetch(`${API_BASE}/api/v1/gm/tables`, {
-          credentials: 'include',
-        });
+        const tablesRes = await authGet('/api/v1/gm/tables');
 
         if (tablesRes.ok) {
         const tablesJson: unknown = await tablesRes.json();
@@ -377,9 +367,7 @@ export const PainelMestrePage = () => {
       if (!active) return;
       setEditingTableId(editIdFromUrl);
       try {
-        const response = await fetch(`${API_BASE}/api/v1/gm/tables/${editIdFromUrl}`, {
-          credentials: 'include',
-        });
+        const response = await authGet(`/api/v1/gm/tables/${editIdFromUrl}`);
         if (!active) return;
         if (response.ok) {
           const data: unknown = await response.json();
@@ -414,8 +402,8 @@ export const PainelMestrePage = () => {
     setLoadingProfile(true);
 
     Promise.all([
-      fetch(`${API_BASE}/api/v1/gm/me`, { credentials: 'include' }),
-      fetch(`${API_BASE}/api/v1/gm/tables`, { credentials: 'include' }),
+      authGet('/api/v1/gm/me'),
+      authGet('/api/v1/gm/tables'),
     ])
       .then(async ([profileRes, tablesRes]) => {
         if (profileRes.ok) {
@@ -455,14 +443,7 @@ export const PainelMestrePage = () => {
       // CORREÇÃO BUG 2 (REQ-30): Usar PATCH /tables/:id/status em vez de PUT /tables/:id
       // PUT exige todos os campos obrigatórios, PATCH /status só altera o status
       // Backend aceita: 'active', 'full', 'cancelled', 'ended'
-      const endpoint = `${API_BASE}/api/v1/gm/tables/${tableId}/status`;
-
-      const response = await fetch(endpoint, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ status: newStatus }),
-      });
+      const response = await authPatch(`/api/v1/gm/tables/${tableId}/status`, { status: newStatus });
 
       if (response.ok) {
         toast.success(`Mesa ${action === 'ativar' ? 'ativada' : 'desativada'}!`);
@@ -504,12 +485,7 @@ export const PainelMestrePage = () => {
 
     setArchivingTableId(tableId);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/gm/tables/${tableId}/archive`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ archived }),
-      });
+      const response = await authPatch(`/api/v1/gm/tables/${tableId}/archive`, { archived });
 
       if (response.ok) {
         toast.success(`Mesa ${archived ? 'arquivada' : 'desarquivada'}!`);
@@ -532,13 +508,10 @@ export const PainelMestrePage = () => {
     setDeletingTableId(tableId);
     try {
       const endpoint = user?.role === 'admin'
-        ? `${API_BASE}/api/v1/admin/tables/${tableId}`
-        : `${API_BASE}/api/v1/gm/tables/${tableId}`;
+        ? `/api/v1/admin/tables/${tableId}`
+        : `/api/v1/gm/tables/${tableId}`;
 
-      const response = await fetch(endpoint, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const response = await authDelete(endpoint);
 
       if (response.ok) {
         toast.success('Mesa deletada!');
@@ -674,12 +647,7 @@ export const PainelMestrePage = () => {
                 <ContactMethodsEditor
                   contacts={gmProfile.contact_methods || []}
                   onSave={async (contacts) => {
-                    const res = await fetch(`${API_BASE}/api/v1/gm/profile`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({ contact_methods: contacts }),
-                    });
+                    const res = await authPut('/api/v1/gm/profile', { contact_methods: contacts });
                     if (!res.ok) throw new Error('Erro ao salvar contatos');
                     toast.success('Contatos atualizados!');
                     refreshData();
@@ -694,12 +662,7 @@ export const PainelMestrePage = () => {
                 <VttPlatformsEditor
                   selectedPlatforms={gmProfile.preferred_vtt_platforms || []}
                   onSave={async (platformIds) => {
-                    const res = await fetch(`${API_BASE}/api/v1/gm/profile`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({ preferred_vtt_platforms: platformIds }),
-                    });
+                    const res = await authPut('/api/v1/gm/profile', { preferred_vtt_platforms: platformIds });
                     if (!res.ok) throw new Error('Erro ao salvar plataformas');
                     toast.success('Plataformas atualizadas!');
                     refreshData();

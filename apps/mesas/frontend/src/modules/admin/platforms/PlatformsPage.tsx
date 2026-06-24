@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Edit, Trash2, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { authGet, authPost, authPut, authDelete } from '../../../services/apiClient';
 
 type PlatformKind = 'vtt' | 'communication';
 
@@ -41,8 +40,8 @@ const DEFAULT_FORM: PlatformFormState = {
 
 const getEndpoint = (kind: PlatformKind): string => (
   kind === 'vtt'
-    ? `${API_BASE}/api/v1/vtt-platforms/admin`
-    : `${API_BASE}/api/v1/communication-platforms/admin`
+    ? '/api/v1/vtt-platforms/admin'
+    : '/api/v1/communication-platforms/admin'
 );
 
 const parseErrorMessage = async (response: Response, fallback: string): Promise<string> => {
@@ -93,9 +92,7 @@ export function PlatformsPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(getEndpoint(targetKind), {
-        credentials: 'include',
-      });
+      const response = await authGet(getEndpoint(targetKind));
 
       if (!response.ok) {
         const message = await parseErrorMessage(response, 'Erro ao buscar plataformas.');
@@ -103,7 +100,7 @@ export function PlatformsPage() {
       }
 
       const data = await response.json();
-      const items = data.data || [];
+      const items = Array.isArray(data.data) ? data.data : [];
 
       if (targetKind === 'vtt') {
         setVttPlatforms(items);
@@ -170,14 +167,10 @@ export function PlatformsPage() {
 
     try {
       const endpoint = editingId ? `${getEndpoint(kind)}/${editingId}` : getEndpoint(kind);
-      const method = editingId ? 'PUT' : 'POST';
 
-      const response = await fetch(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
+      const response = editingId
+        ? await authPut(endpoint, payload)
+        : await authPost(endpoint, payload);
 
       if (!response.ok) {
         const message = await parseErrorMessage(response, 'Erro ao salvar plataforma.');
@@ -203,10 +196,7 @@ export function PlatformsPage() {
     setDeletingId(item.id);
 
     try {
-      const response = await fetch(`${getEndpoint(kind)}/${item.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const response = await authDelete(`${getEndpoint(kind)}/${item.id}`);
 
       if (!response.ok) {
         const message = await parseErrorMessage(response, 'Erro ao remover plataforma.');
@@ -229,12 +219,7 @@ export function PlatformsPage() {
 
   const handleToggleActive = async (item: PlatformRecord) => {
     try {
-      const response = await fetch(`${getEndpoint(kind)}/${item.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ is_active: !item.is_active }),
-      });
+      const response = await authPut(`${getEndpoint(kind)}/${item.id}`, { is_active: !item.is_active });
 
       if (!response.ok) {
         const message = await parseErrorMessage(response, 'Erro ao atualizar status da plataforma.');

@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
-import { normalizeDiscordTableDraft, parseDiscordAnnouncement } from '../../discord';
-import { parseJsonField, loadSystemsForParser, ensureSystemSuggestionForDraft } from './utils';
+import { parseDiscordMessage, ensureSystemSuggestionForDraft } from './utils';
 
 const router = Router();
 
@@ -19,26 +18,16 @@ router.post('/:id/parse', requireAdmin, async (req: Request, res: Response) => {
       return res.status(422).json({ error: 'Mensagem já sincronizada como mesa. Não pode ser reparseada.' });
     }
 
-    const systems = await loadSystemsForParser();
-    const parsed = parseDiscordAnnouncement({
-      source_kind: message.source_kind,
-      discord_message_id: message.discord_message_id,
-      discord_channel_id: message.discord_channel_id,
-      discord_guild_id: message.discord_guild_id,
-      discord_parent_channel_id: message.discord_parent_channel_id,
-      discord_thread_id: message.discord_thread_id,
-      discord_thread_name: message.discord_thread_name,
-      discord_author_id: message.discord_author_id,
-      discord_author_name: message.discord_author_name,
-      discord_message_url: message.discord_message_url,
-      content_raw: message.content_raw,
-      attachments: parseJsonField(message.attachments),
-      embeds: parseJsonField(message.embeds),
-      message_created_at: message.message_created_at,
-      message_edited_at: message.message_edited_at,
-    }, systems);
-    if (!parsed) return res.status(422).json({ error: 'Mensagem sem conteudo elegivel para virar draft.' });
-    const normalized = normalizeDiscordTableDraft(parsed, systems);
+    const result = await parseDiscordMessage(message);
+    if (!result) {
+      // REV-068: marcar como ignorada para não ficar pendente eternamente
+      await db.updateTable('discord_import_messages')
+        .set({ status: 'ignored', parse_error: 'Mensagem sem conteúdo elegível para virar draft.', updated_at: new Date() })
+        .where('id', '=', message.id)
+        .execute();
+      return res.status(422).json({ error: 'Mensagem sem conteudo elegivel para virar draft.' });
+    }
+    const { parsed, normalized } = result;
 
     const existingDraft = await db
       .selectFrom('discord_import_table_drafts')
