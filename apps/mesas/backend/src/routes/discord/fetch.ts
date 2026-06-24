@@ -5,7 +5,7 @@ import type { SystemEntry } from '../../discord';
 import { ingestForumMessages, ingestMessages } from '../../discord';
 import { loadSystemsForParser } from '../../discord/shared';
 import { requireAdmin } from '../../middleware/auth';
-import { parseJsonField, ensureSystemSuggestionForDraft, normalizeSourceChannelType, sendDiscordFetchError, parseDiscordMessage } from './utils';
+import { parseJsonField, ensureSystemSuggestionForDraft, normalizeSourceChannelType, sendDiscordFetchError, parseDiscordMessage, reconcileTerminalDraft } from './utils';
 
 const router = Router();
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
@@ -52,7 +52,12 @@ async function createOrUpdateDraftFromMessage(
     .where('discord_message_id', '=', message.id)
     .executeTakeFirst();
 
-  if (existingDraft && existingDraft.status !== 'synced' && existingDraft.status !== 'rejected') {
+  // REV-077: se draft já é terminal, reconcilia mensagem e interrompe
+  if (await reconcileTerminalDraft(existingDraft, message.id)) {
+    return 'draft';
+  }
+
+  if (existingDraft) {
     await db
       .updateTable('discord_import_table_drafts')
       .set({
@@ -65,12 +70,7 @@ async function createOrUpdateDraftFromMessage(
       })
       .where('id', '=', existingDraft.id)
       .execute();
-    // REV-047: só marcar mensagem como parsed se draft foi atualizado
-    await db.updateTable('discord_import_messages')
-      .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
-      .where('id', '=', message.id)
-      .execute();
-  } else if (!existingDraft) {
+  } else {
     await db
       .insertInto('discord_import_table_drafts')
       .values({
@@ -83,13 +83,12 @@ async function createOrUpdateDraftFromMessage(
         review_notes: null,
       })
       .execute();
-    // REV-047: só marcar mensagem como parsed se draft foi criado
-    await db.updateTable('discord_import_messages')
-      .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
-      .where('id', '=', message.id)
-      .execute();
   }
-  // REV-047: se draft é synced/rejected, não altera status da mensagem
+  // REV-077: terminal já tratado acima; aqui só drafts não-terminais ou novos
+  await db.updateTable('discord_import_messages')
+    .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
+    .where('id', '=', message.id)
+    .execute();
 
   await ensureSystemSuggestionForDraft(
     normalized.draft,

@@ -243,6 +243,40 @@ export async function handlePatchDraft(
   return { status: 200, body: { data: draft } };
 }
 
+// ─── REV-077 — reconcileTerminalDraft (evita reprocessamento em loop) ─────────
+
+/**
+ * REV-077: Se o draft existente está em estado terminal (synced/rejected),
+ * reconcilia o status da mensagem para evitar reprocessamento infinito.
+ *
+ * Comportamento:
+ * - Draft synced → message.status = 'synced' (nunca mais será reprocessado)
+ * - Draft rejected → message.status = 'ignored' (nunca mais será reprocessado)
+ * - Caso contrário → retorna false (caller deve prosseguir com o fluxo normal)
+ *
+ * Uso:
+ *   if (await reconcileTerminalDraft(existingDraft, message.id)) { continue; }
+ *
+ * Elimina a duplicação do mesmo padrão em parse-batch.ts e fetch.ts.
+ */
+export async function reconcileTerminalDraft(
+  existingDraft: { id: unknown; status: string } | undefined,
+  messageId: string,
+): Promise<boolean> {
+  if (existingDraft?.status !== 'synced' && existingDraft?.status !== 'rejected') {
+    return false;
+  }
+  await db.updateTable('discord_import_messages')
+    .set({
+      status: existingDraft.status === 'synced' ? 'synced' : 'ignored',
+      parse_error: null,
+      updated_at: new Date(),
+    })
+    .where('id', '=', messageId)
+    .execute();
+  return true;
+}
+
 // ─── D009 — helpers extraídos de adminDiscordSync.ts ──────────────────────────
 
 export const snowflakeParamSchema = z.object({

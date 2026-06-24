@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
-import { parseDiscordMessage, ensureSystemSuggestionForDraft } from './utils';
+import { parseDiscordMessage, ensureSystemSuggestionForDraft, reconcileTerminalDraft } from './utils';
 import { loadSystemsForParser } from '../../discord/shared';
 
 const router = Router();
@@ -40,8 +40,13 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
           .where('discord_message_id', '=', message.id)
           .executeTakeFirst();
 
-        // REV-049: preservar drafts synced/rejected (igual fetch.ts)
-        if (existing && existing.status !== 'synced' && existing.status !== 'rejected') {
+        // REV-077: reconciliar mensagem se draft já é terminal → interrompe fluxo
+        if (await reconcileTerminalDraft(existing, message.id)) {
+          succeeded++;
+          continue;
+        }
+
+        if (existing) {
           await db.updateTable('discord_import_table_drafts')
             .set({
               parsed_payload: parsed,
@@ -52,12 +57,7 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
             })
             .where('id', '=', existing.id)
             .execute();
-          // REV-049: só marcar mensagem como parsed se draft foi atualizado
-          await db.updateTable('discord_import_messages')
-            .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
-            .where('id', '=', message.id)
-            .execute();
-        } else if (!existing) {
+        } else {
           await db.insertInto('discord_import_table_drafts')
             .values({
               discord_message_id: message.id,
@@ -67,13 +67,12 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
               status: normalized.status,
             })
             .execute();
-          // REV-049: só marcar mensagem como parsed se draft foi criado
-          await db.updateTable('discord_import_messages')
-            .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
-            .where('id', '=', message.id)
-            .execute();
         }
-        // REV-049: se existing é synced/rejected, não altera nem draft nem mensagem
+        // REV-077: status da mensagem atualizado dentro dos branches acima
+        await db.updateTable('discord_import_messages')
+          .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
+          .where('id', '=', message.id)
+          .execute();
 
         await ensureSystemSuggestionForDraft(
           normalized.draft,

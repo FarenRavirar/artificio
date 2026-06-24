@@ -2121,3 +2121,126 @@ Reviews de bots/PR coletados durante o ciclo de revisão do módulo mesas.
   - **Falso positivo:** não — duplicata real com `parse-batch.ts`
   - **Severidade real:** 🟡 Minor
   - **Recomendação:** mesmo do REV-073 — extrair função compartilhada em `discord/shared.ts`
+
+---
+
+## REV-077 — parse-batch.ts: Mensagem não reconciliada quando draft já é terminal (synced/rejected)
+
+- **Origem:** coderabbitai (bot) — PR #94, comentário duplicado (♻️)
+- **Tipo:** PR (review)
+- **Referência:** `apps/mesas/backend/src/routes/discord/parse-batch.ts:43-84`
+- **Resumo:** Quando o draft existente já está em estado terminal (`synced` ou `rejected`), o fluxo preserva o draft (REV-049) mas não reconcilia o status da mensagem, não interrompe side effects (`ensureSystemSuggestionForDraft`) e conta como sucesso no contador — causando loop de reprocessamento infinito.
+- **Severidade declarada:** 🟠 Major | 🗄️ Data Integrity & Integration | ⚡ Quick win
+- **Status:** implementado ✅
+- **Task vinculada:** —
+- **Débito vinculado:** —
+- **Investigação:**
+  - **Arquivo:** `parse-batch.ts:25-92`
+  - **Código analisado (L38-84):**
+    ```typescript
+    const existing = await db.selectFrom('discord_import_table_drafts')
+      .select(['id', 'status'])
+      .where('discord_message_id', '=', message.id)
+      .executeTakeFirst();
+
+    // REV-049: preservar drafts synced/rejected (igual fetch.ts)
+    if (existing && existing.status !== 'synced' && existing.status !== 'rejected') {
+      // UPDATE draft + mark message as parsed
+    } else if (!existing) {
+      // INSERT draft + mark message as parsed
+    }
+    // REV-049: se existing é synced/rejected, não altera nem draft nem mensagem
+
+    await ensureSystemSuggestionForDraft(        // <-- side effect em terminal
+      normalized.draft,
+      req.user?.userId,
+      message.discord_thread_name ?? message.discord_message_id,
+    );
+
+    succeeded++;  // <-- contado como sucesso mesmo sem ter feito nada
+    ```
+  - **Fluxo de falha quando `existing.status` é `'synced'` ou `'rejected'`:**
+    1. `parseDiscordMessage(message, systems)` executa parse completo (L28) — trabalho desperdiçado
+    2. `existing` encontrado com status terminal (L38-41)
+    3. Guarda de terminal (L44) → `false` — nenhum branch executado ✅ draft preservado
+    4. `else if (!existing)` (L60) → `false` — `existing` é truthy
+    5. **Nenhuma atualização na mensagem** — `discord_import_messages` continua `pending` ou `error` ❌
+    6. `ensureSystemSuggestionForDraft(...)` executado (L78-82) — side effect com dados recém-parseados sobre draft já terminal ❌
+    7. `succeeded++` (L84) — contador inflado artificialmente ❌
+    8. Loop continua → mensagem ainda `pending`/`error` → **processada novamente no próximo parse-batch** 🔄
+  - **Mesmo padrão em `fetch.ts` (`createOrUpdateDraftFromMessage`):**
+    `fetch.ts:55-98` tem a MESMA estrutura:
+    ```typescript
+    async function createOrUpdateDraftFromMessage(message, systems, adminId): Promise<'draft' | 'ignored'> {
+      const parsedResult = await parseDiscordMessage(message, systems);  // parse sempre executa
+      if (!parsedResult) return 'ignored';
+      const { parsed, normalized } = parsedResult;
+      const existingDraft = await db.selectFrom('discord_import_table_drafts')
+        .select(['id', 'status']).where('discord_message_id', '=', message.id).executeTakeFirst();
+
+      if (existingDraft && existingDraft.status !== 'synced' && existingDraft.status !== 'rejected') {
+        // UPDATE draft + mark message as parsed
+      } else if (!existingDraft) {
+        // INSERT draft + mark message as parsed
+      }
+      // REV-047: if synced/rejected, don't change message status
+
+      await ensureSystemSuggestionForDraft(...);  // ← side effect em terminal
+      return 'draft';                              // ← sempre 'draft', conta como sucesso
+    }
+    ```
+    - **3 problemas idênticos:** mensagem não atualizada, side effect executado, contador inflado
+    - Chamado APENAS via `parsePendingMessagesForSource` (fetch.ts:129), que por sua vez é chamado por 2 rotas:
+      - `POST /fetch` (fetch.ts:183) — admin clica "Buscar mensagens" para uma fonte específica
+      - `POST /sources/:sourceId/reingest-force` (fetch.ts:223) — admin força re-ingestão de uma fonte
+  - **Análise comparativa de escopo e impacto:**
+
+    | Aspecto | `parse-batch.ts` | `fetch.ts` |
+    |---------|-----------------|------------|
+    | **Escopo da query** | Global: todas as mensagens `pending`/`error` **sem filtro de source** (parse-batch.ts:12-17) | Por source: mensagens `pending`/`error` **filtradas por source_id** (fetch.ts:109-115) |
+    | **Gatilho** | Botão "Processar lote" no admin + pode ser chamado programaticamente (cron) | Apenás via ação admin "Buscar mensagens" ou "Re-ingestar" por fonte |
+    | **Frequência potencial** | Alta — pode ser disparado repetidamente, acumula mensagens de todas as fontes | Baixa — admin precisa executar manualmente para cada fonte |
+    | **Reprocessamento** | Mensagens terminais de TODAS as fontes são reprocessadas a cada ciclo | Mensagens terminais de UMA fonte específica são reprocessadas apenas quando admin busca aquela fonte |
+    | **Reingest-force** | N/A (não deleta mensagens) | `reingest-force` deleta mensagens `pending`/`error` antes de re-ingestar (fetch.ts:207-211), então mensagens terminais são removidas, não reprocessadas — bug só ocorre no fluxo `POST /fetch` |
+  - **Impacto real:**
+    - 🟠 **ALTO em `parse-batch.ts`:** loop global de reprocessamento. Mensagens terminais acumuladas de todas as fontes são re-parseadas a cada execução, desperdiçando CPU, DB I/O e chamadas `ensureSystemSuggestionForDraft`. Sem intervenção manual (admin alterar status da mensagem ou excluir draft), o loop é infinito.
+    - 🟡 **MÉDIO em `fetch.ts`:**
+      - `POST /fetch`: mensagens terminais da fonte são re-parseadas cada vez que admin busca aquela fonte. Frequência baixa (admin-dependente), mas o desperdício ocorre.
+      - `POST /sources/:sourceId/reingest-force`: mensagens `pending`/`error` são DELETADAS antes (fetch.ts:207-211), então o bug NÃO se manifesta neste fluxo — as mensagens terminais somem junto com o delete.
+    - 🟠 **Side effect indesejado (ambos):** `ensureSystemSuggestionForDraft` chamado com `normalized.draft` recém-computado para um draft já terminal, podendo criar sugestões desalinhadas com revisão humana.
+    - 🟡 **Contadores enganosos (ambos):** `succeeded++` inclui mensagens terminais como sucesso, mascarando métricas reais.
+  - **Probabilidade:**
+    - `parse-batch.ts`: 🟠 alta — ocorre em toda execução,
+    - `fetch.ts` (`POST /fetch`): 🟡 média — admin-dependente, mas inevitável se houver mensagens terminais na fonte
+  - **Severidade real combinada:** 🟠 Major — confirma classificação original. O impacto global do `parse-batch.ts` domina a severidade.
+  - **Risco de regressão:** baixo em ambos — alteração aditiva (early return / continue) sem efeito nos fluxos existentes
+  - **Falso positivo:** não — bug real e verificável por leitura de código em ambos os arquivos
+  - **Novos débitos encontrados:** nenhum
+  - **Decisão — aplicar fix em ambos:**
+    Recomenda-se **corrigir ambos os arquivos** em uma única alteração coordenada:
+    - **`parse-batch.ts`:** adicionar `if (existing?.status === 'synced' || existing?.status === 'rejected')` com `continue` antes da guarda REV-049 existente (linha 43). Atualizar `discord_import_messages.status` para `'synced'` (draft synced) ou `'ignored'` (draft rejected). Interrompe fluxo antes de `ensureSystemSuggestionForDraft` e `succeeded++`.
+    - **`fetch.ts` (`createOrUpdateDraftFromMessage`):** adicionar o mesmo early check antes da guarda existente (linha 55). Como é função (não loop inline), usar **early return** em vez de `continue`:
+      ```typescript
+      if (existingDraft?.status === 'synced' || existingDraft?.status === 'rejected') {
+        await db.updateTable('discord_import_messages')
+          .set({ status: existingDraft.status === 'synced' ? 'synced' : 'ignored', parse_error: null, updated_at: new Date() })
+          .where('id', '=', message.id)
+          .execute();
+        return 'draft';  // caller conta como succeeded (já era terminal, mas status reconciliado)
+      }
+      ```
+    - **Por que ambos?** (a) consistência de comportamento entre módulos que fazem a mesma operação; (b) o fix é idêntico em lógica (diferença só de sintaxe: `continue` vs `return`); (c) risco zero de regressão por ser aditivo. Se houver restrição de escopo, priorizar `parse-batch.ts` (impacto ALTO) e tratar `fetch.ts` como follow-up (impacto MÉDIO).
+- **Implementação (2026-06-24):**
+  - **Estratégia anti-duplicação:** criada função compartilhada `reconcileTerminalDraft()` em `discord/utils.ts` que unifica o padrão em um único lugar. Ambos os callers usam a mesma função — elimina duplicação de código entre `parse-batch.ts` e `fetch.ts`.
+  - **Arquivo:** `apps/mesas/backend/src/routes/discord/utils.ts:247-264` — nova função `reconcileTerminalDraft()`
+  - **`parse-batch.ts`:**
+    - Import `reconcileTerminalDraft` de `./utils`
+    - Adicionado early check com `continue` após o fetch do `existing`
+    - Guarda REV-049 simplificada de `if (existing && existing.status !== 'synced' && ...)` → `if (existing)` (terminal já tratado acima)
+    - Mensagem update movido para fora dos branches (não mais duplicado)
+  - **`fetch.ts`:**
+    - Import `reconcileTerminalDraft` de `./utils`
+    - Adicionado early check com `return 'draft'` após o fetch do `existingDraft`
+    - Guarda simplificada: `if (existingDraft && ...)` → `if (existingDraft)`
+    - Mensagem update consolidado para fora dos branches (elimina duplicação de 4 linhas)
+  - **Validação:** build repo-wide 17/17 ✅, testes backend 28 files 223/223 ✅
