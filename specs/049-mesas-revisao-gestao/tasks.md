@@ -74,10 +74,11 @@
 - [x] TE5 `[sr][lsp][sh]` — Separar handlers de settings (`GET /settings`, `PUT /settings/bot-token`, `DELETE /settings/bot-token`) para `routes/discord/settings.ts`
   - `routes/discord/settings.ts` criado com 143 linhas (3 handlers + maskToken + sendSettingsError + botTokenSchema)
   - router.use('/settings', settingsRouter) montado em adminDiscordSync.ts
-- [x] TE6 `[sr][lsp][sh]` — Separar handlers de drafts (`GET /drafts`, `GET /drafts/:id`, `PATCH /drafts/:id`, `POST /drafts/:id/refresh-image`, `POST /drafts/:id/reparse`, `POST /messages/:id/parse`) para `routes/discord/drafts.ts`
+- [x] TE6 `[sr][lsp][sh]` — Separar handlers de drafts (`GET /drafts`, `GET /drafts/:id`, `PATCH /drafts/:id`, `POST /drafts/:id/refresh-image`, `POST /drafts/:id/reparse`) para `routes/discord/drafts.ts`
   - Pré-requisito: `routes/discord/utils.ts` criado com parseJsonField, loadSystemsForParser, ensureSystemSuggestionForDraft
   - `routes/discord/drafts.ts` criado com 319 linhas
-  - router.use('/drafts', draftsRouter) + router.use('/messages', draftsRouter) montados
+  - router.use('/drafts', draftsRouter) montado (observação: REV-015 extraiu `POST /messages/:id/parse` para `messageParse.ts`, montado como `router.use('/messages', messageParseRouter)`)
+  - `POST /messages/:id/parse` NÃO faz parte do draftsRouter (REV-015)
 - [x] TE7 — Handlers de upload (GET /image-uploads/summary) extraídos como parte do drafts (estava no bloco de drafts)
 - [x] TE8 — Schema de erro REST unificado: 500 responses nunca expõem error.message (corrigido em drafts.ts: refresh-image, reparse, parse)
 - [x] TE9 — adminDiscordSync.ts reduzido de 1278 → 708 linhas (44% reduction). Ainda contém 15+ handlers (discovery, sources, fetch, messages, parse-batch). Alvo <200 requer extração adicional não prevista no escopo atual.
@@ -106,22 +107,22 @@
 - [x] TE20 `[sh]` — Testes backend 223/223 ✅, frontend 163/163 ✅
 - [x] TE21 `[lsp]` — `serena_get_diagnostics_for_file` — Hints only (Zod deprecations pré-existentes + unused `req`). Zero errors.
 - [x] TE22 — Nenhum arquivo >500 linhas. Max: DiscordSourceList.tsx (415), drafts.ts (215), useDiscordSync.ts (276). ✅
-- [ ] TE23 — Verificar manualmente que /gestao carrega, todas as sub-abas funcionam, import + preview + sync operam
+- [x] ~~TE23~~ — Verificar manualmente que /gestao carrega, todas as sub-abas funcionam, import + preview + sync operam. **SKIP** (decisao mantenedor, 2026-06-23). Codigo refatorado nao esta no beta (branch local nao mergeada). Coberto por testes: backend 223/223, frontend 163/163, build 17/17, lint 15/15. Smoke real apos merge+deploy.
 
 ## Fase F — Verificação Pós-Refatoração (cm + sr + lsp + sk + sh)
 
-- [ ] TF1 `[cm]` — Comparar clusters arquiteturais antes/depois: `codebase-memory-mcp_get_architecture(project="mesas-backend")` + `codebase-memory-mcp_get_architecture(project="mesas-frontend")`
-- [ ] TF2 `[sr][lsp]` — Verificar diagnostics zero em todos arquivos de /gestao: `serena_get_diagnostics_for_file` iterando por arquivo
-- [ ] TF3 `[sh]` — `pnpm run build` repo-wide — zero erros
-- [ ] TF4 `[sh]` — `pnpm run lint` repo-wide — zero warnings
-- [ ] TF5 `[sh]` — `pnpm --filter @artificio/mesas-backend test` — 223/223 (baseline: 183)
-- [ ] TF6 `[sh]` — `pnpm --filter @artificio/mesas-frontend test` — 165/165 (baseline: 19)
-- [ ] TF7 `[sk][au]` — Re-auditar (by diff, não full) as issues P0-P1 das auditorias para confirmar tratamento: sub-agente `explorer` com skills carregadas, escopo reduzido a regressão
-- [ ] TF8 — Atualizar `.specify/memory/project-state.md` com status da spec 049
-- [ ] TF9 — Atualizar `specs/backlog.md` com débitos descobertos durante a spec (bugs, inconsistências, extrações para packages/ui)
-- [ ] TF10 — Atualizar `sessoes/` com registro de conclusão da spec
-- [ ] TF11 `[cm]` — Se houve extração para packages/ui: rodar `codebase-memory-mcp_index_repository` com mode=full nos pacotes alterados para atualizar grafo
-- [ ] TF12 `[sr]` — Registrar memórias Serena (opcional): `serena_write_memory` com resumo da arquitetura pós-refatoração para referência futura
+- [x] TF1 `[cm]` — Comparar clusters arquiteturais antes/depois: `codebase-memory-mcp_get_architecture(project="C-projetos-artificio")` — 11.312 nós, 19.143 arestas. Mesas core com fan-in 258 / fan-out 173. Nenhuma anomalia estrutural.
+- [x] TF2 `[sr][lsp]` — Verificar diagnostics zero em todos arquivos de /gestao: `serena_get_diagnostics_for_file` em 10 arquivos (adminDiscordSync, adminImportInbox, adminHydration, drafts, messageParse, utils, sync, settings, DiscordSyncPanel, DiscordJsonImportPanel, FileDropzone, MessagesToolbar, useDiscordSync, useJsonImport) — zero errors/warnings.
+- [x] TF3 `[sh]` — `pnpm run build` repo-wide — 17/17 ✅
+- [x] TF4 `[sh]` — `pnpm run lint` repo-wide — 15/15 ✅
+- [x] TF5 `[sh]` — `pnpm --filter @artificio/mesas-backend test` — 28 files, 223/223 ✅
+- [x] TF6 `[sh]` — `pnpm --filter @artificio/mesas-frontend test` — 15 files, 163/163 ✅
+- [ ] ~~TF7~~ `[sk][au]` — Re-auditar P0-P1: **SKIP** (decisão do mantenedor, 2026-06-23). Refatoração foi de código (extração de handlers/hooks), sem mudança visual/UX. Issues P1 são majoritariamente de design, não de código. REV-001 a REV-035 já cobriram acessibilidade, estado de erro e foco visual.
+- [x] TF8 — Atualizar `.specify/memory/project-state.md` com status da spec 049 — ✅ 2026-06-23. item 16 atualizado, log adicionado.
+- [x] TF9 — Atualizar `specs/backlog.md` com débitos descobertos durante a spec — ✅ 2026-06-23. BL-MESAS-GESTAO-049 adicionado em P1 Produto/Apps.
+- [x] TF10 — Atualizar `sessoes/` com registro de conclusão da spec — ✅ 2026-06-23. `sessoes/26-06-23_2_mesas-revisao-gestao.md` criada, index atualizado.
+- [ ] ~~TF11~~ — N/A (condição não atendida): sem extração para packages/ui nesta spec. Reindexar o grafo (`codebase-memory-mcp_index_repository`) fica pendente para execução geral futura.
+- [ ] TF12 `[sr]` — Registrar memórias Serena (opcional): pendente de autorização
 
 ### Reviews implementados (code quality fixes, 2026-06-23)
 
@@ -143,6 +144,26 @@
 - [x] REV-016 — Merge shallow de `normalized_payload` no PATCH de drafts (preventivo contra perda de dados com payload parcial)
 - [x] REV-017 — Branch string de `parseJsonField` normalizada: trata `{items:[...]}`/`{data:[...]}` após `JSON.parse`
 - [x] REV-018 — `ensureSystemSuggestionForDraft` envolvido em try/catch; side effect isolado do fluxo de parse
+- [x] REV-019 — adminHydration: fail-fast check skipped (requer schema de 7 tabelas)
+- [x] REV-020 — messageParse catch: adicionado `status: 'error'` na atualização da mensagem
+- [x] REV-021 — messageParse: condição de draft simplificada (se existe, UPDATE; sync-only early return)
+- [x] REV-022 — FileDropzone textarea: `outline-none` substituído por `focus-visible:ring-2`
+- [x] REV-023 — MessagesToolbar selects: `aria-label` adicionado nos 3 filtros
+- [x] REV-024 — useDiscordSync loadMessages: AbortController contra race condition
+- [x] REV-025 — useDiscordSync handleFetchMessages/Reingest: loadMessages duplicado removido
+- [x] REV-026 — useJsonImport: validação `.json` case-insensitive (`toLowerCase()`)
+- [x] REV-027 — useJsonImport loadPreview: request ID contra race condition
+- [x] REV-028 — sync.ts /sync-ready: adicionado `.limit(50)` contra timeout
+- [x] REV-029 — auditoria-antes-commit.md sincronizado com estado atual
+- [x] REV-030 — debitos.md: contagens de teste corrigidas (D04: 223/223, D11: 163/163)
+- [x] REV-031 — tasks.md TE6 descrição corrigida (parse não faz parte de drafts)
+- [x] REV-032 — adminImportInbox: Cognitive Complexity 56 → extrair calcMissingFields + createImportMessage (✅ 2026-06-23). Handler reduzido de 140→105 linhas. 2 helpers extraídos: `calcMissingFields(table)` (5-field check duplicado) + `createImportMessage()` (INSERT block). CC handler estimada ≤7, cada helper ≤7. Tests 223/223 ✅, lint 15/15 ✅, build 17/17 ✅.
+- [x] REV-033 — drafts.ts: condição negada invertida para positiva
+- [x] REV-034 — utils.ts parseJsonField: helper `extractArrayFromRecord` extraído, CC reduzida
+- [x] REV-035 — useDiscordSync: `window` → `globalThis` (confirm + requestAnimationFrame)
+- [ ] REV-036 — messageParse.ts: 18.9% duplicação (20 linhas) — extrair core de parse compartilhado
+- [ ] REV-037 — drafts.ts: 17.6% duplicação (38 linhas) — extrair PATCH merge logic
+- [ ] REV-038 — adminImportInbox.ts: 9.1% duplicação — identificar e eliminar
 
 **Testes:** backend 223/223 ✅ | frontend 163/163 ✅ (2 testes redundantes removidos em REV-009)
 **Build:** repo-wide 17/17 ✅

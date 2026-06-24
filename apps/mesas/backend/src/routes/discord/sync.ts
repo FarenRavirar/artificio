@@ -43,6 +43,7 @@ router.post('/sync-ready', requireAdmin, async (req: Request, res: Response) => 
       .select('id')
       .where('status', '=', 'ready' as DiscordImportDraftStatus)
       .where('discord_message_id', 'is not', null)
+      .limit(50)
       .execute();
 
     const results = { synced: 0, failed: 0, errors: [] as string[] };

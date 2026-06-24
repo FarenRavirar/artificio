@@ -3,23 +3,26 @@ import type { SystemEntry } from '../../discord';
 import { normalizeDiscordTableDraft } from '../../discord';
 import { notifyAdmins } from '../../services/adminNotifications';
 
+function extractArrayFromRecord(record: Record<string, unknown>): unknown[] | null {
+  if (Array.isArray(record.items)) return record.items;
+  if (Array.isArray(record.data)) return record.data;
+  return null;
+}
+
 // Embeds/attachments podem vir como array (novo) ou JSON string (dados antigos)
 export function parseJsonField(value: unknown): unknown[] {
   if (Array.isArray(value)) return value;
   if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if (Array.isArray(record.items)) return record.items;
-    if (Array.isArray(record.data)) return record.data;
-    return Object.values(record);
+    const extracted = extractArrayFromRecord(value as Record<string, unknown>);
+    return extracted ?? Object.values(value as Record<string, unknown>);
   }
   if (typeof value === 'string') {
     try {
       const parsed = JSON.parse(value);
       if (Array.isArray(parsed)) return parsed;
       if (typeof parsed === 'object' && parsed) {
-        const record = parsed as Record<string, unknown>;
-        if (Array.isArray(record.items)) return record.items;
-        if (Array.isArray(record.data)) return record.data;
+        const extracted = extractArrayFromRecord(parsed as Record<string, unknown>);
+        if (extracted) return extracted;
       }
       return [];
     } catch {

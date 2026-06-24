@@ -36,7 +36,7 @@ export function FileDropzone({ rawJson, isDragOver, fileInputRef, onTextChange, 
         onChange={(e) => onTextChange(e.target.value)}
         placeholder="Cole o JSON aqui..."
         aria-label="JSON do DiscordChatExporter"
-        className="w-full min-h-[280px] resize-y bg-[#0F1A2E] border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none"
+        className="w-full min-h-[280px] resize-y bg-[#0F1A2E] border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 focus-visible:ring-2 focus-visible:ring-blue-500"
       />
 
       <input

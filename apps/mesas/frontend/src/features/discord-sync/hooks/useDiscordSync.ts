@@ -83,6 +83,7 @@ export function useDiscordSync() {
   const [diagnosingMessageId, setDiagnosingMessageId] = useState<string | null>(null);
   const [contentDiagnostic, setContentDiagnostic] = useState<DiscordMessageContentDiagnostic | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
+  const loadMessagesAbortRef = useRef<AbortController | null>(null);
 
   const queueStats = useMemo(() => ({
     pending: messages.filter(message => message.status === 'pending').length,
@@ -104,6 +105,12 @@ export function useDiscordSync() {
   }, []);
 
   const loadMessages = useCallback(async (override?: { sourceId?: string; window?: DiscordFetchWindow }) => {
+    if (loadMessagesAbortRef.current) {
+      loadMessagesAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    loadMessagesAbortRef.current = controller;
+
     setLoadingMessages(true);
     try {
       const data = await discordSyncApi.getMessages({
@@ -111,9 +118,10 @@ export function useDiscordSync() {
         status: messageStatusFilter || undefined,
         ...(override?.window ?? buildMessageWindow(messageWindowFilter)),
         limit: 100,
-      });
+      }, { signal: controller.signal });
       setMessages(Array.isArray(data) ? data : []);
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar mensagens.');
     } finally {
       setLoadingMessages(false);
@@ -159,7 +167,6 @@ export function useDiscordSync() {
       setMessageSourceFilter(sourceId);
       setMessageWindowFilter(windowOption);
       setTab('mensagens');
-      loadMessages({ sourceId, window });
       loadSources();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao buscar mensagens.');
@@ -216,7 +223,7 @@ export function useDiscordSync() {
   };
 
   const handleReingestForce = async (sourceId: string, fetchWindow: DiscordFetchWindow, windowOption: MessageWindowOption = '7d') => {
-    if (!window.confirm('Isso vai apagar todas as mensagens pendentes desta fonte e rebuscar tudo do Discord. Confirmar?')) return;
+    if (!globalThis.confirm('Isso vai apagar todas as mensagens pendentes desta fonte e rebuscar tudo do Discord. Confirmar?')) return;
     setReingestingSourceId(sourceId);
     try {
       const result = await discordSyncApi.reingestForce(sourceId, fetchWindow);
@@ -225,7 +232,6 @@ export function useDiscordSync() {
       setMessageSourceFilter(sourceId);
       setMessageWindowFilter(windowOption);
       setTab('mensagens');
-      loadMessages({ sourceId, window: fetchWindow });
       loadSources();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao reidratar.');
@@ -250,7 +256,7 @@ export function useDiscordSync() {
   const handleSelectMessage = (message: DiscordMessage) => {
     setSelectedMessage(message);
     setContentDiagnostic(null);
-    window.requestAnimationFrame(() => {
+    globalThis.requestAnimationFrame(() => {
       detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   };

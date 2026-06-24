@@ -39,6 +39,7 @@ export function useJsonImport() {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewReqId = useRef(0);
 
   const loadPreview = useCallback(async (json: string) => {
     if (!json.trim()) {
@@ -47,15 +48,18 @@ export function useJsonImport() {
       return;
     }
 
+    const reqId = ++previewReqId.current;
     setState('previewing');
     setPreview(null);
     setErrorMessage('');
 
     try {
       const data = await discordSyncApi.previewJson({ json });
+      if (reqId !== previewReqId.current) return;
       setPreview(data);
       setState('preview_ok');
     } catch (err) {
+      if (reqId !== previewReqId.current) return;
       setPreview(null);
       setState('preview_error');
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao analisar JSON.');
@@ -63,6 +67,7 @@ export function useJsonImport() {
   }, []);
 
   const schedulePreview = useCallback((value: string) => {
+    previewReqId.current++;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => loadPreview(value), 400);
     setRawJson(value);
@@ -116,7 +121,7 @@ export function useJsonImport() {
 
     if (!file) return;
 
-    if (!file.name.endsWith('.json')) {
+    if (!file.name.toLowerCase().endsWith('.json')) {
       showFileError('Formato inválido. Selecione um arquivo .json.');
       return;
     }
@@ -155,7 +160,7 @@ export function useJsonImport() {
     const file = event.dataTransfer.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.json')) {
+    if (!file.name.toLowerCase().endsWith('.json')) {
       showFileError('Formato inválido. Solte apenas arquivos .json.');
       return;
     }

@@ -47,7 +47,10 @@ router.post('/:id/parse', requireAdmin, async (req: Request, res: Response) => {
       .executeTakeFirst();
 
     let draft;
-    if (existingDraft && existingDraft.status !== 'synced' && existingDraft.status !== 'rejected') {
+    if (existingDraft) {
+      if (existingDraft.status === 'synced') {
+        return res.status(422).json({ error: 'Draft já sincronizado como mesa.' });
+      }
       [draft] = await db
         .updateTable('discord_import_table_drafts')
         .set({
@@ -95,7 +98,7 @@ router.post('/:id/parse', requireAdmin, async (req: Request, res: Response) => {
     const parseError = error instanceof Error ? error.message : 'Erro ao parsear mensagem.';
     await db
       .updateTable('discord_import_messages')
-      .set({ parse_error: parseError, updated_at: new Date() })
+      .set({ status: 'error', parse_error: parseError, updated_at: new Date() })
       .where('id', '=', req.params.id)
       .execute();
     return res.status(500).json({ error: 'Erro ao parsear mensagem.' });

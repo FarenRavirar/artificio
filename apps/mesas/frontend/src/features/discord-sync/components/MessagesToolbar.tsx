@@ -29,6 +29,7 @@ export function MessagesToolbar({
         <select
           value={messageSourceFilter}
           onChange={e => onSourceFilterChange(e.target.value)}
+          aria-label="Filtrar por fonte"
           className="app-select"
         >
           <option value="">Todas as fontes</option>
@@ -39,6 +40,7 @@ export function MessagesToolbar({
         <select
           value={messageWindowFilter}
           onChange={e => onWindowFilterChange(e.target.value as MessageWindowOption)}
+          aria-label="Filtrar por janela de mensagens"
           className="app-select"
         >
           {MESSAGE_WINDOW_OPTIONS.map(option => (
@@ -48,6 +50,7 @@ export function MessagesToolbar({
         <select
           value={messageStatusFilter}
           onChange={e => onStatusFilterChange(e.target.value as DiscordImportMessageStatus | '')}
+          aria-label="Filtrar por status"
           className="app-select"
         >
           <option value="">Todos os status</option>

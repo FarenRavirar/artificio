@@ -13,6 +13,50 @@ import { toNumberOrNull, importTextSchema, listDraftsSchema, patchDraftSchema, c
 
 const router = Router();
 
+// ─── Helpers para POST /import-text ────────────────────────────────────────────
+
+interface TableFieldsForMissing {
+  title?: unknown;
+  system_id?: unknown;
+  raw_system_hint?: unknown;
+  type?: unknown;
+  modality?: unknown;
+  slots_total?: unknown;
+  slots_open?: unknown;
+}
+
+/** Calcula campos obrigatórios faltantes em um rascunho de mesa. */
+function calcMissingFields(table: TableFieldsForMissing | undefined): string[] {
+  const missing: string[] = [];
+  if (!table?.title) missing.push('title');
+  if (!table?.system_id) missing.push(table?.raw_system_hint ? 'system_name:unmatched_hint' : 'system_name');
+  if (!table?.type) missing.push('type');
+  if (!table?.modality) missing.push('modality');
+  if (table?.slots_total == null && table?.slots_open == null) missing.push('slots_total');
+  return missing;
+}
+
+/** Cria um novo registro em import_messages e retorna o ID. */
+async function createImportMessage(
+  segment: string,
+  contentHash: string,
+  titleHint: string | null | undefined,
+): Promise<string | null> {
+  const [inserted] = await db
+    .insertInto('import_messages')
+    .values({
+      source_type: 'manual_paste',
+      raw_text: segment,
+      content_raw: segment,
+      thread_name: titleHint ?? null,
+      content_hash: contentHash,
+      status: 'pending',
+    })
+    .returning('id')
+    .execute();
+  return inserted?.id ?? null;
+}
+
 // ─── POST /import-text ────────────────────────────────────────────────────────
 
 router.post('/import-text', requireAdmin, async (req: Request, res: Response) => {
@@ -53,12 +97,7 @@ router.post('/import-text', requireAdmin, async (req: Request, res: Response) =>
         if (existingDraft) {
           const payload = normalizeDraftPayload(existingDraft.normalized_payload);
           const table = payload.table as Record<string, unknown> | undefined;
-          const missingFields: string[] = [];
-          if (!table?.title) missingFields.push('title');
-          if (!table?.system_id) missingFields.push(table?.raw_system_hint ? 'system_name:unmatched_hint' : 'system_name');
-          if (!table?.type) missingFields.push('type');
-          if (!table?.modality) missingFields.push('modality');
-          if (table?.slots_total == null && table?.slots_open == null) missingFields.push('slots_total');
+          const missingFields = calcMissingFields(table);
 
           created.push({
             id: existingDraft.id,
@@ -75,20 +114,9 @@ router.post('/import-text', requireAdmin, async (req: Request, res: Response) =>
       if (existingMessage) {
         importMessageId = existingMessage.id;
       } else {
-        const [inserted] = await db
-          .insertInto('import_messages')
-          .values({
-            source_type: 'manual_paste',
-            raw_text: segment,
-            content_raw: segment,
-            thread_name: title_hint ?? null,
-            content_hash: contentHash,
-            status: 'pending',
-          })
-          .returning('id')
-          .execute();
-        if (!inserted) continue;
-        importMessageId = inserted.id;
+        const newId = await createImportMessage(segment, contentHash, title_hint);
+        if (!newId) continue;
+        importMessageId = newId;
       }
 
       const rawMessage = textToRawMessage(segment, title_hint);
@@ -126,17 +154,11 @@ router.post('/import-text', requireAdmin, async (req: Request, res: Response) =>
         .where('id', '=', importMessageId)
         .execute();
 
-      const missingFields: string[] = [];
-      const table = normalized.draft.table;
-      if (!table.title) missingFields.push('title');
-      if (!table.system_id) missingFields.push(table.raw_system_hint ? 'system_name:unmatched_hint' : 'system_name');
-      if (!table.type) missingFields.push('type');
-      if (!table.modality) missingFields.push('modality');
-      if (table.slots_total == null && table.slots_open == null) missingFields.push('slots_total');
+      const missingFields = calcMissingFields(normalized.draft.table as unknown as TableFieldsForMissing);
 
       created.push({
         id: draftRow.id,
-        title: table.title ?? null,
+        title: normalized.draft.table.title ?? null,
         status: draftRow.status,
         confidence: toNumberOrNull(draftRow.confidence),
         missing_fields: missingFields,

@@ -109,7 +109,7 @@ router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
       .updateTable('discord_import_table_drafts')
       .set({
         ...parsed.data,
-        ...(mergedNormalizedPayload !== undefined ? { normalized_payload: mergedNormalizedPayload } : {}),
+        ...(mergedNormalizedPayload === undefined ? {} : { normalized_payload: mergedNormalizedPayload }),
         updated_at: new Date(),
       })
       .where('id', '=', req.params.id)
