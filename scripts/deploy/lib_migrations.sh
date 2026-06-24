@@ -56,7 +56,10 @@ validate_sql_against_class() {
     return 0
   fi
 
-  if sed -e 's/--.*//' "$filepath" | grep -Eiq '\b(DROP|TRUNCATE|DELETE[[:space:]]+FROM)\b'; then
+  # REV-077 (spec 050): regex estreito — permite DROP de atributo (NOT NULL, CONSTRAINT, DEFAULT, IDENTITY, EXPRESSION),
+  # bloqueia DROP de objeto (TABLE, DATABASE, SCHEMA, COLUMN, VIEW, MATERIALIZED, SEQUENCE, TYPE, INDEX, FUNCTION, TRIGGER,
+  # RULE, EXTENSION, TABLESPACE, ROLE, USER), TRUNCATE e DELETE FROM. Também remove comentários de bloco (/* */) antes do grep.
+  if sed -e 's/--.*//' -e 's/\/\*.*\*\///g' "$filepath" | grep -Eiq '\b(DROP[[:space:]]+(TABLE|DATABASE|SCHEMA|COLUMN|VIEW|MATERIALIZED|SEQUENCE|TYPE|INDEX|FUNCTION|TRIGGER|RULE|EXTENSION|TABLESPACE|ROLE|USER)|TRUNCATE|DELETE[[:space:]]+FROM)\b'; then
     echo "::error::$filepath esta marcada online-safe mas contem instrucao destrutiva."
     return 1
   fi

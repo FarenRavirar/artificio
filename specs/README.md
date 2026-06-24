@@ -51,6 +51,8 @@ Toda spec SDD deve:
 | 046 | arquiteture docs sync | aberto. Auditoria secao por secao do `arquiteture.md`. §1 corrigido, §2 auditado. |
 | 047 | mesas inbox importacao | ✅ fechada em beta. PR #88/#89 mergeadas; UI/backend no beta; smokes autenticados T1.13-T1.16 verdes; sem promoção a main. |
 | 048 | mesas DiscordChatExporter JSON | aberto. Continuação da 047: importador permanente de JSON do Tyrrrz/DiscordChatExporter. MVP = upload manual admin; futuro = ChatExporter diário na VM. |
+| 049 | mesas revisão gestão | fechada em `dev` (PRs #93/#94, promovida a `main` 2026-06-24). Refatoração /gestao (Fases A-F). D06/D07 abertos. |
+| 050 | infra migration guard online-safe | planejada (Claude planeja, DeepSeek implementa). Corrige falso-positivo `\bDROP\b` no guard que abortou deploy prod mesas + Fase C trata duplicação do guard (`BL-DEP-MESAS-LEGACY-SCRIPTS`). |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.

@@ -186,17 +186,17 @@
 - backlog: limpar depois que `_deploy-module` for fonte única.
 
 **R0 RE-INVESTIGAR:**
-- [ ] R0a — `ls apps/mesas/scripts/ apps/mesas/scripts/deploy/ scripts/deploy/` (re-comparar conjuntos)
-- [ ] R0b — `rg -n "mesas/scripts|deploy-beta|hydrate_beta|preflight_prod|reconcile_migrations|pre-commit" --glob '!node_modules' --glob '!pnpm-lock.yaml'` → 0 vivas
-- [ ] R0c — `grep -n apply_required_migrations .github/workflows/_deploy-module.yml` → confirma usa root (path)
-- [ ] R0d — `diff apps/mesas/scripts/deploy/apply_required_migrations.sh scripts/deploy/apply_required_migrations.sh` (confirmar divergência)
-- [ ] R0e — scan segredos nos scripts (`rg -i "secret|token|password|BEGIN" apps/mesas/scripts/`)
+- [x] R0a — `ls apps/mesas/scripts/ apps/mesas/scripts/deploy/ scripts/deploy/` (re-comparar conjuntos) ✅ spec 050 T8
+- [x] R0b — `rg -n "mesas/scripts|deploy-beta|hydrate_beta|preflight_prod|reconcile_migrations|pre-commit" --glob '!node_modules' --glob '!pnpm-lock.yaml'` → 0 vivas ✅ spec 050 T8
+- [x] R0c — `grep -n apply_required_migrations .github/workflows/_deploy-module.yml` → confirma usa root (path) ✅ spec 050 T8
+- [x] R0d — `diff apps/mesas/scripts/deploy/apply_required_migrations.sh scripts/deploy/apply_required_migrations.sh` (confirmar divergência) ✅ spec 050 T9
+- [x] R0e — scan segredos nos scripts (`rg -i "secret|token|password|BEGIN" apps/mesas/scripts/`) ✅ spec 050 T10
 
 **Tasks:**
-- [ ] T6a — 🟦 Decisão escopo: **A** = só `apps/mesas/scripts/deploy/` (6) | **B** = `apps/mesas/scripts/` inteiro
-- [ ] T6b — Remover conforme escopo
-- [ ] T6c — `pnpm --filter @artificio/mesas-backend build` + `--filter @artificio/mesas-frontend build` verdes
-- [ ] T6d — Backlog: fechar BL-DEP-MESAS-LEGACY-SCRIPTS
+- [x] T6a — 🟦 Decisão escopo: **A** = só `apps/mesas/scripts/deploy/` (6) | **B** = `apps/mesas/scripts/` inteiro ✅ escopo A escolhido (spec 050 T12)
+- [x] T6b — Remover conforme escopo ✅ spec 050 T12
+- [x] T6c — `pnpm --filter @artificio/mesas-backend build` + `--filter @artificio/mesas-frontend build` verdes ✅ spec 050 T13
+- [x] T6d — Backlog: fechar BL-DEP-MESAS-LEGACY-SCRIPTS ✅ spec 050 T14
 
 **Risco não-feliz:** se workflow referencia app-level → quebra deploy. Provar canonicidade (R0c) antes.
 **Rollback:** `git revert`.
