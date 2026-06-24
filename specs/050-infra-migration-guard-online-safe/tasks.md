@@ -227,6 +227,8 @@
 
 - [x] **T30** — Corrigir DEB-050-06 (falha-aberto). **Decisão pós-verificação:** perl confirmado na VM (5.38.2) e CI → manter `perl` + adicionar guard de presença **falha-fechado** no topo de `validate_sql_against_class` (`command -v perl >/dev/null 2>&1 || { echo "::error::perl ausente"; return 1; }`). NÃO trocar por sed puro (over-engineering). `lib_migrations.sh`. · feito quando: guard falha-fechado se perl ausente, `test_migration_guard.sh` 29/29 verde, ShellCheck limpo. ✅ 2026-06-24
 
+- [x] **T31** — DEB-050-07: inverter guard de denylist → **allowlist** (bloqueia qualquer `DROP` exceto atributos seguros), match 100% em perl com negative-lookahead, erros em `>&2`. + casos de teste DROP POLICY/DOMAIN/FOREIGN TABLE/etc. ✅ 2026-06-24 — implementado por Claude (autorizado); `test_migration_guard.sh` 36/36, 128/129 PASS, reconcile 9/9.
+
 ## Gate de entrega (autorização do mantenedor por ação)
 
 - Commit/push/PR para `dev`: aprovação nominal (código de infra → branch + PR, regra pétrea).

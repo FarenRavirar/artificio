@@ -56,23 +56,33 @@ validate_sql_against_class() {
     return 0
   fi
 
-  # T30: guard fail-closed — perl faz o strip multilinha de comentários (REV-077 T28).
-  # Só relevante no caminho online-safe (manual-risk retorna acima sem usar perl).
-  # Captura a saída e checa o exit do perl: perl ausente OU com falha em runtime
-  # → fail-closed (return 1), nunca deixa passar por saída vazia/parcial.
-  local stripped
-  if ! stripped=$(perl -0777 -pe 's{/\*.*?\*/}{}gs' "$filepath"); then
-    echo "::error::perl ausente ou falhou ao processar $filepath — guard fail-closed."
-    return 1
-  fi
+  # DEB-050-07 (spec 050): ALLOWLIST — bloqueia QUALQUER `DROP` que não seja atributo
+  # seguro conhecido (NOT NULL, CONSTRAINT, DEFAULT, IDENTITY, EXPRESSION), além de
+  # TRUNCATE e DELETE FROM. A denylist anterior (lista fixa de tipos de objeto) era
+  # furada: DROP POLICY/DOMAIN/FOREIGN TABLE/PUBLICATION/SERVER/... escapavam como online-safe.
+  # Tudo em perl (já mandatório): strip de comentário de bloco /* */ multilinha + linha --,
+  # depois match com negative-lookahead. Fail-closed (T30/DEB-050-06): perl ausente ou
+  # quebrado → exit fora de {0,1} → return 1. Só relevante no caminho online-safe
+  # (manual-risk retorna acima sem usar perl).
+  perl -0777 -ne '
+    s{/\*.*?\*/}{}gs;
+    s{--[^\n]*}{}g;
+    exit 1 if /\bDROP\b(?!\s+(?:NOT\s+NULL|CONSTRAINT|DEFAULT|IDENTITY|EXPRESSION)\b)/i;
+    exit 1 if /\bTRUNCATE\b/i;
+    exit 1 if /\bDELETE\s+FROM\b/i;
+    exit 0;
+  ' "$filepath"
+  local rc=$?
 
-  # REV-077 (spec 050): regex estreito — permite DROP de atributo (NOT NULL, CONSTRAINT, DEFAULT, IDENTITY, EXPRESSION),
-  # bloqueia DROP de objeto (TABLE, DATABASE, SCHEMA, COLUMN, VIEW, MATERIALIZED, SEQUENCE, TYPE, INDEX, FUNCTION, TRIGGER,
-  # RULE, EXTENSION, TABLESPACE, ROLE, USER), TRUNCATE e DELETE FROM. Comentário de linha (-- via sed) removido antes do grep.
-  if printf '%s\n' "$stripped" | sed 's/--.*//' | grep -Eiq '\b(DROP[[:space:]]+(TABLE|DATABASE|SCHEMA|COLUMN|VIEW|MATERIALIZED|SEQUENCE|TYPE|INDEX|FUNCTION|TRIGGER|RULE|EXTENSION|TABLESPACE|ROLE|USER)|TRUNCATE|DELETE[[:space:]]+FROM)\b'; then
-    echo "::error::$filepath esta marcada online-safe mas contem instrucao destrutiva."
+  if [ "$rc" -eq 0 ]; then
+    return 0
+  fi
+  if [ "$rc" -eq 1 ]; then
+    echo "::error::$filepath esta marcada online-safe mas contem instrucao destrutiva." >&2
     return 1
   fi
+  echo "::error::perl ausente ou falhou ao processar $filepath — guard fail-closed." >&2
+  return 1
 }
 
 query_schema_migrations() {

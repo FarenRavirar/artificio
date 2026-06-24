@@ -123,6 +123,37 @@ if printf '%s\n' "$stripped" | sed 's/--.*//' | grep -Eiq '...'; then ...
 
 > **Refino aplicado pelo mantenedor/Claude (2026-06-24):** a 1ª versão T30 usava só `command -v perl` (cobre ausente, mas **não** perl presente-porém-quebrado: saída vazia → grep não acha → fail-open). Trocado para captura+checagem de exit. Placement movido para **dentro** do caminho online-safe (manual-risk não precisa de perl). Smoke: perl quebrado→online-safe exit 1, manual-risk exit 0, DROP real pós-comentário multilinha→exit 1. `test_migration_guard.sh` 29/29 verde.
 
+## DEB-050-07 — Guard era denylist (furada); invertido para allowlist
+
+- **Origem:** CodeRabbit + 2 revisores no PR #95 (2026-06-24). Confirmado.
+- **Estado:** **fechado** (2026-06-24, implementado por Claude com autorização do mantenedor).
+- **Severidade:** **Major / segurança** — destrutivo escapava como online-safe.
+
+### Bug
+
+O guard bloqueava uma **lista fixa** de tipos de objeto após `DROP` (TABLE, COLUMN, VIEW, ...). Postgres tem muito mais objetos DROP-áveis: `DROP POLICY`, `DROP DOMAIN`, `DROP FOREIGN TABLE`, `DROP PUBLICATION`, `DROP SERVER`, `DROP AGGREGATE`, `DROP OWNED`, `DROP OPERATOR`, `DROP COLLATION`, etc. Nenhum estava na denylist → passavam como `online-safe`. Denylist é furada por natureza.
+
+### Correção (allowlist — inversão da lógica)
+
+Bloquear **qualquer** `DROP` que **não** seja atributo seguro conhecido. Implementado 100% em `perl` (já mandatório, fail-closed) com negative-lookahead:
+
+```sh
+perl -0777 -ne '
+  s{/\*.*?\*/}{}gs; s{--[^\n]*}{}g;
+  exit 1 if /\bDROP\b(?!\s+(?:NOT\s+NULL|CONSTRAINT|DEFAULT|IDENTITY|EXPRESSION)\b)/i;
+  exit 1 if /\bTRUNCATE\b/i;
+  exit 1 if /\bDELETE\s+FROM\b/i;
+  exit 0;
+' "$filepath"
+# rc=0 limpo; rc=1 destrutivo→block; rc∉{0,1} perl ausente/quebrado→fail-closed block
+```
+
+Permitidos (allowlist): `DROP NOT NULL`, `DROP CONSTRAINT`, `DROP DEFAULT`, `DROP IDENTITY`, `DROP EXPRESSION`. Erros em `>&2` (resolve também o smell de stderr no echo do guard). Strip de comentário bloco multilinha + linha no mesmo perl (consolida DEB-050-04).
+
+### Validação
+
+`test_migration_guard.sh` 36/36 (29 + 7 novos casos: DROP POLICY/DOMAIN/FOREIGN TABLE/PUBLICATION/SERVER/AGGREGATE/OWNED). 128/129 reais PASS. reconcile 9/9 intacto.
+
 ## DEB-050-02 — Convergência de estilo dos scripts de deploy antigos (`[`→`[[`)
 
 - **Origem:** investigação do DEB-050-01.
