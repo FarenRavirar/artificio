@@ -53,6 +53,7 @@ Toda spec SDD deve:
 | 048 | mesas DiscordChatExporter JSON | aberto. Continuação da 047: importador permanente de JSON do Tyrrrz/DiscordChatExporter. MVP = upload manual admin; futuro = ChatExporter diário na VM. |
 | 049 | mesas revisão gestão | fechada em `dev` (PRs #93/#94, promovida a `main` 2026-06-24). Refatoração /gestao (Fases A-F). D06/D07 abertos. |
 | 050 | infra migration guard online-safe | planejada (Claude planeja, DeepSeek implementa). Corrige falso-positivo `\bDROP\b` no guard que abortou deploy prod mesas + Fase C trata duplicação do guard (`BL-DEP-MESAS-LEGACY-SCRIPTS`). |
+| 051 | ui changelog/nav + extrações compartilhadas pré-lançamento | planejada (só spec/plan/tasks/reviews; debitos zerado). 7 frentes (tasks) por ondas: F0 varredura de duplicação; F4 consolidar 4 wrappers de changelog→`packages/ui` (extração adiada spec 020); F5 extrair primitivas admin do mesas→`packages/ui` (G01/049); F1 bug visual do changelog (mesas sobreposto / glossário topo escondido); F6 centralizar schemas Zod cross-app→`packages/content` (G02/049); F2 indicador de projeto ativo na nav (`currentHref` inconsistente); F3 = DEB-050-02 (`[`→`[[` scripts deploy). Ordem: Onda 0→A(ui)→B(content)→C(nav)→D(shell), extrair compartilhado antes de consumir p/ zero retrabalho. |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.

@@ -157,7 +157,7 @@ Permitidos (allowlist): `DROP NOT NULL`, `DROP CONSTRAINT`, `DROP DEFAULT`, `DRO
 ## DEB-050-02 — Convergência de estilo dos scripts de deploy antigos (`[`→`[[`)
 
 - **Origem:** investigação do DEB-050-01.
-- **Estado:** aberto (follow-up, fora da PR #95).
+- **Estado:** **TRANSFERIDO PARA A SPEC 051** (2026-06-25, frente F3). Segue tratado em `specs/051-ui-changelog-nav-active/{spec,plan,tasks,debitos}.md`. Mantido aqui só como referência histórica.
 - **Escopo:** `scripts/deploy/lib_migrations.sh`, `apply_required_migrations.sh`, `test_migration_lock.sh`, `validate_branch_invariant.sh` — padronizar `[`→`[[` + erros em `>&2` para alinhar com os 3 novos.
 - **Por quê:** após o DEB-050-01, os arquivos novos ficam best-practice e os antigos não — inconsistência. Convergir é o caminho durável, mas é refactor próprio (com re-rodar ShellCheck + os 3 self-tests), não deve entrar na PR de fix do guard.
 - **Próximo passo:** SDD Lite/infra própria; rodar `_lint-shell.yml` local + CI antes de fechar.

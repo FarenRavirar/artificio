@@ -1,4 +1,5 @@
 import React from 'react';
+import { useConfirm } from "@artificio/ui";
 import { MessageSquare, RefreshCw, Trash2, Archive, ArchiveRestore, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -48,6 +49,7 @@ const AdminFeedbackPage: React.FC = () => {
   const [kind, setKind] = React.useState('');
   const [archived, setArchived] = React.useState('false');
   const [notes, setNotes] = React.useState<Record<string, string>>({});
+  const { confirm } = useConfirm();
 
   const fetchFeedback = React.useCallback(async () => {
     setLoading(true);
@@ -81,7 +83,7 @@ const AdminFeedbackPage: React.FC = () => {
   };
 
   const remove = async (id: string) => {
-    if (!window.confirm('Excluir este feedback definitivamente?')) return;
+    if (!(await confirm({ title: "Excluir feedback", message: "Excluir este feedback definitivamente?", variant: "danger" }))) return;
     try {
       await api.delete(`/admin/feedback/${id}`);
       toast.success('Feedback excluído.');

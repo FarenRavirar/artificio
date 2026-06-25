@@ -1176,6 +1176,229 @@
   outline-offset: 2px;
 }
 
+/* ConfirmDialog */
+
+.artificio-confirm-overlay {
+  align-items: center;
+  animation: artificio-fade-in 0.2s ease-out;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 9999;
+}
+
+@keyframes artificio-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.artificio-confirm-dialog {
+  animation: artificio-slide-up 0.3s ease-out;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  max-width: 400px;
+  padding: 2rem;
+  width: 90%;
+}
+
+@keyframes artificio-slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.artificio-confirm-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.artificio-confirm-icon {
+  align-items: center;
+  border-radius: 50%;
+  display: flex;
+  flex-shrink: 0;
+  font-size: 1.5rem;
+  height: 48px;
+  justify-content: center;
+  width: 48px;
+}
+
+.artificio-confirm-icon-danger {
+  background: var(--state-danger-bg);
+  color: var(--state-danger-fg);
+}
+
+.artificio-confirm-icon-warning {
+  background: var(--state-warning-bg);
+  color: var(--state-warning-fg);
+}
+
+.artificio-confirm-icon-info {
+  background: var(--state-info-bg);
+  color: var(--state-info-fg);
+}
+
+.artificio-confirm-content {
+  flex: 1;
+}
+
+.artificio-confirm-title {
+  color: var(--fg);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+}
+
+.artificio-confirm-message {
+  color: var(--fg-muted);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.artificio-confirm-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.artificio-confirm-btn-cancel,
+.artificio-confirm-btn-confirm {
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  outline: none;
+  padding: 0.75rem 1.5rem;
+  transition: all 0.2s;
+}
+
+.artificio-confirm-btn-cancel {
+  background: var(--fill);
+  color: var(--fg);
+}
+
+.artificio-confirm-btn-cancel:hover {
+  background: var(--line);
+}
+
+.artificio-confirm-btn-confirm {
+  background: var(--artificio-brand);
+  color: #ffffff;
+}
+
+.artificio-confirm-btn-confirm:hover {
+  background: var(--artificio-brand-deep);
+  box-shadow: 0 4px 12px rgba(255, 87, 34, 0.3);
+  transform: translateY(-1px);
+}
+
+.artificio-confirm-btn-confirm-danger {
+  background: var(--state-danger-fg);
+}
+
+.artificio-confirm-btn-confirm-danger:hover {
+  background: var(--artificio-danger-text);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.artificio-confirm-btn-cancel:focus-visible,
+.artificio-confirm-btn-confirm:focus-visible {
+  outline: 2px solid var(--artificio-brand);
+  outline-offset: 2px;
+}
+
+/* FileDropzone */
+
+.artificio-dropzone {
+  border: 2px dashed var(--line);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  position: relative;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.artificio-dropzone-active {
+  border-color: var(--state-success-fg);
+  background: var(--state-success-bg);
+}
+
+.artificio-dropzone-overlay {
+  align-items: center;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.artificio-dropzone-overlay-text {
+  color: var(--state-success-fg);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.artificio-dropzone-textarea {
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  color: var(--fg);
+  min-height: 280px;
+  padding: 0.75rem 0.75rem;
+  resize: vertical;
+  width: 100%;
+}
+
+.artificio-dropzone-textarea::placeholder {
+  color: var(--fg-muted);
+  opacity: 0.6;
+}
+
+.artificio-dropzone-textarea:focus-visible {
+  outline: 2px solid var(--artificio-brand);
+  outline-offset: -1px;
+}
+
+.artificio-dropzone-clickarea {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  justify-content: center;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.artificio-dropzone-clickarea-title {
+  color: var(--fg);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.artificio-dropzone-clickarea-hint {
+  color: var(--fg-muted);
+  font-size: 0.75rem;
+}
+
+.artificio-dropzone-file-input {
+  display: none;
+}
+
 /* Variante escura (header/footer sobre navy do hero) — funde com a página;
    laranja vira o acento legível, logo usa wordmark negativo (branco). */
 .artificio-header[data-variant="dark"],

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Trash2, Video, Music, Radio, MessageCircle, FileText, Globe, Plus, Loader, Camera, Share2, Briefcase } from 'lucide-react';
 import { useLinks, type UserLink } from '../hooks/useLinks';
-import { useConfirm } from './ui/useConfirm';
+import { useConfirm } from "@artificio/ui";
 import './LinksManager.css';
 
 const LINK_TYPE_ICONS = {

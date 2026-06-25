@@ -1,13 +1,28 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import type { ReactNode } from 'react';
-import { ConfirmContext, type ConfirmOptions } from './confirmDialogContext';
-import './ConfirmDialog.css';
+import React, { useState, useCallback, useEffect, useRef, createContext, useContext } from "react";
+import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
 
-/**
- * Modal de confirmação customizado seguindo identidade visual Artifício
- * Substitui window.confirm() com melhor UX e acessibilidade
- */
+export interface ConfirmOptions {
+  title: string;
+  message: string;
+  variant?: "danger" | "warning" | "info";
+  confirmText?: string;
+  cancelText?: string;
+}
+
+export interface ConfirmContextValue {
+  confirm: (options: ConfirmOptions) => Promise<boolean>;
+}
+
+export const ConfirmContext = createContext<ConfirmContextValue | null>(null);
+
+export function useConfirm(): ConfirmContextValue {
+  const context = useContext(ConfirmContext);
+  if (!context) {
+    throw new Error("useConfirm deve ser usado dentro de um ConfirmProvider");
+  }
+  return context;
+}
 
 interface ConfirmProviderProps {
   children: ReactNode;
@@ -42,29 +57,25 @@ export function ConfirmProvider({ children }: ConfirmProviderProps) {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         handleCancel();
-      } else if (e.key === 'Enter') {
+      } else if (e.key === "Enter") {
         handleConfirm();
       }
     },
-    [handleCancel, handleConfirm]
+    [handleCancel, handleConfirm],
   );
 
-  // Focus trap
   useEffect(() => {
     if (!isOpen || !dialogRef.current) return;
 
-    // Bloquear scroll do body
     const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
 
-    // Salvar elemento com foco anterior
     previousFocusRef.current = document.activeElement as HTMLElement;
 
-    // Obter elementos focáveis
     const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     );
 
     if (focusableElements.length === 0) return;
@@ -72,21 +83,16 @@ export function ConfirmProvider({ children }: ConfirmProviderProps) {
     const firstElement = focusableElements[0];
     const lastElement = focusableElements[focusableElements.length - 1];
 
-    // Focar primeiro elemento
     firstElement.focus();
 
-    // Handler para trap de foco
     const handleTabKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-
+      if (e.key !== "Tab") return;
       if (e.shiftKey) {
-        // Shift + Tab no primeiro → vai para o último
         if (document.activeElement === firstElement) {
           e.preventDefault();
           lastElement.focus();
         }
       } else {
-        // Tab no último → vai para o primeiro
         if (document.activeElement === lastElement) {
           e.preventDefault();
           firstElement.focus();
@@ -94,14 +100,11 @@ export function ConfirmProvider({ children }: ConfirmProviderProps) {
       }
     };
 
-    document.addEventListener('keydown', handleTabKey);
+    document.addEventListener("keydown", handleTabKey);
 
-    // Cleanup
     return () => {
-      document.removeEventListener('keydown', handleTabKey);
-      // Restaurar scroll
+      document.removeEventListener("keydown", handleTabKey);
       document.body.style.overflow = originalOverflow;
-      // Restaurar foco anterior
       previousFocusRef.current?.focus();
     };
   }, [isOpen]);
@@ -111,56 +114,57 @@ export function ConfirmProvider({ children }: ConfirmProviderProps) {
       {children}
       {isOpen && options && createPortal(
         <div
-          className="confirm-dialog-overlay"
+          className="artificio-confirm-overlay"
           onClick={handleCancel}
           onKeyDown={handleKeyDown}
         >
           <div
             ref={dialogRef}
-            className="confirm-dialog"
+            className="artificio-confirm-dialog"
             onClick={(e) => e.stopPropagation()}
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="confirm-dialog-title"
             aria-describedby="confirm-dialog-message"
           >
-            <div className="confirm-dialog-header">
-              <div className={`confirm-dialog-icon ${options.variant || 'info'}`}>
-                {options.variant === 'danger' && '⚠️'}
-                {options.variant === 'warning' && '⚡'}
-                {(!options.variant || options.variant === 'info') && 'ℹ️'}
+            <div className="artificio-confirm-header">
+              <div className={`artificio-confirm-icon artificio-confirm-icon-${options.variant || "info"}`}>
+                {options.variant === "danger" && "\u26A0\uFE0F"}
+                {options.variant === "warning" && "\u26A1"}
+                {(!options.variant || options.variant === "info") && "\u2139\uFE0F"}
               </div>
-              <div className="confirm-dialog-content">
-                <h2 id="confirm-dialog-title" className="confirm-dialog-title">
+              <div className="artificio-confirm-content">
+                <h2 id="confirm-dialog-title" className="artificio-confirm-title">
                   {options.title}
                 </h2>
-                <p id="confirm-dialog-message" className="confirm-dialog-message">
+                <p id="confirm-dialog-message" className="artificio-confirm-message">
                   {options.message}
                 </p>
               </div>
             </div>
 
-            <div className="confirm-dialog-actions">
+            <div className="artificio-confirm-actions">
               <button
-                className="confirm-dialog-button confirm-dialog-button-cancel"
+                className="artificio-confirm-btn-cancel"
                 onClick={handleCancel}
-                autoFocus={options.variant !== 'danger'}
+                autoFocus={options.variant !== "danger"}
               >
-                {options.cancelText || 'Cancelar'}
+                {options.cancelText || "Cancelar"}
               </button>
               <button
-                className={`confirm-dialog-button confirm-dialog-button-confirm ${options.variant || ''}`}
+                className={`artificio-confirm-btn-confirm ${options.variant === "danger" ? "artificio-confirm-btn-confirm-danger" : ""}`}
                 onClick={handleConfirm}
-                autoFocus={options.variant === 'danger'}
+                autoFocus={options.variant === "danger"}
               >
-                {options.confirmText || 'Confirmar'}
+                {options.confirmText || "Confirmar"}
               </button>
             </div>
           </div>
         </div>,
-        document.body
+        document.body,
       )}
     </ConfirmContext.Provider>
   );
 }
 
+export default ConfirmProvider;

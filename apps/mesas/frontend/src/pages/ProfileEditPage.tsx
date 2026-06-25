@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useConfirm } from "@artificio/ui";
 import { useProfileContext } from '../contexts/useProfileContext';
 import type { PlayerProfile, GmProfile } from '../hooks/useProfile';
 import { UserSystemsSelector } from '../components/UserSystemsSelector';
@@ -32,6 +33,7 @@ export default function ProfileEditPage() {
   const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl);
   const [showSaved, setShowSaved] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const { confirm } = useConfirm();
 
   // Sincroniza a aba com a URL — ajuste durante o render (sem effect).
   const [prevTabUrl, setPrevTabUrl] = useState(tabFromUrl);
@@ -89,7 +91,7 @@ export default function ProfileEditPage() {
 
   // Handler para desconexão Discord
   const handleDisconnectDiscord = useCallback(async () => {
-    if (!window.confirm('Deseja desconectar sua conta Discord?')) return;
+    if (!(await confirm({ title: "Desconectar Discord", message: "Deseja desconectar sua conta Discord?", variant: "warning" }))) return;
     
     setDisconnecting(true);
     try {
@@ -113,7 +115,7 @@ export default function ProfileEditPage() {
     } finally {
       setDisconnecting(false);
     }
-  }, [refetch]);
+  }, [refetch, confirm]);
 
   if (loading) {
     return (

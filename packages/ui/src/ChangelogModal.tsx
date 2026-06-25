@@ -1,7 +1,7 @@
-import React, { useCallback, useState, type ReactNode } from "react";
+import React, { useCallback, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { ChangelogEntry, ChangelogModalLabels } from "./changelog.js";
-import { DEFAULT_CHANGELOG_LABELS } from "./changelog.js";
+import { DEFAULT_CHANGELOG_LABELS, normalizeChangelogEntries } from "./changelog.js";
 import { useChangelogData } from "./hooks.js";
 
 export function renderMarkdown(text: string): ReactNode {
@@ -93,6 +93,17 @@ export function ChangelogModal({
   const toggleExpand = useCallback((logId: string) => {
     setExpandedLogs((prev) => ({ ...prev, [logId]: !prev[logId] }));
   }, []);
+
+  // Lock body scroll while modal is open (prevents background content from
+  // scrolling behind the semi-transparent backdrop — R-F1.1).
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -330,19 +341,26 @@ export function ChangelogModal({
 interface StaticChangelogModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly changelogs: ChangelogEntry[];
+  readonly changelogs?: ChangelogEntry[];
+  /** Raw changelog data (normalized internally via normalizeChangelogEntries). Takes precedence over `changelogs` when provided. */
+  readonly rawChangelogs?: unknown;
 }
 
 export function StaticChangelogModal({
   isOpen,
   onClose,
   changelogs,
+  rawChangelogs,
 }: StaticChangelogModalProps) {
+  const resolved = rawChangelogs != null
+    ? normalizeChangelogEntries(rawChangelogs)
+    : changelogs ?? [];
+
   return (
     <ChangelogModal
       isOpen={isOpen}
       onClose={onClose}
-      changelogs={changelogs}
+      changelogs={resolved}
     />
   );
 }

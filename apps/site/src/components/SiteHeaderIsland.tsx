@@ -1,7 +1,7 @@
 import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
-import { ThemeToggle, applyHeaderVariant, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
+import { StaticChangelogModal, ThemeToggle, applyHeaderVariant, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
 import { useState, useRef, useEffect } from "react";
-import { SiteChangelogModal } from "./SiteChangelogModal";
+import rawChangelogs from "../data/changelogs.json";
 
 function getInitials(name: string) {
   return name
@@ -140,7 +140,7 @@ export function SiteHeaderIsland() {
         </button>
         );
       })()}
-      <SiteChangelogModal isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} />
+      <StaticChangelogModal isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} rawChangelogs={rawChangelogs} />
     </>
   );
 }

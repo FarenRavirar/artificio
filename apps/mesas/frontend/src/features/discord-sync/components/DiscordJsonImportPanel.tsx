@@ -1,7 +1,7 @@
 import { useJsonImport } from '../hooks/useJsonImport';
 import { ImportResultGrid } from './ImportResultGrid';
 import { JsonPreviewCard } from './JsonPreviewCard';
-import { FileDropzone } from './FileDropzone';
+import { FileDropzone } from "@artificio/ui";
 
 interface DiscordJsonImportPanelProps {
   readonly onNavigateToDrafts?: () => void;
@@ -26,7 +26,7 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
         </p>
 
         <FileDropzone
-          rawJson={rawJson}
+          value={rawJson}
           isDragOver={isDragOver}
           fileInputRef={fileInputRef}
           onTextChange={handleChange}
@@ -34,6 +34,10 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
+          accept=".json,application/json"
+          placeholder="Cole o JSON aqui..."
+          label="JSON do DiscordChatExporter"
+          textareaProps={{ id: "discord-json-input" }}
         />
 
         <div className="flex gap-2">
