@@ -37,6 +37,7 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
           accept=".json,application/json"
           placeholder="Cole o JSON aqui..."
           label="JSON do DiscordChatExporter"
+          fileLabel="Selecionar arquivo JSON do DiscordChatExporter"
           textareaProps={{ id: "discord-json-input" }}
         />
 

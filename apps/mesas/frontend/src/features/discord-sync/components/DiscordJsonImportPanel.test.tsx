@@ -29,7 +29,7 @@ describe('DiscordJsonImportPanel', () => {
   it('mostra estado inicial (textarea vazio, botoes)', () => {
     render(<DiscordJsonImportPanel />);
 
-    const textarea = screen.getByLabelText('JSON do DiscordChatExporter');
+    const textarea = screen.getByRole("textbox", { name: "JSON do DiscordChatExporter" });
     expect(textarea).toBeInTheDocument();
     expect(textarea).toHaveValue('');
 
@@ -45,7 +45,7 @@ describe('DiscordJsonImportPanel', () => {
 
   it('textarea aceita input', () => {
     render(<DiscordJsonImportPanel />);
-    const textarea = screen.getByLabelText('JSON do DiscordChatExporter');
+    const textarea = screen.getByRole("textbox", { name: "JSON do DiscordChatExporter" });
     fireEvent.change(textarea, { target: { value: '{}' } });
     expect(textarea).toHaveValue('{}');
   });
@@ -62,7 +62,7 @@ describe('DiscordJsonImportPanel', () => {
     });
 
     render(<DiscordJsonImportPanel />);
-    const textarea = screen.getByLabelText('JSON do DiscordChatExporter');
+    const textarea = screen.getByRole("textbox", { name: "JSON do DiscordChatExporter" });
     fireEvent.change(textarea, { target: { value: '{"some":"data"}' } });
 
     await waitFor(() => {
@@ -82,7 +82,7 @@ describe('DiscordJsonImportPanel', () => {
     });
 
     render(<DiscordJsonImportPanel />);
-    const textarea = screen.getByLabelText('JSON do DiscordChatExporter');
+    const textarea = screen.getByRole("textbox", { name: "JSON do DiscordChatExporter" });
     fireEvent.change(textarea, { target: { value: '{"some":"data"}' } });
 
     await waitFor(() => {
@@ -97,7 +97,7 @@ describe('DiscordJsonImportPanel', () => {
     vi.mocked(discordSyncApi.previewJson).mockImplementation(() => new Promise(() => {}));
 
     render(<DiscordJsonImportPanel />);
-    const textarea = screen.getByLabelText('JSON do DiscordChatExporter');
+    const textarea = screen.getByRole("textbox", { name: "JSON do DiscordChatExporter" });
     fireEvent.change(textarea, { target: { value: '{"test": true}' } });
 
     await waitFor(() => {

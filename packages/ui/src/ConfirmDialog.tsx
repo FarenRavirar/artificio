@@ -59,11 +59,11 @@ export function ConfirmProvider({ children }: ConfirmProviderProps) {
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
         handleCancel();
-      } else if (e.key === "Enter") {
-        handleConfirm();
       }
+      // Enter NÃO confirma aqui — o overlay (backdrop) só deve fechar via Escape.
+      // A confirmação ocorre pelos botões do dialog (que disparam handleConfirm/handleCancel).
     },
-    [handleCancel, handleConfirm],
+    [handleCancel],
   );
 
   useEffect(() => {

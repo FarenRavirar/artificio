@@ -1,8 +1,7 @@
 import { lazy, Suspense, useState, useMemo, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { Footer } from '@artificio/ui';
-import { ConfirmProvider } from '@artificio/ui';
+import { Footer, ConfirmProvider } from '@artificio/ui';
 import { FeedbackButton } from './features/dev-feedback/FeedbackButton';
 import { GlossarioHeader } from './components/GlossarioHeader';
 import { SearchBar } from './components/SearchBar';

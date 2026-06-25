@@ -352,9 +352,9 @@ export function StaticChangelogModal({
   changelogs,
   rawChangelogs,
 }: StaticChangelogModalProps) {
-  const resolved = rawChangelogs != null
-    ? normalizeChangelogEntries(rawChangelogs)
-    : changelogs ?? [];
+  const resolved = rawChangelogs == null
+    ? (changelogs ?? [])
+    : normalizeChangelogEntries(rawChangelogs);
 
   return (
     <ChangelogModal
