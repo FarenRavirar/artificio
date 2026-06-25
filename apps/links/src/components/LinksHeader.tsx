@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Header, StaticChangelogModal, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS, type UserMenuItem } from "@artificio/ui";
+import { MODULE_ORIGINS } from "@artificio/config";
 import rawChangelogs from "../data/changelogs.json";
 
 const userMenu: UserMenuItem[] = [
@@ -19,7 +20,7 @@ export function LinksHeader() {
   return (
     <>
       <Header
-        currentHref="https://links.artificiorpg.com"
+        currentHref={MODULE_ORIGINS.links}
         variant={theme === "dark" ? "dark" : "light"}
         loginLabel="Entrar"
         userMenu={userMenu}

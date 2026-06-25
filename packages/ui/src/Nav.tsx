@@ -5,12 +5,24 @@ export interface NavProps {
   currentHref?: string;
 }
 
+function normalizeHref(href: string | undefined): string | null {
+  if (!href) return null;
+  try {
+    const url = new URL(href);
+    return url.hostname.toLowerCase();
+  } catch {
+    return href.toLowerCase().replace(/\/+$/, "");
+  }
+}
+
 export function Nav({ items, currentHref }: NavProps) {
+  const normalizedCurrent = normalizeHref(currentHref);
+
   return (
     <nav aria-label="Modulos do Artificio">
       <ul className="artificio-nav-list">
         {items.map((item) => {
-          const isCurrent = item.href === currentHref;
+          const isCurrent = normalizedCurrent !== null && normalizeHref(item.href) === normalizedCurrent;
 
           return (
             <li key={item.href}>

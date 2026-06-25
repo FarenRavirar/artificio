@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "$#" -lt 2 ] || [ "$#" -gt 5 ]; then
-  echo "Uso: bash scripts/deploy/apply_required_migrations.sh <compose_file> <db_service> [db_name] [db_user] [migrations_dir]"
+if [[ "$#" -lt 2 || "$#" -gt 5 ]]; then
+  echo "Uso: bash scripts/deploy/apply_required_migrations.sh <compose_file> <db_service> [db_name] [db_user] [migrations_dir]" >&2
   exit 1
 fi
 
@@ -42,18 +42,18 @@ load_header_vars() {
     esac
   done <<< "$header_vars"
 
-  if [ -z "$CLASS" ] || [ -z "$REQUIRES_BACKUP" ]; then
-    echo "::error::$path falhou ao carregar cabecalho parseado."
+  if [[ -z "$CLASS" || -z "$REQUIRES_BACKUP" ]]; then
+    echo "::error::$path falhou ao carregar cabecalho parseado." >&2
     return 1
   fi
 }
 
 if ! [[ "$MIGRATION_LOCK_ID" =~ ^-?[0-9]+$ ]]; then
-  echo "::error::MIGRATION_LOCK_ID precisa ser numerico."
+  echo "::error::MIGRATION_LOCK_ID precisa ser numerico." >&2
   exit 1
 fi
 
-if [ ! -d "$MIGRATIONS_DIR" ]; then
+if [[ ! -d "$MIGRATIONS_DIR" ]]; then
   echo "[migrations] diretorio ausente: $MIGRATIONS_DIR; nada a aplicar."
   exit 0
 fi
@@ -78,40 +78,40 @@ if ! PENDING_OUTPUT=$(list_pending_by_set_diff "$COMPOSE_FILE" "$DB_SERVICE" "$D
 fi
 mapfile -t PENDING <<< "$PENDING_OUTPUT"
 
-if [ "${#PENDING[@]}" -eq 0 ] || [ -z "${PENDING[0]:-}" ]; then
+if [[ "${#PENDING[@]}" -eq 0 || -z "${PENDING[0]:-}" ]]; then
   echo "[migrations] schema em conformidade."
   exit 0
 fi
 
-if [ "${#PENDING[@]}" -gt "$MAX_AUTO_PENDING" ]; then
-  echo "::error::Muitas migrations pendentes (${#PENDING[@]} > $MAX_AUTO_PENDING)."
+if [[ "${#PENDING[@]}" -gt "$MAX_AUTO_PENDING" ]]; then
+  echo "::error::Muitas migrations pendentes (${#PENDING[@]} > $MAX_AUTO_PENDING)." >&2
   exit 1
 fi
 
 MANUAL_PENDING=()
 for file in "${PENDING[@]}"; do
-  [ -z "$file" ] && continue
+  [[ -z "$file" ]] && continue
   path="$MIGRATIONS_DIR/$file"
   load_header_vars "$path"
   validate_sql_against_class "$path" "$CLASS"
-  if [ "$CLASS" = "manual-risk" ]; then
+  if [[ "$CLASS" == "manual-risk" ]]; then
     MANUAL_PENDING+=("$file")
   fi
 done
 
-if [ "${#MANUAL_PENDING[@]}" -gt 0 ]; then
-  if [ "$ALLOW_MANUAL_MIGRATIONS" != "true" ]; then
-    echo "::error::Existem migrations manual-risk pendentes. Use ALLOW_MANUAL_MIGRATIONS=true."
+if [[ "${#MANUAL_PENDING[@]}" -gt 0 ]]; then
+  if [[ "$ALLOW_MANUAL_MIGRATIONS" != "true" ]]; then
+    echo "::error::Existem migrations manual-risk pendentes. Use ALLOW_MANUAL_MIGRATIONS=true." >&2
     exit 3
   fi
-  if [ "$REQUIRE_PROD_BACKUP_FOR_MANUAL" = "true" ] && { [ -z "$PROD_BACKUP_FILE" ] || [ ! -s "$PROD_BACKUP_FILE" ]; }; then
-    echo "::error::Backup PROD_BACKUP_FILE ausente para manual-risk."
+  if [[ "$REQUIRE_PROD_BACKUP_FOR_MANUAL" == "true" && ( -z "$PROD_BACKUP_FILE" || ! -s "$PROD_BACKUP_FILE" ) ]]; then
+    echo "::error::Backup PROD_BACKUP_FILE ausente para manual-risk." >&2
     exit 3
   fi
 fi
 
 for file in "${PENDING[@]}"; do
-  [ -z "$file" ] && continue
+  [[ -z "$file" ]] && continue
   path="$MIGRATIONS_DIR/$file"
   load_header_vars "$path"
   echo "[migrations] aplicando $CLASS: $file"

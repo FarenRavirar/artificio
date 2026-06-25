@@ -1,4 +1,4 @@
-import type { RefObject, ChangeEvent, DragEvent, KeyboardEvent, TextareaHTMLAttributes } from "react";
+import type { RefObject, ChangeEvent, DragEvent, TextareaHTMLAttributes } from "react";
 
 export interface FileDropzoneProps {
   /** Accepted file types for the hidden input (e.g. ".json", ".xlsx,.csv") */
@@ -35,16 +35,6 @@ export interface FileDropzoneProps {
 
 function openFilePicker(fileInputRef: RefObject<HTMLInputElement | null>) {
   fileInputRef.current?.click();
-}
-
-function handleClickareaKeyDown(
-  e: KeyboardEvent<HTMLDivElement>,
-  fileInputRef: RefObject<HTMLInputElement | null>,
-) {
-  if (e.key === "Enter" || e.key === " ") {
-    e.preventDefault();
-    openFilePicker(fileInputRef);
-  }
 }
 
 export function FileDropzone({
@@ -101,13 +91,11 @@ export function FileDropzone({
       )}
 
       {!showTextarea && (
-        <div
+        <button
+          type="button"
           className="artificio-dropzone-clickarea"
-          role="button"
-          tabIndex={0}
           aria-label={resolvedFileLabel}
           onClick={() => openFilePicker(fileInputRef)}
-          onKeyDown={(e) => handleClickareaKeyDown(e, fileInputRef)}
         >
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -116,7 +104,7 @@ export function FileDropzone({
           </svg>
           <p className="artificio-dropzone-clickarea-title">{placeholder || "Arraste seu arquivo aqui"}</p>
           <p className="artificio-dropzone-clickarea-hint">ou clique para selecionar</p>
-        </div>
+        </button>
       )}
 
       <input

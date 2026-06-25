@@ -12,6 +12,7 @@
   "dependencies": {
     "@artificio/analytics": "workspace:*",
     "@artificio/auth": "workspace:*",
+    "@artificio/config": "workspace:*",
     "@artificio/ui": "workspace:*",
     "axios": "^1.18.0",
     "html2canvas-pro": "^2.0.4",

@@ -1376,13 +1376,18 @@
 
 .artificio-dropzone-clickarea {
   align-items: center;
+  background: none;
+  border: none;
+  color: inherit;
   cursor: pointer;
   display: flex;
   flex-direction: column;
+  font: inherit;
   gap: 0.5rem;
   justify-content: center;
   padding: 2rem 1rem;
   text-align: center;
+  width: 100%;
 }
 
 .artificio-dropzone-clickarea-title {

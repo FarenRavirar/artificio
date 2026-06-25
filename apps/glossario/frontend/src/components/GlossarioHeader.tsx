@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Header, useTheme, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type UserMenuItem } from '@artificio/ui';
 import type { User as ArtificioUser } from '@artificio/auth';
 import { PlusCircle } from 'lucide-react';
+import { MODULE_ORIGINS } from '@artificio/config';
 import { useAuth } from '../context/auth-context';
 import { useUI } from '../context/UIContext';
 import { ChangelogModal } from './ChangelogModal';
@@ -49,7 +50,8 @@ export function GlossarioHeader() {
   return (
     <>
       <Header
-        brandHref="https://glossario.artificiorpg.com"
+        brandHref={MODULE_ORIGINS.glossario}
+        currentHref={MODULE_ORIGINS.glossario}
         variant={theme === 'dark' ? 'dark' : 'light'}
         sessionOverride={{ user: sessionUser, loading }}
         userMenu={userMenu}

@@ -1,4 +1,4 @@
-import { BRAND_ORIGIN } from "@artificio/config";
+import { BRAND_ORIGIN, MODULE_ORIGINS } from "@artificio/config";
 
 export interface NavItem {
   label: string;
@@ -7,10 +7,10 @@ export interface NavItem {
 
 export const defaultNavItems: NavItem[] = [
   { label: "Portal", href: BRAND_ORIGIN },
-  { label: "Glossário", href: "https://glossario.artificiorpg.com" },
-  { label: "Mesas", href: "https://mesas.artificiorpg.com" },
-  { label: "Downloads", href: "https://downloads.artificiorpg.com" },
-  { label: "Esferas", href: "https://esferas.artificiorpg.com" },
-  { label: "SRD", href: "https://srd.artificiorpg.com" },
-  { label: "WhatsApps", href: "https://links.artificiorpg.com" },
+  { label: "Glossário", href: MODULE_ORIGINS.glossario },
+  { label: "Mesas", href: MODULE_ORIGINS.mesas },
+  { label: "Downloads", href: MODULE_ORIGINS.downloads },
+  { label: "Esferas", href: MODULE_ORIGINS.esferas },
+  { label: "SRD", href: MODULE_ORIGINS.srd },
+  { label: "WhatsApps", href: MODULE_ORIGINS.links },
 ];

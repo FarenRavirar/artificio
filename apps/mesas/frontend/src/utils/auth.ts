@@ -1,6 +1,7 @@
 import { redirectToLogin } from '@artificio/auth/client';
+import { MODULE_ORIGINS } from '@artificio/config';
 
-const DEFAULT_MESAS_PUBLIC_ORIGIN = 'https://mesas.artificiorpg.com';
+const DEFAULT_MESAS_PUBLIC_ORIGIN = MODULE_ORIGINS.mesas;
 
 const toOrigin = (value?: string): string | null => {
   if (!value) return null;
