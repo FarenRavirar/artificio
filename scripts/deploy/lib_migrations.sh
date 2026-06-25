@@ -52,14 +52,68 @@ validate_sql_against_class() {
   local filepath="$1"
   local class="$2"
 
-  if [ "$class" != "online-safe" ]; then
+  if [[ "$class" != "online-safe" ]]; then
     return 0
   fi
 
-  if sed -e 's/--.*//' "$filepath" | grep -Eiq '\b(DROP|TRUNCATE|DELETE[[:space:]]+FROM)\b'; then
-    echo "::error::$filepath esta marcada online-safe mas contem instrucao destrutiva."
+  # DEB-050-07 (spec 050): ALLOWLIST — bloqueia QUALQUER `DROP` que não seja atributo
+  # seguro conhecido (NOT NULL, CONSTRAINT, DEFAULT, IDENTITY, EXPRESSION), além de
+  # TRUNCATE e DELETE FROM. A denylist anterior (lista fixa de tipos de objeto) era
+  # furada: DROP POLICY/DOMAIN/FOREIGN TABLE/PUBLICATION/SERVER/... escapavam como online-safe.
+  # DEB-050-08 (CodeRabbit PR #95): o strip naive `s{--...}{}g` engolia `--` DENTRO de
+  # string literal ('...'), escondendo o resto da linha — ex.: INSERT ... VALUES('--'); DROP
+  # TABLE x; passava como online-safe. Trocado por tokenizer de 1 passada que ignora o
+  # CONTEÚDO de comentário (/* */, --) e de string literal ('...', "..."), emitindo só o
+  # "código" para o match. Dollar-quote ($$...$$) fica como código de propósito (fail-closed:
+  # DROP dentro de corpo de função ainda bloqueia). Tudo em perl (já mandatório).
+  # Fail-closed (T30/DEB-050-06): perl ausente ou quebrado → exit fora de {0,1} → return 1.
+  # Só relevante no caminho online-safe (manual-risk retorna acima sem usar perl).
+  perl -0777 -ne '
+    my $s = $_; my $n = length($s); my $i = 0; my $code = "";
+    while ($i < $n) {
+      my $c = substr($s, $i, 1);
+      my $c2 = substr($s, $i, 2);
+      if ($c2 eq "/*") {                       # comentario de bloco
+        my $e = index($s, "*/", $i + 2);
+        $i = ($e < 0) ? $n : $e + 2;
+      } elsif ($c2 eq "--") {                   # comentario de linha
+        my $e = index($s, "\n", $i + 2);
+        $i = ($e < 0) ? $n : $e;
+      } elsif ($c eq "\x27") {                  # string literal '...'
+        $i++;
+        while ($i < $n) {
+          if (substr($s, $i, 1) eq "\x27") {
+            if (substr($s, $i + 1, 1) eq "\x27") { $i += 2; next; }  # '' escapado
+            $i++; last;
+          }
+          $i++;
+        }
+      } elsif ($c eq "\x22") {                  # identificador "..."
+        $i++;
+        while ($i < $n) {
+          if (substr($s, $i, 1) eq "\x22") { $i++; last; }
+          $i++;
+        }
+      } else {
+        $code .= $c; $i++;
+      }
+    }
+    exit 1 if $code =~ /\bDROP\b(?!\s+(?:NOT\s+NULL|CONSTRAINT|DEFAULT|IDENTITY|EXPRESSION)\b)/i;
+    exit 1 if $code =~ /\bTRUNCATE\b/i;
+    exit 1 if $code =~ /\bDELETE\s+FROM\b/i;
+    exit 0;
+  ' "$filepath"
+  local rc=$?
+
+  if [[ "$rc" -eq 0 ]]; then
+    return 0
+  fi
+  if [[ "$rc" -eq 1 ]]; then
+    echo "::error::$filepath esta marcada online-safe mas contem instrucao destrutiva." >&2
     return 1
   fi
+  echo "::error::perl ausente ou falhou ao processar $filepath — guard fail-closed." >&2
+  return 1
 }
 
 query_schema_migrations() {

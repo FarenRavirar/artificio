@@ -27,6 +27,12 @@ jobs:
       - name: Migration lock self-test
         run: bash scripts/deploy/test_migration_lock.sh
 
+      - name: Migration guard self-test
+        run: bash scripts/deploy/test_migration_guard.sh
+
+      - name: Migration reconcile self-test
+        run: bash scripts/deploy/test_migration_reconcile.sh
+
       - name: Branch invariant self-test
         run: bash scripts/deploy/test_branch_invariant.sh
 

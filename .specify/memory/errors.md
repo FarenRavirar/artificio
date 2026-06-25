@@ -87,3 +87,21 @@
 - **Solução:** declarar `"vite": "^7.3.2"` em `apps/site/package.json` devDeps (mesma faixa do Astro). `@tailwindcss/vite` passa a resolver `vite@7.3.5` deterministicamente. `^7` capa `<8` → dependabot não pode driftar p/ Vite 8 (que quebraria o Astro). NÃO bumpar rolldown (latest 1.1.2 é API-incompat com vite@8.0.16: remove `viteWasmFallbackPlugin`); tailwind/vite já latest. Vide D084.
 - **Prevenção:** Vite 8 é APENAS das SPAs React (accounts/mesas-frontend/glossario-frontend/site-admin/ui); o site Astro é Vite 7 por design (D084). Validar com `turbo build --force` (13/13) + `pnpm@11.8.0 install --frozen-lockfile`. Regen de lockfile (dependabot ou fresh) que mexa em hoisting pode reexpor combos latentes — rodar o build completo no CI de todo PR de deps.
 - **Data:** 2026-06-19
+
+### E010 — guard `validate_sql_against_class` barra DROP de atributo (falso-positivo `online-safe`)
+- **Módulo/Pacote:** infra / CI/CD — `scripts/deploy/lib_migrations.sh:59` (guard de migration)
+- **Sintoma:** deploy prod abortado com rollback automático:
+  ```
+  Error: database/migration_128_import_messages.sql esta marcada online-safe mas contem instrucao destrutiva.
+  ROLLBACK: restaurando snapshot e containers de mesas...
+  ```
+  O guard bloqueou `DROP NOT NULL` e `DROP CONSTRAINT` (não destrutivos de dado) de uma migration legitimamente marcada `online-safe`. O deploy beta passou porque as migrations 128/129 já estavam aplicadas (set-diff pula migrations já em `schema_migrations`). Run de origem: `28125222995` (2026-06-24).
+- **Causa raiz:** `grep -Eiq '\b(DROP|TRUNCATE|DELETE[[:space:]]+FROM)\b'` — o token `\bDROP\b` é largo demais e casa qualquer comando que comece com `DROP`, incluindo `DROP NOT NULL`, `DROP CONSTRAINT`, `DROP DEFAULT` (que são alterações de schema sem perda de dado). Além disso, a regex não incluía `[[:space:]]+` entre `DROP` e o alvo, o que ampliava ainda mais o match.
+- **Solução (spec 050):** regex estreito com lista branca explícita de objetos proibidos + lista de atributos permitidos indiretamente:
+  ```
+  grep -Eiq '\b(DROP[[:space:]]+(TABLE|DATABASE|SCHEMA|COLUMN|VIEW|MATERIALIZED|SEQUENCE|TYPE|INDEX|FUNCTION|TRIGGER|RULE|EXTENSION|TABLESPACE|ROLE|USER)|TRUNCATE|DELETE[[:space:]]+FROM)\b'
+  ```
+  Também adicionado strip de comentário de bloco (`/* */`) para evitar falso-positivo de DROP comentado.
+- **Prevenção:** teste shell automatizado (`scripts/deploy/test_migration_guard.sh`, 28 cenários) plugado no CI `_lint-shell.yml` como gate. Varredura completa de 62 migrations online-safe confirmou que nenhuma destrutiva real passa (R1/R2/R3 provados). Cópia órfã `apps/mesas/scripts/deploy/` removida (escopo A, 6 arquivos).
+- **Follow-up:** re-deploy prod mesas (gated por aprovação nominal do mantenedor) para aplicar migration_128+129.
+- **Data:** 2026-06-24
