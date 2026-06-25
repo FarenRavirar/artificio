@@ -105,6 +105,17 @@ echo "=== Vermelhas: DELETE / TRUNCATE (bloqueados) ==="
 assert_block "delete_from"     "DELETE FROM campaigns WHERE id=1"
 assert_block "truncate_table"  "TRUNCATE TABLE campaigns"
 
+echo ""
+echo "=== Vermelhas: string literal escondendo destrutivo (DEB-050-08) ==="
+# CodeRabbit PR #95: `--` dentro de string nao pode mascarar o DROP real seguinte.
+assert_block "dashes_in_string"  "INSERT INTO t(txt) VALUES('--'); DROP TABLE users;"
+assert_block "quote_in_string"   "INSERT INTO t(txt) VALUES('x'); TRUNCATE TABLE t;"
+
+echo ""
+echo "=== Verdes: destrutivo SO dentro de string literal (DEB-050-08) ==="
+# Texto destrutivo que e apenas dado de coluna, sem statement real, deve passar.
+assert_pass "drop_text_in_value" "INSERT INTO log(msg) VALUES('DROP TABLE users')"
+
 # ── Resultado ──
 
 total=$((passed + failed))

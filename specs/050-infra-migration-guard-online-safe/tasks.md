@@ -229,6 +229,8 @@
 
 - [x] **T31** — DEB-050-07: inverter guard de denylist → **allowlist** (bloqueia qualquer `DROP` exceto atributos seguros), match 100% em perl com negative-lookahead, erros em `>&2`. + casos de teste DROP POLICY/DOMAIN/FOREIGN TABLE/etc. ✅ 2026-06-24 — implementado por Claude (autorizado); `test_migration_guard.sh` 36/36, 128/129 PASS, reconcile 9/9.
 
+- [x] **T32** — DEB-050-08 (CodeRabbit PR #95): strip naive de `--` escondia destrutivo dentro de string literal (`INSERT ... VALUES('--'); DROP TABLE x;` passava como online-safe). Trocado por tokenizer perl de 1 passada que ignora conteúdo de comentário (`/* */`, `--`) E de string literal (`'...'`, `"..."`); dollar-quote fica como código (fail-closed). ✅ 2026-06-25 — implementado por Claude; `test_migration_guard.sh` 39/39 (+3 casos), 128/129 PASS. Pendente commit/push autorizado.
+
 ## Gate de entrega (autorização do mantenedor por ação)
 
 - Commit/push/PR para `dev`: aprovação nominal (código de infra → branch + PR, regra pétrea).

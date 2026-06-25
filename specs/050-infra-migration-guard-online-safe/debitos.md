@@ -161,3 +161,39 @@ Permitidos (allowlist): `DROP NOT NULL`, `DROP CONSTRAINT`, `DROP DEFAULT`, `DRO
 - **Escopo:** `scripts/deploy/lib_migrations.sh`, `apply_required_migrations.sh`, `test_migration_lock.sh`, `validate_branch_invariant.sh` — padronizar `[`→`[[` + erros em `>&2` para alinhar com os 3 novos.
 - **Por quê:** após o DEB-050-01, os arquivos novos ficam best-practice e os antigos não — inconsistência. Convergir é o caminho durável, mas é refactor próprio (com re-rodar ShellCheck + os 3 self-tests), não deve entrar na PR de fix do guard.
 - **Próximo passo:** SDD Lite/infra própria; rodar `_lint-shell.yml` local + CI antes de fechar.
+
+## DEB-050-08 — Strip de comentário escondia destrutivo dentro de string literal
+
+- **Origem:** CodeRabbit no PR #95 (2026-06-25). **Confirmado no código** (`scripts/deploy/lib_migrations.sh`, guard online-safe) com PoC do próprio review.
+- **Estado:** **fechado** (2026-06-25, working tree — pendente commit/push autorizado).
+- **Severidade:** Major (Data Integrity) — falso-negativo de segurança no guard.
+
+### Bug
+
+O strip naive `s{--[^\n]*}{}g` removia `--` **dentro de string literal**, engolindo o resto da linha — inclusive um statement destrutivo real seguinte. PoC:
+
+```sql
+INSERT INTO t(txt) VALUES('--'); DROP TABLE users;
+```
+
+Após o strip, `--'); DROP TABLE users;` virava "comentário" e sumia → `code` só tinha o INSERT → guard passava (`rc=0`) marcando a migration como `online-safe`. Mesmo vetor com `TRUNCATE`/`DELETE FROM`.
+
+### Correção (tokenizer de 1 passada)
+
+Trocado o `s{...}` naive por um tokenizer perl que percorre o conteúdo char a char e **ignora o conteúdo** de:
+
+- comentário de bloco `/* ... */` (multilinha);
+- comentário de linha `-- ... \n`;
+- string literal `'...'` (com `''` escapado);
+- identificador `"..."`.
+
+Só o "código" restante alimenta os matches de `DROP`/`TRUNCATE`/`DELETE FROM`. **Dollar-quote (`$$...$$`) fica deliberadamente como código** (fail-closed: `DROP` em corpo de função ainda bloqueia, não escapa). Fail-closed do perl ausente/quebrado preservado (DEB-050-06).
+
+### Validação
+
+`test_migration_guard.sh` 39/39 (36 + 3 novos):
+- `dashes_in_string` (block): `INSERT ... VALUES('--'); DROP TABLE users;` → bloqueado;
+- `quote_in_string` (block): `... VALUES('x'); TRUNCATE TABLE t;` → bloqueado;
+- `drop_text_in_value` (pass): `INSERT INTO log(msg) VALUES('DROP TABLE users')` → passa (texto é só dado, sem statement real).
+
+128/129 reais PASS. Comentários (bloco/linha/inline/multilinha) seguem verdes.
