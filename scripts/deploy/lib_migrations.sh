@@ -52,7 +52,7 @@ validate_sql_against_class() {
   local filepath="$1"
   local class="$2"
 
-  if [ "$class" != "online-safe" ]; then
+  if [[ "$class" != "online-safe" ]]; then
     return 0
   fi
 
@@ -105,10 +105,10 @@ validate_sql_against_class() {
   ' "$filepath"
   local rc=$?
 
-  if [ "$rc" -eq 0 ]; then
+  if [[ "$rc" -eq 0 ]]; then
     return 0
   fi
-  if [ "$rc" -eq 1 ]; then
+  if [[ "$rc" -eq 1 ]]; then
     echo "::error::$filepath esta marcada online-safe mas contem instrucao destrutiva." >&2
     return 1
   fi

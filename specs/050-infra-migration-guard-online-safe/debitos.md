@@ -197,3 +197,13 @@ Só o "código" restante alimenta os matches de `DROP`/`TRUNCATE`/`DELETE FROM`.
 - `drop_text_in_value` (pass): `INSERT INTO log(msg) VALUES('DROP TABLE users')` → passa (texto é só dado, sem statement real).
 
 128/129 reais PASS. Comentários (bloco/linha/inline/multilinha) seguem verdes.
+
+## DEB-050-09 — `[`→`[[` no `validate_sql_against_class` (SonarCloud)
+
+- **Origem:** SonarCloud no PR #95 (2026-06-25), `scripts/deploy/lib_migrations.sh` L108 (+L55, L111 mesma função).
+- **Estado:** **fechado** (2026-06-25, working tree — pendente commit/push autorizado).
+- **Severidade:** Major (Code Smell) — não bloqueia (ShellCheck verde), best-practice.
+
+### Decisão
+
+Mesmo precedente do DEB-050-01: código que a spec 050 escreveu nasce best-practice. Corrigidos os 3 `[` da função `validate_sql_against_class` (L55, L108, L111) → `[[`. **Convergência do resto do `lib_migrations.sh` (e demais scripts antigos) segue em DEB-050-02** (follow-up, fora da PR #95). `test_migration_guard.sh` 39/39, ShellCheck limpo.
