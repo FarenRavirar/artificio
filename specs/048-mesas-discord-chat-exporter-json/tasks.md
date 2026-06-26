@@ -769,3 +769,19 @@ Decisão (debitos.md DEB-048-14): reply com conteúdo próprio = anúncio indepe
 - Sem migration, sem lib nova, sem IA, sem mudança de comportamento de runtime (só testes + fixture).
 - Não responder/reagir aos bots no PR.
 - Não commitar/pushar sem autorização nominal do mantenedor.
+
+## Pós-smoke beta 2026-06-26 — pendências de UX/perf (para Codex; NÃO implementar agora)
+
+> Descobertas no smoke beta real com `extracao_json.json`. Bug de schema (DEB-048-23) já corrigido na PR `fix/048-chatexporter-nullish-reference`. As tasks abaixo (DEB-048-24/25) ficam REGISTRADAS para continuidade com o Codex — não implementar nesta rodada.
+
+- [x] T-SMOKE.1 — Corrigir schema Zod p/ `reference.guildId` null + `forwardedMessage` sem author (DEB-048-23). Feito: `.nullish()` + coerção no adapter + teste de regressão + validação local contra JSON real (99/100 drafts). PR `fix/048-chatexporter-nullish-reference`.
+
+- [ ] T-UX.1 — **Import por arquivo sem colar no textarea (DEB-048-24).** Hoje `useJsonImport.ts:118 handleFileSelect` → `file.text()` → `setRawJson(content)` → `DiscordJsonImportPanel.tsx:29 <FileDropzone value={rawJson}>` trava com 500KB+. Feito quando: arquivo vai direto ao backend (upload temporário multipart/stream, efêmero, com guarda T-F2), textarea só p/ paste manual, preview de arquivo = resumo (nome/tamanho/contagem) e não o JSON cru. Sem persistir arquivo em disco permanente.
+- [ ] T-UX.2 — **Repensar fluxo de ingestão unificado (DEB-048-25).** Import JSON (aba Discord-sync) vs paste manual (Inbox) estão fragmentados. Feito quando: proposta de UX (wireframe/fluxo) unificando origens (arquivo JSON, paste manual, futuro VM/Fase E) avaliada contra Nielsen + ISO 9241-11, aprovada pelo mantenedor, ANTES de código.
+
+### Anchors para o Codex
+- Hook de import: `apps/mesas/frontend/src/features/discord-sync/hooks/useJsonImport.ts` (`handleFileSelect` L118, `schedulePreview`/`setRawJson` ~L51-73).
+- Painel/textarea: `apps/mesas/frontend/src/features/discord-sync/components/DiscordJsonImportPanel.tsx` (`<FileDropzone value={rawJson}>` L29).
+- API client: `apps/mesas/frontend/src/features/discord-sync/api/discordSyncApi.ts` (`previewJson`/`importJson`).
+- Backend import: `apps/mesas/backend/src/routes/discord/import.ts` (`POST /`, `POST /reparse`), `chatExporterImportService.ts` (`extractJsonPayload`, `importDiscordChatExporterJson`, guardas `MAX_IMPORT_*`).
+- Inbox manual (paste): `apps/mesas/frontend/src/features/inbox/*` + `apps/mesas/backend/src/routes/inbox/*`.

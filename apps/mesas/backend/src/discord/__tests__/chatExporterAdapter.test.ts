@@ -79,6 +79,17 @@ describe('parseDiscordChatExporterJson — embeds com campos null', () => {
     expect(adapted.reference).toBeNull();
   });
 
+  // Regressão smoke beta 2026-06-26: ChatExporter emite null em reference.guildId/
+  // channelId e forwardedMessage sem author — schema rejeitava com 400.
+  it('aceita reference com channelId/guildId null e forwardedMessage sem author', () => {
+    const data = parseDiscordChatExporterJson(buildExport({
+      reference: { messageId: 'msg-001', channelId: null, guildId: null },
+      forwardedMessage: { content: 'encaminhada' },
+    }));
+    const adapted = adaptMessageToImportRaw(data.messages[0], data);
+    expect(adapted.reference).toEqual({ messageId: 'msg-001' }); // null → omitido
+  });
+
   // ─── DEB-048-01: schema inválido ─────────────────────────────────────────────────
 
   it('rejeita export sem campo guild', () => {

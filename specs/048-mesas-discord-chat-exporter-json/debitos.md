@@ -302,3 +302,36 @@
 - **Severidade:** Baixa (Info)
 - **Descrição:** O loop do `/reparse` (`import.ts`) e o do `parse-batch.ts` repetiam ~45 linhas idênticas: `parseDiscordMessage` → reconcilia draft terminal → upsert em `discord_import_table_drafts` → atualiza status da mensagem → `ensureSystemSuggestionForDraft`. Diferiam só nos contadores (`succeeded/failed` vs `reparsed/ignored/errors`) e na política de catch.
 - **Status:** ✅ **CORRIGIDO (Claude 2026-06-26).** Extraído `processDiscordMessageToDraft(message, systems, replyContext, userId): 'parsed'|'ignored'|'reconciled'` em `utils.ts`. Ambos os handlers chamam o helper e mapeiam o `DiscordDraftOutcome` para seus próprios contadores; cada um mantém sua própria política de catch (parse-batch: genérico; /reparse: catch interno DEB-048-20). Comportamento idêntico. ~45 linhas duplicadas eliminadas de cada caller. Build ✅, test **255/255** ✅, lint ✅.
+
+## DEB-048-23 — Schema Zod rejeitava reference.guildId null + forwardedMessage sem author (smoke beta)
+
+- **Origem:** smoke beta do mantenedor (2026-06-26) com `extracao_json.json` real. `POST /import-json/preview` → 400.
+- **Severidade:** Alta (bloqueava import real no beta).
+- **Evidência:** `messages.55.reference.guildId: Invalid input: expected string, received null` + `messages.55.forwardedMessage.author: expected object, received undefined`. ChatExporter emite `null` onde o schema exigia `string`/objeto (mesma classe do DEB-048-10).
+- **Status:** ✅ **CORRIGIDO (Claude 2026-06-26, esta PR).** `discordChatExporterTypes.ts`: `reference.channelId/guildId` + `forwardedMessage.content/author` (e `author.name`) → `.nullish()`. `chatExporterAdapter.ts`: coage `null`→`undefined` em channelId/guildId (contrato `ImportRawMessage.reference` não aceita null). Teste de regressão em `chatExporterAdapter.test.ts`. **Validado local contra `extracao_json.json` real:** 100 msgs → 99 drafts, sem 400; `json2` truncado → `JSON.parse` falha → 400 amigável (DEB-048-01). build/test 262/262/lint ✅.
+
+## DEB-048-24 — Import por ARQUIVO injeta o JSON inteiro na textarea e trava o PC (perf/UX)
+
+- **Origem:** smoke beta do mantenedor (2026-06-26).
+- **Severidade:** Alta (UX/perf — arquivos grandes deixam o navegador/PC super lento).
+- **Evidência / causa-raiz (verificada no código):**
+  - `apps/mesas/frontend/src/features/discord-sync/hooks/useJsonImport.ts:118` `handleFileSelect` → `file.text()` → `schedulePreview(content)` → `setRawJson(content)` (mesmo hook, ~L73).
+  - `rawJson` é bind do textarea: `DiscordJsonImportPanel.tsx:29` `<FileDropzone value={rawJson} .../>`.
+  - Resultado: arquivo de 500KB+ (`extracao_json.json` = 500KB, 100 msgs) é "colado" como texto no textarea → render gigante + re-render a cada keystroke/preview → trava.
+- **Ação proposta (NÃO implementar agora — para Codex):**
+  - Quando a origem for **arquivo**, **não** renderizar o conteúdo no textarea. Mandar o arquivo direto ao backend como **upload temporário** (multipart/stream), processar server-side e descartar após (modelo "conversor de imagem/áudio": stateless, efêmero).
+  - Textarea fica só para **paste manual pequeno**.
+  - Preview de arquivo = **resumo** (nome, tamanho, nº de mensagens, contagens), não o JSON cru.
+  - Backend: avaliar endpoint que aceite `multipart/form-data` (ou stream) com guarda de tamanho já existente (T-F2 `MAX_IMPORT_*`), sem persistir o arquivo em disco permanente.
+- **Status:** aberto (registrado, não implementado).
+
+## DEB-048-25 — UX fragmentada: import JSON (uma aba) vs paste manual na Inbox (outra) — repensar fluxo
+
+- **Origem:** smoke beta do mantenedor (2026-06-26).
+- **Severidade:** Média (UX / Heurísticas de Nielsen — consistência, reconhecimento, visibilidade).
+- **Evidência:** "Importar JSON (DiscordChatExporter)" vive na aba do painel Discord-sync (`DiscordJsonImportPanel`/`DiscordSyncPanel.tsx`); a importação **manual (paste)** vive na **Inbox** (`apps/mesas/frontend/src/features/inbox/*`), em outra aba/local. Dois caminhos de ingestão fragmentados → o admin não sabe onde importar o quê.
+- **Ação proposta (NÃO implementar agora — exige proposta de UX antes de código, para Codex):**
+  - Repensar a experiência de ingestão de mesas: unificar/apresentar de forma coesa os modos (arquivo JSON DiscordChatExporter, paste manual, futuro job VM da Fase E).
+  - Avaliar uma tela única "Importar mesas" com seleção de origem, contra **Nielsen** (consistência/padrões, reconhecimento>recordação) e **ISO 9241-11** (eficácia/eficiência/satisfação).
+  - Entregável intermediário: proposta de UX (wireframe/fluxo) antes de mexer no código.
+- **Status:** aberto (registrado, não implementado).
