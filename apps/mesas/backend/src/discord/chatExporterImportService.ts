@@ -1,8 +1,13 @@
 import { sql } from 'kysely';
 import { db } from '../db';
-import { parseDiscordChatExporterJson, adaptMessageToImportRaw } from './chatExporterAdapter';
+import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from './chatExporterAdapter';
 import { getContentHash } from './shared';
 import type { ImportResult } from './chatExporterAdapter';
+
+/** Limite de segurança: número máximo de mensagens por importação (evita DoS / O(n) massivo). */
+export const MAX_IMPORT_MESSAGES = 2000;
+/** Limite de segurança: tamanho máximo do JSON bruto em bytes (≤ 12MB global do Express). */
+export const MAX_IMPORT_JSON_BYTES = 10 * 1024 * 1024; // 10MB
 
 function mapChannelType(type: string | undefined): 'text' | 'announcement' | 'forum' {
   switch (type) {
@@ -48,6 +53,12 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
     return { total: 0, inserted: 0, updated: 0, ignored: 0, failed: 0 };
   }
 
+  if (messages.length > MAX_IMPORT_MESSAGES) {
+    throw new DiscordChatExporterValidationError(
+      `Importação muito grande: ${messages.length} mensagens (limite ${MAX_IMPORT_MESSAGES}). Divida o export em arquivos menores.`
+    );
+  }
+
   const channelId = exportData.channel.id;
   const guildId = exportData.guild.id;
   const channelName = exportData.channel.name;
@@ -57,7 +68,7 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
   try {
     sourceId = await ensureDiscordImportSource(channelId, guildId, channelName, channelType);
   } catch (err) {
-    console.error('[importDiscordChatExporterJson] Falha ao criar fonte de importação:', err);
+    console.error('[importDiscordChatExporterJson] Falha ao criar fonte de importação:', err instanceof Error ? err.message : 'unknown error');
     throw new Error('Erro interno ao criar fonte de importação.');
   }
 
@@ -120,6 +131,9 @@ export function extractJsonPayload(rawBody: unknown): { payload: unknown } | { e
   if (rawBody && typeof rawBody === 'object' && 'json' in rawBody) {
     const rawJson = (rawBody as Record<string, unknown>).json;
     if (typeof rawJson === 'string') {
+      if (rawJson.length > MAX_IMPORT_JSON_BYTES) {
+        return { error: `Arquivo JSON muito grande (${(rawJson.length / (1024 * 1024)).toFixed(1)} MB). O limite é ${MAX_IMPORT_JSON_BYTES / (1024 * 1024)} MB.`, status: 413 };
+      }
       try {
         return { payload: JSON.parse(rawJson) };
       } catch {

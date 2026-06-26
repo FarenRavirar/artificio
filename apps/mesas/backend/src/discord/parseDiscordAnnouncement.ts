@@ -208,6 +208,32 @@ function extractPrice(text: string): { priceType: TableDraftPriceType; priceValu
 // Extrai número de vagas do texto
 function extractSlots(text: string): { total: number | null; open: number | null; ambiguity: DiscordSlotsAmbiguity | null } {
   const cleaned = text.replace(/\*/g, '');
+
+  // "Mesa em andamento" → sem vagas abertas (não fabricar número)
+  if (/\bmesa\s+em\s+andamento\b/i.test(cleaned)) {
+    return { total: null, open: null, ambiguity: null };
+  }
+
+  // "N vaga via forms" → total=N, open=N
+  const viaFormsMatch = cleaned.match(/(\d+)\s+vaga\s+via\s+forms/i);
+  if (viaFormsMatch) {
+    const n = parseInt(viaFormsMatch[1], 10);
+    if (n >= 0 && n <= 20) {
+      return { total: n, open: n, ambiguity: null };
+    }
+  }
+
+  // Padrão "X de Y" (ex: "3 de 5 vagas", "2 de 4") — mal escrito, informal
+  // Guard: X ≤ Y, 1 ≤ Y ≤ 20 (evita match com datas e níveis)
+  const deMatch = cleaned.match(/(\d+)\s+de\s+(\d+)/i);
+  if (deMatch) {
+    const first = parseInt(deMatch[1], 10);
+    const second = parseInt(deMatch[2], 10);
+    if (first <= second && second >= 1 && second <= 20) {
+      return { total: second, open: Math.max(0, second - first), ambiguity: null };
+    }
+  }
+
   const totalMatch = cleaned.match(/vagas?\s+(?:totais|total)\s*[:=]\s*(\d+)/i);
   const openMatch = cleaned.match(/vagas?\s+(?:dispon[ií]veis|dispon[ií]vel|abertas|aberta)\s*[:=]\s*(\d+)/i);
   if (totalMatch || openMatch) {
@@ -278,9 +304,41 @@ function extractStartTime(text: string): string | null {
   return null;
 }
 
+// Extrai dia da semana e horário de timestamps Discord <t:UNIX:FORMATO>
+function extractDiscordTimestamp(text: string): { dayOfWeek: string; startTime: string } | null {
+  const pattern = /<t:(\d+):([a-zA-Z]+)>/g;
+  let match: RegExpExecArray | null;
+  const daysPt = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+
+  while ((match = pattern.exec(text)) !== null) {
+    const unix = parseInt(match[1], 10);
+    if (!Number.isFinite(unix) || unix <= 0) continue;
+    const date = new Date(unix * 1000);
+    if (isNaN(date.getTime())) continue;
+    const dayOfWeek = daysPt[date.getUTCDay()];
+    const hh = String(date.getUTCHours()).padStart(2, '0');
+    const mm = String(date.getUTCMinutes()).padStart(2, '0');
+    return { dayOfWeek, startTime: `${hh}:${mm}` };
+  }
+  return null;
+}
+
 function deriveFrequency(type: TableDraftType | null, dayOfWeek: string | null): 'semanal' | null {
   if (type === 'campanha' && dayOfWeek) return 'semanal';
   return null;
+}
+
+// Detecta frases que indicam que o contato é o autor da mensagem
+function detectImplicitContact(text: string): boolean {
+  const implicitPhrases = [
+    /me\s+(mande|envie)\s+(uma\s+)?mensagem/i,
+    /me\s+cham[ae]/i,
+    /fale\s+comigo/i,
+    /cham[ae]\s+(no|na)\s+(pv|dm|privado)/i,
+    /este\s+perfil/i,
+    /(mande|envie)\s+(uma\s+)?mensagem\s+(no\s+meu|para\s+o\s+meu)/i,
+  ];
+  return implicitPhrases.some((r) => r.test(text));
 }
 
 // Extrai URL de contato (discord invite, forms, etc.)
@@ -439,11 +497,24 @@ export function parseDiscordAnnouncement(
   const type = extractType(fullText) ?? (threadName ? 'campanha' : null);
   const { priceType, priceValue } = extractPrice(body);
   const { total: slotsTotal, open: slotsOpen, ambiguity: slotsAmbiguity } = extractSlots(body);
-  const dayOfWeek = extractDayOfWeek(body);
-  const startTime = extractStartTime(body);
-  const contactUrl = extractContactUrl(body);
+  // T-C1: Discord timestamp (preferível a texto incidental)
+  const discordTs = extractDiscordTimestamp(body);
+  const dayOfWeek = discordTs?.dayOfWeek ?? extractDayOfWeek(body);
+  const startTime = discordTs?.startTime ?? extractStartTime(body);
+
+  // T-C2: Google Forms URL (prioridade sobre URLs genéricas)
+  const googleFormsUrl = body.match(/https?:\/\/forms\.gle\/[^\s<>"']+/)?.[0]
+    ?? body.match(/https?:\/\/docs\.google\.com\/forms\/[^\s<>"']+/)?.[0];
+  const contactUrl = googleFormsUrl ?? extractContactUrl(body);
+
   const contactDiscord = extractContactDiscord(body);
-  const hostDiscordId = extractHostDiscordId(body);
+  let hostDiscordId = extractHostDiscordId(body);
+
+  // T-C3: Contato implícito pelo autor (quando não há contato explícito)
+  const hasImplicitContact = detectImplicitContact(body);
+  if (!contactDiscord && !contactUrl && hasImplicitContact && message.discord_author_id) {
+    hostDiscordId = hostDiscordId ?? message.discord_author_id;
+  }
   const cover = extractCoverFromAttachments(message.attachments ?? []);
   const description = extractLabelValue(body, ['descricao', 'descrição', 'sinopse', 'proposta']) ?? (body.trim() || null);
 

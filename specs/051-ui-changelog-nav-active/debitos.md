@@ -93,7 +93,7 @@
 ## DEB-051-02 — Changelog quebrado no beta: Tailwind dos consumidores não escaneia `packages/ui` (F1 incompleto)
 
 - **Origem:** smoke beta do mantenedor (2026-06-26), deploy da 051. Marcador nav (F2) OK; changelog (F1) quebrado em 3 apps.
-- **Estado:** **aberto — BLOQUEIA promoção a prod.** **Severidade: alta (regressão visível de feature).**
+- **Estado:** **fechado (2026-06-26).** **Severidade: alta (regressão visível de feature).** Fix `@source packages/ui` nos 4 entry CSS (PR #97, dev `e9ccd25`); validado no beta e em prod pelo smoke visual do mantenedor (changelog sem corte/sobreposição, visível nos 3 apps).
 - **Sintomas:**
   - glossariobeta: topo do changelog cortado (sem altura-máxima/scroll dentro do modal).
   - mesasbeta: changelog "mistura" com a home (z-index não aplicado → fica entre o conteúdo).

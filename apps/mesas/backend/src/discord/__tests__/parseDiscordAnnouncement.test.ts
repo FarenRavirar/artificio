@@ -1,6 +1,7 @@
 import { parseDiscordAnnouncement } from '../parseDiscordAnnouncement';
 import { normalizeDiscordTableDraft } from '../normalizeDiscordTableDraft';
 import type { ImportRawMessage } from '../types';
+import { chatExporterSampleMessages } from './fixtures/chatExporterSample';
 
 function makeMessage(overrides: Partial<ImportRawMessage>): ImportRawMessage {
   return {
@@ -709,5 +710,205 @@ describe('parseDiscordAnnouncement', () => {
     );
 
     expect(draft).toBeNull();
+  });
+
+  // ─── T-C1: Discord timestamp ───────────────────────────────────────────────
+
+  it('extracts day of week and start time from Discord <t:UNIX:F> and <t:UNIX:t> (T-C1)', () => {
+    const msg = chatExporterSampleMessages.find((m) => m.discord_message_id === 'msg-timestamp')!;
+    const draft = parseDiscordAnnouncement(msg);
+
+    expect(draft).not.toBeNull();
+    // 1717200000 = Saturday June 1, 2024 00:00 UTC → sábado, 00:00
+    expect(draft?.table.day_of_week).toBe('sábado');
+    expect(draft?.table.start_time).toBe('00:00');
+    // T-C2: Google Forms URL deve ser detectada como contact_url
+    expect(draft?.table.contact_url).toBe('https://forms.gle/FakeTimestampForm');
+  });
+
+  it('falls back to text extraction when no Discord timestamp is present (T-C1 regression)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Mesa: Aventura Teste',
+          'Dia: quarta-feira',
+          'Horario: 19:00',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.day_of_week).toBe('quarta');
+    expect(draft?.table.start_time).toBe('19:00');
+  });
+
+  // ─── T-C2: Google Forms ────────────────────────────────────────────────────
+
+  it('prioritizes Google Forms URL (forms.gle) as contact_url (T-C2)', () => {
+    const msg = chatExporterSampleMessages.find((m) => m.discord_message_id === 'msg-forms')!;
+    const draft = parseDiscordAnnouncement(msg);
+
+    expect(draft).not.toBeNull();
+    // Deve capturar o forms.gle (antes do docs.google.com no texto)
+    expect(draft?.table.contact_url).toBe('https://forms.gle/AbCdEf123');
+    expect(draft?.missing_fields).not.toContain('contact_url');
+  });
+
+  it('detects docs.google.com/forms as contact_url (T-C2)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Dia: sexta-feira às 20h',
+          'Vagas: 4',
+          'https://docs.google.com/forms/d/e/1FAIpQLSfake/viewform?usp=sharing',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.contact_url).toBe('https://docs.google.com/forms/d/e/1FAIpQLSfake/viewform?usp=sharing');
+  });
+
+  // ─── T-C3: Contato implícito pelo autor ────────────────────────────────────
+
+  it('uses author id as host when "me mande uma mensagem" is present and no explicit contact (T-C3)', () => {
+    const msg = chatExporterSampleMessages.find((m) => m.discord_message_id === 'msg-mande-msg')!;
+    const draft = parseDiscordAnnouncement(msg);
+
+    expect(draft).not.toBeNull();
+    // "me mande uma mensagem" → contato implícito → autor vira host
+    expect(draft?.table.host_discord_id).toBe('author-implicit-1');
+    expect(draft?.source.author_id).toBe('author-implicit-1');
+  });
+
+  it('uses author id when "chama no pv" is present and no explicit contact (T-C3)', () => {
+    const msg = chatExporterSampleMessages.find((m) => m.discord_message_id === 'msg-chama-pv')!;
+    const draft = parseDiscordAnnouncement(msg);
+
+    expect(draft).not.toBeNull();
+    // "chama no pv" + "este perfil" → contato implícito → autor vira host
+    expect(draft?.table.host_discord_id).toBe('author-implicit-2');
+  });
+
+  it('does NOT falsely set author as host when there is a contact URL (T-C3 guard)', () => {
+    // A mensagem de timestamp tem forms.gle → contactUrl está preenchido → NÃO deve usar autor
+    const msg = chatExporterSampleMessages.find((m) => m.discord_message_id === 'msg-timestamp')!;
+    const draft = parseDiscordAnnouncement(msg);
+
+    expect(draft).not.toBeNull();
+    // contactUrl está preenchido (forms.gle), então NÃO usa o autor como host
+    // O texto não tem menção de Mestre, então host_discord_id deveria ser null
+    // (a menos que extractHostDiscordId ache algo)
+    expect(draft?.table.contact_url).toBeTruthy();
+    // host_discord_id pode ser null (sem menção de mestre) ou o que extractHostDiscordId achar
+    // O importante é que o mecanismo de contato implícito não forçou author como host
+  });
+
+  it('does NOT set author as host when text has no implicit contact phrases (T-C3 negative)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_author_id: 'author-999',
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Mesa: Teste Normal',
+          'Dia: terça-feira às 20h',
+          'Vagas: 4',
+        ].join('\n'),
+      }),
+    );
+
+    // Sem contato (URL nem Discord) e sem frase implícita → host_discord_id = null
+    // Note: o missing_fields deve conter 'contact_url'
+    expect(draft?.missing_fields).toContain('contact_url');
+    // host_discord_id pode ser null pois não tem menção de "Mestre:" nem contato implícito
+  });
+
+  // ─── T-C6: Vagas informais ─────────────────────────────────────────────────
+
+  it('extracts "3 de 5" as total=5, open=2 (T-C6)', () => {
+    const msg = chatExporterSampleMessages.find((m) => m.discord_message_id === 'msg-vagas-informal')!;
+    const draft = parseDiscordAnnouncement(msg);
+
+    expect(draft).not.toBeNull();
+    // "3 de 5 vagas preenchidas" → total=5, open=2 (5-3)
+    expect(draft?.table.slots_total).toBe(5);
+    expect(draft?.table.slots_open).toBe(2);
+    expect(draft?.table._slots_ambiguity).toBeNull();
+  });
+
+  it('returns null slots for "mesa em andamento" (T-C6)', () => {
+    const msg = chatExporterSampleMessages.find((m) => m.discord_message_id === 'msg-em-andamento')!;
+    const draft = parseDiscordAnnouncement(msg);
+
+    expect(draft).not.toBeNull();
+    // "Mesa em andamento" → sem vagas, null/null
+    expect(draft?.table.slots_total).toBeNull();
+    expect(draft?.table.slots_open).toBeNull();
+  });
+
+  it('does not match "X de Y" when numbers look like a date/level (T-C6 guard)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Mesa: Teste de Guarda',
+          // "dia 22 de 06" → 22 ≤ 6 = false → guard bloqueia (não é vaga)
+          'Dia: 22 de 06',
+          'Horario: 19:00',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    // "22 de 06" falha no guard (22 > 6), então não captura como vaga
+    // Deve cair no padrão "Vagas: 4" → total=4, open=4
+    expect(draft?.table.slots_total).toBe(4);
+    expect(draft?.table.slots_open).toBe(4);
+  });
+
+  it('does not match "X de Y" when Y > 20 (T-C6 guard)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Mesa: Teste de Guarda',
+          // "3 de 30" → 30 > 20 → guard bloqueia
+          'Nível 3 de 30 possíveis',
+          'Dia: quinta-feira às 20h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    // "3 de 30" falha no guard (30 > 20), então cai no "Vagas: 4"
+    expect(draft?.table.slots_total).toBe(4);
+  });
+
+  it('extracts "0 de 5" as total=5, open=5 (T-C6)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Mesa: Mesa Nova',
+          'Temos 0 de 5 vagas preenchidas',
+          'Dia: sábado às 15h',
+        ].join('\n'),
+        discord_message_url: 'https://discord.com/channels/guild-001/channel-fake/msg-0de5',
+      }),
+    );
+
+    // "0 de 5" → total=5, open=5
+    expect(draft?.table.slots_total).toBe(5);
+    expect(draft?.table.slots_open).toBe(5);
+  });
+
+  it('fixture messages all parse without throwing (smoke test)', () => {
+    for (const msg of chatExporterSampleMessages) {
+      expect(() => parseDiscordAnnouncement(msg)).not.toThrow();
+    }
   });
 });

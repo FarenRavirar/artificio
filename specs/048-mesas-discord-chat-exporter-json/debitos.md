@@ -22,7 +22,7 @@
 - **Severidade:** Média
 - **Descrição:** Amostra real contém `<t:UNIX:...>`, Google Forms, role mentions, contato implícito por autor e formatos variados de vagas/preço. O MVP importa, persiste, deduplica e gera drafts; as tasks T-C são **Fase C (parser hardening), pós-MVP**. A perda é de qualidade de extração (falsos negativos em contato, sistema, vagas, preço), não de funcionalidade core.
 - **Ação:** Implementar tasks T-C1..T-C9. Priorizar T-C1 (timestamps), T-C2 (Google Forms), T-C3 (contato), T-C6 (vagas informais) como mínimo para o JSON real não degradar.
-- **Status:** aberto
+- **Status:** **parcial (2026-06-26)** — PR-1 da Fase C implementado: T-C1 (timestamps Discord `<t:UNIX>`), T-C2 (Google Forms), T-C3 (contato implícito), T-C6 (vagas informais: `3 de 5`, `0/5`, `1 vaga via forms`, `mesa em andamento`). Regex determinístico puro, sem libs novas. Testes 237/237 ✅, lint 15/15 ✅, build ✅. Restam: T-C4 (role mentions), T-C5, T-C7, T-C8, T-C9 (fora do PR-1). Código local, não commitado.
 
 ### Análise detalhada por T-C (2026-06-23, verificado 2026-06-23)
 
@@ -194,3 +194,50 @@
 #### Conclusão
 
 **Procede.** A duplicação é real. Impacto funcional zero, mas manutenção futura mais cara. Débito de baixa severidade — não justifica abrir spec SDD própria, mas deve ser resolvido junto com a próxima mexida em `ingestMessages.ts`.
+
+## DEB-048-13 — Estratégia para anexos grandes/vídeos (T-F7)
+
+- **Origem:** Fase F — planejamento de robustez para anexos
+- **Severidade:** Baixa/Média
+- **Descrição:** O importador preserva metadata de anexos no `discord_import_messages.attachments` (JSONB: `url`, `fileName`, `fileSizeBytes`, `contentType`). Não faz download nem upload para Cloudinary.
+- **Decisão documentada (2026-06-26):**
+  - **Imagens (capas):** download futuro via Cloudinary signed upload — apenas para extrair capa de mesa.
+  - **Vídeos:** manter só URL do Discord (CDN expira). Documentar limitação.
+  - **Anexos grandes:** ignorar no MVP; preservar metadata para referência do admin.
+- **Ação futura:** implementar download seletivo de imagens com guarda de tamanho e retry; nunca baixar vídeos automaticamente.
+- **Status:** aberto
+
+## DEB-048-14 — Estratégia para replies/threads (T-F8)
+
+- **Origem:** Fase F — o JSON real (`extracao_json.json`) tem mensagens com campo `reference` (reply).
+- **Severidade:** Baixa
+- **Descrição:** O DiscordChatExporter inclui replies como mensagens separadas com campo `reference.messageId` e `reference.content`.
+- **Decisão documentada (2026-06-26):**
+  - **Reply com conteúdo próprio:** já aparece como `message` separada no JSON → tratada como anúncio independente (comportamento atual).
+  - **Reply sem conteúdo (só referência):** pode ser ignorado ou adicionado como contexto (`_notes`) da mensagem referenciada. Exemplo: `"_notes": ["Em resposta a: ..."]`.
+  - **Campo `reference`:** já existe no schema Zod (`discordChatExporterReferenceSchema`) mas não é usado no pipeline atual. O adapter ignora `reference`.
+- **Ação futura:** enriquecer o `ImportRawMessage` ou `_notes` com `reference` quando relevante. Não implementar agora — baixo impacto funcional.
+- **Status:** aberto
+
+## DEB-048-15 — Mapa de campos para metadata (T-F9)
+
+- **Origem:** Fase F — o JSON do DiscordChatExporter contém campos ricos que o draft ignora.
+- **Severidade:** Baixa
+- **Descrição:** O export contém campos que não são extraídos para o `DiscordTableDraftTable`:
+  - `guild.name`, `guild.iconUrl` — nome e ícone do servidor
+  - `channel.category`, `channel.topic` — categoria e tópico do canal
+  - `mentions` (por mensagem) — menções a usuários, roles, canais
+  - `inlineEmojis` — emojis inline no texto
+  - `reactions` — reações à mensagem
+  - `reference` — reply/referência
+- **Decisão documentada (2026-06-26):**
+  - **Sem migration agora:** adicionar campos ao schema do DB exigiria migration — fora do escopo da 048.
+  - **Opção conservadora (recomendada):** extrair metadados do `exportData` no serviço ANTES do loop e guardar em `_notes` do draft (array de strings) ou criar campo `metadata` JSONB opcional no futuro.
+  - **Mapeamento sugerido:**
+    1. `guild.name` → `_notes`: `"Servidor: Nome do Servidor"`
+    2. `guild.iconUrl` → `_notes`: `"Ícone do servidor: URL"`
+    3. `channel.category` → `_notes`: `"Categoria: Nome da Categoria"`
+    4. `channel.topic` → `_notes`: `"Tópico do canal: ..."` (se relevante)
+    5. Por mensagem: `mentions`, `inlineEmojis` → podem ser preservados no `_notes` ou ignorados.
+- **Ação futura:** quando houver migration de metadata, criar campo `metadata` JSONB no `DiscordTableDraftTable`; o parser pode popular com esses campos sem alterar a estrutura principal.
+- **Status:** aberto

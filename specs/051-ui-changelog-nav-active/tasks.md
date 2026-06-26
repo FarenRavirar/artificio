@@ -40,11 +40,11 @@
 - [x] T-F1.2 Glossário: diagnosticado — mesma causa raiz (scroll lock ausente) + `z-[9999]` cobre header `z-50`. Com scroll lock, fundo não rola e header fica atrás do backdrop.
 - [x] T-F1.3 Correção na **fonte compartilhada** (`ChangelogModal.tsx`) — scroll lock via `useEffect` que seta `document.body.style.overflow = "hidden"` e restaura no cleanup. Sem fix por app necessário.
 - [x] T-F1.4 Implementado: `useEffect` adicionado em `ChangelogModal.tsx:96-104`. `useEffect` importado de React.
-- [ ] T-F1.5 Validar light + dark; screenshot antes/depois (R-F1.5). **Pendente:** validação visual requer preview/smoke — adiado para fase de smoke (T-A.2). O fix é determinístico (scroll lock CSS) e funcionará em ambos temas.
+- [x] T-F1.5 Validar light + dark (R-F1.5). **OK em prod (2026-06-26):** smoke visual do mantenedor confirmou changelog sem sobreposição/topo cortado. O scroll lock sozinho não bastava — causa real era classes Tailwind do modal não geradas (DEB-051-02, fix `@source packages/ui`).
 
 ### Fechamento Onda A
 - [x] T-A.1 `pnpm run lint` + `pnpm run build` verdes. **Evidência:** lint 15/15 ✅, build 17/17 ✅ (2026-06-25).
-- [ ] T-A.2 Smoke proporcional **um só** nos consumidores de `packages/ui` (changelog + primitivas extraídas): mesas, glossário, site, links — sem regressão (R-F4.4/R-F5.5/R-F5.6). **Pendente:** requer dev server/preview por app. Pode ser feito na fase de commit ou como validação separada.
+- [x] T-A.2 Smoke proporcional nos consumidores de `packages/ui` (changelog + primitivas): mesas, glossário, site, links. **OK em prod (2026-06-26):** smoke beta + prod do mantenedor sem regressão; changelog/ConfirmDialog/marcador OK após DEB-051-02. Deploy prod 4/4 ✅ (200/401).
 
 ## Onda B — `packages/content` schemas (F6 — G02/049) ❌ CANCELADA (F0: NULO)
 - [x] T-F6.1 Auditado (`f0-discovery.md` §3): **TODO schema Zod vive só em `apps/mesas`**. Nenhum serve 2+ apps. `packages/content` não tem zod. **Veredito: nada a mover.**
@@ -58,8 +58,8 @@
 - [x] T-F2.4 Conferir links (`LinksHeader.tsx`) e site (`Base.astro`/`SiteHeader.astro`). **Evidência:** links passa `currentHref={MODULE_ORIGINS.links}` (hostname casa). site usa header Astro próprio (`SiteHeader.astro`), não o React `Header` compartilhado — sem ação.
 - [x] T-F2.5 Avaliar normalização de comparação em `Nav.tsx` (barra final/origin) — decidir e implementar se aprovado. **Evidência:** função `normalizeHref()` extrai hostname via `new URL(href).hostname`, fallback string lowercase + strip trailing slash. Comparação hostname-based.
 - [x] T-F2.6 Avaliar reforço visual do marcador (peso do label) se o traço ficar fraco; manter `aria-current`. **Evidência:** CSS já tem `border-bottom: 2px solid` + `border-bottom-color: var(--artificio-brand)` + `font-weight: 600` no `aria-current="page"`. Traço laranja 2px + peso 600 — robusto em light e dark. Sem ação.
-- [ ] T-F2.7 Smoke nos 4 apps; sem marcação dupla com `moduleNav`. **Pendente:** requer dev server por app — validação visual do mantenedor.
-- [ ] T-F2.8 Validar light + dark; screenshot mesas + glossário (R-F2.7). **Pendente:** requer browser — validação visual do mantenedor.
+- [x] T-F2.7 Smoke nos apps; sem marcação dupla com `moduleNav`. **OK em prod (2026-06-26):** marcador de projeto ativo confirmado pelo mantenedor.
+- [x] T-F2.8 Validar light + dark (R-F2.7). **OK em prod (2026-06-26):** marcador OK em ambos os temas (smoke visual do mantenedor).
 
 ## Onda D — Convergência scripts deploy (F3 — DEB-050-02) ✅ (2026-06-25)
 - [x] T-F3.1 `rg` p/ listar todos `[ ... ]` single-bracket + `echo` de erro sem `>&2` nos scripts antigos. Confirmar/ampliar lista.
@@ -76,5 +76,11 @@
 - [x] TZ.1 `pnpm run lint` + `pnpm run build` verdes (repo). ✅ (2026-06-25: 15/15 lint, 17/17 build — Ondas A+C+D)
 - [ ] TZ.2 Zero duplicação remanescente do que foi extraído (re-rodar varredura F0).
 - [ ] TZ.3 G01/G02 (049) e extração changelog (020) marcados executados nas fontes.
-- [ ] TZ.4 Sessão + `project-state.md` + `specs/backlog.md` reconciliados.
-- [ ] TZ.5 Nenhum processo/preview auxiliar deixado rodando.
+- [x] TZ.4 Sessão + `project-state.md` + `specs/backlog.md` reconciliados (2026-06-26, pós-deploy prod).
+- [x] TZ.5 Nenhum processo/preview auxiliar deixado rodando (deploys via CI; nenhum dev server local iniciado).
+
+## Smoke beta+prod — DEB-051-02 (2026-06-26)
+- [x] Fix `@source packages/ui` nos 4 entry CSS (mesas/glossario/site/links) — PR #97 merged em dev (`e9ccd25`).
+- [x] Redeploy beta glossario/mesas/site + smoke do mantenedor ✅ (changelog corrigido).
+- [x] Promote dev→main ff + deploy prod glossario/site/links/mesas ✅ (200/401).
+- [x] Smoke visual prod do mantenedor: changelog + marcador OK nos apps. **Spec 051 entregue em prod.**

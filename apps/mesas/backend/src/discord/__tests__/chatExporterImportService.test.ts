@@ -1,14 +1,21 @@
 import type { Mock } from 'vitest';
 
-const { mockSqlExecute } = vi.hoisted(() => ({
+const { mockSqlExecute, mockSqlTemplates } = vi.hoisted(() => ({
   mockSqlExecute: vi.fn(),
+  mockSqlTemplates: [] as string[][],
 }));
 
 vi.mock('kysely', async (importOriginal) => {
   const kysely = await importOriginal<typeof import('kysely')>();
   return {
     ...kysely,
-    sql: vi.fn(() => ({ execute: mockSqlExecute })),
+    sql: vi.fn((...args: unknown[]) => {
+      const [strings] = args as [string[] | TemplateStringsArray];
+      if (Array.isArray(strings) && strings.length > 0) {
+        mockSqlTemplates.push([...strings]);
+      }
+      return { execute: mockSqlExecute };
+    }),
   };
 });
 
@@ -34,7 +41,7 @@ vi.mock('../shared', () => ({
   getContentHash: vi.fn(() => 'test-hash'),
 }));
 
-import { importDiscordChatExporterJson } from '../chatExporterImportService';
+import { importDiscordChatExporterJson, MAX_IMPORT_MESSAGES } from '../chatExporterImportService';
 import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from '../chatExporterAdapter';
 import { getContentHash } from '../shared';
 import { db } from '../../db';
@@ -92,6 +99,7 @@ describe('importDiscordChatExporterJson', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSqlExecute.mockClear();
+    mockSqlTemplates.length = 0;
   });
 
   it('returns zero counts when messages array is empty', async () => {
@@ -165,5 +173,94 @@ describe('importDiscordChatExporterJson', () => {
     await importDiscordChatExporterJson({});
 
     expect(db.insertInto).toHaveBeenCalled();
+  });
+
+  // ─── T-F2: limite de mensagens ───
+
+  it('rejects payload above MAX_IMPORT_MESSAGES', async () => {
+    const manyMessages = Array.from({ length: MAX_IMPORT_MESSAGES + 1 }, (_, i) => ({
+      id: `msg-${i}`,
+      timestamp: '2026-06-23T12:00:00.000+00:00',
+      timestampEdited: null,
+      author: { id: `author-${i}`, name: `User${i}`, discriminator: null, nickname: null, color: null },
+      content: `conteudo ${i}`,
+      attachments: [],
+      embeds: [],
+    }));
+    const exportData = { guild: { id: 'g1', name: 'G' }, channel: { id: 'c1', name: 'ch', type: 'text' }, messages: manyMessages };
+    (parseDiscordChatExporterJson as Mock).mockReturnValue(exportData);
+
+    await expect(importDiscordChatExporterJson({})).rejects.toThrow(/2501|2000/);
+  });
+
+  it('accepts payload at MAX_IMPORT_MESSAGES limit', async () => {
+    const limitMessages = Array.from({ length: MAX_IMPORT_MESSAGES }, (_, i) => ({
+      id: `msg-${i}`,
+      timestamp: '2026-06-23T12:00:00.000+00:00',
+      timestampEdited: null,
+      author: { id: `author-${i}`, name: `User${i}`, discriminator: null, nickname: null, color: null },
+      content: `conteudo ${i}`,
+      attachments: [],
+      embeds: [],
+    }));
+    const exportData = { guild: { id: 'g1', name: 'G' }, channel: { id: 'c1', name: 'ch', type: 'text' }, messages: limitMessages };
+    (parseDiscordChatExporterJson as Mock).mockReturnValue(exportData);
+    (adaptMessageToImportRaw as Mock).mockReturnValue(makeAdaptedMessage());
+    (getContentHash as Mock).mockReturnValue('test-hash');
+
+    const srcChain = mockChain({ executeTakeFirst: vi.fn().mockResolvedValue({ id: 'existing-source' }) });
+    (db.selectFrom as Mock).mockReturnValue(srcChain);
+    mockSqlExecute.mockResolvedValue({ rows: [{ action: 'inserted' }] });
+
+    const result = await importDiscordChatExporterJson({});
+    expect(result.total).toBe(MAX_IMPORT_MESSAGES);
+  });
+
+  // ─── T-F5: performance 100 msgs ───
+
+  it('handles 100 messages without throw', async () => {
+    const hundredMessages = Array.from({ length: 100 }, (_, i) => ({
+      id: `msg-perf-${i}`,
+      timestamp: '2026-06-23T12:00:00.000+00:00',
+      timestampEdited: null,
+      author: { id: `author-${i}`, name: `User${i}`, discriminator: null, nickname: null, color: null },
+      content: `conteudo de performance ${i}`,
+      attachments: [],
+      embeds: [],
+    }));
+    const exportData = { guild: { id: 'g1', name: 'G' }, channel: { id: 'c1', name: 'ch', type: 'text' }, messages: hundredMessages };
+    (parseDiscordChatExporterJson as Mock).mockReturnValue(exportData);
+    (adaptMessageToImportRaw as Mock).mockReturnValue(makeAdaptedMessage());
+    (getContentHash as Mock).mockReturnValue('test-hash');
+
+    const srcChain = mockChain({ executeTakeFirst: vi.fn().mockResolvedValue({ id: 'existing-source' }) });
+    (db.selectFrom as Mock).mockReturnValue(srcChain);
+    mockSqlExecute.mockResolvedValue({ rows: [{ action: 'inserted' }] });
+
+    const result = await importDiscordChatExporterJson({});
+    expect(result.total).toBe(100);
+  });
+
+  // ─── T-F10: anti-regressão 047 ───
+  // Status sempre 'pending' — validado no SQL template do serviço
+  // (linha 87: 'discord_chat_exporter_json', 'pending' — hardcoded, sem rota de auto-publicação)
+
+  it('inserts messages with status pending (never auto-publishes)', async () => {
+    mockSqlTemplates.length = 0; // limpa antes do teste
+    const exportData = makeExportData();
+    (parseDiscordChatExporterJson as Mock).mockReturnValue(exportData);
+    (adaptMessageToImportRaw as Mock).mockReturnValue(makeAdaptedMessage());
+    (getContentHash as Mock).mockReturnValue('test-hash');
+
+    const srcChain = mockChain({ executeTakeFirst: vi.fn().mockResolvedValue({ id: 'existing-source' }) });
+    (db.selectFrom as Mock).mockReturnValue(srcChain);
+    mockSqlExecute.mockResolvedValue({ rows: [{ action: 'inserted' }] });
+
+    await importDiscordChatExporterJson({});
+
+    // O template SQL deve conter 'pending' (status fixo, sem auto-publicação)
+    expect(mockSqlTemplates.length).toBeGreaterThan(0);
+    const fullSql = mockSqlTemplates[0].join('');
+    expect(fullSql).toContain("'pending'");
   });
 });
