@@ -45,7 +45,7 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
 router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
   try {
     // DEB-048-19: validação de messageIds (payload externo) — lança → 400.
-    const messageIds = validateReparseMessageIds((req.body ?? {}).messageIds);
+    const messageIds = validateReparseMessageIds(req.body?.messageIds);
     const hasIds = !!messageIds?.length;
 
     // DEB-048-17: lista de status condicional numa ÚNICA cláusula (múltiplos

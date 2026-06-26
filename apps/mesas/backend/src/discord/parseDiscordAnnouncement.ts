@@ -235,8 +235,8 @@ function extractType(text: string): TableDraftType | null {
 
 // Extrai informações de preço do texto
 function extractPrice(text: string): { priceType: TableDraftPriceType; priceValue: number | null } {
-  const priceMatch = /R\$\s*(\d+(?:[,.]\d{1,2})?)/i.exec(text)
-    ?? /(\d+(?:[,.]\d{1,2})?)\s*reais/i.exec(text);
+  const priceMatch = /R\$\s{0,3}(\d+(?:[,.]\d{1,2})?)(?!\d)/i.exec(text)
+    ?? /(\d+(?:[,.]\d{1,2})?)(?!\d)\s{0,3}reais/i.exec(text);
   if (priceMatch) {
     const value = parseFloat(priceMatch[1].replace(',', '.'));
     if (!Number.isNaN(value) && value > 0) {
@@ -258,15 +258,25 @@ type SlotsResult = { total: number | null; open: number | null; ambiguity: Disco
 // Quantificadores de espaço LIMITADOS (\s{0,3}/\s{1,3}) — eliminam backtracking
 // super-linear (S5852). A alternação de RE_SLOT_LABELED usa "vagas(?: dispon…)?"
 // para não ter prefixo "vagas" sobreposto a "vagas disponíveis".
-const RE_SLOT_VIA_FORMS = /(\d+)\s{1,3}vaga\s{1,3}via\s{1,3}forms/i;
-const RE_SLOT_X_DE_Y = /(\d+)\s{1,3}de\s{1,3}(\d+)/i;
-const RE_SLOT_TOTAL = /vagas?\s{1,3}(?:totais|total)\s{0,3}[:=]\s{0,3}(\d+)/i;
-const RE_SLOT_OPEN = /vagas?\s{1,3}(?:dispon[ií]veis|dispon[ií]vel|abertas|aberta)\s{0,3}[:=]\s{0,3}(\d+)/i;
-const RE_SLOT_AMBIG_SLASH = /(?:^|\n)[\s▬•\-–—]{0,8}(?:vagas|jogadores)\s{0,3}[:=]\s{0,3}(\d+)\s{0,3}\/\s{0,3}(\d+)(?!\s{0,3}vagas?)/i;
-const RE_SLOT_LABELED = /(?:^|\n)[\s▬•\-–—]{0,8}(?:vagas(?:\s{1,3}dispon[ií]veis)?|jogadores)\s{0,3}[:=]\s{0,3}(\d+)(?!\s{0,3}\/)/i;
-const RE_SLOT_SLASH_VAGAS = /(\d+)\s{0,3}\/\s{0,3}(\d+)\s{0,3}vagas?/i;
-const RE_SLOT_N_VAGAS = /(\d+)\s{0,3}vagas?/i;
-const RE_SLOT_VAGAS_LABEL = /vagas?(?:\s{0,3}disponíveis?)?\s{0,3}[:=]\s{0,3}(\d+)/i;
+// Fragmentos reutilizáveis das regex de vaga (DRY — mudança de espaço/limite num
+// lugar só). `D` = captura de dígito ATÔMICA via `(?!\d)`: impede backtracking do
+// `\d+` (elimina super-linear S5852) sem perder a captura do número inteiro.
+const D = String.raw`(\d+)(?!\d)`;          // dígitos atômicos
+const SP0 = String.raw`\s{0,3}`;            // 0–3 espaços
+const SP1 = String.raw`\s{1,3}`;            // 1–3 espaços
+const SEP = String.raw`[:=]`;               // separador rótulo:valor
+const BULLETS = String.raw`[\s▬•\-–—]{0,8}`; // bullets no começo da linha
+const LINE = String.raw`(?:^|\n)`;          // início de linha
+
+const RE_SLOT_VIA_FORMS = new RegExp(`${D}${SP1}vaga${SP1}via${SP1}forms`, 'i');
+const RE_SLOT_X_DE_Y = new RegExp(`${D}${SP1}de${SP1}${D}`, 'i');
+const RE_SLOT_TOTAL = new RegExp(`vagas?${SP1}(?:totais|total)${SP0}${SEP}${SP0}${D}`, 'i');
+const RE_SLOT_OPEN = new RegExp(`vagas?${SP1}(?:dispon[ií]veis|dispon[ií]vel|abertas|aberta)${SP0}${SEP}${SP0}${D}`, 'i');
+const RE_SLOT_AMBIG_SLASH = new RegExp(`${LINE}${BULLETS}(?:vagas|jogadores)${SP0}${SEP}${SP0}${D}${SP0}/${SP0}${D}(?!${SP0}vagas?)`, 'i');
+const RE_SLOT_LABELED = new RegExp(`${LINE}${BULLETS}(?:vagas(?:${SP1}dispon[ií]veis)?|jogadores)${SP0}${SEP}${SP0}${D}(?!${SP0}/)`, 'i');
+const RE_SLOT_SLASH_VAGAS = new RegExp(`${D}${SP0}/${SP0}${D}${SP0}vagas?`, 'i');
+const RE_SLOT_N_VAGAS = new RegExp(`${D}${SP0}vagas?`, 'i');
+const RE_SLOT_VAGAS_LABEL = new RegExp(`vagas?(?:${SP0}disponíveis?)?${SP0}${SEP}${SP0}${D}`, 'i');
 
 function slotsViaForms(cleaned: string): SlotsResult | null {
   const m = RE_SLOT_VIA_FORMS.exec(cleaned);
