@@ -6,7 +6,7 @@
 - **Severidade:** Média
 - **Descrição:** O segundo arquivo real está truncado/inválido por volta da linha 3042. Importador não pode falhar com stack trace genérico nem importar parcialmente sem rastreio.
 - **Ação:** Fixture negativa + teste de endpoint/serviço retornando 400 com mensagem clara.
-- **Status:** aberto
+- **Status:** ✅ **FECHADO (2026-06-26, Handoff #7).** Test-only (sem mudança de runtime). 3 fixtures negativas sintéticas em `chatExporterSample.ts` (`truncatedJsonString`, `exportWithoutGuild`, `exportWithNonArrayMessages` — sem dados reais; `extracao_json2.json` NÃO commitado). 6 testes novos cobrindo os 2 modos de falha: (1) string truncada/malformada → `extractJsonPayload` retorna `{status:400, error:"…não é um JSON válido"}` (`chatExporterImportService.test.ts`); (2) schema inválido (sem `guild`, `messages` não-array) → `parseDiscordChatExporterJson` lança `DiscordChatExporterValidationError` (`chatExporterAdapter.test.ts`). Privacidade verificada: mensagem de erro **não** vaza payload cru nem stack trace. Test 261/261 ✅, build ✅, lint 15/15 ✅.
 
 ## DEB-048-02 — Automação diária com DiscordChatExporter exige desenho seguro
 
@@ -22,7 +22,7 @@
 - **Severidade:** Média
 - **Descrição:** Amostra real contém `<t:UNIX:...>`, Google Forms, role mentions, contato implícito por autor e formatos variados de vagas/preço. O MVP importa, persiste, deduplica e gera drafts; as tasks T-C são **Fase C (parser hardening), pós-MVP**. A perda é de qualidade de extração (falsos negativos em contato, sistema, vagas, preço), não de funcionalidade core.
 - **Ação:** Implementar tasks T-C1..T-C9. Priorizar T-C1 (timestamps), T-C2 (Google Forms), T-C3 (contato), T-C6 (vagas informais) como mínimo para o JSON real não degradar.
-- **Status:** aberto
+- **Status:** **parcial (2026-06-26)** — PR-1 da Fase C implementado: T-C1 (timestamps Discord `<t:UNIX>`), T-C2 (Google Forms), T-C3 (contato implícito), T-C6 (vagas informais: `3 de 5`, `0/5`, `1 vaga via forms`, `mesa em andamento`). Regex determinístico puro, sem libs novas. Testes 237/237 ✅, lint 15/15 ✅, build ✅. Restam: T-C4 (role mentions), T-C5, T-C7, T-C8, T-C9 (fora do PR-1). Código local, não commitado.
 
 ### Análise detalhada por T-C (2026-06-23, verificado 2026-06-23)
 
@@ -194,3 +194,111 @@
 #### Conclusão
 
 **Procede.** A duplicação é real. Impacto funcional zero, mas manutenção futura mais cara. Débito de baixa severidade — não justifica abrir spec SDD própria, mas deve ser resolvido junto com a próxima mexida em `ingestMessages.ts`.
+
+## DEB-048-13 — Estratégia para anexos grandes/vídeos (T-F7)
+
+- **Origem:** Fase F — planejamento de robustez para anexos
+- **Severidade:** Baixa/Média
+- **Descrição:** O importador preserva metadata de anexos no `discord_import_messages.attachments` (JSONB: `url`, `fileName`, `fileSizeBytes`, `contentType`). Não faz download nem upload para Cloudinary.
+- **Decisão documentada (2026-06-26):**
+  - **Imagens (capas):** download futuro via Cloudinary signed upload — apenas para extrair capa de mesa.
+  - **Vídeos:** manter só URL do Discord (CDN expira). Documentar limitação.
+  - **Anexos grandes:** ignorar no MVP; preservar metadata para referência do admin.
+- **Ação futura:** implementar download seletivo de imagens com guarda de tamanho e retry; nunca baixar vídeos automaticamente.
+- **Status:** **fechado (2026-06-26, Handoff #5)** — T-F7 implementada. `extractCoverFromAttachments` corrigida p/ fallback de extensão de `fileName` (ChatExporter não fornece `content_type`/`width`/`size`); `buildAttachmentNotes` gera notas `"Anexo: <fileName> (<tamanho>) — <url>"` para anexos não-imagem (vídeo, .txt, etc.); notas são adicionadas ao `_notes` do draft. Testes: 8 novos (png via fileName, jpg via ext, mp4 gera nota, txt gera nota, bot-fetch compat, svg ignorado, sem fileName, sem url). `fileSizeBytes` usado como fallback de tamanho. Lint ✅, build ✅, test 253/253 ✅.
+
+## DEB-048-14 — Estratégia para replies/threads (T-F8)
+
+- **Origem:** Fase F — o JSON real (`extracao_json.json`) tem mensagens com campo `reference` (reply).
+- **Severidade:** Baixa
+- **Descrição:** O DiscordChatExporter inclui replies como mensagens separadas com campo `reference.messageId` e `reference.content`.
+- **Decisão documentada (2026-06-26):**
+  - **Reply com conteúdo próprio:** já aparece como `message` separada no JSON → tratada como anúncio independente (comportamento atual).
+  - **Reply sem conteúdo (só referência):** pode ser ignorado ou adicionado como contexto (`_notes`) da mensagem referenciada. Exemplo: `"_notes": ["Em resposta a: ..."]`.
+  - **Campo `reference`:** já existe no schema Zod (`discordChatExporterReferenceSchema`) mas não é usado no pipeline atual. O adapter ignora `reference`.
+- **Ação futura:** enriquecer o `ImportRawMessage` ou `_notes` com `reference` quando relevante. Não implementar agora — baixo impacto funcional.
+- **Status:** 🛑 **REABERTO (revisão Claude 2026-06-26) — reply NÃO FIADO (dead code).** As peças existem (`ImportRawMessage.reference`, adapter popula, `parseDiscordAnnouncement(replyContext)`, `contentIndex` Map no service) **mas não se conectam:** (1) o `contentIndex` é criado (`service:82-85`) e **nunca lido** (`.get` não existe); (2) o `importDiscordChatExporterJson` só faz `INSERT INTO discord_import_messages` — **não** chama o parser; (3) o parse real é `utils.ts:133` `parseDiscordAnnouncement(raw, sys)` — **2 args, sem `replyContext`**. Em produção a nota "Em resposta a:" **nunca** sai. Testes verdes porque chamam o parser direto com o 3º arg (falso-verde). **Causa arquitetural:** o parse ocorre depois, a partir da linha do DB (`discord_import_messages`), onde `reference` **não é coluna** e as outras mensagens do export não estão disponíveis p/ resolver o snippet. **Correção (Handoff #7):** ou (a) resolver o reply no momento do parse-batch consultando `discord_import_messages` por `reference.messageId` (exige persistir `reference` → migration → fora de escopo sem aprovação), ou (b) **escopo realista agora:** remover o `contentIndex` morto e marcar T-F8 como **adiada** (precisa migration p/ persistir `reference`), mantendo só o campo no tipo. Decidir com o mantenedor. → ⏸️ **RESOLVIDO POR ADIAMENTO (Claude 2026-06-26):** opção (b). `contentIndex` morto removido do `chatExporterImportService` (comentário explica o porquê); `reference` em `ImportRawMessage` + adapter + `replyContext` no parser **mantidos** como base future-ready (custo zero). **T-F8 ADIADA** — nota "Em resposta a:" só sai depois de migration que persista `reference` em `discord_import_messages` + resolução no parse-batch. Testes unit do `replyContext` mantidos (param funciona). Build/test 253/253/lint ✅.
+
+  → ✅ **REIMPLEMENTADA COM MIGRATION (DeepSeek, revisada Claude 2026-06-26):** seguiu a **opção (a)**. `migration_130_discord_reference.sql` (`@class: online-safe`, `ADD COLUMN reference JSONB` nullable, idempotente) persiste `reference`. `chatExporterImportService` grava `reference` no INSERT + ON CONFLICT (com `reference IS DISTINCT FROM` no WHERE de reparse). `db/types.ts` ganhou a coluna. Resolução no parse: helpers `buildContentIndex`/`resolveReplyContext` em `utils.ts`, usados em **parse-batch** e **/reparse**; `parseDiscordMessage` lê `reference` da linha do DB e passa `replyContext`. Fiação end-to-end verificada — não é mais código morto. **Limitação conhecida:** `contentIndex` é por lote → reply a mensagem fora do batch atual não resolve (órfão → sem nota); aceitável (alvo+reply costumam vir juntos). Build ✅, test **255/255** ✅, lint ✅. **⚠️ Aplicar a migration_130 em beta/prod exige aprovação nominal no deploy (guard online-safe spec 050).**
+
+## DEB-048-15 — Mapa de campos para metadata (T-F9)
+
+- **Origem:** Fase F — o JSON do DiscordChatExporter contém campos ricos que o draft ignora.
+- **Severidade:** Baixa
+- **Descrição:** O export contém campos que não são extraídos para o `DiscordTableDraftTable`:
+  - `guild.name`, `guild.iconUrl` — nome e ícone do servidor
+  - `channel.category`, `channel.topic` — categoria e tópico do canal
+  - `mentions` (por mensagem) — menções a usuários, roles, canais
+  - `inlineEmojis` — emojis inline no texto
+  - `reactions` — reações à mensagem
+  - `reference` — reply/referência
+- **Decisão documentada (2026-06-26):**
+  - **Sem migration agora:** adicionar campos ao schema do DB exigiria migration — fora do escopo da 048.
+  - **Opção conservadora (recomendada):** extrair metadados do `exportData` no serviço ANTES do loop e guardar em `_notes` do draft (array de strings) ou criar campo `metadata` JSONB opcional no futuro.
+  - **Mapeamento sugerido:**
+    1. `guild.name` → `_notes`: `"Servidor: Nome do Servidor"`
+    2. `guild.iconUrl` → `_notes`: `"Ícone do servidor: URL"`
+    3. `channel.category` → `_notes`: `"Categoria: Nome da Categoria"`
+    4. `channel.topic` → `_notes`: `"Tópico do canal: ..."` (se relevante)
+    5. Por mensagem: `mentions`, `inlineEmojis` → podem ser preservados no `_notes` ou ignorados.
+- **Ação futura:** quando houver migration de metadata, criar campo `metadata` JSONB no `DiscordTableDraftTable`; o parser pode popular com esses campos sem alterar a estrutura principal.
+- **Status:** aberto
+
+---
+
+## DEB-048-16 — Guard "mesa em andamento" bloqueia parser de vagas explícitas (REV-007)
+
+- **Origem:** REV-007 (@chatgpt-codex-connector, 2026-06-26)
+- **Severidade:** Média (P2)
+- **Descrição:** `extractSlots()` em `parseDiscordAnnouncement.ts:251` testa `\bmesa\s+em\s+andamento\b` **antes** de testar `N vaga via forms` (linha 256). Se o texto contém ambas as frases, o guard retorna `{ total: null, open: null }` e o parser de vagas explícitas nunca é alcançado. O draft perde a informação real de vagas.
+- **Ação:** Reordenar `extractSlots`: testar todos os padrões explícitos de vaga (`N vaga via forms`, `X de Y`, `N vagas`, etc.) **antes** do guard "mesa em andamento". O guard só deve ser aplicado como fallback quando nenhum padrão explícito casar.
+- **Status:** **fechado (2026-06-26, Handoff #6)** — `extractSlots` reordenado: 7 padrões explícitos testados antes do guard "mesa em andamento", que agora fica na posição 8 como fallback. Se há menção explícita de vagas, o guard não bloqueia.
+
+## DEB-048-17 — Filtro de status no /reparse bloqueia mensagens já parseadas (REV-008)
+
+- **Origem:** REV-008 (@chatgpt-codex-connector, 2026-06-26)
+- **Severidade:** Média (P2)
+- **Descrição:** `POST /import-json/reparse` (`import.ts:47`) filtra `status IN ('pending', 'needs_review')`. Mensagens processadas com sucesso têm `status = 'parsed'` e são excluídas da query, mesmo quando explicitamente solicitadas via `messageIds`. O endpoint retorna zero resultados, impedindo reaplicar hardenings do parser em imports existentes — o caso de uso principal.
+- **Ação:** Quando `messageIds` é fornecido explicitamente, remover ou relaxar o filtro de status (ex.: incluir `'parsed'`). Manter o filtro original quando `messageIds` não é fornecido. O guard `message.status === 'synced'` dentro do loop (linha 65) já protege contra reprocessar mensagens synced.
+- **Status:** 🛑 **REABERTO (revisão Claude 2026-06-26) — fix INEFICAZ.** A implementação manteve o `.where('status','in',['pending','needs_review'])` da query base (`import.ts:64`) e **adicionou** um 2º `.where('status','in',['pending','needs_review','parsed'])`. Kysely **ANDeia** cláusulas `.where()` → interseção = `pending,needs_review` → **`parsed` continua excluído**. Testes verdes porque não cobriram `status='parsed' + messageIds`. **Correção (Handoff #7):** lista de status condicional numa única cláusula — `const statuses = (messageIds && messageIds.length) ? ['pending','needs_review','parsed'] : ['pending','needs_review']`, sem o segundo `.where` de status. (`ignored` no retorno ✅ mantido.) → ✅ **CORRIGIDO (Claude 2026-06-26):** status agora é ternário inline numa única cláusula `.where('status','in', ...)`; 2º `.where` de status removido. Build/test 253/253/lint ✅.
+
+## DEB-048-18 — extractDiscordTimestamp usa UTC sem ajuste de fuso (REV-009)
+
+- **Origem:** REV-009 (@coderabbitai, 2026-06-26)
+- **Severidade:** Baixa (Minor)
+- **Descrição:** `extractDiscordTimestamp()` (`parseDiscordAnnouncement.ts:356-358`) usa `getUTCDay()`/`getUTCHours()`/`getUTCMinutes()` para extrair `day_of_week` e `start_time` de timestamps Discord `<t:UNIX>`. Como a maioria dos anúncios está em fuso brasileiro (UTC-3), o horário fica 3h adiantado e o dia da semana pode cruzar a meia-noite. O admin precisa corrigir manualmente.
+- **Ação:** Escolher uma das opções: (a) aplicar offset UTC-3 fixo (`date.getTime() - 3*3600*1000` → `new Date(adjusted)`) antes de extrair dia/hora; (b) documentar no `_notes` que o valor é UTC; (c) usar `getDay()`/`getHours()` se o ambiente de execução estiver em fuso BR. Recomendação: opção (a) com constante de offset, que é previsível e não depende do ambiente.
+- **Status:** 🛑 **REABERTO (revisão Claude 2026-06-26) — fuso OK, mas introduz inconsistência de formato.** `Intl.DateTimeFormat('pt-BR', { weekday:'long' })` retorna `"segunda-feira"`, `"terça-feira"`, …, mas o canônico do projeto (`extractDayOfWeek`, `:325`) é a forma **curta** `"segunda"`, `"terça"`, … (sem `-feira`). Como `:557` prefere `discordTs?.dayOfWeek`, o `day_of_week` vira `"segunda-feira"` quando há `<t:UNIX>` → diverge da validação/display do resto. Sábado/domingo coincidem por acaso (sem `-feira`); seg–sex quebram. **Correção (Handoff #7):** mapear o weekday do Intl para a forma curta canônica (ex.: `.replace(/-feira$/,'')`) ou reusar a tabela `days` de `extractDayOfWeek`. (Fuso América/São_Paulo ✅ mantido.) → ✅ **CORRIGIDO (Claude 2026-06-26):** `weekday.toLowerCase().replace(/-feira$/,'')` → `"segunda"`/`"terça"`/…; sábado/domingo inalterados. Teste de timestamp ajustado p/ esperar `'sexta'` (codificava o bug). Build/test 253/253/lint ✅.
+
+## DEB-048-19 — Falta Array.isArray em messageIds de payload externo (REV-010)
+
+- **Origem:** REV-010 (@coderabbitai, 2026-06-26)
+- **Severidade:** Média (Major) — viola regra pétrea de normalização
+- **Descrição:** `POST /import-json/reparse` (`import.ts:41-51`) recebe `messageIds` de `req.body` e acessa `.length` sem `Array.isArray`. Uso de `as any` na cláusula SQL `IN`. Um payload `messageIds: "abc"` (string) passa no check `.length > 0` e gera SQL inválido. Viola regra pétrea: "É proibido usar `.length` sobre payload externo sem `Array.isArray`".
+- **Ação:** Adicionar validação: `Array.isArray(messageIds) && messageIds.length > 0 && messageIds.every(id => typeof id === 'string')`. Remover `as any`. Se inválido, retornar 400. Opcional: migrar a rota para usar schema Zod.
+- **Status:** **fechado (2026-06-26, Handoff #6)** — validação `Array.isArray(messageIds)` + `every(id => typeof id === 'string')` adicionada em `import.ts`; payload inválido retorna 400. `as any` removido da cláusula SQL `IN`.
+
+## DEB-048-20 — Catch interno do /reparse pode abortar lote se DB falhar (REV-011)
+
+- **Origem:** REV-011 (@coderabbitai, 2026-06-26)
+- **Severidade:** Baixa (Minor)
+- **Descrição:** O `catch` do loop de reparse (`import.ts:124`) executa `await db.updateTable(...).execute()` para marcar erro. Se essa query falhar (DB indisponível), o erro escapa para o `catch` externo (linha 140) → 500 → lote inteiro abortado. Além disso, `parse_error: 'Erro no reparse em lote'` descarta a causa real.
+- **Ação:** Envolver o `db.updateTable` do catch em `try/catch` próprio. Se falhar, logar o erro real e continuar o loop. Preservar a mensagem de erro original em `parse_error` (ex.: `error instanceof Error ? error.message : 'unknown error'`).
+- **Status:** **fechado (2026-06-26, Handoff #6)** — `db.updateTable` do catch interno agora tem `try/catch` próprio; falha de DB loga e continua loop sem abortar lote. `parse_error` preserva a causa real (`error instanceof Error ? error.message : 'Erro desconhecido'`).
+
+## DEB-048-21 — Duplicação de boilerplate de handler em import.ts (REV-012)
+
+- **Origem:** REV-012 (@coderabbitai, 2026-06-26)
+- **Severidade:** Baixa (Info)
+- **Descrição:** SonarCloud/CodeRabbit reportam 32.4% de linhas duplicadas no `/reparse` (`import.ts:38-144`) vs `POST /` (`import.ts:10-36`). A sobreposição é **boilerplate estrutural** de handler Express (try/catch + `console.error` + `res.status(500)` + envelope `{ data: { ... } }`); a lógica de negócio dos dois é distinta. Métrica inflada por o `/reparse` ser curto.
+- **Verificação (código é a verdade, 2026-06-26):** confirmado — ambos os handlers repetem o padrão de catch/envelope. O grosso do `/reparse` (loop L62-131, reconcile de drafts) é único.
+- **Ação:** Extrair um helper de resposta de erro compartilhado (ex.: `respondImportError(res, error)` que mapeia `DiscordChatExporterValidationError`→400, senão loga `error.message` + 500). Opcional: helper de envelope `{ data }`. **Não** sobre-abstrair a lógica de negócio — só o boilerplate.
+- **Ordem:** fazer **por último** no PR-4, **depois** dos fixes REV-008/010/011, que vão remodelar o `/reparse` (evita retrabalho/churn).
+- **Status:** **fechado (2026-06-26, Handoff #6)** — helper `respondImportError(res, error)` extraído e aplicado nos dois handlers (`POST /` e `POST /reparse`). Mapeia `DiscordChatExporterValidationError`→400 com mensagem; demais erros logam e retornam 500 com envelope `{ data: { error } }`.
+
+## DEB-048-22 — Loop de processamento mensagem→draft duplicado entre /reparse e parse-batch (SonarCloud)
+
+- **Origem:** SonarCloud (New Code) — `import.ts` **24.8%** linhas duplicadas (após T-F8 fazer os dois loops crescerem). Distinto do DEB-048-21 (que era só o boilerplate catch/envelope).
+- **Severidade:** Baixa (Info)
+- **Descrição:** O loop do `/reparse` (`import.ts`) e o do `parse-batch.ts` repetiam ~45 linhas idênticas: `parseDiscordMessage` → reconcilia draft terminal → upsert em `discord_import_table_drafts` → atualiza status da mensagem → `ensureSystemSuggestionForDraft`. Diferiam só nos contadores (`succeeded/failed` vs `reparsed/ignored/errors`) e na política de catch.
+- **Status:** ✅ **CORRIGIDO (Claude 2026-06-26).** Extraído `processDiscordMessageToDraft(message, systems, replyContext, userId): 'parsed'|'ignored'|'reconciled'` em `utils.ts`. Ambos os handlers chamam o helper e mapeiam o `DiscordDraftOutcome` para seus próprios contadores; cada um mantém sua própria política de catch (parse-batch: genérico; /reparse: catch interno DEB-048-20). Comportamento idêntico. ~45 linhas duplicadas eliminadas de cada caller. Build ✅, test **255/255** ✅, lint ✅.

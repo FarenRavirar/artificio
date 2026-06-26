@@ -56,6 +56,13 @@ export function adaptMessageToImportRaw(
     content_raw: msg.content ?? '',
     attachments: msg.attachments ?? [],
     embeds: msg.embeds ?? [],
+    // reference já vem normalizado pelo Zod (discordChatExporterReferenceSchema):
+    // messageId: string; channelId/guildId: string | undefined. Sem cast inseguro.
+    reference: msg.reference ? {
+      messageId: msg.reference.messageId,
+      channelId: msg.reference.channelId,
+      guildId: msg.reference.guildId,
+    } : null,
     message_created_at: msg.timestamp ? new Date(msg.timestamp) : null,
     message_edited_at: msg.timestampEdited ? new Date(msg.timestampEdited) : null,
     content_hash: getContentHash(msg),

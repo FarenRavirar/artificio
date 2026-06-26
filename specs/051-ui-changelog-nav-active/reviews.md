@@ -20,7 +20,8 @@
 | REV-051-CODEQL-01 | CodeQL `js/polynomial-redos` (PR #96) | 2026-06-26 | `Nav.tsx:14` — regex `replace(/\/+$/, "")` sobre parâmetro `href` não controlado. CodeQL alerta ReDoS: `/` com backtracking polinomial em strings com muitas barras. | **Procede (gate bloqueante)** — ver §10. **Corrigido** | Risco prático nulo, mas CodeQL é check de CI bloqueante. Strip de barras finais sem regex de repetição (loop `charCodeAt`) elimina o ReDoS. |
 | REV-051-RABBIT-04 | coderabbitai (PR #96, 🟠 Major) | 2026-06-26 | `apply_required_migrations.sh:+45-48` — `CLASS` validado só com `-z`. Valor não vazio mas inválido (typo) passa e `validate_sql_against_class` não bloqueia classes desconhecidas. | **Procede** — ver §11. **Corrigido** | Allowlist explícita `online-safe|manual-risk` em `load_header_vars` (fail-closed). |
 | REV-051-RABBIT-05 | coderabbitai (PR #96, 🟢 Low) | 2026-06-26 | `Nav.tsx:17` — `String#charCodeAt()` deveria usar `String#codePointAt()`. Consistency/Reliability, es2015, internationalization. | **Procede** — ver §12. **Corrigido** | `charCodeAt` → `codePointAt` (guarda `end > 0` garante índice válido). Build+lint ✅. |
-| REV-051-SMOKE-01 | smoke beta do mantenedor (2026-06-26, pós-deploy 051) | 2026-06-26 | Changelog quebrado: glossariobeta topo cortado, mesasbeta mistura com home, beta.artificiorpg não aparece. Marcador nav (F2) OK. | **Procede** (regressão F1, bloqueia prod) → **DEB-051-02** | Causa: Tailwind v4 dos consumidores não escaneia `packages/ui` → utilitários do `ChangelogModal` (`z-[9999]`, `max-h-[calc]`, `fixed`/`bg-black` no site) não gerados. Fix: `@source 'packages/ui'` nos 4 entry CSS. |
+| REV-051-SMOKE-01 | smoke beta do mantenedor (2026-06-26, pós-deploy 051) | 2026-06-26 | Changelog quebrado: glossariobeta topo cortado, mesasbeta mistura com home, beta.artificiorpg não aparece. Marcador nav (F2) OK. | **Procede** → **DEB-051-02**. **Corrigido + validado em prod** | Causa: Tailwind v4 dos consumidores não escaneia `packages/ui` → utilitários do `ChangelogModal` não gerados. Fix: `@source 'packages/ui'` nos 4 entry CSS (PR #97). Smoke visual do mantenedor (beta+prod) ✅. |
+| REV-051-RABBIT-06 | coderabbitai (PR #97, 🟠 Major) | 2026-06-26 | `@source` do Tailwind v4 nos 4 entry CSS seria barrado por Stylelint `scss/at-rule-no-unknown`; `pnpm run lint` quebraria. Sugere liberar `@source` na config Stylelint ou silenciar nos 4 arquivos. | **Descarta (falso-positivo)** — ver §13 | Verificado contra o código: **não há Stylelint no repo** (sem `.stylelintrc`/`stylelint.config`, sem script, sem workflow `.github` usando stylelint). `lint` = `turbo run lint` = ESLint por app. `@theme`/`@import 'tailwindcss'` já existiam e o lint sempre passou. **`lint + build + test` do PR #97 = PASS** (run 28234829182). Nada a fazer. |
 
 ---
 
@@ -179,3 +180,15 @@ shellcheck ✅, `test_migration_guard.sh` 39/39 ✅.
 **Achado:** CodeRabbit sugere trocar `href.charCodeAt(end - 1) === 47` por `codePointAt()` (`Nav.tsx:17`). Severidade Low (3), esforço 5min.
 
 **Correção (2026-06-26):** `charCodeAt` → `codePointAt`. A guarda `end > 0` já garante que `end - 1 ≥ 0` (índice válido), então `codePointAt()` sempre retorna `number`. Build `@artificio/ui` ✅, lint 15/15 ✅. 1 linha alterada.
+
+## §13 — REV-051-RABBIT-06: Stylelint barraria `@source` (falso-positivo)
+
+**Achado:** CodeRabbit (PR #97, Major) afirma que os `@source` do Tailwind v4 adicionados aos 4 entry CSS (fix DEB-051-02) seriam barrados por Stylelint `scss/at-rule-no-unknown`, quebrando `pnpm run lint`. Sugere liberar `@source` na config compartilhada do Stylelint ou silenciar nos 4 arquivos.
+
+**Verificação contra o código (código é a verdade):**
+- Não existe Stylelint no repo: sem `.stylelintrc*`/`stylelint.config*`, sem `stylelint` em nenhum `package.json` script, sem workflow em `.github` invocando stylelint (`rg -l stylelint .github` = vazio). Únicas ocorrências de "stylelint" são notas históricas em `specs/013` e `sessoes/` (decisões de aspas de fontes, não pipeline ativo).
+- `lint` = `turbo run lint` → ESLint por app (`eslint .`), nunca CSS.
+- `@import 'tailwindcss'` e `@theme {}` **já existiam** nesses mesmos arquivos e o lint sempre passou — se houvesse `at-rule-no-unknown`, já estariam barrados.
+- **`lint + build + test` do PR #97 = PASS** (run `28234829182`, 2m34s).
+
+**Veredito: descarta (falso-positivo).** O bot alucinou um Stylelint que não roda neste repo. Nenhuma ação. Pétrea: não respondido no PR.

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseDiscordChatExporterJson, adaptMessageToImportRaw } from '../chatExporterAdapter';
+import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from '../chatExporterAdapter';
+import { exportWithoutGuild, exportWithNonArrayMessages } from './fixtures/chatExporterSample';
 
 // Fixture minima espelhando o shape real do DiscordChatExporter:
 // embeds com campos `null` (timestamp/image/description) — regressao da Spec 048,
@@ -56,5 +57,50 @@ describe('parseDiscordChatExporterJson — embeds com campos null', () => {
     expect(() => parseDiscordChatExporterJson({ guild: { id: '1', name: 'g' } })).toThrow(
       /messages.*ausente/i,
     );
+  });
+
+  // ─── T-F8: reference (reply) ─────────────────────────────────────────────────
+
+  it('mensagem COM reference gera adapted.reference populado (T-F8)', () => {
+    const data = parseDiscordChatExporterJson(buildExport({
+      reference: { messageId: 'msg-001', channelId: '222', guildId: '111' },
+    }));
+    const adapted = adaptMessageToImportRaw(data.messages[0], data);
+    expect(adapted.reference).toEqual({
+      messageId: 'msg-001',
+      channelId: '222',
+      guildId: '111',
+    });
+  });
+
+  it('mensagem SEM reference gera adapted.reference = null (T-F8)', () => {
+    const data = parseDiscordChatExporterJson(buildExport());
+    const adapted = adaptMessageToImportRaw(data.messages[0], data);
+    expect(adapted.reference).toBeNull();
+  });
+
+  // ─── DEB-048-01: schema inválido ─────────────────────────────────────────────────
+
+  it('rejeita export sem campo guild', () => {
+    expect(() => parseDiscordChatExporterJson(exportWithoutGuild))
+      .toThrow(DiscordChatExporterValidationError);
+  });
+
+  it('rejeita export com messages não-array', () => {
+    expect(() => parseDiscordChatExporterJson(exportWithNonArrayMessages))
+      .toThrow(DiscordChatExporterValidationError);
+  });
+
+  it('mensagem de erro do schema contém detalhes úteis (não stack trace)', () => {
+    let caught: unknown;
+    try {
+      parseDiscordChatExporterJson(exportWithoutGuild);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(DiscordChatExporterValidationError);
+    const msg = (caught as DiscordChatExporterValidationError).message;
+    expect(msg.length).toBeGreaterThan(10); // mensagem descritiva
+    expect(msg).not.toContain('at parseDiscordChatExporterJson'); // sem stack trace
   });
 });

@@ -628,6 +628,7 @@ export interface DiscordImportMessagesTable {
   source_kind: Generated<DiscordImportSourceKind>;
   status: Generated<DiscordImportMessageStatus>;
   parse_error: string | null;
+  reference: { messageId: string; channelId?: string; guildId?: string } | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

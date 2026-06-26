@@ -50,19 +50,61 @@ function extractCoverFromAttachments(attachments: unknown[]): { url: string; qua
   for (const attachment of attachments) {
     if (typeof attachment !== 'object' || attachment === null) continue;
     const record = attachment as Record<string, unknown>;
+
+    // Tentar content_type primeiro (formato bot-fetch) — compat retroativa
     const contentType = readStringField(record, 'content_type')?.toLowerCase() ?? '';
-    if (!contentType.startsWith('image/') || contentType === 'image/svg+xml') continue;
+    // Fallback: extensão do fileName (formato ChatExporter)
+    const fileName = readStringField(record, 'fileName')?.toLowerCase() ?? '';
+
+    // É imagem? Checar content_type OU extensão
+    const isImageByContentType = contentType.startsWith('image/') && contentType !== 'image/svg+xml';
+    const isImageByExt = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(fileName);
+
+    if (!isImageByContentType && !isImageByExt) continue;
+    if (contentType === 'image/svg+xml' || fileName.endsWith('.svg')) continue;
 
     const url = readStringField(record, 'url');
     if (!url) continue;
 
+    // ChatExporter: sem width/size → quality 'low' por padrão
+    // Bot-fetch: width >= 800 && size >= 50000 → 'standard'
     const width = readNumberField(record, 'width') ?? 0;
-    const size = readNumberField(record, 'size') ?? 0;
+    const size = readNumberField(record, 'size') ?? readNumberField(record, 'fileSizeBytes') ?? 0;
     const quality: CoverQuality = width >= 800 && size >= 50000 ? 'standard' : 'low';
     return { url, quality };
   }
 
   return null;
+}
+
+/** Formata bytes em string legível (MB/KB/B), ou desconhecido se ausente. */
+function formatAttachmentSize(bytes: number | null): string {
+  if (!bytes) return 'tamanho desconhecido';
+  if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
+
+const COVER_IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif']);
+
+/** Gera notas para anexos não-imagem (vídeo, arquivo grande, .txt, etc.). */
+function buildAttachmentNotes(attachments: unknown[]): string[] {
+  const notes: string[] = [];
+  for (const att of attachments) {
+    if (typeof att !== 'object' || att === null) continue;
+    const a = att as Record<string, unknown>;
+    const fileName = readStringField(a, 'fileName');
+    const url = readStringField(a, 'url');
+    if (!fileName || !url) continue;
+
+    const ext = (fileName.split('.').pop() ?? '').toLowerCase();
+    // Já tratado como cover? Pular
+    if (COVER_IMAGE_EXTENSIONS.has(ext)) continue;
+
+    const sizeStr = formatAttachmentSize(readNumberField(a, 'fileSizeBytes'));
+    notes.push(`Anexo: ${fileName} (${sizeStr}) — ${url}`);
+  }
+  return notes;
 }
 
 // Remove sufixo ™ / ® de strings
@@ -87,10 +129,13 @@ function normalize(s: string): string {
  * Retorna o primeiro match encontrado.
  */
 function stripVersionSuffix(value: string): { stripped: string; version: string | null } {
-  const match = value.trim().match(/^(.*?)\s+((?:\d+(?:\.\d+)?e?)|(?:\d+e))$/i);
+  // Ancora a versão no fim por um único espaço — evita `(.*?)\s+` (backtracking,
+  // `.` sobrepõe `\s`). A alternação antiga `(\d+...e?)|(\d+e)` era redundante.
+  const trimmed = value.trim();
+  const match = /\s(\d+(?:\.\d+)?e?)$/i.exec(trimmed);
   if (!match) return { stripped: value, version: null };
-  const stripped = match[1].trim();
-  const version = match[2].trim();
+  const stripped = trimmed.slice(0, match.index).trim();
+  const version = match[1].trim();
   if (!stripped) return { stripped: value, version: null };
   return { stripped, version };
 }
@@ -190,11 +235,11 @@ function extractType(text: string): TableDraftType | null {
 
 // Extrai informações de preço do texto
 function extractPrice(text: string): { priceType: TableDraftPriceType; priceValue: number | null } {
-  const priceMatch = text.match(/R\$\s*(\d+(?:[,.]\d{1,2})?)/i)
-    ?? text.match(/(\d+(?:[,.]\d{1,2})?)\s*reais/i);
+  const priceMatch = /R\$\s{0,3}(\d+(?:[,.]\d{1,2})?)(?!\d)/i.exec(text)
+    ?? /(\d+(?:[,.]\d{1,2})?)(?!\d)\s{0,3}reais/i.exec(text);
   if (priceMatch) {
     const value = parseFloat(priceMatch[1].replace(',', '.'));
-    if (!isNaN(value) && value > 0) {
+    if (!Number.isNaN(value) && value > 0) {
       return { priceType: 'paga', priceValue: value };
     }
   }
@@ -206,46 +251,102 @@ function extractPrice(text: string): { priceType: TableDraftPriceType; priceValu
 }
 
 // Extrai número de vagas do texto
-function extractSlots(text: string): { total: number | null; open: number | null; ambiguity: DiscordSlotsAmbiguity | null } {
+type SlotsResult = { total: number | null; open: number | null; ambiguity: DiscordSlotsAmbiguity | null };
+
+// Regex compiladas uma vez (sem /g → exec é stateless). Os padrões com lista de
+// bullets usam `[\s▬•\-–—]*` (sem `\s*` antes) para evitar backtracking super-linear.
+// Quantificadores de espaço LIMITADOS (\s{0,3}/\s{1,3}) — eliminam backtracking
+// super-linear (S5852). A alternação de RE_SLOT_LABELED usa "vagas(?: dispon…)?"
+// para não ter prefixo "vagas" sobreposto a "vagas disponíveis".
+// Fragmentos reutilizáveis das regex de vaga (DRY — mudança de espaço/limite num
+// lugar só). `D` = captura de dígito ATÔMICA via `(?!\d)`: impede backtracking do
+// `\d+` (elimina super-linear S5852) sem perder a captura do número inteiro.
+const D = String.raw`(\d+)(?!\d)`;          // dígitos atômicos
+const SP0 = String.raw`\s{0,3}`;            // 0–3 espaços
+const SP1 = String.raw`\s{1,3}`;            // 1–3 espaços
+const SEP = String.raw`[:=]`;               // separador rótulo:valor
+const BULLETS = String.raw`[\s▬•\-–—]{0,8}`; // bullets no começo da linha
+const LINE = String.raw`(?:^|\n)`;          // início de linha
+
+const RE_SLOT_VIA_FORMS = new RegExp(`${D}${SP1}vaga${SP1}via${SP1}forms`, 'i');
+const RE_SLOT_X_DE_Y = new RegExp(`${D}${SP1}de${SP1}${D}`, 'i');
+const RE_SLOT_TOTAL = new RegExp(`vagas?${SP1}(?:totais|total)${SP0}${SEP}${SP0}${D}`, 'i');
+const RE_SLOT_OPEN = new RegExp(`vagas?${SP1}(?:dispon[ií]veis|dispon[ií]vel|abertas|aberta)${SP0}${SEP}${SP0}${D}`, 'i');
+const RE_SLOT_AMBIG_SLASH = new RegExp(`${LINE}${BULLETS}(?:vagas|jogadores)${SP0}${SEP}${SP0}${D}${SP0}/${SP0}${D}(?!${SP0}vagas?)`, 'i');
+const RE_SLOT_LABELED = new RegExp(`${LINE}${BULLETS}(?:vagas(?:${SP1}dispon[ií]veis)?|jogadores)${SP0}${SEP}${SP0}${D}(?!${SP0}/)`, 'i');
+const RE_SLOT_SLASH_VAGAS = new RegExp(`${D}${SP0}/${SP0}${D}${SP0}vagas?`, 'i');
+const RE_SLOT_N_VAGAS = new RegExp(`${D}${SP0}vagas?`, 'i');
+const RE_SLOT_VAGAS_LABEL = new RegExp(`vagas?(?:${SP0}disponíveis?)?${SP0}${SEP}${SP0}${D}`, 'i');
+
+function slotsViaForms(cleaned: string): SlotsResult | null {
+  const m = RE_SLOT_VIA_FORMS.exec(cleaned);
+  if (!m) return null;
+  const n = Number.parseInt(m[1], 10);
+  return (n >= 0 && n <= 20) ? { total: n, open: n, ambiguity: null } : null;
+}
+
+function slotsXdeY(cleaned: string): SlotsResult | null {
+  // "X de Y" (ex: "3 de 5 vagas"). Guard: X ≤ Y, 1 ≤ Y ≤ 20 (evita data/nível).
+  const m = RE_SLOT_X_DE_Y.exec(cleaned);
+  if (!m) return null;
+  const first = Number.parseInt(m[1], 10);
+  const second = Number.parseInt(m[2], 10);
+  return (first <= second && second >= 1 && second <= 20)
+    ? { total: second, open: Math.max(0, second - first), ambiguity: null }
+    : null;
+}
+
+function slotsTotalOpen(cleaned: string): SlotsResult | null {
+  const t = RE_SLOT_TOTAL.exec(cleaned);
+  const o = RE_SLOT_OPEN.exec(cleaned);
+  if (!t && !o) return null;
+  const total = t ? Number.parseInt(t[1], 10) : null;
+  const open = o ? Number.parseInt(o[1], 10) : total;
+  return { total, open, ambiguity: null };
+}
+
+function slotsAmbiguousSlash(cleaned: string): SlotsResult | null {
+  const m = RE_SLOT_AMBIG_SLASH.exec(cleaned);
+  if (!m) return null;
+  const first = Number.parseInt(m[1], 10);
+  const second = Number.parseInt(m[2], 10);
+  return { total: Math.max(first, second), open: null, ambiguity: { first, second, source: 'x_slash_y' } };
+}
+
+function slotsLabeled(cleaned: string): SlotsResult | null {
+  const m = RE_SLOT_LABELED.exec(cleaned);
+  if (!m) return null;
+  const n = Number.parseInt(m[1], 10);
+  return { total: n, open: n, ambiguity: null };
+}
+
+function slotsSlashVagas(text: string): SlotsResult | null {
+  const m = RE_SLOT_SLASH_VAGAS.exec(text);
+  if (!m) return null;
+  const filled = Number.parseInt(m[1], 10);
+  const total = Number.parseInt(m[2], 10);
+  return { total, open: Math.max(0, total - filled), ambiguity: null };
+}
+
+function slotsNVagas(text: string): SlotsResult | null {
+  const m = RE_SLOT_N_VAGAS.exec(text) ?? RE_SLOT_VAGAS_LABEL.exec(text);
+  if (!m) return null;
+  const n = Number.parseInt(m[1], 10);
+  return { total: n, open: n, ambiguity: null };
+}
+
+function extractSlots(text: string): SlotsResult {
   const cleaned = text.replace(/\*/g, '');
-  const totalMatch = cleaned.match(/vagas?\s+(?:totais|total)\s*[:=]\s*(\d+)/i);
-  const openMatch = cleaned.match(/vagas?\s+(?:dispon[ií]veis|dispon[ií]vel|abertas|aberta)\s*[:=]\s*(\d+)/i);
-  if (totalMatch || openMatch) {
-    const total = totalMatch ? parseInt(totalMatch[1], 10) : null;
-    const open = openMatch ? parseInt(openMatch[1], 10) : total;
-    return { total, open, ambiguity: null };
-  }
-
-  const ambiguousSlashMatch = cleaned.match(/(?:^|\n)\s*[\s▬•\-–—]*(?:vagas|jogadores)\s*[:=]\s*(\d+)\s*\/\s*(\d+)(?!\s*vagas?)/i);
-  if (ambiguousSlashMatch) {
-    const first = parseInt(ambiguousSlashMatch[1], 10);
-    const second = parseInt(ambiguousSlashMatch[2], 10);
-    return {
-      total: Math.max(first, second),
-      open: null,
-      ambiguity: { first, second, source: 'x_slash_y' },
-    };
-  }
-
-  const labeledMatch = cleaned.match(/(?:^|\n)\s*[\s▬•\-–—]*(?:vagas|vagas dispon[ií]veis|jogadores)\s*[:=]\s*(\d+)(?!\s*\/)/i);
-  if (labeledMatch) {
-    const n = parseInt(labeledMatch[1], 10);
-    return { total: n, open: n, ambiguity: null };
-  }
-
-  const slashMatch = text.match(/(\d+)\s*\/\s*(\d+)\s*vagas?/i);
-  if (slashMatch) {
-    const filled = parseInt(slashMatch[1], 10);
-    const total = parseInt(slashMatch[2], 10);
-    return { total, open: Math.max(0, total - filled), ambiguity: null };
-  }
-  const match = text.match(/(\d+)\s*vagas?/i)
-    ?? text.match(/vagas?\s*(?:disponíveis?)?\s*[:=]\s*(\d+)/i);
-  if (match) {
-    const n = parseInt(match[1], 10);
-    return { total: n, open: n, ambiguity: null };
-  }
-  return { total: null, open: null, ambiguity: null };
+  // Ordem: padrões explícitos primeiro; "mesa em andamento" (sem padrão explícito)
+  // cai no fallback null/null (idêntico ao default) — DEB-048-16.
+  return slotsViaForms(cleaned)
+    ?? slotsXdeY(cleaned)
+    ?? slotsTotalOpen(cleaned)
+    ?? slotsAmbiguousSlash(cleaned)
+    ?? slotsLabeled(cleaned)
+    ?? slotsSlashVagas(text)
+    ?? slotsNVagas(text)
+    ?? { total: null, open: null, ambiguity: null };
 }
 
 // Extrai dia da semana do texto
@@ -268,12 +369,43 @@ function extractDayOfWeek(text: string): string | null {
 
 // Extrai horário do texto: "19h", "19:00", "às 20h30"
 function extractStartTime(text: string): string | null {
-  const match = text.match(/\b(\d{1,2})[hH:](\d{0,2})\b/)
-    ?? text.match(/\bàs\s+(\d{1,2})[hH](\d{0,2})/i);
+  const match = /\b(\d{1,2})[hH:](\d{0,2})\b/.exec(text)
+    ?? /\bàs\s{1,3}(\d{1,2})h(\d{0,2})/i.exec(text);
   if (match) {
     const h = match[1].padStart(2, '0');
     const m = (match[2] || '00').padStart(2, '0');
     return `${h}:${m}`;
+  }
+  return null;
+}
+
+// Extrai dia da semana e horário de timestamps Discord <t:UNIX:FORMATO>
+// Usa fuso horário América/São Paulo (Brasil), não UTC.
+function extractDiscordTimestamp(text: string): { dayOfWeek: string; startTime: string } | null {
+  const pattern = /<t:(\d+):([a-zA-Z]+)>/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    const unix = Number.parseInt(match[1], 10);
+    if (!Number.isFinite(unix) || unix <= 0) continue;
+    const date = new Date(unix * 1000);
+    if (Number.isNaN(date.getTime())) continue;
+
+    const formatter = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      weekday: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const parts = formatter.formatToParts(date);
+    const weekday = parts.find(p => p.type === 'weekday')?.value ?? null;
+    const hour = parts.find(p => p.type === 'hour')?.value ?? '00';
+    const minute = parts.find(p => p.type === 'minute')?.value ?? '00';
+    if (!weekday) return null;
+    // Intl 'long' devolve "segunda-feira"; o canônico do projeto (extractDayOfWeek)
+    // é a forma curta "segunda". Normalizar removendo o sufixo "-feira".
+    const dayOfWeek = weekday.toLowerCase().replace(/-feira$/, '');
+    return { dayOfWeek, startTime: `${hour}:${minute}` };
   }
   return null;
 }
@@ -283,9 +415,22 @@ function deriveFrequency(type: TableDraftType | null, dayOfWeek: string | null):
   return null;
 }
 
+// Detecta frases que indicam que o contato é o autor da mensagem
+function detectImplicitContact(text: string): boolean {
+  const implicitPhrases = [
+    /me\s+(mande|envie)\s+(uma\s+)?mensagem/i,
+    /me\s+cham[ae]/i,
+    /fale\s+comigo/i,
+    /cham[ae]\s+(no|na)\s+(pv|dm|privado)/i,
+    /este\s+perfil/i,
+    /(mande|envie)\s+(uma\s+)?mensagem\s+(no\s+meu|para\s+o\s+meu)/i,
+  ];
+  return implicitPhrases.some((r) => r.test(text));
+}
+
 // Extrai URL de contato (discord invite, forms, etc.)
 function extractContactUrl(text: string): string | null {
-  const urlMatch = text.match(/https?:\/\/[^\s<>"']+/);
+  const urlMatch = /https?:\/\/[^\s<>"']+/.exec(text);
   return urlMatch ? urlMatch[0] : null;
 }
 
@@ -294,7 +439,7 @@ function extractContactDiscord(text: string): string | null {
   const contactLine = text
     .split(/\r?\n/)
     .find((line) => /\b(contato|ticket|interesse|inscri[cç][aã]o)\b/i.test(line) && mentionPattern.test(line));
-  const match = contactLine?.match(mentionPattern);
+  const match = contactLine ? mentionPattern.exec(contactLine) : null;
   return match ? match[0] : null;
 }
 
@@ -312,7 +457,8 @@ function normalizeLabelKey(value: string): string {
 
 function splitLabelLine(line: string): { key: string; value: string } | null {
   const cleaned = cleanLabelLine(line);
-  const match = cleaned.match(/^(.{1,48}?)\s*[:：]\s*(.*)$/);
+  // [^:：] no prefixo evita sobreposição com o separador (sem backtracking).
+  const match = /^([^:：]{1,48})\s{0,3}[:：]\s{0,3}(.*)$/.exec(cleaned);
   if (!match) return null;
   return { key: normalizeLabelKey(match[1]), value: match[2].trim() };
 }
@@ -327,13 +473,13 @@ function extractHostDiscordId(text: string): string | null {
     const cleanedKey = parsed?.key ?? normalizeLabelKey(cleanLabelLine(lines[i]).replace(/[:：].*$/, ''));
     if (!hostLabels.has(cleanedKey)) continue;
 
-    const sameLineMatch = lines[i].match(mentionPattern);
+    const sameLineMatch = mentionPattern.exec(lines[i]);
     if (sameLineMatch) return sameLineMatch[1];
 
     for (let j = i + 1; j < lines.length; j++) {
       const next = lines[j];
       if (splitLabelLine(next)) break;
-      const nextMatch = next.match(mentionPattern);
+      const nextMatch = mentionPattern.exec(next);
       if (nextMatch) return nextMatch[1];
       if (!next.trim()) break;
     }
@@ -396,6 +542,7 @@ function calcConfidence(table: DiscordTableDraftTable): number {
 export function parseDiscordAnnouncement(
   message: ImportRawMessage,
   systems: SystemEntry[] = [],
+  replyContext?: string,
 ): ImportTableDraft | null {
   const threadName = message.discord_thread_name ?? '';
   const rawBody = message.content_raw ?? '';
@@ -439,12 +586,26 @@ export function parseDiscordAnnouncement(
   const type = extractType(fullText) ?? (threadName ? 'campanha' : null);
   const { priceType, priceValue } = extractPrice(body);
   const { total: slotsTotal, open: slotsOpen, ambiguity: slotsAmbiguity } = extractSlots(body);
-  const dayOfWeek = extractDayOfWeek(body);
-  const startTime = extractStartTime(body);
-  const contactUrl = extractContactUrl(body);
+  // T-C1: Discord timestamp (preferível a texto incidental)
+  const discordTs = extractDiscordTimestamp(body);
+  const dayOfWeek = discordTs?.dayOfWeek ?? extractDayOfWeek(body);
+  const startTime = discordTs?.startTime ?? extractStartTime(body);
+
+  // T-C2: Google Forms URL (prioridade sobre URLs genéricas)
+  const googleFormsUrl = /https?:\/\/forms\.gle\/[^\s<>"']+/.exec(body)?.[0]
+    ?? /https?:\/\/docs\.google\.com\/forms\/[^\s<>"']+/.exec(body)?.[0];
+  const contactUrl = googleFormsUrl ?? extractContactUrl(body);
+
   const contactDiscord = extractContactDiscord(body);
-  const hostDiscordId = extractHostDiscordId(body);
+  let hostDiscordId = extractHostDiscordId(body);
+
+  // T-C3: Contato implícito pelo autor (quando não há contato explícito)
+  const hasImplicitContact = detectImplicitContact(body);
+  if (!contactDiscord && !contactUrl && hasImplicitContact && message.discord_author_id) {
+    hostDiscordId = hostDiscordId ?? message.discord_author_id;
+  }
   const cover = extractCoverFromAttachments(message.attachments ?? []);
+  const attachmentNotes = buildAttachmentNotes(message.attachments ?? []);
   const description = extractLabelValue(body, ['descricao', 'descrição', 'sinopse', 'proposta']) ?? (body.trim() || null);
 
   const missingFields: string[] = [];
@@ -481,7 +642,15 @@ export function parseDiscordAnnouncement(
     cover_url_source: cover?.url ?? null,
     cover_quality: cover?.quality ?? null,
     _slots_ambiguity: slotsAmbiguity,
-    _notes: matchedSystem?.notes ?? [],
+    _notes: [
+      ...(matchedSystem?.notes ?? []),
+      ...attachmentNotes,
+      // Defesa: normaliza/trunca o snippet aqui, mesmo que o caller já corte.
+      ...(() => {
+        const snippet = replyContext?.replace(/\s+/g, ' ').trim().slice(0, 80);
+        return snippet ? [`Em resposta a: ${snippet}`] : [];
+      })(),
+    ],
   };
 
   return {

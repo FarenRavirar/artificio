@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
-import { parseDiscordMessage, ensureSystemSuggestionForDraft, reconcileTerminalDraft } from './utils';
+import { processDiscordMessageToDraft, buildContentIndex, resolveReplyContext } from './utils';
 import { loadSystemsForParser } from '../../discord/shared';
 
 const router = Router();
@@ -18,69 +18,22 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
 
     if (messages.length === 0) return res.json({ data: { processed: 0, succeeded: 0, failed: 0 } });
 
+    // T-F8: contentIndex para resolver replyContext
+    const contentIndex = buildContentIndex(messages);
+
     const systems = await loadSystemsForParser();
     let succeeded = 0;
     let failed = 0;
 
     for (const message of messages) {
       try {
-        // REV-073/076: usa parseDiscordMessage() compartilhada (D16)
-        const result = await parseDiscordMessage(message, systems);
-        if (!result) {
-          await db.updateTable('discord_import_messages')
-            .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
-            .where('id', '=', message.id)
-            .execute();
-          continue;
-        }
-        const { parsed, normalized } = result;
+        // T-F8: resolve replyContext
+        const replyContext = resolveReplyContext(message as Record<string, unknown>, contentIndex);
 
-        const existing = await db.selectFrom('discord_import_table_drafts')
-          .select(['id', 'status'])
-          .where('discord_message_id', '=', message.id)
-          .executeTakeFirst();
-
-        // REV-077: reconciliar mensagem se draft já é terminal → interrompe fluxo
-        if (await reconcileTerminalDraft(existing, message.id)) {
-          succeeded++;
-          continue;
-        }
-
-        if (existing) {
-          await db.updateTable('discord_import_table_drafts')
-            .set({
-              parsed_payload: parsed,
-              normalized_payload: normalized.draft,
-              confidence: normalized.draft.confidence,
-              status: normalized.status,
-              updated_at: new Date(),
-            })
-            .where('id', '=', existing.id)
-            .execute();
-        } else {
-          await db.insertInto('discord_import_table_drafts')
-            .values({
-              discord_message_id: message.id,
-              parsed_payload: parsed,
-              normalized_payload: normalized.draft,
-              confidence: normalized.draft.confidence,
-              status: normalized.status,
-            })
-            .execute();
-        }
-        // REV-077: status da mensagem atualizado dentro dos branches acima
-        await db.updateTable('discord_import_messages')
-          .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
-          .where('id', '=', message.id)
-          .execute();
-
-        await ensureSystemSuggestionForDraft(
-          normalized.draft,
-          req.user?.userId,
-          message.discord_thread_name ?? message.discord_message_id,
-        );
-
-        succeeded++;
+        // DEB-048-22: processamento compartilhado (parse → reconcile → upsert draft
+        // → status → suggestion). 'ignored' não conta como sucesso.
+        const outcome = await processDiscordMessageToDraft(message, systems, replyContext, req.user?.userId);
+        if (outcome !== 'ignored') succeeded++;
       } catch {
         await db.updateTable('discord_import_messages')
           .set({ status: 'error', parse_error: 'Erro no parse em lote', updated_at: new Date() })

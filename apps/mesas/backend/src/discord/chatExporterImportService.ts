@@ -1,8 +1,13 @@
 import { sql } from 'kysely';
 import { db } from '../db';
-import { parseDiscordChatExporterJson, adaptMessageToImportRaw } from './chatExporterAdapter';
+import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from './chatExporterAdapter';
 import { getContentHash } from './shared';
 import type { ImportResult } from './chatExporterAdapter';
+
+/** Limite de segurança: número máximo de mensagens por importação (evita DoS / O(n) massivo). */
+export const MAX_IMPORT_MESSAGES = 2000;
+/** Limite de segurança: tamanho máximo do JSON bruto em bytes (≤ 12MB global do Express). */
+export const MAX_IMPORT_JSON_BYTES = 10 * 1024 * 1024; // 10MB
 
 function mapChannelType(type: string | undefined): 'text' | 'announcement' | 'forum' {
   switch (type) {
@@ -48,6 +53,12 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
     return { total: 0, inserted: 0, updated: 0, ignored: 0, failed: 0 };
   }
 
+  if (messages.length > MAX_IMPORT_MESSAGES) {
+    throw new DiscordChatExporterValidationError(
+      `Importação muito grande: ${messages.length} mensagens (limite ${MAX_IMPORT_MESSAGES}). Divida o export em arquivos menores.`
+    );
+  }
+
   const channelId = exportData.channel.id;
   const guildId = exportData.guild.id;
   const channelName = exportData.channel.name;
@@ -57,13 +68,16 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
   try {
     sourceId = await ensureDiscordImportSource(channelId, guildId, channelName, channelType);
   } catch (err) {
-    console.error('[importDiscordChatExporterJson] Falha ao criar fonte de importação:', err);
+    console.error('[importDiscordChatExporterJson] Falha ao criar fonte de importação:', err instanceof Error ? err.message : 'unknown error');
     throw new Error('Erro interno ao criar fonte de importação.');
   }
 
   let inserted = 0;
   let updated = 0;
   let failed = 0;
+
+  // DEB-048-14/T-F8: reference é persistido em migration_130 e resolvido no parse
+  // (parse-batch/reparse) via contentIndex. O import só insere — não resolve reply.
 
   for (const msg of messages) {
     const adapted = adaptMessageToImportRaw(msg, exportData);
@@ -77,14 +91,15 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
           discord_author_id, discord_author_name, discord_message_url,
           content_raw, attachments, embeds,
           message_created_at, message_edited_at,
-          content_hash, source_kind, status
+          content_hash, source_kind, status, reference
         ) VALUES (
           ${sourceId}::uuid, ${msg.id}, ${channelId}, ${guildId},
           ${adapted.discord_parent_channel_id ?? null}, ${adapted.discord_thread_id ?? null}, ${adapted.discord_thread_name ?? null},
           ${adapted.discord_author_id ?? null}, ${adapted.discord_author_name ?? null}, ${adapted.discord_message_url ?? ''},
           ${adapted.content_raw}, ${JSON.stringify(adapted.attachments ?? [])}::jsonb, ${JSON.stringify(adapted.embeds ?? [])}::jsonb,
           ${adapted.message_created_at}::timestamptz, ${adapted.message_edited_at}::timestamptz,
-          ${contentHash}, 'discord_chat_exporter_json', 'pending'
+          ${contentHash}, 'discord_chat_exporter_json', 'pending',
+          ${adapted.reference ? JSON.stringify(adapted.reference) : null}::jsonb
         )
         ON CONFLICT (discord_channel_id, discord_message_id) DO UPDATE SET
           content_raw = EXCLUDED.content_raw,
@@ -92,10 +107,12 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
           attachments = EXCLUDED.attachments,
           embeds = EXCLUDED.embeds,
           message_edited_at = EXCLUDED.message_edited_at,
+          reference = EXCLUDED.reference,
           status = 'pending',
           parse_error = NULL,
           updated_at = NOW()
         WHERE discord_import_messages.content_hash IS DISTINCT FROM EXCLUDED.content_hash
+           OR discord_import_messages.reference IS DISTINCT FROM EXCLUDED.reference
         RETURNING CASE WHEN xmax = 0 THEN 'inserted' ELSE 'updated' END AS action
       `.execute(db);
 
@@ -120,6 +137,9 @@ export function extractJsonPayload(rawBody: unknown): { payload: unknown } | { e
   if (rawBody && typeof rawBody === 'object' && 'json' in rawBody) {
     const rawJson = (rawBody as Record<string, unknown>).json;
     if (typeof rawJson === 'string') {
+      if (rawJson.length > MAX_IMPORT_JSON_BYTES) {
+        return { error: `Arquivo JSON muito grande (${(rawJson.length / (1024 * 1024)).toFixed(1)} MB). O limite é ${MAX_IMPORT_JSON_BYTES / (1024 * 1024)} MB.`, status: 413 };
+      }
       try {
         return { payload: JSON.parse(rawJson) };
       } catch {
