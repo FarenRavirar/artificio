@@ -19,6 +19,8 @@
 | REV-051-SONAR-04 | SonarCloud (PR #96, Medium, a11y/react) | 2026-06-25 | `FileDropzone.tsx:104` — `<div role="button" tabIndex={0} onClick/onKeyDown>` (clickarea adicionado no fix §4). Sonar: usar `<button>` nativo (ou `<input type=button/image/reset/submit>`) em vez de `role="button"` p/ a11y consistente em todo dispositivo. | **Procede** (a11y/consistency) | Trocar `<div role="button">` por `<button type="button">` nativo no clickarea → remove `role`/`tabIndex`/handler de teclado manual (botão nativo já trata Enter/Space). **Corrigido** — ver §9. |
 | REV-051-CODEQL-01 | CodeQL `js/polynomial-redos` (PR #96) | 2026-06-26 | `Nav.tsx:14` — regex `replace(/\/+$/, "")` sobre parâmetro `href` não controlado. CodeQL alerta ReDoS: `/` com backtracking polinomial em strings com muitas barras. | **Procede (gate bloqueante)** — ver §10. **Corrigido** | Risco prático nulo, mas CodeQL é check de CI bloqueante. Strip de barras finais sem regex de repetição (loop `charCodeAt`) elimina o ReDoS. |
 | REV-051-RABBIT-04 | coderabbitai (PR #96, 🟠 Major) | 2026-06-26 | `apply_required_migrations.sh:+45-48` — `CLASS` validado só com `-z`. Valor não vazio mas inválido (typo) passa e `validate_sql_against_class` não bloqueia classes desconhecidas. | **Procede** — ver §11. **Corrigido** | Allowlist explícita `online-safe|manual-risk` em `load_header_vars` (fail-closed). |
+| REV-051-RABBIT-05 | coderabbitai (PR #96, 🟢 Low) | 2026-06-26 | `Nav.tsx:17` — `String#charCodeAt()` deveria usar `String#codePointAt()`. Consistency/Reliability, es2015, internationalization. | **Procede** — ver §12. **Corrigido** | `charCodeAt` → `codePointAt` (guarda `end > 0` garante índice válido). Build+lint ✅. |
+| REV-051-SMOKE-01 | smoke beta do mantenedor (2026-06-26, pós-deploy 051) | 2026-06-26 | Changelog quebrado: glossariobeta topo cortado, mesasbeta mistura com home, beta.artificiorpg não aparece. Marcador nav (F2) OK. | **Procede** (regressão F1, bloqueia prod) → **DEB-051-02** | Causa: Tailwind v4 dos consumidores não escaneia `packages/ui` → utilitários do `ChangelogModal` (`z-[9999]`, `max-h-[calc]`, `fixed`/`bg-black` no site) não gerados. Fix: `@source 'packages/ui'` nos 4 entry CSS. |
 
 ---
 
@@ -169,3 +171,11 @@ shellcheck ✅, `test_migration_guard.sh` 39/39 ✅.
 - **§11 corrigido (2026-06-26).** Allowlist `CLASS` em `load_header_vars`. shellcheck ✅, guard 39/39 ✅. DEB-051-RABBIT-04 fechado.
 - T-A.2 (smoke visual cross-app, light+dark) pendente — não bloqueia merge.
 - Pétrea: **nenhuma resposta aos bots no PR** — veredito só aqui.
+
+---
+
+## §12 — REV-051-RABBIT-05: `charCodeAt` → `codePointAt` ✅ corrigido
+
+**Achado:** CodeRabbit sugere trocar `href.charCodeAt(end - 1) === 47` por `codePointAt()` (`Nav.tsx:17`). Severidade Low (3), esforço 5min.
+
+**Correção (2026-06-26):** `charCodeAt` → `codePointAt`. A guarda `end > 0` já garante que `end - 1 ≥ 0` (índice válido), então `codePointAt()` sempre retorna `number`. Build `@artificio/ui` ✅, lint 15/15 ✅. 1 linha alterada.

@@ -1,4 +1,8 @@
 @import 'tailwindcss';
+/* Tailwind v4 ignora node_modules; escanear os componentes compartilhados de
+   @artificio/ui (ex.: ChangelogModal usa utilitários como z-[9999]/max-h-[calc])
+   p/ gerar as classes deles no CSS deste app (DEB-051-02). */
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
 
 @theme {
   --color-azul-escuro: #1B2A4A;

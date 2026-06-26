@@ -14,7 +14,7 @@ function normalizeHref(href: string | undefined): string | null {
     // Fallback sem regex de repeticao ancorada (evita ReDoS polinomial — CodeQL/Sonar):
     // remove barras finais por slice em vez de /\/+$/.
     let end = href.length;
-    while (end > 0 && href.charCodeAt(end - 1) === 47 /* "/" */) end--;
+    while (end > 0 && href.codePointAt(end - 1) === 47 /* "/" */) end--;
     return href.slice(0, end).toLowerCase();
   }
 }

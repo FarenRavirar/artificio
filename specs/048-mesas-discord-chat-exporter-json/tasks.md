@@ -2,6 +2,26 @@
 
 > Continuação da Spec 047. Esta spec começa por auditoria/planejamento; implementação só com autorização posterior.
 
+## Reconciliação de estado — 2026-06-26 (verificado contra `origin/dev`)
+
+> Auditoria read-only do código real em `origin/dev` (HEAD `ff24632`). **Código é a verdade**; doc anterior estava dessincronizada.
+
+**JÁ EM `dev` (merged):** PR #91 (`ed3f4e0` MVP) + spec 049 (`a4d2fb5`).
+- Fase B backend MVP completa (T-B1..B8): tipos Zod, adapter, serviço, endpoint `POST /api/v1/admin/discord-sync/import-json`, idempotência por `content_hash`, JSON inválido→400, mensagem editada→`pending`.
+- Fase D UI completa (T-D1..D6): textarea + **upload de arquivo + dropzone**, preview com debounce, resultado (inserted/updated/ignored/failed), link p/ drafts, estados de erro.
+- **DEB-048-09** (dedup `shared.ts`), **DEB-048-10** (embed `.nullish()`), **DEB-048-11** (`DiscordSettingsDecryptError`→200), **DEB-048-12** (upload arquivo) — **TODOS em dev** (a doc antiga dizia "pendente commit/PR"; era falso).
+- Testes em dev: `chatExporterAdapter.test.ts`, `chatExporterImportService.test.ts` (+ rejeição de JSON inválido coberta).
+
+**EXPERIMENTOS LIMPOS (NÃO em dev — decisões T-H):** `deepseek.ts` (DEB-048-06), `chrono-node`/`fuzzball` (DEB-048-07), Playwright e2e (DEB-048-08). Parser em dev = **regex puro determinístico**. Esses débitos viram **moot p/ dev** (ver debitos.md).
+
+**ABERTO DE VERDADE (escopo de fechamento — decisão mantenedor 2026-06-26: Fase C + F + G completas, NA MESMA SPEC):**
+- **Fase C** parser hardening (T-C1..C9) — parser dev NÃO extrai `<t:UNIX>`, `forms.gle`/`docs.google/forms`, contato implícito, vagas informais (`3 de 5`/`0/5`), role/user mentions como tags, sistema próprio/inspirado, attachments/embeds como evidência.
+- **Fase F** robustez (T-F1..F10) — incl. limite upload **server-side** (hoje só cliente 10MB), fixture sanitizada versionável, perf 100 msgs, sanitização de render, reparse controlado.
+- **Fase G** human-in-the-loop (T-G1..G8) — confidence gates, registro antes/depois, active learning não-IA, métricas por rodada, shadow mode, trava de publicação.
+- **Smoke beta real** (gate MVP ainda aberto): confirmar deploy beta com os fixes + re-smoke com `extracao_json.json`.
+
+**Fase E** (automação VM diária) permanece **futuro documentado** — fora do corte de fechamento desta rodada (precisa aprovação nominal p/ VM write).
+
 ## Estado inicial
 
 - [x] T0 — Ler contexto mínimo do projeto.
@@ -514,7 +534,7 @@
 - [x] `pnpm --filter @artificio/mesas-frontend build` — ✅
 - [x] `pnpm run lint` — 15/15 ✅
 - [x] `pnpm run build` — 17/17 ✅
-- [ ] Smoke beta com upload real/sanitizado
+- [ ] **Smoke beta com upload real/sanitizado** — ÚNICO gate do MVP ainda aberto. Os fixes DEB-048-10/11/12 estão em `dev`; falta confirmar deploy beta + re-smoke com `extracao_json.json` (read-only VM p/ checar commit do beta antes).
 
 ## Fechamento obrigatório
 
