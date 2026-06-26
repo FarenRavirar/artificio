@@ -3,7 +3,7 @@ import { requireAdmin } from '../../middleware/auth';
 import { importDiscordChatExporterJson, extractJsonPayload } from '../../discord/chatExporterImportService';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { db } from '../../db';
-import { parseDiscordMessage, ensureSystemSuggestionForDraft, reconcileTerminalDraft } from './utils';
+import { processDiscordMessageToDraft, buildContentIndex, resolveReplyContext } from './utils';
 
 const router = Router();
 
@@ -79,6 +79,8 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
       return res.json({ data: { total: 0, reparsed: 0, ignored: 0, errors: 0 } });
     }
 
+    const contentIndex = buildContentIndex(messages);
+
     let reparsed = 0;
     let ignored = 0;
     let errors = 0;
@@ -88,63 +90,13 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
         // Não reprocessa mensagens synced (segurança extra)
         if (message.status === 'synced') continue;
 
-        const result = await parseDiscordMessage(message);
-        if (!result) {
-          await db.updateTable('discord_import_messages')
-            .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
-            .where('id', '=', message.id)
-            .execute();
-          ignored++;
-          continue;
-        }
-        const { parsed, normalized } = result;
+        // T-F8: resolve replyContext via reference.messageId
+        const replyContext = resolveReplyContext(message as Record<string, unknown>, contentIndex);
 
-        const existing = await db.selectFrom('discord_import_table_drafts')
-          .select(['id', 'status'])
-          .where('discord_message_id', '=', message.id)
-          .executeTakeFirst();
-
-        // Reconcilia draft terminal (synced/rejected) — não mexe
-        if (await reconcileTerminalDraft(existing, message.id)) {
-          reparsed++;
-          continue;
-        }
-
-        if (existing) {
-          await db.updateTable('discord_import_table_drafts')
-            .set({
-              parsed_payload: parsed,
-              normalized_payload: normalized.draft,
-              confidence: normalized.draft.confidence,
-              status: normalized.status,
-              updated_at: new Date(),
-            })
-            .where('id', '=', existing.id)
-            .execute();
-        } else {
-          await db.insertInto('discord_import_table_drafts')
-            .values({
-              discord_message_id: message.id,
-              parsed_payload: parsed,
-              normalized_payload: normalized.draft,
-              confidence: normalized.draft.confidence,
-              status: normalized.status,
-            })
-            .execute();
-        }
-
-        await db.updateTable('discord_import_messages')
-          .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
-          .where('id', '=', message.id)
-          .execute();
-
-        await ensureSystemSuggestionForDraft(
-          normalized.draft,
-          req.user?.userId,
-          message.discord_thread_name ?? message.discord_message_id,
-        );
-
-        reparsed++;
+        // DEB-048-22: processamento compartilhado com parse-batch.
+        const outcome = await processDiscordMessageToDraft(message, undefined, replyContext, req.user?.userId);
+        if (outcome === 'ignored') ignored++;
+        else reparsed++; // 'parsed' ou 'reconciled'
       } catch (err: unknown) {
         // DEB-048-20: catch interno próprio + preserva causa
         const errorMessage = err instanceof Error ? err.message : 'unknown error';

@@ -57,4 +57,24 @@ describe('parseDiscordChatExporterJson — embeds com campos null', () => {
       /messages.*ausente/i,
     );
   });
+
+  // ─── T-F8: reference (reply) ─────────────────────────────────────────────────
+
+  it('mensagem COM reference gera adapted.reference populado (T-F8)', () => {
+    const data = parseDiscordChatExporterJson(buildExport({
+      reference: { messageId: 'msg-001', channelId: '222', guildId: '111' },
+    }));
+    const adapted = adaptMessageToImportRaw(data.messages[0], data);
+    expect(adapted.reference).toEqual({
+      messageId: 'msg-001',
+      channelId: '222',
+      guildId: '111',
+    });
+  });
+
+  it('mensagem SEM reference gera adapted.reference = null (T-F8)', () => {
+    const data = parseDiscordChatExporterJson(buildExport());
+    const adapted = adaptMessageToImportRaw(data.messages[0], data);
+    expect(adapted.reference).toBeNull();
+  });
 });

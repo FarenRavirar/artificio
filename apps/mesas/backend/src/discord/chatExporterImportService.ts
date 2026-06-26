@@ -76,12 +76,8 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
   let updated = 0;
   let failed = 0;
 
-  // DEB-048-14: o import só persiste mensagens (INSERT); o parse para draft ocorre
-  // depois (parse-batch/reparse), a partir da linha do DB — onde `reference` NÃO é
-  // coluna e as demais mensagens do export não estão disponíveis. Resolver o snippet
-  // de reply aqui seria código morto. T-F8 (nota "Em resposta a:") fica ADIADA até
-  // haver migration que persista `reference`. O campo `reference` em ImportRawMessage
-  // e o parâmetro `replyContext` do parser permanecem como base future-ready.
+  // DEB-048-14/T-F8: reference é persistido em migration_130 e resolvido no parse
+  // (parse-batch/reparse) via contentIndex. O import só insere — não resolve reply.
 
   for (const msg of messages) {
     const adapted = adaptMessageToImportRaw(msg, exportData);
@@ -95,14 +91,15 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
           discord_author_id, discord_author_name, discord_message_url,
           content_raw, attachments, embeds,
           message_created_at, message_edited_at,
-          content_hash, source_kind, status
+          content_hash, source_kind, status, reference
         ) VALUES (
           ${sourceId}::uuid, ${msg.id}, ${channelId}, ${guildId},
           ${adapted.discord_parent_channel_id ?? null}, ${adapted.discord_thread_id ?? null}, ${adapted.discord_thread_name ?? null},
           ${adapted.discord_author_id ?? null}, ${adapted.discord_author_name ?? null}, ${adapted.discord_message_url ?? ''},
           ${adapted.content_raw}, ${JSON.stringify(adapted.attachments ?? [])}::jsonb, ${JSON.stringify(adapted.embeds ?? [])}::jsonb,
           ${adapted.message_created_at}::timestamptz, ${adapted.message_edited_at}::timestamptz,
-          ${contentHash}, 'discord_chat_exporter_json', 'pending'
+          ${contentHash}, 'discord_chat_exporter_json', 'pending',
+          ${adapted.reference ? JSON.stringify(adapted.reference) : null}::jsonb
         )
         ON CONFLICT (discord_channel_id, discord_message_id) DO UPDATE SET
           content_raw = EXCLUDED.content_raw,
@@ -110,10 +107,12 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
           attachments = EXCLUDED.attachments,
           embeds = EXCLUDED.embeds,
           message_edited_at = EXCLUDED.message_edited_at,
+          reference = EXCLUDED.reference,
           status = 'pending',
           parse_error = NULL,
           updated_at = NOW()
         WHERE discord_import_messages.content_hash IS DISTINCT FROM EXCLUDED.content_hash
+           OR discord_import_messages.reference IS DISTINCT FROM EXCLUDED.reference
         RETURNING CASE WHEN xmax = 0 THEN 'inserted' ELSE 'updated' END AS action
       `.execute(db);
 

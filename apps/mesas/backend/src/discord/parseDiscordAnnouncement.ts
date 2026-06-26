@@ -614,7 +614,11 @@ export function parseDiscordAnnouncement(
     _notes: [
       ...(matchedSystem?.notes ?? []),
       ...attachmentNotes,
-      ...(replyContext ? [`Em resposta a: ${replyContext}`] : []),
+      // Defesa: normaliza/trunca o snippet aqui, mesmo que o caller já corte.
+      ...(() => {
+        const snippet = replyContext?.replace(/\s+/g, ' ').trim().slice(0, 80);
+        return snippet ? [`Em resposta a: ${snippet}`] : [];
+      })(),
     ],
   };
 

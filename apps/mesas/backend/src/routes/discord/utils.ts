@@ -1,7 +1,8 @@
 import { Response, Request } from 'express';
 import { z } from 'zod';
+import type { Selectable } from 'kysely';
 import { db } from '../../db';
-import type { DiscordSourceChannelType } from '../../db/types';
+import type { DiscordSourceChannelType, DiscordImportMessagesTable } from '../../db/types';
 import type { SystemEntry, ImportRawMessage } from '../../discord';
 import { normalizeDiscordTableDraft, parseDiscordAnnouncement, normalizeDraftPayload, assertDraftReadyTransition } from '../../discord';
 import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
@@ -102,6 +103,37 @@ export async function ensureSystemSuggestionForDraft(
   }
 }
 
+// ─── T-F8 — contentIndex + replyContext (import.ts + parse-batch.ts) ──
+
+/**
+ * Constrói índice messageId → snippet (~80 chars) para resolver replies.
+ * Extraído para evitar duplicação entre import.ts e parse-batch.ts.
+ */
+export function buildContentIndex(messages: { discord_message_id: unknown; content_raw: unknown }[]): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const msg of messages) {
+    const raw = msg.content_raw;
+    if (typeof raw === 'string' && raw.length > 0) {
+      index.set(String(msg.discord_message_id ?? ''), raw.length > 80 ? raw.slice(0, 80) + '...' : raw);
+    }
+  }
+  return index;
+}
+
+/**
+ * Resolve replyContext a partir de reference.messageId no contentIndex.
+ */
+export function resolveReplyContext(message: Record<string, unknown>, contentIndex: Map<string, string>): string | undefined {
+  const ref = message.reference;
+  if (ref && typeof ref === 'object' && ref !== null) {
+    const refMsgId = (ref as Record<string, unknown>).messageId;
+    if (typeof refMsgId === 'string' && contentIndex.has(refMsgId)) {
+      return contentIndex.get(refMsgId);
+    }
+  }
+  return undefined;
+}
+
 // ─── REV-036 — parseDiscordMessage compartilhada (messageParse.ts + drafts.ts) ──
 
 /**
@@ -111,6 +143,7 @@ export async function ensureSystemSuggestionForDraft(
 export async function parseDiscordMessage(
   msg: { source_kind: unknown; discord_message_id: unknown; discord_channel_id: unknown; discord_guild_id: unknown; discord_parent_channel_id: unknown; discord_thread_id: unknown; discord_thread_name: unknown; discord_author_id: unknown; discord_author_name: unknown; discord_message_url: unknown; content_raw: unknown; attachments: unknown; embeds: unknown; message_created_at: unknown; message_edited_at: unknown },
   systems?: SystemEntry[],
+  replyContext?: string,
 ): Promise<{ parsed: NonNullable<ReturnType<typeof parseDiscordAnnouncement>>; normalized: ReturnType<typeof normalizeDiscordTableDraft> } | null> {
   const sys = systems ?? await loadSystemsForParser();
   const raw: ImportRawMessage = {
@@ -127,13 +160,87 @@ export async function parseDiscordMessage(
     content_raw: String(msg.content_raw ?? ''),
     attachments: parseJsonField(msg.attachments),
     embeds: parseJsonField(msg.embeds),
+    reference: (msg as Record<string, unknown>).reference as ImportRawMessage['reference'] ?? null,
     message_created_at: msg.message_created_at ? new Date(msg.message_created_at as string) : null,
     message_edited_at: msg.message_edited_at ? new Date(msg.message_edited_at as string) : null,
   };
-  const parsed = parseDiscordAnnouncement(raw, sys);
+  const parsed = parseDiscordAnnouncement(raw, sys, replyContext);
   if (!parsed) return null;
   const normalized = normalizeDiscordTableDraft(parsed, sys);
   return { parsed, normalized };
+}
+
+// ─── DEB-048-22 — processa UMA mensagem → draft (parse-batch + /reparse) ──
+
+export type DiscordDraftOutcome = 'parsed' | 'ignored' | 'reconciled';
+
+/**
+ * Processa uma mensagem do DiscordChatExporter até o draft: parseia, reconcilia
+ * draft terminal, faz upsert do draft, atualiza status da mensagem e gera sugestão
+ * de sistema. Compartilhado entre parse-batch e /reparse (eram ~45 linhas idênticas
+ * — SonarCloud 24.8% dup em import.ts). Lança em erro de DB; o caller decide a
+ * política de catch e os contadores conforme o `DiscordDraftOutcome` retornado.
+ */
+export async function processDiscordMessageToDraft(
+  message: Selectable<DiscordImportMessagesTable>,
+  systems: SystemEntry[] | undefined,
+  replyContext: string | undefined,
+  userId: string | undefined,
+): Promise<DiscordDraftOutcome> {
+  const result = await parseDiscordMessage(message, systems, replyContext);
+  if (!result) {
+    await db.updateTable('discord_import_messages')
+      .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
+      .where('id', '=', message.id)
+      .execute();
+    return 'ignored';
+  }
+  const { parsed, normalized } = result;
+
+  const existing = await db.selectFrom('discord_import_table_drafts')
+    .select(['id', 'status'])
+    .where('discord_message_id', '=', message.id)
+    .executeTakeFirst();
+
+  if (await reconcileTerminalDraft(existing, message.id)) {
+    return 'reconciled';
+  }
+
+  if (existing) {
+    await db.updateTable('discord_import_table_drafts')
+      .set({
+        parsed_payload: parsed,
+        normalized_payload: normalized.draft,
+        confidence: normalized.draft.confidence,
+        status: normalized.status,
+        updated_at: new Date(),
+      })
+      .where('id', '=', existing.id)
+      .execute();
+  } else {
+    await db.insertInto('discord_import_table_drafts')
+      .values({
+        discord_message_id: message.id,
+        parsed_payload: parsed,
+        normalized_payload: normalized.draft,
+        confidence: normalized.draft.confidence,
+        status: normalized.status,
+      })
+      .execute();
+  }
+
+  await db.updateTable('discord_import_messages')
+    .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
+    .where('id', '=', message.id)
+    .execute();
+
+  await ensureSystemSuggestionForDraft(
+    normalized.draft,
+    userId,
+    message.discord_thread_name ?? message.discord_message_id,
+  );
+
+  return 'parsed';
 }
 
 // ─── REV-037 — validateDraftStatusTransition (drafts.ts + adminImportInbox.ts) ──
