@@ -11,7 +11,11 @@ function normalizeHref(href: string | undefined): string | null {
     const url = new URL(href);
     return url.hostname.toLowerCase();
   } catch {
-    return href.toLowerCase().replace(/\/+$/, "");
+    // Fallback sem regex de repeticao ancorada (evita ReDoS polinomial — CodeQL/Sonar):
+    // remove barras finais por slice em vez de /\/+$/.
+    let end = href.length;
+    while (end > 0 && href.charCodeAt(end - 1) === 47 /* "/" */) end--;
+    return href.slice(0, end).toLowerCase();
   }
 }
 

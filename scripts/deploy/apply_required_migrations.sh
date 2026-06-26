@@ -46,6 +46,15 @@ load_header_vars() {
     echo "::error::$path falhou ao carregar cabecalho parseado." >&2
     return 1
   fi
+
+  # Defense-in-depth (CodeRabbit PR #96): valida dominio de CLASS aqui tambem,
+  # nao confia so no contrato de parse_header. CLASS fora de {online-safe,manual-risk}
+  # bloquearia validate_sql_against_class (no-op p/ classe desconhecida) e nunca entraria
+  # em MANUAL_PENDING — poderia auto-aplicar header digitado errado. Fail-closed.
+  if [[ "$CLASS" != "online-safe" && "$CLASS" != "manual-risk" ]]; then
+    echo "::error::$path: CLASS invalida '$CLASS' (esperado online-safe ou manual-risk)." >&2
+    return 1
+  fi
 }
 
 if ! [[ "$MIGRATION_LOCK_ID" =~ ^-?[0-9]+$ ]]; then

@@ -32,3 +32,13 @@
 - Custo do fix não-trivial (dep nova + bundle smoke) justifica adiar.
 
 - **Próximo passo:** adicionar `@artificio/ui` ao `site-admin` → `<ConfirmProvider>` no root → migrar os 4 `window.confirm` p/ `useConfirm({title, message, variant:'danger'})` → smoke de bundle (peso/Astro island). Fecha junto `BL-051-CONFIRMDIALOG-SITEADMIN-ROLLOUT`.
+
+---
+
+## DEB-051-RABBIT-04 — CLASS sem validação de domínio em apply_required_migrations.sh
+
+- **Origem:** REV-051-RABBIT-04 (CodeRabbit no PR #96, 2026-06-26). Commit `971bc3f`.
+- **Estado:** **fechado (2026-06-26).** **Severidade: média.**
+- **Evidência:** `scripts/deploy/apply_required_migrations.sh:+45-48` — `load_header_vars` valida `CLASS` só com `-z` (vazio). Um typo no header (`-- @artificio/class: online-sfe`) produz `CLASS="online-sfe"` — não vazio, mas inválido. `validate_sql_against_class` só age para `online-safe`; outras classes passam silenciosamente e a migration é auto-aplicada em vez de ir para `MANUAL_PENDING`.
+- **Risco:** migration com header digitado errado pode ser aplicada sem revisão manual. Nenhum typo conhecido hoje.
+- **Correção:** allowlist explícita fail-closed em `load_header_vars` — `CLASS` fora de `{online-safe, manual-risk}` → `::error::` + `return 1`. Domínio real corrigido (o fix proposto pelo bot citava `offline-safe/requires-backup`, classes inexistentes; o header só aceita `online-safe|manual-risk`, ver `parse_header` em `lib_migrations.sh:24`). shellcheck ✅, `test_migration_guard.sh` 39/39 ✅. Ver reviews.md §11.

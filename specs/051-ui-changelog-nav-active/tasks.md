@@ -50,25 +50,30 @@
 - [x] T-F6.1 Auditado (`f0-discovery.md` §3): **TODO schema Zod vive só em `apps/mesas`**. Nenhum serve 2+ apps. `packages/content` não tem zod. **Veredito: nada a mover.**
 - [x] T-F6.2/3/4 **Sem ação** — não tocar `packages/content` (mover poluiria com domínio mesas). Onda B cai; sequência de PRs vira A→C→D. Veredito = decisão de não-mover, não débito.
 
-## Onda C — Indicador de projeto ativo (F2)
-- [ ] T-F2.1 Levantar hrefs canônicos dos itens da nav cross-projeto (`packages/ui/src/modules.ts`).
-- [ ] T-F2.2 Conferir/normalizar `currentHref` em mesas (`AppShell.tsx`); achar por que `publicOrigin` não casa.
-- [ ] T-F2.3 Injetar `currentHref` no glossário (`GlossarioHeader.tsx` — hoje ausente).
-- [ ] T-F2.4 Conferir links (`LinksHeader.tsx`) e site (`Base.astro`/`SiteHeader.astro`).
-- [ ] T-F2.5 Avaliar normalização de comparação em `Nav.tsx` (barra final/origin) — decidir e implementar se aprovado.
-- [ ] T-F2.6 Avaliar reforço visual do marcador (peso do label) se o traço ficar fraco; manter `aria-current`.
-- [ ] T-F2.7 Smoke nos 4 apps; sem marcação dupla com `moduleNav`.
-- [ ] T-F2.8 Validar light + dark; screenshot mesas + glossário (R-F2.7).
+## Onda C — Indicador de projeto ativo (F2) ✅ (2026-06-25)
+- [x] T-F2.1 Levantar hrefs canônicos dos itens da nav cross-projeto (`packages/ui/src/modules.ts`). **Evidência:** 7 itens com hrefs absolutos (`https://glossario.artificiorpg.com`, etc.). **Centralizados** (ver T-F2.9): agora `MODULE_ORIGINS.<modulo>` em vez de URL crua.
+- [x] T-F2.9 **Centralizar origins de módulo** (achado da revisão — antes hardcoded em 4 lugares). **Evidência:** `@artificio/config/brand.ts` ganhou `moduleOrigin(sub)` + `MODULE_ORIGINS` (glossario/mesas/downloads/esferas/srd/links derivados de `BRAND_DOMAIN`), reexportados em `index.ts`. Consumido em `modules.ts`, `GlossarioHeader.tsx`, `LinksHeader.tsx`, `mesas/utils/auth.ts` (`DEFAULT_MESAS_PUBLIC_ORIGIN`). Dep `@artificio/config` adicionada a glossario+mesas-frontend (já transitiva via ui; sem peso novo). Zero hardcode `*.artificiorpg.com` em src (fora de testes). Build config/ui/3 apps ✅, lint ✅, mesas test 163/163 ✅.
+- [x] T-F2.2 Conferir/normalizar `currentHref` em mesas (`AppShell.tsx`); achar por que `publicOrigin` não casa. **Evidência:** `getMesasPublicOrigin()` retorna `https://mesas.artificiorpg.com` em produção — hostname casa. Normalização em Nav.tsx cobre trailing slash/origin. Sem ação necessária.
+- [x] T-F2.3 Injetar `currentHref` no glossário (`GlossarioHeader.tsx` — hoje ausente). **Evidência:** `currentHref={MODULE_ORIGINS.glossario}` adicionado (mesmo valor do `brandHref`, também migrado p/ `MODULE_ORIGINS`).
+- [x] T-F2.4 Conferir links (`LinksHeader.tsx`) e site (`Base.astro`/`SiteHeader.astro`). **Evidência:** links passa `currentHref={MODULE_ORIGINS.links}` (hostname casa). site usa header Astro próprio (`SiteHeader.astro`), não o React `Header` compartilhado — sem ação.
+- [x] T-F2.5 Avaliar normalização de comparação em `Nav.tsx` (barra final/origin) — decidir e implementar se aprovado. **Evidência:** função `normalizeHref()` extrai hostname via `new URL(href).hostname`, fallback string lowercase + strip trailing slash. Comparação hostname-based.
+- [x] T-F2.6 Avaliar reforço visual do marcador (peso do label) se o traço ficar fraco; manter `aria-current`. **Evidência:** CSS já tem `border-bottom: 2px solid` + `border-bottom-color: var(--artificio-brand)` + `font-weight: 600` no `aria-current="page"`. Traço laranja 2px + peso 600 — robusto em light e dark. Sem ação.
+- [ ] T-F2.7 Smoke nos 4 apps; sem marcação dupla com `moduleNav`. **Pendente:** requer dev server por app — validação visual do mantenedor.
+- [ ] T-F2.8 Validar light + dark; screenshot mesas + glossário (R-F2.7). **Pendente:** requer browser — validação visual do mantenedor.
 
-## Onda D — Convergência scripts deploy (F3 — DEB-050-02)
-- [ ] T-F3.1 `rg` p/ listar todos `[ ... ]` single-bracket + `echo` de erro sem `>&2` nos scripts antigos. Confirmar/ampliar lista.
-- [ ] T-F3.2 Converter `[`→`[[` + erros `>&2`, preservando semântica (revisar cada conversão).
-- [ ] T-F3.3 ShellCheck (`_lint-shell.yml`) local verde.
-- [ ] T-F3.4 Self-tests verdes: `test_migration_guard.sh`, `test_migration_reconcile.sh`, `test_migration_lock.sh`.
-- [ ] T-F3.5 Marcar DEB-050-02 fechado no backlog ao concluir.
+## Onda D — Convergência scripts deploy (F3 — DEB-050-02) ✅ (2026-06-25)
+- [x] T-F3.1 `rg` p/ listar todos `[ ... ]` single-bracket + `echo` de erro sem `>&2` nos scripts antigos. Confirmar/ampliar lista.
+- [x] T-F3.2 Converter `[`→`[[` + erros `>&2`, preservando semântica (revisar cada conversão).
+- [x] T-F3.3 ShellCheck (`_lint-shell.yml`) local verde.
+- [x] T-F3.4 Self-tests verdes: `test_migration_guard.sh`, `test_migration_reconcile.sh`, `test_migration_lock.sh`.
+- [x] T-F3.5 Marcar DEB-050-02 fechado no backlog ao concluir.
+
+## Revisão CI PR #96 (2026-06-26)
+- [x] T-REV.1 **CodeQL `js/polynomial-redos` (DEB-051-CODEQL-01, bloqueante)** — `Nav.tsx:14` regex `replace(/\/+$/, "")` → strip de barras finais por loop `charCodeAt` (sem backtracking). Comportamento idêntico (6/6 casos). build+lint ✅. Ver reviews.md §10.
+- [x] T-REV.2 **CodeRabbit (DEB-051-RABBIT-04)** — `apply_required_migrations.sh` `load_header_vars` ganha allowlist fail-closed `online-safe|manual-risk`. shellcheck ✅, guard 39/39 ✅. Ver reviews.md §11.
 
 ## Fechamento geral
-- [ ] TZ.1 `pnpm run lint` + `pnpm run build` verdes (repo). ✅ (Onda A)
+- [x] TZ.1 `pnpm run lint` + `pnpm run build` verdes (repo). ✅ (2026-06-25: 15/15 lint, 17/17 build — Ondas A+C+D)
 - [ ] TZ.2 Zero duplicação remanescente do que foi extraído (re-rodar varredura F0).
 - [ ] TZ.3 G01/G02 (049) e extração changelog (020) marcados executados nas fontes.
 - [ ] TZ.4 Sessão + `project-state.md` + `specs/backlog.md` reconciliados.
