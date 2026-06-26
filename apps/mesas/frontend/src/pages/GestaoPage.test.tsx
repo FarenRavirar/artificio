@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { ConfirmProvider } from "@artificio/ui";
 
 const authState = vi.hoisted(() => ({ role: 'admin' as 'admin' | 'gm' | 'player' }));
 
@@ -74,7 +75,7 @@ describe('GestaoPage', () => {
   });
 
   it('renderiza titulo "Gestao Administrativa"', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByText('Gestão Administrativa')).toBeInTheDocument();
@@ -82,7 +83,7 @@ describe('GestaoPage', () => {
   });
 
   it('mostra todas as abas de navegacao', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByText('Gerenciar Conteúdo')).toBeInTheDocument();
@@ -97,13 +98,13 @@ describe('GestaoPage', () => {
 
   it('renderiza null quando usuario nao e admin', () => {
     authState.role = 'gm';
-    const { container } = render(<GestaoPage />);
+    const { container } = render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
     expect(container.innerHTML).toBe('');
   });
 
   it('redireciona quando role nao e admin', async () => {
     authState.role = 'gm';
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/');
@@ -111,7 +112,7 @@ describe('GestaoPage', () => {
   });
 
   it('mostra CRUD como aba padrao', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByTestId('systems-admin-view')).toBeInTheDocument();
@@ -119,7 +120,7 @@ describe('GestaoPage', () => {
   });
 
   it('troca para aba Discord Sync', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByText('Discord Sync')).toBeInTheDocument();
@@ -133,7 +134,7 @@ describe('GestaoPage', () => {
   });
 
   it('troca para aba Atividades', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByText('Atividades')).toBeInTheDocument();
@@ -147,7 +148,7 @@ describe('GestaoPage', () => {
   });
 
   it('troca para aba Hidratacao de Dados', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByText('Hidratação de Dados')).toBeInTheDocument();
@@ -161,7 +162,7 @@ describe('GestaoPage', () => {
   });
 
   it('troca para aba Sugestoes de Sistemas', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByText('Sugestões de Sistemas')).toBeInTheDocument();
@@ -178,7 +179,7 @@ describe('GestaoPage', () => {
   });
 
   it('mostra subtabs do CRUD', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByText('Sistemas')).toBeInTheDocument();
@@ -189,7 +190,7 @@ describe('GestaoPage', () => {
   });
 
   it('navega para subtab Plataformas', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByText('Plataformas')).toBeInTheDocument();
@@ -203,7 +204,7 @@ describe('GestaoPage', () => {
   });
 
   it('navega para subtab Cenarios', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByText('Cenários')).toBeInTheDocument();
@@ -217,7 +218,7 @@ describe('GestaoPage', () => {
   });
 
   it('navega para subtab Mesas', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByText('Mesas')).toBeInTheDocument();
@@ -231,7 +232,7 @@ describe('GestaoPage', () => {
   });
 
   it('renderiza Inbox', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByText('Inbox')).toBeInTheDocument();
@@ -245,7 +246,7 @@ describe('GestaoPage', () => {
   });
 
   it('renderiza Desenvolvimento', async () => {
-    render(<GestaoPage />);
+    render(<ConfirmProvider><GestaoPage /></ConfirmProvider>);
 
     await waitFor(() => {
       expect(screen.getByText('Desenvolvimento')).toBeInTheDocument();

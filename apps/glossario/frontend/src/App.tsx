@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useMemo, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { Footer } from '@artificio/ui';
+import { Footer, ConfirmProvider } from '@artificio/ui';
 import { FeedbackButton } from './features/dev-feedback/FeedbackButton';
 import { GlossarioHeader } from './components/GlossarioHeader';
 import { SearchBar } from './components/SearchBar';
@@ -269,6 +269,7 @@ function App() {
   return (
     <UIContext.Provider value={{ openAddTerm: () => setAddTermOpen(true) }}>
       <AuthProvider>
+        <ConfirmProvider>
         <BrowserRouter>
           <AnalyticsPageviews />
           <div className="min-h-screen flex flex-col bg-[var(--surface-subtle)] font-sans">
@@ -309,6 +310,7 @@ function App() {
           </div>
           <Toaster position="bottom-center" />
         </BrowserRouter>
+        </ConfirmProvider>
       </AuthProvider>
     </UIContext.Provider>
   );

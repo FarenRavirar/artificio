@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Header, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS, type UserMenuItem } from "@artificio/ui";
-import { LinksChangelogModal } from "./LinksChangelogModal";
+import { Header, StaticChangelogModal, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS, type UserMenuItem } from "@artificio/ui";
+import { MODULE_ORIGINS } from "@artificio/config";
+import rawChangelogs from "../data/changelogs.json";
 
 const userMenu: UserMenuItem[] = [
   { label: "Painel admin", href: "/admin", adminOnly: true },
@@ -19,7 +20,7 @@ export function LinksHeader() {
   return (
     <>
       <Header
-        currentHref="https://links.artificiorpg.com"
+        currentHref={MODULE_ORIGINS.links}
         variant={theme === "dark" ? "dark" : "light"}
         loginLabel="Entrar"
         userMenu={userMenu}
@@ -32,7 +33,7 @@ export function LinksHeader() {
           globalThis.location.href = "/busca";
         }}
       />
-      <LinksChangelogModal isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} />
+      <StaticChangelogModal isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} rawChangelogs={rawChangelogs} />
     </>
   );
 }

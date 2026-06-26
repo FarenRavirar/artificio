@@ -96,7 +96,7 @@ Regra:
 
 - `HeaderAction` renderiza somente botao/link visual com aria, badge e classes padrao.
 - `HeaderActionsGroup` e opcional; apenas organiza gap/ordem se o slot cru virar repetitivo.
-- `ChangelogAction`, `NotificationBell`, `FeedbackButton` e modais seguem por app ate existir duplicacao real em 2+ apps.
+- `ChangelogAction`, `NotificationBell`, `FeedbackButton` e modais seguem por app ate existir duplicacao real em 2+ apps. ~~(Executado: wrappers de changelog consolidados na spec 051 — `StaticChangelogModal` aceita `rawChangelogs`; site+links consomem direto; mesas/glossario permanecem mínimos.)~~
 - O feedback de desenvolvimento do mesas vira feature compartilhavel futura (D-FEEDBACK1), mas nao entra em T6 porque envolve backend, storage e privacidade por app.
 
 ## Ordem visual recomendada

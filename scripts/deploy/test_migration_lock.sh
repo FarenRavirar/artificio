@@ -37,7 +37,7 @@ for _ in $(seq 1 50); do
 done
 
 if ! grep -q '^one:start$' "$log_file" 2>/dev/null; then
-  echo "::error::worker one nao iniciou lock a tempo"
+  echo "::error::worker one nao iniciou lock a tempo" >&2
   wait "$pid_one" || true
   exit 1
 fi
@@ -51,8 +51,8 @@ wait "$pid_two"
 expected=$'one:start\none:end\ntwo:start\ntwo:end'
 actual="$(grep -E '^(one|two):(start|end)$' "$log_file" || true)"
 
-if [ "$actual" != "$expected" ]; then
-  echo "::error::flock nao serializou execucoes de migration"
+if [[ "$actual" != "$expected" ]]; then
+  echo "::error::flock nao serializou execucoes de migration" >&2
   printf 'expected:\n%s\nactual:\n%s\n' "$expected" "$actual"
   exit 1
 fi

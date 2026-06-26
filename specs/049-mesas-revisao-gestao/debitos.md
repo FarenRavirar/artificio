@@ -41,5 +41,5 @@
 
 | # | Débito | Motivo |
 |---|--------|--------|
-| G01 | Extração para packages/ui requer SDD Completo separado | Spec 049 prevê mas não executa |
-| G02 | Schemas Zod duplicados candidatos a packages/content | Igual, requer SDD separado |
+| G01 | Extração para packages/ui requer SDD Completo separado | Spec 049 prevê mas não executa → **ABSORVIDO pela spec 051 (frente F5), 2026-06-25.** Componentes `GestaoStateWrapper`/`ResultGrid`/`ConfirmDialog`/`FileDropzone`. |
+| G02 | Schemas Zod duplicados candidatos a packages/content | Igual, requer SDD separado → **ABSORVIDO pela spec 051 (frente F6), 2026-06-25.** Auditar cross-app vs domínio mesas antes de mover. |

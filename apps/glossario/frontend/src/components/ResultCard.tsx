@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useConfirm } from "@artificio/ui";
 import { Termo } from '../types/glossario';
 import { BookOpen, CheckCircle2, HelpCircle, Award, User as UserIcon, Pencil, Trash2, Save, X, ThumbsUp, ThumbsDown, MessageSquare, Send, ChevronDown, Clock3, History } from 'lucide-react';
 import type { AtualizacaoTermoPayload } from '../hooks/useGlossario';
@@ -102,6 +103,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
   const [editions, setEditions] = useState<EditionOption[]>([]);
   const [scenarios, setScenarios] = useState<ScenarioOption[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const { confirm } = useConfirm();
 
   // Estados para Social
   const [voteScore, setVoteScore] = useState(termo.vote_score || 0);
@@ -366,7 +368,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
   };
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!window.confirm('Deseja realmente remover este comentário?')) return;
+    if (!(await confirm({ title: "Remover comentário", message: "Deseja realmente remover este comentário?", variant: "warning" }))) return;
     try {
       await api.delete(`/social/comments/${commentId}`);
       setComments(comments.map(c => 
@@ -379,7 +381,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
 
   const handleDelete = async () => {
     if (!onDelete) return;
-    const confirmed = window.confirm('Tem certeza que deseja excluir este termo? Esta ação não pode ser desfeita.');
+    const confirmed = await confirm({ title: "Excluir termo", message: "Tem certeza que deseja excluir este termo? Esta ação não pode ser desfeita.", variant: "danger" });
     if (!confirmed) return;
 
     try {

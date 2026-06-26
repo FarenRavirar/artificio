@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useConfirm } from "@artificio/ui";
 import { useAuth } from '../contexts/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { SystemsAdminView } from './SystemsAdminView';
@@ -144,6 +145,7 @@ export const GestaoPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirmTableId, setDeleteConfirmTableId] = useState<string | null>(null);
   const [deletingTableId, setDeletingTableId] = useState<string | null>(null);
+  const { confirm } = useConfirm();
 
   const [approvingSuggestionId, setApprovingSuggestionId] = useState<string | null>(null);
   const [rejectingSuggestionId, setRejectingSuggestionId] = useState<string | null>(null);
@@ -224,9 +226,10 @@ export const GestaoPage = () => {
   const maybePublishPendingDrafts = async (pending: Array<{ id: string; title: string | null }>) => {
     if (!pending || pending.length === 0) return;
     const list = pending.map((d) => `• ${d.title ?? 'Mesa sem título'}`).join('\n');
-    const publish = window.confirm(
-      `${pending.length} mesa(s) pronta(s) para publicar:\n${list}\n\nPublicar agora?`,
-    );
+    const publish = await confirm({
+      title: "Publicar mesas",
+      message: `${pending.length} mesa(s) pronta(s) para publicar:\n${list}\n\nPublicar agora?`,
+    });
     if (!publish) return;
     const results = await Promise.allSettled(
       pending.map((d) =>
@@ -387,7 +390,7 @@ export const GestaoPage = () => {
     const newStatus = currentStatus === 'active' ? 'cancelled' : 'active';
     const action = newStatus === 'active' ? 'ativar' : 'cancelar';
     
-    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} mesa "${title}"?`)) return;
+    if (!(await confirm({ title: `${action.charAt(0).toUpperCase() + action.slice(1)} mesa`, message: `${action.charAt(0).toUpperCase() + action.slice(1)} a mesa "${title}"?`, variant: "warning" }))) return;
 
     try {
       // CORREÇÃO DT-013: Rota correta é /api/v1/admin/tables/:id

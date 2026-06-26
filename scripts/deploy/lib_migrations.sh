@@ -2,7 +2,7 @@
 set -euo pipefail
 
 compose_project_flag() {
-  if [ -n "${COMPOSE_PROJECT:-}" ]; then
+  if [[ -n "${COMPOSE_PROJECT:-}" ]]; then
     printf '%s\n' "-p $COMPOSE_PROJECT"
   fi
 }
@@ -15,8 +15,8 @@ parse_header() {
   local created=""
   local desc=""
 
-  if [ ! -f "$filepath" ]; then
-    echo "::error::Arquivo $filepath nao existe"
+  if [[ ! -f "$filepath" ]]; then
+    echo "::error::Arquivo $filepath nao existe" >&2
     return 1
   fi
 
@@ -34,13 +34,13 @@ parse_header() {
     fi
   done < <(head -n 20 "$filepath")
 
-  if [ -z "$class" ] || [ -z "$req_backup" ] || [ -z "$author" ] || [ -z "$created" ] || [ -z "$desc" ]; then
-    echo "::error::$filepath falhou na validacao de campos do cabecalho."
+  if [[ -z "$class" || -z "$req_backup" || -z "$author" || -z "$created" || -z "$desc" ]]; then
+    echo "::error::$filepath falhou na validacao de campos do cabecalho." >&2
     return 1
   fi
 
-  if [ "$req_backup" = "true" ] && [ "$class" = "online-safe" ]; then
-    echo "::error::$filepath: requires-backup=true exige class=manual-risk."
+  if [[ "$req_backup" == "true" && "$class" == "online-safe" ]]; then
+    echo "::error::$filepath: requires-backup=true exige class=manual-risk." >&2
     return 1
   fi
 
@@ -139,7 +139,7 @@ list_pending_by_set_diff() {
   in_db=$(query_schema_migrations "$compose_file" "$db_service" "$db_user" "$db_name")
 
   local on_disk
-  if [ -d "$migrations_dir" ]; then
+  if [[ -d "$migrations_dir" ]]; then
     on_disk=$(find "$migrations_dir" -maxdepth 1 -name "migration_*.sql" -type f -exec basename {} \; | sort)
   else
     on_disk=""
@@ -155,7 +155,7 @@ list_pending_by_set_diff() {
     fi
   done
 
-  if [ "$fail_drift" -eq 1 ]; then
+  if [[ "$fail_drift" -eq 1 ]]; then
     return 1
   fi
 
@@ -165,7 +165,7 @@ list_pending_by_set_diff() {
     fi
   done
 
-  if [ "${#to_apply[@]}" -gt 0 ]; then
+  if [[ "${#to_apply[@]}" -gt 0 ]]; then
     printf "%s\n" "${to_apply[@]}"
   fi
 }
@@ -175,7 +175,7 @@ _migration_lock_file() {
   local db_name="$2"
   local scope=""
 
-  if [ -n "${MIGRATION_FLOCK_FILE:-}" ]; then
+  if [[ -n "${MIGRATION_FLOCK_FILE:-}" ]]; then
     printf '%s\n' "$MIGRATION_FLOCK_FILE"
     return 0
   fi
@@ -197,7 +197,7 @@ acquire_migration_lock() {
   exec 8>"$lock_file"
   echo "[migrations] tentando flock: $lock_file"
   if ! flock -w "$timeout" 8; then
-    echo "::error::flock de migrations falhou apos ${timeout}s: $lock_file"
+    echo "::error::flock de migrations falhou apos ${timeout}s: $lock_file" >&2
     return 1
   fi
   echo "[migrations] flock adquirido."

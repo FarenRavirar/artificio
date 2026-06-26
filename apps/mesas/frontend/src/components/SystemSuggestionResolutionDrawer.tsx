@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useConfirm } from "@artificio/ui";
 import { TagInput } from './TagInput';
 import { SearchableSelect, type SearchableOption } from './SearchableSelect';
 import { authGet, authPost } from '../services/apiClient';
@@ -342,6 +343,7 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
   const [notes, setNotes] = useState('');
   const [reason, setReason] = useState('');
   const [forceNew, setForceNew] = useState(false);
+  const { confirm } = useConfirm();
 
   useEffect(() => {
     let cancelled = false;
@@ -683,7 +685,7 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
   };
 
   const handleDiscard = async () => {
-    if (!window.confirm(`Descartar a sugestão "${suggestion.name}"? Ela sai da fila pendente.`)) return;
+    if (!(await confirm({ title: "Descartar sugestão", message: `Descartar "${suggestion.name}"? Ela sai da fila pendente.`, variant: "warning" }))) return;
     setSubmitting(true);
     try {
       const response = await authPost(

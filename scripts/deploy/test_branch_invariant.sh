@@ -35,7 +35,7 @@ git -C "$tmp_dir" commit -am main-only -q
 git -C "$tmp_dir" update-ref refs/remotes/origin/main refs/heads/main
 
 if git -C "$tmp_dir" merge-base --is-ancestor origin/main origin/dev; then
-  echo "ERRO: setup de teste invalido; main deveria estar fora de dev"
+  echo "ERRO: setup de teste invalido; main deveria estar fora de dev" >&2
   exit 1
 fi
 
@@ -43,7 +43,7 @@ if (
   cd "$tmp_dir"
   bash "$repo_root/scripts/deploy/validate_branch_invariant.sh" origin/main origin/dev >/tmp/branch-invariant-block.log 2>&1
 ); then
-  echo "ERRO: invariante nao bloqueou main fora de dev"
+  echo "ERRO: invariante nao bloqueou main fora de dev" >&2
   exit 1
 fi
 

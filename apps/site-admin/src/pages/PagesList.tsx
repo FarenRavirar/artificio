@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useConfirm } from "@artificio/ui";
 import { api, type PageListItem } from "../api";
 
 const FILTERS: { value: string; label: string }[] = [
@@ -32,6 +33,8 @@ export function PagesList() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
 
+  const { confirm } = useConfirm();
+
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
 
   const load = (st = status) => {
@@ -41,7 +44,15 @@ export function PagesList() {
   useEffect(() => { load(""); }, []);
 
   const run = async (p: PageListItem, a: Action) => {
-    if (a.del && !window.confirm(`Apagar permanentemente "${p.title}"? Esta ação não pode ser desfeita.`)) return;
+    if (a.del) {
+      const ok = await confirm({
+        title: "Apagar página",
+        message: `Apagar permanentemente "${p.title}"? Esta ação não pode ser desfeita.`,
+        confirmText: "Apagar",
+        variant: "danger",
+      });
+      if (!ok) return;
+    }
     setBusyId(p.id);
     try {
       const r = a.del ? await api.deletePage(p.id) : await api.setPageStatus(p.id, a.status!);
