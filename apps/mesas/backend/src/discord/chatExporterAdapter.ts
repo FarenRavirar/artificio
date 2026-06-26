@@ -56,6 +56,11 @@ export function adaptMessageToImportRaw(
     content_raw: msg.content ?? '',
     attachments: msg.attachments ?? [],
     embeds: msg.embeds ?? [],
+    reference: msg.reference ? {
+      messageId: msg.reference.messageId,
+      channelId: (msg.reference as Record<string,unknown>).channelId as string | undefined,
+      guildId: (msg.reference as Record<string,unknown>).guildId as string | undefined,
+    } : null,
     message_created_at: msg.timestamp ? new Date(msg.timestamp) : null,
     message_edited_at: msg.timestampEdited ? new Date(msg.timestampEdited) : null,
     content_hash: getContentHash(msg),

@@ -719,9 +719,10 @@ describe('parseDiscordAnnouncement', () => {
     const draft = parseDiscordAnnouncement(msg);
 
     expect(draft).not.toBeNull();
-    // 1717200000 = Saturday June 1, 2024 00:00 UTC → sábado, 00:00
-    expect(draft?.table.day_of_week).toBe('sábado');
-    expect(draft?.table.start_time).toBe('00:00');
+    // 1717200000 = Saturday June 1, 2024 00:00 UTC → sexta 31 Mai 2024 21:00 BRT
+    // day_of_week usa a forma curta canônica do projeto ("sexta", não "sexta-feira").
+    expect(draft?.table.day_of_week).toBe('sexta');
+    expect(draft?.table.start_time).toBe('21:00');
     // T-C2: Google Forms URL deve ser detectada como contact_url
     expect(draft?.table.contact_url).toBe('https://forms.gle/FakeTimestampForm');
   });
@@ -838,14 +839,14 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table._slots_ambiguity).toBeNull();
   });
 
-  it('returns null slots for "mesa em andamento" (T-C6)', () => {
+  it('returns slots from "1 vaga via forms" when mixed with "mesa em andamento" (DEB-048-16)', () => {
     const msg = chatExporterSampleMessages.find((m) => m.discord_message_id === 'msg-em-andamento')!;
     const draft = parseDiscordAnnouncement(msg);
 
     expect(draft).not.toBeNull();
-    // "Mesa em andamento" → sem vagas, null/null
-    expect(draft?.table.slots_total).toBeNull();
-    expect(draft?.table.slots_open).toBeNull();
+    // "1 vaga via forms" agora tem precedência sobre "Mesa em andamento"
+    expect(draft?.table.slots_total).toBe(1);
+    expect(draft?.table.slots_open).toBe(1);
   });
 
   it('does not match "X de Y" when numbers look like a date/level (T-C6 guard)', () => {
@@ -910,5 +911,265 @@ describe('parseDiscordAnnouncement', () => {
     for (const msg of chatExporterSampleMessages) {
       expect(() => parseDiscordAnnouncement(msg)).not.toThrow();
     }
+  });
+
+  // ─── DEB-048-13: anexos ChatExporter (fileName sem content_type) ────────────
+
+  it('extracts cover from attachment with fileName and url, without content_type (DEB-048-13)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Dia: quinta-feira às 20h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+        attachments: [
+          {
+            fileName: 'banner.png',
+            url: 'https://cdn.discordapp.com/attachments/1/banner.png?ex=abc',
+            fileSizeBytes: 150000,
+          },
+        ],
+      }),
+    );
+
+    expect(draft?.table.cover_url_source).toBe('https://cdn.discordapp.com/attachments/1/banner.png?ex=abc');
+    // ChatExporter não tem width/size → quality 'low'
+    expect(draft?.table.cover_quality).toBe('low');
+    // Anexo é imagem → NÃO deve gerar nota de anexo
+    expect(draft?.table._notes).not.toEqual(
+      expect.arrayContaining([expect.stringContaining('Anexo: banner.png')]),
+    );
+  });
+
+  it('extracts cover from .jpg attachment via fileName extension (DEB-048-13)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Dia: sexta às 19h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+        attachments: [
+          {
+            fileName: 'cover.jpg',
+            url: 'https://cdn.discordapp.com/attachments/1/cover.jpg',
+          },
+        ],
+      }),
+    );
+
+    expect(draft?.table.cover_url_source).toBe('https://cdn.discordapp.com/attachments/1/cover.jpg');
+    expect(draft?.table.cover_quality).toBe('low');
+  });
+
+  it('generates attachment note for .mp4 video (DEB-048-13)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Dia: sábado às 15h',
+          'Vagas: 5',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+        attachments: [
+          {
+            fileName: 'trailer.mp4',
+            url: 'https://cdn.discordapp.com/attachments/1/trailer.mp4',
+            fileSizeBytes: 50_000_000,
+          },
+        ],
+      }),
+    );
+
+    // Cover deve ser null (vídeo não é imagem)
+    expect(draft?.table.cover_url_source).toBeNull();
+    // Deve gerar nota de anexo
+    expect(draft?.table._notes).toEqual(
+      expect.arrayContaining([expect.stringContaining('Anexo: trailer.mp4')]),
+    );
+    expect(draft?.table._notes).toEqual(
+      expect.arrayContaining([expect.stringContaining('47.7 MB')]),
+    );
+  });
+
+  it('generates attachment note for .txt file (DEB-048-13)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Dia: domingo às 14h',
+          'Vagas: 3',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+        attachments: [
+          {
+            fileName: 'regras.txt',
+            url: 'https://cdn.discordapp.com/attachments/1/regras.txt',
+            fileSizeBytes: 2048,
+          },
+        ],
+      }),
+    );
+
+    expect(draft?.table.cover_url_source).toBeNull();
+    expect(draft?.table._notes).toEqual(
+      expect.arrayContaining([expect.stringContaining('Anexo: regras.txt (2 KB)')]),
+    );
+  });
+
+  it('cover from bot-fetch format (content_type) still works (DEB-048-13 compat)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Dia: quarta às 20h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+        attachments: [
+          {
+            content_type: 'image/png',
+            width: 1200,
+            height: 800,
+            size: 120000,
+            url: 'https://cdn.discordapp.com/attachments/1/bot-banner.png',
+          },
+        ],
+      }),
+    );
+
+    expect(draft?.table.cover_url_source).toBe('https://cdn.discordapp.com/attachments/1/bot-banner.png');
+    expect(draft?.table.cover_quality).toBe('standard');
+  });
+
+  it('ignores SVG by extension even without content_type (DEB-048-13)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Dia: terça às 20h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+        attachments: [
+          {
+            fileName: 'logo.svg',
+            url: 'https://cdn.discordapp.com/attachments/1/logo.svg',
+          },
+        ],
+      }),
+    );
+
+    expect(draft?.table.cover_url_source).toBeNull();
+    expect(draft?.table.cover_quality).toBeNull();
+  });
+
+  it('handles missing fileName gracefully (DEB-048-13)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Dia: quinta às 20h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+        attachments: [
+          {
+            url: 'https://cdn.discordapp.com/attachments/1/unknown',
+          },
+        ],
+      }),
+    );
+
+    // Sem fileName e sem content_type → não identifica como imagem → sem cover
+    expect(draft?.table.cover_url_source).toBeNull();
+  });
+
+  // ─── DEB-048-14: replies/threads ────────────────────────────────────────────
+
+  it('adds reply note when replyContext is provided (DEB-048-14)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: 'Re: D&D 5e: Procura-se Jogadores',
+        content_raw: 'Tenho interesse! Me chama no privado.',
+      }),
+      [],
+      'Procurando jogadores para uma campanha de D&D 5e nas sextas à noite.',
+    );
+
+    expect(draft).not.toBeNull();
+    expect(draft?.table._notes).toEqual(
+      expect.arrayContaining([
+        'Em resposta a: Procurando jogadores para uma campanha de D&D 5e nas sextas à noite.',
+      ]),
+    );
+  });
+
+  it('reply note uses first 80 chars of snippet (DEB-048-14)', () => {
+    const longMessage = 'A'.repeat(200);
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: 'Re: Tópico Longo',
+        content_raw: 'Resposta curta.',
+      }),
+      [],
+      longMessage.slice(0, 80),
+    );
+
+    expect(draft).not.toBeNull();
+    expect(draft?.table._notes).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^Em resposta a: A{80}$/)]),
+    );
+  });
+
+  it('no reply note when replyContext is undefined (DEB-048-14)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: 'D&D 5e: Mesa Nova',
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Dia: sexta às 20h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+      [],
+      undefined,
+    );
+
+    expect(draft).not.toBeNull();
+    const hasReplyNote = draft?.table._notes.some((n) => n.startsWith('Em resposta a:'));
+    expect(hasReplyNote).toBe(false);
+  });
+
+  it('fixture msg-008 (reply) with explicit replyContext produces reply note (DEB-048-14)', () => {
+    const msg = chatExporterSampleMessages.find((m) => m.discord_message_id === 'msg-008')!;
+    const draft = parseDiscordAnnouncement(
+      msg,
+      [],
+      'Procurando jogadores para uma campanha de D&D 5e nas sextas à noite.',
+    );
+
+    expect(draft).not.toBeNull();
+    expect(draft?.table._notes).toEqual(
+      expect.arrayContaining([
+        'Em resposta a: Procurando jogadores para uma campanha de D&D 5e nas sextas à noite.',
+      ]),
+    );
+  });
+
+  it('orphan reference (messageId inexistente) não gera erro (DEB-048-14)', () => {
+    // msg-008 tem reference.messageId='msg-007', mas passamos replyContext undefined
+    // (simulando referência órfã — messageId existe no export mas não no contentIndex)
+    const msg = chatExporterSampleMessages.find((m) => m.discord_message_id === 'msg-008')!;
+    const draft = parseDiscordAnnouncement(msg, [], undefined);
+
+    expect(draft).not.toBeNull();
+    // Sem replyContext → sem nota de reply
+    const hasReplyNote = draft?.table._notes.some((n) => n.startsWith('Em resposta a:'));
+    expect(hasReplyNote).toBe(false);
   });
 });

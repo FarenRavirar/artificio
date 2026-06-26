@@ -76,6 +76,13 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
   let updated = 0;
   let failed = 0;
 
+  // DEB-048-14: o import só persiste mensagens (INSERT); o parse para draft ocorre
+  // depois (parse-batch/reparse), a partir da linha do DB — onde `reference` NÃO é
+  // coluna e as demais mensagens do export não estão disponíveis. Resolver o snippet
+  // de reply aqui seria código morto. T-F8 (nota "Em resposta a:") fica ADIADA até
+  // haver migration que persista `reference`. O campo `reference` em ImportRawMessage
+  // e o parâmetro `replyContext` do parser permanecem como base future-ready.
+
   for (const msg of messages) {
     const adapted = adaptMessageToImportRaw(msg, exportData);
     const contentHash = getContentHash(msg);

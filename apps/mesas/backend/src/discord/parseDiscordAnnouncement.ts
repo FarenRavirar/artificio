@@ -50,19 +50,57 @@ function extractCoverFromAttachments(attachments: unknown[]): { url: string; qua
   for (const attachment of attachments) {
     if (typeof attachment !== 'object' || attachment === null) continue;
     const record = attachment as Record<string, unknown>;
+
+    // Tentar content_type primeiro (formato bot-fetch) — compat retroativa
     const contentType = readStringField(record, 'content_type')?.toLowerCase() ?? '';
-    if (!contentType.startsWith('image/') || contentType === 'image/svg+xml') continue;
+    // Fallback: extensão do fileName (formato ChatExporter)
+    const fileName = readStringField(record, 'fileName')?.toLowerCase() ?? '';
+
+    // É imagem? Checar content_type OU extensão
+    const isImageByContentType = contentType.startsWith('image/') && contentType !== 'image/svg+xml';
+    const isImageByExt = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(fileName);
+
+    if (!isImageByContentType && !isImageByExt) continue;
+    if (contentType === 'image/svg+xml' || fileName.endsWith('.svg')) continue;
 
     const url = readStringField(record, 'url');
     if (!url) continue;
 
+    // ChatExporter: sem width/size → quality 'low' por padrão
+    // Bot-fetch: width >= 800 && size >= 50000 → 'standard'
     const width = readNumberField(record, 'width') ?? 0;
-    const size = readNumberField(record, 'size') ?? 0;
+    const size = readNumberField(record, 'size') ?? readNumberField(record, 'fileSizeBytes') ?? 0;
     const quality: CoverQuality = width >= 800 && size >= 50000 ? 'standard' : 'low';
     return { url, quality };
   }
 
   return null;
+}
+
+/** Gera notas para anexos não-imagem (vídeo, arquivo grande, .txt, etc.). */
+function buildAttachmentNotes(attachments: unknown[]): string[] {
+  const notes: string[] = [];
+  for (const att of attachments) {
+    if (typeof att !== 'object' || att === null) continue;
+    const a = att as Record<string, unknown>;
+    const fileName = readStringField(a, 'fileName');
+    const url = readStringField(a, 'url');
+    const fileSizeBytes = readNumberField(a, 'fileSizeBytes');
+    if (!fileName || !url) continue;
+
+    const ext = (fileName.split('.').pop() ?? '').toLowerCase();
+    // Já tratado como cover? Pular
+    if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) continue;
+
+    const sizeStr = fileSizeBytes
+      ? fileSizeBytes >= 1_048_576 ? `${(fileSizeBytes / 1_048_576).toFixed(1)} MB`
+      : fileSizeBytes >= 1024 ? `${Math.round(fileSizeBytes / 1024)} KB`
+      : `${fileSizeBytes} B`
+      : 'tamanho desconhecido';
+
+    notes.push(`Anexo: ${fileName} (${sizeStr}) — ${url}`);
+  }
+  return notes;
 }
 
 // Remove sufixo ™ / ® de strings
@@ -209,12 +247,7 @@ function extractPrice(text: string): { priceType: TableDraftPriceType; priceValu
 function extractSlots(text: string): { total: number | null; open: number | null; ambiguity: DiscordSlotsAmbiguity | null } {
   const cleaned = text.replace(/\*/g, '');
 
-  // "Mesa em andamento" → sem vagas abertas (não fabricar número)
-  if (/\bmesa\s+em\s+andamento\b/i.test(cleaned)) {
-    return { total: null, open: null, ambiguity: null };
-  }
-
-  // "N vaga via forms" → total=N, open=N
+  // 1. "N vaga via forms" → total=N, open=N
   const viaFormsMatch = cleaned.match(/(\d+)\s+vaga\s+via\s+forms/i);
   if (viaFormsMatch) {
     const n = parseInt(viaFormsMatch[1], 10);
@@ -223,7 +256,7 @@ function extractSlots(text: string): { total: number | null; open: number | null
     }
   }
 
-  // Padrão "X de Y" (ex: "3 de 5 vagas", "2 de 4") — mal escrito, informal
+  // 2. Padrão "X de Y" (ex: "3 de 5 vagas", "2 de 4") — mal escrito, informal
   // Guard: X ≤ Y, 1 ≤ Y ≤ 20 (evita match com datas e níveis)
   const deMatch = cleaned.match(/(\d+)\s+de\s+(\d+)/i);
   if (deMatch) {
@@ -234,6 +267,7 @@ function extractSlots(text: string): { total: number | null; open: number | null
     }
   }
 
+  // 3. "vagas totais: N" / "vagas disponíveis: N"
   const totalMatch = cleaned.match(/vagas?\s+(?:totais|total)\s*[:=]\s*(\d+)/i);
   const openMatch = cleaned.match(/vagas?\s+(?:dispon[ií]veis|dispon[ií]vel|abertas|aberta)\s*[:=]\s*(\d+)/i);
   if (totalMatch || openMatch) {
@@ -242,6 +276,7 @@ function extractSlots(text: string): { total: number | null; open: number | null
     return { total, open, ambiguity: null };
   }
 
+  // 4. "x/y" ambíguo
   const ambiguousSlashMatch = cleaned.match(/(?:^|\n)\s*[\s▬•\-–—]*(?:vagas|jogadores)\s*[:=]\s*(\d+)\s*\/\s*(\d+)(?!\s*vagas?)/i);
   if (ambiguousSlashMatch) {
     const first = parseInt(ambiguousSlashMatch[1], 10);
@@ -253,24 +288,34 @@ function extractSlots(text: string): { total: number | null; open: number | null
     };
   }
 
+  // 5. Vagas rotuladas
   const labeledMatch = cleaned.match(/(?:^|\n)\s*[\s▬•\-–—]*(?:vagas|vagas dispon[ií]veis|jogadores)\s*[:=]\s*(\d+)(?!\s*\/)/i);
   if (labeledMatch) {
     const n = parseInt(labeledMatch[1], 10);
     return { total: n, open: n, ambiguity: null };
   }
 
+  // 6. "N/N vagas" (slash)
   const slashMatch = text.match(/(\d+)\s*\/\s*(\d+)\s*vagas?/i);
   if (slashMatch) {
     const filled = parseInt(slashMatch[1], 10);
     const total = parseInt(slashMatch[2], 10);
     return { total, open: Math.max(0, total - filled), ambiguity: null };
   }
+
+  // 7. "N vagas"
   const match = text.match(/(\d+)\s*vagas?/i)
     ?? text.match(/vagas?\s*(?:disponíveis?)?\s*[:=]\s*(\d+)/i);
   if (match) {
     const n = parseInt(match[1], 10);
     return { total: n, open: n, ambiguity: null };
   }
+
+  // 8. FALLBACK: "Mesa em andamento" → sem vagas abertas (não fabricar número)
+  if (/\bmesa\s+em\s+andamento\b/i.test(cleaned)) {
+    return { total: null, open: null, ambiguity: null };
+  }
+
   return { total: null, open: null, ambiguity: null };
 }
 
@@ -305,20 +350,32 @@ function extractStartTime(text: string): string | null {
 }
 
 // Extrai dia da semana e horário de timestamps Discord <t:UNIX:FORMATO>
+// Usa fuso horário América/São Paulo (Brasil), não UTC.
 function extractDiscordTimestamp(text: string): { dayOfWeek: string; startTime: string } | null {
   const pattern = /<t:(\d+):([a-zA-Z]+)>/g;
   let match: RegExpExecArray | null;
-  const daysPt = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
 
   while ((match = pattern.exec(text)) !== null) {
     const unix = parseInt(match[1], 10);
     if (!Number.isFinite(unix) || unix <= 0) continue;
     const date = new Date(unix * 1000);
     if (isNaN(date.getTime())) continue;
-    const dayOfWeek = daysPt[date.getUTCDay()];
-    const hh = String(date.getUTCHours()).padStart(2, '0');
-    const mm = String(date.getUTCMinutes()).padStart(2, '0');
-    return { dayOfWeek, startTime: `${hh}:${mm}` };
+
+    const formatter = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      weekday: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const parts = formatter.formatToParts(date);
+    const weekday = parts.find(p => p.type === 'weekday')?.value ?? null;
+    const hour = parts.find(p => p.type === 'hour')?.value ?? '00';
+    const minute = parts.find(p => p.type === 'minute')?.value ?? '00';
+    if (!weekday) return null;
+    // Intl 'long' devolve "segunda-feira"; o canônico do projeto (extractDayOfWeek)
+    // é a forma curta "segunda". Normalizar removendo o sufixo "-feira".
+    const dayOfWeek = weekday.toLowerCase().replace(/-feira$/, '');
+    return { dayOfWeek, startTime: `${hour}:${minute}` };
   }
   return null;
 }
@@ -454,6 +511,7 @@ function calcConfidence(table: DiscordTableDraftTable): number {
 export function parseDiscordAnnouncement(
   message: ImportRawMessage,
   systems: SystemEntry[] = [],
+  replyContext?: string,
 ): ImportTableDraft | null {
   const threadName = message.discord_thread_name ?? '';
   const rawBody = message.content_raw ?? '';
@@ -516,6 +574,7 @@ export function parseDiscordAnnouncement(
     hostDiscordId = hostDiscordId ?? message.discord_author_id;
   }
   const cover = extractCoverFromAttachments(message.attachments ?? []);
+  const attachmentNotes = buildAttachmentNotes(message.attachments ?? []);
   const description = extractLabelValue(body, ['descricao', 'descrição', 'sinopse', 'proposta']) ?? (body.trim() || null);
 
   const missingFields: string[] = [];
@@ -552,7 +611,11 @@ export function parseDiscordAnnouncement(
     cover_url_source: cover?.url ?? null,
     cover_quality: cover?.quality ?? null,
     _slots_ambiguity: slotsAmbiguity,
-    _notes: matchedSystem?.notes ?? [],
+    _notes: [
+      ...(matchedSystem?.notes ?? []),
+      ...attachmentNotes,
+      ...(replyContext ? [`Em resposta a: ${replyContext}`] : []),
+    ],
   };
 
   return {

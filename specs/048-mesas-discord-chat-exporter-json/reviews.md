@@ -190,6 +190,146 @@ Regra herdada da Spec 047:
 
 ---
 
+## Reviews — Código local Fase C/F + reparse (2026-06-26)
+
+### REV-007 — Guard "mesa em andamento" descarta vagas explícitas
+
+- **Origem:** @chatgpt-codex-connector (bot)
+- **Data:** 2026-06-26
+- **Severidade:** P2
+- **Arquivo:** `apps/mesas/backend/src/discord/parseDiscordAnnouncement.ts` lines ~213-214 (contexto: bloco `extractSlots`, guard `mesa em andamento` vs `N vaga via forms`)
+- **Resumo:** Quando o texto combina "Mesa em andamento" com uma vaga explícita (ex.: `"Atualmente temos 1 vaga via forms"`), o `return { total: null, open: null }` da regex `\bmesa\s+em\s+andamento\b` na linha 251 acontece **antes** do parser de `N vaga via forms` na linha 256, então `slots_total`/`slots_open` ficam `null` e o draft perde uma vaga real.
+- **Sugestão:** Tratar "mesa em andamento" como fallback apenas quando não houver contagem explícita de vagas no anúncio, reordenando o fluxo: testar padrões explícitos de vaga primeiro, e só aplicar o guard como último recurso.
+
+#### Evidência — REV-007
+
+- **Arquivos/linhas:** `parseDiscordAnnouncement.ts:250-253` (guard `mesa em andamento`) → `parseDiscordAnnouncement.ts:256-262` (parser `N vaga via forms`).
+- **Código:** A função `extractSlots` executa o guard na linha 251-252 **antes** de qualquer padrão de contagem explícita (linhas 256+). Se o texto contém ambas as frases ("Mesa em andamento" e "1 vaga via forms"), a regex do guard casa primeiro e retorna `{ total: null, open: null }`, impedindo que o parser de `N vaga via forms` sequer seja alcançado.
+- **Já existe tratamento no projeto?** Não. O guard foi adicionado na Fase C (T-C6, vagas informais) como proteção contra fabricar números em mesas lotadas. Mas a interação com o parser de vagas explícitas não foi tratada.
+- **Impacto real:** Perda de vaga real quando o anúncio explicita a vaga junto com "mesa em andamento". O draft fica sem informação de slots.
+- **Severidade real:** **Média (P2)** — perda de dado, mas sem quebra de fluxo (draft é criado, só sem contagem de vagas).
+- **Risco de regressão:** Baixo. Reordenar: checar padrões explícitos de vaga antes do guard "mesa em andamento". Se algum padrão explícito casar, retornar ele; se nenhum casar, aí aplicar o guard. O guard continua protegendo contra fabricação indevida, só não bloqueia informação real.
+- **Conclusão:** **Procede.** Deve ser corrigido reordenando o fluxo: padrões explícitos de vaga antes do guard.
+- **Débito vinculado:** DEB-048-16
+
+---
+
+### REV-008 — Filtro de status bloqueia reparse de mensagens já parseadas
+
+- **Origem:** @chatgpt-codex-connector (bot)
+- **Data:** 2026-06-26
+- **Severidade:** P2
+- **Arquivo:** `apps/mesas/backend/src/routes/discord/import.ts` line 47
+- **Resumo:** O filtro `where('status', 'in', ['pending', 'needs_review'])` no endpoint `/import-json/reparse` impede reprocessar o caso principal de uso: mensagens do ChatExporter que já passaram pelo parser antigo ficam com `discord_import_messages.status = 'parsed'`, enquanto o estado `needs_review` fica no draft. Mesmo passando `messageIds`, essas linhas são filtradas e o endpoint retorna zero, impedindo que os hardenings da Fase C sejam reaplicados em imports existentes.
+
+#### Evidência — REV-008
+
+- **Arquivos/linhas:** `import.ts:43-51` — query base filtra `status IN ('pending', 'needs_review')`. O filtro por `messageIds` (linha 49-50) é AND adicional — se as mensagens têm `status = 'parsed'`, a query retorna zero linhas.
+- **Código relacionado:** O fluxo normal de import (Fase B) grava `status = 'parsed'` ao final do processamento bem-sucedido (`chatExporterImportService.ts`). O reparse foi concebido para reaplicar hardenings do parser em mensagens já importadas, mas o filtro de status impede isso.
+- **Já existe tratamento no projeto?** Não. O endpoint `/reparse` foi adicionado na Fase C (T-C8), mas o filtro de status não foi ajustado para o caso de uso real.
+- **Impacto real:** O endpoint `/reparse` retorna `{ total: 0, reparsed: 0, errors: 0 }` para qualquer `messageIds` cujas mensagens tenham sido processadas com sucesso. O reparse é inútil para o cenário principal.
+- **Severidade real:** **Média (P2)** — funcionalidade parcialmente quebrada. O reparse funciona para mensagens em `pending`/`needs_review`, mas não para o caso de uso principal (reaplicar parser melhorado em mensagens já processadas).
+- **Risco de regressão:** Moderado. Relaxar o filtro para incluir `'parsed'` quando `messageIds` é fornecido pode re-processar mensagens que já estão synced (embora o guard `message.status === 'synced'` no loop proteja). Se `messageIds` não for fornecido, manter o filtro original para evitar processar tudo.
+- **Conclusão:** **Procede.** Quando `messageIds` é explicitamente fornecido, o filtro deve incluir também `status = 'parsed'` (além de `pending` e `needs_review`). Opcional: só remover o filtro de status completamente quando `messageIds` é fornecido, confiando no guard `synced` dentro do loop.
+- **Débito vinculado:** DEB-048-17
+
+---
+
+### REV-009 — Fuso UTC vs local em extractDiscordTimestamp
+
+- **Origem:** @coderabbitai (bot)
+- **Data:** 2026-06-26
+- **Severidade:** 🟡 Minor (Functional Correctness)
+- **Arquivo:** `apps/mesas/backend/src/discord/parseDiscordAnnouncement.ts` lines ~313-321 (função `extractDiscordTimestamp`)
+- **Resumo:** `extractDiscordTimestamp` usa `getUTCDay()`/`getUTCHours()`/`getUTCMinutes()` e grava esses valores direto no draft como `day_of_week` e `start_time`. Se o consumo esperado é horário local do anúncio (ex.: Brasil UTC-3), o dia e a hora podem ficar deslocados em relação ao que foi publicado no Discord. Ex.: um jogo anunciado às 19h (horário local) aparece como 22h (UTC) no draft.
+
+#### Evidência — REV-009
+
+- **Arquivos/linhas:** `parseDiscordAnnouncement.ts:346-362` — função `extractDiscordTimestamp`.
+  - Linha 356: `const dayOfWeek = daysPt[date.getUTCDay()];`
+  - Linha 357: `const hh = String(date.getUTCHours()).padStart(2, '0');`
+  - Linha 358: `const mm = String(date.getUTCMinutes()).padStart(2, '0');`
+- **Código relacionado:** A função é chamada durante o parsing de anúncios na Fase C (T-C1, timestamps Discord `<t:UNIX>`). O valor extraído é injetado em `DiscordTableDraftTable.day_of_week` e `start_time`.
+- **Já existe tratamento no projeto?** Não. A função `extractStartTime` (linha 334, regex de "19h"/"19:00") extrai horário literal do texto, que já é o horário local pretendido pelo autor. `extractDiscordTimestamp` é a única que lida com timestamps Unix e aplica UTC sem ajuste.
+- **Impacto real:** Para anúncios em fuso brasileiro (UTC-3, maioria), o `start_time` fica 3 horas adiantado. `day_of_week` pode cruzar a meia-noite (ex.: 22h UTC de domingo → "segunda" em vez de "domingo" se o offset cruzar). Isso exige que o admin corrija manualmente o draft.
+- **Severidade real:** **Baixa (Minor)** — os drafts exigem revisão humana de qualquer forma, e o admin pode corrigir. Mas a informação extraída fica errada por padrão para o fuso brasileiro, degradando a automação.
+- **Risco de regressão:** Moderado. Ajustar para fuso local exige decidir qual fuso alvo (Brasil UTC-3 fixo? Ou inferir do servidor Discord?). Se `extractDiscordTimestamp` é suposto ser UTC, documentar isso no draft (`_notes` ou campo dedicado) evita confusão.
+- **Conclusão:** **Procede.** A função deve ou (a) converter para o fuso local alvo (ex.: UTC-3, subtrair 3h), ou (b) marcar explicitamente que o valor é UTC no `_notes` do draft, ou (c) usar `getDay()`/`getHours()`/`getMinutes()` (hora local do servidor) se o ambiente de execução estiver no fuso correto. A opção (a) com constante de offset é a mais previsível.
+- **Débito vinculado:** DEB-048-18
+
+---
+
+### REV-010 — Falta Array.isArray em messageIds de payload externo
+
+- **Origem:** @coderabbitai (bot)
+- **Data:** 2026-06-26
+- **Severidade:** 🟠 Major (Security & Privacy)
+- **Arquivo:** `apps/mesas/backend/src/routes/discord/import.ts` lines ~41-51
+- **Resumo:** `messageIds` vem de `req.body` (payload externo não confiável). O acesso a `messageIds.length` (linha 49) e o cast `messageIds as any` (linha 50) na cláusula `in` assumem que é um array. Um cliente pode enviar `messageIds: "abc"` (string), fazendo `.length` passar (`3 > 0`) e gerar SQL inválido / comportamento inesperado. **Violação da regra pétrea:** "É proibido usar `.length` sobre payload externo sem `Array.isArray`".
+
+#### Evidência — REV-010
+
+- **Arquivos/linhas:** `import.ts:41-51`:
+  - Linha 41: `const { messageIds }: { messageIds?: string[] } = req.body ?? {};` — destructuring com tipo TypeScript, sem validação em runtime.
+  - Linha 49: `if (messageIds && messageIds.length > 0)` — `.length` sobre `req.body` sem `Array.isArray`.
+  - Linha 50: `query = query.where('discord_message_id', 'in', messageIds as any);` — `as any` bypassa type-check.
+- **Código relacionado:** A rota `POST /reparse` é protegida por `requireAdmin`, o que reduz o blast radius (só admin autenticado), mas não elimina o risco de dados malformados.
+- **Documentação:** `AGENTS.md` §Normalização obrigatória: "É proibido `.length` sobre payload externo sem `Array.isArray`/schema/fallback explícito."
+- **Já existe tratamento no projeto?** Não. Outras rotas no mesas validam payload com Zod (ex.: `patchDraftSchema`, `importInboxSchema`). Esta rota não tem schema Zod para o body.
+- **Impacto real:** Um admin enviando payload malformado (string em vez de array) pode causar erro 500 ou SQL injection-like via injeção na cláusula `IN`. Blast radius limitado a admin autenticado, mas viola a regra pétrea de normalização.
+- **Severidade real:** **Média (Major)** — rota admin-only reduz criticidade, mas a violação de regra pétrea + bypass de type-safety é grave.
+- **Risco de regressão:** Muito baixo. Adicionar `Array.isArray(messageIds) && messageIds.every(id => typeof id === 'string')` antes do `.length` e da cláusula `in`. Remover o `as any`.
+- **Conclusão:** **Procede.** Deve validar `messageIds` como array de strings com `Array.isArray` antes de usar `.length` e `in`, eliminando o `as any`.
+- **Débito vinculado:** DEB-048-19
+
+---
+
+### REV-011 — Catch interno pode abortar lote inteiro se DB falhar
+
+- **Origem:** @coderabbitai (bot)
+- **Data:** 2026-06-26
+- **Severidade:** 🟡 Minor (Stability & Availability)
+- **Arquivo:** `apps/mesas/backend/src/routes/discord/import.ts` lines ~124-130
+- **Resumo:** O `catch` interno (linha 124) executa `await db.updateTable(...)` para marcar a mensagem como `error`. Se essa atualização falhar (ex.: indisponibilidade momentânea do banco), o erro escapa para o `catch` externo (linha 140), que retorna 500 e **interrompe o processamento das mensagens restantes no lote**. Além disso, `parse_error: 'Erro no reparse em lote'` descarta a causa real do erro, dificultando diagnóstico.
+
+#### Evidência — REV-011
+
+- **Arquivos/linhas:** `import.ts:124-130`:
+  - Linha 124: `} catch {` — captura erro do loop de processamento, mas não captura erro do próprio `db.updateTable`.
+  - Linhas 125-128: `await db.updateTable('discord_import_messages').set({ status: 'error', parse_error: 'Erro no reparse em lote', ... }).execute();` — se esta query falhar, o erro **não é capturado pelo catch atual** (já está dentro do catch, mas `await` pode lançar).
+  - Linha 131: `errors++;` — nunca executado se o `updateTable` lançar.
+- **Código relacionado:** O loop for (linha 62) processa cada mensagem sequencialmente. Se uma iteração falha no catch → erro propaga para `catch` externo (linha 140) → `res.status(500)` → lote abortado.
+- **Já existe tratamento no projeto?** Padrão similar no `ingestMessages.ts` — mas lá o processamento é em lotes menores e idempotente, o que reduz o impacto de abort.
+- **Impacto real:** Em condição de stress do banco (conexão cai, deadlock, timeout), uma falha de update em uma mensagem com erro aborta todo o lote de até 500 mensagens. As mensagens processadas antes da falha **já tiveram seus drafts atualizados** (commit automático por statement), mas o endpoint retorna 500 (o admin não sabe quantas foram processadas).
+- **Severidade real:** **Baixa (Minor)** — cenário de falha de DB durante catch é raro, mas quando ocorre, o impacto é desproporcional (lote inteiro abortado + inconsistência de estado).
+- **Risco de regressão:** Muito baixo. Envolver o `db.updateTable` do catch em seu próprio `try/catch` interno. Se falhar, logar o erro real e continuar o loop. Preservar `error.message` (ou ao menos `error instanceof Error ? error.message : 'unknown'`) no `parse_error` em vez de string genérica.
+- **Conclusão:** **Procede.** Deve envolver a atualização de status de erro em `try/catch` próprio e preservar a mensagem de erro real.
+- **Débito vinculado:** DEB-048-20
+
+---
+
+### REV-012 — Duplicated Lines 32.4% em import.ts (boilerplate)
+
+- **Origem:** @coderabbitai (bot) — análise de duplicação
+- **Data:** 2026-06-26
+- **Severidade:** 🟡 Info
+- **Arquivo:** `apps/mesas/backend/src/routes/discord/import.ts`
+- **Métrica:** 32.4% de linhas duplicadas no novo código (`/reparse`, L38-144); 5.3% no total do PR
+- **Resumo:** O endpoint `POST /import-json/reparse` (L38-144) tem sobreposição estrutural com o endpoint `POST /` (L10-34): ambos recebem payload, usam `requireAdmin`, chamam `parseDiscordMessage` (direta ou indiretamente), respondem com envelope `{ data: { ... } }` e têm catch blocks com `console.error` + `res.status(500)`.
+- **Status:** investigado — **procede (baixa prioridade)**
+- **Task vinculada:** —
+- **Débito vinculado:** DEB-048-21
+
+#### Evidência — REV-012
+
+- **Arquivos/linhas:**
+  - `import.ts:10-36` — handler `POST /`: extrai payload → `importDiscordChatExporterJson` → `{ data: { total, inserted, updated, ignored, failed } }` + catch com `DiscordChatExporterValidationError`→400 / default→500.
+  - `import.ts:38-144` — handler `POST /reparse`: extrai `messageIds` → query DB → loop `parseDiscordMessage` → reconcilia drafts → `{ data: { total, reparsed, errors } }` + catch default→500.
+- **Sobreposição:** boilerplate estrutural de handlers Express (try/catch + envelope JSON). Lógicas de negócio são distintas.
+- **Conclusão (verificado no código, 2026-06-26):** **Procede** como dívida real, mas **baixa prioridade (Info)**. O dedup correto = extrair helper de resposta de erro compartilhado (`respondImportError`), **sem** abstrair a lógica de negócio. **Fazer por último** no PR-4, depois dos fixes REV-008/010/011 que remodelam o `/reparse`, para evitar churn. Débito: DEB-048-21.
+
+---
+
 ## Implementação — REV-006 (2026-06-23)
 
 ### O que foi feito

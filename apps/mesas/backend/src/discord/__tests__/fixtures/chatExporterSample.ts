@@ -176,4 +176,43 @@ export const chatExporterSampleMessages: ImportRawMessage[] = [
     message_created_at: new Date('2026-06-23T11:00:00-03:00'),
     message_edited_at: null,
   },
+
+  // 7. msg-007: mensagem alvo de reply (DEB-048-14)
+  {
+    source_kind: 'discord_chat_exporter_json',
+    discord_message_id: 'msg-007',
+    discord_channel_id: 'channel-fake',
+    discord_guild_id: 'guild-001',
+    discord_parent_channel_id: null,
+    discord_thread_id: 'thread-007',
+    discord_thread_name: 'D&D 5e: Procura-se Jogadores',
+    discord_author_id: 'author-fake-7',
+    discord_author_name: 'MestreRecrutador',
+    discord_message_url: 'https://discord.com/channels/guild-001/channel-fake/msg-007',
+    content_raw: 'Procurando jogadores para uma campanha de D&D 5e nas sextas à noite.',
+    attachments: [],
+    embeds: [],
+    message_created_at: new Date('2026-06-24T14:00:00-03:00'),
+    message_edited_at: null,
+  },
+
+  // 8. msg-008: reply para msg-007 (DEB-048-14)
+  {
+    source_kind: 'discord_chat_exporter_json',
+    discord_message_id: 'msg-008',
+    discord_channel_id: 'channel-fake',
+    discord_guild_id: 'guild-001',
+    discord_parent_channel_id: null,
+    discord_thread_id: 'thread-007',
+    discord_thread_name: 'Re: D&D 5e: Procura-se Jogadores',
+    discord_author_id: 'author-fake-8',
+    discord_author_name: 'JogadorInteressado',
+    discord_message_url: 'https://discord.com/channels/guild-001/channel-fake/msg-008',
+    content_raw: 'Tenho interesse! Me chama no privado.',
+    attachments: [],
+    embeds: [],
+    reference: { messageId: 'msg-007' },
+    message_created_at: new Date('2026-06-24T14:05:00-03:00'),
+    message_edited_at: null,
+  },
 ];

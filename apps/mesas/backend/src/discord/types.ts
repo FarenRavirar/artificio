@@ -103,6 +103,8 @@ export interface ImportRawMessage {
   content_raw: string;
   attachments: unknown[];
   embeds: unknown[];
+  /** Referência de reply (DiscordChatExporter). messageId da mensagem respondida. */
+  reference?: { messageId: string; channelId?: string; guildId?: string } | null;
   message_created_at: Date | null;
   message_edited_at: Date | null;
 }

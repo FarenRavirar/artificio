@@ -7,6 +7,16 @@ import { parseDiscordMessage, ensureSystemSuggestionForDraft, reconcileTerminalD
 
 const router = Router();
 
+// DEB-048-21: helper compartilhado de resposta de erro
+function respondImportError(res: Response, error: unknown): void {
+  if (error instanceof DiscordChatExporterValidationError) {
+    res.status(400).json({ error: error.message });
+    return;
+  }
+  console.error('[import-json]', error instanceof Error ? error.message : 'unknown error');
+  res.status(500).json({ error: 'Erro ao processar JSON do DiscordChatExporter.' });
+}
+
 router.post('/', requireAdmin, async (req: Request, res: Response) => {
 
   try {
@@ -27,36 +37,50 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
       },
     });
   } catch (error: unknown) {
-    if (error instanceof DiscordChatExporterValidationError) {
-      return res.status(400).json({ error: error.message });
-    }
-    console.error('[POST /admin/discord-sync/import-json]', error instanceof Error ? error.message : 'unknown error');
-    return res.status(500).json({ error: 'Erro ao importar JSON do DiscordChatExporter.' });
+    respondImportError(res, error);
   }
 });
 
 // POST /import-json/reparse — reprocessa mensagens DiscordChatExporter pendentes
 router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { messageIds }: { messageIds?: string[] } = req.body ?? {};
+    // DEB-048-19: validação robusta de messageIds (payload externo)
+    const { messageIds: rawIds } = req.body ?? {};
+    let messageIds: string[] | undefined;
 
+    if (rawIds !== undefined && rawIds !== null) {
+      if (!Array.isArray(rawIds)) {
+        return res.status(400).json({ error: 'messageIds deve ser um array de strings.' });
+      }
+      if (!rawIds.every((id: unknown) => typeof id === 'string' && id.length > 0)) {
+        return res.status(400).json({ error: 'messageIds deve conter apenas strings não-vazias.' });
+      }
+      messageIds = rawIds as string[];
+    }
+
+    // DEB-048-17: lista de status condicional numa ÚNICA cláusula. Múltiplos
+    // .where('status',...) são ANDeados pelo Kysely — somar 'parsed' num 2º
+    // .where não funcionaria (interseção excluiria 'parsed').
     let query = db
       .selectFrom('discord_import_messages')
       .selectAll()
       .where('source_kind', '=', 'discord_chat_exporter_json')
-      .where('status', 'in', ['pending', 'needs_review']);
+      .where('status', 'in', (messageIds && messageIds.length > 0)
+        ? ['pending', 'needs_review', 'parsed']
+        : ['pending', 'needs_review']);
 
     if (messageIds && messageIds.length > 0) {
-      query = query.where('discord_message_id', 'in', messageIds as any);
+      query = query.where('discord_message_id', 'in', messageIds);
     }
 
     const messages = await query.limit(500).execute();
 
     if (messages.length === 0) {
-      return res.json({ data: { total: 0, reparsed: 0, errors: 0 } });
+      return res.json({ data: { total: 0, reparsed: 0, ignored: 0, errors: 0 } });
     }
 
     let reparsed = 0;
+    let ignored = 0;
     let errors = 0;
 
     for (const message of messages) {
@@ -70,7 +94,7 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
             .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
             .where('id', '=', message.id)
             .execute();
-          reparsed++;
+          ignored++;
           continue;
         }
         const { parsed, normalized } = result;
@@ -121,11 +145,18 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
         );
 
         reparsed++;
-      } catch {
-        await db.updateTable('discord_import_messages')
-          .set({ status: 'error', parse_error: 'Erro no reparse em lote', updated_at: new Date() })
-          .where('id', '=', message.id)
-          .execute();
+      } catch (err: unknown) {
+        // DEB-048-20: catch interno próprio + preserva causa
+        const errorMessage = err instanceof Error ? err.message : 'unknown error';
+        try {
+          await db.updateTable('discord_import_messages')
+            .set({ status: 'error', parse_error: errorMessage, updated_at: new Date() })
+            .where('id', '=', message.id)
+            .execute();
+        } catch (dbError: unknown) {
+          console.error('[POST /admin/discord-sync/import-json/reparse] DB update failed for message', message.id,
+            dbError instanceof Error ? dbError.message : 'unknown db error');
+        }
         errors++;
       }
     }
@@ -134,12 +165,12 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
       data: {
         total: messages.length,
         reparsed,
+        ignored,
         errors,
       },
     });
   } catch (error: unknown) {
-    console.error('[POST /admin/discord-sync/import-json/reparse]', error instanceof Error ? error.message : 'unknown error');
-    return res.status(500).json({ error: 'Erro ao reprocessar mensagens do DiscordChatExporter.' });
+    respondImportError(res, error);
   }
 });
 

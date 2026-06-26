@@ -276,8 +276,17 @@
   - Teste em `chatExporterImportService.test.ts`: 100 mensagens → total 100, sem throw O(n²).
 - [x] T-F6 — Reprocessamento controlado.
   - Endpoint `POST /import-json/reparse`: busca mensagens `pending`/`needs_review` com `source_kind='discord_chat_exporter_json'`, chama `parseDiscordMessage` (shared), atualiza drafts. Limite 500 por chamada. `synced` nunca reprocessado sem `messageIds` explícito.
-- [x] T-F7 — Estratégia para anexos grandes/vídeos (**documentado** → DEB-048-13).
-- [x] T-F8 — Estratégia para replies/threads (**documentado** → DEB-048-14).
+- [x] T-F7 — Estratégia para anexos grandes/vídeos (**implementado** → DEB-048-13 fechado).
+  - `extractCoverFromAttachments` corrigido: fallback por extensão `fileName` (.png/.jpg/.webp/.gif) quando `content_type` ausente (ChatExporter real).
+  - `buildAttachmentNotes`: anexos não-imagem (.mp4, .txt, etc.) viram nota `"Anexo: <nome> (<tamanho>) — <url>"` em `_notes`.
+  - SVG ignorado por extensão. Compat retroativa com bot-fetch (`content_type`).
+  - Testes: 8 novos (png por extensão, jpg, mp4 gera nota, txt gera nota, bot-fetch compat, svg ignorado, sem fileName).
+- [x] T-F8 — Estratégia para replies/threads (**implementado** → DEB-048-14 fechado).
+  - `ImportRawMessage.reference?: { messageId; channelId?; guildId? }` adicionado.
+  - `adaptMessageToImportRaw` popula `reference` a partir de `msg.reference`.
+  - `parseDiscordAnnouncement(message, systems, replyContext?)` — novo 3º parâmetro opcional; injeta `"Em resposta a: <snippet>"` em `_notes`.
+  - `chatExporterImportService` constrói `contentIndex: Map<messageId, snippet>` (~80 chars) no batch.
+  - Fixture: msg-007 (alvo) + msg-008 (reply). Testes: 4 (replyContext→nota, truncado 80 chars, undefined→sem nota, referência órfã).
 - [x] T-F9 — Mapa de campos para `metadata` (**documentado** → DEB-048-15).
 - [x] T-F10 — Checklist anti-regressão 047.
   - `import.ts` e `chatExporterImportService.ts`: zero ocorrências de `import_messages` (só `discord_import_messages`).
@@ -635,3 +644,94 @@
 - Não readicionar `chrono-node`/`fuzzball`.
 - Não responder bots/reviews no PR.
 - Não commitar/pushar/abrir PR sem autorização nominal do mantenedor.
+
+## Handoff #5 — PR-3 DEB-048-13 (anexos, T-F7) + DEB-048-14 (replies, T-F8) — para DeepSeek (2026-06-26)
+
+> Arquitetura/diagnóstico por Claude (Opus). Implementação por DeepSeek. Determinístico, sem migration, sem lib nova, sem IA. Branch própria → PR → dev. **Não commitar/pushar/abrir PR sem autorização nominal.**
+
+### Contexto verificado (working tree pós PR #98)
+- Adapter: `apps/mesas/backend/src/discord/chatExporterAdapter.ts:37` `adaptMessageToImportRaw(msg, exportData)` monta `ImportRawMessage`. Hoje carrega `attachments`, `embeds` mas **NÃO** carrega `reference`.
+- Tipo destino: `ImportRawMessage` (`types.ts:92`) tem `attachments: unknown[]`, `embeds: unknown[]`, `content_raw`, mas **não tem** campo `reference`.
+- Schema fonte (`discordChatExporterTypes.ts`):
+  - `discordChatExporterAttachmentSchema` (L14): só `id`, `url`, `fileName`, `fileSizeBytes` — **NÃO tem** `content_type`/`width`/`size`.
+  - `discordChatExporterReferenceSchema` (L54): só `messageId`, `channelId?`, `guildId?` — **NÃO tem** `content`.
+  - `discordChatExporterMessageSchema.reference` (L86) existe e é parseado, mas ignorado no pipeline.
+- Parser: `parseDiscordAnnouncement.ts`
+  - `extractCoverFromAttachments` (L49): lê `content_type`/`width`/`size` (formato do **bot-fetch**, não do ChatExporter). **BUG latente:** em JSON do ChatExporter esses campos não existem → cover **nunca casa** por esse caminho.
+  - Notas do draft = campo **`n: string[]`** (`types.ts`), montado em `parseDiscordAnnouncement` (`n: matchedSystem?.notes ?? []`). O "_notes" da decisão = este `n`.
+
+### DEB-048-13 — anexos grandes/vídeos (T-F7)
+Decisão já documentada (debitos.md DEB-048-13): imagens→cover (futuro Cloudinary), vídeos→só URL, grandes→preservar metadata. **Implementar agora (sem download):**
+1. **Corrigir `extractCoverFromAttachments` p/ o formato ChatExporter:** detectar imagem por **extensão do `fileName`** (`.png/.jpg/.jpeg/.webp/.gif`; excluir `.svg`) já que não há `content_type`. Manter compat com o formato bot-fetch (checar ambos: `content_type` se existir, senão extensão). Sem `width`/`size` no ChatExporter → `quality: 'low'` por padrão (ou heurística por `fileSizeBytes` se presente).
+2. **Preservar referência de anexos não-imagem** (vídeo/arquivo grande) em `n`: ex. `"Anexo: nome.mp4 (12.3 MB) — URL"`. Vídeo nunca baixado. Guardar guarda de tamanho legível via `fileSizeBytes`.
+3. **Não** baixar nada, **não** Cloudinary, **não** migration.
+- Teste: fixture com attachment imagem `.png` → cover detectado; attachment `.mp4` → nota em `n`, sem cover.
+
+### DEB-048-14 — replies/threads (T-F8)
+Decisão (debitos.md DEB-048-14): reply com conteúdo próprio = anúncio independente (atual, manter); reply só-referência = contexto em `n`.
+1. **Carregar `reference` no adapter:** adicionar `reference` ao `ImportRawMessage` (campo opcional `reference?: { messageId: string } | null`) e popular em `adaptMessageToImportRaw` a partir de `msg.reference`.
+2. **Resolver a msg referenciada dentro do mesmo export:** como `reference` só tem `messageId` (sem `content`), no serviço (`chatExporterImportService.ts`, antes/durante o loop) montar um índice `Map<messageId, contentSnippet>` do próprio `exportData.messages`; quando uma msg tem `reference.messageId` presente no índice, anexar em `n`: `"Em resposta a: <primeiros ~80 chars do conteúdo referenciado>"`.
+3. **Reply sem match** (referência fora do export) → ignorar silenciosamente (não quebrar).
+4. **Não** alterar `manual_paste`, **não** migration.
+- Teste: fixture com 2 msgs, B referencia A → draft de B tem nota "Em resposta a: <A>"; referência órfã → sem nota, sem erro.
+
+### Gates de validação (antes de entregar)
+- `pnpm --filter @artificio/mesas-backend test` (novos testes 13/14 + suíte sem regressão)
+- `pnpm --filter @artificio/mesas-backend build`
+- `pnpm run lint`
+- Atualizar `debitos.md` (DEB-048-13/14 → resolvido), `tasks.md` (T-F7/T-F8), sessão.
+
+### Não fazer
+- Sem migration, sem lib nova, sem IA, sem VM/cron, sem download de mídia/Cloudinary (fica futuro).
+- Não tocar `manual_paste` nem auto-publicação.
+- Não responder bots/reviews no PR.
+- Não commitar/pushar/abrir PR sem autorização nominal do mantenedor.
+
+## Handoff #6 — PR-4 fixes de review da PR #98 (REV-007..012 / DEB-048-16..21) — para DeepSeek (2026-06-26)
+
+> Investigação/veredito por Claude (Opus): os 6 reviews foram verificados contra o código real (procedem todos). Implementação por DeepSeek, **tudo na branch `feat/048-fase-cf-hardening`** (mesma da PR #98). Determinístico, sem migration, sem lib nova, sem IA. **Não commitar/pushar sem autorização nominal. Não responder os bots no PR.**
+
+### Ordem obrigatória (por prioridade — segurança/dado primeiro, dedup por último)
+
+**1. DEB-048-19 / REV-010 — `Array.isArray` em `messageIds` (Major, viola regra pétrea).** `import.ts:41-51`.
+- `const { messageIds } = req.body ?? {}` é `unknown` até validar. Antes de usar `.length`/`in`: `Array.isArray(messageIds) && messageIds.length > 0 && messageIds.every(id => typeof id === 'string')`.
+- Se `messageIds` presente mas inválido (ex.: string) → **400** com mensagem. Se ausente → fluxo sem filtro de ids (comportamento atual).
+- **Remover o `as any`** da cláusula `.where('discord_message_id', 'in', messageIds)` (tipo já é `string[]` após o guard).
+- Teste: body `{messageIds:"abc"}` → 400; `{messageIds:["x"]}` → ok; sem campo → ok.
+
+**2. DEB-048-16 / REV-007 — reordenar `extractSlots` (P2, perda de dado).** `parseDiscordAnnouncement.ts:247-273`.
+- Mover o guard `mesa em andamento` (L251-253) para **depois** de todos os padrões explícitos (`viaFormsMatch` L256, `deMatch` L266, `vagas totais/disponíveis` L275+). Guard vira **fallback final** (só retorna `null,null` se nenhum padrão explícito casou).
+- Não regredir os matches atuais.
+- Teste: `"Mesa em andamento. 1 vaga via forms"` → `{total:1, open:1}` (não mais `null,null`); `"Mesa em andamento"` sozinho → `null,null`.
+
+**3. DEB-048-17 / REV-008 — filtro de status no `/reparse` (P2, feature quebrada).** `import.ts:43-51`.
+- Quando `messageIds` é fornecido (após o guard do item 1), **incluir `'parsed'`** no filtro de status (ou remover o filtro de status e confiar no guard `message.status === 'synced'` do loop, L65). Sem `messageIds` → manter `['pending','needs_review']` (evita reprocessar tudo).
+- Bônus achado (corrigir junto): no ramo `if (!result)` (L68-74) o status vira `'ignored'` mas conta como `reparsed++` — separar contagem ou renomear, para o retorno refletir realidade.
+- Teste: msg `status='parsed'` + `messageIds=[id]` → reprocessada; `status='synced'` → pulada.
+
+**4. DEB-048-18 / REV-009 — fuso em `extractDiscordTimestamp` (Minor).** `parseDiscordAnnouncement.ts:346-362`.
+- Converter o instante UTC para **fuso de São Paulo** antes de extrair dia/hora. **Preferir `Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', weekday/hour/minute })`** (robusto a horário de verão histórico) em vez de offset fixo −3h (frágil). Se optar por offset fixo como mínimo, documentar a limitação inline.
+- Garantir `dayOfWeek` derivado do mesmo instante convertido (evita cruzar meia-noite errado).
+- Teste: `<t:UNIX>` de um sábado 19h BR → `{dayOfWeek:'sábado', startTime:'19:00'}`, não 22:00/domingo.
+
+**5. DEB-048-20 / REV-011 — catch do loop `/reparse` (Minor).** `import.ts:124-130`.
+- `} catch {` → `} catch (err) {`. Envolver o `db.updateTable(... status:'error' ...)` em **try/catch próprio**; se a update falhar, logar `err instanceof Error ? err.message : 'unknown'` e **continuar o loop** (não deixar escapar pro catch externo → não abortar o lote).
+- Preservar a causa real: `parse_error: err instanceof Error ? err.message : 'Erro no reparse em lote'` (em vez da string genérica).
+- Teste: simular throw no update → loop continua, retorno reflete erros sem 500 global.
+
+**6. DEB-048-21 / REV-012 — dedup boilerplate (Info, POR ÚLTIMO).** `import.ts`.
+- **Só depois** dos itens 1-5 (que remodelam o `/reparse`). Extrair helper compartilhado de erro: `respondImportError(res, error)` mapeando `DiscordChatExporterValidationError`→400, senão `console.error(..., error.message)` + 500. Opcional: helper de envelope `{ data }`.
+- **Não** abstrair lógica de negócio (loop, query, reconcile) — só o boilerplate de catch/envelope.
+- Validar que a métrica de duplicação cai sem perder legibilidade.
+
+### Gates de validação (antes de entregar)
+- `pnpm --filter @artificio/mesas-backend test` (novos testes 1-5 + suíte sem regressão)
+- `pnpm --filter @artificio/mesas-backend build`
+- `pnpm run lint`
+- Atualizar `debitos.md` (DEB-048-16..21 → resolvido), `reviews.md` (status implementado), sessão.
+
+### Não fazer
+- Sem migration, sem lib nova, sem IA, sem VM/cron.
+- Não tocar `manual_paste` nem auto-publicação.
+- Não responder/reagir aos bots (CodeRabbit/Codex) no PR.
+- Não commitar/pushar sem autorização nominal do mantenedor.
