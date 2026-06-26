@@ -17,7 +17,7 @@
 **ABERTO DE VERDADE (escopo de fechamento — decisão mantenedor 2026-06-26: Fase C + F + G completas, NA MESMA SPEC):**
 - **Fase C** parser hardening (T-C1..C9) — parser dev NÃO extrai `<t:UNIX>`, `forms.gle`/`docs.google/forms`, contato implícito, vagas informais (`3 de 5`/`0/5`), role/user mentions como tags, sistema próprio/inspirado, attachments/embeds como evidência.
 - **Fase F** robustez (T-F1..F10) — incl. limite upload **server-side** (hoje só cliente 10MB), fixture sanitizada versionável, perf 100 msgs, sanitização de render, reparse controlado.
-- **Fase G** human-in-the-loop (T-G1..G8) — ✅ T-G1/2/3 implementados (DeepSeek 2026-06-26, local): confidence tiers + cores, ambiguity signals, correção antes/depois p/ Discord. Pendentes: T-G4/5/6/7/8.
+- **Fase G** human-in-the-loop (T-G1..G8) — ✅ **COMPLETA** (DeepSeek 2026-06-26, local). T-G1 (tiers confiança + cores), T-G2 (2 ambiguity signals), T-G3 (correção antes/depois), T-G4 (infra aprendizado não-IA), T-G5 (export few-shot/eval), T-G6 (migration 131 + métricas), T-G7 (shadow mode + migration 132), T-G8 (trava em vigor). **Não commitado.**
 - **Smoke beta real** (gate MVP ainda aberto): confirmar deploy beta com os fixes + re-smoke com `extracao_json.json`.
 
 **Fase E** (automação VM diária) permanece **futuro documentado** — fora do corte de fechamento desta rodada (precisa aprovação nominal p/ VM write).

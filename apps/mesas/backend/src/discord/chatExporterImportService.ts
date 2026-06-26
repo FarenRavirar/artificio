@@ -9,6 +9,29 @@ export const MAX_IMPORT_MESSAGES = 2000;
 /** Limite de segurança: tamanho máximo do JSON bruto em bytes (≤ 12MB global do Express). */
 export const MAX_IMPORT_JSON_BYTES = 10 * 1024 * 1024; // 10MB
 
+/** REV-016 residual: valida buffer multer — DRY entre POST /file (import) e POST /preview/file (preview). */
+export function parseUploadedJsonBuffer(file: { buffer: Buffer }):
+  { parsed: unknown } | { error: string; status: number }
+{
+  const rawJson = file.buffer.toString('utf-8');
+
+  if (rawJson.length > MAX_IMPORT_JSON_BYTES) {
+    return {
+      error: `JSON muito grande (${(rawJson.length / 1024 / 1024).toFixed(1)} MB). O limite é ${MAX_IMPORT_JSON_BYTES / 1024 / 1024} MB.`,
+      status: 413,
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawJson);
+  } catch {
+    return { error: 'JSON inválido: o arquivo não contém JSON válido.', status: 400 };
+  }
+
+  return { parsed };
+}
+
 function mapChannelType(type: string | undefined): 'text' | 'announcement' | 'forum' {
   switch (type) {
     case 'announcement':

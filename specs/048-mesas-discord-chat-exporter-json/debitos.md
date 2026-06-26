@@ -22,28 +22,29 @@
 - **Severidade:** Média
 - **Descrição:** Amostra real contém `<t:UNIX:...>`, Google Forms, role mentions, contato implícito por autor e formatos variados de vagas/preço. O MVP importa, persiste, deduplica e gera drafts; as tasks T-C são **Fase C (parser hardening), pós-MVP**. A perda é de qualidade de extração (falsos negativos em contato, sistema, vagas, preço), não de funcionalidade core.
 - **Ação:** Implementar tasks T-C1..T-C9. Priorizar T-C1 (timestamps), T-C2 (Google Forms), T-C3 (contato), T-C6 (vagas informais) como mínimo para o JSON real não degradar.
-- **Status:** **parcial (2026-06-26)** — PR-1 da Fase C implementado: T-C1 (timestamps Discord `<t:UNIX>`), T-C2 (Google Forms), T-C3 (contato implícito), T-C6 (vagas informais: `3 de 5`, `0/5`, `1 vaga via forms`, `mesa em andamento`). Regex determinístico puro, sem libs novas. Testes 237/237 ✅, lint 15/15 ✅, build ✅. Restam: T-C4 (role mentions), T-C5, T-C7, T-C8, T-C9 (fora do PR-1). Código local, não commitado.
+- **Status:** **parcial (2026-06-26)** — PR #98 (Fase C, merged em `dev`) implementou: T-C1 (timestamps Discord `<t:UNIX>`), T-C2 (Google Forms `forms.gle`/`docs.google.com/forms`), T-C3 (contato=autor fallback, substituindo `detectImplicitContact`), T-C6 (vagas informais: `3 de 5`, `0/5`, `1 vaga via forms`, `mesa em andamento` como fallback). Regex determinístico puro, sem libs novas. Restam: T-C4 (role mentions), T-C5 (user mentions genérico), T-C7 (preço: sessão zero gratuita, custo de plataforma), T-C9 (attachments/embeds como evidências). T-C8 replanejado → DEB-048-27 (sistema próprio → descartar, não extrair).
 
-### Análise detalhada por T-C (2026-06-23, verificado 2026-06-23)
+### Análise detalhada por T-C (auditoria 2026-06-23; **atualizado 2026-06-26** — código verificado contra `origin/dev` pós-PR #98)
 
 | T-C | Padrão | Status | Arquivo/linha | Detalhes |
 |-----|--------|--------|---------------|----------|
-| T-C1 | Discord timestamp `<t:UNIX:F/t>` | ❌ Não implementado | `parseDiscordAnnouncement.ts` | Nenhuma regex ou parser para `<t:` existe. Amostra: 4 mensagens com esses timestamps. Perda: timestamp de data/hora não extraído. |
-| T-C2 | Google Forms (`forms.gle`, `docs.google.com/forms`) | ❌ Não implementado | — | Amostra: 11 mensagens com Google Forms. Perda: link de formulário não identificado como contato/recrutamento. |
-| T-C3 | Contato implícito por autor ("me mande mensagem", "me chama", "fale comigo", "este perfil") | ❌ Não implementado | `parseDiscordAnnouncement.ts:291` (`extractContactDiscord`) | Só detecta menção explícita (`<#id>`, `<@!id>`) + label contato/ticket/inscrição. Frases de contato implícito não são detectadas. |
-| T-C4 | Role mentions `<@&id>` como tags/evidências brutas | ❌ Não implementado | — | Amostra: 60 mensagens com role mentions. Perda: tags/evidências de sistema ou tema não preservadas. |
-| T-C5 | User mentions `<@id>` / `<@!id>` como possível contato | ⚠️ Parcial | `extractHostDiscordId` (linha 319), `extractContactDiscord` (linha 292) | Extrai como host ou contato quando combinado com labels. Não há extração genérica de menções como campo de metadados. |
-| T-C6 | Vagas (`3 de 5`, `0/5`, `5 vagas`, `1 vaga via forms`, `mesa em andamento`) | ⚠️ Parcial | `extractSlots` (linha 208) | Cobre padrões estruturados ("vagas totais: N"). Não cobre padrões informais como `3 de 5`, `0/5`, `1 vaga via forms`, `mesa em andamento`. |
-| T-C7 | Mesa paga/gratuita (sessão zero gratuita, custo de plataforma) | ⚠️ Parcial | `extractPrice` (linha 191) | Cobre `R$` e `gratuita`/`free`/`sem custo`. Não cobre "sessão zero gratuita" (primeira sessão grátis) ou "gratuita com custo de plataforma". |
-| T-C8 | Sistema próprio/autoral → **DESCARTAR** | 🔁 Replanejado → **DEB-048-27** | Decisão mantenedor 2026-06-26: sistema próprio/autoral/homebrew **não vira mesa** (parse → `null` → `ignored`). "inspirado/baseado em <conhecido>" = ponto de decisão (default: não descartar). Ver DEB-048-27. |
-| T-C9 | Attachments/embeds como evidências (link, formulário, YouTube, canonicalUrl, `.txt` complementar) | ⚠️ Parcial | `extractCoverFromAttachments` | Só extrai capa de attachments. Não extrai links de formulário/site/YouTube de embeds, nem `.txt` como material complementar, nem canonicalUrl. |
+| T-C1 | Discord timestamp `<t:UNIX:F/t>` | ✅ Implementado (PR #98) | `parseDiscordAnnouncement.ts:384` (`extractDiscordTimestamp`), usado em `:636` | Regex `/<t:(\d+):[a-zA-Z]+>/` → `new Date(unix*1000)` → dia PT (curto, sem `-feira`) + `HH:MM` com fuso `America/Sao_Paulo`. Preferido sobre `extractDayOfWeek`/`extractStartTime` quando presente. |
+| T-C2 | Google Forms (`forms.gle`, `docs.google.com/forms`) | ✅ Implementado (PR #98) | `parseDiscordAnnouncement.ts:640-643` | Regex captura ambos os domínios; prioridade sobre `extractContactUrl` genérica (URL do form vira `contact_url`). |
+| T-C3 | Contato implícito por autor | ✅ Substituído por **DEB-048-26** | `parseDiscordAnnouncement.ts:648-656` | Abordagem antiga (`detectImplicitContact` com frase-gatilho "me chama"/"fale comigo") **removida**. Nova abordagem: **contato = autor do Discord** sempre que não há `contactUrl` nem menção explícita. Autor também vira `hostDiscordId` se vazio. |
+| T-C4 | Role mentions `<@&id>` como tags/evidências brutas | ❌ Não implementado | — | Amostra: 60 mensagens com role mentions. Perda: tags/evidências de sistema ou tema não preservadas. Fora do PR #98. |
+| T-C5 | User mentions `<@id>` / `<@!id>` como possível contato | ⚠️ Parcial | `extractHostDiscordId`, `extractContactDiscord` | Extrai como host ou contato quando combinado com labels. Não há extração genérica de menções como campo de metadados. Fora do PR #98. |
+| T-C6 | Vagas (`3 de 5`, `0/5`, `5 vagas`, `1 vaga via forms`, `mesa em andamento`) | ✅ Implementado (PR #98) | `parseDiscordAnnouncement.ts:338-350` (`extractSlots`) | 7 padrões explícitos (`slotsViaForms`, `slotsXdeY`, `slotsTotalOpen`, `slotsAmbiguousSlash`, `slotsLabeled`, `slotsSlashVagas`, `slotsNVagas`) testados **antes** do fallback `null/null`. "Mesa em andamento" sem outro padrão → `null/null` (sem fabricar número). DEB-048-16: reordenado (explícitos primeiro, guard por último). |
+| T-C7 | Mesa paga/gratuita (sessão zero gratuita, custo de plataforma) | ⚠️ Parcial | `extractPrice` (`:191`) | Cobre `R$` e `gratuita`/`free`/`sem custo`. Não cobre "sessão zero gratuita" (primeira sessão grátis) ou "gratuita com custo de plataforma". Fora do PR #98. |
+| T-C8 | Sistema próprio/autoral → **DESCARTAR** | 🔁 Replanejado → **DEB-048-27** | `parseDiscordAnnouncement.ts:571` (`isHomebrewSystem`), `:601-603` | Decisão mantenedor 2026-06-26: sistema próprio/autoral/homebrew **não vira mesa** (parse → `null` → `ignored`). Regex sobre hint de sistema (não corpo inteiro). "inspirado/baseado em <conhecido>" = ponto de decisão (default: não descartar). Ver DEB-048-27. |
+| T-C9 | Attachments/embeds como evidências (link, formulário, YouTube, canonicalUrl, `.txt` complementar) | ⚠️ Parcial | `extractCoverFromAttachments`, `buildAttachmentNotes` | Cobre capa por extensão de `fileName` (DEB-048-13) + notas p/ anexos não-imagem (`.mp4`, `.txt`, etc.). Não extrai links de formulário/site/YouTube de embeds, nem canonicalUrl. Fora do PR #98. |
 
 ### Observações
 
-- O Handoff #2 (`tasks.md:411-415`) recomenda implementar apenas T-C1, T-C2, T-C3, T-C6 como "mínimo necessário para o JSON real não degradar".
-- T-C4, T-C8 e T-C9 podem ficar para depois do MVP sem impacto funcional.
-- Risco de regressão ao implementar: médio. Adicionar parsing de padrões informais pode introduzir falsos positivos (detectar "me mande mensagem" em contexto não-recruitment) ou conflito de regex.
-- Todas as T-C exigem testes com fixture real (`extracao_json.json`) antes de commit para validar matriz de acertos/erros.
+- T-C1/C2/C3/C6 implementados no PR #98 (merged em `dev`, commit `440aa2a`). Código verificado em 2026-06-26.
+- T-C4 (role mentions), T-C5 (user mentions genérico), T-C7 (preço avançado), T-C9 (embeds como evidência) permanecem **não implementados** — débitos de qualidade, não bloqueiam MVP.
+- T-C3 original (frase-gatilho) foi substituído por abordagem mais abrangente (DEB-048-26): autor sempre vira contato fallback, eliminando falsos negativos.
+- Risco de regressão ao implementar os restantes: médio. Adicionar parsing de padrões informais pode introduzir falsos positivos.
+- Todas as T-C implementadas têm testes com fixture `chatExporterSample.ts` cobrindo matriz de acertos/erros.
 
 ## DEB-048-04 — Import runs podem precisar de auditoria própria
 
@@ -512,3 +513,36 @@
 - **Fix (1 linha em cada):** trocar `?? null` por `?? undefined` (ou só `req.user?.userId`) em `discord/corrections.ts:29` e `inbox/corrections.ts:27`.
 - **Nota:** o erro reportado pelo LSP em `parseDiscordAnnouncement.ts:648` (confidence_tier) era **stale** — o return principal (L690) já inclui `confidence_tier`. O build real só acusa os 2 acima.
 - **Status:** ✅ **CORRIGIDO (Claude 2026-06-26).** `?? null` → `?? undefined` em `discord/corrections.ts:29` e `inbox/corrections.ts:27`. Build ✅, test **273/273** ✅, lint 15/15 ✅. (LSP mostra `registerDraftCorrection` não-exportado como **stale** — `tsc` passa; `utils.ts` exporta a função.)
+
+## DEB-048-29 — Sistema autoral: 3 camadas (descarte claro / revisão ambígua / ensino por sugestão)
+
+- **Origem:** mantenedor 2026-06-26 — refino do DEB-048-27 (que faz hard-discard de TODO autoral). Pedido: descarte silencioso só p/ casos nítidos; ambíguos vão p/ revisão p/ humano decidir; e um caminho p/ "ensinar" o detector quando ele errar.
+- **Severidade:** 🟡 Melhoria de qualidade/UX (não bloqueante). Reduz falso-descarte e perda de dado.
+- **Decisão de comportamento (escolhas do mantenedor):**
+  - **Camada 1 — CLARO → DESCARTA (contado, não silencioso).** Nitidamente próprio/homebrew/autoral/caseiro. Continua virando `parse → null` + contador `discarded`.
+  - **Camada 2 — AMBÍGUO → REVISÃO com flag "autoral?".** Vira draft `needs_review` com marca; reviewer decide Manter (sync) ou Descartar (reject). Nada some sozinho nesta camada.
+  - **Camada 3 — ENSINO por SUGESTÃO (gated).** Num draft que passou como **válido** mas É próprio, reviewer aciona "marcar como sistema próprio" → grava **sugestão** (termo + contagem + exemplo) numa fila. Painel admin lista candidatos com `[Promover]`/`[Ignorar]`; só o mantenedor **promove** o termo p/ a lista que o detector consulta. Sem aprendizado automático.
+- **Detecção (dividir `RE_HOMEBREW_SYSTEM` atual em dois):**
+  - `RE_HOMEBREW_STRONG` (→ descarta): `\b(sistema\s+)?(pr[óo]prio|autoral|homebrew|caseiro)\b`
+  - `RE_HOMEBREW_WEAK` (→ revisão): `\b(inspirad[oa]|basead[oa]|adaptad[oa])\s+(em|n[oa])\b`
+  - **Lista promovida** (DB): termos aprovados manualmente entram como STRONG-equivalentes (descarta) — decidir na impl se promovido descarta ou só flag. **Recomendo: promovido = descarta** (mantenedor já validou).
+  - ⚠️ **NÃO** classificar "sistema desconhecido sem match" como ambíguo — inundaria a revisão (maioria dos desconhecidos não é homebrew). WEAK = só as frases acima.
+- **Pré-requisito já entregue:** fix CodeRabbit `keepParenthetical` (extractLabelValue) — o gate precisa enxergar o sinal dentro do parêntese ("...(Sistema próprio...)"). Mantido.
+- **Schema novo (migration, online-safe):** `discord_homebrew_signals`: `{ id, term, source_draft_id, occurrence_count, status: pending|promoted|ignored, created_at, promoted_at, promoted_by }`.
+- **Backend:**
+  - `classifyHomebrew(message): 'discard' | 'review' | 'none'` substitui `isHomebrewSystem` (que vira wrapper de `=== 'discard'`).
+  - `parseDiscordAnnouncement`: `null` só p/ `'discard'`; `'review'` → cria draft `needs_review` + `table._homebrew_suspect = true` + review note.
+  - Endpoint sugestão: `POST /drafts/:id/mark-homebrew` → upsert em `discord_homebrew_signals` (incrementa `occurrence_count`) + reject draft.
+  - Endpoints painel: `GET /homebrew-signals` (pending), `POST /homebrew-signals/:id/promote`, `POST /homebrew-signals/:id/ignore`.
+  - Detector carrega lista `promoted` junto com a regex.
+- **Frontend:**
+  - Badge `⚠ autoral?` no card de draft com `_homebrew_suspect`.
+  - Ação "marcar como sistema próprio" em draft válido → chama `mark-homebrew`.
+  - Painel admin "candidatos a termo homebrew": lista + contagem + `[Promover]`/`[Ignorar]`.
+- **Tests:** `T-F1-B-01` (atualizado p/ DEB-048-27) **continua `null`** ("sistema próprio" = STRONG = claro). Novos: WEAK ("baseado em") → draft flagged; STRONG → null; `mark-homebrew` → sugestão; promote → detector passa a descartar o termo.
+- **Escopo/modo:** SDD Lite (só `apps/mesas`: parse + routes + frontend + 1 migration). Sem tocar `packages/*`.
+- **Status:** 🟡 **PARCIAL (Claude 2026-06-26).**
+  - ✅ **Fase 1 (núcleo)** — `RE_HOMEBREW_STRONG`/`RE_HOMEBREW_WEAK` + `classifyHomebrew()`; `parse` descarta só STRONG, WEAK vira draft `_homebrew_suspect`; `normalizeDiscordTableDraft` empurra `system_name:homebrew_suspect` → needs_review; tipo `DiscordTableDraftTable._homebrew_suspect` + zod passthrough. Tests atualizados (DEB-048-27 STRONG=null; DEB-048-29 WEAK=needs_review; `classifyHomebrew`).
+  - ✅ **Fase 2 (revisão)** — badge `⚠ autoral?` em `DiscordDraftReviewTable` (lista) e `⚠ Possível sistema autoral` em `DiscordDraftPreview` (detalhe). Decisão usa Sincronizar(manter)/rejeitar(descartar) já existentes.
+  - ⏳ **Fase 3 (ensino) — PENDENTE.** Migration `discord_homebrew_signals` + `mark-homebrew` + painel candidatos + promote. Não implementada.
+  - **Validação:** backend build ✅, test **284/284** ✅; frontend build ✅, test **163/163** ✅; lint **15/15** ✅.

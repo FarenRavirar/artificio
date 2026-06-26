@@ -2,6 +2,7 @@
 import sys
 import argparse
 import os
+import re
 import psycopg2
 
 def check_environment(dest_dsn: str, dest_host: str, dest_db: str):
@@ -109,90 +110,93 @@ def anonymize_val(col, val, row_dict):
         return "fake_deletehash"
     return val
 
+def _validate_table_name(name: str) -> str:
+    """Valida nome de tabela contra regex seguro. Levanta ValueError se inválido."""
+    if not re.fullmatch(r'^[a-z][a-z0-9_]*$', name):
+        raise ValueError(f"Nome de tabela inválido: {name!r}")
+    return name
+
+def _fetch_source_data(source_conn, table_name, common_cols):
+    """Busca todas as linhas da tabela fonte e retorna lista de dicts."""
+    with source_conn.cursor() as cur:
+        cols = ', '.join(common_cols)
+        cur.execute(f"SELECT {cols} FROM {table_name}")
+        return [dict(zip(common_cols, row)) for row in cur.fetchall()]
+
+def _process_row(row_dict, dest_conn, fks):
+    """Anonimiza e verifica FK constraints. Retorna row_dict ou None (skip)."""
+    for col in row_dict:
+        row_dict[col] = anonymize_val(col, row_dict[col], row_dict)
+    for fk_col, fk_table, fk_ref_col in fks:
+        if fk_col in row_dict:
+            if not check_fk_exists(dest_conn, fk_table, fk_ref_col, row_dict[fk_col]):
+                return None
+    return row_dict
+
+def _execute_upsert(dest_conn, table_name, row_dict, common_cols, pks):
+    """Monta e executa INSERT ON CONFLICT. Retorna 'insert' ou 'update'."""
+    if table_name in CONFLICT_OVERRIDE:
+        conflict_cols = CONFLICT_OVERRIDE[table_name]
+        insert_cols = [c for c in common_cols if c not in pks]
+    else:
+        conflict_cols = pks
+        insert_cols = list(common_cols)
+
+    insert_vals = [row_dict[c] for c in insert_cols]
+    placeholders = ", ".join(["%s"] * len(insert_cols))
+    update_cols = [c for c in insert_cols if c not in conflict_cols]
+    conflict_target = ", ".join(conflict_cols)
+
+    if not update_cols:
+        query = f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({placeholders}) ON CONFLICT ({conflict_target}) DO NOTHING RETURNING 1;"
+    else:
+        set_clause = ", ".join([f"{c} = EXCLUDED.{c}" for c in update_cols])
+        query = f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({placeholders}) ON CONFLICT ({conflict_target}) DO UPDATE SET {set_clause} RETURNING (xmax = 0);"
+
+    with dest_conn.cursor() as cur:
+        cur.execute(query, insert_vals)
+        res = cur.fetchone()
+        if res is None:
+            return 'update'
+        if isinstance(res[0], bool):
+            return 'insert' if res[0] else 'update'
+        return 'insert'
+
 def sync_table(source_conn, dest_conn, table_name, args):
     if table_name in EXCLUDED_TABLES:
         return
 
     src_cols = get_columns(source_conn, table_name)
     dst_cols = get_columns(dest_conn, table_name)
-
     if not src_cols or not dst_cols:
         return
 
     common_cols = [c for c in src_cols if c in dst_cols]
     pks = get_pks(dest_conn, table_name)
-
     if not pks:
-        # Pular tabelas sem PK
         return
 
     fks = get_fks(dest_conn, table_name)
-
-    # Busca dados da fonte
-    with source_conn.cursor() as cur:
-        cur.execute(f"SELECT {', '.join(common_cols)} FROM {table_name}")
-        rows = cur.fetchall()
+    rows = _fetch_source_data(source_conn, table_name, common_cols)
 
     candidatos = len(rows)
     inseridos = 0
     atualizados = 0
     ignorados = 0
 
-    for row in rows:
-        row_dict = dict(zip(common_cols, row))
-
-        # Anonimização
-        for col in common_cols:
-            row_dict[col] = anonymize_val(col, row_dict[col], row_dict)
-
-        # FK check (SKIP rule)
-        skip = False
-        for fk_col, fk_table, fk_ref_col in fks:
-            if fk_col in row_dict:
-                fk_val = row_dict[fk_col]
-                if not check_fk_exists(dest_conn, fk_table, fk_ref_col, fk_val):
-                    skip = True
-                    break
-
-        if skip:
+    for row_dict in rows:
+        processed = _process_row(row_dict, dest_conn, fks)
+        if processed is None:
             ignorados += 1
-            if args.verbose: print(f"  [{table_name}] SKIP row PK={row_dict.get(pks[0])} (FK constraint failed)")
+            if args.verbose:
+                print(f"  [{table_name}] SKIP row PK={row_dict.get(pks[0])} (FK constraint failed)")
             continue
 
-        # INSERT ON CONFLICT DO UPDATE
-        conflict_cols = CONFLICT_OVERRIDE.get(table_name, pks)
-
-        insert_cols = list(common_cols)
-        # Override: descartar o PK serial p/ nao colidir com a sequencia local do beta.
-        if table_name in CONFLICT_OVERRIDE:
-            insert_cols = [c for c in insert_cols if c not in pks]
-
-        insert_vals = [row_dict[c] for c in insert_cols]
-        placeholders = ", ".join(["%s"] * len(insert_cols))
-
-        update_cols = [c for c in insert_cols if c not in conflict_cols]
-
-        conflict_target = ", ".join(conflict_cols)
-
-        if not update_cols:
-            query = f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({placeholders}) ON CONFLICT ({conflict_target}) DO NOTHING RETURNING 1;"
+        result = _execute_upsert(dest_conn, table_name, processed, common_cols, pks)
+        if result == 'insert':
+            inseridos += 1
         else:
-            set_clause = ", ".join([f"{c} = EXCLUDED.{c}" for c in update_cols])
-            query = f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({placeholders}) ON CONFLICT ({conflict_target}) DO UPDATE SET {set_clause} RETURNING (xmax = 0);"
-
-        with dest_conn.cursor() as cur:
-            cur.execute(query, insert_vals)
-            res = cur.fetchone()
-            if res:
-                if len(res) > 0 and type(res[0]) == bool:
-                    if res[0]: # xmax == 0 significa insert
-                        inseridos += 1
-                    else:
-                        atualizados += 1
-                else:
-                    inseridos += 1
-            else:
-                atualizados += 1
+            atualizados += 1
 
     print(f"Tabela {table_name}: {candidatos} candidatos | {inseridos} inseridos | {atualizados} atualizados | {ignorados} ignorados")
 
@@ -210,6 +214,11 @@ def main():
 
     check_environment(dest_dsn, dest_host, dest_db)
 
+    if args.tabela:
+        args.tabela = _validate_table_name(args.tabela)
+
+    source_conn = None
+    dest_conn = None
     try:
         source_conn = psycopg2.connect(source_dsn)
         source_conn.set_session(readonly=True)
@@ -231,15 +240,15 @@ def main():
 
     except Exception as e:
         print(f"Erro ao conectar ou sincronizar: {e}", file=sys.stderr)
-        if 'dest_conn' in locals() and dest_conn:
+        if dest_conn is not None:
             print("Executando ROLLBACK total.", file=sys.stderr)
             dest_conn.rollback()
         sys.exit(1)
 
     finally:
-        if 'source_conn' in locals() and source_conn:
+        if source_conn is not None:
             source_conn.close()
-        if 'dest_conn' in locals() and dest_conn:
+        if dest_conn is not None:
             dest_conn.close()
 
 if __name__ == "__main__":

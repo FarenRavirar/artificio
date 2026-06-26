@@ -195,6 +195,31 @@ function parsePreviewResult(data: unknown) {
   return parsed.data;
 }
 
+// REV-016: helper DRY — elimina duplicação entre previewFile e importFile
+async function fileApiFetch<T>(
+  url: string,
+  file: File,
+  parser: (data: unknown) => T,
+  errorLabel: string,
+): Promise<T> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await authenticatedFetch(`${BASE}${url}`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let errData: unknown;
+    try { errData = JSON.parse(text); } catch { /* ignorar */ }
+    throw new Error(typeof errData === 'object' && errData !== null && 'error' in errData
+      ? String((errData as Record<string, unknown>).error)
+      : `Erro ao ${errorLabel} (HTTP ${res.status}).`);
+  }
+  const data = await res.json();
+  return parser((data as Record<string, unknown>).data);
+}
+
 export const discordSyncApi = {
 
   getDiscordSettings: async () =>
@@ -289,43 +314,9 @@ export const discordSyncApi = {
     return parsePreviewResult(data);
   },
 
-  previewFile: async (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await fetch('/api/v1/admin/discord-sync/import-json/preview/file', {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      let errData: unknown;
-      try { errData = JSON.parse(text); } catch { /* ignorar */ }
-      throw new Error(typeof errData === 'object' && errData !== null && 'error' in errData
-        ? String((errData as Record<string, unknown>).error)
-        : `Erro ao analisar arquivo (HTTP ${res.status}).`);
-    }
-    const data = await res.json();
-    return parsePreviewResult((data as Record<string, unknown>).data);
-  },
+  previewFile: async (file: File) =>
+    fileApiFetch('/import-json/preview/file', file, parsePreviewResult, 'analisar arquivo'),
 
-  importFile: async (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await fetch('/api/v1/admin/discord-sync/import-json/file', {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      let errData: unknown;
-      try { errData = JSON.parse(text); } catch { /* ignorar */ }
-      throw new Error(typeof errData === 'object' && errData !== null && 'error' in errData
-        ? String((errData as Record<string, unknown>).error)
-        : `Erro ao importar arquivo (HTTP ${res.status}).`);
-    }
-    const data = await res.json();
-    return parseImportResult((data as Record<string, unknown>).data);
-  },
+  importFile: async (file: File) =>
+    fileApiFetch('/import-json/file', file, parseImportResult, 'importar arquivo'),
 };

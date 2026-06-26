@@ -270,6 +270,9 @@ function setupCorrectionMocks(draft: Record<string, unknown>, importMsg: Record<
     set: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
     execute: vi.fn().mockResolvedValue([]),
+    // TOCTOU guard (CodeRabbit): update do draft agora usa executeTakeFirst e checa
+    // numUpdatedRows. Simula 1 linha afetada (draft não-terminal).
+    executeTakeFirst: vi.fn().mockResolvedValue({ numUpdatedRows: 1n }),
   };
     mockDb.transaction.mockReturnValue({
       execute: vi.fn().mockImplementation(async (fn: (trx: typeof mockTrx) => Promise<unknown>) => {

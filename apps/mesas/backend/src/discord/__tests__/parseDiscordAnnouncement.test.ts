@@ -1,4 +1,4 @@
-import { parseDiscordAnnouncement, classifyConfidence, isSuspiciousUrl, isHomebrewSystem } from '../parseDiscordAnnouncement';
+import { parseDiscordAnnouncement, classifyConfidence, isSuspiciousUrl, isHomebrewSystem, classifyHomebrew } from '../parseDiscordAnnouncement';
 import { normalizeDiscordTableDraft } from '../normalizeDiscordTableDraft';
 import type { ImportRawMessage } from '../types';
 import { chatExporterSampleMessages } from './fixtures/chatExporterSample';
@@ -490,7 +490,11 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.missing_fields).toContain('system_name:unmatched_hint');
   });
 
-  it('strips parenthetical notes from unknown system hints (spec 017 T-F1-B-01)', () => {
+  it('descarta sistema próprio/autoral mesmo declarando base conhecida (DEB-048-27)', () => {
+    // Pré-DEB-048-27 este caso virava draft "Pokémon RPG". DEB-048-27 + CodeRabbit
+    // (preservar o parêntese p/ o gate homebrew): "Sistema próprio usando D&D" é
+    // autoral → DESCARTAR. O sinal de autoria vive no parêntese, antes cortado por
+    // extractLabelValue; agora o gate o enxerga.
     const draft = parseDiscordAnnouncement(
       makeMessage({
         discord_thread_name: 'Pokémon: Jornada em Kanto',
@@ -504,8 +508,7 @@ describe('parseDiscordAnnouncement', () => {
       [{ id: 'dnd', name: 'Dungeons & Dragons', name_pt: null, aliases: ['D&D'] }],
     );
 
-    expect(draft?.table.raw_system_hint).toBe('Pokémon RPG');
-    expect(draft?.table.system_name).toBe('Pokémon RPG');
+    expect(draft).toBeNull();
   });
 
   it('matches D&D after stripping parenthetical notes and version suffix (spec 017 T-F1-B-01)', () => {
@@ -844,23 +847,42 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.contact_discord).toBeNull();
   });
 
-  // ─── DEB-048-27: sistema autoral/próprio → DESCARTAR ────────────────────────
+  // ─── DEB-048-27/29: sistema autoral — STRONG descarta, WEAK vai p/ revisão ──
 
+  // STRONG (nítido) → DESCARTA (null).
   it.each([
     'Sistema: Próprio',
     'Sistema: Proprio',
     'Sistema: Sistema Próprio',
     'Sistema: autoral',
     'Sistema: homebrew',
-    'Sistema: inspirado em D&D',
-    'Sistema: baseado em Tormenta',
-  ])('descarta (null) anúncio com sistema autoral: %s', (sistemaLinha) => {
+    'Sistema: caseiro',
+  ])('DEB-048-27: descarta (null) sistema nitidamente autoral: %s', (sistemaLinha) => {
     const draft = parseDiscordAnnouncement(
       makeMessage({
         content_raw: [sistemaLinha, 'Mesa: Teste', 'Dia: sexta às 20h', 'Vagas: 4'].join('\n'),
       }),
     );
     expect(draft).toBeNull();
+  });
+
+  // WEAK (ambíguo) → NÃO descarta; vira draft com _homebrew_suspect → needs_review.
+  it.each([
+    'Sistema: Mundo de Aldoria (baseado em D&D)',
+    'Sistema: Reinos (inspirado em Tormenta)',
+    'Sistema: Crônicas (adaptado de GURPS)',
+  ])('DEB-048-29: marca como ambíguo (needs_review) sistema autoral fraco: %s', (sistemaLinha) => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [sistemaLinha, 'Mesa: Teste', 'Dia: sexta às 20h', 'Vagas: 4', 'Contato: https://forms.gle/x', 'Descrição: teste'].join('\n'),
+      }),
+    );
+    expect(draft).not.toBeNull();
+    expect(draft?.table._homebrew_suspect).toBe(true);
+
+    const normalized = normalizeDiscordTableDraft(draft!);
+    expect(normalized.status).toBe('needs_review');
+    expect(normalized.draft.missing_fields).toContain('system_name:homebrew_suspect');
   });
 
   it('NÃO descarta sistema conhecido (D&D) nem por menção solta de "próprio" no corpo', () => {
@@ -870,11 +892,16 @@ describe('parseDiscordAnnouncement', () => {
       }),
     );
     expect(draft).not.toBeNull(); // "próprio/autoral" no corpo ≠ sistema autoral
+    expect(draft?.table._homebrew_suspect).toBeNull();
   });
 
-  it('isHomebrewSystem: true p/ próprio/inspirado, false p/ sistema conhecido', () => {
+  it('classifyHomebrew: discard p/ STRONG, review p/ WEAK, none p/ conhecido (DEB-048-29)', () => {
+    expect(classifyHomebrew(makeMessage({ content_raw: 'Sistema: Próprio\nDia: sexta' }))).toBe('discard');
+    expect(classifyHomebrew(makeMessage({ content_raw: 'Sistema: Aldoria (baseado em D&D)\nDia: sexta' }))).toBe('review');
+    expect(classifyHomebrew(makeMessage({ content_raw: 'Sistema: Tormenta 20\nDia: sexta' }))).toBe('none');
+    // isHomebrewSystem = só descarte nítido (retrocompat).
     expect(isHomebrewSystem(makeMessage({ content_raw: 'Sistema: Próprio\nDia: sexta' }))).toBe(true);
-    expect(isHomebrewSystem(makeMessage({ content_raw: 'Sistema: inspirado em D&D\nDia: sexta' }))).toBe(true);
+    expect(isHomebrewSystem(makeMessage({ content_raw: 'Sistema: Aldoria (baseado em D&D)\nDia: sexta' }))).toBe(false);
     expect(isHomebrewSystem(makeMessage({ content_raw: 'Sistema: Tormenta 20\nDia: sexta' }))).toBe(false);
   });
 

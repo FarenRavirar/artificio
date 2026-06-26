@@ -75,6 +75,14 @@ export interface DiscordTableDraftTable {
   cover_url_source: string | null;
   cover_quality: CoverQuality | null;
   _slots_ambiguity: DiscordSlotsAmbiguity | null;
+  /**
+   * DEB-048-29: anúncio classificado como AMBÍGUO p/ sistema autoral
+   * ("baseado em"/"inspirado em"/"adaptado de"). Não é descarte nítido —
+   * vira draft needs_review com badge "autoral?" p/ o revisor decidir.
+   * Descarte nítido (sistema próprio/homebrew/autoral/caseiro) não chega aqui:
+   * o parse retorna null antes.
+   */
+  _homebrew_suspect: boolean | null;
   _notes: string[];
 }
 

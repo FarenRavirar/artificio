@@ -44,6 +44,8 @@ function getMissingFields(table: DiscordTableDraftTable): string[] {
   if (!table.price_type) missing.push('price_type');
   if (table.slots_total == null && table.slots_open == null) missing.push('slots_total');
   if (table._slots_ambiguity) missing.push('slots_open:ambiguous_x_of_y');
+  // DEB-048-29: suspeita de sistema autoral força needs_review (badge "autoral?").
+  if (table._homebrew_suspect) missing.push('system_name:homebrew_suspect');
   if (!table.contact_url && !table.contact_discord) missing.push('contact_url');
   return missing;
 }

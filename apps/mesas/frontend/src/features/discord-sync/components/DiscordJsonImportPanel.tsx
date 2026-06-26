@@ -16,6 +16,19 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
     handleFileSelect, handleDragOver, handleDragLeave, handleDrop,
   } = useJsonImport();
 
+  // Codex P3: input fica sempre montado p/ "Trocar arquivo" achar a ref (FileDropzone
+  // some quando selectedFile setado, levando junto o input que ele renderiza).
+  const fileInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept=".json,application/json"
+      onChange={handleFileSelect}
+      className="hidden"
+      aria-label="Selecionar arquivo JSON do DiscordChatExporter"
+    />
+  );
+
   return (
     <div className="space-y-4">
       <div className="rounded-lg bg-white/5 border border-white/10 p-4 space-y-3">
@@ -32,6 +45,7 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
             <span className="text-white text-sm font-medium">{selectedFile.name}</span>
             <span className="text-white/50 text-xs">{formatFileSize(selectedFile.size)}</span>
             {preview && <span className="text-white/30 text-xs">· {preview.messageCount} mensagens</span>}
+            {fileInput}
           </div>
         ) : (
           <FileDropzone

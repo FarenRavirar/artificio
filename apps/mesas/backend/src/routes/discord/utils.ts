@@ -1,4 +1,4 @@
-import { Response, Request } from 'express';
+import { Router, Response, Request } from 'express';
 import { z } from 'zod';
 import type { Selectable } from 'kysely';
 import { db } from '../../db';
@@ -9,6 +9,7 @@ import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
 import { loadSystemsForParser } from '../../discord/shared';
+import { requireAdmin } from '../../middleware/auth';
 import { notifyAdmins } from '../../services/adminNotifications';
 import { patchDraftSchema, correctionSchema } from '../inbox/utils';
 
@@ -89,11 +90,17 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
   }
 
   const parsedBefore = normalizeDraftPayload(draft.normalized_payload ?? draft.parsed_payload);
-  const humanCorrected = { ...parsedBefore, table: { ...(parsedBefore?.table ?? {}), ...corrections } };
+  // CodeRabbit: table vem de JSONB (unknown); fallback tipado antes do spread.
+  const parsedTable = parsedBefore.table;
+  const tableBefore =
+    parsedTable && typeof parsedTable === 'object' && !Array.isArray(parsedTable)
+      ? (parsedTable as Record<string, unknown>)
+      : {};
+  const humanCorrected = { ...parsedBefore, table: { ...tableBefore, ...corrections } };
 
   const diff: Record<string, { before: unknown; after: unknown }> = {};
   for (const key of Object.keys(corrections)) {
-    const beforeVal = before?.[key] ?? (parsedBefore?.table as Record<string, unknown>)?.[key];
+    const beforeVal = before?.[key] ?? tableBefore[key];
     const after = corrections[key];
     if (JSON.stringify(beforeVal) !== JSON.stringify(after)) {
       diff[key] = { before: beforeVal, after };
@@ -117,17 +124,63 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
       })
       .execute();
 
-    await trx
+    // CodeRabbit (TOCTOU): status foi checado fora da tx; condiciona o UPDATE a
+    // estado não-terminal e verifica linhas afetadas. 0 linhas → draft virou
+    // synced/rejected na janela → aborta a tx (rollback do insert acima).
+    const updateResult = await trx
       .updateTable('discord_import_table_drafts')
       .set({
         normalized_payload: humanCorrected,
         updated_at: new Date(),
       })
       .where('id', '=', draftId)
-      .execute();
+      .where('status', 'not in', ['synced', 'rejected'])
+      .executeTakeFirst();
+
+    if (updateResult.numUpdatedRows === 0n) {
+      throw Object.assign(new Error('Draft mudou de estado durante a correção.'), { statusCode: 409 });
+    }
   });
 
   return { draft_id: draftId, fields_corrected: Object.keys(diff).length, diff };
+}
+
+// REV-016 onda 3: factory DRY — POST /:id/correction (inbox + discord)
+export function createCorrectionHandler(routeLabel: string): Router {
+  const router = Router();
+
+  router.post('/:id/correction', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const draftId = req.params.id;
+      if (!draftId || typeof draftId !== 'string') {
+        return res.status(400).json({ error: 'ID do draft obrigatório.' });
+      }
+
+      const parsed = correctionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Payload inválido.' });
+      }
+
+      const result = await registerDraftCorrection({
+        draftId,
+        corrections: parsed.data.corrections,
+        reason: parsed.data.reason,
+        before: parsed.data.before,
+        userId: req.user?.userId ?? undefined,
+      });
+
+      return res.json({ data: result });
+    } catch (error: unknown) {
+      const statusCode = (error as Record<string, unknown>)?.statusCode;
+      if (typeof statusCode === 'number') {
+        return res.status(statusCode).json({ error: (error as Error).message });
+      }
+      console.error(`[POST ${routeLabel}]`, error);
+      return res.status(500).json({ error: 'Erro ao registrar correção.' });
+    }
+  });
+
+  return router;
 }
 
 // ─── T-G6 — registra uma rodada de importação ──────────────────────────
@@ -577,6 +630,19 @@ export async function handlePatchDraft(
 
   if (!draft) {
     return { status: 404, body: { error: 'Draft não encontrado.' } };
+  }
+
+  // Codex P2 (T-G7): rejeição via PATCH fecha o outcome real da decisão shadow.
+  // Sync vai por syncDiscordDraftToTable (grava 'synced' lá). No-op p/ inbox.
+  const patchedStatus = (data as Record<string, unknown>).status;
+  if (patchedStatus === 'rejected' || patchedStatus === 'synced') {
+    await db
+      .updateTable('discord_shadow_decisions')
+      .set({ actual_outcome: patchedStatus, actual_at: new Date() })
+      .where('draft_id', '=', req.params.id)
+      .where('actual_outcome', 'is', null)
+      .execute()
+      .catch((err) => console.error('[handlePatchDraft shadow]', err instanceof Error ? err.message : 'unknown error'));
   }
 
   return { status: 200, body: { data: draft } };

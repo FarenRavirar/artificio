@@ -476,7 +476,7 @@ function extractHostDiscordId(text: string): string | null {
   return null;
 }
 
-function extractLabelValue(text: string, labels: string[]): string | null {
+function extractLabelValue(text: string, labels: string[], opts?: { keepParenthetical?: boolean }): string | null {
   const wanted = new Set(labels.map(normalizeLabelKey));
   const lines = text.split(/\r?\n/);
 
@@ -497,7 +497,10 @@ function extractLabelValue(text: string, labels: string[]): string | null {
       values.push(next);
     }
 
-    const value = values.join('\n').replace(/\s*\(.*$/, '').trim();
+    // keepParenthetical: o parêntese carrega o sinal de autoria ("(Sistema próprio
+    // usando D&D...)") que o gate DEB-048-27 precisa. Matching/título usa o corte.
+    const joined = values.join('\n');
+    const value = (opts?.keepParenthetical ? joined : joined.replace(/\s*\(.*$/, '')).trim();
     return value || null;
   }
 
@@ -545,9 +548,15 @@ export function isSuspiciousUrl(url: string): boolean {
   return !safePatterns.some((p) => p.test(url));
 }
 
-// DEB-048-27: sistema próprio/autoral/homebrew/"inspirado em"/"baseado em" = autoria.
-// A plataforma só lista sistemas conhecidos → esses anúncios são DESCARTADOS.
-const RE_HOMEBREW_SYSTEM = /\b(sistema\s+)?(pr[óo]prio|autoral|homebrew)\b|\b(inspirad[oa]|basead[oa])\s+em\b/i;
+// DEB-048-27/29: sistema autoral. A plataforma só lista sistemas conhecidos.
+// Dois níveis de sinal (DEB-048-29):
+//  - STRONG (nítido) → DESCARTAR: "sistema próprio", "autoral", "homebrew", "caseiro".
+//  - WEAK (ambíguo)  → REVISÃO com flag "autoral?": "baseado/inspirado/adaptado em".
+const RE_HOMEBREW_STRONG = /\b(sistema\s+)?(pr[óo]prio|autoral|homebrew|caseiro)\b/i;
+const RE_HOMEBREW_WEAK = /\b(inspirad[oa]|basead[oa]|adaptad[oa])\s+(em|n[oa]|de|d[oa])\b/i;
+
+/** DEB-048-29: classificação de autoria a partir do hint de sistema. */
+export type HomebrewClass = 'discard' | 'review' | 'none';
 
 /** Extrai o hint de sistema (campo "Sistema:" ou parte antes do ":" do thread).
  * Só a 1ª linha do valor — `extractLabelValue` agrega linhas de continuação
@@ -558,16 +567,25 @@ function getAnnouncementSystemHint(message: ImportRawMessage): string | null {
   const rawBody = message.content_raw ?? '';
   const body = rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []);
   if (!body.trim()) return null;
-  const explicitSystem = normalizeTitle(extractLabelValue(body, ['sistema', 'jogo', 'rpg']));
+  const explicitSystem = normalizeTitle(extractLabelValue(body, ['sistema', 'jogo', 'rpg'], { keepParenthetical: true }));
   const threadParts = splitThreadName(threadName || body.split('\n')[0] || 'Mesa sem título');
   const hint = explicitSystem ?? threadParts.systemHint;
   return hint ? hint.split(/[\r\n]/)[0].trim() || null : null;
 }
 
 /** DEB-048-27: true se o sistema do anúncio é autoral/próprio (→ descartar). */
-export function isHomebrewSystem(message: ImportRawMessage): boolean {
+export function classifyHomebrew(message: ImportRawMessage): HomebrewClass {
   const hint = getAnnouncementSystemHint(message);
-  return hint != null && RE_HOMEBREW_SYSTEM.test(hint);
+  if (hint == null) return 'none';
+  if (RE_HOMEBREW_STRONG.test(hint)) return 'discard';
+  if (RE_HOMEBREW_WEAK.test(hint)) return 'review';
+  return 'none';
+}
+
+/** DEB-048-27: true só p/ descarte nítido (STRONG). Mantido p/ retrocompat
+ * (processDiscordMessageToDraft conta 'discarded'). Ambíguo NÃO descarta. */
+export function isHomebrewSystem(message: ImportRawMessage): boolean {
+  return classifyHomebrew(message) === 'discard';
 }
 
 /**
@@ -594,8 +612,10 @@ export function parseDiscordAnnouncement(
   if (!body.trim()) {
     return null;
   }
-  // DEB-048-27: sistema autoral/próprio → descartar (não vira mesa).
-  if (isHomebrewSystem(message)) {
+  // DEB-048-27/29: autoria. STRONG (nítido) → descarta. WEAK (ambíguo) → segue
+  // como draft, mas marcado _homebrew_suspect → needs_review + badge "autoral?".
+  const homebrew = classifyHomebrew(message);
+  if (homebrew === 'discard') {
     return null;
   }
   const fullText = `${threadName}\n${body}`.trim();
@@ -694,6 +714,7 @@ export function parseDiscordAnnouncement(
     cover_url_source: cover?.url ?? null,
     cover_quality: cover?.quality ?? null,
     _slots_ambiguity: slotsAmbiguity,
+    _homebrew_suspect: homebrew === 'review' ? true : null,
     _notes: [
       ...(matchedSystem?.notes ?? []),
       ...attachmentNotes,

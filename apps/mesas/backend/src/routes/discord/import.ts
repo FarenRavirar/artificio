@@ -1,11 +1,10 @@
 import { Router, Request, Response } from 'express';
-import multer from 'multer';
 import { requireAdmin } from '../../middleware/auth';
-import { importDiscordChatExporterJson, extractJsonPayload, MAX_IMPORT_JSON_BYTES } from '../../discord/chatExporterImportService';
+import { importDiscordChatExporterJson, extractJsonPayload, parseUploadedJsonBuffer } from '../../discord/chatExporterImportService';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { db } from '../../db';
 import { validateReparseMessageIds, buildContentIndex, reparseOneMessage, recordImportRun } from './utils';
-import { jsonFileUpload } from './preview';
+import { uploadJsonFile } from './preview';
 
 const router = Router();
 
@@ -19,6 +18,32 @@ function respondImportError(res: Response, error: unknown): void {
   res.status(500).json({ error: 'Erro ao processar JSON do DiscordChatExporter.' });
 }
 
+// REV-016: helper de sucesso (DRY — elimina duplicação entre POST / e POST /file)
+function respondImportSuccess(
+  res: Response,
+  result: { total: number; inserted: number; updated: number; ignored: number; failed: number },
+  userId: string | undefined,
+): void {
+  recordImportRun({
+    sourceKind: 'discord_chat_exporter_json' as const,
+    totalMessages: result.total,
+    draftsCreated: result.inserted,
+    draftsUpdated: result.updated,
+    messagesIgnored: result.ignored,
+    messagesFailed: result.failed,
+    userId,
+  }).catch(() => {});
+  res.json({
+    data: {
+      total: result.total,
+      inserted: result.inserted,
+      updated: result.updated,
+      ignored: result.ignored,
+      failed: result.failed,
+    },
+  });
+}
+
 router.post('/', requireAdmin, async (req: Request, res: Response) => {
 
   try {
@@ -29,82 +54,27 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
 
     const result = await importDiscordChatExporterJson(extracted.payload);
 
-    // T-G6: registra métricas da rodada (best-effort)
-    recordImportRun({
-      sourceKind: 'discord_chat_exporter_json',
-      totalMessages: result.total,
-      draftsCreated: result.inserted,
-      draftsUpdated: result.updated,
-      messagesIgnored: result.ignored,
-      messagesFailed: result.failed,
-      userId: (req as any).user?.userId,
-    }).catch(() => {});
-
-    return res.json({
-      data: {
-        total: result.total,
-        inserted: result.inserted,
-        updated: result.updated,
-        ignored: result.ignored,
-        failed: result.failed,
-      },
-    });
+    return respondImportSuccess(res, result, (req as any).user?.userId);
   } catch (error: unknown) {
     respondImportError(res, error);
   }
 });
 
 // POST /import-json/file — import de arquivo JSON (sem texto no body)
-router.post('/file', requireAdmin, jsonFileUpload.single('file'), async (req: Request, res: Response) => {
+router.post('/file', requireAdmin, uploadJsonFile, async (req: Request, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
     }
 
-    const rawJson = req.file.buffer.toString('utf-8');
+    const parsed = parseUploadedJsonBuffer(req.file);
+    if ('error' in parsed) return res.status(parsed.status).json({ error: parsed.error });
 
-    if (rawJson.length > MAX_IMPORT_JSON_BYTES) {
-      return res.status(413).json({ error: `JSON muito grande (${(rawJson.length / 1024 / 1024).toFixed(1)} MB). O limite é ${MAX_IMPORT_JSON_BYTES / 1024 / 1024} MB.` });
-    }
+    const result = await importDiscordChatExporterJson(parsed.parsed);
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(rawJson);
-    } catch {
-      return res.status(400).json({ error: 'JSON inválido: o arquivo não contém JSON válido.' });
-    }
-
-    const result = await importDiscordChatExporterJson(parsed);
-
-    recordImportRun({
-      sourceKind: 'discord_chat_exporter_json',
-      totalMessages: result.total,
-      draftsCreated: result.inserted,
-      draftsUpdated: result.updated,
-      messagesIgnored: result.ignored,
-      messagesFailed: result.failed,
-      userId: (req as any).user?.userId,
-    }).catch(() => {});
-
-    return res.json({
-      data: {
-        total: result.total,
-        inserted: result.inserted,
-        updated: result.updated,
-        ignored: result.ignored,
-        failed: result.failed,
-      },
-    });
+    return respondImportSuccess(res, result, (req as any).user?.userId);
   } catch (error: unknown) {
-    if (error instanceof multer.MulterError) {
-      if (error.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).json({ error: `Arquivo muito grande. O limite é ${MAX_IMPORT_JSON_BYTES / 1024 / 1024} MB.` });
-      }
-      return res.status(400).json({ error: 'Erro ao processar arquivo.' });
-    }
-    if (error instanceof Error && error.message === 'Formato inválido. Envie apenas arquivos .json.') {
-      return res.status(400).json({ error: error.message });
-    }
+    // Erros do multer (LIMIT_FILE_SIZE / fileFilter) já são tratados em uploadJsonFile.
     respondImportError(res, error);
   }
 });

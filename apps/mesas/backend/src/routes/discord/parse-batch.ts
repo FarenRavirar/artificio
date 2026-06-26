@@ -16,7 +16,8 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
       .limit(200)
       .execute();
 
-    if (messages.length === 0) return res.json({ data: { processed: 0, succeeded: 0, failed: 0 } });
+    // Codex P2: retorno vazio precisa de discarded/ignored (toast interpola os 4 contadores).
+    if (messages.length === 0) return res.json({ data: { processed: 0, succeeded: 0, discarded: 0, ignored: 0, failed: 0 } });
 
     // T-F8: contentIndex para resolver replyContext
     const contentIndex = buildContentIndex(messages);

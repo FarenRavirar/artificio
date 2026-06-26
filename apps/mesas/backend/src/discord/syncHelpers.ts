@@ -90,6 +90,7 @@ const draftTableSchema = z.object({
   cover_url_source: z.unknown(),
   cover_quality: z.unknown(),
   _slots_ambiguity: z.unknown(),
+  _homebrew_suspect: z.unknown(),
   _notes: z.unknown(),
 }).partial().passthrough();
 
@@ -497,6 +498,14 @@ export async function syncDraftToTable(
       .updateTable(config.messageTable)
       .set({ status: 'synced', updated_at: new Date() })
       .where('id', '=', messageRow.id as string)
+      .execute();
+
+    // Codex P2 (T-G7): fecha o outcome real da decisão shadow (no-op p/ inbox, sem linha shadow).
+    await trx
+      .updateTable('discord_shadow_decisions')
+      .set({ actual_outcome: 'synced', actual_at: new Date() })
+      .where('draft_id', '=', draftId)
+      .where('actual_outcome', 'is', null)
       .execute();
   });
 

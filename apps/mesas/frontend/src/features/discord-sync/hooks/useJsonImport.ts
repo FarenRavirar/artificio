@@ -129,20 +129,46 @@ export function useJsonImport() {
   }, []);
 
   const previewForFile = useCallback(async (file: File) => {
+    // CodeRabbit: guard reqId p/ descartar resposta fora de ordem (trocar arquivo rápido).
+    const reqId = ++previewReqId.current;
     setState('previewing');
     setPreview(null);
     setErrorMessage('');
 
     try {
       const data = await discordSyncApi.previewFile(file);
+      if (reqId !== previewReqId.current) return;
       setPreview(data);
       setState('preview_ok');
     } catch (err) {
+      if (reqId !== previewReqId.current) return;
       setPreview(null);
       setState('preview_error');
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao analisar arquivo.');
     }
   }, []);
+
+  // REV-016: helper DRY — elimina duplicação entre handleFileSelect e handleDrop
+  const processJsonFile = useCallback((file: File, errorVerb: string): boolean => {
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      showFileError(`Formato inválido. ${errorVerb} apenas arquivos .json.`);
+      return false;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      showFileError(`Arquivo muito grande (${formatFileSize(file.size)}). O limite é 10 MB.`);
+      return false;
+    }
+    if (file.size < FILE_TEXTAREA_THRESHOLD) {
+      file.text()
+        .then((content) => schedulePreview(content))
+        .catch(() => showFileError('Erro ao ler o arquivo. Tente novamente.'));
+      return true;
+    }
+    setSelectedFile(file);
+    setRawJson('');
+    previewForFile(file);
+    return true;
+  }, [schedulePreview, previewForFile, showFileError, setSelectedFile, setRawJson]);
 
   const handleFileSelect = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -150,29 +176,8 @@ export function useJsonImport() {
 
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith('.json')) {
-      showFileError('Formato inválido. Selecione um arquivo .json.');
-      return;
-    }
-
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      showFileError(`Arquivo muito grande (${formatFileSize(file.size)}). O limite é 10 MB.`);
-      return;
-    }
-
-    if (file.size < FILE_TEXTAREA_THRESHOLD) {
-      // Arquivo pequeno → textarea (comportamento original)
-      file.text()
-        .then((content) => schedulePreview(content))
-        .catch(() => showFileError('Erro ao ler o arquivo. Tente novamente.'));
-      return;
-    }
-
-    // Arquivo grande → backend via FormData (sem travar navegador)
-    setSelectedFile(file);
-    setRawJson('');
-    previewForFile(file);
-  }, [schedulePreview, previewForFile, showFileError]);
+    processJsonFile(file, 'Selecione');
+  }, [processJsonFile]);
 
   const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -194,27 +199,8 @@ export function useJsonImport() {
     const file = event.dataTransfer.files?.[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith('.json')) {
-      showFileError('Formato inválido. Solte apenas arquivos .json.');
-      return;
-    }
-
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      showFileError(`Arquivo muito grande (${formatFileSize(file.size)}). O limite é 10 MB.`);
-      return;
-    }
-
-    if (file.size < FILE_TEXTAREA_THRESHOLD) {
-      file.text()
-        .then((content) => schedulePreview(content))
-        .catch(() => showFileError('Erro ao ler o arquivo. Tente novamente.'));
-      return;
-    }
-
-    setSelectedFile(file);
-    setRawJson('');
-    previewForFile(file);
-  }, [schedulePreview, previewForFile, showFileError]);
+    processJsonFile(file, 'Solte');
+  }, [processJsonFile, setIsDragOver]);
 
   return {
     rawJson, selectedFile, state, preview, result, errorMessage, isDragOver,

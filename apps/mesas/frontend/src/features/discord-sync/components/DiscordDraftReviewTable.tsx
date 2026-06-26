@@ -185,6 +185,12 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
                         {(Number(draft.confidence) * 100).toFixed(0)}%
                       </span>
                     )}
+                    {/* DEB-048-29: anúncio ambíguo p/ sistema autoral */}
+                    {draftMissing(draft).includes('system_name:homebrew_suspect') && (
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-300" title="Possível sistema autoral — revisar e decidir">
+                        ⚠ autoral?
+                      </span>
+                    )}
                   </div>
                   <p className="text-white font-medium text-sm truncate">{title}</p>
                   <div className="flex items-center gap-2">

@@ -1,44 +1,11 @@
-import { Router, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
-import { correctionSchema } from '../inbox/utils';
-import { registerDraftCorrection } from './utils';
+import { createCorrectionHandler } from './utils';
 
-const router = Router();
-
-// ─── POST /drafts/:id/correction (Discord) — T-G3 ──────────────────────────────
-
-router.post('/:id/correction', requireAdmin, async (req: Request, res: Response) => {
-  try {
-    const draftId = req.params.id;
-    if (!draftId || typeof draftId !== 'string') {
-      return res.status(400).json({ error: 'ID do draft obrigatório.' });
-    }
-
-    const parsed = correctionSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Payload inválido.' });
-    }
-
-    const result = await registerDraftCorrection({
-      draftId,
-      corrections: parsed.data.corrections,
-      reason: parsed.data.reason,
-      before: parsed.data.before,
-      userId: req.user?.userId ?? undefined,
-    });
-
-    return res.json({ data: result });
-  } catch (error: unknown) {
-    const statusCode = (error as Record<string, unknown>)?.statusCode;
-    if (typeof statusCode === 'number') {
-      return res.status(statusCode).json({ error: (error as Error).message });
-    }
-    console.error('[POST /admin/discord-sync/drafts/:id/correction]', error);
-    return res.status(500).json({ error: 'Erro ao registrar correção.' });
-  }
-});
+// REV-016 onda 3: handler compartilhado com inbox/corrections.ts
+const router = createCorrectionHandler('/admin/discord-sync/drafts/:id/correction');
 
 // ─── T-G5 — Export de exemplos few-shot (correções → prompt/response) ────────
 
