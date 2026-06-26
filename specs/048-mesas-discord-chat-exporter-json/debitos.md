@@ -67,7 +67,7 @@
 - **Severidade:** Média/Alta
 - **Descrição:** O fallback DeepSeek envia texto bruto de anúncio para API externa quando `manual_paste` tem baixa confiança ou sem `system_id`. Isso pode ser útil para a Inbox, mas não é parte do MVP DiscordChatExporter JSON. O arquivo atual faz cast do JSON retornado sem Zod/schema forte, não tem timeout explícito e a falha é silenciosa.
 - **Ação:** Reclassificar em Spec 047 ou spec própria. Se mantido: validar retorno com schema, adicionar testes, timeout, política de privacidade/logs e documentação de env `DEEPSEEK_API_KEY`.
-- **Status:** aberto
+- **Status:** **moot/fechado (2026-06-26)** — `apps/mesas/backend/src/inbox/deepseek.ts` **não existe em `origin/dev`** (experimento local nunca mergeado; decisão T-H1 = não usar IA no MVP). Reabrir como spec própria só se DeepSeek/IA voltar (Fase G T-G5 prevê IA auxiliar futura, com schema/timeout/privacidade).
 
 ## DEB-048-07 — `chrono-node`/`fuzzball` já aparecem no diff, mas precisam de matriz real
 
@@ -75,7 +75,7 @@
 - **Severidade:** Média
 - **Descrição:** O parser passou a usar `chrono-node` e o match de sistemas passou a usar `fuzzball.token_sort_ratio >= 82`. Isso pode melhorar robustez, mas sem matriz de exemplos pode introduzir falso positivo de sistema, dia/hora ambíguos ou retorno declarado `quinzenal` sem implementação real.
 - **Ação:** Criar testes com exemplos reais do JSON e comparar antes/depois. Ajustar threshold e regras de frequência antes de declarar ferramenta adotada.
-- **Status:** aberto
+- **Status:** **moot p/ dev (2026-06-26)** — `chrono-node`/`fuzzball` **não estão em `origin/dev`** (`apps/mesas/backend/package.json` sem essas deps; parser dev = regex puro). Experimento local descartado (T-H2 opção 1). Se a Fase C decidir adotar lib de data/fuzzy, **reabrir** com a matriz de testes exigida aqui antes de commit.
 
 ## DEB-048-08 — Playwright E2E local depende de autenticação admin não resolvida
 
@@ -83,7 +83,7 @@
 - **Severidade:** Média
 - **Descrição:** O smoke E2E aponta para `https://mesasbeta.artificiorpg.com` e pressupõe cookie/sessão admin válido. Sem estratégia de `storageState` segura, ele pode virar teste manual disfarçado, flaky ou dependente do Chrome/cookies reais do mantenedor. O diff também altera `vitest.config.ts` para excluir `e2e/` e `**/*.spec.ts`; hoje os testes unitários são `*.test.*`, mas esse padrão pode esconder futuros unit specs sem perceber.
 - **Ação:** Definir autenticação de teste sem Chrome real; decidir se roda em CI, local ou somente smoke manual; limitar o exclude do Vitest ao diretório E2E se possível. Registrar pré-requisitos e comando real antes de fechar.
-- **Status:** aberto
+- **Status:** **moot p/ dev (2026-06-26)** — `apps/mesas/frontend/e2e/` e `@playwright/test` **não estão em `origin/dev`** (T-H3 opção 1 = remover). Smoke continua manual documentado. Reabrir só se houver estratégia de auth admin testável sem cookie pessoal.
 
 ## DEB-048-10 — Embed com campos `null` derruba import com 400 (smoke beta real)
 
@@ -97,7 +97,7 @@
 - **Arquivos:** `apps/mesas/backend/src/discord/discordChatExporterTypes.ts`.
 - **Teste de regressão:** `apps/mesas/backend/src/discord/__tests__/chatExporterAdapter.test.ts` (3 testes; embed com `timestamp/image/description=null` agora aceito).
 - **Validação:** `pnpm --filter @artificio/mesas-backend build` ✅; test 183/183 ✅; `pnpm run lint` 15/15 ✅.
-- **Status:** implementado ✅ (local; pendente commit/PR + redeploy beta + re-smoke com `extracao_json.json`).
+- **Status:** **fechado — em `origin/dev`** (verificado 2026-06-26: `discordChatExporterTypes.ts` tem 19 ocorrências de `nullish`). Falta só re-smoke beta (gate separado em tasks.md).
 
 ## DEB-048-11 — `GET /admin/discord-sync/settings` responde 500 no beta
 
@@ -106,7 +106,7 @@
 - **Causa provável:** o handler (`adminDiscordSync.ts:394`) chama `decryptDiscordSetting(setting.value)`. Se a credencial no DB beta foi cifrada com um `JWT_SECRET` diferente do atual do container, o `aes-256-gcm` falha no auth-tag e lança `Error` genérico (não `DiscordSettingsSecretUnavailableError`), caindo no `catch` → 500. Hipótese alternativa: `JWT_SECRET` ausente no container beta (geraria 503, não 500) — menos provável dado o código.
 - **Não é bug da 048:** `settingsCrypto.ts`/`/settings` são pré-existentes da Spec 047. Surgiu no smoke da 048.
 - **Ação:** inspeção read-only no beta (sem imprimir segredo): confirmar se `discord_settings` tem linha `bot_token` e se `JWT_SECRET` do container bate com o usado na cifragem. Se mismatch de chave, decidir entre re-salvar o token (PUT) sob a chave atual ou tratar falha de decrypt como estado "is_set=false"/aviso em vez de 500. Endurecer o handler para distinguir falha de decifragem (responder 409/aviso) de erro real.
-- **Status:** implementado ✅ — `DiscordSettingsDecryptError` criado, `decryptDiscordSetting` envolto em try/catch, handler GET responde 200 com `decrypt_error: true` em vez de 500.
+- **Status:** **fechado — em `origin/dev`** (verificado 2026-06-26: `settingsCrypto.ts` tem `DiscordSettingsDecryptError`; handler GET responde 200 com `decrypt_error: true`). **Pendente residual:** investigação read-only no beta p/ confirmar a causa real (mismatch `JWT_SECRET`) — diagnóstico, não código.
 
 ## DEB-048-12 — UI de import só aceita colar texto; falta upload de arquivo (botão + arrastar)
 
@@ -114,7 +114,7 @@
 - **Severidade:** Média — UX; JSONs reais são arquivos grandes (`D:\extracao_json.json`, ~100 mensagens), colar é frágil/lento.
 - **Descrição:** `DiscordJsonImportPanel.tsx` hoje só tem `<textarea>` (colar JSON). Falta seletor de arquivo (`<input type="file" accept=".json,application/json">`) e/ou área de drag-and-drop que leia o arquivo via `FileReader`/`File.text()` e popule/envie o JSON ao endpoint `POST /import-json`.
 - **Ação:** adicionar à aba "Importar JSON": botão "Selecionar arquivo" + dropzone arrastar-soltar; validar extensão/tamanho no cliente (alinha com DEB-048-04/T-F2 limite de upload); manter o textarea como fallback. Reaproveitar resumo pré-import (T-D2) e resultado (T-D3).
-- **Status:** implementado ✅ — botão "Selecionar arquivo" + dropzone nativo + validação extensão/tamanho + `file.text()` + fallback textarea.
+- **Status:** **fechado — em `origin/dev`** (verificado 2026-06-26; UI migrada depois p/ `FileDropzone` compartilhado de `@artificio/ui` na spec 051). **Pendente residual:** limite de upload **server-side** (hoje só cliente 10MB) → vira T-F2 na Fase F.
 
 ## DEB-048-09 — Duplicação residual de getContentHash e asJsonbArray em ingestMessages.ts
 

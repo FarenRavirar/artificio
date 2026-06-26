@@ -87,3 +87,26 @@
 - **Evidência:** `scripts/deploy/apply_required_migrations.sh:+45-48` — `load_header_vars` valida `CLASS` só com `-z` (vazio). Um typo no header (`-- @artificio/class: online-sfe`) produz `CLASS="online-sfe"` — não vazio, mas inválido. `validate_sql_against_class` só age para `online-safe`; outras classes passam silenciosamente e a migration é auto-aplicada em vez de ir para `MANUAL_PENDING`.
 - **Risco:** migration com header digitado errado pode ser aplicada sem revisão manual. Nenhum typo conhecido hoje.
 - **Correção:** allowlist explícita fail-closed em `load_header_vars` — `CLASS` fora de `{online-safe, manual-risk}` → `::error::` + `return 1`. Domínio real corrigido (o fix proposto pelo bot citava `offline-safe/requires-backup`, classes inexistentes; o header só aceita `online-safe|manual-risk`, ver `parse_header` em `lib_migrations.sh:24`). shellcheck ✅, `test_migration_guard.sh` 39/39 ✅. Ver reviews.md §11.
+
+---
+
+## DEB-051-02 — Changelog quebrado no beta: Tailwind dos consumidores não escaneia `packages/ui` (F1 incompleto)
+
+- **Origem:** smoke beta do mantenedor (2026-06-26), deploy da 051. Marcador nav (F2) OK; changelog (F1) quebrado em 3 apps.
+- **Estado:** **aberto — BLOQUEIA promoção a prod.** **Severidade: alta (regressão visível de feature).**
+- **Sintomas:**
+  - glossariobeta: topo do changelog cortado (sem altura-máxima/scroll dentro do modal).
+  - mesasbeta: changelog "mistura" com a home (z-index não aplicado → fica entre o conteúdo).
+  - beta.artificiorpg (site): changelog não aparece.
+- **Causa-raiz:** `ChangelogModal.tsx` (em `packages/ui`) estiliza com **utilitários Tailwind** (`fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm items-start max-h-[calc(100dvh-2rem)]`), não com classes `.artificio-*`. Os apps usam **Tailwind v4** (`@import 'tailwindcss';` sem `tailwind.config`), que **auto-detecta content do app mas ignora `node_modules`** — onde o symlink de workspace `@artificio/ui` vive. Sem `@source` apontando p/ `packages/ui`, as classes usadas **só** pelo modal não entram no CSS gerado:
+  - `z-[9999]` não existe em nenhum app (mesas usa `z-[1000]`, glossario `z-[100]`) → modal sem z-index → mistura com home.
+  - `max-h-[calc(100dvh-2rem)]` não existe em nenhum app → modal sem teto de altura → topo cortado.
+  - site (Astro) gera ainda menos utilitários → modal sem `fixed`/`bg-black` → invisível.
+- **Por que F1 não pegou:** o fix F1 (scroll lock no `useEffect`) tratou sintoma errado; a causa é a ausência das classes de posicionamento/altura, não o scroll do fundo. F1 marcado "validação visual pendente" — o smoke provou que não resolveu.
+- **Correção proposta:** adicionar `@source` p/ `packages/ui/src` no entry CSS Tailwind dos 4 consumidores do changelog (Tailwind v4 passa a escanear o pacote e gerar todas as classes dos componentes compartilhados — cobre changelog e qualquer shared futuro):
+  - `apps/mesas/frontend/src/index.css`
+  - `apps/glossario/frontend/src/index.css`
+  - `apps/site/src/styles/global.css`
+  - `apps/links/src/styles/global.css`
+  - Linha: `@source '../../../../packages/ui/src/**/*.{ts,tsx}';` (conferir profundidade relativa por arquivo).
+- **Validação:** build dos 4 apps; redeploy beta (mesas/glossario/site); re-smoke visual do changelog nos 3 + links prod.

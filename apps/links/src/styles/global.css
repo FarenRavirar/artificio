@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* Tailwind v4 ignora node_modules; escanear os componentes compartilhados de
+   @artificio/ui (ex.: StaticChangelogModal usa utilitários como z-[9999]/max-h-[calc])
+   p/ gerar as classes deles no CSS deste app (DEB-051-02). */
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
 
 /* Tokens de marca canônicos do Artifício RPG (D040/D064/D065/D066).
    Tema cross-subdomínio: alterna por `<html data-theme="light|dark">` (cookie

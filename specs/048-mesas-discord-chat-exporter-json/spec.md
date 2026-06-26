@@ -3,7 +3,7 @@
 - **Continuação de:** `specs/047-mesas-inbox-importacao/`
 - **Módulo/Pacote:** `apps/mesas` (backend + frontend admin)
 - **Gate relacionado:** Gate D (`mesas` já em prod; evolução validada em beta antes de qualquer prod)
-- **Status:** spec criada em 2026-06-23. Auditoria inicial concluída sobre os JSONs reais em `spec047-backup/`. Nenhuma implementação, commit, deploy, migration ou VM write nesta abertura.
+- **Status:** spec criada em 2026-06-23. **MVP (Fase B backend + Fase D UI + DEB-048-09/10/11/12) MERGED em `dev`** (PR #91 `ed3f4e0` + spec 049 `a4d2fb5`; verificado contra `origin/dev` em 2026-06-26). **Escopo de fechamento (decisão mantenedor 2026-06-26): Fases C + F + G completas na MESMA spec**; Fase E (automação VM) permanece futuro documentado. Gate MVP ainda aberto: smoke beta real. Detalhe em `tasks.md` §Reconciliação de estado — 2026-06-26.
 - **Revisão código/VM:** 2026-06-23 — conferência read-only contra diff local e beta.
 - **Entrada real:** `C:\projetos\artificio\spec047-backup\extracao_json.json` e `C:\projetos\artificio\spec047-backup\extracao_json2.json`
 - **Arquitetura:** `plan.md`
