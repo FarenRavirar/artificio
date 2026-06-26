@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import { requireAdmin } from '../../middleware/auth';
 import { discoverDiscordGuilds, discoverDiscordChannels } from '../../discord';
 import { snowflakeParamSchema, sendDiscordDiscoveryError } from './utils';
@@ -19,7 +20,7 @@ router.get('/guilds', requireAdmin, async (_req: Request, res: Response) => {
 router.get('/guilds/:guildId/channels', requireAdmin, async (req: Request, res: Response) => {
   const parsed = snowflakeParamSchema.safeParse(req.params);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Servidor Discord inválido.', details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Servidor Discord inválido.', details: z.flattenError(parsed.error) });
   }
 
   try {

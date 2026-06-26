@@ -95,7 +95,7 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
 router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
   const parsed = updateMessageSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Dados inválidos.', details: z.flattenError(parsed.error) });
   }
 
   try {

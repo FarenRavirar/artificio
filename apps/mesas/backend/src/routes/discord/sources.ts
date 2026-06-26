@@ -39,7 +39,7 @@ router.get('/', requireAdmin, async (_req: Request, res: Response) => {
 router.post('/', requireAdmin, async (req: Request, res: Response) => {
   const parsed = createSourceSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Dados inválidos.', details: z.flattenError(parsed.error) });
   }
   try {
     const existing = await db
@@ -70,7 +70,7 @@ router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
   const { id } = req.params;
   const parsed = updateSourceSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Dados inválidos.', details: z.flattenError(parsed.error) });
   }
   if (Object.keys(parsed.data).length === 0) {
     return res.status(400).json({ error: 'Nenhum dado para atualizar.' });

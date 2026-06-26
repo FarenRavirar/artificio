@@ -139,6 +139,22 @@ export function resolveReplyContext(message: Record<string, unknown>, contentInd
 // ─── REV-036 — parseDiscordMessage compartilhada (messageParse.ts + drafts.ts) ──
 
 /**
+ * Normaliza `reference` vindo de JSONB/DB (dado externo) antes de entrar no
+ * contrato interno. messageId obrigatório (string não-vazia); channelId/guildId
+ * só se forem string. Caso contrário → null.
+ */
+function normalizeReference(raw: unknown): ImportRawMessage['reference'] {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.messageId !== 'string' || r.messageId.length === 0) return null;
+  return {
+    messageId: r.messageId,
+    channelId: typeof r.channelId === 'string' ? r.channelId : undefined,
+    guildId: typeof r.guildId === 'string' ? r.guildId : undefined,
+  };
+}
+
+/**
  * Parseia uma mensagem Discord importada e normaliza para draft.
  * Substitui 20 linhas duplicadas em messageParse.ts:22-42 e drafts.ts:168-187.
  */
@@ -162,7 +178,7 @@ export async function parseDiscordMessage(
     content_raw: String(msg.content_raw ?? ''),
     attachments: parseJsonField(msg.attachments),
     embeds: parseJsonField(msg.embeds),
-    reference: (msg as Record<string, unknown>).reference as ImportRawMessage['reference'] ?? null,
+    reference: normalizeReference((msg as Record<string, unknown>).reference),
     message_created_at: msg.message_created_at ? new Date(msg.message_created_at as string) : null,
     message_edited_at: msg.message_edited_at ? new Date(msg.message_edited_at as string) : null,
   };
@@ -189,6 +205,17 @@ export async function processDiscordMessageToDraft(
   replyContext: string | undefined,
   userId: string | undefined,
 ): Promise<DiscordDraftOutcome> {
+  // Reconcilia draft terminal (synced/rejected) ANTES de parsear — evita marcar
+  // a mensagem como ignored/error em cima de um draft já terminal (CodeRabbit).
+  const existing = await db.selectFrom('discord_import_table_drafts')
+    .select(['id', 'status'])
+    .where('discord_message_id', '=', message.id)
+    .executeTakeFirst();
+
+  if (await reconcileTerminalDraft(existing, message.id)) {
+    return 'reconciled';
+  }
+
   const result = await parseDiscordMessage(message, systems, replyContext);
   if (!result) {
     await db.updateTable('discord_import_messages')
@@ -198,15 +225,6 @@ export async function processDiscordMessageToDraft(
     return 'ignored';
   }
   const { parsed, normalized } = result;
-
-  const existing = await db.selectFrom('discord_import_table_drafts')
-    .select(['id', 'status'])
-    .where('discord_message_id', '=', message.id)
-    .executeTakeFirst();
-
-  if (await reconcileTerminalDraft(existing, message.id)) {
-    return 'reconciled';
-  }
 
   if (existing) {
     await db.updateTable('discord_import_table_drafts')
@@ -254,10 +272,12 @@ export function validateReparseMessageIds(rawIds: unknown): string[] | undefined
   if (!Array.isArray(rawIds)) {
     throw new DiscordChatExporterValidationError('messageIds deve ser um array de strings.');
   }
-  if (!rawIds.every((id: unknown) => typeof id === 'string' && id.length > 0)) {
+  // Normaliza: trim em cada id; rejeita não-string ou vazio (inclui "   ").
+  const normalized = rawIds.map((id: unknown) => (typeof id === 'string' ? id.trim() : id));
+  if (!normalized.every((id) => typeof id === 'string' && id.length > 0)) {
     throw new DiscordChatExporterValidationError('messageIds deve conter apenas strings não-vazias.');
   }
-  return rawIds as string[];
+  return normalized as string[];
 }
 
 /**
@@ -339,7 +359,7 @@ export async function handlePatchDraft(
 ): Promise<{ status: number; body: unknown }> {
   const parsed = patchDraftSchema.safeParse(req.body);
   if (!parsed.success) {
-    return { status: 400, body: { error: 'Dados inválidos.', details: parsed.error.flatten() } };
+    return { status: 400, body: { error: 'Dados inválidos.', details: z.flattenError(parsed.error) } };
   }
   if (Object.keys(parsed.data).length === 0) {
     return { status: 400, body: { error: 'Nenhum dado para atualizar.' } };

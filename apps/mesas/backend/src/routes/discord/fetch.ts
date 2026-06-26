@@ -149,7 +149,7 @@ async function parsePendingMessagesForSource(
 router.post('/fetch', requireAdmin, async (req: Request, res: Response) => {
   const parsed = fetchSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Dados inválidos.', details: z.flattenError(parsed.error) });
   }
   const { source_id, limit, before_message_id, since, until } = parsed.data;
 
@@ -191,7 +191,7 @@ router.post('/fetch', requireAdmin, async (req: Request, res: Response) => {
 router.post('/sources/:sourceId/reingest-force', requireAdmin, async (req: Request, res: Response) => {
   const parsed = reingestForceSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Dados inválidos.', details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Dados inválidos.', details: z.flattenError(parsed.error) });
   }
   try {
     const source = await db

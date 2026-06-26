@@ -72,7 +72,7 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
 router.put('/bot-token', requireAdmin, async (req: Request, res: Response) => {
   const parsed = botTokenSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Token inválido.', details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Token inválido.', details: z.flattenError(parsed.error) });
   }
 
   try {

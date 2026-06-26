@@ -92,17 +92,15 @@ describe('parseDiscordChatExporterJson — embeds com campos null', () => {
   });
 
   it('mensagem de erro do schema contém detalhes úteis (não stack trace)', () => {
+    let caught: unknown;
     try {
       parseDiscordChatExporterJson(exportWithoutGuild);
-      // Se chegou aqui, a função não lançou — forçar falha
-      expect(true).toBe(false);
     } catch (e) {
-      expect(e).toBeInstanceOf(DiscordChatExporterValidationError);
-      const msg = (e as DiscordChatExporterValidationError).message;
-      // Deve mencionar algo sobre guild ou campo obrigatório
-      expect(msg.length).toBeGreaterThan(10);
-      // NÃO deve conter stack trace
-      expect(msg).not.toContain('at parseDiscordChatExporterJson');
+      caught = e;
     }
+    expect(caught).toBeInstanceOf(DiscordChatExporterValidationError);
+    const msg = (caught as DiscordChatExporterValidationError).message;
+    expect(msg.length).toBeGreaterThan(10); // mensagem descritiva
+    expect(msg).not.toContain('at parseDiscordChatExporterJson'); // sem stack trace
   });
 });

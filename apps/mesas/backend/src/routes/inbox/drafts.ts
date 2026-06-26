@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import { db } from '../../db';
 import { DraftNotFoundError, DraftStateError } from '../../discord/syncHelpers';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../../discord';
@@ -17,7 +18,7 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
   try {
     const parsed = listDraftsSchema.safeParse(req.query);
     if (!parsed.success) {
-      return res.status(400).json({ error: 'Parâmetros inválidos.', details: parsed.error.flatten() });
+      return res.status(400).json({ error: 'Parâmetros inválidos.', details: z.flattenError(parsed.error) });
     }
     const { status, limit = '50', offset = '0', origin } = parsed.data;
 

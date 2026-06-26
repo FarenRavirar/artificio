@@ -129,10 +129,13 @@ function normalize(s: string): string {
  * Retorna o primeiro match encontrado.
  */
 function stripVersionSuffix(value: string): { stripped: string; version: string | null } {
-  const match = /^(.*?)\s+((?:\d+(?:\.\d+)?e?)|(?:\d+e))$/i.exec(value.trim());
+  // Ancora a versão no fim por um único espaço — evita `(.*?)\s+` (backtracking,
+  // `.` sobrepõe `\s`). A alternação antiga `(\d+...e?)|(\d+e)` era redundante.
+  const trimmed = value.trim();
+  const match = /\s(\d+(?:\.\d+)?e?)$/i.exec(trimmed);
   if (!match) return { stripped: value, version: null };
-  const stripped = match[1].trim();
-  const version = match[2].trim();
+  const stripped = trimmed.slice(0, match.index).trim();
+  const version = match[1].trim();
   if (!stripped) return { stripped: value, version: null };
   return { stripped, version };
 }
@@ -252,15 +255,18 @@ type SlotsResult = { total: number | null; open: number | null; ambiguity: Disco
 
 // Regex compiladas uma vez (sem /g → exec é stateless). Os padrões com lista de
 // bullets usam `[\s▬•\-–—]*` (sem `\s*` antes) para evitar backtracking super-linear.
-const RE_SLOT_VIA_FORMS = /(\d+)\s+vaga\s+via\s+forms/i;
-const RE_SLOT_X_DE_Y = /(\d+)\s+de\s+(\d+)/i;
-const RE_SLOT_TOTAL = /vagas?\s+(?:totais|total)\s*[:=]\s*(\d+)/i;
-const RE_SLOT_OPEN = /vagas?\s+(?:dispon[ií]veis|dispon[ií]vel|abertas|aberta)\s*[:=]\s*(\d+)/i;
-const RE_SLOT_AMBIG_SLASH = /(?:^|\n)[\s▬•\-–—]*(?:vagas|jogadores)\s*[:=]\s*(\d+)\s*\/\s*(\d+)(?!\s*vagas?)/i;
-const RE_SLOT_LABELED = /(?:^|\n)[\s▬•\-–—]*(?:vagas|vagas dispon[ií]veis|jogadores)\s*[:=]\s*(\d+)(?!\s*\/)/i;
-const RE_SLOT_SLASH_VAGAS = /(\d+)\s*\/\s*(\d+)\s*vagas?/i;
-const RE_SLOT_N_VAGAS = /(\d+)\s*vagas?/i;
-const RE_SLOT_VAGAS_LABEL = /vagas?\s*(?:disponíveis?)?\s*[:=]\s*(\d+)/i;
+// Quantificadores de espaço LIMITADOS (\s{0,3}/\s{1,3}) — eliminam backtracking
+// super-linear (S5852). A alternação de RE_SLOT_LABELED usa "vagas(?: dispon…)?"
+// para não ter prefixo "vagas" sobreposto a "vagas disponíveis".
+const RE_SLOT_VIA_FORMS = /(\d+)\s{1,3}vaga\s{1,3}via\s{1,3}forms/i;
+const RE_SLOT_X_DE_Y = /(\d+)\s{1,3}de\s{1,3}(\d+)/i;
+const RE_SLOT_TOTAL = /vagas?\s{1,3}(?:totais|total)\s{0,3}[:=]\s{0,3}(\d+)/i;
+const RE_SLOT_OPEN = /vagas?\s{1,3}(?:dispon[ií]veis|dispon[ií]vel|abertas|aberta)\s{0,3}[:=]\s{0,3}(\d+)/i;
+const RE_SLOT_AMBIG_SLASH = /(?:^|\n)[\s▬•\-–—]{0,8}(?:vagas|jogadores)\s{0,3}[:=]\s{0,3}(\d+)\s{0,3}\/\s{0,3}(\d+)(?!\s{0,3}vagas?)/i;
+const RE_SLOT_LABELED = /(?:^|\n)[\s▬•\-–—]{0,8}(?:vagas(?:\s{1,3}dispon[ií]veis)?|jogadores)\s{0,3}[:=]\s{0,3}(\d+)(?!\s{0,3}\/)/i;
+const RE_SLOT_SLASH_VAGAS = /(\d+)\s{0,3}\/\s{0,3}(\d+)\s{0,3}vagas?/i;
+const RE_SLOT_N_VAGAS = /(\d+)\s{0,3}vagas?/i;
+const RE_SLOT_VAGAS_LABEL = /vagas?(?:\s{0,3}disponíveis?)?\s{0,3}[:=]\s{0,3}(\d+)/i;
 
 function slotsViaForms(cleaned: string): SlotsResult | null {
   const m = RE_SLOT_VIA_FORMS.exec(cleaned);
@@ -354,7 +360,7 @@ function extractDayOfWeek(text: string): string | null {
 // Extrai horário do texto: "19h", "19:00", "às 20h30"
 function extractStartTime(text: string): string | null {
   const match = /\b(\d{1,2})[hH:](\d{0,2})\b/.exec(text)
-    ?? /\bàs\s+(\d{1,2})[hH](\d{0,2})/i.exec(text);
+    ?? /\bàs\s{1,3}(\d{1,2})h(\d{0,2})/i.exec(text);
   if (match) {
     const h = match[1].padStart(2, '0');
     const m = (match[2] || '00').padStart(2, '0');
@@ -441,7 +447,8 @@ function normalizeLabelKey(value: string): string {
 
 function splitLabelLine(line: string): { key: string; value: string } | null {
   const cleaned = cleanLabelLine(line);
-  const match = /^(.{1,48}?)\s*[:：]\s*(.*)$/.exec(cleaned);
+  // [^:：] no prefixo evita sobreposição com o separador (sem backtracking).
+  const match = /^([^:：]{1,48})\s{0,3}[:：]\s{0,3}(.*)$/.exec(cleaned);
   if (!match) return null;
   return { key: normalizeLabelKey(match[1]), value: match[2].trim() };
 }
