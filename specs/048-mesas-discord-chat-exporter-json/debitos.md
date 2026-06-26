@@ -35,7 +35,7 @@
 | T-C5 | User mentions `<@id>` / `<@!id>` como possível contato | ⚠️ Parcial | `extractHostDiscordId` (linha 319), `extractContactDiscord` (linha 292) | Extrai como host ou contato quando combinado com labels. Não há extração genérica de menções como campo de metadados. |
 | T-C6 | Vagas (`3 de 5`, `0/5`, `5 vagas`, `1 vaga via forms`, `mesa em andamento`) | ⚠️ Parcial | `extractSlots` (linha 208) | Cobre padrões estruturados ("vagas totais: N"). Não cobre padrões informais como `3 de 5`, `0/5`, `1 vaga via forms`, `mesa em andamento`. |
 | T-C7 | Mesa paga/gratuita (sessão zero gratuita, custo de plataforma) | ⚠️ Parcial | `extractPrice` (linha 191) | Cobre `R$` e `gratuita`/`free`/`sem custo`. Não cobre "sessão zero gratuita" (primeira sessão grátis) ou "gratuita com custo de plataforma". |
-| T-C8 | Sistema próprio/inspirado em | ❌ Não implementado | `matchSystem`/`findSystemMatch` | Só faz match por nome exato/canonical. "Sistema próprio" ou "inspirado em D&D" não são vinculados. |
+| T-C8 | Sistema próprio/autoral → **DESCARTAR** | 🔁 Replanejado → **DEB-048-27** | Decisão mantenedor 2026-06-26: sistema próprio/autoral/homebrew **não vira mesa** (parse → `null` → `ignored`). "inspirado/baseado em <conhecido>" = ponto de decisão (default: não descartar). Ver DEB-048-27. |
 | T-C9 | Attachments/embeds como evidências (link, formulário, YouTube, canonicalUrl, `.txt` complementar) | ⚠️ Parcial | `extractCoverFromAttachments` | Só extrai capa de attachments. Não extrai links de formulário/site/YouTube de embeds, nem `.txt` como material complementar, nem canonicalUrl. |
 
 ### Observações
@@ -308,30 +308,207 @@
 - **Origem:** smoke beta do mantenedor (2026-06-26) com `extracao_json.json` real. `POST /import-json/preview` → 400.
 - **Severidade:** Alta (bloqueava import real no beta).
 - **Evidência:** `messages.55.reference.guildId: Invalid input: expected string, received null` + `messages.55.forwardedMessage.author: expected object, received undefined`. ChatExporter emite `null` onde o schema exigia `string`/objeto (mesma classe do DEB-048-10).
-- **Status:** ✅ **CORRIGIDO (Claude 2026-06-26, esta PR).** `discordChatExporterTypes.ts`: `reference.channelId/guildId` + `forwardedMessage.content/author` (e `author.name`) → `.nullish()`. `chatExporterAdapter.ts`: coage `null`→`undefined` em channelId/guildId (contrato `ImportRawMessage.reference` não aceita null). Teste de regressão em `chatExporterAdapter.test.ts`. **Validado local contra `extracao_json.json` real:** 100 msgs → 99 drafts, sem 400; `json2` truncado → `JSON.parse` falha → 400 amigável (DEB-048-01). build/test 262/262/lint ✅.
+- **Status:** ✅ **CORRIGIDO (Claude 2026-06-26, esta PR).** `discordChatExporterTypes.ts`: `reference.channelId/guildId` + `forwardedMessage.content/author` (e `author.name`) → `.nullish()`. `chatExporterAdapter.ts`: coage `null`→`undefined` em channelId/guildId (contrato `ImportRawMessage.reference` não aceita null). Teste de regressão em `chatExporterAdapter.test.ts`. build/test 262/262/lint ✅.
+- **Eval de QUALIDADE local (parse+normalize, sem DB), `extracao_json.json` real — 2026-06-26:**
+  - 100 mensagens → **99 drafts** (1 null: a única que não é anúncio — reply "boa noite, fiquei interessado!").
+  - Preenchimento de campos: **system_hint 95/99 · dia 85 · horário 72 · vagas 84 · contato 20 · preço pago 37**.
+  - Confidence: 85 em 0.7–1, 13 em 0.5–0.7, 1 em 0.3–0.5.
+  - "Mesa forte" (título + dia|vagas|contato): **96/99**. Ruído óbvio: **1**.
+  - ⚠️ **status: 99/99 `needs_review`** (nenhuma `ready`). Causa dominante: **contato faltando em 79/99** (só 20 têm: forms=11, url/discord=9) → `missingFields` sempre inclui `contact_url` → nunca fica `ready`. Ver **DEB-048-26** (fallback contato=autor) — resolve a maioria.
+  - ⚠️ Não é medida de **acerto** (sem ground-truth rotulado); é taxa de extração + confiança. O acerto fino (sistema certo, dia certo) precisa de revisão humana amostral.
+  - **2ª amostra `exemplo26.06.json` (2026-06-26) confirma o padrão:** 100/100 drafts, system 94 · dia 87 · hora 70 · vagas 72 · **contato 30** · 100/100 `needs_review`. Mesmo gargalo de contato → DEB-048-26 é a alavanca.
 
 ## DEB-048-24 — Import por ARQUIVO injeta o JSON inteiro na textarea e trava o PC (perf/UX)
 
 - **Origem:** smoke beta do mantenedor (2026-06-26).
 - **Severidade:** Alta (UX/perf — arquivos grandes deixam o navegador/PC super lento).
 - **Evidência / causa-raiz (verificada no código):**
-  - `apps/mesas/frontend/src/features/discord-sync/hooks/useJsonImport.ts:118` `handleFileSelect` → `file.text()` → `schedulePreview(content)` → `setRawJson(content)` (mesmo hook, ~L73).
-  - `rawJson` é bind do textarea: `DiscordJsonImportPanel.tsx:29` `<FileDropzone value={rawJson} .../>`.
-  - Resultado: arquivo de 500KB+ (`extracao_json.json` = 500KB, 100 msgs) é "colado" como texto no textarea → render gigante + re-render a cada keystroke/preview → trava.
-- **Ação proposta (NÃO implementar agora — para Codex):**
-  - Quando a origem for **arquivo**, **não** renderizar o conteúdo no textarea. Mandar o arquivo direto ao backend como **upload temporário** (multipart/stream), processar server-side e descartar após (modelo "conversor de imagem/áudio": stateless, efêmero).
-  - Textarea fica só para **paste manual pequeno**.
-  - Preview de arquivo = **resumo** (nome, tamanho, nº de mensagens, contagens), não o JSON cru.
-  - Backend: avaliar endpoint que aceite `multipart/form-data` (ou stream) com guarda de tamanho já existente (T-F2 `MAX_IMPORT_*`), sem persistir o arquivo em disco permanente.
-- **Status:** aberto (registrado, não implementado).
+  - `useJsonImport.ts:118` `handleFileSelect` → `file.text()` → `setRawJson(content)` → `<FileDropzone value={rawJson}>` → `<textarea>` com 500KB+ de JSON cru → render travado.
+- **Decisão do mantenedor (2026-06-26):**
+  - Arquivos **< 50KB**: fluxo original (`file.text()` → textarea) — preservado, funciona bem para pequenos.
+  - Arquivos **≥ 50KB**: backend puro (FormData → multer em memória → processa → descarta), igual sites que convertem imagem. **Nunca** `file.text()`, **nunca** vira string no estado React, **nunca** vai para textarea.
+  - **NENHUM bloqueador novo de tamanho** — o ponto é fazer funcionar sem travar, não proibir arquivos grandes.
+  - **NENHUMA duplicação** de código — helpers extraídos e compartilhados.
+- **Implementação (DeepSeek 2026-06-26):**
+  - **Backend:**
+    - `chatExporterImportService.ts`: `+buildPreviewFromExport()` (~12 linhas, extraído para evitar duplicação entre `/preview` e `/preview/file`).
+    - `preview.ts`: `+POST /preview/file` (multer `memoryStorage`, buffer → JSON.parse → `buildPreviewFromExport`). `jsonFileUpload` exportado para reuso. Handler existente `/preview` refatorado para usar `buildPreviewFromExport`.
+    - `import.ts`: `+POST /file` (importa `jsonFileUpload` de preview.ts, buffer → JSON.parse → `importDiscordChatExporterJson`).
+  - **Frontend:**
+    - `discordSyncApi.ts`: `+previewFile(file)` / `+importFile(file)` (FormData, `fetch` com `credentials: 'include'`). Schemas Zod extraídos (`parseImportResult`/`parsePreviewResult`) — 1 definição, 2 usos cada.
+    - `useJsonImport.ts`: threshold `FILE_TEXTAREA_THRESHOLD = 50 * 1024`. `handleFileSelect`/`handleDrop`: se <50KB → `file.text()` → textarea (original); se ≥50KB → `setSelectedFile(file)` + `previewForFile(file)` (backend). `handleSubmit` condicional: `selectedFile` → `importFile()`, senão → `importJson()`.
+    - `DiscordJsonImportPanel.tsx`: quando `selectedFile`, mostra chip (📄 nome · tamanho · contagem) e esconde textarea. Botão "Selecionar arquivo" vira "Trocar arquivo" quando há arquivo selecionado.
+  - **Validação:** build (backend + frontend) ✅, lint 15/15 ✅, testes backend 263/263 ✅, testes frontend 163/163 ✅.
+- **Critério de aceite:** ✅ importar `extracao_json.json` (500KB) por arquivo **não** trava o navegador (vai como FormData, sem tocar textarea). Preview mostra resumo. Import funciona. Arquivo não fica em disco (multer `memoryStorage`, buffer descartado após resposta).
+- **Anchors:** `chatExporterImportService.ts` (`buildPreviewFromExport`), `preview.ts` (`/preview/file`, `jsonFileUpload`), `import.ts` (`/file`), `discordSyncApi.ts` (`previewFile`/`importFile` + `parseImportResult`/`parsePreviewResult`), `useJsonImport.ts` (threshold + `selectedFile` + `previewForFile`), `DiscordJsonImportPanel.tsx` (chip condicional).
+- **Status:** ✅ **FECHADO (DeepSeek 2026-06-26).**
 
 ## DEB-048-25 — UX fragmentada: import JSON (uma aba) vs paste manual na Inbox (outra) — repensar fluxo
 
 - **Origem:** smoke beta do mantenedor (2026-06-26).
 - **Severidade:** Média (UX / Heurísticas de Nielsen — consistência, reconhecimento, visibilidade).
-- **Evidência:** "Importar JSON (DiscordChatExporter)" vive na aba do painel Discord-sync (`DiscordJsonImportPanel`/`DiscordSyncPanel.tsx`); a importação **manual (paste)** vive na **Inbox** (`apps/mesas/frontend/src/features/inbox/*`), em outra aba/local. Dois caminhos de ingestão fragmentados → o admin não sabe onde importar o quê.
-- **Ação proposta (NÃO implementar agora — exige proposta de UX antes de código, para Codex):**
-  - Repensar a experiência de ingestão de mesas: unificar/apresentar de forma coesa os modos (arquivo JSON DiscordChatExporter, paste manual, futuro job VM da Fase E).
-  - Avaliar uma tela única "Importar mesas" com seleção de origem, contra **Nielsen** (consistência/padrões, reconhecimento>recordação) e **ISO 9241-11** (eficácia/eficiência/satisfação).
-  - Entregável intermediário: proposta de UX (wireframe/fluxo) antes de mexer no código.
-- **Status:** aberto (registrado, não implementado).
+### Mapeamento COMPLETO do estado atual (investigado 2026-06-26)
+
+`GestaoPage.tsx` (`activeTab`) → 7 abas-topo: `crud` · `systems` · `activity` · `hydration` · **`discord`** · **`inbox`** · `dev`. As duas que importam mesas:
+
+- **Aba "Discord Sync"** (`DiscordSyncPanel.tsx`) → 5 sub-abas:
+  1. **Configuração** (`DiscordSettingsPanel`) — token/credencial do bot
+  2. **Fontes** (`DiscordSourceList`) — canais Discord p/ fetch via bot
+  3. **Mensagens** (`MessagesToolbar`+lista) — mensagens cruas buscadas pelo bot
+  4. **Drafts** (`DiscordDraftReviewTable`) — revisão dos drafts de origem Discord
+  5. **Importar JSON** (`DiscordJsonImportPanel`) — import do DiscordChatExporter (arquivo/paste) → `/import-json[/preview|/file]`
+- **Aba "Inbox"** (`InboxPanel.tsx`) → 2 sub-abas:
+  1. **Importar** (`TextPasteArea`) — colar UM anúncio → `routes/inbox/import.ts` `POST /import-text`
+  2. **Drafts** (`InboxDraftReviewTable`) — revisão dos drafts de origem manual
+
+**Achado-chave:** os drafts dos dois caminhos vivem na **MESMA tabela** `discord_import_table_drafts` (distintos por `discord_message_id` vs `import_message_id`; correção unificada já existe em `registerDraftCorrection`, utils.ts). A separação é **só de UI** — há **2 telas de import** e **2 tabelas de review** para o mesmo conceito.
+
+### Problemas (Nielsen / ISO 9241-11)
+- **Consistência & padrões:** dois "Importar" e dois "Drafts" em lugares diferentes; nomes técnicos ("Discord Sync", "Inbox") em vez de orientados à tarefa.
+- **Reconhecimento > recordação:** admin tem de lembrar qual aba para qual origem.
+- **Visibilidade do estado:** fila de revisão partida em 2 tabelas → sem visão única do que falta revisar.
+- **Eficiência (ISO):** 3 caminhos de ingestão (bot fetch, ChatExporter JSON, paste manual) sem hub comum.
+
+### Proposta de UX unificada (a validar com wireframe ANTES de código)
+- **Um hub "Importar Mesas"** (orientado à tarefa) com **seletor de origem**:
+  1. **Arquivo DiscordChatExporter** (JSON) — upload efêmero (DEB-048-24)
+  2. **Colar texto** (um anúncio manual) — substitui a aba Inbox/Importar
+  3. **Discord bot** (Fontes/Mensagens/Configuração) — mantido como modo "avançado/bot"
+  4. **[futuro] Job VM** (Fase E)
+- **Uma fila única "Revisar Drafts"** — funde `DiscordDraftReviewTable` + `InboxDraftReviewTable` numa tabela só, com **badge/filtro de origem** (`chatexporter-json` · `manual-paste` · `discord-bot`) e as mesmas ações (aprovar/rejeitar/corrigir/sync). Dado já está numa tabela só → baixo risco.
+- **Tela de resultado do import** mostra os contadores do DEB-048-27: **N válidos · N descartados (autoria) · N inválidos**.
+
+### Fases de implementação (baixo risco → maior)
+1. **Fase 1 — fila de drafts unificada.** Fundir as 2 review tables numa só com badge+filtro de origem. Maior ganho de consistência; dado já compartilhado. (anti-regressão: `manual_paste` 047/T-F10.)
+2. **Fase 2 — hub de import com seletor de origem.** Unir "Importar JSON" + "Importar (paste)" numa tela só com seletor; mover config/fontes/mensagens do bot p/ "avançado".
+3. **Fase 3 — resultado com contadores** (válidos/descartados/inválidos) integrado ao DEB-048-27.
+
+### Regras
+- **NÃO implementar sem wireframe aprovado pelo mantenedor** (entregável intermediário obrigatório).
+- Preservar `manual_paste` (anti-regressão 047/T-F10) e o fluxo do bot.
+- Avaliar cada fase contra Nielsen + ISO 9241-11 (checklist na sessão).
+
+- **Anchors:** `GestaoPage.tsx` (abas `discord`/`inbox`); `features/discord-sync/components/{DiscordSyncPanel,DiscordJsonImportPanel,DiscordDraftReviewTable}.tsx`; `features/inbox/components/{InboxPanel,TextPasteArea,InboxDraftReviewTable}.tsx`; backend `routes/discord/{import,preview}.ts` + `routes/inbox/import.ts`; tabela `discord_import_table_drafts`.
+- **Status:** aberto — **planejamento pronto (2026-06-26)**; próximo passo = **wireframe** antes de qualquer código. NÃO implementado.
+
+## DEB-048-26 — Contato deve cair no AUTOR do Discord quando não há contato explícito (qualidade)
+
+- **Origem:** smoke beta + decisão do mantenedor (2026-06-26): *"quando não tem contato, é o user do discord"*.
+- **Severidade:** Média-Alta (qualidade de extração — sem isso, 79/99 drafts ficam sem contato e **100% caem em `needs_review`**).
+- **Evidência (código):** `parseDiscordAnnouncement.ts:602-606` — hoje o autor só vira **`hostDiscordId`** e **apenas** quando `detectImplicitContact(body)` casa frases específicas ("me chama" etc.); **nunca** popula `contact_discord`. `:619` empurra `contact_url` para `missingFields` quando não há `contactUrl` nem `contactDiscord`. Resultado no eval real: contato em só 20/99.
+- **Regra a implementar:** se **não houver contato explícito** (`!contactUrl && !contactDiscord`) e existir `message.discord_author_id`/`discord_author_name`, então **`contact_discord = autor`** (id e/ou nome). Assim todo anúncio tem ao menos o contato do autor (que é quem publicou a mesa).
+  - Ajustar `missingFields` (`:619`): com o fallback, `contact` deixa de ser "missing" quando há autor → muitos drafts passam de `needs_review` → `ready` (quando os demais campos estiverem ok).
+  - Manter precedência: contato explícito (forms/url/menção) > autor (fallback).
+  - Substitui/engloba a heurística T-C3 atual (`detectImplicitContact` + `hostDiscordId`): autor passa a ser sempre o fallback de contato, não só com frase-gatilho.
+- **Anchor:** `apps/mesas/frontend`? NÃO — backend `apps/mesas/backend/src/discord/parseDiscordAnnouncement.ts:597-639` (montagem de `contactUrl`/`contactDiscord`/`missingFields`/`table`).
+- **Teste:** rodar o eval nos 2 arquivos de `temp/` (`extracao_json.json` e `exemplo26.06.json`) — contato deve ir de **20/30** para **~100%**; conferir queda de `needs_review`. Mensagem sem contato explícito + autor → `contact_discord = autor`, `contact` não em `missingFields`; mensagem com forms → mantém forms (autor não sobrescreve).
+- **Status:** ✅ **IMPLEMENTADO (Claude 2026-06-26).** `parseDiscordAnnouncement.ts:587-596`: `contactDiscord = explicitContactDiscord ?? (!contactUrl ? (discord_author_name ?? discord_author_id) : null)`. `detectImplicitContact` (frase-gatilho T-C3) removida — autor é o fallback sempre. `missingFields` não inclui `contact_url` quando há autor. **Validado nos 2 arquivos de `temp/`:** contato **20→99/99** e **30→100/100**. Testes: contato=autor + precedência forms>autor. build/test 263/263/lint ✅. **Nota:** no eval offline o status segue `needs_review` porque `systems=[]` (sem DB → `system_id` nunca casa); em produção (systems do DB) drafts completos viram `ready`.
+
+## DEB-048-27 — T-C8 (replanejado): sistema próprio/autoral → DESCARTAR (não importar)
+
+- **Origem:** decisão do mantenedor (2026-06-26): *"sistema próprio autoral é descartado"*. Substitui o plano antigo do T-C8 (que era "tratar como sistema válido"). A plataforma só lista mesas de sistemas conhecidos — anúncio de sistema próprio/autoral/homebrew **não vira mesa**.
+- **Severidade:** Média (qualidade — remove ruído do import; ~13% dos drafts).
+- **Evidência (eval `temp/`):** hint "Próprio/Sistema Próprio/autoral/homebrew" em **14/99** (`extracao_json.json`) e **12/100** (`exemplo26.06.json`). Hoje viram draft com `unmatched_hint` → `needs_review` (ruído que o admin tem de rejeitar à mão).
+- **Regra a implementar:** quando o **sistema** do anúncio é próprio/autoral/homebrew, `parseDiscordAnnouncement` retorna **`null`** → o pipeline marca a mensagem como **`ignored`** (descartada, sem draft).
+- **ETAPAS (planejamento; implementar quando autorizado):**
+  1. **Detector preciso** (novo helper): regex sobre o **hint de sistema** (não o corpo inteiro, p/ evitar falso descarte): `/\b(sistema\s+)?(pr[óo]prio|autoral|homebrew)\b/i`. Casa "Sistema: Próprio", "Sistema Próprio", "autoral", "homebrew".
+  2. **Ponto de descarte:** em `parseDiscordAnnouncement.ts` logo após calcular `systemHint` (~L552), **antes** de montar o draft: `if (isHomebrewSystem(systemHint)) return null;`. Conferir também `explicitSystem` (campo "Sistema:") explicitamente.
+  3. **Precisão (anti-falso-descarte):** só descartar quando o sinal está no **campo/hint de sistema** (ex.: `Sistema: Próprio`, hint antes do `:` no thread name). **Não** descartar por menção solta no corpo (ex.: "uso mapas próprios", "material autoral de apoio") — isso é conteúdo, não o sistema.
+  4. **Auditoria — NÃO silenciosa (decisão mantenedor).** O resultado do import deve mostrar contadores: **válidos** (viraram draft), **descartados por autoria** (homebrew/próprio/inspirado/baseado), **inválidos** (não-anúncio/sem corpo).
+- **DECISÕES DO MANTENEDOR (2026-06-26) — fechadas:**
+  - **"inspirado em" e "baseado em" = autoria → DESCARTAR também.** Detector estendido: `/\b(sistema\s+)?(pr[óo]prio|autoral|homebrew)\b|\b(inspirad[oa]|basead[oa])\s+em\b/i`. (Não é mesa de sistema conhecido — é criação autoral.)
+  - **Descarte NÃO é silencioso** → contadores visíveis (válidos / descartados-autoria / inválidos).
+- **Contadores exigidos:** distinguir os motivos hoje agrupados em `ignored`: (a) **não-anúncio** (parse null por falta de corpo) vs (b) **descartado por autoria** (T-C8). Sugestão: `parseDiscordAnnouncement` retornar discriminador (ex.: `{ discarded: 'homebrew' }`) OU o serviço contar separado; `ImportResult` + `recordImportRun` (Fase G, `discord_import_runs`) ganham `discarded_homebrew` separado de `messages_ignored`; UI do resultado: "**N válidos · N descartados (autoria) · N inválidos**".
+- **Impacto esperado:** `extracao_json.json` ~99→ ~85 válidos + ~14 descartados; `exemplo26.06.json` ~100→ ~88 + ~12. Validar com eval antes/depois nos 2 arquivos.
+- **Anchor:** `parseDiscordAnnouncement.ts` (~L551-552 `explicitSystem`/`systemHint`; `return null`/discriminador); `chatExporterImportService.ts` (`ImportResult` + loop de contagem); `routes/discord/utils.ts` (`recordImportRun`); UI `DiscordJsonImportPanel`/`useJsonImport`.
+- **Status:** ✅ **IMPLEMENTADO (Claude 2026-06-26).** Parser: `isHomebrewSystem(message)` (exportado) + descarte em `parseDiscordAnnouncement` (`return null` quando o sistema é próprio/autoral/homebrew/`inspirado em`/`baseado em`). Detector testa só a **1ª linha** do campo Sistema (evita falso-descarte por menção solta no corpo — `extractLabelValue` agrega continuação). Contadores: `DiscordDraftOutcome` ganhou `'discarded'`; `processDiscordMessageToDraft` distingue descarte (homebrew) de inválido; `parse-batch` e `/reparse` retornam `{succeeded(válidos), discarded, ignored(inválidos), failed}`; toast frontend mostra "X válidos · Y descartados (autoria) · Z inválidos · W erros". **Validado nos 2 arquivos:** `extracao_json.json` = 86 válidos · 13 descartados · 1 inválido; `exemplo26.06.json` = 88 · 12 · 0. Testes (it.each próprio/proprio/autoral/homebrew/inspirado/baseado → null; não-descarta D&D + menção solta; isHomebrewSystem). Frontend+backend build ✅, test 282/282 ✅, lint 15/15 ✅. **Pendência menor:** persistir contagem `discarded` em `discord_import_runs` (Fase G) exige migration → follow-up; hoje os contadores vivem na resposta da API + toast.
+
+---
+
+## Fase G — Implementações
+
+### T-G3 — Correção antes/depois para Discord drafts
+
+- **Origem:** Fase G da spec 048 — human-in-the-loop.
+- **Severidade:** Alta (bloqueia T-G4/T-G5/T-G6 — sem correções registradas, não há dados para aprendizado ou métricas).
+- **Diagnóstico (2026-06-26):** endpoint `POST /inbox/drafts/:id/correction` rejeitava Discord drafts com 422 (`import_message_id` nulo). Tabela `import_corrections` (migration 129) já aceita `import_message_id` nulo. O guard era só no código.
+- **Implementação (DeepSeek 2026-06-26):**
+  - **Backend:** `registerDraftCorrection()` extraído em `utils.ts` como helper compartilhado (~70 linhas). Busca `raw_text` de `discord_import_messages.content_raw` quando `import_message_id` é nulo (discord) ou de `import_messages` quando preenchido (inbox). Inbox `corrections.ts` refatorado para usar o helper (~30 linhas removidas). Novo `routes/discord/corrections.ts` (24 linhas) registrado em `adminDiscordSync.ts` sob `/drafts`.
+  - **Frontend:** `discordSyncApi.submitCorrection(id, { corrections, reason, before })` adicionado. `DraftApiOperations.submitCorrection?` no tipo. `useDraftForm.handleSaveFields` computa diff (JSON.stringify nos campos alterados) e chama `submitCorrection` (best-effort, catch silencioso). `inbox/draftAdapter.ts` adaptado.
+  - **Teste:** "returns 422 for Discord draft" → "accepts Discord draft correction (200)". Backend 263/263, frontend 163/163, lint ✅.
+- **Status:** ✅ **FECHADO (DeepSeek 2026-06-26).**
+
+### T-G1 — Confidence tiers
+
+- **Origem:** Fase G — score de confiança com tiers comportamentais.
+- **Diagnóstico:** `calcConfidence()` já existia (ratio de campos preenchidos). Faltava classificação em tiers (baixa/média/alta/muito alta) e display colorido no frontend.
+- **Implementação (DeepSeek 2026-06-26):**
+  - **Backend:** `classifyConfidence(score)` + tipo `ConfidenceTier` em `parseDiscordAnnouncement.ts`. `ImportTableDraft.confidence_tier` adicionado ao tipo e ao retorno do parser. Sem migration — `parsed_payload` é JSONB, tier serializado automaticamente.
+  - **Frontend:** `confidenceColor(score)` (verde ≥0.85, lima ≥0.65, amarelo ≥0.40, vermelho <0.40) em `DiscordDraftReviewTable` e `DiscordDraftPreview`.
+- **Status:** ✅ **FECHADO (DeepSeek 2026-06-26).**
+
+### T-G2 — Ambiguity signals (preço conflitante, link suspeito)
+
+- **Origem:** Fase G — expor dúvidas/ambiguidades para admin.
+- **Diagnóstico:** `missing_fields` já cobria 7 tipos (unmatched_hint, day_of_week, start_time, slots_total, contact_url, description, ambiguous_x_of_y). Faltavam "preço conflitante" e "link suspeito".
+- **Implementação (DeepSeek 2026-06-26):**
+  - `price_type:ambiguous_value`: quando `priceValue != null && priceType == null` (achou valor mas não classificou pago/gratuito).
+  - `contact_url:suspicious`: quando `contactUrl` existe mas não casa com padrões seguros conhecidos (discord.gg, forms.gle, docs.google.com/forms, typeform, wa.me, t.me).
+  - Sem migration, sem frontend novo — `missing_fields` já renderizado pelo `DraftEditorTab`/`DiscordDraftPreview`.
+- **Status:** ✅ **FECHADO (DeepSeek 2026-06-26).**
+
+### T-G6 — Métricas por rodada de importação
+
+- **Origem:** Fase G — métricas por rodada de importação.
+- **Diagnóstico:** Tabela `discord_import_runs` não existia (T-F1 adiado). Sem métricas de acurácia, revisão ou rejeição por rodada.
+- **Implementação (DeepSeek 2026-06-26):**
+  - **Migration 131:** `discord_import_runs` (online-safe): colunas para contagens por rodada.
+  - **Backend:** `recordImportRun()` best-effort em `utils.ts`. `GET /admin/discord-sync/metrics`: últimas 20 rodadas + totais agregados de correções + distribuição de status + top 10 campos corrigidos. Wireado em `POST /` e `POST /file` de `import.ts`.
+  - DB types: `DiscordImportRunsTable` + `NewDiscordImportRun`.
+- **Status:** ✅ **FECHADO (DeepSeek 2026-06-26).**
+
+### T-G4 — Aprendizado não-IA
+
+- **Origem:** Fase G — alimentar parser com correções humanas.
+- **Diagnóstico:** Infra de coleta pronta (T-G3 registra correções, T-G6 expõe top_corrected_fields). `ensureSystemSuggestionForDraft` já cria aliases. Melhorias de parser (heurísticas, padrões, regras) são **processo humano** contínuo.
+- **Status:** ✅ **Infraestrutura concluída.** Melhorias de parser são processo operacional guiado pelos dados — sem código novo por task.
+
+### T-G5 — IA auxiliar (preparação de dados)
+
+- **Origem:** Fase G — preparar aprendizado assistido por IA.
+- **Diagnóstico:** T-G3 fornece corpus de correções (antes/depois/diff/reason) mas não havia formato de exportação para consumo por IA.
+- **Implementação (DeepSeek 2026-06-26):**
+  - `GET /drafts/export/few-shot` — exporta correções como exemplos few-shot: `{ instruction, input: { raw_text, parsed_before }, output: { corrections, reason } }`. Paginado, filtrável por `reason`/`corrected_by`.
+  - `GET /drafts/export/eval` — exporta correções como dataset de avaliação: `{ id, raw_text, parsed_before, human_corrected, diff, reason, corrected_at }`. Mesmo filtro/paginação.
+  - **Sem chamada de IA** — apenas preparação de dados. Execução de modelo (few-shot prompting, comparação de modelos, fine-tuning) exige spec própria com análise de privacidade e autorização nominal.
+- **Status:** ✅ **FECHADO (DeepSeek 2026-06-26).** Dados exportáveis. Execução de IA = spec 052.
+
+### T-G7 — Shadow mode
+
+- **Origem:** Fase G — registrar decisões automáticas propostas sem aplicá-las.
+- **Diagnóstico:** Sem infraestrutura para comparar "o que o sistema faria" com "o que o admin fez".
+- **Implementação (DeepSeek 2026-06-26):**
+  - **Migration 132:** `discord_shadow_decisions` (online-safe): `draft_id`, `confidence`, `confidence_tier`, `would_auto_approve`, `auto_approve_reason`, `missing_fields`, `actual_outcome`, `actual_at`.
+  - **Lógica:** `recordShadowDecision()` em `utils.ts` — a cada upsert de draft, registra se o sistema teria autoaprovado (tier `muito_alta` + zero `missing_fields`). Best-effort.
+  - **Wire:** `processDiscordMessageToDraft` chama `recordShadowDecision` após upsert (update e insert).
+  - **Endpoint:** `GET /metrics/shadow` — compara decisão automática vs real: acurácia (would_approve_and_synced/rejected, would_not_approve_and_synced/rejected) + lista de completos + pendentes.
+  - Autoaprovação real **nunca ativada** — apenas registro passivo para coleta de dados.
+- **Status:** ✅ **FECHADO (DeepSeek 2026-06-26).** Shadow mode passivo em operação.
+
+### T-G8 — Trava de publicação
+
+- **Origem:** Fase G — MVP nunca publica automaticamente.
+- **Diagnóstico:** Já em vigor: drafts entram `draft/needs_review`, nunca `synced` automático. Sincronização manual explícita.
+- **Status:** ✅ **Em vigor (comportamento).** Formalização completa depende de T-G7.
+
+## DEB-048-28 — Build QUEBRADO na Fase G (corrections.ts): null vs undefined em userId
+
+- **Origem:** integração Fase G (Codex, 2026-06-26). `tsc` falha → backend não builda.
+- **Severidade:** 🛑 Bloqueante (CI/PR #99 e deploy falham; Codex não consegue buildar).
+- **Evidência:** `tsc` →
+  - `src/routes/discord/corrections.ts(29,7): Type 'string | null' is not assignable to type 'string | undefined'`
+  - `src/routes/inbox/corrections.ts(27,7): idem`
+  - Causa: `userId: req.user?.userId ?? null` — `registerDraftCorrection`/`CorrectionInput.userId` é `string | undefined`; `?? null` produz `string | null`.
+- **Fix (1 linha em cada):** trocar `?? null` por `?? undefined` (ou só `req.user?.userId`) em `discord/corrections.ts:29` e `inbox/corrections.ts:27`.
+- **Nota:** o erro reportado pelo LSP em `parseDiscordAnnouncement.ts:648` (confidence_tier) era **stale** — o return principal (L690) já inclui `confidence_tier`. O build real só acusa os 2 acima.
+- **Status:** ✅ **CORRIGIDO (Claude 2026-06-26).** `?? null` → `?? undefined` em `discord/corrections.ts:29` e `inbox/corrections.ts:27`. Build ✅, test **273/273** ✅, lint 15/15 ✅. (LSP mostra `registerDraftCorrection` não-exportado como **stale** — `tsc` passa; `utils.ts` exporta a função.)

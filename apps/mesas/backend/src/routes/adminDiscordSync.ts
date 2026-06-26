@@ -12,6 +12,9 @@ import discoveryRouter from './discord/discovery';
 import fetchRouter from './discord/fetch';
 import sourcesRouter from './discord/sources';
 
+import correctionRouter from './discord/corrections';
+import metricsRouter from './discord/metrics';
+
 const router = Router();
 
 router.use('/discovery', discoveryRouter);
@@ -19,11 +22,13 @@ router.use('/', fetchRouter);
 router.use('/sources', sourcesRouter);
 router.use('/settings', settingsRouter);
 router.use('/drafts', draftsRouter);
+router.use('/drafts', correctionRouter);
 router.use('/messages', messageParseRouter);
 router.use('/messages', parseBatchRouter);
 router.use('/messages', messagesRouter);
 router.use('/', syncRouter);
 router.use('/import-json', previewRouter);
 router.use('/import-json', importRouter);
+router.use('/metrics', metricsRouter);
 
 export default router;

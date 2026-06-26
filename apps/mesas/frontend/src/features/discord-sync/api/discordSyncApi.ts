@@ -165,7 +165,38 @@ function parseDiscordMessage(value: unknown): DiscordMessage {
   return parsed.data;
 }
 
+const importResultSchema = z.object({
+  total: z.number(),
+  inserted: z.number(),
+  updated: z.number(),
+  ignored: z.number(),
+  failed: z.number(),
+});
+
+const previewResultSchema = z.object({
+  guild: z.object({ id: z.string(), name: z.string() }),
+  channel: z.object({ id: z.string(), name: z.string() }),
+  dateRange: z.object({ after: z.string().optional(), before: z.string().optional() }).nullable(),
+  exportedAt: z.string().nullable(),
+  messageCount: z.number(),
+  totalAttachments: z.number(),
+  totalEmbeds: z.number(),
+});
+
+function parseImportResult(data: unknown) {
+  const parsed = importResultSchema.safeParse(data);
+  if (!parsed.success) throw new Error('Resposta de importação em formato inesperado.');
+  return parsed.data;
+}
+
+function parsePreviewResult(data: unknown) {
+  const parsed = previewResultSchema.safeParse(data);
+  if (!parsed.success) throw new Error('Resposta de preview em formato inesperado.');
+  return parsed.data;
+}
+
 export const discordSyncApi = {
+
   getDiscordSettings: async () =>
     parseDiscordSettings(await apiFetch<unknown>('/settings')),
 
@@ -230,6 +261,9 @@ export const discordSyncApi = {
   updateDraft: (id: string, body: { normalized_payload?: Record<string, unknown>; status?: DiscordImportDraftStatus; review_notes?: string }) =>
     apiFetch<DiscordDraft>(`/drafts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
 
+  submitCorrection: (id: string, body: { corrections: Record<string, unknown>; reason?: string; before?: Record<string, unknown> }) =>
+    apiFetch<{ draft_id: string; fields_corrected: number; diff: Record<string, { before: unknown; after: unknown }> }>(`/drafts/${id}/correction`, { method: 'POST', body: JSON.stringify(body) }),
+
   syncDraft: (id: string) =>
     apiFetch<{ tableId: string; created: boolean }>(`/drafts/${id}/sync`, { method: 'POST' }),
 
@@ -243,33 +277,55 @@ export const discordSyncApi = {
     apiFetch<IngestResult & { deleted: number }>(`/sources/${sourceId}/reingest-force`, { method: 'POST', body: JSON.stringify(body ?? {}) }),
 
   parseBatch: () =>
-    apiFetch<{ processed: number; succeeded: number; failed: number }>('/messages/parse-batch', { method: 'POST' }),
+    apiFetch<{ processed: number; succeeded: number; discarded: number; ignored: number; failed: number }>('/messages/parse-batch', { method: 'POST' }),
 
   importJson: async (json: unknown) => {
     const data = await apiFetch<unknown>('/import-json', { method: 'POST', body: JSON.stringify(json) });
-    const parsed = z.object({
-      total: z.number(),
-      inserted: z.number(),
-      updated: z.number(),
-      ignored: z.number(),
-      failed: z.number(),
-    }).safeParse(data);
-    if (!parsed.success) throw new Error('Resposta de importação em formato inesperado.');
-    return parsed.data;
+    return parseImportResult(data);
   },
 
   previewJson: async (json: unknown) => {
     const data = await apiFetch<unknown>('/import-json/preview', { method: 'POST', body: JSON.stringify(json) });
-    const parsed = z.object({
-      guild: z.object({ id: z.string(), name: z.string() }),
-      channel: z.object({ id: z.string(), name: z.string() }),
-      dateRange: z.object({ after: z.string().optional(), before: z.string().optional() }).nullable(),
-      exportedAt: z.string().nullable(),
-      messageCount: z.number(),
-      totalAttachments: z.number(),
-      totalEmbeds: z.number(),
-    }).safeParse(data);
-    if (!parsed.success) throw new Error('Resposta de preview em formato inesperado.');
-    return parsed.data;
+    return parsePreviewResult(data);
+  },
+
+  previewFile: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/v1/admin/discord-sync/import-json/preview/file', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let errData: unknown;
+      try { errData = JSON.parse(text); } catch { /* ignorar */ }
+      throw new Error(typeof errData === 'object' && errData !== null && 'error' in errData
+        ? String((errData as Record<string, unknown>).error)
+        : `Erro ao analisar arquivo (HTTP ${res.status}).`);
+    }
+    const data = await res.json();
+    return parsePreviewResult((data as Record<string, unknown>).data);
+  },
+
+  importFile: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/v1/admin/discord-sync/import-json/file', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let errData: unknown;
+      try { errData = JSON.parse(text); } catch { /* ignorar */ }
+      throw new Error(typeof errData === 'object' && errData !== null && 'error' in errData
+        ? String((errData as Record<string, unknown>).error)
+        : `Erro ao importar arquivo (HTTP ${res.status}).`);
+    }
+    const data = await res.json();
+    return parseImportResult((data as Record<string, unknown>).data);
   },
 };

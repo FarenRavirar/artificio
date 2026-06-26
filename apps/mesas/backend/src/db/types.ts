@@ -696,6 +696,41 @@ export type ImportCorrection = Selectable<ImportCorrectionsTable>;
 export type NewImportCorrection = Insertable<ImportCorrectionsTable>;
 export type ImportCorrectionUpdate = Updateable<ImportCorrectionsTable>;
 
+// Migration 131: Métricas (T-G6) + Shadow mode (T-G7) — Spec 048
+export interface DiscordImportRunsTable {
+  id: Generated<string>;
+  source_kind: Generated<string>;
+  started_at: Generated<Date>;
+  ended_at: Date | null;
+  total_messages: Generated<number>;
+  drafts_created: Generated<number>;
+  drafts_updated: Generated<number>;
+  messages_ignored: Generated<number>;
+  messages_failed: Generated<number>;
+  note: string | null;
+  created_by: string | null;
+}
+
+export type DiscordImportRun = Selectable<DiscordImportRunsTable>;
+export type NewDiscordImportRun = Insertable<DiscordImportRunsTable>;
+
+// (continua migration 131)
+export interface DiscordShadowDecisionsTable {
+  id: Generated<string>;
+  draft_id: string;
+  confidence: number | null;
+  confidence_tier: string | null;
+  would_auto_approve: Generated<boolean>;
+  auto_approve_reason: string | null;
+  missing_fields: string[] | null;
+  actual_outcome: string | null;
+  actual_at: Date | null;
+  created_at: Generated<Date>;
+}
+
+export type DiscordShadowDecision = Selectable<DiscordShadowDecisionsTable>;
+export type NewDiscordShadowDecision = Insertable<DiscordShadowDecisionsTable>;
+
 // Migration 116: Configuracoes cifradas do modulo Discord
 export interface DiscordSettingsTable {
   id: Generated<string>;
@@ -764,6 +799,10 @@ export interface Database {
 
   // Migration 129: Corpus de treino do inbox
   import_corrections: ImportCorrectionsTable;
+
+  // Migration 131: Métricas + Shadow mode (Spec 048 T-G6/T-G7)
+  discord_import_runs: DiscordImportRunsTable;
+  discord_shadow_decisions: DiscordShadowDecisionsTable;
 
   // Migration 116: Configuracoes cifradas do modulo Discord
   discord_settings: DiscordSettingsTable;

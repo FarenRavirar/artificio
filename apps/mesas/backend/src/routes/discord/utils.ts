@@ -10,7 +10,7 @@ import { DiscordChatExporterValidationError } from '../../discord/chatExporterAd
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
 import { loadSystemsForParser } from '../../discord/shared';
 import { notifyAdmins } from '../../services/adminNotifications';
-import { patchDraftSchema } from '../inbox/utils';
+import { patchDraftSchema, correctionSchema } from '../inbox/utils';
 
 function extractArrayFromRecord(record: Record<string, unknown>): unknown[] | null {
   if (Array.isArray(record.items)) return record.items;
@@ -41,7 +41,161 @@ export function parseJsonField(value: unknown): unknown[] {
   return [];
 }
 
-// loadSystemsForParser → importado de ../../discord/shared (D013)
+// ─── T-G3 — registerDraftCorrection (compartilhado: inbox + discord) ─────
+
+interface CorrectionInput {
+  draftId: string;
+  corrections: Record<string, unknown>;
+  reason?: string;
+  before?: Record<string, unknown>;
+  userId?: string;
+}
+
+interface CorrectionResult {
+  draft_id: string;
+  fields_corrected: number;
+  diff: Record<string, { before: unknown; after: unknown }>;
+}
+
+export async function registerDraftCorrection(input: CorrectionInput): Promise<CorrectionResult> {
+  const { draftId, corrections, reason, before } = input;
+
+  const draft = await db
+    .selectFrom('discord_import_table_drafts')
+    .select(['id', 'status', 'parsed_payload', 'normalized_payload', 'discord_message_id', 'import_message_id'])
+    .where('id', '=', draftId)
+    .executeTakeFirst();
+
+  if (!draft) throw Object.assign(new Error('Draft não encontrado.'), { statusCode: 404 });
+  if (draft.status === 'synced') throw Object.assign(new Error('Draft já sincronizado não pode ser corrigido.'), { statusCode: 422 });
+  if (draft.status === 'rejected') throw Object.assign(new Error('Draft rejeitado não pode ser corrigido.'), { statusCode: 422 });
+
+  // Busca raw_text: inbox → import_messages, discord → discord_import_messages
+  let rawText: string | null = null;
+  if (draft.import_message_id) {
+    const inboxMsg = await db
+      .selectFrom('import_messages')
+      .select(['raw_text', 'content_raw'])
+      .where('id', '=', draft.import_message_id)
+      .executeTakeFirst();
+    rawText = inboxMsg?.raw_text ?? inboxMsg?.content_raw ?? null;
+  } else if (draft.discord_message_id) {
+    const discordMsg = await db
+      .selectFrom('discord_import_messages')
+      .select(['content_raw'])
+      .where('id', '=', draft.discord_message_id)
+      .executeTakeFirst();
+    rawText = discordMsg?.content_raw ?? null;
+  }
+
+  const parsedBefore = normalizeDraftPayload(draft.normalized_payload ?? draft.parsed_payload);
+  const humanCorrected = { ...parsedBefore, table: { ...(parsedBefore?.table ?? {}), ...corrections } };
+
+  const diff: Record<string, { before: unknown; after: unknown }> = {};
+  for (const key of Object.keys(corrections)) {
+    const beforeVal = before?.[key] ?? (parsedBefore?.table as Record<string, unknown>)?.[key];
+    const after = corrections[key];
+    if (JSON.stringify(beforeVal) !== JSON.stringify(after)) {
+      diff[key] = { before: beforeVal, after };
+    }
+  }
+
+  const userId = input.userId ?? null;
+
+  await db.transaction().execute(async (trx) => {
+    await trx
+      .insertInto('import_corrections')
+      .values({
+        draft_id: draftId,
+        import_message_id: draft.import_message_id ?? null,
+        raw_text: rawText,
+        parsed_before: parsedBefore,
+        human_corrected: humanCorrected,
+        diff,
+        reason: reason ?? null,
+        corrected_by: userId,
+      })
+      .execute();
+
+    await trx
+      .updateTable('discord_import_table_drafts')
+      .set({
+        normalized_payload: humanCorrected,
+        updated_at: new Date(),
+      })
+      .where('id', '=', draftId)
+      .execute();
+  });
+
+  return { draft_id: draftId, fields_corrected: Object.keys(diff).length, diff };
+}
+
+// ─── T-G6 — registra uma rodada de importação ──────────────────────────
+
+import type { NewDiscordImportRun } from '../../db/types';
+
+export async function recordImportRun(counts: {
+  sourceKind: string;
+  totalMessages: number;
+  draftsCreated: number;
+  draftsUpdated: number;
+  messagesIgnored: number;
+  messagesFailed: number;
+  note?: string;
+  userId?: string;
+}): Promise<void> {
+  try {
+    await db.insertInto('discord_import_runs')
+      .values({
+        source_kind: counts.sourceKind,
+        total_messages: counts.totalMessages,
+        drafts_created: counts.draftsCreated,
+        drafts_updated: counts.draftsUpdated,
+        messages_ignored: counts.messagesIgnored,
+        messages_failed: counts.messagesFailed,
+        ended_at: new Date(),
+        note: counts.note ?? null,
+        created_by: counts.userId ?? null,
+      } as NewDiscordImportRun)
+      .execute();
+  } catch (err) {
+    // best-effort — não bloqueia import
+    console.error('[recordImportRun]', err instanceof Error ? err.message : 'unknown error');
+  }
+}
+
+// ─── T-G7 — registra decisão shadow (o que o sistema teria autoaprovado?) ──
+
+import { classifyConfidence, isHomebrewSystem } from '../../discord/parseDiscordAnnouncement';
+
+export async function recordShadowDecision(draftId: string, confidence: number | null, missingFields: string[]): Promise<void> {
+  try {
+    const tier = confidence != null ? classifyConfidence(confidence) : null;
+    const wouldAutoApprove = tier === 'muito_alta' && missingFields.length === 0;
+    const reason = wouldAutoApprove
+      ? 'Confiança muito alta e todos os campos preenchidos.'
+      : tier === 'muito_alta'
+        ? `Confiança muito alta, mas campos pendentes: ${missingFields.join(', ')}.`
+        : tier != null
+          ? `Confiança ${tier}. Autoaprovação exige "muito_alta".`
+          : 'Sem score de confiança.';
+
+    await db.insertInto('discord_shadow_decisions')
+      .values({
+        draft_id: draftId,
+        confidence,
+        confidence_tier: tier,
+        would_auto_approve: wouldAutoApprove,
+        auto_approve_reason: reason,
+        missing_fields: missingFields.length > 0 ? missingFields : null,
+        actual_outcome: null,
+        actual_at: null,
+      })
+      .execute();
+  } catch (err) {
+    console.error('[recordShadowDecision]', err instanceof Error ? err.message : 'unknown error');
+  }
+}
 
 function getUnmatchedSystemHint(draft: ReturnType<typeof normalizeDiscordTableDraft>['draft']): string | null {
   if (draft.table.system_id) return null;
@@ -190,7 +344,7 @@ export async function parseDiscordMessage(
 
 // ─── DEB-048-22 — processa UMA mensagem → draft (parse-batch + /reparse) ──
 
-export type DiscordDraftOutcome = 'parsed' | 'ignored' | 'reconciled';
+export type DiscordDraftOutcome = 'parsed' | 'ignored' | 'reconciled' | 'discarded';
 
 /**
  * Processa uma mensagem do DiscordChatExporter até o draft: parseia, reconcilia
@@ -218,11 +372,17 @@ export async function processDiscordMessageToDraft(
 
   const result = await parseDiscordMessage(message, systems, replyContext);
   if (!result) {
+    // DEB-048-27: distingue descarte por autoria (homebrew) de não-anúncio.
+    const discarded = isHomebrewSystem({
+      discord_thread_name: message.discord_thread_name,
+      content_raw: String(message.content_raw ?? ''),
+      embeds: parseJsonField(message.embeds),
+    } as ImportRawMessage);
     await db.updateTable('discord_import_messages')
       .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
       .where('id', '=', message.id)
       .execute();
-    return 'ignored';
+    return discarded ? 'discarded' : 'ignored';
   }
   const { parsed, normalized } = result;
 
@@ -237,8 +397,10 @@ export async function processDiscordMessageToDraft(
       })
       .where('id', '=', existing.id)
       .execute();
+
+    recordShadowDecision(existing.id, normalized.draft.confidence, parsed.missing_fields ?? []).catch(() => {});
   } else {
-    await db.insertInto('discord_import_table_drafts')
+    const inserted = await db.insertInto('discord_import_table_drafts')
       .values({
         discord_message_id: message.id,
         parsed_payload: parsed,
@@ -246,7 +408,10 @@ export async function processDiscordMessageToDraft(
         confidence: normalized.draft.confidence,
         status: normalized.status,
       })
-      .execute();
+      .returning('id')
+      .executeTakeFirstOrThrow();
+
+    recordShadowDecision(inserted.id, normalized.draft.confidence, parsed.missing_fields ?? []).catch(() => {});
   }
 
   await db.updateTable('discord_import_messages')

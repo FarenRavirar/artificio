@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
 import { discordSyncApi } from '../api/discordSyncApi';
+import { formatFileSize } from '../draftFormUtils';
 
 export type ImportState = 'empty' | 'previewing' | 'preview_ok' | 'preview_error' | 'sending' | 'success' | 'error';
 
@@ -23,15 +24,11 @@ export interface PreviewResult {
 }
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+const FILE_TEXTAREA_THRESHOLD = 50 * 1024; // <50KB → textarea; >=50KB → backend
 
 export function useJsonImport() {
   const [rawJson, setRawJson] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [state, setState] = useState<ImportState>('empty');
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -84,6 +81,21 @@ export function useJsonImport() {
   }, [schedulePreview]);
 
   const handleSubmit = useCallback(async () => {
+    if (selectedFile) {
+      setState('sending');
+      setErrorMessage('');
+      try {
+        const data = await discordSyncApi.importFile(selectedFile);
+        setResult(data);
+        setState('success');
+        toast.success(`${data.inserted} mensagens importadas, ${data.updated} atualizadas.`);
+      } catch (err) {
+        setState('error');
+        setErrorMessage(err instanceof Error ? err.message : 'Erro ao importar arquivo.');
+      }
+      return;
+    }
+
     if (!rawJson.trim()) return;
 
     setState('sending');
@@ -98,11 +110,12 @@ export function useJsonImport() {
       setState('error');
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao importar JSON.');
     }
-  }, [rawJson]);
+  }, [selectedFile, rawJson]);
 
   const handleClear = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setRawJson('');
+    setSelectedFile(null);
     setState('empty');
     setPreview(null);
     setResult(null);
@@ -111,8 +124,24 @@ export function useJsonImport() {
 
   const showFileError = useCallback((msg: string) => {
     setPreview(null);
-    setState('error');
+    setState('preview_error');
     setErrorMessage(msg);
+  }, []);
+
+  const previewForFile = useCallback(async (file: File) => {
+    setState('previewing');
+    setPreview(null);
+    setErrorMessage('');
+
+    try {
+      const data = await discordSyncApi.previewFile(file);
+      setPreview(data);
+      setState('preview_ok');
+    } catch (err) {
+      setPreview(null);
+      setState('preview_error');
+      setErrorMessage(err instanceof Error ? err.message : 'Erro ao analisar arquivo.');
+    }
   }, []);
 
   const handleFileSelect = useCallback((event: ChangeEvent<HTMLInputElement>) => {
@@ -131,14 +160,19 @@ export function useJsonImport() {
       return;
     }
 
-    file.text()
-      .then((content) => {
-        schedulePreview(content);
-      })
-      .catch(() => {
-        showFileError('Erro ao ler o arquivo. Tente novamente.');
-      });
-  }, [schedulePreview, showFileError]);
+    if (file.size < FILE_TEXTAREA_THRESHOLD) {
+      // Arquivo pequeno → textarea (comportamento original)
+      file.text()
+        .then((content) => schedulePreview(content))
+        .catch(() => showFileError('Erro ao ler o arquivo. Tente novamente.'));
+      return;
+    }
+
+    // Arquivo grande → backend via FormData (sem travar navegador)
+    setSelectedFile(file);
+    setRawJson('');
+    previewForFile(file);
+  }, [schedulePreview, previewForFile, showFileError]);
 
   const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -170,17 +204,20 @@ export function useJsonImport() {
       return;
     }
 
-    file.text()
-      .then((content) => {
-        schedulePreview(content);
-      })
-      .catch(() => {
-        showFileError('Erro ao ler o arquivo. Tente novamente.');
-      });
-  }, [schedulePreview, showFileError]);
+    if (file.size < FILE_TEXTAREA_THRESHOLD) {
+      file.text()
+        .then((content) => schedulePreview(content))
+        .catch(() => showFileError('Erro ao ler o arquivo. Tente novamente.'));
+      return;
+    }
+
+    setSelectedFile(file);
+    setRawJson('');
+    previewForFile(file);
+  }, [schedulePreview, previewForFile, showFileError]);
 
   return {
-    rawJson, state, preview, result, errorMessage, isDragOver,
+    rawJson, selectedFile, state, preview, result, errorMessage, isDragOver,
     fileInputRef,
     handleChange, handleSubmit, handleClear,
     handleFileSelect, handleDragOver, handleDragLeave, handleDrop,

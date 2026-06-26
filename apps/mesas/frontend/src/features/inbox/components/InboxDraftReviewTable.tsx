@@ -4,7 +4,8 @@ import type { DiscordDraft, DiscordImportDraftStatus } from '../../discord-sync/
 import { DiscordDraftPreview } from '../../discord-sync/components/DiscordDraftPreview';
 import { inboxApi } from '../api/inboxApi';
 import type { InboxDraftSummary } from '../types';
-import { buildInboxDraftApi, inboxDraftToDiscordDraft, isRecord } from '../adapters/draftAdapter';
+import { buildInboxDraftApi, inboxDraftToDiscordDraft } from '../adapters/draftAdapter';
+import { isRecord } from '../../discord-sync/draftFormUtils';
 
 const DRAFT_STATUS_LABELS: Record<string, string> = {
   draft: 'Rascunho',

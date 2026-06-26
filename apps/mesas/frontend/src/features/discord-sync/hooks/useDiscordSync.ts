@@ -244,7 +244,8 @@ export function useDiscordSync() {
     setParsingBatch(true);
     try {
       const result = await discordSyncApi.parseBatch();
-      toast.success(`Apuração em lote: ${result.succeeded} criados, ${result.failed} com erro (total: ${result.processed}).`);
+      // DEB-048-27: válidos · descartados (autoria) · inválidos · erros
+      toast.success(`Apuração: ${result.succeeded} válidos · ${result.discarded} descartados (autoria) · ${result.ignored} inválidos · ${result.failed} erros (total ${result.processed}).`);
       loadMessages();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro na apuração em lote.');

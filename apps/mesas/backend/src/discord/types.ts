@@ -78,10 +78,13 @@ export interface DiscordTableDraftTable {
   _notes: string[];
 }
 
+import type { ConfidenceTier } from './parseDiscordAnnouncement';
+
 export interface ImportTableDraft {
   source: DiscordTableDraftSource;
   table: DiscordTableDraftTable;
   confidence: number;
+  confidence_tier: ConfidenceTier;
   missing_fields: string[];
 }
 

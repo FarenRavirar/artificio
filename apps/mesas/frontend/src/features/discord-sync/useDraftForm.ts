@@ -130,16 +130,39 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     setSavingFields(true);
     try {
       const nextMissing = validateForm(state.form);
+      const basePayload = draft.normalized_payload ?? draft.parsed_payload;
       const updated = await draftApi.updateDraft(draft.id, {
-        normalized_payload: buildUpdatedPayload(
-          draft.normalized_payload ?? draft.parsed_payload,
-          state.form
-        ),
+        normalized_payload: buildUpdatedPayload(basePayload, state.form),
         status: nextMissing.length === 0 ? 'ready' : 'needs_review',
         review_notes: nextMissing.length === 0
           ? (state.reviewNotes === '' ? '' : state.reviewNotes || undefined)
           : `Campos pendentes: ${nextMissing.join(', ')}`,
       });
+
+      // T-G3: registra correção (antes/depois) se o draft veio de Discord ou Inbox
+      if (draftApi.submitCorrection) {
+        const originalForm = buildForm(basePayload);
+        const corrections: Record<string, unknown> = {};
+        const before: Record<string, unknown> = {};
+        for (const key of Object.keys(state.form) as (keyof DraftForm)[]) {
+          const newVal = state.form[key];
+          const oldVal = originalForm[key];
+          if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
+            corrections[key] = newVal;
+            before[key] = oldVal;
+          }
+        }
+        if (Object.keys(corrections).length > 0) {
+          await draftApi.submitCorrection(draft.id, {
+            corrections,
+            before,
+            reason: nextMissing.length === 0 ? 'Preenchimento completo de campos pendentes.' : undefined,
+          }).catch(() => {
+            // registro de correção é best-effort — não trava o save
+          });
+        }
+      }
+
       dispatch({ type: 'MARK_PERSISTED' });
       toast.success(nextMissing.length === 0 ? 'Draft pronto para sincronizar.' : 'Draft salvo para revisão.');
       onUpdate(updated);

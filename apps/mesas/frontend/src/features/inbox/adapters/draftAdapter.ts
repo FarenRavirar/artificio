@@ -1,10 +1,7 @@
 import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from '../../discord-sync/types';
-import type { InboxDraft, InboxCorrectionResult, InboxSyncResult } from '../types';
+import type { InboxDraft, InboxSyncResult } from '../types';
+import { isRecord } from '../../discord-sync/draftFormUtils';
 import { inboxApi } from '../api/inboxApi';
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
 
 export function inboxDraftToDiscordDraft(raw: InboxDraft): DiscordDraft {
   return {
@@ -32,7 +29,7 @@ export function buildInboxDraftApi(): DraftApiOperations {
       inboxDraftToDiscordDraft(await inboxApi.reparseDraft(id)),
     getDraft: async (id) =>
       inboxDraftToDiscordDraft(await inboxApi.getDraft(id)),
-    registerCorrection: async (id, corrections, reason) =>
-      inboxApi.registerCorrection(id, corrections, reason) as Promise<InboxCorrectionResult>,
+    submitCorrection: async (id, body) =>
+      inboxApi.registerCorrection(id, body.corrections, body.reason, { before: body.before }) as Promise<unknown>,
   };
 }

@@ -1,9 +1,11 @@
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
 import { requireAdmin } from '../../middleware/auth';
-import { importDiscordChatExporterJson, extractJsonPayload } from '../../discord/chatExporterImportService';
+import { importDiscordChatExporterJson, extractJsonPayload, MAX_IMPORT_JSON_BYTES } from '../../discord/chatExporterImportService';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { db } from '../../db';
-import { validateReparseMessageIds, buildContentIndex, reparseOneMessage } from './utils';
+import { validateReparseMessageIds, buildContentIndex, reparseOneMessage, recordImportRun } from './utils';
+import { jsonFileUpload } from './preview';
 
 const router = Router();
 
@@ -27,6 +29,17 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
 
     const result = await importDiscordChatExporterJson(extracted.payload);
 
+    // T-G6: registra métricas da rodada (best-effort)
+    recordImportRun({
+      sourceKind: 'discord_chat_exporter_json',
+      totalMessages: result.total,
+      draftsCreated: result.inserted,
+      draftsUpdated: result.updated,
+      messagesIgnored: result.ignored,
+      messagesFailed: result.failed,
+      userId: (req as any).user?.userId,
+    }).catch(() => {});
+
     return res.json({
       data: {
         total: result.total,
@@ -37,6 +50,61 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
       },
     });
   } catch (error: unknown) {
+    respondImportError(res, error);
+  }
+});
+
+// POST /import-json/file — import de arquivo JSON (sem texto no body)
+router.post('/file', requireAdmin, jsonFileUpload.single('file'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+    }
+
+    const rawJson = req.file.buffer.toString('utf-8');
+
+    if (rawJson.length > MAX_IMPORT_JSON_BYTES) {
+      return res.status(413).json({ error: `JSON muito grande (${(rawJson.length / 1024 / 1024).toFixed(1)} MB). O limite é ${MAX_IMPORT_JSON_BYTES / 1024 / 1024} MB.` });
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(rawJson);
+    } catch {
+      return res.status(400).json({ error: 'JSON inválido: o arquivo não contém JSON válido.' });
+    }
+
+    const result = await importDiscordChatExporterJson(parsed);
+
+    recordImportRun({
+      sourceKind: 'discord_chat_exporter_json',
+      totalMessages: result.total,
+      draftsCreated: result.inserted,
+      draftsUpdated: result.updated,
+      messagesIgnored: result.ignored,
+      messagesFailed: result.failed,
+      userId: (req as any).user?.userId,
+    }).catch(() => {});
+
+    return res.json({
+      data: {
+        total: result.total,
+        inserted: result.inserted,
+        updated: result.updated,
+        ignored: result.ignored,
+        failed: result.failed,
+      },
+    });
+  } catch (error: unknown) {
+    if (error instanceof multer.MulterError) {
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: `Arquivo muito grande. O limite é ${MAX_IMPORT_JSON_BYTES / 1024 / 1024} MB.` });
+      }
+      return res.status(400).json({ error: 'Erro ao processar arquivo.' });
+    }
+    if (error instanceof Error && error.message === 'Formato inválido. Envie apenas arquivos .json.') {
+      return res.status(400).json({ error: error.message });
+    }
     respondImportError(res, error);
   }
 });
@@ -65,11 +133,12 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
     const messages = await query.limit(500).execute();
 
     if (messages.length === 0) {
-      return res.json({ data: { total: 0, reparsed: 0, ignored: 0, errors: 0 } });
+      return res.json({ data: { total: 0, reparsed: 0, discarded: 0, ignored: 0, errors: 0 } });
     }
 
     const contentIndex = buildContentIndex(messages);
     let reparsed = 0;
+    let discarded = 0; // DEB-048-27: descartados por autoria (homebrew)
     let ignored = 0;
     let errors = 0;
 
@@ -77,6 +146,7 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
       // DEB-048-22/20: processamento + política de erro por mensagem no helper.
       const outcome = await reparseOneMessage(message, contentIndex, req.user?.userId);
       if (outcome === 'error') errors++;
+      else if (outcome === 'discarded') discarded++; // DEB-048-27
       else if (outcome === 'ignored') ignored++;
       else if (outcome !== 'skipped') reparsed++; // 'parsed' ou 'reconciled'
     }
@@ -85,6 +155,7 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
       data: {
         total: messages.length,
         reparsed,
+        discarded,
         ignored,
         errors,
       },

@@ -1,4 +1,5 @@
 import { useJsonImport } from '../hooks/useJsonImport';
+import { formatFileSize } from '../draftFormUtils';
 import { ImportResultGrid } from './ImportResultGrid';
 import { JsonPreviewCard } from './JsonPreviewCard';
 import { FileDropzone } from "@artificio/ui";
@@ -9,7 +10,7 @@ interface DiscordJsonImportPanelProps {
 
 export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImportPanelProps) {
   const {
-    rawJson, state, preview, result, errorMessage, isDragOver,
+    rawJson, selectedFile, state, preview, result, errorMessage, isDragOver,
     fileInputRef,
     handleChange, handleSubmit, handleClear,
     handleFileSelect, handleDragOver, handleDragLeave, handleDrop,
@@ -25,21 +26,30 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
           O sistema vai importar as mensagens para revisão.
         </p>
 
-        <FileDropzone
-          value={rawJson}
-          isDragOver={isDragOver}
-          fileInputRef={fileInputRef}
-          onTextChange={handleChange}
-          onFileSelect={handleFileSelect}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          accept=".json,application/json"
-          placeholder="Cole o JSON aqui..."
-          label="JSON do DiscordChatExporter"
-          fileLabel="Selecionar arquivo JSON do DiscordChatExporter"
-          textareaProps={{ id: "discord-json-input" }}
-        />
+        {selectedFile ? (
+          <div className="flex items-center gap-2 bg-blue-900/30 border border-blue-600/30 rounded-lg px-3 py-2">
+            <span className="text-blue-300 text-sm">📄</span>
+            <span className="text-white text-sm font-medium">{selectedFile.name}</span>
+            <span className="text-white/50 text-xs">{formatFileSize(selectedFile.size)}</span>
+            {preview && <span className="text-white/30 text-xs">· {preview.messageCount} mensagens</span>}
+          </div>
+        ) : (
+          <FileDropzone
+            value={rawJson}
+            isDragOver={isDragOver}
+            fileInputRef={fileInputRef}
+            onTextChange={handleChange}
+            onFileSelect={handleFileSelect}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            accept=".json,application/json"
+            placeholder="Cole o JSON aqui..."
+            label="JSON do DiscordChatExporter"
+            fileLabel="Selecionar arquivo JSON do DiscordChatExporter"
+            textareaProps={{ id: "discord-json-input" }}
+          />
+        )}
 
         <div className="flex gap-2">
           <button
@@ -53,7 +63,7 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
             onClick={() => fileInputRef.current?.click()}
             className="px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
           >
-            Selecionar arquivo
+            {selectedFile ? 'Trocar arquivo' : 'Selecionar arquivo'}
           </button>
           <button
             onClick={handleClear}

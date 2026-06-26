@@ -224,3 +224,32 @@ Mantenedor testou em `https://mesasbeta.artificiorpg.com/gestao` → Discord Syn
 - Autorização para commit/PR dos fixes (carona na PR #91 ou novo commit).
 - Redeploy beta + re-smoke com `extracao_json.json`.
 - Inspeção read-only no beta para DEB-048-11 (causa do 500).
+
+## DEB-048-24 — Import por arquivo não trava mais o navegador (2026-06-26, DeepSeek)
+
+### Decisões do mantenedor
+- Arquivos **< 50KB**: fluxo original (`file.text()` → textarea) — preservado.
+- Arquivos **≥ 50KB**: backend puro (FormData → multer `memoryStorage` → processa → descarta), igual sites de conversão de imagem.
+- **Nenhum bloqueador novo** de tamanho — o ponto é funcionar sem travar.
+- **Nenhuma duplicação** de código — helpers extraídos e compartilhados.
+
+### Backend
+- `chatExporterImportService.ts`: `+buildPreviewFromExport(exportData)` — extrai as ~12 linhas de montagem de preview que estavam duplicadas entre `/preview` e `/preview/file`.
+- `preview.ts`: `+POST /preview/file` (multer, buffer → JSON.parse → Zod → `buildPreviewFromExport`). `jsonFileUpload` exportado. Handler `/preview` existente refatorado para usar `buildPreviewFromExport`.
+- `import.ts`: `+POST /file` (importa `jsonFileUpload` de preview.ts — sem redefinir. buffer → JSON.parse → `importDiscordChatExporterJson`).
+
+### Frontend
+- `discordSyncApi.ts`: `+previewFile(file)` / `+importFile(file)` (FormData, `fetch` com `credentials: 'include'`). Schemas Zod `importResultSchema`/`previewResultSchema` + helpers `parseImportResult`/`parsePreviewResult` extraídos — 1 definição, 2 usos cada.
+- `useJsonImport.ts`: `FILE_TEXTAREA_THRESHOLD = 50 * 1024`. `handleFileSelect`/`handleDrop`: <50KB → `file.text()` → textarea; ≥50KB → `setSelectedFile(file)` + `previewForFile(file)`. `handleSubmit`: condicional (`selectedFile` → `importFile()`, senão → `importJson()`). `handleClear` zera `selectedFile`.
+- `DiscordJsonImportPanel.tsx`: quando `selectedFile`, mostra chip (📄 nome · tamanho · contagem) + esconde textarea. Botão vira "Trocar arquivo".
+
+### Validação
+- Backend build ✅ | Frontend build ✅ | Lint 15/15 ✅
+- Backend tests 263/263 ✅ | Frontend tests 163/163 ✅
+
+### Status
+- **DEB-048-24 fechado.** Código local, **não commitado**.
+- **DEB-048-25** (UX unificada) pendente.
+- **Fase G completa (2026-06-26, DeepSeek):** T-G1..T-G8 todas implementadas.
+  - Build ✅, lint 15/15, backend 263/263, frontend 163/163.
+  - **Não commitado.**
