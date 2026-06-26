@@ -6,6 +6,7 @@ import type { DiscordSourceChannelType, DiscordImportMessagesTable } from '../..
 import type { SystemEntry, ImportRawMessage } from '../../discord';
 import { normalizeDiscordTableDraft, parseDiscordAnnouncement, normalizeDraftPayload, assertDraftReadyTransition } from '../../discord';
 import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
+import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
 import { loadSystemsForParser } from '../../discord/shared';
 import { notifyAdmins } from '../../services/adminNotifications';
@@ -113,8 +114,9 @@ export function buildContentIndex(messages: { discord_message_id: unknown; conte
   const index = new Map<string, string>();
   for (const msg of messages) {
     const raw = msg.content_raw;
-    if (typeof raw === 'string' && raw.length > 0) {
-      index.set(String(msg.discord_message_id ?? ''), raw.length > 80 ? raw.slice(0, 80) + '...' : raw);
+    const id = msg.discord_message_id;
+    if (typeof id === 'string' && id.length > 0 && typeof raw === 'string' && raw.length > 0) {
+      index.set(id, raw.length > 80 ? raw.slice(0, 80) + '...' : raw);
     }
   }
   return index;
@@ -241,6 +243,51 @@ export async function processDiscordMessageToDraft(
   );
 
   return 'parsed';
+}
+
+/**
+ * Valida `messageIds` de payload externo (DEB-048-19). Lança
+ * DiscordChatExporterValidationError (→ 400 no handler) se inválido.
+ */
+export function validateReparseMessageIds(rawIds: unknown): string[] | undefined {
+  if (rawIds === undefined || rawIds === null) return undefined;
+  if (!Array.isArray(rawIds)) {
+    throw new DiscordChatExporterValidationError('messageIds deve ser um array de strings.');
+  }
+  if (!rawIds.every((id: unknown) => typeof id === 'string' && id.length > 0)) {
+    throw new DiscordChatExporterValidationError('messageIds deve conter apenas strings não-vazias.');
+  }
+  return rawIds as string[];
+}
+
+/**
+ * Processa UMA mensagem no /reparse com política de erro própria (DEB-048-20):
+ * pula `synced` ('skipped'), processa via helper compartilhado, e em falha marca
+ * a mensagem como erro sem abortar o lote. Extraído para reduzir a complexidade
+ * cognitiva do handler.
+ */
+export async function reparseOneMessage(
+  message: Selectable<DiscordImportMessagesTable>,
+  contentIndex: Map<string, string>,
+  userId: string | undefined,
+): Promise<DiscordDraftOutcome | 'error' | 'skipped'> {
+  if (message.status === 'synced') return 'skipped'; // segurança extra
+  try {
+    const replyContext = resolveReplyContext(message as Record<string, unknown>, contentIndex);
+    return await processDiscordMessageToDraft(message, undefined, replyContext, userId);
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'unknown error';
+    try {
+      await db.updateTable('discord_import_messages')
+        .set({ status: 'error', parse_error: errorMessage, updated_at: new Date() })
+        .where('id', '=', message.id)
+        .execute();
+    } catch (dbError: unknown) {
+      console.error('[reparseOneMessage] DB update failed for message', message.id,
+        dbError instanceof Error ? dbError.message : 'unknown db error');
+    }
+    return 'error';
+  }
 }
 
 // ─── REV-037 — validateDraftStatusTransition (drafts.ts + adminImportInbox.ts) ──

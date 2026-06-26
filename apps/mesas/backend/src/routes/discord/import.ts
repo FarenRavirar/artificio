@@ -3,7 +3,7 @@ import { requireAdmin } from '../../middleware/auth';
 import { importDiscordChatExporterJson, extractJsonPayload } from '../../discord/chatExporterImportService';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { db } from '../../db';
-import { processDiscordMessageToDraft, buildContentIndex, resolveReplyContext } from './utils';
+import { validateReparseMessageIds, buildContentIndex, reparseOneMessage } from './utils';
 
 const router = Router();
 
@@ -44,32 +44,21 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
 // POST /import-json/reparse — reprocessa mensagens DiscordChatExporter pendentes
 router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
   try {
-    // DEB-048-19: validação robusta de messageIds (payload externo)
-    const { messageIds: rawIds } = req.body ?? {};
-    let messageIds: string[] | undefined;
+    // DEB-048-19: validação de messageIds (payload externo) — lança → 400.
+    const messageIds = validateReparseMessageIds((req.body ?? {}).messageIds);
+    const hasIds = !!(messageIds && messageIds.length > 0);
 
-    if (rawIds !== undefined && rawIds !== null) {
-      if (!Array.isArray(rawIds)) {
-        return res.status(400).json({ error: 'messageIds deve ser um array de strings.' });
-      }
-      if (!rawIds.every((id: unknown) => typeof id === 'string' && id.length > 0)) {
-        return res.status(400).json({ error: 'messageIds deve conter apenas strings não-vazias.' });
-      }
-      messageIds = rawIds as string[];
-    }
-
-    // DEB-048-17: lista de status condicional numa ÚNICA cláusula. Múltiplos
-    // .where('status',...) são ANDeados pelo Kysely — somar 'parsed' num 2º
-    // .where não funcionaria (interseção excluiria 'parsed').
+    // DEB-048-17: lista de status condicional numa ÚNICA cláusula (múltiplos
+    // .where('status',...) seriam ANDeados pelo Kysely e excluiriam 'parsed').
     let query = db
       .selectFrom('discord_import_messages')
       .selectAll()
       .where('source_kind', '=', 'discord_chat_exporter_json')
-      .where('status', 'in', (messageIds && messageIds.length > 0)
+      .where('status', 'in', hasIds
         ? ['pending', 'needs_review', 'parsed']
         : ['pending', 'needs_review']);
 
-    if (messageIds && messageIds.length > 0) {
+    if (hasIds) {
       query = query.where('discord_message_id', 'in', messageIds);
     }
 
@@ -80,37 +69,16 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
     }
 
     const contentIndex = buildContentIndex(messages);
-
     let reparsed = 0;
     let ignored = 0;
     let errors = 0;
 
     for (const message of messages) {
-      try {
-        // Não reprocessa mensagens synced (segurança extra)
-        if (message.status === 'synced') continue;
-
-        // T-F8: resolve replyContext via reference.messageId
-        const replyContext = resolveReplyContext(message as Record<string, unknown>, contentIndex);
-
-        // DEB-048-22: processamento compartilhado com parse-batch.
-        const outcome = await processDiscordMessageToDraft(message, undefined, replyContext, req.user?.userId);
-        if (outcome === 'ignored') ignored++;
-        else reparsed++; // 'parsed' ou 'reconciled'
-      } catch (err: unknown) {
-        // DEB-048-20: catch interno próprio + preserva causa
-        const errorMessage = err instanceof Error ? err.message : 'unknown error';
-        try {
-          await db.updateTable('discord_import_messages')
-            .set({ status: 'error', parse_error: errorMessage, updated_at: new Date() })
-            .where('id', '=', message.id)
-            .execute();
-        } catch (dbError: unknown) {
-          console.error('[POST /admin/discord-sync/import-json/reparse] DB update failed for message', message.id,
-            dbError instanceof Error ? dbError.message : 'unknown db error');
-        }
-        errors++;
-      }
+      // DEB-048-22/20: processamento + política de erro por mensagem no helper.
+      const outcome = await reparseOneMessage(message, contentIndex, req.user?.userId);
+      if (outcome === 'error') errors++;
+      else if (outcome === 'ignored') ignored++;
+      else if (outcome !== 'skipped') reparsed++; // 'parsed' ou 'reconciled'
     }
 
     return res.json({
