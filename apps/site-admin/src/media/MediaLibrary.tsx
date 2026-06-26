@@ -1,6 +1,7 @@
 // Biblioteca de mídia (spec 011, T19). Grid + upload + busca/filtro + editar metadados/apagar.
 // Reutilizável: com `onPick` vira seletor (modal); sem, é a tela de gerência.
 import { useEffect, useRef, useState } from "react";
+import { useConfirm } from "@artificio/ui";
 import { api, type MediaItem } from "../api";
 
 const TYPES = [{ v: "", l: "Todos" }, { v: "image", l: "Imagens" }, { v: "audio", l: "Áudio" }, { v: "video", l: "Vídeo" }];
@@ -17,6 +18,8 @@ export function MediaLibrary({ onPick }: { onPick?: (item: MediaItem) => void })
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const { confirm } = useConfirm();
 
   const load = (qq = q, tt = type) => {
     api.listMedia(qq, tt).then((r) => { setItems(r.items); setTotal(r.total); }).catch((e) => setErr(String(e.message)));
@@ -37,7 +40,13 @@ export function MediaLibrary({ onPick }: { onPick?: (item: MediaItem) => void })
     catch (e) { setErr(String((e as Error).message)); }
   };
   const del = async (it: MediaItem) => {
-    if (!window.confirm(`Apagar "${it.title || it.url}"? Referências no conteúdo (por URL) não são removidas.`)) return;
+    const ok = await confirm({
+      title: "Apagar mídia",
+      message: `Apagar "${it.title || it.url}"? Referências no conteúdo (por URL) não são removidas.`,
+      confirmText: "Apagar",
+      variant: "danger",
+    });
+    if (!ok) return;
     try { await api.deleteMedia(it.id); if (sel?.id === it.id) setSel(null); load(); }
     catch (e) { setErr(String((e as Error).message)); }
   };

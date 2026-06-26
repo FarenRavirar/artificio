@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useConfirm } from "@artificio/ui";
 import { api, type FeedbackItem } from "../api";
 
 const STATUS_OPTIONS = [
@@ -23,6 +24,8 @@ export function FeedbackPage() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
 
+  const { confirm } = useConfirm();
+
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
 
   const load = (st = status, kd = kind, ar = archived) => {
@@ -43,7 +46,13 @@ export function FeedbackPage() {
   };
 
   const remove = async (it: FeedbackItem) => {
-    if (!window.confirm(`Excluir "${it.title}" definitivamente?`)) return;
+    const ok = await confirm({
+      title: "Excluir feedback",
+      message: `Excluir "${it.title}" definitivamente?`,
+      confirmText: "Excluir",
+      variant: "danger",
+    });
+    if (!ok) return;
     setBusyId(it.id);
     try { await api.deleteFeedback(it.id); note("Excluído."); load(); }
     catch (e) { note(String((e as Error).message), true); }

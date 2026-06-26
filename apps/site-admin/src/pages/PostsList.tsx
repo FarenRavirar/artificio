@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useConfirm } from "@artificio/ui";
 import { api, type PostListItem } from "../api";
 
 // Filtros de status (R4a): "" = ativos (API exclui trash por padrão).
@@ -38,6 +39,8 @@ export function PostsList() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
 
+  const { confirm } = useConfirm();
+
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
 
   const load = (query = q, st = status) => {
@@ -47,7 +50,15 @@ export function PostsList() {
   useEffect(() => { load("", ""); }, []);
 
   const run = async (p: PostListItem, a: Action) => {
-    if (a.del && !window.confirm(`Apagar permanentemente "${p.title}"? Esta ação não pode ser desfeita.`)) return;
+    if (a.del) {
+      const ok = await confirm({
+        title: "Apagar post",
+        message: `Apagar permanentemente "${p.title}"? Esta ação não pode ser desfeita.`,
+        confirmText: "Apagar",
+        variant: "danger",
+      });
+      if (!ok) return;
+    }
     setBusyId(p.id);
     try {
       const r = a.del ? await api.deletePost(p.id) : await api.setPostStatus(p.id, a.status!);

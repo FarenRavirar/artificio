@@ -1,4 +1,5 @@
 import { NavLink, Route, Routes } from "react-router-dom";
+import { ConfirmProvider } from "@artificio/ui";
 import { PostsList } from "./pages/PostsList";
 import { PostEditor } from "./pages/PostEditor";
 import { PagesList } from "./pages/PagesList";
@@ -8,6 +9,7 @@ import { FeedbackPage } from "./pages/FeedbackPage";
 
 export function App() {
   return (
+    <ConfirmProvider>
     <div className="admin-shell">
       <aside className="admin-side">
         <h1>Artifício <b>RPG</b><br />Administração</h1>
@@ -34,5 +36,6 @@ export function App() {
         </Routes>
       </main>
     </div>
+    </ConfirmProvider>
   );
 }

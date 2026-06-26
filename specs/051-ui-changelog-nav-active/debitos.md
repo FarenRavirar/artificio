@@ -11,7 +11,7 @@
 ## DEB-051-01 — ConfirmDialog extraído mas não adotado no site-admin (parte órfã)
 
 - **Origem:** Onda A spec 051 (F5.2a). Cross-ref backlog `BL-051-CONFIRMDIALOG-SITEADMIN-ROLLOUT`.
-- **Estado:** aberto (débito de rollout). **Severidade: baixa-média.**
+- **Estado:** **fechado (2026-06-26).** **Severidade: baixa-média.**
 - **Evidência:** `ConfirmProvider`/`useConfirm` extraídos p/ `packages/ui`; mesas + glossario migrados. Mas `apps/site-admin` mantém **4 `window.confirm` crus** — todos ações destrutivas/irreversíveis:
   - `apps/site-admin/src/pages/PostsList.tsx:50` ("Apagar permanentemente")
   - `apps/site-admin/src/pages/PagesList.tsx:44` ("Apagar permanentemente")
@@ -31,7 +31,52 @@
 - Escopo isolado e conhecido: 4 call-sites, 1 app, listados acima.
 - Custo do fix não-trivial (dep nova + bundle smoke) justifica adiar.
 
-- **Próximo passo:** adicionar `@artificio/ui` ao `site-admin` → `<ConfirmProvider>` no root → migrar os 4 `window.confirm` p/ `useConfirm({title, message, variant:'danger'})` → smoke de bundle (peso/Astro island). Fecha junto `BL-051-CONFIRMDIALOG-SITEADMIN-ROLLOUT`.
+- **Fechamento (2026-06-26):** 6 tasks executadas via DeepSeek (T-DEB01.1–T-DEB01.6). `@artificio/ui` adicionado como dep, CSS importado antes do `styles.css`, `<ConfirmProvider>` no root, 4 `window.confirm` → `await confirm({...})`. 8 arquivos, +50/-5 linhas. Lint 15/15 ✅, build ✅. `BL-051-CONFIRMDIALOG-SITEADMIN-ROLLOUT` fechado no backlog. F5.2a agora **total** (3/3 apps migrados: mesas, glossario, site-admin).
+
+### Achado da investigação (2026-06-26) — colisão de tokens de tema
+
+`site-admin` é **light** (`body { background:#f6f7fb; color:var(--ink) }`) e define no próprio `:root` (`apps/site-admin/src/styles.css`) tokens com **nomes iguais** aos do `@artificio/ui`, porém significado/valor diferentes:
+
+| token | site-admin | @artificio/ui `:root` | colisão real? |
+|---|---|---|---|
+| `--surface` | `#1b2a4a` (navy) | `var(--artificio-light-surface)` | **Não** — `--surface` é **definido mas nunca consumido** (`var(--surface)`) no site-admin. Pode até ser removido. |
+| `--line` | `#e3e6ef` (cinza claro) | `rgba(2,7,64,0.14)` (navy claro) | **Sim** — `--line` usado **12×** no site-admin (`styles.css` ×11 + `FeedbackPage.tsx:93` inline). Ambos são bordas claras → visualmente compatíveis, mas o vencedor depende da **ordem de import**. |
+
+`ui/styles.css` traz o conjunto completo de tokens em `:root` (light default) + override `[data-theme="dark"]`. Os tokens que o `ConfirmDialog` consome: `--surface`, `--fg`, `--fg-muted`, `--fill`, `--line`, `--state-{danger,warning,info}-{bg,fg}`, `--artificio-brand`, `--artificio-brand-deep`, `--artificio-danger-text`. **site-admin não define** `--fg/--fill/--state-*/--artificio-*` → virão do `ui/:root` (corretos). Só `--line` é compartilhado e ambos claros.
+
+**Decisão de tema:** site-admin é light e fica light. NÃO setar `data-theme="dark"` — o `ConfirmDialog` renderiza no tema claro do `ui/:root`, casando com o admin claro.
+
+<details><summary>📋 Plano de implementação (executado 2026-06-26 — mantido como registro)</summary>
+
+**T-DEB01.1 — dependência** ✅
+- Adicionar em `apps/site-admin/package.json` → `dependencies`: `"@artificio/ui": "workspace:*"` (ordem alfabética).
+
+**T-DEB01.2 — CSS (resolver colisão por ordem de import)** ✅
+- Em `apps/site-admin/src/main.tsx`, importar `@artificio/ui/styles.css` **ANTES** de `./styles.css`.
+- Removido `--surface: #1b2a4a;` morto do `styles.css` (bônus, não obrigatório).
+
+**T-DEB01.3 — provider no root** ✅
+- `<ConfirmProvider>` em `App.tsx` envolve `<Routes>`.
+
+**T-DEB01.4 — migrar os 4 `window.confirm`** ✅
+- PostsList, PagesList (guarda `a.del` preservada), FeedbackPage, MediaLibrary.
+- Todos `variant:'danger'`, títulos/messages/confirmText conforme tabela abaixo.
+
+**T-DEB01.5 — validação** ✅
+- `pnpm run lint` 15/15 ✅. `pnpm --filter @artificio/site-admin run build` ✅.
+- Smoke visual/bundle: pendente (requer dev server/browser — ressalva não-bloqueante).
+
+**T-DEB01.6 — fechamento** ✅
+- DEB-051-01 + BL-051-CONFIRMDIALOG-SITEADMIN-ROLLOUT fechados. F5.2a total (3/3 apps).
+
+| arquivo | título | message | confirmText |
+|---|---|---|---|
+| `PostsList.tsx` | `Apagar post` | `Apagar permanentemente "${p.title}"? Esta ação não pode ser desfeita.` | `Apagar` |
+| `PagesList.tsx` | `Apagar página` | `Apagar permanentemente "${p.title}"? Esta ação não pode ser desfeita.` | `Apagar` |
+| `FeedbackPage.tsx` | `Excluir feedback` | `Excluir "${it.title}" definitivamente?` | `Excluir` |
+| `MediaLibrary.tsx` | `Apagar mídia` | `Apagar "${it.title \|\| it.url}"? Referências no conteúdo (por URL) não são removidas.` | `Apagar` |
+
+</details>
 
 ---
 
