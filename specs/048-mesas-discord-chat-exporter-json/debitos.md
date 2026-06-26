@@ -6,7 +6,7 @@
 - **Severidade:** Média
 - **Descrição:** O segundo arquivo real está truncado/inválido por volta da linha 3042. Importador não pode falhar com stack trace genérico nem importar parcialmente sem rastreio.
 - **Ação:** Fixture negativa + teste de endpoint/serviço retornando 400 com mensagem clara.
-- **Status:** aberto
+- **Status:** ✅ **FECHADO (2026-06-26, Handoff #7).** Test-only (sem mudança de runtime). 3 fixtures negativas sintéticas em `chatExporterSample.ts` (`truncatedJsonString`, `exportWithoutGuild`, `exportWithNonArrayMessages` — sem dados reais; `extracao_json2.json` NÃO commitado). 6 testes novos cobrindo os 2 modos de falha: (1) string truncada/malformada → `extractJsonPayload` retorna `{status:400, error:"…não é um JSON válido"}` (`chatExporterImportService.test.ts`); (2) schema inválido (sem `guild`, `messages` não-array) → `parseDiscordChatExporterJson` lança `DiscordChatExporterValidationError` (`chatExporterAdapter.test.ts`). Privacidade verificada: mensagem de erro **não** vaza payload cru nem stack trace. Test 261/261 ✅, build ✅, lint 15/15 ✅.
 
 ## DEB-048-02 — Automação diária com DiscordChatExporter exige desenho seguro
 

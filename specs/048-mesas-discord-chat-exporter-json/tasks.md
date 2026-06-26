@@ -735,3 +735,37 @@ Decisão (debitos.md DEB-048-14): reply com conteúdo próprio = anúncio indepe
 - Não tocar `manual_paste` nem auto-publicação.
 - Não responder/reagir aos bots (CodeRabbit/Codex) no PR.
 - Não commitar/pushar sem autorização nominal do mantenedor.
+
+## Handoff #7 — DEB-048-01 (JSON inválido/truncado → erro amigável, quick win pré-deploy) — para DeepSeek (2026-06-26)
+
+> Investigação Claude (Opus): DEB-048-01 está **parcialmente coberto**. Falta fechar o gap do **string truncado**. Determinístico, só testes + fixture; sem migration, sem lib, sem mudança de runtime de produto. Tudo na branch `feat/048-fase-cf-hardening`. **Não commitar/pushar sem autorização nominal.**
+
+### Contexto verificado (working tree)
+- **2 caminhos de erro distintos:**
+  1. **String JSON malformado/truncado** (caso do `extracao_json2.json` real, truncado ~linha 3042): `extractJsonPayload` (`chatExporterImportService.ts:119`) faz `JSON.parse` do campo `json`; no catch retorna `{ error: 'JSON inválido: …', status: 400 }`. **Sem teste hoje.**
+  2. **JSON válido mas schema inválido** (faltando `messages`/`guild`/`channel`, tipos errados): `parseDiscordChatExporterJson` (`chatExporterAdapter.ts:13`) usa `discordChatExporterExportSchema.safeParse` e lança `DiscordChatExporterValidationError` com mensagem amigável (`adapter:17,22`). **Parcialmente coberto:** `chatExporterAdapter.test.ts:55` já testa "rejeita JSON sem campo messages".
+- Fixtures: `apps/mesas/backend/src/discord/__tests__/fixtures/chatExporterSample.ts`. **NÃO commitar** `extracao_json2.json` real (139KB, dados reais).
+
+### O que fazer (só o gap)
+
+**1. Fixture negativa sanitizada.** Em `fixtures/chatExporterSample.ts` (ou `chatExporterSampleInvalid.ts`), adicionar exports pequenos e fictícios:
+- `truncatedJsonString`: uma string JSON **deliberadamente truncada/malformada** (ex.: `'{"guild":{"id":"g1"},"messages":[{"id":"1","con'`) — reproduz o modo de falha do json2 sem dados reais.
+- `schemaInvalidExport`: objeto JSON **válido sintaticamente** mas inválido no schema (ex.: sem `guild`/`channel`, ou `messages` não-array, ou `timestamp` com tipo errado).
+
+**2. Testes do gap.**
+- **`extractJsonPayload` com string truncada** (`chatExporterImportService.test.ts`; `extractJsonPayload` é função pura, **não** mockar): `extractJsonPayload({ json: truncatedJsonString })` → retorna `{ status: 400, error: <mensagem amigável> }`, **não** lança stack. Assertar que a mensagem é clara (contém "JSON inválido").
+- **`parseDiscordChatExporterJson` schema inválido (real, não-mockado)** em `chatExporterAdapter.test.ts`: estender além do "sem messages" — sem `guild`/`channel` e `messages` não-array → lança `DiscordChatExporterValidationError` com `.message` legível (não stack cru).
+- **Privacidade (cross-ref DEB-048-03):** assert que a mensagem de erro **não** despeja o payload inteiro nem stack — só descrição amigável.
+
+**3. Fechar débito.** Marcar DEB-048-01 fechado em `debitos.md` com evidência (testes + fixture), e nota: cobre os 2 modos de falha (string malformado + schema inválido).
+
+### Gates de validação
+- `pnpm --filter @artificio/mesas-backend test` (novos testes verdes + suíte sem regressão)
+- `pnpm --filter @artificio/mesas-backend build`
+- `pnpm run lint`
+
+### Não fazer
+- **Não commitar `extracao_json2.json` real** (sanitizar a fixture).
+- Sem migration, sem lib nova, sem IA, sem mudança de comportamento de runtime (só testes + fixture).
+- Não responder/reagir aos bots no PR.
+- Não commitar/pushar sem autorização nominal do mantenedor.

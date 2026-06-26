@@ -216,3 +216,27 @@ export const chatExporterSampleMessages: ImportRawMessage[] = [
     message_edited_at: null,
   },
 ];
+
+// ═══ Fixtures negativas para DEB-048-01 (JSON truncado/inválido) ═══
+
+/** JSON string truncada (corte no meio de um objeto) */
+export const truncatedJsonString = '{"guild":{"id":"111","name":"Servidor Teste"},"channel":{"id":"222","name":"canal"},"messages":[{"id":"msg-001","type":"Default","timestamp":"2025-01-01T12:00:00+00:00","author":{"id":"auth-1","name":"Jogador"},"content":"Procur';
+
+/** Export com schema inválido: sem campo guild */
+export const exportWithoutGuild = {
+  channel: { id: '222', name: 'canal', category: 'Mesas', topic: null },
+  messages: [{
+    id: 'msg-001', type: 'Default', timestamp: '2025-01-01T12:00:00+00:00',
+    author: { id: 'auth-1', name: 'Jogador', color: '#ffffff', nickname: 'Jog', isBot: false },
+    content: 'Procurando jogadores',
+  }],
+  messageCount: 1,
+};
+
+/** Export com schema inválido: messages não é array */
+export const exportWithNonArrayMessages = {
+  guild: { id: '111', name: 'Servidor', iconUrl: null },
+  channel: { id: '222', name: 'canal', category: 'Mesas', topic: null },
+  messages: 'não é um array',
+  messageCount: 1,
+};

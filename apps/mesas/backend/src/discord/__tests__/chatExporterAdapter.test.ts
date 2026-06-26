@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseDiscordChatExporterJson, adaptMessageToImportRaw } from '../chatExporterAdapter';
+import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from '../chatExporterAdapter';
+import { exportWithoutGuild, exportWithNonArrayMessages } from './fixtures/chatExporterSample';
 
 // Fixture minima espelhando o shape real do DiscordChatExporter:
 // embeds com campos `null` (timestamp/image/description) — regressao da Spec 048,
@@ -76,5 +77,32 @@ describe('parseDiscordChatExporterJson — embeds com campos null', () => {
     const data = parseDiscordChatExporterJson(buildExport());
     const adapted = adaptMessageToImportRaw(data.messages[0], data);
     expect(adapted.reference).toBeNull();
+  });
+
+  // ─── DEB-048-01: schema inválido ─────────────────────────────────────────────────
+
+  it('rejeita export sem campo guild', () => {
+    expect(() => parseDiscordChatExporterJson(exportWithoutGuild))
+      .toThrow(DiscordChatExporterValidationError);
+  });
+
+  it('rejeita export com messages não-array', () => {
+    expect(() => parseDiscordChatExporterJson(exportWithNonArrayMessages))
+      .toThrow(DiscordChatExporterValidationError);
+  });
+
+  it('mensagem de erro do schema contém detalhes úteis (não stack trace)', () => {
+    try {
+      parseDiscordChatExporterJson(exportWithoutGuild);
+      // Se chegou aqui, a função não lançou — forçar falha
+      expect(true).toBe(false);
+    } catch (e) {
+      expect(e).toBeInstanceOf(DiscordChatExporterValidationError);
+      const msg = (e as DiscordChatExporterValidationError).message;
+      // Deve mencionar algo sobre guild ou campo obrigatório
+      expect(msg.length).toBeGreaterThan(10);
+      // NÃO deve conter stack trace
+      expect(msg).not.toContain('at parseDiscordChatExporterJson');
+    }
   });
 });

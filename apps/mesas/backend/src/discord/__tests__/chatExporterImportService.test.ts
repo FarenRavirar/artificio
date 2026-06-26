@@ -41,10 +41,11 @@ vi.mock('../shared', () => ({
   getContentHash: vi.fn(() => 'test-hash'),
 }));
 
-import { importDiscordChatExporterJson, MAX_IMPORT_MESSAGES } from '../chatExporterImportService';
+import { importDiscordChatExporterJson, extractJsonPayload, MAX_IMPORT_MESSAGES } from '../chatExporterImportService';
 import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from '../chatExporterAdapter';
 import { getContentHash } from '../shared';
 import { db } from '../../db';
+import { truncatedJsonString } from './fixtures/chatExporterSample';
 
 function mockChain(overrides: Record<string, Mock> = {}) {
   const methods = ['select', 'selectAll', 'where', 'returning', 'values', 'execute', 'executeTakeFirst', 'executeTakeFirstOrThrow'];
@@ -262,5 +263,34 @@ describe('importDiscordChatExporterJson', () => {
     expect(mockSqlTemplates.length).toBeGreaterThan(0);
     const fullSql = mockSqlTemplates[0].join('');
     expect(fullSql).toContain("'pending'");
+  });
+});
+
+// ─── DEB-048-01: testes de JSON truncado/inválido ───
+
+describe('extractJsonPayload', () => {
+  it('rejeita string JSON truncada no campo json', () => {
+    const result = extractJsonPayload({ json: truncatedJsonString });
+    expect(result).toHaveProperty('error');
+    expect(result).toHaveProperty('status', 400);
+    if ('error' in result) {
+      expect(result.error).toContain('não é um JSON válido');
+    }
+  });
+
+  it('rejeita JSON string malformado (não-JSON)', () => {
+    const result = extractJsonPayload({ json: 'isto não é json' });
+    expect(result).toHaveProperty('error');
+    expect(result).toHaveProperty('status', 400);
+  });
+
+  it('mensagem de erro NÃO contém o payload cru', () => {
+    const result = extractJsonPayload({ json: truncatedJsonString });
+    expect(result).toHaveProperty('error');
+    if ('error' in result) {
+      // A mensagem não deve conter o payload truncado nem stack trace
+      expect(result.error).not.toContain('{"guild"');
+      expect(result.error).not.toContain('SyntaxError');
+    }
   });
 });
