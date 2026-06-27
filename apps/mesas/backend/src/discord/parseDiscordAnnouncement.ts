@@ -476,6 +476,23 @@ function extractHostDiscordId(text: string): string | null {
   return null;
 }
 
+// Coleta linhas de continuação de um rótulo até linha vazia (com valor) ou novo rótulo.
+function collectLabelContinuation(lines: string[], startIdx: number, firstValue: string): string[] {
+  const values: string[] = [];
+  if (firstValue) values.push(firstValue);
+
+  for (let j = startIdx; j < lines.length; j++) {
+    const next = lines[j].trim();
+    if (!next) {
+      if (values.length > 0) break;
+      continue;
+    }
+    if (splitLabelLine(next)) break;
+    values.push(next);
+  }
+  return values;
+}
+
 function extractLabelValue(text: string, labels: string[], opts?: { keepParenthetical?: boolean }): string | null {
   const wanted = new Set(labels.map(normalizeLabelKey));
   const lines = text.split(/\r?\n/);
@@ -484,23 +501,14 @@ function extractLabelValue(text: string, labels: string[], opts?: { keepParenthe
     const parsed = splitLabelLine(lines[i]);
     if (!parsed || !wanted.has(parsed.key)) continue;
 
-    const values: string[] = [];
-    if (parsed.value) values.push(parsed.value);
-
-    for (let j = i + 1; j < lines.length; j++) {
-      const next = lines[j].trim();
-      if (!next) {
-        if (values.length > 0) break;
-        continue;
-      }
-      if (splitLabelLine(next)) break;
-      values.push(next);
-    }
+    const values = collectLabelContinuation(lines, i + 1, parsed.value ?? '');
 
     // keepParenthetical: o parêntese carrega o sinal de autoria ("(Sistema próprio
     // usando D&D...)") que o gate DEB-048-27 precisa. Matching/título usa o corte.
     const joined = values.join('\n');
-    const value = (opts?.keepParenthetical ? joined : joined.replace(/\s*\(.*$/, '')).trim();
+    // Corta o parêntese de autoria sem regex (evita backtracking S5852).
+    const parenIdx = joined.indexOf('(');
+    const value = (opts?.keepParenthetical || parenIdx < 0 ? joined : joined.slice(0, parenIdx)).trim();
     return value || null;
   }
 
@@ -528,7 +536,7 @@ export type ConfidenceTier = 'muito_alta' | 'alta' | 'media' | 'baixa';
 export function classifyConfidence(score: number): ConfidenceTier {
   if (score >= 0.85) return 'muito_alta';
   if (score >= 0.65) return 'alta';
-  if (score >= 0.40) return 'media';
+  if (score >= 0.4) return 'media';
   return 'baixa';
 }
 
@@ -667,7 +675,7 @@ export function parseDiscordAnnouncement(
   // explícita > autor (fallback). Substitui a heurística T-C3 por frase-gatilho.
   const authorContact = message.discord_author_name ?? message.discord_author_id ?? null;
   const contactDiscord = explicitContactDiscord
-    ?? (!contactUrl ? authorContact : null);
+    ?? (contactUrl ? null : authorContact);
   if (!explicitContactDiscord && !contactUrl && message.discord_author_id) {
     hostDiscordId = hostDiscordId ?? message.discord_author_id;
   }

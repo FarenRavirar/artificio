@@ -54,7 +54,7 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
 
     const result = await importDiscordChatExporterJson(extracted.payload);
 
-    return respondImportSuccess(res, result, (req as any).user?.userId);
+    return respondImportSuccess(res, result, req.user?.userId);
   } catch (error: unknown) {
     respondImportError(res, error);
   }
@@ -72,7 +72,7 @@ router.post('/file', requireAdmin, uploadJsonFile, async (req: Request, res: Res
 
     const result = await importDiscordChatExporterJson(parsed.parsed);
 
-    return respondImportSuccess(res, result, (req as any).user?.userId);
+    return respondImportSuccess(res, result, req.user?.userId);
   } catch (error: unknown) {
     // Erros do multer (LIMIT_FILE_SIZE / fileFilter) já são tratados em uploadJsonFile.
     respondImportError(res, error);

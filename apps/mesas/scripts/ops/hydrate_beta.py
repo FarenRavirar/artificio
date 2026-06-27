@@ -4,6 +4,7 @@ import argparse
 import os
 import re
 import psycopg2
+from psycopg2 import sql
 
 def check_environment(dest_dsn: str, dest_host: str, dest_db: str):
     """Verifica se o ambiente de destino NÃO é Produção e ABORTA se for."""
@@ -77,7 +78,11 @@ def check_fk_exists(dest_conn, fk_table, fk_col, fk_val):
     if fk_val is None:
         return True
     with dest_conn.cursor() as cur:
-        cur.execute(f"SELECT 1 FROM {fk_table} WHERE {fk_col} = %s", (fk_val,))
+        query = sql.SQL("SELECT 1 FROM {table} WHERE {col} = %s").format(
+            table=sql.Identifier(fk_table),
+            col=sql.Identifier(fk_col),
+        )
+        cur.execute(query, (fk_val,))
         return cur.fetchone() is not None
 
 def get_fks(conn, table_name):
@@ -111,16 +116,26 @@ def anonymize_val(col, val, row_dict):
     return val
 
 def _validate_table_name(name: str) -> str:
-    """Valida nome de tabela contra regex seguro. Levanta ValueError se inválido."""
+    """Valida nome de tabela contra formato seguro E contra a allow-list TOPOLOGY.
+
+    Restringir à topologia suportada evita copiar tabela fora do conjunto previsto
+    (anonymize_val só trata colunas específicas — email/google_id/*_deletehash),
+    fechando o risco de vazamento de PII numa hidratação prod -> beta.
+    """
     if not re.fullmatch(r'^[a-z][a-z0-9_]*$', name):
         raise ValueError(f"Nome de tabela inválido: {name!r}")
+    if name not in TOPOLOGY:
+        raise ValueError(f"Tabela fora da topologia suportada: {name!r}")
     return name
 
 def _fetch_source_data(source_conn, table_name, common_cols):
     """Busca todas as linhas da tabela fonte e retorna lista de dicts."""
     with source_conn.cursor() as cur:
-        cols = ', '.join(common_cols)
-        cur.execute(f"SELECT {cols} FROM {table_name}")
+        query = sql.SQL("SELECT {cols} FROM {table}").format(
+            cols=sql.SQL(', ').join(map(sql.Identifier, common_cols)),
+            table=sql.Identifier(table_name),
+        )
+        cur.execute(query)
         return [dict(zip(common_cols, row)) for row in cur.fetchall()]
 
 def _process_row(row_dict, dest_conn, fks):
@@ -143,15 +158,26 @@ def _execute_upsert(dest_conn, table_name, row_dict, common_cols, pks):
         insert_cols = list(common_cols)
 
     insert_vals = [row_dict[c] for c in insert_cols]
-    placeholders = ", ".join(["%s"] * len(insert_cols))
     update_cols = [c for c in insert_cols if c not in conflict_cols]
-    conflict_target = ", ".join(conflict_cols)
+
+    table_id = sql.Identifier(table_name)
+    cols_sql = sql.SQL(', ').join(map(sql.Identifier, insert_cols))
+    placeholders = sql.SQL(', ').join(sql.Placeholder() for _ in insert_cols)
+    conflict_target = sql.SQL(', ').join(map(sql.Identifier, conflict_cols))
 
     if not update_cols:
-        query = f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({placeholders}) ON CONFLICT ({conflict_target}) DO NOTHING RETURNING 1;"
+        query = sql.SQL(
+            "INSERT INTO {table} ({cols}) VALUES ({ph}) "
+            "ON CONFLICT ({conflict}) DO NOTHING RETURNING 1;"
+        ).format(table=table_id, cols=cols_sql, ph=placeholders, conflict=conflict_target)
     else:
-        set_clause = ", ".join([f"{c} = EXCLUDED.{c}" for c in update_cols])
-        query = f"INSERT INTO {table_name} ({', '.join(insert_cols)}) VALUES ({placeholders}) ON CONFLICT ({conflict_target}) DO UPDATE SET {set_clause} RETURNING (xmax = 0);"
+        set_clause = sql.SQL(', ').join(
+            sql.SQL("{col} = EXCLUDED.{col}").format(col=sql.Identifier(c)) for c in update_cols
+        )
+        query = sql.SQL(
+            "INSERT INTO {table} ({cols}) VALUES ({ph}) "
+            "ON CONFLICT ({conflict}) DO UPDATE SET {set_clause} RETURNING (xmax = 0);"
+        ).format(table=table_id, cols=cols_sql, ph=placeholders, conflict=conflict_target, set_clause=set_clause)
 
     with dest_conn.cursor() as cur:
         cur.execute(query, insert_vals)

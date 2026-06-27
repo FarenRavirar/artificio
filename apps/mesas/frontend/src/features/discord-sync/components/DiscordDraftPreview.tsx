@@ -7,7 +7,7 @@ import { DraftEditorTab } from './DraftEditorTab';
 function confidenceColor(score: number): string {
   if (score >= 0.85) return 'text-green-400';
   if (score >= 0.65) return 'text-lime-400';
-  if (score >= 0.40) return 'text-yellow-400';
+  if (score >= 0.4) return 'text-yellow-400';
   return 'text-red-400';
 }
 

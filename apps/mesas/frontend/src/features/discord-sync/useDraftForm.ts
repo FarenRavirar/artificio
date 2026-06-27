@@ -36,6 +36,35 @@ function buildEditorState(draft: DiscordDraft): DraftEditorState {
   };
 }
 
+// T-G3: calcula diff antes/depois da tabela e registra correção (best-effort).
+async function submitCorrectionDiff(
+  draftApi: DraftApiOperations,
+  draftId: string,
+  basePayload: unknown,
+  updatedPayload: unknown,
+  complete: boolean,
+): Promise<void> {
+  if (!draftApi.submitCorrection) return;
+  const beforeTable = asRecord(asRecord(basePayload).table);
+  const afterTable = asRecord(asRecord(updatedPayload).table);
+  const corrections: Record<string, unknown> = {};
+  const before: Record<string, unknown> = {};
+  for (const key of Object.keys(afterTable)) {
+    if (JSON.stringify(afterTable[key]) !== JSON.stringify(beforeTable[key])) {
+      corrections[key] = afterTable[key];
+      before[key] = beforeTable[key];
+    }
+  }
+  if (Object.keys(corrections).length === 0) return;
+  await draftApi.submitCorrection(draftId, {
+    corrections,
+    before,
+    reason: complete ? 'Preenchimento completo de campos pendentes.' : undefined,
+  }).catch(() => {
+    // registro de correção é best-effort — não trava o save
+  });
+}
+
 function editorReducer(state: DraftEditorState, action: DraftEditorAction): DraftEditorState {
   switch (action.type) {
     case 'RESET':
@@ -145,25 +174,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
 
       // T-G3: registra correção (antes/depois) se o draft veio de Discord ou Inbox
       if (draftApi.submitCorrection) {
-        const beforeTable = asRecord(asRecord(basePayload).table);
-        const afterTable = asRecord(asRecord(updatedPayload).table);
-        const corrections: Record<string, unknown> = {};
-        const before: Record<string, unknown> = {};
-        for (const key of Object.keys(afterTable)) {
-          if (JSON.stringify(afterTable[key]) !== JSON.stringify(beforeTable[key])) {
-            corrections[key] = afterTable[key];
-            before[key] = beforeTable[key];
-          }
-        }
-        if (Object.keys(corrections).length > 0) {
-          await draftApi.submitCorrection(draft.id, {
-            corrections,
-            before,
-            reason: nextMissing.length === 0 ? 'Preenchimento completo de campos pendentes.' : undefined,
-          }).catch(() => {
-            // registro de correção é best-effort — não trava o save
-          });
-        }
+        await submitCorrectionDiff(draftApi, draft.id, basePayload, updatedPayload, nextMissing.length === 0);
       }
 
       dispatch({ type: 'MARK_PERSISTED' });

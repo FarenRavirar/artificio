@@ -2,7 +2,7 @@ import { Router, Response, Request } from 'express';
 import { z } from 'zod';
 import type { Selectable } from 'kysely';
 import { db } from '../../db';
-import type { DiscordSourceChannelType, DiscordImportMessagesTable } from '../../db/types';
+import type { DiscordSourceChannelType, DiscordImportMessagesTable, NewDiscordImportRun } from '../../db/types';
 import type { SystemEntry, ImportRawMessage } from '../../discord';
 import { normalizeDiscordTableDraft, parseDiscordAnnouncement, normalizeDraftPayload, assertDraftReadyTransition } from '../../discord';
 import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
@@ -185,8 +185,6 @@ export function createCorrectionHandler(routeLabel: string): Router {
 
 // ─── T-G6 — registra uma rodada de importação ──────────────────────────
 
-import type { NewDiscordImportRun } from '../../db/types';
-
 export async function recordImportRun(counts: {
   sourceKind: string;
   totalMessages: number;
@@ -221,17 +219,22 @@ export async function recordImportRun(counts: {
 
 import { classifyConfidence, isHomebrewSystem } from '../../discord/parseDiscordAnnouncement';
 
+function buildShadowReason(
+  tier: ReturnType<typeof classifyConfidence> | null,
+  wouldAutoApprove: boolean,
+  missingFields: string[],
+): string {
+  if (wouldAutoApprove) return 'Confiança muito alta e todos os campos preenchidos.';
+  if (tier === 'muito_alta') return `Confiança muito alta, mas campos pendentes: ${missingFields.join(', ')}.`;
+  if (tier === null) return 'Sem score de confiança.';
+  return `Confiança ${tier}. Autoaprovação exige "muito_alta".`;
+}
+
 export async function recordShadowDecision(draftId: string, confidence: number | null, missingFields: string[]): Promise<void> {
   try {
-    const tier = confidence != null ? classifyConfidence(confidence) : null;
+    const tier = confidence === null ? null : classifyConfidence(confidence);
     const wouldAutoApprove = tier === 'muito_alta' && missingFields.length === 0;
-    const reason = wouldAutoApprove
-      ? 'Confiança muito alta e todos os campos preenchidos.'
-      : tier === 'muito_alta'
-        ? `Confiança muito alta, mas campos pendentes: ${missingFields.join(', ')}.`
-        : tier != null
-          ? `Confiança ${tier}. Autoaprovação exige "muito_alta".`
-          : 'Sem score de confiança.';
+    const reason = buildShadowReason(tier, wouldAutoApprove, missingFields);
 
     await db.insertInto('discord_shadow_decisions')
       .values({

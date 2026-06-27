@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
+import { authRateLimiter } from '../../middleware/rateLimit';
 import { createCorrectionHandler } from './utils';
 
 // REV-016 onda 3: handler compartilhado com inbox/corrections.ts
@@ -11,11 +12,11 @@ const router = createCorrectionHandler('/admin/discord-sync/drafts/:id/correctio
 
 const exportQuerySchema = z.object({
   limit: z.string().optional().transform((s) => {
-    const n = s ? parseInt(s, 10) : 50;
+    const n = s ? Number.parseInt(s, 10) : 50;
     return Number.isFinite(n) && n > 0 && n <= 500 ? n : 50;
   }),
   offset: z.string().optional().transform((s) => {
-    const n = s ? parseInt(s, 10) : 0;
+    const n = s ? Number.parseInt(s, 10) : 0;
     return Number.isFinite(n) && n >= 0 ? n : 0;
   }),
   reason: z.string().optional(),
@@ -34,7 +35,7 @@ interface FewShotExample {
   };
 }
 
-router.get('/export/few-shot', requireAdmin, async (req: Request, res: Response) => {
+router.get('/export/few-shot', authRateLimiter, requireAdmin, async (req: Request, res: Response) => {
   try {
     const qs = exportQuerySchema.safeParse(req.query);
     if (!qs.success) return res.status(400).json({ error: 'Parâmetros inválidos.' });
@@ -83,7 +84,7 @@ interface EvalExample {
   corrected_at: Date | null;
 }
 
-router.get('/export/eval', requireAdmin, async (req: Request, res: Response) => {
+router.get('/export/eval', authRateLimiter, requireAdmin, async (req: Request, res: Response) => {
   try {
     const qs = exportQuerySchema.safeParse(req.query);
     if (!qs.success) return res.status(400).json({ error: 'Parâmetros inválidos.' });
