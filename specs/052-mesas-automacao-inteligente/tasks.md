@@ -53,6 +53,17 @@
 
 - [ ] TB.KILL — Kill switch desliga ingestão e/ou auto-aprovação instantaneamente, voltando ao human-in-the-loop da 048 · feito quando: toggle testado em beta.
 
+## Bloco C — Melhorias opcionais de parser (herdadas da 048, "fora do PR-1")
+
+> Transferidas da spec 048 (marcadas "fora do PR-1") por decisão do mantenedor (2026-06-27). Determinísticas, não-IA; melhoram a extração antes/independente da camada inteligente. Cada uma segue o padrão da 048: normalização Zod, payload externo = `unknown` até schema, testes de regressão. Implementar só se priorizado.
+
+- [ ] TC.1 — [048 T-C4] role mentions `<@&id>` como tags/evidências brutas.
+- [ ] TC.2 — [048 T-C5] user mentions `<@id>`/`<@!id>` como possível contato.
+- [ ] TC.3 — [048 T-C7] mesa paga/gratuita.
+- [ ] TC.4 — [048 T-C8] sistema próprio / inspirado em.
+- [ ] TC.5 — [048 T-C9] attachments/embeds como evidências.
+- [ ] TC.6 — [048 T-B5] parse automático opcional pós-import.
+
 ## Travas pétreas (toda task aqui obedece)
 
 - Nenhuma mesa publicada automaticamente antes de Shadow mode (Degrau 3) + Auto-aprovação gated (Degrau 4) satisfeitos.

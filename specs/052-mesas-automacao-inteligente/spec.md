@@ -37,6 +37,8 @@ Isso não escala para importação contínua de muitos canais/servidores, nem ap
 
 ### Bloco A — Automação operacional (ex-048 Fase E)
 
+> **Coordenação (2026-06-27):** a Fase E da 048 também foi colocada **ao final da spec 053** (Frente E). A 053 tem prioridade ("concentrar na 053 antes da 052"). Se a 053 entregar a ingestão, este Bloco A é absorvido/dispensado; se não chegar, fica aqui. **Não duplicar.**
+
 - **R1 — Ingestão agendada na VM.** Job diário roda o DiscordChatExporter e gera JSON sem ação humana.
 - **R2 — Credencial segura.** Token/credencial Discord fora de argv, em segredo (Actions/Cloudflare/`.env` gitignored), versão da ferramenta pinada (não `latest`). Risco/ToS documentado.
 - **R3 — Pasta monitorada idempotente.** Diretórios `incoming/processing/processed/error` fora do git; importador processa cada arquivo uma vez, move conforme resultado, não trava o lote por um arquivo ruim.
@@ -55,12 +57,24 @@ Isso não escala para importação contínua de muitos canais/servidores, nem ap
 - **R13 — Fine-tuning (condicional).** Só se adequado, com análise de privacidade e autorização explícita; dados de treino derivam do histórico interno, sem vazar dado pessoal.
 - **R14 — Kill switch.** Desligar qualquer automação (ingestão e/ou auto-aprovação) instantaneamente, voltando ao modo human-in-the-loop da 048.
 
+### Bloco C — Melhorias opcionais de parser (ex-048 "fora do PR-1", FINAL DA SPEC)
+
+> Transferidas da 048 por decisão do mantenedor (2026-06-27): determinísticas, **não-IA**, melhoram a extração antes/independente do Bloco B. Implementar só se priorizado. Cada uma: normalização Zod, payload externo = `unknown` até schema, testes de regressão.
+
+- **R15** — role mentions `<@&id>` como tags/evidências brutas (048 T-C4).
+- **R16** — user mentions `<@id>`/`<@!id>` como possível contato (048 T-C5).
+- **R17** — mesa paga/gratuita (048 T-C7).
+- **R18** — sistema próprio / inspirado em (048 T-C8).
+- **R19** — attachments/embeds como evidências (048 T-C9).
+- **R20** — parse automático opcional pós-import (048 T-B5).
+
 ## Critérios de aceite (de alto nível; cada bloco vira plano/tasks quando ativado)
 
 - Bloco A só é aceito com job rodando em beta, idempotência provada (reprocessar não duplica), credencial fora de argv e métricas por execução visíveis. Sem cookie pessoal.
 - Bloco B só avança degrau a degrau: eval reproduzível → shadow mode com relatório de divergência → auto-aprovação restrita gated. Cada degrau exige evidência registrada e aprovação nominal.
 - Nenhuma mesa publicada automaticamente sem R11+R12 satisfeitos.
 - Privacidade: nenhum segredo/dado pessoal em log; retenção aplicada; envio a IA externa minimiza dado e é documentado.
+- Bloco C: cada item entregue com testes de regressão verdes **ou** decisão registrada de não-fazer; não bloqueia A/B.
 
 ## Fora de escopo
 
