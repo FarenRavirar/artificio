@@ -56,6 +56,8 @@ services:
       - COOKIE_DOMAIN=${COOKIE_DOMAIN}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      # WS3/REV-018: token serviço-a-serviço p/ GET /admin/secrets (mesas → accounts)
+      - SERVICE_SECRET=${SERVICE_SECRET}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio para accounts-api}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
     expose:

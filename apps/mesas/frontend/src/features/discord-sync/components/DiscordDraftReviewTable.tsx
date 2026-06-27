@@ -5,9 +5,12 @@ import { discordSyncApi } from '../api/discordSyncApi';
 import { DiscordDraftPreview } from './DiscordDraftPreview';
 import { isRecord } from '../draftFormUtils';
 
+// REV-038: alias p/ a união repetida do filtro de origem.
+type OriginFilter = 'discord' | 'inbox' | 'all';
+
 interface Props {
   readonly api?: DraftApiOperations;
-  readonly listDrafts?: (params?: { status?: DiscordImportDraftStatus; limit?: number; offset?: number; origin?: 'discord' | 'inbox' | 'all' }) => Promise<DiscordDraft[]>;
+  readonly listDrafts?: (params?: { status?: DiscordImportDraftStatus; limit?: number; offset?: number; origin?: OriginFilter }) => Promise<DiscordDraft[]>;
   readonly syncReadyAction?: () => Promise<{ synced: number; failed: number; errors: string[] }>;
   readonly showSyncReady?: boolean;
 }
@@ -59,7 +62,7 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
   const [drafts, setDrafts] = useState<DiscordDraft[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DiscordImportDraftStatus | ''>('');
-  const [originFilter, setOriginFilter] = useState<'discord' | 'inbox' | 'all'>('all');
+  const [originFilter, setOriginFilter] = useState<OriginFilter>('all');
   const [selectedDraft, setSelectedDraft] = useState<DiscordDraft | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
 
@@ -126,8 +129,9 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <select
           value={originFilter}
-          onChange={e => setOriginFilter(e.target.value as 'discord' | 'inbox' | 'all')}
+          onChange={e => setOriginFilter(e.target.value as OriginFilter)}
           className="app-select"
+          aria-label="Filtrar por origem"
         >
           <option value="all">Todas origens</option>
           <option value="discord">Discord</option>
@@ -138,6 +142,7 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value as DiscordImportDraftStatus | '')}
           className="app-select"
+          aria-label="Filtrar por status"
         >
           <option value="">Todos os status</option>
           {(Object.keys(DRAFT_STATUS_LABELS) as DiscordImportDraftStatus[]).map(s => (

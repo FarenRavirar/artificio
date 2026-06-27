@@ -54,7 +54,9 @@ export async function getSecret(name: string): Promise<string | null> {
         return null; // segredo não configurado ainda
       }
       console.warn(`[adminSecrets] GET ${name} -> HTTP ${res.status}`);
-      return null;
+      // 5xx/instabilidade temporária: usa cache stale se houver, em vez de
+      // desligar o enrichment sem necessidade (REV-032).
+      return cached?.value ?? null;
     }
 
     const body = await res.json() as { data?: { value?: string } };

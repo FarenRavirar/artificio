@@ -56,8 +56,5 @@ export async function migrate(db: Kysely<Database>) {
       updated_at timestamptz not null default now()
     )
   `.execute(db);
-  await sql`
-    create index if not exists idx_admin_secrets_name
-    on admin_secrets (name)
-  `.execute(db);
+  // REV-021: `name text unique` já cria o índice; índice extra só custaria escrita.
 }

@@ -74,10 +74,13 @@ function writeLog(line: string): void {
   try {
     fs.appendFileSync(LOG_FILE, line, { encoding: 'utf8', mode: 0o644 });
   } catch (error) {
-    const isPermission = error instanceof Error && (error as NodeJS.ErrnoException).code === 'EACCES';
+    // EACCES/EPERM/EROFS: bind mount ou filesystem read-only — degrada p/ stdout
+    // em vez de tentar gravar a cada request (REV-028).
+    const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
+    const isPermission = code === 'EACCES' || code === 'EPERM' || code === 'EROFS';
     if (isPermission) {
       loggerDisabled = true;
-      loggerDisabledReason = `EACCES: ${error instanceof Error ? error.message : String(error)}`;
+      loggerDisabledReason = `${code}: ${error instanceof Error ? error.message : String(error)}`;
       console.warn('[RequestLogger] Arquivo de log inacessível, degradando para stdout:', loggerDisabledReason);
       // Escreve esta linha no stdout também
       process.stdout.write(line);

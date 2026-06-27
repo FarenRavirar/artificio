@@ -374,7 +374,7 @@ export async function parseDiscordMessage(
   msg: { source_kind: unknown; discord_message_id: unknown; discord_channel_id: unknown; discord_guild_id: unknown; discord_parent_channel_id: unknown; discord_thread_id: unknown; discord_thread_name: unknown; discord_author_id: unknown; discord_author_name: unknown; discord_message_url: unknown; content_raw: unknown; attachments: unknown; embeds: unknown; message_created_at: unknown; message_edited_at: unknown },
   systems?: SystemEntry[],
   replyContext?: string,
-): Promise<{ parsed: NonNullable<ReturnType<typeof parseDiscordAnnouncement>>; normalized: ReturnType<typeof normalizeDiscordTableDraft> } | null> {
+): Promise<{ parsed: NonNullable<ReturnType<typeof parseDiscordAnnouncement>>; normalized: ReturnType<typeof normalizeDiscordTableDraft>; systems: SystemEntry[] } | null> {
   const sys = systems ?? await loadSystemsForParser();
   const raw: ImportRawMessage = {
     source_kind: (msg.source_kind ?? 'text') as ImportRawMessage['source_kind'],
@@ -397,12 +397,107 @@ export async function parseDiscordMessage(
   const parsed = parseDiscordAnnouncement(raw, sys, replyContext);
   if (!parsed) return null;
   const normalized = normalizeDiscordTableDraft(parsed, sys);
-  return { parsed, normalized };
+  return { parsed, normalized, systems: sys };
 }
 
 // ─── DEB-048-22 — processa UMA mensagem → draft (parse-batch + /reparse) ──
 
 export type DiscordDraftOutcome = 'parsed' | 'ignored' | 'reconciled' | 'discarded';
+
+type LlmExtracted = NonNullable<Awaited<ReturnType<typeof assistDiscordParse>>>['extracted'];
+
+/**
+ * REV-039: mapeia os campos extraídos pelo LLM em updates, preenchendo só o que
+ * está vazio no draft. Extraído de processDiscordMessageToDraft p/ baixar a
+ * complexidade cognitiva.
+ */
+function buildLlmUpdates(
+  ext: LlmExtracted,
+  table: Record<string, unknown>,
+): { updates: Record<string, unknown>; resolvedMissing: Set<string> } {
+  const updates: Record<string, unknown> = {};
+  const resolvedMissing = new Set<string>();
+
+  if (ext.title && !table.title) {
+    updates.title = ext.title;
+    resolvedMissing.add('title');
+  }
+  if (ext.system_hint && !table.system_name) {
+    updates.system_name = ext.system_hint;
+    resolvedMissing.add('system_name');
+    resolvedMissing.add('system_name:unmatched_hint');
+  }
+  if (ext.day_of_week && !table.day_of_week) updates.day_of_week = ext.day_of_week;
+  if (ext.start_time && !table.start_time) updates.start_time = ext.start_time;
+  if (typeof ext.slots_total === 'number' && table.slots_total == null) {
+    updates.slots_total = ext.slots_total;
+    resolvedMissing.add('slots_total');
+  }
+  if (typeof ext.slots_open === 'number' && table.slots_open == null) updates.slots_open = ext.slots_open;
+  if (ext.price_type && !table.price_type) {
+    updates.price_type = ext.price_type;
+    resolvedMissing.add('price_type');
+  }
+  if (typeof ext.price_value === 'number' && table.price_value == null) updates.price_value = ext.price_value;
+  if (ext.contact_url && !table.contact_url) {
+    updates.contact_url = ext.contact_url;
+    resolvedMissing.add('contact_url');
+  }
+  if (ext.description && !table.description) updates.description = ext.description;
+
+  return { updates, resolvedMissing };
+}
+
+/**
+ * REV-039: enriquecimento LLM p/ baixa confiança/campos faltantes. Best-effort:
+ * falha/timeout/sem-update retorna o `normalized` original. Extraído de
+ * processDiscordMessageToDraft p/ reduzir a complexidade cognitiva (Sonar 83→).
+ */
+async function enrichDraftWithLlm(
+  contentRaw: unknown,
+  normalized: ReturnType<typeof normalizeDiscordTableDraft>,
+  resolvedSystems: SystemEntry[],
+): Promise<ReturnType<typeof normalizeDiscordTableDraft>> {
+  const NEEDS_LLM_THRESHOLD = 0.5;
+  const shouldAskLlm =
+    (normalized.draft.confidence ?? 0) < NEEDS_LLM_THRESHOLD ||
+    normalized.draft.missing_fields.length > 0;
+  if (!shouldAskLlm || !normalized.draft.table) return normalized;
+
+  const rawText = typeof contentRaw === 'string' ? contentRaw : '';
+  if (rawText.length <= 50) return normalized;
+
+  const table = normalized.draft.table as unknown as Record<string, unknown>;
+  const existingFields: Record<string, unknown> = {};
+  if (table.title) existingFields.title = table.title;
+  if (table.system_name) existingFields.system_name = table.system_name;
+  if (table.day_of_week) existingFields.day_of_week = table.day_of_week;
+  if (table.start_time) existingFields.start_time = table.start_time;
+
+  const llmResult = await assistDiscordParse(rawText, existingFields);
+  if (!llmResult) return normalized;
+
+  const { updates, resolvedMissing } = buildLlmUpdates(llmResult.extracted, table);
+  if (Object.keys(updates).length === 0) return normalized;
+
+  return normalizeDiscordTableDraft(
+    {
+      ...normalized.draft,
+      table: {
+        ...normalized.draft.table,
+        ...updates,
+        _notes: [
+          ...normalized.draft.table._notes,
+          'Campos incompletos enriquecidos por DeepSeek; revisar antes de sincronizar.',
+        ],
+      },
+      missing_fields: normalized.draft.missing_fields.filter((field) => !resolvedMissing.has(field)),
+    },
+    // REV-029: reusa os systems resolvidos pelo parse (não `[]`), senão o
+    // system_hint do LLM nunca fecha system_id quando o caller chama sem systems.
+    resolvedSystems,
+  );
+}
 
 /**
  * Processa uma mensagem do DiscordChatExporter até o draft: parseia, reconcilia
@@ -442,80 +537,11 @@ export async function processDiscordMessageToDraft(
       .execute();
     return discarded ? 'discarded' : 'ignored';
   }
-  const { parsed, normalized } = result;
-  let normalizedResult = normalized;
+  const { parsed, systems: resolvedSystems } = result;
 
-  // WS3: assistente LLM p/ baixa confiança/campos faltantes. A chamada é
-  // aguardada antes do upsert para que o draft salvo já contenha o melhor
-  // resultado disponível. Falha/timeout retorna null e preserva o regex.
-  const NEEDS_LLM_THRESHOLD = 0.5;
-  const shouldAskLlm =
-    (normalizedResult.draft.confidence ?? 0) < NEEDS_LLM_THRESHOLD ||
-    normalizedResult.draft.missing_fields.length > 0;
-
-  if (shouldAskLlm && normalizedResult.draft.table) {
-    const rawText = typeof message.content_raw === 'string' ? message.content_raw : '';
-    if (rawText.length > 50) {
-      const table = normalizedResult.draft.table as unknown as Record<string, unknown>;
-      const existingFields: Record<string, unknown> = {};
-      if (table.title) existingFields.title = table.title;
-      if (table.system_name) existingFields.system_name = table.system_name;
-      if (table.day_of_week) existingFields.day_of_week = table.day_of_week;
-      if (table.start_time) existingFields.start_time = table.start_time;
-
-      const llmResult = await assistDiscordParse(rawText, existingFields);
-      if (llmResult) {
-        const updates: Record<string, unknown> = {};
-        const resolvedMissing = new Set<string>();
-        const ext = llmResult.extracted;
-
-        if (ext.title && !table.title) {
-          updates.title = ext.title;
-          resolvedMissing.add('title');
-        }
-        if (ext.system_hint && !table.system_name) {
-          updates.system_name = ext.system_hint;
-          resolvedMissing.add('system_name');
-          resolvedMissing.add('system_name:unmatched_hint');
-        }
-        if (ext.day_of_week && !table.day_of_week) updates.day_of_week = ext.day_of_week;
-        if (ext.start_time && !table.start_time) updates.start_time = ext.start_time;
-        if (typeof ext.slots_total === 'number' && table.slots_total == null) {
-          updates.slots_total = ext.slots_total;
-          resolvedMissing.add('slots_total');
-        }
-        if (typeof ext.slots_open === 'number' && table.slots_open == null) updates.slots_open = ext.slots_open;
-        if (ext.price_type && !table.price_type) {
-          updates.price_type = ext.price_type;
-          resolvedMissing.add('price_type');
-        }
-        if (typeof ext.price_value === 'number' && table.price_value == null) updates.price_value = ext.price_value;
-        if (ext.contact_url && !table.contact_url) {
-          updates.contact_url = ext.contact_url;
-          resolvedMissing.add('contact_url');
-        }
-        if (ext.description && !table.description) updates.description = ext.description;
-
-        if (Object.keys(updates).length > 0) {
-          normalizedResult = normalizeDiscordTableDraft(
-            {
-              ...normalizedResult.draft,
-              table: {
-                ...normalizedResult.draft.table,
-                ...updates,
-                _notes: [
-                  ...normalizedResult.draft.table._notes,
-                  'Campos incompletos enriquecidos por DeepSeek; revisar antes de sincronizar.',
-                ],
-              },
-              missing_fields: normalizedResult.draft.missing_fields.filter((field) => !resolvedMissing.has(field)),
-            },
-            systems ?? [],
-          );
-        }
-      }
-    }
-  }
+  // WS3: enriquecimento LLM (best-effort) antes do upsert, p/ o draft salvo já
+  // conter o melhor resultado disponível. Extraído p/ helper (REV-039).
+  const normalizedResult = await enrichDraftWithLlm(message.content_raw, result.normalized, resolvedSystems);
 
   let draftId: string;
   if (existing) {
@@ -574,7 +600,7 @@ export async function processDiscordMessageToDraft(
     return null;
   });
 
-  if (draftResult && draftResult.status) {
+  if (draftResult?.status) {
     await updateDraftImageUploadState(
       draftId,
       draftResult.payload,

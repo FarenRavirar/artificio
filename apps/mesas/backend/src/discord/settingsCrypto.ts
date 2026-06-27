@@ -43,7 +43,9 @@ export function decryptDiscordSetting(value: string): string {
     try {
       return decryptSecret(value, getJwtSecret());
     } catch (error: unknown) {
-      if (error instanceof SecretUnavailableError || error instanceof SecretDecryptError) {
+      // Preserva o erro específico do mesas: consumidores esperam a classe/nome
+      // do mesas via instanceof. SecretDecryptError genérico vira o do mesas (REV-025).
+      if (error instanceof DiscordSettingsSecretUnavailableError || error instanceof DiscordSettingsDecryptError) {
         throw error;
       }
       throw new DiscordSettingsDecryptError();

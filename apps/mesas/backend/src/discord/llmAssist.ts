@@ -121,8 +121,10 @@ export async function assistDiscordParse(
     // Normaliza o JSON do retorno — payload externo, sem confiança
     let extractedJson: unknown;
     try {
-      // Tenta extrair JSON de dentro de markdown code fences
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      // Tenta extrair JSON de dentro de markdown code fences.
+      // REV-041: prefixo limitado a espaços/tabs + quebra opcional (não `\s*`),
+      // evita backtracking super-linear (ReDoS) na sobreposição com o grupo lazy.
+      const jsonMatch = content.match(/```(?:json)?[ \t]*\r?\n?([\s\S]*?)```/);
       extractedJson = JSON.parse(jsonMatch ? jsonMatch[1].trim() : content);
     } catch {
       console.warn('[llmAssist] retorno da LLM não é JSON válido');

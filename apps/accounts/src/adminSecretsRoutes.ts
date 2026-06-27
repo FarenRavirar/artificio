@@ -10,6 +10,7 @@
  * - Chave de cifra: env ACCOUNTS_SECRETS_KEY.
  */
 import { Router, type Request, type Response } from 'express';
+import { requireAuth } from '@artificio/auth';
 import {
   encryptSecret,
   decryptSecret,
@@ -22,7 +23,7 @@ import type { Session } from '@artificio/auth';
 
 function requireAdmin(req: Request, res: Response, next: () => void): void {
   const session = (req as Request & { session?: Session }).session;
-  if (!session?.user || session.user.role !== 'admin') {
+  if (session?.user?.role !== 'admin') {
     res.status(403).json({ error: 'Acesso restrito a administradores.' });
     return;
   }
@@ -52,8 +53,10 @@ function requireServiceOrAdmin(env: Record<string, string | undefined>) {
       return next();
     }
 
-    // Fallback: cookie de admin (usuário logado)
-    requireAdmin(req, res, next);
+    // Fallback: cookie de admin (usuário logado).
+    // requireAuth popula req.session a partir do cookie; sem ele requireAdmin
+    // nunca veria a sessão e devolveria 403 sempre (REV-017).
+    requireAuth(req, res, () => requireAdmin(req, res, next));
   };
 }
 
@@ -64,10 +67,15 @@ export function createAdminSecretsRoutes(
   const router = Router();
 
   // ── PUT /admin/secrets/:name ────────────────────────────────────────────
-  router.put('/admin/secrets/:name', requireAdmin, async (req: Request, res: Response) => {
+  router.put('/admin/secrets/:name', requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
-      const { value } = req.body as { value?: string };
+      // req.body é externo e pode ser null/não-objeto — normalizar antes de extrair (REV-024).
+      const body: unknown = req.body;
+      const value =
+        body && typeof body === 'object' && 'value' in body
+          ? (body as { value?: unknown }).value
+          : undefined;
 
       if (typeof value !== 'string' || !value.trim()) {
         return res.status(400).json({ error: 'Campo "value" obrigatório (string não vazia).' });

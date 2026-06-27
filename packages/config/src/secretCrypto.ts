@@ -74,11 +74,12 @@ export function decryptSecret(value: string, secret: string): string {
     throw new SecretDecryptError('Formato de segredo cifrado incompleto.');
   }
 
-  const key = deriveKey(secret, Buffer.from(saltHex, 'hex'));
-  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
-  decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
-
   try {
+    const key = deriveKey(secret, Buffer.from(saltHex, 'hex'));
+    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
+    // setAuthTag pode lançar TypeError com authTag malformado — dentro do try
+    // p/ virar SecretDecryptError e preservar o 409 esperado (REV-035).
+    decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
     const plaintext = Buffer.concat([
       decipher.update(Buffer.from(ciphertextBase64, 'base64')),
       decipher.final(),

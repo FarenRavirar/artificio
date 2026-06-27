@@ -94,7 +94,8 @@ function extractCoverFromAttachments(attachments: unknown[]): { url: string; qua
   // dimensão → mantém a ordem original (primeira imagem do post). Razão 1 (quadrado)
   // ou <1 (retrato) perde para qualquer paisagem (>1).
   const aspect = (c: CoverCandidate) => (c.width > 0 && c.height > 0 ? c.width / c.height : 0);
-  const cover = candidates.reduce((best, c) => (aspect(c) > aspect(best) ? c : best));
+  // initial value explícito (candidates.length > 0 garantido acima) — REV-040.
+  const cover = candidates.reduce((best, c) => (aspect(c) > aspect(best) ? c : best), candidates[0]);
 
   // ChatExporter/bot-fetch: width >= 800 && size >= 50000 → 'standard'; senão 'low'.
   const quality: CoverQuality = cover.width >= 800 && cover.size >= 50000 ? 'standard' : 'low';

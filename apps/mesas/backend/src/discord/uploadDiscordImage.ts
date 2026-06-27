@@ -65,7 +65,8 @@ async function refreshDiscordAttachmentUrls(
     // Mapeia URL original → refreshed (ambas podem ser null/inválidas)
     const map = new Map<string, string>();
     for (const entry of refreshed) {
-      if (entry?.original && entry?.refreshed) {
+      // Payload externo do Discord: só aceita par de strings (REV-020).
+      if (entry && typeof entry.original === 'string' && typeof entry.refreshed === 'string') {
         map.set(entry.original, entry.refreshed);
       }
     }
@@ -154,6 +155,8 @@ export async function uploadDiscordImageToCloudinary(
     return secondResult;
   }
 
-  // 2ª tentativa também falhou — retorna o erro original (mais informativo que o 2º)
-  return firstResult;
+  // 2ª tentativa também falhou. A URL foi refreshada com sucesso, então o motivo
+  // real é o da 2ª tentativa (network/cloudinary), não expired_url — retornar o 2º
+  // evita persistir motivo errado e atrapalhar retry/diagnóstico (REV-027).
+  return secondResult;
 }

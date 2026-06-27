@@ -412,6 +412,21 @@ export async function syncDraftToTable(
   payload = imageUpload.payload;
   const coverUrl = imageUpload.coverUrl;
 
+  // REV-026: persiste o cover_public_id ANTES da etapa de sync, que ainda pode
+  // falhar. Sem isso, uma falha entre o upload e a transação final deixaria o
+  // asset Cloudinary órfão sem handle — o cron de limpeza (TTL 30d) não o
+  // encontraria. A transação final zera cover_public_id ao consumir a imagem.
+  if (imageUpload.coverPublicId) {
+    await updateDraftImageUploadState(
+      draftId,
+      payload,
+      imageUpload.status ?? 'success',
+      imageUpload.attempts,
+      imageUpload.error,
+      imageUpload.coverPublicId,
+    );
+  }
+
   const sourceId = config.getSourceId(messageRow);
   const sourceUrl = config.getSourceUrl(messageRow);
   const gmName = config.getGmName(payload, adminDisplayName);

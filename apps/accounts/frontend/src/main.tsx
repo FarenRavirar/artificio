@@ -209,8 +209,13 @@ function AdminSecretsPanel() {
         setDeepseekValue('');
         setStatusMsg('Chave salva com sucesso.');
       } else {
-        const data = await res.json().catch(() => ({}));
-        setStatusMsg((data as { error?: string }).error || 'Erro ao salvar.');
+        // Payload externo: extrair `error` só se for string (REV-022).
+        const data: unknown = await res.json().catch(() => ({}));
+        const errMsg =
+          data && typeof data === 'object' && 'error' in data && typeof (data as { error: unknown }).error === 'string'
+            ? (data as { error: string }).error
+            : 'Erro ao salvar.';
+        setStatusMsg(errMsg);
       }
     } catch {
       setStatusMsg('Erro de rede ao salvar.');
@@ -223,10 +228,11 @@ function AdminSecretsPanel() {
     <div style={{ marginTop: '1rem' }}>
       <h2 style={{ fontSize: '1.1rem', marginBottom: '0.5rem', color: 'var(--fg)' }}>Segredos de Admin</h2>
       <div style={{ marginBottom: '0.75rem' }}>
-        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--fg-muted)', marginBottom: '0.25rem' }}>
+        <label htmlFor="deepseek-api-key" style={{ display: 'block', fontSize: '0.85rem', color: 'var(--fg-muted)', marginBottom: '0.25rem' }}>
           Chave da API DeepSeek
         </label>
         <input
+          id="deepseek-api-key"
           type="password"
           value={deepseekValue}
           onChange={e => setDeepseekValue(e.target.value)}
