@@ -677,7 +677,7 @@ Achados de bots no PR #100 (`feat/048-import-overhaul` → `dev`). **Registrados
 - **Tipo:** PR (review) · **Severidade declarada:** 🩺 Stability 🟡 Minor
 - **Referência:** `apps/mesas/docker-compose.prod.yml:111-112` (bind `./logs:/app/logs`)
 - **Resumo:** Bind mount depende do diretório do host ser gravável; se falhar, `requestLogger` cai p/ stdout e logs do `mesas-cron` deixam de persistir em arquivo. Garantir permissão ou usar volume nomeado.
-- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+- **Status:** **cancelado (won't fix)** · **Decisão do mantenedor (2026-06-27):** não será feito. REV-028 já mitiga o crash (fallback p/ stdout em `EACCES`/`EPERM`/`EROFS`); bind mount `./logs` é preferência operacional (logs visíveis no host). Volume nomeado esconderia os logs. Reabrir só se a perda de persistência em arquivo se provar real em prod. · **Task vinculada:** — · **Débito vinculado:** —
 
 ### REV-034 — Nomes acessíveis nos dois filtros (select)
 
@@ -697,7 +697,7 @@ Achados de bots no PR #100 (`feat/048-import-overhaul` → `dev`). **Registrados
 
 ## Veredito PR #100 — 2026-06-27
 
-Investigado + aplicado o que não é prejudicial (incl. cosméticos). **17 procedem e aplicados**, **2 pendentes** (decisão do mantenedor). Validação repo-wide pós-fixes: **build 17/17, lint 15/15, test 24/24 (285 mesas-backend + 163 frontend + accounts) — verde.** Nada commitado.
+Investigado + aplicado o que não é prejudicial (incl. cosméticos). **18 procedem e aplicados** (incl. REV-023, segredos de deploy já inseridos na VM), **1 cancelado** (REV-033, won't fix — decisão do mantenedor 2026-06-27). Validação repo-wide pós-fixes: **build 17/17, lint 15/15, test 24/24 (285 mesas-backend + 163 frontend + accounts) — verde.**
 
 | REV | Veredito | Fix |
 |-----|----------|-----|
@@ -707,7 +707,7 @@ Investigado + aplicado o que não é prejudicial (incl. cosméticos). **17 proce
 | REV-020 | procede (cosmético) | `typeof === 'string'` nos pares do refresh-urls (`uploadDiscordImage.ts`) |
 | REV-021 | procede (cosmético) | removido índice duplicado `idx_admin_secrets_name` (`db.ts`) |
 | REV-022 | procede | normaliza `error` (só string) antes de `statusMsg` (`main.tsx`) |
-| REV-023 | **pendente** | remover fallback `JWT_SECRET` exige `ACCOUNTS_SECRETS_KEY` no deploy ou quebra (500) — decisão de env do mantenedor |
+| REV-023 | procede (aplicado) | removido fallback `JWT_SECRET`; `ACCOUNTS_SECRETS_KEY` obrigatório (`:?`) no compose + inserido no `.env`/`.env.beta` da VM |
 | REV-024 | procede | normaliza `req.body` (null/não-objeto) antes de extrair `value` |
 | REV-025 | procede | v2 só re-lança erros do mesas; genérico vira `DiscordSettingsDecryptError` |
 | REV-026 | procede | persiste `cover_public_id` ANTES da etapa de sync (handle p/ cron de órfãs) |
@@ -717,7 +717,7 @@ Investigado + aplicado o que não é prejudicial (incl. cosméticos). **17 proce
 | REV-030 | procede | cleanup zera `cover_url` no payload em sucesso (`stripCoverUrl`) |
 | REV-031 | procede | erro por iteração (`ok`), não contador global `failed` |
 | REV-032 | procede | cache stale em 5xx/HTTP temporário (`adminSecrets.ts`) |
-| REV-033 | **pendente** | volume nomeado p/ `./logs` perderia logs no host; REV-028 já mitiga o crash — preferência operacional |
+| REV-033 | **cancelado (won't fix)** | decisão do mantenedor 2026-06-27: bind `./logs` é preferência operacional; REV-028 já mitiga o crash. Não será feito |
 | REV-034 | procede | `aria-label` nos dois `<select>` de filtro (Nielsen/ISO) |
 | REV-035 | procede | `setAuthTag` movido p/ dentro do try (`secretCrypto.ts`) |
 
@@ -887,5 +887,17 @@ Os arquivos `.env` já existiam na VM (gitignored) e foram editados com append v
 | REV-047 | procede | `SERVICE_SECRET` obrigatório (mesas beta) |
 | REV-048 | procede | `SERVICE_SECRET` obrigatório (mesas prod api+cron) |
 
-**Ainda pendente (decisão tua):** REV-033 (volume nomeado p/ logs — REV-028 já mitiga o crash).
+**Resolvido:** REV-033 **cancelado (won't fix)** — decisão do mantenedor 2026-06-27. Bind `./logs` é preferência operacional; REV-028 já mitiga o crash. Nenhuma pendência aberta no PR #100.
+
+### REV-049 — Regex super-linear (ReDoS) na extração de JSON do LLM
+
+- **Origem:** SonarCloud · **Tipo:** Reliability 🟡 Medium (performance/regex) · **Ref.:** `apps/mesas/backend/src/discord/llmAssist.ts:127`
+- **Resumo:** `/\`\`\`(?:json)?[ \t]*\r?\n?([\s\S]*?)\`\`\`/` tem backtracking super-linear (grupos opcionais sobrepostos ao lazy `[\s\S]*?`). Entrada externa (retorno da DeepSeek) → risco de ReDoS.
+- **Veredito:** procede e aplicado. Regex removido; helper `stripCodeFence` extrai a cerca markdown por índice (`indexOf`/`lastIndexOf`) — linear, sem backtracking, comportamento equivalente.
+
+### REV-050 — Complexidade cognitiva de `processDiscordMessageToDraft` (20 > 15)
+
+- **Origem:** SonarCloud · **Tipo:** Maintainability 🟠 Major (brain-overload) · **Ref.:** `apps/mesas/backend/src/routes/discord/utils.ts:414`
+- **Resumo:** Função com complexidade cognitiva 20 (limite 15): if/else de upsert + branch aninhado de upload da capa + `recordShadowDecision` duplicado.
+- **Veredito:** procede e aplicado. Extraídos `upsertDraftWithShadow` (insert/update + dedup do shadow) e `persistCoverUpload` (upload best-effort + persistência). Main de ~72→~25 linhas, complexidade < 15. Build ✓ + 285 testes ✓.
 

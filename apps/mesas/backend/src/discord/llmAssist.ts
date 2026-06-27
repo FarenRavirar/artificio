@@ -47,6 +47,24 @@ interface LlmAssistResult {
 }
 
 /**
+ * Remove cercas de markdown (```json … ```) de um retorno de LLM via busca por
+ * índice — linear, sem o backtracking super-linear do regex anterior (ReDoS).
+ * Se não houver cerca, devolve o texto trimado intacto.
+ */
+function stripCodeFence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('```')) return trimmed;
+
+  // Pula a primeira linha da cerca de abertura (```/```json + EOL opcional).
+  const firstEol = trimmed.indexOf('\n');
+  const body = firstEol === -1 ? trimmed.slice(3) : trimmed.slice(firstEol + 1);
+
+  // Corta na cerca de fechamento, se existir.
+  const closeIdx = body.lastIndexOf('```');
+  return (closeIdx === -1 ? body : body.slice(0, closeIdx)).trim();
+}
+
+/**
  * Envia o texto bruto de um anúncio para a API DeepSeek e extrai campos estruturados.
  *
  * @param rawText — texto bruto da mensagem (sanitizado, sem markup Discord).
@@ -121,11 +139,10 @@ export async function assistDiscordParse(
     // Normaliza o JSON do retorno — payload externo, sem confiança
     let extractedJson: unknown;
     try {
-      // Tenta extrair JSON de dentro de markdown code fences.
-      // REV-041: prefixo limitado a espaços/tabs + quebra opcional (não `\s*`),
-      // evita backtracking super-linear (ReDoS) na sobreposição com o grupo lazy.
-      const jsonMatch = content.match(/```(?:json)?[ \t]*\r?\n?([\s\S]*?)```/);
-      extractedJson = JSON.parse(jsonMatch ? jsonMatch[1].trim() : content);
+      // Extrai JSON de dentro de markdown code fences sem regex: o padrão antigo
+      // (`(?:json)?[ \t]*\r?\n?([\s\S]*?)```) tinha backtracking super-linear
+      // (ReDoS, Sonor L127). Busca textual por índice é linear e equivalente.
+      extractedJson = JSON.parse(stripCodeFence(content));
     } catch {
       console.warn('[llmAssist] retorno da LLM não é JSON válido');
       return null;

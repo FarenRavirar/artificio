@@ -500,6 +500,84 @@ async function enrichDraftWithLlm(
 }
 
 /**
+ * Insere ou atualiza o draft normalizado e registra a decisão shadow. Extraído de
+ * processDiscordMessageToDraft p/ baixar a complexidade cognitiva (Sonar 20→).
+ * Dedup do `recordShadowDecision` (antes repetido nos dois ramos).
+ */
+async function upsertDraftWithShadow(
+  existingId: string | undefined,
+  messageId: string,
+  parsed: unknown,
+  normalizedResult: ReturnType<typeof normalizeDiscordTableDraft>,
+): Promise<string> {
+  const { draft } = normalizedResult;
+  let draftId: string;
+  if (existingId) {
+    draftId = existingId;
+    await db.updateTable('discord_import_table_drafts')
+      .set({
+        parsed_payload: parsed,
+        normalized_payload: draft,
+        confidence: draft.confidence,
+        status: normalizedResult.status,
+        updated_at: new Date(),
+      })
+      .where('id', '=', draftId)
+      .execute();
+  } else {
+    const inserted = await db.insertInto('discord_import_table_drafts')
+      .values({
+        discord_message_id: messageId,
+        parsed_payload: parsed,
+        normalized_payload: draft,
+        confidence: draft.confidence,
+        status: normalizedResult.status,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    draftId = inserted.id;
+  }
+  recordShadowDecision(draftId, draft.confidence, draft.missing_fields ?? []).catch(() => {});
+  return draftId;
+}
+
+/**
+ * Upload best-effort da capa ao Cloudinary + persistência do estado de upload.
+ * Falha de imagem NÃO derruba o parse — o erro fica registrado p/ retry (cron/admin).
+ * Extraído de processDiscordMessageToDraft p/ baixar a complexidade cognitiva (REV-039).
+ */
+async function persistCoverUpload(
+  draftId: string,
+  draft: ReturnType<typeof normalizeDiscordTableDraft>['draft'],
+  messageId: string,
+): Promise<void> {
+  // WS1: upload no momento do parse (URL Discord fresca).
+  const draftResult = await uploadCoverForDraft(draftId, draft, 0).catch((err: unknown) => {
+    console.warn('[discord-parse] uploadCoverForDraft failed silently', {
+      messageId,
+      error: err instanceof Error ? err.message : err,
+    });
+    return null;
+  });
+
+  if (!draftResult?.status) return;
+
+  await updateDraftImageUploadState(
+    draftId,
+    draftResult.payload,
+    draftResult.status,
+    draftResult.attempts,
+    draftResult.error,
+    draftResult.coverPublicId,
+  ).catch((err: unknown) => {
+    console.warn('[discord-parse] updateDraftImageUploadState failed silently', {
+      messageId,
+      error: err instanceof Error ? err.message : err,
+    });
+  });
+}
+
+/**
  * Processa uma mensagem do DiscordChatExporter até o draft: parseia, reconcilia
  * draft terminal, faz upsert do draft, atualiza status da mensagem e gera sugestão
  * de sistema. Compartilhado entre parse-batch e /reparse (eram ~45 linhas idênticas
@@ -543,36 +621,7 @@ export async function processDiscordMessageToDraft(
   // conter o melhor resultado disponível. Extraído p/ helper (REV-039).
   const normalizedResult = await enrichDraftWithLlm(message.content_raw, result.normalized, resolvedSystems);
 
-  let draftId: string;
-  if (existing) {
-    draftId = existing.id;
-    await db.updateTable('discord_import_table_drafts')
-      .set({
-        parsed_payload: parsed,
-        normalized_payload: normalizedResult.draft,
-        confidence: normalizedResult.draft.confidence,
-        status: normalizedResult.status,
-        updated_at: new Date(),
-      })
-      .where('id', '=', draftId)
-      .execute();
-
-    recordShadowDecision(draftId, normalizedResult.draft.confidence, normalizedResult.draft.missing_fields ?? []).catch(() => {});
-  } else {
-    const inserted = await db.insertInto('discord_import_table_drafts')
-      .values({
-        discord_message_id: message.id,
-        parsed_payload: parsed,
-        normalized_payload: normalizedResult.draft,
-        confidence: normalizedResult.draft.confidence,
-        status: normalizedResult.status,
-      })
-      .returning('id')
-      .executeTakeFirstOrThrow();
-    draftId = inserted.id;
-
-    recordShadowDecision(draftId, normalizedResult.draft.confidence, normalizedResult.draft.missing_fields ?? []).catch(() => {});
-  }
+  const draftId = await upsertDraftWithShadow(existing?.id, message.id, parsed, normalizedResult);
 
   await db.updateTable('discord_import_messages')
     .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
@@ -585,36 +634,7 @@ export async function processDiscordMessageToDraft(
     message.discord_thread_name ?? message.discord_message_id,
   );
 
-  // WS1: upload da capa ao Cloudinary no momento do parse (URL Discord fresca).
-  // Best-effort: falha de imagem NÃO derruba o parse. O status/erro fica registrado
-  // no draft para retry posterior pelo cron ou ação manual do admin.
-  const draftResult = await uploadCoverForDraft(
-    draftId,
-    normalizedResult.draft,
-    0,
-  ).catch((err: unknown) => {
-    console.warn('[discord-parse] uploadCoverForDraft failed silently', {
-      messageId: message.id,
-      error: err instanceof Error ? err.message : err,
-    });
-    return null;
-  });
-
-  if (draftResult?.status) {
-    await updateDraftImageUploadState(
-      draftId,
-      draftResult.payload,
-      draftResult.status,
-      draftResult.attempts,
-      draftResult.error,
-      draftResult.coverPublicId,
-    ).catch((err: unknown) => {
-      console.warn('[discord-parse] updateDraftImageUploadState failed silently', {
-        messageId: message.id,
-        error: err instanceof Error ? err.message : err,
-      });
-    });
-  }
+  await persistCoverUpload(draftId, normalizedResult.draft, message.id);
 
   return 'parsed';
 }
