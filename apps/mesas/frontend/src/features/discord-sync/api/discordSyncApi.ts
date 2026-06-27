@@ -272,11 +272,12 @@ export const discordSyncApi = {
   diagnoseMessageContent: (id: string) =>
     apiFetch<DiscordMessageContentDiagnostic>(`/messages/${id}/diagnose-content`, { method: 'POST' }),
 
-  getDrafts: (params?: { status?: DiscordImportDraftStatus; limit?: number; offset?: number }) => {
+  getDrafts: (params?: { status?: DiscordImportDraftStatus; limit?: number; offset?: number; origin?: 'discord' | 'inbox' | 'all' }) => {
     const qs = new URLSearchParams();
     if (params?.status) qs.set('status', params.status);
     if (params?.limit != null) qs.set('limit', String(params.limit));
     if (params?.offset != null) qs.set('offset', String(params.offset));
+    if (params?.origin) qs.set('origin', params.origin);
     return apiFetch<DiscordDraft[]>(`/drafts?${qs}`);
   },
 

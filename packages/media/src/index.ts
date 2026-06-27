@@ -117,3 +117,25 @@ export async function deleteAsset(publicId: string, opts?: { resourceType?: "ima
     console.error("[@artificio/media] deleteAsset falhou:", publicId, String(err));
   }
 }
+
+/**
+ * Variante de {@link deleteAsset} que reporta sucesso real.
+ * @returns `true` se o asset foi destruído ou já não existe (`not found`);
+ *          `false` em falha de credencial/rede/API — o chamador deve preservar
+ *          o public_id p/ retry (REV-019).
+ */
+export async function destroyAssetResult(
+  publicId: string,
+  opts?: { resourceType?: "image" | "video" | "raw" },
+): Promise<boolean> {
+  if (!publicId) return true;
+  configure();
+  try {
+    const res = await cloudinary.uploader.destroy(publicId, { resource_type: opts?.resourceType ?? "image" });
+    const result = (res as { result?: string })?.result;
+    return result === "ok" || result === "not found";
+  } catch (err) {
+    console.error("[@artificio/media] destroyAssetResult falhou:", publicId, String(err));
+    return false;
+  }
+}

@@ -651,6 +651,7 @@ export interface DiscordImportTableDraftsTable {
   image_upload_attempts: Generated<number>;
   image_upload_last_error: string | null;
   image_upload_last_at: Date | null;
+  cover_public_id: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

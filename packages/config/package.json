@@ -8,6 +8,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./secret-crypto": {
+      "types": "./dist/secretCrypto.d.ts",
+      "import": "./dist/secretCrypto.js"
+    },
     "./eslint": "./eslint.config.js",
     "./tsconfig": "./tsconfig.base.json"
   },

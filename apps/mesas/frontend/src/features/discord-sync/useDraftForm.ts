@@ -49,7 +49,10 @@ async function submitCorrectionDiff(
   const afterTable = asRecord(asRecord(updatedPayload).table);
   const corrections: Record<string, unknown> = {};
   const before: Record<string, unknown> = {};
+  // afterTable vem de payload externo: bloqueia chaves que poluiriam o protótipo.
+  const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
   for (const key of Object.keys(afterTable)) {
+    if (FORBIDDEN_KEYS.has(key)) continue;
     if (JSON.stringify(afterTable[key]) !== JSON.stringify(beforeTable[key])) {
       corrections[key] = afterTable[key];
       before[key] = beforeTable[key];

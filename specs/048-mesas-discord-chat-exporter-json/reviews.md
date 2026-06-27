@@ -539,3 +539,365 @@ Mudança principal em `importDiscordChatExporterJson()`:
 
 **Total:** 8 arquivos alterados (7 código + reviews.md). ~224 linhas duplicadas eliminadas. 447 testes verdes (284 backend + 163 frontend) em todas as ondas. Lint 15/15, Build 17/17. **Não commitado.**
 
+## Reviews — PR #100 (2026-06-27) — import overhaul
+
+Achados de bots no PR #100 (`feat/048-import-overhaul` → `dev`). **Registrados, ainda NÃO corrigidos** (pendente pesquisa/decisão). Veredito por achado vem depois.
+
+### REV-017 — Autenticar rotas admin/secrets antes do requireAdmin
+
+- **Origem:** chatgpt-codex-connector (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** P2 (Badge)
+- **Referência:** `apps/accounts/src/adminSecretsRoutes.ts` (`PUT /admin/secrets/:name`)
+- **Resumo:** `requireAdmin` só lê `req.session`, mas `createApp` não monta `requireAuth` antes de `createAdminSecretsRoutes` (só `/api/auth/me` usa). Rota retornaria sempre 403 ao salvar a chave DeepSeek pelo painel `/conta`. Montar middleware de auth antes do gate admin (e no GET fallback).
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-018 — Passar SERVICE_SECRET aos serviços em deploy
+
+- **Origem:** chatgpt-codex-connector (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** P2 (Badge)
+- **Referência:** `apps/mesas/backend/src/services/adminSecrets.ts:36-39` + `apps/accounts/docker-compose.prod.yml`, `apps/mesas/docker-compose.{beta,prod}.yml`
+- **Resumo:** `SERVICE_SECRET` não é exportado aos containers accounts/mesas API, então beta/prod sempre cai no branch `!serviceSecret → return null` de `getSecret`. Enrichment DeepSeek nunca roda mesmo após chave armazenada. Wire do token nos blocks de env/secrets dos dois serviços antes de depender de `X-Service-Token`.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-019 — Não zerar cover_public_id após delete falho engolido
+
+- **Origem:** chatgpt-codex-connector (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** P2 (Badge)
+- **Referência:** `apps/mesas/backend/src/scripts/cleanupOrphanDraftImages.ts:41-42`
+- **Resumo:** `@artificio/media.deleteAsset` engole e só loga erros de destroy Cloudinary; o try/catch nunca vê falha de credencial/rede/API. Script incrementa `destroyed` e nula `cover_public_id`, perdendo o único handle p/ retry enquanto o asset pode ainda existir. Fazer deleção reportar sucesso/falha (ou verificar resultado do destroy) antes de limpar colunas.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-020 — Normalizar JSON do Discord antes do mapa (refresh-urls)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🔵 Trivial (nitpick)
+- **Referência:** `apps/mesas/backend/src/discord/uploadDiscordImage.ts:61-73`
+- **Resumo:** Retorno de `response.json()` entra por cast; `entry.original/entry.refreshed` usados sem normalizador tipado. Shape parcial/inesperado entra no Map silenciosamente. Guideline: dado externo é `unknown` até normalizador tipado.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-021 — Índice duplicado em admin_secrets(name)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🔵 Trivial (nitpick)
+- **Referência:** `apps/accounts/src/db.ts:53-61`
+- **Resumo:** `name text unique not null` já cria índice. `idx_admin_secrets_name` só adiciona custo de escrita/storage em cada upsert. Remover.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-022 — Normalizar JSON de erro antes de statusMsg
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🟠 Major
+- **Referência:** `apps/accounts/frontend/src/main.tsx:212-213`
+- **Resumo:** Cast assume `res.json()` sempre `{ error?: string }`, mas payload é externo. Se `error` vier objeto/número, grava não-string em `statusMsg` e o `statusMsg.includes('sucesso')` seguinte quebra o render.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-023 — Chave dedicada p/ cifrar admin_secrets (não fallback JWT_SECRET)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🔒 Security 🟠 Major
+- **Referência:** `apps/accounts/src/adminSecretsRoutes.ts:32-37` (`getSecretsKey`)
+- **Resumo:** Fallback `ACCOUNTS_SECRETS_KEY || JWT_SECRET` acopla rotação de auth à legibilidade dos segredos persistidos: trocar JWT_SECRET inutiliza `admin_secrets`, e reusa a mesma chave p/ dois propósitos. Falhar quando `ACCOUNTS_SECRETS_KEY` não definida e migrar legado explicitamente.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-024 — Não cast de req.body antes de normalizar
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🟠 Major
+- **Referência:** `apps/accounts/src/adminSecretsRoutes.ts:69-73`
+- **Resumo:** `req.body` vem do cliente e pode ser `null`. `const { value } = req.body as {...}` lança antes da validação → input inválido vira 500. Normalizar p/ objeto/unknown e só então extrair `value`.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-025 — Preservar DiscordSettingsDecryptError no caminho v2
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🎯 Functional 🟠 Major
+- **Referência:** `apps/mesas/backend/src/discord/settingsCrypto.ts:41-49`
+- **Resumo:** Se `decryptSecret()` falha em payload v2, branch devolve `SecretDecryptError` direto e pula `DiscordSettingsDecryptError`, apesar do contrato acima dizer que consumidores esperam a classe/nome do mesas. Quebra `instanceof` e mensagem legada no formato novo.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-026 — Persistir cover_public_id antes do sync poder falhar
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🗄️ Data Integrity 🟠 Major
+- **Referência:** `apps/mesas/backend/src/discord/syncHelpers.ts` (`cover_public_id: null` na transação final)
+- **Resumo:** Upload pode criar asset novo bem antes do `cover_public_id: null`. Se qualquer write falhar entre `uploadCoverForDraft(...)` e a transação final, o draft nunca registra o public_id e o cron de órfãs não localiza o asset p/ limpeza.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-027 — Não devolver erro da 1ª tentativa após refresh funcionar
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🎯 Functional 🟠 Major
+- **Referência:** `apps/mesas/backend/src/discord/uploadDiscordImage.ts:151-158`
+- **Resumo:** Se URL foi refreshada e a 2ª tentativa falha por network/cloudinary, o `return firstResult` reclassifica tudo como `expired_url`. Persiste motivo errado no draft e atrapalha retry/diagnóstico.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-028 — Ampliar fallback do requestLogger p/ EPERM/EROFS
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🩺 Stability 🟠 Major
+- **Referência:** `apps/mesas/backend/src/middleware/requestLogger.ts:77-85`
+- **Resumo:** Só `EACCES` desarma a escrita em arquivo. Em bind mount read-only ou FS read-only, `appendFileSync` falha com `EPERM/EROFS` e o logger segue tentando gravar a cada request em vez de degradar p/ stdout.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-029 — Reaproveitar a mesma lista de systems na re-normalização do LLM
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🎯 Functional 🟠 Major
+- **Referência:** `apps/mesas/backend/src/routes/discord/utils.ts:499-514`
+- **Resumo:** Quando `processDiscordMessageToDraft()` roda com `systems === undefined` (ex.: via `reparseOneMessage()`), `parseDiscordMessage()` carrega os systems reais, mas o 2º `normalizeDiscordTableDraft()` cai em `systems ?? []`. Nesse caminho o `system_hint` enriquecido nunca fecha `system_id`, mantém `system_name:unmatched_hint` e pode disparar sugestão falsa em `ensureSystemSuggestionForDraft()`.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-030 — Limpar cover_url no payload do draft órfão
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🗄️ Data Integrity 🟠 Major
+- **Referência:** `apps/mesas/backend/src/scripts/cleanupOrphanDraftImages.ts:49-61`
+- **Resumo:** Só colunas auxiliares são zeradas; `normalized_payload.table.cover_url` segue apontando p/ asset removido, e `uploadCoverForDraft()` usa esse campo como short-circuit. Draft órfão pode ser sincronizado depois com URL quebrada e sem novo upload da origem.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-031 — failed>0 vaza erro p/ drafts que limparam com sucesso
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🗄️ Data Integrity 🟡 Minor
+- **Referência:** `apps/mesas/backend/src/scripts/cleanupOrphanDraftImages.ts:54-57`
+- **Resumo:** Após a 1ª falha do lote, todos os updates seguintes gravam `orphan_cleanup_partial` mesmo quando o `deleteAsset()` daquele draft funcionou. Usar flag por iteração, não o contador global `failed`.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-032 — Usar cache stale também em erros HTTP temporários (adminSecrets)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🩺 Stability 🟠 Major
+- **Referência:** `apps/mesas/backend/src/services/adminSecrets.ts:52-58`
+- **Resumo:** Só exceções de rede caem p/ `cached?.value`. Se accounts responder 500/503 por instabilidade, `getSecret()` volta `null` mesmo com segredo fresco em memória, e o llmAssist desliga o enrichment naquele parse sem necessidade.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-033 — Permissão em ./logs ou volume nomeado (compose)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🩺 Stability 🟡 Minor
+- **Referência:** `apps/mesas/docker-compose.prod.yml:111-112` (bind `./logs:/app/logs`)
+- **Resumo:** Bind mount depende do diretório do host ser gravável; se falhar, `requestLogger` cai p/ stdout e logs do `mesas-cron` deixam de persistir em arquivo. Garantir permissão ou usar volume nomeado.
+- **Status:** **cancelado (won't fix)** · **Decisão do mantenedor (2026-06-27):** não será feito. REV-028 já mitiga o crash (fallback p/ stdout em `EACCES`/`EPERM`/`EROFS`); bind mount `./logs` é preferência operacional (logs visíveis no host). Volume nomeado esconderia os logs. Reabrir só se a perda de persistência em arquivo se provar real em prod. · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-034 — Nomes acessíveis nos dois filtros (select)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🎯 Functional 🟠 Major (Nielsen/ISO 9241-11)
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftReviewTable.tsx:127-136`
+- **Resumo:** Dois `<select>` (origem e status) sem label/aria-label: leitor de tela não distingue, e o teste já precisou indexá-los por posição. Adicionar nome acessível em ambos.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+### REV-035 — Mover setAuthTag(...) p/ dentro do try (secretCrypto)
+
+- **Origem:** coderabbitai (bot)
+- **Tipo:** PR (review) · **Severidade declarada:** 🩺 Stability 🟡 Minor
+- **Referência:** `packages/config/src/secretCrypto.ts:77-89`
+- **Resumo:** Só `decipher.update/final` está protegido. `setAuthTag(...)` pode lançar `TypeError` antes do catch, escapando de `SecretDecryptError` e quebrando o 409 esperado em `apps/accounts/src/adminSecretsRoutes.ts`.
+- **Status:** pendente · **Task vinculada:** — · **Débito vinculado:** —
+
+## Veredito PR #100 — 2026-06-27
+
+Investigado + aplicado o que não é prejudicial (incl. cosméticos). **18 procedem e aplicados** (incl. REV-023, segredos de deploy já inseridos na VM), **1 cancelado** (REV-033, won't fix — decisão do mantenedor 2026-06-27). Validação repo-wide pós-fixes: **build 17/17, lint 15/15, test 24/24 (285 mesas-backend + 163 frontend + accounts) — verde.**
+
+| REV | Veredito | Fix |
+|-----|----------|-----|
+| REV-017 | procede | `requireAuth` antes de `requireAdmin` no PUT + no fallback do GET (`adminSecretsRoutes.ts`) |
+| REV-018 | procede | `SERVICE_SECRET` (e `ACCOUNTS_URL` no cron) nos compose accounts/mesas beta+prod |
+| REV-019 | procede | novo export aditivo `destroyAssetResult` (media) reporta sucesso; cleanup preserva `public_id` em falha |
+| REV-020 | procede (cosmético) | `typeof === 'string'` nos pares do refresh-urls (`uploadDiscordImage.ts`) |
+| REV-021 | procede (cosmético) | removido índice duplicado `idx_admin_secrets_name` (`db.ts`) |
+| REV-022 | procede | normaliza `error` (só string) antes de `statusMsg` (`main.tsx`) |
+| REV-023 | procede (aplicado) | removido fallback `JWT_SECRET`; `ACCOUNTS_SECRETS_KEY` obrigatório (`:?`) no compose + inserido no `.env`/`.env.beta` da VM |
+| REV-024 | procede | normaliza `req.body` (null/não-objeto) antes de extrair `value` |
+| REV-025 | procede | v2 só re-lança erros do mesas; genérico vira `DiscordSettingsDecryptError` |
+| REV-026 | procede | persiste `cover_public_id` ANTES da etapa de sync (handle p/ cron de órfãs) |
+| REV-027 | procede | retorna `secondResult` após refresh OK (motivo real, não `expired_url`) |
+| REV-028 | procede | fallback do requestLogger amplia p/ `EPERM`/`EROFS` |
+| REV-029 | procede | `parseDiscordMessage` expõe `systems` resolvidos; re-normalização do LLM os reusa |
+| REV-030 | procede | cleanup zera `cover_url` no payload em sucesso (`stripCoverUrl`) |
+| REV-031 | procede | erro por iteração (`ok`), não contador global `failed` |
+| REV-032 | procede | cache stale em 5xx/HTTP temporário (`adminSecrets.ts`) |
+| REV-033 | **cancelado (won't fix)** | decisão do mantenedor 2026-06-27: bind `./logs` é preferência operacional; REV-028 já mitiga o crash. Não será feito |
+| REV-034 | procede | `aria-label` nos dois `<select>` de filtro (Nielsen/ISO) |
+| REV-035 | procede | `setAuthTag` movido p/ dentro do try (`secretCrypto.ts`) |
+
+## Reviews — PR #100 SonarCloud (2026-06-27)
+
+Achados do SonarCloud no PR #100. **2 failures** (quality gate — cognitive complexity) + 7 warnings. Registrados; veredito + fix abaixo.
+
+### REV-036 — main() cleanupOrphanDraftImages cognitive complexity 16→15
+
+- **Origem:** sonarqubecloud (bot) · **Tipo:** PR (check) · **Severidade:** failure (gate)
+- **Referência:** `apps/mesas/backend/src/scripts/cleanupOrphanDraftImages.ts:14`
+- **Resumo:** Refactor REV-019/030/031 elevou a CC de `main()` p/ 16. Extrair o corpo do loop p/ helper.
+- **Status:** pendente
+
+### REV-037 — Merge RUN consecutivos (Dockerfile)
+
+- **Origem:** sonarqubecloud (bot) · **Tipo:** PR (check) · **Severidade:** warning
+- **Referência:** `apps/mesas/backend/Dockerfile:60`
+- **Resumo:** Dois `RUN` consecutivos — fundir em um p/ reduzir layers.
+- **Status:** pendente
+
+### REV-038 — Union type → type alias (DiscordDraftReviewTable)
+
+- **Origem:** sonarqubecloud (bot) · **Tipo:** PR (check) · **Severidade:** warning
+- **Referência:** `apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftReviewTable.tsx:10`
+- **Resumo:** União repetida (`'discord' | 'inbox' | 'all'`) — extrair `type OriginFilter`.
+- **Status:** pendente
+
+### REV-039 — processDiscordMessageToDraft cognitive complexity 83→15
+
+- **Origem:** sonarqubecloud (bot) · **Tipo:** PR (check) · **Severidade:** failure (gate)
+- **Referência:** `apps/mesas/backend/src/routes/discord/utils.ts:414`
+- **Resumo:** Função grande (parse + reconcile + LLM enrichment + upsert + sugestão). Extrair o bloco de enriquecimento LLM p/ helper reduz drasticamente a CC. Maior parte pré-existente, mas é new-code no gate.
+- **Status:** pendente
+
+### REV-040 — reduce() sem valor inicial (parseDiscordAnnouncement)
+
+- **Origem:** sonarqubecloud (bot) · **Tipo:** PR (check) · **Severidade:** warning
+- **Referência:** `apps/mesas/backend/src/discord/parseDiscordAnnouncement.ts:97`
+- **Resumo:** `reduce()` sem initial value lança em array vazio. Adicionar valor inicial.
+- **Status:** pendente
+
+### REV-041 — Regex super-linear (llmAssist)
+
+- **Origem:** sonarqubecloud (bot) · **Tipo:** PR (check) · **Severidade:** warning (ReDoS)
+- **Referência:** `apps/mesas/backend/src/discord/llmAssist.ts:125`
+- **Resumo:** Regex com backtracking super-linear. Simplificar p/ evitar ReDoS.
+- **Status:** pendente
+
+### REV-042 — Optional chain (utils.ts:577)
+
+- **Origem:** sonarqubecloud (bot) · **Tipo:** PR (check) · **Severidade:** warning
+- **Referência:** `apps/mesas/backend/src/routes/discord/utils.ts:577`
+- **Resumo:** Preferir optional chain.
+- **Status:** pendente
+
+### REV-043 — Optional chain (adminSecretsRoutes:25)
+
+- **Origem:** sonarqubecloud (bot) · **Tipo:** PR (check) · **Severidade:** warning
+- **Referência:** `apps/accounts/src/adminSecretsRoutes.ts:25`
+- **Resumo:** `session?.user || session.user.role` → optional chain `session?.user?.role`.
+- **Status:** pendente
+
+### REV-044 — Label sem control associado (main.tsx:226)
+
+- **Origem:** sonarqubecloud (bot) · **Tipo:** PR (check) · **Severidade:** warning (a11y)
+- **Referência:** `apps/accounts/frontend/src/main.tsx:226`
+- **Resumo:** `<label>` sem `htmlFor`/control associado. Associar via `htmlFor`+`id`.
+- **Status:** pendente
+
+## Veredito PR #100 SonarCloud — 2026-06-27
+
+**9/9 procedem e aplicados** (nenhum prejudicial). Validação repo-wide pós-fix: **build 17/17, lint 15/15, test 24/24 (285 backend + 163 frontend) — verde.** Nada commitado.
+
+| REV | Veredito | Fix |
+|-----|----------|-----|
+| REV-036 | procede (gate) | corpo do loop extraído p/ `cleanupOneOrphan()` (CC 16→abaixo) |
+| REV-037 | procede | dois `RUN` fundidos em um (`Dockerfile`) |
+| REV-038 | procede (cosmético) | `type OriginFilter` extraído |
+| REV-039 | procede (gate) | enriquecimento LLM extraído p/ `enrichDraftWithLlm()` + `buildLlmUpdates()` (CC 83→abaixo) |
+| REV-040 | procede | `reduce()` com valor inicial `candidates[0]` |
+| REV-041 | procede | regex sem `\s*` ambíguo (prefixo `[ \t]*\r?\n?`) — anti-ReDoS |
+| REV-042 | procede (cosmético) | `draftResult?.status` |
+| REV-043 | procede (cosmético) | `session?.user?.role !== 'admin'` |
+| REV-044 | procede | `htmlFor="deepseek-api-key"` + `id` no input |
+
+## Reviews — PR #100 rodada 2 (2026-06-27) — CodeRabbit pós-fix
+
+Achados na revisão do commit `96ad93e`. **Todos procedem e aplicados.**
+
+### REV-045 — refresh-urls lê campo errado (`refreshed` vs `refreshed_urls`)
+
+- **Origem:** coderabbitai (bot) · **Tipo:** PR (review) · **Severidade:** 🗄️ Data Integrity 🟠 Major
+- **Referência:** `apps/mesas/backend/src/discord/uploadDiscordImage.ts:61-63`
+- **Resumo:** Discord responde `{ refreshed_urls: [...] }`, mas o código lia `body.refreshed` → sempre `undefined` → retry caía em null e nunca tentava a URL renovada. **Bug real** (o REV-020 mexeu só nos entries internos, não no campo de topo).
+- **Status:** implementado ✅ — campo corrigido p/ `refreshed_urls`.
+
+### REV-046 — SERVICE_SECRET obrigatório no compose accounts prod
+
+- **Origem:** coderabbitai (bot) · **Tipo:** PR (review) · **Severidade:** 🩺 Stability 🟠 Major
+- **Referência:** `apps/accounts/docker-compose.prod.yml:59-60`
+- **Resumo:** `${SERVICE_SECRET}` puro permite subir sem o token; GET /admin/secrets deixa de aceitar auth serviço-a-serviço e a integração mesas quebra silenciosa. Usar interpolação obrigatória (`:?`).
+- **Status:** implementado ✅ — `${SERVICE_SECRET:?...}`.
+
+### REV-047 — SERVICE_SECRET obrigatório no compose mesas beta
+
+- **Origem:** coderabbitai (bot) · **Tipo:** PR (review) · **Severidade:** 🩺 Stability 🟠 Major
+- **Referência:** `apps/mesas/docker-compose.beta.yml:69-70`
+- **Resumo:** Mesmo problema do lado consumidor: sem a env, `getSecret()` vira null p/ tudo e o enrichment some silencioso.
+- **Status:** implementado ✅ — `${SERVICE_SECRET:?...}`.
+
+### REV-048 — SERVICE_SECRET obrigatório no compose mesas prod
+
+- **Origem:** coderabbitai (bot) · **Tipo:** PR (review) · **Severidade:** 🩺 Stability 🟠 Major
+- **Referência:** `apps/mesas/docker-compose.prod.yml` (api + cron)
+- **Resumo:** Idem — falhar no deploy em vez de quebrar parse/enrichment em runtime.
+- **Status:** implementado ✅ — `${SERVICE_SECRET:?...}` na api e no cron.
+
+---
+
+## ⚠️ AÇÃO DO MANTENEDOR — segredos novos de deploy (REV-023 + REV-018) — ✅ REALIZADO (2026-06-27)
+
+**REV-023 aplicado:** `getSecretsKey` não usa mais fallback `JWT_SECRET`; agora exige `ACCOUNTS_SECRETS_KEY`. E os compose passaram a **exigir** `SERVICE_SECRET` (REV-046/47/48). Por isso, **o deploy agora FALHA se estas envs não existirem**. Os segredos foram gerados e inseridos via SSH direto na VM (não via GitHub Secrets).
+
+### 1. `SERVICE_SECRET` (token serviço-a-serviço mesas ↔ accounts)
+
+- **O que é:** token compartilhado que o mesas envia no header `X-Service-Token` p/ o accounts liberar `GET /admin/secrets/:name` (busca da chave DeepSeek).
+- **Onde:** o **MESMO valor** em **4 serviços**: `accounts-api` (prod), `mesas-api` (prod), `mesas-cron` (prod) e `mesas-beta-api` (beta).
+- **Valor gerado:** `randomBytes(32).toString('base64url')` — armazenado localmente pelo mantenedor.
+
+### 2. `ACCOUNTS_SECRETS_KEY` (chave de cifra do admin_secrets)
+
+- **O que é:** chave AES p/ cifrar/decifrar a tabela `admin_secrets` no accounts (onde mora a chave DeepSeek cifrada).
+- **Onde:** só no `accounts-api` (prod).
+- **Valor gerado:** `randomBytes(48).toString('base64url')` — armazenado localmente pelo mantenedor.
+- **⚠️ ESTÁVEL PARA SEMPRE:** se você trocar essa chave depois, **todos os segredos já cifrados ficam ilegíveis** (teria que regravá-los). Gere uma vez e não rotacione sem migração.
+
+### Onde foram inseridos (via SSH, `echo >>` nos `.env` da VM)
+
+| Arquivo | SERVICE_SECRET | ACCOUNTS_SECRETS_KEY |
+|---------|:---:|:---:|
+| `/opt/artificio/apps/accounts/.env` | ✅ | ✅ |
+| `/opt/artificio/apps/mesas/.env` | ✅ | ➖ |
+| `/opt/artificio-beta/apps/accounts/.env.beta` | ✅ | ✅ |
+| `/opt/artificio-beta/apps/mesas/.env.beta` | ✅ | ➖ |
+
+Os arquivos `.env` já existiam na VM (gitignored) e foram editados com append via `ssh faren`. O `SERVICE_SECRET` é **idêntico** nos 4 arquivos, como exigido pelo contrato de serviço-a-serviço.
+
+**Não foi usado GitHub Secrets** — a esteira de deploy lê os `.env` diretamente da VM via `--env-file`, então a inserção local é suficiente.
+
+### Checklist — ✅ resolvido
+
+- [x] `SERVICE_SECRET` definido e **idêntico** em accounts + mesas (prod) + mesas (beta).
+- [x] `ACCOUNTS_SECRETS_KEY` (≥32 chars) definido no accounts e **guardado em local seguro** (rotação quebra segredos).
+- [ ] Após deploy do accounts: gravar a chave DeepSeek pelo painel `/conta` (admin logado).
+- [ ] Smoke: parse de uma mensagem dispara enrichment (mesas consegue `getSecret('deepseek_api_key')` no accounts).
+
+**Deploy agora não falha mais por falta dessas envs. Os dois itens pendentes (gravar chave DeepSeek + smoke) dependem do redeploy dos serviços com os compose atualizados.**
+
+## Veredito rodada 2 + REV-023 — 2026-06-27
+
+| REV | Veredito | Fix |
+|-----|----------|-----|
+| REV-023 | **procede e aplicado** | removido fallback `JWT_SECRET`; exige `ACCOUNTS_SECRETS_KEY` (+ env obrigatória no compose) |
+| REV-045 | procede | campo `refreshed_urls` (bug de retry de imagem) |
+| REV-046 | procede | `SERVICE_SECRET` obrigatório (accounts prod) |
+| REV-047 | procede | `SERVICE_SECRET` obrigatório (mesas beta) |
+| REV-048 | procede | `SERVICE_SECRET` obrigatório (mesas prod api+cron) |
+
+**Resolvido:** REV-033 **cancelado (won't fix)** — decisão do mantenedor 2026-06-27. Bind `./logs` é preferência operacional; REV-028 já mitiga o crash. Nenhuma pendência aberta no PR #100.
+
+### REV-049 — Regex super-linear (ReDoS) na extração de JSON do LLM
+
+- **Origem:** SonarCloud · **Tipo:** Reliability 🟡 Medium (performance/regex) · **Ref.:** `apps/mesas/backend/src/discord/llmAssist.ts:127`
+- **Resumo:** `/\`\`\`(?:json)?[ \t]*\r?\n?([\s\S]*?)\`\`\`/` tem backtracking super-linear (grupos opcionais sobrepostos ao lazy `[\s\S]*?`). Entrada externa (retorno da DeepSeek) → risco de ReDoS.
+- **Veredito:** procede e aplicado. Regex removido; helper `stripCodeFence` extrai a cerca markdown por índice (`indexOf`/`lastIndexOf`) — linear, sem backtracking, comportamento equivalente.
+
+### REV-050 — Complexidade cognitiva de `processDiscordMessageToDraft` (20 > 15)
+
+- **Origem:** SonarCloud · **Tipo:** Maintainability 🟠 Major (brain-overload) · **Ref.:** `apps/mesas/backend/src/routes/discord/utils.ts:414`
+- **Resumo:** Função com complexidade cognitiva 20 (limite 15): if/else de upsert + branch aninhado de upload da capa + `recordShadowDecision` duplicado.
+- **Veredito:** procede e aplicado. Extraídos `upsertDraftWithShadow` (insert/update + dedup do shadow) e `persistCoverUpload` (upload best-effort + persistência). Main de ~72→~25 linhas, complexidade < 15. Build ✓ + 285 testes ✓.
+

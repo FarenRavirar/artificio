@@ -1,71 +1,66 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
+import { createDecipheriv, scryptSync } from 'node:crypto';
+import {
+  encryptSecret,
+  decryptSecret,
+  SecretUnavailableError,
+  SecretDecryptError,
+} from '@artificio/config/secret-crypto';
 
 const LEGACY_SETTINGS_SALT = 'discord-settings';
-const SALT_LENGTH = 16;
-const IV_LENGTH = 12;
-const ENCRYPTION_VERSION = 'v2';
 
-export class DiscordSettingsSecretUnavailableError extends Error {
+// Compatibilidade retroativa: consumidores esperam estas classes com nomes do mesas.
+export class DiscordSettingsSecretUnavailableError extends SecretUnavailableError {
   constructor() {
     super('JWT_SECRET não configurado para criptografar credenciais Discord.');
     this.name = 'DiscordSettingsSecretUnavailableError';
   }
 }
 
-export class DiscordSettingsDecryptError extends Error {
+export class DiscordSettingsDecryptError extends SecretDecryptError {
   constructor() {
     super('Credencial Discord ilegível com a chave atual. Regrave o token.');
     this.name = 'DiscordSettingsDecryptError';
   }
 }
 
-function getKey(salt: Buffer | string): Buffer {
+function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new DiscordSettingsSecretUnavailableError();
   }
-  return scryptSync(secret, salt, 32);
+  return secret;
 }
 
 export function encryptDiscordSetting(plaintext: string): string {
-  const salt = randomBytes(SALT_LENGTH);
-  const iv = randomBytes(IV_LENGTH);
-  const cipher = createCipheriv('aes-256-gcm', getKey(salt), iv);
-  const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-  return [
-    ENCRYPTION_VERSION,
-    salt.toString('hex'),
-    iv.toString('hex'),
-    authTag.toString('hex'),
-    ciphertext.toString('base64'),
-  ].join(':');
+  return encryptSecret(plaintext, getJwtSecret());
 }
 
 export function decryptDiscordSetting(value: string): string {
   const parts = value.split(':');
-  try {
-    if (parts[0] === ENCRYPTION_VERSION) {
-      const [, saltHex, ivHex, authTagHex, ciphertextBase64] = parts;
-      if (!saltHex || !ivHex || !authTagHex || !ciphertextBase64) {
-        throw new Error('Formato de credencial Discord cifrada inválido.');
+
+  // v2: delega p/ o util compartilhado (AES-256-GCM + scrypt com salt aleatório)
+  if (parts[0] === 'v2') {
+    try {
+      return decryptSecret(value, getJwtSecret());
+    } catch (error: unknown) {
+      // Preserva o erro específico do mesas: consumidores esperam a classe/nome
+      // do mesas via instanceof. SecretDecryptError genérico vira o do mesas (REV-025).
+      if (error instanceof DiscordSettingsSecretUnavailableError || error instanceof DiscordSettingsDecryptError) {
+        throw error;
       }
-
-      const decipher = createDecipheriv('aes-256-gcm', getKey(Buffer.from(saltHex, 'hex')), Buffer.from(ivHex, 'hex'));
-      decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
-      const plaintext = Buffer.concat([
-        decipher.update(Buffer.from(ciphertextBase64, 'base64')),
-        decipher.final(),
-      ]);
-      return plaintext.toString('utf8');
+      throw new DiscordSettingsDecryptError();
     }
+  }
 
+  // Legado (pré-v2): salt fixo 'discord-settings', AES-256-GCM
+  try {
     const [ivHex, authTagHex, ciphertextBase64] = parts;
     if (!ivHex || !authTagHex || !ciphertextBase64) {
       throw new Error('Formato de credencial Discord cifrada inválido.');
     }
 
-    const decipher = createDecipheriv('aes-256-gcm', getKey(LEGACY_SETTINGS_SALT), Buffer.from(ivHex, 'hex'));
+    const key = scryptSync(getJwtSecret(), LEGACY_SETTINGS_SALT, 32);
+    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
     decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
     const plaintext = Buffer.concat([
       decipher.update(Buffer.from(ciphertextBase64, 'base64')),

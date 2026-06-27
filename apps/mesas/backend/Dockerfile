@@ -57,7 +57,10 @@ COPY --from=builder /repo/apps/mesas/backend/dist ./apps/mesas/backend/dist
 COPY --from=builder /repo/apps/mesas/backend/sistemas.json ./apps/mesas/backend/sistemas.json
 COPY --from=builder /repo/apps/mesas/backend/cenarios.json ./apps/mesas/backend/cenarios.json
 COPY --from=builder /repo/apps/mesas/database/changelogs.json ./apps/mesas/backend/database/changelogs.json
-RUN chown -R node:node /repo
+# WS4: diretório de logs gravável pelo usuário node (REV-037: RUN único)
+RUN chown -R node:node /repo \
+    && mkdir -p /app/logs && chown node:node /app/logs
+
 USER node
 
 WORKDIR /repo/apps/mesas/backend
