@@ -7,7 +7,7 @@ import { isRecord } from '../draftFormUtils';
 
 interface Props {
   readonly api?: DraftApiOperations;
-  readonly listDrafts?: (params?: { status?: DiscordImportDraftStatus; limit?: number; offset?: number }) => Promise<DiscordDraft[]>;
+  readonly listDrafts?: (params?: { status?: DiscordImportDraftStatus; limit?: number; offset?: number; origin?: 'discord' | 'inbox' | 'all' }) => Promise<DiscordDraft[]>;
   readonly syncReadyAction?: () => Promise<{ synced: number; failed: number; errors: string[] }>;
   readonly showSyncReady?: boolean;
 }
@@ -19,6 +19,14 @@ const DRAFT_STATUS_LABELS: Record<DiscordImportDraftStatus, string> = {
   synced: 'Sincronizado',
   rejected: 'Rejeitado',
 };
+
+// WS2: origem do draft (Discord vs Inbox)
+type DraftOrigin = 'discord' | 'inbox';
+function draftOrigin(draft: DiscordDraft): DraftOrigin {
+  return draft.discord_message_id ? 'discord' : 'inbox';
+}
+const ORIGIN_LABELS: Record<DraftOrigin, string> = { discord: 'Discord', inbox: 'Inbox' };
+const ORIGIN_COLORS: Record<DraftOrigin, string> = { discord: 'bg-blue-700/30 text-blue-300', inbox: 'bg-purple-700/30 text-purple-300' };
 
 // T-G1: cor por tier de confiança (thresholds sincronizados com classifyConfidence em parseDiscordAnnouncement.ts)
 function confidenceColor(score: number): string {
@@ -51,6 +59,7 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
   const [drafts, setDrafts] = useState<DiscordDraft[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DiscordImportDraftStatus | ''>('');
+  const [originFilter, setOriginFilter] = useState<'discord' | 'inbox' | 'all'>('all');
   const [selectedDraft, setSelectedDraft] = useState<DiscordDraft | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
 
@@ -61,6 +70,7 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
       const data = await fetchFn({
         status: statusFilter || undefined,
         limit: 100,
+        origin: originFilter,
       });
       setDrafts(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -68,7 +78,7 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, listDraftsProp]);
+  }, [statusFilter, originFilter, listDraftsProp]);
 
   useEffect(() => {
     void (async () => { await loadDrafts(); })();
@@ -114,6 +124,16 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <select
+          value={originFilter}
+          onChange={e => setOriginFilter(e.target.value as 'discord' | 'inbox' | 'all')}
+          className="app-select"
+        >
+          <option value="all">Todas origens</option>
+          <option value="discord">Discord</option>
+          <option value="inbox">Inbox</option>
+        </select>
+
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value as DiscordImportDraftStatus | '')}
@@ -171,6 +191,9 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${ORIGIN_COLORS[draftOrigin(draft)]}`}>
+                      {ORIGIN_LABELS[draftOrigin(draft)]}
+                    </span>
                     {(() => {
                       const effectiveStatus: DiscordImportDraftStatus =
                         draft.status === 'ready' && !isReady(draft) ? 'needs_review' : draft.status;

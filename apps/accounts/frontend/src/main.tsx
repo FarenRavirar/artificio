@@ -127,6 +127,7 @@ function LoginView() {
 function ContaView() {
   const { user, loading } = useSession();
   const { theme, toggleTheme } = useTheme();
+  const [showSecrets, setShowSecrets] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -160,6 +161,18 @@ function ContaView() {
       )}
       <p className="accounts-user-name">{user.name}</p>
       {user.email ? <p className="accounts-user-email">{user.email}</p> : null}
+      {user.role === 'admin' && (
+        <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--surface)', borderRadius: '0.5rem' }}>
+          <button
+            className="accounts-login accounts-login-secondary"
+            type="button"
+            onClick={() => setShowSecrets(!showSecrets)}
+          >
+            {showSecrets ? 'Ocultar' : 'Gerenciar segredos de admin'}
+          </button>
+          {showSecrets && <AdminSecretsPanel />}
+        </div>
+      )}
       <div className="accounts-actions">
         <button className="accounts-login accounts-login-secondary" type="button" onClick={handleLogout}>
           Sair
@@ -169,6 +182,85 @@ function ContaView() {
         </a>
       </div>
     </section>
+  );
+}
+
+function AdminSecretsPanel() {
+  const [deepseekValue, setDeepseekValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    const trimmed = deepseekValue.trim();
+    if (!trimmed) {
+      setStatusMsg('Informe a chave da API.');
+      return;
+    }
+    setSaving(true);
+    setStatusMsg(null);
+    try {
+      const res = await fetch('/admin/secrets/deepseek_api_key', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: trimmed }),
+      });
+      if (res.ok) {
+        setDeepseekValue('');
+        setStatusMsg('Chave salva com sucesso.');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setStatusMsg((data as { error?: string }).error || 'Erro ao salvar.');
+      }
+    } catch {
+      setStatusMsg('Erro de rede ao salvar.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: '1rem' }}>
+      <h2 style={{ fontSize: '1.1rem', marginBottom: '0.5rem', color: 'var(--fg)' }}>Segredos de Admin</h2>
+      <div style={{ marginBottom: '0.75rem' }}>
+        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--fg-muted)', marginBottom: '0.25rem' }}>
+          Chave da API DeepSeek
+        </label>
+        <input
+          type="password"
+          value={deepseekValue}
+          onChange={e => setDeepseekValue(e.target.value)}
+          placeholder="sk-..."
+          style={{
+            width: '100%',
+            padding: '0.5rem',
+            background: 'var(--surface-forte)',
+            border: '1px solid var(--border)',
+            borderRadius: '0.375rem',
+            color: 'var(--fg)',
+            fontSize: '0.9rem',
+          }}
+        />
+      </div>
+      <button
+        className="accounts-login"
+        type="button"
+        onClick={handleSave}
+        disabled={saving}
+        style={{ fontSize: '0.85rem', padding: '0.5rem 1rem' }}
+      >
+        {saving ? 'Salvando...' : 'Salvar chave'}
+      </button>
+      {statusMsg && (
+        <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: statusMsg.includes('sucesso') ? '#4caf50' : '#ef5350' }}>
+          {statusMsg}
+        </p>
+      )}
+      <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--fg-muted)' }}>
+        A chave é armazenada cifrada e nunca é exibida após ser salva. Disponível para consumo serviço-a-serviço
+        pelos módulos da plataforma.
+      </p>
+    </div>
   );
 }
 

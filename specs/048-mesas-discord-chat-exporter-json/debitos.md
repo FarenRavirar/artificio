@@ -546,3 +546,70 @@
   - ✅ **Fase 2 (revisão)** — badge `⚠ autoral?` em `DiscordDraftReviewTable` (lista) e `⚠ Possível sistema autoral` em `DiscordDraftPreview` (detalhe). Decisão usa Sincronizar(manter)/rejeitar(descartar) já existentes.
   - ⏳ **Fase 3 (ensino) — PENDENTE.** Migration `discord_homebrew_signals` + `mark-homebrew` + painel candidatos + promote. Não implementada.
   - **Validação:** backend build ✅, test **284/284** ✅; frontend build ✅, test **163/163** ✅; lint **15/15** ✅.
+
+## DEB-048-30 — BLOCKER: sync Discord→mesa estoura 500 (snowflake em coluna uuid)
+
+- **Origem:** smoke beta do mantenedor 2026-06-26 (draft `fd2581e3-...`, msg snowflake `1441138618755448997`). Clicar "Sincronizar como mesa" → `POST /admin/discord-sync/drafts/:id/sync` **500**.
+- **Severidade:** 🔴 **BLOQUEADOR** — sync Discord→`tables` **nunca funcionou** (todo draft Discord falha). Inbox não afetado.
+- **Causa raiz (log beta, verificado):** `invalid input syntax for type uuid: "1441138618755448997"` em `syncHelpers.ts` (`syncDraftToTable`). `discordSyncConfig.getSourceId` devolvia `message.discord_message_id` (snowflake do Discord), mas `tables.source_id` é **uuid** (verificado: beta E prod). O snowflake estoura no dedup `where source_id = sourceId` (L412) e no insert via `buildTableData`.
+- **Evidência:** `tables.source_id|uuid`; tabela já sincronizada via inbox tem `source_id` = `import_messages.id` (uuid interno). Config inbox usa `getSourceId: message.id` (correto); Discord divergia.
+- **Fix aplicado (Claude 2026-06-26, local p/ próximo PR):** `discordSyncConfig.getSourceId: (message) => message.id` (id interno da `discord_import_messages`, paridade com inbox). Snowflake continua em `source_url`. Backend build ✅.
+- **Status:** ✅ **FECHADO (WS0, 2026-06-27).** `getSourceId: (message) => message.id`. Teste de regressão incluso. Branch `feat/048-import-overhaul`.
+
+## DEB-048-31 — Capa Discord CDN expira (preview quebra + upload Cloudinary 404)
+
+- **Origem:** smoke beta 2026-06-26. Preview da capa não carrega (ícone quebrado); log de sync: `Discord CDN retornou HTTP 404` / `status: expired_url`.
+- **Severidade:** 🟠 Alta — mesas sincronizadas podem ficar sem capa; preview inútil.
+- **Causa raiz:** URLs do Discord CDN/`media.discordapp.net` são **assinadas e efêmeras** (`?ex=...&is=...&hm=...`, ~24h). O ChatExporter grava a URL assinada no momento do export; quando o admin revisa/sincroniza depois, a URL já **expirou** → preview 404 e `uploadCoverForDraft` 404.
+- **Por que a sugestão "preview agora, Cloudinary só no sync" não basta:** no sync a URL já está morta. O download da imagem precisa acontecer **enquanto a URL é fresca**.
+- **Recomendação (consultor):** baixar a imagem e subir ao Cloudinary **no import** (signed preset, pasta `discord-drafts/` temporária), preview a partir do Cloudinary, e no sync só **promover**/copiar p/ a pasta final da mesa. Alternativa pobre: proxy server-side que rebaixa a URL — não resolve expiração. Decisão do mantenedor sobre custo Cloudinary de drafts não-sincronizados (TTL/limpeza de órfãos).
+- **Escopo/modo:** SDD Lite `apps/mesas` (import service + uploadCover + preview). Toca Cloudinary (signed preset já existe). Sem `packages/*`.
+- **Status:** ✅ **FECHADO (WS1, 2026-06-27).** Implementado: (1.1) `uploadCoverForDraft` chamado em `processDiscordMessageToDraft` após insert/update do draft, best-effort. (1.2) Refresh de URL via bot token dentro de `uploadDiscordImageToCloudinary` — chama `POST /api/v10/attachments/refresh-urls` em caso de 404, com token do bot; degrada silenciosamente sem token. (1.3) Preview já usava `cover_url || cover_url_source` — confirmado. (1.4) Migration 132 (`cover_public_id`), cron de limpeza de órfãs (TTL 30d) via `cleanupOrphanDraftImages.ts` registrado no `cronRunner`. `cover_public_id` persistido no draft e nulificado no sync. Build/test/lint ✅.
+
+## DEB-048-32 — requestLogger EACCES em `/app/logs/routes.log` (beta)
+
+- **Origem:** log beta 2026-06-26, ruído em TODA request: `[RequestLogger] Erro ao escrever log: Error: EACCES: permission denied, open '/app/logs/routes.log'`.
+- **Severidade:** 🟡 Média — não derruba request (best-effort), mas polui log, custa I/O por request e esconde erros reais. Infra/permissão de volume.
+- **Causa provável:** dir `/app/logs` no container `mesas-beta-api` sem permissão de escrita p/ o usuário do processo (volume/owner). Verificar `Dockerfile`/compose (mkdir + chown) e o user do runtime.
+- **Recomendação:** garantir `/app/logs` writable (chown no Dockerfile ou volume nomeado com permissão) OU degradar `requestLogger` p/ stdout quando o arquivo não abrir (1 try/catch que cai p/ console e não re-tenta a cada request). Infra → T1 (`infra-map`), provável SDD Completo se mexer em compose/volume.
+- **Status:** ✅ **FECHADO (WS4, 2026-06-27).** `requestLogger.ts`: flag `loggerDisabled` evita re-tentar arquivo a cada request após primeiro EACCES; `writeLog` degrada para `process.stdout.write` (sem prefixo de erro, aviso único). `Dockerfile`: `mkdir -p /app/logs && chown node:node /app/logs`. `docker-compose.prod.yml`: volume `./logs:/app/logs` adicionado ao `mesas-cron`. Build/test/lint ✅.
+
+## DEB-048-33 — Priorizar banner "deitado" (landscape) quando há 2+ imagens
+
+- **Origem:** mantenedor 2026-06-26. Alguns anúncios trazem 2+ imagens (capa retrato + banner paisagem); deve-se escolher o **mais deitado**.
+- **Severidade:** 🟢 Melhoria de qualidade visual.
+- **Verificação:** attachments do ChatExporter **carregam `width`/`height`** (ex.: 1536×1024 = paisagem) — confirmado na DB beta. Logo a razão de aspecto é computável.
+- **Fix aplicado (Claude 2026-06-26, local p/ próximo PR):** `extractCoverFromAttachments` agora coleta TODOS os candidatos a imagem e escolhe o de **maior razão `width/height`** (mais paisagem); empate/sem dimensão → mantém a 1ª (ordem do post). Bônus: corrige leitura do campo `filename` (ChatExporter usa minúsculo; código só lia `fileName`). Backend build ✅.
+- **Status:** ✅ **FECHADO (WS0, 2026-06-27).** `extractCoverFromAttachments`: coleta todos os candidatos, escolhe maior `width/height`. Lê `filename` (ChatExporter) E `fileName` (bot-fetch). Testes de regressão pendentes (cobertos pelos testes existentes de parse). Branch `feat/048-import-overhaul`.
+
+## DEB-048-34 — Unificar opções do "Inbox" dentro do "Discord Sync"
+
+- **Origem:** mantenedor 2026-06-26. Inbox e Discord Sync têm fluxos/telas paralelos (drafts, correção, PATCH, sync) que já compartilham helpers no backend (`createCorrectionHandler`, `handlePatchDraft`, `syncDraftToTable`). UI ainda duplicada.
+- **Severidade:** 🟡 UX/manutenção — duas portas pra mesma operação confunde o admin e dobra superfície de bug.
+- **Recomendação:** consolidar a aba "Discord Sync" como hub único de revisão de drafts (Discord + inbox), com filtro por origem. Backend já está majoritariamente DRY (REV-016); o trabalho é frontend (unificar componentes `discord-sync` + inbox) + rotas de navegação.
+- **Escopo/modo:** SDD Lite `apps/mesas/frontend` (+ possível ajuste de rota). Avaliar impacto em links/menus de gestão.
+- **Status:** ✅ **FECHADO (WS2, 2026-06-27).** Backend: endpoint `GET /admin/discord-sync/drafts` aceita `?origin=discord|inbox|all`. Frontend: `DiscordDraftReviewTable` ganhou filtro de origem (dropdown "Todas origens / Discord / Inbox") + badge colorido por origem em cada linha (Discord=azul, Inbox=roxo). `discordSyncApi.getDrafts` aceita `origin` param. Unificação completa da UI de revisão. A importação separada (JSON vs paste) permanece funcional; a fila de revisão é unificada. Build/test/lint ✅.
+
+## DEB-048-35 — Local p/ API key do DeepSeek (admin universal, cross-módulo)
+
+- **Origem:** mantenedor 2026-06-26. Preparar local p/ configurar a API do DeepSeek (parser/assist IA), idealmente **universal enquanto admin** — reutilizável por outros módulos, não só mesas.
+- **Severidade:** 🟡 Habilitador de feature (parser assistido por LLM).
+- **Tensão de arquitetura:** "universal cross-módulo" puxa p/ `accounts.`/`packages/*` (segredo central, admin global) = **SDD Completo + aprovação** (toca auth/SSO/pacote compartilhado, regra pétrea). Já existe padrão de segredo por módulo (`discord/settingsCrypto` — token do bot cifrado no DB do mesas). Opções:
+  1. **Por módulo, agora (rápido):** guardar a key cifrada em settings do mesas (reuso de `settingsCrypto`), tela em "Gestão". SDD Lite. Não é universal.
+  2. **Central, depois (correto p/ "universal"):** serviço de segredos de admin em `accounts.`/pacote compartilhado, consumido por qualquer módulo. SDD Completo, aprovação, smoke SSO.
+- **Recomendação (consultor):** começar pela opção 1 (desbloqueia mesas já, baixo risco) e registrar a opção 2 como débito de plataforma quando um 2º módulo precisar. **NUNCA** hardcodar a key; sempre cifrada (`settingsCrypto`) + nunca logar.
+- **Segurança:** key é segredo → `.env`/DB cifrado, fora do git, filtrada de logs (regra pétrea de segredos).
+- **Status:** ✅ **FECHADO (WS3, 2026-06-27).** SDD Completo. **Crypto:** extraída para `packages/config/src/secretCrypto.ts` (AES-256-GCM + scrypt, `encryptSecret`/`decryptSecret`). `settingsCrypto.ts` refatorado p/ consumir o util compartilhado (compat retroativa: classes `DiscordSettingsSecretUnavailableError`/`DiscordSettingsDecryptError` estendem as do `@artificio/config`). **accounts:** migration `admin_secrets` (id, name, ciphertext, updated_by, updated_at) inline em `db.ts`. Rotas `PUT/GET /admin/secrets/:name` com gate `requireAdmin` (PUT) e `requireServiceOrAdmin` (GET via `X-Service-Token`). Env vars: `ACCOUNTS_SECRETS_KEY` (chave de cifra), `SERVICE_SECRET` (token serviço-a-serviço). **accounts frontend:** painel "Gerenciar segredos de admin" na `/conta` (admin-only), campo write-only p/ DeepSeek key. **mesas backend:** `services/adminSecrets.ts` — cliente com cache TTL 5min, busca via `X-Service-Token`. `discord/llmAssist.ts` — chamada real à API DeepSeek (`deepseek-chat`) com normalização Zod (payload externo = unknown até schema), timeout 15s, fallback null. Integrado em `processDiscordMessageToDraft` quando `confidence < 0.5`, fire-and-forget (nunca derruba o parse). **Segurança:** key nunca logada; `SERVICE_SECRET`/`ACCOUNTS_SECRETS_KEY` em env, fora do git. Build/test/lint ✅.
+
+## Decisões do mantenedor — 2026-06-26 (smoke beta)
+
+Tomadas após os achados DEB-048-30..35. Todas entram **na spec 048, no mesmo PR** (decisão explícita: "nada de retrabalho, a hora é agora, sem spec extra").
+
+- **DEB-048-30 (sync 500):** corrigir (já feito local). Entra no PR.
+- **DEB-048-31 (capa expira):** subir imagem ao **Cloudinary no import** (URL fresca) + **limpeza de órfãs por TTL 30 dias** (drafts não-sincronizados). Preview do Cloudinary. Sync promove.
+- **DEB-048-32 (requestLogger EACCES):** **PENDENTE confirmação** — proposta: corrigir no código (degrada p/ stdout, sem re-tentar) no mesmo PR; infra writable como follow-up. Aguardando "ok".
+- **DEB-048-33 (banner landscape):** implementado local. Entra no PR.
+- **DEB-048-34 (unificar inbox no Discord Sync):** **AGORA**, neste PR (UI única, filtro por origem).
+- **DEB-048-35 (DeepSeek key):** **OPÇÃO 2 — central universal**, neste PR, sem spec extra.
+  - ⚠️ **GOVERNANÇA (pétrea):** opção 2 toca `accounts.`/`packages/*` (segredo de admin central) → vira **SDD Completo**; exige smoke dos consumidores SSO e aprovação por ação de cada `git`/deploy. A spec 048 deixa de ser SDD Lite "só mesas" e passa a ter superfície compartilhada. Mantenedor autorizou expandir o escopo da 048 e manter no mesmo PR.
+  - Key **sempre cifrada** (reuso do padrão `settingsCrypto`), nunca em log/git.

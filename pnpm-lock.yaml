@@ -398,6 +398,9 @@ importers:
       '@artificio/changelog':
         specifier: workspace:*
         version: link:../../../packages/changelog
+      '@artificio/config':
+        specifier: workspace:*
+        version: link:../../../packages/config
       '@artificio/feedback':
         specifier: workspace:*
         version: link:../../../packages/feedback

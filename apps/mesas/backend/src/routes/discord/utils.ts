@@ -5,6 +5,8 @@ import { db } from '../../db';
 import type { DiscordSourceChannelType, DiscordImportMessagesTable, NewDiscordImportRun } from '../../db/types';
 import type { SystemEntry, ImportRawMessage } from '../../discord';
 import { normalizeDiscordTableDraft, parseDiscordAnnouncement, normalizeDraftPayload, assertDraftReadyTransition } from '../../discord';
+import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers';
+import { assistDiscordParse } from '../../discord/llmAssist';
 import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
@@ -441,33 +443,109 @@ export async function processDiscordMessageToDraft(
     return discarded ? 'discarded' : 'ignored';
   }
   const { parsed, normalized } = result;
+  let normalizedResult = normalized;
 
+  // WS3: assistente LLM p/ baixa confiança/campos faltantes. A chamada é
+  // aguardada antes do upsert para que o draft salvo já contenha o melhor
+  // resultado disponível. Falha/timeout retorna null e preserva o regex.
+  const NEEDS_LLM_THRESHOLD = 0.5;
+  const shouldAskLlm =
+    (normalizedResult.draft.confidence ?? 0) < NEEDS_LLM_THRESHOLD ||
+    normalizedResult.draft.missing_fields.length > 0;
+
+  if (shouldAskLlm && normalizedResult.draft.table) {
+    const rawText = typeof message.content_raw === 'string' ? message.content_raw : '';
+    if (rawText.length > 50) {
+      const table = normalizedResult.draft.table as unknown as Record<string, unknown>;
+      const existingFields: Record<string, unknown> = {};
+      if (table.title) existingFields.title = table.title;
+      if (table.system_name) existingFields.system_name = table.system_name;
+      if (table.day_of_week) existingFields.day_of_week = table.day_of_week;
+      if (table.start_time) existingFields.start_time = table.start_time;
+
+      const llmResult = await assistDiscordParse(rawText, existingFields);
+      if (llmResult) {
+        const updates: Record<string, unknown> = {};
+        const resolvedMissing = new Set<string>();
+        const ext = llmResult.extracted;
+
+        if (ext.title && !table.title) {
+          updates.title = ext.title;
+          resolvedMissing.add('title');
+        }
+        if (ext.system_hint && !table.system_name) {
+          updates.system_name = ext.system_hint;
+          resolvedMissing.add('system_name');
+          resolvedMissing.add('system_name:unmatched_hint');
+        }
+        if (ext.day_of_week && !table.day_of_week) updates.day_of_week = ext.day_of_week;
+        if (ext.start_time && !table.start_time) updates.start_time = ext.start_time;
+        if (typeof ext.slots_total === 'number' && table.slots_total == null) {
+          updates.slots_total = ext.slots_total;
+          resolvedMissing.add('slots_total');
+        }
+        if (typeof ext.slots_open === 'number' && table.slots_open == null) updates.slots_open = ext.slots_open;
+        if (ext.price_type && !table.price_type) {
+          updates.price_type = ext.price_type;
+          resolvedMissing.add('price_type');
+        }
+        if (typeof ext.price_value === 'number' && table.price_value == null) updates.price_value = ext.price_value;
+        if (ext.contact_url && !table.contact_url) {
+          updates.contact_url = ext.contact_url;
+          resolvedMissing.add('contact_url');
+        }
+        if (ext.description && !table.description) updates.description = ext.description;
+
+        if (Object.keys(updates).length > 0) {
+          normalizedResult = normalizeDiscordTableDraft(
+            {
+              ...normalizedResult.draft,
+              table: {
+                ...normalizedResult.draft.table,
+                ...updates,
+                _notes: [
+                  ...normalizedResult.draft.table._notes,
+                  'Campos incompletos enriquecidos por DeepSeek; revisar antes de sincronizar.',
+                ],
+              },
+              missing_fields: normalizedResult.draft.missing_fields.filter((field) => !resolvedMissing.has(field)),
+            },
+            systems ?? [],
+          );
+        }
+      }
+    }
+  }
+
+  let draftId: string;
   if (existing) {
+    draftId = existing.id;
     await db.updateTable('discord_import_table_drafts')
       .set({
         parsed_payload: parsed,
-        normalized_payload: normalized.draft,
-        confidence: normalized.draft.confidence,
-        status: normalized.status,
+        normalized_payload: normalizedResult.draft,
+        confidence: normalizedResult.draft.confidence,
+        status: normalizedResult.status,
         updated_at: new Date(),
       })
-      .where('id', '=', existing.id)
+      .where('id', '=', draftId)
       .execute();
 
-    recordShadowDecision(existing.id, normalized.draft.confidence, parsed.missing_fields ?? []).catch(() => {});
+    recordShadowDecision(draftId, normalizedResult.draft.confidence, normalizedResult.draft.missing_fields ?? []).catch(() => {});
   } else {
     const inserted = await db.insertInto('discord_import_table_drafts')
       .values({
         discord_message_id: message.id,
         parsed_payload: parsed,
-        normalized_payload: normalized.draft,
-        confidence: normalized.draft.confidence,
-        status: normalized.status,
+        normalized_payload: normalizedResult.draft,
+        confidence: normalizedResult.draft.confidence,
+        status: normalizedResult.status,
       })
       .returning('id')
       .executeTakeFirstOrThrow();
+    draftId = inserted.id;
 
-    recordShadowDecision(inserted.id, normalized.draft.confidence, parsed.missing_fields ?? []).catch(() => {});
+    recordShadowDecision(draftId, normalizedResult.draft.confidence, normalizedResult.draft.missing_fields ?? []).catch(() => {});
   }
 
   await db.updateTable('discord_import_messages')
@@ -476,10 +554,41 @@ export async function processDiscordMessageToDraft(
     .execute();
 
   await ensureSystemSuggestionForDraft(
-    normalized.draft,
+    normalizedResult.draft,
     userId,
     message.discord_thread_name ?? message.discord_message_id,
   );
+
+  // WS1: upload da capa ao Cloudinary no momento do parse (URL Discord fresca).
+  // Best-effort: falha de imagem NÃO derruba o parse. O status/erro fica registrado
+  // no draft para retry posterior pelo cron ou ação manual do admin.
+  const draftResult = await uploadCoverForDraft(
+    draftId,
+    normalizedResult.draft,
+    0,
+  ).catch((err: unknown) => {
+    console.warn('[discord-parse] uploadCoverForDraft failed silently', {
+      messageId: message.id,
+      error: err instanceof Error ? err.message : err,
+    });
+    return null;
+  });
+
+  if (draftResult && draftResult.status) {
+    await updateDraftImageUploadState(
+      draftId,
+      draftResult.payload,
+      draftResult.status,
+      draftResult.attempts,
+      draftResult.error,
+      draftResult.coverPublicId,
+    ).catch((err: unknown) => {
+      console.warn('[discord-parse] updateDraftImageUploadState failed silently', {
+        messageId: message.id,
+        error: err instanceof Error ? err.message : err,
+      });
+    });
+  }
 
   return 'parsed';
 }

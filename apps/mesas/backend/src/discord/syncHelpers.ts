@@ -5,6 +5,7 @@ import { TableRepository } from '../repositories/tableRepository';
 import { TableService } from '../services/tableService';
 import type { DiscordImageUploadStatus, ImportTableDraft } from './types';
 import { uploadDiscordImageToCloudinary } from './uploadDiscordImage';
+import { getDiscordBotToken } from './config';
 import { z } from 'zod';
 
 export class DraftNotFoundError extends Error {
@@ -282,6 +283,7 @@ export async function notifyAdminsAboutImageFailure(tableId: string, title: stri
 export async function uploadCoverForDraft(draftId: string, payload: ImportTableDraft, currentAttempts: number): Promise<{
   payload: ImportTableDraft;
   coverUrl: string | null;
+  coverPublicId: string | null;
   status: DiscordImageUploadStatus | null;
   attempts: number;
   error: string | null;
@@ -290,20 +292,22 @@ export async function uploadCoverForDraft(draftId: string, payload: ImportTableD
     ? payload.table.cover_url.trim()
     : null;
   if (existingCover) {
-    return { payload, coverUrl: existingCover, status: null, attempts: currentAttempts, error: null };
+    return { payload, coverUrl: existingCover, coverPublicId: null, status: null, attempts: currentAttempts, error: null };
   }
 
   const sourceUrl = readCoverSource(payload);
   if (!sourceUrl) {
-    return { payload, coverUrl: null, status: null, attempts: currentAttempts, error: null };
+    return { payload, coverUrl: null, coverPublicId: null, status: null, attempts: currentAttempts, error: null };
   }
 
   const attempts = currentAttempts + 1;
-  const result = await uploadDiscordImageToCloudinary(sourceUrl);
+  const botToken = await getDiscordBotToken().catch(() => null);
+  const result = await uploadDiscordImageToCloudinary(sourceUrl, { botToken });
   if (result.status === 'success') {
     return {
       payload: withCoverUrl(payload, result.url),
       coverUrl: result.url,
+      coverPublicId: result.public_id,
       status: 'success',
       attempts,
       error: null,
@@ -314,6 +318,7 @@ export async function uploadCoverForDraft(draftId: string, payload: ImportTableD
   return {
     payload: withCoverUrl(payload, null),
     coverUrl: null,
+    coverPublicId: null,
     status: result.status,
     attempts,
     error: result.error,
@@ -326,17 +331,22 @@ export async function updateDraftImageUploadState(
   status: DiscordImageUploadStatus,
   attempts: number,
   error: string | null,
+  coverPublicId?: string | null,
 ): Promise<void> {
+  const setValues: Record<string, unknown> = {
+    normalized_payload: payload,
+    image_upload_status: status,
+    image_upload_attempts: attempts,
+    image_upload_last_error: error,
+    image_upload_last_at: new Date(),
+    updated_at: new Date(),
+  };
+  if (coverPublicId !== undefined) {
+    setValues.cover_public_id = coverPublicId;
+  }
   await db
     .updateTable('discord_import_table_drafts')
-    .set({
-      normalized_payload: payload,
-      image_upload_status: status,
-      image_upload_attempts: attempts,
-      image_upload_last_error: error,
-      image_upload_last_at: new Date(),
-      updated_at: new Date(),
-    })
+    .set(setValues as any)
     .where('id', '=', draftId)
     .execute();
 }
@@ -489,6 +499,7 @@ export async function syncDraftToTable(
         image_upload_attempts: imageUpload.attempts,
         image_upload_last_error: imageUpload.error,
         image_upload_last_at: imageUpload.status ? new Date() : null,
+        cover_public_id: null,   // WS1: imagem já consumida pela mesa, sai do escopo de órfãs
         updated_at: new Date(),
       })
       .where('id', '=', draftId)

@@ -23,7 +23,9 @@
     "discord:sync": "node dist/scripts/syncDiscordChannels.js",
     "discord:sync:dev": "ts-node src/scripts/syncDiscordChannels.ts",
     "discord:retry-image-uploads": "node dist/scripts/retryDiscordImageUploads.js",
-    "discord:retry-image-uploads:dev": "ts-node src/scripts/retryDiscordImageUploads.ts"
+    "discord:retry-image-uploads:dev": "ts-node src/scripts/retryDiscordImageUploads.ts",
+    "discord:cleanup-orphan-images": "node dist/scripts/cleanupOrphanDraftImages.js",
+    "discord:cleanup-orphan-images:dev": "ts-node src/scripts/cleanupOrphanDraftImages.ts"
   },
   "keywords": [],
   "author": "",
@@ -31,6 +33,7 @@
   "dependencies": {
     "@artificio/auth": "workspace:*",
     "@artificio/changelog": "workspace:*",
+    "@artificio/config": "workspace:*",
     "@artificio/feedback": "workspace:*",
     "@artificio/media": "workspace:*",
     "@types/he": "^1.2.3",

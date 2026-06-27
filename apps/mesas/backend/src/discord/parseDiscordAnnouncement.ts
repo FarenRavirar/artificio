@@ -46,35 +46,59 @@ function readNumberField(value: Record<string, unknown>, key: string): number | 
   return typeof field === 'number' && Number.isFinite(field) ? field : null;
 }
 
+interface CoverCandidate {
+  url: string;
+  width: number;
+  height: number;
+  size: number;
+}
+
+/** Extrai um candidato a capa de um attachment, ou null se não for imagem válida. */
+function readCoverCandidate(attachment: unknown): CoverCandidate | null {
+  if (typeof attachment !== 'object' || attachment === null) return null;
+  const record = attachment as Record<string, unknown>;
+
+  // Tentar content_type primeiro (formato bot-fetch) — compat retroativa
+  const contentType = readStringField(record, 'content_type')?.toLowerCase() ?? '';
+  // Fallback: extensão do filename (ChatExporter usa `filename`; bot-fetch, `fileName`)
+  const fileName = (readStringField(record, 'filename') ?? readStringField(record, 'fileName'))?.toLowerCase() ?? '';
+
+  // É imagem? Checar content_type OU extensão
+  const isImageByContentType = contentType.startsWith('image/') && contentType !== 'image/svg+xml';
+  const isImageByExt = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(fileName);
+
+  if (!isImageByContentType && !isImageByExt) return null;
+  if (contentType === 'image/svg+xml' || fileName.endsWith('.svg')) return null;
+
+  const url = readStringField(record, 'url');
+  if (!url) return null;
+
+  return {
+    url,
+    width: readNumberField(record, 'width') ?? 0,
+    height: readNumberField(record, 'height') ?? 0,
+    size: readNumberField(record, 'size') ?? readNumberField(record, 'fileSizeBytes') ?? 0,
+  };
+}
+
 function extractCoverFromAttachments(attachments: unknown[]): { url: string; quality: CoverQuality } | null {
+  const candidates: CoverCandidate[] = [];
   for (const attachment of attachments) {
-    if (typeof attachment !== 'object' || attachment === null) continue;
-    const record = attachment as Record<string, unknown>;
-
-    // Tentar content_type primeiro (formato bot-fetch) — compat retroativa
-    const contentType = readStringField(record, 'content_type')?.toLowerCase() ?? '';
-    // Fallback: extensão do fileName (formato ChatExporter)
-    const fileName = readStringField(record, 'fileName')?.toLowerCase() ?? '';
-
-    // É imagem? Checar content_type OU extensão
-    const isImageByContentType = contentType.startsWith('image/') && contentType !== 'image/svg+xml';
-    const isImageByExt = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(fileName);
-
-    if (!isImageByContentType && !isImageByExt) continue;
-    if (contentType === 'image/svg+xml' || fileName.endsWith('.svg')) continue;
-
-    const url = readStringField(record, 'url');
-    if (!url) continue;
-
-    // ChatExporter: sem width/size → quality 'low' por padrão
-    // Bot-fetch: width >= 800 && size >= 50000 → 'standard'
-    const width = readNumberField(record, 'width') ?? 0;
-    const size = readNumberField(record, 'size') ?? readNumberField(record, 'fileSizeBytes') ?? 0;
-    const quality: CoverQuality = width >= 800 && size >= 50000 ? 'standard' : 'low';
-    return { url, quality };
+    const candidate = readCoverCandidate(attachment);
+    if (candidate) candidates.push(candidate);
   }
+  if (candidates.length === 0) return null;
 
-  return null;
+  // Banner: priorizar o mais "deitado" (maior razão largura/altura). Anúncios com
+  // 2+ imagens (capa retrato + banner paisagem) devem usar o banner. Empate/sem
+  // dimensão → mantém a ordem original (primeira imagem do post). Razão 1 (quadrado)
+  // ou <1 (retrato) perde para qualquer paisagem (>1).
+  const aspect = (c: CoverCandidate) => (c.width > 0 && c.height > 0 ? c.width / c.height : 0);
+  const cover = candidates.reduce((best, c) => (aspect(c) > aspect(best) ? c : best));
+
+  // ChatExporter/bot-fetch: width >= 800 && size >= 50000 → 'standard'; senão 'low'.
+  const quality: CoverQuality = cover.width >= 800 && cover.size >= 50000 ? 'standard' : 'low';
+  return { url: cover.url, quality };
 }
 
 /** Formata bytes em string legível (MB/KB/B), ou desconhecido se ausente. */

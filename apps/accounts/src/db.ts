@@ -11,8 +11,17 @@ export interface UserRow {
   created_at: Generated<Date>;
 }
 
+export interface AdminSecretRow {
+  id: Generated<string>;
+  name: string;
+  ciphertext: string;
+  updated_by: string | null;
+  updated_at: Generated<Date>;
+}
+
 export interface Database {
   users: UserRow;
+  admin_secrets: AdminSecretRow;
 }
 
 export function createDb(databaseUrl: string) {
@@ -35,5 +44,20 @@ export async function migrate(db: Kysely<Database>) {
       role text not null default 'user',
       created_at timestamptz not null default now()
     )
+  `.execute(db);
+
+  // WS3: segredos de admin cifrados (DeepSeek key, etc.)
+  await sql`
+    create table if not exists admin_secrets (
+      id uuid primary key default uuid_generate_v4(),
+      name text unique not null,
+      ciphertext text not null,
+      updated_by text,
+      updated_at timestamptz not null default now()
+    )
+  `.execute(db);
+  await sql`
+    create index if not exists idx_admin_secrets_name
+    on admin_secrets (name)
   `.execute(db);
 }

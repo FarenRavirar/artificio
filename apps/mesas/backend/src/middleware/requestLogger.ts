@@ -6,13 +6,20 @@ import path from 'path';
 const LOG_DIR = '/app/logs';
 const LOG_FILE = path.join(LOG_DIR, 'routes.log');
 
+// WS4: flag que desabilita escrita em arquivo após primeiro EACCES,
+// evitando re-tentar (e logar erro) a cada request.
+let loggerDisabled = false;
+let loggerDisabledReason: string | null = null;
+
 // Criar diretório se não existir
 try {
   if (!fs.existsSync(LOG_DIR)) {
     fs.mkdirSync(LOG_DIR, { recursive: true, mode: 0o755 });
   }
 } catch (error) {
-  console.error('[RequestLogger] Erro ao criar diretório de logs:', error);
+  loggerDisabled = true;
+  loggerDisabledReason = `mkdir EACCES: ${error instanceof Error ? error.message : String(error)}`;
+  console.warn('[RequestLogger] Diretório de logs inacessível, degradando para stdout:', loggerDisabledReason);
 }
 
 interface LogEntry {
@@ -56,12 +63,26 @@ function formatLogLine(entry: LogEntry | ErrorLogEntry): string {
 }
 
 /**
- * Escreve log no arquivo
+ * Escreve log no arquivo. Degrada para stdout no primeiro EACCES (WS4).
  */
 function writeLog(line: string): void {
+  if (loggerDisabled) {
+    // stdout silencioso (sem prefixo de erro) — o aviso já foi emitido uma vez
+    process.stdout.write(line);
+    return;
+  }
   try {
     fs.appendFileSync(LOG_FILE, line, { encoding: 'utf8', mode: 0o644 });
   } catch (error) {
+    const isPermission = error instanceof Error && (error as NodeJS.ErrnoException).code === 'EACCES';
+    if (isPermission) {
+      loggerDisabled = true;
+      loggerDisabledReason = `EACCES: ${error instanceof Error ? error.message : String(error)}`;
+      console.warn('[RequestLogger] Arquivo de log inacessível, degradando para stdout:', loggerDisabledReason);
+      // Escreve esta linha no stdout também
+      process.stdout.write(line);
+      return;
+    }
     console.error('[RequestLogger] Erro ao escrever log:', error);
   }
 }
@@ -160,9 +181,11 @@ export function logDatabaseError(
 }
 
 /**
- * Rotaciona logs quando arquivo fica muito grande (> 10MB)
+ * Rotaciona logs quando arquivo fica muito grande (> 10MB).
+ * Respeita loggerDisabled (WS4): se arquivo inacessível, rotaciona é no-op.
  */
 export function rotateLogs(): void {
+  if (loggerDisabled) return; // WS4: sem arquivo, sem rotação
   try {
     const stats = fs.statSync(LOG_FILE);
     const maxSize = 10 * 1024 * 1024; // 10MB

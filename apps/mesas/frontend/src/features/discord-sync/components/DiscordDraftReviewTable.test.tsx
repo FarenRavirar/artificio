@@ -184,8 +184,9 @@ describe('DiscordDraftReviewTable', () => {
       expect(screen.getByText('Recarregar')).toBeInTheDocument();
     });
 
-    const select = screen.getByText('Todos os status')?.parentElement?.querySelector('select')
-      || screen.getByRole('combobox');
+    // WS2: há 2 comboboxes (origem + status). O status é o segundo.
+    const selects = screen.getAllByRole('combobox');
+    const select = selects.length > 1 ? selects[1] : selects[0];
 
     fireEvent.change(select, { target: { value: 'ready' } });
 

@@ -2,6 +2,7 @@ import { parseEnv, BRAND_DOMAIN } from "@artificio/config";
 import { z } from "zod";
 
 export const accountsEnvSchema = z.object({
+  ACCOUNTS_SECRETS_KEY: z.string().min(32).optional(),
   COOKIE_DOMAIN: z.string().default(`.${BRAND_DOMAIN}`),
   DATABASE_URL: z.url(),
   GOOGLE_CALLBACK_URL: z.url(),
@@ -11,6 +12,7 @@ export const accountsEnvSchema = z.object({
   JWT_SECRET: z.string().min(32),
   PORT: z.coerce.number().int().positive().default(3000),
   PUBLIC_URL: z.url().default("https://accounts.artificiorpg.com"),
+  SERVICE_SECRET: z.string().min(16).optional(),
   TRUSTED_PROXY_CIDR: z.string().default("172.18.0.0/16"),
 });
 

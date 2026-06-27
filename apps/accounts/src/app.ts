@@ -14,6 +14,7 @@ import type { AccountsEnv } from "./env.js";
 import { createGoogleClient, readGoogleProfile } from "./google.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./tokens.js";
 import { upsertGoogleUser } from "./users.js";
+import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
 
 export function isAllowedReturnUrl(value: string): boolean {
   try {
@@ -166,6 +167,9 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
     );
     res.json({ user });
   });
+
+  // WS3: admin secrets (DeepSeek key, etc.) — admin-gated + X-Service-Token
+  app.use(createAdminSecretsRoutes(db, env as unknown as Record<string, string | undefined>));
 
   const currentDir = dirname(fileURLToPath(import.meta.url));
   const clientDir = join(currentDir, "client");

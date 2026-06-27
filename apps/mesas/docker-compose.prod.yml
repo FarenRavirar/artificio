@@ -108,6 +108,8 @@ services:
     restart: always
     networks:
       - artificio_net
+    volumes:
+      - ./logs:/app/logs
     environment:
       - NODE_ENV=production
       - DB_HOST=mesas-db

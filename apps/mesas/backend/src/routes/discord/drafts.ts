@@ -13,15 +13,25 @@ const router = Router();
 
 router.get('/', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { status, limit = '50', offset = '0' } = req.query as Record<string, string>;
+    const { status, limit = '50', offset = '0', origin } = req.query as Record<string, string>;
 
     let query = db
       .selectFrom('discord_import_table_drafts')
       .selectAll()
-      .where('discord_message_id', 'is not', null)
       .orderBy('created_at', 'desc')
       .limit(Math.min(Number(limit) || 50, 100))
       .offset(Number(offset) || 0);
+
+    // WS2: filtro por origem. 'discord' (default) = só Discord; 'inbox' = só inbox;
+    // 'all' = ambos. Ausente → comportamento legado (só Discord).
+    if (origin === 'inbox') {
+      query = query.where('import_message_id', 'is not', null);
+    } else if (origin === 'all') {
+      // sem filtro extra — retorna ambos
+    } else {
+      // default / legado: só Discord
+      query = query.where('discord_message_id', 'is not', null);
+    }
 
     const validDraftStatuses: DiscordImportDraftStatus[] = ['draft', 'ready', 'needs_review', 'synced', 'rejected'];
     if (status && validDraftStatuses.includes(status as DiscordImportDraftStatus)) {
