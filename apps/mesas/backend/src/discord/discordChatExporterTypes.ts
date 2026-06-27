@@ -51,15 +51,16 @@ export const discordChatExporterReactionSchema = z.object({
   count: z.number(),
 });
 
+// DiscordChatExporter emite `null` (não `undefined`) em campos ausentes → `.nullish()`.
 export const discordChatExporterReferenceSchema = z.object({
   messageId: z.string(),
-  channelId: z.string().optional(),
-  guildId: z.string().optional(),
+  channelId: z.string().nullish(),
+  guildId: z.string().nullish(),
 });
 
 export const discordChatExporterForwardedMessageSchema = z.object({
-  content: z.string().optional(),
-  author: z.object({ name: z.string() }),
+  content: z.string().nullish(),
+  author: z.object({ name: z.string().nullish() }).nullish(),
 }).passthrough();
 
 export const discordChatExporterInlineEmojiSchema = z.object({

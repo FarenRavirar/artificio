@@ -3,6 +3,14 @@ import { STATUS_OPTIONS } from '../constants';
 import { useDraftForm } from '../useDraftForm';
 import { DraftEditorTab } from './DraftEditorTab';
 
+// T-G1: cor por tier de confiança
+function confidenceColor(score: number): string {
+  if (score >= 0.85) return 'text-green-400';
+  if (score >= 0.65) return 'text-lime-400';
+  if (score >= 0.4) return 'text-yellow-400';
+  return 'text-red-400';
+}
+
 interface Props {
   readonly draft: DiscordDraft;
   readonly onUpdate: (updated: DiscordDraft) => void;
@@ -15,6 +23,9 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
   const h = useDraftForm(draft, api, onUpdate);
 
   const shouldShowSlotsDisambiguation = Boolean(h.slotsAmbiguity && h.payloadMissingFields.includes('slots_open:ambiguous_x_of_y'));
+  // DEB-048-29: badge "autoral?" — anúncio ambíguo p/ sistema próprio. Revisor decide
+  // Sincronizar (manter) ou rejeitar (descartar).
+  const isHomebrewSuspect = h.payloadMissingFields.includes('system_name:homebrew_suspect');
   const selectedPayload = h.activeTab === 'parsed' ? draft.parsed_payload : (draft.normalized_payload ?? draft.parsed_payload);
 
   const statusLabel = h.canSync ? 'Pronto'
@@ -72,7 +83,12 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
               {draft.status === 'ready' && !h.canSync && (
                 <span className="text-amber-300 text-xs">({h.missingFields.length} pendência{h.missingFields.length === 1 ? '' : 's'})</span>
               )}
-              {draft.confidence != null && <span className="text-white/40 text-xs">confiança: {(draft.confidence * 100).toFixed(0)}%</span>}
+              {draft.confidence != null && <span className={`text-xs ${confidenceColor(Number(draft.confidence))}`}>confiança: {(Number(draft.confidence) * 100).toFixed(0)}%</span>}
+              {isHomebrewSuspect && (
+                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-xs font-medium" title="O sistema pode ser autoral/próprio. Decida: sincronizar (manter) ou rejeitar (descartar).">
+                  ⚠ Possível sistema autoral
+                </span>
+              )}
               {draft.status !== 'synced' && (
                 <button onClick={() => h.setEditingStatus(true)} className="ml-auto px-2 py-1 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs rounded-lg transition-colors">
                   Editar status

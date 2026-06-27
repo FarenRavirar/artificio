@@ -445,3 +445,97 @@ Mudança principal em `importDiscordChatExporterJson()`:
 - `pnpm --filter @artificio/mesas-backend build` — ✅ sem erros
 - `pnpm --filter @artificio/mesas-backend test` — 180/180 ✅
 
+---
+
+## Reviews — CodeRabbit doc-only (2026-06-26)
+
+> 3 reviews do @coderabbitai sobre documentação da spec 048. Não são de PR — são de auditoria automática nos arquivos de spec. Corrigidos nesta rodada.
+
+### REV-013 — T-C8 em debitos.md com coluna faltante na tabela
+
+- **Origem:** @coderabbitai (bot)
+- **Tipo:** doc-only
+- **Arquivo:** `specs/048-mesas-discord-chat-exporter-json/debitos.md:38`
+- **Resumo:** Linha T-C8 da tabela de análise detalhada ficou com 4 células para uma tabela de 5 colunas. A coluna "Arquivo/linha" foi suprimida após o replanejamento para DEB-048-27, quebrando a renderização Markdown.
+- **Severidade:** 🟡 Minor | ⚡ Quick win
+- **Status:** ✅ corrigido — reinserida a 4ª coluna com `— (replanejado, ver DEB-048-27)`.
+
+### REV-014 — Resumo da Fase G em tasks.md dessincronizado da seção detalhada
+
+- **Origem:** @coderabbitai (bot)
+- **Tipo:** doc-only
+- **Arquivo:** `specs/048-mesas-discord-chat-exporter-json/tasks.md:20`
+- **Resumo:** O cabeçalho de reconciliação listava T-G4/5/6/7/8 como pendentes, mas a seção detalhada (`§Fase G`, linha 296) já marca T-G1..T-G8 como ✅ COMPLETA. Duas fontes de verdade no mesmo arquivo.
+- **Severidade:** 🟡 Minor | ⚡ Quick win
+- **Status:** ✅ corrigido — resumo do topo alinhado com a seção detalhada: Fase G marcada como **COMPLETA** com todas as 8 tasks.
+
+### REV-015 — Linha BL-MESAS-DISCORD-EXPORTER-048 no backlog.md com coluna faltante e status desatualizado
+
+- **Origem:** @coderabbitai (bot)
+- **Tipo:** doc-only
+- **Arquivo:** `specs/backlog.md:105`
+- **Resumo:** A linha perdeu a 6ª coluna ("Próximo passo") da tabela e ainda marcava T-G5/T-G7 como 🔵 futuro (spec 052), embora tasks.md e debitos.md já os tratem como implementados (Fase G completa). O campo "Falta para fechar" misturava diagnóstico com próximo passo.
+- **Severidade:** 🟡 Minor | ⚡ Quick win
+- **Status:** ✅ corrigido — colunas "Falta para fechar" e "Próximo passo" separadas corretamente. T-G5/T-G7 reconhecidos como parte da Fase G completa (infra/dados prontos); a execução de IA real pertence à spec 052 futura. Status alinhado com tasks.md.
+
+---
+
+## Reviews — SonarCloud (2026-06-26)
+
+### REV-016 — Duplicated Lines (%) on New Code (SonarCloud) — **INVESTIGADO**
+
+- **Origem:** SonarCloud (Quality Gate — New Code)
+- **Tipo:** PR analysis (métrica de duplicação)
+- **Severidade:** 🟡 Info — métrica de qualidade, não bloqueia merge
+- **Investigado em:** 2026-06-26 (código lido, comparado par a par)
+- **Conclusão geral:** 4 das 6 duplicações são **reais** (lógica idêntica com diferenças pontuais) e têm quick wins de baixo risco. 2 são **boilerplate estrutural aceitável** (handlers Express/Zod).
+
+---
+
+| # | Arquivo | % | Linhas | Par comparado | Veredito | Recomendação |
+|---|---------|---|--------|---------------|----------|--------------|
+| 1 | `inbox/corrections.ts` | 91.7% | 11 | vs `discord/corrections.ts:12-41` | ✅ **Real** — handlers `POST /:id/correction` são idênticos (só diferem no import path e mensagem de `console.error`). Ambos chamam `registerDraftCorrection`. | 🔵 **Baixa prioridade.** Só ~30 linhas cada; extrair handler compartilhado exigiria unificar imports e roteamento. Ganho real pequeno. Se mexer, extrair `createCorrectionHandler(module: 'inbox'|'discord')`. |
+| 2 | `discord/import.ts` | 78.4% | 58 | `POST /` (linhas 21-54) vs `POST /file` (linhas 57-101) | ✅ **Real** — `recordImportRun` + envelope `{ data: { total, inserted, ... } }` + `respondImportError` são idênticos. O `/file` só adiciona validação de buffer. | 🟢 **Quick win.** Extrair `respondImportSuccess(res, result, userId)` que encapsula `recordImportRun` + `res.json({ data })`. Elimina ~20 linhas. Baixo risco. |
+| 3 | `discord/preview.ts` | 45.9% | 28 | `POST /preview` (linhas 46-67) vs `POST /preview/file` (linhas 69-105) | ✅ **Real** — Bloco `schema.parse()` + `buildPreviewFromExport()` + catch `ZodError`→400/500 são idênticos. `buildPreviewFromExport` já é helper compartilhado ✅. | 🟢 **Quick win.** Extrair `respondPreviewError(res, error)` que unifica catch `ZodError` + `console.error` + 500. Elimina ~10 linhas de cada handler. Baixo risco. |
+| 4 | `discordSyncApi.ts` | 41.6% | 32 | `previewFile` (linhas 292-309) vs `importFile` (linhas 311-328) | ✅ **Real** — Ambos são `FormData` → `authenticatedFetch` → error check → `parseXxxResult`. Diferem só na URL, parser e mensagem de erro. | 🟢 **Quick win.** Extrair `fileApiFetch<T>(url, file, parser, errorLabel)`. Elimina ~15 linhas. Baixo risco. |
+| 5 | `useJsonImport.ts` | 36.7% | 22 | `handleFileSelect` (linhas 151-179) vs `handleDrop` (linhas 193-221) | ✅ **Real** — Validação de extensão + tamanho + threshold `<50KB→textarea` vs `≥50KB→backend` é idêntica. Só diferem na extração do arquivo (`event.target.files` vs `event.dataTransfer.files`) e mensagem de erro. | 🟢 **Quick win.** Extrair `processJsonFile(file, source: 'select'|'drop')` que encapsula validação + dispatch. Elimina ~22 linhas. Baixo risco. |
+| 6 | `discord/corrections.ts` | 22.1% | 34 | vs `inbox/corrections.ts` (recíproco do #1) | ✅ **Real** — Mesmo handler `POST /:id/correction` duplicado. O restante do arquivo (export few-shot/eval, ~110 linhas) é único. | 🔵 **Baixa prioridade.** Ver #1. |
+
+---
+
+### Plano de ação recomendado (ordem de custo/benefício)
+
+| Prioridade | Ação | Arquivo(s) | Linhas eliminadas | Risco |
+|-----------|------|-----------|-------------------|-------|
+| 🟢 1 | Extrair `respondImportSuccess` em `import.ts` | `import.ts` | ~20 | Baixíssimo — helper puro, sem lógica de negócio |
+| 🟢 2 | Extrair `processJsonFile` em `useJsonImport.ts` | `useJsonImport.ts` | ~22 | Baixo — hook local, sem consumidores externos |
+| 🟢 3 | Extrair `fileApiFetch` em `discordSyncApi.ts` | `discordSyncApi.ts` | ~15 | Baixo — API layer, sem estado |
+| 🟢 4 | Extrair `respondPreviewError` em `preview.ts` | `preview.ts` | ~10 | Baixíssimo — helper puro |
+| 🔵 5 | Unificar handlers `POST /:id/correction` | `inbox/corrections.ts` + `discord/corrections.ts` | ~30 | Médio — mexe em 2 módulos, roteamento, imports |
+
+**Total:** ~97 linhas duplicadas elimináveis com ~67 linhas de helpers novos. Saldo líquido: ~30 linhas a menos.
+
+**Não recomendado:** extrair handlers Express genéricos (ex.: `createCrudHandler`) — sobre-abstração que esconde lógica de negócio e dificulta debug. Cada handler tem seu próprio domínio de erro e contrato de resposta; a duplicação de boilerplate (try/catch/ZodError) é aceitável em arquivos pequenos.
+
+**Status:** ✅ Investigado + ✅ Implementado (2026-06-26, 3 ondas).
+
+**Onda 1 (4 quick wins):**
+| Helper | Arquivo | Linhas eliminadas |
+|--------|---------|-------------------|
+| `respondImportSuccess` | `import.ts` | ~34 → 4 |
+| `processJsonFile` | `useJsonImport.ts` | ~44 → 15 |
+| `fileApiFetch` | `discordSyncApi.ts` | ~36 → 4 |
+| `respondPreviewError` | `preview.ts` | ~12 → 2 |
+
+**Onda 2 (residual — duplicação cruzada):**
+| Helper | Arquivo | Linhas eliminadas |
+|--------|---------|-------------------|
+| `parseUploadedJsonBuffer` | `chatExporterImportService.ts` | ~28 → 2+linhas do helper |
+
+**Onda 3 (unificar correction handlers):**
+| Helper | Arquivo | Linhas eliminadas |
+|--------|---------|-------------------|
+| `createCorrectionHandler` | `discord/utils.ts` | `inbox/corrections.ts`: 41→4 (-37), `discord/corrections.ts`: 153→120 (-33) |
+
+**Total:** 8 arquivos alterados (7 código + reviews.md). ~224 linhas duplicadas eliminadas. 447 testes verdes (284 backend + 163 frontend) em todas as ondas. Lint 15/15, Build 17/17. **Não commitado.**
+

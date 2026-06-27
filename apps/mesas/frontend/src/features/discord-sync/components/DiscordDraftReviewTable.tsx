@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from '../types';
 import { discordSyncApi } from '../api/discordSyncApi';
 import { DiscordDraftPreview } from './DiscordDraftPreview';
+import { isRecord } from '../draftFormUtils';
 
 interface Props {
   readonly api?: DraftApiOperations;
@@ -19,6 +20,14 @@ const DRAFT_STATUS_LABELS: Record<DiscordImportDraftStatus, string> = {
   rejected: 'Rejeitado',
 };
 
+// T-G1: cor por tier de confiança (thresholds sincronizados com classifyConfidence em parseDiscordAnnouncement.ts)
+function confidenceColor(score: number): string {
+  if (score >= 0.85) return 'text-green-400';
+  if (score >= 0.65) return 'text-lime-400';
+  if (score >= 0.4) return 'text-yellow-400';
+  return 'text-red-400';
+}
+
 const DRAFT_STATUS_COLORS: Record<DiscordImportDraftStatus, string> = {
   draft: 'bg-white/10 text-white/50',
   ready: 'bg-green-700/40 text-green-300',
@@ -26,10 +35,6 @@ const DRAFT_STATUS_COLORS: Record<DiscordImportDraftStatus, string> = {
   synced: 'bg-blue-700/40 text-blue-300',
   rejected: 'bg-red-700/40 text-red-300',
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
 
 function readDraftTable(draft: DiscordDraft): Record<string, unknown> {
   const normalizedTable = isRecord(draft.normalized_payload?.table) ? draft.normalized_payload.table : null;
@@ -176,7 +181,15 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
                       );
                     })()}
                     {draft.confidence != null && (
-                      <span className="text-white/30 text-xs">{(draft.confidence * 100).toFixed(0)}%</span>
+                      <span className={`text-xs ${typeof draft.confidence === 'number' ? confidenceColor(draft.confidence) : 'text-white/30'}`}>
+                        {(Number(draft.confidence) * 100).toFixed(0)}%
+                      </span>
+                    )}
+                    {/* DEB-048-29: anúncio ambíguo p/ sistema autoral */}
+                    {draftMissing(draft).includes('system_name:homebrew_suspect') && (
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-300" title="Possível sistema autoral — revisar e decidir">
+                        ⚠ autoral?
+                      </span>
                     )}
                   </div>
                   <p className="text-white font-medium text-sm truncate">{title}</p>

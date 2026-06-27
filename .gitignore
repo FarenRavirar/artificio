@@ -61,3 +61,6 @@ opencode.json
 # Serena MCP (local, configs e indices nao versionados)
 .serena/
 /spec047-backup
+# Amostras reais de import (dado real — nunca commitar). Ver specs/048 ambiente de teste.
+temp/
+/temp

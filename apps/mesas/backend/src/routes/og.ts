@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { readFile } from 'fs/promises';
+import { readFile } from 'node:fs/promises';
 import { sql } from 'kysely';
 import { db } from '../db';
 import { upgradeGoogleImageQuality } from '../utils/urlValidation';
@@ -31,11 +31,11 @@ function escapeHtml(input: string | null | undefined): string {
   if (!input) return '';
 
   return String(input)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 function truncate(input: string | null | undefined, max: number): string {
@@ -121,10 +121,9 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
   try {
     const html = await loadIndexHtml();
 
-    // Switch para diferentes tipos de entidades
-    switch (type) {
-      case 'mestre': {
-        const gm = await db
+    // Tipos de entidade com páginas OG dinâmicas
+    if (type === 'mestre') {
+      const gm = await db
           .selectFrom('gm_profiles as gm')
           .innerJoin('users as u', 'u.id', 'gm.user_id')
           .innerJoin('profiles as p', 'p.user_id', 'u.id')
@@ -173,17 +172,10 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
         });
 
         return res.status(200).type('html').send(output);
-      }
-
-      // Futuros tipos podem ser adicionados aqui:
-      // case 'mesa': { ... }
-      // case 'evento': { ... }
-
-      default: {
-        // Tipo não suportado - retorna fallback
+    } else {
+      // Tipo não suportado - retorna fallback
         const htmlFallback = injectMetaTags(html, getFallbackMeta(`/${type}/${slug}`));
         return res.status(200).type('html').send(htmlFallback);
-      }
     }
   } catch (error: any) {
     console.error('[GET /og/:type/:slug]', { type, slug }, error);

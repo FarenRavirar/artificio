@@ -415,18 +415,6 @@ function deriveFrequency(type: TableDraftType | null, dayOfWeek: string | null):
   return null;
 }
 
-// Detecta frases que indicam que o contato é o autor da mensagem
-function detectImplicitContact(text: string): boolean {
-  const implicitPhrases = [
-    /me\s+(mande|envie)\s+(uma\s+)?mensagem/i,
-    /me\s+cham[ae]/i,
-    /fale\s+comigo/i,
-    /cham[ae]\s+(no|na)\s+(pv|dm|privado)/i,
-    /este\s+perfil/i,
-    /(mande|envie)\s+(uma\s+)?mensagem\s+(no\s+meu|para\s+o\s+meu)/i,
-  ];
-  return implicitPhrases.some((r) => r.test(text));
-}
 
 // Extrai URL de contato (discord invite, forms, etc.)
 function extractContactUrl(text: string): string | null {
@@ -488,7 +476,24 @@ function extractHostDiscordId(text: string): string | null {
   return null;
 }
 
-function extractLabelValue(text: string, labels: string[]): string | null {
+// Coleta linhas de continuação de um rótulo até linha vazia (com valor) ou novo rótulo.
+function collectLabelContinuation(lines: string[], startIdx: number, firstValue: string): string[] {
+  const values: string[] = [];
+  if (firstValue) values.push(firstValue);
+
+  for (let j = startIdx; j < lines.length; j++) {
+    const next = lines[j].trim();
+    if (!next) {
+      if (values.length > 0) break;
+      continue;
+    }
+    if (splitLabelLine(next)) break;
+    values.push(next);
+  }
+  return values;
+}
+
+function extractLabelValue(text: string, labels: string[], opts?: { keepParenthetical?: boolean }): string | null {
   const wanted = new Set(labels.map(normalizeLabelKey));
   const lines = text.split(/\r?\n/);
 
@@ -496,20 +501,14 @@ function extractLabelValue(text: string, labels: string[]): string | null {
     const parsed = splitLabelLine(lines[i]);
     if (!parsed || !wanted.has(parsed.key)) continue;
 
-    const values: string[] = [];
-    if (parsed.value) values.push(parsed.value);
+    const values = collectLabelContinuation(lines, i + 1, parsed.value ?? '');
 
-    for (let j = i + 1; j < lines.length; j++) {
-      const next = lines[j].trim();
-      if (!next) {
-        if (values.length > 0) break;
-        continue;
-      }
-      if (splitLabelLine(next)) break;
-      values.push(next);
-    }
-
-    const value = values.join('\n').replace(/\s*\(.*$/, '').trim();
+    // keepParenthetical: o parêntese carrega o sinal de autoria ("(Sistema próprio
+    // usando D&D...)") que o gate DEB-048-27 precisa. Matching/título usa o corte.
+    const joined = values.join('\n');
+    // Corta o parêntese de autoria sem regex (evita backtracking S5852).
+    const parenIdx = joined.indexOf('(');
+    const value = (opts?.keepParenthetical || parenIdx < 0 ? joined : joined.slice(0, parenIdx)).trim();
     return value || null;
   }
 
@@ -529,6 +528,72 @@ function calcConfidence(table: DiscordTableDraftTable): number {
   ];
   const filled = fields.filter((f) => table[f] != null).length;
   return Math.round((filled / fields.length) * 100) / 100;
+}
+
+// T-G1: tiers de confiança para gates comportamentais (thresholds sincronizados com confidenceColor no frontend)
+export type ConfidenceTier = 'muito_alta' | 'alta' | 'media' | 'baixa';
+
+export function classifyConfidence(score: number): ConfidenceTier {
+  if (score >= 0.85) return 'muito_alta';
+  if (score >= 0.65) return 'alta';
+  if (score >= 0.4) return 'media';
+  return 'baixa';
+}
+
+// T-G2: sinais de ambiguidade adicionais
+export function isSuspiciousUrl(url: string): boolean {
+  // URLs seguras conhecidas: Discord invite, Google Forms, docs.google, typeform, etc.
+  const safePatterns = [
+    /discord(?:app)?\.com\/invite\//i,
+    /discord\.gg\//i,
+    /forms\.gle\//i,
+    /docs\.google\.com\/forms\//i,
+    /typeform\.com\//i,
+    /wa\.me\//i,
+    /chat\.whatsapp\.com\//i,
+    /t\.me\//i,
+  ];
+  return !safePatterns.some((p) => p.test(url));
+}
+
+// DEB-048-27/29: sistema autoral. A plataforma só lista sistemas conhecidos.
+// Dois níveis de sinal (DEB-048-29):
+//  - STRONG (nítido) → DESCARTAR: "sistema próprio", "autoral", "homebrew", "caseiro".
+//  - WEAK (ambíguo)  → REVISÃO com flag "autoral?": "baseado/inspirado/adaptado em".
+const RE_HOMEBREW_STRONG = /\b(sistema\s+)?(pr[óo]prio|autoral|homebrew|caseiro)\b/i;
+const RE_HOMEBREW_WEAK = /\b(inspirad[oa]|basead[oa]|adaptad[oa])\s+(em|n[oa]|de|d[oa])\b/i;
+
+/** DEB-048-29: classificação de autoria a partir do hint de sistema. */
+export type HomebrewClass = 'discard' | 'review' | 'none';
+
+/** Extrai o hint de sistema (campo "Sistema:" ou parte antes do ":" do thread).
+ * Só a 1ª linha do valor — `extractLabelValue` agrega linhas de continuação
+ * (descrição), e o nome do sistema é a primeira; evita falso-descarte por
+ * menção solta de "próprio/autoral" no corpo. */
+function getAnnouncementSystemHint(message: ImportRawMessage): string | null {
+  const threadName = message.discord_thread_name ?? '';
+  const rawBody = message.content_raw ?? '';
+  const body = rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []);
+  if (!body.trim()) return null;
+  const explicitSystem = normalizeTitle(extractLabelValue(body, ['sistema', 'jogo', 'rpg'], { keepParenthetical: true }));
+  const threadParts = splitThreadName(threadName || body.split('\n')[0] || 'Mesa sem título');
+  const hint = explicitSystem ?? threadParts.systemHint;
+  return hint ? hint.split(/[\r\n]/)[0].trim() || null : null;
+}
+
+/** DEB-048-27: true se o sistema do anúncio é autoral/próprio (→ descartar). */
+export function classifyHomebrew(message: ImportRawMessage): HomebrewClass {
+  const hint = getAnnouncementSystemHint(message);
+  if (hint == null) return 'none';
+  if (RE_HOMEBREW_STRONG.test(hint)) return 'discard';
+  if (RE_HOMEBREW_WEAK.test(hint)) return 'review';
+  return 'none';
+}
+
+/** DEB-048-27: true só p/ descarte nítido (STRONG). Mantido p/ retrocompat
+ * (processDiscordMessageToDraft conta 'discarded'). Ambíguo NÃO descarta. */
+export function isHomebrewSystem(message: ImportRawMessage): boolean {
+  return classifyHomebrew(message) === 'discard';
 }
 
 /**
@@ -553,6 +618,12 @@ export function parseDiscordAnnouncement(
   // name. Drafts vazios eram a maior fonte de needs_review imutável (spec 016
   // §4 CR-1, anti-regressão de E166).
   if (!body.trim()) {
+    return null;
+  }
+  // DEB-048-27/29: autoria. STRONG (nítido) → descarta. WEAK (ambíguo) → segue
+  // como draft, mas marcado _homebrew_suspect → needs_review + badge "autoral?".
+  const homebrew = classifyHomebrew(message);
+  if (homebrew === 'discard') {
     return null;
   }
   const fullText = `${threadName}\n${body}`.trim();
@@ -596,12 +667,16 @@ export function parseDiscordAnnouncement(
     ?? /https?:\/\/docs\.google\.com\/forms\/[^\s<>"']+/.exec(body)?.[0];
   const contactUrl = googleFormsUrl ?? extractContactUrl(body);
 
-  const contactDiscord = extractContactDiscord(body);
+  const explicitContactDiscord = extractContactDiscord(body);
   let hostDiscordId = extractHostDiscordId(body);
 
-  // T-C3: Contato implícito pelo autor (quando não há contato explícito)
-  const hasImplicitContact = detectImplicitContact(body);
-  if (!contactDiscord && !contactUrl && hasImplicitContact && message.discord_author_id) {
+  // DEB-048-26: contato = AUTOR do Discord quando não há contato explícito.
+  // Quem publicou o anúncio é o contato padrão. Precedência: forms/url/menção
+  // explícita > autor (fallback). Substitui a heurística T-C3 por frase-gatilho.
+  const authorContact = message.discord_author_name ?? message.discord_author_id ?? null;
+  const contactDiscord = explicitContactDiscord
+    ?? (contactUrl ? null : authorContact);
+  if (!explicitContactDiscord && !contactUrl && message.discord_author_id) {
     hostDiscordId = hostDiscordId ?? message.discord_author_id;
   }
   const cover = extractCoverFromAttachments(message.attachments ?? []);
@@ -618,6 +693,11 @@ export function parseDiscordAnnouncement(
   if (slotsTotal == null && slotsOpen == null) missingFields.push('slots_total');
   if (!contactUrl && !contactDiscord) missingFields.push('contact_url');
   if (!description) missingFields.push('description');
+
+  // T-G2: ambiguidades adicionais
+  if (contactUrl && isSuspiciousUrl(contactUrl)) {
+    missingFields.push('contact_url:suspicious');
+  }
 
   const table: DiscordTableDraftTable = {
     title: title || threadName || null,
@@ -642,6 +722,7 @@ export function parseDiscordAnnouncement(
     cover_url_source: cover?.url ?? null,
     cover_quality: cover?.quality ?? null,
     _slots_ambiguity: slotsAmbiguity,
+    _homebrew_suspect: homebrew === 'review' ? true : null,
     _notes: [
       ...(matchedSystem?.notes ?? []),
       ...attachmentNotes,
@@ -664,6 +745,7 @@ export function parseDiscordAnnouncement(
     },
     table,
     confidence: calcConfidence(table),
+    confidence_tier: classifyConfidence(calcConfidence(table)),
     missing_fields: missingFields,
   };
 }

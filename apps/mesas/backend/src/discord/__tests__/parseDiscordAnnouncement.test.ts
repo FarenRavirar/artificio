@@ -1,4 +1,4 @@
-import { parseDiscordAnnouncement } from '../parseDiscordAnnouncement';
+import { parseDiscordAnnouncement, classifyConfidence, isSuspiciousUrl, isHomebrewSystem, classifyHomebrew } from '../parseDiscordAnnouncement';
 import { normalizeDiscordTableDraft } from '../normalizeDiscordTableDraft';
 import type { ImportRawMessage } from '../types';
 import { chatExporterSampleMessages } from './fixtures/chatExporterSample';
@@ -490,7 +490,11 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.missing_fields).toContain('system_name:unmatched_hint');
   });
 
-  it('strips parenthetical notes from unknown system hints (spec 017 T-F1-B-01)', () => {
+  it('descarta sistema próprio/autoral mesmo declarando base conhecida (DEB-048-27)', () => {
+    // Pré-DEB-048-27 este caso virava draft "Pokémon RPG". DEB-048-27 + CodeRabbit
+    // (preservar o parêntese p/ o gate homebrew): "Sistema próprio usando D&D" é
+    // autoral → DESCARTAR. O sinal de autoria vive no parêntese, antes cortado por
+    // extractLabelValue; agora o gate o enxerga.
     const draft = parseDiscordAnnouncement(
       makeMessage({
         discord_thread_name: 'Pokémon: Jornada em Kanto',
@@ -504,8 +508,7 @@ describe('parseDiscordAnnouncement', () => {
       [{ id: 'dnd', name: 'Dungeons & Dragons', name_pt: null, aliases: ['D&D'] }],
     );
 
-    expect(draft?.table.raw_system_hint).toBe('Pokémon RPG');
-    expect(draft?.table.system_name).toBe('Pokémon RPG');
+    expect(draft).toBeNull();
   });
 
   it('matches D&D after stripping parenthetical notes and version suffix (spec 017 T-F1-B-01)', () => {
@@ -807,10 +810,11 @@ describe('parseDiscordAnnouncement', () => {
     // O importante é que o mecanismo de contato implícito não forçou author como host
   });
 
-  it('does NOT set author as host when text has no implicit contact phrases (T-C3 negative)', () => {
+  it('sem contato explícito → contact_discord = autor e contact NÃO falta (DEB-048-26)', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({
         discord_author_id: 'author-999',
+        discord_author_name: 'mestre_fulano',
         content_raw: [
           'Sistema: Dungeons & Dragons',
           'Mesa: Teste Normal',
@@ -820,10 +824,85 @@ describe('parseDiscordAnnouncement', () => {
       }),
     );
 
-    // Sem contato (URL nem Discord) e sem frase implícita → host_discord_id = null
-    // Note: o missing_fields deve conter 'contact_url'
-    expect(draft?.missing_fields).toContain('contact_url');
-    // host_discord_id pode ser null pois não tem menção de "Mestre:" nem contato implícito
+    // DEB-048-26: quem publicou é o contato padrão (nome > id).
+    expect(draft?.table.contact_discord).toBe('mestre_fulano');
+    expect(draft?.missing_fields).not.toContain('contact_url');
+  });
+
+  it('contato explícito (forms) tem precedência sobre o autor (DEB-048-26)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_author_id: 'author-999',
+        discord_author_name: 'mestre_fulano',
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Inscrição: https://forms.gle/abc123',
+          'Dia: terça-feira às 20h',
+        ].join('\n'),
+      }),
+    );
+
+    // forms preenche contact_url → autor NÃO vira contact_discord
+    expect(draft?.table.contact_url).toContain('forms.gle');
+    expect(draft?.table.contact_discord).toBeNull();
+  });
+
+  // ─── DEB-048-27/29: sistema autoral — STRONG descarta, WEAK vai p/ revisão ──
+
+  // STRONG (nítido) → DESCARTA (null).
+  it.each([
+    'Sistema: Próprio',
+    'Sistema: Proprio',
+    'Sistema: Sistema Próprio',
+    'Sistema: autoral',
+    'Sistema: homebrew',
+    'Sistema: caseiro',
+  ])('DEB-048-27: descarta (null) sistema nitidamente autoral: %s', (sistemaLinha) => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [sistemaLinha, 'Mesa: Teste', 'Dia: sexta às 20h', 'Vagas: 4'].join('\n'),
+      }),
+    );
+    expect(draft).toBeNull();
+  });
+
+  // WEAK (ambíguo) → NÃO descarta; vira draft com _homebrew_suspect → needs_review.
+  it.each([
+    'Sistema: Mundo de Aldoria (baseado em D&D)',
+    'Sistema: Reinos (inspirado em Tormenta)',
+    'Sistema: Crônicas (adaptado de GURPS)',
+  ])('DEB-048-29: marca como ambíguo (needs_review) sistema autoral fraco: %s', (sistemaLinha) => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [sistemaLinha, 'Mesa: Teste', 'Dia: sexta às 20h', 'Vagas: 4', 'Contato: https://forms.gle/x', 'Descrição: teste'].join('\n'),
+      }),
+    );
+    expect(draft).not.toBeNull();
+    expect(draft?.table._homebrew_suspect).toBe(true);
+
+    const normalized = normalizeDiscordTableDraft(draft!);
+    expect(normalized.status).toBe('needs_review');
+    expect(normalized.draft.missing_fields).toContain('system_name:homebrew_suspect');
+  });
+
+  it('NÃO descarta sistema conhecido (D&D) nem por menção solta de "próprio" no corpo', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: ['Sistema: Dungeons & Dragons 5e', 'Uso mapas próprios e material autoral de apoio.', 'Dia: sexta às 20h'].join('\n'),
+      }),
+    );
+    expect(draft).not.toBeNull(); // "próprio/autoral" no corpo ≠ sistema autoral
+    expect(draft?.table._homebrew_suspect).toBeNull();
+  });
+
+  it('classifyHomebrew: discard p/ STRONG, review p/ WEAK, none p/ conhecido (DEB-048-29)', () => {
+    expect(classifyHomebrew(makeMessage({ content_raw: 'Sistema: Próprio\nDia: sexta' }))).toBe('discard');
+    expect(classifyHomebrew(makeMessage({ content_raw: 'Sistema: Aldoria (baseado em D&D)\nDia: sexta' }))).toBe('review');
+    expect(classifyHomebrew(makeMessage({ content_raw: 'Sistema: Tormenta 20\nDia: sexta' }))).toBe('none');
+    // isHomebrewSystem = só descarte nítido (retrocompat).
+    expect(isHomebrewSystem(makeMessage({ content_raw: 'Sistema: Próprio\nDia: sexta' }))).toBe(true);
+    expect(isHomebrewSystem(makeMessage({ content_raw: 'Sistema: Aldoria (baseado em D&D)\nDia: sexta' }))).toBe(false);
+    expect(isHomebrewSystem(makeMessage({ content_raw: 'Sistema: Tormenta 20\nDia: sexta' }))).toBe(false);
   });
 
   // ─── T-C6: Vagas informais ─────────────────────────────────────────────────
@@ -1171,5 +1250,66 @@ describe('parseDiscordAnnouncement', () => {
     // Sem replyContext → sem nota de reply
     const hasReplyNote = draft?.table._notes.some((n) => n.startsWith('Em resposta a:'));
     expect(hasReplyNote).toBe(false);
+  });
+});
+
+// ─── T-G1: classifyConfidence ──────────────────────────────────────────
+
+describe('classifyConfidence', () => {
+  it('muito_alta (≥0.85)', () => {
+    expect(classifyConfidence(1.0)).toBe('muito_alta');
+    expect(classifyConfidence(0.85)).toBe('muito_alta');
+    expect(classifyConfidence(0.89)).toBe('muito_alta');
+  });
+
+  it('alta (≥0.65)', () => {
+    expect(classifyConfidence(0.84)).toBe('alta');
+    expect(classifyConfidence(0.65)).toBe('alta');
+    expect(classifyConfidence(0.70)).toBe('alta');
+  });
+
+  it('media (≥0.40)', () => {
+    expect(classifyConfidence(0.64)).toBe('media');
+    expect(classifyConfidence(0.40)).toBe('media');
+    expect(classifyConfidence(0.50)).toBe('media');
+  });
+
+  it('baixa (<0.40)', () => {
+    expect(classifyConfidence(0.39)).toBe('baixa');
+    expect(classifyConfidence(0.0)).toBe('baixa');
+    expect(classifyConfidence(0.10)).toBe('baixa');
+  });
+});
+
+// ─── T-G2: isSuspiciousUrl ─────────────────────────────────────────────
+
+describe('isSuspiciousUrl', () => {
+  it('discord.gg é seguro', () => {
+    expect(isSuspiciousUrl('https://discord.gg/abc123')).toBe(false);
+    expect(isSuspiciousUrl('https://discord.com/invite/xyz')).toBe(false);
+  });
+
+  it('Google Forms é seguro', () => {
+    expect(isSuspiciousUrl('https://forms.gle/abc')).toBe(false);
+    expect(isSuspiciousUrl('https://docs.google.com/forms/d/123/viewform')).toBe(false);
+  });
+
+  it('WhatsApp é seguro', () => {
+    expect(isSuspiciousUrl('https://chat.whatsapp.com/abc')).toBe(false);
+    expect(isSuspiciousUrl('https://wa.me/5511999999999')).toBe(false);
+  });
+
+  it('Telegram é seguro', () => {
+    expect(isSuspiciousUrl('https://t.me/grupo')).toBe(false);
+  });
+
+  it('Typeform é seguro', () => {
+    expect(isSuspiciousUrl('https://mysurvey.typeform.com/to/abc')).toBe(false);
+  });
+
+  it('URL desconhecida é suspeita', () => {
+    expect(isSuspiciousUrl('https://meusite.com/formulario')).toBe(true);
+    expect(isSuspiciousUrl('https://bit.ly/abc')).toBe(true);
+    expect(isSuspiciousUrl('https://tinyurl.com/xyz')).toBe(true);
   });
 });

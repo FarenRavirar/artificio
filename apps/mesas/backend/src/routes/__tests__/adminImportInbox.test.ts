@@ -270,6 +270,9 @@ function setupCorrectionMocks(draft: Record<string, unknown>, importMsg: Record<
     set: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
     execute: vi.fn().mockResolvedValue([]),
+    // TOCTOU guard (CodeRabbit): update do draft agora usa executeTakeFirst e checa
+    // numUpdatedRows. Simula 1 linha afetada (draft não-terminal).
+    executeTakeFirst: vi.fn().mockResolvedValue({ numUpdatedRows: 1n }),
   };
     mockDb.transaction.mockReturnValue({
       execute: vi.fn().mockImplementation(async (fn: (trx: typeof mockTrx) => Promise<unknown>) => {
@@ -306,14 +309,15 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
     expect(response.status).toBe(404);
   });
 
-  it('returns 422 for Discord draft (import_message_id=null)', async () => {
+  it('accepts Discord draft correction (import_message_id=null, T-G3)', async () => {
     setupCorrectionMocks(mockDraftRow({ import_message_id: null }));
     const response = await request(makeApp())
       .post('/admin/inbox/drafts/draft-1/correction')
       .send({ corrections: { title: 'Novo Título' } });
 
-    expect(response.status).toBe(422);
-    expect(response.body.error).toContain('não é de inbox');
+    expect(response.status).toBe(200);
+    expect(response.body.data).toBeDefined();
+    expect(response.body.data.draft_id).toBe('draft-1');
   });
 
   it('returns 422 for synced draft', async () => {

@@ -92,6 +92,8 @@ export interface DiscordDraftTablePayload extends Record<string, unknown> {
   cover_url_source?: string | null;
   cover_quality?: DiscordCoverQuality | null;
   _slots_ambiguity?: DiscordSlotsAmbiguity | null;
+  /** DEB-048-29: anúncio ambíguo p/ sistema autoral → badge "autoral?" na revisão. */
+  _homebrew_suspect?: boolean | null;
 }
 
 export interface DiscordDraftPayload extends Record<string, unknown> {
@@ -126,6 +128,7 @@ export interface IngestResult {
   parse?: {
     processed: number;
     succeeded: number;
+    discarded?: number;
     ignored: number;
     failed: number;
   };
@@ -170,5 +173,5 @@ export interface DraftApiOperations {
   syncDraft: (id: string) => Promise<{ tableId: string; created: boolean }>;
   reparseDraft: (id: string) => Promise<DiscordDraft>;
   getDraft?: (id: string) => Promise<DiscordDraft>;
-  registerCorrection?: (id: string, corrections: Record<string, unknown>, reason?: string) => Promise<unknown>;
+  submitCorrection?: (id: string, body: { corrections: Record<string, unknown>; reason?: string; before?: Record<string, unknown> }) => Promise<unknown>;
 }

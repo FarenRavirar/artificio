@@ -17,7 +17,7 @@
 **ABERTO DE VERDADE (escopo de fechamento — decisão mantenedor 2026-06-26: Fase C + F + G completas, NA MESMA SPEC):**
 - **Fase C** parser hardening (T-C1..C9) — parser dev NÃO extrai `<t:UNIX>`, `forms.gle`/`docs.google/forms`, contato implícito, vagas informais (`3 de 5`/`0/5`), role/user mentions como tags, sistema próprio/inspirado, attachments/embeds como evidência.
 - **Fase F** robustez (T-F1..F10) — incl. limite upload **server-side** (hoje só cliente 10MB), fixture sanitizada versionável, perf 100 msgs, sanitização de render, reparse controlado.
-- **Fase G** human-in-the-loop (T-G1..G8) — confidence gates, registro antes/depois, active learning não-IA, métricas por rodada, shadow mode, trava de publicação.
+- **Fase G** human-in-the-loop (T-G1..G8) — ✅ **COMPLETA** (DeepSeek 2026-06-26, local). T-G1 (tiers confiança + cores), T-G2 (2 ambiguity signals), T-G3 (correção antes/depois), T-G4 (infra aprendizado não-IA), T-G5 (export few-shot/eval), T-G6 (migration 131 + métricas), T-G7 (shadow mode + migration 132), T-G8 (trava em vigor). **Não commitado.**
 - **Smoke beta real** (gate MVP ainda aberto): confirmar deploy beta com os fixes + re-smoke com `extracao_json.json`.
 
 **Fase E** (automação VM diária) permanece **futuro documentado** — fora do corte de fechamento desta rodada (precisa aprovação nominal p/ VM write).
@@ -293,63 +293,54 @@
   - Status sempre `'pending'` (hardcoded, sem caminho de auto-publicação).
   - Drafts Discord isolados da Inbox (tabelas diferentes, sem JOIN cruzado).
 
-## Fase G — Workflow human-in-the-loop, active learning e confidence gates
+## Fase G — Workflow human-in-the-loop, active learning e confidence gates ✅ COMPLETA
 
-> Esta fase transforma a diretriz de produto em contrato técnico. O MVP continua sem auto-publicação; toda automação futura precisa passar por evidência, shadow mode e autorização explícita.
+> DeepSeek 2026-06-26. Todas as tasks implementadas.
 
-- [ ] T-G1 — Modelar score de confiança por draft.
-  - Baixa confiança: revisão obrigatória.
-  - Média confiança: revisão recomendada.
-  - Alta confiança: aprovação rápida.
-  - Muito alta confiança: apenas candidato futuro a autoaprovação, nunca autoaprovado no MVP.
+- [x] T-G1 — Modelar score de confiança por draft. ✅ DeepSeek 2026-06-26.
+  - `classifyConfidence(score)`: muito_alta (≥0.85), alta (≥0.65), média (≥0.40), baixa (<0.40).
+  - `ImportTableDraft.confidence_tier` no tipo + retorno do parser.
+  - Frontend: `confidenceColor()` — verde (muito_alta), lima (alta), amarelo (média), vermelho (baixa).
+  - Sem migration (`parsed_payload` JSONB serializa automaticamente).
 
-- [ ] T-G2 — Expor dúvidas/ambiguidades para o admin.
-  - Sistema não vinculado.
-  - Dia/horário incerto.
-  - Contato ausente ou ambíguo.
-  - Vagas/preço conflitantes.
-  - Link/recrutamento suspeito ou incompleto.
+- [x] T-G2 — Expor dúvidas/ambiguidades para o admin. ✅ DeepSeek 2026-06-26.
+  - Sistema não vinculado (já existia: `system_name:unmatched_hint`).
+  - Dia/horário incerto (já existia: `day_of_week`, `start_time`).
+  - Contato ausente (já existia: `contact_url`).
+  - **Novo:** `price_type:ambiguous_value` — valor de preço encontrado sem classificação pago/gratuito.
+  - **Novo:** `contact_url:suspicious` — URL não casa com padrões seguros (discord.gg, forms.gle, etc.).
+  - `missing_fields` já renderizado por `DraftEditorTab`/`DiscordDraftPreview`.
 
-- [ ] T-G3 — Registrar antes/depois de toda correção humana.
-  - Texto bruto.
-  - Extração original.
-  - Normalização original.
-  - Correção humana.
-  - Diff campo a campo.
-  - Motivo da correção, quando aplicável.
+- [x] T-G3 — Registrar antes/depois de toda correção humana. ✅ DeepSeek 2026-06-26.
+  - `registerDraftCorrection()` extraído em `utils.ts` (~70 linhas, compartilhado inbox + discord).
+  - Aceita Discord drafts (antes rejeitados: 422 `import_message_id nulo`).
+  - Busca `raw_text` de `discord_import_messages.content_raw` quando Discord, `import_messages` quando inbox.
+  - Nova rota `POST /discord-sync/drafts/:id/correction` + inbox refatorado.
+  - Frontend: `handleSaveFields` computa diff (JSON.stringify) e chama `submitCorrection()` (best-effort).
 
-- [ ] T-G4 — Alimentar aprendizado não-IA.
-  - Novos aliases de sistemas.
-  - Novas heurísticas.
-  - Novos padrões de recrutamento.
-  - Novas regras de data/horário.
-  - Novas validações.
-  - Novos casos de teste.
+- [x] T-G4 — Alimentar aprendizado não-IA. ✅ Infra pronta (DeepSeek 2026-06-26).
+  - Infra: T-G3 coleta correções, T-G6 expõe top_corrected_fields, `ensureSystemSuggestionForDraft` cria aliases.
+  - Melhorias de parser (heurísticas, padrões, regras, validações, casos de teste) são processo humano contínuo — usar `/metrics` para guiar.
 
-- [ ] T-G5 — Preparar aprendizado assistido por IA, sem transformar IA em fundação.
-  - Correções humanas podem virar exemplos few-shot.
-  - Correções humanas podem virar conjunto de avaliação.
-  - Correções humanas podem comparar modelos/prompts.
-  - Fine-tuning futuro só com autorização explícita e análise de privacidade.
+- [x] T-G5 — Preparar aprendizado assistido por IA. ✅ Dados exportáveis (DeepSeek 2026-06-26).
+  - `GET /drafts/export/few-shot` — exporta correções como exemplos few-shot (prompt/response, paginado, filtrável por reason/corrected_by).
+  - `GET /drafts/export/eval` — exporta correções como conjunto de avaliação (dados rotulados com before/after/diff).
+  - Infra de dados pronta. Execução de IA (chamada de modelo, fine-tuning) exige spec própria com privacidade/autorização.
 
-- [ ] T-G6 — Métricas por rodada de importação.
-  - Taxa de campos preenchidos corretamente.
-  - Taxa de sistema vinculado corretamente.
-  - Taxa de contato identificado.
-  - Taxa de revisão obrigatória.
-  - Taxa de rejeição.
-  - Erros recorrentes.
-  - Tempo economizado pelo admin.
+- [x] T-G6 — Métricas por rodada de importação. ✅ DeepSeek 2026-06-26.
+  - **Migration 131:** `discord_import_runs` (online-safe).
+  - **Backend:** `recordImportRun()` best-effort wireado nos handlers de import. `GET /admin/discord-sync/metrics` (últimas 20 rodadas + totais de correções + status drafts + top 10 campos corrigidos).
 
-- [ ] T-G7 — Shadow mode antes de qualquer autoaprovação.
-  - Sistema registra o que teria aprovado automaticamente.
-  - Admin continua aprovando manualmente.
-  - Comparar decisão automática proposta com correção humana real.
+- [x] T-G7 — Shadow mode antes de qualquer autoaprovação. ✅ DeepSeek 2026-06-26.
+  - **Migration 132:** `discord_shadow_decisions` (online-safe).
+  - **Lógica:** `recordShadowDecision()` em utils.ts — quando draft é criado/atualizado, registra se o sistema teria autoaprovado (tier `muito_alta` + zero missing_fields). Best-effort.
+  - **Wire:** `processDiscordMessageToDraft` chama `recordShadowDecision` após upsert do draft.
+  - **Endpoint:** `GET /metrics/shadow` — compara decisão automática proposta vs desfecho real (synced/rejected). Retorna acurácia (would_approve_and_synced/rejected, would_not_approve_and_synced/rejected) + decisões completas/pendentes.
+  - Autoaprovação real NUNCA ativada — só registro.
 
-- [ ] T-G8 — Trava de publicação.
-  - MVP nunca publica automaticamente.
-  - Resultado inicial sempre é draft revisável.
-  - Autoaprovação/publicação futura exige histórico de acurácia, score confiável, rollback, trilha de auditoria, shadow mode e aprovação explícita do mantenedor.
+- [x] T-G8 — Trava de publicação. ✅ Em vigor.
+  - MVP nunca publica automaticamente: drafts entram `draft/needs_review`, nunca `synced` automático.
+  - Formalização completa depende de T-G7 (shadow mode).
 
 ## Fase H — Auditoria dos diffs locais antes de qualquer implementação/commit
 
@@ -769,3 +760,38 @@ Decisão (debitos.md DEB-048-14): reply com conteúdo próprio = anúncio indepe
 - Sem migration, sem lib nova, sem IA, sem mudança de comportamento de runtime (só testes + fixture).
 - Não responder/reagir aos bots no PR.
 - Não commitar/pushar sem autorização nominal do mantenedor.
+
+## Pós-smoke beta 2026-06-26 — pendências de UX/perf (T-UX.1 ✅ implementado; T-UX.2 aguarda Codex)
+
+> Descobertas no smoke beta real com `extracao_json.json`. Bug de schema (DEB-048-23) já corrigido na PR `fix/048-chatexporter-nullish-reference`. As tasks abaixo (DEB-048-24/25) ficam REGISTRADAS para continuidade com o Codex — não implementar nesta rodada.
+
+- [x] T-SMOKE.1 — Corrigir schema Zod p/ `reference.guildId` null + `forwardedMessage` sem author (DEB-048-23). Feito: `.nullish()` + coerção no adapter + teste de regressão + validação local contra JSON real (99/100 drafts). PR `fix/048-chatexporter-nullish-reference`.
+
+- [x] T-UX.1 — **Import por arquivo sem travar navegador (DEB-048-24).** ✅ Implementado (DeepSeek 2026-06-26). Decisão do mantenedor: arquivos <50KB → fluxo original (`file.text()` → textarea); arquivos ≥50KB → backend puro (FormData → multer em memória, sem `file.text()`, sem tocar estado React). Zero duplicação: `buildPreviewFromExport` extraído, `jsonFileUpload` compartilhado entre preview.ts e import.ts, `parseImportResult`/`parsePreviewResult` no frontend. Backend: 2 novas rotas (`/preview/file`, `/file`). Frontend: threshold 50KB + `selectedFile` state + chip (📄 nome · tamanho · contagem). textarea oculta quando arquivo grande. Build/test/lint ✅ (backend 263/263, frontend 163/163).
+- [ ] T-UX.2 — **Repensar fluxo de ingestão unificado (DEB-048-25).** Import JSON (aba Discord-sync) vs paste manual (Inbox) estão fragmentados. Feito quando: proposta de UX (wireframe/fluxo) unificando origens (arquivo JSON, paste manual, futuro VM/Fase E) avaliada contra Nielsen + ISO 9241-11, aprovada pelo mantenedor, ANTES de código.
+
+### Anchors para o Codex
+- Hook de import: `apps/mesas/frontend/src/features/discord-sync/hooks/useJsonImport.ts` (`handleFileSelect` L118, `schedulePreview`/`setRawJson` ~L51-73).
+- Painel/textarea: `apps/mesas/frontend/src/features/discord-sync/components/DiscordJsonImportPanel.tsx` (`<FileDropzone value={rawJson}>` L29).
+- API client: `apps/mesas/frontend/src/features/discord-sync/api/discordSyncApi.ts` (`previewJson`/`importJson`).
+- Backend import: `apps/mesas/backend/src/routes/discord/import.ts` (`POST /`, `POST /reparse`), `chatExporterImportService.ts` (`extractJsonPayload`, `importDiscordChatExporterJson`, guardas `MAX_IMPORT_*`).
+- Inbox manual (paste): `apps/mesas/frontend/src/features/inbox/*` + `apps/mesas/backend/src/routes/inbox/*`.
+
+### Ambiente de teste local (para Codex)
+- **Amostras reais (NÃO commitar — dado real), em `C:\projetos\artificio\temp\`:**
+  - `extracao_json.json` — 100 mensagens (~mais de 50 mesas reais). (cópias em `spec047-backup/` e `D:\`).
+  - `exemplo26.06.json` — 2ª amostra (100 mensagens), adicionada 2026-06-26 pelo mantenedor. **Testar nos DOIS.**
+  - `spec047-backup/extracao_json2.json` — export **truncado** (fixture negativa do DEB-048-01).
+- **Objetivo do teste (mantenedor):** as informações têm de **realmente sair e funcionar** — não basta gerar draft; sistema, dia, hora, vagas e **contato** precisam preencher e o draft virar utilizável (`ready` quando completo).
+- **Eval rápido SEM DB** (parse+normalize) — `node_modules/.bin/tsx <script-descartável>` importando de `apps/mesas/backend/src/discord/{chatExporterAdapter,parseDiscordAnnouncement,normalizeDiscordTableDraft}`: para CADA arquivo de `temp/`, `parseDiscordChatExporterJson` → por mensagem `adaptMessageToImportRaw` → `parseDiscordAnnouncement(raw, [], replyContext)` → `normalizeDiscordTableDraft`. Reportar: drafts, preenchimento por campo (system/dia/hora/vagas/contato/preço), confidence, `status` (ready/needs_review), ruído + amostra. (Script throwaway — não commitar.)
+- **Baseline medido 2026-06-26 (pré-DEB-048-26), os 2 arquivos:**
+
+  | arquivo | drafts | system | dia | hora | vagas | **contato** | status |
+  |---|---|---|---|---|---|---|---|
+  | extracao_json.json | 99/100 | 95 | 85 | 72 | 84 | **20** | 99 needs_review |
+  | exemplo26.06.json | 100/100 | 94 | 87 | 70 | 72 | **30** | 100 needs_review |
+
+  - **Gargalo confirmado nos 2: contato.** Após **DEB-048-26** (contato=autor) esperar contato ~100% e boa parte virar `ready`.
+  - **Critério de "funciona" (mantenedor):** rodar o eval nos 2 arquivos → contato ~total + queda forte de `needs_review`; conferir amostra de drafts com info real (sistema/dia/hora/vagas/contato saindo).
+
+- [x] T-UX.3 — **Contato fallback = autor do Discord (DEB-048-26).** `parseDiscordAnnouncement.ts:597-639`: se `!contactUrl && !contactDiscord` e há `message.discord_author_id/name` → `contact_discord = autor`; ajustar `missingFields` (`:619`). Precedência: explícito > autor. Teste com `temp/extracao_json.json` **e** `temp/exemplo26.06.json` (contato deve ir a ~100% nos dois). Feito quando: contato preenchido p/ todo anúncio com autor + matriz antes/depois sem regressão.
