@@ -838,51 +838,44 @@ Achados na revisão do commit `96ad93e`. **Todos procedem e aplicados.**
 
 ---
 
-## ⚠️ AÇÃO DO MANTENEDOR — segredos novos de deploy (REV-023 + REV-018)
+## ⚠️ AÇÃO DO MANTENEDOR — segredos novos de deploy (REV-023 + REV-018) — ✅ REALIZADO (2026-06-27)
 
-**REV-023 aplicado:** `getSecretsKey` não usa mais fallback `JWT_SECRET`; agora exige `ACCOUNTS_SECRETS_KEY`. E os compose passaram a **exigir** `SERVICE_SECRET` (REV-046/47/48). Por isso, **o deploy agora FALHA se estas envs não existirem**. Antes de promover/deployar, você precisa criar 2 segredos novos no ambiente de deploy.
+**REV-023 aplicado:** `getSecretsKey` não usa mais fallback `JWT_SECRET`; agora exige `ACCOUNTS_SECRETS_KEY`. E os compose passaram a **exigir** `SERVICE_SECRET` (REV-046/47/48). Por isso, **o deploy agora FALHA se estas envs não existirem**. Os segredos foram gerados e inseridos via SSH direto na VM (não via GitHub Secrets).
 
 ### 1. `SERVICE_SECRET` (token serviço-a-serviço mesas ↔ accounts)
 
 - **O que é:** token compartilhado que o mesas envia no header `X-Service-Token` p/ o accounts liberar `GET /admin/secrets/:name` (busca da chave DeepSeek).
 - **Onde:** o **MESMO valor** em **4 serviços**: `accounts-api` (prod), `mesas-api` (prod), `mesas-cron` (prod) e `mesas-beta-api` (beta).
-- **Tamanho:** ≥ 16 chars (recomendado ≥ 32).
+- **Valor gerado:** `randomBytes(32).toString('base64url')` — armazenado localmente pelo mantenedor.
 
 ### 2. `ACCOUNTS_SECRETS_KEY` (chave de cifra do admin_secrets)
 
 - **O que é:** chave AES p/ cifrar/decifrar a tabela `admin_secrets` no accounts (onde mora a chave DeepSeek cifrada).
 - **Onde:** só no `accounts-api` (prod).
-- **Tamanho:** ≥ 32 chars.
+- **Valor gerado:** `randomBytes(48).toString('base64url')` — armazenado localmente pelo mantenedor.
 - **⚠️ ESTÁVEL PARA SEMPRE:** se você trocar essa chave depois, **todos os segredos já cifrados ficam ilegíveis** (teria que regravá-los). Gere uma vez e não rotacione sem migração.
 
-### Como gerar os valores
+### Onde foram inseridos (via SSH, `echo >>` nos `.env` da VM)
 
-```bash
-# SERVICE_SECRET (um valor, reusado nos 4 serviços)
-node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+| Arquivo | SERVICE_SECRET | ACCOUNTS_SECRETS_KEY |
+|---------|:---:|:---:|
+| `/opt/artificio/apps/accounts/.env` | ✅ | ✅ |
+| `/opt/artificio/apps/mesas/.env` | ✅ | ➖ |
+| `/opt/artificio-beta/apps/accounts/.env.beta` | ✅ | ✅ |
+| `/opt/artificio-beta/apps/mesas/.env.beta` | ✅ | ➖ |
 
-# ACCOUNTS_SECRETS_KEY (outro valor, só accounts)
-node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
-```
+Os arquivos `.env` já existiam na VM (gitignored) e foram editados com append via `ssh faren`. O `SERVICE_SECRET` é **idêntico** nos 4 arquivos, como exigido pelo contrato de serviço-a-serviço.
 
-### Onde colocar
+**Não foi usado GitHub Secrets** — a esteira de deploy lê os `.env` diretamente da VM via `--env-file`, então a inserção local é suficiente.
 
-As envs são expandidas pelo `--env-file` que a esteira passa ao `docker compose` (ver cabeçalho do `apps/accounts/docker-compose.prod.yml`). Então:
+### Checklist — ✅ resolvido
 
-1. Adicione no(s) arquivo(s) `.env` de deploy da VM (gitignored) consumidos pela esteira:
-   - `.env` do accounts: `SERVICE_SECRET=...` **e** `ACCOUNTS_SECRETS_KEY=...`
-   - `.env` do mesas (prod + beta): `SERVICE_SECRET=...` (mesmo valor do accounts)
-2. Se a esteira injeta via **GitHub Actions secrets**, crie os secrets correspondentes no repo (`SERVICE_SECRET`, `ACCOUNTS_SECRETS_KEY`) e garanta que o workflow os escreve no `--env-file`.
-3. Nunca commitar esses valores. Nunca imprimir em log.
-
-### Checklist antes de deployar
-
-- [ ] `SERVICE_SECRET` definido e **idêntico** em accounts + mesas (prod) + mesas (beta).
-- [ ] `ACCOUNTS_SECRETS_KEY` (≥32) definido no accounts e **guardado em local seguro** (rotação quebra segredos).
+- [x] `SERVICE_SECRET` definido e **idêntico** em accounts + mesas (prod) + mesas (beta).
+- [x] `ACCOUNTS_SECRETS_KEY` (≥32 chars) definido no accounts e **guardado em local seguro** (rotação quebra segredos).
 - [ ] Após deploy do accounts: gravar a chave DeepSeek pelo painel `/conta` (admin logado).
 - [ ] Smoke: parse de uma mensagem dispara enrichment (mesas consegue `getSecret('deepseek_api_key')` no accounts).
 
-**Sem esses passos o deploy falha de propósito (fail-fast) — é o comportamento desejado pós REV-023/046/047/048.**
+**Deploy agora não falha mais por falta dessas envs. Os dois itens pendentes (gravar chave DeepSeek + smoke) dependem do redeploy dos serviços com os compose atualizados.**
 
 ## Veredito rodada 2 + REV-023 — 2026-06-27
 

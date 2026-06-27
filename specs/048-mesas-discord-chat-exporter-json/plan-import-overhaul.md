@@ -154,13 +154,6 @@ Backend **já é DRY** (REV-016): `createCorrectionHandler`, `handlePatchDraft`,
 
 ### Decisão de arquitetura (mantenedor): **opção (A)** — segredo central no `accounts.`, consumido em runtime pelos módulos.
 
-### Escopo confirmado a esclarecer com o mantenedor antes de codar
-Este WS entrega o **encanamento do segredo** ("preparar para colocar a API"): armazenar,
-cifrar, expor e consumir a key. **A integração LLM de fato no parser** (usar DeepSeek para
-melhorar o parse) é um ponto separado — implementar só um **ponto de consumo mínimo**
-(`discord/llmAssist.ts` que lê a key e tem um stub de chamada), deixando o parser assistido
-como follow-up se o mantenedor não pedir o fluxo completo agora. **Confirmar com o mantenedor.**
-
 ### accounts (backend) — `apps/accounts/src`
 - **Migration nova** (seguir padrão de `apps/accounts/src/migrate.ts`): tabela
   `admin_secrets` `{ id uuid pk, name text unique, ciphertext text not null, updated_by uuid,

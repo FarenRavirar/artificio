@@ -18,6 +18,31 @@ Revisar a branch `feat/048-import-overhaul` contra o plano canonico `specs/048-m
 - Plano canonico 048 e `debitos.md` lidos.
 - Skill `diagnose` lida; loop principal = typecheck/build/test/lint + testes pontuais por pacote.
 
+## Vínculos
+
+- **Spec:** `specs/048-mesas-discord-chat-exporter-json/`
+- **Plano:** `specs/048-mesas-discord-chat-exporter-json/plan-import-overhaul.md`
+- **Débitos:** `specs/048-mesas-discord-chat-exporter-json/debitos.md`
+- **Branch:** `feat/048-import-overhaul` (`61dd214`)
+- **PR:** #78 (aberto)
+
+## Arquivos a modificar
+
+- `specs/048-mesas-discord-chat-exporter-json/debitos.md` — alinhar descrição WS3 com código real
+- `specs/048-mesas-discord-chat-exporter-json/plan-import-overhaul.md` — remover seção "Escopo confirmado a esclarecer com o mantenedor" do WS3
+- `specs/backlog.md` — corrigir referência de path
+- `apps/mesas/frontend/tsconfig.app.json` — remover exclude de testes
+- `apps/mesas/frontend/src/jest-dom.d.ts` — declarar tipos jest-dom p/ LSP
+
+## Critério de conclusão
+
+- [ ] LSP limpo nos 15 arquivos de teste de frontend
+- [ ] `pnpm run test` (mesas-frontend 163/163) ✅
+- [ ] `pnpm run build` (mesas-frontend, mesas-backend, accounts) ✅
+- [ ] `pnpm run lint` (15/15) ✅
+- [ ] Débitos da spec 048 coerentes com código real
+- [ ] Backlog atualizado
+
 ## Hipoteses iniciais
 
 1. Se ha erros LSP como `toBeInTheDocument` inexistente, entao algum pacote frontend usa matcher DOM sem carregar `@testing-library/jest-dom/vitest` nos tipos/setup.
