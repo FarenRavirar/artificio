@@ -613,3 +613,11 @@ Tomadas após os achados DEB-048-30..35. Todas entram **na spec 048, no mesmo PR
 - **DEB-048-35 (DeepSeek key):** **OPÇÃO 2 — central universal**, neste PR, sem spec extra.
   - ⚠️ **GOVERNANÇA (pétrea):** opção 2 toca `accounts.`/`packages/*` (segredo de admin central) → vira **SDD Completo**; exige smoke dos consumidores SSO e aprovação por ação de cada `git`/deploy. A spec 048 deixa de ser SDD Lite "só mesas" e passa a ter superfície compartilhada. Mantenedor autorizou expandir o escopo da 048 e manter no mesmo PR.
   - Key **sempre cifrada** (reuso do padrão `settingsCrypto`), nunca em log/git.
+
+## DEB-048-38 — accounts preso em tema light (persistente light)
+
+- **Origem:** mantenedor 2026-06-27 (durante deploy prod). Ao entrar no `accounts.`, o tema fica **persistente light** — não respeita preferência/toggle de tema.
+- **Severidade:** 🟡 UX/bug visual. Não bloqueia auth/SSO.
+- **Escopo/modo:** SDD Lite `apps/accounts/frontend` (tema/UI). Não toca lógica de auth/SSO → sem smoke runtime de sessão por padrão; smoke visual.
+- **Investigação (próximo passo):** theme provider/persistência no accounts — default forçado a light? `localStorage`/cookie de tema não lido? toggle ausente? Alinhar com design system de `packages/ui`.
+- **Status:** ⏳ ABERTO → **TRANSFERIDO p/ spec 053 (DEB-053-02, Frente B) em 2026-06-27.** Tratar lá. (DEB-048-37 → DEB-053-03, Frente C, mesma transferência.)

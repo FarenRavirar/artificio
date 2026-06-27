@@ -1,0 +1,265 @@
+# 054 — Tasks
+
+> Reorganização da `/gestao` do mesas: sidebar persistente + nova IA + renomeações.
+> **Investigação Fase 0 concluída (Claude, 2026-06-27); Fases 1–4 detalhadas para implementação por agente frio (DeepSeek).**
+> Ancorado no código real `apps/mesas` (2026-06-27). **Pétrea de banco: nenhum valor persistido renomeia sem migration online-safe + aprovação nominal.**
+> Implementação sob autorização nominal por ação (commit/push/PR/merge/deploy cada um pede aprovação própria).
+
+---
+
+## Fase 0 — Investigação/decisão (CONCLUÍDA — sem código)
+
+- [x] **T0.1 — Mapa nó-IA → aba atual → componente → rota.** Ver §A abaixo.
+- [x] **T0.2 — Classificação de identificadores (a)/(b)/(c).** Ver §B abaixo. **Veredito: rename ampliado (decisão 4) = balde (a) FE só; ZERO valor persistido renomeado; rotas BE ficam (rename = débito opcional); toda a IA-alvo resolve com label de exibição + filtros de status/origin já existentes.**
+- [x] T0.3 — Decisões 1–4 fechadas pelo mantenedor: 1=recomendado, 2=detalhado, 3=rotas aninhadas, 4=rename ampliado.
+- [x] T0.4 — Sequência: **054 = gate de bloqueio** (054 → 053 → 052); 053 Frente A roda depois.
+- [x] **T0.5a — R-Q1/Q2/Q3 RESOLVIDOS** (mantenedor 2026-06-27; ver §D). Moderação=2 visões; Caixa de entrada derrubada (6 grupos); `AdminWorkspaceLayout` fica (inspector, sem conflito). `InboxPanel`/`InboxDraftReviewTable`/`AdminWorkspaceLayout` lidos e confirmados.
+- [x] **T0.5b — verificação restante CONCLUÍDA (achados que simplificam a impl):**
+  - **`DiscordDraftReviewTable.tsx` JÁ É a fila unificada.** Tem `originFilter: 'discord'|'inbox'|'all'` (`:65`, select all/discord/inbox `:131-139`), deriva origem por FK (`draftOrigin = discord_message_id ? 'discord' : 'inbox'`, `:28-30`), **já exibe badge de origem** (`ORIGIN_LABELS`/`ORIGIN_COLORS`: Discord azul, Inbox roxo, `:31-32,199-201`), e aceita `api`/`listDrafts` injetáveis (`Props :11-16`). → **Dedup R-A9 = DELETAR `InboxDraftReviewTable.tsx`** e usar `DiscordDraftReviewTable` com **API default** (`discordSyncApi`, `origin=all` cobre Discord+Inbox no mesmo endpoint — não injeta api do inbox). Único extra do inbox = `onBeforeSync`/`registerCorrection` (`InboxDraftReviewTable:79-99`) → preservar como prop opcional (ver §D R-A9). **Não há componente novo de fila a construir.**
+  - **SIGNATURE já existe** como badge de origem (`ORIGIN_COLORS`). Reusar; o "filete" §C vira refinamento visual opcional sobre o badge, NÃO infra nova. **Manter convenção azul/roxo existente** (evita 3ª cor + colisão com âmbar "capa baixa"/laranja `needs_review`). Atualiza §C abaixo.
+  - **`PlatformsPage` JÁ separa VTT/Comunicação** via estado `kind` interno + 2 botões (`:66-67,244-269`). Subnav VTTs/Comunicação (T2.1) só precisa dirigir `kind` (lift p/ rota/prop). Forms usam hex cru `bg-[#0F1A2E]` (`:284`+) → migrar p/ tokens na passagem (R-A12).
+  - **Payload `origin=all` traz os 2 FKs** (tipo `DiscordDraft` já tem `discord_message_id`/`import_message_id`; `draftOrigin` consome). Filete/badge viável sem mudar backend.
+
+### §A — Mapa componente↔rota (verdade material do código)
+
+Shell hoje = `GestaoPage.tsx`, **rota única** `/gestao` (`App.tsx:55`, `<ProtectedRoute requiredRole="admin">`). Sem subrotas. Estado de aba 100% FE (`useState`, nada persistido):
+- `activeTab: 'systems'|'crud'|'activity'|'hydration'|'discord'|'inbox'|'dev'` (`GestaoPage.tsx:141`)
+- `crudSubTab: 'systems'|'platforms'|'scenarios'|'tables'` (`:142`)
+- `filter: 'all'|'pending'|'approved'|'rejected'` (sugestões; `:140`)
+- `PanelTab: 'configuracao'|'fontes'|'mensagens'|'drafts'|'import-json'` (Discord; `useDiscordSync.ts:24`)
+
+| Grupo IA-alvo (054) | Aba/sub atual | activeTab/tab | Componente | Rota(s) API |
+|---|---|---|---|---|
+| Conteúdo › Sistemas de RPG | Gerenciar Conteúdo › Sistemas | `crud`+`systems` | `SystemsAdminView` (`./SystemsAdminView`) | `/api/v1/admin/systems*` |
+| Conteúdo › Plataformas (VTTs/Comunicação) | … › Plataformas | `crud`+`platforms` | `PlatformsPage` (`modules/admin/platforms`) | `/api/v1/admin/platforms*` |
+| Conteúdo › Cenários | … › Cenários | `crud`+`scenarios` | `ScenariosAdminView` | `/api/v1/admin/scenarios*` |
+| Conteúdo › Mesas | … › Mesas | `crud`+`tables` | inline `GestaoPage:576-646` | `GET /api/v1/tables`; `PUT/DELETE /api/v1/admin/tables/:id` |
+| Comunidade › Sugestões (receb./aprov./rejeit.) | Sugestões de Sistemas | `systems` | inline `GestaoPage:670-795` + `SystemSuggestionResolutionDrawer` | `GET /api/v1/admin/system-suggestions`, `…/scenario-suggestions`, `PATCH …/:id/approve\|reject` (`getSuggestionEndpoint :130`) |
+| Comunidade › Histórico de decisões | (não existe) | — | NOVO/stub | — |
+| **Moderação › Mensagens capturadas** (entidade `discord_import_messages`, Discord-only) | Discord › Mensagens | `discord`+`mensagens` | `DiscordSyncPanel` bloco `:69-247` | `/api/v1/admin/discord-sync/messages*` |
+| ↳ filtros desta visão: Ignorados/Conferidos | filtro status msg | — | `?status=ignored` etc. (R-A6: são status de MENSAGEM, não subitens) | idem |
+| **Moderação › Rascunhos** (entidade `discord_import_table_drafts`, **UNIFICADO** Discord+Inbox; origem = FK não-nulo, NÃO `source_type` — R-A1/A2) | Discord › Drafts + Inbox › Drafts | `discord`+`drafts` | **`DiscordDraftReviewTable` reusado** (origin=all; dedup R-A9 deleta `InboxDraftReviewTable`) | `GET /api/v1/admin/discord-sync/drafts?origin=all&status=`, `…/drafts/:id/sync` |
+| ("Fila de revisão" = nome do GRUPO, não tela) | — | — | — | — |
+| Integrações › Discord › Configuração | Discord › Configuração | `discord`+`configuracao` | `DiscordSettingsPanel` | `/api/v1/admin/discord-sync/settings` |
+| Integrações › Discord › Canais monitorados | Discord › Fontes | `discord`+`fontes` | `DiscordSourceList` | `/api/v1/admin/discord-sync/sources*` |
+| Integrações › Discord › Importar histórico | Discord › Importar JSON | `discord`+`import-json` | `DiscordJsonImportPanel` | `/api/v1/admin/discord-sync/import*` (preview/file) |
+| **Integrações › Importação de dados** ← move TextPasteArea | Inbox › Importar | `inbox` | `TextPasteArea` (`features/inbox`) — R-Q2 | `/api/v1/admin/inbox/import` |
+| Integrações › Enriquecimento de dados | Hidratação de Dados | `hydration` | `HydrationAdminPanel` (`modules/admin/hydration`) | `/api/v1/admin/hydration*` |
+| Integrações › Logs de integração | (não existe) | — | NOVO/stub | — |
+| ~~Caixa de entrada~~ **DERRUBADO (R-Q2)** | Inbox | `inbox` | `InboxPanel` desmembrado: `TextPasteArea`→Integrações›Importação; `InboxDraftReviewTable`→Moderação›Rascunhos (dedup R-A9). Sem grupo próprio. | — |
+| Sistema › Ferramentas de desenvolvimento | Desenvolvimento | `dev` | `DevFeedbackPanel` (`modules/admin/dev-feedback`) | `/api/v1/admin/dev-feedback*` |
+| Sistema › Jobs/Logs/Erros/Config | (não existe) | — | NOVO/stub honesto | — |
+| Dashboard (todos subitens) | (não existe) | — | NOVO/stub honesto | — |
+| **Dashboard › Últimas atividades** | Atividades | `activity` | `ActivityPanel` (`modules/admin/activity`) | `/api/v1/admin/activity*` |
+
+> **DECIDIDO (mantenedor 2026-06-27):** aba `Atividades` → **Dashboard › Últimas atividades**. `ActivityPanel` vira o subitem "Últimas atividades" do Dashboard (rota `/gestao/dashboard/atividades`). Sem tocar componente/rota de API — só posicionamento na sidebar.
+
+### §B — Classificação de identificadores (T0.2)
+
+**Balde (a) — interno-FE: renomeia DIRETO** (useState/string FE, não trafega nem persiste):
+- `activeTab`/`crudSubTab`/`filter`/`PanelTab` → viram segmentos de rota.
+- Nomes de componente/arquivo (`HydrationAdminPanel`→ ex. `EnrichmentAdminPanel`) → renomeia + atualiza imports.
+- testids/asserts de rótulo em `GestaoPage.test.tsx` → migrar (T3.3).
+
+**Balde (b) — contrato FE↔BE sem persistência (rota de API): renomeia rota+consumidor no MESMO PR.**
+**Recomendação: NÃO renomear rotas** — `/api/v1/admin/{discord-sync,hydration,inbox,system-suggestions,scenario-suggestions}*` são contrato interno estável; rename só agrega risco sem ganho de UX (label é UI). Se mantenedor quiser, vira DEB-054-02 (par atômico). **Default da spec: rotas BE ficam.**
+
+**Balde (c) — valor PERSISTIDO em DB/JSONB: SÓ com migration online-safe + aprovação nominal — PÉTREA. Veredito: ZERO rename nesta spec.**
+| Valor | Coluna | Valores atuais | Veredito |
+|---|---|---|---|
+| status msg Discord | `discord_import_messages.status` | `pending/parsed/needs_review/synced/ignored/error` (`types.ts:4`) | **NÃO renomear.** "Ignorados/conferidos" = **filtros** sobre estes. |
+| status draft | `discord_import_table_drafts.status` | `draft/ready/needs_review/synced/rejected` (`types.ts:5`, `inbox/utils.ts:34`) | **NÃO renomear.** Label PT via `MESSAGE_STATUS_LABELS`. |
+| origem/fonte | `import_messages.source_type` (`db/types.ts:666`) | **só `'manual_paste'`** (`inbox/import.ts:45`); Discord NÃO passa por `import_messages` | **NÃO renomear.** ⚠️ NÃO é o eixo de origem da fila unificada (REVISÃO R-A2) — origem = FK não-nulo em `discord_import_table_drafts`. |
+| source_kind Discord | `discord_import_messages.source_kind` (`db/types.ts:579`) | discord-only | **NÃO renomear.** |
+| status mesa | `tables.status` | `active/cancelled/published/draft` | **NÃO renomear** (fora de escopo). |
+| status sugestão | suggestion `status` | `pending/approved/rejected` | **NÃO renomear** — "recebidas/aprovadas/rejeitadas"=labels. |
+
+**Conclusão Fase 0:** toda a IA-alvo se resolve com **(a) FE + labels de exibição + filtros de status/origin já existentes**. Renomeações do `spec.md` (Hidratação→Enriquecimento, Fontes→Canais monitorados, Drafts→Rascunhos, Mensagens→Mensagens capturadas, Importar JSON→Importar histórico; "Inbox→Caixa de entrada" MOOT — grupo derrubado R-Q2) são **100% rótulo de UI** (+ opcional nome de componente/segmento de rota FE). **Nenhuma migration nesta spec.** Moderação unificada tem backend = **`discord-sync/drafts?origin=all`** (`discord/drafts.ts:27-34`), origem por FK. ⚠️ Corrigido pela REVISÃO (§D): a claim original apontava `inbox/drafts` — endpoint ERRADO (inner join exclui Discord).
+
+---
+
+## §D — REVISÃO INDEPENDENTE (2026-06-27) — corrige Fase 0 antes de implementar
+
+> Auditoria read-only contra código real. Achados que derrubam claims da Fase 0. **Resolver os P0/P1 antes de T1.** Severidade: P0=quebra eixo da spec, P1=gap material, P2=risco, P3=limpeza.
+
+| ID | Sev | Cat | Arquivo:linha | Achado | Ação |
+|---|---|---|---|---|---|
+| R-A1 | **P0** | contrato | `inbox/drafts.ts:27` | `inbox/drafts` faz `innerJoin import_messages` → **exclui todo draft de Discord** (FK `import_message_id` null neles). NÃO unifica. | Fila usa `discord-sync/drafts?origin=all` (✅ já corrigido em §A/T2.3). |
+| R-A2 | **P0** | contrato | `inbox/import.ts:45`, `db/types.ts:666` | `import_messages.source_type` só vale `'manual_paste'`; Discord vive em `discord_import_messages.source_kind`. `origin=discord` em `source_type` = vazio. | Origem da fila = FK não-nulo, não `source_type` (✅ §B/§C corrigidos). |
+| R-A3 | **P0** | usabilidade | `discord/drafts.ts:18-20` | Fila unificada faz `selectAll()` em `discord_import_table_drafts` — tabela **sem coluna `source_type`**. SIGNATURE "filete por `source_type`" inconstruível como descrito. | Derivar origem de `discord_message_id != null ? 'Discord' : 'Inbox'` (✅ §C corrigido). |
+| R-A4 | **P1** | gap | `features/inbox/components/InboxPanel.tsx:5-40` | `InboxPanel` só tem abas **Importar / Drafts** (importação de mesa por texto colado). NÃO tem Feedbacks/Denúncias/Solicitações/Pendentes/Resolvidos/Arquivados. Grupo "Caixa de entrada" de 6 subitens = ~80% ficção. | Reescrever nó "Caixa de entrada" (ver R-A5/A9). InboxPanel.import → Integrações›Importação; drafts dele → fila de Moderação. |
+| R-A5 | **P1** | gap | só `dev-feedback*` existe | Backend NÃO tem rota de denúncia/solicitação/erro-reportado. Só feedback técnico (`dev-feedback`). Subitens de Caixa de entrada e Sistema›Erros = telas inexistentes, não "filtro de status". | Marcar stub honesto explícito; não prometer como mapeável a backend. |
+| R-A6 | **P1** | bug | `types.ts:583`, `discord/drafts.ts:36-39` | "Itens ignorados/conferidos" como filtro de **draft** não existe: `DiscordImportDraftStatus` = `draft/ready/needs_review/synced/rejected` (sem `ignored`/`conferido`). `ignored` é status de MENSAGEM (entidade diferente). Status inválido → `discord/drafts.ts` ignora filtro e retorna TUDO. | DEFINIR a entidade da Fila (mensagens vs drafts). Ignorados/Conferidos pertencem a MENSAGENS. Ver R-Q1. |
+| R-A7 | **P1** | regressão (testes) | `GestaoPage.test.tsx:16-18` | Teste mocka `react-router-dom` só com `{useNavigate}`. Rotas aninhadas usam `NavLink`/`Outlet`/`useParams` — **arquivo inteiro quebra**. T3.4 subestima (não é troca de string). | T3.4 = reescrita estrutural (MemoryRouter real + 6 grupos). Estimar maior. |
+| R-A8 | **P2** | duplicação | `features/admin/components/AdminWorkspaceLayout.tsx` | Já existe `AdminWorkspaceLayout` (sidebar/tree/command-palette próprios) usado por `SystemsAdminView`/`ScenariosAdminView`. `AdminSidebar` novo pode criar sidebar-dentro-de-sidebar no grupo Conteúdo. | Mapear `AdminWorkspaceLayout` na Fase 0; decidir aninhamento antes de T1.1. |
+| R-A9 | **P2** | duplicação | `Inbox*` vs `Discord*DraftReviewTable` | Drafts de inbox e de discord são a MESMA entidade (`discord_import_table_drafts`, origem diferente). Mover InboxPanel→Caixa E criar fila em Moderação faria drafts de inbox aparecerem em 2 grupos — a duplicação que a Decisão 1 quer evitar. | InboxPanel.import → Integrações›Importação; drafts só na fila de Moderação. Sem segundo lugar. |
+| R-A10 | **P2** | usabilidade | `useDiscordSync.ts:88-93` | Já existe `queueStats` (pending/review/checked/ignored) sobre MENSAGENS. Contador de sidebar `?status=pending` mistura métrica de mensagem com fila de drafts (`pending` não é status de draft). | Reusar `queueStats` p/ contadores OU contar draft por status válido. Não inventar `status=pending` em draft. |
+| R-A11 | P3 | cognição | `App.tsx:55`, `GestaoPage.tsx:211-215,428-430` | Guard duplo: `ProtectedRoute requiredRole="admin"` (pai) + `useEffect navigate('/')` + early-return. Sob rota-pai protegida, o effect/early-return viram código morto. | Guard só no pai; Sections não replicam. Remover, não copiar (ajustar T1.3). |
+| R-A12 | P3 | tokens | `GestaoPage.tsx:442` | Confirmado gradiente hex cru `from-[#0F1A2E] via-[#1B2A4A]…`. | Já flagrado; usar tokens admin §C. |
+
+### Perguntas que travavam implementação — RESOLVIDAS (mantenedor 2026-06-27)
+
+- **R-Q1 — RESOLVIDO: Moderação = 2 entidades, 2 visões** (não 5 subitens misturados). O pipeline tem 2 estágios no banco; a UI espelha:
+  - **Moderação › Mensagens capturadas** — entidade `discord_import_messages`, **Discord-only**, status `pending/parsed/needs_review/ignored/synced/error`. Triagem bruta. Ações: Criar Draft · Ignorar mensagem · Marcar como conferida. = bloco `mensagens` do `DiscordSyncPanel`.
+  - **Moderação › Rascunhos** — entidade `discord_import_table_drafts`, **UNIFICADO Discord+Inbox** via `discord-sync/drafts?origin=all`, status `draft/ready/needs_review/rejected/synced`. Ações: Editar · Sincronizar · Rejeitar. **Filete de origem vive aqui** (único lugar onde origens se misturam).
+  - "Fila de revisão" = nome do grupo, NÃO 3ª tela. "Ignorados/Conferidos" = **filtros dentro de Mensagens** (status de mensagem), não subitens próprios. Mata R-A6.
+- **R-Q2 — RESOLVIDO: grupo "Caixa de entrada" DERRUBADO** (é ficção — `InboxPanel` só tem Importar/Drafts; sem backend de denúncia/solicitação/feedback de usuário, só `dev-feedback`):
+  - **Importar (TextPasteArea)** → **Integrações › Importação de dados** (irmão do Importar JSON do Discord).
+  - **Drafts do inbox** → absorvidos em **Moderação › Rascunhos** (unificados, R-A9).
+  - **dev-feedback** → **Sistema**.
+  - **Resultado: 7 grupos → 6** (Dashboard, Conteúdo, Comunidade, Moderação, Integrações, Sistema). Caixa real de feedback/denúncia de usuário = spec futura com backend próprio.
+- **R-Q3 — RESOLVIDO: `AdminWorkspaceLayout` fica.** É padrão inspector (main + painel direito 400px, `AdminWorkspaceLayout.tsx:14-31`), NÃO rail de navegação → zero conflito com a sidebar global. Vive dentro de Conteúdo; só ajustar `calc(100vh - var(--header-height))` ao novo shell.
+
+### R-A9 — dedup obrigatório (CONFIRMADO via T0.5b — mais simples que o previsto)
+`DiscordDraftReviewTable.tsx` **já é a fila unificada** (origin all/discord/inbox, badge de origem por FK, props `api`/`listDrafts` injetáveis). `InboxDraftReviewTable.tsx` é o redundante. **Dedup:**
+- **Moderação›Rascunhos = `<DiscordDraftReviewTable />` com API DEFAULT** (`discordSyncApi.getDrafts({origin:'all'})` cobre Discord+Inbox no MESMO endpoint — não precisa injetar api do inbox aqui).
+- **DELETAR `InboxDraftReviewTable.tsx`.** Único consumidor = `InboxPanel` (`InboxPanel.tsx:3,37`), que está sendo desmembrado (R-Q2) → some junto.
+- **Preservar correction-tracking:** `InboxDraftReviewTable` chamava `inboxApi.registerCorrection` em `onBeforeSync` (`:79-99`) p/ o loop de eval (Fase G da 048). Hoje `DiscordDraftReviewTable` NÃO passa `onBeforeSync`. **Decisão p/ impl:** adicionar `onBeforeSync` opcional ao `DiscordDraftReviewTable`→`DiscordDraftPreview` e aplicar registro de correção em TODA origem (correção humana vale p/ Discord também), ou gate por origem. NÃO perder o registro silenciosamente.
+- `buildInboxDraftApi()`/`inboxDraftToDiscordDraft` (`adapters/draftAdapter.ts`) só restam úteis se algum fluxo ainda injetar a API do inbox; se a fila unificada usa discord-sync default, avaliar se viram código morto (remover) — `rg` antes de deletar.
+
+### Investigar antes de implementar — ✅ CONCLUÍDO (ver T0.5b)
+Todos verificados: `DiscordDraftReviewTable` já exibe origem (badge); `PlatformsPage` já separa VTT/Comunicação (`kind`); payload `origin=all` traz os 2 FKs. **Nada pendente.**
+
+---
+
+## §C — Direção de design do shell admin (canônica — seguir na implementação)
+
+> Vive DENTRO do design system (`packages/ui`, dark-default D066/D067, laranja `#FF5722`, navy `#020740`, sobriedade Google-suite). Risco concentrado em UM elemento; resto quieto. **Tokens, nunca hex hardcoded** — definir as vars admin abaixo em `index.css` do mesas a partir dos tokens existentes; proibido repetir o gradiente `from-[#0F1A2E]` cru do `GestaoPage:442`.
+
+**Conceito:** o painel é uma **mesa de despacho** (triar fluxo: sugestões, mensagens Discord, rascunhos, denúncias), não dashboard de vaidade. Sóbrio, denso, escaneável.
+
+**Paleta (novas CSS vars admin, derivadas dos tokens canônicos):**
+- `--admin-canvas: #0B1430` — fundo geral (1 tom abaixo do app público, separa o chrome admin).
+- `--admin-rail: #0E1A38` — sidebar.
+- `--admin-surface: #16223E` / `--admin-surface-raised: #1B2A4A` — cards/listas (canônicos D065).
+- `--brand: #FF5722` — **acento único**: marcador de rota ativa + botão primário. Nada mais usa laranja.
+- `--edge: rgba(255,255,255,.10)` — hairlines/divisores.
+
+**Tipografia (sem fonte nova — usa a sans condensada bold da marca + sans canônica):**
+- Rótulo de grupo (sidebar) + eyebrow do header contextual: **uppercase, tracking +0.08em, 11px/600**. É o "carimbo de despacho".
+- Título de tela `20px/700` · item de subnav `14px/500` · meta/contador `12px/500 tabular-nums`.
+
+**Layout (sidebar fixa esquerda + área de trabalho):**
+```
+┌──────────────┬─────────────────────────────────────────┐
+│ GESTÃO        │  MODERAÇÃO ›  Fila de revisão  [Revisar] │ ← header contextual + breadcrumb + ação
+│ ▾ MODERAÇÃO  ●│  ┌ Fila  Mensagens  Rascunhos ──────────┐ │ ← subnav local
+│   Fila       3│  │ ▎ Discord · @user · há 2h            │ │ ← ▎ filete de origem (cor por source_type)
+│   Mensagens   │  │ ▎ Inbox   · denúncia · há 5h         │ │
+│   Rascunhos  1│  │ ▎ Discord · @user · há 1d            │ │
+│ ▸ Integrações │  └──────────────────────────────────────┘ │
+└──────────────┴─────────────────────────────────────────┘
+```
+
+**SIGNATURE — origem visível na fila de Rascunhos (JÁ EXISTE — reusar, T0.5b):** `DiscordDraftReviewTable` já mostra **badge de origem** (`ORIGIN_LABELS`/`ORIGIN_COLORS`: Discord azul `bg-blue-700/30`, Inbox roxo `bg-purple-700/30`) derivado do FK (`draftOrigin`). O requisito "origem clara" **já está satisfeito**. O "filete" (`▎` 3px à esquerda do card) é **refinamento visual OPCIONAL** sobre o badge existente — não criar convenção nova. **Manter azul/roxo existentes** (índigo/âmbar do rascunho inicial DESCARTADOS: âmbar colide com "capa baixa" `:226` e laranja `needs_review`). Se aplicar filete, usar as mesmas cores do badge.
+- **A11y:** badge já tem rótulo textual ("Discord"/"Inbox") — daltônico-safe. Manter.
+
+**Contadores de pendência na sidebar:** dado real, `tabular-nums`, **somem quando zero** (nunca número falso). ⚠️ NÃO usar `status=pending` em draft (não existe — R-A10); reusar `queueStats` (mensagens) ou contar draft por status válido (`needs_review`/`draft`).
+
+**Disciplina:** foco visível (não regredir 053), `aria-current` no item ativo, `prefers-reduced-motion` respeitado, responsivo (sidebar colapsa em drawer no mobile). Sem animação supérflua — no máximo transição de 120ms no hover/ativo.
+
+---
+
+## Fase 1 — Shell de navegação (sidebar + roteamento aninhado)
+
+> Objetivo: trocar estado-de-aba por layout shell com sidebar fixa + rotas aninhadas reais. **Preservar todos os painéis existentes como conteúdo.** Sem tocar backend.
+
+- [ ] **T1.1 — `<AdminSidebar>`** (`apps/mesas/frontend/src/features/admin/components/AdminSidebar.tsx`).
+  - **6 grupos** (R-Q2 derrubou Caixa de entrada): Dashboard, Conteúdo, Comunidade, Moderação, Integrações, Sistema.
+  - Cada grupo = `<NavLink to="/gestao/<slug>">` do `react-router-dom` (v7, já em uso — ver `App.tsx`). Slugs: `dashboard`, `conteudo`, `comunidade`, `moderacao`, `integracoes`, `sistema`.
+  - `aria-current="page"` na rota ativa (NavLink já fornece via `isActive`). Reaproveitar marcador laranja `#FF5722` da spec 051 F2 (`Nav.tsx` + `styles.css:254/:1197`) — mesmo padrão visual.
+  - **Design §C:** rótulo de grupo uppercase/tracking; fundo `--admin-rail`; contadores de pendência `tabular-nums` que somem em zero; ação ativa = laranja (acento único). Mobile: colapsa em drawer.
+  - Acessibilidade: `<nav aria-label="Gestão administrativa">`, lista `<ul>/<li>`, foco visível (não regredir 053), navegável por teclado (Tab/Enter), `role` correto.
+  - Tokens de tema (`packages/ui` — `--surface`/`--fg`/`--border`), **nada hardcoded**. NÃO copiar o gradiente hardcoded `from-[#0F1A2E]` do `GestaoPage:442`.
+  - ⚠️ **R-A8:** já existe `features/admin/components/AdminWorkspaceLayout.tsx` (sidebar/tree/command-palette próprios) em `SystemsAdminView`/`ScenariosAdminView`. Mapear e decidir aninhamento ANTES de construir — evitar sidebar-dentro-de-sidebar no grupo Conteúdo.
+- [ ] **T1.2 — `<AdminMain>`** (`features/admin/components/AdminMain.tsx`): área principal = header contextual (título da tela) → `<Breadcrumb>` → zona de ações principais (slot) → slot de subnavegação local → `<Outlet />` (conteúdo da subrota).
+  - Já existe `features/admin/components/Breadcrumb.tsx` — **reaproveitar/estender**, não recriar. Verificar API atual antes de editar.
+  - **Design §C:** header contextual = eyebrow uppercase (grupo) + título `20px/700`; zona de ação à direita com botão primário laranja (padrão de botões T3.3); fundo `--admin-canvas`.
+- [ ] **T1.3 — Roteamento aninhado** em `App.tsx`. Converter a rota única `/gestao` em rota-pai com filhos:
+  ```
+  <Route path="/gestao" element={<ProtectedRoute requiredRole="admin"><GestaoLayout/></ProtectedRoute>}>
+    <Route index element={<Navigate to="dashboard" replace/>} />
+    <Route path="dashboard/*" element={<DashboardSection/>} />
+    <Route path="conteudo/*" element={<ConteudoSection/>} />
+    <Route path="comunidade/*" element={<ComunidadeSection/>} />
+    <Route path="moderacao/*" element={<ModeracaoSection/>} />
+    <Route path="integracoes/*" element={<IntegracoesSection/>} />
+    <Route path="sistema/*" element={<SistemaSection/>} />
+  </Route>
+  ```
+  - `GestaoLayout` = `<AdminSidebar/> + <AdminMain/>` (com `<Outlet/>`). Subníveis (`conteudo/sistemas`, `conteudo/plataformas/vtts` etc.) via subrotas aninhadas dentro de cada Section ou via subnav local com nested `<Route>`. Deep-link/refresh/voltar DEVEM funcionar (R10).
+  - Guard `requiredRole="admin"` fica SÓ no `<ProtectedRoute>` pai. ⚠️ **R-A11:** o `useEffect navigate('/')` + early-return `null` do `GestaoPage:211-215,428-430` viram código morto sob a rota-pai protegida — **remover, não copiar** para as Sections.
+- [ ] **T1.4 — Decisão extrair sidebar/breadcrumb → `packages/ui`.** **Recomendação Fase 0: manter LOCAL no mesas** (nenhum outro app-admin consome hoje; extrair = SDD Completo + smoke de consumidores sem ganho atual). Construir local em `features/admin/`, com tokens de tema, pronto para extração futura. Registrar a decisão (sim/não) na sessão. Se mantenedor pedir extração → vira tarefa própria SDD Completo.
+- [ ] **T1.5 — Migrar `GestaoPage` → shell.** Quebrar o monólito `GestaoPage.tsx` (823 linhas) em Sections por grupo. Cada Section monta os painéis já existentes (sem reescrever lógica). A lógica de sugestões/tables inline (`GestaoPage:138-439`) migra para a Section correspondente (Comunidade/Conteúdo) — mover, não reescrever. `GestaoPage` vira `GestaoLayout` fino OU é substituído.
+
+**Validação Fase 1:** `pnpm run lint` + `pnpm run build` verdes. Navegar os 6 grupos por URL; refresh em cada rota mantém a tela; `aria-current` na ativa; teclado OK.
+
+---
+
+## Fase 2 — Reorganização dos grupos (MOVER painéis, não reescrever)
+
+> Encaixar os componentes existentes (§A) nos novos nós. Subnavegação local dentro de cada Section.
+
+- [ ] **T2.1 — Conteúdo** (`ConteudoSection`): subnav Sistemas de RPG / Plataformas (VTTs/Comunicação) / Cenários / Mesas. Renderiza `SystemsAdminView`, `PlatformsPage`, `ScenariosAdminView`, bloco Mesas (migrado de `GestaoPage:576-646`). **`PlatformsPage` já separa VTT/Comunicação** via estado `kind` (T0.5b) — subnav VTTs/Comunicação dirige `kind` (lift p/ rota/prop). ⚠️ migrar forms hex cru `bg-[#0F1A2E]` → tokens (R-A12).
+- [ ] **T2.2 — Comunidade** (`ComunidadeSection`): subnav Sugestões recebidas/aprovadas/rejeitadas (= filtro `pending/approved/rejected` da lógica `GestaoPage:138-346`, migrada) + Histórico de decisões (**dado real, não stub**: sugestões já decididas — `status != pending` + `reviewed_at/reviewed_by/rejection_reason`; reusa a mesma fonte/normalizadores, só filtro distinto). `SystemSuggestionResolutionDrawer` preservado.
+- [ ] **T2.3 — Moderação** (`ModeracaoSection`): **2 visões (R-Q1)**, subnav: **Mensagens capturadas** + **Rascunhos**.
+  - ⚠️ **PRÉ-REQUISITO — desmontar `DiscordSyncPanel`** (`DiscordSyncPanel.tsx`): hoje é UM container de 5 tabs (`configuracao/fontes/mensagens/drafts/import-json`) que a Fase 2 distribui entre Integrações (configuracao/fontes/import-json) e Moderação (mensagens/drafts). `DiscordSettingsPanel`/`DiscordSourceList`/`DiscordJsonImportPanel`/`DiscordDraftReviewTable` já são componentes; **o bloco `mensagens` NÃO é — está inline `:69-247` (~180 linhas)**. **Extrair `MessagesView`** (lista + detalhe/apuração + `MessagesToolbar`). `DiscordSyncPanel` container é aposentado.
+  - ⚠️ **`useDiscordSync` (hook) é consumido por mensagens E fontes** (estado `sources`/`messages`/`selectedMessage` juntos). Ao separar visões em rotas distintas, cada uma instancia o hook → `sources` busca 2×. Aceitável (não quebra), mas se incomodar: passar slice por prop ou Context. Decidir na impl, registrar.
+  - **Mensagens capturadas** = `MessagesView` extraído (entidade `discord_import_messages`, Discord-only). Filtros = status de mensagem (`pending/needs_review/ignored/synced/...`). "Itens ignorados/conferidos" = filtros DESTA visão (R-A6), não subitens.
+  - **Rascunhos** = entidade `discord_import_table_drafts`, **UNIFICADA** via `GET /api/v1/admin/discord-sync/drafts?origin=all&status=`. Render = **`DiscordDraftReviewTable` reusado tal-qual** (já faz origin=all + badge + filtros — T0.5b/R-A9). **DELETAR `InboxDraftReviewTable`**; preservar `onBeforeSync` do inbox como prop opcional. Filtros: origem (já tem) + status de draft.
+  - **Design §C — origem:** badge de origem **já existe** no `DiscordDraftReviewTable` (Discord azul / Inbox roxo). Reusar. Filete = refinamento opcional, mesma cor do badge.
+- [ ] **T2.4 — Integrações** (`IntegracoesSection`): subnav Discord (Configuração `DiscordSettingsPanel` / Canais monitorados `DiscordSourceList` / Importar histórico `DiscordJsonImportPanel` / **Mensagens capturadas** + **Rascunhos** = LINKS p/ Moderação, não painel — T2.7/Decisão 1) + **Importação de dados** (`TextPasteArea` movido do ex-Inbox — R-Q2; colar texto → cria draft que aparece em Moderação›Rascunhos) + Enriquecimento de dados (`HydrationAdminPanel`) + Logs de integração (stub honesto).
+- [ ] **T2.5 — ~~Caixa de entrada~~ DERRUBADO (R-Q2).** Sem grupo. `InboxPanel` desmembrado: `TextPasteArea`→T2.4 (Integrações›Importação); `InboxDraftReviewTable`→T2.3 (Moderação›Rascunhos, dedup). `dev-feedback`→T2.6 (Sistema). Caixa real de feedback/denúncia de usuário = spec futura com backend.
+- [ ] **T2.6 — Sistema** (`SistemaSection`): subnav Ferramentas de desenvolvimento (`DevFeedbackPanel` — único com backend real). Jobs/Logs/Erros reportados/Config = **stub honesto "em breve"** (R-A5: não há backend de erro-reportado/jobs/logs). Feedbacks técnicos = `dev-feedback`.
+- [ ] **T2.7 — Resolver duplicação Moderação×Discord (Decisão 1).** Painel de Mensagens/Rascunhos renderiza **só em Moderação**. Em Integrações›Discord, os itens "Mensagens capturadas"/"Rascunhos" são **links contextuais** para a rota de Moderação (`<NavLink to="/gestao/moderacao/mensagens">`), NÃO re-render do painel.
+
+**Validação Fase 2:** todos os painéis antigos acessíveis nas novas posições; nenhum painel renderizado em 2 lugares; lint+build verdes.
+
+---
+
+## Fase 3 — Renomeações (rótulo + identificadores FE) + padrão de botões
+
+> Aplicar a tabela de renomeações do `spec.md`. **Por Fase 0: tudo é balde (a) FE — zero migration, rotas BE intactas.**
+
+- [ ] **T3.1 — Renomeações de rótulo (UI).** Trocar textos exibidos: Gerenciar Conteúdo→Conteúdo, Sistemas→Sistemas de RPG, Plataformas VTT→VTTs, Plataformas de Comunicação→Comunicação, Sugestões de Sistemas→Comunidade›Sugestões, Discord Sync→Integrações›Discord, Fontes→Canais monitorados, Mensagens→Mensagens capturadas, Drafts→Rascunhos, Importar JSON→Importar histórico, Hidratação de Dados→Enriquecimento de dados, Inbox→Caixa de entrada, Desenvolvimento→Sistema›Desenvolvimento. Trocar rótulos de ação: Apurar→Revisar, "Apurar todas pendentes"→"Revisar pendências", "Mandar para revisão"→"Enviar para revisão", "Marcar conferida"→"Marcar como conferida", Ignorar→"Ignorar mensagem". Caçar literais: `rg "Apurar|Discord Sync|Hidratação|Inbox|Drafts|Fontes" apps/mesas/frontend/src`.
+- [ ] **T3.2 — Renomear identificadores FE (balde a, opcional-mas-recomendado).** Componentes/arquivos cujo nome diverge da IA (ex.: `HydrationAdminPanel`→`EnrichmentAdminPanel`, `DiscordSyncPanel` interno). Atualizar TODOS os imports — zero nome velho órfão (`rg` o símbolo antes e depois). **NÃO** tocar rota de API nem enum de DB (baldes b/c — ficam).
+- [ ] **T3.3 — Padrão de botões (varredura).** Verbos por tipo (`spec.md` §Padrão de botões): Primária `+ Novo`/`Criar`/`Salvar`; Secundária `Editar`/`Recarregar`/`Selecionar arquivo`; Destrutiva `Excluir`/`Remover`; Estado `Ativar`/`Desativar`; Revisão `Enviar para revisão`/`Marcar como conferido`/`Ignorar`. Mesma ação ⇒ mesmo verbo. Corrigir inconsistências achadas (ex.: "Descartar selecionadas" em `GestaoPage:729`, "Cancelar/Ativar" em `:626`).
+- [ ] **T3.4 — Migrar testes (reescrita estrutural, não troca de string).** ⚠️ **R-A7:** `GestaoPage.test.tsx:16-18` mocka `react-router-dom` só com `{useNavigate}`; rotas aninhadas (`NavLink`/`Outlet`/`useParams`) quebram o arquivo inteiro. Reescrever sob `MemoryRouter` real + 6 grupos. Migrar asserts de rótulo (não deletar). O mock `InboxPanel` (`:56-57`) some (componente desmembrado — R-Q2); ajustar. `rg -l "Gerenciar Conteúdo|Discord Sync|Inbox|Hidratação|Apurar" apps/mesas/frontend/src`.
+
+**Validação Fase 3:** zero rótulo PT/EN misturado; varredura de verbos consistente; testes migrados verdes; lint+build verdes.
+
+---
+
+## Fase 4 — Dashboard + telas novas (incremental, stub honesto)
+
+> Estrutura + placeholder honesto. **Nunca número falso.** Widgets que dependem de dado inexistente = "em breve" rotulado.
+
+- [ ] **T4.1 — Dashboard** (`DashboardSection`): subnav Visão geral / Pendências / Últimas atividades / Alertas / Atalhos rápidos. **Últimas atividades** = `ActivityPanel` existente (rota `/gestao/dashboard/atividades`) — mover, não reescrever. Pendências reusa dado real (sugestões pendentes via `/system-suggestions?status=pending`). Visão geral/Alertas/Atalhos = placeholder "em breve" se sem fonte. Tela inicial de `/gestao` (index redireciona p/ `dashboard`).
+- [ ] **T4.2 — Sistema: Jobs/Logs/Erros** (estrutura + stub). Sem backend → componente stub rotulado "em breve", sem dado fabricado. Logs de integração (Integrações) idem.
+
+**Validação Fase 4:** placeholders honestos (zero dado falso); Dashboard é landing de `/gestao`; lint+build verdes.
+
+---
+
+## Fechamento
+
+- [ ] TZ.1 — `pnpm run lint` + `pnpm run build` verdes; testes migrados verdes.
+- [ ] TZ.2 — a11y não regride (teclado/foco/`aria-current` na sidebar); alinhado c/ 053 Frente A (que roda depois, sobre esta estrutura).
+- [ ] TZ.3 — Smoke visual do mantenedor em beta antes de prod.
+- [ ] TZ.4 — `backlog.md` + `project-state.md` + `README` sincronizados; débitos novos registrados.
+
+---
+
+## Débitos descobertos na Fase 0
+
+- **DEB-054-02 (opcional) — rename de rotas/componentes BE.** Alinhar nomes técnicos à IA (ex.: `/api/v1/admin/hydration`→`…/enrichment`) é seguro mas opcional; rota = par atômico FE+BE no mesmo PR; valor persistido NUNCA (balde c). Default da spec = só rótulo/UX + segmento de rota FE. Materializar só se mantenedor pedir.
+
+## Notas para o agente frio (DeepSeek)
+
+1. **Ler T0** (`project-state.md` + `context-capsule.md` + `decisions.md`) antes de tocar código.
+2. **Escopo travado:** só `apps/mesas/frontend` (+ possível `packages/ui` se T1.4 decidir extrair, que exige SDD Completo). NÃO tocar backend (rotas/enums ficam — Fase 0). NÃO renomear valor de DB.
+3. **Mover, não reescrever** a lógica dos painéis existentes. Preservar comportamento.
+4. **Tokens de tema** (`packages/ui`), nunca cor hardcoded; mesas é dark-default (D066/D067).
+5. **Autorização por ação:** nenhum commit/push/PR/merge/deploy sem pedido nominal próprio do mantenedor.
+6. **Validar cada fase** com `pnpm run lint` + `pnpm run build` antes de declarar concluída. Registrar evidência na sessão.
+</content>
