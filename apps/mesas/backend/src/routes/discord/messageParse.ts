@@ -83,7 +83,7 @@ router.post('/:id/parse', requireAdmin, async (req: Request, res: Response) => {
 
     return res.json({ data: draft });
   } catch (error: unknown) {
-    console.error('[POST /admin/discord-sync/messages/:id/parse]', error);
+    console.error('[POST /admin/discord/messages/:id/parse]', error);
     const parseError = error instanceof Error ? error.message : 'Erro ao parsear mensagem.';
     await db
       .updateTable('discord_import_messages')

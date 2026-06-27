@@ -64,7 +64,7 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
       throw error;
     }
   } catch (error: unknown) {
-    return sendSettingsError(res, error, '[GET /admin/discord-sync/settings]');
+    return sendSettingsError(res, error, '[GET /admin/discord/settings]');
   }
 });
 
@@ -111,7 +111,7 @@ router.put('/bot-token', requireAdmin, async (req: Request, res: Response) => {
       },
     });
   } catch (error: unknown) {
-    return sendSettingsError(res, error, '[PUT /admin/discord-sync/settings/bot-token]');
+    return sendSettingsError(res, error, '[PUT /admin/discord/settings/bot-token]');
   }
 });
 
@@ -125,7 +125,7 @@ router.delete('/bot-token', requireAdmin, async (req: Request, res: Response) =>
       .execute();
     return res.status(204).send();
   } catch (error: unknown) {
-    return sendSettingsError(res, error, '[DELETE /admin/discord-sync/settings/bot-token]');
+    return sendSettingsError(res, error, '[DELETE /admin/discord/settings/bot-token]');
   }
 });
 

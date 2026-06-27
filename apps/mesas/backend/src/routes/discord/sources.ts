@@ -30,7 +30,7 @@ router.get('/', requireAdmin, async (_req: Request, res: Response) => {
       .execute();
     return res.json({ data: sources });
   } catch (error: unknown) {
-    console.error('[GET /admin/discord-sync/sources]', error);
+    console.error('[GET /admin/discord/sources]', error);
     return res.status(500).json({ error: 'Erro ao listar fontes.' });
   }
 });
@@ -60,7 +60,7 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
       .execute();
     return res.status(201).json({ data: source });
   } catch (error: unknown) {
-    console.error('[POST /admin/discord-sync/sources]', error);
+    console.error('[POST /admin/discord/sources]', error);
     return res.status(500).json({ error: 'Erro ao criar fonte.' });
   }
 });
@@ -85,7 +85,7 @@ router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
     if (!source) return res.status(404).json({ error: 'Fonte não encontrada.' });
     return res.json({ data: source });
   } catch (error: unknown) {
-    console.error('[PATCH /admin/discord-sync/sources/:id]', error);
+    console.error('[PATCH /admin/discord/sources/:id]', error);
     return res.status(500).json({ error: 'Erro ao atualizar fonte.' });
   }
 });
@@ -103,7 +103,7 @@ router.delete('/:id', requireAdmin, async (req: Request, res: Response) => {
     await db.deleteFrom('discord_import_sources').where('id', '=', id).execute();
     return res.json({ data: { message: 'Fonte removida.' } });
   } catch (error: unknown) {
-    console.error('[DELETE /admin/discord-sync/sources/:id]', error);
+    console.error('[DELETE /admin/discord/sources/:id]', error);
     return res.status(500).json({ error: 'Erro ao remover fonte.' });
   }
 });

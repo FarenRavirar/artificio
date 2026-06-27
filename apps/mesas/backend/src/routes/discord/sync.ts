@@ -31,7 +31,7 @@ router.post('/drafts/:id/sync', requireAdmin, async (req: Request, res: Response
     if (error instanceof DraftStateError) {
       return res.status(422).json({ error: error.message });
     }
-    console.error('[POST /admin/discord-sync/drafts/:id/sync]', error);
+    console.error('[POST /admin/discord/drafts/:id/sync]', error);
     return res.status(500).json({ error: 'Erro ao sincronizar draft.' });
   }
 });
@@ -60,7 +60,7 @@ router.post('/sync-ready', requireAdmin, async (req: Request, res: Response) => 
 
     return res.json({ data: results });
   } catch (error: unknown) {
-    console.error('[POST /admin/discord-sync/sync-ready]', error);
+    console.error('[POST /admin/discord/sync-ready]', error);
     return res.status(500).json({ error: 'Erro ao sincronizar drafts em lote.' });
   }
 });

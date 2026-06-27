@@ -20,7 +20,7 @@ interface HydrationResult {
   };
 }
 
-export const HydrationAdminPanel = () => {
+export const EnrichmentAdminPanel = () => {
   const [loading, setLoading] = useState(false);
   const [dryRun, setDryRun] = useState(true);
   const [lastResult, setLastResult] = useState<HydrationResult | null>(null);
@@ -28,7 +28,6 @@ export const HydrationAdminPanel = () => {
 
   useEffect(() => {
     let active = true;
-    // T018: histórico do localStorage. setState deferido p/ fora do corpo síncrono.
     void (async () => {
       await Promise.resolve();
       if (!active) return;
@@ -39,14 +38,13 @@ export const HydrationAdminPanel = () => {
         setLastResult(parsed.result);
         setLastRunDate(parsed.date);
       } catch (e) {
-        console.error('Error parsing hydration history', e);
+        console.error('Error parsing enrichment history', e);
       }
     })();
     return () => { active = false; };
   }, []);
 
   const handleHydrate = async () => {
-    // T014 / T020: Bloqueio de UI durante execução
     if (loading) return;
 
     if (!dryRun) {
@@ -59,24 +57,22 @@ export const HydrationAdminPanel = () => {
 
     setLoading(true);
     try {
-      // T016: Consumo do endpoint POST
-      const response = await authPost(`/api/v1/admin/sync/hydrate?dry_run=${dryRun}`);
+      const response = await authPost(`/api/v1/admin/sync/enrich?dry_run=${dryRun}`);
 
       const data = await response.json();
 
       if (response.ok) {
-        toast.success(dryRun ? 'Simulação de hidratação concluída!' : 'Hidratação concluída com sucesso!');
+        toast.success(dryRun ? 'Simulação de enriquecimento concluída!' : 'Enriquecimento concluído com sucesso!');
         setLastResult(data);
         const dateStr = new Date().toLocaleString('pt-BR');
         setLastRunDate(dateStr);
 
-        // T018: Persistir no localStorage
         localStorage.setItem('lastHydrationLog', JSON.stringify({ result: data, date: dateStr }));
       } else {
-        toast.error(data.error || 'Erro ao hidratar banco de dados.');
+        toast.error(data.error || 'Erro ao enriquecer banco de dados.');
       }
     } catch (error) {
-      console.error('[Hydration]', error);
+      console.error('[Enrichment]', error);
       toast.error('Falha de conexão com o servidor.');
     } finally {
       setLoading(false);
@@ -96,7 +92,6 @@ export const HydrationAdminPanel = () => {
       </div>
 
       <div className="flex items-center gap-6 mb-8 p-4 bg-white/5 border border-white/10 rounded-lg">
-        {/* T015: Toggle Dry-Run */}
         <label className="flex items-center gap-3 cursor-pointer group">
           <div className="relative">
             <input
@@ -119,7 +114,6 @@ export const HydrationAdminPanel = () => {
           </div>
         </label>
 
-        {/* T014: Botão principal */}
         <button
           onClick={handleHydrate}
           disabled={loading}
@@ -139,7 +133,6 @@ export const HydrationAdminPanel = () => {
         </button>
       </div>
 
-      {/* T017: Área de Log */}
       {lastResult && (
         <div className="mt-8 animate-fade-in">
           <div className="flex justify-between items-end mb-4 border-b border-white/10 pb-2">

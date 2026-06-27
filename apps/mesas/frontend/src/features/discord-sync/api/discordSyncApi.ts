@@ -17,7 +17,7 @@ import type {
 import { z } from 'zod';
 import { authenticatedFetch } from '../../../services/apiClient';
 
-const BASE = '/api/v1/admin/discord-sync';
+const BASE = '/api/v1/admin/discord';
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await authenticatedFetch(`${BASE}${path}`, options || {});

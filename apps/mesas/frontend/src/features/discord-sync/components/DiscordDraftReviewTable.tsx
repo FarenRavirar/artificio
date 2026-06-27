@@ -13,6 +13,8 @@ interface Props {
   readonly listDrafts?: (params?: { status?: DiscordImportDraftStatus; limit?: number; offset?: number; origin?: OriginFilter }) => Promise<DiscordDraft[]>;
   readonly syncReadyAction?: () => Promise<{ synced: number; failed: number; errors: string[] }>;
   readonly showSyncReady?: boolean;
+  /** Callback antes de sincronizar draft (ex.: registerCorrection do inbox). Retorna resultado p/ toast. */
+  readonly onBeforeSync?: (draft: DiscordDraft) => Promise<{ tableId: string; created: boolean } | null>;
 }
 
 const DRAFT_STATUS_LABELS: Record<DiscordImportDraftStatus, string> = {
@@ -57,7 +59,7 @@ function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
 }
 
-export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true }: Props) {
+export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync }: Props) {
   const draftApi = api ?? discordSyncApi;
   const [drafts, setDrafts] = useState<DiscordDraft[]>([]);
   const [loading, setLoading] = useState(false);
@@ -242,6 +244,7 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
           onUpdate={handleDraftUpdate}
           onClose={() => setSelectedDraft(null)}
           api={draftApi}
+          onBeforeSync={onBeforeSync}
         />
       )}
     </div>

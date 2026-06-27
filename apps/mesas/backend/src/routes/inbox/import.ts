@@ -176,7 +176,7 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
       },
     });
   } catch (error: unknown) {
-    console.error('[POST /api/v1/admin/inbox/import-text]', error);
+    console.error('[POST /api/v1/admin/import/import-text]', error);
     return res.status(500).json({ error: 'Erro ao importar texto.' });
   }
 });

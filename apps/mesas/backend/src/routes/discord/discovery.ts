@@ -12,7 +12,7 @@ router.get('/guilds', requireAdmin, async (_req: Request, res: Response) => {
     const guilds = await discoverDiscordGuilds();
     return res.json({ data: guilds });
   } catch (error: unknown) {
-    return sendDiscordDiscoveryError(res, error, '[GET /admin/discord-sync/discovery/guilds]');
+    return sendDiscordDiscoveryError(res, error, '[GET /admin/discord/discovery/guilds]');
   }
 });
 
@@ -27,7 +27,7 @@ router.get('/guilds/:guildId/channels', requireAdmin, async (req: Request, res: 
     const channels = await discoverDiscordChannels(parsed.data.guildId);
     return res.json({ data: channels });
   } catch (error: unknown) {
-    return sendDiscordDiscoveryError(res, error, '[GET /admin/discord-sync/discovery/guilds/:guildId/channels]');
+    return sendDiscordDiscoveryError(res, error, '[GET /admin/discord/discovery/guilds/:guildId/channels]');
   }
 });
 

@@ -17,7 +17,13 @@ import { MestrePage } from './pages/MestrePage';
 import { PlayerPage } from './pages/PlayerPage';
 import { MasterProfilePage } from './features/master/MasterProfilePage';
 import ProfileEditPage from './pages/ProfileEditPage';
-import { GestaoPage } from './pages/GestaoPage';
+import { GestaoLayout } from './features/admin/components/GestaoLayout';
+import { DashboardSection } from './features/admin/components/DashboardSection';
+import { ConteudoSection } from './features/admin/components/ConteudoSection';
+import { ComunidadeSection } from './features/admin/components/ComunidadeSection';
+import { ModeracaoSection } from './features/admin/components/ModeracaoSection';
+import { IntegracoesSection } from './features/admin/components/IntegracoesSection';
+import { SistemaSection } from './features/admin/components/SistemaSection';
 // REMOVIDO: Sistema de ingestão automática desacoplado
 // import { AdminDevToolsPage } from './pages/AdminDevToolsPage';
 import { Toaster } from 'react-hot-toast';
@@ -52,7 +58,15 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       <Route path="/painel" element={<ProtectedRoute><PainelMestrePage /></ProtectedRoute>} />
-      <Route path="/gestao" element={<ProtectedRoute requiredRole="admin"><GestaoPage /></ProtectedRoute>} />
+      <Route path="/gestao" element={<ProtectedRoute requiredRole="admin"><GestaoLayout /></ProtectedRoute>}>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<DashboardSection />} />
+        <Route path="conteudo" element={<ConteudoSection />} />
+        <Route path="comunidade" element={<ComunidadeSection />} />
+        <Route path="moderacao" element={<ModeracaoSection />} />
+        <Route path="integracoes" element={<IntegracoesSection />} />
+        <Route path="sistema" element={<SistemaSection />} />
+      </Route>
       {/* REMOVIDO: Sistema de ingestão automática desacoplado */}
       {/* <Route path="/admin/devtools" element={<ProtectedRoute requiredRole="admin"><AdminDevToolsPage /></ProtectedRoute>} /> */}
     </Routes>

@@ -24,8 +24,8 @@ export const MESSAGE_STATUS_COLORS: Record<DiscordImportMessageStatus, string> =
 export type PanelTab = 'configuracao' | 'fontes' | 'mensagens' | 'drafts' | 'import-json';
 
 export const REVIEW_ACTIONS: Array<{ status: DiscordImportMessageStatus; label: string; className: string }> = [
-  { status: 'needs_review', label: 'Mandar para revisão', className: 'bg-orange-600 hover:bg-orange-700' },
-  { status: 'parsed', label: 'Marcar conferida', className: 'bg-blue-600 hover:bg-blue-700' },
+  { status: 'needs_review', label: 'Enviar para revisão', className: 'bg-orange-600 hover:bg-orange-700' },
+  { status: 'parsed', label: 'Marcar como conferida', className: 'bg-blue-600 hover:bg-blue-700' },
   { status: 'ignored', label: 'Ignorar', className: 'bg-white/10 hover:bg-white/20' },
 ];
 
@@ -193,7 +193,7 @@ export function useDiscordSync() {
     setParsingMessageId(message.id);
     try {
       await discordSyncApi.parseMessage(message.id);
-      toast.success('Draft criado! Acesse a aba Drafts para revisar e sincronizar.');
+      toast.success('Draft criado! Acesse Moderação › Rascunhos para revisar e sincronizar.');
       const updated = await discordSyncApi.updateMessage(message.id, { status: 'parsed' });
       setMessages(prev => prev.map(item => (item.id === updated.id ? updated : item)));
       setSelectedMessage(updated);

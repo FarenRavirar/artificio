@@ -32,7 +32,7 @@ const mockDb = db as unknown as {
 function makeApp() {
   const app = express();
   app.use(express.json());
-  app.use('/admin/discord-sync', adminDiscordSyncRoutes);
+  app.use('/admin/discord', adminDiscordSyncRoutes);
   return app;
 }
 
@@ -45,7 +45,7 @@ function mockChain(overrides: Record<string, Mock> = {}) {
   return Object.assign(chain, overrides);
 }
 
-describe('POST /admin/discord-sync/drafts/:id/sync', () => {
+describe('POST /admin/discord/drafts/:id/sync', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -57,7 +57,7 @@ describe('POST /admin/discord-sync/drafts/:id/sync', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .post('/admin/discord-sync/drafts/nonexistent/sync');
+      .post('/admin/discord/drafts/nonexistent/sync');
 
     expect(response.status).toBe(404);
     expect(response.body.error).toContain('não encontrado');
@@ -74,7 +74,7 @@ describe('POST /admin/discord-sync/drafts/:id/sync', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .post('/admin/discord-sync/drafts/draft-1/sync');
+      .post('/admin/discord/drafts/draft-1/sync');
 
     // O guard de discord_message_id null não se aplica (draft Discord tem message_id)
     // DraftStateError é lançado pelo core

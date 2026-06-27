@@ -5,9 +5,10 @@
 - **Tipo:** **SDD Completo** (reorganização grande de UI + possível toque em `packages/ui` + **rename ampliado a identificadores técnicos** → pode tocar contrato de API/enum persistido, exigindo migration). Blast radius e superfície de contrato confirmam Completo.
 - **Origem:** mantenedor 2026-06-27 — proposta de IA (arquitetura de informação) completa para o admin de mesas. A `/gestao` cresceu para 6 abas-topo + subabas heterogêneas (049 refatorou o código, não a IA); rótulos ambíguos ("Sistemas", "Hidratação", "Inbox", "Apurar") e mistura PT/EN.
 - **Autor do plano:** Claude Code. **Implementação:** a definir (autorização nominal por ação).
-- **Status:** planejada (não implementada). **Depende da spec 053** (a11y/UI da gestão) — coordenar p/ não retrabalhar a mesma tela duas vezes (ver §Coordenação).
+- **Status:** Fases 1-4 implementadas localmente (código presente, não mergeado). Aguarda aprovação do mantenedor para fechar.
+- **Coordenação:** **054 é GATE DE BLOQUEIO** (ver §Spec 054 = GATE DE BLOQUEIO abaixo). **053 Frente A** (a11y/UI da gestão) é quem depende/bloqueada pela 054 — roda depois sobre a estrutura nova. As demais frentes da 053 seguem livres.
 
-> **Nota de governança:** este `spec.md` descreve **o quê e por quê** (IA-alvo + requisitos testáveis). A solução técnica (componentes, rotas, CSS, extração p/ `packages/ui`) vive em `plan.md`/`tasks.md`. Sem código nesta fase.
+> **Nota de governança:** este `spec.md` descreve **o quê e por quê** (IA-alvo + requisitos testáveis). A solução técnica (componentes, rotas, CSS, extração p/ `packages/ui`) vive em `plan.md`/`tasks.md`.
 
 ---
 

@@ -41,7 +41,7 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
     const drafts = await query.execute();
     return res.json({ data: drafts });
   } catch (error: unknown) {
-    console.error('[GET /admin/discord-sync/drafts]', error);
+    console.error('[GET /admin/discord/drafts]', error);
     return res.status(500).json({ error: 'Erro ao listar drafts.' });
   }
 });
@@ -58,7 +58,7 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
     if (!draft) return res.status(404).json({ error: 'Draft não encontrado.' });
     return res.json({ data: draft });
   } catch (error: unknown) {
-    console.error('[GET /admin/discord-sync/drafts/:id]', error);
+    console.error('[GET /admin/discord/drafts/:id]', error);
     return res.status(500).json({ error: 'Erro ao buscar draft.' });
   }
 });
@@ -80,7 +80,7 @@ router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
     });
     return res.status(result.status).json(result.body);
   } catch (error: unknown) {
-    console.error('[PATCH /admin/discord-sync/drafts/:id]', error);
+    console.error('[PATCH /admin/discord/drafts/:id]', error);
     return res.status(500).json({ error: 'Erro ao atualizar draft.' });
   }
 });
@@ -93,7 +93,7 @@ router.post('/:id/refresh-image', requireAdmin, async (req: Request, res: Respon
     return res.json({ data: result });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro ao reenviar imagem.';
-    console.error('[POST /admin/discord-sync/drafts/:id/refresh-image]', error);
+    console.error('[POST /admin/discord/drafts/:id/refresh-image]', error);
     if (message.includes('não encontrado') || message.includes('sem payload')) {
       return res.status(422).json({ error: message });
     }
@@ -152,7 +152,7 @@ router.post('/:id/reparse', requireAdmin, async (req: Request, res: Response) =>
 
     return res.json({ data: updated });
   } catch (error: unknown) {
-    console.error('[POST /admin/discord-sync/drafts/:id/reparse]', error);
+    console.error('[POST /admin/discord/drafts/:id/reparse]', error);
     return res.status(500).json({ error: 'Erro ao reparsar draft.' });
   }
 });

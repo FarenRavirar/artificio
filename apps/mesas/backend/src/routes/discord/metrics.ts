@@ -74,7 +74,7 @@ router.get('/', requireAdmin, async (_req: Request, res: Response) => {
       },
     });
   } catch (error: unknown) {
-    console.error('[GET /admin/discord-sync/metrics]', error);
+    console.error('[GET /admin/discord/metrics]', error);
     return res.status(500).json({ error: 'Erro ao consultar métricas.' });
   }
 });
@@ -142,7 +142,7 @@ router.get('/shadow', requireAdmin, async (_req: Request, res: Response) => {
       },
     });
   } catch (error: unknown) {
-    console.error('[GET /admin/discord-sync/metrics/shadow]', error);
+    console.error('[GET /admin/discord/metrics/shadow]', error);
     return res.status(500).json({ error: 'Erro ao consultar shadow decisions.' });
   }
 });

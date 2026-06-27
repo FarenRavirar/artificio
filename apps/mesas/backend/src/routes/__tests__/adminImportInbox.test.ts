@@ -69,7 +69,7 @@ const mockDb = db as unknown as {
 function makeApp() {
   const app = express();
   app.use(express.json());
-  app.use('/admin/inbox', adminInboxRoutes);
+  app.use('/admin/import', adminInboxRoutes);
   return app;
 }
 
@@ -97,7 +97,7 @@ beforeEach(() => {
 // syncImportDraftToTable
 // ────────────────────────────────────────────────────────────────────────────────
 
-describe('POST /admin/inbox/drafts/:id/sync', () => {
+describe('POST /admin/import/drafts/:id/sync', () => {
   it('rejects when draft is not found (404)', async () => {
     const chain = mockChain({
       executeTakeFirst: vi.fn().mockResolvedValue(null),
@@ -105,7 +105,7 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/nonexistent/sync');
+      .post('/admin/import/drafts/nonexistent/sync');
 
     expect(response.status).toBe(404);
     expect(response.body.error).toContain('não encontrado');
@@ -122,7 +122,7 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/sync');
+      .post('/admin/import/drafts/draft-1/sync');
 
     expect(response.status).toBe(422);
     expect(response.body.error).toContain('não é de inbox');
@@ -140,7 +140,7 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/sync');
+      .post('/admin/import/drafts/draft-1/sync');
 
     expect(response.status).toBe(200);
     expect(response.body.data.tableId).toBe('table-existing');
@@ -158,7 +158,7 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/sync');
+      .post('/admin/import/drafts/draft-1/sync');
 
     expect(response.status).toBe(422);
     expect(response.body.error).toContain('rejeitado');
@@ -175,7 +175,7 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/sync');
+      .post('/admin/import/drafts/draft-1/sync');
 
     expect(response.status).toBe(422);
     expect(response.body.error).toContain('ready');
@@ -202,7 +202,7 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/sync');
+      .post('/admin/import/drafts/draft-1/sync');
 
     expect(response.status).toBe(422);
     expect(response.body.error).toContain('não encontrada');
@@ -224,7 +224,7 @@ describe('POST /admin/inbox/drafts/:id/sync', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/sync');
+      .post('/admin/import/drafts/draft-1/sync');
 
     expect(response.status).toBe(422);
     expect(response.body.missing_fields).toBeDefined();
@@ -283,10 +283,10 @@ function setupCorrectionMocks(draft: Record<string, unknown>, importMsg: Record<
   return mockTrx;
 }
 
-describe('POST /admin/inbox/drafts/:id/correction', () => {
+describe('POST /admin/import/drafts/:id/correction', () => {
   it('returns 404 for empty draft_id (Express does not match route)', async () => {
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts//correction')
+      .post('/admin/import/drafts//correction')
       .send({ corrections: { title: 'Novo Título' } });
 
     expect(response.status).toBe(404);
@@ -294,7 +294,7 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
 
   it('rejects invalid payload (400)', async () => {
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/correction')
+      .post('/admin/import/drafts/draft-1/correction')
       .send({ invalid: true });
 
     expect(response.status).toBe(400);
@@ -303,7 +303,7 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
   it('returns 404 for nonexistent draft', async () => {
     setupCorrectionMocks(null as any);
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/nonexistent/correction')
+      .post('/admin/import/drafts/nonexistent/correction')
       .send({ corrections: { title: 'Novo Título' } });
 
     expect(response.status).toBe(404);
@@ -312,7 +312,7 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
   it('accepts Discord draft correction (import_message_id=null, T-G3)', async () => {
     setupCorrectionMocks(mockDraftRow({ import_message_id: null }));
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/correction')
+      .post('/admin/import/drafts/draft-1/correction')
       .send({ corrections: { title: 'Novo Título' } });
 
     expect(response.status).toBe(200);
@@ -323,7 +323,7 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
   it('returns 422 for synced draft', async () => {
     setupCorrectionMocks(mockDraftRow({ status: 'synced' }));
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/correction')
+      .post('/admin/import/drafts/draft-1/correction')
       .send({ corrections: { title: 'Novo Título' } });
 
     expect(response.status).toBe(422);
@@ -333,7 +333,7 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
   it('returns 422 for rejected draft', async () => {
     setupCorrectionMocks(mockDraftRow({ status: 'rejected' }));
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/correction')
+      .post('/admin/import/drafts/draft-1/correction')
       .send({ corrections: { title: 'Novo Título' } });
 
     expect(response.status).toBe(422);
@@ -346,7 +346,7 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
     const trx = setupCorrectionMocks(draft, importMsg);
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/correction')
+      .post('/admin/import/drafts/draft-1/correction')
       .send({ corrections: { title: 'Título Corrigido' }, reason: 'Erro de digitação' });
 
     expect(response.status).toBe(200);
@@ -373,7 +373,7 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
     setupCorrectionMocks(draft, importMsg);
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/correction')
+      .post('/admin/import/drafts/draft-1/correction')
       .send({ corrections: { title: 'Original' } });
 
     expect(response.status).toBe(200);
@@ -387,7 +387,7 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
     setupCorrectionMocks(draft, importMsg);
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/correction')
+      .post('/admin/import/drafts/draft-1/correction')
       .send({ corrections: { title: 'Título Corrigido' }, reason: 'Erro de digitação' });
 
     expect(response.status).toBe(200);
@@ -402,7 +402,7 @@ describe('POST /admin/inbox/drafts/:id/correction', () => {
 // GET /metrics
 // ────────────────────────────────────────────────────────────────────────────────
 
-describe('GET /admin/inbox/metrics', () => {
+describe('GET /admin/import/metrics', () => {
   it('returns zero counts for empty corrections table', async () => {
     const chain1 = mockChain({
       executeTakeFirst: vi.fn().mockResolvedValue({ count: 0 }),
@@ -426,7 +426,7 @@ describe('GET /admin/inbox/metrics', () => {
     });
 
     const response = await request(makeApp())
-      .get('/admin/inbox/metrics');
+      .get('/admin/import/metrics');
 
     expect(response.status).toBe(200);
     expect(response.body.data.total_corrections).toBe(0);
@@ -454,7 +454,7 @@ describe('GET /admin/inbox/metrics', () => {
     });
 
     const response = await request(makeApp())
-      .get('/admin/inbox/metrics');
+      .get('/admin/import/metrics');
 
     expect(response.status).toBe(200);
     expect(response.body.data.total_corrections).toBe(3);
@@ -525,7 +525,7 @@ describe('syncImportDraftToTable table creation', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/sync');
+      .post('/admin/import/drafts/draft-1/sync');
 
     expect(response.status).toBe(200);
     expect(response.body.data.created).toBe(true);
@@ -533,13 +533,13 @@ describe('syncImportDraftToTable table creation', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────────────
-// POST /admin/inbox/import-text
+// POST /admin/import/import-text
 // ────────────────────────────────────────────────────────────────────────────────
 
-describe('POST /admin/inbox/import-text', () => {
+describe('POST /admin/import/import-text', () => {
   it('rejects text shorter than 10 characters (400)', async () => {
     const response = await request(makeApp())
-      .post('/admin/inbox/import-text')
+      .post('/admin/import/import-text')
       .send({ text: 'curto' });
 
     expect(response.status).toBe(400);
@@ -548,7 +548,7 @@ describe('POST /admin/inbox/import-text', () => {
 
   it('rejects payload without text field (400)', async () => {
     const response = await request(makeApp())
-      .post('/admin/inbox/import-text')
+      .post('/admin/import/import-text')
       .send({ title_hint: 'D&D 5e' });
 
     expect(response.status).toBe(400);
@@ -679,7 +679,7 @@ describe('POST /admin/inbox/import-text', () => {
     });
 
     const response = await request(makeApp())
-      .post('/admin/inbox/import-text')
+      .post('/admin/import/import-text')
       .send({ text: 'Título: Mesa Teste\nSistema: D&D 5e\nDia: sábado\nHorário: 19:00' });
 
     expect(response.status).toBe(200);
@@ -692,10 +692,10 @@ describe('POST /admin/inbox/import-text', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────────────
-// GET /admin/inbox/drafts
+// GET /admin/import/drafts
 // ────────────────────────────────────────────────────────────────────────────────
 
-describe('GET /admin/inbox/drafts', () => {
+describe('GET /admin/import/drafts', () => {
   it('returns empty array when no drafts exist', async () => {
     const chain = mockChain({
       execute: vi.fn().mockResolvedValue([]),
@@ -703,7 +703,7 @@ describe('GET /admin/inbox/drafts', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .get('/admin/inbox/drafts');
+      .get('/admin/import/drafts');
 
     expect(response.status).toBe(200);
     expect(response.body.data).toEqual([]);
@@ -726,7 +726,7 @@ describe('GET /admin/inbox/drafts', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .get('/admin/inbox/drafts');
+      .get('/admin/import/drafts');
 
     expect(response.status).toBe(200);
     expect(response.body.data).toHaveLength(1);
@@ -752,7 +752,7 @@ describe('GET /admin/inbox/drafts', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .get('/admin/inbox/drafts');
+      .get('/admin/import/drafts');
 
     expect(response.status).toBe(200);
     expect(response.body.data[0].title).toBeNull();
@@ -775,7 +775,7 @@ describe('GET /admin/inbox/drafts', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     const response = await request(makeApp())
-      .get('/admin/inbox/drafts');
+      .get('/admin/import/drafts');
 
     expect(response.status).toBe(200);
     expect(response.body.data[0].title).toBeNull();
@@ -788,7 +788,7 @@ describe('GET /admin/inbox/drafts', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     await request(makeApp())
-      .get('/admin/inbox/drafts?status=ready');
+      .get('/admin/import/drafts?status=ready');
 
     expect(chain.where).toHaveBeenCalledWith(
       'discord_import_table_drafts.status',
@@ -804,7 +804,7 @@ describe('GET /admin/inbox/drafts', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     await request(makeApp())
-      .get('/admin/inbox/drafts?origin=manual_paste');
+      .get('/admin/import/drafts?origin=manual_paste');
 
     expect(chain.where).toHaveBeenCalledWith(
       'import_messages.source_type',
@@ -820,7 +820,7 @@ describe('GET /admin/inbox/drafts', () => {
     mockDb.selectFrom.mockReturnValue(chain);
 
     await request(makeApp())
-      .get('/admin/inbox/drafts');
+      .get('/admin/import/drafts');
 
     expect(chain.limit).toHaveBeenCalledWith(50);
     expect(chain.offset).toHaveBeenCalledWith(0);
@@ -828,17 +828,17 @@ describe('GET /admin/inbox/drafts', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────────────
-// GET /admin/inbox/drafts/:id
+// GET /admin/import/drafts/:id
 // ────────────────────────────────────────────────────────────────────────────────
 
-describe('GET /admin/inbox/drafts/:id', () => {
+describe('GET /admin/import/drafts/:id', () => {
   it('returns 404 for nonexistent draft', async () => {
     mockDb.selectFrom.mockReturnValue(mockChain({
       executeTakeFirst: vi.fn().mockResolvedValue(null),
     }));
 
     const response = await request(makeApp())
-      .get('/admin/inbox/drafts/nonexistent');
+      .get('/admin/import/drafts/nonexistent');
 
     expect(response.status).toBe(404);
     expect(response.body.error).toContain('não encontrado');
@@ -861,7 +861,7 @@ describe('GET /admin/inbox/drafts/:id', () => {
     }));
 
     const response = await request(makeApp())
-      .get('/admin/inbox/drafts/draft-1');
+      .get('/admin/import/drafts/draft-1');
 
     expect(response.status).toBe(422);
     expect(response.body.error).toContain('Discord');
@@ -891,7 +891,7 @@ describe('GET /admin/inbox/drafts/:id', () => {
     }));
 
     const response = await request(makeApp())
-      .get('/admin/inbox/drafts/draft-1');
+      .get('/admin/import/drafts/draft-1');
 
     expect(response.status).toBe(200);
     expect(response.body.data.id).toBe('draft-1');
@@ -901,13 +901,13 @@ describe('GET /admin/inbox/drafts/:id', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────────────
-// PATCH /admin/inbox/drafts/:id
+// PATCH /admin/import/drafts/:id
 // ────────────────────────────────────────────────────────────────────────────────
 
-describe('PATCH /admin/inbox/drafts/:id', () => {
+describe('PATCH /admin/import/drafts/:id', () => {
   it('rejects invalid payload (400)', async () => {
     const response = await request(makeApp())
-      .patch('/admin/inbox/drafts/draft-1')
+      .patch('/admin/import/drafts/draft-1')
       .send({ invalid: true });
 
     expect(response.status).toBe(400);
@@ -915,7 +915,7 @@ describe('PATCH /admin/inbox/drafts/:id', () => {
 
   it('rejects empty body (400)', async () => {
     const response = await request(makeApp())
-      .patch('/admin/inbox/drafts/draft-1')
+      .patch('/admin/import/drafts/draft-1')
       .send({});
 
     expect(response.status).toBe(400);
@@ -927,7 +927,7 @@ describe('PATCH /admin/inbox/drafts/:id', () => {
     }));
 
     const response = await request(makeApp())
-      .patch('/admin/inbox/drafts/nonexistent')
+      .patch('/admin/import/drafts/nonexistent')
       .send({ status: 'ready' });
 
     expect(response.status).toBe(404);
@@ -946,7 +946,7 @@ describe('PATCH /admin/inbox/drafts/:id', () => {
     }));
 
     const response = await request(makeApp())
-      .patch('/admin/inbox/drafts/draft-1')
+      .patch('/admin/import/drafts/draft-1')
       .send({ status: 'ready' });
 
     expect(response.status).toBe(422);
@@ -964,7 +964,7 @@ describe('PATCH /admin/inbox/drafts/:id', () => {
     }));
 
     const response = await request(makeApp())
-      .patch('/admin/inbox/drafts/draft-1')
+      .patch('/admin/import/drafts/draft-1')
       .send({ status: 'rejected' });
 
     expect(response.status).toBe(422);
@@ -982,7 +982,7 @@ describe('PATCH /admin/inbox/drafts/:id', () => {
     }));
 
     const response = await request(makeApp())
-      .patch('/admin/inbox/drafts/draft-1')
+      .patch('/admin/import/drafts/draft-1')
       .send({ normalized_payload: { table: { status: 'published' } } });
 
     expect(response.status).toBe(422);
@@ -991,7 +991,7 @@ describe('PATCH /admin/inbox/drafts/:id', () => {
 
   it('rejects invalid enum values in normalized_payload.table (400)', async () => {
     const response = await request(makeApp())
-      .patch('/admin/inbox/drafts/draft-1')
+      .patch('/admin/import/drafts/draft-1')
       .send({ normalized_payload: { table: { type: 'banana' } } });
 
     expect(response.status).toBe(400);
@@ -1024,7 +1024,7 @@ describe('PATCH /admin/inbox/drafts/:id', () => {
     mockDb.updateTable.mockReturnValue(updateChain);
 
     const response = await request(makeApp())
-      .patch('/admin/inbox/drafts/draft-1')
+      .patch('/admin/import/drafts/draft-1')
       .send({ status: 'ready' });
 
     expect(response.status).toBe(200);
@@ -1057,7 +1057,7 @@ describe('PATCH /admin/inbox/drafts/:id', () => {
     mockDb.updateTable.mockReturnValue(updateChain);
 
     const response = await request(makeApp())
-      .patch('/admin/inbox/drafts/draft-1')
+      .patch('/admin/import/drafts/draft-1')
       .send({ normalized_payload: { table: { title: 'New' }, source: {} }, review_notes: 'Corrigido' });
 
     expect(response.status).toBe(200);
@@ -1066,17 +1066,17 @@ describe('PATCH /admin/inbox/drafts/:id', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────────────
-// POST /admin/inbox/drafts/:id/reparse
+// POST /admin/import/drafts/:id/reparse
 // ────────────────────────────────────────────────────────────────────────────────
 
-describe('POST /admin/inbox/drafts/:id/reparse', () => {
+describe('POST /admin/import/drafts/:id/reparse', () => {
   it('returns 404 for nonexistent draft', async () => {
     mockDb.selectFrom.mockReturnValue(mockChain({
       executeTakeFirst: vi.fn().mockResolvedValue(null),
     }));
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/nonexistent/reparse');
+      .post('/admin/import/drafts/nonexistent/reparse');
 
     expect(response.status).toBe(404);
     expect(response.body.error).toContain('não encontrado');
@@ -1092,7 +1092,7 @@ describe('POST /admin/inbox/drafts/:id/reparse', () => {
     }));
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/reparse');
+      .post('/admin/import/drafts/draft-1/reparse');
 
     expect(response.status).toBe(422);
     expect(response.body.error).toContain('sincronizado');
@@ -1109,7 +1109,7 @@ describe('POST /admin/inbox/drafts/:id/reparse', () => {
     }));
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/reparse');
+      .post('/admin/import/drafts/draft-1/reparse');
 
     expect(response.status).toBe(422);
     expect(response.body.error).toContain('Discord');
@@ -1130,7 +1130,7 @@ describe('POST /admin/inbox/drafts/:id/reparse', () => {
     }));
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/reparse');
+      .post('/admin/import/drafts/draft-1/reparse');
 
     expect(response.status).toBe(404);
     expect(response.body.error).toContain('origem');
@@ -1216,7 +1216,7 @@ describe('POST /admin/inbox/drafts/:id/reparse', () => {
     });
 
     const response = await request(makeApp())
-      .post('/admin/inbox/drafts/draft-1/reparse');
+      .post('/admin/import/drafts/draft-1/reparse');
 
     expect(response.status).toBe(200);
     expect(response.body.data.status).toBe('ready');

@@ -39,7 +39,7 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
       },
     });
   } catch (error: unknown) {
-    console.error('[GET /api/v1/admin/inbox/metrics]', error);
+    console.error('[GET /api/v1/admin/import/metrics]', error);
     return res.status(500).json({ error: 'Erro ao carregar métricas.' });
   }
 });

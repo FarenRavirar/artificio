@@ -874,6 +874,6 @@ export function sendDiscordFetchError(res: Response, error: unknown): Response {
   if (error instanceof Error && error.message.includes('DISCORD_BOT_TOKEN não configurado')) {
     return res.status(422).json({ error: error.message });
   }
-  console.error('[POST /admin/discord-sync/fetch]', error);
+  console.error('[POST /admin/discord/fetch]', error);
   return res.status(500).json({ error: 'Erro ao buscar mensagens.' });
 }

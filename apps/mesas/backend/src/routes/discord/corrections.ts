@@ -6,7 +6,7 @@ import { authRateLimiter } from '../../middleware/rateLimit';
 import { createCorrectionHandler } from './utils';
 
 // REV-016 onda 3: handler compartilhado com inbox/corrections.ts
-const router = createCorrectionHandler('/admin/discord-sync/drafts/:id/correction');
+const router = createCorrectionHandler('/admin/discord/drafts/:id/correction');
 
 // ─── T-G5 — Export de exemplos few-shot (correções → prompt/response) ────────
 
@@ -67,7 +67,7 @@ router.get('/export/few-shot', authRateLimiter, requireAdmin, async (req: Reques
 
     return res.json({ data: { examples, count: examples.length, offset: qs.data.offset } });
   } catch (error: unknown) {
-    console.error('[GET /admin/discord-sync/drafts/export/few-shot]', error);
+    console.error('[GET /admin/discord/drafts/export/few-shot]', error);
     return res.status(500).json({ error: 'Erro ao exportar exemplos few-shot.' });
   }
 });
@@ -113,7 +113,7 @@ router.get('/export/eval', authRateLimiter, requireAdmin, async (req: Request, r
 
     return res.json({ data: { examples, count: examples.length, offset: qs.data.offset } });
   } catch (error: unknown) {
-    console.error('[GET /admin/discord-sync/drafts/export/eval]', error);
+    console.error('[GET /admin/discord/drafts/export/eval]', error);
     return res.status(500).json({ error: 'Erro ao exportar conjunto de avaliação.' });
   }
 });
