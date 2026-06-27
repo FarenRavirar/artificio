@@ -66,8 +66,9 @@ services:
       - GOOGLE_CALLBACK_URL=https://mesas.artificiorpg.com/api/v1/auth/google/callback
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      # WS3/REV-018: token serviço-a-serviço p/ buscar segredos no accounts (DeepSeek key)
-      - SERVICE_SECRET=${SERVICE_SECRET}
+      # WS3/REV-018: token serviço-a-serviço p/ buscar segredos no accounts (DeepSeek key).
+      # REV-048: obrigatório — falha no deploy em vez de quebrar parse/enrichment em runtime.
+      - SERVICE_SECRET=${SERVICE_SECRET:?SERVICE_SECRET obrigatorio para mesas-api}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
       - JWT_REFRESH_EXPIRES_IN=7d
       - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
@@ -121,7 +122,8 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       # WS3/REV-018: cron também parseia/enriquece — precisa do token p/ DeepSeek key
       - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
-      - SERVICE_SECRET=${SERVICE_SECRET}
+      # REV-048: obrigatório também no cron.
+      - SERVICE_SECRET=${SERVICE_SECRET:?SERVICE_SECRET obrigatorio para mesas-cron}
     depends_on:
       mesas-api:
         condition: service_healthy

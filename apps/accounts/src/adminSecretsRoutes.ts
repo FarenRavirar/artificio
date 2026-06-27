@@ -31,9 +31,12 @@ function requireAdmin(req: Request, res: Response, next: () => void): void {
 }
 
 function getSecretsKey(env: Record<string, string | undefined>): string {
-  const key = env.ACCOUNTS_SECRETS_KEY || env.JWT_SECRET;
+  // REV-023: chave dedicada e obrigatória. Sem fallback p/ JWT_SECRET — senão a
+  // rotação do JWT inutilizaria toda a tabela admin_secrets e reusaria a mesma
+  // chave p/ dois propósitos. Falhar explicitamente é mais seguro.
+  const key = env.ACCOUNTS_SECRETS_KEY;
   if (!key) {
-    throw new SecretUnavailableError('ACCOUNTS_SECRETS_KEY ou JWT_SECRET não configurado.');
+    throw new SecretUnavailableError('ACCOUNTS_SECRETS_KEY não configurado.');
   }
   return key;
 }

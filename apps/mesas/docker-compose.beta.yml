@@ -66,8 +66,9 @@ services:
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
       - JWT_REFRESH_EXPIRES_IN=7d
       - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
-      # WS3/REV-018: token serviço-a-serviço p/ buscar segredos no accounts (DeepSeek key)
-      - SERVICE_SECRET=${SERVICE_SECRET}
+      # WS3/REV-018: token serviço-a-serviço p/ buscar segredos no accounts (DeepSeek key).
+      # REV-047: obrigatório — beta falha no deploy em vez de getSecret() virar null silencioso.
+      - SERVICE_SECRET=${SERVICE_SECRET:?SERVICE_SECRET obrigatorio para mesas-beta-api}
       - FRONTEND_URL=https://mesasbeta.artificiorpg.com
       - PUBLIC_SITE_URL=https://mesasbeta.artificiorpg.com
       - INDEX_HTML_PATH=/app/frontend-dist/index.html

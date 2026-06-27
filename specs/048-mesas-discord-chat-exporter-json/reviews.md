@@ -804,3 +804,95 @@ Achados do SonarCloud no PR #100. **2 failures** (quality gate — cognitive com
 | REV-043 | procede (cosmético) | `session?.user?.role !== 'admin'` |
 | REV-044 | procede | `htmlFor="deepseek-api-key"` + `id` no input |
 
+## Reviews — PR #100 rodada 2 (2026-06-27) — CodeRabbit pós-fix
+
+Achados na revisão do commit `96ad93e`. **Todos procedem e aplicados.**
+
+### REV-045 — refresh-urls lê campo errado (`refreshed` vs `refreshed_urls`)
+
+- **Origem:** coderabbitai (bot) · **Tipo:** PR (review) · **Severidade:** 🗄️ Data Integrity 🟠 Major
+- **Referência:** `apps/mesas/backend/src/discord/uploadDiscordImage.ts:61-63`
+- **Resumo:** Discord responde `{ refreshed_urls: [...] }`, mas o código lia `body.refreshed` → sempre `undefined` → retry caía em null e nunca tentava a URL renovada. **Bug real** (o REV-020 mexeu só nos entries internos, não no campo de topo).
+- **Status:** implementado ✅ — campo corrigido p/ `refreshed_urls`.
+
+### REV-046 — SERVICE_SECRET obrigatório no compose accounts prod
+
+- **Origem:** coderabbitai (bot) · **Tipo:** PR (review) · **Severidade:** 🩺 Stability 🟠 Major
+- **Referência:** `apps/accounts/docker-compose.prod.yml:59-60`
+- **Resumo:** `${SERVICE_SECRET}` puro permite subir sem o token; GET /admin/secrets deixa de aceitar auth serviço-a-serviço e a integração mesas quebra silenciosa. Usar interpolação obrigatória (`:?`).
+- **Status:** implementado ✅ — `${SERVICE_SECRET:?...}`.
+
+### REV-047 — SERVICE_SECRET obrigatório no compose mesas beta
+
+- **Origem:** coderabbitai (bot) · **Tipo:** PR (review) · **Severidade:** 🩺 Stability 🟠 Major
+- **Referência:** `apps/mesas/docker-compose.beta.yml:69-70`
+- **Resumo:** Mesmo problema do lado consumidor: sem a env, `getSecret()` vira null p/ tudo e o enrichment some silencioso.
+- **Status:** implementado ✅ — `${SERVICE_SECRET:?...}`.
+
+### REV-048 — SERVICE_SECRET obrigatório no compose mesas prod
+
+- **Origem:** coderabbitai (bot) · **Tipo:** PR (review) · **Severidade:** 🩺 Stability 🟠 Major
+- **Referência:** `apps/mesas/docker-compose.prod.yml` (api + cron)
+- **Resumo:** Idem — falhar no deploy em vez de quebrar parse/enrichment em runtime.
+- **Status:** implementado ✅ — `${SERVICE_SECRET:?...}` na api e no cron.
+
+---
+
+## ⚠️ AÇÃO DO MANTENEDOR — segredos novos de deploy (REV-023 + REV-018)
+
+**REV-023 aplicado:** `getSecretsKey` não usa mais fallback `JWT_SECRET`; agora exige `ACCOUNTS_SECRETS_KEY`. E os compose passaram a **exigir** `SERVICE_SECRET` (REV-046/47/48). Por isso, **o deploy agora FALHA se estas envs não existirem**. Antes de promover/deployar, você precisa criar 2 segredos novos no ambiente de deploy.
+
+### 1. `SERVICE_SECRET` (token serviço-a-serviço mesas ↔ accounts)
+
+- **O que é:** token compartilhado que o mesas envia no header `X-Service-Token` p/ o accounts liberar `GET /admin/secrets/:name` (busca da chave DeepSeek).
+- **Onde:** o **MESMO valor** em **4 serviços**: `accounts-api` (prod), `mesas-api` (prod), `mesas-cron` (prod) e `mesas-beta-api` (beta).
+- **Tamanho:** ≥ 16 chars (recomendado ≥ 32).
+
+### 2. `ACCOUNTS_SECRETS_KEY` (chave de cifra do admin_secrets)
+
+- **O que é:** chave AES p/ cifrar/decifrar a tabela `admin_secrets` no accounts (onde mora a chave DeepSeek cifrada).
+- **Onde:** só no `accounts-api` (prod).
+- **Tamanho:** ≥ 32 chars.
+- **⚠️ ESTÁVEL PARA SEMPRE:** se você trocar essa chave depois, **todos os segredos já cifrados ficam ilegíveis** (teria que regravá-los). Gere uma vez e não rotacione sem migração.
+
+### Como gerar os valores
+
+```bash
+# SERVICE_SECRET (um valor, reusado nos 4 serviços)
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+
+# ACCOUNTS_SECRETS_KEY (outro valor, só accounts)
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+```
+
+### Onde colocar
+
+As envs são expandidas pelo `--env-file` que a esteira passa ao `docker compose` (ver cabeçalho do `apps/accounts/docker-compose.prod.yml`). Então:
+
+1. Adicione no(s) arquivo(s) `.env` de deploy da VM (gitignored) consumidos pela esteira:
+   - `.env` do accounts: `SERVICE_SECRET=...` **e** `ACCOUNTS_SECRETS_KEY=...`
+   - `.env` do mesas (prod + beta): `SERVICE_SECRET=...` (mesmo valor do accounts)
+2. Se a esteira injeta via **GitHub Actions secrets**, crie os secrets correspondentes no repo (`SERVICE_SECRET`, `ACCOUNTS_SECRETS_KEY`) e garanta que o workflow os escreve no `--env-file`.
+3. Nunca commitar esses valores. Nunca imprimir em log.
+
+### Checklist antes de deployar
+
+- [ ] `SERVICE_SECRET` definido e **idêntico** em accounts + mesas (prod) + mesas (beta).
+- [ ] `ACCOUNTS_SECRETS_KEY` (≥32) definido no accounts e **guardado em local seguro** (rotação quebra segredos).
+- [ ] Após deploy do accounts: gravar a chave DeepSeek pelo painel `/conta` (admin logado).
+- [ ] Smoke: parse de uma mensagem dispara enrichment (mesas consegue `getSecret('deepseek_api_key')` no accounts).
+
+**Sem esses passos o deploy falha de propósito (fail-fast) — é o comportamento desejado pós REV-023/046/047/048.**
+
+## Veredito rodada 2 + REV-023 — 2026-06-27
+
+| REV | Veredito | Fix |
+|-----|----------|-----|
+| REV-023 | **procede e aplicado** | removido fallback `JWT_SECRET`; exige `ACCOUNTS_SECRETS_KEY` (+ env obrigatória no compose) |
+| REV-045 | procede | campo `refreshed_urls` (bug de retry de imagem) |
+| REV-046 | procede | `SERVICE_SECRET` obrigatório (accounts prod) |
+| REV-047 | procede | `SERVICE_SECRET` obrigatório (mesas beta) |
+| REV-048 | procede | `SERVICE_SECRET` obrigatório (mesas prod api+cron) |
+
+**Ainda pendente (decisão tua):** REV-033 (volume nomeado p/ logs — REV-028 já mitiga o crash).
+

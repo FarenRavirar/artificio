@@ -58,8 +58,10 @@ async function refreshDiscordAttachmentUrls(
       return null;
     }
 
-    const body = await response.json() as { refreshed?: Array<{ original?: string; refreshed?: string }> };
-    const refreshed = body?.refreshed;
+    // O endpoint do Discord responde { refreshed_urls: [{ original, refreshed }] }
+    // — o campo de topo é `refreshed_urls`, não `refreshed` (REV-045).
+    const body = await response.json() as { refreshed_urls?: Array<{ original?: string; refreshed?: string }> };
+    const refreshed = body?.refreshed_urls;
     if (!Array.isArray(refreshed)) return null;
 
     // Mapeia URL original → refreshed (ambas podem ser null/inválidas)
