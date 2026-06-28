@@ -19,7 +19,12 @@
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { join, resolve, basename } from 'node:path';
+import { join, resolve, basename, relative } from 'node:path';
+import { createRequire } from 'node:module';
+
+// Resolve o entry JS do openapi-diff e o roda com node diretamente — evita o wrapper
+// pnpm/.cmd (que sai vazio via execFileSync no Windows) e dispensa shell.
+const OPENAPI_DIFF_BIN = createRequire(import.meta.url).resolve('openapi-diff/bin/openapi-diff');
 
 // ═══════════════════════════════════════════════
 //  TIPOS
@@ -93,27 +98,59 @@ function getBaseVersion(filePath: string, baseBranch: string): string | null {
 }
 
 function runOpenapiDiff(oldFile: string, newFile: string): DiffResult {
-  const pnpmExecPath = process.env.npm_execpath;
-  const command = pnpmExecPath?.endsWith('.mjs') ? process.execPath : (process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm');
-  const commandArgs = [
-    ...(pnpmExecPath?.endsWith('.mjs') ? [pnpmExecPath] : []),
-    'exec',
-    'openapi-diff',
-    oldFile,
-    newFile,
-  ];
-  const stdout = execFileSync(command, commandArgs, {
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'ignore'],
-  }).trim();
+  // openapi-diff sai com código != 0 quando encontra diferenças. execFileSync lança nesse
+  // caso, mas o stdout útil (JSON ou a mensagem de "no changes") vem no erro. Capturamos
+  // stdout de ambos os caminhos.
+  const asText = (v: Buffer | string | undefined | null): string =>
+    v == null ? '' : (typeof v === 'string' ? v : v.toString('utf-8'));
+  // openapi-diff trata caminhos absolutos do Windows (`C:\...`) como URL com protocolo `c:`
+  // ("Unsupported protocol c:"). Passamos caminhos relativos ao cwd, com `/`, p/ evitar isso.
+  const rel = (p: string) => relative(process.cwd(), p).replace(/\\/g, '/');
+  let stdout: string;
+  try {
+    stdout = execFileSync(process.execPath, [OPENAPI_DIFF_BIN, rel(oldFile), rel(newFile)], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch (error) {
+    // openapi-diff escreve a saída (JSON ou "no changes") ora em stdout, ora em stderr,
+    // dependendo do código de saída. Combinamos os dois.
+    const err = error as { stdout?: Buffer | string; stderr?: Buffer | string };
+    stdout = `${asText(err.stdout)}\n${asText(err.stderr)}`.trim();
+    if (!stdout) throw error;
+  }
 
   const jsonStart = stdout.indexOf('{');
   if (jsonStart < 0) {
+    // openapi-diff emite texto puro quando os specs são idênticos (sem JSON).
+    // Acontece quando o branch base já tem o mesmo OpenAPI (pós-merge) — não é erro.
+    if (/no changes found/i.test(stdout)) {
+      return { summary: { breaking: 0, 'non-breaking': 0, unclassified: 0 }, differences: [] };
+    }
     throw new Error(`openapi-diff não retornou JSON parseável. Saída: ${stdout.slice(0, 500)}`);
   }
 
   try {
-    return JSON.parse(stdout.slice(jsonStart)) as DiffResult;
+    // openapi-diff 0.24.1 emite (após uma linha de cabeçalho textual) JSON no formato:
+    //   { breakingDifferencesFound, breakingDifferences[], nonBreakingDifferences[], unclassifiedDifferences[] }
+    // Cada item já traz type/action/code/destinationSpecEntityDetails — mapeamos para a forma
+    // interna { summary, differences } consumida por main()/generateReport().
+    const raw = JSON.parse(stdout.slice(jsonStart)) as {
+      breakingDifferences?: DiffChange[];
+      nonBreakingDifferences?: DiffChange[];
+      unclassifiedDifferences?: DiffChange[];
+    };
+    const breaking = Array.isArray(raw.breakingDifferences) ? raw.breakingDifferences : [];
+    const nonBreaking = Array.isArray(raw.nonBreakingDifferences) ? raw.nonBreakingDifferences : [];
+    const unclassified = Array.isArray(raw.unclassifiedDifferences) ? raw.unclassifiedDifferences : [];
+    return {
+      summary: {
+        breaking: breaking.length,
+        'non-breaking': nonBreaking.length,
+        unclassified: unclassified.length,
+      },
+      differences: [...breaking, ...nonBreaking, ...unclassified],
+    };
   } catch (error) {
     throw new Error(
       `Falha ao parsear saída JSON do openapi-diff: ${error instanceof Error ? error.message : String(error)}`
