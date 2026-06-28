@@ -1,6 +1,6 @@
 # Mapa de Rotas — Artifício RPG
 
-> Gerado automaticamente por `scripts/api/inventory.ts` em 2026-06-28.
+> Gerado automaticamente por `scripts/api/inventory.ts` em 1970-01-01.
 > **Não editar manualmente.** Fonte: `docs/api/generated/api-inventory.generated.json`.
 
 ## Estatísticas

@@ -14,6 +14,8 @@ import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { load as yamlLoad } from 'js-yaml';
 
+const GENERATED_AT = process.env.API_GENERATED_AT || '1970-01-01T00:00:00.000Z';
+
 // ═══════════════════════════════════════════════
 //  TIPOS
 // ═══════════════════════════════════════════════
@@ -160,7 +162,8 @@ function isSyntheticApiPath(path: string): boolean {
   return path.includes('<') || path.includes('>') || path.includes(':param:param');
 }
 
-function canBeAllowlisted(method: string, path: string): boolean {
+function canBeAllowlisted(method: unknown, path: unknown): boolean {
+  if (typeof method !== 'string' || typeof path !== 'string') return false;
   return method.toUpperCase() !== 'UNKNOWN' && isConcreteApiPath(path) && !isSyntheticApiPath(path);
 }
 
@@ -629,7 +632,7 @@ function generateOrphansReport(
   filePath: string,
   trafficCount: number = 0,
 ): void {
-  const now = new Date().toISOString();
+  const now = GENERATED_AT;
 
   let md = `# Relatório de Rotas Órfãs e Duplicadas
 
@@ -777,7 +780,7 @@ function generateMarkdownReport(
   allowlist: Map<string, AllowlistEntry>,
   exitCode: 0 | 1,
 ): string {
-  const now = new Date().toISOString();
+  const now = GENERATED_AT;
   const mode = exitCode === 0 ? 'inicial (sem bloqueios)' : 'bloqueante';
 
   // Count by state

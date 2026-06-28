@@ -1,0 +1,2 @@
+#!/bin/sh
+node scripts/api/pre-push-verify.mjs

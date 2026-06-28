@@ -22,6 +22,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ts from 'typescript';
 
+const GENERATED_AT = process.env.API_GENERATED_AT || '1970-01-01T00:00:00.000Z';
+
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
 interface ConsumerEntry {
@@ -615,7 +617,7 @@ function generateOutput(entries: ConsumerEntry[]): object {
         },
       ])
     ),
-    generatedAt: new Date().toISOString(),
+    generatedAt: GENERATED_AT,
     script: 'scripts/api/consumers.ts',
   };
 

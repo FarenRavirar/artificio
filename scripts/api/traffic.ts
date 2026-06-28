@@ -22,6 +22,8 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+const GENERATED_AT = process.env.API_GENERATED_AT || '1970-01-01T00:00:00.000Z';
+
 // ═══════════════════════════════════════════════
 //  TIPOS
 // ═══════════════════════════════════════════════
@@ -415,7 +417,7 @@ function main(): void {
       total: routes.length,
       sources: [...usedSources],
       byApp,
-      generatedAt: new Date().toISOString(),
+      generatedAt: GENERATED_AT,
     },
     routes,
   };

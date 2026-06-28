@@ -28,6 +28,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ts from 'typescript';
 
+const GENERATED_AT = process.env.API_GENERATED_AT || '1970-01-01T00:00:00.000Z';
+
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
 interface RouteEntry {
@@ -673,7 +675,7 @@ function generateOutput(results: RouteEntry[]): { json: object; markdown: string
         },
       ])
     ),
-    generatedAt: new Date().toISOString(),
+    generatedAt: GENERATED_AT,
     script: 'scripts/api/inventory.ts',
   };
 
@@ -694,7 +696,7 @@ function generateOutput(results: RouteEntry[]): { json: object; markdown: string
   // Markdown
   let md = `# Mapa de Rotas — Artifício RPG
 
-> Gerado automaticamente por \`scripts/api/inventory.ts\` em ${new Date().toISOString().split('T')[0]}.
+> Gerado automaticamente por \`scripts/api/inventory.ts\` em ${GENERATED_AT.split('T')[0]}.
 > **Não editar manualmente.** Fonte: \`docs/api/generated/api-inventory.generated.json\`.
 
 ## Estatísticas

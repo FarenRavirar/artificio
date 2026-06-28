@@ -63,6 +63,7 @@ const APPS = ['accounts', 'mesas', 'glossario', 'links'];
 const OPENAPI_DIR = resolve(import.meta.dirname, '../../docs/api/openapi');
 const OUTPUT_DIR = resolve(import.meta.dirname, '../../docs/api/generated');
 const DEFAULT_BASE = process.env.GITHUB_BASE_REF || 'dev';
+const GENERATED_AT = process.env.API_GENERATED_AT || '1970-01-01T00:00:00.000Z';
 
 // ═══════════════════════════════════════════════
 //  HELPERS
@@ -133,7 +134,7 @@ function writeTempFile(content: string, suffix: string): string {
 // ═══════════════════════════════════════════════
 
 function generateReport(appDiffs: AppDiff[], baseBranch: string): string {
-  const now = new Date().toISOString();
+  const now = GENERATED_AT;
   const totalBreaking = appDiffs.reduce((s, d) => s + d.breaking, 0);
   const totalNonBreaking = appDiffs.reduce((s, d) => s + d.nonBreaking, 0);
   const totalUnclassified = appDiffs.reduce((s, d) => s + d.unclassified, 0);

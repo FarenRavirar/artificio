@@ -1,6 +1,6 @@
 # Relatório de Divergência de API — api:check
 
-**Gerado em:** 2026-06-28T14:10:04.829Z
+**Gerado em:** 1970-01-01T00:00:00.000Z
 **Exit code:** 0 (inicial (sem bloqueios))
 **Modo:** inicial
 

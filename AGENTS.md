@@ -50,6 +50,7 @@ Comandos uteis:
 - `pnpm run lint` — ESLint repo-wide
 - `pnpm run test` — vitest repo-wide (via turbo)
 - `pnpm run build` — turbo build repo-wide (cobre tsc)
+- `pnpm verify:api` — governança de API para mudanças em `apps/**`, `packages/**`, `scripts/api/**`, `docs/api/openapi/**` ou allowlist
 - `rg "termo" apps packages -n` — busca textual com numero de linha
 - `rg -l "termo" apps packages` — so lista arquivos (economiza contexto)
 - `rg --files apps packages` — lista todos arquivos monitorados

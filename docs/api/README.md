@@ -52,6 +52,8 @@ Validação:
 | `pnpm api:diff` | Detecta breaking changes entre versões do OpenAPI (`api-diff.generated.md`) |
 | `pnpm api:docs` | Gera documentação visual HTML (`{app}-api-docs.html`) |
 | `pnpm api:generate-openapi` | Regenera OpenAPI YAMLs a partir do inventário |
+| `pnpm verify:api` | Validação padrão de governança de API para desenvolvimento/PR |
+| `pnpm verify:api:full` | Validação completa local, incluindo tráfego observado e docs HTML |
 
 ### Pipeline de validação (ordem recomendada)
 
@@ -64,6 +66,49 @@ pnpm api:check              # 5. Comparar as 4 fontes + relatório
 pnpm api:diff               # 6. (Opcional) Verificar breaking changes
 pnpm api:docs               # 7. (Local) Gerar docs visual
 ```
+
+Na rotina normal, use o agregador:
+
+```bash
+pnpm verify:api
+```
+
+Ele roda, em ordem:
+
+1. `pnpm api:inventory`
+2. `pnpm api:consumers`
+3. `pnpm api:generate-openapi`
+4. `pnpm api:lint`
+5. `pnpm api:check`
+6. `pnpm api:diff`
+
+Para fechamento local completo da spec ou revisão manual da documentação visual:
+
+```bash
+pnpm verify:api:full
+```
+
+Esse modo adiciona `pnpm api:traffic` e `pnpm api:docs`.
+
+## Hook local de pre-push
+
+O repositório usa hooks nativos do Git em `.githooks/`. Após `pnpm install`, o script `prepare` configura automaticamente:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+O hook `.githooks/pre-push` roda `pnpm verify:api` quando a branch tem mudanças em:
+
+- `apps/**`
+- `packages/**`
+- `scripts/api/**`
+- `docs/api/openapi/**`
+- `docs/api/.api-allowlist.json`
+- `package.json`
+- `pnpm-lock.yaml`
+
+Se `verify:api` regenerar arquivos versionados, o push é bloqueado até os artefatos serem revisados e commitados. O hook é uma proteção local de conveniência; a autoridade final continua sendo o job `api-governance` na PR.
 
 ## Metadados OpenAPI (`x-artificio-*`)
 
