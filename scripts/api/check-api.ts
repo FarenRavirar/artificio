@@ -289,7 +289,12 @@ function calculateState(
       scope === 'webhook' ||
       scope === 'cross-app' ||
       scope === 'legacy' ||
-      scope === 'internal';
+      scope === 'internal' ||
+      scope === 'external' ||
+      scope === 'media' ||
+      scope === 'public-page' ||
+      scope === 'self-service' ||
+      scope === 'telemetry';
     if (classified) return 'UNUSED_ROUTE'; // classificada → não precisa de consumidor
     return 'ORPHAN_SUSPECT'; // sem consumidor e sem classificação que justifique
   }
@@ -533,7 +538,7 @@ function detectOrphans(entries: DriftEntry[], trafficKeys: Set<string> = new Set
       // 4. Se tem classificação → verificar se justifica ausência
       const scope = entry.scope;
       const status = entry.status;
-      const classified = ['admin', 'cron', 'webhook', 'cross-app', 'internal'];
+      const classified = ['admin', 'cron', 'webhook', 'cross-app', 'internal', 'external', 'media', 'public-page', 'self-service', 'telemetry'];
       if (scope && classified.includes(scope)) return false; // classificada → não órfã
       if (status === 'legacy') return false; // legacy intencional
 

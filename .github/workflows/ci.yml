@@ -135,6 +135,12 @@ jobs:
           REDOCLY_SUPPRESS_UPDATE_NOTICE: "true"
         run: pnpm api:lint
 
+      - name: API Traffic Smoke (HAR automático quando configurado)
+        run: pnpm api:traffic:smoke
+
+      - name: API Traffic (tráfego observado)
+        run: pnpm api:traffic
+
       - name: API Check (modo estrito — allowlist deve estar vazia)
         run: pnpm api:check --strict
 

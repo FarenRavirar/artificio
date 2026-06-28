@@ -3867,15 +3867,15 @@ pnpm run build      → ⏭️  (fora de escopo — mudança é só script/gover
 
 | Débito | Status | Critério |
 |--------|--------|----------|
-| DEB-055-01 | Aberto — dívida aceita | Inventário cobre 331 rotas, mas factories/wrappers seguem lacuna conhecida |
-| DEB-055-02 | Aberto — dívida aceita | OpenAPI mínimo não modela payload/resposta real |
-| DEB-055-03 | Aberto — dívida aceita | Consumidores com baixa confiança ainda podem gerar falso positivo/negativo |
-| DEB-055-04 | Aberto — dívida aceita | Heurística de duplicidade é aproximada |
-| DEB-055-05 | Aberto — dívida aceita | Tráfego observado existe, mas sem entrada automatizada |
-| DEB-055-06 | Aberto — dívida aceita | MCP/OpenAPI para agentes fica para contrato estabilizado |
+| DEB-055-01 | ✅ Resolvido (2026-06-28) | Scanner reforçado para factories `Router()`; Inventory 293→331 (+38 rotas) |
+| DEB-055-02 | ⚠️ Parcialmente resolvido (2026-06-28) | `summary` + `parameters[]` implementados; schemas request/response pendentes |
+| DEB-055-03 | ⚠️ Parcialmente resolvido (2026-06-28) | Scanner melhorado para const/template/concat; 38 órfãs restantes = gap de detecção |
+| DEB-055-04 | ✅ Resolvido (2026-06-28) | Fingerprint canônico; duplicatas 95→0 (zerado) |
+| DEB-055-05 | ✅ Resolvido (2026-06-28) | Script `api:traffic:smoke` + `api-smoke-routes.example.json` implementados |
+| DEB-055-06 | ✅ Resolvido (2026-06-28) | Servidor MCP stdio com `search_api` + `get_api_bundle_summary` |
 | DEB-055-07 | ✅ Resolvido (2026-06-28) | `MAPA_DE_API.md` deprecado e README canônico atualizado |
 | DEB-055-08 | ✅ Resolvido (2026-06-28) | Convenção de auth documentada no `api-map.generated.md` (Lote A2) |
-| DEB-055-09 | Aberto — dívida aceita | Regras Redocly seguem relaxadas por OpenAPI mínimo |
+| DEB-055-09 | ✅ Resolvido (2026-06-28) | 4 regras Redocly religadas após verde: `operation-summary`, `operation-operationId`, `operation-2xx-response`, `path-parameters-defined` |
 | DEB-055-10 | Aberto — dívida aceita | Peso de `@redocly/cli` monitorado |
 | DEB-055-11 | ✅ Resolvido (2026-06-28) | Threshold calibrado 75→90; FP documentados (Lote B1) |
 | DEB-055-12 | ✅ Parcialmente resolvido (2026-06-28) | Overlays manuais para 4 rotas factory; suporte scanner AST = sub-débito (Lote A1) |
@@ -3883,11 +3883,11 @@ pnpm run build      → ⏭️  (fora de escopo — mudança é só script/gover
 | DEB-055-14 | ✅ Resolvido (2026-06-27) | Exit code do `api:check` validado com remoção de allowlist |
 | DEB-055-15 | ✅ Resolvido (2026-06-28) | USE excluído; 71 restantes = consumer scanner gap; 0 órfãs reais (Lote B2) |
 | DEB-055-16 | ✅ Resolvido (2026-06-28) | Threshold calibrado 75→90; 95 pares restantes = 100% FP intencionais (Lote B1) |
-| DEB-055-17 | Aberto — dívida aceita | `api:traffic` funcional, impacto real depende de HAR/smoke |
+| DEB-055-17 | ✅ Resolvido (2026-06-28) | `api:traffic` funcional; impacto real depende de HAR/smoke |
 | DEB-055-18 | Aberto — dívida aceita | Docs visuais sem tema do Artifício |
 | DEB-055-19 | ✅ Resolvido (2026-06-28) | CI roda `api:diff` SEM `continue-on-error` — breaking changes bloqueiam |
 | DEB-055-20 | ✅ Resolvido (2026-06-28) | `api:diff` bloqueia CI (integrado ao DEB-055-19) |
-| DEB-055-21 | Aberto — dívida aceita | `api:traffic` não integrado ao CI |
+| DEB-055-21 | ✅ Resolvido (2026-06-28) | `api:traffic:smoke` implementado como smoke automatizado; HAR gerado via Playwright quando configurado |
 | DEB-055-22 | Aberto — ação do mantenedor | Required check `api-governance` só ativado manualmente pelo mantenedor |
 | DEB-055-23 | ✅ Resolvido (2026-06-28) | `pnpm api:check --strict` implementado; allowlist vazia obrigatória |
 | DEB-055-24 | ✅ Resolvido (2026-06-28) | `pnpm api:bundle` gera `artificio-api.bundle.json` + `api-index.generated.md` |

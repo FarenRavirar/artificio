@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 239,
-    "uniqueEndpoints": 222,
+    "total": 269,
+    "uniqueEndpoints": 248,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -13,14 +13,14 @@
         }
       },
       "glossario-frontend": {
-        "total": 61,
+        "total": 63,
         "byConfidence": {
-          "high": 39,
-          "medium": 22
+          "medium": 24,
+          "high": 39
         },
         "byPattern": {
+          "template-literal": 24,
           "literal": 38,
-          "template-literal": 22,
           "service-wrapper": 1
         }
       },
@@ -36,35 +36,42 @@
         }
       },
       "mesas-frontend": {
-        "total": 130,
+        "total": 151,
         "byConfidence": {
+          "medium": 64,
           "high": 85,
-          "medium": 45
+          "low": 2
         },
         "byPattern": {
+          "unknown": 6,
+          "template-literal": 56,
           "service-wrapper": 29,
-          "template-literal": 45,
-          "literal": 56
+          "literal": 58,
+          "concatenation": 2
         }
       },
       "packages/auth": {
-        "total": 2,
+        "total": 6,
         "byConfidence": {
+          "medium": 4,
           "high": 2
         },
         "byPattern": {
+          "template-literal": 4,
           "service-wrapper": 2
         }
       },
       "site-admin": {
-        "total": 25,
+        "total": 28,
         "byConfidence": {
           "low": 1,
-          "high": 24
+          "high": 24,
+          "medium": 3
         },
         "byPattern": {
           "concatenation": 1,
-          "service-wrapper": 24
+          "service-wrapper": 24,
+          "template-literal": 3
         }
       }
     },
@@ -91,6 +98,26 @@
       "pattern": "literal",
       "wrapper": "fetch",
       "line": 51
+    },
+    {
+      "app": "glossario-frontend",
+      "consumerFile": "apps/glossario/frontend/src/pages/AdminStructurePage.tsx",
+      "method": "PUT",
+      "endpoint": "/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "api.put",
+      "line": 144
+    },
+    {
+      "app": "glossario-frontend",
+      "consumerFile": "apps/glossario/frontend/src/pages/AdminStructurePage.tsx",
+      "method": "DELETE",
+      "endpoint": "/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "api.delete",
+      "line": 153
     },
     {
       "app": "glossario-frontend",
@@ -834,6 +861,46 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
+      "method": "PUT",
+      "endpoint": "/:param",
+      "confidence": "medium",
+      "pattern": "unknown",
+      "wrapper": "authPut",
+      "line": 177
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
+      "method": "POST",
+      "endpoint": "/:param",
+      "confidence": "medium",
+      "pattern": "unknown",
+      "wrapper": "authPost",
+      "line": 178
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
+      "method": "DELETE",
+      "endpoint": "/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authDelete",
+      "line": 204
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/contexts/AuthContext.tsx",
+      "method": "POST",
+      "endpoint": "/api/auth/logout",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 64
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/contexts/AuthContext.tsx",
       "method": "GET",
       "endpoint": "/api/auth/refresh",
@@ -1274,6 +1341,26 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/table/components/TableActionPanel.tsx",
+      "method": "DELETE",
+      "endpoint": "/api/v1/admin/tables/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authDelete",
+      "line": 35
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/pages/PainelMestrePage.tsx",
+      "method": "DELETE",
+      "endpoint": "/api/v1/admin/tables/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authDelete",
+      "line": 514
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/components/ChangelogModal.tsx",
       "method": "GET",
       "endpoint": "/api/v1/changelog",
@@ -1394,6 +1481,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/create-table/hooks/useCreateTableForm.ts",
+      "method": "POST",
+      "endpoint": "/api/v1/gm/tables",
+      "confidence": "medium",
+      "pattern": "unknown",
+      "wrapper": "authPost",
+      "line": 231
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/pages/PainelMestrePage.tsx",
       "method": "GET",
       "endpoint": "/api/v1/gm/tables",
@@ -1404,6 +1501,26 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/create-table/hooks/useCreateTableForm.ts",
+      "method": "PUT",
+      "endpoint": "/api/v1/gm/tables/:param",
+      "confidence": "medium",
+      "pattern": "unknown",
+      "wrapper": "authPut",
+      "line": 230
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/table/components/TableActionPanel.tsx",
+      "method": "DELETE",
+      "endpoint": "/api/v1/gm/tables/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authDelete",
+      "line": 35
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/pages/PainelMestrePage.tsx",
       "method": "GET",
       "endpoint": "/api/v1/gm/tables/:param",
@@ -1411,6 +1528,16 @@
       "pattern": "template-literal",
       "wrapper": "authGet",
       "line": 370
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/pages/PainelMestrePage.tsx",
+      "method": "DELETE",
+      "endpoint": "/api/v1/gm/tables/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authDelete",
+      "line": 514
     },
     {
       "app": "mesas-frontend",
@@ -1774,6 +1901,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/ScenarioEditModal.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/scenarios/admin",
+      "confidence": "medium",
+      "pattern": "unknown",
+      "wrapper": "authPost",
+      "line": 92
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/pages/ScenariosAdminView.tsx",
       "method": "POST",
       "endpoint": "/api/v1/scenarios/admin",
@@ -1781,6 +1918,16 @@
       "pattern": "literal",
       "wrapper": "authPost",
       "line": 75
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/ScenarioEditModal.tsx",
+      "method": "PUT",
+      "endpoint": "/api/v1/scenarios/admin/:param",
+      "confidence": "medium",
+      "pattern": "unknown",
+      "wrapper": "authPut",
+      "line": 91
     },
     {
       "app": "mesas-frontend",
@@ -1815,6 +1962,16 @@
     {
       "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/components/SystemSuggestionModal.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/system-suggestions",
+      "confidence": "medium",
+      "pattern": "literal",
+      "wrapper": "authPost",
+      "line": 121
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/SystemSuggestionModal.tsx",
       "method": "GET",
       "endpoint": "/api/v1/systems",
       "confidence": "high",
@@ -1831,6 +1988,16 @@
       "pattern": "literal",
       "wrapper": "authGet",
       "line": 356
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/UserSystemsSelector.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/systems",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 35
     },
     {
       "app": "mesas-frontend",
@@ -1871,6 +2038,16 @@
       "pattern": "literal",
       "wrapper": "fetch",
       "line": 223
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/SystemSuggestionModal.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/systems/admin",
+      "confidence": "medium",
+      "pattern": "literal",
+      "wrapper": "authPost",
+      "line": 121
     },
     {
       "app": "mesas-frontend",
@@ -1994,6 +2171,26 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/AvatarUploader.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/upload",
+      "confidence": "low",
+      "pattern": "concatenation",
+      "wrapper": "authPost",
+      "line": 98
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/ImageUploader.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/upload",
+      "confidence": "low",
+      "pattern": "concatenation",
+      "wrapper": "authPost",
+      "line": 145
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/discord-sync/useDraftForm.ts",
       "method": "POST",
       "endpoint": "/api/v1/upload",
@@ -2041,6 +2238,56 @@
       "pattern": "literal",
       "wrapper": "fetch",
       "line": 24
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/pages/ProfileEditPage.tsx",
+      "method": "GET",
+      "endpoint": "/auth/discord/connect",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authenticatedFetch",
+      "line": 947
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/pages/ProfileEditPage.tsx",
+      "method": "DELETE",
+      "endpoint": "/auth/discord/disconnect",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authenticatedFetch",
+      "line": 99
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/App.tsx",
+      "method": "GET",
+      "endpoint": "/health",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 84
+    },
+    {
+      "app": "packages/auth",
+      "consumerFile": "packages/auth/src/client.ts",
+      "method": "POST",
+      "endpoint": "/api/auth/logout",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 144
+    },
+    {
+      "app": "packages/auth",
+      "consumerFile": "packages/auth/src/client.ts",
+      "method": "GET",
+      "endpoint": "/api/auth/me",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 94
     },
     {
       "app": "packages/auth",
@@ -2291,6 +2538,26 @@
       "pattern": "service-wrapper",
       "wrapper": "refreshSession",
       "line": 23
+    },
+    {
+      "app": "site-admin",
+      "consumerFile": "apps/site-admin/src/api.ts",
+      "method": "POST",
+      "endpoint": "/media",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authFetch",
+      "line": 112
+    },
+    {
+      "app": "site-admin",
+      "consumerFile": "apps/site-admin/src/api.ts",
+      "method": "POST",
+      "endpoint": "/preview",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authFetch",
+      "line": 134
     }
   ]
 }

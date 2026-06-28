@@ -110,9 +110,11 @@ pnpm api:bundle
 pnpm api:lint
 pnpm api:diff
 pnpm api:traffic
+pnpm api:traffic:smoke
 pnpm api:check
 pnpm api:check:strict
 pnpm api:docs
+pnpm api:mcp
 pnpm verify:api
 pnpm verify:api:full
 ```

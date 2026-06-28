@@ -53,7 +53,13 @@ rules:
         - admin
         - cron
         - webhook
-    message: "x-artificio-scope must be one of: internal, public, cross-app, admin, cron, webhook (got: {{property}})"
+        - external
+        - media
+        - public-page
+        - self-service
+        - telemetry
+        - legacy
+    message: "x-artificio-scope must be one of the configured Artifício API scopes (got: {{property}})"
     severity: error
 
   # x-artificio-status: obrigatório + enum

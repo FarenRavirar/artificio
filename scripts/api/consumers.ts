@@ -179,6 +179,20 @@ function hasSyntheticEndpointSegment(endpoint: string): boolean {
   return endpoint.includes('<') || endpoint.includes('>') || endpoint.includes(':param:param');
 }
 
+function normalizeExtractedEndpoint(endpoint: string): string {
+  // Template com origin dinâmico: `${apiUrl}/auth/discord/connect` vira
+  // `:param/auth/discord/connect`; para governança local só importa o path.
+  if (endpoint.startsWith(':param/')) return endpoint.slice(':param'.length);
+  try {
+    if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+      return new URL(endpoint).pathname;
+    }
+  } catch {
+    // mantém valor original; filtros seguintes descartam se não for path concreto
+  }
+  return endpoint;
+}
+
 /**
  * Remove artefato de query string montada por template condicional.
  * `/activity${qs ? '?'+qs : ''}` vira `/activity:param` (o `:param` cola no
@@ -191,10 +205,26 @@ function stripQueryParamArtifact(endpoint: string): string {
 
 function addConsumerResult(ctx: ConsumerContext, entry: ConsumerEntry): void {
   if (entry.method === 'UNKNOWN') return;
-  entry.endpoint = stripQueryParamArtifact(entry.endpoint);
+  entry.endpoint = normalizeExtractedEndpoint(stripQueryParamArtifact(entry.endpoint));
   if (!isConcreteEndpoint(entry.endpoint)) return;
   if (hasSyntheticEndpointSegment(entry.endpoint)) return;
   ctx.results.push(entry);
+}
+
+function addExtractedConsumerResults(
+  ctx: ConsumerContext,
+  extracted: ExtractedPath,
+  entry: Omit<ConsumerEntry, 'endpoint' | 'confidence' | 'pattern'>,
+  mapEndpoint: (pathOption: string) => string = (pathOption) => pathOption,
+): void {
+  for (const pathOption of splitAlternativePaths(extracted, entry.method)) {
+    addConsumerResult(ctx, {
+      ...entry,
+      endpoint: mapEndpoint(pathOption.path),
+      confidence: pathOption.confidence,
+      pattern: pathOption.pattern,
+    });
+  }
 }
 
 // ─── Extração de path de expressões ─────────────────────────────────────────
@@ -254,11 +284,50 @@ function extractPathFromArg(node: ts.Expression, consts: ConstMap = new Map()): 
     };
   }
 
+  if (ts.isConditionalExpression(node)) {
+    const whenTrue = extractPathFromArg(node.whenTrue, consts);
+    const whenFalse = extractPathFromArg(node.whenFalse, consts);
+    return {
+      path: `${whenTrue.path}|${whenFalse.path}`,
+      pattern: whenTrue.pattern === whenFalse.pattern ? whenTrue.pattern : 'unknown',
+      confidence: 'medium',
+    };
+  }
+
   if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node) || ts.isCallExpression(node)) {
     return { path: ':param', pattern: 'unknown', confidence: 'low' };
   }
 
   return { path: '<unknown>', pattern: 'unknown', confidence: 'low' };
+}
+
+function splitAlternativePaths(extracted: ExtractedPath, method: string): ExtractedPath[] {
+  if (!extracted.path.includes('|')) return [extracted];
+
+  const alternatives = extracted.path
+    .split('|')
+    .map((pathPart) => ({
+      ...extracted,
+      path: pathPart,
+      confidence: 'medium' as const,
+    }))
+    .filter((item) => item.path && item.path !== '<unknown>');
+
+  if (alternatives.length <= 1) return alternatives;
+
+  // Ternário típico: `isEditing ? /resource/:id : /resource`.
+  // POST cria coleção; PUT/PATCH/DELETE atuam em item. Evita gerar consumidor
+  // falso cruzando método com ramo incompatível.
+  if (method === 'POST') {
+    const collection = alternatives.filter((item) => !item.path.includes(':param'));
+    if (collection.length > 0) return collection;
+  }
+  if (method === 'PUT' || method === 'PATCH' || method === 'DELETE') {
+    const detail = alternatives.filter((item) => item.path.includes(':param'));
+    if (detail.length > 0) return detail;
+  }
+
+  return alternatives;
 }
 
 function collectStringLikeConsts(sf: ts.SourceFile): ConstMap {
@@ -269,6 +338,7 @@ function collectStringLikeConsts(sf: ts.SourceFile): ConstMap {
       if (
         extractStringLiteral(node.initializer) ||
         ts.isTemplateExpression(node.initializer) ||
+        ts.isConditionalExpression(node.initializer) ||
         (ts.isBinaryExpression(node.initializer) && node.initializer.operatorToken.kind === ts.SyntaxKind.PlusToken)
       ) {
         consts.set(node.name.text, node.initializer);
@@ -312,13 +382,10 @@ function scanFetchCalls(sf: ts.SourceFile, filePath: string, ctx: ConsumerContex
           method = extractMethodFromInit(initArg) || 'GET';
         }
 
-        addConsumerResult(ctx, {
+        addExtractedConsumerResults(ctx, extracted, {
           app,
           consumerFile: relativePath,
           method,
-          endpoint: extracted.path,
-          confidence: extracted.confidence,
-          pattern: extracted.pattern,
           wrapper: 'fetch',
           line: getLine(node, sf),
         });
@@ -375,13 +442,10 @@ function scanKnownWrappers(sf: ts.SourceFile, filePath: string, ctx: ConsumerCon
           }
         }
 
-        addConsumerResult(ctx, {
+        addExtractedConsumerResults(ctx, extracted, {
           app,
           consumerFile: relativePath,
           method,
-          endpoint: extracted.path,
-          confidence: extracted.confidence,
-          pattern: extracted.pattern,
           wrapper: fnName,
           line: getLine(node, sf),
         });
@@ -430,16 +494,19 @@ function scanApiMethodCalls(sf: ts.SourceFile, filePath: string, ctx: ConsumerCo
         if (!arg0) { ts.forEachChild(node, visit); return; }
         const extracted = extractPathFromArg(arg0, consts);
 
-        addConsumerResult(ctx, {
-          app,
-          consumerFile: relativePath,
-          method: methodName.toUpperCase(),
-          endpoint: applyAppBasePath(app, extracted.path),
-          confidence: extracted.confidence,
-          pattern: extracted.pattern,
-          wrapper: `api.${methodName}`,
-          line: getLine(node, sf),
-        });
+        const method = methodName.toUpperCase();
+        addExtractedConsumerResults(
+          ctx,
+          extracted,
+          {
+            app,
+            consumerFile: relativePath,
+            method,
+            wrapper: `api.${methodName}`,
+            line: getLine(node, sf),
+          },
+          (pathOption) => applyAppBasePath(app, pathOption),
+        );
       }
     }
     ts.forEachChild(node, visit);

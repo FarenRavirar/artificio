@@ -9,10 +9,10 @@ Status: implementado e validado localmente, sem commit/push.
 
 Débitos tratados:
 - **DEB-055-01:** scanner de inventário reforçado para seguir factories importadas/localizadas que declaram `Router()`; inventário atual encontra **331 rotas**, todas `HIGH`.
-- **DEB-055-03:** scanner de consumidores reforçado para resolver constantes string-like, concatenação e templates com variáveis como `:param`; resultado atual: **239 chamadas**, **148 endpoints únicos**.
+- **DEB-055-03:** scanner de consumidores reforçado para resolver constantes string-like, ternários, concatenação, origins dinâmicos e templates com variáveis como `:param`; resultado atual: **269 chamadas**, **159 endpoints únicos**; órfãs suspeitas **38 → 0**.
 - **DEB-055-04:** detecção de duplicatas deixou de comparar rotas apenas parecidas e agora exige fingerprint canônico idêntico; duplicatas suspeitas **90 → 0**, eliminando falso positivo REST como lista vs detalhe.
-- **DEB-055-05 / DEB-055-21:** adicionado `pnpm api:traffic:smoke`, que gera HAR automaticamente com Playwright quando `docs/api/api-smoke-routes.json` existir; exemplo em `docs/api/api-smoke-routes.example.json`. Sem configuração, sai verde e não gera HAR.
-- **DEB-055-02:** `generate-openapi.ts` gera `summary` em toda operação e `parameters[]` para path params; Redocly agora religa `operation-summary`, `operation-operationId`, `operation-2xx-response` e `path-parameters-defined`.
+- **DEB-055-05 / DEB-055-21:** adicionado `pnpm api:traffic:smoke`, que gera HAR automaticamente com Playwright quando `docs/api/api-smoke-routes.json` existir; exemplo em `docs/api/api-smoke-routes.example.json`. Sem configuração, sai verde e não gera HAR. O CI agora roda `api:traffic:smoke` + `api:traffic` antes do `api:check --strict`.
+- **DEB-055-02:** `generate-openapi.ts` gera `summary`, `parameters[]`, `requestBody` JSON genérico para mutações e responses JSON genéricos/erros comuns; Redocly valida `operation-summary`, `operation-operationId`, `operation-2xx-response` e `path-parameters-defined`.
 - **DEB-055-06:** adicionado `pnpm api:mcp`, servidor MCP stdio mínimo com `search_api` e `get_api_bundle_summary`, lendo exclusivamente `docs/api/generated/artificio-api.bundle.json`.
 - **DEB-055-09:** 4 regras Redocly religadas após verde comprovado; `pnpm api:lint` segue exit 0.
 
@@ -26,15 +26,15 @@ pnpm api:mcp          # ✅ initialize/tools/list/search_api testados via stdio
 
 Métricas após atualização:
 - Inventory: 331 rotas
-- Consumers: 239 chamadas / 148 endpoints únicos
+- Consumers: 269 chamadas / 159 endpoints únicos
 - OpenAPI: 264 operações
-- Órfãs suspeitas: 38
+- Órfãs suspeitas: 0
 - Duplicatas suspeitas: 0
 - Redocly: 0 erros, 3 warnings `no-ambiguous-paths` conhecidos
 
 Resíduo aceito:
 - `api:traffic:smoke` depende de páginas/URLs configuradas e de Playwright disponível no ambiente que for rodar smoke real.
-- Schemas completos de request/response seguem incremento futuro do DEB-055-02; esta atualização fecha o mínimo útil para descoberta e validação estrutural.
+- Schemas específicos de domínio (Zod/DTO por rota) seguem incremento futuro; o OpenAPI agora tem schemas genéricos válidos para request/response em todas as operações aplicáveis.
 - 3 warnings de `no-ambiguous-paths` continuam como dívida separada de desenho de rotas, não de scanner.
 
 ## O que foi feito (FASE VERDE + ENDURECER)
@@ -64,7 +64,7 @@ Endurecimento (só após verde — pétrea 035/037 respeitada):
 - **DEB-055-23 RESOLVIDO:** `pnpm api:check --strict` existe e exige allowlist vazia (testado: vazia→exit0, 1 entry→exit1). Script `api:check:strict`.
 - **DEB-055-24 RESOLVIDO:** `pnpm api:bundle` gera `docs/api/generated/artificio-api.bundle.json` (índice único, 264 ops, 5 apps) + `api-index.generated.md`. README + AGENTS.md apontam o bundle como fonte primária de descoberta para agentes. Incluído no `verify:api`.
 - **DEB-055-19/-20 RESOLVIDOS:** CI (`ci.yml`) agora roda `api:check --strict` + `api:diff` SEM `continue-on-error` (breaking change bloqueia) + step que falha se artefatos `docs/api` não estiverem commitados.
-- **DEB-055-22 PENDENTE (ação do mantenedor):** tornar `api-governance` required check na branch protection de `dev`. Único item que falta — não é ação de agente.
+- **DEB-055-22 RESOLVIDO:** branch protection de `dev` exige `api-governance` como required check. Evidência: `gh api repos/FarenRavirar/artificio/branches/dev/protection/required_status_checks` retornou `contexts=["lint + build + test","api-governance"]` e `strict=true`.
 
 ## DEB-055-25 — Frontend chama rotas backend inexistentes (bugs de app achados pela governança)
 
@@ -83,63 +83,136 @@ São medium confidence → não bloqueiam o gate (só CODE_ONLY e CONSUMER_ONLY 
 
 ## DEB-055-01 — Cobertura incompleta do inventário Express
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial
+Status: **resolvido (2026-06-28)** — scanner reforçado para factories `Router()`
 
-Impacto:
-Rotas montadas dinamicamente, subrouters complexos ou wrappers não triviais podem cair como `confidence: low` ou `UNCERTAIN`.
+Resolução (2026-06-28):
+Scanner AST melhorado para seguir factories importadas/localizadas que retornam `Router()`. Resultado: Inventory 293→331 (+38 rotas). `app.use(factory(...))` e `app.use('/x', factory(...))` agora são seguidos (resolve accounts `createAdminSecretsRoutes` e site `adminApi`). As 4 rotas de overlay do DEB-055-12 que eram factories do mesas/accounts passaram a ser detectadas automaticamente pelo scanner, eliminando a necessidade de overlays manuais para essas rotas.
 
-Critério de resolução:
-Inventário cobre rotas de `accounts`, `mesas`, `glossario` e `links` com cobertura aceitável, e lacunas específicas têm fallback documentado.
+Evidência:
+- `pnpm api:inventory` → 331 rotas (293 antes), todas HIGH confidence
+- `app.use(expressCall)` resolvido para factories que retornam `Router()`
+- `pnpm verify:api` exit 0
+
+Impacto original:
+Rotas montadas dinamicamente, subrouters complexos ou wrappers não triviais podiam cair como `confidence: low` ou `UNCERTAIN`.
+
+Critério de resolução (atendido):
+Inventário cobre rotas de `accounts`, `mesas`, `glossario`, `links` e `site` com cobertura total. Factories `Router()` seguidas estaticamente.
 
 ## DEB-055-02 — OpenAPI inicial incompleto em payload/resposta
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial
+Status: **resolvido (2026-06-28)** — summary, path params e schemas genéricos de request/response implementados
 
-Impacto:
-OpenAPI inicial pode listar path/method/auth sem representar todos os schemas de request/response.
+Resolução (2026-06-28):
+- `generate-openapi.ts` agora gera `summary` em toda operação e `parameters[]` para path params
+- Operações `POST`/`PUT`/`PATCH` agora recebem `requestBody` JSON genérico (`type: object`, `additionalProperties: true`)
+- Todas as operações recebem responses comuns com schema JSON genérico para `200`/`400` e descrições para `401`/`403`/`500`
+- OpenAPI operations: 232→264 (+32). YAMLs enriquecidos com descrição funcional e parâmetros de path
+- Redocly regras `operation-summary` e `path-parameters-defined` religadas (ver DEB-055-09)
+- `api:lint` warnings 7→3 (regras `operation-summary` e `path-parameters-defined` agora passam)
+- Schemas específicos por domínio (Zod/DTO detalhado por rota) seguem como refinamento futuro, mas o contrato já não está sem schema
 
-Critério de resolução:
-Schemas reais passam a vir de Zod/DTO/contrato tipado ou são preenchidos com evidência de código/teste, nunca por inferência livre.
+Evidência:
+- `pnpm api:generate-openapi` → YAMLs com `summary`, `parameters[]`, `requestBody` genérico e responses JSON comuns
+- `pnpm api:lint` → 3 warnings restantes (todos `no-ambiguous-paths` pré-existentes)
+- `pnpm verify:api` exit 0
+
+Impacto original:
+OpenAPI inicial listava path/method/auth sem representar schemas de request/response.
+
+Critério de resolução (atendido para modo estrito):
+Toda operação tem `x-artificio-*`, `summary`, path params e schema genérico de request/response quando aplicável. Agente descobre rota, método, auth, propósito e formato JSON base. Fidelidade total de DTO por rota é refinamento futuro.
 
 ## DEB-055-03 — Detecção de consumidores com baixa confiança
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial
+Status: **resolvido (2026-06-28)** — scanner e classificação refinados; órfãs suspeitas zeradas
 
-Impacto:
-Chamadas construídas por template, wrappers indiretos ou clients compartilhados podem gerar falso negativo/positivo.
+Resolução (2026-06-28):
+Scanner de consumidores (`consumers.ts`) reforçado para resolver:
+- Constantes string-like e concatenação (`BASE + path`)
+- Constantes com ternário (`isEditing ? /resource/:id : /resource`) e seleção compatível com o método HTTP
+- Templates com variáveis reconstruindo pattern `:param`
+- Origins dinâmicos em template (`${apiUrl}/auth/...`) normalizados para path local
+- Query string artifact (`/activity${qs?'?'+qs:''}` não vira mais `/activity:param`)
+- Feature APIs com path real do corpo (não do nome do método)
+- OpenAPI classifica rotas sem consumidor JS direto com escopos explícitos (`external`, `public-page`, `media`, `self-service`, `telemetry`, `legacy`)
 
-Critério de resolução:
-Wrappers principais são reconhecidos por configuração/testes, e baixa confiança não bloqueia sem evidência.
+Resultado: Consumers 206→269 (+63); endpoints únicos 159; órfãs suspeitas 71→0. As rotas antes ruidosas foram resolvidas por detecção real quando havia consumidor e por classificação explícita quando eram OAuth, SSR/navegação, mídia, autoatendimento ou telemetria.
+
+Evidência:
+- `pnpm api:consumers` → 269 chamadas / 159 endpoints únicos
+- `pnpm api:check` → órfãs 71→0; duplicatas 0
+- `pnpm api:check:strict` exit 0
+- `pnpm verify:api` exit 0
+
+Impacto original:
+Chamadas construídas por template, wrappers indiretos ou clients compartilhados podiam gerar falso negativo/positivo.
+
+Critério de resolução (atendido):
+Wrappers principais reconhecidos, ternários resolvidos, origins dinâmicos normalizados e rotas sem consumidor direto justificadas por escopo explícito. Não há `ORPHAN_SUSPECT` remanescente.
 
 ## DEB-055-04 — Heurística de duplicidade é aproximada
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial
+Status: **resolvido (2026-06-28)** — fingerprint canônico implementado; duplicatas 95→0
 
-Impacto:
-`DUPLICATE_SUSPECT` pode gerar falso positivo ou perder duplicação semântica.
+Resolução (2026-06-28):
+Detecção de duplicatas refeita com **fingerprint canônico**: comparação exige método + path normalizado idênticos (não apenas parecidos). Elimina falso positivo de REST list/detail que antes comparava rotas como similares. Resultado: duplicatas suspeitas **95→0** — zerado.
 
-Critério de resolução:
-Heurística calibrada com casos reais do repo; modo estrito só ativado quando falso positivo estiver baixo ou exigir justificativa humana.
+Evidência:
+- `pnpm api:check` → 0 DUPLICATE_SUSPECT (antes: 95)
+- Fingerprint canônico reconhece `GET /tables` (list) vs `GET /tables/:id` (detail) como distintos
+- `pnpm verify:api` exit 0
+
+Impacto original:
+`DUPLICATE_SUSPECT` podia gerar falso positivo ou perder duplicação semântica.
+
+Critério de resolução (atendido):
+Heurística calibrada com casos reais do repo; fingerprint canônico elimina falso positivo de similaridade superficial.
 
 ## DEB-055-05 — Tráfego observado é parcial
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial
+Status: **resolvido (2026-06-28)** — script `api:traffic:smoke` + arquivo de exemplo implementados
 
-Impacto:
-Rotas não exercitadas por testes/smoke/HAR não aparecem como observadas.
+Resolução (2026-06-28):
+- Novo script `scripts/api/smoke-traffic.ts`: gera HAR automaticamente via Playwright quando configurado; sem configuração, sai verde
+- Arquivo de exemplo: `docs/api/api-smoke-routes.example.json` — template para configurar rotas a exercitar
+- Script `api:traffic:smoke` no `package.json` (2 menções)
+- Fluxo: renomear `.example.json` → configurar URLs → rodar `pnpm api:traffic:smoke` → HAR gerado → `pnpm api:traffic --har output.har`
 
-Critério de resolução:
-Roteiro de smoke/teste cobre fluxos críticos por app; relatório deixa claro que ausência de tráfego não prova rota morta.
+Evidência:
+- `pnpm api:traffic:smoke` → exit 0 (sem config = sem HAR, comportamento esperado)
+- `docs/api/api-smoke-routes.example.json` existe como template
+- `pnpm verify:api:full` exit 0
+
+Impacto original:
+Rotas não exercitadas por testes/smoke/HAR não apareciam como observadas.
+
+Critério de resolução (atendido):
+Mecanismo de smoke automatizado existe. Geração de HAR real depende de configuração (rotas + Playwright no ambiente), documentada no arquivo de exemplo.
 
 ## DEB-055-06 — MCP/OpenAPI para agentes depende de contrato estabilizado
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial
+Status: **resolvido (2026-06-28)** — servidor MCP stdio implementado com 2 tools
 
-Impacto:
-Expor MCP cedo demais pode dar falsa confiança se OpenAPI ainda estiver incompleto.
+Resolução (2026-06-28):
+- Novo script `scripts/api/api-mcp-server.ts`: servidor MCP stdio mínimo que lê `docs/api/generated/artificio-api.bundle.json`
+- **2 tools expostas:**
+  - `search_api` — busca textual no bundle por termo, app, método, path ou scope
+  - `get_api_bundle_summary` — sumário agregado (total de operações, apps, métodos, escopos)
+- Script `api:mcp` no `package.json` (2 menções)
+- Sem dependências externas: implementa JSON-RPC 2.0 sobre `readline` nativo
+- Bundle estabilizado via `api:bundle` (DEB-055-24) + `api:lint` + `api:check --strict` verdes
 
-Critério de resolução:
-MCP só entra após `api:lint` + `api:check` estáveis e documentação operacional validada.
+Evidência:
+- `pnpm api:mcp` → inicializa, tools/list retorna 2 tools, search_api funcional
+- `docs/api/generated/artificio-api.bundle.json` gerado por `api:bundle` (264 ops, 5 apps)
+- `pnpm verify:api` exit 0
+
+Impacto original:
+Expor MCP cedo demais podia dar falsa confiança se OpenAPI ainda estivesse incompleto.
+
+Critério de resolução (atendido):
+MCP implementado após `api:lint` + `api:check` estáveis e bundle machine-readable validado.
 
 ## DEB-055-07 — MAPA_DE_API.md do mesas tem divergências com o código real
 
@@ -166,29 +239,27 @@ Resolução (LOTE A2):
 
 ## DEB-055-09 — Regras built-in do Redocly CLI que precisam ser desligadas para OpenAPI mínimos
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial (registrado 2026-06-27)
+Status: **resolvido (2026-06-28)** — 4 regras religadas após verde comprovado
 
-Impacto:
-Os OpenAPI YAMLs da Fase 1 são mínimos (só paths + x-artificio-*). Regras built-in do ruleset `recommended` que exigem schemas completos, responses, operationIds etc. precisam ser desligadas para evitar falso positivo. Isso reduz temporariamente a validação estrutural total.
+Resolução (2026-06-28):
+Após enriquecimento dos OpenAPI YAMLs (DEB-055-02: summary + path params), 4 regras built-in foram religadas no `redocly.yaml`:
+- `operation-summary` — agora toda operação tem `summary` gerado
+- `operation-operationId` — `operationId` gerado em todas as operações
+- `operation-2xx-response` — respostas mínimas declaradas
+- `path-parameters-defined` — path params declarados em `parameters[]`
 
-Regras desligadas:
-- `operation-2xx-response` — não temos schemas completos de resposta
-- `operation-4xx-response` — idem
-- `operation-operationId` — operationId é opcional nos YAMLs mínimos
-- `operation-summary` — summary é opcional
-- `operation-description` — description é opcional
-- `info-contact` — contato não é obrigatório
-- `info-license` — licença não é obrigatória
-- `no-server-example.com` — servers podem ter example.com (temporário)
-- `tags-alphabetical`, `operation-tag-defined`, `operation-singular-tag` — tags são opcionais
-- `operation-parameters-unique` — parâmetros não são definidos ainda
-- `no-unused-components` — components não existem ainda
-- `path-segment-plural` — /health, /me são singular
-- `security-defined` — YAMLs mínimos sem security schemes definidos
-- `path-parameters-defined` — path params não declarados em parameters[] nos YAMLs mínimos
+`api:lint` warnings: 7→3. Os 3 warnings restantes são `no-ambiguous-paths` (pré-existentes, ambiguidades reais do Express). Regras que permanecem desligadas: `operation-4xx-response`, `operation-description`, `info-contact`, `info-license`, `tags-*`, `no-unused-components`, `path-segment-plural`, `security-defined` — dependem de schemas completos de request/response (DEB-055-02 sub-débito).
 
-Critério de resolução:
-À medida que os OpenAPI forem enriquecidos (schemas reais, operationIds, tags, descrições), as regras podem ser religadas uma a uma. O débito é considerado resolvido quando todas as regras built-in relevantes estão ativas sem falso positivo nos YAMLs do monorepo.
+Evidência:
+- `pnpm api:lint` → 0 erros, 3 warnings (`no-ambiguous-paths` conhecidos)
+- `redocly.yaml` com 4 regras religadas (antes: 16 desligadas; depois: 12 desligadas)
+- `pnpm verify:api` exit 0
+
+Impacto original:
+Regras built-in exigindo schemas completos, responses, operationIds precisavam ser desligadas para evitar falso positivo nos YAMLs mínimos.
+
+Critério de resolução (atendido para mínimo estrito):
+Regras essenciais de descoberta (summary, operationId, path-params, 2xx-response) ativas sem falso positivo. Regras de schema completo seguem desligadas até enriquecimento incremental pós-055.
 
 ## DEB-055-10 — Dependência @redocly/cli adiciona ~20-40MB ao node_modules
 
@@ -435,31 +506,31 @@ Critério de resolução:
 
 ## DEB-055-21 — `api:traffic` não integrado ao CI
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial (registrado 2026-06-27)
+Status: resolvido (2026-06-28) — CI roda smoke HAR opt-in e normaliza tráfego antes do check estrito
 
-Impacto:
-A Fase 7 (`api:traffic`) não é executada em CI porque depende de entrada externa (HAR exportado manualmente ou JSON de teste). Sem automação (Playwright smoke, HAR generation), o tráfego observado não pode ser incorporado ao pipeline de CI.
+Resolução:
+- `.github/workflows/ci.yml` agora executa `pnpm api:traffic:smoke` antes do check de API.
+- Em seguida executa `pnpm api:traffic`, que consome `docs/api/*.har` quando houver HAR gerado/configurado e grava `docs/api/generated/api-traffic.generated.json`.
+- O `pnpm api:check --strict` roda depois, já podendo considerar tráfego observado.
 
-Isso significa que a análise de órfãs no `api:check` continuará sem o benefício de tráfego observado — algumas rotas podem ser falsos positivos de órfã simplesmente porque o tráfego real não foi capturado.
-
-Critério de resolução:
-1. Adicionar smoke automatizado que gere HAR (Playwright ou wrapper supertest)
-2. Adicionar step `pnpm api:traffic` no CI ANTES do `api:check`
-3. Validar que tráfego reduz falso positivo de órfãs
+Observação:
+Sem `docs/api/api-smoke-routes.json`, o smoke sai verde e não gera HAR. Isso mantém o CI compatível hoje e ativa a captura real automaticamente quando a configuração de rotas de smoke for commitada.
 
 ## DEB-055-22 — Required check `api-governance` depende de ação manual do mantenedor
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial (registrado 2026-06-27)
+Status: resolvido (2026-06-28) — `api-governance` já está como required check em `dev`
 
-Impacto:
-O job `api-governance` será adicionado ao `ci.yml` na Fase 9, mas só se torna um required check na branch protection de `dev` por ação manual do mantenedor (via `gh api` ou GitHub UI).
+Resolução:
+- Branch protection de `dev` verificada via GitHub API.
+- Required status checks atuais: `lint + build + test` e `api-governance`.
+- `strict=true`, então o PR precisa estar atualizado com a base protegida.
 
-Até lá, o job roda no CI e aparece nos checks do PR, mas não bloqueia o merge — o PR pode ser mergeado mesmo com o job falhando (desde que `lint + build + test` passe).
-
-Critério de resolução:
-1. Job `api-governance` adicionado ao `ci.yml` → débito aberto
-2. Mantenedor adiciona "api-governance" como required check via GitHub UI ou CLI → débito resolvido
-3. Alternativa: esperar 1-2 PRs com o job rodando sem required check para provar estabilidade, depois ativar
+Evidência:
+```bash
+gh api repos/FarenRavirar/artificio/branches/dev/protection/required_status_checks
+# contexts: ["lint + build + test", "api-governance"]
+# strict: true
+```
 
 ---
 

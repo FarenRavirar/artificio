@@ -45,7 +45,7 @@ function classifyRoute(method: string, path: string, app: string): Classificatio
     }
     // Google OAuth redirects — public (user not yet authenticated)
     if (p.includes('/google')) {
-      return { owner: app, scope: 'public', status: 'active', auth: 'none', consumers: [] };
+      return { owner: app, scope: 'external', status: 'active', auth: 'none', consumers: [] };
     }
     return { owner: app, scope: 'public', status: 'active', auth: 'none', consumers: [] };
   }
@@ -57,12 +57,42 @@ function classifyRoute(method: string, path: string, app: string): Classificatio
 
   // Accounts SPA routes
   if (app === 'accounts' && (p === '/' || p === '/login' || p === '/conta')) {
-    return { owner: app, scope: 'public', status: 'active', auth: 'none', consumers: [] };
+    return { owner: app, scope: 'public-page', status: 'active', auth: 'none', consumers: [] };
   }
 
   // Auth routes in mesas/glossario (authenticated)
   if (p.includes('/auth/')) {
+    if (p.includes('/google') || p.includes('/discord/connect') || p.includes('/discord/callback')) {
+      return { owner: app, scope: 'external', status: 'active', auth: 'none', consumers: [] };
+    }
+    if (p.includes('/logout') || p.includes('/verify-covil')) {
+      return { owner: app, scope: 'self-service', status: 'active', auth: 'user', consumers: [] };
+    }
+    if (app === 'glossario' && (p.includes('/login') || p.includes('/register'))) {
+      return { owner: app, scope: 'legacy', status: 'legacy', auth: 'none', consumers: [] };
+    }
     return { owner: app, scope: 'public', status: 'active', auth: 'user', consumers: [] };
+  }
+
+  // SSR/pages and browser navigation endpoints are not consumed by JS API clients.
+  if (p === '/' || p === '/login' || p === '/conta' || p.startsWith('/grupo/')) {
+    return { owner: app, scope: 'public-page', status: 'active', auth: 'none', consumers: [] };
+  }
+
+  // User self-service APIs may be reached from conditional UI flows or future panels.
+  if (
+    p.includes('/mine') ||
+    p.includes('/suggest') ||
+    p.includes('/suggestions') ||
+    p.includes('/connect/discord') ||
+    p.includes('/profile/me/discord')
+  ) {
+    return { owner: app, scope: 'self-service', status: 'active', auth: 'user', consumers: [] };
+  }
+
+  // Engagement/analytics endpoints are triggered by UI events and keepalive calls.
+  if (p.endsWith('/click') || p.endsWith('/contact') || p.endsWith('/favorite') || p.endsWith('/view')) {
+    return { owner: app, scope: 'telemetry', status: 'active', auth: 'none', consumers: [] };
   }
 
   // GM routes (mesas)
@@ -97,7 +127,21 @@ function classifyRoute(method: string, path: string, app: string): Classificatio
 
   // OG tags (SSR)
   if (p.includes('/og/')) {
-    return { owner: app, scope: 'public', status: 'active', auth: 'none', consumers: [] };
+    return { owner: app, scope: 'media', status: 'active', auth: 'none', consumers: [] };
+  }
+
+  // Links detail API feeds the SSR/detail page and may not appear as a frontend fetch.
+  if (app === 'links' && p.startsWith('/api/groups/') && method === 'GET') {
+    return { owner: app, scope: 'public-page', status: 'active', auth: 'none', consumers: [] };
+  }
+
+  // Glossário taxonomy writes are guarded by auth/admin middleware in route files.
+  if (
+    app === 'glossario' &&
+    (method === 'PUT' || method === 'DELETE') &&
+    (p.startsWith('/api/categories') || p.startsWith('/api/scenarios') || p.startsWith('/api/systems'))
+  ) {
+    return { owner: app, scope: 'admin', status: 'active', auth: 'admin', consumers: [] };
   }
 
   // Changelog
@@ -156,6 +200,44 @@ function summaryFor(method: string, path: string): string {
     .replace(/_/g, ' ')
     .trim();
   return `${verb[method] ?? method.toUpperCase()} ${normalized || 'raiz'}`;
+}
+
+function shouldHaveRequestBody(method: string): boolean {
+  return method === 'post' || method === 'put' || method === 'patch';
+}
+
+function appendGenericRequestBody(lines: string[]): void {
+  lines.push(`      requestBody:`);
+  lines.push(`        required: false`);
+  lines.push(`        content:`);
+  lines.push(`          application/json:`);
+  lines.push(`            schema:`);
+  lines.push(`              type: object`);
+  lines.push(`              additionalProperties: true`);
+}
+
+function appendGenericResponses(lines: string[]): void {
+  lines.push(`      responses:`);
+  lines.push(`        "200":`);
+  lines.push(`          description: OK`);
+  lines.push(`          content:`);
+  lines.push(`            application/json:`);
+  lines.push(`              schema:`);
+  lines.push(`                type: object`);
+  lines.push(`                additionalProperties: true`);
+  lines.push(`        "400":`);
+  lines.push(`          description: Requisição inválida`);
+  lines.push(`          content:`);
+  lines.push(`            application/json:`);
+  lines.push(`              schema:`);
+  lines.push(`                type: object`);
+  lines.push(`                additionalProperties: true`);
+  lines.push(`        "401":`);
+  lines.push(`          description: Não autenticado`);
+  lines.push(`        "403":`);
+  lines.push(`          description: Sem permissão`);
+  lines.push(`        "500":`);
+  lines.push(`          description: Erro interno`);
 }
 
 /** Skip catch-all Express 5 patterns ({*splat}) — not API routes */
@@ -268,9 +350,10 @@ servers:
           }
         }
       }
-      lines.push(`      responses:`);
-      lines.push(`        "200":`);
-      lines.push(`          description: OK`);
+      if (shouldHaveRequestBody(method)) {
+        appendGenericRequestBody(lines);
+      }
+      appendGenericResponses(lines);
       block.methods.set(method, lines);
     }
     byPath.set(oaPath, block);

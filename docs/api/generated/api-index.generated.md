@@ -10,17 +10,17 @@ Total: **264 operações**.
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
-| GET | `/` | public | none | active | — | Consulta raiz |
+| GET | `/` | public-page | none | active | — | Consulta raiz |
 | GET | `/admin/secrets/{name}` | admin | service | provisional | mesas-backend | Recupera um segredo descriptografado (admin ou service-token) |
 | PUT | `/admin/secrets/{name}` | admin | admin | provisional | — | Armazena um segredo criptografado (admin) |
-| GET | `/api/auth/google` | public | none | active | — | Consulta api auth google |
-| GET | `/api/auth/google/callback` | public | none | active | — | Consulta api auth google callback |
+| GET | `/api/auth/google` | external | none | active | — | Consulta api auth google |
+| GET | `/api/auth/google/callback` | external | none | active | — | Consulta api auth google callback |
 | POST | `/api/auth/logout` | cross-app | user | active | mesas-frontend, glossario-frontend, links-frontend, site-admin | Cria ou executa api auth logout |
 | GET | `/api/auth/me` | cross-app | user | active | mesas-frontend, glossario-frontend, links-frontend, site-admin | Consulta api auth me |
 | GET | `/api/auth/refresh` | cross-app | user | active | mesas-frontend, glossario-frontend, links-frontend, site-admin | Consulta api auth refresh |
-| GET | `/conta` | public | none | active | — | Consulta conta |
+| GET | `/conta` | public-page | none | active | — | Consulta conta |
 | GET | `/health` | internal | none | active | — | Consulta health |
-| GET | `/login` | public | none | active | — | Consulta login |
+| GET | `/login` | public-page | none | active | — | Consulta login |
 
 ## glossario (46)
 
@@ -30,13 +30,13 @@ Total: **264 operações**.
 | GET | `/api/admin/feedback` | admin | admin | active | — | Consulta api admin feedback |
 | DELETE | `/api/admin/feedback/{id}` | admin | admin | active | — | Remove api admin feedback id |
 | PATCH | `/api/admin/feedback/{id}` | admin | admin | active | — | Atualiza api admin feedback id |
-| POST | `/api/auth/login` | public | user | active | — | Cria ou executa api auth login |
+| POST | `/api/auth/login` | legacy | none | legacy | — | Cria ou executa api auth login |
 | GET | `/api/auth/me` | public | user | active | — | Consulta api auth me |
-| POST | `/api/auth/register` | public | user | active | — | Cria ou executa api auth register |
+| POST | `/api/auth/register` | legacy | none | legacy | — | Cria ou executa api auth register |
 | GET | `/api/categories` | public | none | active | — | Consulta api categories |
 | POST | `/api/categories` | public | user | active | — | Cria ou executa api categories |
-| DELETE | `/api/categories/{id}` | public | user | active | — | Remove api categories id |
-| PUT | `/api/categories/{id}` | public | user | active | — | Substitui api categories id |
+| DELETE | `/api/categories/{id}` | admin | admin | active | — | Remove api categories id |
+| PUT | `/api/categories/{id}` | admin | admin | active | — | Substitui api categories id |
 | GET | `/api/changelog` | public | none | active | — | Consulta api changelog |
 | GET | `/api/export/matecat` | public | none | active | — | Consulta api export matecat |
 | POST | `/api/feedback` | public | user | active | — | Cria ou executa api feedback |
@@ -47,20 +47,20 @@ Total: **264 operações**.
 | PATCH | `/api/notifications/read-all` | public | user | active | — | Atualiza api notifications read-all |
 | GET | `/api/scenarios` | public | none | active | — | Consulta api scenarios |
 | POST | `/api/scenarios` | public | user | active | — | Cria ou executa api scenarios |
-| DELETE | `/api/scenarios/{id}` | public | user | active | — | Remove api scenarios id |
-| PUT | `/api/scenarios/{id}` | public | user | active | — | Substitui api scenarios id |
+| DELETE | `/api/scenarios/{id}` | admin | admin | active | — | Remove api scenarios id |
+| PUT | `/api/scenarios/{id}` | admin | admin | active | — | Substitui api scenarios id |
 | GET | `/api/social/{id}/comments` | public | none | active | — | Consulta api social id comments |
 | POST | `/api/social/{id}/comments` | public | user | active | — | Cria ou executa api social id comments |
 | POST | `/api/social/{id}/vote` | public | user | active | — | Cria ou executa api social id vote |
 | DELETE | `/api/social/comments/{id}` | public | user | active | — | Remove api social comments id |
 | GET | `/api/systems` | public | none | active | — | Consulta api systems |
 | POST | `/api/systems` | public | user | active | — | Cria ou executa api systems |
-| DELETE | `/api/systems/{id}` | public | user | active | — | Remove api systems id |
-| PUT | `/api/systems/{id}` | public | user | active | — | Substitui api systems id |
+| DELETE | `/api/systems/{id}` | admin | admin | active | — | Remove api systems id |
+| PUT | `/api/systems/{id}` | admin | admin | active | — | Substitui api systems id |
 | GET | `/api/systems/{systemId}/editions` | public | none | active | — | Consulta api systems systemId editions |
 | POST | `/api/systems/{systemId}/editions` | public | user | active | — | Cria ou executa api systems systemId editions |
-| DELETE | `/api/systems/editions/{id}` | public | user | active | — | Remove api systems editions id |
-| PUT | `/api/systems/editions/{id}` | public | user | active | — | Substitui api systems editions id |
+| DELETE | `/api/systems/editions/{id}` | admin | admin | active | — | Remove api systems editions id |
+| PUT | `/api/systems/editions/{id}` | admin | admin | active | — | Substitui api systems editions id |
 | GET | `/api/terms` | public | none | active | — | Consulta api terms |
 | POST | `/api/terms` | public | user | active | — | Cria ou executa api terms |
 | DELETE | `/api/terms/{id}` | public | user | active | — | Remove api terms id |
@@ -93,11 +93,11 @@ Total: **264 operações**.
 | DELETE | `/api/admin/v1/tags/{id}` | admin | admin | active | — | Remove api admin v1 tags id |
 | PATCH | `/api/admin/v1/tags/{id}` | admin | admin | active | — | Atualiza api admin v1 tags id |
 | GET | `/api/groups` | public | none | active | — | Consulta api groups |
-| GET | `/api/groups/{slug}` | public | none | active | — | Consulta api groups slug |
+| GET | `/api/groups/{slug}` | public-page | none | active | — | Consulta api groups slug |
 | POST | `/api/groups/{slug}/report` | public | user | active | — | Cria ou executa api groups slug report |
-| POST | `/api/groups/suggest` | public | user | active | — | Cria ou executa api groups suggest |
+| POST | `/api/groups/suggest` | self-service | user | active | — | Cria ou executa api groups suggest |
 | GET | `/api/tags` | public | none | active | — | Consulta api tags |
-| GET | `/grupo/{slug}` | public | none | active | — | Consulta grupo slug |
+| GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
 ## mesas (153)
@@ -167,9 +167,9 @@ Total: **264 operações**.
 | GET | `/api/v1/admin/users` | admin | admin | active | — | Consulta api v1 admin users |
 | GET | `/api/v1/admin/users/{id}` | admin | admin | active | — | Consulta api v1 admin users id |
 | PATCH | `/api/v1/admin/users/{id}/covil` | admin | admin | active | — | Atualiza api v1 admin users id covil |
-| GET | `/api/v1/auth/google` | public | user | active | — | Consulta api v1 auth google |
-| GET | `/api/v1/auth/google/callback` | public | user | active | — | Consulta api v1 auth google callback |
-| POST | `/api/v1/auth/logout` | public | user | active | — | Cria ou executa api v1 auth logout |
+| GET | `/api/v1/auth/google` | external | none | active | — | Consulta api v1 auth google |
+| GET | `/api/v1/auth/google/callback` | external | none | active | — | Consulta api v1 auth google callback |
+| POST | `/api/v1/auth/logout` | self-service | user | active | — | Cria ou executa api v1 auth logout |
 | GET | `/api/v1/changelog` | public | none | active | — | Consulta api v1 changelog |
 | GET | `/api/v1/communication-platforms` | public | user | active | — | Consulta api v1 communication-platforms |
 | GET | `/api/v1/communication-platforms/admin` | admin | admin | active | — | Consulta api v1 communication-platforms admin |
@@ -178,10 +178,10 @@ Total: **264 operações**.
 | PUT | `/api/v1/communication-platforms/admin/{id}` | admin | admin | active | — | Substitui api v1 communication-platforms admin id |
 | POST | `/api/v1/dev-feedback` | public | user | active | — | Cria ou executa api v1 dev-feedback |
 | GET | `/api/v1/gm/{slug}` | public | user | active | — | Consulta api v1 gm slug |
-| POST | `/api/v1/gm/{slug}/contact` | public | user | active | — | Cria ou executa api v1 gm slug contact |
+| POST | `/api/v1/gm/{slug}/contact` | telemetry | none | active | — | Cria ou executa api v1 gm slug contact |
 | POST | `/api/v1/gm/{slug}/contact-click` | public | user | active | — | Cria ou executa api v1 gm slug contact-click |
 | GET | `/api/v1/gm/{slug}/insights` | public | user | active | — | Consulta api v1 gm slug insights |
-| POST | `/api/v1/gm/{slug}/view` | public | user | active | — | Cria ou executa api v1 gm slug view |
+| POST | `/api/v1/gm/{slug}/view` | telemetry | none | active | — | Cria ou executa api v1 gm slug view |
 | GET | `/api/v1/gm/insights` | public | user | active | — | Consulta api v1 gm insights |
 | GET | `/api/v1/gm/me` | public | user | active | — | Consulta api v1 gm me |
 | POST | `/api/v1/gm/profile` | public | user | active | — | Cria ou executa api v1 gm profile |
@@ -192,11 +192,11 @@ Total: **264 operações**.
 | GET | `/api/v1/gm/tables/{id}` | public | user | active | — | Consulta api v1 gm tables id |
 | PUT | `/api/v1/gm/tables/{id}` | public | user | active | — | Substitui api v1 gm tables id |
 | PATCH | `/api/v1/gm/tables/{id}/archive` | public | user | active | — | Atualiza api v1 gm tables id archive |
-| POST | `/api/v1/gm/tables/{id}/click` | public | user | active | — | Cria ou executa api v1 gm tables id click |
-| POST | `/api/v1/gm/tables/{id}/contact` | public | user | active | — | Cria ou executa api v1 gm tables id contact |
-| POST | `/api/v1/gm/tables/{id}/favorite` | public | user | active | — | Cria ou executa api v1 gm tables id favorite |
+| POST | `/api/v1/gm/tables/{id}/click` | telemetry | none | active | — | Cria ou executa api v1 gm tables id click |
+| POST | `/api/v1/gm/tables/{id}/contact` | telemetry | none | active | — | Cria ou executa api v1 gm tables id contact |
+| POST | `/api/v1/gm/tables/{id}/favorite` | telemetry | none | active | — | Cria ou executa api v1 gm tables id favorite |
 | PATCH | `/api/v1/gm/tables/{id}/status` | public | user | active | — | Atualiza api v1 gm tables id status |
-| POST | `/api/v1/gm/tables/{slug}/view` | public | user | active | — | Cria ou executa api v1 gm tables slug view |
+| POST | `/api/v1/gm/tables/{slug}/view` | telemetry | none | active | — | Cria ou executa api v1 gm tables slug view |
 | GET | `/api/v1/health` | internal | none | active | — | Consulta api v1 health |
 | GET | `/api/v1/me` | public | user | active | — | Consulta api v1 me |
 | GET | `/api/v1/me/options` | public | user | active | — | Consulta api v1 me options |
@@ -211,9 +211,9 @@ Total: **264 operações**.
 | PATCH | `/api/v1/profile/links/reorder` | public | user | active | — | Atualiza api v1 profile links reorder |
 | GET | `/api/v1/profile/me` | public | user | active | — | Consulta api v1 profile me |
 | PATCH | `/api/v1/profile/me` | public | user | active | — | Atualiza api v1 profile me |
-| DELETE | `/api/v1/profile/me/connect/discord` | public | user | active | — | Remove api v1 profile me connect discord |
-| POST | `/api/v1/profile/me/connect/discord` | public | user | active | — | Cria ou executa api v1 profile me connect discord |
-| GET | `/api/v1/profile/me/discord` | public | user | active | — | Consulta api v1 profile me discord |
+| DELETE | `/api/v1/profile/me/connect/discord` | self-service | user | active | — | Remove api v1 profile me connect discord |
+| POST | `/api/v1/profile/me/connect/discord` | self-service | user | active | — | Cria ou executa api v1 profile me connect discord |
+| GET | `/api/v1/profile/me/discord` | self-service | user | active | — | Consulta api v1 profile me discord |
 | PATCH | `/api/v1/profile/me/gm` | public | user | active | — | Atualiza api v1 profile me gm |
 | POST | `/api/v1/profile/me/google-picture` | public | user | active | — | Cria ou executa api v1 profile me google-picture |
 | PATCH | `/api/v1/profile/me/player` | public | user | active | — | Atualiza api v1 profile me player |
@@ -224,23 +224,23 @@ Total: **264 operações**.
 | POST | `/api/v1/profile/systems` | public | user | active | — | Cria ou executa api v1 profile systems |
 | DELETE | `/api/v1/profile/systems/{id}` | public | user | active | — | Remove api v1 profile systems id |
 | POST | `/api/v1/scenario-suggestions` | public | user | active | — | Cria ou executa api v1 scenario-suggestions |
-| GET | `/api/v1/scenario-suggestions/mine` | public | none | active | — | Consulta api v1 scenario-suggestions mine |
+| GET | `/api/v1/scenario-suggestions/mine` | self-service | user | active | — | Consulta api v1 scenario-suggestions mine |
 | GET | `/api/v1/scenarios` | public | none | active | — | Consulta api v1 scenarios |
 | GET | `/api/v1/scenarios/{id}` | public | none | active | — | Consulta api v1 scenarios id |
 | POST | `/api/v1/scenarios/admin` | admin | admin | active | — | Cria ou executa api v1 scenarios admin |
 | DELETE | `/api/v1/scenarios/admin/{id}` | admin | admin | active | — | Remove api v1 scenarios admin id |
 | PUT | `/api/v1/scenarios/admin/{id}` | admin | admin | active | — | Substitui api v1 scenarios admin id |
-| GET | `/api/v1/settings/suggest-styles` | public | user | active | — | Consulta api v1 settings suggest-styles |
+| GET | `/api/v1/settings/suggest-styles` | self-service | user | active | — | Consulta api v1 settings suggest-styles |
 | POST | `/api/v1/system-suggestions` | public | user | active | — | Cria ou executa api v1 system-suggestions |
-| GET | `/api/v1/system-suggestions/mine` | public | none | active | — | Consulta api v1 system-suggestions mine |
+| GET | `/api/v1/system-suggestions/mine` | self-service | user | active | — | Consulta api v1 system-suggestions mine |
 | GET | `/api/v1/systems` | public | none | active | — | Consulta api v1 systems |
 | POST | `/api/v1/systems/admin` | admin | admin | active | — | Cria ou executa api v1 systems admin |
 | DELETE | `/api/v1/systems/admin/{id}` | admin | admin | active | — | Remove api v1 systems admin id |
 | PUT | `/api/v1/systems/admin/{id}` | admin | admin | active | — | Substitui api v1 systems admin id |
 | GET | `/api/v1/tables` | public | none | active | — | Consulta api v1 tables |
 | GET | `/api/v1/tables/{slug}` | public | none | active | — | Consulta api v1 tables slug |
-| POST | `/api/v1/tables/{slug}/click` | public | user | active | — | Cria ou executa api v1 tables slug click |
-| POST | `/api/v1/tables/{slug}/view` | public | user | active | — | Cria ou executa api v1 tables slug view |
+| POST | `/api/v1/tables/{slug}/click` | telemetry | none | active | — | Cria ou executa api v1 tables slug click |
+| POST | `/api/v1/tables/{slug}/view` | telemetry | none | active | — | Cria ou executa api v1 tables slug view |
 | POST | `/api/v1/upload` | public | user | active | — | Cria ou executa api v1 upload |
 | POST | `/api/v1/upload/url` | public | user | active | — | Cria ou executa api v1 upload url |
 | GET | `/api/v1/vtt-platforms` | public | user | active | — | Consulta api v1 vtt-platforms |
@@ -248,15 +248,15 @@ Total: **264 operações**.
 | POST | `/api/v1/vtt-platforms/admin` | admin | admin | active | — | Cria ou executa api v1 vtt-platforms admin |
 | DELETE | `/api/v1/vtt-platforms/admin/{id}` | admin | admin | active | — | Remove api v1 vtt-platforms admin id |
 | PUT | `/api/v1/vtt-platforms/admin/{id}` | admin | admin | active | — | Substitui api v1 vtt-platforms admin id |
-| POST | `/api/v1/vtt-platforms/suggest` | public | user | active | — | Cria ou executa api v1 vtt-platforms suggest |
-| GET | `/auth/discord/callback` | public | user | active | — | Consulta auth discord callback |
-| GET | `/auth/discord/connect` | public | user | active | — | Consulta auth discord connect |
+| POST | `/api/v1/vtt-platforms/suggest` | self-service | user | active | — | Cria ou executa api v1 vtt-platforms suggest |
+| GET | `/auth/discord/callback` | external | none | active | — | Consulta auth discord callback |
+| GET | `/auth/discord/connect` | external | none | active | — | Consulta auth discord connect |
 | DELETE | `/auth/discord/disconnect` | public | user | active | — | Remove auth discord disconnect |
-| POST | `/auth/discord/verify-covil` | public | user | active | — | Cria ou executa auth discord verify-covil |
-| GET | `/auth/google` | public | user | active | — | Consulta auth google |
-| GET | `/auth/google/callback` | public | user | active | — | Consulta auth google callback |
-| POST | `/auth/logout` | public | user | active | — | Cria ou executa auth logout |
-| GET | `/og/{type}/{slug}` | public | none | active | — | Consulta og type slug |
+| POST | `/auth/discord/verify-covil` | self-service | user | active | — | Cria ou executa auth discord verify-covil |
+| GET | `/auth/google` | external | none | active | — | Consulta auth google |
+| GET | `/auth/google/callback` | external | none | active | — | Consulta auth google callback |
+| POST | `/auth/logout` | self-service | user | active | — | Cria ou executa auth logout |
+| GET | `/og/{type}/{slug}` | media | none | active | — | Consulta og type slug |
 
 ## site (32)
 

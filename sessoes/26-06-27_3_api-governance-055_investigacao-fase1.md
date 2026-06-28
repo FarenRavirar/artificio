@@ -158,3 +158,48 @@
 ## Atualizar project-state.md
 
 Item: Spec 055 — Investigação Fases 1 a 6 concluída. Fase 6 (órfãs e duplicadas) investigada: ORPHAN_SUSPECT refina classificação por scope. DUPLICATE_SUSPECT com scoring 4 fatores (≥80 HIGH). Relatório api-orphans.generated.md integrado ao api:check.ts, sem afetar exit code. DEB-055-11 registrado. Tasks T6.1–T6.9 completas. Próximo: implementação.
+
+---
+
+## Retomada 2026-06-28 — DEB-055-21/22
+
+Objetivo: fechar os 2 itens de infra/CI da spec 055.
+
+Feito:
+- `.github/workflows/ci.yml`: `api-governance` agora roda `pnpm api:traffic:smoke` e `pnpm api:traffic` antes de `pnpm api:check --strict`.
+- `specs/055-api-governance-executavel/debitos.md`: DEB-055-21 marcado como resolvido; DEB-055-22 marcado como resolvido com evidência da branch protection.
+- GitHub branch protection de `dev` verificada via `gh api`: required checks = `lint + build + test` e `api-governance`; `strict=true`.
+
+Validação:
+- `pnpm verify:api` exit 0.
+- `pnpm api:traffic:smoke && pnpm api:traffic && pnpm api:check:strict` exit 0.
+
+Observação:
+- Sem `docs/api/api-smoke-routes.json`, o HAR não é gerado; o fluxo fica verde e pronto para ativar tráfego real quando a configuração de smoke for commitada.
+
+---
+
+## Retomada 2026-06-28 — DEB-055-02/03
+
+Objetivo: implementar os dois resíduos reais apontados pelo mantenedor.
+
+Feito:
+- `scripts/api/consumers.ts`: scanner agora resolve constantes com ternário, seleciona ramo compatível com método HTTP, normaliza origins dinâmicos (`${apiUrl}/...`) para path local e preserva a resolução de const/template/concat.
+- `scripts/api/generate-openapi.ts`: OpenAPI agora gera `requestBody` JSON genérico para `POST`/`PUT`/`PATCH` e responses JSON genéricos/erros comuns; também classifica escopos explícitos para OAuth/browser/SSR/mídia/autoatendimento/telemetria/legacy.
+- `scripts/api/check-api.ts`, `redocly.yaml`, `scripts/api/lint-openapi.ts`: escopos novos aceitos e tratados como classificados quando não exigem consumidor JS direto.
+- Artefatos `docs/api/generated/*` e `docs/api/openapi/*.yaml` regenerados.
+- `specs/055-api-governance-executavel/debitos.md`: DEB-055-02 e DEB-055-03 atualizados para resolvidos.
+
+Validação:
+- `pnpm verify:api` exit 0.
+- `pnpm api:check:strict` exit 0.
+
+Métricas:
+- Consumers: 269 chamadas / 159 endpoints únicos.
+- OpenAPI: 264 operações.
+- Órfãs suspeitas: 0.
+- Duplicatas suspeitas: 0.
+- Redocly: 0 erros, 3 warnings conhecidos `no-ambiguous-paths`.
+
+Resíduo:
+- Schemas específicos por DTO/Zod continuam refinamento futuro; a lacuna "sem schema" foi fechada com schemas genéricos honestos e válidos.
