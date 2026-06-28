@@ -688,3 +688,13 @@ Justificativa: agente descobre rota, método, auth, params e propósito — sufi
 ## Estimativa honesta de esforço
 
 Isto NÃO é fechamento rápido. Passos 2–4 são o grosso: alinhar ~246 divergências (documentar ~121 rotas no OpenAPI, corrigir scanner de consumers, classificar 67 órfãs + 200 duplicatas). É trabalho de várias sessões de DeepSeek com revisão por lote. Passos 6–8 são rápidos uma vez verde. Voltar para a 054 antes do passo 5 = deixar a 055 em modo inicial (não estrito) — decisão do mantenedor.
+
+---
+
+## DEB-055-23 — RESOLVIDO: `prepare` quebrava build Docker de todos os apps
+
+- **Origem:** deploy beta mesas (run 28336435478, 2026-06-28) — `pnpm install --frozen-lockfile` falhou com `Cannot find module '/repo/scripts/git-hooks/install-hooks.mjs'`.
+- **Causa:** o `prepare` do `package.json` raiz (`node scripts/git-hooks/install-hooks.mjs`, adicionado pelo hook de governança da 055) roda no `pnpm install` dentro da imagem. Os Dockerfiles copiam `package.json` + `packages` + `apps/<mod>` + `patches`, mas **não `scripts/`** → o arquivo não está no contexto → crash antes do guard interno do `.mjs` rodar. Quebra o build de **todos** os apps. CI não pegou (checkout completo).
+- **Fix:** `prepare` tolerante — `node scripts/git-hooks/install-hooks.mjs || true` (idioma husky). Em dev o arquivo existe e roda; em Docker/CI o módulo ausente vira no-op exit 0. `install-hooks.mjs` já auto-guardava (`existsSync('.git')`).
+- **Validação:** ausência → exit 0; presença → exit 0; `pnpm install --frozen-lockfile` exit 0.
+- **Status:** ✅ RESOLVIDO (2026-06-28). Pendente deploy.
