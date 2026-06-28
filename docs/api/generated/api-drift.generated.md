@@ -1,6 +1,6 @@
 # Relatório de Divergência de API — api:check
 
-**Gerado em:** 2026-06-28T13:21:55.664Z
+**Gerado em:** 2026-06-28T14:10:04.829Z
 **Exit code:** 0 (inicial (sem bloqueios))
 **Modo:** inicial
 
@@ -10,17 +10,17 @@
 
 | Estado | Quantidade | Bloqueia? |
 |--------|-----------|:---------:|
-| ✅ OK | 88 | ❌ |
-| ⚠️ CODE_ONLY | 53 | ✅ (se novo) |
+| ✅ OK | 87 | ❌ |
+| ⚠️ CODE_ONLY | 49 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 0 | ❌ |
-| 🔍 CONSUMER_ONLY | 123 | ✅ (se new + high) |
+| 🔍 CONSUMER_ONLY | 58 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 69 | ❌ |
-| 👻 ORPHAN_SUSPECT | 66 | ❌ |
+| 👻 ORPHAN_SUSPECT | 70 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
 
-### accounts (10 rotas no inventário)
+### accounts (9 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -33,14 +33,12 @@
 | GET | `/health` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 📋 Na allowlist (legado) |
 | GET | `/login` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
 | POST | `/api/auth/logout` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 📋 Na allowlist (legado) |
-| USE | `<factory>` | ⚠️ CODE_ONLY | ❌ | ❌ | 📋 Na allowlist (legado) |
 
 ### accounts-frontend (0 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
 | PUT | `/admin/secrets/deepseek_api_key` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `<logout>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 
 ### glossario (59 rotas no inventário)
 
@@ -75,7 +73,7 @@
 | POST | `/api/auth/login` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
 | POST | `/api/auth/register` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
 | POST | `/api/categories` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
-| POST | `/api/feedback` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/feedback` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
 | POST | `/api/migration/claim` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
 | POST | `/api/migration/verify` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
 | POST | `/api/scenarios` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
@@ -113,7 +111,6 @@
 | DELETE | `/admin/feedback/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | DELETE | `/social/comments/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | DELETE | `/terms/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| DELETE | `route` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | GET | `/admin/activity` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | GET | `/admin/feedback` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | GET | `/auth/me` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
@@ -150,9 +147,6 @@
 | PUT | `/scenarios/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | PUT | `/systems/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | PUT | `/systems/editions/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| PUT | `<unknown>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| PUT | `route` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `<refreshSession>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 
 ### links (23 rotas no inventário)
 
@@ -188,7 +182,6 @@
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/groups/:param/report` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | GET | `/api/admin/v1/reports:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `inviteUrl` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 
 ### mesas (184 rotas no inventário)
 
@@ -259,8 +252,8 @@
 | GET | `/api/v1/vtt-platforms/admin` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 📋 Na allowlist (legado) |
 | GET | `/auth/discord/callback` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
 | GET | `/auth/discord/connect` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
-| GET | `/auth/google` | ⚠️ CODE_ONLY | ❌ | ❌ | 📋 Na allowlist (legado) |
-| GET | `/auth/google/callback` | ⚠️ CODE_ONLY | ❌ | ❌ | 📋 Na allowlist (legado) |
+| GET | `/auth/google` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
+| GET | `/auth/google/callback` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
 | GET | `/og/{*splat}` | ⚠️ CODE_ONLY | ❌ | ❌ | 📋 Na allowlist (legado) |
 | GET | `/og/:type/:slug` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
 | PATCH | `/api/v1/admin/dev-feedback/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -335,7 +328,7 @@
 | POST | `/api/v1/vtt-platforms/admin` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 📋 Na allowlist (legado) |
 | POST | `/api/v1/vtt-platforms/suggest` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
 | POST | `/auth/discord/verify-covil` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
-| POST | `/auth/logout` | ⚠️ CODE_ONLY | ❌ | ❌ | 📋 Na allowlist (legado) |
+| POST | `/auth/logout` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 📋 Na allowlist (legado) |
 | PUT | `/api/v1/admin/discord/settings/bot-token` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 📋 Na allowlist (legado) |
 | PUT | `/api/v1/admin/setting-suggestions/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 📋 Na allowlist (legado) |
 | PUT | `/api/v1/admin/tables/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -383,16 +376,8 @@
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
-| DELETE | `:param/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| DELETE | `:param/auth/discord/disconnect` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | DELETE | `/api/v1/admin/discord/deleteDiscordBotToken` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | DELETE | `/api/v1/admin/discord/deleteSource` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| DELETE | `deleteEndpoint` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| DELETE | `endpoint` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `:param:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `:param/api/v1/systems?view=tree` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `:param/auth/discord/connect` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `:param/health` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | GET | `/api/v1/admin/activity:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | GET | `/api/v1/admin/dev-feedback:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | GET | `/api/v1/admin/discord/discordSettings` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
@@ -400,74 +385,13 @@
 | GET | `/api/v1/admin/system-suggestions:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | GET | `/api/v1/masters/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | GET | `/api/v1/profile/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `<unknown>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `endpoint` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `url` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| PATCH | `<unknown>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| PATCH | `endpoint` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| POST | `:param:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| POST | `:param/api/auth/logout` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | POST | `/api/v1/admin/discord/createSource` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | POST | `/api/v1/admin/discord/importFile` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | POST | `/api/v1/admin/discord/importJson` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | POST | `/api/v1/admin/discord/reingestForce` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | POST | `/api/v1/admin/import/importText` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| POST | `endpoint` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| POST | `uploadEndpoint` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| POST | `url` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| PUT | `:param/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | PUT | `/api/v1/admin/discord/updateMessage` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 | PUT | `/api/v1/admin/discord/updateSource` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| PUT | `endpoint` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| PUT | `url` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/v1/admin/discord/diagnoseMessageContent` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/v1/admin/discord/discoverChannels` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/v1/admin/discord/discoverGuilds` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/v1/admin/discord/parseBatch` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/v1/admin/discord/parseMessage` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/v1/admin/discord/previewFile` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/v1/admin/discord/previewJson` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/v1/admin/discord/saveDiscordBotToken` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/v1/admin/discord/submitCorrection` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-
-### packages/auth (0 rotas no inventário)
-
-| Method | Path | Estado | OpenAPI | Consumidor | Obs |
-|--------|------|:-----:|:-------:|:----------:|-----|
-| GET | `:param/api/auth/refresh` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `input` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `meUrl` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-
-### site-admin (0 rotas no inventário)
-
-| Method | Path | Estado | OpenAPI | Consumidor | Obs |
-|--------|------|:-----:|:-------:|:----------:|-----|
-| DELETE | `/api/admin/v1/<deleteFeedback>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| DELETE | `/api/admin/v1/<deleteMedia>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| DELETE | `/api/admin/v1/<deletePage>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| DELETE | `/api/admin/v1/<deletePost>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `/api/admin/v1/<getPage>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `/api/admin/v1/<getPost>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `/api/admin/v1/<listFeedback>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `/api/admin/v1/<listMedia>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `/api/admin/v1/<listPages>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `/api/admin/v1/<listPosts>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `/api/admin/v1/<listTerms>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| GET | `BASEpath` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| POST | `:param/media` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| POST | `:param/preview` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| POST | `/api/admin/v1/<createPage>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| POST | `/api/admin/v1/<createPost>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| POST | `/api/admin/v1/<createTerm>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| PUT | `/api/admin/v1/<updateFeedback>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| PUT | `/api/admin/v1/<updateMedia>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| PUT | `/api/admin/v1/<updatePage>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| PUT | `/api/admin/v1/<updatePost>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/admin/v1/<previewHtml>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/admin/v1/<setPageStatus>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/admin/v1/<setPostStatus>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/admin/v1/<slugCheck>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
-| UNKNOWN | `/api/admin/v1/<uploadMedia>` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 📋 Na allowlist (legado) |
 
 ## Rotas órfãs suspeitas
 
@@ -482,7 +406,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/api/auth/google/callback` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/conta` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/login` | ✅ | public | Sem consumidor e scope não justifica |
-### glossario (37 rota(s))
+### glossario (38 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -510,6 +434,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/api/auth/login` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/auth/register` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/categories` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/api/feedback` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/migration/claim` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/migration/verify` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/scenarios` | ✅ | public | Sem consumidor e scope não justifica |
@@ -529,7 +454,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 |--------|------|:-----------:|-------|-------|
 | GET | `/api/groups/:slug` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/grupo/:slug` | ✅ | public | Sem consumidor e scope não justifica |
-### mesas (22 rota(s))
+### mesas (25 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -543,6 +468,8 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/api/v1/system-suggestions/mine` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/auth/discord/callback` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/auth/discord/connect` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/auth/google` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/auth/google/callback` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/og/:type/:slug` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/auth/logout` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/gm/tables` | ✅ | public | Sem consumidor e scope não justifica |
@@ -554,16 +481,14 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/api/v1/system-suggestions` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/vtt-platforms/suggest` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/auth/discord/verify-covil` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/auth/logout` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/gm/tables/:id` | ✅ | public | Sem consumidor e scope não justifica |
 
 ## Rotas sem OpenAPI (CODE_ONLY)
 
 | App | Method | Path | Confidence |
 |-----|--------|------|:---------:|
-| mesas | GET | `/auth/google` | high |
-| mesas | GET | `/auth/google/callback` | high |
 | mesas | GET | `/og/{*splat}` | high |
-| mesas | POST | `/auth/logout` | high |
 | glossario | USE | `/api/admin/activity` | high |
 | glossario | USE | `/api/admin/feedback` | high |
 | links | USE | `/api/admin/v1` | high |
@@ -612,41 +537,19 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | mesas | USE | `/api/v1/vtt-platforms` | high |
 | mesas | USE | `/auth` | high |
 | mesas | USE | `/og` | high |
-| accounts | USE | `<factory>` | low |
 
 ## Consumidores sem rota (CONSUMER_ONLY)
 
 | App | Method | Path | Confidence |
 |-----|--------|------|:---------:|
-| mesas-frontend | DELETE | `:param/:param` | medium |
-| mesas-frontend | DELETE | `:param/auth/discord/disconnect` | medium |
 | glossario-frontend | DELETE | `/admin/feedback/:param` | medium |
-| site-admin | DELETE | `/api/admin/v1/<deleteFeedback>` | low |
-| site-admin | DELETE | `/api/admin/v1/<deleteMedia>` | low |
-| site-admin | DELETE | `/api/admin/v1/<deletePage>` | low |
-| site-admin | DELETE | `/api/admin/v1/<deletePost>` | low |
 | links-frontend | DELETE | `/api/groups/:param/report` | medium |
 | mesas-frontend | DELETE | `/api/v1/admin/discord/deleteDiscordBotToken` | medium |
 | mesas-frontend | DELETE | `/api/v1/admin/discord/deleteSource` | medium |
 | glossario-frontend | DELETE | `/social/comments/:param` | medium |
 | glossario-frontend | DELETE | `/terms/:param` | medium |
-| mesas-frontend | DELETE | `deleteEndpoint` | low |
-| mesas-frontend | DELETE | `endpoint` | low |
-| glossario-frontend | DELETE | `route` | low |
-| mesas-frontend | GET | `:param:param` | medium |
-| packages/auth | GET | `:param/api/auth/refresh` | medium |
-| mesas-frontend | GET | `:param/api/v1/systems?view=tree` | medium |
-| mesas-frontend | GET | `:param/auth/discord/connect` | medium |
-| mesas-frontend | GET | `:param/health` | medium |
 | glossario-frontend | GET | `/admin/activity` | high |
 | glossario-frontend | GET | `/admin/feedback` | high |
-| site-admin | GET | `/api/admin/v1/<getPage>` | low |
-| site-admin | GET | `/api/admin/v1/<getPost>` | low |
-| site-admin | GET | `/api/admin/v1/<listFeedback>` | low |
-| site-admin | GET | `/api/admin/v1/<listMedia>` | low |
-| site-admin | GET | `/api/admin/v1/<listPages>` | low |
-| site-admin | GET | `/api/admin/v1/<listPosts>` | low |
-| site-admin | GET | `/api/admin/v1/<listTerms>` | low |
 | links-frontend | GET | `/api/admin/v1/reports:param` | medium |
 | mesas-frontend | GET | `/api/v1/admin/activity:param` | medium |
 | mesas-frontend | GET | `/api/v1/admin/dev-feedback:param` | medium |
@@ -667,28 +570,12 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | glossario-frontend | GET | `/terms` | high |
 | glossario-frontend | GET | `/terms/:param/history` | medium |
 | glossario-frontend | GET | `/users/admin` | high |
-| mesas-frontend | GET | `<unknown>` | low |
-| site-admin | GET | `BASEpath` | low |
-| mesas-frontend | GET | `endpoint` | low |
-| packages/auth | GET | `input` | low |
-| links-frontend | GET | `inviteUrl` | low |
-| packages/auth | GET | `meUrl` | low |
-| mesas-frontend | GET | `url` | low |
 | glossario-frontend | PATCH | `/admin/feedback/:param` | medium |
 | glossario-frontend | PATCH | `/notifications/:param/read` | medium |
 | glossario-frontend | PATCH | `/notifications/read-all` | high |
 | glossario-frontend | PATCH | `/terms/:param` | medium |
 | glossario-frontend | PATCH | `/terms/:param/approve` | medium |
 | glossario-frontend | PATCH | `/users/profile` | high |
-| mesas-frontend | PATCH | `<unknown>` | low |
-| mesas-frontend | PATCH | `endpoint` | low |
-| mesas-frontend | POST | `:param:param` | medium |
-| mesas-frontend | POST | `:param/api/auth/logout` | medium |
-| site-admin | POST | `:param/media` | medium |
-| site-admin | POST | `:param/preview` | medium |
-| site-admin | POST | `/api/admin/v1/<createPage>` | low |
-| site-admin | POST | `/api/admin/v1/<createPost>` | low |
-| site-admin | POST | `/api/admin/v1/<createTerm>` | low |
 | mesas-frontend | POST | `/api/v1/admin/discord/createSource` | medium |
 | mesas-frontend | POST | `/api/v1/admin/discord/importFile` | medium |
 | mesas-frontend | POST | `/api/v1/admin/discord/importJson` | medium |
@@ -706,41 +593,13 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | glossario-frontend | POST | `/terms` | high |
 | glossario-frontend | POST | `/terms/import` | high |
 | glossario-frontend | POST | `/users/admin/:param/ban` | medium |
-| mesas-frontend | POST | `endpoint` | low |
-| mesas-frontend | POST | `uploadEndpoint` | low |
-| mesas-frontend | POST | `url` | low |
-| mesas-frontend | PUT | `:param/:param` | medium |
 | accounts-frontend | PUT | `/admin/secrets/deepseek_api_key` | high |
-| site-admin | PUT | `/api/admin/v1/<updateFeedback>` | low |
-| site-admin | PUT | `/api/admin/v1/<updateMedia>` | low |
-| site-admin | PUT | `/api/admin/v1/<updatePage>` | low |
-| site-admin | PUT | `/api/admin/v1/<updatePost>` | low |
 | mesas-frontend | PUT | `/api/v1/admin/discord/updateMessage` | medium |
 | mesas-frontend | PUT | `/api/v1/admin/discord/updateSource` | medium |
 | glossario-frontend | PUT | `/categories/:param` | medium |
 | glossario-frontend | PUT | `/scenarios/:param` | medium |
 | glossario-frontend | PUT | `/systems/:param` | medium |
 | glossario-frontend | PUT | `/systems/editions/:param` | medium |
-| glossario-frontend | PUT | `<unknown>` | low |
-| mesas-frontend | PUT | `endpoint` | low |
-| glossario-frontend | PUT | `route` | low |
-| mesas-frontend | PUT | `url` | low |
-| site-admin | UNKNOWN | `/api/admin/v1/<previewHtml>` | low |
-| site-admin | UNKNOWN | `/api/admin/v1/<setPageStatus>` | low |
-| site-admin | UNKNOWN | `/api/admin/v1/<setPostStatus>` | low |
-| site-admin | UNKNOWN | `/api/admin/v1/<slugCheck>` | low |
-| site-admin | UNKNOWN | `/api/admin/v1/<uploadMedia>` | low |
-| mesas-frontend | UNKNOWN | `/api/v1/admin/discord/diagnoseMessageContent` | medium |
-| mesas-frontend | UNKNOWN | `/api/v1/admin/discord/discoverChannels` | medium |
-| mesas-frontend | UNKNOWN | `/api/v1/admin/discord/discoverGuilds` | medium |
-| mesas-frontend | UNKNOWN | `/api/v1/admin/discord/parseBatch` | medium |
-| mesas-frontend | UNKNOWN | `/api/v1/admin/discord/parseMessage` | medium |
-| mesas-frontend | UNKNOWN | `/api/v1/admin/discord/previewFile` | medium |
-| mesas-frontend | UNKNOWN | `/api/v1/admin/discord/previewJson` | medium |
-| mesas-frontend | UNKNOWN | `/api/v1/admin/discord/saveDiscordBotToken` | medium |
-| mesas-frontend | UNKNOWN | `/api/v1/admin/discord/submitCorrection` | medium |
-| accounts-frontend | UNKNOWN | `<logout>` | low |
-| glossario-frontend | UNKNOWN | `<refreshSession>` | low |
 
 ## Recomendação de allowlist
 

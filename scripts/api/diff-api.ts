@@ -106,21 +106,18 @@ function runOpenapiDiff(oldFile: string, newFile: string): DiffResult {
     stdio: ['pipe', 'pipe', 'ignore'],
   }).trim();
 
-  // The tool outputs some text before the JSON; parse carefully
-  try {
-    // Try to extract JSON from the output
-    const jsonStart = stdout.indexOf('{');
-    if (jsonStart >= 0) {
-      return JSON.parse(stdout.slice(jsonStart)) as DiffResult;
-    }
-  } catch {
-    // If parsing fails, return empty result
+  const jsonStart = stdout.indexOf('{');
+  if (jsonStart < 0) {
+    throw new Error(`openapi-diff não retornou JSON parseável. Saída: ${stdout.slice(0, 500)}`);
   }
 
-  return {
-    summary: { breaking: 0, 'non-breaking': 0, unclassified: 0 },
-    differences: [],
-  };
+  try {
+    return JSON.parse(stdout.slice(jsonStart)) as DiffResult;
+  } catch (error) {
+    throw new Error(
+      `Falha ao parsear saída JSON do openapi-diff: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
 function writeTempFile(content: string, suffix: string): string {
@@ -225,13 +222,15 @@ function extractLocation(change: DiffChange): { path: string; method: string } {
   if (details?.location) {
     // Location format: "paths./api/v1/tables.{slug}.get.operationId"
     const loc = details.location;
-    const pathMatch = loc.match(/paths\.([^.]+)/);
-    if (pathMatch) {
-      path = pathMatch[1].replace(/\./g, '/').replace(/\{/g, ':').replace(/\}/g, '');
-    }
-    const methodMatch = loc.match(/\.(get|post|put|patch|delete)\./);
+    const methodMatch = loc.match(/\.(get|post|put|patch|delete|head|options)(?:\.|$)/);
     if (methodMatch) {
       method = methodMatch[1].toUpperCase();
+    }
+    const pathPrefix = 'paths.';
+    const pathStart = loc.indexOf(pathPrefix);
+    if (pathStart >= 0 && methodMatch?.index !== undefined) {
+      const rawPath = loc.slice(pathStart + pathPrefix.length, methodMatch.index);
+      path = rawPath.replace(/\./g, '/').replace(/\{([^}]+)\}/g, ':$1');
     }
   }
 

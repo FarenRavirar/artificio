@@ -58,7 +58,7 @@ const SCAN_DIRS: string[] = [
 ];
 
 /** Extensões de arquivo a escanear */
-const FILE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.astro'];
+const FILE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
 
 /** Mapeamento de app name a partir do caminho */
 function detectAppName(filePath: string): string {
@@ -133,6 +133,21 @@ function isTestFile(filePath: string): boolean {
     name.endsWith('.test-d.ts') ||
     filePath.includes('__tests__')
   );
+}
+
+function isConcreteEndpoint(endpoint: string): boolean {
+  return endpoint.startsWith('/') || endpoint.startsWith('http://') || endpoint.startsWith('https://');
+}
+
+function hasSyntheticEndpointSegment(endpoint: string): boolean {
+  return endpoint.includes('<') || endpoint.includes('>') || endpoint.includes(':param:param');
+}
+
+function addConsumerResult(ctx: ConsumerContext, entry: ConsumerEntry): void {
+  if (entry.method === 'UNKNOWN') return;
+  if (!isConcreteEndpoint(entry.endpoint)) return;
+  if (hasSyntheticEndpointSegment(entry.endpoint)) return;
+  ctx.results.push(entry);
 }
 
 // ─── Extração de path de expressões ─────────────────────────────────────────
@@ -223,7 +238,7 @@ function scanFetchCalls(sf: ts.SourceFile, filePath: string, ctx: ConsumerContex
           method = extractMethodFromInit(initArg) || 'GET';
         }
 
-        ctx.results.push({
+        addConsumerResult(ctx, {
           app,
           consumerFile: relativePath,
           method,
@@ -285,7 +300,7 @@ function scanKnownWrappers(sf: ts.SourceFile, filePath: string, ctx: ConsumerCon
           }
         }
 
-        ctx.results.push({
+        addConsumerResult(ctx, {
           app,
           consumerFile: relativePath,
           method,
@@ -300,7 +315,7 @@ function scanKnownWrappers(sf: ts.SourceFile, filePath: string, ctx: ConsumerCon
       // auth helper functions (logout, refreshSession)
       if (ts.isIdentifier(callee) && AUTH_HELPER_FUNCTIONS.has(callee.text)) {
         // Essas chamam fetch internamente — marcar sem path
-        ctx.results.push({
+        addConsumerResult(ctx, {
           app,
           consumerFile: relativePath,
           method: 'UNKNOWN',
@@ -339,7 +354,7 @@ function scanApiMethodCalls(sf: ts.SourceFile, filePath: string, ctx: ConsumerCo
         if (!arg0) { ts.forEachChild(node, visit); return; }
         const extracted = extractPathFromArg(arg0);
 
-        ctx.results.push({
+        addConsumerResult(ctx, {
           app,
           consumerFile: relativePath,
           method: methodName.toUpperCase(),
@@ -395,7 +410,7 @@ function scanFeatureApis(sf: ts.SourceFile, filePath: string, ctx: ConsumerConte
       // Método HTTP deduzido do nome da função
       const inferredMethod = inferMethodFromName(methodName);
 
-      ctx.results.push({
+      addConsumerResult(ctx, {
         app,
         consumerFile: relativePath,
         method: inferredMethod,
@@ -449,7 +464,7 @@ function scanCentralizedApi(sf: ts.SourceFile, filePath: string, ctx: ConsumerCo
       // api.*() — tenta encontrar onde o path está definido
       // O path é construído internamente via req(BASE + path) ou authFetch(BASE + path)
       // Não temos acesso estático ao path real, mas marcamos como existente
-      ctx.results.push({
+      addConsumerResult(ctx, {
         app,
         consumerFile: relativePath,
         method: inferMethodFromName(methodName),
@@ -478,7 +493,7 @@ function scanAuthRefreshCalls(sf: ts.SourceFile, filePath: string, ctx: Consumer
       const callee = node.expression;
       // refreshSession() que chama fetch internamente
       if (ts.isIdentifier(callee) && callee.text === 'refreshSession') {
-        ctx.results.push({
+        addConsumerResult(ctx, {
           app,
           consumerFile: relativePath,
           method: 'GET',

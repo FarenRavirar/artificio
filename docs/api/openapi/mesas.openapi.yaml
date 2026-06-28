@@ -1820,6 +1820,36 @@ paths:
       responses:
         "200":
           description: OK
+  /auth/google:
+    get:
+      operationId: getauth_google
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /auth/google/callback:
+    get:
+      operationId: getauth_google_callback
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /auth/logout:
+    post:
+      operationId: postauth_logout
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
   /og/{type}/{slug}:
     get:
       operationId: getog_type_slug

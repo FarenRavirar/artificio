@@ -134,6 +134,25 @@ function isRouterCall(node: ts.Node): boolean {
   return false;
 }
 
+function fileDeclaresRouter(filePath: string): boolean {
+  if (!fs.existsSync(filePath)) return false;
+  const source = fs.readFileSync(filePath, 'utf-8');
+  const sf = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true);
+  let found = false;
+
+  function visit(node: ts.Node) {
+    if (found) return;
+    if (ts.isVariableDeclaration(node) && node.initializer && isRouterCall(node.initializer)) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sf);
+  return found;
+}
+
 // ─── Resolução de imports ───────────────────────────────────────────────────
 
 /** Resolve o caminho absoluto de um import relativo ao arquivo fonte */
@@ -226,7 +245,8 @@ function findRouterDeclaration(
 ): string | null {
   // 1. Verificar se é import
   if (imports.has(varName)) {
-    return imports.get(varName)!;
+    const importedFile = imports.get(varName)!;
+    return fileDeclaresRouter(importedFile) ? importedFile : null;
   }
 
   // 2. Procurar declaração no mesmo arquivo
@@ -316,7 +336,7 @@ function getFileAST(filePath: string): FileAST | null {
   }
   identifyRouters(sf);
 
-  const allRouters = new Map([...imports.entries(), ...localRouters.entries()]);
+  const allRouters = new Map(localRouters);
 
   const ast: FileAST = { source, sf, imports, localRouters, allRouters };
   astCache.set(filePath, ast);
@@ -435,17 +455,7 @@ function processUse(
         if (KNOWN_MIDDLEWARES.has(fnName)) {
           return; // middleware conhecido
         }
-        // Se o ident não é middleware conhecido e não é Router,
-        // pode ser factory local → LOW
-        ctx.results.push({
-          app: ctx.appName,
-          method: 'USE',
-          path: joinPaths(currentPrefix, '<factory>'),
-          sourceFile: relativePath,
-          line: getLine(node, ast.sf),
-          confidence: 'low',
-          kind: 'mount',
-        });
+        // Sem path literal não há rota verificável para inventariar.
         return;
       }
 
@@ -455,16 +465,7 @@ function processUse(
         if (KNOWN_MIDDLEWARES.has(objName)) {
           return; // middleware conhecido
         }
-        // É factory (ex: createAdminSecretsRoutes(...)), que retorna Router
-        ctx.results.push({
-          app: ctx.appName,
-          method: 'USE',
-          path: joinPaths(currentPrefix, '<factory>'),
-          sourceFile: relativePath,
-          line: getLine(node, ast.sf),
-          confidence: 'low',
-          kind: 'mount',
-        });
+        // Sem path literal não há rota verificável para inventariar.
         return;
       }
     }
@@ -492,8 +493,14 @@ function processUse(
   const routerIdent = extractIdentifier(arg1);
   if (!routerIdent) return;
 
-  if (!ast.allRouters.has(routerIdent)) {
-    // Router não resolvido (ex: factory function)
+  const importedRouterFile = ast.imports.get(routerIdent);
+  const confirmedImportedRouterFile = importedRouterFile && fileDeclaresRouter(importedRouterFile)
+    ? importedRouterFile
+    : null;
+
+  if (!ast.allRouters.has(routerIdent) && !confirmedImportedRouterFile) {
+    if (importedRouterFile) return;
+    // Router local não resolvido (ex: factory function)
     ctx.results.push({
       app: ctx.appName,
       method: 'USE',
@@ -506,7 +513,7 @@ function processUse(
     return;
   }
 
-  const routerFile = ast.allRouters.get(routerIdent)!;
+  const routerFile = ast.allRouters.get(routerIdent) || confirmedImportedRouterFile!;
   const newPrefix = joinPaths(currentPrefix, pathStr);
 
   if (routerFile.startsWith('FACTORY:')) {

@@ -120,6 +120,24 @@ function expressToOpenApiPath(path: string): string {
     .replace(/\{\*([a-zA-Z_][a-zA-Z0-9_]*)\}/g, '{$1}');
 }
 
+function operationIdFor(method: string, path: string, usedOperationIds: Set<string>): string {
+  const base =
+    `${method}${path.replace(/[\/{}]/g, '_').replace(/_{2,}/g, '_').replace(/^_/, '').replace(/_$/, '').replace(/_(\d+)/g, '_$1')}`
+      .replace(/[^a-zA-Z0-9_]/g, '_')
+      .replace(/_{2,}/g, '_')
+      .replace(/^_|_$/g, '') || method;
+
+  let candidate = base;
+  let suffix = 2;
+  while (usedOperationIds.has(candidate)) {
+    candidate = `${base}_${suffix}`;
+    suffix += 1;
+  }
+
+  usedOperationIds.add(candidate);
+  return candidate;
+}
+
 /** Skip catch-all Express 5 patterns ({*splat}) — not API routes */
 function isCatchAllRoute(path: string): boolean {
   return path.includes('{*') || path.includes('/*');
@@ -195,17 +213,23 @@ servers:
 
   // Ordenar paths
   const sortedPaths = [...pathMap.keys()].sort();
+  const usedOperationIds = new Set<string>();
 
   for (const oaPath of sortedPaths) {
-    const entries = pathMap.get(oaPath)!;
+    const entriesByMethod = new Map<string, RouteEntry>();
+    for (const entry of pathMap.get(oaPath)!) {
+      const method = entry.method.toLowerCase();
+      if (!KNOWN_METHODS.includes(method) || entriesByMethod.has(method)) continue;
+      entriesByMethod.set(method, entry);
+    }
+    const entries = [...entriesByMethod.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, entry]) => entry);
     yaml += `  ${oaPath}:\n`;
 
     for (const entry of entries) {
       const method = entry.method.toLowerCase();
-      if (!KNOWN_METHODS.includes(method)) continue;
 
       const cls = classifyRoute(entry.method, entry.path, entry.app);
-      const opId = `${method}${oaPath.replace(/[\/{}]/g, '_').replace(/_{2,}/g, '_').replace(/^_/, '').replace(/_$/, '').replace(/_(\d+)/g, '_$1')}`.replace(/[^a-zA-Z0-9_]/g, '_').replace(/_{2,}/g, '_').replace(/^_|_$/g, '') || method;
+      const opId = operationIdFor(method, oaPath, usedOperationIds);
 
       yaml += `    ${method}:\n`;
       yaml += `      operationId: ${opId}\n`;

@@ -1,6 +1,6 @@
 # Relatório de Breaking Changes — api:diff
 
-**Gerado em:** 2026-06-28T13:22:58.526Z
+**Gerado em:** 2026-06-28T14:10:05.491Z
 **Base:** dev
 **Modo:** inicial (não bloqueante)
 

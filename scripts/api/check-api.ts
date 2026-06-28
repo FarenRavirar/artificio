@@ -152,6 +152,18 @@ function buildKey(method: string, path: string): string {
   return `${method.toUpperCase()} ${normalizePath(path)}`;
 }
 
+function isConcreteApiPath(path: string): boolean {
+  return path.startsWith('/');
+}
+
+function isSyntheticApiPath(path: string): boolean {
+  return path.includes('<') || path.includes('>') || path.includes(':param:param');
+}
+
+function canBeAllowlisted(method: string, path: string): boolean {
+  return method.toUpperCase() !== 'UNKNOWN' && isConcreteApiPath(path) && !isSyntheticApiPath(path);
+}
+
 function readJSON<T>(filePath: string): T[] {
   if (!existsSync(filePath)) {
     console.warn(`  ⚠️  Arquivo não encontrado: ${filePath}`);
@@ -218,6 +230,7 @@ function readAllowlist(filePath: string): Map<string, AllowlistEntry> {
     const data = JSON.parse(readFileSync(filePath, 'utf-8')) as { items: AllowlistEntry[] };
     const map = new Map<string, AllowlistEntry>();
     for (const item of data.items || []) {
+      if (!canBeAllowlisted(item.method, item.path)) continue;
       map.set(buildKey(item.method, item.path), item);
     }
     return map;
@@ -403,12 +416,15 @@ function applyAllowlist(entries: DriftEntry[], allowlist: Map<string, AllowlistE
 
 function generateAllowlistFile(entries: DriftEntry[], filePath: string): void {
   const divergences = entries.filter(e =>
-    e.state === 'CODE_ONLY' ||
-    e.state === 'CONTRACT_ONLY' ||
-    e.state === 'CONSUMER_ONLY' ||
-    e.state === 'ORPHAN_SUSPECT' ||
-    e.state === 'UNUSED_ROUTE' ||
-    e.state === 'UNCERTAIN'
+    canBeAllowlisted(e.method, e.path) &&
+    (
+      e.state === 'CODE_ONLY' ||
+      e.state === 'CONTRACT_ONLY' ||
+      e.state === 'CONSUMER_ONLY' ||
+      e.state === 'ORPHAN_SUSPECT' ||
+      e.state === 'UNUSED_ROUTE' ||
+      e.state === 'UNCERTAIN'
+    )
   );
 
   const items = divergences.map(e => ({

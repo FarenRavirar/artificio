@@ -7,11 +7,11 @@
 
 | App | Total | HIGH | MEDIUM | LOW | Methods |
 |-----|-------|------|--------|-----|---------|
-| accounts | 10 | 9 | 0 | 1 | GET, POST, USE |
+| accounts | 9 | 9 | 0 | 0 | GET, POST |
 | glossario | 61 | 61 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 200 | 200 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **294** | 293 | 0 | 1 | |
+| **Total** | **293** | 293 | 0 | 0 | |
 
 ## accounts
 
@@ -26,7 +26,6 @@
 | GET | `/conta` | ✅ high | `apps\accounts\src\app.ts` | 178 |
 | GET | `/health` | ✅ high | `apps\accounts\src\app.ts` | 89 |
 | GET | `/login` | ✅ high | `apps\accounts\src\app.ts` | 178 |
-| USE | `<factory>` | ❓ low | `apps\accounts\src\app.ts` | 172 |
 
 ## glossario
 

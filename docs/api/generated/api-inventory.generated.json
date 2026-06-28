@@ -1,17 +1,15 @@
 {
   "metadata": {
-    "total": 294,
+    "total": 293,
     "byApp": {
       "accounts": {
-        "total": 10,
+        "total": 9,
         "byMethod": {
           "GET": 8,
-          "POST": 1,
-          "USE": 1
+          "POST": 1
         },
         "byConfidence": {
-          "high": 9,
-          "low": 1
+          "high": 9
         }
       },
       "glossario": {
@@ -56,7 +54,7 @@
         }
       }
     },
-    "generatedAt": "2026-06-28T13:21:50.174Z",
+    "generatedAt": "2026-06-28T14:05:51.544Z",
     "script": "scripts/api/inventory.ts"
   },
   "routes": [
@@ -140,15 +138,6 @@
       "line": 178,
       "confidence": "high",
       "kind": "express-route"
-    },
-    {
-      "app": "accounts",
-      "method": "USE",
-      "path": "<factory>",
-      "sourceFile": "apps\\accounts\\src\\app.ts",
-      "line": 172,
-      "confidence": "low",
-      "kind": "mount"
     },
     {
       "app": "glossario",

@@ -22,7 +22,8 @@ import { join, resolve } from 'node:path';
 //  CONSTANTES
 // ═══════════════════════════════════════════════
 
-const APPS = ['accounts', 'mesas', 'glossario', 'links'];
+const APPS = ['accounts', 'mesas', 'glossario', 'links'] as const;
+const APP_SET = new Set<string>(APPS);
 const OPENAPI_DIR = resolve(import.meta.dirname, '../../docs/api/openapi');
 const OUTPUT_DIR = resolve(import.meta.dirname, '../../docs/api/generated');
 const REPO_ROOT = resolve(import.meta.dirname, '../..');
@@ -102,6 +103,12 @@ function main(): void {
   const { app } = parseArgs();
 
   console.log(`\n📖 api:docs — Documentação visual OpenAPI\n`);
+
+  if (app && !APP_SET.has(app)) {
+    console.error(`   ❌ App inválido: ${app}`);
+    console.error(`   Apps válidos: ${APPS.join(', ')}`);
+    process.exit(1);
+  }
 
   const appsToBuild = app ? [app] : APPS;
 

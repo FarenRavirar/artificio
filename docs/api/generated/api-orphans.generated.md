@@ -1,6 +1,6 @@
 # Relatório de Rotas Órfãs e Duplicadas
 
-**Gerado em:** 2026-06-28T13:21:55.659Z
+**Gerado em:** 2026-06-28T14:10:04.824Z
 **Modo:** inicial
 **Este relatório NÃO bloqueia o build.**
 
@@ -17,7 +17,7 @@
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique ausência de uso.
 
-### accounts (6 rota(s))
+### accounts (5 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -26,8 +26,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/api/auth/google/callback` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/conta` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/login` | ✅ | public | Scope "public" sem consumidor |
-| USE | `<factory>` | ❌ | — (sem OpenAPI) | CODE_ONLY sem classificação |
-### glossario (52 rota(s))
+### glossario (53 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -55,6 +54,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/api/auth/login` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/auth/register` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/categories` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/feedback` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/migration/claim` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/migration/verify` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/scenarios` | ✅ | public | Scope "public" sem consumidor |
@@ -104,8 +104,8 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/api/v1/system-suggestions/mine` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/auth/discord/callback` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/auth/discord/connect` | ✅ | public | Scope "public" sem consumidor |
-| GET | `/auth/google` | ❌ | — (sem OpenAPI) | CODE_ONLY sem classificação |
-| GET | `/auth/google/callback` | ❌ | — (sem OpenAPI) | CODE_ONLY sem classificação |
+| GET | `/auth/google` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/auth/google/callback` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/og/{*splat}` | ❌ | — (sem OpenAPI) | CODE_ONLY sem classificação |
 | GET | `/og/:type/:slug` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/auth/logout` | ✅ | public | Scope "public" sem consumidor |
@@ -118,7 +118,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/api/v1/system-suggestions` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/vtt-platforms/suggest` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/auth/discord/verify-covil` | ✅ | public | Scope "public" sem consumidor |
-| POST | `/auth/logout` | ❌ | — (sem OpenAPI) | CODE_ONLY sem classificação |
+| POST | `/auth/logout` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/gm/tables/:id` | ✅ | public | Scope "public" sem consumidor |
 | USE | `/api/v1` | ❌ | — (sem OpenAPI) | CODE_ONLY sem classificação |
 | USE | `/api/v1/admin` | ❌ | — (sem OpenAPI) | CODE_ONLY sem classificação |
@@ -315,6 +315,8 @@ Pares de rotas com similaridade ≥ 75 e tokenSimilarity ≥ 0.5. Score máximo 
 | **87** | GET | `/api/v1/profile/links` | `/api/v1/profile/me` | mesas | Mesmo app e scope |
 | **87** | GET | `/api/v1/scenario-suggestions/mine` | `/api/v1/system-suggestions/mine` | mesas | Mesmo app e scope |
 | **87** | GET | `/auth/discord/callback` | `/auth/discord/connect` | mesas | Mesmo app e scope |
+| **87** | GET | `/auth/discord/callback` | `/auth/google/callback` | mesas | Mesmo app e scope |
+| **87** | GET | `/auth/google` | `/auth/google/callback` | mesas | Mesmo app e scope |
 | **87** | PATCH | `/api/notifications/:id/read` | `/api/notifications/read-all` | glossario | Mesmo app e scope |
 | **87** | PATCH | `/api/terms/:id` | `/api/terms/:id/approve` | glossario | Mesmo app e scope |
 | **87** | PATCH | `/api/admin/v1/groups/:id` | `/api/admin/v1/reports/:id` | links | Mesmo app e scope |
@@ -366,8 +368,6 @@ Pares de rotas com similaridade ≥ 75 e tokenSimilarity ≥ 0.5. Score máximo 
 | **84** | DELETE | `/api/v1/admin/discord/settings/bot-token` | `/api/v1/admin/discord/sources/:id` | mesas | Mesmo app e scope |
 | **84** | DELETE | `/api/v1/profile/me/connect/discord` | `/api/v1/profile/me/systems/:id` | mesas | Mesmo app e scope |
 | **84** | GET | `/api/admin/v1/groups` | `/api/admin/v1/groups/rehydrate-logos/status` | links | Mesmo app e scope |
-| **84** | GET | `/api/v1/admin/discord/discovery/guilds` | `/api/v1/admin/discord/drafts` | mesas | Mesmo app e scope |
-| **84** | GET | `/api/v1/admin/discord/discovery/guilds` | `/api/v1/admin/discord/drafts/:id` | mesas | Mesmo app e scope |
 
 ### Considerações
 

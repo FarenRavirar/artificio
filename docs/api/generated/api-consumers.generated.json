@@ -1,109 +1,72 @@
 {
   "metadata": {
-    "total": 299,
-    "uniqueEndpoints": 275,
+    "total": 206,
+    "uniqueEndpoints": 190,
     "byApp": {
       "accounts-frontend": {
-        "total": 3,
+        "total": 2,
         "byConfidence": {
-          "high": 2,
-          "low": 1
+          "high": 2
         },
         "byPattern": {
-          "literal": 2,
-          "service-wrapper": 1
+          "literal": 2
         }
       },
       "glossario-frontend": {
-        "total": 66,
+        "total": 61,
         "byConfidence": {
           "high": 39,
-          "medium": 22,
-          "low": 5
+          "medium": 22
         },
         "byPattern": {
           "literal": 38,
           "template-literal": 22,
-          "service-wrapper": 2,
-          "unknown": 4
-        }
-      },
-      "links-frontend": {
-        "total": 20,
-        "byConfidence": {
-          "high": 9,
-          "medium": 10,
-          "low": 1
-        },
-        "byPattern": {
-          "literal": 9,
-          "template-literal": 10,
-          "unknown": 1
-        }
-      },
-      "mesas-frontend": {
-        "total": 163,
-        "byConfidence": {
-          "medium": 82,
-          "high": 58,
-          "low": 23
-        },
-        "byPattern": {
-          "template-literal": 55,
-          "service-wrapper": 31,
-          "literal": 56,
-          "unknown": 21
-        }
-      },
-      "packages/auth": {
-        "total": 10,
-        "byConfidence": {
-          "medium": 2,
-          "high": 2,
-          "low": 6
-        },
-        "byPattern": {
-          "template-literal": 2,
-          "service-wrapper": 4,
-          "unknown": 4
-        }
-      },
-      "packages/ui": {
-        "total": 1,
-        "byConfidence": {
-          "low": 1
-        },
-        "byPattern": {
           "service-wrapper": 1
         }
       },
-      "site-admin": {
-        "total": 34,
+      "links-frontend": {
+        "total": 19,
         "byConfidence": {
-          "medium": 3,
-          "low": 30,
+          "high": 9,
+          "medium": 10
+        },
+        "byPattern": {
+          "literal": 9,
+          "template-literal": 10
+        }
+      },
+      "mesas-frontend": {
+        "total": 121,
+        "byConfidence": {
+          "high": 58,
+          "medium": 63
+        },
+        "byPattern": {
+          "service-wrapper": 20,
+          "template-literal": 45,
+          "literal": 56
+        }
+      },
+      "packages/auth": {
+        "total": 2,
+        "byConfidence": {
+          "high": 2
+        },
+        "byPattern": {
+          "service-wrapper": 2
+        }
+      },
+      "site-admin": {
+        "total": 1,
+        "byConfidence": {
           "high": 1
         },
         "byPattern": {
-          "template-literal": 3,
-          "service-wrapper": 28,
-          "concatenation": 1,
-          "unknown": 2
-        }
-      },
-      "site-frontend": {
-        "total": 2,
-        "byConfidence": {
-          "high": 1,
-          "low": 1
-        },
-        "byPattern": {
-          "literal": 1,
           "service-wrapper": 1
         }
       }
     },
-    "generatedAt": "2026-06-28T13:21:50.821Z",
+    "generatedAt": "2026-06-28T14:05:51.919Z",
     "script": "scripts/api/consumers.ts"
   },
   "consumers": [
@@ -126,16 +89,6 @@
       "pattern": "literal",
       "wrapper": "fetch",
       "line": 51
-    },
-    {
-      "app": "accounts-frontend",
-      "consumerFile": "apps/accounts/frontend/src/main.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "<logout>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "logout",
-      "line": 141
     },
     {
       "app": "glossario-frontend",
@@ -698,46 +651,6 @@
       "line": 19
     },
     {
-      "app": "glossario-frontend",
-      "consumerFile": "apps/glossario/frontend/src/services/api.ts",
-      "method": "UNKNOWN",
-      "endpoint": "<refreshSession>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "refreshSession",
-      "line": 26
-    },
-    {
-      "app": "glossario-frontend",
-      "consumerFile": "apps/glossario/frontend/src/pages/AdminStructurePage.tsx",
-      "method": "PUT",
-      "endpoint": "<unknown>",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "api.put",
-      "line": 134
-    },
-    {
-      "app": "glossario-frontend",
-      "consumerFile": "apps/glossario/frontend/src/pages/AdminStructurePage.tsx",
-      "method": "PUT",
-      "endpoint": "route",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "api.put",
-      "line": 144
-    },
-    {
-      "app": "glossario-frontend",
-      "consumerFile": "apps/glossario/frontend/src/pages/AdminStructurePage.tsx",
-      "method": "DELETE",
-      "endpoint": "route",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "api.delete",
-      "line": 153
-    },
-    {
       "app": "links-frontend",
       "consumerFile": "apps/links/src/components/admin/AdminPanel.tsx",
       "method": "GET",
@@ -918,116 +831,6 @@
       "line": 43
     },
     {
-      "app": "links-frontend",
-      "consumerFile": "apps/links/server/lib/og.ts",
-      "method": "GET",
-      "endpoint": "inviteUrl",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "fetch",
-      "line": 52
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/api/discordSyncApi.ts",
-      "method": "GET",
-      "endpoint": ":param:param",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authenticatedFetch",
-      "line": 23
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/api/discordSyncApi.ts",
-      "method": "POST",
-      "endpoint": ":param:param",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authenticatedFetch",
-      "line": 207
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/inbox/api/inboxApi.ts",
-      "method": "GET",
-      "endpoint": ":param:param",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authenticatedFetch",
-      "line": 16
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
-      "method": "DELETE",
-      "endpoint": ":param/:param",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authDelete",
-      "line": 204
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
-      "method": "PUT",
-      "endpoint": ":param/:param",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authPut",
-      "line": 227
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/contexts/AuthContext.tsx",
-      "method": "POST",
-      "endpoint": ":param/api/auth/logout",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 64
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/UserSystemsSelector.tsx",
-      "method": "GET",
-      "endpoint": ":param/api/v1/systems?view=tree",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 35
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/pages/ProfileEditPage.tsx",
-      "method": "GET",
-      "endpoint": ":param/auth/discord/connect",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authenticatedFetch",
-      "line": 947
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/pages/ProfileEditPage.tsx",
-      "method": "DELETE",
-      "endpoint": ":param/auth/discord/disconnect",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authenticatedFetch",
-      "line": 99
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/App.tsx",
-      "method": "GET",
-      "endpoint": ":param/health",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 84
-    },
-    {
       "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/contexts/AuthContext.tsx",
       "method": "GET",
@@ -1129,16 +932,6 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/hooks/useDiscordSync.ts",
-      "method": "UNKNOWN",
-      "endpoint": "/api/v1/admin/discord/diagnoseMessageContent",
-      "confidence": "medium",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.diagnoseMessageContent",
-      "line": 211
-    },
-    {
-      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/DiscordSettingsPanel.tsx",
       "method": "GET",
       "endpoint": "/api/v1/admin/discord/discordSettings",
@@ -1146,26 +939,6 @@
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDiscordSettings",
       "line": 35
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/DiscordSourceList.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "/api/v1/admin/discord/discoverChannels",
-      "confidence": "medium",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.discoverChannels",
-      "line": 115
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/DiscordSourceList.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "/api/v1/admin/discord/discoverGuilds",
-      "confidence": "medium",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.discoverGuilds",
-      "line": 81
     },
     {
       "app": "mesas-frontend",
@@ -1240,62 +1013,12 @@
     {
       "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/discord-sync/hooks/useDiscordSync.ts",
-      "method": "UNKNOWN",
-      "endpoint": "/api/v1/admin/discord/parseBatch",
-      "confidence": "medium",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.parseBatch",
-      "line": 246
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/hooks/useDiscordSync.ts",
-      "method": "UNKNOWN",
-      "endpoint": "/api/v1/admin/discord/parseMessage",
-      "confidence": "medium",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.parseMessage",
-      "line": 195
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/hooks/useJsonImport.ts",
-      "method": "UNKNOWN",
-      "endpoint": "/api/v1/admin/discord/previewFile",
-      "confidence": "medium",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.previewFile",
-      "line": 139
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/hooks/useJsonImport.ts",
-      "method": "UNKNOWN",
-      "endpoint": "/api/v1/admin/discord/previewJson",
-      "confidence": "medium",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.previewJson",
-      "line": 54
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/hooks/useDiscordSync.ts",
       "method": "POST",
       "endpoint": "/api/v1/admin/discord/reingestForce",
       "confidence": "medium",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.reingestForce",
       "line": 229
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/DiscordSettingsPanel.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "/api/v1/admin/discord/saveDiscordBotToken",
-      "confidence": "medium",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.saveDiscordBotToken",
-      "line": 55
     },
     {
       "app": "mesas-frontend",
@@ -1306,16 +1029,6 @@
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getSources",
       "line": 98
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ModeracaoSection.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "/api/v1/admin/discord/submitCorrection",
-      "confidence": "medium",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.submitCorrection",
-      "line": 58
     },
     {
       "app": "mesas-frontend",
@@ -2238,236 +1951,6 @@
       "line": 24
     },
     {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/contexts/AuthContext.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "<refreshSession>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "refreshSession",
-      "line": 59
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/services/apiClient.ts",
-      "method": "UNKNOWN",
-      "endpoint": "<refreshSession>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "refreshSession",
-      "line": 138
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ComunidadeSection.tsx",
-      "method": "PATCH",
-      "endpoint": "<unknown>",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authPatch",
-      "line": 177
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
-      "method": "GET",
-      "endpoint": "<unknown>",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authGet",
-      "line": 100
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/table/components/TableActionPanel.tsx",
-      "method": "DELETE",
-      "endpoint": "deleteEndpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authDelete",
-      "line": 35
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/SystemSuggestionModal.tsx",
-      "method": "POST",
-      "endpoint": "endpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authPost",
-      "line": 121
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/create-table/hooks/useCreateTableForm.ts",
-      "method": "PUT",
-      "endpoint": "endpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authPut",
-      "line": 230
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/create-table/hooks/useCreateTableForm.ts",
-      "method": "POST",
-      "endpoint": "endpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authPost",
-      "line": 231
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
-      "method": "PUT",
-      "endpoint": "endpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authPut",
-      "line": 177
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
-      "method": "POST",
-      "endpoint": "endpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authPost",
-      "line": 178
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/pages/PainelMestrePage.tsx",
-      "method": "DELETE",
-      "endpoint": "endpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authDelete",
-      "line": 514
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/services/apiClient.ts",
-      "method": "GET",
-      "endpoint": "endpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authenticatedFetch",
-      "line": 267
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/services/apiClient.ts",
-      "method": "POST",
-      "endpoint": "endpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authenticatedFetch",
-      "line": 270
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/services/apiClient.ts",
-      "method": "PUT",
-      "endpoint": "endpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authenticatedFetch",
-      "line": 277
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/services/apiClient.ts",
-      "method": "PATCH",
-      "endpoint": "endpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authenticatedFetch",
-      "line": 284
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/services/apiClient.ts",
-      "method": "DELETE",
-      "endpoint": "endpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authenticatedFetch",
-      "line": 291
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/AvatarUploader.tsx",
-      "method": "POST",
-      "endpoint": "uploadEndpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authPost",
-      "line": 98
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/ImageUploader.tsx",
-      "method": "POST",
-      "endpoint": "uploadEndpoint",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authPost",
-      "line": 145
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/ScenarioEditModal.tsx",
-      "method": "PUT",
-      "endpoint": "url",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authPut",
-      "line": 91
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/ScenarioEditModal.tsx",
-      "method": "POST",
-      "endpoint": "url",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "authPost",
-      "line": 92
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/services/apiClient.ts",
-      "method": "GET",
-      "endpoint": "url",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "fetch",
-      "line": 121
-    },
-    {
-      "app": "packages/auth",
-      "consumerFile": "packages/auth/src/client.ts",
-      "method": "POST",
-      "endpoint": ":param/api/auth/logout",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 144
-    },
-    {
-      "app": "packages/auth",
-      "consumerFile": "packages/auth/src/client.ts",
-      "method": "GET",
-      "endpoint": ":param/api/auth/refresh",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 31
-    },
-    {
       "app": "packages/auth",
       "consumerFile": "packages/auth/src/client.ts",
       "method": "GET",
@@ -2478,326 +1961,6 @@
       "line": 52
     },
     {
-      "app": "packages/auth",
-      "consumerFile": "packages/auth/src/client.ts",
-      "method": "UNKNOWN",
-      "endpoint": "<refreshSession>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "refreshSession",
-      "line": 52
-    },
-    {
-      "app": "packages/auth",
-      "consumerFile": "packages/auth/src/client.ts",
-      "method": "GET",
-      "endpoint": "input",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "fetch",
-      "line": 50
-    },
-    {
-      "app": "packages/auth",
-      "consumerFile": "packages/auth/src/client.ts",
-      "method": "GET",
-      "endpoint": "meUrl",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "fetch",
-      "line": 94
-    },
-    {
-      "app": "packages/ui",
-      "consumerFile": "packages/ui/src/Header.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "<logout>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "logout",
-      "line": 201
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/api.ts",
-      "method": "GET",
-      "endpoint": ":param/api/auth/refresh",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 14
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/api.ts",
-      "method": "POST",
-      "endpoint": ":param/media",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authFetch",
-      "line": 112
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/api.ts",
-      "method": "POST",
-      "endpoint": ":param/preview",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authFetch",
-      "line": 134
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PageEditor.tsx",
-      "method": "POST",
-      "endpoint": "/api/admin/v1/<createPage>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.createPage",
-      "line": 55
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostEditor.tsx",
-      "method": "POST",
-      "endpoint": "/api/admin/v1/<createPost>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.createPost",
-      "line": 87
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostEditor.tsx",
-      "method": "POST",
-      "endpoint": "/api/admin/v1/<createTerm>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.createTerm",
-      "line": 108
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/FeedbackPage.tsx",
-      "method": "DELETE",
-      "endpoint": "/api/admin/v1/<deleteFeedback>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.deleteFeedback",
-      "line": 57
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/media/MediaLibrary.tsx",
-      "method": "DELETE",
-      "endpoint": "/api/admin/v1/<deleteMedia>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.deleteMedia",
-      "line": 50
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PagesList.tsx",
-      "method": "DELETE",
-      "endpoint": "/api/admin/v1/<deletePage>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.deletePage",
-      "line": 58
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostsList.tsx",
-      "method": "DELETE",
-      "endpoint": "/api/admin/v1/<deletePost>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.deletePost",
-      "line": 64
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PageEditor.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/<getPage>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.getPage",
-      "line": 36
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostEditor.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/<getPost>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.getPost",
-      "line": 45
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/FeedbackPage.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/<listFeedback>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.listFeedback",
-      "line": 34
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/media/MediaLibrary.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/<listMedia>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.listMedia",
-      "line": 25
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PagesList.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/<listPages>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.listPages",
-      "line": 42
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostsList.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/<listPosts>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.listPosts",
-      "line": 48
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostEditor.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/<listTerms>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.listTerms",
-      "line": 43
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PageEditor.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "/api/admin/v1/<previewHtml>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.previewHtml",
-      "line": 69
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostEditor.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "/api/admin/v1/<previewHtml>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.previewHtml",
-      "line": 101
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PagesList.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "/api/admin/v1/<setPageStatus>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.setPageStatus",
-      "line": 58
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostsList.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "/api/admin/v1/<setPostStatus>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.setPostStatus",
-      "line": 64
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PageEditor.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "/api/admin/v1/<slugCheck>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.slugCheck",
-      "line": 46
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostEditor.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "/api/admin/v1/<slugCheck>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.slugCheck",
-      "line": 55
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/FeedbackPage.tsx",
-      "method": "PUT",
-      "endpoint": "/api/admin/v1/<updateFeedback>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.updateFeedback",
-      "line": 43
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/media/MediaLibrary.tsx",
-      "method": "PUT",
-      "endpoint": "/api/admin/v1/<updateMedia>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.updateMedia",
-      "line": 39
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PageEditor.tsx",
-      "method": "PUT",
-      "endpoint": "/api/admin/v1/<updatePage>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.updatePage",
-      "line": 55
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostEditor.tsx",
-      "method": "PUT",
-      "endpoint": "/api/admin/v1/<updatePost>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.updatePost",
-      "line": 87
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/media/MediaLibrary.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "/api/admin/v1/<uploadMedia>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "api.uploadMedia",
-      "line": 32
-    },
-    {
       "app": "site-admin",
       "consumerFile": "apps/site-admin/src/api.ts",
       "method": "GET",
@@ -2806,56 +1969,6 @@
       "pattern": "service-wrapper",
       "wrapper": "refreshSession",
       "line": 23
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/api.ts",
-      "method": "UNKNOWN",
-      "endpoint": "<refreshSession>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "refreshSession",
-      "line": 23
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/api.ts",
-      "method": "GET",
-      "endpoint": "BASEpath",
-      "confidence": "low",
-      "pattern": "concatenation",
-      "wrapper": "authFetch",
-      "line": 27
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/api.ts",
-      "method": "GET",
-      "endpoint": "url",
-      "confidence": "low",
-      "pattern": "unknown",
-      "wrapper": "fetch",
-      "line": 21
-    },
-    {
-      "app": "site-frontend",
-      "consumerFile": "apps/site/src/components/FeedbackWidget.astro",
-      "method": "POST",
-      "endpoint": "/api/feedback",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "fetch",
-      "line": 207
-    },
-    {
-      "app": "site-frontend",
-      "consumerFile": "apps/site/src/components/SiteHeaderIsland.tsx",
-      "method": "UNKNOWN",
-      "endpoint": "<logout>",
-      "confidence": "low",
-      "pattern": "service-wrapper",
-      "wrapper": "logout",
-      "line": 126
     }
   ]
 }
