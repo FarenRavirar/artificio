@@ -123,15 +123,29 @@ jobs:
       - name: API Consumers
         run: pnpm api:consumers
 
+      - name: Generate OpenAPI
+        run: pnpm api:generate-openapi
+
+      - name: API Bundle (índice para agentes)
+        run: pnpm api:bundle
+
       - name: OpenAPI Lint
         env:
           REDOCLY_TELEMETRY: off
           REDOCLY_SUPPRESS_UPDATE_NOTICE: "true"
         run: pnpm api:lint
 
-      - name: API Check (drift + orphans + duplicates)
-        run: pnpm api:check
+      - name: API Check (modo estrito — allowlist deve estar vazia)
+        run: pnpm api:check --strict
 
-      - name: API Diff (breaking changes — non-blocking in initial mode)
-        continue-on-error: true
-        run: pnpm api:diff || true
+      - name: API Diff (breaking changes — bloqueante)
+        run: pnpm api:diff
+
+      - name: Verify generated artifacts are committed
+        run: |
+          if [ -n "$(git status --porcelain docs/api)" ]; then
+            echo "::error::Artefatos de governança de API desatualizados. Rode 'pnpm verify:api' e commite docs/api/."
+            git status --porcelain docs/api
+            git diff -- docs/api
+            exit 1
+          fi

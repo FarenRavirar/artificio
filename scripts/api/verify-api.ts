@@ -7,6 +7,7 @@ const commands = [
   [pnpm, ['api:inventory']],
   [pnpm, ['api:consumers']],
   [pnpm, ['api:generate-openapi']],
+  [pnpm, ['api:bundle']],
   [pnpm, ['api:lint']],
   [pnpm, ['api:check']],
   [pnpm, ['api:diff']],

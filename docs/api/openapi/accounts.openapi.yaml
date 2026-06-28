@@ -22,6 +22,37 @@ paths:
       responses:
         "200":
           description: OK
+  /admin/secrets/{name}:
+    get:
+      operationId: getadmin_secrets_name
+      x-artificio-owner: accounts
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    put:
+      operationId: putadmin_secrets_name
+      x-artificio-owner: accounts
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
   /api/auth/google:
     get:
       operationId: getapi_auth_google

@@ -62,6 +62,7 @@ const APPS: AppConfig[] = [
   { name: 'glossario', entryFile: 'apps/glossario/backend/src/index.ts', appVarName: 'app' },
   { name: 'links', entryFile: 'apps/links/server/server.ts', appVarName: 'app' },
   { name: 'mesas', entryFile: 'apps/mesas/backend/src/server.ts', appVarName: 'app' },
+  { name: 'site', entryFile: 'apps/site/server/server.ts', appVarName: 'app' },
 ];
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -163,7 +164,10 @@ function resolveImportPath(importPath: string, sourceFile: string): string | nul
   if (!importPath.startsWith('.')) return null;
 
   const sourceDir = path.dirname(sourceFile);
-  const resolved = path.resolve(sourceDir, importPath);
+  // NodeNext: imports usam extensão .js/.jsx apontando para fonte .ts/.tsx.
+  // Remover a extensão emitida para que o loop tente as fontes reais.
+  const importNoExt = importPath.replace(/\.(js|jsx|mjs|cjs)$/, '');
+  const resolved = path.resolve(sourceDir, importNoExt);
 
   // Tentar extensões comuns
   const extensions = ['.ts', '.tsx', '.js', '.jsx', ''];
@@ -457,7 +461,15 @@ function processUse(
         if (KNOWN_MIDDLEWARES.has(fnName)) {
           return; // middleware conhecido
         }
-        // Sem path literal não há rota verificável para inventariar.
+        // Factory sem path: app.use(createAdminSecretsRoutes(db, env))
+        // Resolver a função e escanear seu router interno com o prefixo atual.
+        // Se for middleware sem rotas, scanRouterFile não encontra nada (seguro).
+        const factoryFile = ast.imports.get(fnName) || ast.sf.fileName;
+        if (factoryFile && fs.existsSync(factoryFile)) {
+          const factoryAST = getFileAST(factoryFile);
+          const scopeVar = factoryAST ? scopeVarForFile(factoryFile, factoryAST) : 'router';
+          scanRouterFile(factoryFile, currentPrefix, scopeVar, ctx);
+        }
         return;
       }
 
@@ -491,6 +503,22 @@ function processUse(
 
   // Seguir router se houver segundo argumento
   if (!arg1) return;
+
+  // Factory call: app.use("/prefix", factoryFn(...)) — ex: adminApi(requireAuth, requireAdmin)
+  // O router é criado dentro da factory; resolvemos a função e escaneamos seu router interno.
+  if (ts.isCallExpression(arg1) && ts.isIdentifier(arg1.expression)) {
+    const factoryName = arg1.expression.text;
+    if (factoryName !== 'Router') {
+      const factoryFile = ast.imports.get(factoryName) || ast.sf.fileName;
+      if (factoryFile && fs.existsSync(factoryFile)) {
+        const newPrefix = joinPaths(currentPrefix, pathStr);
+        const factoryAST = getFileAST(factoryFile);
+        const scopeVar = factoryAST ? scopeVarForFile(factoryFile, factoryAST) : 'router';
+        scanRouterFile(factoryFile, newPrefix, scopeVar, ctx);
+      }
+    }
+    return;
+  }
 
   const routerIdent = extractIdentifier(arg1);
   if (!routerIdent) return;
@@ -698,6 +726,18 @@ function generateOutput(results: RouteEntry[]): { json: object; markdown: string
 
 > Gerado automaticamente por \`scripts/api/inventory.ts\` em ${GENERATED_AT.split('T')[0]}.
 > **Não editar manualmente.** Fonte: \`docs/api/generated/api-inventory.generated.json\`.
+
+## Convenção de Auth (DEB-055-08)
+
+A resolução de auth por AST tem limitações (middleware dentro do arquivo de rota).
+Use esta convenção como fallback documentado:
+
+- Rotas com prefixo \`/admin\` → escopo **admin** (restrito a admins)
+- Rotas com prefixo \`/gm\` → escopo **user** (usuário logado, dono do recurso)
+- Rotas sem prefixo restrito → escopo **public** ou **user** (depende do app)
+- Rotas \`/health\`, \`/api/auth/*\` → escopo **internal**/**public** (sem auth)
+
+Para informação granular (auth exata, rate-limit, payload), consulte os contratos OpenAPI em \`docs/api/openapi/*.yaml\` e os metadados \`x-artificio-*\`.
 
 ## Estatísticas
 

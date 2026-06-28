@@ -1,0 +1,54 @@
+# Overlay manual — rotas não detectadas por AST estático (DEB-055-12)
+# Fontes:
+#   - apps/mesas/backend/src/routes/discord/corrections.ts (createCorrectionHandler factory)
+#   - apps/mesas/backend/src/routes/inbox/corrections.ts  (createCorrectionHandler factory)
+# merge-overlay.ts mescla este arquivo ao mesas.openapi.yaml gerado.
+#
+# Formato: apenas blocos de path (mesma indentação do YAML gerado).
+# Cada bloco começa com o path e contém os métodos + x-artificio-*.
+
+  /api/v1/admin/discord/drafts/{id}/correction:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: postapi_v1_admin_discord_drafts_id_correction
+      summary: Registra correção manual em draft de Discord
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: provisional
+      x-artificio-auth: admin
+      description: "Aplica correções manuais ao payload parseado de um draft de Discord. Fonte: createCorrectionHandler via discord/corrections.ts (DEB-055-12)."
+      responses:
+        "200":
+          description: Correção registrada
+        "400":
+          description: Payload inválido
+        "404":
+          description: Draft não encontrado
+
+  /api/v1/admin/import/drafts/{id}/correction:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: postapi_v1_admin_import_drafts_id_correction
+      summary: Registra correção manual em draft de importação
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: provisional
+      x-artificio-auth: admin
+      description: "Aplica correções manuais ao payload parseado de um draft de inbox/importação. Fonte: createCorrectionHandler via inbox/corrections.ts (DEB-055-12)."
+      responses:
+        "200":
+          description: Correção registrada
+        "400":
+          description: Payload inválido
+        "404":
+          description: Draft não encontrado

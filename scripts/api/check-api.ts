@@ -154,6 +154,32 @@ function buildKey(method: string, path: string): string {
   return `${method.toUpperCase()} ${normalizePath(path)}`;
 }
 
+/**
+ * Casa uma chave de consumidor com valor concreto contra rotas com :param.
+ * Ex: `PUT /admin/secrets/deepseek_api_key` casa `PUT /admin/secrets/:param`.
+ * Match: mesmo método, mesmo nº de segmentos, cada segmento do template igual
+ * ao do consumidor OU `:param`. Retorna a chave do template, ou null.
+ */
+function matchParamTemplate(consumerKey: string, routeKeys: Set<string>): string | null {
+  const [cMethod, cPath] = consumerKey.split(' ');
+  if (!cPath) return null;
+  const cSegs = cPath.split('/');
+  for (const routeKey of routeKeys) {
+    const [rMethod, rPath] = routeKey.split(' ');
+    if (rMethod !== cMethod) continue;
+    if (!rPath.includes(':param')) continue; // só templates com param
+    const rSegs = rPath.split('/');
+    if (rSegs.length !== cSegs.length) continue;
+    let ok = true;
+    for (let i = 0; i < rSegs.length; i++) {
+      if (rSegs[i] === ':param') continue;
+      if (rSegs[i] !== cSegs[i]) { ok = false; break; }
+    }
+    if (ok) return routeKey;
+  }
+  return null;
+}
+
 function isConcreteApiPath(path: string): boolean {
   return path.startsWith('/');
 }
@@ -319,8 +345,14 @@ function compareSources(sources: ComparisonSources): DriftEntry[] {
   const { inventory, consumers, openapi } = sources;
 
   // Build maps
+  // USE é mount point interno do Express (static, sub-router), não endpoint de
+  // API — excluído da comparação 3-way (DEB-055-15), igual a órfãs/duplicatas.
   const invMap = new Map<string, RouteEntry>();
   for (const r of inventory) {
+    if (r.method === 'USE') continue;
+    // Catch-all Express 5 ({*splat}) / wildcard não são endpoints de API — o
+    // generate-openapi também os pula; manter consistência evita CODE_ONLY falso.
+    if (r.path.includes('{*') || r.path.includes('/*') || r.path.includes('*splat')) continue;
     const key = buildKey(r.method, r.path);
     if (!invMap.has(key)) invMap.set(key, r);
   }
@@ -331,10 +363,19 @@ function compareSources(sources: ComparisonSources): DriftEntry[] {
     if (!oasMap.has(key)) oasMap.set(key, r);
   }
 
+  // Conjunto de chaves de rota reais (inventário + contrato) para casar
+  // consumidores que usam valor concreto onde a rota tem :param
+  // (ex: consumer `/admin/secrets/deepseek_api_key` casa rota `/admin/secrets/:name`).
+  const routeKeys = new Set<string>([...invMap.keys(), ...oasMap.keys()]);
+
   const consMap = new Map<string, ConsumerEntry[]>();
   for (const r of consumers) {
     const method = r.method && r.method !== 'UNKNOWN' ? r.method : 'UNKNOWN';
-    const key = buildKey(method, r.endpoint);
+    let key = buildKey(method, r.endpoint);
+    if (!routeKeys.has(key)) {
+      const matched = matchParamTemplate(key, routeKeys);
+      if (matched) key = matched;
+    }
     if (!consMap.has(key)) consMap.set(key, []);
     consMap.get(key)!.push(r);
   }
@@ -476,6 +517,9 @@ function stateDescription(state: DriftState): string {
 function detectOrphans(entries: DriftEntry[], trafficKeys: Set<string> = new Set()): OrphanEntry[] {
   return entries
     .filter(entry => {
+      // 0. USE é mount point interno do Express, não endpoint de API (DEB-055-15)
+      if (entry.method === 'USE') return false;
+
       // 1. Precisa existir em pelo menos uma fonte (código ou contrato)
       if (!entry.inInventory && !entry.inOpenAPI) return false;
 
@@ -725,7 +769,7 @@ function generateOrphansReport(
     md += `\n### Considerações\n\n`;
     md += `- Rotas intencionalmente similares (ex: \`contact\` vs \`contact-click\`) geram falso positivo. Avaliar manualmente antes de consolidar.\n`;
     md += `- Duplicatas entre subsistemas diferentes (ex: discord vs inbox) podem ser arquiteturais, não erros.\n`;
-    md += `- Threshold atual: 75 com tokenSimilarity mínimo de 0.5. Para reduzir ruído, subir para 80.\n`;
+    md += `- Threshold atual: 90 com tokenSimilarity mínimo de 0.5. Calibrado de 75→90 (DEB-055-16, 2026-06-28) após análise de FP rate ~100%.\n`;
   }
 
   if (orphans.length === 0 && duplicates.length === 0) {
@@ -936,18 +980,19 @@ function generateMarkdownReport(
 //  CLI
 // ═══════════════════════════════════════════════
 
-function parseArgs(): { generateAllowlist: boolean; baseDir: string } {
+function parseArgs(): { generateAllowlist: boolean; strict: boolean; baseDir: string } {
   const args = process.argv.slice(2);
   return {
     generateAllowlist: args.includes('--generate-allowlist'),
+    strict: args.includes('--strict'),
     baseDir: resolve(import.meta.dirname, '../../docs/api'),
   };
 }
 
 function main(): void {
-  const { generateAllowlist, baseDir } = parseArgs();
+  const { generateAllowlist, strict, baseDir } = parseArgs();
 
-  console.log(`\n🔍 api:check — Comparador 3-way de API\n`);
+  console.log(`\n🔍 api:check — Comparador 3-way de API${strict ? ' (--strict)' : ''}\n`);
   console.log(`   Base dir: ${baseDir}`);
 
   // 1. Load all sources
@@ -985,12 +1030,24 @@ function main(): void {
   // 5. Fase 6 — Detect orphans and duplicates (non-blocking)
   //    Fase 7 — Tráfego reduz falsos positivos de órfãs
   const orphans = detectOrphans(entries, sources.trafficKeys);
-  const duplicates = detectDuplicates(entries, 75); // threshold mínimo 75
+  const duplicates = detectDuplicates(entries, 90); // threshold mínimo 90 (DEB-055-16 — 75→80→90 após calibragem)
   const orphansPath = join(baseDir, 'generated', 'api-orphans.generated.md');
   generateOrphansReport(orphans, duplicates, orphansPath, sources.traffic.length);
 
   // 6. Calculate exit code (Fase 5 — CODE_ONLY/CONSUMER_ONLY blocking)
-  const exitCode = calculateExitCode(entries);
+  let exitCode = calculateExitCode(entries);
+
+  // 6b. Modo estrito (DEB-055-23): a allowlist deve estar VAZIA. Qualquer entry
+  // legada = divergência varrida para debaixo do tapete → bloqueia. Isto impede
+  // regressão (re-introduzir allowlist depois do verde). CODE_ONLY e CONSUMER_ONLY
+  // high já bloqueiam em ambos os modos (calculateExitCode). Breaking changes são
+  // tratados pelo step `api:diff` no CI (sem continue-on-error), não aqui.
+  // CONSUMER_ONLY medium (consumidor chama rota inexistente) são bugs de app
+  // rastreados como débito, não bloqueiam o gate de contrato.
+  if (strict && allowlist.size > 0) {
+    console.error(`  ❌ BLOQUEANTE (--strict): allowlist tem ${allowlist.size} entry(ies). Em modo estrito a allowlist deve estar vazia (alinhar a rota ou corrigir o contrato, não suprimir).`);
+    exitCode = 1;
+  }
 
   // 7. Generate main report
   const reportPath = join(baseDir, 'generated', 'api-drift.generated.md');

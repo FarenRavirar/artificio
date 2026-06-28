@@ -1,15 +1,16 @@
 {
   "metadata": {
-    "total": 293,
+    "total": 331,
     "byApp": {
       "accounts": {
-        "total": 9,
+        "total": 11,
         "byMethod": {
-          "GET": 8,
+          "GET": 9,
+          "PUT": 1,
           "POST": 1
         },
         "byConfidence": {
-          "high": 9
+          "high": 11
         }
       },
       "glossario": {
@@ -52,6 +53,20 @@
         "byConfidence": {
           "high": 200
         }
+      },
+      "site": {
+        "total": 36,
+        "byMethod": {
+          "POST": 12,
+          "GET": 12,
+          "USE": 4,
+          "DELETE": 4,
+          "PUT": 3,
+          "PATCH": 1
+        },
+        "byConfidence": {
+          "high": 36
+        }
       }
     },
     "generatedAt": "1970-01-01T00:00:00.000Z",
@@ -64,6 +79,24 @@
       "path": "/",
       "sourceFile": "apps\\accounts\\src\\app.ts",
       "line": 178,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "accounts",
+      "method": "GET",
+      "path": "/admin/secrets/:name",
+      "sourceFile": "apps\\accounts\\src\\adminSecretsRoutes.ts",
+      "line": 112,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "accounts",
+      "method": "PUT",
+      "path": "/admin/secrets/:name",
+      "sourceFile": "apps\\accounts\\src\\adminSecretsRoutes.ts",
+      "line": 73,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2694,6 +2727,330 @@
       "line": 193,
       "confidence": "high",
       "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "USE",
+      "path": "/admin",
+      "sourceFile": "apps\\site\\server\\server.ts",
+      "line": 206,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "site",
+      "method": "USE",
+      "path": "/admin",
+      "sourceFile": "apps\\site\\server\\server.ts",
+      "line": 208,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/admin/import",
+      "sourceFile": "apps\\site\\server\\server.ts",
+      "line": 98,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/admin/preview/:type/:id",
+      "sourceFile": "apps\\site\\server\\server.ts",
+      "line": 178,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/admin/rebuild",
+      "sourceFile": "apps\\site\\server\\server.ts",
+      "line": 92,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/admin/status",
+      "sourceFile": "apps\\site\\server\\server.ts",
+      "line": 77,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "USE",
+      "path": "/api/admin/v1",
+      "sourceFile": "apps\\site\\server\\server.ts",
+      "line": 171,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/feedback",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 277,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "DELETE",
+      "path": "/api/admin/v1/feedback/:id",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 300,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "PATCH",
+      "path": "/api/admin/v1/feedback/:id",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 286,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/media",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 209,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/admin/v1/media",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 219,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "DELETE",
+      "path": "/api/admin/v1/media/:id",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 258,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "PUT",
+      "path": "/api/admin/v1/media/:id",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 248,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/pages",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 128,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/admin/v1/pages",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 138,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "DELETE",
+      "path": "/api/admin/v1/pages/:id",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 169,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/pages/:id",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 131,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "PUT",
+      "path": "/api/admin/v1/pages/:id",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 143,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/admin/v1/pages/:id/status",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 156,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/posts",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 60,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/admin/v1/posts",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 77,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "DELETE",
+      "path": "/api/admin/v1/posts/:id",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 117,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/posts/:id",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 69,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "PUT",
+      "path": "/api/admin/v1/posts/:id",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 85,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/admin/v1/posts/:id/status",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 103,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/admin/v1/preview",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 267,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/admin/v1/rebuild",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 311,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/redirects",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 194,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/admin/v1/redirects",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 195,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/slug-check",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 46,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/taxonomies",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 180,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/admin/v1/taxonomies",
+      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "line": 183,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/feedback",
+      "sourceFile": "apps\\site\\server\\server.ts",
+      "line": 125,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/healthz",
+      "sourceFile": "apps\\site\\server\\server.ts",
+      "line": 66,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "USE",
+      "path": "/uploads",
+      "sourceFile": "apps\\site\\server\\server.ts",
+      "line": 175,
+      "confidence": "high",
+      "kind": "mount"
     }
   ]
 }

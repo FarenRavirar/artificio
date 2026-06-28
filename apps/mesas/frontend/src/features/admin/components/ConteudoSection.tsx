@@ -19,6 +19,20 @@ interface AdminTableRow {
 type CrudSubTab = 'systems' | 'platforms' | 'scenarios' | 'tables';
 type PlatformKind = 'vtt' | 'communication';
 
+async function extractErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const contentType = response.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
+      const data = await response.json();
+      return data.error || fallback;
+    }
+    const text = await response.text();
+    return text.slice(0, 200) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function ConteudoSection() {
   const { isAuthenticated } = useAuth();
   const { confirm } = useConfirm();
@@ -56,19 +70,7 @@ export function ConteudoSection() {
         setDeleteConfirmTableId(null);
         fetchAllTables();
       } else {
-        let errorMessage = 'Erro ao deletar mesa';
-        try {
-          const contentType = response.headers.get('content-type');
-          if (contentType?.includes('application/json')) {
-            const data = await response.json();
-            errorMessage = data.error || errorMessage;
-          } else {
-            const text = await response.text();
-            errorMessage = text.slice(0, 200) || errorMessage;
-          }
-        } catch { /* fallback */
-        }
-        toast.error(errorMessage);
+        toast.error(await extractErrorMessage(response, 'Erro ao deletar mesa'));
       }
     } catch (error) {
       console.error('[ConteudoSection] Erro ao deletar mesa:', error);
@@ -93,19 +95,7 @@ export function ConteudoSection() {
         toast.success(`Mesa ${action === 'ativar' ? 'ativada' : 'desativada'}!`);
         fetchAllTables();
       } else {
-        let errorMessage = `Erro ao ${action} mesa`;
-        try {
-          const contentType = response.headers.get('content-type');
-          if (contentType?.includes('application/json')) {
-            const data = await response.json();
-            errorMessage = data.error || errorMessage;
-          } else {
-            const text = await response.text();
-            errorMessage = text.slice(0, 200) || errorMessage;
-          }
-        } catch { /* fallback */
-        }
-        toast.error(errorMessage);
+        toast.error(await extractErrorMessage(response, `Erro ao ${action} mesa`));
       }
     } catch (error) {
       console.error('[ConteudoSection] Erro ao alterar status:', error);

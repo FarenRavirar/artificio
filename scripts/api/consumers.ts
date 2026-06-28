@@ -42,6 +42,9 @@ interface ConsumerContext {
   includeTests: boolean;
 }
 
+/** Cache global de paths extraídos do api.ts do site-admin (DEB-055-13) */
+const siteAdminApiPathMap = new Map<string, { path: string; method: string }>();
+
 // ─── Configuração ────────────────────────────────────────────────────────────
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -98,16 +101,44 @@ const WRAPPER_METHOD_MAP: Record<string, string> = {
   'authDelete': 'DELETE',
 };
 
-/** Feature APIs com prefixo conhecido (path montado internamente) */
-const FEATURE_API_PREFIX: Record<string, string> = {
-  'discordSyncApi': '/api/v1/admin/discord',
-  'inboxApi': '/api/v1/admin/import',
-};
+/**
+ * Feature APIs: objetos exportados onde cada método chama um helper interno
+ * `apiFetch('/path', {method})` / `fileApiFetch('/path', ...)` prefixado por `const BASE`.
+ * Mesmo padrão do site-admin. O path real vem do corpo do método (DEB-055-13),
+ * não do nome — `createSource` → `POST /api/v1/admin/discord/sources`, não `/createSource`.
+ */
+const FEATURE_API_DEFS: { objIdent: string; fileMatch: string }[] = [
+  { objIdent: 'discordSyncApi', fileMatch: 'discord-sync/api/discordSyncApi.ts' },
+  { objIdent: 'inboxApi', fileMatch: 'inbox/api/inboxApi.ts' },
+];
+
+/** objIdent → (methodName → {path completo, método HTTP}) resolvido das defs */
+const featureApiMethodMap = new Map<string, Map<string, { path: string; method: string }>>();
 
 /** Apps que usam o padrão api.get/post/etc (apiClient + Axios) */
 const API_OBJECT_KNOWN = new Set([
   'api',     // mesas (apiClient) + glossario (Axios)
 ]);
+
+/**
+ * Base path por app para o objeto `api` (DEB-055-13).
+ * glossario usa axios com `baseURL` terminando em `/api`
+ * (apps/glossario/frontend/src/services/api.ts), então `api.get('/terms')`
+ * bate na rota real `/api/terms`. mesas usa API_BASE='' (path completo no call).
+ */
+const APP_API_BASE_PATH: Record<string, string> = {
+  'glossario-frontend': '/api',
+};
+
+/** Aplica o base path do app a um endpoint relativo do objeto `api`. */
+function applyAppBasePath(app: string, endpoint: string): string {
+  const base = APP_API_BASE_PATH[app];
+  if (!base) return endpoint;
+  if (!endpoint.startsWith('/')) return endpoint;           // variável/concat não resolvida
+  if (endpoint.startsWith(base + '/') || endpoint === base) return endpoint; // já prefixado
+  if (endpoint.startsWith('/api/')) return endpoint;        // já absoluto
+  return base + endpoint;
+}
 
 /** Funções que são wrappers de refresh/logout do packages/auth */
 const AUTH_HELPER_FUNCTIONS = new Set([
@@ -145,8 +176,19 @@ function hasSyntheticEndpointSegment(endpoint: string): boolean {
   return endpoint.includes('<') || endpoint.includes('>') || endpoint.includes(':param:param');
 }
 
+/**
+ * Remove artefato de query string montada por template condicional.
+ * `/activity${qs ? '?'+qs : ''}` vira `/activity:param` (o `:param` cola no
+ * segmento sem `/` antes). Um `:param` legítimo de rota é sempre precedido por
+ * `/` (ex: `/sources/:param`). Então um `:param` colado a um não-`/` = query → cortar.
+ */
+function stripQueryParamArtifact(endpoint: string): string {
+  return endpoint.replace(/([^/]):param.*$/, '$1').replace(/\?.*$/, '');
+}
+
 function addConsumerResult(ctx: ConsumerContext, entry: ConsumerEntry): void {
   if (entry.method === 'UNKNOWN') return;
+  entry.endpoint = stripQueryParamArtifact(entry.endpoint);
   if (!isConcreteEndpoint(entry.endpoint)) return;
   if (hasSyntheticEndpointSegment(entry.endpoint)) return;
   ctx.results.push(entry);
@@ -360,7 +402,7 @@ function scanApiMethodCalls(sf: ts.SourceFile, filePath: string, ctx: ConsumerCo
           app,
           consumerFile: relativePath,
           method: methodName.toUpperCase(),
-          endpoint: extracted.path,
+          endpoint: applyAppBasePath(app, extracted.path),
           confidence: extracted.confidence,
           pattern: extracted.pattern,
           wrapper: `api.${methodName}`,
@@ -374,8 +416,147 @@ function scanApiMethodCalls(sf: ts.SourceFile, filePath: string, ctx: ConsumerCo
 }
 
 /**
- * Passo 4: scan feature APIs
- * discordSyncApi.*(), inboxApi.*() — com prefixo conhecido
+ * Pré-passe (passo 4): constrói featureApiMethodMap a partir dos arquivos de
+ * definição. Lê `const BASE`, o objeto exportado e resolve o path real de cada
+ * método pelo helper interno (apiFetch/fileApiFetch).
+ */
+function buildFeatureApiMap(sf: ts.SourceFile, filePath: string): void {
+  const relativePath = toRelPath(filePath);
+  const def = FEATURE_API_DEFS.find((d) => relativePath.endsWith(d.fileMatch));
+  if (!def) return;
+
+  // Resolver const BASE = '...'
+  let base = '';
+  function findBase(node: ts.Node) {
+    if (ts.isVariableStatement(node)) {
+      for (const decl of node.declarationList.declarations) {
+        if (ts.isIdentifier(decl.name) && decl.name.text === 'BASE' && decl.initializer) {
+          const lit = extractStringLiteral(decl.initializer);
+          if (lit) base = lit;
+        }
+      }
+    }
+    ts.forEachChild(node, findBase);
+  }
+  findBase(sf);
+
+  const methodMap = new Map<string, { path: string; method: string }>();
+
+  function findObject(node: ts.Node) {
+    if (ts.isVariableStatement(node)) {
+      for (const decl of node.declarationList.declarations) {
+        if (ts.isIdentifier(decl.name) && decl.name.text === def!.objIdent &&
+            decl.initializer && ts.isObjectLiteralExpression(decl.initializer)) {
+          for (const prop of decl.initializer.properties) {
+            if (!ts.isPropertyAssignment(prop) && !ts.isMethodDeclaration(prop)) continue;
+            if (!prop.name || !ts.isIdentifier(prop.name)) continue;
+            const resolved = resolveFeatureMethod(prop, base);
+            if (resolved) methodMap.set(prop.name.text, resolved);
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, findObject);
+  }
+  findObject(sf);
+
+  if (methodMap.size > 0) featureApiMethodMap.set(def.objIdent, methodMap);
+}
+
+/** Resolve {path, method} do corpo de um método de feature API. */
+function resolveFeatureMethod(
+  prop: ts.PropertyAssignment | ts.MethodDeclaration,
+  base: string,
+): { path: string; method: string } | null {
+  let body: ts.Node | undefined;
+  if (ts.isPropertyAssignment(prop)) {
+    const init = prop.initializer;
+    if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) body = init.body;
+  } else {
+    body = prop.body;
+  }
+  if (!body) return null;
+
+  // Coletar consts locais (para resolver path em variável: const url = ... ? ... : '/x')
+  const localConsts = new Map<string, ts.Expression>();
+  function collectConsts(n: ts.Node) {
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
+      localConsts.set(n.name.text, n.initializer);
+    }
+    ts.forEachChild(n, collectConsts);
+  }
+  collectConsts(body);
+
+  // Achar a chamada ao helper (apiFetch / fileApiFetch)
+  const holder: { call: ts.CallExpression; helper: string }[] = [];
+  function findHelper(n: ts.Node) {
+    if (holder.length > 0) return;
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
+      const name = n.expression.text;
+      if (name === 'apiFetch' || name === 'fileApiFetch') {
+        holder.push({ call: n, helper: name });
+        return;
+      }
+    }
+    ts.forEachChild(n, findHelper);
+  }
+  findHelper(body);
+  if (holder.length === 0) return null;
+
+  const callExpr: ts.CallExpression = holder[0].call;
+  const helper: string = holder[0].helper;
+  const arg0 = callExpr.arguments[0];
+  if (!arg0) return null;
+
+  let pathStr = resolvePathExpr(arg0, localConsts);
+  if (!pathStr) return null;
+  pathStr = pathStr.split('?')[0]; // remover query string
+
+  // método: fileApiFetch sempre POST; apiFetch via options.method (default GET)
+  let method = 'GET';
+  if (helper === 'fileApiFetch') {
+    method = 'POST';
+  } else if (callExpr.arguments.length >= 2 && ts.isObjectLiteralExpression(callExpr.arguments[1])) {
+    for (const p of callExpr.arguments[1].properties) {
+      if (ts.isPropertyAssignment(p) && ts.isIdentifier(p.name) && p.name.text === 'method') {
+        const m = extractStringLiteral(p.initializer);
+        if (m) method = m.toUpperCase();
+      }
+    }
+  }
+
+  return { path: `${base}${pathStr}`, method };
+}
+
+/** Resolve uma expressão de path para string com :param, seguindo consts e ternários. */
+function resolvePathExpr(node: ts.Expression, localConsts: Map<string, ts.Expression>): string {
+  const lit = extractStringLiteral(node);
+  if (lit) return lit;
+  if (ts.isTemplateExpression(node)) {
+    const parts: string[] = [node.head.text];
+    for (const span of node.templateSpans) {
+      parts.push(':param', span.literal.text);
+    }
+    return parts.join('');
+  }
+  // Identifier → resolver const local
+  if (ts.isIdentifier(node)) {
+    const ref = localConsts.get(node.text);
+    if (ref && ref !== node) return resolvePathExpr(ref, localConsts);
+    return '';
+  }
+  // Ternário: usar o ramo "else" (geralmente o path sem query)
+  if (ts.isConditionalExpression(node)) {
+    const whenFalse = resolvePathExpr(node.whenFalse, localConsts);
+    if (whenFalse) return whenFalse;
+    return resolvePathExpr(node.whenTrue, localConsts);
+  }
+  return '';
+}
+
+/**
+ * Passo 4 (use-pass): detecta discordSyncApi.*(), inboxApi.*() e resolve o path
+ * real via featureApiMethodMap.
  */
 function scanFeatureApis(sf: ts.SourceFile, filePath: string, ctx: ConsumerContext): void {
   const app = detectAppName(filePath);
@@ -387,41 +568,24 @@ function scanFeatureApis(sf: ts.SourceFile, filePath: string, ctx: ConsumerConte
       if (!ts.isPropertyAccessExpression(callee)) { ts.forEachChild(node, visit); return; }
 
       const objIdent = ts.isIdentifier(callee.expression) ? callee.expression.text : null;
-      if (!objIdent || !FEATURE_API_PREFIX[objIdent]) { ts.forEachChild(node, visit); return; }
+      const methodMap = objIdent ? featureApiMethodMap.get(objIdent) : undefined;
+      if (!objIdent || !methodMap) { ts.forEachChild(node, visit); return; }
 
-      const prefix = FEATURE_API_PREFIX[objIdent];
       const methodName = callee.name.text;
+      const resolved = methodMap.get(methodName);
 
-      // Tentar obter path do primeiro argumento, se houver
-      // Para métodos sem argumento (ex: listDrafts()), o path é inferido do nome
-      let path = '/' + methodName
-        .replace(/^(get|list|fetch)/, '')
-        .replace(/^([A-Z])/, (_, c) => c.toLowerCase());
-
-      const arg0 = node.arguments[0];
-      if (arg0) {
-        const extracted = extractPathFromArg(arg0);
-        // Se for literal, usar como path
-        if (extracted.confidence === 'high' || extracted.confidence === 'medium') {
-          path = extracted.path;
-        }
+      if (resolved) {
+        addConsumerResult(ctx, {
+          app,
+          consumerFile: relativePath,
+          method: resolved.method,
+          endpoint: resolved.path,
+          confidence: 'high',
+          pattern: 'service-wrapper',
+          wrapper: `${objIdent}.${methodName}`,
+          line: getLine(node, sf),
+        });
       }
-
-      const fullPath = `${prefix}${path}`;
-
-      // Método HTTP deduzido do nome da função
-      const inferredMethod = inferMethodFromName(methodName);
-
-      addConsumerResult(ctx, {
-        app,
-        consumerFile: relativePath,
-        method: inferredMethod,
-        endpoint: fullPath,
-        confidence: 'medium',
-        pattern: 'service-wrapper',
-        wrapper: `${objIdent}.${methodName}`,
-        line: getLine(node, sf),
-      });
     }
     ts.forEachChild(node, visit);
   }
@@ -442,13 +606,111 @@ function inferMethodFromName(name: string): string {
 
 /**
  * Passo 5: scan api.*() centralizado (site-admin)
- * Detecta chamadas ao objeto `api` exportado em site-admin
- * (api.listPosts(), api.getPost(), etc.)
+ * Detecta chamadas ao objeto `api` exportado em site-admin.
+ *
+ * Estratégia (DEB-055-13): dois passes —
+ *   1. Pré-passe: extrai path+method do objeto `api` (chamadas req() internas)
+ *   2. Passe de uso: detecta `api.*()` e usa o mapa de paths
  */
 function scanCentralizedApi(sf: ts.SourceFile, filePath: string, ctx: ConsumerContext): void {
   const app = detectAppName(filePath);
   const relativePath = toRelPath(filePath);
 
+  // ── Pré-passe: extrair paths do objeto api (só no arquivo api.ts) ──
+  if (relativePath.includes('site-admin/src/api.ts') || relativePath.includes('site-admin\\src\\api.ts')) {
+    function extractApiPaths(node: ts.Node) {
+      if (ts.isVariableStatement(node)) {
+        for (const decl of node.declarationList.declarations) {
+          if (ts.isIdentifier(decl.name) && decl.name.text === 'api' && decl.initializer) {
+            scanObjectLiteralForReq(decl.initializer);
+          }
+        }
+      }
+      ts.forEachChild(node, extractApiPaths);
+    }
+
+    function scanObjectLiteralForReq(node: ts.Node) {
+      if (!ts.isObjectLiteralExpression(node)) return;
+      for (const prop of node.properties) {
+        if (!ts.isPropertyAssignment(prop) || !ts.isIdentifier(prop.name)) continue;
+        const methodName = prop.name.text;
+        const pathInfo = extractArrowBodyReqPath(prop.initializer);
+        if (pathInfo) {
+          siteAdminApiPathMap.set(methodName, pathInfo);
+        }
+      }
+    }
+
+    /** Extrai path e método de chamadas req() dentro do corpo de arrow function/function. */
+    function extractArrowBodyReqPath(node: ts.Node): { path: string; method: string } | null {
+      let body: ts.Node | undefined;
+      if (ts.isArrowFunction(node)) body = node.body;
+      else if (ts.isFunctionExpression(node)) body = node.body;
+      else return null;
+
+      // Procura req(...) recursivamente (pode estar em .then())
+      function findReqCall(n: ts.Node): ts.CallExpression | null {
+        if (ts.isCallExpression(n)) {
+          const callee = n.expression;
+          if (ts.isIdentifier(callee) && (callee.text === 'req' || callee.text === 'authFetch')) return n;
+          if (ts.isPropertyAccessExpression(callee)) return findReqCall(callee.expression);
+        }
+        if (ts.isBlock(n)) {
+          for (const stmt of (n as ts.Block).statements) {
+            if (ts.isReturnStatement(stmt) && stmt.expression) {
+              const found = findReqCall(stmt.expression);
+              if (found) return found;
+            }
+          }
+        }
+        return null;
+      }
+
+      const reqCall = findReqCall(body);
+      if (!reqCall) return null;
+
+      // Extrai path e método
+      const args = reqCall.arguments;
+      if (args.length < 1) return null;
+
+      // path: primeiro argumento (string literal, template, ou BASE + template)
+      let pathStr = '';
+      const arg0 = args[0];
+      if (ts.isStringLiteral(arg0) || ts.isNoSubstitutionTemplateLiteral(arg0)) {
+        pathStr = arg0.text;
+      } else if (ts.isTemplateExpression(arg0)) {
+        pathStr = arg0.getText(sf).replace(/^[`'"]|[`'"]$/g, '').replace(/\$\{[^}]+\}/g, ':param');
+      } else if (ts.isBinaryExpression(arg0) && arg0.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+        const right = arg0.right;
+        if (ts.isStringLiteral(right) || ts.isNoSubstitutionTemplateLiteral(right)) {
+          pathStr = right.text;
+        } else if (ts.isTemplateExpression(right)) {
+          pathStr = right.getText(sf).replace(/^[`'"]|[`'"]$/g, '').replace(/\$\{[^}]+\}/g, ':param');
+        }
+      }
+
+      if (!pathStr) return null;
+
+      // método: req(path) = GET, req(path, {method: "POST"}) = extrai
+      let method = 'GET';
+      if (args.length >= 2 && ts.isObjectLiteralExpression(args[1])) {
+        for (const prop of args[1].properties) {
+          if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && prop.name.text === 'method') {
+            const m = extractStringLiteral(prop.initializer);
+            if (m && ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(m.toUpperCase())) {
+              method = m.toUpperCase();
+            }
+          }
+        }
+      }
+
+      return { path: pathStr, method };
+    }
+
+    extractApiPaths(sf);
+  }
+
+  // ── Passe de uso: detectar api.*() ──
   function visit(node: ts.Node) {
     if (ts.isCallExpression(node)) {
       const callee = node.expression;
@@ -459,23 +721,33 @@ function scanCentralizedApi(sf: ts.SourceFile, filePath: string, ctx: ConsumerCo
 
       const methodName = callee.name.text;
 
-      // Ignorar chamadas api.get/post (já cobertas no Passo 3)
       const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
       if (HTTP_METHODS.has(methodName)) { ts.forEachChild(node, visit); return; }
 
-      // api.*() — tenta encontrar onde o path está definido
-      // O path é construído internamente via req(BASE + path) ou authFetch(BASE + path)
-      // Não temos acesso estático ao path real, mas marcamos como existente
-      addConsumerResult(ctx, {
-        app,
-        consumerFile: relativePath,
-        method: inferMethodFromName(methodName),
-        endpoint: `/api/admin/v1/<${methodName}>`,
-        confidence: 'low',
-        pattern: 'service-wrapper',
-        wrapper: `api.${methodName}`,
-        line: getLine(node, sf),
-      });
+      const resolved = siteAdminApiPathMap.get(methodName);
+      if (resolved) {
+        addConsumerResult(ctx, {
+          app,
+          consumerFile: relativePath,
+          method: resolved.method,
+          endpoint: `/api/admin/v1${resolved.path}`,
+          confidence: 'high',
+          pattern: 'service-wrapper',
+          wrapper: `api.${methodName}`,
+          line: getLine(node, sf),
+        });
+      } else {
+        addConsumerResult(ctx, {
+          app,
+          consumerFile: relativePath,
+          method: inferMethodFromName(methodName),
+          endpoint: `/api/admin/v1/<${methodName}>`,
+          confidence: 'low',
+          pattern: 'service-wrapper',
+          wrapper: `api.${methodName}`,
+          line: getLine(node, sf),
+        });
+      }
     }
     ts.forEachChild(node, visit);
   }
@@ -645,6 +917,25 @@ function main(): void {
     results: [],
     includeTests,
   };
+
+  // Pré-passe (DEB-055-13): escanear api.ts do site-admin primeiro
+  // para popular o cache global de paths antes de escanear os consumidores
+  const siteAdminApiPath = path.resolve(REPO_ROOT, 'apps/site-admin/src/api.ts');
+  if (fs.existsSync(siteAdminApiPath)) {
+    const source = fs.readFileSync(siteAdminApiPath, 'utf-8');
+    const sf = ts.createSourceFile(siteAdminApiPath, source, ts.ScriptTarget.Latest, true);
+    scanCentralizedApi(sf, siteAdminApiPath, ctx);
+  }
+
+  // Pré-passe feature APIs (DEB-055-13): resolver method→path real das defs
+  for (const def of FEATURE_API_DEFS) {
+    const defPath = path.resolve(REPO_ROOT, 'apps/mesas/frontend/src/features', def.fileMatch);
+    if (fs.existsSync(defPath)) {
+      const source = fs.readFileSync(defPath, 'utf-8');
+      const sf = ts.createSourceFile(defPath, source, ts.ScriptTarget.Latest, true);
+      buildFeatureApiMap(sf, defPath);
+    }
+  }
 
   for (const dir of SCAN_DIRS) {
     walkDir(dir, ctx);

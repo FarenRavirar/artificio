@@ -157,7 +157,7 @@ interface RouteEntry {
 
 const KNOWN_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'];
 
-function generateOpenApi(appName: string, routes: RouteEntry[]): string {
+function generateOpenApi(appName: string, routes: RouteEntry[], overlayPath?: string): string {
   // Servers por app
   const servers: { url: string; description: string }[] = [];
   if (appName === 'accounts') {
@@ -263,6 +263,37 @@ servers:
     }
   }
 
+  // ── Mesclar overlay manual (rotas não detectadas por AST — DEB-055-12) ──
+  // Dedup-safe: pula blocos cujo path já foi gerado nativamente (evita chave
+  // duplicada quando o inventário passa a cobrir uma rota antes só no overlay).
+  if (overlayPath && existsSync(overlayPath)) {
+    const overlayContent = readFileSync(overlayPath, 'utf-8');
+    const generatedPaths = new Set(pathMap.keys());
+    const lines = overlayContent.split('\n').filter(line => !line.trim().startsWith('#'));
+
+    // Agrupar em blocos: um bloco começa numa linha "  /path:" (indent 2, começa com /)
+    const blocks: { path: string; lines: string[] }[] = [];
+    let current: { path: string; lines: string[] } | null = null;
+    for (const line of lines) {
+      const headerMatch = /^ {2}(\/\S*):\s*$/.exec(line);
+      if (headerMatch) {
+        if (current) blocks.push(current);
+        current = { path: headerMatch[1], lines: [line] };
+      } else if (current) {
+        current.lines.push(line);
+      }
+    }
+    if (current) blocks.push(current);
+
+    const merged = blocks
+      .filter(b => !generatedPaths.has(b.path))
+      .map(b => b.lines.join('\n').replace(/\n+$/, ''))
+      .join('\n');
+    if (merged.trim()) {
+      yaml += '\n' + merged + '\n';
+    }
+  }
+
   return yaml;
 }
 
@@ -295,10 +326,12 @@ function main() {
   }
 
   for (const [appName, routes] of byApp) {
-    const yaml = generateOpenApi(appName, routes);
+    const overlayPath = join(OUTPUT_DIR, '.overlays', `${appName}.overlay.yaml`);
+    const yaml = generateOpenApi(appName, routes, overlayPath);
     const filePath = join(OUTPUT_DIR, `${appName}.openapi.yaml`);
     writeFileSync(filePath, yaml, 'utf-8');
-    console.log(`✅ ${filePath} — ${routes.filter(r => r.method !== 'USE').length} rotas HTTP`);
+    const hasOverlay = existsSync(overlayPath);
+    console.log(`✅ ${filePath} — ${routes.filter(r => r.method !== 'USE').length} rotas HTTP${hasOverlay ? ' (+ overlay)' : ''}`);
   }
 
   console.log('\n📊 Gerado para: ' + [...byApp.keys()].join(', '));

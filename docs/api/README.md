@@ -4,7 +4,14 @@
 
 **Agentes de IA estão proibidos de usar memória de chat, sessões anteriores, ou mapas manuais (ex: `apps/mesas/MAPA_DE_API.md` — DEPRECATED) como fonte primária para consulta de rotas de API.**
 
-A fonte da verdade é SEMPRE o inventário gerado pelo código real:
+**Fonte primária de descoberta (comece por aqui):**
+
+- `docs/api/generated/artificio-api.bundle.json` — **índice único machine-readable** de TODAS as rotas (app, método, path, scope, auth, consumidores, status). Use para "qual rota faz X, que método/auth/payload".
+- `docs/api/generated/api-index.generated.md` — versão navegável (tabela app × método × path) do bundle.
+
+Ambos são gerados por `pnpm api:bundle` (incluído em `pnpm verify:api`) a partir dos contratos OpenAPI. Determinísticos, sem edição manual.
+
+A fonte da verdade subjacente é SEMPRE o inventário gerado pelo código real:
 
 1. `pnpm api:inventory` — inventário sempre atualizado das rotas Express
 2. `docs/api/openapi/*.openapi.yaml` — contratos OpenAPI com metadados `x-artificio-*`
@@ -52,6 +59,8 @@ Validação:
 | `pnpm api:diff` | Detecta breaking changes entre versões do OpenAPI (`api-diff.generated.md`) |
 | `pnpm api:docs` | Gera documentação visual HTML (`{app}-api-docs.html`) |
 | `pnpm api:generate-openapi` | Regenera OpenAPI YAMLs a partir do inventário |
+| `pnpm api:bundle` | Gera bundle único + índice para agentes (`artificio-api.bundle.json` + `api-index.generated.md`) |
+| `pnpm api:check --strict` | Modo estrito: exige allowlist vazia (qualquer entry → exit 1). Só ligar no CI após verde comprovado |
 | `pnpm verify:api` | Validação padrão de governança de API para desenvolvimento/PR |
 | `pnpm verify:api:full` | Validação completa local, incluindo tráfego observado e docs HTML |
 

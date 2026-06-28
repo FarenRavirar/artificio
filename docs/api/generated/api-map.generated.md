@@ -3,21 +3,36 @@
 > Gerado automaticamente por `scripts/api/inventory.ts` em 1970-01-01.
 > **Não editar manualmente.** Fonte: `docs/api/generated/api-inventory.generated.json`.
 
+## Convenção de Auth (DEB-055-08)
+
+A resolução de auth por AST tem limitações (middleware dentro do arquivo de rota).
+Use esta convenção como fallback documentado:
+
+- Rotas com prefixo `/admin` → escopo **admin** (restrito a admins)
+- Rotas com prefixo `/gm` → escopo **user** (usuário logado, dono do recurso)
+- Rotas sem prefixo restrito → escopo **public** ou **user** (depende do app)
+- Rotas `/health`, `/api/auth/*` → escopo **internal**/**public** (sem auth)
+
+Para informação granular (auth exata, rate-limit, payload), consulte os contratos OpenAPI em `docs/api/openapi/*.yaml` e os metadados `x-artificio-*`.
+
 ## Estatísticas
 
 | App | Total | HIGH | MEDIUM | LOW | Methods |
 |-----|-------|------|--------|-----|---------|
-| accounts | 9 | 9 | 0 | 0 | GET, POST |
+| accounts | 11 | 11 | 0 | 0 | GET, POST, PUT |
 | glossario | 61 | 61 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 200 | 200 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **293** | 293 | 0 | 0 | |
+| site | 36 | 36 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
+| **Total** | **331** | 331 | 0 | 0 | |
 
 ## accounts
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
 | GET | `/` | ✅ high | `apps\accounts\src\app.ts` | 178 |
+| GET | `/admin/secrets/:name` | ✅ high | `apps\accounts\src\adminSecretsRoutes.ts` | 112 |
+| PUT | `/admin/secrets/:name` | ✅ high | `apps\accounts\src\adminSecretsRoutes.ts` | 73 |
 | GET | `/api/auth/google` | ✅ high | `apps\accounts\src\app.ts` | 93 |
 | GET | `/api/auth/google/callback` | ✅ high | `apps\accounts\src\app.ts` | 106 |
 | POST | `/api/auth/logout` | ✅ high | `apps\accounts\src\app.ts` | 144 |
@@ -325,4 +340,45 @@
 | USE | `/og` | ✅ high | `apps\mesas\backend\src\server.ts` | 141 |
 | GET | `/og/:type/:slug` | ✅ high | `apps\mesas\backend\src\routes\og.ts` | 118 |
 | GET | `/og/{*splat}` | ✅ high | `apps\mesas\backend\src\routes\og.ts` | 193 |
+
+## site
+
+| Método | Path | Confiança | Arquivo | Linha |
+|--------|------|-----------|---------|------|
+| USE | `/admin` | ✅ high | `apps\site\server\server.ts` | 206 |
+| USE | `/admin` | ✅ high | `apps\site\server\server.ts` | 208 |
+| POST | `/admin/import` | ✅ high | `apps\site\server\server.ts` | 98 |
+| GET | `/admin/preview/:type/:id` | ✅ high | `apps\site\server\server.ts` | 178 |
+| POST | `/admin/rebuild` | ✅ high | `apps\site\server\server.ts` | 92 |
+| GET | `/admin/status` | ✅ high | `apps\site\server\server.ts` | 77 |
+| USE | `/api/admin/v1` | ✅ high | `apps\site\server\server.ts` | 171 |
+| GET | `/api/admin/v1/feedback` | ✅ high | `apps\site\server\admin-api.ts` | 277 |
+| DELETE | `/api/admin/v1/feedback/:id` | ✅ high | `apps\site\server\admin-api.ts` | 300 |
+| PATCH | `/api/admin/v1/feedback/:id` | ✅ high | `apps\site\server\admin-api.ts` | 286 |
+| GET | `/api/admin/v1/media` | ✅ high | `apps\site\server\admin-api.ts` | 209 |
+| POST | `/api/admin/v1/media` | ✅ high | `apps\site\server\admin-api.ts` | 219 |
+| DELETE | `/api/admin/v1/media/:id` | ✅ high | `apps\site\server\admin-api.ts` | 258 |
+| PUT | `/api/admin/v1/media/:id` | ✅ high | `apps\site\server\admin-api.ts` | 248 |
+| GET | `/api/admin/v1/pages` | ✅ high | `apps\site\server\admin-api.ts` | 128 |
+| POST | `/api/admin/v1/pages` | ✅ high | `apps\site\server\admin-api.ts` | 138 |
+| DELETE | `/api/admin/v1/pages/:id` | ✅ high | `apps\site\server\admin-api.ts` | 169 |
+| GET | `/api/admin/v1/pages/:id` | ✅ high | `apps\site\server\admin-api.ts` | 131 |
+| PUT | `/api/admin/v1/pages/:id` | ✅ high | `apps\site\server\admin-api.ts` | 143 |
+| POST | `/api/admin/v1/pages/:id/status` | ✅ high | `apps\site\server\admin-api.ts` | 156 |
+| GET | `/api/admin/v1/posts` | ✅ high | `apps\site\server\admin-api.ts` | 60 |
+| POST | `/api/admin/v1/posts` | ✅ high | `apps\site\server\admin-api.ts` | 77 |
+| DELETE | `/api/admin/v1/posts/:id` | ✅ high | `apps\site\server\admin-api.ts` | 117 |
+| GET | `/api/admin/v1/posts/:id` | ✅ high | `apps\site\server\admin-api.ts` | 69 |
+| PUT | `/api/admin/v1/posts/:id` | ✅ high | `apps\site\server\admin-api.ts` | 85 |
+| POST | `/api/admin/v1/posts/:id/status` | ✅ high | `apps\site\server\admin-api.ts` | 103 |
+| POST | `/api/admin/v1/preview` | ✅ high | `apps\site\server\admin-api.ts` | 267 |
+| POST | `/api/admin/v1/rebuild` | ✅ high | `apps\site\server\admin-api.ts` | 311 |
+| GET | `/api/admin/v1/redirects` | ✅ high | `apps\site\server\admin-api.ts` | 194 |
+| POST | `/api/admin/v1/redirects` | ✅ high | `apps\site\server\admin-api.ts` | 195 |
+| GET | `/api/admin/v1/slug-check` | ✅ high | `apps\site\server\admin-api.ts` | 46 |
+| GET | `/api/admin/v1/taxonomies` | ✅ high | `apps\site\server\admin-api.ts` | 180 |
+| POST | `/api/admin/v1/taxonomies` | ✅ high | `apps\site\server\admin-api.ts` | 183 |
+| POST | `/api/feedback` | ✅ high | `apps\site\server\server.ts` | 125 |
+| GET | `/healthz` | ✅ high | `apps\site\server\server.ts` | 66 |
+| USE | `/uploads` | ✅ high | `apps\site\server\server.ts` | 175 |
 

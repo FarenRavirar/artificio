@@ -1,0 +1,42 @@
+# Overlay manual — rotas não detectadas por AST estático (DEB-055-12)
+# Fonte: apps/accounts/src/adminSecretsRoutes.ts (createAdminSecretsRoutes factory)
+# merge-overlay.ts mescla este arquivo ao accounts.openapi.yaml gerado.
+#
+# Formato: apenas blocos de path (mesma indentação do YAML gerado).
+# Cada bloco começa com o path e contém os métodos + x-artificio-*.
+
+  /admin/secrets/{name}:
+    parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      operationId: putadmin_secrets_name
+      summary: Armazena um segredo criptografado (admin)
+      x-artificio-owner: accounts
+      x-artificio-scope: admin
+      x-artificio-status: provisional
+      x-artificio-auth: admin
+      description: "Cifra e armazena um segredo (ex.: DeepSeek key). Requer sessão admin. Fonte: createAdminSecretsRoutes (DEB-055-12)."
+      responses:
+        "204":
+          description: Segredo armazenado
+        "400":
+          description: Payload inválido
+    get:
+      operationId: getadmin_secrets_name
+      summary: Recupera um segredo descriptografado (admin ou service-token)
+      x-artificio-owner: accounts
+      x-artificio-scope: admin
+      x-artificio-status: provisional
+      x-artificio-auth: service
+      description: "Decifra e retorna um segredo. Aceita X-Service-Token (serviço-a-serviço) ou cookie admin. Fonte: createAdminSecretsRoutes (DEB-055-12)."
+      x-artificio-consumers:
+        - mesas-backend
+      responses:
+        "200":
+          description: Segredo retornado
+        "404":
+          description: Segredo não encontrado
