@@ -146,15 +146,46 @@ function normalizeDiffArray(v: unknown, fallbackType: DiffChange['type']): DiffC
   return out;
 }
 
+function asText(v: Buffer | string | undefined | null): string {
+  if (v == null) return '';
+  return typeof v === 'string' ? v : v.toString('utf-8');
+}
+
+// Extrai o primeiro objeto JSON balanceado do texto, ignorando cabeçalho textual antes
+// e qualquer warning de stderr concatenado depois (que invalidaria um JSON.parse direto).
+// Respeita strings/escapes para não contar chaves dentro de aspas. Retorna null se não
+// houver objeto balanceado.
+function extractJsonObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') {
+      inString = true;
+    } else if (ch === '{') {
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 function runOpenapiDiff(oldFile: string, newFile: string): DiffResult {
+  // openapi-diff trata caminhos absolutos do Windows (`C:\...`) como URL com protocolo `c:`
+  // ("Unsupported protocol c:"). Passamos caminhos relativos ao cwd, com `/`, p/ evitar isso.
+  const rel = (p: string) => relative(process.cwd(), p).replaceAll('\\', '/');
   // openapi-diff sai com código != 0 quando encontra diferenças. execFileSync lança nesse
   // caso, mas o stdout útil (JSON ou a mensagem de "no changes") vem no erro. Capturamos
   // stdout de ambos os caminhos.
-  const asText = (v: Buffer | string | undefined | null): string =>
-    v == null ? '' : (typeof v === 'string' ? v : v.toString('utf-8'));
-  // openapi-diff trata caminhos absolutos do Windows (`C:\...`) como URL com protocolo `c:`
-  // ("Unsupported protocol c:"). Passamos caminhos relativos ao cwd, com `/`, p/ evitar isso.
-  const rel = (p: string) => relative(process.cwd(), p).replace(/\\/g, '/');
   let stdout: string;
   try {
     stdout = execFileSync(process.execPath, [OPENAPI_DIFF_BIN, rel(oldFile), rel(newFile)], {
@@ -169,8 +200,11 @@ function runOpenapiDiff(oldFile: string, newFile: string): DiffResult {
     if (!stdout) throw error;
   }
 
-  const jsonStart = stdout.indexOf('{');
-  if (jsonStart < 0) {
+  // openapi-diff 0.24.1 emite (após uma linha de cabeçalho textual) o JSON no formato:
+  //   { breakingDifferencesFound, breakingDifferences[], nonBreakingDifferences[], unclassifiedDifferences[] }
+  // Extraímos só o objeto balanceado — descartando cabeçalho e warnings de stderr concatenados.
+  const jsonObject = extractJsonObject(stdout);
+  if (jsonObject === null) {
     // openapi-diff emite texto puro quando os specs são idênticos (sem JSON).
     // Acontece quando o branch base já tem o mesmo OpenAPI (pós-merge) — não é erro.
     if (/no changes found/i.test(stdout)) {
@@ -180,11 +214,9 @@ function runOpenapiDiff(oldFile: string, newFile: string): DiffResult {
   }
 
   try {
-    // openapi-diff 0.24.1 emite (após uma linha de cabeçalho textual) JSON no formato:
-    //   { breakingDifferencesFound, breakingDifferences[], nonBreakingDifferences[], unclassifiedDifferences[] }
     // Cada item já traz type/action/code/destinationSpecEntityDetails — mapeamos para a forma
     // interna { summary, differences } consumida por main()/generateReport().
-    const raw: unknown = JSON.parse(stdout.slice(jsonStart));
+    const raw: unknown = JSON.parse(jsonObject);
     const root = isRecord(raw) ? raw : {};
     const breaking = normalizeDiffArray(root.breakingDifferences, 'breaking');
     const nonBreaking = normalizeDiffArray(root.nonBreakingDifferences, 'non-breaking');

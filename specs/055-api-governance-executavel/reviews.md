@@ -252,3 +252,17 @@ Achado: `JSON.parse(...) as {...}` aceitava payload arbitrário da integração 
 Correção aplicada (pétrea de normalização): parse para `unknown` + normalizador tipado campo-a-campo — `isRecord`/`normalizeDiffArray`/`normalizeDiffChange`/`normalizeEntityDetails`. `type` validado contra allowlist (`breaking|non-breaking|unclassified`, com fallback por bucket de origem), `action`/`code`/`entity` coeridos a string, `*SpecEntityDetails` só aceita itens com `location: string`. Itens inválidos são descartados, não propagados.
 
 Bug de raiz corrigido junto (não era achado de bot, foi achado na validação): a ferramenta `api:diff` estava **cega para diff real** — (1) path absoluto Windows lido como protocolo URL, (2) saída descartada no exit≠0 do openapi-diff, (3) schema do JSON 0.24.1 (`breakingDifferences[]/...`) diferente do esperado (`summary`). Os 3 faziam crash em vez de reportar. Provado pós-fix: rota removida → Breaking:1.
+
+### REV-PR105-RABBIT-02 — Limitar parse ao JSON balanceado (Major)
+
+Origem: coderabbitai (PR #105).
+
+Achado: `stdout` e `stderr` são concatenados antes do parse; warning em stderr invalidaria `JSON.parse(stdout.slice(jsonStart))` mesmo com o JSON correto em stdout.
+
+Correção: `extractJsonObject()` — varre do primeiro `{` até a chave de fechamento balanceada, respeitando strings/escapes, e descarta cabeçalho textual e qualquer warning concatenado depois. `JSON.parse` recebe só o objeto.
+
+### REV-PR105-SONAR-01 — Ternário aninhado (L105) e replace→replaceAll (L108)
+
+Origem: SonarCloud (PR #105).
+
+Correção: `asText()` extraído para função de módulo com `if` + ternário único (sem aninhamento); `rel()` usa `replaceAll('\','/')` no lugar de `replace(/\/g,'/')`. Helpers (`asText`/`extractJsonObject`) movidos para o nível do módulo.
