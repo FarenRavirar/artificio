@@ -26,7 +26,7 @@
     "api:mcp": "tsx scripts/api/api-mcp-server.ts",
     "verify:api": "tsx scripts/api/verify-api.ts",
     "verify:api:full": "tsx scripts/api/verify-api.ts --full",
-    "prepare": "node scripts/git-hooks/install-hooks.mjs"
+    "prepare": "node scripts/git-hooks/install-hooks.mjs || true"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
