@@ -81,7 +81,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 
 ## Rotas Duplicadas Suspeitas
 
-Pares de rotas com similaridade ≥ 75 e tokenSimilarity ≥ 0.5. Score máximo = 100 (method 40 + token 40 + owner 10 + scope 10).
+Pares de rotas com similaridade ≥ 90 e tokenSimilarity ≥ 0.5. Score máximo = 100 (method 40 + token 40 + owner 10 + scope 10).
 
 ### Score ≥ 80 (alta probabilidade)
 

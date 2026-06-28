@@ -13,6 +13,7 @@
 import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { load as yamlLoad } from 'js-yaml';
+import { byEntryKey } from './sort-utils';
 
 const GENERATED_AT = process.env.API_GENERATED_AT || '1970-01-01T00:00:00.000Z';
 
@@ -615,7 +616,7 @@ function computeDuplicateScore(
  * Retorna pares com score >= minScore (default 60).
  * O(n²/2) por app — aceitável para ~200 rotas.
  */
-function detectDuplicates(entries: DriftEntry[], minScore = 75): DuplicateCandidate[] {
+function detectDuplicates(entries: DriftEntry[], minScore = 90): DuplicateCandidate[] {
   // Filtrar USE mounts (não são rotas reais) e agrupar por app+método
   const filtered = entries.filter(e => e.method !== 'USE' && e.method !== 'UNKNOWN');
 
@@ -714,7 +715,7 @@ function generateOrphansReport(
       byApp.get(app)!.push(o);
     }
 
-    for (const [app, appOrphans] of [...byApp.entries()].sort()) {
+    for (const [app, appOrphans] of [...byApp.entries()].sort(byEntryKey)) {
       md += `### ${app} (${appOrphans.length} rota(s))\n\n`;
       md += `| Method | Path | Tem OpenAPI? | Scope | Razão |\n`;
       md += `|--------|------|:-----------:|-------|-------|\n`;
@@ -731,7 +732,7 @@ function generateOrphansReport(
   // ── Duplicates section ──
   if (duplicates.length > 0) {
     md += `\n---\n\n## Rotas Duplicadas Suspeitas\n\n`;
-    md += `Pares de rotas com similaridade ≥ 75 e tokenSimilarity ≥ 0.5. Score máximo = 100 (method 40 + token 40 + owner 10 + scope 10).\n\n`;
+    md += `Pares de rotas com similaridade ≥ 90 e tokenSimilarity ≥ 0.5. Score máximo = 100 (method 40 + token 40 + owner 10 + scope 10).\n\n`;
 
     // Group by level
     const highDups = duplicates.filter(d => d.totalScore >= 80);
@@ -900,7 +901,7 @@ function generateMarkdownReport(
 
   // Details by app
   md += `\n## Detalhamento por app\n`;
-  for (const [app, appEntries] of [...byApp.entries()].sort()) {
+  for (const [app, appEntries] of [...byApp.entries()].sort(byEntryKey)) {
     const invCount = appEntries.filter(e => e.inInventory).length;
     md += `\n### ${app} (${invCount} rotas no inventário)\n\n`;
     md += `| Method | Path | Estado | OpenAPI | Consumidor | Obs |\n`;
@@ -934,7 +935,7 @@ function generateMarkdownReport(
       byAppOrphan.get(app)!.push(e);
     }
 
-    for (const [app, appOrphans] of [...byAppOrphan.entries()].sort()) {
+    for (const [app, appOrphans] of [...byAppOrphan.entries()].sort(byEntryKey)) {
       md += `### ${app} (${appOrphans.length} rota(s))\n\n`;
       md += `| Method | Path | Tem OpenAPI? | Scope | Razão |\n`;
       md += `|--------|------|:-----------:|-------|-------|\n`;

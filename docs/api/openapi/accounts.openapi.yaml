@@ -23,36 +23,40 @@ paths:
         "200":
           description: OK
   /admin/secrets/{name}:
+    parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
     get:
       operationId: getadmin_secrets_name
+      summary: Recupera um segredo descriptografado (admin ou service-token)
       x-artificio-owner: accounts
       x-artificio-scope: admin
-      x-artificio-status: active
-      x-artificio-auth: admin
-      parameters:
-        - name: name
-          in: path
-          required: true
-          schema:
-            type: string
+      x-artificio-status: provisional
+      x-artificio-auth: service
+      description: "Decifra e retorna um segredo. Aceita X-Service-Token (serviço-a-serviço) ou cookie admin. Fonte: createAdminSecretsRoutes (DEB-055-12)."
+      x-artificio-consumers:
+        - mesas-backend
       responses:
         "200":
-          description: OK
+          description: Segredo retornado
+        "404":
+          description: Segredo não encontrado
     put:
       operationId: putadmin_secrets_name
+      summary: Armazena um segredo criptografado (admin)
       x-artificio-owner: accounts
       x-artificio-scope: admin
-      x-artificio-status: active
+      x-artificio-status: provisional
       x-artificio-auth: admin
-      parameters:
-        - name: name
-          in: path
-          required: true
-          schema:
-            type: string
+      description: "Cifra e armazena um segredo (ex.: DeepSeek key). Requer sessão admin. Fonte: createAdminSecretsRoutes (DEB-055-12)."
       responses:
-        "200":
-          description: OK
+        "204":
+          description: Segredo armazenado
+        "400":
+          description: Payload inválido
   /api/auth/google:
     get:
       operationId: getapi_auth_google

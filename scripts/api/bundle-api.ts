@@ -17,6 +17,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { load as yamlLoad } from 'js-yaml';
+import { byLocale, byEntryKey } from './sort-utils';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 const OPENAPI_DIR = path.join(REPO_ROOT, 'docs/api/openapi');
@@ -51,7 +52,7 @@ function collectOperations(): Operation[] {
   if (!fs.existsSync(OPENAPI_DIR)) return [];
   const files = fs.readdirSync(OPENAPI_DIR)
     .filter((f) => f.endsWith('.openapi.yaml') || f.endsWith('.openapi.yml'))
-    .sort();
+    .sort(byLocale);
 
   const ops: Operation[] = [];
 
@@ -61,12 +62,20 @@ function collectOperations(): Operation[] {
     try {
       doc = yamlLoad(fs.readFileSync(path.join(OPENAPI_DIR, file), 'utf-8'));
     } catch (err) {
-      console.error(`  ❌ Erro ao parsear ${file}: ${(err as Error).message}`);
-      continue;
+      // Bundle é fonte primária de descoberta: contrato quebrado não pode virar
+      // bundle parcial "aparentemente válido". Falha dura.
+      console.error(`❌ Erro ao parsear ${file}: ${(err as Error).message}`);
+      process.exit(1);
     }
-    if (!doc || typeof doc !== 'object') continue;
+    if (!doc || typeof doc !== 'object') {
+      console.error(`❌ ${file}: documento OpenAPI inválido (não é objeto).`);
+      process.exit(1);
+    }
     const paths = (doc as Record<string, unknown>).paths;
-    if (!paths || typeof paths !== 'object') continue;
+    if (!paths || typeof paths !== 'object') {
+      console.error(`❌ ${file}: contrato sem objeto 'paths' válido.`);
+      process.exit(1);
+    }
 
     for (const [routePath, methodsRaw] of Object.entries(paths as Record<string, unknown>)) {
       if (!methodsRaw || typeof methodsRaw !== 'object') continue;
@@ -111,7 +120,7 @@ function writeBundle(ops: Operation[]): void {
       'Fonte primária de descoberta para agentes de IA. Gerado por scripts/api/bundle-api.ts ' +
       'a partir dos contratos OpenAPI por-app. Não editar à mão.',
     generatedAt: GENERATED_AT,
-    apps: Object.fromEntries([...byApp.entries()].sort()),
+    apps: Object.fromEntries([...byApp.entries()].sort(byEntryKey)),
     total: ops.length,
     operations: ops,
   };
@@ -128,7 +137,7 @@ function writeIndexMarkdown(ops: Operation[]): void {
   md += `> Não editar à mão. Regenerar com \`pnpm api:bundle\` (faz parte de \`pnpm verify:api\`).\n\n`;
   md += `Total: **${ops.length} operações**.\n\n`;
 
-  const apps = [...new Set(ops.map((o) => o.app))].sort();
+  const apps = [...new Set(ops.map((o) => o.app))].sort(byLocale);
   for (const app of apps) {
     const appOps = ops.filter((o) => o.app === app);
     md += `## ${app} (${appOps.length})\n\n`;

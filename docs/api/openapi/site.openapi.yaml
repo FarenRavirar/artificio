@@ -6,6 +6,10 @@ info:
   description: "API do módulo Site. Metadados x-artificio-* definidos por heurística de path."
   version: "0.1.0"
 servers:
+  - url: https://beta.artificiorpg.com
+    description: Produção (beta)
+  - url: http://localhost:4322
+    description: Desenvolvimento
 security: []
 paths:
   /admin/import:

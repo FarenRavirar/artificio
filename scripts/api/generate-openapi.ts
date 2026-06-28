@@ -8,6 +8,8 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { byLocale, byEntryKey } from './sort-utils';
+import { moduleOrigin } from '../../packages/config/src/brand';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../..');
 const INVENTORY_PATH = join(REPO_ROOT, 'docs/api/generated/api-inventory.generated.json');
@@ -158,27 +160,21 @@ interface RouteEntry {
 const KNOWN_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'];
 
 function generateOpenApi(appName: string, routes: RouteEntry[], overlayPath?: string): string {
-  // Servers por app
+  // Servers por app — origin público canônico vem de @artificio/config (fonte única;
+  // não hardcodar URL de subdomínio). Importado do source p/ não exigir build no CI.
+  const SERVER_CONFIG: Record<string, { prod: string; prodLabel: string; devPort: number }> = {
+    accounts:  { prod: moduleOrigin('accounts'),  prodLabel: 'Produção',        devPort: 4000 },
+    mesas:     { prod: moduleOrigin('mesas'),     prodLabel: 'Produção',        devPort: 4000 },
+    glossario: { prod: moduleOrigin('glossario'), prodLabel: 'Produção',        devPort: 3000 },
+    links:     { prod: moduleOrigin('links'),     prodLabel: 'Produção',        devPort: 3001 },
+    site:      { prod: moduleOrigin('beta'),      prodLabel: 'Produção (beta)', devPort: 4322 },
+  };
   const servers: { url: string; description: string }[] = [];
-  if (appName === 'accounts') {
+  const sc = SERVER_CONFIG[appName];
+  if (sc) {
     servers.push(
-      { url: 'https://accounts.artificiorpg.com', description: 'Produção' },
-      { url: 'http://localhost:4000', description: 'Desenvolvimento' }
-    );
-  } else if (appName === 'mesas') {
-    servers.push(
-      { url: 'https://mesas.artificiorpg.com', description: 'Produção' },
-      { url: 'http://localhost:4000', description: 'Desenvolvimento' }
-    );
-  } else if (appName === 'glossario') {
-    servers.push(
-      { url: 'https://glossario.artificiorpg.com', description: 'Produção' },
-      { url: 'http://localhost:3000', description: 'Desenvolvimento' }
-    );
-  } else if (appName === 'links') {
-    servers.push(
-      { url: 'https://links.artificiorpg.com', description: 'Produção' },
-      { url: 'http://localhost:3001', description: 'Desenvolvimento' }
+      { url: sc.prod, description: sc.prodLabel },
+      { url: `http://localhost:${sc.devPort}`, description: 'Desenvolvimento' }
     );
   }
 
@@ -211,86 +207,102 @@ servers:
     pathMap.get(oaPath)!.push(r);
   }
 
-  // Ordenar paths
-  const sortedPaths = [...pathMap.keys()].sort();
   const usedOperationIds = new Set<string>();
 
-  for (const oaPath of sortedPaths) {
+  // Estrutura por path → método (linhas YAML), permitindo merge por operação com o
+  // overlay manual sem gerar chave de path duplicada (DEB-055-12).
+  interface PathBlock { pathLevel: string[]; methods: Map<string, string[]> }
+  const byPath = new Map<string, PathBlock>();
+
+  for (const oaPath of [...pathMap.keys()].sort(byLocale)) {
     const entriesByMethod = new Map<string, RouteEntry>();
     for (const entry of pathMap.get(oaPath)!) {
       const method = entry.method.toLowerCase();
       if (!KNOWN_METHODS.includes(method) || entriesByMethod.has(method)) continue;
       entriesByMethod.set(method, entry);
     }
-    const entries = [...entriesByMethod.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, entry]) => entry);
-    yaml += `  ${oaPath}:\n`;
-
-    for (const entry of entries) {
-      const method = entry.method.toLowerCase();
-
+    const block: PathBlock = { pathLevel: [], methods: new Map() };
+    for (const [method, entry] of [...entriesByMethod.entries()].sort(byEntryKey)) {
       const cls = classifyRoute(entry.method, entry.path, entry.app);
       const opId = operationIdFor(method, oaPath, usedOperationIds);
-
-      yaml += `    ${method}:\n`;
-      yaml += `      operationId: ${opId}\n`;
-      yaml += `      x-artificio-owner: ${cls.owner}\n`;
-      yaml += `      x-artificio-scope: ${cls.scope}\n`;
-      yaml += `      x-artificio-status: ${cls.status}\n`;
-      yaml += `      x-artificio-auth: ${cls.auth}\n`;
+      const lines: string[] = [];
+      lines.push(`    ${method}:`);
+      lines.push(`      operationId: ${opId}`);
+      lines.push(`      x-artificio-owner: ${cls.owner}`);
+      lines.push(`      x-artificio-scope: ${cls.scope}`);
+      lines.push(`      x-artificio-status: ${cls.status}`);
+      lines.push(`      x-artificio-auth: ${cls.auth}`);
       if (cls.consumers.length > 0) {
-        yaml += `      x-artificio-consumers:\n`;
-        for (const c of cls.consumers) {
-          yaml += `        - ${c}\n`;
-        }
+        lines.push(`      x-artificio-consumers:`);
+        for (const c of cls.consumers) lines.push(`        - ${c}`);
       }
       if (oaPath.includes('{')) {
-        // Extract param names from path template
         const paramNames = [...oaPath.matchAll(/\{([^}]+)\}/g)].map(m => m[1]);
         if (paramNames.length > 0) {
-          yaml += `      parameters:\n`;
+          lines.push(`      parameters:`);
           for (const pname of paramNames) {
-            yaml += `        - name: ${pname}\n`;
-            yaml += `          in: path\n`;
-            yaml += `          required: true\n`;
-            yaml += `          schema:\n`;
-            yaml += `            type: string\n`;
+            lines.push(`        - name: ${pname}`);
+            lines.push(`          in: path`);
+            lines.push(`          required: true`);
+            lines.push(`          schema:`);
+            lines.push(`            type: string`);
           }
         }
       }
-      yaml += `      responses:\n`;
-      yaml += `        "200":\n`;
-      yaml += `          description: OK\n`;
+      lines.push(`      responses:`);
+      lines.push(`        "200":`);
+      lines.push(`          description: OK`);
+      block.methods.set(method, lines);
+    }
+    byPath.set(oaPath, block);
+  }
+
+  // ── Mesclar overlay manual (rotas/curadoria não detectadas por AST — DEB-055-12) ──
+  // Merge por path + método: o overlay tem PRECEDÊNCIA por operação (curadoria manual
+  // vence a heurística). Métodos nativos não cobertos pelo overlay são preservados
+  // (não se perde operação); paths novos do overlay são adicionados.
+  if (overlayPath && existsSync(overlayPath)) {
+    const overlayContent = readFileSync(overlayPath, 'utf-8');
+    const lines = overlayContent
+      .split('\n')
+      .filter((line: string) => line.trim() !== '' && !line.trim().startsWith('#'));
+    const PATH_RE = /^ {2}(\/\S*):\s*$/;
+    const METHOD_RE = /^ {4}(get|post|put|patch|delete|head|options):\s*$/;
+
+    let curPath: string | null = null;
+    let curMethod: string | null = null;
+    for (const line of lines) {
+      const ph = PATH_RE.exec(line);
+      if (ph) {
+        curPath = ph[1];
+        curMethod = null;
+        if (!byPath.has(curPath)) byPath.set(curPath, { pathLevel: [], methods: new Map() });
+        continue;
+      }
+      if (curPath === null) continue;
+      const block = byPath.get(curPath)!;
+      const mh = METHOD_RE.exec(line);
+      if (mh) {
+        curMethod = mh[1];
+        block.methods.set(curMethod, [line]); // overlay sobrescreve a operação nativa
+        continue;
+      }
+      if (curMethod) {
+        block.methods.get(curMethod)!.push(line);
+      } else {
+        block.pathLevel.push(line); // nível de path (ex.: parameters:) — só vem do overlay
+      }
     }
   }
 
-  // ── Mesclar overlay manual (rotas não detectadas por AST — DEB-055-12) ──
-  // Dedup-safe: pula blocos cujo path já foi gerado nativamente (evita chave
-  // duplicada quando o inventário passa a cobrir uma rota antes só no overlay).
-  if (overlayPath && existsSync(overlayPath)) {
-    const overlayContent = readFileSync(overlayPath, 'utf-8');
-    const generatedPaths = new Set(pathMap.keys());
-    const lines = overlayContent.split('\n').filter(line => !line.trim().startsWith('#'));
-
-    // Agrupar em blocos: um bloco começa numa linha "  /path:" (indent 2, começa com /)
-    const blocks: { path: string; lines: string[] }[] = [];
-    let current: { path: string; lines: string[] } | null = null;
-    for (const line of lines) {
-      const headerMatch = /^ {2}(\/\S*):\s*$/.exec(line);
-      if (headerMatch) {
-        if (current) blocks.push(current);
-        current = { path: headerMatch[1], lines: [line] };
-      } else if (current) {
-        current.lines.push(line);
-      }
-    }
-    if (current) blocks.push(current);
-
-    const merged = blocks
-      .filter(b => !generatedPaths.has(b.path))
-      .map(b => b.lines.join('\n').replace(/\n+$/, ''))
-      .join('\n');
-    if (merged.trim()) {
-      yaml += '\n' + merged + '\n';
+  // Serializar paths (nativos + overlay) em ordem estável e determinística
+  for (const oaPath of [...byPath.keys()].sort(byLocale)) {
+    const block = byPath.get(oaPath)!;
+    if (block.methods.size === 0) continue;
+    yaml += `  ${oaPath}:\n`;
+    for (const l of block.pathLevel) yaml += `${l.replace(/\s+$/, '')}\n`;
+    for (const method of [...block.methods.keys()].sort(byLocale)) {
+      for (const l of block.methods.get(method)!) yaml += `${l.replace(/\s+$/, '')}\n`;
     }
   }
 

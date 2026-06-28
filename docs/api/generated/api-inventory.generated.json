@@ -77,7 +77,7 @@
       "app": "accounts",
       "method": "GET",
       "path": "/",
-      "sourceFile": "apps\\accounts\\src\\app.ts",
+      "sourceFile": "apps/accounts/src/app.ts",
       "line": 178,
       "confidence": "high",
       "kind": "express-route"
@@ -86,7 +86,7 @@
       "app": "accounts",
       "method": "GET",
       "path": "/admin/secrets/:name",
-      "sourceFile": "apps\\accounts\\src\\adminSecretsRoutes.ts",
+      "sourceFile": "apps/accounts/src/adminSecretsRoutes.ts",
       "line": 112,
       "confidence": "high",
       "kind": "express-route"
@@ -95,7 +95,7 @@
       "app": "accounts",
       "method": "PUT",
       "path": "/admin/secrets/:name",
-      "sourceFile": "apps\\accounts\\src\\adminSecretsRoutes.ts",
+      "sourceFile": "apps/accounts/src/adminSecretsRoutes.ts",
       "line": 73,
       "confidence": "high",
       "kind": "express-route"
@@ -104,7 +104,7 @@
       "app": "accounts",
       "method": "GET",
       "path": "/api/auth/google",
-      "sourceFile": "apps\\accounts\\src\\app.ts",
+      "sourceFile": "apps/accounts/src/app.ts",
       "line": 93,
       "confidence": "high",
       "kind": "express-route"
@@ -113,7 +113,7 @@
       "app": "accounts",
       "method": "GET",
       "path": "/api/auth/google/callback",
-      "sourceFile": "apps\\accounts\\src\\app.ts",
+      "sourceFile": "apps/accounts/src/app.ts",
       "line": 106,
       "confidence": "high",
       "kind": "express-route"
@@ -122,7 +122,7 @@
       "app": "accounts",
       "method": "POST",
       "path": "/api/auth/logout",
-      "sourceFile": "apps\\accounts\\src\\app.ts",
+      "sourceFile": "apps/accounts/src/app.ts",
       "line": 144,
       "confidence": "high",
       "kind": "express-route"
@@ -131,7 +131,7 @@
       "app": "accounts",
       "method": "GET",
       "path": "/api/auth/me",
-      "sourceFile": "apps\\accounts\\src\\app.ts",
+      "sourceFile": "apps/accounts/src/app.ts",
       "line": 140,
       "confidence": "high",
       "kind": "express-route"
@@ -140,7 +140,7 @@
       "app": "accounts",
       "method": "GET",
       "path": "/api/auth/refresh",
-      "sourceFile": "apps\\accounts\\src\\app.ts",
+      "sourceFile": "apps/accounts/src/app.ts",
       "line": 149,
       "confidence": "high",
       "kind": "express-route"
@@ -149,7 +149,7 @@
       "app": "accounts",
       "method": "GET",
       "path": "/conta",
-      "sourceFile": "apps\\accounts\\src\\app.ts",
+      "sourceFile": "apps/accounts/src/app.ts",
       "line": 178,
       "confidence": "high",
       "kind": "express-route"
@@ -158,7 +158,7 @@
       "app": "accounts",
       "method": "GET",
       "path": "/health",
-      "sourceFile": "apps\\accounts\\src\\app.ts",
+      "sourceFile": "apps/accounts/src/app.ts",
       "line": 89,
       "confidence": "high",
       "kind": "express-route"
@@ -167,7 +167,7 @@
       "app": "accounts",
       "method": "GET",
       "path": "/login",
-      "sourceFile": "apps\\accounts\\src\\app.ts",
+      "sourceFile": "apps/accounts/src/app.ts",
       "line": 178,
       "confidence": "high",
       "kind": "express-route"
@@ -176,7 +176,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/admin/activity",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\adminActivityRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/adminActivityRoutes.ts",
       "line": 8,
       "confidence": "high",
       "kind": "express-route"
@@ -185,7 +185,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/admin/activity",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 91,
       "confidence": "high",
       "kind": "mount"
@@ -194,7 +194,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/admin/feedback",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\feedbackAdminRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/feedbackAdminRoutes.ts",
       "line": 11,
       "confidence": "high",
       "kind": "express-route"
@@ -203,7 +203,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/admin/feedback",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 93,
       "confidence": "high",
       "kind": "mount"
@@ -212,7 +212,7 @@
       "app": "glossario",
       "method": "DELETE",
       "path": "/api/admin/feedback/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\feedbackAdminRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/feedbackAdminRoutes.ts",
       "line": 13,
       "confidence": "high",
       "kind": "express-route"
@@ -221,7 +221,7 @@
       "app": "glossario",
       "method": "PATCH",
       "path": "/api/admin/feedback/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\feedbackAdminRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/feedbackAdminRoutes.ts",
       "line": 12,
       "confidence": "high",
       "kind": "express-route"
@@ -230,7 +230,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/auth",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 79,
       "confidence": "high",
       "kind": "mount"
@@ -239,7 +239,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/auth/login",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\authRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/authRoutes.ts",
       "line": 10,
       "confidence": "high",
       "kind": "express-route"
@@ -248,7 +248,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/auth/me",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\authRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/authRoutes.ts",
       "line": 13,
       "confidence": "high",
       "kind": "express-route"
@@ -257,7 +257,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/auth/register",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\authRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/authRoutes.ts",
       "line": 9,
       "confidence": "high",
       "kind": "express-route"
@@ -266,7 +266,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/categories",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\categoryRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/categoryRoutes.ts",
       "line": 9,
       "confidence": "high",
       "kind": "express-route"
@@ -275,7 +275,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/categories",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\categoryRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/categoryRoutes.ts",
       "line": 10,
       "confidence": "high",
       "kind": "express-route"
@@ -284,7 +284,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/categories",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 84,
       "confidence": "high",
       "kind": "mount"
@@ -293,7 +293,7 @@
       "app": "glossario",
       "method": "DELETE",
       "path": "/api/categories/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\categoryRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/categoryRoutes.ts",
       "line": 12,
       "confidence": "high",
       "kind": "express-route"
@@ -302,7 +302,7 @@
       "app": "glossario",
       "method": "PUT",
       "path": "/api/categories/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\categoryRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/categoryRoutes.ts",
       "line": 11,
       "confidence": "high",
       "kind": "express-route"
@@ -311,7 +311,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/changelog",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\changelogRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/changelogRoutes.ts",
       "line": 6,
       "confidence": "high",
       "kind": "express-route"
@@ -320,7 +320,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/changelog",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 87,
       "confidence": "high",
       "kind": "mount"
@@ -329,7 +329,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/export",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 89,
       "confidence": "high",
       "kind": "mount"
@@ -338,7 +338,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/export/matecat",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\exportRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/exportRoutes.ts",
       "line": 9,
       "confidence": "high",
       "kind": "express-route"
@@ -347,7 +347,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/feedback",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\feedbackRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/feedbackRoutes.ts",
       "line": 18,
       "confidence": "high",
       "kind": "express-route"
@@ -356,7 +356,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/feedback",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 92,
       "confidence": "high",
       "kind": "mount"
@@ -365,7 +365,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/migration",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 80,
       "confidence": "high",
       "kind": "mount"
@@ -374,7 +374,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/migration/claim",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\migrationRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/migrationRoutes.ts",
       "line": 25,
       "confidence": "high",
       "kind": "express-route"
@@ -383,7 +383,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/migration/verify",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\migrationRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/migrationRoutes.ts",
       "line": 22,
       "confidence": "high",
       "kind": "express-route"
@@ -392,7 +392,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/notifications",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\notificationRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/notificationRoutes.ts",
       "line": 12,
       "confidence": "high",
       "kind": "express-route"
@@ -401,7 +401,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/notifications",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 90,
       "confidence": "high",
       "kind": "mount"
@@ -410,7 +410,7 @@
       "app": "glossario",
       "method": "PATCH",
       "path": "/api/notifications/:id/read",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\notificationRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/notificationRoutes.ts",
       "line": 14,
       "confidence": "high",
       "kind": "express-route"
@@ -419,7 +419,7 @@
       "app": "glossario",
       "method": "PATCH",
       "path": "/api/notifications/read-all",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\notificationRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/notificationRoutes.ts",
       "line": 13,
       "confidence": "high",
       "kind": "express-route"
@@ -428,7 +428,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/scenarios",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\scenarioRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/scenarioRoutes.ts",
       "line": 9,
       "confidence": "high",
       "kind": "express-route"
@@ -437,7 +437,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/scenarios",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\scenarioRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/scenarioRoutes.ts",
       "line": 10,
       "confidence": "high",
       "kind": "express-route"
@@ -446,7 +446,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/scenarios",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 86,
       "confidence": "high",
       "kind": "mount"
@@ -455,7 +455,7 @@
       "app": "glossario",
       "method": "DELETE",
       "path": "/api/scenarios/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\scenarioRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/scenarioRoutes.ts",
       "line": 12,
       "confidence": "high",
       "kind": "express-route"
@@ -464,7 +464,7 @@
       "app": "glossario",
       "method": "PUT",
       "path": "/api/scenarios/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\scenarioRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/scenarioRoutes.ts",
       "line": 11,
       "confidence": "high",
       "kind": "express-route"
@@ -473,7 +473,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/social",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 88,
       "confidence": "high",
       "kind": "mount"
@@ -482,7 +482,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/social/:id/comments",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\socialRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/socialRoutes.ts",
       "line": 14,
       "confidence": "high",
       "kind": "express-route"
@@ -491,7 +491,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/social/:id/comments",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\socialRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/socialRoutes.ts",
       "line": 15,
       "confidence": "high",
       "kind": "express-route"
@@ -500,7 +500,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/social/:id/vote",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\socialRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/socialRoutes.ts",
       "line": 11,
       "confidence": "high",
       "kind": "express-route"
@@ -509,7 +509,7 @@
       "app": "glossario",
       "method": "DELETE",
       "path": "/api/social/comments/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\socialRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/socialRoutes.ts",
       "line": 16,
       "confidence": "high",
       "kind": "express-route"
@@ -518,7 +518,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/systems",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\systemRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
       "line": 9,
       "confidence": "high",
       "kind": "express-route"
@@ -527,7 +527,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/systems",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\systemRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
       "line": 10,
       "confidence": "high",
       "kind": "express-route"
@@ -536,7 +536,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/systems",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 85,
       "confidence": "high",
       "kind": "mount"
@@ -545,7 +545,7 @@
       "app": "glossario",
       "method": "DELETE",
       "path": "/api/systems/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\systemRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
       "line": 12,
       "confidence": "high",
       "kind": "express-route"
@@ -554,7 +554,7 @@
       "app": "glossario",
       "method": "PUT",
       "path": "/api/systems/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\systemRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
       "line": 11,
       "confidence": "high",
       "kind": "express-route"
@@ -563,7 +563,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/systems/:systemId/editions",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\systemRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
       "line": 15,
       "confidence": "high",
       "kind": "express-route"
@@ -572,7 +572,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/systems/:systemId/editions",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\systemRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
       "line": 16,
       "confidence": "high",
       "kind": "express-route"
@@ -581,7 +581,7 @@
       "app": "glossario",
       "method": "DELETE",
       "path": "/api/systems/editions/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\systemRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
       "line": 18,
       "confidence": "high",
       "kind": "express-route"
@@ -590,7 +590,7 @@
       "app": "glossario",
       "method": "PUT",
       "path": "/api/systems/editions/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\systemRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
       "line": 17,
       "confidence": "high",
       "kind": "express-route"
@@ -599,7 +599,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/terms",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\termRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/termRoutes.ts",
       "line": 10,
       "confidence": "high",
       "kind": "express-route"
@@ -608,7 +608,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/terms",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\termRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/termRoutes.ts",
       "line": 14,
       "confidence": "high",
       "kind": "express-route"
@@ -617,7 +617,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/terms",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 82,
       "confidence": "high",
       "kind": "mount"
@@ -626,7 +626,7 @@
       "app": "glossario",
       "method": "DELETE",
       "path": "/api/terms/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\termRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/termRoutes.ts",
       "line": 19,
       "confidence": "high",
       "kind": "express-route"
@@ -635,7 +635,7 @@
       "app": "glossario",
       "method": "PATCH",
       "path": "/api/terms/:id",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\termRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/termRoutes.ts",
       "line": 18,
       "confidence": "high",
       "kind": "express-route"
@@ -644,7 +644,7 @@
       "app": "glossario",
       "method": "PATCH",
       "path": "/api/terms/:id/approve",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\termRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/termRoutes.ts",
       "line": 17,
       "confidence": "high",
       "kind": "express-route"
@@ -653,7 +653,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/terms/:id/history",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\termRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/termRoutes.ts",
       "line": 11,
       "confidence": "high",
       "kind": "express-route"
@@ -662,7 +662,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/terms/import",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\importRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/importRoutes.ts",
       "line": 15,
       "confidence": "high",
       "kind": "express-route"
@@ -671,7 +671,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/terms/import",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 81,
       "confidence": "high",
       "kind": "mount"
@@ -680,7 +680,7 @@
       "app": "glossario",
       "method": "USE",
       "path": "/api/users",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 83,
       "confidence": "high",
       "kind": "mount"
@@ -689,7 +689,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/api/users/admin",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\userRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/userRoutes.ts",
       "line": 13,
       "confidence": "high",
       "kind": "express-route"
@@ -698,7 +698,7 @@
       "app": "glossario",
       "method": "POST",
       "path": "/api/users/admin/:id/ban",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\userRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/userRoutes.ts",
       "line": 14,
       "confidence": "high",
       "kind": "express-route"
@@ -707,7 +707,7 @@
       "app": "glossario",
       "method": "PATCH",
       "path": "/api/users/profile",
-      "sourceFile": "apps\\glossario\\backend\\src\\routes\\userRoutes.ts",
+      "sourceFile": "apps/glossario/backend/src/routes/userRoutes.ts",
       "line": 10,
       "confidence": "high",
       "kind": "express-route"
@@ -716,7 +716,7 @@
       "app": "glossario",
       "method": "GET",
       "path": "/health",
-      "sourceFile": "apps\\glossario\\backend\\src\\index.ts",
+      "sourceFile": "apps/glossario/backend/src/index.ts",
       "line": 74,
       "confidence": "high",
       "kind": "express-route"
@@ -725,7 +725,7 @@
       "app": "links",
       "method": "USE",
       "path": "/api/admin/v1",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 455,
       "confidence": "high",
       "kind": "mount"
@@ -734,7 +734,7 @@
       "app": "links",
       "method": "GET",
       "path": "/api/admin/v1/groups",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 227,
       "confidence": "high",
       "kind": "express-route"
@@ -743,7 +743,7 @@
       "app": "links",
       "method": "DELETE",
       "path": "/api/admin/v1/groups/:id",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 320,
       "confidence": "high",
       "kind": "express-route"
@@ -752,7 +752,7 @@
       "app": "links",
       "method": "PATCH",
       "path": "/api/admin/v1/groups/:id",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 259,
       "confidence": "high",
       "kind": "express-route"
@@ -761,7 +761,7 @@
       "app": "links",
       "method": "POST",
       "path": "/api/admin/v1/groups/:id/accept",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 239,
       "confidence": "high",
       "kind": "express-route"
@@ -770,7 +770,7 @@
       "app": "links",
       "method": "POST",
       "path": "/api/admin/v1/groups/:id/archive",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 306,
       "confidence": "high",
       "kind": "express-route"
@@ -779,7 +779,7 @@
       "app": "links",
       "method": "POST",
       "path": "/api/admin/v1/groups/rehydrate-logos",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 446,
       "confidence": "high",
       "kind": "express-route"
@@ -788,7 +788,7 @@
       "app": "links",
       "method": "GET",
       "path": "/api/admin/v1/groups/rehydrate-logos/status",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 451,
       "confidence": "high",
       "kind": "express-route"
@@ -797,7 +797,7 @@
       "app": "links",
       "method": "POST",
       "path": "/api/admin/v1/rebuild",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 434,
       "confidence": "high",
       "kind": "express-route"
@@ -806,7 +806,7 @@
       "app": "links",
       "method": "GET",
       "path": "/api/admin/v1/rebuild/status",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 440,
       "confidence": "high",
       "kind": "express-route"
@@ -815,7 +815,7 @@
       "app": "links",
       "method": "GET",
       "path": "/api/admin/v1/reports",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 398,
       "confidence": "high",
       "kind": "express-route"
@@ -824,7 +824,7 @@
       "app": "links",
       "method": "PATCH",
       "path": "/api/admin/v1/reports/:id",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 413,
       "confidence": "high",
       "kind": "express-route"
@@ -833,7 +833,7 @@
       "app": "links",
       "method": "GET",
       "path": "/api/admin/v1/tags",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 336,
       "confidence": "high",
       "kind": "express-route"
@@ -842,7 +842,7 @@
       "app": "links",
       "method": "POST",
       "path": "/api/admin/v1/tags",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 345,
       "confidence": "high",
       "kind": "express-route"
@@ -851,7 +851,7 @@
       "app": "links",
       "method": "DELETE",
       "path": "/api/admin/v1/tags/:id",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 383,
       "confidence": "high",
       "kind": "express-route"
@@ -860,7 +860,7 @@
       "app": "links",
       "method": "PATCH",
       "path": "/api/admin/v1/tags/:id",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 365,
       "confidence": "high",
       "kind": "express-route"
@@ -869,7 +869,7 @@
       "app": "links",
       "method": "GET",
       "path": "/api/groups",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 71,
       "confidence": "high",
       "kind": "express-route"
@@ -878,7 +878,7 @@
       "app": "links",
       "method": "GET",
       "path": "/api/groups/:slug",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 90,
       "confidence": "high",
       "kind": "express-route"
@@ -887,7 +887,7 @@
       "app": "links",
       "method": "POST",
       "path": "/api/groups/:slug/report",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 173,
       "confidence": "high",
       "kind": "express-route"
@@ -896,7 +896,7 @@
       "app": "links",
       "method": "POST",
       "path": "/api/groups/suggest",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 148,
       "confidence": "high",
       "kind": "express-route"
@@ -905,7 +905,7 @@
       "app": "links",
       "method": "GET",
       "path": "/api/tags",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 105,
       "confidence": "high",
       "kind": "express-route"
@@ -914,7 +914,7 @@
       "app": "links",
       "method": "GET",
       "path": "/grupo/:slug",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 461,
       "confidence": "high",
       "kind": "express-route"
@@ -923,7 +923,7 @@
       "app": "links",
       "method": "GET",
       "path": "/healthz",
-      "sourceFile": "apps\\links\\server\\server.ts",
+      "sourceFile": "apps/links/server/server.ts",
       "line": 60,
       "confidence": "high",
       "kind": "express-route"
@@ -932,7 +932,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 140,
       "confidence": "high",
       "kind": "mount"
@@ -941,7 +941,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 117,
       "confidence": "high",
       "kind": "mount"
@@ -950,7 +950,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 125,
       "confidence": "high",
       "kind": "mount"
@@ -959,7 +959,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 126,
       "confidence": "high",
       "kind": "mount"
@@ -968,7 +968,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 129,
       "confidence": "high",
       "kind": "mount"
@@ -977,7 +977,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 130,
       "confidence": "high",
       "kind": "mount"
@@ -986,7 +986,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 131,
       "confidence": "high",
       "kind": "mount"
@@ -995,7 +995,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 132,
       "confidence": "high",
       "kind": "mount"
@@ -1004,7 +1004,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/activity",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\activityLog.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/activityLog.ts",
       "line": 67,
       "confidence": "high",
       "kind": "express-route"
@@ -1013,7 +1013,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/dev-feedback",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\devFeedbackAdmin.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/devFeedbackAdmin.ts",
       "line": 67,
       "confidence": "high",
       "kind": "express-route"
@@ -1022,7 +1022,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/admin/dev-feedback/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\devFeedbackAdmin.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/devFeedbackAdmin.ts",
       "line": 180,
       "confidence": "high",
       "kind": "express-route"
@@ -1031,7 +1031,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/dev-feedback/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\devFeedbackAdmin.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/devFeedbackAdmin.ts",
       "line": 107,
       "confidence": "high",
       "kind": "express-route"
@@ -1040,7 +1040,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/dev-feedback/merge",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\devFeedbackAdmin.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/devFeedbackAdmin.ts",
       "line": 228,
       "confidence": "high",
       "kind": "express-route"
@@ -1049,7 +1049,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 127,
       "confidence": "high",
       "kind": "mount"
@@ -1058,7 +1058,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 21,
       "confidence": "high",
       "kind": "mount"
@@ -1067,7 +1067,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 29,
       "confidence": "high",
       "kind": "mount"
@@ -1076,7 +1076,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord/discovery",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 20,
       "confidence": "high",
       "kind": "mount"
@@ -1085,7 +1085,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/discord/discovery/guilds",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\discovery.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/discovery.ts",
       "line": 10,
       "confidence": "high",
       "kind": "express-route"
@@ -1094,7 +1094,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/discord/discovery/guilds/:guildId/channels",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\discovery.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/discovery.ts",
       "line": 20,
       "confidence": "high",
       "kind": "express-route"
@@ -1103,7 +1103,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/discord/drafts",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\drafts.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
       "line": 14,
       "confidence": "high",
       "kind": "express-route"
@@ -1112,7 +1112,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord/drafts",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 24,
       "confidence": "high",
       "kind": "mount"
@@ -1121,7 +1121,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord/drafts",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 25,
       "confidence": "high",
       "kind": "mount"
@@ -1130,7 +1130,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/discord/drafts/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\drafts.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
       "line": 51,
       "confidence": "high",
       "kind": "express-route"
@@ -1139,7 +1139,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/discord/drafts/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\drafts.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
       "line": 68,
       "confidence": "high",
       "kind": "express-route"
@@ -1148,7 +1148,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/refresh-image",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\drafts.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
       "line": 90,
       "confidence": "high",
       "kind": "express-route"
@@ -1157,7 +1157,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/reparse",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\drafts.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
       "line": 106,
       "confidence": "high",
       "kind": "express-route"
@@ -1166,7 +1166,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/sync",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\sync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/sync.ts",
       "line": 9,
       "confidence": "high",
       "kind": "express-route"
@@ -1175,7 +1175,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/fetch",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\fetch.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/fetch.ts",
       "line": 149,
       "confidence": "high",
       "kind": "express-route"
@@ -1184,7 +1184,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/import-json",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\import.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/import.ts",
       "line": 47,
       "confidence": "high",
       "kind": "express-route"
@@ -1193,7 +1193,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord/import-json",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 30,
       "confidence": "high",
       "kind": "mount"
@@ -1202,7 +1202,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord/import-json",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 31,
       "confidence": "high",
       "kind": "mount"
@@ -1211,7 +1211,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/import-json/file",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\import.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/import.ts",
       "line": 64,
       "confidence": "high",
       "kind": "express-route"
@@ -1220,7 +1220,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/import-json/preview",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\preview.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/preview.ts",
       "line": 58,
       "confidence": "high",
       "kind": "express-route"
@@ -1229,7 +1229,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/import-json/preview/file",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\preview.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/preview.ts",
       "line": 75,
       "confidence": "high",
       "kind": "express-route"
@@ -1238,7 +1238,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/import-json/reparse",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\import.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/import.ts",
       "line": 83,
       "confidence": "high",
       "kind": "express-route"
@@ -1247,7 +1247,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/discord/messages",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\messages.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/messages.ts",
       "line": 58,
       "confidence": "high",
       "kind": "express-route"
@@ -1256,7 +1256,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord/messages",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 26,
       "confidence": "high",
       "kind": "mount"
@@ -1265,7 +1265,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord/messages",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 27,
       "confidence": "high",
       "kind": "mount"
@@ -1274,7 +1274,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord/messages",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 28,
       "confidence": "high",
       "kind": "mount"
@@ -1283,7 +1283,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/discord/messages/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\messages.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/messages.ts",
       "line": 95,
       "confidence": "high",
       "kind": "express-route"
@@ -1292,7 +1292,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/messages/:id/diagnose-content",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\messages.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/messages.ts",
       "line": 117,
       "confidence": "high",
       "kind": "express-route"
@@ -1301,7 +1301,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/messages/:id/parse",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\messageParse.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/messageParse.ts",
       "line": 8,
       "confidence": "high",
       "kind": "express-route"
@@ -1310,7 +1310,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/messages/parse-batch",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\parse-batch.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/parse-batch.ts",
       "line": 10,
       "confidence": "high",
       "kind": "express-route"
@@ -1319,7 +1319,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/discord/metrics",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\metrics.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/metrics.ts",
       "line": 9,
       "confidence": "high",
       "kind": "express-route"
@@ -1328,7 +1328,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord/metrics",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 32,
       "confidence": "high",
       "kind": "mount"
@@ -1337,7 +1337,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/discord/metrics/shadow",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\metrics.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/metrics.ts",
       "line": 84,
       "confidence": "high",
       "kind": "express-route"
@@ -1346,7 +1346,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/discord/settings",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\settings.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/settings.ts",
       "line": 27,
       "confidence": "high",
       "kind": "express-route"
@@ -1355,7 +1355,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord/settings",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 23,
       "confidence": "high",
       "kind": "mount"
@@ -1364,7 +1364,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/admin/discord/settings/bot-token",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\settings.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/settings.ts",
       "line": 119,
       "confidence": "high",
       "kind": "express-route"
@@ -1373,7 +1373,7 @@
       "app": "mesas",
       "method": "PUT",
       "path": "/api/v1/admin/discord/settings/bot-token",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\settings.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/settings.ts",
       "line": 72,
       "confidence": "high",
       "kind": "express-route"
@@ -1382,7 +1382,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/discord/sources",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\sources.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/sources.ts",
       "line": 24,
       "confidence": "high",
       "kind": "express-route"
@@ -1391,7 +1391,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/sources",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\sources.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/sources.ts",
       "line": 39,
       "confidence": "high",
       "kind": "express-route"
@@ -1400,7 +1400,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/discord/sources",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminDiscordSync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 22,
       "confidence": "high",
       "kind": "mount"
@@ -1409,7 +1409,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/admin/discord/sources/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\sources.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/sources.ts",
       "line": 94,
       "confidence": "high",
       "kind": "express-route"
@@ -1418,7 +1418,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/discord/sources/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\sources.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/sources.ts",
       "line": 69,
       "confidence": "high",
       "kind": "express-route"
@@ -1427,7 +1427,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/sources/:sourceId/reingest-force",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\fetch.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/fetch.ts",
       "line": 191,
       "confidence": "high",
       "kind": "express-route"
@@ -1436,7 +1436,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/sync-ready",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord\\sync.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/sync.ts",
       "line": 39,
       "confidence": "high",
       "kind": "express-route"
@@ -1445,7 +1445,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/import",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 128,
       "confidence": "high",
       "kind": "mount"
@@ -1454,7 +1454,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/import/drafts",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\inbox\\drafts.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/inbox/drafts.ts",
       "line": 17,
       "confidence": "high",
       "kind": "express-route"
@@ -1463,7 +1463,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/import/drafts",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminImportInbox.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminImportInbox.ts",
       "line": 14,
       "confidence": "high",
       "kind": "mount"
@@ -1472,7 +1472,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/import/drafts",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminImportInbox.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminImportInbox.ts",
       "line": 15,
       "confidence": "high",
       "kind": "mount"
@@ -1481,7 +1481,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/import/drafts/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\inbox\\drafts.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/inbox/drafts.ts",
       "line": 103,
       "confidence": "high",
       "kind": "express-route"
@@ -1490,7 +1490,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/import/drafts/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\inbox\\drafts.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/inbox/drafts.ts",
       "line": 157,
       "confidence": "high",
       "kind": "express-route"
@@ -1499,7 +1499,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/import/drafts/:id/reparse",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\inbox\\drafts.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/inbox/drafts.ts",
       "line": 194,
       "confidence": "high",
       "kind": "express-route"
@@ -1508,7 +1508,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/import/drafts/:id/sync",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\inbox\\drafts.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/inbox/drafts.ts",
       "line": 73,
       "confidence": "high",
       "kind": "express-route"
@@ -1517,7 +1517,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/import/import-text",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\inbox\\import.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/inbox/import.ts",
       "line": 59,
       "confidence": "high",
       "kind": "express-route"
@@ -1526,7 +1526,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/import/import-text",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminImportInbox.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminImportInbox.ts",
       "line": 13,
       "confidence": "high",
       "kind": "mount"
@@ -1535,7 +1535,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/import/metrics",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\inbox\\metrics.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/inbox/metrics.ts",
       "line": 9,
       "confidence": "high",
       "kind": "express-route"
@@ -1544,7 +1544,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/import/metrics",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminImportInbox.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminImportInbox.ts",
       "line": 16,
       "confidence": "high",
       "kind": "mount"
@@ -1553,7 +1553,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/scenario-suggestions",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\scenarioSuggestionsAdmin.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/scenarioSuggestionsAdmin.ts",
       "line": 15,
       "confidence": "high",
       "kind": "express-route"
@@ -1562,7 +1562,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/scenario-suggestions/:id/approve",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\scenarioSuggestionsAdmin.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/scenarioSuggestionsAdmin.ts",
       "line": 19,
       "confidence": "high",
       "kind": "express-route"
@@ -1571,7 +1571,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/scenario-suggestions/:id/reject",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\scenarioSuggestionsAdmin.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/scenarioSuggestionsAdmin.ts",
       "line": 156,
       "confidence": "high",
       "kind": "express-route"
@@ -1580,7 +1580,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/setting-suggestions",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminSettingSuggestions.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminSettingSuggestions.ts",
       "line": 14,
       "confidence": "high",
       "kind": "express-route"
@@ -1589,7 +1589,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/setting-suggestions",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminSettingSuggestions.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminSettingSuggestions.ts",
       "line": 33,
       "confidence": "high",
       "kind": "express-route"
@@ -1598,7 +1598,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/admin/setting-suggestions",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 136,
       "confidence": "high",
       "kind": "mount"
@@ -1607,7 +1607,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/admin/setting-suggestions/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminSettingSuggestions.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminSettingSuggestions.ts",
       "line": 152,
       "confidence": "high",
       "kind": "express-route"
@@ -1616,7 +1616,7 @@
       "app": "mesas",
       "method": "PUT",
       "path": "/api/v1/admin/setting-suggestions/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminSettingSuggestions.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminSettingSuggestions.ts",
       "line": 89,
       "confidence": "high",
       "kind": "express-route"
@@ -1625,7 +1625,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/sync/enrich",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminEnrichment.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminEnrichment.ts",
       "line": 10,
       "confidence": "high",
       "kind": "express-route"
@@ -1634,7 +1634,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/system-suggestions",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\systemSuggestionsAdmin.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
       "line": 85,
       "confidence": "high",
       "kind": "express-route"
@@ -1643,7 +1643,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/system-suggestions/:id/approve",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\systemSuggestionsAdmin.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
       "line": 130,
       "confidence": "high",
       "kind": "express-route"
@@ -1652,7 +1652,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/system-suggestions/:id/candidates",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\systemSuggestionsAdmin.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
       "line": 89,
       "confidence": "high",
       "kind": "express-route"
@@ -1661,7 +1661,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/system-suggestions/:id/reject",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\systemSuggestionsAdmin.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
       "line": 335,
       "confidence": "high",
       "kind": "express-route"
@@ -1670,7 +1670,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/system-suggestions/:id/resolve",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\systemSuggestionsAdmin.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
       "line": 390,
       "confidence": "high",
       "kind": "express-route"
@@ -1679,7 +1679,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/admin/tables/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminTables.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
       "line": 109,
       "confidence": "high",
       "kind": "express-route"
@@ -1688,7 +1688,7 @@
       "app": "mesas",
       "method": "PUT",
       "path": "/api/v1/admin/tables/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminTables.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
       "line": 53,
       "confidence": "high",
       "kind": "express-route"
@@ -1697,7 +1697,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/tables/auto-archive",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminTables.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
       "line": 15,
       "confidence": "high",
       "kind": "express-route"
@@ -1706,7 +1706,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/users",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminProfile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminProfile.ts",
       "line": 54,
       "confidence": "high",
       "kind": "express-route"
@@ -1715,7 +1715,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/users/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminProfile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminProfile.ts",
       "line": 78,
       "confidence": "high",
       "kind": "express-route"
@@ -1724,7 +1724,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/users/:id/covil",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\adminProfile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminProfile.ts",
       "line": 16,
       "confidence": "high",
       "kind": "express-route"
@@ -1733,7 +1733,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/auth",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 111,
       "confidence": "high",
       "kind": "mount"
@@ -1742,7 +1742,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/auth/google",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\auth.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/auth.ts",
       "line": 21,
       "confidence": "high",
       "kind": "express-route"
@@ -1751,7 +1751,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/auth/google/callback",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\auth.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/auth.ts",
       "line": 27,
       "confidence": "high",
       "kind": "express-route"
@@ -1760,7 +1760,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/auth/logout",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\auth.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/auth.ts",
       "line": 31,
       "confidence": "high",
       "kind": "express-route"
@@ -1769,7 +1769,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/changelog",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\changelog.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/changelog.ts",
       "line": 12,
       "confidence": "high",
       "kind": "express-route"
@@ -1778,7 +1778,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/changelog",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 139,
       "confidence": "high",
       "kind": "mount"
@@ -1787,7 +1787,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/communication-platforms",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\communicationPlatforms.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/communicationPlatforms.ts",
       "line": 41,
       "confidence": "high",
       "kind": "express-route"
@@ -1796,7 +1796,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/communication-platforms",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 138,
       "confidence": "high",
       "kind": "mount"
@@ -1805,7 +1805,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/communication-platforms/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\communicationPlatforms.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/communicationPlatforms.ts",
       "line": 59,
       "confidence": "high",
       "kind": "express-route"
@@ -1814,7 +1814,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/communication-platforms/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\communicationPlatforms.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/communicationPlatforms.ts",
       "line": 76,
       "confidence": "high",
       "kind": "express-route"
@@ -1823,7 +1823,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/communication-platforms/admin/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\communicationPlatforms.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/communicationPlatforms.ts",
       "line": 193,
       "confidence": "high",
       "kind": "express-route"
@@ -1832,7 +1832,7 @@
       "app": "mesas",
       "method": "PUT",
       "path": "/api/v1/communication-platforms/admin/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\communicationPlatforms.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/communicationPlatforms.ts",
       "line": 123,
       "confidence": "high",
       "kind": "express-route"
@@ -1841,7 +1841,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/dev-feedback",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\devFeedback.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/devFeedback.ts",
       "line": 21,
       "confidence": "high",
       "kind": "express-route"
@@ -1850,7 +1850,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/dev-feedback",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 123,
       "confidence": "high",
       "kind": "mount"
@@ -1859,7 +1859,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/gm",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 133,
       "confidence": "high",
       "kind": "mount"
@@ -1868,7 +1868,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/gm",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 134,
       "confidence": "high",
       "kind": "mount"
@@ -1877,7 +1877,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/gm/:slug",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gm.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
       "line": 96,
       "confidence": "high",
       "kind": "express-route"
@@ -1886,7 +1886,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/gm/:slug/contact",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gm.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
       "line": 457,
       "confidence": "high",
       "kind": "express-route"
@@ -1895,7 +1895,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/gm/:slug/contact-click",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gm.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
       "line": 515,
       "confidence": "high",
       "kind": "express-route"
@@ -1904,7 +1904,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/gm/:slug/insights",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gm.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
       "line": 404,
       "confidence": "high",
       "kind": "express-route"
@@ -1913,7 +1913,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/gm/:slug/view",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gm.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
       "line": 336,
       "confidence": "high",
       "kind": "express-route"
@@ -1922,7 +1922,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/gm/insights",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 1307,
       "confidence": "high",
       "kind": "express-route"
@@ -1931,7 +1931,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/gm/me",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 409,
       "confidence": "high",
       "kind": "express-route"
@@ -1940,7 +1940,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/gm/profile",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 98,
       "confidence": "high",
       "kind": "express-route"
@@ -1949,7 +1949,7 @@
       "app": "mesas",
       "method": "PUT",
       "path": "/api/v1/gm/profile",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 217,
       "confidence": "high",
       "kind": "express-route"
@@ -1958,7 +1958,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/gm/tables",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 768,
       "confidence": "high",
       "kind": "express-route"
@@ -1967,7 +1967,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/gm/tables",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 488,
       "confidence": "high",
       "kind": "express-route"
@@ -1976,7 +1976,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/gm/tables/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 1099,
       "confidence": "high",
       "kind": "express-route"
@@ -1985,7 +1985,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/gm/tables/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 449,
       "confidence": "high",
       "kind": "express-route"
@@ -1994,7 +1994,7 @@
       "app": "mesas",
       "method": "PUT",
       "path": "/api/v1/gm/tables/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 597,
       "confidence": "high",
       "kind": "express-route"
@@ -2003,7 +2003,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/gm/tables/:id/archive",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 1040,
       "confidence": "high",
       "kind": "express-route"
@@ -2012,7 +2012,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/gm/tables/:id/click",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 1198,
       "confidence": "high",
       "kind": "express-route"
@@ -2021,7 +2021,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/gm/tables/:id/contact",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 1234,
       "confidence": "high",
       "kind": "express-route"
@@ -2030,7 +2030,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/gm/tables/:id/favorite",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 1270,
       "confidence": "high",
       "kind": "express-route"
@@ -2039,7 +2039,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/gm/tables/:id/status",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 913,
       "confidence": "high",
       "kind": "express-route"
@@ -2048,7 +2048,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/gm/tables/:slug/view",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\gmPanel.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 1156,
       "confidence": "high",
       "kind": "express-route"
@@ -2057,7 +2057,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/health",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 93,
       "confidence": "high",
       "kind": "express-route"
@@ -2066,7 +2066,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/me",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\me.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/me.ts",
       "line": 69,
       "confidence": "high",
       "kind": "express-route"
@@ -2075,7 +2075,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/me",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 114,
       "confidence": "high",
       "kind": "mount"
@@ -2084,7 +2084,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/me/options",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\me.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/me.ts",
       "line": 122,
       "confidence": "high",
       "kind": "express-route"
@@ -2093,7 +2093,7 @@
       "app": "mesas",
       "method": "PUT",
       "path": "/api/v1/me/preferences",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\me.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/me.ts",
       "line": 179,
       "confidence": "high",
       "kind": "express-route"
@@ -2102,7 +2102,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/notifications",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\notifications.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/notifications.ts",
       "line": 10,
       "confidence": "high",
       "kind": "express-route"
@@ -2111,7 +2111,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/notifications",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 124,
       "confidence": "high",
       "kind": "mount"
@@ -2120,7 +2120,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/notifications/:id/read",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\notifications.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/notifications.ts",
       "line": 55,
       "confidence": "high",
       "kind": "express-route"
@@ -2129,7 +2129,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/notifications/read-all",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\notifications.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/notifications.ts",
       "line": 33,
       "confidence": "high",
       "kind": "express-route"
@@ -2138,7 +2138,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/profile",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 115,
       "confidence": "high",
       "kind": "mount"
@@ -2147,7 +2147,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/profile",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 116,
       "confidence": "high",
       "kind": "mount"
@@ -2156,7 +2156,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/profile/gm",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 204,
       "confidence": "high",
       "kind": "express-route"
@@ -2165,7 +2165,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/profile/links",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\links.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/links.ts",
       "line": 11,
       "confidence": "high",
       "kind": "express-route"
@@ -2174,7 +2174,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/profile/links",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\links.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/links.ts",
       "line": 33,
       "confidence": "high",
       "kind": "express-route"
@@ -2183,7 +2183,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/profile/links/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\links.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/links.ts",
       "line": 79,
       "confidence": "high",
       "kind": "express-route"
@@ -2192,7 +2192,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/profile/links/reorder",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\links.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/links.ts",
       "line": 111,
       "confidence": "high",
       "kind": "express-route"
@@ -2201,7 +2201,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/profile/me",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 17,
       "confidence": "high",
       "kind": "express-route"
@@ -2210,7 +2210,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/profile/me",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 37,
       "confidence": "high",
       "kind": "express-route"
@@ -2219,7 +2219,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/profile/me/connect/discord",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 394,
       "confidence": "high",
       "kind": "express-route"
@@ -2228,7 +2228,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/profile/me/connect/discord",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 368,
       "confidence": "high",
       "kind": "express-route"
@@ -2237,7 +2237,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/profile/me/discord",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 348,
       "confidence": "high",
       "kind": "express-route"
@@ -2246,7 +2246,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/profile/me/gm",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 161,
       "confidence": "high",
       "kind": "express-route"
@@ -2255,7 +2255,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/profile/me/google-picture",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 414,
       "confidence": "high",
       "kind": "express-route"
@@ -2264,7 +2264,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/profile/me/player",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 106,
       "confidence": "high",
       "kind": "express-route"
@@ -2273,7 +2273,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/profile/me/profile",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 79,
       "confidence": "high",
       "kind": "express-route"
@@ -2282,7 +2282,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/profile/me/systems",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 250,
       "confidence": "high",
       "kind": "express-route"
@@ -2291,7 +2291,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/profile/me/systems/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 307,
       "confidence": "high",
       "kind": "express-route"
@@ -2300,7 +2300,7 @@
       "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/profile/player",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 132,
       "confidence": "high",
       "kind": "express-route"
@@ -2309,7 +2309,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/profile/systems",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 277,
       "confidence": "high",
       "kind": "express-route"
@@ -2318,7 +2318,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/profile/systems/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\profile.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
       "line": 326,
       "confidence": "high",
       "kind": "express-route"
@@ -2327,7 +2327,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/scenario-suggestions",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\scenarioSuggestions.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/scenarioSuggestions.ts",
       "line": 14,
       "confidence": "high",
       "kind": "express-route"
@@ -2336,7 +2336,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/scenario-suggestions",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 122,
       "confidence": "high",
       "kind": "mount"
@@ -2345,7 +2345,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/scenario-suggestions/mine",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\scenarioSuggestions.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/scenarioSuggestions.ts",
       "line": 94,
       "confidence": "high",
       "kind": "express-route"
@@ -2354,7 +2354,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/scenarios",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\scenarios.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/scenarios.ts",
       "line": 30,
       "confidence": "high",
       "kind": "express-route"
@@ -2363,7 +2363,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/scenarios",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 120,
       "confidence": "high",
       "kind": "mount"
@@ -2372,7 +2372,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/scenarios/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\scenarios.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/scenarios.ts",
       "line": 105,
       "confidence": "high",
       "kind": "express-route"
@@ -2381,7 +2381,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/scenarios/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\scenarios.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/scenarios.ts",
       "line": 131,
       "confidence": "high",
       "kind": "express-route"
@@ -2390,7 +2390,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/scenarios/admin/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\scenarios.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/scenarios.ts",
       "line": 233,
       "confidence": "high",
       "kind": "express-route"
@@ -2399,7 +2399,7 @@
       "app": "mesas",
       "method": "PUT",
       "path": "/api/v1/scenarios/admin/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\scenarios.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/scenarios.ts",
       "line": 175,
       "confidence": "high",
       "kind": "express-route"
@@ -2408,7 +2408,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/settings",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 135,
       "confidence": "high",
       "kind": "mount"
@@ -2417,7 +2417,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/settings/suggest-styles",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\settings.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/settings.ts",
       "line": 11,
       "confidence": "high",
       "kind": "express-route"
@@ -2426,7 +2426,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/system-suggestions",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\systemSuggestions.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/systemSuggestions.ts",
       "line": 14,
       "confidence": "high",
       "kind": "express-route"
@@ -2435,7 +2435,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/system-suggestions",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 121,
       "confidence": "high",
       "kind": "mount"
@@ -2444,7 +2444,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/system-suggestions/mine",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\systemSuggestions.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/systemSuggestions.ts",
       "line": 102,
       "confidence": "high",
       "kind": "express-route"
@@ -2453,7 +2453,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/systems",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\systems.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
       "line": 147,
       "confidence": "high",
       "kind": "express-route"
@@ -2462,7 +2462,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/systems",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 119,
       "confidence": "high",
       "kind": "mount"
@@ -2471,7 +2471,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/systems/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\systems.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
       "line": 300,
       "confidence": "high",
       "kind": "express-route"
@@ -2480,7 +2480,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/systems/admin/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\systems.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
       "line": 534,
       "confidence": "high",
       "kind": "express-route"
@@ -2489,7 +2489,7 @@
       "app": "mesas",
       "method": "PUT",
       "path": "/api/v1/systems/admin/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\systems.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
       "line": 405,
       "confidence": "high",
       "kind": "express-route"
@@ -2498,7 +2498,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/tables",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\tables.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
       "line": 18,
       "confidence": "high",
       "kind": "express-route"
@@ -2507,7 +2507,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/tables",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 118,
       "confidence": "high",
       "kind": "mount"
@@ -2516,7 +2516,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/tables/:slug",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\tables.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
       "line": 276,
       "confidence": "high",
       "kind": "express-route"
@@ -2525,7 +2525,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/tables/:slug/click",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\tables.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
       "line": 518,
       "confidence": "high",
       "kind": "express-route"
@@ -2534,7 +2534,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/tables/:slug/view",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\tables.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
       "line": 479,
       "confidence": "high",
       "kind": "express-route"
@@ -2543,7 +2543,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/upload",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\upload.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/upload.ts",
       "line": 25,
       "confidence": "high",
       "kind": "express-route"
@@ -2552,7 +2552,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/upload/url",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\upload.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/upload.ts",
       "line": 58,
       "confidence": "high",
       "kind": "express-route"
@@ -2561,7 +2561,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/vtt-platforms",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\vttPlatforms.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/vttPlatforms.ts",
       "line": 75,
       "confidence": "high",
       "kind": "express-route"
@@ -2570,7 +2570,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/api/v1/vtt-platforms",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 137,
       "confidence": "high",
       "kind": "mount"
@@ -2579,7 +2579,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/api/v1/vtt-platforms/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\vttPlatforms.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/vttPlatforms.ts",
       "line": 204,
       "confidence": "high",
       "kind": "express-route"
@@ -2588,7 +2588,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/vtt-platforms/admin",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\vttPlatforms.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/vttPlatforms.ts",
       "line": 234,
       "confidence": "high",
       "kind": "express-route"
@@ -2597,7 +2597,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/vtt-platforms/admin/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\vttPlatforms.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/vttPlatforms.ts",
       "line": 391,
       "confidence": "high",
       "kind": "express-route"
@@ -2606,7 +2606,7 @@
       "app": "mesas",
       "method": "PUT",
       "path": "/api/v1/vtt-platforms/admin/:id",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\vttPlatforms.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/vttPlatforms.ts",
       "line": 297,
       "confidence": "high",
       "kind": "express-route"
@@ -2615,7 +2615,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/api/v1/vtt-platforms/suggest",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\vttPlatforms.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/vttPlatforms.ts",
       "line": 104,
       "confidence": "high",
       "kind": "express-route"
@@ -2624,7 +2624,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/auth",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 112,
       "confidence": "high",
       "kind": "mount"
@@ -2633,7 +2633,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/auth",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 113,
       "confidence": "high",
       "kind": "mount"
@@ -2642,7 +2642,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/auth/discord/callback",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord.ts",
       "line": 44,
       "confidence": "high",
       "kind": "express-route"
@@ -2651,7 +2651,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/auth/discord/connect",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord.ts",
       "line": 11,
       "confidence": "high",
       "kind": "express-route"
@@ -2660,7 +2660,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/auth/discord/disconnect",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord.ts",
       "line": 143,
       "confidence": "high",
       "kind": "express-route"
@@ -2669,7 +2669,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/auth/discord/verify-covil",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\discord.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/discord.ts",
       "line": 173,
       "confidence": "high",
       "kind": "express-route"
@@ -2678,7 +2678,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/auth/google",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\auth.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/auth.ts",
       "line": 21,
       "confidence": "high",
       "kind": "express-route"
@@ -2687,7 +2687,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/auth/google/callback",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\auth.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/auth.ts",
       "line": 27,
       "confidence": "high",
       "kind": "express-route"
@@ -2696,7 +2696,7 @@
       "app": "mesas",
       "method": "POST",
       "path": "/auth/logout",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\auth.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/auth.ts",
       "line": 31,
       "confidence": "high",
       "kind": "express-route"
@@ -2705,7 +2705,7 @@
       "app": "mesas",
       "method": "USE",
       "path": "/og",
-      "sourceFile": "apps\\mesas\\backend\\src\\server.ts",
+      "sourceFile": "apps/mesas/backend/src/server.ts",
       "line": 141,
       "confidence": "high",
       "kind": "mount"
@@ -2714,7 +2714,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/og/:type/:slug",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\og.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/og.ts",
       "line": 118,
       "confidence": "high",
       "kind": "express-route"
@@ -2723,7 +2723,7 @@
       "app": "mesas",
       "method": "GET",
       "path": "/og/{*splat}",
-      "sourceFile": "apps\\mesas\\backend\\src\\routes\\og.ts",
+      "sourceFile": "apps/mesas/backend/src/routes/og.ts",
       "line": 193,
       "confidence": "high",
       "kind": "express-route"
@@ -2732,7 +2732,7 @@
       "app": "site",
       "method": "USE",
       "path": "/admin",
-      "sourceFile": "apps\\site\\server\\server.ts",
+      "sourceFile": "apps/site/server/server.ts",
       "line": 206,
       "confidence": "high",
       "kind": "mount"
@@ -2741,7 +2741,7 @@
       "app": "site",
       "method": "USE",
       "path": "/admin",
-      "sourceFile": "apps\\site\\server\\server.ts",
+      "sourceFile": "apps/site/server/server.ts",
       "line": 208,
       "confidence": "high",
       "kind": "mount"
@@ -2750,7 +2750,7 @@
       "app": "site",
       "method": "POST",
       "path": "/admin/import",
-      "sourceFile": "apps\\site\\server\\server.ts",
+      "sourceFile": "apps/site/server/server.ts",
       "line": 98,
       "confidence": "high",
       "kind": "express-route"
@@ -2759,7 +2759,7 @@
       "app": "site",
       "method": "GET",
       "path": "/admin/preview/:type/:id",
-      "sourceFile": "apps\\site\\server\\server.ts",
+      "sourceFile": "apps/site/server/server.ts",
       "line": 178,
       "confidence": "high",
       "kind": "express-route"
@@ -2768,7 +2768,7 @@
       "app": "site",
       "method": "POST",
       "path": "/admin/rebuild",
-      "sourceFile": "apps\\site\\server\\server.ts",
+      "sourceFile": "apps/site/server/server.ts",
       "line": 92,
       "confidence": "high",
       "kind": "express-route"
@@ -2777,7 +2777,7 @@
       "app": "site",
       "method": "GET",
       "path": "/admin/status",
-      "sourceFile": "apps\\site\\server\\server.ts",
+      "sourceFile": "apps/site/server/server.ts",
       "line": 77,
       "confidence": "high",
       "kind": "express-route"
@@ -2786,7 +2786,7 @@
       "app": "site",
       "method": "USE",
       "path": "/api/admin/v1",
-      "sourceFile": "apps\\site\\server\\server.ts",
+      "sourceFile": "apps/site/server/server.ts",
       "line": 171,
       "confidence": "high",
       "kind": "mount"
@@ -2795,7 +2795,7 @@
       "app": "site",
       "method": "GET",
       "path": "/api/admin/v1/feedback",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 277,
       "confidence": "high",
       "kind": "express-route"
@@ -2804,7 +2804,7 @@
       "app": "site",
       "method": "DELETE",
       "path": "/api/admin/v1/feedback/:id",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 300,
       "confidence": "high",
       "kind": "express-route"
@@ -2813,7 +2813,7 @@
       "app": "site",
       "method": "PATCH",
       "path": "/api/admin/v1/feedback/:id",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 286,
       "confidence": "high",
       "kind": "express-route"
@@ -2822,7 +2822,7 @@
       "app": "site",
       "method": "GET",
       "path": "/api/admin/v1/media",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 209,
       "confidence": "high",
       "kind": "express-route"
@@ -2831,7 +2831,7 @@
       "app": "site",
       "method": "POST",
       "path": "/api/admin/v1/media",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 219,
       "confidence": "high",
       "kind": "express-route"
@@ -2840,7 +2840,7 @@
       "app": "site",
       "method": "DELETE",
       "path": "/api/admin/v1/media/:id",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 258,
       "confidence": "high",
       "kind": "express-route"
@@ -2849,7 +2849,7 @@
       "app": "site",
       "method": "PUT",
       "path": "/api/admin/v1/media/:id",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 248,
       "confidence": "high",
       "kind": "express-route"
@@ -2858,7 +2858,7 @@
       "app": "site",
       "method": "GET",
       "path": "/api/admin/v1/pages",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 128,
       "confidence": "high",
       "kind": "express-route"
@@ -2867,7 +2867,7 @@
       "app": "site",
       "method": "POST",
       "path": "/api/admin/v1/pages",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 138,
       "confidence": "high",
       "kind": "express-route"
@@ -2876,7 +2876,7 @@
       "app": "site",
       "method": "DELETE",
       "path": "/api/admin/v1/pages/:id",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 169,
       "confidence": "high",
       "kind": "express-route"
@@ -2885,7 +2885,7 @@
       "app": "site",
       "method": "GET",
       "path": "/api/admin/v1/pages/:id",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 131,
       "confidence": "high",
       "kind": "express-route"
@@ -2894,7 +2894,7 @@
       "app": "site",
       "method": "PUT",
       "path": "/api/admin/v1/pages/:id",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 143,
       "confidence": "high",
       "kind": "express-route"
@@ -2903,7 +2903,7 @@
       "app": "site",
       "method": "POST",
       "path": "/api/admin/v1/pages/:id/status",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 156,
       "confidence": "high",
       "kind": "express-route"
@@ -2912,7 +2912,7 @@
       "app": "site",
       "method": "GET",
       "path": "/api/admin/v1/posts",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 60,
       "confidence": "high",
       "kind": "express-route"
@@ -2921,7 +2921,7 @@
       "app": "site",
       "method": "POST",
       "path": "/api/admin/v1/posts",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 77,
       "confidence": "high",
       "kind": "express-route"
@@ -2930,7 +2930,7 @@
       "app": "site",
       "method": "DELETE",
       "path": "/api/admin/v1/posts/:id",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 117,
       "confidence": "high",
       "kind": "express-route"
@@ -2939,7 +2939,7 @@
       "app": "site",
       "method": "GET",
       "path": "/api/admin/v1/posts/:id",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 69,
       "confidence": "high",
       "kind": "express-route"
@@ -2948,7 +2948,7 @@
       "app": "site",
       "method": "PUT",
       "path": "/api/admin/v1/posts/:id",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 85,
       "confidence": "high",
       "kind": "express-route"
@@ -2957,7 +2957,7 @@
       "app": "site",
       "method": "POST",
       "path": "/api/admin/v1/posts/:id/status",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 103,
       "confidence": "high",
       "kind": "express-route"
@@ -2966,7 +2966,7 @@
       "app": "site",
       "method": "POST",
       "path": "/api/admin/v1/preview",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 267,
       "confidence": "high",
       "kind": "express-route"
@@ -2975,7 +2975,7 @@
       "app": "site",
       "method": "POST",
       "path": "/api/admin/v1/rebuild",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 311,
       "confidence": "high",
       "kind": "express-route"
@@ -2984,7 +2984,7 @@
       "app": "site",
       "method": "GET",
       "path": "/api/admin/v1/redirects",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 194,
       "confidence": "high",
       "kind": "express-route"
@@ -2993,7 +2993,7 @@
       "app": "site",
       "method": "POST",
       "path": "/api/admin/v1/redirects",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 195,
       "confidence": "high",
       "kind": "express-route"
@@ -3002,7 +3002,7 @@
       "app": "site",
       "method": "GET",
       "path": "/api/admin/v1/slug-check",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 46,
       "confidence": "high",
       "kind": "express-route"
@@ -3011,7 +3011,7 @@
       "app": "site",
       "method": "GET",
       "path": "/api/admin/v1/taxonomies",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 180,
       "confidence": "high",
       "kind": "express-route"
@@ -3020,7 +3020,7 @@
       "app": "site",
       "method": "POST",
       "path": "/api/admin/v1/taxonomies",
-      "sourceFile": "apps\\site\\server\\admin-api.ts",
+      "sourceFile": "apps/site/server/admin-api.ts",
       "line": 183,
       "confidence": "high",
       "kind": "express-route"
@@ -3029,7 +3029,7 @@
       "app": "site",
       "method": "POST",
       "path": "/api/feedback",
-      "sourceFile": "apps\\site\\server\\server.ts",
+      "sourceFile": "apps/site/server/server.ts",
       "line": 125,
       "confidence": "high",
       "kind": "express-route"
@@ -3038,7 +3038,7 @@
       "app": "site",
       "method": "GET",
       "path": "/healthz",
-      "sourceFile": "apps\\site\\server\\server.ts",
+      "sourceFile": "apps/site/server/server.ts",
       "line": 66,
       "confidence": "high",
       "kind": "express-route"
@@ -3047,7 +3047,7 @@
       "app": "site",
       "method": "USE",
       "path": "/uploads",
-      "sourceFile": "apps\\site\\server\\server.ts",
+      "sourceFile": "apps/site/server/server.ts",
       "line": 175,
       "confidence": "high",
       "kind": "mount"

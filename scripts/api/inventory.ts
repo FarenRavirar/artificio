@@ -27,6 +27,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ts from 'typescript';
+import { byLocale, byEntryKey } from './sort-utils';
 
 const GENERATED_AT = process.env.API_GENERATED_AT || '1970-01-01T00:00:00.000Z';
 
@@ -378,7 +379,7 @@ function scanRouterFile(
   if (!ast) return;
 
   const fileAst = ast;
-  const relativePath = path.relative(REPO_ROOT, filePath);
+  const relativePath = path.relative(REPO_ROOT, filePath).replace(/\\/g, '/');
 
   // Escanear nós para este scopeVar específico
   function scanNode(node: ts.Node, currentPrefix: string) {
@@ -462,10 +463,11 @@ function processUse(
           return; // middleware conhecido
         }
         // Factory sem path: app.use(createAdminSecretsRoutes(db, env))
-        // Resolver a função e escanear seu router interno com o prefixo atual.
-        // Se for middleware sem rotas, scanRouterFile não encontra nada (seguro).
-        const factoryFile = ast.imports.get(fnName) || ast.sf.fileName;
-        if (factoryFile && fs.existsSync(factoryFile)) {
+        // Só seguir quando a função vem de um import que COMPROVADAMENTE declara um
+        // Router (fileDeclaresRouter). Sem isso, app.use(qualquerMiddleware()) cairia
+        // no arquivo atual e reescanearia rotas sob prefixo errado → endpoints falsos.
+        const factoryFile = ast.imports.get(fnName);
+        if (factoryFile && fs.existsSync(factoryFile) && fileDeclaresRouter(factoryFile)) {
           const factoryAST = getFileAST(factoryFile);
           const scopeVar = factoryAST ? scopeVarForFile(factoryFile, factoryAST) : 'router';
           scanRouterFile(factoryFile, currentPrefix, scopeVar, ctx);
@@ -509,8 +511,10 @@ function processUse(
   if (ts.isCallExpression(arg1) && ts.isIdentifier(arg1.expression)) {
     const factoryName = arg1.expression.text;
     if (factoryName !== 'Router') {
-      const factoryFile = ast.imports.get(factoryName) || ast.sf.fileName;
-      if (factoryFile && fs.existsSync(factoryFile)) {
+      // Só seguir factory com path quando o import comprovadamente declara um Router
+      // (evita reescanear middleware/arquivo atual sob prefixo errado → rotas falsas).
+      const factoryFile = ast.imports.get(factoryName);
+      if (factoryFile && fs.existsSync(factoryFile) && fileDeclaresRouter(factoryFile)) {
         const newPrefix = joinPaths(currentPrefix, pathStr);
         const factoryAST = getFileAST(factoryFile);
         const scopeVar = factoryAST ? scopeVarForFile(factoryFile, factoryAST) : 'router';
@@ -745,18 +749,18 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 |-----|-------|------|--------|-----|---------|
 `;
 
-  for (const [app, routes] of Array.from(byApp.entries()).sort()) {
+  for (const [app, routes] of Array.from(byApp.entries()).sort(byEntryKey)) {
     const high = routes.filter((r) => r.confidence === 'high').length;
     const medium = routes.filter((r) => r.confidence === 'medium').length;
     const low = routes.filter((r) => r.confidence === 'low').length;
-    const methods = Array.from(new Set(routes.map((r) => r.method))).sort().join(', ');
+    const methods = Array.from(new Set(routes.map((r) => r.method))).sort(byLocale).join(', ');
     md += `| ${app} | ${routes.length} | ${high} | ${medium} | ${low} | ${methods} |\n`;
   }
 
   md += `| **Total** | **${results.length}** | ${results.filter(r => r.confidence === 'high').length} | ${results.filter(r => r.confidence === 'medium').length} | ${results.filter(r => r.confidence === 'low').length} | |\n\n`;
 
   // Rotas por app
-  for (const [app, routes] of Array.from(byApp.entries()).sort()) {
+  for (const [app, routes] of Array.from(byApp.entries()).sort(byEntryKey)) {
     // Agrupar por prefixo para facilitar leitura
     md += `## ${app}\n\n`;
     md += `| Método | Path | Confiança | Arquivo | Linha |\n`;
@@ -829,7 +833,7 @@ function main(): void {
 
   console.log(`\n📊 api:inventory — Resumo`);
   console.log(`   Total de rotas encontradas: ${allResults.length}`);
-  for (const [app, routes] of Array.from(byApp.entries()).sort()) {
+  for (const [app, routes] of Array.from(byApp.entries()).sort(byEntryKey)) {
     const high = routes.filter((r) => r.confidence === 'high').length;
     const low = routes.filter((r) => r.confidence === 'low').length;
     console.log(`   ${app}: ${routes.length} rotas (HIGH: ${high}, LOW: ${low})`);

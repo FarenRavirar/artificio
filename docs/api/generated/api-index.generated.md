@@ -11,8 +11,8 @@ Total: **264 operações**.
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
 | GET | `/` | public | none | active | — | — |
-| GET | `/admin/secrets/{name}` | admin | admin | active | — | — |
-| PUT | `/admin/secrets/{name}` | admin | admin | active | — | — |
+| GET | `/admin/secrets/{name}` | admin | service | provisional | mesas-backend | Recupera um segredo descriptografado (admin ou service-token) |
+| PUT | `/admin/secrets/{name}` | admin | admin | provisional | — | Armazena um segredo criptografado (admin) |
 | GET | `/api/auth/google` | public | none | active | — | — |
 | GET | `/api/auth/google/callback` | public | none | active | — | — |
 | POST | `/api/auth/logout` | cross-app | user | active | mesas-frontend, glossario-frontend, links-frontend, site-admin | — |

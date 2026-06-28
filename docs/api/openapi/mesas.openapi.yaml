@@ -32,16 +32,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/admin/dev-feedback/merge:
-    post:
-      operationId: postapi_v1_admin_dev_feedback_merge
-      x-artificio-owner: mesas
-      x-artificio-scope: admin
-      x-artificio-status: active
-      x-artificio-auth: admin
-      responses:
-        "200":
-          description: OK
   /api/v1/admin/dev-feedback/{id}:
     delete:
       operationId: deleteapi_v1_admin_dev_feedback_id
@@ -70,6 +60,16 @@ paths:
           required: true
           schema:
             type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/admin/dev-feedback/merge:
+    post:
+      operationId: postapi_v1_admin_dev_feedback_merge
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
       responses:
         "200":
           description: OK
@@ -140,6 +140,28 @@ paths:
       responses:
         "200":
           description: OK
+  /api/v1/admin/discord/drafts/{id}/correction:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: postapi_v1_admin_discord_drafts_id_correction
+      summary: Registra correção manual em draft de Discord
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: provisional
+      x-artificio-auth: admin
+      description: "Aplica correções manuais ao payload parseado de um draft de Discord. Fonte: createCorrectionHandler via discord/corrections.ts (DEB-055-12)."
+      responses:
+        "200":
+          description: Correção registrada
+        "400":
+          description: Payload inválido
+        "404":
+          description: Draft não encontrado
   /api/v1/admin/discord/drafts/{id}/refresh-image:
     post:
       operationId: postapi_v1_admin_discord_drafts_id_refresh_image
@@ -258,16 +280,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/admin/discord/messages/parse-batch:
-    post:
-      operationId: postapi_v1_admin_discord_messages_parse_batch
-      x-artificio-owner: mesas
-      x-artificio-scope: admin
-      x-artificio-status: active
-      x-artificio-auth: admin
-      responses:
-        "200":
-          description: OK
   /api/v1/admin/discord/messages/{id}:
     patch:
       operationId: patchapi_v1_admin_discord_messages_id
@@ -313,6 +325,16 @@ paths:
           required: true
           schema:
             type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/admin/discord/messages/parse-batch:
+    post:
+      operationId: postapi_v1_admin_discord_messages_parse_batch
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
       responses:
         "200":
           description: OK
@@ -482,6 +504,28 @@ paths:
       responses:
         "200":
           description: OK
+  /api/v1/admin/import/drafts/{id}/correction:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: postapi_v1_admin_import_drafts_id_correction
+      summary: Registra correção manual em draft de importação
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: provisional
+      x-artificio-auth: admin
+      description: "Aplica correções manuais ao payload parseado de um draft de inbox/importação. Fonte: createCorrectionHandler via inbox/corrections.ts (DEB-055-12)."
+      responses:
+        "200":
+          description: Correção registrada
+        "400":
+          description: Payload inválido
+        "404":
+          description: Draft não encontrado
   /api/v1/admin/import/drafts/{id}/reparse:
     post:
       operationId: postapi_v1_admin_import_drafts_id_reparse
@@ -710,16 +754,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/admin/tables/auto-archive:
-    post:
-      operationId: postapi_v1_admin_tables_auto_archive
-      x-artificio-owner: mesas
-      x-artificio-scope: admin
-      x-artificio-status: active
-      x-artificio-auth: admin
-      responses:
-        "200":
-          description: OK
   /api/v1/admin/tables/{id}:
     delete:
       operationId: deleteapi_v1_admin_tables_id
@@ -748,6 +782,16 @@ paths:
           required: true
           schema:
             type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/admin/tables/auto-archive:
+    post:
+      operationId: postapi_v1_admin_tables_auto_archive
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
       responses:
         "200":
           description: OK
@@ -900,6 +944,86 @@ paths:
       x-artificio-scope: public
       x-artificio-status: active
       x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/v1/gm/{slug}:
+    get:
+      operationId: getapi_v1_gm_slug
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/gm/{slug}/contact:
+    post:
+      operationId: postapi_v1_gm_slug_contact
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/gm/{slug}/contact-click:
+    post:
+      operationId: postapi_v1_gm_slug_contact_click
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/gm/{slug}/insights:
+    get:
+      operationId: getapi_v1_gm_slug_insights
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/gm/{slug}/view:
+    post:
+      operationId: postapi_v1_gm_slug_view
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           description: OK
@@ -1103,86 +1227,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/gm/{slug}:
-    get:
-      operationId: getapi_v1_gm_slug
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-  /api/v1/gm/{slug}/contact:
-    post:
-      operationId: postapi_v1_gm_slug_contact
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-  /api/v1/gm/{slug}/contact-click:
-    post:
-      operationId: postapi_v1_gm_slug_contact_click
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-  /api/v1/gm/{slug}/insights:
-    get:
-      operationId: getapi_v1_gm_slug_insights
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-  /api/v1/gm/{slug}/view:
-    post:
-      operationId: postapi_v1_gm_slug_view
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
   /api/v1/health:
     get:
       operationId: getapi_v1_health
@@ -1233,16 +1277,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/notifications/read-all:
-    patch:
-      operationId: patchapi_v1_notifications_read_all
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      responses:
-        "200":
-          description: OK
   /api/v1/notifications/{id}/read:
     patch:
       operationId: patchapi_v1_notifications_id_read
@@ -1256,6 +1290,16 @@ paths:
           required: true
           schema:
             type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/notifications/read-all:
+    patch:
+      operationId: patchapi_v1_notifications_read_all
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
       responses:
         "200":
           description: OK
@@ -1288,16 +1332,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/profile/links/reorder:
-    patch:
-      operationId: patchapi_v1_profile_links_reorder
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      responses:
-        "200":
-          description: OK
   /api/v1/profile/links/{id}:
     delete:
       operationId: deleteapi_v1_profile_links_id
@@ -1311,6 +1345,16 @@ paths:
           required: true
           schema:
             type: string
+      responses:
+        "200":
+          description: OK
+  /api/v1/profile/links/reorder:
+    patch:
+      operationId: patchapi_v1_profile_links_reorder
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
       responses:
         "200":
           description: OK
@@ -1494,6 +1538,22 @@ paths:
       responses:
         "200":
           description: OK
+  /api/v1/scenarios/{id}:
+    get:
+      operationId: getapi_v1_scenarios_id
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
   /api/v1/scenarios/admin:
     post:
       operationId: postapi_v1_scenarios_admin
@@ -1526,22 +1586,6 @@ paths:
       x-artificio-scope: admin
       x-artificio-status: active
       x-artificio-auth: admin
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-  /api/v1/scenarios/{id}:
-    get:
-      operationId: getapi_v1_scenarios_id
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: none
       parameters:
         - name: id
           in: path
@@ -1871,48 +1915,3 @@ paths:
       responses:
         "200":
           description: OK
-
-  /api/v1/admin/discord/drafts/{id}/correction:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-    post:
-      operationId: postapi_v1_admin_discord_drafts_id_correction
-      summary: Registra correção manual em draft de Discord
-      x-artificio-owner: mesas
-      x-artificio-scope: admin
-      x-artificio-status: provisional
-      x-artificio-auth: admin
-      description: "Aplica correções manuais ao payload parseado de um draft de Discord. Fonte: createCorrectionHandler via discord/corrections.ts (DEB-055-12)."
-      responses:
-        "200":
-          description: Correção registrada
-        "400":
-          description: Payload inválido
-        "404":
-          description: Draft não encontrado
-  /api/v1/admin/import/drafts/{id}/correction:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-    post:
-      operationId: postapi_v1_admin_import_drafts_id_correction
-      summary: Registra correção manual em draft de importação
-      x-artificio-owner: mesas
-      x-artificio-scope: admin
-      x-artificio-status: provisional
-      x-artificio-auth: admin
-      description: "Aplica correções manuais ao payload parseado de um draft de inbox/importação. Fonte: createCorrectionHandler via inbox/corrections.ts (DEB-055-12)."
-      responses:
-        "200":
-          description: Correção registrada
-        "400":
-          description: Payload inválido
-        "404":
-          description: Draft não encontrado

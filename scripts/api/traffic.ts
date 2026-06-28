@@ -21,6 +21,7 @@
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { byEntryKey } from './sort-utils';
 
 const GENERATED_AT = process.env.API_GENERATED_AT || '1970-01-01T00:00:00.000Z';
 
@@ -425,7 +426,7 @@ function main(): void {
   writeFileSync(outputPath, JSON.stringify(output, null, 2) + '\n');
 
   console.log(`\n   📊 Total: ${routes.length} rotas únicas`);
-  for (const [app, info] of Object.entries(byApp).sort()) {
+  for (const [app, info] of Object.entries(byApp).sort(byEntryKey)) {
     const methods = Object.entries(info.byMethod)
       .map(([m, c]) => `${m}:${c}`)
       .join(', ');

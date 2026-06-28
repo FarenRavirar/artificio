@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import yaml from 'js-yaml';
+import { byLocale } from './sort-utils';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 const OPENAPI_DIR = path.join(REPO_ROOT, 'docs/api/openapi');
@@ -32,7 +33,7 @@ function validateArtificioMetadata(): string[] {
   const files = fs
     .readdirSync(OPENAPI_DIR)
     .filter((file) => file.endsWith('.openapi.yaml'))
-    .sort();
+    .sort(byLocale);
 
   for (const file of files) {
     const fullPath = path.join(OPENAPI_DIR, file);

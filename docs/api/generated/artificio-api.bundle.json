@@ -27,22 +27,24 @@
       "app": "accounts",
       "method": "GET",
       "path": "/admin/secrets/{name}",
-      "summary": "",
+      "summary": "Recupera um segredo descriptografado (admin ou service-token)",
       "owner": "accounts",
       "scope": "admin",
-      "status": "active",
-      "auth": "admin",
-      "consumers": [],
+      "status": "provisional",
+      "auth": "service",
+      "consumers": [
+        "mesas-backend"
+      ],
       "operationId": "getadmin_secrets_name"
     },
     {
       "app": "accounts",
       "method": "PUT",
       "path": "/admin/secrets/{name}",
-      "summary": "",
+      "summary": "Armazena um segredo criptografado (admin)",
       "owner": "accounts",
       "scope": "admin",
-      "status": "active",
+      "status": "provisional",
       "auth": "admin",
       "consumers": [],
       "operationId": "putadmin_secrets_name"

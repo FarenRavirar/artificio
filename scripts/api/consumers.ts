@@ -21,6 +21,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ts from 'typescript';
+import { byEntryKey } from './sort-utils';
 
 const GENERATED_AT = process.env.API_GENERATED_AT || '1970-01-01T00:00:00.000Z';
 
@@ -592,18 +593,6 @@ function scanFeatureApis(sf: ts.SourceFile, filePath: string, ctx: ConsumerConte
   visit(sf);
 }
 
-function inferMethodFromName(name: string): string {
-  const lower = name.toLowerCase();
-  if (lower.startsWith('get') || lower.startsWith('list') || lower.startsWith('fetch')) return 'GET';
-  if (lower.startsWith('post') || lower.startsWith('create') || lower.startsWith('import')
-    || lower.startsWith('sync') || lower.startsWith('reparse') || lower.startsWith('correct')
-    || lower.startsWith('refresh') || lower.startsWith('reingest')) return 'POST';
-  if (lower.startsWith('put') || lower.startsWith('update')) return 'PUT';
-  if (lower.startsWith('patch')) return 'PATCH';
-  if (lower.startsWith('delete') || lower.startsWith('remove')) return 'DELETE';
-  return 'UNKNOWN';
-}
-
 /**
  * Passo 5: scan api.*() centralizado (site-admin)
  * Detecta chamadas ao objeto `api` exportado em site-admin.
@@ -724,6 +713,9 @@ function scanCentralizedApi(sf: ts.SourceFile, filePath: string, ctx: ConsumerCo
       const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
       if (HTTP_METHODS.has(methodName)) { ts.forEachChild(node, visit); return; }
 
+      // Só registra quando o wrapper resolve para um endpoint concreto.
+      // Wrappers não resolvidos não viram resultado (o endpoint sintético
+      // `<...>` seria descartado por hasSyntheticEndpointSegment de qualquer forma).
       const resolved = siteAdminApiPathMap.get(methodName);
       if (resolved) {
         addConsumerResult(ctx, {
@@ -732,17 +724,6 @@ function scanCentralizedApi(sf: ts.SourceFile, filePath: string, ctx: ConsumerCo
           method: resolved.method,
           endpoint: `/api/admin/v1${resolved.path}`,
           confidence: 'high',
-          pattern: 'service-wrapper',
-          wrapper: `api.${methodName}`,
-          line: getLine(node, sf),
-        });
-      } else {
-        addConsumerResult(ctx, {
-          app,
-          consumerFile: relativePath,
-          method: inferMethodFromName(methodName),
-          endpoint: `/api/admin/v1/<${methodName}>`,
-          confidence: 'low',
           pattern: 'service-wrapper',
           wrapper: `api.${methodName}`,
           line: getLine(node, sf),
@@ -964,7 +945,7 @@ function main(): void {
   console.log(`\n📊 api:consumers — Resumo`);
   console.log(`   Total de chamadas: ${ctx.results.length}`);
   console.log(`   Endpoints únicos:  ${totalUnique}`);
-  for (const [app, entries] of Array.from(byApp.entries()).sort()) {
+  for (const [app, entries] of Array.from(byApp.entries()).sort(byEntryKey)) {
     const uniqueEndpoints = new Set(entries.map(e => e.endpoint)).size;
     const high = entries.filter(e => e.confidence === 'high').length;
     const low = entries.filter(e => e.confidence === 'low').length;

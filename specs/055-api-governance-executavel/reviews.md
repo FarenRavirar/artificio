@@ -2,6 +2,25 @@
 
 > Registro de revisões externas/internas da spec 055.
 
+## REV-055-CR1 — CodeRabbit no PR #103 (2026-06-28)
+
+Review automático do CodeRabbit sobre o fechamento estrito (commit `19ad392`). Pétrea: não respondemos o bot no PR; veredicto e ação ficam aqui. **Todos os 7 achados procederam e foram corrigidos no mesmo escopo** (sem débito remanescente).
+
+| # | Arquivo | Severidade | Achado | Resolução |
+|---|---|---|---|---|
+| 1 | `docs/api/.api-allowlist.json` | Minor | mojibake `diverg�ncias` no `_description` | Corrigido p/ `divergências` (UTF-8). |
+| 2 | `scripts/api/bundle-api.ts` | Major | `continue` em YAML quebrado/sem `paths` gerava bundle parcial silencioso | Falha dura (`process.exit(1)`) — bundle é fonte primária, não pode sair incompleto. |
+| 3 | `scripts/api/check-api.ts` | Minor | texto do relatório dizia "similaridade ≥ 75" mas lógica usa 90 | Texto + default `minScore` alinhados a 90 (DEB-055-16). |
+| 4 | `scripts/api/consumers.ts` | Minor | fallback `service-wrapper` gerava endpoint sintético `<method>` que `hasSyntheticEndpointSegment` descartava (branch morto) | Branch removido; só registra wrapper que resolve p/ endpoint concreto. `inferMethodFromName` (agora morta) removida. |
+| 5 | `scripts/api/generate-openapi.ts` | Major | merge de overlay por path inteiro descartava bloco curado quando o path já era gerado nativamente → perda de metadata (ex.: `/admin/secrets/{name}` perdia `auth: service` + `x-artificio-consumers: mesas-backend`) | Reescrito para merge por **path + método**: overlay tem precedência por operação (curadoria > heurística), métodos nativos não cobertos preservados. Validado: secrets recuperou metadata curada. |
+| 6 | `scripts/api/generate-openapi.ts` | Major | `site` no inventário mas sem branch em `servers` → `site.openapi.yaml` com `servers:` vazio | Adicionado branch `site` (`beta.artificiorpg.com` + localhost:4322). |
+| 7 | `scripts/api/inventory.ts` | Major | recursão de factory seguia qualquer call desconhecido (`app.use(mw())`) caindo no arquivo atual → risco de endpoints falsos sob prefixo errado | Recursão restrita a import que comprovadamente declara Router (`fileDeclaresRouter`); removido fallback p/ arquivo atual. |
+
+Bug adicional achado nesta rodada (CI vermelho no PR #103, não-CodeRabbit): `inventory.ts` não normalizava separador de path → Windows gerava `\`, CI Linux `/` → artefato divergia do regenerado e o check "Verify generated artifacts committed" falhava. Corrigido (normalização `\`→`/` na linha do `relativePath`).
+
+Validação pós-fixes: `pnpm verify:api` exit 0, `pnpm api:check:strict` exit 0 (allowlist vazia), `pnpm run lint` 15/15, regeneração determinística (sem drift). CODE_ONLY=0, sem regressão de rotas.
+
+
 ## Pendentes aceitas (não bloqueiam fechamento)
 
 ### REV-055-F1-01 — OpenAPI base ainda omite rotas criadas por factories

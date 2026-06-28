@@ -22,26 +22,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/admin/v1/groups/rehydrate-logos:
-    post:
-      operationId: postapi_admin_v1_groups_rehydrate_logos
-      x-artificio-owner: links
-      x-artificio-scope: admin
-      x-artificio-status: active
-      x-artificio-auth: admin
-      responses:
-        "200":
-          description: OK
-  /api/admin/v1/groups/rehydrate-logos/status:
-    get:
-      operationId: getapi_admin_v1_groups_rehydrate_logos_status
-      x-artificio-owner: links
-      x-artificio-scope: admin
-      x-artificio-status: active
-      x-artificio-auth: admin
-      responses:
-        "200":
-          description: OK
   /api/admin/v1/groups/{id}:
     delete:
       operationId: deleteapi_admin_v1_groups_id
@@ -102,6 +82,26 @@ paths:
           required: true
           schema:
             type: string
+      responses:
+        "200":
+          description: OK
+  /api/admin/v1/groups/rehydrate-logos:
+    post:
+      operationId: postapi_admin_v1_groups_rehydrate_logos
+      x-artificio-owner: links
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+  /api/admin/v1/groups/rehydrate-logos/status:
+    get:
+      operationId: getapi_admin_v1_groups_rehydrate_logos_status
+      x-artificio-owner: links
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
       responses:
         "200":
           description: OK
@@ -211,16 +211,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/groups/suggest:
-    post:
-      operationId: postapi_groups_suggest
-      x-artificio-owner: links
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      responses:
-        "200":
-          description: OK
   /api/groups/{slug}:
     get:
       operationId: getapi_groups_slug
@@ -250,6 +240,16 @@ paths:
           required: true
           schema:
             type: string
+      responses:
+        "200":
+          description: OK
+  /api/groups/suggest:
+    post:
+      operationId: postapi_groups_suggest
+      x-artificio-owner: links
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
       responses:
         "200":
           description: OK
