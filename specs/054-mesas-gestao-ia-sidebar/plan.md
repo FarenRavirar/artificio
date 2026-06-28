@@ -24,14 +24,16 @@
 
 ## Fase 2 — Reorganização dos grupos (mover, não reescrever) ✅ IMPLEMENTADA
 
-- Encaixar painéis atuais nos novos nós:
-  - Conteúdo ← `Gerenciar Conteúdo` (Sistemas de RPG/Plataformas[VTTs/Comunicação]/Cenários/Mesas).
-  - Comunidade ← `Sugestões de Sistemas` (Sugestões + Histórico).
-  - **Moderação** ← fila unificada (reaproveita filtro por origem 049/DEB-048-34: Discord + Inbox drafts) — Fila de revisão / Mensagens capturadas / Rascunhos / Ignorados.
-  - Integrações ← Discord (Configuração/Canais monitorados/Mensagens capturadas/Rascunhos/Importar histórico) + Importação de dados + Enriquecimento de dados (ex-`Hidratação`).
-  - Caixa de entrada ← `Inbox` (Feedbacks/Pendentes/Resolvidos).
-  - Sistema ← `Desenvolvimento` (Logs/Jobs/Configurações/Desenvolvimento) — itens sem backend = stub rotulado.
-- Resolver duplicação Moderação×Discord (Decisão 1): painel de mensagens/rascunhos renderiza **uma vez**; o outro grupo linka.
+### O que foi feito (descrição factual, não plano original):
+
+- **DiscordSyncPanel.tsx desmontado** — container de 5 tabs substituído por componentes independentes. Bloco `mensagens` extraído para `MessagesView.tsx` (entidade `discord_import_messages`, Discord-only). Config/DiscordJsonImport/SourceList mantidos como componentes avulsos.
+- **ConteúdoSection** — agrupa `SystemsAdminView`, `PlatformsPage` (já separa VTT/Comunicação via estado `kind`), `ScenariosAdminView`, bloco Mesas (inline migrado de `GestaoPage`).
+- **ComunidadeSection** — agrupa sugestões (sugestões recebidas/aprovadas/rejeitadas + histórico de decisões). Lógica inline de `GestaoPage` (normalizadores, fetch, approve/reject em lote, drawer) migrada.
+- **ModeraçãoSection** — duas visões: `MessagesView` (mensagens capturadas, Discord-only) + `DiscordDraftReviewTable` (rascunhos unificados Discord+Inbox). `InboxDraftReviewTable` deletado (dedup R-A9). Correction-tracking portado como prop opcional `onBeforeSync`.
+- **IntegracoesSection** — Discord config (`DiscordSettingsPanel`), canais (`DiscordSourceList`), importar histórico (`DiscordJsonImportPanel`), importação de dados (`TextPasteArea`, movido do Inbox), enriquecimento (`EnrichmentAdminPanel`, ex-`HydrationAdminPanel`), logs de integração (stub). **Mensagens capturadas e Rascunhos são links contextuais** para Moderação (T2.7/Decisão 1), não re-render.
+- **Caixa de entrada DERRUBADO (R-Q2)** — não existe como grupo. `InboxPanel` desmembrado: `TextPasteArea` → Integrações; rascunhos do Inbox → Moderação (unificados); `dev-feedback` → Sistema.
+- **SistemaSection** — `DevFeedbackPanel` + stubs honestos (Jobs/Logs/Erros/Config).
+- **Resolvida duplicação Moderação×Discord (Decisão 1):** painéis de Mensagens/Rascunhos renderizam **só em Moderação**. Em Integrações, são links contextuais (`ModeracaoLinks`).
 
 ## Fase 3 — Renomeações (rótulo + identificadores) + padrão de botões ✅ IMPLEMENTADA
 

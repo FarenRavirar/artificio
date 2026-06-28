@@ -1,0 +1,594 @@
+# Gerado automaticamente por scripts/api/generate-openapi.ts
+# A partir do inventário: docs/api/generated/api-inventory.generated.json
+openapi: "3.0.3"
+info:
+  title: "Glossario API — Artifício RPG"
+  description: "API do módulo Glossario. Metadados x-artificio-* definidos por heurística de path."
+  version: "0.1.0"
+servers:
+  - url: https://glossario.artificiorpg.com
+    description: Produção
+  - url: http://localhost:3000
+    description: Desenvolvimento
+security: []
+paths:
+  /api/admin/activity:
+    get:
+      operationId: getapi_admin_activity
+      x-artificio-owner: glossario
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+  /api/admin/feedback:
+    get:
+      operationId: getapi_admin_feedback
+      x-artificio-owner: glossario
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+  /api/admin/feedback/{id}:
+    delete:
+      operationId: deleteapi_admin_feedback_id
+      x-artificio-owner: glossario
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    patch:
+      operationId: patchapi_admin_feedback_id
+      x-artificio-owner: glossario
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/auth/login:
+    post:
+      operationId: postapi_auth_login
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/auth/me:
+    get:
+      operationId: getapi_auth_me
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/auth/register:
+    post:
+      operationId: postapi_auth_register
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/categories:
+    get:
+      operationId: getapi_categories
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+    post:
+      operationId: postapi_categories
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/categories/{id}:
+    delete:
+      operationId: deleteapi_categories_id
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    put:
+      operationId: putapi_categories_id
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/changelog:
+    get:
+      operationId: getapi_changelog
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+  /api/export/matecat:
+    get:
+      operationId: getapi_export_matecat
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+  /api/feedback:
+    post:
+      operationId: postapi_feedback
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/migration/claim:
+    post:
+      operationId: postapi_migration_claim
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/migration/verify:
+    post:
+      operationId: postapi_migration_verify
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/notifications:
+    get:
+      operationId: getapi_notifications
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/notifications/read-all:
+    patch:
+      operationId: patchapi_notifications_read_all
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/notifications/{id}/read:
+    patch:
+      operationId: patchapi_notifications_id_read
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/scenarios:
+    get:
+      operationId: getapi_scenarios
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+    post:
+      operationId: postapi_scenarios
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/scenarios/{id}:
+    delete:
+      operationId: deleteapi_scenarios_id
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    put:
+      operationId: putapi_scenarios_id
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/social/comments/{id}:
+    delete:
+      operationId: deleteapi_social_comments_id
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/social/{id}/comments:
+    get:
+      operationId: getapi_social_id_comments
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    post:
+      operationId: postapi_social_id_comments
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/social/{id}/vote:
+    post:
+      operationId: postapi_social_id_vote
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/systems:
+    get:
+      operationId: getapi_systems
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+    post:
+      operationId: postapi_systems
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/systems/editions/{id}:
+    delete:
+      operationId: deleteapi_systems_editions_id
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    put:
+      operationId: putapi_systems_editions_id
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/systems/{id}:
+    delete:
+      operationId: deleteapi_systems_id
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    put:
+      operationId: putapi_systems_id
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/systems/{systemId}/editions:
+    get:
+      operationId: getapi_systems_systemId_editions
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    post:
+      operationId: postapi_systems_systemId_editions
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/terms:
+    get:
+      operationId: getapi_terms
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+    post:
+      operationId: postapi_terms
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/terms/import:
+    post:
+      operationId: postapi_terms_import
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /api/terms/{id}:
+    delete:
+      operationId: deleteapi_terms_id
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    patch:
+      operationId: patchapi_terms_id
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/terms/{id}/approve:
+    patch:
+      operationId: patchapi_terms_id_approve
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/terms/{id}/history:
+    get:
+      operationId: getapi_terms_id_history
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/users/admin:
+    get:
+      operationId: getapi_users_admin
+      x-artificio-owner: glossario
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+  /api/users/admin/{id}/ban:
+    post:
+      operationId: postapi_users_admin_id_ban
+      x-artificio-owner: glossario
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/users/profile:
+    patch:
+      operationId: patchapi_users_profile
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+  /health:
+    get:
+      operationId: gethealth
+      x-artificio-owner: glossario
+      x-artificio-scope: internal
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK

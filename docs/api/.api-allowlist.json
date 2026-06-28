@@ -1,0 +1,2806 @@
+{
+  "version": 1,
+  "_description": "Allowlist de divergências legadas de API. Remova entries conforme as rotas forem documentadas no OpenAPI.",
+  "generated": "2026-06-27",
+  "items": [
+    {
+      "method": "DELETE",
+      "path": ":param/:param",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "DELETE",
+      "path": ":param/auth/discord/disconnect",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin/feedback/:param",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/feedback/:id",
+      "app": "glossario",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/v1/<deleteFeedback>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/v1/<deleteMedia>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/v1/<deletePage>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/v1/<deletePost>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/categories/:id",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/groups/:param/report",
+      "app": "links-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/scenarios/:id",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/social/comments/:id",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/systems/:id",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/systems/editions/:id",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/terms/:id",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/discord/deleteDiscordBotToken",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/discord/deleteSource",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/discord/settings/bot-token",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/discord/sources/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/setting-suggestions/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/communication-platforms/admin/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/gm/tables/:id",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/profile/me/connect/discord",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/vtt-platforms/admin/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/auth/discord/disconnect",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "DELETE",
+      "path": "/social/comments/:param",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "DELETE",
+      "path": "/terms/:param",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "DELETE",
+      "path": "deleteEndpoint",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "DELETE",
+      "path": "endpoint",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "DELETE",
+      "path": "route",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": ":param:param",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": ":param/api/auth/refresh",
+      "app": "packages/auth",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": ":param/api/v1/systems?view=tree",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": ":param/auth/discord/connect",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": ":param/health",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "app": "accounts",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/activity",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/feedback",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/activity",
+      "app": "glossario",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/feedback",
+      "app": "glossario",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/v1/<getPage>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/v1/<getPost>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/v1/<listFeedback>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/v1/<listMedia>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/v1/<listPages>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/v1/<listPosts>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/v1/<listTerms>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/v1/rebuild/status",
+      "app": "links",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/v1/reports",
+      "app": "links",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/v1/reports:param",
+      "app": "links-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/google",
+      "app": "accounts",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/google/callback",
+      "app": "accounts",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/categories",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/changelog",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/export/matecat",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/groups/:slug",
+      "app": "links",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scenarios",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/social/:id/comments",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/systems",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/systems/:systemId/editions",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/terms",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/terms/:id/history",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/admin",
+      "app": "glossario",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/activity",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/activity:param",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/dev-feedback",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/dev-feedback:param",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/discord/discordSettings",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/discord/discovery/guilds",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/discord/discovery/guilds/:guildId/channels",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/discord/drafts/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/discord/metrics",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/discord/metrics/shadow",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/discord/settings",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/import/drafts",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/import/drafts/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/import/metrics",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/scenario-suggestions:param",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/setting-suggestions",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/system-suggestions:param",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/google",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/google/callback",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/communication-platforms/admin",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/health",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/masters/:param",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/profile/:param",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/profile/me/discord",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/scenario-suggestions/mine",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/system-suggestions/mine",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/vtt-platforms/admin",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/discord/callback",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/discord/connect",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/google",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/google/callback",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/me",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/categories",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/changelog",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/conta",
+      "app": "accounts",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/export/matecat",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/grupo/:slug",
+      "app": "links",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "app": "accounts",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/healthz",
+      "app": "links",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/login",
+      "app": "accounts",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/notifications",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/og/{*splat}",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/og/:type/:slug",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/scenarios",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/social/:param/comments",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": "/systems",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/systems/:param/editions",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": "/terms",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "/terms/:param/history",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "GET",
+      "path": "/users/admin",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "GET",
+      "path": "<unknown>",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "BASEpath",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "endpoint",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "input",
+      "app": "packages/auth",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "inviteUrl",
+      "app": "links-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "meUrl",
+      "app": "packages/auth",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "GET",
+      "path": "url",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/feedback/:param",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/feedback/:id",
+      "app": "glossario",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/v1/tags/:id",
+      "app": "links",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/:id/read",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/read-all",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/terms/:id",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/terms/:id/approve",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/users/profile",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/discord/drafts/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/discord/messages/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/discord/sources/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/import/drafts/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/scenario-suggestions/:id/approve",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/scenario-suggestions/:id/reject",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/system-suggestions/:id/approve",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/system-suggestions/:id/reject",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/users/:id/covil",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/notifications/:param/read",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "PATCH",
+      "path": "/notifications/read-all",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "/terms/:param",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "PATCH",
+      "path": "/terms/:param/approve",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "PATCH",
+      "path": "/users/profile",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PATCH",
+      "path": "<unknown>",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "PATCH",
+      "path": "endpoint",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "POST",
+      "path": ":param:param",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": ":param/api/auth/logout",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": ":param/media",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": ":param/preview",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/v1/<createPage>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/v1/<createPost>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/v1/<createTerm>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/v1/rebuild",
+      "app": "links",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "app": "accounts",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/register",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/categories",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/migration/claim",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/migration/verify",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/scenarios",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/social/:id/comments",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/social/:id/vote",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/systems",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/systems/:systemId/editions",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/terms",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/terms/import",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/admin/:id/ban",
+      "app": "glossario",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/createSource",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/drafts/:id/refresh-image",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/drafts/:id/reparse",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/fetch",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/import-json",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/import-json/file",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/import-json/preview",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/import-json/preview/file",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/import-json/reparse",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/importFile",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/importJson",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/messages/:id/diagnose-content",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/messages/:id/parse",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/messages/parse-batch",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/reingestForce",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/sources",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/sources/:sourceId/reingest-force",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/discord/sync-ready",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/import/drafts/:id/reparse",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/import/drafts/:id/sync",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/import/import-text",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/import/importText",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/setting-suggestions",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/tables/auto-archive",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/communication-platforms/admin",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/gm/tables",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/gm/tables/:id/click",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/gm/tables/:id/contact",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/gm/tables/:id/favorite",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/gm/tables/:slug/view",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/profile/me/connect/discord",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/system-suggestions",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/vtt-platforms/admin",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/vtt-platforms/suggest",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/discord/verify-covil",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/categories",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/feedback",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/migration/claim",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/migration/verify",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/scenarios",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/social/:param/comments",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": "/social/:param/vote",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": "/systems",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/systems/:param/editions",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": "/terms",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/terms/import",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "POST",
+      "path": "/users/admin/:param/ban",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "POST",
+      "path": "endpoint",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "POST",
+      "path": "uploadEndpoint",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "POST",
+      "path": "url",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "PUT",
+      "path": ":param/:param",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/secrets/deepseek_api_key",
+      "app": "accounts-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/v1/<updateFeedback>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/v1/<updateMedia>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/v1/<updatePage>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/v1/<updatePost>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/categories/:id",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/scenarios/:id",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/systems/:id",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/systems/editions/:id",
+      "app": "glossario",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/discord/settings/bot-token",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/discord/updateMessage",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/discord/updateSource",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/setting-suggestions/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/communication-platforms/admin/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/gm/tables/:id",
+      "app": "mesas",
+      "state": "ORPHAN_SUSPECT",
+      "reason": "Divergência legada — rota sem consumidor e sem classificação",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/vtt-platforms/admin/:id",
+      "app": "mesas",
+      "state": "UNUSED_ROUTE",
+      "reason": "Divergência legada — rota sem consumidor (justificada)",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "PUT",
+      "path": "/categories/:param",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "PUT",
+      "path": "/scenarios/:param",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "PUT",
+      "path": "/systems/:param",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "PUT",
+      "path": "/systems/editions/:param",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "PUT",
+      "path": "<unknown>",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "PUT",
+      "path": "endpoint",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "PUT",
+      "path": "route",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "PUT",
+      "path": "url",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/admin/v1/<previewHtml>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/admin/v1/<setPageStatus>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/admin/v1/<setPostStatus>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/admin/v1/<slugCheck>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/admin/v1/<uploadMedia>",
+      "app": "site-admin",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/v1/admin/discord/diagnoseMessageContent",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/v1/admin/discord/discoverChannels",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/v1/admin/discord/discoverGuilds",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/v1/admin/discord/parseBatch",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/v1/admin/discord/parseMessage",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/v1/admin/discord/previewFile",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/v1/admin/discord/previewJson",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/v1/admin/discord/saveDiscordBotToken",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "/api/v1/admin/discord/submitCorrection",
+      "app": "mesas-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "medium"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "<logout>",
+      "app": "accounts-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "UNKNOWN",
+      "path": "<refreshSession>",
+      "app": "glossario-frontend",
+      "state": "CONSUMER_ONLY",
+      "reason": "Divergência legada — consumidor chama rota inexistente",
+      "added": "2026-06-27",
+      "confidence": "low"
+    },
+    {
+      "method": "USE",
+      "path": "/api/admin/activity",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/admin/feedback",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/admin/v1",
+      "app": "links",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/auth",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/categories",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/changelog",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/export",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/feedback",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/migration",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/notifications",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/scenarios",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/social",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/systems",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/terms",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/terms/import",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/users",
+      "app": "glossario",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/discord",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/discord/discovery",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/discord/drafts",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/discord/import-json",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/discord/messages",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/discord/metrics",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/discord/settings",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/discord/sources",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/import",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/import/drafts",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/import/import-text",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/import/metrics",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/admin/setting-suggestions",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/auth",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/changelog",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/communication-platforms",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/dev-feedback",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/gm",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/me",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/notifications",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/profile",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/scenario-suggestions",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/scenarios",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/settings",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/system-suggestions",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/systems",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/tables",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/api/v1/vtt-platforms",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/auth",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "/og",
+      "app": "mesas",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "high"
+    },
+    {
+      "method": "USE",
+      "path": "<factory>",
+      "app": "accounts",
+      "state": "CODE_ONLY",
+      "reason": "Divergência legada — rota existe no código mas não no OpenAPI",
+      "added": "2026-06-27",
+      "confidence": "low"
+    }
+  ]
+}

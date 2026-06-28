@@ -11,6 +11,20 @@
 - Tasks: `tasks.md` §Fase 1
 - Autorização: mantenedor liberou Fase 1 ("Fase 1 liberada da spec 054 em tasks liberado")
 
+## Plano
+1. Criar AdminSidebar com 6 grupos (NavLink + aria-current + design §C)
+2. Criar AdminMain com header/breadcrumb/actions/subnav/outlet condicional
+3. Converter rota /gestao para rotas aninhadas com GestaoLayout
+4. Quebrar GestaoPage em 6 Sections, preservando lógica inline migrada
+5. Verificar lint e build
+
+## Critério de conclusão
+- [ ] AdminSidebar exibe 6 grupos com NavLink e aria-current
+- [ ] AdminMain renderiza header/breadcrumb/actions/subnav/outlet condicionalmente
+- [ ] App.tsx tem rotas aninhadas /gestao/<grupo>; guard admin só no pai (R-A11)
+- [ ] GestaoPage.tsx quebrado em 6 Sections criadas e funcionando
+- [ ] lint e build verdes
+
 ## Arquivos criados
 
 | Arquivo | Descrição |

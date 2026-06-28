@@ -87,3 +87,51 @@ jobs:
           CLOUDINARY_API_KEY: ci
           CLOUDINARY_API_SECRET: ci
         run: pnpm -w turbo run test --env-mode=loose --cache-dir=.turbo
+
+  api-governance:
+    name: api-governance
+    runs-on: ubuntu-latest
+    # Nao precisa de postgres, build ou tests — roda em paralelo com lint-build-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.8.0 --activate
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Fetch base ref (for api:diff)
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags --depth=2 origin ${{ github.base_ref }}
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: API Inventory
+        run: pnpm api:inventory
+
+      - name: API Consumers
+        run: pnpm api:consumers
+
+      - name: OpenAPI Lint
+        env:
+          REDOCLY_TELEMETRY: off
+          REDOCLY_SUPPRESS_UPDATE_NOTICE: "true"
+        run: pnpm api:lint
+
+      - name: API Check (drift + orphans + duplicates)
+        run: pnpm api:check
+
+      - name: API Diff (breaking changes — non-blocking in initial mode)
+        continue-on-error: true
+        run: pnpm api:diff || true

@@ -288,11 +288,12 @@ Todos verificados: `DiscordDraftReviewTable` já exibe origem (badge); `Platform
 > - **Stubs honestos JÁ existem:** `SistemaSection` (Jobs e filas/Logs/Erros reportados/Configurações via helper `stub()` "em breve") e `IntegracoesSection` (Logs de integração). **T4.2 essencialmente pronto** — só confirmar zero número falso.
 > - `AdminSidebar` aceita prop `pendenciaCount` (badge `tabular-nums`, some quando 0) mas `GestaoLayout.tsx:19` renderiza `<AdminSidebar />` **sem passar** → badge de pendência da sidebar está desligado. T4.1 pode religar com dado real.
 
-- [x] **T4.1 — Dashboard** (`DashboardSection`): adicionar subnav local (mesmo padrão de botões `subTab`/`subTabClass` das outras Sections — NÃO usar `AdminMain.subnav`, manter consistência) com 5 itens: **Visão geral / Pendências / Últimas atividades / Alertas / Atalhos rápidos**.
+- [ ] **T4.1 — Dashboard** (`DashboardSection`): adicionar subnav local (mesmo padrão de botões `subTab`/`subTabClass` das outras Sections — NÃO usar `AdminMain.subnav`, manter consistência) com 5 itens: **Visão geral / Pendências / Últimas atividades / Alertas / Atalhos rápidos**.
   - **Últimas atividades** = `<ActivityPanel />` existente — **mover para baixo deste subitem, não reescrever**.
   - **Pendências = DADO REAL** (cheap): contar via API, sem fabricar.
     - Sugestões pendentes: `authGet('/api/v1/admin/system-suggestions?status=pending')` + `…/scenario-suggestions?status=pending` → `Array.isArray` + `.length` (mesmo padrão de `ComunidadeSection:119-120`). Listar c/ link p/ `/gestao/comunidade`.
     - Rascunhos a revisar: `discordSyncApi.getDrafts({ origin: 'all', status: 'needs_review' })` → `.length`. Link p/ `/gestao/moderacao/rascunhos`.
+      ⚠️ **Parcial:** `getDrafts` usa `limit:1` — badge só diferencia 0 vs ≥1, não a contagem real. Pendente de expor `total` no backend.
     - ⚠️ **NÃO** instanciar `useDiscordSync` só p/ `queueStats` (mensagens): o hook carrega TODAS as mensagens e filtra client-side (`:88-93`) — caro p/ um contador. Se quiser contagem de mensagens, criar fetch leve dedicado ou omitir.
   - **Atalhos rápidos = REAL** (sem stub): grade de `<NavLink>` p/ destinos comuns (`/gestao/moderacao/rascunhos`, `/gestao/comunidade`, `/gestao/conteudo`, `/gestao/integracoes`). São links, não dado fabricado → pode entregar de verdade.
   - **Visão geral / Alertas** = stub honesto "Em breve" (sem fonte agregada hoje). Manter o helper de card stub.

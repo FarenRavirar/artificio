@@ -1,0 +1,121 @@
+# Gerado automaticamente por scripts/api/generate-openapi.ts
+# A partir do inventário: docs/api/generated/api-inventory.generated.json
+openapi: "3.0.3"
+info:
+  title: "Accounts API — Artifício RPG"
+  description: "API do módulo Accounts. Metadados x-artificio-* definidos por heurística de path."
+  version: "0.1.0"
+servers:
+  - url: https://accounts.artificiorpg.com
+    description: Produção
+  - url: http://localhost:4000
+    description: Desenvolvimento
+security: []
+paths:
+  /:
+    get:
+      operationId: get
+      x-artificio-owner: accounts
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+  /api/auth/google:
+    get:
+      operationId: getapi_auth_google
+      x-artificio-owner: accounts
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+  /api/auth/google/callback:
+    get:
+      operationId: getapi_auth_google_callback
+      x-artificio-owner: accounts
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+  /api/auth/logout:
+    post:
+      operationId: postapi_auth_logout
+      x-artificio-owner: accounts
+      x-artificio-scope: cross-app
+      x-artificio-status: active
+      x-artificio-auth: user
+      x-artificio-consumers:
+        - mesas-frontend
+        - glossario-frontend
+        - links-frontend
+        - site-admin
+      responses:
+        "200":
+          description: OK
+  /api/auth/me:
+    get:
+      operationId: getapi_auth_me
+      x-artificio-owner: accounts
+      x-artificio-scope: cross-app
+      x-artificio-status: active
+      x-artificio-auth: user
+      x-artificio-consumers:
+        - mesas-frontend
+        - glossario-frontend
+        - links-frontend
+        - site-admin
+      responses:
+        "200":
+          description: OK
+  /api/auth/refresh:
+    get:
+      operationId: getapi_auth_refresh
+      x-artificio-owner: accounts
+      x-artificio-scope: cross-app
+      x-artificio-status: active
+      x-artificio-auth: user
+      x-artificio-consumers:
+        - mesas-frontend
+        - glossario-frontend
+        - links-frontend
+        - site-admin
+      responses:
+        "200":
+          description: OK
+  /conta:
+    get:
+      operationId: getconta
+      x-artificio-owner: accounts
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+  /health:
+    get:
+      operationId: gethealth
+      x-artificio-owner: accounts
+      x-artificio-scope: internal
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+  /login:
+    get:
+      operationId: getlogin
+      x-artificio-owner: accounts
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+
+
