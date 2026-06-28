@@ -86,7 +86,7 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
     const messages = await query.execute();
     return res.json({ data: messages });
   } catch (error: unknown) {
-    console.error('[GET /admin/discord-sync/messages]', error);
+    console.error('[GET /admin/discord/messages]', error);
     return res.status(500).json({ error: 'Erro ao listar mensagens.' });
   }
 });
@@ -108,7 +108,7 @@ router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
     if (!message) return res.status(404).json({ error: 'Mensagem não encontrada.' });
     return res.json({ data: message });
   } catch (error: unknown) {
-    console.error('[PATCH /admin/discord-sync/messages/:id]', error);
+    console.error('[PATCH /admin/discord/messages/:id]', error);
     return res.status(500).json({ error: 'Erro ao atualizar mensagem.' });
   }
 });

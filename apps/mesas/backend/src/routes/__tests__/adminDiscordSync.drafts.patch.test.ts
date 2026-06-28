@@ -30,7 +30,7 @@ const mockDb = db as unknown as {
 function makeApp() {
   const app = express();
   app.use(express.json());
-  app.use('/admin/discord-sync', adminDiscordSyncRoutes);
+  app.use('/admin/discord', adminDiscordSyncRoutes);
   return app;
 }
 
@@ -65,7 +65,7 @@ function mockUpdatedDraft() {
   return updateChain;
 }
 
-describe('PATCH /admin/discord-sync/drafts/:id', () => {
+describe('PATCH /admin/discord/drafts/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCurrentDraft({ missing_fields: ['day_of_week'] });
@@ -74,7 +74,7 @@ describe('PATCH /admin/discord-sync/drafts/:id', () => {
 
   it('rejects marking a draft as ready when required fields are missing', async () => {
     const response = await request(makeApp())
-      .patch('/admin/discord-sync/drafts/draft-1')
+      .patch('/admin/discord/drafts/draft-1')
       .send({ status: 'ready' });
 
     expect(response.status).toBe(422);
@@ -87,7 +87,7 @@ describe('PATCH /admin/discord-sync/drafts/:id', () => {
 
   it('rejects invalid enum values in normalized_payload.table', async () => {
     const response = await request(makeApp())
-      .patch('/admin/discord-sync/drafts/draft-1')
+      .patch('/admin/discord/drafts/draft-1')
       .send({ normalized_payload: { table: { type: 'banana' } } });
 
     expect(response.status).toBe(400);

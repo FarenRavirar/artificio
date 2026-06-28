@@ -36,7 +36,7 @@ describe('discordSyncApi', () => {
       const result = await discordSyncApi.getDiscordSettings();
       expect(fetchMock).toHaveBeenCalledTimes(1);
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toContain('/api/v1/admin/discord-sync/settings');
+      expect(url).toContain('/api/v1/admin/discord/settings');
       expect(opts?.method).toBeUndefined();
       expect(result.bot_token.is_set).toBe(true);
       expect(result.bot_token.preview).toBe('MTIz');

@@ -79,6 +79,7 @@
 | BL-LINKS-NAV-CROSSAPP | ✅ Prod | Completo | 038, 045 | — nav em site/glossário/mesas; accounts sem nav by design (spec 045 §2) |
 | BL-033-SECRET-BLOCK | ✅ PR #85 | Completo | 045 | — `.gitignore artifacts/` + 16 destrackeados (`git ls-files artifacts/`=0, commit `289364d`) |
 | — | — | — | **🟡 LOCAL / COMMITADO (falta deploy ou merge)** | — |
+| **BL-054-GESTAO-IA** | 🟡 Local | **Fases 1-4 implementadas** | **054** | Código presente localmente (não mergeado). Fases: sidebar + 6 Sections + renomeações + dashboard. Pendente: aprovação mantenedor → commit + PR + merge + deploy. **GATE: 054 → 053 → 052.** |
 | BL-LINKS-GROUP-LOGOS | 🟢 Quase | **12/13 em prod** (Cloudinary) | 038, 045 | Decidir "Canal de Notícias" null (reidratar ou aceitar) — spec 045 T3 |
 | BL-ACCOUNTS-PORT | 🟡 Local | T1-T4 OK | 023, 035, 045 | Deploy prod (expose:["3000"]) — aprovação nominal (spec 045 T2) |
 | BL-LINKS-MEDIA-038 | 🟡 Local | T1-T11 mergeado; T12 nav + reidratar ✅ prod | 038, 045 | Só **T13 smoke E2E** (report + cron VM) → fechar (spec 045 T4) |

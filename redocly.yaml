@@ -1,0 +1,134 @@
+# redocly.yaml — Configuração de lint OpenAPI para o monorepo Artifício RPG
+# Documentação: https://redocly.com/docs/cli/configuration
+
+extends:
+  - recommended
+
+rules:
+  # ========== Regras built-in desligadas ==========
+  # Os OpenAPI atuais são MÍNIMOS (só paths + x-artificio-*).
+  # Regras que exigem schemas completos, responses, operationIds etc. precisam ser desligadas.
+  operation-2xx-response: error
+  operation-4xx-response: off
+  operation-operationId: error
+  operation-summary: error
+  operation-description: off
+  info-contact: off
+  info-license: off
+  no-server-example.com: off
+  tags-alphabetical: off
+  operation-tag-defined: off
+  operation-singular-tag: off
+  operation-parameters-unique: off
+  no-unused-components: off
+  path-segment-plural: off
+  no-empty-servers: off
+  security-defined: off
+  path-parameters-defined: error
+
+  # ========== Regras custom x-artificio-* (configurable rules) ==========
+  # Todas as regras abaixo validam metadados obrigatórios definidos na spec 055.
+
+  # x-artificio-owner: obrigatório
+  rule/x-artificio-owner-defined:
+    subject:
+      type: Operation
+      property: x-artificio-owner
+    assertions:
+      defined: true
+    message: "Operation {{key}} at {{pointer}} must define x-artificio-owner (ex: mesas, accounts, glossario, links)"
+    severity: error
+
+  # x-artificio-scope: obrigatório + enum
+  rule/x-artificio-scope-defined:
+    subject:
+      type: Operation
+      property: x-artificio-scope
+    assertions:
+      defined: true
+      enum:
+        - internal
+        - public
+        - cross-app
+        - admin
+        - cron
+        - webhook
+        - external
+        - media
+        - public-page
+        - self-service
+        - telemetry
+        - legacy
+    message: "x-artificio-scope must be one of the configured Artifício API scopes (got: {{property}})"
+    severity: error
+
+  # x-artificio-status: obrigatório + enum
+  rule/x-artificio-status-defined:
+    subject:
+      type: Operation
+      property: x-artificio-status
+    assertions:
+      defined: true
+      enum:
+        - active
+        - deprecated
+        - legacy
+        - orphan-suspect
+        - provisional
+    message: "x-artificio-status must be one of: active, deprecated, legacy, orphan-suspect, provisional (got: {{property}})"
+    severity: error
+
+  # x-artificio-auth: obrigatório + enum
+  rule/x-artificio-auth-defined:
+    subject:
+      type: Operation
+      property: x-artificio-auth
+    assertions:
+      defined: true
+      enum:
+        - none
+        - user
+        - admin
+        - service
+        - csrf-cookie
+    message: "x-artificio-auth must be one of: none, user, admin, service, csrf-cookie (got: {{property}})"
+    severity: error
+
+  # x-artificio-consumers: obrigatório quando scope=cross-app
+  rule/x-artificio-consumers-cross-app:
+    subject:
+      type: Operation
+      property: x-artificio-consumers
+    where:
+      - subject:
+          type: Operation
+          property: x-artificio-scope
+        assertions:
+          const: cross-app
+    assertions:
+      defined: true
+      nonEmpty: true
+    message: "cross-app operation {{key}} at {{pointer}} must define non-empty x-artificio-consumers"
+    severity: error
+
+  # x-artificio-consumers: se presente e não vazio, ok; se presente e vazio, warn
+  # NOTA: desligado porque Redocly dispara falso positivo para operations sem a property.
+  # rule/x-artificio-consumers-non-empty:
+  #   subject:
+  #     type: Operation
+  #     property: x-artificio-consumers
+  #   assertions:
+  #     defined: true
+  #     nonEmpty: true
+  #   message: "x-artificio-consumers must not be empty when defined"
+  #   severity: warn
+
+apis:
+  accounts:
+    root: docs/api/openapi/accounts.openapi.yaml
+  mesas:
+    root: docs/api/openapi/mesas.openapi.yaml
+  glossario:
+    root: docs/api/openapi/glossario.openapi.yaml
+  links:
+    root: docs/api/openapi/links.openapi.yaml

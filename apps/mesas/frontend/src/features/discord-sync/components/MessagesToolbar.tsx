@@ -69,7 +69,7 @@ export function MessagesToolbar({
           disabled={parsingBatch}
           className="px-3 py-2 bg-green-700 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-40"
         >
-          {parsingBatch ? 'Apurando...' : '✦ Apurar todas pendentes'}
+          {parsingBatch ? 'Revisando...' : '✦ Revisar pendências'}
         </button>
       </div>
 

@@ -1,6 +1,6 @@
 import request from 'supertest';
 import express from 'express';
-import adminHydrationRoutes from './adminHydration';
+import adminEnrichmentRoutes from './adminEnrichment';
 
 let mockAuthUser: { userId: string; role: string } | null = null;
 const { mockProdExecute, mockTransactionExecute } = vi.hoisted(() => ({
@@ -41,9 +41,9 @@ vi.mock('../db', () => ({
 }));
 
 const app = express();
-app.use('/api/v1/admin', adminHydrationRoutes);
+app.use('/api/v1/admin', adminEnrichmentRoutes);
 
-describe('Admin Hydration Routes', () => {
+describe('Admin Enrichment Routes', () => {
   const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
@@ -58,15 +58,15 @@ describe('Admin Hydration Routes', () => {
   });
 
   it('should return 401 when not authenticated', async () => {
-    const res = await request(app).post('/api/v1/admin/sync/hydrate');
+    const res = await request(app).post('/api/v1/admin/sync/enrich');
     expect(res.status).toBe(401);
   });
 
-  it('blocks hydration in production before touching prod db', async () => {
+  it('blocks enrichment in production before touching prod db', async () => {
     mockAuthUser = { userId: 'admin-user', role: 'admin' };
     process.env.NODE_ENV = 'production';
 
-    const res = await request(app).post('/api/v1/admin/sync/hydrate');
+    const res = await request(app).post('/api/v1/admin/sync/enrich');
 
     expect(res.status).toBe(403);
     expect(res.body.error).toContain('produção');
@@ -80,7 +80,7 @@ describe('Admin Hydration Routes', () => {
       throw new Error('DRY_RUN_ROLLBACK');
     });
 
-    const res = await request(app).post('/api/v1/admin/sync/hydrate?dry_run=true');
+    const res = await request(app).post('/api/v1/admin/sync/enrich?dry_run=true');
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);

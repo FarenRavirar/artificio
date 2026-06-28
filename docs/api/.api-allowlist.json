@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "_description": "Allowlist de divergências legadas de API. VAZIA: alinhamento completo (verde estrito). Em modo --strict, qualquer entry aqui causa exit 1.",
+  "generated": "2026-06-28",
+  "items": []
+}

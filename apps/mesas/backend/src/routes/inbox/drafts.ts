@@ -63,7 +63,7 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
 
     return res.json({ data: drafts });
   } catch (error: unknown) {
-    console.error('[GET /api/v1/admin/inbox/drafts]', error);
+    console.error('[GET /api/v1/admin/import/drafts]', error);
     return res.status(500).json({ error: 'Erro ao listar drafts do inbox.' });
   }
 });
@@ -92,7 +92,7 @@ router.post('/:id/sync', requireAdmin, async (req: Request, res: Response) => {
     if (error instanceof DraftStateError) {
       return res.status(422).json({ error: error.message });
     }
-    console.error('[POST /api/v1/admin/inbox/drafts/:id/sync]', error);
+    console.error('[POST /api/v1/admin/import/drafts/:id/sync]', error);
     const message = error instanceof Error ? error.message : 'Erro ao sincronizar draft.';
     return res.status(500).json({ error: message });
   }
@@ -147,7 +147,7 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
       },
     });
   } catch (error: unknown) {
-    console.error('[GET /api/v1/admin/inbox/drafts/:id]', error);
+    console.error('[GET /api/v1/admin/import/drafts/:id]', error);
     return res.status(500).json({ error: 'Erro ao buscar draft.' });
   }
 });
@@ -184,7 +184,7 @@ router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
     }
     return res.status(result.status).json(result.body);
   } catch (error: unknown) {
-    console.error('[PATCH /api/v1/admin/inbox/drafts/:id]', error);
+    console.error('[PATCH /api/v1/admin/import/drafts/:id]', error);
     return res.status(500).json({ error: 'Erro ao atualizar draft.' });
   }
 });
@@ -261,7 +261,7 @@ router.post('/:id/reparse', requireAdmin, async (req: Request, res: Response) =>
 
     return res.json({ data: updated });
   } catch (error: unknown) {
-    console.error('[POST /api/v1/admin/inbox/drafts/:id/reparse]', error);
+    console.error('[POST /api/v1/admin/import/drafts/:id/reparse]', error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao reparsar draft.' });
   }
 });

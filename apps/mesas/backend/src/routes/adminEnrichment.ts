@@ -7,7 +7,7 @@ import { SYNC_FIELDS } from '../hydration/config';
 
 const router = Router();
 
-router.post('/sync/hydrate', authMiddleware, async (req: Request, res: Response) => {
+router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) => {
   const userRole = (req as any).user?.role;
   const userId = (req as any).user?.userId;
 
@@ -116,7 +116,7 @@ router.post('/sync/hydrate', authMiddleware, async (req: Request, res: Response)
 
             const allowedFields = SYNC_FIELDS[tableName];
             if (!allowedFields) {
-              console.warn(`[Hydration] Tabela ${tableName} sem allowlist definida — pulando`);
+              console.warn(`[Enrichment] Tabela ${tableName} sem allowlist definida — pulando`);
               continue;
             }
             const safeRecord = Object.fromEntries(
@@ -209,7 +209,7 @@ router.post('/sync/hydrate', authMiddleware, async (req: Request, res: Response)
 
                   if (!cpResult) {
                     // T011: FK órfã - skip com warning
-                    console.warn(`[Hydration] FK órfã: tabela=tables id=${record.id} communication_platform_slug=${record.communication_platform_slug}`);
+                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} communication_platform_slug=${record.communication_platform_slug}`);
                     ignored++;
                     continue;
                   }
@@ -226,7 +226,7 @@ router.post('/sync/hydrate', authMiddleware, async (req: Request, res: Response)
 
                   if (!vttResult) {
                     // T011: FK órfã - skip com warning
-                    console.warn(`[Hydration] FK órfã: tabela=tables id=${record.id} vtt_platform_slug=${record.vtt_platform_slug}`);
+                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} vtt_platform_slug=${record.vtt_platform_slug}`);
                     ignored++;
                     continue;
                   }
@@ -243,7 +243,7 @@ router.post('/sync/hydrate', authMiddleware, async (req: Request, res: Response)
 
                   if (!sysResult) {
                     // T011: FK órfã - skip com warning
-                    console.warn(`[Hydration] FK órfã: tabela=tables id=${record.id} system_slug=${record.system_slug}`);
+                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} system_slug=${record.system_slug}`);
                     ignored++;
                     continue;
                   }
@@ -260,7 +260,7 @@ router.post('/sync/hydrate', authMiddleware, async (req: Request, res: Response)
 
                   if (!scResult) {
                     // T011: FK órfã - skip com warning
-                    console.warn(`[Hydration] FK órfã: tabela=tables id=${record.id} scenario_slug=${record.scenario_slug}`);
+                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} scenario_slug=${record.scenario_slug}`);
                     ignored++;
                     continue;
                   }
@@ -412,7 +412,7 @@ router.post('/sync/hydrate', authMiddleware, async (req: Request, res: Response)
 
             if (!result) {
               ignored++;
-            } else if (result.xmax === '0') {
+            } else       if (result.xmax === '0') {
               inserted++;
             } else {
               updated++;
@@ -420,7 +420,7 @@ router.post('/sync/hydrate', authMiddleware, async (req: Request, res: Response)
           } catch (e: any) {
             // T009/spec: Se der erro de FK por estar órfão, apenas ignora
             if (e.code === '23503') { // foreign_key_violation
-              console.warn(`[Hydration] FK violation: tabela=${tableName} id=${record.id}`, {
+              console.warn(`[Enrichment] FK violation: tabela=${tableName} id=${record.id}`, {
                 error: e.message,
                 detail: e.detail,
                 constraint: e.constraint
@@ -454,8 +454,8 @@ router.post('/sync/hydrate', authMiddleware, async (req: Request, res: Response)
     if (error.message === 'DRY_RUN_ROLLBACK') {
       return res.json({ success: true, dry_run: true, data: { tables: logs } });
     }
-    console.error('[Hydration]', error);
-    return res.status(500).json({ error: 'Erro durante a hidratação' });
+    console.error('[Enrichment]', error);
+    return res.status(500).json({ error: 'Erro durante o enriquecimento' });
   }
 });
 

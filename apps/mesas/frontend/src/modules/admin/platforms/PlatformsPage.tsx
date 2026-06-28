@@ -63,8 +63,13 @@ const isVttPlatform = (item: PlatformRecord): item is VttPlatform => (
   'logo_filename' in item
 );
 
-export function PlatformsPage() {
-  const [kind, setKind] = useState<PlatformKind>('vtt');
+interface PlatformsPageProps {
+  /** Kind inicial (opcional, default 'vtt'). Usado pela ConteudoSection para subnav VTTs/Comunicação. */
+  initialKind?: PlatformKind;
+}
+
+export function PlatformsPage({ initialKind }: PlatformsPageProps) {
+  const [kind, setKind] = useState<PlatformKind>(initialKind ?? 'vtt');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -281,7 +286,7 @@ export function PlatformsPage() {
             placeholder="Nome"
             value={form.name}
             onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-            className="w-full px-3 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/40"
+            className="w-full px-3 py-2 bg-[var(--surface-input)] border border-white/10 rounded-lg text-white placeholder-white/40"
           />
 
           <input
@@ -290,7 +295,7 @@ export function PlatformsPage() {
             placeholder="Slug (opcional)"
             value={form.slug}
             onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value }))}
-            className="w-full px-3 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/40"
+            className="w-full px-3 py-2 bg-[var(--surface-input)] border border-white/10 rounded-lg text-white placeholder-white/40"
           />
 
           <input
@@ -299,7 +304,7 @@ export function PlatformsPage() {
             placeholder="URL do site (opcional)"
             value={form.website_url}
             onChange={(e) => setForm((prev) => ({ ...prev, website_url: e.target.value }))}
-            className="w-full px-3 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/40"
+            className="w-full px-3 py-2 bg-[var(--surface-input)] border border-white/10 rounded-lg text-white placeholder-white/40"
           />
 
           {kind === 'vtt' && (
@@ -309,7 +314,7 @@ export function PlatformsPage() {
               placeholder="Logo filename (opcional)"
               value={form.logo_filename}
               onChange={(e) => setForm((prev) => ({ ...prev, logo_filename: e.target.value }))}
-              className="w-full px-3 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/40"
+              className="w-full px-3 py-2 bg-[var(--surface-input)] border border-white/10 rounded-lg text-white placeholder-white/40"
             />
           )}
 
@@ -319,7 +324,7 @@ export function PlatformsPage() {
             placeholder="Ordem"
             value={form.sort_order}
             onChange={(e) => setForm((prev) => ({ ...prev, sort_order: e.target.value }))}
-            className="w-full px-3 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/40"
+            className="w-full px-3 py-2 bg-[var(--surface-input)] border border-white/10 rounded-lg text-white placeholder-white/40"
           />
 
           <label htmlFor="platform-active" className="flex items-center gap-2 text-white/80 text-sm">

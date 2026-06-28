@@ -1,0 +1,332 @@
+# Gerado automaticamente por scripts/api/generate-openapi.ts
+# A partir do inventário: docs/api/generated/api-inventory.generated.json
+openapi: "3.0.3"
+info:
+  title: "Accounts API — Artifício RPG"
+  description: "API do módulo Accounts. Metadados x-artificio-* definidos por heurística de path."
+  version: "0.1.0"
+servers:
+  - url: https://accounts.artificiorpg.com
+    description: Produção
+  - url: http://localhost:4000
+    description: Desenvolvimento
+security: []
+paths:
+  /:
+    get:
+      operationId: get
+      summary: "Consulta raiz"
+      x-artificio-owner: accounts
+      x-artificio-scope: public-page
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /admin/secrets/{name}:
+    parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getadmin_secrets_name
+      summary: Recupera um segredo descriptografado (admin ou service-token)
+      x-artificio-owner: accounts
+      x-artificio-scope: admin
+      x-artificio-status: provisional
+      x-artificio-auth: service
+      description: "Decifra e retorna um segredo. Aceita X-Service-Token (serviço-a-serviço) ou cookie admin. Fonte: createAdminSecretsRoutes (DEB-055-12)."
+      x-artificio-consumers:
+        - mesas-backend
+      responses:
+        "200":
+          description: Segredo retornado
+        "404":
+          description: Segredo não encontrado
+    put:
+      operationId: putadmin_secrets_name
+      summary: Armazena um segredo criptografado (admin)
+      x-artificio-owner: accounts
+      x-artificio-scope: admin
+      x-artificio-status: provisional
+      x-artificio-auth: admin
+      description: "Cifra e armazena um segredo (ex.: DeepSeek key). Requer sessão admin. Fonte: createAdminSecretsRoutes (DEB-055-12)."
+      responses:
+        "204":
+          description: Segredo armazenado
+        "400":
+          description: Payload inválido
+  /api/auth/google:
+    get:
+      operationId: getapi_auth_google
+      summary: "Consulta api auth google"
+      x-artificio-owner: accounts
+      x-artificio-scope: external
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/auth/google/callback:
+    get:
+      operationId: getapi_auth_google_callback
+      summary: "Consulta api auth google callback"
+      x-artificio-owner: accounts
+      x-artificio-scope: external
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/auth/logout:
+    post:
+      operationId: postapi_auth_logout
+      summary: "Cria ou executa api auth logout"
+      x-artificio-owner: accounts
+      x-artificio-scope: cross-app
+      x-artificio-status: active
+      x-artificio-auth: user
+      x-artificio-consumers:
+        - mesas-frontend
+        - glossario-frontend
+        - links-frontend
+        - site-admin
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/auth/me:
+    get:
+      operationId: getapi_auth_me
+      summary: "Consulta api auth me"
+      x-artificio-owner: accounts
+      x-artificio-scope: cross-app
+      x-artificio-status: active
+      x-artificio-auth: user
+      x-artificio-consumers:
+        - mesas-frontend
+        - glossario-frontend
+        - links-frontend
+        - site-admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/auth/refresh:
+    get:
+      operationId: getapi_auth_refresh
+      summary: "Consulta api auth refresh"
+      x-artificio-owner: accounts
+      x-artificio-scope: cross-app
+      x-artificio-status: active
+      x-artificio-auth: user
+      x-artificio-consumers:
+        - mesas-frontend
+        - glossario-frontend
+        - links-frontend
+        - site-admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /conta:
+    get:
+      operationId: getconta
+      summary: "Consulta conta"
+      x-artificio-owner: accounts
+      x-artificio-scope: public-page
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /health:
+    get:
+      operationId: gethealth
+      summary: "Consulta health"
+      x-artificio-owner: accounts
+      x-artificio-scope: internal
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /login:
+    get:
+      operationId: getlogin
+      summary: "Consulta login"
+      x-artificio-owner: accounts
+      x-artificio-scope: public-page
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno

@@ -10,7 +10,7 @@ import type {
 import { z } from 'zod';
 import { authenticatedFetch } from '../../../services/apiClient';
 
-const BASE = '/api/v1/admin/inbox';
+const BASE = '/api/v1/admin/import';
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await authenticatedFetch(`${BASE}${path}`, options || {});

@@ -50,6 +50,8 @@ Comandos uteis:
 - `pnpm run lint` — ESLint repo-wide
 - `pnpm run test` — vitest repo-wide (via turbo)
 - `pnpm run build` — turbo build repo-wide (cobre tsc)
+- `pnpm verify:api` — governança de API para mudanças em `apps/**`, `packages/**`, `scripts/api/**`, `docs/api/openapi/**` ou allowlist
+- **Descoberta de API (agentes):** fonte primária = `docs/api/generated/artificio-api.bundle.json` (índice único machine-readable: app/método/path/scope/auth/consumidores) + `docs/api/generated/api-index.generated.md` (navegável). Gerados por `pnpm api:bundle`. Proibido usar memória de chat ou mapa manual como fonte primária de rota. Detalhe: `docs/api/README.md`.
 - `rg "termo" apps packages -n` — busca textual com numero de linha
 - `rg -l "termo" apps packages` — so lista arquivos (economiza contexto)
 - `rg --files apps packages` — lista todos arquivos monitorados

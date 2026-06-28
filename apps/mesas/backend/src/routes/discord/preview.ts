@@ -68,7 +68,7 @@ router.post('/preview', requireAdmin, async (req: Request, res: Response) => {
 
     return res.json({ data: buildPreviewFromExport(exportData) });
   } catch (error: unknown) {
-    respondPreviewError(res, error, '/admin/discord-sync/import-json/preview');
+    respondPreviewError(res, error, '/admin/discord/import-json/preview');
   }
 });
 
@@ -90,7 +90,7 @@ router.post('/preview/file', requireAdmin, uploadJsonFile, async (req: Request, 
     return res.json({ data: buildPreviewFromExport(exportData) });
   } catch (error: unknown) {
     // Erros do multer (LIMIT_FILE_SIZE / fileFilter) já são tratados em uploadJsonFile.
-    respondPreviewError(res, error, '/admin/discord-sync/import-json/preview/file');
+    respondPreviewError(res, error, '/admin/discord/import-json/preview/file');
   }
 });
 

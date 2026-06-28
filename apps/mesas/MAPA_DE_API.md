@@ -1,4 +1,47 @@
-# Mapa Canônico da API (backend/src/routes) vs Frontend
+# Mapa da API — DEPRECATED
+
+> **⚠️  Este documento está DEPRECATED desde 2026-06-27 (spec 055).**
+> Não é mais a fonte primária do inventário de rotas.
+> Agentes de IA **não devem** usar este arquivo como referência para implementação ou auditoria.
+
+## Fontes canônicas (use estas)
+
+| Fonte | Localização | Descrição |
+|-------|-------------|-----------|
+| **Contratos OpenAPI** | `docs/api/openapi/*.openapi.yaml` | Schemas canônicos com metadados `x-artificio-*` (owner, scope, auth, status, consumers) |
+| **Mapa gerado** | `docs/api/generated/api-map.generated.md` | Inventário sempre atualizado a partir do código real (script `api:inventory`) |
+| **Comparador 3-way** | `pnpm api:check` | Compara código × OpenAPI × consumidores e gera relatório de divergência |
+| **Docs completos** | `docs/api/README.md` | Documentação completa da governança de APIs do monorepo |
+
+## Comandos para consulta
+
+```bash
+# 1. Regenerar inventário (sempre atualizado)
+pnpm api:inventory
+
+# 2. Regenerar scan de consumidores
+pnpm api:consumers
+
+# 3. Validar OpenAPI
+pnpm api:lint
+
+# 4. Comparar código × OpenAPI × consumidores
+pnpm api:check
+
+# 5. Ver documentação visual
+pnpm api:docs   # gera HTML em docs/api/generated/mesas-api-docs.html
+```
+
+## Conteúdo legado mantido para referência histórica
+
+O conteúdo abaixo foi o mapa manual mantido até junho/2026.
+Pode conter informações desatualizadas ou incorretas.
+**Não usar como fonte primária.**
+
+---
+
+<!-- CONTEÚDO LEGADO PRESERVADO ABAIXO -->
+<!-- ===================================== -->
 
 > **OBRIGATÓRIO:** Toda nova rota adicionada ou removida da API **deve** ser refletida neste documento. Agentes de IA estão proibidos de concluir tarefas de backend sem atualizar este arquivo.
 
@@ -179,30 +222,30 @@
 
 | Metodo | Endpoint | Status | Chamado por (Frontend) |
 |---|---|---|---|
-| **GET** | `/admin/discord-sync/settings` | 🔧 Impl. | DiscordSettingsPanel.tsx — status mascarado do token do bot |
-| **PUT** | `/admin/discord-sync/settings/bot-token` | 🔧 Impl. | DiscordSettingsPanel.tsx — salva token cifrado |
-| **DELETE** | `/admin/discord-sync/settings/bot-token` | 🔧 Impl. | DiscordSettingsPanel.tsx — remove token salvo |
-| **GET** | `/admin/discord-sync/discovery/guilds` | 🔧 Impl. | DiscordSourceList.tsx — lista servidores acessíveis ao bot |
-| **GET** | `/admin/discord-sync/discovery/guilds/:guildId/channels` | 🔧 Impl. | DiscordSourceList.tsx — lista canais textuais/announcement/forum do servidor; retorna `kind` (`text`, `announcement`, `forum`) |
-| **GET** | `/admin/discord-sync/sources` | 🔧 Impl. | DiscordSourceList.tsx |
-| **POST** | `/admin/discord-sync/sources` | 🔧 Impl. | DiscordSourceList.tsx — aceita `channel_type` opcional (`text`, `announcement`, `forum`) |
-| **PATCH** | `/admin/discord-sync/sources/:id` | 🔧 Impl. | DiscordSourceList.tsx |
-| **DELETE** | `/admin/discord-sync/sources/:id` | 🔧 Impl. | DiscordSourceList.tsx |
-| **POST** | `/admin/discord-sync/fetch` | 🔧 Impl. | DiscordSyncPanel.tsx — dispara ingestão REST de canal textual/anúncio ou varredura de posts/threads de fórum; aceita `since`/`until` para janela temporal |
-| **POST** | `/admin/discord-sync/sources/:sourceId/reingest-force` | 🔧 Impl. | DiscordSyncPanel.tsx — reingere uma fonte após apagar mensagens não sincronizadas |
-| **GET** | `/admin/discord-sync/messages` | 🔧 Impl. | DiscordSyncPanel.tsx — filtros: `source_id`, `status`, `limit`, `offset`; mensagens de fórum incluem `discord_thread_id`, `discord_parent_channel_id`, `discord_thread_name` |
-| **PATCH** | `/admin/discord-sync/messages/:id` | 🔧 Impl. | DiscordSyncPanel.tsx — atualiza status de triagem da mensagem importada |
-| **POST** | `/admin/discord-sync/messages/:id/diagnose-content` | 🔧 Impl. local | DiscordSyncPanel.tsx — consulta a API Discord para comparar tamanho do corpo no banco vs API e diagnosticar `MESSAGE_CONTENT`/permissões sem expor token |
-| **POST** | `/admin/discord-sync/messages/:id/parse` | 🔧 Impl. | DiscordSyncPanel.tsx — parseia uma mensagem e cria/atualiza draft idempotente |
-| **POST** | `/admin/discord-sync/messages/parse-batch` | 🔧 Impl. | DiscordSyncPanel.tsx — processa mensagens pendentes/erro em lote |
-| **GET** | `/admin/discord-sync/drafts` | 🔧 Impl. | DiscordDraftReviewTable.tsx — filtros: `status`, `limit`, `offset` |
-| **GET** | `/admin/discord-sync/drafts/:id` | 🔧 Impl. | DiscordDraftPreview.tsx |
-| **GET** | `/admin/discord-sync/image-uploads/summary` | 🔧 Impl. | DiscordDraftPreview.tsx — resumo operacional dos uploads de imagem (`pending`, `success`, `expired_url`, `network`, `cloudinary`, `permanent_fail`) |
-| **PATCH** | `/admin/discord-sync/drafts/:id` | 🔧 Impl. | DiscordDraftPreview.tsx — edita `normalized_payload`, `status`, `review_notes`; usado pelo editor estruturado para salvar campos e marcar `ready` somente quando completo |
-| **POST** | `/admin/discord-sync/drafts/:id/refresh-image` | 🔧 Impl. | DiscordDraftPreview.tsx — força novo download da imagem Discord e upload para Cloudinary; atualiza `cover_url` e `banner_url` se houver mesa sincronizada |
-| **POST** | `/admin/discord-sync/drafts/:id/reparse` | 🔧 Impl. | DiscordDraftPreview.tsx — reprocessa mensagem pelo parser e atualiza draft |
-| **POST** | `/admin/discord-sync/drafts/:id/sync` | 🔧 Impl. | DiscordDraftPreview.tsx — sincroniza draft para `tables` em status `draft`; retorna 422 se status não for `ready` ou se faltarem título, descrição, sistema, tipo, modalidade, preço, vagas, contato, dia ou horário |
-| **POST** | `/admin/discord-sync/sync-ready` | 🔧 Impl. | DiscordSyncPanel.tsx — sincroniza todos os drafts `ready` em lote, respeitando a mesma validação de campos obrigatórios |
+| **GET** | `/admin/discord/settings` | 🔧 Impl. | DiscordSettingsPanel.tsx — status mascarado do token do bot |
+| **PUT** | `/admin/discord/settings/bot-token` | 🔧 Impl. | DiscordSettingsPanel.tsx — salva token cifrado |
+| **DELETE** | `/admin/discord/settings/bot-token` | 🔧 Impl. | DiscordSettingsPanel.tsx — remove token salvo |
+| **GET** | `/admin/discord/discovery/guilds` | 🔧 Impl. | DiscordSourceList.tsx — lista servidores acessíveis ao bot |
+| **GET** | `/admin/discord/discovery/guilds/:guildId/channels` | 🔧 Impl. | DiscordSourceList.tsx — lista canais textuais/announcement/forum do servidor; retorna `kind` (`text`, `announcement`, `forum`) |
+| **GET** | `/admin/discord/sources` | 🔧 Impl. | DiscordSourceList.tsx |
+| **POST** | `/admin/discord/sources` | 🔧 Impl. | DiscordSourceList.tsx — aceita `channel_type` opcional (`text`, `announcement`, `forum`) |
+| **PATCH** | `/admin/discord/sources/:id` | 🔧 Impl. | DiscordSourceList.tsx |
+| **DELETE** | `/admin/discord/sources/:id` | 🔧 Impl. | DiscordSourceList.tsx |
+| **POST** | `/admin/discord/fetch` | 🔧 Impl. | DiscordSourceList (via IntegracoesSection.tsx) — dispara ingestão REST de canal textual/anúncio ou varredura de posts/threads de fórum; aceita `since`/`until` para janela temporal |
+| **POST** | `/admin/discord/sources/:sourceId/reingest-force` | 🔧 Impl. | DiscordSourceList (via IntegracoesSection.tsx) — reingere uma fonte após apagar mensagens não sincronizadas |
+| **GET** | `/admin/discord/messages` | 🔧 Impl. | MessagesView.tsx — filtros: `source_id`, `status`, `limit`, `offset`; mensagens de fórum incluem `discord_thread_id`, `discord_parent_channel_id`, `discord_thread_name` |
+| **PATCH** | `/admin/discord/messages/:id` | 🔧 Impl. | MessagesView.tsx — atualiza status de triagem da mensagem importada |
+| **POST** | `/admin/discord/messages/:id/diagnose-content` | 🔧 Impl. local | MessagesView.tsx — consulta a API Discord para comparar tamanho do corpo no banco vs API e diagnosticar `MESSAGE_CONTENT`/permissões sem expor token |
+| **POST** | `/admin/discord/messages/:id/parse` | 🔧 Impl. | MessagesView.tsx — parseia uma mensagem e cria/atualiza draft idempotente |
+| **POST** | `/admin/discord/messages/parse-batch` | 🔧 Impl. | MessagesView.tsx — processa mensagens pendentes/erro em lote |
+| **GET** | `/admin/discord/drafts` | 🔧 Impl. | DiscordDraftReviewTable.tsx — filtros: `status`, `limit`, `offset` |
+| **GET** | `/admin/discord/drafts/:id` | 🔧 Impl. | DiscordDraftPreview.tsx |
+| **GET** | `/admin/discord/image-uploads/summary` | 🔧 Impl. | DiscordDraftPreview.tsx — resumo operacional dos uploads de imagem (`pending`, `success`, `expired_url`, `network`, `cloudinary`, `permanent_fail`) |
+| **PATCH** | `/admin/discord/drafts/:id` | 🔧 Impl. | DiscordDraftPreview.tsx — edita `normalized_payload`, `status`, `review_notes`; usado pelo editor estruturado para salvar campos e marcar `ready` somente quando completo |
+| **POST** | `/admin/discord/drafts/:id/refresh-image` | 🔧 Impl. | DiscordDraftPreview.tsx — força novo download da imagem Discord e upload para Cloudinary; atualiza `cover_url` e `banner_url` se houver mesa sincronizada |
+| **POST** | `/admin/discord/drafts/:id/reparse` | 🔧 Impl. | DiscordDraftPreview.tsx — reprocessa mensagem pelo parser e atualiza draft |
+| **POST** | `/admin/discord/drafts/:id/sync` | 🔧 Impl. | DiscordDraftPreview.tsx — sincroniza draft para `tables` em status `draft`; retorna 422 se status não for `ready` ou se faltarem título, descrição, sistema, tipo, modalidade, preço, vagas, contato, dia ou horário |
+| **POST** | `/admin/discord/sync-ready` | 🔧 Impl. | DiscordDraftReviewTable.tsx — sincroniza todos os drafts `ready` em lote, respeitando a mesma validação de campos obrigatórios |
 
 ### ACTIVITYLOG (`routes/activityLog.ts`)
 | Metodo | Endpoint | Status | Chamado por (Frontend) |
