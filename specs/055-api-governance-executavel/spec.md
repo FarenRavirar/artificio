@@ -5,7 +5,7 @@
 - **Tipo:** **SDD Completo**. Toca governança, CI, contratos de API, documentação operacional e múltiplos apps.
 - **Origem:** mantenedor 2026-06-27 — `MAPA_DE_API.md` manual nunca é lembrado por agentes; governança em Markdown/AGENTS não é suficiente. Precisa de mecanismo executável e bloqueante.
 - **Autor do plano:** Claude Code. **Implementação:** DeepSeek, em sessão futura, sem commit/push/PR sem autorização nominal.
-- **Status:** fechável em modo inicial (2026-06-28). Implementada e validada; débitos remanescentes aceitos para evolução/mode estrito.
+- **Status:** implementada e em modo estrito (2026-06-28). `pnpm verify:api` exit 0 com allowlist vazia. CI bloqueia regressões novas (CODE_ONLY, CONSUMER_ONLY high, breaking changes). Débitos remanescentes não bloqueiam operação.
 
 ---
 
@@ -83,6 +83,8 @@ docs/api/generated/api-consumers.generated.json
 docs/api/generated/api-drift.generated.md
 docs/api/generated/api-orphans.generated.md
 docs/api/generated/api-traffic.generated.json
+docs/api/generated/artificio-api.bundle.json
+docs/api/generated/api-index.generated.md
 ```
 
 Arquivos em `generated/` são derivados. Não são editados à mão.
@@ -103,14 +105,19 @@ OpenAPI é fonte técnica de contrato. Markdown é visualização derivada.
 ```txt
 pnpm api:inventory
 pnpm api:consumers
+pnpm api:generate-openapi
+pnpm api:bundle
 pnpm api:lint
 pnpm api:diff
 pnpm api:traffic
 pnpm api:check
+pnpm api:check:strict
 pnpm api:docs
+pnpm verify:api
+pnpm verify:api:full
 ```
 
-`api:check` é o comando agregador para CI.
+`api:check --strict` e `verify:api` são os comandos agregadores para CI (modo estrito).
 
 ## Classificação obrigatória de rotas
 
@@ -203,7 +210,7 @@ Toda rota `cross-app` precisa:
 - estabilidade;
 - regra de breaking change.
 
-## Modo inicial
+## Modo estrito (ativo desde 2026-06-28)
 
 CI falha quando:
 
@@ -213,26 +220,21 @@ CI falha quando:
 - rota nova aparece sem classificação mínima;
 - consumidor chama rota inexistente claramente;
 - documentação visual não renderiza quando o comando for exigido;
-- diff técnico falha.
+- diff técnico falha (breaking changes bloqueiam);
+- allowlist não está vazia (`--strict`);
+- artefatos gerados desatualizados (não commitados).
 
-CI **não falha ainda** para:
+## Modo estrito (histórico — implementado)
 
-- divergências legadas já existentes;
-- rotas órfãs suspeitas herdadas;
-- payload/resposta incompletos.
-
-Esses viram relatório/débito.
-
-## Modo estrito
-
-Depois da estabilização:
+Entregue em 2026-06-28 (Fase 11, Lotes A-C):
 
 - rota `CODE_ONLY` nova bloqueia PR;
 - rota `CONTRACT_ONLY` bloqueia PR salvo `deprecated/legacy` justificado;
 - `CONSUMER_ONLY` bloqueia PR;
 - `BREAKING_CHANGE` bloqueia sem aprovação explícita;
 - `DUPLICATE_SUSPECT` bloqueia rota nova sem justificativa;
-- rota `provisional` antiga bloqueia até ganhar contrato ou virar débito aprovado.
+- allowlist vazia obrigatória (`api:check --strict`);
+- artefatos desatualizados bloqueiam PR.
 
 ## Critérios de aceite
 
@@ -240,9 +242,9 @@ Depois da estabilização:
 2. Inventário automático cobre `accounts`, `mesas`, `glossario`, `links`.
 3. OpenAPI mínimo existe e passa lint.
 4. `api:check` compara código, OpenAPI e consumidores.
-5. Rotas novas sem classificação são barradas no modo inicial.
+5. Rotas novas sem classificação são barradas (modo estrito ativo).
 6. Relatório de órfãs e duplicadas é gerado.
-7. CI roda `api:check` em PR.
+7. CI roda `api:check --strict` e `api:diff` em PR (bloqueante).
 8. README operacional explica fluxo para humanos e agentes.
 9. Nenhum endpoint, payload, auth ou resposta muda por esta spec.
 10. Débitos de cobertura incompleta ficam registrados em `debitos.md` e `specs/backlog.md`.
@@ -255,7 +257,7 @@ Depois da estabilização:
 - Remover rota órfã automaticamente.
 - Inventar payload/resposta no OpenAPI.
 - Publicar docs privadas em rota pública.
-- Endurecer CI para todo legado antes dos relatórios estabilizarem.
+- Endurecer CI para todo legado antes dos relatórios estabilizarem. ✅ Concluído (2026-06-28): modo estrito ativo, allowlist vazia.
 
 ## Impacto em API
 
@@ -271,10 +273,11 @@ Depois da estabilização:
 
 Verificações obrigatórias após implementação:
 
-- [ ] `pnpm api:inventory`
-- [ ] `pnpm api:consumers`
-- [ ] `pnpm api:lint`
-- [ ] `pnpm api:diff`
-- [ ] `pnpm api:check`
-- [ ] documentação visual conferida
-- [ ] divergências registradas
+- [x] `pnpm api:inventory`
+- [x] `pnpm api:consumers`
+- [x] `pnpm api:lint`
+- [x] `pnpm api:diff`
+- [x] `pnpm api:check --strict`
+- [x] documentação visual conferida
+- [x] divergências registradas
+- [x] `pnpm verify:api` exit 0

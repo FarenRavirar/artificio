@@ -8,10 +8,10 @@ rules:
   # ========== Regras built-in desligadas ==========
   # Os OpenAPI atuais são MÍNIMOS (só paths + x-artificio-*).
   # Regras que exigem schemas completos, responses, operationIds etc. precisam ser desligadas.
-  operation-2xx-response: off
+  operation-2xx-response: error
   operation-4xx-response: off
-  operation-operationId: off
-  operation-summary: off
+  operation-operationId: error
+  operation-summary: error
   operation-description: off
   info-contact: off
   info-license: off
@@ -24,7 +24,7 @@ rules:
   path-segment-plural: off
   no-empty-servers: off
   security-defined: off
-  path-parameters-defined: off
+  path-parameters-defined: error
 
   # ========== Regras custom x-artificio-* (configurable rules) ==========
   # Todas as regras abaixo validam metadados obrigatórios definidos na spec 055.

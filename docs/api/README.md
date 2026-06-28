@@ -56,10 +56,12 @@ Validação:
 | `pnpm api:check` | Compara código × OpenAPI × consumidores (agregador — `api-drift.generated.md`) |
 | `pnpm api:check --generate-allowlist` | Bootstrap da allowlist de divergências legadas |
 | `pnpm api:traffic` | Importa HAR/JSON de tráfego observado (`api-traffic.generated.json`) |
+| `pnpm api:traffic:smoke` | Gera HAR por smoke Playwright quando `docs/api/api-smoke-routes.json` existir |
 | `pnpm api:diff` | Detecta breaking changes entre versões do OpenAPI (`api-diff.generated.md`) |
 | `pnpm api:docs` | Gera documentação visual HTML (`{app}-api-docs.html`) |
 | `pnpm api:generate-openapi` | Regenera OpenAPI YAMLs a partir do inventário |
 | `pnpm api:bundle` | Gera bundle único + índice para agentes (`artificio-api.bundle.json` + `api-index.generated.md`) |
+| `pnpm api:mcp` | Expõe o bundle como servidor MCP stdio (`search_api`, `get_api_bundle_summary`) |
 | `pnpm api:check --strict` | Modo estrito: exige allowlist vazia (qualquer entry → exit 1). Só ligar no CI após verde comprovado |
 | `pnpm verify:api` | Validação padrão de governança de API para desenvolvimento/PR |
 | `pnpm verify:api:full` | Validação completa local, incluindo tráfego observado e docs HTML |
@@ -98,6 +100,21 @@ pnpm verify:api:full
 ```
 
 Esse modo adiciona `pnpm api:traffic` e `pnpm api:docs`.
+
+## MCP de descoberta para agentes
+
+Para clientes MCP que aceitam servidor stdio, use:
+
+```bash
+pnpm api:mcp
+```
+
+Ferramentas expostas:
+
+- `search_api` — busca por `query`, `app`, `method`, `limit`.
+- `get_api_bundle_summary` — retorna total e distribuição por app.
+
+O servidor lê somente `docs/api/generated/artificio-api.bundle.json`. Se o bundle estiver desatualizado, rode `pnpm verify:api`.
 
 ## Hook local de pre-push
 

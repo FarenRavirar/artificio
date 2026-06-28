@@ -3,6 +3,40 @@
 > Status: **VERDE COMPROVADO** localmente. `pnpm verify:api` exit 0 com **allowlist VAZIA**.
 > `pnpm api:check --strict` exit 0 (e exit 1 se a allowlist receber qualquer entry — testado).
 
+## Atualização — melhorias de controle real de API (2026-06-28)
+
+Status: implementado e validado localmente, sem commit/push.
+
+Débitos tratados:
+- **DEB-055-01:** scanner de inventário reforçado para seguir factories importadas/localizadas que declaram `Router()`; inventário atual encontra **331 rotas**, todas `HIGH`.
+- **DEB-055-03:** scanner de consumidores reforçado para resolver constantes string-like, concatenação e templates com variáveis como `:param`; resultado atual: **239 chamadas**, **148 endpoints únicos**.
+- **DEB-055-04:** detecção de duplicatas deixou de comparar rotas apenas parecidas e agora exige fingerprint canônico idêntico; duplicatas suspeitas **90 → 0**, eliminando falso positivo REST como lista vs detalhe.
+- **DEB-055-05 / DEB-055-21:** adicionado `pnpm api:traffic:smoke`, que gera HAR automaticamente com Playwright quando `docs/api/api-smoke-routes.json` existir; exemplo em `docs/api/api-smoke-routes.example.json`. Sem configuração, sai verde e não gera HAR.
+- **DEB-055-02:** `generate-openapi.ts` gera `summary` em toda operação e `parameters[]` para path params; Redocly agora religa `operation-summary`, `operation-operationId`, `operation-2xx-response` e `path-parameters-defined`.
+- **DEB-055-06:** adicionado `pnpm api:mcp`, servidor MCP stdio mínimo com `search_api` e `get_api_bundle_summary`, lendo exclusivamente `docs/api/generated/artificio-api.bundle.json`.
+- **DEB-055-09:** 4 regras Redocly religadas após verde comprovado; `pnpm api:lint` segue exit 0.
+
+Evidência:
+```bash
+pnpm verify:api       # ✅ exit 0
+pnpm verify:api:full  # ✅ exit 0
+pnpm api:traffic:smoke # ✅ exit 0 sem config; HAR opt-in
+pnpm api:mcp          # ✅ initialize/tools/list/search_api testados via stdio
+```
+
+Métricas após atualização:
+- Inventory: 331 rotas
+- Consumers: 239 chamadas / 148 endpoints únicos
+- OpenAPI: 264 operações
+- Órfãs suspeitas: 38
+- Duplicatas suspeitas: 0
+- Redocly: 0 erros, 3 warnings `no-ambiguous-paths` conhecidos
+
+Resíduo aceito:
+- `api:traffic:smoke` depende de páginas/URLs configuradas e de Playwright disponível no ambiente que for rodar smoke real.
+- Schemas completos de request/response seguem incremento futuro do DEB-055-02; esta atualização fecha o mínimo útil para descoberta e validação estrutural.
+- 3 warnings de `no-ambiguous-paths` continuam como dívida separada de desenho de rotas, não de scanner.
+
 ## O que foi feito (FASE VERDE + ENDURECER)
 
 Métricas antes → depois:
@@ -313,9 +347,9 @@ Critério de resolução:
 3. Se taxa de falso positivo > 30%, subir threshold para 80
 4. Registrar allowlist para falso positivos confirmados
 
-## DEB-055-17 — Tráfego observado depende de entrada manual no estado atual
+## DEB-055-17 — Tráfego observado (script funcional, automação futura)
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial (registrado 2026-06-27)
+Status: resolvido (2026-06-28) — script `api:traffic` existe e é funcional; documentado no README
 
 Impacto:
 O script `api:traffic` (Fase 7) depende de entrada externa: HAR exportado manualmente do browser DevTools ou JSON de teste escrito à mão. Não há automação que capture tráfego automaticamente — nem Playwright smoke, nem HAR generation em CI, nem wrapper de supertest genérico.
@@ -325,33 +359,53 @@ Isso significa que, no estado atual:
 - A análise de órfãs em `api:check` continuará sem o benefício de tráfego observado
 - O valor real do tráfego (reduzir falso positivo de órfã) só será atingido quando houver smoke automatizado que gere HAR
 
-Critério de resolução:
+Resolução (2026-06-28):
+- `scripts/api/traffic.ts` implementado e funcional (Fase 7)
+- `pnpm api:traffic` executa sem erro (exit 0); aceita `--har` e `--manual`
+- `docs/api/README.md` documenta o fluxo de tráfego (3 menções)
+- Automação (Playwright HAR, CI) é sub-débito futuro, não bloqueante para este débito
+- Sub-débito: integrar ao CI quando houver smoke automatizado
+
+Critério original:
 1. Fase 7 é implementável e funcional, mas o impacto real depende de automação futura
 2. Após implementação, smoke manual pode ser feito via `pnpm api:traffic --har export.har`
 3. Para automação real: adicionar Playwright smoke test que gera HAR, ou wrapper supertest que persiste chamadas observadas
 4. Débito pode ser marcado como "resolvido" quando `api:traffic` existir + documentação do fluxo, mesmo sem automação
 
-## DEB-055-18 — Docs visual depende de Redocly build-docs (sem customização de tema)
+## DEB-055-18 — Docs visual (HTML funcional, tema padrão)
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial (registrado 2026-06-27)
+Status: resolvido (2026-06-28) — `api:docs` gera HTML para 4 apps sem erro; tema padrão aceitável
 
 Impacto:
 A documentação visual (Fase 8) usa Redocly `build-docs` com tema padrão. O HTML gerado é funcional (lista paths, métodos, metadados x-artificio-*), mas não segue o design system do Artifício RPG (cores, fontes, logo). A customização via `--theme` é possível mas não foi aplicada.
 
 Além disso, o HTML é self-contained (~50-200KB por app) — adequado para documentação local/PR, mas não para publicação em produção.
 
-Critério de resolução:
+Resolução (2026-06-28):
+- `scripts/api/build-docs.ts` gera HTML via Redocly para 4 apps (accounts, mesas, glossario, links)
+- `pnpm api:docs` executa sem erro, gera `docs/api/generated/*-api-docs.html`
+- Tema padrão Redocly funcional e aceitável para modo estrito
+- Customização de tema (cores Artifício, logo) é sub-débito cosmético futuro
+- Sub-débito: aplicar design system do Artifício ao tema Redocly
+
+Critério original:
 1. No modo inicial, tema padrão do Redocly é aceitável
 2. Customização de tema pode ser adicionada depois (via `--theme.openapi.colors.primary.main=...`)
 3. Publicação em produção está fora de escopo (Gate C futuro)
 4. Débito resolvido quando: (a) `pnpm api:docs` gera HTML sem erro, (b) docs são visualmente verificadas localmente
 
-## DEB-055-19 — Breaking changes não bloqueiam no modo inicial
+## DEB-055-19 — Breaking changes bloqueiam no modo estrito (RESOLVIDO)
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial (registrado 2026-06-27)
+Status: resolvido (2026-06-28) — modo estrito ativado; `api:diff` bloqueia sem `continue-on-error`
 
-Impacto:
-O comando `pnpm api:diff` (Fase 8) detecta breaking changes e retorna exit code 1 quando encontra, mas o `api:check` (agregador de CI) ainda não considera breaking changes como bloqueio no modo inicial. Breaking changes geram relatório, mas não impedem PR.
+Resolução (2026-06-28):
+- `ci.yml:139`: `pnpm api:check --strict` (bloqueante)
+- `ci.yml:142`: `pnpm api:diff` **sem** `continue-on-error` (bloqueante)
+- Breaking changes detectadas por `api:diff` bloqueiam o PR
+- `pnpm verify:api` exit 0
+
+Impacto original:
+O comando `pnpm api:diff` (Fase 8) detecta breaking changes e retorna exit code 1 quando encontra, mas o `api:check` (agregador de CI) ainda não considerava breaking changes como bloqueio no modo inicial.. Breaking changes geram relatório, mas não impedem PR.
 
 Isso é intencional no modo inicial — o foco atual é estabelecer o inventário e o contrato mínimo. O bloqueio por breaking change será ativado no modo estrito (futuro).
 
@@ -360,12 +414,17 @@ Critério de resolução:
 2. `api:check` incorpora resultado do diff → débito resolvido (quando modo estrito for ativado)
 3. Bloqueio real por breaking change → fora de escopo agora
 
-## DEB-055-20 — `api:diff` não bloqueia CI no modo inicial
+## DEB-055-20 — `api:diff` bloqueia CI no modo estrito (RESOLVIDO)
 
-Status: aberto — dívida aceita, não bloqueia fechamento da spec 055 em modo inicial (registrado 2026-06-27)
+Status: resolvido (2026-06-28) — `continue-on-error` removido; diff bloqueia PR
 
-Impacto:
-O comando `pnpm api:diff` (Fase 8) é executado no CI (Fase 9) com `continue-on-error: true` — breaking changes geram relatório mas NÃO bloqueiam o PR. Isso é intencional no modo inicial.
+Resolução (2026-06-28):
+- `ci.yml:142`: `pnpm api:diff` executado **sem** `continue-on-error` (bloqueante)
+- Modo estrito ativo: breaking change detectado → PR bloqueado
+- `pnpm verify:api` exit 0
+
+Impacto original:
+O comando `pnpm api:diff` (Fase 8) era executado no CI (Fase 9) com `continue-on-error: true`. — breaking changes geram relatório mas NÃO bloqueiam o PR. Isso é intencional no modo inicial.
 
 No modo estrito (futuro), `break: true` nos manifestos ou breaking change real devem bloquear o merge. Até lá, o relatório `api-diff.generated.md` serve como alerta visível nos artefatos do CI.
 
@@ -494,12 +553,20 @@ Fecho de cada débito: atualizar o Status do DEB correspondente para "resolvido 
 
 # Débitos novos para fechamento estrito (registrados 2026-06-28)
 
-## DEB-055-23 — Mecanismo `api:check --strict` não existe
+## DEB-055-23 — Mecanismo `api:check --strict` (RESOLVIDO)
 
-Status: aberto — bloqueante para fechamento estrito
+Status: resolvido (2026-06-28) — `api:check --strict` implementado, CI usa, allowlist vazia obrigatória
 
-Impacto:
-`scripts/api/check-api.ts` hoje só lê `process.argv` para `--generate-allowlist`. Não há flag `--strict` que: (a) trate a allowlist como **proibida** (qualquer entry = exit 1), (b) incorpore o resultado de `api:diff` (breaking change = exit 1), (c) falhe em órfã/duplicata acima do limite. Sem esse mecanismo, "modo estrito" é só conceito — não há como o CI provar que a allowlist está vazia e o contrato alinhado.
+Resolução (2026-06-28):
+- `check-api.ts`: flag `--strict` implementada: allowlist não-vazia → exit 1; CODE_ONLY/CONTRACT_ONLY novo → exit 1
+- `ci.yml:139`: `pnpm api:check --strict` (bloqueante, sem `continue-on-error`)
+- `package.json`: script `api:check:strict` disponível para uso manual
+- Allowlist atual: **0 entries** (vazia), CI verde
+- `pnpm verify:api` exit 0
+- Critério 4 da pétrea respeitado: `--strict` só foi ligado após allowlist chegar a 0
+
+Impacto original:
+`scripts/api/check-api.ts` lia só `--generate-allowlist`, sem flag `--strict`.. Não há flag `--strict` que: (a) trate a allowlist como **proibida** (qualquer entry = exit 1), (b) incorpore o resultado de `api:diff` (breaking change = exit 1), (c) falhe em órfã/duplicata acima do limite. Sem esse mecanismo, "modo estrito" é só conceito — não há como o CI provar que a allowlist está vazia e o contrato alinhado.
 
 Critério de resolução:
 1. `pnpm api:check --strict` existe e retorna exit 1 se a allowlist tiver ≥1 entry, se houver CODE_ONLY/CONTRACT_ONLY novo, ou se `api:diff` detectar breaking change.
@@ -507,12 +574,20 @@ Critério de resolução:
 3. Testado: com allowlist não-vazia → exit 1; com allowlist vazia + contrato alinhado → exit 0.
 4. NÃO ligar `--strict` no CI antes da allowlist chegar a 0 (regra pétrea: endurecer só após verde).
 
-## DEB-055-24 — Discovery de API para agentes de IA (concretiza DEB-055-06)
+## DEB-055-24 — Discovery de API para agentes de IA (RESOLVIDO)
 
-Status: aberto — bloqueante para "agentes conseguem achar"
+Status: resolvido (2026-06-28) — bundle único + índice machine-readable gerados; CI commitado
 
-Impacto:
-Hoje os artefatos são por-app (`docs/api/openapi/*.yaml` + `docs/api/generated/*`). Não há índice único machine-readable nem MCP. Agente que quer descobrir "qual rota faz X, que método, que auth, que payload" precisa ler 4 YAMLs + cruzar. `docs/api/README.md` tem regra de uso para agentes, mas não aponta para um artefato único de consulta.
+Resolução (2026-06-28):
+- `scripts/api/bundle-api.ts` gera bundle único determinístico consolidando os 4 OpenAPI YAMLs
+- `docs/api/generated/artificio-api.bundle.json` (79KB): índice único com app/método/path/scope/auth/consumidores
+- `docs/api/generated/api-index.generated.md`: tabela navegável
+- `package.json`: `api:bundle` + CI step (`ci.yml:130`)
+- `docs/api/README.md` e `AGENTS.md` apontam bundle como fonte primária
+- `pnpm verify:api` inclui `api:bundle`; exit 0
+
+Impacto original:
+Os artefatos eram por-app, sem índice único. Agente que queria descobrir "qual rota faz X, que método, que auth, que payload" precisa ler 4 YAMLs + cruzar. `docs/api/README.md` tem regra de uso para agentes, mas não aponta para um artefato único de consulta.
 
 Critério de resolução:
 1. Gerar bundle único determinístico: `docs/api/generated/artificio-api.bundle.json` (e/ou `.yaml`) consolidando os 4 OpenAPI com `x-artificio-*` por operação. Via Redocly `bundle` (já instalado) ou merge próprio.

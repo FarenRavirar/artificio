@@ -20,8 +20,10 @@
     "api:check": "tsx scripts/api/check-api.ts",
     "api:check:strict": "tsx scripts/api/check-api.ts --strict",
     "api:traffic": "tsx scripts/api/traffic.ts",
+    "api:traffic:smoke": "tsx scripts/api/smoke-traffic.ts",
     "api:diff": "tsx scripts/api/diff-api.ts",
     "api:docs": "tsx scripts/api/build-docs.ts",
+    "api:mcp": "tsx scripts/api/api-mcp-server.ts",
     "verify:api": "tsx scripts/api/verify-api.ts",
     "verify:api:full": "tsx scripts/api/verify-api.ts --full",
     "prepare": "node scripts/git-hooks/install-hooks.mjs"

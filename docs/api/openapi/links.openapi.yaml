@@ -15,6 +15,7 @@ paths:
   /api/admin/v1/groups:
     get:
       operationId: getapi_admin_v1_groups
+      summary: "Consulta api admin v1 groups"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -25,6 +26,7 @@ paths:
   /api/admin/v1/groups/{id}:
     delete:
       operationId: deleteapi_admin_v1_groups_id
+      summary: "Remove api admin v1 groups id"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -40,6 +42,7 @@ paths:
           description: OK
     patch:
       operationId: patchapi_admin_v1_groups_id
+      summary: "Atualiza api admin v1 groups id"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -56,6 +59,7 @@ paths:
   /api/admin/v1/groups/{id}/accept:
     post:
       operationId: postapi_admin_v1_groups_id_accept
+      summary: "Cria ou executa api admin v1 groups id accept"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -72,6 +76,7 @@ paths:
   /api/admin/v1/groups/{id}/archive:
     post:
       operationId: postapi_admin_v1_groups_id_archive
+      summary: "Cria ou executa api admin v1 groups id archive"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -88,6 +93,7 @@ paths:
   /api/admin/v1/groups/rehydrate-logos:
     post:
       operationId: postapi_admin_v1_groups_rehydrate_logos
+      summary: "Cria ou executa api admin v1 groups rehydrate-logos"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -98,6 +104,7 @@ paths:
   /api/admin/v1/groups/rehydrate-logos/status:
     get:
       operationId: getapi_admin_v1_groups_rehydrate_logos_status
+      summary: "Consulta api admin v1 groups rehydrate-logos status"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -108,6 +115,7 @@ paths:
   /api/admin/v1/rebuild:
     post:
       operationId: postapi_admin_v1_rebuild
+      summary: "Cria ou executa api admin v1 rebuild"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -118,6 +126,7 @@ paths:
   /api/admin/v1/rebuild/status:
     get:
       operationId: getapi_admin_v1_rebuild_status
+      summary: "Consulta api admin v1 rebuild status"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -128,6 +137,7 @@ paths:
   /api/admin/v1/reports:
     get:
       operationId: getapi_admin_v1_reports
+      summary: "Consulta api admin v1 reports"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -138,6 +148,7 @@ paths:
   /api/admin/v1/reports/{id}:
     patch:
       operationId: patchapi_admin_v1_reports_id
+      summary: "Atualiza api admin v1 reports id"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -154,6 +165,7 @@ paths:
   /api/admin/v1/tags:
     get:
       operationId: getapi_admin_v1_tags
+      summary: "Consulta api admin v1 tags"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -163,6 +175,7 @@ paths:
           description: OK
     post:
       operationId: postapi_admin_v1_tags
+      summary: "Cria ou executa api admin v1 tags"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -173,6 +186,7 @@ paths:
   /api/admin/v1/tags/{id}:
     delete:
       operationId: deleteapi_admin_v1_tags_id
+      summary: "Remove api admin v1 tags id"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -188,6 +202,7 @@ paths:
           description: OK
     patch:
       operationId: patchapi_admin_v1_tags_id
+      summary: "Atualiza api admin v1 tags id"
       x-artificio-owner: links
       x-artificio-scope: admin
       x-artificio-status: active
@@ -204,6 +219,7 @@ paths:
   /api/groups:
     get:
       operationId: getapi_groups
+      summary: "Consulta api groups"
       x-artificio-owner: links
       x-artificio-scope: public
       x-artificio-status: active
@@ -214,6 +230,7 @@ paths:
   /api/groups/{slug}:
     get:
       operationId: getapi_groups_slug
+      summary: "Consulta api groups slug"
       x-artificio-owner: links
       x-artificio-scope: public
       x-artificio-status: active
@@ -230,6 +247,7 @@ paths:
   /api/groups/{slug}/report:
     post:
       operationId: postapi_groups_slug_report
+      summary: "Cria ou executa api groups slug report"
       x-artificio-owner: links
       x-artificio-scope: public
       x-artificio-status: active
@@ -246,6 +264,7 @@ paths:
   /api/groups/suggest:
     post:
       operationId: postapi_groups_suggest
+      summary: "Cria ou executa api groups suggest"
       x-artificio-owner: links
       x-artificio-scope: public
       x-artificio-status: active
@@ -256,6 +275,7 @@ paths:
   /api/tags:
     get:
       operationId: getapi_tags
+      summary: "Consulta api tags"
       x-artificio-owner: links
       x-artificio-scope: public
       x-artificio-status: active
@@ -266,6 +286,7 @@ paths:
   /grupo/{slug}:
     get:
       operationId: getgrupo_slug
+      summary: "Consulta grupo slug"
       x-artificio-owner: links
       x-artificio-scope: public
       x-artificio-status: active
@@ -282,6 +303,7 @@ paths:
   /healthz:
     get:
       operationId: gethealthz
+      summary: "Consulta healthz"
       x-artificio-owner: links
       x-artificio-scope: internal
       x-artificio-status: active

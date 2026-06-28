@@ -15,6 +15,7 @@ paths:
   /:
     get:
       operationId: get
+      summary: "Consulta raiz"
       x-artificio-owner: accounts
       x-artificio-scope: public
       x-artificio-status: active
@@ -60,6 +61,7 @@ paths:
   /api/auth/google:
     get:
       operationId: getapi_auth_google
+      summary: "Consulta api auth google"
       x-artificio-owner: accounts
       x-artificio-scope: public
       x-artificio-status: active
@@ -70,6 +72,7 @@ paths:
   /api/auth/google/callback:
     get:
       operationId: getapi_auth_google_callback
+      summary: "Consulta api auth google callback"
       x-artificio-owner: accounts
       x-artificio-scope: public
       x-artificio-status: active
@@ -80,6 +83,7 @@ paths:
   /api/auth/logout:
     post:
       operationId: postapi_auth_logout
+      summary: "Cria ou executa api auth logout"
       x-artificio-owner: accounts
       x-artificio-scope: cross-app
       x-artificio-status: active
@@ -95,6 +99,7 @@ paths:
   /api/auth/me:
     get:
       operationId: getapi_auth_me
+      summary: "Consulta api auth me"
       x-artificio-owner: accounts
       x-artificio-scope: cross-app
       x-artificio-status: active
@@ -110,6 +115,7 @@ paths:
   /api/auth/refresh:
     get:
       operationId: getapi_auth_refresh
+      summary: "Consulta api auth refresh"
       x-artificio-owner: accounts
       x-artificio-scope: cross-app
       x-artificio-status: active
@@ -125,6 +131,7 @@ paths:
   /conta:
     get:
       operationId: getconta
+      summary: "Consulta conta"
       x-artificio-owner: accounts
       x-artificio-scope: public
       x-artificio-status: active
@@ -135,6 +142,7 @@ paths:
   /health:
     get:
       operationId: gethealth
+      summary: "Consulta health"
       x-artificio-owner: accounts
       x-artificio-scope: internal
       x-artificio-status: active
@@ -145,6 +153,7 @@ paths:
   /login:
     get:
       operationId: getlogin
+      summary: "Consulta login"
       x-artificio-owner: accounts
       x-artificio-scope: public
       x-artificio-status: active

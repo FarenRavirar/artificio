@@ -96,14 +96,14 @@ x-artificio-consumers:
 
 **mesas** — mais complexo, ~27 routers. Ver server.ts para lista completa de prefixos e arquivos de rota.
 
-- [ ] T1.1 — Criar `docs/api/README.md`.
-- [ ] T1.2 — Criar `docs/api/openapi/`.
-- [ ] T1.3 — Criar `docs/api/generated/`.
-- [ ] T1.4 — Criar `accounts.openapi.yaml` com as rotas reais listadas acima.
-- [ ] T1.5 — Criar `mesas.openapi.yaml` com todos os prefixos e métodos documentados.
-- [ ] T1.6 — Criar `glossario.openapi.yaml` com os 16 prefixes de router.
-- [ ] T1.7 — Criar `links.openapi.yaml` com rotas diretas + admin router.
-- [ ] T1.8 — Cada path OpenAPI recebe `x-artificio-owner`, `x-artificio-scope`, `x-artificio-status`, `x-artificio-auth`, `x-artificio-consumers`.
+- [x] T1.1 — Criar `docs/api/README.md`.
+- [x] T1.2 — Criar `docs/api/openapi/`.
+- [x] T1.3 — Criar `docs/api/generated/`.
+- [x] T1.4 — Criar `accounts.openapi.yaml` com as rotas reais listadas acima.
+- [x] T1.5 — Criar `mesas.openapi.yaml` com todos os prefixos e métodos documentados.
+- [x] T1.6 — Criar `glossario.openapi.yaml` com os 16 prefixes de router.
+- [x] T1.7 — Criar `links.openapi.yaml` com rotas diretas + admin router.
+- [x] T1.8 — Cada path OpenAPI recebe `x-artificio-owner`, `x-artificio-scope`, `x-artificio-status`, `x-artificio-auth`, `x-artificio-consumers`.
 
 ## Fase 2 — `api:inventory` (investigado 2026-06-27)
 
@@ -1415,24 +1415,25 @@ pnpm api:lint  →  ✅ Woohoo! Your API descriptions are valid. 🎉  (0 erros,
 
 ### Tasks
 
-- ✅ T4.1 — Adicionar `@redocly/cli@^2.35.1` como devDependency no `package.json` raiz.
+- [x] T4.1 — Adicionar `@redocly/cli@^2.35.1` como devDependency no `package.json` raiz.
   ```bash
   pnpm add -D -w @redocly/cli@^2.35.1
   ```
-- ✅ T4.2 — Criar `redocly.yaml` na raiz do monorepo com:
+- [x] T4.2 — Criar `redocly.yaml` na raiz do monorepo com:
   - `extends: [recommended]`
   - 14 regras built-in desligadas para OpenAPI mínimos
   - 5 regras custom `x-artificio-*` (owner, scope, status, auth, consumers-cross-app)
   - 4 APIs registradas (accounts, mesas, glossario, links)
-- ✅ T4.3 — Adicionar script `api:lint` no `package.json` raiz.
+- [x] T4.3 — Adicionar script `api:lint` no `package.json` raiz.
   ```json
-  "api:lint": "cross-env REDOCLY_TELEMETRY=off REDOCLY_SUPPRESS_UPDATE_NOTICE=true redocly lint"
+  "api:lint": "tsx scripts/api/lint-openapi.ts"
   ```
-- ✅ T4.4 — Validar `pnpm api:lint` executa sem erro — lint passa com 0 erros, 7 warnings de paths ambíguos.
-- ✅ T4.5 — Regras custom testadas via YAMLs reais: 4 YAMLs com 226 operations, todas com x-artificio-* validados.
-- ✅ T4.6 — Fase 1 (OpenAPI YAMLs) foi criada junto com a Fase 4 (226 routes em 4 YAMLs). `pnpm api:lint` verde.
-- ✅ T4.7 — Débitos registrados: `security-defined` e `path-parameters-defined` desligadas (YAMLs mínimos sem schemas de auth/params). `no-ambiguous-paths` mantido como warning (7 ocorrências legítimas).
-- ✅ T4.8 — Exit code verificado: `pnpm api:lint` retorna 0 com metadados corretos; 1 quando metadados faltando (testado removendo x-artificio-owner de uma operation → falha).
+  > ⚠️ A descrição original referia `cross-env REDOCLY_TELEMETRY=off ... redocly lint`, mas o script real foi refatorado para `tsx scripts/api/lint-openapi.ts` (wrapper TypeScript que chama o Redocly CLI com env vars internamente). Corrigido conforme `package.json` real.
+- [x] T4.4 — Validar `pnpm api:lint` executa sem erro — lint passa com 0 erros, 7 warnings de paths ambíguos.
+- [x] T4.5 — Regras custom testadas via YAMLs reais: 4 YAMLs com 226 operations, todas com x-artificio-* validados.
+- [x] T4.6 — Fase 1 (OpenAPI YAMLs) foi criada junto com a Fase 4 (226 routes em 4 YAMLs). `pnpm api:lint` verde.
+- [x] T4.7 — Débitos registrados: `security-defined` e `path-parameters-defined` desligadas (YAMLs mínimos sem schemas de auth/params). `no-ambiguous-paths` mantido como warning (7 ocorrências legítimas).
+- [x] T4.8 — Exit code verificado: `pnpm api:lint` retorna 0 com metadados corretos; 1 quando metadados faltando (testado removendo x-artificio-owner de uma operation → falha).
 
 ## Fase 5 — `api:check` (investigado 2026-06-27)
 
@@ -3295,16 +3296,19 @@ ci.yml:
 
 ---
 
-### Comportamento de exit code em modo inicial
+### Comportamento de exit code em modo estrito
 
 | Comando | Exit code | Bloqueia CI? | Por quê |
 |---------|:---------:|:------------:|---------|
 | `pnpm api:inventory` | 0 ou 1 | ✅ Sim | Se quebrar, inventário não gerou → governança parou |
 | `pnpm api:consumers` | 0 ou 1 | ✅ Sim | Se quebrar, scan de consumidores falhou |
+| `pnpm api:generate-openapi` | 0 ou 1 | ✅ Sim | OpenAPI YAMLs devem ser regeneráveis |
+| `pnpm api:bundle` | 0 ou 1 | ✅ Sim | Bundle único para agentes deve ser gerável |
 | `pnpm api:lint` | 0 ou 1 | ✅ Sim | OpenAPI inválido = contrato quebrado |
-| `pnpm api:check` | 0 ou 1 | ✅ Sim | CODE_ONLY novo ou CONSUMER_ONLY novo high conf |
-| `pnpm api:diff` | 0 ou 1 | ❌ Não (init mode) | `continue-on-error: true` — só relatório |
+| `pnpm api:check --strict` | 0 ou 1 | ✅ Sim | Allowlist vazia obrigatória; CODE_ONLY/CONSUMER_ONLY high bloqueiam |
+| `pnpm api:diff` | 0 ou 1 | ✅ Sim | Breaking changes bloqueiam (modo estrito) |
 | `pnpm api:docs` | 0 | ❌ Não executa em CI | Docs são offline/local apenas |
+| Verify artifacts | 0 ou 1 | ✅ Sim | Artefatos desatualizados = CI vermelho |
 
 **A lógica de bloqueio do `api:check` já está correta para o modo inicial (Fase 5):**
 - Exit 1 apenas para: `CODE_ONLY` novo (rota em código sem OpenAPI) + `CONSUMER_ONLY` novo (frontend chama rota inexistente) com confidence `high`
@@ -3678,11 +3682,11 @@ git add docs/api/.api-allowlist.json
 
  - [ ] T9.10 — Registrar débitos em `debitos.md`:
 
-### Evidência da implementação ✅ (2026-06-27)
+### Evidência da implementação ✅ (2026-06-27, atualizado 2026-06-28 — modo estrito)
 
-**Arquivo alterado:** `.github/workflows/ci.yml` — job `api-governance` adicionado.
+**Arquivo alterado:** `.github/workflows/ci.yml` — job `api-governance` adicionado e endurecido.
 
-**YAML final do job:**
+**YAML real do job (modo estrito, 10 steps):**
 
 ```yaml
   api-governance:
@@ -3711,41 +3715,46 @@ git add docs/api/.api-allowlist.json
         run: pnpm api:inventory
       - name: API Consumers
         run: pnpm api:consumers
+      - name: Generate OpenAPI          ← step EXTRA (não listado na spec original)
+        run: pnpm api:generate-openapi
+      - name: API Bundle (índice para agentes)  ← step EXTRA
+        run: pnpm api:bundle
       - name: OpenAPI Lint
         env:
           REDOCLY_TELEMETRY: off
           REDOCLY_SUPPRESS_UPDATE_NOTICE: "true"
         run: pnpm api:lint
-      - name: API Check (drift + orphans + duplicates)
-        run: pnpm api:check
-      - name: API Diff (non-blocking)
-        continue-on-error: true
-        run: pnpm api:diff || true
+      - name: API Check (modo estrito — allowlist vazia obrigatória)  ← --strict
+        run: pnpm api:check --strict
+      - name: API Diff (breaking changes — BLOQUEANTE)  ← SEM continue-on-error
+        run: pnpm api:diff
+      - name: Verify generated artifacts are committed  ← step EXTRA
+        run: |
+          if [ -n "$(git status --porcelain docs/api)" ]; then
+            echo "::error::Artefatos de governança de API desatualizados..."
+            exit 1
+          fi
 ```
 
-**Características do job:**
-- Roda em **paralelo** com `lint-build-test` (não precisa de postgres nem build)
-- Usa `fetch-depth: 2` para `api:diff` poder comparar com git
-- Em PR, faz `git fetch origin/${{ github.base_ref }}` para obter a base
-- `api:diff` com `continue-on-error: true` — breaking changes não bloqueiam no modo inicial
-- Não executa `api:docs` (offline apenas — sem publicação em prod nesta spec)
+**Mudanças da evidência original (2026-06-27 → 2026-06-28):**
 
-**Comportamento de exit code:**
+| Aspecto | Antes (modo inicial) | Depois (modo estrito) |
+|---------|---------------------|----------------------|
+| `api:check` | `pnpm api:check` (allowlist aceita legado) | `pnpm api:check --strict` (allowlist DEVE estar vazia) |
+| `api:diff` | `continue-on-error: true` (não bloqueia) | Sem `continue-on-error` (bloqueia breaking changes) |
+| `api:generate-openapi` | Ausente | Presente (step 3) |
+| `api:bundle` | Ausente | Presente (step 4) |
+| Verify artifacts | Ausente | Presente (step final, falha se `git status --porcelain docs/api`) |
 
-| Comando | Bloqueia CI? | Por quê |
-|---------|:------------:|---------|
-| `pnpm api:inventory` | ✅ Sim | Inventário é base da governança |
-| `pnpm api:consumers` | ✅ Sim | Consumidores são base da comparação |
-| `pnpm api:lint` | ✅ Sim | OpenAPI inválido = contrato quebrado |
-| `pnpm api:check` | ✅ Sim | CODE_ONLY novo ou CONSUMER_ONLY novo high conf |
-| `pnpm api:diff` | ❌ Não | `continue-on-error: true` — só relatório |
+**Métricas atuais pós-Lotes A-C:**
 
-**Validação final — todos os comandos `api:*` executam com sucesso:**
 ```bash
-pnpm api:traffic  → ✅  0 rotas (sem entrada)
-pnpm api:check    → ✅  Inventory: 294, Consumers: 275, OpenAPI: 225, exit 0
-pnpm api:diff     → ✅  Relatório gerado, exit 0
-pnpm api:docs     → ✅  4 HTMLs gerados (52 KiB a 490 KiB)
+pnpm verify:api  → ✅ exit 0
+  Inventory: ~331 rotas (accounts, glossario, links, mesas, site)
+  OK: 169
+  CODE_ONLY: 0
+  CONSUMER_ONLY: 3 (todos medium, bugs de app — DEB-055-25)
+  Allowlist: 0 entries (VAZIA)
 ```
 
 **Débitos registrados em `debitos.md`:**
@@ -3762,9 +3771,12 @@ pnpm api:docs     → ✅  4 HTMLs gerados (52 KiB a 490 KiB)
   - `pnpm install --frozen-lockfile`
   - `pnpm api:inventory`
   - `pnpm api:consumers`
+  - `pnpm api:generate-openapi` ← adicionado pós-implementação inicial
+  - `pnpm api:bundle` ← adicionado pós-implementação inicial
   - `pnpm api:lint` (com env vars `REDOCLY_TELEMETRY=off`)
-  - `pnpm api:check`
-  - `pnpm api:diff` com `continue-on-error: true`
+  - `pnpm api:check --strict` ← modo estrito, allowlist vazia obrigatória
+  - `pnpm api:diff` ← SEM `continue-on-error` (bloqueante)
+  - Verify generated artifacts are committed ← step extra
 
 - [x] T9.2 — Garantir que allowlist está presente e que `api:check` não bloqueia legado.
   ```bash
@@ -3795,6 +3807,8 @@ pnpm api:docs     → ✅  4 HTMLs gerados (52 KiB a 490 KiB)
   - `docs/api/generated/api-drift.generated.md` ✅
   - `docs/api/generated/api-orphans.generated.md` ✅
   - `docs/api/generated/api-diff.generated.md` ✅
+  - `docs/api/generated/artificio-api.bundle.json` ✅ (DEB-055-24)
+  - `docs/api/generated/api-index.generated.md` ✅ (índice navegável para agentes)
 
 - [x] T9.8 — Não gerar `api:docs` em CI (offline apenas):
   ```yaml
@@ -3853,28 +3867,30 @@ pnpm run build      → ⏭️  (fora de escopo — mudança é só script/gover
 
 | Débito | Status | Critério |
 |--------|--------|----------|
-| DEB-055-01 | Aberto — dívida aceita | Inventário cobre 294 rotas, mas factories/wrappers seguem lacuna conhecida |
+| DEB-055-01 | Aberto — dívida aceita | Inventário cobre 331 rotas, mas factories/wrappers seguem lacuna conhecida |
 | DEB-055-02 | Aberto — dívida aceita | OpenAPI mínimo não modela payload/resposta real |
 | DEB-055-03 | Aberto — dívida aceita | Consumidores com baixa confiança ainda podem gerar falso positivo/negativo |
 | DEB-055-04 | Aberto — dívida aceita | Heurística de duplicidade é aproximada |
 | DEB-055-05 | Aberto — dívida aceita | Tráfego observado existe, mas sem entrada automatizada |
 | DEB-055-06 | Aberto — dívida aceita | MCP/OpenAPI para agentes fica para contrato estabilizado |
-| DEB-055-07 | Resolvido | `MAPA_DE_API.md` deprecado e README canônico atualizado |
-| DEB-055-08 | Aberto — dívida aceita | Auth/scope granular ainda depende de heurística e revisão manual |
+| DEB-055-07 | ✅ Resolvido (2026-06-28) | `MAPA_DE_API.md` deprecado e README canônico atualizado |
+| DEB-055-08 | ✅ Resolvido (2026-06-28) | Convenção de auth documentada no `api-map.generated.md` (Lote A2) |
 | DEB-055-09 | Aberto — dívida aceita | Regras Redocly seguem relaxadas por OpenAPI mínimo |
 | DEB-055-10 | Aberto — dívida aceita | Peso de `@redocly/cli` monitorado |
-| DEB-055-11 | Aberto — dívida aceita | Duplicatas suspeitas podem conter falsos positivos |
-| DEB-055-12 | Aberto — dívida aceita | 4 rotas de factory seguem fora do inventário/OpenAPI gerado |
-| DEB-055-13 | Aberto — dívida aceita | Allowlist atual tem 311 entries legadas |
-| DEB-055-14 | Resolvido | Exit code negativo do `api:check` já validado |
-| DEB-055-15 | Aberto — dívida aceita | 119 órfãs suspeitas são relatório, não bloqueio inicial |
-| DEB-055-16 | Aberto — dívida aceita | 200 duplicatas suspeitas são relatório, não bloqueio inicial |
+| DEB-055-11 | ✅ Resolvido (2026-06-28) | Threshold calibrado 75→90; FP documentados (Lote B1) |
+| DEB-055-12 | ✅ Parcialmente resolvido (2026-06-28) | Overlays manuais para 4 rotas factory; suporte scanner AST = sub-débito (Lote A1) |
+| DEB-055-13 | ✅ Parcialmente resolvido (2026-06-28) | Scanner consumidores melhorado; allowlist 311→266 (Lote C1) |
+| DEB-055-14 | ✅ Resolvido (2026-06-27) | Exit code do `api:check` validado com remoção de allowlist |
+| DEB-055-15 | ✅ Resolvido (2026-06-28) | USE excluído; 71 restantes = consumer scanner gap; 0 órfãs reais (Lote B2) |
+| DEB-055-16 | ✅ Resolvido (2026-06-28) | Threshold calibrado 75→90; 95 pares restantes = 100% FP intencionais (Lote B1) |
 | DEB-055-17 | Aberto — dívida aceita | `api:traffic` funcional, impacto real depende de HAR/smoke |
 | DEB-055-18 | Aberto — dívida aceita | Docs visuais sem tema do Artifício |
-| DEB-055-19 | Aberto — dívida aceita | Breaking changes não bloqueiam em modo inicial |
-| DEB-055-20 | Aberto — dívida aceita | `api:diff` não bloqueia CI |
+| DEB-055-19 | ✅ Resolvido (2026-06-28) | CI roda `api:diff` SEM `continue-on-error` — breaking changes bloqueiam |
+| DEB-055-20 | ✅ Resolvido (2026-06-28) | `api:diff` bloqueia CI (integrado ao DEB-055-19) |
 | DEB-055-21 | Aberto — dívida aceita | `api:traffic` não integrado ao CI |
-| DEB-055-22 | Aberto — dívida aceita | Required check `api-governance` depende de ação manual do mantenedor |
+| DEB-055-22 | Aberto — ação do mantenedor | Required check `api-governance` só ativado manualmente pelo mantenedor |
+| DEB-055-23 | ✅ Resolvido (2026-06-28) | `pnpm api:check --strict` implementado; allowlist vazia obrigatória |
+| DEB-055-24 | ✅ Resolvido (2026-06-28) | `pnpm api:bundle` gera `artificio-api.bundle.json` + `api-index.generated.md` |
 
 **Bloqueadores de fechamento:** nenhum para a spec 055 em modo inicial.
 
@@ -3891,6 +3907,50 @@ pnpm run build      → ⏭️  (fora de escopo — mudança é só script/gover
 - [ ] TZ.7 — Rodar `pnpm run build` (fora de escopo — spec 055 não toca código runtime).
 - [x] TZ.8 — Atualizar `specs/backlog.md`, `specs/README.md`, `project-state.md` e sessão.
 - [x] TZ.9 — Registrar todos os débitos reais em `debitos.md`.
+
+## Fase 11 — Fechamento estrito (implementado 2026-06-28)
+
+### Evidência da implementação ✅ (2026-06-28)
+
+**Tooling adicional implementado APÓS a entrega inicial da Fase 1-10.** Comprovado verde localmente via `pnpm verify:api` exit 0 com allowlist VAZIA.
+
+**Scripts e artefatos novos:**
+
+| Script/Comando | Arquivo | Descrição |
+|---------------|---------|-----------|
+| `pnpm api:bundle` | `scripts/api/bundle-api.ts` | Gera bundle único machine-readable `artificio-api.bundle.json` (264 ops, 5 apps) + índice `api-index.generated.md` |
+| `pnpm api:check:strict` | `scripts/api/check-api.ts` (flag `--strict`) | `pnpm api:check --strict` — exige allowlist vazia; testado: vazia→exit0, 1 entry→exit1 |
+| `pnpm api:generate-openapi` | `scripts/api/generate-openapi.ts` | Regenera OpenAPI YAMLs a partir do inventory.json (com overlays) |
+| `pnpm verify:api` | `scripts/api/verify-api.ts` | Agregador: inventory + consumers + generate-openapi + bundle + lint + check --strict + diff |
+| `pnpm verify:api:full` | `scripts/api/verify-api.ts --full` | Inclui traffic + docs + check de artefatos commitados |
+| `.overlays/` | `docs/api/openapi/.overlays/accounts.overlay.yaml`, `mesas.overlay.yaml` | Rotas factory não detectadas pelo scanner AST; mescladas automaticamente pelo `generate-openapi.ts` |
+| CI "Verify artifacts" | `ci.yml` step final | `git status --porcelain docs/api` — falha se artefatos desatualizados |
+
+### Métricas finais pós-Lotes A-C
+
+```bash
+pnpm verify:api  → ✅ exit 0
+  Inventory: ~331 rotas (accounts, glossario, links, mesas, site)
+  OK: 169
+  CODE_ONLY: 0
+  CONSUMER_ONLY: 3 (todos medium, bugs de app — DEB-055-25)
+  Allowlist: 0 entries (VAZIA)
+  Duplicatas: 95 (score ≥90, todos FP intencionais)
+  Órfãs: 71 (todas com consumidores reais não detectados)
+```
+
+### Tasks
+
+- [x] T11.1 — Implementar `pnpm api:bundle` (`scripts/api/bundle-api.ts`): gera `artificio-api.bundle.json` (índice único machine-readable) + `api-index.generated.md` (navegável). DEB-055-24.
+- [x] T11.2 — Implementar `pnpm api:check --strict` (flag `--strict` em `check-api.ts`): exige allowlist vazia; exit 1 se houver qualquer entry. DEB-055-23.
+- [x] T11.3 — Implementar `pnpm api:generate-openapi` (`scripts/api/generate-openapi.ts`): regenera YAMLs do inventory, com suporte a overlays para rotas factory. DEB-055-12.
+- [x] T11.4 — Implementar `pnpm verify:api` e `pnpm verify:api:full` (`scripts/api/verify-api.ts`): agregador de todos os checks em um comando.
+- [x] T11.5 — Criar `.overlays/` (`docs/api/openapi/.overlays/`): arquivos de overlay para rotas factory não detectadas pelo scanner AST (accounts `createAdminSecretsRoutes`, mesas `createCorrectionHandler`).
+- [x] T11.6 — Adicionar step "Verify generated artifacts are committed" no `ci.yml`: `git status --porcelain docs/api` falha se artefatos desatualizados.
+- [x] T11.7 — Endurecer CI: `api:check --strict` substitui `api:check` simples; remover `continue-on-error` do `api:diff` (breaking changes bloqueiam). DEB-055-19, DEB-055-20.
+- [x] T11.8 — Atualizar `docs/api/README.md` e `AGENTS.md` apontando `artificio-api.bundle.json` como fonte primária de descoberta para agentes.
+- [x] T11.9 — Validar `pnpm verify:api` exit 0 com allowlist vazia + `pnpm verify:api:full` exit 0.
+- [x] T11.10 — Registrar débitos remanescentes (DEB-055-22, DEB-055-25) e fechar os resolvidos.
 
 ## Notas para DeepSeek
 

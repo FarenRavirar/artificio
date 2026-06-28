@@ -1,6 +1,8 @@
 # 055 — Plano
 
 > Plano para DeepSeek implementar. Não implementar scanner próprio sofisticado antes de provar lacuna. Começar com inventário simples, determinístico e bloqueante o bastante para impedir esquecimento de agente.
+>
+> **Status (2026-06-28):** Todas as fases (0-11) implementadas e validadas. `pnpm verify:api` exit 0 com allowlist vazia. Modo estrito ativo no CI. Lotes A-C aplicados (scanner consumers melhorado, threshold calibrado, overlays factory, site backend incluído, bundle machine-readable, endurecimento CI).
 
 ## Estratégia
 
@@ -229,12 +231,21 @@ Não manter duas fontes vivas.
 Rodar:
 
 ```txt
-pnpm api:inventory
-pnpm api:consumers
-pnpm api:lint
-pnpm api:check
+pnpm verify:api
+pnpm verify:api:full
 pnpm run lint
 pnpm run build
 ```
 
 Se `pnpm run test` for pesado demais, rodar teste pontual dos scripts e registrar. Para conclusão final de spec, seguir governança do repo.
+
+## Fase 11 — Fechamento estrito (implementado 2026-06-28)
+
+Após a entrega inicial (Fases 0-10), foram aplicados **Lotes A-C** para endurecer a governança:
+
+- **Lote A (cobertura):** Overlays para rotas factory (DEB-055-12), site backend incluído no inventory, normalização de auth documentada (DEB-055-08).
+- **Lote B (qualidade):** Threshold de duplicatas calibrado 75→90 (DEB-055-11, DEB-055-16), USE excluído da detecção de órfãs (DEB-055-15).
+- **Lote C (consumers):** Scanner melhorado (axios baseURL, feature APIs, query strings, site-admin centralized API). Allowlist reduzida de 311→266→0 (DEB-055-13).
+- **Endurecimento CI:** `api:check --strict`, `api:diff` sem `continue-on-error`, step "Verify generated artifacts", bundle machine-readable (DEB-055-19, DEB-055-20, DEB-055-23, DEB-055-24).
+
+Métricas finais: ~331 rotas, 169 OK, 0 CODE_ONLY, 3 CONSUMER_ONLY medium (bugs de app), allowlist vazia.

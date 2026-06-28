@@ -43,6 +43,8 @@ interface ConsumerContext {
   includeTests: boolean;
 }
 
+type ConstMap = Map<string, ts.Expression>;
+
 /** Cache global de paths extraídos do api.ts do site-admin (DEB-055-13) */
 const siteAdminApiPathMap = new Map<string, { path: string; method: string }>();
 
@@ -203,7 +205,7 @@ interface ExtractedPath {
   confidence: ConsumerEntry['confidence'];
 }
 
-function extractPathFromArg(node: ts.Expression): ExtractedPath {
+function extractPathFromArg(node: ts.Expression, consts: ConstMap = new Map()): ExtractedPath {
   // String literal: '/api/me'
   const literal = extractStringLiteral(node);
   if (literal) {
@@ -231,26 +233,52 @@ function extractPathFromArg(node: ts.Expression): ExtractedPath {
 
   // Concatenação binária: '/api/groups/' + slug + '/report'
   if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
-    const left = extractPathFromArg(node.left);
-    const right = extractPathFromArg(node.right);
+    const left = extractPathFromArg(node.left, consts);
+    const right = extractPathFromArg(node.right, consts);
     const combined = left.path + right.path;
     return {
       path: combined,
       pattern: 'concatenation',
-      confidence: 'low',
+      confidence: left.confidence === 'high' && right.confidence === 'high' ? 'medium' : 'low',
     };
   }
 
   // Identifier (variável): endpoint
   if (ts.isIdentifier(node)) {
+    const resolved = consts.get(node.text);
+    if (resolved && resolved !== node) return extractPathFromArg(resolved, consts);
     return {
-      path: node.text,
+      path: ':param',
       pattern: 'unknown',
       confidence: 'low',
     };
   }
 
+  if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node) || ts.isCallExpression(node)) {
+    return { path: ':param', pattern: 'unknown', confidence: 'low' };
+  }
+
   return { path: '<unknown>', pattern: 'unknown', confidence: 'low' };
+}
+
+function collectStringLikeConsts(sf: ts.SourceFile): ConstMap {
+  const consts: ConstMap = new Map();
+
+  function visit(node: ts.Node) {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      if (
+        extractStringLiteral(node.initializer) ||
+        ts.isTemplateExpression(node.initializer) ||
+        (ts.isBinaryExpression(node.initializer) && node.initializer.operatorToken.kind === ts.SyntaxKind.PlusToken)
+      ) {
+        consts.set(node.name.text, node.initializer);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sf);
+  return consts;
 }
 
 // ─── Scanners de padrão ─────────────────────────────────────────────────────
@@ -266,6 +294,7 @@ function toRelPath(filePath: string): string {
 function scanFetchCalls(sf: ts.SourceFile, filePath: string, ctx: ConsumerContext): void {
   const app = detectAppName(filePath);
   const relativePath = toRelPath(filePath);
+  const consts = collectStringLikeConsts(sf);
 
   function visit(node: ts.Node) {
     if (ts.isCallExpression(node)) {
@@ -275,7 +304,7 @@ function scanFetchCalls(sf: ts.SourceFile, filePath: string, ctx: ConsumerContex
         const arg0 = node.arguments[0];
         if (!arg0) { ts.forEachChild(node, visit); return; }
 
-        const extracted = extractPathFromArg(arg0);
+        const extracted = extractPathFromArg(arg0, consts);
         // Detectar method no 2º argumento (init)
         let method = 'GET';
         if (node.arguments.length >= 2) {
@@ -322,6 +351,7 @@ function extractMethodFromInit(node: ts.Expression): string | null {
 function scanKnownWrappers(sf: ts.SourceFile, filePath: string, ctx: ConsumerContext): void {
   const app = detectAppName(filePath);
   const relativePath = toRelPath(filePath);
+  const consts = collectStringLikeConsts(sf);
 
   function visit(node: ts.Node) {
     if (ts.isCallExpression(node)) {
@@ -333,7 +363,7 @@ function scanKnownWrappers(sf: ts.SourceFile, filePath: string, ctx: ConsumerCon
         const arg0 = node.arguments[0];
         if (!arg0) { ts.forEachChild(node, visit); return; }
 
-        const extracted = extractPathFromArg(arg0);
+        const extracted = extractPathFromArg(arg0, consts);
         // Determinar method
         let method = WRAPPER_METHOD_MAP[fnName] || 'GET';
 
@@ -385,6 +415,7 @@ function scanApiMethodCalls(sf: ts.SourceFile, filePath: string, ctx: ConsumerCo
   const app = detectAppName(filePath);
   const relativePath = toRelPath(filePath);
   const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
+  const consts = collectStringLikeConsts(sf);
 
   function visit(node: ts.Node) {
     if (ts.isCallExpression(node)) {
@@ -397,7 +428,7 @@ function scanApiMethodCalls(sf: ts.SourceFile, filePath: string, ctx: ConsumerCo
       if (objIdent === 'api' && HTTP_METHODS.has(methodName)) {
         const arg0 = node.arguments[0];
         if (!arg0) { ts.forEachChild(node, visit); return; }
-        const extracted = extractPathFromArg(arg0);
+        const extracted = extractPathFromArg(arg0, consts);
 
         addConsumerResult(ctx, {
           app,

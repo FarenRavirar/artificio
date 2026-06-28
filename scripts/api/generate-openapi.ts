@@ -140,6 +140,24 @@ function operationIdFor(method: string, path: string, usedOperationIds: Set<stri
   return candidate;
 }
 
+function summaryFor(method: string, path: string): string {
+  const verb: Record<string, string> = {
+    get: 'Consulta',
+    post: 'Cria ou executa',
+    put: 'Substitui',
+    patch: 'Atualiza',
+    delete: 'Remove',
+    head: 'Consulta metadados de',
+    options: 'Lista opções de',
+  };
+  const normalized = path
+    .replace(/[{}]/g, '')
+    .replace(/\/+/g, ' ')
+    .replace(/_/g, ' ')
+    .trim();
+  return `${verb[method] ?? method.toUpperCase()} ${normalized || 'raiz'}`;
+}
+
 /** Skip catch-all Express 5 patterns ({*splat}) — not API routes */
 function isCatchAllRoute(path: string): boolean {
   return path.includes('{*') || path.includes('/*');
@@ -228,6 +246,7 @@ servers:
       const lines: string[] = [];
       lines.push(`    ${method}:`);
       lines.push(`      operationId: ${opId}`);
+      lines.push(`      summary: "${summaryFor(method, oaPath)}"`);
       lines.push(`      x-artificio-owner: ${cls.owner}`);
       lines.push(`      x-artificio-scope: ${cls.scope}`);
       lines.push(`      x-artificio-status: ${cls.status}`);

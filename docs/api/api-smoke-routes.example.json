@@ -1,0 +1,9 @@
+{
+  "_description": "Copie para docs/api/api-smoke-routes.json para gerar HAR com pnpm api:traffic:smoke. Use URLs locais/beta que estejam disponíveis no ambiente.",
+  "routes": [
+    {
+      "url": "http://localhost:4321/",
+      "waitUntil": "networkidle"
+    }
+  ]
+}

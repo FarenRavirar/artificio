@@ -13,7 +13,7 @@
 | ✅ OK | 169 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 2 | ❌ |
-| 🔍 CONSUMER_ONLY | 3 | ✅ (se new + high) |
+| 🔍 CONSUMER_ONLY | 4 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 50 | ❌ |
 | 👻 ORPHAN_SUSPECT | 38 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
@@ -317,6 +317,12 @@
 | PUT | `/api/admin/v1/pages/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/admin/v1/posts/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 
+### site-admin (0 rotas no inventário)
+
+| Method | Path | Estado | OpenAPI | Consumidor | Obs |
+|--------|------|:-----:|:-------:|:----------:|-----|
+| GET | `/api/admin/v1` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
+
 ## Rotas órfãs suspeitas
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique.
@@ -381,6 +387,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | App | Method | Path | Confidence |
 |-----|--------|------|:---------:|
 | links-frontend | DELETE | `/api/groups/:param/report` | medium |
+| site-admin | GET | `/api/admin/v1` | low |
 | mesas-frontend | GET | `/api/v1/masters/:param` | medium |
 | mesas-frontend | GET | `/api/v1/profile/:param` | medium |
 

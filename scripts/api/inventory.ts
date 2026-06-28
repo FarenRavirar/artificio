@@ -157,6 +157,52 @@ function fileDeclaresRouter(filePath: string): boolean {
   return found;
 }
 
+function findRouterScopeInFile(filePath: string, factoryName?: string): string | null {
+  const ast = getFileAST(filePath);
+  if (!ast) return null;
+
+  if (!factoryName) return scopeVarForFile(filePath, ast);
+
+  let scope: string | null = null;
+  function visit(node: ts.Node) {
+    if (scope) return;
+    const isNamedFunction =
+      ts.isFunctionDeclaration(node) &&
+      node.name?.text === factoryName &&
+      node.body;
+    const isNamedFactoryConst =
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === factoryName &&
+      node.initializer &&
+      (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer));
+
+    const body = isNamedFunction
+      ? node.body
+      : isNamedFactoryConst && node.initializer && (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer))
+        ? node.initializer.body
+        : null;
+
+    if (body) {
+      function findRouterVar(inner: ts.Node) {
+        if (scope) return;
+        if (ts.isVariableDeclaration(inner) && ts.isIdentifier(inner.name) && inner.initializer && isRouterCall(inner.initializer)) {
+          scope = inner.name.text;
+          return;
+        }
+        ts.forEachChild(inner, findRouterVar);
+      }
+      findRouterVar(body);
+      return;
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(ast.sf);
+  return scope ?? scopeVarForFile(filePath, ast);
+}
+
 // ─── Resolução de imports ───────────────────────────────────────────────────
 
 /** Resolve o caminho absoluto de um import relativo ao arquivo fonte */
@@ -259,29 +305,32 @@ function findRouterDeclaration(
   // 2. Procurar declaração no mesmo arquivo
   let result: string | null = null;
 
+  // Casa `const <varName> = Router()` ou factory function (confidence low).
+  const matchVarDecl = (node: ts.VariableDeclaration): void => {
+    if (!node.name || !ts.isIdentifier(node.name) || node.name.text !== varName) return;
+    if (!node.initializer) return;
+    if (isRouterCall(node.initializer)) {
+      result = filePath;
+      return;
+    }
+    // Factory function (ex: createAdminSecretsRoutes(...)) — marca filePath, confidence low.
+    if (!ts.isCallExpression(node.initializer)) return;
+    const callee = node.initializer.expression;
+    if (ts.isIdentifier(callee) && callee.text !== 'Router' && !result) {
+      result = 'FACTORY:' + filePath;
+    }
+  };
+
+  // Casa `export default router` (glossario pattern).
+  const matchExport = (node: ts.ExportAssignment): void => {
+    if (node.expression && ts.isIdentifier(node.expression) && node.expression.text === varName) {
+      result = filePath;
+    }
+  };
+
   function visit(node: ts.Node) {
-    if (ts.isVariableDeclaration(node)) {
-      if (node.name && ts.isIdentifier(node.name) && node.name.text === varName) {
-        // Verificar se o initializer é um Router() call
-        if (node.initializer && isRouterCall(node.initializer)) {
-          result = filePath;
-        }
-        // Verificar se é factory function (ex: createAdminSecretsRoutes(...))
-        if (node.initializer && ts.isCallExpression(node.initializer)) {
-          const callee = node.initializer.expression;
-          if (ts.isIdentifier(callee) && callee.text !== 'Router') {
-            // Factory function — marcamos como filePath mas confidence será low
-            if (!result) result = 'FACTORY:' + filePath;
-          }
-        }
-      }
-    }
-    // Also check export default = router (glossario pattern)
-    if (ts.isExportAssignment(node) && node.expression) {
-      if (ts.isIdentifier(node.expression) && node.expression.text === varName) {
-        result = filePath;
-      }
-    }
+    if (ts.isVariableDeclaration(node)) matchVarDecl(node);
+    else if (ts.isExportAssignment(node)) matchExport(node);
     ts.forEachChild(node, visit);
   }
 
@@ -468,8 +517,7 @@ function processUse(
         // no arquivo atual e reescanearia rotas sob prefixo errado → endpoints falsos.
         const factoryFile = ast.imports.get(fnName);
         if (factoryFile && fs.existsSync(factoryFile) && fileDeclaresRouter(factoryFile)) {
-          const factoryAST = getFileAST(factoryFile);
-          const scopeVar = factoryAST ? scopeVarForFile(factoryFile, factoryAST) : 'router';
+          const scopeVar = findRouterScopeInFile(factoryFile, fnName) ?? 'router';
           scanRouterFile(factoryFile, currentPrefix, scopeVar, ctx);
         }
         return;
@@ -516,8 +564,7 @@ function processUse(
       const factoryFile = ast.imports.get(factoryName);
       if (factoryFile && fs.existsSync(factoryFile) && fileDeclaresRouter(factoryFile)) {
         const newPrefix = joinPaths(currentPrefix, pathStr);
-        const factoryAST = getFileAST(factoryFile);
-        const scopeVar = factoryAST ? scopeVarForFile(factoryFile, factoryAST) : 'router';
+        const scopeVar = findRouterScopeInFile(factoryFile, factoryName) ?? 'router';
         scanRouterFile(factoryFile, newPrefix, scopeVar, ctx);
       }
     }

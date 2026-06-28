@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 238,
-    "uniqueEndpoints": 221,
+    "total": 239,
+    "uniqueEndpoints": 222,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -57,11 +57,13 @@
         }
       },
       "site-admin": {
-        "total": 24,
+        "total": 25,
         "byConfidence": {
+          "low": 1,
           "high": 24
         },
         "byPattern": {
+          "concatenation": 1,
           "service-wrapper": 24
         }
       }
@@ -2049,6 +2051,16 @@
       "pattern": "service-wrapper",
       "wrapper": "refreshSession",
       "line": 52
+    },
+    {
+      "app": "site-admin",
+      "consumerFile": "apps/site-admin/src/api.ts",
+      "method": "GET",
+      "endpoint": "/api/admin/v1",
+      "confidence": "low",
+      "pattern": "concatenation",
+      "wrapper": "authFetch",
+      "line": 27
     },
     {
       "app": "site-admin",

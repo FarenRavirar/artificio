@@ -15,6 +15,7 @@ paths:
   /admin/import:
     post:
       operationId: postadmin_import
+      summary: "Cria ou executa admin import"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -25,6 +26,7 @@ paths:
   /admin/preview/{type}/{id}:
     get:
       operationId: getadmin_preview_type_id
+      summary: "Consulta admin preview type id"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -46,6 +48,7 @@ paths:
   /admin/rebuild:
     post:
       operationId: postadmin_rebuild
+      summary: "Cria ou executa admin rebuild"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -56,6 +59,7 @@ paths:
   /admin/status:
     get:
       operationId: getadmin_status
+      summary: "Consulta admin status"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -66,6 +70,7 @@ paths:
   /api/admin/v1/feedback:
     get:
       operationId: getapi_admin_v1_feedback
+      summary: "Consulta api admin v1 feedback"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -76,6 +81,7 @@ paths:
   /api/admin/v1/feedback/{id}:
     delete:
       operationId: deleteapi_admin_v1_feedback_id
+      summary: "Remove api admin v1 feedback id"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -91,6 +97,7 @@ paths:
           description: OK
     patch:
       operationId: patchapi_admin_v1_feedback_id
+      summary: "Atualiza api admin v1 feedback id"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -107,6 +114,7 @@ paths:
   /api/admin/v1/media:
     get:
       operationId: getapi_admin_v1_media
+      summary: "Consulta api admin v1 media"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -116,6 +124,7 @@ paths:
           description: OK
     post:
       operationId: postapi_admin_v1_media
+      summary: "Cria ou executa api admin v1 media"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -126,6 +135,7 @@ paths:
   /api/admin/v1/media/{id}:
     delete:
       operationId: deleteapi_admin_v1_media_id
+      summary: "Remove api admin v1 media id"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -141,6 +151,7 @@ paths:
           description: OK
     put:
       operationId: putapi_admin_v1_media_id
+      summary: "Substitui api admin v1 media id"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -157,6 +168,7 @@ paths:
   /api/admin/v1/pages:
     get:
       operationId: getapi_admin_v1_pages
+      summary: "Consulta api admin v1 pages"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -166,6 +178,7 @@ paths:
           description: OK
     post:
       operationId: postapi_admin_v1_pages
+      summary: "Cria ou executa api admin v1 pages"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -176,6 +189,7 @@ paths:
   /api/admin/v1/pages/{id}:
     delete:
       operationId: deleteapi_admin_v1_pages_id
+      summary: "Remove api admin v1 pages id"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -191,6 +205,7 @@ paths:
           description: OK
     get:
       operationId: getapi_admin_v1_pages_id
+      summary: "Consulta api admin v1 pages id"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -206,6 +221,7 @@ paths:
           description: OK
     put:
       operationId: putapi_admin_v1_pages_id
+      summary: "Substitui api admin v1 pages id"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -222,6 +238,7 @@ paths:
   /api/admin/v1/pages/{id}/status:
     post:
       operationId: postapi_admin_v1_pages_id_status
+      summary: "Cria ou executa api admin v1 pages id status"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -238,6 +255,7 @@ paths:
   /api/admin/v1/posts:
     get:
       operationId: getapi_admin_v1_posts
+      summary: "Consulta api admin v1 posts"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -247,6 +265,7 @@ paths:
           description: OK
     post:
       operationId: postapi_admin_v1_posts
+      summary: "Cria ou executa api admin v1 posts"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -257,6 +276,7 @@ paths:
   /api/admin/v1/posts/{id}:
     delete:
       operationId: deleteapi_admin_v1_posts_id
+      summary: "Remove api admin v1 posts id"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -272,6 +292,7 @@ paths:
           description: OK
     get:
       operationId: getapi_admin_v1_posts_id
+      summary: "Consulta api admin v1 posts id"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -287,6 +308,7 @@ paths:
           description: OK
     put:
       operationId: putapi_admin_v1_posts_id
+      summary: "Substitui api admin v1 posts id"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -303,6 +325,7 @@ paths:
   /api/admin/v1/posts/{id}/status:
     post:
       operationId: postapi_admin_v1_posts_id_status
+      summary: "Cria ou executa api admin v1 posts id status"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -319,6 +342,7 @@ paths:
   /api/admin/v1/preview:
     post:
       operationId: postapi_admin_v1_preview
+      summary: "Cria ou executa api admin v1 preview"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -329,6 +353,7 @@ paths:
   /api/admin/v1/rebuild:
     post:
       operationId: postapi_admin_v1_rebuild
+      summary: "Cria ou executa api admin v1 rebuild"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -339,6 +364,7 @@ paths:
   /api/admin/v1/redirects:
     get:
       operationId: getapi_admin_v1_redirects
+      summary: "Consulta api admin v1 redirects"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -348,6 +374,7 @@ paths:
           description: OK
     post:
       operationId: postapi_admin_v1_redirects
+      summary: "Cria ou executa api admin v1 redirects"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -358,6 +385,7 @@ paths:
   /api/admin/v1/slug-check:
     get:
       operationId: getapi_admin_v1_slug_check
+      summary: "Consulta api admin v1 slug-check"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -368,6 +396,7 @@ paths:
   /api/admin/v1/taxonomies:
     get:
       operationId: getapi_admin_v1_taxonomies
+      summary: "Consulta api admin v1 taxonomies"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -377,6 +406,7 @@ paths:
           description: OK
     post:
       operationId: postapi_admin_v1_taxonomies
+      summary: "Cria ou executa api admin v1 taxonomies"
       x-artificio-owner: site
       x-artificio-scope: admin
       x-artificio-status: active
@@ -387,6 +417,7 @@ paths:
   /api/feedback:
     post:
       operationId: postapi_feedback
+      summary: "Cria ou executa api feedback"
       x-artificio-owner: site
       x-artificio-scope: public
       x-artificio-status: active
@@ -397,6 +428,7 @@ paths:
   /healthz:
     get:
       operationId: gethealthz
+      summary: "Consulta healthz"
       x-artificio-owner: site
       x-artificio-scope: internal
       x-artificio-status: active

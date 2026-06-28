@@ -15,6 +15,7 @@ paths:
   /api/admin/activity:
     get:
       operationId: getapi_admin_activity
+      summary: "Consulta api admin activity"
       x-artificio-owner: glossario
       x-artificio-scope: admin
       x-artificio-status: active
@@ -25,6 +26,7 @@ paths:
   /api/admin/feedback:
     get:
       operationId: getapi_admin_feedback
+      summary: "Consulta api admin feedback"
       x-artificio-owner: glossario
       x-artificio-scope: admin
       x-artificio-status: active
@@ -35,6 +37,7 @@ paths:
   /api/admin/feedback/{id}:
     delete:
       operationId: deleteapi_admin_feedback_id
+      summary: "Remove api admin feedback id"
       x-artificio-owner: glossario
       x-artificio-scope: admin
       x-artificio-status: active
@@ -50,6 +53,7 @@ paths:
           description: OK
     patch:
       operationId: patchapi_admin_feedback_id
+      summary: "Atualiza api admin feedback id"
       x-artificio-owner: glossario
       x-artificio-scope: admin
       x-artificio-status: active
@@ -66,6 +70,7 @@ paths:
   /api/auth/login:
     post:
       operationId: postapi_auth_login
+      summary: "Cria ou executa api auth login"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -76,6 +81,7 @@ paths:
   /api/auth/me:
     get:
       operationId: getapi_auth_me
+      summary: "Consulta api auth me"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -86,6 +92,7 @@ paths:
   /api/auth/register:
     post:
       operationId: postapi_auth_register
+      summary: "Cria ou executa api auth register"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -96,6 +103,7 @@ paths:
   /api/categories:
     get:
       operationId: getapi_categories
+      summary: "Consulta api categories"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -105,6 +113,7 @@ paths:
           description: OK
     post:
       operationId: postapi_categories
+      summary: "Cria ou executa api categories"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -115,6 +124,7 @@ paths:
   /api/categories/{id}:
     delete:
       operationId: deleteapi_categories_id
+      summary: "Remove api categories id"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -130,6 +140,7 @@ paths:
           description: OK
     put:
       operationId: putapi_categories_id
+      summary: "Substitui api categories id"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -146,6 +157,7 @@ paths:
   /api/changelog:
     get:
       operationId: getapi_changelog
+      summary: "Consulta api changelog"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -156,6 +168,7 @@ paths:
   /api/export/matecat:
     get:
       operationId: getapi_export_matecat
+      summary: "Consulta api export matecat"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -166,6 +179,7 @@ paths:
   /api/feedback:
     post:
       operationId: postapi_feedback
+      summary: "Cria ou executa api feedback"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -176,6 +190,7 @@ paths:
   /api/migration/claim:
     post:
       operationId: postapi_migration_claim
+      summary: "Cria ou executa api migration claim"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -186,6 +201,7 @@ paths:
   /api/migration/verify:
     post:
       operationId: postapi_migration_verify
+      summary: "Cria ou executa api migration verify"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -196,6 +212,7 @@ paths:
   /api/notifications:
     get:
       operationId: getapi_notifications
+      summary: "Consulta api notifications"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -206,6 +223,7 @@ paths:
   /api/notifications/{id}/read:
     patch:
       operationId: patchapi_notifications_id_read
+      summary: "Atualiza api notifications id read"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -222,6 +240,7 @@ paths:
   /api/notifications/read-all:
     patch:
       operationId: patchapi_notifications_read_all
+      summary: "Atualiza api notifications read-all"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -232,6 +251,7 @@ paths:
   /api/scenarios:
     get:
       operationId: getapi_scenarios
+      summary: "Consulta api scenarios"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -241,6 +261,7 @@ paths:
           description: OK
     post:
       operationId: postapi_scenarios
+      summary: "Cria ou executa api scenarios"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -251,6 +272,7 @@ paths:
   /api/scenarios/{id}:
     delete:
       operationId: deleteapi_scenarios_id
+      summary: "Remove api scenarios id"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -266,6 +288,7 @@ paths:
           description: OK
     put:
       operationId: putapi_scenarios_id
+      summary: "Substitui api scenarios id"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -282,6 +305,7 @@ paths:
   /api/social/{id}/comments:
     get:
       operationId: getapi_social_id_comments
+      summary: "Consulta api social id comments"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -297,6 +321,7 @@ paths:
           description: OK
     post:
       operationId: postapi_social_id_comments
+      summary: "Cria ou executa api social id comments"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -313,6 +338,7 @@ paths:
   /api/social/{id}/vote:
     post:
       operationId: postapi_social_id_vote
+      summary: "Cria ou executa api social id vote"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -329,6 +355,7 @@ paths:
   /api/social/comments/{id}:
     delete:
       operationId: deleteapi_social_comments_id
+      summary: "Remove api social comments id"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -345,6 +372,7 @@ paths:
   /api/systems:
     get:
       operationId: getapi_systems
+      summary: "Consulta api systems"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -354,6 +382,7 @@ paths:
           description: OK
     post:
       operationId: postapi_systems
+      summary: "Cria ou executa api systems"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -364,6 +393,7 @@ paths:
   /api/systems/{id}:
     delete:
       operationId: deleteapi_systems_id
+      summary: "Remove api systems id"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -379,6 +409,7 @@ paths:
           description: OK
     put:
       operationId: putapi_systems_id
+      summary: "Substitui api systems id"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -395,6 +426,7 @@ paths:
   /api/systems/{systemId}/editions:
     get:
       operationId: getapi_systems_systemId_editions
+      summary: "Consulta api systems systemId editions"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -410,6 +442,7 @@ paths:
           description: OK
     post:
       operationId: postapi_systems_systemId_editions
+      summary: "Cria ou executa api systems systemId editions"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -426,6 +459,7 @@ paths:
   /api/systems/editions/{id}:
     delete:
       operationId: deleteapi_systems_editions_id
+      summary: "Remove api systems editions id"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -441,6 +475,7 @@ paths:
           description: OK
     put:
       operationId: putapi_systems_editions_id
+      summary: "Substitui api systems editions id"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -457,6 +492,7 @@ paths:
   /api/terms:
     get:
       operationId: getapi_terms
+      summary: "Consulta api terms"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -466,6 +502,7 @@ paths:
           description: OK
     post:
       operationId: postapi_terms
+      summary: "Cria ou executa api terms"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -476,6 +513,7 @@ paths:
   /api/terms/{id}:
     delete:
       operationId: deleteapi_terms_id
+      summary: "Remove api terms id"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -491,6 +529,7 @@ paths:
           description: OK
     patch:
       operationId: patchapi_terms_id
+      summary: "Atualiza api terms id"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -507,6 +546,7 @@ paths:
   /api/terms/{id}/approve:
     patch:
       operationId: patchapi_terms_id_approve
+      summary: "Atualiza api terms id approve"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -523,6 +563,7 @@ paths:
   /api/terms/{id}/history:
     get:
       operationId: getapi_terms_id_history
+      summary: "Consulta api terms id history"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -539,6 +580,7 @@ paths:
   /api/terms/import:
     post:
       operationId: postapi_terms_import
+      summary: "Cria ou executa api terms import"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -549,6 +591,7 @@ paths:
   /api/users/admin:
     get:
       operationId: getapi_users_admin
+      summary: "Consulta api users admin"
       x-artificio-owner: glossario
       x-artificio-scope: admin
       x-artificio-status: active
@@ -559,6 +602,7 @@ paths:
   /api/users/admin/{id}/ban:
     post:
       operationId: postapi_users_admin_id_ban
+      summary: "Cria ou executa api users admin id ban"
       x-artificio-owner: glossario
       x-artificio-scope: admin
       x-artificio-status: active
@@ -575,6 +619,7 @@ paths:
   /api/users/profile:
     patch:
       operationId: patchapi_users_profile
+      summary: "Atualiza api users profile"
       x-artificio-owner: glossario
       x-artificio-scope: public
       x-artificio-status: active
@@ -585,6 +630,7 @@ paths:
   /health:
     get:
       operationId: gethealth
+      summary: "Consulta health"
       x-artificio-owner: glossario
       x-artificio-scope: internal
       x-artificio-status: active

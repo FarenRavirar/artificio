@@ -574,6 +574,18 @@ function computeDuplicateScore(
   a: DriftEntry,
   b: DriftEntry,
 ): DuplicateCandidate {
+  if (isRestCollectionDetailPair(a.path, b.path) || isRestCollectionDetailPair(b.path, a.path)) {
+    return {
+      routeA: { key: a.key, method: a.method, path: a.path, app: a.app, scope: a.scope },
+      routeB: { key: b.key, method: b.method, path: b.path, app: b.app, scope: b.scope },
+      totalScore: 0,
+      methodMatch: a.method === b.method,
+      tokenSimilarity: 0,
+      sameOwner: a.app === b.app && !!a.app,
+      sameScope: a.scope === b.scope && !!a.scope,
+    };
+  }
+
   // 1. Method match (40 pontos)
   const methodMatch = a.method === b.method;
   const methodScore = methodMatch ? 40 : 0;
@@ -611,6 +623,20 @@ function computeDuplicateScore(
   };
 }
 
+function isParamToken(segment: string): boolean {
+  return segment.startsWith(':') || (segment.startsWith('{') && segment.endsWith('}'));
+}
+
+function isRestCollectionDetailPair(collectionPath: string, detailPath: string): boolean {
+  const collection = collectionPath.split('/').filter(Boolean);
+  const detail = detailPath.split('/').filter(Boolean);
+  if (detail.length !== collection.length + 1) return false;
+  for (let i = 0; i < collection.length; i += 1) {
+    if (collection[i] !== detail[i]) return false;
+  }
+  return isParamToken(detail[detail.length - 1]);
+}
+
 /**
  * Detecta duplicatas suspeitas comparando rotas dentro do mesmo app.
  * Retorna pares com score >= minScore (default 60).
@@ -644,6 +670,8 @@ function detectDuplicates(entries: DriftEntry[], minScore = 90): DuplicateCandid
         if (seen.has(pairKey)) continue;
         seen.add(pairKey);
 
+        if (canonicalRouteFingerprint(a.path) !== canonicalRouteFingerprint(b.path)) continue;
+
         const score = computeDuplicateScore(a, b);
         if (score.totalScore >= minScore && score.tokenSimilarity >= 0.5) {
           results.push(score);
@@ -653,6 +681,15 @@ function detectDuplicates(entries: DriftEntry[], minScore = 90): DuplicateCandid
   }
 
   return results.sort((a, b) => b.totalScore - a.totalScore).slice(0, 200);
+}
+
+function canonicalRouteFingerprint(path: string): string {
+  return path
+    .toLowerCase()
+    .replace(/\{[^}]+\}/g, ':param')
+    .replace(/:[a-z0-9_]+/gi, ':param')
+    .replace(/\/+$/, '')
+    .replace(/\/+/g, '/');
 }
 
 function scoreLabel(score: number): string {
@@ -732,7 +769,7 @@ function generateOrphansReport(
   // ── Duplicates section ──
   if (duplicates.length > 0) {
     md += `\n---\n\n## Rotas Duplicadas Suspeitas\n\n`;
-    md += `Pares de rotas com similaridade ≥ 90 e tokenSimilarity ≥ 0.5. Score máximo = 100 (method 40 + token 40 + owner 10 + scope 10).\n\n`;
+    md += `Pares de rotas com fingerprint canônico idêntico, similaridade ≥ 90 e tokenSimilarity ≥ 0.5. Score máximo = 100 (method 40 + token 40 + owner 10 + scope 10).\n\n`;
 
     // Group by level
     const highDups = duplicates.filter(d => d.totalScore >= 80);
@@ -770,7 +807,7 @@ function generateOrphansReport(
     md += `\n### Considerações\n\n`;
     md += `- Rotas intencionalmente similares (ex: \`contact\` vs \`contact-click\`) geram falso positivo. Avaliar manualmente antes de consolidar.\n`;
     md += `- Duplicatas entre subsistemas diferentes (ex: discord vs inbox) podem ser arquiteturais, não erros.\n`;
-    md += `- Threshold atual: 90 com tokenSimilarity mínimo de 0.5. Calibrado de 75→90 (DEB-055-16, 2026-06-28) após análise de FP rate ~100%.\n`;
+    md += `- Threshold atual: fingerprint canônico igual + score 90 + tokenSimilarity mínimo de 0.5. Isso elimina falsos positivos REST como lista vs detalhe e siblings de ação.\n`;
   }
 
   if (orphans.length === 0 && duplicates.length === 0) {

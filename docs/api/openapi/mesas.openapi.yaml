@@ -15,6 +15,7 @@ paths:
   /api/v1/admin/activity:
     get:
       operationId: getapi_v1_admin_activity
+      summary: "Consulta api v1 admin activity"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -25,6 +26,7 @@ paths:
   /api/v1/admin/dev-feedback:
     get:
       operationId: getapi_v1_admin_dev_feedback
+      summary: "Consulta api v1 admin dev-feedback"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -35,6 +37,7 @@ paths:
   /api/v1/admin/dev-feedback/{id}:
     delete:
       operationId: deleteapi_v1_admin_dev_feedback_id
+      summary: "Remove api v1 admin dev-feedback id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -50,6 +53,7 @@ paths:
           description: OK
     patch:
       operationId: patchapi_v1_admin_dev_feedback_id
+      summary: "Atualiza api v1 admin dev-feedback id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -66,6 +70,7 @@ paths:
   /api/v1/admin/dev-feedback/merge:
     post:
       operationId: postapi_v1_admin_dev_feedback_merge
+      summary: "Cria ou executa api v1 admin dev-feedback merge"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -76,6 +81,7 @@ paths:
   /api/v1/admin/discord/discovery/guilds:
     get:
       operationId: getapi_v1_admin_discord_discovery_guilds
+      summary: "Consulta api v1 admin discord discovery guilds"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -86,6 +92,7 @@ paths:
   /api/v1/admin/discord/discovery/guilds/{guildId}/channels:
     get:
       operationId: getapi_v1_admin_discord_discovery_guilds_guildId_channels
+      summary: "Consulta api v1 admin discord discovery guilds guildId channels"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -102,6 +109,7 @@ paths:
   /api/v1/admin/discord/drafts:
     get:
       operationId: getapi_v1_admin_discord_drafts
+      summary: "Consulta api v1 admin discord drafts"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -112,6 +120,7 @@ paths:
   /api/v1/admin/discord/drafts/{id}:
     get:
       operationId: getapi_v1_admin_discord_drafts_id
+      summary: "Consulta api v1 admin discord drafts id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -127,6 +136,7 @@ paths:
           description: OK
     patch:
       operationId: patchapi_v1_admin_discord_drafts_id
+      summary: "Atualiza api v1 admin discord drafts id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -165,6 +175,7 @@ paths:
   /api/v1/admin/discord/drafts/{id}/refresh-image:
     post:
       operationId: postapi_v1_admin_discord_drafts_id_refresh_image
+      summary: "Cria ou executa api v1 admin discord drafts id refresh-image"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -181,6 +192,7 @@ paths:
   /api/v1/admin/discord/drafts/{id}/reparse:
     post:
       operationId: postapi_v1_admin_discord_drafts_id_reparse
+      summary: "Cria ou executa api v1 admin discord drafts id reparse"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -197,6 +209,7 @@ paths:
   /api/v1/admin/discord/drafts/{id}/sync:
     post:
       operationId: postapi_v1_admin_discord_drafts_id_sync
+      summary: "Cria ou executa api v1 admin discord drafts id sync"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -213,6 +226,7 @@ paths:
   /api/v1/admin/discord/fetch:
     post:
       operationId: postapi_v1_admin_discord_fetch
+      summary: "Cria ou executa api v1 admin discord fetch"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -223,6 +237,7 @@ paths:
   /api/v1/admin/discord/import-json:
     post:
       operationId: postapi_v1_admin_discord_import_json
+      summary: "Cria ou executa api v1 admin discord import-json"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -233,6 +248,7 @@ paths:
   /api/v1/admin/discord/import-json/file:
     post:
       operationId: postapi_v1_admin_discord_import_json_file
+      summary: "Cria ou executa api v1 admin discord import-json file"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -243,6 +259,7 @@ paths:
   /api/v1/admin/discord/import-json/preview:
     post:
       operationId: postapi_v1_admin_discord_import_json_preview
+      summary: "Cria ou executa api v1 admin discord import-json preview"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -253,6 +270,7 @@ paths:
   /api/v1/admin/discord/import-json/preview/file:
     post:
       operationId: postapi_v1_admin_discord_import_json_preview_file
+      summary: "Cria ou executa api v1 admin discord import-json preview file"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -263,6 +281,7 @@ paths:
   /api/v1/admin/discord/import-json/reparse:
     post:
       operationId: postapi_v1_admin_discord_import_json_reparse
+      summary: "Cria ou executa api v1 admin discord import-json reparse"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -273,6 +292,7 @@ paths:
   /api/v1/admin/discord/messages:
     get:
       operationId: getapi_v1_admin_discord_messages
+      summary: "Consulta api v1 admin discord messages"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -283,6 +303,7 @@ paths:
   /api/v1/admin/discord/messages/{id}:
     patch:
       operationId: patchapi_v1_admin_discord_messages_id
+      summary: "Atualiza api v1 admin discord messages id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -299,6 +320,7 @@ paths:
   /api/v1/admin/discord/messages/{id}/diagnose-content:
     post:
       operationId: postapi_v1_admin_discord_messages_id_diagnose_content
+      summary: "Cria ou executa api v1 admin discord messages id diagnose-content"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -315,6 +337,7 @@ paths:
   /api/v1/admin/discord/messages/{id}/parse:
     post:
       operationId: postapi_v1_admin_discord_messages_id_parse
+      summary: "Cria ou executa api v1 admin discord messages id parse"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -331,6 +354,7 @@ paths:
   /api/v1/admin/discord/messages/parse-batch:
     post:
       operationId: postapi_v1_admin_discord_messages_parse_batch
+      summary: "Cria ou executa api v1 admin discord messages parse-batch"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -341,6 +365,7 @@ paths:
   /api/v1/admin/discord/metrics:
     get:
       operationId: getapi_v1_admin_discord_metrics
+      summary: "Consulta api v1 admin discord metrics"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -351,6 +376,7 @@ paths:
   /api/v1/admin/discord/metrics/shadow:
     get:
       operationId: getapi_v1_admin_discord_metrics_shadow
+      summary: "Consulta api v1 admin discord metrics shadow"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -361,6 +387,7 @@ paths:
   /api/v1/admin/discord/settings:
     get:
       operationId: getapi_v1_admin_discord_settings
+      summary: "Consulta api v1 admin discord settings"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -371,6 +398,7 @@ paths:
   /api/v1/admin/discord/settings/bot-token:
     delete:
       operationId: deleteapi_v1_admin_discord_settings_bot_token
+      summary: "Remove api v1 admin discord settings bot-token"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -380,6 +408,7 @@ paths:
           description: OK
     put:
       operationId: putapi_v1_admin_discord_settings_bot_token
+      summary: "Substitui api v1 admin discord settings bot-token"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -390,6 +419,7 @@ paths:
   /api/v1/admin/discord/sources:
     get:
       operationId: getapi_v1_admin_discord_sources
+      summary: "Consulta api v1 admin discord sources"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -399,6 +429,7 @@ paths:
           description: OK
     post:
       operationId: postapi_v1_admin_discord_sources
+      summary: "Cria ou executa api v1 admin discord sources"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -409,6 +440,7 @@ paths:
   /api/v1/admin/discord/sources/{id}:
     delete:
       operationId: deleteapi_v1_admin_discord_sources_id
+      summary: "Remove api v1 admin discord sources id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -424,6 +456,7 @@ paths:
           description: OK
     patch:
       operationId: patchapi_v1_admin_discord_sources_id
+      summary: "Atualiza api v1 admin discord sources id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -440,6 +473,7 @@ paths:
   /api/v1/admin/discord/sources/{sourceId}/reingest-force:
     post:
       operationId: postapi_v1_admin_discord_sources_sourceId_reingest_force
+      summary: "Cria ou executa api v1 admin discord sources sourceId reingest-force"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -456,6 +490,7 @@ paths:
   /api/v1/admin/discord/sync-ready:
     post:
       operationId: postapi_v1_admin_discord_sync_ready
+      summary: "Cria ou executa api v1 admin discord sync-ready"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -466,6 +501,7 @@ paths:
   /api/v1/admin/import/drafts:
     get:
       operationId: getapi_v1_admin_import_drafts
+      summary: "Consulta api v1 admin import drafts"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -476,6 +512,7 @@ paths:
   /api/v1/admin/import/drafts/{id}:
     get:
       operationId: getapi_v1_admin_import_drafts_id
+      summary: "Consulta api v1 admin import drafts id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -491,6 +528,7 @@ paths:
           description: OK
     patch:
       operationId: patchapi_v1_admin_import_drafts_id
+      summary: "Atualiza api v1 admin import drafts id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -529,6 +567,7 @@ paths:
   /api/v1/admin/import/drafts/{id}/reparse:
     post:
       operationId: postapi_v1_admin_import_drafts_id_reparse
+      summary: "Cria ou executa api v1 admin import drafts id reparse"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -545,6 +584,7 @@ paths:
   /api/v1/admin/import/drafts/{id}/sync:
     post:
       operationId: postapi_v1_admin_import_drafts_id_sync
+      summary: "Cria ou executa api v1 admin import drafts id sync"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -561,6 +601,7 @@ paths:
   /api/v1/admin/import/import-text:
     post:
       operationId: postapi_v1_admin_import_import_text
+      summary: "Cria ou executa api v1 admin import import-text"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -571,6 +612,7 @@ paths:
   /api/v1/admin/import/metrics:
     get:
       operationId: getapi_v1_admin_import_metrics
+      summary: "Consulta api v1 admin import metrics"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -581,6 +623,7 @@ paths:
   /api/v1/admin/scenario-suggestions:
     get:
       operationId: getapi_v1_admin_scenario_suggestions
+      summary: "Consulta api v1 admin scenario-suggestions"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -591,6 +634,7 @@ paths:
   /api/v1/admin/scenario-suggestions/{id}/approve:
     patch:
       operationId: patchapi_v1_admin_scenario_suggestions_id_approve
+      summary: "Atualiza api v1 admin scenario-suggestions id approve"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -607,6 +651,7 @@ paths:
   /api/v1/admin/scenario-suggestions/{id}/reject:
     patch:
       operationId: patchapi_v1_admin_scenario_suggestions_id_reject
+      summary: "Atualiza api v1 admin scenario-suggestions id reject"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -623,6 +668,7 @@ paths:
   /api/v1/admin/setting-suggestions:
     get:
       operationId: getapi_v1_admin_setting_suggestions
+      summary: "Consulta api v1 admin setting-suggestions"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -632,6 +678,7 @@ paths:
           description: OK
     post:
       operationId: postapi_v1_admin_setting_suggestions
+      summary: "Cria ou executa api v1 admin setting-suggestions"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -642,6 +689,7 @@ paths:
   /api/v1/admin/setting-suggestions/{id}:
     delete:
       operationId: deleteapi_v1_admin_setting_suggestions_id
+      summary: "Remove api v1 admin setting-suggestions id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -657,6 +705,7 @@ paths:
           description: OK
     put:
       operationId: putapi_v1_admin_setting_suggestions_id
+      summary: "Substitui api v1 admin setting-suggestions id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -673,6 +722,7 @@ paths:
   /api/v1/admin/sync/enrich:
     post:
       operationId: postapi_v1_admin_sync_enrich
+      summary: "Cria ou executa api v1 admin sync enrich"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -683,6 +733,7 @@ paths:
   /api/v1/admin/system-suggestions:
     get:
       operationId: getapi_v1_admin_system_suggestions
+      summary: "Consulta api v1 admin system-suggestions"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -693,6 +744,7 @@ paths:
   /api/v1/admin/system-suggestions/{id}/approve:
     patch:
       operationId: patchapi_v1_admin_system_suggestions_id_approve
+      summary: "Atualiza api v1 admin system-suggestions id approve"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -709,6 +761,7 @@ paths:
   /api/v1/admin/system-suggestions/{id}/candidates:
     get:
       operationId: getapi_v1_admin_system_suggestions_id_candidates
+      summary: "Consulta api v1 admin system-suggestions id candidates"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -725,6 +778,7 @@ paths:
   /api/v1/admin/system-suggestions/{id}/reject:
     patch:
       operationId: patchapi_v1_admin_system_suggestions_id_reject
+      summary: "Atualiza api v1 admin system-suggestions id reject"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -741,6 +795,7 @@ paths:
   /api/v1/admin/system-suggestions/{id}/resolve:
     post:
       operationId: postapi_v1_admin_system_suggestions_id_resolve
+      summary: "Cria ou executa api v1 admin system-suggestions id resolve"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -757,6 +812,7 @@ paths:
   /api/v1/admin/tables/{id}:
     delete:
       operationId: deleteapi_v1_admin_tables_id
+      summary: "Remove api v1 admin tables id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -772,6 +828,7 @@ paths:
           description: OK
     put:
       operationId: putapi_v1_admin_tables_id
+      summary: "Substitui api v1 admin tables id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -788,6 +845,7 @@ paths:
   /api/v1/admin/tables/auto-archive:
     post:
       operationId: postapi_v1_admin_tables_auto_archive
+      summary: "Cria ou executa api v1 admin tables auto-archive"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -798,6 +856,7 @@ paths:
   /api/v1/admin/users:
     get:
       operationId: getapi_v1_admin_users
+      summary: "Consulta api v1 admin users"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -808,6 +867,7 @@ paths:
   /api/v1/admin/users/{id}:
     get:
       operationId: getapi_v1_admin_users_id
+      summary: "Consulta api v1 admin users id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -824,6 +884,7 @@ paths:
   /api/v1/admin/users/{id}/covil:
     patch:
       operationId: patchapi_v1_admin_users_id_covil
+      summary: "Atualiza api v1 admin users id covil"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -840,6 +901,7 @@ paths:
   /api/v1/auth/google:
     get:
       operationId: getapi_v1_auth_google
+      summary: "Consulta api v1 auth google"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -850,6 +912,7 @@ paths:
   /api/v1/auth/google/callback:
     get:
       operationId: getapi_v1_auth_google_callback
+      summary: "Consulta api v1 auth google callback"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -860,6 +923,7 @@ paths:
   /api/v1/auth/logout:
     post:
       operationId: postapi_v1_auth_logout
+      summary: "Cria ou executa api v1 auth logout"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -870,6 +934,7 @@ paths:
   /api/v1/changelog:
     get:
       operationId: getapi_v1_changelog
+      summary: "Consulta api v1 changelog"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -880,6 +945,7 @@ paths:
   /api/v1/communication-platforms:
     get:
       operationId: getapi_v1_communication_platforms
+      summary: "Consulta api v1 communication-platforms"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -890,6 +956,7 @@ paths:
   /api/v1/communication-platforms/admin:
     get:
       operationId: getapi_v1_communication_platforms_admin
+      summary: "Consulta api v1 communication-platforms admin"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -899,6 +966,7 @@ paths:
           description: OK
     post:
       operationId: postapi_v1_communication_platforms_admin
+      summary: "Cria ou executa api v1 communication-platforms admin"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -909,6 +977,7 @@ paths:
   /api/v1/communication-platforms/admin/{id}:
     delete:
       operationId: deleteapi_v1_communication_platforms_admin_id
+      summary: "Remove api v1 communication-platforms admin id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -924,6 +993,7 @@ paths:
           description: OK
     put:
       operationId: putapi_v1_communication_platforms_admin_id
+      summary: "Substitui api v1 communication-platforms admin id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -940,6 +1010,7 @@ paths:
   /api/v1/dev-feedback:
     post:
       operationId: postapi_v1_dev_feedback
+      summary: "Cria ou executa api v1 dev-feedback"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -950,6 +1021,7 @@ paths:
   /api/v1/gm/{slug}:
     get:
       operationId: getapi_v1_gm_slug
+      summary: "Consulta api v1 gm slug"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -966,6 +1038,7 @@ paths:
   /api/v1/gm/{slug}/contact:
     post:
       operationId: postapi_v1_gm_slug_contact
+      summary: "Cria ou executa api v1 gm slug contact"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -982,6 +1055,7 @@ paths:
   /api/v1/gm/{slug}/contact-click:
     post:
       operationId: postapi_v1_gm_slug_contact_click
+      summary: "Cria ou executa api v1 gm slug contact-click"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -998,6 +1072,7 @@ paths:
   /api/v1/gm/{slug}/insights:
     get:
       operationId: getapi_v1_gm_slug_insights
+      summary: "Consulta api v1 gm slug insights"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1014,6 +1089,7 @@ paths:
   /api/v1/gm/{slug}/view:
     post:
       operationId: postapi_v1_gm_slug_view
+      summary: "Cria ou executa api v1 gm slug view"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1030,6 +1106,7 @@ paths:
   /api/v1/gm/insights:
     get:
       operationId: getapi_v1_gm_insights
+      summary: "Consulta api v1 gm insights"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1040,6 +1117,7 @@ paths:
   /api/v1/gm/me:
     get:
       operationId: getapi_v1_gm_me
+      summary: "Consulta api v1 gm me"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1050,6 +1128,7 @@ paths:
   /api/v1/gm/profile:
     post:
       operationId: postapi_v1_gm_profile
+      summary: "Cria ou executa api v1 gm profile"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1059,6 +1138,7 @@ paths:
           description: OK
     put:
       operationId: putapi_v1_gm_profile
+      summary: "Substitui api v1 gm profile"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1069,6 +1149,7 @@ paths:
   /api/v1/gm/tables:
     get:
       operationId: getapi_v1_gm_tables
+      summary: "Consulta api v1 gm tables"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1078,6 +1159,7 @@ paths:
           description: OK
     post:
       operationId: postapi_v1_gm_tables
+      summary: "Cria ou executa api v1 gm tables"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1088,6 +1170,7 @@ paths:
   /api/v1/gm/tables/{id}:
     delete:
       operationId: deleteapi_v1_gm_tables_id
+      summary: "Remove api v1 gm tables id"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1103,6 +1186,7 @@ paths:
           description: OK
     get:
       operationId: getapi_v1_gm_tables_id
+      summary: "Consulta api v1 gm tables id"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1118,6 +1202,7 @@ paths:
           description: OK
     put:
       operationId: putapi_v1_gm_tables_id
+      summary: "Substitui api v1 gm tables id"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1134,6 +1219,7 @@ paths:
   /api/v1/gm/tables/{id}/archive:
     patch:
       operationId: patchapi_v1_gm_tables_id_archive
+      summary: "Atualiza api v1 gm tables id archive"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1150,6 +1236,7 @@ paths:
   /api/v1/gm/tables/{id}/click:
     post:
       operationId: postapi_v1_gm_tables_id_click
+      summary: "Cria ou executa api v1 gm tables id click"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1166,6 +1253,7 @@ paths:
   /api/v1/gm/tables/{id}/contact:
     post:
       operationId: postapi_v1_gm_tables_id_contact
+      summary: "Cria ou executa api v1 gm tables id contact"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1182,6 +1270,7 @@ paths:
   /api/v1/gm/tables/{id}/favorite:
     post:
       operationId: postapi_v1_gm_tables_id_favorite
+      summary: "Cria ou executa api v1 gm tables id favorite"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1198,6 +1287,7 @@ paths:
   /api/v1/gm/tables/{id}/status:
     patch:
       operationId: patchapi_v1_gm_tables_id_status
+      summary: "Atualiza api v1 gm tables id status"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1214,6 +1304,7 @@ paths:
   /api/v1/gm/tables/{slug}/view:
     post:
       operationId: postapi_v1_gm_tables_slug_view
+      summary: "Cria ou executa api v1 gm tables slug view"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1230,6 +1321,7 @@ paths:
   /api/v1/health:
     get:
       operationId: getapi_v1_health
+      summary: "Consulta api v1 health"
       x-artificio-owner: mesas
       x-artificio-scope: internal
       x-artificio-status: active
@@ -1240,6 +1332,7 @@ paths:
   /api/v1/me:
     get:
       operationId: getapi_v1_me
+      summary: "Consulta api v1 me"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1250,6 +1343,7 @@ paths:
   /api/v1/me/options:
     get:
       operationId: getapi_v1_me_options
+      summary: "Consulta api v1 me options"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1260,6 +1354,7 @@ paths:
   /api/v1/me/preferences:
     put:
       operationId: putapi_v1_me_preferences
+      summary: "Substitui api v1 me preferences"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1270,6 +1365,7 @@ paths:
   /api/v1/notifications:
     get:
       operationId: getapi_v1_notifications
+      summary: "Consulta api v1 notifications"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1280,6 +1376,7 @@ paths:
   /api/v1/notifications/{id}/read:
     patch:
       operationId: patchapi_v1_notifications_id_read
+      summary: "Atualiza api v1 notifications id read"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1296,6 +1393,7 @@ paths:
   /api/v1/notifications/read-all:
     patch:
       operationId: patchapi_v1_notifications_read_all
+      summary: "Atualiza api v1 notifications read-all"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1306,6 +1404,7 @@ paths:
   /api/v1/profile/gm:
     patch:
       operationId: patchapi_v1_profile_gm
+      summary: "Atualiza api v1 profile gm"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1316,6 +1415,7 @@ paths:
   /api/v1/profile/links:
     get:
       operationId: getapi_v1_profile_links
+      summary: "Consulta api v1 profile links"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1325,6 +1425,7 @@ paths:
           description: OK
     post:
       operationId: postapi_v1_profile_links
+      summary: "Cria ou executa api v1 profile links"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1335,6 +1436,7 @@ paths:
   /api/v1/profile/links/{id}:
     delete:
       operationId: deleteapi_v1_profile_links_id
+      summary: "Remove api v1 profile links id"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1351,6 +1453,7 @@ paths:
   /api/v1/profile/links/reorder:
     patch:
       operationId: patchapi_v1_profile_links_reorder
+      summary: "Atualiza api v1 profile links reorder"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1361,6 +1464,7 @@ paths:
   /api/v1/profile/me:
     get:
       operationId: getapi_v1_profile_me
+      summary: "Consulta api v1 profile me"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1370,6 +1474,7 @@ paths:
           description: OK
     patch:
       operationId: patchapi_v1_profile_me
+      summary: "Atualiza api v1 profile me"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1380,6 +1485,7 @@ paths:
   /api/v1/profile/me/connect/discord:
     delete:
       operationId: deleteapi_v1_profile_me_connect_discord
+      summary: "Remove api v1 profile me connect discord"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1389,6 +1495,7 @@ paths:
           description: OK
     post:
       operationId: postapi_v1_profile_me_connect_discord
+      summary: "Cria ou executa api v1 profile me connect discord"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1399,6 +1506,7 @@ paths:
   /api/v1/profile/me/discord:
     get:
       operationId: getapi_v1_profile_me_discord
+      summary: "Consulta api v1 profile me discord"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1409,6 +1517,7 @@ paths:
   /api/v1/profile/me/gm:
     patch:
       operationId: patchapi_v1_profile_me_gm
+      summary: "Atualiza api v1 profile me gm"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1419,6 +1528,7 @@ paths:
   /api/v1/profile/me/google-picture:
     post:
       operationId: postapi_v1_profile_me_google_picture
+      summary: "Cria ou executa api v1 profile me google-picture"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1429,6 +1539,7 @@ paths:
   /api/v1/profile/me/player:
     patch:
       operationId: patchapi_v1_profile_me_player
+      summary: "Atualiza api v1 profile me player"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1439,6 +1550,7 @@ paths:
   /api/v1/profile/me/profile:
     patch:
       operationId: patchapi_v1_profile_me_profile
+      summary: "Atualiza api v1 profile me profile"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1449,6 +1561,7 @@ paths:
   /api/v1/profile/me/systems:
     post:
       operationId: postapi_v1_profile_me_systems
+      summary: "Cria ou executa api v1 profile me systems"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1459,6 +1572,7 @@ paths:
   /api/v1/profile/me/systems/{id}:
     delete:
       operationId: deleteapi_v1_profile_me_systems_id
+      summary: "Remove api v1 profile me systems id"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1475,6 +1589,7 @@ paths:
   /api/v1/profile/player:
     patch:
       operationId: patchapi_v1_profile_player
+      summary: "Atualiza api v1 profile player"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1485,6 +1600,7 @@ paths:
   /api/v1/profile/systems:
     post:
       operationId: postapi_v1_profile_systems
+      summary: "Cria ou executa api v1 profile systems"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1495,6 +1611,7 @@ paths:
   /api/v1/profile/systems/{id}:
     delete:
       operationId: deleteapi_v1_profile_systems_id
+      summary: "Remove api v1 profile systems id"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1511,6 +1628,7 @@ paths:
   /api/v1/scenario-suggestions:
     post:
       operationId: postapi_v1_scenario_suggestions
+      summary: "Cria ou executa api v1 scenario-suggestions"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1521,6 +1639,7 @@ paths:
   /api/v1/scenario-suggestions/mine:
     get:
       operationId: getapi_v1_scenario_suggestions_mine
+      summary: "Consulta api v1 scenario-suggestions mine"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1531,6 +1650,7 @@ paths:
   /api/v1/scenarios:
     get:
       operationId: getapi_v1_scenarios
+      summary: "Consulta api v1 scenarios"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1541,6 +1661,7 @@ paths:
   /api/v1/scenarios/{id}:
     get:
       operationId: getapi_v1_scenarios_id
+      summary: "Consulta api v1 scenarios id"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1557,6 +1678,7 @@ paths:
   /api/v1/scenarios/admin:
     post:
       operationId: postapi_v1_scenarios_admin
+      summary: "Cria ou executa api v1 scenarios admin"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -1567,6 +1689,7 @@ paths:
   /api/v1/scenarios/admin/{id}:
     delete:
       operationId: deleteapi_v1_scenarios_admin_id
+      summary: "Remove api v1 scenarios admin id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -1582,6 +1705,7 @@ paths:
           description: OK
     put:
       operationId: putapi_v1_scenarios_admin_id
+      summary: "Substitui api v1 scenarios admin id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -1598,6 +1722,7 @@ paths:
   /api/v1/settings/suggest-styles:
     get:
       operationId: getapi_v1_settings_suggest_styles
+      summary: "Consulta api v1 settings suggest-styles"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1608,6 +1733,7 @@ paths:
   /api/v1/system-suggestions:
     post:
       operationId: postapi_v1_system_suggestions
+      summary: "Cria ou executa api v1 system-suggestions"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1618,6 +1744,7 @@ paths:
   /api/v1/system-suggestions/mine:
     get:
       operationId: getapi_v1_system_suggestions_mine
+      summary: "Consulta api v1 system-suggestions mine"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1628,6 +1755,7 @@ paths:
   /api/v1/systems:
     get:
       operationId: getapi_v1_systems
+      summary: "Consulta api v1 systems"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1638,6 +1766,7 @@ paths:
   /api/v1/systems/admin:
     post:
       operationId: postapi_v1_systems_admin
+      summary: "Cria ou executa api v1 systems admin"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -1648,6 +1777,7 @@ paths:
   /api/v1/systems/admin/{id}:
     delete:
       operationId: deleteapi_v1_systems_admin_id
+      summary: "Remove api v1 systems admin id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -1663,6 +1793,7 @@ paths:
           description: OK
     put:
       operationId: putapi_v1_systems_admin_id
+      summary: "Substitui api v1 systems admin id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -1679,6 +1810,7 @@ paths:
   /api/v1/tables:
     get:
       operationId: getapi_v1_tables
+      summary: "Consulta api v1 tables"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1689,6 +1821,7 @@ paths:
   /api/v1/tables/{slug}:
     get:
       operationId: getapi_v1_tables_slug
+      summary: "Consulta api v1 tables slug"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1705,6 +1838,7 @@ paths:
   /api/v1/tables/{slug}/click:
     post:
       operationId: postapi_v1_tables_slug_click
+      summary: "Cria ou executa api v1 tables slug click"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1721,6 +1855,7 @@ paths:
   /api/v1/tables/{slug}/view:
     post:
       operationId: postapi_v1_tables_slug_view
+      summary: "Cria ou executa api v1 tables slug view"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1737,6 +1872,7 @@ paths:
   /api/v1/upload:
     post:
       operationId: postapi_v1_upload
+      summary: "Cria ou executa api v1 upload"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1747,6 +1883,7 @@ paths:
   /api/v1/upload/url:
     post:
       operationId: postapi_v1_upload_url
+      summary: "Cria ou executa api v1 upload url"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1757,6 +1894,7 @@ paths:
   /api/v1/vtt-platforms:
     get:
       operationId: getapi_v1_vtt_platforms
+      summary: "Consulta api v1 vtt-platforms"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1767,6 +1905,7 @@ paths:
   /api/v1/vtt-platforms/admin:
     get:
       operationId: getapi_v1_vtt_platforms_admin
+      summary: "Consulta api v1 vtt-platforms admin"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -1776,6 +1915,7 @@ paths:
           description: OK
     post:
       operationId: postapi_v1_vtt_platforms_admin
+      summary: "Cria ou executa api v1 vtt-platforms admin"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -1786,6 +1926,7 @@ paths:
   /api/v1/vtt-platforms/admin/{id}:
     delete:
       operationId: deleteapi_v1_vtt_platforms_admin_id
+      summary: "Remove api v1 vtt-platforms admin id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -1801,6 +1942,7 @@ paths:
           description: OK
     put:
       operationId: putapi_v1_vtt_platforms_admin_id
+      summary: "Substitui api v1 vtt-platforms admin id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -1817,6 +1959,7 @@ paths:
   /api/v1/vtt-platforms/suggest:
     post:
       operationId: postapi_v1_vtt_platforms_suggest
+      summary: "Cria ou executa api v1 vtt-platforms suggest"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1827,6 +1970,7 @@ paths:
   /auth/discord/callback:
     get:
       operationId: getauth_discord_callback
+      summary: "Consulta auth discord callback"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1837,6 +1981,7 @@ paths:
   /auth/discord/connect:
     get:
       operationId: getauth_discord_connect
+      summary: "Consulta auth discord connect"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1847,6 +1992,7 @@ paths:
   /auth/discord/disconnect:
     delete:
       operationId: deleteauth_discord_disconnect
+      summary: "Remove auth discord disconnect"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1857,6 +2003,7 @@ paths:
   /auth/discord/verify-covil:
     post:
       operationId: postauth_discord_verify_covil
+      summary: "Cria ou executa auth discord verify-covil"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1867,6 +2014,7 @@ paths:
   /auth/google:
     get:
       operationId: getauth_google
+      summary: "Consulta auth google"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1877,6 +2025,7 @@ paths:
   /auth/google/callback:
     get:
       operationId: getauth_google_callback
+      summary: "Consulta auth google callback"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1887,6 +2036,7 @@ paths:
   /auth/logout:
     post:
       operationId: postauth_logout
+      summary: "Cria ou executa auth logout"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
@@ -1897,6 +2047,7 @@ paths:
   /og/{type}/{slug}:
     get:
       operationId: getog_type_slug
+      summary: "Consulta og type slug"
       x-artificio-owner: mesas
       x-artificio-scope: public
       x-artificio-status: active
