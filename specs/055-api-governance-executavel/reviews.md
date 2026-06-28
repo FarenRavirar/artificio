@@ -224,3 +224,31 @@ Validação:
 ## Descartadas
 
 Nenhuma revisão descartada.
+
+---
+
+## REV-PR105 — Revisão do PR #105 (fix api:diff)
+
+### REV-PR105-CODEX-01 — api:diff não bloqueia breaking no CI (P1)
+
+Origem: chatgpt-codex-connector (PR #105, commit 713ba2d).
+
+Achado: no modo normal, breaking change saía exit 0; `ci.yml:148` usa `pnpm api:diff` como step. Logo remover uma operação OpenAPI passava o CI.
+
+Veredito: PROCEDE como lacuna de gate, mas o `exit 0` em modo normal é **decisão documentada** (modo inicial — não bloqueia evolução; estrito é futuro). Correção escolhida pelo mantenedor = **opção C (flag `API_DIFF_STRICT`)**, mais robusta/escalável que flipar para exit 1 incondicional:
+- default off → comportamento atual preservado (modo inicial, exit 0 + relatório).
+- `API_DIFF_STRICT=1|true|all` → breaking vira exit 1 (gate real).
+- `API_DIFF_STRICT=mesas,accounts` → estreita o gate app-a-app (migração gradual p/ estrito).
+- modo file-compare (`--old/--new`) já saía 1 em breaking — mantido.
+
+Validação: default breaking=1→exit 0; `STRICT=1` breaking=1→exit 1; `STRICT=glossario` com mesas quebrado→exit 0. verify:api exit 0; lint 15/15.
+
+### REV-PR105-RABBIT-01 — Normalizar JSON do openapi-diff antes de tipar (Major)
+
+Origem: coderabbitai (PR #105).
+
+Achado: `JSON.parse(...) as {...}` aceitava payload arbitrário da integração e só validava o topo com `Array.isArray`; item parcial/campo trocado do CLI propagaria objeto inválido como `DiffChange`.
+
+Correção aplicada (pétrea de normalização): parse para `unknown` + normalizador tipado campo-a-campo — `isRecord`/`normalizeDiffArray`/`normalizeDiffChange`/`normalizeEntityDetails`. `type` validado contra allowlist (`breaking|non-breaking|unclassified`, com fallback por bucket de origem), `action`/`code`/`entity` coeridos a string, `*SpecEntityDetails` só aceita itens com `location: string`. Itens inválidos são descartados, não propagados.
+
+Bug de raiz corrigido junto (não era achado de bot, foi achado na validação): a ferramenta `api:diff` estava **cega para diff real** — (1) path absoluto Windows lido como protocolo URL, (2) saída descartada no exit≠0 do openapi-diff, (3) schema do JSON 0.24.1 (`breakingDifferences[]/...`) diferente do esperado (`summary`). Os 3 faziam crash em vez de reportar. Provado pós-fix: rota removida → Breaking:1.

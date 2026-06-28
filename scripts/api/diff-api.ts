@@ -97,6 +97,55 @@ function getBaseVersion(filePath: string, baseBranch: string): string | null {
   return null;
 }
 
+// ── Normalização do payload externo do openapi-diff (pétrea: dado externo = unknown
+//    até passar por normalizador tipado; nunca assumir array/campo sem validação). ──
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function asString(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
+
+function normalizeEntityDetails(v: unknown): Array<{ location: string }> | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: Array<{ location: string }> = [];
+  for (const item of v) {
+    if (isRecord(item) && typeof item.location === 'string') {
+      out.push({ location: item.location });
+    }
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+const DIFF_TYPES = new Set<DiffChange['type']>(['breaking', 'non-breaking', 'unclassified']);
+
+function normalizeDiffChange(v: unknown, fallbackType: DiffChange['type']): DiffChange | null {
+  if (!isRecord(v)) return null;
+  const rawType = asString(v.type) as DiffChange['type'];
+  const change: DiffChange = {
+    type: DIFF_TYPES.has(rawType) ? rawType : fallbackType,
+    action: asString(v.action),
+    code: asString(v.code),
+    entity: asString(v.entity),
+  };
+  const dest = normalizeEntityDetails(v.destinationSpecEntityDetails);
+  const src = normalizeEntityDetails(v.sourceSpecEntityDetails);
+  if (dest) change.destinationSpecEntityDetails = dest;
+  if (src) change.sourceSpecEntityDetails = src;
+  return change;
+}
+
+function normalizeDiffArray(v: unknown, fallbackType: DiffChange['type']): DiffChange[] {
+  if (!Array.isArray(v)) return [];
+  const out: DiffChange[] = [];
+  for (const item of v) {
+    const normalized = normalizeDiffChange(item, fallbackType);
+    if (normalized) out.push(normalized);
+  }
+  return out;
+}
+
 function runOpenapiDiff(oldFile: string, newFile: string): DiffResult {
   // openapi-diff sai com código != 0 quando encontra diferenças. execFileSync lança nesse
   // caso, mas o stdout útil (JSON ou a mensagem de "no changes") vem no erro. Capturamos
@@ -135,14 +184,11 @@ function runOpenapiDiff(oldFile: string, newFile: string): DiffResult {
     //   { breakingDifferencesFound, breakingDifferences[], nonBreakingDifferences[], unclassifiedDifferences[] }
     // Cada item já traz type/action/code/destinationSpecEntityDetails — mapeamos para a forma
     // interna { summary, differences } consumida por main()/generateReport().
-    const raw = JSON.parse(stdout.slice(jsonStart)) as {
-      breakingDifferences?: DiffChange[];
-      nonBreakingDifferences?: DiffChange[];
-      unclassifiedDifferences?: DiffChange[];
-    };
-    const breaking = Array.isArray(raw.breakingDifferences) ? raw.breakingDifferences : [];
-    const nonBreaking = Array.isArray(raw.nonBreakingDifferences) ? raw.nonBreakingDifferences : [];
-    const unclassified = Array.isArray(raw.unclassifiedDifferences) ? raw.unclassifiedDifferences : [];
+    const raw: unknown = JSON.parse(stdout.slice(jsonStart));
+    const root = isRecord(raw) ? raw : {};
+    const breaking = normalizeDiffArray(root.breakingDifferences, 'breaking');
+    const nonBreaking = normalizeDiffArray(root.nonBreakingDifferences, 'non-breaking');
+    const unclassified = normalizeDiffArray(root.unclassifiedDifferences, 'unclassified');
     return {
       summary: {
         breaking: breaking.length,
@@ -364,12 +410,28 @@ function main(): void {
 
   console.log(`   📝 Relatório: ${reportPath}`);
 
-  // Exit code: 0 no modo inicial (breaking changes só geram relatório, não bloqueiam)
+  // Política de bloqueio (escalonável):
+  //  - default (modo inicial): breaking só gera relatório, exit 0 — não bloqueia evolução.
+  //  - estrito (API_DIFF_STRICT): breaking → exit 1, vira gate de CI.
+  //    Aceita '1'/'true' (global) ou lista de apps (`mesas,accounts`) p/ estreitar app-a-app.
   const hasBreaking = appDiffs.some(d => d.breaking > 0);
+  const strictRaw = (process.env.API_DIFF_STRICT ?? '').trim();
+  const strictAll = /^(1|true|all)$/i.test(strictRaw);
+  const strictApps = strictAll
+    ? null
+    : new Set(strictRaw.split(',').map((s: string) => s.trim()).filter(Boolean));
+  const blockingBreaking = appDiffs.some(
+    d => d.breaking > 0 && (strictAll || (strictApps?.has(d.app) ?? false)),
+  );
+
   if (hasBreaking) {
-    console.log(`   ⚠️  Breaking changes detectados (modo inicial — relatório apenas)`);
+    const mode = strictAll || (strictApps && strictApps.size > 0) ? 'estrito' : 'modo inicial';
+    console.log(`   ⚠️  Breaking changes detectados (${mode}${blockingBreaking ? ' — BLOQUEANTE' : ' — relatório apenas'})`);
   }
-  console.log(`   🏁 Exit code: 0\n`);
+
+  const exitCode = blockingBreaking ? 1 : 0;
+  console.log(`   🏁 Exit code: ${exitCode}\n`);
+  process.exit(exitCode);
 }
 
 main();
