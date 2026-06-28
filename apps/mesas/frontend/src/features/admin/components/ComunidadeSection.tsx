@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../../contexts/useAuth';
 import { authGet, authPatch, authPost } from '../../../services/apiClient';
 import { SystemSuggestionResolutionDrawer } from '../../../components/SystemSuggestionResolutionDrawer';
@@ -143,25 +143,30 @@ export function ComunidadeSection() {
     }
   }, [filter, isAuthenticated]);
 
-  const mounted = useRef(false);
   useEffect(() => {
-    if (mounted.current) return;
-    mounted.current = true;
+    let active = true;
     // Usar setTimeout para evitar setState síncrono no effect (react-hooks/set-state-in-effect)
-    const timer = setTimeout(() => { void fetchSuggestions(); }, 0);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(() => {
+      if (!active) return;
+      void fetchSuggestions();
+    }, 0);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [fetchSuggestions]);
 
-  const maybePublishPendingDrafts = async (pending: Array<{ id: string; title: string | null }>) => {
-    if (!pending || pending.length === 0) return;
+  const maybePublishPendingDrafts = async (pending: unknown) => {
+    if (!Array.isArray(pending) || pending.length === 0) return;
+    const drafts = pending as Array<{ id: string; title: string | null }>;
     const results = await Promise.allSettled(
-      pending.map(d => authPost(`/api/v1/admin/discord/drafts/${d.id}/sync`)),
+      drafts.map(d => authPost(`/api/v1/admin/discord/drafts/${d.id}/sync`)),
     );
     const succeeded = results.filter(r => r.status === 'fulfilled' && (r.value as Response).ok).length;
-    toast.success(`${succeeded}/${pending.length} mesa(s) publicada(s)!`);
+    toast.success(`${succeeded}/${drafts.length} mesa(s) publicada(s)!`);
   };
 
-  const handleResolved = (data: { system_name?: string; pending_drafts?: Array<{ id: string; title: string | null }> }) => {
+  const handleResolved = (data: { system_name?: string; pending_drafts?: unknown }) => {
     setResolvingSuggestion(null);
     setSelectedSuggestionIds(cur =>
       resolvingSuggestion ? cur.filter(id => id !== resolvingSuggestion.id) : cur,
@@ -272,19 +277,19 @@ export function ComunidadeSection() {
     <div>
       {/* Filtros */}
       <div className="flex gap-3 mb-6 flex-wrap items-center">
-        <button onClick={() => setFilter('pending')} className={filterBtnClass('pending', 'bg-yellow-600')}>
+        <button onClick={() => setFilter('pending')} className={filterBtnClass('pending', 'bg-yellow-600')} aria-pressed={filter === 'pending'}>
           Pendentes
         </button>
-        <button onClick={() => setFilter('approved')} className={filterBtnClass('approved', 'bg-green-600')}>
+        <button onClick={() => setFilter('approved')} className={filterBtnClass('approved', 'bg-green-600')} aria-pressed={filter === 'approved'}>
           Aprovadas
         </button>
-        <button onClick={() => setFilter('rejected')} className={filterBtnClass('rejected', 'bg-red-600')}>
+        <button onClick={() => setFilter('rejected')} className={filterBtnClass('rejected', 'bg-red-600')} aria-pressed={filter === 'rejected'}>
           Rejeitadas
         </button>
-        <button onClick={() => setFilter('historico')} className={filterBtnClass('historico', 'bg-purple-600')}>
+        <button onClick={() => setFilter('historico')} className={filterBtnClass('historico', 'bg-purple-600')} aria-pressed={filter === 'historico'}>
           Histórico de decisões
         </button>
-        <button onClick={() => setFilter('all')} className={filterBtnClass('all', 'bg-blue-600')}>
+        <button onClick={() => setFilter('all')} className={filterBtnClass('all', 'bg-blue-600')} aria-pressed={filter === 'all'}>
           Todas
         </button>
         {pendingSuggestionIds.length > 0 && (

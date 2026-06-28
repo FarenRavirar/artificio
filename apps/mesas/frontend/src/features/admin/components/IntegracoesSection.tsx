@@ -83,28 +83,28 @@ export function IntegracoesSection() {
     <div>
       {/* Subnav local */}
       <div className="flex flex-wrap gap-3 mb-6">
-        <button onClick={() => setSubTab('discord-config')} className={subTabClass('discord-config')}>
+        <button onClick={() => setSubTab('discord-config')} className={subTabClass('discord-config')} aria-pressed={subTab === 'discord-config'}>
           Discord
         </button>
-        <button onClick={() => setSubTab('discord-canais')} className={subTabClass('discord-canais')}>
+        <button onClick={() => setSubTab('discord-canais')} className={subTabClass('discord-canais')} aria-pressed={subTab === 'discord-canais'}>
           Canais monitorados
         </button>
-        <button onClick={() => setSubTab('discord-mensagens')} className={subTabClass('discord-mensagens')}>
+        <button onClick={() => setSubTab('discord-mensagens')} className={subTabClass('discord-mensagens')} aria-pressed={subTab === 'discord-mensagens'}>
           Mensagens capturadas
         </button>
-        <button onClick={() => setSubTab('discord-rascunhos')} className={subTabClass('discord-rascunhos')}>
+        <button onClick={() => setSubTab('discord-rascunhos')} className={subTabClass('discord-rascunhos')} aria-pressed={subTab === 'discord-rascunhos'}>
           Rascunhos
         </button>
-        <button onClick={() => setSubTab('discord-import')} className={subTabClass('discord-import')}>
+        <button onClick={() => setSubTab('discord-import')} className={subTabClass('discord-import')} aria-pressed={subTab === 'discord-import'}>
           Importar histórico
         </button>
-        <button onClick={() => setSubTab('importacao')} className={subTabClass('importacao')}>
+        <button onClick={() => setSubTab('importacao')} className={subTabClass('importacao')} aria-pressed={subTab === 'importacao'}>
           Importação de dados
         </button>
-        <button onClick={() => setSubTab('enriquecimento')} className={subTabClass('enriquecimento')}>
+        <button onClick={() => setSubTab('enriquecimento')} className={subTabClass('enriquecimento')} aria-pressed={subTab === 'enriquecimento'}>
           Enriquecimento de dados
         </button>
-        <button onClick={() => setSubTab('logs')} className={subTabClass('logs')}>
+        <button onClick={() => setSubTab('logs')} className={subTabClass('logs')} aria-pressed={subTab === 'logs'}>
           Logs de integração
         </button>
       </div>

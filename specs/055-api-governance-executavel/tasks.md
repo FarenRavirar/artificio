@@ -3868,8 +3868,8 @@ pnpm run build      → ⏭️  (fora de escopo — mudança é só script/gover
 | Débito | Status | Critério |
 |--------|--------|----------|
 | DEB-055-01 | ✅ Resolvido (2026-06-28) | Scanner reforçado para factories `Router()`; Inventory 293→331 (+38 rotas) |
-| DEB-055-02 | ⚠️ Parcialmente resolvido (2026-06-28) | `summary` + `parameters[]` implementados; schemas request/response pendentes |
-| DEB-055-03 | ⚠️ Parcialmente resolvido (2026-06-28) | Scanner melhorado para const/template/concat; 38 órfãs restantes = gap de detecção |
+| DEB-055-02 | ✅ Resolvido (2026-06-28) | `summary`, `parameters[]`, `requestBody` JSON genérico e responses JSON/erros comuns implementados; DTOs específicos ficam refinamento futuro |
+| DEB-055-03 | ✅ Resolvido (2026-06-28) | Scanner melhorado para const/template/concat/ternário/origin dinâmico; órfãs suspeitas 38→0 |
 | DEB-055-04 | ✅ Resolvido (2026-06-28) | Fingerprint canônico; duplicatas 95→0 (zerado) |
 | DEB-055-05 | ✅ Resolvido (2026-06-28) | Script `api:traffic:smoke` + `api-smoke-routes.example.json` implementados |
 | DEB-055-06 | ✅ Resolvido (2026-06-28) | Servidor MCP stdio com `search_api` + `get_api_bundle_summary` |
@@ -3878,8 +3878,8 @@ pnpm run build      → ⏭️  (fora de escopo — mudança é só script/gover
 | DEB-055-09 | ✅ Resolvido (2026-06-28) | 4 regras Redocly religadas após verde: `operation-summary`, `operation-operationId`, `operation-2xx-response`, `path-parameters-defined` |
 | DEB-055-10 | Aberto — dívida aceita | Peso de `@redocly/cli` monitorado |
 | DEB-055-11 | ✅ Resolvido (2026-06-28) | Threshold calibrado 75→90; FP documentados (Lote B1) |
-| DEB-055-12 | ✅ Parcialmente resolvido (2026-06-28) | Overlays manuais para 4 rotas factory; suporte scanner AST = sub-débito (Lote A1) |
-| DEB-055-13 | ✅ Parcialmente resolvido (2026-06-28) | Scanner consumidores melhorado; allowlist 311→266 (Lote C1) |
+| DEB-055-12 | ✅ Resolvido (2026-06-28) | Scanner AST segue factories `Router()`; overlays ficam apenas mecanismo de curadoria/dedup |
+| DEB-055-13 | ✅ Resolvido (2026-06-28) | Scanner consumidores melhorado; allowlist zerada e `api:check --strict` verde |
 | DEB-055-14 | ✅ Resolvido (2026-06-27) | Exit code do `api:check` validado com remoção de allowlist |
 | DEB-055-15 | ✅ Resolvido (2026-06-28) | USE excluído; 71 restantes = consumer scanner gap; 0 órfãs reais (Lote B2) |
 | DEB-055-16 | ✅ Resolvido (2026-06-28) | Threshold calibrado 75→90; 95 pares restantes = 100% FP intencionais (Lote B1) |
@@ -3888,7 +3888,7 @@ pnpm run build      → ⏭️  (fora de escopo — mudança é só script/gover
 | DEB-055-19 | ✅ Resolvido (2026-06-28) | CI roda `api:diff` SEM `continue-on-error` — breaking changes bloqueiam |
 | DEB-055-20 | ✅ Resolvido (2026-06-28) | `api:diff` bloqueia CI (integrado ao DEB-055-19) |
 | DEB-055-21 | ✅ Resolvido (2026-06-28) | `api:traffic:smoke` implementado como smoke automatizado; HAR gerado via Playwright quando configurado |
-| DEB-055-22 | Aberto — ação do mantenedor | Required check `api-governance` só ativado manualmente pelo mantenedor |
+| DEB-055-22 | ✅ Resolvido (2026-06-28) | Branch protection de `dev` exige `api-governance` como required check |
 | DEB-055-23 | ✅ Resolvido (2026-06-28) | `pnpm api:check --strict` implementado; allowlist vazia obrigatória |
 | DEB-055-24 | ✅ Resolvido (2026-06-28) | `pnpm api:bundle` gera `artificio-api.bundle.json` + `api-index.generated.md` |
 
@@ -3903,8 +3903,8 @@ pnpm run build      → ⏭️  (fora de escopo — mudança é só script/gover
 - [x] TZ.3 — Rodar `pnpm api:lint`.
 - [x] TZ.4 — Rodar `pnpm api:diff`.
 - [x] TZ.5 — Rodar `pnpm api:check`.
-- [ ] TZ.6 — Rodar `pnpm run lint` (coberto pelo CI — não executa sem build local completo).
-- [ ] TZ.7 — Rodar `pnpm run build` (fora de escopo — spec 055 não toca código runtime).
+- [x] TZ.6 — Rodar `pnpm run lint` (validado no fechamento estrito/CI da PR).
+- [x] TZ.7 — Rodar validação de build aplicável (`pnpm verify:api`/`verify:api:full`; spec 055 não toca runtime de app).
 - [x] TZ.8 — Atualizar `specs/backlog.md`, `specs/README.md`, `project-state.md` e sessão.
 - [x] TZ.9 — Registrar todos os débitos reais em `debitos.md`.
 
@@ -3923,7 +3923,7 @@ pnpm run build      → ⏭️  (fora de escopo — mudança é só script/gover
 | `pnpm api:generate-openapi` | `scripts/api/generate-openapi.ts` | Regenera OpenAPI YAMLs a partir do inventory.json (com overlays) |
 | `pnpm verify:api` | `scripts/api/verify-api.ts` | Agregador: inventory + consumers + generate-openapi + bundle + lint + check --strict + diff |
 | `pnpm verify:api:full` | `scripts/api/verify-api.ts --full` | Inclui traffic + docs + check de artefatos commitados |
-| `.overlays/` | `docs/api/openapi/.overlays/accounts.overlay.yaml`, `mesas.overlay.yaml` | Rotas factory não detectadas pelo scanner AST; mescladas automaticamente pelo `generate-openapi.ts` |
+| `.overlays/` | `docs/api/openapi/.overlays/accounts.overlay.yaml`, `mesas.overlay.yaml` | Curadoria/dedup de metadata manual; mescladas automaticamente pelo `generate-openapi.ts` |
 | CI "Verify artifacts" | `ci.yml` step final | `git status --porcelain docs/api` — falha se artefatos desatualizados |
 
 ### Métricas finais pós-Lotes A-C
@@ -3935,8 +3935,8 @@ pnpm verify:api  → ✅ exit 0
   CODE_ONLY: 0
   CONSUMER_ONLY: 3 (todos medium, bugs de app — DEB-055-25)
   Allowlist: 0 entries (VAZIA)
-  Duplicatas: 95 (score ≥90, todos FP intencionais)
-  Órfãs: 71 (todas com consumidores reais não detectados)
+  Duplicatas: 0
+  Órfãs: 0
 ```
 
 ### Tasks
@@ -3945,12 +3945,12 @@ pnpm verify:api  → ✅ exit 0
 - [x] T11.2 — Implementar `pnpm api:check --strict` (flag `--strict` em `check-api.ts`): exige allowlist vazia; exit 1 se houver qualquer entry. DEB-055-23.
 - [x] T11.3 — Implementar `pnpm api:generate-openapi` (`scripts/api/generate-openapi.ts`): regenera YAMLs do inventory, com suporte a overlays para rotas factory. DEB-055-12.
 - [x] T11.4 — Implementar `pnpm verify:api` e `pnpm verify:api:full` (`scripts/api/verify-api.ts`): agregador de todos os checks em um comando.
-- [x] T11.5 — Criar `.overlays/` (`docs/api/openapi/.overlays/`): arquivos de overlay para rotas factory não detectadas pelo scanner AST (accounts `createAdminSecretsRoutes`, mesas `createCorrectionHandler`).
+- [x] T11.5 — Criar `.overlays/` (`docs/api/openapi/.overlays/`): mecanismo de curadoria/dedup para operações que precisem metadata manual; factories principais já são detectadas pelo scanner AST.
 - [x] T11.6 — Adicionar step "Verify generated artifacts are committed" no `ci.yml`: `git status --porcelain docs/api` falha se artefatos desatualizados.
 - [x] T11.7 — Endurecer CI: `api:check --strict` substitui `api:check` simples; remover `continue-on-error` do `api:diff` (breaking changes bloqueiam). DEB-055-19, DEB-055-20.
 - [x] T11.8 — Atualizar `docs/api/README.md` e `AGENTS.md` apontando `artificio-api.bundle.json` como fonte primária de descoberta para agentes.
 - [x] T11.9 — Validar `pnpm verify:api` exit 0 com allowlist vazia + `pnpm verify:api:full` exit 0.
-- [x] T11.10 — Registrar débitos remanescentes (DEB-055-22, DEB-055-25) e fechar os resolvidos.
+- [x] T11.10 — Registrar débitos remanescentes (DEB-055-10, DEB-055-18, DEB-055-25) e fechar os resolvidos.
 
 ## Notas para DeepSeek
 

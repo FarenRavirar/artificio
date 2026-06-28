@@ -63,7 +63,7 @@ function AppRoutes() {
         <Route path="dashboard" element={<DashboardSection />} />
         <Route path="conteudo" element={<ConteudoSection />} />
         <Route path="comunidade" element={<ComunidadeSection />} />
-        <Route path="moderacao" element={<ModeracaoSection />} />
+        <Route path="moderacao/:sub?" element={<ModeracaoSection />} />
         <Route path="integracoes" element={<IntegracoesSection />} />
         <Route path="sistema" element={<SistemaSection />} />
       </Route>

@@ -25,7 +25,7 @@ Validação pós-fixes: `pnpm verify:api` exit 0, `pnpm api:check:strict` exit 0
 
 ### REV-055-F1-01 — OpenAPI base ainda omite rotas criadas por factories
 
-Status: aceita como dívida técnica — coberto por `DEB-055-12`; não bloqueia o fechamento da spec 055 em modo inicial
+Status: superada em 2026-06-28 — `DEB-055-12` resolvido; mantido aqui apenas como histórico da revisão
 
 Severidade: P1
 
@@ -46,7 +46,7 @@ Impacto:
 A Fase 1 afirma que existe OpenAPI mínimo por app, mas essas rotas admin importantes continuam invisíveis para agentes/MCP/docs. Isso é especialmente sensível para `accounts` porque envolve segredo administrativo.
 
 Decisão de fechamento:
-Não inserir manualmente de forma frágil no YAML se `api:generate-openapi` sobrescreve. A lacuna é aceita no fechamento da spec 055 porque a spec entrega governança executável em modo inicial, não cobertura 100% do legado. Corrigir via suporte a factory/overlay no inventário/gerador antes de ativar modo estrito ou declarar cobertura completa de OpenAPI.
+Resolvido pelo reforço do scanner AST de `inventory.ts` para seguir factories que declaram `Router()`, geração OpenAPI regenerada e validação strict com allowlist vazia. Evidência final: `pnpm verify:api` exit 0 e `pnpm api:check:strict` exit 0 com `Inventory: 331`, `OpenAPI: 264`, órfãs 0 e duplicatas 0.
 
 ## Aplicadas
 

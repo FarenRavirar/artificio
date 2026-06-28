@@ -30,20 +30,20 @@ export function SistemaSection() {
   return (
     <div>
       {/* Subnav local */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <button onClick={() => setSubTab('ferramentas')} className={subTabClass('ferramentas')}>
+      <div className="flex flex-wrap gap-3 mb-6" role="tablist" aria-label="Subnavegação do Sistema">
+        <button onClick={() => setSubTab('ferramentas')} className={subTabClass('ferramentas')} role="tab" aria-selected={subTab === 'ferramentas'}>
           Ferramentas de desenvolvimento
         </button>
-        <button onClick={() => setSubTab('jobs')} className={subTabClass('jobs')}>
+        <button onClick={() => setSubTab('jobs')} className={subTabClass('jobs')} role="tab" aria-selected={subTab === 'jobs'}>
           Jobs e filas
         </button>
-        <button onClick={() => setSubTab('logs')} className={subTabClass('logs')}>
+        <button onClick={() => setSubTab('logs')} className={subTabClass('logs')} role="tab" aria-selected={subTab === 'logs'}>
           Logs
         </button>
-        <button onClick={() => setSubTab('erros')} className={subTabClass('erros')}>
+        <button onClick={() => setSubTab('erros')} className={subTabClass('erros')} role="tab" aria-selected={subTab === 'erros'}>
           Erros reportados
         </button>
-        <button onClick={() => setSubTab('config')} className={subTabClass('config')}>
+        <button onClick={() => setSubTab('config')} className={subTabClass('config')} role="tab" aria-selected={subTab === 'config'}>
           Configurações
         </button>
       </div>

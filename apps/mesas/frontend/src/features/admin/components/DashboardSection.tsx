@@ -9,7 +9,7 @@ type DashSubTab = 'visao-geral' | 'pendencias' | 'atividades' | 'alertas' | 'ata
 export function DashboardSection() {
   const [subTab, setSubTab] = useState<DashSubTab>('visao-geral');
   const [pendenciaSugestoes, setPendenciaSugestoes] = useState(0);
-  const [pendenciaRascunhos, setPendenciaRascunhos] = useState(0);
+  const [temPendenciaRascunhos, setTemPendenciaRascunhos] = useState(false);
   const [loadingPendencias, setLoadingPendencias] = useState(false);
 
   useEffect(() => {
@@ -35,8 +35,9 @@ export function DashboardSection() {
         // silêncio — erro de rede não quebra o dashboard
       }
       try {
+        // ⚠️ limit:1 — backend não expõe total; usamos só para detectar ≥1 pendência
         const drafts = await discordSyncApi.getDrafts({ origin: 'all', status: 'needs_review', limit: 1 });
-        if (active) setPendenciaRascunhos(Array.isArray(drafts) ? drafts.length : 0);
+        if (active) setTemPendenciaRascunhos(Array.isArray(drafts) && drafts.length > 0);
       } catch {
         // silêncio
       }
@@ -66,16 +67,16 @@ export function DashboardSection() {
     </div>
   );
 
-  const totalPendencias = pendenciaSugestoes + pendenciaRascunhos;
+  const totalPendencias = pendenciaSugestoes + (temPendenciaRascunhos ? 1 : 0);
 
   return (
     <div>
       {/* Subnav local */}
       <div className="flex flex-wrap gap-3 mb-6">
-        <button onClick={() => setSubTab('visao-geral')} className={subTabClass('visao-geral')}>
+        <button onClick={() => setSubTab('visao-geral')} className={subTabClass('visao-geral')} aria-pressed={subTab === 'visao-geral'}>
           Visão geral
         </button>
-        <button onClick={() => setSubTab('pendencias')} className={subTabClass('pendencias')}>
+        <button onClick={() => setSubTab('pendencias')} className={subTabClass('pendencias')} aria-pressed={subTab === 'pendencias'}>
           Pendências
           {totalPendencias > 0 && (
             <span className="ml-2 tabular-nums text-xs font-semibold px-1.5 py-0.5 rounded-full bg-orange-600 text-white">
@@ -83,13 +84,13 @@ export function DashboardSection() {
             </span>
           )}
         </button>
-        <button onClick={() => setSubTab('atividades')} className={subTabClass('atividades')}>
+        <button onClick={() => setSubTab('atividades')} className={subTabClass('atividades')} aria-pressed={subTab === 'atividades'}>
           Últimas atividades
         </button>
-        <button onClick={() => setSubTab('alertas')} className={subTabClass('alertas')}>
+        <button onClick={() => setSubTab('alertas')} className={subTabClass('alertas')} aria-pressed={subTab === 'alertas'}>
           Alertas
         </button>
-        <button onClick={() => setSubTab('atalhos')} className={subTabClass('atalhos')}>
+        <button onClick={() => setSubTab('atalhos')} className={subTabClass('atalhos')} aria-pressed={subTab === 'atalhos'}>
           Atalhos rápidos
         </button>
       </div>
@@ -147,14 +148,13 @@ export function DashboardSection() {
                   </NavLink>
                 </li>
               )}
-              {pendenciaRascunhos > 0 && (
+              {temPendenciaRascunhos && (
                 <li>
                   <NavLink
                     to="/gestao/moderacao/rascunhos"
                     className="flex items-center gap-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
                   >
-                    <span className="tabular-nums font-semibold">{pendenciaRascunhos}</span>
-                    rascunho{pendenciaRascunhos !== 1 ? 's' : ''} a revisar
+                    Há rascunhos a revisar
                     <span className="text-white/40 text-xs">— Ir para Moderação</span>
                   </NavLink>
                 </li>

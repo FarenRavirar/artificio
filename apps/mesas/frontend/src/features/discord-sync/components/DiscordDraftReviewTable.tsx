@@ -10,6 +10,8 @@ type OriginFilter = 'discord' | 'inbox' | 'all';
 
 interface Props {
   readonly api?: DraftApiOperations;
+  /** API alternativa para drafts de origem Inbox (sync/reparse/get). Se omitida, usa a api default (discordSyncApi). */
+  readonly inboxApi?: DraftApiOperations;
   readonly listDrafts?: (params?: { status?: DiscordImportDraftStatus; limit?: number; offset?: number; origin?: OriginFilter }) => Promise<DiscordDraft[]>;
   readonly syncReadyAction?: () => Promise<{ synced: number; failed: number; errors: string[] }>;
   readonly showSyncReady?: boolean;
@@ -59,8 +61,11 @@ function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
 }
 
-export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync }: Props) {
+export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync }: Props) {
   const draftApi = api ?? discordSyncApi;
+  // Para drafts de Inbox, usa inboxApi se fornecida; senão fallback para draftApi (compat retroativa).
+  const resolveApi = (draft: DiscordDraft): DraftApiOperations =>
+    !draft.discord_message_id && inboxApi ? inboxApi : draftApi;
   const [drafts, setDrafts] = useState<DiscordDraft[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DiscordImportDraftStatus | ''>('');
@@ -93,11 +98,33 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
     if (!confirm('Sincronizar todos os drafts com status "pronto" como mesas reais?')) return;
     setSyncingAll(true);
     try {
-      const action = syncReadyAction ?? discordSyncApi.syncReady;
-      const result = await action();
-      toast.success(`${result.synced} sincronizadas, ${result.failed} falhas.`);
-      if (result.errors.length > 0) {
-        console.warn('[DiscordDraftReviewTable] erros de sync:', result.errors);
+      // Se houver onBeforeSync, aplica correction-tracking draft a draft antes do sync
+      if (onBeforeSync) {
+        const readyDrafts = drafts.filter(d => d.status === 'ready');
+        let synced = 0;
+        let failed = 0;
+        const errors: string[] = [];
+        for (const draft of readyDrafts) {
+          try {
+            await onBeforeSync(draft);
+            await resolveApi(draft).syncDraft(draft.id);
+            synced++;
+          } catch (err) {
+            failed++;
+            errors.push(err instanceof Error ? err.message : String(err));
+          }
+        }
+        toast.success(`${synced} sincronizadas, ${failed} falhas.`);
+        if (errors.length > 0) {
+          console.warn('[DiscordDraftReviewTable] erros de sync em lote:', errors);
+        }
+      } else {
+        const action = syncReadyAction ?? discordSyncApi.syncReady;
+        const result = await action();
+        toast.success(`${result.synced} sincronizadas, ${result.failed} falhas.`);
+        if (result.errors.length > 0) {
+          console.warn('[DiscordDraftReviewTable] erros de sync:', result.errors);
+        }
       }
       loadDrafts();
     } catch (err) {
@@ -243,7 +270,7 @@ export function DiscordDraftReviewTable({ api, listDrafts: listDraftsProp, syncR
           draft={selectedDraft}
           onUpdate={handleDraftUpdate}
           onClose={() => setSelectedDraft(null)}
-          api={draftApi}
+          api={resolveApi(selectedDraft)}
           onBeforeSync={onBeforeSync}
         />
       )}

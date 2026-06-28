@@ -5,7 +5,7 @@
 
 ## Atualização — melhorias de controle real de API (2026-06-28)
 
-Status: implementado e validado localmente, sem commit/push.
+Status: implementado, validado localmente e enviado na branch da PR.
 
 Débitos tratados:
 - **DEB-055-01:** scanner de inventário reforçado para seguir factories importadas/localizadas que declaram `Router()`; inventário atual encontra **331 rotas**, todas `HIGH`.
@@ -287,17 +287,17 @@ A heurística de similaridade de paths (token matching, stripping de :params e /
 Critério de resolução:
 Threshold inicial de 75 pontos. Monitorar taxa de falso positivo nas primeiras execuções. Se > 30% dos alertas forem falso positivo, subir threshold para 80 ou refinar a normalização (ex: não remover o último token do path, que geralmente é a ação específica). False positives conhecidos viram allowlist no relatório.
 
-## DEB-055-13 — Divergência código-OpenAPI-consumidores (allowlist reduzida de 311→266)
+## DEB-055-13 — Divergência código-OpenAPI-consumidores
 
-Status: parcialmente resolvido (2026-06-28) — scanner de consumidores melhorado; allowlist reduzida; site-admin agora detectado
+Status: resolvido (2026-06-28) — scanner de consumidores melhorado; allowlist zerada
 
 Resolução (LOTE C1):
 - Scanner de consumidores (`consumers.ts`) melhorado: `scanCentralizedApi` agora extrai paths reais do objeto `api` do site-admin via pré-passe AST que resolve chamadas `req(path, {method})` dentro de arrow functions
 - site-admin: de 1→17 consumidores detectados (11 endpoints únicos, todos HIGH confidence)
 - Cache global `siteAdminApiPathMap` garante que paths extraídos do `api.ts` são reutilizados em todos os arquivos consumidores
-- Allowlist regenerada: 311→266 entries (redução de 45 entries)
-- Sub-débito: melhorar resolução de concatenação/template no scanner (ex: `BASE + path`, `${slug}`)
-- pnpm verify:api exit 0
+- Scanner expandido depois do Lote C1 para constantes string-like, concatenação, template literals, ternários e origins dinâmicos
+- Allowlist regenerada até 0 entries; `pnpm api:check --strict` exit 0
+- `pnpm verify:api` exit 0
 
 Impacto original:
 O comparador 3-way (`api:check`) mantém uma allowlist de divergências legadas. Após as revisões F2-F7 e fechamento F10, o baseline atual tem 399 chaves únicas e 311 entries na allowlist.
@@ -321,11 +321,7 @@ Distribuição dos CONSUMER_ONLY:
 - Accounts `/admin/secrets/:name` — factory function não resolvida (DEB-055-12)
 
 Critério de resolução:
-1. Reduzir CONSUMER_ONLY: melhorar scanner de consumidores (Fase 3) para resolver paths de concatenação
-2. Reduzir CODE_ONLY: documentar rotas no OpenAPI (alinhar OpenAPI com código)
-3. Reduzir CONTRACT_ONLY: remover do OpenAPI rotas que não existem mais no código, ou adicionar ao código
-4. Remover entries da allowlist conforme cada rota for alinhada
-5. Meta: allowlist vazia = 100% das rotas documentadas
+Atendido. O fluxo atual roda com allowlist vazia, `CODE_ONLY=0`, órfãs 0, duplicatas 0 e validação strict verde. Os três `CONSUMER_ONLY` médios remanescentes viraram `DEB-055-25`, bugs de app detectados pela governança e não falha do tooling.
 
 ## DEB-055-14 — Teste de exit code do api:check validado (remocão de allowlist → exit 1)
 
@@ -345,7 +341,7 @@ Estado atual pós-revisões: allowlist íntegra com 311 entries, `pnpm api:check
 
 ## DEB-055-12 — Factory functions não resolvidas pelo inventário estático (accounts, mesas)
 
-Status: parcialmente resolvido (2026-06-28) — documentação manual concluída; suporte scanner AST permanece como sub-débito
+Status: resolvido (2026-06-28) — scanner AST segue factories que declaram `Router()`
 
 Impacto:
 O scanner AST do `api:inventory` não consegue resolver rotas criadas por factory functions que retornam `Router()` — padrão usado em:
@@ -353,26 +349,21 @@ O scanner AST do `api:inventory` não consegue resolver rotas criadas por factor
 - `apps/mesas/backend/src/routes/discord/corrections.ts`: `createCorrectionHandler('/admin/discord/drafts/:id/correction')` — gera rotas de correction dinamicamente
 - `apps/mesas/backend/src/routes/inbox/corrections.ts`: `createCorrectionHandler('/api/v1/admin/import/drafts/:id/correction')`
 
-Resolução (LOTE A1, 2026-06-28):
-- As 4 rotas foram documentadas manualmente via arquivos de overlay: `docs/api/openapi/.overlays/accounts.overlay.yaml` e `docs/api/openapi/.overlays/mesas.overlay.yaml`
-- O `generate-openapi.ts` foi modificado para mesclar overlays automaticamente (sobrevivem a regeneration)
-- As 4 rotas agora aparecem como `CONTRACT_ONLY` no drift report (presentes no OpenAPI, não detectadas pelo inventory — esperado para factory routes)
-- `pnpm verify:api` exit 0
-- Sub-débito: adicionar suporte a `app.use(expressCall)` no scanner AST para detectar factory routes automaticamente
+Resolução (LOTE A1 + fechamento estrito, 2026-06-28):
+- O scanner AST de `inventory.ts` agora segue factories locais/importadas que declaram `Router()`.
+- As rotas de `accounts` e `mesas` deixaram de depender de `CONTRACT_ONLY` manual para aparecer no inventário.
+- Os overlays permanecem como mecanismo de curadoria/dedup de metadata quando necessário, não como compensação de rota invisível.
+- `pnpm verify:api` exit 0; `pnpm api:check --strict` exit 0.
 
 ## DEB-055-15 — 119 rotas órfãs suspeitas identificadas (Fase 6)
 
-Status: parcialmente resolvido (2026-06-28) — USE excluído; 71 restantes são consumer scanner gap
+Status: resolvido (2026-06-28) — órfãs suspeitas zeradas
 
 Resolução (LOTE B2):
 - Métodos USE (mount points do Express) excluídos da detecção de órfãs em `check-api.ts:detectOrphans()` (DEB-055-15)
-- 119→71 órfãs (redução de 40%)
-- As 71 restantes são rotas `public` com scope "public" — todas são APIs legítimas cujos consumidores não foram detectados pelo scanner (baixa confiança em padrões legados do glossario, wrappers do mesas)
-- Nenhuma das 71 é genuinamente candidata a remoção — todas têm consumidores reais
-- Meta atingida: 0 órfãs "reais" (genuinamente candidatas a remoção)
-- A resolução completa depende de melhorar o scanner de consumidores para detectar padrões legados (LOTE C1)
-- Sub-débito: melhorar detecção de consumidores nos frontends glossario/mesas/links (padrões fetch/axios legados)
-- pnpm verify:api exit 0
+- Scanner de consumidores e classificação OpenAPI foram refinados depois do Lote B2.
+- Resultado final: órfãs suspeitas 119→0.
+- `pnpm verify:api` exit 0; `pnpm api:check --strict` exit 0.
 
 Impacto original:
 A detecção de órfãs (Fase 6) identificou 119 rotas que existem no código/OpenAPI mas não têm consumidor conhecido nem classificação que justifique a ausência de uso. O número foi recalculado em `REV-055-F6-01` depois de corrigir a regra para não tratar `public` como justificativa automática de ausência de consumidor.
@@ -481,9 +472,7 @@ O comando `pnpm api:diff` (Fase 8) detecta breaking changes e retorna exit code 
 Isso é intencional no modo inicial — o foco atual é estabelecer o inventário e o contrato mínimo. O bloqueio por breaking change será ativado no modo estrito (futuro).
 
 Critério de resolução:
-1. `api:diff` existe e gera relatório → débito parcialmente resolvido
-2. `api:check` incorpora resultado do diff → débito resolvido (quando modo estrito for ativado)
-3. Bloqueio real por breaking change → fora de escopo agora
+Atendido. O CI executa `pnpm api:diff` sem `continue-on-error`; breaking change real bloqueia a PR.
 
 ## DEB-055-20 — `api:diff` bloqueia CI no modo estrito (RESOLVIDO)
 

@@ -50,8 +50,26 @@ export function ConteudoSection() {
     try {
       const response = await authGet('/api/v1/tables');
       if (response.ok) {
-        const data = await response.json();
-        setAllTables(Array.isArray(data.data) ? data.data : []);
+        const payload: unknown = await response.json();
+        const raw = payload && typeof payload === 'object' ? (payload as Record<string, unknown>).data : null;
+        if (!Array.isArray(raw)) {
+          setAllTables([]);
+          return;
+        }
+        const normalized: AdminTableRow[] = [];
+        for (const item of raw) {
+          if (!item || typeof item !== 'object') continue;
+          const row = item as Record<string, unknown>;
+          if (typeof row.id !== 'string' || !row.id) continue;
+          normalized.push({
+            id: row.id,
+            title: typeof row.title === 'string' ? row.title : '',
+            status: typeof row.status === 'string' ? row.status : 'unknown',
+            created_at: typeof row.created_at === 'string' ? row.created_at : '',
+            is_covil: typeof row.is_covil === 'boolean' ? row.is_covil : undefined,
+          });
+        }
+        setAllTables(normalized);
       }
     } catch (error) {
       console.error('[ConteudoSection] Erro ao buscar mesas:', error);
@@ -125,16 +143,16 @@ export function ConteudoSection() {
     <div>
       {/* Subnav local */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        <button onClick={() => setCrudSubTab('systems')} className={subTabClass('systems')}>
+        <button onClick={() => setCrudSubTab('systems')} className={subTabClass('systems')} aria-pressed={crudSubTab === 'systems'}>
           Sistemas de RPG
         </button>
-        <button onClick={() => setCrudSubTab('platforms')} className={subTabClass('platforms')}>
+        <button onClick={() => setCrudSubTab('platforms')} className={subTabClass('platforms')} aria-pressed={crudSubTab === 'platforms'}>
           Plataformas
         </button>
-        <button onClick={() => setCrudSubTab('scenarios')} className={subTabClass('scenarios')}>
+        <button onClick={() => setCrudSubTab('scenarios')} className={subTabClass('scenarios')} aria-pressed={crudSubTab === 'scenarios'}>
           Cenários
         </button>
-        <button onClick={() => setCrudSubTab('tables')} className={subTabClass('tables')}>
+        <button onClick={() => setCrudSubTab('tables')} className={subTabClass('tables')} aria-pressed={crudSubTab === 'tables'}>
           Mesas
         </button>
       </div>

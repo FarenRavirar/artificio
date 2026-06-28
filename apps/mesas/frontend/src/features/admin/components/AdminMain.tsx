@@ -25,51 +25,55 @@ export function AdminMain({
   actions,
   subnav,
 }: Props) {
+  const hasHeader = groupEyebrow || (breadcrumbPath && breadcrumbPath.length > 0) || groupLabel || actions;
+
   return (
     <div
       className="flex-1 flex flex-col min-w-0 overflow-y-auto"
       style={{ backgroundColor: 'var(--admin-canvas, #0B1430)' }}
     >
-      {/* Header contextual */}
-      <div
-        className="sticky top-0 z-10 px-8 py-4 border-b"
-        style={{
-          backgroundColor: 'var(--admin-canvas, #0B1430)',
-          borderColor: 'var(--border)',
-        }}
-      >
-        {/* Eyebrow + breadcrumb */}
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-3 min-w-0">
-            {groupEyebrow && (
-              <span
-                className="eyebrow shrink-0"
-                style={{ color: 'var(--fg-low)' }}
-              >
-                {groupEyebrow}
-              </span>
-            )}
-            {breadcrumbPath && breadcrumbPath.length > 0 && (
-              <Breadcrumb path={breadcrumbPath} creating={breadcrumbCreating} />
+      {/* Header contextual — só renderiza se houver conteúdo */}
+      {hasHeader && (
+        <div
+          className="sticky top-0 z-10 px-8 py-4 border-b"
+          style={{
+            backgroundColor: 'var(--admin-canvas, #0B1430)',
+            borderColor: 'var(--border)',
+          }}
+        >
+          {/* Eyebrow + breadcrumb */}
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-3 min-w-0">
+              {groupEyebrow && (
+                <span
+                  className="eyebrow shrink-0"
+                  style={{ color: 'var(--fg-low)' }}
+                >
+                  {groupEyebrow}
+                </span>
+              )}
+              {breadcrumbPath && breadcrumbPath.length > 0 && (
+                <Breadcrumb path={breadcrumbPath} creating={breadcrumbCreating} />
+              )}
+            </div>
+            {actions && (
+              <div className="flex items-center gap-2 shrink-0 ml-4">
+                {actions}
+              </div>
             )}
           </div>
-          {actions && (
-            <div className="flex items-center gap-2 shrink-0 ml-4">
-              {actions}
-            </div>
+
+          {/* Título */}
+          {groupLabel && (
+            <h1
+              className="text-xl font-bold mt-1"
+              style={{ color: 'var(--fg)' }}
+            >
+              {groupLabel}
+            </h1>
           )}
         </div>
-
-        {/* Título + ações */}
-        {groupLabel && (
-          <h1
-            className="text-xl font-bold mt-1"
-            style={{ color: 'var(--fg)' }}
-          >
-            {groupLabel}
-          </h1>
-        )}
-      </div>
+      )}
 
       {/* Subnavegação local */}
       {subnav && (

@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 269,
-    "uniqueEndpoints": 248,
+    "total": 274,
+    "uniqueEndpoints": 253,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,16 +36,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 151,
+        "total": 156,
         "byConfidence": {
           "medium": 64,
-          "high": 85,
+          "high": 90,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 56,
-          "service-wrapper": 29,
+          "service-wrapper": 34,
           "literal": 58,
           "concatenation": 2
         }
@@ -997,7 +997,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 38
+      "line": 39
     },
     {
       "app": "mesas-frontend",
@@ -1007,7 +1007,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 32
+      "line": 33
     },
     {
       "app": "mesas-frontend",
@@ -1017,7 +1017,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 74
+      "line": 79
     },
     {
       "app": "mesas-frontend",
@@ -1027,7 +1027,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.submitCorrection",
-      "line": 58
+      "line": 95
     },
     {
       "app": "mesas-frontend",
@@ -1037,7 +1037,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPost",
-      "line": 158
+      "line": 163
     },
     {
       "app": "mesas-frontend",
@@ -1221,6 +1221,56 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ModeracaoSection.tsx",
+      "method": "PATCH",
+      "endpoint": "/api/v1/admin/import/drafts/:param",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "inboxApi.updateDraft",
+      "line": 69
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ModeracaoSection.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/import/drafts/:param",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "inboxApi.getDraft",
+      "line": 70
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ModeracaoSection.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/import/drafts/:param/correction",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "inboxApi.registerCorrection",
+      "line": 71
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ModeracaoSection.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/import/drafts/:param/reparse",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "inboxApi.reparseDraft",
+      "line": 68
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ModeracaoSection.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/import/drafts/:param/sync",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "inboxApi.syncDraft",
+      "line": 67
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/inbox/components/TextPasteArea.tsx",
       "method": "POST",
       "endpoint": "/api/v1/admin/import/import-text",
@@ -1327,7 +1377,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 67
+      "line": 85
     },
     {
       "app": "mesas-frontend",
@@ -1337,7 +1387,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPut",
-      "line": 93
+      "line": 111
     },
     {
       "app": "mesas-frontend",

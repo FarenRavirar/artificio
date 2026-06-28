@@ -1,32 +1,41 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 import type { DiscordDraft } from '../../../features/discord-sync/types';
+import type { DraftApiOperations } from '../../../features/discord-sync/types';
 import { MessagesView } from '../../../features/discord-sync/components/MessagesView';
 import { DiscordDraftReviewTable } from '../../../features/discord-sync/components/DiscordDraftReviewTable';
 import { discordSyncApi } from '../../../features/discord-sync/api/discordSyncApi';
+import { inboxApi } from '../../../features/inbox/api/inboxApi';
 
 type ModSubTab = 'mensagens' | 'rascunhos';
 
 /**
- * Computa diff entre dois objetos planos para correction-tracking.
- * Retorna { field: { before, after } } apenas para campos com valor diferente.
- * Ignora campos que existem só em um dos lados (null vs undefined).
+ * Computa diff entre campos editáveis de dois payloads para correction-tracking.
+ * Compara apenas o nível `table` (campos que o admin pode editar).
+ * Ignora equivalência null/undefined (campo ausente nos dois lados = sem diff).
  */
 function computePayloadDiff(
   before: Record<string, unknown> | null,
   after: Record<string, unknown> | null,
 ): Record<string, { before: unknown; after: unknown }> {
   const diff: Record<string, { before: unknown; after: unknown }> = {};
-  const a = before ?? {};
-  const b = after ?? {};
+  const a = isRecord(before?.table) ? before!.table as Record<string, unknown> : {};
+  const b = isRecord(after?.table) ? after!.table as Record<string, unknown> : {};
   const allKeys = new Set([...Object.keys(a), ...Object.keys(b)]);
   for (const key of allKeys) {
-    const va = a[key];
-    const vb = b[key];
+    const va = a[key] ?? null;
+    const vb = b[key] ?? null;
+    // null e undefined são equivalentes (campo ausente)
+    if ((va === null || va === undefined) && (vb === null || vb === undefined)) continue;
     if (JSON.stringify(va) !== JSON.stringify(vb)) {
       diff[key] = { before: va, after: vb };
     }
   }
   return diff;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -37,7 +46,35 @@ function computePayloadDiff(
  * MessagesView instancia useDiscordSync() próprio (cada seção tem seu hook).
  */
 export function ModeracaoSection() {
-  const [subTab, setSubTab] = useState<ModSubTab>('mensagens');
+  const { sub } = useParams<{ sub?: string }>();
+  const [subTab, setSubTab] = useState<ModSubTab>(() => {
+    if (sub === 'rascunhos') return 'rascunhos';
+    if (sub === 'mensagens') return 'mensagens';
+    return 'mensagens';
+  });
+
+  // Sincronizar subTab com a URL quando o param muda (ex.: deep-link direto)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (sub === 'rascunhos') setSubTab('rascunhos');
+      else if (sub === 'mensagens') setSubTab('mensagens');
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [sub]);
+
+  // Adapter: inboxApi → DraftApiOperations (sync/reparse/get usam rotas /admin/import/...)
+  const inboxDraftApi = useMemo<DraftApiOperations>(() => ({
+    syncDraft: (id) => inboxApi.syncDraft(id),
+    reparseDraft: (id) => inboxApi.reparseDraft(id) as Promise<DiscordDraft>,
+    updateDraft: (id, body) => inboxApi.updateDraft(id, body) as Promise<DiscordDraft>,
+    getDraft: (id) => inboxApi.getDraft(id) as Promise<DiscordDraft>,
+    submitCorrection: (id, body) => inboxApi.registerCorrection(
+      id,
+      body.corrections as Record<string, unknown>,
+      body.reason,
+      { before: body.before as Record<string, unknown> | undefined },
+    ),
+  }), []);
 
   const subTabClass = (tab: ModSubTab) =>
     `px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -72,10 +109,10 @@ export function ModeracaoSection() {
     <div>
       {/* Subnav local */}
       <div className="flex gap-3 mb-6">
-        <button onClick={() => setSubTab('mensagens')} className={subTabClass('mensagens')}>
+        <button onClick={() => setSubTab('mensagens')} className={subTabClass('mensagens')} aria-pressed={subTab === 'mensagens'}>
           Mensagens capturadas
         </button>
-        <button onClick={() => setSubTab('rascunhos')} className={subTabClass('rascunhos')}>
+        <button onClick={() => setSubTab('rascunhos')} className={subTabClass('rascunhos')} aria-pressed={subTab === 'rascunhos'}>
           Rascunhos
         </button>
       </div>
@@ -83,7 +120,7 @@ export function ModeracaoSection() {
       {subTab === 'mensagens' && <MessagesView />}
 
       {subTab === 'rascunhos' && (
-        <DiscordDraftReviewTable onBeforeSync={handleBeforeSync} />
+        <DiscordDraftReviewTable inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} />
       )}
     </div>
   );

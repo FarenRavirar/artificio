@@ -29,11 +29,12 @@ export function GestaoLayout() {
             total += Array.isArray(rows) ? rows.length : 0;
           }
         }
+        // ⚠️ limit:1 — backend não expõe total; usamos só para detectar ≥1 pendência
         const drafts = await discordSyncApi.getDrafts({ origin: 'all', status: 'needs_review', limit: 1 });
-        total += Array.isArray(drafts) ? drafts.length : 0;
-        if (active) setPendenciaCount(total);
+        if (Array.isArray(drafts) && drafts.length > 0) total += 1;
+        if (active) setPendenciaCount(total > 0 ? total : undefined);
       } catch {
-        if (active) setPendenciaCount(0);
+        if (active) setPendenciaCount(undefined);
       }
     })();
     return () => { active = false; };

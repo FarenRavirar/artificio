@@ -455,7 +455,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
       return res.json({ success: true, dry_run: true, data: { tables: logs } });
     }
     console.error('[Enrichment]', error);
-    return res.status(500).json({ error: 'Erro durante a hidratação' });
+    return res.status(500).json({ error: 'Erro durante o enriquecimento' });
   }
 });
 
