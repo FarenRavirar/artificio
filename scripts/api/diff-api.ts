@@ -19,7 +19,12 @@
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { join, resolve, basename } from 'node:path';
+import { join, resolve, basename, relative } from 'node:path';
+import { createRequire } from 'node:module';
+
+// Resolve o entry JS do openapi-diff e o roda com node diretamente — evita o wrapper
+// pnpm/.cmd (que sai vazio via execFileSync no Windows) e dispensa shell.
+const OPENAPI_DIFF_BIN = createRequire(import.meta.url).resolve('openapi-diff/bin/openapi-diff');
 
 // ═══════════════════════════════════════════════
 //  TIPOS
@@ -92,28 +97,138 @@ function getBaseVersion(filePath: string, baseBranch: string): string | null {
   return null;
 }
 
-function runOpenapiDiff(oldFile: string, newFile: string): DiffResult {
-  const pnpmExecPath = process.env.npm_execpath;
-  const command = pnpmExecPath?.endsWith('.mjs') ? process.execPath : (process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm');
-  const commandArgs = [
-    ...(pnpmExecPath?.endsWith('.mjs') ? [pnpmExecPath] : []),
-    'exec',
-    'openapi-diff',
-    oldFile,
-    newFile,
-  ];
-  const stdout = execFileSync(command, commandArgs, {
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'ignore'],
-  }).trim();
+// ── Normalização do payload externo do openapi-diff (pétrea: dado externo = unknown
+//    até passar por normalizador tipado; nunca assumir array/campo sem validação). ──
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
 
-  const jsonStart = stdout.indexOf('{');
-  if (jsonStart < 0) {
+function asString(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
+
+function normalizeEntityDetails(v: unknown): Array<{ location: string }> | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: Array<{ location: string }> = [];
+  for (const item of v) {
+    if (isRecord(item) && typeof item.location === 'string') {
+      out.push({ location: item.location });
+    }
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+const DIFF_TYPES = new Set<DiffChange['type']>(['breaking', 'non-breaking', 'unclassified']);
+
+function normalizeDiffChange(v: unknown, fallbackType: DiffChange['type']): DiffChange | null {
+  if (!isRecord(v)) return null;
+  const rawType = asString(v.type) as DiffChange['type'];
+  const change: DiffChange = {
+    type: DIFF_TYPES.has(rawType) ? rawType : fallbackType,
+    action: asString(v.action),
+    code: asString(v.code),
+    entity: asString(v.entity),
+  };
+  const dest = normalizeEntityDetails(v.destinationSpecEntityDetails);
+  const src = normalizeEntityDetails(v.sourceSpecEntityDetails);
+  if (dest) change.destinationSpecEntityDetails = dest;
+  if (src) change.sourceSpecEntityDetails = src;
+  return change;
+}
+
+function normalizeDiffArray(v: unknown, fallbackType: DiffChange['type']): DiffChange[] {
+  if (!Array.isArray(v)) return [];
+  const out: DiffChange[] = [];
+  for (const item of v) {
+    const normalized = normalizeDiffChange(item, fallbackType);
+    if (normalized) out.push(normalized);
+  }
+  return out;
+}
+
+function asText(v: Buffer | string | undefined | null): string {
+  if (v == null) return '';
+  return typeof v === 'string' ? v : v.toString('utf-8');
+}
+
+// Extrai o primeiro objeto JSON balanceado do texto, ignorando cabeçalho textual antes
+// e qualquer warning de stderr concatenado depois (que invalidaria um JSON.parse direto).
+// Respeita strings/escapes para não contar chaves dentro de aspas. Retorna null se não
+// houver objeto balanceado.
+function extractJsonObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') {
+      inString = true;
+    } else if (ch === '{') {
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+function runOpenapiDiff(oldFile: string, newFile: string): DiffResult {
+  // openapi-diff trata caminhos absolutos do Windows (`C:\...`) como URL com protocolo `c:`
+  // ("Unsupported protocol c:"). Passamos caminhos relativos ao cwd, com `/`, p/ evitar isso.
+  const rel = (p: string) => relative(process.cwd(), p).replaceAll('\\', '/');
+  // openapi-diff sai com código != 0 quando encontra diferenças. execFileSync lança nesse
+  // caso, mas o stdout útil (JSON ou a mensagem de "no changes") vem no erro. Capturamos
+  // stdout de ambos os caminhos.
+  let stdout: string;
+  try {
+    stdout = execFileSync(process.execPath, [OPENAPI_DIFF_BIN, rel(oldFile), rel(newFile)], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch (error) {
+    // openapi-diff escreve a saída (JSON ou "no changes") ora em stdout, ora em stderr,
+    // dependendo do código de saída. Combinamos os dois.
+    const err = error as { stdout?: Buffer | string; stderr?: Buffer | string };
+    stdout = `${asText(err.stdout)}\n${asText(err.stderr)}`.trim();
+    if (!stdout) throw error;
+  }
+
+  // openapi-diff 0.24.1 emite (após uma linha de cabeçalho textual) o JSON no formato:
+  //   { breakingDifferencesFound, breakingDifferences[], nonBreakingDifferences[], unclassifiedDifferences[] }
+  // Extraímos só o objeto balanceado — descartando cabeçalho e warnings de stderr concatenados.
+  const jsonObject = extractJsonObject(stdout);
+  if (jsonObject === null) {
+    // openapi-diff emite texto puro quando os specs são idênticos (sem JSON).
+    // Acontece quando o branch base já tem o mesmo OpenAPI (pós-merge) — não é erro.
+    if (/no changes found/i.test(stdout)) {
+      return { summary: { breaking: 0, 'non-breaking': 0, unclassified: 0 }, differences: [] };
+    }
     throw new Error(`openapi-diff não retornou JSON parseável. Saída: ${stdout.slice(0, 500)}`);
   }
 
   try {
-    return JSON.parse(stdout.slice(jsonStart)) as DiffResult;
+    // Cada item já traz type/action/code/destinationSpecEntityDetails — mapeamos para a forma
+    // interna { summary, differences } consumida por main()/generateReport().
+    const raw: unknown = JSON.parse(jsonObject);
+    const root = isRecord(raw) ? raw : {};
+    const breaking = normalizeDiffArray(root.breakingDifferences, 'breaking');
+    const nonBreaking = normalizeDiffArray(root.nonBreakingDifferences, 'non-breaking');
+    const unclassified = normalizeDiffArray(root.unclassifiedDifferences, 'unclassified');
+    return {
+      summary: {
+        breaking: breaking.length,
+        'non-breaking': nonBreaking.length,
+        unclassified: unclassified.length,
+      },
+      differences: [...breaking, ...nonBreaking, ...unclassified],
+    };
   } catch (error) {
     throw new Error(
       `Falha ao parsear saída JSON do openapi-diff: ${error instanceof Error ? error.message : String(error)}`
@@ -327,12 +442,28 @@ function main(): void {
 
   console.log(`   📝 Relatório: ${reportPath}`);
 
-  // Exit code: 0 no modo inicial (breaking changes só geram relatório, não bloqueiam)
+  // Política de bloqueio (escalonável):
+  //  - default (modo inicial): breaking só gera relatório, exit 0 — não bloqueia evolução.
+  //  - estrito (API_DIFF_STRICT): breaking → exit 1, vira gate de CI.
+  //    Aceita '1'/'true' (global) ou lista de apps (`mesas,accounts`) p/ estreitar app-a-app.
   const hasBreaking = appDiffs.some(d => d.breaking > 0);
+  const strictRaw = (process.env.API_DIFF_STRICT ?? '').trim();
+  const strictAll = /^(1|true|all)$/i.test(strictRaw);
+  const strictApps = strictAll
+    ? null
+    : new Set(strictRaw.split(',').map((s: string) => s.trim()).filter(Boolean));
+  const blockingBreaking = appDiffs.some(
+    d => d.breaking > 0 && (strictAll || (strictApps?.has(d.app) ?? false)),
+  );
+
   if (hasBreaking) {
-    console.log(`   ⚠️  Breaking changes detectados (modo inicial — relatório apenas)`);
+    const mode = strictAll || (strictApps && strictApps.size > 0) ? 'estrito' : 'modo inicial';
+    console.log(`   ⚠️  Breaking changes detectados (${mode}${blockingBreaking ? ' — BLOQUEANTE' : ' — relatório apenas'})`);
   }
-  console.log(`   🏁 Exit code: 0\n`);
+
+  const exitCode = blockingBreaking ? 1 : 0;
+  console.log(`   🏁 Exit code: ${exitCode}\n`);
+  process.exit(exitCode);
 }
 
 main();

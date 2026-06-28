@@ -307,7 +307,7 @@ Todos verificados: `DiscordDraftReviewTable` já exibe origem (badge); `Platform
 
 - [x] TZ.1 — `pnpm run lint` + `pnpm run build` verdes ✅ (17/17 tasks ambos, 2026-06-28). `pnpm run test --filter @artificio/mesas-backend --filter @artificio/mesas-frontend`: backend 285/285 ✅, frontend 141/141 ✅. `pnpm verify:api`: exit 0, 0 órfãs, 0 duplicatas ✅.
 - [x] TZ.2 — a11y não regride: `aria-current` na sidebar via NavLink; `aria-pressed` nos botões de subnav de todas as 6 Sections + `role="tablist"`/`aria-selected` em `SistemaSection`. Alinhado c/ 053 Frente A (que roda depois, sobre esta estrutura).
-- [ ] TZ.3 — Smoke visual do mantenedor em beta antes de prod.
+- [ ] TZ.3 — Smoke visual do mantenedor em beta antes do merge em `dev`. Fluxo: (1) commit local na branch `feat/054-gestao-ia-sidebar` → (2) push → (3) abrir PR para `dev` (branch protection exige check `lint+build+test` verde) → (4) CI verde → (5) deploy beta mesas (`gh workflow run deploy.yml --ref dev -f module=mesas -f mode=deploy -f env=beta`) → (6) smoke autenticado em `mesasbeta.artificiorpg.com/gestao` → (7) merge PR em `dev` → (8) promote `dev→main` ff → (9) deploy prod mesas (gated por aprovação nominal). **Não pular etapas.**
 - [x] TZ.4 — `debitos.md` atualizado com DEB-054-05, DEB-054-10, DEB-054-06 (correction-tracking). `reviews.md` preenchido com vereditos 001-025. `project-state.md` a atualizar no próximo passo.
 
 ---

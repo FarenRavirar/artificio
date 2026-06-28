@@ -78,6 +78,13 @@
 - `pnpm run build`: 17/17 ✅
 - `pnpm run test --filter @artificio/mesas-backend --filter @artificio/mesas-frontend`: backend 285/285 ✅, frontend 141/141 ✅
 - `pnpm verify:api`: exit 0, 0 órfãs, 0 duplicatas, 3 warnings pre-existentes de ambiguous paths ✅
+- `artificio-api-governance` MCP: adicionado ao `.claude.json` do Claude Code (projeto `C:/projetos/artificio`) — antes só o OpenCode tinha
+
+## Docs operacionais atualizados
+
+- `project-state.md`: entrada 054 reescrita (código completo, 11 arquivos, validações, 053 destravada)
+- `tasks.md`: TZ.3 detalhado com fluxo git real (commit → push → PR → CI → beta deploy → smoke → merge → promote → prod)
+- DEB-054-06 fechado como falso alarme: rota de correção `/admin/discord/drafts/:id/correction` é compartilhada (discord/utils.ts `registerDraftCorrection`), funciona para ambas as origens
 
 ## Próximo passo
 
@@ -85,4 +92,4 @@ Smoke visual do mantenedor em beta (TZ.3). Depois: fechar spec 054 e liberar 053
 
 ## Item para project-state.md
 
-Spec 054 — Fase final de correção de reviews concluída. 11 arquivos de código + 3 artefatos atualizados. Validação completa verde. Aguarda smoke do mantenedor para fechar.
+Spec 054 — código completo (Fases 1-4 + 16 reviews de bot corrigidos). 11 arquivos de código + 3 artefatos. Validação completa verde. Branch `feat/054-gestao-ia-sidebar`, código local não commitado. 053 Frente A destravada.
