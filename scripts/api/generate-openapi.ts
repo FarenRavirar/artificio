@@ -216,33 +216,28 @@ function appendGenericRequestBody(lines: string[]): void {
   lines.push(`              additionalProperties: true`);
 }
 
+function appendRequiredJsonBody(lines: string[], property: string, propertyLines: string[]): void {
+  lines.push(`      requestBody:`);
+  lines.push(`        required: true`);
+  lines.push(`        content:`);
+  lines.push(`          application/json:`);
+  lines.push(`            schema:`);
+  lines.push(`              type: object`);
+  lines.push(`              required: [${property}]`);
+  lines.push(`              properties:`);
+  lines.push(`                ${property}:`);
+  for (const line of propertyLines) {
+    lines.push(`                  ${line}`);
+  }
+}
+
 function appendAccountRequestBody(lines: string[], method: string, path: string): boolean {
   if (method === 'delete' && path === '/api/account') {
-    lines.push(`      requestBody:`);
-    lines.push(`        required: true`);
-    lines.push(`        content:`);
-    lines.push(`          application/json:`);
-    lines.push(`            schema:`);
-    lines.push(`              type: object`);
-    lines.push(`              required: [confirm]`);
-    lines.push(`              properties:`);
-    lines.push(`                confirm:`);
-    lines.push(`                  type: string`);
-    lines.push(`                  format: email`);
+    appendRequiredJsonBody(lines, "confirm", ["type: string", "format: email"]);
     return true;
   }
   if (method === 'patch' && path === '/api/account/avatar') {
-    lines.push(`      requestBody:`);
-    lines.push(`        required: true`);
-    lines.push(`        content:`);
-    lines.push(`          application/json:`);
-    lines.push(`            schema:`);
-    lines.push(`              type: object`);
-    lines.push(`              required: [dataUrl]`);
-    lines.push(`              properties:`);
-    lines.push(`                dataUrl:`);
-    lines.push(`                  type: string`);
-    lines.push(`                  description: Data URL base64 PNG, JPEG ou WebP ate 2MB`);
+    appendRequiredJsonBody(lines, "dataUrl", ["type: string", "description: Data URL base64 PNG, JPEG ou WebP ate 2MB"]);
     return true;
   }
   return false;
@@ -250,26 +245,11 @@ function appendAccountRequestBody(lines: string[], method: string, path: string)
 
 function appendGenericResponses(lines: string[]): void {
   lines.push(`      responses:`);
-  lines.push(`        "200":`);
-  lines.push(`          description: OK`);
-  lines.push(`          content:`);
-  lines.push(`            application/json:`);
-  lines.push(`              schema:`);
-  lines.push(`                type: object`);
-  lines.push(`                additionalProperties: true`);
-  lines.push(`        "400":`);
-  lines.push(`          description: Requisição inválida`);
-  lines.push(`          content:`);
-  lines.push(`            application/json:`);
-  lines.push(`              schema:`);
-  lines.push(`                type: object`);
-  lines.push(`                additionalProperties: true`);
-  lines.push(`        "401":`);
-  lines.push(`          description: Não autenticado`);
-  lines.push(`        "403":`);
-  lines.push(`          description: Sem permissão`);
-  lines.push(`        "500":`);
-  lines.push(`          description: Erro interno`);
+  appendResponse(lines, "200", "OK", true);
+  appendResponse(lines, "400", "Requisição inválida", true);
+  appendResponse(lines, "401", "Não autenticado");
+  appendResponse(lines, "403", "Sem permissão");
+  appendResponse(lines, "500", "Erro interno");
 }
 
 function appendJsonObjectContent(lines: string[]): void {
@@ -280,49 +260,42 @@ function appendJsonObjectContent(lines: string[]): void {
   lines.push(`                additionalProperties: true`);
 }
 
+function appendResponse(lines: string[], status: string, description: string, jsonObject = false): void {
+  lines.push(`        "${status}":`);
+  lines.push(`          description: ${description}`);
+  if (jsonObject) appendJsonObjectContent(lines);
+}
+
+function appendResponses(
+  lines: string[],
+  responses: Array<{ status: string; description: string; jsonObject?: boolean }>,
+): void {
+  lines.push(`      responses:`);
+  for (const response of responses) {
+    appendResponse(lines, response.status, response.description, response.jsonObject);
+  }
+}
+
 function appendAccountResponses(lines: string[], method: string, path: string): boolean {
   if (method === 'delete' && path === '/api/account') {
-    lines.push(`      responses:`);
-    lines.push(`        "204":`);
-    lines.push(`          description: Conta removida e sessao limpa`);
-    lines.push(`        "400":`);
-    lines.push(`          description: Confirmacao invalida`);
-    appendJsonObjectContent(lines);
-    lines.push(`        "401":`);
-    lines.push(`          description: Não autenticado`);
-    appendJsonObjectContent(lines);
-    lines.push(`        "403":`);
-    lines.push(`          description: Sem permissão`);
-    appendJsonObjectContent(lines);
-    lines.push(`        "500":`);
-    lines.push(`          description: Erro interno`);
-    appendJsonObjectContent(lines);
+    appendResponses(lines, [
+      { status: "204", description: "Conta removida e sessao limpa" },
+      { status: "400", description: "Confirmacao invalida", jsonObject: true },
+      { status: "401", description: "Não autenticado", jsonObject: true },
+      { status: "403", description: "Sem permissão", jsonObject: true },
+      { status: "500", description: "Erro interno", jsonObject: true },
+    ]);
     return true;
   }
   if (method === 'patch' && path === '/api/account/avatar') {
-    lines.push(`      responses:`);
-    lines.push(`        "200":`);
-    lines.push(`          description: Avatar atualizado`);
-    lines.push(`          content:`);
-    lines.push(`            application/json:`);
-    lines.push(`              schema:`);
-    lines.push(`                type: object`);
-    lines.push(`                additionalProperties: true`);
-    lines.push(`        "400":`);
-    lines.push(`          description: Avatar invalido`);
-    appendJsonObjectContent(lines);
-    lines.push(`        "401":`);
-    lines.push(`          description: Não autenticado`);
-    appendJsonObjectContent(lines);
-    lines.push(`        "403":`);
-    lines.push(`          description: Sem permissão`);
-    appendJsonObjectContent(lines);
-    lines.push(`        "503":`);
-    lines.push(`          description: Armazenamento de midia indisponivel`);
-    appendJsonObjectContent(lines);
-    lines.push(`        "500":`);
-    lines.push(`          description: Erro interno`);
-    appendJsonObjectContent(lines);
+    appendResponses(lines, [
+      { status: "200", description: "Avatar atualizado", jsonObject: true },
+      { status: "400", description: "Avatar invalido", jsonObject: true },
+      { status: "401", description: "Não autenticado", jsonObject: true },
+      { status: "403", description: "Sem permissão", jsonObject: true },
+      { status: "503", description: "Armazenamento de midia indisponivel", jsonObject: true },
+      { status: "500", description: "Erro interno", jsonObject: true },
+    ]);
     return true;
   }
   return false;

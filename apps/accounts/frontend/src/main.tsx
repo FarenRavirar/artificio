@@ -434,11 +434,7 @@ function AdminSecretsPanel() {
       >
         {saving ? 'Salvando...' : 'Salvar chave'}
       </button>
-      {statusMsg && (
-        <output className={statusMsg.includes('sucesso') ? 'accounts-status accounts-status-success' : 'accounts-status accounts-status-error'}>
-          {statusMsg}
-        </output>
-      )}
+      <AccountStatus message={statusMsg} />
       <p className="accounts-help">
         A chave é armazenada cifrada e nunca é exibida após ser salva. Disponível para consumo serviço-a-serviço
         pelos módulos da plataforma.
