@@ -6,5 +6,20 @@
 
 ---
 
-✅ **Nenhuma mudança detectada entre a versão atual e dev.**
+## Sumário
+
+| App | Breaking | Non-breaking | Unclassified |
+|-----|:--------:|:------------:|:------------:|
+| accounts | ❌ 2 | ✅ 0 | ⚪ 0 |
+
+---
+
+### accounts
+
+#### ❌ Breaking Changes (2)
+
+| Path | Method | Ação | Código |
+|------|--------|------|--------|
+| `` |  | remove | `path.remove` |
+| `` |  | remove | `path.remove` |
 
