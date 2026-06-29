@@ -197,6 +197,13 @@ function parseBatchResult(data: unknown): { updated: number } {
   return { updated: parsed.success ? parsed.data.updated : 0 };
 }
 
+// Envelope da limpeza de descartados: só `deleted` é consumido (contador).
+const deletedResultSchema = z.object({ deleted: z.number().int().nonnegative() });
+function parseDeletedResult(data: unknown): { deleted: number } {
+  const parsed = deletedResultSchema.safeParse(data);
+  return { deleted: parsed.success ? parsed.data.deleted : 0 };
+}
+
 // Métricas de integração (entra em render → normalização tipada obrigatória).
 const importRunSchema = z.object({
   id: z.string(),
@@ -331,6 +338,10 @@ export const discordSyncApi = {
 
   updateDraftsBatch: async (ids: string[], status: 'draft' | 'needs_review' | 'rejected') =>
     parseBatchResult(await apiFetch<unknown>('/drafts/batch', { method: 'PATCH', body: JSON.stringify({ ids, status }) })),
+
+  // Apaga definitivamente todos os drafts descartados (status='rejected').
+  purgeRejectedDrafts: async (origin: 'discord' | 'inbox' | 'all' = 'all') =>
+    parseDeletedResult(await apiFetch<unknown>(`/drafts/rejected?origin=${origin}`, { method: 'DELETE' })),
 
   updateDraft: (id: string, body: { normalized_payload?: Record<string, unknown>; status?: DiscordImportDraftStatus; review_notes?: string }) =>
     apiFetch<DiscordDraft>(`/drafts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),

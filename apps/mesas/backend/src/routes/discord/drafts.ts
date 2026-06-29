@@ -112,6 +112,43 @@ router.patch('/batch', requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
+// ─── DELETE /rejected ───────────────────────────────────────────────────────────
+// Apaga DEFINITIVAMENTE todos os drafts descartados (status='rejected'). Limpeza da
+// fila de moderação. Registrado ANTES de /:id (literal vence param). Intent-locked:
+// só remove 'rejected' — nunca draft/ready/needs_review/synced. FKs filhas
+// (import_corrections, discord_shadow_decisions) têm ON DELETE CASCADE → remoção
+// limpa, sem migration. origin opcional espelha o filtro da listagem.
+const purgeRejectedSchema = z.object({
+  origin: z.enum(['discord', 'inbox', 'all']).default('all'),
+});
+
+router.delete('/rejected', requireAdmin, async (req: Request, res: Response) => {
+  const parsed = purgeRejectedSchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Parâmetros inválidos.', details: z.flattenError(parsed.error) });
+  }
+
+  try {
+    let query = db
+      .deleteFrom('discord_import_table_drafts')
+      .where('status', '=', 'rejected');
+
+    if (parsed.data.origin === 'inbox') {
+      query = query.where('import_message_id', 'is not', null);
+    } else if (parsed.data.origin === 'discord') {
+      query = query.where('discord_message_id', 'is not', null);
+    }
+    // 'all' → sem filtro de origem (remove descartados de ambas as origens)
+
+    const result = await query.executeTakeFirst();
+    const deleted = Number(result?.numDeletedRows ?? 0);
+    return res.json({ data: { deleted } });
+  } catch (error: unknown) {
+    console.error('[DELETE /admin/discord/drafts/rejected]', error);
+    return res.status(500).json({ error: 'Erro ao limpar drafts descartados.' });
+  }
+});
+
 // ─── PATCH /:id ───────────────────────────────────────────────────────────────
 
 router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
