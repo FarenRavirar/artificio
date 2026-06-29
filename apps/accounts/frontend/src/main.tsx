@@ -12,6 +12,7 @@ applyTheme();
 const PORTAL_URL = BRAND_ORIGIN;
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const ACCEPTED_AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const SUCCESS_STATUS_MARKERS = ["atualizada", "sucesso"];
 
 // getSafeReturnUrl: valida e canonicaliza a URL de retorno.
 // CodeQL (github-advanced-security) sinaliza location.replace() com valor de query param
@@ -42,8 +43,6 @@ function getSafeReturnUrl(): string {
 function LoginView() {
   const [checkingSession, setCheckingSession] = useState(true);
   const returnUrl = getSafeReturnUrl();
-  const { theme } = useTheme();
-  const logo = theme === "dark" ? brandLogoNeg : brandLogoNavy;
   const googleUrl = new URL("/api/auth/google", globalThis.location.origin);
   googleUrl.searchParams.set("return", returnUrl);
 
@@ -80,15 +79,7 @@ function LoginView() {
 
   return (
     <section className="accounts-panel" aria-labelledby="login-title">
-      <a className="accounts-brand" href={PORTAL_URL}>
-        <img
-          alt={logo.alt}
-          className="accounts-brand-logo"
-          height={logo.height}
-          src={logo.src}
-          width={logo.width}
-        />
-      </a>
+      <AccountBrand />
       <p className="accounts-kicker">Login único Artifício RPG</p>
       <h1 id="login-title">Entrar</h1>
       <p className="accounts-subtitle">Use sua conta Google para acessar os projetos do Artifício.</p>
@@ -130,7 +121,6 @@ function LoginView() {
 
 function ContaView() {
   const { user, loading } = useSession();
-  const { theme } = useTheme();
   const [showSecrets, setShowSecrets] = useState(false);
   const [accountUser, setAccountUser] = useState<User | null>(null);
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -138,7 +128,6 @@ function ContaView() {
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
-  const logo = theme === "dark" ? brandLogoNeg : brandLogoNavy;
 
   useEffect(() => {
     setAccountUser(user);
@@ -233,15 +222,7 @@ function ContaView() {
 
   return (
     <section className="accounts-panel" aria-labelledby="conta-title">
-      <a className="accounts-brand accounts-brand-compact" href={PORTAL_URL} aria-label="Voltar ao Artifício RPG">
-        <img
-          alt={logo.alt}
-          className="accounts-brand-logo"
-          height={logo.height}
-          src={logo.src}
-          width={logo.width}
-        />
-      </a>
+      <AccountBrand compact />
       <div className="accounts-account-header">
         {accountUser.avatar ? (
           <img src={accountUser.avatar} alt="" className="accounts-avatar" width="72" height="72" />
@@ -271,11 +252,7 @@ function ContaView() {
             disabled={avatarBusy}
           />
         </label>
-        {avatarStatus ? (
-          <output className={avatarStatus.includes("atualizada") ? "accounts-status accounts-status-success" : "accounts-status accounts-status-error"}>
-            {avatarStatus}
-          </output>
-        ) : null}
+        <AccountStatus message={avatarStatus} />
       </section>
       {accountUser.role === 'admin' && (
         <section className="accounts-admin-panel" aria-label="Administração">
@@ -321,10 +298,33 @@ function ContaView() {
         >
           {deleteBusy ? "Excluindo..." : "Excluir minha conta"}
         </button>
-        {deleteStatus ? <output className="accounts-status accounts-status-error">{deleteStatus}</output> : null}
+        <AccountStatus message={deleteStatus} />
       </section>
     </section>
   );
+}
+
+function AccountBrand({ compact = false }: { compact?: boolean }) {
+  const { theme } = useTheme();
+  const logo = theme === "dark" ? brandLogoNeg : brandLogoNavy;
+  const className = compact ? "accounts-brand accounts-brand-compact" : "accounts-brand";
+  return (
+    <a className={className} href={PORTAL_URL} aria-label="Voltar ao Artifício RPG">
+      <img
+        alt={logo.alt}
+        className="accounts-brand-logo"
+        height={logo.height}
+        src={logo.src}
+        width={logo.width}
+      />
+    </a>
+  );
+}
+
+function AccountStatus({ message }: { message: string | null }) {
+  if (!message) return null;
+  const variant = SUCCESS_STATUS_MARKERS.some((marker) => message.includes(marker)) ? "success" : "error";
+  return <output className={`accounts-status accounts-status-${variant}`}>{message}</output>;
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -345,7 +345,7 @@ function readAccountError(body: unknown, fallback: string): string {
   if (error === "media_storage_unavailable") return "Armazenamento de imagem indisponivel.";
   if (error === "invalid_avatar") return "Imagem invalida.";
   if (error === "confirmation_required") return "Confirmacao invalida.";
-  return typeof error === "string" ? error : fallback;
+  return fallback;
 }
 
 function readUserFromBody(body: unknown): User | null {

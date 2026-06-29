@@ -33,7 +33,7 @@ export function SiteHeaderIsland() {
     document.dispatchEvent(new CustomEvent("artificio:open-search"));
     window.setTimeout(() => {
       const modal = document.getElementById("search-modal");
-      if (modal instanceof HTMLElement && modal.hidden) {
+      if (!(modal instanceof HTMLElement) || modal.hidden) {
         window.location.assign("/busca/");
       }
     }, 100);

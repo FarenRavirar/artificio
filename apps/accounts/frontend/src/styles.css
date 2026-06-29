@@ -361,6 +361,11 @@ body {
   width: 1px;
 }
 
+.accounts-file-button:focus-within {
+  box-shadow: var(--accounts-focus);
+  outline: 0;
+}
+
 .accounts-actions {
   border-top: 1px solid var(--accounts-line);
   display: grid;

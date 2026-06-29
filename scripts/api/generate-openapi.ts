@@ -202,8 +202,8 @@ function summaryFor(method: string, path: string): string {
   return `${verb[method] ?? method.toUpperCase()} ${normalized || 'raiz'}`;
 }
 
-function shouldHaveRequestBody(method: string): boolean {
-  return method === 'post' || method === 'put' || method === 'patch';
+function shouldHaveRequestBody(method: string, path?: string): boolean {
+  return method === 'post' || method === 'put' || method === 'patch' || (method === 'delete' && path === '/api/account');
 }
 
 function appendGenericRequestBody(lines: string[]): void {
@@ -214,6 +214,38 @@ function appendGenericRequestBody(lines: string[]): void {
   lines.push(`            schema:`);
   lines.push(`              type: object`);
   lines.push(`              additionalProperties: true`);
+}
+
+function appendAccountRequestBody(lines: string[], method: string, path: string): boolean {
+  if (method === 'delete' && path === '/api/account') {
+    lines.push(`      requestBody:`);
+    lines.push(`        required: true`);
+    lines.push(`        content:`);
+    lines.push(`          application/json:`);
+    lines.push(`            schema:`);
+    lines.push(`              type: object`);
+    lines.push(`              required: [confirm]`);
+    lines.push(`              properties:`);
+    lines.push(`                confirm:`);
+    lines.push(`                  type: string`);
+    lines.push(`                  format: email`);
+    return true;
+  }
+  if (method === 'patch' && path === '/api/account/avatar') {
+    lines.push(`      requestBody:`);
+    lines.push(`        required: true`);
+    lines.push(`        content:`);
+    lines.push(`          application/json:`);
+    lines.push(`            schema:`);
+    lines.push(`              type: object`);
+    lines.push(`              required: [dataUrl]`);
+    lines.push(`              properties:`);
+    lines.push(`                dataUrl:`);
+    lines.push(`                  type: string`);
+    lines.push(`                  description: Data URL base64 PNG, JPEG ou WebP ate 2MB`);
+    return true;
+  }
+  return false;
 }
 
 function appendGenericResponses(lines: string[]): void {
@@ -238,6 +270,45 @@ function appendGenericResponses(lines: string[]): void {
   lines.push(`          description: Sem permissão`);
   lines.push(`        "500":`);
   lines.push(`          description: Erro interno`);
+}
+
+function appendAccountResponses(lines: string[], method: string, path: string): boolean {
+  if (method === 'delete' && path === '/api/account') {
+    lines.push(`      responses:`);
+    lines.push(`        "204":`);
+    lines.push(`          description: Conta removida e sessao limpa`);
+    lines.push(`        "400":`);
+    lines.push(`          description: Confirmacao invalida`);
+    lines.push(`        "401":`);
+    lines.push(`          description: Não autenticado`);
+    lines.push(`        "403":`);
+    lines.push(`          description: Sem permissão`);
+    lines.push(`        "500":`);
+    lines.push(`          description: Erro interno`);
+    return true;
+  }
+  if (method === 'patch' && path === '/api/account/avatar') {
+    lines.push(`      responses:`);
+    lines.push(`        "200":`);
+    lines.push(`          description: Avatar atualizado`);
+    lines.push(`          content:`);
+    lines.push(`            application/json:`);
+    lines.push(`              schema:`);
+    lines.push(`                type: object`);
+    lines.push(`                additionalProperties: true`);
+    lines.push(`        "400":`);
+    lines.push(`          description: Avatar invalido`);
+    lines.push(`        "401":`);
+    lines.push(`          description: Não autenticado`);
+    lines.push(`        "403":`);
+    lines.push(`          description: Sem permissão`);
+    lines.push(`        "503":`);
+    lines.push(`          description: Armazenamento de midia indisponivel`);
+    lines.push(`        "500":`);
+    lines.push(`          description: Erro interno`);
+    return true;
+  }
+  return false;
 }
 
 /** Skip catch-all Express 5 patterns ({*splat}) — not API routes */
@@ -350,10 +421,14 @@ servers:
           }
         }
       }
-      if (shouldHaveRequestBody(method)) {
-        appendGenericRequestBody(lines);
+      if (shouldHaveRequestBody(method, oaPath)) {
+        if (!appendAccountRequestBody(lines, method, oaPath)) {
+          appendGenericRequestBody(lines);
+        }
       }
-      appendGenericResponses(lines);
+      if (!appendAccountResponses(lines, method, oaPath)) {
+        appendGenericResponses(lines);
+      }
       block.methods.set(method, lines);
     }
     byPath.set(oaPath, block);

@@ -84,21 +84,22 @@ paths:
       x-artificio-scope: public
       x-artificio-status: active
       x-artificio-auth: user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: string
+                  format: email
       responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
+        "204":
+          description: Conta removida e sessao limpa
         "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
+          description: Confirmacao invalida
         "401":
           description: Não autenticado
         "403":
@@ -114,31 +115,32 @@ paths:
       x-artificio-status: active
       x-artificio-auth: user
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
-              additionalProperties: true
+              required: [dataUrl]
+              properties:
+                dataUrl:
+                  type: string
+                  description: Data URL base64 PNG, JPEG ou WebP ate 2MB
       responses:
         "200":
-          description: OK
+          description: Avatar atualizado
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: true
         "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
+          description: Avatar invalido
         "401":
           description: Não autenticado
         "403":
           description: Sem permissão
+        "503":
+          description: Armazenamento de midia indisponivel
         "500":
           description: Erro interno
   /api/auth/google:

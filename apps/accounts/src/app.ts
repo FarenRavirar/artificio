@@ -14,7 +14,7 @@ import type { Database } from "./db.js";
 import type { AccountsEnv } from "./env.js";
 import { createGoogleClient, readGoogleProfile } from "./google.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./tokens.js";
-import { deleteUser, updateUserAvatar, upsertGoogleUser } from "./users.js";
+import { deleteUser, findUserById, updateUserAvatar, upsertGoogleUser } from "./users.js";
 import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
 
 const avatarMaxBytes = 2 * 1024 * 1024;
@@ -79,12 +79,6 @@ function decodeAvatarDataUrl(value: unknown): { buffer: Buffer; mime: string } |
   const isWebp = mime === "image/webp" && buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP";
 
   return isPng || isJpeg || isWebp ? { buffer, mime } : null;
-}
-
-function extensionForMime(mime: string): "jpg" | "png" | "webp" {
-  if (mime === "image/png") return "png";
-  if (mime === "image/webp") return "webp";
-  return "jpg";
 }
 
 export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Express {
@@ -193,7 +187,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
 
       const stored = await uploadBuffer(decoded.buffer, {
         folder: "artificio/accounts/avatars",
-        publicId: `avatar-${session.user.id}-${extensionForMime(decoded.mime)}`,
+        publicId: `avatar-${session.user.id}`,
         overwrite: true,
       });
       const user = await updateUserAvatar(db, session.user.id, stored.url);
@@ -236,16 +230,24 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
     res.status(204).send();
   });
 
-  app.get("/api/auth/refresh", (req, res) => {
+  app.get("/api/auth/refresh", async (req, res, next) => {
+    try {
     const token =
       typeof req.cookies?.[refreshCookieName] === "string"
         ? req.cookies[refreshCookieName]
         : null;
-    const user = token ? verifyRefreshToken(token, env) : null;
+    const tokenUser = token ? verifyRefreshToken(token, env) : null;
 
-    if (!user) {
+    if (!tokenUser) {
       clearSessionCookies(res, env);
       res.status(401).json({ error: "unauthorized" });
+      return;
+    }
+
+    const user = await findUserById(db, tokenUser.id);
+    if (!user) {
+      clearSessionCookies(res, env);
+      res.status(401).json({ error: "account_deleted" });
       return;
     }
 
@@ -256,6 +258,9 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
       signRefreshToken(user, env),
     );
     res.json({ user });
+    } catch (error) {
+      next(error);
+    }
   });
 
   // WS3: admin secrets (DeepSeek key, etc.) — admin-gated + X-Service-Token

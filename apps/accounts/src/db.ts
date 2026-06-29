@@ -7,6 +7,7 @@ export interface UserRow {
   email: string;
   name: string;
   avatar: string | null;
+  avatar_source: "google" | "custom";
   role: "user" | "admin";
   created_at: Generated<Date>;
 }
@@ -41,10 +42,12 @@ export async function migrate(db: Kysely<Database>) {
       email text not null,
       name text not null,
       avatar text,
+      avatar_source text not null default 'google',
       role text not null default 'user',
       created_at timestamptz not null default now()
     )
   `.execute(db);
+  await sql`alter table users add column if not exists avatar_source text not null default 'google'`.execute(db);
 
   // WS3: segredos de admin cifrados (DeepSeek key, etc.)
   await sql`

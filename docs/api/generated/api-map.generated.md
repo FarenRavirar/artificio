@@ -30,19 +30,19 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 268 |
+| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 273 |
 | GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 112 |
 | PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 73 |
-| DELETE | `/api/account` | ✅ high | `apps/accounts/src/app.ts` | 212 |
-| PATCH | `/api/account/avatar` | ✅ high | `apps/accounts/src/app.ts` | 175 |
-| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 124 |
-| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 137 |
-| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 234 |
-| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 171 |
-| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 239 |
-| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 268 |
-| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 120 |
-| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 268 |
+| DELETE | `/api/account` | ✅ high | `apps/accounts/src/app.ts` | 206 |
+| PATCH | `/api/account/avatar` | ✅ high | `apps/accounts/src/app.ts` | 169 |
+| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 118 |
+| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 131 |
+| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 228 |
+| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 165 |
+| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 233 |
+| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 273 |
+| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 114 |
+| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 273 |
 
 ## glossario
 

@@ -125,6 +125,45 @@ describe("DELETE /api/account", () => {
   });
 });
 
+describe("/api/auth/refresh", () => {
+  beforeEach(() => {
+    process.env.JWT_SECRET = env.JWT_SECRET;
+  });
+
+  afterEach(() => {
+    process.env.JWT_SECRET = originalSecret;
+  });
+
+  it("does not renew refresh token for deleted account", async () => {
+    const db = {
+      selectFrom: () => ({
+        select: () => ({
+          where: () => ({
+            executeTakeFirst: async () => undefined,
+          }),
+        }),
+      }),
+    };
+    const app = createApp(env, db as never);
+    const token = jwt.sign(
+      {
+        sub: "user-1",
+        email: "ana@example.com",
+        name: "Ana",
+        role: "user",
+        typ: "refresh",
+      },
+      env.JWT_REFRESH_SECRET,
+      { algorithm: "HS256", expiresIn: "7d" },
+    );
+
+    await request(app)
+      .get("/api/auth/refresh")
+      .set("Cookie", [`artificio_refresh=${token}`])
+      .expect(401);
+  });
+});
+
 describe("return URL allowlist", () => {
   it("allows HTTPS subdomains under artificiorpg.com", () => {
     expect(

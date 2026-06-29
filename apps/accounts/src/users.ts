@@ -36,13 +36,20 @@ export async function upsertGoogleUser(
       email: profile.email,
       name: profile.name,
       avatar: profile.avatar,
+      avatar_source: "google",
       role: "user",
     })
     .onConflict((oc) =>
       oc.column("google_sub").doUpdateSet({
         email: profile.email,
         name: profile.name,
-        avatar: profile.avatar,
+        avatar: (eb) =>
+          eb
+            .case()
+            .when("users.avatar_source", "=", "custom")
+            .then(eb.ref("users.avatar"))
+            .else(profile.avatar)
+            .end(),
       }),
     )
     .returning(["id", "email", "name", "avatar", "role"])
@@ -58,12 +65,22 @@ export async function updateUserAvatar(
 ): Promise<User> {
   const row = await db
     .updateTable("users")
-    .set({ avatar })
+    .set({ avatar, avatar_source: "custom" })
     .where("id", "=", userId)
     .returning(["id", "email", "name", "avatar", "role"])
     .executeTakeFirstOrThrow();
 
   return toUser(row);
+}
+
+export async function findUserById(db: Kysely<Database>, userId: string): Promise<User | null> {
+  const row = await db
+    .selectFrom("users")
+    .select(["id", "email", "name", "avatar", "role"])
+    .where("id", "=", userId)
+    .executeTakeFirst();
+
+  return row ? toUser(row) : null;
 }
 
 export async function deleteUser(db: Kysely<Database>, userId: string): Promise<boolean> {
