@@ -68,9 +68,11 @@
 
 | Arquivo | Mudança |
 |---|---|
-| `reviews.md` | Vereditos 001-025 preenchidos |
-| `tasks.md` | T4.1 contagem atualizada; TZ.1-TZ.4 atualizados |
-| `debitos.md` | DEB-054-05, DEB-054-06, DEB-054-10, DEB-054-03, DEB-054-04 registrados |
+| `reviews.md` | Vereditos 001-027 preenchidos |
+| `tasks.md` | T4.1 contagem atualizada; TZ.1-TZ.4 atualizados; TZ.3 reordenado (merge → deploy → smoke) |
+| `debitos.md` | DEB-054-05, DEB-054-06 ✅ falso alarme, DEB-054-10, DEB-054-03, DEB-054-04 registrados |
+| `project-state.md` | Entrada 054 reescrita; "Próximo passo" renumerado 1–17; fluxo 054 corrigido |
+| `C:\Users\paulo\.claude.json` | MCP `artificio-api-governance` adicionado ao projeto `C:/projetos/artificio` |
 
 ## Validação final (2026-06-28)
 

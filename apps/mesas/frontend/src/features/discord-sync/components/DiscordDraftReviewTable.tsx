@@ -17,6 +17,8 @@ interface Props {
   readonly showSyncReady?: boolean;
   /** Callback antes de sincronizar draft (ex.: registerCorrection do inbox). Retorna resultado p/ toast. */
   readonly onBeforeSync?: (draft: DiscordDraft) => Promise<{ tableId: string; created: boolean } | null>;
+  /** Ação de rejeição em lote (endpoint unificado). Injetável p/ mock/cliente custom; default = discordSyncApi. */
+  readonly updateDraftsBatch?: (ids: string[], status: 'draft' | 'needs_review' | 'rejected') => Promise<{ updated: number }>;
 }
 
 const DRAFT_STATUS_LABELS: Record<DiscordImportDraftStatus, string> = {
@@ -61,8 +63,9 @@ function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
 }
 
-export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync }: Props) {
+export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync, updateDraftsBatch }: Props) {
   const draftApi = api ?? discordSyncApi;
+  const batchReject = updateDraftsBatch ?? discordSyncApi.updateDraftsBatch;
   // Para drafts de Inbox, usa inboxApi se fornecida; senão fallback para draftApi (compat retroativa).
   const resolveApi = (draft: DiscordDraft): DraftApiOperations =>
     !draft.discord_message_id && inboxApi ? inboxApi : draftApi;
@@ -72,9 +75,13 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   const [originFilter, setOriginFilter] = useState<OriginFilter>('all');
   const [selectedDraft, setSelectedDraft] = useState<DiscordDraft | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
+  // Multi-seleção p/ ação em lote (rejeitar).
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [rejectingAll, setRejectingAll] = useState(false);
 
   const loadDrafts = useCallback(async () => {
     setLoading(true);
+    setSelectedIds(new Set());
     try {
       const fetchFn = listDraftsProp ?? ((params) => discordSyncApi.getDrafts(params));
       const data = await fetchFn({
@@ -133,6 +140,51 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
       setSyncingAll(false);
     }
   };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Rejeitáveis = drafts ainda não sincronizados/rejeitados (rejeitar synced não faz sentido).
+  const rejectableDrafts = drafts.filter(d => d.status !== 'synced' && d.status !== 'rejected');
+  // Seleção efetiva = só ids ainda visíveis/rejeitáveis (um draft pode ter saído da fila pelo preview).
+  const selectedRejectable = rejectableDrafts.filter(d => selectedIds.has(d.id));
+  const allSelected = rejectableDrafts.length > 0 && selectedRejectable.length === rejectableDrafts.length;
+
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      if (rejectableDrafts.every(d => prev.has(d.id)) && rejectableDrafts.length > 0) {
+        return new Set();
+      }
+      return new Set(rejectableDrafts.map(d => d.id));
+    });
+  };
+
+  const rejectDraftIds = useCallback(async (ids: string[], confirmMsg: string) => {
+    if (ids.length === 0) return;
+    if (!confirm(confirmMsg)) return;
+    setRejectingAll(true);
+    try {
+      // Tabela unificada (Discord+Inbox) → 1 chamada batch cobre as duas origens.
+      const result = await batchReject(ids, 'rejected');
+      toast.success(`${result.updated} rejeitado(s).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao rejeitar em lote.');
+    } finally {
+      setRejectingAll(false);
+      loadDrafts();
+    }
+  }, [loadDrafts, batchReject]);
+
+  const handleRejectAll = () =>
+    rejectDraftIds(
+      rejectableDrafts.map(d => d.id),
+      `Limpar todos os ${rejectableDrafts.length} rascunho(s)? Eles serão rejeitados.`,
+    );
 
   const handleDraftUpdate = (updated: DiscordDraft) => {
     setDrafts(prev => prev.map(d => (d.id === updated.id ? updated : d)));
@@ -197,6 +249,44 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
         )}
       </div>
 
+      {/* Barra de seleção em lote */}
+      {rejectableDrafts.length > 0 && (
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
+          <label className="flex items-center gap-2 text-white/60 text-sm cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleSelectAll}
+              aria-label="Selecionar todos os rascunhos"
+              className="h-4 w-4 accent-blue-600"
+            />
+            Selecionar todos ({rejectableDrafts.length})
+          </label>
+          {selectedRejectable.length > 0 && (
+            <>
+              <span className="text-white/40 text-sm">{selectedRejectable.length} selecionado(s)</span>
+              <button
+                onClick={() => rejectDraftIds(
+                  selectedRejectable.map(d => d.id),
+                  `Rejeitar ${selectedRejectable.length} rascunho(s) selecionado(s)?`,
+                )}
+                disabled={rejectingAll}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+              >
+                {rejectingAll ? 'Rejeitando...' : `Rejeitar selecionados (${selectedRejectable.length})`}
+              </button>
+            </>
+          )}
+          <button
+            onClick={handleRejectAll}
+            disabled={rejectingAll}
+            className="ml-auto px-4 py-2 bg-red-700/80 hover:bg-red-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+          >
+            {rejectingAll ? 'Limpando...' : `Limpar todos (${rejectableDrafts.length})`}
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-white/40 text-sm py-4 text-center">Carregando...</p>
       ) : drafts.length === 0 ? (
@@ -216,6 +306,16 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                 className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.08] transition-colors"
                 onClick={() => setSelectedDraft(draft)}
               >
+                {draft.status !== 'synced' && draft.status !== 'rejected' && (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(draft.id)}
+                    onChange={() => toggleSelected(draft.id)}
+                    onClick={e => e.stopPropagation()}
+                    aria-label={`Selecionar rascunho ${readString(readDraftTable(draft).title) ?? draft.id}`}
+                    className="h-4 w-4 shrink-0 accent-blue-600"
+                  />
+                )}
                 <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-white/10 bg-white/5">
                   {coverUrl ? (
                     <img src={coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" />

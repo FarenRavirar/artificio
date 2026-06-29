@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 274,
-    "uniqueEndpoints": 253,
+    "total": 276,
+    "uniqueEndpoints": 255,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,16 +36,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 156,
+        "total": 158,
         "byConfidence": {
           "medium": 64,
-          "high": 90,
+          "high": 92,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 56,
-          "service-wrapper": 34,
+          "service-wrapper": 36,
           "literal": 58,
           "concatenation": 2
         }
@@ -1017,7 +1017,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 79
+      "line": 86
     },
     {
       "app": "mesas-frontend",
@@ -1047,7 +1047,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.fetchMessages",
-      "line": 160
+      "line": 164
     },
     {
       "app": "mesas-frontend",
@@ -1097,7 +1097,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getMessages",
-      "line": 116
+      "line": 120
     },
     {
       "app": "mesas-frontend",
@@ -1107,7 +1107,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.updateMessage",
-      "line": 181
+      "line": 185
     },
     {
       "app": "mesas-frontend",
@@ -1117,7 +1117,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.diagnoseMessageContent",
-      "line": 211
+      "line": 215
     },
     {
       "app": "mesas-frontend",
@@ -1127,7 +1127,17 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.parseMessage",
-      "line": 195
+      "line": 199
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/hooks/useDiscordSync.ts",
+      "method": "PATCH",
+      "endpoint": "/api/v1/admin/discord/messages/batch",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.updateMessagesBatch",
+      "line": 289
     },
     {
       "app": "mesas-frontend",
@@ -1137,7 +1147,17 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.parseBatch",
-      "line": 246
+      "line": 250
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/IntegrationLogsView.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/discord/metrics",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.getIntegrationMetrics",
+      "line": 81
     },
     {
       "app": "mesas-frontend",
@@ -1187,7 +1207,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getSources",
-      "line": 98
+      "line": 101
     },
     {
       "app": "mesas-frontend",
@@ -1217,7 +1237,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.reingestForce",
-      "line": 229
+      "line": 233
     },
     {
       "app": "mesas-frontend",

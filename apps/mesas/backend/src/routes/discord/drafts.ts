@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
 import type { DiscordImportDraftStatus } from '../../discord';
@@ -6,6 +7,13 @@ import { refreshDiscordDraftImage } from '../../discord';
 import { parseDiscordMessage, ensureSystemSuggestionForDraft, handlePatchDraft } from './utils';
 
 const router = Router();
+
+// Batch: status em lote (ex.: rejeitar selecionados). 'rejected'/'needs_review'/'draft'
+// são transições seguras; 'ready'/'synced' não entram (têm regras/efeitos próprios).
+const batchDraftSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(200),
+  status: z.enum(['draft', 'needs_review', 'rejected']),
+});
 
 // Schemas compartilhados: patchDraftSchema via handlePatchDraft (REV-074)
 
@@ -60,6 +68,43 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
   } catch (error: unknown) {
     console.error('[GET /admin/discord/drafts/:id]', error);
     return res.status(500).json({ error: 'Erro ao buscar draft.' });
+  }
+});
+
+// ─── PATCH /batch ─────────────────────────────────────────────────────────────
+// Atualiza status de vários drafts (ex.: rejeitar selecionados). Registrado ANTES
+// de /:id para a rota literal vencer o param. Não rejeita drafts já sincronizados.
+router.patch('/batch', requireAdmin, async (req: Request, res: Response) => {
+  const parsed = batchDraftSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Dados inválidos.', details: z.flattenError(parsed.error) });
+  }
+
+  try {
+    const drafts = await db
+      .updateTable('discord_import_table_drafts')
+      .set({ status: parsed.data.status, updated_at: new Date() })
+      .where('id', 'in', parsed.data.ids)
+      .where('status', '!=', 'synced')
+      .returningAll()
+      .execute();
+
+    // Codex P2 (T-G7): rejeição em lote fecha o outcome real das decisões shadow,
+    // igual ao PATCH /:id (handlePatchDraft). Só p/ drafts efetivamente atualizados.
+    if (parsed.data.status === 'rejected' && drafts.length > 0) {
+      await db
+        .updateTable('discord_shadow_decisions')
+        .set({ actual_outcome: 'rejected', actual_at: new Date() })
+        .where('draft_id', 'in', drafts.map((d) => d.id))
+        .where('actual_outcome', 'is', null)
+        .execute()
+        .catch((err) => console.error('[PATCH /drafts/batch shadow]', err instanceof Error ? err.message : 'unknown error'));
+    }
+
+    return res.json({ data: { updated: drafts.length, drafts } });
+  } catch (error: unknown) {
+    console.error('[PATCH /admin/discord/drafts/batch]', error);
+    return res.status(500).json({ error: 'Erro ao atualizar drafts em lote.' });
   }
 });
 

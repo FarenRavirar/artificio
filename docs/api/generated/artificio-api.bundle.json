@@ -6,10 +6,10 @@
     "accounts": 11,
     "glossario": 46,
     "links": 22,
-    "mesas": 153,
+    "mesas": 155,
     "site": 32
   },
-  "total": 264,
+  "total": 266,
   "operations": [
     {
       "app": "accounts",
@@ -1146,6 +1146,18 @@
     },
     {
       "app": "mesas",
+      "method": "PATCH",
+      "path": "/api/v1/admin/discord/drafts/batch",
+      "summary": "Atualiza api v1 admin discord drafts batch",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "patchapi_v1_admin_discord_drafts_batch"
+    },
+    {
+      "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/fetch",
       "summary": "Cria ou executa api v1 admin discord fetch",
@@ -1263,6 +1275,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_v1_admin_discord_messages_id_parse"
+    },
+    {
+      "app": "mesas",
+      "method": "PATCH",
+      "path": "/api/v1/admin/discord/messages/batch",
+      "summary": "Atualiza api v1 admin discord messages batch",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "patchapi_v1_admin_discord_messages_batch"
     },
     {
       "app": "mesas",

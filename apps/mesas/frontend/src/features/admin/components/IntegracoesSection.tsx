@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { DiscordSettingsPanel } from '../../../features/discord-sync/components/DiscordSettingsPanel';
 import { DiscordSourceList } from '../../../features/discord-sync/components/DiscordSourceList';
 import { DiscordJsonImportPanel } from '../../../features/discord-sync/components/DiscordJsonImportPanel';
+import { IntegrationLogsView } from '../../../features/discord-sync/components/IntegrationLogsView';
 import { EnrichmentAdminPanel } from '../../../modules/admin/hydration/EnrichmentAdminPanel';
 import { TextPasteArea } from '../../../features/inbox/components/TextPasteArea';
 import { useDiscordSync } from '../../../features/discord-sync/hooks/useDiscordSync';
@@ -123,19 +124,7 @@ export function IntegracoesSection() {
         </div>
       )}
       {subTab === 'enriquecimento' && <EnrichmentAdminPanel />}
-      {subTab === 'logs' && (
-        <div
-          className="rounded-lg p-6 border"
-          style={{
-            backgroundColor: 'var(--admin-surface, #16223E)',
-            borderColor: 'var(--border)',
-          }}
-        >
-          <p className="text-sm" style={{ color: 'var(--fg-faint)' }}>
-            Logs de integração — em breve.
-          </p>
-        </div>
-      )}
+      {subTab === 'logs' && <IntegrationLogsView />}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 331,
+    "total": 333,
     "byApp": {
       "accounts": {
         "total": 11,
@@ -41,17 +41,17 @@
         }
       },
       "mesas": {
-        "total": 200,
+        "total": 202,
         "byMethod": {
           "GET": 54,
           "POST": 52,
           "USE": 48,
-          "PATCH": 21,
+          "PATCH": 23,
           "DELETE": 15,
           "PUT": 10
         },
         "byConfidence": {
-          "high": 200
+          "high": 202
         }
       },
       "site": {
@@ -1104,7 +1104,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/drafts",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 14,
+      "line": 22,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1131,7 +1131,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/drafts/:id",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 51,
+      "line": 59,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1140,7 +1140,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/discord/drafts/:id",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 68,
+      "line": 113,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1149,7 +1149,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/refresh-image",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 90,
+      "line": 135,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1158,7 +1158,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/reparse",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 106,
+      "line": 151,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1168,6 +1168,15 @@
       "path": "/api/v1/admin/discord/drafts/:id/sync",
       "sourceFile": "apps/mesas/backend/src/routes/discord/sync.ts",
       "line": 9,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "PATCH",
+      "path": "/api/v1/admin/discord/drafts/batch",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
+      "line": 77,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1248,7 +1257,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/messages",
       "sourceFile": "apps/mesas/backend/src/routes/discord/messages.ts",
-      "line": 58,
+      "line": 63,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1284,7 +1293,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/discord/messages/:id",
       "sourceFile": "apps/mesas/backend/src/routes/discord/messages.ts",
-      "line": 95,
+      "line": 122,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1293,7 +1302,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/messages/:id/diagnose-content",
       "sourceFile": "apps/mesas/backend/src/routes/discord/messages.ts",
-      "line": 117,
+      "line": 144,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1303,6 +1312,15 @@
       "path": "/api/v1/admin/discord/messages/:id/parse",
       "sourceFile": "apps/mesas/backend/src/routes/discord/messageParse.ts",
       "line": 8,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "PATCH",
+      "path": "/api/v1/admin/discord/messages/batch",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/messages.ts",
+      "line": 101,
       "confidence": "high",
       "kind": "express-route"
     },
