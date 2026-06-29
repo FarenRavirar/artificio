@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { brandLogoNavy, brandLogoNeg, applyFavicon, applyTheme, ThemeIcon, useTheme } from "@artificio/ui";
-import type { User } from "@artificio/auth";
 import { useSession, getAccountsOrigin, logout } from "@artificio/auth/client";
 import { BRAND_TAGLINE_FREE, BRAND_ORIGIN, BRAND_DOMAIN } from "@artificio/config";
 import "./styles.css";
@@ -10,11 +9,6 @@ applyFavicon();
 applyTheme();
 
 const PORTAL_URL = BRAND_ORIGIN;
-const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
-const ACCEPTED_AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp"];
-const SUCCESS_STATUS_MARKERS = ["atualizada", "sucesso"];
-const JSON_HEADERS = { "Content-Type": "application/json" };
-const JSON_CREDENTIALS = { credentials: "include" as const, headers: JSON_HEADERS };
 
 // getSafeReturnUrl: valida e canonicaliza a URL de retorno.
 // CodeQL (github-advanced-security) sinaliza location.replace() com valor de query param
@@ -45,6 +39,8 @@ function getSafeReturnUrl(): string {
 function LoginView() {
   const [checkingSession, setCheckingSession] = useState(true);
   const returnUrl = getSafeReturnUrl();
+  const { theme } = useTheme();
+  const logo = theme === "dark" ? brandLogoNeg : brandLogoNavy;
   const googleUrl = new URL("/api/auth/google", globalThis.location.origin);
   googleUrl.searchParams.set("return", returnUrl);
 
@@ -81,7 +77,15 @@ function LoginView() {
 
   return (
     <section className="accounts-panel" aria-labelledby="login-title">
-      <AccountBrand />
+      <a className="accounts-brand" href={PORTAL_URL}>
+        <img
+          alt={logo.alt}
+          className="accounts-brand-logo"
+          height={logo.height}
+          src={logo.src}
+          width={logo.width}
+        />
+      </a>
       <p className="accounts-kicker">Login único Artifício RPG</p>
       <h1 id="login-title">Entrar</h1>
       <p className="accounts-subtitle">Use sua conta Google para acessar os projetos do Artifício.</p>
@@ -123,12 +127,9 @@ function LoginView() {
 
 function ContaView() {
   const { user, loading } = useSession();
+  const { theme } = useTheme();
   const [showSecrets, setShowSecrets] = useState(false);
-  const [accountUser, setAccountUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    setAccountUser(user);
-  }, [user]);
+  const logo = theme === "dark" ? brandLogoNeg : brandLogoNavy;
 
   useEffect(() => {
     if (!loading && !user) {
@@ -142,11 +143,7 @@ function ContaView() {
     logout(PORTAL_URL);
   }, []);
 
-  const updateAccountUser = useCallback((nextUser: User) => {
-    setAccountUser(nextUser);
-  }, []);
-
-  if (loading || !accountUser) {
+  if (loading || !user) {
     return (
       <section className="accounts-panel">
         <p className="accounts-subtitle">Carregando...</p>
@@ -156,10 +153,31 @@ function ContaView() {
 
   return (
     <section className="accounts-panel" aria-labelledby="conta-title">
-      <AccountBrand compact />
-      <AccountHeader user={accountUser} />
-      <AvatarToolPanel onUserChange={updateAccountUser} />
-      {accountUser.role === 'admin' && (
+      <a className="accounts-brand accounts-brand-compact" href={PORTAL_URL} aria-label="Voltar ao Artifício RPG">
+        <img
+          alt={logo.alt}
+          className="accounts-brand-logo"
+          height={logo.height}
+          src={logo.src}
+          width={logo.width}
+        />
+      </a>
+      <div className="accounts-account-header">
+        {user.avatar ? (
+          <img src={user.avatar} alt="" className="accounts-avatar" width="72" height="72" />
+        ) : (
+          <div className="accounts-avatar accounts-avatar-fallback">
+            {user.name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("")}
+          </div>
+        )}
+        <div className="accounts-account-copy">
+          <p className="accounts-kicker">Conta Artifício</p>
+          <h1 id="conta-title">Sua conta</h1>
+          <p className="accounts-user-name">{user.name}</p>
+          {user.email ? <p className="accounts-user-email">{user.email}</p> : null}
+        </div>
+      </div>
+      {user.role === 'admin' && (
         <section className="accounts-admin-panel" aria-label="Administração">
           <button
             className="accounts-login accounts-login-secondary"
@@ -179,222 +197,8 @@ function ContaView() {
           Voltar ao Portal
         </a>
       </div>
-      <DeleteAccountPanel user={accountUser} />
     </section>
   );
-}
-
-function AccountHeader({ user }: { user: User }) {
-  return (
-    <div className="accounts-account-header">
-      {user.avatar ? (
-        <img src={user.avatar} alt="" className="accounts-avatar" width="72" height="72" />
-      ) : (
-        <div className="accounts-avatar accounts-avatar-fallback">{getUserInitials(user.name)}</div>
-      )}
-      <div className="accounts-account-copy">
-        <p className="accounts-kicker">Conta Artifício</p>
-        <h1 id="conta-title">Sua conta</h1>
-        <p className="accounts-user-name">{user.name}</p>
-        {user.email ? <p className="accounts-user-email">{user.email}</p> : null}
-      </div>
-    </div>
-  );
-}
-
-function AvatarToolPanel({ onUserChange }: { onUserChange: (user: User) => void }) {
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
-
-  const handleAvatarChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    if (!ACCEPTED_AVATAR_TYPES.includes(file.type)) {
-      setStatus("Use PNG, JPG ou WebP.");
-      return;
-    }
-    if (file.size > AVATAR_MAX_BYTES) {
-      setStatus("A imagem precisa ter ate 2 MB.");
-      return;
-    }
-
-    setBusy(true);
-    setStatus(null);
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      const response = await fetch("/api/account/avatar", {
-        method: "PATCH",
-        ...JSON_CREDENTIALS,
-        body: JSON.stringify({ dataUrl }),
-      });
-      const body: unknown = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setStatus(readAccountError(body, "Nao foi possivel trocar a foto."));
-        return;
-      }
-      const nextUser = readUserFromBody(body);
-      if (nextUser) onUserChange(nextUser);
-      setStatus("Foto atualizada.");
-    } catch {
-      setStatus("Erro ao enviar a foto.");
-    } finally {
-      setBusy(false);
-    }
-  }, [onUserChange]);
-
-  return (
-    <section className="accounts-tool-panel" aria-labelledby="avatar-title">
-      <div>
-        <h2 id="avatar-title">Foto de perfil</h2>
-        <p className="accounts-help">PNG, JPG ou WebP ate 2 MB.</p>
-      </div>
-      <label className="accounts-login accounts-login-secondary accounts-file-button">
-        {busy ? "Enviando..." : "Trocar foto"}
-        <input
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          onChange={handleAvatarChange}
-          disabled={busy}
-        />
-      </label>
-      <AccountStatus message={status} />
-    </section>
-  );
-}
-
-function DeleteAccountPanel({ user }: { user: User }) {
-  const [confirm, setConfirm] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
-
-  const handleDeleteAccount = useCallback(async () => {
-    if (confirm !== user.email) {
-      setStatus("Digite seu e-mail para confirmar.");
-      return;
-    }
-
-    setBusy(true);
-    setStatus(null);
-    try {
-      const response = await fetch("/api/account", {
-        method: "DELETE",
-        ...JSON_CREDENTIALS,
-        body: JSON.stringify({ confirm }),
-      });
-      if (response.ok) {
-        globalThis.location.assign(PORTAL_URL);
-        return;
-      }
-      const body: unknown = await response.json().catch(() => ({}));
-      setStatus(readAccountError(body, "Nao foi possivel excluir a conta."));
-    } catch {
-      setStatus("Erro de rede ao excluir a conta.");
-    } finally {
-      setBusy(false);
-    }
-  }, [confirm, user.email]);
-
-  return (
-    <section className="accounts-danger-zone" aria-labelledby="delete-title">
-      <h2 id="delete-title">Excluir conta</h2>
-      <p className="accounts-help">
-        Remove seu login do Artifício e encerra a sessão. Para confirmar, digite seu e-mail.
-      </p>
-      <div className="accounts-field">
-        <label htmlFor="delete-confirm">E-mail da conta</label>
-        <input
-          id="delete-confirm"
-          type="email"
-          value={confirm}
-          onChange={(event) => setConfirm(event.target.value)}
-          placeholder={user.email}
-          autoComplete="off"
-        />
-      </div>
-      <button
-        className="accounts-login accounts-login-danger"
-        type="button"
-        onClick={handleDeleteAccount}
-        disabled={busy || confirm !== user.email}
-      >
-        {busy ? "Excluindo..." : "Excluir minha conta"}
-      </button>
-      <AccountStatus message={status} />
-    </section>
-  );
-}
-
-function AccountBrand({ compact = false }: { compact?: boolean }) {
-  const { theme } = useTheme();
-  const logo = theme === "dark" ? brandLogoNeg : brandLogoNavy;
-  const className = compact ? "accounts-brand accounts-brand-compact" : "accounts-brand";
-  return (
-    <a className={className} href={PORTAL_URL} aria-label="Voltar ao Artifício RPG">
-      <img
-        alt={logo.alt}
-        className="accounts-brand-logo"
-        height={logo.height}
-        src={logo.src}
-        width={logo.width}
-      />
-    </a>
-  );
-}
-
-function AccountStatus({ message }: { message: string | null }) {
-  if (!message) return null;
-  const variant = SUCCESS_STATUS_MARKERS.some((marker) => message.includes(marker)) ? "success" : "error";
-  return <output className={`accounts-status accounts-status-${variant}`}>{message}</output>;
-}
-
-function getUserInitials(name: string): string {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") resolve(reader.result);
-      else reject(new Error("invalid_file"));
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("file_read_failed"));
-    reader.readAsDataURL(file);
-  });
-}
-
-function readAccountError(body: unknown, fallback: string): string {
-  if (!body || typeof body !== "object" || !("error" in body)) return fallback;
-  const error = (body as { error: unknown }).error;
-  if (error === "media_storage_unavailable") return "Armazenamento de imagem indisponivel.";
-  if (error === "invalid_avatar") return "Imagem invalida.";
-  if (error === "confirmation_required") return "Confirmacao invalida.";
-  return fallback;
-}
-
-function readUserFromBody(body: unknown): User | null {
-  const value =
-    body && typeof body === "object" && "user" in body
-      ? (body as { user: unknown }).user
-      : null;
-  if (!value || typeof value !== "object") return null;
-  const record = value as Partial<User>;
-  if (
-    typeof record.id !== "string" ||
-    typeof record.email !== "string" ||
-    typeof record.name !== "string" ||
-    (record.role !== "user" && record.role !== "admin")
-  ) {
-    return null;
-  }
-  return {
-    id: record.id,
-    email: record.email,
-    name: record.name,
-    role: record.role,
-    avatar: typeof record.avatar === "string" ? record.avatar : null,
-  };
 }
 
 function AdminSecretsPanel() {
@@ -459,7 +263,11 @@ function AdminSecretsPanel() {
       >
         {saving ? 'Salvando...' : 'Salvar chave'}
       </button>
-      <AccountStatus message={statusMsg} />
+      {statusMsg && (
+        <output className={statusMsg.includes('sucesso') ? 'accounts-status accounts-status-success' : 'accounts-status accounts-status-error'}>
+          {statusMsg}
+        </output>
+      )}
       <p className="accounts-help">
         A chave é armazenada cifrada e nunca é exibida após ser salva. Disponível para consumo serviço-a-serviço
         pelos módulos da plataforma.

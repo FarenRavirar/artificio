@@ -3,7 +3,6 @@
 
 :root {
   --accounts-ink: #020740;
-  --accounts-rail: #020740;
   --accounts-muted: #596176;
   --accounts-faint: #7a8192;
   --accounts-line: #dde2ee;
@@ -21,7 +20,6 @@
 
 :root[data-theme="dark"] {
   --accounts-ink: #f7f8ff;
-  --accounts-rail: #070b1a;
   --accounts-muted: #c1c8dc;
   --accounts-faint: #8f98b3;
   --accounts-line: rgba(255, 255, 255, 0.14);
@@ -47,8 +45,8 @@ body {
 .accounts-page {
   align-items: center;
   background:
-    radial-gradient(circle at 12% 18%, rgba(255, 87, 34, 0.18), transparent 28rem),
-    linear-gradient(90deg, var(--accounts-rail) 0 36%, var(--accounts-canvas) 36% 100%);
+    radial-gradient(circle at 12% 18%, rgba(255, 87, 34, 0.16), transparent 28rem),
+    linear-gradient(90deg, var(--accounts-ink) 0 36%, var(--accounts-canvas) 36% 100%);
   display: grid;
   min-height: 100vh;
   padding: 32px;
@@ -110,11 +108,6 @@ body {
   text-align: left;
   width: min(100%, 480px);
   z-index: 1;
-}
-
-.accounts-page:has(.accounts-danger-zone) .accounts-panel {
-  max-width: 540px;
-  width: min(100%, 540px);
 }
 
 .accounts-panel::before {
@@ -329,43 +322,6 @@ body {
   padding: 16px;
 }
 
-.accounts-tool-panel,
-.accounts-danger-zone {
-  background: var(--accounts-surface-soft);
-  border: 1px solid var(--accounts-soft-line);
-  border-radius: 8px;
-  display: grid;
-  gap: 14px;
-  margin-top: 24px;
-  padding: 16px;
-}
-
-.accounts-tool-panel h2,
-.accounts-danger-zone h2 {
-  color: var(--accounts-ink);
-  font-size: 15px;
-  line-height: 1.2;
-  margin: 0 0 6px;
-}
-
-.accounts-file-button {
-  position: relative;
-}
-
-.accounts-file-button input {
-  height: 1px;
-  opacity: 0;
-  overflow: hidden;
-  pointer-events: none;
-  position: absolute;
-  width: 1px;
-}
-
-.accounts-file-button:focus-within {
-  box-shadow: var(--accounts-focus);
-  outline: 0;
-}
-
 .accounts-actions {
   border-top: 1px solid var(--accounts-line);
   display: grid;
@@ -430,27 +386,6 @@ body {
   color: #a81f1f;
 }
 
-:root[data-theme="dark"] .accounts-status-success {
-  background: rgba(34, 197, 94, 0.18);
-  color: #bbf7d0;
-}
-
-:root[data-theme="dark"] .accounts-status-error {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fecaca;
-}
-
-.accounts-login-danger {
-  background: #b42318;
-  border-color: #b42318;
-  box-shadow: none;
-}
-
-.accounts-login-danger:hover {
-  background: #8f1d16;
-  border-color: #8f1d16;
-}
-
 .accounts-help {
   margin-top: 12px;
 }
@@ -458,7 +393,7 @@ body {
 @media (max-width: 720px) {
   .accounts-page {
     background:
-      linear-gradient(180deg, var(--accounts-rail) 0 150px, var(--accounts-canvas) 150px 100%);
+      linear-gradient(180deg, var(--accounts-ink) 0 150px, var(--accounts-canvas) 150px 100%);
     min-height: 100dvh;
     padding: 84px 16px 24px;
   }

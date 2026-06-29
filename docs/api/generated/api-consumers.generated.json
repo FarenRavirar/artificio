@@ -1,15 +1,15 @@
 {
   "metadata": {
-    "total": 278,
-    "uniqueEndpoints": 257,
+    "total": 276,
+    "uniqueEndpoints": 255,
     "byApp": {
       "accounts-frontend": {
-        "total": 4,
+        "total": 2,
         "byConfidence": {
-          "high": 4
+          "high": 2
         },
         "byPattern": {
-          "literal": 4
+          "literal": 2
         }
       },
       "glossario-frontend": {
@@ -87,27 +87,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 414
-    },
-    {
-      "app": "accounts-frontend",
-      "consumerFile": "apps/accounts/frontend/src/main.tsx",
-      "method": "DELETE",
-      "endpoint": "/api/account",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "fetch",
-      "line": 280
-    },
-    {
-      "app": "accounts-frontend",
-      "consumerFile": "apps/accounts/frontend/src/main.tsx",
-      "method": "PATCH",
-      "endpoint": "/api/account/avatar",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "fetch",
-      "line": 226
+      "line": 218
     },
     {
       "app": "accounts-frontend",
@@ -117,7 +97,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 56
+      "line": 52
     },
     {
       "app": "glossario-frontend",

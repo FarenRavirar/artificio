@@ -4,17 +4,15 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **269 operações**.
+Total: **267 operações**.
 
-## accounts (13)
+## accounts (11)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
 | GET | `/` | public-page | none | active | — | Consulta raiz |
 | GET | `/admin/secrets/{name}` | admin | service | provisional | mesas-backend | Recupera um segredo descriptografado (admin ou service-token) |
 | PUT | `/admin/secrets/{name}` | admin | admin | provisional | — | Armazena um segredo criptografado (admin) |
-| DELETE | `/api/account` | public | user | active | — | Remove api account |
-| PATCH | `/api/account/avatar` | public | user | active | — | Atualiza api account avatar |
 | GET | `/api/auth/google` | external | none | active | — | Consulta api auth google |
 | GET | `/api/auth/google/callback` | external | none | active | — | Consulta api auth google callback |
 | POST | `/api/auth/logout` | cross-app | user | active | mesas-frontend, glossario-frontend, links-frontend, site-admin | Cria ou executa api auth logout |
