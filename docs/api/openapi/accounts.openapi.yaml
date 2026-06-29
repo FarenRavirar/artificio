@@ -100,12 +100,32 @@ paths:
           description: Conta removida e sessao limpa
         "400":
           description: Confirmacao invalida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         "401":
           description: Não autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         "403":
           description: Sem permissão
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         "500":
           description: Erro interno
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /api/account/avatar:
     patch:
       operationId: patchapi_account_avatar
@@ -135,14 +155,39 @@ paths:
                 additionalProperties: true
         "400":
           description: Avatar invalido
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         "401":
           description: Não autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         "403":
           description: Sem permissão
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         "503":
           description: Armazenamento de midia indisponivel
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         "500":
           description: Erro interno
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /api/auth/google:
     get:
       operationId: getapi_auth_google

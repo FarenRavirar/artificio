@@ -272,6 +272,14 @@ function appendGenericResponses(lines: string[]): void {
   lines.push(`          description: Erro interno`);
 }
 
+function appendJsonObjectContent(lines: string[]): void {
+  lines.push(`          content:`);
+  lines.push(`            application/json:`);
+  lines.push(`              schema:`);
+  lines.push(`                type: object`);
+  lines.push(`                additionalProperties: true`);
+}
+
 function appendAccountResponses(lines: string[], method: string, path: string): boolean {
   if (method === 'delete' && path === '/api/account') {
     lines.push(`      responses:`);
@@ -279,12 +287,16 @@ function appendAccountResponses(lines: string[], method: string, path: string): 
     lines.push(`          description: Conta removida e sessao limpa`);
     lines.push(`        "400":`);
     lines.push(`          description: Confirmacao invalida`);
+    appendJsonObjectContent(lines);
     lines.push(`        "401":`);
     lines.push(`          description: Não autenticado`);
+    appendJsonObjectContent(lines);
     lines.push(`        "403":`);
     lines.push(`          description: Sem permissão`);
+    appendJsonObjectContent(lines);
     lines.push(`        "500":`);
     lines.push(`          description: Erro interno`);
+    appendJsonObjectContent(lines);
     return true;
   }
   if (method === 'patch' && path === '/api/account/avatar') {
@@ -298,14 +310,19 @@ function appendAccountResponses(lines: string[], method: string, path: string): 
     lines.push(`                additionalProperties: true`);
     lines.push(`        "400":`);
     lines.push(`          description: Avatar invalido`);
+    appendJsonObjectContent(lines);
     lines.push(`        "401":`);
     lines.push(`          description: Não autenticado`);
+    appendJsonObjectContent(lines);
     lines.push(`        "403":`);
     lines.push(`          description: Sem permissão`);
+    appendJsonObjectContent(lines);
     lines.push(`        "503":`);
     lines.push(`          description: Armazenamento de midia indisponivel`);
+    appendJsonObjectContent(lines);
     lines.push(`        "500":`);
     lines.push(`          description: Erro interno`);
+    appendJsonObjectContent(lines);
     return true;
   }
   return false;
