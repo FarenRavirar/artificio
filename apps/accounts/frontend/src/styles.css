@@ -1,6 +1,5 @@
 /* Accounts SSO — visual alinhado ao Artificio: navy estrutural, laranja como acao,
    tela utilitaria e calma. */
-@import url("https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
   --accounts-ink: #020740;
@@ -39,7 +38,7 @@
 body {
   background: var(--accounts-canvas);
   color: var(--accounts-ink);
-  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-family: ui-sans-serif, system-ui, sans-serif;
   margin: 0;
 }
 
@@ -57,7 +56,7 @@ body {
 .accounts-page::before {
   color: rgba(255, 255, 255, 0.08);
   content: "ARTIFÍCIO";
-  font-family: "Oswald", "Arial Narrow", system-ui, sans-serif;
+  font-family: "Arial Narrow", Impact, ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(84px, 12vw, 180px);
   font-weight: 700;
   left: 28px;
@@ -148,7 +147,7 @@ body {
 
 .accounts-panel h1 {
   color: var(--accounts-ink);
-  font-family: "Oswald", "Arial Narrow", system-ui, sans-serif;
+  font-family: "Arial Narrow", Impact, ui-sans-serif, system-ui, sans-serif;
   font-size: 34px;
   font-weight: 700;
   letter-spacing: 0.02em;

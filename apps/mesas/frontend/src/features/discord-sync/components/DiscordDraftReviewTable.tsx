@@ -323,6 +323,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                 aria-label={`Abrir preview do rascunho ${title}`}
                 onClick={() => setSelectedDraft(draft)}
                 onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
                     setSelectedDraft(draft);
