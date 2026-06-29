@@ -3,13 +3,13 @@
   "_description": "Índice único e machine-readable de todas as APIs do Artifício RPG. Fonte primária de descoberta para agentes de IA. Gerado por scripts/api/bundle-api.ts a partir dos contratos OpenAPI por-app. Não editar à mão.",
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
-    "accounts": 11,
+    "accounts": 13,
     "glossario": 46,
     "links": 22,
     "mesas": 156,
     "site": 32
   },
-  "total": 267,
+  "total": 269,
   "operations": [
     {
       "app": "accounts",
@@ -48,6 +48,30 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "putadmin_secrets_name"
+    },
+    {
+      "app": "accounts",
+      "method": "DELETE",
+      "path": "/api/account",
+      "summary": "Remove api account",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "deleteapi_account"
+    },
+    {
+      "app": "accounts",
+      "method": "PATCH",
+      "path": "/api/account/avatar",
+      "summary": "Atualiza api account avatar",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "patchapi_account_avatar"
     },
     {
       "app": "accounts",

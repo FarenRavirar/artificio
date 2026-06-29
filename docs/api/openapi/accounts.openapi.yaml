@@ -76,6 +76,118 @@ paths:
           description: Segredo armazenado
         "400":
           description: Payload inválido
+  /api/account:
+    delete:
+      operationId: deleteapi_account
+      summary: "Remove api account"
+      x-artificio-owner: accounts
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: string
+                  format: email
+      responses:
+        "204":
+          description: Conta removida e sessao limpa
+        "400":
+          description: Confirmacao invalida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "403":
+          description: Sem permissão
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "500":
+          description: Erro interno
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/account/avatar:
+    patch:
+      operationId: patchapi_account_avatar
+      summary: "Atualiza api account avatar"
+      x-artificio-owner: accounts
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dataUrl]
+              properties:
+                dataUrl:
+                  type: string
+                  description: Data URL base64 PNG, JPEG ou WebP ate 2MB
+      responses:
+        "200":
+          description: Avatar atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Avatar invalido
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "403":
+          description: Sem permissão
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "503":
+          description: Armazenamento de midia indisponivel
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "500":
+          description: Erro interno
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /api/auth/google:
     get:
       operationId: getapi_auth_google

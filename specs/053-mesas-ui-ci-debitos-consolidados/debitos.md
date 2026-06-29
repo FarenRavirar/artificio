@@ -11,6 +11,8 @@ Consolidação dos débitos remanescentes das specs 047–051. Cada item abaixo 
 | DEB-053-03 | DEB-048-37 | C | 🟠 gap CI (causou crash DEB-048-36) | fechado local — smoke CJS passa e prova regressão |
 | DEB-053-04 | REV-051-RABBIT-06 | D | 🟢 doc-only (falso-positivo já analisado) | resolvido — §13 já presente na 051; 053 registra rastreio |
 | DEB-053-05 | 048 Fase E (T-E1..E6) | E | 🟡 automação operacional VM | resolvido por decisão — transferido p/ 052 Bloco A; sem VM write nesta spec |
+| DEB-053-06 | Feedback prod 2026-06-29 | B | 🟠 UX/accounts | fechado local — `/conta` sem faixa branca + foto/exclusão |
+| DEB-053-07 | Feedback prod 2026-06-29 | B2 | 🟠 UX/site | fechado local — busca abre por evento explícito + fallback `/busca/` |
 
 ## Detalhe
 
@@ -43,4 +45,12 @@ T-E1..E6: diretórios fora do git, comando DiscordChatExporter pinado, job diár
 
 ## Novos (surgidos na 053)
 
-(vazio — preencher conforme implementação)
+### DEB-053-06 — `/conta` com faixa branca + ferramentas ausentes
+Após deploy prod da 053, a tela `/conta` em tema dark exibiu uma faixa branca grande à esquerda. Causa: o CSS usava token de texto (`--accounts-ink`) para trilho estrutural do fundo; no dark esse token vira claro. O mantenedor também pediu ferramentas de trocar foto e excluir conta.
+
+**Resolução local:** `--accounts-rail` separa estrutura de texto. A conta ganha upload de avatar via backend com Cloudinary (`@artificio/media`) e endpoint de exclusão com confirmação por e-mail; ambos autenticados e protegidos por CSRF.
+
+### DEB-053-07 — busca do site não abre no clique
+No `artificiorpg.com`, clicar na lupa não abria a busca.
+
+**Resolução local:** o botão React do header dispara `artificio:open-search`; o modal Astro escuta o evento e abre a UI Pagefind. Se o modal não abrir, o botão navega para `/busca/` como fallback.

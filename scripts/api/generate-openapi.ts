@@ -202,42 +202,117 @@ function summaryFor(method: string, path: string): string {
   return `${verb[method] ?? method.toUpperCase()} ${normalized || 'raiz'}`;
 }
 
-function shouldHaveRequestBody(method: string): boolean {
-  return method === 'post' || method === 'put' || method === 'patch';
+function shouldHaveRequestBody(method: string, path?: string): boolean {
+  return method === 'post' || method === 'put' || method === 'patch' || (method === 'delete' && path === '/api/account');
+}
+
+function appendIndented(lines: string[], indent: string, values: string[]): void {
+  for (const value of values) lines.push(`${indent}${value}`);
+}
+
+function appendRequestBody(
+  lines: string[],
+  required: boolean,
+  property?: { name: string; lines: string[] },
+): void {
+  appendIndented(lines, ``, [
+    `      requestBody:`,
+    `        required: ${required ? 'true' : 'false'}`,
+    `        content:`,
+    `          application/json:`,
+    `            schema:`,
+    `              type: object`,
+  ]);
+  if (!property) {
+    lines.push(`              additionalProperties: true`);
+    return;
+  }
+  appendIndented(lines, ``, [
+    `              required: [${property.name}]`,
+    `              properties:`,
+    `                ${property.name}:`,
+  ]);
+  appendIndented(lines, `                  `, property.lines);
 }
 
 function appendGenericRequestBody(lines: string[]): void {
-  lines.push(`      requestBody:`);
-  lines.push(`        required: false`);
-  lines.push(`        content:`);
-  lines.push(`          application/json:`);
-  lines.push(`            schema:`);
-  lines.push(`              type: object`);
-  lines.push(`              additionalProperties: true`);
+  appendRequestBody(lines, false);
+}
+
+function appendRequiredJsonBody(lines: string[], property: string, propertyLines: string[]): void {
+  appendRequestBody(lines, true, { name: property, lines: propertyLines });
+}
+
+function appendAccountRequestBody(lines: string[], method: string, path: string): boolean {
+  if (method === 'delete' && path === '/api/account') {
+    appendRequiredJsonBody(lines, "confirm", ["type: string", "format: email"]);
+    return true;
+  }
+  if (method === 'patch' && path === '/api/account/avatar') {
+    appendRequiredJsonBody(lines, "dataUrl", ["type: string", "description: Data URL base64 PNG, JPEG ou WebP ate 2MB"]);
+    return true;
+  }
+  return false;
 }
 
 function appendGenericResponses(lines: string[]): void {
   lines.push(`      responses:`);
-  lines.push(`        "200":`);
-  lines.push(`          description: OK`);
-  lines.push(`          content:`);
-  lines.push(`            application/json:`);
-  lines.push(`              schema:`);
-  lines.push(`                type: object`);
-  lines.push(`                additionalProperties: true`);
-  lines.push(`        "400":`);
-  lines.push(`          description: Requisição inválida`);
-  lines.push(`          content:`);
-  lines.push(`            application/json:`);
-  lines.push(`              schema:`);
-  lines.push(`                type: object`);
-  lines.push(`                additionalProperties: true`);
-  lines.push(`        "401":`);
-  lines.push(`          description: Não autenticado`);
-  lines.push(`        "403":`);
-  lines.push(`          description: Sem permissão`);
-  lines.push(`        "500":`);
-  lines.push(`          description: Erro interno`);
+  appendResponse(lines, "200", "OK", true);
+  appendResponse(lines, "400", "Requisição inválida", true);
+  appendResponse(lines, "401", "Não autenticado");
+  appendResponse(lines, "403", "Sem permissão");
+  appendResponse(lines, "500", "Erro interno");
+}
+
+function appendJsonObjectContent(lines: string[]): void {
+  appendIndented(lines, ``, [
+    `          content:`,
+    `            application/json:`,
+    `              schema:`,
+    `                type: object`,
+    `                additionalProperties: true`,
+  ]);
+}
+
+function appendResponse(lines: string[], status: string, description: string, jsonObject = false): void {
+  lines.push(`        "${status}":`);
+  lines.push(`          description: ${description}`);
+  if (jsonObject) appendJsonObjectContent(lines);
+}
+
+function appendResponses(
+  lines: string[],
+  responses: Array<{ status: string; description: string; jsonObject?: boolean }>,
+): void {
+  lines.push(`      responses:`);
+  for (const response of responses) {
+    appendResponse(lines, response.status, response.description, response.jsonObject);
+  }
+}
+
+function appendAccountResponses(lines: string[], method: string, path: string): boolean {
+  if (method === 'delete' && path === '/api/account') {
+    appendResponses(lines, [
+      { status: "204", description: "Conta removida e sessao limpa" },
+      { status: "400", description: "Confirmacao invalida", jsonObject: true },
+      { status: "401", description: "Não autenticado", jsonObject: true },
+      { status: "403", description: "Sem permissão", jsonObject: true },
+      { status: "500", description: "Erro interno", jsonObject: true },
+    ]);
+    return true;
+  }
+  if (method === 'patch' && path === '/api/account/avatar') {
+    appendResponses(lines, [
+      { status: "200", description: "Avatar atualizado", jsonObject: true },
+      { status: "400", description: "Avatar invalido", jsonObject: true },
+      { status: "401", description: "Não autenticado", jsonObject: true },
+      { status: "403", description: "Sem permissão", jsonObject: true },
+      { status: "503", description: "Armazenamento de midia indisponivel", jsonObject: true },
+      { status: "500", description: "Erro interno", jsonObject: true },
+    ]);
+    return true;
+  }
+  return false;
 }
 
 /** Skip catch-all Express 5 patterns ({*splat}) — not API routes */
@@ -350,10 +425,14 @@ servers:
           }
         }
       }
-      if (shouldHaveRequestBody(method)) {
-        appendGenericRequestBody(lines);
+      if (shouldHaveRequestBody(method, oaPath)) {
+        if (!appendAccountRequestBody(lines, method, oaPath)) {
+          appendGenericRequestBody(lines);
+        }
       }
-      appendGenericResponses(lines);
+      if (!appendAccountResponses(lines, method, oaPath)) {
+        appendGenericResponses(lines);
+      }
       block.methods.set(method, lines);
     }
     byPath.set(oaPath, block);

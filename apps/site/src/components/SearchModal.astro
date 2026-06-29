@@ -78,6 +78,7 @@
       }
       if (target.hasAttribute("data-close")) close();
     });
+    document.addEventListener("artificio:open-search", open);
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && !modal.hidden) close();
       if ((e.key === "/" || (e.key === "k" && (e.metaKey || e.ctrlKey))) && modal.hidden) {
