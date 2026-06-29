@@ -24,7 +24,7 @@ interface Props {
 export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSync }: Props) {
   const { confirm } = useConfirm();
   const h = useDraftForm(draft, api, onUpdate);
-  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const shouldShowSlotsDisambiguation = Boolean(h.slotsAmbiguity && h.payloadMissingFields.includes('slots_open:ambiguous_x_of_y'));
@@ -60,6 +60,10 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
     onClose();
   }, [confirm, h.dirty, onClose]);
 
+  const requestCloseSafely = useCallback(() => {
+    requestClose().catch(() => undefined);
+  }, [requestClose]);
+
   useEffect(() => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const originalOverflow = document.body.style.overflow;
@@ -76,7 +80,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        void requestClose();
+        requestCloseSafely();
         return;
       }
       if (event.key !== 'Tab' || !dialogRef.current) return;
@@ -102,23 +106,22 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [requestClose]);
+  }, [requestCloseSafely]);
 
   return (
-    <div
+    <dialog
+      open
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      aria-labelledby="discord-draft-preview-title"
+      aria-describedby="discord-draft-preview-description"
+      tabIndex={-1}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) void requestClose();
+        if (event.target === event.currentTarget) requestCloseSafely();
       }}
     >
       <div
-        ref={dialogRef}
         className="bg-[#1B2A4A] border border-white/10 rounded-xl w-full max-w-5xl max-h-[90vh] flex flex-col focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="discord-draft-preview-title"
-        aria-describedby="discord-draft-preview-description"
-        tabIndex={-1}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <div>
@@ -126,7 +129,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
             <p id="discord-draft-preview-description" className="text-white/40 text-xs mt-0.5">{draft.id}</p>
           </div>
           <button
-            onClick={() => void requestClose()}
+            onClick={requestCloseSafely}
             className="text-white/40 hover:text-white transition-colors text-lg leading-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
             aria-label="Fechar preview do draft"
           >
@@ -236,6 +239,6 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
           {draft.status === 'synced' && draft.table_id && <span className="text-green-400 text-sm self-center">Mesa: {draft.table_id}</span>}
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }

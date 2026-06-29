@@ -369,6 +369,7 @@ body {
 
 .accounts-status {
   border-radius: 8px;
+  display: block;
   font-size: 13px;
   font-weight: 700;
   margin: 10px 0 0;
@@ -376,13 +377,13 @@ body {
 }
 
 .accounts-status-success {
-  background: rgba(34, 197, 94, 0.12);
-  color: #168447;
+  background: #dff7e8;
+  color: #0f6935;
 }
 
 .accounts-status-error {
-  background: rgba(239, 68, 68, 0.12);
-  color: #d73b3b;
+  background: #fde4e4;
+  color: #a81f1f;
 }
 
 .accounts-help {
