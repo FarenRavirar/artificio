@@ -115,7 +115,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
     try {
       // Se houver onBeforeSync, aplica correction-tracking draft a draft antes do sync
       if (onBeforeSync) {
-        const readyDrafts = drafts.filter(d => d.status === 'ready');
+        const readyDrafts = drafts.filter(isReady);
         let synced = 0;
         let failed = 0;
         const errors: string[] = [];

@@ -78,13 +78,17 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const activeElement = document.activeElement;
+      if (activeElement instanceof Node && !dialog.contains(activeElement)) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         requestCloseSafely();
         return;
       }
-      if (event.key !== 'Tab' || !dialogRef.current) return;
-      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+      if (event.key !== 'Tab') return;
+      const focusable = dialog.querySelectorAll<HTMLElement>(
         'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
       );
       if (focusable.length === 0) return;
@@ -116,12 +120,15 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
       aria-labelledby="discord-draft-preview-title"
       aria-describedby="discord-draft-preview-description"
       tabIndex={-1}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) requestCloseSafely();
-      }}
     >
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="Fechar preview do draft"
+        onClick={requestCloseSafely}
+      />
       <div
-        className="bg-[#1B2A4A] border border-white/10 rounded-xl w-full max-w-5xl max-h-[90vh] flex flex-col focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+        className="relative z-10 bg-[#1B2A4A] border border-white/10 rounded-xl w-full max-w-5xl max-h-[90vh] flex flex-col focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <div>
