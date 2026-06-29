@@ -85,6 +85,9 @@ importers:
       '@artificio/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      cloudinary:
+        specifier: ^2.9.0
+        version: 2.10.0
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
