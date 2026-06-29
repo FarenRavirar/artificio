@@ -8,7 +8,7 @@
 2. **Frente B (tema accounts)** — frontend isolado, sem auth.
 3. **Frente A (a11y/UI gestão)** — maior; depende de `packages/ui` (SDD Completo, smoke dos consumidores visuais).
 4. **Frente D (doc)** — carona em qualquer PR.
-5. **Frente E (ingestão VM)** — **por último**; aprovação nominal por ação na VM. Pode migrar p/ 052 Bloco A.
+5. **Frente E (ingestão VM)** — resolvida por transferência explícita p/ 052 Bloco A; sem VM write nesta spec.
 
 ## Frente A — a11y/UI da revisão de gestão (mesas)
 
@@ -27,6 +27,7 @@
 
 - Investigar theme provider do `apps/accounts/frontend`: default forçado a light? toggle ausente? leitura de `localStorage`/cookie de tema faltando? Comparar com como mesas/glossario consomem o tema do `packages/ui`.
 - Corrigir para respeitar preferência + persistir. Sem mexer em sessão/auth.
+- Reestruturar visual do `accounts`: abandonar card central genérico/fundo partido, usar navy/línea/laranja do Artifício, organizar cabeçalho da conta, ações e painel admin com classes próprias.
 - Smoke visual local + beta (accounts é PROD-only no deploy, D042 — validar em local/preview; deploy prod só com aprovação nominal).
 
 ## Frente C — smoke CJS no CI
@@ -39,14 +40,11 @@
 
 ## Frente D — doc
 
-- Incluir o §13 da 051 (REV-051-RABBIT-06) no próximo PR. Sem código.
+- Incluir o §13 da 051 (REV-051-RABBIT-06) no próximo PR. Sem código. Verificado: §13 já está presente; esta branch leva o rastreio da 053.
 
 ## Frente E — ingestão diária na VM (final da spec) [ex-048 Fase E]
 
-- Automação operacional pura (sem IA). Cada passo na VM = **aprovação nominal por ação** (write/job/cron/migration/segredo). Guard online-safe (spec 050) p/ `discord_import_runs`.
-- Idempotência da pasta monitorada; trava de não-auto-publicação (048) em vigor; logs/retenção/métrica.
-- **Coordenar com 052 Bloco A** (mesma superfície de automação operacional) — não duplicar; se a 053 não chegar aqui, migra p/ 052 Bloco A.
-- Validar cada componente em beta antes de prod.
+- Automação operacional pura (sem IA) fica no **Bloco A da 052**. Cada passo na VM exigirá aprovação nominal por ação (write/job/cron/migration/segredo). Esta spec não executa VM write.
 
 ## Validação (pétrea)
 

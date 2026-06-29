@@ -87,7 +87,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 202
+      "line": 218
     },
     {
       "app": "accounts-frontend",
@@ -97,7 +97,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 51
+      "line": 52
     },
     {
       "app": "glossario-frontend",
@@ -1017,7 +1017,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 86
+      "line": 88
     },
     {
       "app": "mesas-frontend",

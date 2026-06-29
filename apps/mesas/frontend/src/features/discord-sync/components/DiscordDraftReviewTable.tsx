@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useConfirm } from '@artificio/ui';
 import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from '../types';
 import { discordSyncApi } from '../api/discordSyncApi';
 import { DiscordDraftPreview } from './DiscordDraftPreview';
@@ -64,6 +65,7 @@ function readString(value: unknown): string | null {
 }
 
 export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync, updateDraftsBatch }: Props) {
+  const { confirm } = useConfirm();
   const draftApi = api ?? discordSyncApi;
   const batchReject = updateDraftsBatch ?? discordSyncApi.updateDraftsBatch;
   // Para drafts de Inbox, usa inboxApi se fornecida; senão fallback para draftApi (compat retroativa).
@@ -102,12 +104,18 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   }, [loadDrafts]);
 
   const handleSyncReady = async () => {
-    if (!confirm('Sincronizar todos os drafts com status "pronto" como mesas reais?')) return;
+    const confirmed = await confirm({
+      title: 'Sincronizar drafts prontos',
+      message: 'Sincronizar todos os drafts com status "pronto" como mesas reais?',
+      variant: 'warning',
+      confirmText: 'Sincronizar',
+    });
+    if (!confirmed) return;
     setSyncingAll(true);
     try {
       // Se houver onBeforeSync, aplica correction-tracking draft a draft antes do sync
       if (onBeforeSync) {
-        const readyDrafts = drafts.filter(d => d.status === 'ready');
+        const readyDrafts = drafts.filter(isReady);
         let synced = 0;
         let failed = 0;
         const errors: string[] = [];
@@ -166,7 +174,13 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
 
   const rejectDraftIds = useCallback(async (ids: string[], confirmMsg: string) => {
     if (ids.length === 0) return;
-    if (!confirm(confirmMsg)) return;
+    const confirmed = await confirm({
+      title: 'Rejeitar rascunhos',
+      message: confirmMsg,
+      variant: 'danger',
+      confirmText: 'Rejeitar',
+    });
+    if (!confirmed) return;
     setRejectingAll(true);
     try {
       // Tabela unificada (Discord+Inbox) → 1 chamada batch cobre as duas origens.
@@ -178,7 +192,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
       setRejectingAll(false);
       loadDrafts();
     }
-  }, [loadDrafts, batchReject]);
+  }, [loadDrafts, batchReject, confirm]);
 
   const handleRejectAll = () =>
     rejectDraftIds(
@@ -303,8 +317,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
             return (
               <div
                 key={draft.id}
-                className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.08] transition-colors"
-                onClick={() => setSelectedDraft(draft)}
+                className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex items-center gap-3 hover:bg-white/[0.08] transition-colors"
               >
                 {draft.status !== 'synced' && draft.status !== 'rejected' && (
                   <input
@@ -316,15 +329,21 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                     className="h-4 w-4 shrink-0 accent-blue-600"
                   />
                 )}
-                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-white/10 bg-white/5">
+                <button
+                  type="button"
+                  className="flex flex-1 min-w-0 items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+                  aria-label={`Abrir preview do rascunho ${title}`}
+                  onClick={() => setSelectedDraft(draft)}
+                >
+                <span className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-white/10 bg-white/5">
                   {coverUrl ? (
                     <img src={coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
                   ) : (
-                    <div className="h-full w-full bg-white/5" />
+                    <span className="block h-full w-full bg-white/5" />
                   )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="flex items-center gap-2 mb-0.5">
                     <span className={`px-2 py-0.5 text-xs rounded-full ${ORIGIN_COLORS[draftOrigin(draft)]}`}>
                       {ORIGIN_LABELS[draftOrigin(draft)]}
                     </span>
@@ -348,17 +367,18 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                         ⚠ autoral?
                       </span>
                     )}
-                  </div>
-                  <p className="text-white font-medium text-sm truncate">{title}</p>
-                  <div className="flex items-center gap-2">
-                    {system && <p className="text-white/40 text-xs truncate">{system}</p>}
+                  </span>
+                  <span className="block text-white font-medium text-sm truncate">{title}</span>
+                  <span className="flex items-center gap-2">
+                    {system && <span className="text-white/40 text-xs truncate">{system}</span>}
                     {coverQuality === 'low' && <span className="text-amber-300 text-xs">capa baixa</span>}
-                  </div>
-                </div>
-                <div className="text-white/30 text-xs shrink-0 text-right">
-                  <p>{new Date(draft.created_at).toLocaleDateString('pt-BR')}</p>
-                  {draft.table_id && <p className="text-blue-400/60">mesa vinculada</p>}
-                </div>
+                  </span>
+                </span>
+                <span className="text-white/30 text-xs shrink-0 text-right">
+                  <span className="block">{new Date(draft.created_at).toLocaleDateString('pt-BR')}</span>
+                  {draft.table_id && <span className="block text-blue-400/60">mesa vinculada</span>}
+                </span>
+                </button>
               </div>
             );
           })}

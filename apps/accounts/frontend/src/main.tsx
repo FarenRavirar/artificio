@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { brandLogoNavy, brandLogoNeg, applyFavicon, ThemeIcon, useTheme } from "@artificio/ui";
+import { brandLogoNavy, brandLogoNeg, applyFavicon, applyTheme, ThemeIcon, useTheme } from "@artificio/ui";
 import { useSession, getAccountsOrigin, logout } from "@artificio/auth/client";
 import { BRAND_TAGLINE_FREE, BRAND_ORIGIN, BRAND_DOMAIN } from "@artificio/config";
 import "./styles.css";
 
 applyFavicon();
+applyTheme();
 
 const PORTAL_URL = BRAND_ORIGIN;
 
@@ -126,8 +127,9 @@ function LoginView() {
 
 function ContaView() {
   const { user, loading } = useSession();
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const [showSecrets, setShowSecrets] = useState(false);
+  const logo = theme === "dark" ? brandLogoNeg : brandLogoNavy;
 
   useEffect(() => {
     if (!loading && !user) {
@@ -151,18 +153,32 @@ function ContaView() {
 
   return (
     <section className="accounts-panel" aria-labelledby="conta-title">
-      <h1 id="conta-title">Conta Artifício</h1>
-      {user.avatar ? (
-        <img src={user.avatar} alt="" className="accounts-avatar" width="64" height="64" />
-      ) : (
-        <div className="accounts-avatar accounts-avatar-fallback">
-          {user.name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("")}
+      <a className="accounts-brand accounts-brand-compact" href={PORTAL_URL} aria-label="Voltar ao Artifício RPG">
+        <img
+          alt={logo.alt}
+          className="accounts-brand-logo"
+          height={logo.height}
+          src={logo.src}
+          width={logo.width}
+        />
+      </a>
+      <div className="accounts-account-header">
+        {user.avatar ? (
+          <img src={user.avatar} alt="" className="accounts-avatar" width="72" height="72" />
+        ) : (
+          <div className="accounts-avatar accounts-avatar-fallback">
+            {user.name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("")}
+          </div>
+        )}
+        <div className="accounts-account-copy">
+          <p className="accounts-kicker">Conta Artifício</p>
+          <h1 id="conta-title">Sua conta</h1>
+          <p className="accounts-user-name">{user.name}</p>
+          {user.email ? <p className="accounts-user-email">{user.email}</p> : null}
         </div>
-      )}
-      <p className="accounts-user-name">{user.name}</p>
-      {user.email ? <p className="accounts-user-email">{user.email}</p> : null}
+      </div>
       {user.role === 'admin' && (
-        <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--surface)', borderRadius: '0.5rem' }}>
+        <section className="accounts-admin-panel" aria-label="Administração">
           <button
             className="accounts-login accounts-login-secondary"
             type="button"
@@ -171,7 +187,7 @@ function ContaView() {
             {showSecrets ? 'Ocultar' : 'Gerenciar segredos de admin'}
           </button>
           {showSecrets && <AdminSecretsPanel />}
-        </div>
+        </section>
       )}
       <div className="accounts-actions">
         <button className="accounts-login accounts-login-secondary" type="button" onClick={handleLogout}>
@@ -225,10 +241,10 @@ function AdminSecretsPanel() {
   };
 
   return (
-    <div style={{ marginTop: '1rem' }}>
-      <h2 style={{ fontSize: '1.1rem', marginBottom: '0.5rem', color: 'var(--fg)' }}>Segredos de Admin</h2>
-      <div style={{ marginBottom: '0.75rem' }}>
-        <label htmlFor="deepseek-api-key" style={{ display: 'block', fontSize: '0.85rem', color: 'var(--fg-muted)', marginBottom: '0.25rem' }}>
+    <div className="accounts-secrets">
+      <h2>Segredos de admin</h2>
+      <div className="accounts-field">
+        <label htmlFor="deepseek-api-key">
           Chave da API DeepSeek
         </label>
         <input
@@ -237,15 +253,6 @@ function AdminSecretsPanel() {
           value={deepseekValue}
           onChange={e => setDeepseekValue(e.target.value)}
           placeholder="sk-..."
-          style={{
-            width: '100%',
-            padding: '0.5rem',
-            background: 'var(--surface-forte)',
-            border: '1px solid var(--border)',
-            borderRadius: '0.375rem',
-            color: 'var(--fg)',
-            fontSize: '0.9rem',
-          }}
         />
       </div>
       <button
@@ -253,16 +260,15 @@ function AdminSecretsPanel() {
         type="button"
         onClick={handleSave}
         disabled={saving}
-        style={{ fontSize: '0.85rem', padding: '0.5rem 1rem' }}
       >
         {saving ? 'Salvando...' : 'Salvar chave'}
       </button>
       {statusMsg && (
-        <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: statusMsg.includes('sucesso') ? '#4caf50' : '#ef5350' }}>
+        <output className={statusMsg.includes('sucesso') ? 'accounts-status accounts-status-success' : 'accounts-status accounts-status-error'}>
           {statusMsg}
-        </p>
+        </output>
       )}
-      <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--fg-muted)' }}>
+      <p className="accounts-help">
         A chave é armazenada cifrada e nunca é exibida após ser salva. Disponível para consumo serviço-a-serviço
         pelos módulos da plataforma.
       </p>

@@ -8,6 +8,10 @@ vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock('@artificio/ui', () => ({
+  useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(true) }),
+}));
+
 vi.mock('./DraftEditorTab', () => ({
   DraftEditorTab: () => <div data-testid="draft-editor-tab">Editor</div>,
 }));
@@ -89,6 +93,7 @@ describe('DiscordDraftPreview', () => {
     );
 
     expect(screen.getByText('Draft de mesa')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Draft de mesa' })).toBeInTheDocument();
     expect(screen.getByText('draft-1')).toBeInTheDocument();
   });
 
