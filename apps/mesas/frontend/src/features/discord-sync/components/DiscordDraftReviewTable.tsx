@@ -204,9 +204,11 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
       `Limpar todos os ${rejectableDrafts.length} rascunho(s)? Eles serão rejeitados.`,
     );
 
-  // Descartados visíveis (contador do botão). A remoção em si é server-side e cobre
-  // todos os 'rejected' da origem atual, não só os carregados na página.
-  const rejectedCount = drafts.filter(d => d.status === 'rejected').length;
+  // Há descartados visíveis? Só controla a VISIBILIDADE do botão. Não exibimos a
+  // contagem: a página carrega no máx. 100 linhas, mas o purge é server-side e
+  // remove TODOS os 'rejected' da origem — um número derivado da página enganaria
+  // sobre o escopo real da remoção destrutiva.
+  const hasRejected = drafts.some(d => d.status === 'rejected');
 
   const handlePurgeRejected = async () => {
     const confirmed = await confirm({
@@ -280,13 +282,13 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
           Recarregar
         </button>
 
-        {rejectedCount > 0 && (
+        {hasRejected && (
           <button
             onClick={handlePurgeRejected}
             disabled={purging}
             className="px-3 py-2 bg-red-700/80 hover:bg-red-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
           >
-            {purging ? 'Limpando...' : `Limpar descartados (${rejectedCount})`}
+            {purging ? 'Limpando...' : 'Limpar descartados'}
           </button>
         )}
 

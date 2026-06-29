@@ -1160,7 +1160,7 @@
       "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/admin/discord/drafts/rejected",
-      "summary": "Remove api v1 admin discord drafts rejected",
+      "summary": "Apaga drafts descartados (status=rejected)",
       "owner": "mesas",
       "scope": "admin",
       "status": "active",

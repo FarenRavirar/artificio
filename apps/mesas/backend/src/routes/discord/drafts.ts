@@ -4,6 +4,7 @@ import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
 import type { DiscordImportDraftStatus } from '../../discord';
 import { refreshDiscordDraftImage } from '../../discord';
+import { destroyAssetResult } from '@artificio/media';
 import { parseDiscordMessage, ensureSystemSuggestionForDraft, handlePatchDraft } from './utils';
 
 const router = Router();
@@ -129,20 +130,55 @@ router.delete('/rejected', requireAdmin, async (req: Request, res: Response) => 
   }
 
   try {
-    let query = db
-      .deleteFrom('discord_import_table_drafts')
+    // Coleta os descartados-alvo (id + capa) ANTES de apagar. Capa no Cloudinary
+    // precisa ser destruída primeiro — apagar a linha some o ponteiro
+    // cover_public_id e o asset vira órfão eterno (o cronRunner
+    // cleanupOrphanDraftImages só varre 'draft'/'needs_review', nunca 'rejected').
+    let targetQuery = db
+      .selectFrom('discord_import_table_drafts')
+      .select(['id', 'cover_public_id'])
       .where('status', '=', 'rejected');
 
     if (parsed.data.origin === 'inbox') {
-      query = query.where('import_message_id', 'is not', null);
+      targetQuery = targetQuery.where('import_message_id', 'is not', null);
     } else if (parsed.data.origin === 'discord') {
-      query = query.where('discord_message_id', 'is not', null);
+      targetQuery = targetQuery.where('discord_message_id', 'is not', null);
     }
     // 'all' → sem filtro de origem (remove descartados de ambas as origens)
 
-    const result = await query.executeTakeFirst();
+    const targets = await targetQuery.execute();
+
+    // Apagáveis: sem capa, ou cuja capa foi destruída com sucesso. Capa que falhou
+    // ao destruir mantém a linha (retry numa próxima limpeza evita vazar mídia).
+    const deletableIds: string[] = [];
+    let coverDestroyFailed = 0;
+    for (const target of targets) {
+      if (!target.cover_public_id) {
+        deletableIds.push(target.id);
+        continue;
+      }
+      const ok = await destroyAssetResult(target.cover_public_id);
+      if (ok) {
+        deletableIds.push(target.id);
+      } else {
+        coverDestroyFailed++;
+        console.warn(`[DELETE /admin/discord/drafts/rejected] destroy de capa falhou para draft ${target.id} — linha preservada p/ retry.`);
+      }
+    }
+
+    if (deletableIds.length === 0) {
+      return res.json({ data: { deleted: 0, cover_destroy_failed: coverDestroyFailed } });
+    }
+
+    // Guarda 'status' = 'rejected' contra corrida (linha pode ter mudado entre
+    // o select e o delete).
+    const result = await db
+      .deleteFrom('discord_import_table_drafts')
+      .where('id', 'in', deletableIds)
+      .where('status', '=', 'rejected')
+      .executeTakeFirst();
     const deleted = Number(result?.numDeletedRows ?? 0);
-    return res.json({ data: { deleted } });
+    return res.json({ data: { deleted, cover_destroy_failed: coverDestroyFailed } });
   } catch (error: unknown) {
     console.error('[DELETE /admin/discord/drafts/rejected]', error);
     return res.status(500).json({ error: 'Erro ao limpar drafts descartados.' });

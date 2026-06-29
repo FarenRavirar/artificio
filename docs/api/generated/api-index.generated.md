@@ -119,7 +119,7 @@ Total: **267 operações**.
 | POST | `/api/v1/admin/discord/drafts/{id}/reparse` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id reparse |
 | POST | `/api/v1/admin/discord/drafts/{id}/sync` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id sync |
 | PATCH | `/api/v1/admin/discord/drafts/batch` | admin | admin | active | — | Atualiza api v1 admin discord drafts batch |
-| DELETE | `/api/v1/admin/discord/drafts/rejected` | admin | admin | active | — | Remove api v1 admin discord drafts rejected |
+| DELETE | `/api/v1/admin/discord/drafts/rejected` | admin | admin | active | — | Apaga drafts descartados (status=rejected) |
 | POST | `/api/v1/admin/discord/fetch` | admin | admin | active | — | Cria ou executa api v1 admin discord fetch |
 | POST | `/api/v1/admin/discord/import-json` | admin | admin | active | — | Cria ou executa api v1 admin discord import-json |
 | POST | `/api/v1/admin/discord/import-json/file` | admin | admin | active | — | Cria ou executa api v1 admin discord import-json file |
