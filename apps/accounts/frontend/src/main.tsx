@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { brandLogoNavy, brandLogoNeg, applyFavicon, applyTheme, ThemeIcon, useTheme } from "@artificio/ui";
+import type { User } from "@artificio/auth";
 import { useSession, getAccountsOrigin, logout } from "@artificio/auth/client";
 import { BRAND_TAGLINE_FREE, BRAND_ORIGIN, BRAND_DOMAIN } from "@artificio/config";
 import "./styles.css";
@@ -9,6 +10,8 @@ applyFavicon();
 applyTheme();
 
 const PORTAL_URL = BRAND_ORIGIN;
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const ACCEPTED_AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 // getSafeReturnUrl: valida e canonicaliza a URL de retorno.
 // CodeQL (github-advanced-security) sinaliza location.replace() com valor de query param
@@ -129,7 +132,17 @@ function ContaView() {
   const { user, loading } = useSession();
   const { theme } = useTheme();
   const [showSecrets, setShowSecrets] = useState(false);
+  const [accountUser, setAccountUser] = useState<User | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarStatus, setAvatarStatus] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
   const logo = theme === "dark" ? brandLogoNeg : brandLogoNavy;
+
+  useEffect(() => {
+    setAccountUser(user);
+  }, [user]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -143,7 +156,74 @@ function ContaView() {
     logout(PORTAL_URL);
   }, []);
 
-  if (loading || !user) {
+  const handleAvatarChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!ACCEPTED_AVATAR_TYPES.includes(file.type)) {
+      setAvatarStatus("Use PNG, JPG ou WebP.");
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setAvatarStatus("A imagem precisa ter ate 2 MB.");
+      return;
+    }
+
+    setAvatarBusy(true);
+    setAvatarStatus(null);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const response = await fetch("/api/account/avatar", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl }),
+      });
+      const body: unknown = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setAvatarStatus(readAccountError(body, "Nao foi possivel trocar a foto."));
+        return;
+      }
+      const nextUser = readUserFromBody(body);
+      if (nextUser) setAccountUser(nextUser);
+      setAvatarStatus("Foto atualizada.");
+    } catch {
+      setAvatarStatus("Erro ao enviar a foto.");
+    } finally {
+      setAvatarBusy(false);
+    }
+  }, []);
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (!accountUser) return;
+    if (deleteConfirm !== accountUser.email) {
+      setDeleteStatus("Digite seu e-mail para confirmar.");
+      return;
+    }
+
+    setDeleteBusy(true);
+    setDeleteStatus(null);
+    try {
+      const response = await fetch("/api/account", {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: deleteConfirm }),
+      });
+      if (response.ok) {
+        globalThis.location.assign(PORTAL_URL);
+        return;
+      }
+      const body: unknown = await response.json().catch(() => ({}));
+      setDeleteStatus(readAccountError(body, "Nao foi possivel excluir a conta."));
+    } catch {
+      setDeleteStatus("Erro de rede ao excluir a conta.");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [accountUser, deleteConfirm]);
+
+  if (loading || !accountUser) {
     return (
       <section className="accounts-panel">
         <p className="accounts-subtitle">Carregando...</p>
@@ -163,21 +243,41 @@ function ContaView() {
         />
       </a>
       <div className="accounts-account-header">
-        {user.avatar ? (
-          <img src={user.avatar} alt="" className="accounts-avatar" width="72" height="72" />
+        {accountUser.avatar ? (
+          <img src={accountUser.avatar} alt="" className="accounts-avatar" width="72" height="72" />
         ) : (
           <div className="accounts-avatar accounts-avatar-fallback">
-            {user.name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("")}
+            {accountUser.name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("")}
           </div>
         )}
         <div className="accounts-account-copy">
           <p className="accounts-kicker">Conta Artifício</p>
           <h1 id="conta-title">Sua conta</h1>
-          <p className="accounts-user-name">{user.name}</p>
-          {user.email ? <p className="accounts-user-email">{user.email}</p> : null}
+          <p className="accounts-user-name">{accountUser.name}</p>
+          {accountUser.email ? <p className="accounts-user-email">{accountUser.email}</p> : null}
         </div>
       </div>
-      {user.role === 'admin' && (
+      <section className="accounts-tool-panel" aria-labelledby="avatar-title">
+        <div>
+          <h2 id="avatar-title">Foto de perfil</h2>
+          <p className="accounts-help">PNG, JPG ou WebP ate 2 MB.</p>
+        </div>
+        <label className="accounts-login accounts-login-secondary accounts-file-button">
+          {avatarBusy ? "Enviando..." : "Trocar foto"}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleAvatarChange}
+            disabled={avatarBusy}
+          />
+        </label>
+        {avatarStatus ? (
+          <output className={avatarStatus.includes("atualizada") ? "accounts-status accounts-status-success" : "accounts-status accounts-status-error"}>
+            {avatarStatus}
+          </output>
+        ) : null}
+      </section>
+      {accountUser.role === 'admin' && (
         <section className="accounts-admin-panel" aria-label="Administração">
           <button
             className="accounts-login accounts-login-secondary"
@@ -197,8 +297,79 @@ function ContaView() {
           Voltar ao Portal
         </a>
       </div>
+      <section className="accounts-danger-zone" aria-labelledby="delete-title">
+        <h2 id="delete-title">Excluir conta</h2>
+        <p className="accounts-help">
+          Remove seu login do Artifício e encerra a sessão. Para confirmar, digite seu e-mail.
+        </p>
+        <div className="accounts-field">
+          <label htmlFor="delete-confirm">E-mail da conta</label>
+          <input
+            id="delete-confirm"
+            type="email"
+            value={deleteConfirm}
+            onChange={(event) => setDeleteConfirm(event.target.value)}
+            placeholder={accountUser.email}
+            autoComplete="off"
+          />
+        </div>
+        <button
+          className="accounts-login accounts-login-danger"
+          type="button"
+          onClick={handleDeleteAccount}
+          disabled={deleteBusy || deleteConfirm !== accountUser.email}
+        >
+          {deleteBusy ? "Excluindo..." : "Excluir minha conta"}
+        </button>
+        {deleteStatus ? <output className="accounts-status accounts-status-error">{deleteStatus}</output> : null}
+      </section>
     </section>
   );
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("invalid_file"));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("file_read_failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function readAccountError(body: unknown, fallback: string): string {
+  if (!body || typeof body !== "object" || !("error" in body)) return fallback;
+  const error = (body as { error: unknown }).error;
+  if (error === "media_storage_unavailable") return "Armazenamento de imagem indisponivel.";
+  if (error === "invalid_avatar") return "Imagem invalida.";
+  if (error === "confirmation_required") return "Confirmacao invalida.";
+  return typeof error === "string" ? error : fallback;
+}
+
+function readUserFromBody(body: unknown): User | null {
+  const value =
+    body && typeof body === "object" && "user" in body
+      ? (body as { user: unknown }).user
+      : null;
+  if (!value || typeof value !== "object") return null;
+  const record = value as Partial<User>;
+  if (
+    typeof record.id !== "string" ||
+    typeof record.email !== "string" ||
+    typeof record.name !== "string" ||
+    (record.role !== "user" && record.role !== "admin")
+  ) {
+    return null;
+  }
+  return {
+    id: record.id,
+    email: record.email,
+    name: record.name,
+    role: record.role,
+    avatar: typeof record.avatar === "string" ? record.avatar : null,
+  };
 }
 
 function AdminSecretsPanel() {

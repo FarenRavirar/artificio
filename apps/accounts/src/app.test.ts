@@ -63,6 +63,68 @@ describe("/api/auth/me", () => {
   });
 });
 
+describe("/api/account/avatar", () => {
+  beforeEach(() => {
+    process.env.JWT_SECRET = env.JWT_SECRET;
+  });
+
+  afterEach(() => {
+    process.env.JWT_SECRET = originalSecret;
+  });
+
+  it("rejects invalid avatar payload", async () => {
+    const app = createApp(env, null as never);
+    const token = jwt.sign(
+      {
+        sub: "user-1",
+        email: "ana@example.com",
+        name: "Ana",
+        role: "user",
+      },
+      env.JWT_SECRET,
+      { algorithm: "HS256", expiresIn: "15m" },
+    );
+
+    await request(app)
+      .patch("/api/account/avatar")
+      .set("Origin", "https://accounts.artificiorpg.com")
+      .set("Cookie", [`artificio_session=${token}`])
+      .send({ dataUrl: "data:text/plain;base64,Zm9v" })
+      .expect(400);
+  });
+});
+
+describe("DELETE /api/account", () => {
+  beforeEach(() => {
+    process.env.JWT_SECRET = env.JWT_SECRET;
+  });
+
+  afterEach(() => {
+    process.env.JWT_SECRET = originalSecret;
+  });
+
+  it("requires email confirmation", async () => {
+    const app = createApp(env, null as never);
+    const token = jwt.sign(
+      {
+        sub: "user-1",
+        email: "ana@example.com",
+        name: "Ana",
+        role: "user",
+      },
+      env.JWT_SECRET,
+      { algorithm: "HS256", expiresIn: "15m" },
+    );
+
+    await request(app)
+      .delete("/api/account")
+      .set("Origin", "https://accounts.artificiorpg.com")
+      .set("Cookie", [`artificio_session=${token}`])
+      .send({ confirm: "errado@example.com" })
+      .expect(400);
+  });
+});
+
 describe("return URL allowlist", () => {
   it("allows HTTPS subdomains under artificiorpg.com", () => {
     expect(

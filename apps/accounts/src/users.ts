@@ -50,3 +50,27 @@ export async function upsertGoogleUser(
 
   return toUser(row);
 }
+
+export async function updateUserAvatar(
+  db: Kysely<Database>,
+  userId: string,
+  avatar: string,
+): Promise<User> {
+  const row = await db
+    .updateTable("users")
+    .set({ avatar })
+    .where("id", "=", userId)
+    .returning(["id", "email", "name", "avatar", "role"])
+    .executeTakeFirstOrThrow();
+
+  return toUser(row);
+}
+
+export async function deleteUser(db: Kysely<Database>, userId: string): Promise<boolean> {
+  const result = await db
+    .deleteFrom("users")
+    .where("id", "=", userId)
+    .executeTakeFirst();
+
+  return Number(result.numDeletedRows) > 0;
+}

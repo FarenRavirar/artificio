@@ -29,6 +29,16 @@ export function SiteHeaderIsland() {
     markSeen();
   };
 
+  const openSearch = () => {
+    document.dispatchEvent(new CustomEvent("artificio:open-search"));
+    window.setTimeout(() => {
+      const modal = document.getElementById("search-modal");
+      if (modal instanceof HTMLElement && modal.hidden) {
+        window.location.assign("/busca/");
+      }
+    }, 100);
+  };
+
   useEffect(() => {
     if (!menuOpen) return;
     function onDocClick(event: MouseEvent) {
@@ -73,6 +83,7 @@ export function SiteHeaderIsland() {
         id="search-toggle"
         aria-label="Buscar"
         title="Buscar"
+        onClick={openSearch}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <circle cx="11" cy="11" r="7" />

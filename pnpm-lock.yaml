@@ -79,6 +79,9 @@ importers:
       '@artificio/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@artificio/media':
+        specifier: workspace:*
+        version: link:../../packages/media
       '@artificio/ui':
         specifier: workspace:*
         version: link:../../packages/ui

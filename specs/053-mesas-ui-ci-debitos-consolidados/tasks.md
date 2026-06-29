@@ -21,6 +21,15 @@ Origem entre colchetes = spec/débito de onde o item foi transferido.
 - [x] T-B2 — Corrigir p/ respeitar preferência + persistir; alinhar com `packages/ui`. Sem tocar auth/SSO. Fix: `applyTheme()` no boot do SPA.
 - [x] T-B3 — Smoke visual (local/beta); lint+build. Validado por build do `accounts`; smoke beta/prod fica para deploy.
 - [x] T-B4 — Reestruturar visual do frontend `accounts` conforme feedback do mantenedor: tela mais Artifício, menos card genérico, ações/admin organizados.
+- [x] T-B5 — Corrigir regressão visual dark da `/conta`: remover faixa branca causada por token de texto usado como trilho estrutural.
+- [x] T-B6 — Implementar ferramenta de trocar foto de perfil com upload Cloudinary via backend (`@artificio/media`), validação de MIME/tamanho e refresh dos cookies SSO.
+- [x] T-B7 — Implementar ferramenta de excluir conta com confirmação por e-mail e limpeza de sessão.
+- [x] T-B8 — Rodar governança de API após novas rotas do `accounts` (`PATCH /api/account/avatar`, `DELETE /api/account`).
+
+## Frente B2 — busca do site [feedback pós-deploy]
+
+- [x] T-B2.1 — Investigar clique morto na busca do `artificiorpg.com`.
+- [x] T-B2.2 — Corrigir abertura da busca: botão React dispara evento explícito para `SearchModal` e faz fallback para `/busca/`.
 
 ## Frente C — smoke CJS no CI [DEB-048-37]
 

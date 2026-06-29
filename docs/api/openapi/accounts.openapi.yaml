@@ -76,6 +76,71 @@ paths:
           description: Segredo armazenado
         "400":
           description: Payload inválido
+  /api/account:
+    delete:
+      operationId: deleteapi_account
+      summary: "Remove api account"
+      x-artificio-owner: accounts
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/account/avatar:
+    patch:
+      operationId: patchapi_account_avatar
+      summary: "Atualiza api account avatar"
+      x-artificio-owner: accounts
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/auth/google:
     get:
       operationId: getapi_auth_google

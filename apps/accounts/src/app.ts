@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireAuth, csrfProtection, type Session } from "@artificio/auth";
+import { isConfigured as isMediaConfigured, uploadBuffer } from "@artificio/media";
 import type { Kysely } from "kysely";
 import { BRAND_DOMAIN, BRAND_ORIGIN } from "@artificio/config";
 import { accessCookieName, clearSessionCookies, refreshCookieName, setSessionCookies } from "./cookies.js";
@@ -13,8 +14,11 @@ import type { Database } from "./db.js";
 import type { AccountsEnv } from "./env.js";
 import { createGoogleClient, readGoogleProfile } from "./google.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./tokens.js";
-import { upsertGoogleUser } from "./users.js";
+import { deleteUser, updateUserAvatar, upsertGoogleUser } from "./users.js";
 import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
+
+const avatarMaxBytes = 2 * 1024 * 1024;
+const avatarDataUrlPattern = /^data:(image\/(?:png|jpeg|webp));base64,([a-z0-9+/=]+)$/i;
 
 export function isAllowedReturnUrl(value: string): boolean {
   try {
@@ -56,6 +60,33 @@ function readStateReturnUrl(value: unknown, env: AccountsEnv): string {
   }
 }
 
+function readSession(req: express.Request): Session | null {
+  const session = (req as { session?: Session }).session;
+  return session ?? null;
+}
+
+function decodeAvatarDataUrl(value: unknown): { buffer: Buffer; mime: string } | null {
+  if (typeof value !== "string") return null;
+  const match = avatarDataUrlPattern.exec(value);
+  if (!match) return null;
+
+  const mime = match[1].toLowerCase();
+  const buffer = Buffer.from(match[2], "base64");
+  if (buffer.byteLength === 0 || buffer.byteLength > avatarMaxBytes) return null;
+
+  const isPng = mime === "image/png" && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  const isJpeg = mime === "image/jpeg" && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  const isWebp = mime === "image/webp" && buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP";
+
+  return isPng || isJpeg || isWebp ? { buffer, mime } : null;
+}
+
+function extensionForMime(mime: string): "jpg" | "png" | "webp" {
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  return "jpg";
+}
+
 export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Express {
   const app = express();
   app.disable("x-powered-by");
@@ -78,7 +109,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
     `https://glossario.${BRAND_DOMAIN}`,
     `https://accounts.${BRAND_DOMAIN}`,
   ]));
-  app.use(express.json());
+  app.use(express.json({ limit: "3mb" }));
   app.use(
     cors({
       credentials: true,
@@ -138,7 +169,66 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   });
 
   app.get("/api/auth/me", requireAuth, (req, res) => {
-    res.json({ user: (req as { session?: Session }).session?.user });
+    res.json({ user: readSession(req)?.user });
+  });
+
+  app.patch("/api/account/avatar", requireAuth, async (req, res, next) => {
+    try {
+      const session = readSession(req);
+      if (!session) {
+        res.status(401).json({ error: "unauthorized" });
+        return;
+      }
+
+      const decoded = decodeAvatarDataUrl((req.body as { dataUrl?: unknown } | null)?.dataUrl);
+      if (!decoded) {
+        res.status(400).json({ error: "invalid_avatar" });
+        return;
+      }
+
+      if (!isMediaConfigured()) {
+        res.status(503).json({ error: "media_storage_unavailable" });
+        return;
+      }
+
+      const stored = await uploadBuffer(decoded.buffer, {
+        folder: "artificio/accounts/avatars",
+        publicId: `avatar-${session.user.id}-${extensionForMime(decoded.mime)}`,
+        overwrite: true,
+      });
+      const user = await updateUserAvatar(db, session.user.id, stored.url);
+      setSessionCookies(
+        res,
+        env,
+        signAccessToken(user, env),
+        signRefreshToken(user, env),
+      );
+      res.json({ user });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/account", requireAuth, async (req, res, next) => {
+    try {
+      const session = readSession(req);
+      if (!session) {
+        res.status(401).json({ error: "unauthorized" });
+        return;
+      }
+
+      const confirm = (req.body as { confirm?: unknown } | null)?.confirm;
+      if (confirm !== session.user.email) {
+        res.status(400).json({ error: "confirmation_required" });
+        return;
+      }
+
+      await deleteUser(db, session.user.id);
+      clearSessionCookies(res, env);
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.post("/api/auth/logout", (_req, res) => {
