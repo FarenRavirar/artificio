@@ -103,7 +103,7 @@ const lds = jsonld ? (Array.isArray(jsonld) ? jsonld : [jsonld]) : [];
     <SiteFooter />
     <SearchModal />
     <FeedbackWidget />
-    <script is:inline>
+    <script>
       (function () {
         var links = Array.prototype.slice.call(document.querySelectorAll(".toc a"));
         if (links.length) {

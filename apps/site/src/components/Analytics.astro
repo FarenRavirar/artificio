@@ -1,12 +1,22 @@
 ---
 // GA4 cross-subdomínio (D020) via @artificio/analytics. Gated por PUBLIC_GA_ID (público, não segredo).
 // Sem o id, nada é renderizado (dev/preview ficam limpos).
-import { gtagSrc, gtagInlineConfig } from "@artificio/analytics";
+// Script BUNDLADO (sem is:inline): o Astro 6 só hasheia scripts que ele bundla, então isto fica
+// compatível com a CSP por hash automaticamente — sem hash manual e sem quebrar quando o id mudar.
 const id = import.meta.env.PUBLIC_GA_ID;
 ---
 {id && (
-  <Fragment>
-    <script async src={gtagSrc(id)}></script>
-    <script is:inline set:html={gtagInlineConfig(id, { anonymizeIp: true })}></script>
-  </Fragment>
+  <script>
+    import { gtagSrc, ANALYTICS_DEFAULTS } from "@artificio/analytics";
+    const id = import.meta.env.PUBLIC_GA_ID;
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { window.dataLayer.push(arguments); }
+    window.gtag = gtag;
+    gtag("js", new Date());
+    gtag("config", id, { cookie_domain: ANALYTICS_DEFAULTS.cookieDomain, anonymize_ip: true });
+    const s = document.createElement("script");
+    s.async = true;
+    s.src = gtagSrc(id);
+    document.head.appendChild(s);
+  </script>
 )}
