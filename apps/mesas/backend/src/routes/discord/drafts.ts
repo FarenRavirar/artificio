@@ -81,25 +81,29 @@ router.patch('/batch', requireAdmin, async (req: Request, res: Response) => {
   }
 
   try {
-    const drafts = await db
-      .updateTable('discord_import_table_drafts')
-      .set({ status: parsed.data.status, updated_at: new Date() })
-      .where('id', 'in', parsed.data.ids)
-      .where('status', '!=', 'synced')
-      .returningAll()
-      .execute();
+    // Codex P2 (T-G7) + CodeRabbit: atualizar drafts e fechar o outcome shadow na
+    // MESMA transação — se o fechamento shadow falhar, faz rollback do lote inteiro
+    // (evita actual_outcome inconsistente com o status real).
+    const drafts = await db.transaction().execute(async (trx) => {
+      const updated = await trx
+        .updateTable('discord_import_table_drafts')
+        .set({ status: parsed.data.status, updated_at: new Date() })
+        .where('id', 'in', parsed.data.ids)
+        .where('status', '!=', 'synced')
+        .returningAll()
+        .execute();
 
-    // Codex P2 (T-G7): rejeição em lote fecha o outcome real das decisões shadow,
-    // igual ao PATCH /:id (handlePatchDraft). Só p/ drafts efetivamente atualizados.
-    if (parsed.data.status === 'rejected' && drafts.length > 0) {
-      await db
-        .updateTable('discord_shadow_decisions')
-        .set({ actual_outcome: 'rejected', actual_at: new Date() })
-        .where('draft_id', 'in', drafts.map((d) => d.id))
-        .where('actual_outcome', 'is', null)
-        .execute()
-        .catch((err) => console.error('[PATCH /drafts/batch shadow]', err instanceof Error ? err.message : 'unknown error'));
-    }
+      if (parsed.data.status === 'rejected' && updated.length > 0) {
+        await trx
+          .updateTable('discord_shadow_decisions')
+          .set({ actual_outcome: 'rejected', actual_at: new Date() })
+          .where('draft_id', 'in', updated.map((d) => d.id))
+          .where('actual_outcome', 'is', null)
+          .execute();
+      }
+
+      return updated;
+    });
 
     return res.json({ data: { updated: drafts.length, drafts } });
   } catch (error: unknown) {
