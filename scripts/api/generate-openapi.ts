@@ -206,29 +206,41 @@ function shouldHaveRequestBody(method: string, path?: string): boolean {
   return method === 'post' || method === 'put' || method === 'patch' || (method === 'delete' && path === '/api/account');
 }
 
+function appendIndented(lines: string[], indent: string, values: string[]): void {
+  for (const value of values) lines.push(`${indent}${value}`);
+}
+
+function appendRequestBody(
+  lines: string[],
+  required: boolean,
+  property?: { name: string; lines: string[] },
+): void {
+  appendIndented(lines, ``, [
+    `      requestBody:`,
+    `        required: ${required ? 'true' : 'false'}`,
+    `        content:`,
+    `          application/json:`,
+    `            schema:`,
+    `              type: object`,
+  ]);
+  if (!property) {
+    lines.push(`              additionalProperties: true`);
+    return;
+  }
+  appendIndented(lines, ``, [
+    `              required: [${property.name}]`,
+    `              properties:`,
+    `                ${property.name}:`,
+  ]);
+  appendIndented(lines, `                  `, property.lines);
+}
+
 function appendGenericRequestBody(lines: string[]): void {
-  lines.push(`      requestBody:`);
-  lines.push(`        required: false`);
-  lines.push(`        content:`);
-  lines.push(`          application/json:`);
-  lines.push(`            schema:`);
-  lines.push(`              type: object`);
-  lines.push(`              additionalProperties: true`);
+  appendRequestBody(lines, false);
 }
 
 function appendRequiredJsonBody(lines: string[], property: string, propertyLines: string[]): void {
-  lines.push(`      requestBody:`);
-  lines.push(`        required: true`);
-  lines.push(`        content:`);
-  lines.push(`          application/json:`);
-  lines.push(`            schema:`);
-  lines.push(`              type: object`);
-  lines.push(`              required: [${property}]`);
-  lines.push(`              properties:`);
-  lines.push(`                ${property}:`);
-  for (const line of propertyLines) {
-    lines.push(`                  ${line}`);
-  }
+  appendRequestBody(lines, true, { name: property, lines: propertyLines });
 }
 
 function appendAccountRequestBody(lines: string[], method: string, path: string): boolean {
@@ -253,11 +265,13 @@ function appendGenericResponses(lines: string[]): void {
 }
 
 function appendJsonObjectContent(lines: string[]): void {
-  lines.push(`          content:`);
-  lines.push(`            application/json:`);
-  lines.push(`              schema:`);
-  lines.push(`                type: object`);
-  lines.push(`                additionalProperties: true`);
+  appendIndented(lines, ``, [
+    `          content:`,
+    `            application/json:`,
+    `              schema:`,
+    `                type: object`,
+    `                additionalProperties: true`,
+  ]);
 }
 
 function appendResponse(lines: string[], status: string, description: string, jsonObject = false): void {

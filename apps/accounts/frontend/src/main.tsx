@@ -13,6 +13,8 @@ const PORTAL_URL = BRAND_ORIGIN;
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const ACCEPTED_AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const SUCCESS_STATUS_MARKERS = ["atualizada", "sucesso"];
+const JSON_HEADERS = { "Content-Type": "application/json" };
+const JSON_CREDENTIALS = { credentials: "include" as const, headers: JSON_HEADERS };
 
 // getSafeReturnUrl: valida e canonicaliza a URL de retorno.
 // CodeQL (github-advanced-security) sinaliza location.replace() com valor de query param
@@ -123,11 +125,6 @@ function ContaView() {
   const { user, loading } = useSession();
   const [showSecrets, setShowSecrets] = useState(false);
   const [accountUser, setAccountUser] = useState<User | null>(null);
-  const [avatarBusy, setAvatarBusy] = useState(false);
-  const [avatarStatus, setAvatarStatus] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
 
   useEffect(() => {
     setAccountUser(user);
@@ -145,72 +142,9 @@ function ContaView() {
     logout(PORTAL_URL);
   }, []);
 
-  const handleAvatarChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    if (!ACCEPTED_AVATAR_TYPES.includes(file.type)) {
-      setAvatarStatus("Use PNG, JPG ou WebP.");
-      return;
-    }
-    if (file.size > AVATAR_MAX_BYTES) {
-      setAvatarStatus("A imagem precisa ter ate 2 MB.");
-      return;
-    }
-
-    setAvatarBusy(true);
-    setAvatarStatus(null);
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      const response = await fetch("/api/account/avatar", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl }),
-      });
-      const body: unknown = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setAvatarStatus(readAccountError(body, "Nao foi possivel trocar a foto."));
-        return;
-      }
-      const nextUser = readUserFromBody(body);
-      if (nextUser) setAccountUser(nextUser);
-      setAvatarStatus("Foto atualizada.");
-    } catch {
-      setAvatarStatus("Erro ao enviar a foto.");
-    } finally {
-      setAvatarBusy(false);
-    }
+  const updateAccountUser = useCallback((nextUser: User) => {
+    setAccountUser(nextUser);
   }, []);
-
-  const handleDeleteAccount = useCallback(async () => {
-    if (!accountUser) return;
-    if (deleteConfirm !== accountUser.email) {
-      setDeleteStatus("Digite seu e-mail para confirmar.");
-      return;
-    }
-
-    setDeleteBusy(true);
-    setDeleteStatus(null);
-    try {
-      const response = await fetch("/api/account", {
-        method: "DELETE",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm: deleteConfirm }),
-      });
-      if (response.ok) {
-        globalThis.location.assign(PORTAL_URL);
-        return;
-      }
-      const body: unknown = await response.json().catch(() => ({}));
-      setDeleteStatus(readAccountError(body, "Nao foi possivel excluir a conta."));
-    } catch {
-      setDeleteStatus("Erro de rede ao excluir a conta.");
-    } finally {
-      setDeleteBusy(false);
-    }
-  }, [accountUser, deleteConfirm]);
 
   if (loading || !accountUser) {
     return (
@@ -223,37 +157,8 @@ function ContaView() {
   return (
     <section className="accounts-panel" aria-labelledby="conta-title">
       <AccountBrand compact />
-      <div className="accounts-account-header">
-        {accountUser.avatar ? (
-          <img src={accountUser.avatar} alt="" className="accounts-avatar" width="72" height="72" />
-        ) : (
-          <div className="accounts-avatar accounts-avatar-fallback">
-            {accountUser.name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("")}
-          </div>
-        )}
-        <div className="accounts-account-copy">
-          <p className="accounts-kicker">Conta Artifício</p>
-          <h1 id="conta-title">Sua conta</h1>
-          <p className="accounts-user-name">{accountUser.name}</p>
-          {accountUser.email ? <p className="accounts-user-email">{accountUser.email}</p> : null}
-        </div>
-      </div>
-      <section className="accounts-tool-panel" aria-labelledby="avatar-title">
-        <div>
-          <h2 id="avatar-title">Foto de perfil</h2>
-          <p className="accounts-help">PNG, JPG ou WebP ate 2 MB.</p>
-        </div>
-        <label className="accounts-login accounts-login-secondary accounts-file-button">
-          {avatarBusy ? "Enviando..." : "Trocar foto"}
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            onChange={handleAvatarChange}
-            disabled={avatarBusy}
-          />
-        </label>
-        <AccountStatus message={avatarStatus} />
-      </section>
+      <AccountHeader user={accountUser} />
+      <AvatarToolPanel onUserChange={updateAccountUser} />
       {accountUser.role === 'admin' && (
         <section className="accounts-admin-panel" aria-label="Administração">
           <button
@@ -274,32 +179,148 @@ function ContaView() {
           Voltar ao Portal
         </a>
       </div>
-      <section className="accounts-danger-zone" aria-labelledby="delete-title">
-        <h2 id="delete-title">Excluir conta</h2>
-        <p className="accounts-help">
-          Remove seu login do Artifício e encerra a sessão. Para confirmar, digite seu e-mail.
-        </p>
-        <div className="accounts-field">
-          <label htmlFor="delete-confirm">E-mail da conta</label>
-          <input
-            id="delete-confirm"
-            type="email"
-            value={deleteConfirm}
-            onChange={(event) => setDeleteConfirm(event.target.value)}
-            placeholder={accountUser.email}
-            autoComplete="off"
-          />
-        </div>
-        <button
-          className="accounts-login accounts-login-danger"
-          type="button"
-          onClick={handleDeleteAccount}
-          disabled={deleteBusy || deleteConfirm !== accountUser.email}
-        >
-          {deleteBusy ? "Excluindo..." : "Excluir minha conta"}
-        </button>
-        <AccountStatus message={deleteStatus} />
-      </section>
+      <DeleteAccountPanel user={accountUser} />
+    </section>
+  );
+}
+
+function AccountHeader({ user }: { user: User }) {
+  return (
+    <div className="accounts-account-header">
+      {user.avatar ? (
+        <img src={user.avatar} alt="" className="accounts-avatar" width="72" height="72" />
+      ) : (
+        <div className="accounts-avatar accounts-avatar-fallback">{getUserInitials(user.name)}</div>
+      )}
+      <div className="accounts-account-copy">
+        <p className="accounts-kicker">Conta Artifício</p>
+        <h1 id="conta-title">Sua conta</h1>
+        <p className="accounts-user-name">{user.name}</p>
+        {user.email ? <p className="accounts-user-email">{user.email}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function AvatarToolPanel({ onUserChange }: { onUserChange: (user: User) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const handleAvatarChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!ACCEPTED_AVATAR_TYPES.includes(file.type)) {
+      setStatus("Use PNG, JPG ou WebP.");
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setStatus("A imagem precisa ter ate 2 MB.");
+      return;
+    }
+
+    setBusy(true);
+    setStatus(null);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const response = await fetch("/api/account/avatar", {
+        method: "PATCH",
+        ...JSON_CREDENTIALS,
+        body: JSON.stringify({ dataUrl }),
+      });
+      const body: unknown = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus(readAccountError(body, "Nao foi possivel trocar a foto."));
+        return;
+      }
+      const nextUser = readUserFromBody(body);
+      if (nextUser) onUserChange(nextUser);
+      setStatus("Foto atualizada.");
+    } catch {
+      setStatus("Erro ao enviar a foto.");
+    } finally {
+      setBusy(false);
+    }
+  }, [onUserChange]);
+
+  return (
+    <section className="accounts-tool-panel" aria-labelledby="avatar-title">
+      <div>
+        <h2 id="avatar-title">Foto de perfil</h2>
+        <p className="accounts-help">PNG, JPG ou WebP ate 2 MB.</p>
+      </div>
+      <label className="accounts-login accounts-login-secondary accounts-file-button">
+        {busy ? "Enviando..." : "Trocar foto"}
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={handleAvatarChange}
+          disabled={busy}
+        />
+      </label>
+      <AccountStatus message={status} />
+    </section>
+  );
+}
+
+function DeleteAccountPanel({ user }: { user: User }) {
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (confirm !== user.email) {
+      setStatus("Digite seu e-mail para confirmar.");
+      return;
+    }
+
+    setBusy(true);
+    setStatus(null);
+    try {
+      const response = await fetch("/api/account", {
+        method: "DELETE",
+        ...JSON_CREDENTIALS,
+        body: JSON.stringify({ confirm }),
+      });
+      if (response.ok) {
+        globalThis.location.assign(PORTAL_URL);
+        return;
+      }
+      const body: unknown = await response.json().catch(() => ({}));
+      setStatus(readAccountError(body, "Nao foi possivel excluir a conta."));
+    } catch {
+      setStatus("Erro de rede ao excluir a conta.");
+    } finally {
+      setBusy(false);
+    }
+  }, [confirm, user.email]);
+
+  return (
+    <section className="accounts-danger-zone" aria-labelledby="delete-title">
+      <h2 id="delete-title">Excluir conta</h2>
+      <p className="accounts-help">
+        Remove seu login do Artifício e encerra a sessão. Para confirmar, digite seu e-mail.
+      </p>
+      <div className="accounts-field">
+        <label htmlFor="delete-confirm">E-mail da conta</label>
+        <input
+          id="delete-confirm"
+          type="email"
+          value={confirm}
+          onChange={(event) => setConfirm(event.target.value)}
+          placeholder={user.email}
+          autoComplete="off"
+        />
+      </div>
+      <button
+        className="accounts-login accounts-login-danger"
+        type="button"
+        onClick={handleDeleteAccount}
+        disabled={busy || confirm !== user.email}
+      >
+        {busy ? "Excluindo..." : "Excluir minha conta"}
+      </button>
+      <AccountStatus message={status} />
     </section>
   );
 }
@@ -325,6 +346,10 @@ function AccountStatus({ message }: { message: string | null }) {
   if (!message) return null;
   const variant = SUCCESS_STATUS_MARKERS.some((marker) => message.includes(marker)) ? "success" : "error";
   return <output className={`accounts-status accounts-status-${variant}`}>{message}</output>;
+}
+
+function getUserInitials(name: string): string {
+  return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
