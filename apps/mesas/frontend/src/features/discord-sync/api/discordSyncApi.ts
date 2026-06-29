@@ -9,6 +9,7 @@ import type {
   DiscordSourceChannelType,
   DiscordImportMessageStatus,
   DiscordImportDraftStatus,
+  DiscordIntegrationMetrics,
   DiscordFetchWindow,
   DiscordMessageContentDiagnostic,
   IngestResult,
@@ -189,6 +190,47 @@ function parseImportResult(data: unknown) {
   return parsed.data;
 }
 
+// Envelope das ações em lote: só `updated` é consumido (contador). Validado, não cast cego.
+const batchResultSchema = z.object({ updated: z.number().int().nonnegative() });
+function parseBatchResult(data: unknown): { updated: number } {
+  const parsed = batchResultSchema.safeParse(data);
+  return { updated: parsed.success ? parsed.data.updated : 0 };
+}
+
+// Métricas de integração (entra em render → normalização tipada obrigatória).
+const importRunSchema = z.object({
+  id: z.string(),
+  source_kind: z.string().default('desconhecido'),
+  started_at: z.string(),
+  ended_at: z.string().nullable().default(null),
+  total_messages: z.number().default(0),
+  drafts_created: z.number().default(0),
+  drafts_updated: z.number().default(0),
+  messages_ignored: z.number().default(0),
+  messages_failed: z.number().default(0),
+  note: z.string().nullable().default(null),
+  created_by: z.string().nullable().default(null),
+});
+const integrationMetricsSchema = z.object({
+  runs: z.array(importRunSchema).catch([]),
+  totals: z.object({
+    corrections: z.number().default(0),
+    drafts: z.number().default(0),
+    ready: z.number().default(0),
+    needs_review: z.number().default(0),
+    synced: z.number().default(0),
+    rejected: z.number().default(0),
+  }).catch({ corrections: 0, drafts: 0, ready: 0, needs_review: 0, synced: 0, rejected: 0 }),
+  top_corrected_fields: z.array(z.object({ field: z.string(), count: z.number() })).catch([]),
+});
+function parseIntegrationMetrics(data: unknown): DiscordIntegrationMetrics {
+  const parsed = integrationMetricsSchema.safeParse(data);
+  if (!parsed.success) {
+    return { runs: [], totals: { corrections: 0, drafts: 0, ready: 0, needs_review: 0, synced: 0, rejected: 0 }, top_corrected_fields: [] };
+  }
+  return parsed.data;
+}
+
 function parsePreviewResult(data: unknown) {
   const parsed = previewResultSchema.safeParse(data);
   if (!parsed.success) throw new Error('Resposta de preview em formato inesperado.');
@@ -266,6 +308,9 @@ export const discordSyncApi = {
   updateMessage: async (id: string, body: { status: DiscordImportMessageStatus }) =>
     parseDiscordMessage(await apiFetch<unknown>(`/messages/${id}`, { method: 'PATCH', body: JSON.stringify(body) })),
 
+  updateMessagesBatch: async (ids: string[], status: DiscordImportMessageStatus) =>
+    parseBatchResult(await apiFetch<unknown>('/messages/batch', { method: 'PATCH', body: JSON.stringify({ ids, status }) })),
+
   parseMessage: (id: string) =>
     apiFetch<DiscordDraft>(`/messages/${id}/parse`, { method: 'POST' }),
 
@@ -283,6 +328,9 @@ export const discordSyncApi = {
 
   getDraft: (id: string) =>
     apiFetch<DiscordDraft>(`/drafts/${id}`),
+
+  updateDraftsBatch: async (ids: string[], status: 'draft' | 'needs_review' | 'rejected') =>
+    parseBatchResult(await apiFetch<unknown>('/drafts/batch', { method: 'PATCH', body: JSON.stringify({ ids, status }) })),
 
   updateDraft: (id: string, body: { normalized_payload?: Record<string, unknown>; status?: DiscordImportDraftStatus; review_notes?: string }) =>
     apiFetch<DiscordDraft>(`/drafts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
@@ -314,6 +362,9 @@ export const discordSyncApi = {
     const data = await apiFetch<unknown>('/import-json/preview', { method: 'POST', body: JSON.stringify(json) });
     return parsePreviewResult(data);
   },
+
+  getIntegrationMetrics: async () =>
+    parseIntegrationMetrics(await apiFetch<unknown>('/metrics')),
 
   previewFile: async (file: File) =>
     fileApiFetch('/import-json/preview/file', file, parsePreviewResult, 'analisar arquivo'),

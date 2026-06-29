@@ -10,7 +10,7 @@
 
 | Estado | Quantidade | Bloqueia? |
 |--------|-----------|:---------:|
-| ✅ OK | 181 | ❌ |
+| ✅ OK | 183 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 2 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
@@ -125,7 +125,7 @@
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/groups/:param/report` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 
-### mesas (151 rotas no inventário)
+### mesas (153 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -151,7 +151,7 @@
 | GET | `/api/v1/admin/discord/drafts` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/discord/drafts/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/discord/messages` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/admin/discord/metrics` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/admin/discord/metrics` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/discord/metrics/shadow` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/discord/settings` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/discord/sources` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -199,7 +199,9 @@
 | GET | `/og/:type/:slug` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/dev-feedback/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/discord/drafts/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PATCH | `/api/v1/admin/discord/drafts/batch` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/discord/messages/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| PATCH | `/api/v1/admin/discord/messages/batch` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/discord/sources/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/import/drafts/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/scenario-suggestions/:id/approve` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |

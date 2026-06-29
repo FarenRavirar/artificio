@@ -20,12 +20,16 @@ export function MessagesView() {
     messageWindowFilter, setMessageWindowFilter,
     selectedMessage, contentDiagnostic,
     detailRef, queueStats,
+    selectedMessageIds, ignoringBatch, ignorableMessages, selectedIgnorable,
+    toggleMessageSelected, toggleSelectAllMessages, handleIgnoreSelectedMessages,
     loadMessages,
     handleUpdateMessageStatus,
     handleParseMessage, handleDiagnoseContent,
     handleParseBatch,
     handleSelectMessage,
   } = useDiscordSync();
+
+  const allMessagesSelected = ignorableMessages.length > 0 && ignorableMessages.every(m => selectedMessageIds.has(m.id));
 
   return (
     <div>
@@ -43,6 +47,34 @@ export function MessagesView() {
         onParseBatch={handleParseBatch}
       />
 
+      {/* Barra de seleção em lote */}
+      {ignorableMessages.length > 0 && (
+        <div className="flex items-center gap-3 my-3 flex-wrap">
+          <label className="flex items-center gap-2 text-white/60 text-sm cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={allMessagesSelected}
+              onChange={toggleSelectAllMessages}
+              aria-label="Selecionar todas as mensagens"
+              className="h-4 w-4 accent-blue-600"
+            />
+            Selecionar todas ({ignorableMessages.length})
+          </label>
+          {selectedIgnorable.length > 0 && (
+            <>
+              <span className="text-white/40 text-sm">{selectedIgnorable.length} selecionada(s)</span>
+              <button
+                onClick={handleIgnoreSelectedMessages}
+                disabled={ignoringBatch}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+              >
+                {ignoringBatch ? 'Ignorando...' : `Ignorar selecionadas (${selectedIgnorable.length})`}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {loadingMessages ? (
         <p className="text-white/40 text-sm py-4 text-center">Carregando...</p>
       ) : messages.length === 0 ? (
@@ -50,11 +82,22 @@ export function MessagesView() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-4 items-start">
           <div className="space-y-2 lg:max-h-[68vh] lg:overflow-y-auto lg:pr-1">
-          {messages.map(msg => (
+          {messages.map(msg => {
+            const ignorable = msg.status !== 'synced' && msg.status !== 'ignored';
+            return (
+            <div key={msg.id} className="flex items-start gap-2">
+              {ignorable && (
+                <input
+                  type="checkbox"
+                  checked={selectedMessageIds.has(msg.id)}
+                  onChange={() => toggleMessageSelected(msg.id)}
+                  aria-label={`Selecionar mensagem ${getMessageTitle(msg)}`}
+                  className="h-4 w-4 mt-3 shrink-0 accent-blue-600"
+                />
+              )}
             <button
-              key={msg.id}
               onClick={() => handleSelectMessage(msg)}
-              className={`w-full text-left bg-white/5 border rounded-lg px-4 py-3 transition-colors hover:bg-white/[0.08] ${
+              className={`flex-1 min-w-0 text-left bg-white/5 border rounded-lg px-4 py-3 transition-colors hover:bg-white/[0.08] ${
                 selectedMessage?.id === msg.id ? 'border-blue-400/60' : 'border-white/10'
               }`}
             >
@@ -94,7 +137,9 @@ export function MessagesView() {
                 <span className="text-blue-400 text-xs shrink-0">{selectedMessage?.id === msg.id ? 'Aberta' : 'Revisar'}</span>
               </div>
             </button>
-          ))}
+            </div>
+            );
+          })}
           </div>
 
           <aside ref={detailRef} className="bg-white/5 border border-white/10 rounded-lg p-4 min-h-[360px] lg:sticky lg:top-4">

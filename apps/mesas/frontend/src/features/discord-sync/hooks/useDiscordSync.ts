@@ -82,6 +82,9 @@ export function useDiscordSync() {
   const [parsingMessageId, setParsingMessageId] = useState<string | null>(null);
   const [diagnosingMessageId, setDiagnosingMessageId] = useState<string | null>(null);
   const [contentDiagnostic, setContentDiagnostic] = useState<DiscordMessageContentDiagnostic | null>(null);
+  // Multi-seleção p/ ação em lote (ignorar selecionadas).
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+  const [ignoringBatch, setIgnoringBatch] = useState(false);
   const detailRef = useRef<HTMLElement | null>(null);
   const loadMessagesAbortRef = useRef<AbortController | null>(null);
 
@@ -112,6 +115,7 @@ export function useDiscordSync() {
     loadMessagesAbortRef.current = controller;
 
     setLoadingMessages(true);
+    setSelectedMessageIds(new Set());
     try {
       const data = await discordSyncApi.getMessages({
         source_id: override?.sourceId ?? (messageSourceFilter || undefined),
@@ -254,6 +258,44 @@ export function useDiscordSync() {
     }
   };
 
+  const toggleMessageSelected = (id: string) => {
+    setSelectedMessageIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Ignoráveis = mensagens ainda não sincronizadas/ignoradas.
+  const ignorableMessages = messages.filter(m => m.status !== 'synced' && m.status !== 'ignored');
+  // Seleção efetiva = só ids ainda ignoráveis (uma msg pode ter mudado de status no detalhe).
+  const selectedIgnorable = ignorableMessages.filter(m => selectedMessageIds.has(m.id));
+
+  const toggleSelectAllMessages = () => {
+    setSelectedMessageIds(prev => {
+      if (ignorableMessages.length > 0 && ignorableMessages.every(m => prev.has(m.id))) {
+        return new Set();
+      }
+      return new Set(ignorableMessages.map(m => m.id));
+    });
+  };
+
+  const handleIgnoreSelectedMessages = async () => {
+    const ids = selectedIgnorable.map(m => m.id);
+    if (ids.length === 0) return;
+    if (!globalThis.confirm(`Ignorar ${ids.length} mensagem(ns) selecionada(s)?`)) return;
+    setIgnoringBatch(true);
+    try {
+      const result = await discordSyncApi.updateMessagesBatch(ids, 'ignored');
+      toast.success(`${result.updated} mensagem(ns) ignorada(s).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao ignorar em lote.');
+    } finally {
+      setIgnoringBatch(false);
+      loadMessages();
+    }
+  };
+
   const handleSelectMessage = (message: DiscordMessage) => {
     setSelectedMessage(message);
     setContentDiagnostic(null);
@@ -274,6 +316,8 @@ export function useDiscordSync() {
     messageWindowFilter, setMessageWindowFilter,
     selectedMessage, contentDiagnostic,
     detailRef, queueStats,
+    selectedMessageIds, ignoringBatch, ignorableMessages, selectedIgnorable,
+    toggleMessageSelected, toggleSelectAllMessages, handleIgnoreSelectedMessages,
     loadSources, loadMessages,
     handleFetchMessages, handleUpdateMessageStatus,
     handleParseMessage, handleDiagnoseContent,

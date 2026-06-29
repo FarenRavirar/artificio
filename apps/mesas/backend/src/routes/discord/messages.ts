@@ -14,6 +14,11 @@ const updateMessageSchema = z.object({
   status: z.enum(['pending', 'parsed', 'needs_review', 'synced', 'ignored', 'error']),
 });
 
+const batchMessageSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(200),
+  status: z.enum(['pending', 'parsed', 'needs_review', 'synced', 'ignored', 'error']),
+});
+
 const discordMessageDiagnosticSchema = z.object({
   id: z.string(),
   content: z.string().optional().default(''),
@@ -88,6 +93,28 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
   } catch (error: unknown) {
     console.error('[GET /admin/discord/messages]', error);
     return res.status(500).json({ error: 'Erro ao listar mensagens.' });
+  }
+});
+
+// ─── PATCH /messages/batch — atualiza status de várias mensagens (ex.: ignorar selecionadas)
+// Registrado ANTES de /:id para a rota literal vencer o param.
+router.patch('/batch', requireAdmin, async (req: Request, res: Response) => {
+  const parsed = batchMessageSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Dados inválidos.', details: z.flattenError(parsed.error) });
+  }
+
+  try {
+    const messages = await db
+      .updateTable('discord_import_messages')
+      .set({ status: parsed.data.status, parse_error: null, updated_at: new Date() })
+      .where('id', 'in', parsed.data.ids)
+      .returningAll()
+      .execute();
+    return res.json({ data: { updated: messages.length, messages } });
+  } catch (error: unknown) {
+    console.error('[PATCH /admin/discord/messages/batch]', error);
+    return res.status(500).json({ error: 'Erro ao atualizar mensagens em lote.' });
   }
 });
 

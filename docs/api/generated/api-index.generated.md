@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **264 operações**.
+Total: **266 operações**.
 
 ## accounts (11)
 
@@ -100,7 +100,7 @@ Total: **264 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (153)
+## mesas (155)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -118,6 +118,7 @@ Total: **264 operações**.
 | POST | `/api/v1/admin/discord/drafts/{id}/refresh-image` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id refresh-image |
 | POST | `/api/v1/admin/discord/drafts/{id}/reparse` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id reparse |
 | POST | `/api/v1/admin/discord/drafts/{id}/sync` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id sync |
+| PATCH | `/api/v1/admin/discord/drafts/batch` | admin | admin | active | — | Atualiza api v1 admin discord drafts batch |
 | POST | `/api/v1/admin/discord/fetch` | admin | admin | active | — | Cria ou executa api v1 admin discord fetch |
 | POST | `/api/v1/admin/discord/import-json` | admin | admin | active | — | Cria ou executa api v1 admin discord import-json |
 | POST | `/api/v1/admin/discord/import-json/file` | admin | admin | active | — | Cria ou executa api v1 admin discord import-json file |
@@ -128,6 +129,7 @@ Total: **264 operações**.
 | PATCH | `/api/v1/admin/discord/messages/{id}` | admin | admin | active | — | Atualiza api v1 admin discord messages id |
 | POST | `/api/v1/admin/discord/messages/{id}/diagnose-content` | admin | admin | active | — | Cria ou executa api v1 admin discord messages id diagnose-content |
 | POST | `/api/v1/admin/discord/messages/{id}/parse` | admin | admin | active | — | Cria ou executa api v1 admin discord messages id parse |
+| PATCH | `/api/v1/admin/discord/messages/batch` | admin | admin | active | — | Atualiza api v1 admin discord messages batch |
 | POST | `/api/v1/admin/discord/messages/parse-batch` | admin | admin | active | — | Cria ou executa api v1 admin discord messages parse-batch |
 | GET | `/api/v1/admin/discord/metrics` | admin | admin | active | — | Consulta api v1 admin discord metrics |
 | GET | `/api/v1/admin/discord/metrics/shadow` | admin | admin | active | — | Consulta api v1 admin discord metrics shadow |

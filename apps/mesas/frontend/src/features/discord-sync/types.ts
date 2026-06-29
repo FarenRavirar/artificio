@@ -4,6 +4,34 @@ export type DiscordSourceChannelType = 'text' | 'announcement' | 'forum';
 export type DiscordImportMessageStatus = 'pending' | 'parsed' | 'needs_review' | 'synced' | 'ignored' | 'error';
 export type DiscordImportDraftStatus = 'draft' | 'ready' | 'needs_review' | 'synced' | 'rejected';
 
+/** Log de rodada de importação (entidade discord_import_runs). Datas como string ISO. */
+export interface DiscordImportRun {
+  id: string;
+  source_kind: string;
+  started_at: string;
+  ended_at: string | null;
+  total_messages: number;
+  drafts_created: number;
+  drafts_updated: number;
+  messages_ignored: number;
+  messages_failed: number;
+  note: string | null;
+  created_by: string | null;
+}
+
+export interface DiscordIntegrationMetrics {
+  runs: DiscordImportRun[];
+  totals: {
+    corrections: number;
+    drafts: number;
+    ready: number;
+    needs_review: number;
+    synced: number;
+    rejected: number;
+  };
+  top_corrected_fields: Array<{ field: string; count: number }>;
+}
+
 export interface DiscordSource {
   id: string;
   guild_id: string;
