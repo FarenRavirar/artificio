@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useConfirm } from '@artificio/ui';
 import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from '../types';
 import { discordSyncApi } from '../api/discordSyncApi';
 import { DiscordDraftPreview } from './DiscordDraftPreview';
@@ -64,6 +65,7 @@ function readString(value: unknown): string | null {
 }
 
 export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync, updateDraftsBatch }: Props) {
+  const { confirm } = useConfirm();
   const draftApi = api ?? discordSyncApi;
   const batchReject = updateDraftsBatch ?? discordSyncApi.updateDraftsBatch;
   // Para drafts de Inbox, usa inboxApi se fornecida; senão fallback para draftApi (compat retroativa).
@@ -102,7 +104,13 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   }, [loadDrafts]);
 
   const handleSyncReady = async () => {
-    if (!confirm('Sincronizar todos os drafts com status "pronto" como mesas reais?')) return;
+    const confirmed = await confirm({
+      title: 'Sincronizar drafts prontos',
+      message: 'Sincronizar todos os drafts com status "pronto" como mesas reais?',
+      variant: 'warning',
+      confirmText: 'Sincronizar',
+    });
+    if (!confirmed) return;
     setSyncingAll(true);
     try {
       // Se houver onBeforeSync, aplica correction-tracking draft a draft antes do sync
@@ -166,7 +174,13 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
 
   const rejectDraftIds = useCallback(async (ids: string[], confirmMsg: string) => {
     if (ids.length === 0) return;
-    if (!confirm(confirmMsg)) return;
+    const confirmed = await confirm({
+      title: 'Rejeitar rascunhos',
+      message: confirmMsg,
+      variant: 'danger',
+      confirmText: 'Rejeitar',
+    });
+    if (!confirmed) return;
     setRejectingAll(true);
     try {
       // Tabela unificada (Discord+Inbox) → 1 chamada batch cobre as duas origens.
@@ -178,7 +192,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
       setRejectingAll(false);
       loadDrafts();
     }
-  }, [loadDrafts, batchReject]);
+  }, [loadDrafts, batchReject, confirm]);
 
   const handleRejectAll = () =>
     rejectDraftIds(
@@ -303,8 +317,17 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
             return (
               <div
                 key={draft.id}
-                className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.08] transition-colors"
+                className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.08] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+                role="button"
+                tabIndex={0}
+                aria-label={`Abrir preview do rascunho ${title}`}
                 onClick={() => setSelectedDraft(draft)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setSelectedDraft(draft);
+                  }
+                }}
               >
                 {draft.status !== 'synced' && draft.status !== 'rejected' && (
                   <input

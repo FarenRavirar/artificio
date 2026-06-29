@@ -8,6 +8,10 @@ vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock('@artificio/ui', () => ({
+  useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(true) }),
+}));
+
 const mockGetDrafts = vi.fn();
 const mockSyncReady = vi.fn();
 const mockUpdateDraft = vi.fn();

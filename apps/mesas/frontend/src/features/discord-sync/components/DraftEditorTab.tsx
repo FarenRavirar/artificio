@@ -24,7 +24,7 @@ interface DraftEditorTabProps {
   onConfirmSlots: () => void;
 }
 
-const inputClass = 'w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-white/30';
+const inputClass = 'w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-white/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400';
 const labelClass = 'block text-white/60 text-xs mb-1';
 
 export function DraftEditorTab({
@@ -37,7 +37,7 @@ export function DraftEditorTab({
   return (
     <div className="space-y-4">
       {missingFields.length > 0 && (
-        <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-amber-100 text-sm">
+        <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-amber-100 text-sm" role="alert" aria-live="assertive">
           Campos pendentes: {missingFields.join(', ')}
         </div>
       )}
@@ -57,14 +57,14 @@ export function DraftEditorTab({
               {form.cover_quality === 'low' && <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-200">baixa resolução</span>}
             </div>
             <p className="truncate text-xs text-white/50">{coverPreviewUrl || 'Nenhuma imagem associada.'}</p>
-            {coverError && <p className="mt-1 text-xs text-red-300">{coverError}</p>}
+            {coverError && <p className="mt-1 text-xs text-red-300" role="alert">{coverError}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
               <input ref={coverInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={onCoverUpload} className="hidden" />
-              <button type="button" onClick={() => coverInputRef.current?.click()} disabled={coverUploading} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-lg transition-colors disabled:opacity-50">
+              <button type="button" onClick={() => coverInputRef.current?.click()} disabled={coverUploading} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-lg transition-colors disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
                 {coverUploading ? 'Enviando...' : 'Substituir'}
               </button>
               {coverPreviewUrl && (
-                <button type="button" onClick={onRemoveCover} className="px-3 py-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-100 text-xs rounded-lg transition-colors">
+                <button type="button" onClick={onRemoveCover} className="px-3 py-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-100 text-xs rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
                   Remover
                 </button>
               )}
@@ -86,7 +86,7 @@ export function DraftEditorTab({
               <span>{slotsAmbiguity.first} disponíveis / {Math.max(slotsAmbiguity.first, slotsAmbiguity.second)} máximo</span>
             </label>
           </div>
-          <button type="button" onClick={onConfirmSlots} disabled={savingFields} className="mt-3 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-medium rounded-lg transition-colors disabled:opacity-50">
+          <button type="button" onClick={onConfirmSlots} disabled={savingFields} className="mt-3 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
             Confirmar
           </button>
         </div>

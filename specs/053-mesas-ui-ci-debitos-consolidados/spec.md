@@ -49,6 +49,8 @@ Ao entrar no `accounts.`, o tema fica **persistente light**; não respeita prefe
 
 **Requisito (testável):** `accounts.` respeita a preferência de tema (default coerente com o design system de `packages/ui` + persistência via `localStorage`/cookie quando houver toggle). Smoke visual em beta/local. Não toca lógica de auth/SSO.
 
+**Ampliação 2026-06-29 (mantenedor):** reestruturar visualmente a tela de conta/login do `accounts` para ficar alinhada ao Artifício. O estado anterior tinha fundo partido, card genérico, botões agressivos e organização ruim. A correção deve manter o fluxo SSO, mas melhorar layout, densidade, hierarquia, tokens de marca e organização da área admin.
+
 ### Frente C — Gap de CI: resolução CJS de pacotes shared — origem DEB-048-37
 
 O incidente DEB-048-36 (crash-loop do `mesas-beta-api`) foi causado por `@artificio/config` exportar só a condição `import` (ESM) enquanto o `mesas-backend` consome via `require()` (CJS). **tsc e vitest não exercitam `require()` do dist** → CI ficou verde e o bug só apareceu no runtime do container.
@@ -82,7 +84,7 @@ Transferida da Fase E da 048 por decisão do mantenedor (2026-06-27): fica **ao 
 
 1. Frentes A, B, C tratadas (corrigidas e validadas) **ou** explicitamente reclassificadas como débito acionável com aprovação do mantenedor.
 2. Frente D promovida a `dev`.
-3. Frente E (ingestão VM): tratada com aprovação nominal por ação **ou** explicitamente passada ao Bloco A da 052 (sem duplicar), com decisão registrada.
+3. Frente E (ingestão VM): **explicitamente passada ao Bloco A da 052** (sem duplicar), com decisão registrada nesta spec.
 4. Validação técnica real registrada: `pnpm run lint` + `pnpm run build` verdes; smoke proporcional (a11y/teclado na gestão; visual de tema no accounts; CI check novo falhando-no-bug e passando-no-fix).
 5. `debitos.md` de origem (047–051) atualizados apontando "transferido p/ 053"; `specs/backlog.md` e `project-state.md` sincronizados.
 6. Nenhum item das specs 047–051 resta "pendente" fora da 053.
