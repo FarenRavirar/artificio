@@ -6,10 +6,10 @@
     "accounts": 11,
     "glossario": 46,
     "links": 22,
-    "mesas": 155,
+    "mesas": 156,
     "site": 32
   },
-  "total": 266,
+  "total": 267,
   "operations": [
     {
       "app": "accounts",
@@ -1155,6 +1155,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "patchapi_v1_admin_discord_drafts_batch"
+    },
+    {
+      "app": "mesas",
+      "method": "DELETE",
+      "path": "/api/v1/admin/discord/drafts/rejected",
+      "summary": "Apaga drafts descartados (status=rejected)",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "deleteapi_v1_admin_discord_drafts_rejected"
     },
     {
       "app": "mesas",

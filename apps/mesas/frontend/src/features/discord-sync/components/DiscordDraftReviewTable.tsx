@@ -20,6 +20,8 @@ interface Props {
   readonly onBeforeSync?: (draft: DiscordDraft) => Promise<{ tableId: string; created: boolean } | null>;
   /** Ação de rejeição em lote (endpoint unificado). Injetável p/ mock/cliente custom; default = discordSyncApi. */
   readonly updateDraftsBatch?: (ids: string[], status: 'draft' | 'needs_review' | 'rejected') => Promise<{ updated: number }>;
+  /** Limpeza definitiva dos descartados (status='rejected'). Injetável p/ mock; default = discordSyncApi. */
+  readonly purgeRejectedDrafts?: (origin: OriginFilter) => Promise<{ deleted: number }>;
 }
 
 const DRAFT_STATUS_LABELS: Record<DiscordImportDraftStatus, string> = {
@@ -64,10 +66,11 @@ function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
 }
 
-export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync, updateDraftsBatch }: Props) {
+export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync, updateDraftsBatch, purgeRejectedDrafts }: Props) {
   const { confirm } = useConfirm();
   const draftApi = api ?? discordSyncApi;
   const batchReject = updateDraftsBatch ?? discordSyncApi.updateDraftsBatch;
+  const purgeRejected = purgeRejectedDrafts ?? discordSyncApi.purgeRejectedDrafts;
   // Para drafts de Inbox, usa inboxApi se fornecida; senão fallback para draftApi (compat retroativa).
   const resolveApi = (draft: DiscordDraft): DraftApiOperations =>
     !draft.discord_message_id && inboxApi ? inboxApi : draftApi;
@@ -80,6 +83,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   // Multi-seleção p/ ação em lote (rejeitar).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rejectingAll, setRejectingAll] = useState(false);
+  const [purging, setPurging] = useState(false);
 
   const loadDrafts = useCallback(async () => {
     setLoading(true);
@@ -200,6 +204,32 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
       `Limpar todos os ${rejectableDrafts.length} rascunho(s)? Eles serão rejeitados.`,
     );
 
+  // Há descartados visíveis? Só controla a VISIBILIDADE do botão. Não exibimos a
+  // contagem: a página carrega no máx. 100 linhas, mas o purge é server-side e
+  // remove TODOS os 'rejected' da origem — um número derivado da página enganaria
+  // sobre o escopo real da remoção destrutiva.
+  const hasRejected = drafts.some(d => d.status === 'rejected');
+
+  const handlePurgeRejected = async () => {
+    const confirmed = await confirm({
+      title: 'Limpar descartados',
+      message: 'Apagar definitivamente todos os rascunhos descartados (rejeitados)? Esta ação não pode ser desfeita.',
+      variant: 'danger',
+      confirmText: 'Apagar',
+    });
+    if (!confirmed) return;
+    setPurging(true);
+    try {
+      const result = await purgeRejected(originFilter);
+      toast.success(`${result.deleted} descartado(s) apagado(s).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao limpar descartados.');
+    } finally {
+      setPurging(false);
+      loadDrafts();
+    }
+  };
+
   const handleDraftUpdate = (updated: DiscordDraft) => {
     setDrafts(prev => prev.map(d => (d.id === updated.id ? updated : d)));
     setSelectedDraft(updated);
@@ -251,6 +281,16 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
         >
           Recarregar
         </button>
+
+        {hasRejected && (
+          <button
+            onClick={handlePurgeRejected}
+            disabled={purging}
+            className="px-3 py-2 bg-red-700/80 hover:bg-red-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+          >
+            {purging ? 'Limpando...' : 'Limpar descartados'}
+          </button>
+        )}
 
         {showSyncReady && readyCount > 0 && (
           <button

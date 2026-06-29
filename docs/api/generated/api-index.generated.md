@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **266 operações**.
+Total: **267 operações**.
 
 ## accounts (11)
 
@@ -100,7 +100,7 @@ Total: **266 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (155)
+## mesas (156)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -119,6 +119,7 @@ Total: **266 operações**.
 | POST | `/api/v1/admin/discord/drafts/{id}/reparse` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id reparse |
 | POST | `/api/v1/admin/discord/drafts/{id}/sync` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id sync |
 | PATCH | `/api/v1/admin/discord/drafts/batch` | admin | admin | active | — | Atualiza api v1 admin discord drafts batch |
+| DELETE | `/api/v1/admin/discord/drafts/rejected` | admin | admin | active | — | Apaga drafts descartados (status=rejected) |
 | POST | `/api/v1/admin/discord/fetch` | admin | admin | active | — | Cria ou executa api v1 admin discord fetch |
 | POST | `/api/v1/admin/discord/import-json` | admin | admin | active | — | Cria ou executa api v1 admin discord import-json |
 | POST | `/api/v1/admin/discord/import-json/file` | admin | admin | active | — | Cria ou executa api v1 admin discord import-json file |

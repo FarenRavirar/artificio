@@ -42,6 +42,7 @@ artificio-mesas-*.tgz
 logs/
 *.log
 tmp/
+.tmp/
 artifacts/
 .DS_Store
 

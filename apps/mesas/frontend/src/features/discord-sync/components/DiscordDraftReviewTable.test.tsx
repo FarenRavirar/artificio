@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Mock } from 'vitest';
+import toast from 'react-hot-toast';
 import { DiscordDraftReviewTable } from './DiscordDraftReviewTable';
 import type { DiscordDraft } from '../types';
 
@@ -17,6 +19,7 @@ const mockSyncReady = vi.fn();
 const mockUpdateDraft = vi.fn();
 const mockSyncDraft = vi.fn();
 const mockReparseDraft = vi.fn();
+const mockPurgeRejected = vi.fn();
 
 vi.mock('../api/discordSyncApi', () => ({
   discordSyncApi: {
@@ -25,6 +28,7 @@ vi.mock('../api/discordSyncApi', () => ({
     updateDraft: (...args: unknown[]) => mockUpdateDraft(...args),
     syncDraft: (...args: unknown[]) => mockSyncDraft(...args),
     reparseDraft: (...args: unknown[]) => mockReparseDraft(...args),
+    purgeRejectedDrafts: (...args: unknown[]) => mockPurgeRejected(...args),
   },
 }));
 
@@ -178,6 +182,56 @@ describe('DiscordDraftReviewTable', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Nenhum draft encontrado.')).toBeInTheDocument();
+    });
+  });
+
+  it('nao mostra "Limpar descartados" quando nao ha drafts rejeitados', async () => {
+    render(<DiscordDraftReviewTable />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Recarregar')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/Limpar descartados/)).not.toBeInTheDocument();
+  });
+
+  it('mostra "Limpar descartados" e apaga ao confirmar', async () => {
+    mockPurgeRejected.mockResolvedValue({ deleted: 2 });
+    mockGetDrafts.mockResolvedValue([
+      { ...mockDrafts[0], id: 'draft-rej-1', status: 'rejected' },
+      { ...mockDrafts[2], id: 'draft-rej-2', status: 'rejected' },
+    ]);
+
+    render(<DiscordDraftReviewTable />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Limpar descartados')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Limpar descartados'));
+
+    await waitFor(() => {
+      // origin default 'all' (filtro de origem inicial)
+      expect(mockPurgeRejected).toHaveBeenCalledWith('all');
+    });
+  });
+
+  it('mostra erro quando o purge falha (payload inesperado ou rede)', async () => {
+    mockPurgeRejected.mockRejectedValue(new Error('Resposta de limpeza em formato inesperado.'));
+    mockGetDrafts.mockResolvedValue([
+      { ...mockDrafts[0], id: 'draft-rej-1', status: 'rejected' },
+    ]);
+
+    render(<DiscordDraftReviewTable />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Limpar descartados')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Limpar descartados'));
+
+    await waitFor(() => {
+      expect(toast.error as Mock).toHaveBeenCalledWith('Resposta de limpeza em formato inesperado.');
     });
   });
 
