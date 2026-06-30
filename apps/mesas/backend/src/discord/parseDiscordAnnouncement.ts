@@ -132,6 +132,40 @@ function buildAttachmentNotes(attachments: unknown[]): string[] {
   return notes;
 }
 
+function buildRawEvidence(
+  text: string,
+  attachments: unknown[],
+  embeds: unknown[],
+): NonNullable<DiscordTableDraftTable['_raw_evidence']> | null {
+  const roleMentions = Array.from(new Set(Array.from(text.matchAll(/<@&(\d+)>/g), (m) => `<@&${m[1]}>`)));
+  const userMentions = Array.from(new Set(Array.from(text.matchAll(/<@!?(\d+)>/g), (m) => `<@${m[1]}>`)));
+  const attachmentEvidence = attachments.flatMap((att) => {
+    if (typeof att !== 'object' || att === null) return [];
+    const a = att as Record<string, unknown>;
+    const url = readStringField(a, 'url');
+    if (!url) return [];
+    return [{
+      file_name: readStringField(a, 'fileName') ?? readStringField(a, 'filename'),
+      url,
+    }];
+  });
+  const embedEvidence = embeds.flatMap((embed) => {
+    if (typeof embed !== 'object' || embed === null) return [];
+    const e = embed as Record<string, unknown>;
+    const title = readStringField(e, 'title');
+    const url = readStringField(e, 'url');
+    if (!title && !url) return [];
+    return [{ title, url }];
+  });
+
+  const evidence: NonNullable<DiscordTableDraftTable['_raw_evidence']> = {};
+  if (roleMentions.length > 0) evidence.role_mentions = roleMentions;
+  if (userMentions.length > 0) evidence.user_mentions = userMentions;
+  if (attachmentEvidence.length > 0) evidence.attachments = attachmentEvidence;
+  if (embedEvidence.length > 0) evidence.embeds = embedEvidence;
+  return Object.keys(evidence).length > 0 ? evidence : null;
+}
+
 // Remove sufixo ™ / ® de strings
 function cleanTrademark(s: string): string {
   return s.replace(/[™®]/g, '').trim();
@@ -706,6 +740,7 @@ export function parseDiscordAnnouncement(
   }
   const cover = extractCoverFromAttachments(message.attachments ?? []);
   const attachmentNotes = buildAttachmentNotes(message.attachments ?? []);
+  const rawEvidence = buildRawEvidence(body, message.attachments ?? [], message.embeds ?? []);
   const description = extractLabelValue(body, ['descricao', 'descrição', 'sinopse', 'proposta']) ?? (body.trim() || null);
 
   const missingFields: string[] = [];
@@ -748,9 +783,12 @@ export function parseDiscordAnnouncement(
     cover_quality: cover?.quality ?? null,
     _slots_ambiguity: slotsAmbiguity,
     _homebrew_suspect: homebrew === 'review' ? true : null,
+    _raw_evidence: rawEvidence,
     _notes: [
       ...(matchedSystem?.notes ?? []),
+      ...(rawEvidence?.role_mentions?.map((mention) => `Role mencionada: ${mention}`) ?? []),
       ...attachmentNotes,
+      ...(rawEvidence?.embeds?.map((embed) => `Embed: ${embed.title ?? embed.url ?? 'sem titulo'}`) ?? []),
       // Defesa: normaliza/trunca o snippet aqui, mesmo que o caller já corte.
       ...(() => {
         const snippet = replyContext?.replace(/\s+/g, ' ').trim().slice(0, 80);

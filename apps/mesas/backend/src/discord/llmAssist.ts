@@ -46,6 +46,20 @@ interface LlmAssistResult {
   model: string;
 }
 
+export function minimizeAnnouncementForLlm(rawText: string): string {
+  return rawText
+    .replace(/<@!?\d+>/g, '<@user>')
+    .replace(/<@&\d+>/g, '<@role>')
+    .replace(/<#\d+>/g, '<#channel>')
+    .replace(/https?:\/\/[^\s<>"']+/g, (url) => {
+      if (/forms\.gle\/|docs\.google\.com\/forms\/|discord\.gg\/|discord(?:app)?\.com\/invite\/|chat\.whatsapp\.com\/|wa\.me\//i.test(url)) {
+        return url;
+      }
+      return '[url-removida]';
+    })
+    .slice(0, 3000);
+}
+
 /**
  * Remove cercas de markdown (```json … ```) de um retorno de LLM via busca por
  * índice — linear, sem o backtracking super-linear do regex anterior (ReDoS).
@@ -94,7 +108,7 @@ export async function assistDiscordParse(
 
   const userPrompt = [
     'Anúncio de mesa de RPG:',
-    rawText.slice(0, 3000), // limita tamanho p/ caber no contexto
+    minimizeAnnouncementForLlm(rawText),
     '',
     'Campos já identificados (use como ponto de partida):',
     JSON.stringify(existingFields, null, 2),

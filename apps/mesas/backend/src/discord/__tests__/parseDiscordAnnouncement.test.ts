@@ -1251,6 +1251,112 @@ describe('parseDiscordAnnouncement', () => {
     const hasReplyNote = draft?.table._notes.some((n) => n.startsWith('Em resposta a:'));
     expect(hasReplyNote).toBe(false);
   });
+
+  it('preserves role mentions as raw evidence and review notes (052 R15)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Dia: sexta às 20h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+          'Tags: <@&123456789012345678> <@&123456789012345678>',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table._raw_evidence?.role_mentions).toEqual(['<@&123456789012345678>']);
+    expect(draft?.table._notes).toEqual(expect.arrayContaining(['Role mencionada: <@&123456789012345678>']));
+  });
+
+  it('uses explicit user mention as Discord contact without accepting channel mention (052 R16)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_author_id: '9999',
+        discord_author_name: 'Autor',
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Dia: sexta às 20h',
+          'Vagas: 4',
+          'Contato: <@!777777777777777777> no canal <#222222222222222222>',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.contact_discord).toBe('<@!777777777777777777>');
+    expect(draft?.table.contact_discord).not.toBe('<#222222222222222222>');
+    expect(draft?.table._raw_evidence?.user_mentions).toEqual(['<@777777777777777777>']);
+  });
+
+  it('extracts paid and free table signals deterministically (052 R17)', () => {
+    const paid = parseDiscordAnnouncement(makeMessage({
+      content_raw: [
+        'Sistema: Dungeons & Dragons',
+        'Dia: sexta às 20h',
+        'Vagas: 4',
+        'Valor: R$ 25,50',
+        'Contato: https://forms.gle/example',
+      ].join('\n'),
+    }));
+    const free = parseDiscordAnnouncement(makeMessage({
+      content_raw: [
+        'Sistema: Dungeons & Dragons',
+        'Dia: sexta às 20h',
+        'Vagas: 4',
+        'Mesa gratuita',
+        'Contato: https://forms.gle/example',
+      ].join('\n'),
+    }));
+
+    expect(paid?.table.price_type).toBe('paga');
+    expect(paid?.table.price_value).toBe(25.5);
+    expect(free?.table.price_type).toBe('gratuita');
+    expect(free?.table.price_value).toBeNull();
+  });
+
+  it('marks inspired/adapted systems as homebrew suspect instead of discarding (052 R18)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: 'Mesa: Mistério na Ilha',
+        content_raw: [
+          'Sistema: inspirado em D&D',
+          'Dia: sexta às 20h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft).not.toBeNull();
+    expect(draft?.table._homebrew_suspect).toBe(true);
+    expect(draft?.missing_fields).toContain('system_name:unmatched_hint');
+  });
+
+  it('preserves attachments and embeds as raw evidence (052 R19)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Dia: sexta às 20h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+        attachments: [{ fileName: 'mapa.pdf', fileSizeBytes: 2048, url: 'https://cdn.discordapp.com/attachments/1/mapa.pdf' }],
+        embeds: [{ title: 'Ficha da Mesa', url: 'https://example.com/ficha' }],
+      }),
+    );
+
+    expect(draft?.table._raw_evidence?.attachments).toEqual([
+      { file_name: 'mapa.pdf', url: 'https://cdn.discordapp.com/attachments/1/mapa.pdf' },
+    ]);
+    expect(draft?.table._raw_evidence?.embeds).toEqual([
+      { title: 'Ficha da Mesa', url: 'https://example.com/ficha' },
+    ]);
+    expect(draft?.table._notes).toEqual(expect.arrayContaining([
+      expect.stringContaining('Anexo: mapa.pdf'),
+      'Embed: Ficha da Mesa',
+    ]));
+  });
 });
 
 // ─── T-G1: classifyConfidence ──────────────────────────────────────────

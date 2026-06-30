@@ -83,6 +83,25 @@ export interface DiscordTableDraftTable {
    * o parse retorna null antes.
    */
   _homebrew_suspect: boolean | null;
+  /**
+   * Spec 052 Bloco C: evidências brutas úteis para revisão humana.
+   * Não entram em publicação automática; servem para explicar o parse.
+   */
+  _raw_evidence?: {
+    role_mentions?: string[];
+    user_mentions?: string[];
+    attachments?: Array<{ file_name: string | null; url: string }>;
+    embeds?: Array<{ title: string | null; url: string | null }>;
+  } | null;
+  /**
+   * Spec 052 Bloco B: sugestões de IA ficam separadas dos campos determinísticos.
+   * Revisor humano decide se copia/aplica. Nunca usar para publicar sozinho.
+   */
+  _ai_suggestions?: {
+    provider: string;
+    model: string;
+    fields: Record<string, unknown>;
+  } | null;
   _notes: string[];
 }
 
