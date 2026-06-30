@@ -60,6 +60,9 @@ async function main() {
     return;
   }
   const rootDir = configured.importDir ?? process.env.DISCORD_CHAT_EXPORTER_IMPORT_DIR ?? process.argv[2];
+  const allowedBaseDir = process.env.DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR
+    ?? configured.importDir
+    ?? process.env.DISCORD_CHAT_EXPORTER_IMPORT_DIR;
   if (!rootDir) {
     console.error('[importDiscordChatExporterFolder] Informe DISCORD_CHAT_EXPORTER_IMPORT_DIR ou passe o diretório como argumento.');
     process.exit(1);
@@ -67,6 +70,7 @@ async function main() {
 
   const result = await processDiscordChatExporterFolder({
     rootDir,
+    allowedBaseDir,
     retention: DISCORD_CHAT_EXPORTER_RETENTION,
   });
   try {
