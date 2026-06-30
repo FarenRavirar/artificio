@@ -4,6 +4,26 @@ import { processDiscordChatExporterFolder } from '../discord/chatExporterFolderI
 import { DISCORD_CHAT_EXPORTER_RETENTION } from '../discord/chatExporterAutomationConfig';
 import type { NewDiscordImportRun } from '../db/types';
 
+async function loadConfiguredRootDir(): Promise<{ enabled: boolean; importDir: string | null }> {
+  const row = await db.selectFrom('discord_settings')
+    .select('value')
+    .where('guild_id', 'is', null)
+    .where('key', '=', 'chat_exporter_config')
+    .executeTakeFirst();
+  if (!row) return { enabled: true, importDir: null };
+  try {
+    const parsed: unknown = JSON.parse(row.value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { enabled: true, importDir: null };
+    const record = parsed as Record<string, unknown>;
+    return {
+      enabled: record.enabled !== false,
+      importDir: typeof record.importDir === 'string' && record.importDir.trim() ? record.importDir.trim() : null,
+    };
+  } catch {
+    return { enabled: true, importDir: null };
+  }
+}
+
 async function recordFolderImportRun(result: Awaited<ReturnType<typeof processDiscordChatExporterFolder>>): Promise<void> {
   const totals = result.files.reduce(
     (acc, file) => {
@@ -34,7 +54,12 @@ async function recordFolderImportRun(result: Awaited<ReturnType<typeof processDi
 }
 
 async function main() {
-  const rootDir = process.env.DISCORD_CHAT_EXPORTER_IMPORT_DIR ?? process.argv[2];
+  const configured = await loadConfiguredRootDir();
+  if (!configured.enabled) {
+    console.log('[importDiscordChatExporterFolder] Desativado por configuração do admin.');
+    return;
+  }
+  const rootDir = configured.importDir ?? process.env.DISCORD_CHAT_EXPORTER_IMPORT_DIR ?? process.argv[2];
   if (!rootDir) {
     console.error('[importDiscordChatExporterFolder] Informe DISCORD_CHAT_EXPORTER_IMPORT_DIR ou passe o diretório como argumento.');
     process.exit(1);

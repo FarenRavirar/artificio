@@ -196,6 +196,47 @@ export interface DiscordSettings {
   bot_token: DiscordBotTokenSettings;
 }
 
+export type ChatExporterFrequency = 'hourly' | 'daily' | 'weekly';
+
+export interface ChatExporterSecretStatus {
+  is_set: boolean;
+  preview: string | null;
+  updated_at: string | null;
+}
+
+export interface ChatExporterConfig {
+  enabled?: boolean;
+  frequency?: ChatExporterFrequency;
+  time?: string;
+  timezone?: string;
+  binary?: string;
+  importDir?: string;
+  channelId?: string;
+  after?: string;
+  token: ChatExporterSecretStatus;
+  cookies: ChatExporterSecretStatus;
+  updated_at: string | null;
+  decrypt_error?: boolean;
+}
+
+export interface ChatExporterTestResult {
+  ok: boolean;
+  errors: string[];
+  command: string | null;
+}
+
+export interface ChatExporterRunResult {
+  exported: { outputPath: string };
+  imported: {
+    rootDir: string;
+    incoming: number;
+    processed: number;
+    errors: number;
+    retainedDeleted: number;
+    files: Array<{ fileName: string; status: 'processed' | 'error'; error?: string }>;
+  };
+}
+
 export interface DraftApiOperations {
   updateDraft: (id: string, body: { normalized_payload?: Record<string, unknown>; status?: DiscordImportDraftStatus; review_notes?: string }) => Promise<DiscordDraft>;
   syncDraft: (id: string) => Promise<{ tableId: string; created: boolean }>;

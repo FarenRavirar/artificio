@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **270 operações**.
+Total: **274 operações**.
 
 ## accounts (11)
 
@@ -100,7 +100,7 @@ Total: **270 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (159)
+## mesas (163)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -112,6 +112,10 @@ Total: **270 operações**.
 | POST | `/api/v1/admin/discord/automation/auto-approval/guard` | admin | admin | active | — | Executa guard de auto-aprovação Discord |
 | GET | `/api/v1/admin/discord/automation/config` | admin | admin | active | — | Consulta api v1 admin discord automation config |
 | GET | `/api/v1/admin/discord/automation/eval` | admin | admin | active | — | Consulta eval offline da automação Discord |
+| GET | `/api/v1/admin/discord/chat-exporter/config` | admin | admin | active | — | Consulta api v1 admin discord chat-exporter config |
+| PUT | `/api/v1/admin/discord/chat-exporter/config` | admin | admin | active | — | Substitui api v1 admin discord chat-exporter config |
+| POST | `/api/v1/admin/discord/chat-exporter/run` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter run |
+| POST | `/api/v1/admin/discord/chat-exporter/test` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter test |
 | GET | `/api/v1/admin/discord/discovery/guilds` | admin | admin | active | — | Consulta api v1 admin discord discovery guilds |
 | GET | `/api/v1/admin/discord/discovery/guilds/{guildId}/channels` | admin | admin | active | — | Consulta api v1 admin discord discovery guilds guildId channels |
 | GET | `/api/v1/admin/discord/drafts` | admin | admin | active | — | Consulta api v1 admin discord drafts |

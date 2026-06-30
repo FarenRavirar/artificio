@@ -6,10 +6,10 @@
     "accounts": 11,
     "glossario": 46,
     "links": 22,
-    "mesas": 159,
+    "mesas": 163,
     "site": 32
   },
-  "total": 270,
+  "total": 274,
   "operations": [
     {
       "app": "accounts",
@@ -1071,6 +1071,54 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "getapi_v1_admin_discord_automation_eval"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/discord/chat-exporter/config",
+      "summary": "Consulta api v1 admin discord chat-exporter config",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_discord_chat_exporter_config"
+    },
+    {
+      "app": "mesas",
+      "method": "PUT",
+      "path": "/api/v1/admin/discord/chat-exporter/config",
+      "summary": "Substitui api v1 admin discord chat-exporter config",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "putapi_v1_admin_discord_chat_exporter_config"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/chat-exporter/run",
+      "summary": "Cria ou executa api v1 admin discord chat-exporter run",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_discord_chat_exporter_run"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/chat-exporter/test",
+      "summary": "Cria ou executa api v1 admin discord chat-exporter test",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_discord_chat_exporter_test"
     },
     {
       "app": "mesas",

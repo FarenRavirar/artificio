@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 338,
+    "total": 343,
     "byApp": {
       "accounts": {
         "total": 11,
@@ -41,17 +41,17 @@
         }
       },
       "mesas": {
-        "total": 207,
+        "total": 212,
         "byMethod": {
-          "GET": 56,
-          "POST": 53,
-          "USE": 49,
+          "GET": 57,
+          "POST": 55,
+          "USE": 50,
           "PATCH": 23,
           "DELETE": 16,
-          "PUT": 10
+          "PUT": 11
         },
         "byConfidence": {
-          "high": 207
+          "high": 212
         }
       },
       "site": {
@@ -1059,7 +1059,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 22,
+      "line": 23,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1068,7 +1068,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 30,
+      "line": 31,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1077,7 +1077,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/automation",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 34,
+      "line": 35,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1111,9 +1111,54 @@
     {
       "app": "mesas",
       "method": "USE",
+      "path": "/api/v1/admin/discord/chat-exporter",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
+      "line": 36,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/discord/chat-exporter/config",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
+      "line": 220,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "PUT",
+      "path": "/api/v1/admin/discord/chat-exporter/config",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
+      "line": 228,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/chat-exporter/run",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
+      "line": 275,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/chat-exporter/test",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
+      "line": 250,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "USE",
       "path": "/api/v1/admin/discord/discovery",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 21,
+      "line": 22,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1149,7 +1194,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/drafts",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 25,
+      "line": 26,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1158,7 +1203,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/drafts",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 26,
+      "line": 27,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1248,7 +1293,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/import-json",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 31,
+      "line": 32,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1257,7 +1302,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/import-json",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 32,
+      "line": 33,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1311,15 +1356,6 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/messages",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 27,
-      "confidence": "high",
-      "kind": "mount"
-    },
-    {
-      "app": "mesas",
-      "method": "USE",
-      "path": "/api/v1/admin/discord/messages",
-      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 28,
       "confidence": "high",
       "kind": "mount"
@@ -1330,6 +1366,15 @@
       "path": "/api/v1/admin/discord/messages",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 29,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "mesas",
+      "method": "USE",
+      "path": "/api/v1/admin/discord/messages",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
+      "line": 30,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1392,7 +1437,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/metrics",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 33,
+      "line": 34,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1419,7 +1464,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/settings",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 24,
+      "line": 25,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1464,7 +1509,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/sources",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 23,
+      "line": 24,
       "confidence": "high",
       "kind": "mount"
     },
