@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DevFeedbackPanel } from '../../../modules/admin/dev-feedback/DevFeedbackPanel';
+import { DevFeedbackPanel } from '../dev-feedback/DevFeedbackPanel';
 
 type SisSubTab = 'ferramentas' | 'jobs' | 'logs' | 'erros' | 'config';
 

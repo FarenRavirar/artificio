@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { ActivityPanel } from '../../../modules/admin/activity/components/ActivityPanel';
+import { ActivityPanel } from '../activity/components/ActivityPanel';
 import { authGet } from '../../../services/apiClient';
 import { discordSyncApi } from '../../../features/discord-sync/api/discordSyncApi';
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AdminWorkspaceLayout } from '../features/admin/components/AdminWorkspaceLayout';
 import { ScenariosList } from '../features/admin/components/ScenariosList';
 import { EntityInspector, type SystemFormData } from '../features/admin/components/EntityInspector';
-import type { System } from '../modules/admin/systems/types';
+import type { System } from '../features/admin/systems/types';
 import toast from 'react-hot-toast';
 import { authGet, authPost, authPut, authDelete } from '../services/apiClient';
 

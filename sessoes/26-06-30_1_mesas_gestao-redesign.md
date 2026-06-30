@@ -86,6 +86,17 @@ Tree limpa.
 - Triar achados em `reviews.md`, corrigir o que procede (sob autorização), depois Fase 3/4.
 - Pendência: mover salvage `d2390ef` p/ a 052 (branch/PR própria) — fica em `backup/057-pre-rebase`.
 
+## Fase 3 — investigação e plano (2026-06-30)
+- Pedido do mantenedor: investigar, registrar e implementar Fase 3; foco em robustez, organização, menor duplicação e escalabilidade.
+- Skill aplicado: `split-refactor`.
+- Estado inicial: `git status --short --branch` limpo em `feat/057-mesas-gestao-redesign`.
+- Inventário `modules/admin`: 5 áreas isoladas (`activity`, `hydration`, `platforms`, `systems`, `dev-feedback`) e 13 arquivos.
+- Consumidores reais via `rg "modules/admin"`: `features/admin/components/*`, `features/admin/utils/treeHelpers.ts`, `pages/SystemsAdminView.tsx`, `pages/ScenariosAdminView.tsx`.
+- Veredito: não há dois caminhos arquiteturais equivalentes; `modules/admin` é só árvore antiga coexistindo com a nova. Melhor caminho = mover as áreas antigas para `features/admin/{activity,hydration,platforms,systems,dev-feedback}` preservando exports/contratos, corrigir imports e remover `modules/admin` vazio.
+- Limite do split: somente realocar árvore e imports. Sem reescrever UI, sem trocar rotas, sem alterar comportamento funcional.
+- Implementação: `activity`, `hydration`, `platforms`, `systems` e `dev-feedback` movidos para `features/admin/`; imports antigos `modules/admin` eliminados; diretório `src/modules/admin` removido.
+- Validação: `rg "modules/admin" apps/mesas/frontend/src -n` sem resultados; `pnpm --filter @artificio/mesas-frontend lint` ✅; `pnpm --filter @artificio/mesas-frontend build` ✅ (warning conhecido de chunk >500 kB); `pnpm --filter @artificio/mesas-frontend test` ✅ (13 files, 148 tests); `pnpm verify:api` ✅ (breaking=0; 3 warnings ambíguos conhecidos).
+
 ## Critério de conclusão (desta abertura)
 - `inventario.md` + `proposta-ia.md` completos; plano faseado aprovado pelo mantenedor.
 

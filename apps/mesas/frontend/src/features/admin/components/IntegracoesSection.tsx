@@ -4,7 +4,7 @@ import { DiscordSettingsPanel } from '../../../features/discord-sync/components/
 import { DiscordSourceList } from '../../../features/discord-sync/components/DiscordSourceList';
 import { DiscordJsonImportPanel } from '../../../features/discord-sync/components/DiscordJsonImportPanel';
 import { IntegrationLogsView } from '../../../features/discord-sync/components/IntegrationLogsView';
-import { EnrichmentAdminPanel } from '../../../modules/admin/hydration/EnrichmentAdminPanel';
+import { EnrichmentAdminPanel } from '../hydration/EnrichmentAdminPanel';
 import { TextPasteArea } from '../../../features/inbox/components/TextPasteArea';
 import { useDiscordSync } from '../../../features/discord-sync/hooks/useDiscordSync';
 

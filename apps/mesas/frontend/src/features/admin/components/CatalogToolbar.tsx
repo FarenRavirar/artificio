@@ -1,5 +1,5 @@
 import { Search, Plus, Filter } from 'lucide-react';
-import type { System } from '../../../modules/admin/systems/types';
+import type { System } from '../systems/types';
 
 interface Props {
   search: string;

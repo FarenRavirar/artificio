@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { CatalogTreeNode } from './CatalogTreeNode';
-import type { System } from '../../../modules/admin/systems/types';
+import type { System } from '../systems/types';
 
 interface Props {
   systems: System[];

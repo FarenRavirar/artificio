@@ -1,4 +1,4 @@
-import type { System } from '../../../modules/admin/systems/types';
+import type { System } from '../systems/types';
 
 export function findInTree(nodes: System[], targetId: string): System | null {
   for (const node of nodes) {

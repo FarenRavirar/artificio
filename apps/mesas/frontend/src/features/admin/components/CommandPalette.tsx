@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
-import type { System } from '../../../modules/admin/systems/types';
+import type { System } from '../systems/types';
 
 interface Props {
   systems: System[];

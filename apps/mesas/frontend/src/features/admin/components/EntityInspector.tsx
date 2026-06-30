@@ -4,7 +4,7 @@ import { NodeTypeBadge } from './NodeTypeBadge';
 import { AliasesEditor } from './AliasesEditor';
 import { Breadcrumb } from './Breadcrumb';
 import { Field } from './Field';
-import type { System } from '../../../modules/admin/systems/types';
+import type { System } from '../systems/types';
 
 interface Props {
   mode: 'edit' | 'create';

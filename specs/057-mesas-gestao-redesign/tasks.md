@@ -38,7 +38,7 @@
 - [x] T2.3 — `AdminSidebar` nova (6 grupos §2: Visão geral·Mesas·Catálogo·Comunidade·Importação·Sistema) com token de marca correto (`--color-artificio-orange`; o antigo usava `--brand` inexistente → ativo quebrado) + roteamento novo em `App.tsx` (`visao-geral`/`mesas/:sub?`/`catalogo`/`importacao`; antigas `dashboard`/`conteudo`/`moderacao`/`integracoes` → `<Navigate replace>`). Sections atuais reusadas como conteúdo interino (sem stub, sem link morto). tsc+lint ✅. · **smoke beta** na T9.2 (rota auth-gated, precisa backend+sessão admin).
 
 ### Fase 3 — Unificar árvores (R9)
-- [ ] T3.1 — Mover `modules/admin/{activity,hydration,platforms,systems,dev-feedback}` p/ `features/admin/`; corrigir imports. · feito quando: `modules/admin` vazio/removido, build+test ✅.
+- [x] T3.1 — Mover `modules/admin/{activity,hydration,platforms,systems,dev-feedback}` p/ `features/admin/`; corrigir imports. · feito: árvore antiga removida, imports canônicos em `features/admin`, lint+build+test frontend ✅ (2026-06-30).
 
 ### Fase 4 — Visão geral (Dashboard) (R8)
 - [ ] T4.1 — Página única: MetricCards (mesas ativas via `/api/v1/tables`; drafts por status via `discord/metrics.totals`; última importação via `metrics.runs[0]`; pendências sugestões) + `ActivityPanel`. · feito quando: cards com dado real, sem stub/Alertas/Atalhos.

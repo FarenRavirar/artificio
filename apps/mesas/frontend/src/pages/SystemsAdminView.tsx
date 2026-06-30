@@ -4,9 +4,9 @@ import { CatalogTree } from '../features/admin/components/CatalogTree';
 import { CatalogToolbar } from '../features/admin/components/CatalogToolbar';
 import { EntityInspector, type SystemFormData } from '../features/admin/components/EntityInspector';
 import { CommandPalette } from '../features/admin/components/CommandPalette';
-import { useSystems } from '../modules/admin/systems/useSystems';
+import { useSystems } from '../features/admin/systems/useSystems';
 import { findInTree, countVisibleInTree } from '../features/admin/utils/treeHelpers';
-import type { System } from '../modules/admin/systems/types';
+import type { System } from '../features/admin/systems/types';
 
 type SystemsAdminViewProps = {
   onInspectorDirtyChange?: (dirty: boolean) => void;

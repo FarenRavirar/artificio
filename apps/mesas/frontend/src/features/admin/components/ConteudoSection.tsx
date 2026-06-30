@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useConfirm } from '@artificio/ui';
 import { SystemsAdminView } from '../../../pages/SystemsAdminView';
 import { ScenariosAdminView } from '../../../pages/ScenariosAdminView';
-import { PlatformsPage } from '../../../modules/admin/platforms/PlatformsPage';
+import { PlatformsPage } from '../platforms/PlatformsPage';
 import { InlineDeleteConfirmation } from '../../../components/InlineDeleteConfirmation';
 import { authGet, authPut, authDelete } from '../../../services/apiClient';
 import { useAuth } from '../../../contexts/useAuth';

@@ -861,7 +861,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/platforms/PlatformsPage.tsx",
       "method": "PUT",
       "endpoint": "/:param",
       "confidence": "medium",
@@ -871,7 +871,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/platforms/PlatformsPage.tsx",
       "method": "POST",
       "endpoint": "/:param",
       "confidence": "medium",
@@ -881,7 +881,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/platforms/PlatformsPage.tsx",
       "method": "DELETE",
       "endpoint": "/:param",
       "confidence": "medium",
@@ -921,7 +921,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/activity/hooks/useActivityLog.ts",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/activity/hooks/useActivityLog.ts",
       "method": "GET",
       "endpoint": "/api/v1/admin/activity",
       "confidence": "medium",
@@ -1371,7 +1371,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/hydration/EnrichmentAdminPanel.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/hydration/EnrichmentAdminPanel.tsx",
       "method": "POST",
       "endpoint": "/api/v1/admin/sync/enrich",
       "confidence": "medium",
@@ -2111,6 +2111,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/systems/useSystems.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/systems",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authGet",
+      "line": 31
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/create-table/components/CreateTableForm.tsx",
       "method": "GET",
       "endpoint": "/api/v1/systems",
@@ -2128,16 +2138,6 @@
       "pattern": "literal",
       "wrapper": "authGet",
       "line": 230
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/systems/useSystems.ts",
-      "method": "GET",
-      "endpoint": "/api/v1/systems",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "authGet",
-      "line": 31
     },
     {
       "app": "mesas-frontend",
@@ -2161,7 +2161,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/systems/useSystems.ts",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/systems/useSystems.ts",
       "method": "POST",
       "endpoint": "/api/v1/systems/admin",
       "confidence": "high",
@@ -2171,7 +2171,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/systems/useSystems.ts",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/systems/useSystems.ts",
       "method": "PUT",
       "endpoint": "/api/v1/systems/admin/:param",
       "confidence": "medium",
@@ -2181,7 +2181,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/systems/useSystems.ts",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/systems/useSystems.ts",
       "method": "DELETE",
       "endpoint": "/api/v1/systems/admin/:param",
       "confidence": "medium",
