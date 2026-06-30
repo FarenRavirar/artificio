@@ -5,6 +5,7 @@
 - **Modo:** SDD Completo (toca contrato de API — rotas batch novas em `apps/mesas/backend`)
 - **Origem:** pedido direto do mantenedor (2026-06-29) sobre `/gestao/moderacao` e `/gestao/integracoes`.
 - **Relacionada:** [054 — gestão IA sidebar](../054-mesas-gestao-ia-sidebar/) (reorg da `/gestao` que criou Moderação/Integrações). Esta spec estende a Moderação entregue na 054.
+- **PR:** [#107](https://github.com/artificio-rpg/artificio/pull/107) — mergeado em `dev` (2026-06-29, 12:06:43 UTC, commit `a77270a863c654a05d37ad57daa55363d86ce0d2`). Branch `feat/mesas-moderacao-batch`, 3 commits.
 
 ## Problema
 

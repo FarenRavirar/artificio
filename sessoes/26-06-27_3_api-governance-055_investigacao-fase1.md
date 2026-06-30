@@ -203,3 +203,5 @@ Métricas:
 
 Resíduo:
 - Schemas específicos por DTO/Zod continuam refinamento futuro; a lacuna "sem schema" foi fechada com schemas genéricos honestos e válidos.
+
+**Status final (2026-06-30):** Spec 055 ✅ ENCERRADA. Modo estrito ativo. O que não foi feito foi descartado (mantenedor). `BL-055-API-GOVERNANCE` fechado.

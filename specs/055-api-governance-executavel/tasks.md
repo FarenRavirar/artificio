@@ -3894,7 +3894,7 @@ pnpm run build      → ⏭️  (fora de escopo — mudança é só script/gover
 
 **Bloqueadores de fechamento:** nenhum para a spec 055 em modo inicial.
 
-**Conclusão:** Spec 055 **fechável**. Todas as fases foram implementadas e os scripts funcionam localmente. As dívidas abertas bloqueiam apenas evolução para modo estrito/cobertura 100%, não a conclusão da entrega inicial.
+**Conclusão:** Spec 055 **✅ ENCERRADA (2026-06-30).** Todas as fases implementadas, modo estrito ativo, CI bloqueante. O que não foi feito foi descartado (mantenedor). `BL-055-API-GOVERNANCE` fechado.
 
 ### Tasks
 

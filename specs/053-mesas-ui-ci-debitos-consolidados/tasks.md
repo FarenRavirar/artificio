@@ -57,3 +57,5 @@ Origem entre colchetes = spec/débito de onde o item foi transferido.
 - [x] T-Z1 — `debitos.md` das specs 047–051 marcam itens transferidos como "→ 053".
 - [x] T-Z2 — `specs/backlog.md` + `project-state.md` sincronizados. Dispensado nesta branch por instrução do mantenedor: documentação fora da spec será atualizada pelo DeepSeek.
 - [x] T-Z3 — Critérios de aceite da 053 satisfeitos; nada das 047–051 resta "pendente" fora da 053.
+
+**✅ Spec 053 ENCERRADA (2026-06-30).** Todas as frentes implementadas, validadas, mergeadas e deployadas. O que não foi feito foi descartado (mantenedor). `BL-053-CONSOLIDADO` fechado.

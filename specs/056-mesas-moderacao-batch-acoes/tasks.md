@@ -21,12 +21,12 @@
 - [x] Testes: discord-sync frontend 122/122; backend adminDiscordSync 4/4.
 - [x] `pnpm verify:api`: 0 órfãs, 0 duplicatas, breaking=0, non-breaking=2 (os 2 batch). OpenAPI auto-gerado cobre.
 
-## Pendente (autorização nominal do mantenedor — não feito)
+## Git / Deploy (CONCLUÍDO)
 
-- [ ] **TZ.1 — commit** na branch `feat/mesas-moderacao-batch`.
-- [ ] **TZ.2 — push + PR → `dev`** (branch protection exige check `lint+build+test` verde).
-- [ ] **TZ.3 — merge PR em `dev`** → deploy beta mesas → smoke em `mesasbeta.artificiorpg.com/gestao/moderacao` e `/gestao/integracoes`.
-- [ ] **TZ.4 — promote `dev→main` ff + deploy prod** (gated por aprovação nominal).
+- [x] **TZ.1 — commit** na branch `feat/mesas-moderacao-batch` (3 commits: `664a739` feat, `3834f7d` fix batch reject + shadow transação, `89251fa` chore regenera artefatos docs/api).
+- [x] **TZ.2 — push + PR → `dev`** — PR #107 aberto e **mergeado em `dev`** (2026-06-29, 12:06:43 UTC, commit `a77270a863c654a05d37ad57daa55363d86ce0d2`). Checks `lint+build+test` verdes.
+- [x] **TZ.3 — deploy beta mesas** → smoke em `mesasbeta.artificiorpg.com/gestao/moderacao` e `/gestao/integracoes`. ✅ (mantenedor).
+- [x] **TZ.4 — promote `dev→main` ff + deploy prod** ✅ (mantenedor).
 
 ## Notas
 

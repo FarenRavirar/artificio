@@ -5,7 +5,7 @@
 - **Tipo:** **SDD Completo**. Toca governança, CI, contratos de API, documentação operacional e múltiplos apps.
 - **Origem:** mantenedor 2026-06-27 — `MAPA_DE_API.md` manual nunca é lembrado por agentes; governança em Markdown/AGENTS não é suficiente. Precisa de mecanismo executável e bloqueante.
 - **Autor do plano:** Claude Code. **Implementação:** DeepSeek, em sessão futura, sem commit/push/PR sem autorização nominal.
-- **Status:** implementada e em modo estrito (2026-06-28). `pnpm verify:api` exit 0 com allowlist vazia. CI bloqueia regressões novas (CODE_ONLY, CONSUMER_ONLY high, breaking changes). Débitos remanescentes não bloqueiam operação.
+- **Status:** ✅ **ENCERRADA (2026-06-30).** Implementada e em modo estrito. `pnpm verify:api` exit 0 com allowlist vazia. CI bloqueia regressões novas (CODE_ONLY, CONSUMER_ONLY high, breaking changes). O que não foi feito foi descartado (mantenedor).
 
 ---
 
