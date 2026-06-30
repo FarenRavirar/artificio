@@ -5,7 +5,7 @@
 - **Tipo:** **SDD Completo** (toca `packages/ui` compartilhado + serviço `accounts.` frontend + CI/CD)
 - **Origem:** consolidação dos débitos abertos das specs 047, 048, 049, 050, 051 após deploy de 048 em prod (2026-06-27). Decisão do mantenedor: concentrar o que sobrou numa spec única **antes** de iniciar a 052 (automação inteligente).
 - **Autor do plano:** Claude Code. **Implementação:** a definir (DeepSeek/Claude por autorização nominal).
-- **Status:** planejada (não implementada)
+- **Status:** ✅ **ENCERRADA (2026-06-30).** Todas as frentes (A/B/B2/C/D/E) implementadas e validadas localmente. PR mergeada → deploy beta + smoke + promote prod ✅. O que não foi feito foi descartado (mantenedor).
 
 > **Nota de governança:** este `spec.md` descreve **o quê e por quê** (problema + requisitos testáveis). A solução técnica vive em `plan.md`/`tasks.md`. Sem código nesta fase.
 

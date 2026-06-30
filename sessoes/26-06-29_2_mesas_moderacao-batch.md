@@ -61,6 +61,21 @@ Atualizado: criado item da spec 056 em `specs/backlog.md`. Débitos P3 em `specs
 
 Implementação validada (lint+build+test+verify:api verdes). **Pendente de autorização nominal:** commit, push, PR→dev, merge, deploy beta, smoke, promote prod (TZ.1–TZ.4 da 056). Nada commitado nesta sessão.
 
+## Git / PR #107
+
+- **Branch:** `feat/mesas-moderacao-batch`
+- **Commits:** 3 — `664a739` (feat), `3834f7d` (fix batch reject + shadow transação), `89251fa` (chore regenera artefatos docs/api)
+- **PR #107 aberto e mergeado em `dev`** (2026-06-29, 12:06:43 UTC, commit `a77270a863c654a05d37ad57daa55363d86ce0d2`)
+- **Checks:** `lint + build + test` verdes
+- **Reviews recebidos:**
+  - **Codex (chatgpt-codex-connector):** 2026-06-29, revisão geral dos 22 arquivos. Resolvido.
+  - **CodeRabbit rodada 1:** 2026-06-29, 7 actionable comments (normalização payload, bypass cliente, seleção stale, paralelismo, limpeza stale, OpenAPI schema). Resolvidos no commit `3834f7d`.
+  - **CodeRabbit rodada 2:** 2026-06-29, transação atômica em batch rejection + parseBatchResult engolindo falha. Resolvidos nos commits `3834f7d` + `89251fa`.
+
+## Estado atual
+
+Código em prod. Deploy beta + smoke + promote prod ✅ (mantenedor, 2026-06-30). Spec 056 encerrada.
+
 ## Status
 
-Código pronto e validado na branch `feat/mesas-moderacao-batch`. Aguardando palavra do mantenedor para commit/push/PR.
+**✅ CONCLUÍDA.** Spec 056 fechada e em prod. `BL-056-MODERACAO-BATCH` fechado.

@@ -73,4 +73,4 @@ pnpm api:diff       # relatório gerado, exit 0
 pnpm api:docs       # 4 HTMLs gerados
 ```
 
-Conclusão operacional: spec 055 fechável em modo inicial. Nenhum débito bloqueia o fechamento; os abertos bloqueiam apenas modo estrito/cobertura 100%.
+Conclusão operacional: spec 055 ✅ ENCERRADA (2026-06-30). Modo estrito implementado e ativo. O que não foi feito foi descartado (mantenedor). `BL-055-API-GOVERNANCE` fechado.

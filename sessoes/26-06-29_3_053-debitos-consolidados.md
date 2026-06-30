@@ -51,3 +51,5 @@ Fechar a spec 053: CI CJS, tema accounts, a11y/UI da gestão, doc herdado e deci
 - Código local validado.
 - Sem tocar VM/commit/push sem aprovação nominal.
 - `.gitignore` pré-existente permanece fora do escopo.
+
+**✅ Spec 053 ENCERRADA (2026-06-30).** Todas as frentes implementadas e validadas. PR mergeada → deploy beta + smoke + promote prod. O que não foi feito foi descartado (mantenedor). `BL-053-CONSOLIDADO` fechado. **052 destravada.**

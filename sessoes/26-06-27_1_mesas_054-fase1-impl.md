@@ -90,8 +90,8 @@
 
 ## Próximo passo
 
-Smoke visual do mantenedor em beta (TZ.3). Depois: fechar spec 054 e liberar 053 Frente A.
+~~Smoke visual do mantenedor em beta (TZ.3). Depois: fechar spec 054 e liberar 053 Frente A.~~ ✅ CONCLUÍDO (2026-06-30).
 
 ## Item para project-state.md
 
-Spec 054 — código completo (Fases 1-4 + 16 reviews de bot corrigidos). 11 arquivos de código + 3 artefatos. Validação completa verde. Branch `feat/054-gestao-ia-sidebar`, código local não commitado. 053 Frente A destravada.
+Spec 054 ✅ ENCERRADA (2026-06-30). Fases 1-4 + 16 reviews de bot corrigidos. 11 arquivos de código + 3 artefatos. PR mergeada em `dev` → deploy beta + smoke + promote prod ✅. O que não foi feito foi descartado. `BL-054-GESTAO-IA` fechado. 053 Frente A destravada.
