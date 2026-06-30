@@ -1418,4 +1418,39 @@ describe('isSuspiciousUrl', () => {
     expect(isSuspiciousUrl('https://bit.ly/abc')).toBe(true);
     expect(isSuspiciousUrl('https://tinyurl.com/xyz')).toBe(true);
   });
+
+  describe('DEB-052-01 — labels decorados (cleanLabelLine + slotsViaLabel)', () => {
+    it('recupera sistema com bullet » e markdown ** (template comunidade)', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          discord_thread_name: 'Mesa nova',
+          content_raw: '» **Sistema:** Tormenta20\n» Vagas disponíveis: 5\n» Data: Sábado às 20h',
+        }),
+      );
+      // systems=[] → hint extraído fica como raw_system_hint (não casa DB)
+      expect(draft?.table.raw_system_hint).toBe('Tormenta20');
+    });
+
+    it('recupera sistema com ordem **▬ (bug de ordem do ** corrigido)', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({ content_raw: '**▬ Sistema:** Ordem Paranormal\n▬ Data: Domingo 19h' }),
+      );
+      expect(draft?.table.raw_system_hint).toBe('Ordem Paranormal');
+    });
+
+    it('slotsViaLabel cobre rótulo exótico que as regexes "vagas" perdem ("Lugares: N")', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Mesa massa\n» Lugares: 6\n» Data: Sexta 21h' }),
+      );
+      expect(draft?.table.slots_total).toBe(6);
+      expect(draft?.missing_fields).not.toContain('slots_total');
+    });
+
+    it('URL não é engolida como continuação do rótulo anterior (Sistema)', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Mesa\nSistema: D&D\nhttps://forms.gle/abc\nVagas: 5' }),
+      );
+      expect(draft?.table.raw_system_hint).toBe('D&D');
+    });
+  });
 });

@@ -8,7 +8,6 @@ import { decryptDiscordSetting } from '../discord/settingsCrypto';
 
 const configSchema = z.object({
   enabled: z.boolean().default(false),
-  binary: z.string().trim().min(1).default('DiscordChatExporter.Cli'),
   importDir: z.string().trim().min(1),
   channelId: z.string().trim().min(1),
   after: z.string().trim().optional(),
@@ -26,7 +25,14 @@ async function setting(key: string): Promise<string | null> {
 async function loadDbConfig() {
   const rawConfig = await setting('chat_exporter_config');
   if (!rawConfig) return null;
-  const parsed = configSchema.safeParse(JSON.parse(rawConfig));
+  let raw: unknown;
+  try {
+    raw = JSON.parse(rawConfig);
+  } catch {
+    console.warn('[exportDiscordChatExporter] chat_exporter_config com JSON inválido; ignorando.');
+    return null;
+  }
+  const parsed = configSchema.safeParse(raw);
   if (!parsed.success) return null;
   const token = await setting('chat_exporter_token');
   const cookies = await setting('chat_exporter_cookies');
@@ -47,7 +53,7 @@ async function main() {
   const rootDir = dbConfig?.importDir ?? process.env.DISCORD_CHAT_EXPORTER_IMPORT_DIR;
   const token = dbConfig?.token ?? process.env.DISCORD_CHAT_EXPORTER_TOKEN;
   const channelId = dbConfig?.channelId ?? process.env.DISCORD_CHAT_EXPORTER_CHANNEL_ID;
-  const binary = dbConfig?.binary ?? process.env.DISCORD_CHAT_EXPORTER_BIN ?? 'DiscordChatExporter.Cli';
+  const binary = process.env.DISCORD_CHAT_EXPORTER_BIN ?? 'DiscordChatExporter.Cli';
   const cookies = dbConfig?.cookies ?? process.env.DISCORD_CHAT_EXPORTER_COOKIES;
   const after = dbConfig?.after ?? process.env.DISCORD_CHAT_EXPORTER_AFTER;
 

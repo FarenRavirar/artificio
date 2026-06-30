@@ -9,6 +9,7 @@ import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/
 import { assistDiscordParse } from '../../discord/llmAssist';
 import { getAiAutomationConfig, isAiAssistEnabled } from '../../discord/aiAutomationConfig';
 import { attachAiSuggestions, buildAiSuggestionFields } from '../../discord/aiSuggestions';
+import { LEARNABLE_FIELDS, lookupFieldLearning, recordFieldLearning } from '../../discord/fieldLearning';
 import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
@@ -144,6 +145,18 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
     if (updateResult.numUpdatedRows === 0n) {
       throw Object.assign(new Error('Draft mudou de estado durante a correção.'), { statusCode: 409 });
     }
+
+    // D087 — alimenta o learning-store: cada campo corrigido vira regra
+    // determinística `campo + token(before) → after` reutilizável sem IA.
+    // Escopo por guild (fallback global no lookup).
+    const source = parsedBefore.source as Record<string, unknown> | undefined;
+    const guildId = typeof source?.guild_id === 'string' ? source.guild_id : null;
+    const learningEntries = Object.entries(diff).map(([field, { before, after }]) => ({
+      field,
+      inputValue: before,
+      outputValue: after,
+    }));
+    await recordFieldLearning(learningEntries, guildId, userId, trx);
   });
 
   return { draft_id: draftId, fields_corrected: Object.keys(diff).length, diff };
@@ -423,25 +436,55 @@ async function enrichDraftWithLlm(
     normalized.draft.missing_fields.length > 0;
   if (!shouldAskLlm || !normalized.draft.table) return normalized;
 
-  const rawText = typeof contentRaw === 'string' ? contentRaw : '';
-  if (rawText.length <= 50) return normalized;
-
   const table = normalized.draft.table as unknown as Record<string, unknown>;
-  const existingFields: Record<string, unknown> = {};
-  if (table.title) existingFields.title = table.title;
-  if (table.system_name) existingFields.system_name = table.system_name;
-  if (table.day_of_week) existingFields.day_of_week = table.day_of_week;
-  if (table.start_time) existingFields.start_time = table.start_time;
 
-  const llmResult = await assistDiscordParse(rawText, existingFields, aiConfig.model);
-  if (!llmResult) return normalized;
+  // D087 — camada learning-store (token-zero) ANTES da IA. Correções humanas
+  // passadas resolvem valores errados/repetidos sem chamar o provider.
+  const lookupQueries = LEARNABLE_FIELDS
+    .filter((f) => table[f] !== null && table[f] !== undefined && table[f] !== '')
+    .map((f) => ({ field: f as string, value: table[f] }));
+  const guildId = normalized.draft.source?.guild_id ?? null;
+  const storeHits = await lookupFieldLearning(lookupQueries, guildId);
+  const storeFields: Record<string, unknown> = {};
+  for (const hit of storeHits) {
+    if (JSON.stringify(table[hit.field]) !== JSON.stringify(hit.value)) {
+      storeFields[hit.field] = hit.value;
+    }
+  }
 
-  const suggestions = buildAiSuggestionFields(llmResult.extracted, normalized.draft.table);
-  if (Object.keys(suggestions).length === 0) return normalized;
+  // Se o store já resolveu todos os campos faltantes, não gasta token de IA.
+  const missing = normalized.draft.missing_fields;
+  const storeResolvedAllMissing = missing.length > 0 && missing.every((m) => m in storeFields);
+
+  const rawText = typeof contentRaw === 'string' ? contentRaw : '';
+  let iaFields: Record<string, unknown> = {};
+  let iaModel = 'n/a';
+  if (!storeResolvedAllMissing && rawText.length > 50) {
+    const existingFields: Record<string, unknown> = {};
+    if (table.title) existingFields.title = table.title;
+    if (table.system_name) existingFields.system_name = table.system_name;
+    if (table.day_of_week) existingFields.day_of_week = table.day_of_week;
+    if (table.start_time) existingFields.start_time = table.start_time;
+
+    const llmResult = await assistDiscordParse(rawText, existingFields, aiConfig.model);
+    if (llmResult) {
+      iaFields = buildAiSuggestionFields(llmResult.extracted, normalized.draft.table);
+      iaModel = llmResult.model;
+    }
+  }
+
+  // Store tem precedência (correção humana > palpite da IA).
+  const merged = { ...iaFields, ...storeFields };
+  if (Object.keys(merged).length === 0) return normalized;
+
+  const usedIa = Object.keys(iaFields).length > 0;
+  const usedStore = Object.keys(storeFields).length > 0;
+  const provider = usedIa ? (usedStore ? `learning-store+${aiConfig.provider}` : aiConfig.provider) : 'learning-store';
+  const model = usedIa ? iaModel : 'n/a';
 
   return {
     ...normalized,
-    draft: attachAiSuggestions(normalized.draft, suggestions, aiConfig.provider, llmResult.model),
+    draft: attachAiSuggestions(normalized.draft, merged, provider, model),
   };
 }
 

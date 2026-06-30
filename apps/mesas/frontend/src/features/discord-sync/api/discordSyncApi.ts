@@ -58,7 +58,6 @@ const chatExporterConfigSchema = z.object({
   frequency: z.enum(['hourly', 'daily', 'weekly']).optional(),
   time: z.string().optional(),
   timezone: z.string().optional(),
-  binary: z.string().optional(),
   importDir: z.string().optional(),
   channelId: z.string().optional(),
   after: z.string().optional(),
@@ -355,7 +354,6 @@ export const discordSyncApi = {
     frequency: 'hourly' | 'daily' | 'weekly';
     time: string;
     timezone: string;
-    binary: string;
     importDir: string;
     channelId: string;
     after: string;

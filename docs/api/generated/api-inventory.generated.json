@@ -1122,7 +1122,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/chat-exporter/config",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 220,
+      "line": 223,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1131,7 +1131,7 @@
       "method": "PUT",
       "path": "/api/v1/admin/discord/chat-exporter/config",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 228,
+      "line": 231,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1140,7 +1140,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/chat-exporter/run",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 275,
+      "line": 279,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1149,7 +1149,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/chat-exporter/test",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 250,
+      "line": 253,
       "confidence": "high",
       "kind": "express-route"
     },

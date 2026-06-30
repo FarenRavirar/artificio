@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 280,
+    "total": 281,
     "uniqueEndpoints": 259,
     "byApp": {
       "accounts-frontend": {
@@ -36,16 +36,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 162,
+        "total": 163,
         "byConfidence": {
           "medium": 64,
-          "high": 96,
+          "high": 97,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 56,
-          "service-wrapper": 40,
+          "service-wrapper": 41,
           "literal": 58,
           "concatenation": 2
         }
@@ -977,7 +977,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getChatExporterConfig",
-      "line": 52
+      "line": 51
     },
     {
       "app": "mesas-frontend",
@@ -987,7 +987,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.saveChatExporterConfig",
-      "line": 69
+      "line": 70
     },
     {
       "app": "mesas-frontend",
@@ -997,7 +997,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.runChatExporterNow",
-      "line": 104
+      "line": 105
     },
     {
       "app": "mesas-frontend",
@@ -1007,7 +1007,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.testChatExporterConfig",
-      "line": 91
+      "line": 92
     },
     {
       "app": "mesas-frontend",

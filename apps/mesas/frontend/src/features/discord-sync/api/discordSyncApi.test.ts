@@ -76,7 +76,6 @@ describe('discordSyncApi', () => {
       frequency: 'daily',
       time: '03:20',
       timezone: 'America/Sao_Paulo',
-      binary: 'DiscordChatExporter.Cli',
       importDir: '/var/lib/artificio/discord',
       channelId: '123456789',
       after: '2026-06-01',

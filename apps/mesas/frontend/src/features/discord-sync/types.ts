@@ -209,7 +209,6 @@ export interface ChatExporterConfig {
   frequency?: ChatExporterFrequency;
   time?: string;
   timezone?: string;
-  binary?: string;
   importDir?: string;
   channelId?: string;
   after?: string;

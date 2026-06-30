@@ -405,7 +405,32 @@ function extractSlots(text: string): SlotsResult {
     ?? slotsLabeled(cleaned)
     ?? slotsSlashVagas(text)
     ?? slotsNVagas(text)
+    ?? slotsViaLabel(text)
     ?? { total: null, open: null, ambiguity: null };
+}
+
+// TC.8/DEB-052-01: fallback por rótulo — pega o valor de labels do template da
+// comunidade (decorados são limpos por cleanLabelLine) e extrai o número. Cobre
+// variações que as regexes ancoradas em linha perdiam ("» Vagas disponíveis: 5").
+function slotsViaLabel(text: string): SlotsResult | null {
+  const value = extractLabelValue(text, [
+    'vagas', 'vagas disponiveis', 'vagas disponíveis', 'vagas totais',
+    'vagas abertas', 'nº de vagas', 'n de vagas', 'numero de vagas',
+    'número de vagas', 'lugares', 'jogadores',
+  ]);
+  if (!value) return null;
+  const slash = /(\d+)\s{0,3}\/\s{0,3}(\d+)/.exec(value);
+  if (slash) {
+    const filled = Number.parseInt(slash[1], 10);
+    const total = Number.parseInt(slash[2], 10);
+    if (!Number.isFinite(total)) return null;
+    return { total, open: Math.max(0, total - filled), ambiguity: null };
+  }
+  const single = /(\d{1,3})/.exec(value);
+  if (!single) return null;
+  const total = Number.parseInt(single[1], 10);
+  if (!Number.isFinite(total) || total <= 0) return null;
+  return { total, open: total, ambiguity: null };
 }
 
 // Extrai dia da semana do texto
@@ -491,9 +516,16 @@ function extractContactDiscord(text: string): string | null {
 }
 
 function cleanLabelLine(line: string): string {
+  // DEB-052-01: remover markdown ANTES da decoração (a ordem inversa deixava
+  // `▬` órfão em `**▬ label`); classe de bullets ampliada (`»«►▶●…`) + emoji de
+  // liderança comuns no template da comunidade, que antes travavam o match de
+  // labels já conhecidos (sistema/vagas/data).
   return line
-    .replace(/^[\s▬•\-–—]+/, '')
     .replace(/\*\*/g, '')
+    .replace(/__/g, '')
+    .replace(/^[\s▬•\-–—»«►▶◄●○◆◇■□▪▫☆★✦✧➤➥➔→·|]+/u, '')
+    .replace(/^[\p{Extended_Pictographic}️\s]+/u, '')
+    .replace(/^[\s▬•\-–—»«►▶◄●○◆◇■□▪▫☆★✦✧➤➥➔→·|]+/u, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -507,7 +539,10 @@ function splitLabelLine(line: string): { key: string; value: string } | null {
   // [^:：] no prefixo evita sobreposição com o separador (sem backtracking).
   const match = /^([^:：]{1,48})\s{0,3}[:：]\s{0,3}(.*)$/.exec(cleaned);
   if (!match) return null;
-  return { key: normalizeLabelKey(match[1]), value: match[2].trim() };
+  const key = normalizeLabelKey(match[1]);
+  // DEB-052-01: URLs ("https://…") casam o split como falso label `https`/`http`.
+  if (key === 'http' || key === 'https') return null;
+  return { key, value: match[2].trim() };
 }
 
 function extractHostDiscordId(text: string): string | null {
@@ -547,6 +582,10 @@ function collectLabelContinuation(lines: string[], startIdx: number, firstValue:
       continue;
     }
     if (splitLabelLine(next)) break;
+    // DEB-052-01: linha de URL não é continuação de um valor de rótulo
+    // (antes "https:" era falso-rótulo e quebrava aqui; com o guard, evita
+    // que a URL seja engolida no valor anterior — ex.: Sistema).
+    if (/^https?:\/\//i.test(next)) break;
     values.push(next);
   }
   return values;

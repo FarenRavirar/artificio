@@ -23,7 +23,6 @@ const configSchema = z.object({
   frequency: frequencySchema.default('daily'),
   time: z.string().regex(/^\d{2}:\d{2}$/, 'Horário deve estar em HH:MM.').default('03:20'),
   timezone: z.string().trim().min(1).default('America/Sao_Paulo'),
-  binary: z.string().trim().min(1).default('DiscordChatExporter.Cli'),
   importDir: z.string().trim().min(1),
   channelId: z.string().trim().regex(/^\d{5,30}$/, 'Canal Discord inválido.'),
   after: z.string().trim().optional(),
@@ -44,8 +43,12 @@ function defaultConfig(): Partial<ChatExporterConfig> {
     frequency: 'daily',
     time: '03:20',
     timezone: 'America/Sao_Paulo',
-    binary: 'DiscordChatExporter.Cli',
   };
+}
+
+// Binário resolvido só no servidor (env/deploy), nunca a partir do payload do admin — evita execução arbitrária.
+function resolveBinary(): string {
+  return process.env.DISCORD_CHAT_EXPORTER_BIN?.trim() || 'DiscordChatExporter.Cli';
 }
 
 function maskSecret(value: string): string {
@@ -252,13 +255,14 @@ router.post('/test', requireAdmin, async (_req: Request, res: Response) => {
     const loaded = await loadConfig();
     const errors = configErrors(loaded.config, loaded.token);
     const parsed = configSchema.safeParse(loaded.config);
+    const binary = resolveBinary();
     if (parsed.success) {
-      const binaryError = await validateBinary(parsed.data.binary);
+      const binaryError = await validateBinary(binary);
       if (binaryError) errors.push(binaryError);
     }
     const command = parsed.success && loaded.token
       ? redactedChatExporterCliCommand(buildChatExporterCliCommand({
-          binary: parsed.data.binary,
+          binary,
           token: loaded.token,
           channelId: parsed.data.channelId,
           outputDir: path.join(parsed.data.importDir, 'incoming'),
@@ -280,13 +284,14 @@ router.post('/run', requireAdmin, async (req: Request, res: Response) => {
     if (!parsed.success || !loaded.token || errors.length > 0) {
       return res.status(422).json({ error: 'Configuração incompleta.', details: errors });
     }
-    const binaryError = await validateBinary(parsed.data.binary);
+    const binary = resolveBinary();
+    const binaryError = await validateBinary(binary);
     if (binaryError) return res.status(422).json({ error: binaryError });
 
     const incomingDir = path.join(parsed.data.importDir, 'incoming');
     await mkdir(incomingDir, { recursive: true });
     const exportResult = await runChatExporterCli({
-      binary: parsed.data.binary,
+      binary,
       token: loaded.token,
       channelId: parsed.data.channelId,
       outputDir: incomingDir,

@@ -697,6 +697,29 @@ export type ImportCorrection = Selectable<ImportCorrectionsTable>;
 export type NewImportCorrection = Insertable<ImportCorrectionsTable>;
 export type ImportCorrectionUpdate = Updateable<ImportCorrectionsTable>;
 
+// Migration 133 (D087): learning-store determinístico — correções humanas viram
+// cache campo+token consultado antes da IA (economia de token).
+export interface DiscordFieldLearningTable {
+  id: Generated<string>;
+  field: string;
+  input_token: string;
+  output_value: unknown;
+  guild_id: string | null;
+  key_type: Generated<string>;
+  hits: Generated<number>;
+  rejections: Generated<number>;
+  applied_count: Generated<number>;
+  active: Generated<boolean>;
+  last_applied_at: Date | null;
+  last_corrected_by: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type DiscordFieldLearning = Selectable<DiscordFieldLearningTable>;
+export type NewDiscordFieldLearning = Insertable<DiscordFieldLearningTable>;
+export type DiscordFieldLearningUpdate = Updateable<DiscordFieldLearningTable>;
+
 // Migration 131: Métricas (T-G6) + Shadow mode (T-G7) — Spec 048
 export interface DiscordImportRunsTable {
   id: Generated<string>;
@@ -804,6 +827,9 @@ export interface Database {
   // Migration 131: Métricas + Shadow mode (Spec 048 T-G6/T-G7)
   discord_import_runs: DiscordImportRunsTable;
   discord_shadow_decisions: DiscordShadowDecisionsTable;
+
+  // Migration 133: Learning-store determinístico (Spec 052 D087)
+  discord_field_learning: DiscordFieldLearningTable;
 
   // Migration 116: Configuracoes cifradas do modulo Discord
   discord_settings: DiscordSettingsTable;

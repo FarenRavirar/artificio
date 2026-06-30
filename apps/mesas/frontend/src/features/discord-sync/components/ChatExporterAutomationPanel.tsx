@@ -9,7 +9,6 @@ const DEFAULT_FORM = {
   frequency: 'daily' as ChatExporterFrequency,
   time: '03:20',
   timezone: 'America/Sao_Paulo',
-  binary: 'DiscordChatExporter.Cli',
   importDir: '',
   channelId: '',
   after: '',
@@ -21,7 +20,6 @@ function toForm(config: ChatExporterConfig) {
     frequency: config.frequency ?? DEFAULT_FORM.frequency,
     time: config.time ?? DEFAULT_FORM.time,
     timezone: config.timezone ?? DEFAULT_FORM.timezone,
-    binary: config.binary ?? DEFAULT_FORM.binary,
     importDir: config.importDir ?? '',
     channelId: config.channelId ?? '',
     after: config.after ?? '',
@@ -46,21 +44,24 @@ export function ChatExporterAutomationPanel() {
   const [testResult, setTestResult] = useState<ChatExporterTestResult | null>(null);
   const [runResult, setRunResult] = useState<ChatExporterRunResult | null>(null);
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const next = await discordSyncApi.getChatExporterConfig();
-      setConfig(next);
-      setForm(toForm(next));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar ChatExporter.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    void load();
+    let active = true;
+    (async () => {
+      try {
+        const next = await discordSyncApi.getChatExporterConfig();
+        if (!active) return;
+        setConfig(next);
+        setForm(toForm(next));
+      } catch (err) {
+        if (!active) return;
+        toast.error(err instanceof Error ? err.message : 'Erro ao carregar ChatExporter.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const save = async () => {
@@ -111,6 +112,25 @@ export function ChatExporterAutomationPanel() {
     }
   };
 
+  const clearSecret = async (which: 'token' | 'cookies') => {
+    setSaving(true);
+    try {
+      const next = await discordSyncApi.saveChatExporterConfig({
+        clearToken: which === 'token',
+        clearCookies: which === 'cookies',
+      });
+      setConfig(next);
+      setForm(toForm(next));
+      if (which === 'token') setToken('');
+      else setCookies('');
+      toast.success(which === 'token' ? 'Token removido.' : 'Cookies removidos.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao remover segredo.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) return <p className="text-white/40 text-sm py-4 text-center">Carregando...</p>;
 
   return (
@@ -120,8 +140,18 @@ export function ChatExporterAutomationPanel() {
           {form.enabled ? <ShieldCheck size={16} /> : <Clock size={16} />}
           {statusLabel(config)}
         </span>
-        {config?.token.is_set && <span className="font-mono text-sm text-white/60">token {config.token.preview}</span>}
-        {config?.cookies.is_set && <span className="font-mono text-sm text-white/60">cookies {config.cookies.preview}</span>}
+        {config?.token.is_set && (
+          <span className="inline-flex items-center gap-2 font-mono text-sm text-white/60">
+            token {config.token.preview}
+            <button type="button" onClick={() => clearSecret('token')} disabled={saving} className="font-sans text-xs text-red-300 hover:text-red-200 disabled:opacity-60 underline">remover</button>
+          </span>
+        )}
+        {config?.cookies.is_set && (
+          <span className="inline-flex items-center gap-2 font-mono text-sm text-white/60">
+            cookies {config.cookies.preview}
+            <button type="button" onClick={() => clearSecret('cookies')} disabled={saving} className="font-sans text-xs text-red-300 hover:text-red-200 disabled:opacity-60 underline">remover</button>
+          </span>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -132,10 +162,6 @@ export function ChatExporterAutomationPanel() {
         <label className="space-y-2 text-sm text-white/80">
           <span>Pasta de importação</span>
           <input className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white outline-none focus:border-blue-500" value={form.importDir} onChange={(event) => setForm({ ...form, importDir: event.target.value })} />
-        </label>
-        <label className="space-y-2 text-sm text-white/80">
-          <span>Binário</span>
-          <input className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white outline-none focus:border-blue-500" value={form.binary} onChange={(event) => setForm({ ...form, binary: event.target.value })} />
         </label>
         <label className="space-y-2 text-sm text-white/80">
           <span>Depois de</span>
