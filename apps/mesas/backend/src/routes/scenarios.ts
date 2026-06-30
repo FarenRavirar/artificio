@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { sql } from 'kysely';
 import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
 
@@ -248,7 +249,7 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req: Re
     // Verificar se há mesas vinculadas
     const tablesCount = await db
       .selectFrom('tables')
-      .select(db.fn.count('id').as('count'))
+      .select(sql<number>`COUNT(id)::int`.as('count'))
       .where('scenario_id', '=', id)
       .executeTakeFirst();
 

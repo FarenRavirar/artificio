@@ -59,7 +59,10 @@ function resolveInputPath(inputPath: string): string {
 async function main(): Promise<void> {
   const inputPath = process.argv[2];
   if (!inputPath) {
-    console.error('Uso: pnpm --filter @artificio/mesas-backend discord:ai-eval <arquivo.json>');
+    console.error([
+      'Uso: pnpm --filter @artificio/mesas-backend discord:ai-eval <arquivo.json>',
+      'Base permitida: DISCORD_AI_EVAL_INPUT_DIR ou o diretório atual.',
+    ].join('\n'));
     process.exitCode = 1;
     return;
   }
