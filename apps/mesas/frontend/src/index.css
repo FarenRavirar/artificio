@@ -27,6 +27,12 @@
   --surface-chip:    #13213f;
   --surface-card:    #1B2A4A;
 
+  /* Admin (/gestao) — superfícies próprias do painel (057).
+     Nomeiam as cores de-facto antes espalhadas como hex cru nas Sections. */
+  --admin-rail:    #0E1A38;  /* sidebar/rail */
+  --admin-surface: #16223E;  /* cards/painéis do admin */
+  --admin-hover:   rgba(255, 255, 255, 0.05);
+
   /* Foreground (branco com opacidades) */
   --fg:       #FFFFFF;
   --fg-muted: rgba(255, 255, 255, 0.75);
@@ -193,6 +199,11 @@
   --surface-panel:   var(--artificio-light-surface);
   --surface-chip:    var(--artificio-light-subtle);
   --surface-card:    var(--artificio-light-surface);
+
+  /* Admin (/gestao) dark → light (057) */
+  --admin-rail:    var(--artificio-light-strong);
+  --admin-surface: var(--artificio-light-surface);
+  --admin-hover:   rgba(2, 7, 64, 0.05);
 
   /* Foreground branco → ink (mesma hierarquia de opacidade) */
   --fg:       var(--artificio-light-ink);

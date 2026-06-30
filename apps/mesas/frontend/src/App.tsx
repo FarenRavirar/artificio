@@ -59,13 +59,19 @@ function AppRoutes() {
       } />
       <Route path="/painel" element={<ProtectedRoute><PainelMestrePage /></ProtectedRoute>} />
       <Route path="/gestao" element={<ProtectedRoute requiredRole="admin"><GestaoLayout /></ProtectedRoute>}>
-        <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<DashboardSection />} />
-        <Route path="conteudo" element={<ConteudoSection />} />
+        <Route index element={<Navigate to="visao-geral" replace />} />
+        {/* IA nova (057). Sections atuais reusadas como conteúdo até cada fase reescrever. */}
+        <Route path="visao-geral" element={<DashboardSection />} />
+        <Route path="mesas/:sub?" element={<ModeracaoSection />} />
+        <Route path="catalogo" element={<ConteudoSection />} />
         <Route path="comunidade" element={<ComunidadeSection />} />
-        <Route path="moderacao/:sub?" element={<ModeracaoSection />} />
-        <Route path="integracoes" element={<IntegracoesSection />} />
+        <Route path="importacao" element={<IntegracoesSection />} />
         <Route path="sistema" element={<SistemaSection />} />
+        {/* Redirects das rotas antigas — sem link morto */}
+        <Route path="dashboard" element={<Navigate to="/gestao/visao-geral" replace />} />
+        <Route path="conteudo" element={<Navigate to="/gestao/catalogo" replace />} />
+        <Route path="moderacao/:sub?" element={<Navigate to="/gestao/mesas" replace />} />
+        <Route path="integracoes" element={<Navigate to="/gestao/importacao" replace />} />
       </Route>
       {/* REMOVIDO: Sistema de ingestão automática desacoplado */}
       {/* <Route path="/admin/devtools" element={<ProtectedRoute requiredRole="admin"><AdminDevToolsPage /></ProtectedRoute>} /> */}

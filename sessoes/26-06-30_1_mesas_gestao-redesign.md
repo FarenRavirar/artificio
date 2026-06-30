@@ -46,8 +46,23 @@
 - **Fronteira 052↔057:** mantenedor decidiu **057 dona de TUDO no DCE** (UI/perfis + Dockerfile bundle + runner agendado). 052 Bloco A (ingestão DCE) absorvido → nova T6.9 (runner no `mesas-cron`); 052 segue dona da camada IA/shadow. tasks.md Fase 6 atualizada.
 - **Risco aberto (valido em T6.6, não bloqueia):** DCE `publish -r linux-musl-x64 --self-contained` — confirmar suporte a RID musl no build antes de fechar.
 
+## G2 — implementação iniciada (2026-06-30, autorizado "pode iniciar")
+**Working tree salva primeiro** (mantenedor: "pegue o que dá para reaproveitar"): 2 commits na branch `feat/057-mesas-gestao-redesign` —
+- `d2390ef chore(052)`: hardening DCE/metrics salvo da tree suja (guards path-traversal + `sql FILTER` no metrics + breakdown de status de draft) — relevante pois 057 absorve DCE.
+- `40b1455 docs(057)`: spec/sessão/backlog/index/project-state + `.gitignore: .codex/`.
+Tree limpa.
+
+**Fase 2 — Fundação (núcleo pronto, tsc+lint verdes; sem commit ainda):**
+- T2.1 ✅ tokens `--admin-rail/--admin-surface/--admin-hover` (dark+light) em `index.css`. Remoção de hardcode das Sections movida p/ fases 4-7 (reescrevem cada Section) — anti-retrabalho.
+- T2.2 ✅ primitivas `ui/`: `PageHeader`, `MetricCard`, `SectionCard`, `StatusPill`, `cn`.
+- T2.4 ✅ `<AdminTable>` (R15): filtros+facetas estado-na-URL, lote apagar/arquivar, abrir/editar, loading/erro/empty. Genérico+presentacional.
+- T2.3 ✅ `AdminSidebar` 6 grupos IA nova + roteamento (`visao-geral/mesas/catalogo/importacao` + redirects das antigas). Achado: sidebar antiga usava `--brand` inexistente → ativo quebrado; corrigido p/ `--color-artificio-orange`. Sections atuais reusadas interino (sem stub/link morto).
+- T2.5 ⏸ diferido — endpoints de lote/arquivo criados junto da UI que os usa (fases 4-7). Mesa já tem archive.
+- Smoke real = T9.2 beta (rota auth-gated).
+
 ## Próximo passo
-- **G2:** autorização nominal para iniciar implementação (Fase 2: fundação tokens+`<AdminTable>`+sidebar). **Nenhum código antes do OK.**
+- Fase 3 (unificar árvores `modules/admin`→`features/admin`) **ou** Fase 4 (Visão geral). Sob autorização.
+- Pendente: autorização p/ commit da Fase 2.
 
 ## Critério de conclusão (desta abertura)
 - `inventario.md` + `proposta-ia.md` completos; plano faseado aprovado pelo mantenedor.

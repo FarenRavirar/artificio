@@ -1,31 +1,24 @@
-import type { CSSProperties } from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  BookOpen,
-  Users,
-  ShieldCheck,
-  Puzzle,
-  Settings,
-} from 'lucide-react';
+import { BookOpen, ClipboardList, DownloadCloud, LayoutDashboard, Settings, Users } from 'lucide-react';
+import { cn } from './ui/cn';
 
 interface SidebarGroup {
   label: string;
   slug: string;
   icon: React.ReactNode;
-  badge?: number;
 }
 
 interface Props {
   pendenciaCount?: number;
 }
 
+// IA nova (057, proposta-ia §2). Sidebar = recursos, não verbos.
 const groups: SidebarGroup[] = [
-  { label: 'Dashboard', slug: 'dashboard', icon: <LayoutDashboard size={18} /> },
-  { label: 'Conteúdo', slug: 'conteudo', icon: <BookOpen size={18} /> },
+  { label: 'Visão geral', slug: 'visao-geral', icon: <LayoutDashboard size={18} /> },
+  { label: 'Mesas', slug: 'mesas', icon: <ClipboardList size={18} /> },
+  { label: 'Catálogo', slug: 'catalogo', icon: <BookOpen size={18} /> },
   { label: 'Comunidade', slug: 'comunidade', icon: <Users size={18} /> },
-  { label: 'Moderação', slug: 'moderacao', icon: <ShieldCheck size={18} /> },
-  { label: 'Integrações', slug: 'integracoes', icon: <Puzzle size={18} /> },
+  { label: 'Importação', slug: 'importacao', icon: <DownloadCloud size={18} /> },
   { label: 'Sistema', slug: 'sistema', icon: <Settings size={18} /> },
 ];
 
@@ -33,58 +26,31 @@ export function AdminSidebar({ pendenciaCount }: Props) {
   return (
     <nav
       aria-label="Gestão administrativa"
-      className="w-60 shrink-0 flex flex-col border-r overflow-y-auto"
-      style={{
-        backgroundColor: 'var(--admin-rail, #0E1A38)',
-        borderColor: 'var(--border)',
-      }}
+      className="flex w-60 shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--admin-rail)]"
     >
-      {/* Cabeçalho da sidebar */}
-      <div
-        className="px-5 py-4 border-b"
-        style={{ borderColor: 'var(--border)' }}
-      >
-        <span
-          className="eyebrow block"
-          style={{ color: 'var(--fg-low)' }}
-        >
-          Gestão
-        </span>
+      <div className="border-b border-[var(--border)] px-5 py-4">
+        <span className="eyebrow block text-[var(--fg-low)]">Gestão</span>
       </div>
 
-      {/* Lista de grupos */}
-      <ul className="flex flex-col gap-1 p-3 flex-1">
+      <ul className="flex flex-1 flex-col gap-1 p-3">
         {groups.map((group) => (
           <li key={group.slug}>
             <NavLink
               to={`/gestao/${group.slug}`}
-              end={group.slug === 'dashboard'}
-              className={({ isActive }: { isActive: boolean }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2.5 text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-[var(--brand)]/10 text-[var(--brand)]'
-                    : 'text-white/60 hover:text-white/80 hover:bg-white/5'
-                }`
-              }
-              style={({ isActive }: { isActive: boolean }): CSSProperties =>
-                isActive
-                  ? { borderLeft: '3px solid var(--brand, #FF5722)' }
-                  : { borderLeft: '3px solid transparent' }
+                    ? 'border-[var(--color-artificio-orange)] bg-[color-mix(in_srgb,var(--color-artificio-orange)_12%,transparent)] text-[var(--color-artificio-orange)]'
+                    : 'border-transparent text-[var(--fg-low)] hover:bg-[var(--admin-hover)] hover:text-[var(--fg-muted)]',
+                )
               }
             >
-              <span className="shrink-0 opacity-70">{group.icon}</span>
+              <span className="shrink-0 opacity-80">{group.icon}</span>
               <span className="truncate">{group.label}</span>
-              {group.badge !== undefined && group.badge > 0 && (
-                <span
-                  className="ml-auto tabular-nums text-xs font-semibold px-1.5 py-0.5 rounded-full"
-                  style={{
-                    backgroundColor: 'var(--brand)',
-                    color: '#fff',
-                    minWidth: '1.25rem',
-                    textAlign: 'center',
-                  }}
-                >
-                  {group.badge}
+              {group.slug === 'comunidade' && pendenciaCount !== undefined && pendenciaCount > 0 && (
+                <span className="ml-auto min-w-5 rounded-full bg-[var(--color-artificio-orange)] px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-white">
+                  {pendenciaCount}
                 </span>
               )}
             </NavLink>
@@ -92,15 +58,8 @@ export function AdminSidebar({ pendenciaCount }: Props) {
         ))}
       </ul>
 
-      {/* Pendência geral (opcional, vinda de queueStats) */}
       {pendenciaCount !== undefined && pendenciaCount > 0 && (
-        <div
-          className="px-5 py-3 border-t text-xs tabular-nums"
-          style={{
-            borderColor: 'var(--border)',
-            color: 'var(--fg-faint)',
-          }}
-        >
+        <div className="border-t border-[var(--border)] px-5 py-3 text-xs tabular-nums text-[var(--fg-faint)]">
           {pendenciaCount} pendente{pendenciaCount !== 1 ? 's' : ''}
         </div>
       )}

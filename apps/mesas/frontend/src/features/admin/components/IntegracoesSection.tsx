@@ -55,7 +55,7 @@ function ModeracaoLinks({ target }: { target: 'mensagens' | 'rascunhos' }) {
       {items.map(item => (
         <NavLink
           key={item.slug}
-          to={`/gestao/moderacao/${item.slug}`}
+          to={`/gestao/mesas/${item.slug}`}
           className={`block rounded-lg border px-4 py-3 transition-colors hover:bg-white/[0.08] ${
             item.slug === target ? 'border-blue-400/40' : ''
           }`}
@@ -114,7 +114,7 @@ export function IntegracoesSection() {
       {subTab === 'discord-canais' && <DiscordSourceListWrapper />}
       {subTab === 'discord-mensagens' && <ModeracaoLinks target="mensagens" />}
       {subTab === 'discord-rascunhos' && <ModeracaoLinks target="rascunhos" />}
-      {subTab === 'discord-import' && <DiscordJsonImportPanel onNavigateToDrafts={() => navigate('/gestao/moderacao/rascunhos')} />}
+      {subTab === 'discord-import' && <DiscordJsonImportPanel onNavigateToDrafts={() => navigate('/gestao/mesas/rascunhos')} />}
       {subTab === 'importacao' && (
         <div>
           <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>
