@@ -48,8 +48,13 @@ export function AdminSidebar({ pendenciaCount }: Props) {
             >
               <span className="shrink-0 opacity-80">{group.icon}</span>
               <span className="truncate">{group.label}</span>
-              {group.slug === 'comunidade' && pendenciaCount !== undefined && pendenciaCount > 0 && (
-                <span className="ml-auto min-w-5 rounded-full bg-[var(--color-artificio-orange)] px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-white">
+              {/* Badge = total global de pendências (sugestões + rascunhos);
+                  fica no overview, não num domínio específico. */}
+              {group.slug === 'visao-geral' && pendenciaCount !== undefined && pendenciaCount > 0 && (
+                <span
+                  title="Pendências no total (sugestões + rascunhos)"
+                  className="ml-auto min-w-5 rounded-full bg-[var(--color-artificio-orange)] px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-white"
+                >
                   {pendenciaCount}
                 </span>
               )}

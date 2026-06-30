@@ -19,7 +19,7 @@ const VALUE_TONE: Record<NonNullable<Props['tone']>, string> = {
 };
 
 /** Card de métrica de estado real. Vira link se `to` for passado. */
-export function MetricCard({ label, value, hint, icon, to, tone = 'neutral', loading }: Props) {
+export function MetricCard({ label, value, hint, icon, to, tone = 'neutral', loading }: Readonly<Props>) {
   const inner = (
     <>
       <div className="flex items-center justify-between gap-2">

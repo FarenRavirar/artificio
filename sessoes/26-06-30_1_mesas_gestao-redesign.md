@@ -60,9 +60,31 @@ Tree limpa.
 - T2.5 ⏸ diferido — endpoints de lote/arquivo criados junto da UI que os usa (fases 4-7). Mesa já tem archive.
 - Smoke real = T9.2 beta (rota auth-gated).
 
+## Fase 2 commitada + PR + conserto da base (2026-06-30)
+- Commit Fase 2 + push + **PR #119** base `dev`.
+- **BUG de processo:** branch `feat/057` criada a partir de `feat/052` (tree ativa) em vez de `dev` → PR carregou os 6 commits não-mergeados da 052 + salvage = 75 arquivos, CONFLITANTE com `dev`.
+- **Conserto (autorizado):** `git branch backup/057-pre-rebase` + `git rebase --onto origin/dev d2390ef` + `git push --force-with-lease`. PR #119 agora só 057: **26 arquivos, 1278/71, MERGEABLE**. SHAs novos: `72faccb docs(057)` + `b04e5b7 feat(057)`.
+- **Salvage 052 (`d2390ef`, hardening DCE/metrics) preservado em `backup/057-pre-rebase`** → DÉBITO: levar pra branch/PR própria da 052 (não pertence à 057). Registrar em backlog da 052.
+- **Aprendizado:** sempre criar branch de trabalho a partir de `dev` atualizado, nunca de outra branch de feature com tree suja. Ver `fluxo-por-fase-057` (memória).
+- Checks PR: semgrep/snyk ✅, CodeRabbit em andamento.
+
+- **#119 fechada, recriada do zero como PR #120** (pedido do mantenedor — CodeRabbit já tinha começado a ler a versão bagunçada; PR limpa dá review limpo). Mesma branch já rebaseada. #120: 26 arquivos, 1278/71, MERGEABLE. https://github.com/FarenRavirar/artificio/pull/120
+
+## Review Codex #120 + fix CI api-governance (2026-06-30)
+- **Codex 2×P2 (ambos procedem, corrigidos):** C1 redirect `moderacao/:sub?` dropava sub → `LegacyModeracaoRedirect` preserva + repoint DashboardSection; C2 lote por `selected.size` enganoso → `visibleSelectedIds` (filtrado∩selecionado). Veredictos em `reviews.md`.
+- **CI api-governance vermelho:** `api-consumers.generated.json` defasado (consumidor moveu linha 84→90 por causa do código novo). **Causa-raiz:** no rebase eu rodei `git checkout -- docs/api/generated/` e descartei o regen que o pre-push tinha feito → b04e5b7 subiu com docs/api stale. Corrigido: `pnpm verify:api` (breaking=0) regenerou consumers/diff/inventory/map. **Aprendizado:** nunca `checkout --` em `docs/api/generated` durante rebase; regenerar e commitar junto do código que move linhas.
+- Validação: tsc+eslint+vite build+verify:api verdes.
+
+## Review Sonar #120 — primitivas admin (2026-06-30)
+- Achados do mantenedor em `features/admin/components/ui/*`: props não-readonly, `AdminTable.valueToText` stringificando objeto como `[object Object]`, `window.confirm`, key por índice em breadcrumb.
+- Plano de correção: ajustar tipos locais para `Readonly`, tornar `valueToText` seguro para primitivos/Date e objetos, trocar para `globalThis.confirm`, e chavear breadcrumb por caminho acumulado.
+- Correção aplicada em `AdminTable`, `MetricCard`, `PageHeader`, `SectionCard`, `StatusPill`; sem helper duplicado.
+- Validação: `pnpm --filter @artificio/mesas-frontend lint` ✅; `pnpm --filter @artificio/mesas-frontend build` ✅ (só warning conhecido de chunk >500 kB).
+
 ## Próximo passo
-- Fase 3 (unificar árvores `modules/admin`→`features/admin`) **ou** Fase 4 (Visão geral). Sob autorização.
-- Pendente: autorização p/ commit da Fase 2.
+- **Esperar reviews dos bots no PR #120** (amazon-q/codex/coderabbit) + CI.
+- Triar achados em `reviews.md`, corrigir o que procede (sob autorização), depois Fase 3/4.
+- Pendência: mover salvage `d2390ef` p/ a 052 (branch/PR própria) — fica em `backup/057-pre-rebase`.
 
 ## Critério de conclusão (desta abertura)
 - `inventario.md` + `proposta-ia.md` completos; plano faseado aprovado pelo mantenedor.

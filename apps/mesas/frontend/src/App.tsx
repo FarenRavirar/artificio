@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useAnalyticsPageviews } from '@artificio/analytics/react';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProfileProvider } from './contexts/ProfileContext';
@@ -36,6 +36,14 @@ function AnalyticsPageviews() {
   return null;
 }
 
+// Redirect da rota legada /gestao/moderacao/:sub? preservando o sub
+// (ex.: /gestao/moderacao/rascunhos → /gestao/mesas/rascunhos), p/ não cair
+// na aba errada a partir de deep links/bookmarks antigos.
+function LegacyModeracaoRedirect() {
+  const { sub } = useParams<{ sub?: string }>();
+  return <Navigate to={`/gestao/mesas${sub ? `/${sub}` : ''}`} replace />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -70,7 +78,7 @@ function AppRoutes() {
         {/* Redirects das rotas antigas — sem link morto */}
         <Route path="dashboard" element={<Navigate to="/gestao/visao-geral" replace />} />
         <Route path="conteudo" element={<Navigate to="/gestao/catalogo" replace />} />
-        <Route path="moderacao/:sub?" element={<Navigate to="/gestao/mesas" replace />} />
+        <Route path="moderacao/:sub?" element={<LegacyModeracaoRedirect />} />
         <Route path="integracoes" element={<Navigate to="/gestao/importacao" replace />} />
       </Route>
       {/* REMOVIDO: Sistema de ingestão automática desacoplado */}

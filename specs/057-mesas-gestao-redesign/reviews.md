@@ -2,4 +2,42 @@
 
 > Só reviews externos: mantenedor, bots, PRs, checks. Achados internos vão em `debitos.md`.
 
-(vazio — sem PR/review ainda; spec em fase de investigação)
+## PR #120 (Fase 2) — Codex, commit `b04e5b7` (2026-06-30)
+
+| # | Sev | Achado | Veredicto | Fix |
+|---|---|---|---|---|
+| C1 | P2 | Redirect `moderacao/:sub?` → `/gestao/mesas` dropava o `sub`; deep links/bookmarks `/gestao/moderacao/rascunhos` (DashboardSection:154,177) caíam na aba `mensagens`. | **PROCEDE** (verificado: links reais existiam) | `LegacyModeracaoRedirect` lê `:sub` e navega p/ `/gestao/mesas/${sub}`; + repoint dos 2 links internos da DashboardSection p/ `/gestao/mesas/rascunhos`. |
+| C2 | P2 | `someSelected`/contagem do lote em `selected.size`, mas `runBulk` intersecta com `filteredIds` → toolbar mostra N mas roda em 0 quando filtro esconde selecionados. | **PROCEDE** | `visibleSelectedIds = filteredIds ∩ selected`; `someSelected`/`allSelected`/contagem/`runBulk` derivados dele. |
+
+Ambos corrigidos no mesmo escopo. tsc+eslint verdes. Sem resposta no PR (trava pétrea).
+
+## PR #120 (Fase 2) — CodeRabbit, 17 comentários (2026-06-30)
+
+### Em arquivos do 057 (no #120) — tratados nesta rodada
+| # | Sev | Arquivo | Achado | Veredicto/Fix |
+|---|---|---|---|---|
+| CR1 | Major | `App.tsx:73` | redirect perde `:sub` | **JÁ CORRIGIDO** (= Codex C1). |
+| CR2 | Major | `ui/AdminTable.tsx:146-157,317-332` | `onRun` (lote/linha) sem catch → rejeição não tratada, sem feedback | **PROCEDE** → try/catch + estado `actionError` + banner `role="alert"`; `runRowAction` wrapper. |
+| CR3 | Minor | `AdminSidebar.tsx:25` | badge global de pendências no item Comunidade mistura domínios | **PROCEDE** → badge movido p/ `visao-geral` (overview) + tooltip "total". |
+| CR4 | Minor | `project-state.md:84` | "Sem código." stale | **PROCEDE** → atualizado (G1✅ G2 Fase 2 em PR #120). |
+| CR5 | Minor | `sessoes/index.md:78` | status "G1 pendente" stale | **PROCEDE** → atualizado. |
+| CR6 | Minor | `chatexporter-solucao.md:97` | §8 dizia `linux-x64` (glibc) contradizendo §2 musl | **PROCEDE** → corrigido p/ `linux-musl-x64 --self-contained`. |
+| CR7 | Minor | `spec.md:49-52` | R14/R15 fora de ordem | **PROCEDE** → reordenado R13·R14·R15. |
+
+### Em arquivos da 052 (NÃO estão no #120) — DÉBITO deferido p/ a 052/Fase 6
+CodeRabbit revisou arquivos do backend DCE (`chatExporterCliRunner`, `chatExporterFolderImportService`, `routes/discord/{automation,chatExporterAutomation,import}`, `ChatExporterAutomationPanel`) que pertencem à spec 052 (e ao salvage `d2390ef` em `backup/057-pre-rebase`), **fora do diff do #120**. Não corrijo aqui (escopo errado); registro como débito acionável — vão para a Fase 6 do 057 (que absorve o DCE) ou para a PR própria da 052:
+
+| # | Sev | Arquivo | Achado |
+|---|---|---|---|
+| D1 | **Major** | `chatExporterCliRunner.ts:26-48` | `export` do DCE **não aceita `--cookies`** → flag inválida quebra o processo quando `config.cookies` preenchido. Remover ramo `--cookies`. |
+| D2 | **Major** | `chatExporterCliRunner.ts` | validar `channelId` (só dígitos) antes de compor `outputPath` — usado também por `scripts/exportDiscordChatExporter.ts` (só `min(1)`) → path traversal possível. |
+| D3 | Major | `chatExporterCliRunner.ts:74-77` | timeout só manda SIGTERM; adicionar fallback SIGKILL p/ processo órfão. |
+| D4 | **Major** | `chatExporterFolderImportService.ts:26-52` | `allowedBaseDir` opcional → rota admin (`chatExporterAutomation.ts:181`) chama sem contenção → `importDir` do config escapa da base. Tornar obrigatório/validar. (Toca o salvage.) |
+| D5 | Major | `chatExporterFolderImportService.ts:165-172` | `cleanup` de retenção sem try/catch mascara resultado já processado se FS falhar. |
+| D6 | Minor | `routes/discord/automation.ts:28-32` | `limit` inválido (`abc`/`0`/`1001`) cai em fallback 100 — schema devia rejeitar (400). |
+| D7 | Minor | `routes/discord/chatExporterAutomation.ts:24` | regex de `time` aceita `99:99`; restringir 00:00–23:59. |
+| D8 | **Major** | `routes/discord/chatExporterAutomation.ts:31-36` | `updateSchema` herda defaults do `configSchema` → PUT parcial sobrescreve `enabled/frequency/time/timezone` salvos. Separar schema de update sem `.default()`. |
+| D9 | Major | `routes/discord/import.ts:64-74` | auto-parse processa só 500 de até 2000 e retorna sucesso sem sinalizar truncamento. Lote ou flag `truncated/remaining`. |
+| D10 | Minor | `ChatExporterAutomationPanel.tsx:67-87,136-155` | `after` removido do payload não limpa filtro; `decrypt_error` nunca exibido ao admin (visibilidade de status). |
+
+→ Ação: registrar em `specs/052-.../debitos.md` quando a 052 retomar / na Fase 6 do 057. Vários (D1/D4/D8) são pré-condição p/ o ChatExporter funcionar de verdade — alinham com T6.5/T6.6.

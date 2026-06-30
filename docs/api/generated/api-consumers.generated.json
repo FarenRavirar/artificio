@@ -2377,7 +2377,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 84
+      "line": 98
     },
     {
       "app": "packages/auth",

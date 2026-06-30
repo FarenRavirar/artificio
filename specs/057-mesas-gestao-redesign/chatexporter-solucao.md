@@ -94,7 +94,7 @@ Cada estado **explica**: empty ("Nenhum canal configurado. Adicione o primeiro."
 | 0 mensagens | canal vazio/after futuro | "Nenhuma mensagem no período. Ajuste a data inicial." |
 
 ## 8. Deploy (o que precisa na VM — uma vez, via Dockerfile/CI, não à mão)
-- Dockerfile `mesas-api` (e base do `mesas-cron`): baixar DCE CLI `linux-x64` versão pinada → `/opt/dce/` → `chmod +x` → `ENV DISCORD_CHAT_EXPORTER_BIN=/opt/dce/DiscordChatExporter.Cli`. Requer runtime .NET (ou usar build self-contained que dispensa). Volume persistente p/ `import_dir`.
+- Dockerfile `mesas-api` (e base do `mesas-cron`): build DCE CLI `-r linux-musl-x64 --self-contained` (tag pinada) → COPY p/ `/opt/dce/` → `chmod +x` → `apk add icu-libs libstdc++` (deps nativas) → `ENV DISCORD_CHAT_EXPORTER_BIN=/opt/dce/DiscordChatExporter.Cli`. Self-contained dispensa runtime .NET no Alpine (`linux-x64` genérico é glibc e falha em musl — ver §2). Volume persistente p/ `import_dir`.
 - Secret de encriptação do `settingsCrypto` já existe (mesas). Sem novo segredo manual.
 
 ## 9. Tasks (entram na Fase 6 da spec)

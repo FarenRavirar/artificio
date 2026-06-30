@@ -151,7 +151,7 @@ export function DashboardSection() {
               {temPendenciaRascunhos && (
                 <li>
                   <NavLink
-                    to="/gestao/moderacao/rascunhos"
+                    to="/gestao/mesas/rascunhos"
                     className="flex items-center gap-2 text-blue-400 hover:text-blue-300 text-sm transition-colors"
                   >
                     Há rascunhos a revisar
@@ -174,7 +174,7 @@ export function DashboardSection() {
       {subTab === 'atalhos' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <NavLink
-            to="/gestao/moderacao/rascunhos"
+            to="/gestao/mesas/rascunhos"
             className="rounded-lg p-4 border transition-colors hover:bg-white/[0.08]"
             style={{ backgroundColor: 'var(--admin-surface, #16223E)', borderColor: 'var(--border)' }}
           >

@@ -18,7 +18,7 @@ interface Props {
 }
 
 /** Etiqueta de status compacta, tom semântico via tokens. */
-export function StatusPill({ children, tone = 'neutral', className }: Props) {
+export function StatusPill({ children, tone = 'neutral', className }: Readonly<Props>) {
   return (
     <span
       className={cn(

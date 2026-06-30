@@ -10,7 +10,7 @@ interface Props {
 }
 
 /** Card de seção (estilo Cloudflare): cabeçalho opcional + corpo. */
-export function SectionCard({ title, description, action, children, className, bodyClassName }: Props) {
+export function SectionCard({ title, description, action, children, className, bodyClassName }: Readonly<Props>) {
   return (
     <section
       className={cn(

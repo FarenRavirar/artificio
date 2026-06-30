@@ -65,7 +65,10 @@ interface AdminTableProps<T> {
 
 function valueToText(v: unknown): string {
   if (v == null) return '';
-  return String(v).toLowerCase();
+  if (typeof v === 'string') return v.toLowerCase();
+  if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint') return `${v}`.toLowerCase();
+  if (v instanceof Date) return v.toISOString().toLowerCase();
+  return '';
 }
 
 export function AdminTable<T>({
@@ -84,10 +87,13 @@ export function AdminTable<T>({
   error,
   emptyTitle = 'Nada por aqui',
   emptyHint,
-}: AdminTableProps<T>) {
+}: Readonly<AdminTableProps<T>>) {
   const [params, setParams] = useSearchParams();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const describeError = (e: unknown) => (e instanceof Error ? e.message : 'Falha ao executar a ação.');
 
   const qKey = `${tableId}.q`;
   const query = params.get(qKey) ?? '';
@@ -122,8 +128,15 @@ export function AdminTable<T>({
   }, [rows, query, searchKeys, activeFacets]);
 
   const filteredIds = useMemo(() => filtered.map(getRowId), [filtered, getRowId]);
-  const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selected.has(id));
-  const someSelected = selected.size > 0;
+  // Estado de lote derivado da seleção VISÍVEL (interseção com o filtro atual):
+  // evita toolbar mostrar N selecionados mas a ação rodar em 0 quando o filtro
+  // esconde os selecionados.
+  const visibleSelectedIds = useMemo(
+    () => filteredIds.filter((id) => selected.has(id)),
+    [filteredIds, selected],
+  );
+  const allSelected = filteredIds.length > 0 && visibleSelectedIds.length === filteredIds.length;
+  const someSelected = visibleSelectedIds.length > 0;
 
   const toggleAll = () => {
     setSelected((prev) => {
@@ -144,15 +157,27 @@ export function AdminTable<T>({
   };
 
   const runBulk = async (action: AdminBulkAction) => {
-    const ids = filteredIds.filter((id) => selected.has(id));
+    const ids = visibleSelectedIds;
     if (ids.length === 0) return;
-    if (action.confirm && !window.confirm(`${action.confirm}\n\n${ids.length} item(ns) selecionado(s).`)) return;
+    if (action.confirm && !globalThis.confirm(`${action.confirm}\n\n${ids.length} item(ns) selecionado(s).`)) return;
     setBusy(true);
+    setActionError(null);
     try {
       await action.onRun(ids);
       setSelected(new Set());
+    } catch (e) {
+      setActionError(describeError(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const runRowAction = async (action: AdminRowAction<T>, row: T) => {
+    setActionError(null);
+    try {
+      await action.onRun(row);
+    } catch (e) {
+      setActionError(describeError(e));
     }
   };
 
@@ -205,7 +230,7 @@ export function AdminTable<T>({
       {/* Barra de lote */}
       {hasSelection && someSelected && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-orange-soft)] bg-[color-mix(in_srgb,var(--color-artificio-orange)_8%,transparent)] px-3 py-2">
-          <span className="text-sm text-[var(--fg-muted)]">{selected.size} selecionado(s)</span>
+          <span className="text-sm text-[var(--fg-muted)]">{visibleSelectedIds.length} selecionado(s)</span>
           <div className="ml-auto flex items-center gap-2">
             {bulkActions.map((a) => (
               <button
@@ -232,6 +257,19 @@ export function AdminTable<T>({
               <X size={15} /> limpar
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Erro de ação (lote/linha) */}
+      {actionError && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-lg border border-[color-mix(in_srgb,var(--danger)_40%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-2 text-sm text-[var(--danger-soft)]"
+        >
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError(null)} className="shrink-0 text-[var(--fg-faint)] hover:text-[var(--fg)]">
+            <X size={15} />
+          </button>
         </div>
       )}
 
@@ -321,7 +359,7 @@ export function AdminTable<T>({
                                 key={a.key}
                                 type="button"
                                 title={a.label}
-                                onClick={() => void a.onRun(row)}
+                                onClick={() => void runRowAction(a, row)}
                                 className={cn(
                                   'inline-flex items-center gap-1 rounded-md border border-transparent px-1.5 py-1 text-xs hover:border-[var(--border)] hover:bg-[var(--admin-hover)]',
                                   a.tone === 'danger' ? 'text-[var(--danger-soft)]' : 'text-[var(--fg-low)]',
