@@ -118,7 +118,7 @@ function buildAttachmentNotes(attachments: unknown[]): string[] {
   for (const att of attachments) {
     if (typeof att !== 'object' || att === null) continue;
     const a = att as Record<string, unknown>;
-    const fileName = readStringField(a, 'fileName');
+    const fileName = readStringField(a, 'fileName') ?? readStringField(a, 'filename');
     const url = readStringField(a, 'url');
     if (!fileName || !url) continue;
 

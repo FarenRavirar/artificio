@@ -32,6 +32,12 @@ const evalQuerySchema = z.object({
   }),
 });
 
+function normalizeEvalRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
 router.get('/eval', requireAdmin, async (req: Request, res: Response) => {
   const parsed = evalQuerySchema.safeParse(req.query);
   if (!parsed.success) {
@@ -46,11 +52,12 @@ router.get('/eval', requireAdmin, async (req: Request, res: Response) => {
       .limit(parsed.data.limit)
       .execute();
 
-    const examples = rows.map((row) => ({
-      id: row.id,
-      parsed_before: row.parsed_before as Record<string, unknown>,
-      human_corrected: row.human_corrected as Record<string, unknown>,
-    }));
+    const examples = rows.flatMap((row) => {
+      const parsedBefore = normalizeEvalRecord(row.parsed_before);
+      const humanCorrected = normalizeEvalRecord(row.human_corrected);
+      if (!parsedBefore || !humanCorrected) return [];
+      return [{ id: row.id, parsed_before: parsedBefore, human_corrected: humanCorrected }];
+    });
 
     const deterministicBaseline = examples.map((example) => ({
       id: example.id,

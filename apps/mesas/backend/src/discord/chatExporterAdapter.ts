@@ -32,6 +32,7 @@ export interface ImportResult {
   updated: number;
   ignored: number;
   failed: number;
+  importedMessages?: { channelId: string; messageId: string }[];
 }
 
 export function adaptMessageToImportRaw(

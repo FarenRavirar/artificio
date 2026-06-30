@@ -7,6 +7,90 @@
 # Formato: apenas blocos de path (mesma indentação do YAML gerado).
 # Cada bloco começa com o path e contém os métodos + x-artificio-*.
 
+  /api/v1/admin/discord/automation/auto-approval/guard:
+    post:
+      operationId: postapi_v1_admin_discord_automation_auto_approval_guard
+      summary: Executa guard de auto-aprovação Discord
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "423":
+          description: Auto-aprovação bloqueada pela trava operacional
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "500":
+          description: Erro interno
+
+  /api/v1/admin/discord/automation/eval:
+    get:
+      operationId: getapi_v1_admin_discord_automation_eval
+      summary: Consulta eval offline da automação Discord
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: "Número máximo de correções usadas no eval offline. Padrão: 100; máximo: 1000."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+
   /api/v1/admin/discord/drafts/{id}/correction:
     parameters:
       - name: id

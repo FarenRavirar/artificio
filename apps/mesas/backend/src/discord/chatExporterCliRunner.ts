@@ -10,6 +10,7 @@ export interface ChatExporterCliConfig {
   after?: string;
   cookies?: string;
   now?: () => Date;
+  timeoutMs?: number;
 }
 
 export interface ChatExporterCliCommand {
@@ -55,6 +56,7 @@ export function redactedChatExporterCliCommand(command: ChatExporterCliCommand):
 
 export async function runChatExporterCli(config: ChatExporterCliConfig): Promise<{ outputPath: string }> {
   const built = buildChatExporterCliCommand(config);
+  const timeoutMs = config.timeoutMs ?? 10 * 60 * 1000;
 
   await new Promise<void>((resolve, reject) => {
     const child = spawn(built.command, built.args, {
@@ -62,16 +64,27 @@ export async function runChatExporterCli(config: ChatExporterCliConfig): Promise
       windowsHide: true,
     });
     let stderr = '';
+    let settled = false;
+    const finish = (fn: () => void): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+    };
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM');
+      finish(() => reject(new Error(`DiscordChatExporter excedeu timeout de ${timeoutMs}ms.`)));
+    }, timeoutMs);
     child.stderr.on('data', (chunk: Buffer) => {
       stderr += chunk.toString('utf-8');
     });
-    child.on('error', reject);
+    child.on('error', (error) => finish(() => reject(error)));
     child.on('close', (code) => {
       if (code === 0) {
-        resolve();
+        finish(resolve);
         return;
       }
-      reject(new Error(`DiscordChatExporter falhou com exit ${code}: ${stderr.slice(0, 500)}`));
+      finish(() => reject(new Error(`DiscordChatExporter falhou com exit ${code}: ${stderr.slice(0, 500)}`)));
     });
   });
 

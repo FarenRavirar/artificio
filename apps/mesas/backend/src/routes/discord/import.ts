@@ -48,15 +48,28 @@ function respondImportSuccess(
 
 function shouldAutoParse(raw: unknown): boolean {
   if (!raw || typeof raw !== 'object') return false;
-  return (raw as Record<string, unknown>).autoParse === true;
+  const value = (raw as Record<string, unknown>).autoParse;
+  if (value === true) return true;
+  return typeof value === 'string' && ['true', '1', 'yes', 'on'].includes(value.trim().toLowerCase());
 }
 
-async function autoParsePendingImportedMessages(userId: string | undefined): Promise<{ total: number; parsed: number; discarded: number; ignored: number; errors: number }> {
+async function autoParsePendingImportedMessages(
+  userId: string | undefined,
+  importedMessages: { channelId: string; messageId: string }[] | undefined,
+): Promise<{ total: number; parsed: number; discarded: number; ignored: number; errors: number }> {
+  if (!importedMessages?.length) {
+    return { total: 0, parsed: 0, discarded: 0, ignored: 0, errors: 0 };
+  }
+
   const messages = await db
     .selectFrom('discord_import_messages')
     .selectAll()
     .where('source_kind', '=', 'discord_chat_exporter_json')
     .where('status', '=', 'pending')
+    .where((eb) => eb.or(importedMessages.map((message) => eb.and([
+      eb('discord_channel_id', '=', message.channelId),
+      eb('discord_message_id', '=', message.messageId),
+    ]))))
     .limit(500)
     .execute();
 
@@ -87,7 +100,7 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
 
     const autoParse = shouldAutoParse(req.body);
     const result = await importDiscordChatExporterJson(extracted.payload);
-    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId) : undefined;
+    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages) : undefined;
 
     return respondImportSuccess(res, result, req.user?.userId, autoParseResult);
   } catch (error: unknown) {
@@ -107,7 +120,7 @@ router.post('/file', requireAdmin, uploadJsonFile, async (req: Request, res: Res
 
     const autoParse = shouldAutoParse(req.body);
     const result = await importDiscordChatExporterJson(parsed.parsed);
-    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId) : undefined;
+    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages) : undefined;
 
     return respondImportSuccess(res, result, req.user?.userId, autoParseResult);
   } catch (error: unknown) {

@@ -91,6 +91,40 @@ describe('Spec 052 Bloco B automation guardrails', () => {
     expect(result.find((field) => field.field === 'slots_total')?.accuracy).toBe(0);
   });
 
+  it('eval offline conta predição ausente como erro', () => {
+    const result = evaluatePredictions(
+      [
+        {
+          id: '1',
+          parsed_before: { table: { system_name: 'D&D' } },
+          human_corrected: { table: { system_name: 'Dungeons & Dragons' } },
+        },
+      ],
+      [],
+    );
+
+    expect(result.find((field) => field.field === 'system_name')).toMatchObject({
+      total: 1,
+      correct: 0,
+      accuracy: 0,
+    });
+  });
+
+  it('eval offline preserva casing do path em contact_url', () => {
+    const result = evaluatePredictions(
+      [
+        {
+          id: '1',
+          parsed_before: { table: { contact_url: 'https://example.com/mesa' } },
+          human_corrected: { table: { contact_url: 'https://example.com/Mesa' } },
+        },
+      ],
+      [{ id: '1', predicted: { table: { contact_url: 'HTTPS://EXAMPLE.COM/mesa' } } }],
+    );
+
+    expect(result.find((field) => field.field === 'contact_url')?.accuracy).toBe(0);
+  });
+
   it('auto-aprovação permanece bloqueada por gate nominal', () => {
     expect(() => assertAutoApprovalAllowed(getAiAutomationConfig({ MESAS_AI_AUTOMATION_MODE: 'auto' } as NodeJS.ProcessEnv))).toThrow(
       /Auto-aprovação bloqueada/,
@@ -105,6 +139,7 @@ describe('Spec 052 Bloco B automation guardrails', () => {
     expect(prompt).not.toContain('https://bit.ly/x');
     expect(prompt).toContain('<@user>');
     expect(prompt).toContain('<#channel>');
-    expect(prompt).toContain('https://forms.gle/abc');
+    expect(prompt).toContain('[form-url]');
+    expect(prompt).not.toContain('https://forms.gle/abc');
   });
 });

@@ -109,9 +109,9 @@ Total: **270 operações**.
 | DELETE | `/api/v1/admin/dev-feedback/{id}` | admin | admin | active | — | Remove api v1 admin dev-feedback id |
 | PATCH | `/api/v1/admin/dev-feedback/{id}` | admin | admin | active | — | Atualiza api v1 admin dev-feedback id |
 | POST | `/api/v1/admin/dev-feedback/merge` | admin | admin | active | — | Cria ou executa api v1 admin dev-feedback merge |
-| POST | `/api/v1/admin/discord/automation/auto-approval/guard` | admin | admin | active | — | Cria ou executa api v1 admin discord automation auto-approval guard |
+| POST | `/api/v1/admin/discord/automation/auto-approval/guard` | admin | admin | active | — | Executa guard de auto-aprovação Discord |
 | GET | `/api/v1/admin/discord/automation/config` | admin | admin | active | — | Consulta api v1 admin discord automation config |
-| GET | `/api/v1/admin/discord/automation/eval` | admin | admin | active | — | Consulta api v1 admin discord automation eval |
+| GET | `/api/v1/admin/discord/automation/eval` | admin | admin | active | — | Consulta eval offline da automação Discord |
 | GET | `/api/v1/admin/discord/discovery/guilds` | admin | admin | active | — | Consulta api v1 admin discord discovery guilds |
 | GET | `/api/v1/admin/discord/discovery/guilds/{guildId}/channels` | admin | admin | active | — | Consulta api v1 admin discord discovery guilds guildId channels |
 | GET | `/api/v1/admin/discord/drafts` | admin | admin | active | — | Consulta api v1 admin discord drafts |

@@ -433,7 +433,7 @@ async function enrichDraftWithLlm(
   if (table.day_of_week) existingFields.day_of_week = table.day_of_week;
   if (table.start_time) existingFields.start_time = table.start_time;
 
-  const llmResult = await assistDiscordParse(rawText, existingFields);
+  const llmResult = await assistDiscordParse(rawText, existingFields, aiConfig.model);
   if (!llmResult) return normalized;
 
   const suggestions = buildAiSuggestionFields(llmResult.extracted, normalized.draft.table);

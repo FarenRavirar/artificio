@@ -26,10 +26,25 @@ function tableOf(value: Record<string, unknown>): Record<string, unknown> {
     : value;
 }
 
-function equalValue(a: unknown, b: unknown): boolean {
+function equalValue(field: EvalField, a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a === 'number' && typeof b === 'number') return Object.is(a, b);
-  if (typeof a === 'string' && typeof b === 'string') return a.trim().toLowerCase() === b.trim().toLowerCase();
+  if (typeof a === 'string' && typeof b === 'string') {
+    if (field === 'contact_url') {
+      try {
+        const left = new URL(a.trim());
+        const right = new URL(b.trim());
+        return left.protocol.toLowerCase() === right.protocol.toLowerCase()
+          && left.hostname.toLowerCase() === right.hostname.toLowerCase()
+          && left.pathname === right.pathname
+          && left.search === right.search
+          && left.hash === right.hash;
+      } catch {
+        return a.trim() === b.trim();
+      }
+    }
+    return a.trim().toLowerCase() === b.trim().toLowerCase();
+  }
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
@@ -42,9 +57,8 @@ export function evaluatePredictions(examples: EvalExample[], predictions: EvalPr
       const expectedTable = tableOf(example.human_corrected);
       if (!(field in expectedTable)) continue;
       const predicted = byId.get(example.id);
-      if (!predicted) continue;
       total++;
-      if (equalValue(tableOf(predicted)[field], expectedTable[field])) correct++;
+      if (predicted && equalValue(field, tableOf(predicted)[field], expectedTable[field])) correct++;
     }
     return {
       field,

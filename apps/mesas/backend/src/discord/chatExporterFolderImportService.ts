@@ -110,15 +110,23 @@ export async function processDiscordChatExporterFolder(options: FolderImportOpti
   const processingDir = path.join(rootDir, 'processing');
   const processedDir = path.join(rootDir, 'processed');
   const errorDir = path.join(rootDir, 'error');
-  const files = jsonFiles(await readdir(incomingDir));
+  const processingFiles = jsonFiles(await readdir(processingDir));
+  const incomingFiles = jsonFiles(await readdir(incomingDir));
+  const files = [
+    ...processingFiles.map((fileName) => ({ fileName, from: path.join(processingDir, fileName), originalName: fileName })),
+    ...incomingFiles.map((fileName) => ({ fileName, from: path.join(incomingDir, fileName), originalName: fileName })),
+  ];
   const results: FolderImportFileResult[] = [];
 
-  for (const fileName of files) {
+  for (const file of files) {
     const stamp = safeStamp(now());
-    const incomingPath = path.join(incomingDir, fileName);
-    const processingPath = path.join(processingDir, `${stamp}-${fileName}`);
+    const processingPath = file.from.startsWith(processingDir)
+      ? file.from
+      : path.join(processingDir, `${stamp}-${file.fileName}`);
 
-    await rename(incomingPath, processingPath);
+    if (!file.from.startsWith(processingDir)) {
+      await rename(file.from, processingPath);
+    }
 
     const buffer = await readFile(processingPath);
     const fileHash = hashBuffer(buffer);
@@ -126,19 +134,19 @@ export async function processDiscordChatExporterFolder(options: FolderImportOpti
     try {
       const payload = JSON.parse(buffer.toString('utf-8')) as unknown;
       const result = await importJson(payload);
-      const meta: FolderImportFileResult = { fileName, status: 'processed', fileHash, result };
-      await moveWithMeta({ from: processingPath, toDir: processedDir, originalName: fileName, stamp, meta });
+      const meta: FolderImportFileResult = { fileName: file.originalName, status: 'processed', fileHash, result };
+      await moveWithMeta({ from: processingPath, toDir: processedDir, originalName: file.originalName, stamp, meta });
       results.push(meta);
     } catch (error) {
-      const meta: FolderImportFileResult = { fileName, status: 'error', fileHash, error: errorMessage(error) };
-      await moveWithMeta({ from: processingPath, toDir: errorDir, originalName: fileName, stamp, meta });
+      const meta: FolderImportFileResult = { fileName: file.originalName, status: 'error', fileHash, error: errorMessage(error) };
+      await moveWithMeta({ from: processingPath, toDir: errorDir, originalName: file.originalName, stamp, meta });
       results.push(meta);
     }
   }
 
   return {
     rootDir,
-    incoming: files.length,
+    incoming: incomingFiles.length,
     processed: results.filter((file) => file.status === 'processed').length,
     errors: results.filter((file) => file.status === 'error').length,
     retainedDeleted: await cleanupDiscordChatExporterFolder({ rootDir, retention: options.retention, now }),

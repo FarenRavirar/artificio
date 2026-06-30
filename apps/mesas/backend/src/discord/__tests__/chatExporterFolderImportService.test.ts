@@ -84,6 +84,32 @@ describe('processDiscordChatExporterFolder', () => {
     expect(second.errors).toBe(0);
   });
 
+  it('recupera arquivo deixado em processing por execução interrompida', async () => {
+    const rootDir = await makeRoot();
+    await processDiscordChatExporterFolder({
+      rootDir,
+      importJson: async () => ({ total: 0, inserted: 0, updated: 0, ignored: 0, failed: 0 }),
+      now: () => new Date('2026-06-29T12:00:00.000Z'),
+    });
+
+    await writeFile(path.join(rootDir, 'processing', 'interrompido.json'), JSON.stringify({ messages: [] }), 'utf-8');
+    const importJson = vi.fn(async (_payload: unknown): Promise<ImportResult> => (
+      { total: 1, inserted: 1, updated: 0, ignored: 0, failed: 0 }
+    ));
+
+    const result = await processDiscordChatExporterFolder({
+      rootDir,
+      importJson,
+      now: () => new Date('2026-06-29T12:30:00.000Z'),
+    });
+
+    expect(importJson).toHaveBeenCalledTimes(1);
+    expect(result.incoming).toBe(0);
+    expect(result.processed).toBe(1);
+    expect(await list(path.join(rootDir, 'processing'))).toEqual([]);
+    expect((await list(path.join(rootDir, 'processed'))).some((name) => name.endsWith('interrompido.json'))).toBe(true);
+  });
+
   it('grava metadado sem conteúdo bruto do JSON', async () => {
     const rootDir = await makeRoot();
     await processDiscordChatExporterFolder({

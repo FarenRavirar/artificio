@@ -1104,7 +1104,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/automation/eval",
       "sourceFile": "apps/mesas/backend/src/routes/discord/automation.ts",
-      "line": 35,
+      "line": 41,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1239,7 +1239,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/import-json",
       "sourceFile": "apps/mesas/backend/src/routes/discord/import.ts",
-      "line": 80,
+      "line": 93,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1266,7 +1266,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/import-json/file",
       "sourceFile": "apps/mesas/backend/src/routes/discord/import.ts",
-      "line": 99,
+      "line": 112,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1293,7 +1293,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/import-json/reparse",
       "sourceFile": "apps/mesas/backend/src/routes/discord/import.ts",
-      "line": 120,
+      "line": 133,
       "confidence": "high",
       "kind": "express-route"
     },
