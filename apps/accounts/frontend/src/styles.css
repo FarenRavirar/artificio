@@ -3,6 +3,7 @@
 
 :root {
   --accounts-ink: #020740;
+  --accounts-rail: #020740;
   --accounts-muted: #596176;
   --accounts-faint: #7a8192;
   --accounts-line: #dde2ee;
@@ -20,6 +21,7 @@
 
 :root[data-theme="dark"] {
   --accounts-ink: #f7f8ff;
+  --accounts-rail: #070b1a;
   --accounts-muted: #c1c8dc;
   --accounts-faint: #8f98b3;
   --accounts-line: rgba(255, 255, 255, 0.14);
@@ -46,9 +48,9 @@ body {
   align-items: center;
   background:
     radial-gradient(circle at 12% 18%, rgba(255, 87, 34, 0.16), transparent 28rem),
-    linear-gradient(90deg, var(--accounts-ink) 0 36%, var(--accounts-canvas) 36% 100%);
+    linear-gradient(90deg, var(--accounts-rail) 0 36%, var(--accounts-canvas) 36% 100%);
   display: grid;
-  min-height: 100vh;
+  min-height: calc(100vh - 72px);
   padding: 32px;
   position: relative;
 }
@@ -66,34 +68,6 @@ body {
   top: 36px;
   writing-mode: vertical-rl;
   z-index: 0;
-}
-
-.accounts-theme-toggle {
-  align-items: center;
-  background: color-mix(in srgb, var(--accounts-surface) 92%, transparent);
-  border: 1px solid var(--accounts-line);
-  border-radius: 999px;
-  color: var(--accounts-muted);
-  cursor: pointer;
-  display: inline-flex;
-  justify-content: center;
-  padding: 10px;
-  position: fixed;
-  right: 24px;
-  top: 24px;
-  transition: border-color 140ms ease, color 140ms ease, transform 140ms ease;
-  z-index: 2;
-}
-
-.accounts-theme-toggle:hover {
-  border-color: var(--accounts-brand);
-  color: var(--accounts-ink);
-  transform: translateY(-1px);
-}
-
-.accounts-theme-toggle:focus-visible {
-  box-shadow: var(--accounts-focus);
-  outline: 0;
 }
 
 .accounts-panel {
@@ -393,9 +367,9 @@ body {
 @media (max-width: 720px) {
   .accounts-page {
     background:
-      linear-gradient(180deg, var(--accounts-ink) 0 150px, var(--accounts-canvas) 150px 100%);
-    min-height: 100dvh;
-    padding: 84px 16px 24px;
+      linear-gradient(180deg, var(--accounts-rail) 0 150px, var(--accounts-canvas) 150px 100%);
+    min-height: calc(100dvh - 72px);
+    padding: 24px 16px;
   }
 
   .accounts-page::before {
@@ -411,16 +385,11 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .accounts-theme-toggle {
-    right: 16px;
-    top: 16px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .accounts-login,
-  .accounts-spinner,
-  .accounts-theme-toggle {
+  .accounts-spinner {
     animation: none;
     transition: none;
   }

@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { brandLogoNavy, brandLogoNeg, applyFavicon, applyTheme, ThemeIcon, useTheme } from "@artificio/ui";
+import { Header, brandLogoNavy, brandLogoNeg, applyFavicon, applyTheme, useTheme } from "@artificio/ui";
 import { useSession, getAccountsOrigin, logout } from "@artificio/auth/client";
 import { BRAND_TAGLINE_FREE, BRAND_ORIGIN, BRAND_DOMAIN } from "@artificio/config";
+import "@artificio/ui/styles.css";
 import "./styles.css";
 
 applyFavicon();
@@ -277,22 +278,22 @@ function AdminSecretsPanel() {
 }
 
 function App() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const path = globalThis.location.pathname;
 
   return (
-    <main className="accounts-page">
-      <button
-        className="accounts-theme-toggle"
-        type="button"
-        aria-label="Alternar tema"
-        title="Alternar tema"
-        onClick={toggleTheme}
-      >
-        <ThemeIcon theme={theme} />
-      </button>
-      {path === "/conta" ? <ContaView /> : <LoginView />}
-    </main>
+    <>
+      <Header
+        brandHref={PORTAL_URL}
+        currentHref={PORTAL_URL}
+        showThemeToggle
+        sticky={false}
+        variant={theme}
+      />
+      <main className="accounts-page">
+        {path === "/conta" ? <ContaView /> : <LoginView />}
+      </main>
+    </>
   );
 }
 
