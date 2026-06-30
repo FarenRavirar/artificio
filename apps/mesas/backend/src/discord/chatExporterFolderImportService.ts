@@ -25,6 +25,7 @@ export interface FolderImportRunResult {
 
 interface FolderImportOptions {
   rootDir: string;
+  allowedBaseDir?: string;
   importJson?: (payload: unknown) => Promise<ImportResult>;
   now?: () => Date;
   retention?: {
@@ -34,6 +35,21 @@ interface FolderImportOptions {
 }
 
 const FOLDERS = ['incoming', 'processing', 'processed', 'error'] as const;
+
+function ensureInsideBaseDir(targetPath: string, baseDir: string): string {
+  const resolvedTarget = path.resolve(targetPath);
+  const resolvedBase = path.resolve(baseDir);
+  const relative = path.relative(resolvedBase, resolvedTarget);
+  if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+    return resolvedTarget;
+  }
+  throw new Error(`Diretório fora da base permitida: ${resolvedTarget}`);
+}
+
+function resolveRootDir(options: Pick<FolderImportOptions, 'rootDir' | 'allowedBaseDir'>): string {
+  if (!options.allowedBaseDir) return path.resolve(options.rootDir);
+  return ensureInsideBaseDir(options.rootDir, options.allowedBaseDir);
+}
 
 function safeStamp(date: Date): string {
   return date.toISOString().replace(/[:.]/g, '-');
@@ -88,8 +104,10 @@ async function cleanupOldFiles(dir: string, ttlDays: number | undefined, now: Da
   return deleted;
 }
 
-export async function cleanupDiscordChatExporterFolder(options: Pick<FolderImportOptions, 'rootDir' | 'retention' | 'now'>): Promise<number> {
-  const rootDir = path.resolve(options.rootDir);
+export async function cleanupDiscordChatExporterFolder(
+  options: Pick<FolderImportOptions, 'rootDir' | 'allowedBaseDir' | 'retention' | 'now'>,
+): Promise<number> {
+  const rootDir = resolveRootDir(options);
   const now = (options.now ?? (() => new Date()))();
   await ensureFolders(rootDir);
   return (
@@ -100,7 +118,7 @@ export async function cleanupDiscordChatExporterFolder(options: Pick<FolderImpor
 }
 
 export async function processDiscordChatExporterFolder(options: FolderImportOptions): Promise<FolderImportRunResult> {
-  const rootDir = path.resolve(options.rootDir);
+  const rootDir = resolveRootDir(options);
   const importJson = options.importJson ?? importDiscordChatExporterJson;
   const now = options.now ?? (() => new Date());
 

@@ -60,13 +60,21 @@ async function main() {
     return;
   }
   const rootDir = configured.importDir ?? process.env.DISCORD_CHAT_EXPORTER_IMPORT_DIR ?? process.argv[2];
+  const allowedBaseDir = process.env.DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR
+    ?? configured.importDir
+    ?? process.env.DISCORD_CHAT_EXPORTER_IMPORT_DIR
+    ?? process.cwd();
   if (!rootDir) {
-    console.error('[importDiscordChatExporterFolder] Informe DISCORD_CHAT_EXPORTER_IMPORT_DIR ou passe o diretório como argumento.');
+    console.error([
+      '[importDiscordChatExporterFolder] Informe DISCORD_CHAT_EXPORTER_IMPORT_DIR ou passe o diretório como argumento.',
+      '[importDiscordChatExporterFolder] Base permitida: DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR, importDir configurado, DISCORD_CHAT_EXPORTER_IMPORT_DIR ou o diretório atual.',
+    ].join('\n'));
     process.exit(1);
   }
 
   const result = await processDiscordChatExporterFolder({
     rootDir,
+    allowedBaseDir,
     retention: DISCORD_CHAT_EXPORTER_RETENTION,
   });
   try {

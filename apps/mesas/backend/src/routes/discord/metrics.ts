@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { sql } from 'kysely';
 import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
 
@@ -20,7 +21,7 @@ router.get('/', requireAdmin, async (_req: Request, res: Response) => {
     const correctionsAgg = await db
       .selectFrom('import_corrections')
       .select([
-        db.fn.count<number>('id').as('total_corrections'),
+        sql<number>`COUNT(id)::int`.as('total_corrections'),
       ])
       .executeTakeFirst();
 
@@ -28,12 +29,12 @@ router.get('/', requireAdmin, async (_req: Request, res: Response) => {
     const statusAgg = await db
       .selectFrom('discord_import_table_drafts')
       .select([
-        db.fn.count<number>('id').as('total_drafts'),
+        sql<number>`COUNT(id)::int`.as('total_drafts'),
+        sql<number>`COUNT(id) FILTER (WHERE status = 'ready')::int`.as('ready_drafts'),
+        sql<number>`COUNT(id) FILTER (WHERE status = 'needs_review')::int`.as('needs_review_drafts'),
+        sql<number>`COUNT(id) FILTER (WHERE status = 'synced')::int`.as('synced_drafts'),
+        sql<number>`COUNT(id) FILTER (WHERE status = 'rejected')::int`.as('rejected_drafts'),
       ])
-      .select(db.fn.count<number>('id').filterWhere('status', '=', 'ready').as('ready_drafts'))
-      .select(db.fn.count<number>('id').filterWhere('status', '=', 'needs_review').as('needs_review_drafts'))
-      .select(db.fn.count<number>('id').filterWhere('status', '=', 'synced').as('synced_drafts'))
-      .select(db.fn.count<number>('id').filterWhere('status', '=', 'rejected').as('rejected_drafts'))
       .executeTakeFirst();
 
     // Campos mais corrigidos (top 10, últimas 500 correções)
@@ -105,9 +106,9 @@ router.get('/shadow', requireAdmin, async (_req: Request, res: Response) => {
     const summary = await db
       .selectFrom('discord_shadow_decisions')
       .select([
-        db.fn.count<number>('id').as('total_decisions'),
-        db.fn.count<number>('id').filterWhere('would_auto_approve', '=', true).as('would_auto_approve'),
-        db.fn.count<number>('id').filterWhere('actual_outcome', 'is not', null).as('decided'),
+        sql<number>`COUNT(id)::int`.as('total_decisions'),
+        sql<number>`COUNT(id) FILTER (WHERE would_auto_approve = true)::int`.as('would_auto_approve'),
+        sql<number>`COUNT(id) FILTER (WHERE actual_outcome IS NOT NULL)::int`.as('decided'),
       ])
       .executeTakeFirst();
 

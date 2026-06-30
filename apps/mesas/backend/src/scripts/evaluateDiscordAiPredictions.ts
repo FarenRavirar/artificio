@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { evaluatePredictions, type EvalExample, type EvalPrediction } from '../discord/aiEval';
 
 interface CandidateFile {
@@ -45,15 +46,28 @@ function normalizeEvalInput(value: unknown): EvalInputFile {
   return { examples: examples as EvalExample[], candidates: candidates as CandidateFile[] };
 }
 
+function resolveInputPath(inputPath: string): string {
+  const baseDir = path.resolve(process.env.DISCORD_AI_EVAL_INPUT_DIR ?? process.cwd());
+  const resolved = path.resolve(inputPath);
+  const relative = path.relative(baseDir, resolved);
+  if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+    return resolved;
+  }
+  throw new Error(`Arquivo fora da base permitida: ${resolved}`);
+}
+
 async function main(): Promise<void> {
   const inputPath = process.argv[2];
   if (!inputPath) {
-    console.error('Uso: pnpm --filter @artificio/mesas-backend discord:ai-eval <arquivo.json>');
+    console.error([
+      'Uso: pnpm --filter @artificio/mesas-backend discord:ai-eval <arquivo.json>',
+      'Base permitida: DISCORD_AI_EVAL_INPUT_DIR ou o diretório atual.',
+    ].join('\n'));
     process.exitCode = 1;
     return;
   }
 
-  const raw = await fs.readFile(inputPath, 'utf8');
+  const raw = await fs.readFile(resolveInputPath(inputPath), 'utf8');
   const parsed: unknown = JSON.parse(raw);
   const input = normalizeEvalInput(parsed);
   const report = input.candidates.map((candidate) => ({

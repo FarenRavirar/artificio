@@ -1428,7 +1428,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/metrics",
       "sourceFile": "apps/mesas/backend/src/routes/discord/metrics.ts",
-      "line": 9,
+      "line": 10,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1446,7 +1446,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/metrics/shadow",
       "sourceFile": "apps/mesas/backend/src/routes/discord/metrics.ts",
-      "line": 84,
+      "line": 85,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2436,7 +2436,7 @@
       "method": "POST",
       "path": "/api/v1/scenario-suggestions",
       "sourceFile": "apps/mesas/backend/src/routes/scenarioSuggestions.ts",
-      "line": 14,
+      "line": 15,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2454,7 +2454,7 @@
       "method": "GET",
       "path": "/api/v1/scenario-suggestions/mine",
       "sourceFile": "apps/mesas/backend/src/routes/scenarioSuggestions.ts",
-      "line": 94,
+      "line": 95,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2463,7 +2463,7 @@
       "method": "GET",
       "path": "/api/v1/scenarios",
       "sourceFile": "apps/mesas/backend/src/routes/scenarios.ts",
-      "line": 30,
+      "line": 31,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2481,7 +2481,7 @@
       "method": "GET",
       "path": "/api/v1/scenarios/:id",
       "sourceFile": "apps/mesas/backend/src/routes/scenarios.ts",
-      "line": 105,
+      "line": 106,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2490,7 +2490,7 @@
       "method": "POST",
       "path": "/api/v1/scenarios/admin",
       "sourceFile": "apps/mesas/backend/src/routes/scenarios.ts",
-      "line": 131,
+      "line": 132,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2499,7 +2499,7 @@
       "method": "DELETE",
       "path": "/api/v1/scenarios/admin/:id",
       "sourceFile": "apps/mesas/backend/src/routes/scenarios.ts",
-      "line": 233,
+      "line": 234,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2508,7 +2508,7 @@
       "method": "PUT",
       "path": "/api/v1/scenarios/admin/:id",
       "sourceFile": "apps/mesas/backend/src/routes/scenarios.ts",
-      "line": 175,
+      "line": 176,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2535,7 +2535,7 @@
       "method": "POST",
       "path": "/api/v1/system-suggestions",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestions.ts",
-      "line": 14,
+      "line": 15,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2553,7 +2553,7 @@
       "method": "GET",
       "path": "/api/v1/system-suggestions/mine",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestions.ts",
-      "line": 102,
+      "line": 103,
       "confidence": "high",
       "kind": "express-route"
     },

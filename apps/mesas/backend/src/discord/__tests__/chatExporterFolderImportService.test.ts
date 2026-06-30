@@ -163,4 +163,15 @@ describe('processDiscordChatExporterFolder', () => {
     expect(await list(path.join(rootDir, 'processed'))).toEqual(['keep.json']);
     expect(await list(path.join(rootDir, 'error'))).toEqual(['old-error.json']);
   });
+
+  it('recusa rootDir fora da base permitida', async () => {
+    const allowedBaseDir = await makeRoot();
+    const outsideRoot = await makeRoot();
+
+    await expect(processDiscordChatExporterFolder({
+      rootDir: outsideRoot,
+      allowedBaseDir,
+      importJson: async () => ({ total: 0, inserted: 0, updated: 0, ignored: 0, failed: 0 }),
+    })).rejects.toThrow('Diretório fora da base permitida');
+  });
 });

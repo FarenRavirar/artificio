@@ -549,14 +549,14 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req: Re
     // Verificar se há mesas vinculadas
     const tablesCount = await db
       .selectFrom('tables')
-      .select(db.fn.count('id').as('count'))
+      .select(sql<number>`COUNT(id)::int`.as('count'))
       .where('system_id', '=', id)
       .executeTakeFirst();
 
     // Verificar se há sistemas filhos
     const childrenCount = await db
       .selectFrom('systems')
-      .select(db.fn.count('id').as('count'))
+      .select(sql<number>`COUNT(id)::int`.as('count'))
       .where('parent_id', '=', id)
       .executeTakeFirst();
 

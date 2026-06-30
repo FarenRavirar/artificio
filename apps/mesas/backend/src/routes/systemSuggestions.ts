@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { sql } from 'kysely';
 import { authMiddleware } from '../middleware/auth';
 import { db } from '../db';
 import { logActivity } from '../services/activityLogger';
@@ -31,7 +32,7 @@ router.post('/', async (req: Request, res: Response) => {
     // Verificar limite de 5 sugestões pendentes
     const pendingCount = await db
       .selectFrom('system_suggestions')
-      .select(db.fn.count('id').as('count'))
+      .select(sql<number>`COUNT(id)::int`.as('count'))
       .where('user_id', '=', userId)
       .where('status', '=', 'pending')
       .executeTakeFirst();
