@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react';
 import { cn } from './cn';
 
 interface Props {
-  title?: React.ReactNode;
-  description?: React.ReactNode;
-  action?: React.ReactNode;
-  children: React.ReactNode;
+  title?: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
   className?: string;
   bodyClassName?: string;
 }

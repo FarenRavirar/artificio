@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ChevronDown, Eye, Pencil, Search, X } from 'lucide-react';
 import { cn } from './cn';
@@ -11,8 +11,8 @@ import { cn } from './cn';
 
 export interface AdminColumn<T> {
   key: string;
-  header: React.ReactNode;
-  render?: (row: T) => React.ReactNode;
+  header: ReactNode;
+  render?: (row: T) => ReactNode;
   className?: string;
 }
 
@@ -26,7 +26,7 @@ export interface AdminFacet<T> {
 export interface AdminBulkAction {
   key: string;
   label: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   tone?: 'neutral' | 'danger';
   /** Mensagem de confirmação; se ausente, executa direto. */
   confirm?: string;
@@ -36,7 +36,7 @@ export interface AdminBulkAction {
 export interface AdminRowAction<T> {
   key: string;
   label: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   tone?: 'neutral' | 'danger';
   hidden?: (row: T) => boolean;
   onRun: (row: T) => void | Promise<void>;
@@ -60,7 +60,7 @@ interface AdminTableProps<T> {
   loading?: boolean;
   error?: string | null;
   emptyTitle?: string;
-  emptyHint?: React.ReactNode;
+  emptyHint?: ReactNode;
 }
 
 function valueToText(v: unknown): string {

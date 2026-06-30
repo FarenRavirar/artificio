@@ -1,12 +1,13 @@
+import type { ReactNode } from 'react';
 import { cn } from './cn';
 
 interface Props {
   /** Trilha de navegação, ex.: ['Importação', 'Bot de Discord']. */
   breadcrumb?: string[];
-  title: React.ReactNode;
-  description?: React.ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
   /** Ação primária à direita (botão), estilo Cloudflare. */
-  action?: React.ReactNode;
+  action?: ReactNode;
   className?: string;
 }
 

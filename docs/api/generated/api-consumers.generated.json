@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 281,
-    "uniqueEndpoints": 259,
+    "total": 280,
+    "uniqueEndpoints": 258,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,17 +36,17 @@
         }
       },
       "mesas-frontend": {
-        "total": 163,
+        "total": 162,
         "byConfidence": {
           "medium": 64,
-          "high": 97,
+          "high": 96,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 56,
           "service-wrapper": 41,
-          "literal": 58,
+          "literal": 57,
           "concatenation": 2
         }
       },
@@ -1031,23 +1031,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/DashboardSection.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/hooks/useAdminPendencias.ts",
       "method": "GET",
       "endpoint": "/api/v1/admin/discord/drafts",
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 39
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/GestaoLayout.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/admin/discord/drafts",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.getDrafts",
-      "line": 33
+      "line": 42
     },
     {
       "app": "mesas-frontend",
@@ -1057,7 +1047,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 92
+      "line": 110
     },
     {
       "app": "mesas-frontend",
@@ -1067,7 +1057,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.submitCorrection",
-      "line": 95
+      "line": 103
     },
     {
       "app": "mesas-frontend",
@@ -1191,6 +1181,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/hooks/useAdminDashboardMetrics.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/discord/metrics",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.getIntegrationMetrics",
+      "line": 49
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/IntegrationLogsView.tsx",
       "method": "GET",
       "endpoint": "/api/v1/admin/discord/metrics",
@@ -1287,7 +1287,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.updateDraft",
-      "line": 69
+      "line": 72
     },
     {
       "app": "mesas-frontend",
@@ -1297,7 +1297,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.getDraft",
-      "line": 70
+      "line": 73
     },
     {
       "app": "mesas-frontend",
@@ -1307,7 +1307,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.registerCorrection",
-      "line": 71
+      "line": 74
     },
     {
       "app": "mesas-frontend",
@@ -1317,7 +1317,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.reparseDraft",
-      "line": 68
+      "line": 71
     },
     {
       "app": "mesas-frontend",
@@ -1327,7 +1327,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.syncDraft",
-      "line": 67
+      "line": 70
     },
     {
       "app": "mesas-frontend",
@@ -1351,23 +1351,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/DashboardSection.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/hooks/useAdminPendencias.ts",
       "method": "GET",
       "endpoint": "/api/v1/admin/scenario-suggestions",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 22
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/GestaoLayout.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/admin/scenario-suggestions",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "authGet",
-      "line": 22
+      "line": 33
     },
     {
       "app": "mesas-frontend",
@@ -1391,23 +1381,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/DashboardSection.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/hooks/useAdminPendencias.ts",
       "method": "GET",
       "endpoint": "/api/v1/admin/system-suggestions",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 21
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/GestaoLayout.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/admin/system-suggestions",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "authGet",
-      "line": 21
+      "line": 27
     },
     {
       "app": "mesas-frontend",
@@ -2201,6 +2181,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/hooks/useAdminDashboardMetrics.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/tables",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authGet",
+      "line": 41
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/hooks/useFetchTables.ts",
       "method": "GET",
       "endpoint": "/api/v1/tables",
@@ -2377,7 +2367,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 98
+      "line": 99
     },
     {
       "app": "packages/auth",

@@ -240,6 +240,7 @@ export interface DraftApiOperations {
   updateDraft: (id: string, body: { normalized_payload?: Record<string, unknown>; status?: DiscordImportDraftStatus; review_notes?: string }) => Promise<DiscordDraft>;
   syncDraft: (id: string) => Promise<{ tableId: string; created: boolean }>;
   reparseDraft: (id: string) => Promise<DiscordDraft>;
+  refreshDraftImage?: (id: string) => Promise<{ draftId: string; tableId: string | null; status: string; url: string | null; error: string | null }>;
   getDraft?: (id: string) => Promise<DiscordDraft>;
   submitCorrection?: (id: string, body: { corrections: Record<string, unknown>; reason?: string; before?: Record<string, unknown> }) => Promise<unknown>;
 }

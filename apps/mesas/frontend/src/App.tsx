@@ -41,7 +41,8 @@ function AnalyticsPageviews() {
 // na aba errada a partir de deep links/bookmarks antigos.
 function LegacyModeracaoRedirect() {
   const { sub } = useParams<{ sub?: string }>();
-  return <Navigate to={`/gestao/mesas${sub ? `/${sub}` : ''}`} replace />;
+  const legacySubPath = sub ? `/${sub}` : '';
+  return <Navigate to={`/gestao/mesas${legacySubPath}`} replace />;
 }
 
 function AppRoutes() {

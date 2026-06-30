@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import type { DiscordDraft } from '../../../features/discord-sync/types';
 import type { DraftApiOperations } from '../../../features/discord-sync/types';
 import { MessagesView } from '../../../features/discord-sync/components/MessagesView';
 import { DiscordDraftReviewTable } from '../../../features/discord-sync/components/DiscordDraftReviewTable';
 import { discordSyncApi } from '../../../features/discord-sync/api/discordSyncApi';
 import { inboxApi } from '../../../features/inbox/api/inboxApi';
+import { PageHeader, SectionCard } from './ui';
 
 type ModSubTab = 'mensagens' | 'rascunhos';
 
@@ -47,10 +48,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export function ModeracaoSection() {
   const { sub } = useParams<{ sub?: string }>();
+  const navigate = useNavigate();
   const [subTab, setSubTab] = useState<ModSubTab>(() => {
     if (sub === 'rascunhos') return 'rascunhos';
     if (sub === 'mensagens') return 'mensagens';
-    return 'mensagens';
+    return 'rascunhos';
   });
 
   // Sincronizar subTab com a URL quando o param muda (ex.: deep-link direto)
@@ -58,6 +60,7 @@ export function ModeracaoSection() {
     const timer = setTimeout(() => {
       if (sub === 'rascunhos') setSubTab('rascunhos');
       else if (sub === 'mensagens') setSubTab('mensagens');
+      else setSubTab('rascunhos');
     }, 0);
     return () => clearTimeout(timer);
   }, [sub]);
@@ -76,11 +79,16 @@ export function ModeracaoSection() {
     ),
   }), []);
 
+  const selectSubTab = (tab: ModSubTab) => {
+    setSubTab(tab);
+    navigate(`/gestao/mesas/${tab}`);
+  };
+
   const subTabClass = (tab: ModSubTab) =>
-    `px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+    `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
       subTab === tab
-        ? 'bg-blue-600 text-white'
-        : 'bg-white/5 text-white/60 hover:bg-white/10'
+        ? 'bg-[var(--admin-hover)] text-[var(--fg)]'
+        : 'text-[var(--fg-low)] hover:bg-[var(--admin-hover)] hover:text-[var(--fg)]'
     }`;
 
   /**
@@ -106,22 +114,37 @@ export function ModeracaoSection() {
   }, []);
 
   return (
-    <div>
-      {/* Subnav local */}
-      <div className="flex gap-3 mb-6">
-        <button onClick={() => setSubTab('mensagens')} className={subTabClass('mensagens')} aria-pressed={subTab === 'mensagens'}>
-          Mensagens capturadas
-        </button>
-        <button onClick={() => setSubTab('rascunhos')} className={subTabClass('rascunhos')} aria-pressed={subTab === 'rascunhos'}>
+    <div className="space-y-5">
+      <PageHeader
+        breadcrumb={['Gestão', 'Mesas']}
+        title="Mesas"
+        description="Fila central de rascunhos e mensagens capturadas, com filtros por origem/status e ações em lote."
+      />
+
+      <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--admin-surface)] p-1">
+        <button onClick={() => selectSubTab('rascunhos')} className={subTabClass('rascunhos')} aria-pressed={subTab === 'rascunhos'}>
           Rascunhos
+        </button>
+        <button onClick={() => selectSubTab('mensagens')} className={subTabClass('mensagens')} aria-pressed={subTab === 'mensagens'}>
+          Mensagens
         </button>
       </div>
 
-      {subTab === 'mensagens' && <MessagesView />}
+      <SectionCard
+        title={subTab === 'rascunhos' ? 'Rascunhos de mesas' : 'Mensagens capturadas'}
+        description={
+          subTab === 'rascunhos'
+            ? 'Revisão unificada de entradas do Bot, Exporter e texto colado antes de publicar mesas reais.'
+            : 'Apuração das mensagens brutas antes de gerar ou ignorar rascunhos.'
+        }
+        bodyClassName="p-5"
+      >
+        {subTab === 'mensagens' && <MessagesView />}
 
-      {subTab === 'rascunhos' && (
-        <DiscordDraftReviewTable inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} />
-      )}
+        {subTab === 'rascunhos' && (
+          <DiscordDraftReviewTable inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} />
+        )}
+      </SectionCard>
     </div>
   );
 }

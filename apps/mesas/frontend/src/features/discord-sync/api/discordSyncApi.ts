@@ -444,6 +444,9 @@ export const discordSyncApi = {
   reparseDraft: (id: string) =>
     apiFetch<DiscordDraft>(`/drafts/${id}/reparse`, { method: 'POST' }),
 
+  refreshDraftImage: (id: string) =>
+    apiFetch<{ draftId: string; tableId: string | null; status: string; url: string | null; error: string | null }>(`/drafts/${id}/refresh-image`, { method: 'POST' }),
+
   syncReady: () =>
     apiFetch<SyncReadyResult>('/sync-ready', { method: 'POST' }),
 

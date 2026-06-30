@@ -1,11 +1,12 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from './cn';
 
 interface Props {
   label: string;
-  value: React.ReactNode;
-  hint?: React.ReactNode;
-  icon?: React.ReactNode;
+  value: ReactNode;
+  hint?: ReactNode;
+  icon?: ReactNode;
   to?: string;
   tone?: 'neutral' | 'brand' | 'warn' | 'danger';
   loading?: boolean;

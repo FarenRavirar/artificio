@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { BookOpen, ClipboardList, DownloadCloud, LayoutDashboard, Settings, Users } from 'lucide-react';
 import { cn } from './ui/cn';
@@ -5,7 +6,7 @@ import { cn } from './ui/cn';
 interface SidebarGroup {
   label: string;
   slug: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
 
 interface Props {

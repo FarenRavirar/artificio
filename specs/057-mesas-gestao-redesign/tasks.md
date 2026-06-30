@@ -41,12 +41,12 @@
 - [x] T3.1 — Mover `modules/admin/{activity,hydration,platforms,systems,dev-feedback}` p/ `features/admin/`; corrigir imports. · feito: árvore antiga removida, imports canônicos em `features/admin`, lint+build+test frontend ✅ (2026-06-30).
 
 ### Fase 4 — Visão geral (Dashboard) (R8)
-- [ ] T4.1 — Página única: MetricCards (mesas ativas via `/api/v1/tables`; drafts por status via `discord/metrics.totals`; última importação via `metrics.runs[0]`; pendências sugestões) + `ActivityPanel`. · feito quando: cards com dado real, sem stub/Alertas/Atalhos.
-- [ ] T4.2 — Centralizar contagem de pendências em `useQuery(['pendencias'])` compartilhada (corrige DEB-057-03). · feito quando: sem `Cancelando requisição duplicada` no console ao navegar.
+- [x] T4.1 — Página única: MetricCards (mesas ativas via `/api/v1/tables`; drafts por status via `discord/metrics.totals`; última importação via `metrics.runs[0]`; pendências sugestões) + `ActivityPanel`. · feito: Dashboard sem abas/stubs/Alertas/Atalhos; cards reais + pendências + última importação + feed único (2026-06-30).
+- [x] T4.2 — Centralizar contagem de pendências em `useQuery(['pendencias'])` compartilhada (corrige DEB-057-03). · feito: `useAdminPendencias` com `queryKey ['admin','pendencias']` consumido por `GestaoLayout` e `DashboardSection`; fetch duplicado removido (2026-06-30).
 
 ### Fase 5 — Mesas central (R4)
-- [ ] T5.1 — Grupo Mesas: tab Rascunhos (fila unificada origem/status/lote) + tab Mensagens. Reusa DiscordDraftReviewTable+MessagesView. · feito quando: filtro por origem (Bot/Exporter/Texto) e status funciona; lote (batch/rejected) ok.
-- [ ] T5.2 — Ligar `refresh-image` na ação por linha do Rascunho (órfão→usado). · feito quando: botão re-baixa imagem, smoke ok.
+- [x] T5.1 — Grupo Mesas: tab Rascunhos (fila unificada origem/status/lote) + tab Mensagens. Reusa DiscordDraftReviewTable+MessagesView. · feito: `ModeracaoSection` virou página Mesas com PageHeader/SectionCard, tabs `rascunhos`/`mensagens`, deep links preservados, rascunhos com origem Bot/Exporter/Texto, status e lote via `drafts/batch`/`drafts/rejected`; mensagens com filtros e lote via `messages/batch` (2026-06-30). Smoke beta fica na T9.2.
+- [x] T5.2 — Ligar `refresh-image` na ação por linha do Rascunho (órfão→usado). · feito: `discordSyncApi.refreshDraftImage` consome `POST /admin/discord/drafts/:id/refresh-image`; preview de draft Discord ganhou botão `Rebaixar imagem` com toast e re-GET do draft após sucesso/tentativa (2026-06-30). Smoke beta fica na T9.2.
 
 > **Fronteira 052↔057 DECIDIDA (mantenedor, 2026-06-30):** 057 é dona de **tudo** no DiscordChatExporter — UI/perfis (T6.5/T6.7/T6.8) + bundle no image (T6.6) + **runner agendado** (T6.9, abaixo). O Bloco A da spec 052 referente a ingestão DCE é **absorvido aqui**; coordenar para não duplicar `discord_import_runs`/`_ai_suggestions` (a 052 segue dona da camada IA/shadow).
 

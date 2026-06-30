@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { cn } from './cn';
 
 export type PillTone = 'neutral' | 'brand' | 'success' | 'warn' | 'danger' | 'info';
@@ -12,7 +13,7 @@ const TONE: Record<PillTone, string> = {
 };
 
 interface Props {
-  children: React.ReactNode;
+  children: ReactNode;
   tone?: PillTone;
   className?: string;
 }

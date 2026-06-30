@@ -97,8 +97,55 @@ Tree limpa.
 - Implementação: `activity`, `hydration`, `platforms`, `systems` e `dev-feedback` movidos para `features/admin/`; imports antigos `modules/admin` eliminados; diretório `src/modules/admin` removido.
 - Validação: `rg "modules/admin" apps/mesas/frontend/src -n` sem resultados; `pnpm --filter @artificio/mesas-frontend lint` ✅; `pnpm --filter @artificio/mesas-frontend build` ✅ (warning conhecido de chunk >500 kB); `pnpm --filter @artificio/mesas-frontend test` ✅ (13 files, 148 tests); `pnpm verify:api` ✅ (breaking=0; 3 warnings ambíguos conhecidos).
 
+## Review CodeRabbit #120 — ReactNode + Fase 4 (2026-06-30)
+- Achado: `React.ReactNode` nas primitivas admin depende do namespace global React; tsconfig não habilita `allowUmdGlobalAccess`.
+- Correção planejada/aplicada: `import type { ReactNode } from 'react'` em `StatusPill`, `MetricCard`, `SectionCard`, `PageHeader`, `AdminTable` e `AdminSidebar`; `rg "React\\.ReactNode" apps/mesas/frontend/src/features/admin -n` sem resultados.
+- Investigação Fase 4: `DashboardSection` e `GestaoLayout` duplicam fetch de pendências (`system-suggestions`, `scenario-suggestions`, `drafts limit:1`) causando o ruído já mapeado em DEB-057-03. App já tem TanStack Query global.
+- Plano Fase 4: extrair `useAdminPendencias` com `queryKey ['admin','pendencias']`, normalização defensiva e uso compartilhado no layout+dashboard; refazer `DashboardSection` como visão única com `MetricCard`, `SectionCard`, `StatusPill` e `ActivityPanel`, sem abas/stubs `Alertas`/`Atalhos`.
+- Fase 4 implementada: `useAdminPendencias` centraliza sugestões pendentes + presença de drafts `needs_review`; `useAdminDashboardMetrics` centraliza mesas ativas + métricas DCE; `GestaoLayout` consome a mesma query de pendências; `DashboardSection` virou página única com cards reais, pendências operacionais, última importação e feed único.
+- Ajuste de robustez pós-`verify:api`: primeira versão do hook usava recurso dinâmico e o scanner gerava `GET /api/v1/admin/:param`; corrigido para endpoints explícitos `system-suggestions`/`scenario-suggestions`, preservando governança sem ruído novo.
+- Validação: `pnpm --filter @artificio/mesas-frontend lint` ✅; `pnpm --filter @artificio/mesas-frontend build` ✅ (warning conhecido chunk >500kB); `pnpm --filter @artificio/mesas-frontend test` ✅ (13 files, 148 tests); `pnpm verify:api` ✅ (breaking=0; 3 warnings ambíguos conhecidos).
+
+## Review CodeRabbit #120 — App.tsx nested template literal (2026-06-30)
+- Achado: `LegacyModeracaoRedirect` usa template literal aninhado ao preservar `sub` no redirect legado de `/gestao/moderacao/:sub?`.
+- Plano: extrair o sufixo opcional para constante tipada/legível e manter o comportamento existente (`/gestao/mesas` ou `/gestao/mesas/<sub>`).
+- Correção aplicada: `legacySubPath` separa o path opcional e o `Navigate` usa template literal simples.
+- Validação: `rg "\\$\\{[^}]*\`" apps/mesas/frontend/src/App.tsx -n` sem resultados; `pnpm --filter @artificio/mesas-frontend lint` ✅; `pnpm --filter @artificio/mesas-frontend build` ✅ (warning conhecido de chunk >500 kB).
+
+## Verificação T2.5 — R15 backend batch/archive (2026-06-30)
+- Pedido: verificar se T2.5 já foi implementada ou o que falta.
+- Evidência de código: `adminTables.ts` tem `PUT /api/v1/admin/tables/:id`, `DELETE /api/v1/admin/tables/:id` e `POST /api/v1/admin/tables/auto-archive`; não há endpoint admin de batch para mesas, nem archive admin em lote.
+- Evidência de código: `gmPanel.ts` tem `PATCH /api/v1/gm/tables/:id/archive` individual (dono/admin), confirmando que arquivamento de mesa existe no modelo, mas não como operação administrativa em lote.
+- Evidência de código: `discord/drafts.ts` e `discord/messages.ts` já têm `PATCH /batch`; esses casos da matriz já estão cobertos.
+- Evidência de código: `systemSuggestionsAdmin.ts`/`scenarioSuggestionsAdmin.ts` têm approve/reject individuais; `ComunidadeSection` faz rejeição em lote com N chamadas individuais, não endpoint batch.
+- Evidência de código: `notifications.ts` só lista e marca leitura (`read-all`/`:id/read`); não há delete/archive individual nem em lote.
+- Veredito: T2.5 segue aberta. O que existe é base parcial: Discord drafts/messages ok; mesas archive individual ok; faltam endpoints/admin UI de batch/archive nas demais listas da matriz e adoção por `<AdminTable>` nas fases 5/7.
+
+## Fase 5 — Mesas central (2026-06-30)
+- Pedido: implementar Fase 5.
+- Investigação: `ModeracaoSection` já é a rota `/gestao/mesas/:sub?` e já reutiliza `DiscordDraftReviewTable` + `MessagesView`; o backend já suporta `drafts/batch`, `drafts/rejected`, `messages/batch` e `drafts/:id/refresh-image`.
+- Plano: manter a lógica existente (sem duplicar fila), trocar a casca visual para `PageHeader`/`SectionCard`, preservar deep links `mensagens`/`rascunhos`, e expor `refresh-image` como ação por linha/preview em drafts Discord.
+- Limite: sem mexer em T2.5 backend genérico; Fase 5 usa os endpoints de drafts/mensagens que já existem.
+- Implementação: `ModeracaoSection` virou página Mesas com breadcrumb, descrição e tabs estáveis (`rascunhos`/`mensagens`) usando tokens/primitivas admin; default local passa a rascunhos, com deep link explícito ao trocar tab.
+- Implementação: `DiscordDraftReviewTable` rotula origem como Bot/Exporter/Texto, derivando de `source_kind`/`source_type` quando disponível e caindo para Bot/Texto sem inventar dado.
+- Implementação: `discordSyncApi.refreshDraftImage` ligado ao `POST /admin/discord/drafts/:id/refresh-image`; `DiscordDraftPreview` mostra `Rebaixar imagem` apenas para draft Discord, chama o endpoint, refaz `getDraft` e mostra toast.
+- Tasks: T5.1 e T5.2 marcadas concluídas; smoke beta permanece em T9.2 por rota auth-gated.
+- Validação: `pnpm --filter @artificio/mesas-frontend lint` ✅; `pnpm --filter @artificio/mesas-frontend test -- DiscordDraftReviewTable DiscordDraftPreview` ✅ (13 files, 148 tests); `pnpm --filter @artificio/mesas-frontend build` ✅ (warning conhecido chunk >500 kB); `pnpm verify:api` ✅ (breaking=0; 3 warnings ambíguos conhecidos).
+
+## Verificação api:lint — 3 warnings `no-ambiguous-paths` (2026-06-30)
+- Pedido: verificar os 3 warnings emitidos por `pnpm verify:api`.
+- Warning 1 (`mesas`): `/api/v1/gm/{slug}/contact` × `/api/v1/gm/tables/{id}`. Código real monta `gmPanelRoutes` antes de `gmRoutes`, e os handlers relevantes têm caminhos/métodos distintos; risco runtime atual não confirmado. É dívida de desenho de rota pública/GM.
+- Warning 2 (`glossario`): `/api/social/{id}/comments` × `/api/social/comments/{id}`. Código real tem GET/POST no nested e DELETE no literal; consumidores reais usam `DELETE /social/comments/:id`. Risco runtime atual não confirmado, mas o desenho permite ambiguidade teórica se `id=comments`.
+- Warning 3 (`glossario`): `/api/systems/{systemId}/editions` × `/api/systems/editions/{id}`. Código real tem GET/POST no nested e PUT/DELETE no literal; consumidores reais usam `/systems/editions/:id`. Risco runtime atual não confirmado, mas o desenho permite ambiguidade teórica se `systemId=editions`.
+- Veredito: warnings conhecidos/procedentes como dívida de desenho, não regressão da Fase 5 nem falha de scanner. Para zerar de verdade sem silenciar regra, precisa renomear/versar rotas (`/gm/public/:slug/contact`, `/social/terms/:id/comments`, `/systems/:systemId/editions` + `/editions/:id` ou similar) com compatibilidade/depreciação; isso é mudança de contrato e deve ser spec/débito próprio.
+
 ## Critério de conclusão (desta abertura)
 - `inventario.md` + `proposta-ia.md` completos; plano faseado aprovado pelo mantenedor.
 
 ## Backlog
 - `BL-057-GESTAO-REDESIGN` registrado em `specs/backlog.md`.
+
+## Triagem de reviews do CodeRabbit no PR #120 (2026-06-30)
+- **project-state.md corrigido:** "5 débitos" → "7 débitos (5 iniciais + 2 na investigação extra)".
+- **D1–D10 (débitos da 052 encontrados no diff do PR #120):** registrados como DEB-057-08 a DEB-057-17 no `debitos.md` da 057. Alvo: Fase 6 (absorção do DCE). Ponteiro adicionado no `debitos.md` da 052.
+- **Backlog atualizado:** status BL-057 reflete Fase 2 em PR #120 + 17 débitos totais (7 próprios + 10 herdados).
