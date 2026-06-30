@@ -182,6 +182,100 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/admin/discord/automation/auto-approval/guard:
+    post:
+      operationId: postapi_v1_admin_discord_automation_auto_approval_guard
+      summary: "Cria ou executa api v1 admin discord automation auto-approval guard"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/discord/automation/config:
+    get:
+      operationId: getapi_v1_admin_discord_automation_config
+      summary: "Consulta api v1 admin discord automation config"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/discord/automation/eval:
+    get:
+      operationId: getapi_v1_admin_discord_automation_eval
+      summary: "Consulta api v1 admin discord automation eval"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/admin/discord/discovery/guilds:
     get:
       operationId: getapi_v1_admin_discord_discovery_guilds

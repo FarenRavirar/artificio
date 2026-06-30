@@ -6,10 +6,10 @@
     "accounts": 11,
     "glossario": 46,
     "links": 22,
-    "mesas": 156,
+    "mesas": 159,
     "site": 32
   },
-  "total": 267,
+  "total": 270,
   "operations": [
     {
       "app": "accounts",
@@ -1035,6 +1035,42 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_v1_admin_dev_feedback_merge"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/automation/auto-approval/guard",
+      "summary": "Cria ou executa api v1 admin discord automation auto-approval guard",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_discord_automation_auto_approval_guard"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/discord/automation/config",
+      "summary": "Consulta api v1 admin discord automation config",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_discord_automation_config"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/discord/automation/eval",
+      "summary": "Consulta api v1 admin discord automation eval",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_discord_automation_eval"
     },
     {
       "app": "mesas",

@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **267 operações**.
+Total: **270 operações**.
 
 ## accounts (11)
 
@@ -100,7 +100,7 @@ Total: **267 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (156)
+## mesas (159)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -109,6 +109,9 @@ Total: **267 operações**.
 | DELETE | `/api/v1/admin/dev-feedback/{id}` | admin | admin | active | — | Remove api v1 admin dev-feedback id |
 | PATCH | `/api/v1/admin/dev-feedback/{id}` | admin | admin | active | — | Atualiza api v1 admin dev-feedback id |
 | POST | `/api/v1/admin/dev-feedback/merge` | admin | admin | active | — | Cria ou executa api v1 admin dev-feedback merge |
+| POST | `/api/v1/admin/discord/automation/auto-approval/guard` | admin | admin | active | — | Cria ou executa api v1 admin discord automation auto-approval guard |
+| GET | `/api/v1/admin/discord/automation/config` | admin | admin | active | — | Consulta api v1 admin discord automation config |
+| GET | `/api/v1/admin/discord/automation/eval` | admin | admin | active | — | Consulta api v1 admin discord automation eval |
 | GET | `/api/v1/admin/discord/discovery/guilds` | admin | admin | active | — | Consulta api v1 admin discord discovery guilds |
 | GET | `/api/v1/admin/discord/discovery/guilds/{guildId}/channels` | admin | admin | active | — | Consulta api v1 admin discord discovery guilds guildId channels |
 | GET | `/api/v1/admin/discord/drafts` | admin | admin | active | — | Consulta api v1 admin discord drafts |
