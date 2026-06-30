@@ -1446,6 +1446,14 @@ describe('isSuspiciousUrl', () => {
       expect(draft?.missing_fields).not.toContain('slots_total');
     });
 
+    it('slotsViaLabel: rótulo genérico X/Y = preenchidas/total ("Lugares: 2/5")', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Mesa\n» Lugares: 2/5\n» Data: Sexta 21h' }),
+      );
+      expect(draft?.table.slots_total).toBe(5);
+      expect(draft?.table.slots_open).toBe(3); // 5 total - 2 preenchidas
+    });
+
     it('URL não é engolida como continuação do rótulo anterior (Sistema)', () => {
       const draft = parseDiscordAnnouncement(
         makeMessage({ content_raw: 'Mesa\nSistema: D&D\nhttps://forms.gle/abc\nVagas: 5' }),

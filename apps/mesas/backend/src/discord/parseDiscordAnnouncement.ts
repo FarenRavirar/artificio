@@ -413,24 +413,27 @@ function extractSlots(text: string): SlotsResult {
 // comunidade (decorados são limpos por cleanLabelLine) e extrai o número. Cobre
 // variações que as regexes ancoradas em linha perdiam ("» Vagas disponíveis: 5").
 function slotsViaLabel(text: string): SlotsResult | null {
-  const value = extractLabelValue(text, [
-    'vagas', 'vagas disponiveis', 'vagas disponíveis', 'vagas totais',
-    'vagas abertas', 'nº de vagas', 'n de vagas', 'numero de vagas',
-    'número de vagas', 'lugares', 'jogadores',
+  // Rótulos "disponíveis/abertas": o 1º número de X/Y é VAGAS ABERTAS (não
+  // preenchidas). Rótulos genéricos/"totais": X/Y = preenchidas/total.
+  const openLabelValue = extractLabelValue(text, ['vagas disponiveis', 'vagas disponíveis', 'vagas abertas']);
+  const value = openLabelValue ?? extractLabelValue(text, [
+    'vagas', 'vagas totais', 'nº de vagas', 'n de vagas',
+    'numero de vagas', 'número de vagas', 'lugares', 'jogadores',
   ]);
   if (!value) return null;
   const slash = /(\d+)\s{0,3}\/\s{0,3}(\d+)/.exec(value);
   if (slash) {
-    const filled = Number.parseInt(slash[1], 10);
+    const first = Number.parseInt(slash[1], 10);
     const total = Number.parseInt(slash[2], 10);
     if (!Number.isFinite(total)) return null;
-    return { total, open: Math.max(0, total - filled), ambiguity: null };
+    return { total, open: openLabelValue ? first : Math.max(0, total - first), ambiguity: null };
   }
   const single = /(\d{1,3})/.exec(value);
   if (!single) return null;
-  const total = Number.parseInt(single[1], 10);
-  if (!Number.isFinite(total) || total <= 0) return null;
-  return { total, open: total, ambiguity: null };
+  const n = Number.parseInt(single[1], 10);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  // número único sob rótulo "disponíveis" = vagas abertas (total desconhecido)
+  return openLabelValue ? { total: null, open: n, ambiguity: null } : { total: n, open: n, ambiguity: null };
 }
 
 // Extrai dia da semana do texto

@@ -145,19 +145,19 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
     if (updateResult.numUpdatedRows === 0n) {
       throw Object.assign(new Error('Draft mudou de estado durante a correção.'), { statusCode: 409 });
     }
-
-    // D087 — alimenta o learning-store: cada campo corrigido vira regra
-    // determinística `campo + token(before) → after` reutilizável sem IA.
-    // Escopo por guild (fallback global no lookup).
-    const source = parsedBefore.source as Record<string, unknown> | undefined;
-    const guildId = typeof source?.guild_id === 'string' ? source.guild_id : null;
-    const learningEntries = Object.entries(diff).map(([field, { before, after }]) => ({
-      field,
-      inputValue: before,
-      outputValue: after,
-    }));
-    await recordFieldLearning(learningEntries, guildId, userId, trx);
   });
+
+  // D087 — alimenta o learning-store DEPOIS do commit, NUNCA dentro da tx da
+  // correção: um erro SQL aqui abortaria a transação do Postgres (COMMIT vira
+  // ROLLBACK) e a correção humana seria perdida. Best-effort, conn própria (db).
+  const source = parsedBefore.source as Record<string, unknown> | undefined;
+  const guildId = typeof source?.guild_id === 'string' ? source.guild_id : null;
+  const learningEntries = Object.entries(diff).map(([field, { before, after }]) => ({
+    field,
+    inputValue: before,
+    outputValue: after,
+  }));
+  await recordFieldLearning(learningEntries, guildId, userId);
 
   return { draft_id: draftId, fields_corrected: Object.keys(diff).length, diff };
 }
@@ -453,8 +453,10 @@ async function enrichDraftWithLlm(
   }
 
   // Se o store já resolveu todos os campos faltantes, não gasta token de IA.
-  const missing = normalized.draft.missing_fields;
-  const storeResolvedAllMissing = missing.length > 0 && missing.every((m) => m in storeFields);
+  // missing_fields pode ter marcador `campo:motivo` (ex.: system_name:unmatched_hint);
+  // o store chaveia por campo-base, então normalizar antes de comparar.
+  const missingBaseFields = normalized.draft.missing_fields.map((m) => m.split(':')[0]);
+  const storeResolvedAllMissing = missingBaseFields.length > 0 && missingBaseFields.every((m) => m in storeFields);
 
   const rawText = typeof contentRaw === 'string' ? contentRaw : '';
   let iaFields: Record<string, unknown> = {};
