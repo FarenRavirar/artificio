@@ -46,6 +46,20 @@ interface LlmAssistResult {
   model: string;
 }
 
+export function minimizeAnnouncementForLlm(rawText: string): string {
+  return rawText
+    .replace(/<@!?\d+>/g, '<@user>')
+    .replace(/<@&\d+>/g, '<@role>')
+    .replace(/<#\d+>/g, '<#channel>')
+    .replace(/https?:\/\/[^\s<>"']+/g, (url) => {
+      if (/forms\.gle\/|docs\.google\.com\/forms\//i.test(url)) return '[form-url]';
+      if (/discord\.gg\/|discord(?:app)?\.com\/invite\//i.test(url)) return '[discord-invite]';
+      if (/chat\.whatsapp\.com\/|wa\.me\//i.test(url)) return '[whatsapp-url]';
+      return '[url-removida]';
+    })
+    .slice(0, 3000);
+}
+
 /**
  * Remove cercas de markdown (```json … ```) de um retorno de LLM via busca por
  * índice — linear, sem o backtracking super-linear do regex anterior (ReDoS).
@@ -74,6 +88,7 @@ function stripCodeFence(text: string): string {
 export async function assistDiscordParse(
   rawText: string,
   existingFields: Record<string, unknown>,
+  model = 'deepseek-chat',
 ): Promise<LlmAssistResult | null> {
   const apiKey = await getSecret('deepseek_api_key');
   if (!apiKey) return null;
@@ -94,7 +109,7 @@ export async function assistDiscordParse(
 
   const userPrompt = [
     'Anúncio de mesa de RPG:',
-    rawText.slice(0, 3000), // limita tamanho p/ caber no contexto
+    minimizeAnnouncementForLlm(rawText),
     '',
     'Campos já identificados (use como ponto de partida):',
     JSON.stringify(existingFields, null, 2),
@@ -110,7 +125,7 @@ export async function assistDiscordParse(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -154,7 +169,7 @@ export async function assistDiscordParse(
       return null;
     }
 
-    return { extracted: extracted.data, model: 'deepseek-chat' };
+    return { extracted: extracted.data, model };
   } catch (error: unknown) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       console.warn('[llmAssist] timeout');

@@ -23,6 +23,7 @@ function respondImportSuccess(
   res: Response,
   result: { total: number; inserted: number; updated: number; ignored: number; failed: number },
   userId: string | undefined,
+  autoParse?: { total: number; parsed: number; discarded: number; ignored: number; errors: number },
 ): void {
   recordImportRun({
     sourceKind: 'discord_chat_exporter_json' as const,
@@ -40,8 +41,53 @@ function respondImportSuccess(
       updated: result.updated,
       ignored: result.ignored,
       failed: result.failed,
+      auto_parse: autoParse ?? null,
     },
   });
+}
+
+function shouldAutoParse(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') return false;
+  const value = (raw as Record<string, unknown>).autoParse;
+  if (value === true) return true;
+  return typeof value === 'string' && ['true', '1', 'yes', 'on'].includes(value.trim().toLowerCase());
+}
+
+async function autoParsePendingImportedMessages(
+  userId: string | undefined,
+  importedMessages: { channelId: string; messageId: string }[] | undefined,
+): Promise<{ total: number; parsed: number; discarded: number; ignored: number; errors: number }> {
+  if (!importedMessages?.length) {
+    return { total: 0, parsed: 0, discarded: 0, ignored: 0, errors: 0 };
+  }
+
+  const messages = await db
+    .selectFrom('discord_import_messages')
+    .selectAll()
+    .where('source_kind', '=', 'discord_chat_exporter_json')
+    .where('status', '=', 'pending')
+    .where((eb) => eb.or(importedMessages.map((message) => eb.and([
+      eb('discord_channel_id', '=', message.channelId),
+      eb('discord_message_id', '=', message.messageId),
+    ]))))
+    .limit(500)
+    .execute();
+
+  const contentIndex = buildContentIndex(messages);
+  let parsed = 0;
+  let discarded = 0;
+  let ignored = 0;
+  let errors = 0;
+
+  for (const message of messages) {
+    const outcome = await reparseOneMessage(message, contentIndex, userId);
+    if (outcome === 'error') errors++;
+    else if (outcome === 'discarded') discarded++;
+    else if (outcome === 'ignored') ignored++;
+    else if (outcome !== 'skipped') parsed++;
+  }
+
+  return { total: messages.length, parsed, discarded, ignored, errors };
 }
 
 router.post('/', requireAdmin, async (req: Request, res: Response) => {
@@ -52,9 +98,11 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
       return res.status(extracted.status).json({ error: extracted.error });
     }
 
+    const autoParse = shouldAutoParse(req.body);
     const result = await importDiscordChatExporterJson(extracted.payload);
+    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages) : undefined;
 
-    return respondImportSuccess(res, result, req.user?.userId);
+    return respondImportSuccess(res, result, req.user?.userId, autoParseResult);
   } catch (error: unknown) {
     respondImportError(res, error);
   }
@@ -70,9 +118,11 @@ router.post('/file', requireAdmin, uploadJsonFile, async (req: Request, res: Res
     const parsed = parseUploadedJsonBuffer(req.file);
     if ('error' in parsed) return res.status(parsed.status).json({ error: parsed.error });
 
+    const autoParse = shouldAutoParse(req.body);
     const result = await importDiscordChatExporterJson(parsed.parsed);
+    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages) : undefined;
 
-    return respondImportSuccess(res, result, req.user?.userId);
+    return respondImportSuccess(res, result, req.user?.userId, autoParseResult);
   } catch (error: unknown) {
     // Erros do multer (LIMIT_FILE_SIZE / fileFilter) já são tratados em uploadJsonFile.
     respondImportError(res, error);

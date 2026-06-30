@@ -98,6 +98,7 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
   let inserted = 0;
   let updated = 0;
   let failed = 0;
+  const importedMessages: { channelId: string; messageId: string }[] = [];
 
   // DEB-048-14/T-F8: reference é persistido em migration_130 e resolvido no parse
   // (parse-batch/reparse) via contentIndex. O import só insere — não resolve reply.
@@ -142,6 +143,9 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
       const action = result.rows[0]?.action ?? 'ignored';
       if (action === 'inserted') inserted++;
       else if (action === 'updated') updated++;
+      if (action === 'inserted' || action === 'updated') {
+        importedMessages.push({ channelId, messageId: msg.id });
+      }
     } catch (err) {
       failed++;
     }
@@ -153,6 +157,7 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
     updated,
     ignored: messages.length - inserted - updated - failed,
     failed,
+    importedMessages,
   };
 }
 

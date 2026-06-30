@@ -34,7 +34,7 @@ vi.mock('../../services/adminNotifications', () => ({
   notifyAdmins: vi.fn(),
 }));
 
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { processDiscordMessageToDraft } from './utils';
 import { db } from '../../db';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord';
@@ -80,6 +80,8 @@ function message(): Selectable<DiscordImportMessagesTable> {
 
 describe('processDiscordMessageToDraft', () => {
   beforeEach(() => {
+    process.env.MESAS_AI_AUTOMATION_MODE = 'suggest';
+    delete process.env.MESAS_AI_KILL_SWITCH;
     vi.clearAllMocks();
 
     (db.selectFrom as Mock).mockReturnValue(chain({ executeTakeFirst: vi.fn().mockResolvedValue(undefined) }));
@@ -89,7 +91,12 @@ describe('processDiscordMessageToDraft', () => {
     (updateDraftImageUploadState as Mock).mockResolvedValue(undefined);
   });
 
-  it('awaits DeepSeek enrichment before inserting the draft', async () => {
+  afterEach(() => {
+    delete process.env.MESAS_AI_AUTOMATION_MODE;
+    delete process.env.MESAS_AI_KILL_SWITCH;
+  });
+
+  it('awaits DeepSeek and stores suggestions separately before inserting the draft', async () => {
     const parsed = {
       source: { guild_id: 'guild-1', channel_id: 'channel-1', message_id: '1441138618755448997', message_url: 'https://discord.com/channels/guild-1/channel-1/1441138618755448997' },
       table: {
@@ -144,13 +151,25 @@ describe('processDiscordMessageToDraft', () => {
     expect(insertChain.values).toHaveBeenCalledWith(expect.objectContaining({
       normalized_payload: expect.objectContaining({
         table: expect.objectContaining({
-          title: 'A Torre Partida',
-          system_name: 'D&D 5E',
-          price_type: 'gratuita',
-          slots_total: 5,
-          contact_url: 'https://forms.gle/teste',
-          _notes: expect.arrayContaining(['Campos incompletos enriquecidos por DeepSeek; revisar antes de sincronizar.']),
+          title: null,
+          system_name: null,
+          price_type: null,
+          slots_total: null,
+          contact_url: null,
+          _ai_suggestions: expect.objectContaining({
+            provider: 'deepseek',
+            model: 'deepseek-chat',
+            fields: expect.objectContaining({
+              title: 'A Torre Partida',
+              system_name: 'D&D 5E',
+              price_type: 'gratuita',
+              slots_total: 5,
+              contact_url: 'https://forms.gle/teste',
+            }),
+          }),
+          _notes: expect.arrayContaining(['Sugestões IA disponíveis; revisar antes de aplicar.']),
         }),
+        missing_fields: ['title', 'system_name', 'price_type', 'slots_total', 'contact_url'],
       }),
     }));
   });

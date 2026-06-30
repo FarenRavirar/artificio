@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 276,
-    "uniqueEndpoints": 255,
+    "total": 281,
+    "uniqueEndpoints": 259,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,16 +36,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 158,
+        "total": 163,
         "byConfidence": {
           "medium": 64,
-          "high": 92,
+          "high": 97,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 56,
-          "service-wrapper": 36,
+          "service-wrapper": 41,
           "literal": 58,
           "concatenation": 2
         }
@@ -971,6 +971,46 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterAutomationPanel.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/discord/chat-exporter/config",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.getChatExporterConfig",
+      "line": 51
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterAutomationPanel.tsx",
+      "method": "PUT",
+      "endpoint": "/api/v1/admin/discord/chat-exporter/config",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.saveChatExporterConfig",
+      "line": 70
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterAutomationPanel.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/discord/chat-exporter/run",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.runChatExporterNow",
+      "line": 105
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterAutomationPanel.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/discord/chat-exporter/test",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.testChatExporterConfig",
+      "line": 92
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/DiscordSourceList.tsx",
       "method": "GET",
       "endpoint": "/api/v1/admin/discord/discovery/guilds",
@@ -1167,7 +1207,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDiscordSettings",
-      "line": 35
+      "line": 36
     },
     {
       "app": "mesas-frontend",
@@ -1177,7 +1217,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.saveDiscordBotToken",
-      "line": 55
+      "line": 56
     },
     {
       "app": "mesas-frontend",
@@ -1187,7 +1227,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.deleteDiscordBotToken",
-      "line": 70
+      "line": 71
     },
     {
       "app": "mesas-frontend",

@@ -14,6 +14,8 @@ import sourcesRouter from './discord/sources';
 
 import correctionRouter from './discord/corrections';
 import metricsRouter from './discord/metrics';
+import automationRouter from './discord/automation';
+import chatExporterAutomationRouter from './discord/chatExporterAutomation';
 
 const router = Router();
 
@@ -30,5 +32,7 @@ router.use('/', syncRouter);
 router.use('/import-json', previewRouter);
 router.use('/import-json', importRouter);
 router.use('/metrics', metricsRouter);
+router.use('/automation', automationRouter);
+router.use('/chat-exporter', chatExporterAutomationRouter);
 
 export default router;

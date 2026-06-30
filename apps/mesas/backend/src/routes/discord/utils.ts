@@ -7,6 +7,9 @@ import type { SystemEntry, ImportRawMessage } from '../../discord';
 import { normalizeDiscordTableDraft, parseDiscordAnnouncement, normalizeDraftPayload, assertDraftReadyTransition } from '../../discord';
 import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers';
 import { assistDiscordParse } from '../../discord/llmAssist';
+import { getAiAutomationConfig, isAiAssistEnabled } from '../../discord/aiAutomationConfig';
+import { attachAiSuggestions, buildAiSuggestionFields } from '../../discord/aiSuggestions';
+import { LEARNABLE_FIELDS, lookupFieldLearning, recordFieldLearning } from '../../discord/fieldLearning';
 import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
@@ -143,6 +146,18 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
       throw Object.assign(new Error('Draft mudou de estado durante a correção.'), { statusCode: 409 });
     }
   });
+
+  // D087 — alimenta o learning-store DEPOIS do commit, NUNCA dentro da tx da
+  // correção: um erro SQL aqui abortaria a transação do Postgres (COMMIT vira
+  // ROLLBACK) e a correção humana seria perdida. Best-effort, conn própria (db).
+  const source = parsedBefore.source as Record<string, unknown> | undefined;
+  const guildId = typeof source?.guild_id === 'string' ? source.guild_id : null;
+  const learningEntries = Object.entries(diff).map(([field, { before, after }]) => ({
+    field,
+    inputValue: before,
+    outputValue: after,
+  }));
+  await recordFieldLearning(learningEntries, guildId, userId);
 
   return { draft_id: draftId, fields_corrected: Object.keys(diff).length, diff };
 }
@@ -404,50 +419,6 @@ export async function parseDiscordMessage(
 
 export type DiscordDraftOutcome = 'parsed' | 'ignored' | 'reconciled' | 'discarded';
 
-type LlmExtracted = NonNullable<Awaited<ReturnType<typeof assistDiscordParse>>>['extracted'];
-
-/**
- * REV-039: mapeia os campos extraídos pelo LLM em updates, preenchendo só o que
- * está vazio no draft. Extraído de processDiscordMessageToDraft p/ baixar a
- * complexidade cognitiva.
- */
-function buildLlmUpdates(
-  ext: LlmExtracted,
-  table: Record<string, unknown>,
-): { updates: Record<string, unknown>; resolvedMissing: Set<string> } {
-  const updates: Record<string, unknown> = {};
-  const resolvedMissing = new Set<string>();
-
-  if (ext.title && !table.title) {
-    updates.title = ext.title;
-    resolvedMissing.add('title');
-  }
-  if (ext.system_hint && !table.system_name) {
-    updates.system_name = ext.system_hint;
-    resolvedMissing.add('system_name');
-    resolvedMissing.add('system_name:unmatched_hint');
-  }
-  if (ext.day_of_week && !table.day_of_week) updates.day_of_week = ext.day_of_week;
-  if (ext.start_time && !table.start_time) updates.start_time = ext.start_time;
-  if (typeof ext.slots_total === 'number' && table.slots_total == null) {
-    updates.slots_total = ext.slots_total;
-    resolvedMissing.add('slots_total');
-  }
-  if (typeof ext.slots_open === 'number' && table.slots_open == null) updates.slots_open = ext.slots_open;
-  if (ext.price_type && !table.price_type) {
-    updates.price_type = ext.price_type;
-    resolvedMissing.add('price_type');
-  }
-  if (typeof ext.price_value === 'number' && table.price_value == null) updates.price_value = ext.price_value;
-  if (ext.contact_url && !table.contact_url) {
-    updates.contact_url = ext.contact_url;
-    resolvedMissing.add('contact_url');
-  }
-  if (ext.description && !table.description) updates.description = ext.description;
-
-  return { updates, resolvedMissing };
-}
-
 /**
  * REV-039: enriquecimento LLM p/ baixa confiança/campos faltantes. Best-effort:
  * falha/timeout/sem-update retorna o `normalized` original. Extraído de
@@ -456,47 +427,67 @@ function buildLlmUpdates(
 async function enrichDraftWithLlm(
   contentRaw: unknown,
   normalized: ReturnType<typeof normalizeDiscordTableDraft>,
-  resolvedSystems: SystemEntry[],
 ): Promise<ReturnType<typeof normalizeDiscordTableDraft>> {
-  const NEEDS_LLM_THRESHOLD = 0.5;
+  const aiConfig = getAiAutomationConfig();
+  if (!isAiAssistEnabled(aiConfig)) return normalized;
+
   const shouldAskLlm =
-    (normalized.draft.confidence ?? 0) < NEEDS_LLM_THRESHOLD ||
+    (normalized.draft.confidence ?? 0) < aiConfig.lowConfidenceThreshold ||
     normalized.draft.missing_fields.length > 0;
   if (!shouldAskLlm || !normalized.draft.table) return normalized;
 
-  const rawText = typeof contentRaw === 'string' ? contentRaw : '';
-  if (rawText.length <= 50) return normalized;
-
   const table = normalized.draft.table as unknown as Record<string, unknown>;
-  const existingFields: Record<string, unknown> = {};
-  if (table.title) existingFields.title = table.title;
-  if (table.system_name) existingFields.system_name = table.system_name;
-  if (table.day_of_week) existingFields.day_of_week = table.day_of_week;
-  if (table.start_time) existingFields.start_time = table.start_time;
 
-  const llmResult = await assistDiscordParse(rawText, existingFields);
-  if (!llmResult) return normalized;
+  // D087 — camada learning-store (token-zero) ANTES da IA. Correções humanas
+  // passadas resolvem valores errados/repetidos sem chamar o provider.
+  const lookupQueries = LEARNABLE_FIELDS
+    .filter((f) => table[f] !== null && table[f] !== undefined && table[f] !== '')
+    .map((f) => ({ field: f as string, value: table[f] }));
+  const guildId = normalized.draft.source?.guild_id ?? null;
+  const storeHits = await lookupFieldLearning(lookupQueries, guildId);
+  const storeFields: Record<string, unknown> = {};
+  for (const hit of storeHits) {
+    if (JSON.stringify(table[hit.field]) !== JSON.stringify(hit.value)) {
+      storeFields[hit.field] = hit.value;
+    }
+  }
 
-  const { updates, resolvedMissing } = buildLlmUpdates(llmResult.extracted, table);
-  if (Object.keys(updates).length === 0) return normalized;
+  // Se o store já resolveu todos os campos faltantes, não gasta token de IA.
+  // missing_fields pode ter marcador `campo:motivo` (ex.: system_name:unmatched_hint);
+  // o store chaveia por campo-base, então normalizar antes de comparar.
+  const missingBaseFields = normalized.draft.missing_fields.map((m) => m.split(':')[0]);
+  const storeResolvedAllMissing = missingBaseFields.length > 0 && missingBaseFields.every((m) => m in storeFields);
 
-  return normalizeDiscordTableDraft(
-    {
-      ...normalized.draft,
-      table: {
-        ...normalized.draft.table,
-        ...updates,
-        _notes: [
-          ...normalized.draft.table._notes,
-          'Campos incompletos enriquecidos por DeepSeek; revisar antes de sincronizar.',
-        ],
-      },
-      missing_fields: normalized.draft.missing_fields.filter((field) => !resolvedMissing.has(field)),
-    },
-    // REV-029: reusa os systems resolvidos pelo parse (não `[]`), senão o
-    // system_hint do LLM nunca fecha system_id quando o caller chama sem systems.
-    resolvedSystems,
-  );
+  const rawText = typeof contentRaw === 'string' ? contentRaw : '';
+  let iaFields: Record<string, unknown> = {};
+  let iaModel = 'n/a';
+  if (!storeResolvedAllMissing && rawText.length > 50) {
+    const existingFields: Record<string, unknown> = {};
+    if (table.title) existingFields.title = table.title;
+    if (table.system_name) existingFields.system_name = table.system_name;
+    if (table.day_of_week) existingFields.day_of_week = table.day_of_week;
+    if (table.start_time) existingFields.start_time = table.start_time;
+
+    const llmResult = await assistDiscordParse(rawText, existingFields, aiConfig.model);
+    if (llmResult) {
+      iaFields = buildAiSuggestionFields(llmResult.extracted, normalized.draft.table);
+      iaModel = llmResult.model;
+    }
+  }
+
+  // Store tem precedência (correção humana > palpite da IA).
+  const merged = { ...iaFields, ...storeFields };
+  if (Object.keys(merged).length === 0) return normalized;
+
+  const usedIa = Object.keys(iaFields).length > 0;
+  const usedStore = Object.keys(storeFields).length > 0;
+  const provider = usedIa ? (usedStore ? `learning-store+${aiConfig.provider}` : aiConfig.provider) : 'learning-store';
+  const model = usedIa ? iaModel : 'n/a';
+
+  return {
+    ...normalized,
+    draft: attachAiSuggestions(normalized.draft, merged, provider, model),
+  };
 }
 
 /**
@@ -619,7 +610,7 @@ export async function processDiscordMessageToDraft(
 
   // WS3: enriquecimento LLM (best-effort) antes do upsert, p/ o draft salvo já
   // conter o melhor resultado disponível. Extraído p/ helper (REV-039).
-  const normalizedResult = await enrichDraftWithLlm(message.content_raw, result.normalized, resolvedSystems);
+  const normalizedResult = await enrichDraftWithLlm(message.content_raw, result.normalized);
 
   const draftId = await upsertDraftWithShadow(existing?.id, message.id, parsed, normalizedResult);
 

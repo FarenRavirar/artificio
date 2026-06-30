@@ -70,6 +70,55 @@ describe('discordSyncApi', () => {
     });
   });
 
+  describe('chatExporter', () => {
+    const configPayload = {
+      enabled: true,
+      frequency: 'daily',
+      time: '03:20',
+      timezone: 'America/Sao_Paulo',
+      importDir: '/var/lib/artificio/discord',
+      channelId: '123456789',
+      after: '2026-06-01',
+      token: { is_set: true, preview: 'abcd...wxyz', updated_at: null },
+      cookies: { is_set: false, preview: null, updated_at: null },
+      updated_at: null,
+    };
+
+    it('faz GET /chat-exporter/config', async () => {
+      fetchMock.mockResolvedValue(okJson(configPayload));
+      const result = await discordSyncApi.getChatExporterConfig();
+      expect(fetchMock.mock.calls[0][0]).toContain('/chat-exporter/config');
+      expect(result.enabled).toBe(true);
+      expect(result.token.is_set).toBe(true);
+    });
+
+    it('faz PUT /chat-exporter/config com token e agenda', async () => {
+      fetchMock.mockResolvedValue(okJson(configPayload));
+      await discordSyncApi.saveChatExporterConfig({ enabled: true, frequency: 'daily', time: '03:20', token: 'secret' });
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(opts?.method).toBe('PUT');
+      expect(JSON.parse(opts?.body as string)).toMatchObject({ enabled: true, token: 'secret' });
+    });
+
+    it('faz POST /chat-exporter/test', async () => {
+      fetchMock.mockResolvedValue(okJson({ ok: true, errors: [], command: 'DiscordChatExporter.Cli export -t [redacted]' }));
+      const result = await discordSyncApi.testChatExporterConfig();
+      expect(fetchMock.mock.calls[0][0]).toContain('/chat-exporter/test');
+      expect(result.ok).toBe(true);
+    });
+
+    it('faz POST /chat-exporter/run', async () => {
+      fetchMock.mockResolvedValue(okJson({
+        exported: { outputPath: '/tmp/out.json' },
+        imported: { rootDir: '/tmp', incoming: 1, processed: 1, errors: 0, retainedDeleted: 0, files: [] },
+      }));
+      const result = await discordSyncApi.runChatExporterNow();
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(opts?.method).toBe('POST');
+      expect(result.imported.processed).toBe(1);
+    });
+  });
+
   describe('discoverGuilds', () => {
     it('faz GET /discovery/guilds e retorna lista parseada', async () => {
       const guilds = [{ id: 'g1', name: 'Server', icon: null, approximate_member_count: 100 }];

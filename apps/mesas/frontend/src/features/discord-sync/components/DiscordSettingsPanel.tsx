@@ -3,6 +3,7 @@ import { AlertTriangle, Loader2, Save, ShieldCheck, Trash2, X } from 'lucide-rea
 import toast from 'react-hot-toast';
 import { discordSyncApi } from '../api/discordSyncApi';
 import type { DiscordSettings } from '../types';
+import { ChatExporterAutomationPanel } from './ChatExporterAutomationPanel';
 
 const EMPTY_SETTINGS: DiscordSettings = {
   bot_token: {
@@ -180,6 +181,8 @@ export function DiscordSettingsPanel() {
           </div>
         </div>
       )}
+
+      <ChatExporterAutomationPanel />
     </div>
   );
 }
