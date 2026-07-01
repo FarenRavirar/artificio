@@ -11,6 +11,11 @@ const CHANNEL_KIND_BY_TYPE = new Map<number, DiscordSourceChannelType>([
   [15, 'forum'],
 ]);
 
+const discordUserSchema = z.object({
+  id: z.string(),
+  username: z.string(),
+});
+
 const discordGuildSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -105,6 +110,37 @@ async function discordGetUnknown(path: string): Promise<unknown> {
 
     return res.json() as Promise<unknown>;
   } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new DiscordDiscoveryError('Discord demorou demais para responder. Tente novamente em instantes.', 502);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Testa um token cru (user/session ou bot) direto contra `GET /users/@me`, sem
+ * depender do bot token salvo em settings — usado pelo botão "Testar token" antes
+ * de salvar o perfil/config, pra dar erro específico (401/403/timeout) em vez de
+ * só descobrir que o token está errado quando o import falhar de madrugada.
+ */
+export async function validateDiscordToken(token: string, authType: 'user' | 'bot'): Promise<{ id: string; username: string }> {
+  const header = authType === 'bot' ? `Bot ${token.trim()}` : token.trim();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(`${DISCORD_API_BASE}/users/@me`, {
+      headers: { Authorization: header },
+      signal: controller.signal,
+    });
+    if (!res.ok) throw mapDiscordStatus(res.status);
+    const payload: unknown = await res.json();
+    const parsed = discordUserSchema.safeParse(payload);
+    if (!parsed.success) throw new DiscordDiscoveryError('Discord retornou usuário em formato inesperado.', 502);
+    return parsed.data;
+  } catch (error: unknown) {
+    if (error instanceof DiscordDiscoveryError) throw error;
     if (error instanceof Error && error.name === 'AbortError') {
       throw new DiscordDiscoveryError('Discord demorou demais para responder. Tente novamente em instantes.', 502);
     }

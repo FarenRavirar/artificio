@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, ExternalLink, Play, RefreshCw, RadioTower, Save, TestTube2, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, ExternalLink, Loader2, Play, RefreshCw, RadioTower, Save, TestTube2, Trash2, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminTable, StatusPill } from '../../admin/components/ui';
 import { formatDateTime } from '../../admin/utils/format';
@@ -16,6 +16,32 @@ import type {
 } from '../types';
 
 type WizardStep = 'conectar' | 'canais' | 'agenda';
+
+type TokenStatus = { state: 'idle' | 'testing' | 'ok' | 'error'; message?: string };
+
+// Indicador inline verde/vermelho da validação automática de token (sem botão).
+function TokenStatusBadge({ status }: { status: TokenStatus }) {
+  if (status.state === 'idle') return null;
+  if (status.state === 'testing') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-[var(--fg-faint)]">
+        <Loader2 size={13} className="animate-spin" /> Validando...
+      </span>
+    );
+  }
+  if (status.state === 'ok') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-emerald-500">
+        <CheckCircle2 size={13} /> {status.message ?? 'Token válido'}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-[var(--danger-soft)]">
+      <XCircle size={13} /> {status.message ?? 'Token inválido'}
+    </span>
+  );
+}
 
 const STEPS: { key: WizardStep; label: string }[] = [
   { key: 'conectar', label: 'Conectar' },
@@ -137,6 +163,15 @@ function toDateTimeLocal(value: string, timeZone: string): string {
   }
 }
 
+// Link do Discord (desktop/web): https://discord.com/channels/<guild>/<channel>[/<message>]
+const DISCORD_CHANNEL_LINK_RE = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/channels\/(\d{5,30})\/(\d{5,30})(?:\/\d+)?\/?(?:\?.*)?$/;
+
+function parseDiscordChannelLink(value: string): { guildId: string; channelId: string } | null {
+  const match = DISCORD_CHANNEL_LINK_RE.exec(value.trim());
+  if (!match) return null;
+  return { guildId: match[1], channelId: match[2] };
+}
+
 function effectiveAuthType(profile: ChatExporterProfile, config: ChatExporterConfig | null): 'user' | 'bot' {
   if (profile.auth_type === 'user' || profile.auth_type === 'bot') return profile.auth_type;
   return config?.authType ?? 'user';
@@ -160,11 +195,14 @@ export function ChatExporterProfilesPanel() {
   const [clearGlobalUserToken, setClearGlobalUserToken] = useState(false);
   const [savingGlobal, setSavingGlobal] = useState(false);
   const [form, setForm] = useState<ProfileForm>(EMPTY_FORM);
+  const [channelLink, setChannelLink] = useState('');
   const [step, setStep] = useState<WizardStep>('conectar');
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [globalTokenStatus, setGlobalTokenStatus] = useState<TokenStatus>({ state: 'idle' });
+  const [profileTokenStatus, setProfileTokenStatus] = useState<TokenStatus>({ state: 'idle' });
   const [busyProfileId, setBusyProfileId] = useState<string | null>(null);
   const [deltas, setDeltas] = useState<Record<string, string>>({});
 
@@ -217,6 +255,25 @@ export function ChatExporterProfilesPanel() {
       toast.error(error instanceof Error ? error.message : 'Erro ao salvar padrão de autenticação.');
     } finally {
       setSavingGlobal(false);
+    }
+  };
+
+  // Validação automática: dispara no onBlur do campo de token (sem botão).
+  // Testa o token cru (user/session "cookie" ou bot) contra o Discord de verdade
+  // (GET /users/@me) e loga o erro real no console do navegador (rastreio).
+  const testTokenOnBlur = async (token: string, authType: 'user' | 'bot', scope: 'global' | 'profile') => {
+    const setStatus = scope === 'global' ? setGlobalTokenStatus : setProfileTokenStatus;
+    if (!token.trim()) {
+      setStatus({ state: 'idle' });
+      return;
+    }
+    setStatus({ state: 'testing' });
+    try {
+      const result = await discordSyncApi.validateChatExporterToken(token, authType);
+      setStatus({ state: 'ok', message: `Conectado como ${result.username}` });
+    } catch (error) {
+      console.error('[ChatExporterProfilesPanel] validação de token falhou', { scope, authType, error });
+      setStatus({ state: 'error', message: error instanceof Error ? error.message : 'Erro ao validar token.' });
     }
   };
 
@@ -283,6 +340,18 @@ export function ChatExporterProfilesPanel() {
       channel_name: channel?.name ?? current.channel_name,
       label: current.label || channel?.name || current.label,
     }));
+  };
+
+  const applyChannelLink = () => {
+    const parsed = parseDiscordChannelLink(channelLink);
+    if (!parsed) {
+      toast.error('Link inválido. Copie o link do canal no Discord (botão direito → Copiar link).');
+      return;
+    }
+    setForm((current) => ({ ...current, guild_id: parsed.guildId, channel_id: parsed.channelId }));
+    setChannelLink('');
+    toast.success('Servidor e canal preenchidos a partir do link.');
+    if (selectedAuthType === 'bot') void loadChannels(parsed.guildId);
   };
 
   const save = async () => {
@@ -466,8 +535,13 @@ export function ChatExporterProfilesPanel() {
               className={inputClass}
               value={globalUserToken}
               disabled={clearGlobalUserToken}
-              onChange={(event) => setGlobalUserToken(event.target.value)}
+              onChange={(event) => {
+                setGlobalUserToken(event.target.value);
+                setGlobalTokenStatus({ state: 'idle' });
+              }}
+              onBlur={(event) => void testTokenOnBlur(event.target.value, 'user', 'global')}
             />
+            <TokenStatusBadge status={globalTokenStatus} />
           </label>
           <label className="flex items-center gap-2 pt-7 text-sm text-[var(--fg-muted)]">
             <input
@@ -503,6 +577,12 @@ export function ChatExporterProfilesPanel() {
         className="rounded-lg border border-[var(--border)] bg-[var(--admin-surface)] p-4"
         onSubmit={(event) => {
           event.preventDefault();
+          // Enter em qualquer campo dispara submit nativo do <form> — só salva de
+          // fato no passo final; nos passos anteriores, Enter avança (como "Próximo").
+          if (step !== 'agenda') {
+            if (canAdvanceCanais || step === 'conectar') setStep(step === 'conectar' ? 'canais' : 'agenda');
+            return;
+          }
           void save();
         }}
       >
@@ -554,8 +634,13 @@ export function ChatExporterProfilesPanel() {
                   className={inputClass}
                   value={form.token}
                   disabled={form.clearToken}
-                  onChange={(event) => setForm({ ...form, token: event.target.value })}
+                  onChange={(event) => {
+                    setForm({ ...form, token: event.target.value });
+                    setProfileTokenStatus({ state: 'idle' });
+                  }}
+                  onBlur={(event) => { if (!form.clearToken) void testTokenOnBlur(event.target.value, selectedAuthType, 'profile'); }}
                 />
+                <TokenStatusBadge status={profileTokenStatus} />
               </label>
               {form.id && (
                 <label className="flex items-center gap-2 pt-7 text-sm text-[var(--fg-muted)]">
@@ -565,7 +650,7 @@ export function ChatExporterProfilesPanel() {
               )}
             </div>
             <p className="text-sm text-[var(--fg-muted)]">
-              Token de usuário/session é o valor `authorization` copiado do Discord web; ele acessa o que sua conta vê. Token de bot é o token do aplicativo convidado ao servidor; com ele dá para listar servidores e canais automaticamente.
+              <strong>Token de usuário/session</strong> é como um "cookie de login" da sua própria conta do Discord — com ele o importador enxerga só o que a sua conta já vê, sem precisar convidar bot nenhum, mas é uma credencial sensível: não compartilhe. <strong>Token de bot</strong> é do aplicativo Discord que você criou e convidou ao servidor; com ele dá para listar servidores e canais automaticamente aqui no painel.
             </p>
             {selectedAuthType === 'bot' && (
               <button
@@ -595,6 +680,36 @@ export function ChatExporterProfilesPanel() {
 
         {step === 'canais' && (
           <div className="space-y-4">
+            <div className="rounded-lg border border-dashed border-[var(--border)] p-3">
+              <label className="space-y-1 text-sm text-[var(--fg-muted)]">
+                <span>Colar link do canal (opcional — preenche servidor e canal sozinho)</span>
+                <div className="flex gap-2">
+                  <input
+                    className={inputClass}
+                    placeholder="https://discord.com/channels/1012.../1012..."
+                    value={channelLink}
+                    onChange={(event) => setChannelLink(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        applyChannelLink();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={applyChannelLink}
+                    disabled={!channelLink.trim()}
+                    className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--fg-muted)] hover:bg-[var(--admin-hover)] disabled:opacity-50"
+                  >
+                    Usar link
+                  </button>
+                </div>
+              </label>
+              <p className="mt-1 text-xs text-[var(--fg-faint)]">
+                No Discord (app ou web), clique com o botão direito no canal → "Copiar link" e cole aqui. Extraímos o servidor e o canal automaticamente.
+              </p>
+            </div>
             <div className="grid gap-3 md:grid-cols-3">
               {selectedAuthType === 'bot' ? (
                 <>
@@ -672,7 +787,7 @@ export function ChatExporterProfilesPanel() {
               </p>
             )}
             <p className="text-xs text-[var(--fg-faint)]">
-              IDs manuais servem quando você já sabe o servidor/canal ou quando está usando token de usuário/session. No Discord, ative o modo desenvolvedor e use "Copiar ID" no servidor ou canal.
+              O <strong>servidor</strong> é a comunidade do Discord (aparece na barra lateral esquerda); o <strong>canal</strong> é a conversa dentro dela (barra do meio, ex.: #geral). Prefira colar o link do canal acima — ele já traz os dois. Se preferir IDs manuais, ative o modo desenvolvedor no Discord e use "Copiar ID" no servidor ou canal.
               {' '}
               <a href={DISCORD_ID_GUIDE_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--color-artificio-orange)] hover:underline">
                 <ExternalLink size={12} /> Onde achar IDs
@@ -741,6 +856,15 @@ export function ChatExporterProfilesPanel() {
               className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--fg-muted)] hover:bg-[var(--admin-hover)]"
             >
               <ArrowLeft size={15} /> Voltar
+            </button>
+          )}
+          {step === 'conectar' && (
+            <button
+              type="button"
+              onClick={() => setStep('canais')}
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-artificio-orange)] px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Próximo <ArrowRight size={15} />
             </button>
           )}
           {step === 'canais' && (

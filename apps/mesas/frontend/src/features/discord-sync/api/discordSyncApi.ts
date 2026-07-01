@@ -107,6 +107,16 @@ function parseChatExporterDelta(data: unknown): ChatExporterDelta {
   return parsed.data;
 }
 
+const chatExporterValidateTokenResultSchema = z.object({
+  ok: z.boolean(),
+  username: z.string(),
+});
+function parseChatExporterValidateTokenResult(value: unknown): { ok: boolean; username: string } {
+  const parsed = chatExporterValidateTokenResultSchema.safeParse(value);
+  if (!parsed.success) throw new Error('Resposta de validação de token em formato inesperado.');
+  return parsed.data;
+}
+
 const chatExporterTestResultSchema = z.object({
   ok: z.boolean(),
   errors: z.array(z.string()),
@@ -413,6 +423,9 @@ export const discordSyncApi = {
     token: string;
     clearToken: boolean;
   }>) => parseChatExporterConfig(await apiFetch<unknown>('/chat-exporter/config', { method: 'PUT', body: JSON.stringify(body) })),
+
+  validateChatExporterToken: async (token: string, authType: 'user' | 'bot') =>
+    parseChatExporterValidateTokenResult(await apiFetch<unknown>('/chat-exporter/validate-token', { method: 'POST', body: JSON.stringify({ token, authType }) })),
 
   testChatExporterConfig: async () =>
     parseChatExporterTestResult(await apiFetch<unknown>('/chat-exporter/test', { method: 'POST' })),

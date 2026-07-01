@@ -11,7 +11,7 @@ import type {
   NewDiscordSetting,
 } from '../../db/types';
 import { buildChatExporterCliCommand, redactedChatExporterCliCommand, runChatExporterCli } from '../../discord/chatExporterCliRunner';
-import { discoverChannelDelta, DiscordDiscoveryError } from '../../discord/discovery';
+import { discoverChannelDelta, validateDiscordToken, DiscordDiscoveryError } from '../../discord/discovery';
 import { resolveChatExporterBinary, runFolderImport, runProfileExport } from '../../discord/chatExporterProfileRunner';
 import { getDiscordBotToken } from '../../discord/config';
 import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError, DiscordSettingsDecryptError } from '../../discord/settingsCrypto';
@@ -296,7 +296,9 @@ function profileErrors(profile: DiscordChatExporterProfile, token: string | null
   const errors: string[] = [];
   if (!profile.enabled) errors.push('Perfil desativado.');
   if (!token) errors.push('Token ausente: salve a credencial global escolhida ou um token neste perfil.');
-  if (!profile.import_dir) errors.push('Diretório de importação ausente.');
+  // import_dir é gerado pelo backend no INSERT (defaultImportDir), nunca digitado pelo
+  // usuário — não é um problema que o leigo possa corrigir. Erro interno vira log, não toast.
+  if (!profile.import_dir) console.error(`[chatExporterAutomation] perfil ${profile.id} sem import_dir (esperado gerado no insert).`);
   return errors;
 }
 
@@ -317,6 +319,29 @@ function sendError(res: Response, error: unknown, fallbackMessage: string): Resp
   console.error(fallbackMessage, error);
   return res.status(500).json({ error: 'Erro na automação do DiscordChatExporter.' });
 }
+
+const validateTokenSchema = z.object({
+  token: z.string().trim().min(10),
+  authType: globalAuthTypeSchema,
+});
+
+// Testa token cru (user/session ou bot) antes de salvar — não persiste nada.
+router.post('/validate-token', requireAdmin, async (req: Request, res: Response) => {
+  const parsed = validateTokenSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Token inválido.', details: z.flattenError(parsed.error) });
+  }
+  try {
+    const user = await validateDiscordToken(parsed.data.token, parsed.data.authType);
+    return res.json({ data: { ok: true, username: user.username } });
+  } catch (error: unknown) {
+    if (error instanceof DiscordDiscoveryError) {
+      console.error('[POST /admin/discord/chat-exporter/validate-token]', error.statusCode, error.message);
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    return sendError(res, error, '[POST /admin/discord/chat-exporter/validate-token]');
+  }
+});
 
 router.get('/config', requireAdmin, async (_req: Request, res: Response) => {
   try {
