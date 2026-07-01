@@ -162,7 +162,7 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
 }
 
 /** Monta objeto de preview a partir de um export já parseado (DEB-048-24). */
-export function buildPreviewFromExport(exportData: { guild: { id: string; name: string }; channel: { id: string; name: string }; dateRange?: { after?: string; before?: string } | null; exportedAt?: string | null; messageCount?: number; messages: { attachments?: unknown[]; embeds?: unknown[] }[] }) {
+export function buildPreviewFromExport(exportData: { guild: { id: string; name: string }; channel: { id: string; name: string }; dateRange?: { after?: string | null; before?: string | null } | null; exportedAt?: string | null; messageCount?: number; messages: { attachments?: unknown[]; embeds?: unknown[] }[] }) {
   const attachmentsCount = exportData.messages.reduce((sum, msg) => sum + (msg.attachments?.length ?? 0), 0);
   const embedsCount = exportData.messages.reduce((sum, msg) => sum + (msg.embeds?.length ?? 0), 0);
   return {
