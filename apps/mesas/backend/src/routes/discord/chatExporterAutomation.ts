@@ -131,6 +131,37 @@ function toNullableDate(value: string | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function getTimeZoneOffsetMs(timeZone: string, date: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(date);
+  const map: Record<string, string> = {};
+  for (const part of parts) map[part.type] = part.value;
+  const asUtc = Date.UTC(Number(map.year), Number(map.month) - 1, Number(map.day), Number(map.hour), Number(map.minute), Number(map.second));
+  return asUtc - date.getTime();
+}
+
+// "after" chega sem offset (ex.: datetime-local "2026-07-01T09:00"); interpretar
+// como horário local do timezone do perfil evita deslocar o cutoff quando o
+// runtime do servidor não está na mesma timezone (E-tz-after).
+function toNullableDateInZone(value: string | undefined, timeZone: string): Date | null {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value);
+  if (!match) return toNullableDate(value);
+  const [, year, month, day, hour, minute, second] = match;
+  const guessUtcMs = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second ?? '0'));
+  const offsetMs = getTimeZoneOffsetMs(timeZone, new Date(guessUtcMs));
+  const date = new Date(guessUtcMs - offsetMs);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function parseStoredConfig(value: string | undefined): Partial<ChatExporterConfig> {
   if (!value) return {};
   try {
@@ -322,7 +353,7 @@ router.post('/profiles', requireAdmin, async (req: Request, res: Response) => {
         channel_name: profile.channel_name ?? null,
         auth_type: profile.auth_type,
         token_enc: token ? encryptDiscordSetting(token) : null,
-        after: toNullableDate(after),
+        after: toNullableDateInZone(after, profile.timezone),
         import_dir: defaultImportDir(id),
         created_at: now,
         updated_at: now,
@@ -356,7 +387,7 @@ router.patch('/profiles/:id', requireAdmin, async (req: Request, res: Response) 
     };
     if ('guild_name' in patch) update.guild_name = patch.guild_name ?? null;
     if ('channel_name' in patch) update.channel_name = patch.channel_name ?? null;
-    if (after !== undefined) update.after = toNullableDate(after);
+    if (after !== undefined) update.after = toNullableDateInZone(after, patch.timezone ?? existing.timezone);
     if (token) update.token_enc = encryptDiscordSetting(token);
     if (clearToken) update.token_enc = null;
 
