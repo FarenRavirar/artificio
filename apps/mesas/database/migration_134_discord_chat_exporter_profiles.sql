@@ -1,6 +1,9 @@
 -- @migration: 134
--- @description: Perfis multi-canal para DiscordChatExporter.
 -- @class: online-safe
+-- @requires-backup: false
+-- @author: spec-057
+-- @created: 2026-06-30
+-- @description: Perfis multi-canal para DiscordChatExporter.
 
 CREATE TABLE IF NOT EXISTS discord_chat_exporter_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

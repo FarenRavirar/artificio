@@ -105,3 +105,14 @@
 - **Prevenção:** teste shell automatizado (`scripts/deploy/test_migration_guard.sh`, 28 cenários) plugado no CI `_lint-shell.yml` como gate. Varredura completa de 62 migrations online-safe confirmou que nenhuma destrutiva real passa (R1/R2/R3 provados). Cópia órfã `apps/mesas/scripts/deploy/` removida (escopo A, 6 arquivos).
 - **Follow-up:** re-deploy prod mesas (gated por aprovação nominal do mantenedor) para aplicar migration_128+129.
 - **Data:** 2026-06-24
+
+### E011 — deploy beta/prod aborta: `migration_*.sql falhou na validacao de campos do cabecalho`
+- **Módulo/Pacote:** infra / CI/CD — `scripts/deploy/apply_required_migrations.sh` + `scripts/deploy/lib_migrations.sh:parse_header`
+- **Sintoma:** deploy (dispatch `deploy.yml`) falha no step "Deploy module on VM":
+  ```
+  ::error::database/migration_134_discord_chat_exporter_profiles.sql falhou na validacao de campos do cabecalho.
+  ```
+- **Causa raiz:** `parse_header` exige **5 campos** (`@class`, `@requires-backup`, `@author`, `@created`, `@description`) nas primeiras 20 linhas. A migration 134 tinha só 3 (`@migration`, `@description`, `@class`); faltavam `@requires-backup`, `@author`, `@created`. **`@migration` NÃO é um dos 5 — é decorativo.** Gap estrutural: nenhum gate CI valida header antes do merge — `parse_header` só roda no deploy da VM, então header quebrado passa PR/CI verde e só estoura no beta. Já recorreu várias vezes.
+- **Solução:** completar o header com os 5 campos, copiando do vizinho verde mais recente. Fix aplicado em `migration_134` (author=spec-057, created=2026-06-30, requires-backup=false, class=online-safe).
+- **Prevenção:** regra pétrea de checklist de migration adicionada em `AGENTS.md` §Banco (5 campos + regras `requires-backup→manual-risk`, `online-safe` sem DDL destrutivo, dir allowlisted). Débito aberto: gate CI que roda `parse_header` nas `migration_*.sql` changed do PR (falhar no PR, não no deploy) — registrar em `specs/backlog.md`.
+- **Data:** 2026-07-01
