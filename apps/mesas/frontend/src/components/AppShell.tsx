@@ -5,6 +5,7 @@ import { FeedbackButton } from '../features/dev-feedback/FeedbackButton';
 import { HeaderActions } from './HeaderActions';
 import { getMesasPublicOrigin } from '../utils/auth';
 import { ChangelogModal } from './ChangelogModal';
+import { useAuth } from '../contexts/useAuth';
 
 interface AppShellProps {
   children: ReactNode;
@@ -24,6 +25,7 @@ const moduleNav: NavItem[] = [
 
 export const AppShell = ({ children }: AppShellProps) => {
   const publicOrigin = getMesasPublicOrigin();
+  const { user, isLoading, logout } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { theme } = useTheme();
@@ -56,6 +58,19 @@ export const AppShell = ({ children }: AppShellProps) => {
         onOpenChangelog={openChangelog}
         changelogHasBadge={hasNewUpdate}
         serviceAccount={{ label: 'Conta Mesas', href: '/perfil' }}
+        sessionOverride={{
+          user: user
+            ? {
+                id: user.id,
+                email: '',
+                name: user.name ?? 'Usuário',
+                role: user.role === 'admin' ? 'admin' : 'user',
+                avatar: user.avatar_url ?? null,
+              }
+            : null,
+          loading: isLoading,
+        }}
+        onLogout={() => { void logout(); }}
         actions={<HeaderActions />}
       />
       <div className="flex-1 pt-6">

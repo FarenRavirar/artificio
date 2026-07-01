@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { requireDiscordBotToken } from './config';
+import { DiscordSettingsDecryptError, DiscordSettingsSecretUnavailableError } from './settingsCrypto';
 import type { DiscordSourceChannelType } from './types';
 
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
@@ -59,7 +60,7 @@ export class DiscordDiscoveryError extends Error {
 
 function mapDiscordStatus(status: number): DiscordDiscoveryError {
   if (status === 401) {
-    return new DiscordDiscoveryError('Token do bot inválido ou revogado. Gere um novo token no Discord e salve novamente.', 502);
+    return new DiscordDiscoveryError('Token do bot inválido ou revogado. Gere um novo token no Discord e salve novamente.', 422);
   }
   if (status === 403) {
     return new DiscordDiscoveryError('O bot não tem permissão para acessar esse servidor ou canal no Discord.', 403);
@@ -74,7 +75,18 @@ function mapDiscordStatus(status: number): DiscordDiscoveryError {
 }
 
 async function discordGetUnknown(path: string): Promise<unknown> {
-  const token = await requireDiscordBotToken();
+  let token: string;
+  try {
+    token = await requireDiscordBotToken();
+  } catch (error: unknown) {
+    if (error instanceof DiscordSettingsDecryptError) {
+      throw new DiscordDiscoveryError('Token do bot salvo está ilegível. Regrave o token do Discord e tente novamente.', 422);
+    }
+    if (error instanceof DiscordSettingsSecretUnavailableError) {
+      throw new DiscordDiscoveryError('Chave de criptografia ausente para ler o token do Discord.', 503);
+    }
+    throw error;
+  }
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
 

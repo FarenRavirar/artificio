@@ -80,7 +80,6 @@ describe('discordSyncApi', () => {
       channelId: '123456789',
       after: '2026-06-01',
       token: { is_set: true, preview: 'abcd...wxyz', updated_at: null },
-      cookies: { is_set: false, preview: null, updated_at: null },
       updated_at: null,
     };
 

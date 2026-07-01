@@ -58,6 +58,7 @@ const chatExporterSecretStatusSchema = z.object({
 
 const chatExporterConfigSchema = z.object({
   enabled: z.boolean().optional(),
+  authType: z.enum(['user', 'bot']).optional(),
   frequency: z.enum(['hourly', 'daily', 'weekly']).optional(),
   time: z.string().optional(),
   timezone: z.string().optional(),
@@ -65,7 +66,6 @@ const chatExporterConfigSchema = z.object({
   channelId: z.string().optional(),
   after: z.string().optional(),
   token: chatExporterSecretStatusSchema,
-  cookies: chatExporterSecretStatusSchema,
   updated_at: z.string().nullable(),
   decrypt_error: z.boolean().optional(),
 });
@@ -78,6 +78,7 @@ const chatExporterProfileSchema = z.object({
   channel_id: z.string(),
   channel_name: z.string().nullable(),
   format: z.literal('Json'),
+  auth_type: z.enum(['global', 'user', 'bot']),
   include_threads: z.enum(['none', 'active', 'all']),
   after: z.string().nullable(),
   media: z.boolean(),
@@ -405,13 +406,12 @@ export const discordSyncApi = {
     frequency: 'hourly' | 'daily' | 'weekly';
     time: string;
     timezone: string;
+    authType: 'user' | 'bot';
     importDir: string;
     channelId: string;
     after: string;
     token: string;
-    cookies: string;
     clearToken: boolean;
-    clearCookies: boolean;
   }>) => parseChatExporterConfig(await apiFetch<unknown>('/chat-exporter/config', { method: 'PUT', body: JSON.stringify(body) })),
 
   testChatExporterConfig: async () =>

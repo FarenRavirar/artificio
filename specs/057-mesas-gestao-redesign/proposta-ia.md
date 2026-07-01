@@ -63,7 +63,7 @@ GESTÃO
 ## 4. Bot de Discord (sub-área, 3 tabs) — R5/R6/R7
 
 ### Configuração (persistente, round-trip)
-- Form de `chat-exporter/config` (GET→PUT→GET confirma): enabled, frequency, time, timezone, importDir, channelId, after, token, cookies (status `is_set`/preview), botão Testar (`/test`).
+- Form de `chat-exporter/config` (GET→PUT→GET confirma): padrão global de autenticação (`user`/`bot`) + token de usuário/session global (status `is_set`/preview). Perfis definem canal, agenda e podem sobrescrever token/modo. O campo antigo "Cookies" vira explicação leiga de **token de usuário/session**; o CLI oficial do DiscordChatExporter usa `-t token`, não `--cookies`.
 - Seção **Bot token** (`settings`, PUT/DELETE `settings/bot-token`).
 - Seção **Canais monitorados** (`sources` CRUD + `discovery/guilds`).
 - Persistência provada: após Salvar, re-GET e refletir `updated_at`. (R5)

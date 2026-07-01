@@ -198,6 +198,8 @@ export interface DiscordSettings {
 
 export type ChatExporterFrequency = 'hourly' | 'daily' | 'weekly';
 export type ChatExporterIncludeThreads = 'none' | 'active' | 'all';
+export type ChatExporterAuthType = 'global' | 'user' | 'bot';
+export type ChatExporterGlobalAuthType = 'user' | 'bot';
 
 export interface ChatExporterSecretStatus {
   is_set: boolean;
@@ -207,6 +209,7 @@ export interface ChatExporterSecretStatus {
 
 export interface ChatExporterConfig {
   enabled?: boolean;
+  authType?: ChatExporterGlobalAuthType;
   frequency?: ChatExporterFrequency;
   time?: string;
   timezone?: string;
@@ -214,7 +217,6 @@ export interface ChatExporterConfig {
   channelId?: string;
   after?: string;
   token: ChatExporterSecretStatus;
-  cookies: ChatExporterSecretStatus;
   updated_at: string | null;
   decrypt_error?: boolean;
 }
@@ -227,6 +229,7 @@ export interface ChatExporterProfile {
   channel_id: string;
   channel_name: string | null;
   format: 'Json';
+  auth_type: ChatExporterAuthType;
   include_threads: ChatExporterIncludeThreads;
   after: string | null;
   media: boolean;
@@ -250,6 +253,7 @@ export interface ChatExporterProfileInput {
   guild_name?: string | null;
   channel_id?: string;
   channel_name?: string | null;
+  auth_type?: ChatExporterAuthType;
   token?: string;
   include_threads?: ChatExporterIncludeThreads;
   after?: string;

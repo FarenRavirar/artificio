@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 296,
-    "uniqueEndpoints": 274,
+    "total": 291,
+    "uniqueEndpoints": 271,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,29 +36,29 @@
         }
       },
       "mesas-frontend": {
-        "total": 178,
+        "total": 175,
         "byConfidence": {
           "medium": 67,
-          "high": 109,
+          "high": 106,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 59,
-          "service-wrapper": 50,
+          "service-wrapper": 47,
           "literal": 61,
           "concatenation": 2
         }
       },
       "packages/auth": {
-        "total": 6,
+        "total": 4,
         "byConfidence": {
-          "medium": 4,
-          "high": 2
+          "medium": 3,
+          "high": 1
         },
         "byPattern": {
-          "template-literal": 4,
-          "service-wrapper": 2
+          "template-literal": 3,
+          "service-wrapper": 1
         }
       },
       "site-admin": {
@@ -971,23 +971,23 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterAutomationPanel.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
       "method": "GET",
       "endpoint": "/api/v1/admin/discord/chat-exporter/config",
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getChatExporterConfig",
-      "line": 51
+      "line": 159
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterAutomationPanel.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
       "method": "PUT",
       "endpoint": "/api/v1/admin/discord/chat-exporter/config",
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.saveChatExporterConfig",
-      "line": 70
+      "line": 189
     },
     {
       "app": "mesas-frontend",
@@ -997,7 +997,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getChatExporterProfiles",
-      "line": 127
+      "line": 158
     },
     {
       "app": "mesas-frontend",
@@ -1007,7 +1007,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.createChatExporterProfile",
-      "line": 219
+      "line": 301
     },
     {
       "app": "mesas-frontend",
@@ -1017,7 +1017,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.updateChatExporterProfile",
-      "line": 218
+      "line": 300
     },
     {
       "app": "mesas-frontend",
@@ -1027,7 +1027,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.deleteChatExporterProfile",
-      "line": 278
+      "line": 360
     },
     {
       "app": "mesas-frontend",
@@ -1037,7 +1037,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getChatExporterProfileDelta",
-      "line": 245
+      "line": 327
     },
     {
       "app": "mesas-frontend",
@@ -1047,7 +1047,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.runChatExporterProfile",
-      "line": 259
+      "line": 341
     },
     {
       "app": "mesas-frontend",
@@ -1057,27 +1057,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.testChatExporterProfile",
-      "line": 233
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterAutomationPanel.tsx",
-      "method": "POST",
-      "endpoint": "/api/v1/admin/discord/chat-exporter/run",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.runChatExporterNow",
-      "line": 105
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterAutomationPanel.tsx",
-      "method": "POST",
-      "endpoint": "/api/v1/admin/discord/chat-exporter/test",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.testChatExporterConfig",
-      "line": 92
+      "line": 315
     },
     {
       "app": "mesas-frontend",
@@ -1087,7 +1067,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.discoverGuilds",
-      "line": 151
+      "line": 213
     },
     {
       "app": "mesas-frontend",
@@ -1107,7 +1087,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.discoverChannels",
-      "line": 170
+      "line": 232
     },
     {
       "app": "mesas-frontend",
@@ -1297,7 +1277,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDiscordSettings",
-      "line": 36
+      "line": 35
     },
     {
       "app": "mesas-frontend",
@@ -1307,7 +1287,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.saveDiscordBotToken",
-      "line": 56
+      "line": 55
     },
     {
       "app": "mesas-frontend",
@@ -1317,7 +1297,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.deleteDiscordBotToken",
-      "line": 71
+      "line": 70
     },
     {
       "app": "mesas-frontend",
@@ -2538,16 +2518,6 @@
       "pattern": "template-literal",
       "wrapper": "fetch",
       "line": 144
-    },
-    {
-      "app": "packages/auth",
-      "consumerFile": "packages/auth/src/client.ts",
-      "method": "GET",
-      "endpoint": "/api/auth/me",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 94
     },
     {
       "app": "packages/auth",

@@ -1,25 +1,42 @@
 import 'dotenv/config';
 import { db } from '../db';
 import type { DiscordChatExporterProfile } from '../db/types';
+import { getDiscordBotToken } from '../discord/config';
 import { selectDueProfiles } from '../discord/chatExporterSchedule';
 import { runProfileExport } from '../discord/chatExporterProfileRunner';
 import { decryptDiscordSetting } from '../discord/settingsCrypto';
 
 const LOG = '[discord-chat-exporter-schedule]';
 
-/** Token global (fallback quando o perfil não tem token próprio). */
-async function globalToken(): Promise<string | null> {
+async function setting(key: string): Promise<string | null> {
   const row = await db.selectFrom('discord_settings')
     .select('value')
     .where('guild_id', 'is', null)
-    .where('key', '=', 'chat_exporter_token')
+    .where('key', '=', key)
     .executeTakeFirst();
-  return row?.value ? decryptDiscordSetting(row.value) : null;
+  return row?.value ?? null;
 }
 
-async function resolveToken(profile: DiscordChatExporterProfile, fallback: string | null): Promise<string | null> {
+async function globalUserToken(): Promise<string | null> {
+  const value = await setting('chat_exporter_token');
+  return value ? decryptDiscordSetting(value) : null;
+}
+
+async function globalAuthType(): Promise<'user' | 'bot'> {
+  const value = await setting('chat_exporter_config');
+  if (!value) return 'user';
+  try {
+    const parsed = JSON.parse(value) as { authType?: unknown };
+    return parsed.authType === 'bot' ? 'bot' : 'user';
+  } catch {
+    return 'user';
+  }
+}
+
+async function resolveToken(profile: DiscordChatExporterProfile): Promise<string | null> {
   if (profile.token_enc) return decryptDiscordSetting(profile.token_enc);
-  return fallback;
+  const mode = profile.auth_type === 'global' ? await globalAuthType() : profile.auth_type;
+  return mode === 'bot' ? (await getDiscordBotToken() ?? null) : globalUserToken();
 }
 
 async function main(): Promise<void> {
@@ -35,13 +52,11 @@ async function main(): Promise<void> {
   console.log(`${LOG} perfis agendados: ${profiles.length}; prontos agora: ${due.length}`);
   if (due.length === 0) return;
 
-  const fallback = await globalToken();
-
   for (const profile of due) {
     try {
-      const token = await resolveToken(profile, fallback);
+      const token = await resolveToken(profile);
       if (!token) {
-        console.error(`${LOG} ${profile.label}: sem token (global ou do perfil). Pulando.`);
+        console.error(`${LOG} ${profile.label}: sem token compatível (global ou do perfil). Pulando.`);
         await db.updateTable('discord_chat_exporter_profiles')
           .set({ last_status: 'error', last_error: 'Token ausente no agendamento.', updated_at: new Date() })
           .where('id', '=', profile.id)

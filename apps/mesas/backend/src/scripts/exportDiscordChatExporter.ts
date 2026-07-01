@@ -35,11 +35,9 @@ async function loadDbConfig() {
   const parsed = configSchema.safeParse(raw);
   if (!parsed.success) return null;
   const token = await setting('chat_exporter_token');
-  const cookies = await setting('chat_exporter_cookies');
   return {
     ...parsed.data,
     token: token ? decryptDiscordSetting(token) : null,
-    cookies: cookies ? decryptDiscordSetting(cookies) : undefined,
   };
 }
 
@@ -54,7 +52,6 @@ async function main() {
   const token = dbConfig?.token ?? process.env.DISCORD_CHAT_EXPORTER_TOKEN;
   const channelId = dbConfig?.channelId ?? process.env.DISCORD_CHAT_EXPORTER_CHANNEL_ID;
   const binary = process.env.DISCORD_CHAT_EXPORTER_BIN ?? 'DiscordChatExporter.Cli';
-  const cookies = dbConfig?.cookies ?? process.env.DISCORD_CHAT_EXPORTER_COOKIES;
   const after = dbConfig?.after ?? process.env.DISCORD_CHAT_EXPORTER_AFTER;
 
   if (!rootDir || !token || !channelId) {
@@ -65,7 +62,7 @@ async function main() {
   const incomingDir = path.join(rootDir, 'incoming');
   await mkdir(incomingDir, { recursive: true });
 
-  const config = { binary, token, channelId, outputDir: incomingDir, cookies, after };
+  const config = { binary, token, channelId, outputDir: incomingDir, after };
   const command = buildChatExporterCliCommand(config);
   console.log(`[exportDiscordChatExporter] Rodando: ${redactedChatExporterCliCommand(command)}`);
 

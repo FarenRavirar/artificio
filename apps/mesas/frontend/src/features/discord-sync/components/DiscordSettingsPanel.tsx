@@ -3,7 +3,6 @@ import { AlertTriangle, Loader2, Save, ShieldCheck, Trash2, X } from 'lucide-rea
 import toast from 'react-hot-toast';
 import { discordSyncApi } from '../api/discordSyncApi';
 import type { DiscordSettings } from '../types';
-import { ChatExporterAutomationPanel } from './ChatExporterAutomationPanel';
 
 const EMPTY_SETTINGS: DiscordSettings = {
   bot_token: {
@@ -111,10 +110,19 @@ export function DiscordSettingsPanel() {
         )}
       </div>
 
-      <div className="max-w-xl space-y-3">
+      <form
+        className="max-w-xl space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleSave();
+        }}
+      >
         <label className="block text-sm font-medium text-white/80" htmlFor="discord-bot-token">
           Token do bot Discord
         </label>
+        <p className="text-sm text-white/50">
+          É a credencial do aplicativo/bot criado no Discord Developer Portal. Ela permite listar servidores e canais onde o bot foi convidado. Não use cookie de navegador nem token de usuário.
+        </p>
         <input
           id="discord-bot-token"
           type="password"
@@ -128,9 +136,9 @@ export function DiscordSettingsPanel() {
         />
         {validationMessage && <p className="text-sm text-red-300">{validationMessage}</p>}
         <p className="text-sm text-white/50">
-          Se nenhum token estiver configurado aqui, o sistema usa a variável de ambiente `DISCORD_BOT_TOKEN`.
+          Pressione Enter para salvar. Se nenhum token estiver configurado aqui, o sistema usa a variável de ambiente `DISCORD_BOT_TOKEN`.
         </p>
-      </div>
+      </form>
 
       <div className="flex flex-wrap gap-3">
         <button
@@ -181,8 +189,6 @@ export function DiscordSettingsPanel() {
           </div>
         </div>
       )}
-
-      <ChatExporterAutomationPanel />
     </div>
   );
 }

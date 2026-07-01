@@ -771,6 +771,7 @@ export type DiscordSettingUpdate = Updateable<DiscordSettingsTable>;
 
 export type DiscordChatExporterProfileFrequency = 'hourly' | 'daily' | 'weekly';
 export type DiscordChatExporterIncludeThreads = 'none' | 'active' | 'all';
+export type DiscordChatExporterAuthType = 'global' | 'user' | 'bot';
 
 // Migration 134: perfis multi-canal do DiscordChatExporter.
 export interface DiscordChatExporterProfilesTable {
@@ -781,6 +782,7 @@ export interface DiscordChatExporterProfilesTable {
   channel_id: string;
   channel_name: string | null;
   format: Generated<'Json'>;
+  auth_type: Generated<DiscordChatExporterAuthType>;
   token_enc: string | null;
   include_threads: Generated<DiscordChatExporterIncludeThreads>;
   after: Date | null;

@@ -13,6 +13,7 @@ import type {
 import { buildChatExporterCliCommand, redactedChatExporterCliCommand, runChatExporterCli } from '../../discord/chatExporterCliRunner';
 import { discoverChannelDelta, DiscordDiscoveryError } from '../../discord/discovery';
 import { resolveChatExporterBinary, runFolderImport, runProfileExport } from '../../discord/chatExporterProfileRunner';
+import { getDiscordBotToken } from '../../discord/config';
 import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError, DiscordSettingsDecryptError } from '../../discord/settingsCrypto';
 import { requireAdmin } from '../../middleware/auth';
 
@@ -20,14 +21,15 @@ const router = Router();
 
 const CONFIG_KEY = 'chat_exporter_config';
 const TOKEN_KEY = 'chat_exporter_token';
-const COOKIES_KEY = 'chat_exporter_cookies';
 
 const frequencySchema = z.enum(['hourly', 'daily', 'weekly']);
 const includeThreadsSchema = z.enum(['none', 'active', 'all']);
+const authTypeSchema = z.enum(['global', 'user', 'bot']);
 const uuidParamSchema = z.object({ id: z.uuid() });
 
 const configSchema = z.object({
   enabled: z.boolean().default(false),
+  authType: authTypeSchema.default('user'),
   frequency: frequencySchema.default('daily'),
   time: z.string().regex(/^\d{2}:\d{2}$/, 'Horário deve estar em HH:MM.').default('03:20'),
   timezone: z.string().trim().min(1).default('America/Sao_Paulo'),
@@ -38,17 +40,16 @@ const configSchema = z.object({
 
 const updateSchema = configSchema.partial().extend({
   token: z.string().trim().min(10).optional(),
-  cookies: z.string().trim().min(3).optional(),
   clearToken: z.boolean().optional(),
-  clearCookies: z.boolean().optional(),
 });
 
 const profileCreateSchema = z.object({
   label: z.string().trim().min(2).max(80),
-  guild_id: z.string().trim().regex(/^\d{5,30}$/, 'Servidor Discord inválido.'),
+  guild_id: z.string().trim().regex(/^\d{1,30}$/, 'Servidor Discord inválido.'),
   guild_name: z.string().trim().max(120).nullable().optional(),
   channel_id: z.string().trim().regex(/^\d{5,30}$/, 'Canal Discord inválido.'),
   channel_name: z.string().trim().max(120).nullable().optional(),
+  auth_type: authTypeSchema.default('global'),
   token: z.string().trim().min(10).optional(),
   include_threads: includeThreadsSchema.default('active'),
   after: z.string().trim().optional(),
@@ -69,6 +70,7 @@ type ChatExporterConfig = z.infer<typeof configSchema>;
 function defaultConfig(): Partial<ChatExporterConfig> {
   return {
     enabled: false,
+    authType: 'user',
     frequency: 'daily',
     time: '03:20',
     timezone: 'America/Sao_Paulo',
@@ -143,24 +145,19 @@ function parseStoredConfig(value: string | undefined): Partial<ChatExporterConfi
 async function loadConfig(): Promise<{
   config: Partial<ChatExporterConfig>;
   token: string | null;
-  cookies: string | null;
   tokenUpdatedAt: Date | null;
-  cookiesUpdatedAt: Date | null;
   configUpdatedAt: Date | null;
   decryptError: boolean;
 }> {
-  const [configRow, tokenRow, cookiesRow] = await Promise.all([
+  const [configRow, tokenRow] = await Promise.all([
     getSetting(CONFIG_KEY),
     getSetting(TOKEN_KEY),
-    getSetting(COOKIES_KEY),
   ]);
 
   let token: string | null = null;
-  let cookies: string | null = null;
   let decryptError = false;
   try {
     token = tokenRow ? decryptDiscordSetting(tokenRow.value) : null;
-    cookies = cookiesRow ? decryptDiscordSetting(cookiesRow.value) : null;
   } catch (error: unknown) {
     if (error instanceof DiscordSettingsDecryptError) decryptError = true;
     else throw error;
@@ -169,9 +166,7 @@ async function loadConfig(): Promise<{
   return {
     config: { ...defaultConfig(), ...parseStoredConfig(configRow?.value) },
     token,
-    cookies,
     tokenUpdatedAt: tokenRow?.updated_at ?? null,
-    cookiesUpdatedAt: cookiesRow?.updated_at ?? null,
     configUpdatedAt: configRow?.updated_at ?? null,
     decryptError,
   };
@@ -185,11 +180,6 @@ function publicConfig(loaded: Awaited<ReturnType<typeof loadConfig>>) {
       is_set: Boolean(loaded.token),
       preview: loaded.token ? maskSecret(loaded.token) : null,
       updated_at: loaded.tokenUpdatedAt,
-    },
-    cookies: {
-      is_set: Boolean(loaded.cookies),
-      preview: loaded.cookies ? maskSecret(loaded.cookies) : null,
-      updated_at: loaded.cookiesUpdatedAt,
     },
     updated_at: loaded.configUpdatedAt,
     decrypt_error: loaded.decryptError,
@@ -214,6 +204,22 @@ async function decryptProfileToken(row: DiscordChatExporterProfile): Promise<str
   return decryptDiscordSetting(row.token_enc);
 }
 
+async function resolveProfileToken(row: DiscordChatExporterProfile, loaded: Awaited<ReturnType<typeof loadConfig>>): Promise<{
+  token: string | null;
+  mode: 'user' | 'bot';
+  source: 'profile' | 'global' | 'env' | 'missing';
+}> {
+  const configuredGlobalMode = loaded.config.authType === 'bot' ? 'bot' : 'user';
+  const mode = row.auth_type === 'global' ? configuredGlobalMode : row.auth_type;
+  const profileToken = await decryptProfileToken(row);
+  if (profileToken) return { token: profileToken, mode, source: 'profile' };
+  if (mode === 'user') {
+    return { token: loaded.token, mode, source: loaded.token ? 'global' : 'missing' };
+  }
+  const botToken = await getDiscordBotToken();
+  return { token: botToken ?? null, mode, source: botToken ? 'global' : 'missing' };
+}
+
 async function loadProfile(id: string): Promise<DiscordChatExporterProfile | undefined> {
   return db
     .selectFrom('discord_chat_exporter_profiles')
@@ -233,7 +239,7 @@ function configErrors(config: Partial<ChatExporterConfig>, token: string | null)
 function profileErrors(profile: DiscordChatExporterProfile, token: string | null): string[] {
   const errors: string[] = [];
   if (!profile.enabled) errors.push('Perfil desativado.');
-  if (!token) errors.push('Token do bot ausente: salve o token global ou um token neste perfil.');
+  if (!token) errors.push('Token ausente: salve a credencial global escolhida ou um token neste perfil.');
   if (!profile.import_dir) errors.push('Diretório de importação ausente.');
   return errors;
 }
@@ -272,14 +278,12 @@ router.put('/config', requireAdmin, async (req: Request, res: Response) => {
 
   try {
     const current = await loadConfig();
-    const { token, cookies, clearToken, clearCookies, ...patch } = parsed.data;
+    const { token, clearToken, ...patch } = parsed.data;
     const nextConfig = { ...current.config, ...patch };
     const safeConfig = configSchema.partial().parse(nextConfig);
     await upsertSetting(CONFIG_KEY, JSON.stringify(safeConfig));
     if (token) await upsertSetting(TOKEN_KEY, encryptDiscordSetting(token));
-    if (cookies) await upsertSetting(COOKIES_KEY, encryptDiscordSetting(cookies));
     if (clearToken) await deleteSetting(TOKEN_KEY);
-    if (clearCookies) await deleteSetting(COOKIES_KEY);
     return res.json({ data: publicConfig(await loadConfig()) });
   } catch (error: unknown) {
     return sendError(res, error, '[PUT /admin/discord/chat-exporter/config]');
@@ -316,6 +320,7 @@ router.post('/profiles', requireAdmin, async (req: Request, res: Response) => {
         ...profile,
         guild_name: profile.guild_name ?? null,
         channel_name: profile.channel_name ?? null,
+        auth_type: profile.auth_type,
         token_enc: token ? encryptDiscordSetting(token) : null,
         after: toNullableDate(after),
         import_dir: defaultImportDir(id),
@@ -428,17 +433,18 @@ router.post('/profiles/:id/test', requireAdmin, async (req: Request, res: Respon
     const profile = await loadProfile(params.data.id);
     if (!profile) return res.status(404).json({ error: 'Perfil não encontrado.' });
     const loaded = await loadConfig();
-    const token = await decryptProfileToken(profile) ?? loaded.token;
-    const errors = profileErrors(profile, token);
+    const resolved = await resolveProfileToken(profile, loaded);
+    const errors = profileErrors(profile, resolved.token);
     const binaryError = await validateBinary(resolveChatExporterBinary());
     if (binaryError) errors.push(binaryError);
-    const command = token
+    const command = resolved.token
       ? redactedChatExporterCliCommand(buildChatExporterCliCommand({
           binary: resolveChatExporterBinary(),
-          token,
+          token: resolved.token,
           channelId: profile.channel_id,
           outputDir: path.join(profile.import_dir, 'incoming'),
           after: profile.after?.toISOString(),
+          media: profile.media,
         }))
       : null;
     return res.json({ data: { ok: errors.length === 0, errors, command } });
@@ -457,14 +463,14 @@ router.post('/profiles/:id/run', requireAdmin, async (req: Request, res: Respons
     const profile = await loadProfile(params.data.id);
     if (!profile) return res.status(404).json({ error: 'Perfil não encontrado.' });
     const loaded = await loadConfig();
-    const token = await decryptProfileToken(profile) ?? loaded.token;
-    const errors = profileErrors(profile, token);
-    if (!token || errors.length > 0) {
+    const resolved = await resolveProfileToken(profile, loaded);
+    const errors = profileErrors(profile, resolved.token);
+    if (!resolved.token || errors.length > 0) {
       return res.status(422).json({ error: 'Perfil incompleto.', details: errors });
     }
     const binaryError = await validateBinary(resolveChatExporterBinary());
     if (binaryError) return res.status(422).json({ error: binaryError });
-    return res.json({ data: await runProfileExport(profile, token, req.user?.userId) });
+    return res.json({ data: await runProfileExport(profile, resolved.token, req.user?.userId) });
   } catch (error: unknown) {
     const id = uuidParamSchema.safeParse(req.params);
     if (id.success) {
@@ -494,7 +500,6 @@ router.post('/test', requireAdmin, async (_req: Request, res: Response) => {
           token: loaded.token,
           channelId: parsed.data.channelId,
           outputDir: path.join(parsed.data.importDir, 'incoming'),
-          cookies: loaded.cookies ?? undefined,
           after: parsed.data.after,
         }))
       : null;
@@ -523,7 +528,6 @@ router.post('/run', requireAdmin, async (req: Request, res: Response) => {
       token: loaded.token,
       channelId: parsed.data.channelId,
       outputDir: incomingDir,
-      cookies: loaded.cookies ?? undefined,
       after: parsed.data.after,
     });
     const importResult = await runFolderImport(parsed.data.importDir, req.user?.userId);
