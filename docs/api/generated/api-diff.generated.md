@@ -7,3 +7,4 @@
 ---
 
 ✅ **Nenhuma mudança detectada entre a versão atual e dev.**
+
