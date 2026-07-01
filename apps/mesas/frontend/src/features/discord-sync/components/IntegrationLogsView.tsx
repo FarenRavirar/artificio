@@ -71,9 +71,13 @@ function RunRow({ run }: { readonly run: DiscordImportRun }) {
  * Read-only: timeline das rodadas de importação Discord/JSON + resumo agregado.
  * Fonte: GET /api/v1/admin/discord/metrics.
  */
+type SortKey = 'recent' | 'oldest' | 'failures';
+
 export function IntegrationLogsView() {
   const [metrics, setMetrics] = useState<DiscordIntegrationMetrics | null>(null);
   const [loading, setLoading] = useState(false);
+  const [kindFilter, setKindFilter] = useState<string>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('recent');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,14 +95,26 @@ export function IntegrationLogsView() {
     void (async () => { await load(); })();
   }, [load]);
 
-  const runs = Array.isArray(metrics?.runs) ? metrics.runs : [];
+  const allRuns = Array.isArray(metrics?.runs) ? metrics.runs : [];
   const totals = metrics?.totals;
+
+  const kindOptions = Array.from(new Set(allRuns.map((run) => run.source_kind)));
+
+  const runs = allRuns
+    .filter((run) => kindFilter === 'all' || run.source_kind === kindFilter)
+    .slice()
+    .sort((a, b) => {
+      if (sortKey === 'failures') return b.messages_failed - a.messages_failed;
+      const at = new Date(a.started_at).getTime();
+      const bt = new Date(b.started_at).getTime();
+      return sortKey === 'oldest' ? at - bt : bt - at;
+    });
 
   let runsContent;
   if (loading) {
     runsContent = <p className="text-white/40 text-sm py-4 text-center">Carregando...</p>;
   } else if (runs.length === 0) {
-    runsContent = <p className="text-white/40 text-sm py-4 text-center">Nenhuma rodada de importação registrada ainda.</p>;
+    runsContent = <p className="text-white/40 text-sm py-4 text-center">Nenhuma rodada de importação corresponde ao filtro.</p>;
   } else {
     runsContent = (
       <div className="space-y-2">
@@ -109,7 +125,7 @@ export function IntegrationLogsView() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <h2 className="text-white/80 text-sm font-medium">Rodadas de importação (últimas 20)</h2>
         <button
           onClick={load}
@@ -118,6 +134,27 @@ export function IntegrationLogsView() {
         >
           {loading ? 'Carregando...' : 'Recarregar'}
         </button>
+        <div className="ml-auto flex items-center gap-2">
+          <select
+            aria-label="Filtrar por origem"
+            value={kindFilter}
+            onChange={(event) => setKindFilter(event.target.value)}
+            className="app-select rounded-lg border border-[var(--border)] bg-[var(--surface-input)] px-2 py-1.5 text-sm text-[var(--fg)]"
+          >
+            <option value="all">Todas as origens</option>
+            {kindOptions.map((kind) => <option key={kind} value={kind}>{sourceKindLabel(kind)}</option>)}
+          </select>
+          <select
+            aria-label="Ordenar"
+            value={sortKey}
+            onChange={(event) => setSortKey(event.target.value as SortKey)}
+            className="app-select rounded-lg border border-[var(--border)] bg-[var(--surface-input)] px-2 py-1.5 text-sm text-[var(--fg)]"
+          >
+            <option value="recent">Mais recentes</option>
+            <option value="oldest">Mais antigas</option>
+            <option value="failures">Mais falhas</option>
+          </select>
+        </div>
       </div>
 
       {totals && (

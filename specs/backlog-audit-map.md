@@ -79,6 +79,7 @@
 | BL-LINKS-NAV-CROSSAPP | ✅ Prod | Completo | 038, 045 | — nav em site/glossário/mesas; accounts sem nav by design (spec 045 §2) |
 | BL-033-SECRET-BLOCK | ✅ PR #85 | Completo | 045 | — `.gitignore artifacts/` + 16 destrackeados (`git ls-files artifacts/`=0, commit `289364d`) |
 | — | — | — | **🟡 LOCAL / COMMITADO (falta deploy ou merge)** | — |
+| **BL-057-GESTAO-REDESIGN** | 🟡 Local | F6 parcial + F7 local | 057 | Fases 0–5 ✅; F6 parcial local (Importação reorganizada, perfis DCE multi-canal, migration 134, Dockerfile DCE pinado); F7 local ✅ (Catálogo/Sistema reais, usuários/Covil, estilos por cenário). Falta dry-read delta, relatórios filtráveis, wizard completo, runner agendado, Fase 8 e smoke beta. |
 | **BL-054-GESTAO-IA** | 🟢 Prod | **Encerrada** | **054** | FECHADO 2026-06-30: Fases 1-4 implementadas, reviews 001-025 corrigidos. PR mergeada → deploy beta + smoke + promote prod ✅. O que não foi feito foi descartado. 053 Frente A destravada. |
 | BL-LINKS-GROUP-LOGOS | 🟢 Quase | **12/13 em prod** (Cloudinary) | 038, 045 | Decidir "Canal de Notícias" null (reidratar ou aceitar) — spec 045 T3 |
 | BL-ACCOUNTS-PORT | 🟡 Local | T1-T4 OK | 023, 035, 045 | Deploy prod (expose:["3000"]) — aprovação nominal (spec 045 T2) |

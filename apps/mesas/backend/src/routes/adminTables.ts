@@ -49,6 +49,67 @@ router.post('/tables/auto-archive', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/v1/admin/tables/batch — ações administrativas em lote (T2.5/R15).
+// action: 'archive' | 'unarchive' | 'delete'. Idempotente por id.
+router.post('/tables/batch', authMiddleware, async (req: Request, res: Response) => {
+  const userRole = (req as any).user.role;
+  if (userRole !== 'admin') {
+    return res.status(403).json({ error: 'Acesso restrito a administradores.' });
+  }
+
+  const rawIds = (req.body?.ids ?? []) as unknown;
+  const action = req.body?.action as unknown;
+  const ids = Array.isArray(rawIds) ? rawIds.filter((id): id is string => typeof id === 'string') : [];
+  const validActions = ['archive', 'unarchive', 'delete'];
+
+  if (ids.length === 0) {
+    return res.status(400).json({ error: 'Nenhuma mesa selecionada.' });
+  }
+  if (typeof action !== 'string' || !validActions.includes(action)) {
+    return res.status(400).json({ error: `Ação inválida. Valores: ${validActions.join(', ')}` });
+  }
+
+  try {
+    if (action === 'delete') {
+      let updated = 0;
+      for (const id of ids) {
+        await TableRepository.deleteTableWithRelations(id);
+        updated += 1;
+      }
+      void logActivity({
+        actorId: (req as any).user?.userId ?? null,
+        actorRole: userRole,
+        action: 'table.deleted',
+        entityType: 'table',
+        entityId: null,
+        summary: `Exclusão em lote: ${updated} mesa(s).`,
+        metadata: { count: updated, ids },
+      });
+      return res.json({ data: { updated } });
+    }
+
+    const result = await db
+      .updateTable('tables')
+      .set({ archived_at: action === 'archive' ? new Date() : null })
+      .where('id', 'in', ids)
+      .returning('id')
+      .execute();
+    void logActivity({
+      actorId: (req as any).user?.userId ?? null,
+      actorRole: userRole,
+      action: action === 'archive' ? 'table.archived' : 'table.unarchived',
+      entityType: 'table',
+      entityId: null,
+      summary: `${action === 'archive' ? 'Arquivamento' : 'Desarquivamento'} em lote: ${result.length} mesa(s).`,
+      metadata: { count: result.length, ids },
+    });
+    return res.json({ data: { updated: result.length } });
+  } catch (error: any) {
+    console.error('[POST /admin/tables/batch]', error);
+    return res.status(500).json({ error: 'Erro na ação em lote de mesas.' });
+  }
+});
+
 // PUT /api/v1/admin/tables/:id — Ações administrativas (status, covil, etc.)
 router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) => {
   const userRole = (req as any).user.role;

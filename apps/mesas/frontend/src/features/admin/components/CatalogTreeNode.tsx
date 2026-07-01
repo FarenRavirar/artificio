@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { ChevronRight, ChevronDown, Plus } from 'lucide-react';
 import { NodeTypeBadge } from './NodeTypeBadge';
 import { EntityCounters } from './EntityCounters';
-import type { System } from '../../../modules/admin/systems/types';
+import type { System } from '../systems/types';
 
 interface Props {
   node: System;

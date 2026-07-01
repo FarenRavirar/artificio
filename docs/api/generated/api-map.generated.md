@@ -22,9 +22,9 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | accounts | 11 | 11 | 0 | 0 | GET, POST, PUT |
 | glossario | 61 | 61 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
-| mesas | 212 | 212 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
+| mesas | 218 | 218 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 36 | 36 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **343** | 343 | 0 | 0 | |
+| **Total** | **349** | 349 | 0 | 0 | |
 
 ## accounts
 
@@ -161,10 +161,17 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/admin/discord/automation/config` | ✅ high | `apps/mesas/backend/src/routes/discord/automation.ts` | 10 |
 | GET | `/api/v1/admin/discord/automation/eval` | ✅ high | `apps/mesas/backend/src/routes/discord/automation.ts` | 41 |
 | USE | `/api/v1/admin/discord/chat-exporter` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 36 |
-| GET | `/api/v1/admin/discord/chat-exporter/config` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 223 |
-| PUT | `/api/v1/admin/discord/chat-exporter/config` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 231 |
-| POST | `/api/v1/admin/discord/chat-exporter/run` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 279 |
-| POST | `/api/v1/admin/discord/chat-exporter/test` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 253 |
+| GET | `/api/v1/admin/discord/chat-exporter/config` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 259 |
+| PUT | `/api/v1/admin/discord/chat-exporter/config` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 267 |
+| GET | `/api/v1/admin/discord/chat-exporter/profiles` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 289 |
+| POST | `/api/v1/admin/discord/chat-exporter/profiles` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 302 |
+| DELETE | `/api/v1/admin/discord/chat-exporter/profiles/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 369 |
+| PATCH | `/api/v1/admin/discord/chat-exporter/profiles/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 333 |
+| GET | `/api/v1/admin/discord/chat-exporter/profiles/:id/delta` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 401 |
+| POST | `/api/v1/admin/discord/chat-exporter/profiles/:id/run` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 450 |
+| POST | `/api/v1/admin/discord/chat-exporter/profiles/:id/test` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 421 |
+| POST | `/api/v1/admin/discord/chat-exporter/run` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 507 |
+| POST | `/api/v1/admin/discord/chat-exporter/test` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 481 |
 | USE | `/api/v1/admin/discord/discovery` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 22 |
 | GET | `/api/v1/admin/discord/discovery/guilds` | ✅ high | `apps/mesas/backend/src/routes/discord/discovery.ts` | 10 |
 | GET | `/api/v1/admin/discord/discovery/guilds/:guildId/channels` | ✅ high | `apps/mesas/backend/src/routes/discord/discovery.ts` | 20 |
@@ -219,8 +226,6 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | POST | `/api/v1/admin/import/drafts/:id/sync` | ✅ high | `apps/mesas/backend/src/routes/inbox/drafts.ts` | 73 |
 | POST | `/api/v1/admin/import/import-text` | ✅ high | `apps/mesas/backend/src/routes/inbox/import.ts` | 59 |
 | USE | `/api/v1/admin/import/import-text` | ✅ high | `apps/mesas/backend/src/routes/adminImportInbox.ts` | 13 |
-| GET | `/api/v1/admin/import/metrics` | ✅ high | `apps/mesas/backend/src/routes/inbox/metrics.ts` | 9 |
-| USE | `/api/v1/admin/import/metrics` | ✅ high | `apps/mesas/backend/src/routes/adminImportInbox.ts` | 16 |
 | GET | `/api/v1/admin/scenario-suggestions` | ✅ high | `apps/mesas/backend/src/routes/scenarioSuggestionsAdmin.ts` | 15 |
 | PATCH | `/api/v1/admin/scenario-suggestions/:id/approve` | ✅ high | `apps/mesas/backend/src/routes/scenarioSuggestionsAdmin.ts` | 19 |
 | PATCH | `/api/v1/admin/scenario-suggestions/:id/reject` | ✅ high | `apps/mesas/backend/src/routes/scenarioSuggestionsAdmin.ts` | 156 |
@@ -235,12 +240,13 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/admin/system-suggestions/:id/candidates` | ✅ high | `apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts` | 89 |
 | PATCH | `/api/v1/admin/system-suggestions/:id/reject` | ✅ high | `apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts` | 335 |
 | POST | `/api/v1/admin/system-suggestions/:id/resolve` | ✅ high | `apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts` | 390 |
-| DELETE | `/api/v1/admin/tables/:id` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 109 |
-| PUT | `/api/v1/admin/tables/:id` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 53 |
+| DELETE | `/api/v1/admin/tables/:id` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 170 |
+| PUT | `/api/v1/admin/tables/:id` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 114 |
 | POST | `/api/v1/admin/tables/auto-archive` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 15 |
-| GET | `/api/v1/admin/users` | ✅ high | `apps/mesas/backend/src/routes/adminProfile.ts` | 54 |
-| GET | `/api/v1/admin/users/:id` | ✅ high | `apps/mesas/backend/src/routes/adminProfile.ts` | 78 |
-| PATCH | `/api/v1/admin/users/:id/covil` | ✅ high | `apps/mesas/backend/src/routes/adminProfile.ts` | 16 |
+| POST | `/api/v1/admin/tables/batch` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 54 |
+| GET | `/api/v1/admin/users` | ✅ high | `apps/mesas/backend/src/routes/adminProfile.ts` | 63 |
+| GET | `/api/v1/admin/users/:id` | ✅ high | `apps/mesas/backend/src/routes/adminProfile.ts` | 146 |
+| PATCH | `/api/v1/admin/users/:id/covil` | ✅ high | `apps/mesas/backend/src/routes/adminProfile.ts` | 19 |
 | USE | `/api/v1/auth` | ✅ high | `apps/mesas/backend/src/server.ts` | 111 |
 | GET | `/api/v1/auth/google` | ✅ high | `apps/mesas/backend/src/routes/auth.ts` | 21 |
 | GET | `/api/v1/auth/google/callback` | ✅ high | `apps/mesas/backend/src/routes/auth.ts` | 27 |

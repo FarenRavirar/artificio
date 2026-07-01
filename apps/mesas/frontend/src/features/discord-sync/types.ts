@@ -197,6 +197,7 @@ export interface DiscordSettings {
 }
 
 export type ChatExporterFrequency = 'hourly' | 'daily' | 'weekly';
+export type ChatExporterIncludeThreads = 'none' | 'active' | 'all';
 
 export interface ChatExporterSecretStatus {
   is_set: boolean;
@@ -218,6 +219,49 @@ export interface ChatExporterConfig {
   decrypt_error?: boolean;
 }
 
+export interface ChatExporterProfile {
+  id: string;
+  label: string;
+  guild_id: string;
+  guild_name: string | null;
+  channel_id: string;
+  channel_name: string | null;
+  format: 'Json';
+  include_threads: ChatExporterIncludeThreads;
+  after: string | null;
+  media: boolean;
+  schedule_enabled: boolean;
+  frequency: ChatExporterFrequency;
+  time: string;
+  timezone: string;
+  import_dir: string;
+  enabled: boolean;
+  last_run_at: string | null;
+  last_status: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+  token: ChatExporterSecretStatus;
+}
+
+export interface ChatExporterProfileInput {
+  label?: string;
+  guild_id?: string;
+  guild_name?: string | null;
+  channel_id?: string;
+  channel_name?: string | null;
+  token?: string;
+  include_threads?: ChatExporterIncludeThreads;
+  after?: string;
+  media?: boolean;
+  schedule_enabled?: boolean;
+  frequency?: ChatExporterFrequency;
+  time?: string;
+  timezone?: string;
+  enabled?: boolean;
+  clearToken?: boolean;
+}
+
 export interface ChatExporterTestResult {
   ok: boolean;
   errors: string[];
@@ -236,10 +280,19 @@ export interface ChatExporterRunResult {
   };
 }
 
+export interface ChatExporterDelta {
+  /** Mensagens novas no canal desde a última importada (limitado a uma página). */
+  newCount: number;
+  /** true = página cheia; há pelo menos `newCount` novas (pode ser mais). */
+  capped: boolean;
+  afterMessageId: string | null;
+}
+
 export interface DraftApiOperations {
   updateDraft: (id: string, body: { normalized_payload?: Record<string, unknown>; status?: DiscordImportDraftStatus; review_notes?: string }) => Promise<DiscordDraft>;
   syncDraft: (id: string) => Promise<{ tableId: string; created: boolean }>;
   reparseDraft: (id: string) => Promise<DiscordDraft>;
+  refreshDraftImage?: (id: string) => Promise<{ draftId: string; tableId: string | null; status: string; url: string | null; error: string | null }>;
   getDraft?: (id: string) => Promise<DiscordDraft>;
   submitCorrection?: (id: string, body: { corrections: Record<string, unknown>; reason?: string; before?: Record<string, unknown> }) => Promise<unknown>;
 }

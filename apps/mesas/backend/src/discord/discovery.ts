@@ -116,6 +116,46 @@ export async function discoverDiscordGuilds(): Promise<DiscordDiscoveredGuild[]>
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 }
 
+const discordDeltaMessageSchema = z.object({ id: z.string() });
+const discordDeltaMessagesSchema = z.array(discordDeltaMessageSchema);
+
+/** Limite de página do Discord (`/channels/:id/messages?limit=`). 100 = teto da API. */
+export const DISCORD_DELTA_PAGE_LIMIT = 100;
+
+export interface DiscordChannelDelta {
+  /** Mensagens novas no canal desde `afterMessageId` (limitado a uma página). */
+  newCount: number;
+  /** `true` quando a página encheu — há pelo menos `newCount` novas (pode ser mais). */
+  capped: boolean;
+  /** Snowflake da mensagem mais recente já importada, ou null se nunca importou. */
+  afterMessageId: string | null;
+}
+
+/**
+ * Dry-read: conta mensagens novas no canal desde a última importada, sem baixar nada.
+ * Uma página só (teto 100) — barato e suficiente para o indicador "a atualizar".
+ * Sem `afterMessageId` (canal nunca importado) o Discord não aceita `after`; nesse caso
+ * retornamos apenas se há QUALQUER mensagem (1 = tem conteúdo a importar).
+ */
+export async function discoverChannelDelta(
+  channelId: string,
+  afterMessageId: string | null,
+): Promise<DiscordChannelDelta> {
+  const query = new URLSearchParams({ limit: String(DISCORD_DELTA_PAGE_LIMIT) });
+  if (afterMessageId) query.set('after', afterMessageId);
+  const payload = await discordGetUnknown(`/channels/${encodeURIComponent(channelId)}/messages?${query}`);
+  const parsed = discordDeltaMessagesSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new DiscordDiscoveryError('Discord retornou mensagens em formato inesperado.', 502);
+  }
+  const newCount = parsed.data.length;
+  return {
+    newCount,
+    capped: newCount >= DISCORD_DELTA_PAGE_LIMIT,
+    afterMessageId,
+  };
+}
+
 export async function discoverDiscordChannels(guildId: string): Promise<DiscordDiscoveredChannel[]> {
   const payload = await discordGetUnknown(`/guilds/${encodeURIComponent(guildId)}/channels`);
   const parsed = discordChannelsSchema.safeParse(payload);

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 import { useConfirm } from '@artificio/ui';
 import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from '../types';
 import { STATUS_OPTIONS } from '../constants';
@@ -26,6 +27,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
   const h = useDraftForm(draft, api, onUpdate);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const [refreshingImage, setRefreshingImage] = useState(false);
 
   const shouldShowSlotsDisambiguation = Boolean(h.slotsAmbiguity && h.payloadMissingFields.includes('slots_open:ambiguous_x_of_y'));
   // DEB-048-29: badge "autoral?" — anúncio ambíguo p/ sistema próprio. Revisor decide
@@ -63,6 +65,30 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
   const requestCloseSafely = useCallback(() => {
     requestClose().catch(() => undefined);
   }, [requestClose]);
+
+  const handleRefreshImage = useCallback(async () => {
+    if (!api.refreshDraftImage) return;
+    setRefreshingImage(true);
+    try {
+      const result = await api.refreshDraftImage(draft.id);
+      if (api.getDraft) {
+        onUpdate(await api.getDraft(draft.id));
+      }
+      if (result.status === 'success') {
+        toast.success('Imagem rebaixada e atualizada.');
+      } else if (result.error) {
+        // Só é erro de verdade quando o backend reporta uma causa.
+        toast.error(result.error);
+      } else {
+        // Estado intermediário (reenfileirado/pendente) não é falha.
+        toast('Imagem enviada para nova tentativa.');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao rebaixar imagem.');
+    } finally {
+      setRefreshingImage(false);
+    }
+  }, [api, draft.id, onUpdate]);
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -232,6 +258,15 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
           <button onClick={h.handleReparse} disabled={h.reparsing} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
             {h.reparsing ? 'Reparseando...' : 'Reparsar'}
           </button>
+          {draft.discord_message_id && api.refreshDraftImage && (
+            <button
+              onClick={handleRefreshImage}
+              disabled={refreshingImage}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+            >
+              {refreshingImage ? 'Rebaixando imagem...' : 'Rebaixar imagem'}
+            </button>
+          )}
           <button onClick={h.handleSaveFields} disabled={h.savingFields} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
             {h.savingFields ? 'Salvando...' : 'Salvar campos'}
           </button>

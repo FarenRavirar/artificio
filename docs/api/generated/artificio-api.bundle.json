@@ -6,10 +6,10 @@
     "accounts": 11,
     "glossario": 46,
     "links": 22,
-    "mesas": 163,
+    "mesas": 170,
     "site": 32
   },
-  "total": 274,
+  "total": 281,
   "operations": [
     {
       "app": "accounts",
@@ -1098,6 +1098,90 @@
     },
     {
       "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/discord/chat-exporter/profiles",
+      "summary": "Consulta api v1 admin discord chat-exporter profiles",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_discord_chat_exporter_profiles"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/chat-exporter/profiles",
+      "summary": "Cria ou executa api v1 admin discord chat-exporter profiles",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_discord_chat_exporter_profiles"
+    },
+    {
+      "app": "mesas",
+      "method": "DELETE",
+      "path": "/api/v1/admin/discord/chat-exporter/profiles/{id}",
+      "summary": "Remove api v1 admin discord chat-exporter profiles id",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "deleteapi_v1_admin_discord_chat_exporter_profiles_id"
+    },
+    {
+      "app": "mesas",
+      "method": "PATCH",
+      "path": "/api/v1/admin/discord/chat-exporter/profiles/{id}",
+      "summary": "Atualiza api v1 admin discord chat-exporter profiles id",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "patchapi_v1_admin_discord_chat_exporter_profiles_id"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/discord/chat-exporter/profiles/{id}/delta",
+      "summary": "Consulta api v1 admin discord chat-exporter profiles id delta",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_discord_chat_exporter_profiles_id_delta"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/chat-exporter/profiles/{id}/run",
+      "summary": "Cria ou executa api v1 admin discord chat-exporter profiles id run",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_discord_chat_exporter_profiles_id_run"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/chat-exporter/profiles/{id}/test",
+      "summary": "Cria ou executa api v1 admin discord chat-exporter profiles id test",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_discord_chat_exporter_profiles_id_test"
+    },
+    {
+      "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/chat-exporter/run",
       "summary": "Cria ou executa api v1 admin discord chat-exporter run",
@@ -1615,18 +1699,6 @@
     {
       "app": "mesas",
       "method": "GET",
-      "path": "/api/v1/admin/import/metrics",
-      "summary": "Consulta api v1 admin import metrics",
-      "owner": "mesas",
-      "scope": "admin",
-      "status": "active",
-      "auth": "admin",
-      "consumers": [],
-      "operationId": "getapi_v1_admin_import_metrics"
-    },
-    {
-      "app": "mesas",
-      "method": "GET",
       "path": "/api/v1/admin/scenario-suggestions",
       "summary": "Consulta api v1 admin scenario-suggestions",
       "owner": "mesas",
@@ -1815,6 +1887,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_v1_admin_tables_auto_archive"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/tables/batch",
+      "summary": "Cria ou executa api v1 admin tables batch",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_tables_batch"
     },
     {
       "app": "mesas",

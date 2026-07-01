@@ -1,23 +1,33 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Archive, ArchiveRestore, Power, ShieldCheck, Trash2 } from 'lucide-react';
 import { useConfirm } from '@artificio/ui';
+import toast from 'react-hot-toast';
 import { SystemsAdminView } from '../../../pages/SystemsAdminView';
 import { ScenariosAdminView } from '../../../pages/ScenariosAdminView';
-import { PlatformsPage } from '../../../modules/admin/platforms/PlatformsPage';
-import { InlineDeleteConfirmation } from '../../../components/InlineDeleteConfirmation';
-import { authGet, authPut, authDelete } from '../../../services/apiClient';
-import { useAuth } from '../../../contexts/useAuth';
-import toast from 'react-hot-toast';
+import { PlatformsPage } from '../platforms/PlatformsPage';
+import { authDelete, authGet, authPost, authPut } from '../../../services/apiClient';
+import { AdminTable, PageHeader, SectionCard, StatusPill, tabButtonClass } from './ui';
+import { SettingSuggestionsPanel } from './SettingSuggestionsPanel';
+import { formatDate } from '../utils/format';
 
 interface AdminTableRow {
   id: string;
   title: string;
   status: string;
   created_at: string;
-  is_covil?: boolean;
+  is_covil: boolean;
 }
 
-type CrudSubTab = 'systems' | 'platforms' | 'scenarios' | 'tables';
+type CatalogTab = 'systems' | 'platforms' | 'scenarios' | 'setting-styles' | 'tables';
 type PlatformKind = 'vtt' | 'communication';
+
+const TAB_LABEL: Record<CatalogTab, string> = {
+  systems: 'Sistemas',
+  platforms: 'Plataformas',
+  scenarios: 'Cenários',
+  'setting-styles': 'Estilos por cenário',
+  tables: 'Mesas publicadas',
+};
 
 async function extractErrorMessage(response: Response, fallback: string): Promise<string> {
   try {
@@ -33,217 +43,219 @@ async function extractErrorMessage(response: Response, fallback: string): Promis
   }
 }
 
+function normalizeTables(value: unknown): AdminTableRow[] {
+  if (!Array.isArray(value)) return [];
+  const rows: AdminTableRow[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    if (typeof row.id !== 'string' || !row.id) continue;
+    rows.push({
+      id: row.id,
+      title: typeof row.title === 'string' ? row.title : '',
+      status: typeof row.status === 'string' ? row.status : 'unknown',
+      created_at: typeof row.created_at === 'string' ? row.created_at : '',
+      is_covil: row.is_covil === true,
+    });
+  }
+  return rows;
+}
+
 export function ConteudoSection() {
-  const { isAuthenticated } = useAuth();
   const { confirm } = useConfirm();
-  const [crudSubTab, setCrudSubTab] = useState<CrudSubTab>('systems');
+  const [tab, setTab] = useState<CatalogTab>('systems');
   const [platformKind, setPlatformKind] = useState<PlatformKind>('vtt');
-  const [allTables, setAllTables] = useState<AdminTableRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [deleteConfirmTableId, setDeleteConfirmTableId] = useState<string | null>(null);
-  const [deletingTableId, setDeletingTableId] = useState<string | null>(null);
+  const [tables, setTables] = useState<AdminTableRow[]>([]);
+  const [tablesLoading, setTablesLoading] = useState(false);
+  const [tablesError, setTablesError] = useState<string | null>(null);
 
   const fetchAllTables = useCallback(async () => {
-    if (!isAuthenticated) return;
-    setLoading(true);
+    setTablesLoading(true);
+    setTablesError(null);
     try {
       const response = await authGet('/api/v1/tables');
-      if (response.ok) {
-        const payload: unknown = await response.json();
-        const raw = payload && typeof payload === 'object' ? (payload as Record<string, unknown>).data : null;
-        if (!Array.isArray(raw)) {
-          setAllTables([]);
-          return;
-        }
-        const normalized: AdminTableRow[] = [];
-        for (const item of raw) {
-          if (!item || typeof item !== 'object') continue;
-          const row = item as Record<string, unknown>;
-          if (typeof row.id !== 'string' || !row.id) continue;
-          normalized.push({
-            id: row.id,
-            title: typeof row.title === 'string' ? row.title : '',
-            status: typeof row.status === 'string' ? row.status : 'unknown',
-            created_at: typeof row.created_at === 'string' ? row.created_at : '',
-            is_covil: typeof row.is_covil === 'boolean' ? row.is_covil : undefined,
-          });
-        }
-        setAllTables(normalized);
-      }
+      if (!response.ok) throw new Error(await extractErrorMessage(response, 'Erro ao buscar mesas.'));
+      const payload: unknown = await response.json();
+      const raw = payload && typeof payload === 'object' ? (payload as Record<string, unknown>).data : null;
+      setTables(normalizeTables(raw));
     } catch (error) {
-      console.error('[ConteudoSection] Erro ao buscar mesas:', error);
+      const message = error instanceof Error ? error.message : 'Erro ao buscar mesas.';
+      setTablesError(message);
+      toast.error(message);
     } finally {
-      setLoading(false);
+      setTablesLoading(false);
     }
-  }, [isAuthenticated]);
+  }, []);
 
-  const handleDeleteTable = async (id: string) => {
-    if (!isAuthenticated) return;
-    setDeletingTableId(id);
-    try {
-      const response = await authDelete(`/api/v1/admin/tables/${id}`);
-      if (response.ok) {
-        toast.success('Mesa deletada!');
-        setDeleteConfirmTableId(null);
-        fetchAllTables();
-      } else {
-        toast.error(await extractErrorMessage(response, 'Erro ao deletar mesa'));
-      }
-    } catch (error) {
-      console.error('[ConteudoSection] Erro ao deletar mesa:', error);
-      toast.error('Erro ao deletar mesa');
-    } finally {
-      setDeletingTableId(null);
+  useEffect(() => {
+    if (tab !== 'tables') return;
+    const timer = setTimeout(() => void fetchAllTables(), 0);
+    return () => clearTimeout(timer);
+  }, [tab, fetchAllTables]);
+
+  const handleDeleteTable = async (table: AdminTableRow) => {
+    if (!(await confirm({
+      title: 'Apagar mesa',
+      message: `Apagar a mesa "${table.title}"? Esta ação não pode ser desfeita.`,
+      variant: 'danger',
+    }))) return;
+    const response = await authDelete(`/api/v1/admin/tables/${table.id}`);
+    if (!response.ok) {
+      toast.error(await extractErrorMessage(response, 'Erro ao apagar mesa.'));
+      return;
     }
+    toast.success('Mesa apagada.');
+    await fetchAllTables();
   };
 
-  const handleToggleTableStatus = async (id: string, currentStatus: string, title: string) => {
-    if (!isAuthenticated) return;
-    const newStatus = currentStatus === 'active' ? 'cancelled' : 'active';
+  const handleToggleTableStatus = async (table: AdminTableRow) => {
+    if (table.status !== 'active' && table.status !== 'cancelled') {
+      toast.error('Só é possível ativar/cancelar mesas ativas ou canceladas.');
+      return;
+    }
+    const newStatus = table.status === 'active' ? 'cancelled' : 'active';
     const action = newStatus === 'active' ? 'ativar' : 'cancelar';
     if (!(await confirm({
       title: `${action.charAt(0).toUpperCase() + action.slice(1)} mesa`,
-      message: `${action.charAt(0).toUpperCase() + action.slice(1)} a mesa "${title}"?`,
+      message: `${action.charAt(0).toUpperCase() + action.slice(1)} a mesa "${table.title}"?`,
       variant: 'warning',
     }))) return;
-    try {
-      const response = await authPut(`/api/v1/admin/tables/${id}`, { status: newStatus });
-      if (response.ok) {
-        toast.success(`Mesa ${action === 'ativar' ? 'ativada' : 'desativada'}!`);
-        fetchAllTables();
-      } else {
-        toast.error(await extractErrorMessage(response, `Erro ao ${action} mesa`));
-      }
-    } catch (error) {
-      console.error('[ConteudoSection] Erro ao alterar status:', error);
-      toast.error(`Erro ao ${action} mesa`);
+
+    const response = await authPut(`/api/v1/admin/tables/${table.id}`, { status: newStatus });
+    if (!response.ok) {
+      toast.error(await extractErrorMessage(response, `Erro ao ${action} mesa.`));
+      return;
     }
+    toast.success(`Mesa ${action === 'ativar' ? 'ativada' : 'cancelada'}.`);
+    await fetchAllTables();
   };
 
-  const filteredTables = allTables.filter(t =>
-    t.title.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const handleToggleCovil = async (table: AdminTableRow) => {
+    const response = await authPut(`/api/v1/admin/tables/${table.id}`, { is_covil: !table.is_covil });
+    if (!response.ok) {
+      toast.error(await extractErrorMessage(response, 'Erro ao atualizar Covil.'));
+      return;
+    }
+    toast.success(!table.is_covil ? 'Mesa marcada como Covil do Lich.' : 'Marca Covil removida.');
+    await fetchAllTables();
+  };
 
-  const subTabClass = (tab: CrudSubTab) =>
-    `px-4 py-2 rounded-lg transition-all ${
-      crudSubTab === tab
-        ? 'bg-blue-600 text-white'
-        : 'bg-white/5 text-white/60 hover:bg-white/10'
-    }`;
+  const handleTablesBatch = async (ids: string[], action: 'archive' | 'unarchive' | 'delete') => {
+    const response = await authPost('/api/v1/admin/tables/batch', { ids, action });
+    if (!response.ok) {
+      toast.error(await extractErrorMessage(response, 'Erro na ação em lote.'));
+      return;
+    }
+    const verb = action === 'delete' ? 'apagada(s)' : action === 'archive' ? 'arquivada(s)' : 'desarquivada(s)';
+    toast.success(`${ids.length} mesa(s) ${verb}.`);
+    await fetchAllTables();
+  };
 
-  const platformKindClass = (kind: PlatformKind) =>
-    `px-3 py-1.5 rounded-lg text-sm transition-all ${
-      platformKind === kind
-        ? 'bg-blue-500/30 text-blue-200 border border-blue-500/40'
-        : 'bg-white/5 text-white/60 hover:bg-white/10'
-    }`;
+  const tableColumns = useMemo(() => [
+    {
+      key: 'title',
+      header: 'Mesa',
+      render: (table: AdminTableRow) => (
+        <div>
+          <div className="font-medium text-[var(--fg)]">{table.title || 'Sem título'}</div>
+          <div className="text-xs text-[var(--fg-faint)]">Criada em {formatDate(table.created_at)}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (table: AdminTableRow) => <StatusPill tone={table.status === 'active' ? 'success' : 'neutral'}>{table.status}</StatusPill>,
+    },
+    {
+      key: 'covil',
+      header: 'Covil',
+      render: (table: AdminTableRow) => table.is_covil ? <StatusPill tone="brand">Covil</StatusPill> : <StatusPill>não</StatusPill>,
+    },
+  ], []);
+
+  const tabClass = (item: CatalogTab) => tabButtonClass(tab === item);
 
   return (
-    <div>
-      {/* Subnav local */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <button onClick={() => setCrudSubTab('systems')} className={subTabClass('systems')} aria-pressed={crudSubTab === 'systems'}>
-          Sistemas de RPG
-        </button>
-        <button onClick={() => setCrudSubTab('platforms')} className={subTabClass('platforms')} aria-pressed={crudSubTab === 'platforms'}>
-          Plataformas
-        </button>
-        <button onClick={() => setCrudSubTab('scenarios')} className={subTabClass('scenarios')} aria-pressed={crudSubTab === 'scenarios'}>
-          Cenários
-        </button>
-        <button onClick={() => setCrudSubTab('tables')} className={subTabClass('tables')} aria-pressed={crudSubTab === 'tables'}>
-          Mesas
-        </button>
+    <div className="space-y-5">
+      <PageHeader
+        breadcrumb={['Gestão', 'Catálogo']}
+        title="Catálogo"
+        description="Sistemas, plataformas, cenários, estilos auxiliares e mesas publicadas."
+      />
+
+      <div className="inline-flex flex-wrap rounded-lg border border-[var(--border)] bg-[var(--admin-surface)] p-1">
+        {(Object.keys(TAB_LABEL) as CatalogTab[]).map((item) => (
+          <button key={item} onClick={() => setTab(item)} className={tabClass(item)} aria-pressed={tab === item}>
+            {TAB_LABEL[item]}
+          </button>
+        ))}
       </div>
 
-      {crudSubTab === 'systems' && <SystemsAdminView />}
-      {crudSubTab === 'platforms' && (
-        <div>
-          <div className="flex gap-2 mb-4">
-            <button onClick={() => setPlatformKind('vtt')} className={platformKindClass('vtt')}>
-              VTTs
-            </button>
-            <button onClick={() => setPlatformKind('communication')} className={platformKindClass('communication')}>
-              Comunicação
-            </button>
-          </div>
-          <PlatformsPage key={platformKind} initialKind={platformKind} />
-        </div>
-      )}
-      {crudSubTab === 'scenarios' && <ScenariosAdminView />}
+      <SectionCard title={TAB_LABEL[tab]} bodyClassName="p-5">
+        {tab === 'systems' && <SystemsAdminView />}
 
-      {crudSubTab === 'tables' && (
-        <div>
-          <div className="mb-4">
-            <input
-              type="text"
-              placeholder="Buscar mesas..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => { if (allTables.length === 0) fetchAllTables(); }}
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40"
-            />
-          </div>
-          {loading ? (
-            <div className="text-white/60 text-center py-8">Carregando...</div>
-          ) : (
-            <div className="space-y-3">
-              {filteredTables.map((table) => (
-                <div key={table.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <h3 className="text-white font-semibold">{table.title}</h3>
-                      <p className="text-white/60 text-sm mt-1">
-                        Status: {table.status} | Criada em: {new Date(table.created_at).toLocaleDateString('pt-BR')}
-                      </p>
-                      <label className="flex items-center gap-2 mt-2 text-sm text-white/80 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={table.is_covil || false}
-                          onChange={async (e) => {
-                            const newValue = e.target.checked;
-                            try {
-                              const res = await authPut(`/api/v1/admin/tables/${table.id}`, { is_covil: newValue });
-                              if (!res.ok) throw new Error('Erro ao atualizar');
-                              toast.success(newValue ? 'Mesa marcada como Covil do Lich' : 'Marca Covil removida');
-                              fetchAllTables();
-                            } catch (error) {
-                              toast.error('Erro ao atualizar mesa');
-                              console.error(error);
-                            }
-                          }}
-                          className="w-4 h-4"
-                        />
-                        🏰 Covil do Lich
-                      </label>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleToggleTableStatus(table.id, table.status, table.title)}
-                        className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors text-white text-sm"
-                      >
-                        {table.status === 'active' ? 'Cancelar' : 'Ativar'}
-                      </button>
-                      <InlineDeleteConfirmation
-                        title={table.title}
-                        isOpen={deleteConfirmTableId === table.id}
-                        onOpen={() => setDeleteConfirmTableId(table.id)}
-                        onCancel={() => setDeleteConfirmTableId(null)}
-                        onConfirm={() => handleDeleteTable(table.id)}
-                        isProcessing={deletingTableId === table.id}
-                        triggerLabel=""
-                        className="min-w-10"
-                        compact
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+        {tab === 'platforms' && (
+          <div className="space-y-4">
+            <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--admin-surface)] p-1">
+              <button onClick={() => setPlatformKind('vtt')} className={platformKind === 'vtt' ? tabClass('platforms') : 'rounded-md px-3 py-2 text-sm text-[var(--fg-low)] hover:bg-[var(--admin-hover)]'}>
+                VTTs
+              </button>
+              <button onClick={() => setPlatformKind('communication')} className={platformKind === 'communication' ? tabClass('platforms') : 'rounded-md px-3 py-2 text-sm text-[var(--fg-low)] hover:bg-[var(--admin-hover)]'}>
+                Comunicação
+              </button>
             </div>
-          )}
-        </div>
-      )}
+            <PlatformsPage key={platformKind} initialKind={platformKind} />
+          </div>
+        )}
+
+        {tab === 'scenarios' && <ScenariosAdminView />}
+
+        {tab === 'setting-styles' && <SettingSuggestionsPanel />}
+
+        {tab === 'tables' && (
+          <AdminTable
+            tableId="catalog-tables"
+            rows={tables}
+            getRowId={(table) => table.id}
+            columns={tableColumns}
+            searchKeys={['title', 'status']}
+            searchPlaceholder="Buscar mesa..."
+            facets={[
+              {
+                key: 'status',
+                label: 'Status',
+                options: [
+                  { value: 'active', label: 'Ativa' },
+                  { value: 'full', label: 'Cheia' },
+                  { value: 'cancelled', label: 'Cancelada' },
+                  { value: 'ended', label: 'Encerrada' },
+                ],
+                getValue: (table) => table.status,
+              },
+              {
+                key: 'covil',
+                label: 'Covil',
+                options: [{ value: 'true', label: 'Covil' }, { value: 'false', label: 'Sem selo' }],
+                getValue: (table) => String(table.is_covil),
+              },
+            ]}
+            loading={tablesLoading}
+            error={tablesError}
+            emptyTitle="Nenhuma mesa encontrada"
+            bulkActions={[
+              { key: 'archive', label: 'Arquivar', icon: <Archive size={15} />, onRun: (ids) => handleTablesBatch(ids, 'archive') },
+              { key: 'unarchive', label: 'Desarquivar', icon: <ArchiveRestore size={15} />, onRun: (ids) => handleTablesBatch(ids, 'unarchive') },
+              { key: 'delete', label: 'Apagar', icon: <Trash2 size={15} />, tone: 'danger', confirm: 'Apagar as mesas selecionadas? Ação irreversível.', onRun: (ids) => handleTablesBatch(ids, 'delete') },
+            ]}
+            rowActions={[
+              { key: 'status', label: 'Ativar/cancelar', icon: <Power size={15} />, onRun: handleToggleTableStatus },
+              { key: 'covil', label: 'Alternar Covil', icon: <ShieldCheck size={15} />, onRun: handleToggleCovil },
+              { key: 'delete', label: 'Apagar', icon: <Trash2 size={15} />, tone: 'danger', onRun: handleDeleteTable },
+            ]}
+          />
+        )}
+      </SectionCard>
     </div>
   );
 }

@@ -1,58 +1,40 @@
 import { useState } from 'react';
-import { DevFeedbackPanel } from '../../../modules/admin/dev-feedback/DevFeedbackPanel';
+import { AdminUsersPanel } from './AdminUsersPanel';
+import { PageHeader, SectionCard, tabButtonClass } from './ui';
+import { DevFeedbackPanel } from '../dev-feedback/DevFeedbackPanel';
 
-type SisSubTab = 'ferramentas' | 'jobs' | 'logs' | 'erros' | 'config';
+type SystemTab = 'users' | 'feedback';
+
+const TAB_LABEL: Record<SystemTab, string> = {
+  users: 'Usuários',
+  feedback: 'Erros reportados',
+};
 
 export function SistemaSection() {
-  const [subTab, setSubTab] = useState<SisSubTab>('ferramentas');
+  const [tab, setTab] = useState<SystemTab>('users');
 
-  const subTabClass = (tab: SisSubTab) =>
-    `px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-      subTab === tab
-        ? 'bg-blue-600 text-white'
-        : 'bg-white/5 text-white/60 hover:bg-white/10'
-    }`;
-
-  const stub = (label: string) => (
-    <div
-      className="rounded-lg p-6 border"
-      style={{
-        backgroundColor: 'var(--admin-surface, #16223E)',
-        borderColor: 'var(--border)',
-      }}
-    >
-      <p className="text-sm" style={{ color: 'var(--fg-faint)' }}>
-        {label} — em breve.
-      </p>
-    </div>
-  );
+  const tabClass = (item: SystemTab) => tabButtonClass(tab === item);
 
   return (
-    <div>
-      {/* Subnav local */}
-      <div className="flex flex-wrap gap-3 mb-6" role="tablist" aria-label="Subnavegação do Sistema">
-        <button onClick={() => setSubTab('ferramentas')} className={subTabClass('ferramentas')} role="tab" aria-selected={subTab === 'ferramentas'}>
-          Ferramentas de desenvolvimento
-        </button>
-        <button onClick={() => setSubTab('jobs')} className={subTabClass('jobs')} role="tab" aria-selected={subTab === 'jobs'}>
-          Jobs e filas
-        </button>
-        <button onClick={() => setSubTab('logs')} className={subTabClass('logs')} role="tab" aria-selected={subTab === 'logs'}>
-          Logs
-        </button>
-        <button onClick={() => setSubTab('erros')} className={subTabClass('erros')} role="tab" aria-selected={subTab === 'erros'}>
-          Erros reportados
-        </button>
-        <button onClick={() => setSubTab('config')} className={subTabClass('config')} role="tab" aria-selected={subTab === 'config'}>
-          Configurações
-        </button>
+    <div className="space-y-5">
+      <PageHeader
+        breadcrumb={['Gestão', 'Sistema']}
+        title="Sistema"
+        description="Usuários, selo Covil do Lich e feedbacks técnicos reportados."
+      />
+
+      <div className="inline-flex flex-wrap rounded-lg border border-[var(--border)] bg-[var(--admin-surface)] p-1">
+        {(Object.keys(TAB_LABEL) as SystemTab[]).map((item) => (
+          <button key={item} onClick={() => setTab(item)} className={tabClass(item)} aria-pressed={tab === item}>
+            {TAB_LABEL[item]}
+          </button>
+        ))}
       </div>
 
-      {subTab === 'ferramentas' && <DevFeedbackPanel />}
-      {subTab === 'jobs' && stub('Jobs e filas')}
-      {subTab === 'logs' && stub('Logs')}
-      {subTab === 'erros' && stub('Erros reportados')}
-      {subTab === 'config' && stub('Configurações')}
+      <SectionCard title={TAB_LABEL[tab]} bodyClassName="p-5">
+        {tab === 'users' && <AdminUsersPanel />}
+        {tab === 'feedback' && <DevFeedbackPanel />}
+      </SectionCard>
     </div>
   );
 }

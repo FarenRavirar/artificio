@@ -32,13 +32,31 @@ const DRAFT_STATUS_LABELS: Record<DiscordImportDraftStatus, string> = {
   rejected: 'Rejeitado',
 };
 
-// WS2: origem do draft (Discord vs Inbox)
-type DraftOrigin = 'discord' | 'inbox';
-function draftOrigin(draft: DiscordDraft): DraftOrigin {
-  return draft.discord_message_id ? 'discord' : 'inbox';
+// Origem operacional da fila central (R4): Bot, Exporter ou texto colado.
+type DraftOrigin = 'bot' | 'exporter' | 'text';
+
+function readSourceKind(draft: DiscordDraft): string | null {
+  const source = isRecord(draft.parsed_payload?.source)
+    ? draft.parsed_payload.source
+    : isRecord(draft.normalized_payload?.source)
+      ? draft.normalized_payload.source
+      : null;
+  const value = source?.source_kind ?? source?.source_type;
+  return typeof value === 'string' ? value : null;
 }
-const ORIGIN_LABELS: Record<DraftOrigin, string> = { discord: 'Discord', inbox: 'Inbox' };
-const ORIGIN_COLORS: Record<DraftOrigin, string> = { discord: 'bg-blue-700/30 text-blue-300', inbox: 'bg-purple-700/30 text-purple-300' };
+
+function draftOrigin(draft: DiscordDraft): DraftOrigin {
+  if (draft.import_message_id && !draft.discord_message_id) return 'text';
+  const sourceKind = readSourceKind(draft);
+  if (sourceKind?.includes('chat_exporter')) return 'exporter';
+  return 'bot';
+}
+const ORIGIN_LABELS: Record<DraftOrigin, string> = { bot: 'Bot', exporter: 'Exporter', text: 'Texto' };
+const ORIGIN_COLORS: Record<DraftOrigin, string> = {
+  bot: 'bg-blue-700/30 text-blue-300',
+  exporter: 'bg-cyan-700/30 text-cyan-200',
+  text: 'bg-purple-700/30 text-purple-300',
+};
 
 // T-G1: cor por tier de confiança (thresholds sincronizados com classifyConfidence em parseDiscordAnnouncement.ts)
 function confidenceColor(score: number): string {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useAnalyticsPageviews } from '@artificio/analytics/react';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProfileProvider } from './contexts/ProfileContext';
@@ -36,6 +36,15 @@ function AnalyticsPageviews() {
   return null;
 }
 
+// Redirect da rota legada /gestao/moderacao/:sub? preservando o sub
+// (ex.: /gestao/moderacao/rascunhos → /gestao/mesas/rascunhos), p/ não cair
+// na aba errada a partir de deep links/bookmarks antigos.
+function LegacyModeracaoRedirect() {
+  const { sub } = useParams<{ sub?: string }>();
+  const legacySubPath = sub ? `/${sub}` : '';
+  return <Navigate to={`/gestao/mesas${legacySubPath}`} replace />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -59,13 +68,19 @@ function AppRoutes() {
       } />
       <Route path="/painel" element={<ProtectedRoute><PainelMestrePage /></ProtectedRoute>} />
       <Route path="/gestao" element={<ProtectedRoute requiredRole="admin"><GestaoLayout /></ProtectedRoute>}>
-        <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<DashboardSection />} />
-        <Route path="conteudo" element={<ConteudoSection />} />
+        <Route index element={<Navigate to="visao-geral" replace />} />
+        {/* IA nova (057). Sections atuais reusadas como conteúdo até cada fase reescrever. */}
+        <Route path="visao-geral" element={<DashboardSection />} />
+        <Route path="mesas/:sub?" element={<ModeracaoSection />} />
+        <Route path="catalogo" element={<ConteudoSection />} />
         <Route path="comunidade" element={<ComunidadeSection />} />
-        <Route path="moderacao/:sub?" element={<ModeracaoSection />} />
-        <Route path="integracoes" element={<IntegracoesSection />} />
+        <Route path="importacao" element={<IntegracoesSection />} />
         <Route path="sistema" element={<SistemaSection />} />
+        {/* Redirects das rotas antigas — sem link morto */}
+        <Route path="dashboard" element={<Navigate to="/gestao/visao-geral" replace />} />
+        <Route path="conteudo" element={<Navigate to="/gestao/catalogo" replace />} />
+        <Route path="moderacao/:sub?" element={<LegacyModeracaoRedirect />} />
+        <Route path="integracoes" element={<Navigate to="/gestao/importacao" replace />} />
       </Route>
       {/* REMOVIDO: Sistema de ingestão automática desacoplado */}
       {/* <Route path="/admin/devtools" element={<ProtectedRoute requiredRole="admin"><AdminDevToolsPage /></ProtectedRoute>} /> */}

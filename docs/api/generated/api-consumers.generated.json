@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 281,
-    "uniqueEndpoints": 259,
+    "total": 296,
+    "uniqueEndpoints": 274,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,17 +36,17 @@
         }
       },
       "mesas-frontend": {
-        "total": 163,
+        "total": 178,
         "byConfidence": {
-          "medium": 64,
-          "high": 97,
+          "medium": 67,
+          "high": 109,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
-          "template-literal": 56,
-          "service-wrapper": 41,
-          "literal": 58,
+          "template-literal": 59,
+          "service-wrapper": 50,
+          "literal": 61,
           "concatenation": 2
         }
       },
@@ -861,7 +861,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/platforms/PlatformsPage.tsx",
       "method": "PUT",
       "endpoint": "/:param",
       "confidence": "medium",
@@ -871,7 +871,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/platforms/PlatformsPage.tsx",
       "method": "POST",
       "endpoint": "/:param",
       "confidence": "medium",
@@ -881,7 +881,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/platforms/PlatformsPage.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/platforms/PlatformsPage.tsx",
       "method": "DELETE",
       "endpoint": "/:param",
       "confidence": "medium",
@@ -921,7 +921,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/activity/hooks/useActivityLog.ts",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/activity/hooks/useActivityLog.ts",
       "method": "GET",
       "endpoint": "/api/v1/admin/activity",
       "confidence": "medium",
@@ -991,6 +991,76 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.getChatExporterProfiles",
+      "line": 127
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.createChatExporterProfile",
+      "line": 219
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
+      "method": "PATCH",
+      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles/:param",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.updateChatExporterProfile",
+      "line": 218
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
+      "method": "DELETE",
+      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles/:param",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.deleteChatExporterProfile",
+      "line": 278
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles/:param/delta",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.getChatExporterProfileDelta",
+      "line": 245
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles/:param/run",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.runChatExporterProfile",
+      "line": 259
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles/:param/test",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.testChatExporterProfile",
+      "line": 233
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterAutomationPanel.tsx",
       "method": "POST",
       "endpoint": "/api/v1/admin/discord/chat-exporter/run",
@@ -1011,6 +1081,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/discord/discovery/guilds",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.discoverGuilds",
+      "line": 151
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/DiscordSourceList.tsx",
       "method": "GET",
       "endpoint": "/api/v1/admin/discord/discovery/guilds",
@@ -1018,6 +1098,16 @@
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.discoverGuilds",
       "line": 81
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/discord/discovery/guilds/:param/channels",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.discoverChannels",
+      "line": 170
     },
     {
       "app": "mesas-frontend",
@@ -1031,23 +1121,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/DashboardSection.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/hooks/useAdminPendencias.ts",
       "method": "GET",
       "endpoint": "/api/v1/admin/discord/drafts",
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 39
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/GestaoLayout.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/admin/discord/drafts",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.getDrafts",
-      "line": 33
+      "line": 34
     },
     {
       "app": "mesas-frontend",
@@ -1057,7 +1137,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 92
+      "line": 110
     },
     {
       "app": "mesas-frontend",
@@ -1067,7 +1147,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.submitCorrection",
-      "line": 95
+      "line": 98
     },
     {
       "app": "mesas-frontend",
@@ -1191,13 +1271,23 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/hooks/useAdminDashboardMetrics.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/discord/metrics",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.getIntegrationMetrics",
+      "line": 37
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/IntegrationLogsView.tsx",
       "method": "GET",
       "endpoint": "/api/v1/admin/discord/metrics",
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getIntegrationMetrics",
-      "line": 81
+      "line": 85
     },
     {
       "app": "mesas-frontend",
@@ -1287,7 +1377,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.updateDraft",
-      "line": 69
+      "line": 72
     },
     {
       "app": "mesas-frontend",
@@ -1297,7 +1387,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.getDraft",
-      "line": 70
+      "line": 73
     },
     {
       "app": "mesas-frontend",
@@ -1307,7 +1397,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.registerCorrection",
-      "line": 71
+      "line": 74
     },
     {
       "app": "mesas-frontend",
@@ -1317,7 +1407,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.reparseDraft",
-      "line": 68
+      "line": 71
     },
     {
       "app": "mesas-frontend",
@@ -1327,7 +1417,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.syncDraft",
-      "line": 67
+      "line": 70
     },
     {
       "app": "mesas-frontend",
@@ -1351,27 +1441,57 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/DashboardSection.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/hooks/useAdminPendencias.ts",
       "method": "GET",
       "endpoint": "/api/v1/admin/scenario-suggestions",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 22
+      "line": 25
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/GestaoLayout.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/SettingSuggestionsPanel.tsx",
       "method": "GET",
-      "endpoint": "/api/v1/admin/scenario-suggestions",
+      "endpoint": "/api/v1/admin/setting-suggestions",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 22
+      "line": 86
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/hydration/EnrichmentAdminPanel.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/SettingSuggestionsPanel.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/setting-suggestions",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authPost",
+      "line": 116
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/SettingSuggestionsPanel.tsx",
+      "method": "PUT",
+      "endpoint": "/api/v1/admin/setting-suggestions/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authPut",
+      "line": 115
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/SettingSuggestionsPanel.tsx",
+      "method": "DELETE",
+      "endpoint": "/api/v1/admin/setting-suggestions/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authDelete",
+      "line": 130
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/hydration/EnrichmentAdminPanel.tsx",
       "method": "POST",
       "endpoint": "/api/v1/admin/sync/enrich",
       "confidence": "medium",
@@ -1391,23 +1511,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/DashboardSection.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/hooks/useAdminPendencias.ts",
       "method": "GET",
       "endpoint": "/api/v1/admin/system-suggestions",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 21
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/GestaoLayout.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/admin/system-suggestions",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "authGet",
-      "line": 21
+      "line": 19
     },
     {
       "app": "mesas-frontend",
@@ -1437,7 +1547,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 85
+      "line": 102
     },
     {
       "app": "mesas-frontend",
@@ -1447,7 +1557,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPut",
-      "line": 111
+      "line": 124
     },
     {
       "app": "mesas-frontend",
@@ -1468,6 +1578,36 @@
       "pattern": "template-literal",
       "wrapper": "authDelete",
       "line": 514
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ConteudoSection.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/tables/batch",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authPost",
+      "line": 144
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/AdminUsersPanel.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/users",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authGet",
+      "line": 85
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/AdminUsersPanel.tsx",
+      "method": "PATCH",
+      "endpoint": "/api/v1/admin/users/:param/covil",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authPatch",
+      "line": 107
     },
     {
       "app": "mesas-frontend",
@@ -1747,7 +1887,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 62
+      "line": 61
     },
     {
       "app": "mesas-frontend",
@@ -1757,7 +1897,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPatch",
-      "line": 93
+      "line": 92
     },
     {
       "app": "mesas-frontend",
@@ -1767,7 +1907,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPatch",
-      "line": 104
+      "line": 103
     },
     {
       "app": "mesas-frontend",
@@ -2111,6 +2251,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/systems/useSystems.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/systems",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authGet",
+      "line": 31
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/create-table/components/CreateTableForm.tsx",
       "method": "GET",
       "endpoint": "/api/v1/systems",
@@ -2128,16 +2278,6 @@
       "pattern": "literal",
       "wrapper": "authGet",
       "line": 230
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/systems/useSystems.ts",
-      "method": "GET",
-      "endpoint": "/api/v1/systems",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "authGet",
-      "line": 31
     },
     {
       "app": "mesas-frontend",
@@ -2161,7 +2301,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/systems/useSystems.ts",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/systems/useSystems.ts",
       "method": "POST",
       "endpoint": "/api/v1/systems/admin",
       "confidence": "high",
@@ -2171,7 +2311,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/systems/useSystems.ts",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/systems/useSystems.ts",
       "method": "PUT",
       "endpoint": "/api/v1/systems/admin/:param",
       "confidence": "medium",
@@ -2181,7 +2321,7 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/modules/admin/systems/useSystems.ts",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/systems/useSystems.ts",
       "method": "DELETE",
       "endpoint": "/api/v1/systems/admin/:param",
       "confidence": "medium",
@@ -2197,7 +2337,17 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 51
+      "line": 76
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/hooks/useAdminDashboardMetrics.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/tables",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authGet",
+      "line": 29
     },
     {
       "app": "mesas-frontend",
@@ -2377,7 +2527,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 84
+      "line": 99
     },
     {
       "app": "packages/auth",

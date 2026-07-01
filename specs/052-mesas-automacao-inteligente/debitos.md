@@ -18,3 +18,9 @@
   - **Ruído a tratar junto:** linhas `https:` casam como label (`https` 20) — guardar contra chaves `http`/`https` no split.
 
 - **DEB-052-02 — Learning-store por raw text para campo faltante = resíduo adiado.** A peça original do D087 (aprender campo faltante chaveado por texto cru) só ajuda anúncios free-form fora do template, com alto risco de falso-positivo. Após TC.7/TC.8 cobrirem o template, o ROI cai. Adiado; reabrir só se, pós-fixes determinísticos, a taxa de `missing_fields` em anúncios não-template ainda justificar. Abordagem preferida quando reaberto: aprender sinônimo de label (não cache fuzzy de texto).
+
+## Débitos transferidos para a 057 (D1–D10)
+
+> CodeRabbit encontrou 10 débitos em arquivos do backend DCE durante o review do PR #120 (spec 057). Esses débitos pertencem a esta spec (052) mas foram registrados como **DEB-057-08 a DEB-057-17** no `specs/057-mesas-gestao-redesign/debitos.md`. Serão tratados na **Fase 6 da 057** (absorção do DCE).
+>
+> Resumo: D1 cookies inválido, D2 path traversal, D3 SIGKILL fallback, D4 allowedBaseDir escape, D5 cleanup sem try/catch, D6 limit inválido, D7 regex time frouxo, D8 updateSchema sobrescreve defaults, D9 truncamento não sinalizado, D10 visibilidade de status.

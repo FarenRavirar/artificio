@@ -1,12 +1,18 @@
 import { access, mkdir } from 'fs/promises';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { sql } from 'kysely';
 import { db } from '../../db';
-import type { NewDiscordImportRun, NewDiscordSetting } from '../../db/types';
-import { DISCORD_CHAT_EXPORTER_RETENTION } from '../../discord/chatExporterAutomationConfig';
+import type {
+  DiscordChatExporterProfile,
+  NewDiscordChatExporterProfile,
+  NewDiscordSetting,
+} from '../../db/types';
 import { buildChatExporterCliCommand, redactedChatExporterCliCommand, runChatExporterCli } from '../../discord/chatExporterCliRunner';
-import { processDiscordChatExporterFolder } from '../../discord/chatExporterFolderImportService';
+import { discoverChannelDelta, DiscordDiscoveryError } from '../../discord/discovery';
+import { resolveChatExporterBinary, runFolderImport, runProfileExport } from '../../discord/chatExporterProfileRunner';
 import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError, DiscordSettingsDecryptError } from '../../discord/settingsCrypto';
 import { requireAdmin } from '../../middleware/auth';
 
@@ -17,6 +23,8 @@ const TOKEN_KEY = 'chat_exporter_token';
 const COOKIES_KEY = 'chat_exporter_cookies';
 
 const frequencySchema = z.enum(['hourly', 'daily', 'weekly']);
+const includeThreadsSchema = z.enum(['none', 'active', 'all']);
+const uuidParamSchema = z.object({ id: z.uuid() });
 
 const configSchema = z.object({
   enabled: z.boolean().default(false),
@@ -35,6 +43,27 @@ const updateSchema = configSchema.partial().extend({
   clearCookies: z.boolean().optional(),
 });
 
+const profileCreateSchema = z.object({
+  label: z.string().trim().min(2).max(80),
+  guild_id: z.string().trim().regex(/^\d{5,30}$/, 'Servidor Discord inválido.'),
+  guild_name: z.string().trim().max(120).nullable().optional(),
+  channel_id: z.string().trim().regex(/^\d{5,30}$/, 'Canal Discord inválido.'),
+  channel_name: z.string().trim().max(120).nullable().optional(),
+  token: z.string().trim().min(10).optional(),
+  include_threads: includeThreadsSchema.default('active'),
+  after: z.string().trim().optional(),
+  media: z.boolean().default(false),
+  schedule_enabled: z.boolean().default(false),
+  frequency: frequencySchema.default('daily'),
+  time: z.string().regex(/^\d{2}:\d{2}$/, 'Horário deve estar em HH:MM.').default('03:20'),
+  timezone: z.string().trim().min(1).default('America/Sao_Paulo'),
+  enabled: z.boolean().default(true),
+});
+
+const profileUpdateSchema = profileCreateSchema.partial().extend({
+  clearToken: z.boolean().optional(),
+});
+
 type ChatExporterConfig = z.infer<typeof configSchema>;
 
 function defaultConfig(): Partial<ChatExporterConfig> {
@@ -46,9 +75,11 @@ function defaultConfig(): Partial<ChatExporterConfig> {
   };
 }
 
-// Binário resolvido só no servidor (env/deploy), nunca a partir do payload do admin — evita execução arbitrária.
-function resolveBinary(): string {
-  return process.env.DISCORD_CHAT_EXPORTER_BIN?.trim() || 'DiscordChatExporter.Cli';
+function defaultImportDir(profileId: string): string {
+  const base = process.env.DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR?.trim()
+    || process.env.DISCORD_CHAT_EXPORTER_IMPORT_DIR?.trim()
+    || '/data/chat-exporter';
+  return path.join(base, profileId);
 }
 
 function maskSecret(value: string): string {
@@ -90,6 +121,12 @@ async function deleteSetting(key: string): Promise<void> {
     .where('guild_id', 'is', null)
     .where('key', '=', key)
     .execute();
+}
+
+function toNullableDate(value: string | undefined): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function parseStoredConfig(value: string | undefined): Partial<ChatExporterConfig> {
@@ -159,11 +196,45 @@ function publicConfig(loaded: Awaited<ReturnType<typeof loadConfig>>) {
   };
 }
 
+function publicProfile(row: DiscordChatExporterProfile) {
+  // Nunca vazar o token cifrado: remover token_enc do payload público.
+  const { token_enc, ...rest } = row;
+  return {
+    ...rest,
+    token: {
+      is_set: Boolean(token_enc),
+      preview: token_enc ? '****' : null,
+      updated_at: row.updated_at,
+    },
+  };
+}
+
+async function decryptProfileToken(row: DiscordChatExporterProfile): Promise<string | null> {
+  if (!row.token_enc) return null;
+  return decryptDiscordSetting(row.token_enc);
+}
+
+async function loadProfile(id: string): Promise<DiscordChatExporterProfile | undefined> {
+  return db
+    .selectFrom('discord_chat_exporter_profiles')
+    .selectAll()
+    .where('id', '=', id)
+    .executeTakeFirst();
+}
+
 function configErrors(config: Partial<ChatExporterConfig>, token: string | null): string[] {
   const errors: string[] = [];
   const parsed = configSchema.safeParse(config);
   if (!parsed.success) errors.push(...parsed.error.issues.map((issue) => issue.message));
   if (!token) errors.push('Token do DiscordChatExporter ausente.');
+  return errors;
+}
+
+function profileErrors(profile: DiscordChatExporterProfile, token: string | null): string[] {
+  const errors: string[] = [];
+  if (!profile.enabled) errors.push('Perfil desativado.');
+  if (!token) errors.push('Token do bot ausente: salve o token global ou um token neste perfil.');
+  if (!profile.import_dir) errors.push('Diretório de importação ausente.');
   return errors;
 }
 
@@ -175,41 +246,6 @@ async function validateBinary(binary: string): Promise<string | null> {
   } catch {
     return `Binário não encontrado: ${binary}`;
   }
-}
-
-async function runFolderImport(rootDir: string, userId: string | undefined) {
-  const result = await processDiscordChatExporterFolder({
-    rootDir,
-    retention: DISCORD_CHAT_EXPORTER_RETENTION,
-  });
-  const totals = result.files.reduce(
-    (acc, file) => {
-      acc.total += file.result?.total ?? 0;
-      acc.inserted += file.result?.inserted ?? 0;
-      acc.updated += file.result?.updated ?? 0;
-      acc.ignored += file.result?.ignored ?? 0;
-      acc.failed += file.result?.failed ?? 0;
-      if (file.status === 'error') acc.failed += 1;
-      return acc;
-    },
-    { total: 0, inserted: 0, updated: 0, ignored: 0, failed: 0 },
-  );
-
-  await db.insertInto('discord_import_runs')
-    .values({
-      source_kind: 'discord_chat_exporter_manual',
-      total_messages: totals.total,
-      drafts_created: totals.inserted,
-      drafts_updated: totals.updated,
-      messages_ignored: totals.ignored,
-      messages_failed: totals.failed,
-      ended_at: new Date(),
-      note: `manual folder=${result.rootDir}; files=${result.incoming}; processed=${result.processed}; errors=${result.errors}`,
-      created_by: userId ?? null,
-    } as NewDiscordImportRun)
-    .execute();
-
-  return result;
 }
 
 function sendError(res: Response, error: unknown, fallbackMessage: string): Response {
@@ -250,12 +286,204 @@ router.put('/config', requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
+router.get('/profiles', requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .selectFrom('discord_chat_exporter_profiles')
+      .selectAll()
+      .orderBy('updated_at', 'desc')
+      .execute();
+    return res.json({ data: rows.map(publicProfile) });
+  } catch (error: unknown) {
+    return sendError(res, error, '[GET /admin/discord/chat-exporter/profiles]');
+  }
+});
+
+router.post('/profiles', requireAdmin, async (req: Request, res: Response) => {
+  const parsed = profileCreateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Perfil inválido.', details: z.flattenError(parsed.error) });
+  }
+
+  try {
+    const { token, after, ...profile } = parsed.data;
+    // Gerar o id no código p/ derivar import_dir num único INSERT (sem UPDATE extra).
+    const id = randomUUID();
+    const now = new Date();
+    const row = await db.insertInto('discord_chat_exporter_profiles')
+      .values({
+        id,
+        ...profile,
+        guild_name: profile.guild_name ?? null,
+        channel_name: profile.channel_name ?? null,
+        token_enc: token ? encryptDiscordSetting(token) : null,
+        after: toNullableDate(after),
+        import_dir: defaultImportDir(id),
+        created_at: now,
+        updated_at: now,
+      } satisfies NewDiscordChatExporterProfile)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return res.status(201).json({ data: publicProfile(row) });
+  } catch (error: unknown) {
+    return sendError(res, error, '[POST /admin/discord/chat-exporter/profiles]');
+  }
+});
+
+router.patch('/profiles/:id', requireAdmin, async (req: Request, res: Response) => {
+  const params = uuidParamSchema.safeParse(req.params);
+  const parsed = profileUpdateSchema.safeParse(req.body);
+  if (!params.success) {
+    return res.status(400).json({ error: 'Perfil inválido.', details: z.flattenError(params.error) });
+  }
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Perfil inválido.', details: z.flattenError(parsed.error) });
+  }
+
+  try {
+    const existing = await loadProfile(params.data.id);
+    if (!existing) return res.status(404).json({ error: 'Perfil não encontrado.' });
+
+    const { token, clearToken, after, ...patch } = parsed.data;
+    const update: Record<string, unknown> = {
+      ...patch,
+      updated_at: new Date(),
+    };
+    if ('guild_name' in patch) update.guild_name = patch.guild_name ?? null;
+    if ('channel_name' in patch) update.channel_name = patch.channel_name ?? null;
+    if (after !== undefined) update.after = toNullableDate(after);
+    if (token) update.token_enc = encryptDiscordSetting(token);
+    if (clearToken) update.token_enc = null;
+
+    const row = await db.updateTable('discord_chat_exporter_profiles')
+      .set(update)
+      .where('id', '=', params.data.id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return res.json({ data: publicProfile(row) });
+  } catch (error: unknown) {
+    return sendError(res, error, '[PATCH /admin/discord/chat-exporter/profiles/:id]');
+  }
+});
+
+router.delete('/profiles/:id', requireAdmin, async (req: Request, res: Response) => {
+  const params = uuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: 'Perfil inválido.', details: z.flattenError(params.error) });
+  }
+
+  try {
+    await db.deleteFrom('discord_chat_exporter_profiles')
+      .where('id', '=', params.data.id)
+      .execute();
+    return res.status(204).send();
+  } catch (error: unknown) {
+    return sendError(res, error, '[DELETE /admin/discord/chat-exporter/profiles/:id]');
+  }
+});
+
+/**
+ * Última mensagem já importada de um canal (maior snowflake em discord_import_messages).
+ * Snowflake é string numérica → ordena por bigint para pegar a mais recente de verdade.
+ */
+async function lastImportedMessageId(channelId: string): Promise<string | null> {
+  const row = await db
+    .selectFrom('discord_import_messages')
+    .select('discord_message_id')
+    .where('discord_channel_id', '=', channelId)
+    .orderBy(sql`discord_message_id::bigint`, 'desc')
+    .limit(1)
+    .executeTakeFirst();
+  return row?.discord_message_id ?? null;
+}
+
+// GET /profiles/:id/delta — dry-read "a atualizar" por canal antes do run (T6.3/T6.8).
+router.get('/profiles/:id/delta', requireAdmin, async (req: Request, res: Response) => {
+  const params = uuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: 'Perfil inválido.', details: z.flattenError(params.error) });
+  }
+
+  try {
+    const profile = await loadProfile(params.data.id);
+    if (!profile) return res.status(404).json({ error: 'Perfil não encontrado.' });
+    const afterMessageId = await lastImportedMessageId(profile.channel_id);
+    const delta = await discoverChannelDelta(profile.channel_id, afterMessageId);
+    return res.json({ data: delta });
+  } catch (error: unknown) {
+    if (error instanceof DiscordDiscoveryError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    return sendError(res, error, '[GET /admin/discord/chat-exporter/profiles/:id/delta]');
+  }
+});
+
+router.post('/profiles/:id/test', requireAdmin, async (req: Request, res: Response) => {
+  const params = uuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: 'Perfil inválido.', details: z.flattenError(params.error) });
+  }
+
+  try {
+    const profile = await loadProfile(params.data.id);
+    if (!profile) return res.status(404).json({ error: 'Perfil não encontrado.' });
+    const loaded = await loadConfig();
+    const token = await decryptProfileToken(profile) ?? loaded.token;
+    const errors = profileErrors(profile, token);
+    const binaryError = await validateBinary(resolveChatExporterBinary());
+    if (binaryError) errors.push(binaryError);
+    const command = token
+      ? redactedChatExporterCliCommand(buildChatExporterCliCommand({
+          binary: resolveChatExporterBinary(),
+          token,
+          channelId: profile.channel_id,
+          outputDir: path.join(profile.import_dir, 'incoming'),
+          after: profile.after?.toISOString(),
+        }))
+      : null;
+    return res.json({ data: { ok: errors.length === 0, errors, command } });
+  } catch (error: unknown) {
+    return sendError(res, error, '[POST /admin/discord/chat-exporter/profiles/:id/test]');
+  }
+});
+
+router.post('/profiles/:id/run', requireAdmin, async (req: Request, res: Response) => {
+  const params = uuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: 'Perfil inválido.', details: z.flattenError(params.error) });
+  }
+
+  try {
+    const profile = await loadProfile(params.data.id);
+    if (!profile) return res.status(404).json({ error: 'Perfil não encontrado.' });
+    const loaded = await loadConfig();
+    const token = await decryptProfileToken(profile) ?? loaded.token;
+    const errors = profileErrors(profile, token);
+    if (!token || errors.length > 0) {
+      return res.status(422).json({ error: 'Perfil incompleto.', details: errors });
+    }
+    const binaryError = await validateBinary(resolveChatExporterBinary());
+    if (binaryError) return res.status(422).json({ error: binaryError });
+    return res.json({ data: await runProfileExport(profile, token, req.user?.userId) });
+  } catch (error: unknown) {
+    const id = uuidParamSchema.safeParse(req.params);
+    if (id.success) {
+      await db.updateTable('discord_chat_exporter_profiles')
+        .set({ last_status: 'error', last_error: error instanceof Error ? error.message : 'Erro desconhecido.', updated_at: new Date() })
+        .where('id', '=', id.data.id)
+        .execute()
+        .catch(() => undefined);
+    }
+    return sendError(res, error, '[POST /admin/discord/chat-exporter/profiles/:id/run]');
+  }
+});
+
 router.post('/test', requireAdmin, async (_req: Request, res: Response) => {
   try {
     const loaded = await loadConfig();
     const errors = configErrors(loaded.config, loaded.token);
     const parsed = configSchema.safeParse(loaded.config);
-    const binary = resolveBinary();
+    const binary = resolveChatExporterBinary();
     if (parsed.success) {
       const binaryError = await validateBinary(binary);
       if (binaryError) errors.push(binaryError);
@@ -284,7 +512,7 @@ router.post('/run', requireAdmin, async (req: Request, res: Response) => {
     if (!parsed.success || !loaded.token || errors.length > 0) {
       return res.status(422).json({ error: 'Configuração incompleta.', details: errors });
     }
-    const binary = resolveBinary();
+    const binary = resolveChatExporterBinary();
     const binaryError = await validateBinary(binary);
     if (binaryError) return res.status(422).json({ error: binaryError });
 

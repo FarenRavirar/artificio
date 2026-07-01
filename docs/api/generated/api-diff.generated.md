@@ -6,5 +6,30 @@
 
 ---
 
-✅ **Nenhuma mudança detectada entre a versão atual e dev.**
+## Sumário
+
+| App | Breaking | Non-breaking | Unclassified |
+|-----|:--------:|:------------:|:------------:|
+| mesas | ❌ 1 | ✅ 6 | ⚪ 0 |
+
+---
+
+### mesas
+
+#### ❌ Breaking Changes (1)
+
+| Path | Method | Ação | Código |
+|------|--------|------|--------|
+| `` |  | remove | `path.remove` |
+
+#### ✅ Non-breaking (6)
+
+| Path | Method | Ação |
+|------|--------|------|
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
 

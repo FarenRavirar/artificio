@@ -24,6 +24,11 @@ setInterval(() => runCommand('npm run discord:retry-image-uploads'), 60 * 60 * 1
 // WS1: Limpeza de imagens órfãs de drafts Discord (Roda 1 vez por dia)
 setInterval(() => runCommand('npm run discord:cleanup-orphan-images'), 24 * 60 * 60 * 1000);
 
+// T6.9 (spec 057): agendador de perfis DiscordChatExporter. Tick de 5 min; o script
+// decide quais perfis rodam (frequência/hora/timezone no DB, não crontab na VM).
+const CHAT_EXPORTER_TICK_MS = 5 * 60 * 1000;
+setInterval(() => runCommand('npm run discord:chat-exporter-schedule'), CHAT_EXPORTER_TICK_MS);
+
 // Execução imediata no BOOT
 runCommand('npm run og:worker');
 runCommand('npm run og:cleanup');

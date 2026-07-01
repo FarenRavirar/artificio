@@ -769,6 +769,39 @@ export type DiscordSetting = Selectable<DiscordSettingsTable>;
 export type NewDiscordSetting = Insertable<DiscordSettingsTable>;
 export type DiscordSettingUpdate = Updateable<DiscordSettingsTable>;
 
+export type DiscordChatExporterProfileFrequency = 'hourly' | 'daily' | 'weekly';
+export type DiscordChatExporterIncludeThreads = 'none' | 'active' | 'all';
+
+// Migration 134: perfis multi-canal do DiscordChatExporter.
+export interface DiscordChatExporterProfilesTable {
+  id: Generated<string>;
+  label: string;
+  guild_id: string;
+  guild_name: string | null;
+  channel_id: string;
+  channel_name: string | null;
+  format: Generated<'Json'>;
+  token_enc: string | null;
+  include_threads: Generated<DiscordChatExporterIncludeThreads>;
+  after: Date | null;
+  media: Generated<boolean>;
+  schedule_enabled: Generated<boolean>;
+  frequency: Generated<DiscordChatExporterProfileFrequency>;
+  time: Generated<string>;
+  timezone: Generated<string>;
+  import_dir: string;
+  enabled: Generated<boolean>;
+  last_run_at: Date | null;
+  last_status: string | null;
+  last_error: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type DiscordChatExporterProfile = Selectable<DiscordChatExporterProfilesTable>;
+export type NewDiscordChatExporterProfile = Insertable<DiscordChatExporterProfilesTable>;
+export type DiscordChatExporterProfileUpdate = Updateable<DiscordChatExporterProfilesTable>;
+
 export interface Database {
   users: UsersTable;
   auth_providers: AuthProvidersTable;
@@ -833,6 +866,9 @@ export interface Database {
 
   // Migration 116: Configuracoes cifradas do modulo Discord
   discord_settings: DiscordSettingsTable;
+
+  // Migration 134: perfis multi-canal do DiscordChatExporter
+  discord_chat_exporter_profiles: DiscordChatExporterProfilesTable;
 
   // Migration 125: Feedback de desenvolvimento (Spec 022)
   dev_feedback: DevFeedbackTable;

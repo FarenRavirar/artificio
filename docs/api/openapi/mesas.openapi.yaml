@@ -357,6 +357,265 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/admin/discord/chat-exporter/profiles:
+    get:
+      operationId: getapi_v1_admin_discord_chat_exporter_profiles
+      summary: "Consulta api v1 admin discord chat-exporter profiles"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+    post:
+      operationId: postapi_v1_admin_discord_chat_exporter_profiles
+      summary: "Cria ou executa api v1 admin discord chat-exporter profiles"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/discord/chat-exporter/profiles/{id}:
+    delete:
+      operationId: deleteapi_v1_admin_discord_chat_exporter_profiles_id
+      summary: "Remove api v1 admin discord chat-exporter profiles id"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+    patch:
+      operationId: patchapi_v1_admin_discord_chat_exporter_profiles_id
+      summary: "Atualiza api v1 admin discord chat-exporter profiles id"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/discord/chat-exporter/profiles/{id}/delta:
+    get:
+      operationId: getapi_v1_admin_discord_chat_exporter_profiles_id_delta
+      summary: "Consulta api v1 admin discord chat-exporter profiles id delta"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/discord/chat-exporter/profiles/{id}/run:
+    post:
+      operationId: postapi_v1_admin_discord_chat_exporter_profiles_id_run
+      summary: "Cria ou executa api v1 admin discord chat-exporter profiles id run"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/discord/chat-exporter/profiles/{id}/test:
+    post:
+      operationId: postapi_v1_admin_discord_chat_exporter_profiles_id_test
+      summary: "Cria ou executa api v1 admin discord chat-exporter profiles id test"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/admin/discord/chat-exporter/run:
     post:
       operationId: postapi_v1_admin_discord_chat_exporter_run
@@ -1869,35 +2128,6 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
-  /api/v1/admin/import/metrics:
-    get:
-      operationId: getapi_v1_admin_import_metrics
-      summary: "Consulta api v1 admin import metrics"
-      x-artificio-owner: mesas
-      x-artificio-scope: admin
-      x-artificio-status: active
-      x-artificio-auth: admin
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
   /api/v1/admin/scenario-suggestions:
     get:
       operationId: getapi_v1_admin_scenario_suggestions
@@ -2457,6 +2687,42 @@ paths:
     post:
       operationId: postapi_v1_admin_tables_auto_archive
       summary: "Cria ou executa api v1 admin tables auto-archive"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/tables/batch:
+    post:
+      operationId: postapi_v1_admin_tables_batch
+      summary: "Cria ou executa api v1 admin tables batch"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active

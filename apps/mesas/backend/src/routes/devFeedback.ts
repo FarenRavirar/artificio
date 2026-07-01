@@ -80,7 +80,7 @@ router.post('/', strictRateLimiter, optionalAuth, async (req: Request, res: Resp
       type: 'dev_feedback',
       title: `Novo feedback de desenvolvimento (${kindLabel})`,
       message: `${input.title}${input.route_path ? ` — ${input.route_path}` : ''}`,
-      action_url: '/gestao',
+      action_url: '/gestao/sistema',
       metadata: {
         feedback_id: created.id,
         kind: input.kind,

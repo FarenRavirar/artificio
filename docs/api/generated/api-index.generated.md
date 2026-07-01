@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **274 operações**.
+Total: **281 operações**.
 
 ## accounts (11)
 
@@ -100,7 +100,7 @@ Total: **274 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (163)
+## mesas (170)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -114,6 +114,13 @@ Total: **274 operações**.
 | GET | `/api/v1/admin/discord/automation/eval` | admin | admin | active | — | Consulta eval offline da automação Discord |
 | GET | `/api/v1/admin/discord/chat-exporter/config` | admin | admin | active | — | Consulta api v1 admin discord chat-exporter config |
 | PUT | `/api/v1/admin/discord/chat-exporter/config` | admin | admin | active | — | Substitui api v1 admin discord chat-exporter config |
+| GET | `/api/v1/admin/discord/chat-exporter/profiles` | admin | admin | active | — | Consulta api v1 admin discord chat-exporter profiles |
+| POST | `/api/v1/admin/discord/chat-exporter/profiles` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter profiles |
+| DELETE | `/api/v1/admin/discord/chat-exporter/profiles/{id}` | admin | admin | active | — | Remove api v1 admin discord chat-exporter profiles id |
+| PATCH | `/api/v1/admin/discord/chat-exporter/profiles/{id}` | admin | admin | active | — | Atualiza api v1 admin discord chat-exporter profiles id |
+| GET | `/api/v1/admin/discord/chat-exporter/profiles/{id}/delta` | admin | admin | active | — | Consulta api v1 admin discord chat-exporter profiles id delta |
+| POST | `/api/v1/admin/discord/chat-exporter/profiles/{id}/run` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter profiles id run |
+| POST | `/api/v1/admin/discord/chat-exporter/profiles/{id}/test` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter profiles id test |
 | POST | `/api/v1/admin/discord/chat-exporter/run` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter run |
 | POST | `/api/v1/admin/discord/chat-exporter/test` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter test |
 | GET | `/api/v1/admin/discord/discovery/guilds` | admin | admin | active | — | Consulta api v1 admin discord discovery guilds |
@@ -157,7 +164,6 @@ Total: **274 operações**.
 | POST | `/api/v1/admin/import/drafts/{id}/reparse` | admin | admin | active | — | Cria ou executa api v1 admin import drafts id reparse |
 | POST | `/api/v1/admin/import/drafts/{id}/sync` | admin | admin | active | — | Cria ou executa api v1 admin import drafts id sync |
 | POST | `/api/v1/admin/import/import-text` | admin | admin | active | — | Cria ou executa api v1 admin import import-text |
-| GET | `/api/v1/admin/import/metrics` | admin | admin | active | — | Consulta api v1 admin import metrics |
 | GET | `/api/v1/admin/scenario-suggestions` | admin | admin | active | — | Consulta api v1 admin scenario-suggestions |
 | PATCH | `/api/v1/admin/scenario-suggestions/{id}/approve` | admin | admin | active | — | Atualiza api v1 admin scenario-suggestions id approve |
 | PATCH | `/api/v1/admin/scenario-suggestions/{id}/reject` | admin | admin | active | — | Atualiza api v1 admin scenario-suggestions id reject |
@@ -174,6 +180,7 @@ Total: **274 operações**.
 | DELETE | `/api/v1/admin/tables/{id}` | admin | admin | active | — | Remove api v1 admin tables id |
 | PUT | `/api/v1/admin/tables/{id}` | admin | admin | active | — | Substitui api v1 admin tables id |
 | POST | `/api/v1/admin/tables/auto-archive` | admin | admin | active | — | Cria ou executa api v1 admin tables auto-archive |
+| POST | `/api/v1/admin/tables/batch` | admin | admin | active | — | Cria ou executa api v1 admin tables batch |
 | GET | `/api/v1/admin/users` | admin | admin | active | — | Consulta api v1 admin users |
 | GET | `/api/v1/admin/users/{id}` | admin | admin | active | — | Consulta api v1 admin users id |
 | PATCH | `/api/v1/admin/users/{id}/covil` | admin | admin | active | — | Atualiza api v1 admin users id covil |
