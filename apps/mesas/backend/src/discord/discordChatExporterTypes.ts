@@ -103,9 +103,11 @@ export const discordChatExporterChannelSchema = z.object({
   topic: z.string().optional(),
 });
 
+// DiscordChatExporter emite `null` (nao `undefined`) quando o filtro de data
+// nao foi usado no export — mesmo padrao dos outros campos deste arquivo.
 export const discordChatExporterDateRangeSchema = z.object({
-  after: z.string().optional(),
-  before: z.string().optional(),
+  after: z.string().nullish(),
+  before: z.string().nullish(),
 });
 
 export const discordChatExporterExportSchema = z.object({

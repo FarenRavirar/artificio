@@ -302,7 +302,7 @@ const importResultSchema = z.object({
 const previewResultSchema = z.object({
   guild: z.object({ id: z.string(), name: z.string() }),
   channel: z.object({ id: z.string(), name: z.string() }),
-  dateRange: z.object({ after: z.string().optional(), before: z.string().optional() }).nullable(),
+  dateRange: z.object({ after: z.string().nullish(), before: z.string().nullish() }).nullable(),
   exportedAt: z.string().nullable(),
   messageCount: z.number(),
   totalAttachments: z.number(),
