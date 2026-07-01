@@ -20,7 +20,7 @@ type WizardStep = 'conectar' | 'canais' | 'agenda';
 type TokenStatus = { state: 'idle' | 'testing' | 'ok' | 'error'; message?: string };
 
 // Indicador inline verde/vermelho da validação automática de token (sem botão).
-function TokenStatusBadge({ status }: { status: TokenStatus }) {
+function TokenStatusBadge({ status }: Readonly<{ status: TokenStatus }>) {
   if (status.state === 'idle') return null;
   if (status.state === 'testing') {
     return (
@@ -555,7 +555,7 @@ export function ChatExporterProfilesPanel() {
                 if (event.target.checked) setGlobalUserToken('');
               }}
             />
-            Remover token de usuário global
+            <span>Remover token de usuário global</span>
           </label>
         </div>
         <p className="mt-3 text-sm text-[var(--fg-muted)]">

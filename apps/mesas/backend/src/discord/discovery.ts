@@ -84,30 +84,30 @@ function mapDiscordStatus(status: number, authType: 'user' | 'bot' = 'bot'): Dis
   return new DiscordDiscoveryError('Discord não respondeu como esperado. Tente novamente em instantes.', 502);
 }
 
+async function resolveBotToken(overrideToken?: string): Promise<string> {
+  if (overrideToken?.trim()) return overrideToken;
+  try {
+    return await requireDiscordBotToken();
+  } catch (error: unknown) {
+    if (error instanceof DiscordSettingsDecryptError) {
+      throw new DiscordDiscoveryError('Token do bot salvo está ilegível. Regrave o token do Discord e tente novamente.', 422);
+    }
+    if (error instanceof DiscordSettingsSecretUnavailableError) {
+      throw new DiscordDiscoveryError('Chave de criptografia ausente para ler o token do Discord.', 503);
+    }
+    if (error instanceof Error && error.message.includes('DISCORD_BOT_TOKEN não configurado')) {
+      throw new DiscordDiscoveryError('Token de bot não configurado. Salve o token do bot Discord antes de listar servidores/canais.', 422);
+    }
+    throw error;
+  }
+}
+
 // overrideToken: token bot de um perfil ainda não salvo (form.token) — sem ele,
 // a descoberta usa sempre o bot token global salvo, mesmo quando o perfil vai
 // usar um bot diferente (perfil bot com token próprio não conseguia listar
 // nada antes de salvar).
 async function discordGetUnknown(path: string, overrideToken?: string): Promise<unknown> {
-  let token: string;
-  if (overrideToken?.trim()) {
-    token = overrideToken;
-  } else {
-    try {
-      token = await requireDiscordBotToken();
-    } catch (error: unknown) {
-      if (error instanceof DiscordSettingsDecryptError) {
-        throw new DiscordDiscoveryError('Token do bot salvo está ilegível. Regrave o token do Discord e tente novamente.', 422);
-      }
-      if (error instanceof DiscordSettingsSecretUnavailableError) {
-        throw new DiscordDiscoveryError('Chave de criptografia ausente para ler o token do Discord.', 503);
-      }
-      if (error instanceof Error && error.message.includes('DISCORD_BOT_TOKEN não configurado')) {
-        throw new DiscordDiscoveryError('Token de bot não configurado. Salve o token do bot Discord antes de listar servidores/canais.', 422);
-      }
-      throw error;
-    }
-  }
+  const token = await resolveBotToken(overrideToken);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
