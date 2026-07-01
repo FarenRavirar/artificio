@@ -229,6 +229,26 @@ Fluxo: `<tipo>/<escopo>` → `dev`/Beta → `main`/Produção. Tipos comuns: `fe
 - Nunca registrar, expor ou versionar token, PAT, segredo ou credencial. Segredos vivem em `.env` (gitignored) e nos secrets do Actions/Cloudflare.
 - Acesso DB da VM por linha de comando local/PowerShell via `ssh faren` é **read-only por padrão** (`psql SELECT`, `pg_dump`, `docker exec` read-only). Escrita no banco da VM = aprovação.
 
+#### TRAVA PÉTREA — Migrations (checklist obrigatório antes de commitar QUALQUER `migration_*.sql`)
+
+**Causa recorrente de deploy quebrado (E011): header de migration incompleto só estoura no deploy da VM, nunca no CI.** Toda migration nova/alterada DEVE ter os **5 campos de header** validados por `scripts/deploy/lib_migrations.sh:parse_header`, senão `apply_required_migrations.sh` aborta o deploy com `falhou na validacao de campos do cabecalho.`:
+
+```sql
+-- @class: online-safe        # online-safe | manual-risk (obrigatório)
+-- @requires-backup: false    # true | false (obrigatório; true exige class=manual-risk)
+-- @author: spec-NNN          # obrigatório, não-vazio
+-- @created: AAAA-MM-DD        # obrigatório, não-vazio
+-- @description: ...           # obrigatório, não-vazio
+```
+
+Regras duras:
+- `@migration: N` é opcional/decorativo — **não** conta como um dos 5. Não confundir.
+- Os 5 campos são lidos só nas **primeiras 20 linhas** do arquivo (`head -n 20`). Header vai no topo, antes do SQL.
+- `@requires-backup: true` **exige** `@class: manual-risk` (regra em `lib_migrations.sh`), senão aborta.
+- `online-safe` **não pode** conter DDL destrutivo de objeto (`DROP TABLE/COLUMN/...`, `TRUNCATE`, `DELETE FROM`) — só `manual-risk` (guard E010). `DROP NOT NULL/CONSTRAINT/DEFAULT` são permitidos em `online-safe`.
+- Migration só em diretório allowlisted (`apps/*/database/` ou `apps/*/db/migrations/`) — `_enforce-migration-dir.yml` bloqueia fora disso.
+- **Antes de dizer "pronto":** rodar `bash scripts/deploy/lib_migrations.sh` não existe standalone — validar copiando o header do vizinho verde mais recente (ex.: maior `migration_NNN` já em prod) e conferir os 5 campos. Se o deploy beta falhar com `campos do cabecalho`, é ISTO — não re-tentar deploy, corrigir o header.
+
 ---
 
 ## Regras de Produto e SEO
