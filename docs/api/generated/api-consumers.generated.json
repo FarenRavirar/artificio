@@ -977,7 +977,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getChatExporterConfig",
-      "line": 159
+      "line": 176
     },
     {
       "app": "mesas-frontend",
@@ -987,7 +987,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.saveChatExporterConfig",
-      "line": 189
+      "line": 206
     },
     {
       "app": "mesas-frontend",
@@ -997,7 +997,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getChatExporterProfiles",
-      "line": 158
+      "line": 175
     },
     {
       "app": "mesas-frontend",
@@ -1007,7 +1007,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.createChatExporterProfile",
-      "line": 301
+      "line": 318
     },
     {
       "app": "mesas-frontend",
@@ -1017,7 +1017,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.updateChatExporterProfile",
-      "line": 300
+      "line": 317
     },
     {
       "app": "mesas-frontend",
@@ -1027,7 +1027,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.deleteChatExporterProfile",
-      "line": 360
+      "line": 377
     },
     {
       "app": "mesas-frontend",
@@ -1037,7 +1037,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getChatExporterProfileDelta",
-      "line": 327
+      "line": 344
     },
     {
       "app": "mesas-frontend",
@@ -1047,7 +1047,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.runChatExporterProfile",
-      "line": 341
+      "line": 358
     },
     {
       "app": "mesas-frontend",
@@ -1057,7 +1057,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.testChatExporterProfile",
-      "line": 315
+      "line": 332
     },
     {
       "app": "mesas-frontend",
@@ -1067,7 +1067,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.discoverGuilds",
-      "line": 213
+      "line": 230
     },
     {
       "app": "mesas-frontend",
@@ -1087,7 +1087,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.discoverChannels",
-      "line": 232
+      "line": 249
     },
     {
       "app": "mesas-frontend",

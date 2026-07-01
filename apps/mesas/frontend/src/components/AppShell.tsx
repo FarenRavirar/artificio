@@ -70,7 +70,7 @@ export const AppShell = ({ children }: AppShellProps) => {
             : null,
           loading: isLoading,
         }}
-        onLogout={() => { void logout().then(() => window.location.assign(publicOrigin)); }}
+        onLogout={() => { void logout().finally(() => window.location.assign(publicOrigin)); }}
         actions={<HeaderActions />}
       />
       <div className="flex-1 pt-6">

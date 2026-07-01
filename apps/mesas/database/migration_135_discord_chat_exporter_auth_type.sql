@@ -13,4 +13,7 @@ ALTER TABLE discord_chat_exporter_profiles
 
 ALTER TABLE discord_chat_exporter_profiles
   ADD CONSTRAINT discord_chat_exporter_profiles_auth_type_check
-  CHECK (auth_type IN ('global', 'user', 'bot'));
+  CHECK (auth_type IN ('global', 'user', 'bot')) NOT VALID;
+
+ALTER TABLE discord_chat_exporter_profiles
+  VALIDATE CONSTRAINT discord_chat_exporter_profiles_auth_type_check;

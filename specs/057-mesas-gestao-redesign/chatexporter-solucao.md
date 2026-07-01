@@ -12,9 +12,9 @@ A peça que **não funciona hoje**: a CLI **não está instalada no container** 
 
 ## 1. Token: qual usar (decisão de segurança)
 
-- **Bot token** (recomendado, único caminho sem gambiarra). Automatizar **conta de usuário** (user token) **viola o ToS do Discord e pode banir** (doc oficial). Não fazer.
+- **Bot token** é o caminho recomendado (único sem gambiarra). Automatizar **conta de usuário** (user token) **viola o ToS do Discord e pode banir** (doc oficial). Por isso o fluxo da UI deve exibir aviso explícito de risco/ToS ao selecionar modo `user`, mas o modo é **suportado** quando necessário.
+- User/session e bot são suportados, **um modo por perfil**. O CLI autentica com `-t token` (user token ou bot token); não existe flag `--cookies` — o campo antigo "Cookies" era nomenclatura errada.
 - Requisito do bot: estar **no servidor** + permissões **Ver Canais** + **Ver Histórico de Mensagens** nos canais a exportar.
-- DiscordChatExporter autentica com `-t token`. Esse token pode ser **user token/session** ou **bot token**; não existe flag `--cookies`. O fluxo da UI deve explicar os dois modos e salvar um modo por perfil.
 - Recorte nativo confiável da CLI: `--after`/`--before` para data/hora. `-p 100` é partição do arquivo, não "últimas 100 mensagens"; não usar esse texto na UI como limite de importação.
 
 ### Guia do leigo (passo a passo que a UI mostra)

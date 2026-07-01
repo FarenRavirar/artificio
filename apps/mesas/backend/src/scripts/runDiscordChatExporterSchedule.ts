@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { z } from 'zod';
 import { db } from '../db';
 import type { DiscordChatExporterProfile } from '../db/types';
 import { getDiscordBotToken } from '../discord/config';
@@ -22,15 +23,19 @@ async function globalUserToken(): Promise<string | null> {
   return value ? decryptDiscordSetting(value) : null;
 }
 
+const storedConfigAuthTypeSchema = z.object({ authType: z.enum(['user', 'bot']).optional() }).partial();
+
 async function globalAuthType(): Promise<'user' | 'bot'> {
   const value = await setting('chat_exporter_config');
   if (!value) return 'user';
+  let raw: unknown;
   try {
-    const parsed = JSON.parse(value) as { authType?: unknown };
-    return parsed.authType === 'bot' ? 'bot' : 'user';
+    raw = JSON.parse(value);
   } catch {
     return 'user';
   }
+  const parsed = storedConfigAuthTypeSchema.safeParse(raw);
+  return parsed.success && parsed.data.authType === 'bot' ? 'bot' : 'user';
 }
 
 async function resolveToken(profile: DiscordChatExporterProfile): Promise<string | null> {

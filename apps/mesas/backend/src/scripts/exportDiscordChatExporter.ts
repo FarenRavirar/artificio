@@ -4,10 +4,12 @@ import path from 'path';
 import { z } from 'zod';
 import { db } from '../db';
 import { buildChatExporterCliCommand, redactedChatExporterCliCommand, runChatExporterCli } from '../discord/chatExporterCliRunner';
+import { getDiscordBotToken } from '../discord/config';
 import { decryptDiscordSetting } from '../discord/settingsCrypto';
 
 const configSchema = z.object({
   enabled: z.boolean().default(false),
+  authType: z.enum(['user', 'bot']).default('user'),
   importDir: z.string().trim().min(1),
   channelId: z.string().trim().min(1),
   after: z.string().trim().optional(),
@@ -34,10 +36,15 @@ async function loadDbConfig() {
   }
   const parsed = configSchema.safeParse(raw);
   if (!parsed.success) return null;
-  const token = await setting('chat_exporter_token');
+  const token = parsed.data.authType === 'bot'
+    ? (await getDiscordBotToken()) ?? null
+    : await (async () => {
+        const stored = await setting('chat_exporter_token');
+        return stored ? decryptDiscordSetting(stored) : null;
+      })();
   return {
     ...parsed.data,
-    token: token ? decryptDiscordSetting(token) : null,
+    token,
   };
 }
 

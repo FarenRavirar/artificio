@@ -85,6 +85,9 @@ async function discordGetUnknown(path: string): Promise<unknown> {
     if (error instanceof DiscordSettingsSecretUnavailableError) {
       throw new DiscordDiscoveryError('Chave de criptografia ausente para ler o token do Discord.', 503);
     }
+    if (error instanceof Error && error.message.includes('DISCORD_BOT_TOKEN não configurado')) {
+      throw new DiscordDiscoveryError('Token de bot não configurado. Salve o token do bot Discord antes de listar servidores/canais.', 422);
+    }
     throw error;
   }
   const controller = new AbortController();

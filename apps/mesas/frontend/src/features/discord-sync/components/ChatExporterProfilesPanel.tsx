@@ -79,7 +79,7 @@ function profileToForm(profile: ChatExporterProfile): ProfileForm {
     token: '',
     clearToken: false,
     include_threads: profile.include_threads,
-    after: profile.after ? toDateTimeLocal(profile.after) : '',
+    after: profile.after ? toDateTimeLocal(profile.after, profile.timezone) : '',
     media: profile.media,
     schedule_enabled: profile.schedule_enabled,
     frequency: profile.frequency,
@@ -113,11 +113,28 @@ function deltaLabel(delta: { newCount: number; capped: boolean }): string {
   return `${count} nova(s) a importar`;
 }
 
-function toDateTimeLocal(value: string): string {
+// Formata o instante UTC salvo como horário de parede no timezone do perfil,
+// pra reexibir o mesmo valor que o backend gravou (E-tz-after) em vez do fuso do navegador.
+function toDateTimeLocal(value: string, timeZone: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  const offsetMs = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).formatToParts(date);
+    const map: Record<string, string> = {};
+    for (const part of parts) map[part.type] = part.value;
+    return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}`;
+  } catch {
+    const offsetMs = date.getTimezoneOffset() * 60_000;
+    return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+  }
 }
 
 function effectiveAuthType(profile: ChatExporterProfile, config: ChatExporterConfig | null): 'user' | 'bot' {
@@ -203,8 +220,8 @@ export function ChatExporterProfilesPanel() {
     }
   };
 
-  const discoverGuilds = async () => {
-    if (selectedAuthType !== 'bot') {
+  const discoverGuilds = async (authTypeOverride?: 'user' | 'bot') => {
+    if ((authTypeOverride ?? selectedAuthType) !== 'bot') {
       toast.error('A listagem automática de servidores usa token de bot. Para usuário/session, informe o ID do canal.');
       return;
     }
@@ -372,8 +389,9 @@ export function ChatExporterProfilesPanel() {
     setStep('canais');
     setConnected(true);
     // Popular a lista de servidores para o <select> de guild refletir o valor salvo.
+    // Usa o authType do próprio profile (não o closure de `form`, que só atualiza no próximo render).
     if (effectiveAuthType(profile, config) === 'bot') {
-      if (guilds.length === 0) void discoverGuilds();
+      if (guilds.length === 0) void discoverGuilds('bot');
       void loadChannels(profile.guild_id);
     }
   };
@@ -452,7 +470,14 @@ export function ChatExporterProfilesPanel() {
             />
           </label>
           <label className="flex items-center gap-2 pt-7 text-sm text-[var(--fg-muted)]">
-            <input type="checkbox" checked={clearGlobalUserToken} onChange={(event) => setClearGlobalUserToken(event.target.checked)} />
+            <input
+              type="checkbox"
+              checked={clearGlobalUserToken}
+              onChange={(event) => {
+                setClearGlobalUserToken(event.target.checked);
+                if (event.target.checked) setGlobalUserToken('');
+              }}
+            />
             Remover token de usuário global
           </label>
         </div>

@@ -25,14 +25,25 @@ const TOKEN_KEY = 'chat_exporter_token';
 const frequencySchema = z.enum(['hourly', 'daily', 'weekly']);
 const includeThreadsSchema = z.enum(['none', 'active', 'all']);
 const authTypeSchema = z.enum(['global', 'user', 'bot']);
+// Config global não tem "usar padrão global" (ela é o padrão) — só user|bot.
+const globalAuthTypeSchema = z.enum(['user', 'bot']);
 const uuidParamSchema = z.object({ id: z.uuid() });
+const timeZoneSchema = z.string().trim().min(1).refine((value) => {
+  try {
+    // eslint-disable-next-line no-new -- só valida se o IANA timezone existe.
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}, 'Timezone inválido.');
 
 const configSchema = z.object({
   enabled: z.boolean().default(false),
-  authType: authTypeSchema.default('user'),
+  authType: globalAuthTypeSchema.default('user'),
   frequency: frequencySchema.default('daily'),
   time: z.string().regex(/^\d{2}:\d{2}$/, 'Horário deve estar em HH:MM.').default('03:20'),
-  timezone: z.string().trim().min(1).default('America/Sao_Paulo'),
+  timezone: timeZoneSchema.default('America/Sao_Paulo'),
   importDir: z.string().trim().min(1),
   channelId: z.string().trim().regex(/^\d{5,30}$/, 'Canal Discord inválido.'),
   after: z.string().trim().optional(),
@@ -57,7 +68,7 @@ const profileCreateSchema = z.object({
   schedule_enabled: z.boolean().default(false),
   frequency: frequencySchema.default('daily'),
   time: z.string().regex(/^\d{2}:\d{2}$/, 'Horário deve estar em HH:MM.').default('03:20'),
-  timezone: z.string().trim().min(1).default('America/Sao_Paulo'),
+  timezone: timeZoneSchema.default('America/Sao_Paulo'),
   enabled: z.boolean().default(true),
 });
 
@@ -153,11 +164,20 @@ function getTimeZoneOffsetMs(timeZone: string, date: Date): number {
 // runtime do servidor não está na mesma timezone (E-tz-after).
 function toNullableDateInZone(value: string | undefined, timeZone: string): Date | null {
   if (!value) return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(value);
   if (!match) return toNullableDate(value);
   const [, year, month, day, hour, minute, second] = match;
-  const guessUtcMs = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second ?? '0'));
-  const offsetMs = getTimeZoneOffsetMs(timeZone, new Date(guessUtcMs));
+  const monthNum = Number(month);
+  const dayNum = Number(day);
+  if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) return toNullableDate(value);
+  const guessUtcMs = Date.UTC(Number(year), monthNum - 1, dayNum, Number(hour), Number(minute), Number(second ?? '0'));
+  let offsetMs: number;
+  try {
+    offsetMs = getTimeZoneOffsetMs(timeZone, new Date(guessUtcMs));
+  } catch {
+    // Timezone inválido (RangeError do Intl): cai pro parse padrão em vez de 500.
+    return toNullableDate(value);
+  }
   const date = new Date(guessUtcMs - offsetMs);
   return Number.isNaN(date.getTime()) ? null : date;
 }
@@ -257,6 +277,11 @@ async function loadProfile(id: string): Promise<DiscordChatExporterProfile | und
     .selectAll()
     .where('id', '=', id)
     .executeTakeFirst();
+}
+
+async function resolveGlobalToken(loaded: Awaited<ReturnType<typeof loadConfig>>): Promise<string | null> {
+  if (loaded.config.authType === 'bot') return (await getDiscordBotToken()) ?? null;
+  return loaded.token;
 }
 
 function configErrors(config: Partial<ChatExporterConfig>, token: string | null): string[] {
@@ -518,17 +543,18 @@ router.post('/profiles/:id/run', requireAdmin, async (req: Request, res: Respons
 router.post('/test', requireAdmin, async (_req: Request, res: Response) => {
   try {
     const loaded = await loadConfig();
-    const errors = configErrors(loaded.config, loaded.token);
+    const token = await resolveGlobalToken(loaded);
+    const errors = configErrors(loaded.config, token);
     const parsed = configSchema.safeParse(loaded.config);
     const binary = resolveChatExporterBinary();
     if (parsed.success) {
       const binaryError = await validateBinary(binary);
       if (binaryError) errors.push(binaryError);
     }
-    const command = parsed.success && loaded.token
+    const command = parsed.success && token
       ? redactedChatExporterCliCommand(buildChatExporterCliCommand({
           binary,
-          token: loaded.token,
+          token,
           channelId: parsed.data.channelId,
           outputDir: path.join(parsed.data.importDir, 'incoming'),
           after: parsed.data.after,
@@ -543,9 +569,10 @@ router.post('/test', requireAdmin, async (_req: Request, res: Response) => {
 router.post('/run', requireAdmin, async (req: Request, res: Response) => {
   try {
     const loaded = await loadConfig();
+    const token = await resolveGlobalToken(loaded);
     const parsed = configSchema.safeParse(loaded.config);
-    const errors = configErrors(loaded.config, loaded.token);
-    if (!parsed.success || !loaded.token || errors.length > 0) {
+    const errors = configErrors(loaded.config, token);
+    if (!parsed.success || !token || errors.length > 0) {
       return res.status(422).json({ error: 'Configuração incompleta.', details: errors });
     }
     const binary = resolveChatExporterBinary();
@@ -556,7 +583,7 @@ router.post('/run', requireAdmin, async (req: Request, res: Response) => {
     await mkdir(incomingDir, { recursive: true });
     const exportResult = await runChatExporterCli({
       binary,
-      token: loaded.token,
+      token,
       channelId: parsed.data.channelId,
       outputDir: incomingDir,
       after: parsed.data.after,

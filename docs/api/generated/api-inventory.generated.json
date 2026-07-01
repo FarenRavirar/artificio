@@ -1122,7 +1122,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/chat-exporter/config",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 265,
+      "line": 321,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1131,7 +1131,7 @@
       "method": "PUT",
       "path": "/api/v1/admin/discord/chat-exporter/config",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 273,
+      "line": 329,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1140,7 +1140,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/chat-exporter/profiles",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 293,
+      "line": 349,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1149,7 +1149,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/chat-exporter/profiles",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 306,
+      "line": 362,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1158,7 +1158,7 @@
       "method": "DELETE",
       "path": "/api/v1/admin/discord/chat-exporter/profiles/:id",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 374,
+      "line": 430,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1167,7 +1167,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/discord/chat-exporter/profiles/:id",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 338,
+      "line": 394,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1176,7 +1176,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/chat-exporter/profiles/:id/delta",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 406,
+      "line": 462,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1185,7 +1185,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/chat-exporter/profiles/:id/run",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 456,
+      "line": 512,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1194,7 +1194,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/chat-exporter/profiles/:id/test",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 426,
+      "line": 482,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1203,7 +1203,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/chat-exporter/run",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 512,
+      "line": 569,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1212,7 +1212,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/chat-exporter/test",
       "sourceFile": "apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts",
-      "line": 487,
+      "line": 543,
       "confidence": "high",
       "kind": "express-route"
     },
