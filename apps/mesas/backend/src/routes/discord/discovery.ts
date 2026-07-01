@@ -6,10 +6,18 @@ import { snowflakeParamSchema, sendDiscordDiscoveryError } from './utils';
 
 const router = Router();
 
+// Token bot de um perfil ainda não salvo (form.token) — via header, nunca query string
+// (evita vazar em access log). Sem isso, perfil bot com token próprio não listava nada
+// antes de salvar (a descoberta caía sempre no bot token global).
+function overrideTokenFromHeader(req: Request): string | undefined {
+  const header = req.header('x-discord-bot-token');
+  return header?.trim() || undefined;
+}
+
 // GET /discovery/guilds
-router.get('/guilds', requireAdmin, async (_req: Request, res: Response) => {
+router.get('/guilds', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const guilds = await discoverDiscordGuilds();
+    const guilds = await discoverDiscordGuilds(overrideTokenFromHeader(req));
     return res.json({ data: guilds });
   } catch (error: unknown) {
     return sendDiscordDiscoveryError(res, error, '[GET /admin/discord/discovery/guilds]');
@@ -24,7 +32,7 @@ router.get('/guilds/:guildId/channels', requireAdmin, async (req: Request, res: 
   }
 
   try {
-    const channels = await discoverDiscordChannels(parsed.data.guildId);
+    const channels = await discoverDiscordChannels(parsed.data.guildId, overrideTokenFromHeader(req));
     return res.json({ data: channels });
   } catch (error: unknown) {
     return sendDiscordDiscoveryError(res, error, '[GET /admin/discord/discovery/guilds/:guildId/channels]');

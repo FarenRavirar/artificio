@@ -63,9 +63,14 @@ export class DiscordDiscoveryError extends Error {
   }
 }
 
-function mapDiscordStatus(status: number): DiscordDiscoveryError {
+function mapDiscordStatus(status: number, authType: 'user' | 'bot' = 'bot'): DiscordDiscoveryError {
   if (status === 401) {
-    return new DiscordDiscoveryError('Token do bot inválido ou revogado. Gere um novo token no Discord e salve novamente.', 422);
+    return new DiscordDiscoveryError(
+      authType === 'bot'
+        ? 'Token do bot inválido ou revogado. Gere um novo token no Discord e salve novamente.'
+        : 'Token de usuário/session inválido ou expirado. Copie um token novo do Discord web e salve novamente.',
+      422,
+    );
   }
   if (status === 403) {
     return new DiscordDiscoveryError('O bot não tem permissão para acessar esse servidor ou canal no Discord.', 403);
@@ -79,21 +84,29 @@ function mapDiscordStatus(status: number): DiscordDiscoveryError {
   return new DiscordDiscoveryError('Discord não respondeu como esperado. Tente novamente em instantes.', 502);
 }
 
-async function discordGetUnknown(path: string): Promise<unknown> {
+// overrideToken: token bot de um perfil ainda não salvo (form.token) — sem ele,
+// a descoberta usa sempre o bot token global salvo, mesmo quando o perfil vai
+// usar um bot diferente (perfil bot com token próprio não conseguia listar
+// nada antes de salvar).
+async function discordGetUnknown(path: string, overrideToken?: string): Promise<unknown> {
   let token: string;
-  try {
-    token = await requireDiscordBotToken();
-  } catch (error: unknown) {
-    if (error instanceof DiscordSettingsDecryptError) {
-      throw new DiscordDiscoveryError('Token do bot salvo está ilegível. Regrave o token do Discord e tente novamente.', 422);
+  if (overrideToken?.trim()) {
+    token = overrideToken;
+  } else {
+    try {
+      token = await requireDiscordBotToken();
+    } catch (error: unknown) {
+      if (error instanceof DiscordSettingsDecryptError) {
+        throw new DiscordDiscoveryError('Token do bot salvo está ilegível. Regrave o token do Discord e tente novamente.', 422);
+      }
+      if (error instanceof DiscordSettingsSecretUnavailableError) {
+        throw new DiscordDiscoveryError('Chave de criptografia ausente para ler o token do Discord.', 503);
+      }
+      if (error instanceof Error && error.message.includes('DISCORD_BOT_TOKEN não configurado')) {
+        throw new DiscordDiscoveryError('Token de bot não configurado. Salve o token do bot Discord antes de listar servidores/canais.', 422);
+      }
+      throw error;
     }
-    if (error instanceof DiscordSettingsSecretUnavailableError) {
-      throw new DiscordDiscoveryError('Chave de criptografia ausente para ler o token do Discord.', 503);
-    }
-    if (error instanceof Error && error.message.includes('DISCORD_BOT_TOKEN não configurado')) {
-      throw new DiscordDiscoveryError('Token de bot não configurado. Salve o token do bot Discord antes de listar servidores/canais.', 422);
-    }
-    throw error;
   }
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
@@ -134,7 +147,7 @@ export async function validateDiscordToken(token: string, authType: 'user' | 'bo
       headers: { Authorization: header },
       signal: controller.signal,
     });
-    if (!res.ok) throw mapDiscordStatus(res.status);
+    if (!res.ok) throw mapDiscordStatus(res.status, authType);
     const payload: unknown = await res.json();
     const parsed = discordUserSchema.safeParse(payload);
     if (!parsed.success) throw new DiscordDiscoveryError('Discord retornou usuário em formato inesperado.', 502);
@@ -150,8 +163,8 @@ export async function validateDiscordToken(token: string, authType: 'user' | 'bo
   }
 }
 
-export async function discoverDiscordGuilds(): Promise<DiscordDiscoveredGuild[]> {
-  const payload = await discordGetUnknown('/users/@me/guilds?with_counts=true');
+export async function discoverDiscordGuilds(overrideToken?: string): Promise<DiscordDiscoveredGuild[]> {
+  const payload = await discordGetUnknown('/users/@me/guilds?with_counts=true', overrideToken);
   const parsed = discordGuildsSchema.safeParse(payload);
   if (!parsed.success) {
     throw new DiscordDiscoveryError('Discord retornou uma lista de servidores em formato inesperado.', 502);
@@ -191,10 +204,11 @@ export interface DiscordChannelDelta {
 export async function discoverChannelDelta(
   channelId: string,
   afterMessageId: string | null,
+  overrideToken?: string,
 ): Promise<DiscordChannelDelta> {
   const query = new URLSearchParams({ limit: String(DISCORD_DELTA_PAGE_LIMIT) });
   if (afterMessageId) query.set('after', afterMessageId);
-  const payload = await discordGetUnknown(`/channels/${encodeURIComponent(channelId)}/messages?${query}`);
+  const payload = await discordGetUnknown(`/channels/${encodeURIComponent(channelId)}/messages?${query}`, overrideToken);
   const parsed = discordDeltaMessagesSchema.safeParse(payload);
   if (!parsed.success) {
     throw new DiscordDiscoveryError('Discord retornou mensagens em formato inesperado.', 502);
@@ -207,8 +221,8 @@ export async function discoverChannelDelta(
   };
 }
 
-export async function discoverDiscordChannels(guildId: string): Promise<DiscordDiscoveredChannel[]> {
-  const payload = await discordGetUnknown(`/guilds/${encodeURIComponent(guildId)}/channels`);
+export async function discoverDiscordChannels(guildId: string, overrideToken?: string): Promise<DiscordDiscoveredChannel[]> {
+  const payload = await discordGetUnknown(`/guilds/${encodeURIComponent(guildId)}/channels`, overrideToken);
   const parsed = discordChannelsSchema.safeParse(payload);
   if (!parsed.success) {
     throw new DiscordDiscoveryError('Discord retornou uma lista de canais em formato inesperado.', 502);

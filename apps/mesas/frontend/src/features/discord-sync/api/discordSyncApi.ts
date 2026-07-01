@@ -454,11 +454,11 @@ export const discordSyncApi = {
   getChatExporterProfileDelta: async (id: string) =>
     parseChatExporterDelta(await apiFetch<unknown>(`/chat-exporter/profiles/${id}/delta`)),
 
-  discoverGuilds: async () =>
-    parseDiscordDiscoveredGuilds(await apiFetch<unknown>('/discovery/guilds')),
+  discoverGuilds: async (botToken?: string) =>
+    parseDiscordDiscoveredGuilds(await apiFetch<unknown>('/discovery/guilds', botToken ? { headers: { 'x-discord-bot-token': botToken } } : undefined)),
 
-  discoverChannels: async (guildId: string) =>
-    parseDiscordDiscoveredChannels(await apiFetch<unknown>(`/discovery/guilds/${guildId}/channels`)),
+  discoverChannels: async (guildId: string, botToken?: string) =>
+    parseDiscordDiscoveredChannels(await apiFetch<unknown>(`/discovery/guilds/${guildId}/channels`, botToken ? { headers: { 'x-discord-bot-token': botToken } } : undefined)),
 
   getSources: async () =>
     parseDiscordSources(await apiFetch<unknown>('/sources')),

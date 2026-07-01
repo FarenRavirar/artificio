@@ -277,6 +277,9 @@ export function ChatExporterProfilesPanel() {
     }
   };
 
+  // Token bot próprio do perfil (ainda não salvo) tem prioridade sobre o bot token
+  // global salvo — sem isso, um perfil novo com "Token de bot" próprio não listava
+  // nada até salvar (a descoberta usava sempre o bot token global das settings).
   const discoverGuilds = async (authTypeOverride?: 'user' | 'bot') => {
     if ((authTypeOverride ?? selectedAuthType) !== 'bot') {
       toast.error('A listagem automática de servidores usa token de bot. Para usuário/session, informe o ID do canal.');
@@ -284,7 +287,7 @@ export function ChatExporterProfilesPanel() {
     }
     setConnecting(true);
     try {
-      const next = await discordSyncApi.discoverGuilds();
+      const next = await discordSyncApi.discoverGuilds(form.token.trim() || undefined);
       setGuilds(next);
       setConnected(true);
       toast.success(`${next.length} servidor(es) encontrados.`);
@@ -303,7 +306,7 @@ export function ChatExporterProfilesPanel() {
       return;
     }
     try {
-      setChannels(await discordSyncApi.discoverChannels(guildId));
+      setChannels(await discordSyncApi.discoverChannels(guildId, form.token.trim() || undefined));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao listar canais.');
     }

@@ -38,6 +38,16 @@ const timeZoneSchema = z.string().trim().min(1).refine((value) => {
   }
 }, 'Timezone inválido.');
 
+// datetime-local sem overflow: Date.UTC normaliza 31/fev pra 03/mar em vez de
+// rejeitar — valida os componentes reais antes de aceitar o "after".
+const localDateTimeSchema = z.string().trim().refine((value) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(value);
+  if (!match) return false;
+  const [, year, month, day, hour, minute, second] = match;
+  const utc = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second ?? '0')));
+  return utc.getUTCFullYear() === Number(year) && utc.getUTCMonth() === Number(month) - 1 && utc.getUTCDate() === Number(day);
+}, 'Data/hora inválida.');
+
 const configSchema = z.object({
   enabled: z.boolean().default(false),
   authType: globalAuthTypeSchema.default('user'),
@@ -46,7 +56,7 @@ const configSchema = z.object({
   timezone: timeZoneSchema.default('America/Sao_Paulo'),
   importDir: z.string().trim().min(1),
   channelId: z.string().trim().regex(/^\d{5,30}$/, 'Canal Discord inválido.'),
-  after: z.string().trim().optional(),
+  after: localDateTimeSchema.optional(),
 });
 
 const updateSchema = configSchema.partial().extend({
@@ -63,7 +73,7 @@ const profileCreateSchema = z.object({
   auth_type: authTypeSchema.default('global'),
   token: z.string().trim().min(10).optional(),
   include_threads: includeThreadsSchema.default('active'),
-  after: z.string().trim().optional(),
+  after: localDateTimeSchema.optional(),
   media: z.boolean().default(false),
   schedule_enabled: z.boolean().default(false),
   frequency: frequencySchema.default('daily'),
@@ -167,10 +177,17 @@ function toNullableDateInZone(value: string | undefined, timeZone: string): Date
   const match = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(value);
   if (!match) return toNullableDate(value);
   const [, year, month, day, hour, minute, second] = match;
+  const yearNum = Number(year);
   const monthNum = Number(month);
   const dayNum = Number(day);
   if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) return toNullableDate(value);
-  const guessUtcMs = Date.UTC(Number(year), monthNum - 1, dayNum, Number(hour), Number(minute), Number(second ?? '0'));
+  const guessUtcMs = Date.UTC(yearNum, monthNum - 1, dayNum, Number(hour), Number(minute), Number(second ?? '0'));
+  // Date.UTC normaliza dia inexistente (ex.: 31/fev vira 03/mar) em vez de rejeitar —
+  // round-trip contra os componentes originais pega isso antes de persistir errado.
+  const guessed = new Date(guessUtcMs);
+  if (guessed.getUTCFullYear() !== yearNum || guessed.getUTCMonth() !== monthNum - 1 || guessed.getUTCDate() !== dayNum) {
+    return toNullableDate(value);
+  }
   let offsetMs: number;
   try {
     offsetMs = getTimeZoneOffsetMs(timeZone, new Date(guessUtcMs));
@@ -494,7 +511,12 @@ router.get('/profiles/:id/delta', requireAdmin, async (req: Request, res: Respon
     const profile = await loadProfile(params.data.id);
     if (!profile) return res.status(404).json({ error: 'Perfil não encontrado.' });
     const afterMessageId = await lastImportedMessageId(profile.channel_id);
-    const delta = await discoverChannelDelta(profile.channel_id, afterMessageId);
+    // Discovery só autentica com bot (`Authorization: Bot ...`) — resolve o token do
+    // próprio perfil (ou fallback global) em vez de depender só do bot token salvo em settings.
+    const loaded = await loadConfig();
+    const resolved = await resolveProfileToken(profile, loaded);
+    const overrideToken = resolved.mode === 'bot' ? resolved.token ?? undefined : undefined;
+    const delta = await discoverChannelDelta(profile.channel_id, afterMessageId, overrideToken);
     return res.json({ data: delta });
   } catch (error: unknown) {
     if (error instanceof DiscordDiscoveryError) {
