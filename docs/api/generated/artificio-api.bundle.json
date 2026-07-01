@@ -6,10 +6,10 @@
     "accounts": 11,
     "glossario": 46,
     "links": 22,
-    "mesas": 170,
+    "mesas": 171,
     "site": 32
   },
-  "total": 281,
+  "total": 282,
   "operations": [
     {
       "app": "accounts",
@@ -1203,6 +1203,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_v1_admin_discord_chat_exporter_test"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/chat-exporter/validate-token",
+      "summary": "Cria ou executa api v1 admin discord chat-exporter validate-token",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_discord_chat_exporter_validate_token"
     },
     {
       "app": "mesas",

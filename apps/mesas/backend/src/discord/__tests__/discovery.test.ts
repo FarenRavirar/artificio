@@ -6,6 +6,7 @@ vi.mock('../config', () => ({
 
 import { discoverDiscordGuilds, discoverDiscordChannels, DiscordDiscoveryError } from '../discovery';
 import { requireDiscordBotToken } from '../config';
+import { DiscordSettingsDecryptError } from '../settingsCrypto';
 
 function mockFetch(status: number, body: unknown): void {
   global.fetch = vi.fn().mockResolvedValue(
@@ -44,8 +45,15 @@ describe('discordGetUnknown path (via discoverDiscordGuilds)', () => {
   it('throws DiscordDiscoveryError when Discord returns 401', async () => {
     mockFetch(401, { message: 'Unauthorized' });
 
-    await expect(discoverDiscordGuilds()).rejects.toThrow(DiscordDiscoveryError);
+    await expect(discoverDiscordGuilds()).rejects.toMatchObject({ statusCode: 422 });
     await expect(discoverDiscordGuilds()).rejects.toThrow(/Token do bot inválido/i);
+  });
+
+  it('maps unreadable stored bot token to actionable non-retry error', async () => {
+    (requireDiscordBotToken as Mock).mockRejectedValue(new DiscordSettingsDecryptError());
+
+    await expect(discoverDiscordGuilds()).rejects.toMatchObject({ statusCode: 422 });
+    await expect(discoverDiscordGuilds()).rejects.toThrow(/Regrave o token/i);
   });
 
   it('throws DiscordDiscoveryError when Discord returns 403', async () => {

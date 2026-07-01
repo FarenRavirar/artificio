@@ -34,11 +34,12 @@ admins=1
 → Via A já atende "perfis/multi-canal via frontend". Falta só **UI boa** (R5/R6).
 
 ### Via B — DiscordChatExporter (export histórico/agendado) — HOJE PERFIL ÚNICO
-Config = 1 linha `discord_settings` (`guild_id=null`), chaves `chat_exporter_config`/`_token`/`_cookies`.
+Config legado = 1 linha `discord_settings` (`guild_id=null`), chaves `chat_exporter_config`/`_token`. O antigo `_cookies` não é mais usado: o DiscordChatExporter recebe `-t token`, que pode ser user token/session ou bot token.
 | Campo | Schema (`chatExporterAutomation.ts`) | Obrigatório | Persistência |
 |---|---|---|---|
 | `token` (Discord) | `min(10)`, encriptado | sim | DB (key `chat_exporter_token`) |
-| `cookies` | `min(3)`, encriptado | não | DB (key `chat_exporter_cookies`) |
+| user token/session | global ou por perfil | sim | DB (`chat_exporter_token` global ou `token_enc` no perfil), usado como `-t token` |
+| bot token | global ou por perfil | sim | DB (`bot_token` global ou `token_enc` no perfil), usado como `-t token` |
 | `channelId` | `\d{5,30}` | sim | DB (config JSON) |
 | `importDir` | path servidor, `min(1)` | sim | DB (config JSON) |
 | `after` | data | não | DB |
@@ -46,7 +47,7 @@ Config = 1 linha `discord_settings` (`guild_id=null`), chaves `chat_exporter_con
 | Binário CLI | `DISCORD_CHAT_EXPORTER_BIN` | server-only | **env** (nunca payload — segurança) |
 | Retention | `DISCORD_CHAT_EXPORTER_RETENTION` | server-only | const |
 
-**Gap (R13):** Via B só guarda **1** `channelId`/`token`/`importDir`. Para múltiplos canais com perfis distintos (token/cookies/agenda por canal), precisa de **tabela de perfis** (ex.: `discord_chat_exporter_profiles`: id, label, channelId, token_enc, cookies_enc, importDir, schedule, enabled) em vez da linha única `guild_id=null`. Migração aditiva, sem VM write; UI = lista de perfis (criar/editar/testar/run por perfil). Token/cookies seguem encriptados no DB via frontend PUT.
+**Gap (R13):** Via B só guarda **1** `channelId`/`token`/`importDir`. Para múltiplos canais com perfis distintos (modo global/user/bot + token opcional + agenda por canal), precisa de **tabela de perfis** (ex.: `discord_chat_exporter_profiles`: id, label, channelId, auth_type, token_enc, importDir, schedule, enabled) em vez da linha única `guild_id=null`. Migração aditiva, sem VM write; UI = lista de perfis (criar/editar/testar/run por perfil). Token segue encriptado no DB via frontend PUT.
 
 **Importante:** `importDir` é uma pasta no servidor, mas é só um **nome** setado via frontend (o backend faz `mkdir -p incoming/`). Não há escrita manual na VM — o run cria a estrutura. Único pré-requisito de VM real = o **binário** `DiscordChatExporter.Cli` instalado + `DISCORD_CHAT_EXPORTER_BIN` no env (infra, fora do frontend por segurança). Isso é setup de deploy (spec 052 Bloco A / TA3-TA8), não config de uso diário.
 

@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **281 operações**.
+Total: **282 operações**.
 
 ## accounts (11)
 
@@ -100,7 +100,7 @@ Total: **281 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (170)
+## mesas (171)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -123,6 +123,7 @@ Total: **281 operações**.
 | POST | `/api/v1/admin/discord/chat-exporter/profiles/{id}/test` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter profiles id test |
 | POST | `/api/v1/admin/discord/chat-exporter/run` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter run |
 | POST | `/api/v1/admin/discord/chat-exporter/test` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter test |
+| POST | `/api/v1/admin/discord/chat-exporter/validate-token` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter validate-token |
 | GET | `/api/v1/admin/discord/discovery/guilds` | admin | admin | active | — | Consulta api v1 admin discord discovery guilds |
 | GET | `/api/v1/admin/discord/discovery/guilds/{guildId}/channels` | admin | admin | active | — | Consulta api v1 admin discord discovery guilds guildId channels |
 | GET | `/api/v1/admin/discord/drafts` | admin | admin | active | — | Consulta api v1 admin discord drafts |

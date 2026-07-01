@@ -8,7 +8,7 @@ export interface ChatExporterCliConfig {
   outputDir: string;
   format?: 'Json';
   after?: string;
-  cookies?: string;
+  media?: boolean;
   now?: () => Date;
   timeoutMs?: number;
 }
@@ -40,8 +40,8 @@ export function buildChatExporterCliCommand(config: ChatExporterCliConfig): Chat
   if (config.after) {
     args.push('--after', config.after);
   }
-  if (config.cookies) {
-    args.push('--cookies', config.cookies);
+  if (config.media) {
+    args.push('--media');
   }
 
   return { command: config.binary, args, outputPath };
@@ -50,7 +50,7 @@ export function buildChatExporterCliCommand(config: ChatExporterCliConfig): Chat
 export function redactedChatExporterCliCommand(command: ChatExporterCliCommand): string {
   return [command.command, ...command.args.map((arg, index, args) => {
     const previous = args[index - 1];
-    return previous === '-t' || previous === '--cookies' ? '[redacted]' : arg;
+    return previous === '-t' ? '[redacted]' : arg;
   })].join(' ');
 }
 

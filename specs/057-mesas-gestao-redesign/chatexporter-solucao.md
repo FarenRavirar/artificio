@@ -12,9 +12,10 @@ A peça que **não funciona hoje**: a CLI **não está instalada no container** 
 
 ## 1. Token: qual usar (decisão de segurança)
 
-- **Bot token** (recomendado, único caminho sem gambiarra). Automatizar **conta de usuário** (user token) **viola o ToS do Discord e pode banir** (doc oficial). Não fazer.
+- **Bot token** é o caminho recomendado (único sem gambiarra). Automatizar **conta de usuário** (user token) **viola o ToS do Discord e pode banir** (doc oficial). Por isso o fluxo da UI deve exibir aviso explícito de risco/ToS ao selecionar modo `user`, mas o modo é **suportado** quando necessário.
+- User/session e bot são suportados, **um modo por perfil**. O CLI autentica com `-t token` (user token ou bot token); não existe flag `--cookies` — o campo antigo "Cookies" era nomenclatura errada.
 - Requisito do bot: estar **no servidor** + permissões **Ver Canais** + **Ver Histórico de Mensagens** nos canais a exportar.
-- Com bot token, **`cookies` não é necessário** (cookies só servem a user token). → some do fluxo leigo (vira "avançado", oculto).
+- Recorte nativo confiável da CLI: `--after`/`--before` para data/hora. `-p 100` é partição do arquivo, não "últimas 100 mensagens"; não usar esse texto na UI como limite de importação.
 
 ### Guia do leigo (passo a passo que a UI mostra)
 1. Abrir https://discord.com/developers/applications → **New Application**.
@@ -80,7 +81,8 @@ Bot de Discord › **Configuração** vira um fluxo guiado, não um formulário 
 Cada estado **explica**: empty ("Nenhum canal configurado. Adicione o primeiro."), erro (causa + como resolver), sucesso (o que aconteceu + onde ver os rascunhos → link Mesas › Rascunhos).
 
 ## 6. Segurança
-- Token/cookies **encriptados** no DB (`settingsCrypto`), nunca em log/git/env commitado. Preview mascarado (`maskSecret`).
+- Token **encriptado** no DB (`settingsCrypto`), nunca em log/git/env commitado. Preview mascarado (`maskSecret`). O antigo rótulo "Cookies" vira "token de usuário/session"; bot token também é suportado.
+- Sincronização automática: ao executar perfil, o backend roda a CLI em JSON, grava o arquivo em pasta interna gerada por perfil e chama `processDiscordChatExporterFolder`/`importDiscordChatExporterJson`; o resultado entra no mesmo fluxo do upload/colar JSON, com mensagens pendentes para parse/importação.
 - Binário resolvido **só do env do servidor** (`resolveBinary`), nunca do payload (já implementado — manter).
 - `import_dir` gerado pelo backend, não aceito cru do usuário (evita path traversal/escrita arbitrária).
 - Timeout no spawn (já existe, 10min).

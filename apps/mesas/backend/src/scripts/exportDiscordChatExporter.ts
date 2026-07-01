@@ -4,10 +4,12 @@ import path from 'path';
 import { z } from 'zod';
 import { db } from '../db';
 import { buildChatExporterCliCommand, redactedChatExporterCliCommand, runChatExporterCli } from '../discord/chatExporterCliRunner';
+import { getDiscordBotToken } from '../discord/config';
 import { decryptDiscordSetting } from '../discord/settingsCrypto';
 
 const configSchema = z.object({
   enabled: z.boolean().default(false),
+  authType: z.enum(['user', 'bot']).default('user'),
   importDir: z.string().trim().min(1),
   channelId: z.string().trim().min(1),
   after: z.string().trim().optional(),
@@ -34,12 +36,15 @@ async function loadDbConfig() {
   }
   const parsed = configSchema.safeParse(raw);
   if (!parsed.success) return null;
-  const token = await setting('chat_exporter_token');
-  const cookies = await setting('chat_exporter_cookies');
+  const token = parsed.data.authType === 'bot'
+    ? (await getDiscordBotToken()) ?? null
+    : await (async () => {
+        const stored = await setting('chat_exporter_token');
+        return stored ? decryptDiscordSetting(stored) : null;
+      })();
   return {
     ...parsed.data,
-    token: token ? decryptDiscordSetting(token) : null,
-    cookies: cookies ? decryptDiscordSetting(cookies) : undefined,
+    token,
   };
 }
 
@@ -54,7 +59,6 @@ async function main() {
   const token = dbConfig?.token ?? process.env.DISCORD_CHAT_EXPORTER_TOKEN;
   const channelId = dbConfig?.channelId ?? process.env.DISCORD_CHAT_EXPORTER_CHANNEL_ID;
   const binary = process.env.DISCORD_CHAT_EXPORTER_BIN ?? 'DiscordChatExporter.Cli';
-  const cookies = dbConfig?.cookies ?? process.env.DISCORD_CHAT_EXPORTER_COOKIES;
   const after = dbConfig?.after ?? process.env.DISCORD_CHAT_EXPORTER_AFTER;
 
   if (!rootDir || !token || !channelId) {
@@ -65,7 +69,7 @@ async function main() {
   const incomingDir = path.join(rootDir, 'incoming');
   await mkdir(incomingDir, { recursive: true });
 
-  const config = { binary, token, channelId, outputDir: incomingDir, cookies, after };
+  const config = { binary, token, channelId, outputDir: incomingDir, after };
   const command = buildChatExporterCliCommand(config);
   console.log(`[exportDiscordChatExporter] Rodando: ${redactedChatExporterCliCommand(command)}`);
 

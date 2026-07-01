@@ -59,6 +59,17 @@ export interface UseSessionResult {
   loading: boolean;
 }
 
+async function readUserResponse(response: Response): Promise<User | null> {
+  if (!response.ok) return null;
+
+  const body: unknown = await response.json();
+  const userValue =
+    body && typeof body === "object" && "user" in body
+      ? (body as { user: unknown }).user
+      : body;
+  return normalizeUser(userValue);
+}
+
 function normalizeUser(value: unknown): User | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Partial<User>;
@@ -90,25 +101,14 @@ export function useSession(): UseSessionResult {
 
     async function loadSession() {
       try {
-        const meUrl = `${getAccountsOrigin()}/api/auth/me`;
-        let response = await fetch(meUrl, { credentials: "include", signal: controller.signal });
-
-        // Access expirado? Tenta refresh (cookie 7d) e repete o /me — mantém o login persistente.
-        if (response.status === 401 && (await refreshSession())) {
-          response = await fetch(meUrl, { credentials: "include", signal: controller.signal });
-        }
-
-        if (!response.ok) {
-          setUser(null);
-          return;
-        }
-
-        const body: unknown = await response.json();
-        const userValue =
-          body && typeof body === "object" && "user" in body
-            ? (body as { user: unknown }).user
-            : body;
-        setUser(normalizeUser(userValue));
+        // A sessão visual deve preferir o refresh cookie (7d). Isso evita o
+        // 401 esperado de `/me` quando o access cookie de 15min expirou, caso
+        // normal para usuário ainda logado.
+        const response = await fetch(`${getAccountsOrigin()}/api/auth/refresh`, {
+          credentials: "include",
+          signal: controller.signal,
+        });
+        setUser(await readUserResponse(response));
       } catch {
         if (!controller.signal.aborted) {
           setUser(null);

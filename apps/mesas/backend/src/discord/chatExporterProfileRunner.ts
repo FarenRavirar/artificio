@@ -61,6 +61,7 @@ export async function runProfileExport(
     channelId: profile.channel_id,
     outputDir: incomingDir,
     after: profile.after?.toISOString(),
+    media: profile.media,
   });
   const importResult = await runFolderImport(profile.import_dir, userId);
   await db.updateTable('discord_chat_exporter_profiles')
