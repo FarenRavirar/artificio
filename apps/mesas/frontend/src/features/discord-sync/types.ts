@@ -197,6 +197,7 @@ export interface DiscordSettings {
 }
 
 export type ChatExporterFrequency = 'hourly' | 'daily' | 'weekly';
+export type ChatExporterIncludeThreads = 'none' | 'active' | 'all';
 
 export interface ChatExporterSecretStatus {
   is_set: boolean;
@@ -216,6 +217,49 @@ export interface ChatExporterConfig {
   cookies: ChatExporterSecretStatus;
   updated_at: string | null;
   decrypt_error?: boolean;
+}
+
+export interface ChatExporterProfile {
+  id: string;
+  label: string;
+  guild_id: string;
+  guild_name: string | null;
+  channel_id: string;
+  channel_name: string | null;
+  format: 'Json';
+  include_threads: ChatExporterIncludeThreads;
+  after: string | null;
+  media: boolean;
+  schedule_enabled: boolean;
+  frequency: ChatExporterFrequency;
+  time: string;
+  timezone: string;
+  import_dir: string;
+  enabled: boolean;
+  last_run_at: string | null;
+  last_status: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+  token: ChatExporterSecretStatus;
+}
+
+export interface ChatExporterProfileInput {
+  label?: string;
+  guild_id?: string;
+  guild_name?: string | null;
+  channel_id?: string;
+  channel_name?: string | null;
+  token?: string;
+  include_threads?: ChatExporterIncludeThreads;
+  after?: string;
+  media?: boolean;
+  schedule_enabled?: boolean;
+  frequency?: ChatExporterFrequency;
+  time?: string;
+  timezone?: string;
+  enabled?: boolean;
+  clearToken?: boolean;
 }
 
 export interface ChatExporterTestResult {

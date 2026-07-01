@@ -38,13 +38,12 @@ const normalizeNotifications = (value: unknown): Notification[] => {
   return out;
 };
 
-// Grupos do feed do admin. Tipos fora destes (ex.: suggestion_approved/rejected,
-// que sao resultado endereçado ao sugeridor) nao aparecem para o admin.
+// Grupos do feed do admin (057/R14): o sino do admin mostra eventos de outros
+// usuarios que exigem atencao operacional. Sugestoes continuam existindo em suas
+// telas proprias, mas nao entram neste feed.
 const ADMIN_GROUPS: Array<{ key: string; label: string; types: string[] }> = [
-  { key: 'system', label: 'Sistemas sugeridos', types: ['system_suggestion', 'system'] },
-  { key: 'scenario', label: 'Cenários sugeridos', types: ['scenario_suggestion'] },
-  { key: 'table', label: 'Mesas adicionadas', types: ['table_published'] },
-  { key: 'member', label: 'Novos membros', types: ['member_joined'] },
+  { key: 'table', label: 'Mesas publicadas', types: ['table_published'] },
+  { key: 'feedback', label: 'Feedbacks reportados', types: ['dev_feedback'] },
 ];
 
 const ADMIN_VISIBLE_TYPES = new Set(ADMIN_GROUPS.flatMap((g) => g.types));
@@ -124,13 +123,15 @@ export const NotificationBell = () => {
     <div
       key={notif.id}
       onClick={() => handleClick(notif)}
-      className={`px-4 py-3 border-b border-white/5 cursor-pointer transition-colors ${
-        notif.read ? 'bg-transparent' : 'bg-blue-500/10 hover:bg-blue-500/20'
+      className={`cursor-pointer border-b border-[var(--border-soft)] px-4 py-3 transition-colors ${
+        notif.read
+          ? 'bg-transparent'
+          : 'bg-[color-mix(in_srgb,var(--color-artificio-orange)_10%,transparent)] hover:bg-[color-mix(in_srgb,var(--color-artificio-orange)_16%,transparent)]'
       }`}
     >
-      <div className="font-semibold text-white text-sm mb-1">{notif.title}</div>
-      <div className="text-white/70 text-xs mb-2">{notif.message}</div>
-      <div className="text-white/40 text-xs">
+      <div className="mb-1 text-sm font-semibold text-[var(--fg)]">{notif.title}</div>
+      <div className="mb-2 text-xs text-[var(--fg-low)]">{notif.message}</div>
+      <div className="text-xs text-[var(--fg-faint)]">
         {notif.created_at ? new Date(notif.created_at).toLocaleString('pt-BR') : ''}
       </div>
     </div>
@@ -140,12 +141,12 @@ export const NotificationBell = () => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-white/75 hover:text-white transition-colors"
+        className="relative p-2 text-[var(--fg-low)] transition-colors hover:text-[var(--fg)]"
         aria-label="Notificações"
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
+          <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--danger)] text-xs font-bold text-white">
             {unreadCount}
           </span>
         )}
@@ -154,13 +155,13 @@ export const NotificationBell = () => {
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-full right-0 mt-2 w-80 bg-[#1B2A4A] border border-white/10 rounded-lg shadow-2xl z-50 max-h-96 overflow-y-auto">
-            <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-2">
-              <span className="font-bold text-white">Notificações</span>
+          <div className="absolute right-0 top-full z-50 mt-2 max-h-96 w-80 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--admin-surface)] shadow-2xl">
+            <div className="flex items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
+              <span className="font-bold text-[var(--fg)]">Notificações</span>
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
-                  className="text-xs text-blue-300 hover:text-blue-200"
+                  className="text-xs text-[var(--color-artificio-orange)] hover:text-[var(--color-artificio-orange-soft)]"
                 >
                   Marcar todas como lidas
                 </button>
@@ -168,7 +169,7 @@ export const NotificationBell = () => {
             </div>
 
             {visible.length === 0 ? (
-              <div className="px-4 py-8 text-center text-white/50 text-sm">Nenhuma notificação</div>
+              <div className="px-4 py-8 text-center text-sm text-[var(--fg-faint)]">Nenhuma notificação</div>
             ) : isAdmin ? (
               ADMIN_GROUPS.map((group) => {
                 const items = visible.filter((n) => group.types.includes(n.type));
@@ -176,7 +177,7 @@ export const NotificationBell = () => {
                 const groupUnread = items.filter((n) => !n.read).length;
                 return (
                   <div key={group.key}>
-                    <div className="px-4 py-2 bg-white/5 text-white/50 text-xs font-semibold uppercase tracking-wide sticky top-0">
+                    <div className="sticky top-0 bg-[var(--admin-hover)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--fg-faint)]">
                       {group.label}
                       {groupUnread > 0 ? ` (${groupUnread})` : ''}
                     </div>

@@ -15,6 +15,8 @@ import type {
   IngestResult,
   SyncReadyResult,
   ChatExporterConfig,
+  ChatExporterProfile,
+  ChatExporterProfileInput,
   ChatExporterTestResult,
   ChatExporterRunResult,
 } from '../types';
@@ -65,6 +67,31 @@ const chatExporterConfigSchema = z.object({
   cookies: chatExporterSecretStatusSchema,
   updated_at: z.string().nullable(),
   decrypt_error: z.boolean().optional(),
+});
+
+const chatExporterProfileSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  guild_id: z.string(),
+  guild_name: z.string().nullable(),
+  channel_id: z.string(),
+  channel_name: z.string().nullable(),
+  format: z.literal('Json'),
+  include_threads: z.enum(['none', 'active', 'all']),
+  after: z.string().nullable(),
+  media: z.boolean(),
+  schedule_enabled: z.boolean(),
+  frequency: z.enum(['hourly', 'daily', 'weekly']),
+  time: z.string(),
+  timezone: z.string(),
+  import_dir: z.string(),
+  enabled: z.boolean(),
+  last_run_at: z.string().nullable(),
+  last_status: z.string().nullable(),
+  last_error: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  token: chatExporterSecretStatusSchema,
 });
 
 const chatExporterTestResultSchema = z.object({
@@ -184,6 +211,18 @@ function parseDiscordBotTokenSettings(value: unknown): DiscordBotTokenSettings {
 function parseChatExporterConfig(value: unknown): ChatExporterConfig {
   const parsed = chatExporterConfigSchema.safeParse(value);
   if (!parsed.success) throw new Error('Configuração do ChatExporter em formato inesperado.');
+  return parsed.data;
+}
+
+function parseChatExporterProfiles(value: unknown): ChatExporterProfile[] {
+  const parsed = z.array(chatExporterProfileSchema).safeParse(value);
+  if (!parsed.success) throw new Error('Lista de perfis ChatExporter em formato inesperado.');
+  return parsed.data;
+}
+
+function parseChatExporterProfile(value: unknown): ChatExporterProfile {
+  const parsed = chatExporterProfileSchema.safeParse(value);
+  if (!parsed.success) throw new Error('Perfil ChatExporter em formato inesperado.');
   return parsed.data;
 }
 
@@ -368,6 +407,24 @@ export const discordSyncApi = {
 
   runChatExporterNow: async () =>
     parseChatExporterRunResult(await apiFetch<unknown>('/chat-exporter/run', { method: 'POST' })),
+
+  getChatExporterProfiles: async () =>
+    parseChatExporterProfiles(await apiFetch<unknown>('/chat-exporter/profiles')),
+
+  createChatExporterProfile: async (body: ChatExporterProfileInput) =>
+    parseChatExporterProfile(await apiFetch<unknown>('/chat-exporter/profiles', { method: 'POST', body: JSON.stringify(body) })),
+
+  updateChatExporterProfile: async (id: string, body: ChatExporterProfileInput) =>
+    parseChatExporterProfile(await apiFetch<unknown>(`/chat-exporter/profiles/${id}`, { method: 'PATCH', body: JSON.stringify(body) })),
+
+  deleteChatExporterProfile: (id: string) =>
+    apiFetch<void>(`/chat-exporter/profiles/${id}`, { method: 'DELETE' }),
+
+  testChatExporterProfile: async (id: string) =>
+    parseChatExporterTestResult(await apiFetch<unknown>(`/chat-exporter/profiles/${id}/test`, { method: 'POST' })),
+
+  runChatExporterProfile: async (id: string) =>
+    parseChatExporterRunResult(await apiFetch<unknown>(`/chat-exporter/profiles/${id}/run`, { method: 'POST' })),
 
   discoverGuilds: async () =>
     parseDiscordDiscoveredGuilds(await apiFetch<unknown>('/discovery/guilds')),

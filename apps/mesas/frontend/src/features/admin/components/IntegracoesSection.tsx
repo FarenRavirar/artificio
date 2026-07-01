@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { Bot, FileJson, FileText, Sparkles } from 'lucide-react';
 import { DiscordSettingsPanel } from '../../../features/discord-sync/components/DiscordSettingsPanel';
 import { DiscordSourceList } from '../../../features/discord-sync/components/DiscordSourceList';
 import { DiscordJsonImportPanel } from '../../../features/discord-sync/components/DiscordJsonImportPanel';
 import { IntegrationLogsView } from '../../../features/discord-sync/components/IntegrationLogsView';
+import { ChatExporterProfilesPanel } from '../../../features/discord-sync/components/ChatExporterProfilesPanel';
 import { EnrichmentAdminPanel } from '../hydration/EnrichmentAdminPanel';
 import { TextPasteArea } from '../../../features/inbox/components/TextPasteArea';
 import { useDiscordSync } from '../../../features/discord-sync/hooks/useDiscordSync';
+import { PageHeader, SectionCard } from './ui';
 
-type IntSubTab = 'discord-config' | 'discord-canais' | 'discord-mensagens' | 'discord-rascunhos' | 'discord-import' | 'importacao' | 'enriquecimento' | 'logs';
+type IntSubTab = 'bot' | 'arquivo' | 'texto' | 'enriquecimento';
+type BotTab = 'configuracao' | 'importacao' | 'relatorios';
 
 /**
  * DiscordSourceListWrapper — instancia useDiscordSync() para alimentar DiscordSourceList.
@@ -70,61 +74,97 @@ function ModeracaoLinks({ target }: { target: 'mensagens' | 'rascunhos' }) {
 }
 
 export function IntegracoesSection() {
-  const [subTab, setSubTab] = useState<IntSubTab>('discord-config');
+  const [subTab, setSubTab] = useState<IntSubTab>('bot');
+  const [botTab, setBotTab] = useState<BotTab>('configuracao');
   const navigate = useNavigate();
 
   const subTabClass = (tab: IntSubTab) =>
-    `px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+    `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
       subTab === tab
-        ? 'bg-blue-600 text-white'
-        : 'bg-white/5 text-white/60 hover:bg-white/10'
+        ? 'bg-[var(--admin-hover)] text-[var(--fg)]'
+        : 'text-[var(--fg-low)] hover:bg-[var(--admin-hover)] hover:text-[var(--fg)]'
+    }`;
+
+  const botTabClass = (tab: BotTab) =>
+    `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+      botTab === tab
+        ? 'bg-[var(--admin-hover)] text-[var(--fg)]'
+        : 'text-[var(--fg-low)] hover:bg-[var(--admin-hover)] hover:text-[var(--fg)]'
     }`;
 
   return (
-    <div>
-      {/* Subnav local */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <button onClick={() => setSubTab('discord-config')} className={subTabClass('discord-config')} aria-pressed={subTab === 'discord-config'}>
-          Discord
+    <div className="space-y-5">
+      <PageHeader
+        breadcrumb={['Gestão', 'Importação']}
+        title="Importação"
+        description="Entrada operacional de mesas por Bot de Discord, arquivo do ChatExporter, texto colado e enriquecimento."
+      />
+
+      <div className="inline-flex flex-wrap rounded-lg border border-[var(--border)] bg-[var(--admin-surface)] p-1">
+        <button onClick={() => setSubTab('bot')} className={subTabClass('bot')} aria-pressed={subTab === 'bot'}>
+          <Bot size={15} /> Bot de Discord
         </button>
-        <button onClick={() => setSubTab('discord-canais')} className={subTabClass('discord-canais')} aria-pressed={subTab === 'discord-canais'}>
-          Canais monitorados
+        <button onClick={() => setSubTab('arquivo')} className={subTabClass('arquivo')} aria-pressed={subTab === 'arquivo'}>
+          <FileJson size={15} /> Importar arquivo
         </button>
-        <button onClick={() => setSubTab('discord-mensagens')} className={subTabClass('discord-mensagens')} aria-pressed={subTab === 'discord-mensagens'}>
-          Mensagens capturadas
-        </button>
-        <button onClick={() => setSubTab('discord-rascunhos')} className={subTabClass('discord-rascunhos')} aria-pressed={subTab === 'discord-rascunhos'}>
-          Rascunhos
-        </button>
-        <button onClick={() => setSubTab('discord-import')} className={subTabClass('discord-import')} aria-pressed={subTab === 'discord-import'}>
-          Importar histórico
-        </button>
-        <button onClick={() => setSubTab('importacao')} className={subTabClass('importacao')} aria-pressed={subTab === 'importacao'}>
-          Importação de dados
+        <button onClick={() => setSubTab('texto')} className={subTabClass('texto')} aria-pressed={subTab === 'texto'}>
+          <FileText size={15} /> Importar texto
         </button>
         <button onClick={() => setSubTab('enriquecimento')} className={subTabClass('enriquecimento')} aria-pressed={subTab === 'enriquecimento'}>
-          Enriquecimento de dados
-        </button>
-        <button onClick={() => setSubTab('logs')} className={subTabClass('logs')} aria-pressed={subTab === 'logs'}>
-          Logs de integração
+          <Sparkles size={15} /> Enriquecimento
         </button>
       </div>
 
-      {subTab === 'discord-config' && <DiscordSettingsPanel />}
-      {subTab === 'discord-canais' && <DiscordSourceListWrapper />}
-      {subTab === 'discord-mensagens' && <ModeracaoLinks target="mensagens" />}
-      {subTab === 'discord-rascunhos' && <ModeracaoLinks target="rascunhos" />}
-      {subTab === 'discord-import' && <DiscordJsonImportPanel onNavigateToDrafts={() => navigate('/gestao/mesas/rascunhos')} />}
-      {subTab === 'importacao' && (
-        <div>
-          <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>
-            Cole o texto de uma mesa para criar um rascunho. O draft aparecerá em Moderação › Rascunhos.
-          </p>
-          <TextPasteArea onImportSuccess={() => {}} />
-        </div>
+      {subTab === 'bot' && (
+        <SectionCard
+          title="Bot de Discord"
+          description="Configuração, canais, execução e relatórios do pipeline automático do Discord."
+          bodyClassName="p-5"
+        >
+          <div className="mb-5 inline-flex rounded-lg border border-[var(--border)] bg-[var(--admin-surface)] p-1">
+            <button onClick={() => setBotTab('configuracao')} className={botTabClass('configuracao')} aria-pressed={botTab === 'configuracao'}>
+              Configuração
+            </button>
+            <button onClick={() => setBotTab('importacao')} className={botTabClass('importacao')} aria-pressed={botTab === 'importacao'}>
+              Importação
+            </button>
+            <button onClick={() => setBotTab('relatorios')} className={botTabClass('relatorios')} aria-pressed={botTab === 'relatorios'}>
+              Relatórios
+            </button>
+          </div>
+          {botTab === 'configuracao' && (
+            <div className="space-y-5">
+              <DiscordSettingsPanel />
+              <ChatExporterProfilesPanel />
+            </div>
+          )}
+          {botTab === 'importacao' && (
+            <div className="space-y-5">
+              <DiscordSourceListWrapper />
+              <DiscordJsonImportPanel onNavigateToDrafts={() => navigate('/gestao/mesas/rascunhos')} />
+            </div>
+          )}
+          {botTab === 'relatorios' && <IntegrationLogsView />}
+        </SectionCard>
       )}
-      {subTab === 'enriquecimento' && <EnrichmentAdminPanel />}
-      {subTab === 'logs' && <IntegrationLogsView />}
+
+      {subTab === 'arquivo' && (
+        <SectionCard title="Importar arquivo" description="Upload manual de JSON do DiscordChatExporter." bodyClassName="p-5">
+          <DiscordJsonImportPanel onNavigateToDrafts={() => navigate('/gestao/mesas/rascunhos')} />
+        </SectionCard>
+      )}
+
+      {subTab === 'texto' && (
+        <SectionCard title="Importar texto" description="Colagem manual de anúncio para gerar rascunho revisável." bodyClassName="p-5">
+          <TextPasteArea onImportSuccess={() => navigate('/gestao/mesas/rascunhos')} />
+        </SectionCard>
+      )}
+
+      {subTab === 'enriquecimento' && (
+        <SectionCard title="Enriquecimento" description="Sincronização e saneamento de dados auxiliares do mesas." bodyClassName="p-5">
+          <EnrichmentAdminPanel />
+        </SectionCard>
+      )}
     </div>
   );
 }

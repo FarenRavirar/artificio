@@ -1,6 +1,9 @@
 import { Router, Request, Response } from 'express';
+import { sql } from 'kysely';
 import { authMiddleware, requireRole } from '../middleware/auth';
+import { db } from '../db';
 import * as profileService from '../services/profileService';
+import type { UserRole } from '../db/types';
 
 const router = Router();
 
@@ -55,14 +58,56 @@ router.get('/users', authMiddleware, requireRole('admin'), async (req: Request, 
   const { search, role, covil_verified } = req.query;
 
   try {
-    // TODO: Implementar listagem com filtros
-    // Por enquanto, retorna estrutura básica
+    let query = db
+      .selectFrom('users as u')
+      .leftJoin('profiles as p', 'p.user_id', 'u.id')
+      .leftJoin('gm_profiles as gm', 'gm.user_id', 'u.id')
+      .select([
+        'u.id',
+        'u.email',
+        'u.username',
+        'u.role',
+        'u.location',
+        'u.created_at',
+        'u.updated_at',
+        'p.display_name',
+        'p.avatar_url',
+        'gm.slug as gm_slug',
+        'gm.nickname as gm_nickname',
+        sql<boolean>`COALESCE(gm.covil_verified, false)`.as('covil_verified'),
+        'gm.covil_verified_at',
+      ])
+      .orderBy('u.created_at', 'desc')
+      .limit(200);
+
+    if (typeof role === 'string' && ['visitor', 'player', 'gm', 'admin'].includes(role)) {
+      query = query.where('u.role', '=', role as UserRole);
+    }
+    if (covil_verified === 'true') {
+      query = query.where('gm.covil_verified', '=', true);
+    } else if (covil_verified === 'false') {
+      query = query.where((eb) => eb.or([
+        eb('gm.covil_verified', '=', false),
+        eb('gm.covil_verified', 'is', null),
+      ]));
+    }
+    if (typeof search === 'string' && search.trim()) {
+      const q = `%${search.trim()}%`;
+      query = query.where((eb) => eb.or([
+        eb('u.email', 'ilike', q),
+        eb('u.username', 'ilike', q),
+        eb('p.display_name', 'ilike', q),
+        eb('gm.nickname', 'ilike', q),
+      ]));
+    }
+
+    const users = await query.execute();
     return res.json({
-      data: [],
+      data: users,
       meta: {
-        total: 0,
+        total: users.length,
         page: 1,
-        per_page: 20,
+        per_page: 200,
       },
     });
   } catch (error: any) {

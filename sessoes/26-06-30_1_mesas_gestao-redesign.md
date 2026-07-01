@@ -139,6 +139,38 @@ Tree limpa.
 - Warning 3 (`glossario`): `/api/systems/{systemId}/editions` × `/api/systems/editions/{id}`. Código real tem GET/POST no nested e PUT/DELETE no literal; consumidores reais usam `/systems/editions/:id`. Risco runtime atual não confirmado, mas o desenho permite ambiguidade teórica se `systemId=editions`.
 - Veredito: warnings conhecidos/procedentes como dívida de desenho, não regressão da Fase 5 nem falha de scanner. Para zerar de verdade sem silenciar regra, precisa renomear/versar rotas (`/gm/public/:slug/contact`, `/social/terms/:id/comments`, `/systems/:systemId/editions` + `/editions/:id` ou similar) com compatibilidade/depreciação; isso é mudança de contrato e deve ser spec/débito próprio.
 
+## Fase 6 — Importação + Bot de Discord (2026-06-30)
+- Pedido: avançar para a Fase 6.
+- Investigação: `IntegracoesSection` ainda era um painel plano com 8 tabs; `ChatExporterAutomationPanel` já cobria config/test/run legado em perfil único; backend já tinha `GET/PUT /chat-exporter/config`, `POST /test`, `POST /run`, discovery, import-json e metrics. O gap estrutural era perfis multi-canal + IA organizada.
+- Decisão de implementação local: manter config legada compatível, adicionar `discord_chat_exporter_profiles` como entidade nova, fazer `test/run` por perfil reutilizar `runChatExporterCli` + `processDiscordChatExporterFolder`, e reorganizar UI sem duplicar importador.
+- Implementação backend: migration 134 `discord_chat_exporter_profiles`; tipos Kysely; rotas `GET/POST /chat-exporter/profiles`, `PATCH/DELETE /profiles/:id`, `POST /profiles/:id/test`, `POST /profiles/:id/run`; token por perfil encriptado com `settingsCrypto`, fallback no token global, `import_dir` gerado pelo backend.
+- Implementação Dockerfile: Opção A local/versionada — image `mesas-api` copia a CLI self-contained da image oficial pinada `tyrrrz/discordchatexporter:2.47.3` para `/opt/dce`, define `DISCORD_CHAT_EXPORTER_BIN=/opt/dce/DiscordChatExporter.Cli` e instala libs Alpine necessárias. Falta deploy beta para provar runtime real.
+- Implementação frontend: `IntegracoesSection` virou grupo Importação com PageHeader/SectionCard e tabs Bot de Discord / Importar arquivo / Importar texto / Enriquecimento; Bot tem subtabs Configuração / Importação / Relatórios.
+- Implementação frontend: `ChatExporterProfilesPanel` usa `<AdminTable>` para perfis, discovery de servidores/canais, criação/edição de perfil, agenda, token opcional por perfil, Testar, Importar agora e apagar.
+- Tasks: T6.1, T6.2 e T6.5 marcadas concluídas localmente; T6.6 parcial (Dockerfile pronto, falta deploy/test), T6.8 parcial (última run/status/erro + test/run, falta delta "a atualizar"); T6.3/T6.4/T6.7/T6.9 seguem abertas.
+- Validação: `pnpm --filter @artificio/mesas-backend build` ✅; `pnpm --filter @artificio/mesas-frontend build` ✅ (warning conhecido chunk >500 kB); `pnpm --filter @artificio/mesas-frontend lint` ✅; `pnpm --filter @artificio/mesas-frontend test -- ChatExporter discordSyncApi` ✅ (13 files, 148 tests); `pnpm --filter @artificio/mesas-backend test -- chatExporter` ✅ (34 files, 321 tests); `pnpm verify:api` ✅ (mesas +4 non-breaking; mesmos 3 warnings `no-ambiguous-paths` conhecidos).
+
+## Fase 4b / T4.3 — Notificações do admin (2026-06-30)
+- Pedido: implementar T4.3.
+- Investigação: `gmPanel.ts` já emite `table_published` quando mestre não-admin cria mesa ativa ou muda status para `active`; `devFeedback.ts` já emite `dev_feedback` com `excludeUserId`; `NotificationBell` ainda mostrava grupos `system_suggestion`, `scenario_suggestion`, `member_joined` e tinha hardcodes visuais (`#1B2A4A`, `bg-blue-500/10`, `bg-red-500`).
+- Plano: manter backend existente de sugestões (outras notificações continuam servindo usuários/sugestões), restringir **visibilidade do sino admin** a `{table_published, dev_feedback}`, trocar hardcodes por tokens e ajustar link de feedback para `/gestao/sistema`.
+- Implementação: `NotificationBell` agora agrupa só `Mesas publicadas` (`table_published`) e `Feedbacks reportados` (`dev_feedback`) para admin; estilos usam `--admin-surface`, `--admin-hover`, `--border`, `--fg*`, `--color-artificio-orange`, `--danger`; `devFeedback` aponta `action_url` para `/gestao/sistema`.
+- Busca: `rg "system_suggestion|scenario_suggestion|member_joined|#1B2A4A|bg-blue-500/10|bg-red-500" NotificationBell.tsx devFeedback.ts` sem resultados.
+- Validação: `pnpm --filter @artificio/mesas-frontend lint` ✅; `pnpm --filter @artificio/mesas-frontend build` ✅ (warning conhecido chunk >500 kB); `pnpm --filter @artificio/mesas-backend build` ✅; `pnpm verify:api` ✅ (breaking=0; mesmos 3 warnings ambíguos conhecidos); `git diff --check` ✅.
+
+## Fase 7 — Catálogo + Comunidade + Sistema (2026-06-30)
+- Pedido: avançar para etapa 7.
+- Investigação: `ConteudoSection` ainda tinha casca antiga e lista de mesas manual; `SistemaSection` tinha stubs `jobs/logs/erros/config`; `admin/users` existia mas retornava `[]` por TODO; `setting-suggestions` já tinha CRUD backend, sem UI.
+- Plano: (1) dar PageHeader+tabs/tokens ao Catálogo preservando views existentes; (2) implementar listagem real de usuários no backend + painel `AdminUsersPanel` com `<AdminTable>` e toggle Covil; (3) deixar Sistema sem stubs, com Usuários + Erros reportados; (4) criar UI CRUD para Estilos por cenário e encaixar no Catálogo.
+- Implementação backend: `GET /api/v1/admin/users` deixou de retornar TODO vazio e agora lista usuários reais com `users` + `profiles` + `gm_profiles`, filtros defensivos `role`/`covil_verified`/`search`, limite 200 e meta; `PATCH /users/:id/covil` foi preservado.
+- Implementação frontend: `ConteudoSection` virou Catálogo com PageHeader/SectionCard e tabs Sistemas/Plataformas/Cenários/Estilos por cenário/Mesas publicadas; plataformas seguem separadas por kind; mesas publicadas usam `<AdminTable>`.
+- Implementação frontend: novo `AdminUsersPanel` lista usuários via `admin/users`, filtra role/Covil, abre detalhe e alterna selo Covil sem duplicar tabela manual.
+- Implementação frontend: novo `SettingSuggestionsPanel` dá CRUD real para `setting-suggestions`/`setting_style_suggestions` com `<AdminTable>`, form de cenário+estilos e edição inline.
+- Implementação frontend: `SistemaSection` removeu stubs de jobs/logs/erros/config e ficou com tabs reais `Usuários` e `Erros reportados` (`DevFeedbackPanel`).
+- Teste corrigido: `adminProfile.test.ts` passou a mockar `../db`/Kysely para a listagem real de usuários; cobre retorno, filtros e erro de query.
+- Tasks: T7.1, T7.2, T7.3 e T7.4 marcadas concluídas localmente; smoke beta permanece em T9.2.
+- Validação: `pnpm --filter @artificio/mesas-backend test -- adminProfile adminSettingSuggestions` ✅ (34 files, 323 tests); `pnpm --filter @artificio/mesas-frontend lint` ✅; `pnpm --filter @artificio/mesas-frontend build` ✅ (warning conhecido chunk >500 kB); `pnpm --filter @artificio/mesas-backend build` ✅; `pnpm verify:api` ✅ (mesas +4 non-breaking; mesmos 3 warnings `no-ambiguous-paths` conhecidos); `git diff --check` ✅ (somente avisos LF→CRLF).
+
 ## Critério de conclusão (desta abertura)
 - `inventario.md` + `proposta-ia.md` completos; plano faseado aprovado pelo mantenedor.
 

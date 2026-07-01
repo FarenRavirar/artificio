@@ -2,6 +2,17 @@ import type { Mock } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 
+const dbMocks = vi.hoisted(() => ({
+  execute: vi.fn(),
+  selectFrom: vi.fn(),
+}));
+
+vi.mock('../db', () => ({
+  db: {
+    selectFrom: dbMocks.selectFrom,
+  },
+}));
+
 vi.mock('../services/profileService', () => ({
   getFullProfile: vi.fn(),
   toggleCovilVerified: vi.fn(),
@@ -18,6 +29,17 @@ vi.mock('../middleware/auth', () => ({
 import adminProfileRoutes from './adminProfile';
 import * as profileService from '../services/profileService';
 
+function makeQueryBuilder() {
+  return {
+    leftJoin: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    execute: dbMocks.execute,
+  };
+}
+
 function makeApp() {
   const app = express();
   app.use(express.json());
@@ -26,11 +48,55 @@ function makeApp() {
 }
 
 describe('GET /api/v1/admin/users', () => {
-  it('returns empty user list with meta', async () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.execute.mockResolvedValue([]);
+    dbMocks.selectFrom.mockReturnValue(makeQueryBuilder());
+  });
+
+  it('returns users with meta', async () => {
+    dbMocks.execute.mockResolvedValue([{
+      id: 'u1',
+      email: 'gm@test.com',
+      username: 'gmtest',
+      role: 'gm',
+      location: null,
+      created_at: new Date('2026-06-30T10:00:00.000Z'),
+      updated_at: new Date('2026-06-30T11:00:00.000Z'),
+      display_name: 'GM Teste',
+      avatar_url: null,
+      gm_slug: 'gm-teste',
+      gm_nickname: 'GM Teste',
+      covil_verified: true,
+      covil_verified_at: new Date('2026-06-30T12:00:00.000Z'),
+    }]);
+
     const res = await request(makeApp()).get('/api/v1/admin/users');
     expect(res.status).toBe(200);
-    expect(res.body.data).toEqual([]);
-    expect(res.body.meta.total).toBe(0);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].id).toBe('u1');
+    expect(res.body.data[0].covil_verified).toBe(true);
+    expect(res.body.meta.total).toBe(1);
+    expect(dbMocks.selectFrom).toHaveBeenCalledWith('users as u');
+  });
+
+  it('applies supported filters', async () => {
+    const queryBuilder = makeQueryBuilder();
+    dbMocks.selectFrom.mockReturnValue(queryBuilder);
+
+    const res = await request(makeApp())
+      .get('/api/v1/admin/users')
+      .query({ role: 'gm', covil_verified: 'true', search: 'mestre' });
+
+    expect(res.status).toBe(200);
+    expect(queryBuilder.where).toHaveBeenCalledTimes(3);
+  });
+
+  it('returns 500 when query fails', async () => {
+    dbMocks.execute.mockRejectedValue(new Error('DB error'));
+
+    const res = await request(makeApp()).get('/api/v1/admin/users');
+    expect(res.status).toBe(500);
   });
 });
 
