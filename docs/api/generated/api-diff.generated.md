@@ -10,16 +10,24 @@
 
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
-| mesas | ✅ 0 | ✅ 4 | ⚪ 0 |
+| mesas | ❌ 1 | ✅ 6 | ⚪ 0 |
 
 ---
 
 ### mesas
 
-#### ✅ Non-breaking (4)
+#### ❌ Breaking Changes (1)
+
+| Path | Method | Ação | Código |
+|------|--------|------|--------|
+| `` |  | remove | `path.remove` |
+
+#### ✅ Non-breaking (6)
 
 | Path | Method | Ação |
 |------|--------|------|
+| `` |  | add |
+| `` |  | add |
 | `` |  | add |
 | `` |  | add |
 | `` |  | add |

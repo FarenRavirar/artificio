@@ -3,6 +3,7 @@ import { ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authGet, authPatch } from '../../../services/apiClient';
 import { AdminTable, StatusPill } from './ui';
+import { formatDate } from '../utils/format';
 
 type AdminUserRole = 'visitor' | 'player' | 'gm' | 'admin';
 
@@ -70,11 +71,6 @@ function normalizeUsers(value: unknown): AdminUserRow[] {
   return rows;
 }
 
-function formatDate(value: string): string {
-  if (!value) return '-';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('pt-BR');
-}
 
 export function AdminUsersPanel() {
   const [users, setUsers] = useState<AdminUserRow[]>([]);

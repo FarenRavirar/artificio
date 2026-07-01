@@ -10,14 +10,6 @@ export interface AdminPendencias {
   total: number;
 }
 
-const EMPTY_PENDENCIAS: AdminPendencias = {
-  sugestoes: 0,
-  systemSuggestions: 0,
-  scenarioSuggestions: 0,
-  hasDraftsToReview: false,
-  total: 0,
-};
-
 function rowsLength(payload: unknown): number {
   const rows = payload && typeof payload === 'object' ? (payload as Record<string, unknown>).data : [];
   return Array.isArray(rows) ? rows.length : 0;
@@ -25,13 +17,13 @@ function rowsLength(payload: unknown): number {
 
 async function fetchSystemSuggestionCount(): Promise<number> {
   const response = await authGet('/api/v1/admin/system-suggestions?status=pending');
-  if (!response.ok) return 0;
+  if (!response.ok) throw new Error('Erro ao buscar sugestões de sistema.');
   return rowsLength(await response.json());
 }
 
 async function fetchScenarioSuggestionCount(): Promise<number> {
   const response = await authGet('/api/v1/admin/scenario-suggestions?status=pending');
-  if (!response.ok) return 0;
+  if (!response.ok) throw new Error('Erro ao buscar sugestões de cenário.');
   return rowsLength(await response.json());
 }
 
@@ -59,6 +51,5 @@ export function useAdminPendencias() {
     queryKey: ['admin', 'pendencias'],
     queryFn: fetchAdminPendencias,
     staleTime: 30_000,
-    placeholderData: EMPTY_PENDENCIAS,
   });
 }

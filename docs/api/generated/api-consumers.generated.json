@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 294,
-    "uniqueEndpoints": 272,
+    "total": 296,
+    "uniqueEndpoints": 274,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,17 +36,17 @@
         }
       },
       "mesas-frontend": {
-        "total": 176,
+        "total": 178,
         "byConfidence": {
           "medium": 67,
-          "high": 107,
+          "high": 109,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 59,
-          "service-wrapper": 49,
-          "literal": 60,
+          "service-wrapper": 50,
+          "literal": 61,
           "concatenation": 2
         }
       },
@@ -997,7 +997,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getChatExporterProfiles",
-      "line": 95
+      "line": 127
     },
     {
       "app": "mesas-frontend",
@@ -1007,7 +1007,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.createChatExporterProfile",
-      "line": 174
+      "line": 219
     },
     {
       "app": "mesas-frontend",
@@ -1017,7 +1017,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.updateChatExporterProfile",
-      "line": 173
+      "line": 218
     },
     {
       "app": "mesas-frontend",
@@ -1027,7 +1027,17 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.deleteChatExporterProfile",
-      "line": 212
+      "line": 278
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles/:param/delta",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.getChatExporterProfileDelta",
+      "line": 245
     },
     {
       "app": "mesas-frontend",
@@ -1037,7 +1047,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.runChatExporterProfile",
-      "line": 200
+      "line": 259
     },
     {
       "app": "mesas-frontend",
@@ -1047,7 +1057,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.testChatExporterProfile",
-      "line": 188
+      "line": 233
     },
     {
       "app": "mesas-frontend",
@@ -1077,7 +1087,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.discoverGuilds",
-      "line": 112
+      "line": 151
     },
     {
       "app": "mesas-frontend",
@@ -1097,7 +1107,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.discoverChannels",
-      "line": 126
+      "line": 170
     },
     {
       "app": "mesas-frontend",
@@ -1117,7 +1127,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 42
+      "line": 34
     },
     {
       "app": "mesas-frontend",
@@ -1137,7 +1147,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.submitCorrection",
-      "line": 103
+      "line": 98
     },
     {
       "app": "mesas-frontend",
@@ -1267,7 +1277,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getIntegrationMetrics",
-      "line": 49
+      "line": 37
     },
     {
       "app": "mesas-frontend",
@@ -1277,7 +1287,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getIntegrationMetrics",
-      "line": 81
+      "line": 85
     },
     {
       "app": "mesas-frontend",
@@ -1437,7 +1447,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 33
+      "line": 25
     },
     {
       "app": "mesas-frontend",
@@ -1507,7 +1517,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 27
+      "line": 19
     },
     {
       "app": "mesas-frontend",
@@ -1537,7 +1547,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 101
+      "line": 102
     },
     {
       "app": "mesas-frontend",
@@ -1547,7 +1557,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPut",
-      "line": 119
+      "line": 124
     },
     {
       "app": "mesas-frontend",
@@ -1571,13 +1581,23 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ConteudoSection.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/tables/batch",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authPost",
+      "line": 144
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/admin/components/AdminUsersPanel.tsx",
       "method": "GET",
       "endpoint": "/api/v1/admin/users",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 89
+      "line": 85
     },
     {
       "app": "mesas-frontend",
@@ -1587,7 +1607,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPatch",
-      "line": 111
+      "line": 107
     },
     {
       "app": "mesas-frontend",
@@ -2317,7 +2337,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 80
+      "line": 76
     },
     {
       "app": "mesas-frontend",
@@ -2327,7 +2347,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 41
+      "line": 29
     },
     {
       "app": "mesas-frontend",

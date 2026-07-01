@@ -3,16 +3,16 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { sql } from 'kysely';
 import { db } from '../../db';
 import type {
   DiscordChatExporterProfile,
   NewDiscordChatExporterProfile,
-  NewDiscordImportRun,
   NewDiscordSetting,
 } from '../../db/types';
-import { DISCORD_CHAT_EXPORTER_RETENTION } from '../../discord/chatExporterAutomationConfig';
 import { buildChatExporterCliCommand, redactedChatExporterCliCommand, runChatExporterCli } from '../../discord/chatExporterCliRunner';
-import { processDiscordChatExporterFolder } from '../../discord/chatExporterFolderImportService';
+import { discoverChannelDelta, DiscordDiscoveryError } from '../../discord/discovery';
+import { resolveChatExporterBinary, runFolderImport, runProfileExport } from '../../discord/chatExporterProfileRunner';
 import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError, DiscordSettingsDecryptError } from '../../discord/settingsCrypto';
 import { requireAdmin } from '../../middleware/auth';
 
@@ -24,7 +24,7 @@ const COOKIES_KEY = 'chat_exporter_cookies';
 
 const frequencySchema = z.enum(['hourly', 'daily', 'weekly']);
 const includeThreadsSchema = z.enum(['none', 'active', 'all']);
-const uuidParamSchema = z.object({ id: z.string().uuid() });
+const uuidParamSchema = z.object({ id: z.uuid() });
 
 const configSchema = z.object({
   enabled: z.boolean().default(false),
@@ -80,11 +80,6 @@ function defaultImportDir(profileId: string): string {
     || process.env.DISCORD_CHAT_EXPORTER_IMPORT_DIR?.trim()
     || '/data/chat-exporter';
   return path.join(base, profileId);
-}
-
-// Binário resolvido só no servidor (env/deploy), nunca a partir do payload do admin — evita execução arbitrária.
-function resolveBinary(): string {
-  return process.env.DISCORD_CHAT_EXPORTER_BIN?.trim() || 'DiscordChatExporter.Cli';
 }
 
 function maskSecret(value: string): string {
@@ -202,11 +197,13 @@ function publicConfig(loaded: Awaited<ReturnType<typeof loadConfig>>) {
 }
 
 function publicProfile(row: DiscordChatExporterProfile) {
+  // Nunca vazar o token cifrado: remover token_enc do payload público.
+  const { token_enc, ...rest } = row;
   return {
-    ...row,
+    ...rest,
     token: {
-      is_set: Boolean(row.token_enc),
-      preview: row.token_enc ? '****' : null,
+      is_set: Boolean(token_enc),
+      preview: token_enc ? '****' : null,
       updated_at: row.updated_at,
     },
   };
@@ -249,64 +246,6 @@ async function validateBinary(binary: string): Promise<string | null> {
   } catch {
     return `Binário não encontrado: ${binary}`;
   }
-}
-
-async function runFolderImport(rootDir: string, userId: string | undefined) {
-  const result = await processDiscordChatExporterFolder({
-    rootDir,
-    retention: DISCORD_CHAT_EXPORTER_RETENTION,
-  });
-  const totals = result.files.reduce(
-    (acc, file) => {
-      acc.total += file.result?.total ?? 0;
-      acc.inserted += file.result?.inserted ?? 0;
-      acc.updated += file.result?.updated ?? 0;
-      acc.ignored += file.result?.ignored ?? 0;
-      acc.failed += file.result?.failed ?? 0;
-      if (file.status === 'error') acc.failed += 1;
-      return acc;
-    },
-    { total: 0, inserted: 0, updated: 0, ignored: 0, failed: 0 },
-  );
-
-  await db.insertInto('discord_import_runs')
-    .values({
-      source_kind: 'discord_chat_exporter_manual',
-      total_messages: totals.total,
-      drafts_created: totals.inserted,
-      drafts_updated: totals.updated,
-      messages_ignored: totals.ignored,
-      messages_failed: totals.failed,
-      ended_at: new Date(),
-      note: `manual folder=${result.rootDir}; files=${result.incoming}; processed=${result.processed}; errors=${result.errors}`,
-      created_by: userId ?? null,
-    } as NewDiscordImportRun)
-    .execute();
-
-  return result;
-}
-
-async function runProfileExport(profile: DiscordChatExporterProfile, token: string, userId: string | undefined) {
-  const incomingDir = path.join(profile.import_dir, 'incoming');
-  await mkdir(incomingDir, { recursive: true });
-  const exportResult = await runChatExporterCli({
-    binary: resolveBinary(),
-    token,
-    channelId: profile.channel_id,
-    outputDir: incomingDir,
-    after: profile.after?.toISOString(),
-  });
-  const importResult = await runFolderImport(profile.import_dir, userId);
-  await db.updateTable('discord_chat_exporter_profiles')
-    .set({
-      last_run_at: new Date(),
-      last_status: importResult.errors > 0 ? 'error' : 'success',
-      last_error: importResult.errors > 0 ? `${importResult.errors} arquivo(s) com erro.` : null,
-      updated_at: new Date(),
-    })
-    .where('id', '=', profile.id)
-    .execute();
-  return { exported: exportResult, imported: importResult };
 }
 
 function sendError(res: Response, error: unknown, fallbackMessage: string): Response {
@@ -368,25 +307,21 @@ router.post('/profiles', requireAdmin, async (req: Request, res: Response) => {
 
   try {
     const { token, after, ...profile } = parsed.data;
+    // Gerar o id no código p/ derivar import_dir num único INSERT (sem UPDATE extra).
+    const id = randomUUID();
     const now = new Date();
-    const inserted = await db.insertInto('discord_chat_exporter_profiles')
+    const row = await db.insertInto('discord_chat_exporter_profiles')
       .values({
+        id,
         ...profile,
         guild_name: profile.guild_name ?? null,
         channel_name: profile.channel_name ?? null,
         token_enc: token ? encryptDiscordSetting(token) : null,
         after: toNullableDate(after),
-        import_dir: defaultImportDir(randomUUID()),
+        import_dir: defaultImportDir(id),
         created_at: now,
         updated_at: now,
       } satisfies NewDiscordChatExporterProfile)
-      .returningAll()
-      .executeTakeFirstOrThrow();
-
-    const importDir = defaultImportDir(inserted.id);
-    const row = await db.updateTable('discord_chat_exporter_profiles')
-      .set({ import_dir: importDir, updated_at: new Date() })
-      .where('id', '=', inserted.id)
       .returningAll()
       .executeTakeFirstOrThrow();
     return res.status(201).json({ data: publicProfile(row) });
@@ -447,6 +382,42 @@ router.delete('/profiles/:id', requireAdmin, async (req: Request, res: Response)
   }
 });
 
+/**
+ * Última mensagem já importada de um canal (maior snowflake em discord_import_messages).
+ * Snowflake é string numérica → ordena por bigint para pegar a mais recente de verdade.
+ */
+async function lastImportedMessageId(channelId: string): Promise<string | null> {
+  const row = await db
+    .selectFrom('discord_import_messages')
+    .select('discord_message_id')
+    .where('discord_channel_id', '=', channelId)
+    .orderBy(sql`discord_message_id::bigint`, 'desc')
+    .limit(1)
+    .executeTakeFirst();
+  return row?.discord_message_id ?? null;
+}
+
+// GET /profiles/:id/delta — dry-read "a atualizar" por canal antes do run (T6.3/T6.8).
+router.get('/profiles/:id/delta', requireAdmin, async (req: Request, res: Response) => {
+  const params = uuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: 'Perfil inválido.', details: z.flattenError(params.error) });
+  }
+
+  try {
+    const profile = await loadProfile(params.data.id);
+    if (!profile) return res.status(404).json({ error: 'Perfil não encontrado.' });
+    const afterMessageId = await lastImportedMessageId(profile.channel_id);
+    const delta = await discoverChannelDelta(profile.channel_id, afterMessageId);
+    return res.json({ data: delta });
+  } catch (error: unknown) {
+    if (error instanceof DiscordDiscoveryError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    return sendError(res, error, '[GET /admin/discord/chat-exporter/profiles/:id/delta]');
+  }
+});
+
 router.post('/profiles/:id/test', requireAdmin, async (req: Request, res: Response) => {
   const params = uuidParamSchema.safeParse(req.params);
   if (!params.success) {
@@ -459,11 +430,11 @@ router.post('/profiles/:id/test', requireAdmin, async (req: Request, res: Respon
     const loaded = await loadConfig();
     const token = await decryptProfileToken(profile) ?? loaded.token;
     const errors = profileErrors(profile, token);
-    const binaryError = await validateBinary(resolveBinary());
+    const binaryError = await validateBinary(resolveChatExporterBinary());
     if (binaryError) errors.push(binaryError);
     const command = token
       ? redactedChatExporterCliCommand(buildChatExporterCliCommand({
-          binary: resolveBinary(),
+          binary: resolveChatExporterBinary(),
           token,
           channelId: profile.channel_id,
           outputDir: path.join(profile.import_dir, 'incoming'),
@@ -491,7 +462,7 @@ router.post('/profiles/:id/run', requireAdmin, async (req: Request, res: Respons
     if (!token || errors.length > 0) {
       return res.status(422).json({ error: 'Perfil incompleto.', details: errors });
     }
-    const binaryError = await validateBinary(resolveBinary());
+    const binaryError = await validateBinary(resolveChatExporterBinary());
     if (binaryError) return res.status(422).json({ error: binaryError });
     return res.json({ data: await runProfileExport(profile, token, req.user?.userId) });
   } catch (error: unknown) {
@@ -512,7 +483,7 @@ router.post('/test', requireAdmin, async (_req: Request, res: Response) => {
     const loaded = await loadConfig();
     const errors = configErrors(loaded.config, loaded.token);
     const parsed = configSchema.safeParse(loaded.config);
-    const binary = resolveBinary();
+    const binary = resolveChatExporterBinary();
     if (parsed.success) {
       const binaryError = await validateBinary(binary);
       if (binaryError) errors.push(binaryError);
@@ -541,7 +512,7 @@ router.post('/run', requireAdmin, async (req: Request, res: Response) => {
     if (!parsed.success || !loaded.token || errors.length > 0) {
       return res.status(422).json({ error: 'Configuração incompleta.', details: errors });
     }
-    const binary = resolveBinary();
+    const binary = resolveChatExporterBinary();
     const binaryError = await validateBinary(binary);
     if (binaryError) return res.status(422).json({ error: binaryError });
 

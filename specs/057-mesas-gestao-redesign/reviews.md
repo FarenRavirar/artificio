@@ -41,3 +41,33 @@ CodeRabbit revisou arquivos do backend DCE (`chatExporterCliRunner`, `chatExport
 | D10 | Minor | `ChatExporterAutomationPanel.tsx:67-87,136-155` | `after` removido do payload não limpa filtro; `decrypt_error` nunca exibido ao admin (visibilidade de status). |
 
 → Ação: registrar em `specs/052-.../debitos.md` quando a 052 retomar / na Fase 6 do 057. Vários (D1/D4/D8) são pré-condição p/ o ChatExporter funcionar de verdade — alinham com T6.5/T6.6.
+
+## Review CodeRabbit PR #120 — Fases 5-8 (2026-06-30)
+
+Regra pétrea: sem resposta no PR; veredicto + porquê aqui. Corrigidos via código.
+
+**Corrigidos (procedem):**
+- **CR-01 🔴 Critical** `chatExporterAutomation.ts` `publicProfile` vazava `token_enc` (`...row`) → destructure omitindo `token_enc`.
+- **CR-02 🟠 Major** `adminProfile.ts` `meta.total = users.length` (teto 200, sem paginação) → `page`/`per_page` reais (`limit`+`offset`) + `COUNT(DISTINCT u.id)` com os mesmos filtros; teste atualizado (mock `offset`/`executeTakeFirst`, asserção de args do filtro).
+- **CR-03 🟠 Major** `ConteudoSection` delete de mesa sem confirmação → `confirm({variant:'danger'})`.
+- **CR-04 🟠 Major** `ConteudoSection` toggle status reativava `full`/`ended` → guard (só `active`/`cancelled`).
+- **CR-05 🟠 Major** `useAdminDashboardMetrics` `fetchActiveTablesCount` mascarava erro como 0 → `throw`.
+- **CR-06 🟠 Major** `useAdminPendencias` counts mascaravam erro como 0 → `throw` nos dois.
+- **CR-07 🟡 Minor** `placeholderData` deixava `isLoading` sempre false → removido dos 2 hooks (DashboardSection volta a mostrar loading; consumidor inalterado, guarda `?.`/`?? 0`).
+- **CR-08 🟠 Major** `ChatExporterProfilesPanel` sem UI de `media`/`include_threads` → select "Tópicos" + checkbox "Baixar mídia".
+- **CR-09 🟡 Minor** sem forma de limpar token salvo → checkbox "Remover token salvo" (`clearToken`) ao editar.
+- **CR-10 🟡 Minor** `onEdit` não populava servidores → chama `discoverGuilds()` se lista vazia.
+- **CR-11 🟠 Major** `deleteProfile` sem try/catch nem busy → try/catch + `setBusyProfileId`.
+- **CR-12 🟡 Minor** `DiscordDraftPreview` `toast.error` p/ status intermediário → só erro quando há `result.error`; senão `toast()` neutro.
+- **CR-13 🟡 Minor** OpenAPI `POST /profiles` 200→**201**, `DELETE`→**204** (bate com o backend).
+- **CR-14 🔵 z.uuid** `z.string().uuid()` depreciado → `z.uuid()`.
+- **CR-15 🔵** `POST /profiles` escrevia 2× (import_dir provisório) → `id` gerado no código, INSERT único.
+- **CR-16 🔵 dedup** `formatDate`/`formatDateTime` extraídos p/ `features/admin/utils/format.ts` (ConteudoSection, AdminUsersPanel, ChatExporterProfilesPanel).
+- **CR-17 🔵 dedup** `tabButtonClass` extraído p/ `ui/` (ConteudoSection, SistemaSection, IntegracoesSection, ModeracaoSection).
+- **CR-18 i18n** (pedido do mantenedor) traduzido: "Threads"→"Tópicos", "Última run"→"Última execução", status `success/error/running`→`sucesso/erro/em execução/sem execução`.
+- **CR-19 🔵** `adminProfile.test` passou a asserir argumentos do filtro (`u.role`,`=`,`gm`) além da contagem.
+
+**Não aplicados (com motivo, não é adiamento por preguiça):**
+- **CR-20 🧹 run síncrono → background job:** MANTIDO síncrono. Resultado imediato é a UX correta p/ ferramenta de uso pessoal; converter em fire-and-forget removeria o feedback de contagem e exigiria polling/UI de job novo (pioraria). Volume já é mitigado pelo `after` incremental + delta (T6.3). Se exports crescerem, vira spec própria de job assíncrono.
+- **CR-21 🔵 schema vs interface `ChatExporterProfile`:** MANTIDOS ambos de propósito. CLAUDE.md exige normalizador Zod tipado no boundary de dado externo (schema runtime) + tipo estático — ter os dois é o padrão mandatório, não duplicação acidental.
+- **CR-22 doc sessão checklist:** aplicado abaixo.

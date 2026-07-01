@@ -280,6 +280,14 @@ export interface ChatExporterRunResult {
   };
 }
 
+export interface ChatExporterDelta {
+  /** Mensagens novas no canal desde a última importada (limitado a uma página). */
+  newCount: number;
+  /** true = página cheia; há pelo menos `newCount` novas (pode ser mais). */
+  capped: boolean;
+  afterMessageId: string | null;
+}
+
 export interface DraftApiOperations {
   updateDraft: (id: string, body: { normalized_payload?: Record<string, unknown>; status?: DiscordImportDraftStatus; review_notes?: string }) => Promise<DiscordDraft>;
   syncDraft: (id: string) => Promise<{ tableId: string; created: boolean }>;

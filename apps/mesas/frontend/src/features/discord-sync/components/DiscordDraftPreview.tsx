@@ -76,8 +76,12 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
       }
       if (result.status === 'success') {
         toast.success('Imagem rebaixada e atualizada.');
+      } else if (result.error) {
+        // Só é erro de verdade quando o backend reporta uma causa.
+        toast.error(result.error);
       } else {
-        toast.error(result.error || 'Imagem enviada para nova tentativa.');
+        // Estado intermediário (reenfileirado/pendente) não é falha.
+        toast('Imagem enviada para nova tentativa.');
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao rebaixar imagem.');

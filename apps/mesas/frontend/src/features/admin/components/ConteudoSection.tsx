@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Power, ShieldCheck, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Power, ShieldCheck, Trash2 } from 'lucide-react';
 import { useConfirm } from '@artificio/ui';
 import toast from 'react-hot-toast';
 import { SystemsAdminView } from '../../../pages/SystemsAdminView';
 import { ScenariosAdminView } from '../../../pages/ScenariosAdminView';
 import { PlatformsPage } from '../platforms/PlatformsPage';
-import { authDelete, authGet, authPut } from '../../../services/apiClient';
-import { AdminTable, PageHeader, SectionCard, StatusPill } from './ui';
+import { authDelete, authGet, authPost, authPut } from '../../../services/apiClient';
+import { AdminTable, PageHeader, SectionCard, StatusPill, tabButtonClass } from './ui';
 import { SettingSuggestionsPanel } from './SettingSuggestionsPanel';
+import { formatDate } from '../utils/format';
 
 interface AdminTableRow {
   id: string;
@@ -60,11 +61,6 @@ function normalizeTables(value: unknown): AdminTableRow[] {
   return rows;
 }
 
-function formatDate(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('pt-BR');
-}
-
 export function ConteudoSection() {
   const { confirm } = useConfirm();
   const [tab, setTab] = useState<CatalogTab>('systems');
@@ -98,6 +94,11 @@ export function ConteudoSection() {
   }, [tab, fetchAllTables]);
 
   const handleDeleteTable = async (table: AdminTableRow) => {
+    if (!(await confirm({
+      title: 'Apagar mesa',
+      message: `Apagar a mesa "${table.title}"? Esta ação não pode ser desfeita.`,
+      variant: 'danger',
+    }))) return;
     const response = await authDelete(`/api/v1/admin/tables/${table.id}`);
     if (!response.ok) {
       toast.error(await extractErrorMessage(response, 'Erro ao apagar mesa.'));
@@ -108,6 +109,10 @@ export function ConteudoSection() {
   };
 
   const handleToggleTableStatus = async (table: AdminTableRow) => {
+    if (table.status !== 'active' && table.status !== 'cancelled') {
+      toast.error('Só é possível ativar/cancelar mesas ativas ou canceladas.');
+      return;
+    }
     const newStatus = table.status === 'active' ? 'cancelled' : 'active';
     const action = newStatus === 'active' ? 'ativar' : 'cancelar';
     if (!(await confirm({
@@ -135,6 +140,17 @@ export function ConteudoSection() {
     await fetchAllTables();
   };
 
+  const handleTablesBatch = async (ids: string[], action: 'archive' | 'unarchive' | 'delete') => {
+    const response = await authPost('/api/v1/admin/tables/batch', { ids, action });
+    if (!response.ok) {
+      toast.error(await extractErrorMessage(response, 'Erro na ação em lote.'));
+      return;
+    }
+    const verb = action === 'delete' ? 'apagada(s)' : action === 'archive' ? 'arquivada(s)' : 'desarquivada(s)';
+    toast.success(`${ids.length} mesa(s) ${verb}.`);
+    await fetchAllTables();
+  };
+
   const tableColumns = useMemo(() => [
     {
       key: 'title',
@@ -158,12 +174,7 @@ export function ConteudoSection() {
     },
   ], []);
 
-  const tabClass = (item: CatalogTab) =>
-    `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-      tab === item
-        ? 'bg-[var(--admin-hover)] text-[var(--fg)]'
-        : 'text-[var(--fg-low)] hover:bg-[var(--admin-hover)] hover:text-[var(--fg)]'
-    }`;
+  const tabClass = (item: CatalogTab) => tabButtonClass(tab === item);
 
   return (
     <div className="space-y-5">
@@ -232,6 +243,11 @@ export function ConteudoSection() {
             loading={tablesLoading}
             error={tablesError}
             emptyTitle="Nenhuma mesa encontrada"
+            bulkActions={[
+              { key: 'archive', label: 'Arquivar', icon: <Archive size={15} />, onRun: (ids) => handleTablesBatch(ids, 'archive') },
+              { key: 'unarchive', label: 'Desarquivar', icon: <ArchiveRestore size={15} />, onRun: (ids) => handleTablesBatch(ids, 'unarchive') },
+              { key: 'delete', label: 'Apagar', icon: <Trash2 size={15} />, tone: 'danger', confirm: 'Apagar as mesas selecionadas? Ação irreversível.', onRun: (ids) => handleTablesBatch(ids, 'delete') },
+            ]}
             rowActions={[
               { key: 'status', label: 'Ativar/cancelar', icon: <Power size={15} />, onRun: handleToggleTableStatus },
               { key: 'covil', label: 'Alternar Covil', icon: <ShieldCheck size={15} />, onRun: handleToggleCovil },

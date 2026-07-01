@@ -9,7 +9,7 @@ import { ChatExporterProfilesPanel } from '../../../features/discord-sync/compon
 import { EnrichmentAdminPanel } from '../hydration/EnrichmentAdminPanel';
 import { TextPasteArea } from '../../../features/inbox/components/TextPasteArea';
 import { useDiscordSync } from '../../../features/discord-sync/hooks/useDiscordSync';
-import { PageHeader, SectionCard } from './ui';
+import { PageHeader, SectionCard, tabButtonClass } from './ui';
 
 type IntSubTab = 'bot' | 'arquivo' | 'texto' | 'enriquecimento';
 type BotTab = 'configuracao' | 'importacao' | 'relatorios';
@@ -78,19 +78,8 @@ export function IntegracoesSection() {
   const [botTab, setBotTab] = useState<BotTab>('configuracao');
   const navigate = useNavigate();
 
-  const subTabClass = (tab: IntSubTab) =>
-    `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-      subTab === tab
-        ? 'bg-[var(--admin-hover)] text-[var(--fg)]'
-        : 'text-[var(--fg-low)] hover:bg-[var(--admin-hover)] hover:text-[var(--fg)]'
-    }`;
-
-  const botTabClass = (tab: BotTab) =>
-    `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-      botTab === tab
-        ? 'bg-[var(--admin-hover)] text-[var(--fg)]'
-        : 'text-[var(--fg-low)] hover:bg-[var(--admin-hover)] hover:text-[var(--fg)]'
-    }`;
+  const subTabClass = (tab: IntSubTab) => tabButtonClass(subTab === tab, 'inline-flex items-center gap-2');
+  const botTabClass = (tab: BotTab) => tabButtonClass(botTab === tab);
 
   return (
     <div className="space-y-5">

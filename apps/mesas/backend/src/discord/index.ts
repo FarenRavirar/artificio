@@ -25,8 +25,8 @@ export type {
 export { discordConfig } from './config';
 
 // Funções de pipeline (adicionadas conforme implementação das Fases 2–4)
-export { discoverDiscordChannels, discoverDiscordGuilds, DiscordDiscoveryError } from './discovery';
-export type { DiscordDiscoveredChannel, DiscordDiscoveredGuild } from './discovery';
+export { discoverDiscordChannels, discoverDiscordGuilds, discoverChannelDelta, DiscordDiscoveryError, DISCORD_DELTA_PAGE_LIMIT } from './discovery';
+export type { DiscordDiscoveredChannel, DiscordDiscoveredGuild, DiscordChannelDelta } from './discovery';
 export { DiscordIngestError, ingestForumMessages, ingestMessages } from './ingestMessages';
 export type { IngestResult } from './ingestMessages';
 export { parseDiscordAnnouncement } from './parseDiscordAnnouncement';

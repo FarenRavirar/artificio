@@ -171,8 +171,36 @@ Tree limpa.
 - Tasks: T7.1, T7.2, T7.3 e T7.4 marcadas concluídas localmente; smoke beta permanece em T9.2.
 - Validação: `pnpm --filter @artificio/mesas-backend test -- adminProfile adminSettingSuggestions` ✅ (34 files, 323 tests); `pnpm --filter @artificio/mesas-frontend lint` ✅; `pnpm --filter @artificio/mesas-frontend build` ✅ (warning conhecido chunk >500 kB); `pnpm --filter @artificio/mesas-backend build` ✅; `pnpm verify:api` ✅ (mesas +4 non-breaking; mesmos 3 warnings `no-ambiguous-paths` conhecidos); `git diff --check` ✅ (somente avisos LF→CRLF).
 
+## Fases 2/6 restantes — tudo antes da Fase 8 (2026-06-30)
+- Pedido: implementar tudo que falta antes da Fase 8, **tudo na spec 057, sem SDD separado** (deploy/commit seguem gated à parte).
+- **T2.5 ✅** — `POST /api/v1/admin/tables/batch` (`archive`/`unarchive`/`delete`, idempotente, `logActivity`) em `adminTables.ts`; `bulkActions` (arquivar/desarquivar/apagar-lote com confirm) na tabela Mesas publicadas do Catálogo. Drafts/messages já tinham `/batch`; sugestões seguem rejeição-em-lote por N chamadas.
+- **T6.3 ✅** — dry-read delta: `discoverChannelDelta(channelId, afterMessageId)` em `discord/discovery.ts` (Discord API `/channels/:id/messages?after=`, 1 página teto 100) + `GET /chat-exporter/profiles/:id/delta` (maior snowflake importado via `discord_import_messages`). Exportado no `discord/index.ts`.
+- **T6.4 ✅** — `IntegrationLogsView`: filtro por origem + ordenação (recentes/antigas/mais falhas).
+- **T6.7 ✅** — `ChatExporterProfilesPanel` reescrito como wizard 3 passos (Conectar → Canais → Agenda), estados explicativos, guia de token, sem ID cru.
+- **T6.8 ✅** — ação "Ver novidades" por perfil (consome delta) + exibição na coluna Saúde; delta limpo após import.
+- **T6.9 ✅ (código)** — `runProfileExport`/`runFolderImport`/`resolveChatExporterBinary` extraídos p/ `discord/chatExporterProfileRunner.ts` (dedup rota↔runner); `discord/chatExporterSchedule.ts` com `isProfileDue`/`selectDueProfiles` (puras); script `runDiscordChatExporterSchedule.ts` + `discord:chat-exporter-schedule` no package.json + tick 5 min no `cronRunner.ts`. Teste `chatExporterSchedule.test.ts` (11 casos).
+- **T6.6** — Dockerfile já bundla a CLI DCE pinada (`tyrrrz/discordchatexporter:2.47.3` → `/opt/dce`) — inalterado; deploy/runtime gated.
+- **Gated (não feito, por regra de deploy/commit):** runtime real de delta/CLI/scheduler (bot token + canal + `mesas-cron` no beta) = smoke T9.2; deploy do Dockerfile DCE; nenhum commit/push.
+- **Validação:** `pnpm --filter @artificio/mesas-backend build` ✅; `test` ✅ (35 files, **332** tests, +11 do scheduler); `pnpm --filter @artificio/mesas-frontend lint` ✅; `build` ✅ (warning chunk >500kB conhecido); `test` ✅ (13 files, 148 tests); `pnpm verify:api` ✅ (mesas +6 non-breaking, breaking=0, órfãs 0, duplicatas 0, exit 0).
+- **Estado:** tudo antes da Fase 8 code-complete. Falta só Fase 8 (limpeza de contrato) + Fase 9 (validação/smoke/promote). Código local, **não commitado**.
+
+## Fase 8 — Limpeza de contrato (2026-06-30)
+- Pedido: "pode realizar a 8".
+- Investigação (código = verdade): **`import/metrics`** (`inbox/metrics.ts`, montado em `adminImportInbox.ts`) = 0 caller frontend + redundante com `GET /admin/discord/metrics` → **removido**. **`import-json/reparse`** (`discord/import.ts`) = reprocessa `discord_import_messages` em lote por `messageIds` (não é o `drafts/:id/reparse` de draft único) → **não redundante, MANTIDO**.
+- **T8.1 ✅** — removido: mount `router.use('/metrics', metricsRouter)` + import em `adminImportInbox.ts`; arquivo `inbox/metrics.ts` deletado; bloco de teste `GET /admin/import/metrics` (2 casos) em `adminImportInbox.test.ts`; path `/api/v1/admin/import/metrics` em `mesas.openapi.yaml`.
+- **T8.2 ✅** — `pnpm api:bundle` (281 ops) + `pnpm verify:api` exit 0. mesas breaking=1 (`path.remove` do import/metrics, intencional/aprovado), non-breaking=6 (rotas novas fases 5-7).
+- **Validação:** backend build ✅; test ✅ (35 files, **330** tests, -2 do metrics); `pnpm -w run lint` ✅ (15/15). Código local, **não commitado**.
+- **Estado:** Fases 2–8 completas. Falta só **Fase 9** (T9.1 validação — já verde local; T9.2 smoke beta auth-gated; T9.3 promote — gated aprovação nominal).
+
+## Review CodeRabbit PR #120 — correções Fases 5-8 (2026-06-30)
+- Pedido do mantenedor: "corrija e implemente", "tudo que não seja ruim, agora"; no frontend traduzir termos exceto os bem conhecidos.
+- Triagem completa + veredictos em `reviews.md` §"Review CodeRabbit PR #120". 19 achados corrigidos (1 Critical token leak, 6 Major, Minors, dedups, i18n); 2 não aplicados com justificativa técnica (run síncrono mantido por UX; schema+tipo é padrão de normalização mandatório).
+- Destaques: `publicProfile` não vaza mais `token_enc`; `admin/users` com paginação real (`page`/`per_page`+`COUNT`); delete de mesa com confirmação; toggle status não reativa `full`/`ended`; hooks propagam erro (sem mascarar 0) e sem `placeholderData` (loading volta a funcionar); UI de `media`/`Tópicos`/`clearToken`; `deleteProfile` com try/catch+busy; OpenAPI 201/204; `formatDate`/`tabButtonClass` extraídos; i18n (Tópicos, Última execução, status pt-BR).
+- Validação: backend build+330 tests; frontend lint+build+148 tests; `verify:api` exit 0 (mesas breaking=1 = remoção Fase 8; non-breaking=6). Código local, **não commitado**.
+
 ## Critério de conclusão (desta abertura)
 - `inventario.md` + `proposta-ia.md` completos; plano faseado aprovado pelo mantenedor.
+- [ ] `project-state.md` atualizado com status, débitos e backlog refletindo esta sessão.
 
 ## Backlog
 - `BL-057-GESTAO-REDESIGN` registrado em `specs/backlog.md`.

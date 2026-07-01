@@ -11,3 +11,4 @@ export {
   type AdminRowAction,
 } from './AdminTable';
 export { bulkDelete, bulkArchive } from './bulkActions';
+export { tabButtonClass } from './tabButtonClass';

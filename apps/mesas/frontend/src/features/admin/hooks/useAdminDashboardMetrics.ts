@@ -15,18 +15,6 @@ export interface AdminDashboardMetrics {
   latestImportRun: DiscordImportRun | null;
 }
 
-const EMPTY_METRICS: AdminDashboardMetrics = {
-  activeTables: 0,
-  draftTotals: {
-    drafts: 0,
-    ready: 0,
-    needsReview: 0,
-    synced: 0,
-    rejected: 0,
-  },
-  latestImportRun: null,
-};
-
 function normalizeTablesCount(payload: unknown): number {
   const rows = payload && typeof payload === 'object' ? (payload as Record<string, unknown>).data : [];
   if (!Array.isArray(rows)) return 0;
@@ -39,7 +27,7 @@ function normalizeTablesCount(payload: unknown): number {
 
 async function fetchActiveTablesCount(): Promise<number> {
   const response = await authGet('/api/v1/tables');
-  if (!response.ok) return 0;
+  if (!response.ok) throw new Error('Erro ao buscar mesas.');
   return normalizeTablesCount(await response.json());
 }
 
@@ -67,6 +55,5 @@ export function useAdminDashboardMetrics() {
     queryKey: ['admin', 'dashboard-metrics'],
     queryFn: fetchDashboardMetrics,
     staleTime: 30_000,
-    placeholderData: EMPTY_METRICS,
   });
 }

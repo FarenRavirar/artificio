@@ -31,7 +31,9 @@
     "discord:retry-image-uploads": "node dist/scripts/retryDiscordImageUploads.js",
     "discord:retry-image-uploads:dev": "ts-node src/scripts/retryDiscordImageUploads.ts",
     "discord:cleanup-orphan-images": "node dist/scripts/cleanupOrphanDraftImages.js",
-    "discord:cleanup-orphan-images:dev": "ts-node src/scripts/cleanupOrphanDraftImages.ts"
+    "discord:cleanup-orphan-images:dev": "ts-node src/scripts/cleanupOrphanDraftImages.ts",
+    "discord:chat-exporter-schedule": "node dist/scripts/runDiscordChatExporterSchedule.js",
+    "discord:chat-exporter-schedule:dev": "ts-node src/scripts/runDiscordChatExporterSchedule.ts"
   },
   "keywords": [],
   "author": "",

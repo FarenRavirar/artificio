@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AdminUsersPanel } from './AdminUsersPanel';
-import { PageHeader, SectionCard } from './ui';
+import { PageHeader, SectionCard, tabButtonClass } from './ui';
 import { DevFeedbackPanel } from '../dev-feedback/DevFeedbackPanel';
 
 type SystemTab = 'users' | 'feedback';
@@ -13,12 +13,7 @@ const TAB_LABEL: Record<SystemTab, string> = {
 export function SistemaSection() {
   const [tab, setTab] = useState<SystemTab>('users');
 
-  const tabClass = (item: SystemTab) =>
-    `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-      tab === item
-        ? 'bg-[var(--admin-hover)] text-[var(--fg)]'
-        : 'text-[var(--fg-low)] hover:bg-[var(--admin-hover)] hover:text-[var(--fg)]'
-    }`;
+  const tabClass = (item: SystemTab) => tabButtonClass(tab === item);
 
   return (
     <div className="space-y-5">

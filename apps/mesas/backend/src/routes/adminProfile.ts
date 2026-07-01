@@ -54,60 +54,83 @@ router.patch(
 // GET /api/v1/admin/users — Listar usuários (para gestão)
 // =============================================================================
 
+function clampInt(value: unknown, fallback: number, min: number, max: number): number {
+  const n = typeof value === 'string' ? Number.parseInt(value, 10) : Number.NaN;
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
 router.get('/users', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   const { search, role, covil_verified } = req.query;
+  const page = clampInt(req.query.page, 1, 1, 100_000);
+  const perPage = clampInt(req.query.per_page, 50, 1, 200);
+  const offset = (page - 1) * perPage;
 
   try {
-    let query = db
+    // Filtros idênticos aplicados à query de dados e à de contagem (paginação real).
+    const withFilters = <Q extends { where: (...args: any[]) => Q }>(query: Q): Q => {
+      let q = query;
+      if (typeof role === 'string' && ['visitor', 'player', 'gm', 'admin'].includes(role)) {
+        q = q.where('u.role', '=', role as UserRole);
+      }
+      if (covil_verified === 'true') {
+        q = q.where('gm.covil_verified', '=', true);
+      } else if (covil_verified === 'false') {
+        q = q.where((eb: any) => eb.or([
+          eb('gm.covil_verified', '=', false),
+          eb('gm.covil_verified', 'is', null),
+        ]));
+      }
+      if (typeof search === 'string' && search.trim()) {
+        const s = `%${search.trim()}%`;
+        q = q.where((eb: any) => eb.or([
+          eb('u.email', 'ilike', s),
+          eb('u.username', 'ilike', s),
+          eb('p.display_name', 'ilike', s),
+          eb('gm.nickname', 'ilike', s),
+        ]));
+      }
+      return q;
+    };
+
+    const baseFrom = () => db
       .selectFrom('users as u')
       .leftJoin('profiles as p', 'p.user_id', 'u.id')
-      .leftJoin('gm_profiles as gm', 'gm.user_id', 'u.id')
-      .select([
-        'u.id',
-        'u.email',
-        'u.username',
-        'u.role',
-        'u.location',
-        'u.created_at',
-        'u.updated_at',
-        'p.display_name',
-        'p.avatar_url',
-        'gm.slug as gm_slug',
-        'gm.nickname as gm_nickname',
-        sql<boolean>`COALESCE(gm.covil_verified, false)`.as('covil_verified'),
-        'gm.covil_verified_at',
-      ])
+      .leftJoin('gm_profiles as gm', 'gm.user_id', 'u.id');
+
+    const users = await withFilters(
+      baseFrom()
+        .select([
+          'u.id',
+          'u.email',
+          'u.username',
+          'u.role',
+          'u.location',
+          'u.created_at',
+          'u.updated_at',
+          'p.display_name',
+          'p.avatar_url',
+          'gm.slug as gm_slug',
+          'gm.nickname as gm_nickname',
+          sql<boolean>`COALESCE(gm.covil_verified, false)`.as('covil_verified'),
+          'gm.covil_verified_at',
+        ]) as any,
+    )
       .orderBy('u.created_at', 'desc')
-      .limit(200);
+      .limit(perPage)
+      .offset(offset)
+      .execute();
 
-    if (typeof role === 'string' && ['visitor', 'player', 'gm', 'admin'].includes(role)) {
-      query = query.where('u.role', '=', role as UserRole);
-    }
-    if (covil_verified === 'true') {
-      query = query.where('gm.covil_verified', '=', true);
-    } else if (covil_verified === 'false') {
-      query = query.where((eb) => eb.or([
-        eb('gm.covil_verified', '=', false),
-        eb('gm.covil_verified', 'is', null),
-      ]));
-    }
-    if (typeof search === 'string' && search.trim()) {
-      const q = `%${search.trim()}%`;
-      query = query.where((eb) => eb.or([
-        eb('u.email', 'ilike', q),
-        eb('u.username', 'ilike', q),
-        eb('p.display_name', 'ilike', q),
-        eb('gm.nickname', 'ilike', q),
-      ]));
-    }
+    const totalRow = await withFilters(
+      baseFrom().select(sql<number>`COUNT(DISTINCT u.id)::int`.as('count')) as any,
+    ).executeTakeFirst();
 
-    const users = await query.execute();
     return res.json({
       data: users,
       meta: {
-        total: users.length,
-        page: 1,
-        per_page: 200,
+        total: Number(totalRow?.count ?? users.length),
+        page,
+        per_page: perPage,
       },
     });
   } catch (error: any) {

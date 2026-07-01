@@ -6,7 +6,7 @@ import { MessagesView } from '../../../features/discord-sync/components/Messages
 import { DiscordDraftReviewTable } from '../../../features/discord-sync/components/DiscordDraftReviewTable';
 import { discordSyncApi } from '../../../features/discord-sync/api/discordSyncApi';
 import { inboxApi } from '../../../features/inbox/api/inboxApi';
-import { PageHeader, SectionCard } from './ui';
+import { PageHeader, SectionCard, tabButtonClass } from './ui';
 
 type ModSubTab = 'mensagens' | 'rascunhos';
 
@@ -84,12 +84,7 @@ export function ModeracaoSection() {
     navigate(`/gestao/mesas/${tab}`);
   };
 
-  const subTabClass = (tab: ModSubTab) =>
-    `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-      subTab === tab
-        ? 'bg-[var(--admin-hover)] text-[var(--fg)]'
-        : 'text-[var(--fg-low)] hover:bg-[var(--admin-hover)] hover:text-[var(--fg)]'
-    }`;
+  const subTabClass = (tab: ModSubTab) => tabButtonClass(subTab === tab);
 
   /**
    * Correction-tracking (DEB-054-03 / R-A9):

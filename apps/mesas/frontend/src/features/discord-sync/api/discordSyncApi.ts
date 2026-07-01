@@ -19,6 +19,7 @@ import type {
   ChatExporterProfileInput,
   ChatExporterTestResult,
   ChatExporterRunResult,
+  ChatExporterDelta,
 } from '../types';
 import { z } from 'zod';
 import { authenticatedFetch } from '../../../services/apiClient';
@@ -93,6 +94,17 @@ const chatExporterProfileSchema = z.object({
   updated_at: z.string(),
   token: chatExporterSecretStatusSchema,
 });
+
+const chatExporterDeltaSchema = z.object({
+  newCount: z.number().int().nonnegative(),
+  capped: z.boolean(),
+  afterMessageId: z.string().nullable(),
+});
+function parseChatExporterDelta(data: unknown): ChatExporterDelta {
+  const parsed = chatExporterDeltaSchema.safeParse(data);
+  if (!parsed.success) throw new Error('Resposta de delta ChatExporter em formato inesperado.');
+  return parsed.data;
+}
 
 const chatExporterTestResultSchema = z.object({
   ok: z.boolean(),
@@ -425,6 +437,9 @@ export const discordSyncApi = {
 
   runChatExporterProfile: async (id: string) =>
     parseChatExporterRunResult(await apiFetch<unknown>(`/chat-exporter/profiles/${id}/run`, { method: 'POST' })),
+
+  getChatExporterProfileDelta: async (id: string) =>
+    parseChatExporterDelta(await apiFetch<unknown>(`/chat-exporter/profiles/${id}/delta`)),
 
   discoverGuilds: async () =>
     parseDiscordDiscoveredGuilds(await apiFetch<unknown>('/discovery/guilds')),
