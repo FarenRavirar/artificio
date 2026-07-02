@@ -358,11 +358,11 @@ function parseImportResult(data: unknown) {
 // que ficassem pending (dedup de reimport, timeout, restart mid-request) não
 // tinham como ser reprocessadas pela UI.
 const reparseResultSchema = z.object({
-  total: z.number(),
-  reparsed: z.number(),
-  discarded: z.number(),
-  ignored: z.number(),
-  errors: z.number(),
+  total: z.number().int().nonnegative(),
+  reparsed: z.number().int().nonnegative(),
+  discarded: z.number().int().nonnegative(),
+  ignored: z.number().int().nonnegative(),
+  errors: z.number().int().nonnegative(),
   truncated: z.boolean(),
 });
 export type ReparsePendingResult = z.infer<typeof reparseResultSchema>;
