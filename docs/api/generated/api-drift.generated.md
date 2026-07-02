@@ -10,11 +10,11 @@
 
 | Estado | Quantidade | Bloqueia? |
 |--------|-----------|:---------:|
-| ✅ OK | 200 | ❌ |
+| ✅ OK | 201 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 2 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 78 | ❌ |
+| 🕳️ UNUSED_ROUTE | 77 | ❌ |
 | 👻 ORPHAN_SUSPECT | 0 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
@@ -247,7 +247,7 @@
 | POST | `/api/v1/admin/discord/import-json/file` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/import-json/preview` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/import-json/preview/file` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/admin/discord/import-json/reparse` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/admin/discord/import-json/reparse` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/messages/:id/diagnose-content` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/messages/:id/parse` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/messages/parse-batch` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |

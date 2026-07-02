@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 292,
-    "uniqueEndpoints": 272,
+    "total": 293,
+    "uniqueEndpoints": 273,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,16 +36,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 176,
+        "total": 177,
         "byConfidence": {
           "medium": 67,
-          "high": 107,
+          "high": 108,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 59,
-          "service-wrapper": 48,
+          "service-wrapper": 49,
           "literal": 61,
           "concatenation": 2
         }
@@ -1198,6 +1198,16 @@
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.previewFile",
       "line": 153
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/DiscordJsonImportPanel.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/discord/import-json/reparse",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.reparsePending",
+      "line": 33
     },
     {
       "app": "mesas-frontend",
