@@ -51,7 +51,7 @@ const CANDIDATE_CONFIDENCE = 0.65;
 function stableJson(value: unknown): string {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return JSON.stringify(value ?? {});
   const record = value as Record<string, unknown>;
-  return JSON.stringify(Object.keys(record).sort().reduce<Record<string, unknown>>((acc, key) => {
+  return JSON.stringify(Object.keys(record).sort((a, b) => a.localeCompare(b)).reduce<Record<string, unknown>>((acc, key) => {
     const item = record[key];
     if (item !== undefined && item !== null && item !== '') acc[key] = item;
     return acc;
@@ -156,8 +156,13 @@ function scopePredicates(scope: LearningRuleScope | undefined | null): Array<Ret
   if (scope?.guild_id) scopes.push(deriveScope({ guild_id: scope.guild_id }));
   if (scope?.channel_id) scopes.push(deriveScope({ channel_id: scope.channel_id }));
   if (scope?.author_id) scopes.push(deriveScope({ author_id: scope.author_id }));
+  if (scope?.profile_id) scopes.push(deriveScope({ profile_id: scope.profile_id }));
   if (scope?.guild_id && scope?.channel_id) scopes.push(deriveScope({ guild_id: scope.guild_id, channel_id: scope.channel_id }));
   if (scope?.guild_id && scope?.author_id) scopes.push(deriveScope({ guild_id: scope.guild_id, author_id: scope.author_id }));
+  if (scope?.channel_id && scope?.author_id) scopes.push(deriveScope({ channel_id: scope.channel_id, author_id: scope.author_id }));
+  if (scope?.guild_id && scope?.channel_id && scope?.author_id) {
+    scopes.push(deriveScope({ guild_id: scope.guild_id, channel_id: scope.channel_id, author_id: scope.author_id }));
+  }
   return scopes;
 }
 
@@ -188,7 +193,7 @@ export async function lookupLearningRules(
         .where('field', '=', field)
         .where('input_token', '=', token)
         .where('status', '=', 'active')
-        .where('confidence', '>=', ACTIVE_CONFIDENCE)
+        .where('confidence', '>=', String(ACTIVE_CONFIDENCE))
         .where('scope_hash', 'in', scopeHashes)
         .orderBy('confidence', 'desc')
         .orderBy('updated_at', 'desc')
@@ -240,8 +245,8 @@ export async function recordLearningRuleApplications(input: {
           parse_case_id: input.parseCaseId ?? null,
           draft_id: input.draftId ?? null,
           field: hit.field,
-          before_value: normalizeJsonValue(input.beforeValues?.[hit.field]),
-          after_value: hit.value,
+          before_value: sql`${normalizeJsonValue(input.beforeValues?.[hit.field])}::jsonb`,
+          after_value: sql`${normalizeJsonValue(hit.value)}::jsonb`,
           outcome: input.outcome ?? 'applied',
           reason: input.reason ?? null,
         })

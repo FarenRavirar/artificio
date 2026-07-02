@@ -527,7 +527,8 @@ async function enrichDraftWithLlm(
   const usedStore = Object.keys(storeFields).length > 0;
   const usedRules = ruleLookup.hits.length > 0;
   const learningProvider = usedRules ? 'learning-rules' : 'learning-store';
-  const provider = usedIa ? (usedStore ? `${learningProvider}+${aiConfig.provider}` : aiConfig.provider) : learningProvider;
+  let provider = learningProvider;
+  if (usedIa) provider = usedStore ? `${learningProvider}+${aiConfig.provider}` : aiConfig.provider;
   const model = usedIa ? iaModel : 'n/a';
   if (ruleLookup.hits.length > 0) {
     void recordLearningRuleApplications({

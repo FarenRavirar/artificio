@@ -33,7 +33,7 @@ export interface RetrievedParseCase {
   channel_id: string | null;
   author_id: string | null;
   features_json: unknown;
-  final_result_json: unknown | null;
+  final_result_json: unknown;
   text_similarity: number;
   has_field_correction: boolean;
   has_publish_feedback: boolean;
@@ -55,6 +55,15 @@ export interface RetrievalContext {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+const TRAILING_PUNCT = new Set(['.', ',', ';', ':']);
+
+/** Remove pontuação de fechamento no fim da URL sem regex de quantificador+âncora (Sonar S5852). */
+function stripTrailingPunct(url: string): string {
+  let end = url.length;
+  while (end > 0 && TRAILING_PUNCT.has(url[end - 1])) end -= 1;
+  return url.slice(0, end);
 }
 
 function asStringArray(value: unknown): string[] {
@@ -84,14 +93,14 @@ export function extractStructuralUrls(caseRow: Pick<DiscordParseCase, 'features_
   const attachmentUrls = new Set(asStringArray(features.attachment_urls));
   const urlMatches = caseRow.normalized_text.match(/https?:\/\/[^\s)>\]]+/g) ?? [];
   for (const url of urlMatches) {
-    const cleanUrl = url.replace(/[.,;:]+$/g, '');
+    const cleanUrl = stripTrailingPunct(url);
     if (/forms\.gle|docs\.google\.com\/forms/i.test(cleanUrl)) {
       formUrls.add(cleanUrl);
     }
   }
   return {
-    form_urls: [...formUrls].sort(),
-    attachment_urls: [...attachmentUrls].sort(),
+    form_urls: [...formUrls].sort((a, b) => a.localeCompare(b)),
+    attachment_urls: [...attachmentUrls].sort((a, b) => a.localeCompare(b)),
   };
 }
 
@@ -127,8 +136,18 @@ export function buildDuplicateSignals(current: DiscordParseCase, candidate: Retr
 }
 
 export function scoreDuplicateCandidate(signals: DuplicateSignals): number {
-  if (signals.raw_hash_exact) return 1;
-  if (signals.normalized_hash_exact) return 0.97;
+  // Hash exato só vira duplicata forte se houver outro sinal — protege
+  // attachment-only/embed-only quando o texto dá hash de string vazia.
+  const hasCorroboratingSignal =
+    signals.same_form_url
+    || signals.shared_attachment_urls.length > 0
+    || signals.same_channel
+    || signals.same_author
+    || signals.same_system_hint;
+  if (signals.raw_hash_exact && hasCorroboratingSignal) return 1;
+  if (signals.normalized_hash_exact && hasCorroboratingSignal) return 0.97;
+  if (signals.raw_hash_exact) return 0.6;
+  if (signals.normalized_hash_exact) return 0.55;
 
   let score = signals.text_similarity * 0.62;
   if (signals.same_form_url) score += 0.22;
@@ -167,7 +186,10 @@ export async function loadRetrievalContext(parseCaseId: string, limit = 20): Pro
   if (!current) return null;
 
   const currentUrls = extractStructuralUrls(current);
-  const formUrlPredicates = currentUrls.form_urls.map((url) => sql<boolean>`candidate.normalized_text LIKE ${`%${url}%`}`);
+  const formUrlPredicates = currentUrls.form_urls.map((url) => {
+    const likePattern = `%${url}%`;
+    return sql<boolean>`candidate.normalized_text LIKE ${likePattern}`;
+  });
   const structuralPredicate = formUrlPredicates.length > 0
     ? sql<boolean>`OR (${sql.join(formUrlPredicates, sql` OR `)})`
     : sql<boolean>``;
@@ -207,7 +229,16 @@ export async function loadRetrievalContext(parseCaseId: string, limit = 20): Pro
         candidate.raw_hash = ${current.raw_hash}
         OR candidate.normalized_hash = ${current.normalized_hash}
         OR similarity(candidate.normalized_text, ${current.normalized_text}) >= 0.28
-        OR (candidate.guild_id IS NOT NULL AND candidate.guild_id = ${current.guild_id})
+        OR (
+          candidate.guild_id IS NOT NULL
+          AND candidate.guild_id = ${current.guild_id}
+          AND candidate.created_at >= NOW() - INTERVAL '30 days'
+          AND (
+            candidate.channel_id = ${current.channel_id}
+            OR candidate.author_id = ${current.author_id}
+            OR similarity(candidate.normalized_text, ${current.normalized_text}) >= 0.15
+          )
+        )
         ${structuralPredicate}
       )
     ORDER BY

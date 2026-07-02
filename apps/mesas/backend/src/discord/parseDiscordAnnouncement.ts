@@ -303,11 +303,14 @@ function extractPrice(text: string): { priceType: TableDraftPriceType | null; pr
     }
   }
   const lower = text.toLowerCase();
+  // Gratuita antes de paga: "valor: gratuito", "não é paga" e "mesa gratuita"
+  // baterem primeiro no regex de paga (pag[ao]/valor) e nunca chegarem no ramo
+  // gratuito. Também detecta negação explícita ("não é pago", "sem valor").
+  if (/\bgratuit[oa]s?\b|\bfree\b|\bsem\s+(?:custo|valor|pagamento|mensalidade)\b|\bn[aã]o\s+(?:é|e)\s+pag[ao]\b/.test(lower)) {
+    return { priceType: 'gratuita', priceValue: null };
+  }
   if (/\b(?:mesa\s+)?pag[ao]\b|\bvalor\s*:|\bpagamento\b|\bmensalidade\b|\bpor\s+sess[aã]o\b/.test(lower)) {
     return { priceType: 'paga', priceValue: null };
-  }
-  if (/\bgratuita?\b|\bfree\b|\bsem\s+custo\b/.test(lower)) {
-    return { priceType: 'gratuita', priceValue: null };
   }
   return { priceType: null, priceValue: null };
 }

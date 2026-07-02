@@ -734,10 +734,10 @@ export interface DiscordParseCasesTable {
   normalized_hash: string;
   normalized_text: string;
   features_json: unknown;
-  deterministic_result_json: unknown | null;
-  retrieval_context_json: unknown | null;
+  deterministic_result_json: unknown;
+  retrieval_context_json: unknown;
   llm_context_hash: string | null;
-  final_result_json: unknown | null;
+  final_result_json: unknown;
   final_action: string;
   parser_version: string;
   prompt_version: string | null;
@@ -756,8 +756,8 @@ export interface DiscordParseFeedbackTable {
   draft_id: string | null;
   feedback_type: string;
   field: string | null;
-  before_value: unknown | null;
-  after_value: unknown | null;
+  before_value: unknown;
+  after_value: unknown;
   reason: string | null;
   scope_json: unknown;
   admin_user_id: string | null;
@@ -778,7 +778,8 @@ export interface DiscordDuplicateCandidatesTable {
   id: Generated<string>;
   parse_case_id: string;
   candidate_case_id: string;
-  score: ColumnType<number, number, number>;
+  // NUMERIC(5,4): pg (OID 1700) devolve string quando não há parser registrado.
+  score: ColumnType<string, number, number>;
   signals_json: ColumnType<unknown, unknown, unknown>;
   status: Generated<DiscordDuplicateCandidateStatus>;
   reviewed_by: string | null;
@@ -810,11 +811,12 @@ export interface DiscordLearningRulesTable {
   field: string | null;
   input_pattern: string | null;
   input_token: string | null;
-  output_value: ColumnType<unknown | null, unknown | null, unknown | null>;
+  output_value: ColumnType<unknown, unknown, unknown>;
   scope_type: Generated<DiscordLearningRuleScopeType>;
   scope_json: ColumnType<unknown, unknown, unknown>;
   scope_hash: string;
-  confidence: ColumnType<number, number | undefined, number>;
+  // NUMERIC(5,4): pg devolve string; consumidor deve Number() antes de usar.
+  confidence: ColumnType<string, number | undefined, number>;
   hits: Generated<number>;
   rejections: Generated<number>;
   applied_count: Generated<number>;
@@ -837,8 +839,8 @@ export interface DiscordLearningRuleApplicationsTable {
   parse_case_id: string | null;
   draft_id: string | null;
   field: string | null;
-  before_value: ColumnType<unknown | null, unknown | null, unknown | null>;
-  after_value: ColumnType<unknown | null, unknown | null, unknown | null>;
+  before_value: ColumnType<unknown, unknown, unknown>;
+  after_value: ColumnType<unknown, unknown, unknown>;
   outcome: Generated<DiscordLearningRuleApplicationOutcome>;
   reason: string | null;
   created_at: Generated<Date>;
@@ -864,8 +866,8 @@ export interface DiscordLlmDecisionsTable {
   prompt_version: string;
   context_pack_hash: string;
   request_json: ColumnType<unknown, unknown, unknown>;
-  response_json: ColumnType<unknown | null, unknown | null, unknown | null>;
-  validated_result_json: ColumnType<unknown | null, unknown | null, unknown | null>;
+  response_json: ColumnType<unknown, unknown, unknown>;
+  validated_result_json: ColumnType<unknown, unknown, unknown>;
   latency_ms: number | null;
   token_estimate: number | null;
   status: DiscordLlmDecisionStatus;

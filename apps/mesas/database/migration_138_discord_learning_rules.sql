@@ -6,17 +6,26 @@
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- Funcoes IMMUTABLE p/ eliminar duplicacao de literal (Sonar S1192) entre CHECK
+-- constraints e o INSERT de seed mais abaixo — mesma constante, uma so fonte.
+CREATE OR REPLACE FUNCTION discord_learning_rule_type_field_value() RETURNS TEXT
+  LANGUAGE sql IMMUTABLE AS $$ SELECT 'field_value' $$;
+CREATE OR REPLACE FUNCTION discord_learning_rule_scope_global() RETURNS TEXT
+  LANGUAGE sql IMMUTABLE AS $$ SELECT 'global' $$;
+CREATE OR REPLACE FUNCTION discord_learning_rule_status_candidate() RETURNS TEXT
+  LANGUAGE sql IMMUTABLE AS $$ SELECT 'candidate' $$;
+
 CREATE TABLE IF NOT EXISTS discord_learning_rules (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   rule_type TEXT NOT NULL CHECK (
-    rule_type IN ('field_value', 'label_alias', 'classification', 'discard_rule', 'duplicate_rule', 'negative_rule')
+    rule_type IN (discord_learning_rule_type_field_value(), 'label_alias', 'classification', 'discard_rule', 'duplicate_rule', 'negative_rule')
   ),
   field TEXT NULL,
   input_pattern TEXT NULL,
   input_token TEXT NULL,
   output_value JSONB NULL,
-  scope_type TEXT NOT NULL DEFAULT 'global' CHECK (
-    scope_type IN ('global', 'guild', 'channel', 'profile', 'author', 'composite')
+  scope_type TEXT NOT NULL DEFAULT discord_learning_rule_scope_global() CHECK (
+    scope_type IN (discord_learning_rule_scope_global(), 'guild', 'channel', 'profile', 'author', 'composite')
   ),
   scope_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   scope_hash TEXT NOT NULL,
@@ -24,7 +33,7 @@ CREATE TABLE IF NOT EXISTS discord_learning_rules (
   hits INTEGER NOT NULL DEFAULT 1 CHECK (hits >= 0),
   rejections INTEGER NOT NULL DEFAULT 0 CHECK (rejections >= 0),
   applied_count INTEGER NOT NULL DEFAULT 0 CHECK (applied_count >= 0),
-  status TEXT NOT NULL DEFAULT 'candidate' CHECK (status IN ('candidate', 'active', 'suppressed', 'retired')),
+  status TEXT NOT NULL DEFAULT discord_learning_rule_status_candidate() CHECK (status IN (discord_learning_rule_status_candidate(), 'active', 'suppressed', 'retired')),
   source TEXT NOT NULL DEFAULT 'human' CHECK (source IN ('human', 'confirmed_ai', 'migration_seed')),
   created_from_feedback_id UUID NULL REFERENCES discord_parse_feedback(id) ON DELETE SET NULL,
   last_applied_at TIMESTAMPTZ NULL,
@@ -32,7 +41,7 @@ CREATE TABLE IF NOT EXISTS discord_learning_rules (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT discord_learning_rules_field_value_requires_field CHECK (
-    rule_type <> 'field_value' OR (field IS NOT NULL AND input_token IS NOT NULL)
+    rule_type <> discord_learning_rule_type_field_value() OR (field IS NOT NULL AND input_token IS NOT NULL)
   ),
   CONSTRAINT discord_learning_rules_identity UNIQUE (
     rule_type,
@@ -91,17 +100,19 @@ INSERT INTO discord_learning_rules (
   updated_at
 )
 SELECT
-  'field_value',
+  discord_learning_rule_type_field_value(),
   field,
   NULL,
   input_token,
   output_value,
-  CASE WHEN guild_id IS NULL THEN 'global' ELSE 'guild' END,
+  CASE WHEN guild_id IS NULL THEN discord_learning_rule_scope_global() ELSE 'guild' END,
   CASE WHEN guild_id IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('guild_id', guild_id) END,
   encode(digest(
     CASE
       WHEN guild_id IS NULL THEN 'global:{}'
-      ELSE 'guild:' || jsonb_build_object('guild_id', guild_id)::text
+      -- Canonical JSON DEVE bater com stableJson() do TS (learningRules.ts):
+      -- chaves ordenadas, sem espacos, sem null/empty. guild_id e snowflake (digitos).
+      ELSE 'guild:{"guild_id":"' || guild_id || '"}'
     END,
     'sha256'
   ), 'hex'),
@@ -116,7 +127,7 @@ SELECT
     WHEN active = false THEN 'suppressed'
     WHEN rejections > 1 THEN 'suppressed'
     WHEN hits >= 2 AND rejections = 0 THEN 'active'
-    ELSE 'candidate'
+    ELSE discord_learning_rule_status_candidate()
   END,
   'migration_seed',
   created_at,

@@ -137,8 +137,8 @@ async function recordLlmDecision(input: {
   contextPackHash: string;
   promptVersion: string;
   contextPack?: ContextPack;
-  responseJson?: unknown | null;
-  validatedResult?: unknown | null;
+  responseJson?: unknown;
+  validatedResult?: unknown;
   latencyMs?: number | null;
   status: 'success' | 'invalid_response' | 'http_error' | 'timeout' | 'error' | 'cache_hit';
   error?: string | null;
@@ -258,40 +258,65 @@ async function assistDiscordParseWithPrompt(
   }
 }
 
-export async function assistDiscordParseWithContextPack(input: {
+interface ContextPackPrepared {
+  contextPack: ContextPack;
+  contextPackHash: string;
+  cached: LlmAssistResult | null;
+}
+
+/**
+ * Monta o ContextPack e resolve cache. Extraído p/ baixar a complexidade
+ * cognitiva de assistDiscordParseWithContextPack (Sonar 18→15).
+ */
+async function prepareContextPack(input: {
   rawText: string;
   draft: ImportTableDraft;
-  model?: string;
+  model: string;
   retrievalContext?: RetrievalContext | null;
   ruleHits?: LearningRuleHit[];
   ruleConflicts?: LearningRuleConflict[];
-}): Promise<LlmAssistResult | null> {
-  const model = input.model ?? 'deepseek-chat';
-  const contextPack = buildContextPack({
-    rawText: input.rawText,
-    draft: input.draft,
-    retrievalContext: input.retrievalContext ?? null,
-    ruleHits: input.ruleHits,
-    ruleConflicts: input.ruleConflicts,
-  });
-  const contextPackHash = hashContextPack(contextPack);
-  const cached = await readCachedDecision({
-    model,
-    contextPackHash,
-    promptVersion: CONTEXT_PACK_PROMPT_VERSION,
-  });
-  if (cached) {
-    await recordLlmDecision({
-      model,
+}): Promise<ContextPackPrepared | null> {
+  try {
+    const contextPack = buildContextPack({
+      rawText: input.rawText,
+      draft: input.draft,
+      retrievalContext: input.retrievalContext ?? null,
+      ruleHits: input.ruleHits,
+      ruleConflicts: input.ruleConflicts,
+    });
+    const contextPackHash = hashContextPack(contextPack);
+    const cached = await readCachedDecision({
+      model: input.model,
       contextPackHash,
       promptVersion: CONTEXT_PACK_PROMPT_VERSION,
-      status: 'cache_hit',
     });
-    return cached;
+    if (cached) {
+      await recordLlmDecision({
+        model: input.model,
+        contextPackHash,
+        promptVersion: CONTEXT_PACK_PROMPT_VERSION,
+        status: 'cache_hit',
+      });
+    }
+    return { contextPack, contextPackHash, cached };
+  } catch (error: unknown) {
+    console.warn('[llmAssist] contextPack build/lookup falhou:', error instanceof Error ? error.message : 'unknown');
+    return null;
   }
+}
 
-  const apiKey = await getSecret('deepseek_api_key');
-  if (!apiKey) return null;
+/**
+ * Chama a API DeepSeek com o ContextPack e valida a resposta, registrando cada
+ * desfecho. Extraído p/ baixar a complexidade cognitiva do chamador (Sonar 18→15).
+ */
+async function callDeepSeekWithContextPack(input: {
+  apiKey: string;
+  model: string;
+  contextPack: ContextPack;
+  contextPackHash: string;
+}): Promise<LlmAssistResult | null> {
+  const { apiKey, model, contextPack, contextPackHash } = input;
+  const recordBase = { model, contextPackHash, promptVersion: CONTEXT_PACK_PROMPT_VERSION, contextPack };
 
   const systemPrompt = [
     'Você é um extrator de anúncios de mesas de RPG em português.',
@@ -330,15 +355,7 @@ export async function assistDiscordParseWithContextPack(input: {
     const latencyMs = Date.now() - started;
 
     if (!res.ok) {
-      await recordLlmDecision({
-        model,
-        contextPackHash,
-        promptVersion: CONTEXT_PACK_PROMPT_VERSION,
-        contextPack,
-        latencyMs,
-        status: 'http_error',
-        error: `HTTP ${res.status}`,
-      });
+      await recordLlmDecision({ ...recordBase, latencyMs, status: 'http_error', error: `HTTP ${res.status}` });
       console.warn(`[llmAssist] DeepSeek API HTTP ${res.status}`);
       return null;
     }
@@ -347,16 +364,7 @@ export async function assistDiscordParseWithContextPack(input: {
     const parsed = llmResponseSchema.safeParse(body);
     const content = parsed.success ? parsed.data.choices[0]?.message?.content : null;
     if (!parsed.success || !content) {
-      await recordLlmDecision({
-        model,
-        contextPackHash,
-        promptVersion: CONTEXT_PACK_PROMPT_VERSION,
-        contextPack,
-        responseJson: body,
-        latencyMs,
-        status: 'invalid_response',
-        error: 'api_schema',
-      });
+      await recordLlmDecision({ ...recordBase, responseJson: body, latencyMs, status: 'invalid_response', error: 'api_schema' });
       return null;
     }
 
@@ -364,63 +372,60 @@ export async function assistDiscordParseWithContextPack(input: {
     try {
       extractedJson = JSON.parse(stripCodeFence(content));
     } catch {
-      await recordLlmDecision({
-        model,
-        contextPackHash,
-        promptVersion: CONTEXT_PACK_PROMPT_VERSION,
-        contextPack,
-        responseJson: body,
-        latencyMs,
-        status: 'invalid_response',
-        error: 'json_parse',
-      });
+      await recordLlmDecision({ ...recordBase, responseJson: body, latencyMs, status: 'invalid_response', error: 'json_parse' });
       return null;
     }
 
     const extracted = extractedFieldsSchema.safeParse(extractedJson);
     if (!extracted.success) {
-      await recordLlmDecision({
-        model,
-        contextPackHash,
-        promptVersion: CONTEXT_PACK_PROMPT_VERSION,
-        contextPack,
-        responseJson: body,
-        latencyMs,
-        status: 'invalid_response',
-        error: 'result_schema',
-      });
+      await recordLlmDecision({ ...recordBase, responseJson: body, latencyMs, status: 'invalid_response', error: 'result_schema' });
       return null;
     }
 
     await recordLlmDecision({
-      model,
-      contextPackHash,
-      promptVersion: CONTEXT_PACK_PROMPT_VERSION,
-      contextPack,
+      ...recordBase,
       responseJson: body,
       validatedResult: extracted.data,
       latencyMs,
       status: 'success',
     });
 
-    return {
-      extracted: extracted.data,
-      model,
-      contextPackHash,
-      promptVersion: CONTEXT_PACK_PROMPT_VERSION,
-    };
+    return { extracted: extracted.data, model, contextPackHash, promptVersion: CONTEXT_PACK_PROMPT_VERSION };
   } catch (error: unknown) {
     const isTimeout = error instanceof DOMException && error.name === 'AbortError';
+    const errorMessage = error instanceof Error ? error.message : 'unknown';
     await recordLlmDecision({
-      model,
-      contextPackHash,
-      promptVersion: CONTEXT_PACK_PROMPT_VERSION,
-      contextPack,
+      ...recordBase,
       latencyMs: Date.now() - started,
       status: isTimeout ? 'timeout' : 'error',
-      error: error instanceof Error ? error.message : 'unknown',
+      error: errorMessage,
     });
-    console.warn('[llmAssist] erro:', isTimeout ? 'timeout' : error instanceof Error ? error.message : 'unknown');
+    console.warn('[llmAssist] erro:', isTimeout ? 'timeout' : errorMessage);
     return null;
   }
+}
+
+export async function assistDiscordParseWithContextPack(input: {
+  rawText: string;
+  draft: ImportTableDraft;
+  model?: string;
+  retrievalContext?: RetrievalContext | null;
+  ruleHits?: LearningRuleHit[];
+  ruleConflicts?: LearningRuleConflict[];
+}): Promise<LlmAssistResult | null> {
+  const model = input.model ?? 'deepseek-chat';
+
+  const prepared = await prepareContextPack({ ...input, model });
+  if (!prepared) return null;
+  if (prepared.cached) return prepared.cached;
+
+  const apiKey = await getSecret('deepseek_api_key');
+  if (!apiKey) return null;
+
+  return callDeepSeekWithContextPack({
+    apiKey,
+    model,
+    contextPack: prepared.contextPack,
+    contextPackHash: prepared.contextPackHash,
+  });
 }
