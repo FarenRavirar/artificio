@@ -6,10 +6,22 @@ import type { DiscordSourceChannelType, DiscordImportMessagesTable, NewDiscordIm
 import type { SystemEntry, ImportRawMessage } from '../../discord';
 import { normalizeDiscordTableDraft, parseDiscordAnnouncement, normalizeDraftPayload, assertDraftReadyTransition } from '../../discord';
 import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers';
-import { assistDiscordParse } from '../../discord/llmAssist';
+import { assistDiscordParseWithContextPack } from '../../discord/llmAssist';
 import { getAiAutomationConfig, isAiAssistEnabled } from '../../discord/aiAutomationConfig';
 import { attachAiSuggestions, buildAiSuggestionFields } from '../../discord/aiSuggestions';
 import { LEARNABLE_FIELDS, lookupFieldLearning, recordFieldLearning } from '../../discord/fieldLearning';
+import {
+  lookupLearningRules,
+  recordLearningRuleApplications,
+  recordLearningRulesFromCorrections,
+} from '../../discord/learningRules';
+import {
+  extractDraftScope,
+  parseActionFromNormalizedStatus,
+  recordParseCase,
+  recordParseFeedback,
+  recordParseFeedbackForCorrections,
+} from '../../discord/parseLearning';
 import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
@@ -158,6 +170,14 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
     outputValue: after,
   }));
   await recordFieldLearning(learningEntries, guildId, userId);
+  await recordLearningRulesFromCorrections(learningEntries, source ?? null, userId);
+  await recordParseFeedbackForCorrections({
+    draftId,
+    diff,
+    reason: reason ?? null,
+    adminUserId: userId,
+    scope: source ?? {},
+  });
 
   return { draft_id: draftId, fields_corrected: Object.keys(diff).length, diff };
 }
@@ -444,8 +464,19 @@ async function enrichDraftWithLlm(
     .filter((f) => table[f] !== null && table[f] !== undefined && table[f] !== '')
     .map((f) => ({ field: f as string, value: table[f] }));
   const guildId = normalized.draft.source?.guild_id ?? null;
+  const learningScope = {
+    guild_id: normalized.draft.source?.guild_id ?? null,
+    channel_id: normalized.draft.source?.channel_id ?? null,
+    author_id: normalized.draft.source?.author_id ?? null,
+  };
+  const ruleLookup = await lookupLearningRules(lookupQueries, learningScope);
   const storeHits = await lookupFieldLearning(lookupQueries, guildId);
   const storeFields: Record<string, unknown> = {};
+  for (const hit of ruleLookup.hits) {
+    if (JSON.stringify(table[hit.field]) !== JSON.stringify(hit.value)) {
+      storeFields[hit.field] = hit.value;
+    }
+  }
   for (const hit of storeHits) {
     if (JSON.stringify(table[hit.field]) !== JSON.stringify(hit.value)) {
       storeFields[hit.field] = hit.value;
@@ -468,7 +499,20 @@ async function enrichDraftWithLlm(
     if (table.day_of_week) existingFields.day_of_week = table.day_of_week;
     if (table.start_time) existingFields.start_time = table.start_time;
 
-    const llmResult = await assistDiscordParse(rawText, existingFields, aiConfig.model);
+    const draftForContext = {
+      ...normalized.draft,
+      table: {
+        ...normalized.draft.table,
+        ...existingFields,
+      },
+    };
+    const llmResult = await assistDiscordParseWithContextPack({
+      rawText,
+      draft: draftForContext,
+      model: aiConfig.model,
+      ruleHits: ruleLookup.hits,
+      ruleConflicts: ruleLookup.conflicts,
+    });
     if (llmResult) {
       iaFields = buildAiSuggestionFields(llmResult.extracted, normalized.draft.table);
       iaModel = llmResult.model;
@@ -481,8 +525,18 @@ async function enrichDraftWithLlm(
 
   const usedIa = Object.keys(iaFields).length > 0;
   const usedStore = Object.keys(storeFields).length > 0;
-  const provider = usedIa ? (usedStore ? `learning-store+${aiConfig.provider}` : aiConfig.provider) : 'learning-store';
+  const usedRules = ruleLookup.hits.length > 0;
+  const learningProvider = usedRules ? 'learning-rules' : 'learning-store';
+  const provider = usedIa ? (usedStore ? `${learningProvider}+${aiConfig.provider}` : aiConfig.provider) : learningProvider;
   const model = usedIa ? iaModel : 'n/a';
+  if (ruleLookup.hits.length > 0) {
+    void recordLearningRuleApplications({
+      hits: ruleLookup.hits,
+      beforeValues: table,
+      outcome: ruleLookup.conflicts.length > 0 ? 'conflict' : 'applied',
+      reason: ruleLookup.conflicts.length > 0 ? 'conflict_guard' : 'draft_enrichment',
+    });
+  }
 
   return {
     ...normalized,
@@ -604,6 +658,12 @@ export async function processDiscordMessageToDraft(
       .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
       .where('id', '=', message.id)
       .execute();
+    await recordParseCase({
+      message,
+      deterministicResult: null,
+      finalResult: null,
+      finalAction: discarded ? 'discard' : 'ignore',
+    });
     return discarded ? 'discarded' : 'ignored';
   }
   const { parsed, systems: resolvedSystems } = result;
@@ -613,6 +673,13 @@ export async function processDiscordMessageToDraft(
   const normalizedResult = await enrichDraftWithLlm(message.content_raw, result.normalized);
 
   const draftId = await upsertDraftWithShadow(existing?.id, message.id, parsed, normalizedResult);
+  await recordParseCase({
+    message,
+    draftId,
+    deterministicResult: parsed,
+    finalResult: normalizedResult.draft,
+    finalAction: parseActionFromNormalizedStatus(normalizedResult.status),
+  });
 
   await db.updateTable('discord_import_messages')
     .set({ status: 'parsed', parse_error: null, updated_at: new Date() })
@@ -792,6 +859,16 @@ export async function handlePatchDraft(
       .where('actual_outcome', 'is', null)
       .execute()
       .catch((err) => console.error('[handlePatchDraft shadow]', err instanceof Error ? err.message : 'unknown error'));
+    const currentPayload = normalizeDraftPayload(current.normalized_payload ?? current.parsed_payload);
+    await recordParseFeedback({
+      draftId: req.params.id,
+      feedbackType: patchedStatus === 'rejected' ? 'discard' : 'publish',
+      beforeValue: current.status,
+      afterValue: patchedStatus,
+      reason: null,
+      scope: extractDraftScope(currentPayload),
+      adminUserId: req.user?.userId ?? null,
+    });
   }
 
   return { status: 200, body: { data: draft } };

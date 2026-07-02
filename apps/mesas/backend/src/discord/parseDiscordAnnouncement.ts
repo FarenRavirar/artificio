@@ -174,7 +174,7 @@ function cleanTrademark(s: string): string {
 // Normaliza string para comparação: remove acentos, lowercase, colapsa espaços
 function normalize(s: string): string {
   return s
-    .normalize('NFD')
+    .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
@@ -293,9 +293,9 @@ function extractType(text: string): TableDraftType | null {
 }
 
 // Extrai informações de preço do texto
-function extractPrice(text: string): { priceType: TableDraftPriceType; priceValue: number | null } {
+function extractPrice(text: string): { priceType: TableDraftPriceType | null; priceValue: number | null } {
   const priceMatch = /R\$\s{0,3}(\d+(?:[,.]\d{1,2})?)(?!\d)/i.exec(text)
-    ?? /(\d+(?:[,.]\d{1,2})?)(?!\d)\s{0,3}reais/i.exec(text);
+    ?? /(\d+(?:[,.]\d{1,2})?)(?!\d)\s{0,3}(?:R\$|reais)/i.exec(text);
   if (priceMatch) {
     const value = parseFloat(priceMatch[1].replace(',', '.'));
     if (!Number.isNaN(value) && value > 0) {
@@ -303,10 +303,13 @@ function extractPrice(text: string): { priceType: TableDraftPriceType; priceValu
     }
   }
   const lower = text.toLowerCase();
+  if (/\b(?:mesa\s+)?pag[ao]\b|\bvalor\s*:|\bpagamento\b|\bmensalidade\b|\bpor\s+sess[aã]o\b/.test(lower)) {
+    return { priceType: 'paga', priceValue: null };
+  }
   if (/\bgratuita?\b|\bfree\b|\bsem\s+custo\b/.test(lower)) {
     return { priceType: 'gratuita', priceValue: null };
   }
-  return { priceType: 'gratuita', priceValue: null };
+  return { priceType: null, priceValue: null };
 }
 
 // Extrai número de vagas do texto

@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
 import type { DiscordImportDraftStatus } from '../../discord';
-import { refreshDiscordDraftImage } from '../../discord';
+import { normalizeDraftPayload, refreshDiscordDraftImage } from '../../discord';
+import { extractDraftScope, recordParseFeedback } from '../../discord/parseLearning';
 import { destroyAssetResult } from '@artificio/media';
 import { parseDiscordMessage, ensureSystemSuggestionForDraft, handlePatchDraft } from './utils';
 
@@ -105,6 +106,21 @@ router.patch('/batch', requireAdmin, async (req: Request, res: Response) => {
 
       return updated;
     });
+
+    if (parsed.data.status === 'rejected') {
+      for (const draft of drafts) {
+        const payload = normalizeDraftPayload(draft.normalized_payload ?? draft.parsed_payload);
+        await recordParseFeedback({
+          draftId: draft.id,
+          feedbackType: 'discard',
+          beforeValue: 'draft',
+          afterValue: 'rejected',
+          reason: 'batch',
+          scope: extractDraftScope(payload),
+          adminUserId: req.user?.userId ?? null,
+        });
+      }
+    }
 
     return res.json({ data: { updated: drafts.length, drafts } });
   } catch (error: unknown) {

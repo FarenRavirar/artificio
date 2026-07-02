@@ -6,6 +6,7 @@ import { TableService } from '../services/tableService';
 import type { DiscordImageUploadStatus, ImportTableDraft } from './types';
 import { uploadDiscordImageToCloudinary } from './uploadDiscordImage';
 import { getDiscordBotToken } from './config';
+import { extractDraftScope, recordParseFeedback } from './parseLearning';
 import { z } from 'zod';
 
 export class DraftNotFoundError extends Error {
@@ -538,6 +539,16 @@ export async function syncDraftToTable(
   if (imageUpload.status && imageUpload.status !== 'success') {
     await notifyAdminsAboutImageFailure(tableId, payload.table.title ?? 'Mesa sem título', imageUpload.status, imageUpload.error);
   }
+
+  await recordParseFeedback({
+    draftId,
+    feedbackType: 'publish',
+    beforeValue: draft.status,
+    afterValue: 'synced',
+    reason: created ? 'sync_created_table' : 'sync_updated_table',
+    scope: extractDraftScope(payload),
+    adminUserId: null,
+  });
 
   return { tableId, created };
 }

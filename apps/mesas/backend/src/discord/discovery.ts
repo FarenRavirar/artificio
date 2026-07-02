@@ -4,6 +4,14 @@ import { DiscordSettingsDecryptError, DiscordSettingsSecretUnavailableError } fr
 import type { DiscordSourceChannelType } from './types';
 
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
+// Sem User-Agent "de navegador", o Cloudflare do Discord devolve 401 pra rotas
+// de token de usuário mesmo com token válido — o fetch() do Node manda UA padrão
+// (undici/vazio) que cai no filtro anti-bot. DiscordChatExporter.Cli não sofre
+// isso porque o HttpClient do .NET manda um UA que passa; replicamos aqui.
+const DISCORD_REQUEST_HEADERS: Record<string, string> = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  Accept: '*/*',
+};
 const DISCOVERABLE_CHANNEL_TYPES = new Set([0, 5, 15]);
 const CHANNEL_KIND_BY_TYPE = new Map<number, DiscordSourceChannelType>([
   [0, 'text'],
@@ -113,7 +121,7 @@ async function discordGetUnknown(path: string, overrideToken?: string): Promise<
 
   try {
     const res = await fetch(`${DISCORD_API_BASE}${path}`, {
-      headers: { Authorization: `Bot ${token.trim()}` },
+      headers: { ...DISCORD_REQUEST_HEADERS, Authorization: `Bot ${token.trim()}` },
       signal: controller.signal,
     });
 
@@ -144,7 +152,7 @@ export async function validateDiscordToken(token: string, authType: 'user' | 'bo
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
   try {
     const res = await fetch(`${DISCORD_API_BASE}/users/@me`, {
-      headers: { Authorization: header },
+      headers: { ...DISCORD_REQUEST_HEADERS, Authorization: header },
       signal: controller.signal,
     });
     if (!res.ok) throw mapDiscordStatus(res.status, authType);

@@ -297,6 +297,13 @@ const importResultSchema = z.object({
   updated: z.number(),
   ignored: z.number(),
   failed: z.number(),
+  auto_parse: z.object({
+    total: z.number(),
+    parsed: z.number(),
+    discarded: z.number(),
+    ignored: z.number(),
+    errors: z.number(),
+  }).nullable().default(null),
 });
 
 const previewResultSchema = z.object({
@@ -378,9 +385,13 @@ async function fileApiFetch<T>(
   file: File,
   parser: (data: unknown) => T,
   errorLabel: string,
+  fields?: Record<string, string>,
 ): Promise<T> {
   const formData = new FormData();
   formData.append('file', file);
+  for (const [key, value] of Object.entries(fields ?? {})) {
+    formData.append(key, value);
+  }
   const res = await authenticatedFetch(`${BASE}${url}`, {
     method: 'POST',
     body: formData,
@@ -542,7 +553,10 @@ export const discordSyncApi = {
     apiFetch<{ processed: number; succeeded: number; discarded: number; ignored: number; failed: number }>('/messages/parse-batch', { method: 'POST' }),
 
   importJson: async (json: unknown) => {
-    const data = await apiFetch<unknown>('/import-json', { method: 'POST', body: JSON.stringify(json) });
+    const body = json && typeof json === 'object' && !Array.isArray(json)
+      ? { ...(json as Record<string, unknown>), autoParse: true }
+      : { json, autoParse: true };
+    const data = await apiFetch<unknown>('/import-json', { method: 'POST', body: JSON.stringify(body) });
     return parseImportResult(data);
   },
 
@@ -558,5 +572,5 @@ export const discordSyncApi = {
     fileApiFetch('/import-json/preview/file', file, parsePreviewResult, 'analisar arquivo'),
 
   importFile: async (file: File) =>
-    fileApiFetch('/import-json/file', file, parseImportResult, 'importar arquivo'),
+    fileApiFetch('/import-json/file', file, parseImportResult, 'importar arquivo', { autoParse: 'true' }),
 };
