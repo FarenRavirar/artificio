@@ -23,7 +23,7 @@ export interface ImportResult {
 export interface PreviewResult {
   guild: { id: string; name: string };
   channel: { id: string; name: string };
-  dateRange: { after?: string; before?: string } | null;
+  dateRange: { after?: string | null; before?: string | null } | null;
   exportedAt: string | null;
   messageCount: number;
   totalAttachments: number;
