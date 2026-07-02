@@ -33,9 +33,11 @@ function signalBadges(signals: Record<string, unknown>): string[] {
 }
 
 export function DuplicatesTab({ draftId, listDuplicateCandidates, resolveDuplicateCandidate }: DuplicatesTabProps) {
-  const [candidates, setCandidates] = useState<DuplicateCandidate[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<{
+    draftId: string;
+    candidates: DuplicateCandidate[] | null;
+    error: string | null;
+  }>({ draftId, candidates: null, error: null });
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,14 +45,15 @@ export function DuplicatesTab({ draftId, listDuplicateCandidates, resolveDuplica
     listDuplicateCandidates(draftId)
       .then((data) => {
         if (cancelled) return;
-        setCandidates(data);
-        setError(null);
-        setLoading(false);
+        setState({ draftId, candidates: data, error: null });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Erro ao buscar candidatos de duplicata.');
-        setLoading(false);
+        setState({
+          draftId,
+          candidates: null,
+          error: err instanceof Error ? err.message : 'Erro ao buscar candidatos de duplicata.',
+        });
       });
     return () => { cancelled = true; };
   }, [draftId, listDuplicateCandidates]);
@@ -59,7 +62,10 @@ export function DuplicatesTab({ draftId, listDuplicateCandidates, resolveDuplica
     setResolvingId(candidateId);
     try {
       const updated = await resolveDuplicateCandidate(candidateId, status);
-      setCandidates((prev) => (prev ?? []).map((c) => (c.id === candidateId ? updated : c)));
+      setState((prev) => ({
+        ...prev,
+        candidates: (prev.candidates ?? []).map((c) => (c.id === candidateId ? updated : c)),
+      }));
       toast.success('Decisão registrada.');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao registrar decisão.');
@@ -68,15 +74,16 @@ export function DuplicatesTab({ draftId, listDuplicateCandidates, resolveDuplica
     }
   };
 
-  if (loading) return <p className="text-white/50 text-sm">Buscando candidatos de duplicata...</p>;
-  if (error) return <p className="text-red-300 text-sm" role="alert">{error}</p>;
-  if (!candidates || candidates.length === 0) {
+  const isLoading = state.draftId !== draftId || state.candidates === null && state.error === null;
+  if (isLoading) return <p className="text-white/50 text-sm">Buscando candidatos de duplicata...</p>;
+  if (state.error) return <p className="text-red-300 text-sm" role="alert">{state.error}</p>;
+  if (!state.candidates || state.candidates.length === 0) {
     return <p className="text-white/50 text-sm">Nenhum candidato de duplicata encontrado para este draft.</p>;
   }
 
   return (
     <div className="space-y-3">
-      {candidates.map((candidate) => {
+      {state.candidates.map((candidate) => {
         const badges = signalBadges(candidate.signals);
         const isPending = candidate.status === 'candidate';
         return (

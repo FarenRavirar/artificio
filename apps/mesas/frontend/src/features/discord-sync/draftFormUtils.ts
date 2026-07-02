@@ -104,9 +104,7 @@ function sameValue(left: unknown, right: unknown): boolean {
 
 function classifySuggestionProvider(provider: string): DraftFieldInsight['source'] {
   const normalized = provider.toLowerCase();
-  if (normalized.includes('learning')) return 'learning-store';
-  if (normalized.includes('deepseek')) return 'deepseek';
-  return 'deepseek';
+  return normalized.includes('learning') ? 'learning-store' : 'deepseek';
 }
 
 function addEvidence(insights: Partial<Record<DraftFieldKey, DraftFieldInsight>>, field: DraftFieldKey, text: string) {

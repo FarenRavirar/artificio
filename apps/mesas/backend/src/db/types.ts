@@ -878,6 +878,38 @@ export interface DiscordLlmDecisionsTable {
 export type DiscordLlmDecision = Selectable<DiscordLlmDecisionsTable>;
 export type NewDiscordLlmDecision = Insertable<DiscordLlmDecisionsTable>;
 
+// Migration 140 (Spec 058): shadow por camada para eval parser/learning/DeepSeek.
+export type DiscordParseShadowPredictionLayer = 'parser' | 'learning' | 'deepseek';
+export type DiscordParseShadowAction =
+  | 'draft'
+  | 'needs_review'
+  | 'discard'
+  | 'ignore'
+  | 'duplicate'
+  | 'not_duplicate'
+  | 'synced'
+  | 'rejected'
+  | 'publish'
+  | 'error';
+
+export interface DiscordParseShadowDecisionsTable {
+  id: Generated<string>;
+  parse_case_id: string | null;
+  draft_id: string | null;
+  prediction_layer: DiscordParseShadowPredictionLayer;
+  predicted_action: Exclude<DiscordParseShadowAction, 'not_duplicate' | 'publish'>;
+  predicted_payload: ColumnType<unknown, unknown, unknown>;
+  confidence: ColumnType<string | null, number | null | undefined, number | null>;
+  reason_codes: string[] | null;
+  actual_action: DiscordParseShadowAction | null;
+  actual_payload: ColumnType<unknown, unknown | null | undefined, unknown | null> | null;
+  actual_at: Date | null;
+  created_at: Generated<Date>;
+}
+
+export type DiscordParseShadowDecision = Selectable<DiscordParseShadowDecisionsTable>;
+export type NewDiscordParseShadowDecision = Insertable<DiscordParseShadowDecisionsTable>;
+
 // Migration 131: Métricas (T-G6) + Shadow mode (T-G7) — Spec 048
 export interface DiscordImportRunsTable {
   id: Generated<string>;
@@ -1031,6 +1063,7 @@ export interface Database {
   discord_learning_rules: DiscordLearningRulesTable;
   discord_learning_rule_applications: DiscordLearningRuleApplicationsTable;
   discord_llm_decisions: DiscordLlmDecisionsTable;
+  discord_parse_shadow_decisions: DiscordParseShadowDecisionsTable;
 
   // Migration 116: Configuracoes cifradas do modulo Discord
   discord_settings: DiscordSettingsTable;
