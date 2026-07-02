@@ -69,6 +69,9 @@ function makeExportData(overrides: Record<string, unknown> = {}) {
         content: 'conteudo da mensagem',
         attachments: [],
         embeds: [],
+        reactions: [],
+        mentions: [],
+        inlineEmojis: [],
       },
     ],
     ...overrides,
@@ -302,7 +305,10 @@ describe('buildPreviewFromExport', () => {
       exportedAt: null,
     }));
 
-    expect(preview.dateRange).toEqual({});
+    // Contrato do frontend (discordSyncApi.ts): dateRange é `.nullable()` e
+    // JsonPreviewCard esconde a seção inteira quando é null — {} renderizaria
+    // "N/A"/"N/A" à toa. null é o esperado quando after/before estão ausentes.
+    expect(preview.dateRange).toBeNull();
   });
 
   it('preserva strings presentes no dateRange', () => {

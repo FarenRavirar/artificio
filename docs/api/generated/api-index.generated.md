@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **282 operações**.
+Total: **285 operações**.
 
 ## accounts (11)
 
@@ -100,7 +100,7 @@ Total: **282 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (171)
+## mesas (174)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -112,6 +112,7 @@ Total: **282 operações**.
 | POST | `/api/v1/admin/discord/automation/auto-approval/guard` | admin | admin | active | — | Executa guard de auto-aprovação Discord |
 | GET | `/api/v1/admin/discord/automation/config` | admin | admin | active | — | Consulta api v1 admin discord automation config |
 | GET | `/api/v1/admin/discord/automation/eval` | admin | admin | active | — | Consulta eval offline da automação Discord |
+| GET | `/api/v1/admin/discord/automation/parse-eval` | admin | admin | active | — | Consulta api v1 admin discord automation parse-eval |
 | GET | `/api/v1/admin/discord/chat-exporter/config` | admin | admin | active | — | Consulta api v1 admin discord chat-exporter config |
 | PUT | `/api/v1/admin/discord/chat-exporter/config` | admin | admin | active | — | Substitui api v1 admin discord chat-exporter config |
 | GET | `/api/v1/admin/discord/chat-exporter/profiles` | admin | admin | active | — | Consulta api v1 admin discord chat-exporter profiles |
@@ -130,11 +131,13 @@ Total: **282 operações**.
 | GET | `/api/v1/admin/discord/drafts/{id}` | admin | admin | active | — | Consulta api v1 admin discord drafts id |
 | PATCH | `/api/v1/admin/discord/drafts/{id}` | admin | admin | active | — | Atualiza api v1 admin discord drafts id |
 | POST | `/api/v1/admin/discord/drafts/{id}/correction` | admin | admin | provisional | — | Registra correção manual em draft de Discord |
+| GET | `/api/v1/admin/discord/drafts/{id}/duplicates` | admin | admin | active | — | Consulta api v1 admin discord drafts id duplicates |
 | POST | `/api/v1/admin/discord/drafts/{id}/refresh-image` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id refresh-image |
 | POST | `/api/v1/admin/discord/drafts/{id}/reparse` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id reparse |
 | POST | `/api/v1/admin/discord/drafts/{id}/sync` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id sync |
 | PATCH | `/api/v1/admin/discord/drafts/batch` | admin | admin | active | — | Atualiza api v1 admin discord drafts batch |
 | DELETE | `/api/v1/admin/discord/drafts/rejected` | admin | admin | active | — | Apaga drafts descartados (status=rejected) |
+| PATCH | `/api/v1/admin/discord/duplicate-candidates/{id}` | admin | admin | active | — | Atualiza api v1 admin discord duplicate-candidates id |
 | POST | `/api/v1/admin/discord/fetch` | admin | admin | active | — | Cria ou executa api v1 admin discord fetch |
 | POST | `/api/v1/admin/discord/import-json` | admin | admin | active | — | Cria ou executa api v1 admin discord import-json |
 | POST | `/api/v1/admin/discord/import-json/file` | admin | admin | active | — | Cria ou executa api v1 admin discord import-json file |
