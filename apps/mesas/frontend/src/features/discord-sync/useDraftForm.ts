@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
-import { buildForm, buildUpdatedPayload, flattenSystems, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, loadSystems, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
+import { buildDraftFieldInsights, buildForm, buildUpdatedPayload, flattenSystems, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, loadSystems, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
 import { authPost } from '../../services/apiClient';
 import type { DraftForm } from './draftFormUtils';
 import type { DiscordDraft, DiscordImportDraftStatus, DiscordSlotsAmbiguity, DraftApiOperations } from './types';
@@ -106,7 +106,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   const [reparsing, setReparsing] = useState(false);
   const [editingStatus, setEditingStatus] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
-  const [activeTab, setActiveTab] = useState<'editor' | 'parsed' | 'normalized'>('editor');
+  const [activeTab, setActiveTab] = useState<'editor' | 'parsed' | 'normalized' | 'duplicates'>('editor');
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [slotsInterpretation, setSlotsInterpretation] = useState<SlotsInterpretation>('filled_total');
@@ -116,6 +116,10 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   const canSync = draft.status === 'ready' && !state.dirty && missingFields.length === 0;
 
   const payload = useMemo(() => draft.normalized_payload ?? draft.parsed_payload, [draft.normalized_payload, draft.parsed_payload]);
+  const fieldInsights = useMemo(
+    () => buildDraftFieldInsights(draft.parsed_payload, payload),
+    [draft.parsed_payload, payload],
+  );
   const payloadMissingFields = useMemo(
     () => asStringArray(payload ? asRecord(payload).missing_fields : []),
     [payload]
@@ -358,6 +362,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     slotsInterpretation, setSlotsInterpretation,
     slotsAmbiguity,
     payloadMissingFields,
+    fieldInsights,
     handleSystemChange,
     handleSaveFields,
     handleCoverUpload, handleRemoveCover,

@@ -1,5 +1,5 @@
 import type { ChangeEvent } from 'react';
-import type { DraftForm, DraftTableType, DraftModality, DraftPriceType, DraftFrequency, DraftDayOfWeek } from '../draftFormUtils';
+import type { DraftFieldInsight, DraftFieldKey, DraftForm, DraftTableType, DraftModality, DraftPriceType, DraftFrequency, DraftDayOfWeek } from '../draftFormUtils';
 import type { DiscordSlotsAmbiguity } from '../types';
 import type { SystemTreeNode } from '../../../types/systems';
 
@@ -15,6 +15,7 @@ interface DraftEditorTabProps {
   shouldShowSlotsDisambiguation: boolean;
   slotsAmbiguity: DiscordSlotsAmbiguity | null;
   slotsInterpretation: 'filled_total' | 'open_total';
+  fieldInsights?: Partial<Record<DraftFieldKey, DraftFieldInsight>>;
   savingFields: boolean;
   onUpdateForm: <K extends keyof DraftForm>(key: K, value: DraftForm[K]) => void;
   onSystemChange: (systemId: string) => void;
@@ -27,10 +28,43 @@ interface DraftEditorTabProps {
 const inputClass = 'w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-white/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400';
 const labelClass = 'block text-white/60 text-xs mb-1';
 
+const sourceLabel: Record<DraftFieldInsight['source'], string> = {
+  parser: 'Parser',
+  'learning-store': 'Learning',
+  deepseek: 'DeepSeek',
+  humano: 'Humano',
+};
+
+const sourceClass: Record<DraftFieldInsight['source'], string> = {
+  parser: 'bg-slate-500/20 text-slate-200',
+  'learning-store': 'bg-emerald-500/20 text-emerald-200',
+  deepseek: 'bg-blue-500/20 text-blue-200',
+  humano: 'bg-orange-500/20 text-orange-200',
+};
+
+function formatSuggestion(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
+}
+
+function FieldInsightNote({ insight }: { readonly insight?: DraftFieldInsight }) {
+  if (!insight) return null;
+  const suggestion = formatSuggestion(insight.suggestion);
+  const evidence = insight.evidence.slice(0, 2).join(' ');
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] leading-4">
+      <span className={`rounded px-1.5 py-0.5 ${sourceClass[insight.source]}`}>{sourceLabel[insight.source]}</span>
+      {suggestion && <span className="max-w-full truncate text-white/55">sugestão: {suggestion}</span>}
+      {evidence && <span className="max-w-full truncate text-white/45">{evidence}</span>}
+    </div>
+  );
+}
+
 export function DraftEditorTab({
   form, missingFields, systems, systemsLoading,
   coverPreviewUrl, coverError, coverUploading, coverInputRef,
-  shouldShowSlotsDisambiguation, slotsAmbiguity, slotsInterpretation, savingFields,
+  shouldShowSlotsDisambiguation, slotsAmbiguity, slotsInterpretation, fieldInsights, savingFields,
   onUpdateForm, onSystemChange, onCoverUpload, onRemoveCover,
   onSetSlotsInterpretation, onConfirmSlots,
 }: Readonly<DraftEditorTabProps>) {
@@ -96,6 +130,7 @@ export function DraftEditorTab({
         <label>
           <span className={labelClass}>Título</span>
           <input value={form.title} onChange={(e) => onUpdateForm('title', e.target.value)} className={inputClass} />
+          <FieldInsightNote insight={fieldInsights?.title} />
         </label>
         <label>
           <span className={labelClass}>Sistema</span>
@@ -105,6 +140,7 @@ export function DraftEditorTab({
               <option key={system.id} value={system.id}>{system.name_pt || system.name}</option>
             ))}
           </select>
+          <FieldInsightNote insight={fieldInsights?.system_name} />
         </label>
         <label>
           <span className={labelClass}>Tipo</span>
@@ -114,6 +150,7 @@ export function DraftEditorTab({
             <option value="oneshot-serie">Série de one-shots</option>
             <option value="aberta">Aberta</option>
           </select>
+          <FieldInsightNote insight={fieldInsights?.type} />
         </label>
         <label>
           <span className={labelClass}>Modalidade</span>
@@ -122,6 +159,7 @@ export function DraftEditorTab({
             <option value="presencial">Presencial</option>
             <option value="hibrida">Híbrida</option>
           </select>
+          <FieldInsightNote insight={fieldInsights?.modality} />
         </label>
         <label>
           <span className={labelClass}>Preço</span>
@@ -129,18 +167,22 @@ export function DraftEditorTab({
             <option value="gratuita">Gratuita</option>
             <option value="paga">Paga</option>
           </select>
+          <FieldInsightNote insight={fieldInsights?.price_type} />
         </label>
         <label>
           <span className={labelClass}>Valor</span>
           <input value={form.price_value} onChange={(e) => onUpdateForm('price_value', e.target.value)} className={inputClass} placeholder="0" disabled={form.price_type === 'gratuita'} />
+          <FieldInsightNote insight={fieldInsights?.price_value} />
         </label>
         <label>
           <span className={labelClass}>Vagas totais</span>
           <input value={form.slots_total} onChange={(e) => onUpdateForm('slots_total', e.target.value)} className={inputClass} inputMode="numeric" />
+          <FieldInsightNote insight={fieldInsights?.slots_total} />
         </label>
         <label>
           <span className={labelClass}>Vagas abertas</span>
           <input value={form.slots_open} onChange={(e) => onUpdateForm('slots_open', e.target.value)} className={inputClass} inputMode="numeric" />
+          <FieldInsightNote insight={fieldInsights?.slots_open} />
         </label>
         <label>
           <span className={labelClass}>Dia</span>
@@ -154,10 +196,12 @@ export function DraftEditorTab({
             <option value="sábado">Sábado</option>
             <option value="domingo">Domingo</option>
           </select>
+          <FieldInsightNote insight={fieldInsights?.day_of_week} />
         </label>
         <label>
           <span className={labelClass}>Horário</span>
           <input value={form.start_time} onChange={(e) => onUpdateForm('start_time', e.target.value)} className={inputClass} placeholder="19:00" />
+          <FieldInsightNote insight={fieldInsights?.start_time} />
         </label>
         <label>
           <span className={labelClass}>Frequência</span>
@@ -168,18 +212,22 @@ export function DraftEditorTab({
             <option value="avulsa">Única</option>
             <option value="outra">Outra</option>
           </select>
+          <FieldInsightNote insight={fieldInsights?.frequency} />
         </label>
         <label>
           <span className={labelClass}>Contato Discord</span>
           <input value={form.contact_discord} onChange={(e) => onUpdateForm('contact_discord', e.target.value)} className={inputClass} />
+          <FieldInsightNote insight={fieldInsights?.contact_discord} />
         </label>
         <label className="md:col-span-2">
           <span className={labelClass}>Link de inscrição/contato</span>
           <input value={form.contact_url} onChange={(e) => onUpdateForm('contact_url', e.target.value)} className={inputClass} />
+          <FieldInsightNote insight={fieldInsights?.contact_url} />
         </label>
         <label className="md:col-span-2">
           <span className={labelClass}>Descrição</span>
           <textarea value={form.description} onChange={(e) => onUpdateForm('description', e.target.value)} className={`${inputClass} min-h-28 resize-y`} />
+          <FieldInsightNote insight={fieldInsights?.description} />
         </label>
       </div>
     </div>

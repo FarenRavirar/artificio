@@ -30,6 +30,32 @@ export interface DraftForm {
   cover_quality: '' | DiscordCoverQuality;
 }
 
+export type DraftFieldKey = keyof Pick<DraftForm,
+  | 'title'
+  | 'description'
+  | 'system_name'
+  | 'type'
+  | 'modality'
+  | 'price_type'
+  | 'price_value'
+  | 'slots_total'
+  | 'slots_open'
+  | 'day_of_week'
+  | 'start_time'
+  | 'frequency'
+  | 'contact_url'
+  | 'contact_discord'
+  | 'cover_url'
+>;
+
+export interface DraftFieldInsight {
+  source: 'parser' | 'learning-store' | 'deepseek' | 'humano';
+  evidence: string[];
+  suggestion?: unknown;
+  provider?: string;
+  model?: string;
+}
+
 export const MAX_COVER_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 export const COVER_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -66,6 +92,80 @@ export function asSlotsAmbiguity(value: unknown): DiscordSlotsAmbiguity | null {
 
 export function getDraftTable(payload: DiscordDraftPayload): DiscordDraftTablePayload {
   return isRecord(payload.table) ? payload.table : {};
+}
+
+function isFilled(value: unknown): boolean {
+  return value !== null && value !== undefined && value !== '';
+}
+
+function sameValue(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+}
+
+function classifySuggestionProvider(provider: string): DraftFieldInsight['source'] {
+  const normalized = provider.toLowerCase();
+  if (normalized.includes('learning')) return 'learning-store';
+  if (normalized.includes('deepseek')) return 'deepseek';
+  return 'deepseek';
+}
+
+function addEvidence(insights: Partial<Record<DraftFieldKey, DraftFieldInsight>>, field: DraftFieldKey, text: string) {
+  const existing = insights[field] ?? { source: 'parser', evidence: [] };
+  if (!existing.evidence.includes(text)) existing.evidence.push(text);
+  insights[field] = existing;
+}
+
+export function buildDraftFieldInsights(
+  parsedPayload: DiscordDraftPayload,
+  currentPayload: DiscordDraftPayload,
+): Partial<Record<DraftFieldKey, DraftFieldInsight>> {
+  const parsedTable = getDraftTable(parsedPayload);
+  const currentTable = getDraftTable(currentPayload);
+  const insights: Partial<Record<DraftFieldKey, DraftFieldInsight>> = {};
+
+  const fields: DraftFieldKey[] = [
+    'title', 'description', 'system_name', 'type', 'modality', 'price_type',
+    'price_value', 'slots_total', 'slots_open', 'day_of_week', 'start_time',
+    'frequency', 'contact_url', 'contact_discord', 'cover_url',
+  ];
+
+  for (const field of fields) {
+    if (isFilled(currentTable[field])) {
+      insights[field] = { source: 'parser', evidence: ['Valor extraído do anúncio.'] };
+    }
+    if (!sameValue(parsedTable[field], currentTable[field]) && isFilled(currentTable[field])) {
+      insights[field] = { source: 'humano', evidence: ['Valor alterado na revisão.'] };
+    }
+  }
+
+  const aiSuggestions = asRecord(currentTable._ai_suggestions);
+  const suggestionFields = asRecord(aiSuggestions.fields);
+  const provider = asString(aiSuggestions.provider);
+  const model = asString(aiSuggestions.model);
+  if (provider && Object.keys(suggestionFields).length > 0) {
+    for (const [field, suggestion] of Object.entries(suggestionFields)) {
+      if (!fields.includes(field as DraftFieldKey)) continue;
+      insights[field as DraftFieldKey] = {
+        source: classifySuggestionProvider(provider),
+        provider,
+        model: model || undefined,
+        suggestion,
+        evidence: [`Sugestão pendente de ${provider}.`],
+      };
+    }
+  }
+
+  const evidence = asRecord(currentTable._raw_evidence);
+  const roleMentions = asStringArray(evidence.role_mentions);
+  const userMentions = asStringArray(evidence.user_mentions);
+  const attachments = Array.isArray(evidence.attachments) ? evidence.attachments : [];
+  const embeds = Array.isArray(evidence.embeds) ? evidence.embeds : [];
+  if (roleMentions.length > 0) addEvidence(insights, 'system_name', `${roleMentions.length} cargo(s) preservado(s) como evidência.`);
+  if (userMentions.length > 0) addEvidence(insights, 'contact_discord', `${userMentions.length} menção(ões) de usuário no anúncio.`);
+  if (attachments.length > 0) addEvidence(insights, 'cover_url', `${attachments.length} anexo(s) preservado(s).`);
+  if (embeds.length > 0) addEvidence(insights, 'contact_url', `${embeds.length} embed(s) preservado(s).`);
+
+  return insights;
 }
 
 export function buildForm(payload: DiscordDraftPayload): DraftForm {

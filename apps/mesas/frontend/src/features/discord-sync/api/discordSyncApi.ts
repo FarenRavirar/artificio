@@ -20,6 +20,8 @@ import type {
   ChatExporterTestResult,
   ChatExporterRunResult,
   ChatExporterDelta,
+  DuplicateCandidate,
+  DuplicateCandidateDecision,
 } from '../types';
 import { z } from 'zod';
 import { authenticatedFetch } from '../../../services/apiClient';
@@ -291,6 +293,36 @@ function parseDiscordMessage(value: unknown): DiscordMessage {
   return parsed.data;
 }
 
+// Fase 5 (spec 058) — candidatos de duplicata.
+const duplicateCandidateSchema = z.object({
+  id: z.string(),
+  score: z.number(),
+  match_kind: z.enum(['exact', 'probable']),
+  signals: z.record(z.string(), z.unknown()).catch({}),
+  status: z.enum(['candidate', 'confirmed_duplicate', 'rejected_duplicate', 'update_existing']),
+  reviewed_by: z.string().nullable(),
+  reviewed_at: z.string().nullable(),
+  created_at: z.string(),
+  candidate_case_id: z.string(),
+  candidate_draft_id: z.string().nullable(),
+  candidate_normalized_text: z.string().catch(''),
+  candidate_final_action: z.string().catch('unknown'),
+  candidate_draft_status: z.enum(['draft', 'ready', 'needs_review', 'synced', 'rejected']).nullable(),
+  candidate_draft_data: z.record(z.string(), z.unknown()).nullable().catch(null),
+});
+
+function parseDuplicateCandidates(value: unknown): DuplicateCandidate[] {
+  const parsed = z.array(duplicateCandidateSchema).safeParse(value);
+  if (!parsed.success) throw new Error('Lista de candidatos de duplicata em formato inesperado.');
+  return parsed.data;
+}
+
+function parseDuplicateCandidate(value: unknown): DuplicateCandidate {
+  const parsed = duplicateCandidateSchema.safeParse(value);
+  if (!parsed.success) throw new Error('Candidato de duplicata em formato inesperado.');
+  return parsed.data;
+}
+
 const importResultSchema = z.object({
   total: z.number(),
   inserted: z.number(),
@@ -542,6 +574,12 @@ export const discordSyncApi = {
 
   refreshDraftImage: (id: string) =>
     apiFetch<{ draftId: string; tableId: string | null; status: string; url: string | null; error: string | null }>(`/drafts/${id}/refresh-image`, { method: 'POST' }),
+
+  listDuplicateCandidates: async (draftId: string) =>
+    parseDuplicateCandidates(await apiFetch<unknown>(`/drafts/${draftId}/duplicates`)),
+
+  resolveDuplicateCandidate: async (candidateId: string, status: DuplicateCandidateDecision) =>
+    parseDuplicateCandidate(await apiFetch<unknown>(`/duplicate-candidates/${candidateId}`, { method: 'PATCH', body: JSON.stringify({ status }) })),
 
   syncReady: () =>
     apiFetch<SyncReadyResult>('/sync-ready', { method: 'POST' }),
