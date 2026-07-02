@@ -19,6 +19,11 @@ vi.mock('../../discord', async (importOriginal) => {
 
 vi.mock('../../discord/llmAssist', () => ({
   assistDiscordParse: vi.fn(),
+  assistDiscordParseWithContextPack: vi.fn(),
+}));
+
+vi.mock('../../discord/parseRetrieval', () => ({
+  loadRetrievalContextForCurrent: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock('../../discord/syncHelpers', () => ({
@@ -38,7 +43,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { processDiscordMessageToDraft } from './utils';
 import { db } from '../../db';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord';
-import { assistDiscordParse } from '../../discord/llmAssist';
+import { assistDiscordParseWithContextPack } from '../../discord/llmAssist';
 import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers';
 import type { DiscordImportMessagesTable } from '../../db/types';
 import type { Selectable } from 'kysely';
@@ -134,7 +139,7 @@ describe('processDiscordMessageToDraft', () => {
     (normalizeDiscordTableDraft as Mock)
       .mockReturnValueOnce({ draft: parsed, status: 'needs_review' })
       .mockImplementationOnce((draft) => ({ draft, status: 'needs_review' }));
-    (assistDiscordParse as Mock).mockResolvedValue({
+    (assistDiscordParseWithContextPack as Mock).mockResolvedValue({
       model: 'deepseek-chat',
       extracted: {
         title: 'A Torre Partida',

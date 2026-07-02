@@ -294,11 +294,24 @@ describe('discordSyncApi', () => {
       fetchMock.mockResolvedValue(okJson({ total: 10, inserted: 8, updated: 2, ignored: 0, failed: 0 }));
       const result = await discordSyncApi.importJson({ json: '{}' });
       expect(result.inserted).toBe(8);
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(opts?.body).toBe(JSON.stringify({ json: '{}', autoParse: true }));
     });
 
     it('lanca erro se resposta for invalida', async () => {
       fetchMock.mockResolvedValue(okJson({ total: 'dez' }));
       await expect(discordSyncApi.importJson({ json: '{}' })).rejects.toThrow('formato inesperado');
+    });
+
+    it('envia autoParse no upload de arquivo', async () => {
+      fetchMock.mockResolvedValue(okJson({ total: 1, inserted: 1, updated: 0, ignored: 0, failed: 0 }));
+      const file = new File(['{}'], 'teste.json', { type: 'application/json' });
+      await discordSyncApi.importFile(file);
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(opts?.body).toBeInstanceOf(FormData);
+      const form = opts?.body as FormData;
+      expect(form.get('file')).toBe(file);
+      expect(form.get('autoParse')).toBe('true');
     });
   });
 
@@ -359,6 +372,46 @@ describe('discordSyncApi', () => {
       const [, opts] = fetchMock.mock.calls[0];
       expect(opts?.method).toBe('POST');
       expect(fetchMock.mock.calls[0][0]).toContain('/drafts/d1/reparse');
+    });
+  });
+
+  describe('duplicate candidates', () => {
+    const duplicatePayload = {
+      id: 'dup-1',
+      score: 0.91,
+      match_kind: 'exact',
+      signals: { raw_hash_exact: true },
+      status: 'candidate',
+      reviewed_by: null,
+      reviewed_at: null,
+      created_at: '2026-07-01T00:00:00Z',
+      candidate_case_id: 'case-2',
+      candidate_draft_id: 'draft-2',
+      candidate_normalized_text: 'mesa igual',
+      candidate_final_action: 'draft',
+      candidate_draft_status: 'draft',
+      candidate_draft_data: null,
+    };
+
+    it('faz GET /drafts/:id/duplicates e parseia candidatos', async () => {
+      fetchMock.mockResolvedValue(okJson([duplicatePayload]));
+
+      const result = await discordSyncApi.listDuplicateCandidates('draft-1');
+
+      expect(fetchMock.mock.calls[0][0]).toContain('/drafts/draft-1/duplicates');
+      expect(result[0]).toMatchObject({ id: 'dup-1', match_kind: 'exact', score: 0.91 });
+    });
+
+    it('faz PATCH /duplicate-candidates/:id com decisao humana', async () => {
+      fetchMock.mockResolvedValue(okJson({ ...duplicatePayload, status: 'update_existing' }));
+
+      const result = await discordSyncApi.resolveDuplicateCandidate('dup-1', 'update_existing');
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(fetchMock.mock.calls[0][0]).toContain('/duplicate-candidates/dup-1');
+      expect(opts?.method).toBe('PATCH');
+      expect(JSON.parse(opts?.body as string)).toEqual({ status: 'update_existing' });
+      expect(result.status).toBe('update_existing');
     });
   });
 });

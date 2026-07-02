@@ -43,10 +43,10 @@
       "mesas": {
         "total": 224,
         "byMethod": {
-          "GET": 61,
+          "GET": 60,
           "POST": 60,
           "USE": 51,
-          "PATCH": 24,
+          "PATCH": 25,
           "DELETE": 17,
           "PUT": 11
         },
@@ -1086,7 +1086,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/automation/auto-approval/guard",
       "sourceFile": "apps/mesas/backend/src/routes/discord/automation.ts",
-      "line": 21,
+      "line": 22,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1104,7 +1104,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/automation/eval",
       "sourceFile": "apps/mesas/backend/src/routes/discord/automation.ts",
-      "line": 42,
+      "line": 43,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1113,7 +1113,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/automation/parse-eval",
       "sourceFile": "apps/mesas/backend/src/routes/discord/automation.ts",
-      "line": 84,
+      "line": 85,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1380,10 +1380,10 @@
     },
     {
       "app": "mesas",
-      "method": "GET",
-      "path": "/api/v1/admin/discord/duplicate-candidates/:id/duplicates",
+      "method": "PATCH",
+      "path": "/api/v1/admin/discord/duplicate-candidates/:id",
       "sourceFile": "apps/mesas/backend/src/routes/discord/duplicates.ts",
-      "line": 84,
+      "line": 120,
       "confidence": "high",
       "kind": "express-route"
     },

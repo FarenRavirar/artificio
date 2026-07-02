@@ -1,0 +1,104 @@
+import { describe, expect, it, vi } from 'vitest';
+import {
+  deriveScope,
+  lookupLearningRules,
+  nextRuleState,
+  recordLearningRulesFromCorrections,
+} from '../learningRules';
+
+describe('deriveScope', () => {
+  it('gera escopo estavel global, guild e composite', () => {
+    const global = deriveScope(null);
+    const guild = deriveScope({ guild_id: 'guild-1' });
+    const composite = deriveScope({ guild_id: 'guild-1', channel_id: 'channel-1' });
+
+    expect(global.scopeType).toBe('global');
+    expect(global.scopeJson).toEqual({});
+    expect(guild.scopeType).toBe('guild');
+    expect(guild.scopeJson).toEqual({ guild_id: 'guild-1' });
+    expect(composite.scopeType).toBe('composite');
+    expect(composite.scopeJson).toEqual({ channel_id: 'channel-1', guild_id: 'guild-1' });
+    expect(guild.scopeHash).toHaveLength(64);
+  });
+});
+
+describe('nextRuleState', () => {
+  it('ativa regra com confirmacoes e suprime quando valor muda', () => {
+    expect(nextRuleState({ hits: 1, rejections: 0, outputChanged: false }).status).toBe('active');
+    expect(nextRuleState({ hits: 3, rejections: 0, outputChanged: true }).status).toBe('suppressed');
+    expect(nextRuleState({ hits: 1, rejections: 2, outputChanged: false }).status).toBe('suppressed');
+  });
+});
+
+describe('recordLearningRulesFromCorrections', () => {
+  it('faz upsert apenas de campo aprendivel com token e saida', async () => {
+    const execute = vi.fn().mockResolvedValue(undefined);
+    const onConflict = vi.fn().mockReturnValue({ execute });
+    const values = vi.fn().mockReturnValue({ onConflict });
+    const insertInto = vi.fn().mockReturnValue({ values });
+
+    await recordLearningRulesFromCorrections(
+      [
+        { field: 'system_name', inputValue: 'd&d 5e', outputValue: 'D&D 5.2' },
+        { field: 'campo_x', inputValue: 'a', outputValue: 'b' },
+        { field: 'title', inputValue: null, outputValue: 'Mesa' },
+        { field: 'price_type', inputValue: 'pago', outputValue: '' },
+      ],
+      { guild_id: 'guild-1' },
+      'user-1',
+      { insertInto } as never,
+    );
+
+    expect(insertInto).toHaveBeenCalledTimes(1);
+    expect(insertInto).toHaveBeenCalledWith('discord_learning_rules');
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({
+      rule_type: 'field_value',
+      field: 'system_name',
+      input_token: 'd&d 5e',
+      scope_type: 'guild',
+      source: 'human',
+    }));
+  });
+});
+
+describe('lookupLearningRules', () => {
+  it('retorna hit ativo e separa conflito de valores divergentes', async () => {
+    const rows = [
+      { id: 'r1', output_value: 'D&D 5.2', confidence: 0.9, scope_type: 'guild' },
+      { id: 'r2', output_value: 'D&D 5.2', confidence: 0.85, scope_type: 'global' },
+    ];
+    const selectBuilder: any = {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockResolvedValue(rows),
+    };
+    const conn = { selectFrom: vi.fn().mockReturnValue(selectBuilder) } as never;
+
+    const result = await lookupLearningRules([{ field: 'system_name', value: 'D&D 5e' }], { guild_id: 'guild-1' }, conn);
+
+    expect(result.conflicts).toEqual([]);
+    expect(result.hits).toEqual([expect.objectContaining({ ruleId: 'r1', field: 'system_name', value: 'D&D 5.2' })]);
+  });
+
+  it('bloqueia aplicacao quando ha conflito', async () => {
+    const rows = [
+      { id: 'r1', output_value: 'D&D 5.2', confidence: 0.9, scope_type: 'guild' },
+      { id: 'r2', output_value: 'Pathfinder 2e', confidence: 0.88, scope_type: 'global' },
+    ];
+    const selectBuilder: any = {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockResolvedValue(rows),
+    };
+    const conn = { selectFrom: vi.fn().mockReturnValue(selectBuilder) } as never;
+
+    const result = await lookupLearningRules([{ field: 'system_name', value: 'D&D 5e' }], { guild_id: 'guild-1' }, conn);
+
+    expect(result.hits).toEqual([]);
+    expect(result.conflicts).toEqual([expect.objectContaining({ field: 'system_name', ruleIds: ['r1', 'r2'] })]);
+  });
+});

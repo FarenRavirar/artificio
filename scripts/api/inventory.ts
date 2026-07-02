@@ -229,9 +229,16 @@ function resolveImportPath(importPath: string, sourceFile: string): string | nul
   return null;
 }
 
-/** Coleta todos os imports de um arquivo (de módulos relativos) */
-function collectImports(sourceFile: ts.SourceFile, filePath: string): Map<string, string> {
+/** Coleta todos os imports de um arquivo (de módulos relativos), junto do nome
+ * exportado de origem (localName -> 'default' | nome exportado) — necessário
+ * para resolver corretamente qual variável Router escanear quando um arquivo
+ * exporta múltiplos routers (ex: default + named export). */
+function collectImports(
+  sourceFile: ts.SourceFile,
+  filePath: string,
+): { imports: Map<string, string>; importExportName: Map<string, string> } {
   const imports = new Map<string, string>();
+  const importExportName = new Map<string, string>();
 
   function visit(node: ts.Node) {
     if (ts.isImportDeclaration(node)) {
@@ -244,20 +251,21 @@ function collectImports(sourceFile: ts.SourceFile, filePath: string): Map<string
       if (node.importClause?.name) {
         const localName = node.importClause.name.text;
         imports.set(localName, resolvedPath);
+        importExportName.set(localName, 'default');
       }
 
       // Extrair named imports
       if (node.importClause?.namedBindings && ts.isNamedImports(node.importClause.namedBindings)) {
         for (const element of node.importClause.namedBindings.elements) {
           const localName = element.name.text;
+          const exportedName = element.propertyName ? element.propertyName.text : element.name.text;
           // Só registrar se o nome importado for Router (raro mas possível)
-          if (element.propertyName
-            ? element.propertyName.text === 'Router'
-            : element.name.text === 'Router') {
+          if (exportedName === 'Router') {
             // Router function itself — não mapear como router
             continue;
           }
           imports.set(localName, resolvedPath);
+          importExportName.set(localName, exportedName);
         }
       }
     }
@@ -277,6 +285,7 @@ function collectImports(sourceFile: ts.SourceFile, filePath: string): Map<string
           const parent = node.parent;
           if (parent && ts.isVariableDeclaration(parent) && parent.name && ts.isIdentifier(parent.name)) {
             imports.set(parent.name.text, resolvedPath);
+            importExportName.set(parent.name.text, 'default');
           }
         }
       }
@@ -286,7 +295,30 @@ function collectImports(sourceFile: ts.SourceFile, filePath: string): Map<string
   }
 
   visit(sourceFile);
-  return imports;
+  return { imports, importExportName };
+}
+
+/** Mapeia nome exportado ('default' ou nome nomeado) -> nome da variável local
+ * declarada no arquivo. Usado para resolver corretamente qual Router escanear
+ * quando o arquivo exporta múltiplos routers. */
+function collectExportsToLocal(sf: ts.SourceFile): Map<string, string> {
+  const map = new Map<string, string>();
+
+  function visit(node: ts.Node) {
+    if (ts.isExportAssignment(node) && !node.isExportEquals && ts.isIdentifier(node.expression)) {
+      map.set('default', node.expression.text);
+    }
+    if (ts.isExportDeclaration(node) && node.exportClause && ts.isNamedExports(node.exportClause)) {
+      for (const element of node.exportClause.elements) {
+        const localName = element.propertyName ? element.propertyName.text : element.name.text;
+        map.set(element.name.text, localName);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sf);
+  return map;
 }
 
 /** Tenta encontrar onde uma variável Router é declarada */
@@ -349,6 +381,8 @@ interface FileAST {
   source: string;
   sf: ts.SourceFile;
   imports: Map<string, string>;   // varName -> filePath
+  importExportName: Map<string, string>; // varName local -> nome exportado na origem ('default' | nome)
+  exportsToLocal: Map<string, string>; // nome exportado deste arquivo -> varName local
   localRouters: Map<string, string>; // routerVarName -> filePath | 'FACTORY:...'
   allRouters: Map<string, string>;   // merged: imports + localRouters
 }
@@ -363,7 +397,8 @@ function getFileAST(filePath: string): FileAST | null {
 
   const source = fs.readFileSync(filePath, 'utf-8');
   const sf = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true);
-  const imports = collectImports(sf, filePath);
+  const { imports, importExportName } = collectImports(sf, filePath);
+  const exportsToLocal = collectExportsToLocal(sf);
 
   const localRouters = new Map<string, string>();
 
@@ -394,7 +429,7 @@ function getFileAST(filePath: string): FileAST | null {
 
   const allRouters = new Map(localRouters);
 
-  const ast: FileAST = { source, sf, imports, localRouters, allRouters };
+  const ast: FileAST = { source, sf, imports, importExportName, exportsToLocal, localRouters, allRouters };
   astCache.set(filePath, ast);
   return ast;
 }
@@ -623,19 +658,24 @@ function processUse(
   // Se está em arquivo diferente, o scopeVar é o nome da variável exportada
   const isSameFile = routerFile === ast.sf.fileName;
 
-  // Para router em arquivo separado: tentar encontrar o nome da variável router
-  // (geralmente "router" ou export default)
+  // Para router em arquivo separado: resolver pelo nome exportado real
+  // (arquivo pode ter múltiplos routers exportados — default + named — então
+  // "pegar o primeiro router local" adivinha errado quando há mais de um).
   let routerScopeVar = routerIdent;
   if (!isSameFile) {
-    // Procurar no routerAST qual variável é Router()
-    // Pega o primeiro router local encontrado
-    for (const [varName, varFile] of routerAST.localRouters) {
-      if (varFile === routerFile) {
-        routerScopeVar = varName;
-        break;
+    const exportName = ast.importExportName.get(routerIdent);
+    const mappedLocal = exportName ? routerAST.exportsToLocal.get(exportName) : undefined;
+    if (mappedLocal && routerAST.localRouters.has(mappedLocal)) {
+      routerScopeVar = mappedLocal;
+    } else {
+      // Fallback: pega o primeiro router local encontrado
+      for (const [varName, varFile] of routerAST.localRouters) {
+        if (varFile === routerFile) {
+          routerScopeVar = varName;
+          break;
+        }
       }
     }
-    // Se não achou localRouters, tenta "router" como fallback
   }
 
   scanRouterFile(routerFile, newPrefix, routerScopeVar, ctx);

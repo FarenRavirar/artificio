@@ -1314,6 +1314,46 @@ describe('parseDiscordAnnouncement', () => {
     expect(free?.table.price_value).toBeNull();
   });
 
+  it('does not assume a table is free when price is absent', () => {
+    const draft = parseDiscordAnnouncement(makeMessage({
+      content_raw: [
+        'Sistema: Dungeons & Dragons',
+        'Dia: sexta às 20h',
+        'Vagas: 4',
+        'Contato: https://forms.gle/example',
+      ].join('\n'),
+    }));
+
+    expect(draft?.table.price_type).toBeNull();
+    expect(draft?.table.price_value).toBeNull();
+  });
+
+  it('extracts paid table signal with reversed currency or without numeric value', () => {
+    const reversedCurrency = parseDiscordAnnouncement(makeMessage({
+      content_raw: [
+        'Sistema: Dungeons & Dragons',
+        'Dia: sexta às 20h',
+        'Vagas: 4',
+        'Disponível por 27 R$/cada.',
+        'Contato: https://forms.gle/example',
+      ].join('\n'),
+    }));
+    const paidWithoutValue = parseDiscordAnnouncement(makeMessage({
+      content_raw: [
+        'Sistema: Dungeons & Dragons',
+        'Dia: sexta às 20h',
+        'Vagas: 4',
+        'Mesa paga',
+        'Contato: https://forms.gle/example',
+      ].join('\n'),
+    }));
+
+    expect(reversedCurrency?.table.price_type).toBe('paga');
+    expect(reversedCurrency?.table.price_value).toBe(27);
+    expect(paidWithoutValue?.table.price_type).toBe('paga');
+    expect(paidWithoutValue?.table.price_value).toBeNull();
+  });
+
   it('marks inspired/adapted systems as homebrew suspect instead of discarding (052 R18)', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({
@@ -1330,6 +1370,19 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft).not.toBeNull();
     expect(draft?.table._homebrew_suspect).toBe(true);
     expect(draft?.missing_fields).toContain('system_name:unmatched_hint');
+  });
+
+  it('discards homebrew system labels written with mathematical styled letters', () => {
+    const draft = parseDiscordAnnouncement(makeMessage({
+      content_raw: [
+        '# __Mesa Estilizada__',
+        '▬ 𝐒𝐈𝐒𝐓𝐄𝐌𝐀: *Próprio*',
+        '▬ Vagas: 4',
+        'Contato: https://forms.gle/example',
+      ].join('\n'),
+    }));
+
+    expect(draft).toBeNull();
   });
 
   it('preserves attachments and embeds as raw evidence (052 R19)', () => {

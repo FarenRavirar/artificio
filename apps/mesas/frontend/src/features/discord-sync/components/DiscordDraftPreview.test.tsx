@@ -51,6 +51,7 @@ vi.mock('../useDraftForm', () => ({
     setSlotsInterpretation: vi.fn(),
     slotsAmbiguity: null,
     payloadMissingFields: [],
+    fieldInsights: {},
     handleSystemChange: vi.fn(),
     handleSaveFields: vi.fn(),
     handleCoverUpload: vi.fn(),
@@ -138,6 +139,30 @@ describe('DiscordDraftPreview', () => {
     expect(screen.getByText('Campos')).toBeInTheDocument();
     expect(screen.getByText('Normalizado')).toBeInTheDocument();
     expect(screen.getByText('Bruto')).toBeInTheDocument();
+  });
+
+  it('mostra aba Duplicatas apenas quando API de leitura e decisao existem', () => {
+    const { rerender } = render(
+      <DiscordDraftPreview
+        draft={mockDraft}
+        onUpdate={vi.fn()}
+        onClose={vi.fn()}
+        api={{ ...mockApi, listDuplicateCandidates: vi.fn() }}
+      />,
+    );
+
+    expect(screen.queryByText('Duplicatas')).not.toBeInTheDocument();
+
+    rerender(
+      <DiscordDraftPreview
+        draft={mockDraft}
+        onUpdate={vi.fn()}
+        onClose={vi.fn()}
+        api={{ ...mockApi, listDuplicateCandidates: vi.fn(), resolveDuplicateCandidate: vi.fn() }}
+      />,
+    );
+
+    expect(screen.getByText('Duplicatas')).toBeInTheDocument();
   });
 
   it('renderiza o DraftEditorTab na aba editor', () => {

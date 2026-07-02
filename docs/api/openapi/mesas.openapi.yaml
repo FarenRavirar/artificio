@@ -1169,10 +1169,10 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
-  /api/v1/admin/discord/duplicate-candidates/{id}/duplicates:
-    get:
-      operationId: getapi_v1_admin_discord_duplicate_candidates_id_duplicates
-      summary: "Consulta api v1 admin discord duplicate-candidates id duplicates"
+  /api/v1/admin/discord/duplicate-candidates/{id}:
+    patch:
+      operationId: patchapi_v1_admin_discord_duplicate_candidates_id
+      summary: "Atualiza api v1 admin discord duplicate-candidates id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active
@@ -1183,6 +1183,13 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
       responses:
         "200":
           description: OK

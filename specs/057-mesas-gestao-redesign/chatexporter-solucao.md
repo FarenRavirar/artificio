@@ -26,6 +26,17 @@ A peça que **não funciona hoje**: a CLI **não está instalada no container** 
 
 Com o token válido, a UI **descobre servidores e canais** (`GET /discovery/guilds[/:id/channels]` — já existe) → o leigo **escolhe num dropdown**, não digita ID cru.
 
+### Achado (2026-07-01): 401 na validação de token de usuário/session — possível bloqueio por IP de datacenter, **PAUSADO**
+
+**Status: pausado a pedido do mantenedor (2026-07-01).** Próxima etapa combinada: mantenedor vai rodar exportação manual do `DiscordChatExporter.Cli` + importação do JSON gerado, pra validar as outras partes do fluxo (import/parse/drafts) sem depender do modo usuário/session. Retomar esta investigação (teste a partir da VM) só quando o mantenedor pedir.
+
+Teste real do painel (`onBlur` do campo de token) deu 401 num token de usuário/session que o mantenedor usa normalmente no `DiscordChatExporter.Cli` (confirmado válido pelo mantenedor). Investigação eliminou duas hipóteses erradas antes de chegar aqui — registradas pra não serem re-testadas à toa:
+
+1. **~~Falta de `User-Agent`~~ (descartada).** `discordGetUnknown()`/`validateDiscordToken()` (`discord/discovery.ts`) chamavam a API só com `Authorization`. Comparação linha a linha com o fonte upstream (`DiscordClient.cs` + `Utils/Http.cs`, lidos diretamente do GitHub, não resumo de IA) mostra que o `DiscordChatExporter.Cli` também manda **só** `Authorization` — `Http.Client` é um `new HttpClient()` puro, sem nenhum header default. Mesmo assim, `DISCORD_REQUEST_HEADERS` (User-Agent de Chrome + `Accept: */*`) foi mantido no código por ser inofensivo e mais parecido com um cliente real — mas **não é a causa** do 401 nem a resolve sozinho.
+2. **~~Token corrompido~~ (descartada, análise errada).** Assumi que o 1º segmento base64 do token deveria decodificar pra um snowflake numérico puro — regra que vale pra token de **bot** antigo, não pra token de usuário/self atual do Discord (payload opaco, não é mais base64 direto do ID). Correção registrada aqui pra não repetir o erro.
+
+**Teste que sobrou, ainda não feito:** rodar a chamada `GET /users/@me` (ou o próprio `DiscordChatExporter.Cli`) com esse token **a partir da VM/rede onde o backend roda de verdade**, não de uma máquina/sandbox de terceiro. Hipótese líder: Discord aplica reputação de IP mais dura em token de usuário/self — bloqueia datacenter/cloud/proxy mesmo com token válido, aceita de IP residencial. Se confirmado, isso não é bug do nosso código: é limitação de infraestrutura que pode afetar **a exportação real também** (o `DiscordChatExporter.Cli` roda na mesma VM), não só o botão de validação — merece teste dedicado antes de assumir que o modo usuário/session funciona em produção.
+
 ## 2. Rodar a CLI na VM — opções
 
 ### Fato decisivo (verificado na VM beta, read-only 2026-06-30)

@@ -41,7 +41,7 @@ vi.mock('../shared', () => ({
   getContentHash: vi.fn(() => 'test-hash'),
 }));
 
-import { importDiscordChatExporterJson, extractJsonPayload, MAX_IMPORT_MESSAGES } from '../chatExporterImportService';
+import { importDiscordChatExporterJson, extractJsonPayload, buildPreviewFromExport, MAX_IMPORT_MESSAGES } from '../chatExporterImportService';
 import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from '../chatExporterAdapter';
 import { getContentHash } from '../shared';
 import { db } from '../../db';
@@ -292,5 +292,24 @@ describe('extractJsonPayload', () => {
       expect(result.error).not.toContain('{"guild"');
       expect(result.error).not.toContain('SyntaxError');
     }
+  });
+});
+
+describe('buildPreviewFromExport', () => {
+  it('normaliza campos nulos do dateRange para o contrato do frontend', () => {
+    const preview = buildPreviewFromExport(makeExportData({
+      dateRange: { after: null, before: null },
+      exportedAt: null,
+    }));
+
+    expect(preview.dateRange).toEqual({});
+  });
+
+  it('preserva strings presentes no dateRange', () => {
+    const preview = buildPreviewFromExport(makeExportData({
+      dateRange: { after: '2026-07-01T00:00:00-03:00', before: null },
+    }));
+
+    expect(preview.dateRange).toEqual({ after: '2026-07-01T00:00:00-03:00' });
   });
 });
