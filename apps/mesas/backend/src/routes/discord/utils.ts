@@ -16,12 +16,14 @@ import {
   recordLearningRulesFromCorrections,
 } from '../../discord/learningRules';
 import {
+  buildParseCaseContract,
   extractDraftScope,
   parseActionFromNormalizedStatus,
   recordParseCase,
   recordParseFeedback,
   recordParseFeedbackForCorrections,
 } from '../../discord/parseLearning';
+import { loadRetrievalContextForCurrent } from '../../discord/parseRetrieval';
 import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
@@ -445,7 +447,8 @@ export type DiscordDraftOutcome = 'parsed' | 'ignored' | 'reconciled' | 'discard
  * processDiscordMessageToDraft p/ reduzir a complexidade cognitiva (Sonar 83→).
  */
 async function enrichDraftWithLlm(
-  contentRaw: unknown,
+  message: Selectable<DiscordImportMessagesTable>,
+  parsed: NonNullable<ReturnType<typeof parseDiscordAnnouncement>>,
   normalized: ReturnType<typeof normalizeDiscordTableDraft>,
 ): Promise<ReturnType<typeof normalizeDiscordTableDraft>> {
   const aiConfig = getAiAutomationConfig();
@@ -489,7 +492,7 @@ async function enrichDraftWithLlm(
   const missingBaseFields = normalized.draft.missing_fields.map((m) => m.split(':')[0]);
   const storeResolvedAllMissing = missingBaseFields.length > 0 && missingBaseFields.every((m) => m in storeFields);
 
-  const rawText = typeof contentRaw === 'string' ? contentRaw : '';
+  const rawText = typeof message.content_raw === 'string' ? message.content_raw : '';
   let iaFields: Record<string, unknown> = {};
   let iaModel = 'n/a';
   if (!storeResolvedAllMissing && rawText.length > 50) {
@@ -506,10 +509,12 @@ async function enrichDraftWithLlm(
         ...existingFields,
       },
     };
+    const retrievalContext = await loadDraftRetrievalContext(message, parsed, normalized);
     const llmResult = await assistDiscordParseWithContextPack({
       rawText,
       draft: draftForContext,
       model: aiConfig.model,
+      retrievalContext,
       ruleHits: ruleLookup.hits,
       ruleConflicts: ruleLookup.conflicts,
     });
@@ -543,6 +548,38 @@ async function enrichDraftWithLlm(
     ...normalized,
     draft: attachAiSuggestions(normalized.draft, merged, provider, model),
   };
+}
+
+async function loadDraftRetrievalContext(
+  message: Selectable<DiscordImportMessagesTable>,
+  parsed: NonNullable<ReturnType<typeof parseDiscordAnnouncement>>,
+  normalized: ReturnType<typeof normalizeDiscordTableDraft>,
+) {
+  try {
+    const currentParseCase = buildParseCaseContract({
+      message,
+      deterministicResult: parsed,
+      finalResult: normalized.draft,
+      finalAction: parseActionFromNormalizedStatus(normalized.status),
+    });
+    return await loadRetrievalContextForCurrent({
+      id: 'current',
+      draft_id: currentParseCase.draft_id,
+      discord_message_id: currentParseCase.discord_message_id,
+      import_message_id: currentParseCase.import_message_id,
+      final_result_json: currentParseCase.final_result_json,
+      features_json: currentParseCase.features_json,
+      normalized_text: currentParseCase.normalized_text,
+      raw_hash: currentParseCase.raw_hash,
+      normalized_hash: currentParseCase.normalized_hash,
+      guild_id: currentParseCase.guild_id,
+      channel_id: currentParseCase.channel_id,
+      author_id: currentParseCase.author_id,
+    });
+  } catch (error: unknown) {
+    console.error('[loadDraftRetrievalContext]', error instanceof Error ? error.message : 'unknown error');
+    return null;
+  }
 }
 
 /**
@@ -671,7 +708,7 @@ export async function processDiscordMessageToDraft(
 
   // WS3: enriquecimento LLM (best-effort) antes do upsert, p/ o draft salvo já
   // conter o melhor resultado disponível. Extraído p/ helper (REV-039).
-  const normalizedResult = await enrichDraftWithLlm(message.content_raw, result.normalized);
+  const normalizedResult = await enrichDraftWithLlm(message, parsed, result.normalized);
 
   const draftId = await upsertDraftWithShadow(existing?.id, message.id, parsed, normalizedResult);
   await recordParseCase({

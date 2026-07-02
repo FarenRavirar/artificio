@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../../db';
-import { getAiAutomationConfig, assertAutoApprovalAllowed } from '../../discord/aiAutomationConfig';
+import { getAiAutomationConfig, assertAutoApprovalAllowed, getAiAutomationRollbackPlan } from '../../discord/aiAutomationConfig';
 import { evaluatePredictions } from '../../discord/aiEval';
 import { evaluateParseLayers, loadParseEvalDataset } from '../../discord/parseEval';
 import { requireAdmin } from '../../middleware/auth';
@@ -14,6 +14,7 @@ router.get('/config', requireAdmin, (_req: Request, res: Response) => {
     data: {
       ...config,
       autoApprovalEnabled: false,
+      rollback: getAiAutomationRollbackPlan(),
     },
   });
 });

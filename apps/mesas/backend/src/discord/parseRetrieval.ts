@@ -53,6 +53,21 @@ export interface RetrievalContext {
   corrected_examples: ScoredParseCase[];
 }
 
+type RetrievalCurrentCase = Pick<DiscordParseCase,
+  'id'
+  | 'draft_id'
+  | 'discord_message_id'
+  | 'import_message_id'
+  | 'final_result_json'
+  | 'features_json'
+  | 'normalized_text'
+  | 'raw_hash'
+  | 'normalized_hash'
+  | 'guild_id'
+  | 'channel_id'
+  | 'author_id'
+>;
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -113,7 +128,7 @@ function clampScore(value: number): number {
   return Math.max(0, Math.min(1, Number(value.toFixed(4))));
 }
 
-export function buildDuplicateSignals(current: DiscordParseCase, candidate: RetrievedParseCase): DuplicateSignals {
+export function buildDuplicateSignals(current: RetrievalCurrentCase, candidate: RetrievedParseCase): DuplicateSignals {
   const currentUrls = extractStructuralUrls(current);
   const candidateUrls = extractStructuralUrls(candidate);
   const sharedFormUrls = intersection(currentUrls.form_urls, candidateUrls.form_urls);
@@ -160,7 +175,7 @@ export function scoreDuplicateCandidate(signals: DuplicateSignals): number {
   return clampScore(score);
 }
 
-export function buildRetrievalContext(current: DiscordParseCase, rows: RetrievedParseCase[]): RetrievalContext {
+export function buildRetrievalContext(current: RetrievalCurrentCase, rows: RetrievedParseCase[]): RetrievalContext {
   const scored = rows
     .map((row) => {
       const signals = buildDuplicateSignals(current, row);
@@ -177,14 +192,7 @@ export function buildRetrievalContext(current: DiscordParseCase, rows: Retrieved
   };
 }
 
-export async function loadRetrievalContext(parseCaseId: string, limit = 20): Promise<RetrievalContext | null> {
-  const current = await db
-    .selectFrom('discord_parse_cases')
-    .selectAll()
-    .where('id', '=', parseCaseId)
-    .executeTakeFirst();
-  if (!current) return null;
-
+export async function loadRetrievalContextForCurrent(current: RetrievalCurrentCase, limit = 20): Promise<RetrievalContext> {
   const currentUrls = extractStructuralUrls(current);
   const formUrlPredicates = currentUrls.form_urls.map((url) => {
     const likePattern = `%${url}%`;
@@ -259,6 +267,17 @@ export async function loadRetrievalContext(parseCaseId: string, limit = 20): Pro
   `.execute(db);
 
   return buildRetrievalContext(current, result.rows);
+}
+
+export async function loadRetrievalContext(parseCaseId: string, limit = 20): Promise<RetrievalContext | null> {
+  const current = await db
+    .selectFrom('discord_parse_cases')
+    .selectAll()
+    .where('id', '=', parseCaseId)
+    .executeTakeFirst();
+  if (!current) return null;
+
+  return loadRetrievalContextForCurrent(current, limit);
 }
 
 export async function persistDuplicateCandidatesForCase(parseCaseId: string): Promise<void> {

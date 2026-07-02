@@ -226,7 +226,7 @@ export async function recordParseCase(input: Parameters<typeof buildParseCaseCon
       .executeTakeFirst();
     const insertedId = inserted?.id ?? null;
     if (insertedId) {
-      void persistDuplicateCandidatesForCase(insertedId);
+      await persistDuplicateCandidatesForCase(insertedId);
       void recordParseLayerShadowDecisions({
         parseCaseId: insertedId,
         draftId: contract.draft_id,

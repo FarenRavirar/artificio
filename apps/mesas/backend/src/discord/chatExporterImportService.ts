@@ -3,6 +3,7 @@ import { db } from '../db';
 import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from './chatExporterAdapter';
 import { getContentHash } from './shared';
 import type { ImportResult } from './chatExporterAdapter';
+import type { DiscordChatExporterExport } from './discordChatExporterTypes';
 
 /** Limite de segurança: número máximo de mensagens por importação (evita DoS / O(n) massivo). */
 export const MAX_IMPORT_MESSAGES = 2000;
@@ -162,13 +163,15 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
 }
 
 /** Monta objeto de preview a partir de um export já parseado (DEB-048-24). */
-export function buildPreviewFromExport(exportData: { guild: { id: string; name: string }; channel: { id: string; name: string }; dateRange?: { after?: string | null; before?: string | null } | null; exportedAt?: string | null; messageCount?: number; messages: { attachments?: unknown[]; embeds?: unknown[] }[] }) {
+export function buildPreviewFromExport(exportData: DiscordChatExporterExport) {
   const attachmentsCount = exportData.messages.reduce((sum, msg) => sum + (msg.attachments?.length ?? 0), 0);
   const embedsCount = exportData.messages.reduce((sum, msg) => sum + (msg.embeds?.length ?? 0), 0);
-  const dateRange = exportData.dateRange
+  const after = exportData.dateRange?.after;
+  const before = exportData.dateRange?.before;
+  const dateRange = after || before
     ? {
-        ...(exportData.dateRange.after ? { after: exportData.dateRange.after } : {}),
-        ...(exportData.dateRange.before ? { before: exportData.dateRange.before } : {}),
+        ...(after ? { after } : {}),
+        ...(before ? { before } : {}),
       }
     : null;
   return {
