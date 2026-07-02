@@ -40,7 +40,8 @@ vi.mock('../../services/adminNotifications', () => ({
 }));
 
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { processDiscordMessageToDraft } from './utils';
+import { processDiscordMessageToDraft, validateReparseMessageIds, MAX_REPARSE_MESSAGE_IDS } from './utils';
+import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { db } from '../../db';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord';
 import { assistDiscordParseWithContextPack } from '../../discord/llmAssist';
@@ -177,5 +178,21 @@ describe('processDiscordMessageToDraft', () => {
         missing_fields: ['title', 'system_name', 'price_type', 'slots_total', 'contact_url'],
       }),
     }));
+  });
+});
+
+describe('validateReparseMessageIds', () => {
+  it('rejeita messageIds acima do teto (achado CodeRabbit PR #124)', () => {
+    const tooMany = Array.from({ length: MAX_REPARSE_MESSAGE_IDS + 1 }, (_, i) => `msg-${i}`);
+    expect(() => validateReparseMessageIds(tooMany)).toThrow(DiscordChatExporterValidationError);
+  });
+
+  it('aceita messageIds exatamente no teto', () => {
+    const atLimit = Array.from({ length: MAX_REPARSE_MESSAGE_IDS }, (_, i) => `msg-${i}`);
+    expect(validateReparseMessageIds(atLimit)).toEqual(atLimit);
+  });
+
+  it('undefined passa direto (sem messageIds no payload)', () => {
+    expect(validateReparseMessageIds(undefined)).toBeUndefined();
   });
 });

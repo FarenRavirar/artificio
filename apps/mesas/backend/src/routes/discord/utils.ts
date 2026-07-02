@@ -739,10 +739,23 @@ export async function processDiscordMessageToDraft(
  * Valida `messageIds` de payload externo (DEB-048-19). Lança
  * DiscordChatExporterValidationError (→ 400 no handler) se inválido.
  */
+// Achado CodeRabbit PR #124: sem esse teto, /reparse com messageIds fatia em
+// chunks de REPARSE_BATCH_SIZE e processa TODOS os chunks numa única
+// requisição síncrona — o `if (idChunk || ...) break` do route handler nunca
+// chega a checar REPARSE_MAX_BATCHES nesse caminho, então o teto de segurança
+// (~10k) só valia pro caminho sem ids. Rejeita cedo (400) em vez de aceitar
+// qualquer tamanho.
+export const MAX_REPARSE_MESSAGE_IDS = 2000;
+
 export function validateReparseMessageIds(rawIds: unknown): string[] | undefined {
   if (rawIds === undefined || rawIds === null) return undefined;
   if (!Array.isArray(rawIds)) {
     throw new DiscordChatExporterValidationError('messageIds deve ser um array de strings.');
+  }
+  if (rawIds.length > MAX_REPARSE_MESSAGE_IDS) {
+    throw new DiscordChatExporterValidationError(
+      `messageIds excede o limite (${rawIds.length} > ${MAX_REPARSE_MESSAGE_IDS}). Divida em chamadas menores.`,
+    );
   }
   // Normaliza: trim em cada id; rejeita não-string ou vazio (inclui "   ").
   const normalized = rawIds.map((id: unknown) => (typeof id === 'string' ? id.trim() : id));
