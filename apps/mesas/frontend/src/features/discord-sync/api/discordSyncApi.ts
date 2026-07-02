@@ -354,6 +354,24 @@ function parseImportResult(data: unknown) {
   return parsed.data;
 }
 
+// DEB-058-02: /import-json/reparse existia sem caller no frontend — mensagens
+// que ficassem pending (dedup de reimport, timeout, restart mid-request) não
+// tinham como ser reprocessadas pela UI.
+const reparseResultSchema = z.object({
+  total: z.number(),
+  reparsed: z.number(),
+  discarded: z.number(),
+  ignored: z.number(),
+  errors: z.number(),
+  truncated: z.boolean(),
+});
+export type ReparsePendingResult = z.infer<typeof reparseResultSchema>;
+function parseReparseResult(data: unknown): ReparsePendingResult {
+  const parsed = reparseResultSchema.safeParse(data);
+  if (!parsed.success) throw new Error('Resposta de reparse em formato inesperado.');
+  return parsed.data;
+}
+
 // Envelope das ações em lote: só `updated` é consumido (contador). Validado, não cast cego.
 const batchResultSchema = z.object({ updated: z.number().int().nonnegative() });
 function parseBatchResult(data: unknown): { updated: number } {
@@ -611,4 +629,9 @@ export const discordSyncApi = {
 
   importFile: async (file: File) =>
     fileApiFetch('/import-json/file', file, parseImportResult, 'importar arquivo', { autoParse: 'true' }),
+
+  reparsePending: async () => {
+    const data = await apiFetch<unknown>('/import-json/reparse', { method: 'POST', body: JSON.stringify({}) });
+    return parseReparseResult(data);
+  },
 };

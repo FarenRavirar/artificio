@@ -1,8 +1,11 @@
+import { useCallback, useState } from 'react';
+import toast from 'react-hot-toast';
 import { useJsonImport } from '../hooks/useJsonImport';
 import { formatFileSize } from '../draftFormUtils';
 import { ImportResultGrid } from './ImportResultGrid';
 import { JsonPreviewCard } from './JsonPreviewCard';
 import { FileDropzone } from "@artificio/ui";
+import { discordSyncApi, type ReparsePendingResult } from '../api/discordSyncApi';
 
 interface DiscordJsonImportPanelProps {
   readonly onNavigateToDrafts?: () => void;
@@ -15,6 +18,27 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
     handleChange, handleSubmit, handleClear,
     handleFileSelect, handleDragOver, handleDragLeave, handleDrop,
   } = useJsonImport();
+
+  // DEB-058-02: mensagens que ficam pending (dedup de reimport, timeout, restart
+  // mid-request) não tinham nenhum caminho de recuperação na UI — rota backend
+  // já existia (/import-json/reparse), só faltava o caller.
+  const [reparseState, setReparseState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [reparseResult, setReparseResult] = useState<ReparsePendingResult | null>(null);
+  const [reparseError, setReparseError] = useState('');
+
+  const handleReparsePending = useCallback(async () => {
+    setReparseState('loading');
+    setReparseError('');
+    try {
+      const data = await discordSyncApi.reparsePending();
+      setReparseResult(data);
+      setReparseState('idle');
+      toast.success(`${data.reparsed} rascunhos gerados a partir de ${data.total} mensagens pendentes.`);
+    } catch (err) {
+      setReparseState('error');
+      setReparseError(err instanceof Error ? err.message : 'Erro ao reprocessar mensagens pendentes.');
+    }
+  }, []);
 
   // Codex P3: input fica sempre montado p/ "Trocar arquivo" achar a ref (FileDropzone
   // some quando selectedFile setado, levando junto o input que ele renderiza).
@@ -114,6 +138,38 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
           <p className="text-red-300 text-sm">{errorMessage}</p>
         </div>
       )}
+
+      <div className="rounded-lg bg-white/5 border border-white/10 p-4 space-y-3">
+        <h3 className="text-white font-semibold">Reparse pendentes</h3>
+        <p className="text-white/50 text-xs">
+          Reprocessa mensagens presas em "pendente"/"revisão" que não viraram rascunho
+          (ex.: reimport com hash igual não dispara auto-parse; falha/timeout no meio do processamento).
+        </p>
+        <button
+          onClick={handleReparsePending}
+          disabled={reparseState === 'loading'}
+          className="px-4 py-2 bg-amber-700 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-40"
+        >
+          {reparseState === 'loading' ? 'Reprocessando...' : 'Reparse pendentes'}
+        </button>
+        {reparseState === 'error' && reparseError && (
+          <p className="text-red-300 text-sm">{reparseError}</p>
+        )}
+        {reparseResult && (
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 text-sm">
+            <p className="text-white/70">Total: <span className="font-bold">{reparseResult.total}</span></p>
+            <p className="text-green-300">Rascunhos: <span className="font-bold">{reparseResult.reparsed}</span></p>
+            <p className="text-amber-300">Descartadas: <span className="font-bold">{reparseResult.discarded}</span></p>
+            <p className="text-white/70">Inválidas: <span className="font-bold">{reparseResult.ignored}</span></p>
+            <p className={reparseResult.errors > 0 ? 'text-red-300' : 'text-white/70'}>Erros: <span className="font-bold">{reparseResult.errors}</span></p>
+          </div>
+        )}
+        {reparseResult?.truncated && (
+          <p className="text-amber-300 text-xs">
+            Ainda há mais mensagens pendentes que o teto de segurança (~10k) por chamada. Clique em "Reparse pendentes" novamente.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
