@@ -902,7 +902,7 @@ export interface DiscordParseShadowDecisionsTable {
   confidence: ColumnType<string | null, number | null | undefined, number | null>;
   reason_codes: string[] | null;
   actual_action: DiscordParseShadowAction | null;
-  actual_payload: ColumnType<unknown, unknown | null | undefined, unknown | null> | null;
+  actual_payload: ColumnType<unknown, unknown, unknown>;
   actual_at: Date | null;
   created_at: Generated<Date>;
 }

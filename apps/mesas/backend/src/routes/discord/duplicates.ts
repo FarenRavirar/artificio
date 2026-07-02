@@ -2,10 +2,9 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import type { Kysely, Transaction } from 'kysely';
 import { db } from '../../db';
-import type { Database } from '../../db/types';
+import type { Database, DiscordDuplicateCandidateStatus } from '../../db/types';
 import { requireAdmin } from '../../middleware/auth';
 import { parseFeedbackContractSchema } from '../../discord/parseLearning';
-import type { DiscordDuplicateCandidateStatus } from '../../db/types';
 
 const router = Router();
 

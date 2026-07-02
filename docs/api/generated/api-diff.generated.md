@@ -10,15 +10,18 @@
 
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
-| mesas | ✅ 0 | ✅ 1 | ⚪ 0 |
+| mesas | ✅ 0 | ✅ 4 | ⚪ 0 |
 
 ---
 
 ### mesas
 
-#### ✅ Non-breaking (1)
+#### ✅ Non-breaking (4)
 
 | Path | Method | Ação |
 |------|--------|------|
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
 | `` |  | add |
 

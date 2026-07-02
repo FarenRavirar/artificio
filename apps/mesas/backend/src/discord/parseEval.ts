@@ -1,7 +1,7 @@
 import { sql } from 'kysely';
 import { z } from 'zod';
 import { db } from '../db';
-import type { ParseCaseContract, ParseFinalAction } from './parseLearning';
+import type { ParseFinalAction } from './parseLearning';
 
 export const PARSE_EVAL_FIELDS = [
   'action',
@@ -186,10 +186,7 @@ export function evaluateParseLayer(
       let total = 0;
       let correct = 0;
       for (const example of examples) {
-        const prediction =
-          layer === 'parser' ? example.parser_prediction :
-            layer === 'learning' ? example.learning_prediction :
-              example.deepseek_prediction;
+        const prediction = getLayerPrediction(example, layer);
         if (!prediction) continue;
 
         const expected = valueForField(field, example.expected_payload, example.expected_action);
@@ -207,6 +204,12 @@ export function evaluateParseLayer(
       };
     }),
   };
+}
+
+function getLayerPrediction(example: ParseEvalExample, layer: ParsePredictionLayer): Record<string, unknown> | null {
+  if (layer === 'parser') return example.parser_prediction;
+  if (layer === 'learning') return example.learning_prediction;
+  return example.deepseek_prediction;
 }
 
 export function evaluateParseLayers(examples: ParseEvalExample[]): LayeredParseEvalResult[] {

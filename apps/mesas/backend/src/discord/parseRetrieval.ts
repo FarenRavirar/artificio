@@ -190,9 +190,12 @@ export async function loadRetrievalContext(parseCaseId: string, limit = 20): Pro
     const likePattern = `%${url}%`;
     return sql<boolean>`candidate.normalized_text LIKE ${likePattern}`;
   });
-  const structuralPredicate = formUrlPredicates.length > 0
-    ? sql<boolean>`OR (${sql.join(formUrlPredicates, sql` OR `)})`
-    : sql<boolean>``;
+  const formUrlSeparator = sql` OR `;
+  const joinedFormUrlPredicates = sql.join(formUrlPredicates, formUrlSeparator);
+  const formUrlPredicate = formUrlPredicates.length > 0
+    ? sql<boolean>`(${joinedFormUrlPredicates})`
+    : null;
+  const structuralPredicate = formUrlPredicate ? sql<boolean>`OR ${formUrlPredicate}` : sql<boolean>``;
 
   const result = await sql<RetrievedParseCase>`
     SELECT
@@ -225,6 +228,9 @@ export async function loadRetrievalContext(parseCaseId: string, limit = 20): Pro
       ) AS has_discard_feedback
     FROM discord_parse_cases candidate
     WHERE candidate.id <> ${current.id}
+      AND (candidate.draft_id IS NULL OR ${current.draft_id} IS NULL OR candidate.draft_id <> ${current.draft_id})
+      AND (candidate.discord_message_id IS NULL OR ${current.discord_message_id} IS NULL OR candidate.discord_message_id <> ${current.discord_message_id})
+      AND (candidate.import_message_id IS NULL OR ${current.import_message_id} IS NULL OR candidate.import_message_id <> ${current.import_message_id})
       AND (
         candidate.raw_hash = ${current.raw_hash}
         OR candidate.normalized_hash = ${current.normalized_hash}

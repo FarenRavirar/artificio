@@ -113,21 +113,20 @@ function addEvidence(insights: Partial<Record<DraftFieldKey, DraftFieldInsight>>
   insights[field] = existing;
 }
 
-export function buildDraftFieldInsights(
-  parsedPayload: DiscordDraftPayload,
-  currentPayload: DiscordDraftPayload,
-): Partial<Record<DraftFieldKey, DraftFieldInsight>> {
-  const parsedTable = getDraftTable(parsedPayload);
-  const currentTable = getDraftTable(currentPayload);
-  const insights: Partial<Record<DraftFieldKey, DraftFieldInsight>> = {};
+const INSIGHT_FIELDS = [
+  'title', 'description', 'system_name', 'type', 'modality', 'price_type',
+  'price_value', 'slots_total', 'slots_open', 'day_of_week', 'start_time',
+  'frequency', 'contact_url', 'contact_discord', 'cover_url',
+] as const satisfies readonly DraftFieldKey[];
 
-  const fields: DraftFieldKey[] = [
-    'title', 'description', 'system_name', 'type', 'modality', 'price_type',
-    'price_value', 'slots_total', 'slots_open', 'day_of_week', 'start_time',
-    'frequency', 'contact_url', 'contact_discord', 'cover_url',
-  ];
+const INSIGHT_FIELD_SET = new Set<DraftFieldKey>(INSIGHT_FIELDS);
 
-  for (const field of fields) {
+function addParserAndHumanInsights(
+  insights: Partial<Record<DraftFieldKey, DraftFieldInsight>>,
+  parsedTable: DiscordDraftTablePayload,
+  currentTable: DiscordDraftTablePayload,
+) {
+  for (const field of INSIGHT_FIELDS) {
     if (isFilled(currentTable[field])) {
       insights[field] = { source: 'parser', evidence: ['Valor extraído do anúncio.'] };
     }
@@ -135,24 +134,34 @@ export function buildDraftFieldInsights(
       insights[field] = { source: 'humano', evidence: ['Valor alterado na revisão.'] };
     }
   }
+}
 
+function addSuggestionInsights(
+  insights: Partial<Record<DraftFieldKey, DraftFieldInsight>>,
+  currentTable: DiscordDraftTablePayload,
+) {
   const aiSuggestions = asRecord(currentTable._ai_suggestions);
   const suggestionFields = asRecord(aiSuggestions.fields);
   const provider = asString(aiSuggestions.provider);
   const model = asString(aiSuggestions.model);
-  if (provider && Object.keys(suggestionFields).length > 0) {
-    for (const [field, suggestion] of Object.entries(suggestionFields)) {
-      if (!fields.includes(field as DraftFieldKey)) continue;
-      insights[field as DraftFieldKey] = {
-        source: classifySuggestionProvider(provider),
-        provider,
-        model: model || undefined,
-        suggestion,
-        evidence: [`Sugestão pendente de ${provider}.`],
-      };
-    }
-  }
+  if (!provider || Object.keys(suggestionFields).length === 0) return;
 
+  for (const [field, suggestion] of Object.entries(suggestionFields)) {
+    if (!INSIGHT_FIELD_SET.has(field as DraftFieldKey)) continue;
+    insights[field as DraftFieldKey] = {
+      source: classifySuggestionProvider(provider),
+      provider,
+      model: model || undefined,
+      suggestion,
+      evidence: [`Sugestão pendente de ${provider}.`],
+    };
+  }
+}
+
+function addRawEvidenceInsights(
+  insights: Partial<Record<DraftFieldKey, DraftFieldInsight>>,
+  currentTable: DiscordDraftTablePayload,
+) {
   const evidence = asRecord(currentTable._raw_evidence);
   const roleMentions = asStringArray(evidence.role_mentions);
   const userMentions = asStringArray(evidence.user_mentions);
@@ -162,6 +171,19 @@ export function buildDraftFieldInsights(
   if (userMentions.length > 0) addEvidence(insights, 'contact_discord', `${userMentions.length} menção(ões) de usuário no anúncio.`);
   if (attachments.length > 0) addEvidence(insights, 'cover_url', `${attachments.length} anexo(s) preservado(s).`);
   if (embeds.length > 0) addEvidence(insights, 'contact_url', `${embeds.length} embed(s) preservado(s).`);
+}
+
+export function buildDraftFieldInsights(
+  parsedPayload: DiscordDraftPayload,
+  currentPayload: DiscordDraftPayload,
+): Partial<Record<DraftFieldKey, DraftFieldInsight>> {
+  const parsedTable = getDraftTable(parsedPayload);
+  const currentTable = getDraftTable(currentPayload);
+  const insights: Partial<Record<DraftFieldKey, DraftFieldInsight>> = {};
+
+  addParserAndHumanInsights(insights, parsedTable, currentTable);
+  addSuggestionInsights(insights, currentTable);
+  addRawEvidenceInsights(insights, currentTable);
 
   return insights;
 }

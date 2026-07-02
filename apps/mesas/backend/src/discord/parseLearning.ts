@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import { db } from '../db';
+import type { DiscordParseShadowAction } from '../db/types';
 import { persistDuplicateCandidatesForCase } from './parseRetrieval';
 import { recordParseLayerShadowDecisions } from './parseEval';
 
@@ -109,6 +110,12 @@ function extractStringValue(source: unknown, keys: string[]): string | null {
   return null;
 }
 
+function extractObjectField(source: unknown, field: string): unknown {
+  return source && typeof source === 'object' && !Array.isArray(source)
+    ? (source as Record<string, unknown>)[field]
+    : null;
+}
+
 const TRAILING_PUNCT = new Set(['.', ',', ';', ':']);
 
 /** Remove pontuação de fechamento no fim da URL sem regex de quantificador+âncora (Sonar S5852). */
@@ -138,8 +145,8 @@ function buildFeatures(message: ParseLearningMessage, normalizedText: string): R
   const embedUrls = embeds
     .flatMap((embed) => [
       extractStringValue(embed, ['url']),
-      extractStringValue((embed as Record<string, unknown> | null)?.image, ['url']),
-      extractStringValue((embed as Record<string, unknown> | null)?.thumbnail, ['url']),
+      extractStringValue(extractObjectField(embed, 'image'), ['url']),
+      extractStringValue(extractObjectField(embed, 'thumbnail'), ['url']),
     ])
     .filter((url): url is string => Boolean(url))
     .map((url) => url.toLowerCase())
@@ -167,13 +174,13 @@ export function buildParseCaseContract(input: {
   draftId?: string | null;
   importMessageId?: string | null;
   importRunId?: string | null;
-  deterministicResult?: unknown | null;
-  finalResult?: unknown | null;
+  deterministicResult?: unknown;
+  finalResult?: unknown;
   finalAction: ParseFinalAction;
   promptVersion?: string | null;
   model?: string | null;
 }): ParseCaseContract {
-  const rawText = String(input.message.content_raw ?? '');
+  const rawText = toSafeString(input.message.content_raw);
   const normalizedText = normalizeParseLearningText(rawText);
   const features = buildFeatures(input.message, normalizedText);
   // Hash inclui sinais estruturais (URLs de anexo/embed/form) p/ evitar colisão
@@ -274,34 +281,59 @@ export async function recordParseFeedback(input: {
     const builder = db.insertInto('discord_parse_feedback');
     if (!builder || typeof (builder as { values?: unknown }).values !== 'function') return;
     await builder.values(contract).execute();
-    if (parseCaseId) {
-      const actualAction =
-        input.feedbackType === 'duplicate' ? 'duplicate' :
-          input.feedbackType === 'not_duplicate' ? 'not_duplicate' :
-            input.feedbackType === 'discard' ? 'discard' :
-              input.feedbackType === 'ignore' ? 'ignore' :
-                input.feedbackType === 'publish' ? 'publish' :
-                  input.feedbackType === 'field_correction' ? 'draft' :
-                    null;
-      if (actualAction) {
-        await db
-          .updateTable('discord_parse_shadow_decisions')
-          .set({
-            actual_action: actualAction,
-            actual_payload: input.field ? { [input.field]: input.afterValue ?? null } : input.afterValue ?? null,
-            actual_at: new Date(),
-          })
-          .where('parse_case_id', '=', parseCaseId)
-          .where('actual_action', 'is', null)
-          .execute()
-          .catch((error: unknown) => {
-            console.error('[recordParseFeedback shadow]', error instanceof Error ? error.message : 'unknown error');
-          });
-      }
-    }
+    await closeParseShadowOutcome(parseCaseId, input);
   } catch (error: unknown) {
     console.error('[recordParseFeedback]', error instanceof Error ? error.message : 'unknown error');
   }
+}
+
+function feedbackTypeToShadowAction(feedbackType: ParseFeedbackType): DiscordParseShadowAction | null {
+  switch (feedbackType) {
+    case 'duplicate':
+      return 'duplicate';
+    case 'not_duplicate':
+      return 'not_duplicate';
+    case 'discard':
+      return 'discard';
+    case 'ignore':
+      return 'ignore';
+    case 'publish':
+      return 'publish';
+    default:
+      return null;
+  }
+}
+
+async function closeParseShadowOutcome(
+  parseCaseId: string | null,
+  input: {
+    feedbackType: ParseFeedbackType;
+    field?: string | null;
+    afterValue?: unknown;
+  },
+): Promise<void> {
+  if (!parseCaseId) return;
+  const actualAction = feedbackTypeToShadowAction(input.feedbackType);
+  if (!actualAction) return;
+
+  await db
+    .updateTable('discord_parse_shadow_decisions')
+    .set({
+      actual_action: actualAction,
+      actual_payload: buildShadowActualPayload(input.field, input.afterValue),
+      actual_at: new Date(),
+    })
+    .where('parse_case_id', '=', parseCaseId)
+    .where('actual_action', 'is', null)
+    .execute()
+    .catch((error: unknown) => {
+      console.error('[recordParseFeedback shadow]', error instanceof Error ? error.message : 'unknown error');
+    });
+}
+
+function buildShadowActualPayload(field: string | null | undefined, afterValue: unknown): unknown {
+  if (!field) return afterValue ?? null;
+  return { [field]: afterValue ?? null };
 }
 
 export async function recordParseFeedbackForCorrections(input: {

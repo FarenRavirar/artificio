@@ -1167,7 +1167,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.importJson",
-      "line": 105
+      "line": 119
     },
     {
       "app": "mesas-frontend",
@@ -1177,7 +1177,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.importFile",
-      "line": 88
+      "line": 102
     },
     {
       "app": "mesas-frontend",
@@ -1187,7 +1187,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.previewJson",
-      "line": 54
+      "line": 68
     },
     {
       "app": "mesas-frontend",
@@ -1197,7 +1197,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.previewFile",
-      "line": 139
+      "line": 153
     },
     {
       "app": "mesas-frontend",
@@ -2267,7 +2267,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 230
+      "line": 350
     },
     {
       "app": "mesas-frontend",
@@ -2447,7 +2447,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 211
+      "line": 215
     },
     {
       "app": "mesas-frontend",
