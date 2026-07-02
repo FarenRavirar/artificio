@@ -16,6 +16,7 @@ import correctionRouter from './discord/corrections';
 import metricsRouter from './discord/metrics';
 import automationRouter from './discord/automation';
 import chatExporterAutomationRouter from './discord/chatExporterAutomation';
+import duplicatesRouter, { duplicatesRouter as duplicateCandidatesRouter } from './discord/duplicates';
 
 const router = Router();
 
@@ -25,6 +26,8 @@ router.use('/sources', sourcesRouter);
 router.use('/settings', settingsRouter);
 router.use('/drafts', draftsRouter);
 router.use('/drafts', correctionRouter);
+router.use('/drafts', duplicatesRouter);
+router.use('/duplicate-candidates', duplicateCandidatesRouter);
 router.use('/messages', messageParseRouter);
 router.use('/messages', parseBatchRouter);
 router.use('/messages', messagesRouter);

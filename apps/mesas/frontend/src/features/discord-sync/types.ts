@@ -299,4 +299,28 @@ export interface DraftApiOperations {
   refreshDraftImage?: (id: string) => Promise<{ draftId: string; tableId: string | null; status: string; url: string | null; error: string | null }>;
   getDraft?: (id: string) => Promise<DiscordDraft>;
   submitCorrection?: (id: string, body: { corrections: Record<string, unknown>; reason?: string; before?: Record<string, unknown> }) => Promise<unknown>;
+  listDuplicateCandidates?: (draftId: string) => Promise<DuplicateCandidate[]>;
+  resolveDuplicateCandidate?: (candidateId: string, status: DuplicateCandidateDecision) => Promise<DuplicateCandidate>;
+}
+
+// Fase 5 (spec 058) — candidatos de duplicata em shadow, decisão humana.
+export type DuplicateCandidateMatchKind = 'exact' | 'probable';
+export type DuplicateCandidateStatus = 'candidate' | 'confirmed_duplicate' | 'rejected_duplicate' | 'update_existing';
+export type DuplicateCandidateDecision = Exclude<DuplicateCandidateStatus, 'candidate'>;
+
+export interface DuplicateCandidate {
+  id: string;
+  score: number;
+  match_kind: DuplicateCandidateMatchKind;
+  signals: Record<string, unknown>;
+  status: DuplicateCandidateStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  candidate_case_id: string;
+  candidate_draft_id: string | null;
+  candidate_normalized_text: string;
+  candidate_final_action: string;
+  candidate_draft_status: DiscordImportDraftStatus | null;
+  candidate_draft_data: Record<string, unknown> | null;
 }

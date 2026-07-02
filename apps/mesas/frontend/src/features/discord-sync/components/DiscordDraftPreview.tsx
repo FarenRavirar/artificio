@@ -5,6 +5,7 @@ import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from 
 import { STATUS_OPTIONS } from '../constants';
 import { useDraftForm } from '../useDraftForm';
 import { DraftEditorTab } from './DraftEditorTab';
+import { DuplicatesTab } from './DuplicatesTab';
 
 // T-G1: cor por tier de confiança
 function confidenceColor(score: number): string {
@@ -217,10 +218,13 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
           <button className={tabClass('editor')} onClick={() => h.setActiveTab('editor')} role="tab" aria-selected={h.activeTab === 'editor'}>Campos</button>
           <button className={tabClass('normalized')} onClick={() => h.setActiveTab('normalized')} role="tab" aria-selected={h.activeTab === 'normalized'}>Normalizado</button>
           <button className={tabClass('parsed')} onClick={() => h.setActiveTab('parsed')} role="tab" aria-selected={h.activeTab === 'parsed'}>Bruto</button>
+          {api.listDuplicateCandidates && api.resolveDuplicateCandidate && (
+            <button className={tabClass('duplicates')} onClick={() => h.setActiveTab('duplicates')} role="tab" aria-selected={h.activeTab === 'duplicates'}>Duplicatas</button>
+          )}
         </div>
 
         <div className="flex-1 overflow-auto px-5 py-3">
-          {h.activeTab === 'editor' ? (
+          {h.activeTab === 'editor' && (
             <DraftEditorTab
               form={h.form}
               missingFields={h.missingFields}
@@ -233,6 +237,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
               shouldShowSlotsDisambiguation={shouldShowSlotsDisambiguation}
               slotsAmbiguity={h.slotsAmbiguity}
               slotsInterpretation={h.slotsInterpretation}
+              fieldInsights={h.fieldInsights}
               savingFields={h.savingFields}
               onUpdateForm={h.updateForm}
               onSystemChange={h.handleSystemChange}
@@ -241,10 +246,18 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
               onSetSlotsInterpretation={h.setSlotsInterpretation}
               onConfirmSlots={h.handleConfirmSlots}
             />
-          ) : (
+          )}
+          {(h.activeTab === 'normalized' || h.activeTab === 'parsed') && (
             <pre className="text-xs text-green-300 bg-black/30 rounded-lg p-4 overflow-auto whitespace-pre-wrap break-words">
               {JSON.stringify(selectedPayload, null, 2)}
             </pre>
+          )}
+          {h.activeTab === 'duplicates' && api.listDuplicateCandidates && api.resolveDuplicateCandidate && (
+            <DuplicatesTab
+              draftId={draft.id}
+              listDuplicateCandidates={api.listDuplicateCandidates}
+              resolveDuplicateCandidate={api.resolveDuplicateCandidate}
+            />
           )}
         </div>
 

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../../db';
 import { getAiAutomationConfig, assertAutoApprovalAllowed } from '../../discord/aiAutomationConfig';
 import { evaluatePredictions } from '../../discord/aiEval';
+import { evaluateParseLayers, loadParseEvalDataset } from '../../discord/parseEval';
 import { requireAdmin } from '../../middleware/auth';
 
 const router = Router();
@@ -68,11 +69,35 @@ router.get('/eval', requireAdmin, async (req: Request, res: Response) => {
       data: {
         examples: examples.length,
         baseline: evaluatePredictions(examples, deterministicBaseline),
+        parse_learning: {
+          examples: 0,
+          layers: [],
+        },
       },
     });
   } catch (error: unknown) {
     console.error('[GET /admin/discord/automation/eval]', error);
     return res.status(500).json({ error: 'Erro ao executar eval offline.' });
+  }
+});
+
+router.get('/parse-eval', requireAdmin, async (req: Request, res: Response) => {
+  const parsed = evalQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Parâmetros inválidos.', details: z.flattenError(parsed.error) });
+  }
+
+  try {
+    const examples = await loadParseEvalDataset(parsed.data.limit);
+    return res.json({
+      data: {
+        examples: examples.length,
+        layers: evaluateParseLayers(examples),
+      },
+    });
+  } catch (error: unknown) {
+    console.error('[GET /admin/discord/automation/parse-eval]', error);
+    return res.status(500).json({ error: 'Erro ao executar eval do parser learning.' });
   }
 });
 
