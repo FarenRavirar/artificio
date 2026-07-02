@@ -6,6 +6,7 @@ import { requireAdmin } from '../../middleware/auth';
 import { textToRawMessage } from '../../inbox/adapters/textToRawMessage';
 import { segmentAnnouncements } from '../../inbox/segmentation';
 import { loadSystemsForParser } from '../../discord/shared';
+import { parseActionFromNormalizedStatus, recordParseCase } from '../../discord/parseLearning';
 import { toNumberOrNull, importTextSchema } from './utils';
 
 const router = Router();
@@ -125,6 +126,20 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
           .set({ status: 'error', parse_error: 'Mensagem sem conteúdo elegível para virar draft.' })
           .where('id', '=', importMessageId)
           .execute();
+        await recordParseCase({
+          message: {
+            ...rawMessage,
+            id: importMessageId,
+            source_kind: 'manual_paste',
+            attachments: [],
+            embeds: [],
+          },
+          discordMessageId: null,
+          importMessageId,
+          deterministicResult: null,
+          finalResult: null,
+          finalAction: 'ignore',
+        });
         continue;
       }
 
@@ -156,6 +171,22 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
         .set({ status: 'parsed' })
         .where('id', '=', importMessageId)
         .execute();
+
+      await recordParseCase({
+        message: {
+          ...rawMessage,
+          id: importMessageId,
+          source_kind: 'manual_paste',
+          attachments: [],
+          embeds: [],
+        },
+        discordMessageId: null,
+        importMessageId,
+        draftId: draftRow.id,
+        deterministicResult: parsedDraft,
+        finalResult: normalized.draft,
+        finalAction: parseActionFromNormalizedStatus(normalized.status),
+      });
 
       const missingFields = calcMissingFields(normalized.draft.table as unknown as TableFieldsForMissing);
 

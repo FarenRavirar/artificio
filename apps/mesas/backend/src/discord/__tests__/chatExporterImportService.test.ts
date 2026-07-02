@@ -41,7 +41,7 @@ vi.mock('../shared', () => ({
   getContentHash: vi.fn(() => 'test-hash'),
 }));
 
-import { importDiscordChatExporterJson, extractJsonPayload, MAX_IMPORT_MESSAGES } from '../chatExporterImportService';
+import { importDiscordChatExporterJson, extractJsonPayload, buildPreviewFromExport, MAX_IMPORT_MESSAGES } from '../chatExporterImportService';
 import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from '../chatExporterAdapter';
 import { getContentHash } from '../shared';
 import { db } from '../../db';
@@ -69,6 +69,9 @@ function makeExportData(overrides: Record<string, unknown> = {}) {
         content: 'conteudo da mensagem',
         attachments: [],
         embeds: [],
+        reactions: [],
+        mentions: [],
+        inlineEmojis: [],
       },
     ],
     ...overrides,
@@ -292,5 +295,27 @@ describe('extractJsonPayload', () => {
       expect(result.error).not.toContain('{"guild"');
       expect(result.error).not.toContain('SyntaxError');
     }
+  });
+});
+
+describe('buildPreviewFromExport', () => {
+  it('normaliza campos nulos do dateRange para o contrato do frontend', () => {
+    const preview = buildPreviewFromExport(makeExportData({
+      dateRange: { after: null, before: null },
+      exportedAt: null,
+    }));
+
+    // Contrato do frontend (discordSyncApi.ts): dateRange é `.nullable()` e
+    // JsonPreviewCard esconde a seção inteira quando é null — {} renderizaria
+    // "N/A"/"N/A" à toa. null é o esperado quando after/before estão ausentes.
+    expect(preview.dateRange).toBeNull();
+  });
+
+  it('preserva strings presentes no dateRange', () => {
+    const preview = buildPreviewFromExport(makeExportData({
+      dateRange: { after: '2026-07-01T00:00:00-03:00', before: null },
+    }));
+
+    expect(preview.dateRange).toEqual({ after: '2026-07-01T00:00:00-03:00' });
   });
 });

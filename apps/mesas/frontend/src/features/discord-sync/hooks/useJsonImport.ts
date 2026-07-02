@@ -11,6 +11,13 @@ export interface ImportResult {
   updated: number;
   ignored: number;
   failed: number;
+  auto_parse: {
+    total: number;
+    parsed: number;
+    discarded: number;
+    ignored: number;
+    errors: number;
+  } | null;
 }
 
 export interface PreviewResult {
@@ -37,6 +44,13 @@ export function useJsonImport() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previewReqId = useRef(0);
+
+  const importToastMessage = (data: ImportResult): string => {
+    if (data.auto_parse) {
+      return `${data.auto_parse.parsed} rascunhos gerados, ${data.auto_parse.discarded} descartados, ${data.auto_parse.ignored} inválidos.`;
+    }
+    return `${data.inserted} mensagens importadas, ${data.updated} atualizadas.`;
+  };
 
   const loadPreview = useCallback(async (json: string) => {
     if (!json.trim()) {
@@ -88,7 +102,7 @@ export function useJsonImport() {
         const data = await discordSyncApi.importFile(selectedFile);
         setResult(data);
         setState('success');
-        toast.success(`${data.inserted} mensagens importadas, ${data.updated} atualizadas.`);
+        toast.success(importToastMessage(data));
       } catch (err) {
         setState('error');
         setErrorMessage(err instanceof Error ? err.message : 'Erro ao importar arquivo.');
@@ -105,7 +119,7 @@ export function useJsonImport() {
       const data = await discordSyncApi.importJson({ json: rawJson });
       setResult(data);
       setState('success');
-      toast.success(`${data.inserted} mensagens importadas, ${data.updated} atualizadas.`);
+      toast.success(importToastMessage(data));
     } catch (err) {
       setState('error');
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao importar JSON.');

@@ -720,6 +720,196 @@ export type DiscordFieldLearning = Selectable<DiscordFieldLearningTable>;
 export type NewDiscordFieldLearning = Insertable<DiscordFieldLearningTable>;
 export type DiscordFieldLearningUpdate = Updateable<DiscordFieldLearningTable>;
 
+// Migration 136 (Spec 058): casos de parse versionados + feedback imutavel.
+export interface DiscordParseCasesTable {
+  id: Generated<string>;
+  discord_message_id: string | null;
+  import_message_id: string | null;
+  draft_id: string | null;
+  import_run_id: string | null;
+  guild_id: string | null;
+  channel_id: string | null;
+  author_id: string | null;
+  raw_hash: string;
+  normalized_hash: string;
+  normalized_text: string;
+  features_json: unknown;
+  deterministic_result_json: unknown;
+  retrieval_context_json: unknown;
+  llm_context_hash: string | null;
+  final_result_json: unknown;
+  final_action: string;
+  parser_version: string;
+  prompt_version: string | null;
+  model: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type DiscordParseCase = Selectable<DiscordParseCasesTable>;
+export type NewDiscordParseCase = Insertable<DiscordParseCasesTable>;
+export type DiscordParseCaseUpdate = Updateable<DiscordParseCasesTable>;
+
+export interface DiscordParseFeedbackTable {
+  id: Generated<string>;
+  parse_case_id: string | null;
+  draft_id: string | null;
+  feedback_type: string;
+  field: string | null;
+  before_value: unknown;
+  after_value: unknown;
+  reason: string | null;
+  scope_json: unknown;
+  admin_user_id: string | null;
+  created_at: Generated<Date>;
+}
+
+export type DiscordParseFeedback = Selectable<DiscordParseFeedbackTable>;
+export type NewDiscordParseFeedback = Insertable<DiscordParseFeedbackTable>;
+
+// Migration 137 (Spec 058): candidatos de duplicata em shadow.
+export type DiscordDuplicateCandidateStatus =
+  | 'candidate'
+  | 'confirmed_duplicate'
+  | 'rejected_duplicate'
+  | 'update_existing';
+
+export interface DiscordDuplicateCandidatesTable {
+  id: Generated<string>;
+  parse_case_id: string;
+  candidate_case_id: string;
+  // NUMERIC(5,4): pg (OID 1700) devolve string quando não há parser registrado.
+  score: ColumnType<string, number, number>;
+  signals_json: ColumnType<unknown, unknown, unknown>;
+  status: Generated<DiscordDuplicateCandidateStatus>;
+  reviewed_by: string | null;
+  reviewed_at: Date | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type DiscordDuplicateCandidate = Selectable<DiscordDuplicateCandidatesTable>;
+export type NewDiscordDuplicateCandidate = Insertable<DiscordDuplicateCandidatesTable>;
+export type DiscordDuplicateCandidateUpdate = Updateable<DiscordDuplicateCandidatesTable>;
+
+// Migration 138 (Spec 058): regras ampliadas de aprendizado.
+export type DiscordLearningRuleType =
+  | 'field_value'
+  | 'label_alias'
+  | 'classification'
+  | 'discard_rule'
+  | 'duplicate_rule'
+  | 'negative_rule';
+export type DiscordLearningRuleScopeType = 'global' | 'guild' | 'channel' | 'profile' | 'author' | 'composite';
+export type DiscordLearningRuleStatus = 'candidate' | 'active' | 'suppressed' | 'retired';
+export type DiscordLearningRuleSource = 'human' | 'confirmed_ai' | 'migration_seed';
+export type DiscordLearningRuleApplicationOutcome = 'applied' | 'conflict' | 'rejected_by_guard' | 'shadow';
+
+export interface DiscordLearningRulesTable {
+  id: Generated<string>;
+  rule_type: DiscordLearningRuleType;
+  field: string | null;
+  input_pattern: string | null;
+  input_token: string | null;
+  output_value: ColumnType<unknown, unknown, unknown>;
+  scope_type: Generated<DiscordLearningRuleScopeType>;
+  scope_json: ColumnType<unknown, unknown, unknown>;
+  scope_hash: string;
+  // NUMERIC(5,4): pg devolve string; consumidor deve Number() antes de usar.
+  confidence: ColumnType<string, number | undefined, number>;
+  hits: Generated<number>;
+  rejections: Generated<number>;
+  applied_count: Generated<number>;
+  status: Generated<DiscordLearningRuleStatus>;
+  source: Generated<DiscordLearningRuleSource>;
+  created_from_feedback_id: string | null;
+  last_applied_at: Date | null;
+  last_rejected_at: Date | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type DiscordLearningRule = Selectable<DiscordLearningRulesTable>;
+export type NewDiscordLearningRule = Insertable<DiscordLearningRulesTable>;
+export type DiscordLearningRuleUpdate = Updateable<DiscordLearningRulesTable>;
+
+export interface DiscordLearningRuleApplicationsTable {
+  id: Generated<string>;
+  rule_id: string;
+  parse_case_id: string | null;
+  draft_id: string | null;
+  field: string | null;
+  before_value: ColumnType<unknown, unknown, unknown>;
+  after_value: ColumnType<unknown, unknown, unknown>;
+  outcome: Generated<DiscordLearningRuleApplicationOutcome>;
+  reason: string | null;
+  created_at: Generated<Date>;
+}
+
+export type DiscordLearningRuleApplication = Selectable<DiscordLearningRuleApplicationsTable>;
+export type NewDiscordLearningRuleApplication = Insertable<DiscordLearningRuleApplicationsTable>;
+
+// Migration 139 (Spec 058): auditoria/cache de decisoes LLM.
+export type DiscordLlmDecisionStatus =
+  | 'success'
+  | 'invalid_response'
+  | 'http_error'
+  | 'timeout'
+  | 'error'
+  | 'cache_hit';
+
+export interface DiscordLlmDecisionsTable {
+  id: Generated<string>;
+  parse_case_id: string | null;
+  provider: Generated<string>;
+  model: string;
+  prompt_version: string;
+  context_pack_hash: string;
+  request_json: ColumnType<unknown, unknown, unknown>;
+  response_json: ColumnType<unknown, unknown, unknown>;
+  validated_result_json: ColumnType<unknown, unknown, unknown>;
+  latency_ms: number | null;
+  token_estimate: number | null;
+  status: DiscordLlmDecisionStatus;
+  error: string | null;
+  created_at: Generated<Date>;
+}
+
+export type DiscordLlmDecision = Selectable<DiscordLlmDecisionsTable>;
+export type NewDiscordLlmDecision = Insertable<DiscordLlmDecisionsTable>;
+
+// Migration 140 (Spec 058): shadow por camada para eval parser/learning/DeepSeek.
+export type DiscordParseShadowPredictionLayer = 'parser' | 'learning' | 'deepseek';
+export type DiscordParseShadowAction =
+  | 'draft'
+  | 'needs_review'
+  | 'discard'
+  | 'ignore'
+  | 'duplicate'
+  | 'not_duplicate'
+  | 'synced'
+  | 'rejected'
+  | 'publish'
+  | 'error';
+
+export interface DiscordParseShadowDecisionsTable {
+  id: Generated<string>;
+  parse_case_id: string | null;
+  draft_id: string | null;
+  prediction_layer: DiscordParseShadowPredictionLayer;
+  predicted_action: Exclude<DiscordParseShadowAction, 'not_duplicate' | 'publish'>;
+  predicted_payload: ColumnType<unknown, unknown, unknown>;
+  confidence: ColumnType<string | null, number | null | undefined, number | null>;
+  reason_codes: string[] | null;
+  actual_action: DiscordParseShadowAction | null;
+  actual_payload: ColumnType<unknown, unknown, unknown>;
+  actual_at: Date | null;
+  created_at: Generated<Date>;
+}
+
+export type DiscordParseShadowDecision = Selectable<DiscordParseShadowDecisionsTable>;
+export type NewDiscordParseShadowDecision = Insertable<DiscordParseShadowDecisionsTable>;
+
 // Migration 131: Métricas (T-G6) + Shadow mode (T-G7) — Spec 048
 export interface DiscordImportRunsTable {
   id: Generated<string>;
@@ -865,6 +1055,15 @@ export interface Database {
 
   // Migration 133: Learning-store determinístico (Spec 052 D087)
   discord_field_learning: DiscordFieldLearningTable;
+
+  // Migration 136: Parser learning durável (Spec 058)
+  discord_parse_cases: DiscordParseCasesTable;
+  discord_parse_feedback: DiscordParseFeedbackTable;
+  discord_duplicate_candidates: DiscordDuplicateCandidatesTable;
+  discord_learning_rules: DiscordLearningRulesTable;
+  discord_learning_rule_applications: DiscordLearningRuleApplicationsTable;
+  discord_llm_decisions: DiscordLlmDecisionsTable;
+  discord_parse_shadow_decisions: DiscordParseShadowDecisionsTable;
 
   // Migration 116: Configuracoes cifradas do modulo Discord
   discord_settings: DiscordSettingsTable;

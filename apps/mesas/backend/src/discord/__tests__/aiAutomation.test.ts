@@ -1,6 +1,12 @@
 import { attachAiSuggestions, buildAiSuggestionFields } from '../aiSuggestions';
 import { evaluatePredictions } from '../aiEval';
-import { assertAutoApprovalAllowed, getAiAutomationConfig, isAiAssistEnabled } from '../aiAutomationConfig';
+import {
+  assertAutoApprovalAllowed,
+  evaluateAutonomyGate,
+  getAiAutomationConfig,
+  getAiAutomationRollbackPlan,
+  isAiAssistEnabled,
+} from '../aiAutomationConfig';
 import { minimizeAnnouncementForLlm } from '../llmAssist';
 import type { ImportTableDraft } from '../types';
 
@@ -129,6 +135,42 @@ describe('Spec 052 Bloco B automation guardrails', () => {
     expect(() => assertAutoApprovalAllowed(getAiAutomationConfig({ MESAS_AI_AUTOMATION_MODE: 'auto' } as NodeJS.ProcessEnv))).toThrow(
       /Auto-aprovação bloqueada/,
     );
+  });
+
+  it('fase 8 define thresholds separados por ação e mantém autonomia bloqueada', () => {
+    const config = getAiAutomationConfig({
+      MESAS_AI_AUTOMATION_MODE: 'auto',
+      MESAS_AI_AUTONOMY_THRESHOLD_DRAFT_READY: '0.97',
+      MESAS_AI_AUTONOMY_THRESHOLD_DISCARD: '0.99',
+      MESAS_AI_AUTONOMY_THRESHOLD_DUPLICATE: '0.98',
+    } as NodeJS.ProcessEnv);
+
+    expect(config.autonomyThresholds).toEqual({
+      draft_ready: 0.97,
+      discard: 0.99,
+      duplicate: 0.98,
+    });
+
+    const gate = evaluateAutonomyGate({
+      action: 'draft_ready',
+      confidence: 1,
+      shadowApproved: true,
+      humanGateApproved: true,
+    }, config);
+
+    expect(gate.allowed).toBe(false);
+    expect(gate.threshold).toBe(0.97);
+    expect(gate.reasons).toContain('nominal_gate_required');
+    expect(gate.reasons).toContain('auto_approval_disabled');
+  });
+
+  it('fase 8 expõe rollback operacional explícito', () => {
+    expect(getAiAutomationRollbackPlan()).toEqual({
+      killSwitchEnv: 'MESAS_AI_KILL_SWITCH=true',
+      safeModeEnv: 'MESAS_AI_AUTOMATION_MODE=off',
+      disableRules: 'set discord_learning_rules.status = suppressed',
+      clearPendingSuggestions: 'remove _ai_suggestions from draft normalized_payload',
+    });
   });
 
   it('minimiza payload antes de enviar para IA externa', () => {

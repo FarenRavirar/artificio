@@ -166,10 +166,18 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
 export function buildPreviewFromExport(exportData: DiscordChatExporterExport) {
   const attachmentsCount = exportData.messages.reduce((sum, msg) => sum + (msg.attachments?.length ?? 0), 0);
   const embedsCount = exportData.messages.reduce((sum, msg) => sum + (msg.embeds?.length ?? 0), 0);
+  const after = exportData.dateRange?.after;
+  const before = exportData.dateRange?.before;
+  const dateRange = after || before
+    ? {
+        ...(after ? { after } : {}),
+        ...(before ? { before } : {}),
+      }
+    : null;
   return {
     guild: exportData.guild,
     channel: exportData.channel,
-    dateRange: exportData.dateRange ?? null,
+    dateRange,
     exportedAt: exportData.exportedAt ?? null,
     messageCount: exportData.messageCount ?? exportData.messages.length,
     totalAttachments: attachmentsCount,

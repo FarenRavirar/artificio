@@ -6,10 +6,10 @@
     "accounts": 11,
     "glossario": 46,
     "links": 22,
-    "mesas": 171,
+    "mesas": 174,
     "site": 32
   },
-  "total": 282,
+  "total": 285,
   "operations": [
     {
       "app": "accounts",
@@ -1075,6 +1075,18 @@
     {
       "app": "mesas",
       "method": "GET",
+      "path": "/api/v1/admin/discord/automation/parse-eval",
+      "summary": "Consulta api v1 admin discord automation parse-eval",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_discord_automation_parse_eval"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
       "path": "/api/v1/admin/discord/chat-exporter/config",
       "summary": "Consulta api v1 admin discord chat-exporter config",
       "owner": "mesas",
@@ -1290,6 +1302,18 @@
     },
     {
       "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/discord/drafts/{id}/duplicates",
+      "summary": "Consulta api v1 admin discord drafts id duplicates",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_discord_drafts_id_duplicates"
+    },
+    {
+      "app": "mesas",
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/{id}/refresh-image",
       "summary": "Cria ou executa api v1 admin discord drafts id refresh-image",
@@ -1347,6 +1371,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "deleteapi_v1_admin_discord_drafts_rejected"
+    },
+    {
+      "app": "mesas",
+      "method": "PATCH",
+      "path": "/api/v1/admin/discord/duplicate-candidates/{id}",
+      "summary": "Atualiza api v1 admin discord duplicate-candidates id",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "patchapi_v1_admin_discord_duplicate_candidates_id"
     },
     {
       "app": "mesas",

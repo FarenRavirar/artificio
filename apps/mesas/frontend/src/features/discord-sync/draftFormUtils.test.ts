@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isRecord, asRecord, asString, asNumberString, asStringArray, asSlotsAmbiguity,
   formatFileSize, parseOptionalNonNegativeInt, parseOptionalMoney,
-  validateForm, buildForm, buildUpdatedPayload, buildMissingFields,
+  validateForm, buildDraftFieldInsights, buildForm, buildUpdatedPayload, buildMissingFields,
   flattenSystems, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES,
 } from './draftFormUtils';
 import type { DraftForm } from './draftFormUtils';
@@ -322,6 +322,58 @@ describe('buildUpdatedPayload', () => {
     };
     const payload = buildUpdatedPayload(makeBase(), form);
     expect((payload.table as Record<string, unknown>).price_value).toBeNull();
+  });
+});
+
+describe('buildDraftFieldInsights', () => {
+  it('marca campo preenchido pelo parser e anexa evidencia bruta', () => {
+    const payload = {
+      table: {
+        title: 'Mesa',
+        contact_discord: '<@123>',
+        _raw_evidence: { user_mentions: ['<@123>'] },
+      },
+    } as unknown as DiscordDraftPayload;
+
+    const insights = buildDraftFieldInsights(payload, payload);
+
+    expect(insights.title?.source).toBe('parser');
+    expect(insights.title?.evidence).toContain('Valor extraído do anúncio.');
+    expect(insights.contact_discord?.evidence).toContain('1 menção(ões) de usuário no anúncio.');
+  });
+
+  it('marca humano quando normalizado diverge do parse bruto', () => {
+    const parsed = { table: { title: 'Mesa original' } } as unknown as DiscordDraftPayload;
+    const current = { table: { title: 'Mesa corrigida' } } as unknown as DiscordDraftPayload;
+
+    const insights = buildDraftFieldInsights(parsed, current);
+
+    expect(insights.title).toEqual({
+      source: 'humano',
+      evidence: ['Valor alterado na revisão.'],
+    });
+  });
+
+  it('marca sugestoes pendentes de learning-store ou DeepSeek', () => {
+    const parsed = { table: {} } as unknown as DiscordDraftPayload;
+    const current = {
+      table: {
+        _ai_suggestions: {
+          provider: 'learning-rules+deepseek',
+          model: 'deepseek-chat',
+          fields: { system_name: 'D&D 5e' },
+        },
+      },
+    } as unknown as DiscordDraftPayload;
+
+    const insights = buildDraftFieldInsights(parsed, current);
+
+    expect(insights.system_name).toMatchObject({
+      source: 'learning-store',
+      suggestion: 'D&D 5e',
+      provider: 'learning-rules+deepseek',
+      model: 'deepseek-chat',
+    });
   });
 });
 

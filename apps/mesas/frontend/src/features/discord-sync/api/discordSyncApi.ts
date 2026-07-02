@@ -20,6 +20,8 @@ import type {
   ChatExporterTestResult,
   ChatExporterRunResult,
   ChatExporterDelta,
+  DuplicateCandidate,
+  DuplicateCandidateDecision,
 } from '../types';
 import { z } from 'zod';
 import { authenticatedFetch } from '../../../services/apiClient';
@@ -291,12 +293,49 @@ function parseDiscordMessage(value: unknown): DiscordMessage {
   return parsed.data;
 }
 
+// Fase 5 (spec 058) — candidatos de duplicata.
+const duplicateCandidateSchema = z.object({
+  id: z.string(),
+  score: z.number(),
+  match_kind: z.enum(['exact', 'probable']),
+  signals: z.record(z.string(), z.unknown()).catch({}),
+  status: z.enum(['candidate', 'confirmed_duplicate', 'rejected_duplicate', 'update_existing']),
+  reviewed_by: z.string().nullable(),
+  reviewed_at: z.string().nullable(),
+  created_at: z.string(),
+  candidate_case_id: z.string(),
+  candidate_draft_id: z.string().nullable(),
+  candidate_normalized_text: z.string().catch(''),
+  candidate_final_action: z.string().catch('unknown'),
+  candidate_draft_status: z.enum(['draft', 'ready', 'needs_review', 'synced', 'rejected']).nullable(),
+  candidate_draft_data: z.record(z.string(), z.unknown()).nullable().catch(null),
+});
+
+function parseDuplicateCandidates(value: unknown): DuplicateCandidate[] {
+  const parsed = z.array(duplicateCandidateSchema).safeParse(value);
+  if (!parsed.success) throw new Error('Lista de candidatos de duplicata em formato inesperado.');
+  return parsed.data;
+}
+
+function parseDuplicateCandidate(value: unknown): DuplicateCandidate {
+  const parsed = duplicateCandidateSchema.safeParse(value);
+  if (!parsed.success) throw new Error('Candidato de duplicata em formato inesperado.');
+  return parsed.data;
+}
+
 const importResultSchema = z.object({
   total: z.number(),
   inserted: z.number(),
   updated: z.number(),
   ignored: z.number(),
   failed: z.number(),
+  auto_parse: z.object({
+    total: z.number(),
+    parsed: z.number(),
+    discarded: z.number(),
+    ignored: z.number(),
+    errors: z.number(),
+  }).nullable().default(null),
 });
 
 const previewResultSchema = z.object({
@@ -378,9 +417,13 @@ async function fileApiFetch<T>(
   file: File,
   parser: (data: unknown) => T,
   errorLabel: string,
+  fields?: Record<string, string>,
 ): Promise<T> {
   const formData = new FormData();
   formData.append('file', file);
+  for (const [key, value] of Object.entries(fields ?? {})) {
+    formData.append(key, value);
+  }
   const res = await authenticatedFetch(`${BASE}${url}`, {
     method: 'POST',
     body: formData,
@@ -532,6 +575,12 @@ export const discordSyncApi = {
   refreshDraftImage: (id: string) =>
     apiFetch<{ draftId: string; tableId: string | null; status: string; url: string | null; error: string | null }>(`/drafts/${id}/refresh-image`, { method: 'POST' }),
 
+  listDuplicateCandidates: async (draftId: string) =>
+    parseDuplicateCandidates(await apiFetch<unknown>(`/drafts/${draftId}/duplicates`)),
+
+  resolveDuplicateCandidate: async (candidateId: string, status: DuplicateCandidateDecision) =>
+    parseDuplicateCandidate(await apiFetch<unknown>(`/duplicate-candidates/${candidateId}`, { method: 'PATCH', body: JSON.stringify({ status }) })),
+
   syncReady: () =>
     apiFetch<SyncReadyResult>('/sync-ready', { method: 'POST' }),
 
@@ -542,7 +591,10 @@ export const discordSyncApi = {
     apiFetch<{ processed: number; succeeded: number; discarded: number; ignored: number; failed: number }>('/messages/parse-batch', { method: 'POST' }),
 
   importJson: async (json: unknown) => {
-    const data = await apiFetch<unknown>('/import-json', { method: 'POST', body: JSON.stringify(json) });
+    const body = json && typeof json === 'object' && !Array.isArray(json)
+      ? { ...(json as Record<string, unknown>), autoParse: true }
+      : { json, autoParse: true };
+    const data = await apiFetch<unknown>('/import-json', { method: 'POST', body: JSON.stringify(body) });
     return parseImportResult(data);
   },
 
@@ -558,5 +610,5 @@ export const discordSyncApi = {
     fileApiFetch('/import-json/preview/file', file, parsePreviewResult, 'analisar arquivo'),
 
   importFile: async (file: File) =>
-    fileApiFetch('/import-json/file', file, parseImportResult, 'importar arquivo'),
+    fileApiFetch('/import-json/file', file, parseImportResult, 'importar arquivo', { autoParse: 'true' }),
 };
