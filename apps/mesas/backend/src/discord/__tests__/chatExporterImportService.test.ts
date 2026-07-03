@@ -41,11 +41,11 @@ vi.mock('../shared', () => ({
   getContentHash: vi.fn(() => 'test-hash'),
 }));
 
-import { importDiscordChatExporterJson, extractJsonPayload, buildPreviewFromExport, MAX_IMPORT_MESSAGES } from '../chatExporterImportService';
+import { importDiscordChatExporterJson, extractJsonPayload, buildPreviewFromExport, parseUploadedJsonBuffer, MAX_IMPORT_MESSAGES } from '../chatExporterImportService';
 import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from '../chatExporterAdapter';
 import { getContentHash } from '../shared';
 import { db } from '../../db';
-import { truncatedJsonString } from './fixtures/chatExporterSample';
+import { truncatedJsonString, truncatedTailJsonBuffer } from './fixtures/chatExporterSample';
 
 function mockChain(overrides: Record<string, Mock> = {}) {
   const methods = ['select', 'selectAll', 'where', 'returning', 'values', 'execute', 'executeTakeFirst', 'executeTakeFirstOrThrow'];
@@ -294,6 +294,46 @@ describe('extractJsonPayload', () => {
       // A mensagem não deve conter o payload truncado nem stack trace
       expect(result.error).not.toContain('{"guild"');
       expect(result.error).not.toContain('SyntaxError');
+    }
+  });
+});
+
+// ─── Fase H (spec 058): recuperação de JSON truncado no fim do arquivo ───
+
+describe('parseUploadedJsonBuffer — recuperação de truncamento (Fase H)', () => {
+  it('recupera mensagens completas de um buffer truncado no meio da 3ª mensagem', () => {
+    const result = parseUploadedJsonBuffer({ buffer: truncatedTailJsonBuffer });
+
+    expect(result).not.toHaveProperty('error');
+    if ('parsed' in result) {
+      const parsed = result.parsed as { messages: unknown[] };
+      expect(Array.isArray(parsed.messages)).toBe(true);
+      expect(parsed.messages).toHaveLength(2);
+      expect(result.truncationWarning).toBeDefined();
+      expect(result.truncationWarning).toContain('2 mensagem');
+    }
+  });
+
+  it('rejeita buffer sem nenhuma mensagem completa (corte no meio do 1º objeto)', () => {
+    const result = parseUploadedJsonBuffer({ buffer: Buffer.from(truncatedJsonString, 'utf-8') });
+
+    expect(result).toHaveProperty('error');
+    if ('error' in result) {
+      expect(result.status).toBe(400);
+    }
+  });
+
+  it('parseia buffer válido normalmente, sem warning de truncamento', () => {
+    const validJson = JSON.stringify({
+      guild: { id: '1', name: 'G' },
+      channel: { id: '2', name: 'c' },
+      messages: [{ id: 'm1', content: 'oi' }],
+    });
+    const result = parseUploadedJsonBuffer({ buffer: Buffer.from(validJson, 'utf-8') });
+
+    expect(result).not.toHaveProperty('error');
+    if ('parsed' in result) {
+      expect(result.truncationWarning).toBeUndefined();
     }
   });
 });

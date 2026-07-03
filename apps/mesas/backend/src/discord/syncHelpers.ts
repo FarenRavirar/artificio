@@ -138,11 +138,39 @@ export function validateDraftForSync(draft: ImportTableDraft): string[] {
   if (!hasText(t.modality) || !VALID_MODALITIES.includes(t.modality)) missing.push('modality');
   if (!hasText(t.price_type) || !VALID_PRICE_TYPES.includes(t.price_type)) missing.push('price_type');
   if (!hasPositiveNumber(t.slots_total) && !hasPositiveNumber(t.slots_open)) missing.push('slots_total');
-  if (!hasText(t.contact_url) && !hasText(t.contact_discord)) missing.push('contact_url/contact_discord');
+  if (!hasText(t.contact_url) && !hasText(t.contact_discord) && !hasText(t.host_discord_id)) {
+    missing.push('contact_url/contact_discord');
+  }
   if (!isDayOfWeek(t.day_of_week)) missing.push('day_of_week');
   if (!isValidTime(t.start_time)) missing.push('start_time');
 
   return missing;
+}
+
+const EMAIL_PATTERN = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+const BR_PHONE_PATTERN = /\(?\d{2}\)?\s?9?\d{4}-?\d{4}/;
+
+/**
+ * Fase F (spec 058): categoriza URL/texto de contato no enum real de `TableContactChannel`
+ * (whatsapp | discord | phone | email | facebook | instagram | form), em vez de tudo que não
+ * é Discord cair em `'form'` genérico.
+ */
+function classifyContactChannel(rawUrl: string): TableContactChannel {
+  try {
+    const parsed = new URL(rawUrl);
+    const host = parsed.hostname;
+    if (host === 'discord.com' || host.endsWith('.discord.com') || host === 'discord.gg' || host.endsWith('.discord.gg')) {
+      return 'discord';
+    }
+    if (host === 'wa.me' || host.endsWith('.wa.me') || host === 'api.whatsapp.com' || host === 'chat.whatsapp.com') {
+      return 'whatsapp';
+    }
+    return 'form';
+  } catch {
+    if (EMAIL_PATTERN.test(rawUrl)) return 'email';
+    if (BR_PHONE_PATTERN.test(rawUrl)) return 'phone';
+    return 'form';
+  }
 }
 
 export function extractContacts(
@@ -156,21 +184,17 @@ export function extractContacts(
 
   if (draft.table.contact_url) {
     const rawUrl = draft.table.contact_url;
-    let channel: TableContactChannel = 'form';
-    try {
-      const parsed = new URL(rawUrl);
-      const isDiscordHost =
-        parsed.hostname === 'discord.com' ||
-        parsed.hostname.endsWith('.discord.com') ||
-        parsed.hostname === 'discord.gg' ||
-        parsed.hostname.endsWith('.discord.gg');
-      channel = isDiscordHost ? 'discord' : 'form';
-    } catch {
-      channel = 'form';
-    }
+    const channel = classifyContactChannel(rawUrl);
     if (!contacts.some((c) => c.channel === channel && c.value === rawUrl)) {
       contacts.push({ channel, value: rawUrl, label: 'Ticket / Inscrição', discord_server_url: null });
     }
+  }
+
+  // Fase G (spec 058): "o usuario do discord se tiver nada" — sem contact_url/contact_discord
+  // explícito extraído, o autor Discord da mensagem original (host_discord_id) vira contato
+  // de fallback, em vez do draft ficar sem nenhum canal de contato.
+  if (contacts.length === 0 && draft.table.host_discord_id) {
+    contacts.push({ channel: 'discord', value: draft.table.host_discord_id, label: null, discord_server_url: null });
   }
 
   return contacts;
@@ -211,12 +235,15 @@ export function buildTableData(
     slug,
     gm_id: null,
     system_id: t.system_id ?? null,
-    scenario_id: null,
+    scenario_id: t.scenario_id ?? null,
     title: t.title,
     description: t.description ?? null,
     type: t.type ?? 'campanha',
     audience: 'livre',
+    age_rating: t.age_rating ?? null,
     modality: t.modality ?? 'online',
+    vtt_platform_id: t.vtt_platform_id ?? null,
+    communication_platform_id: t.communication_platform_id ?? null,
     price_type: t.price_type ?? 'gratuita',
     price_value: t.price_value ?? null,
     price_frequency: t.price_type === 'paga' ? 'sessao' : null,
@@ -224,7 +251,14 @@ export function buildTableData(
     slots_filled: t.slots_filled ?? 0,
     slots_open: t.slots_open ?? t.slots_total ?? 0,
     language: 'pt-BR',
-    experience_level: 'todos',
+    experience_level: t.experience_level ?? 'todos',
+    table_level: t.table_level ?? null,
+    setting_name: t.setting_name ?? null,
+    setting_styles: t.setting_styles ?? null,
+    requires_pc: t.requires_pc ?? false,
+    requires_camera: t.requires_camera ?? false,
+    requires_microphone: t.requires_microphone ?? false,
+    session_zero_free: t.session_zero_free ?? false,
     publisher_role: 'announcer',
     actual_gm_name: source.gmName ?? null,
     is_covil: true,
@@ -462,6 +496,20 @@ export async function syncDraftToTable(
           slots_filled: t.slots_filled ?? 0,
           slots_open: t.slots_open ?? t.slots_total ?? 0,
           system_id: t.system_id ?? null,
+          // Fase E (spec 058): campos novos da Fase B/C — sem isso, ficam presos no
+          // draft e desaparecem silenciosamente ao sincronizar (bug de perda de dado).
+          scenario_id: t.scenario_id ?? null,
+          age_rating: t.age_rating ?? null,
+          vtt_platform_id: t.vtt_platform_id ?? null,
+          communication_platform_id: t.communication_platform_id ?? null,
+          experience_level: t.experience_level ?? 'todos',
+          table_level: t.table_level ?? null,
+          setting_name: t.setting_name ?? null,
+          setting_styles: t.setting_styles ?? null,
+          requires_pc: t.requires_pc ?? false,
+          requires_camera: t.requires_camera ?? false,
+          requires_microphone: t.requires_microphone ?? false,
+          session_zero_free: t.session_zero_free ?? false,
           cover_url: coverUrl,
           banner_url: coverUrl,
           actual_gm_name: gmName,

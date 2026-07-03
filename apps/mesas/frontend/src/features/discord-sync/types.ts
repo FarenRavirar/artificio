@@ -144,6 +144,8 @@ export interface DiscordDraft {
   review_notes: string | null;
   created_at: string;
   updated_at: string;
+  /** Fase I (spec 058): texto original da mensagem/anúncio, pro preview lado a lado no editor. */
+  content_raw?: string | null;
 }
 
 export interface IngestResult {

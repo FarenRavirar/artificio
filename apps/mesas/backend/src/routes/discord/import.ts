@@ -24,6 +24,7 @@ function respondImportSuccess(
   result: { total: number; inserted: number; updated: number; ignored: number; failed: number },
   userId: string | undefined,
   autoParse?: { total: number; parsed: number; discarded: number; ignored: number; errors: number },
+  truncationWarning?: string,
 ): void {
   recordImportRun({
     sourceKind: 'discord_chat_exporter_json' as const,
@@ -42,6 +43,7 @@ function respondImportSuccess(
       ignored: result.ignored,
       failed: result.failed,
       auto_parse: autoParse ?? null,
+      warning: truncationWarning ?? null,
     },
   });
 }
@@ -152,7 +154,7 @@ router.post('/file', requireAdmin, uploadJsonFile, async (req: Request, res: Res
     const result = await importDiscordChatExporterJson(parsed.parsed);
     const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages, acceptPaidTables) : undefined;
 
-    return respondImportSuccess(res, result, req.user?.userId, autoParseResult);
+    return respondImportSuccess(res, result, req.user?.userId, autoParseResult, parsed.truncationWarning);
   } catch (error: unknown) {
     // Erros do multer (LIMIT_FILE_SIZE / fileFilter) já são tratados em uploadJsonFile.
     respondImportError(res, error);

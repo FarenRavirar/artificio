@@ -10,9 +10,45 @@ export const MAX_IMPORT_MESSAGES = 2000;
 /** Limite de segurança: tamanho máximo do JSON bruto em bytes (≤ 12MB global do Express). */
 export const MAX_IMPORT_JSON_BYTES = 10 * 1024 * 1024; // 10MB
 
+/**
+ * Fase H (spec 058): tenta recuperar um JSON truncado no FIM do arquivo (export/download
+ * interrompido) cortando pro último objeto de mensagem completo dentro do array `messages`
+ * e fechando array + objeto raiz. Não tenta reparar corrupção no meio do arquivo — só corte
+ * de cauda, que é o padrão real observado (DiscordChatExporter export incompleto).
+ * Retorna null se não conseguir produzir um JSON válido com pelo menos 1 mensagem completa.
+ */
+function tryRecoverTruncatedJson(rawJson: string): { parsed: unknown; recoveredMessageCount: number } | null {
+  const messagesKeyIndex = rawJson.indexOf('"messages"');
+  if (messagesKeyIndex === -1) return null;
+
+  // Corta progressivamente no último `\n    }` (fechamento de objeto de mensagem, indentação
+  // padrão do DiscordChatExporter) anterior ao ponto de corte, tentando parse a cada tentativa.
+  let searchEnd = rawJson.length;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const cutPoint = rawJson.lastIndexOf('\n    }', searchEnd);
+    if (cutPoint === -1 || cutPoint <= messagesKeyIndex) return null;
+
+    const candidate = `${rawJson.slice(0, cutPoint)}\n    }\n  ]\n}`;
+    try {
+      const parsed = JSON.parse(candidate);
+      if (
+        parsed && typeof parsed === 'object' &&
+        Array.isArray((parsed as Record<string, unknown>).messages) &&
+        (parsed as Record<string, unknown[]>).messages.length > 0
+      ) {
+        return { parsed, recoveredMessageCount: (parsed as Record<string, unknown[]>).messages.length };
+      }
+    } catch {
+      // segue tentando cortar mais cedo
+    }
+    searchEnd = cutPoint - 1;
+  }
+  return null;
+}
+
 /** REV-016 residual: valida buffer multer — DRY entre POST /file (import) e POST /preview/file (preview). */
 export function parseUploadedJsonBuffer(file: { buffer: Buffer }):
-  { parsed: unknown } | { error: string; status: number }
+  { parsed: unknown; truncationWarning?: string } | { error: string; status: number }
 {
   const rawJson = file.buffer.toString('utf-8');
 
@@ -27,7 +63,14 @@ export function parseUploadedJsonBuffer(file: { buffer: Buffer }):
   try {
     parsed = JSON.parse(rawJson);
   } catch {
-    return { error: 'JSON inválido: o arquivo não contém JSON válido.', status: 400 };
+    const recovered = tryRecoverTruncatedJson(rawJson);
+    if (!recovered) {
+      return { error: 'JSON inválido: o arquivo não contém JSON válido.', status: 400 };
+    }
+    return {
+      parsed: recovered.parsed,
+      truncationWarning: `Arquivo veio truncado (corte no fim). ${recovered.recoveredMessageCount} mensagem(ns) completa(s) recuperada(s); o restante após o corte foi descartado.`,
+    };
   }
 
   return { parsed };

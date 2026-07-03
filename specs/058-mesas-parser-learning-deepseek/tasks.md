@@ -71,6 +71,19 @@
 - [ ] T8.2 — Definir rollback operacional. Feito quando: kill switch e desativacao de regras provados.
 - [ ] T8.3 — Manter auto-publicacao fora de escopo ate decisao nominal. Feito quando: qualquer caminho automatico segue bloqueado.
 
+## Fase 9 — Deteccao hierarquica de sistema (DEB-058-04)
+
+> Autorizado nominalmente em 2026-07-02 (ver `debitos.md` DEB-058-04 e sessao `26-07-01_1_mesas_parser-learning-spec.md`). Escopo A+B+C completo + auto-alias + UX combobox, dentro da spec 058, sem SDD Lite separado.
+
+- [ ] T9.1 — Extrair label sem `:` (layout "label numa linha, valor embaixo"). Feito quando: `extractLabelValue`/`getAnnouncementSystemHint` reconhecem linha == label conhecido (normalizado, sem dois-pontos) e usam `collectLabelContinuation` pra pegar o valor nas linhas seguintes; texto livre comum nao vira falso-label.
+- [ ] T9.2 — `loadSystemsForParser` traz hierarquia real (`parent_id`, `node_type`, `path_slug`), nao lista achatada. Feito quando: `SystemEntry` carrega os campos de arvore e testes cobrem sistema com filhos.
+- [ ] T9.3 — Matcher hierarquico com resolucao de ambiguidade. Feito quando: match em edicao/variante = confianca alta e usa direto; match so no sistema pai com 1 filho = auto-resolve pra edicao unica; match no pai com 2+ filhos = `needs_review` com as edicoes candidatas anexadas (sem chutar); sem match = vira `system_suggestion` com o texto certo (nao mais vazio por causa do T9.1).
+- [ ] T9.4 — Normalizacao de alias mais tolerante (abreviacao colada/espacada, pequena distancia de edicao) SO quando nao ha match exato/hierarquico — nunca reduz precisao de match ja resolvido. Feito quando: testes cobrem falso-positivo perigoso (ex.: nao deixar "Vampiro" casar errado) e os casos reais de abreviacao (`PF2`, `PF 2E`).
+- [ ] T9.5 — Auto-alias no loop de aprendizado: ao resolver `system_suggestion` apontando pro sistema/edicao certo, gravar o texto original do Discord como `system_aliases` novo (`is_official = false`) daquele no. Feito quando: resolucao de sugestao grava alias sem duplicar (`UNIQUE (system_id, alias_slug)` ja existe) e novo import com o mesmo texto casa direto.
+- [ ] T9.6 — UX: trocar `<select>` simples do `DraftEditorTab.tsx` pelo componente de busca hierarquica ja existente (`SystemTreeSelector.tsx`), reaproveitado do fluxo de criacao de mesa. Feito quando: revisor busca por nome/alias com filtro incremental, ve hierarquia sistema->edicao, sem lista plana gigante.
+- [ ] T9.7 — Testes: parser (T9.1), loadSystemsForParser (T9.2), matcher hierarquico (T9.3), normalizacao tolerante (T9.4), auto-alias (T9.5), UI (T9.6, se aplicavel via testing-library). Feito quando: `pnpm --filter @artificio/mesas-backend test` e `pnpm --filter @artificio/mesas-frontend test` verdes com casos novos cobrindo o draft real "Ruins of Gauntlight" (Pathfinder 2e) como fixture de regressao.
+- [ ] T9.8 — Validacao final. Feito quando: `pnpm run lint`, `pnpm run build`, `pnpm run test` e `pnpm verify:api` (se contrato de API mudar) verdes; sessao e `debitos.md` atualizados com resultado; sem commit/push ate autorizacao nominal propria.
+
 ## Validacao obrigatoria quando virar implementacao
 
 - [x] V1 — Testes unitarios de parser/learning/retrieval. **Parcial 058 Fase 2:** `parseRetrieval.test.ts` cobre hash, sinais estruturais, score e grupos.

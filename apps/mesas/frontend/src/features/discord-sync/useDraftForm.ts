@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
-import { buildDraftFieldInsights, buildForm, buildUpdatedPayload, flattenSystems, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, loadSystems, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
+import { buildDraftFieldInsights, buildForm, buildUpdatedPayload, flattenSystems, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, loadSystems, loadScenarios, loadVttPlatforms, loadCommunicationPlatforms, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
 import { authPost } from '../../services/apiClient';
-import type { DraftForm } from './draftFormUtils';
+import type { DraftForm, SimpleCatalogEntry } from './draftFormUtils';
 import type { DiscordDraft, DiscordImportDraftStatus, DiscordSlotsAmbiguity, DraftApiOperations } from './types';
 import type { SystemTreeNode } from '../../types/systems';
 
@@ -105,6 +105,12 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   const [state, dispatch] = useReducer(editorReducer, draft, buildEditorState);
   const [systems, setSystems] = useState<SystemTreeNode[]>([]);
   const [systemsLoading, setSystemsLoading] = useState(false);
+  const [scenarios, setScenarios] = useState<SimpleCatalogEntry[]>([]);
+  const [scenariosLoading, setScenariosLoading] = useState(false);
+  const [vttPlatforms, setVttPlatforms] = useState<SimpleCatalogEntry[]>([]);
+  const [vttPlatformsLoading, setVttPlatformsLoading] = useState(false);
+  const [communicationPlatforms, setCommunicationPlatforms] = useState<SimpleCatalogEntry[]>([]);
+  const [communicationPlatformsLoading, setCommunicationPlatformsLoading] = useState(false);
   const [savingFields, setSavingFields] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [reparsing, setReparsing] = useState(false);
@@ -152,6 +158,54 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
         if (!cancelled) toast.error(err instanceof Error ? err.message : 'Erro ao carregar sistemas.');
       } finally {
         if (!cancelled) setSystemsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setScenariosLoading(true);
+      try {
+        const items = await loadScenarios();
+        if (!cancelled) setScenarios(items);
+      } catch (err) {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Erro ao carregar cenários.');
+      } finally {
+        if (!cancelled) setScenariosLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setVttPlatformsLoading(true);
+      try {
+        const items = await loadVttPlatforms();
+        if (!cancelled) setVttPlatforms(items);
+      } catch (err) {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Erro ao carregar plataformas VTT.');
+      } finally {
+        if (!cancelled) setVttPlatformsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setCommunicationPlatformsLoading(true);
+      try {
+        const items = await loadCommunicationPlatforms();
+        if (!cancelled) setCommunicationPlatforms(items);
+      } catch (err) {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Erro ao carregar plataformas de comunicação.');
+      } finally {
+        if (!cancelled) setCommunicationPlatformsLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -354,6 +408,9 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     form: state.form, updateForm,
     dirty: state.dirty,
     systems, systemsLoading,
+    scenarios, scenariosLoading,
+    vttPlatforms, vttPlatformsLoading,
+    communicationPlatforms, communicationPlatformsLoading,
     missingFields, canSync,
     syncing, reparsing,
     savingFields, savingStatus,

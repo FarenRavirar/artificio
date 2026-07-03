@@ -5,6 +5,7 @@ import { requireAdmin } from '../../middleware/auth';
 import type { DiscordImportDraftStatus } from '../../discord';
 import { normalizeDraftPayload, refreshDiscordDraftImage } from '../../discord';
 import { extractDraftScope, recordParseFeedback } from '../../discord/parseLearning';
+import { stripSeparatorLines } from '../../discord/parseDiscordAnnouncement';
 import { destroyAssetResult } from '@artificio/media';
 import { parseDiscordMessage, ensureSystemSuggestionForDraft, handlePatchDraft } from './utils';
 
@@ -66,7 +67,20 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
       .where('id', '=', req.params.id)
       .executeTakeFirst();
     if (!draft) return res.status(404).json({ error: 'Draft não encontrado.' });
-    return res.json({ data: draft });
+
+    // Fase I (spec 058): content_raw da mensagem original, pro preview lado a lado
+    // no editor — nunca perdido mesmo quando campos estruturados falham no parse.
+    let contentRaw: string | null = null;
+    if (draft.discord_message_id) {
+      const message = await db
+        .selectFrom('discord_import_messages')
+        .select(['content_raw'])
+        .where('id', '=', draft.discord_message_id)
+        .executeTakeFirst();
+      contentRaw = message?.content_raw ? stripSeparatorLines(message.content_raw) : null;
+    }
+
+    return res.json({ data: { ...draft, content_raw: contentRaw } });
   } catch (error: unknown) {
     console.error('[GET /admin/discord/drafts/:id]', error);
     return res.status(500).json({ error: 'Erro ao buscar draft.' });

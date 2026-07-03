@@ -240,3 +240,69 @@ export const exportWithNonArrayMessages = {
   messages: 'não é um array',
   messageCount: 1,
 };
+
+/**
+ * Fase H (spec 058): JSON formatado (indentação 4 espaços, padrão de export real do
+ * DiscordChatExporter) com 2 mensagens completas seguidas de corte no MEIO da 3ª mensagem
+ * (download/export interrompido) — reproduz o caso real recuperado nesta spec
+ * (`D:/teste_hoje2.json`). Usado pra validar `parseUploadedJsonBuffer` (Fase H).
+ */
+export const truncatedTailJsonBuffer = Buffer.from(`{
+  "guild": {
+    "id": "111",
+    "name": "Servidor Teste"
+  },
+  "channel": {
+    "id": "222",
+    "name": "canal"
+  },
+  "messages": [
+    {
+      "id": "msg-001",
+      "type": "Default",
+      "timestamp": "2025-01-01T12:00:00+00:00",
+      "timestampEdited": null,
+      "author": {
+        "id": "auth-1",
+        "name": "Jogador1",
+        "discriminator": "0",
+        "nickname": null,
+        "color": null
+      },
+      "content": "Procurando jogadores para mesa de D&D 5e",
+      "attachments": [],
+      "embeds": [],
+      "reactions": [],
+      "mentions": [],
+      "inlineEmojis": []
+    },
+    {
+      "id": "msg-002",
+      "type": "Default",
+      "timestamp": "2025-01-01T13:00:00+00:00",
+      "timestampEdited": null,
+      "author": {
+        "id": "auth-2",
+        "name": "Jogador2",
+        "discriminator": "0",
+        "nickname": null,
+        "color": null
+      },
+      "content": "Mesa de Pathfinder 2e aos sabados",
+      "attachments": [],
+      "embeds": [],
+      "reactions": [],
+      "mentions": [],
+      "inlineEmojis": []
+    },
+    {
+      "id": "msg-003",
+      "type": "Default",
+      "timestamp": "2025-01-01T14:00:00+00:00",
+      "timestampEdited": null,
+      "author": {
+        "id": "auth-3",
+        "name": "Jogador3",
+        "discriminator": "0",
+        "nickname": null,
+        "color": null`, 'utf-8');

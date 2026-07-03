@@ -33,6 +33,8 @@ vi.mock('../../discord/syncHelpers', () => ({
 
 vi.mock('../../discord/shared', () => ({
   loadSystemsForParser: vi.fn(),
+  loadVttPlatformsForParser: vi.fn().mockResolvedValue([]),
+  loadCommunicationPlatformsForParser: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock('../../services/adminNotifications', () => ({

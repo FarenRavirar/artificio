@@ -230,6 +230,13 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
               missingFields={h.missingFields}
               systems={h.systems}
               systemsLoading={h.systemsLoading}
+              scenarios={h.scenarios}
+              scenariosLoading={h.scenariosLoading}
+              vttPlatforms={h.vttPlatforms}
+              vttPlatformsLoading={h.vttPlatformsLoading}
+              communicationPlatforms={h.communicationPlatforms}
+              communicationPlatformsLoading={h.communicationPlatformsLoading}
+              contentRaw={draft.content_raw}
               coverPreviewUrl={h.coverPreviewUrl}
               coverError={h.coverError}
               coverUploading={h.coverUploading}

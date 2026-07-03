@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../../db';
 import { DraftNotFoundError, DraftStateError } from '../../discord/syncHelpers';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../../discord';
+import { stripSeparatorLines } from '../../discord/parseDiscordAnnouncement';
 import { requireAdmin } from '../../middleware/auth';
 import { textToRawMessage } from '../../inbox/adapters/textToRawMessage';
 import { syncImportDraftToTable, DraftSyncValidationError } from '../../inbox/syncImportDraftToTable';
@@ -143,6 +144,9 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
       data: {
         ...row,
         raw_text: row.raw_text,
+        // Fase I (spec 058): contrato unificado com o draft de Discord — mesmo
+        // campo `content_raw` no payload, pro editor não precisar saber a origem.
+        content_raw: row.raw_text ? stripSeparatorLines(row.raw_text) : null,
         confidence: toNumberOrNull(row.confidence),
       },
     });

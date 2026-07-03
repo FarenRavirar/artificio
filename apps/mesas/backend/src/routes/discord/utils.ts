@@ -27,7 +27,7 @@ import { loadRetrievalContextForCurrent } from '../../discord/parseRetrieval';
 import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
-import { loadSystemsForParser } from '../../discord/shared';
+import { loadSystemsForParser, loadVttPlatformsForParser, loadCommunicationPlatformsForParser } from '../../discord/shared';
 import { requireAdmin } from '../../middleware/auth';
 import { notifyAdmins } from '../../services/adminNotifications';
 import { patchDraftSchema, correctionSchema } from '../inbox/utils';
@@ -413,6 +413,10 @@ export async function parseDiscordMessage(
   replyContext?: string,
 ): Promise<{ parsed: NonNullable<ReturnType<typeof parseDiscordAnnouncement>>; normalized: ReturnType<typeof normalizeDiscordTableDraft>; systems: SystemEntry[] } | null> {
   const sys = systems ?? await loadSystemsForParser();
+  const [vttPlatforms, communicationPlatforms] = await Promise.all([
+    loadVttPlatformsForParser(),
+    loadCommunicationPlatformsForParser(),
+  ]);
   const raw: ImportRawMessage = {
     source_kind: (msg.source_kind ?? 'text') as ImportRawMessage['source_kind'],
     discord_message_id: String(msg.discord_message_id ?? ''),
@@ -431,7 +435,7 @@ export async function parseDiscordMessage(
     message_created_at: msg.message_created_at ? new Date(msg.message_created_at as string) : null,
     message_edited_at: msg.message_edited_at ? new Date(msg.message_edited_at as string) : null,
   };
-  const parsed = parseDiscordAnnouncement(raw, sys, replyContext);
+  const parsed = parseDiscordAnnouncement(raw, sys, replyContext, { vtt: vttPlatforms, communication: communicationPlatforms });
   if (!parsed) return null;
   const normalized = normalizeDiscordTableDraft(parsed, sys);
   return { parsed, normalized, systems: sys };
