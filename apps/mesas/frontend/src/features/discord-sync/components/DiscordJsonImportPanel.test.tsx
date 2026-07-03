@@ -141,7 +141,7 @@ describe('DiscordJsonImportPanel', () => {
     fireEvent.click(screen.getByText('Importar'));
 
     await waitFor(() => {
-      expect(discordSyncApi.importFile).toHaveBeenCalledWith(largeJson);
+      expect(discordSyncApi.importFile).toHaveBeenCalledWith(largeJson, false);
       expect(screen.getByText('Importação concluída')).toBeInTheDocument();
       expect(screen.getByText('Importadas')).toBeInTheDocument();
       expect(screen.getByText('Rascunhos')).toBeInTheDocument();
@@ -184,7 +184,7 @@ describe('DiscordJsonImportPanel', () => {
     fireEvent.click(screen.getByText('Importar'));
 
     await waitFor(() => {
-      expect(discordSyncApi.importJson).toHaveBeenCalledWith({ json: '{"messages":[]}' });
+      expect(discordSyncApi.importJson).toHaveBeenCalledWith({ json: '{"messages":[]}' }, false);
       expect(screen.getByText('Rascunhos')).toBeInTheDocument();
       expect(screen.getByText('Os anúncios válidos foram convertidos em rascunhos revisáveis.')).toBeInTheDocument();
     });

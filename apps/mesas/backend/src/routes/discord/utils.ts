@@ -672,6 +672,11 @@ export async function processDiscordMessageToDraft(
   systems: SystemEntry[] | undefined,
   replyContext: string | undefined,
   userId: string | undefined,
+  // DEB-058-XX: filtro funcional de mesa paga na importação. Default `true`
+  // preserva o comportamento anterior (caller que não passa a flag continua
+  // aceitando pagas) — só o import-json/preview e o /reparse plugam a escolha
+  // explícita do mantenedor na UI.
+  acceptPaidTables = true,
 ): Promise<DiscordDraftOutcome> {
   // Reconcilia draft terminal (synced/rejected) ANTES de parsear — evita marcar
   // a mensagem como ignored/error em cima de um draft já terminal (CodeRabbit).
@@ -705,6 +710,31 @@ export async function processDiscordMessageToDraft(
     return discarded ? 'discarded' : 'ignored';
   }
   const { parsed, systems: resolvedSystems } = result;
+
+  // DEB-058-XX: filtro de mesa paga acontece logo após o parse determinístico
+  // (já tem price_type), antes do enrich/upsert — mesa paga não vira draft nem
+  // some silenciosamente: mensagem fica 'ignored' e o caso é registrado como
+  // 'discard' para a camada de aprendizado.
+  if (!acceptPaidTables && parsed.table.price_type === 'paga') {
+    await db.updateTable('discord_import_messages')
+      .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
+      .where('id', '=', message.id)
+      .execute();
+    if (existing?.id) {
+      await db.updateTable('discord_import_table_drafts')
+        .set({ status: 'rejected', updated_at: new Date() })
+        .where('id', '=', existing.id as string)
+        .where('status', 'not in', ['synced', 'rejected'])
+        .execute();
+    }
+    await recordParseCase({
+      message,
+      deterministicResult: parsed,
+      finalResult: null,
+      finalAction: 'discard',
+    });
+    return 'discarded';
+  }
 
   // WS3: enriquecimento LLM (best-effort) antes do upsert, p/ o draft salvo já
   // conter o melhor resultado disponível. Extraído p/ helper (REV-039).
@@ -775,11 +805,12 @@ export async function reparseOneMessage(
   message: Selectable<DiscordImportMessagesTable>,
   contentIndex: Map<string, string>,
   userId: string | undefined,
+  acceptPaidTables = true,
 ): Promise<DiscordDraftOutcome | 'error' | 'skipped'> {
   if (message.status === 'synced') return 'skipped'; // segurança extra
   try {
     const replyContext = resolveReplyContext(message as Record<string, unknown>, contentIndex);
-    return await processDiscordMessageToDraft(message, undefined, replyContext, userId);
+    return await processDiscordMessageToDraft(message, undefined, replyContext, userId, acceptPaidTables);
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'unknown error';
     try {

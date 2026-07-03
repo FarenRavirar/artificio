@@ -388,3 +388,104 @@ Registrar uma nova spec para arquitetura escalavel de aprendizado do parser de i
 - Validacao: `tsc --noEmit` limpo no arquivo tocado (2 erros restantes sao preexistentes em `chatExporterImportService.test.ts`, ja modificado antes desta sessao, nao relacionados); vitest alvo 3/3.
 - **Build quebrado (nao introduzido nesta sessao):** `pnpm run build` do `mesas-backend` falha por `chatExporterImportService.test.ts:300,309` (fixture sem `reactions`/`mentions`/`inlineEmojis` do tipo). Registrado em `specs/backlog.md` (`BL-058-PARSER-LEARNING-DEEPSEEK`, DEB-058-BUILD-01) — nao corrigido nesta sessao (fora do escopo pedido, mas bloqueia build verde da spec).
 - Sem commit/push/deploy.
+
+### DEB-058-02 resolvido + nitpick zod + fix tabela fantasma api-diff (2026-07-02)
+
+- **DEB-058-02 (reparse pendentes sem UI):** PR #125 `fix/mesas-import-reparse-pending` commitado/pushado/mergeado em `dev` (merge commit `498d5a5`), todos checks verdes (`lint + build + test`, codeql, api-governance, secret/osv/semgrep, CodeRabbit, snyk). Deploy beta disparado (`deploy.yml` module=mesas env=beta, run 28625933373).
+- **Nitpick CodeRabbit (PR anterior) — procede, aplicado:** `reparseResultSchema` em `apps/mesas/frontend/src/features/discord-sync/api/discordSyncApi.ts` usava `z.number()` puro nos 5 contadores (`total`/`reparsed`/`discarded`/`ignored`/`errors`); migrado p/ `z.number().int().nonnegative()`, alinhado ao `batchResultSchema` no mesmo arquivo. Rejeita fracionário/negativo (bug de backend) antes de virar estado/UI, cumprindo a pétrea de normalização de payload externo. `truncated` inalterado (boolean). Lint verde no arquivo.
+- **Fix `docs/api/generated/api-diff.generated.md` (tabela fantasma):** CI reprovou o push com "Artefatos de governança de API desatualizados". Causa raiz: `dev` local estava atrás de `origin/dev` (c21511b vs edfa33b) e `scripts/api/diff-api.ts:86` tenta o ref `dev` local ANTES de `origin/dev`, gerando uma tabela de "3 non-breaking mesas" com `path`/`method` vazios (fantasma). CI não tem branch `dev` local → cai em `origin/dev` fresco e produz "nenhuma mudança". Corrigido com `git update-ref refs/heads/dev origin/dev` (fast-forward do ref local sem checkout) + `pnpm verify:api` → arquivo regenerado com header `**Base:** dev` e conteúdo "Nenhuma mudança detectada". Header mantido como `dev` (não `origin/dev`) para bater com o que o CI grava (`GITHUB_BASE_REF=dev`).
+- Commit único (código + artefato) na branch de trabalho, conforme trava pétrea de 1 commit por push.
+- **Falta:** rodar o botão "Reparse pendentes" manualmente no mesas-beta pós-deploy p/ zerar as 50 mensagens `pending` travadas (dado órfão sobrevive ao deploy — 1 clique manual).
+
+## Retomada — SDD Lite: 3 bugs reportados na UI de importação (2026-07-02)
+
+### Escopo
+
+Mantenedor reportou via screenshots de `/gestao/importacao`: (1) capa/imagem sempre quebrada mesmo em JSON recém extraído; (2) título vindo com `#` literal; (3) sem controle funcional pra bloquear mesa paga na importação (mecanismo de deteção já existe mas nunca foi ligado a um filtro); (4) caracteres estranhos em campos extraídos. Pedido explícito: SDD Lite (sem spec/plan/tasks formal), correção direta.
+
+### Investigação (Explore + leitura direta)
+
+- **Capa quebrada:** `useDraftForm.ts:34` (antes) e `DiscordDraftReviewTable.tsx:372` faziam fallback `cover_url || cover_url_source` — `cover_url_source` é a URL assinada crua do Discord CDN (expira em minutos). Upload real pro Cloudinary já roda no parse (`persistCoverUpload` em `utils.ts`, chama `uploadCoverForDraft` em `syncHelpers.ts:284`), mas falha silenciosa (`expired_url`/`network`/`cloudinary`, ex.: sem bot token configurado em `discord/config.ts:48-61`) grava `cover_url=null` e a UI caía pro source cru — sempre quebrado quando o upload falha.
+- **Título com `#`:** `normalizeTitle()` (`parseDiscordAnnouncement.ts`) só removia `*` e aspas curvas; `splitThreadName()` (fallback de título via 1ª linha do body/thread name) não limpava nada. Mensagens reais (`D:\teste.json`) confirmam: `# Rigor Mortis`, `## **Dark Tower**`, `-# Mesa profissional PAGA`, separadores `▬»━─`, emoji (🔥⚖️📖🎲), zero-width/controle.
+- **Filtro mesa paga:** `extractPrice()` já classifica `price_type` corretamente; zero uso desse dado pra bloquear import. `DiscordJsonImportPanel.tsx` não tinha nenhum controle. `processDiscordMessageToDraft` (`utils.ts`) processava tudo sem discriminar.
+- **Caracteres estranhos:** mesma raiz do bug do título — decoração markdown/emoji/zero-width do Discord sobrevivendo à extração de título/sistema.
+
+### Decisões nominais do mantenedor (via pergunta)
+
+- Flag mesa paga: default **desmarcado** (bloqueia pagas por padrão; usuário liga explicitamente pra aceitar).
+- Capa: corrigir a causa raiz (upload automático já existe), não só reordenar preview — mas manter escopo SDD Lite sem migration nova: frontend não usa mais `cover_url_source` como `<img src>` (fallback fadado), só `cover_url` confirmado.
+- Sanitização de caracteres: "só letra/número/acento" pedido literal do mantenedor, mas com exceção pra pontuação presa a palavra de título real (apóstrofo, hífen, `&`, `:`) — confirmado via pergunta após mostrar que a regra estrita quebraria `D&D`/`Baldur's Gate`/`Vampiro: A Máscara`. Roda pré-parse, dentro do próprio parser (`normalizeTitle`/`splitThreadName`), antes de qualquer registro em `discord_parse_cases` (camada de aprendizado).
+
+### Implementação
+
+- `apps/mesas/backend/src/discord/parseDiscordAnnouncement.ts`: nova `stripDecorativeMarkup()` — remove zero-width/controle/BOM/replacement char (via `\u` escapes explícitos, não literais — ver nota de bug abaixo), emoji (`\p{Extended_Pictographic}`), marcas decorativas Discord (`#*_~\`▬▭►▶»«━─┃┅┄╍✦`), e aplica whitelist `\p{L}\p{N}\s'&:-` preservando quebra de linha (crítico: `getAnnouncementSystemHint` depende de `\n` pra pegar só a 1ª linha do valor). Plugada em `normalizeTitle()` e nos 2 ramos de `splitThreadName()`.
+- `apps/mesas/frontend/src/features/discord-sync/useDraftForm.ts:34` e `components/DiscordDraftReviewTable.tsx:372`: `coverPreviewUrl`/`coverUrl` usam só `cover_url` confirmado; nunca mais renderiza `cover_url_source` cru como `<img>`.
+- Filtro de mesa paga: `processDiscordMessageToDraft()` (`routes/discord/utils.ts`) ganhou parâmetro `acceptPaidTables = true` (default preserva comportamento anterior pra callers que não passam); quando `false` e `parsed.table.price_type === 'paga'`, mensagem vira `ignored` e o caso é registrado como `discard` na camada de aprendizado (`recordParseCase`) — sem migration nova, reusa outcome `'discarded'` existente. Propagado por `reparseOneMessage`, `autoParsePendingImportedMessages`, e as 3 rotas (`POST /import-json`, `POST /import-json/file`, `POST /import-json/reparse`) via novo helper `readAcceptPaidTables(req.body)`. Frontend: checkbox "Incluir mesas pagas na importação" em `DiscordJsonImportPanel.tsx`, logo abaixo do texto de upload manual, default `false`; estado em `useJsonImport.ts`, propagado em `discordSyncApi.importJson/importFile/reparsePending`.
+
+### Bug próprio descoberto e corrigido durante a implementação
+
+- Minha 1ª versão de `stripDecorativeMarkup` usava caracteres zero-width **literais** dentro do regex-source (colados no arquivo `.ts`), o que corrompeu a leitura/grep do arquivo (passou a aparecer como binário pro `grep`) e quebrou silenciosamente o `\s+` collapse — colapsava também `\n`, destruindo a dependência de `getAnnouncementSystemHint` em `hint.split(/[\r\n]/)[0]` pra isolar só a 1ª linha do campo "Sistema:" e ignorar linhas de continuação (descrição). Sintoma: teste `NÃO descarta sistema conhecido (D&D) nem por menção solta de "próprio" no corpo` passou a falhar (`classifyHomebrew` retornava `'discard'` por engolir a frase "material autoral de apoio" da continuação). Corrigido: (1) regex reescrita com `\u` escapes explícitos em vez de char literal; (2) collapse de whitespace mudado pra preservar `\n` (`[^\S\n]+` em vez de `\s+`). Lição: nunca colar caractere zero-width/controle literal em regex-source; sempre `\u` escape.
+
+### Validação
+
+- `pnpm --filter @artificio/mesas-backend build` ✅
+- `pnpm --filter @artificio/mesas-backend test` ✅ 42 files / 368 tests
+- `pnpm --filter @artificio/mesas-frontend build` ✅
+- `pnpm --filter @artificio/mesas-frontend test` ✅ 14 files / 149 tests (2 assertions atualizadas pra novo default `acceptPaidTables=false`/`true` conforme caller)
+- `pnpm run lint` ✅ (15/15)
+- `pnpm run build` ✅ (17/17)
+- `pnpm run test` ✅ (24/24 tasks)
+- `pnpm verify:api` ✅ exit 0 — sem breaking change (mudança é só em body params opcionais de rotas existentes, não em contrato de rota/schema OpenAPI)
+- `git diff --check` ✅ (só warnings CRLF pré-existentes do Windows)
+
+### Estado
+
+Código local, **sem commit/push/deploy** (aguardando autorização nominal). Testado só localmente — sem smoke beta/prod. Escopo tocou só `apps/mesas` (backend+frontend), sem migration, sem contrato de rota novo.
+
+### Correção pós-feedback: separadores de seção não eram só decoração solta (2026-07-02)
+
+Mantenedor apontou (com evidência) que a limpeza inicial estava rasa: os separadores reais do Discord (`▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬`, `━━━━`, `═══`) aparecem em **blocos de repetição** (linha inteira do mesmo caractere), não como pontuação isolada — e a limpeza anterior só cobria whitelist de título/system_name, não o corpo/description nem o texto que alimenta `discord_parse_cases`.
+
+- Contei ocorrências reais em `D:\teste.json`: `▬` (1142x) concentrado em só 27 linhas 100%-separadoras — confirma o padrão descrito.
+- Nova `stripSeparatorLines()` (exportada de `parseDiscordAnnouncement.ts`) com 4 regras, cada uma calibrada contra os 50 casos reais do JSON: (1) linha inteira composta só de caracteres decorativos+espaço → remove a linha; (2) marcador decorativo solto no início de uma linha-de-campo (`▬ Sistema: X`, `» Título: Y`) → remove só o prefixo, preserva o dado; (3) bloco de 4+ repetições consecutivas do mesmo símbolo em qualquer posição (separador colado depois do dado, ex.: `» Título: X ▬▬▬▬▬▬▬▬▬▬▬`) → remove o bloco; (4) símbolos puramente gráficos (`▬▭►▶»«━─┃┅┄╍✦═⎯⸻`, que nunca aparecem soltos em português natural — diferente de `#`/`*`/`-`/`_`/`=`/`~`, que têm uso legítimo isolado) → remove em qualquer posição/quantidade.
+- Aplicada logo na montagem do `body` em `parseDiscordAnnouncement()` e `getAnnouncementSystemHint()` — roda ANTES de qualquer extração de campo (título, sistema, mentions, host, contato), garantindo que nenhum campo nem a camada de aprendizado (`discord_parse_cases`) seja contaminado.
+- Nova `cleanDescriptionText()` separada (não misturada em `stripSeparatorLines`) — remove mentions Discord crus (`<@id>`, `<@&roleId>`) e markdown de ênfase (`**`, `*`, `__`, `_`, `~~`, `` ` ``) SÓ no texto final de `description`, DEPOIS que `rawEvidence`/host/contato já extraíram esses tokens do body original. Mentions crus viram ID numérico sem nome legível — não úteis pra quem lê o anúncio da mesa (decisão nominal do mantenedor); ficam preservados à parte em `_raw_evidence.role_mentions`/`user_mentions` pra quem precisar auditar.
+- `normalizeParseLearningText()` (`parseLearning.ts`, usado pra `normalized_text`/hash/features/retrieval de `discord_parse_cases`) agora chama `stripSeparatorLines()` ANTES do collapse de `\s+` — sem isso, a linha separadora vira ruído colado no meio do texto único-linha depois do collapse.
+- **1ª tentativa (mentions+emphasis dentro de `stripSeparatorLines`) quebrou 5 testes:** `extractHostFromMentions`/`extractRoleAndUserMentions`/`resolveDiscordContact` operam sobre o `body` e precisam ler `<@id>`/`<@&id>` crus — remover cedo demais destruía `host_discord_id`, `contact_discord` e `_raw_evidence`. Corrigido separando em duas funções: `stripSeparatorLines` (segura, roda cedo, só decoração estrutural) e `cleanDescriptionText` (mentions+ênfase, roda só na `description` final, depois que tudo mais já foi extraído).
+- Validado iterativamente rodando o parser real contra os 50 casos de `D:\teste.json` (script descartável, não commitado) até `STILL HAS ▬` = 0 em todos.
+- Validação final: `pnpm --filter @artificio/mesas-backend build` ✅; `pnpm --filter @artificio/mesas-backend test` ✅ 42 files/368 tests; `pnpm run lint` ✅ 15/15; `pnpm run build` ✅ 17/17; `pnpm run test` ✅ 24/24 repo-wide. Sem mudança de contrato de API (parser puro, backend-only).
+- Sem commit/push/deploy — aguardando autorização nominal.
+
+### Sumário final pré-commit (DEB-058-03) — arquivos, decisões, trade-offs
+
+**Escopo total do diff** (`apps/mesas` backend+frontend, sem `packages/*`, sem migration, sem contrato de rota novo — só body params opcionais em rotas existentes):
+
+| Arquivo | O que mudou | Por quê |
+|---|---|---|
+| `backend/src/discord/parseDiscordAnnouncement.ts` | `stripDecorativeMarkup()` (whitelist letra/número/acento/espaço + pontuação de palavra), `stripSeparatorLines()` (4 regras contra separadores estruturais), `cleanDescriptionText()` (mentions crus + markdown de ênfase), `readAcceptPaidTables` NÃO está aqui (está em `import.ts`) | Título/sistema/description chegavam com `#`, `▬▬▬`, `<@id>`, `**` sobrevivendo ao parser |
+| `backend/src/discord/parseLearning.ts` | `normalizeParseLearningText()` chama `stripSeparatorLines()` antes do collapse de espaço | Sem isso, `discord_parse_cases.normalized_text`/hash/features ficavam contaminados pelos mesmos separadores |
+| `backend/src/routes/discord/import.ts` | `readAcceptPaidTables(req.body)`, propagado nas 3 rotas (`/`, `/file`, `/reparse`) | Mecanismo de detecção de `price_type` existia mas não filtrava nada — pedido explícito do mantenedor de um controle funcional |
+| `backend/src/routes/discord/utils.ts` | `processDiscordMessageToDraft(..., acceptPaidTables = true)`, `reparseOneMessage(..., acceptPaidTables)` | Ponto único onde parse decide draft vs. descarte — reusa outcome `'discarded'` existente, sem migration |
+| `frontend/.../useDraftForm.ts` | `coverPreviewUrl` só usa `cover_url` confirmado | `cover_url_source` é URL Discord CDN assinada que expira em minutos — usá-la como fallback de `<img>` garantia preview quebrado sempre que o upload real falhasse |
+| `frontend/.../DiscordDraftReviewTable.tsx` | Mesma correção na lista de rascunhos (thumbnail) | Mesmo bug, segundo local de renderização |
+| `frontend/.../DiscordJsonImportPanel.tsx` | Checkbox "Incluir mesas pagas na importação" (default `false`) abaixo do texto de upload manual | Local exato pedido pelo mantenedor |
+| `frontend/.../useJsonImport.ts` | State `acceptPaidTables`, propagado em `handleSubmit`/`handleReparsePending` | Fiação do checkbox até a chamada de API |
+| `frontend/.../discordSyncApi.ts` | `importJson`/`importFile`/`reparsePending` ganham parâmetro `acceptPaidTables` | Contrato de request, sem mudar rota/schema OpenAPI (campo opcional) |
+| `discordSyncApi.test.ts`, `DiscordJsonImportPanel.test.tsx` | Assertions atualizadas pro novo parâmetro | Testes pré-existentes verificavam `toHaveBeenCalledWith` sem o 2º arg |
+| `docs/api/generated/*.json/.md` | Regenerados por `pnpm verify:api` | Consumers/inventory mudaram (novo campo no client), sem breaking change |
+
+**Decisões que exigiram pergunta ao mantenedor (não inferidas):**
+1. Default do checkbox de mesa paga → **desmarcado** (bloqueia por padrão).
+2. Fix de capa → corrigir causa raiz (parar de usar URL fadada), não só reordenar preview, mas sem escopo de migration nova.
+3. Regra de sanitização de texto → whitelist letra/número/acento/espaço **com exceção** pra pontuação presa a palavra (apóstrofo/hífen/`&`/`:`) — a regra 100% literal quebraria `D&D`, `Baldur's Gate`, `Vampiro: A Máscara`.
+4. Escopo da limpeza de separadores → título **e** description **e** camada de aprendizado (não só título) — mantenedor corrigiu minha 1ª entrega que só cobria título/system_name.
+5. Mentions crus (`<@id>`) em description → remover (mantenedor: "esses id não ajudam em nada... não são úteis pra mesas").
+
+**Bugs próprios descobertos e corrigidos durante o trabalho (nenhum ficou só no chat):**
+- Zero-width char literal colado em regex-source corrompeu leitura do arquivo + quebrou `\s+` collapse (destruía dependência de `\n` em `getAnnouncementSystemHint`) — pego por teste existente, corrigido com `\u` escapes.
+- 1ª versão de limpeza de mentions/markdown rodando cedo demais (dentro de `stripSeparatorLines`) quebrou extração de `host_discord_id`/`contact_discord`/`_raw_evidence` — pego por 5 testes falhando, corrigido separando em `cleanDescriptionText` que roda só depois da extração.
+
+**O que NÃO foi feito (fora de escopo SDD Lite, não bloqueia):**
+- Sem migration nova (filtro de mesa paga reusa outcome `discarded` existente).
+- Sem smoke beta/prod (validação só local, contra `D:\teste.json` real + suites automatizadas).
+- `image_upload_status`/`image_upload_last_error` não exposto na UI (daria visibilidade de POR QUE a capa falhou) — resolvido de forma mais simples (não mostrar fallback quebrado), registrar como possível melhoria futura se o mantenedor quiser diagnóstico mais rico.

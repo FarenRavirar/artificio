@@ -179,6 +179,59 @@ describe('processDiscordMessageToDraft', () => {
       }),
     }));
   });
+
+  it('rejects existing non-terminal paid draft when paid imports are disabled', async () => {
+    const parsed = {
+      source: { guild_id: 'guild-1', channel_id: 'channel-1', message_id: '1441138618755448997' },
+      table: {
+        title: 'Mesa paga',
+        system_name: 'D&D',
+        system_id: null,
+        raw_system_hint: 'D&D',
+        type: 'campanha',
+        modality: 'online',
+        price_type: 'paga',
+        price_value: 25,
+        slots_total: 4,
+        slots_filled: null,
+        slots_open: 4,
+        day_of_week: null,
+        start_time: null,
+        frequency: null,
+        description: null,
+        contact_discord: null,
+        contact_url: null,
+        host_discord_id: null,
+        cover_url: null,
+        cover_url_source: null,
+        cover_quality: null,
+        _slots_ambiguity: null,
+        _homebrew_suspect: null,
+        _notes: [],
+      },
+      confidence: 0.9,
+      confidence_tier: 'alta',
+      missing_fields: [],
+    };
+
+    (db.selectFrom as Mock).mockReturnValue(chain({
+      executeTakeFirst: vi.fn().mockResolvedValue({ id: 'draft-existing', status: 'needs_review' }),
+    }));
+    (parseDiscordAnnouncement as Mock).mockReturnValue(parsed);
+
+    await expect(processDiscordMessageToDraft(message(), [], undefined, 'admin-1', false)).resolves.toBe('discarded');
+
+    expect(db.updateTable).toHaveBeenCalledWith('discord_import_messages');
+    expect(db.updateTable).toHaveBeenCalledWith('discord_import_table_drafts');
+
+    const draftUpdate = (db.updateTable as Mock).mock.results
+      .map((result) => result.value as { set: Mock; where: Mock })
+      .find((value) => value.set.mock.calls.some(([payload]) => payload?.status === 'rejected'));
+
+    expect(draftUpdate?.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'rejected' }));
+    expect(draftUpdate?.where).toHaveBeenCalledWith('id', '=', 'draft-existing');
+    expect(draftUpdate?.where).toHaveBeenCalledWith('status', 'not in', ['synced', 'rejected']);
+  });
 });
 
 describe('validateReparseMessageIds', () => {

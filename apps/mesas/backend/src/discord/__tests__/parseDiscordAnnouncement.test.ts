@@ -1,4 +1,4 @@
-import { parseDiscordAnnouncement, classifyConfidence, isSuspiciousUrl, isHomebrewSystem, classifyHomebrew } from '../parseDiscordAnnouncement';
+import { parseDiscordAnnouncement, classifyConfidence, isSuspiciousUrl, isHomebrewSystem, classifyHomebrew, cleanDescriptionText } from '../parseDiscordAnnouncement';
 import { normalizeDiscordTableDraft } from '../normalizeDiscordTableDraft';
 import type { ImportRawMessage } from '../types';
 import { chatExporterSampleMessages } from './fixtures/chatExporterSample';
@@ -25,6 +25,12 @@ function makeMessage(overrides: Partial<ImportRawMessage>): ImportRawMessage {
 }
 
 describe('parseDiscordAnnouncement', () => {
+  it('limpa markdown real da descrição sem corromper slugs, URLs e underscores legítimos', () => {
+    expect(cleanDescriptionText('**Descrição:** inscricao_mesa d_and_d https://site.test/a_b `ok`')).toBe(
+      'Descrição: inscricao_mesa d_and_d https://site.test/a_b ok',
+    );
+  });
+
   it('returns null for forum starters without body and without text in embeds (T-F1-04)', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({

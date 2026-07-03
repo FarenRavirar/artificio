@@ -4,6 +4,7 @@ import { db } from '../db';
 import type { DiscordParseShadowAction } from '../db/types';
 import { persistDuplicateCandidatesForCase } from './parseRetrieval';
 import { recordParseLayerShadowDecisions } from './parseEval';
+import { stripSeparatorLines } from './parseDiscordAnnouncement';
 
 export const PARSE_LEARNING_PARSER_VERSION = '058-fase3-v1';
 
@@ -81,7 +82,10 @@ function toSafeString(value: unknown): string {
 }
 
 export function normalizeParseLearningText(rawText: unknown): string {
-  return toSafeString(rawText)
+  // DEB-058-XX: linhas separadoras (▬▬▬, ━━━) removidas ANTES do collapse de
+  // \s+ — depois do collapse elas virariam ruído colado no meio do texto
+  // único-linha e contaminariam normalized_text/hash/features/retrieval.
+  return stripSeparatorLines(toSafeString(rawText))
     .normalize('NFKD')
     .replace(/\p{Mark}/gu, '')
     .toLowerCase()

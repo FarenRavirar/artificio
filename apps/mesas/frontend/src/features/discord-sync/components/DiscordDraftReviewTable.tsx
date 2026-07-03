@@ -369,7 +369,10 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
             const table = readDraftTable(draft);
             const title = readString(table.title) ?? '—';
             const system = readString(table.system_name);
-            const coverUrl = readString(table.cover_url) ?? readString(table.cover_url_source);
+            // DEB-058-XX: cover_url_source é URL crua do Discord CDN (expira em
+            // minutos) — usá-la como thumbnail resulta em imagem sempre quebrada
+            // quando o upload pro Cloudinary ainda não confirmou.
+            const coverUrl = readString(table.cover_url);
             const coverQuality = readString(table.cover_quality);
 
             return (

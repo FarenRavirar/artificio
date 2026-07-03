@@ -608,10 +608,10 @@ export const discordSyncApi = {
   parseBatch: () =>
     apiFetch<{ processed: number; succeeded: number; discarded: number; ignored: number; failed: number }>('/messages/parse-batch', { method: 'POST' }),
 
-  importJson: async (json: unknown) => {
+  importJson: async (json: unknown, acceptPaidTables = true) => {
     const body = json && typeof json === 'object' && !Array.isArray(json)
-      ? { ...(json as Record<string, unknown>), autoParse: true }
-      : { json, autoParse: true };
+      ? { ...(json as Record<string, unknown>), autoParse: true, acceptPaidTables }
+      : { json, autoParse: true, acceptPaidTables };
     const data = await apiFetch<unknown>('/import-json', { method: 'POST', body: JSON.stringify(body) });
     return parseImportResult(data);
   },
@@ -627,11 +627,11 @@ export const discordSyncApi = {
   previewFile: async (file: File) =>
     fileApiFetch('/import-json/preview/file', file, parsePreviewResult, 'analisar arquivo'),
 
-  importFile: async (file: File) =>
-    fileApiFetch('/import-json/file', file, parseImportResult, 'importar arquivo', { autoParse: 'true' }),
+  importFile: async (file: File, acceptPaidTables = true) =>
+    fileApiFetch('/import-json/file', file, parseImportResult, 'importar arquivo', { autoParse: 'true', acceptPaidTables: String(acceptPaidTables) }),
 
-  reparsePending: async () => {
-    const data = await apiFetch<unknown>('/import-json/reparse', { method: 'POST', body: JSON.stringify({}) });
+  reparsePending: async (acceptPaidTables = true) => {
+    const data = await apiFetch<unknown>('/import-json/reparse', { method: 'POST', body: JSON.stringify({ acceptPaidTables }) });
     return parseReparseResult(data);
   },
 };
