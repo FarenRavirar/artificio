@@ -720,6 +720,13 @@ export async function processDiscordMessageToDraft(
       .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
       .where('id', '=', message.id)
       .execute();
+    if (existing?.id) {
+      await db.updateTable('discord_import_table_drafts')
+        .set({ status: 'rejected', updated_at: new Date() })
+        .where('id', '=', existing.id as string)
+        .where('status', 'not in', ['synced', 'rejected'])
+        .execute();
+    }
     await recordParseCase({
       message,
       deterministicResult: parsed,

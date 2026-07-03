@@ -668,10 +668,11 @@ export function stripSeparatorLines(text: string): string {
     .join('\n');
 }
 
-// Markdown de ênfase Discord (negrito/itálico/riscado/código) em qualquer
-// posição da linha — sobrevive como par de símbolos colado na palavra
-// (ex.: "**Sistema:**") mesmo quando não está no início.
-const EMPHASIS_MARKDOWN_RE = /\*\*|\*|__|_|~~|`/g;
+// Markdown de ênfase Discord só quando aparece como PAR real ao redor de texto.
+// Não remover `_`/`*`/crase globalmente: isso corrompe slugs/URLs/tokens válidos
+// como `inscricao_mesa`, `d_and_d` e links com underscore.
+const PAIRED_EMPHASIS_MARKDOWN_RE = /(\*\*|__|~~|`)(\S(?:[\s\S]*?\S)?)\1/g;
+const EDGE_EMPHASIS_MARKDOWN_RE = /(^|[\s([{])([*_`~]{1,2})(?=\S)|(?<=\S)([*_`~]{1,2})(?=([\s)\]}.,;:!?]|$))/g;
 // Mentions Discord cruas (<@id>, <@&roleId>, <@!id>) viram ID numérico sem
 // nome legível quando persistidas em description — não são úteis pra quem lê
 // o anúncio da mesa. Preservados à parte em _raw_evidence (role/user_mentions)
@@ -682,7 +683,8 @@ const RAW_MENTION_RE = /<@[!&]?\d+>/g;
 export function cleanDescriptionText(text: string): string {
   return text
     .replace(RAW_MENTION_RE, '')
-    .replace(EMPHASIS_MARKDOWN_RE, '')
+    .replace(PAIRED_EMPHASIS_MARKDOWN_RE, '$2')
+    .replace(EDGE_EMPHASIS_MARKDOWN_RE, '$1')
     .replace(/[^\S\n]+/g, ' ')
     .replace(/[^\S\n]+\n/g, '\n')
     .replace(/\n[^\S\n]+/g, '\n')
