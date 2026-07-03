@@ -53,6 +53,19 @@ function shouldAutoParse(raw: unknown): boolean {
   return typeof value === 'string' && ['true', '1', 'yes', 'on'].includes(value.trim().toLowerCase());
 }
 
+// DEB-058-XX: filtro funcional de mesa paga na UI de import. Default `true`
+// (aceita pagas) se o campo não vier — só existe controle explícito quando o
+// cliente manda `acceptPaidTables`. String/boolean por vir de JSON body ou
+// FormData (multipart não tem tipo boolean nativo).
+function readAcceptPaidTables(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') return true;
+  const value = (raw as Record<string, unknown>).acceptPaidTables;
+  if (value === undefined || value === null) return true;
+  if (value === false) return false;
+  if (value === true) return true;
+  return !(typeof value === 'string' && ['false', '0', 'no', 'off'].includes(value.trim().toLowerCase()));
+}
+
 // DEB-058-XX: o import aceita até 2000 mensagens/lote (chatExporterImportService),
 // mas o auto-parse só processava as primeiras 500 (limit da query) e reportava
 // auto_parse.total como se fosse o universo inteiro — o resto ficava pending sem
@@ -63,6 +76,7 @@ const AUTO_PARSE_BATCH_SIZE = 500;
 async function autoParsePendingImportedMessages(
   userId: string | undefined,
   importedMessages: { channelId: string; messageId: string }[] | undefined,
+  acceptPaidTables = true,
 ): Promise<{ total: number; parsed: number; discarded: number; ignored: number; errors: number }> {
   if (!importedMessages?.length) {
     return { total: 0, parsed: 0, discarded: 0, ignored: 0, errors: 0 };
@@ -93,7 +107,7 @@ async function autoParsePendingImportedMessages(
     total += messages.length;
 
     for (const message of messages) {
-      const outcome = await reparseOneMessage(message, contentIndex, userId);
+      const outcome = await reparseOneMessage(message, contentIndex, userId, acceptPaidTables);
       if (outcome === 'error') errors++;
       else if (outcome === 'discarded') discarded++;
       else if (outcome === 'ignored') ignored++;
@@ -113,8 +127,9 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
     }
 
     const autoParse = shouldAutoParse(req.body);
+    const acceptPaidTables = readAcceptPaidTables(req.body);
     const result = await importDiscordChatExporterJson(extracted.payload);
-    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages) : undefined;
+    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages, acceptPaidTables) : undefined;
 
     return respondImportSuccess(res, result, req.user?.userId, autoParseResult);
   } catch (error: unknown) {
@@ -133,8 +148,9 @@ router.post('/file', requireAdmin, uploadJsonFile, async (req: Request, res: Res
     if ('error' in parsed) return res.status(parsed.status).json({ error: parsed.error });
 
     const autoParse = shouldAutoParse(req.body);
+    const acceptPaidTables = readAcceptPaidTables(req.body);
     const result = await importDiscordChatExporterJson(parsed.parsed);
-    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages) : undefined;
+    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages, acceptPaidTables) : undefined;
 
     return respondImportSuccess(res, result, req.user?.userId, autoParseResult);
   } catch (error: unknown) {
@@ -157,6 +173,7 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
     // DEB-048-19: validação de messageIds (payload externo) — lança → 400.
     const messageIds = validateReparseMessageIds(req.body?.messageIds);
     const hasIds = !!messageIds?.length;
+    const acceptPaidTables = readAcceptPaidTables(req.body);
 
     let total = 0;
     let reparsed = 0;
@@ -201,7 +218,7 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
 
         for (const message of messages) {
           // DEB-048-22/20: processamento + política de erro por mensagem no helper.
-          const outcome = await reparseOneMessage(message, contentIndex, req.user?.userId);
+          const outcome = await reparseOneMessage(message, contentIndex, req.user?.userId, acceptPaidTables);
           if (outcome === 'error') errors++;
           else if (outcome === 'discarded') discarded++; // DEB-048-27
           else if (outcome === 'ignored') ignored++;

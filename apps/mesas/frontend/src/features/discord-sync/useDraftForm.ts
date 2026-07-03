@@ -31,7 +31,11 @@ function buildEditorState(draft: DiscordDraft): DraftEditorState {
     form: p,
     newStatus: draft.status,
     reviewNotes: draft.review_notes ?? '',
-    coverPreviewUrl: p.cover_url.trim() || p.cover_url_source.trim(),
+    // DEB-058-XX: cover_url_source é a URL crua do Discord CDN (assinada, expira
+    // em minutos). Usá-la como <img src> resulta em preview sempre quebrado
+    // quando o upload pro Cloudinary (persistCoverUpload, no parse) falhou ou
+    // ainda não rodou. Só mostra imagem quando existe cover_url confirmado.
+    coverPreviewUrl: p.cover_url.trim(),
     dirty: false,
   };
 }

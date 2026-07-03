@@ -14,6 +14,7 @@ interface DiscordJsonImportPanelProps {
 export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImportPanelProps) {
   const {
     rawJson, selectedFile, state, preview, result, errorMessage, isDragOver,
+    acceptPaidTables, setAcceptPaidTables,
     fileInputRef,
     handleChange, handleSubmit, handleClear,
     handleFileSelect, handleDragOver, handleDragLeave, handleDrop,
@@ -30,7 +31,7 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
     setReparseState('loading');
     setReparseError('');
     try {
-      const data = await discordSyncApi.reparsePending();
+      const data = await discordSyncApi.reparsePending(acceptPaidTables);
       setReparseResult(data);
       setReparseState('idle');
       toast.success(`${data.reparsed} rascunhos gerados a partir de ${data.total} mensagens pendentes.`);
@@ -38,7 +39,7 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
       setReparseState('error');
       setReparseError(err instanceof Error ? err.message : 'Erro ao reprocessar mensagens pendentes.');
     }
-  }, []);
+  }, [acceptPaidTables]);
 
   // Codex P3: input fica sempre montado p/ "Trocar arquivo" achar a ref (FileDropzone
   // some quando selectedFile setado, levando junto o input que ele renderiza).
@@ -62,6 +63,24 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
           ou arraste e solte um arquivo .json para importar.
           O sistema vai importar as mensagens para revisão.
         </p>
+
+        {/* DEB-058-XX: filtro funcional de mesa paga — antes não existia
+            controle real na UI, mesa paga sempre virava draft mesmo com
+            mecanismo de detecção de price_type já funcionando no parser. */}
+        <label className="flex items-center gap-2 text-sm text-white/70 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={acceptPaidTables}
+            onChange={(e) => setAcceptPaidTables(e.target.checked)}
+            className="h-4 w-4 accent-blue-600"
+          />
+          Incluir mesas pagas na importação
+        </label>
+        {!acceptPaidTables && (
+          <p className="text-white/40 text-xs">
+            Mesas identificadas como pagas serão ignoradas (não viram rascunho).
+          </p>
+        )}
 
         {selectedFile ? (
           <div className="flex items-center gap-2 bg-blue-900/30 border border-blue-600/30 rounded-lg px-3 py-2">

@@ -36,6 +36,10 @@ const FILE_TEXTAREA_THRESHOLD = 50 * 1024; // <50KB → textarea; >=50KB → bac
 export function useJsonImport() {
   const [rawJson, setRawJson] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // DEB-058-XX: filtro funcional de mesa paga na UI — default false (bloqueia
+  // pagas) por decisão nominal do mantenedor; some mecanismo silencioso e
+  // não-funcional que existia antes.
+  const [acceptPaidTables, setAcceptPaidTables] = useState(false);
   const [state, setState] = useState<ImportState>('empty');
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -99,7 +103,7 @@ export function useJsonImport() {
       setState('sending');
       setErrorMessage('');
       try {
-        const data = await discordSyncApi.importFile(selectedFile);
+        const data = await discordSyncApi.importFile(selectedFile, acceptPaidTables);
         setResult(data);
         setState('success');
         toast.success(importToastMessage(data));
@@ -116,7 +120,7 @@ export function useJsonImport() {
     setErrorMessage('');
 
     try {
-      const data = await discordSyncApi.importJson({ json: rawJson });
+      const data = await discordSyncApi.importJson({ json: rawJson }, acceptPaidTables);
       setResult(data);
       setState('success');
       toast.success(importToastMessage(data));
@@ -124,7 +128,7 @@ export function useJsonImport() {
       setState('error');
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao importar JSON.');
     }
-  }, [selectedFile, rawJson]);
+  }, [selectedFile, rawJson, acceptPaidTables]);
 
   const handleClear = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -218,6 +222,7 @@ export function useJsonImport() {
 
   return {
     rawJson, selectedFile, state, preview, result, errorMessage, isDragOver,
+    acceptPaidTables, setAcceptPaidTables,
     fileInputRef,
     handleChange, handleSubmit, handleClear,
     handleFileSelect, handleDragOver, handleDragLeave, handleDrop,

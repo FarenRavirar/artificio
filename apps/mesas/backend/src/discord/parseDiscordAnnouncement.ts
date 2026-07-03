@@ -265,13 +265,13 @@ function matchSystem(text: string, systems: SystemEntry[]): SystemMatchResult | 
 function splitThreadName(threadName: string): { systemHint: string | null; title: string } {
   const colonIdx = threadName.indexOf(':');
   if (colonIdx > 0 && colonIdx < threadName.length - 2) {
-    const beforeColon = cleanTrademark(threadName.slice(0, colonIdx).trim());
-    const afterColon = cleanTrademark(threadName.slice(colonIdx + 1).trim());
+    const beforeColon = cleanTrademark(stripDecorativeMarkup(threadName.slice(0, colonIdx).trim()));
+    const afterColon = cleanTrademark(stripDecorativeMarkup(threadName.slice(colonIdx + 1).trim()));
     if (beforeColon.length > 0 && afterColon.length > 0) {
       return { systemHint: beforeColon, title: afterColon };
     }
   }
-  return { systemHint: null, title: cleanTrademark(threadName) };
+  return { systemHint: null, title: cleanTrademark(stripDecorativeMarkup(threadName)) };
 }
 
 // Extrai modalidade do texto
@@ -622,9 +622,105 @@ function extractLabelValue(text: string, labels: string[], opts?: { keepParenthe
   return null;
 }
 
+// DEB-058-XX: mensagens reais do Discord usam linhas inteiras de caracteres
+// decorativos repetidos como separador visual de seção (ex.: uma linha só
+// com "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", ou "━━━━", "═══"). Não são
+// pontuação solta dentro de frase — são a LINHA inteira. Remove a linha
+// inteira (preserva as demais linhas intactas, com pontuação/emoji de
+// frase normal) ANTES do parser extrair qualquer campo e antes de virar
+// normalized_text/hash/features em discord_parse_cases (parseLearning.ts).
+const SEPARATOR_LINE_CHARS = '▬▭►▶»«━─┃┅┄╍✦═⎯⸻·•~=_\\-*#';
+const SEPARATOR_LINE_RE = new RegExp(`^[${SEPARATOR_LINE_CHARS}\\s]{3,}$`);
+// Marcador decorativo solto NO INÍCIO de uma linha-de-campo (ex.: "▬ Sistema:
+// X", "» Título: Y", "-# nota") — não é linha 100% decorativa (tem dado
+// depois), mas o símbolo em si não carrega informação. Remove só o prefixo.
+const LEADING_MARKER_RE = new RegExp(`^[${SEPARATOR_LINE_CHARS}]+\\s*`);
+// Bloco de 4+ repetições consecutivas do MESMO símbolo decorativo, em
+// QUALQUER posição da linha (ex.: "» Título: X ▬▬▬▬▬▬▬▬▬▬▬" — separador colado
+// depois do dado, não numa linha própria). Texto natural nunca repete o mesmo
+// símbolo decorativo 4x seguidas, então é seguro remover sem regex catastrófico
+// (backreference simples, sem alternação aninhada).
+const INLINE_SEPARATOR_RUN_RE = new RegExp(`([${SEPARATOR_LINE_CHARS}])\\1{3,}`, 'g');
+// Símbolos PURAMENTE gráficos (glifos de caixa/seta/marcador do Discord) —
+// diferente de `#`/`*`/`-`/`_`/`=`/`~` (que têm uso legítimo isolado em texto
+// normal: hashtag, hífen composto, asterisco de nota, fórmula), estes nunca
+// aparecem soltos em português natural. Seguro remover em QUALQUER
+// quantidade/posição (ex.: "Imagem ▬" no fim de linha, "▬" solto no meio).
+const PURE_GRAPHIC_MARKS_RE = /[▬▭►▶»«━─┃┅┄╍✦═⎯⸻]+/g;
+// Roda ANTES de qualquer extração de campo (título/sistema/mentions/host) —
+// só toca linha 100% decorativa, o marcador solto no início, blocos de
+// repetição inline e glifos puramente gráficos. NÃO mexe em mentions <@id>
+// nem em markdown de ênfase (**/~~/`), pois extractHostFromMentions,
+// extractRoleAndUserMentions etc. ainda precisam ler esses tokens crus do body.
+export function stripSeparatorLines(text: string): string {
+  return text
+    .split(/\r?\n/)
+    .filter((line) => !SEPARATOR_LINE_RE.test(line.trim()) || line.trim().length === 0)
+    .map((line) => {
+      const trimmed = line.trimStart();
+      const withoutMarker = trimmed
+        .replace(LEADING_MARKER_RE, '')
+        .replace(INLINE_SEPARATOR_RUN_RE, '')
+        .replace(PURE_GRAPHIC_MARKS_RE, '');
+      const leadingSpace = line.slice(0, line.length - trimmed.length);
+      return `${leadingSpace}${withoutMarker}`.replace(/[^\S\n]+$/, '');
+    })
+    .join('\n');
+}
+
+// Markdown de ênfase Discord (negrito/itálico/riscado/código) em qualquer
+// posição da linha — sobrevive como par de símbolos colado na palavra
+// (ex.: "**Sistema:**") mesmo quando não está no início.
+const EMPHASIS_MARKDOWN_RE = /\*\*|\*|__|_|~~|`/g;
+// Mentions Discord cruas (<@id>, <@&roleId>, <@!id>) viram ID numérico sem
+// nome legível quando persistidas em description — não são úteis pra quem lê
+// o anúncio da mesa. Preservados à parte em _raw_evidence (role/user_mentions)
+// pra quem precisar auditar; aqui só limpa o texto final visível (description),
+// DEPOIS que host/mentions/contato já foram extraídos do body cru.
+const RAW_MENTION_RE = /<@[!&]?\d+>/g;
+
+export function cleanDescriptionText(text: string): string {
+  return text
+    .replace(RAW_MENTION_RE, '')
+    .replace(EMPHASIS_MARKDOWN_RE, '')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/[^\S\n]+\n/g, '\n')
+    .replace(/\n[^\S\n]+/g, '\n')
+    .trim();
+}
+
+// DEB-058-XX: campos extraídos (título/sistema) carregam decoração do Discord
+// (heading `#`/`-#`, negrito `**`, separadores `▬»━─`, emoji, zero-width/controle)
+// que sobrevivia ao parse e ia direto pro draft/learning. Mantém letras (com
+// acento)/números/espaço + pontuação presa a palavras de título real
+// (apóstrofo, hífen, `&`, `:`); remove decoração solta. Roda ANTES do parser
+// consumir o valor e antes de qualquer registro em discord_parse_cases.
+function stripDecorativeMarkup(value: string): string {
+  const ZERO_WIDTH_AND_CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u200B-\u200F\u202A-\u202E\uFEFF\uFFFD]/g;
+  const DECORATIVE_MARKS = /[#*_~`\u25AC\u25AD\u25BA\u25B6\u00BB\u00AB\u2501\u2500\u2503\u2505\u2504\u254D\u2726]+/g;
+  const WHITELIST = /[^\p{L}\p{N}\s'&:-]/gu;
+
+  return value
+    .normalize('NFC')
+    // zero-width/BOM/replacement/control chars
+    .replace(ZERO_WIDTH_AND_CONTROL, '')
+    // emoji e símbolos pictográficos (fora do alfabeto latino+acentos)
+    .replace(/\p{Extended_Pictographic}/gu, '')
+    // markdown/decoração Discord: headings, ênfase, separadores, marcadores
+    .replace(DECORATIVE_MARKS, ' ')
+    // whitelist final: letras/acentos/números/espaço + apóstrofo/hífen/&/: presos a palavra
+    .replace(WHITELIST, ' ')
+    // colapsa espaço/tab repetido mas preserva quebra de linha (getAnnouncementSystemHint
+    // e outros callers dependem de `\n` pra pegar só a 1ª linha do valor extraído).
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .trim();
+}
+
 function normalizeTitle(value: string | null): string | null {
   if (!value) return null;
-  return cleanTrademark(value.replace(/\*/g, '').replace(/^["“”']|["“”']$/g, '').trim()) || null;
+  const cleaned = stripDecorativeMarkup(value.replace(/^["“”']|["“”']$/g, '').trim());
+  return cleanTrademark(cleaned) || null;
 }
 
 // Calcula confiança com base nos campos preenchidos
@@ -680,7 +776,7 @@ export type HomebrewClass = 'discard' | 'review' | 'none';
 function getAnnouncementSystemHint(message: ImportRawMessage): string | null {
   const threadName = message.discord_thread_name ?? '';
   const rawBody = message.content_raw ?? '';
-  const body = rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []);
+  const body = stripSeparatorLines(rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []));
   if (!body.trim()) return null;
   const explicitSystem = normalizeTitle(extractLabelValue(body, ['sistema', 'jogo', 'rpg'], { keepParenthetical: true }));
   const threadParts = splitThreadName(threadName || body.split('\n')[0] || 'Mesa sem título');
@@ -719,7 +815,9 @@ export function parseDiscordAnnouncement(
   const threadName = message.discord_thread_name ?? '';
   const rawBody = message.content_raw ?? '';
   // Fóruns Discord frequentemente colocam o conteúdo em embeds em vez do campo content
-  const body = rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []);
+  // DEB-058-XX: linhas separadoras de seção (▬▬▬, ━━━, ═══) removidas ANTES de
+  // qualquer extração de campo — nunca contaminam título/sistema/descrição/vagas.
+  const body = stripSeparatorLines(rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []));
   // T-F1-05: sem corpo nem texto em embeds não há matéria-prima. Mesmo starters
   // de fórum agora retornam null em vez de fabricar draft a partir só do thread
   // name. Drafts vazios eram a maior fonte de needs_review imutável (spec 016
@@ -789,7 +887,12 @@ export function parseDiscordAnnouncement(
   const cover = extractCoverFromAttachments(message.attachments ?? []);
   const attachmentNotes = buildAttachmentNotes(message.attachments ?? []);
   const rawEvidence = buildRawEvidence(body, message.attachments ?? [], message.embeds ?? []);
-  const description = extractLabelValue(body, ['descricao', 'descrição', 'sinopse', 'proposta']) ?? (body.trim() || null);
+  // DEB-058-XX: description é o texto mais visível na UI de revisão — mentions
+  // crus (<@id>) e markdown de ênfase (**/~~/`) sobrevivendo aqui não ajudam
+  // quem lê o anúncio. rawEvidence (linha acima) já capturou os mentions do
+  // body original antes desta limpeza — nada se perde, só o texto exibido melhora.
+  const rawDescription = extractLabelValue(body, ['descricao', 'descrição', 'sinopse', 'proposta']) ?? (body.trim() || null);
+  const description = rawDescription ? cleanDescriptionText(rawDescription) || null : null;
 
   const missingFields: string[] = [];
   if (!systemId) {

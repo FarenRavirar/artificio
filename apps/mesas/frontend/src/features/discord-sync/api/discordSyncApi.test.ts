@@ -295,7 +295,7 @@ describe('discordSyncApi', () => {
       const result = await discordSyncApi.importJson({ json: '{}' });
       expect(result.inserted).toBe(8);
       const [, opts] = fetchMock.mock.calls[0];
-      expect(opts?.body).toBe(JSON.stringify({ json: '{}', autoParse: true }));
+      expect(opts?.body).toBe(JSON.stringify({ json: '{}', autoParse: true, acceptPaidTables: true }));
     });
 
     it('lanca erro se resposta for invalida', async () => {
