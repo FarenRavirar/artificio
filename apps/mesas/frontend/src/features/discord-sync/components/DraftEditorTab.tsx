@@ -38,6 +38,16 @@ interface DraftEditorTabProps {
 }
 
 const inputClass = 'w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-white/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400';
+
+function ContentRawPanel({ loading, contentRaw }: { loading?: boolean; contentRaw?: string | null }) {
+  if (loading) return <p className="mt-1 text-xs text-white/40">Carregando texto original...</p>;
+  if (!contentRaw) return <p className="mt-1 text-xs text-white/40">Sem texto original disponível para este draft.</p>;
+  return (
+    <pre className="mt-1 max-h-[70vh] overflow-auto whitespace-pre-wrap break-words text-xs text-white/70 leading-5">
+      {contentRaw}
+    </pre>
+  );
+}
 const labelClass = 'block text-white/60 text-xs mb-1';
 
 const sourceLabel: Record<DraftFieldInsight['source'], string> = {
@@ -295,19 +305,19 @@ export function DraftEditorTab({
         <div className="md:col-span-2 flex flex-wrap gap-4">
           <label className="flex items-center gap-2 text-sm text-white/80">
             <input type="checkbox" checked={form.requires_pc} onChange={(e) => onUpdateForm('requires_pc', e.target.checked)} className="accent-orange-400" />
-            Requer PC
+            <span>Requer PC</span>
           </label>
           <label className="flex items-center gap-2 text-sm text-white/80">
             <input type="checkbox" checked={form.requires_camera} onChange={(e) => onUpdateForm('requires_camera', e.target.checked)} className="accent-orange-400" />
-            Requer câmera
+            <span>Requer câmera</span>
           </label>
           <label className="flex items-center gap-2 text-sm text-white/80">
             <input type="checkbox" checked={form.requires_microphone} onChange={(e) => onUpdateForm('requires_microphone', e.target.checked)} className="accent-orange-400" />
-            Requer microfone
+            <span>Requer microfone</span>
           </label>
           <label className="flex items-center gap-2 text-sm text-white/80">
             <input type="checkbox" checked={form.session_zero_free} onChange={(e) => onUpdateForm('session_zero_free', e.target.checked)} className="accent-orange-400" />
-            Sessão zero gratuita
+            <span>Sessão zero gratuita</span>
           </label>
         </div>
       </div>
@@ -315,15 +325,7 @@ export function DraftEditorTab({
 
     <div className="lg:sticky lg:top-0 rounded-lg border border-white/10 bg-white/5 p-3">
       <span className={labelClass}>Texto original da mensagem</span>
-      {contentRawLoading ? (
-        <p className="mt-1 text-xs text-white/40">Carregando texto original...</p>
-      ) : contentRaw ? (
-        <pre className="mt-1 max-h-[70vh] overflow-auto whitespace-pre-wrap break-words text-xs text-white/70 leading-5">
-          {contentRaw}
-        </pre>
-      ) : (
-        <p className="mt-1 text-xs text-white/40">Sem texto original disponível para este draft.</p>
-      )}
+      <ContentRawPanel loading={contentRawLoading} contentRaw={contentRaw} />
     </div>
     </div>
   );

@@ -147,7 +147,10 @@ export function validateDraftForSync(draft: ImportTableDraft): string[] {
   return missing;
 }
 
-const EMAIL_PATTERN = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+// Local-part e domínio como sequência de segmentos SEM `.` unidos por `.` (em vez
+// de `[^\s@]+@[^\s@]+\.[^\s@]+`, onde os dois `[^\s@]+` gulosos se sobrepõem e o
+// motor backtracka exponencialmente em texto longo sem `@`/`.` válido).
+const EMAIL_PATTERN = /[^\s@.]+(?:\.[^\s@.]+)*@[^\s@.]+(?:\.[^\s@.]+)+/;
 const BR_PHONE_PATTERN = /\(?\d{2}\)?\s?9?\d{4}-?\d{4}/;
 
 /**

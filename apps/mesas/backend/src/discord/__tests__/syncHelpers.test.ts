@@ -143,25 +143,15 @@ describe('extractContacts', () => {
     expect(extractContacts(draft)).toHaveLength(0);
   });
 
-  it('categoriza link de WhatsApp como channel whatsapp, não form (Fase F)', () => {
-    const draft = makeDraft({ contact_url: 'https://wa.me/5511999999999' });
+  it.each([
+    ['https://wa.me/5511999999999', 'whatsapp', 'WhatsApp, não form (Fase F)'],
+    ['https://discord.gg/abc123', 'discord', 'Discord'],
+    ['https://forms.gle/abc123', 'form', 'outro link qualquer (fallback genérico mantido)'],
+  ])('categoriza link de %s como channel %s (%s)', (contactUrl, expectedChannel) => {
+    const draft = makeDraft({ contact_url: contactUrl });
     const contacts = extractContacts(draft);
 
-    expect(contacts.some((c) => c.channel === 'whatsapp')).toBe(true);
-  });
-
-  it('categoriza link de Discord como channel discord', () => {
-    const draft = makeDraft({ contact_url: 'https://discord.gg/abc123' });
-    const contacts = extractContacts(draft);
-
-    expect(contacts.some((c) => c.channel === 'discord')).toBe(true);
-  });
-
-  it('categoriza outro link qualquer como form (fallback genérico mantido)', () => {
-    const draft = makeDraft({ contact_url: 'https://forms.gle/abc123' });
-    const contacts = extractContacts(draft);
-
-    expect(contacts.some((c) => c.channel === 'form')).toBe(true);
+    expect(contacts.some((c) => c.channel === expectedChannel)).toBe(true);
   });
 });
 

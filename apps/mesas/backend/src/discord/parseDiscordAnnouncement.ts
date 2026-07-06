@@ -216,43 +216,53 @@ function stripVersionSuffix(value: string): { stripped: string; version: string 
  * aliases), reusado por sistema/VTT/comunicação. `getNames(entry)` extrai os candidatos
  * de nome com prioridade (sistema tem name+name_pt+aliases; VTT/comunicação só nome).
  */
+type CandidateName = { value: string | null; priority: number };
+
+function candidateMatchesText(normCandidate: string, normText: string): boolean {
+  const escaped = normCandidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`(?:^|[\\s,;:])${escaped}(?:[\\s,;:]|$)`);
+  const versionedPattern = new RegExp(`^${escaped}\\s*\\d`);
+  return normText === normCandidate || pattern.test(` ${normText} `) || versionedPattern.test(normText);
+}
+
+type CandidateMatch<T> = { entry: T; candidate: string; priority: number; exact: boolean };
+type CandidateFound = Omit<CandidateMatch<unknown>, 'entry'>;
+
+function collectEntryMatches(
+  candidates: CandidateName[],
+  normText: string,
+  allowShortAliases: boolean,
+): CandidateFound[] {
+  const found: CandidateFound[] = [];
+  for (const candidate of candidates) {
+    if (!candidate.value) continue;
+    const normCandidate = normalize(candidate.value);
+    // Aliases curtos e genericos como "D&D" aparecem em sistemas derivados
+    // no banco; usar isso como match automatico gera falsos positivos.
+    if (!allowShortAliases && normCandidate.length < 4 && candidate.priority < 3) continue;
+    if (normCandidate.length < 2) continue;
+    if (!candidateMatchesText(normCandidate, normText)) continue;
+    found.push({ candidate: normCandidate, priority: candidate.priority, exact: normText === normCandidate });
+  }
+  return found;
+}
+
+/** Fase A (spec 058): motor genérico de matching contra banco de referência (nome +
+ * aliases), reusado por sistema/VTT/comunicação. `getNames(entry)` extrai os candidatos
+ * de nome com prioridade (sistema tem name+name_pt+aliases; VTT/comunicação só nome). */
 function findEntryMatch<T>(
   text: string,
   entries: T[],
-  getNames: (entry: T) => Array<{ value: string | null; priority: number }>,
+  getNames: (entry: T) => CandidateName[],
   allowShortAliases = false,
 ): T | null {
   const normText = normalize(text);
   if (!normText) return null;
 
-  type CandidateMatch = {
-    entry: T;
-    candidate: string;
-    priority: number;
-    exact: boolean;
-  };
-
-  const matches: CandidateMatch[] = [];
-
+  const matches: CandidateMatch<T>[] = [];
   for (const entry of entries) {
-    const candidates = getNames(entry);
-    for (const candidate of candidates) {
-      if (!candidate.value) continue;
-      const normCandidate = normalize(candidate.value);
-      // Aliases curtos e genericos como "D&D" aparecem em sistemas derivados
-      // no banco; usar isso como match automatico gera falsos positivos.
-      if (!allowShortAliases && normCandidate.length < 4 && candidate.priority < 3) continue;
-      if (normCandidate.length < 2) continue;
-      const pattern = new RegExp(`(?:^|[\\s,;:])${normCandidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[\\s,;:]|$)`);
-      const versionedPattern = new RegExp(`^${normCandidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\d`);
-      if (normText === normCandidate || pattern.test(` ${normText} `) || versionedPattern.test(normText)) {
-        matches.push({
-          entry,
-          candidate: normCandidate,
-          priority: candidate.priority,
-          exact: normText === normCandidate,
-        });
-      }
+    for (const found of collectEntryMatches(getNames(entry), normText, allowShortAliases)) {
+      matches.push({ entry, ...found });
     }
   }
 
@@ -558,19 +568,19 @@ function extractExplicitFrequency(text: string): TableDraftFrequency | null {
   if (/\bquinzenal(?:mente)?\b|\ba\s+cada\s+(?:duas|2)\s+semanas\b|\ba\s+cada\s+15\s+dias\b/.test(lower)) return 'quinzenal';
   if (/\bmensal(?:mente)?\b/.test(lower)) return 'mensal';
   if (/\bavulsa?\b|\bsess[aã]o\s+[uú]nica\b/.test(lower)) return 'avulsa';
-  if (/\bsemanal(?:mente)?\b|\btodo[a]?\s+semana\b/.test(lower)) return 'semanal';
+  if (/\bsemanal(?:mente)?\b|\btodoa?\s+semana\b/.test(lower)) return 'semanal';
   return null;
 }
 
 /** Fase C (spec 058): classificação indicativa — enum fixo, regex livre no corpo. */
 function extractAgeRating(text: string): TableDraftAgeRating | null {
   const lower = text.toLowerCase();
-  if (/\+\s?18\b|\b18\s?\+|\bmaiores\s+de\s+18\b/.test(lower)) return '18+';
-  if (/\+\s?16\b|\b16\s?\+|\bmaiores\s+de\s+16\b/.test(lower)) return '16+';
-  if (/\+\s?14\b|\b14\s?\+|\bmaiores\s+de\s+14\b/.test(lower)) return '14+';
-  if (/\+\s?12\b|\b12\s?\+|\bmaiores\s+de\s+12\b/.test(lower)) return '12+';
-  if (/\+\s?10\b|\b10\s?\+|\bmaiores\s+de\s+10\b/.test(lower)) return '10+';
-  if (/\bclassifica[cç][aã]o\s+livre\b|\blivre\s+para\s+todos\b/.test(lower)) return 'livre';
+  if (/\+\s?18\b|\b18\s?\+|\bmaiores\s{1,3}de\s{1,3}18\b/.test(lower)) return '18+';
+  if (/\+\s?16\b|\b16\s?\+|\bmaiores\s{1,3}de\s{1,3}16\b/.test(lower)) return '16+';
+  if (/\+\s?14\b|\b14\s?\+|\bmaiores\s{1,3}de\s{1,3}14\b/.test(lower)) return '14+';
+  if (/\+\s?12\b|\b12\s?\+|\bmaiores\s{1,3}de\s{1,3}12\b/.test(lower)) return '12+';
+  if (/\+\s?10\b|\b10\s?\+|\bmaiores\s{1,3}de\s{1,3}10\b/.test(lower)) return '10+';
+  if (/\bclassifica[cç][aã]o\s{1,3}livre\b|\blivre\s{1,3}para\s{1,3}todos\b/.test(lower)) return 'livre';
   return null;
 }
 
