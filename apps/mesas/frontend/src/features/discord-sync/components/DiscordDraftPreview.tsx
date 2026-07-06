@@ -29,6 +29,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [refreshingImage, setRefreshingImage] = useState(false);
+  const [detailLoadFailedDraftId, setDetailLoadFailedDraftId] = useState<string | null>(null);
 
   const shouldShowSlotsDisambiguation = Boolean(h.slotsAmbiguity && h.payloadMissingFields.includes('slots_open:ambiguous_x_of_y'));
   // DEB-048-29: badge "autoral?" — anúncio ambíguo p/ sistema próprio. Revisor decide
@@ -102,6 +103,25 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
       previousFocusRef.current?.focus();
     };
   }, []);
+
+  useEffect(() => {
+    // Guard cobre falha anterior (detailLoadFailedDraftId) pra não repetir fetch/toast
+    // a cada re-render do pai enquanto content_raw continuar undefined (onUpdate/
+    // handleDraftUpdate não é memoizado em DiscordDraftReviewTable).
+    if (draft.content_raw !== undefined || !api.getDraft || detailLoadFailedDraftId === draft.id) return;
+    let cancelled = false;
+    api.getDraft(draft.id)
+      .then((detail) => {
+        if (!cancelled) onUpdate(detail);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setDetailLoadFailedDraftId(draft.id);
+          toast.error(error instanceof Error ? error.message : 'Erro ao carregar detalhe do draft.');
+        }
+      });
+    return () => { cancelled = true; };
+  }, [api, draft.content_raw, draft.id, detailLoadFailedDraftId, onUpdate]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -230,6 +250,14 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
               missingFields={h.missingFields}
               systems={h.systems}
               systemsLoading={h.systemsLoading}
+              scenarios={h.scenarios}
+              scenariosLoading={h.scenariosLoading}
+              vttPlatforms={h.vttPlatforms}
+              vttPlatformsLoading={h.vttPlatformsLoading}
+              communicationPlatforms={h.communicationPlatforms}
+              communicationPlatformsLoading={h.communicationPlatformsLoading}
+              contentRaw={draft.content_raw}
+              contentRawLoading={draft.content_raw === undefined && Boolean(api.getDraft) && detailLoadFailedDraftId !== draft.id}
               coverPreviewUrl={h.coverPreviewUrl}
               coverError={h.coverError}
               coverUploading={h.coverUploading}

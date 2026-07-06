@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { sql } from 'kysely';
 import { db } from '../db';
-import type { SystemEntry } from './parseDiscordAnnouncement';
+import type { SystemEntry, MatchEntry } from './parseDiscordAnnouncement';
 
 interface HashableMessage {
   content?: string;
@@ -51,4 +51,26 @@ export async function loadSystemsForParser(): Promise<SystemEntry[]> {
     name_pt: s.name_pt,
     aliases: aliasMap.get(s.id) ?? [],
   }));
+}
+
+// ─── Fase A/C (spec 058) — VTT e plataforma de comunicação p/ parse de anúncios ──
+
+/** Carrega plataformas VTT ativas do banco para o parse de anúncios Discord. */
+export async function loadVttPlatformsForParser(): Promise<MatchEntry[]> {
+  const platforms = await db
+    .selectFrom('vtt_platforms')
+    .select(['id', 'name'])
+    .where('is_active', '=', true)
+    .execute();
+  return platforms.map((p) => ({ id: p.id, name: p.name, aliases: [] }));
+}
+
+/** Carrega plataformas de comunicação ativas do banco para o parse de anúncios Discord. */
+export async function loadCommunicationPlatformsForParser(): Promise<MatchEntry[]> {
+  const platforms = await db
+    .selectFrom('communication_platforms')
+    .select(['id', 'name'])
+    .where('is_active', '=', true)
+    .execute();
+  return platforms.map((p) => ({ id: p.id, name: p.name, aliases: [] }));
 }

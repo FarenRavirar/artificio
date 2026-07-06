@@ -1,4 +1,4 @@
-import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType } from './types';
+import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType, TableDraftFrequency, TableDraftAgeRating } from './types';
 
 export interface SystemEntry {
   id: string;
@@ -10,6 +10,18 @@ export interface SystemEntry {
 interface SystemMatchResult {
   system: SystemEntry;
   notes: string[];
+}
+
+/**
+ * Fase A (spec 058): entrada genérica de matching contra banco de referência
+ * (nome + aliases), sem os conceitos específicos de sistema (name_pt, versão/edição).
+ * `SystemEntry` continua sendo o tipo usado pra sistema (mais rico); `MatchEntry` é o
+ * shape mínimo reusado por VTT/plataforma de comunicação, que só têm nome/slug no banco.
+ */
+export interface MatchEntry {
+  id: string;
+  name: string;
+  aliases: string[];
 }
 
 // Extrai texto dos embeds Discord quando content_raw está vazio
@@ -199,42 +211,58 @@ function stripVersionSuffix(value: string): { stripped: string; version: string 
   return { stripped, version };
 }
 
-function findSystemMatch(text: string, systems: SystemEntry[], allowShortAliases = false): SystemEntry | null {
+/**
+ * Fase A (spec 058): motor genérico de matching contra banco de referência (nome +
+ * aliases), reusado por sistema/VTT/comunicação. `getNames(entry)` extrai os candidatos
+ * de nome com prioridade (sistema tem name+name_pt+aliases; VTT/comunicação só nome).
+ */
+type CandidateName = { value: string | null; priority: number };
+
+function candidateMatchesText(normCandidate: string, normText: string): boolean {
+  const escaped = normCandidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`(?:^|[\\s,;:])${escaped}(?:[\\s,;:]|$)`);
+  const versionedPattern = new RegExp(`^${escaped}\\s*\\d`);
+  return normText === normCandidate || pattern.test(` ${normText} `) || versionedPattern.test(normText);
+}
+
+type CandidateMatch<T> = { entry: T; candidate: string; priority: number; exact: boolean };
+type CandidateFound = Omit<CandidateMatch<unknown>, 'entry'>;
+
+function collectEntryMatches(
+  candidates: CandidateName[],
+  normText: string,
+  allowShortAliases: boolean,
+): CandidateFound[] {
+  const found: CandidateFound[] = [];
+  for (const candidate of candidates) {
+    if (!candidate.value) continue;
+    const normCandidate = normalize(candidate.value);
+    // Aliases curtos e genericos como "D&D" aparecem em sistemas derivados
+    // no banco; usar isso como match automatico gera falsos positivos.
+    if (!allowShortAliases && normCandidate.length < 4 && candidate.priority < 3) continue;
+    if (normCandidate.length < 2) continue;
+    if (!candidateMatchesText(normCandidate, normText)) continue;
+    found.push({ candidate: normCandidate, priority: candidate.priority, exact: normText === normCandidate });
+  }
+  return found;
+}
+
+/** Fase A (spec 058): motor genérico de matching contra banco de referência (nome +
+ * aliases), reusado por sistema/VTT/comunicação. `getNames(entry)` extrai os candidatos
+ * de nome com prioridade (sistema tem name+name_pt+aliases; VTT/comunicação só nome). */
+function findEntryMatch<T>(
+  text: string,
+  entries: T[],
+  getNames: (entry: T) => CandidateName[],
+  allowShortAliases = false,
+): T | null {
   const normText = normalize(text);
   if (!normText) return null;
 
-  type CandidateMatch = {
-    system: SystemEntry;
-    candidate: string;
-    priority: number;
-    exact: boolean;
-  };
-
-  const matches: CandidateMatch[] = [];
-
-  for (const system of systems) {
-    const candidates = [
-      { value: system.name, priority: 3 },
-      ...(system.name_pt ? [{ value: system.name_pt, priority: 3 }] : []),
-      ...system.aliases.map((alias) => ({ value: alias, priority: 1 })),
-    ];
-    for (const candidate of candidates) {
-      if (!candidate.value) continue;
-      const normCandidate = normalize(candidate.value);
-      // Aliases curtos e genericos como "D&D" aparecem em sistemas derivados
-      // no banco; usar isso como match automatico gera falsos positivos.
-      if (!allowShortAliases && normCandidate.length < 4 && candidate.priority < 3) continue;
-      if (normCandidate.length < 2) continue;
-      const pattern = new RegExp(`(?:^|[\\s,;:])${normCandidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[\\s,;:]|$)`);
-      const versionedPattern = new RegExp(`^${normCandidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\d`);
-      if (normText === normCandidate || pattern.test(` ${normText} `) || versionedPattern.test(normText)) {
-        matches.push({
-          system,
-          candidate: normCandidate,
-          priority: candidate.priority,
-          exact: normText === normCandidate,
-        });
-      }
+  const matches: CandidateMatch<T>[] = [];
+  for (const entry of entries) {
+    for (const found of collectEntryMatches(getNames(entry), normText, allowShortAliases)) {
+      matches.push({ entry, ...found });
     }
   }
 
@@ -244,7 +272,33 @@ function findSystemMatch(text: string, systems: SystemEntry[], allowShortAliases
     if (a.priority !== b.priority) return b.priority - a.priority;
     return b.candidate.length - a.candidate.length;
   });
-  return matches[0].system;
+  return matches[0].entry;
+}
+
+function findSystemMatch(text: string, systems: SystemEntry[], allowShortAliases = false): SystemEntry | null {
+  return findEntryMatch(
+    text,
+    systems,
+    (system) => [
+      { value: system.name, priority: 3 },
+      ...(system.name_pt ? [{ value: system.name_pt, priority: 3 }] : []),
+      ...system.aliases.map((alias) => ({ value: alias, priority: 1 })),
+    ],
+    allowShortAliases,
+  );
+}
+
+/** Fase A (spec 058): matching de VTT/plataforma de comunicação — só nome+aliases, sem edição/versão. */
+function findPlatformMatch(text: string, entries: MatchEntry[]): MatchEntry | null {
+  return findEntryMatch(
+    text,
+    entries,
+    (entry) => [
+      { value: entry.name, priority: 3 },
+      ...entry.aliases.map((alias) => ({ value: alias, priority: 1 })),
+    ],
+    true,
+  );
 }
 
 function matchSystem(text: string, systems: SystemEntry[]): SystemMatchResult | null {
@@ -508,6 +562,37 @@ function deriveFrequency(type: TableDraftType | null, dayOfWeek: string | null):
   return null;
 }
 
+/** Fase C (spec 058): cadência explícita citada no texto — prioridade sobre o fallback `deriveFrequency`. */
+function extractExplicitFrequency(text: string): TableDraftFrequency | null {
+  const lower = text.toLowerCase();
+  if (/\bquinzenal(?:mente)?\b|\ba\s+cada\s+(?:duas|2)\s+semanas\b|\ba\s+cada\s+15\s+dias\b/.test(lower)) return 'quinzenal';
+  if (/\bmensal(?:mente)?\b/.test(lower)) return 'mensal';
+  if (/\bavulsa?\b|\bsess[aã]o\s+[uú]nica\b/.test(lower)) return 'avulsa';
+  if (/\bsemanal(?:mente)?\b|\btod[ao]\s+semana\b/.test(lower)) return 'semanal';
+  return null;
+}
+
+/** Fase C (spec 058): classificação indicativa — enum fixo, regex livre no corpo. */
+function extractAgeRating(text: string): TableDraftAgeRating | null {
+  const lower = text.toLowerCase();
+  if (/\+\s?18\b|\b18\s?\+|\bmaiores\s{1,3}de\s{1,3}18\b/.test(lower)) return '18+';
+  if (/\+\s?16\b|\b16\s?\+|\bmaiores\s{1,3}de\s{1,3}16\b/.test(lower)) return '16+';
+  if (/\+\s?14\b|\b14\s?\+|\bmaiores\s{1,3}de\s{1,3}14\b/.test(lower)) return '14+';
+  if (/\+\s?12\b|\b12\s?\+|\bmaiores\s{1,3}de\s{1,3}12\b/.test(lower)) return '12+';
+  if (/\+\s?10\b|\b10\s?\+|\bmaiores\s{1,3}de\s{1,3}10\b/.test(lower)) return '10+';
+  if (/\bclassifica[cç][aã]o\s{1,3}livre\b|\blivre\s{1,3}para\s{1,3}todos\b/.test(lower)) return 'livre';
+  return null;
+}
+
+/** Fase C (spec 058): normaliza lista de texto livre separada por `/`, `,` ou "e"/"ou". */
+function splitFreeTextList(value: string): string[] | null {
+  const parts = value
+    .split(/\s*(?:\/|,| e | ou )\s*/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts : null;
+}
+
 
 // Extrai URL de contato (discord invite, forms, etc.)
 function extractContactUrl(text: string): string | null {
@@ -606,9 +691,20 @@ function extractLabelValue(text: string, labels: string[], opts?: { keepParenthe
 
   for (let i = 0; i < lines.length; i++) {
     const parsed = splitLabelLine(lines[i]);
-    if (!parsed || !wanted.has(parsed.key)) continue;
+    let firstValue: string | null | undefined = parsed?.value;
+    let continuationStart = i + 1;
 
-    const values = collectLabelContinuation(lines, i + 1, parsed.value ?? '');
+    if (!parsed || !wanted.has(parsed.key)) {
+      // DEB-058-04: formato "label sozinho na linha, valor na linha seguinte" (sem
+      // ':'), comum em anúncios copiados de WordPress/site. Só ativa quando a linha
+      // INTEIRA normaliza pra um dos labels conhecidos — não quebra texto livre.
+      const wholeLineKey = normalizeLabelKey(cleanLabelLine(lines[i]));
+      if (!wanted.has(wholeLineKey)) continue;
+      firstValue = null;
+      continuationStart = i + 1;
+    }
+
+    const values = collectLabelContinuation(lines, continuationStart, firstValue ?? '');
 
     // keepParenthetical: o parêntese carrega o sinal de autoria ("(Sistema próprio
     // usando D&D...)") que o gate DEB-048-27 precisa. Matching/título usa o corte.
@@ -616,7 +712,8 @@ function extractLabelValue(text: string, labels: string[], opts?: { keepParenthe
     // Corta o parêntese de autoria sem regex (evita backtracking S5852).
     const parenIdx = joined.indexOf('(');
     const value = (opts?.keepParenthetical || parenIdx < 0 ? joined : joined.slice(0, parenIdx)).trim();
-    return value || null;
+    if (!value) continue;
+    return value;
   }
 
   return null;
@@ -813,6 +910,8 @@ export function parseDiscordAnnouncement(
   message: ImportRawMessage,
   systems: SystemEntry[] = [],
   replyContext?: string,
+  /** Fase A/B/C (spec 058): bancos de referência opcionais pra VTT/comunicação. */
+  platforms?: { vtt?: MatchEntry[]; communication?: MatchEntry[] },
 ): ImportTableDraft | null {
   const threadName = message.discord_thread_name ?? '';
   const rawBody = message.content_raw ?? '';
@@ -896,6 +995,40 @@ export function parseDiscordAnnouncement(
   const rawDescription = extractLabelValue(body, ['descricao', 'descrição', 'sinopse', 'proposta']) ?? (body.trim() || null);
   const description = rawDescription ? cleanDescriptionText(rawDescription) || null : null;
 
+  // Fase C (spec 058): cadência explícita no texto ("semanal"/"quinzenal"/"mensal"/
+  // "avulsa") tem prioridade sobre o fallback de deriveFrequency. Achado da simulação
+  // real: quando cadência é citada mas `type` está null, também confirma type=campanha
+  // (regra: só campanha tem cadência recorrente).
+  const explicitFrequency = extractExplicitFrequency(fullText);
+  const resolvedType = type ?? (explicitFrequency ? 'campanha' : null);
+
+  // Fase C: VTT/plataforma de comunicação — mesmo motor de matching do sistema.
+  const platformsLabelValue = extractLabelValue(body, ['plataforma', 'plataformas', 'local do jogo']);
+  const vttMatch = platforms?.vtt?.length
+    ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.vtt)
+    : null;
+  const communicationMatch = platforms?.communication?.length
+    ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.communication)
+    : null;
+
+  // Fase C: classificação indicativa (enum fixo, regex livre no corpo inteiro).
+  const ageRating = extractAgeRating(fullText);
+
+  // Fase C: cenário/ambientação e estilos — sempre extraídos juntos (mesmo componente
+  // de UI, SettingStylesField). Sem banco de referência — texto livre normalizado.
+  const settingStylesLabelValue = extractLabelValue(body, ['estilo', 'indicado']);
+  const settingStyles = settingStylesLabelValue ? splitFreeTextList(settingStylesLabelValue) : null;
+  const settingName = extractLabelValue(body, ['ambientacao', 'ambientação', 'cenario', 'cenário']);
+
+  // Fase C: requisitos técnicos — menção explícita no corpo (meta-exemplo do
+  // mantenedor: "se descrição cita que tem que ter microfone, já temos campo pra isso").
+  const requiresPc = /\bs[oó]\s+(?:via|por|de)\s+pc\b|\bobrigat[oó]rio\s+pc\b/i.test(fullText) ? true : null;
+  const requiresCamera = /\bc[aâ]mera\s+obrigat[oó]ria\b|\bc[aâ]mera\s+ligada\s+obrigat[oó]ria\b/i.test(fullText) ? true : null;
+  const requiresMicrophone = /\b(?:bom\s+)?mic(?:rofone)?\s+obrigat[oó]rio\b|\bobrigat[oó]rio\s+ter\s+microfone\b/i.test(fullText) ? true : null;
+
+  // Fase C: sessão zero gratuita — menção explícita.
+  const sessionZeroFree = /\bsess[aã]o\s+zero\s+gratuita\b|\bsess[aã]o\s+zero\s+gr[aá]tis\b/i.test(fullText) ? true : null;
+
   const missingFields: string[] = [];
   if (!systemId) {
     // Distingue "hint encontrado mas não reconhecido" de "sem pista alguma"
@@ -917,7 +1050,7 @@ export function parseDiscordAnnouncement(
     system_name: systemName,
     system_id: systemId,
     raw_system_hint: rawSystemHint,
-    type,
+    type: resolvedType,
     modality,
     price_type: priceType,
     price_value: priceValue,
@@ -926,11 +1059,24 @@ export function parseDiscordAnnouncement(
     slots_open: slotsOpen,
     day_of_week: dayOfWeek,
     start_time: startTime,
-    frequency: deriveFrequency(type, dayOfWeek),
+    frequency: explicitFrequency ?? deriveFrequency(resolvedType, dayOfWeek),
     description,
     contact_discord: contactDiscord,
     contact_url: contactUrl,
     host_discord_id: hostDiscordId,
+    scenario_id: null,
+    raw_scenario_hint: null,
+    vtt_platform_id: vttMatch?.id ?? null,
+    communication_platform_id: communicationMatch?.id ?? null,
+    age_rating: ageRating,
+    setting_name: settingName,
+    setting_styles: settingStyles,
+    experience_level: null,
+    table_level: null,
+    requires_pc: requiresPc,
+    requires_camera: requiresCamera,
+    requires_microphone: requiresMicrophone,
+    session_zero_free: sessionZeroFree,
     cover_url: null,
     cover_url_source: cover?.url ?? null,
     cover_quality: cover?.quality ?? null,

@@ -1,13 +1,25 @@
 import type { ChangeEvent } from 'react';
-import type { DraftFieldInsight, DraftFieldKey, DraftForm, DraftTableType, DraftModality, DraftPriceType, DraftFrequency, DraftDayOfWeek } from '../draftFormUtils';
+import type { DraftFieldInsight, DraftFieldKey, DraftForm, DraftTableType, DraftModality, DraftPriceType, DraftFrequency, DraftDayOfWeek, DraftAgeRating, DraftExperienceLevel, DraftTableLevel, SimpleCatalogEntry } from '../draftFormUtils';
 import type { DiscordSlotsAmbiguity } from '../types';
 import type { SystemTreeNode } from '../../../types/systems';
+import { SystemSearchSelect } from './SystemSearchSelect';
+import { CatalogSearchSelect } from './CatalogSearchSelect';
 
 interface DraftEditorTabProps {
   form: DraftForm;
   missingFields: string[];
   systems: SystemTreeNode[];
   systemsLoading: boolean;
+  /** Pendência 2 (spec 058): catálogos de cenário/VTT/comunicação pro combobox com busca. */
+  scenarios: SimpleCatalogEntry[];
+  scenariosLoading: boolean;
+  vttPlatforms: SimpleCatalogEntry[];
+  vttPlatformsLoading: boolean;
+  communicationPlatforms: SimpleCatalogEntry[];
+  communicationPlatformsLoading: boolean;
+  /** Fase I (spec 058): texto original da mensagem, já limpo de decoração (stripSeparatorLines). */
+  contentRaw?: string | null;
+  contentRawLoading?: boolean;
   coverPreviewUrl: string;
   coverError: string | null;
   coverUploading: boolean;
@@ -26,6 +38,16 @@ interface DraftEditorTabProps {
 }
 
 const inputClass = 'w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-white/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400';
+
+function ContentRawPanel({ loading, contentRaw }: { loading?: boolean; contentRaw?: string | null }) {
+  if (loading) return <p className="mt-1 text-xs text-white/40">Carregando texto original...</p>;
+  if (!contentRaw) return <p className="mt-1 text-xs text-white/40">Sem texto original disponível para este draft.</p>;
+  return (
+    <pre className="mt-1 max-h-[70vh] overflow-auto whitespace-pre-wrap break-words text-xs text-white/70 leading-5">
+      {contentRaw}
+    </pre>
+  );
+}
 const labelClass = 'block text-white/60 text-xs mb-1';
 
 const sourceLabel: Record<DraftFieldInsight['source'], string> = {
@@ -62,14 +84,17 @@ function FieldInsightNote({ insight }: { readonly insight?: DraftFieldInsight })
 }
 
 export function DraftEditorTab({
-  form, missingFields, systems, systemsLoading,
+  form, missingFields, systems, systemsLoading, contentRaw, contentRawLoading,
+  scenarios, scenariosLoading, vttPlatforms, vttPlatformsLoading,
+  communicationPlatforms, communicationPlatformsLoading,
   coverPreviewUrl, coverError, coverUploading, coverInputRef,
   shouldShowSlotsDisambiguation, slotsAmbiguity, slotsInterpretation, fieldInsights, savingFields,
   onUpdateForm, onSystemChange, onCoverUpload, onRemoveCover,
   onSetSlotsInterpretation, onConfirmSlots,
 }: Readonly<DraftEditorTabProps>) {
   return (
-    <div className="space-y-4">
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)] gap-4 items-start">
+    <div className="space-y-4 min-w-0">
       {missingFields.length > 0 && (
         <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-amber-100 text-sm" role="alert" aria-live="assertive">
           Campos pendentes: {missingFields.join(', ')}
@@ -134,12 +159,7 @@ export function DraftEditorTab({
         </label>
         <label>
           <span className={labelClass}>Sistema</span>
-          <select value={form.system_id} onChange={(e) => onSystemChange(e.target.value)} className="app-select w-full">
-            <option value="">{systemsLoading ? 'Carregando sistemas...' : 'Selecione um sistema'}</option>
-            {systems.map((system) => (
-              <option key={system.id} value={system.id}>{system.name_pt || system.name}</option>
-            ))}
-          </select>
+          <SystemSearchSelect systems={systems} value={form.system_id} loading={systemsLoading} onChange={onSystemChange} />
           <FieldInsightNote insight={fieldInsights?.system_name} />
         </label>
         <label>
@@ -229,7 +249,84 @@ export function DraftEditorTab({
           <textarea value={form.description} onChange={(e) => onUpdateForm('description', e.target.value)} className={`${inputClass} min-h-28 resize-y`} />
           <FieldInsightNote insight={fieldInsights?.description} />
         </label>
+
+        {/* Fase D (spec 058): campos de auto-preenchimento ampliado — ver auto-preenchimento-draft.md */}
+        <label>
+          <span className={labelClass}>Classificação indicativa</span>
+          <select value={form.age_rating} onChange={(e) => onUpdateForm('age_rating', e.target.value as DraftAgeRating)} className="app-select w-full">
+            <option value="">Não informada</option>
+            <option value="livre">Livre</option>
+            <option value="10+">10+</option>
+            <option value="12+">12+</option>
+            <option value="14+">14+</option>
+            <option value="16+">16+</option>
+            <option value="18+">18+</option>
+          </select>
+        </label>
+        <label>
+          <span className={labelClass}>Nível de experiência do jogador</span>
+          <select value={form.experience_level} onChange={(e) => onUpdateForm('experience_level', e.target.value as DraftExperienceLevel)} className="app-select w-full">
+            <option value="">Não informado</option>
+            <option value="todos">Todos</option>
+            <option value="iniciante">Iniciante</option>
+            <option value="intermediario">Intermediário</option>
+            <option value="veterano">Veterano</option>
+          </select>
+        </label>
+        <label>
+          <span className={labelClass}>Complexidade da mesa</span>
+          <select value={form.table_level} onChange={(e) => onUpdateForm('table_level', e.target.value as DraftTableLevel)} className="app-select w-full">
+            <option value="">Não informada</option>
+            <option value="iniciante">Iniciante</option>
+            <option value="intermediario">Intermediário</option>
+            <option value="avancado">Avançado</option>
+          </select>
+        </label>
+        <label>
+          <span className={labelClass}>Cenário (catálogo)</span>
+          <CatalogSearchSelect items={scenarios} value={form.scenario_id} loading={scenariosLoading} placeholder="Buscar cenário..." onChange={(id) => onUpdateForm('scenario_id', id)} />
+        </label>
+        <label>
+          <span className={labelClass}>Cenário/Ambientação (texto livre)</span>
+          <input value={form.setting_name} onChange={(e) => onUpdateForm('setting_name', e.target.value)} className={inputClass} />
+        </label>
+        <label className="md:col-span-2">
+          <span className={labelClass}>Estilos (separados por vírgula)</span>
+          <input value={form.setting_styles} onChange={(e) => onUpdateForm('setting_styles', e.target.value)} className={inputClass} placeholder="Fantasia, Investigação, Mistério" />
+        </label>
+        <label>
+          <span className={labelClass}>Plataforma VTT</span>
+          <CatalogSearchSelect items={vttPlatforms} value={form.vtt_platform_id} loading={vttPlatformsLoading} placeholder="Buscar plataforma VTT..." onChange={(id) => onUpdateForm('vtt_platform_id', id)} />
+        </label>
+        <label>
+          <span className={labelClass}>Plataforma de comunicação</span>
+          <CatalogSearchSelect items={communicationPlatforms} value={form.communication_platform_id} loading={communicationPlatformsLoading} placeholder="Buscar plataforma de comunicação..." onChange={(id) => onUpdateForm('communication_platform_id', id)} />
+        </label>
+        <div className="md:col-span-2 flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 text-sm text-white/80">
+            <input type="checkbox" checked={form.requires_pc} onChange={(e) => onUpdateForm('requires_pc', e.target.checked)} className="accent-orange-400" />
+            <span>Requer PC</span>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-white/80">
+            <input type="checkbox" checked={form.requires_camera} onChange={(e) => onUpdateForm('requires_camera', e.target.checked)} className="accent-orange-400" />
+            <span>Requer câmera</span>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-white/80">
+            <input type="checkbox" checked={form.requires_microphone} onChange={(e) => onUpdateForm('requires_microphone', e.target.checked)} className="accent-orange-400" />
+            <span>Requer microfone</span>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-white/80">
+            <input type="checkbox" checked={form.session_zero_free} onChange={(e) => onUpdateForm('session_zero_free', e.target.checked)} className="accent-orange-400" />
+            <span>Sessão zero gratuita</span>
+          </label>
+        </div>
       </div>
+    </div>
+
+    <div className="lg:sticky lg:top-0 rounded-lg border border-white/10 bg-white/5 p-3">
+      <span className={labelClass}>Texto original da mensagem</span>
+      <ContentRawPanel loading={contentRawLoading} contentRaw={contentRaw} />
+    </div>
     </div>
   );
 }

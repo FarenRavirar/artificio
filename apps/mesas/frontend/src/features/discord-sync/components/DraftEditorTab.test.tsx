@@ -24,6 +24,18 @@ const form: DraftForm = {
   cover_url: '',
   cover_url_source: '',
   cover_quality: '',
+  age_rating: '',
+  experience_level: '',
+  table_level: '',
+  setting_name: '',
+  setting_styles: '',
+  requires_pc: false,
+  requires_camera: false,
+  requires_microphone: false,
+  session_zero_free: false,
+  scenario_id: '',
+  vtt_platform_id: '',
+  communication_platform_id: '',
 };
 
 function renderTab(overrides: Partial<ComponentProps<typeof DraftEditorTab>> = {}) {
@@ -33,6 +45,12 @@ function renderTab(overrides: Partial<ComponentProps<typeof DraftEditorTab>> = {
       missingFields={[]}
       systems={[]}
       systemsLoading={false}
+      scenarios={[]}
+      scenariosLoading={false}
+      vttPlatforms={[]}
+      vttPlatformsLoading={false}
+      communicationPlatforms={[]}
+      communicationPlatformsLoading={false}
       coverPreviewUrl=""
       coverError={null}
       coverUploading={false}

@@ -432,6 +432,73 @@ describe('parseDiscordAnnouncement', () => {
     expect(tormentaDraft?.table.system_id).toBe('tormenta');
   });
 
+  it('detects system in label-newline-value format without ":" (DEB-058-04, spec 058 Fase A)', () => {
+    const systems = [
+      { id: 'pf2e', name: 'Pathfinder 2e', name_pt: null, aliases: ['Pathfinder Segunda Edição'] },
+    ];
+
+    // Caso real que disparou a investigação: draft "Ruins of Gauntlight" — texto
+    // colado de WordPress/site, label numa linha, valor na linha seguinte, sem ':'.
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: 'Abomination Vaults: Ruins of Gauntlight',
+        content_raw: [
+          'Sistema',
+          'Pathfinder 2e',
+          'Dias e horários da mesa',
+          'Aos sábados, horarios a combinar',
+          'Vagas disponíveis',
+          '4 Vagas.',
+          'https://forms.gle/example',
+        ].join('\n'),
+      }),
+      systems,
+    );
+
+    expect(draft?.table.system_id).toBe('pf2e');
+  });
+
+  it('extracts vtt_platform_id, communication_platform_id, age_rating and setting fields from Ruins of Gauntlight example (Fase B/C, spec 058)', () => {
+    const systems = [
+      { id: 'pf2e', name: 'Pathfinder 2e', name_pt: null, aliases: [] },
+    ];
+    const vttPlatforms = [{ id: 'foundry', name: 'Foundry VTT', aliases: [] }];
+    const communicationPlatforms = [{ id: 'discord-plat', name: 'Discord', aliases: [] }];
+
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: 'Abomination Vaults: Ruins of Gauntlight',
+        content_raw: [
+          'Sistema',
+          'Pathfinder 2e',
+          'Classificação Indicativa',
+          '+18',
+          'Plataformas',
+          'Foundry VTT, Discord',
+          'Estilo: Fantasia / Investigação / Mistério',
+        ].join('\n'),
+      }),
+      systems,
+      undefined,
+      { vtt: vttPlatforms, communication: communicationPlatforms },
+    );
+
+    expect(draft?.table.age_rating).toBe('18+');
+    expect(draft?.table.setting_styles).toEqual(['Fantasia', 'Investigação', 'Mistério']);
+  });
+
+  it('extracts explicit cadence (quinzenal) and infers type=campanha when missing (DEB-058 41% gap)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: 'Mesa sem tipo explícito',
+        content_raw: 'Constância: Quinzenalmente\nSextas, 20h\nhttps://forms.gle/example',
+      }),
+    );
+
+    expect(draft?.table.frequency).toBe('quinzenal');
+    expect(draft?.table.type).toBe('campanha');
+  });
+
   it('uses Discord channel mentions as contact when no external URL exists', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({

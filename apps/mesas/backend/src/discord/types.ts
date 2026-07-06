@@ -22,6 +22,10 @@ export type TableDraftModality = 'online' | 'presencial' | 'hibrida';
 export type TableDraftPriceType = 'gratuita' | 'paga';
 export type TableDraftFrequency = 'semanal' | 'quinzenal' | 'mensal' | 'avulsa';
 export type CoverQuality = 'standard' | 'low';
+/** Fase B (spec 058): mesmos enums de `TablesTable` (db/types.ts) — mantidos em sincronia manual. */
+export type TableDraftAgeRating = 'livre' | '10+' | '12+' | '14+' | '16+' | '18+';
+export type TableDraftExperienceLevel = 'todos' | 'iniciante' | 'intermediario' | 'veterano';
+export type TableDraftTableLevel = 'iniciante' | 'intermediario' | 'avancado';
 export type DiscordImageUploadStatus =
   | 'pending'
   | 'success'
@@ -71,6 +75,20 @@ export interface DiscordTableDraftTable {
   contact_discord: string | null;
   contact_url: string | null;
   host_discord_id: string | null;
+  /** Fase B/C (spec 058): campos novos de auto-preenchimento — ver `auto-preenchimento-draft.md`. */
+  scenario_id: string | null;
+  raw_scenario_hint: string | null;
+  vtt_platform_id: string | null;
+  communication_platform_id: string | null;
+  age_rating: TableDraftAgeRating | null;
+  setting_name: string | null;
+  setting_styles: string[] | null;
+  experience_level: TableDraftExperienceLevel | null;
+  table_level: TableDraftTableLevel | null;
+  requires_pc: boolean | null;
+  requires_camera: boolean | null;
+  requires_microphone: boolean | null;
+  session_zero_free: boolean | null;
   cover_url: string | null;
   cover_url_source: string | null;
   cover_quality: CoverQuality | null;

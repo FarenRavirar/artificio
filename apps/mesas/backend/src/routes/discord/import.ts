@@ -5,6 +5,7 @@ import { DiscordChatExporterValidationError } from '../../discord/chatExporterAd
 import { db } from '../../db';
 import { validateReparseMessageIds, buildContentIndex, reparseOneMessage, recordImportRun } from './utils';
 import { uploadJsonFile } from './preview';
+import { loadCommunicationPlatformsForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ function respondImportSuccess(
   result: { total: number; inserted: number; updated: number; ignored: number; failed: number },
   userId: string | undefined,
   autoParse?: { total: number; parsed: number; discarded: number; ignored: number; errors: number },
+  truncationWarning?: string,
 ): void {
   recordImportRun({
     sourceKind: 'discord_chat_exporter_json' as const,
@@ -42,6 +44,7 @@ function respondImportSuccess(
       ignored: result.ignored,
       failed: result.failed,
       auto_parse: autoParse ?? null,
+      warning: truncationWarning ?? null,
     },
   });
 }
@@ -88,6 +91,14 @@ async function autoParsePendingImportedMessages(
   let ignored = 0;
   let errors = 0;
 
+  // Catálogos carregados uma vez fora do loop de batches — não mudam entre
+  // iterações da mesma requisição, recarregar por batch é N+1 evitável.
+  const [systems, vttPlatforms, communicationPlatforms] = await Promise.all([
+    loadSystemsForParser(),
+    loadVttPlatformsForParser(),
+    loadCommunicationPlatformsForParser(),
+  ]);
+
   for (let offset = 0; offset < importedMessages.length; offset += AUTO_PARSE_BATCH_SIZE) {
     const batch = importedMessages.slice(offset, offset + AUTO_PARSE_BATCH_SIZE);
 
@@ -107,7 +118,10 @@ async function autoParsePendingImportedMessages(
     total += messages.length;
 
     for (const message of messages) {
-      const outcome = await reparseOneMessage(message, contentIndex, userId, acceptPaidTables);
+      const outcome = await reparseOneMessage(message, contentIndex, userId, acceptPaidTables, systems, {
+        vttPlatforms,
+        communicationPlatforms,
+      });
       if (outcome === 'error') errors++;
       else if (outcome === 'discarded') discarded++;
       else if (outcome === 'ignored') ignored++;
@@ -131,7 +145,7 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
     const result = await importDiscordChatExporterJson(extracted.payload);
     const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages, acceptPaidTables) : undefined;
 
-    return respondImportSuccess(res, result, req.user?.userId, autoParseResult);
+    return respondImportSuccess(res, result, req.user?.userId, autoParseResult, extracted.truncationWarning);
   } catch (error: unknown) {
     respondImportError(res, error);
   }
@@ -152,7 +166,7 @@ router.post('/file', requireAdmin, uploadJsonFile, async (req: Request, res: Res
     const result = await importDiscordChatExporterJson(parsed.parsed);
     const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages, acceptPaidTables) : undefined;
 
-    return respondImportSuccess(res, result, req.user?.userId, autoParseResult);
+    return respondImportSuccess(res, result, req.user?.userId, autoParseResult, parsed.truncationWarning);
   } catch (error: unknown) {
     // Erros do multer (LIMIT_FILE_SIZE / fileFilter) já são tratados em uploadJsonFile.
     respondImportError(res, error);
@@ -194,6 +208,14 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
       )
       : [undefined];
 
+    // Catálogos carregados uma vez fora do loop de batches — não mudam entre
+    // iterações da mesma requisição, recarregar por batch é N+1 evitável.
+    const [systems, vttPlatforms, communicationPlatforms] = await Promise.all([
+      loadSystemsForParser(),
+      loadVttPlatformsForParser(),
+      loadCommunicationPlatformsForParser(),
+    ]);
+
     outer: for (const idChunk of idChunks) {
       for (let batchIndex = 0; batchIndex < REPARSE_MAX_BATCHES; batchIndex++) {
         // DEB-048-17: lista de status condicional numa ÚNICA cláusula (múltiplos
@@ -218,7 +240,10 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
 
         for (const message of messages) {
           // DEB-048-22/20: processamento + política de erro por mensagem no helper.
-          const outcome = await reparseOneMessage(message, contentIndex, req.user?.userId, acceptPaidTables);
+          const outcome = await reparseOneMessage(message, contentIndex, req.user?.userId, acceptPaidTables, systems, {
+            vttPlatforms,
+            communicationPlatforms,
+          });
           if (outcome === 'error') errors++;
           else if (outcome === 'discarded') discarded++; // DEB-048-27
           else if (outcome === 'ignored') ignored++;

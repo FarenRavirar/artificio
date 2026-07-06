@@ -1266,7 +1266,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/drafts",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 24,
+      "line": 25,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1302,7 +1302,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/drafts/:id",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 61,
+      "line": 62,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1311,7 +1311,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/discord/drafts/:id",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 206,
+      "line": 220,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1329,7 +1329,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/refresh-image",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 228,
+      "line": 242,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1338,7 +1338,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/reparse",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 244,
+      "line": 258,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1356,7 +1356,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/discord/drafts/batch",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 79,
+      "line": 93,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1365,7 +1365,7 @@
       "method": "DELETE",
       "path": "/api/v1/admin/discord/drafts/rejected",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 142,
+      "line": 156,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1392,7 +1392,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/fetch",
       "sourceFile": "apps/mesas/backend/src/routes/discord/fetch.ts",
-      "line": 149,
+      "line": 157,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1401,7 +1401,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/import-json",
       "sourceFile": "apps/mesas/backend/src/routes/discord/import.ts",
-      "line": 121,
+      "line": 135,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1428,7 +1428,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/import-json/file",
       "sourceFile": "apps/mesas/backend/src/routes/discord/import.ts",
-      "line": 141,
+      "line": 155,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1455,7 +1455,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/import-json/reparse",
       "sourceFile": "apps/mesas/backend/src/routes/discord/import.ts",
-      "line": 171,
+      "line": 185,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1653,7 +1653,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/sources/:sourceId/reingest-force",
       "sourceFile": "apps/mesas/backend/src/routes/discord/fetch.ts",
-      "line": 191,
+      "line": 199,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1680,7 +1680,7 @@
       "method": "GET",
       "path": "/api/v1/admin/import/drafts",
       "sourceFile": "apps/mesas/backend/src/routes/inbox/drafts.ts",
-      "line": 17,
+      "line": 18,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1707,7 +1707,7 @@
       "method": "GET",
       "path": "/api/v1/admin/import/drafts/:id",
       "sourceFile": "apps/mesas/backend/src/routes/inbox/drafts.ts",
-      "line": 103,
+      "line": 104,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1716,7 +1716,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/import/drafts/:id",
       "sourceFile": "apps/mesas/backend/src/routes/inbox/drafts.ts",
-      "line": 157,
+      "line": 164,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1725,7 +1725,7 @@
       "method": "POST",
       "path": "/api/v1/admin/import/drafts/:id/reparse",
       "sourceFile": "apps/mesas/backend/src/routes/inbox/drafts.ts",
-      "line": 194,
+      "line": 201,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1734,7 +1734,7 @@
       "method": "POST",
       "path": "/api/v1/admin/import/drafts/:id/sync",
       "sourceFile": "apps/mesas/backend/src/routes/inbox/drafts.ts",
-      "line": 73,
+      "line": 74,
       "confidence": "high",
       "kind": "express-route"
     },

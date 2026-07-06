@@ -8,6 +8,10 @@ export type DraftModality = 'online' | 'presencial' | 'hibrida';
 export type DraftPriceType = 'gratuita' | 'paga';
 export type DraftDayOfWeek = 'segunda' | 'terça' | 'quarta' | 'quinta' | 'sexta' | 'sábado' | 'domingo';
 export type DraftFrequency = 'semanal' | 'quinzenal' | 'mensal' | 'avulsa' | 'outra';
+/** Fase D (spec 058): mesmos enums do draft (backend `types.ts`). */
+export type DraftAgeRating = 'livre' | '10+' | '12+' | '14+' | '16+' | '18+';
+export type DraftExperienceLevel = 'todos' | 'iniciante' | 'intermediario' | 'veterano';
+export type DraftTableLevel = 'iniciante' | 'intermediario' | 'avancado';
 
 export interface DraftForm {
   title: string;
@@ -28,6 +32,20 @@ export interface DraftForm {
   cover_url: string;
   cover_url_source: string;
   cover_quality: '' | DiscordCoverQuality;
+  /** Fase D (spec 058): campos novos de auto-preenchimento — ver auto-preenchimento-draft.md. */
+  age_rating: '' | DraftAgeRating;
+  experience_level: '' | DraftExperienceLevel;
+  table_level: '' | DraftTableLevel;
+  setting_name: string;
+  setting_styles: string;
+  requires_pc: boolean;
+  requires_camera: boolean;
+  requires_microphone: boolean;
+  session_zero_free: boolean;
+  /** Pendência 2 (spec 058): FKs de cenário/VTT/comunicação — editáveis via combobox com busca. */
+  scenario_id: string;
+  vtt_platform_id: string;
+  communication_platform_id: string;
 }
 
 export type DraftFieldKey = keyof Pick<DraftForm,
@@ -209,6 +227,18 @@ export function buildForm(payload: DiscordDraftPayload): DraftForm {
     cover_url: asString(table.cover_url),
     cover_url_source: asString(table.cover_url_source),
     cover_quality: (asString(table.cover_quality) as DraftForm['cover_quality']) || '',
+    age_rating: (asString(table.age_rating) as DraftForm['age_rating']) || '',
+    experience_level: (asString(table.experience_level) as DraftForm['experience_level']) || '',
+    table_level: (asString(table.table_level) as DraftForm['table_level']) || '',
+    setting_name: asString(table.setting_name),
+    setting_styles: asStringArray(table.setting_styles).join(', '),
+    requires_pc: table.requires_pc === true,
+    requires_camera: table.requires_camera === true,
+    requires_microphone: table.requires_microphone === true,
+    session_zero_free: table.session_zero_free === true,
+    scenario_id: asString(table.scenario_id),
+    vtt_platform_id: asString(table.vtt_platform_id),
+    communication_platform_id: asString(table.communication_platform_id),
   };
 }
 
@@ -289,6 +319,20 @@ export function buildUpdatedPayload(base: DiscordDraftPayload, form: DraftForm):
     cover_url: form.cover_url.trim() || null,
     cover_url_source: form.cover_url_source.trim() || null,
     cover_quality: form.cover_quality || null,
+    age_rating: form.age_rating || null,
+    experience_level: form.experience_level || null,
+    table_level: form.table_level || null,
+    setting_name: form.setting_name.trim() || null,
+    setting_styles: form.setting_styles.trim()
+      ? form.setting_styles.split(',').map((s) => s.trim()).filter(Boolean)
+      : null,
+    requires_pc: form.requires_pc,
+    requires_camera: form.requires_camera,
+    requires_microphone: form.requires_microphone,
+    session_zero_free: form.session_zero_free,
+    scenario_id: form.scenario_id || null,
+    vtt_platform_id: form.vtt_platform_id || null,
+    communication_platform_id: form.communication_platform_id || null,
   };
 
   return {
@@ -346,10 +390,76 @@ function normalizeSystemTree(raw: unknown): SystemTreeNode[] {
   }).filter((x): x is SystemTreeNode => x !== null);
 }
 
+// TTL curto: catálogo pode mudar durante a sessão SPA (outro admin cadastra
+// sistema novo); sem isso o cache serviria lista desatualizada indefinidamente.
+const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
+
 export async function loadSystems(): Promise<SystemTreeNode[]> {
+  if (!systemsCache || Date.now() - systemsCacheLoadedAt > CATALOG_CACHE_TTL_MS) {
+    systemsCacheLoadedAt = Date.now();
+    systemsCache = fetchSystems().catch((error) => {
+      systemsCache = null;
+      throw error;
+    });
+  }
+  return systemsCache;
+}
+
+let systemsCache: Promise<SystemTreeNode[]> | null = null;
+let systemsCacheLoadedAt = 0;
+
+async function fetchSystems(): Promise<SystemTreeNode[]> {
   const res = await authGet('/api/v1/systems?view=tree');
   if (!res.ok) throw new Error('Erro ao carregar sistemas.');
   const json: unknown = await res.json();
   const data = asRecord(json).data;
   return normalizeSystemTree(data);
 }
+
+/**
+ * Fase D (spec 058) — item de catálogo simples (cenário, VTT, comunicação): sem
+ * árvore/aliases, só id+nome pra select com busca (mesmo padrão de SystemSearchSelect).
+ */
+export interface SimpleCatalogEntry {
+  id: string;
+  name: string;
+}
+
+const simpleCatalogEntrySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+function normalizeSimpleCatalog(raw: unknown): SimpleCatalogEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item) => {
+    const parsed = simpleCatalogEntrySchema.safeParse(item);
+    return parsed.success ? parsed.data : null;
+  }).filter((x): x is SimpleCatalogEntry => x !== null);
+}
+
+const simpleCatalogCache = new Map<string, { promise: Promise<SimpleCatalogEntry[]>; loadedAt: number }>();
+
+function createSimpleCatalogLoader(endpoint: string, errorMessage: string): () => Promise<SimpleCatalogEntry[]> {
+  return async () => {
+    const cached = simpleCatalogCache.get(endpoint);
+    if (cached && Date.now() - cached.loadedAt <= CATALOG_CACHE_TTL_MS) return cached.promise;
+    const promise = fetchSimpleCatalog(endpoint, errorMessage).catch((error) => {
+      simpleCatalogCache.delete(endpoint);
+      throw error;
+    });
+    simpleCatalogCache.set(endpoint, { promise, loadedAt: Date.now() });
+    return promise;
+  };
+}
+
+async function fetchSimpleCatalog(endpoint: string, errorMessage: string): Promise<SimpleCatalogEntry[]> {
+  const res = await authGet(endpoint);
+  if (!res.ok) throw new Error(errorMessage);
+  const json: unknown = await res.json();
+  return normalizeSimpleCatalog(asRecord(json).data);
+}
+
+export const loadScenarios = createSimpleCatalogLoader('/api/v1/scenarios', 'Erro ao carregar cenários.');
+export const loadVttPlatforms = createSimpleCatalogLoader('/api/v1/vtt-platforms', 'Erro ao carregar plataformas VTT.');
+export const loadCommunicationPlatforms = createSimpleCatalogLoader('/api/v1/communication-platforms', 'Erro ao carregar plataformas de comunicação.');

@@ -2,7 +2,8 @@
 
 - **Continua/expande:** `specs/052-mesas-automacao-inteligente/`
 - **Modulo:** `apps/mesas` (backend + gestao admin)
-- **Status:** Fase 0 concluida em 2026-07-01 (`reviews.md`). MVP minimo definido. Implementacao segue bloqueada ate autorizacao nominal para a Fase 1.
+- **Visao estrategica de fundo:** `apps/mesas/CONTEXT.md` §"Visao estrategica de produto" (registrado 2026-07-02). Objetivo final e automacao completa de importacao (assintota, nao meta binaria); o "caminho do meio" e parser+curadoria+DeepSeek convergindo pra la. Esta spec e implementacao concreta dessa visao, nao feature isolada.
+- **Status:** Fase 0 concluida em 2026-07-01 (`reviews.md`). MVP minimo definido. Ampliada 2026-07-02 com `auto-preenchimento-draft.md` (3 rodadas de revisao independente + simulacao contra JSONs reais). Implementacao segue bloqueada ate autorizacao nominal.
 - **Motivacao imediata:** investigacao do `D:\teste.json` mostrou que o fluxo precisa aprender com revisao humana e contexto, nao acumular micro-regex no codigo.
 
 ## Problema

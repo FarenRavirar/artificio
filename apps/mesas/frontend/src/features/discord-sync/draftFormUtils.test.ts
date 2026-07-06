@@ -151,6 +151,18 @@ describe('validateForm', () => {
     cover_url: '',
     cover_url_source: '',
     cover_quality: '',
+    age_rating: '',
+    experience_level: '',
+    table_level: '',
+    setting_name: '',
+    setting_styles: '',
+    requires_pc: false,
+    requires_camera: false,
+    requires_microphone: false,
+    session_zero_free: false,
+    scenario_id: '',
+    vtt_platform_id: '',
+    communication_platform_id: '',
   };
 
   it('retorna vazio para formulario valido', () => {
@@ -267,6 +279,9 @@ describe('buildMissingFields', () => {
       slots_total: '', slots_open: '', day_of_week: '' as DraftForm['day_of_week'],
       start_time: '', frequency: 'semanal', contact_url: '', contact_discord: '',
       cover_url: '', cover_url_source: '', cover_quality: '',
+      age_rating: '', experience_level: '', table_level: '', setting_name: '', setting_styles: '',
+      requires_pc: false, requires_camera: false, requires_microphone: false, session_zero_free: false,
+      scenario_id: '', vtt_platform_id: '', communication_platform_id: '',
     };
     const missing = buildMissingFields(base, form);
     expect(missing).toContain('title');
@@ -292,6 +307,9 @@ describe('buildUpdatedPayload', () => {
       slots_total: '6', slots_open: '3', day_of_week: 'sábado', start_time: '20:00',
       frequency: 'semanal', contact_url: 'https://example.com', contact_discord: '',
       cover_url: '', cover_url_source: '', cover_quality: '',
+      age_rating: '', experience_level: '', table_level: '', setting_name: '', setting_styles: '',
+      requires_pc: false, requires_camera: false, requires_microphone: false, session_zero_free: false,
+      scenario_id: '', vtt_platform_id: '', communication_platform_id: '',
     };
     const payload = buildUpdatedPayload(makeBase(), form);
     expect(payload.kind).toBe('table_draft');
@@ -307,6 +325,9 @@ describe('buildUpdatedPayload', () => {
       slots_total: '4', slots_open: '2', day_of_week: 'sábado', start_time: '20:00',
       frequency: 'semanal', contact_url: '', contact_discord: 'user#1234',
       cover_url: '', cover_url_source: '', cover_quality: '',
+      age_rating: '', experience_level: '', table_level: '', setting_name: '', setting_styles: '',
+      requires_pc: false, requires_camera: false, requires_microphone: false, session_zero_free: false,
+      scenario_id: '', vtt_platform_id: '', communication_platform_id: '',
     };
     const payload = buildUpdatedPayload(makeBase(), form);
     expect((payload.table as Record<string, unknown>).price_value).toBe(15.5);
@@ -319,6 +340,9 @@ describe('buildUpdatedPayload', () => {
       slots_total: '4', slots_open: '2', day_of_week: 'sábado', start_time: '20:00',
       frequency: 'semanal', contact_url: '', contact_discord: 'user#1234',
       cover_url: '', cover_url_source: '', cover_quality: '',
+      age_rating: '', experience_level: '', table_level: '', setting_name: '', setting_styles: '',
+      requires_pc: false, requires_camera: false, requires_microphone: false, session_zero_free: false,
+      scenario_id: '', vtt_platform_id: '', communication_platform_id: '',
     };
     const payload = buildUpdatedPayload(makeBase(), form);
     expect((payload.table as Record<string, unknown>).price_value).toBeNull();

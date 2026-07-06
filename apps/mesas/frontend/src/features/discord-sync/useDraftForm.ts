@@ -1,12 +1,42 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
-import { buildDraftFieldInsights, buildForm, buildUpdatedPayload, flattenSystems, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, loadSystems, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
+import { buildDraftFieldInsights, buildForm, buildUpdatedPayload, flattenSystems, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, loadSystems, loadScenarios, loadVttPlatforms, loadCommunicationPlatforms, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
 import { authPost } from '../../services/apiClient';
-import type { DraftForm } from './draftFormUtils';
+import type { DraftForm, SimpleCatalogEntry } from './draftFormUtils';
 import type { DiscordDraft, DiscordImportDraftStatus, DiscordSlotsAmbiguity, DraftApiOperations } from './types';
 import type { SystemTreeNode } from '../../types/systems';
 
 type SlotsInterpretation = 'filled_total' | 'open_total';
+
+/** Carrega um catálogo simples (cenários/VTT/comunicação) uma vez ao montar,
+ * com loading flag e toast de erro — os 3 catálogos seguem o mesmo padrão,
+ * só diferindo no loader e na mensagem de erro. */
+function useSimpleCatalogState(
+  loader: () => Promise<SimpleCatalogEntry[]>,
+  errorMessage: string,
+): [SimpleCatalogEntry[], boolean] {
+  const [items, setItems] = useState<SimpleCatalogEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setLoading(true);
+      try {
+        const result = await loader();
+        if (!cancelled) setItems(result);
+      } catch (err) {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : errorMessage);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return [items, loading];
+}
 
 interface DraftEditorState {
   form: DraftForm;
@@ -102,9 +132,20 @@ function editorReducer(state: DraftEditorState, action: DraftEditorAction): Draf
 }
 
 export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, onUpdate: (d: DiscordDraft) => void) {
+  // PATCH/reparse não fazem join com a mensagem original e voltam sem content_raw;
+  // sem isso o preview reativa o fetch lazy (e o toast de erro) a cada save.
+  const applyUpdate = (updated: DiscordDraft) =>
+    onUpdate(updated.content_raw !== undefined ? updated : { ...updated, content_raw: draft.content_raw });
+
   const [state, dispatch] = useReducer(editorReducer, draft, buildEditorState);
   const [systems, setSystems] = useState<SystemTreeNode[]>([]);
   const [systemsLoading, setSystemsLoading] = useState(false);
+  const [scenarios, scenariosLoading] = useSimpleCatalogState(loadScenarios, 'Erro ao carregar cenários.');
+  const [vttPlatforms, vttPlatformsLoading] = useSimpleCatalogState(loadVttPlatforms, 'Erro ao carregar plataformas VTT.');
+  const [communicationPlatforms, communicationPlatformsLoading] = useSimpleCatalogState(
+    loadCommunicationPlatforms,
+    'Erro ao carregar plataformas de comunicação.',
+  );
   const [savingFields, setSavingFields] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [reparsing, setReparsing] = useState(false);
@@ -190,7 +231,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
 
       dispatch({ type: 'MARK_PERSISTED' });
       toast.success(nextMissing.length === 0 ? 'Draft pronto para sincronizar.' : 'Draft salvo para revisão.');
-      onUpdate(updated);
+      applyUpdate(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar campos do draft.');
     } finally {
@@ -277,7 +318,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       });
       dispatch({ type: 'MARK_PERSISTED' });
       toast.success('Vagas desambiguadas.');
-      onUpdate(updated);
+      applyUpdate(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar interpretação de vagas.');
     } finally {
@@ -322,7 +363,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     try {
       const updated = await draftApi.reparseDraft(draft.id);
       toast.success('Draft reparseado.');
-      onUpdate(updated);
+      applyUpdate(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao reparsar draft.');
     } finally {
@@ -339,7 +380,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       });
       toast.success('Status atualizado.');
       setEditingStatus(false);
-      onUpdate(updated);
+      applyUpdate(updated);
       /* Intencional: NÃO dispara MARK_PERSISTED — handleSaveStatus só persiste
          status/review_notes, não o form. Se dirty fosse zerado aqui, sync poderia
          usar normalized_payload desatualizado (REV-045). */
@@ -354,6 +395,9 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     form: state.form, updateForm,
     dirty: state.dirty,
     systems, systemsLoading,
+    scenarios, scenariosLoading,
+    vttPlatforms, vttPlatformsLoading,
+    communicationPlatforms, communicationPlatformsLoading,
     missingFields, canSync,
     syncing, reparsing,
     savingFields, savingStatus,
