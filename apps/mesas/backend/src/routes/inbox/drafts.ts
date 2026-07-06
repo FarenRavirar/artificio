@@ -122,6 +122,7 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
         'discord_import_table_drafts.image_upload_last_at',
         'discord_import_table_drafts.created_at',
         'discord_import_table_drafts.updated_at',
+        'import_messages.content_raw',
         'import_messages.raw_text',
       ])
       .where('discord_import_table_drafts.id', '=', req.params.id)
@@ -140,13 +141,15 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Mensagem de origem não encontrada.' });
     }
 
+    const mergedRawContent = row.content_raw || row.raw_text;
+
     return res.json({
       data: {
         ...row,
         raw_text: row.raw_text,
         // Fase I (spec 058): contrato unificado com o draft de Discord — mesmo
         // campo `content_raw` no payload, pro editor não precisar saber a origem.
-        content_raw: row.raw_text ? stripSeparatorLines(row.raw_text) : null,
+        content_raw: mergedRawContent ? stripSeparatorLines(mergedRawContent) : null,
         confidence: toNumberOrNull(row.confidence),
       },
     });

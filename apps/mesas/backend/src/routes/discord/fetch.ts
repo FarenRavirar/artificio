@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../../db';
 import type { SystemEntry } from '../../discord';
 import { ingestForumMessages, ingestMessages } from '../../discord';
-import { loadSystemsForParser } from '../../discord/shared';
+import { loadCommunicationPlatformsForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
 import { requireAdmin } from '../../middleware/auth';
 import { parseJsonField, ensureSystemSuggestionForDraft, normalizeSourceChannelType, sendDiscordFetchError, parseDiscordMessage, reconcileTerminalDraft } from './utils';
 
@@ -33,10 +33,11 @@ async function createOrUpdateDraftFromMessage(
   message: any,
   systems: SystemEntry[],
   adminId?: string,
+  catalogs?: Parameters<typeof parseDiscordMessage>[3],
 ): Promise<'draft' | 'ignored'> {
   // REV-073/076: usa parseDiscordMessage() compartilhada (D16)
   // também resolve REV-047 (mover update de mensagem para dentro dos branches)
-  const parsedResult = await parseDiscordMessage(message, systems);
+  const parsedResult = await parseDiscordMessage(message, systems, undefined, catalogs);
   if (!parsedResult) {
     await db.updateTable('discord_import_messages')
       .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
@@ -119,14 +120,21 @@ async function parsePendingMessagesForSource(
   const messages = await query.execute();
   if (messages.length === 0) return { processed: 0, succeeded: 0, ignored: 0, failed: 0 };
 
-  const systems = await loadSystemsForParser();
+  const [systems, vttPlatforms, communicationPlatforms] = await Promise.all([
+    loadSystemsForParser(),
+    loadVttPlatformsForParser(),
+    loadCommunicationPlatformsForParser(),
+  ]);
   let succeeded = 0;
   let ignored = 0;
   let failed = 0;
 
   for (const message of messages) {
     try {
-      const result = await createOrUpdateDraftFromMessage(message, systems, adminId);
+      const result = await createOrUpdateDraftFromMessage(message, systems, adminId, {
+        vttPlatforms,
+        communicationPlatforms,
+      });
       if (result === 'draft') succeeded++;
       else ignored++;
     } catch (error: unknown) {

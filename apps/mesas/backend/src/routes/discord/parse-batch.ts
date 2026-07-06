@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
 import { processDiscordMessageToDraft, buildContentIndex, resolveReplyContext } from './utils';
-import { loadSystemsForParser } from '../../discord/shared';
+import { loadCommunicationPlatformsForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
 
 const router = Router();
 
@@ -22,7 +22,11 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
     // T-F8: contentIndex para resolver replyContext
     const contentIndex = buildContentIndex(messages);
 
-    const systems = await loadSystemsForParser();
+    const [systems, vttPlatforms, communicationPlatforms] = await Promise.all([
+      loadSystemsForParser(),
+      loadVttPlatformsForParser(),
+      loadCommunicationPlatformsForParser(),
+    ]);
     let succeeded = 0;
     let failed = 0;
     let discarded = 0; // DEB-048-27: descartados por autoria (homebrew)
@@ -35,7 +39,10 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
 
         // DEB-048-22: processamento compartilhado (parse → reconcile → upsert draft
         // → status → suggestion). DEB-048-27: separa descartado (autoria) de inválido.
-        const outcome = await processDiscordMessageToDraft(message, systems, replyContext, req.user?.userId);
+        const outcome = await processDiscordMessageToDraft(message, systems, replyContext, req.user?.userId, true, {
+          vttPlatforms,
+          communicationPlatforms,
+        });
         if (outcome === 'discarded') discarded++;
         else if (outcome === 'ignored') ignored++;
         else succeeded++; // 'parsed' ou 'reconciled' = válido

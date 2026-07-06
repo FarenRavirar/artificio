@@ -155,15 +155,27 @@ const BR_PHONE_PATTERN = /\(?\d{2}\)?\s?9?\d{4}-?\d{4}/;
  * (whatsapp | discord | phone | email | facebook | instagram | form), em vez de tudo que não
  * é Discord cair em `'form'` genérico.
  */
+// Domínios facebook/instagram também são reconhecidos em services/linkService.ts
+// (detectLinkType) para outro enum (LinkType). Duplicado por serem enums/propósitos
+// diferentes (canal de contato de mesa vs link de perfil) — se adicionar domínio
+// alternativo aqui (ex.: fb.watch), replicar lá também.
 function classifyContactChannel(rawUrl: string): TableContactChannel {
   try {
     const parsed = new URL(rawUrl);
+    if (parsed.protocol === 'mailto:') return 'email';
+    if (parsed.protocol === 'tel:') return 'phone';
     const host = parsed.hostname;
     if (host === 'discord.com' || host.endsWith('.discord.com') || host === 'discord.gg' || host.endsWith('.discord.gg')) {
       return 'discord';
     }
     if (host === 'wa.me' || host.endsWith('.wa.me') || host === 'api.whatsapp.com' || host === 'chat.whatsapp.com') {
       return 'whatsapp';
+    }
+    if (host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'fb.com' || host.endsWith('.fb.com')) {
+      return 'facebook';
+    }
+    if (host === 'instagram.com' || host.endsWith('.instagram.com')) {
+      return 'instagram';
     }
     return 'form';
   } catch {
@@ -194,7 +206,7 @@ export function extractContacts(
   // explícito extraído, o autor Discord da mensagem original (host_discord_id) vira contato
   // de fallback, em vez do draft ficar sem nenhum canal de contato.
   if (contacts.length === 0 && draft.table.host_discord_id) {
-    contacts.push({ channel: 'discord', value: draft.table.host_discord_id, label: null, discord_server_url: null });
+    contacts.push({ channel: 'discord', value: draft.table.host_discord_id, label: 'Autor da mensagem (Discord)', discord_server_url: null });
   }
 
   return contacts;
@@ -228,18 +240,38 @@ export function buildTableData(
   slug: string,
   coverUrl: string | null
 ): Insertable<TablesTable> {
+  return {
+    ...buildTableDraftFields(draft, source.gmName, coverUrl),
+    slug,
+    gm_id: null,
+    audience: 'livre',
+    language: 'pt-BR',
+    publisher_role: 'announcer',
+    origin: 'imported',
+    source_id: source.sourceId,
+    source_url: source.sourceUrl ?? null,
+    status: 'draft',
+    rules_notes: null,
+    is_ddal: false,
+  };
+}
+
+function buildTableDraftFields(
+  draft: ImportTableDraft,
+  gmName: string | null,
+  coverUrl: string | null,
+): Omit<Insertable<TablesTable>,
+  'slug' | 'gm_id' | 'audience' | 'language' | 'publisher_role' | 'origin' | 'source_id' | 'source_url' | 'status' | 'rules_notes' | 'is_ddal'
+> {
   const t = draft.table;
   if (!t.title) throw new DraftStateError('Título obrigatório para sync.');
 
   return {
-    slug,
-    gm_id: null,
     system_id: t.system_id ?? null,
     scenario_id: t.scenario_id ?? null,
     title: t.title,
     description: t.description ?? null,
     type: t.type ?? 'campanha',
-    audience: 'livre',
     age_rating: t.age_rating ?? null,
     modality: t.modality ?? 'online',
     vtt_platform_id: t.vtt_platform_id ?? null,
@@ -250,7 +282,6 @@ export function buildTableData(
     slots_total: t.slots_total ?? t.slots_open ?? 0,
     slots_filled: t.slots_filled ?? 0,
     slots_open: t.slots_open ?? t.slots_total ?? 0,
-    language: 'pt-BR',
     experience_level: t.experience_level ?? 'todos',
     table_level: t.table_level ?? null,
     setting_name: t.setting_name ?? null,
@@ -259,17 +290,10 @@ export function buildTableData(
     requires_camera: t.requires_camera ?? false,
     requires_microphone: t.requires_microphone ?? false,
     session_zero_free: t.session_zero_free ?? false,
-    publisher_role: 'announcer',
-    actual_gm_name: source.gmName ?? null,
+    actual_gm_name: gmName,
     is_covil: true,
-    origin: 'imported',
-    source_id: source.sourceId,
-    source_url: source.sourceUrl ?? null,
-    status: 'draft',
-    rules_notes: null,
     cover_url: coverUrl,
     banner_url: coverUrl,
-    is_ddal: false,
   };
 }
 
@@ -480,40 +504,11 @@ export async function syncDraftToTable(
     created = false;
 
     await db.transaction().execute(async (trx) => {
-      const t = payload.table;
-      if (!t.title) throw new config.ValidationError(['title']);
+      if (!payload.table.title) throw new config.ValidationError(['title']);
       await trx
         .updateTable('tables')
         .set({
-          title: t.title,
-          description: t.description ?? null,
-          type: t.type ?? 'campanha',
-          modality: t.modality ?? 'online',
-          price_type: t.price_type ?? 'gratuita',
-          price_value: t.price_value ?? null,
-          price_frequency: t.price_type === 'paga' ? 'sessao' : null,
-          slots_total: t.slots_total ?? t.slots_open ?? 0,
-          slots_filled: t.slots_filled ?? 0,
-          slots_open: t.slots_open ?? t.slots_total ?? 0,
-          system_id: t.system_id ?? null,
-          // Fase E (spec 058): campos novos da Fase B/C — sem isso, ficam presos no
-          // draft e desaparecem silenciosamente ao sincronizar (bug de perda de dado).
-          scenario_id: t.scenario_id ?? null,
-          age_rating: t.age_rating ?? null,
-          vtt_platform_id: t.vtt_platform_id ?? null,
-          communication_platform_id: t.communication_platform_id ?? null,
-          experience_level: t.experience_level ?? 'todos',
-          table_level: t.table_level ?? null,
-          setting_name: t.setting_name ?? null,
-          setting_styles: t.setting_styles ?? null,
-          requires_pc: t.requires_pc ?? false,
-          requires_camera: t.requires_camera ?? false,
-          requires_microphone: t.requires_microphone ?? false,
-          session_zero_free: t.session_zero_free ?? false,
-          cover_url: coverUrl,
-          banner_url: coverUrl,
-          actual_gm_name: gmName,
-          is_covil: true,
+          ...buildTableDraftFields(payload, gmName, coverUrl),
           status: 'draft',
           updated_at: new Date(),
         })

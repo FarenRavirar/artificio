@@ -102,6 +102,11 @@ function editorReducer(state: DraftEditorState, action: DraftEditorAction): Draf
 }
 
 export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, onUpdate: (d: DiscordDraft) => void) {
+  // PATCH/reparse não fazem join com a mensagem original e voltam sem content_raw;
+  // sem isso o preview reativa o fetch lazy (e o toast de erro) a cada save.
+  const applyUpdate = (updated: DiscordDraft) =>
+    onUpdate(updated.content_raw !== undefined ? updated : { ...updated, content_raw: draft.content_raw });
+
   const [state, dispatch] = useReducer(editorReducer, draft, buildEditorState);
   const [systems, setSystems] = useState<SystemTreeNode[]>([]);
   const [systemsLoading, setSystemsLoading] = useState(false);
@@ -244,7 +249,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
 
       dispatch({ type: 'MARK_PERSISTED' });
       toast.success(nextMissing.length === 0 ? 'Draft pronto para sincronizar.' : 'Draft salvo para revisão.');
-      onUpdate(updated);
+      applyUpdate(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar campos do draft.');
     } finally {
@@ -331,7 +336,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       });
       dispatch({ type: 'MARK_PERSISTED' });
       toast.success('Vagas desambiguadas.');
-      onUpdate(updated);
+      applyUpdate(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar interpretação de vagas.');
     } finally {
@@ -376,7 +381,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     try {
       const updated = await draftApi.reparseDraft(draft.id);
       toast.success('Draft reparseado.');
-      onUpdate(updated);
+      applyUpdate(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao reparsar draft.');
     } finally {
@@ -393,7 +398,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       });
       toast.success('Status atualizado.');
       setEditingStatus(false);
-      onUpdate(updated);
+      applyUpdate(updated);
       /* Intencional: NÃO dispara MARK_PERSISTED — handleSaveStatus só persiste
          status/review_notes, não o form. Se dirty fosse zerado aqui, sync poderia
          usar normalized_payload desatualizado (REV-045). */

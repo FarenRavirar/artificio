@@ -4,6 +4,7 @@ import type { Selectable } from 'kysely';
 import { db } from '../../db';
 import type { DiscordSourceChannelType, DiscordImportMessagesTable, NewDiscordImportRun } from '../../db/types';
 import type { SystemEntry, ImportRawMessage } from '../../discord';
+import type { MatchEntry } from '../../discord/parseDiscordAnnouncement';
 import { normalizeDiscordTableDraft, parseDiscordAnnouncement, normalizeDraftPayload, assertDraftReadyTransition } from '../../discord';
 import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers';
 import { assistDiscordParseWithContextPack } from '../../discord/llmAssist';
@@ -411,11 +412,12 @@ export async function parseDiscordMessage(
   msg: { source_kind: unknown; discord_message_id: unknown; discord_channel_id: unknown; discord_guild_id: unknown; discord_parent_channel_id: unknown; discord_thread_id: unknown; discord_thread_name: unknown; discord_author_id: unknown; discord_author_name: unknown; discord_message_url: unknown; content_raw: unknown; attachments: unknown; embeds: unknown; message_created_at: unknown; message_edited_at: unknown },
   systems?: SystemEntry[],
   replyContext?: string,
+  catalogs?: { vttPlatforms?: MatchEntry[]; communicationPlatforms?: MatchEntry[] },
 ): Promise<{ parsed: NonNullable<ReturnType<typeof parseDiscordAnnouncement>>; normalized: ReturnType<typeof normalizeDiscordTableDraft>; systems: SystemEntry[] } | null> {
   const sys = systems ?? await loadSystemsForParser();
   const [vttPlatforms, communicationPlatforms] = await Promise.all([
-    loadVttPlatformsForParser(),
-    loadCommunicationPlatformsForParser(),
+    catalogs?.vttPlatforms ?? loadVttPlatformsForParser(),
+    catalogs?.communicationPlatforms ?? loadCommunicationPlatformsForParser(),
   ]);
   const raw: ImportRawMessage = {
     source_kind: (msg.source_kind ?? 'text') as ImportRawMessage['source_kind'],
@@ -681,6 +683,7 @@ export async function processDiscordMessageToDraft(
   // aceitando pagas) — só o import-json/preview e o /reparse plugam a escolha
   // explícita do mantenedor na UI.
   acceptPaidTables = true,
+  catalogs?: { vttPlatforms?: MatchEntry[]; communicationPlatforms?: MatchEntry[] },
 ): Promise<DiscordDraftOutcome> {
   // Reconcilia draft terminal (synced/rejected) ANTES de parsear — evita marcar
   // a mensagem como ignored/error em cima de um draft já terminal (CodeRabbit).
@@ -693,7 +696,7 @@ export async function processDiscordMessageToDraft(
     return 'reconciled';
   }
 
-  const result = await parseDiscordMessage(message, systems, replyContext);
+  const result = await parseDiscordMessage(message, systems, replyContext, catalogs);
   if (!result) {
     // DEB-048-27: distingue descarte por autoria (homebrew) de não-anúncio.
     const discarded = isHomebrewSystem({
@@ -810,11 +813,13 @@ export async function reparseOneMessage(
   contentIndex: Map<string, string>,
   userId: string | undefined,
   acceptPaidTables = true,
+  systems?: SystemEntry[],
+  catalogs?: { vttPlatforms?: MatchEntry[]; communicationPlatforms?: MatchEntry[] },
 ): Promise<DiscordDraftOutcome | 'error' | 'skipped'> {
   if (message.status === 'synced') return 'skipped'; // segurança extra
   try {
     const replyContext = resolveReplyContext(message as Record<string, unknown>, contentIndex);
-    return await processDiscordMessageToDraft(message, undefined, replyContext, userId, acceptPaidTables);
+    return await processDiscordMessageToDraft(message, systems, replyContext, userId, acceptPaidTables, catalogs);
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'unknown error';
     try {

@@ -19,6 +19,7 @@ interface DraftEditorTabProps {
   communicationPlatformsLoading: boolean;
   /** Fase I (spec 058): texto original da mensagem, já limpo de decoração (stripSeparatorLines). */
   contentRaw?: string | null;
+  contentRawLoading?: boolean;
   coverPreviewUrl: string;
   coverError: string | null;
   coverUploading: boolean;
@@ -73,7 +74,7 @@ function FieldInsightNote({ insight }: { readonly insight?: DraftFieldInsight })
 }
 
 export function DraftEditorTab({
-  form, missingFields, systems, systemsLoading, contentRaw,
+  form, missingFields, systems, systemsLoading, contentRaw, contentRawLoading,
   scenarios, scenariosLoading, vttPlatforms, vttPlatformsLoading,
   communicationPlatforms, communicationPlatformsLoading,
   coverPreviewUrl, coverError, coverUploading, coverInputRef,
@@ -314,7 +315,9 @@ export function DraftEditorTab({
 
     <div className="lg:sticky lg:top-0 rounded-lg border border-white/10 bg-white/5 p-3">
       <span className={labelClass}>Texto original da mensagem</span>
-      {contentRaw ? (
+      {contentRawLoading ? (
+        <p className="mt-1 text-xs text-white/40">Carregando texto original...</p>
+      ) : contentRaw ? (
         <pre className="mt-1 max-h-[70vh] overflow-auto whitespace-pre-wrap break-words text-xs text-white/70 leading-5">
           {contentRaw}
         </pre>

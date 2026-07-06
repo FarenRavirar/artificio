@@ -1006,8 +1006,8 @@ export function parseDiscordAnnouncement(
 
   // Fase C: cenário/ambientação e estilos — sempre extraídos juntos (mesmo componente
   // de UI, SettingStylesField). Sem banco de referência — texto livre normalizado.
-  const settingLabelValue = extractLabelValue(body, ['ambientacao', 'ambientação', 'cenario', 'cenário', 'estilo', 'indicado']);
-  const settingStyles = settingLabelValue ? splitFreeTextList(settingLabelValue) : null;
+  const settingStylesLabelValue = extractLabelValue(body, ['estilo', 'indicado']);
+  const settingStyles = settingStylesLabelValue ? splitFreeTextList(settingStylesLabelValue) : null;
   const settingName = extractLabelValue(body, ['ambientacao', 'ambientação', 'cenario', 'cenário']);
 
   // Fase C: requisitos técnicos — menção explícita no corpo (meta-exemplo do

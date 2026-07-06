@@ -50,30 +50,7 @@ function tryRecoverTruncatedJson(rawJson: string): { parsed: unknown; recoveredM
 export function parseUploadedJsonBuffer(file: { buffer: Buffer }):
   { parsed: unknown; truncationWarning?: string } | { error: string; status: number }
 {
-  const rawJson = file.buffer.toString('utf-8');
-
-  if (rawJson.length > MAX_IMPORT_JSON_BYTES) {
-    return {
-      error: `JSON muito grande (${(rawJson.length / 1024 / 1024).toFixed(1)} MB). O limite é ${MAX_IMPORT_JSON_BYTES / 1024 / 1024} MB.`,
-      status: 413,
-    };
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(rawJson);
-  } catch {
-    const recovered = tryRecoverTruncatedJson(rawJson);
-    if (!recovered) {
-      return { error: 'JSON inválido: o arquivo não contém JSON válido.', status: 400 };
-    }
-    return {
-      parsed: recovered.parsed,
-      truncationWarning: `Arquivo veio truncado (corte no fim). ${recovered.recoveredMessageCount} mensagem(ns) completa(s) recuperada(s); o restante após o corte foi descartado.`,
-    };
-  }
-
-  return { parsed };
+  return parseRawJsonString(file.buffer.toString('utf-8'), 'file');
 }
 
 function mapChannelType(type: string | undefined): 'text' | 'announcement' | 'forum' {
@@ -228,18 +205,12 @@ export function buildPreviewFromExport(exportData: DiscordChatExporterExport) {
   };
 }
 
-export function extractJsonPayload(rawBody: unknown): { payload: unknown } | { error: string; status: number } {
+export function extractJsonPayload(rawBody: unknown): { payload: unknown; truncationWarning?: string } | { error: string; status: number } {
   if (rawBody && typeof rawBody === 'object' && 'json' in rawBody) {
     const rawJson = (rawBody as Record<string, unknown>).json;
     if (typeof rawJson === 'string') {
-      if (rawJson.length > MAX_IMPORT_JSON_BYTES) {
-        return { error: `Arquivo JSON muito grande (${(rawJson.length / (1024 * 1024)).toFixed(1)} MB). O limite é ${MAX_IMPORT_JSON_BYTES / (1024 * 1024)} MB.`, status: 413 };
-      }
-      try {
-        return { payload: JSON.parse(rawJson) };
-      } catch {
-        return { error: 'JSON inválido: o conteúdo do campo "json" não é um JSON válido.', status: 400 };
-      }
+      const parsed = parseRawJsonString(rawJson);
+      return 'error' in parsed ? parsed : { payload: parsed.parsed, truncationWarning: parsed.truncationWarning };
     }
     return { payload: rawJson };
   }
@@ -247,4 +218,35 @@ export function extractJsonPayload(rawBody: unknown): { payload: unknown } | { e
     return { payload: rawBody };
   }
   return { error: 'JSON inválido: envie um objeto com o campo "json" ou o próprio export do DiscordChatExporter.', status: 400 };
+}
+
+/** source: rótulo pras mensagens de erro/warning distinguirem upload de arquivo vs JSON colado. */
+function parseRawJsonString(
+  rawJson: string,
+  source: 'file' | 'pasted' = 'pasted',
+): { parsed: unknown; truncationWarning?: string } | { error: string; status: number } {
+  const label = source === 'file' ? 'Arquivo' : 'JSON colado';
+  const notJsonMessage = source === 'file'
+    ? 'JSON inválido: o arquivo não contém JSON válido.'
+    : 'JSON inválido: o conteúdo do campo "json" não é um JSON válido.';
+
+  if (rawJson.length > MAX_IMPORT_JSON_BYTES) {
+    return {
+      error: `${source === 'file' ? 'JSON' : 'Arquivo JSON'} muito grande (${(rawJson.length / (1024 * 1024)).toFixed(1)} MB). O limite é ${MAX_IMPORT_JSON_BYTES / (1024 * 1024)} MB.`,
+      status: 413,
+    };
+  }
+
+  try {
+    return { parsed: JSON.parse(rawJson) };
+  } catch {
+    const recovered = tryRecoverTruncatedJson(rawJson);
+    if (!recovered) {
+      return { error: notJsonMessage, status: 400 };
+    }
+    return {
+      parsed: recovered.parsed,
+      truncationWarning: `${label} veio truncado (corte no fim). ${recovered.recoveredMessageCount} mensagem(ns) completa(s) recuperada(s); o restante após o corte foi descartado.`,
+    };
+  }
 }

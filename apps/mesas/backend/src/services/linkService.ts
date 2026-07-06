@@ -31,7 +31,11 @@ interface UserLinkWithMetadata extends UserLinks {
 }
 
 /**
- * Detecta o tipo de link baseado na URL
+ * Detecta o tipo de link baseado na URL.
+ * Domínios facebook/instagram também são reconhecidos em discord/syncHelpers.ts
+ * (classifyContactChannel) para outro enum (TableContactChannel). Duplicado por
+ * serem enums/propósitos diferentes — se adicionar domínio alternativo aqui,
+ * replicar lá também.
  */
 export function detectLinkType(url: string): LinkType {
   const urlLower = url.toLowerCase();

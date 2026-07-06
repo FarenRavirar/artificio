@@ -390,7 +390,25 @@ function normalizeSystemTree(raw: unknown): SystemTreeNode[] {
   }).filter((x): x is SystemTreeNode => x !== null);
 }
 
+// TTL curto: catálogo pode mudar durante a sessão SPA (outro admin cadastra
+// sistema novo); sem isso o cache serviria lista desatualizada indefinidamente.
+const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
+
 export async function loadSystems(): Promise<SystemTreeNode[]> {
+  if (!systemsCache || Date.now() - systemsCacheLoadedAt > CATALOG_CACHE_TTL_MS) {
+    systemsCacheLoadedAt = Date.now();
+    systemsCache = fetchSystems().catch((error) => {
+      systemsCache = null;
+      throw error;
+    });
+  }
+  return systemsCache;
+}
+
+let systemsCache: Promise<SystemTreeNode[]> | null = null;
+let systemsCacheLoadedAt = 0;
+
+async function fetchSystems(): Promise<SystemTreeNode[]> {
   const res = await authGet('/api/v1/systems?view=tree');
   if (!res.ok) throw new Error('Erro ao carregar sistemas.');
   const json: unknown = await res.json();
@@ -420,23 +438,28 @@ function normalizeSimpleCatalog(raw: unknown): SimpleCatalogEntry[] {
   }).filter((x): x is SimpleCatalogEntry => x !== null);
 }
 
-export async function loadScenarios(): Promise<SimpleCatalogEntry[]> {
-  const res = await authGet('/api/v1/scenarios');
-  if (!res.ok) throw new Error('Erro ao carregar cenários.');
+const simpleCatalogCache = new Map<string, { promise: Promise<SimpleCatalogEntry[]>; loadedAt: number }>();
+
+function createSimpleCatalogLoader(endpoint: string, errorMessage: string): () => Promise<SimpleCatalogEntry[]> {
+  return async () => {
+    const cached = simpleCatalogCache.get(endpoint);
+    if (cached && Date.now() - cached.loadedAt <= CATALOG_CACHE_TTL_MS) return cached.promise;
+    const promise = fetchSimpleCatalog(endpoint, errorMessage).catch((error) => {
+      simpleCatalogCache.delete(endpoint);
+      throw error;
+    });
+    simpleCatalogCache.set(endpoint, { promise, loadedAt: Date.now() });
+    return promise;
+  };
+}
+
+async function fetchSimpleCatalog(endpoint: string, errorMessage: string): Promise<SimpleCatalogEntry[]> {
+  const res = await authGet(endpoint);
+  if (!res.ok) throw new Error(errorMessage);
   const json: unknown = await res.json();
   return normalizeSimpleCatalog(asRecord(json).data);
 }
 
-export async function loadVttPlatforms(): Promise<SimpleCatalogEntry[]> {
-  const res = await authGet('/api/v1/vtt-platforms');
-  if (!res.ok) throw new Error('Erro ao carregar plataformas VTT.');
-  const json: unknown = await res.json();
-  return normalizeSimpleCatalog(asRecord(json).data);
-}
-
-export async function loadCommunicationPlatforms(): Promise<SimpleCatalogEntry[]> {
-  const res = await authGet('/api/v1/communication-platforms');
-  if (!res.ok) throw new Error('Erro ao carregar plataformas de comunicação.');
-  const json: unknown = await res.json();
-  return normalizeSimpleCatalog(asRecord(json).data);
-}
+export const loadScenarios = createSimpleCatalogLoader('/api/v1/scenarios', 'Erro ao carregar cenários.');
+export const loadVttPlatforms = createSimpleCatalogLoader('/api/v1/vtt-platforms', 'Erro ao carregar plataformas VTT.');
+export const loadCommunicationPlatforms = createSimpleCatalogLoader('/api/v1/communication-platforms', 'Erro ao carregar plataformas de comunicação.');

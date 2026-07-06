@@ -29,6 +29,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [refreshingImage, setRefreshingImage] = useState(false);
+  const [detailLoadFailedDraftId, setDetailLoadFailedDraftId] = useState<string | null>(null);
 
   const shouldShowSlotsDisambiguation = Boolean(h.slotsAmbiguity && h.payloadMissingFields.includes('slots_open:ambiguous_x_of_y'));
   // DEB-048-29: badge "autoral?" — anúncio ambíguo p/ sistema próprio. Revisor decide
@@ -102,6 +103,22 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
       previousFocusRef.current?.focus();
     };
   }, []);
+
+  useEffect(() => {
+    if (draft.content_raw !== undefined || !api.getDraft) return;
+    let cancelled = false;
+    api.getDraft(draft.id)
+      .then((detail) => {
+        if (!cancelled) onUpdate(detail);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setDetailLoadFailedDraftId(draft.id);
+          toast.error(error instanceof Error ? error.message : 'Erro ao carregar detalhe do draft.');
+        }
+      });
+    return () => { cancelled = true; };
+  }, [api, draft.content_raw, draft.id, onUpdate]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -237,6 +254,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
               communicationPlatforms={h.communicationPlatforms}
               communicationPlatformsLoading={h.communicationPlatformsLoading}
               contentRaw={draft.content_raw}
+              contentRawLoading={draft.content_raw === undefined && Boolean(api.getDraft) && detailLoadFailedDraftId !== draft.id}
               coverPreviewUrl={h.coverPreviewUrl}
               coverError={h.coverError}
               coverUploading={h.coverUploading}

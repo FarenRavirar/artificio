@@ -18,6 +18,12 @@ vi.mock('../../discord/chatExporterImportService', () => ({
   parseUploadedJsonBuffer: vi.fn(),
 }));
 
+vi.mock('../../discord/shared', () => ({
+  loadSystemsForParser: vi.fn().mockResolvedValue([]),
+  loadVttPlatformsForParser: vi.fn().mockResolvedValue([]),
+  loadCommunicationPlatformsForParser: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock('./utils', () => ({
   validateReparseMessageIds: vi.fn(() => undefined),
   buildContentIndex: vi.fn(() => new Map()),
