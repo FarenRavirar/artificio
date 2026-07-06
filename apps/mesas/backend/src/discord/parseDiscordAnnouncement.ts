@@ -568,7 +568,7 @@ function extractExplicitFrequency(text: string): TableDraftFrequency | null {
   if (/\bquinzenal(?:mente)?\b|\ba\s+cada\s+(?:duas|2)\s+semanas\b|\ba\s+cada\s+15\s+dias\b/.test(lower)) return 'quinzenal';
   if (/\bmensal(?:mente)?\b/.test(lower)) return 'mensal';
   if (/\bavulsa?\b|\bsess[aã]o\s+[uú]nica\b/.test(lower)) return 'avulsa';
-  if (/\bsemanal(?:mente)?\b|\btodoa?\s+semana\b/.test(lower)) return 'semanal';
+  if (/\bsemanal(?:mente)?\b|\btod[ao]\s+semana\b/.test(lower)) return 'semanal';
   return null;
 }
 
