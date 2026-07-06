@@ -120,6 +120,10 @@ export interface DiscordDraftTablePayload extends Record<string, unknown> {
   cover_url_source?: string | null;
   cover_quality?: DiscordCoverQuality | null;
   _slots_ambiguity?: DiscordSlotsAmbiguity | null;
+  /** DEB-058-05: preço ambíguo (gratuidade + cobrança sem padrão de período promocional). */
+  _price_ambiguity?: boolean | null;
+  /** DEB-058-05: 2+ timestamps Discord com dia/horário diferentes no mesmo anúncio. */
+  _schedule_ambiguity?: boolean | null;
   /** DEB-048-29: anúncio ambíguo p/ sistema autoral → badge "autoral?" na revisão. */
   _homebrew_suspect?: boolean | null;
 }

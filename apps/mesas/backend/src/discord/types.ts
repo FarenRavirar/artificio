@@ -94,6 +94,22 @@ export interface DiscordTableDraftTable {
   cover_quality: CoverQuality | null;
   _slots_ambiguity: DiscordSlotsAmbiguity | null;
   /**
+   * true quando o texto cita gratuidade E cobrança sem se encaixar no padrão
+   * reconhecido de período promocional ("sessão 0 grátis", "1ª semana grátis")
+   * — o parser não decidiu price_type sozinho (ficou null); precisa de
+   * revisão humana. Reduz a confiança calculada (calcConfidence).
+   */
+  _price_ambiguity?: boolean | null;
+  /**
+   * true quando o texto cita 2+ timestamps Discord `<t:UNIX:FORMATO>` com dia
+   * ou horário DIFERENTES (mesa com múltiplos slots recorrentes, ex.: "Terça
+   * 20:00 quinzenal E Sábado 18:00 quinzenal" da mesma campanha). O campo
+   * `day_of_week`/`start_time` do form é singular — o parser usa o primeiro
+   * timestamp encontrado, mas marca aqui que há mais de um horário no anúncio
+   * original pro revisor decidir/registrar manualmente. DEB-058-05/T9.16.
+   */
+  _schedule_ambiguity?: boolean | null;
+  /**
    * DEB-048-29: anúncio classificado como AMBÍGUO p/ sistema autoral
    * ("baseado em"/"inspirado em"/"adaptado de"). Não é descarte nítido —
    * vira draft needs_review com badge "autoral?" p/ o revisor decidir.
