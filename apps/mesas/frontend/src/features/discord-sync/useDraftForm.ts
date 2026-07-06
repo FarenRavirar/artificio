@@ -8,6 +8,36 @@ import type { SystemTreeNode } from '../../types/systems';
 
 type SlotsInterpretation = 'filled_total' | 'open_total';
 
+/** Carrega um catálogo simples (cenários/VTT/comunicação) uma vez ao montar,
+ * com loading flag e toast de erro — os 3 catálogos seguem o mesmo padrão,
+ * só diferindo no loader e na mensagem de erro. */
+function useSimpleCatalogState(
+  loader: () => Promise<SimpleCatalogEntry[]>,
+  errorMessage: string,
+): [SimpleCatalogEntry[], boolean] {
+  const [items, setItems] = useState<SimpleCatalogEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setLoading(true);
+      try {
+        const result = await loader();
+        if (!cancelled) setItems(result);
+      } catch (err) {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : errorMessage);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return [items, loading];
+}
+
 interface DraftEditorState {
   form: DraftForm;
   newStatus: DiscordImportDraftStatus;
@@ -110,12 +140,12 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   const [state, dispatch] = useReducer(editorReducer, draft, buildEditorState);
   const [systems, setSystems] = useState<SystemTreeNode[]>([]);
   const [systemsLoading, setSystemsLoading] = useState(false);
-  const [scenarios, setScenarios] = useState<SimpleCatalogEntry[]>([]);
-  const [scenariosLoading, setScenariosLoading] = useState(false);
-  const [vttPlatforms, setVttPlatforms] = useState<SimpleCatalogEntry[]>([]);
-  const [vttPlatformsLoading, setVttPlatformsLoading] = useState(false);
-  const [communicationPlatforms, setCommunicationPlatforms] = useState<SimpleCatalogEntry[]>([]);
-  const [communicationPlatformsLoading, setCommunicationPlatformsLoading] = useState(false);
+  const [scenarios, scenariosLoading] = useSimpleCatalogState(loadScenarios, 'Erro ao carregar cenários.');
+  const [vttPlatforms, vttPlatformsLoading] = useSimpleCatalogState(loadVttPlatforms, 'Erro ao carregar plataformas VTT.');
+  const [communicationPlatforms, communicationPlatformsLoading] = useSimpleCatalogState(
+    loadCommunicationPlatforms,
+    'Erro ao carregar plataformas de comunicação.',
+  );
   const [savingFields, setSavingFields] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [reparsing, setReparsing] = useState(false);
@@ -163,54 +193,6 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
         if (!cancelled) toast.error(err instanceof Error ? err.message : 'Erro ao carregar sistemas.');
       } finally {
         if (!cancelled) setSystemsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      setScenariosLoading(true);
-      try {
-        const items = await loadScenarios();
-        if (!cancelled) setScenarios(items);
-      } catch (err) {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Erro ao carregar cenários.');
-      } finally {
-        if (!cancelled) setScenariosLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      setVttPlatformsLoading(true);
-      try {
-        const items = await loadVttPlatforms();
-        if (!cancelled) setVttPlatforms(items);
-      } catch (err) {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Erro ao carregar plataformas VTT.');
-      } finally {
-        if (!cancelled) setVttPlatformsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      setCommunicationPlatformsLoading(true);
-      try {
-        const items = await loadCommunicationPlatforms();
-        if (!cancelled) setCommunicationPlatforms(items);
-      } catch (err) {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Erro ao carregar plataformas de comunicação.');
-      } finally {
-        if (!cancelled) setCommunicationPlatformsLoading(false);
       }
     })();
     return () => { cancelled = true; };

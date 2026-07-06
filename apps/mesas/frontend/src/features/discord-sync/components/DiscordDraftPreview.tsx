@@ -105,7 +105,10 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
   }, []);
 
   useEffect(() => {
-    if (draft.content_raw !== undefined || !api.getDraft) return;
+    // Guard cobre falha anterior (detailLoadFailedDraftId) pra não repetir fetch/toast
+    // a cada re-render do pai enquanto content_raw continuar undefined (onUpdate/
+    // handleDraftUpdate não é memoizado em DiscordDraftReviewTable).
+    if (draft.content_raw !== undefined || !api.getDraft || detailLoadFailedDraftId === draft.id) return;
     let cancelled = false;
     api.getDraft(draft.id)
       .then((detail) => {
@@ -118,7 +121,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
         }
       });
     return () => { cancelled = true; };
-  }, [api, draft.content_raw, draft.id, onUpdate]);
+  }, [api, draft.content_raw, draft.id, detailLoadFailedDraftId, onUpdate]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

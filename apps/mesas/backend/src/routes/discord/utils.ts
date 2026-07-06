@@ -33,6 +33,11 @@ import { requireAdmin } from '../../middleware/auth';
 import { notifyAdmins } from '../../services/adminNotifications';
 import { patchDraftSchema, correctionSchema } from '../inbox/utils';
 
+/** Catálogos de VTT/comunicação pré-carregados, reaproveitados por várias mensagens
+ * do mesmo batch (evita N+1 de query por mensagem). Compartilhado por
+ * parseDiscordMessage, processDiscordMessageToDraft e reparseOneMessage. */
+export type ParserPlatformCatalogs = { vttPlatforms?: MatchEntry[]; communicationPlatforms?: MatchEntry[] };
+
 function extractArrayFromRecord(record: Record<string, unknown>): unknown[] | null {
   if (Array.isArray(record.items)) return record.items;
   if (Array.isArray(record.data)) return record.data;
@@ -412,7 +417,7 @@ export async function parseDiscordMessage(
   msg: { source_kind: unknown; discord_message_id: unknown; discord_channel_id: unknown; discord_guild_id: unknown; discord_parent_channel_id: unknown; discord_thread_id: unknown; discord_thread_name: unknown; discord_author_id: unknown; discord_author_name: unknown; discord_message_url: unknown; content_raw: unknown; attachments: unknown; embeds: unknown; message_created_at: unknown; message_edited_at: unknown },
   systems?: SystemEntry[],
   replyContext?: string,
-  catalogs?: { vttPlatforms?: MatchEntry[]; communicationPlatforms?: MatchEntry[] },
+  catalogs?: ParserPlatformCatalogs,
 ): Promise<{ parsed: NonNullable<ReturnType<typeof parseDiscordAnnouncement>>; normalized: ReturnType<typeof normalizeDiscordTableDraft>; systems: SystemEntry[] } | null> {
   const sys = systems ?? await loadSystemsForParser();
   const [vttPlatforms, communicationPlatforms] = await Promise.all([
@@ -683,7 +688,7 @@ export async function processDiscordMessageToDraft(
   // aceitando pagas) — só o import-json/preview e o /reparse plugam a escolha
   // explícita do mantenedor na UI.
   acceptPaidTables = true,
-  catalogs?: { vttPlatforms?: MatchEntry[]; communicationPlatforms?: MatchEntry[] },
+  catalogs?: ParserPlatformCatalogs,
 ): Promise<DiscordDraftOutcome> {
   // Reconcilia draft terminal (synced/rejected) ANTES de parsear — evita marcar
   // a mensagem como ignored/error em cima de um draft já terminal (CodeRabbit).
@@ -814,7 +819,7 @@ export async function reparseOneMessage(
   userId: string | undefined,
   acceptPaidTables = true,
   systems?: SystemEntry[],
-  catalogs?: { vttPlatforms?: MatchEntry[]; communicationPlatforms?: MatchEntry[] },
+  catalogs?: ParserPlatformCatalogs,
 ): Promise<DiscordDraftOutcome | 'error' | 'skipped'> {
   if (message.status === 'synced') return 'skipped'; // segurança extra
   try {
