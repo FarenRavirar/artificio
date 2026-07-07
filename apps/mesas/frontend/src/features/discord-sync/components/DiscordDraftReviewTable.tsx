@@ -106,6 +106,11 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   const [statusFilter, setStatusFilter] = useState<DiscordImportDraftStatus | ''>('');
   const [originFilter, setOriginFilter] = useState<OriginFilter>('all');
   const [explicitContactOnly, setExplicitContactOnly] = useState(false);
+  // Achado Codex (PR #132): bulk actions (selecionar/rejeitar/sincronizar todos)
+  // derivavam de `drafts` cru — com o filtro ligado, agiam em linhas ocultas
+  // (admin rejeitava/sincronizava draft que não via na tela). Todo derivado de
+  // bulk action usa visibleDrafts, nunca drafts diretamente.
+  const visibleDrafts = explicitContactOnly ? drafts.filter(hasExplicitContact) : drafts;
   const [selectedDraft, setSelectedDraft] = useState<DiscordDraft | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
   // Multi-seleção p/ ação em lote (rejeitar).
@@ -147,7 +152,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
     try {
       // Se houver onBeforeSync, aplica correction-tracking draft a draft antes do sync
       if (onBeforeSync) {
-        const readyDrafts = drafts.filter(isReady);
+        const readyDrafts = visibleDrafts.filter(isReady);
         let synced = 0;
         let failed = 0;
         const errors: string[] = [];
@@ -190,7 +195,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   };
 
   // Rejeitáveis = drafts ainda não sincronizados/rejeitados (rejeitar synced não faz sentido).
-  const rejectableDrafts = drafts.filter(d => d.status !== 'synced' && d.status !== 'rejected');
+  const rejectableDrafts = visibleDrafts.filter(d => d.status !== 'synced' && d.status !== 'rejected');
   // Seleção efetiva = só ids ainda visíveis/rejeitáveis (um draft pode ter saído da fila pelo preview).
   const selectedRejectable = rejectableDrafts.filter(d => selectedIds.has(d.id));
   const allSelected = rejectableDrafts.length > 0 && selectedRejectable.length === rejectableDrafts.length;
@@ -275,8 +280,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   };
   const isReady = (draft: DiscordDraft) =>
     draft.status === 'ready' && draftMissing(draft).length === 0;
-  const readyCount = drafts.filter(isReady).length;
-  const visibleDrafts = explicitContactOnly ? drafts.filter(hasExplicitContact) : drafts;
+  const readyCount = visibleDrafts.filter(isReady).length;
 
   return (
     <div>
@@ -315,7 +319,13 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
           <input
             type="checkbox"
             checked={explicitContactOnly}
-            onChange={(e) => setExplicitContactOnly(e.target.checked)}
+            onChange={(e) => {
+              // CodeRabbit (PR #132): sem isso, seleção feita antes de filtrar
+              // ficava presa em selectedIds — invisível na tela mas ainda ativa
+              // pra "Rejeitar selecionados".
+              setExplicitContactOnly(e.target.checked);
+              setSelectedIds(new Set());
+            }}
             aria-label="Mostrar só drafts com contato explícito"
             className="h-4 w-4 accent-blue-600"
           />

@@ -60,6 +60,11 @@ export async function loadSystemsForParser(): Promise<SystemEntry[]> {
 // nome inteiro como substring (candidateMatchesText). Sem tabela de aliases para
 // vtt_platforms/communication_platforms no banco (só systems/scenarios têm),
 // mapa estático por slug é o fix mais barato até existir vtt_platform_aliases.
+// Achado CodeRabbit (PR #132): admin pode editar slug/name livre via
+// routes/vttPlatforms.ts (PATCH) — se um registro seed sair dessas chaves,
+// VTT_ALIASES[...] vira [] em silêncio e o parser volta a exigir o nome
+// completo. Chaveado por slug E name (segunda tentativa) reduz o risco sem
+// exigir migration nova; risco residual documentado, não eliminado.
 const VTT_ALIASES: Record<string, string[]> = {
   'foundry-vtt': ['Foundry', 'FoundryVTT'],
   'tabletop-simulator': ['TTS', 'Tabletop Simulator'],
@@ -67,6 +72,12 @@ const VTT_ALIASES: Record<string, string[]> = {
   'owlbear-rodeo': ['Owlbear'],
   'dndbeyond-maps': ['D&D Beyond', 'DDB Maps', 'DnD Beyond'],
   'alchemy-rpg': ['Alchemy'],
+  'Foundry VTT': ['Foundry', 'FoundryVTT'],
+  'Tabletop Simulator (TTS)': ['TTS', 'Tabletop Simulator'],
+  'Fantasy Grounds Unity': ['Fantasy Grounds', 'FGU'],
+  'Owlbear Rodeo': ['Owlbear'],
+  'D&D Beyond Maps': ['D&D Beyond', 'DDB Maps', 'DnD Beyond'],
+  'Alchemy RPG': ['Alchemy'],
 };
 
 /** Carrega plataformas VTT ativas do banco para o parse de anúncios Discord. */
@@ -76,7 +87,11 @@ export async function loadVttPlatformsForParser(): Promise<MatchEntry[]> {
     .select(['id', 'name', 'slug'])
     .where('is_active', '=', true)
     .execute();
-  return platforms.map((p) => ({ id: p.id, name: p.name, aliases: VTT_ALIASES[p.slug] ?? [] }));
+  return platforms.map((p) => ({
+    id: p.id,
+    name: p.name,
+    aliases: VTT_ALIASES[p.slug] ?? VTT_ALIASES[p.name] ?? [],
+  }));
 }
 
 /** Carrega plataformas de comunicação ativas do banco para o parse de anúncios Discord. */
