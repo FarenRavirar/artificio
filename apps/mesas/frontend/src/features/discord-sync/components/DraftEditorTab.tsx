@@ -7,6 +7,10 @@ import { CatalogSearchSelect } from './CatalogSearchSelect';
 
 interface DraftEditorTabProps {
   form: DraftForm;
+  /** Autor Discord do anúncio (payload.source.author_name) — só exibição, não
+   * editável nem canal de contato (esse pode ser forms/whats/discord conforme
+   * precedência do parser). Mostra quem divulgou mesmo quando o contato é forms. */
+  authorName?: string;
   missingFields: string[];
   systems: SystemTreeNode[];
   systemsLoading: boolean;
@@ -119,7 +123,7 @@ function FieldInsightNote({
 }
 
 export function DraftEditorTab({
-  form, missingFields, systems, systemsLoading, contentRaw, contentRawLoading,
+  form, authorName, missingFields, systems, systemsLoading, contentRaw, contentRawLoading,
   scenarios, scenariosLoading, vttPlatforms, vttPlatformsLoading,
   communicationPlatforms, communicationPlatformsLoading,
   coverPreviewUrl, coverError, coverUploading, coverInputRef,
@@ -313,6 +317,11 @@ export function DraftEditorTab({
           <span className={labelClass}>Link de inscrição/contato</span>
           <input value={form.contact_url} onChange={(e) => onUpdateForm('contact_url', e.target.value)} className={inputClass} />
           <FieldInsightNote field="contact_url" insight={fieldInsights?.contact_url} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('contact_url') ?? false} />
+          {authorName && (
+            <span className="mt-1 block text-xs text-white/45">
+              Divulgado por: {authorName} (autor Discord do anúncio — vira "Mestre responsável" ao sincronizar)
+            </span>
+          )}
         </label>
         <label className="md:col-span-2">
           <span className={labelClass}>Descrição</span>
