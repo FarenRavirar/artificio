@@ -213,23 +213,36 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.id, draft.status, draft.review_notes, draft.normalized_payload, draft.parsed_payload]);
 
+  // Sequência compartilhada entre o load inicial (useEffect) e refreshSystems
+  // (achado CodeRabbit PR #135: blocos duplicados). isCancelled cobre o
+  // cleanup do effect; refresh manual não precisa (passa () => false).
+  const fetchSystemsInto = async (force: boolean, isCancelled: () => boolean) => {
+    setSystemsLoading(true);
+    try {
+      const items = await loadSystems(force);
+      if (!isCancelled()) setSystems(flattenSystems(items));
+    } catch (err) {
+      if (!isCancelled()) toast.error(err instanceof Error ? err.message : 'Erro ao carregar sistemas.');
+    } finally {
+      if (!isCancelled()) setSystemsLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       await Promise.resolve();
       if (cancelled) return;
-      setSystemsLoading(true);
-      try {
-        const items = await loadSystems();
-        if (!cancelled) setSystems(flattenSystems(items));
-      } catch (err) {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Erro ao carregar sistemas.');
-      } finally {
-        if (!cancelled) setSystemsLoading(false);
-      }
+      await fetchSystemsInto(false, () => cancelled);
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Achado do mantenedor (2026-07-08): editor de draft nunca ofereceu "+
+  // Adicionar Sistema" (só existia no form normal de criar mesa, StepSystem.tsx)
+  // — refreshSystems força recarregar o catálogo (bypassa cache de 5min) após
+  // o SystemSuggestionModal criar um sistema novo, pro combobox mostrá-lo já.
+  const refreshSystems = () => fetchSystemsInto(true, () => false);
 
   useEffect(() => {
     if (!draftApi.getAiAutomationConfig && !draftApi.getLlmActivity) return;
@@ -257,9 +270,13 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     dispatch({ type: 'SET_FIELD', key, value });
   };
 
-  const handleSystemChange = (systemId: string) => {
+  // knownName (achado CodeRabbit PR #135): sistema recém-criado pelo
+  // SystemSuggestionModal ainda não está em `systems` (refreshSystems em
+  // andamento) — systems.find falha e system_name ficaria com o nome antigo.
+  // O modal já retorna o nome do sistema criado; usa direto.
+  const handleSystemChange = (systemId: string, knownName?: string) => {
     const selected = systems.find((s) => s.id === systemId);
-    dispatch({ type: 'SET_SYSTEM', systemId, systemName: selected?.name_pt || selected?.name || state.form.system_name });
+    dispatch({ type: 'SET_SYSTEM', systemId, systemName: knownName || selected?.name_pt || selected?.name || state.form.system_name });
   };
 
   // Achado do mantenedor (2026-07-08): sugestão vinda do learning-store pode
@@ -522,7 +539,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   return {
     form: state.form, updateForm,
     dirty: state.dirty,
-    systems, systemsLoading,
+    systems, systemsLoading, refreshSystems,
     scenarios, scenariosLoading,
     vttPlatforms, vttPlatformsLoading,
     communicationPlatforms, communicationPlatformsLoading,

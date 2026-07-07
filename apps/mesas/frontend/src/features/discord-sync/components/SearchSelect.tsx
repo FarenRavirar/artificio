@@ -61,11 +61,15 @@ export function SearchSelect({
       </div>
       {open && (
         <div className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-white/10 bg-[#13213f] p-1 shadow-xl">
-          {clearLabel && value && (
+          {/* Achado do mantenedor (2026-07-08): opção "Nenhuma" só aparecia com
+              value já preenchido (nada pra limpar quando vazio) — sem opção
+              visível de confirmar "sem VTT/comunicação" quando o campo já
+              nasce vazio. Sempre visível agora, não condicional a value. */}
+          {clearLabel && (
             <button
               type="button"
               onMouseDown={(e) => { e.preventDefault(); onChange(''); setOpen(false); setQuery(''); }}
-              className="w-full rounded-md px-3 py-1.5 text-left text-sm text-white/50 hover:bg-white/10"
+              className={`w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors ${value === '' ? 'bg-orange-500/20 text-white' : 'text-white/50 hover:bg-white/10'}`}
             >
               {clearLabel}
             </button>
