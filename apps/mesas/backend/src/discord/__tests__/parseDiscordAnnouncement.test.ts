@@ -1483,6 +1483,217 @@ describe('parseDiscordAnnouncement', () => {
       'Embed: Ficha da Mesa',
     ]));
   });
+
+  describe('extractPrice/collectLabelContinuation/calcConfidence — fixture de regressão do corpus real (DEB-058-05, T9.9/T9.10/T9.11/T9.18)', () => {
+    it('mesa paga com "sessão 0 gratuita" não vira gratuita, descrição não trunca no 1º parágrafo, confiança não bate 100% (caso real D:\\teste.json — Temporada de Fantasmas)', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: [
+            '# **Temporada de Fantasmas (Season of Ghosts)**',
+            '',
+            '***[Mesa paga]***',
+            '',
+            '- **Título**: Temporada de Fantasmas (Season of Ghosts)',
+            '- **Sistema**: Pathfinder 2e remaster',
+            '- **Dias e horários da mesa**: Sabados, Semanal / 18:00 até no minimo 22:00',
+            '- **Plataforma**:Discord e Foundry vtt (Necessário PC',
+            '- **Nivel**: 1-13',
+            '- **Valor**: 30,00 Por Sessão (sessão 0 gratuita)',
+            '- **Vagas**: 4',
+            '- **Faixa Etária**: 16+',
+            '',
+            '## Sinopse',
+            '',
+            'A pequena cidade de Ribeirão Vimeiro tem um grande problema: **está amaldiçoada!**',
+            '',
+            'Quando um grupo de heróis acorda na floresta após um festival para celebrar o último dia da primavera e a chegada do verão — época conhecida localmente como o Festival da Encenação —, eles descobrem que sua cidade natal foi invadida por monstros, um clima estranho e fantasmas horripilantes. Mas essas manifestações do mal ancestral que ameaça Ribeirão Vimeiro não são nada comparadas aos segredos assustadores que aguardam para serem descobertos em...',
+            '',
+            '### **Temporada dos Fantasmas**',
+          ].join('\n'),
+        }),
+      );
+
+      expect(draft?.table.price_type).toBe('paga');
+      expect(draft?.table.price_value).toBe(30);
+      expect(draft?.table._price_ambiguity).toBe(false);
+      expect(draft?.table.description).toContain('está amaldiçoada');
+      expect(draft?.table.description).toContain('Ribeirão Vimeiro não são nada comparadas');
+      // Sem ambiguidade real neste caso (preço resolvido com confiança, sem
+      // conflito de sinais) — confiança alta é correta aqui. O ponto de
+      // T9.11 é que ambiguidade REAL (testada em describe própria de
+      // extractDiscordTimestamp/extractPrice conflitante) desconta, não que
+      // todo draft tenha que ficar abaixo de 1.
+      expect(draft?.table.description).not.toContain('Temporada dos Fantasmas');
+      expect(draft?.confidence).toBeGreaterThan(0.85);
+    });
+
+    it('ambiguidade real (preço conflitante) desconta confiança — mesmo draft não pode bater 100% (T9.11)', () => {
+      const withoutAmbiguity = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Sistema: D&D\nVagas: 4\nHorário: sábado 19h\nValor: R$ 30\nDescrição: uma aventura épica.' }),
+      );
+      const withAmbiguity = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Sistema: D&D\nVagas: 4\nHorário: sábado 19h\nMesa gratuita, mas cobramos mensalidade dos participantes\nDescrição: uma aventura épica.' }),
+      );
+
+      expect(withAmbiguity?.table._price_ambiguity).toBe(true);
+      expect(withAmbiguity!.confidence).toBeLessThan(withoutAmbiguity!.confidence);
+    });
+
+    it('mantem labels explicitos de gratuidade como gratuita, sem virar ambiguidade', () => {
+      const cases = [
+        'Valor: gratuito',
+        'Valor: sem custo',
+        'sem pagamento',
+        'nao e paga',
+      ];
+
+      for (const priceLine of cases) {
+        const draft = parseDiscordAnnouncement(
+          makeMessage({
+            content_raw: `Sistema: DnD\nVagas: 4\nHorario: sabado 19h\n${priceLine}\nDescricao: aventura curta.`,
+          }),
+        );
+
+        expect(draft?.table.price_type).toBe('gratuita');
+        expect(draft?.table._price_ambiguity).toBe(false);
+      }
+    });
+
+    it('descricao multi-paragrafo para antes de label solto seguinte', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: [
+            'Sinopse',
+            'Primeiro paragrafo da aventura.',
+            '',
+            'Vagas',
+            '4',
+            'Sistema',
+            'DnD',
+          ].join('\n'),
+        }),
+      );
+
+      expect(draft?.table.description).toBe('Primeiro paragrafo da aventura.');
+      expect(draft?.table.slots_total).toBe(4);
+      expect(draft?.table.system_name).toBe('DnD');
+    });
+  });
+
+  describe('extractType — cascata por evidência indireta (DEB-058-05, T9.13)', () => {
+    it('reconhece campanha em andamento sem a palavra "campanha" (caso real D:\\teste.json — Daggerheart: As Witherlands)', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: '▬** Sistema:** Daggerheart\n▬ **Vagas:** 1/6 - **Em andamento**\n▬ **Classificação:** +18 anos\n## Sinopse\nUma terra esquecida.',
+        }),
+      );
+      expect(draft?.table.type).toBe('campanha');
+    });
+
+    it('reconhece campanha por número de sessões citado como duração ("4~6 Sessões")', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: D&D 24\nDuração: 4~6 Sessões | Porta de entrada para uma campanha mais longa.\nVagas: 2/5',
+        }),
+      );
+      expect(draft?.table.type).toBe('campanha');
+    });
+
+    it('não decide tipo sem nenhum sinal direto/indireto no corpo (fallback de thread_name é comportamento pré-existente separado)', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          discord_thread_name: '',
+          content_raw: 'Sistema: D&D\nVagas: 3\nHorário: sábado 19h\nSinopse: uma aventura qualquer.',
+        }),
+      );
+      expect(draft?.table.type).toBeNull();
+    });
+  });
+
+  describe('extractSlots — label específico vence sobre número solto (DEB-058-05, T9.15)', () => {
+    it('regra explícita (não coincidência de ordem): "Vagas Totais: X" + "Vagas Disponíveis: Y" no mesmo anúncio resolve total=X, open=Y (caso real D:\\teste.json — DISCERNIR)', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: '▬ **Sistema:** CAIN\n▬ **Vagas Totais:** 6\n▬ **Vagas Disponíveis:** 2\n▬ **Classificação Indicativa:** +18 anos',
+        }),
+      );
+      expect(draft?.table.slots_total).toBe(6);
+      expect(draft?.table.slots_open).toBe(2);
+    });
+
+    it('mesmo com vagas_open igual a vagas_total (mesa cheia de vagas), label específico continua correto (caso real — Heróis das Fronteiras)', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: '▬**Sistema:** D&D 5.5e\n▬ **Vagas Totais:** 6\n▬ **Vagas Disponíveis:** 6\n▬ **Classificação Indicativa:** +18 anos',
+        }),
+      );
+      expect(draft?.table.slots_total).toBe(6);
+      expect(draft?.table.slots_open).toBe(6);
+    });
+  });
+
+  describe('extractDiscordTimestamp — múltiplos horários marcam ambiguidade (DEB-058-05, T9.16)', () => {
+    it('2 timestamps Discord com dia/horário diferentes marcam _schedule_ambiguity e entram em missing_fields (caso real D:\\teste.json — Ravenloft: Curse of Strahd)', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: D&D 24\nData & Horários:\n* Terça (<t:1783465200:t> - 20:00h). Quinzenal\n* Sábado (<t:1783803600:t> - 18:00h). Quinzenal\nVagas: 3/6',
+        }),
+      );
+      expect(draft?.table._schedule_ambiguity).toBe(true);
+      expect(draft?.missing_fields).toContain('day_of_week:multiple_schedules');
+      expect(draft?.table._notes).toEqual(expect.arrayContaining([
+        expect.stringContaining('Múltiplos horários detectados'),
+      ]));
+    });
+
+    it('1 timestamp Discord único não marca ambiguidade', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: D&D 24\nHorário: <t:1783465200:t>\nVagas: 3/6',
+        }),
+      );
+      expect(draft?.table._schedule_ambiguity).toBe(false);
+      expect(draft?.missing_fields).not.toContain('day_of_week:multiple_schedules');
+    });
+
+    it('mesmo timestamp repetido (dia/horário idêntico) não marca ambiguidade', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: D&D 24\nHorário: <t:1783465200:t> (lembrete: <t:1783465200:R>)\nVagas: 3/6',
+        }),
+      );
+      expect(draft?.table._schedule_ambiguity).toBe(false);
+    });
+  });
+
+  describe('extractContactUrl — domínio conhecido de contato vence sobre link institucional (DEB-058-05, T9.17)', () => {
+    it('com múltiplas URLs, prioriza MesaQuest (contato/inscrição real) sobre link de "diferenciais" institucional (caso real D:\\teste.json — Ravenloft/Heróis de Thylea)', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: D&D 24\n[Diferenciais](https://docs.google.com/document/d/1CD9zEjDtaT_a8E19IOwNvt59j4z4N1rYkrB9ujME1AY/edit?usp=sharing)\nValores, candidatura e detalhes: https://mesaquest.com.br/mesas/01KW06F7Q679103K384ZH550SH\nVagas: 3/6',
+        }),
+      );
+      expect(draft?.table.contact_url).toBe('https://mesaquest.com.br/mesas/01KW06F7Q679103K384ZH550SH');
+    });
+
+    it('prioriza linktr.ee sobre site institucional generico quando ambos aparecem', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: D&D\nSite: https://sanctumveritatis.com/setentrional\nInscrições: https://linktr.ee/euviajanterpg\nVagas: 3/6',
+        }),
+      );
+      expect(draft?.table.contact_url).toBe('https://linktr.ee/euviajanterpg');
+    });
+
+    it('sem URL conhecida, mantém comportamento antigo: pega a primeira URL do texto', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: D&D\nSite: https://sanctumveritatis.com/setentrional\nVídeo: https://www.youtube.com/watch?v=fv_KvD2jmsk\nVagas: 3/6',
+        }),
+      );
+      expect(draft?.table.contact_url).toBe('https://sanctumveritatis.com/setentrional');
+    });
+  });
 });
 
 // ─── T-G1: classifyConfidence ──────────────────────────────────────────

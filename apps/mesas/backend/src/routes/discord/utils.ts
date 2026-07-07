@@ -452,6 +452,45 @@ export async function parseDiscordMessage(
 
 export type DiscordDraftOutcome = 'parsed' | 'ignored' | 'reconciled' | 'discarded';
 
+const LLM_FIELD_MAP: Record<string, string> = {
+  system_name: 'system_hint',
+  raw_system_hint: 'system_hint',
+  title: 'title',
+  day_of_week: 'day_of_week',
+  start_time: 'start_time',
+  slots_total: 'slots_total',
+  slots_open: 'slots_open',
+  price_type: 'price_type',
+  price_value: 'price_value',
+  contact_url: 'contact_url',
+  description: 'description',
+};
+
+const AMBIGUITY_TARGETS: Record<string, string[]> = {
+  _price_ambiguity: ['price_type', 'price_value'],
+  _schedule_ambiguity: ['day_of_week', 'start_time'],
+  _slots_ambiguity: ['slots_total', 'slots_open'],
+  _homebrew_suspect: ['system_hint'],
+};
+
+function getLlmTargetFields(
+  missingFields: string[],
+  table: Record<string, unknown>,
+  storeFields: Record<string, unknown>,
+): string[] {
+  const targets = new Set<string>();
+  for (const missing of missingFields) {
+    const base = missing.split(':')[0];
+    const mapped = LLM_FIELD_MAP[base];
+    if (mapped && !(base in storeFields)) targets.add(mapped);
+  }
+  for (const [flag, fields] of Object.entries(AMBIGUITY_TARGETS)) {
+    if (!table[flag]) continue;
+    for (const field of fields) targets.add(field);
+  }
+  return Array.from(targets);
+}
+
 /**
  * REV-039: enriquecimento LLM p/ baixa confiança/campos faltantes. Best-effort:
  * falha/timeout/sem-update retorna o `normalized` original. Extraído de
@@ -463,12 +502,7 @@ async function enrichDraftWithLlm(
   normalized: ReturnType<typeof normalizeDiscordTableDraft>,
 ): Promise<ReturnType<typeof normalizeDiscordTableDraft>> {
   const aiConfig = getAiAutomationConfig();
-  if (!isAiAssistEnabled(aiConfig)) return normalized;
-
-  const shouldAskLlm =
-    (normalized.draft.confidence ?? 0) < aiConfig.lowConfidenceThreshold ||
-    normalized.draft.missing_fields.length > 0;
-  if (!shouldAskLlm || !normalized.draft.table) return normalized;
+  if (!normalized.draft.table) return normalized;
 
   const table = normalized.draft.table as unknown as Record<string, unknown>;
 
@@ -506,12 +540,11 @@ async function enrichDraftWithLlm(
   const rawText = typeof message.content_raw === 'string' ? message.content_raw : '';
   let iaFields: Record<string, unknown> = {};
   let iaModel = 'n/a';
-  if (!storeResolvedAllMissing && rawText.length > 50) {
-    const existingFields: Record<string, unknown> = {};
-    if (table.title) existingFields.title = table.title;
-    if (table.system_name) existingFields.system_name = table.system_name;
-    if (table.day_of_week) existingFields.day_of_week = table.day_of_week;
-    if (table.start_time) existingFields.start_time = table.start_time;
+  const targetFields = getLlmTargetFields(normalized.draft.missing_fields, table, storeFields);
+  if (isAiAssistEnabled(aiConfig) && !storeResolvedAllMissing && rawText.length > 50 && targetFields.length > 0) {
+    const existingFields = Object.fromEntries(
+      Object.entries(table).filter(([, value]) => value !== null && value !== undefined && value !== ''),
+    );
 
     const draftForContext = {
       ...normalized.draft,
@@ -528,6 +561,7 @@ async function enrichDraftWithLlm(
       retrievalContext,
       ruleHits: ruleLookup.hits,
       ruleConflicts: ruleLookup.conflicts,
+      targetFields,
     });
     if (llmResult) {
       iaFields = buildAiSuggestionFields(llmResult.extracted, normalized.draft.table);

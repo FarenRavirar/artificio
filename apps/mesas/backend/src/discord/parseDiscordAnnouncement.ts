@@ -337,36 +337,105 @@ function extractModality(text: string): TableDraftModality | null {
   return null;
 }
 
-// Extrai tipo de campanha do texto
+// Extrai tipo de campanha do texto. Cascata: vocabulário direto (one-shot/
+// campanha/aberta) primeiro; sem esse sinal, indícios indiretos reais de
+// campanha em andamento (duração multi-sessão citada, "em andamento",
+// "recrutamento" pra mesa já rodando) — nunca inventa um tipo sem NENHUM
+// sinal, direto ou indireto.
 function extractType(text: string): TableDraftType | null {
   const lower = text.toLowerCase();
   if (/\bone[\s-]?shot\b/.test(lower)) return 'one-shot';
   if (/\bcampanha\b/.test(lower)) return 'campanha';
   if (/\baberta\b|\bdrop[\s-]?in\b/.test(lower)) return 'aberta';
+  // Sinal indireto: "em andamento"/"já iniciada" (mesa rodando, não é one-shot
+  // isolado) ou número de sessões citado como estimativa de duração (só
+  // campanha tem "N sessões" como plano — one-shot é 1 sessão só, não teria
+  // essa métrica). Caso real: "Daggerheart: As Witherlands" (D:\teste.json)
+  // não cita "campanha" em nenhum lugar, só "Vagas: 1/6 - Em andamento".
+  if (/\bem\s+andamento\b|\bj[aá]\s+(?:iniciada|come[çc]ou|em\s+andamento)\b/.test(lower)) return 'campanha';
+  if (/\b\d+\s*[aà~–—-]\s*\d+\s+sess[õo]es\b/.test(lower)) return 'campanha';
+  if (/\b\d+\+?\s+sess[õo]es\b/.test(lower)) return 'campanha';
   return null;
 }
 
-// Extrai informações de preço do texto
-function extractPrice(text: string): { priceType: TableDraftPriceType | null; priceValue: number | null } {
-  const priceMatch = /R\$\s{0,3}(\d+(?:[,.]\d{1,2})?)(?!\d)/i.exec(text)
-    ?? /(\d+(?:[,.]\d{1,2})?)(?!\d)\s{0,3}(?:R\$|reais)/i.exec(text);
+/**
+ * Extrai preço do texto. Não é caça-palavra-chave: segue uma cascata de
+ * evidência por FORÇA de sinal (label explícito > texto livre > ausência) e
+ * detecta CONFLITO real (menção de cobrança + menção de gratuidade sem relação
+ * de sessão-zero/período promocional) em vez de decidir por chute — nesse caso
+ * devolve `null` e marca `ambiguous: true`, o que reduz a confiança do draft
+ * (calcConfidence) e entra em `missing_fields` para revisão humana.
+ *
+ * "Sessão 0/zero gratuita" e "1ª semana grátis, depois R$X" são padrões de
+ * PERÍODO PROMOCIONAL — a mesa é PAGA com uma isenção pontual, não GRATUITA.
+ * Esse recorte é removido do texto antes de avaliar o sinal geral de
+ * gratuidade/cobrança, senão a palavra "gratuita" solta mascara o preço real.
+ */
+const PROMO_FREE_PERIOD_RE_LIST = [
+  /\bsess[aã]o\s*(?:0|zero)\s+(?:[ée]\s+)?gr[aá]tis\b/gi,
+  /\bsess[aã]o\s*(?:0|zero)\s+gratuita\b/gi,
+  /\b(?:primeir[ao]|1[ªa])\s+(?:sess[aã]o|semana|aula)\s+(?:[ée]\s+)?gr[aá]tis\b/gi,
+  /\b(?:primeir[ao]|1[ªa])\s+(?:sess[aã]o|semana|aula)\s+gratuita\b/gi,
+];
+// Label explícito de gratuidade ("Valor: gratuito/sem custo/...") e negação de
+// cobrança ("não é paga", "sem pagamento", "sem mensalidade" soltos no texto,
+// não só colados no label "valor") — precisam sair do texto ANTES de avaliar
+// hasPaidSignal, senão "pagamento"/"mensalidade" dentro da própria frase livre
+// (sem "valor:" na frente) casam com PAID_SIGNAL_RE e o par vira falso
+// conflito/ambíguo (achado ao corrigir review dos bots na PR #128 — P2 sobre
+// "Valor: gratuito"/"sem pagamento"/"não é paga" virando ambíguo).
+const FREE_PRICE_LABEL_RE = /\bvalor\s*:?\s{0,3}(?:gratuit[oa]s?|free|sem\s+(?:custo|valor|pagamento|mensalidade))\b/gi;
+const NEGATED_PAID_RE = /\bn[aã]o\s+[ée]\s+pag[ao]\b|\bsem\s+(?:custo|pagamento|mensalidade)\b/gi;
+const FREE_SIGNAL_RE = /\bgratuit[oa]s?\b|\bfree\b|\bsem\s+(?:custo|valor|pagamento|mensalidade)\b|\bn[aã]o\s+[ée]\s+pag[ao]\b/;
+const PAID_SIGNAL_RE = /\b(?:mesa\s+)?pag[ao]\b|\bvalor\s*:|\bpagamento\b|\bmensalidade\b|\bvalor\s+a\s+combinar\b|\ba\s+combinar\b/;
+
+function stripPromoFreePeriods(value: string): string {
+  return PROMO_FREE_PERIOD_RE_LIST.reduce((acc, pattern) => acc.replace(pattern, ''), value);
+}
+
+function stripFreePricePhrases(value: string): string {
+  return value.replace(FREE_PRICE_LABEL_RE, '').replace(NEGATED_PAID_RE, '');
+}
+
+function extractPrice(text: string): { priceType: TableDraftPriceType | null; priceValue: number | null; ambiguous: boolean } {
+  // Nível 1 — valor numérico explícito: "R$ 30", "30 reais", ou label "Valor: 30,00"
+  // (sem exigir R$/reais — anúncios reais citam só o número após o rótulo).
+  // Sinal mais forte que existe: número > 0 citado como preço é sempre PAGA,
+  // mesmo que o mesmo anúncio também mencione "sessão 0 gratuita" (isenção
+  // pontual, não o preço da mesa). Markdown (`**Valor**:`) é removido antes do
+  // regex de label — senão `**` entre a palavra e o `:` quebra o match.
+  const cleaned = text.replaceAll('*', '');
+  const priceMatch = /R\$\s{0,3}(\d+(?:[,.]\d{1,2})?)(?!\d)/i.exec(cleaned)
+    ?? /(\d+(?:[,.]\d{1,2})?)(?!\d)\s{0,3}(?:R\$|reais)/i.exec(cleaned)
+    ?? /\bvalor\s*:?\s{0,3}(\d+(?:[,.]\d{1,2})?)(?!\d)/i.exec(cleaned);
   if (priceMatch) {
     const value = parseFloat(priceMatch[1].replace(',', '.'));
     if (!Number.isNaN(value) && value > 0) {
-      return { priceType: 'paga', priceValue: value };
+      return { priceType: 'paga', priceValue: value, ambiguous: false };
     }
   }
-  const lower = text.toLowerCase();
-  // Gratuita antes de paga: "valor: gratuito", "não é paga" e "mesa gratuita"
-  // baterem primeiro no regex de paga (pag[ao]/valor) e nunca chegarem no ramo
-  // gratuito. Também detecta negação explícita ("não é pago", "sem valor").
-  if (/\bgratuit[oa]s?\b|\bfree\b|\bsem\s+(?:custo|valor|pagamento|mensalidade)\b|\bn[aã]o\s+[ée]\s+pag[ao]\b/.test(lower)) {
-    return { priceType: 'gratuita', priceValue: null };
+
+  const lower = cleaned.toLowerCase();
+  const withoutPromoFreePeriod = stripPromoFreePeriods(lower);
+
+  const hasFreeSignal = FREE_SIGNAL_RE.test(withoutPromoFreePeriod);
+  // Nível 2 — cobrança sem valor numérico: "mesa paga", "valor a combinar",
+  // "pagamento via pix", "mensalidade". "Por sessão" sozinho é ambíguo demais
+  // (aparece em frases sem relação a preço) — exige contexto de valor/pagamento.
+  const hasPaidSignal = PAID_SIGNAL_RE.test(stripFreePricePhrases(withoutPromoFreePeriod));
+
+  if (hasFreeSignal && hasPaidSignal) {
+    // Conflito real: texto cita gratuidade E cobrança fora do padrão reconhecido
+    // de período promocional. Não decide sozinho — vira needs_review.
+    return { priceType: null, priceValue: null, ambiguous: true };
   }
-  if (/\b(?:mesa\s+)?pag[ao]\b|\bvalor\s*:|\bpagamento\b|\bmensalidade\b|\bpor\s+sess[aã]o\b/.test(lower)) {
-    return { priceType: 'paga', priceValue: null };
+  if (hasPaidSignal) {
+    return { priceType: 'paga', priceValue: null, ambiguous: false };
   }
-  return { priceType: null, priceValue: null };
+  if (hasFreeSignal) {
+    return { priceType: 'gratuita', priceValue: null, ambiguous: false };
+  }
+  return { priceType: null, priceValue: null, ambiguous: false };
 }
 
 // Extrai número de vagas do texto
@@ -455,7 +524,7 @@ function slotsNVagas(text: string): SlotsResult | null {
 }
 
 function extractSlots(text: string): SlotsResult {
-  const cleaned = text.replace(/\*/g, '');
+  const cleaned = text.replaceAll('*', '');
   // Ordem: padrões explícitos primeiro; "mesa em andamento" (sem padrão explícito)
   // cai no fallback null/null (idêntico ao default) — DEB-048-16.
   return slotsViaForms(cleaned)
@@ -526,10 +595,26 @@ function extractStartTime(text: string): string | null {
   return null;
 }
 
-// Extrai dia da semana e horário de timestamps Discord <t:UNIX:FORMATO>
-// Usa fuso horário América/São Paulo (Brasil), não UTC.
-function extractDiscordTimestamp(text: string): { dayOfWeek: string; startTime: string } | null {
+/**
+ * Extrai dia da semana e horário de TODOS os timestamps Discord <t:UNIX:FORMATO>
+ * válidos no texto (fuso América/São Paulo, não UTC). Campo `day_of_week`/
+ * `start_time` do form é singular (1 mesa = 1 horário recorrente); quando o
+ * texto cita 2+ timestamps com dia OU horário diferentes (caso real —
+ * "Ravenloft: Curse of Strahd" em `D:\teste.json` cita Terça 20:00 quinzenal
+ * E Sábado 18:00 quinzenal, dias alternados da mesma campanha), não escolhe o
+ * primeiro silenciosamente: marca `ambiguous: true` pra revisão humana decidir
+ * qual usar (ou registrar os dois manualmente), igual ao padrão de
+ * `_slots_ambiguity`/`_price_ambiguity`.
+ */
+function extractDiscordTimestamp(text: string): { dayOfWeek: string; startTime: string; ambiguous: boolean } | null {
   const pattern = /<t:(\d+):([a-zA-Z]+)>/g;
+  const formatter = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const found: { dayOfWeek: string; startTime: string }[] = [];
   let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(text)) !== null) {
@@ -538,23 +623,20 @@ function extractDiscordTimestamp(text: string): { dayOfWeek: string; startTime: 
     const date = new Date(unix * 1000);
     if (Number.isNaN(date.getTime())) continue;
 
-    const formatter = new Intl.DateTimeFormat('pt-BR', {
-      timeZone: 'America/Sao_Paulo',
-      weekday: 'long',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
     const parts = formatter.formatToParts(date);
     const weekday = parts.find(p => p.type === 'weekday')?.value ?? null;
     const hour = parts.find(p => p.type === 'hour')?.value ?? '00';
     const minute = parts.find(p => p.type === 'minute')?.value ?? '00';
-    if (!weekday) return null;
+    if (!weekday) continue;
     // Intl 'long' devolve "segunda-feira"; o canônico do projeto (extractDayOfWeek)
     // é a forma curta "segunda". Normalizar removendo o sufixo "-feira".
     const dayOfWeek = weekday.toLowerCase().replace(/-feira$/, '');
-    return { dayOfWeek, startTime: `${hour}:${minute}` };
+    found.push({ dayOfWeek, startTime: `${hour}:${minute}` });
   }
-  return null;
+
+  if (found.length === 0) return null;
+  const distinct = new Set(found.map((f) => `${f.dayOfWeek}|${f.startTime}`));
+  return { ...found[0], ambiguous: distinct.size > 1 };
 }
 
 function deriveFrequency(type: TableDraftType | null, dayOfWeek: string | null): 'semanal' | null {
@@ -594,10 +676,39 @@ function splitFreeTextList(value: string): string[] | null {
 }
 
 
-// Extrai URL de contato (discord invite, forms, etc.)
+// Dominios reais de contato/inscricao vistos no corpus (D:\teste.json).
+const KNOWN_CONTACT_URL_PATTERNS = [
+  /discord(?:app)?\.com\/invite\//i,
+  /discord\.gg\//i,
+  /forms\.gle\//i,
+  /docs\.google\.com\/forms\//i,
+  /typeform\.com\//i,
+  /wa\.me\//i,
+  /chat\.whatsapp\.com\//i,
+  /t\.me\//i,
+  /mesaquest\.com\.br\//i,
+  /linktr\.ee\//i,
+];
+
+function isKnownContactUrl(url: string): boolean {
+  return KNOWN_CONTACT_URL_PATTERNS.some((pattern) => pattern.test(url));
+}
+
+/**
+ * Extrai URL de contato (discord invite, forms, MesaQuest, etc.). Cascata: com
+ * 2+ URLs no texto, prioriza domínio de contato/inscrição CONHECIDO sobre
+ * qualquer outra (site institucional, link de "diferenciais", playlist) — sem
+ * isso, a primeira URL do texto vence só por ordem de aparição, que pode ser
+ * um link de referência em vez do canal de inscrição real (caso real: "Heróis
+ * de Thylea" em D:\teste.json cita site institucional, link de reviews E link
+ * de candidatura no mesmo anúncio, em ordens variadas). Com 0 ou 1 URL
+ * conhecida, comportamento é o mesmo de antes (pega a única disponível).
+ */
 function extractContactUrl(text: string): string | null {
-  const urlMatch = /https?:\/\/[^\s<>"']+/.exec(text);
-  return urlMatch ? urlMatch[0] : null;
+  const allMatches = Array.from(text.matchAll(/https?:\/\/[^\s<>"']+/g), (m) => m[0]);
+  if (allMatches.length === 0) return null;
+  const known = allMatches.find(isKnownContactUrl);
+  return known ?? allMatches[0];
 }
 
 function extractContactDiscord(text: string): string | null {
@@ -614,7 +725,12 @@ function cleanLabelLine(line: string): string {
   // `▬` órfão em `**▬ label`); classe de bullets ampliada (`»«►▶●…`) + emoji de
   // liderança comuns no template da comunidade, que antes travavam o match de
   // labels já conhecidos (sistema/vagas/data).
+  // Heading markdown (`#`..`######`) também precisa cair aqui: `## Sinopse`
+  // sem isso nunca normaliza pra `sinopse`, e extractLabelValue cai no
+  // fallback de body inteiro sem stop de continuação (achado ao corrigir
+  // review dos bots na PR #128 — descrição engolindo cabeçalho seguinte).
   return line
+    .replace(/^#{1,6}\s+/, '')
     .replace(/\*\*/g, '')
     .replace(/__/g, '')
     .replace(/^[\s▬•\-–—»«►▶◄●○◆◇■□▪▫☆★✦✧➤➥➔→·|]+/u, '')
@@ -664,28 +780,83 @@ function extractHostDiscordId(text: string): string | null {
   return null;
 }
 
-// Coleta linhas de continuação de um rótulo até linha vazia (com valor) ou novo rótulo.
-function collectLabelContinuation(lines: string[], startIdx: number, firstValue: string): string[] {
+const BARE_LABEL_STOP_KEYS = new Set([
+  'sistema',
+  'jogo',
+  'rpg',
+  'mesa',
+  'titulo',
+  'nome da mesa',
+  'aventura',
+  'vagas',
+  'vagas disponiveis',
+  'vagas abertas',
+  'dias e horarios da mesa',
+  'horario',
+  'data',
+  'valor',
+  'preco',
+  'plataforma',
+  'plataformas',
+  'local do jogo',
+  'faixa etaria',
+  'classificacao',
+  'contato',
+  'inscricao',
+  'mestre',
+  'gm',
+  'narrador',
+  'dm',
+]);
+
+function isBareLabelStopLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (/^#{1,6}\s+\S/.test(trimmed)) return true;
+  const cleaned = cleanLabelLine(trimmed).replace(/^#{1,6}\s+/, '').trim();
+  return cleaned.length > 0 && BARE_LABEL_STOP_KEYS.has(normalizeLabelKey(cleaned));
+}
+
+function shouldStopLabelContinuation(line: string): boolean {
+  if (splitLabelLine(line)) return true;
+  if (isBareLabelStopLine(line)) return true;
+  return /^https?:\/\//i.test(line);
+}
+
+// Coleta linhas de continuação de um rótulo. Por padrão para na 1ª linha vazia
+// (com valor já coletado) ou novo rótulo — certo pra campo curto (Sistema,
+// Vagas, Plataforma). `multiParagraph` atravessa linhas vazias (parágrafos)
+// e só para em novo rótulo real ou fim do texto — necessário pra "Sinopse"/
+// "Descrição", que são naturalmente multi-parágrafo (linha vazia separa
+// parágrafo, não marca fim do campo).
+function collectLabelContinuation(lines: string[], startIdx: number, firstValue: string, multiParagraph = false): string[] {
   const values: string[] = [];
   if (firstValue) values.push(firstValue);
 
   for (let j = startIdx; j < lines.length; j++) {
     const next = lines[j].trim();
     if (!next) {
+      if (multiParagraph) {
+        // preserva a quebra de parágrafo no valor final, mas só se já há
+        // conteúdo (evita linha em branco solta no início do valor)
+        if (values.length > 0) values.push('');
+        continue;
+      }
       if (values.length > 0) break;
       continue;
     }
-    if (splitLabelLine(next)) break;
-    // DEB-052-01: linha de URL não é continuação de um valor de rótulo
-    // (antes "https:" era falso-rótulo e quebrava aqui; com o guard, evita
-    // que a URL seja engolida no valor anterior — ex.: Sistema).
-    if (/^https?:\/\//i.test(next)) break;
+    if (shouldStopLabelContinuation(next)) break;
     values.push(next);
   }
+  // remove linhas vazias no fim (podem sobrar se o texto termina em branco)
+  while (values.at(-1) === '') values.pop();
   return values;
 }
 
-function extractLabelValue(text: string, labels: string[], opts?: { keepParenthetical?: boolean }): string | null {
+function extractLabelValue(
+  text: string,
+  labels: string[],
+  opts?: { keepParenthetical?: boolean; multiParagraph?: boolean },
+): string | null {
   const wanted = new Set(labels.map(normalizeLabelKey));
   const lines = text.split(/\r?\n/);
 
@@ -704,7 +875,7 @@ function extractLabelValue(text: string, labels: string[], opts?: { keepParenthe
       continuationStart = i + 1;
     }
 
-    const values = collectLabelContinuation(lines, continuationStart, firstValue ?? '');
+    const values = collectLabelContinuation(lines, continuationStart, firstValue ?? '', opts?.multiParagraph);
 
     // keepParenthetical: o parêntese carrega o sinal de autoria ("(Sistema próprio
     // usando D&D...)") que o gate DEB-048-27 precisa. Matching/título usa o corte.
@@ -731,7 +902,14 @@ const SEPARATOR_LINE_RE = new RegExp(`^[${SEPARATOR_LINE_CHARS}\\s]{3,}$`);
 // Marcador decorativo solto NO INÍCIO de uma linha-de-campo (ex.: "▬ Sistema:
 // X", "» Título: Y", "-# nota") — não é linha 100% decorativa (tem dado
 // depois), mas o símbolo em si não carrega informação. Remove só o prefixo.
-const LEADING_MARKER_RE = new RegExp(`^[${SEPARATOR_LINE_CHARS}]+\\s*`);
+// `#` fica de fora deste marcador (mesmo estando em SEPARATOR_LINE_CHARS pra
+// linha 100% decorativa acima): heading markdown (`## Sinopse`, `### Titulo`)
+// é estrutura, não decoração solta — precisa sobreviver até
+// isBareLabelStopLine reconhecer o próximo cabeçalho como fim de continuação
+// multi-parágrafo (achado ao corrigir review dos bots na PR #128 —
+// descrição engolindo o cabeçalho/seção seguinte).
+const LEADING_MARKER_CHARS = SEPARATOR_LINE_CHARS.replace('#', '');
+const LEADING_MARKER_RE = new RegExp(`^[${LEADING_MARKER_CHARS}]+\\s*`);
 // Bloco de 4+ repetições consecutivas do MESMO símbolo decorativo, em
 // QUALQUER posição da linha (ex.: "» Título: X ▬▬▬▬▬▬▬▬▬▬▬" — separador colado
 // depois do dado, não numa linha própria). Texto natural nunca repete o mesmo
@@ -822,14 +1000,33 @@ function normalizeTitle(value: string | null): string | null {
   return cleanTrademark(cleaned) || null;
 }
 
-// Calcula confiança com base nos campos preenchidos
+// Penalidade fixa por sinal de ambiguidade detectado durante o parse — um
+// campo "preenchido" que na verdade veio de heurística conflitante não deve
+// contar como sinal pleno de confiança. Cada ambiguidade citada em `_notes`/
+// `_slots_ambiguity`/`_price_ambiguity`/`_homebrew_suspect` desconta um passo
+// fixo; nunca deixa o draft bater 100% quando há alguma.
+const AMBIGUITY_PENALTY = 0.15;
+
+// Calcula confiança com base nos campos preenchidos, descontada por ambiguidade
+// real detectada no parse (não é só "campo != null" — um valor extraído por
+// heurística conflitante não é sinal pleno de confiança).
 function calcConfidence(table: DiscordTableDraftTable): number {
   const fields: Array<keyof DiscordTableDraftTable> = [
     'title', 'system_name', 'type', 'modality', 'price_type',
     'slots_total', 'day_of_week', 'start_time', 'description',
   ];
   const filled = fields.filter((f) => table[f] != null).length;
-  return Math.round((filled / fields.length) * 100) / 100;
+  const base = filled / fields.length;
+
+  const ambiguityCount = [
+    table._slots_ambiguity != null,
+    table._price_ambiguity === true,
+    table._schedule_ambiguity === true,
+    table._homebrew_suspect === true,
+  ].filter(Boolean).length;
+
+  const penalized = Math.max(0, base - ambiguityCount * AMBIGUITY_PENALTY);
+  return Math.round(penalized * 100) / 100;
 }
 
 // T-G1: tiers de confiança para gates comportamentais (thresholds sincronizados com confidenceColor no frontend)
@@ -844,18 +1041,7 @@ export function classifyConfidence(score: number): ConfidenceTier {
 
 // T-G2: sinais de ambiguidade adicionais
 export function isSuspiciousUrl(url: string): boolean {
-  // URLs seguras conhecidas: Discord invite, Google Forms, docs.google, typeform, etc.
-  const safePatterns = [
-    /discord(?:app)?\.com\/invite\//i,
-    /discord\.gg\//i,
-    /forms\.gle\//i,
-    /docs\.google\.com\/forms\//i,
-    /typeform\.com\//i,
-    /wa\.me\//i,
-    /chat\.whatsapp\.com\//i,
-    /t\.me\//i,
-  ];
-  return !safePatterns.some((p) => p.test(url));
+  return !isKnownContactUrl(url);
 }
 
 // DEB-048-27/29: sistema autoral. A plataforma só lista sistemas conhecidos.
@@ -961,12 +1147,13 @@ export function parseDiscordAnnouncement(
   // Campos extraídos do corpo
   const modality = extractModality(body) ?? 'online';
   const type = extractType(fullText) ?? (threadName ? 'campanha' : null);
-  const { priceType, priceValue } = extractPrice(body);
+  const { priceType, priceValue, ambiguous: priceAmbiguous } = extractPrice(body);
   const { total: slotsTotal, open: slotsOpen, ambiguity: slotsAmbiguity } = extractSlots(body);
   // T-C1: Discord timestamp (preferível a texto incidental)
   const discordTs = extractDiscordTimestamp(body);
   const dayOfWeek = discordTs?.dayOfWeek ?? extractDayOfWeek(body);
   const startTime = discordTs?.startTime ?? extractStartTime(body);
+  const scheduleAmbiguous = discordTs?.ambiguous === true;
 
   // T-C2: Google Forms URL (prioridade sobre URLs genéricas)
   const googleFormsUrl = /https?:\/\/forms\.gle\/[^\s<>"']+/.exec(body)?.[0]
@@ -992,7 +1179,7 @@ export function parseDiscordAnnouncement(
   // crus (<@id>) e markdown de ênfase (**/~~/`) sobrevivendo aqui não ajudam
   // quem lê o anúncio. rawEvidence (linha acima) já capturou os mentions do
   // body original antes desta limpeza — nada se perde, só o texto exibido melhora.
-  const rawDescription = extractLabelValue(body, ['descricao', 'descrição', 'sinopse', 'proposta']) ?? (body.trim() || null);
+  const rawDescription = extractLabelValue(body, ['descricao', 'descrição', 'sinopse', 'proposta'], { multiParagraph: true }) ?? (body.trim() || null);
   const description = rawDescription ? cleanDescriptionText(rawDescription) || null : null;
 
   // Fase C (spec 058): cadência explícita no texto ("semanal"/"quinzenal"/"mensal"/
@@ -1039,6 +1226,8 @@ export function parseDiscordAnnouncement(
   if (slotsTotal == null && slotsOpen == null) missingFields.push('slots_total');
   if (!contactUrl && !contactDiscord) missingFields.push('contact_url');
   if (!description) missingFields.push('description');
+  if (priceAmbiguous) missingFields.push('price_type:ambiguous');
+  if (scheduleAmbiguous) missingFields.push('day_of_week:multiple_schedules');
 
   // T-G2: ambiguidades adicionais
   if (contactUrl && isSuspiciousUrl(contactUrl)) {
@@ -1081,6 +1270,8 @@ export function parseDiscordAnnouncement(
     cover_url_source: cover?.url ?? null,
     cover_quality: cover?.quality ?? null,
     _slots_ambiguity: slotsAmbiguity,
+    _price_ambiguity: priceAmbiguous,
+    _schedule_ambiguity: scheduleAmbiguous,
     _homebrew_suspect: homebrew === 'review' ? true : null,
     _raw_evidence: rawEvidence,
     _notes: [
@@ -1088,6 +1279,8 @@ export function parseDiscordAnnouncement(
       ...(rawEvidence?.role_mentions?.map((mention) => `Role mencionada: ${mention}`) ?? []),
       ...attachmentNotes,
       ...(rawEvidence?.embeds?.map((embed) => `Embed: ${embed.title ?? embed.url ?? 'sem titulo'}`) ?? []),
+      ...(priceAmbiguous ? ['Preço ambíguo: texto cita gratuidade e cobrança sem padrão de período promocional reconhecido — revisar manualmente.'] : []),
+      ...(scheduleAmbiguous ? ['Múltiplos horários detectados: texto cita 2+ dias/horários diferentes — revisar manualmente qual usar.'] : []),
       // Defesa: normaliza/trunca o snippet aqui, mesmo que o caller já corte.
       ...(() => {
         const snippet = replyContext?.replace(/\s+/g, ' ').trim().slice(0, 80);

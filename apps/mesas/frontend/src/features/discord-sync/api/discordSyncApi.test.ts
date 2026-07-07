@@ -270,6 +270,20 @@ describe('discordSyncApi', () => {
     });
   });
 
+  describe('auditCompleteness', () => {
+    it('faz POST /drafts/:id/audit-completeness e retorna candidatos', async () => {
+      fetchMock.mockResolvedValue(okJson({
+        candidates: [
+          { field: 'contact_url', value: 'https://forms.gle/teste', evidence: 'link no anuncio', confidence: 0.82 },
+        ],
+      }));
+      const result = await discordSyncApi.auditCompleteness('d1');
+      expect(fetchMock.mock.calls[0][0]).toContain('/drafts/d1/audit-completeness');
+      expect(fetchMock.mock.calls[0][1]?.method).toBe('POST');
+      expect(result.candidates[0]).toMatchObject({ field: 'contact_url', value: 'https://forms.gle/teste' });
+    });
+  });
+
   describe('syncDraft', () => {
     it('faz POST /drafts/:id/sync', async () => {
       fetchMock.mockResolvedValue(okJson({ tableId: 't1', created: true }));
@@ -347,6 +361,32 @@ describe('discordSyncApi', () => {
       fetchMock.mockResolvedValue(okJson({ processed: 10, succeeded: 8, failed: 2 }));
       const result = await discordSyncApi.parseBatch();
       expect(result.processed).toBe(10);
+    });
+  });
+
+  describe('ai automation', () => {
+    it('faz GET /automation/config e /automation/llm-activity', async () => {
+      fetchMock
+        .mockResolvedValueOnce(okJson({
+          mode: 'suggest',
+          killSwitch: false,
+          lowConfidenceThreshold: 0.5,
+          provider: 'deepseek',
+          model: 'deepseek-chat',
+        }))
+        .mockResolvedValueOnce(okJson({
+          window_hours: 24,
+          total: 2,
+          extraction: 1,
+          completeness_audit: 1,
+          by_status: { success: 2 },
+          rows: [],
+        }));
+
+      await expect(discordSyncApi.getAiAutomationConfig()).resolves.toMatchObject({ mode: 'suggest' });
+      await expect(discordSyncApi.getLlmActivity()).resolves.toMatchObject({ total: 2, completeness_audit: 1 });
+      expect(fetchMock.mock.calls[0][0]).toContain('/automation/config');
+      expect(fetchMock.mock.calls[1][0]).toContain('/automation/llm-activity');
     });
   });
 

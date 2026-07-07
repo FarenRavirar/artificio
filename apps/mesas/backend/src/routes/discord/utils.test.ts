@@ -26,6 +26,29 @@ vi.mock('../../discord/parseRetrieval', () => ({
   loadRetrievalContextForCurrent: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock('../../discord/fieldLearning', () => ({
+  LEARNABLE_FIELDS: [
+    'title',
+    'system_name',
+    'day_of_week',
+    'start_time',
+    'slots_total',
+    'slots_open',
+    'price_type',
+    'price_value',
+    'contact_url',
+    'description',
+  ],
+  lookupFieldLearning: vi.fn().mockResolvedValue([]),
+  recordFieldLearning: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../discord/learningRules', () => ({
+  lookupLearningRules: vi.fn().mockResolvedValue({ hits: [], conflicts: [] }),
+  recordLearningRuleApplications: vi.fn().mockResolvedValue(undefined),
+  recordLearningRulesFromCorrections: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../../discord/syncHelpers', () => ({
   uploadCoverForDraft: vi.fn(),
   updateDraftImageUploadState: vi.fn(),
@@ -47,6 +70,8 @@ import { DiscordChatExporterValidationError } from '../../discord/chatExporterAd
 import { db } from '../../db';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord';
 import { assistDiscordParseWithContextPack } from '../../discord/llmAssist';
+import { lookupFieldLearning } from '../../discord/fieldLearning';
+import { lookupLearningRules, recordLearningRuleApplications } from '../../discord/learningRules';
 import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers';
 import type { DiscordImportMessagesTable } from '../../db/types';
 import type { Selectable } from 'kysely';
@@ -91,6 +116,12 @@ describe('processDiscordMessageToDraft', () => {
     process.env.MESAS_AI_AUTOMATION_MODE = 'suggest';
     delete process.env.MESAS_AI_KILL_SWITCH;
     vi.clearAllMocks();
+    (parseDiscordAnnouncement as Mock).mockReset();
+    (normalizeDiscordTableDraft as Mock).mockReset();
+    (assistDiscordParseWithContextPack as Mock).mockReset();
+    (lookupLearningRules as Mock).mockResolvedValue({ hits: [], conflicts: [] });
+    (lookupFieldLearning as Mock).mockResolvedValue([]);
+    (recordLearningRuleApplications as Mock).mockResolvedValue(undefined);
 
     (db.selectFrom as Mock).mockReturnValue(chain({ executeTakeFirst: vi.fn().mockResolvedValue(undefined) }));
     (db.updateTable as Mock).mockReturnValue(chain({ execute: vi.fn().mockResolvedValue(undefined) }));
@@ -178,6 +209,137 @@ describe('processDiscordMessageToDraft', () => {
           _notes: expect.arrayContaining(['Sugestões IA disponíveis; revisar antes de aplicar.']),
         }),
         missing_fields: ['title', 'system_name', 'price_type', 'slots_total', 'contact_url'],
+      }),
+    }));
+  });
+
+  it('applies learning-store suggestions even when DeepSeek mode is off', async () => {
+    delete process.env.MESAS_AI_AUTOMATION_MODE;
+    const parsed = {
+      source: { guild_id: 'guild-1', channel_id: 'channel-1', message_id: '1441138618755448997' },
+      table: {
+        title: 'Mesa aprendida',
+        system_name: 'D&D 5e',
+        system_id: null,
+        raw_system_hint: 'D&D 5e',
+        type: 'campanha',
+        modality: 'online',
+        price_type: null,
+        price_value: null,
+        slots_total: null,
+        slots_filled: null,
+        slots_open: null,
+        day_of_week: null,
+        start_time: null,
+        frequency: null,
+        description: 'Mesa com sistema corrigido anteriormente.',
+        contact_discord: null,
+        contact_url: null,
+        host_discord_id: null,
+        cover_url: null,
+        cover_url_source: null,
+        cover_quality: null,
+        _slots_ambiguity: null,
+        _price_ambiguity: null,
+        _homebrew_suspect: null,
+        _notes: [],
+      },
+      confidence: 0.8,
+      confidence_tier: 'alta',
+      missing_fields: [],
+    };
+
+    (parseDiscordAnnouncement as Mock).mockReturnValue(parsed);
+    (normalizeDiscordTableDraft as Mock)
+      .mockReturnValueOnce({ draft: parsed, status: 'needs_review' })
+      .mockImplementationOnce((draft) => ({ draft, status: 'needs_review' }));
+    (lookupLearningRules as Mock).mockResolvedValue({
+      hits: [{ ruleId: 'rule-1', field: 'system_name', value: 'D&D 5.2', confidence: 0.91, scopeType: 'guild' }],
+      conflicts: [],
+    });
+
+    await expect(processDiscordMessageToDraft(message(), [], undefined, 'admin-1')).resolves.toBe('parsed');
+
+    expect(assistDiscordParseWithContextPack).not.toHaveBeenCalled();
+    expect(recordLearningRuleApplications).toHaveBeenCalledWith(expect.objectContaining({
+      hits: expect.arrayContaining([expect.objectContaining({ ruleId: 'rule-1' })]),
+      outcome: 'applied',
+      reason: 'draft_enrichment',
+    }));
+    const insertChain = (db.insertInto as Mock).mock.results[0]?.value as { values: Mock };
+    expect(insertChain.values).toHaveBeenCalledWith(expect.objectContaining({
+      normalized_payload: expect.objectContaining({
+        table: expect.objectContaining({
+          _ai_suggestions: expect.objectContaining({
+            provider: 'learning-rules',
+            fields: expect.objectContaining({ system_name: 'D&D 5.2' }),
+          }),
+        }),
+      }),
+    }));
+  });
+
+  it('asks DeepSeek only for missing or ambiguous target fields', async () => {
+    const parsed = {
+      source: { guild_id: 'guild-1', channel_id: 'channel-1', message_id: '1441138618755448997' },
+      table: {
+        title: 'Mesa quase completa',
+        system_name: 'D&D',
+        system_id: null,
+        raw_system_hint: 'D&D',
+        type: 'campanha',
+        modality: 'online',
+        price_type: null,
+        price_value: null,
+        slots_total: 4,
+        slots_filled: null,
+        slots_open: 2,
+        day_of_week: 'sexta',
+        start_time: '20:00',
+        frequency: null,
+        description: 'Mesa com um campo faltante.',
+        contact_discord: null,
+        contact_url: null,
+        host_discord_id: null,
+        cover_url: null,
+        cover_url_source: null,
+        cover_quality: null,
+        _slots_ambiguity: null,
+        _price_ambiguity: true,
+        _homebrew_suspect: null,
+        _notes: [],
+      },
+      confidence: 0.9,
+      confidence_tier: 'alta',
+      missing_fields: [],
+    };
+
+    (parseDiscordAnnouncement as Mock).mockReturnValue(parsed);
+    (normalizeDiscordTableDraft as Mock)
+      .mockReturnValueOnce({ draft: parsed, status: 'needs_review' })
+      .mockImplementationOnce((draft) => ({ draft, status: 'needs_review' }));
+    (assistDiscordParseWithContextPack as Mock).mockResolvedValue({
+      model: 'deepseek-chat',
+      extracted: { price_type: 'paga' },
+    });
+
+    await expect(processDiscordMessageToDraft({
+      ...message(),
+      content_raw: 'Long enough announcement with one missing price field and all other fields already parsed correctly for the LLM target-field test.',
+    }, [], undefined, 'admin-1')).resolves.toBe('parsed');
+
+    expect(lookupLearningRules).toHaveBeenCalled();
+    expect(assistDiscordParseWithContextPack).toHaveBeenCalledWith(expect.objectContaining({
+      targetFields: ['price_type', 'price_value'],
+      draft: expect.objectContaining({
+        table: expect.objectContaining({
+          title: 'Mesa quase completa',
+          system_name: 'D&D',
+          day_of_week: 'sexta',
+          start_time: '20:00',
+          slots_total: 4,
+          slots_open: 2,
+        }),
       }),
     }));
   });

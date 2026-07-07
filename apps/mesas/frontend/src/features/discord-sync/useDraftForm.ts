@@ -2,8 +2,8 @@ import { useEffect, useMemo, useReducer, useRef, useState, type ChangeEvent } fr
 import toast from 'react-hot-toast';
 import { buildDraftFieldInsights, buildForm, buildUpdatedPayload, flattenSystems, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, loadSystems, loadScenarios, loadVttPlatforms, loadCommunicationPlatforms, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
 import { authPost } from '../../services/apiClient';
-import type { DraftForm, SimpleCatalogEntry } from './draftFormUtils';
-import type { DiscordDraft, DiscordImportDraftStatus, DiscordSlotsAmbiguity, DraftApiOperations } from './types';
+import type { DraftFieldKey, DraftForm, SimpleCatalogEntry } from './draftFormUtils';
+import type { AiAutomationConfig, CompletenessAuditCandidate, DiscordDraft, DiscordImportDraftStatus, DiscordSlotsAmbiguity, DraftApiOperations, LlmActivity } from './types';
 import type { SystemTreeNode } from '../../types/systems';
 
 type SlotsInterpretation = 'filled_total' | 'open_total';
@@ -44,6 +44,10 @@ interface DraftEditorState {
   reviewNotes: string;
   coverPreviewUrl: string;
   dirty: boolean;
+  // Achado CodeRabbit (PR #128): vive no reducer (nao em useState proprio)
+  // pra zerar no mesmo RESET/REPARSE do draft sem precisar de useEffect so
+  // pra chamar setState (regra do repo: react-hooks/set-state-in-effect).
+  completenessSuggestions: CompletenessAuditCandidate[];
 }
 
 type DraftEditorAction =
@@ -53,7 +57,8 @@ type DraftEditorAction =
   | { type: 'SET_COVER'; secureUrl: string }
   | { type: 'REMOVE_COVER' }
   | { type: 'SET_STATUS_FIELD'; key: 'newStatus' | 'reviewNotes'; value: string }
-  | { type: 'MARK_PERSISTED' };
+  | { type: 'MARK_PERSISTED' }
+  | { type: 'SET_COMPLETENESS_SUGGESTIONS'; suggestions: CompletenessAuditCandidate[] };
 
 function buildEditorState(draft: DiscordDraft): DraftEditorState {
   const p = buildForm(draft.normalized_payload ?? draft.parsed_payload);
@@ -67,6 +72,7 @@ function buildEditorState(draft: DiscordDraft): DraftEditorState {
     // ainda não rodou. Só mostra imagem quando existe cover_url confirmado.
     coverPreviewUrl: p.cover_url.trim(),
     dirty: false,
+    completenessSuggestions: [],
   };
 }
 
@@ -128,6 +134,8 @@ function editorReducer(state: DraftEditorState, action: DraftEditorAction): Draf
       return { ...state, [action.key]: action.value, dirty: true };
     case 'MARK_PERSISTED':
       return { ...state, dirty: false };
+    case 'SET_COMPLETENESS_SUGGESTIONS':
+      return { ...state, completenessSuggestions: action.suggestions };
   }
 }
 
@@ -155,6 +163,9 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [slotsInterpretation, setSlotsInterpretation] = useState<SlotsInterpretation>('filled_total');
+  const [aiConfig, setAiConfig] = useState<AiAutomationConfig | null>(null);
+  const [llmActivity, setLlmActivity] = useState<LlmActivity | null>(null);
+  const [auditingCompleteness, setAuditingCompleteness] = useState(false);
   const coverInputRef = useRef<HTMLInputElement | null>(null);
 
   const missingFields = useMemo(() => validateForm(state.form), [state.form]);
@@ -198,6 +209,28 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (!draftApi.getAiAutomationConfig && !draftApi.getLlmActivity) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [config, activity] = await Promise.all([
+          draftApi.getAiAutomationConfig?.(),
+          draftApi.getLlmActivity?.(),
+        ]);
+        if (cancelled) return;
+        if (config) setAiConfig(config);
+        if (activity) setLlmActivity(activity);
+      } catch {
+        if (!cancelled) {
+          setAiConfig((current) => current ?? null);
+          setLlmActivity((current) => current ?? null);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [draftApi]);
+
   const updateForm = <K extends keyof DraftForm>(key: K, value: DraftForm[K]) => {
     dispatch({ type: 'SET_FIELD', key, value });
   };
@@ -205,6 +238,33 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   const handleSystemChange = (systemId: string) => {
     const selected = systems.find((s) => s.id === systemId);
     dispatch({ type: 'SET_SYSTEM', systemId, systemName: selected?.name_pt || selected?.name || state.form.system_name });
+  };
+
+  const applySuggestion = (field: DraftFieldKey, value: unknown) => {
+    const asText = value === null || value === undefined ? '' : String(value);
+    if (field === 'slots_total' || field === 'slots_open' || field === 'price_value') {
+      dispatch({ type: 'SET_FIELD', key: field, value: asText });
+      return;
+    }
+    if (field in state.form) {
+      dispatch({ type: 'SET_FIELD', key: field as keyof DraftForm, value: asText as DraftForm[keyof DraftForm] });
+    }
+  };
+
+  const handleAuditCompleteness = async () => {
+    if (!draftApi.auditCompleteness) return;
+    setAuditingCompleteness(true);
+    try {
+      const result = await draftApi.auditCompleteness(draft.id);
+      dispatch({ type: 'SET_COMPLETENESS_SUGGESTIONS', suggestions: result.candidates });
+      toast.success(result.candidates.length > 0 ? 'Auditoria encontrou sugestoes.' : 'Auditoria nao encontrou lacunas.');
+      const activity = await draftApi.getLlmActivity?.();
+      if (activity) setLlmActivity(activity);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro na auditoria de completude.');
+    } finally {
+      setAuditingCompleteness(false);
+    }
   };
 
   const handleSaveFields = async () => {
@@ -364,6 +424,10 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       const updated = await draftApi.reparseDraft(draft.id);
       toast.success('Draft reparseado.');
       applyUpdate(updated);
+      // Achado CodeRabbit (PR #128): draft.id nao muda no reparse, so o
+      // payload — sugestoes da auditoria anterior ficariam presas ao texto
+      // velho sem este clear explicito (o reset por id nao cobre este caso).
+      dispatch({ type: 'SET_COMPLETENESS_SUGGESTIONS', suggestions: [] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao reparsar draft.');
     } finally {
@@ -411,6 +475,12 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     slotsAmbiguity,
     payloadMissingFields,
     fieldInsights,
+    aiConfig,
+    llmActivity,
+    auditingCompleteness,
+    completenessSuggestions: state.completenessSuggestions,
+    applySuggestion,
+    handleAuditCompleteness,
     handleSystemChange,
     handleSaveFields,
     handleCoverUpload, handleRemoveCover,

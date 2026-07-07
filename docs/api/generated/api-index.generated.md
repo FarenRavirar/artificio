@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **285 operações**.
+Total: **287 operações**.
 
 ## accounts (11)
 
@@ -100,7 +100,7 @@ Total: **285 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (174)
+## mesas (176)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -112,6 +112,7 @@ Total: **285 operações**.
 | POST | `/api/v1/admin/discord/automation/auto-approval/guard` | admin | admin | active | — | Executa guard de auto-aprovação Discord |
 | GET | `/api/v1/admin/discord/automation/config` | admin | admin | active | — | Consulta api v1 admin discord automation config |
 | GET | `/api/v1/admin/discord/automation/eval` | admin | admin | active | — | Consulta eval offline da automação Discord |
+| GET | `/api/v1/admin/discord/automation/llm-activity` | admin | admin | active | — | Consulta api v1 admin discord automation llm-activity |
 | GET | `/api/v1/admin/discord/automation/parse-eval` | admin | admin | active | — | Consulta api v1 admin discord automation parse-eval |
 | GET | `/api/v1/admin/discord/chat-exporter/config` | admin | admin | active | — | Consulta api v1 admin discord chat-exporter config |
 | PUT | `/api/v1/admin/discord/chat-exporter/config` | admin | admin | active | — | Substitui api v1 admin discord chat-exporter config |
@@ -130,6 +131,7 @@ Total: **285 operações**.
 | GET | `/api/v1/admin/discord/drafts` | admin | admin | active | — | Consulta api v1 admin discord drafts |
 | GET | `/api/v1/admin/discord/drafts/{id}` | admin | admin | active | — | Consulta api v1 admin discord drafts id |
 | PATCH | `/api/v1/admin/discord/drafts/{id}` | admin | admin | active | — | Atualiza api v1 admin discord drafts id |
+| POST | `/api/v1/admin/discord/drafts/{id}/audit-completeness` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id audit-completeness |
 | POST | `/api/v1/admin/discord/drafts/{id}/correction` | admin | admin | provisional | — | Registra correção manual em draft de Discord |
 | GET | `/api/v1/admin/discord/drafts/{id}/duplicates` | admin | admin | active | — | Consulta api v1 admin discord drafts id duplicates |
 | POST | `/api/v1/admin/discord/drafts/{id}/refresh-image` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id refresh-image |

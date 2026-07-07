@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 355,
+    "total": 357,
     "byApp": {
       "accounts": {
         "total": 11,
@@ -41,17 +41,17 @@
         }
       },
       "mesas": {
-        "total": 224,
+        "total": 226,
         "byMethod": {
-          "GET": 60,
-          "POST": 60,
+          "GET": 61,
+          "POST": 61,
           "USE": 51,
           "PATCH": 25,
           "DELETE": 17,
           "PUT": 11
         },
         "byConfidence": {
-          "high": 224
+          "high": 226
         }
       },
       "site": {
@@ -1086,7 +1086,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/automation/auto-approval/guard",
       "sourceFile": "apps/mesas/backend/src/routes/discord/automation.ts",
-      "line": 22,
+      "line": 23,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1095,7 +1095,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/automation/config",
       "sourceFile": "apps/mesas/backend/src/routes/discord/automation.ts",
-      "line": 11,
+      "line": 12,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1104,7 +1104,16 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/automation/eval",
       "sourceFile": "apps/mesas/backend/src/routes/discord/automation.ts",
-      "line": 43,
+      "line": 44,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/discord/automation/llm-activity",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/automation.ts",
+      "line": 106,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1113,7 +1122,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/automation/parse-eval",
       "sourceFile": "apps/mesas/backend/src/routes/discord/automation.ts",
-      "line": 85,
+      "line": 86,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1266,7 +1275,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/drafts",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 25,
+      "line": 47,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1302,7 +1311,7 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/drafts/:id",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 62,
+      "line": 84,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1311,7 +1320,16 @@
       "method": "PATCH",
       "path": "/api/v1/admin/discord/drafts/:id",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 220,
+      "line": 278,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/drafts/:id/audit-completeness",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
+      "line": 104,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1329,7 +1347,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/refresh-image",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 242,
+      "line": 300,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1338,7 +1356,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/reparse",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 258,
+      "line": 316,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1356,7 +1374,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/discord/drafts/batch",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 93,
+      "line": 151,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1365,7 +1383,7 @@
       "method": "DELETE",
       "path": "/api/v1/admin/discord/drafts/rejected",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 156,
+      "line": 214,
       "confidence": "high",
       "kind": "express-route"
     },

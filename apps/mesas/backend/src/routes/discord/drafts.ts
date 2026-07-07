@@ -4,6 +4,8 @@ import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
 import type { DiscordImportDraftStatus } from '../../discord';
 import { normalizeDraftPayload, refreshDiscordDraftImage } from '../../discord';
+import { getAiAutomationConfig } from '../../discord/aiAutomationConfig';
+import { auditDiscordDraftCompleteness } from '../../discord/llmAssist';
 import { extractDraftScope, recordParseFeedback } from '../../discord/parseLearning';
 import { stripSeparatorLines } from '../../discord/parseDiscordAnnouncement';
 import { destroyAssetResult } from '@artificio/media';
@@ -17,6 +19,26 @@ const batchDraftSchema = z.object({
   ids: z.array(z.string().uuid()).min(1).max(200),
   status: z.enum(['draft', 'needs_review', 'rejected']),
 });
+
+async function loadDraftContentRaw(draft: { discord_message_id: string | null; import_message_id?: string | null }): Promise<string | null> {
+  if (draft.discord_message_id) {
+    const message = await db
+      .selectFrom('discord_import_messages')
+      .select(['content_raw'])
+      .where('id', '=', draft.discord_message_id)
+      .executeTakeFirst();
+    return message?.content_raw ? stripSeparatorLines(message.content_raw) : null;
+  }
+  if (draft.import_message_id) {
+    const message = await db
+      .selectFrom('import_messages')
+      .select(['raw_text'])
+      .where('id', '=', draft.import_message_id)
+      .executeTakeFirst();
+    return message?.raw_text ? stripSeparatorLines(message.raw_text) : null;
+  }
+  return null;
+}
 
 // Schemas compartilhados: patchDraftSchema via handlePatchDraft (REV-074)
 
@@ -70,20 +92,56 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
 
     // Fase I (spec 058): content_raw da mensagem original, pro preview lado a lado
     // no editor — nunca perdido mesmo quando campos estruturados falham no parse.
-    let contentRaw: string | null = null;
-    if (draft.discord_message_id) {
-      const message = await db
-        .selectFrom('discord_import_messages')
-        .select(['content_raw'])
-        .where('id', '=', draft.discord_message_id)
-        .executeTakeFirst();
-      contentRaw = message?.content_raw ? stripSeparatorLines(message.content_raw) : null;
-    }
+    let contentRaw: string | null = await loadDraftContentRaw(draft);
 
     return res.json({ data: { ...draft, content_raw: contentRaw } });
   } catch (error: unknown) {
     console.error('[GET /admin/discord/drafts/:id]', error);
     return res.status(500).json({ error: 'Erro ao buscar draft.' });
+  }
+});
+
+router.post('/:id/audit-completeness', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const aiConfig = getAiAutomationConfig();
+    // T10.9 (spec 058): auditoria de completude e acao manual sob demanda —
+    // nao depende do modo automatico (suggest/shadow/auto/off), so do kill
+    // switch real. Gatear por isAiAssistEnabled() (que bloqueia mode='off')
+    // desligava a feature justamente no estado padrao de producao
+    // (MESAS_AI_AUTOMATION_MODE nunca setada), achado CodeRabbit na PR #128.
+    if (aiConfig.killSwitch) {
+      return res.status(423).json({ error: 'Assistente IA desligado.' });
+    }
+
+    const draft = await db
+      .selectFrom('discord_import_table_drafts')
+      .selectAll()
+      .where('id', '=', req.params.id)
+      .executeTakeFirst();
+    if (!draft) return res.status(404).json({ error: 'Draft nÃ£o encontrado.' });
+
+    const contentRaw = await loadDraftContentRaw(draft);
+    if (!contentRaw) return res.status(422).json({ error: 'Texto original indisponÃ­vel para auditoria.' });
+
+    const payload = normalizeDraftPayload(draft.normalized_payload ?? draft.parsed_payload);
+    const table = payload.table && typeof payload.table === 'object' && !Array.isArray(payload.table)
+      ? payload.table as Record<string, unknown>
+      : {};
+    // Achado CodeRabbit (PR #128): contact_discord/host_discord_id sao
+    // identificador de usuario Discord — nao vai pro DeepSeek (provider
+    // terceiro). Auditoria de completude so precisa dos campos de conteudo.
+    const { contact_discord, host_discord_id, ...contentFields } = table;
+    const result = await auditDiscordDraftCompleteness({
+      rawText: contentRaw,
+      currentFields: contentFields,
+      model: aiConfig.model,
+    });
+    if (!result) return res.status(502).json({ error: 'Auditoria DeepSeek indisponÃ­vel.' });
+
+    return res.json({ data: result });
+  } catch (error: unknown) {
+    console.error('[POST /admin/discord/drafts/:id/audit-completeness]', error);
+    return res.status(500).json({ error: 'Erro ao auditar completude do draft.' });
   }
 });
 

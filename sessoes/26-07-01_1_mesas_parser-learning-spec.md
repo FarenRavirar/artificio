@@ -1128,3 +1128,10 @@ afetado por esta pendência). O que faltava era só o lado do EDITOR DE DRAFT (r
 **Status atual:** os 3 campos agora têm cobertura completa nos dois lados — extraídos pelo parser (Fase
 A/C), sincronizados pra mesa publicada (Fase E), editáveis no draft (esta pendência) e editáveis no form
 manual de criação (já existia). Nenhum gap de campo remanescente identificado nesta spec.
+\n## Retomada 2026-07-06 - Fase 10 / DEB-058-06 + DEB-058-07
+
+Pedido do mantenedor: implementar DEB-058-06 e a Fase 10 de 	asks.md. Antes de editar, lidos: AGENTS.md completo, T0, pps/mesas/context.md, spec.md, plan.md, 	asks.md (Fase 10) e debitos.md topo + DEB-058-06.
+
+Ordem obrigatoria carregada do handoff: primeiro T10.11/T10.12, depois T10.7, depois T10.9/T10.10, depois T10.3-T10.6. T10.8/T10.1/T10.2 ficam tratados como bloqueados para decisao/aprovacao nominal se exigirem accounts/config central ou escrita real em VM/env.
+
+Arquivos esperados para editar: backend/rotas/servicos DeepSeek, frontend do editor de draft e tipos/testes correspondentes. Sem commit, push, deploy, escrita em VM ou alteracao de segredo nesta rodada.

@@ -275,6 +275,7 @@ Regras duras:
 - **Normalização obrigatória:** todo dado de API/banco/JSON/JSONB/query/localStorage/integração externa é `unknown` até passar por normalizador tipado antes de entrar em estado React, props ou render.
 - Proibido `.map/.filter/.reduce/.forEach`, spread de array ou `.length` sobre payload externo sem `Array.isArray`/schema/fallback explícito.
 - HTML importado do WordPress é hostil: sanitizar sempre (DOMPurify) antes de persistir/renderizar.
+- **Comentário explicativo de decisão não se perde em edit/fix subsequente (nem de bot de review — CodeRabbit/Sonar/Codex/etc).** Quando um trecho comentado é editado (fix de bug, correção de review, refactor local), o agente preserva ou reescreve o comentário pra continuar explicando a decisão atual — nunca apaga silenciosamente um comentário que documentava por que o código era daquele jeito, mesmo que o código mude. Se a mudança troca a razão de ser do trecho, o comentário deve ser atualizado pra refletir a nova decisão e citar a origem (ex.: achado de review, número de spec/débito, comportamento real observado), no mesmo padrão que já se usa nesta base (`DEB-NNN`, `T-XX`, referência a spec/PR) — pra que outro agente, lendo só o código depois, entenda o porquê sem precisar reconstruir o histórico do chat.
 
 ---
 

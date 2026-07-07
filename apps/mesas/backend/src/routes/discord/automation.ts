@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { sql } from 'kysely';
 import { db } from '../../db';
 import { getAiAutomationConfig, assertAutoApprovalAllowed, getAiAutomationRollbackPlan } from '../../discord/aiAutomationConfig';
 import { evaluatePredictions } from '../../discord/aiEval';
@@ -99,6 +100,35 @@ router.get('/parse-eval', requireAdmin, async (req: Request, res: Response) => {
   } catch (error: unknown) {
     console.error('[GET /admin/discord/automation/parse-eval]', error);
     return res.status(500).json({ error: 'Erro ao executar eval do parser learning.' });
+  }
+});
+
+router.get('/llm-activity', requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .selectFrom('discord_llm_decisions')
+      .select([
+        'prompt_version',
+        'status',
+        sql<number>`COUNT(*)`.as('count'),
+      ])
+      .where(sql<boolean>`created_at >= NOW() - INTERVAL '24 hours'`)
+      .groupBy(['prompt_version', 'status'])
+      .execute();
+
+    const totals = rows.reduce((acc, row) => {
+      const count = Number(row.count ?? 0);
+      acc.total += count;
+      if (String(row.prompt_version).startsWith('completeness-audit')) acc.completeness_audit += count;
+      else acc.extraction += count;
+      acc.by_status[String(row.status)] = (acc.by_status[String(row.status)] ?? 0) + count;
+      return acc;
+    }, { total: 0, extraction: 0, completeness_audit: 0, by_status: {} as Record<string, number> });
+
+    return res.json({ data: { window_hours: 24, ...totals, rows } });
+  } catch (error: unknown) {
+    console.error('[GET /admin/discord/automation/llm-activity]', error);
+    return res.status(500).json({ error: 'Erro ao consultar atividade IA.' });
   }
 });
 
