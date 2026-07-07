@@ -1135,3 +1135,19 @@ Pedido do mantenedor: implementar DEB-058-06 e a Fase 10 de 	asks.md. Antes de e
 Ordem obrigatoria carregada do handoff: primeiro T10.11/T10.12, depois T10.7, depois T10.9/T10.10, depois T10.3-T10.6. T10.8/T10.1/T10.2 ficam tratados como bloqueados para decisao/aprovacao nominal se exigirem accounts/config central ou escrita real em VM/env.
 
 Arquivos esperados para editar: backend/rotas/servicos DeepSeek, frontend do editor de draft e tipos/testes correspondentes. Sem commit, push, deploy, escrita em VM ou alteracao de segredo nesta rodada.
+
+### Retomada 2026-07-07 - Fase 11 spec 058
+- Implementado no parser: fallback estrutural de description sem labels estruturados; limpeza de mentions/canais/timestamps Discord crus; normalizacao de URL de contato com markdown-link; remocao de URL conhecida de contato da description; extracao de experience_level por sinal explicito.
+- Testes adicionados em parseDiscordAnnouncement.test.ts cobrindo T11.1/T11.2/T11.5/T11.6/T11.7 e regressao dos reviews de bots.
+- Validacao: pnpm --filter @artificio/mesas-backend test src/discord/__tests__/parseDiscordAnnouncement.test.ts (118/118); pnpm --filter @artificio/mesas-backend run build; pnpm run lint; pnpm run build.
+- Pendente: T11.3/T11.4 dependem de decisao/arquivo fonte; T11.8 sem sinal recorrente nos datasets; T11.9 exige ampliar fluxo de catalogos para cenarios, nao apenas parser local; T11.10 continua pendente para auditoria completa campo-a-campo contra datasets reais.
+
+### Retomada 2026-07-07 - Decisao T11.3/T11.4/T11.8/T11.9
+- Decisao do mantenedor: T11.3 fazer; T11.4 descartar; T11.8 e T11.9 fazer agora.
+- Implementado T11.3: fixture sanitizada `parserPhase11Samples.ts` derivada dos 3 datasets validos, sem IDs reais, cobrindo label estruturado vazando em description, token Discord cru e URL markdown com delimitador.
+- T11.4 fechado por decisao: `D:\teste [part 4].json` fica descartado da bateria desta fase ate haver export integro novo.
+- Implementado T11.8: `table_level` deixa de ser hardcoded null e passa a extrair sinais explicitos conservadores (`iniciante`, `intermediario`, `avancado`).
+- Implementado T11.9: `loadScenariosForParser()` carrega `scenarios` + `scenario_aliases`; fluxos `fetch`, `import`, `parse-batch` e `utils` propagam catalogo; parser preenche `scenario_id` quando casa e `raw_scenario_hint` quando nao casa.
+- Validacao parcial concluida nesta retomada: parser focado 123/123; rotas `utils/import` 10/10; build `@artificio/mesas-backend` limpo.
+- Pendente real: T11.10 continua aberto porque exige auditoria completa campo-a-campo contra datasets reais; nao foi executado nesta rodada.
+

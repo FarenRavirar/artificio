@@ -74,3 +74,33 @@ export async function loadCommunicationPlatformsForParser(): Promise<MatchEntry[
     .execute();
   return platforms.map((p) => ({ id: p.id, name: p.name, aliases: [] }));
 }
+
+/** Carrega cenarios e aliases do banco para o parse de anuncios Discord. */
+export async function loadScenariosForParser(): Promise<MatchEntry[]> {
+  const scenarios = await db
+    .selectFrom('scenarios')
+    .select(['id', 'name', 'name_pt'])
+    .execute();
+
+  const aliases = await db
+    .selectFrom('scenario_aliases')
+    .select(['scenario_id', 'alias'])
+    .execute();
+
+  const aliasMap = new Map<string, string[]>();
+  for (const a of aliases) {
+    const list = aliasMap.get(a.scenario_id) ?? [];
+    list.push(a.alias);
+    aliasMap.set(a.scenario_id, list);
+  }
+
+  return scenarios.map((scenario) => ({
+    id: scenario.id,
+    name: scenario.name_pt ?? scenario.name,
+    aliases: [
+      scenario.name,
+      ...(scenario.name_pt ? [scenario.name_pt] : []),
+      ...(aliasMap.get(scenario.id) ?? []),
+    ],
+  }));
+}

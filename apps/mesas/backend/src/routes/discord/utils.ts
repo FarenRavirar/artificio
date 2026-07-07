@@ -28,7 +28,7 @@ import { loadRetrievalContextForCurrent } from '../../discord/parseRetrieval';
 import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
-import { loadSystemsForParser, loadVttPlatformsForParser, loadCommunicationPlatformsForParser } from '../../discord/shared';
+import { loadSystemsForParser, loadVttPlatformsForParser, loadCommunicationPlatformsForParser, loadScenariosForParser } from '../../discord/shared';
 import { requireAdmin } from '../../middleware/auth';
 import { notifyAdmins } from '../../services/adminNotifications';
 import { patchDraftSchema, correctionSchema } from '../inbox/utils';
@@ -36,7 +36,7 @@ import { patchDraftSchema, correctionSchema } from '../inbox/utils';
 /** Catálogos de VTT/comunicação pré-carregados, reaproveitados por várias mensagens
  * do mesmo batch (evita N+1 de query por mensagem). Compartilhado por
  * parseDiscordMessage, processDiscordMessageToDraft e reparseOneMessage. */
-export type ParserPlatformCatalogs = { vttPlatforms?: MatchEntry[]; communicationPlatforms?: MatchEntry[] };
+export type ParserPlatformCatalogs = { vttPlatforms?: MatchEntry[]; communicationPlatforms?: MatchEntry[]; scenarios?: MatchEntry[] };
 
 function extractArrayFromRecord(record: Record<string, unknown>): unknown[] | null {
   if (Array.isArray(record.items)) return record.items;
@@ -420,9 +420,10 @@ export async function parseDiscordMessage(
   catalogs?: ParserPlatformCatalogs,
 ): Promise<{ parsed: NonNullable<ReturnType<typeof parseDiscordAnnouncement>>; normalized: ReturnType<typeof normalizeDiscordTableDraft>; systems: SystemEntry[] } | null> {
   const sys = systems ?? await loadSystemsForParser();
-  const [vttPlatforms, communicationPlatforms] = await Promise.all([
+  const [vttPlatforms, communicationPlatforms, scenarios] = await Promise.all([
     catalogs?.vttPlatforms ?? loadVttPlatformsForParser(),
     catalogs?.communicationPlatforms ?? loadCommunicationPlatformsForParser(),
+    catalogs?.scenarios ?? loadScenariosForParser(),
   ]);
   const raw: ImportRawMessage = {
     source_kind: (msg.source_kind ?? 'text') as ImportRawMessage['source_kind'],
@@ -442,7 +443,7 @@ export async function parseDiscordMessage(
     message_created_at: msg.message_created_at ? new Date(msg.message_created_at as string) : null,
     message_edited_at: msg.message_edited_at ? new Date(msg.message_edited_at as string) : null,
   };
-  const parsed = parseDiscordAnnouncement(raw, sys, replyContext, { vtt: vttPlatforms, communication: communicationPlatforms });
+  const parsed = parseDiscordAnnouncement(raw, sys, replyContext, { vtt: vttPlatforms, communication: communicationPlatforms, scenarios });
   if (!parsed) return null;
   const normalized = normalizeDiscordTableDraft(parsed, sys);
   return { parsed, normalized, systems: sys };

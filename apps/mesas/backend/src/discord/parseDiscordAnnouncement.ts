@@ -1,4 +1,4 @@
-import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType, TableDraftFrequency, TableDraftAgeRating } from './types';
+import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType, TableDraftFrequency, TableDraftAgeRating, TableDraftExperienceLevel, TableDraftTableLevel } from './types';
 
 export interface SystemEntry {
   id: string;
@@ -202,11 +202,14 @@ function normalize(s: string): string {
 function stripVersionSuffix(value: string): { stripped: string; version: string | null } {
   // Ancora a versão no fim por um único espaço — evita `(.*?)\s+` (backtracking,
   // `.` sobrepõe `\s`). A alternação antiga `(\d+...e?)|(\d+e)` era redundante.
+  // `['’]?\d{0,2}` no fim cobre edição estilo "5e'24"/"5e'24" (apóstrofo + ano
+  // curto de 2 dígitos) — achado real: "D&D 5e'24" (D:\teste [part 2].json)
+  // não batia porque a string terminava em `'24`, não em dígito puro.
   const trimmed = value.trim();
-  const match = /\s(\d+(?:\.\d+)?e?)$/i.exec(trimmed);
+  const match = /\s(\d+(?:\.\d+)?e?)['’]?\d{0,2}$/i.exec(trimmed);
   if (!match) return { stripped: value, version: null };
   const stripped = trimmed.slice(0, match.index).trim();
-  const version = match[1].trim();
+  const version = trimmed.slice(match.index).trim();
   if (!stripped) return { stripped: value, version: null };
   return { stripped, version };
 }
@@ -666,6 +669,34 @@ function extractAgeRating(text: string): TableDraftAgeRating | null {
   return null;
 }
 
+function extractExperienceLevel(text: string): TableDraftExperienceLevel | null {
+  const lower = normalize(text);
+  if (/\b(?:iniciante|iniciantes|novato|novatos|primeira\s+mesa|primeiro\s+rpg)\b/.test(lower)
+    && /\b(?:bem\s+vind[oa]s?|aceit[oa]s?|permitid[oa]s?|sem\s+experiencia|nao\s+precisa\s+experiencia)\b/.test(lower)) {
+    return 'iniciante';
+  }
+  if (/\b(?:todos\s+os\s+niveis|qualquer\s+nivel|todos\s+bem\s+vindos)\b/.test(lower)) return 'todos';
+  if (/\b(?:veteran[oa]s?|experientes?|experiencia\s+obrigatoria|nao\s+recomendad[oa]\s+para\s+iniciante)\b/.test(lower)) {
+    return 'veterano';
+  }
+  if (/\b(?:intermediari[oa]s?|alguma\s+experiencia|experiencia\s+media)\b/.test(lower)) return 'intermediario';
+  return null;
+}
+
+function extractTableLevel(text: string): TableDraftTableLevel | null {
+  const lower = normalize(text);
+  if (/\b(?:mesa|aventura|campanha)\s+(?:para\s+)?iniciantes?\b|\bcomplexidade\s*:?\s*iniciante\b/.test(lower)) {
+    return 'iniciante';
+  }
+  if (/\bcomplexidade\s*:?\s*(?:avancad[ao]|alta)\b|\b(?:mesa|aventura|campanha)\s+(?:avancad[ao]|desafiadora|dificil)\b/.test(lower)) {
+    return 'avancado';
+  }
+  if (/\bcomplexidade\s*:?\s*intermediari[ao]\b|\b(?:mesa|aventura|campanha)\s+intermediari[ao]\b/.test(lower)) {
+    return 'intermediario';
+  }
+  return null;
+}
+
 /** Fase C (spec 058): normaliza lista de texto livre separada por `/`, `,` ou "e"/"ou". */
 function splitFreeTextList(value: string): string[] | null {
   const parts = value
@@ -694,6 +725,17 @@ function isKnownContactUrl(url: string): boolean {
   return KNOWN_CONTACT_URL_PATTERNS.some((pattern) => pattern.test(url));
 }
 
+function trimTrailingUrlWrappers(url: string): string {
+  let trimmed = url.replace(/[.,;:]+$/g, '');
+  while (trimmed.endsWith(')') && (trimmed.match(/\(/g)?.length ?? 0) < (trimmed.match(/\)/g)?.length ?? 0)) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  while (trimmed.endsWith(']') && (trimmed.match(/\[/g)?.length ?? 0) < (trimmed.match(/\]/g)?.length ?? 0)) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  return trimmed;
+}
+
 /**
  * Extrai URL de contato (discord invite, forms, MesaQuest, etc.). Cascata: com
  * 2+ URLs no texto, prioriza domínio de contato/inscrição CONHECIDO sobre
@@ -705,7 +747,7 @@ function isKnownContactUrl(url: string): boolean {
  * conhecida, comportamento é o mesmo de antes (pega a única disponível).
  */
 function extractContactUrl(text: string): string | null {
-  const allMatches = Array.from(text.matchAll(/https?:\/\/[^\s<>"']+/g), (m) => m[0]);
+  const allMatches = Array.from(text.matchAll(/https?:\/\/[^\s<>"']+/g), (m) => trimTrailingUrlWrappers(m[0]));
   if (allMatches.length === 0) return null;
   const known = allMatches.find(isKnownContactUrl);
   return known ?? allMatches[0];
@@ -801,6 +843,9 @@ const BARE_LABEL_STOP_KEYS = new Set([
   'local do jogo',
   'faixa etaria',
   'classificacao',
+  'ambientacao',
+  'cenario',
+  'estilo',
   'contato',
   'inscricao',
   'mestre',
@@ -953,11 +998,53 @@ const EDGE_EMPHASIS_MARKDOWN_RE = /(^|[\s([{])([*_`~]{1,2})(?=\S)|(?<=\S)([*_`~]
 // o anúncio da mesa. Preservados à parte em _raw_evidence (role/user_mentions)
 // pra quem precisar auditar; aqui só limpa o texto final visível (description),
 // DEPOIS que host/mentions/contato já foram extraídos do body cru.
-const RAW_MENTION_RE = /<@[!&]?\d+>/g;
+const RAW_DISCORD_TOKEN_RE = /<@[!&]?\d+>|<#[0-9]+>|<t:\d+:[tTdDfFR]>/g;
+
+function removeKnownContactUrlsFromDescription(text: string, contactUrl: string | null): string {
+  return text
+    .split(/\r?\n/)
+    .map((line) => {
+      const withoutUrls = line.replace(/https?:\/\/[^\s<>"']+/g, (raw) => {
+        const url = trimTrailingUrlWrappers(raw);
+        return url === contactUrl || isKnownContactUrl(url) ? '' : raw;
+      });
+      return withoutUrls.trim();
+    })
+    .filter((line) => line.length > 0)
+    .join('\n');
+}
+
+function buildFallbackDescription(body: string): string | null {
+  // T11.1 (fix real, achado ao validar contra os 3 datasets D:\teste*.json):
+  // a versão anterior só removia linha se a chave estivesse na allowlist
+  // BARE_LABEL_STOP_KEYS (pensada pra "label sozinho, sem valor, marca fim
+  // de continuação") — deixava vazar QUALQUER label:valor real fora dessa
+  // lista pequena (ex.: "Nível:", "Local:", "Data & Horário:", "Vagas
+  // Disponíveis:" normalizam pra chaves que não estão na allowlist e
+  // sobreviviam inteiras dentro da description). Fix: remove qualquer linha
+  // que `splitLabelLine` reconheça como par `label: valor` COM VALOR NÃO
+  // VAZIO — reaproveita splitLabelLine sem duplicar lógica de detecção, mas
+  // exige valor presente porque sub-título narrativo real (ex.: "A Expedição:"
+  // seguido do texto na linha seguinte, caso real "The Witherwild") também
+  // bate a sintaxe `chave:` com valor vazio — só rótulo de campo de verdade
+  // vem com o valor colado na mesma linha; sub-título estilístico não.
+  const cleaned = body
+    .split(/\r?\n/)
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return true;
+      const parsed = splitLabelLine(trimmed);
+      if (parsed && parsed.value.trim().length > 0) return false;
+      return !isBareLabelStopLine(trimmed);
+    })
+    .join('\n')
+    .trim();
+  return cleaned || null;
+}
 
 export function cleanDescriptionText(text: string): string {
   return text
-    .replace(RAW_MENTION_RE, '')
+    .replace(RAW_DISCORD_TOKEN_RE, '')
     .replace(PAIRED_EMPHASIS_MARKDOWN_RE, '$2')
     .replace(EDGE_EMPHASIS_MARKDOWN_RE, '$1')
     .replace(/[^\S\n]+/g, ' ')
@@ -1097,7 +1184,7 @@ export function parseDiscordAnnouncement(
   systems: SystemEntry[] = [],
   replyContext?: string,
   /** Fase A/B/C (spec 058): bancos de referência opcionais pra VTT/comunicação. */
-  platforms?: { vtt?: MatchEntry[]; communication?: MatchEntry[] },
+  platforms?: { vtt?: MatchEntry[]; communication?: MatchEntry[]; scenarios?: MatchEntry[] },
 ): ImportTableDraft | null {
   const threadName = message.discord_thread_name ?? '';
   const rawBody = message.content_raw ?? '';
@@ -1156,8 +1243,9 @@ export function parseDiscordAnnouncement(
   const scheduleAmbiguous = discordTs?.ambiguous === true;
 
   // T-C2: Google Forms URL (prioridade sobre URLs genéricas)
-  const googleFormsUrl = /https?:\/\/forms\.gle\/[^\s<>"']+/.exec(body)?.[0]
-    ?? /https?:\/\/docs\.google\.com\/forms\/[^\s<>"']+/.exec(body)?.[0];
+  const googleFormsUrl = trimTrailingUrlWrappers(/https?:\/\/forms\.gle\/[^\s<>"']+/.exec(body)?.[0] ?? '')
+    || trimTrailingUrlWrappers(/https?:\/\/docs\.google\.com\/forms\/[^\s<>"']+/.exec(body)?.[0] ?? '')
+    || null;
   const contactUrl = googleFormsUrl ?? extractContactUrl(body);
 
   const explicitContactDiscord = extractContactDiscord(body);
@@ -1179,8 +1267,17 @@ export function parseDiscordAnnouncement(
   // crus (<@id>) e markdown de ênfase (**/~~/`) sobrevivendo aqui não ajudam
   // quem lê o anúncio. rawEvidence (linha acima) já capturou os mentions do
   // body original antes desta limpeza — nada se perde, só o texto exibido melhora.
-  const rawDescription = extractLabelValue(body, ['descricao', 'descrição', 'sinopse', 'proposta'], { multiParagraph: true }) ?? (body.trim() || null);
-  const description = rawDescription ? cleanDescriptionText(rawDescription) || null : null;
+  // "Sinopse da História"/"Sinopse da historia" é variante real (achado em
+  // "Além do Escuro Norte", D:\teste [part 2].json) — normalizeLabelKey exige
+  // igualdade exata, então só "sinopse" nao batia e o fallback devolvia o
+  // body INTEIRO (Sistema/Estilo/Data/Plataformas/Regras dentro da descrição).
+  const rawDescription = extractLabelValue(
+    body,
+    ['descricao', 'descrição', 'sinopse', 'sinopse da historia', 'sinopse da história', 'proposta'],
+    { multiParagraph: true },
+  ) ?? buildFallbackDescription(body);
+  const descriptionSource = rawDescription ? removeKnownContactUrlsFromDescription(rawDescription, contactUrl) : null;
+  const description = descriptionSource ? cleanDescriptionText(descriptionSource) || null : null;
 
   // Fase C (spec 058): cadência explícita no texto ("semanal"/"quinzenal"/"mensal"/
   // "avulsa") tem prioridade sobre o fallback de deriveFrequency. Achado da simulação
@@ -1200,12 +1297,18 @@ export function parseDiscordAnnouncement(
 
   // Fase C: classificação indicativa (enum fixo, regex livre no corpo inteiro).
   const ageRating = extractAgeRating(fullText);
+  const experienceLevel = extractExperienceLevel(fullText);
 
+  const tableLevel = extractTableLevel(fullText);
   // Fase C: cenário/ambientação e estilos — sempre extraídos juntos (mesmo componente
   // de UI, SettingStylesField). Sem banco de referência — texto livre normalizado.
   const settingStylesLabelValue = extractLabelValue(body, ['estilo', 'indicado']);
   const settingStyles = settingStylesLabelValue ? splitFreeTextList(settingStylesLabelValue) : null;
   const settingName = extractLabelValue(body, ['ambientacao', 'ambientação', 'cenario', 'cenário']);
+  const scenarioMatch = settingName && platforms?.scenarios?.length
+    ? findPlatformMatch(settingName, platforms.scenarios)
+    : null;
+  const rawScenarioHint = settingName && !scenarioMatch ? settingName : null;
 
   // Fase C: requisitos técnicos — menção explícita no corpo (meta-exemplo do
   // mantenedor: "se descrição cita que tem que ter microfone, já temos campo pra isso").
@@ -1253,15 +1356,15 @@ export function parseDiscordAnnouncement(
     contact_discord: contactDiscord,
     contact_url: contactUrl,
     host_discord_id: hostDiscordId,
-    scenario_id: null,
-    raw_scenario_hint: null,
+    scenario_id: scenarioMatch?.id ?? null,
+    raw_scenario_hint: rawScenarioHint,
     vtt_platform_id: vttMatch?.id ?? null,
     communication_platform_id: communicationMatch?.id ?? null,
     age_rating: ageRating,
     setting_name: settingName,
     setting_styles: settingStyles,
-    experience_level: null,
-    table_level: null,
+    experience_level: experienceLevel,
+    table_level: tableLevel,
     requires_pc: requiresPc,
     requires_camera: requiresCamera,
     requires_microphone: requiresMicrophone,

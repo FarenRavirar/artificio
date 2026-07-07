@@ -5,7 +5,7 @@ import { DiscordChatExporterValidationError } from '../../discord/chatExporterAd
 import { db } from '../../db';
 import { validateReparseMessageIds, buildContentIndex, reparseOneMessage, recordImportRun } from './utils';
 import { uploadJsonFile } from './preview';
-import { loadCommunicationPlatformsForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
+import { loadCommunicationPlatformsForParser, loadScenariosForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
 
 const router = Router();
 
@@ -93,10 +93,11 @@ async function autoParsePendingImportedMessages(
 
   // Catálogos carregados uma vez fora do loop de batches — não mudam entre
   // iterações da mesma requisição, recarregar por batch é N+1 evitável.
-  const [systems, vttPlatforms, communicationPlatforms] = await Promise.all([
+  const [systems, vttPlatforms, communicationPlatforms, scenarios] = await Promise.all([
     loadSystemsForParser(),
     loadVttPlatformsForParser(),
     loadCommunicationPlatformsForParser(),
+    loadScenariosForParser(),
   ]);
 
   for (let offset = 0; offset < importedMessages.length; offset += AUTO_PARSE_BATCH_SIZE) {
@@ -121,6 +122,7 @@ async function autoParsePendingImportedMessages(
       const outcome = await reparseOneMessage(message, contentIndex, userId, acceptPaidTables, systems, {
         vttPlatforms,
         communicationPlatforms,
+        scenarios,
       });
       if (outcome === 'error') errors++;
       else if (outcome === 'discarded') discarded++;
@@ -210,10 +212,11 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
 
     // Catálogos carregados uma vez fora do loop de batches — não mudam entre
     // iterações da mesma requisição, recarregar por batch é N+1 evitável.
-    const [systems, vttPlatforms, communicationPlatforms] = await Promise.all([
+    const [systems, vttPlatforms, communicationPlatforms, scenarios] = await Promise.all([
       loadSystemsForParser(),
       loadVttPlatformsForParser(),
       loadCommunicationPlatformsForParser(),
+      loadScenariosForParser(),
     ]);
 
     outer: for (const idChunk of idChunks) {
@@ -243,6 +246,7 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
           const outcome = await reparseOneMessage(message, contentIndex, req.user?.userId, acceptPaidTables, systems, {
             vttPlatforms,
             communicationPlatforms,
+            scenarios,
           });
           if (outcome === 'error') errors++;
           else if (outcome === 'discarded') discarded++; // DEB-048-27

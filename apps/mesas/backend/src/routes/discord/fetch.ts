@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../../db';
 import type { SystemEntry } from '../../discord';
 import { ingestForumMessages, ingestMessages } from '../../discord';
-import { loadCommunicationPlatformsForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
+import { loadCommunicationPlatformsForParser, loadScenariosForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
 import { requireAdmin } from '../../middleware/auth';
 import { parseJsonField, ensureSystemSuggestionForDraft, normalizeSourceChannelType, sendDiscordFetchError, parseDiscordMessage, reconcileTerminalDraft } from './utils';
 
@@ -120,10 +120,11 @@ async function parsePendingMessagesForSource(
   const messages = await query.execute();
   if (messages.length === 0) return { processed: 0, succeeded: 0, ignored: 0, failed: 0 };
 
-  const [systems, vttPlatforms, communicationPlatforms] = await Promise.all([
+  const [systems, vttPlatforms, communicationPlatforms, scenarios] = await Promise.all([
     loadSystemsForParser(),
     loadVttPlatformsForParser(),
     loadCommunicationPlatformsForParser(),
+    loadScenariosForParser(),
   ]);
   let succeeded = 0;
   let ignored = 0;
@@ -134,6 +135,7 @@ async function parsePendingMessagesForSource(
       const result = await createOrUpdateDraftFromMessage(message, systems, adminId, {
         vttPlatforms,
         communicationPlatforms,
+        scenarios,
       });
       if (result === 'draft') succeeded++;
       else ignored++;

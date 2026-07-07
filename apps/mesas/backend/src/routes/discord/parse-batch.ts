@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
 import { processDiscordMessageToDraft, buildContentIndex, resolveReplyContext } from './utils';
-import { loadCommunicationPlatformsForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
+import { loadCommunicationPlatformsForParser, loadScenariosForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
 
 const router = Router();
 
@@ -22,10 +22,11 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
     // T-F8: contentIndex para resolver replyContext
     const contentIndex = buildContentIndex(messages);
 
-    const [systems, vttPlatforms, communicationPlatforms] = await Promise.all([
+    const [systems, vttPlatforms, communicationPlatforms, scenarios] = await Promise.all([
       loadSystemsForParser(),
       loadVttPlatformsForParser(),
       loadCommunicationPlatformsForParser(),
+      loadScenariosForParser(),
     ]);
     let succeeded = 0;
     let failed = 0;
@@ -42,6 +43,7 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
         const outcome = await processDiscordMessageToDraft(message, systems, replyContext, req.user?.userId, true, {
           vttPlatforms,
           communicationPlatforms,
+          scenarios,
         });
         if (outcome === 'discarded') discarded++;
         else if (outcome === 'ignored') ignored++;
