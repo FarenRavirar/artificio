@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
-import { buildDraftFieldInsights, buildForm, buildUpdatedPayload, flattenSystems, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, loadSystems, loadScenarios, loadVttPlatforms, loadCommunicationPlatforms, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
+import { buildDraftFieldInsights, buildForm, buildUpdatedPayload, flattenSystems, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, getDraftTable, loadSystems, loadScenarios, loadVttPlatforms, loadCommunicationPlatforms, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
 import { authPost } from '../../services/apiClient';
 import type { DraftFieldKey, DraftForm, SimpleCatalogEntry } from './draftFormUtils';
 import type { AiAutomationConfig, CompletenessAuditCandidate, DiscordDraft, DiscordImportDraftStatus, DiscordSlotsAmbiguity, DraftApiOperations, LlmActivity } from './types';
@@ -58,7 +58,10 @@ type DraftEditorAction =
   | { type: 'REMOVE_COVER' }
   | { type: 'SET_STATUS_FIELD'; key: 'newStatus' | 'reviewNotes'; value: string }
   | { type: 'MARK_PERSISTED' }
-  | { type: 'SET_COMPLETENESS_SUGGESTIONS'; suggestions: CompletenessAuditCandidate[] };
+  | { type: 'SET_COMPLETENESS_SUGGESTIONS'; suggestions: CompletenessAuditCandidate[] }
+  // Botão por campo (2026-07-07): substitui só as sugestões DAQUELE campo,
+  // preserva sugestões de outros campos vindas da auditoria geral/anterior.
+  | { type: 'MERGE_FIELD_SUGGESTIONS'; field: string; suggestions: CompletenessAuditCandidate[] };
 
 function buildEditorState(draft: DiscordDraft): DraftEditorState {
   const p = buildForm(draft.normalized_payload ?? draft.parsed_payload);
@@ -136,6 +139,12 @@ function editorReducer(state: DraftEditorState, action: DraftEditorAction): Draf
       return { ...state, dirty: false };
     case 'SET_COMPLETENESS_SUGGESTIONS':
       return { ...state, completenessSuggestions: action.suggestions };
+    case 'MERGE_FIELD_SUGGESTIONS': {
+      const rest = (state.completenessSuggestions ?? []).filter((s) => s.field !== action.field);
+      return { ...state, completenessSuggestions: [...rest, ...action.suggestions] };
+    }
+    default:
+      return state;
   }
 }
 
@@ -166,12 +175,20 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   const [aiConfig, setAiConfig] = useState<AiAutomationConfig | null>(null);
   const [llmActivity, setLlmActivity] = useState<LlmActivity | null>(null);
   const [auditingCompleteness, setAuditingCompleteness] = useState(false);
+  // Botão pequeno por campo (2026-07-07): guarda quais campos estão sendo
+  // reauditados agora, pra desabilitar só aqueles botões (não a tela toda).
+  // Achado CodeRabbit (PR #131): Set em vez de valor único — um valor único
+  // causava race entre 2 campos auditados em paralelo (o finally do 1º que
+  // resolvesse liberava visualmente o botão do 2º antes dele terminar).
+  const [auditingFields, setAuditingFields] = useState<Set<DraftFieldKey>>(() => new Set());
   const coverInputRef = useRef<HTMLInputElement | null>(null);
 
-  const missingFields = useMemo(() => validateForm(state.form), [state.form]);
+  const payload = useMemo(() => draft.normalized_payload ?? draft.parsed_payload, [draft.normalized_payload, draft.parsed_payload]);
+  const hostDiscordId = useMemo(() => (payload ? getDraftTable(payload).host_discord_id : null), [payload]);
+
+  const missingFields = useMemo(() => validateForm(state.form, hostDiscordId), [state.form, hostDiscordId]);
   const canSync = draft.status === 'ready' && !state.dirty && missingFields.length === 0;
 
-  const payload = useMemo(() => draft.normalized_payload ?? draft.parsed_payload, [draft.normalized_payload, draft.parsed_payload]);
   const fieldInsights = useMemo(
     () => buildDraftFieldInsights(draft.parsed_payload, payload),
     [draft.parsed_payload, payload],
@@ -267,11 +284,33 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     }
   };
 
+  // Botão pequeno por campo (pedido do mantenedor 2026-07-07): reaudita só o
+  // campo indicado via IA, ao lado do badge "Parser" no editor.
+  const handleAuditField = async (field: DraftFieldKey) => {
+    if (!draftApi.auditField) return;
+    setAuditingFields((current) => new Set(current).add(field));
+    try {
+      const result = await draftApi.auditField(draft.id, field);
+      dispatch({ type: 'MERGE_FIELD_SUGGESTIONS', field, suggestions: result.candidates });
+      toast.success(result.candidates.length > 0 ? 'IA encontrou algo pra conferir.' : 'IA nao achou lacuna nesse campo.');
+      const activity = await draftApi.getLlmActivity?.();
+      if (activity) setLlmActivity(activity);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao reauditar campo.');
+    } finally {
+      setAuditingFields((current) => {
+        const next = new Set(current);
+        next.delete(field);
+        return next;
+      });
+    }
+  };
+
   const handleSaveFields = async () => {
     setSavingFields(true);
     try {
-      const nextMissing = validateForm(state.form);
       const basePayload = draft.normalized_payload ?? draft.parsed_payload;
+      const nextMissing = validateForm(state.form, basePayload ? getDraftTable(basePayload).host_discord_id : null);
       // CodeRabbit: computa o payload normalizado uma vez e reusa no update E no
       // diff de correção — diff sobre state.form (strings) regravaria normalized_payload
       // com valores crus, sobrescrevendo campos já normalizados (ex.: price_value).
@@ -478,9 +517,11 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     aiConfig,
     llmActivity,
     auditingCompleteness,
+    auditingFields,
     completenessSuggestions: state.completenessSuggestions,
     applySuggestion,
     handleAuditCompleteness,
+    handleAuditField,
     handleSystemChange,
     handleSaveFields,
     handleCoverUpload, handleRemoveCover,

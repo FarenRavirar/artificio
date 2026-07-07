@@ -464,6 +464,8 @@ const RE_SLOT_X_DE_Y = new RegExp(`${D}${SP1}de${SP1}${D}`, 'i');
 const RE_SLOT_TOTAL = new RegExp(`vagas?${SP1}(?:totais|total)${SP0}${SEP}${SP0}${D}`, 'i');
 const RE_SLOT_OPEN = new RegExp(`vagas?${SP1}(?:dispon[ií]veis|dispon[ií]vel|abertas|aberta)${SP0}${SEP}${SP0}${D}`, 'i');
 const RE_SLOT_AMBIG_SLASH = new RegExp(`${LINE}${BULLETS}(?:vagas|jogadores)${SP0}${SEP}${SP0}${D}${SP0}/${SP0}${D}(?!${SP0}vagas?)`, 'i');
+// "1 vaga / grupo de 5 pessoas": vaga(s) aberta(s) seguida de tamanho do grupo (total).
+const RE_SLOT_GROUP_SIZE = new RegExp(`${D}${SP1}vagas?${SP0}/${SP0}grupo${SP1}de${SP1}${D}${SP1}pessoas?`, 'i');
 const RE_SLOT_LABELED = new RegExp(`${LINE}${BULLETS}(?:vagas(?:${SP1}dispon[ií]veis)?|jogadores)${SP0}${SEP}${SP0}${D}(?!${SP0}/)`, 'i');
 const RE_SLOT_SLASH_VAGAS = new RegExp(`${D}${SP0}/${SP0}${D}${SP0}vagas?`, 'i');
 const RE_SLOT_N_VAGAS = new RegExp(`${D}${SP0}vagas?`, 'i');
@@ -504,6 +506,17 @@ function slotsAmbiguousSlash(cleaned: string): SlotsResult | null {
   return { total: Math.max(first, second), open: null, ambiguity: { first, second, source: 'x_slash_y' } };
 }
 
+function slotsGroupSize(cleaned: string): SlotsResult | null {
+  // "1 vaga / grupo de 5 pessoas": open = vagas abertas, total = tamanho do grupo.
+  const m = RE_SLOT_GROUP_SIZE.exec(cleaned);
+  if (!m) return null;
+  const open = Number.parseInt(m[1], 10);
+  const total = Number.parseInt(m[2], 10);
+  return (total >= 1 && total <= 20 && open >= 0 && open <= total)
+    ? { total, open, ambiguity: null }
+    : null;
+}
+
 function slotsLabeled(cleaned: string): SlotsResult | null {
   const m = RE_SLOT_LABELED.exec(cleaned);
   if (!m) return null;
@@ -532,6 +545,11 @@ function extractSlots(text: string): SlotsResult {
   // cai no fallback null/null (idêntico ao default) — DEB-048-16.
   return slotsViaForms(cleaned)
     ?? slotsXdeY(cleaned)
+    // slotsGroupSize ANTES de slotsTotalOpen: "vagas disponíveis: 1 vaga /
+    // grupo de 5 pessoas" bate no RE_SLOT_OPEN de slotsTotalOpen primeiro
+    // (retorna {total:null, open:1} e a cascata para, "grupo de 5" nunca é
+    // lido) — achado em teste real ponta a ponta, 2026-07-07.
+    ?? slotsGroupSize(cleaned)
     ?? slotsTotalOpen(cleaned)
     ?? slotsAmbiguousSlash(cleaned)
     ?? slotsLabeled(cleaned)
@@ -1373,7 +1391,11 @@ export function parseDiscordAnnouncement(
   // DEB-048-26: contato = AUTOR do Discord quando não há contato explícito.
   // Quem publicou o anúncio é o contato padrão. Precedência: forms/url/menção
   // explícita > autor (fallback). Substitui a heurística T-C3 por frase-gatilho.
-  const authorContact = message.discord_author_name ?? message.discord_author_id ?? null;
+  // Correção (achado do mantenedor, 2026-07-07): discord_author_name é o NICKNAME
+  // de exibição do servidor (não é @username nem é pesquisável/mencionável fora
+  // dele) — usar o ID (snowflake, sempre resolve via menção <@id> em qualquer
+  // servidor) como valor de contato, nunca o nome. Nome só serve de label.
+  const authorContact = message.discord_author_id ?? null;
   const contactDiscord = explicitContactDiscord
     ?? (contactUrl ? null : authorContact);
   if (!explicitContactDiscord && !contactUrl && message.discord_author_id) {

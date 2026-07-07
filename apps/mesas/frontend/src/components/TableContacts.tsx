@@ -52,7 +52,18 @@ const buildMainHref = (contact: TableContact): string | null => {
       if (/^https?:\/\//i.test(contact.value)) {
         return contact.value;
       }
-      // Se é um código de convite (ex: abc123), gera discord.gg
+      // Snowflake ID cru ou mention <@id> (fallback de autor / menção extraída
+      // do texto, achado do mantenedor 2026-07-07) não é código de convite de
+      // servidor — é o ID do usuário. Nunca vira discord.gg/<id> (link de
+      // servidor quebrado/inexistente); usa deep-link de perfil de usuário,
+      // que o client Discord resolve mesmo sem @username.
+      const mentionMatch = /^<@!?(\d{17,20})>$/.exec(contact.value);
+      const bareSnowflake = /^\d{17,20}$/.test(contact.value) ? contact.value : null;
+      const rawId = mentionMatch?.[1] ?? bareSnowflake;
+      if (rawId) {
+        return `https://discord.com/users/${rawId}`;
+      }
+      // Caso contrário, é código de convite (ex: abc123) — gera discord.gg
       const inviteCode = contact.value.replace(/^(discord\.gg\/|discord\.com\/invite\/)/i, '');
       return `https://discord.gg/${inviteCode}`;
     }

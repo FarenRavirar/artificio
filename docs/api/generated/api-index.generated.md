@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **287 operações**.
+Total: **288 operações**.
 
 ## accounts (11)
 
@@ -100,7 +100,7 @@ Total: **287 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (176)
+## mesas (177)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -132,6 +132,7 @@ Total: **287 operações**.
 | GET | `/api/v1/admin/discord/drafts/{id}` | admin | admin | active | — | Consulta api v1 admin discord drafts id |
 | PATCH | `/api/v1/admin/discord/drafts/{id}` | admin | admin | active | — | Atualiza api v1 admin discord drafts id |
 | POST | `/api/v1/admin/discord/drafts/{id}/audit-completeness` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id audit-completeness |
+| POST | `/api/v1/admin/discord/drafts/{id}/audit-field/{field}` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id audit-field field |
 | POST | `/api/v1/admin/discord/drafts/{id}/correction` | admin | admin | provisional | — | Registra correção manual em draft de Discord |
 | GET | `/api/v1/admin/discord/drafts/{id}/duplicates` | admin | admin | active | — | Consulta api v1 admin discord drafts id duplicates |
 | POST | `/api/v1/admin/discord/drafts/{id}/refresh-image` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id refresh-image |

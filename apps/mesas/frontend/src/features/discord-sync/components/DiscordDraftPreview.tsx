@@ -15,6 +15,14 @@ function confidenceColor(score: number): string {
   return 'text-red-400';
 }
 
+// Achado Sonar (PR #131): ternario aninhado extraido pra funcao nomeada.
+function buildSyncTitle(canSync: boolean, dirty: boolean, missingFields: string[]): string | undefined {
+  if (canSync) return undefined;
+  if (dirty) return 'Salve as alterações primeiro.';
+  if (missingFields.length > 0) return `Campos obrigatórios pendentes: ${missingFields.join(', ')}.`;
+  return 'Preencha todos os campos obrigatórios e deixe o draft como ready.';
+}
+
 interface Props {
   readonly draft: DiscordDraft;
   readonly onUpdate: (updated: DiscordDraft) => void;
@@ -42,9 +50,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
     : draft.status === 'rejected' ? 'Rejeitado'
     : 'Revisar';
 
-  const syncTitle = !h.canSync
-    ? (h.dirty ? 'Salve as alterações primeiro.' : 'Preencha todos os campos obrigatórios e deixe o draft como ready.')
-    : undefined;
+  const syncTitle = buildSyncTitle(h.canSync, h.dirty, h.missingFields);
 
   const tabClass = (tab: typeof h.activeTab) =>
     `px-3 py-1 text-xs rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400 ${
@@ -269,11 +275,13 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
               aiConfig={h.aiConfig}
               llmActivity={h.llmActivity}
               auditingCompleteness={h.auditingCompleteness}
+              auditingFields={h.auditingFields}
               completenessSuggestions={h.completenessSuggestions}
               savingFields={h.savingFields}
               onUpdateForm={h.updateForm}
               onApplySuggestion={h.applySuggestion}
               onAuditCompleteness={api.auditCompleteness ? h.handleAuditCompleteness : undefined}
+              onAuditField={api.auditField ? h.handleAuditField : undefined}
               onSystemChange={h.handleSystemChange}
               onCoverUpload={h.handleCoverUpload}
               onRemoveCover={h.handleRemoveCover}

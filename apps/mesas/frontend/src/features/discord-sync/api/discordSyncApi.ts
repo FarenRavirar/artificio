@@ -469,6 +469,7 @@ const completenessAuditSchema = z.object({
     value: z.unknown().optional(),
     evidence: z.string(),
     confidence: z.number().optional(),
+    issue_type: z.enum(['missing', 'incorrect']).optional(),
   })).catch([]),
 });
 function parseCompletenessAudit(data: unknown): CompletenessAuditResult {
@@ -646,6 +647,11 @@ export const discordSyncApi = {
 
   auditCompleteness: async (id: string) =>
     parseCompletenessAudit(await apiFetch<unknown>(`/drafts/${id}/audit-completeness`, { method: 'POST' })),
+
+  // Botão pequeno por campo (pedido do mantenedor 2026-07-07), ao lado do
+  // badge "Parser" — reaudita só o campo indicado via DeepSeek.
+  auditField: async (id: string, field: string) =>
+    parseCompletenessAudit(await apiFetch<unknown>(`/drafts/${id}/audit-field/${encodeURIComponent(field)}`, { method: 'POST' })),
 
   refreshDraftImage: (id: string) =>
     apiFetch<{ draftId: string; tableId: string | null; status: string; url: string | null; error: string | null }>(`/drafts/${id}/refresh-image`, { method: 'POST' }),

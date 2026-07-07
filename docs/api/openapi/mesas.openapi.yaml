@@ -993,6 +993,53 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/admin/discord/drafts/{id}/audit-field/{field}:
+    post:
+      operationId: postapi_v1_admin_discord_drafts_id_audit_field_field
+      summary: "Cria ou executa api v1 admin discord drafts id audit-field field"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: field
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/admin/discord/drafts/{id}/correction:
     parameters:
       - name: id

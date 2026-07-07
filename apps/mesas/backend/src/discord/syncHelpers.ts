@@ -194,7 +194,11 @@ export function extractContacts(
   const contacts: Array<Omit<Insertable<TableContactsTable>, 'table_id'>> = [];
 
   if (draft.table.contact_discord) {
-    contacts.push({ channel: 'discord', value: draft.table.contact_discord, label: null, discord_server_url: null });
+    // Snowflake ID cru (fallback de autor) ou mention <@id> (extraída do texto)
+    // não são legíveis na UI sem rótulo — value vira o link/menção, label vira
+    // o texto exibido (achado do mantenedor 2026-07-07: nome de exibição != contato).
+    const label = /^(\d{17,20}|<@!?\d{17,20}>)$/.test(draft.table.contact_discord) ? 'Perfil Discord' : null;
+    contacts.push({ channel: 'discord', value: draft.table.contact_discord, label, discord_server_url: null });
   }
 
   if (draft.table.contact_url) {

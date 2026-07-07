@@ -7,8 +7,9 @@ if (!existsSync('.git') || !existsSync('.githooks')) {
 
 try {
   chmodSync('.githooks/pre-push', 0o755);
+  chmodSync('.githooks/pre-commit', 0o755);
 } catch {
-  console.warn('Não foi possível marcar .githooks/pre-push como executável automaticamente.');
+  console.warn('Não foi possível marcar .githooks/* como executável automaticamente.');
 }
 
 const result = spawnSync('git', ['config', 'core.hooksPath', '.githooks'], {

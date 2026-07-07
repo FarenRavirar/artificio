@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 357,
+    "total": 358,
     "byApp": {
       "accounts": {
         "total": 11,
@@ -41,17 +41,17 @@
         }
       },
       "mesas": {
-        "total": 226,
+        "total": 227,
         "byMethod": {
+          "POST": 62,
           "GET": 61,
-          "POST": 61,
           "USE": 51,
           "PATCH": 25,
           "DELETE": 17,
           "PUT": 11
         },
         "byConfidence": {
-          "high": 226
+          "high": 227
         }
       },
       "site": {
@@ -1320,7 +1320,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/discord/drafts/:id",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 278,
+      "line": 334,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1329,7 +1329,16 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/audit-completeness",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 104,
+      "line": 176,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/drafts/:id/audit-field/:field",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
+      "line": 192,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1347,7 +1356,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/refresh-image",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 300,
+      "line": 356,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1356,7 +1365,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/reparse",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 316,
+      "line": 372,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1374,7 +1383,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/discord/drafts/batch",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 151,
+      "line": 207,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1383,7 +1392,7 @@
       "method": "DELETE",
       "path": "/api/v1/admin/discord/drafts/rejected",
       "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
-      "line": 214,
+      "line": 270,
       "confidence": "high",
       "kind": "express-route"
     },
