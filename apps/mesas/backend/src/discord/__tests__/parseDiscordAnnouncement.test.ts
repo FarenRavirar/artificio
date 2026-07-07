@@ -2,6 +2,7 @@ import { parseDiscordAnnouncement, classifyConfidence, isSuspiciousUrl, isHomebr
 import { normalizeDiscordTableDraft } from '../normalizeDiscordTableDraft';
 import type { ImportRawMessage } from '../types';
 import { chatExporterSampleMessages } from './fixtures/chatExporterSample';
+import { parserPhase11Samples } from './fixtures/parserPhase11Samples';
 
 function makeMessage(overrides: Partial<ImportRawMessage>): ImportRawMessage {
   return {
@@ -1693,7 +1694,150 @@ describe('parseDiscordAnnouncement', () => {
       );
       expect(draft?.table.contact_url).toBe('https://sanctumveritatis.com/setentrional');
     });
+
+  describe('Fase 11 - descricao estruturada, tokens Discord, URL e experiencia', () => {
+    it('fallback de descricao remove labels estruturados e preserva texto livre', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: [
+            'Titulo: Onde as Mascaras Observam',
+            'Sistema: DnD',
+            'Estilo: misterio',
+            'Vagas: 4',
+            '',
+            'A Expedicao:',
+            'Os personagens chegam ao vale durante uma noite sem lua.',
+            '',
+            'Mestre: Fulano',
+          ].join('\n'),
+        }),
+      );
+
+      expect(draft?.table.description).toContain('A Expedicao:');
+      expect(draft?.table.description).toContain('Os personagens chegam');
+      expect(draft?.table.description).not.toContain('Sistema:');
+      expect(draft?.table.description).not.toContain('Vagas:');
+      expect(draft?.table.description).not.toContain('Mestre:');
+    });
+
+    it('descricao final remove mentions e timestamps Discord crus', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: DnD\nVagas: 4\nSinopse: Aventura sombria <@&123456> <#987654> <t:1781647200:F>\nContato: <@123456>',
+        }),
+      );
+
+      expect(draft?.table.description).toBe('Aventura sombria');
+    });
+
+    it('remove parenteses e colchetes sobrando de markdown-link na URL extraida', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: DnD\nVagas: 4\nInscricoes: [Sanctum](https://sanctumveritatis.com/setentrional)\nOutro: [Form](https://forms.gle/BJ1]',
+        }),
+      );
+
+      expect(draft?.table.contact_url).toBe('https://forms.gle/BJ1');
+    });
+
+    it('remove wrappers finais intercalados de URL extraida', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: DnD\nVagas: 4\nInscricoes: https://forms.gle/BJ1)]',
+        }),
+      );
+
+      expect(draft?.table.contact_url).toBe('https://forms.gle/BJ1');
+    });
+
+    it('remove URL conhecida de contato da descricao quando ja virou contact_url', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: [
+            'Sistema: DnD',
+            'Vagas: 4',
+            'Sinopse: Uma mesa investigativa.',
+            'Inscricoes: https://forms.gle/teste123',
+          ].join('\n'),
+        }),
+      );
+
+      expect(draft?.table.contact_url).toBe('https://forms.gle/teste123');
+      expect(draft?.table.description).toBe('Uma mesa investigativa.');
+    });
+
+    it('remove markdown-link de contato inteiro da descricao sem deixar wrapper quebrado', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: [
+            'Sistema: DnD',
+            'Vagas: 4',
+            'Sinopse: Uma mesa investigativa. Inscreva-se [Form](https://forms.gle/teste123)',
+          ].join('\n'),
+        }),
+      );
+
+      expect(draft?.table.contact_url).toBe('https://forms.gle/teste123');
+      expect(draft?.table.description).toBe('Uma mesa investigativa. Inscreva-se');
+      expect(draft?.table.description).not.toMatch(/\[[^\]]*\]\(|\[[^\]]*\]\(\)/);
+    });
+
+    it('extrai nivel de experiencia de jogador por sinal explicito', () => {
+      const iniciante = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Sistema: DnD\nVagas: 4\nSinopse: Iniciantes sao bem-vindos nesta aventura.' }),
+      );
+      const veterano = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Sistema: DnD\nVagas: 4\nSinopse: Experiencia obrigatoria; nao recomendado para iniciante.' }),
+      );
+
+      expect(iniciante?.table.experience_level).toBe('iniciante');
+      expect(veterano?.table.experience_level).toBe('veterano');
+    });
+
+    it('extrai complexidade da mesa por sinal explicito', () => {
+      const iniciante = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Sistema: DnD\nVagas: 4\nSinopse: Mesa para iniciantes com regras guiadas.' }),
+      );
+      const avancado = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Sistema: DnD\nVagas: 4\nSinopse: Complexidade: avancado, combate tatico pesado.' }),
+      );
+
+      expect(iniciante?.table.table_level).toBe('iniciante');
+      expect(avancado?.table.table_level).toBe('avancado');
+    });
+
+    it('resolve cenario por catalogo e preserva raw_scenario_hint quando nao casa', () => {
+      const scenarios = [{ id: 'scenario-1', name: 'Forgotten Realms', aliases: ['Faerun'] }];
+      const matched = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Sistema: DnD\nCenario: Faerun\nVagas: 4\nSinopse: aventura.' }),
+        [],
+        undefined,
+        { scenarios },
+      );
+      const unknown = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Sistema: DnD\nCenario: Mundo autoral de vidro\nVagas: 4\nSinopse: aventura.' }),
+        [],
+        undefined,
+        { scenarios },
+      );
+
+      expect(matched?.table.scenario_id).toBe('scenario-1');
+      expect(matched?.table.raw_scenario_hint).toBeNull();
+      expect(unknown?.table.scenario_id).toBeNull();
+      expect(unknown?.table.raw_scenario_hint).toBe('Mundo autoral de vidro');
+    });
+
+    it.each(parserPhase11Samples)('fixture sanitizada $source: $name', ({ message }) => {
+      const draft = parseDiscordAnnouncement(message);
+      expect(draft).not.toBeNull();
+      expect(draft?.table.description).not.toMatch(/\b(?:Sistema|Vagas|Mestre|Estilo)\s*:/i);
+      expect(draft?.table.description).not.toMatch(/<@[!&]?\d+>|<#\d+>|<t:\d+:[tTdDfFR]>/);
+      if (draft?.table.contact_url) {
+        expect(draft.table.contact_url).not.toMatch(/[)\]]$/);
+      }
+    });
   });
+});
 });
 
 // ─── T-G1: classifyConfidence ──────────────────────────────────────────

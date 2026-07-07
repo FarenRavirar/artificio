@@ -58,6 +58,7 @@ vi.mock('../../discord/shared', () => ({
   loadSystemsForParser: vi.fn(),
   loadVttPlatformsForParser: vi.fn().mockResolvedValue([]),
   loadCommunicationPlatformsForParser: vi.fn().mockResolvedValue([]),
+  loadScenariosForParser: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock('../../services/adminNotifications', () => ({
