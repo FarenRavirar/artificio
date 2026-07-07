@@ -33,7 +33,9 @@ function isValidTimeString(v: string): boolean {
   return h >= 0 && h <= 23 && min >= 0 && min <= 59;
 }
 /** Fase D (spec 058): mesmos enums do draft (backend `types.ts`). */
-export type DraftAgeRating = 'livre' | '10+' | '12+' | '14+' | '16+' | '18+';
+// Formato do enum Postgres real: `+18` (sinal ANTES do número). `18+` invertido
+// causou 500 "invalid input value for enum age_rating" no sync (2026-07-08).
+export type DraftAgeRating = 'livre' | '+10' | '+12' | '+14' | '+16' | '+18';
 export type DraftExperienceLevel = 'todos' | 'iniciante' | 'intermediario' | 'veterano';
 export type DraftTableLevel = 'iniciante' | 'intermediario' | 'avancado';
 
@@ -250,6 +252,15 @@ export function buildDraftFieldInsights(
   return insights;
 }
 
+// Espelha normalizeAgeRating do backend (syncHelpers.ts) — converte o formato
+// legado invertido `NN+` pro enum real `+NN`; valor irreconhecível vira ''.
+function normalizeLegacyAgeRating(value: string): string {
+  const trimmed = value.trim();
+  if (['livre', '+10', '+12', '+14', '+16', '+18'].includes(trimmed)) return trimmed;
+  const inverted = /^(\d{2})\+$/.exec(trimmed);
+  return inverted ? `+${inverted[1]}` : '';
+}
+
 export function buildForm(payload: DiscordDraftPayload): DraftForm {
   const table = asRecord(payload.table);
   return {
@@ -271,7 +282,9 @@ export function buildForm(payload: DiscordDraftPayload): DraftForm {
     cover_url: asString(table.cover_url),
     cover_url_source: asString(table.cover_url_source),
     cover_quality: (asString(table.cover_quality) as DraftForm['cover_quality']) || '',
-    age_rating: (asString(table.age_rating) as DraftForm['age_rating']) || '',
+    // normalizeLegacyAgeRating: drafts antigos gravaram `18+` (formato invertido
+    // pré-fix 2026-07-08); sem normalizar, o select não casa nenhuma option.
+    age_rating: (normalizeLegacyAgeRating(asString(table.age_rating)) as DraftForm['age_rating']) || '',
     experience_level: (asString(table.experience_level) as DraftForm['experience_level']) || '',
     table_level: (asString(table.table_level) as DraftForm['table_level']) || '',
     setting_name: asString(table.setting_name),
@@ -415,6 +428,65 @@ export function buildUpdatedPayload(base: DiscordDraftPayload, form: DraftForm):
   };
 }
 
+/**
+ * Achado do mantenedor (2026-07-08): a auditoria de completude só IMPRIMIA os
+ * candidatos — sem botão de aplicar, o relatório não servia pra nada ("ele ta
+ * falando o que eu já poderia saber"). Mapeia candidate.field (nome do campo
+ * no payload da table) pra atualização aplicável no DraftForm. Retorna null
+ * pra campo que não existe no form (ex.: _notes, end_time, slots_filled) —
+ * a UI mostra o candidato sem botão nesses casos.
+ */
+export function mapAuditCandidateToForm(
+  field: string,
+  value: unknown,
+): { key: keyof DraftForm; value: DraftForm[keyof DraftForm] } | null {
+  const asText = (): string => {
+    if (value === null || value === undefined) return '';
+    if (Array.isArray(value)) return value.filter((v) => typeof v === 'string').join(', ');
+    return String(value);
+  };
+  switch (field) {
+    case 'title':
+    case 'description':
+    case 'setting_name':
+    case 'start_time':
+    case 'contact_url':
+    case 'contact_discord':
+    case 'system_name':
+    case 'setting_styles':
+      return { key: field, value: asText() };
+    case 'slots_total':
+    case 'slots_open':
+    case 'price_value':
+      return { key: field, value: asText() };
+    // Selects de enum: aplica como veio; valor fora do enum é pego por
+    // validateForm (fica precisamente visível como pendência, não silencioso).
+    case 'type':
+      return { key: 'type', value: asText() as DraftTableType };
+    case 'modality':
+      return { key: 'modality', value: asText() as DraftModality };
+    case 'price_type':
+      return { key: 'price_type', value: asText() as DraftPriceType };
+    case 'day_of_week':
+      return { key: 'day_of_week', value: asText() as DraftForm['day_of_week'] };
+    case 'frequency':
+      return { key: 'frequency', value: asText() as DraftFrequency };
+    case 'age_rating':
+      return { key: 'age_rating', value: asText() as DraftForm['age_rating'] };
+    case 'experience_level':
+      return { key: 'experience_level', value: asText() as DraftForm['experience_level'] };
+    case 'table_level':
+      return { key: 'table_level', value: asText() as DraftForm['table_level'] };
+    case 'requires_pc':
+    case 'requires_camera':
+    case 'requires_microphone':
+    case 'session_zero_free':
+      return { key: field, value: value === true };
+    default:
+      return null;
+  }
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -465,8 +537,12 @@ function normalizeSystemTree(raw: unknown): SystemTreeNode[] {
 // sistema novo); sem isso o cache serviria lista desatualizada indefinidamente.
 const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 
-export async function loadSystems(): Promise<SystemTreeNode[]> {
-  if (!systemsCache || Date.now() - systemsCacheLoadedAt > CATALOG_CACHE_TTL_MS) {
+// forceRefresh (2026-07-08): após criar sistema novo via SystemSuggestionModal
+// no editor de draft, o cache de 5min serviria a árvore antiga sem o sistema
+// recém-criado — sem opção de invalidar, o combobox só mostraria o novo
+// sistema depois do TTL expirar sozinho.
+export async function loadSystems(forceRefresh = false): Promise<SystemTreeNode[]> {
+  if (forceRefresh || !systemsCache || Date.now() - systemsCacheLoadedAt > CATALOG_CACHE_TTL_MS) {
     systemsCacheLoadedAt = Date.now();
     systemsCache = fetchSystems().catch((error) => {
       systemsCache = null;

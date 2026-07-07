@@ -235,7 +235,7 @@ export interface TablesTable {
   status: Generated<TableStatus>;
   type: TableType;
   audience: Generated<TableAudience>;
-  age_rating: 'livre' | '10+' | '12+' | '14+' | '16+' | '18+' | null;
+  age_rating: 'livre' | '+10' | '+12' | '+14' | '+16' | '+18' | null;
   modality: Generated<TableModality>;
   // VTT Platform (Migration 006)
   vtt_platform_id: string | null; // Referência à vtt_platforms

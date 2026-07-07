@@ -1,9 +1,11 @@
-import type { ChangeEvent } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import type { DraftFieldInsight, DraftFieldKey, DraftForm, DraftTableType, DraftModality, DraftPriceType, DraftFrequency, DraftDayOfWeek, DraftAgeRating, DraftExperienceLevel, DraftTableLevel, SimpleCatalogEntry } from '../draftFormUtils';
+import { mapAuditCandidateToForm } from '../draftFormUtils';
 import type { AiAutomationConfig, CompletenessAuditCandidate, DiscordSlotsAmbiguity, LlmActivity } from '../types';
 import type { SystemTreeNode } from '../../../types/systems';
 import { SystemSearchSelect } from './SystemSearchSelect';
 import { CatalogSearchSelect } from './CatalogSearchSelect';
+import { SystemSuggestionModal } from '../../../components/SystemSuggestionModal';
 
 interface DraftEditorTabProps {
   form: DraftForm;
@@ -43,7 +45,12 @@ interface DraftEditorTabProps {
   onApplySuggestion?: (field: DraftFieldKey, value: unknown) => void;
   onAuditCompleteness?: () => void;
   onAuditField?: (field: DraftFieldKey) => void;
-  onSystemChange: (systemId: string) => void;
+  /** knownName: nome do sistema quando ainda não está no catálogo carregado
+   * (recém-criado pelo modal — achado CodeRabbit PR #135). */
+  onSystemChange: (systemId: string, knownName?: string) => void;
+  /** Achado do mantenedor (2026-07-08): "+ Adicionar Sistema" já existia no
+   * form normal de criar mesa (StepSystem.tsx) mas nunca no editor de draft. */
+  onRefreshSystems: () => void;
   onCoverUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemoveCover: () => void;
   onSetSlotsInterpretation: (v: 'filled_total' | 'open_total') => void;
@@ -129,9 +136,10 @@ export function DraftEditorTab({
   coverPreviewUrl, coverError, coverUploading, coverInputRef,
   shouldShowSlotsDisambiguation, slotsAmbiguity, slotsInterpretation, fieldInsights, savingFields,
   aiConfig, llmActivity, auditingCompleteness, auditingFields, completenessSuggestions,
-  onUpdateForm, onApplySuggestion, onAuditCompleteness, onAuditField, onSystemChange, onCoverUpload, onRemoveCover,
+  onUpdateForm, onApplySuggestion, onAuditCompleteness, onAuditField, onSystemChange, onRefreshSystems, onCoverUpload, onRemoveCover,
   onSetSlotsInterpretation, onConfirmSlots,
 }: Readonly<DraftEditorTabProps>) {
+  const [showSystemSuggestionModal, setShowSystemSuggestionModal] = useState(false);
   const aiOff = !aiConfig || aiConfig.mode === 'off' || aiConfig.killSwitch;
   // Achado CodeRabbit (PR #128): auditoria de completude e acao manual sob
   // demanda (T10.9, spec 058), independente do modo automatico — so o kill
@@ -163,14 +171,48 @@ export function DraftEditorTab({
         </div>
         {Array.isArray(completenessSuggestions) && completenessSuggestions.length > 0 && (
           <div className="mt-2 space-y-1">
-            {completenessSuggestions.map((item, index) => (
-              <p key={`${item.field}-${index}`} className="text-xs text-blue-100">
-                <span className={`mr-1 rounded px-1 py-0.5 text-[10px] uppercase ${item.issue_type === 'incorrect' ? 'bg-red-500/20 text-red-200' : 'bg-amber-500/20 text-amber-200'}`}>
-                  {item.issue_type === 'incorrect' ? 'conferir' : 'faltando'}
-                </span>
-                {item.field}: {formatSuggestion(item.value)} <span className="text-white/45">{item.evidence}</span>
-              </p>
-            ))}
+            {/* Achado do mantenedor (2026-07-08): candidatos eram só texto —
+                relatório sem ação não serve. Botão aplica direto no form
+                (campo mapeável); campo sem correspondente no form fica sem
+                botão, marcado "manual". */}
+            {completenessSuggestions.some((item) => mapAuditCandidateToForm(item.field, item.value) !== null) && (
+              <button
+                type="button"
+                onClick={() => {
+                  for (const item of completenessSuggestions) {
+                    const update = mapAuditCandidateToForm(item.field, item.value);
+                    if (update) onUpdateForm(update.key, update.value);
+                  }
+                }}
+                className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
+              >
+                Aplicar todos
+              </button>
+            )}
+            {completenessSuggestions.map((item, index) => {
+              const update = mapAuditCandidateToForm(item.field, item.value);
+              return (
+                <p key={`${item.field}-${index}`} className="text-xs text-blue-100">
+                  <span className={`mr-1 rounded px-1 py-0.5 text-[10px] uppercase ${item.issue_type === 'incorrect' ? 'bg-red-500/20 text-red-200' : 'bg-amber-500/20 text-amber-200'}`}>
+                    {item.issue_type === 'incorrect' ? 'conferir' : 'faltando'}
+                  </span>
+                  {item.field}: {formatSuggestion(item.value)} <span className="text-white/45">{item.evidence}</span>
+                  {update ? (
+                    <button
+                      type="button"
+                      onClick={() => onUpdateForm(update.key, update.value)}
+                      className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-white/70 hover:bg-white/20"
+                    >
+                      Aplicar
+                    </button>
+                  ) : (
+                    <span className="ml-1 rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-white/40" title="Campo sem correspondente editável no formulário — ajuste manualmente se fizer sentido.">
+                      manual
+                    </span>
+                  )}
+                </p>
+              );
+            })}
           </div>
         )}
       </div>
@@ -232,7 +274,31 @@ export function DraftEditorTab({
           <FieldInsightNote field="title" insight={fieldInsights?.title} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('title') ?? false} />
         </label>
         <label>
-          <span className={labelClass}>Sistema</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className={labelClass}>Sistema</span>
+            <div className="mb-1 flex items-center gap-1">
+              {/* Achado do mantenedor (2026-07-08): sistema criado em OUTRA tela
+                  (gestão/aba paralela) com o draft já aberto nunca aparecia no
+                  combobox — catálogo carrega 1x no mount + cache de 5min. O
+                  modal daqui já auto-recarrega; este botão cobre criação externa. */}
+              <button
+                type="button"
+                onClick={onRefreshSystems}
+                disabled={systemsLoading}
+                title="Recarregar lista de sistemas"
+                className="text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 transition-colors disabled:opacity-40"
+              >
+                ↻
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSystemSuggestionModal(true)}
+                className="text-xs px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
+              >
+                + Adicionar Sistema
+              </button>
+            </div>
+          </div>
           <SystemSearchSelect systems={systems} value={form.system_id} loading={systemsLoading} onChange={onSystemChange} />
           <FieldInsightNote field="system_name" insight={fieldInsights?.system_name} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('system_name') ?? false} />
         </label>
@@ -333,13 +399,16 @@ export function DraftEditorTab({
         <label>
           <span className={labelClass}>Classificação indicativa</span>
           <select value={form.age_rating} onChange={(e) => onUpdateForm('age_rating', e.target.value as DraftAgeRating)} className="app-select w-full">
+            {/* Values no formato do enum Postgres real (`+18`, sinal antes) —
+                mesmo formato do form principal (StepConfig.tsx). `18+` invertido
+                estourava 500 no sync (achado do mantenedor 2026-07-08). */}
             <option value="">Não informada</option>
             <option value="livre">Livre</option>
-            <option value="10+">10+</option>
-            <option value="12+">12+</option>
-            <option value="14+">14+</option>
-            <option value="16+">16+</option>
-            <option value="18+">18+</option>
+            <option value="+10">+10</option>
+            <option value="+12">+12</option>
+            <option value="+14">+14</option>
+            <option value="+16">+16</option>
+            <option value="+18">+18</option>
           </select>
         </label>
         <label>
@@ -406,6 +475,27 @@ export function DraftEditorTab({
       <span className={labelClass}>Texto original da mensagem</span>
       <ContentRawPanel loading={contentRawLoading} contentRaw={contentRaw} />
     </div>
+
+    {/* Montagem condicional (não só isOpen): SystemSuggestionModal chama
+        useAuth() incondicionalmente no corpo (guard "if (!isOpen) return
+        null" vem DEPOIS dos hooks) — exige AuthProvider mesmo fechado.
+        Editor de draft roda dentro de AuthProvider em produção, mas manter
+        desmontado por padrão evita esse acoplamento implícito em qualquer
+        contexto de render (inclusive testes). */}
+    {showSystemSuggestionModal && (
+    <SystemSuggestionModal
+      isOpen={showSystemSuggestionModal}
+      onClose={() => setShowSystemSuggestionModal(false)}
+      onSuccess={(createdSystem) => {
+        setShowSystemSuggestionModal(false);
+        onRefreshSystems();
+        // Nome vem do próprio retorno do modal: refreshSystems é assíncrono e
+        // `systems` ainda não contém o sistema novo neste instante (achado
+        // CodeRabbit PR #135 — sem isso system_name ficava com o nome antigo).
+        if (createdSystem?.id) onSystemChange(createdSystem.id, createdSystem.name);
+      }}
+    />
+    )}
     </div>
   );
 }

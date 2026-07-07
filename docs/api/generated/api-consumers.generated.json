@@ -2277,7 +2277,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 483
+      "line": 559
     },
     {
       "app": "mesas-frontend",
@@ -2457,7 +2457,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 384
+      "line": 401
     },
     {
       "app": "mesas-frontend",

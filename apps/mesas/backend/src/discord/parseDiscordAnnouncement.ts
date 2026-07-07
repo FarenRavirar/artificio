@@ -678,11 +678,13 @@ function extractExplicitFrequency(text: string): TableDraftFrequency | null {
 /** Fase C (spec 058): classificação indicativa — enum fixo, regex livre no corpo. */
 function extractAgeRating(text: string): TableDraftAgeRating | null {
   const lower = text.toLowerCase();
-  if (/\+\s?18\b|\b18\s?\+|\bmaiores\s{1,3}de\s{1,3}18\b/.test(lower)) return '18+';
-  if (/\+\s?16\b|\b16\s?\+|\bmaiores\s{1,3}de\s{1,3}16\b/.test(lower)) return '16+';
-  if (/\+\s?14\b|\b14\s?\+|\bmaiores\s{1,3}de\s{1,3}14\b/.test(lower)) return '14+';
-  if (/\+\s?12\b|\b12\s?\+|\bmaiores\s{1,3}de\s{1,3}12\b/.test(lower)) return '12+';
-  if (/\+\s?10\b|\b10\s?\+|\bmaiores\s{1,3}de\s{1,3}10\b/.test(lower)) return '10+';
+  // Retorno no formato do enum Postgres real: `+18` (sinal ANTES) — `18+`
+  // estourava 500 no sync (achado do mantenedor 2026-07-08).
+  if (/\+\s?18\b|\b18\s?\+|\bmaiores\s{1,3}de\s{1,3}18\b/.test(lower)) return '+18';
+  if (/\+\s?16\b|\b16\s?\+|\bmaiores\s{1,3}de\s{1,3}16\b/.test(lower)) return '+16';
+  if (/\+\s?14\b|\b14\s?\+|\bmaiores\s{1,3}de\s{1,3}14\b/.test(lower)) return '+14';
+  if (/\+\s?12\b|\b12\s?\+|\bmaiores\s{1,3}de\s{1,3}12\b/.test(lower)) return '+12';
+  if (/\+\s?10\b|\b10\s?\+|\bmaiores\s{1,3}de\s{1,3}10\b/.test(lower)) return '+10';
   if (/\bclassifica[cç][aã]o\s{1,3}livre\b/.test(lower)) return 'livre';
   if (/\blivre\s{1,3}para\s{1,3}todos\b/.test(lower)) return 'livre';
   return null;

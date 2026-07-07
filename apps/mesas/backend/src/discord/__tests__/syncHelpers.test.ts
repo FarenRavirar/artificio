@@ -159,7 +159,9 @@ describe('buildTableData — Fase E (spec 058): campos novos da Fase B/C propaga
   it('propaga todos os campos novos do draft pro insert da mesa (sem perda silenciosa)', () => {
     const draft = makeDraft({
       scenario_id: 'scenario-1',
-      age_rating: '18+',
+      // '18+' legado (formato invertido pré-fix 2026-07-08, fora do tipo atual
+      // de propósito) — o insert deve normalizar pro enum Postgres real '+18'.
+      age_rating: '18+' as unknown as ImportTableDraft['table']['age_rating'],
       vtt_platform_id: 'foundry',
       communication_platform_id: 'discord-plat',
       experience_level: 'veterano',
@@ -176,7 +178,7 @@ describe('buildTableData — Fase E (spec 058): campos novos da Fase B/C propaga
 
     expect(tableData).toMatchObject({
       scenario_id: 'scenario-1',
-      age_rating: '18+',
+      age_rating: '+18',
       vtt_platform_id: 'foundry',
       communication_platform_id: 'discord-plat',
       experience_level: 'veterano',

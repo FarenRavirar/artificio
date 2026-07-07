@@ -484,7 +484,7 @@ describe('parseDiscordAnnouncement', () => {
       { vtt: vttPlatforms, communication: communicationPlatforms },
     );
 
-    expect(draft?.table.age_rating).toBe('18+');
+    expect(draft?.table.age_rating).toBe('+18');
     expect(draft?.table.setting_styles).toEqual(['Fantasia', 'Investigação', 'Mistério']);
   });
 
