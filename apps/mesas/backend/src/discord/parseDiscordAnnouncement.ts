@@ -353,7 +353,7 @@ function extractType(text: string): TableDraftType | null {
   // essa métrica). Caso real: "Daggerheart: As Witherlands" (D:\teste.json)
   // não cita "campanha" em nenhum lugar, só "Vagas: 1/6 - Em andamento".
   if (/\bem\s+andamento\b|\bj[aá]\s+(?:iniciada|come[çc]ou|em\s+andamento)\b/.test(lower)) return 'campanha';
-  if (/\b\d+\s*[aà~-]\s*\d+\s+sess[õo]es\b/.test(lower)) return 'campanha';
+  if (/\b\d+\s*[aà~–—-]\s*\d+\s+sess[õo]es\b/.test(lower)) return 'campanha';
   if (/\b\d+\+?\s+sess[õo]es\b/.test(lower)) return 'campanha';
   return null;
 }

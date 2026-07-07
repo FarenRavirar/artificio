@@ -184,6 +184,13 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.id, draft.status, draft.review_notes, draft.normalized_payload, draft.parsed_payload]);
 
+  // Achado CodeRabbit (PR #128): sugestoes da auditoria de completude de um
+  // draft anterior (ou de antes do reparse) ficavam visiveis mesmo apos
+  // trocar de draft, associadas ao payload/texto errado.
+  useEffect(() => {
+    setCompletenessSuggestions([]);
+  }, [draft.id]);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -417,6 +424,10 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       const updated = await draftApi.reparseDraft(draft.id);
       toast.success('Draft reparseado.');
       applyUpdate(updated);
+      // Achado CodeRabbit (PR #128): draft.id nao muda no reparse, so o
+      // payload — sugestoes da auditoria anterior ficariam presas ao texto
+      // velho sem este clear explicito (o reset por id nao cobre este caso).
+      setCompletenessSuggestions([]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao reparsar draft.');
     } finally {

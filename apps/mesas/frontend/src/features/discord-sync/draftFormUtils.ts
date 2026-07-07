@@ -190,7 +190,7 @@ function addConfirmedSuggestionInsights(
       provider: provider || undefined,
       model: model || undefined,
       suggestion: metadata.value,
-      evidence: [`SugestÃ£o ${provider || 'IA'} confirmada pelo humano.`],
+      evidence: [`Sugestão ${provider || 'IA'} confirmada pelo humano.`],
     };
   }
 }
@@ -367,6 +367,12 @@ export function buildUpdatedPayload(base: DiscordDraftPayload, form: DraftForm):
         value: pendingSuggestions[field],
         confirmed_at: new Date().toISOString(),
       };
+    } else {
+      // Achado CodeRabbit (PR #128): humano confirmou a sugestao antes, mas
+      // editou o campo pra outro valor depois — a confirmacao antiga nao
+      // reflete mais o valor atual. Sem isso, addConfirmedSuggestionInsights
+      // mostrava "DeepSeek confirmado" com valor divergente do campo real.
+      delete confirmedSuggestions[field];
     }
   }
   if (Object.keys(confirmedSuggestions).length > 0) {

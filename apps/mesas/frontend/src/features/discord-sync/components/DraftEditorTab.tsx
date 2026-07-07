@@ -105,6 +105,11 @@ export function DraftEditorTab({
   onSetSlotsInterpretation, onConfirmSlots,
 }: Readonly<DraftEditorTabProps>) {
   const aiOff = !aiConfig || aiConfig.mode === 'off' || aiConfig.killSwitch;
+  // Achado CodeRabbit (PR #128): auditoria de completude e acao manual sob
+  // demanda (T10.9, spec 058), independente do modo automatico — so o kill
+  // switch real deve bloquear o botao. Usar aiOff aqui desligava a feature
+  // justamente no estado padrao de producao (mode='off' por env nao setada).
+  const auditCompletenessBlocked = !aiConfig || aiConfig.killSwitch;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)] gap-4 items-start">
     <div className="space-y-4 min-w-0">
@@ -123,7 +128,7 @@ export function DraftEditorTab({
             DeepSeek: {llmActivity?.total ?? 0} chamada(s) nas ultimas {llmActivity?.window_hours ?? 24}h
           </span>
           {onAuditCompleteness && (
-            <button type="button" onClick={onAuditCompleteness} disabled={auditingCompleteness || aiOff} className="ml-auto rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20 disabled:opacity-40">
+            <button type="button" onClick={onAuditCompleteness} disabled={auditingCompleteness || auditCompletenessBlocked} className="ml-auto rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20 disabled:opacity-40">
               {auditingCompleteness ? 'Auditando...' : 'Auditoria de completude'}
             </button>
           )}

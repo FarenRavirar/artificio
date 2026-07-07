@@ -4,7 +4,7 @@ import { db } from '../../db';
 import { requireAdmin } from '../../middleware/auth';
 import type { DiscordImportDraftStatus } from '../../discord';
 import { normalizeDraftPayload, refreshDiscordDraftImage } from '../../discord';
-import { getAiAutomationConfig, isAiAssistEnabled } from '../../discord/aiAutomationConfig';
+import { getAiAutomationConfig } from '../../discord/aiAutomationConfig';
 import { auditDiscordDraftCompleteness } from '../../discord/llmAssist';
 import { extractDraftScope, recordParseFeedback } from '../../discord/parseLearning';
 import { stripSeparatorLines } from '../../discord/parseDiscordAnnouncement';
@@ -104,7 +104,12 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
 router.post('/:id/audit-completeness', requireAdmin, async (req: Request, res: Response) => {
   try {
     const aiConfig = getAiAutomationConfig();
-    if (!isAiAssistEnabled(aiConfig)) {
+    // T10.9 (spec 058): auditoria de completude e acao manual sob demanda —
+    // nao depende do modo automatico (suggest/shadow/auto/off), so do kill
+    // switch real. Gatear por isAiAssistEnabled() (que bloqueia mode='off')
+    // desligava a feature justamente no estado padrao de producao
+    // (MESAS_AI_AUTOMATION_MODE nunca setada), achado CodeRabbit na PR #128.
+    if (aiConfig.killSwitch) {
       return res.status(423).json({ error: 'Assistente IA desligado.' });
     }
 
@@ -122,9 +127,13 @@ router.post('/:id/audit-completeness', requireAdmin, async (req: Request, res: R
     const table = payload.table && typeof payload.table === 'object' && !Array.isArray(payload.table)
       ? payload.table as Record<string, unknown>
       : {};
+    // Achado CodeRabbit (PR #128): contact_discord/host_discord_id sao
+    // identificador de usuario Discord — nao vai pro DeepSeek (provider
+    // terceiro). Auditoria de completude so precisa dos campos de conteudo.
+    const { contact_discord, host_discord_id, ...contentFields } = table;
     const result = await auditDiscordDraftCompleteness({
       rawText: contentRaw,
-      currentFields: table,
+      currentFields: contentFields,
       model: aiConfig.model,
     });
     if (!result) return res.status(502).json({ error: 'Auditoria DeepSeek indisponÃ­vel.' });
