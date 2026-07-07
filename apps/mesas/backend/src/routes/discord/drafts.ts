@@ -149,9 +149,15 @@ async function runCompletenessAudit(draftId: string): Promise<AuditRunResult> {
   // faltando — mesmo furo que fez a auditoria "nao achar lacuna" com um
   // draft sem nenhum canal de contato. Checagem local (sem LLM) cobre esse
   // campo especifico, que fica de fora por design de privacidade.
+  // Achado Codex (PR #131): contact_url NAO e excluido do payload (vai pro
+  // DeepSeek normalmente) — draft com so link de inscricao (Forms/MesaQuest)
+  // e sem Discord tem contato valido; sem checar contact_url aqui, a
+  // checagem local injetava candidate falso mesmo com contato satisfeito.
+  const contactUrl = table.contact_url;
   const hasContact = Boolean(
     (typeof contact_discord === 'string' && contact_discord.trim())
     || (typeof host_discord_id === 'string' && host_discord_id.trim())
+    || (typeof contactUrl === 'string' && contactUrl.trim())
   );
   const candidates = hasContact
     ? result.candidates

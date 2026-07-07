@@ -58,7 +58,8 @@ const buildMainHref = (contact: TableContact): string | null => {
       // servidor quebrado/inexistente); usa deep-link de perfil de usuário,
       // que o client Discord resolve mesmo sem @username.
       const mentionMatch = /^<@!?(\d{17,20})>$/.exec(contact.value);
-      const rawId = mentionMatch ? mentionMatch[1] : (/^\d{17,20}$/.test(contact.value) ? contact.value : null);
+      const bareSnowflake = /^\d{17,20}$/.test(contact.value) ? contact.value : null;
+      const rawId = mentionMatch?.[1] ?? bareSnowflake;
       if (rawId) {
         return `https://discord.com/users/${rawId}`;
       }

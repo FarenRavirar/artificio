@@ -175,9 +175,12 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   const [aiConfig, setAiConfig] = useState<AiAutomationConfig | null>(null);
   const [llmActivity, setLlmActivity] = useState<LlmActivity | null>(null);
   const [auditingCompleteness, setAuditingCompleteness] = useState(false);
-  // Botão pequeno por campo (2026-07-07): guarda qual campo está sendo
-  // reauditado agora, pra desabilitar só aquele botão (não a tela toda).
-  const [auditingField, setAuditingField] = useState<DraftFieldKey | null>(null);
+  // Botão pequeno por campo (2026-07-07): guarda quais campos estão sendo
+  // reauditados agora, pra desabilitar só aqueles botões (não a tela toda).
+  // Achado CodeRabbit (PR #131): Set em vez de valor único — um valor único
+  // causava race entre 2 campos auditados em paralelo (o finally do 1º que
+  // resolvesse liberava visualmente o botão do 2º antes dele terminar).
+  const [auditingFields, setAuditingFields] = useState<Set<DraftFieldKey>>(() => new Set());
   const coverInputRef = useRef<HTMLInputElement | null>(null);
 
   const payload = useMemo(() => draft.normalized_payload ?? draft.parsed_payload, [draft.normalized_payload, draft.parsed_payload]);
@@ -285,7 +288,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   // campo indicado via IA, ao lado do badge "Parser" no editor.
   const handleAuditField = async (field: DraftFieldKey) => {
     if (!draftApi.auditField) return;
-    setAuditingField(field);
+    setAuditingFields((current) => new Set(current).add(field));
     try {
       const result = await draftApi.auditField(draft.id, field);
       dispatch({ type: 'MERGE_FIELD_SUGGESTIONS', field, suggestions: result.candidates });
@@ -295,7 +298,11 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao reauditar campo.');
     } finally {
-      setAuditingField(null);
+      setAuditingFields((current) => {
+        const next = new Set(current);
+        next.delete(field);
+        return next;
+      });
     }
   };
 
@@ -510,7 +517,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     aiConfig,
     llmActivity,
     auditingCompleteness,
-    auditingField,
+    auditingFields,
     completenessSuggestions: state.completenessSuggestions,
     applySuggestion,
     handleAuditCompleteness,

@@ -32,7 +32,7 @@ interface DraftEditorTabProps {
   llmActivity?: LlmActivity | null;
   auditingCompleteness?: boolean;
   /** Botão pequeno por campo (2026-07-07): qual campo está sendo reauditado agora. */
-  auditingField?: DraftFieldKey | null;
+  auditingFields?: ReadonlySet<DraftFieldKey>;
   completenessSuggestions?: CompletenessAuditCandidate[];
   savingFields: boolean;
   onUpdateForm: <K extends keyof DraftForm>(key: K, value: DraftForm[K]) => void;
@@ -124,7 +124,7 @@ export function DraftEditorTab({
   communicationPlatforms, communicationPlatformsLoading,
   coverPreviewUrl, coverError, coverUploading, coverInputRef,
   shouldShowSlotsDisambiguation, slotsAmbiguity, slotsInterpretation, fieldInsights, savingFields,
-  aiConfig, llmActivity, auditingCompleteness, auditingField, completenessSuggestions,
+  aiConfig, llmActivity, auditingCompleteness, auditingFields, completenessSuggestions,
   onUpdateForm, onApplySuggestion, onAuditCompleteness, onAuditField, onSystemChange, onCoverUpload, onRemoveCover,
   onSetSlotsInterpretation, onConfirmSlots,
 }: Readonly<DraftEditorTabProps>) {
@@ -225,12 +225,12 @@ export function DraftEditorTab({
         <label>
           <span className={labelClass}>Título</span>
           <input value={form.title} onChange={(e) => onUpdateForm('title', e.target.value)} className={inputClass} />
-          <FieldInsightNote field="title" insight={fieldInsights?.title} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'title'} />
+          <FieldInsightNote field="title" insight={fieldInsights?.title} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('title') ?? false} />
         </label>
         <label>
           <span className={labelClass}>Sistema</span>
           <SystemSearchSelect systems={systems} value={form.system_id} loading={systemsLoading} onChange={onSystemChange} />
-          <FieldInsightNote field="system_name" insight={fieldInsights?.system_name} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'system_name'} />
+          <FieldInsightNote field="system_name" insight={fieldInsights?.system_name} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('system_name') ?? false} />
         </label>
         <label>
           <span className={labelClass}>Tipo</span>
@@ -240,7 +240,7 @@ export function DraftEditorTab({
             <option value="oneshot-serie">Série de one-shots</option>
             <option value="aberta">Aberta</option>
           </select>
-          <FieldInsightNote field="type" insight={fieldInsights?.type} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'type'} />
+          <FieldInsightNote field="type" insight={fieldInsights?.type} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('type') ?? false} />
         </label>
         <label>
           <span className={labelClass}>Modalidade</span>
@@ -249,7 +249,7 @@ export function DraftEditorTab({
             <option value="presencial">Presencial</option>
             <option value="hibrida">Híbrida</option>
           </select>
-          <FieldInsightNote field="modality" insight={fieldInsights?.modality} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'modality'} />
+          <FieldInsightNote field="modality" insight={fieldInsights?.modality} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('modality') ?? false} />
         </label>
         <label>
           <span className={labelClass}>Preço</span>
@@ -257,22 +257,22 @@ export function DraftEditorTab({
             <option value="gratuita">Gratuita</option>
             <option value="paga">Paga</option>
           </select>
-          <FieldInsightNote field="price_type" insight={fieldInsights?.price_type} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'price_type'} />
+          <FieldInsightNote field="price_type" insight={fieldInsights?.price_type} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('price_type') ?? false} />
         </label>
         <label>
           <span className={labelClass}>Valor</span>
           <input value={form.price_value} onChange={(e) => onUpdateForm('price_value', e.target.value)} className={inputClass} placeholder="0" disabled={form.price_type === 'gratuita'} />
-          <FieldInsightNote field="price_value" insight={fieldInsights?.price_value} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'price_value'} />
+          <FieldInsightNote field="price_value" insight={fieldInsights?.price_value} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('price_value') ?? false} />
         </label>
         <label>
           <span className={labelClass}>Vagas totais</span>
           <input value={form.slots_total} onChange={(e) => onUpdateForm('slots_total', e.target.value)} className={inputClass} inputMode="numeric" />
-          <FieldInsightNote field="slots_total" insight={fieldInsights?.slots_total} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'slots_total'} />
+          <FieldInsightNote field="slots_total" insight={fieldInsights?.slots_total} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('slots_total') ?? false} />
         </label>
         <label>
           <span className={labelClass}>Vagas abertas</span>
           <input value={form.slots_open} onChange={(e) => onUpdateForm('slots_open', e.target.value)} className={inputClass} inputMode="numeric" />
-          <FieldInsightNote field="slots_open" insight={fieldInsights?.slots_open} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'slots_open'} />
+          <FieldInsightNote field="slots_open" insight={fieldInsights?.slots_open} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('slots_open') ?? false} />
         </label>
         <label>
           <span className={labelClass}>Dia</span>
@@ -286,12 +286,12 @@ export function DraftEditorTab({
             <option value="sábado">Sábado</option>
             <option value="domingo">Domingo</option>
           </select>
-          <FieldInsightNote field="day_of_week" insight={fieldInsights?.day_of_week} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'day_of_week'} />
+          <FieldInsightNote field="day_of_week" insight={fieldInsights?.day_of_week} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('day_of_week') ?? false} />
         </label>
         <label>
           <span className={labelClass}>Horário</span>
           <input value={form.start_time} onChange={(e) => onUpdateForm('start_time', e.target.value)} className={inputClass} placeholder="19:00" />
-          <FieldInsightNote field="start_time" insight={fieldInsights?.start_time} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'start_time'} />
+          <FieldInsightNote field="start_time" insight={fieldInsights?.start_time} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('start_time') ?? false} />
         </label>
         <label>
           <span className={labelClass}>Frequência</span>
@@ -302,22 +302,22 @@ export function DraftEditorTab({
             <option value="avulsa">Única</option>
             <option value="outra">Outra</option>
           </select>
-          <FieldInsightNote field="frequency" insight={fieldInsights?.frequency} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'frequency'} />
+          <FieldInsightNote field="frequency" insight={fieldInsights?.frequency} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('frequency') ?? false} />
         </label>
         <label>
           <span className={labelClass}>Contato Discord</span>
           <input value={form.contact_discord} onChange={(e) => onUpdateForm('contact_discord', e.target.value)} className={inputClass} />
-          <FieldInsightNote field="contact_discord" insight={fieldInsights?.contact_discord} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'contact_discord'} />
+          <FieldInsightNote field="contact_discord" insight={fieldInsights?.contact_discord} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('contact_discord') ?? false} />
         </label>
         <label className="md:col-span-2">
           <span className={labelClass}>Link de inscrição/contato</span>
           <input value={form.contact_url} onChange={(e) => onUpdateForm('contact_url', e.target.value)} className={inputClass} />
-          <FieldInsightNote field="contact_url" insight={fieldInsights?.contact_url} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'contact_url'} />
+          <FieldInsightNote field="contact_url" insight={fieldInsights?.contact_url} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('contact_url') ?? false} />
         </label>
         <label className="md:col-span-2">
           <span className={labelClass}>Descrição</span>
           <textarea value={form.description} onChange={(e) => onUpdateForm('description', e.target.value)} className={`${inputClass} min-h-28 resize-y`} />
-          <FieldInsightNote field="description" insight={fieldInsights?.description} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'description'} />
+          <FieldInsightNote field="description" insight={fieldInsights?.description} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('description') ?? false} />
         </label>
 
         {/* Fase D (spec 058): campos de auto-preenchimento ampliado — ver auto-preenchimento-draft.md */}
