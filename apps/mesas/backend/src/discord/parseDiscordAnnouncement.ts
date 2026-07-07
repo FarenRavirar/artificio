@@ -665,33 +665,51 @@ function extractAgeRating(text: string): TableDraftAgeRating | null {
   if (/\+\s?14\b|\b14\s?\+|\bmaiores\s{1,3}de\s{1,3}14\b/.test(lower)) return '14+';
   if (/\+\s?12\b|\b12\s?\+|\bmaiores\s{1,3}de\s{1,3}12\b/.test(lower)) return '12+';
   if (/\+\s?10\b|\b10\s?\+|\bmaiores\s{1,3}de\s{1,3}10\b/.test(lower)) return '10+';
-  if (/\bclassifica[cç][aã]o\s{1,3}livre\b|\blivre\s{1,3}para\s{1,3}todos\b/.test(lower)) return 'livre';
+  if (/\bclassifica[cç][aã]o\s{1,3}livre\b/.test(lower)) return 'livre';
+  if (/\blivre\s{1,3}para\s{1,3}todos\b/.test(lower)) return 'livre';
   return null;
 }
 
 function extractExperienceLevel(text: string): TableDraftExperienceLevel | null {
   const lower = normalize(text);
-  if (/\b(?:iniciante|iniciantes|novato|novatos|primeira\s+mesa|primeiro\s+rpg)\b/.test(lower)
-    && /\b(?:bem\s+vind[oa]s?|aceit[oa]s?|permitid[oa]s?|sem\s+experiencia|nao\s+precisa\s+experiencia)\b/.test(lower)) {
+  const hasNewPlayerSignal = ['iniciante', 'iniciantes', 'novato', 'novatos', 'primeira mesa', 'primeiro rpg']
+    .some((signal) => lower.includes(signal));
+  const acceptsNewPlayers = [
+    'bem vindo',
+    'bem vinda',
+    'bem vindos',
+    'bem vindas',
+    'aceito',
+    'aceita',
+    'aceitos',
+    'aceitas',
+    'permitido',
+    'permitida',
+    'permitidos',
+    'permitidas',
+    'sem experiencia',
+    'nao precisa experiencia',
+  ].some((signal) => lower.includes(signal));
+  if (hasNewPlayerSignal && acceptsNewPlayers) {
     return 'iniciante';
   }
-  if (/\b(?:todos\s+os\s+niveis|qualquer\s+nivel|todos\s+bem\s+vindos)\b/.test(lower)) return 'todos';
-  if (/\b(?:veteran[oa]s?|experientes?|experiencia\s+obrigatoria|nao\s+recomendad[oa]\s+para\s+iniciante)\b/.test(lower)) {
+  if (['todos os niveis', 'qualquer nivel', 'todos bem vindos'].some((signal) => lower.includes(signal))) return 'todos';
+  if (['veterano', 'veterana', 'veteranos', 'veteranas', 'experiente', 'experientes', 'experiencia obrigatoria', 'nao recomendado para iniciante', 'nao recomendada para iniciante'].some((signal) => lower.includes(signal))) {
     return 'veterano';
   }
-  if (/\b(?:intermediari[oa]s?|alguma\s+experiencia|experiencia\s+media)\b/.test(lower)) return 'intermediario';
+  if (['intermediario', 'intermediaria', 'intermediarios', 'intermediarias', 'alguma experiencia', 'experiencia media'].some((signal) => lower.includes(signal))) return 'intermediario';
   return null;
 }
 
 function extractTableLevel(text: string): TableDraftTableLevel | null {
   const lower = normalize(text);
-  if (/\b(?:mesa|aventura|campanha)\s+(?:para\s+)?iniciantes?\b|\bcomplexidade\s*:?\s*iniciante\b/.test(lower)) {
+  if (['mesa iniciante', 'mesa para iniciante', 'mesa para iniciantes', 'aventura iniciante', 'aventura para iniciante', 'aventura para iniciantes', 'campanha iniciante', 'campanha para iniciante', 'campanha para iniciantes', 'complexidade: iniciante', 'complexidade iniciante'].some((signal) => lower.includes(signal))) {
     return 'iniciante';
   }
-  if (/\bcomplexidade\s*:?\s*(?:avancad[ao]|alta)\b|\b(?:mesa|aventura|campanha)\s+(?:avancad[ao]|desafiadora|dificil)\b/.test(lower)) {
+  if (['complexidade: avancado', 'complexidade avancado', 'complexidade: avancada', 'complexidade avancada', 'complexidade: alta', 'complexidade alta', 'mesa avancado', 'mesa avancada', 'mesa desafiadora', 'mesa dificil', 'aventura avancada', 'aventura desafiadora', 'aventura dificil', 'campanha avancada', 'campanha desafiadora', 'campanha dificil'].some((signal) => lower.includes(signal))) {
     return 'avancado';
   }
-  if (/\bcomplexidade\s*:?\s*intermediari[ao]\b|\b(?:mesa|aventura|campanha)\s+intermediari[ao]\b/.test(lower)) {
+  if (['complexidade: intermediario', 'complexidade intermediario', 'complexidade: intermediaria', 'complexidade intermediaria', 'mesa intermediaria', 'mesa intermediario', 'aventura intermediaria', 'aventura intermediario', 'campanha intermediaria', 'campanha intermediario'].some((signal) => lower.includes(signal))) {
     return 'intermediario';
   }
   return null;
@@ -725,15 +743,50 @@ function isKnownContactUrl(url: string): boolean {
   return KNOWN_CONTACT_URL_PATTERNS.some((pattern) => pattern.test(url));
 }
 
+function countChar(value: string, char: string): number {
+  let count = 0;
+  for (const current of value) {
+    if (current === char) count += 1;
+  }
+  return count;
+}
+
 function trimTrailingUrlWrappers(url: string): string {
   let trimmed = url.replace(/[.,;:]+$/g, '');
-  while (trimmed.endsWith(')') && (trimmed.match(/\(/g)?.length ?? 0) < (trimmed.match(/\)/g)?.length ?? 0)) {
-    trimmed = trimmed.slice(0, -1);
-  }
-  while (trimmed.endsWith(']') && (trimmed.match(/\[/g)?.length ?? 0) < (trimmed.match(/\]/g)?.length ?? 0)) {
-    trimmed = trimmed.slice(0, -1);
+  let previous = '';
+  while (previous !== trimmed) {
+    previous = trimmed;
+    if (trimmed.endsWith(')') && countChar(trimmed, '(') < countChar(trimmed, ')')) {
+      trimmed = trimmed.slice(0, -1);
+    }
+    if (trimmed.endsWith(']') && countChar(trimmed, '[') < countChar(trimmed, ']')) {
+      trimmed = trimmed.slice(0, -1);
+    }
   }
   return trimmed;
+}
+
+function extractRawHttpUrls(text: string): string[] {
+  const urls: string[] = [];
+  let cursor = 0;
+  while (cursor < text.length) {
+    const httpIndex = text.indexOf('http://', cursor);
+    const httpsIndex = text.indexOf('https://', cursor);
+    const indexes = [httpIndex, httpsIndex].filter((index) => index >= 0);
+    if (indexes.length === 0) break;
+    const start = Math.min(...indexes);
+    let end = start;
+    while (end < text.length && !isUrlDelimiter(text[end])) {
+      end += 1;
+    }
+    urls.push(text.slice(start, end));
+    cursor = end;
+  }
+  return urls;
+}
+
+function isUrlDelimiter(char: string): boolean {
+  return char === '<' || char === '>' || char === '"' || char === "'" || char.trim() === '';
 }
 
 /**
@@ -747,14 +800,14 @@ function trimTrailingUrlWrappers(url: string): string {
  * conhecida, comportamento é o mesmo de antes (pega a única disponível).
  */
 function extractContactUrl(text: string): string | null {
-  const allMatches = Array.from(text.matchAll(/https?:\/\/[^\s<>"']+/g), (m) => trimTrailingUrlWrappers(m[0]));
+  const allMatches = extractRawHttpUrls(text).map(trimTrailingUrlWrappers);
   if (allMatches.length === 0) return null;
   const known = allMatches.find(isKnownContactUrl);
   return known ?? allMatches[0];
 }
 
 function extractContactDiscord(text: string): string | null {
-  const mentionPattern = /<#[0-9]+>|<@!?[0-9]+>/;
+  const mentionPattern = /<#\d+>|<@!?\d+>/;
   const contactLine = text
     .split(/\r?\n/)
     .find((line) => /\b(contato|ticket|interesse|inscri[cç][aã]o)\b/i.test(line) && mentionPattern.test(line));
@@ -864,7 +917,8 @@ function isBareLabelStopLine(line: string): boolean {
 function shouldStopLabelContinuation(line: string): boolean {
   if (splitLabelLine(line)) return true;
   if (isBareLabelStopLine(line)) return true;
-  return /^https?:\/\//i.test(line);
+  const lower = line.toLowerCase();
+  return lower.startsWith('http://') || lower.startsWith('https://');
 }
 
 // Coleta linhas de continuação de um rótulo. Por padrão para na 1ª linha vazia
@@ -998,17 +1052,74 @@ const EDGE_EMPHASIS_MARKDOWN_RE = /(^|[\s([{])([*_`~]{1,2})(?=\S)|(?<=\S)([*_`~]
 // o anúncio da mesa. Preservados à parte em _raw_evidence (role/user_mentions)
 // pra quem precisar auditar; aqui só limpa o texto final visível (description),
 // DEPOIS que host/mentions/contato já foram extraídos do body cru.
-const RAW_DISCORD_TOKEN_RE = /<@[!&]?\d+>|<#[0-9]+>|<t:\d+:[tTdDfFR]>/g;
+const RAW_DISCORD_TOKEN_RE = /<@[!&]?\d+>|<#\d+>|<t:\d+:[tTdDfFR]>/g;
+
+function shouldRemoveContactUrl(rawUrl: string, contactUrl: string | null): boolean {
+  const url = trimTrailingUrlWrappers(rawUrl);
+  return url === contactUrl || isKnownContactUrl(url);
+}
+
+function removeKnownRawUrls(line: string, contactUrl: string | null): string {
+  let cleaned = line;
+  for (const raw of extractRawHttpUrls(line)) {
+    if (!shouldRemoveContactUrl(raw, contactUrl)) continue;
+    const url = trimTrailingUrlWrappers(raw);
+    cleaned = cleaned.replace(raw, raw.slice(url.length));
+  }
+  return cleaned;
+}
+
+function removeKnownMarkdownContactLinks(line: string, contactUrl: string | null): string {
+  let output = '';
+  let cursor = 0;
+  while (cursor < line.length) {
+    const labelStart = line.indexOf('[', cursor);
+    if (labelStart < 0) {
+      output += line.slice(cursor);
+      break;
+    }
+    const labelEnd = line.indexOf('](', labelStart);
+    if (labelEnd < 0) {
+      output += line.slice(cursor);
+      break;
+    }
+    const urlStart = labelEnd + 2;
+    const urlEnd = line.indexOf(')', urlStart);
+    if (urlEnd < 0) {
+      output += line.slice(cursor);
+      break;
+    }
+    const rawUrl = line.slice(urlStart, urlEnd);
+    if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+      output += line.slice(cursor, urlEnd + 1);
+      cursor = urlEnd + 1;
+      continue;
+    }
+    output += line.slice(cursor, labelStart);
+    if (!shouldRemoveContactUrl(rawUrl, contactUrl)) {
+      output += line.slice(labelStart, urlEnd + 1);
+    }
+    cursor = urlEnd + 1;
+  }
+  return output;
+}
 
 function removeKnownContactUrlsFromDescription(text: string, contactUrl: string | null): string {
   return text
     .split(/\r?\n/)
     .map((line) => {
-      const withoutUrls = line.replace(/https?:\/\/[^\s<>"']+/g, (raw) => {
-        const url = trimTrailingUrlWrappers(raw);
-        return url === contactUrl || isKnownContactUrl(url) ? '' : raw;
-      });
-      return withoutUrls.trim();
+      const originalTrimmed = line.trim();
+      const withoutMarkdownLinks = removeKnownMarkdownContactLinks(line, contactUrl);
+      const withoutUrls = removeKnownRawUrls(withoutMarkdownLinks, contactUrl);
+      const withoutBrokenMarkdown = withoutUrls !== withoutMarkdownLinks
+        ? withoutUrls
+          .replace(/\[[^\]]+\]\(\s*[)\]]*\)?/g, '')
+          .replace(/\s+\[[^\]]+\]$/g, '')
+        : withoutUrls;
+      const trimmed = withoutBrokenMarkdown.trim();
+      const parsed = splitLabelLine(trimmed);
+      if (trimmed !== originalTrimmed && parsed && parsed.value.trim().length === 0) return '';
+      return /^[)\].,;:]+$/.test(trimmed) ? '' : trimmed;
     })
     .filter((line) => line.length > 0)
     .join('\n');
@@ -1045,6 +1156,7 @@ function buildFallbackDescription(body: string): string | null {
 export function cleanDescriptionText(text: string): string {
   return text
     .replace(RAW_DISCORD_TOKEN_RE, '')
+    .replace(/\s*\[(?:form|forms|formul[aá]rio|inscri[cç][aã]o|link)\]\s*/gi, ' ')
     .replace(PAIRED_EMPHASIS_MARKDOWN_RE, '$2')
     .replace(EDGE_EMPHASIS_MARKDOWN_RE, '$1')
     .replace(/[^\S\n]+/g, ' ')
@@ -1243,9 +1355,16 @@ export function parseDiscordAnnouncement(
   const scheduleAmbiguous = discordTs?.ambiguous === true;
 
   // T-C2: Google Forms URL (prioridade sobre URLs genéricas)
-  const googleFormsUrl = trimTrailingUrlWrappers(/https?:\/\/forms\.gle\/[^\s<>"']+/.exec(body)?.[0] ?? '')
-    || trimTrailingUrlWrappers(/https?:\/\/docs\.google\.com\/forms\/[^\s<>"']+/.exec(body)?.[0] ?? '')
-    || null;
+  const rawUrls = extractRawHttpUrls(body).map(trimTrailingUrlWrappers);
+  const googleFormsUrl = rawUrls.find((url) => {
+    const lowerUrl = url.toLowerCase();
+    return lowerUrl.startsWith('https://forms.gle/') || lowerUrl.startsWith('http://forms.gle/');
+  })
+    ?? rawUrls.find((url) => {
+      const lowerUrl = url.toLowerCase();
+      return lowerUrl.startsWith('https://docs.google.com/forms/') || lowerUrl.startsWith('http://docs.google.com/forms/');
+    })
+    ?? null;
   const contactUrl = googleFormsUrl ?? extractContactUrl(body);
 
   const explicitContactDiscord = extractContactDiscord(body);

@@ -1740,6 +1740,16 @@ describe('parseDiscordAnnouncement', () => {
       expect(draft?.table.contact_url).toBe('https://forms.gle/BJ1');
     });
 
+    it('remove wrappers finais intercalados de URL extraida', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: DnD\nVagas: 4\nInscricoes: https://forms.gle/BJ1)]',
+        }),
+      );
+
+      expect(draft?.table.contact_url).toBe('https://forms.gle/BJ1');
+    });
+
     it('remove URL conhecida de contato da descricao quando ja virou contact_url', () => {
       const draft = parseDiscordAnnouncement(
         makeMessage({
@@ -1754,6 +1764,22 @@ describe('parseDiscordAnnouncement', () => {
 
       expect(draft?.table.contact_url).toBe('https://forms.gle/teste123');
       expect(draft?.table.description).toBe('Uma mesa investigativa.');
+    });
+
+    it('remove markdown-link de contato inteiro da descricao sem deixar wrapper quebrado', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: [
+            'Sistema: DnD',
+            'Vagas: 4',
+            'Sinopse: Uma mesa investigativa. Inscreva-se [Form](https://forms.gle/teste123)',
+          ].join('\n'),
+        }),
+      );
+
+      expect(draft?.table.contact_url).toBe('https://forms.gle/teste123');
+      expect(draft?.table.description).toBe('Uma mesa investigativa. Inscreva-se');
+      expect(draft?.table.description).not.toMatch(/\[[^\]]*\]\(|\[[^\]]*\]\(\)/);
     });
 
     it('extrai nivel de experiencia de jogador por sinal explicito', () => {
