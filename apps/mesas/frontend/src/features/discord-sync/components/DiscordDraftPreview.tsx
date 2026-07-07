@@ -284,6 +284,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
               onAuditCompleteness={api.auditCompleteness ? h.handleAuditCompleteness : undefined}
               onAuditField={api.auditField ? h.handleAuditField : undefined}
               onSystemChange={h.handleSystemChange}
+              onRefreshSystems={h.refreshSystems}
               onCoverUpload={h.handleCoverUpload}
               onRemoveCover={h.handleRemoveCover}
               onSetSlotsInterpretation={h.setSlotsInterpretation}

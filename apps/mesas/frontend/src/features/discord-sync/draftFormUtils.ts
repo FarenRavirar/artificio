@@ -465,8 +465,12 @@ function normalizeSystemTree(raw: unknown): SystemTreeNode[] {
 // sistema novo); sem isso o cache serviria lista desatualizada indefinidamente.
 const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 
-export async function loadSystems(): Promise<SystemTreeNode[]> {
-  if (!systemsCache || Date.now() - systemsCacheLoadedAt > CATALOG_CACHE_TTL_MS) {
+// forceRefresh (2026-07-08): após criar sistema novo via SystemSuggestionModal
+// no editor de draft, o cache de 5min serviria a árvore antiga sem o sistema
+// recém-criado — sem opção de invalidar, o combobox só mostraria o novo
+// sistema depois do TTL expirar sozinho.
+export async function loadSystems(forceRefresh = false): Promise<SystemTreeNode[]> {
+  if (forceRefresh || !systemsCache || Date.now() - systemsCacheLoadedAt > CATALOG_CACHE_TTL_MS) {
     systemsCacheLoadedAt = Date.now();
     systemsCache = fetchSystems().catch((error) => {
       systemsCache = null;

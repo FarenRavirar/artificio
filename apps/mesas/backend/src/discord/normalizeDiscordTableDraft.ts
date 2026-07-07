@@ -1,5 +1,6 @@
 import type { ImportTableDraft, DiscordTableDraftTable } from './types';
 import type { SystemEntry } from './parseDiscordAnnouncement';
+import { validateDraftForSync } from './syncHelpers';
 
 export type NormalizedDraftStatus = 'ready' | 'needs_review';
 
@@ -35,19 +36,33 @@ function matchSystemName(value: string | null | undefined, systems: SystemEntry[
   return null;
 }
 
+// DEB-058-06 (2026-07-08): getMissingFields (gate de status no PARSE) usava
+// checagem própria, mais fraca que validateDraftForSync (gate real no SYNC) —
+// só truthy em type/modality/price_type (sem checar enum) e NUNCA checava
+// day_of_week/start_time. Um draft podia nascer do parse já com status=ready
+// (badge "Pronto" na lista, liberado pro botão "Sincronizar drafts prontos"
+// que synca direto da lista sem abrir o editor) e só estourar 422 no sync de
+// verdade. Delegar pra validateDraftForSync (mesma função usada em
+// syncDraftToTable) fecha o gap na fonte — parse e sync agora sempre
+// concordam sobre o que falta. Mapeamento pros nomes de campo que a UI
+// espera (badges "autoral?"/"sistema não encontrado"/vagas ambíguas) é feito
+// à parte, pois validateDraftForSync não conhece esses metadados de UI.
 function getMissingFields(table: DiscordTableDraftTable): string[] {
-  const missing: string[] = [];
-  if (!table.title) missing.push('title');
-  if (!table.system_id) missing.push(table.raw_system_hint ? 'system_name:unmatched_hint' : 'system_name');
-  if (!table.type) missing.push('type');
-  if (!table.modality) missing.push('modality');
-  if (!table.price_type) missing.push('price_type');
-  if (table.slots_total == null && table.slots_open == null) missing.push('slots_total');
-  if (table._slots_ambiguity) missing.push('slots_open:ambiguous_x_of_y');
+  const missing = validateDraftForSync({ table });
+  // system_id é o nome real do campo pro validateDraftForSync; a UI usa
+  // system_name/system_name:unmatched_hint como chave de badge.
+  const withoutSystemId = missing.filter((field) => field !== 'system_id');
+  if (missing.includes('system_id')) {
+    withoutSystemId.push(table.raw_system_hint ? 'system_name:unmatched_hint' : 'system_name');
+  }
+  // contact_url/contact_discord (validateDraftForSync) vira só 'contact_url' na UI.
+  const finalMissing = withoutSystemId
+    .filter((field) => field !== 'contact_url/contact_discord')
+    .concat(missing.includes('contact_url/contact_discord') ? ['contact_url'] : []);
+  if (table._slots_ambiguity) finalMissing.push('slots_open:ambiguous_x_of_y');
   // DEB-048-29: suspeita de sistema autoral força needs_review (badge "autoral?").
-  if (table._homebrew_suspect) missing.push('system_name:homebrew_suspect');
-  if (!table.contact_url && !table.contact_discord) missing.push('contact_url');
-  return missing;
+  if (table._homebrew_suspect) finalMissing.push('system_name:homebrew_suspect');
+  return finalMissing;
 }
 
 export function normalizeDiscordTableDraft(

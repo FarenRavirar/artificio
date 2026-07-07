@@ -46,8 +46,15 @@ export function hasText(v: unknown): v is string {
   return typeof v === 'string' && v.trim().length > 0;
 }
 
-export function hasPositiveNumber(v: unknown): v is number {
-  return typeof v === 'number' && Number.isFinite(v) && v > 0;
+// DEB-058-06 (2026-07-08): renomeado de hasPositiveNumber (v > 0) pra
+// hasNonNegativeNumber (v >= 0) — "Vagas: 0" é mesa fechada/em andamento
+// (estado legítimo, spec 017 Fase E), não campo faltando. v>0 rejeitava esse
+// caso; só null/undefined/negativo/não-número devem contar como ausente.
+// Frontend já tratava 0 como válido (parseOptionalNonNegativeInt), só o
+// backend divergia — achado ao unificar getMissingFields (parse) com esta
+// função (sync) em normalizeDiscordTableDraft.ts.
+export function hasNonNegativeNumber(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0;
 }
 
 const TIME_REGEX = /^\d{2}:\d{2}(:\d{2})?$/;
@@ -127,7 +134,11 @@ export function normalizeDraftPayload(raw: unknown): Record<string, unknown> {
   return result.data;
 }
 
-export function validateDraftForSync(draft: ImportTableDraft): string[] {
+// Pick<...,'table'> (achado CodeRabbit PR #135): a função só lê draft.table;
+// assinatura estreita permite normalizeDiscordTableDraft chamar sem cast e
+// sem inventar source/confidence — se um dia precisar de outro campo, o
+// compilador aponta os chamadores em vez de cast mascarar.
+export function validateDraftForSync(draft: Pick<ImportTableDraft, 'table'>): string[] {
   const missing: string[] = [];
   const t = draft.table;
 
@@ -137,7 +148,7 @@ export function validateDraftForSync(draft: ImportTableDraft): string[] {
   if (!hasText(t.type) || !VALID_TABLE_TYPES.includes(t.type)) missing.push('type');
   if (!hasText(t.modality) || !VALID_MODALITIES.includes(t.modality)) missing.push('modality');
   if (!hasText(t.price_type) || !VALID_PRICE_TYPES.includes(t.price_type)) missing.push('price_type');
-  if (!hasPositiveNumber(t.slots_total) && !hasPositiveNumber(t.slots_open)) missing.push('slots_total');
+  if (!hasNonNegativeNumber(t.slots_total) && !hasNonNegativeNumber(t.slots_open)) missing.push('slots_total');
   if (!hasText(t.contact_url) && !hasText(t.contact_discord) && !hasText(t.host_discord_id)) {
     missing.push('contact_url/contact_discord');
   }
