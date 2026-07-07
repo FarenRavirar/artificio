@@ -262,7 +262,27 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     dispatch({ type: 'SET_SYSTEM', systemId, systemName: selected?.name_pt || selected?.name || state.form.system_name });
   };
 
-  const applySuggestion = (field: DraftFieldKey, value: unknown) => {
+  // Achado do mantenedor (2026-07-08): sugestão vinda do learning-store pode
+  // estar poluída com formato de diff { before, after } (lixo residual em
+  // discord_field_learning.output_value de uma corrupção passada — registrado
+  // em specs/backlog.md). Sem este unwrap, "Aplicar" gravava String({before,
+  // after}) = "[object Object]" no campo em vez do valor real.
+  // Par espelhado no backend: isDiffShapedObject em
+  // apps/mesas/backend/src/routes/discord/utils.ts — mesma checagem de
+  // shape, propósitos diferentes (aqui desembrulha, lá rejeita). Manter os
+  // dois sincronizados se o shape do resíduo mudar.
+  const unwrapDiffShapedSuggestion = (value: unknown): unknown => {
+    if (
+      typeof value === 'object' && value !== null && !Array.isArray(value) &&
+      'after' in value && 'before' in value && Object.keys(value).length <= 2
+    ) {
+      return (value as { after: unknown }).after;
+    }
+    return value;
+  };
+
+  const applySuggestion = (field: DraftFieldKey, rawValue: unknown) => {
+    const value = unwrapDiffShapedSuggestion(rawValue);
     const asText = value === null || value === undefined ? '' : String(value);
     if (field === 'slots_total' || field === 'slots_open' || field === 'price_value') {
       dispatch({ type: 'SET_FIELD', key: field, value: asText });

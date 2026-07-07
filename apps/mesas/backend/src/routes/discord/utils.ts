@@ -83,8 +83,56 @@ interface CorrectionResult {
   diff: Record<string, { before: unknown; after: unknown }>;
 }
 
+// Achado do mantenedor (2026-07-08): 3 drafts em prod com table.description/
+// requires_pc/type/etc gravados como { before, after } em vez de valor
+// escalar — sync trava com "campo faltando" mesmo com valor visível na tela.
+// Rastreio não achou o writer ativo (todo caminho hoje já unwrap corretamente),
+// mas registerDraftCorrection grava `corrections[key]` direto em `table[key]`
+// SEM validar shape — client malformado (bundle velho em cache, script manual,
+// regressão futura) escreve qualquer objeto sem barreira. Isso fecha a porta
+// na entrada: se algum valor já vier no formato de diff, rejeita com 400 em
+// vez de persistir silenciosamente.
+// Par espelhado no frontend: unwrapDiffShapedSuggestion em
+// apps/mesas/frontend/src/features/discord-sync/useDraftForm.ts — mesma
+// checagem de shape, propósitos diferentes (aqui rejeita, lá desembrulha).
+// Manter os dois sincronizados se o shape do resíduo mudar.
+function isDiffShapedObject(value: unknown): value is { before: unknown; after: unknown } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    'after' in value &&
+    'before' in value &&
+    Object.keys(value).length <= 2
+  );
+}
+
+// CodeRabbit (PR #133): a checagem original só olhava o nível raiz de
+// corrections[key] — um campo como _ai_suggestions (objeto com sub-estrutura)
+// podia carregar um filho poluído (ex.: table._ai_suggestions.fields.slots_total
+// visto no draft b93a455d) sem o objeto inteiro bater no shape {before,after}.
+// Desce 1 nível dentro de objetos/arrays não-diff-shaped pra pegar esse caso
+// sem varrer profundidade arbitrária (custo/risco de over-engineering).
+function findDiffShapedPath(value: unknown, depth = 0): boolean {
+  if (isDiffShapedObject(value)) return true;
+  if (depth >= 1) return false;
+  if (Array.isArray(value)) return value.some((item) => findDiffShapedPath(item, depth + 1));
+  if (typeof value === 'object' && value !== null) {
+    return Object.values(value).some((item) => findDiffShapedPath(item, depth + 1));
+  }
+  return false;
+}
+
 export async function registerDraftCorrection(input: CorrectionInput): Promise<CorrectionResult> {
   const { draftId, corrections, reason, before } = input;
+
+  const poisoned = Object.entries(corrections).filter(([, value]) => findDiffShapedPath(value));
+  if (poisoned.length > 0) {
+    throw Object.assign(
+      new Error(`Correção rejeitada: valor no formato {before,after} para campo(s) ${poisoned.map(([k]) => k).join(', ')} — envie o valor final, não um diff.`),
+      { statusCode: 400 },
+    );
+  }
 
   const draft = await db
     .selectFrom('discord_import_table_drafts')

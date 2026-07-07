@@ -6,8 +6,32 @@ import type { SystemTreeNode } from '../../types/systems';
 export type DraftTableType = 'campanha' | 'one-shot' | 'oneshot-serie' | 'aberta';
 export type DraftModality = 'online' | 'presencial' | 'hibrida';
 export type DraftPriceType = 'gratuita' | 'paga';
+
+// Espelha VALID_TABLE_TYPES/VALID_MODALITIES/VALID_PRICE_TYPES do backend
+// (apps/mesas/backend/src/discord/syncHelpers.ts). Achado do mantenedor
+// (2026-07-08): validateForm só checava .trim() truthy, não pertencimento ao
+// enum — draft com valor fora da whitelist (correção manual, campo de outro
+// parser, etc) passava no frontend como "Pronto" e só travava no sync com 422
+// "type, price_type" sem indicar o valor inválido nem como corrigir.
+const VALID_TABLE_TYPES: ReadonlySet<DraftTableType> = new Set(['campanha', 'one-shot', 'oneshot-serie', 'aberta']);
+const VALID_MODALITIES: ReadonlySet<DraftModality> = new Set(['online', 'presencial', 'hibrida']);
+const VALID_PRICE_TYPES: ReadonlySet<DraftPriceType> = new Set(['gratuita', 'paga']);
 export type DraftDayOfWeek = 'segunda' | 'terça' | 'quarta' | 'quinta' | 'sexta' | 'sábado' | 'domingo';
 export type DraftFrequency = 'semanal' | 'quinzenal' | 'mensal' | 'avulsa' | 'outra';
+// Espelha VALID_DAYS do backend (mesmo motivo do bloco acima) — day_of_week
+// sujo (fora do enum) travava sync como "day_of_week" sem explicação.
+const VALID_DAYS: ReadonlySet<DraftDayOfWeek> = new Set(['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo']);
+// Espelha isValidTime (TIME_REGEX) do backend — start_time é <input> de texto
+// livre no editor (sem type="time"), então "19h"/"as 19" passava no front
+// (.trim() truthy) e travava no sync (regex HH:MM do backend rejeita).
+const TIME_REGEX = /^\d{2}:\d{2}(:\d{2})?$/;
+function isValidTimeString(v: string): boolean {
+  const trimmed = v.trim();
+  const m = TIME_REGEX.exec(trimmed);
+  if (!m) return false;
+  const [h, min] = m[0].split(':').map(Number);
+  return h >= 0 && h <= 23 && min >= 0 && min <= 59;
+}
 /** Fase D (spec 058): mesmos enums do draft (backend `types.ts`). */
 export type DraftAgeRating = 'livre' | '10+' | '12+' | '14+' | '16+' | '18+';
 export type DraftExperienceLevel = 'todos' | 'iniciante' | 'intermediario' | 'veterano';
@@ -279,16 +303,16 @@ export function validateForm(form: DraftForm, hostDiscordId?: string | null): st
   if (!form.title.trim()) missing.push('Título');
   if (!form.description.trim()) missing.push('Descrição');
   if (!form.system_id.trim()) missing.push('Sistema');
-  if (!form.type.trim()) missing.push('Tipo');
-  if (!form.modality.trim()) missing.push('Modalidade');
-  if (!form.price_type.trim()) missing.push('Preço');
+  if (!VALID_TABLE_TYPES.has(form.type)) missing.push('Tipo');
+  if (!VALID_MODALITIES.has(form.modality)) missing.push('Modalidade');
+  if (!VALID_PRICE_TYPES.has(form.price_type)) missing.push('Preço');
   if (parseOptionalNonNegativeInt(form.slots_total) == null && parseOptionalNonNegativeInt(form.slots_open) == null) missing.push('Vagas');
   // Contato tambem e satisfeito por host_discord_id (autor Discord do anuncio),
   // igual ao backend (validateDraftForSync em syncHelpers.ts) — nao e editavel no
   // form, so preenchido automaticamente pelo parser.
   if (!form.contact_url.trim() && !form.contact_discord.trim() && !hostDiscordId?.trim()) missing.push('Contato');
-  if (!form.day_of_week) missing.push('Dia');
-  if (!form.start_time.trim()) missing.push('Horário');
+  if (!form.day_of_week || !VALID_DAYS.has(form.day_of_week)) missing.push('Dia');
+  if (!isValidTimeString(form.start_time)) missing.push('Horário');
   if (form.frequency === 'outra') missing.push('Frequência');
   return missing;
 }
@@ -305,13 +329,13 @@ export function buildMissingFields(base: DiscordDraftPayload, form: DraftForm): 
   setByState('description', !form.description.trim());
   setByState('system_name', !form.system_id.trim() && !form.system_name.trim());
   setByState('system_name:unmatched_hint', !form.system_id.trim() && Boolean(table.raw_system_hint));
-  setByState('type', !form.type.trim());
-  setByState('modality', !form.modality.trim());
-  setByState('price_type', !form.price_type.trim());
+  setByState('type', !VALID_TABLE_TYPES.has(form.type));
+  setByState('modality', !VALID_MODALITIES.has(form.modality));
+  setByState('price_type', !VALID_PRICE_TYPES.has(form.price_type));
   setByState('slots_total', parseOptionalNonNegativeInt(form.slots_total) == null && parseOptionalNonNegativeInt(form.slots_open) == null);
   setByState('contact_url', !form.contact_url.trim() && !form.contact_discord.trim() && !table.host_discord_id?.trim());
-  setByState('day_of_week', !form.day_of_week);
-  setByState('start_time', !form.start_time.trim());
+  setByState('day_of_week', !form.day_of_week || !VALID_DAYS.has(form.day_of_week));
+  setByState('start_time', !isValidTimeString(form.start_time));
   setByState('frequency', form.frequency === 'outra');
 
   return Array.from(missing);
