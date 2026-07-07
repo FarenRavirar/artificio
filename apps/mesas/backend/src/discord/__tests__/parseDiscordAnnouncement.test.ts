@@ -898,8 +898,10 @@ describe('parseDiscordAnnouncement', () => {
       }),
     );
 
-    // DEB-048-26: quem publicou é o contato padrão (nome > id).
-    expect(draft?.table.contact_discord).toBe('mestre_fulano');
+    // DEB-048-26 + correção 2026-07-07: quem publicou é o contato padrão, mas
+    // usando o ID (snowflake, sempre mencionável/contactável) — nome de
+    // exibição do servidor não serve pra contato real (achado do mantenedor).
+    expect(draft?.table.contact_discord).toBe('author-999');
     expect(draft?.missing_fields).not.toContain('contact_url');
   });
 

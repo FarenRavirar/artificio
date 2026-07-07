@@ -55,6 +55,8 @@ export interface CompletenessAuditCandidate {
   value?: unknown;
   evidence: string;
   confidence?: number;
+  /** v2 (2026-07-07): distingue campo vazio (missing) de valor preenchido errado (incorrect). */
+  issue_type?: 'missing' | 'incorrect';
 }
 
 export interface CompletenessAuditResult {
@@ -335,6 +337,8 @@ export interface DraftApiOperations {
   getDraft?: (id: string) => Promise<DiscordDraft>;
   submitCorrection?: (id: string, body: { corrections: Record<string, unknown>; reason?: string; before?: Record<string, unknown> }) => Promise<unknown>;
   auditCompleteness?: (id: string) => Promise<CompletenessAuditResult>;
+  /** Botão pequeno por campo (2026-07-07): reaudita só um campo via IA. */
+  auditField?: (id: string, field: string) => Promise<CompletenessAuditResult>;
   getAiAutomationConfig?: () => Promise<AiAutomationConfig>;
   getLlmActivity?: () => Promise<LlmActivity>;
   listDuplicateCandidates?: (draftId: string) => Promise<DuplicateCandidate[]>;

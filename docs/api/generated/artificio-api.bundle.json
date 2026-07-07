@@ -6,10 +6,10 @@
     "accounts": 11,
     "glossario": 46,
     "links": 22,
-    "mesas": 176,
+    "mesas": 177,
     "site": 32
   },
-  "total": 287,
+  "total": 288,
   "operations": [
     {
       "app": "accounts",
@@ -1311,6 +1311,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_v1_admin_discord_drafts_id_audit_completeness"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/drafts/{id}/audit-field/{field}",
+      "summary": "Cria ou executa api v1 admin discord drafts id audit-field field",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_discord_drafts_id_audit_field_field"
     },
     {
       "app": "mesas",

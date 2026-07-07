@@ -101,47 +101,97 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
+type AuditRunResult =
+  | { ok: true; data: { candidates: Array<{ field: string; value?: unknown; evidence: string; confidence?: number; issue_type?: 'missing' | 'incorrect' }> } }
+  | { ok: false; status: number; error: string };
+
+// Extraído de audit-completeness (endpoint geral) pra reuso em audit-field
+// (endpoint por-campo, pedido do mantenedor 2026-07-07 — botão pequeno ao
+// lado de cada input, tipo o badge "Parser", que reanalisa só aquele campo).
+async function runCompletenessAudit(draftId: string): Promise<AuditRunResult> {
+  const aiConfig = getAiAutomationConfig();
+  // T10.9 (spec 058): auditoria de completude e acao manual sob demanda —
+  // nao depende do modo automatico (suggest/shadow/auto/off), so do kill
+  // switch real. Gatear por isAiAssistEnabled() (que bloqueia mode='off')
+  // desligava a feature justamente no estado padrao de producao
+  // (MESAS_AI_AUTOMATION_MODE nunca setada), achado CodeRabbit na PR #128.
+  if (aiConfig.killSwitch) {
+    return { ok: false, status: 423, error: 'Assistente IA desligado.' };
+  }
+
+  const draft = await db
+    .selectFrom('discord_import_table_drafts')
+    .selectAll()
+    .where('id', '=', draftId)
+    .executeTakeFirst();
+  if (!draft) return { ok: false, status: 404, error: 'Draft não encontrado.' };
+
+  const contentRaw = await loadDraftContentRaw(draft);
+  if (!contentRaw) return { ok: false, status: 422, error: 'Texto original indisponível para auditoria.' };
+
+  const payload = normalizeDraftPayload(draft.normalized_payload ?? draft.parsed_payload);
+  const table = payload.table && typeof payload.table === 'object' && !Array.isArray(payload.table)
+    ? payload.table as Record<string, unknown>
+    : {};
+  // Achado CodeRabbit (PR #128): contact_discord/host_discord_id sao
+  // identificador de usuario Discord — nao vai pro DeepSeek (provider
+  // terceiro). Auditoria de completude so precisa dos campos de conteudo.
+  const { contact_discord, host_discord_id, ...contentFields } = table;
+  const result = await auditDiscordDraftCompleteness({
+    rawText: contentRaw,
+    currentFields: contentFields,
+    model: aiConfig.model,
+  });
+  if (!result) return { ok: false, status: 502, error: 'Auditoria DeepSeek indisponível.' };
+
+  // Achado do mantenedor (2026-07-07): contact_discord/host_discord_id nunca
+  // vao pro DeepSeek (linha acima), entao a IA nunca pode reportar contato
+  // faltando — mesmo furo que fez a auditoria "nao achar lacuna" com um
+  // draft sem nenhum canal de contato. Checagem local (sem LLM) cobre esse
+  // campo especifico, que fica de fora por design de privacidade.
+  const hasContact = Boolean(
+    (typeof contact_discord === 'string' && contact_discord.trim())
+    || (typeof host_discord_id === 'string' && host_discord_id.trim())
+  );
+  const candidates = hasContact
+    ? result.candidates
+    : [
+        ...result.candidates,
+        {
+          field: 'contact_discord',
+          evidence: 'Nenhum canal de contato (link/menção/autor) encontrado no anúncio.',
+          issue_type: 'missing' as const,
+        },
+      ];
+
+  return { ok: true, data: { ...result, candidates } };
+}
+
 router.post('/:id/audit-completeness', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const aiConfig = getAiAutomationConfig();
-    // T10.9 (spec 058): auditoria de completude e acao manual sob demanda —
-    // nao depende do modo automatico (suggest/shadow/auto/off), so do kill
-    // switch real. Gatear por isAiAssistEnabled() (que bloqueia mode='off')
-    // desligava a feature justamente no estado padrao de producao
-    // (MESAS_AI_AUTOMATION_MODE nunca setada), achado CodeRabbit na PR #128.
-    if (aiConfig.killSwitch) {
-      return res.status(423).json({ error: 'Assistente IA desligado.' });
-    }
-
-    const draft = await db
-      .selectFrom('discord_import_table_drafts')
-      .selectAll()
-      .where('id', '=', req.params.id)
-      .executeTakeFirst();
-    if (!draft) return res.status(404).json({ error: 'Draft nÃ£o encontrado.' });
-
-    const contentRaw = await loadDraftContentRaw(draft);
-    if (!contentRaw) return res.status(422).json({ error: 'Texto original indisponÃ­vel para auditoria.' });
-
-    const payload = normalizeDraftPayload(draft.normalized_payload ?? draft.parsed_payload);
-    const table = payload.table && typeof payload.table === 'object' && !Array.isArray(payload.table)
-      ? payload.table as Record<string, unknown>
-      : {};
-    // Achado CodeRabbit (PR #128): contact_discord/host_discord_id sao
-    // identificador de usuario Discord — nao vai pro DeepSeek (provider
-    // terceiro). Auditoria de completude so precisa dos campos de conteudo.
-    const { contact_discord, host_discord_id, ...contentFields } = table;
-    const result = await auditDiscordDraftCompleteness({
-      rawText: contentRaw,
-      currentFields: contentFields,
-      model: aiConfig.model,
-    });
-    if (!result) return res.status(502).json({ error: 'Auditoria DeepSeek indisponÃ­vel.' });
-
-    return res.json({ data: result });
+    const result = await runCompletenessAudit(req.params.id);
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    return res.json({ data: result.data });
   } catch (error: unknown) {
     console.error('[POST /admin/discord/drafts/:id/audit-completeness]', error);
     return res.status(500).json({ error: 'Erro ao auditar completude do draft.' });
+  }
+});
+
+// Botão pequeno por campo (pedido do mantenedor 2026-07-07): reaudita só o
+// campo indicado, ao lado do badge "Parser" no editor. Reusa a mesma
+// auditoria completa (mesmo custo de chamada DeepSeek) e filtra o resultado
+// pro campo pedido — não há prompt/endpoint separado por campo porque o
+// modelo já compara texto bruto x TODOS os campos numa chamada só.
+router.post('/:id/audit-field/:field', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const result = await runCompletenessAudit(req.params.id);
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    const candidates = result.data.candidates.filter((c) => c.field === req.params.field);
+    return res.json({ data: { candidates } });
+  } catch (error: unknown) {
+    console.error('[POST /admin/discord/drafts/:id/audit-field/:field]', error);
+    return res.status(500).json({ error: 'Erro ao auditar campo do draft.' });
   }
 });
 

@@ -43,7 +43,11 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
     : 'Revisar';
 
   const syncTitle = !h.canSync
-    ? (h.dirty ? 'Salve as alterações primeiro.' : 'Preencha todos os campos obrigatórios e deixe o draft como ready.')
+    ? (h.dirty
+        ? 'Salve as alterações primeiro.'
+        : h.missingFields.length > 0
+          ? `Campos obrigatórios pendentes: ${h.missingFields.join(', ')}.`
+          : 'Preencha todos os campos obrigatórios e deixe o draft como ready.')
     : undefined;
 
   const tabClass = (tab: typeof h.activeTab) =>
@@ -269,11 +273,13 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
               aiConfig={h.aiConfig}
               llmActivity={h.llmActivity}
               auditingCompleteness={h.auditingCompleteness}
+              auditingField={h.auditingField}
               completenessSuggestions={h.completenessSuggestions}
               savingFields={h.savingFields}
               onUpdateForm={h.updateForm}
               onApplySuggestion={h.applySuggestion}
               onAuditCompleteness={api.auditCompleteness ? h.handleAuditCompleteness : undefined}
+              onAuditField={api.auditField ? h.handleAuditField : undefined}
               onSystemChange={h.handleSystemChange}
               onCoverUpload={h.handleCoverUpload}
               onRemoveCover={h.handleRemoveCover}

@@ -274,7 +274,7 @@ export function parseOptionalMoney(value: string): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-export function validateForm(form: DraftForm): string[] {
+export function validateForm(form: DraftForm, hostDiscordId?: string | null): string[] {
   const missing: string[] = [];
   if (!form.title.trim()) missing.push('Título');
   if (!form.description.trim()) missing.push('Descrição');
@@ -283,7 +283,10 @@ export function validateForm(form: DraftForm): string[] {
   if (!form.modality.trim()) missing.push('Modalidade');
   if (!form.price_type.trim()) missing.push('Preço');
   if (parseOptionalNonNegativeInt(form.slots_total) == null && parseOptionalNonNegativeInt(form.slots_open) == null) missing.push('Vagas');
-  if (!form.contact_url.trim() && !form.contact_discord.trim()) missing.push('Contato');
+  // Contato tambem e satisfeito por host_discord_id (autor Discord do anuncio),
+  // igual ao backend (validateDraftForSync em syncHelpers.ts) — nao e editavel no
+  // form, so preenchido automaticamente pelo parser.
+  if (!form.contact_url.trim() && !form.contact_discord.trim() && !hostDiscordId?.trim()) missing.push('Contato');
   if (!form.day_of_week) missing.push('Dia');
   if (!form.start_time.trim()) missing.push('Horário');
   if (form.frequency === 'outra') missing.push('Frequência');
@@ -306,7 +309,7 @@ export function buildMissingFields(base: DiscordDraftPayload, form: DraftForm): 
   setByState('modality', !form.modality.trim());
   setByState('price_type', !form.price_type.trim());
   setByState('slots_total', parseOptionalNonNegativeInt(form.slots_total) == null && parseOptionalNonNegativeInt(form.slots_open) == null);
-  setByState('contact_url', !form.contact_url.trim() && !form.contact_discord.trim());
+  setByState('contact_url', !form.contact_url.trim() && !form.contact_discord.trim() && !table.host_discord_id?.trim());
   setByState('day_of_week', !form.day_of_week);
   setByState('start_time', !form.start_time.trim());
   setByState('frequency', form.frequency === 'outra');

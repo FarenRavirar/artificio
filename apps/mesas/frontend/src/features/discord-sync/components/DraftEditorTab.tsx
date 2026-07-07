@@ -31,11 +31,14 @@ interface DraftEditorTabProps {
   aiConfig?: AiAutomationConfig | null;
   llmActivity?: LlmActivity | null;
   auditingCompleteness?: boolean;
+  /** Botão pequeno por campo (2026-07-07): qual campo está sendo reauditado agora. */
+  auditingField?: DraftFieldKey | null;
   completenessSuggestions?: CompletenessAuditCandidate[];
   savingFields: boolean;
   onUpdateForm: <K extends keyof DraftForm>(key: K, value: DraftForm[K]) => void;
   onApplySuggestion?: (field: DraftFieldKey, value: unknown) => void;
   onAuditCompleteness?: () => void;
+  onAuditField?: (field: DraftFieldKey) => void;
   onSystemChange: (systemId: string) => void;
   onCoverUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemoveCover: () => void;
@@ -76,20 +79,41 @@ function formatSuggestion(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function FieldInsightNote({ field, insight, onApply }: { readonly field: DraftFieldKey; readonly insight?: DraftFieldInsight; readonly onApply?: (field: DraftFieldKey, value: unknown) => void }) {
-  if (!insight) return null;
-  const suggestion = formatSuggestion(insight.suggestion);
-  const evidence = insight.evidence.slice(0, 2).join(' ');
+function FieldInsightNote({
+  field, insight, onApply, onAuditField, auditingThisField,
+}: {
+  readonly field: DraftFieldKey;
+  readonly insight?: DraftFieldInsight;
+  readonly onApply?: (field: DraftFieldKey, value: unknown) => void;
+  readonly onAuditField?: (field: DraftFieldKey) => void;
+  readonly auditingThisField?: boolean;
+}) {
+  const suggestion = insight ? formatSuggestion(insight.suggestion) : '';
+  const evidence = insight ? insight.evidence.slice(0, 2).join(' ') : '';
+  if (!insight && !onAuditField) return null;
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] leading-4">
-      <span className={`rounded px-1.5 py-0.5 ${sourceClass[insight.source]}`}>{sourceLabel[insight.source]}</span>
+      {insight && (
+        <span className={`rounded px-1.5 py-0.5 ${sourceClass[insight.source]}`}>{sourceLabel[insight.source]}</span>
+      )}
       {suggestion && <span className="max-w-full truncate text-white/55">sugestão: {suggestion}</span>}
       {suggestion && onApply && (
-        <button type="button" onClick={() => onApply(field, insight.suggestion)} className="rounded bg-white/10 px-1.5 py-0.5 text-white/70 hover:bg-white/20">
+        <button type="button" onClick={() => onApply(field, insight?.suggestion)} className="rounded bg-white/10 px-1.5 py-0.5 text-white/70 hover:bg-white/20">
           Aplicar
         </button>
       )}
       {evidence && <span className="max-w-full truncate text-white/45">{evidence}</span>}
+      {onAuditField && (
+        <button
+          type="button"
+          onClick={() => onAuditField(field)}
+          disabled={auditingThisField}
+          className="rounded bg-blue-500/20 px-1.5 py-0.5 text-blue-200 hover:bg-blue-500/30 disabled:opacity-40"
+          title="Reanalisar este campo com IA (DeepSeek)"
+        >
+          {auditingThisField ? 'IA...' : 'IA'}
+        </button>
+      )}
     </div>
   );
 }
@@ -100,8 +124,8 @@ export function DraftEditorTab({
   communicationPlatforms, communicationPlatformsLoading,
   coverPreviewUrl, coverError, coverUploading, coverInputRef,
   shouldShowSlotsDisambiguation, slotsAmbiguity, slotsInterpretation, fieldInsights, savingFields,
-  aiConfig, llmActivity, auditingCompleteness, completenessSuggestions,
-  onUpdateForm, onApplySuggestion, onAuditCompleteness, onSystemChange, onCoverUpload, onRemoveCover,
+  aiConfig, llmActivity, auditingCompleteness, auditingField, completenessSuggestions,
+  onUpdateForm, onApplySuggestion, onAuditCompleteness, onAuditField, onSystemChange, onCoverUpload, onRemoveCover,
   onSetSlotsInterpretation, onConfirmSlots,
 }: Readonly<DraftEditorTabProps>) {
   const aiOff = !aiConfig || aiConfig.mode === 'off' || aiConfig.killSwitch;
@@ -137,6 +161,9 @@ export function DraftEditorTab({
           <div className="mt-2 space-y-1">
             {completenessSuggestions.map((item, index) => (
               <p key={`${item.field}-${index}`} className="text-xs text-blue-100">
+                <span className={`mr-1 rounded px-1 py-0.5 text-[10px] uppercase ${item.issue_type === 'incorrect' ? 'bg-red-500/20 text-red-200' : 'bg-amber-500/20 text-amber-200'}`}>
+                  {item.issue_type === 'incorrect' ? 'conferir' : 'faltando'}
+                </span>
                 {item.field}: {formatSuggestion(item.value)} <span className="text-white/45">{item.evidence}</span>
               </p>
             ))}
@@ -198,12 +225,12 @@ export function DraftEditorTab({
         <label>
           <span className={labelClass}>Título</span>
           <input value={form.title} onChange={(e) => onUpdateForm('title', e.target.value)} className={inputClass} />
-          <FieldInsightNote field="title" insight={fieldInsights?.title} onApply={onApplySuggestion} />
+          <FieldInsightNote field="title" insight={fieldInsights?.title} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'title'} />
         </label>
         <label>
           <span className={labelClass}>Sistema</span>
           <SystemSearchSelect systems={systems} value={form.system_id} loading={systemsLoading} onChange={onSystemChange} />
-          <FieldInsightNote field="system_name" insight={fieldInsights?.system_name} onApply={onApplySuggestion} />
+          <FieldInsightNote field="system_name" insight={fieldInsights?.system_name} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'system_name'} />
         </label>
         <label>
           <span className={labelClass}>Tipo</span>
@@ -213,7 +240,7 @@ export function DraftEditorTab({
             <option value="oneshot-serie">Série de one-shots</option>
             <option value="aberta">Aberta</option>
           </select>
-          <FieldInsightNote field="type" insight={fieldInsights?.type} onApply={onApplySuggestion} />
+          <FieldInsightNote field="type" insight={fieldInsights?.type} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'type'} />
         </label>
         <label>
           <span className={labelClass}>Modalidade</span>
@@ -222,7 +249,7 @@ export function DraftEditorTab({
             <option value="presencial">Presencial</option>
             <option value="hibrida">Híbrida</option>
           </select>
-          <FieldInsightNote field="modality" insight={fieldInsights?.modality} onApply={onApplySuggestion} />
+          <FieldInsightNote field="modality" insight={fieldInsights?.modality} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'modality'} />
         </label>
         <label>
           <span className={labelClass}>Preço</span>
@@ -230,22 +257,22 @@ export function DraftEditorTab({
             <option value="gratuita">Gratuita</option>
             <option value="paga">Paga</option>
           </select>
-          <FieldInsightNote field="price_type" insight={fieldInsights?.price_type} onApply={onApplySuggestion} />
+          <FieldInsightNote field="price_type" insight={fieldInsights?.price_type} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'price_type'} />
         </label>
         <label>
           <span className={labelClass}>Valor</span>
           <input value={form.price_value} onChange={(e) => onUpdateForm('price_value', e.target.value)} className={inputClass} placeholder="0" disabled={form.price_type === 'gratuita'} />
-          <FieldInsightNote field="price_value" insight={fieldInsights?.price_value} onApply={onApplySuggestion} />
+          <FieldInsightNote field="price_value" insight={fieldInsights?.price_value} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'price_value'} />
         </label>
         <label>
           <span className={labelClass}>Vagas totais</span>
           <input value={form.slots_total} onChange={(e) => onUpdateForm('slots_total', e.target.value)} className={inputClass} inputMode="numeric" />
-          <FieldInsightNote field="slots_total" insight={fieldInsights?.slots_total} onApply={onApplySuggestion} />
+          <FieldInsightNote field="slots_total" insight={fieldInsights?.slots_total} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'slots_total'} />
         </label>
         <label>
           <span className={labelClass}>Vagas abertas</span>
           <input value={form.slots_open} onChange={(e) => onUpdateForm('slots_open', e.target.value)} className={inputClass} inputMode="numeric" />
-          <FieldInsightNote field="slots_open" insight={fieldInsights?.slots_open} onApply={onApplySuggestion} />
+          <FieldInsightNote field="slots_open" insight={fieldInsights?.slots_open} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'slots_open'} />
         </label>
         <label>
           <span className={labelClass}>Dia</span>
@@ -259,12 +286,12 @@ export function DraftEditorTab({
             <option value="sábado">Sábado</option>
             <option value="domingo">Domingo</option>
           </select>
-          <FieldInsightNote field="day_of_week" insight={fieldInsights?.day_of_week} onApply={onApplySuggestion} />
+          <FieldInsightNote field="day_of_week" insight={fieldInsights?.day_of_week} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'day_of_week'} />
         </label>
         <label>
           <span className={labelClass}>Horário</span>
           <input value={form.start_time} onChange={(e) => onUpdateForm('start_time', e.target.value)} className={inputClass} placeholder="19:00" />
-          <FieldInsightNote field="start_time" insight={fieldInsights?.start_time} onApply={onApplySuggestion} />
+          <FieldInsightNote field="start_time" insight={fieldInsights?.start_time} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'start_time'} />
         </label>
         <label>
           <span className={labelClass}>Frequência</span>
@@ -275,22 +302,22 @@ export function DraftEditorTab({
             <option value="avulsa">Única</option>
             <option value="outra">Outra</option>
           </select>
-          <FieldInsightNote field="frequency" insight={fieldInsights?.frequency} onApply={onApplySuggestion} />
+          <FieldInsightNote field="frequency" insight={fieldInsights?.frequency} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'frequency'} />
         </label>
         <label>
           <span className={labelClass}>Contato Discord</span>
           <input value={form.contact_discord} onChange={(e) => onUpdateForm('contact_discord', e.target.value)} className={inputClass} />
-          <FieldInsightNote field="contact_discord" insight={fieldInsights?.contact_discord} onApply={onApplySuggestion} />
+          <FieldInsightNote field="contact_discord" insight={fieldInsights?.contact_discord} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'contact_discord'} />
         </label>
         <label className="md:col-span-2">
           <span className={labelClass}>Link de inscrição/contato</span>
           <input value={form.contact_url} onChange={(e) => onUpdateForm('contact_url', e.target.value)} className={inputClass} />
-          <FieldInsightNote field="contact_url" insight={fieldInsights?.contact_url} onApply={onApplySuggestion} />
+          <FieldInsightNote field="contact_url" insight={fieldInsights?.contact_url} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'contact_url'} />
         </label>
         <label className="md:col-span-2">
           <span className={labelClass}>Descrição</span>
           <textarea value={form.description} onChange={(e) => onUpdateForm('description', e.target.value)} className={`${inputClass} min-h-28 resize-y`} />
-          <FieldInsightNote field="description" insight={fieldInsights?.description} onApply={onApplySuggestion} />
+          <FieldInsightNote field="description" insight={fieldInsights?.description} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingField === 'description'} />
         </label>
 
         {/* Fase D (spec 058): campos de auto-preenchimento ampliado — ver auto-preenchimento-draft.md */}

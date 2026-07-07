@@ -78,16 +78,18 @@ export class TableRepository {
         ])
         .execute();
 
-      await trx
-        .insertInto('table_contacts')
-        .values(
-          contacts.map((contact, index) => ({
-            table_id: insertedTable.id,
-            ...contact,
-            sort_order: contact.sort_order ?? index,
-          }))
-        )
-        .execute();
+      if (contacts && contacts.length > 0) {
+        await trx
+          .insertInto('table_contacts')
+          .values(
+            contacts.map((contact, index) => ({
+              table_id: insertedTable.id,
+              ...contact,
+              sort_order: contact.sort_order ?? index,
+            }))
+          )
+          .execute();
+      }
 
       if (schedules && schedules.length > 0) {
         await trx
