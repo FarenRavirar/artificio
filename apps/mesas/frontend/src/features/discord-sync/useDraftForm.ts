@@ -44,6 +44,10 @@ interface DraftEditorState {
   reviewNotes: string;
   coverPreviewUrl: string;
   dirty: boolean;
+  // Achado CodeRabbit (PR #128): vive no reducer (nao em useState proprio)
+  // pra zerar no mesmo RESET/REPARSE do draft sem precisar de useEffect so
+  // pra chamar setState (regra do repo: react-hooks/set-state-in-effect).
+  completenessSuggestions: CompletenessAuditCandidate[];
 }
 
 type DraftEditorAction =
@@ -53,7 +57,8 @@ type DraftEditorAction =
   | { type: 'SET_COVER'; secureUrl: string }
   | { type: 'REMOVE_COVER' }
   | { type: 'SET_STATUS_FIELD'; key: 'newStatus' | 'reviewNotes'; value: string }
-  | { type: 'MARK_PERSISTED' };
+  | { type: 'MARK_PERSISTED' }
+  | { type: 'SET_COMPLETENESS_SUGGESTIONS'; suggestions: CompletenessAuditCandidate[] };
 
 function buildEditorState(draft: DiscordDraft): DraftEditorState {
   const p = buildForm(draft.normalized_payload ?? draft.parsed_payload);
@@ -67,6 +72,7 @@ function buildEditorState(draft: DiscordDraft): DraftEditorState {
     // ainda não rodou. Só mostra imagem quando existe cover_url confirmado.
     coverPreviewUrl: p.cover_url.trim(),
     dirty: false,
+    completenessSuggestions: [],
   };
 }
 
@@ -128,6 +134,8 @@ function editorReducer(state: DraftEditorState, action: DraftEditorAction): Draf
       return { ...state, [action.key]: action.value, dirty: true };
     case 'MARK_PERSISTED':
       return { ...state, dirty: false };
+    case 'SET_COMPLETENESS_SUGGESTIONS':
+      return { ...state, completenessSuggestions: action.suggestions };
   }
 }
 
@@ -158,7 +166,6 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   const [aiConfig, setAiConfig] = useState<AiAutomationConfig | null>(null);
   const [llmActivity, setLlmActivity] = useState<LlmActivity | null>(null);
   const [auditingCompleteness, setAuditingCompleteness] = useState(false);
-  const [completenessSuggestions, setCompletenessSuggestions] = useState<CompletenessAuditCandidate[]>([]);
   const coverInputRef = useRef<HTMLInputElement | null>(null);
 
   const missingFields = useMemo(() => validateForm(state.form), [state.form]);
@@ -183,13 +190,6 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   // Draft como objeto muda de referência a cada render do pai. Props individuais são as dependências reais.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.id, draft.status, draft.review_notes, draft.normalized_payload, draft.parsed_payload]);
-
-  // Achado CodeRabbit (PR #128): sugestoes da auditoria de completude de um
-  // draft anterior (ou de antes do reparse) ficavam visiveis mesmo apos
-  // trocar de draft, associadas ao payload/texto errado.
-  useEffect(() => {
-    setCompletenessSuggestions([]);
-  }, [draft.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -256,7 +256,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     setAuditingCompleteness(true);
     try {
       const result = await draftApi.auditCompleteness(draft.id);
-      setCompletenessSuggestions(result.candidates);
+      dispatch({ type: 'SET_COMPLETENESS_SUGGESTIONS', suggestions: result.candidates });
       toast.success(result.candidates.length > 0 ? 'Auditoria encontrou sugestoes.' : 'Auditoria nao encontrou lacunas.');
       const activity = await draftApi.getLlmActivity?.();
       if (activity) setLlmActivity(activity);
@@ -427,7 +427,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       // Achado CodeRabbit (PR #128): draft.id nao muda no reparse, so o
       // payload — sugestoes da auditoria anterior ficariam presas ao texto
       // velho sem este clear explicito (o reset por id nao cobre este caso).
-      setCompletenessSuggestions([]);
+      dispatch({ type: 'SET_COMPLETENESS_SUGGESTIONS', suggestions: [] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao reparsar draft.');
     } finally {
@@ -478,7 +478,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     aiConfig,
     llmActivity,
     auditingCompleteness,
-    completenessSuggestions,
+    completenessSuggestions: state.completenessSuggestions,
     applySuggestion,
     handleAuditCompleteness,
     handleSystemChange,
