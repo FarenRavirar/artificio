@@ -89,9 +89,22 @@ export function buildContextPack(input: {
   retrievalContext?: RetrievalContext | null;
   ruleHits?: LearningRuleHit[];
   ruleConflicts?: LearningRuleConflict[];
+  targetFields?: string[];
 }): ContextPack {
   const table = asRecord(input.draft.table);
   const source = asRecord(input.draft.source);
+  const allowedFields = (input.targetFields?.length ? input.targetFields : [
+    'title',
+    'system_hint',
+    'day_of_week',
+    'start_time',
+    'slots_total',
+    'slots_open',
+    'price_type',
+    'price_value',
+    'contact_url',
+    'description',
+  ]).slice(0, 30);
   const pack: ContextPack = {
     policy: {
       unknown_price_is_null: true,
@@ -127,18 +140,7 @@ export function buildContextPack(input: {
     negative_examples: (input.retrievalContext?.negative_examples ?? []).slice(0, 10).map(exampleFromCase),
     corrected_examples: (input.retrievalContext?.corrected_examples ?? []).slice(0, 10).map(exampleFromCase),
     expected_schema: {
-      allowed_fields: [
-        'title',
-        'system_hint',
-        'day_of_week',
-        'start_time',
-        'slots_total',
-        'slots_open',
-        'price_type',
-        'price_value',
-        'contact_url',
-        'description',
-      ],
+      allowed_fields: allowedFields,
       response_contract: 'json_object_only',
     },
   };

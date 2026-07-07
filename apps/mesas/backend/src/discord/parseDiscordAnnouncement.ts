@@ -353,7 +353,8 @@ function extractType(text: string): TableDraftType | null {
   // essa métrica). Caso real: "Daggerheart: As Witherlands" (D:\teste.json)
   // não cita "campanha" em nenhum lugar, só "Vagas: 1/6 - Em andamento".
   if (/\bem\s+andamento\b|\bj[aá]\s+(?:iniciada|come[çc]ou|em\s+andamento)\b/.test(lower)) return 'campanha';
-  if (/\b\d+\s*(?:a|à|~|-)\s*\d+\s+sess(?:[õo]es)\b|\b\d+\+?\s+sess(?:[õo]es)\b/.test(lower)) return 'campanha';
+  if (/\b\d+\s*[aà~-]\s*\d+\s+sess[õo]es\b/.test(lower)) return 'campanha';
+  if (/\b\d+\+?\s+sess[õo]es\b/.test(lower)) return 'campanha';
   return null;
 }
 
@@ -370,7 +371,31 @@ function extractType(text: string): TableDraftType | null {
  * Esse recorte é removido do texto antes de avaliar o sinal geral de
  * gratuidade/cobrança, senão a palavra "gratuita" solta mascara o preço real.
  */
-const PROMO_FREE_PERIOD_RE = /\bsess[aã]o\s*(?:0|zero)\s+(?:[ée]\s+)?gr[aá]tis\b|\bsess[aã]o\s*(?:0|zero)\s+gratuita\b|\b(?:primeir[ao]|1[ªa])\s+(?:sess[aã]o|semana|aula)\s+(?:[ée]\s+)?gr[aá]tis\b|\b(?:primeir[ao]|1[ªa])\s+(?:sess[aã]o|semana|aula)\s+gratuita\b/gi;
+const PROMO_FREE_PERIOD_RE_LIST = [
+  /\bsess[aã]o\s*(?:0|zero)\s+(?:[ée]\s+)?gr[aá]tis\b/gi,
+  /\bsess[aã]o\s*(?:0|zero)\s+gratuita\b/gi,
+  /\b(?:primeir[ao]|1[ªa])\s+(?:sess[aã]o|semana|aula)\s+(?:[ée]\s+)?gr[aá]tis\b/gi,
+  /\b(?:primeir[ao]|1[ªa])\s+(?:sess[aã]o|semana|aula)\s+gratuita\b/gi,
+];
+// Label explícito de gratuidade ("Valor: gratuito/sem custo/...") e negação de
+// cobrança ("não é paga", "sem pagamento", "sem mensalidade" soltos no texto,
+// não só colados no label "valor") — precisam sair do texto ANTES de avaliar
+// hasPaidSignal, senão "pagamento"/"mensalidade" dentro da própria frase livre
+// (sem "valor:" na frente) casam com PAID_SIGNAL_RE e o par vira falso
+// conflito/ambíguo (achado ao corrigir review dos bots na PR #128 — P2 sobre
+// "Valor: gratuito"/"sem pagamento"/"não é paga" virando ambíguo).
+const FREE_PRICE_LABEL_RE = /\bvalor\s*:?\s{0,3}(?:gratuit[oa]s?|free|sem\s+(?:custo|valor|pagamento|mensalidade))\b/gi;
+const NEGATED_PAID_RE = /\bn[aã]o\s+[ée]\s+pag[ao]\b|\bsem\s+(?:custo|pagamento|mensalidade)\b/gi;
+const FREE_SIGNAL_RE = /\bgratuit[oa]s?\b|\bfree\b|\bsem\s+(?:custo|valor|pagamento|mensalidade)\b|\bn[aã]o\s+[ée]\s+pag[ao]\b/;
+const PAID_SIGNAL_RE = /\b(?:mesa\s+)?pag[ao]\b|\bvalor\s*:|\bpagamento\b|\bmensalidade\b|\bvalor\s+a\s+combinar\b|\ba\s+combinar\b/;
+
+function stripPromoFreePeriods(value: string): string {
+  return PROMO_FREE_PERIOD_RE_LIST.reduce((acc, pattern) => acc.replace(pattern, ''), value);
+}
+
+function stripFreePricePhrases(value: string): string {
+  return value.replace(FREE_PRICE_LABEL_RE, '').replace(NEGATED_PAID_RE, '');
+}
 
 function extractPrice(text: string): { priceType: TableDraftPriceType | null; priceValue: number | null; ambiguous: boolean } {
   // Nível 1 — valor numérico explícito: "R$ 30", "30 reais", ou label "Valor: 30,00"
@@ -379,7 +404,7 @@ function extractPrice(text: string): { priceType: TableDraftPriceType | null; pr
   // mesmo que o mesmo anúncio também mencione "sessão 0 gratuita" (isenção
   // pontual, não o preço da mesa). Markdown (`**Valor**:`) é removido antes do
   // regex de label — senão `**` entre a palavra e o `:` quebra o match.
-  const cleaned = text.replace(/\*/g, '');
+  const cleaned = text.replaceAll('*', '');
   const priceMatch = /R\$\s{0,3}(\d+(?:[,.]\d{1,2})?)(?!\d)/i.exec(cleaned)
     ?? /(\d+(?:[,.]\d{1,2})?)(?!\d)\s{0,3}(?:R\$|reais)/i.exec(cleaned)
     ?? /\bvalor\s*:?\s{0,3}(\d+(?:[,.]\d{1,2})?)(?!\d)/i.exec(cleaned);
@@ -391,13 +416,13 @@ function extractPrice(text: string): { priceType: TableDraftPriceType | null; pr
   }
 
   const lower = cleaned.toLowerCase();
-  const withoutPromoFreePeriod = lower.replace(PROMO_FREE_PERIOD_RE, '');
+  const withoutPromoFreePeriod = stripPromoFreePeriods(lower);
 
-  const hasFreeSignal = /\bgratuit[oa]s?\b|\bfree\b|\bsem\s+(?:custo|valor|pagamento|mensalidade)\b|\bn[aã]o\s+[ée]\s+pag[ao]\b/.test(withoutPromoFreePeriod);
+  const hasFreeSignal = FREE_SIGNAL_RE.test(withoutPromoFreePeriod);
   // Nível 2 — cobrança sem valor numérico: "mesa paga", "valor a combinar",
   // "pagamento via pix", "mensalidade". "Por sessão" sozinho é ambíguo demais
   // (aparece em frases sem relação a preço) — exige contexto de valor/pagamento.
-  const hasPaidSignal = /\b(?:mesa\s+)?pag[ao]\b|\bvalor\s*:|\bpagamento\b|\bmensalidade\b|\bvalor\s+a\s+combinar\b|\ba\s+combinar\b/.test(lower);
+  const hasPaidSignal = PAID_SIGNAL_RE.test(stripFreePricePhrases(withoutPromoFreePeriod));
 
   if (hasFreeSignal && hasPaidSignal) {
     // Conflito real: texto cita gratuidade E cobrança fora do padrão reconhecido
@@ -499,7 +524,7 @@ function slotsNVagas(text: string): SlotsResult | null {
 }
 
 function extractSlots(text: string): SlotsResult {
-  const cleaned = text.replace(/\*/g, '');
+  const cleaned = text.replaceAll('*', '');
   // Ordem: padrões explícitos primeiro; "mesa em andamento" (sem padrão explícito)
   // cai no fallback null/null (idêntico ao default) — DEB-048-16.
   return slotsViaForms(cleaned)
@@ -651,10 +676,23 @@ function splitFreeTextList(value: string): string[] | null {
 }
 
 
-// Domínios reais de contato/inscrição vistos no corpus (D:\teste.json) além do
-// que `isSuspiciousUrl` já reconhece — MesaQuest e linktr.ee aparecem como
-// canal de inscrição/perfil de mestre em anúncios reais.
-const KNOWN_CONTACT_URL_RE = /discord(?:app)?\.com\/invite\/|discord\.gg\/|forms\.gle\/|docs\.google\.com\/forms\/|typeform\.com\/|wa\.me\/|chat\.whatsapp\.com\/|t\.me\/|mesaquest\.com\.br\/|linktr\.ee\//i;
+// Dominios reais de contato/inscricao vistos no corpus (D:\teste.json).
+const KNOWN_CONTACT_URL_PATTERNS = [
+  /discord(?:app)?\.com\/invite\//i,
+  /discord\.gg\//i,
+  /forms\.gle\//i,
+  /docs\.google\.com\/forms\//i,
+  /typeform\.com\//i,
+  /wa\.me\//i,
+  /chat\.whatsapp\.com\//i,
+  /t\.me\//i,
+  /mesaquest\.com\.br\//i,
+  /linktr\.ee\//i,
+];
+
+function isKnownContactUrl(url: string): boolean {
+  return KNOWN_CONTACT_URL_PATTERNS.some((pattern) => pattern.test(url));
+}
 
 /**
  * Extrai URL de contato (discord invite, forms, MesaQuest, etc.). Cascata: com
@@ -669,7 +707,7 @@ const KNOWN_CONTACT_URL_RE = /discord(?:app)?\.com\/invite\/|discord\.gg\/|forms
 function extractContactUrl(text: string): string | null {
   const allMatches = Array.from(text.matchAll(/https?:\/\/[^\s<>"']+/g), (m) => m[0]);
   if (allMatches.length === 0) return null;
-  const known = allMatches.find((url) => KNOWN_CONTACT_URL_RE.test(url));
+  const known = allMatches.find(isKnownContactUrl);
   return known ?? allMatches[0];
 }
 
@@ -687,7 +725,12 @@ function cleanLabelLine(line: string): string {
   // `▬` órfão em `**▬ label`); classe de bullets ampliada (`»«►▶●…`) + emoji de
   // liderança comuns no template da comunidade, que antes travavam o match de
   // labels já conhecidos (sistema/vagas/data).
+  // Heading markdown (`#`..`######`) também precisa cair aqui: `## Sinopse`
+  // sem isso nunca normaliza pra `sinopse`, e extractLabelValue cai no
+  // fallback de body inteiro sem stop de continuação (achado ao corrigir
+  // review dos bots na PR #128 — descrição engolindo cabeçalho seguinte).
   return line
+    .replace(/^#{1,6}\s+/, '')
     .replace(/\*\*/g, '')
     .replace(/__/g, '')
     .replace(/^[\s▬•\-–—»«►▶◄●○◆◇■□▪▫☆★✦✧➤➥➔→·|]+/u, '')
@@ -737,6 +780,48 @@ function extractHostDiscordId(text: string): string | null {
   return null;
 }
 
+const BARE_LABEL_STOP_KEYS = new Set([
+  'sistema',
+  'jogo',
+  'rpg',
+  'mesa',
+  'titulo',
+  'nome da mesa',
+  'aventura',
+  'vagas',
+  'vagas disponiveis',
+  'vagas abertas',
+  'dias e horarios da mesa',
+  'horario',
+  'data',
+  'valor',
+  'preco',
+  'plataforma',
+  'plataformas',
+  'local do jogo',
+  'faixa etaria',
+  'classificacao',
+  'contato',
+  'inscricao',
+  'mestre',
+  'gm',
+  'narrador',
+  'dm',
+]);
+
+function isBareLabelStopLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (/^#{1,6}\s+\S/.test(trimmed)) return true;
+  const cleaned = cleanLabelLine(trimmed).replace(/^#{1,6}\s+/, '').trim();
+  return cleaned.length > 0 && BARE_LABEL_STOP_KEYS.has(normalizeLabelKey(cleaned));
+}
+
+function shouldStopLabelContinuation(line: string): boolean {
+  if (splitLabelLine(line)) return true;
+  if (isBareLabelStopLine(line)) return true;
+  return /^https?:\/\//i.test(line);
+}
+
 // Coleta linhas de continuação de um rótulo. Por padrão para na 1ª linha vazia
 // (com valor já coletado) ou novo rótulo — certo pra campo curto (Sistema,
 // Vagas, Plataforma). `multiParagraph` atravessa linhas vazias (parágrafos)
@@ -759,15 +844,11 @@ function collectLabelContinuation(lines: string[], startIdx: number, firstValue:
       if (values.length > 0) break;
       continue;
     }
-    if (splitLabelLine(next)) break;
-    // DEB-052-01: linha de URL não é continuação de um valor de rótulo
-    // (antes "https:" era falso-rótulo e quebrava aqui; com o guard, evita
-    // que a URL seja engolida no valor anterior — ex.: Sistema).
-    if (/^https?:\/\//i.test(next)) break;
+    if (shouldStopLabelContinuation(next)) break;
     values.push(next);
   }
   // remove linhas vazias no fim (podem sobrar se o texto termina em branco)
-  while (values.length > 0 && values[values.length - 1] === '') values.pop();
+  while (values.at(-1) === '') values.pop();
   return values;
 }
 
@@ -821,7 +902,14 @@ const SEPARATOR_LINE_RE = new RegExp(`^[${SEPARATOR_LINE_CHARS}\\s]{3,}$`);
 // Marcador decorativo solto NO INÍCIO de uma linha-de-campo (ex.: "▬ Sistema:
 // X", "» Título: Y", "-# nota") — não é linha 100% decorativa (tem dado
 // depois), mas o símbolo em si não carrega informação. Remove só o prefixo.
-const LEADING_MARKER_RE = new RegExp(`^[${SEPARATOR_LINE_CHARS}]+\\s*`);
+// `#` fica de fora deste marcador (mesmo estando em SEPARATOR_LINE_CHARS pra
+// linha 100% decorativa acima): heading markdown (`## Sinopse`, `### Titulo`)
+// é estrutura, não decoração solta — precisa sobreviver até
+// isBareLabelStopLine reconhecer o próximo cabeçalho como fim de continuação
+// multi-parágrafo (achado ao corrigir review dos bots na PR #128 —
+// descrição engolindo o cabeçalho/seção seguinte).
+const LEADING_MARKER_CHARS = SEPARATOR_LINE_CHARS.replace('#', '');
+const LEADING_MARKER_RE = new RegExp(`^[${LEADING_MARKER_CHARS}]+\\s*`);
 // Bloco de 4+ repetições consecutivas do MESMO símbolo decorativo, em
 // QUALQUER posição da linha (ex.: "» Título: X ▬▬▬▬▬▬▬▬▬▬▬" — separador colado
 // depois do dado, não numa linha própria). Texto natural nunca repete o mesmo
@@ -953,22 +1041,7 @@ export function classifyConfidence(score: number): ConfidenceTier {
 
 // T-G2: sinais de ambiguidade adicionais
 export function isSuspiciousUrl(url: string): boolean {
-  // URLs seguras conhecidas: Discord invite, Google Forms, docs.google, typeform,
-  // MesaQuest e linktr.ee (DEB-058-05/T9.17 — domínios reais de inscrição/perfil
-  // de mestre confirmados em D:\teste.json). Mesma allowlist de KNOWN_CONTACT_URL_RE.
-  const safePatterns = [
-    /discord(?:app)?\.com\/invite\//i,
-    /discord\.gg\//i,
-    /forms\.gle\//i,
-    /docs\.google\.com\/forms\//i,
-    /typeform\.com\//i,
-    /wa\.me\//i,
-    /chat\.whatsapp\.com\//i,
-    /t\.me\//i,
-    /mesaquest\.com\.br\//i,
-    /linktr\.ee\//i,
-  ];
-  return !safePatterns.some((p) => p.test(url));
+  return !isKnownContactUrl(url);
 }
 
 // DEB-048-27/29: sistema autoral. A plataforma só lista sistemas conhecidos.

@@ -32,6 +32,35 @@ export interface DiscordIntegrationMetrics {
   top_corrected_fields: Array<{ field: string; count: number }>;
 }
 
+export interface AiAutomationConfig {
+  mode: 'off' | 'shadow' | 'suggest' | 'auto';
+  killSwitch: boolean;
+  lowConfidenceThreshold: number;
+  autoApprovalThreshold: number;
+  model: string;
+  provider: string;
+  autoApprovalEnabled: boolean;
+}
+
+export interface LlmActivity {
+  window_hours: number;
+  total: number;
+  extraction: number;
+  completeness_audit: number;
+  by_status: Record<string, number>;
+}
+
+export interface CompletenessAuditCandidate {
+  field: string;
+  value?: unknown;
+  evidence: string;
+  confidence?: number;
+}
+
+export interface CompletenessAuditResult {
+  candidates: CompletenessAuditCandidate[];
+}
+
 export interface DiscordSource {
   id: string;
   guild_id: string;
@@ -305,6 +334,9 @@ export interface DraftApiOperations {
   refreshDraftImage?: (id: string) => Promise<{ draftId: string; tableId: string | null; status: string; url: string | null; error: string | null }>;
   getDraft?: (id: string) => Promise<DiscordDraft>;
   submitCorrection?: (id: string, body: { corrections: Record<string, unknown>; reason?: string; before?: Record<string, unknown> }) => Promise<unknown>;
+  auditCompleteness?: (id: string) => Promise<CompletenessAuditResult>;
+  getAiAutomationConfig?: () => Promise<AiAutomationConfig>;
+  getLlmActivity?: () => Promise<LlmActivity>;
   listDuplicateCandidates?: (draftId: string) => Promise<DuplicateCandidate[]>;
   resolveDuplicateCandidate?: (candidateId: string, status: DuplicateCandidateDecision) => Promise<DuplicateCandidate>;
 }

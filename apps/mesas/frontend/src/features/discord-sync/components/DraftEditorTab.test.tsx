@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { DraftEditorTab } from './DraftEditorTab';
@@ -93,5 +93,42 @@ describe('DraftEditorTab', () => {
     expect(screen.getByText('Valor extraído do anúncio.')).toBeInTheDocument();
     expect(screen.getByText('sugestão: D&D 5e')).toBeInTheDocument();
     expect(screen.queryByRole('form')).not.toBeInTheDocument();
+  });
+
+  it('mostra status IA, contador e aplica sugestao por campo', () => {
+    const onApplySuggestion = vi.fn();
+    renderTab({
+      aiConfig: {
+        mode: 'off',
+        killSwitch: false,
+        provider: 'deepseek',
+        model: 'deepseek-chat',
+        lowConfidenceThreshold: 0.5,
+        autoApprovalEnabled: false,
+        autoApprovalThreshold: 0.95,
+      },
+      llmActivity: {
+        window_hours: 24,
+        total: 3,
+        extraction: 2,
+        completeness_audit: 1,
+        by_status: { success: 3 },
+        rows: [],
+      },
+      fieldInsights: {
+        system_name: {
+          source: 'deepseek',
+          evidence: ['Sugestao pendente de deepseek.'],
+          suggestion: 'D&D 5e',
+        },
+      },
+      onApplySuggestion,
+      onAuditCompleteness: vi.fn(),
+    });
+
+    expect(screen.getByText('Assistente IA desligado')).toBeInTheDocument();
+    expect(screen.getByText(/DeepSeek:\s*3\s*chamada\(s\)\s*nas ultimas\s*24h/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+    expect(onApplySuggestion).toHaveBeenCalledWith('system_name', 'D&D 5e');
   });
 });

@@ -266,8 +266,14 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
               slotsAmbiguity={h.slotsAmbiguity}
               slotsInterpretation={h.slotsInterpretation}
               fieldInsights={h.fieldInsights}
+              aiConfig={h.aiConfig}
+              llmActivity={h.llmActivity}
+              auditingCompleteness={h.auditingCompleteness}
+              completenessSuggestions={h.completenessSuggestions}
               savingFields={h.savingFields}
               onUpdateForm={h.updateForm}
+              onApplySuggestion={h.applySuggestion}
+              onAuditCompleteness={api.auditCompleteness ? h.handleAuditCompleteness : undefined}
               onSystemChange={h.handleSystemChange}
               onCoverUpload={h.handleCoverUpload}
               onRemoveCover={h.handleRemoveCover}

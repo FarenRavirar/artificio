@@ -6,10 +6,10 @@
     "accounts": 11,
     "glossario": 46,
     "links": 22,
-    "mesas": 174,
+    "mesas": 176,
     "site": 32
   },
-  "total": 285,
+  "total": 287,
   "operations": [
     {
       "app": "accounts",
@@ -1075,6 +1075,18 @@
     {
       "app": "mesas",
       "method": "GET",
+      "path": "/api/v1/admin/discord/automation/llm-activity",
+      "summary": "Consulta api v1 admin discord automation llm-activity",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_discord_automation_llm_activity"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
       "path": "/api/v1/admin/discord/automation/parse-eval",
       "summary": "Consulta api v1 admin discord automation parse-eval",
       "owner": "mesas",
@@ -1287,6 +1299,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "patchapi_v1_admin_discord_drafts_id"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/drafts/{id}/audit-completeness",
+      "summary": "Cria ou executa api v1 admin discord drafts id audit-completeness",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_discord_drafts_id_audit_completeness"
     },
     {
       "app": "mesas",

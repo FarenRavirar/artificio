@@ -1,6 +1,6 @@
 import type { ChangeEvent } from 'react';
 import type { DraftFieldInsight, DraftFieldKey, DraftForm, DraftTableType, DraftModality, DraftPriceType, DraftFrequency, DraftDayOfWeek, DraftAgeRating, DraftExperienceLevel, DraftTableLevel, SimpleCatalogEntry } from '../draftFormUtils';
-import type { DiscordSlotsAmbiguity } from '../types';
+import type { AiAutomationConfig, CompletenessAuditCandidate, DiscordSlotsAmbiguity, LlmActivity } from '../types';
 import type { SystemTreeNode } from '../../../types/systems';
 import { SystemSearchSelect } from './SystemSearchSelect';
 import { CatalogSearchSelect } from './CatalogSearchSelect';
@@ -28,8 +28,14 @@ interface DraftEditorTabProps {
   slotsAmbiguity: DiscordSlotsAmbiguity | null;
   slotsInterpretation: 'filled_total' | 'open_total';
   fieldInsights?: Partial<Record<DraftFieldKey, DraftFieldInsight>>;
+  aiConfig?: AiAutomationConfig | null;
+  llmActivity?: LlmActivity | null;
+  auditingCompleteness?: boolean;
+  completenessSuggestions?: CompletenessAuditCandidate[];
   savingFields: boolean;
   onUpdateForm: <K extends keyof DraftForm>(key: K, value: DraftForm[K]) => void;
+  onApplySuggestion?: (field: DraftFieldKey, value: unknown) => void;
+  onAuditCompleteness?: () => void;
   onSystemChange: (systemId: string) => void;
   onCoverUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemoveCover: () => void;
@@ -70,7 +76,7 @@ function formatSuggestion(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function FieldInsightNote({ insight }: { readonly insight?: DraftFieldInsight }) {
+function FieldInsightNote({ field, insight, onApply }: { readonly field: DraftFieldKey; readonly insight?: DraftFieldInsight; readonly onApply?: (field: DraftFieldKey, value: unknown) => void }) {
   if (!insight) return null;
   const suggestion = formatSuggestion(insight.suggestion);
   const evidence = insight.evidence.slice(0, 2).join(' ');
@@ -78,6 +84,11 @@ function FieldInsightNote({ insight }: { readonly insight?: DraftFieldInsight })
     <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] leading-4">
       <span className={`rounded px-1.5 py-0.5 ${sourceClass[insight.source]}`}>{sourceLabel[insight.source]}</span>
       {suggestion && <span className="max-w-full truncate text-white/55">sugestão: {suggestion}</span>}
+      {suggestion && onApply && (
+        <button type="button" onClick={() => onApply(field, insight.suggestion)} className="rounded bg-white/10 px-1.5 py-0.5 text-white/70 hover:bg-white/20">
+          Aplicar
+        </button>
+      )}
       {evidence && <span className="max-w-full truncate text-white/45">{evidence}</span>}
     </div>
   );
@@ -89,9 +100,11 @@ export function DraftEditorTab({
   communicationPlatforms, communicationPlatformsLoading,
   coverPreviewUrl, coverError, coverUploading, coverInputRef,
   shouldShowSlotsDisambiguation, slotsAmbiguity, slotsInterpretation, fieldInsights, savingFields,
-  onUpdateForm, onSystemChange, onCoverUpload, onRemoveCover,
+  aiConfig, llmActivity, auditingCompleteness, completenessSuggestions,
+  onUpdateForm, onApplySuggestion, onAuditCompleteness, onSystemChange, onCoverUpload, onRemoveCover,
   onSetSlotsInterpretation, onConfirmSlots,
 }: Readonly<DraftEditorTabProps>) {
+  const aiOff = !aiConfig || aiConfig.mode === 'off' || aiConfig.killSwitch;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)] gap-4 items-start">
     <div className="space-y-4 min-w-0">
@@ -100,6 +113,31 @@ export function DraftEditorTab({
           Campos pendentes: {missingFields.join(', ')}
         </div>
       )}
+
+      <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`rounded px-2 py-0.5 text-xs ${aiOff ? 'bg-amber-500/20 text-amber-200' : 'bg-blue-500/20 text-blue-200'}`}>
+            {aiOff ? 'Assistente IA desligado' : `Assistente IA ${aiConfig?.mode ?? 'ativo'}`}
+          </span>
+          <span className="text-xs text-white/45">
+            DeepSeek: {llmActivity?.total ?? 0} chamada(s) nas ultimas {llmActivity?.window_hours ?? 24}h
+          </span>
+          {onAuditCompleteness && (
+            <button type="button" onClick={onAuditCompleteness} disabled={auditingCompleteness || aiOff} className="ml-auto rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20 disabled:opacity-40">
+              {auditingCompleteness ? 'Auditando...' : 'Auditoria de completude'}
+            </button>
+          )}
+        </div>
+        {Array.isArray(completenessSuggestions) && completenessSuggestions.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {completenessSuggestions.map((item, index) => (
+              <p key={`${item.field}-${index}`} className="text-xs text-blue-100">
+                {item.field}: {formatSuggestion(item.value)} <span className="text-white/45">{item.evidence}</span>
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="rounded-lg border border-white/10 bg-white/5 p-3">
         <div className="flex items-start gap-3">
@@ -155,12 +193,12 @@ export function DraftEditorTab({
         <label>
           <span className={labelClass}>Título</span>
           <input value={form.title} onChange={(e) => onUpdateForm('title', e.target.value)} className={inputClass} />
-          <FieldInsightNote insight={fieldInsights?.title} />
+          <FieldInsightNote field="title" insight={fieldInsights?.title} onApply={onApplySuggestion} />
         </label>
         <label>
           <span className={labelClass}>Sistema</span>
           <SystemSearchSelect systems={systems} value={form.system_id} loading={systemsLoading} onChange={onSystemChange} />
-          <FieldInsightNote insight={fieldInsights?.system_name} />
+          <FieldInsightNote field="system_name" insight={fieldInsights?.system_name} onApply={onApplySuggestion} />
         </label>
         <label>
           <span className={labelClass}>Tipo</span>
@@ -170,7 +208,7 @@ export function DraftEditorTab({
             <option value="oneshot-serie">Série de one-shots</option>
             <option value="aberta">Aberta</option>
           </select>
-          <FieldInsightNote insight={fieldInsights?.type} />
+          <FieldInsightNote field="type" insight={fieldInsights?.type} onApply={onApplySuggestion} />
         </label>
         <label>
           <span className={labelClass}>Modalidade</span>
@@ -179,7 +217,7 @@ export function DraftEditorTab({
             <option value="presencial">Presencial</option>
             <option value="hibrida">Híbrida</option>
           </select>
-          <FieldInsightNote insight={fieldInsights?.modality} />
+          <FieldInsightNote field="modality" insight={fieldInsights?.modality} onApply={onApplySuggestion} />
         </label>
         <label>
           <span className={labelClass}>Preço</span>
@@ -187,22 +225,22 @@ export function DraftEditorTab({
             <option value="gratuita">Gratuita</option>
             <option value="paga">Paga</option>
           </select>
-          <FieldInsightNote insight={fieldInsights?.price_type} />
+          <FieldInsightNote field="price_type" insight={fieldInsights?.price_type} onApply={onApplySuggestion} />
         </label>
         <label>
           <span className={labelClass}>Valor</span>
           <input value={form.price_value} onChange={(e) => onUpdateForm('price_value', e.target.value)} className={inputClass} placeholder="0" disabled={form.price_type === 'gratuita'} />
-          <FieldInsightNote insight={fieldInsights?.price_value} />
+          <FieldInsightNote field="price_value" insight={fieldInsights?.price_value} onApply={onApplySuggestion} />
         </label>
         <label>
           <span className={labelClass}>Vagas totais</span>
           <input value={form.slots_total} onChange={(e) => onUpdateForm('slots_total', e.target.value)} className={inputClass} inputMode="numeric" />
-          <FieldInsightNote insight={fieldInsights?.slots_total} />
+          <FieldInsightNote field="slots_total" insight={fieldInsights?.slots_total} onApply={onApplySuggestion} />
         </label>
         <label>
           <span className={labelClass}>Vagas abertas</span>
           <input value={form.slots_open} onChange={(e) => onUpdateForm('slots_open', e.target.value)} className={inputClass} inputMode="numeric" />
-          <FieldInsightNote insight={fieldInsights?.slots_open} />
+          <FieldInsightNote field="slots_open" insight={fieldInsights?.slots_open} onApply={onApplySuggestion} />
         </label>
         <label>
           <span className={labelClass}>Dia</span>
@@ -216,12 +254,12 @@ export function DraftEditorTab({
             <option value="sábado">Sábado</option>
             <option value="domingo">Domingo</option>
           </select>
-          <FieldInsightNote insight={fieldInsights?.day_of_week} />
+          <FieldInsightNote field="day_of_week" insight={fieldInsights?.day_of_week} onApply={onApplySuggestion} />
         </label>
         <label>
           <span className={labelClass}>Horário</span>
           <input value={form.start_time} onChange={(e) => onUpdateForm('start_time', e.target.value)} className={inputClass} placeholder="19:00" />
-          <FieldInsightNote insight={fieldInsights?.start_time} />
+          <FieldInsightNote field="start_time" insight={fieldInsights?.start_time} onApply={onApplySuggestion} />
         </label>
         <label>
           <span className={labelClass}>Frequência</span>
@@ -232,22 +270,22 @@ export function DraftEditorTab({
             <option value="avulsa">Única</option>
             <option value="outra">Outra</option>
           </select>
-          <FieldInsightNote insight={fieldInsights?.frequency} />
+          <FieldInsightNote field="frequency" insight={fieldInsights?.frequency} onApply={onApplySuggestion} />
         </label>
         <label>
           <span className={labelClass}>Contato Discord</span>
           <input value={form.contact_discord} onChange={(e) => onUpdateForm('contact_discord', e.target.value)} className={inputClass} />
-          <FieldInsightNote insight={fieldInsights?.contact_discord} />
+          <FieldInsightNote field="contact_discord" insight={fieldInsights?.contact_discord} onApply={onApplySuggestion} />
         </label>
         <label className="md:col-span-2">
           <span className={labelClass}>Link de inscrição/contato</span>
           <input value={form.contact_url} onChange={(e) => onUpdateForm('contact_url', e.target.value)} className={inputClass} />
-          <FieldInsightNote insight={fieldInsights?.contact_url} />
+          <FieldInsightNote field="contact_url" insight={fieldInsights?.contact_url} onApply={onApplySuggestion} />
         </label>
         <label className="md:col-span-2">
           <span className={labelClass}>Descrição</span>
           <textarea value={form.description} onChange={(e) => onUpdateForm('description', e.target.value)} className={`${inputClass} min-h-28 resize-y`} />
-          <FieldInsightNote insight={fieldInsights?.description} />
+          <FieldInsightNote field="description" insight={fieldInsights?.description} onApply={onApplySuggestion} />
         </label>
 
         {/* Fase D (spec 058): campos de auto-preenchimento ampliado — ver auto-preenchimento-draft.md */}

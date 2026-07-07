@@ -22,6 +22,9 @@ import type {
   ChatExporterDelta,
   DuplicateCandidate,
   DuplicateCandidateDecision,
+  AiAutomationConfig,
+  LlmActivity,
+  CompletenessAuditResult,
 } from '../types';
 import { z } from 'zod';
 import { authenticatedFetch } from '../../../services/apiClient';
@@ -423,6 +426,57 @@ function parseIntegrationMetrics(data: unknown): DiscordIntegrationMetrics {
   return parsed.data;
 }
 
+const aiAutomationConfigSchema = z.object({
+  mode: z.enum(['off', 'shadow', 'suggest', 'auto']).default('off'),
+  killSwitch: z.boolean().default(false),
+  lowConfidenceThreshold: z.number().default(0.5),
+  autoApprovalThreshold: z.number().default(0.98),
+  model: z.string().default('deepseek-chat'),
+  provider: z.string().default('deepseek'),
+  autoApprovalEnabled: z.boolean().default(false),
+});
+function parseAiAutomationConfig(data: unknown): AiAutomationConfig {
+  const parsed = aiAutomationConfigSchema.safeParse(data);
+  if (!parsed.success) {
+    return {
+      mode: 'off',
+      killSwitch: false,
+      lowConfidenceThreshold: 0.5,
+      autoApprovalThreshold: 0.98,
+      model: 'deepseek-chat',
+      provider: 'deepseek',
+      autoApprovalEnabled: false,
+    };
+  }
+  return parsed.data;
+}
+
+const llmActivitySchema = z.object({
+  window_hours: z.number().default(24),
+  total: z.number().default(0),
+  extraction: z.number().default(0),
+  completeness_audit: z.number().default(0),
+  by_status: z.record(z.string(), z.number()).catch({}),
+});
+function parseLlmActivity(data: unknown): LlmActivity {
+  const parsed = llmActivitySchema.safeParse(data);
+  return parsed.success ? parsed.data : { window_hours: 24, total: 0, extraction: 0, completeness_audit: 0, by_status: {} };
+}
+
+const completenessAuditSchema = z.object({
+  candidates: z.array(z.object({
+    field: z.string(),
+    value: z.unknown().optional(),
+    evidence: z.string(),
+    confidence: z.number().optional(),
+  })).catch([]),
+});
+function parseCompletenessAudit(data: unknown): CompletenessAuditResult {
+  const parsed = completenessAuditSchema.safeParse(data);
+  if (!parsed.success) throw new Error('Resposta da auditoria em formato inesperado.');
+  return parsed.data;
+}
+
 function parsePreviewResult(data: unknown) {
   const parsed = previewResultSchema.safeParse(data);
   if (!parsed.success) throw new Error('Resposta de preview em formato inesperado.');
@@ -590,6 +644,9 @@ export const discordSyncApi = {
   reparseDraft: (id: string) =>
     apiFetch<DiscordDraft>(`/drafts/${id}/reparse`, { method: 'POST' }),
 
+  auditCompleteness: async (id: string) =>
+    parseCompletenessAudit(await apiFetch<unknown>(`/drafts/${id}/audit-completeness`, { method: 'POST' })),
+
   refreshDraftImage: (id: string) =>
     apiFetch<{ draftId: string; tableId: string | null; status: string; url: string | null; error: string | null }>(`/drafts/${id}/refresh-image`, { method: 'POST' }),
 
@@ -623,6 +680,12 @@ export const discordSyncApi = {
 
   getIntegrationMetrics: async () =>
     parseIntegrationMetrics(await apiFetch<unknown>('/metrics')),
+
+  getAiAutomationConfig: async () =>
+    parseAiAutomationConfig(await apiFetch<unknown>('/automation/config')),
+
+  getLlmActivity: async () =>
+    parseLlmActivity(await apiFetch<unknown>('/automation/llm-activity')),
 
   previewFile: async (file: File) =>
     fileApiFetch('/import-json/preview/file', file, parsePreviewResult, 'analisar arquivo'),

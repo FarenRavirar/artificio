@@ -176,6 +176,25 @@ function addSuggestionInsights(
   }
 }
 
+function addConfirmedSuggestionInsights(
+  insights: Partial<Record<DraftFieldKey, DraftFieldInsight>>,
+  currentTable: DiscordDraftTablePayload,
+) {
+  const confirmed = asRecord(currentTable._ai_suggestions_confirmed);
+  for (const [field, metadata] of Object.entries(confirmed)) {
+    if (!INSIGHT_FIELD_SET.has(field as DraftFieldKey) || !isRecord(metadata)) continue;
+    const provider = asString(metadata.provider);
+    const model = asString(metadata.model);
+    insights[field as DraftFieldKey] = {
+      source: classifySuggestionProvider(provider || 'deepseek'),
+      provider: provider || undefined,
+      model: model || undefined,
+      suggestion: metadata.value,
+      evidence: [`SugestÃ£o ${provider || 'IA'} confirmada pelo humano.`],
+    };
+  }
+}
+
 function addRawEvidenceInsights(
   insights: Partial<Record<DraftFieldKey, DraftFieldInsight>>,
   currentTable: DiscordDraftTablePayload,
@@ -201,6 +220,7 @@ export function buildDraftFieldInsights(
 
   addParserAndHumanInsights(insights, parsedTable, currentTable);
   addSuggestionInsights(insights, currentTable);
+  addConfirmedSuggestionInsights(insights, currentTable);
   addRawEvidenceInsights(insights, currentTable);
 
   return insights;
@@ -334,6 +354,24 @@ export function buildUpdatedPayload(base: DiscordDraftPayload, form: DraftForm):
     vtt_platform_id: form.vtt_platform_id || null,
     communication_platform_id: form.communication_platform_id || null,
   };
+  const pendingSuggestions = asRecord(asRecord(baseTable._ai_suggestions).fields);
+  const suggestionProvider = asString(asRecord(baseTable._ai_suggestions).provider);
+  const suggestionModel = asString(asRecord(baseTable._ai_suggestions).model);
+  const confirmedSuggestions = { ...asRecord(baseTable._ai_suggestions_confirmed) };
+  for (const field of INSIGHT_FIELDS) {
+    if (!(field in pendingSuggestions)) continue;
+    if (sameValue((table as Record<string, unknown>)[field], pendingSuggestions[field])) {
+      confirmedSuggestions[field] = {
+        provider: suggestionProvider || 'deepseek',
+        model: suggestionModel || null,
+        value: pendingSuggestions[field],
+        confirmed_at: new Date().toISOString(),
+      };
+    }
+  }
+  if (Object.keys(confirmedSuggestions).length > 0) {
+    (table as Record<string, unknown>)._ai_suggestions_confirmed = confirmedSuggestions;
+  }
 
   return {
     ...base,

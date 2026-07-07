@@ -1523,6 +1523,7 @@ describe('parseDiscordAnnouncement', () => {
       // T9.11 é que ambiguidade REAL (testada em describe própria de
       // extractDiscordTimestamp/extractPrice conflitante) desconta, não que
       // todo draft tenha que ficar abaixo de 1.
+      expect(draft?.table.description).not.toContain('Temporada dos Fantasmas');
       expect(draft?.confidence).toBeGreaterThan(0.85);
     });
 
@@ -1536,6 +1537,46 @@ describe('parseDiscordAnnouncement', () => {
 
       expect(withAmbiguity?.table._price_ambiguity).toBe(true);
       expect(withAmbiguity!.confidence).toBeLessThan(withoutAmbiguity!.confidence);
+    });
+
+    it('mantem labels explicitos de gratuidade como gratuita, sem virar ambiguidade', () => {
+      const cases = [
+        'Valor: gratuito',
+        'Valor: sem custo',
+        'sem pagamento',
+        'nao e paga',
+      ];
+
+      for (const priceLine of cases) {
+        const draft = parseDiscordAnnouncement(
+          makeMessage({
+            content_raw: `Sistema: DnD\nVagas: 4\nHorario: sabado 19h\n${priceLine}\nDescricao: aventura curta.`,
+          }),
+        );
+
+        expect(draft?.table.price_type).toBe('gratuita');
+        expect(draft?.table._price_ambiguity).toBe(false);
+      }
+    });
+
+    it('descricao multi-paragrafo para antes de label solto seguinte', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: [
+            'Sinopse',
+            'Primeiro paragrafo da aventura.',
+            '',
+            'Vagas',
+            '4',
+            'Sistema',
+            'DnD',
+          ].join('\n'),
+        }),
+      );
+
+      expect(draft?.table.description).toBe('Primeiro paragrafo da aventura.');
+      expect(draft?.table.slots_total).toBe(4);
+      expect(draft?.table.system_name).toBe('DnD');
     });
   });
 
