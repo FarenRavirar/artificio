@@ -55,14 +55,28 @@ export async function loadSystemsForParser(): Promise<SystemEntry[]> {
 
 // ─── Fase A/C (spec 058) — VTT e plataforma de comunicação p/ parse de anúncios ──
 
+// Achado do mantenedor (2026-07-08): "Foundry VTT" (nome do catálogo) nunca bate
+// em anúncio real, que sempre cita só "Foundry"/"FoundryVTT" — matcher exige o
+// nome inteiro como substring (candidateMatchesText). Sem tabela de aliases para
+// vtt_platforms/communication_platforms no banco (só systems/scenarios têm),
+// mapa estático por slug é o fix mais barato até existir vtt_platform_aliases.
+const VTT_ALIASES: Record<string, string[]> = {
+  'foundry-vtt': ['Foundry', 'FoundryVTT'],
+  'tabletop-simulator': ['TTS', 'Tabletop Simulator'],
+  'fantasy-grounds-unity': ['Fantasy Grounds', 'FGU'],
+  'owlbear-rodeo': ['Owlbear'],
+  'dndbeyond-maps': ['D&D Beyond', 'DDB Maps', 'DnD Beyond'],
+  'alchemy-rpg': ['Alchemy'],
+};
+
 /** Carrega plataformas VTT ativas do banco para o parse de anúncios Discord. */
 export async function loadVttPlatformsForParser(): Promise<MatchEntry[]> {
   const platforms = await db
     .selectFrom('vtt_platforms')
-    .select(['id', 'name'])
+    .select(['id', 'name', 'slug'])
     .where('is_active', '=', true)
     .execute();
-  return platforms.map((p) => ({ id: p.id, name: p.name, aliases: [] }));
+  return platforms.map((p) => ({ id: p.id, name: p.name, aliases: VTT_ALIASES[p.slug] ?? [] }));
 }
 
 /** Carrega plataformas de comunicação ativas do banco para o parse de anúncios Discord. */

@@ -253,6 +253,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
           {h.activeTab === 'editor' && (
             <DraftEditorTab
               form={h.form}
+              authorName={h.authorName}
               missingFields={h.missingFields}
               systems={h.systems}
               systemsLoading={h.systemsLoading}

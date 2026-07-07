@@ -185,6 +185,11 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
 
   const payload = useMemo(() => draft.normalized_payload ?? draft.parsed_payload, [draft.normalized_payload, draft.parsed_payload]);
   const hostDiscordId = useMemo(() => (payload ? getDraftTable(payload).host_discord_id : null), [payload]);
+  // Achado do mantenedor (2026-07-08): quando contact_url (forms) é o canal, o autor
+  // Discord some do draft inteiro (precedência forms > autor no fallback de contato,
+  // parseDiscordAnnouncement.ts:1401) — mas quem divulgou a mesa precisa aparecer
+  // como exibição no editor mesmo sem virar canal de contato clicável.
+  const authorName = useMemo(() => (payload ? asString(asRecord(payload.source).author_name) : ''), [payload]);
 
   const missingFields = useMemo(() => validateForm(state.form, hostDiscordId), [state.form, hostDiscordId]);
   const canSync = draft.status === 'ready' && !state.dirty && missingFields.length === 0;
@@ -502,6 +507,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     vttPlatforms, vttPlatformsLoading,
     communicationPlatforms, communicationPlatformsLoading,
     missingFields, canSync,
+    authorName,
     syncing, reparsing,
     savingFields, savingStatus,
     editingStatus, setEditingStatus,
