@@ -73,7 +73,9 @@ export function ConteudoSection() {
     setTablesLoading(true);
     setTablesError(null);
     try {
-      const response = await authGet('/api/v1/tables');
+      // Rota admin (spec 060), não a pública: GET /api/v1/tables filtra
+      // status=active only e nunca lista mesa importada em draft (gm_id: null).
+      const response = await authGet('/api/v1/admin/tables');
       if (!response.ok) throw new Error(await extractErrorMessage(response, 'Erro ao buscar mesas.'));
       const payload: unknown = await response.json();
       const raw = payload && typeof payload === 'object' ? (payload as Record<string, unknown>).data : null;
@@ -109,12 +111,14 @@ export function ConteudoSection() {
   };
 
   const handleToggleTableStatus = async (table: AdminTableRow) => {
-    if (table.status !== 'active' && table.status !== 'cancelled') {
-      toast.error('Só é possível ativar/cancelar mesas ativas ou canceladas.');
+    if (table.status !== 'active' && table.status !== 'cancelled' && table.status !== 'draft') {
+      toast.error('Só é possível ativar/cancelar mesas ativas, canceladas ou publicar rascunhos.');
       return;
     }
+    // Rascunho (mesa importada via Discord sync, sem gm_id) só tem caminho
+    // pra frente: publicar. Cancelar/reativar segue o ciclo normal (spec 060).
     const newStatus = table.status === 'active' ? 'cancelled' : 'active';
-    const action = newStatus === 'active' ? 'ativar' : 'cancelar';
+    const action = table.status === 'draft' ? 'publicar' : newStatus === 'active' ? 'ativar' : 'cancelar';
     if (!(await confirm({
       title: `${action.charAt(0).toUpperCase() + action.slice(1)} mesa`,
       message: `${action.charAt(0).toUpperCase() + action.slice(1)} a mesa "${table.title}"?`,
@@ -126,7 +130,7 @@ export function ConteudoSection() {
       toast.error(await extractErrorMessage(response, `Erro ao ${action} mesa.`));
       return;
     }
-    toast.success(`Mesa ${action === 'ativar' ? 'ativada' : 'cancelada'}.`);
+    toast.success(`Mesa ${action === 'publicar' ? 'publicada' : action === 'ativar' ? 'ativada' : 'cancelada'}.`);
     await fetchAllTables();
   };
 
@@ -226,6 +230,7 @@ export function ConteudoSection() {
                 key: 'status',
                 label: 'Status',
                 options: [
+                  { value: 'draft', label: 'Rascunho (não publicada)' },
                   { value: 'active', label: 'Ativa' },
                   { value: 'full', label: 'Cheia' },
                   { value: 'cancelled', label: 'Cancelada' },
@@ -249,7 +254,7 @@ export function ConteudoSection() {
               { key: 'delete', label: 'Apagar', icon: <Trash2 size={15} />, tone: 'danger', confirm: 'Apagar as mesas selecionadas? Ação irreversível.', onRun: (ids) => handleTablesBatch(ids, 'delete') },
             ]}
             rowActions={[
-              { key: 'status', label: 'Ativar/cancelar', icon: <Power size={15} />, onRun: handleToggleTableStatus },
+              { key: 'status', label: 'Publicar/ativar/cancelar', icon: <Power size={15} />, onRun: handleToggleTableStatus },
               { key: 'covil', label: 'Alternar Covil', icon: <ShieldCheck size={15} />, onRun: handleToggleCovil },
               { key: 'delete', label: 'Apagar', icon: <Trash2 size={15} />, tone: 'danger', onRun: handleDeleteTable },
             ]}

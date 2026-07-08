@@ -66,7 +66,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
             ✏️ Editar mesa
           </button>
 
-          {vm.status !== 'cancelled' && (
+          {vm.status !== 'cancelled' && vm.status !== 'draft' && (
             <button
               onClick={() => handleStatus(vm.id, 'cancelled')}
               className="w-full py-2 rounded-lg bg-[var(--state-warning-bg)] hover:bg-[var(--state-warning-bg)] text-[var(--state-warning-fg)] text-sm font-medium transition"
@@ -93,7 +93,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
             </button>
           )}
 
-          {vm.status !== 'ended' && (
+          {vm.status !== 'ended' && vm.status !== 'draft' && (
             <button
               onClick={() => handleStatus(vm.id, 'ended')}
               className="w-full py-2 rounded-lg bg-[var(--fill)] hover:bg-[var(--fill)] text-[var(--fg-muted)] text-sm font-medium transition"
@@ -223,12 +223,14 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
                 vm.status === 'cancelled' ? 'text-[var(--state-warning-fg)]' :
                 vm.status === 'full' ? 'text-[var(--state-warning-fg)]' :
                 vm.status === 'ended' ? 'text-[var(--state-danger-fg)]' :
+                vm.status === 'draft' ? 'text-[var(--fg-muted)]' :
                 'text-[var(--fg)]'
               }`}>
                 {vm.status === 'active' && '✓ Ativa'}
                 {vm.status === 'cancelled' && '⏸ Desativada'}
                 {vm.status === 'full' && '🔒 Lotada'}
                 {vm.status === 'ended' && '✕ Encerrada'}
+                {vm.status === 'draft' && '📝 Rascunho (não publicada)'}
               </span>
             </div>
             {vm.archived && (

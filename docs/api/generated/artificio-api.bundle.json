@@ -6,10 +6,10 @@
     "accounts": 11,
     "glossario": 46,
     "links": 22,
-    "mesas": 177,
+    "mesas": 179,
     "site": 32
   },
-  "total": 288,
+  "total": 290,
   "operations": [
     {
       "app": "accounts",
@@ -1938,6 +1938,18 @@
     },
     {
       "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/tables",
+      "summary": "Consulta api v1 admin tables",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_tables"
+    },
+    {
+      "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/admin/tables/{id}",
       "summary": "Remove api v1 admin tables id",
@@ -1947,6 +1959,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "deleteapi_v1_admin_tables_id"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/tables/{id}",
+      "summary": "Consulta api v1 admin tables id",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_tables_id"
     },
     {
       "app": "mesas",

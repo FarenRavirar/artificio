@@ -22,9 +22,9 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | accounts | 11 | 11 | 0 | 0 | GET, POST, PUT |
 | glossario | 61 | 61 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
-| mesas | 227 | 227 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
+| mesas | 229 | 229 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 36 | 36 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **358** | 358 | 0 | 0 | |
+| **Total** | **360** | 360 | 0 | 0 | |
 
 ## accounts
 
@@ -249,7 +249,9 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/admin/system-suggestions/:id/candidates` | ✅ high | `apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts` | 89 |
 | PATCH | `/api/v1/admin/system-suggestions/:id/reject` | ✅ high | `apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts` | 335 |
 | POST | `/api/v1/admin/system-suggestions/:id/resolve` | ✅ high | `apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts` | 390 |
-| DELETE | `/api/v1/admin/tables/:id` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 170 |
+| GET | `/api/v1/admin/tables` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 173 |
+| DELETE | `/api/v1/admin/tables/:id` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 225 |
+| GET | `/api/v1/admin/tables/:id` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 200 |
 | PUT | `/api/v1/admin/tables/:id` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 114 |
 | POST | `/api/v1/admin/tables/auto-archive` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 15 |
 | POST | `/api/v1/admin/tables/batch` | ✅ high | `apps/mesas/backend/src/routes/adminTables.ts` | 54 |

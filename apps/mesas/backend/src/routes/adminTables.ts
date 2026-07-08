@@ -166,6 +166,61 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
   }
 });
 
+// GET /api/v1/admin/tables — Lista mesas de qualquer status (spec 060).
+// Sem isto, mesa importada via Discord sync (gm_id: null, status: 'draft')
+// fica invisível: GET /api/v1/tables filtra active-only, GET /gm/tables
+// filtra por gm_id do usuário logado — nenhum dos dois serve mesa órfã.
+router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
+  const userRole = (req as any).user.role;
+  const { status } = req.query;
+
+  if (userRole !== 'admin') {
+    return res.status(403).json({ error: 'Acesso restrito a administradores.' });
+  }
+
+  try {
+    let query = db
+      .selectFrom('tables')
+      .select(['id', 'slug', 'title', 'status', 'gm_id', 'origin', 'created_at', 'is_covil'])
+      .orderBy('created_at', 'desc');
+
+    if (typeof status === 'string' && status) {
+      query = query.where('status', '=', status as any);
+    }
+
+    const tables = await query.execute();
+    return res.json({ data: tables });
+  } catch (error: any) {
+    console.error('[GET /admin/tables]', error);
+    return res.status(500).json({ error: 'Erro ao buscar mesas.' });
+  }
+});
+
+// GET /api/v1/admin/tables/:id — Detalhe de mesa sem exigir gm_id (spec 060).
+router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) => {
+  const userRole = (req as any).user.role;
+  const { id } = req.params;
+
+  if (userRole !== 'admin') {
+    return res.status(403).json({ error: 'Acesso restrito a administradores.' });
+  }
+
+  try {
+    const table = await TableRepository.findById(id);
+    if (!table) {
+      return res.status(404).json({ error: 'Mesa não encontrada.' });
+    }
+
+    const contacts = await TableRepository.findContactsByTableId(id);
+    const schedules = await TableRepository.findSchedulesByTableId(id);
+
+    return res.json({ data: { ...table, contacts, schedules } });
+  } catch (error: any) {
+    console.error('[GET /admin/tables/:id]', error);
+    return res.status(500).json({ error: 'Erro ao buscar mesa.' });
+  }
+});
+
 // DELETE /api/v1/admin/tables/:id — Exclusão administrativa de mesa
 router.delete('/tables/:id', authMiddleware, async (req: Request, res: Response) => {
   const userRole = (req as any).user.role;

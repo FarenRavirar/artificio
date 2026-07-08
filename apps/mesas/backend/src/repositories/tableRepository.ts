@@ -27,6 +27,29 @@ export class TableRepository {
   }
 
   /**
+   * Busca mesa por ID, sem exigir gm_id — uso admin-only (mesa importada
+   * tem gm_id: null e nunca bate com findByIdAndGm). Caller precisa
+   * garantir role==='admin' antes de chamar (spec 060).
+   */
+  static async findById(tableId: string) {
+    return await db
+      .selectFrom('tables as t')
+      .leftJoin('systems as s', 's.id', 't.system_id')
+      .leftJoin('scenarios as sc', 'sc.id', 't.scenario_id')
+      .leftJoin('communication_platforms as cp', 'cp.id', 't.communication_platform_id')
+      .selectAll('t')
+      .select([
+        sql<string | null>`s.name`.as('system_name'),
+        sql<string | null>`s.path_slug`.as('system_path'),
+        sql<string | null>`sc.name`.as('scenario_name'),
+        sql<string | null>`sc.slug`.as('scenario_path'),
+        sql<string | null>`COALESCE(cp.name, t.communication_platform)`.as('communication_platform'),
+      ])
+      .where('t.id', '=', tableId)
+      .executeTakeFirst();
+  }
+
+  /**
    * Busca contatos da mesa
    */
   static async findContactsByTableId(tableId: string) {

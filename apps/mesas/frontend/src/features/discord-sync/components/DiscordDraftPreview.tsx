@@ -335,7 +335,21 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
           >
             {h.syncing ? 'Sincronizando...' : 'Sincronizar como mesa'}
           </button>
-          {draft.status === 'synced' && draft.table_id && <span className="text-green-400 text-sm self-center">Mesa: {draft.table_id}</span>}
+          {draft.status === 'synced' && draft.table_id && (
+            // Mesa importada tem gm_id: null -- /painel?edit= é gm-scoped e
+            // nunca serve (achado Codex PR #137). Gestão real é a aba
+            // "Mesas" do catálogo admin (spec 060), que lista/publica
+            // qualquer status via GET/PUT /admin/tables.
+            <a
+              href="/gestao/catalogo"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Abre o catálogo admin — use a busca para achar esta mesa por título"
+              className="text-green-400 text-sm self-center underline hover:text-green-300"
+            >
+              Ver/publicar no catálogo admin
+            </a>
+          )}
         </div>
       </div>
     </dialog>

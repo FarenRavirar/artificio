@@ -59,6 +59,7 @@ Toda spec SDD deve:
 | 054 | reorganização da `/gestao` (sidebar + IA + renomeações) | **✅ ENCERRADA (2026-06-30).** Abas-topo → sidebar persistente; 6 grupos; rotas aninhadas; renomeações; Dashboard com subnav; mortos deletados. Fases 1-4 + reviews 001-025. PR mergeada → deploy beta + smoke + promote prod ✅. O que não foi feito foi descartado. SDD Completo. 053 Frente A destravada. |
 | 055 | API governance executável | **✅ ENCERRADA (2026-06-30).** Modo estrito ativo: `api:inventory`, `api:consumers`, `api:lint`, `api:check --strict` (allowlist vazia), `api:diff` bloqueante, `api:docs`, `api:bundle`, `api-governance` required check no CI. `MAPA_DE_API.md` deprecado. O que não foi feito foi descartado. |
 | 058 | parser learning + DeepSeek contextual | **Fase 4 local concluida (2026-07-01).** Fases 1-4 implementadas localmente: parse/feedback, retrieval/duplicatas, learning rules e DeepSeek ContextPack com cache/auditoria `discord_llm_decisions`, prompt anti-injection e resposta validada. Sem auto-publicacao, sem commit/deploy. |
+| 059 | mesas copiar anuncio WhatsApp + OG | **Criada 2026-07-08.** SDD Completo em `apps/mesas`: botao para copiar anuncio pronto em formato WhatsApp na pagina publica, painel do mestre e gestao; corrigir Open Graph de `/mesas/:slug` para usar banner da mesa. Implementacao bloqueada por autorizacao nominal da proxima fase. |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.
