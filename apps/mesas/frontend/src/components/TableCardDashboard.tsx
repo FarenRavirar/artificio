@@ -4,6 +4,9 @@ import { SystemBadge } from './SystemBadge';
 import { CertificationBadges } from './CertificationBadges';
 import { applyTableImageFallback, resolveTableImageSource } from '../utils/tableImage';
 import { InlineDeleteConfirmation } from './InlineDeleteConfirmation';
+import { authGet } from '../services/apiClient';
+import type { TableDetail } from '../types/tables';
+import { CopyAnnouncementButton } from '../features/table/components/CopyAnnouncementButton';
 
 interface TableMetrics {
   views: number;
@@ -68,6 +71,25 @@ export function TableCardDashboard({
   
   // UX: Identificar mesas desativadas
   const isInactive = table.status === 'cancelled' || table.status === 'ended';
+  const canCopyAnnouncement = table.status === 'active' && !table.archived;
+
+  const loadAnnouncementTable = async (): Promise<TableDetail> => {
+    const response = await authGet(`/api/v1/tables/${table.slug}`);
+    if (!response.ok) {
+      throw new Error('Erro ao carregar mesa');
+    }
+
+    const payload: unknown = await response.json();
+    const detail = typeof payload === 'object' && payload !== null && 'data' in payload
+      ? (payload as { data?: unknown }).data
+      : null;
+
+    if (!detail || typeof detail !== 'object') {
+      throw new Error('Mesa invalida');
+    }
+
+    return detail as TableDetail;
+  };
 
   return (
     <div className={`relative rounded-2xl border p-4 flex flex-col gap-3 hover:scale-[1.01] transition-all ${
@@ -214,6 +236,14 @@ export function TableCardDashboard({
         >
           {isToggling ? '⏳' : table.status === 'active' ? 'Desativar' : 'Ativar'}
         </button>
+
+        {canCopyAnnouncement && (
+          <CopyAnnouncementButton
+            loadTable={loadAnnouncementTable}
+            ariaLabel={`Copiar anuncio da mesa ${table.title}`}
+            className="col-span-2 py-2 text-xs bg-[var(--fill)] hover:bg-[var(--fill-strong)] text-[var(--fg)] disabled:opacity-50 disabled:cursor-wait rounded-lg transition-colors flex items-center justify-center gap-2"
+          />
+        )}
 
         {onArchive && (
           <button

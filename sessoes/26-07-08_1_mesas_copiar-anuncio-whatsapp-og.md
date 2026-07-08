@@ -143,3 +143,356 @@
   - casos minimos agora incluem `age_rating=livre` -> `Livre`, `age_rating=+16` preserva `+16` e `age_rating=null` mantem `Faixa Etaria:` vazia;
   - T2.3 agora exige cobertura de `age_rating`.
 - Nao responder ao bot no PR; regra do projeto manda registrar/fixar em docs, nao comentar em revisor externo.
+
+## Retomada Codex — Fase 1 — 2026-07-08
+
+- T0, `AGENTS.md`, RTK, spec 059, backlog e sessao lidos.
+- Ferramentas usadas/checadas:
+  - Serena MCP: `initial_instructions`, overview/diagnosticos.
+  - `artificio-api-governance`: rota `GET /api/v1/tables/{slug}` confirmada no bundle.
+  - `codebase-memory-mcp`: disponivel; projeto indexado = `C-projetos-artificio`.
+  - `rtk`: funciona com executaveis (`git`, `rg`), mas nao resolve builtin PowerShell `Get-Content`; fallback documentado = PowerShell direto para leitura local.
+- Escopo autorizado pelo mantenedor nesta retomada: implementar somente Fase 1.
+- Plano de edicao: expor `t.age_rating` no detalhe publico `GET /api/v1/tables/:slug`, tipar `age_rating` em `TableDetail`, rodar validacoes pontuais e API governance.
+- Implementacao Fase 1 concluida:
+  - `apps/mesas/backend/src/routes/tables.ts`: detalhe publico `GET /api/v1/tables/:slug` agora seleciona `t.age_rating`.
+  - `apps/mesas/frontend/src/types/tables.ts`: `TableAgeRating` criado e `TableDetail.age_rating` tipado.
+  - `docs/api/generated/api-inventory.generated.json` e `api-map.generated.md`: offsets de linha atualizados por `pnpm verify:api` apos a linha nova em `tables.ts`.
+- Validacao:
+  - Serena LSP: sem diagnosticos em `routes/tables.ts` e `types/tables.ts`.
+  - `pnpm --filter @artificio/mesas-backend run build` ✅.
+  - `pnpm --filter @artificio/mesas-frontend run build` ✅.
+  - `pnpm verify:api` ✅; `api:diff` sem breaking, `mesas` com 2 non-breaking/offsets gerados.
+  - `pnpm --filter @artificio/mesas-frontend run lint` ✅.
+  - `pnpm --filter @artificio/mesas-backend run lint` nao existe (`ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT`); coberto por `pnpm run lint` repo-wide ✅.
+  - `git diff --check` ✅.
+  - `pnpm run lint` ✅.
+  - `pnpm run build` ✅.
+- Backlog: nada novo; `BL-059-MESAS-COPIAR-ANUNCIO-OG` segue aberto para Fases 2-7.
+
+## Retomada Codex — Fase 2 — 2026-07-08
+
+- Escopo autorizado pelo mantenedor: implementar Fase 2 somente.
+- Skill caveman lida e aplicada.
+- Descoberta local:
+  - `@artificio/mesas-frontend` tem `vitest run`.
+  - Nao ha helper clipboard compartilhado; uso atual e direto em `MestreContactMethods.tsx`.
+  - `TableDetail` tem campos suficientes para formatter puro; teste pode usar fixture minima tipada.
+- Plano de edicao:
+  - criar `apps/mesas/frontend/src/features/table/share/whatsappAnnouncement.ts`;
+  - criar `buildWhatsAppTableAnnouncement()` e `copyTextToClipboard()` com fallback;
+  - cobrir formatter/clipboard com Vitest;
+  - validar com teste pontual + lint/build frontend.
+- Implementacao Fase 2 concluida:
+  - `whatsappAnnouncement.ts` criado com formatter puro, normalizacao Markdown/HTML para texto simples, labels humanos, URL publica e seções do template.
+  - `copyTextToClipboard()` criado com Clipboard API + fallback `textarea`/`document.execCommand('copy')`.
+  - `whatsappAnnouncement.test.ts` cobre mesa completa, mesa parcial, horarios multiplos, `age_rating`, paga/gratuita, sanitizacao e clipboard.
+- Validacao:
+  - Serena LSP retornou diagnostico stale dizendo que `TableDetail.age_rating` nao existia, mas `rg`, `tsc` e build confirmaram o tipo real atualizado.
+  - `pnpm --filter @artificio/mesas-frontend run test -- src/features/table/share/whatsappAnnouncement.test.ts` ✅; script rodou suite frontend inteira (15 arquivos / 157 testes).
+  - `pnpm --filter @artificio/mesas-frontend run lint` ✅.
+  - `pnpm --filter @artificio/mesas-frontend run build` ✅.
+  - `git diff --check` ✅.
+  - `pnpm run lint` ✅.
+  - `pnpm run build` ✅.
+- Backlog: nada novo; `BL-059-MESAS-COPIAR-ANUNCIO-OG` segue aberto para Fases 3-7.
+
+## Retomada Codex — Fase 3 — 2026-07-08
+
+- Escopo autorizado pelo mantenedor: implementar Fase 3 somente.
+- Implementacao Fase 3 concluida:
+  - `CopyAnnouncementButton.tsx` criado; recebe `TableDetail`, monta texto com `buildWhatsAppTableAnnouncement`, usa `getMesasPublicOrigin()` e copia com fallback.
+  - `TableActionPanel` ganhou prop opcional `announcementTable?: TableDetail`.
+  - Visitante (`variant="full"`) ve `Copiar anuncio` abaixo do CTA principal.
+  - Owner/admin (`variant="owner"`) ve `Copiar anuncio` no bloco `Gerenciamento`, depois de `Editar mesa`.
+  - `MesaPage.tsx` passa `announcementTable={table}`.
+  - Consumidores sem `TableDetail` seguem sem botao por prop opcional.
+- Acessibilidade/UX:
+  - botao `type="button"`;
+  - `aria-label` com titulo da mesa;
+  - estado `disabled`/`Copiando...`;
+  - feedback por toast: `Anuncio copiado.` / `Nao foi possivel copiar o anuncio.`
+- Validacao parcial:
+  - Serena LSP sem diagnosticos em `CopyAnnouncementButton.tsx`, `TableActionPanel.tsx`, `MesaPage.tsx`.
+  - `pnpm --filter @artificio/mesas-frontend run lint` ✅.
+  - `pnpm --filter @artificio/mesas-frontend run build` ✅.
+- Validacao final:
+  - `git diff --check` ✅.
+  - `pnpm run lint` ✅.
+  - `pnpm run build` ✅.
+- Backlog: nada novo; `BL-059-MESAS-COPIAR-ANUNCIO-OG` segue aberto para Fases 4-7.
+
+## Retomada Codex — Fase 4 — 2026-07-08
+
+- Escopo autorizado pelo mantenedor: implementar Fase 4 somente.
+- Plano de edicao:
+  - reaproveitar `CopyAnnouncementButton` com carregamento sob demanda (`loadTable`);
+  - inserir acao no `TableCardDashboard` apenas para `status === 'active'` e `!archived`;
+  - buscar `GET /api/v1/tables/:slug` no clique, validar detalhe ativo/nao arquivado no botao e copiar sem refetch do painel.
+- Implementacao Fase 4 concluida:
+  - `CopyAnnouncementButton` agora aceita `loadTable`, `disabled`, `ariaLabel` e `label`, mantendo compatibilidade com uso direto por `table`.
+  - `TableCardDashboard` renderiza `Copiar anuncio` como acao `col-span-2` somente para mesas ativas e nao arquivadas.
+  - O clique no card usa `authGet('/api/v1/tables/:slug')`, extrai `data`, delega montagem/copia ao helper da Fase 2 e mostra toast via `CopyAnnouncementButton`.
+  - A validacao final do detalhe (`status === 'active'` e sem `archived_at`) fica no botao reutilizavel, protegendo corrida entre lista e clique.
+- Validacao parcial:
+  - Serena LSP sem diagnosticos em `CopyAnnouncementButton.tsx` e `TableCardDashboard.tsx`.
+- Validacao final:
+  - `pnpm --filter @artificio/mesas-frontend run lint` ✅.
+  - `pnpm --filter @artificio/mesas-frontend run build` ✅.
+  - `git diff --check` ✅.
+  - `pnpm run lint` ✅.
+  - `pnpm run build` ✅.
+- Backlog: nada novo; `BL-059-MESAS-COPIAR-ANUNCIO-OG` segue aberto para Fases 5-7.
+
+## HANDOFF — 2026-07-08 (fim de sessão, publicação de mesa sincronizada)
+
+**Contexto:** duas frentes rodaram em paralelo nesta sessão — spec 059
+(este arquivo, Fases 1-5 concluídas por outro agente/Codex) e spec 060
+(gestão de mesas importadas, aberta por mim depois de investigar 3
+bugs reais reportados pelo mantenedor no fluxo de sync Discord → mesa
+publicada). Ambas tocam os mesmos arquivos (`ConteudoSection.tsx`
+principalmente), então o diff local no fim da sessão está misturado.
+
+### Estado real no fim da sessão
+
+**Branch:** `fix/mesas-draft-publish-flow`.
+**PR #137** (spec 060, infra de gestão admin): já MERGED em `dev`
+(commit `867f523`), promovida pra `main`, **deploy prod já rodou com
+sucesso** (run `28954221364`) e beta também (run `28954185363`).
+
+**O que falta pro mantenedor conseguir publicar a mesa sincronizada
+(o pedido original que abriu a spec 060) ainda está em diff LOCAL, sem
+commit:** botão "Publicar mesa" de verdade dentro do modal do draft
+(`DiscordDraftPreview.tsx`), no mesmo padrão visual dos outros botões
+(Reparsar/Rebaixar imagem/Salvar campos/Sincronizar como mesa). Chama
+`PUT /api/v1/admin/tables/:id { status: 'active' }` direto no clique.
+
+Validado com dry-run real contra Postgres de produção
+(`BEGIN`/`UPDATE`/`ROLLBACK`, nada persistido) na mesa real do
+mantenedor (`3c05fafb-2749-47a7-ba70-469099d3d863`, "A Caçada
+Espectral") — UPDATE passa sem violar nenhum CHECK constraint.
+
+**Diff local do fim da sessão mistura as duas specs.** Não fazer
+`git add -A` cego — revisar antes de commitar: `DiscordDraftPreview.tsx`
+é spec 060 (botão publicar); `CopyAnnouncementButton.tsx`,
+`features/table/share/`, `routes/tables.ts`, `TableCardDashboard.tsx`,
+`MesaPage.tsx`, `types/tables.ts` são spec 059 (Fases 1-5, já com `[x]`
+nas tasks abaixo).
+
+### Duas specs precisam terminar e ter deploy
+
+- **Spec 059** (`specs/059-mesas-copiar-anuncio-whatsapp-og/`): Fases
+  0-5 concluídas (`tasks.md` marcado `[x]`). Faltam **Fase 6 (Open
+  Graph, `routes/og.ts`, `type==='mesas'`)** e **Fase 7 (validação
+  final: build, testes, `verify:api`, smoke beta)**.
+- **Spec 060** (`specs/060-mesas-gestao-mesas-importadas/`): backend +
+  listagem admin já em prod. Falta commitar o botão "Publicar mesa"
+  (acima) e fechar T7/T8/T9 da `tasks.md` (lint+build final, smoke
+  manual completo, atualizar backlog/project-state).
+
+### Próximos passos
+1. T0 completo antes de agir (`project-state.md` + `context-capsule.md`
+   + `decisions.md`) — regra pétrea, não pular.
+2. Revisar diff local misturado, separar por spec se necessário.
+3. Pedir autorização nominal pra commit+push do botão publicar (spec
+   060) — autorização de sessões anteriores não vale mais.
+4. Deploy beta → smoke manual real (clicar "Publicar" na mesa
+   `3c05fafb-...`) → promote main → **deploy prod real e confirmado**
+   (`gh run list --workflow=deploy.yml --branch=main`, trava pétrea já
+   registrada em `AGENTS.md` nesta sessão: promote NÃO deploya
+   sozinho).
+5. Retomar Fase 6/7 da spec 059 (OG de mesa).
+6. Atualizar `specs/backlog.md` + `project-state.md` conforme
+   resultado das duas.
+
+### Ferramentas/regras a seguir na retomada
+- **T0 obrigatório** antes de qualquer ação de mérito; T1 (`AGENTS.md`
+  completo, `infra-map.md`) sob demanda quando a tarefa tocar
+  infra/deploy/banco/API/specs.
+- **Caveman ultra** como modo padrão de comunicação.
+- **Ordem de ferramentas MCP** (AGENTS.md): (1)
+  `artificio-api-governance` pra qualquer pergunta/mudança de API —
+  nunca assumir rota por memória; (2) LSP pra diagnóstico automático
+  dos arquivos tocados (mas Serena LSP já deu diagnóstico "stale" nesta
+  sessão — confirmar sempre com `tsc`/build real antes de confiar
+  cegamente); (3) Serena MCP pra navegação/edição por símbolo; (4)
+  `codebase-memory-mcp` pra grafo/impacto estrutural; (5)
+  `ast-grep`/`rtk rg`/`rtk read`/`git`/leitura direta como fallback.
+- **Nunca commit/push/merge/deploy sem autorização nominal por ação**
+  — não acumula entre sessões nem dentro da mesma sessão.
+- **Trava pétrea registrada em `AGENTS.md` nesta sessão:** promote
+  dev→main nunca dispara deploy prod sozinho.
+
+---
+
+## Retomada Codex — Fase 5 — 2026-07-08
+
+- Escopo autorizado pelo mantenedor: implementar Fase 5 somente.
+- Cuidado de worktree:
+  - `ConteudoSection.tsx` ja tinha alteracoes pre-existentes nao feitas nesta fase: aba por URL, label `Mesas` e troca da fonte para `GET /api/v1/admin/tables` (spec 060).
+  - A implementacao preservou essas alteracoes e trabalhou sobre o codigo real.
+- Plano de edicao:
+  - preservar `slug` em `AdminTableRow`/`normalizeTables`;
+  - adicionar row action `Copiar anuncio` na tabela de gestao;
+  - buscar detalhe publico `GET /api/v1/tables/:slug` no clique, montar/copy com helper da Fase 2, sem `fetchAllTables()` apos copiar.
+- Implementacao Fase 5 concluida:
+  - `AdminTableRow` ganhou `slug: string`; `normalizeTables()` preserva `row.slug` ou usa string vazia.
+  - `ConteudoSection` ganhou `copyingTableId` e `handleCopyAnnouncement(table)`.
+  - Row action `Copiar anuncio` usa icone `Copy`, aparece apenas quando `table.status === 'active'` e ha `slug`.
+  - Handler busca detalhe publico por slug, valida `detail.status === 'active'` e `!detail.archived_at`, monta com `buildWhatsAppTableAnnouncement()` e copia com `copyTextToClipboard()`.
+  - Copiar nao refaz lista e nao usa rota admin de detalhe.
+- Observacao:
+  - A fonte atual da gestao e `GET /api/v1/admin/tables` por mudanca pre-existente/spec 060; essa lista nao retorna `archived_at`. A protecao contra arquivada fica na validacao do detalhe publico antes da copia.
+- Validacao parcial:
+  - Serena LSP sem diagnosticos em `ConteudoSection.tsx`.
+- Validacao final:
+  - `pnpm --filter @artificio/mesas-frontend run lint` ✅.
+  - `pnpm --filter @artificio/mesas-frontend run build` ✅.
+  - `git diff --check` ✅.
+  - `pnpm run lint` ✅.
+  - `pnpm run build` ✅.
+- Backlog: nada novo; `BL-059-MESAS-COPIAR-ANUNCIO-OG` segue aberto para Fases 6-7.
+
+## t0Handoff — 2026-07-08 (topo de retomada)
+
+**Ler isto primeiro, antes de qualquer T0 formal.** Resumo do estado
+real pra não perder tempo re-descobrindo.
+
+### Estado real
+
+- **Spec 059** (`specs/059-mesas-copiar-anuncio-whatsapp-og/`): Fases
+  1-5 prontas, feitas por outro agente em paralelo (Codex). Faltam:
+  - **Fase 6** — OG de mesa (`apps/mesas/backend/src/routes/og.ts`,
+    tratar `type === 'mesas'`, banner/cover como `og:image`, ver
+    investigação detalhada em `## Atualizacao Fase 6 — 2026-07-08`
+    acima).
+  - **Fase 7** — validação final (build, testes, `verify:api`, smoke
+    beta).
+- **Spec 060** (`specs/060-mesas-gestao-mesas-importadas/`): infra já
+  em prod — PR #137 merged em `dev` (`867f523`), promovido pra `main`,
+  deploy prod confirmado (`28954221364`) e beta (`28954185363`).
+  **Mas o botão "Publicar mesa" que resolve o pedido original do
+  mantenedor ainda está em diff LOCAL, sem commit** —
+  `DiscordDraftPreview.tsx`, chama
+  `PUT /api/v1/admin/tables/:id { status: 'active' }`. Dry-run real
+  validado contra Postgres prod (`BEGIN`/`UPDATE`/`ROLLBACK`, nada
+  persistido) na mesa `3c05fafb-2749-47a7-ba70-469099d3d863`.
+
+### Aviso crítico — diff misturado
+
+**Não fazer `git add -A` cego.** Diff local no fim da sessão mistura
+as duas specs:
+- Spec 060 (botão publicar): `DiscordDraftPreview.tsx`.
+- Spec 059 (Fases 1-5, já `[x]` na tasks): `CopyAnnouncementButton.tsx`,
+  `features/table/share/`, `routes/tables.ts`,
+  `TableCardDashboard.tsx`, `MesaPage.tsx`, `types/tables.ts`.
+
+Revisar e separar por spec antes de qualquer commit.
+
+### Próximos passos ordenados
+
+1. T0 completo (`project-state.md` + `context-capsule.md` +
+   `decisions.md`) — regra pétrea, não pular.
+2. Revisar diff local misturado, separar por spec.
+3. Pedir autorização nominal pra commit+push do botão publicar (spec
+   060) — autorização de sessões anteriores não vale mais.
+4. Deploy beta → smoke manual real (clicar "Publicar" na mesa
+   `3c05fafb-...`) → promote main → **deploy prod real confirmado**
+   (`gh run list --workflow=deploy.yml --branch=main`).
+5. Retomar Fase 6/7 da spec 059 (OG de mesa).
+6. Atualizar `specs/backlog.md` + `project-state.md` conforme
+   resultado das duas.
+
+### Regras T0/T1/caveman/ordem MCP a seguir
+
+- T0 obrigatório antes de ação de mérito; T1 (`AGENTS.md` completo,
+  `infra-map.md`) sob demanda quando tocar infra/deploy/banco/API/specs.
+- Caveman ultra é modo padrão de comunicação.
+- Ordem MCP (`AGENTS.md`): (1) `artificio-api-governance` pra
+  API — nunca assumir rota por memória; (2) LSP pra diagnóstico
+  automático (mas já deu diagnóstico stale nesta sessão — confirmar
+  sempre com `tsc`/build real); (3) Serena MCP pra símbolo; (4)
+  `codebase-memory-mcp` pra grafo/impacto; (5) `ast-grep`/`rtk
+  rg`/`rtk read`/`git`/leitura direta como fallback.
+- Nunca commit/push/merge/deploy sem autorização nominal por ação —
+  não acumula entre sessões nem dentro da mesma sessão.
+- **Trava pétrea (registrada em `AGENTS.md` nesta sessão):** promote
+  dev→main NUNCA dispara deploy prod sozinho. Depois de promote
+  aprovado, sempre disparar e confirmar deploy prod manual antes de
+  declarar "em produção".
+
+## Retomada Claude — Fase 6 — 2026-07-08
+
+- T0 completo lido (`project-state.md`, `context-capsule.md`,
+  `decisions.md`).
+- Escopo autorizado pelo mantenedor: implementar Fase 6 (OG de mesa)
+  somente. Investigação já estava pronta em `tasks.md` (Fase 6, feita
+  em sessão anterior) — reaproveitada sem re-investigar do zero.
+- Implementacao em `apps/mesas/backend/src/routes/og.ts`:
+  - Import `sanitizePublicImageUrl` de `utils/publicImageUrl.ts`.
+  - Helpers novos: `toAbsoluteSiteUrl()`, `resolveOgImageUrl()`
+    (sanitiza + upgrade Google + absolutiza, fallback
+    `DEFAULT_OG_IMAGE`), `isImportedTableExpired()` (mesma regra de
+    `routes/tables.ts`: 5 dias ou `starts_at`, o que vencer primeiro),
+    `buildTableDescription()` (prioridade `listing_excerpt` →
+    `synopsis_narrative` → `synopsis` → `description` → fallback
+    titulo/sistema/mestre).
+  - Branch `else if (type === 'mesas')` adicionado antes do fallback
+    generico: query direta (sem HTTP interno, mesmo padrao do caso
+    `mestre`) trazendo `slug/title/description/banner_url/status/
+    archived_at/origin/created_at/starts_at/listing_excerpt/synopsis/
+    synopsis_narrative/system_name/gm_display_name`.
+  - Visibilidade: `status==='active' && !archived_at &&
+    !isImportedTableExpired()`; se nao visivel, HTML fallback 200
+    "Mesa não encontrada" (nunca JSON 404, pois crawler precisa HTML).
+  - `og:image` = `resolveOgImageUrl(banner_url, cover_url)`; `og:type`
+    = `website`; canonical = `${SITE_URL}/mesas/${slug}`.
+- Validacao:
+  - `pnpm --filter @artificio/mesas-backend run build` ✅ (`tsc`
+    limpo).
+  - `pnpm run lint` ✅ (15/15 pacotes).
+  - `pnpm run build` ✅ (17/17 pacotes).
+  - `pnpm verify:api` ✅ (mesas non-breaking=2, offsets de linha; sem
+    breaking; 3 warnings pre-existentes em glossario, fora de escopo).
+  - `git diff --check` ✅ (sem whitespace error).
+  - **T6.3 nao fechada:** smoke real (`curl -A "WhatsApp"`) contra
+    mesa existente/sem imagem/inexistente exige beta/prod com dado
+    real; build/tsc validam tipo, nao comportamento runtime. Fica
+    para Fase 7 (T7.5) ou deploy beta.
+- `tasks.md` Fase 6 atualizado: T6.1/T6.2/T6.4 `[x]`; T6.3 aberta com
+  nota de motivo.
+- Sem commit/push — diff local, ainda misturado com spec 060
+  (`DiscordDraftPreview.tsx` nao tocado nesta fase).
+- Backlog: nada novo; `BL-059-MESAS-COPIAR-ANUNCIO-OG` segue aberto
+  para Fase 7 (validacao final + smoke beta real, cobre T6.3).
+
+## Retomada Claude — Fase 7 — 2026-07-08
+
+- Escopo perguntado ao mantenedor: T7.5 (smoke beta real) exige
+  deploy, que exige commit+push+PR (diff local ainda misturado com
+  spec 060). Mantenedor escolheu **so validacao local agora**, sem
+  commit/push/deploy nesta acao.
+- Validacao final (T7.1-T7.4):
+  - `pnpm --filter @artificio/mesas-frontend run build` ✅.
+  - `pnpm --filter @artificio/mesas-backend run build` ✅ (`tsc`
+    limpo).
+  - `pnpm --filter @artificio/mesas-frontend run test` ✅ — 15
+    arquivos / 157 testes.
+  - `pnpm --filter @artificio/mesas-backend run test` ✅ — 42
+    arquivos / 420 testes (stderr sao logs esperados de mock/erro
+    simulado, nao falha real).
+  - `pnpm verify:api` ja rodado na Fase 6: mesas non-breaking=2
+    (offsets de linha), sem breaking.
+  - `git diff --check` ✅ (so avisos LF/CRLF pre-existentes de config
+    git, sem erro real de whitespace).
+- `tasks.md`: T7.1/T7.2/T7.3/T7.4 `[x]`. **T7.5 aberta e bloqueada**:
+  smoke beta real (`curl -A "WhatsApp"` etc.) exige deploy fora do
+  escopo autorizado nesta acao.
+- Sem commit/push — diff local segue intacto, ainda misturado com
+  spec 060 (`DiscordDraftPreview.tsx`).
+- Backlog: nada novo; `BL-059-MESAS-COPIAR-ANUNCIO-OG` segue aberto
+  **so por T7.5** (smoke beta). Fases 0-7 com validacao local completa;
+  falta so deploy+smoke real pra fechar a spec 059 de verdade.
+- Proximo passo (fora desta acao): mantenedor decidir quando
+  autorizar commit+push+PR (separando diff da spec 060) pra liberar
+  deploy beta e fechar T7.5.

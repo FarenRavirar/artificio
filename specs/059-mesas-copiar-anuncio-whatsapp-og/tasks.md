@@ -42,11 +42,11 @@
   - Nao adicionar rota admin nova.
   - Nao adicionar `age_rating` na lista publica nem em `GET /api/v1/gm/tables`, salvo se a implementacao provar necessidade nova.
 
-- [ ] T1.1 Expor `age_rating` em `GET /api/v1/tables/:slug`.
-- [ ] T1.1a Tipar `age_rating` em `TableDetail`.
-- [ ] T1.1b Rodar API governance se OpenAPI/contrato mudar.
+- [x] T1.1 Expor `age_rating` em `GET /api/v1/tables/:slug`.
+- [x] T1.1a Tipar `age_rating` em `TableDetail`.
+- [x] T1.1b Rodar API governance se OpenAPI/contrato mudar.
 - [x] T1.2 Fechar decisao: `/gestao` copia somente mesas publicadas/ativas; sem rota admin de detalhe para mesas nao ativas/canceladas.
-- [ ] T1.3 Atualizar OpenAPI/artefatos se API mudar.
+- [x] T1.3 Atualizar OpenAPI/artefatos se API mudar. `pnpm verify:api` atualizou apenas offsets de linha em `api-inventory`/`api-map`; sem breaking change.
 
 ## Fase 2 — Formatter/clipboard
 
@@ -109,9 +109,9 @@
   - Casos minimos: mesa completa; mesa parcial com campos vazios; multiplos horarios; `age_rating=livre` -> `Livre`; `age_rating=+16` preserva `+16`; `age_rating=null` mantem linha `Faixa Etaria:` vazia; `price_type=paga` -> `Comissionada`; `price_type=gratuita` -> `Gratuita`; sanitizacao markdown/HTML; ausencia de `undefined/null/NaN`/placeholders; URL absoluta de inscricao.
   - Clipboard helper pode ter teste unitario com mocks de `navigator.clipboard`, fallback `document.execCommand` e falha final, se implementado separado.
 
-- [ ] T2.1 Criar `whatsappAnnouncement.ts` com `buildWhatsAppTableAnnouncement`.
-- [ ] T2.2 Criar helper de clipboard com fallback.
-- [ ] T2.3 Cobrir formatter com testes: completo, parcial, horarios multiplos, `age_rating`, paga/gratuita, sem `undefined/null/NaN`.
+- [x] T2.1 Criar `whatsappAnnouncement.ts` com `buildWhatsAppTableAnnouncement`.
+- [x] T2.2 Criar helper de clipboard com fallback.
+- [x] T2.3 Cobrir formatter com testes: completo, parcial, horarios multiplos, `age_rating`, paga/gratuita, sem `undefined/null/NaN`.
 
 ## Fase 3 — Pagina publica
 
@@ -146,10 +146,10 @@
   - Origem publica deve vir de `getMesasPublicOrigin()` no caller/componente, nao de concat manual.
   - Botao nao deve navegar, abrir WhatsApp nem expor modal; apenas copiar para area de transferencia.
 
-- [ ] T3.1 Criar `CopyAnnouncementButton`.
-- [ ] T3.2 Inserir botao em `/mesas/:slug` para visitante.
-- [ ] T3.3 Inserir botao no modo owner/admin de `TableActionPanel`.
-- [ ] T3.4 Validar responsividade e a11y basica (`aria-label`, disabled/loading).
+- [x] T3.1 Criar `CopyAnnouncementButton`.
+- [x] T3.2 Inserir botao em `/mesas/:slug` para visitante.
+- [x] T3.3 Inserir botao no modo owner/admin de `TableActionPanel`.
+- [x] T3.4 Validar responsividade e a11y basica (`aria-label`, disabled/loading).
 
 ## Fase 4 — Painel do mestre
 
@@ -197,9 +197,9 @@
   - Teste do handler pode mockar `authGet`, formatter e clipboard; caso mais importante e garantir que nao copia quando o detalhe retornado nao esta ativo.
   - Smoke manual depois da implementacao: painel com mesa ativa copia; mesa desativada/arquivada nao oferece copia.
 
-- [ ] T4.1 Adicionar botao em `TableCardDashboard`.
-- [ ] T4.2 Buscar detalhe por slug antes de copiar.
-- [ ] T4.3 Tratar loading/erro/toast por card.
+- [x] T4.1 Adicionar botao em `TableCardDashboard`.
+- [x] T4.2 Buscar detalhe por slug antes de copiar.
+- [x] T4.3 Tratar loading/erro/toast por card.
 
 ## Fase 5 — Gestao
 
@@ -259,9 +259,9 @@
   - Teste/checagem para linha sem slug: acao escondida ou handler falha com toast sem chamada de detalhe.
   - Smoke manual: `/gestao/catalogo` -> aba `Mesas publicadas` -> row action copia texto; apos cancelar/arquivar em outra aba, clique deve falhar de modo limpo.
 
-- [ ] T5.1 Adicionar `slug` em `AdminTableRow` e normalizador.
-- [ ] T5.2 Adicionar row action "Copiar anuncio" em `ConteudoSection`.
-- [ ] T5.3 Buscar detalhe por slug antes de copiar.
+- [x] T5.1 Adicionar `slug` em `AdminTableRow` e normalizador.
+- [x] T5.2 Adicionar row action "Copiar anuncio" em `ConteudoSection`.
+- [x] T5.3 Buscar detalhe por slug antes de copiar.
 - [x] T5.4 Rota admin nova descartada: gestao copia apenas mesas publicadas/ativas.
 
 ## Fase 6 — Open Graph
@@ -324,18 +324,18 @@
   - Smoke beta: usar `curl -A "WhatsApp" https://mesasbeta.artificiorpg.com/mesas/<slug>` ou `curl -A "facebookexternalhit/1.1" ...` e verificar `og:image`, `og:title`, `twitter:image` no HTML.
   - Smoke direto local/backend, quando aplicavel: `GET /og/mesas/<slug>`.
 
-- [ ] T6.1 Implementar caso `type === 'mesas'` em `apps/mesas/backend/src/routes/og.ts`.
-- [ ] T6.2 Usar banner/imagem da mesa como `og:image`, fallback default.
-- [ ] T6.3 Testar mesa existente, mesa sem imagem e mesa inexistente/fallback.
-- [ ] T6.4 Verificar que tags OG/Twitter duplicadas continuam removidas.
+- [x] T6.1 Implementar caso `type === 'mesas'` em `apps/mesas/backend/src/routes/og.ts`.
+- [x] T6.2 Usar banner/imagem da mesa como `og:image`, fallback default.
+- [ ] T6.3 Testar mesa existente, mesa sem imagem e mesa inexistente/fallback. **Pendente: smoke real (curl user-agent crawler) só possível em beta/prod com dado real; build/tsc validam tipos, não comportamento runtime.**
+- [x] T6.4 Verificar que tags OG/Twitter duplicadas continuam removidas (reusa `injectMetaTags()` existente, mesma lógica do caso `mestre`).
 
 ## Fase 7 — Validacao
 
-- [ ] T7.1 `pnpm --filter @artificio/mesas-frontend run build`.
-- [ ] T7.2 `pnpm --filter @artificio/mesas-backend run build`.
-- [ ] T7.3 Testes pontuais frontend/backend afetados.
-- [ ] T7.4 `pnpm verify:api` se contrato/API mudar.
-- [ ] T7.5 Smoke beta: copiar em pagina publica, painel do mestre e gestao; verificar OG por `curl`/view-source.
+- [x] T7.1 `pnpm --filter @artificio/mesas-frontend run build`.
+- [x] T7.2 `pnpm --filter @artificio/mesas-backend run build`.
+- [x] T7.3 Testes pontuais frontend/backend afetados. Frontend 15 files/157 tests ✅; backend 42 files/420 tests ✅.
+- [x] T7.4 `pnpm verify:api` se contrato/API mudar. Rodado na Fase 6: mesas non-breaking=2 (offsets), sem breaking.
+- [ ] T7.5 Smoke beta: copiar em pagina publica, painel do mestre e gestao; verificar OG por `curl`/view-source. **Bloqueado: exige deploy beta (commit+push+PR), fora do escopo desta acao — mantenedor optou por validacao local nesta rodada.**
 
 ## Manutencao documental
 

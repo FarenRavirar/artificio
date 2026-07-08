@@ -304,6 +304,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
         't.type',
         't.audience',
         't.modality',
+        't.age_rating',
         't.price_type',
         't.price_value',
         't.price_frequency',

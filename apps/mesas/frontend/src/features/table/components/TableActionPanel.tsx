@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import type { TableViewModel, TableActionPanelVariant } from '../types/tableView.types';
+import type { TableDetail } from '../../../types/tables';
 import { InlineDeleteConfirmation } from '../../../components/InlineDeleteConfirmation';
 import { getButtonStyle, getUrgencyColor, handleCTA, handleEdit, handleStatus, handleArchive } from '../utils/uiHelpers';
 import { TableContactsBlock } from './TableContactsBlock';
+import { CopyAnnouncementButton } from './CopyAnnouncementButton';
 import { useTracking } from '../../../hooks/useTracking';
 import { authDelete } from '../../../services/apiClient';
 
@@ -11,6 +13,7 @@ interface TableActionPanelProps {
   vm: TableViewModel;
   variant?: TableActionPanelVariant;
   deleteEndpointScope?: 'gm' | 'admin';
+  announcementTable?: TableDetail;
 }
 
 /**
@@ -18,7 +21,7 @@ interface TableActionPanelProps {
  * Ordem fixa: CTA → Urgência → Preço → Info → Contato
  * Reutilizável em: MesaPage, Painel do Mestre, Card expandido
  */
-export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = 'gm' }: TableActionPanelProps) {
+export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = 'gm', announcementTable }: TableActionPanelProps) {
   const { trackTableClick } = useTracking();
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -65,6 +68,10 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
           >
             ✏️ Editar mesa
           </button>
+
+          {announcementTable && (
+            <CopyAnnouncementButton table={announcementTable} />
+          )}
 
           {vm.status !== 'cancelled' && vm.status !== 'draft' && (
             <button
@@ -319,6 +326,10 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
       >
         {vm.cta.label}
       </button>
+
+      {announcementTable && (
+        <CopyAnnouncementButton table={announcementTable} />
+      )}
 
       {/* Urgência (Vagas) */}
       <div className={`text-sm font-semibold ${getUrgencyColor(vm.urgency.tone)}`}>
