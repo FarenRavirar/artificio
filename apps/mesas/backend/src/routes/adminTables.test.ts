@@ -11,11 +11,15 @@ vi.mock('../db', () => ({
 vi.mock('../repositories/tableRepository', () => ({
   TableRepository: {
     deleteTableWithRelations: vi.fn(),
+    findById: vi.fn(),
+    findContactsByTableId: vi.fn(),
+    findSchedulesByTableId: vi.fn(),
   },
 }));
+let mockRole = 'admin';
 vi.mock('../middleware/auth', () => ({
   authMiddleware: (req: any, _res: any, next: any) => {
-    req.user = { userId: 'admin', role: 'admin' };
+    req.user = { userId: 'admin', role: mockRole };
     next();
   },
 }));
@@ -67,9 +71,69 @@ describe('DELETE /api/v1/admin/tables/:id', () => {
   });
 });
 
+describe('GET /api/v1/admin/tables', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRole = 'admin';
+  });
+
+  it('lists tables of any status, including draft (mesa importada sem gm_id)', async () => {
+    const chain = mockChain({
+      execute: vi.fn().mockResolvedValue([
+        { id: 't1', slug: 'mesa-1', title: 'Mesa Importada', status: 'draft', gm_id: null, origin: 'imported', created_at: new Date(), is_covil: false },
+      ]),
+      orderBy: vi.fn().mockReturnThis(),
+    });
+    (db.selectFrom as Mock).mockReturnValue(chain);
+
+    const res = await request(makeApp()).get('/api/v1/admin/tables');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].status).toBe('draft');
+  });
+
+  it('rejects non-admin', async () => {
+    mockRole = 'gm';
+    const res = await request(makeApp()).get('/api/v1/admin/tables');
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('GET /api/v1/admin/tables/:id', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRole = 'admin';
+  });
+
+  it('returns table with gm_id: null without requiring ownership', async () => {
+    (TableRepository.findById as Mock).mockResolvedValue({ id: 't1', title: 'Mesa Importada', status: 'draft', gm_id: null });
+    (TableRepository.findContactsByTableId as Mock).mockResolvedValue([]);
+    (TableRepository.findSchedulesByTableId as Mock).mockResolvedValue([]);
+
+    const res = await request(makeApp()).get('/api/v1/admin/tables/t1');
+    expect(res.status).toBe(200);
+    expect(res.body.data.gm_id).toBeNull();
+    expect(TableRepository.findById).toHaveBeenCalledWith('t1');
+  });
+
+  it('returns 404 when table not found', async () => {
+    (TableRepository.findById as Mock).mockResolvedValue(undefined);
+
+    const res = await request(makeApp()).get('/api/v1/admin/tables/nonexistent');
+    expect(res.status).toBe(404);
+  });
+
+  it('rejects non-admin', async () => {
+    mockRole = 'gm';
+    const res = await request(makeApp()).get('/api/v1/admin/tables/t1');
+    expect(res.status).toBe(403);
+  });
+});
+
 describe('PUT /api/v1/admin/tables/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRole = 'admin';
   });
 
   it('updates table status successfully', async () => {

@@ -118,3 +118,28 @@
   - Mesmo vindo da lista publica, manter validacao do detalhe por corrida entre listagem e clique.
   - Nao criar bulk action de copiar; clipboard em lote e ambigua. Usar row action `Copiar anuncio` com icone `Copy`/`Clipboard`.
   - Usar `copyingTableId` e `hidden` ou guarda no handler para evitar clique duplo, sem ampliar `AdminTable`.
+
+## Atualizacao Fase 6 — 2026-07-08
+
+- Investigacao profunda do Open Graph concluiu:
+  - `frontend/nginx.conf` detecta crawlers por user-agent (`WhatsApp`, `Discordbot`, `facebookexternalhit`, etc.) e reescreve rotas SPA para `/og/<path>` no backend.
+  - Assim, crawler em `/mesas/<slug>` chega ao backend como `/og/mesas/<slug>`.
+  - `server.ts` monta `app.use('/og', ogRoutes)`.
+  - `routes/og.ts` tem `router.get('/:type/:slug')`, mas so implementa `type === 'mestre'`. `type === 'mesas'` cai em fallback generico, logo nao usa banner da mesa.
+  - `og.ts` le `INDEX_HTML_PATH` do volume `frontend-dist` e injeta meta tags server-side; remove tags OG/Twitter antigas antes de injetar novas.
+  - `index.html` tem fallback estatico com `og-default.png`.
+  - Existe `sanitizePublicImageUrl()` no backend; remove imagens efemeras do Discord e preserva URLs estaveis/paths locais.
+  - Para OG de mesa, `og:image` precisa ser absoluto; se o sanitizador devolver path como `/assets/...`, a Fase 6 deve converter para `${SITE_URL}/assets/...`.
+  - Imagem de mesa deve priorizar `t.banner_url`, depois `t.cover_url`, depois `DEFAULT_OG_IMAGE`.
+  - Descricao deve usar `listing_excerpt` -> `synopsis_narrative` -> `synopsis` -> `description` -> fallback com titulo/sistema/mestre.
+  - OG de mesa deve respeitar visibilidade publica: `status='active'`, `archived_at is null` e regra de expiracao para importadas. Inexistente/inativa/arquivada/expirada deve retornar HTML fallback 200 para crawler.
+  - Nao usar HTTP interno para `/api/v1/tables/:slug`; query direta em `og.ts`, como ja acontece com mestre.
+  - Validacao beta deve usar user-agent de crawler, ex. `curl -A "WhatsApp" https://mesasbeta.artificiorpg.com/mesas/<slug>`, porque browser normal recebe SPA.
+
+## Revisao externa registrada — 2026-07-08
+
+- Comentario CodeRabbit em `tasks.md` linhas da Fase 2 procedia: matriz de testes do formatter nao citava explicitamente `age_rating`, apesar de faixa etaria dedicada ser decisao central da Fase 1.
+- Ajuste aplicado localmente em `specs/059-mesas-copiar-anuncio-whatsapp-og/tasks.md`:
+  - casos minimos agora incluem `age_rating=livre` -> `Livre`, `age_rating=+16` preserva `+16` e `age_rating=null` mantem `Faixa Etaria:` vazia;
+  - T2.3 agora exige cobertura de `age_rating`.
+- Nao responder ao bot no PR; regra do projeto manda registrar/fixar em docs, nao comentar em revisor externo.

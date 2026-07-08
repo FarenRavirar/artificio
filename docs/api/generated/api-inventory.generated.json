@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 358,
+    "total": 360,
     "byApp": {
       "accounts": {
         "total": 11,
@@ -41,17 +41,17 @@
         }
       },
       "mesas": {
-        "total": 227,
+        "total": 229,
         "byMethod": {
+          "GET": 63,
           "POST": 62,
-          "GET": 61,
           "USE": 51,
           "PATCH": 25,
           "DELETE": 17,
           "PUT": 11
         },
         "byConfidence": {
-          "high": 227
+          "high": 229
         }
       },
       "site": {
@@ -1911,10 +1911,28 @@
     },
     {
       "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/tables",
+      "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
+      "line": 173,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
       "method": "DELETE",
       "path": "/api/v1/admin/tables/:id",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 170,
+      "line": 225,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/tables/:id",
+      "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
+      "line": 200,
       "confidence": "high",
       "kind": "express-route"
     },

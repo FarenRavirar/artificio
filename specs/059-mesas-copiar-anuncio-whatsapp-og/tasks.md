@@ -106,12 +106,12 @@
   - Cuidado: "sem colchetes" da spec significa remover placeholders do modelo; links markdown com colchetes tambem devem ser convertidos para plain text.
 - Testes recomendados:
   - Util puro com Vitest, arquivo ao lado do formatter (`whatsappAnnouncement.test.ts`).
-  - Casos minimos: mesa completa; mesa parcial com campos vazios; multiplos horarios; `price_type=paga` -> `Comissionada`; `price_type=gratuita` -> `Gratuita`; sanitizacao markdown/HTML; ausencia de `undefined/null/NaN`/placeholders; URL absoluta de inscricao.
+  - Casos minimos: mesa completa; mesa parcial com campos vazios; multiplos horarios; `age_rating=livre` -> `Livre`; `age_rating=+16` preserva `+16`; `age_rating=null` mantem linha `Faixa Etaria:` vazia; `price_type=paga` -> `Comissionada`; `price_type=gratuita` -> `Gratuita`; sanitizacao markdown/HTML; ausencia de `undefined/null/NaN`/placeholders; URL absoluta de inscricao.
   - Clipboard helper pode ter teste unitario com mocks de `navigator.clipboard`, fallback `document.execCommand` e falha final, se implementado separado.
 
 - [ ] T2.1 Criar `whatsappAnnouncement.ts` com `buildWhatsAppTableAnnouncement`.
 - [ ] T2.2 Criar helper de clipboard com fallback.
-- [ ] T2.3 Cobrir formatter com testes: completo, parcial, horarios multiplos, paga/gratuita, sem `undefined/null/NaN`.
+- [ ] T2.3 Cobrir formatter com testes: completo, parcial, horarios multiplos, `age_rating`, paga/gratuita, sem `undefined/null/NaN`.
 
 ## Fase 3 — Pagina publica
 
@@ -265,6 +265,64 @@
 - [x] T5.4 Rota admin nova descartada: gestao copia apenas mesas publicadas/ativas.
 
 ## Fase 6 — Open Graph
+
+### Descobertas da investigacao
+
+- Topologia atual:
+  - `apps/mesas/frontend/nginx.conf` detecta crawlers por `User-Agent` (`WhatsApp`, `Discordbot`, `facebookexternalhit`, `Twitterbot`, etc.).
+  - Para crawler, o fallback SPA retorna `418` e delega para `@og_proxy`, que reescreve `^/(.*)$` para `/og/$1` e proxia para o backend.
+  - Exemplo: crawler acessando `/mesas/minha-mesa` chega no backend como `/og/mesas/minha-mesa`.
+  - Browser humano normal continua recebendo `/index.html` e React Router.
+- Rota backend atual:
+  - `apps/mesas/backend/src/server.ts` monta `app.use('/og', ogRoutes)`.
+  - `apps/mesas/backend/src/routes/og.ts` tem `router.get('/:type/:slug')`.
+  - O unico tipo dinamico implementado e `type === 'mestre'`.
+  - Qualquer outro tipo, incluindo `type === 'mesas'`, cai em `getFallbackMeta('/mesas/:slug')`; por isso a URL da mesa nao usa banner/imagem da mesa no OG.
+- HTML/meta:
+  - `og.ts` le `INDEX_HTML_PATH` (`/app/frontend-dist/index.html` via docker-compose beta/prod) e injeta meta tags server-side.
+  - `injectMetaTags()` remove tags `og:*`, `twitter:*` e comentarios de fallback antes de injetar o bloco novo.
+  - O `index.html` base tem fallback OG/Twitter com `/og-default.png`; essa imagem e usada quando nao ha entidade/imagem publica valida.
+  - Observacao de risco: `injectMetaTags()` substitui `<title>`, mas nao remove necessariamente o `<meta name="description">` estatico que fica depois do title no `index.html`. A Fase 6 deve pelo menos garantir que OG/Twitter nao dupliquem; remover description duplicada pode ser melhoria separada se aparecer em teste.
+- Imagem publica:
+  - Existe `apps/mesas/backend/src/utils/publicImageUrl.ts` com `sanitizePublicImageUrl()`.
+  - Esse util remove URLs efemeras do Discord (`cdn.discordapp.com`, `media.discordapp.net`, etc.) e preserva URLs estaveis e paths locais.
+  - `sanitizePublicImageUrl()` pode retornar path relativo/local (`/assets/banner_placeholder.webp`), mas `og:image` deve ser absoluto para crawlers. Fase 6 precisa converter path relativo para `${SITE_URL}${path}`.
+  - Para Google user content, `upgradeGoogleImageQuality(url, 400)` ja e usado em OG de mestre; pode ser reutilizado para imagem de mesa quando aplicavel.
+- Campos da mesa para OG:
+  - A rota publica de detalhe (`GET /api/v1/tables/:slug`) seleciona `t.banner_url` como `cover_url`, mas a lista GM usa `COALESCE(t.banner_url, t.cover_url)` como `image_url`.
+  - Para OG de mesa, preferencia deve ser `t.banner_url`, fallback `t.cover_url`, fallback `DEFAULT_OG_IMAGE`.
+  - Descricao sugerida: prioridade `t.listing_excerpt` -> `t.synopsis_narrative` -> `t.synopsis` -> `t.description` -> texto fallback com titulo/sistema/mestre.
+  - Titulo sugerido: `${table.title} — Mesa de RPG | ${SITE_NAME}` ou `${table.title} | ${SITE_NAME}`. Incluir sistema na descricao, nao necessariamente no title.
+  - Canonical deve ser `${SITE_URL}/mesas/${encodeURIComponent(table.slug)}`.
+  - `og:type` deve continuar `website`; nao usar `profile` para mesa.
+- Visibilidade/seguranca:
+  - Como `nginx` manda qualquer `/mesas/:slug` de crawler para OG, `og.ts` nao deve consultar mesa apenas por slug e expor metadados de mesa privada/inativa.
+  - Diferente da rota publica de detalhe atual, OG de mesa deve filtrar ou validar:
+    - `t.status = 'active'`;
+    - `t.archived_at is null`;
+    - se `origin === 'imported'`, aplicar a mesma regra de expiracao usada em `GET /api/v1/tables/:slug` (5 dias ou `starts_at`, o que vencer primeiro).
+  - Mesa inexistente, inativa, arquivada ou importada expirada deve retornar HTML 200 com fallback/not-found meta, nao JSON 404, porque crawler precisa de HTML parseavel.
+- Implementacao recomendada:
+  - Importar `sanitizePublicImageUrl` em `og.ts`.
+  - Extrair helpers pequenos para reduzir risco:
+    - `toAbsoluteSiteUrl(value: string): string`;
+    - `resolveOgImageUrl(...candidates): string`;
+    - `isImportedTableExpired(table): boolean`;
+    - opcional `buildTableDescription(table): string`.
+  - Adicionar branch `if (type === 'mesas')` antes do fallback generico.
+  - Query minima: `slug`, `title`, `description`, `banner_url`, `cover_url`, `status`, `archived_at`, `origin`, `created_at`, `starts_at`, `listing_excerpt`, `synopsis`, `synopsis_narrative`, `system_name`, `gm_display_name`.
+  - Nao depender de `GET /api/v1/tables/:slug` via HTTP interno; fazer query direta como o caso `mestre`, evitando rede interna e mantendo OG rapido.
+- Testes/validacao recomendados:
+  - Criar/expandir teste backend de `og.ts` se houver harness viavel; nao foi encontrado teste existente para `routes/og.ts`.
+  - Casos minimos:
+    - `/og/mesas/:slug` ativo com `banner_url` injeta `og:image` do banner e canonical correto.
+    - mesa sem imagem usa `DEFAULT_OG_IMAGE`.
+    - imagem Discord efemera cai para default.
+    - path relativo vira URL absoluta com `SITE_URL`.
+    - mesa inexistente/inativa/arquivada/importada expirada retorna HTML fallback.
+    - tags `og:*` e `twitter:*` antigas nao aparecem duplicadas.
+  - Smoke beta: usar `curl -A "WhatsApp" https://mesasbeta.artificiorpg.com/mesas/<slug>` ou `curl -A "facebookexternalhit/1.1" ...` e verificar `og:image`, `og:title`, `twitter:image` no HTML.
+  - Smoke direto local/backend, quando aplicavel: `GET /og/mesas/<slug>`.
 
 - [ ] T6.1 Implementar caso `type === 'mesas'` em `apps/mesas/backend/src/routes/og.ts`.
 - [ ] T6.2 Usar banner/imagem da mesa como `og:image`, fallback default.

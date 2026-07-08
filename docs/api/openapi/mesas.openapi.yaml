@@ -2867,10 +2867,73 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/admin/tables:
+    get:
+      operationId: getapi_v1_admin_tables
+      summary: "Consulta api v1 admin tables"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/admin/tables/{id}:
     delete:
       operationId: deleteapi_v1_admin_tables_id
       summary: "Remove api v1 admin tables id"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+    get:
+      operationId: getapi_v1_admin_tables_id
+      summary: "Consulta api v1 admin tables id"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active

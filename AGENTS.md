@@ -336,53 +336,59 @@ Se o agente decidir que não há backlog novo, deve escrever na sessão o motivo
 | Subagentes | `.claude/agents/` |
 | Skills/playbooks locais | `.agents/skills/` |
 
-> Grafo MCP (`codebase-memory-mcp`) = opcional e não-versionado. Tem? Use. Não tem? Baseline = `rg`/grep/glob.
+## Ferramentas MCP / Agentes
 
-<!-- codebase-memory-mcp:start -->
-# Codebase Knowledge Graph (codebase-memory-mcp)
+As ferramentas locais abaixo foram adotadas para reduzir retrabalho, detectar erros cedo e evitar descoberta de API por memória de chat. São opcionais por ambiente, não-versionadas quando dependem de config local, e devem funcionar em **Codex**, **Claude Code** e **OpenCode** quando disponíveis. Se uma delas não aparecer no cliente atual, registrar a limitação na sessão e usar fallback local (`rtk rg`, `ast-grep`, leitura direta e `pnpm verify:api` quando aplicável).
 
-This project uses codebase-memory-mcp to maintain a knowledge graph of the codebase.
-**When these MCP graph tools are available**, prefer them over grep/glob/file-search for code discovery; otherwise fall back to grep/glob/file-search (the repo-wide baseline).
+### LSP / diagnósticos semânticos
 
-## Priority Order
-1. `search_graph` — find functions, classes, routes, variables by pattern
-2. `trace_path` — trace who calls a function or what it calls
-3. `get_code_snippet` — read specific function/class source code
-4. `query_graph` — run Cypher queries for complex patterns
-5. `get_architecture` — high-level project summary
+- **Origem/registro:** Spec 044 consolidou LSP como parte do ecossistema de agentes; o mantenedor reforçou em 2026-07-08 que ele detecta erros automáticos que antes passavam despercebidos.
+- **Função:** diagnóstico semântico contínuo: tipos quebrados, imports inválidos, símbolos inexistentes, assinaturas incompatíveis e erros que busca textual não revela.
+- **Usar para:** checar arquivos tocados antes/depois de edição; confirmar impacto local de refactor; achar erro rápido enquanto ainda é barato corrigir.
+- **Clientes:** OpenCode expõe LSP diretamente; Serena usa LSP por baixo; Claude Code pode usar plugin LSP; Codex depende das ferramentas disponíveis no turno/config local.
+- **Trava:** LSP é importante, mas auxiliar. Diagnóstico limpo não substitui `pnpm run lint`, `pnpm run build`, testes pontuais e `pnpm verify:api` quando exigidos.
 
-## When to fall back to grep/glob
-- Searching for string literals, error messages, config values
-- Searching non-code files (Dockerfiles, shell scripts, configs)
-- When MCP tools return insufficient results
+### Serena MCP
 
-## Examples
-- Find a handler: `search_graph(name_pattern=".*OrderHandler.*")`
-- Who calls it: `trace_path(function_name="OrderHandler", direction="inbound")`
-- Read source: `get_code_snippet(qualified_name="pkg/orders.OrderHandler")`
-<!-- codebase-memory-mcp:end -->
+- **Origem/registro:** Spec 044 / DEB-044-01. Implementado localmente em 2026-06-22 com `serena-agent` v1.5.3; OpenCode configurado em `opencode.json`; Claude Code configurado via MCP local; Codex usa config MCP local do usuário.
+- **Função:** navegação e edição semântica por símbolo via LSP. Útil quando o alvo é função, classe, método, referência ou impacto de mudança.
+- **Ferramentas esperadas:** `get_symbols_overview`, `find_symbol`, `find_referencing_symbols`, `replace_symbol_body`, `insert_before_symbol`, `insert_after_symbol`, `rename_symbol`, `get_diagnostics_for_file`.
+- **Usar para:** entender símbolos top-level de arquivo novo; ler corpo exato com `include_body=true`; localizar referências antes de editar; fazer edição cirúrgica por símbolo.
+- **Não usar para:** string literal, mensagem de erro, config, JSON/YAML, shell, Dockerfile ou símbolo que o LSP não resolveu. Use `rtk rg`/leitura direta nesses casos.
+- **Trava:** diagnóstico LSP é auxiliar. Nunca substitui `pnpm run lint`, `pnpm run build` e testes/validação CLI exigidos pela tarefa.
 
-> Serena MCP (`serena__*`) = opcional e não-versionado (configurado em `opencode.json`/config MCP local, ambos gitignored). Tem? Use para navegação/edição semântica por símbolo (LSP-aware). Não tem? Baseline = `rg`/grep/glob + `codebase-memory-mcp`.
+### codebase-memory-mcp
 
-# Semantic Symbol Navigation (Serena MCP)
+- **Origem/registro:** Spec 044 / DEB-044-02. Implementado localmente em 2026-06-22 com `codebase-memory-mcp` v0.8.1; smoke registrou grafo com ~10.6k nós / 18.1k arestas e `search_graph` OK. OpenCode e Claude Code configurados; Codex usa config MCP local do usuário.
+- **Função:** grafo persistente do código para descoberta estrutural, chamadas, arquitetura e impacto. Complementa Serena; não substitui busca textual.
+- **Ferramentas esperadas:** `search_graph`, `trace_path`, `get_code_snippet`, `query_graph`, `get_architecture`.
+- **Usar para:** achar funções/classes/rotas/variáveis por padrão; rastrear quem chama quem; ler snippet específico; consultar fan-out/fan-in; obter visão de arquitetura.
+- **Não usar para:** literais, mensagens, configs, docs, YAML/JSON, shell, Dockerfile ou quando o grafo estiver desatualizado/insuficiente. Fallback = `rtk rg`, `ast-grep`, leitura direta.
+- **Disciplina:** código real continua fonte material. Se grafo e arquivo divergirem, o arquivo vence; registrar débito se a ferramenta induzir erro recorrente.
 
-Serena (DEB-044-01) dá navegação e edição **por símbolo** via LSP (resolução exata, não textual). **Quando as ferramentas `serena__*` estiverem disponíveis**, prefira-as a `rg` para localizar/editar símbolos; senão use o baseline (`rg`/glob + `codebase-memory-mcp`).
+### artificio-api-governance
 
-## Quando usar Serena
-- `get_symbols_overview` — entender um arquivo novo antes de abri-lo inteiro (lista símbolos top-level).
-- `find_symbol` — localizar função/classe/método por name path (ex.: `MyClass/method`); `include_body=true` lê o corpo exato sem Read do arquivo todo.
-- `find_referencing_symbols` — quem chama/usa um símbolo (impacto antes de editar).
-- `replace_symbol_body` / `insert_before_symbol` / `insert_after_symbol` / `rename_symbol` — edição cirúrgica por símbolo (preserva o resto do arquivo).
-- `get_diagnostics_for_file` — diagnósticos LSP (auxiliar, **não** substitui `pnpm run lint`/`build`).
+- **Origem/registro:** Spec 055 / DEB-055-06. Implementado em 2026-06-28 via `pnpm api:mcp`, servidor MCP stdio mínimo sobre `scripts/api/api-mcp-server.ts`.
+- **Função:** descoberta de rotas de API a partir do bundle gerado, proibindo uso de memória de chat como fonte primária.
+- **Ferramentas esperadas:** `search_api` e `get_api_bundle_summary`.
+- **Fonte lida:** somente `docs/api/generated/artificio-api.bundle.json`. Se desatualizado, rodar `pnpm verify:api` e revisar artefatos gerados.
+- **Usar para:** descobrir método/path/app/scope/auth/consumidores de rota; confirmar impacto de mudança API; orientar atualização OpenAPI.
+- **Não usar para:** provar comportamento runtime sozinho. Depois da descoberta, verificar código real e rodar `pnpm verify:api` quando tocar `apps/**`, `packages/**`, `scripts/api/**`, `docs/api/openapi/**` ou allowlist.
 
-## Quando NÃO usar (fallback)
-- String literal, mensagem de erro, valor de config → `rg`.
-- Arquivo não-código (Dockerfile, shell, JSON/YAML) → `rg`/Read.
-- Símbolo não resolvido pelo LSP (drift do language server) → `rg` + validação CLI.
+### Ordem de uso
 
-## Disciplina (pétrea local)
-- Diagnóstico LSP do Serena é auxiliar. **Sempre** `pnpm run lint` + `pnpm run build` antes de declarar tarefa concluída.
-- Edição por símbolo não dispensa revisão do diff nem as regras de escopo/isolamento de app.
+1. `artificio-api-governance` para qualquer pergunta/mudança de API.
+2. LSP para diagnóstico automático de arquivos tocados e impacto semântico.
+3. Serena MCP para navegação/edição por símbolo quando o símbolo é conhecido ou localizável.
+4. `codebase-memory-mcp` para mapa estrutural, dependências, chamadas e arquitetura.
+5. `ast-grep`, `rtk rg`, `rtk read`, `git`, leitura direta e validação CLI.
+
+Config local pode diferir entre clientes:
+- **OpenCode:** `opencode.json`.
+- **Claude Code:** MCP local em `.claude.json`/config Claude do usuário.
+- **Codex:** `C:\Users\paulo\.codex\config.toml`.
+
+Não acionar outro agente em nome do mantenedor sem aprovação nominal; usar MCPs locais de leitura/navegação não muda esta regra.
 
 ---
 
@@ -434,12 +440,13 @@ Achados internos de investigação, lint, build ou auditoria entram em `debitos.
 
 ## Ferramentas preferidas
 
-Quando disponíveis, agentes devem preferir:
+Quando disponíveis, agentes devem seguir a seção **Ferramentas MCP / Agentes** acima. Resumo operacional:
 
-1. LSP
-2. Serena MCP
-3. codebase-memory-mcp
-4. ast-grep, rg, grep e leitura direta
+1. `artificio-api-governance` para API.
+2. LSP para diagnóstico automático.
+3. Serena MCP para símbolo/edição semântica.
+4. `codebase-memory-mcp` para grafo/impacto.
+5. `ast-grep`, `rtk rg`, `rtk read`, `git` e leitura direta.
 
 Se essas ferramentas não estiverem disponíveis, usar fallback local e registrar a limitação.
 

@@ -66,15 +66,6 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
             ✏️ Editar mesa
           </button>
 
-          {vm.status === 'draft' && (
-            <button
-              onClick={() => handleStatus(vm.id, 'active')}
-              className="w-full py-2 rounded-lg bg-[var(--state-success-bg)] hover:bg-[var(--state-success-bg)] text-[var(--state-success-fg)] text-sm font-medium transition"
-            >
-              🚀 Publicar mesa
-            </button>
-          )}
-
           {vm.status !== 'cancelled' && vm.status !== 'draft' && (
             <button
               onClick={() => handleStatus(vm.id, 'cancelled')}
@@ -102,7 +93,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
             </button>
           )}
 
-          {vm.status !== 'ended' && (
+          {vm.status !== 'ended' && vm.status !== 'draft' && (
             <button
               onClick={() => handleStatus(vm.id, 'ended')}
               className="w-full py-2 rounded-lg bg-[var(--fill)] hover:bg-[var(--fill)] text-[var(--fg-muted)] text-sm font-medium transition"

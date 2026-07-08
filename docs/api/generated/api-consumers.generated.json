@@ -1542,12 +1542,22 @@
     {
       "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/admin/components/ConteudoSection.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/tables",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authGet",
+      "line": 78
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ConteudoSection.tsx",
       "method": "DELETE",
       "endpoint": "/api/v1/admin/tables/:param",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 102
+      "line": 104
     },
     {
       "app": "mesas-frontend",
@@ -1557,7 +1567,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPut",
-      "line": 124
+      "line": 128
     },
     {
       "app": "mesas-frontend",
@@ -1587,7 +1597,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 144
+      "line": 148
     },
     {
       "app": "mesas-frontend",
@@ -2328,16 +2338,6 @@
       "pattern": "template-literal",
       "wrapper": "authDelete",
       "line": 128
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ConteudoSection.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/tables",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "authGet",
-      "line": 76
     },
     {
       "app": "mesas-frontend",
