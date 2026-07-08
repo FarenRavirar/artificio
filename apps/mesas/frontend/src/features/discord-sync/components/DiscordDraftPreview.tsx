@@ -335,7 +335,16 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
           >
             {h.syncing ? 'Sincronizando...' : 'Sincronizar como mesa'}
           </button>
-          {draft.status === 'synced' && draft.table_id && <span className="text-green-400 text-sm self-center">Mesa: {draft.table_id}</span>}
+          {draft.status === 'synced' && draft.table_id && (
+            <a
+              href={`/painel?edit=${draft.table_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-400 text-sm self-center underline hover:text-green-300"
+            >
+              Ver mesa
+            </a>
+          )}
         </div>
       </div>
     </dialog>
