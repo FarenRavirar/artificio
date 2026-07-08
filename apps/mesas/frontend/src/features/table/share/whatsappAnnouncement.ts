@@ -62,14 +62,29 @@ export async function fetchTableDetailBySlug(slug: string): Promise<TableDetail>
 const COMMUNITY_LINK = 'https://chat.whatsapp.com/CZZJy5XOYhxAC8pXXOJM7m';
 const GUIDE_LINK = 'https://artificiorpg.com/blog/como-anunciar-mesa-de-rpg/';
 
+/**
+ * Remove qualquer caractere `<`/`>` residual até fixpoint — corta a raiz de
+ * sanitização multi-char incompleta (achado CodeQL, PR #139, 2026-07-08):
+ * um único passe de `<[^>]*>` deixa tag nao-fechada tipo `<script` intacta.
+ */
+function stripAngleBrackets(value: string): string {
+  let previous: string;
+  let current = value;
+  do {
+    previous = current;
+    current = current.replaceAll(/<[^>]*>?/g, '');
+  } while (current !== previous);
+  return current;
+}
+
 function cleanText(value: unknown): string {
   if (typeof value !== 'string') return '';
 
-  return value
-    .replaceAll(/<br ?\/?>/gi, '\n')
-    .replaceAll(/<\/p>/gi, '\n\n')
-    .replaceAll(/<[^>]*>/g, '')
-    .replaceAll(/[<>]/g, '')
+  return stripAngleBrackets(
+    value
+      .replaceAll(/<br ?\/?>/gi, '\n')
+      .replaceAll(/<\/p>/gi, '\n\n'),
+  )
     .replaceAll(/\[([^\]]+)]\((https?:\/\/\S+)\)/g, '$1: $2')
     .replaceAll(/`{1,3}/g, '')
     .replaceAll(/^ {0,3}#{1,6} /gm, '')

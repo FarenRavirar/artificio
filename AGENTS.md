@@ -385,6 +385,15 @@ As ferramentas locais abaixo foram adotadas para reduzir retrabalho, detectar er
 4. `codebase-memory-mcp` para mapa estrutural, dependências, chamadas e arquitetura.
 5. `ast-grep`, `rtk rg`, `rtk read`, `git`, leitura direta e validação CLI.
 
+**Mapeamento operação → ferramenta (não usar Grep/Read por hábito quando LSP/Serena resolve):**
+
+- Onde X está definido → LSP `workspaceSymbol`/`goToDefinition` ou Serena `find_symbol`.
+- Quem usa/chama X → LSP `findReferences` ou Serena `find_referencing_symbols`.
+- Interface → implementação concreta → LSP `goToImplementation`.
+- Tipo/assinatura sem abrir arquivo inteiro → LSP `hover` ou Serena `get_symbols_overview`.
+- Depois de escrever/editar código → checar diagnostics do LSP e corrigir antes de prosseguir; não substitui `pnpm run lint`/`pnpm run build`.
+- Grep/`rtk rg` só para texto/padrão literal (comentário, string, config, YAML/JSON/Dockerfile/shell) ou quando LSP/Serena não cobre a linguagem/arquivo.
+
 Config local pode diferir entre clientes:
 - **OpenCode:** `opencode.json`.
 - **Claude Code:** MCP local em `.claude.json`/config Claude do usuário.
