@@ -22,8 +22,11 @@ export type TableDraftModality = 'online' | 'presencial' | 'hibrida';
 export type TableDraftPriceType = 'gratuita' | 'paga';
 export type TableDraftFrequency = 'semanal' | 'quinzenal' | 'mensal' | 'avulsa';
 export type CoverQuality = 'standard' | 'low';
-/** Fase B (spec 058): mesmos enums de `TablesTable` (db/types.ts) — mantidos em sincronia manual. */
-export type TableDraftAgeRating = 'livre' | '10+' | '12+' | '14+' | '16+' | '18+';
+/** Fase B (spec 058): mesmos enums de `TablesTable` (db/types.ts) — mantidos em sincronia manual.
+ * ATENÇÃO ao formato do enum Postgres real: `+18` (sinal ANTES do número), não `18+`.
+ * Formato invertido aqui + em db/types.ts causou 500 "invalid input value for enum
+ * age_rating: 18+" no sync de draft (achado do mantenedor 2026-07-08). */
+export type TableDraftAgeRating = 'livre' | '+10' | '+12' | '+14' | '+16' | '+18';
 export type TableDraftExperienceLevel = 'todos' | 'iniciante' | 'intermediario' | 'veterano';
 export type TableDraftTableLevel = 'iniciante' | 'intermediario' | 'avancado';
 export type DiscordImageUploadStatus =

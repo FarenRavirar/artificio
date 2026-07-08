@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from 'react';
 import type { DraftFieldInsight, DraftFieldKey, DraftForm, DraftTableType, DraftModality, DraftPriceType, DraftFrequency, DraftDayOfWeek, DraftAgeRating, DraftExperienceLevel, DraftTableLevel, SimpleCatalogEntry } from '../draftFormUtils';
+import { mapAuditCandidateToForm, VALID_AGE_RATINGS } from '../draftFormUtils';
 import type { AiAutomationConfig, CompletenessAuditCandidate, DiscordSlotsAmbiguity, LlmActivity } from '../types';
 import type { SystemTreeNode } from '../../../types/systems';
 import { SystemSearchSelect } from './SystemSearchSelect';
@@ -170,14 +171,48 @@ export function DraftEditorTab({
         </div>
         {Array.isArray(completenessSuggestions) && completenessSuggestions.length > 0 && (
           <div className="mt-2 space-y-1">
-            {completenessSuggestions.map((item, index) => (
-              <p key={`${item.field}-${index}`} className="text-xs text-blue-100">
-                <span className={`mr-1 rounded px-1 py-0.5 text-[10px] uppercase ${item.issue_type === 'incorrect' ? 'bg-red-500/20 text-red-200' : 'bg-amber-500/20 text-amber-200'}`}>
-                  {item.issue_type === 'incorrect' ? 'conferir' : 'faltando'}
-                </span>
-                {item.field}: {formatSuggestion(item.value)} <span className="text-white/45">{item.evidence}</span>
-              </p>
-            ))}
+            {/* Achado do mantenedor (2026-07-08): candidatos eram só texto —
+                relatório sem ação não serve. Botão aplica direto no form
+                (campo mapeável); campo sem correspondente no form fica sem
+                botão, marcado "manual". */}
+            {completenessSuggestions.some((item) => mapAuditCandidateToForm(item.field, item.value) !== null) && (
+              <button
+                type="button"
+                onClick={() => {
+                  for (const item of completenessSuggestions) {
+                    const update = mapAuditCandidateToForm(item.field, item.value);
+                    if (update) onUpdateForm(update.key, update.value);
+                  }
+                }}
+                className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
+              >
+                Aplicar todos
+              </button>
+            )}
+            {completenessSuggestions.map((item, index) => {
+              const update = mapAuditCandidateToForm(item.field, item.value);
+              return (
+                <p key={`${item.field}-${index}`} className="text-xs text-blue-100">
+                  <span className={`mr-1 rounded px-1 py-0.5 text-[10px] uppercase ${item.issue_type === 'incorrect' ? 'bg-red-500/20 text-red-200' : 'bg-amber-500/20 text-amber-200'}`}>
+                    {item.issue_type === 'incorrect' ? 'conferir' : 'faltando'}
+                  </span>
+                  {item.field}: {formatSuggestion(item.value)} <span className="text-white/45">{item.evidence}</span>
+                  {update ? (
+                    <button
+                      type="button"
+                      onClick={() => onUpdateForm(update.key, update.value)}
+                      className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-white/70 hover:bg-white/20"
+                    >
+                      Aplicar
+                    </button>
+                  ) : (
+                    <span className="ml-1 rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-white/40" title="Campo sem correspondente editável no formulário — ajuste manualmente se fizer sentido.">
+                      manual
+                    </span>
+                  )}
+                </p>
+              );
+            })}
           </div>
         )}
       </div>
@@ -251,6 +286,7 @@ export function DraftEditorTab({
                 onClick={onRefreshSystems}
                 disabled={systemsLoading}
                 title="Recarregar lista de sistemas"
+                aria-label="Recarregar lista de sistemas"
                 className="text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 transition-colors disabled:opacity-40"
               >
                 ↻
@@ -364,13 +400,15 @@ export function DraftEditorTab({
         <label>
           <span className={labelClass}>Classificação indicativa</span>
           <select value={form.age_rating} onChange={(e) => onUpdateForm('age_rating', e.target.value as DraftAgeRating)} className="app-select w-full">
+            {/* Values no formato do enum Postgres real (`+18`, sinal antes) —
+                mesmo formato do form principal (StepConfig.tsx). `18+` invertido
+                estourava 500 no sync (achado do mantenedor 2026-07-08).
+                VALID_AGE_RATINGS (achado CodeRabbit PR #135): fonte única, evita
+                lista divergir de novo do union type/normalizador. */}
             <option value="">Não informada</option>
-            <option value="livre">Livre</option>
-            <option value="10+">10+</option>
-            <option value="12+">12+</option>
-            <option value="14+">14+</option>
-            <option value="16+">16+</option>
-            <option value="18+">18+</option>
+            {VALID_AGE_RATINGS.map((rating) => (
+              <option key={rating} value={rating}>{rating === 'livre' ? 'Livre' : rating}</option>
+            ))}
           </select>
         </label>
         <label>

@@ -274,6 +274,37 @@ export function buildTableData(
   };
 }
 
+// Legado (achado do mantenedor 2026-07-08): pipeline Discord gravou age_rating
+// no formato invertido `18+` (enum Postgres real é `+18`) em drafts antigos —
+// payload já persistido continua estourando o sync mesmo após o fix do parser.
+// Normaliza `NN+` para `+NN`; valor não reconhecido vira null (não trava sync,
+// campo é opcional).
+const VALID_AGE_RATINGS = new Set(['livre', '+10', '+12', '+14', '+16', '+18']);
+function normalizeAgeRating(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (VALID_AGE_RATINGS.has(trimmed)) return trimmed;
+  const inverted = /^(\d{2})\+$/.exec(trimmed);
+  if (inverted && VALID_AGE_RATINGS.has(`+${inverted[1]}`)) return `+${inverted[1]}`;
+  return null;
+}
+
+// CHECK check_slots_valid (Postgres): slots_open >= 0 AND slots_filled >= 0
+// AND slots_open <= slots_total. Parser pode extrair valores ambíguos onde
+// slots_open > slots_total (ex.: "vagas 5/3" mal interpretado) — sem clamp
+// o insert quebrava 500 direto do Postgres em vez de dado consistente
+// (achado do mantenedor 2026-07-08, mesma classe do bug age_rating/gm_name).
+function normalizeSlots(
+  rawTotal: number | null | undefined,
+  rawFilled: number | null | undefined,
+  rawOpen: number | null | undefined,
+): { slots_total: number; slots_filled: number; slots_open: number } {
+  const total = Math.max(0, rawTotal ?? rawOpen ?? 0);
+  const open = Math.min(Math.max(0, rawOpen ?? rawTotal ?? 0), total);
+  const filled = Math.min(Math.max(0, rawFilled ?? 0), total);
+  return { slots_total: total, slots_filled: filled, slots_open: open };
+}
+
 function buildTableDraftFields(
   draft: ImportTableDraft,
   gmName: string | null,
@@ -290,16 +321,14 @@ function buildTableDraftFields(
     title: t.title,
     description: t.description ?? null,
     type: t.type ?? 'campanha',
-    age_rating: t.age_rating ?? null,
+    age_rating: normalizeAgeRating(t.age_rating) as Insertable<TablesTable>['age_rating'],
     modality: t.modality ?? 'online',
     vtt_platform_id: t.vtt_platform_id ?? null,
     communication_platform_id: t.communication_platform_id ?? null,
     price_type: t.price_type ?? 'gratuita',
     price_value: t.price_value ?? null,
     price_frequency: t.price_type === 'paga' ? 'sessao' : null,
-    slots_total: t.slots_total ?? t.slots_open ?? 0,
-    slots_filled: t.slots_filled ?? 0,
-    slots_open: t.slots_open ?? t.slots_total ?? 0,
+    ...normalizeSlots(t.slots_total, t.slots_filled, t.slots_open),
     experience_level: t.experience_level ?? 'todos',
     table_level: t.table_level ?? null,
     setting_name: t.setting_name ?? null,
@@ -507,6 +536,16 @@ export async function syncDraftToTable(
   const sourceId = config.getSourceId(messageRow);
   const sourceUrl = config.getSourceUrl(messageRow);
   const gmName = config.getGmName(payload, adminDisplayName);
+
+  // CHECK tables_announcer_requires_name (Postgres): publisher_role='announcer'
+  // (sempre, nesse pipeline) exige actual_gm_name não-nulo com >=2 chars após
+  // trim. gmName vem de payload.source.author_name (Discord API não garante
+  // presença) ou adminDisplayName — nenhum dos dois validado antes. Sem esse
+  // check, insert quebrava com 500 do Postgres em vez de 422 com mensagem
+  // clara (achado do mantenedor 2026-07-08, mesma classe do bug age_rating).
+  if (!gmName || gmName.trim().length < 2) {
+    throw new config.ValidationError(['gm_name']);
+  }
 
   const existingTable = await db
     .selectFrom('tables')
