@@ -206,6 +206,7 @@ export const MesaPage = () => {
                 vm={vm}
                 variant={canManage ? 'owner' : 'full'}
                 deleteEndpointScope={isAdmin ? 'admin' : 'gm'}
+                announcementTable={table}
               />
             )}
 

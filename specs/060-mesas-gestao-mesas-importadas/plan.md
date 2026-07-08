@@ -12,6 +12,12 @@ Frontend: `ConteudoSection.tsx` troca a fonte de dados da aba de mesas de
 (novo, todos status). Adiciona dropdown de filtro por status. Remove o
 guard que bloqueia `draft` em `handleToggleTableStatus`.
 
+**Gate de copia:** ao carregar draft/outros status alem de active, o botao
+"Copiar anuncio" (spec 059) deve ficar oculto/desabilitado para mesas com
+`status !== 'active'` ou `archived_at is not null`, seguindo a decisao da
+spec 059: copiar somente mesas publicadas/ativas e nao arquivadas. Nao
+expor acao de copia para rascunho/cancelada/arquivada.
+
 ## Arquivos afetados
 
 - `apps/mesas/backend/src/repositories/tableRepository.ts` — método novo

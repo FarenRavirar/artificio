@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { sql } from 'kysely';
 import { db } from '../db';
 import { upgradeGoogleImageQuality } from '../utils/urlValidation';
+import { isImportedTableExpired } from '../utils/tableVisibility';
+import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
 
 const router = Router();
 
@@ -104,6 +106,44 @@ function injectMetaTags(html: string, meta: MetaFields): string {
   return output;
 }
 
+function toAbsoluteSiteUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${SITE_URL}${path}`;
+}
+
+function resolveOgImageUrl(...candidates: Array<string | null | undefined>): string {
+  for (const candidate of candidates) {
+    const sanitized = sanitizePublicImageUrl(candidate);
+    if (!sanitized) continue;
+    const absolute = toAbsoluteSiteUrl(upgradeGoogleImageQuality(sanitized, 400));
+    if (absolute) return absolute;
+  }
+  return DEFAULT_OG_IMAGE;
+}
+
+function buildTableDescription(table: {
+  listing_excerpt: string | null;
+  synopsis_narrative: string | null;
+  synopsis: string | null;
+  description: string | null;
+  title: string;
+  system_name: string | null;
+  gm_display_name: string | null;
+}): string {
+  const primary =
+    table.listing_excerpt || table.synopsis_narrative || table.synopsis || table.description;
+  if (primary) return truncate(primary, 200);
+
+  const parts = [table.title];
+  if (table.system_name) parts.push(table.system_name);
+  if (table.gm_display_name) parts.push(`mestrada por ${table.gm_display_name}`);
+  return truncate(parts.join(' — '), 200);
+}
+
 function getFallbackMeta(pathname = '/'): MetaFields {
   return {
     title: 'Artifício Mesas — Encontre sua próxima aventura de RPG',
@@ -172,6 +212,61 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
         });
 
         return res.status(200).type('html').send(output);
+    } else if (type === 'mesas') {
+      const table = await db
+        .selectFrom('tables as t')
+        .leftJoin('gm_profiles as gm', 'gm.id', 't.gm_id')
+        .leftJoin('users as u', 'u.id', 'gm.user_id')
+        .leftJoin('profiles as p', 'p.user_id', 'u.id')
+        .leftJoin('systems as s', 's.id', 't.system_id')
+        .select([
+          't.slug',
+          't.title',
+          't.description',
+          't.banner_url',
+          sql<string | null>`t.banner_url`.as('cover_url'),
+          't.status',
+          't.archived_at',
+          't.origin',
+          't.created_at',
+          't.starts_at',
+          't.listing_excerpt',
+          't.synopsis',
+          't.synopsis_narrative',
+          's.name as system_name',
+          sql<string>`COALESCE(gm.nickname, p.display_name)`.as('gm_display_name'),
+        ])
+        .where('t.slug', '=', slug)
+        .executeTakeFirst();
+
+      const isVisible =
+        !!table &&
+        table.status === 'active' &&
+        !table.archived_at &&
+        !isImportedTableExpired(table);
+
+      if (!isVisible) {
+        const htmlNotFound = injectMetaTags(html, {
+          ...getFallbackMeta(`/mesas/${encodeURIComponent(slug)}`),
+          title: 'Mesa não encontrada — Artifício Mesas',
+        });
+
+        return res.status(200).type('html').send(htmlNotFound);
+      }
+
+      const title = `${table.title} — Mesa de RPG | ${SITE_NAME}`;
+      const description = buildTableDescription(table);
+      const imageUrl = resolveOgImageUrl(table.banner_url, table.cover_url);
+
+      const output = injectMetaTags(html, {
+        title,
+        description,
+        imageUrl,
+        canonicalUrl: `${SITE_URL}/mesas/${encodeURIComponent(table.slug)}`,
+        ogType: 'website',
+      });
+
+      return res.status(200).type('html').send(output);
     } else {
       // Tipo não suportado - retorna fallback
         const htmlFallback = injectMetaTags(html, getFallbackMeta(`/${type}/${slug}`));

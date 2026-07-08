@@ -3,6 +3,7 @@ import { sql } from 'kysely';
 import { db } from '../db';
 import { logDatabaseError } from '../middleware/requestLogger';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
+import { isImportedTableExpired } from '../utils/tableVisibility';
 
 const router = Router();
 
@@ -304,6 +305,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
         't.type',
         't.audience',
         't.modality',
+        't.age_rating',
         't.price_type',
         't.price_value',
         't.price_frequency',
@@ -396,16 +398,8 @@ router.get('/:slug', async (req: Request, res: Response) => {
     }
 
     // Validar expiração para mesas importadas
-    if (table.origin === 'imported') {
-      const limite5Dias = new Date(table.created_at);
-      limite5Dias.setDate(limite5Dias.getDate() + 5);
-
-      const limiteEvento = table.starts_at ? new Date(table.starts_at) : limite5Dias;
-      const validadeFinal = limiteEvento < limite5Dias ? limiteEvento : limite5Dias;
-
-      if (new Date() >= validadeFinal) {
-        return res.status(404).json({ error: 'Mesa não encontrada ou expirada.' });
-      }
+    if (isImportedTableExpired(table)) {
+      return res.status(404).json({ error: 'Mesa não encontrada ou expirada.' });
     }
 
     const contacts = await db

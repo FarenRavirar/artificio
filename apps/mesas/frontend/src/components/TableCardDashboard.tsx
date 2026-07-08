@@ -4,6 +4,9 @@ import { SystemBadge } from './SystemBadge';
 import { CertificationBadges } from './CertificationBadges';
 import { applyTableImageFallback, resolveTableImageSource } from '../utils/tableImage';
 import { InlineDeleteConfirmation } from './InlineDeleteConfirmation';
+import type { TableDetail } from '../types/tables';
+import { CopyAnnouncementButton } from '../features/table/components/CopyAnnouncementButton';
+import { fetchTableDetailBySlug } from '../features/table/share/whatsappAnnouncement';
 
 interface TableMetrics {
   views: number;
@@ -68,6 +71,9 @@ export function TableCardDashboard({
   
   // UX: Identificar mesas desativadas
   const isInactive = table.status === 'cancelled' || table.status === 'ended';
+  const canCopyAnnouncement = table.status === 'active' && !table.archived;
+
+  const loadAnnouncementTable = async (): Promise<TableDetail> => fetchTableDetailBySlug(table.slug);
 
   return (
     <div className={`relative rounded-2xl border p-4 flex flex-col gap-3 hover:scale-[1.01] transition-all ${
@@ -214,6 +220,14 @@ export function TableCardDashboard({
         >
           {isToggling ? '⏳' : table.status === 'active' ? 'Desativar' : 'Ativar'}
         </button>
+
+        {canCopyAnnouncement && (
+          <CopyAnnouncementButton
+            loadTable={loadAnnouncementTable}
+            ariaLabel={`Copiar anuncio da mesa ${table.title}`}
+            className="col-span-2 py-2 text-xs bg-[var(--fill)] hover:bg-[var(--fill-strong)] text-[var(--fg)] disabled:opacity-50 disabled:cursor-wait rounded-lg transition-colors flex items-center justify-center gap-2"
+          />
+        )}
 
         {onArchive && (
           <button

@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 293,
-    "uniqueEndpoints": 273,
+    "total": 295,
+    "uniqueEndpoints": 275,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,15 +36,15 @@
         }
       },
       "mesas-frontend": {
-        "total": 177,
+        "total": 179,
         "byConfidence": {
-          "medium": 67,
+          "medium": 69,
           "high": 108,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
-          "template-literal": 59,
+          "template-literal": 61,
           "service-wrapper": 49,
           "literal": 61,
           "concatenation": 2
@@ -1547,7 +1547,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 78
+      "line": 89
     },
     {
       "app": "mesas-frontend",
@@ -1557,7 +1557,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 104
+      "line": 115
     },
     {
       "app": "mesas-frontend",
@@ -1567,7 +1567,17 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPut",
-      "line": 128
+      "line": 139
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftPreview.tsx",
+      "method": "PUT",
+      "endpoint": "/api/v1/admin/tables/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authPut",
+      "line": 55
     },
     {
       "app": "mesas-frontend",
@@ -1577,7 +1587,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 35
+      "line": 39
     },
     {
       "app": "mesas-frontend",
@@ -1597,7 +1607,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 148
+      "line": 185
     },
     {
       "app": "mesas-frontend",
@@ -1777,7 +1787,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 35
+      "line": 39
     },
     {
       "app": "mesas-frontend",
@@ -2378,6 +2388,16 @@
       "pattern": "template-literal",
       "wrapper": "fetch",
       "line": 71
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/table/share/whatsappAnnouncement.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/tables/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authGet",
+      "line": 44
     },
     {
       "app": "mesas-frontend",

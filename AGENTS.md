@@ -201,6 +201,8 @@ Fluxo: `<tipo>/<escopo>` → `dev`/Beta → `main`/Produção. Tipos comuns: `fe
 
 **⚠️ TRAVA PÉTREA — `promote-prod-fast-forward.yml` NUNCA dispara deploy de prod.** Promote só move o ponteiro Git (`main` fast-forward pra `dev`); não chama `deploy.yml`, não builda, não sobe container. **Prod só atualiza com `workflow_dispatch` manual explícito**: `gh workflow run deploy.yml --ref main -f module=<modulo> -f mode=deploy -f env=prod`. Regra dura: depois de qualquer `promote` aprovado, **nunca declarar "promovido" ou "em produção" sem também disparar e confirmar esse deploy** — Git atualizado ≠ prod atualizado. Verificar sempre com `gh run list --workflow=deploy.yml --branch=main --limit=5` antes de afirmar que prod está no ar com a mudança. Causa raiz real (2026-07-08, spec discord-sync mesas): promote de PR #136 rodou com sucesso, `main` ficou correto, mas prod continuou rodando código antigo (sem os fixes de validação/enum) por 2 promotes seguidos sem deploy — usuário continuou vendo o mesmo 422 em produção enquanto o agente reportava a tarefa como concluída.
 
+**TRAVA PÉTREA — branch nova SEMPRE parte de `dev` atualizado, nunca de outra branch de trabalho.** `git switch -c <tipo>/<escopo>` sempre a partir de `origin/dev` sincronizado (`git fetch origin && git switch -c <tipo>/<escopo> origin/dev`), nunca em cima do HEAD de uma branch de trabalho já existente (mesmo que pareça "relacionada"). Branch-sobre-branch herda o histórico de commits da branch-base, mesmo se ela já foi mergeada — vira PR com 3 commits em vez de 1, gera conflito e faz o bot de review analisar diff errado/incompleto. Causa raiz real (2026-07-08, spec 059): `git switch -c feat/059-...` rodou sem `git switch -c` a partir de `dev`, criou a partir do HEAD de `fix/mesas-draft-publish-flow` (branch antiga com 2 commits locais não sincronizados) → PR #138 saiu com 3 commits em vez de 1 e conflito de merge.
+
 - Criar branch de trabalho (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `infra/*`): automático, exceto se for doc-only acumulado que deve ficar local.
 - `git push origin <branch-de-trabalho>`: automático para código/feature autorizada; **doc-only segue a regra própria abaixo**.
 - Abrir PR para `dev`: automático para código/feature autorizada, sempre **ready for review** e **não draft**, salvo pedido explícito diferente; **doc-only não abre PR sozinho**.
@@ -382,6 +384,15 @@ As ferramentas locais abaixo foram adotadas para reduzir retrabalho, detectar er
 3. Serena MCP para navegação/edição por símbolo quando o símbolo é conhecido ou localizável.
 4. `codebase-memory-mcp` para mapa estrutural, dependências, chamadas e arquitetura.
 5. `ast-grep`, `rtk rg`, `rtk read`, `git`, leitura direta e validação CLI.
+
+**Mapeamento operação → ferramenta (não usar Grep/Read por hábito quando LSP/Serena resolve):**
+
+- Onde X está definido → LSP `workspaceSymbol`/`goToDefinition` ou Serena `find_symbol`.
+- Quem usa/chama X → LSP `findReferences` ou Serena `find_referencing_symbols`.
+- Interface → implementação concreta → LSP `goToImplementation`.
+- Tipo/assinatura sem abrir arquivo inteiro → LSP `hover` ou Serena `get_symbols_overview`.
+- Depois de escrever/editar código → checar diagnostics do LSP e corrigir antes de prosseguir; não substitui `pnpm run lint`/`pnpm run build`.
+- Grep/`rtk rg` só para texto/padrão literal (comentário, string, config, YAML/JSON/Dockerfile/shell) ou quando LSP/Serena não cobre a linguagem/arquivo.
 
 Config local pode diferir entre clientes:
 - **OpenCode:** `opencode.json`.

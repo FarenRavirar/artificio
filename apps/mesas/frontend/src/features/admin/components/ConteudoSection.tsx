@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Archive, ArchiveRestore, Power, ShieldCheck, Trash2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Archive, ArchiveRestore, Copy, Power, ShieldCheck, Trash2 } from 'lucide-react';
 import { useConfirm } from '@artificio/ui';
 import toast from 'react-hot-toast';
 import { SystemsAdminView } from '../../../pages/SystemsAdminView';
@@ -9,9 +10,12 @@ import { authDelete, authGet, authPost, authPut } from '../../../services/apiCli
 import { AdminTable, PageHeader, SectionCard, StatusPill, tabButtonClass } from './ui';
 import { SettingSuggestionsPanel } from './SettingSuggestionsPanel';
 import { formatDate } from '../utils/format';
+import { getMesasPublicOrigin } from '../../../utils/auth';
+import { buildWhatsAppTableAnnouncement, copyTextToClipboard, fetchTableDetailBySlug, isTableAnnounceable } from '../../table/share/whatsappAnnouncement';
 
 interface AdminTableRow {
   id: string;
+  slug: string;
   title: string;
   status: string;
   created_at: string;
@@ -26,7 +30,7 @@ const TAB_LABEL: Record<CatalogTab, string> = {
   platforms: 'Plataformas',
   scenarios: 'Cenários',
   'setting-styles': 'Estilos por cenário',
-  tables: 'Mesas publicadas',
+  tables: 'Mesas',
 };
 
 async function extractErrorMessage(response: Response, fallback: string): Promise<string> {
@@ -52,6 +56,7 @@ function normalizeTables(value: unknown): AdminTableRow[] {
     if (typeof row.id !== 'string' || !row.id) continue;
     rows.push({
       id: row.id,
+      slug: typeof row.slug === 'string' ? row.slug : '',
       title: typeof row.title === 'string' ? row.title : '',
       status: typeof row.status === 'string' ? row.status : 'unknown',
       created_at: typeof row.created_at === 'string' ? row.created_at : '',
@@ -61,13 +66,19 @@ function normalizeTables(value: unknown): AdminTableRow[] {
   return rows;
 }
 
+const TAB_VALUES: ReadonlySet<CatalogTab> = new Set(['systems', 'platforms', 'scenarios', 'setting-styles', 'tables']);
+
 export function ConteudoSection() {
   const { confirm } = useConfirm();
-  const [tab, setTab] = useState<CatalogTab>('systems');
+  const [urlParams] = useSearchParams();
+  const tabFromUrl = urlParams.get('tab');
+  const initialTab: CatalogTab = TAB_VALUES.has(tabFromUrl as CatalogTab) ? (tabFromUrl as CatalogTab) : 'systems';
+  const [tab, setTab] = useState<CatalogTab>(initialTab);
   const [platformKind, setPlatformKind] = useState<PlatformKind>('vtt');
   const [tables, setTables] = useState<AdminTableRow[]>([]);
   const [tablesLoading, setTablesLoading] = useState(false);
   const [tablesError, setTablesError] = useState<string | null>(null);
+  const [copyingTableId, setCopyingTableId] = useState<string | null>(null);
 
   const fetchAllTables = useCallback(async () => {
     setTablesLoading(true);
@@ -142,6 +153,32 @@ export function ConteudoSection() {
     }
     toast.success(!table.is_covil ? 'Mesa marcada como Covil do Lich.' : 'Marca Covil removida.');
     await fetchAllTables();
+  };
+
+  const handleCopyAnnouncement = async (table: AdminTableRow) => {
+    if (copyingTableId) return;
+    if (!table.slug || table.status !== 'active') {
+      toast.error('Não foi possível copiar o anúncio.');
+      return;
+    }
+
+    setCopyingTableId(table.id);
+    try {
+      const tableDetail = await fetchTableDetailBySlug(table.slug);
+      if (!isTableAnnounceable(tableDetail)) {
+        throw new Error('Mesa indisponível para anúncio');
+      }
+
+      const text = buildWhatsAppTableAnnouncement(tableDetail, {
+        publicOrigin: getMesasPublicOrigin(),
+      });
+      await copyTextToClipboard(text);
+      toast.success('Anúncio copiado.');
+    } catch {
+      toast.error('Não foi possível copiar o anúncio.');
+    } finally {
+      setCopyingTableId(null);
+    }
   };
 
   const handleTablesBatch = async (ids: string[], action: 'archive' | 'unarchive' | 'delete') => {
@@ -254,6 +291,13 @@ export function ConteudoSection() {
               { key: 'delete', label: 'Apagar', icon: <Trash2 size={15} />, tone: 'danger', confirm: 'Apagar as mesas selecionadas? Ação irreversível.', onRun: (ids) => handleTablesBatch(ids, 'delete') },
             ]}
             rowActions={[
+              {
+                key: 'copy-announcement',
+                label: copyingTableId ? 'Copiando anúncio' : 'Copiar anúncio',
+                icon: <Copy size={15} />,
+                hidden: (table) => table.status !== 'active' || !table.slug,
+                onRun: handleCopyAnnouncement,
+              },
               { key: 'status', label: 'Publicar/ativar/cancelar', icon: <Power size={15} />, onRun: handleToggleTableStatus },
               { key: 'covil', label: 'Alternar Covil', icon: <ShieldCheck size={15} />, onRun: handleToggleCovil },
               { key: 'delete', label: 'Apagar', icon: <Trash2 size={15} />, tone: 'danger', onRun: handleDeleteTable },

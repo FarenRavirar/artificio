@@ -343,11 +343,11 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | POST | `/api/v1/systems/admin` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 300 |
 | DELETE | `/api/v1/systems/admin/:id` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 534 |
 | PUT | `/api/v1/systems/admin/:id` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 405 |
-| GET | `/api/v1/tables` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 18 |
+| GET | `/api/v1/tables` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 19 |
 | USE | `/api/v1/tables` | ✅ high | `apps/mesas/backend/src/server.ts` | 118 |
-| GET | `/api/v1/tables/:slug` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 276 |
-| POST | `/api/v1/tables/:slug/click` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 518 |
-| POST | `/api/v1/tables/:slug/view` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 479 |
+| GET | `/api/v1/tables/:slug` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 277 |
+| POST | `/api/v1/tables/:slug/click` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 512 |
+| POST | `/api/v1/tables/:slug/view` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 473 |
 | POST | `/api/v1/upload` | ✅ high | `apps/mesas/backend/src/routes/upload.ts` | 25 |
 | POST | `/api/v1/upload/url` | ✅ high | `apps/mesas/backend/src/routes/upload.ts` | 58 |
 | GET | `/api/v1/vtt-platforms` | ✅ high | `apps/mesas/backend/src/routes/vttPlatforms.ts` | 75 |
@@ -367,8 +367,8 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/auth/google/callback` | ✅ high | `apps/mesas/backend/src/routes/auth.ts` | 27 |
 | POST | `/auth/logout` | ✅ high | `apps/mesas/backend/src/routes/auth.ts` | 31 |
 | USE | `/og` | ✅ high | `apps/mesas/backend/src/server.ts` | 141 |
-| GET | `/og/:type/:slug` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 118 |
-| GET | `/og/{*splat}` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 193 |
+| GET | `/og/:type/:slug` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 158 |
+| GET | `/og/{*splat}` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 288 |
 
 ## site
 

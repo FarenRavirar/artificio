@@ -1,5 +1,6 @@
 export type TableStatus = 'draft' | 'active' | 'full' | 'cancelled' | 'ended' | 'pending_review';
 export type TableModality = 'online' | 'presencial' | 'hibrida';
+export type TableAgeRating = 'livre' | '+10' | '+12' | '+14' | '+16' | '+18';
 export type PriceType = 'gratuita' | 'paga';
 export type ExperienceLevel = 'todos' | 'iniciante' | 'intermediario' | 'veterano';
 export type CatalogSeal = 'ddal' | 'covil-do-lich' | '';
@@ -91,6 +92,7 @@ export interface TableCard {
 }
 
 export interface TableDetail extends TableCard {
+  age_rating: TableAgeRating | null;
   price_frequency: string | null;
   starts_at: string | null;
   schedule_day_status?: ScheduleDefinitionStatus;
