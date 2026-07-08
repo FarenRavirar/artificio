@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Selectable } from 'kysely';
 import { db } from '../../db';
 import type { DiscordSourceChannelType, DiscordImportMessagesTable, NewDiscordImportRun } from '../../db/types';
-import type { SystemEntry, ImportRawMessage } from '../../discord';
+import type { SystemEntry, ImportRawMessage, ImportTableDraft } from '../../discord';
 import type { MatchEntry } from '../../discord/parseDiscordAnnouncement';
 import { normalizeDiscordTableDraft, parseDiscordAnnouncement, normalizeDraftPayload, assertDraftReadyTransition } from '../../discord';
 import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers';
@@ -761,6 +761,34 @@ async function persistCoverUpload(
  * — SonarCloud 24.8% dup em import.ts). Lança em erro de DB; o caller decide a
  * política de catch e os contadores conforme o `DiscordDraftOutcome` retornado.
  */
+// Achado CodeRabbit (PR #140): descarte de mesa paga e de contato não-explícito
+// repetiam a mesma sequência (mensagem->ignored, draft existente->rejected,
+// recordParseCase 'discard'). Extraído para não divergir entre os dois casos.
+async function discardParsedMessage(
+  message: Selectable<DiscordImportMessagesTable>,
+  existing: { id: string; status: string } | undefined,
+  parsed: ImportTableDraft,
+): Promise<'discarded'> {
+  await db.updateTable('discord_import_messages')
+    .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
+    .where('id', '=', message.id)
+    .execute();
+  if (existing?.id) {
+    await db.updateTable('discord_import_table_drafts')
+      .set({ status: 'rejected', updated_at: new Date() })
+      .where('id', '=', existing.id as string)
+      .where('status', 'not in', ['synced', 'rejected'])
+      .execute();
+  }
+  await recordParseCase({
+    message,
+    deterministicResult: parsed,
+    finalResult: null,
+    finalAction: 'discard',
+  });
+  return 'discarded';
+}
+
 export async function processDiscordMessageToDraft(
   message: Selectable<DiscordImportMessagesTable>,
   systems: SystemEntry[] | undefined,
@@ -819,45 +847,11 @@ export async function processDiscordMessageToDraft(
   // some silenciosamente: mensagem fica 'ignored' e o caso é registrado como
   // 'discard' para a camada de aprendizado.
   if (!acceptPaidTables && parsed.table.price_type === 'paga') {
-    await db.updateTable('discord_import_messages')
-      .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
-      .where('id', '=', message.id)
-      .execute();
-    if (existing?.id) {
-      await db.updateTable('discord_import_table_drafts')
-        .set({ status: 'rejected', updated_at: new Date() })
-        .where('id', '=', existing.id as string)
-        .where('status', 'not in', ['synced', 'rejected'])
-        .execute();
-    }
-    await recordParseCase({
-      message,
-      deterministicResult: parsed,
-      finalResult: null,
-      finalAction: 'discard',
-    });
-    return 'discarded';
+    return discardParsedMessage(message, existing, parsed);
   }
 
-  if (requireExplicitContact && !parsed.table.contact_discord && !parsed.table.contact_url) {
-    await db.updateTable('discord_import_messages')
-      .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
-      .where('id', '=', message.id)
-      .execute();
-    if (existing?.id) {
-      await db.updateTable('discord_import_table_drafts')
-        .set({ status: 'rejected', updated_at: new Date() })
-        .where('id', '=', existing.id as string)
-        .where('status', 'not in', ['synced', 'rejected'])
-        .execute();
-    }
-    await recordParseCase({
-      message,
-      deterministicResult: parsed,
-      finalResult: null,
-      finalAction: 'discard',
-    });
-    return 'discarded';
+  if (requireExplicitContact && !parsed.table.contact_url && !(parsed.table.contact_discord && parsed.table.contact_discord_explicit)) {
+    return discardParsedMessage(message, existing, parsed);
   }
 
   // WS3: enriquecimento LLM (best-effort) antes do upsert, p/ o draft salvo já

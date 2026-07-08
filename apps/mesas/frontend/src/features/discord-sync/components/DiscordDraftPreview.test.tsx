@@ -250,6 +250,27 @@ describe('DiscordDraftPreview', () => {
     expect(screen.queryByText('Publicar mesa')).not.toBeInTheDocument();
   });
 
+  it('mostra link Ver Mesa Publicada direto (sem clicar) quando mesa ja estava publicada', async () => {
+    vi.mocked(authGet).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { status: 'active', slug: 'mesa-ja-publicada' } }),
+    } as Response);
+
+    render(
+      <DiscordDraftPreview
+        draft={mockSyncedDraft}
+        onUpdate={vi.fn()}
+        onClose={vi.fn()}
+        api={mockApi}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Ver Mesa Publicada')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Publicar mesa')).not.toBeInTheDocument();
+  });
+
   it('mostra erro do backend quando publicacao falha', async () => {
     vi.mocked(authPut).mockResolvedValue({
       ok: false,

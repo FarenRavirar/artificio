@@ -397,6 +397,103 @@ describe('processDiscordMessageToDraft', () => {
     expect(draftUpdate?.where).toHaveBeenCalledWith('id', '=', 'draft-existing');
     expect(draftUpdate?.where).toHaveBeenCalledWith('status', 'not in', ['synced', 'rejected']);
   });
+
+  // Achado do bot chatgpt-codex-connector (PR #140): contact_discord pode ser
+  // fallback pro AUTOR da mensagem (DEB-048-26), não contato publicado de
+  // verdade. requireExplicitContact deve rejeitar esse fallback.
+  it('discards message when requireExplicitContact is true and contact_discord is only the author fallback', async () => {
+    const parsed = {
+      source: { guild_id: 'guild-1', channel_id: 'channel-1', message_id: '1441138618755448997' },
+      table: {
+        title: 'Mesa sem contato explícito',
+        system_name: 'D&D',
+        system_id: null,
+        raw_system_hint: 'D&D',
+        type: 'campanha',
+        modality: 'online',
+        price_type: 'gratuita',
+        price_value: null,
+        slots_total: 4,
+        slots_filled: null,
+        slots_open: 4,
+        day_of_week: null,
+        start_time: null,
+        frequency: null,
+        description: null,
+        contact_discord: 'author-1',
+        contact_discord_explicit: false,
+        contact_url: null,
+        host_discord_id: 'author-1',
+        cover_url: null,
+        cover_url_source: null,
+        cover_quality: null,
+        _slots_ambiguity: null,
+        _homebrew_suspect: null,
+        _notes: [],
+      },
+      confidence: 0.9,
+      confidence_tier: 'alta',
+      missing_fields: [],
+    };
+
+    (db.selectFrom as Mock).mockReturnValue(chain({ executeTakeFirst: vi.fn().mockResolvedValue(null) }));
+    (parseDiscordAnnouncement as Mock).mockReturnValue(parsed);
+
+    await expect(
+      processDiscordMessageToDraft(message(), [], undefined, 'admin-1', true, undefined, true),
+    ).resolves.toBe('discarded');
+
+    const messageUpdate = (db.updateTable as Mock).mock.results
+      .map((result) => result.value as { set: Mock })
+      .find((value) => value.set.mock.calls.some(([payload]) => payload?.status === 'ignored'));
+    expect(messageUpdate?.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'ignored' }));
+  });
+
+  it('keeps parsing when requireExplicitContact is true and contact_discord is an explicit mention', async () => {
+    const parsed = {
+      source: { guild_id: 'guild-1', channel_id: 'channel-1', message_id: '1441138618755448997' },
+      table: {
+        title: 'Mesa com contato explícito',
+        system_name: 'D&D',
+        system_id: null,
+        raw_system_hint: 'D&D',
+        type: 'campanha',
+        modality: 'online',
+        price_type: 'gratuita',
+        price_value: null,
+        slots_total: 4,
+        slots_filled: null,
+        slots_open: 4,
+        day_of_week: 'sexta',
+        start_time: '20:00',
+        frequency: null,
+        description: 'descricao',
+        contact_discord: 'contato-explicito',
+        contact_discord_explicit: true,
+        contact_url: null,
+        host_discord_id: null,
+        cover_url: null,
+        cover_url_source: null,
+        cover_quality: null,
+        _slots_ambiguity: null,
+        _homebrew_suspect: null,
+        _notes: [],
+      },
+      confidence: 0.9,
+      confidence_tier: 'alta',
+      missing_fields: [],
+    };
+
+    (db.selectFrom as Mock).mockReturnValue(chain({ executeTakeFirst: vi.fn().mockResolvedValue(null) }));
+    (parseDiscordAnnouncement as Mock).mockReturnValue(parsed);
+    (normalizeDiscordTableDraft as Mock)
+      .mockReturnValueOnce({ draft: parsed, status: 'needs_review' })
+      .mockImplementationOnce((draft) => ({ draft, status: 'needs_review' }));
+
+    await expect(
+      processDiscordMessageToDraft(message(), [], undefined, 'admin-1', true, undefined, true),
+    ).resolves.toBe('parsed');
+  });
 });
 
 describe('validateReparseMessageIds', () => {

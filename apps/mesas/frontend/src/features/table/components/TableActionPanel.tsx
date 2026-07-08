@@ -170,13 +170,13 @@ function VttPlatformRow({ vm, trackTableClick }: { readonly vm: PanelVm; readonl
   );
 }
 
-function PlatformsPanel({ vm, trackTableClick }: { readonly vm: PanelVm; readonly trackTableClick?: (slug: string, action: string) => void }) {
+function PlatformsPanel({ vm, trackTableClick, className = '' }: { readonly vm: PanelVm; readonly trackTableClick?: (slug: string, action: string) => void; readonly className?: string }) {
   const shouldShow = (vm.modality === 'online' || vm.modality === 'hibrida')
     && (vm.vttPlatform || vm.gamePlatformCustom || vm.communicationPlatform);
   if (!shouldShow) return null;
 
   return (
-    <div className="p-4 rounded-xl bg-[rgba(168,85,247,0.10)] border border-[rgba(168,85,247,0.20)] space-y-2 text-sm">
+    <div className={`p-4 rounded-xl bg-[rgba(168,85,247,0.10)] border border-[rgba(168,85,247,0.20)] space-y-2 text-sm ${className}`.trim()}>
       <h3 className="text-xs font-semibold text-[var(--special)] uppercase tracking-wide mb-2">🎮 Plataformas</h3>
       <VttPlatformRow vm={vm} trackTableClick={trackTableClick} />
       {!vm.vttPlatform && vm.gamePlatformCustom && (
@@ -255,7 +255,7 @@ function VisitorPreview({ vm, trackTableClick }: { readonly vm: PanelVm; readonl
       <p className="text-xs font-semibold text-[var(--fg-muted)] uppercase tracking-wide mb-3">👁 Preview Público</p>
       <PricePanel vm={vm} className="mb-3" />
       <QuickInfoPanel vm={vm} showStatus className="mb-3" />
-      <PlatformsPanel vm={vm} trackTableClick={trackTableClick} />
+      <PlatformsPanel vm={vm} trackTableClick={trackTableClick} className="mb-3" />
       <TableContactsBlock contacts={vm.contacts} />
     </div>
   );

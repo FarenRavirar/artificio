@@ -22,7 +22,7 @@ import { join, resolve } from 'node:path';
 //  CONSTANTES
 // ═══════════════════════════════════════════════
 
-const APPS = ['accounts', 'mesas', 'glossario', 'links'] as const;
+const APPS = ['accounts', 'mesas', 'glossario', 'links', 'site'] as const;
 const APP_SET = new Set<string>(APPS);
 const OPENAPI_DIR = resolve(import.meta.dirname, '../../docs/api/openapi');
 const OUTPUT_DIR = resolve(import.meta.dirname, '../../docs/api/generated');
@@ -37,6 +37,7 @@ const APP_TITLES: Record<string, string> = {
   mesas: 'Mesas API — Artifício RPG',
   glossario: 'Glossário API — Artifício RPG',
   links: 'Links API — Artifício RPG',
+  site: 'Site API — Artifício RPG',
 };
 
 function buildDocs(app: string): void {
