@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 296,
-    "uniqueEndpoints": 276,
+    "total": 295,
+    "uniqueEndpoints": 275,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,15 +36,15 @@
         }
       },
       "mesas-frontend": {
-        "total": 180,
+        "total": 179,
         "byConfidence": {
-          "medium": 70,
+          "medium": 69,
           "high": 108,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
-          "template-literal": 62,
+          "template-literal": 61,
           "service-wrapper": 49,
           "literal": 61,
           "concatenation": 2
@@ -1587,7 +1587,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 38
+      "line": 39
     },
     {
       "app": "mesas-frontend",
@@ -1607,7 +1607,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 197
+      "line": 185
     },
     {
       "app": "mesas-frontend",
@@ -1787,7 +1787,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 38
+      "line": 39
     },
     {
       "app": "mesas-frontend",
@@ -2391,23 +2391,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/TableCardDashboard.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/table/share/whatsappAnnouncement.ts",
       "method": "GET",
       "endpoint": "/api/v1/tables/:param",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 78
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ConteudoSection.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/tables/:param",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authGet",
-      "line": 167
+      "line": 44
     },
     {
       "app": "mesas-frontend",

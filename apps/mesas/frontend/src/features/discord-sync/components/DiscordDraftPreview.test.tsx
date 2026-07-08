@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { DiscordDraftPreview } from './DiscordDraftPreview';
 import type { DiscordDraft, DraftApiOperations } from '../types';
+import { authPut } from '../../../services/apiClient';
 
 vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock('../../../services/apiClient', () => ({
+  authPut: vi.fn(),
 }));
 
 vi.mock('@artificio/ui', () => ({
@@ -176,5 +181,107 @@ describe('DiscordDraftPreview', () => {
     );
 
     expect(screen.getByTestId('draft-editor-tab')).toBeInTheDocument();
+  });
+
+  const mockSyncedDraft: DiscordDraft = {
+    ...mockDraft,
+    id: 'draft-2',
+    status: 'synced',
+    table_id: 'table-123',
+  };
+
+  it('nao mostra botao Publicar mesa quando draft nao tem table_id', () => {
+    render(
+      <DiscordDraftPreview
+        draft={mockDraft}
+        onUpdate={vi.fn()}
+        onClose={vi.fn()}
+        api={mockApi}
+      />,
+    );
+
+    expect(screen.queryByText('Publicar mesa')).not.toBeInTheDocument();
+  });
+
+  it('mostra botao Publicar mesa quando draft sincronizado tem table_id', () => {
+    render(
+      <DiscordDraftPreview
+        draft={mockSyncedDraft}
+        onUpdate={vi.fn()}
+        onClose={vi.fn()}
+        api={mockApi}
+      />,
+    );
+
+    expect(screen.getByText('Publicar mesa')).toBeInTheDocument();
+  });
+
+  it('publica mesa com sucesso e troca botao por confirmacao', async () => {
+    vi.mocked(authPut).mockResolvedValue({ ok: true } as Response);
+
+    render(
+      <DiscordDraftPreview
+        draft={mockSyncedDraft}
+        onUpdate={vi.fn()}
+        onClose={vi.fn()}
+        api={mockApi}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Publicar mesa'));
+
+    await waitFor(() => {
+      expect(authPut).toHaveBeenCalledWith('/api/v1/admin/tables/table-123', { status: 'active' });
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Mesa publicada')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Publicar mesa')).not.toBeInTheDocument();
+  });
+
+  it('mostra erro do backend quando publicacao falha', async () => {
+    vi.mocked(authPut).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ error: 'Mesa nao pode ser publicada.' }),
+    } as Response);
+
+    render(
+      <DiscordDraftPreview
+        draft={mockSyncedDraft}
+        onUpdate={vi.fn()}
+        onClose={vi.fn()}
+        api={mockApi}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Publicar mesa'));
+
+    await waitFor(() => {
+      expect(authPut).toHaveBeenCalled();
+    });
+    // Botao permanece visivel — publicacao nao foi confirmada
+    await waitFor(() => {
+      expect(screen.getByText('Publicar mesa')).toBeInTheDocument();
+    });
+  });
+
+  it('mostra erro generico quando authPut rejeita (falha de rede)', async () => {
+    vi.mocked(authPut).mockRejectedValue(new Error('network error'));
+
+    render(
+      <DiscordDraftPreview
+        draft={mockSyncedDraft}
+        onUpdate={vi.fn()}
+        onClose={vi.fn()}
+        api={mockApi}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Publicar mesa'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Publicar mesa')).not.toBeDisabled();
+    });
+    expect(screen.queryByText('Mesa publicada')).not.toBeInTheDocument();
   });
 });

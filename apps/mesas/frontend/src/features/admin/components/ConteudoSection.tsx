@@ -11,7 +11,7 @@ import { AdminTable, PageHeader, SectionCard, StatusPill, tabButtonClass } from 
 import { SettingSuggestionsPanel } from './SettingSuggestionsPanel';
 import { formatDate } from '../utils/format';
 import { getMesasPublicOrigin } from '../../../utils/auth';
-import { buildWhatsAppTableAnnouncement, copyTextToClipboard, normalizeTableDetailPayload } from '../../table/share/whatsappAnnouncement';
+import { buildWhatsAppTableAnnouncement, copyTextToClipboard, fetchTableDetailBySlug, isTableAnnounceable } from '../../table/share/whatsappAnnouncement';
 
 interface AdminTableRow {
   id: string;
@@ -66,13 +66,13 @@ function normalizeTables(value: unknown): AdminTableRow[] {
   return rows;
 }
 
-const TAB_VALUES: CatalogTab[] = ['systems', 'platforms', 'scenarios', 'setting-styles', 'tables'];
+const TAB_VALUES: ReadonlySet<CatalogTab> = new Set(['systems', 'platforms', 'scenarios', 'setting-styles', 'tables']);
 
 export function ConteudoSection() {
   const { confirm } = useConfirm();
   const [urlParams] = useSearchParams();
   const tabFromUrl = urlParams.get('tab');
-  const initialTab: CatalogTab = TAB_VALUES.includes(tabFromUrl as CatalogTab) ? (tabFromUrl as CatalogTab) : 'systems';
+  const initialTab: CatalogTab = TAB_VALUES.has(tabFromUrl as CatalogTab) ? (tabFromUrl as CatalogTab) : 'systems';
   const [tab, setTab] = useState<CatalogTab>(initialTab);
   const [platformKind, setPlatformKind] = useState<PlatformKind>('vtt');
   const [tables, setTables] = useState<AdminTableRow[]>([]);
@@ -164,20 +164,8 @@ export function ConteudoSection() {
 
     setCopyingTableId(table.id);
     try {
-      const response = await authGet(`/api/v1/tables/${encodeURIComponent(table.slug)}`);
-      if (!response.ok) throw new Error('Erro ao carregar mesa');
-
-      const payload: unknown = await response.json();
-      const data = payload && typeof payload === 'object' && 'data' in payload
-        ? (payload as { data?: unknown }).data
-        : null;
-
-      const tableDetail = normalizeTableDetailPayload(data);
-      if (!tableDetail) {
-        throw new Error('Mesa inválida');
-      }
-
-      if (tableDetail.status !== 'active' || tableDetail.archived_at) {
+      const tableDetail = await fetchTableDetailBySlug(table.slug);
+      if (!isTableAnnounceable(tableDetail)) {
         throw new Error('Mesa indisponível para anúncio');
       }
 

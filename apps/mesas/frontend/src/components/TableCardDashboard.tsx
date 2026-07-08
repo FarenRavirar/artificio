@@ -4,10 +4,9 @@ import { SystemBadge } from './SystemBadge';
 import { CertificationBadges } from './CertificationBadges';
 import { applyTableImageFallback, resolveTableImageSource } from '../utils/tableImage';
 import { InlineDeleteConfirmation } from './InlineDeleteConfirmation';
-import { authGet } from '../services/apiClient';
 import type { TableDetail } from '../types/tables';
 import { CopyAnnouncementButton } from '../features/table/components/CopyAnnouncementButton';
-import { normalizeTableDetailPayload } from '../features/table/share/whatsappAnnouncement';
+import { fetchTableDetailBySlug } from '../features/table/share/whatsappAnnouncement';
 
 interface TableMetrics {
   views: number;
@@ -74,24 +73,7 @@ export function TableCardDashboard({
   const isInactive = table.status === 'cancelled' || table.status === 'ended';
   const canCopyAnnouncement = table.status === 'active' && !table.archived;
 
-  const loadAnnouncementTable = async (): Promise<TableDetail> => {
-    const response = await authGet(`/api/v1/tables/${table.slug}`);
-    if (!response.ok) {
-      throw new Error('Erro ao carregar mesa');
-    }
-
-    const payload: unknown = await response.json();
-    const data = typeof payload === 'object' && payload !== null && 'data' in payload
-      ? (payload as { data?: unknown }).data
-      : null;
-
-    const detail = normalizeTableDetailPayload(data);
-    if (!detail) {
-      throw new Error('Mesa inválida');
-    }
-
-    return detail;
-  };
+  const loadAnnouncementTable = async (): Promise<TableDetail> => fetchTableDetailBySlug(table.slug);
 
   return (
     <div className={`relative rounded-2xl border p-4 flex flex-col gap-3 hover:scale-[1.01] transition-all ${

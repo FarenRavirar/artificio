@@ -6,14 +6,15 @@ import { InlineDeleteConfirmation } from '../../../components/InlineDeleteConfir
 import { getButtonStyle, getUrgencyColor, handleCTA, handleEdit, handleStatus, handleArchive } from '../utils/uiHelpers';
 import { TableContactsBlock } from './TableContactsBlock';
 import { CopyAnnouncementButton } from './CopyAnnouncementButton';
+import { isTableAnnounceable } from '../share/whatsappAnnouncement';
 import { useTracking } from '../../../hooks/useTracking';
 import { authDelete } from '../../../services/apiClient';
 
 interface TableActionPanelProps {
-  vm: TableViewModel;
-  variant?: TableActionPanelVariant;
-  deleteEndpointScope?: 'gm' | 'admin';
-  announcementTable?: TableDetail;
+  readonly vm: TableViewModel;
+  readonly variant?: TableActionPanelVariant;
+  readonly deleteEndpointScope?: 'gm' | 'admin';
+  readonly announcementTable?: TableDetail;
 }
 
 /**
@@ -69,7 +70,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
             ✏️ Editar mesa
           </button>
 
-          {announcementTable && announcementTable.status === 'active' && !announcementTable.archived_at && (
+          {isTableAnnounceable(announcementTable) && (
             <CopyAnnouncementButton table={announcementTable} />
           )}
 
@@ -327,7 +328,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
         {vm.cta.label}
       </button>
 
-      {announcementTable && announcementTable.status === 'active' && !announcementTable.archived_at && (
+      {isTableAnnounceable(announcementTable) && (
         <CopyAnnouncementButton table={announcementTable} />
       )}
 

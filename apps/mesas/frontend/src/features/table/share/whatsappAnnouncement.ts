@@ -1,4 +1,5 @@
 import type { TableDetail, TableSchedule } from '../../../types/tables';
+import { authGet } from '../../../services/apiClient';
 
 export type WhatsAppAnnouncementOptions = {
   publicOrigin?: string;
@@ -9,6 +10,15 @@ export type WhatsAppAnnouncementOptions = {
  * Achado CodeRabbit (PR #138, 2026-07-08): cast direto `as TableDetail` não garante
  * shape de array em campos como schedules/content_warnings/safety_tools.
  */
+/**
+ * Mesa elegível pra anúncio WhatsApp: publicada e não arquivada.
+ * Extraído pra evitar divergir entre TableActionPanel (owner/público) e
+ * CopyAnnouncementButton (achado CodeRabbit, PR #138, 2026-07-08).
+ */
+export function isTableAnnounceable(table: Pick<TableDetail, 'status' | 'archived_at'> | null | undefined): boolean {
+  return !!table && table.status === 'active' && !table.archived_at;
+}
+
 export function normalizeTableDetailPayload(payload: unknown): TableDetail | null {
   if (!payload || typeof payload !== 'object') return null;
 
@@ -24,6 +34,31 @@ export function normalizeTableDetailPayload(payload: unknown): TableDetail | nul
   } as TableDetail;
 }
 
+/**
+ * Busca detalhe de mesa por slug e normaliza pra TableDetail. Compartilhado
+ * entre TableCardDashboard.loadAnnouncementTable e
+ * ConteudoSection.handleCopyAnnouncement (achado CodeRabbit, PR #138,
+ * 2026-07-08 — fetch+extração+normalização duplicados nos dois pontos).
+ */
+export async function fetchTableDetailBySlug(slug: string): Promise<TableDetail> {
+  const response = await authGet(`/api/v1/tables/${encodeURIComponent(slug)}`);
+  if (!response.ok) {
+    throw new Error('Erro ao carregar mesa');
+  }
+
+  const payload: unknown = await response.json();
+  const data = payload && typeof payload === 'object' && 'data' in payload
+    ? (payload as { data?: unknown }).data
+    : null;
+
+  const detail = normalizeTableDetailPayload(data);
+  if (!detail) {
+    throw new Error('Mesa inválida');
+  }
+
+  return detail;
+}
+
 const COMMUNITY_LINK = 'https://chat.whatsapp.com/CZZJy5XOYhxAC8pXXOJM7m';
 const GUIDE_LINK = 'https://artificiorpg.com/blog/como-anunciar-mesa-de-rpg/';
 
@@ -31,17 +66,18 @@ function cleanText(value: unknown): string {
   if (typeof value !== 'string') return '';
 
   return value
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<[^>]*>/g, '')
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '$1: $2')
-    .replace(/`{1,3}/g, '')
-    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
-    .replace(/^\s{0,3}>\s?/gm, '')
-    .replace(/^\s*[-*+]\s+/gm, '')
-    .replace(/\r\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/[ \t]+/g, ' ')
+    .replaceAll(/<br ?\/?>/gi, '\n')
+    .replaceAll(/<\/p>/gi, '\n\n')
+    .replaceAll(/<[^>]*>/g, '')
+    .replaceAll(/[<>]/g, '')
+    .replaceAll(/\[([^\]]+)]\((https?:\/\/\S+)\)/g, '$1: $2')
+    .replaceAll(/`{1,3}/g, '')
+    .replaceAll(/^ {0,3}#{1,6} /gm, '')
+    .replaceAll(/^ {0,3}> ?/gm, '')
+    .replaceAll(/^ *[-*+] /gm, '')
+    .replaceAll('\r\n', '\n')
+    .replaceAll(/\n{3,}/g, '\n\n')
+    .replaceAll(/[ \t]+/g, ' ')
     .trim();
 }
 
@@ -248,7 +284,7 @@ export function buildWhatsAppTableAnnouncement(
     GUIDE_LINK,
   ];
 
-  return lines.join('\n').replace(/\b(undefined|null|NaN)\b/g, '').replace(/[ \t]+\n/g, '\n').trim();
+  return lines.join('\n').replaceAll(/\b(?:undefined|null|NaN)\b/g, '').replaceAll(/[ \t]+\n/g, '\n').trim();
 }
 
 export async function copyTextToClipboard(text: string): Promise<void> {
@@ -262,7 +298,7 @@ export async function copyTextToClipboard(text: string): Promise<void> {
   }
 
   if (typeof document === 'undefined') {
-    throw new Error('Clipboard unavailable');
+    throw new TypeError('Clipboard unavailable');
   }
 
   const textarea = document.createElement('textarea');
@@ -278,6 +314,6 @@ export async function copyTextToClipboard(text: string): Promise<void> {
     const copied = document.execCommand('copy');
     if (!copied) throw new Error('Clipboard fallback failed');
   } finally {
-    document.body.removeChild(textarea);
+    textarea.remove();
   }
 }

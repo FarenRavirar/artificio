@@ -111,7 +111,8 @@ function toAbsoluteSiteUrl(value: string | null | undefined): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `${SITE_URL}${trimmed.startsWith('/') ? trimmed : `/${trimmed}`}`;
+  const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${SITE_URL}${path}`;
 }
 
 function resolveOgImageUrl(...candidates: Array<string | null | undefined>): string {
@@ -246,7 +247,7 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
 
       if (!isVisible) {
         const htmlNotFound = injectMetaTags(html, {
-          ...getFallbackMeta(`/mesas/${slug}`),
+          ...getFallbackMeta(`/mesas/${encodeURIComponent(slug)}`),
           title: 'Mesa não encontrada — Artifício Mesas',
         });
 

@@ -3,15 +3,15 @@ import toast from 'react-hot-toast';
 import { Copy } from 'lucide-react';
 import type { TableDetail } from '../../../types/tables';
 import { getMesasPublicOrigin } from '../../../utils/auth';
-import { buildWhatsAppTableAnnouncement, copyTextToClipboard } from '../share/whatsappAnnouncement';
+import { buildWhatsAppTableAnnouncement, copyTextToClipboard, normalizeTableDetailPayload, isTableAnnounceable } from '../share/whatsappAnnouncement';
 
 type CopyAnnouncementButtonProps = {
-  table?: TableDetail;
-  loadTable?: () => Promise<TableDetail>;
-  className?: string;
-  disabled?: boolean;
-  ariaLabel?: string;
-  label?: string;
+  readonly table?: TableDetail;
+  readonly loadTable?: () => Promise<TableDetail>;
+  readonly className?: string;
+  readonly disabled?: boolean;
+  readonly ariaLabel?: string;
+  readonly label?: string;
 };
 
 export function CopyAnnouncementButton({
@@ -20,7 +20,7 @@ export function CopyAnnouncementButton({
   className,
   disabled = false,
   ariaLabel,
-  label = 'Copiar anuncio',
+  label = 'Copiar anúncio',
 }: CopyAnnouncementButtonProps) {
   const [isCopying, setIsCopying] = useState(false);
 
@@ -29,18 +29,19 @@ export function CopyAnnouncementButton({
 
     setIsCopying(true);
     try {
-      const resolvedTable = table ?? await loadTable?.();
-      if (!resolvedTable || resolvedTable.status !== 'active' || resolvedTable.archived_at) {
-        throw new Error('Mesa indisponivel para anuncio');
+      const sourceTable = table ?? await loadTable?.();
+      const resolvedTable = sourceTable ? normalizeTableDetailPayload(sourceTable) : null;
+      if (!resolvedTable || !isTableAnnounceable(resolvedTable)) {
+        throw new Error('Mesa indisponível para anúncio');
       }
 
       const text = buildWhatsAppTableAnnouncement(resolvedTable, {
         publicOrigin: getMesasPublicOrigin(),
       });
       await copyTextToClipboard(text);
-      toast.success('Anuncio copiado.');
+      toast.success('Anúncio copiado.');
     } catch {
-      toast.error('Nao foi possivel copiar o anuncio.');
+      toast.error('Não foi possível copiar o anúncio.');
     } finally {
       setIsCopying(false);
     }
@@ -49,7 +50,7 @@ export function CopyAnnouncementButton({
   return (
     <button
       type="button"
-      aria-label={ariaLabel ?? (table ? `Copiar anuncio da mesa ${table.title}` : 'Copiar anuncio da mesa')}
+      aria-label={ariaLabel ?? (table ? `Copiar anúncio da mesa ${table.title}` : 'Copiar anúncio da mesa')}
       disabled={isCopying || disabled}
       onClick={handleCopy}
       className={className ?? 'w-full py-2 rounded-lg bg-[var(--fill)] hover:bg-[var(--fill)] text-[var(--fg)] text-sm font-medium transition disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-2'}
