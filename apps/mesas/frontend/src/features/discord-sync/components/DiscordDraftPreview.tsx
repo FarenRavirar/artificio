@@ -6,6 +6,7 @@ import { STATUS_OPTIONS } from '../constants';
 import { useDraftForm } from '../useDraftForm';
 import { DraftEditorTab } from './DraftEditorTab';
 import { DuplicatesTab } from './DuplicatesTab';
+import { authPut } from '../../../services/apiClient';
 
 // T-G1: cor por tier de confiança
 function confidenceColor(score: number): string {
@@ -38,6 +39,38 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [refreshingImage, setRefreshingImage] = useState(false);
   const [detailLoadFailedDraftId, setDetailLoadFailedDraftId] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishedTableId, setPublishedTableId] = useState<string | null>(null);
+
+  // Publica direto a mesa vinculada (spec 060: PUT /admin/tables/:id não
+  // exige gm_id, funciona pra mesa importada). Achado do mantenedor
+  // 2026-07-08: link pra outra tela não serve -- publicar tem que ser um
+  // botão aqui mesmo, no padrão dos outros (Reparsar/Salvar campos/etc).
+  // Achado CodeRabbit (PR #138): sem estado local pós-sucesso, botão continuava
+  // "Publicar mesa" e permitia novo PUT redundante — publishedTableId esconde o botão.
+  const handlePublishTable = useCallback(async () => {
+    if (!draft.table_id) return;
+    setPublishing(true);
+    try {
+      const response = await authPut(`/api/v1/admin/tables/${draft.table_id}`, { status: 'active' });
+      if (!response.ok) {
+        const errorPayload: unknown = await response.json().catch(() => null);
+        const errorMessage = errorPayload
+          && typeof errorPayload === 'object'
+          && typeof (errorPayload as Record<string, unknown>).error === 'string'
+            ? (errorPayload as { error: string }).error
+            : 'Erro ao publicar mesa.';
+        toast.error(errorMessage);
+        return;
+      }
+      toast.success('Mesa publicada.');
+      setPublishedTableId(draft.table_id);
+    } catch {
+      toast.error('Erro ao publicar mesa. Tente novamente.');
+    } finally {
+      setPublishing(false);
+    }
+  }, [draft.table_id]);
 
   const shouldShowSlotsDisambiguation = Boolean(h.slotsAmbiguity && h.payloadMissingFields.includes('slots_open:ambiguous_x_of_y'));
   // DEB-048-29: badge "autoral?" — anúncio ambíguo p/ sistema próprio. Revisor decide
@@ -335,20 +368,18 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
           >
             {h.syncing ? 'Sincronizando...' : 'Sincronizar como mesa'}
           </button>
-          {draft.status === 'synced' && draft.table_id && (
-            // Mesa importada tem gm_id: null -- /painel?edit= é gm-scoped e
-            // nunca serve (achado Codex PR #137). Gestão real é a aba
-            // "Mesas" do catálogo admin (spec 060), que lista/publica
-            // qualquer status via GET/PUT /admin/tables.
-            <a
-              href="/gestao/catalogo"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Abre o catálogo admin — use a busca para achar esta mesa por título"
-              className="text-green-400 text-sm self-center underline hover:text-green-300"
+          {draft.status === 'synced' && draft.table_id && publishedTableId !== draft.table_id && (
+            <button
+              onClick={handlePublishTable}
+              disabled={publishing}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+              title="Publica a mesa (status draft → active) via PUT /admin/tables — funciona mesmo sem gm_id (spec 060)"
             >
-              Ver/publicar no catálogo admin
-            </a>
+              {publishing ? 'Publicando...' : 'Publicar mesa'}
+            </button>
+          )}
+          {publishedTableId === draft.table_id && (
+            <span className="text-green-400 text-sm self-center">Mesa publicada</span>
           )}
         </div>
       </div>

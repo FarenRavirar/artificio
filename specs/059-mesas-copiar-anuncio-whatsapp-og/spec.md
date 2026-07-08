@@ -5,7 +5,7 @@
 - **Modo:** SDD Completo, por decisao do mantenedor (2026-07-08). Motivo: fluxo publico, gestao/admin, SEO/OG, clipboard UX e risco de contrato API.
 - **Origem:** pedido direto do mantenedor (2026-07-08)
 - **Sessao:** `sessoes/26-07-08_1_mesas_copiar-anuncio-whatsapp-og.md`
-- **Status:** planejada; implementacao bloqueada por autorizacao nominal da proxima fase
+- **Status:** **Fases 0-7 concluidas localmente.** Pendente smoke beta (T6.3, T7.5) e deploy. Sem commit/push/PR/merge sem autorizacao nominal.
 
 ## Problema
 
@@ -70,15 +70,15 @@ https://artificiorpg.com/blog/como-anunciar-mesa-de-rpg/
 | Sistema e edicao (cabecalho) | `system_name` somente. `setting_name`, `scenario_name` e `ddal_*` entram na descricao/sobre a mesa, nao na linha de sistema. |
 | Titulo | `title` |
 | Sistema | `system_name` somente |
-| Data e Hora | `schedules[]` quando existir; fallback `schedule_day_hint`, `schedule_time_hint`, `starts_at`; se indefinido, "A combinar" |
+| Data e Hora | `schedules[]` quando existir; fallback `schedule_day_hint`, `schedule_time_hint`, `starts_at`; se indefinido, linha fica vazia (decisao: campos vazios = linha vazia, sem texto inventado) |
 | Nº de Vagas | `slots_open` ou `slots_total - slots_filled` |
-| Faixa Etaria | ponto em aberto aprofundado abaixo: nao usar `audience` sem verificar semantica; preferencia tecnica = campo dedicado `age_rating` se existir/for viavel expor |
+| Faixa Etaria | `age_rating` (campo dedicado, ja exposto em `GET /api/v1/tables/:slug` e tipado em `TableDetail` na Fase 1). Nao usar `audience`. |
 | Local do Jogo | `modality` + cidade/UF para presencial/hibrida; "Online" para online |
 | Plataformas | `vtt_platform.name`/`game_platform_custom` + `communication_platform` |
 | Mestre | `master_display_name`, `gm_display_name`, `actual_gm_name` conforme prioridade |
 | Estilo | `setting_styles`, `style_text`, `setting_name` |
 | Duracao | `campaign_length`, `type`, `ddal_duration` |
-| Mesa | ponto em aberto aprofundado abaixo: `gratuita` = "Gratuita"; `paga` talvez nao seja sempre "Comissionada" sem regra de produto |
+| Mesa | `price_type`: `gratuita` = "Gratuita"; `paga` = "Comissionada" somente na saida copiar/colar (decisao Fase 0). |
 | Sinopse | `synopsis_narrative`, fallback `synopsis`, fallback `description` |
 | Sobre o Mestre | `table_gm_bio`, fallback `gm_bio_long` |
 | Sobre a Mesa | `benefits_text`, `style_text`, `technical_requirements`, `content_warnings`, `safety_tools` |
@@ -146,9 +146,11 @@ Risco controlado: a traducao para "Comissionada" e apenas apresentacional no for
 
 ## Perguntas abertas
 
-1. **Faixa Etaria:** investigar `age_rating` real. Nao usar `audience` automaticamente.
-2. **Comissionada:** decidido. `price_type=paga` vira "Comissionada" somente no texto copiado; dado interno permanece `paga`.
-3. **Gestao:** decidido. Copiar anuncio na gestao e somente para mesas publicadas/ativas; nao precisa rota admin para mesas nao ativas.
+1. ~~**Faixa Etaria:**~~ **Resolvido na Fase 1.** `age_rating` exposto em `GET /api/v1/tables/:slug` e tipado em `TableDetail`.
+2. ~~**Comissionada:**~~ **Decidido na Fase 0.** `price_type=paga` vira "Comissionada" somente no texto copiado; dado interno permanece `paga`.
+3. ~~**Gestao:**~~ **Decidido na Fase 1.** Copiar anuncio na gestao e somente para mesas publicadas/ativas; nao precisa rota admin para mesas nao ativas.
+
+Nenhuma pergunta aberta restante. Decisoes registradas em `tasks.md` Fase 0 e Fase 1.
 
 ## Fora de escopo
 
