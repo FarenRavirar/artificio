@@ -69,7 +69,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
             ✏️ Editar mesa
           </button>
 
-          {announcementTable && (
+          {announcementTable && announcementTable.status === 'active' && !announcementTable.archived_at && (
             <CopyAnnouncementButton table={announcementTable} />
           )}
 
@@ -327,7 +327,7 @@ export function TableActionPanel({ vm, variant = 'full', deleteEndpointScope = '
         {vm.cta.label}
       </button>
 
-      {announcementTable && (
+      {announcementTable && announcementTable.status === 'active' && !announcementTable.archived_at && (
         <CopyAnnouncementButton table={announcementTable} />
       )}
 

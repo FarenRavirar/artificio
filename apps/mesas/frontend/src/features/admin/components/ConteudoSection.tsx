@@ -10,9 +10,8 @@ import { authDelete, authGet, authPost, authPut } from '../../../services/apiCli
 import { AdminTable, PageHeader, SectionCard, StatusPill, tabButtonClass } from './ui';
 import { SettingSuggestionsPanel } from './SettingSuggestionsPanel';
 import { formatDate } from '../utils/format';
-import type { TableDetail } from '../../../types/tables';
 import { getMesasPublicOrigin } from '../../../utils/auth';
-import { buildWhatsAppTableAnnouncement, copyTextToClipboard } from '../../table/share/whatsappAnnouncement';
+import { buildWhatsAppTableAnnouncement, copyTextToClipboard, normalizeTableDetailPayload } from '../../table/share/whatsappAnnouncement';
 
 interface AdminTableRow {
   id: string;
@@ -159,7 +158,7 @@ export function ConteudoSection() {
   const handleCopyAnnouncement = async (table: AdminTableRow) => {
     if (copyingTableId) return;
     if (!table.slug || table.status !== 'active') {
-      toast.error('Nao foi possivel copiar o anuncio.');
+      toast.error('Não foi possível copiar o anúncio.');
       return;
     }
 
@@ -169,26 +168,26 @@ export function ConteudoSection() {
       if (!response.ok) throw new Error('Erro ao carregar mesa');
 
       const payload: unknown = await response.json();
-      const detail = payload && typeof payload === 'object' && 'data' in payload
+      const data = payload && typeof payload === 'object' && 'data' in payload
         ? (payload as { data?: unknown }).data
         : null;
 
-      if (!detail || typeof detail !== 'object') {
-        throw new Error('Mesa invalida');
+      const tableDetail = normalizeTableDetailPayload(data);
+      if (!tableDetail) {
+        throw new Error('Mesa inválida');
       }
 
-      const tableDetail = detail as TableDetail;
       if (tableDetail.status !== 'active' || tableDetail.archived_at) {
-        throw new Error('Mesa indisponivel para anuncio');
+        throw new Error('Mesa indisponível para anúncio');
       }
 
       const text = buildWhatsAppTableAnnouncement(tableDetail, {
         publicOrigin: getMesasPublicOrigin(),
       });
       await copyTextToClipboard(text);
-      toast.success('Anuncio copiado.');
+      toast.success('Anúncio copiado.');
     } catch {
-      toast.error('Nao foi possivel copiar o anuncio.');
+      toast.error('Não foi possível copiar o anúncio.');
     } finally {
       setCopyingTableId(null);
     }
@@ -306,7 +305,7 @@ export function ConteudoSection() {
             rowActions={[
               {
                 key: 'copy-announcement',
-                label: copyingTableId ? 'Copiando anuncio' : 'Copiar anuncio',
+                label: copyingTableId ? 'Copiando anúncio' : 'Copiar anúncio',
                 icon: <Copy size={15} />,
                 hidden: (table) => table.status !== 'active' || !table.slug,
                 onRun: handleCopyAnnouncement,

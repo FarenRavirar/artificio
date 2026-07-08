@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { sql } from 'kysely';
 import { db } from '../db';
 import { upgradeGoogleImageQuality } from '../utils/urlValidation';
+import { isImportedTableExpired } from '../utils/tableVisibility';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
 
 const router = Router();
@@ -121,18 +122,6 @@ function resolveOgImageUrl(...candidates: Array<string | null | undefined>): str
     if (absolute) return absolute;
   }
   return DEFAULT_OG_IMAGE;
-}
-
-function isImportedTableExpired(table: { origin: string | null; created_at: Date | string; starts_at: Date | string | null }): boolean {
-  if (table.origin !== 'imported') return false;
-
-  const limite5Dias = new Date(table.created_at);
-  limite5Dias.setDate(limite5Dias.getDate() + 5);
-
-  const limiteEvento = table.starts_at ? new Date(table.starts_at) : limite5Dias;
-  const validadeFinal = limiteEvento < limite5Dias ? limiteEvento : limite5Dias;
-
-  return new Date() >= validadeFinal;
 }
 
 function buildTableDescription(table: {

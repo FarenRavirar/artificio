@@ -7,6 +7,7 @@ import { InlineDeleteConfirmation } from './InlineDeleteConfirmation';
 import { authGet } from '../services/apiClient';
 import type { TableDetail } from '../types/tables';
 import { CopyAnnouncementButton } from '../features/table/components/CopyAnnouncementButton';
+import { normalizeTableDetailPayload } from '../features/table/share/whatsappAnnouncement';
 
 interface TableMetrics {
   views: number;
@@ -80,15 +81,16 @@ export function TableCardDashboard({
     }
 
     const payload: unknown = await response.json();
-    const detail = typeof payload === 'object' && payload !== null && 'data' in payload
+    const data = typeof payload === 'object' && payload !== null && 'data' in payload
       ? (payload as { data?: unknown }).data
       : null;
 
-    if (!detail || typeof detail !== 'object') {
-      throw new Error('Mesa invalida');
+    const detail = normalizeTableDetailPayload(data);
+    if (!detail) {
+      throw new Error('Mesa inválida');
     }
 
-    return detail as TableDetail;
+    return detail;
   };
 
   return (

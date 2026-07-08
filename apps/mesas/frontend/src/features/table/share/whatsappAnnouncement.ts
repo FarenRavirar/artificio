@@ -4,6 +4,26 @@ export type WhatsAppAnnouncementOptions = {
   publicOrigin?: string;
 };
 
+/**
+ * Normaliza payload externo (API) para TableDetail antes de usar em spread/.length.
+ * Achado CodeRabbit (PR #138, 2026-07-08): cast direto `as TableDetail` não garante
+ * shape de array em campos como schedules/content_warnings/safety_tools.
+ */
+export function normalizeTableDetailPayload(payload: unknown): TableDetail | null {
+  if (!payload || typeof payload !== 'object') return null;
+
+  const raw = payload as Record<string, unknown>;
+  if (typeof raw.slug !== 'string' || typeof raw.title !== 'string') return null;
+
+  return {
+    ...raw,
+    schedules: Array.isArray(raw.schedules) ? (raw.schedules as TableSchedule[]) : undefined,
+    content_warnings: Array.isArray(raw.content_warnings) ? (raw.content_warnings as string[]) : [],
+    safety_tools: Array.isArray(raw.safety_tools) ? (raw.safety_tools as string[]) : [],
+    setting_styles: Array.isArray(raw.setting_styles) ? (raw.setting_styles as string[]) : null,
+  } as TableDetail;
+}
+
 const COMMUNITY_LINK = 'https://chat.whatsapp.com/CZZJy5XOYhxAC8pXXOJM7m';
 const GUIDE_LINK = 'https://artificiorpg.com/blog/como-anunciar-mesa-de-rpg/';
 

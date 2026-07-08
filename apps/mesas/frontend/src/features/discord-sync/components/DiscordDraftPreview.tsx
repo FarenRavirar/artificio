@@ -40,22 +40,31 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
   const [refreshingImage, setRefreshingImage] = useState(false);
   const [detailLoadFailedDraftId, setDetailLoadFailedDraftId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [publishedTableId, setPublishedTableId] = useState<string | null>(null);
 
   // Publica direto a mesa vinculada (spec 060: PUT /admin/tables/:id não
   // exige gm_id, funciona pra mesa importada). Achado do mantenedor
   // 2026-07-08: link pra outra tela não serve -- publicar tem que ser um
   // botão aqui mesmo, no padrão dos outros (Reparsar/Salvar campos/etc).
+  // Achado CodeRabbit (PR #138): sem estado local pós-sucesso, botão continuava
+  // "Publicar mesa" e permitia novo PUT redundante — publishedTableId esconde o botão.
   const handlePublishTable = useCallback(async () => {
     if (!draft.table_id) return;
     setPublishing(true);
     try {
       const response = await authPut(`/api/v1/admin/tables/${draft.table_id}`, { status: 'active' });
       if (!response.ok) {
-        const error = await response.json().catch(() => null) as { error?: string } | null;
-        toast.error(error?.error || 'Erro ao publicar mesa.');
+        const errorPayload: unknown = await response.json().catch(() => null);
+        const errorMessage = errorPayload
+          && typeof errorPayload === 'object'
+          && typeof (errorPayload as Record<string, unknown>).error === 'string'
+            ? (errorPayload as { error: string }).error
+            : 'Erro ao publicar mesa.';
+        toast.error(errorMessage);
         return;
       }
       toast.success('Mesa publicada.');
+      setPublishedTableId(draft.table_id);
     } catch {
       toast.error('Erro ao publicar mesa. Tente novamente.');
     } finally {
@@ -359,7 +368,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
           >
             {h.syncing ? 'Sincronizando...' : 'Sincronizar como mesa'}
           </button>
-          {draft.status === 'synced' && draft.table_id && (
+          {draft.status === 'synced' && draft.table_id && publishedTableId !== draft.table_id && (
             <button
               onClick={handlePublishTable}
               disabled={publishing}
@@ -368,6 +377,9 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
             >
               {publishing ? 'Publicando...' : 'Publicar mesa'}
             </button>
+          )}
+          {publishedTableId === draft.table_id && (
+            <span className="text-green-400 text-sm self-center">Mesa publicada</span>
           )}
         </div>
       </div>
