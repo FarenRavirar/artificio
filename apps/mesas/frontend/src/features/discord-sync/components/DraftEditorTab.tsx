@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from 'react';
 import type { DraftFieldInsight, DraftFieldKey, DraftForm, DraftTableType, DraftModality, DraftPriceType, DraftFrequency, DraftDayOfWeek, DraftAgeRating, DraftExperienceLevel, DraftTableLevel, SimpleCatalogEntry } from '../draftFormUtils';
-import { mapAuditCandidateToForm } from '../draftFormUtils';
+import { mapAuditCandidateToForm, VALID_AGE_RATINGS } from '../draftFormUtils';
 import type { AiAutomationConfig, CompletenessAuditCandidate, DiscordSlotsAmbiguity, LlmActivity } from '../types';
 import type { SystemTreeNode } from '../../../types/systems';
 import { SystemSearchSelect } from './SystemSearchSelect';
@@ -286,6 +286,7 @@ export function DraftEditorTab({
                 onClick={onRefreshSystems}
                 disabled={systemsLoading}
                 title="Recarregar lista de sistemas"
+                aria-label="Recarregar lista de sistemas"
                 className="text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 transition-colors disabled:opacity-40"
               >
                 ↻
@@ -401,14 +402,13 @@ export function DraftEditorTab({
           <select value={form.age_rating} onChange={(e) => onUpdateForm('age_rating', e.target.value as DraftAgeRating)} className="app-select w-full">
             {/* Values no formato do enum Postgres real (`+18`, sinal antes) —
                 mesmo formato do form principal (StepConfig.tsx). `18+` invertido
-                estourava 500 no sync (achado do mantenedor 2026-07-08). */}
+                estourava 500 no sync (achado do mantenedor 2026-07-08).
+                VALID_AGE_RATINGS (achado CodeRabbit PR #135): fonte única, evita
+                lista divergir de novo do union type/normalizador. */}
             <option value="">Não informada</option>
-            <option value="livre">Livre</option>
-            <option value="+10">+10</option>
-            <option value="+12">+12</option>
-            <option value="+14">+14</option>
-            <option value="+16">+16</option>
-            <option value="+18">+18</option>
+            {VALID_AGE_RATINGS.map((rating) => (
+              <option key={rating} value={rating}>{rating === 'livre' ? 'Livre' : rating}</option>
+            ))}
           </select>
         </label>
         <label>

@@ -35,7 +35,10 @@ function isValidTimeString(v: string): boolean {
 /** Fase D (spec 058): mesmos enums do draft (backend `types.ts`). */
 // Formato do enum Postgres real: `+18` (sinal ANTES do número). `18+` invertido
 // causou 500 "invalid input value for enum age_rating" no sync (2026-07-08).
-export type DraftAgeRating = 'livre' | '+10' | '+12' | '+14' | '+16' | '+18';
+// VALID_AGE_RATINGS (achado CodeRabbit PR #135): única fonte pro union type,
+// options do select e validador de legado — evita 3 listas divergirem de novo.
+export const VALID_AGE_RATINGS = ['livre', '+10', '+12', '+14', '+16', '+18'] as const;
+export type DraftAgeRating = (typeof VALID_AGE_RATINGS)[number];
 export type DraftExperienceLevel = 'todos' | 'iniciante' | 'intermediario' | 'veterano';
 export type DraftTableLevel = 'iniciante' | 'intermediario' | 'avancado';
 
@@ -254,9 +257,12 @@ export function buildDraftFieldInsights(
 
 // Espelha normalizeAgeRating do backend (syncHelpers.ts) — converte o formato
 // legado invertido `NN+` pro enum real `+NN`; valor irreconhecível vira ''.
-function normalizeLegacyAgeRating(value: string): string {
+// Exportada (achado CodeRabbit PR #135): mapAuditCandidateToForm também
+// precisa normalizar — sugestão de auditoria com valor legado `18+` não
+// casava nenhuma <option> do select, reproduzindo o mesmo bug por outro caminho.
+export function normalizeLegacyAgeRating(value: string): string {
   const trimmed = value.trim();
-  if (['livre', '+10', '+12', '+14', '+16', '+18'].includes(trimmed)) return trimmed;
+  if ((VALID_AGE_RATINGS as readonly string[]).includes(trimmed)) return trimmed;
   const inverted = /^(\d{2})\+$/.exec(trimmed);
   return inverted ? `+${inverted[1]}` : '';
 }
@@ -443,6 +449,10 @@ export function mapAuditCandidateToForm(
   const asText = (): string => {
     if (value === null || value === undefined) return '';
     if (Array.isArray(value)) return value.filter((v) => typeof v === 'string').join(', ');
+    // Achado CodeRabbit PR #135: objeto não tratado caía em String(value) =
+    // "[object Object]" — candidato malformado do backend não deve aplicar
+    // lixo no form; string/number/boolean são os únicos tipos esperados aqui.
+    if (typeof value === 'object') return '';
     return String(value);
   };
   switch (field) {
@@ -472,7 +482,9 @@ export function mapAuditCandidateToForm(
     case 'frequency':
       return { key: 'frequency', value: asText() as DraftFrequency };
     case 'age_rating':
-      return { key: 'age_rating', value: asText() as DraftForm['age_rating'] };
+      // normalizeLegacyAgeRating (achado CodeRabbit PR #135): sugestão de
+      // auditoria em formato legado `18+` não casaria nenhuma <option>.
+      return { key: 'age_rating', value: normalizeLegacyAgeRating(asText()) as DraftForm['age_rating'] };
     case 'experience_level':
       return { key: 'experience_level', value: asText() as DraftForm['experience_level'] };
     case 'table_level':
