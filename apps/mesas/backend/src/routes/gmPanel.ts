@@ -448,20 +448,24 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
 // GET /api/v1/gm/tables/:id — Obtém mesa específica para edição
 router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) => {
   const userId = (req as any).user.userId;
+  const userRole = (req as any).user?.role;
   const { id } = req.params;
 
   try {
-    const gmProfile = await db
-      .selectFrom('gm_profiles')
-      .select(['id'])
-      .where('user_id', '=', userId)
-      .executeTakeFirst();
-
-    if (!gmProfile) {
-      return res.status(403).json({ error: 'Perfil de mestre não encontrado.' });
-    }
-
-    const tableData = await TableRepository.findByIdAndGm(id, gmProfile.id);
+    // Mesa órfã (gm_id: null, spec 060) nunca bate findByIdAndGm — admin
+    // carrega sem exigir gm_id, mesmo caminho do PUT abaixo (achado do
+    // mantenedor 2026-07-08, 404 ao abrir edição de mesa importada).
+    const tableData = userRole === 'admin'
+      ? await TableRepository.findById(id)
+      : await (async () => {
+        const gmProfile = await db
+          .selectFrom('gm_profiles')
+          .select(['id'])
+          .where('user_id', '=', userId)
+          .executeTakeFirst();
+        if (!gmProfile) return null;
+        return TableRepository.findByIdAndGm(id, gmProfile.id);
+      })();
 
     if (!tableData) {
       return res.status(404).json({ error: 'Mesa não encontrada ou sem permissão.' });
@@ -612,22 +616,37 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
   const data: UpdateTableInput = validation.data;
 
   try {
-    const gmProfile = await db
-      .selectFrom('gm_profiles')
-      .select(['id'])
-      .where('user_id', '=', userId)
-      .executeTakeFirst();
+    // Mesa via Discord sync (spec 060) nasce gm_id: null — nunca bate o filtro
+    // gm_id abaixo. Achado do mantenedor 2026-07-08: editar mesa órfã pelo painel
+    // do mestre dava 404 sempre. Admin edita qualquer mesa (órfã ou não) reusando
+    // este mesmo form/validação, em vez de duplicar handler em adminTables.ts.
+    let existingTable: { id: string; gm_id: string | null; system_id: string | null } | undefined;
+    let updaterGmProfileId: string | null = null;
+    if (userRole === 'admin') {
+      existingTable = await db
+        .selectFrom('tables')
+        .select(['id', 'gm_id', 'system_id'])
+        .where('id', '=', id)
+        .executeTakeFirst();
+    } else {
+      const gmProfile = await db
+        .selectFrom('gm_profiles')
+        .select(['id'])
+        .where('user_id', '=', userId)
+        .executeTakeFirst();
 
-    if (!gmProfile) {
-      return res.status(403).json({ error: 'Perfil de mestre não encontrado.' });
+      if (!gmProfile) {
+        return res.status(403).json({ error: 'Perfil de mestre não encontrado.' });
+      }
+      updaterGmProfileId = gmProfile.id;
+
+      existingTable = await db
+        .selectFrom('tables')
+        .select(['id', 'gm_id', 'system_id'])
+        .where('id', '=', id)
+        .where('gm_id', '=', gmProfile.id)
+        .executeTakeFirst();
     }
-
-    const existingTable = await db
-      .selectFrom('tables')
-      .select(['id', 'gm_id', 'system_id'])
-      .where('id', '=', id)
-      .where('gm_id', '=', gmProfile.id)
-      .executeTakeFirst();
 
     if (!existingTable) {
       return res.status(404).json({ error: 'Mesa não encontrada ou sem permissão.' });
@@ -726,7 +745,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
     const updated = await TableRepository.updateTableWithRelations(
       id,
-      gmProfile.id,
+      updaterGmProfileId,
       updateData,
       data.contacts,
       data.schedules

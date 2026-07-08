@@ -671,10 +671,10 @@ export const discordSyncApi = {
   parseBatch: () =>
     apiFetch<{ processed: number; succeeded: number; discarded: number; ignored: number; failed: number }>('/messages/parse-batch', { method: 'POST' }),
 
-  importJson: async (json: unknown, acceptPaidTables = true) => {
+  importJson: async (json: unknown, acceptPaidTables = true, requireExplicitContact = false) => {
     const body = json && typeof json === 'object' && !Array.isArray(json)
-      ? { ...(json as Record<string, unknown>), autoParse: true, acceptPaidTables }
-      : { json, autoParse: true, acceptPaidTables };
+      ? { ...(json as Record<string, unknown>), autoParse: true, acceptPaidTables, requireExplicitContact }
+      : { json, autoParse: true, acceptPaidTables, requireExplicitContact };
     const data = await apiFetch<unknown>('/import-json', { method: 'POST', body: JSON.stringify(body) });
     return parseImportResult(data);
   },
@@ -696,11 +696,15 @@ export const discordSyncApi = {
   previewFile: async (file: File) =>
     fileApiFetch('/import-json/preview/file', file, parsePreviewResult, 'analisar arquivo'),
 
-  importFile: async (file: File, acceptPaidTables = true) =>
-    fileApiFetch('/import-json/file', file, parseImportResult, 'importar arquivo', { autoParse: 'true', acceptPaidTables: String(acceptPaidTables) }),
+  importFile: async (file: File, acceptPaidTables = true, requireExplicitContact = false) =>
+    fileApiFetch('/import-json/file', file, parseImportResult, 'importar arquivo', {
+      autoParse: 'true',
+      acceptPaidTables: String(acceptPaidTables),
+      requireExplicitContact: String(requireExplicitContact),
+    }),
 
-  reparsePending: async (acceptPaidTables = true) => {
-    const data = await apiFetch<unknown>('/import-json/reparse', { method: 'POST', body: JSON.stringify({ acceptPaidTables }) });
+  reparsePending: async (acceptPaidTables = true, requireExplicitContact = false) => {
+    const data = await apiFetch<unknown>('/import-json/reparse', { method: 'POST', body: JSON.stringify({ acceptPaidTables, requireExplicitContact }) });
     return parseReparseResult(data);
   },
 };

@@ -123,14 +123,14 @@ describe('buildWhatsAppTableAnnouncement', () => {
       publicOrigin: 'https://mesas.artificiorpg.com/',
     });
 
-    expect(text).toContain('📢D&D 5.2 - Mesa do Dragão - Campanha - Comissionada📢');
+    expect(text).toContain('📢*D&D 5.2 - Mesa do Dragão - Campanha - Comissionada*📢');
     expect(text).toContain('▬ Data e Hora: sábado · 19:00-23:00 · semanal; domingo · 15:30 · quinzenal · sessão extra');
     expect(text).toContain('▬ Nº de Vagas: 3');
     expect(text).toContain('▬ Faixa Etária: +16');
     expect(text).toContain('▬ Plataformas: Foundry VTT · Discord');
     expect(text).toContain('▬ Mestre: Mestre Anunciante');
     expect(text).toContain('▬ Mesa: Comissionada');
-    expect(text).toContain('📌 Inscrições:\nhttps://mesas.artificiorpg.com/mesas/mesa-do-dragao');
+    expect(text).toContain('*📌 Inscrições:*\nhttps://mesas.artificiorpg.com/mesas/mesa-do-dragao');
     expect(text).toContain('Código DDAL: DDAL-01');
     expect(text).toContain('Sessão zero gratuita');
     expect(text).not.toContain('undefined');
@@ -165,7 +165,9 @@ describe('buildWhatsAppTableAnnouncement', () => {
     expect(text).toContain('▬ Data e Hora:');
     expect(text).toContain('▬ Faixa Etária: Livre');
     expect(text).toContain('▬ Mesa: Gratuita');
-    expect(text).toContain('🎭 Sobre o Mestre:\n\n');
+    // Achado do mantenedor 2026-07-08: seção sem conteúdo (bio do mestre vazia)
+    // some do anúncio em vez de sair com título e corpo em branco.
+    expect(text).not.toContain('Sobre o Mestre');
     expect(text).not.toContain('[Nome da mesa]');
     expect(text).not.toMatch(/\{[^}]+\}/);
   });
@@ -187,14 +189,12 @@ describe('buildWhatsAppTableAnnouncement', () => {
 
 describe('copyTextToClipboard', () => {
   const originalClipboard = navigator.clipboard;
-  const originalExecCommand = document.execCommand;
 
   afterEach(() => {
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: originalClipboard,
     });
-    document.execCommand = originalExecCommand;
     vi.restoreAllMocks();
   });
 
@@ -210,18 +210,12 @@ describe('copyTextToClipboard', () => {
     expect(writeText).toHaveBeenCalledWith('texto');
   });
 
-  it('falls back to temporary textarea when Clipboard API fails', async () => {
-    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+  it('throws when Clipboard API is unavailable', async () => {
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
-      value: { writeText },
+      value: undefined,
     });
-    document.execCommand = vi.fn().mockReturnValue(true);
 
-    await copyTextToClipboard('fallback');
-
-    expect(writeText).toHaveBeenCalledWith('fallback');
-    expect(document.execCommand).toHaveBeenCalledWith('copy');
-    expect(document.querySelector('textarea')).toBeNull();
+    await expect(copyTextToClipboard('fallback')).rejects.toThrow('Clipboard unavailable');
   });
 });

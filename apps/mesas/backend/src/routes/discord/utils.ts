@@ -772,6 +772,14 @@ export async function processDiscordMessageToDraft(
   // explícita do mantenedor na UI.
   acceptPaidTables = true,
   catalogs?: ParserPlatformCatalogs,
+  // Achado do mantenedor 2026-07-08: mover o filtro "só com contato explícito"
+  // da tela de revisão (era só ocultação visual, pós-import) pra opção real de
+  // importação — mesa sem contact_discord/contact_url publicado no anúncio
+  // nunca vira draft. Independe de host_discord_id (autor da mensagem no
+  // Discord), que é só fallback técnico pra mesa nunca ficar sem NENHUM
+  // contato, não é o que o mestre divulgou de propósito. No fim da lista de
+  // params pra não deslocar posicionalmente os callers existentes.
+  requireExplicitContact = false,
 ): Promise<DiscordDraftOutcome> {
   // Reconcilia draft terminal (synced/rejected) ANTES de parsear — evita marcar
   // a mensagem como ignored/error em cima de um draft já terminal (CodeRabbit).
@@ -811,6 +819,27 @@ export async function processDiscordMessageToDraft(
   // some silenciosamente: mensagem fica 'ignored' e o caso é registrado como
   // 'discard' para a camada de aprendizado.
   if (!acceptPaidTables && parsed.table.price_type === 'paga') {
+    await db.updateTable('discord_import_messages')
+      .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
+      .where('id', '=', message.id)
+      .execute();
+    if (existing?.id) {
+      await db.updateTable('discord_import_table_drafts')
+        .set({ status: 'rejected', updated_at: new Date() })
+        .where('id', '=', existing.id as string)
+        .where('status', 'not in', ['synced', 'rejected'])
+        .execute();
+    }
+    await recordParseCase({
+      message,
+      deterministicResult: parsed,
+      finalResult: null,
+      finalAction: 'discard',
+    });
+    return 'discarded';
+  }
+
+  if (requireExplicitContact && !parsed.table.contact_discord && !parsed.table.contact_url) {
     await db.updateTable('discord_import_messages')
       .set({ status: 'ignored', parse_error: null, updated_at: new Date() })
       .where('id', '=', message.id)
@@ -903,11 +932,12 @@ export async function reparseOneMessage(
   acceptPaidTables = true,
   systems?: SystemEntry[],
   catalogs?: ParserPlatformCatalogs,
+  requireExplicitContact = false,
 ): Promise<DiscordDraftOutcome | 'error' | 'skipped'> {
   if (message.status === 'synced') return 'skipped'; // segurança extra
   try {
     const replyContext = resolveReplyContext(message as Record<string, unknown>, contentIndex);
-    return await processDiscordMessageToDraft(message, systems, replyContext, userId, acceptPaidTables, catalogs);
+    return await processDiscordMessageToDraft(message, systems, replyContext, userId, acceptPaidTables, catalogs, requireExplicitContact);
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'unknown error';
     try {

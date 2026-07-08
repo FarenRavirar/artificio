@@ -380,6 +380,10 @@ export const PainelMestrePage = () => {
           setEditingTableId(null);
         }
       } catch (error) {
+        // AbortError é ruído esperado do dedup de apiClient.ts (cancela GET
+        // duplicada em StrictMode/re-render rápido) — a chamada sobrevivente
+        // resolve normal, não é falha real. Achado do mantenedor 2026-07-08.
+        if (error instanceof DOMException && error.name === 'AbortError') return;
         console.error('[PainelMestrePage] Erro ao carregar mesa para edição:', error);
         toast.error('Erro ao carregar mesa');
         if (active) setEditingTableId(null);

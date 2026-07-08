@@ -15,6 +15,7 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
   const {
     rawJson, selectedFile, state, preview, result, errorMessage, isDragOver,
     acceptPaidTables, setAcceptPaidTables,
+    requireExplicitContact, setRequireExplicitContact,
     fileInputRef,
     handleChange, handleSubmit, handleClear,
     handleFileSelect, handleDragOver, handleDragLeave, handleDrop,
@@ -31,7 +32,7 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
     setReparseState('loading');
     setReparseError('');
     try {
-      const data = await discordSyncApi.reparsePending(acceptPaidTables);
+      const data = await discordSyncApi.reparsePending(acceptPaidTables, requireExplicitContact);
       setReparseResult(data);
       setReparseState('idle');
       toast.success(`${data.reparsed} rascunhos gerados a partir de ${data.total} mensagens pendentes.`);
@@ -39,7 +40,7 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
       setReparseState('error');
       setReparseError(err instanceof Error ? err.message : 'Erro ao reprocessar mensagens pendentes.');
     }
-  }, [acceptPaidTables]);
+  }, [acceptPaidTables, requireExplicitContact]);
 
   // Codex P3: input fica sempre montado p/ "Trocar arquivo" achar a ref (FileDropzone
   // some quando selectedFile setado, levando junto o input que ele renderiza).
@@ -79,6 +80,26 @@ export function DiscordJsonImportPanel({ onNavigateToDrafts }: DiscordJsonImport
         {!acceptPaidTables && (
           <p className="text-white/40 text-xs">
             Mesas identificadas como pagas serão ignoradas (não viram rascunho).
+          </p>
+        )}
+
+        {/* Achado do mantenedor 2026-07-08: movido de DiscordDraftReviewTable
+            (era só filtro de exibição pós-import) pra opção real de import —
+            mesa sem contato explícito publicado no anúncio nunca vira draft.
+            Independe de usuário Discord (host_discord_id é só fallback técnico
+            de autoria, não é contato que o mestre divulgou de propósito). */}
+        <label className="flex items-center gap-2 text-sm text-white/70 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={requireExplicitContact}
+            onChange={(e) => setRequireExplicitContact(e.target.checked)}
+            className="h-4 w-4 accent-blue-600"
+          />
+          Importar só mesas com contato confirmado
+        </label>
+        {requireExplicitContact && (
+          <p className="text-white/40 text-xs">
+            Mesas sem contato explícito (Discord, WhatsApp, formulário etc.) publicado no anúncio serão ignoradas.
           </p>
         )}
 

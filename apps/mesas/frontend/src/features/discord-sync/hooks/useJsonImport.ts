@@ -40,6 +40,11 @@ export function useJsonImport() {
   // pagas) por decisão nominal do mantenedor; some mecanismo silencioso e
   // não-funcional que existia antes.
   const [acceptPaidTables, setAcceptPaidTables] = useState(false);
+  // Achado do mantenedor 2026-07-08: filtro "só com contato explícito" movido
+  // da tela de revisão (era ocultação visual pós-import) pra opção real de
+  // importação — mesa sem contato publicado nunca vira draft. Independe de
+  // host_discord_id (autor da mensagem no Discord).
+  const [requireExplicitContact, setRequireExplicitContact] = useState(false);
   const [state, setState] = useState<ImportState>('empty');
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -103,7 +108,7 @@ export function useJsonImport() {
       setState('sending');
       setErrorMessage('');
       try {
-        const data = await discordSyncApi.importFile(selectedFile, acceptPaidTables);
+        const data = await discordSyncApi.importFile(selectedFile, acceptPaidTables, requireExplicitContact);
         setResult(data);
         setState('success');
         toast.success(importToastMessage(data));
@@ -120,7 +125,7 @@ export function useJsonImport() {
     setErrorMessage('');
 
     try {
-      const data = await discordSyncApi.importJson({ json: rawJson }, acceptPaidTables);
+      const data = await discordSyncApi.importJson({ json: rawJson }, acceptPaidTables, requireExplicitContact);
       setResult(data);
       setState('success');
       toast.success(importToastMessage(data));
@@ -128,7 +133,7 @@ export function useJsonImport() {
       setState('error');
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao importar JSON.');
     }
-  }, [selectedFile, rawJson, acceptPaidTables]);
+  }, [selectedFile, rawJson, acceptPaidTables, requireExplicitContact]);
 
   const handleClear = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -223,6 +228,7 @@ export function useJsonImport() {
   return {
     rawJson, selectedFile, state, preview, result, errorMessage, isDragOver,
     acceptPaidTables, setAcceptPaidTables,
+    requireExplicitContact, setRequireExplicitContact,
     fileInputRef,
     handleChange, handleSubmit, handleClear,
     handleFileSelect, handleDragOver, handleDragLeave, handleDrop,

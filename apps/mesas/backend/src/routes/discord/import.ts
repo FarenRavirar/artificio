@@ -69,6 +69,18 @@ function readAcceptPaidTables(raw: unknown): boolean {
   return !(typeof value === 'string' && ['false', '0', 'no', 'off'].includes(value.trim().toLowerCase()));
 }
 
+// Achado do mantenedor 2026-07-08: filtro "só com contato explícito" movido
+// da tela de revisão (ocultação visual pós-import) pra opção real de import —
+// mesma forma do readAcceptPaidTables acima. Default `false` (não filtra,
+// comportamento anterior preservado) se o campo não vier.
+function readRequireExplicitContact(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') return false;
+  const value = (raw as Record<string, unknown>).requireExplicitContact;
+  if (value === true) return true;
+  if (typeof value === 'string') return ['true', '1', 'yes', 'on'].includes(value.trim().toLowerCase());
+  return false;
+}
+
 // DEB-058-XX: o import aceita até 2000 mensagens/lote (chatExporterImportService),
 // mas o auto-parse só processava as primeiras 500 (limit da query) e reportava
 // auto_parse.total como se fosse o universo inteiro — o resto ficava pending sem
@@ -80,6 +92,7 @@ async function autoParsePendingImportedMessages(
   userId: string | undefined,
   importedMessages: { channelId: string; messageId: string }[] | undefined,
   acceptPaidTables = true,
+  requireExplicitContact = false,
 ): Promise<{ total: number; parsed: number; discarded: number; ignored: number; errors: number }> {
   if (!importedMessages?.length) {
     return { total: 0, parsed: 0, discarded: 0, ignored: 0, errors: 0 };
@@ -123,7 +136,7 @@ async function autoParsePendingImportedMessages(
         vttPlatforms,
         communicationPlatforms,
         scenarios,
-      });
+      }, requireExplicitContact);
       if (outcome === 'error') errors++;
       else if (outcome === 'discarded') discarded++;
       else if (outcome === 'ignored') ignored++;
@@ -144,8 +157,9 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
 
     const autoParse = shouldAutoParse(req.body);
     const acceptPaidTables = readAcceptPaidTables(req.body);
+    const requireExplicitContact = readRequireExplicitContact(req.body);
     const result = await importDiscordChatExporterJson(extracted.payload);
-    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages, acceptPaidTables) : undefined;
+    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages, acceptPaidTables, requireExplicitContact) : undefined;
 
     return respondImportSuccess(res, result, req.user?.userId, autoParseResult, extracted.truncationWarning);
   } catch (error: unknown) {
@@ -165,8 +179,9 @@ router.post('/file', requireAdmin, uploadJsonFile, async (req: Request, res: Res
 
     const autoParse = shouldAutoParse(req.body);
     const acceptPaidTables = readAcceptPaidTables(req.body);
+    const requireExplicitContact = readRequireExplicitContact(req.body);
     const result = await importDiscordChatExporterJson(parsed.parsed);
-    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages, acceptPaidTables) : undefined;
+    const autoParseResult = autoParse ? await autoParsePendingImportedMessages(req.user?.userId, result.importedMessages, acceptPaidTables, requireExplicitContact) : undefined;
 
     return respondImportSuccess(res, result, req.user?.userId, autoParseResult, parsed.truncationWarning);
   } catch (error: unknown) {
@@ -190,6 +205,7 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
     const messageIds = validateReparseMessageIds(req.body?.messageIds);
     const hasIds = !!messageIds?.length;
     const acceptPaidTables = readAcceptPaidTables(req.body);
+    const requireExplicitContact = readRequireExplicitContact(req.body);
 
     let total = 0;
     let reparsed = 0;
@@ -247,7 +263,7 @@ router.post('/reparse', requireAdmin, async (req: Request, res: Response) => {
             vttPlatforms,
             communicationPlatforms,
             scenarios,
-          });
+          }, requireExplicitContact);
           if (outcome === 'error') errors++;
           else if (outcome === 'discarded') discarded++; // DEB-048-27
           else if (outcome === 'ignored') ignored++;
