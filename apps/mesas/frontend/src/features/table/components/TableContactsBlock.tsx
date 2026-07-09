@@ -79,16 +79,32 @@ function ContactButton({ contact }: { contact: TableContact }) {
           </div>
         )}
 
-        {/* Informação secundária: username */}
+        {/* Informação secundária: username/ID. Achado do mantenedor 2026-07-08:
+            valor puro sem link não dá pra localizar no Discord — snowflake
+            (ID numérico) vira link https://discord.com/users/:id (abre perfil/DM
+            no client/web se logado); username (não-numérico) fica só como texto,
+            Discord não expõe URL de perfil por username. */}
         <div className="flex items-start gap-2 px-2 text-sm text-white/70">
           <span className="text-white/50">👤</span>
           <div className="space-y-0.5">
             <p>
-              Username: <span className="text-orange-400 font-medium">{contact.value}</span>
+              Username:{' '}
+              {/^\d{17,20}$/.test(contact.value.trim()) ? (
+                <a
+                  href={`https://discord.com/users/${contact.value.trim()}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-orange-400 font-medium underline hover:text-orange-300"
+                >
+                  {contact.value}
+                </a>
+              ) : (
+                <span className="text-orange-400 font-medium">{contact.value}</span>
+              )}
             </p>
             <p className="text-xs text-white/50">
-              {contact.discord_server_url 
-                ? 'Entre no servidor e envie mensagem direta' 
+              {contact.discord_server_url
+                ? 'Entre no servidor e envie mensagem direta'
                 : 'Envie mensagem direta no Discord'}
             </p>
           </div>

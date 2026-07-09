@@ -128,17 +128,23 @@ export class TableRepository {
    */
   static async updateTableWithRelations(
     tableId: string,
-    gmProfileId: string,
+    gmProfileId: string | null,
     tableData: Updateable<TablesTable>,
     contacts?: Array<Omit<Insertable<TableContactsTable>, 'table_id'>>,
     schedules?: Array<Omit<Insertable<TableSchedulesTable>, 'table_id'>>
   ) {
     return await db.transaction().execute(async (trx) => {
-      const [updatedTable] = await trx
+      // gmProfileId null = admin editando mesa órfã (gm_id: null, spec 060) —
+      // caller (gmPanel.ts PUT /tables/:id) já validou role==='admin' antes de
+      // chegar aqui; sem esse bypass o WHERE gm_id nunca bate em mesa importada.
+      let query = trx
         .updateTable('tables')
         .set(tableData)
-        .where('id', '=', tableId)
-        .where('gm_id', '=', gmProfileId)
+        .where('id', '=', tableId);
+      if (gmProfileId !== null) {
+        query = query.where('gm_id', '=', gmProfileId);
+      }
+      const [updatedTable] = await query
         .returning(['id', 'slug', 'title', 'status', 'updated_at'])
         .execute();
 

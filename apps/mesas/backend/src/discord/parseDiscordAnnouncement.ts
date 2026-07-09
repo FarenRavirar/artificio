@@ -1497,6 +1497,7 @@ export function parseDiscordAnnouncement(
     frequency: explicitFrequency ?? deriveFrequency(resolvedType, dayOfWeek),
     description,
     contact_discord: contactDiscord,
+    contact_discord_explicit: explicitContactDiscord !== null,
     contact_url: contactUrl,
     host_discord_id: hostDiscordId,
     scenario_id: scenarioMatch?.id ?? null,

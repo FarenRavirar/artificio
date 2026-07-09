@@ -76,6 +76,11 @@ export interface DiscordTableDraftTable {
   frequency: TableDraftFrequency | null;
   description: string | null;
   contact_discord: string | null;
+  /** Achado CodeRabbit (PR #140): contact_discord pode ser fallback pro autor
+   * da mensagem quando não há menção/URL explícita (DEB-048-26). Este campo
+   * distingue contato publicado de verdade vs. fallback — usado pelo filtro
+   * "importar só com contato confirmado" (requireExplicitContact). */
+  contact_discord_explicit: boolean;
   contact_url: string | null;
   host_discord_id: string | null;
   /** Fase B/C (spec 058): campos novos de auto-preenchimento — ver `auto-preenchimento-draft.md`. */

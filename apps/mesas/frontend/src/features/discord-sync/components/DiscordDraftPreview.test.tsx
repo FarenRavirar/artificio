@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DiscordDraftPreview } from './DiscordDraftPreview';
 import type { DiscordDraft, DraftApiOperations } from '../types';
-import { authPut } from '../../../services/apiClient';
+import { authGet, authPut } from '../../../services/apiClient';
 
 vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock('../../../services/apiClient', () => ({
+  authGet: vi.fn(),
   authPut: vi.fn(),
 }));
 
@@ -88,6 +89,13 @@ const mockApi: DraftApiOperations = {
 };
 
 describe('DiscordDraftPreview', () => {
+  beforeEach(() => {
+    // GET /admin/tables/:id (mount effect, achado do mantenedor 2026-07-08 —
+    // resolve slug/status real pro botão "Ver Mesa Publicada"). Default: falha,
+    // pra não interferir nos testes que não tratam desse fluxo.
+    vi.mocked(authGet).mockResolvedValue({ ok: false } as Response);
+  });
+
   it('renderiza o modal de preview', () => {
     render(
       <DiscordDraftPreview
@@ -216,8 +224,11 @@ describe('DiscordDraftPreview', () => {
     expect(screen.getByText('Publicar mesa')).toBeInTheDocument();
   });
 
-  it('publica mesa com sucesso e troca botao por confirmacao', async () => {
-    vi.mocked(authPut).mockResolvedValue({ ok: true } as Response);
+  it('publica mesa com sucesso e troca botao por link Ver Mesa Publicada', async () => {
+    vi.mocked(authPut).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { id: 'table-123', slug: 'mesa-publicada', status: 'active' } }),
+    } as Response);
 
     render(
       <DiscordDraftPreview
@@ -234,7 +245,28 @@ describe('DiscordDraftPreview', () => {
       expect(authPut).toHaveBeenCalledWith('/api/v1/admin/tables/table-123', { status: 'active' });
     });
     await waitFor(() => {
-      expect(screen.getByText('Mesa publicada')).toBeInTheDocument();
+      expect(screen.getByText('Ver Mesa Publicada')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Publicar mesa')).not.toBeInTheDocument();
+  });
+
+  it('mostra link Ver Mesa Publicada direto (sem clicar) quando mesa ja estava publicada', async () => {
+    vi.mocked(authGet).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { status: 'active', slug: 'mesa-ja-publicada' } }),
+    } as Response);
+
+    render(
+      <DiscordDraftPreview
+        draft={mockSyncedDraft}
+        onUpdate={vi.fn()}
+        onClose={vi.fn()}
+        api={mockApi}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Ver Mesa Publicada')).toBeInTheDocument();
     });
     expect(screen.queryByText('Publicar mesa')).not.toBeInTheDocument();
   });

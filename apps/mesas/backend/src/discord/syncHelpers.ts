@@ -338,7 +338,11 @@ function buildTableDraftFields(
     requires_microphone: t.requires_microphone ?? false,
     session_zero_free: t.session_zero_free ?? false,
     actual_gm_name: gmName,
-    is_covil: true,
+    // Bug reportado pelo mantenedor 2026-07-08: mesa sincronizada do Discord
+    // nascia marcada como "Covil do Lich" sem checagem de origem — draft não
+    // carrega esse dado, badge deve ser opt-in manual do admin (PUT
+    // /api/v1/admin/tables/:id aceita is_covil), nunca default automático.
+    is_covil: false,
     cover_url: coverUrl,
     banner_url: coverUrl,
   };

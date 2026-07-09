@@ -19,6 +19,7 @@ function makeDraftTable(overrides: Partial<DiscordTableDraftTable> = {}): Discor
     frequency: null,
     description: 'descricao',
     contact_discord: null,
+    contact_discord_explicit: false,
     contact_url: null,
     host_discord_id: null,
     scenario_id: null,

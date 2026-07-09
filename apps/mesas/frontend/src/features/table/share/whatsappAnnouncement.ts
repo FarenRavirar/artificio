@@ -65,34 +65,98 @@ const GUIDE_LINK = 'https://artificiorpg.com/blog/como-anunciar-mesa-de-rpg/';
 /**
  * Remove qualquer caractere `<`/`>` residual até fixpoint — corta a raiz de
  * sanitização multi-char incompleta (achado CodeQL, PR #139, 2026-07-08):
- * um único passe de `<[^>]*>` deixa tag nao-fechada tipo `<script` intacta.
+ * regex ampla deixava tag nao-fechada tipo `<script` intacta.
  */
 function stripAngleBrackets(value: string): string {
-  let previous: string;
-  let current = value;
-  do {
-    previous = current;
-    current = current.replaceAll(/<[^>]*>?/g, '');
-  } while (current !== previous);
-  return current;
+  let result = '';
+  let insideTag = false;
+
+  for (const char of value) {
+    if (char === '<') {
+      insideTag = true;
+      continue;
+    }
+
+    if (insideTag) {
+      insideTag = char !== '>';
+      continue;
+    }
+
+    result += char;
+  }
+
+  return result;
+}
+
+function convertMarkdownLinks(value: string): string {
+  let result = '';
+  let cursor = 0;
+
+  while (cursor < value.length) {
+    const labelStart = value.indexOf('[', cursor);
+    if (labelStart === -1) {
+      result += value.slice(cursor);
+      break;
+    }
+
+    const labelEnd = value.indexOf('](', labelStart + 1);
+    if (labelEnd === -1) {
+      result += value.slice(cursor);
+      break;
+    }
+
+    const urlStart = labelEnd + 2;
+    const urlEnd = value.indexOf(')', urlStart);
+    const url = urlEnd === -1 ? '' : value.slice(urlStart, urlEnd);
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      result += value.slice(cursor, urlStart);
+      cursor = urlStart;
+      continue;
+    }
+
+    result += value.slice(cursor, labelStart);
+    result += `${value.slice(labelStart + 1, labelEnd)}: ${url}`;
+    cursor = urlEnd + 1;
+  }
+
+  return result;
+}
+
+function collapseBlankLines(value: string): string {
+  const lines = value.split('\n');
+  const collapsed: string[] = [];
+  let blankCount = 0;
+
+  for (const line of lines) {
+    if (line === '') {
+      blankCount += 1;
+      if (blankCount <= 2) collapsed.push(line);
+      continue;
+    }
+
+    blankCount = 0;
+    collapsed.push(line);
+  }
+
+  return collapsed.join('\n');
 }
 
 function cleanText(value: unknown): string {
   if (typeof value !== 'string') return '';
 
-  return stripAngleBrackets(
+  const withoutHtml = stripAngleBrackets(
     value
       .replaceAll(/<br ?\/?>/gi, '\n')
       .replaceAll(/<\/p>/gi, '\n\n'),
-  )
-    .replaceAll(/\[([^\]]+)]\((https?:\/\/\S+)\)/g, '$1: $2')
+  );
+
+  return collapseBlankLines(convertMarkdownLinks(withoutHtml)
     .replaceAll(/`{1,3}/g, '')
     .replaceAll(/^ {0,3}#{1,6} /gm, '')
     .replaceAll(/^ {0,3}> ?/gm, '')
     .replaceAll(/^ *[-*+] /gm, '')
     .replaceAll('\r\n', '\n')
-    .replaceAll(/\n{3,}/g, '\n\n')
-    .replaceAll(/[ \t]+/g, ' ')
+    .replaceAll(/[ \t]+/g, ' '))
     .trim();
 }
 
@@ -250,6 +314,16 @@ function buildAboutTable(table: TableDetail, synopsisSource: string): string {
   return blocks.filter(Boolean).join('\n\n');
 }
 
+/**
+ * Bloco de seção opcional: título em negrito (WhatsApp: `*texto*`) + conteúdo.
+ * Achado do mantenedor 2026-07-08: seção sem conteúdo (ex.: "Sobre o Mestre"
+ * sem bio) não pode sair vazia no anúncio — omite o bloco inteiro nesse caso.
+ */
+function buildSection(heading: string, body: string): string[] {
+  if (!body) return [];
+  return ['', `*${heading}*`, body];
+}
+
 export function buildWhatsAppTableAnnouncement(
   table: TableDetail,
   options: WhatsAppAnnouncementOptions = {},
@@ -261,10 +335,11 @@ export function buildWhatsAppTableAnnouncement(
   const header = joinNonEmpty([systemName, title, tableType, priceType], ' - ');
   const synopsis = cleanText(table.synopsis_narrative) || cleanText(table.synopsis) || cleanText(table.description);
   const aboutMaster = cleanText(table.table_gm_bio) || cleanText(table.gm_bio_long);
+  const aboutTable = buildAboutTable(table, synopsis);
   const publicUrl = buildPublicTableUrl(table, options.publicOrigin);
 
   const lines = [
-    `📢${header}📢`,
+    `📢*${header}*📢`,
     '',
     `▬ Título: ${title}`,
     `▬ Sistema: ${systemName}`,
@@ -277,58 +352,27 @@ export function buildWhatsAppTableAnnouncement(
     `▬ Estilo: ${joinNonEmpty([table.style_text, table.setting_name, ...(table.setting_styles ?? [])])}`,
     `▬ Duração: ${formatDuration(table)}`,
     `▬ Mesa: ${priceType}`,
-    '',
-    '📖 Sinopse:',
-    synopsis,
+    ...buildSection('📖 Sinopse:', synopsis),
     '',
     '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬',
+    ...buildSection('🎭 Sobre o Mestre:', aboutMaster),
+    ...buildSection('⚔️ Sobre a Mesa:', aboutTable),
+    ...buildSection('📌 Inscrições:', publicUrl),
     '',
-    '🎭 Sobre o Mestre:',
-    aboutMaster,
-    '',
-    '⚔️ Sobre a Mesa:',
-    buildAboutTable(table, synopsis),
-    '',
-    '📌 Inscrições:',
-    publicUrl,
-    '',
-    'Anúncios de Mesas de RPG:',
+    `*Anúncios de Mesas de RPG:*`,
     `Para mais anúncios de vagas em mesas, acesse: ${COMMUNITY_LINK}`,
     '',
     'Temos um Post para aprofundar os mestres a realizar uma excelente de sua mesa e ajudar a filtrar e recrutar jogadores:',
     GUIDE_LINK,
   ];
 
-  return lines.join('\n').replaceAll(/\b(?:undefined|null|NaN)\b/g, '').replaceAll(/[ \t]+\n/g, '\n').trim();
+  return lines.join('\n').replaceAll(/\b(?:undefined|null|NaN)\b/g, '').replaceAll(/[ \t]+\n/g, '\n').replaceAll(/\n{3,}/g, '\n\n').trim();
 }
 
 export async function copyTextToClipboard(text: string): Promise<void> {
-  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return;
-    } catch {
-      // Fallback below keeps copy working when browser denies Clipboard API.
-    }
-  }
-
-  if (typeof document === 'undefined') {
+  if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
     throw new TypeError('Clipboard unavailable');
   }
 
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.left = '-9999px';
-  textarea.style.top = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-
-  try {
-    const copied = document.execCommand('copy');
-    if (!copied) throw new Error('Clipboard fallback failed');
-  } finally {
-    textarea.remove();
-  }
+  await navigator.clipboard.writeText(text);
 }

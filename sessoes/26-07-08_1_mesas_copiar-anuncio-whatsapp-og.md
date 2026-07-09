@@ -496,3 +496,27 @@ Revisar e separar por spec antes de qualquer commit.
 - Proximo passo (fora desta acao): mantenedor decidir quando
   autorizar commit+push+PR (separando diff da spec 060) pra liberar
   deploy beta e fechar T7.5.
+
+## Retomada Codex — Sonar fixes — 2026-07-08
+
+- Pedido do mantenedor: corrigir achados Sonar sem commit.
+- Escopo: `apps/mesas/frontend/src/features/table/components/TableActionPanel.tsx` e `apps/mesas/frontend/src/features/table/share/whatsappAnnouncement.ts`.
+- Plano:
+  - reduzir Cognitive Complexity de `TableActionPanel` extraindo JSX/decisoes repetidas para helpers/componentes locais;
+  - trocar regexes com risco de backtracking em `whatsappAnnouncement.ts` por parsing linear ou regex simples;
+  - substituir fallback com `document.execCommand('copy')` por alternativa sem API obsoleta;
+  - validar com testes/lint/build pontuais e, se necessario, repo-wide.
+- Implementacao:
+  - `TableActionPanel.tsx`: `TableActionPanel` virou orquestrador curto; JSX/decisoes repetidas extraidas para helpers locais (`PricePanel`, `QuickInfoPanel`, `PlatformsPanel`, `ManagementPanel`, `VisitorPreview`, etc.).
+  - `whatsappAnnouncement.ts`: `stripAngleBrackets`, markdown links e colapso de linhas em branco agora usam parsing linear; removido fallback `document.execCommand('copy')`.
+  - `whatsappAnnouncement.test.ts`: teste de clipboard atualizado para API moderna e erro explicito quando indisponivel.
+- Validacao:
+  - `pnpm --filter @artificio/mesas-frontend run build` passou.
+  - `apps/mesas/frontend/node_modules/.bin/vitest.cmd run src/features/table/share/whatsappAnnouncement.test.ts` passou: 1 arquivo / 5 testes.
+  - `apps/mesas/frontend/node_modules/.bin/eslint.cmd src/features/table/components/TableActionPanel.tsx src/features/table/share/whatsappAnnouncement.ts src/features/table/share/whatsappAnnouncement.test.ts` passou.
+  - `git diff --check` passou.
+  - `rg` nao encontrou mais `execCommand` nem os padroes regex antigos em `whatsappAnnouncement.ts`/teste.
+- Bloqueios fora do escopo:
+  - `pnpm --filter @artificio/mesas-frontend run lint` ainda falha em `DiscordDraftPreview.tsx:160` (`react-hooks/set-state-in-effect`), diff local preexistente da spec 060.
+  - `pnpm --filter @artificio/mesas-frontend run test` ainda falha em 4 testes de `DiscordDraftPreview.test.tsx` por mock sem `authGet`, tambem ligado ao diff local preexistente da spec 060.
+  - Sem backlog novo: o problema ja esta coberto no handoff/spec 060 desta mesma sessao como diff local misturado pendente.
