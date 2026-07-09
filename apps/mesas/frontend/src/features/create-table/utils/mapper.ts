@@ -89,7 +89,7 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
     publisher_role: state.publisherRole,
     actual_gm_name: state.publisherRole === 'announcer' ? state.actualGmName : null,
     rules_notes: state.rulesNotes,
-    banner_url: state.bannerUrl,
+    banner_url: state.bannerUrl?.trim() ? state.bannerUrl.trim() : undefined,
     banner_crop_data: state.bannerCropData ?? undefined,
     gm_avatar_url: state.gmAvatarUrl || undefined,
     is_covil: state.isCovilMesa,

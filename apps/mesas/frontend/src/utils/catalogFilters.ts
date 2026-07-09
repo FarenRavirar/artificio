@@ -25,7 +25,6 @@ const VALID_MODALITIES: readonly ModalityOption[] = ['online', 'presencial', 'hi
 const VALID_PRICE_TYPES: readonly PriceTypeOption[] = ['gratuita', 'paga'];
 const VALID_EXPERIENCE_LEVELS: readonly ExperienceLevelOption[] = ['iniciante', 'intermediario', 'veterano'];
 const VALID_SEALS: readonly CatalogSeal[] = ['ddal', 'covil-do-lich', ''];
-const VALID_STYLES: readonly StyleOption[] = ['Narrativo', 'Combate intenso', 'Investigação', 'Roleplay pesado', 'Sandbox', 'Horror'];
 
 /**
  * Parser: URLSearchParams → CatalogFilters
@@ -52,7 +51,9 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
       return s; // Fallback se decode falhar
     }
   });
-  const validStyles = stylesArray.filter((s): s is StyleOption => VALID_STYLES.includes(s as StyleOption));
+  // Estilo é campo livre (setting_styles no backend) — validação real fica
+  // no filtro SQL; aqui só descarta lixo óbvio (vazio/gigante).
+  const validStyles = stylesArray.filter((s) => s.length > 0 && s.length <= 50);
   const styles: StyleOption[] = [...new Set(validStyles)].sort();
 
   return {

@@ -5,13 +5,14 @@ export type SortOption = 'popular' | 'recent' | 'slots' | 'price_asc' | 'price_d
 export type ModalityOption = 'online' | 'presencial' | 'hibrida';
 export type PriceTypeOption = 'gratuita' | 'paga';
 export type ExperienceLevelOption = 'iniciante' | 'intermediario' | 'veterano';
-export type StyleOption = 
-  | 'Narrativo'
-  | 'Combate intenso'
-  | 'Investigação'
-  | 'Roleplay pesado'
-  | 'Sandbox'
-  | 'Horror';
+// Estilos vêm do backend (t.setting_styles, campo livre populado pelos mestres),
+// não são um enum fixo — ver GET /api/v1/tables/style-facets.
+export type StyleOption = string;
+
+export interface StyleFacet {
+  style: StyleOption;
+  count: number;
+}
 
 export interface CatalogFilters {
   search: string;

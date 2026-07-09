@@ -20,10 +20,17 @@ export type AtualizacaoTermoPayload = Partial<{
 
 export function useGlossario() {
   const [dados, setDados] = useState<Termo[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastSearchRef = useRef('');
+
+  const readTotalCount = (res: { headers: Record<string, unknown> }): number => {
+    const raw = res.headers['x-total-count'];
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
 
   // Refetch manual (botão "recarregar"): reseta loading/erro de forma síncrona.
   const carregarDados = useCallback(() => {
@@ -34,6 +41,7 @@ export function useGlossario() {
       .then((res) => {
         const payload = Array.isArray(res.data) ? res.data : [];
         setDados(payload.map((item: Termo) => sanitizeTermForUi(item)));
+        setTotalCount(readTotalCount(res));
         setLoading(false);
       })
       .catch((err) => {
@@ -53,6 +61,7 @@ export function useGlossario() {
         if (!active) return;
         const payload = Array.isArray(res.data) ? res.data : [];
         setDados(payload.map((item: Termo) => sanitizeTermForUi(item)));
+        setTotalCount(readTotalCount(res));
       } catch (err) {
         if (!active) return;
         console.error('Erro ao carregar termos:', err);
@@ -104,5 +113,5 @@ export function useGlossario() {
     setDados((prev) => prev.filter((item) => String(item.id) !== String(id)));
   };
 
-  return { dados, buscar, loading: loading || searching, error, recarregar: carregarDados, editarTermo, excluirTermo };
+  return { dados, totalCount, buscar, loading: loading || searching, error, recarregar: carregarDados, editarTermo, excluirTermo };
 }

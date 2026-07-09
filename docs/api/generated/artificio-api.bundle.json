@@ -6,10 +6,10 @@
     "accounts": 11,
     "glossario": 46,
     "links": 22,
-    "mesas": 179,
+    "mesas": 180,
     "site": 32
   },
-  "total": 290,
+  "total": 291,
   "operations": [
     {
       "app": "accounts",
@@ -2931,6 +2931,18 @@
       "auth": "none",
       "consumers": [],
       "operationId": "postapi_v1_tables_slug_view"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/tables/style-facets",
+      "summary": "Consulta api v1 tables style-facets",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_tables_style_facets"
     },
     {
       "app": "mesas",

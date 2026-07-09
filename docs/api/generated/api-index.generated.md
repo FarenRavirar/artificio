@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **290 operações**.
+Total: **291 operações**.
 
 ## accounts (11)
 
@@ -100,7 +100,7 @@ Total: **290 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (179)
+## mesas (180)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -267,6 +267,7 @@ Total: **290 operações**.
 | GET | `/api/v1/tables/{slug}` | public | none | active | — | Consulta api v1 tables slug |
 | POST | `/api/v1/tables/{slug}/click` | telemetry | none | active | — | Cria ou executa api v1 tables slug click |
 | POST | `/api/v1/tables/{slug}/view` | telemetry | none | active | — | Cria ou executa api v1 tables slug view |
+| GET | `/api/v1/tables/style-facets` | public | none | active | — | Consulta api v1 tables style-facets |
 | POST | `/api/v1/upload` | public | user | active | — | Cria ou executa api v1 upload |
 | POST | `/api/v1/upload/url` | public | user | active | — | Cria ou executa api v1 upload url |
 | GET | `/api/v1/vtt-platforms` | public | user | active | — | Consulta api v1 vtt-platforms |

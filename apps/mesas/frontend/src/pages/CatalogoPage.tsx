@@ -5,12 +5,14 @@ import { TableCardComponent, TableCardSkeleton } from '../components/TableCard';
 import { FilterDrawer } from '../components/FilterDrawer';
 import { ActiveFiltersChips } from '../components/ActiveFiltersChips';
 import { ResultsHeader } from '../components/ResultsHeader';
-import { SystemTreeSelector } from '../components/SystemTreeSelector';
+import { SystemAutocomplete } from '../components/SystemAutocomplete';
+import { D20Glyph } from '../components/D20Glyph';
 import type { CatalogSeal } from '../types/tables';
 import type { SystemTreeNode } from '../types/systems';
 import { applySeo } from '../utils/seo';
 import { useCatalogTables } from '../hooks/useCatalogTables';
 import { useCatalogFilters } from '../hooks/useCatalogFilters';
+import { useStyleFacets } from '../hooks/useStyleFacets';
 import { trackFilterSistema } from '@artificio/analytics';
 import type {
   CatalogFilters,
@@ -22,7 +24,6 @@ import type {
 } from '../services/catalogService';
 
 // Constantes de validação (compartilhadas com parser)
-const VALID_STYLES: StyleOption[] = ['Narrativo', 'Combate intenso', 'Investigação', 'Roleplay pesado', 'Sandbox', 'Horror'];
 const VALID_MODALITIES: ModalityOption[] = ['online', 'presencial', 'hibrida'];
 const VALID_PRICE_TYPES: PriceTypeOption[] = ['gratuita', 'paga'];
 const VALID_EXPERIENCE_LEVELS: ExperienceLevelOption[] = ['iniciante', 'intermediario', 'veterano'];
@@ -51,11 +52,13 @@ export const CatalogoPage = () => {
   // STATE - URL-driven filters (hook genérico)
   const [filters, setFilters] = useCatalogFilters();
 
+  // Estilos reais em uso, por frequência (não é lista fixa)
+  const { facets: styleFacets } = useStyleFacets();
+
   // STATE - Árvore de sistemas e busca
   const [systemsTree, setSystemsTree] = useState<SystemTreeNode[]>([]);
   const [systemsTreeError, setSystemsTreeError] = useState<string | null>(null);
   const [systemsTreeReloadKey, setSystemsTreeReloadKey] = useState(0);
-  const [systemSearch, setSystemSearch] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Flatten tree para mapear ID -> slug
@@ -84,11 +87,11 @@ export const CatalogoPage = () => {
     return map;
   }, [systemsTree]);
 
-  // Converter slug do filtro para ID (para SystemTreeSelector)
-  const selectedSystemIds = useMemo(() => {
-    if (!filters.system) return [];
+  // Converter slug do filtro para ID (para SystemAutocomplete)
+  const selectedSystemId = useMemo(() => {
+    if (!filters.system) return null;
     const entry = Array.from(systemsMap.entries()).find(([, slug]) => slug === filters.system);
-    return entry ? [entry[0]] : [];
+    return entry ? entry[0] : null;
   }, [filters.system, systemsMap]);
 
   // ============================================================================
@@ -154,7 +157,11 @@ export const CatalogoPage = () => {
     }));
   };
 
-  const handleSystemToggle = (systemId: string) => {
+  const handleSystemSelect = (systemId: string | null) => {
+    if (!systemId) {
+      setFilters(prev => ({ ...prev, system: '' }));
+      return;
+    }
     const slug = systemsMap.get(systemId);
     const newSystem = slug || '';
     if (newSystem && newSystem !== filters.system) {
@@ -246,14 +253,18 @@ export const CatalogoPage = () => {
   // ============================================================================
   
   return (
-    <main className="min-h-screen overflow-x-hidden bg-gradient-to-b from-[#0a1628] to-[#13213f] text-white">
+    <main className="min-h-screen overflow-x-hidden bg-gradient-to-b from-[#0B1220] to-[#13213f] text-white">
       {/* HEADER */}
-      <div className="border-b border-white/10 bg-[#0a1628]/90">
-        <div className="container mx-auto px-4 py-6 sm:px-6">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <div className="relative overflow-hidden border-b border-white/10 bg-[#0B1220]">
+        <D20Glyph className="pointer-events-none absolute -right-10 -top-16 h-64 w-64 text-[var(--color-artificio-orange)]/[0.06] sm:h-80 sm:w-80" />
+        <div className="container relative mx-auto px-4 py-12 sm:px-6 sm:py-16">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
-              <h1 className="text-2xl font-black text-white sm:text-3xl">Catálogo de Mesas</h1>
-              <p className="mt-1 text-sm text-white/60">Encontre a mesa perfeita para você</p>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-artificio-orange)]">
+                Artifício Mesas
+              </p>
+              <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl">Catálogo de Mesas</h1>
+              <p className="mt-2.5 text-sm text-white/60">Encontre a mesa perfeita para você</p>
             </div>
             <div className="flex items-center gap-3 text-xs text-white/50">
               <span>{totalCount} {totalCount === 1 ? 'mesa encontrada' : 'mesas encontradas'}</span>
@@ -272,7 +283,7 @@ export const CatalogoPage = () => {
       </div>
 
       {systemsTreeError && (
-        <section className="container mx-auto px-4 pt-4 sm:px-6" aria-live="polite">
+        <section className="container mx-auto px-4 pt-10 pb-4 sm:px-6" aria-live="polite">
           <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 flex items-center justify-between gap-3">
             <p className="text-sm text-amber-100">{systemsTreeError}</p>
             <button
@@ -288,21 +299,37 @@ export const CatalogoPage = () => {
       )}
 
       {/* FILTROS - DESKTOP */}
-      <section className="hidden border-b border-white/10 bg-[#0a1628]/65 md:block">
-        <div className="container mx-auto px-6 py-4">
-          <div className="rounded-xl border border-white/10 bg-[#10203a]/80 p-4 shadow-lg">
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="relative min-w-[18rem] flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-                <input
-                  type="text"
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  placeholder="Buscar mesas..."
-                  className="w-full rounded-lg border border-white/10 bg-[#0F1A2E] py-2.5 pl-9 pr-3 text-sm outline-none transition-colors focus:border-[var(--color-artificio-orange)]"
+      <section className="hidden border-b border-white/10 bg-[#0B1220]/40 md:block">
+        <div className="container mx-auto px-6 py-10">
+          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+
+            {/* GAVETA 1 — busca + sistema (filtros primários) */}
+            <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Buscar</p>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    placeholder="Buscar mesas..."
+                    className="w-full rounded-lg border border-white/10 bg-[#0B1220] py-2.5 pl-9 pr-3 text-sm outline-none transition-colors focus:border-[var(--color-artificio-orange)]"
+                  />
+                </div>
+
+                <SystemAutocomplete
+                  tree={systemsTree}
+                  selectedId={selectedSystemId}
+                  onSelect={handleSystemSelect}
+                  idPrefix="catalog-desktop"
                 />
               </div>
+            </div>
 
+            {/* GAVETA 2 — refinamento por atributo da mesa */}
+            <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Refinar</p>
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={filters.modality}
@@ -338,69 +365,68 @@ export const CatalogoPage = () => {
               </div>
             </div>
 
-            <div className="mb-4">
-              <SystemTreeSelector
-                tree={systemsTree}
-                selectedIds={selectedSystemIds}
-                onToggle={handleSystemToggle}
-                search={systemSearch}
-                onSearchChange={setSystemSearch}
-                idPrefix="catalog-desktop"
-                singleSelect={true}
-              />
+            {/* GAVETA 3 — selos (curados) e estilos (livres, com contagem) */}
+            <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4 lg:col-span-2">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Selos</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleSeal('ddal')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all whitespace-nowrap ${
+                      filters.seal === 'ddal'
+                        ? 'border-amber-300/50 bg-amber-500/20 text-amber-100'
+                        : 'border-white/10 bg-[#0B1220] text-white/70 hover:border-white/20 hover:bg-white/5'
+                    }`}
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" /> DDAL
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleSeal('covil-do-lich')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all whitespace-nowrap ${
+                      filters.seal === 'covil-do-lich'
+                        ? 'border-purple-300/50 bg-purple-500/20 text-purple-100'
+                        : 'border-white/10 bg-[#0B1220] text-white/70 hover:border-white/20 hover:bg-white/5'
+                    }`}
+                  >
+                    <Star className="w-3.5 h-3.5" /> Covil do Lich
+                  </button>
+                </div>
+
+                {styleFacets.length > 0 && (
+                  <>
+                    <div className="hidden h-6 w-px bg-white/10 sm:block" />
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Estilos</span>
+                      {styleFacets.map(({ style, count }) => (
+                        <button
+                          key={style}
+                          type="button"
+                          onClick={() => toggleStyle(style)}
+                          className={`px-3 py-1.5 rounded-lg border text-xs transition-all whitespace-nowrap ${
+                            filters.styles.includes(style)
+                              ? 'border-orange-500 bg-orange-500/20 text-orange-100'
+                              : 'border-white/10 bg-[#0B1220] text-white/70 hover:border-white/20 hover:bg-white/5'
+                          }`}
+                        >
+                          {style} <span className="text-white/40">({count})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-white/40">Selos e estilos</span>
-            <button
-              type="button"
-              onClick={() => toggleSeal('ddal')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all whitespace-nowrap ${
-                filters.seal === 'ddal'
-                  ? 'border-amber-300/50 bg-amber-500/20 text-amber-100'
-                  : 'border-white/10 bg-[#13213f] text-white/70 hover:border-white/20 hover:bg-white/5'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" /> DDAL
-            </button>
-
-            <button
-              type="button"
-              onClick={() => toggleSeal('covil-do-lich')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all whitespace-nowrap ${
-                filters.seal === 'covil-do-lich'
-                  ? 'border-purple-300/50 bg-purple-500/20 text-purple-100'
-                  : 'border-white/10 bg-[#13213f] text-white/70 hover:border-white/20 hover:bg-white/5'
-              }`}
-            >
-              <Star className="w-3.5 h-3.5" /> Covil do Lich
-            </button>
-
-            <div className="h-4 w-px bg-white/10 mx-1" />
-
-            {VALID_STYLES.map((style) => (
-              <button
-                key={style}
-                type="button"
-                onClick={() => toggleStyle(style)}
-                className={`px-3 py-1.5 rounded-lg border text-xs transition-all whitespace-nowrap ${
-                  filters.styles.includes(style)
-                    ? 'border-orange-500 bg-orange-500/20 text-orange-100'
-                    : 'border-white/10 bg-[#13213f] text-white/70 hover:border-white/20 hover:bg-white/5'
-                }`}
-              >
-                {style}
-              </button>
-            ))}
           </div>
-        </div>
         </div>
       </section>
 
-      {/* BOTÃO FILTROS - MOBILE */}
+      {/* BOTÃO FILTROS - MOBILE (acima do FAB de feedback, que fica em bottom-5) */}
       <button
         onClick={() => setIsFilterOpen(true)}
-        className="fixed bottom-5 right-4 z-30 flex items-center gap-2 rounded-full bg-[var(--color-artificio-orange)] px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] font-bold text-white shadow-lg transition-colors hover:bg-[var(--color-artificio-orange-hover)] md:hidden"
+        className="fixed bottom-20 right-4 z-30 flex items-center gap-2 rounded-full bg-[var(--color-artificio-orange)] px-5 py-3 font-bold text-white shadow-lg transition-colors hover:bg-[var(--color-artificio-orange-hover)] md:hidden"
       >
         <SlidersHorizontal className="w-5 h-5" />
         Filtros
@@ -418,30 +444,31 @@ export const CatalogoPage = () => {
         onClear={clearFilters}
         isApplying={isRefreshing}
       >
-        {/* Busca */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
-          <input
-            type="text"
-            value={filters.search}
-            onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-            placeholder="Buscar mesas..."
-            className="w-full rounded-lg bg-[#13213f] border border-white/10 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-[var(--color-artificio-orange)] transition-colors"
+        {/* BLOCO 1 — busca textual + sistema (filtros primários) */}
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+            <input
+              type="text"
+              value={filters.search}
+              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+              placeholder="Buscar mesas..."
+              className="w-full rounded-lg bg-[#13213f] border border-white/10 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-[var(--color-artificio-orange)] transition-colors"
+            />
+          </div>
+
+          <SystemAutocomplete
+            tree={systemsTree}
+            selectedId={selectedSystemId}
+            onSelect={handleSystemSelect}
+            idPrefix="catalog-mobile"
           />
         </div>
 
-        {/* Filtros */}
-        <div className="space-y-3">
-          <SystemTreeSelector
-            tree={systemsTree}
-            selectedIds={selectedSystemIds}
-            onToggle={handleSystemToggle}
-            search={systemSearch}
-            onSearchChange={setSystemSearch}
-            idPrefix="catalog-mobile"
-            singleSelect={true}
-          />
+        <div className="h-px bg-white/10" />
 
+        {/* BLOCO 2 — refinamento por atributo da mesa */}
+        <div className="space-y-3">
           <select
             value={filters.modality}
             onChange={(e) => updateFilter(setFilters, 'modality', pickOptionalOption(e.target.value, VALID_MODALITIES))}
@@ -485,7 +512,9 @@ export const CatalogoPage = () => {
           </select>
         </div>
 
-        {/* Selos */}
+        <div className="h-px bg-white/10" />
+
+        {/* BLOCO 3 — selos (curados) e estilos (livres, com contagem) */}
         <div>
           <p className="text-xs text-white/50 mb-2 font-semibold">Selos</p>
           <div className="flex gap-2">
@@ -519,7 +548,7 @@ export const CatalogoPage = () => {
         <div>
           <p className="text-xs text-white/50 mb-2 font-semibold">Estilos</p>
           <div className="flex flex-wrap gap-2">
-            {VALID_STYLES.map((style) => (
+            {styleFacets.map(({ style, count }) => (
               <button
                 key={style}
                 type="button"
@@ -530,7 +559,7 @@ export const CatalogoPage = () => {
                     : 'border-white/10 bg-[#13213f] text-white/70'
                 }`}
               >
-                {style}
+                {style} <span className="text-white/40">({count})</span>
               </button>
             ))}
           </div>
@@ -538,7 +567,7 @@ export const CatalogoPage = () => {
       </FilterDrawer>
 
       {/* CONTEÚDO */}
-      <section className="container mx-auto px-4 py-6 sm:px-6 lg:py-8">
+      <section className="container mx-auto px-4 py-8 sm:px-6 lg:py-10">
         {/* LINHA DE CONTEXTO */}
         <div className="mb-6 space-y-4">
           {isRefreshing && (
@@ -589,9 +618,9 @@ export const CatalogoPage = () => {
         {/* EMPTY STATE */}
         {!isLoading && !isRefreshing && tables.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-16 text-center sm:py-20">
-            <div className="text-6xl mb-4 opacity-30">🔍</div>
-            <p className="text-xl font-bold text-white mb-2">Nenhuma mesa encontrada</p>
-            <p className="text-sm text-white/50 mb-6">Tente ajustar os filtros ou fazer uma nova busca</p>
+            <D20Glyph className="mx-auto mb-5 h-16 w-16 text-white/20" />
+            <p className="text-xl font-bold text-white mb-2">Nenhuma mesa encontrada com esses filtros</p>
+            <p className="text-sm text-white/50 mb-6">Ajuste sistema, modalidade ou estilo, ou limpe os filtros para ver todo o catálogo</p>
             {activeFiltersCount > 0 && (
               <button
                 onClick={clearFilters}

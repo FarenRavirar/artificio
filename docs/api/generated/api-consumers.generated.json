@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 296,
-    "uniqueEndpoints": 276,
+    "total": 297,
+    "uniqueEndpoints": 277,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,17 +36,17 @@
         }
       },
       "mesas-frontend": {
-        "total": 180,
+        "total": 181,
         "byConfidence": {
           "medium": 70,
-          "high": 108,
+          "high": 109,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 62,
           "service-wrapper": 49,
-          "literal": 61,
+          "literal": 62,
           "concatenation": 2
         }
       },
@@ -557,7 +557,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.get",
-      "line": 33
+      "line": 40
     },
     {
       "app": "glossario-frontend",
@@ -587,7 +587,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.patch",
-      "line": 92
+      "line": 101
     },
     {
       "app": "glossario-frontend",
@@ -597,7 +597,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.delete",
-      "line": 103
+      "line": 112
     },
     {
       "app": "glossario-frontend",
@@ -1607,7 +1607,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 518
+      "line": 520
     },
     {
       "app": "mesas-frontend",
@@ -1737,7 +1737,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 294
+      "line": 295
     },
     {
       "app": "mesas-frontend",
@@ -1757,7 +1757,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPut",
-      "line": 654
+      "line": 656
     },
     {
       "app": "mesas-frontend",
@@ -1777,7 +1777,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 319
+      "line": 320
     },
     {
       "app": "mesas-frontend",
@@ -1807,7 +1807,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 370
+      "line": 372
     },
     {
       "app": "mesas-frontend",
@@ -1817,7 +1817,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 518
+      "line": 520
     },
     {
       "app": "mesas-frontend",
@@ -1837,7 +1837,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPatch",
-      "line": 492
+      "line": 494
     },
     {
       "app": "mesas-frontend",
@@ -1857,7 +1857,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPatch",
-      "line": 450
+      "line": 452
     },
     {
       "app": "mesas-frontend",
@@ -2317,7 +2317,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 223
+      "line": 230
     },
     {
       "app": "mesas-frontend",
@@ -2387,7 +2387,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 71
+      "line": 72
     },
     {
       "app": "mesas-frontend",
@@ -2458,6 +2458,16 @@
       "pattern": "template-literal",
       "wrapper": "fetch",
       "line": 106
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/hooks/useStyleFacets.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/tables/style-facets",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "fetch",
+      "line": 28
     },
     {
       "app": "mesas-frontend",
