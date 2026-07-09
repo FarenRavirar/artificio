@@ -18,9 +18,9 @@ const systemTreeNodeSchema: z.ZodType<SystemTreeNode> = z.lazy(() => z.object({
   website_url: z.string().nullable().optional(),
   aliases: z.array(z.string()).optional(),
   has_children: z.boolean().optional(),
-  children_count: z.number().optional(),
-  tables_count: z.number().optional(),
-  aliases_count: z.number().optional(),
+  children_count: z.coerce.number().optional(),
+  tables_count: z.coerce.number().optional(),
+  aliases_count: z.coerce.number().optional(),
   children: z.array(systemTreeNodeSchema).optional(),
 }));
 
@@ -42,7 +42,7 @@ export type SystemsCatalogFlatNode = SystemTreeNode & {
 
 export type SystemsCatalogResult = SystemsCatalogState & {
   flat: SystemsCatalogFlatNode[];
-  forceRefresh: () => Promise<SystemTreeNode[]>;
+  forceRefresh: () => Promise<SystemTreeNode[] | undefined>;
 };
 
 let systemsCatalogCache: SystemsCatalogCacheEntry | null = null;
@@ -58,7 +58,7 @@ const asRecord = (value: unknown): Record<string, unknown> => (
 const normalizeSystemTreeNode = (raw: unknown): SystemTreeNode => {
   const parsed = systemTreeNodeSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new Error('Resposta de sistemas em formato inesperado.');
+    throw new TypeError('Resposta de sistemas em formato inesperado.');
   }
   return {
     ...parsed.data,
@@ -69,7 +69,7 @@ const normalizeSystemTreeNode = (raw: unknown): SystemTreeNode => {
 
 const normalizeSystemTree = (raw: unknown): SystemTreeNode[] => {
   if (!Array.isArray(raw)) {
-    throw new Error('Resposta de sistemas em formato inesperado.');
+    throw new TypeError('Resposta de sistemas em formato inesperado.');
   }
   return raw.map(normalizeSystemTreeNode);
 };
@@ -171,7 +171,13 @@ export function useSystemsCatalog(): SystemsCatalogResult {
 
   const flat = useMemo(() => flattenSystemsCatalog(state.tree), [state.tree]);
 
-  const forceRefresh = useCallback(() => load(true), [load]);
+  const forceRefresh = useCallback(async () => {
+    try {
+      return await load(true);
+    } catch {
+      return undefined;
+    }
+  }, [load]);
 
   return {
     ...state,

@@ -27,9 +27,9 @@ const systemPayload = {
   website_url: 'https://dnd.wizards.com',
   aliases: ['D&D'],
   has_children: true,
-  children_count: 1,
-  tables_count: 2,
-  aliases_count: 1,
+  children_count: '1',
+  tables_count: '2',
+  aliases_count: '1',
   children: [
     {
       id: 'dnd-5e',
@@ -115,7 +115,7 @@ describe('useSystemsCatalog', () => {
 
     mockAuthGet.mockImplementationOnce(errorResponse);
 
-    await expect(result.current.forceRefresh()).rejects.toThrow('Erro ao carregar sistemas.');
+    await expect(result.current.forceRefresh()).resolves.toBeUndefined();
 
     await waitFor(() => {
       expect(result.current.error).toBe('Erro ao carregar sistemas.');

@@ -348,3 +348,111 @@ Investigação profunda concluída. Nenhum código, migration, banco, API, deplo
   - `pnpm --filter @artificio/mesas lint` ✅.
   - `pnpm --filter @artificio/mesas build` ✅ (warning conhecido de chunk grande do Vite, não bloqueante).
 - Status: I0a.5 fechado. Próximo: I0a.6 (`OnboardingPage.tsx`).
+
+## I0a.6 — `OnboardingPage.tsx` migrado para `useSystemsCatalog()` + `SystemPicker`
+
+- Escopo: trocar o seletor de sistemas do onboarding do `SystemTreeSelector` legado para o catálogo central.
+- Alterações:
+  - `apps/mesas/frontend/src/pages/OnboardingPage.tsx` agora usa `useSystemsCatalog()` para `tree`, `flat`, `loading`, `error` e `forceRefresh`.
+  - Troca `SystemTreeSelector` por `SystemPicker` em `mode="multi"`/`role="user"`.
+  - Remove `systems_tree` do contrato consumido de `/api/v1/me/options`; o payload agregado continua responsável apenas por tags/plataformas do onboarding.
+  - Remove `flattenSystemTree` e estado local de busca; o resumo da confirmação usa `systemsFlat` do hook para id→nome.
+- Validação:
+  - `rg "SystemTreeSelector|systems_tree|systemSearch|flattenSystemTree" apps/mesas/frontend/src/pages/OnboardingPage.tsx` sem matches.
+  - `pnpm --filter @artificio/mesas-frontend test -- src/components/SystemPicker.test.tsx src/hooks/useSystemsCatalog.test.ts` ✅ (suite frontend verde: 17 arquivos, 170 testes).
+  - `pnpm --filter @artificio/mesas lint` ✅.
+  - `pnpm --filter @artificio/mesas build` ✅.
+- Status: I0a.6 fechado. Próximo: I0a.7 (`SystemSuggestionModal.tsx`).
+
+## I0a.7 — `SystemSuggestionModal.tsx` migrado para `useSystemsCatalog()`
+
+- Escopo: remover o fetch próprio de árvore do modal de sugestão/criação de sistema.
+- Alterações:
+  - `apps/mesas/frontend/src/components/SystemSuggestionModal.tsx` agora usa `useSystemsCatalog()` para `tree`, `loading`, `error` e `forceRefresh`.
+  - Removidos `authGet('/api/v1/systems?view=tree')`, `systemsTree` local, `setSystemsTree`, `systemsLoading`/`systemsError` locais e o tipo local duplicado de nó.
+  - `flattenSystems` agora recebe `SystemTreeNode[]` canônico.
+  - Select de sistema pai mantém loading/error e ganhou retry via `forceRefresh()`.
+  - Envio continua separado via `authPost`, preservando comportamento admin (`/api/v1/systems/admin`) e usuário comum (`/api/v1/system-suggestions`).
+- Validação:
+  - `rg "authGet|setSystemsTree|systems_tree|fetchSystemsTree" apps/mesas/frontend/src/components/SystemSuggestionModal.tsx` sem matches.
+  - `pnpm --filter @artificio/mesas-frontend test -- src/test/suggestionModals.test.tsx src/hooks/useSystemsCatalog.test.ts` ✅ (suite frontend verde: 17 arquivos, 170 testes).
+  - `pnpm --filter @artificio/mesas lint` ✅.
+  - `pnpm --filter @artificio/mesas build` ✅.
+- Status: I0a.7 fechado. Próximo: I0a.8 (restringir `SystemTreeSelector` ao admin de catálogo).
+
+## I0a.8 — `SystemTreeSelector` removido das telas finais
+
+- Escopo: garantir que o grid legado `SystemTreeSelector` não seja mais consumido por telas de usuário final.
+- Investigação:
+  - `rg "from ['\"].*SystemTreeSelector|<SystemTreeSelector" apps/mesas/frontend/src` não encontrou imports/uso real.
+  - O admin de catálogo não usa `SystemTreeSelector`; usa `CatalogTree`/`CatalogTreeNode`.
+  - `DraftEditorTab.tsx` continua fora do escopo desta task: não usa `SystemTreeSelector`, usa `SystemSearchSelect` próprio e será tratado em I0a.9.
+- Alterações:
+  - Removido `apps/mesas/frontend/src/components/SystemTreeSelector.tsx`, pois não havia consumidor admin restante e manter o arquivo morto permitiria regressão acidental.
+  - Limpado comentário obsoleto em `apps/mesas/frontend/src/components/SystemAutocomplete.tsx`.
+- Validação:
+  - `rg "from ['\"].*SystemTreeSelector|<SystemTreeSelector" apps/mesas/frontend/src` sem matches.
+  - `Test-Path apps/mesas/frontend/src/components/SystemTreeSelector.tsx` → `False`.
+  - `pnpm --filter @artificio/mesas-frontend test -- src/components/SystemPicker.test.tsx src/hooks/useSystemsCatalog.test.ts src/test/suggestionModals.test.tsx` ✅ (suite frontend verde: 17 arquivos, 170 testes).
+  - `pnpm --filter @artificio/mesas lint` ✅.
+  - `pnpm --filter @artificio/mesas build` ✅.
+- Status: I0a.8 fechado. Próximo: I0a.9 (moderação de drafts Discord para `useSystemsCatalog()` + `SystemPicker`).
+
+## I0a.9 — Moderação de drafts Discord migrada para `useSystemsCatalog()` + `SystemPicker`
+
+- Escopo: trocar o fluxo de seleção de sistema no editor de drafts Discord (staff/revisor) para o catálogo central e o mesmo componente visual das demais telas.
+- Alterações:
+  - `apps/mesas/frontend/src/features/discord-sync/useDraftForm.ts` agora usa `useSystemsCatalog()` para `tree`, `flat`, `loading`, `error` e `forceRefresh`.
+  - `handleSystemChange` busca o nome na view `flat` do hook central, preservando `knownName` para sistema recém-criado pelo modal.
+  - `apps/mesas/frontend/src/features/discord-sync/components/DraftEditorTab.tsx` trocou `SystemSearchSelect` por `SystemPicker` em `mode="single"`/`role="admin"`, com ações de sugerir/criar apontando para o modal existente.
+  - `apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftPreview.tsx` repassa `systemsError` para a aba.
+  - `apps/mesas/frontend/src/features/discord-sync/draftFormUtils.ts` perdeu o loader/cache/schema duplicado de sistemas (`loadSystems`); catálogos simples de cenário/VTT/comunicação continuam no helper.
+  - Removido `apps/mesas/frontend/src/features/discord-sync/components/SystemSearchSelect.tsx`.
+- Validação:
+  - `rg "SystemSearchSelect|loadSystems|flattenSystems\\(" apps/mesas/frontend/src/features/discord-sync` sem matches do fluxo legado.
+  - `pnpm --filter @artificio/mesas-frontend test -- src/features/discord-sync/useDraftForm.test.ts src/features/discord-sync/components/DraftEditorTab.test.tsx src/features/discord-sync/draftFormUtils.test.ts src/components/SystemPicker.test.tsx src/hooks/useSystemsCatalog.test.ts` ✅ (5 arquivos, 52 testes).
+  - `pnpm --filter @artificio/mesas lint` ✅.
+  - `pnpm --filter @artificio/mesas build` ✅.
+- Status: I0a.9 fechado. Próximo: fim do PR 1 conforme task list, com commit/push somente mediante autorização nominal.
+
+## Review PR #143 — counts do catálogo
+
+- Achado do `chatgpt-codex-connector` procede: `COUNT(DISTINCT ...)` vindo do Postgres pode chegar como string (`int8`) no payload real de `GET /api/v1/systems?view=tree`, enquanto `useSystemsCatalog()` validava `children_count`, `tables_count` e `aliases_count` com `z.number()`.
+- Correção local: `apps/mesas/frontend/src/hooks/useSystemsCatalog.ts` passou esses 3 campos para `z.coerce.number().optional()`.
+- Teste local: `apps/mesas/frontend/src/hooks/useSystemsCatalog.test.ts` agora injeta os contadores como string no payload e confirma saída numérica normalizada.
+- Validação:
+  - `pnpm --filter @artificio/mesas-frontend test -- src/hooks/useSystemsCatalog.test.ts` ✅ (suite frontend: 17 arquivos, 170 testes).
+  - `pnpm --filter @artificio/mesas lint` ✅.
+  - `pnpm --filter @artificio/mesas build` ✅ (warning conhecido de chunk grande do Vite, não bloqueante).
+- Status: fix aplicado localmente; commit/push para atualizar a PR #143 aguardam aprovação nominal separada.
+
+## Review PR #143 — CatalogoPage/SystemPicker/retry
+
+- Achados de review procedem:
+  - `CatalogoPage.tsx` duplicava o bloco loading/erro/`SystemPicker` entre desktop e mobile.
+  - `SystemPicker.tsx` tinha input de busca com `placeholder`/`id`, mas sem nome acessível programático.
+  - `useSystemsCatalog().forceRefresh()` relançava erro depois de atualizar `state.error`, gerando risco de `unhandled rejection` em handlers `onClick`.
+- Correções locais:
+  - Extraído `CatalogSystemFilter` local em `CatalogoPage.tsx`, preservando `idPrefix` e a cor de loading específica desktop/mobile.
+  - Adicionado `aria-label={searchPlaceholder}` ao input de busca do `SystemPicker`.
+  - `forceRefresh()` agora captura a falha e resolve `undefined`; `loadSystemsCatalog()` continua lançando para callers/testes que precisam de erro bruto. Tipo `SystemsCatalogResult.forceRefresh` atualizado.
+  - Teste do hook atualizado para confirmar que `forceRefresh()` não rejeita e ainda grava `state.error`.
+- Validação:
+  - `pnpm --filter @artificio/mesas-frontend test -- src/hooks/useSystemsCatalog.test.ts src/components/SystemPicker.test.tsx` ✅ (suite frontend: 17 arquivos, 170 testes).
+  - `pnpm --filter @artificio/mesas lint` ✅.
+  - `pnpm --filter @artificio/mesas build` ✅ (warning conhecido de chunk grande do Vite, não bloqueante).
+- Status: fixes aplicados localmente; commit/push para atualizar a PR #143 aguardam aprovação nominal separada.
+
+## Review PR #143 — SonarCloud
+
+- Achados SonarCloud procedem e foram corrigidos localmente:
+  - `SystemPickerProps` virou `Readonly<...>`.
+  - Ternário de badge de alias e label de expandir/recolher extraídos para statements/helpers independentes.
+  - `useSystemsCatalog.ts` passou a lançar `TypeError` para payload de catálogo em formato inesperado.
+  - `CatalogoPage.tsx` removeu ternários sinalizados no bloco de seleção/render: `selectedIds` saiu para helper, empty state saiu para `CatalogEmptyState`, e cards/skeletons saíram para `renderTableCards`.
+  - Mock visual `sessoes/assets/062-systempicker-arvore-mock.html` ganhou `id` no input e `label` associado visualmente oculto.
+- Validação:
+  - `pnpm --filter @artificio/mesas-frontend test -- src/hooks/useSystemsCatalog.test.ts src/components/SystemPicker.test.tsx` ✅ (suite frontend: 17 arquivos, 170 testes).
+  - `pnpm --filter @artificio/mesas lint` ✅.
+  - `pnpm --filter @artificio/mesas build` ✅ (warning conhecido de chunk grande do Vite, não bloqueante).
+- Status: fixes aplicados localmente; commit/push para atualizar a PR #143 aguardam aprovação nominal separada.

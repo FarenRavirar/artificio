@@ -14,9 +14,7 @@ interface SystemAutocompleteProps {
 
 /**
  * Busca com autocomplete para sistema de RPG: digitar filtra sugestões,
- * navegar por teclado, selecionar aplica direto. Substitui a grade de
- * 3 colunas do SystemTreeSelector no contexto de filtro (não de cadastro),
- * onde o caso comum é "digitar e escolher", não navegar hierarquia.
+ * navegar por teclado, selecionar aplica direto.
  */
 export function SystemAutocomplete({
   tree,

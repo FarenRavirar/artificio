@@ -6,7 +6,7 @@ import { normalizeText } from '../utils/systemTree';
 export type SystemPickerMode = 'single' | 'multi';
 export type SystemPickerRole = 'user' | 'admin';
 
-export interface SystemPickerProps {
+export type SystemPickerProps = Readonly<{
   tree: SystemTreeNode[];
   selectedIds: string[];
   onSelectionChange: (selectedIds: string[]) => void;
@@ -17,7 +17,7 @@ export interface SystemPickerProps {
   onSuggest?: (query: string) => void;
   onCreateNow?: (query: string) => void;
   onEdit?: (node: SystemTreeNode) => void;
-}
+}>;
 
 type VisibleSystemNode = Omit<SystemTreeNode, 'children'> & {
   children: VisibleSystemNode[];
@@ -87,7 +87,14 @@ const collectSelectedPaths = (tree: SystemTreeNode[], selectedIds: string[]): Sy
 const getAliasBadge = (aliases?: string[]): string | null => {
   const list = aliases ?? [];
   if (list.length === 0) return null;
-  return list.length === 1 ? list[0] : `${list[0]} +${list.length - 1}`;
+  if (list.length === 1) return list[0];
+  return `${list[0]} +${list.length - 1}`;
+};
+
+const getExpandButtonLabel = (hasChildren: boolean, expanded: boolean, name: string): string | undefined => {
+  if (!hasChildren) return undefined;
+  if (expanded) return `Recolher ${name}`;
+  return `Expandir ${name}`;
 };
 
 export function SystemPicker({
@@ -145,6 +152,7 @@ export function SystemPicker({
     const expanded = normalizedSearch ? allVisibleExpandableIds.has(node.id) : expandedIds.has(node.id);
     const selected = selectedIdSet.has(node.id);
     const aliasBadge = getAliasBadge(node.aliases);
+    const expandButtonLabel = getExpandButtonLabel(hasChildren, expanded, node.name);
 
     return (
       <div key={node.id}>
@@ -158,7 +166,7 @@ export function SystemPicker({
             type="button"
             className="flex h-5 w-[14px] shrink-0 items-center justify-center text-xs text-[var(--fg-muted)]"
             onClick={() => toggleExpanded(node)}
-            aria-label={hasChildren ? (expanded ? `Recolher ${node.name}` : `Expandir ${node.name}`) : undefined}
+            aria-label={expandButtonLabel}
             disabled={!hasChildren}
           >
             {hasChildren ? (
@@ -220,6 +228,7 @@ export function SystemPicker({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
           className="w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] py-2.5 pl-9 pr-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted)] focus:border-[var(--artificio-brand)]"
         />
       </div>

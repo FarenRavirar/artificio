@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
-import { buildDraftFieldInsights, buildForm, buildUpdatedPayload, flattenSystems, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, getDraftTable, loadSystems, loadScenarios, loadVttPlatforms, loadCommunicationPlatforms, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
+import { buildDraftFieldInsights, buildForm, buildUpdatedPayload, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, getDraftTable, loadScenarios, loadVttPlatforms, loadCommunicationPlatforms, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
 import { authPost } from '../../services/apiClient';
 import type { DraftFieldKey, DraftForm, SimpleCatalogEntry } from './draftFormUtils';
 import type { AiAutomationConfig, CompletenessAuditCandidate, DiscordDraft, DiscordImportDraftStatus, DiscordSlotsAmbiguity, DraftApiOperations, LlmActivity } from './types';
-import type { SystemTreeNode } from '../../types/systems';
+import { useSystemsCatalog } from '../../hooks/useSystemsCatalog';
 
 type SlotsInterpretation = 'filled_total' | 'open_total';
 
@@ -155,8 +155,13 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     onUpdate(updated.content_raw !== undefined ? updated : { ...updated, content_raw: draft.content_raw });
 
   const [state, dispatch] = useReducer(editorReducer, draft, buildEditorState);
-  const [systems, setSystems] = useState<SystemTreeNode[]>([]);
-  const [systemsLoading, setSystemsLoading] = useState(false);
+  const {
+    tree: systems,
+    flat: systemsFlat,
+    loading: systemsLoading,
+    error: systemsError,
+    forceRefresh: refreshSystems,
+  } = useSystemsCatalog();
   const [scenarios, scenariosLoading] = useSimpleCatalogState(loadScenarios, 'Erro ao carregar cenários.');
   const [vttPlatforms, vttPlatformsLoading] = useSimpleCatalogState(loadVttPlatforms, 'Erro ao carregar plataformas VTT.');
   const [communicationPlatforms, communicationPlatformsLoading] = useSimpleCatalogState(
@@ -213,36 +218,10 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.id, draft.status, draft.review_notes, draft.normalized_payload, draft.parsed_payload]);
 
-  // Sequência compartilhada entre o load inicial (useEffect) e refreshSystems
-  // (achado CodeRabbit PR #135: blocos duplicados). isCancelled cobre o
-  // cleanup do effect; refresh manual não precisa (passa () => false).
-  const fetchSystemsInto = async (force: boolean, isCancelled: () => boolean) => {
-    setSystemsLoading(true);
-    try {
-      const items = await loadSystems(force);
-      if (!isCancelled()) setSystems(flattenSystems(items));
-    } catch (err) {
-      if (!isCancelled()) toast.error(err instanceof Error ? err.message : 'Erro ao carregar sistemas.');
-    } finally {
-      if (!isCancelled()) setSystemsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      await Promise.resolve();
-      if (cancelled) return;
-      await fetchSystemsInto(false, () => cancelled);
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
   // Achado do mantenedor (2026-07-08): editor de draft nunca ofereceu "+
   // Adicionar Sistema" (só existia no form normal de criar mesa, StepSystem.tsx)
-  // — refreshSystems força recarregar o catálogo (bypassa cache de 5min) após
-  // o SystemSuggestionModal criar um sistema novo, pro combobox mostrá-lo já.
-  const refreshSystems = () => fetchSystemsInto(true, () => false);
+  // — refreshSystems vem do useSystemsCatalog() e força recarregar o catálogo
+  // (bypassa cache de 5min) após o SystemSuggestionModal criar um sistema novo.
 
   useEffect(() => {
     if (!draftApi.getAiAutomationConfig && !draftApi.getLlmActivity) return;
@@ -275,7 +254,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   // andamento) — systems.find falha e system_name ficaria com o nome antigo.
   // O modal já retorna o nome do sistema criado; usa direto.
   const handleSystemChange = (systemId: string, knownName?: string) => {
-    const selected = systems.find((s) => s.id === systemId);
+    const selected = systemsFlat.find((s) => s.id === systemId);
     dispatch({ type: 'SET_SYSTEM', systemId, systemName: knownName || selected?.name_pt || selected?.name || state.form.system_name });
   };
 
@@ -539,7 +518,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   return {
     form: state.form, updateForm,
     dirty: state.dirty,
-    systems, systemsLoading, refreshSystems,
+    systems, systemsLoading, systemsError, refreshSystems,
     scenarios, scenariosLoading,
     vttPlatforms, vttPlatformsLoading,
     communicationPlatforms, communicationPlatformsLoading,

@@ -4,11 +4,10 @@ import {
   isRecord, asRecord, asString, asNumberString, asStringArray, asSlotsAmbiguity,
   formatFileSize, parseOptionalNonNegativeInt, parseOptionalMoney,
   validateForm, buildDraftFieldInsights, buildForm, buildUpdatedPayload, buildMissingFields,
-  flattenSystems, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES,
+  MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES,
 } from './draftFormUtils';
 import type { DraftForm } from './draftFormUtils';
 import type { DiscordDraftPayload, DiscordDraftTablePayload } from './types';
-import type { SystemTreeNode } from '../../types/systems';
 
 describe('isRecord', () => {
   it('retorna true para objeto', () => {
@@ -398,25 +397,6 @@ describe('buildDraftFieldInsights', () => {
       provider: 'learning-rules+deepseek',
       model: 'deepseek-chat',
     });
-  });
-});
-
-describe('flattenSystems', () => {
-  it('achata arvore de sistemas em lista', () => {
-    const tree: SystemTreeNode[] = [
-      { id: 's1', name: 'System 1', name_pt: null, slug: 'sys-1', parent_id: null, node_type: 'system', path_slug: null },
-      {
-        id: 's2', name: 'System 2', name_pt: 'Sistema 2', slug: 'sys-2', parent_id: null, node_type: 'system', path_slug: null,
-        children: [
-          { id: 'e1', name: 'Edition 1', name_pt: null, slug: 'ed-1', parent_id: 's2', node_type: 'edition', path_slug: null },
-        ],
-      },
-    ];
-    const flat = flattenSystems(tree);
-    expect(flat).toHaveLength(3);
-    expect(flat[0].id).toBe('s1');
-    expect(flat[1].id).toBe('s2');
-    expect(flat[2].id).toBe('e1');
   });
 });
 

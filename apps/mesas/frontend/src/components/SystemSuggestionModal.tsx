@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/useAuth';
-import { authGet, authPost } from '../services/apiClient';
+import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
+import { authPost } from '../services/apiClient';
+import type { SystemTreeNode } from '../types/systems';
 
 interface SystemSuggestionModalProps {
   isOpen: boolean;
@@ -13,21 +15,12 @@ interface SystemSuggestionModalProps {
 
 type SuggestionType = 'system' | 'edition' | 'variant' | 'subsystem';
 
-type SystemNode = {
-  id: string;
-  name: string;
-  name_pt?: string | null;
-  node_type: 'system' | 'edition' | 'variant' | 'subsystem';
-  depth?: number;
-  children?: SystemNode[];
-};
-
 type FlattenedSystemNode = {
   id: string;
   label: string;
 };
 
-const flattenSystems = (nodes: SystemNode[], depth = 0): FlattenedSystemNode[] => {
+const flattenSystems = (nodes: SystemTreeNode[], depth = 0): FlattenedSystemNode[] => {
   const flattened: FlattenedSystemNode[] = [];
 
   for (const node of nodes) {
@@ -49,6 +42,12 @@ const flattenSystems = (nodes: SystemNode[], depth = 0): FlattenedSystemNode[] =
 
 export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSuggestionModalProps) => {
   const { isAuthenticated, user } = useAuth();
+  const {
+    tree: systemsTree,
+    loading: systemsLoading,
+    error: systemsError,
+    forceRefresh: retrySystemsTree,
+  } = useSystemsCatalog();
 
   const [name, setName] = useState('');
   const [namePt, setNamePt] = useState('');
@@ -58,38 +57,7 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [systemsTree, setSystemsTree] = useState<SystemNode[]>([]);
-  const [systemsLoading, setSystemsLoading] = useState(false);
-  const [systemsError, setSystemsError] = useState<string | null>(null);
-
   const parentOptions = useMemo(() => flattenSystems(systemsTree), [systemsTree]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const fetchSystemsTree = async () => {
-      setSystemsLoading(true);
-      setSystemsError(null);
-
-      try {
-        const response = await authGet('/api/v1/systems?view=tree');
-
-        if (!response.ok) {
-          throw new Error('Erro ao carregar sistemas');
-        }
-
-        const data = await response.json();
-        setSystemsTree(Array.isArray(data.data) ? data.data : []);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erro ao carregar sistemas';
-        setSystemsError(message);
-      } finally {
-        setSystemsLoading(false);
-      }
-    };
-
-    fetchSystemsTree();
-  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -256,7 +224,16 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
                   ))}
                 </select>
                 {systemsError && (
-                  <p className="text-xs text-red-300 mt-2">{systemsError}</p>
+                  <div className="mt-2 text-xs text-red-300">
+                    <p>{systemsError}</p>
+                    <button
+                      type="button"
+                      className="mt-1 font-semibold text-red-200 underline underline-offset-4"
+                      onClick={() => void retrySystemsTree()}
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
                 )}
               </div>
             )}

@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 289,
-    "uniqueEndpoints": 269,
+    "total": 287,
+    "uniqueEndpoints": 267,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,17 +36,17 @@
         }
       },
       "mesas-frontend": {
-        "total": 173,
+        "total": 171,
         "byConfidence": {
           "medium": 68,
-          "high": 103,
+          "high": 101,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 60,
           "service-wrapper": 49,
-          "literal": 56,
+          "literal": 54,
           "concatenation": 2
         }
       },
@@ -1887,7 +1887,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 125
+      "line": 109
     },
     {
       "app": "mesas-frontend",
@@ -1897,7 +1897,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 126
+      "line": 110
     },
     {
       "app": "mesas-frontend",
@@ -1907,7 +1907,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPut",
-      "line": 197
+      "line": 180
     },
     {
       "app": "mesas-frontend",
@@ -2177,17 +2177,7 @@
       "confidence": "medium",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 121
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/SystemSuggestionModal.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/systems",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "authGet",
-      "line": 75
+      "line": 89
     },
     {
       "app": "mesas-frontend",
@@ -2221,16 +2211,6 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/draftFormUtils.ts",
-      "method": "GET",
-      "endpoint": "/api/v1/systems",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "authGet",
-      "line": 571
-    },
-    {
-      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/hooks/useSystemsCatalog.ts",
       "method": "GET",
       "endpoint": "/api/v1/systems",
@@ -2247,7 +2227,7 @@
       "confidence": "medium",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 121
+      "line": 89
     },
     {
       "app": "mesas-frontend",
@@ -2417,7 +2397,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 401
+      "line": 380
     },
     {
       "app": "mesas-frontend",
