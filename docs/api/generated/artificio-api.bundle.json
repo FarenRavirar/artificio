@@ -6,10 +6,10 @@
     "accounts": 11,
     "glossario": 46,
     "links": 22,
-    "mesas": 180,
+    "mesas": 178,
     "site": 32
   },
-  "total": 291,
+  "total": 289,
   "operations": [
     {
       "app": "accounts",
@@ -2655,30 +2655,6 @@
       "auth": "user",
       "consumers": [],
       "operationId": "patchapi_v1_profile_me_profile"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/profile/me/systems",
-      "summary": "Cria ou executa api v1 profile me systems",
-      "owner": "mesas",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "postapi_v1_profile_me_systems"
-    },
-    {
-      "app": "mesas",
-      "method": "DELETE",
-      "path": "/api/v1/profile/me/systems/{id}",
-      "summary": "Remove api v1 profile me systems id",
-      "owner": "mesas",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "deleteapi_v1_profile_me_systems_id"
     },
     {
       "app": "mesas",

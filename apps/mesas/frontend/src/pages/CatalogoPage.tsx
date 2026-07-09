@@ -5,14 +5,14 @@ import { TableCardComponent, TableCardSkeleton } from '../components/TableCard';
 import { FilterDrawer } from '../components/FilterDrawer';
 import { ActiveFiltersChips } from '../components/ActiveFiltersChips';
 import { ResultsHeader } from '../components/ResultsHeader';
-import { SystemAutocomplete } from '../components/SystemAutocomplete';
+import { SystemPicker } from '../components/SystemPicker';
 import { D20Glyph } from '../components/D20Glyph';
 import type { CatalogSeal } from '../types/tables';
-import type { SystemTreeNode } from '../types/systems';
 import { applySeo } from '../utils/seo';
 import { useCatalogTables } from '../hooks/useCatalogTables';
 import { useCatalogFilters } from '../hooks/useCatalogFilters';
 import { useStyleFacets } from '../hooks/useStyleFacets';
+import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
 import { trackFilterSistema } from '@artificio/analytics';
 import type {
   CatalogFilters,
@@ -55,39 +55,35 @@ export const CatalogoPage = () => {
   // Estilos reais em uso, por frequência (não é lista fixa)
   const { facets: styleFacets } = useStyleFacets();
 
-  // STATE - Árvore de sistemas e busca
-  const [systemsTree, setSystemsTree] = useState<SystemTreeNode[]>([]);
-  const [systemsTreeError, setSystemsTreeError] = useState<string | null>(null);
-  const [systemsTreeReloadKey, setSystemsTreeReloadKey] = useState(0);
+  // STATE - Árvore de sistemas
+  const {
+    tree: systemsTree,
+    flat: systemsFlat,
+    loading: systemsLoading,
+    error: systemsTreeError,
+    forceRefresh: retrySystemsTree,
+  } = useSystemsCatalog();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Flatten tree para mapear ID -> slug
   const systemsMap = useMemo(() => {
     const map = new Map<string, string>();
-    const flatten = (nodes: SystemTreeNode[]) => {
-      for (const node of nodes) {
-        map.set(node.id, node.slug);
-        if (node.children) flatten(node.children);
-      }
-    };
-    flatten(systemsTree);
+    systemsFlat.forEach((node) => {
+      map.set(node.id, node.slug);
+    });
     return map;
-  }, [systemsTree]);
+  }, [systemsFlat]);
 
   // Flatten tree para mapear ID -> name (usado em trackFilterSistema)
   const systemsNameMap = useMemo(() => {
     const map = new Map<string, string>();
-    const flatten = (nodes: SystemTreeNode[]) => {
-      for (const node of nodes) {
-        map.set(node.id, node.name);
-        if (node.children) flatten(node.children);
-      }
-    };
-    flatten(systemsTree);
+    systemsFlat.forEach((node) => {
+      map.set(node.id, node.name);
+    });
     return map;
-  }, [systemsTree]);
+  }, [systemsFlat]);
 
-  // Converter slug do filtro para ID (para SystemAutocomplete)
+  // Converter slug do filtro para ID (para SystemPicker)
   const selectedSystemId = useMemo(() => {
     if (!filters.system) return null;
     const entry = Array.from(systemsMap.entries()).find(([, slug]) => slug === filters.system);
@@ -174,10 +170,6 @@ export const CatalogoPage = () => {
     }));
   };
 
-  const retrySystemsTree = () => {
-    setSystemsTreeReloadKey((current) => current + 1);
-  };
-
   // ============================================================================
   // COMPUTED
   // ============================================================================
@@ -196,18 +188,8 @@ export const CatalogoPage = () => {
 
   const selectedSystemName = useMemo(() => {
     if (!filters.system) return undefined;
-    const findName = (nodes: SystemTreeNode[]): string | undefined => {
-      for (const node of nodes) {
-        if (node.slug === filters.system) return node.name;
-        if (node.children) {
-          const found = findName(node.children);
-          if (found) return found;
-        }
-      }
-      return undefined;
-    };
-    return findName(systemsTree);
-  }, [systemsTree, filters.system]);
+    return systemsFlat.find((node) => node.slug === filters.system)?.name;
+  }, [systemsFlat, filters.system]);
 
   // ============================================================================
   // EFFECTS
@@ -220,26 +202,6 @@ export const CatalogoPage = () => {
       'Explore mesas de RPG com filtros por sistema, modalidade, preço, nível de experiência e selos DDAL/Covil do Lich.'
     );
   }, []);
-
-  // Load systems tree
-  useEffect(() => {
-    const loadSystemsTree = async () => {
-      try {
-        setSystemsTreeError(null);
-
-        const res = await fetch('/api/v1/systems?view=tree');
-        if (!res.ok) throw new Error(`Erro ao carregar sistemas (HTTP ${res.status})`);
-
-        const json = await res.json();
-        setSystemsTree(json.data ?? []);
-      } catch (err) {
-        console.error('[CatalogoPage] systems tree', err);
-        setSystemsTreeError('Não foi possível carregar os sistemas agora. Tente novamente.');
-      }
-    };
-
-    loadSystemsTree();
-  }, [systemsTreeReloadKey]);
 
   // Scroll to top quando filtros mudam (não na paginação)
   useEffect(() => {
@@ -318,12 +280,26 @@ export const CatalogoPage = () => {
                   />
                 </div>
 
-                <SystemAutocomplete
-                  tree={systemsTree}
-                  selectedId={selectedSystemId}
-                  onSelect={handleSystemSelect}
-                  idPrefix="catalog-desktop"
-                />
+                <div className="min-w-0">
+                  {systemsLoading ? (
+                    <p className="rounded-lg border border-white/10 bg-[#0B1220] px-3 py-2.5 text-sm text-white/60">
+                      Carregando sistemas...
+                    </p>
+                  ) : systemsTreeError ? (
+                    <p className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-200">
+                      Sistemas indisponíveis.
+                    </p>
+                  ) : (
+                    <SystemPicker
+                      tree={systemsTree}
+                      selectedIds={selectedSystemId ? [selectedSystemId] : []}
+                      onSelectionChange={(ids) => handleSystemSelect(ids[0] ?? null)}
+                      idPrefix="catalog-desktop"
+                      mode="single"
+                      role="user"
+                    />
+                  )}
+                </div>
               </div>
             </div>
 
@@ -457,12 +433,24 @@ export const CatalogoPage = () => {
             />
           </div>
 
-          <SystemAutocomplete
-            tree={systemsTree}
-            selectedId={selectedSystemId}
-            onSelect={handleSystemSelect}
-            idPrefix="catalog-mobile"
-          />
+          {systemsLoading ? (
+            <p className="rounded-lg border border-white/10 bg-[#13213f] px-3 py-2.5 text-sm text-white/60">
+              Carregando sistemas...
+            </p>
+          ) : systemsTreeError ? (
+            <p className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-200">
+              Sistemas indisponíveis.
+            </p>
+          ) : (
+            <SystemPicker
+              tree={systemsTree}
+              selectedIds={selectedSystemId ? [selectedSystemId] : []}
+              onSelectionChange={(ids) => handleSystemSelect(ids[0] ?? null)}
+              idPrefix="catalog-mobile"
+              mode="single"
+              role="user"
+            />
+          )}
         </div>
 
         <div className="h-px bg-white/10" />

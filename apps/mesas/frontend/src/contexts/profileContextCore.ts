@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import type { FullProfile, GmProfile, PlayerProfile } from '../hooks/useProfile';
+import type { FullProfile, GmProfile, PlayerProfile } from '../types/profileTypes';
 
 export interface ProfileContextValue {
   profile: FullProfile | undefined;

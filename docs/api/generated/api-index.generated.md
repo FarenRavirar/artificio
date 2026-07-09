@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **291 operações**.
+Total: **289 operações**.
 
 ## accounts (11)
 
@@ -100,7 +100,7 @@ Total: **291 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (180)
+## mesas (178)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -244,8 +244,6 @@ Total: **291 operações**.
 | POST | `/api/v1/profile/me/google-picture` | public | user | active | — | Cria ou executa api v1 profile me google-picture |
 | PATCH | `/api/v1/profile/me/player` | public | user | active | — | Atualiza api v1 profile me player |
 | PATCH | `/api/v1/profile/me/profile` | public | user | active | — | Atualiza api v1 profile me profile |
-| POST | `/api/v1/profile/me/systems` | public | user | active | — | Cria ou executa api v1 profile me systems |
-| DELETE | `/api/v1/profile/me/systems/{id}` | public | user | active | — | Remove api v1 profile me systems id |
 | PATCH | `/api/v1/profile/player` | public | user | active | — | Atualiza api v1 profile player |
 | POST | `/api/v1/profile/systems` | public | user | active | — | Cria ou executa api v1 profile systems |
 | DELETE | `/api/v1/profile/systems/{id}` | public | user | active | — | Remove api v1 profile systems id |

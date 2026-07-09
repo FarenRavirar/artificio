@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useConfirm } from "@artificio/ui";
 import { useProfileContext } from '../contexts/useProfileContext';
-import type { PlayerProfile, GmProfile } from '../hooks/useProfile';
+import type { PlayerProfile, GmProfile } from '../types/profileTypes';
 import { UserSystemsSelector } from '../components/UserSystemsSelector';
 import { LinksManager } from '../components/LinksManager';
 import { showSuccess, showError } from '../utils/toast';

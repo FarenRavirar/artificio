@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Dice1 } from 'lucide-react';
-import { SystemTreeSelector } from '../../SystemTreeSelector';
+import { SystemPicker } from '../../SystemPicker';
 import { ScenarioSelector } from '../../ScenarioSelector';
 import { SystemSuggestionModal } from '../../SystemSuggestionModal';
 import { ScenarioSuggestionModal } from '../../ScenarioSuggestionModal';
@@ -27,7 +27,6 @@ export function StepSystem({
   setSelectedScenarioId,
   onRefreshSystems,
 }: StepSystemProps) {
-  const [systemSearch, setSystemSearch] = useState('');
   const [showSuggestionModal, setShowSuggestionModal] = useState(false);
   const [showScenarioSuggestionModal, setShowScenarioSuggestionModal] = useState(false);
   const [scenarioRefreshKey, setScenarioRefreshKey] = useState(0);
@@ -55,17 +54,14 @@ export function StepSystem({
         ) : systemsError ? (
           <p className="text-sm text-red-300">{systemsError}</p>
         ) : (
-          <SystemTreeSelector
+          <SystemPicker
             tree={systemsTree}
             selectedIds={selectedSystemId ? [selectedSystemId] : []}
-            onToggle={(systemId) => {
-              setSelectedSystemId(systemId);
-              setSystemSearch('');
-            }}
-            search={systemSearch}
-            onSearchChange={setSystemSearch}
+            onSelectionChange={(ids) => setSelectedSystemId(ids[0] ?? '')}
             idPrefix="step-system"
-            singleSelect
+            mode="single"
+            role="user"
+            onSuggest={() => setShowSuggestionModal(true)}
           />
         )}
       </div>

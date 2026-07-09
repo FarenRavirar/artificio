@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { SystemTreeSelector } from './SystemTreeSelector';
-import { showError } from '../utils/toast';
-import type { SystemTreeNode } from '../types/systems';
+import React, { useCallback } from 'react';
+import { SystemPicker } from './SystemPicker';
+import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
 import './UserSystemsSelector.css';
 
 interface UserSystemsSelectorProps {
@@ -12,8 +11,7 @@ interface UserSystemsSelectorProps {
 }
 
 /**
- * Componente para selecionar sistemas favoritos ou sistemas que o usuário mestra
- * Usa o SystemTreeSelector existente com multi-seleção
+ * Componente para selecionar sistemas favoritos ou sistemas que o usuário mestra.
  */
 export const UserSystemsSelector = React.memo(function UserSystemsSelector({
   type,
@@ -21,45 +19,21 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
   onAdd,
   onRemove,
 }: UserSystemsSelectorProps) {
-  const [tree, setTree] = useState<SystemTreeNode[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const { tree, loading, error, forceRefresh } = useSystemsCatalog();
 
-  useEffect(() => {
-    fetchSystemsTree();
-  }, []);
-
-  const fetchSystemsTree = async () => {
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || '';
-      const response = await fetch(`${apiUrl}/api/v1/systems?view=tree`);
-      if (!response.ok) throw new Error('Erro ao buscar árvore de sistemas');
-      
-      const result = await response.json();
-      console.log('[UserSystemsSelector] Sistemas carregados:', result.data?.length || 0);
-      setTree(result.data || []);
-    } catch (error) {
-      console.error('[UserSystemsSelector] Erro ao buscar sistemas:', error);
-      showError('Erro ao carregar sistemas. Tente novamente.');
-    } finally {
-      setLoading(false);
+  const handleSelectionChange = useCallback((nextIds: string[]) => {
+    for (const systemId of selectedSystemIds) {
+      if (!nextIds.includes(systemId)) {
+        onRemove(systemId);
+      }
     }
-  };
 
-  const handleToggle = useCallback((systemId: string) => {
-    if (selectedSystemIds.includes(systemId)) {
-      onRemove(systemId);
-    } else {
-      onAdd(systemId);
+    for (const systemId of nextIds) {
+      if (!selectedSystemIds.includes(systemId)) {
+        onAdd(systemId);
+      }
     }
   }, [selectedSystemIds, onAdd, onRemove]);
-
-  // Memoizar busca de sistema para evitar re-computação
-  const findSystem = useCallback((systemId: string): SystemTreeNode | undefined => {
-    return tree.find(s => s.id === systemId) || 
-           tree.flatMap(s => s.children ?? []).find(c => c?.id === systemId) ||
-           tree.flatMap(s => s.children ?? []).flatMap(c => c?.children ?? []).find(v => v?.id === systemId);
-  }, [tree]);
 
   if (loading) {
     return (
@@ -70,7 +44,16 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
     );
   }
 
-  console.log('[UserSystemsSelector] Renderizando com tree:', tree.length, 'sistemas');
+  if (error) {
+    return (
+      <div className="user-systems-selector-loading" role="alert">
+        <p>{error}</p>
+        <button type="button" className="user-systems-selector-retry" onClick={() => void forceRefresh()}>
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="user-systems-selector">
@@ -80,39 +63,13 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
         </p>
       </div>
 
-      {/* Lista de sistemas selecionados */}
-      {selectedSystemIds.length > 0 && (
-        <div className="selected-systems-list">
-          <div className="selected-systems-container">
-            {selectedSystemIds.map((systemId) => {
-              const system = findSystem(systemId);
-              
-              return (
-                <div key={systemId} className="selected-system-badge">
-                  <span>{system?.name || 'Sistema'}</span>
-                  <button
-                    type="button"
-                    onClick={() => onRemove(systemId)}
-                    className="selected-system-remove"
-                    aria-label={`Remover ${system?.name || 'sistema'}`}
-                  >
-                    ×
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <SystemTreeSelector
+      <SystemPicker
         tree={tree}
         selectedIds={selectedSystemIds}
-        onToggle={handleToggle}
-        search={search}
-        onSearchChange={setSearch}
+        onSelectionChange={handleSelectionChange}
         idPrefix={`profile-${type}`}
-        singleSelect={false}
+        mode="multi"
+        role="user"
       />
     </div>
   );

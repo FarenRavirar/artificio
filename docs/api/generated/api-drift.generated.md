@@ -10,12 +10,12 @@
 
 | Estado | Quantidade | Bloqueia? |
 |--------|-----------|:---------:|
-| ✅ OK | 204 | ❌ |
+| ✅ OK | 200 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 2 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 80 | ❌ |
-| 👻 ORPHAN_SUSPECT | 0 | ❌ |
+| 👻 ORPHAN_SUSPECT | 2 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
@@ -125,7 +125,7 @@
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/groups/:param/report` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 
-### mesas (178 rotas no inventário)
+### mesas (176 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -140,7 +140,6 @@
 | DELETE | `/api/v1/gm/tables/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/profile/links/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/profile/me/connect/discord` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| DELETE | `/api/v1/profile/me/systems/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/profile/systems/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/scenarios/admin/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/systems/admin/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -230,8 +229,8 @@
 | PATCH | `/api/v1/profile/gm` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/profile/links/reorder` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/profile/me` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| PATCH | `/api/v1/profile/me/gm` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| PATCH | `/api/v1/profile/me/player` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| PATCH | `/api/v1/profile/me/gm` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PATCH | `/api/v1/profile/me/player` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/profile/me/profile` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/profile/player` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/dev-feedback/merge` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -284,7 +283,6 @@
 | POST | `/api/v1/profile/links` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/profile/me/connect/discord` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/profile/me/google-picture` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/profile/me/systems` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/profile/systems` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/scenario-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/scenarios/admin` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -359,6 +357,17 @@
 | GET | `/api/admin/v1` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/media` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/preview` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
+
+## Rotas órfãs suspeitas
+
+Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique.
+
+### mesas (2 rota(s))
+
+| Method | Path | Tem OpenAPI? | Scope | Razão |
+|--------|------|:-----------:|-------|-------|
+| PATCH | `/api/v1/profile/me/gm` | ✅ | public | Sem consumidor e scope não justifica |
+| PATCH | `/api/v1/profile/me/player` | ✅ | public | Sem consumidor e scope não justifica |
 
 ## Consumidores sem rota (CONSUMER_ONLY)
 
