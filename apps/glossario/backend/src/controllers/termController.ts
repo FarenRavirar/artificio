@@ -28,7 +28,8 @@ export const listTerms = async (req: Request, res: Response) => {
                ELSE NULL
              END as subcategory_name,
              u.full_name as added_by_name,
-             th.last_changed_at
+             th.last_changed_at,
+             COUNT(*) OVER() as total_count
       FROM terms t
       LEFT JOIN systems s ON t.system_id = s.id
       LEFT JOIN editions e ON t.edition_id = e.id
@@ -83,7 +84,10 @@ export const listTerms = async (req: Request, res: Response) => {
     query += ` OFFSET $${params.length}`;
 
     const result = await db.query(query, params);
-    res.json(result.rows);
+    const totalCount = result.rows.length > 0 ? Number(result.rows[0].total_count) : 0;
+    const rows = result.rows.map(({ total_count, ...row }) => row);
+    res.setHeader('X-Total-Count', String(totalCount));
+    res.json(rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erro ao buscar termos.' });

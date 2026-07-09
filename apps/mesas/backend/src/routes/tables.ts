@@ -273,6 +273,34 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/v1/tables/style-facets — Estilos reais em uso + contagem, para filtros dinâmicos
+router.get('/style-facets', async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .selectFrom('tables as t')
+      .select([
+        sql<string>`style`.as('style'),
+        sql<number>`COUNT(*)`.as('count'),
+      ])
+      .innerJoin(
+        sql`LATERAL unnest(t.setting_styles) AS style`.as('style_row'),
+        (join) => join.onTrue()
+      )
+      .where('t.status', '=', 'active')
+      .where(sql<boolean>`t.setting_styles IS NOT NULL`)
+      .groupBy(sql`style`)
+      .orderBy(sql`COUNT(*)`, 'desc')
+      .execute();
+
+    res.json({
+      data: rows.map((row) => ({ style: row.style, count: Number(row.count) })),
+    });
+  } catch (error: any) {
+    console.error('[GET /tables/style-facets]', error);
+    res.status(500).json({ error: 'Erro ao buscar estilos.' });
+  }
+});
+
 // GET /api/v1/tables/:slug — Mesa individual
 router.get('/:slug', async (req: Request, res: Response) => {
   const { slug } = req.params;

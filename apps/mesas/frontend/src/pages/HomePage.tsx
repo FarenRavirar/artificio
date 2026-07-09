@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useFetchTables } from '../hooks/useFetchTables';
 import { TableCardComponent, TableCardSkeleton } from '../components/TableCard';
-import { Search } from 'lucide-react';
+import { Search, Megaphone } from 'lucide-react';
 import { applySeo } from '../utils/seo';
+import { useAuth } from '../contexts/useAuth';
+import { startSsoLogin } from '../utils/auth';
 
 const SUGGESTIONS = ['D&D 5e', 'Ordem Paranormal', 'Vampiro', 'Tormenta'];
 
@@ -13,6 +15,8 @@ const track = (event: string, data?: unknown) => {
 };
 
 export const HomePage = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [searchInput, setSearchInput] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
   const [activeSeal, setActiveSeal] = useState<'ddal' | 'covil-do-lich' | ''>(''); // CORREÇÃO HP-11
@@ -48,6 +52,15 @@ export const HomePage = () => {
     setSearchInput(suggestion);
     setActiveSearch(suggestion);
     track('suggestion_click', { term: suggestion });
+  };
+
+  const handleAnnounceTable = () => {
+    track('announce_table_click', { authenticated: isAuthenticated });
+    if (isAuthenticated) {
+      navigate('/painel?action=nova-mesa');
+    } else {
+      startSsoLogin('/painel?action=nova-mesa');
+    }
   };
 
   return (
@@ -91,6 +104,18 @@ export const HomePage = () => {
               className="bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] text-white px-6 py-3 rounded-full font-semibold transition-colors duration-200 cursor-pointer"
             >
               {isLoading ? 'Buscando...' : 'Buscar'}
+            </button>
+          </div>
+
+          {/* ANUNCIAR MESA */}
+          <div className="flex justify-center mt-4">
+            <button
+              id="btn-anunciar-mesa-home"
+              onClick={handleAnnounceTable}
+              className="flex items-center gap-2 px-5 py-3 bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] text-white font-semibold rounded-full transition-colors duration-200 cursor-pointer"
+            >
+              <Megaphone className="w-5 h-5" />
+              Anunciar Mesa
             </button>
           </div>
 

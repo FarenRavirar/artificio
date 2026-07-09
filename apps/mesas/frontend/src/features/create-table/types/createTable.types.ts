@@ -122,7 +122,7 @@ export interface CreateTablePayload {
   publisher_role: 'gm' | 'announcer';
   actual_gm_name: string | null;
   rules_notes: string;
-  banner_url: string;
+  banner_url?: string;
   banner_crop_data?: { x: number; y: number; width: number; height: number };
   gm_avatar_url?: string;
   is_covil: boolean;

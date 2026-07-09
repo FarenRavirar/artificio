@@ -1,17 +1,7 @@
 import { useMemo, useState, useRef } from 'react';
 import { Check, ChevronRight, Search, Info } from 'lucide-react';
 import type { SystemTreeNode } from '../types/systems';
-
-interface FlattenedSystemNode {
-  id: string;
-  slug: string;
-  name: string;
-  name_pt: string | null;
-  aliases: string[];
-  path_slug: string | null;
-  depth?: number;
-  pathLabel: string;
-}
+import { flattenTree, normalizeText, getDisplayName, type FlattenedSystemNode } from '../utils/systemTree';
 
 interface SystemTreeSelectorProps {
   tree: SystemTreeNode[];
@@ -22,40 +12,6 @@ interface SystemTreeSelectorProps {
   idPrefix: string;
   singleSelect?: boolean;
 }
-
-const normalizeText = (value: string): string => value.trim().toLowerCase();
-
-const getDisplayName = (node: { name: string; name_pt?: string | null }, lang: 'en' | 'pt'): string => {
-  if (lang === 'pt' && node.name_pt) {
-    return node.name_pt;
-  }
-  return node.name;
-};
-
-const flattenTree = (nodes: SystemTreeNode[], breadcrumb: string[] = []): FlattenedSystemNode[] => {
-  const flattened: FlattenedSystemNode[] = [];
-
-  for (const node of nodes) {
-    const path = [...breadcrumb, node.name];
-
-    flattened.push({
-      id: node.id,
-      slug: node.slug,
-      name: node.name,
-      name_pt: node.name_pt,
-      aliases: node.aliases ?? [],
-      path_slug: node.path_slug,
-      depth: node.depth,
-      pathLabel: path.join(' > '),
-    });
-
-    if (node.children) {
-      flattened.push(...flattenTree(node.children, path));
-    }
-  }
-
-  return flattened;
-};
 
 export const SystemTreeSelector = ({
   tree,

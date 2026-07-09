@@ -50,6 +50,7 @@ app.use(
       if (/^http:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
       return callback(new Error('Origem não permitida pelo CORS'));
     },
+    exposedHeaders: ['X-Total-Count'],
   })
 );
 

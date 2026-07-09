@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 360,
+    "total": 361,
     "byApp": {
       "accounts": {
         "total": 11,
@@ -41,9 +41,9 @@
         }
       },
       "mesas": {
-        "total": 229,
+        "total": 230,
         "byMethod": {
-          "GET": 63,
+          "GET": 64,
           "POST": 62,
           "USE": 51,
           "PATCH": 25,
@@ -51,7 +51,7 @@
           "PUT": 11
         },
         "byConfidence": {
-          "high": 229
+          "high": 230
         }
       },
       "site": {
@@ -186,7 +186,7 @@
       "method": "USE",
       "path": "/api/admin/activity",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 91,
+      "line": 92,
       "confidence": "high",
       "kind": "mount"
     },
@@ -204,7 +204,7 @@
       "method": "USE",
       "path": "/api/admin/feedback",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 93,
+      "line": 94,
       "confidence": "high",
       "kind": "mount"
     },
@@ -231,7 +231,7 @@
       "method": "USE",
       "path": "/api/auth",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 79,
+      "line": 80,
       "confidence": "high",
       "kind": "mount"
     },
@@ -285,7 +285,7 @@
       "method": "USE",
       "path": "/api/categories",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 84,
+      "line": 85,
       "confidence": "high",
       "kind": "mount"
     },
@@ -321,7 +321,7 @@
       "method": "USE",
       "path": "/api/changelog",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 87,
+      "line": 88,
       "confidence": "high",
       "kind": "mount"
     },
@@ -330,7 +330,7 @@
       "method": "USE",
       "path": "/api/export",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 89,
+      "line": 90,
       "confidence": "high",
       "kind": "mount"
     },
@@ -357,7 +357,7 @@
       "method": "USE",
       "path": "/api/feedback",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 92,
+      "line": 93,
       "confidence": "high",
       "kind": "mount"
     },
@@ -366,7 +366,7 @@
       "method": "USE",
       "path": "/api/migration",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 80,
+      "line": 81,
       "confidence": "high",
       "kind": "mount"
     },
@@ -402,7 +402,7 @@
       "method": "USE",
       "path": "/api/notifications",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 90,
+      "line": 91,
       "confidence": "high",
       "kind": "mount"
     },
@@ -447,7 +447,7 @@
       "method": "USE",
       "path": "/api/scenarios",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 86,
+      "line": 87,
       "confidence": "high",
       "kind": "mount"
     },
@@ -474,7 +474,7 @@
       "method": "USE",
       "path": "/api/social",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 88,
+      "line": 89,
       "confidence": "high",
       "kind": "mount"
     },
@@ -537,7 +537,7 @@
       "method": "USE",
       "path": "/api/systems",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 85,
+      "line": 86,
       "confidence": "high",
       "kind": "mount"
     },
@@ -618,7 +618,7 @@
       "method": "USE",
       "path": "/api/terms",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 82,
+      "line": 83,
       "confidence": "high",
       "kind": "mount"
     },
@@ -672,7 +672,7 @@
       "method": "USE",
       "path": "/api/terms/import",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 81,
+      "line": 82,
       "confidence": "high",
       "kind": "mount"
     },
@@ -681,7 +681,7 @@
       "method": "USE",
       "path": "/api/users",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 83,
+      "line": 84,
       "confidence": "high",
       "kind": "mount"
     },
@@ -717,7 +717,7 @@
       "method": "GET",
       "path": "/health",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 74,
+      "line": 75,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2778,7 +2778,7 @@
       "method": "GET",
       "path": "/api/v1/tables/:slug",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 277,
+      "line": 305,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2787,7 +2787,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/click",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 512,
+      "line": 540,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2796,7 +2796,16 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/view",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 473,
+      "line": 501,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/tables/style-facets",
+      "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
+      "line": 277,
       "confidence": "high",
       "kind": "express-route"
     },

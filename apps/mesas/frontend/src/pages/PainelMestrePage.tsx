@@ -331,10 +331,12 @@ export const PainelMestrePage = () => {
           setMyTables([]);
         }
 
-        // Não forçar dashboard se há parâmetro edit na URL
+        // Não forçar dashboard se há parâmetro edit ou action=nova-mesa na URL
         const urlParams = new URLSearchParams(window.location.search);
-        if (!urlParams.has('edit')) {
+        if (!urlParams.has('edit') && urlParams.get('action') !== 'nova-mesa') {
           setView('dashboard');
+        } else if (urlParams.get('action') === 'nova-mesa') {
+          setView('create-table');
         }
       } catch {
         setGmProfile(null);
