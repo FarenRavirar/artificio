@@ -14,7 +14,7 @@ Topologia técnica **subdomínio-por-módulo** (D017). Na linguagem pública, ca
 | `site` | `beta.artificiorpg.com` (BETA → raiz futuro) | Portal + blog (ex-WordPress), SSG | beta no ar; Gate C futuro |
 | `glossario` | `glossariobeta.artificiorpg.com` (BETA) / `glossario.artificiorpg.com` (prod canônico) | Glossário RPG PT/EN | prod no ar; SSO+compat fechado |
 | `mesas` | `mesas.artificiorpg.com` | Anúncio de mesas (refeito) | prod no ar; SSO fechado |
-| `downloads` | `downloads.artificiorpg.com` | Materiais traduzidos | a construir |
+| `downloads` | `downloads.artificiorpg.com` | Catálogo comunitário de materiais gratuitos (links externos; capas no Cloudinary) | definição prévia na spec 061 |
 | `esferas` | `esferas.artificiorpg.com` | Wiki Spheres of Power (multi-sistema: D&D 2014/2024, PF futuro) | a construir |
 | `srd` | `srd.artificiorpg.com` | SRD DnD 5.2.1 + tooltips | a construir |
 | `links` | `links.artificiorpg.com` | Links: WhatsApp + parceiros | bloqueado por localizar/refazer artefato |

@@ -1,7 +1,7 @@
 # Arquitetura & Contratos — Artifício RPG
 
 > **T1. Ler por seção, nunca o arquivo inteiro.** Fonte canônica de arquitetura/contratos técnicos (vence AGENTS.md em conflito técnico). Decisões macro em `.specify/memory/decisions.md`.
-> **Última verificação:** 2026-06-22
+> **Última verificação:** 2026-07-08
 
 ## Índice
 1. Layout do monorepo
@@ -130,8 +130,8 @@ Módulo é independente (subdomínio/deploy isolado) mas consome `packages/*` pa
 - Validar com `seo-usability-auditor` antes de promover.
 
 ## 7. CI/CD / Deploy
-- GitHub Actions: `ci.yml` (lint+build+test via Turbo). Deploy via `deploy.yml` (matrix a partir de `deploy-manifest.json`) → `_deploy-module.yml` (reusável por módulo).
-- **`deploy-manifest.json`** = fonte única declarativa: `module`, `env_override`, `compose_file`/`_beta`, `compose_project`/`_beta`, `db_service`/`_beta`, `db_name`/`_beta`, `db_user`/`_beta`, `health_containers`, `critical_routes`/`_beta`, `auto_deploy_on_push`, `push_branches`, `deploy_paths`, `reconcile_same_project_orphans`, `_comment`.
+- GitHub Actions: `ci.yml` (lint+build+test via Turbo). Deploy via `deploy.yml` (matrix a partir de `.github/deploy-manifest.json`) → `_deploy-module.yml` (reusável por módulo).
+- **`.github/deploy-manifest.json`** = fonte única declarativa: `module`, `env_override`, `compose_file`/`_beta`, `compose_project`/`_beta`, `db_service`/`_beta`, `db_name`/`_beta`, `db_user`/`_beta`, `health_containers`, `critical_routes`/`_beta`, `auto_deploy_on_push`, `push_branches`, `deploy_paths`, `reconcile_same_project_orphans`, `_comment`.
 - **Env deriva do ref:** `dev`→beta, `main`→prod (exceto `accounts` e `links`: `env_override=prod` fixo). Deploy prod usa `--ref main` (default branch = `dev`, D073).
 - **VM:** clone git em `/opt/artificio` (prod) e `/opt/artificio-beta` (beta). `.env` por módulo no disco (`apps/<modulo>/.env` ou `.env.beta`), gitignored, lido pelo deploy via `--env-file`. Secrets GitHub Environment (`production`/`beta`) usados para SSH e CI; vars de runtime do container vêm do `.env` no disco.
 - **`.env` no disco da VM (estado verificado 2026-06-18):**

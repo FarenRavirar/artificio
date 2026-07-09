@@ -27,4 +27,4 @@ Backup antes de destruir. WordPress e DNS de produção intocáveis até valida�
 A camada de governança (este arquivo, AGENTS.md, specs, agentes, skills, fluxos) precede a construção. Risco se controla por processo, não por boa vontade.
 
 ## IX. Stack canônica única
-React/TS/Vite/Tailwind no front; Express/TS/Kysely/Postgres no back; Docker + Cloudflare Tunnel + GHCR na infra; pnpm + Turborepo no monorepo. Um módulo não inventa stack própria.
+React/TS/Vite/Tailwind no front; Express/TS/Kysely/Postgres no back; Docker + Cloudflare Tunnel + build na VM na infra; pnpm + Turborepo no monorepo. Um módulo não inventa stack própria.

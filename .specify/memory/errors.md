@@ -103,7 +103,7 @@
   ```
   Também adicionado strip de comentário de bloco (`/* */`) para evitar falso-positivo de DROP comentado.
 - **Prevenção:** teste shell automatizado (`scripts/deploy/test_migration_guard.sh`, 28 cenários) plugado no CI `_lint-shell.yml` como gate. Varredura completa de 62 migrations online-safe confirmou que nenhuma destrutiva real passa (R1/R2/R3 provados). Cópia órfã `apps/mesas/scripts/deploy/` removida (escopo A, 6 arquivos).
-- **Follow-up:** re-deploy prod mesas (gated por aprovação nominal do mantenedor) para aplicar migration_128+129.
+- **Follow-up:** ✅ re-deploy prod mesas concluído (2026-06-26). Promote dev→main (`e9ccd25`, run 28236171046) + deploy prod mesas (`28236817132`, specs 049+050+051). Migrations 128/129 aplicadas; guard `validate_sql_against_class` corrigido na spec 050 funcionou — sem falso-positivo `DROP NOT NULL`.
 - **Data:** 2026-06-24
 
 ### E011 — deploy beta/prod aborta: `migration_*.sql falhou na validacao de campos do cabecalho`

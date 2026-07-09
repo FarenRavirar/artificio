@@ -60,6 +60,8 @@ Toda spec SDD deve:
 | 055 | API governance executável | **✅ ENCERRADA (2026-06-30).** Modo estrito ativo: `api:inventory`, `api:consumers`, `api:lint`, `api:check --strict` (allowlist vazia), `api:diff` bloqueante, `api:docs`, `api:bundle`, `api-governance` required check no CI. `MAPA_DE_API.md` deprecado. O que não foi feito foi descartado. |
 | 058 | parser learning + DeepSeek contextual | **Fase 4 local concluida (2026-07-01).** Fases 1-4 implementadas localmente: parse/feedback, retrieval/duplicatas, learning rules e DeepSeek ContextPack com cache/auditoria `discord_llm_decisions`, prompt anti-injection e resposta validada. Sem auto-publicacao, sem commit/deploy. |
 | 059 | mesas copiar anuncio WhatsApp + OG | **Fases 0-7 concluidas localmente (2026-07-08).** Formatter WhatsApp, botoes (pagina publica/painel/gestao) e OG de `/mesas/:slug` implementados. `age_rating` exposto no detalhe publico. Decisoes de faixa etaria, comissionada e gestao fechadas. Pendente: smoke beta (T6.3 curl OG, T7.5 copiar em beta) e deploy. SDD Completo. |
+| 061 | downloads definição do produto | **Investigação aberta (2026-07-08), zero código.** Catálogo comunitário de materiais gratuitos; SSO para submissão; arquivos ficam em links externos; capas podem usar Cloudinary shared. Define produto, políticas, taxonomia, UX, arquitetura, segurança, infra e specs filhas ordenadas. |
+| 062 | catálogo canônico de sistemas/edições | **Etapa I investigação concluída e aprovada (2026-07-08); Etapa II código pendente.** Serviço independente no `artificiorpg.com`, leitura/escrita central sem projeções, Mesas como fonte principal, Glossário mapeado manualmente, merge obrigatório sem delete/archive. |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.
