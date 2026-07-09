@@ -23,7 +23,7 @@ Nenhum dos artefatos acima é mantido manualmente. São todos gerados por script
 ## Arquitetura
 
 ```
-Código Express real              # Fonte da verdade (4 apps)
+Código Express real              # Fonte da verdade (5 apps)
    ├── api:inventory.json         # Inventário estático de rotas (Fase 2)
    ├── api-consumers.json         # Consumidores de API (Fase 3)
    └── openapi/*.yaml             # Contrato OpenAPI (Fase 1)
@@ -141,7 +141,7 @@ Se `verify:api` regenerar arquivos versionados, o push é bloqueado até os arte
 Toda operation no OpenAPI **deve** declarar:
 
 ```yaml
-x-artificio-owner: accounts|mesas|glossario|links
+x-artificio-owner: accounts|mesas|glossario|links|site
 x-artificio-scope: internal|public|cross-app|admin|cron|webhook
 x-artificio-status: active|deprecated|legacy|orphan-suspect|provisional
 x-artificio-auth: none|user|admin|service|csrf-cookie
@@ -267,10 +267,11 @@ O comando `pnpm api:docs` gera HTML estático self-contained para cada app usand
 
 ```bash
 pnpm api:docs
-# → docs/api/generated/accounts-api-docs.html  (52 KiB)
-# → docs/api/generated/mesas-api-docs.html      (490 KiB)
-# → docs/api/generated/glossario-api-docs.html  (168 KiB)
-# → docs/api/generated/links-api-docs.html      (98 KiB)
+# → docs/api/generated/accounts-api-docs.html   (~101 KiB)
+# → docs/api/generated/mesas-api-docs.html       (~1.2 MiB)
+# → docs/api/generated/glossario-api-docs.html   (~359 KiB)
+# → docs/api/generated/links-api-docs.html       (~190 KiB)
+# → docs/api/generated/site-api-docs.html        (~265 KiB)
 ```
 
 Os HTMLs são **locais** — não são publicados em produção nesta fase. Abra-os diretamente no browser.
