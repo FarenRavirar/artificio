@@ -248,7 +248,7 @@ export function SystemPicker({
                     onClick={() => onSuggest(search.trim())}
                   >
                     <Send className="h-4 w-4" />
-                    Sugerir
+                    Sugerir cadeia
                   </button>
                 )}
                 {canCreateNow && (

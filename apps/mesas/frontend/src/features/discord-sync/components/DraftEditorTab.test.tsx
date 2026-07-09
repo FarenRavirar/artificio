@@ -5,6 +5,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { DraftEditorTab } from './DraftEditorTab';
 import type { DraftForm } from '../draftFormUtils';
 
+vi.mock('../../../components/SystemSuggestionModal', () => ({
+  SystemSuggestionModal: ({ initialName }: { initialName?: string }) => (
+    <input aria-label="Nome sugerido" value={initialName ?? ''} readOnly />
+  ),
+}));
+
 const form: DraftForm = {
   title: 'Mesa teste',
   description: 'Descricao',
@@ -130,5 +136,18 @@ describe('DraftEditorTab', () => {
     expect(screen.getByText(/DeepSeek:\s*3\s*chamada\(s\)\s*nas ultimas\s*24h/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
     expect(onApplySuggestion).toHaveBeenCalledWith('system_name', 'D&D 5e');
+  });
+
+  it('preenche modal de sistema com termo pesquisado no picker', () => {
+    renderTab({
+      systems: [],
+    });
+
+    fireEvent.change(screen.getByRole('searchbox', { name: /buscar sistema/i }), {
+      target: { value: 'Shadowdark' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /criar agora/i }));
+
+    expect(screen.getByLabelText('Nome sugerido')).toHaveValue('Shadowdark');
   });
 });

@@ -11,9 +11,15 @@ interface SystemSuggestionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (createdSystem?: { id: string; name?: string }) => void;
+  initialName?: string;
 }
 
 type SuggestionType = 'system' | 'edition' | 'variant' | 'subsystem';
+type ChainRow = {
+  name: string;
+  namePt: string;
+  description: string;
+};
 
 type FlattenedSystemNode = {
   id: string;
@@ -40,7 +46,7 @@ const flattenSystems = (nodes: SystemTreeNode[], depth = 0): FlattenedSystemNode
   return flattened;
 };
 
-export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSuggestionModalProps) => {
+export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName = '' }: SystemSuggestionModalProps) => {
   const { isAuthenticated, user } = useAuth();
   const {
     tree: systemsTree,
@@ -49,9 +55,14 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
     forceRefresh: retrySystemsTree,
   } = useSystemsCatalog();
 
-  const [name, setName] = useState('');
+  const [name, setName] = useState(() => initialName.trim());
   const [namePt, setNamePt] = useState('');
   const [description, setDescription] = useState('');
+  const [chainRows, setChainRows] = useState<ChainRow[]>([
+    { name: initialName.trim(), namePt: '', description: '' },
+    { name: '', namePt: '', description: '' },
+    { name: '', namePt: '', description: '' },
+  ]);
   const [parentId, setParentId] = useState('');
   const [suggestionType, setSuggestionType] = useState<SuggestionType>('system');
   const [loading, setLoading] = useState(false);
@@ -70,6 +81,13 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
     try {
       const isAdmin = user?.role === 'admin';
       const endpoint = isAdmin ? '/api/v1/systems/admin' : '/api/v1/system-suggestions';
+      const filledChainRows = chainRows
+        .map((row) => ({
+          name: row.name.trim(),
+          name_pt: row.namePt.trim() || null,
+          description: row.description.trim() || null,
+        }))
+        .filter((row) => row.name.length > 0);
       const body = isAdmin
         ? {
             name: name.trim(),
@@ -78,6 +96,15 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
             parent_id: suggestionType === 'system' ? null : parentId || null,
             node_type: suggestionType,
           }
+        : filledChainRows.length > 1
+          ? {
+              nodes: filledChainRows.map((row, index) => ({
+                ...row,
+                suggestion_type: index === 0 ? 'system' : index === 1 ? 'edition' : 'variant',
+                parent_id: index === 0 ? null : undefined,
+                parent_suggestion_index: index === 0 ? undefined : index - 1,
+              })),
+            }
         : {
             name: name.trim(),
             name_pt: namePt.trim() || null,
@@ -98,6 +125,11 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
       setName('');
       setNamePt('');
       setDescription('');
+      setChainRows([
+        { name: '', namePt: '', description: '' },
+        { name: '', namePt: '', description: '' },
+        { name: '', namePt: '', description: '' },
+      ]);
       setParentId('');
       setSuggestionType('system');
       toast.success(isAdmin ? 'Sistema adicionado ao catálogo.' : 'Sugestão enviada para análise da administração.');
@@ -144,7 +176,49 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+            {user?.role !== 'admin' && (
+              <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                <p className="mb-3 text-sm font-semibold text-white">Sugerir cadeia</p>
+                <div className="space-y-3">
+                  {chainRows.map((row, index) => (
+                    <div key={index} className="grid gap-2 sm:grid-cols-[120px_1fr]">
+                      <span className="pt-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+                        {index === 0 ? 'Sistema' : index === 1 ? 'Edição' : 'Variante'}
+                      </span>
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={row.name}
+                          onChange={(event) => {
+                            const next = [...chainRows];
+                            next[index] = { ...row, name: event.target.value };
+                            setChainRows(next);
+                            if (index === 0) setName(event.target.value);
+                          }}
+                          placeholder={index === 0 ? 'Ex: Vampire: The Masquerade' : index === 1 ? 'Ex: Aniversário' : 'Ex: 20th Anniversary'}
+                          required={index === 0}
+                          className="w-full px-4 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--color-artificio-orange)]"
+                        />
+                        <input
+                          type="text"
+                          value={row.namePt}
+                          onChange={(event) => {
+                            const next = [...chainRows];
+                            next[index] = { ...row, namePt: event.target.value };
+                            setChainRows(next);
+                            if (index === 0) setNamePt(event.target.value);
+                          }}
+                          placeholder="Nome em português (opcional)"
+                          className="w-full px-4 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--color-artificio-orange)]"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className={user?.role !== 'admin' ? 'hidden' : ''}>
               <label className="block text-white font-semibold mb-2 text-sm">
                 Tipo de Sugestão
               </label>
@@ -163,7 +237,7 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
               </select>
             </div>
 
-            <div>
+            <div className={user?.role !== 'admin' ? 'hidden' : ''}>
               <label className="block text-white font-semibold mb-2 text-sm">
                 Nome do Sistema *
               </label>
@@ -172,12 +246,12 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                placeholder="Ex: Vampire: The Masquerade"
+                placeholder={user?.role === 'admin' ? 'Ex: Vampire: The Masquerade' : 'Ex: sistema novo'}
                 className="w-full px-4 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--color-artificio-orange)]"
               />
             </div>
 
-            <div>
+            <div className={user?.role !== 'admin' ? 'hidden' : ''}>
               <label className="block text-white font-semibold mb-2 text-sm">
                 Nome em português (opcional)
               </label>
@@ -190,7 +264,7 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess }: SystemSugg
               />
             </div>
 
-            <div>
+            <div className={user?.role !== 'admin' ? 'hidden' : ''}>
               <label className="block text-white font-semibold mb-2 text-sm">
                 Descrição (opcional)
               </label>

@@ -141,6 +141,11 @@ export function DraftEditorTab({
   onSetSlotsInterpretation, onConfirmSlots,
 }: Readonly<DraftEditorTabProps>) {
   const [showSystemSuggestionModal, setShowSystemSuggestionModal] = useState(false);
+  const [systemSuggestionInitialName, setSystemSuggestionInitialName] = useState('');
+  const openSystemSuggestionModal = (query = '') => {
+    setSystemSuggestionInitialName(query);
+    setShowSystemSuggestionModal(true);
+  };
   const aiOff = !aiConfig || aiConfig.mode === 'off' || aiConfig.killSwitch;
   // Achado CodeRabbit (PR #128): auditoria de completude e acao manual sob
   // demanda (T10.9, spec 058), independente do modo automatico — so o kill
@@ -294,7 +299,7 @@ export function DraftEditorTab({
               </button>
               <button
                 type="button"
-                onClick={() => setShowSystemSuggestionModal(true)}
+                onClick={() => openSystemSuggestionModal()}
                 className="text-xs px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
               >
                 + Adicionar Sistema
@@ -328,8 +333,8 @@ export function DraftEditorTab({
               mode="single"
               role="admin"
               searchPlaceholder="Buscar sistema, edição ou variante..."
-              onSuggest={() => setShowSystemSuggestionModal(true)}
-              onCreateNow={() => setShowSystemSuggestionModal(true)}
+              onSuggest={openSystemSuggestionModal}
+              onCreateNow={openSystemSuggestionModal}
             />
           )}
           <FieldInsightNote field="system_name" insight={fieldInsights?.system_name} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('system_name') ?? false} />
@@ -515,7 +520,9 @@ export function DraftEditorTab({
         contexto de render (inclusive testes). */}
     {showSystemSuggestionModal && (
     <SystemSuggestionModal
+      key={systemSuggestionInitialName}
       isOpen={showSystemSuggestionModal}
+      initialName={systemSuggestionInitialName}
       onClose={() => setShowSystemSuggestionModal(false)}
       onSuccess={(createdSystem) => {
         setShowSystemSuggestionModal(false);

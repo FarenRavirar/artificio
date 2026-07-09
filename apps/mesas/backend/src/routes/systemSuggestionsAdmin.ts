@@ -16,6 +16,7 @@ const router = Router();
 const VALID_RESOLUTION_TYPES = new Set([
   'create_system',
   'create_child',
+  'create_chain',
   'create_alias',
   'merge_existing',
   'reject',
@@ -76,6 +77,104 @@ async function relinkDiscordDrafts(
     console.error('[resolve] Erro ao linkar drafts:', linkErr);
   }
   return linked;
+}
+
+type SystemChainInput = {
+  id: string;
+  name: string;
+  name_pt: string | null;
+  node_type: SystemNodeType;
+  parent_id: string | null;
+  batch_index: number | null;
+  parent_suggestion_index: number | null;
+  description: string | null;
+};
+
+async function createSystemNode(
+  trx: Transaction<Database>,
+  input: {
+    name: string;
+    namePt: string | null;
+    nodeType: SystemNodeType;
+    parentId: string | null;
+    description: string | null;
+  },
+) {
+  const segmentSlug = slugify(input.name);
+  if (!segmentSlug) {
+    throw new Error('NAME_REQUIRED');
+  }
+
+  if (input.nodeType === 'system') {
+    const collision = await trx
+      .selectFrom('systems')
+      .select('id')
+      .where('path_slug', '=', segmentSlug)
+      .executeTakeFirst();
+    if (collision) {
+      throw new Error('PATH_SLUG_CONFLICT');
+    }
+
+    return trx
+      .insertInto('systems')
+      .values({
+        name: input.name,
+        name_pt: input.namePt,
+        slug: segmentSlug,
+        path_slug: segmentSlug,
+        node_type: 'system',
+        depth: 0,
+        parent_id: null,
+        description: input.description,
+      })
+      .returning(['id', 'name', 'path_slug'])
+      .executeTakeFirstOrThrow();
+  }
+
+  if (!input.parentId) {
+    throw new Error('PARENT_REQUIRED');
+  }
+
+  const parent = await trx
+    .selectFrom('systems')
+    .select(['id', 'name', 'depth', 'path_slug', 'node_type'])
+    .where('id', '=', input.parentId)
+    .executeTakeFirst();
+  if (!parent) {
+    throw new Error('PARENT_NOT_FOUND');
+  }
+
+  const allowedParents = VALID_PARENT[input.nodeType];
+  if (allowedParents && !allowedParents.includes(parent.node_type)) {
+    throw new Error('HIERARCHY_INVALID');
+  }
+
+  const parentPathSlug = parent.path_slug ?? slugify(parent.name);
+  const slug = await makeUniqueSystemSlug(trx, segmentSlug, parentPathSlug);
+  const pathSlug = `${parentPathSlug}/${segmentSlug}`;
+  const collision = await trx
+    .selectFrom('systems')
+    .select('id')
+    .where('path_slug', '=', pathSlug)
+    .executeTakeFirst();
+  if (collision) {
+    throw new Error('PATH_SLUG_CONFLICT');
+  }
+
+  return trx
+    .insertInto('systems')
+    .values({
+      name: input.name,
+      name_pt: input.namePt,
+      slug,
+      path_slug: pathSlug,
+      node_type: input.nodeType,
+      depth: (parent.depth ?? 0) + 1,
+      parent_id: parent.id,
+      description: input.description,
+    })
+    .returning(['id', 'name', 'path_slug'])
+    .executeTakeFirstOrThrow();
 }
 
 
@@ -406,7 +505,7 @@ router.post('/system-suggestions/:id/resolve', async (req: Request, res: Respons
 
   if (!VALID_RESOLUTION_TYPES.has(resolutionType)) {
     return res.status(400).json({
-      error: 'resolution_type inválido. Use create_system, create_child, create_alias, merge_existing ou reject.',
+      error: 'resolution_type inválido. Use create_system, create_child, create_chain, create_alias, merge_existing ou reject.',
     });
   }
 
@@ -653,6 +752,131 @@ router.post('/system-suggestions/:id/resolve', async (req: Request, res: Respons
         };
       }
 
+      // ----- CRIAR CADEIA (system -> edition -> variant/subsystem) -----
+      if (resolutionType === 'create_chain') {
+        const notes = readTrimmed(body.notes);
+        const sourceRows = suggestion.batch_id
+          ? await trx
+            .selectFrom('system_suggestions')
+            .selectAll()
+            .where('batch_id', '=', suggestion.batch_id)
+            .where('status', '=', 'pending')
+            .orderBy('batch_index', 'asc')
+            .execute()
+          : [suggestion];
+        const chainRows = sourceRows
+          .map((row): SystemChainInput => ({
+            id: row.id,
+            name: row.name,
+            name_pt: row.name_pt,
+            node_type: row.node_type,
+            parent_id: row.parent_id,
+            batch_index: row.batch_index,
+            parent_suggestion_index: row.parent_suggestion_index,
+            description: row.description,
+          }))
+          .sort((a, b) => (a.batch_index ?? 0) - (b.batch_index ?? 0));
+
+        if (chainRows.length === 0 || chainRows.length > 3) {
+          throw new Error('CHAIN_INVALID');
+        }
+
+        const createdByIndex = new Map<number, { id: string; name: string; path_slug: string | null }>();
+        const createdNodes: Array<{ suggestion_id: string; system_id: string; name: string; path_slug: string | null }> = [];
+
+        for (let index = 0; index < chainRows.length; index += 1) {
+          const row = chainRows[index];
+          const parentFromSuggestion = row.parent_suggestion_index === null
+            ? null
+            : createdByIndex.get(row.parent_suggestion_index);
+          if (row.parent_suggestion_index !== null && !parentFromSuggestion) {
+            throw new Error('CHAIN_INVALID');
+          }
+
+          const created = await createSystemNode(trx, {
+            name: row.name,
+            namePt: row.name_pt,
+            nodeType: row.node_type,
+            parentId: row.parent_id ?? parentFromSuggestion?.id ?? null,
+            description: row.description,
+          });
+          createdByIndex.set(row.batch_index ?? index, created);
+          createdNodes.push({
+            suggestion_id: row.id,
+            system_id: created.id,
+            name: created.name,
+            path_slug: created.path_slug,
+          });
+        }
+
+        const lastCreated = createdNodes[createdNodes.length - 1];
+        if (!lastCreated) {
+          throw new Error('CHAIN_INVALID');
+        }
+
+        await trx
+          .updateTable('system_suggestions')
+          .set({
+            status: 'approved',
+            resolution_type: 'create_chain',
+            resolved_system_id: createdNodes[0]?.system_id ?? null,
+            created_system_id: lastCreated.system_id,
+            resolution_notes: notes,
+            resolution_payload: JSON.stringify({
+              batch_id: suggestion.batch_id,
+              created_nodes: createdNodes,
+            }) as any,
+            resolved_at: new Date(),
+            reviewed_at: new Date(),
+            reviewed_by: adminId,
+          })
+          .where('id', 'in', chainRows.map((row) => row.id))
+          .execute();
+
+        await trx
+          .insertInto('notifications')
+          .values({
+            user_id: suggestion.user_id,
+            type: 'suggestion_approved',
+            title: 'Sugestão aprovada',
+            message: `Sua sugestão "${suggestion.name}" foi adicionada ao catálogo.`,
+            action_url: `/catalogo?system=${lastCreated.path_slug ?? ''}`,
+            metadata: JSON.stringify({
+              suggestion_id: id,
+              suggestion_kind: 'system',
+              resolution_type: 'create_chain',
+              system_id: lastCreated.system_id,
+              path_slug: lastCreated.path_slug,
+              batch_id: suggestion.batch_id,
+            }),
+          })
+          .execute();
+
+        await logActivity({
+          actorId: adminId,
+          actorRole: 'admin',
+          action: 'system_suggestion.resolved',
+          entityType: 'system_suggestion',
+          entityId: id,
+          entityLabel: suggestion.name,
+          targetUserId: suggestion.user_id,
+          summary: `${adminName} criou uma cadeia de ${createdNodes.length} nós a partir da sugestão "${suggestion.name}".`,
+          metadata: {
+            suggestion_id: id,
+            resolution_type: 'create_chain',
+            batch_id: suggestion.batch_id,
+            created_nodes: createdNodes,
+          },
+        }, trx);
+
+        return {
+          kind: 'create_chain' as const,
+          suggestion,
+          systemId: lastCreated.system_id,
+          systemName: lastCreated.name,
+        };
+      }
+
       // ----- CRIAR FILHO (edition/variant/subsystem) -----
       if (resolutionType === 'create_child') {
         const nodeType = typeof body.node_type === 'string' ? (body.node_type as SystemNodeType) : undefined;
@@ -682,38 +906,13 @@ router.post('/system-suggestions/:id/resolve', async (req: Request, res: Respons
           throw new Error('HIERARCHY_INVALID');
         }
 
-        const segmentSlug = slugify(name);
-        if (!segmentSlug) {
-          throw new Error('NAME_REQUIRED');
-        }
-        const parentPathSlug = parent.path_slug ?? slugify(parent.name);
-        const slug = await makeUniqueSystemSlug(trx, segmentSlug, parentPathSlug);
-        const pathSlug = `${parentPathSlug}/${segmentSlug}`;
-        const depth = (parent.depth ?? 0) + 1;
-
-        const collision = await trx
-          .selectFrom('systems')
-          .select('id')
-          .where('path_slug', '=', pathSlug)
-          .executeTakeFirst();
-        if (collision) {
-          throw new Error('PATH_SLUG_CONFLICT');
-        }
-
-        const newSystem = await trx
-          .insertInto('systems')
-          .values({
-            name,
-            name_pt: namePt,
-            slug,
-            path_slug: pathSlug,
-            node_type: nodeType,
-            depth,
-            parent_id: parent.id,
-            description,
-          })
-          .returning(['id', 'name', 'path_slug'])
-          .executeTakeFirstOrThrow();
+        const newSystem = await createSystemNode(trx, {
+          name,
+          namePt,
+          nodeType,
+          parentId: parent.id,
+          description,
+        });
 
         await insertSystemAliases(trx, newSystem.id, [...(suggestion.aliases ?? []), ...extraAliases]);
         await insertSystemAliases(trx, parent.id, parentAliases);
@@ -812,35 +1011,13 @@ router.post('/system-suggestions/:id/resolve', async (req: Request, res: Respons
         }
       }
 
-      const slug = slugify(name);
-      if (!slug) {
-        throw new Error('NAME_REQUIRED');
-      }
-      const pathSlug = slug;
-
-      const collision = await trx
-        .selectFrom('systems')
-        .select('id')
-        .where('path_slug', '=', pathSlug)
-        .executeTakeFirst();
-      if (collision) {
-        throw new Error('PATH_SLUG_CONFLICT');
-      }
-
-      const newSystem = await trx
-        .insertInto('systems')
-        .values({
-          name,
-          name_pt: namePt,
-          slug,
-          path_slug: pathSlug,
-          node_type: 'system',
-          depth: 0,
-          parent_id: null,
-          description,
-        })
-        .returning(['id', 'name', 'path_slug'])
-        .executeTakeFirstOrThrow();
+      const newSystem = await createSystemNode(trx, {
+        name,
+        namePt,
+        nodeType: 'system',
+        parentId: null,
+        description,
+      });
 
       await insertSystemAliases(trx, newSystem.id, [...(suggestion.aliases ?? []), ...extraAliases]);
 
@@ -985,6 +1162,8 @@ router.post('/system-suggestions/:id/resolve', async (req: Request, res: Respons
         return res.status(400).json({ error: 'Hierarquia inválida para o tipo de nó escolhido.' });
       case 'PATH_SLUG_CONFLICT':
         return res.status(409).json({ error: 'Já existe um sistema com este caminho.' });
+      case 'CHAIN_INVALID':
+        return res.status(400).json({ error: 'Cadeia de sugestão inválida.' });
       case 'SIMILAR_EXISTS':
         return res.status(409).json({
           error: 'Há candidatos similares no catálogo. Confirme com force=true para criar mesmo assim.',

@@ -415,6 +415,20 @@ Investigação profunda concluída. Nenhum código, migration, banco, API, deplo
   - `pnpm --filter @artificio/mesas build` ✅.
 - Status: I0a.9 fechado. Próximo: fim do PR 1 conforme task list, com commit/push somente mediante autorização nominal.
 
+## Review PR #143 — termo de busca no modal de sistema
+
+- Achado do CodeRabbit procede: `SystemPicker` envia `onSuggest(search.trim())`/`onCreateNow(search.trim())`, mas `DraftEditorTab.tsx` ignorava o argumento e abria `SystemSuggestionModal` com "Nome" vazio.
+- Correção local:
+  - `SystemSuggestionModal.tsx` ganhou prop opcional `initialName` e sincroniza o campo `name` quando abre.
+  - `DraftEditorTab.tsx` guarda o termo pesquisado e passa para `SystemSuggestionModal.initialName`.
+  - Botão manual "+ Adicionar Sistema" continua abrindo modal vazio.
+  - Teste em `DraftEditorTab.test.tsx` cobre busca "Shadowdark" → "Criar agora" → modal com nome preenchido.
+- Validação:
+  - `pnpm --filter @artificio/mesas-frontend test -- src/features/discord-sync/components/DraftEditorTab.test.tsx src/test/suggestionModals.test.tsx src/components/SystemPicker.test.tsx` ✅.
+  - `pnpm --filter @artificio/mesas lint` ✅.
+  - `pnpm --filter @artificio/mesas build` ✅.
+- Status: correção local aplicada; commit/push pendem de autorização nominal nova.
+
 ## Review PR #143 — counts do catálogo
 
 - Achado do `chatgpt-codex-connector` procede: `COUNT(DISTINCT ...)` vindo do Postgres pode chegar como string (`int8`) no payload real de `GET /api/v1/systems?view=tree`, enquanto `useSystemsCatalog()` validava `children_count`, `tables_count` e `aliases_count` com `z.number()`.
@@ -456,3 +470,19 @@ Investigação profunda concluída. Nenhum código, migration, banco, API, deplo
   - `pnpm --filter @artificio/mesas lint` ✅.
   - `pnpm --filter @artificio/mesas build` ✅ (warning conhecido de chunk grande do Vite, não bloqueante).
 - Status: fixes aplicados localmente; commit/push para atualizar a PR #143 aguardam aprovação nominal separada.
+## I0a.10-I0a.15 — Cadeia sistema→edição→variante
+
+- Escopo implementado localmente na branch atual:
+  - `migration_143_system_suggestions_batch.sql` adiciona `batch_id`, `batch_index`, `parent_suggestion_index` e amplia `resolution_type` com `create_chain`.
+  - `POST /api/v1/system-suggestions` aceita payload legado, `{ nodes: [...] }` e array direto; lote limitado a 1-3 nós; limite de 5 pendentes preservado.
+  - `POST /api/v1/admin/system-suggestions/:id/resolve` aceita `resolution_type:create_chain` e aprova/cria todos os nós pendentes do mesmo `batch_id` em uma transação.
+  - `SystemSuggestionModal` oferece formulário de até 3 linhas para usuário comum (sistema/edição/variante) e envia lote; admin segue com criação direta legada.
+  - `SystemSuggestionResolutionDrawer` ganhou ação "Criar cadeia completa", mantendo fluxos antigos.
+  - `SystemPicker` direciona empty state para "Sugerir cadeia".
+- Validação:
+  - `pnpm --filter @artificio/mesas-frontend test -- src/test/suggestionModals.test.tsx src/components/SystemPicker.test.tsx` ✅.
+  - `pnpm --filter @artificio/mesas-backend test -- src/services/__tests__/systemSuggestionCandidates.test.ts` ✅.
+  - `pnpm --filter @artificio/mesas lint` ✅.
+  - `pnpm --filter @artificio/mesas build` ✅ (warning conhecido de chunk >500 kB).
+  - `pnpm verify:api` ✅; warnings conhecidos de ambiguous paths; `api:diff` reporta 2 breaking changes em modo relatório, herdados da remoção intencional de rotas órfãs I0a.0.
+- Status: I0a.10-I0a.14 fechadas localmente. I0a.15 parcial local; deploy beta pendente de PR/merge em `dev` e aprovação nominal do workflow.

@@ -1869,7 +1869,7 @@
       "method": "GET",
       "path": "/api/v1/admin/system-suggestions",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 85,
+      "line": 184,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1878,7 +1878,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/system-suggestions/:id/approve",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 130,
+      "line": 229,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1887,7 +1887,7 @@
       "method": "GET",
       "path": "/api/v1/admin/system-suggestions/:id/candidates",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 89,
+      "line": 188,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1896,7 +1896,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/system-suggestions/:id/reject",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 335,
+      "line": 434,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1905,7 +1905,7 @@
       "method": "POST",
       "path": "/api/v1/admin/system-suggestions/:id/resolve",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 390,
+      "line": 489,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2670,7 +2670,7 @@
       "method": "POST",
       "path": "/api/v1/system-suggestions",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestions.ts",
-      "line": 15,
+      "line": 61,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2688,7 +2688,7 @@
       "method": "GET",
       "path": "/api/v1/system-suggestions/mine",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestions.ts",
-      "line": 103,
+      "line": 174,
       "confidence": "high",
       "kind": "express-route"
     },
