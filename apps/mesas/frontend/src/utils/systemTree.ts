@@ -23,6 +23,14 @@ export const getDisplayName = (
   return node.name;
 };
 
+export const matchesSystemQuery = (node: FlattenedSystemNode, normalizedQuery: string): boolean => {
+  return normalizeText(node.name).includes(normalizedQuery)
+    || normalizeText(node.name_pt || '').includes(normalizedQuery)
+    || normalizeText(node.slug).includes(normalizedQuery)
+    || normalizeText(node.path_slug ?? '').includes(normalizedQuery)
+    || (node.aliases?.some((alias) => normalizeText(alias).includes(normalizedQuery)) ?? false);
+};
+
 export const flattenTree = (
   nodes: SystemTreeNode[],
   breadcrumb: string[] = []

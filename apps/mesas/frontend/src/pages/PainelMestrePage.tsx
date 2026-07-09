@@ -270,6 +270,7 @@ function CreateGmProfileForm({ onSuccess }: { onSuccess: () => void }) {
 export const PainelMestrePage = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [gmProfile, setGmProfile] = useState<GmProfile | null>(null);
   const [myTables, setMyTables] = useState<MyTableEnhanced[]>([]);
@@ -332,7 +333,7 @@ export const PainelMestrePage = () => {
         }
 
         // Não forçar dashboard se há parâmetro edit ou action=nova-mesa na URL
-        const urlParams = new URLSearchParams(window.location.search);
+        const urlParams = searchParams;
         if (!urlParams.has('edit') && urlParams.get('action') !== 'nova-mesa') {
           setView('dashboard');
         } else if (urlParams.get('action') === 'nova-mesa') {
@@ -347,9 +348,8 @@ export const PainelMestrePage = () => {
     };
 
     loadPanelData();
-  }, [navigate, isAuthenticated, user]);
+  }, [navigate, isAuthenticated, user, searchParams]);
 
-  const [searchParams] = useSearchParams();
   const editIdFromUrl = searchParams.get('edit');
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 interface D20GlyphProps {
-  className?: string;
+  readonly className?: string;
 }
 
 /**

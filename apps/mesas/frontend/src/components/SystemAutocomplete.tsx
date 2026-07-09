@@ -1,24 +1,16 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { Check, Search, X } from 'lucide-react';
 import type { SystemTreeNode } from '../types/systems';
-import { flattenTree, normalizeText, type FlattenedSystemNode } from '../utils/systemTree';
+import { flattenTree, normalizeText, matchesSystemQuery, type FlattenedSystemNode } from '../utils/systemTree';
 
 interface SystemAutocompleteProps {
-  tree: SystemTreeNode[];
-  selectedId: string | null;
-  onSelect: (systemId: string | null) => void;
-  idPrefix: string;
-  placeholder?: string;
-  maxSuggestions?: number;
+  readonly tree: SystemTreeNode[];
+  readonly selectedId: string | null;
+  readonly onSelect: (systemId: string | null) => void;
+  readonly idPrefix: string;
+  readonly placeholder?: string;
+  readonly maxSuggestions?: number;
 }
-
-const matchesQuery = (node: FlattenedSystemNode, query: string): boolean => {
-  return normalizeText(node.name).includes(query)
-    || normalizeText(node.name_pt || '').includes(query)
-    || normalizeText(node.slug).includes(query)
-    || normalizeText(node.path_slug ?? '').includes(query)
-    || (node.aliases?.some((alias) => normalizeText(alias).includes(query)) ?? false);
-};
 
 /**
  * Busca com autocomplete para sistema de RPG: digitar filtra sugestões,
@@ -49,7 +41,7 @@ export function SystemAutocomplete({
   const normalizedQuery = normalizeText(query);
   const suggestions = useMemo(() => {
     if (!normalizedQuery) return [];
-    return flatNodes.filter((node) => matchesQuery(node, normalizedQuery)).slice(0, maxSuggestions);
+    return flatNodes.filter((node) => matchesSystemQuery(node, normalizedQuery)).slice(0, maxSuggestions);
   }, [flatNodes, normalizedQuery, maxSuggestions]);
 
   useEffect(() => {
@@ -121,9 +113,9 @@ export function SystemAutocomplete({
         <input
           id={`${idPrefix}-input`}
           role="combobox"
-          aria-expanded={isOpen && suggestions.length > 0}
+          aria-expanded={isOpen && normalizedQuery.length > 0}
           aria-controls={`${idPrefix}-listbox`}
-          aria-activedescendant={activeIndex >= 0 ? `${idPrefix}-option-${activeIndex}` : undefined}
+          aria-activedescendant={activeIndex >= 0 && suggestions.length > 0 ? `${idPrefix}-option-${activeIndex}` : undefined}
           autoComplete="off"
           value={query}
           onChange={(e) => {

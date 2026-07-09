@@ -2778,7 +2778,7 @@
       "method": "GET",
       "path": "/api/v1/tables/:slug",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 305,
+      "line": 300,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2787,7 +2787,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/click",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 540,
+      "line": 535,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2796,7 +2796,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/view",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 501,
+      "line": 496,
       "confidence": "high",
       "kind": "express-route"
     },

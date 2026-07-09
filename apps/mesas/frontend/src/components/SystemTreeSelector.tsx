@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef } from 'react';
 import { Check, ChevronRight, Search, Info } from 'lucide-react';
 import type { SystemTreeNode } from '../types/systems';
-import { flattenTree, normalizeText, getDisplayName, type FlattenedSystemNode } from '../utils/systemTree';
+import { flattenTree, normalizeText, getDisplayName, matchesSystemQuery, type FlattenedSystemNode } from '../utils/systemTree';
 
 interface SystemTreeSelectorProps {
   tree: SystemTreeNode[];
@@ -46,13 +46,7 @@ export const SystemTreeSelector = ({
   const searchResults = useMemo(() => {
     if (!normalizedSearch) return [] as FlattenedSystemNode[];
 
-    return flatNodes.filter((node) => {
-      return normalizeText(node.name).includes(normalizedSearch)
-        || normalizeText(node.name_pt || '').includes(normalizedSearch)
-        || normalizeText(node.slug).includes(normalizedSearch)
-        || normalizeText(node.path_slug ?? '').includes(normalizedSearch)
-        || (node.aliases?.some((alias) => normalizeText(alias).includes(normalizedSearch)) ?? false);
-    });
+    return flatNodes.filter((node) => matchesSystemQuery(node, normalizedSearch));
   }, [flatNodes, normalizedSearch]);
 
   // Ordenar resultados: selecionados no topo
