@@ -289,12 +289,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     // Achado CodeRabbit PR #144 (mesmo padrão de mapAuditCandidateToForm,
     // achado CodeRabbit PR #135): objeto que não é diff-shaped não deve virar
     // String(value) = "[object Object]" gravado no form.
-    const asText =
-      value === null || value === undefined
-        ? ''
-        : typeof value === 'object'
-          ? ''
-          : String(value).trim();
+    const asText = value === null || value === undefined || typeof value === 'object' ? '' : String(value).trim();
     if (!asText) return;
     const normalized = asText.toLocaleLowerCase('pt-BR');
     const matched = systemsFlat.find(

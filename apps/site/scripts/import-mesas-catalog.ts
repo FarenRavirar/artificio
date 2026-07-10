@@ -114,12 +114,16 @@ function isValidMesasRow(value: unknown): value is MesasSystemRow {
     && typeof row.node_type === "string" && typeof row.slug === "string";
 }
 
+function extractRowList(raw: unknown): unknown[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === "object" && Array.isArray((raw as Record<string, unknown>).systems)) {
+    return (raw as Record<string, unknown>).systems as unknown[];
+  }
+  return [];
+}
+
 function parseMesasCatalogJson(raw: unknown): MesasSystemRow[] {
-  const list = Array.isArray(raw)
-    ? raw
-    : raw && typeof raw === "object" && Array.isArray((raw as Record<string, unknown>).systems)
-      ? (raw as Record<string, unknown>).systems as unknown[]
-      : [];
+  const list = extractRowList(raw);
   const valid = list.filter(isValidMesasRow).map((row) => ({ ...row, aliases: Array.isArray(row.aliases) ? row.aliases : [] }));
   if (valid.length !== list.length) {
     console.warn(`[import-mesas-catalog] ${list.length - valid.length} linha(s) do JSON descartada(s) por shape inválido.`);
@@ -178,19 +182,21 @@ function orderRows(rows: MesasSystemRow[]): MesasSystemRow[] {
   return output;
 }
 
-function validateSource(rows: MesasSystemRow[]): string[] {
+function validateRow(row: MesasSystemRow, ids: Set<string>): string[] {
   const warnings: string[] = [];
-  const ids = new Set(rows.map((row) => row.id));
-  for (const row of rows) {
-    if (row.parent_id && !ids.has(row.parent_id)) warnings.push(`orphan_parent:${row.id}:${row.parent_id}`);
-    const expectedSlug = slugifyCatalogSegment(row.name);
-    if (!row.slug) warnings.push(`missing_slug:${row.id}`);
-    if (!row.path_slug) warnings.push(`missing_path_slug:${row.id}`);
-    if (row.node_type !== "system" && !row.parent_id) warnings.push(`non_root_without_parent:${row.id}`);
-    if (row.node_type === "system" && row.parent_id) warnings.push(`root_with_parent:${row.id}`);
-    if (expectedSlug && row.slug !== expectedSlug) warnings.push(`slug_diff:${row.id}:${row.slug}:${expectedSlug}`);
-  }
+  if (row.parent_id && !ids.has(row.parent_id)) warnings.push(`orphan_parent:${row.id}:${row.parent_id}`);
+  if (!row.slug) warnings.push(`missing_slug:${row.id}`);
+  if (!row.path_slug) warnings.push(`missing_path_slug:${row.id}`);
+  if (row.node_type !== "system" && !row.parent_id) warnings.push(`non_root_without_parent:${row.id}`);
+  if (row.node_type === "system" && row.parent_id) warnings.push(`root_with_parent:${row.id}`);
+  const expectedSlug = slugifyCatalogSegment(row.name);
+  if (expectedSlug && row.slug !== expectedSlug) warnings.push(`slug_diff:${row.id}:${row.slug}:${expectedSlug}`);
   return warnings;
+}
+
+function validateSource(rows: MesasSystemRow[]): string[] {
+  const ids = new Set(rows.map((row) => row.id));
+  return rows.flatMap((row) => validateRow(row, ids));
 }
 
 async function upsertCatalogNode(

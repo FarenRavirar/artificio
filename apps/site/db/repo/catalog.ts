@@ -60,8 +60,7 @@ export function slugifyCatalogSegment(value: string): string {
     .toLowerCase()
     .replaceAll("&", " e ")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "")
+    .replace(/^-+|-+$/g, "")
     .slice(0, 80);
 }
 
