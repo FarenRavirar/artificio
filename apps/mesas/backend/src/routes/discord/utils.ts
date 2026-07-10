@@ -15,6 +15,8 @@ import {
   lookupLearningRules,
   recordLearningRuleApplications,
   recordLearningRulesFromCorrections,
+  recordLabelAliasFromCorrection,
+  loadActiveLabelAliases,
 } from '../../discord/learningRules';
 import {
   buildParseCaseContract,
@@ -225,15 +227,22 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
     inputValue: before,
     outputValue: after,
   }));
-  await recordFieldLearning(learningEntries, guildId, userId);
-  await recordLearningRulesFromCorrections(learningEntries, source ?? null, userId);
-  await recordParseFeedbackForCorrections({
-    draftId,
-    diff,
-    reason: reason ?? null,
-    adminUserId: userId,
-    scope: source ?? {},
-  });
+  // Achado CodeRabbit (PR #144): as 4 chamadas são independentes (tabelas ou
+  // rule_type diferentes, cada uma best-effort com erro tratado internamente,
+  // sem risco de conflito de onConflict entre si) — Promise.all reduz latência
+  // do endpoint de correção em vez de esperar sequencialmente.
+  await Promise.all([
+    recordFieldLearning(learningEntries, guildId, userId),
+    recordLearningRulesFromCorrections(learningEntries, source ?? null, userId),
+    recordLabelAliasFromCorrection(learningEntries, rawText, source ?? null, userId),
+    recordParseFeedbackForCorrections({
+      draftId,
+      diff,
+      reason: reason ?? null,
+      adminUserId: userId,
+      scope: source ?? {},
+    }),
+  ]);
 
   return { draft_id: draftId, fields_corrected: Object.keys(diff).length, diff };
 }
@@ -491,7 +500,19 @@ export async function parseDiscordMessage(
     message_created_at: msg.message_created_at ? new Date(msg.message_created_at as string) : null,
     message_edited_at: msg.message_edited_at ? new Date(msg.message_edited_at as string) : null,
   };
-  const parsed = parseDiscordAnnouncement(raw, sys, replyContext, { vtt: vttPlatforms, communication: communicationPlatforms, scenarios });
+  // DEB-052-02: rótulos aprendidos de correção humana (label_alias) — estende
+  // a allowlist fixa sem precisar codificar cada variação. Achado CodeRabbit
+  // (PR #144): escopo de leitura tinha que bater com o de gravação
+  // (`recordLabelAliasFromCorrection` grava com guild+channel+author vindos de
+  // `source`, igual `learningScope` de `enrichDraftWithLlm` abaixo) — só
+  // `guild_id` aqui fazia o scope_hash nunca casar (composite gravado ≠ guild
+  // lido), aliases aprendidos nunca eram encontrados.
+  const labelAliases = await loadActiveLabelAliases({
+    guild_id: raw.discord_guild_id || null,
+    channel_id: raw.discord_channel_id || null,
+    author_id: raw.discord_author_id || null,
+  });
+  const parsed = parseDiscordAnnouncement(raw, sys, replyContext, { vtt: vttPlatforms, communication: communicationPlatforms, scenarios }, labelAliases);
   if (!parsed) return null;
   const normalized = normalizeDiscordTableDraft(parsed, sys);
   return { parsed, normalized, systems: sys };

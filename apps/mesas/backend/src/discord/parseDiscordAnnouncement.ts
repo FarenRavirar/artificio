@@ -319,16 +319,20 @@ function matchSystem(text: string, systems: SystemEntry[]): SystemMatchResult | 
 }
 
 // Tenta extrair "sistema: titulo" do nome do thread
+// Achado do mantenedor (2026-07-10): quando não há thread_name real, o título
+// cai aqui via `body.split('\n')[0]` (1ª linha do anúncio) — sem passar por
+// normalizeTitle/normalizeTitleCapitalization, título em CAPS LOCK sobrevivia.
 function splitThreadName(threadName: string): { systemHint: string | null; title: string } {
   const colonIdx = threadName.indexOf(':');
   if (colonIdx > 0 && colonIdx < threadName.length - 2) {
     const beforeColon = cleanTrademark(stripDecorativeMarkup(threadName.slice(0, colonIdx).trim()));
     const afterColon = cleanTrademark(stripDecorativeMarkup(threadName.slice(colonIdx + 1).trim()));
     if (beforeColon.length > 0 && afterColon.length > 0) {
-      return { systemHint: beforeColon, title: afterColon };
+      return { systemHint: beforeColon, title: normalizeTitleCapitalization(afterColon) };
     }
   }
-  return { systemHint: null, title: cleanTrademark(stripDecorativeMarkup(threadName)) };
+  const fallbackTitle = cleanTrademark(stripDecorativeMarkup(threadName));
+  return { systemHint: null, title: fallbackTitle ? normalizeTitleCapitalization(fallbackTitle) : fallbackTitle };
 }
 
 // Extrai modalidade do texto
@@ -809,6 +813,19 @@ function isUrlDelimiter(char: string): boolean {
   return char === '<' || char === '>' || char === '"' || char === "'" || char.trim() === '';
 }
 
+const CONTACT_CONTEXT_LINE_RE = /\b(contato|inscri[cç][aã]?[õo]?[eos]*|candidatura|interesse|ticket|link\s+de\s+contato)\b/i;
+
+/**
+ * true se a URL aparece numa linha com sinal textual de contato/inscrição
+ * ("Contato:", "Inscrição:", "Link de candidatura: <url>"). Usado pro
+ * fallback de `extractContactUrl` distinguir URL genuína de contato de link
+ * incidental (setting page, playlist, review) que só por estar solta no
+ * texto acabava virando contact_url — achado CodeRabbit PR #144.
+ */
+function urlHasContactContext(text: string, url: string): boolean {
+  return text.split(/\r?\n/).some((line) => line.includes(url) && CONTACT_CONTEXT_LINE_RE.test(line));
+}
+
 /**
  * Extrai URL de contato (discord invite, forms, MesaQuest, etc.). Cascata: com
  * 2+ URLs no texto, prioriza domínio de contato/inscrição CONHECIDO sobre
@@ -818,12 +835,21 @@ function isUrlDelimiter(char: string): boolean {
  * de Thylea" em D:\teste.json cita site institucional, link de reviews E link
  * de candidatura no mesmo anúncio, em ordens variadas). Com 0 ou 1 URL
  * conhecida, comportamento é o mesmo de antes (pega a única disponível).
+ *
+ * `confident: false` sinaliza fallback sem domínio conhecido NEM contexto de
+ * linha de contato — URL genuinamente incerta (pode ser link não relacionado
+ * a contato), que o caller deve marcar pra revisão em vez de aceitar como
+ * `ready` (achado CodeRabbit PR #144: qualquer URL sintaticamente válida
+ * virava contact_url mesmo sem nenhum sinal de que era canal de inscrição).
  */
-function extractContactUrl(text: string): string | null {
+function extractContactUrl(text: string): { url: string; confident: boolean } | null {
   const allMatches = extractRawHttpUrls(text).map(trimTrailingUrlWrappers);
   if (allMatches.length === 0) return null;
   const known = allMatches.find(isKnownContactUrl);
-  return known ?? allMatches[0];
+  if (known) return { url: known, confident: true };
+  const withContext = allMatches.find((url) => urlHasContactContext(text, url));
+  if (withContext) return { url: withContext, confident: true };
+  return { url: allMatches[0], confident: false };
 }
 
 function extractContactDiscord(text: string): string | null {
@@ -855,11 +881,11 @@ function cleanLabelLine(line: string): string {
     .trim();
 }
 
-function normalizeLabelKey(value: string): string {
+export function normalizeLabelKey(value: string): string {
   return normalize(value).replace(/\s+/g, ' ').trim();
 }
 
-function splitLabelLine(line: string): { key: string; value: string } | null {
+export function splitLabelLine(line: string): { key: string; value: string } | null {
   const cleaned = cleanLabelLine(line);
   // [^:：] no prefixo evita sobreposição com o separador (sem backtracking).
   const match = /^([^:：]{1,48})\s{0,3}[:：]\s{0,3}(.*)$/.exec(cleaned);
@@ -1145,6 +1171,27 @@ function removeKnownContactUrlsFromDescription(text: string, contactUrl: string 
     .join('\n');
 }
 
+// Labels que o parser já extrai pra campo próprio em algum lugar (título,
+// sistema, dia/horário/vagas/preço/tipo/modalidade via regex sobre fullText,
+// plataformas, estilo, cenário, contato/host). Linha `label: valor` reconhecida
+// aqui é removida da description por já virar dado estruturado em outro campo.
+// Achado do mantenedor (2026-07-10): "Nível atual: Nível 13" (sem campo próprio
+// no form) estava sendo removido pela versão anterior (que removia QUALQUER
+// `label: valor`), perdendo a informação sem ela sobrar em lugar nenhum. Só
+// remove o que tem destino confirmado; label desconhecido fica na description.
+const FALLBACK_DESCRIPTION_KNOWN_LABEL_KEYS = new Set([
+  'mesa', 'titulo', 'título', 'nome da mesa', 'aventura',
+  'sistema', 'jogo', 'rpg', 'sistema de jogo', 'sistema utilizado',
+  'plataforma', 'plataformas', 'local do jogo',
+  'estilo', 'indicado',
+  'ambientacao', 'ambientação', 'cenario', 'cenário',
+  'dia', 'dia local', 'horario', 'horário', 'data', 'data e horario', 'data e horário',
+  'vagas', 'vagas abertas', 'vagas disponiveis', 'vagas disponíveis', 'numero de vagas', 'número de vagas',
+  'preco', 'preço', 'valor', 'tipo', 'modalidade', 'frequencia', 'frequência',
+  'contato', 'discord', 'link', 'inscricao', 'inscrição', 'candidatura',
+  'mestre', 'gm', 'narrador', 'dm', 'classificacao', 'classificação', 'faixa etaria', 'faixa etária',
+].map(normalizeLabelKey));
+
 function buildFallbackDescription(body: string): string | null {
   // T11.1 (fix real, achado ao validar contra os 3 datasets D:\teste*.json):
   // a versão anterior só removia linha se a chave estivesse na allowlist
@@ -1152,20 +1199,25 @@ function buildFallbackDescription(body: string): string | null {
   // de continuação") — deixava vazar QUALQUER label:valor real fora dessa
   // lista pequena (ex.: "Nível:", "Local:", "Data & Horário:", "Vagas
   // Disponíveis:" normalizam pra chaves que não estão na allowlist e
-  // sobreviviam inteiras dentro da description). Fix: remove qualquer linha
-  // que `splitLabelLine` reconheça como par `label: valor` COM VALOR NÃO
-  // VAZIO — reaproveita splitLabelLine sem duplicar lógica de detecção, mas
-  // exige valor presente porque sub-título narrativo real (ex.: "A Expedição:"
-  // seguido do texto na linha seguinte, caso real "The Witherwild") também
-  // bate a sintaxe `chave:` com valor vazio — só rótulo de campo de verdade
-  // vem com o valor colado na mesma linha; sub-título estilístico não.
+  // sobreviviam inteiras dentro da description). Fix T11.1: passou a remover
+  // qualquer linha que `splitLabelLine` reconheça como par `label: valor` COM
+  // VALOR NÃO VAZIO — mas isso também descartava labels reais sem campo
+  // próprio (ex. "Nível atual"), perdendo informação. Fix 2026-07-10: só
+  // remove quando a chave está em FALLBACK_DESCRIPTION_KNOWN_LABEL_KEYS
+  // (campo com destino confirmado); label reconhecido mas não mapeado
+  // permanece na description, preservando o dado. Sub-título narrativo real
+  // (ex.: "A Expedição:" seguido do texto na linha seguinte, caso real "The
+  // Witherwild") também bate a sintaxe `chave:` com valor vazio — só rótulo
+  // de campo de verdade vem com o valor colado na mesma linha.
   const cleaned = body
     .split(/\r?\n/)
     .filter((line) => {
       const trimmed = line.trim();
       if (!trimmed) return true;
       const parsed = splitLabelLine(trimmed);
-      if (parsed && parsed.value.trim().length > 0) return false;
+      if (parsed && parsed.value.trim().length > 0) {
+        return !FALLBACK_DESCRIPTION_KNOWN_LABEL_KEYS.has(parsed.key);
+      }
       return !isBareLabelStopLine(trimmed);
     })
     .join('\n')
@@ -1173,9 +1225,19 @@ function buildFallbackDescription(body: string): string | null {
   return cleaned || null;
 }
 
+// Achado do mantenedor (2026-07-10): description final preservava markdown
+// estrutural cru — heading (`### O Sistema:`) e blockquote (`> *frase*`) do
+// Discord sobrevivendo ao texto exibido. `stripDecorativeMarkup` já sabe
+// limpar isso mas só era usado em título/system hint. Aqui só o PREFIXO de
+// linha (heading `#{1,6}` ou blockquote `>`) é removido — preserva `#`/`>`
+// soltos no meio de frase (hashtag, "maior que") e toda pontuação de frase
+// normal, que a versão de título não precisa preservar.
+const LINE_PREFIX_MARKDOWN_RE = /^[^\S\n]{0,3}(?:#{1,6}|>)[^\S\n]*/gm;
+
 export function cleanDescriptionText(text: string): string {
   return text
     .replace(RAW_DISCORD_TOKEN_RE, '')
+    .replace(LINE_PREFIX_MARKDOWN_RE, '')
     .replace(/\s*\[(?:form|forms|formul[aá]rio|inscri[cç][aã]o|link)\]\s*/gi, ' ')
     .replace(PAIRED_EMPHASIS_MARKDOWN_RE, '$2')
     .replace(EDGE_EMPHASIS_MARKDOWN_RE, '$1')
@@ -1213,10 +1275,55 @@ function stripDecorativeMarkup(value: string): string {
     .trim();
 }
 
+// Palavras curtas PT-BR que ficam minúsculas em title case (exceto na 1ª posição).
+const TITLE_CASE_LOWERCASE_WORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'no', 'na', 'nos', 'nas', 'a', 'o', 'as', 'os', 'para', 'com']);
+
+// Achado do mantenedor (2026-07-10): títulos em CAPS LOCK ("GRADIENTE
+// DESCENDENTE 4") sobrevivem crus do Discord. Caso real ("teste.json"): título
+// vem PARCIALMENTE em caixa-alta ("GRADIENTE DESCENDENTE 4 - Variáveis
+// Implícitas" — 1ª parte gritada, 2ª já em title case correto), então checar
+// a proporção de maiúsculas do título INTEIRO (1ª versão) diluía o sinal e
+// deixava a parte gritada intacta. Fix: avalia CADA PALAVRA isoladamente —
+// palavra com 4+ letras 100% maiúscula (sem dígito, sem minúscula) vira title
+// case; palavra que já tem minúscula ou tem dígito (2D6, D20, D&D, 5e'14)
+// fica intocada, preservando siglas curtas soltas tipo "RPG" (3 letras).
+// Achado CodeRabbit (PR #144): stopword após pontuação de cláusula (":", ".",
+// "!", "?", "-") é início de nova cláusula, não meio de frase — "Vampiro: A
+// Máscara" tinha o "A" rebaixado pra minúsculo por só checar `index > 0`, sem
+// considerar que a palavra anterior fechava uma cláusula com ":".
+const CLAUSE_END_RE = /[:.!?-]$/;
+
+function normalizeTitleCapitalization(value: string): string {
+  const words = value.split(' ');
+  return words
+    .map((word, index) => {
+      if (!word) return word;
+      const letters = word.replace(/[^\p{L}]/gu, '');
+      if (!letters) return word;
+      // token com dígito (2D6, D20, 5e'14) ou já contém minúscula real (D&D) — preserva
+      if (/\d/.test(word) || /\p{Ll}/u.test(word)) return word;
+      const upperLetters = word.replace(/[^\p{Lu}]/gu, '');
+      if (upperLetters.length !== letters.length) return word;
+      // sigla curta solta (RPG, GM) fica intocada — só normaliza palavra de
+      // 4+ letras (limite empírico pra não confundir sigla real com stopword
+      // gritada); stopword PT-BR curta (DE/DA/DO/E/A/O) sempre vira minúscula
+      // mesmo com <4 letras, pois artigo/preposição não é sigla — exceto no
+      // início de cláusula (índice 0 OU depois de pontuação de frase).
+      const lower = word.toLocaleLowerCase('pt-BR');
+      const isStopword = TITLE_CASE_LOWERCASE_WORDS.has(lower);
+      if (letters.length < 4 && !isStopword) return word;
+      const isClauseStart = index === 0 || CLAUSE_END_RE.test(words[index - 1] ?? '');
+      if (!isClauseStart && isStopword) return lower;
+      return lower.charAt(0).toLocaleUpperCase('pt-BR') + lower.slice(1);
+    })
+    .join(' ');
+}
+
 function normalizeTitle(value: string | null): string | null {
   if (!value) return null;
   const cleaned = stripDecorativeMarkup(value.replace(/^["“”']|["“”']$/g, '').trim());
-  return cleanTrademark(cleaned) || null;
+  const trademarkCleaned = cleanTrademark(cleaned);
+  return trademarkCleaned ? normalizeTitleCapitalization(trademarkCleaned) : null;
 }
 
 // Penalidade fixa por sinal de ambiguidade detectado durante o parse — um
@@ -1258,9 +1365,23 @@ export function classifyConfidence(score: number): ConfidenceTier {
   return 'baixa';
 }
 
-// T-G2: sinais de ambiguidade adicionais
+// T-G2: sinais de ambiguidade adicionais.
+// Achado do mantenedor (2026-07-10): antes marcava QUALQUER URL fora da
+// allowlist curta (KNOWN_CONTACT_URL_PATTERNS, ~10 domínios) como suspeita —
+// site pessoal de GM real ("dm.yanbraga.com/join"), extraído com confiança
+// alta do próprio anúncio, sempre bloqueava o draft de virar 'ready' (422
+// "contact_url:suspicious"). Fix: só é suspeito quando a URL está malformada
+// (sem esquema http/https, sem domínio válido) — allowlist deixa de ser gate
+// de bloqueio e vira só um sinal de prioridade/confiança em outros lugares
+// que ainda usem isKnownContactUrl diretamente.
 export function isSuspiciousUrl(url: string): boolean {
-  return !isKnownContactUrl(url);
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return true;
+    return !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(parsed.hostname);
+  } catch {
+    return true;
+  }
 }
 
 // DEB-048-27/29: sistema autoral. A plataforma só lista sistemas conhecidos.
@@ -1276,21 +1397,27 @@ export type HomebrewClass = 'discard' | 'review' | 'none';
 /** Extrai o hint de sistema (campo "Sistema:" ou parte antes do ":" do thread).
  * Só a 1ª linha do valor — `extractLabelValue` agrega linhas de continuação
  * (descrição), e o nome do sistema é a primeira; evita falso-descarte por
- * menção solta de "próprio/autoral" no corpo. */
-function getAnnouncementSystemHint(message: ImportRawMessage): string | null {
+ * menção solta de "próprio/autoral" no corpo.
+ * @param labelAliasesSystem DEB-052-02: rótulos extras aprendidos pro campo
+ * `system_name` (achado CodeRabbit PR #144) — sem isso, um anúncio com rótulo
+ * de sistema não-fixo (ex. "Jogo do dia:") nunca acha o hint aqui, e um
+ * sistema autoral/próprio anunciado sob esse rótulo escapa do descarte. */
+function getAnnouncementSystemHint(message: ImportRawMessage, labelAliasesSystem?: string[]): string | null {
   const threadName = message.discord_thread_name ?? '';
   const rawBody = message.content_raw ?? '';
   const body = stripSeparatorLines(rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []));
   if (!body.trim()) return null;
-  const explicitSystem = normalizeTitle(extractLabelValue(body, ['sistema', 'jogo', 'rpg'], { keepParenthetical: true }));
+  const explicitSystem = normalizeTitle(extractLabelValue(body, [
+    'sistema', 'jogo', 'rpg', 'sistema de jogo', 'sistema utilizado', ...(labelAliasesSystem ?? []),
+  ], { keepParenthetical: true }));
   const threadParts = splitThreadName(threadName || body.split('\n')[0] || 'Mesa sem título');
   const hint = explicitSystem ?? threadParts.systemHint;
   return hint ? hint.split(/[\r\n]/)[0].trim() || null : null;
 }
 
 /** DEB-048-27: true se o sistema do anúncio é autoral/próprio (→ descartar). */
-export function classifyHomebrew(message: ImportRawMessage): HomebrewClass {
-  const hint = getAnnouncementSystemHint(message);
+export function classifyHomebrew(message: ImportRawMessage, labelAliasesSystem?: string[]): HomebrewClass {
+  const hint = getAnnouncementSystemHint(message, labelAliasesSystem);
   if (hint == null) return 'none';
   if (RE_HOMEBREW_STRONG.test(hint)) return 'discard';
   if (RE_HOMEBREW_WEAK.test(hint)) return 'review';
@@ -1310,6 +1437,11 @@ export function isHomebrewSystem(message: ImportRawMessage): boolean {
  * @param systems    Lista de sistemas+aliases carregada do banco (systems + system_aliases).
  *                   Deve incluir o array `aliases` por sistema (nome + name_pt + alias strings).
  *                   Se omitida, a detecção de sistema não será feita.
+ * @param labelAliases DEB-052-02: rótulos extras aprendidos por campo (via
+ *                   correção humana, `loadActiveLabelAliases`), somados à
+ *                   allowlist fixa antes de `extractLabelValue`. Sem isso,
+ *                   cada variação de rótulo humano ("sistema utilizado:")
+ *                   precisaria virar exceção codificada.
  */
 export function parseDiscordAnnouncement(
   message: ImportRawMessage,
@@ -1317,6 +1449,7 @@ export function parseDiscordAnnouncement(
   replyContext?: string,
   /** Fase A/B/C (spec 058): bancos de referência opcionais pra VTT/comunicação. */
   platforms?: { vtt?: MatchEntry[]; communication?: MatchEntry[]; scenarios?: MatchEntry[] },
+  labelAliases?: Record<string, string[]>,
 ): ImportTableDraft | null {
   const threadName = message.discord_thread_name ?? '';
   const rawBody = message.content_raw ?? '';
@@ -1333,7 +1466,7 @@ export function parseDiscordAnnouncement(
   }
   // DEB-048-27/29: autoria. STRONG (nítido) → descarta. WEAK (ambíguo) → segue
   // como draft, mas marcado _homebrew_suspect → needs_review + badge "autoral?".
-  const homebrew = classifyHomebrew(message);
+  const homebrew = classifyHomebrew(message, labelAliases?.system_name);
   if (homebrew === 'discard') {
     return null;
   }
@@ -1341,8 +1474,12 @@ export function parseDiscordAnnouncement(
 
   // Título e dica de sistema (a partir do nome do thread)
   const threadParts = splitThreadName(threadName || body.split('\n')[0] || 'Mesa sem título');
-  const explicitTitle = normalizeTitle(extractLabelValue(body, ['mesa', 'titulo', 'título', 'nome da mesa', 'aventura']));
-  const explicitSystem = normalizeTitle(extractLabelValue(body, ['sistema', 'jogo', 'rpg']));
+  const explicitTitle = normalizeTitle(extractLabelValue(body, [
+    'mesa', 'titulo', 'título', 'nome da mesa', 'aventura', ...(labelAliases?.title ?? []),
+  ]));
+  const explicitSystem = normalizeTitle(extractLabelValue(body, [
+    'sistema', 'jogo', 'rpg', 'sistema de jogo', 'sistema utilizado', ...(labelAliases?.system_name ?? []),
+  ]));
   const systemHint = explicitSystem ?? threadParts.systemHint;
   const title = explicitTitle ?? threadParts.title;
 
@@ -1385,7 +1522,11 @@ export function parseDiscordAnnouncement(
       return lowerUrl.startsWith('https://docs.google.com/forms/') || lowerUrl.startsWith('http://docs.google.com/forms/');
     })
     ?? null;
-  const contactUrl = googleFormsUrl ?? extractContactUrl(body);
+  const rawContactUrlMatch = extractContactUrl(body);
+  const contactUrl = googleFormsUrl ?? rawContactUrlMatch?.url ?? null;
+  // Google Forms sempre confiável (detecção por domínio dedicado); URL genérica
+  // sem domínio conhecido nem contexto de linha de contato fica incerta.
+  const contactUrlConfident = googleFormsUrl != null || (rawContactUrlMatch?.confident ?? true);
 
   const explicitContactDiscord = extractContactDiscord(body);
   let hostDiscordId = extractHostDiscordId(body);
@@ -1478,6 +1619,13 @@ export function parseDiscordAnnouncement(
   // T-G2: ambiguidades adicionais
   if (contactUrl && isSuspiciousUrl(contactUrl)) {
     missingFields.push('contact_url:suspicious');
+  }
+  // Achado CodeRabbit (PR #144): domínio desconhecido sem contexto de linha de
+  // contato (não é "Contato:"/"Inscrição:", só a única URL solta no anúncio)
+  // pode ser link não relacionado (site institucional, playlist, review) —
+  // marca pra revisão em vez de aceitar como contact_url confiável.
+  if (contactUrl && !contactUrlConfident) {
+    missingFields.push('contact_url:unconfirmed');
   }
 
   const table: DiscordTableDraftTable = {

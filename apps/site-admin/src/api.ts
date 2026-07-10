@@ -58,6 +58,27 @@ export interface FeedbackItem {
   archived_at: string | null; created_at: string;
 }
 
+export interface CatalogAlias {
+  id: number; node_id: string; alias: string; locale: string | null; kind: string;
+}
+export type CatalogNodeStatus = "draft" | "pending" | "active" | "rejected" | "merged";
+export interface CatalogNode {
+  id: string; parent_id: string | null; node_type: "system" | "edition" | "subsystem" | "variant";
+  canonical_slug: string; path_slug: string; name: string; name_pt: string | null;
+  description: string | null; official_website_url: string | null; logo_media_id: string | null;
+  status: CatalogNodeStatus; merged_into_id: string | null; version: number;
+  created_by: string | null; updated_by: string | null; created_at: string; updated_at: string;
+  aliases: CatalogAlias[]; children: CatalogNode[];
+}
+export interface CatalogSnapshot {
+  catalog_version: number; generated_at: string; checksum: string; nodes_count: number; tree: CatalogNode[];
+}
+export interface CatalogNodeInput {
+  parent_id?: string | null; node_type: CatalogNode["node_type"]; canonical_slug?: string;
+  name: string; name_pt?: string | null; description?: string | null;
+  official_website_url?: string | null; logo_media_id?: string | null; status?: CatalogNodeStatus; aliases?: string[];
+}
+
 export interface PostFull {
   id?: number; title: string; slug: string; excerpt: string; content_html: string;
   block_doc: unknown | null; status: string; published_at: string | null;
@@ -128,6 +149,13 @@ export const api = {
   updateFeedback: (id: number, patch: { status?: string; admin_notes?: string | null; archived?: boolean }) =>
     req<{ item: FeedbackItem }>(`/feedback/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteFeedback: (id: number) => req<{ ok: boolean }>(`/feedback/${id}`, { method: "DELETE" }),
+
+  // ---- Catálogo canônico de sistemas (Spec 062) ----
+  getCatalogSnapshot: () => req<CatalogSnapshot>(`/catalog/snapshot`),
+  createCatalogNode: (body: CatalogNodeInput) =>
+    req<CatalogNode>(`/catalog/nodes`, { method: "POST", body: JSON.stringify(body) }),
+  updateCatalogNode: (id: string, body: Partial<CatalogNodeInput>) =>
+    req<CatalogNode>(`/catalog/nodes/${id}`, { method: "PUT", body: JSON.stringify(body) }),
 
   // Preview stateless: renderiza o buffer atual (não persiste, não publica). Retorna HTML.
   previewHtml: async (body: { type: "post" | "page"; title: string; status: string; content_html: string }): Promise<string> => {

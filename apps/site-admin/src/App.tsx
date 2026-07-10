@@ -6,6 +6,7 @@ import { PagesList } from "./pages/PagesList";
 import { PageEditor } from "./pages/PageEditor";
 import { MediaPage } from "./pages/MediaPage";
 import { FeedbackPage } from "./pages/FeedbackPage";
+import { CatalogSystemsPage } from "./pages/CatalogSystemsPage";
 
 export function App() {
   return (
@@ -19,6 +20,7 @@ export function App() {
           <NavLink to="/pages">Páginas</NavLink>
           <NavLink to="/pages/new">+ Nova página</NavLink>
           <NavLink to="/media">Mídia</NavLink>
+          <NavLink to="/catalogo-sistemas">Sistemas</NavLink>
           <NavLink to="/feedback">Feedback</NavLink>
           <a href="/" target="_blank" rel="noreferrer">Ver site ↗</a>
         </nav>
@@ -32,6 +34,7 @@ export function App() {
           <Route path="/pages/new" element={<PageEditor />} />
           <Route path="/pages/:id" element={<PageEditor />} />
           <Route path="/media" element={<MediaPage />} />
+          <Route path="/catalogo-sistemas" element={<CatalogSystemsPage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
         </Routes>
       </main>

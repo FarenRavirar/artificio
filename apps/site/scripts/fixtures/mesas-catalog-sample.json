@@ -1,0 +1,46 @@
+{
+  "systems": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "parent_id": null,
+      "node_type": "system",
+      "slug": "dungeons-e-dragons",
+      "path_slug": "dungeons-e-dragons",
+      "name": "Dungeons & Dragons",
+      "name_pt": null,
+      "description": "Sistema de fantasia medieval.",
+      "logo_filename": "dnd.svg",
+      "website_url": "https://dnd.wizards.com",
+      "created_at": "2026-07-10T00:00:00.000Z",
+      "aliases": ["D&D"]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "parent_id": "00000000-0000-0000-0000-000000000001",
+      "node_type": "edition",
+      "slug": "5e",
+      "path_slug": "dungeons-e-dragons/5e",
+      "name": "5e",
+      "name_pt": null,
+      "description": null,
+      "logo_filename": null,
+      "website_url": null,
+      "created_at": "2026-07-10T00:00:00.000Z",
+      "aliases": ["D&D 5e"]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000003",
+      "parent_id": "00000000-0000-0000-0000-000000000002",
+      "node_type": "variant",
+      "slug": "2024",
+      "path_slug": "dungeons-e-dragons/5e/2024",
+      "name": "2024",
+      "name_pt": null,
+      "description": null,
+      "logo_filename": null,
+      "website_url": null,
+      "created_at": "2026-07-10T00:00:00.000Z",
+      "aliases": []
+    }
+  ]
+}

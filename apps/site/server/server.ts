@@ -12,6 +12,7 @@ import { BRAND_ORIGIN } from "@artificio/config";
 import { getDb } from "../db/connection.js";
 import { runJob, jobState } from "./jobs.js";
 import { adminApi } from "./admin-api.js";
+import { catalogAdminApi, catalogApi } from "./catalog-api.js";
 import { renderPreview } from "./preview.js";
 import { reloadRedirects, lookupRedirect } from "./redirect-cache.js";
 import { UPLOADS_DIR, storeUpload } from "./lib/media-store.js";
@@ -167,8 +168,12 @@ app.post("/api/feedback", feedbackLimiter, async (req, res) => {
   }
 });
 
+// API central pública do catálogo canônico (Spec 062 I1). Sem consumidor conectado ainda.
+app.use("/api/catalog/v1", catalogApi());
+
 // API de autoria (CRUD posts/pages/taxonomias/redirects/mídia). Gated requireAuth+requireAdmin.
 app.use("/api/admin/v1", adminApi(requireAuth, requireAdmin));
+app.use("/api/admin/v1/catalog", catalogAdminApi(requireAuth, requireAdmin));
 
 // Mídia em modo local/dev (sem Cloudinary): serve apps/site/uploads em /uploads (público, só leitura).
 // Montado sempre (dir pode não existir ainda no boot; static cai p/ 404 até o 1º upload criá-lo).

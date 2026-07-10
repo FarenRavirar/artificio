@@ -1,0 +1,22 @@
+{
+  "source_app": "mesas",
+  "source_environment": "local",
+  "generated_at": "2026-07-10T16:02:16.024Z",
+  "dry_run": false,
+  "source": {
+    "systems": 3,
+    "aliases": 2
+  },
+  "imported": {
+    "created": 3,
+    "updated": 0,
+    "unchanged": 0,
+    "mappings": 3
+  },
+  "snapshot": {
+    "catalog_version": 4,
+    "nodes_count": 3,
+    "checksum": "65abaca6f2579991edc91939048a063ee3c199b21d34323f1e8bcfffe518dcb5"
+  },
+  "warnings": []
+}

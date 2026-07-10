@@ -1,9 +1,9 @@
 # Spec 062 — Catálogo canônico de sistemas e edições
 
-- **Estado:** Etapa I (investigação) concluída e aprovada; Etapa II aguardando detalhamento I0
+- **Estado:** Etapa I concluída e aprovada; Etapa II em execução. I0/I1 locais implementados; primeiro alvo operacional do serviço central é `beta.artificiorpg.com` via app `site`, sem promoção/prod nesta rodada.
 - **Nível SDD:** Completo
 - **Origem:** Spec 061 F-1 / D096
-- **Escopo:** decisão e plano; zero implementação
+- **Escopo:** investigação, plano e implementação incremental do catálogo canônico; I1 local já cria fundação no `site`, sem consumidores conectados e sem prod.
 
 ## Problema
 
@@ -644,7 +644,7 @@ Ambientes totalmente separados. Nunca copiar UUIDs beta como se fossem mapeament
 Ordem:
 
 1. aprovar arquitetura/modelo/gates;
-2. construir serviço central na Etapa II;
+2. construir serviço central na Etapa II dentro do app `site`, servido por `beta.artificiorpg.com` primeiro;
 3. beta central sem consumidores;
 4. importar integralmente catálogo Mesas beta e validar;
 5. conectar site-admin beta;
@@ -658,7 +658,7 @@ Ordem:
 13. glossário prod;
 14. downloads prod posteriormente.
 
-Segue exatamente esteira canônica: branch `dev`/beta, promoção para `main`, deploy prod manual explícito. Serviço central precisará entrada própria no manifesto quando existir; isso é implementação futura, não decisão de workflow nova.
+Segue exatamente esteira canônica: branch `dev`/beta, promoção para `main`, deploy prod manual explícito. Decisão operacional de I1: a fundação central entra no app `site` existente e sobe primeiro em `beta.artificiorpg.com`; não há hostname técnico separado nem entrada própria de módulo no manifesto nesta fase. Se no futuro o serviço virar deploy técnico separado, isso exige decisão explícita nova.
 
 ## Rollback e provas de integridade
 
@@ -694,7 +694,7 @@ Concluída com decisões do mantenedor. Contém inventário, arquitetura, modelo
 
 Permanecerá na Spec 062, dividida em fases executáveis:
 
-1. fundação do serviço/banco/API central;
+1. fundação do serviço/banco/API central dentro do app `site`, com API pública/admin e primeiro deploy em `beta.artificiorpg.com`;
 2. modelo completo baseado no Mesas;
 3. importação integral do catálogo Mesas;
 4. gestão principal no Site/sidebar;

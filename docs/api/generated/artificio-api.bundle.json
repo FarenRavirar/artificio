@@ -7,9 +7,9 @@
     "glossario": 46,
     "links": 22,
     "mesas": 178,
-    "site": 32
+    "site": 44
   },
-  "total": 289,
+  "total": 301,
   "operations": [
     {
       "app": "accounts",
@@ -3162,6 +3162,78 @@
     },
     {
       "app": "site",
+      "method": "POST",
+      "path": "/api/admin/v1/catalog/nodes",
+      "summary": "Cria ou executa api admin v1 catalog nodes",
+      "owner": "site",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_admin_v1_catalog_nodes"
+    },
+    {
+      "app": "site",
+      "method": "PUT",
+      "path": "/api/admin/v1/catalog/nodes/{id}",
+      "summary": "Substitui api admin v1 catalog nodes id",
+      "owner": "site",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "putapi_admin_v1_catalog_nodes_id"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/catalog/nodes/{idOrSlug}",
+      "summary": "Consulta api admin v1 catalog nodes idOrSlug",
+      "owner": "site",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_admin_v1_catalog_nodes_idOrSlug"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/catalog/resolve",
+      "summary": "Consulta api admin v1 catalog resolve",
+      "owner": "site",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_admin_v1_catalog_resolve"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/catalog/snapshot",
+      "summary": "Consulta api admin v1 catalog snapshot",
+      "owner": "site",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_admin_v1_catalog_snapshot"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/catalog/systems",
+      "summary": "Consulta api admin v1 catalog systems",
+      "owner": "site",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_admin_v1_catalog_systems"
+    },
+    {
+      "app": "site",
       "method": "GET",
       "path": "/api/admin/v1/feedback",
       "summary": "Consulta api admin v1 feedback",
@@ -3471,6 +3543,78 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_admin_v1_taxonomies"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/catalog/v1/nodes",
+      "summary": "Cria ou executa api catalog v1 nodes",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_catalog_v1_nodes"
+    },
+    {
+      "app": "site",
+      "method": "PUT",
+      "path": "/api/catalog/v1/nodes/{id}",
+      "summary": "Substitui api catalog v1 nodes id",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "putapi_catalog_v1_nodes_id"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/catalog/v1/nodes/{idOrSlug}",
+      "summary": "Consulta api catalog v1 nodes idOrSlug",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_catalog_v1_nodes_idOrSlug"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/catalog/v1/resolve",
+      "summary": "Consulta api catalog v1 resolve",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_catalog_v1_resolve"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/catalog/v1/snapshot",
+      "summary": "Consulta api catalog v1 snapshot",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_catalog_v1_snapshot"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/catalog/v1/systems",
+      "summary": "Consulta api catalog v1 systems",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_catalog_v1_systems"
     },
     {
       "app": "site",

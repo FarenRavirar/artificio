@@ -335,6 +335,7 @@ export function DraftEditorTab({
               searchPlaceholder="Buscar sistema, edição ou variante..."
               onSuggest={openSystemSuggestionModal}
               onCreateNow={openSystemSuggestionModal}
+              showEmptySearchResults={false}
             />
           )}
           <FieldInsightNote field="system_name" insight={fieldInsights?.system_name} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('system_name') ?? false} />
