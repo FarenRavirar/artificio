@@ -1,19 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { RotateCcw, Search, ShieldCheck, Star, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import { TableCardComponent, TableCardSkeleton } from '../components/TableCard';
 import { FilterDrawer } from '../components/FilterDrawer';
 import { ActiveFiltersChips } from '../components/ActiveFiltersChips';
 import { ResultsHeader } from '../components/ResultsHeader';
-import { SystemAutocomplete } from '../components/SystemAutocomplete';
+import { SystemPicker } from '../components/SystemPicker';
 import { D20Glyph } from '../components/D20Glyph';
-import type { CatalogSeal } from '../types/tables';
-import type { SystemTreeNode } from '../types/systems';
+import type { CatalogSeal, TableCard } from '../types/tables';
 import { applySeo } from '../utils/seo';
 import { useCatalogTables } from '../hooks/useCatalogTables';
 import { useCatalogFilters } from '../hooks/useCatalogFilters';
 import { useStyleFacets } from '../hooks/useStyleFacets';
+import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
 import { trackFilterSistema } from '@artificio/analytics';
+import type { SystemTreeNode } from '../types/systems';
 import type {
   CatalogFilters,
   ExperienceLevelOption,
@@ -46,6 +47,89 @@ const updateFilter = <K extends keyof CatalogFilters>(
   setFilters((prev) => ({ ...prev, [key]: value }));
 };
 
+type CatalogSystemFilterProps = Readonly<{
+  tree: SystemTreeNode[];
+  loading: boolean;
+  error: string | null;
+  selectedSystemId: string | null;
+  idPrefix: string;
+  loadingClassName: string;
+  onSelect: (systemId: string | null) => void;
+}>;
+
+const getSelectedSystemIds = (selectedSystemId: string | null): string[] => {
+  if (!selectedSystemId) return [];
+  return [selectedSystemId];
+};
+
+const CatalogSystemFilter = ({
+  tree,
+  loading,
+  error,
+  selectedSystemId,
+  idPrefix,
+  loadingClassName,
+  onSelect,
+}: CatalogSystemFilterProps) => {
+  const selectedIds = getSelectedSystemIds(selectedSystemId);
+
+  if (loading) {
+    return (
+      <p className={`rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white/60 ${loadingClassName}`}>
+        Carregando sistemas...
+      </p>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-200">
+        Sistemas indisponíveis.
+      </p>
+    );
+  }
+
+  return (
+    <SystemPicker
+      tree={tree}
+      selectedIds={selectedIds}
+      onSelectionChange={(ids) => onSelect(ids[0] ?? null)}
+      idPrefix={idPrefix}
+      mode="single"
+      role="user"
+    />
+  );
+};
+
+type CatalogEmptyStateProps = Readonly<{
+  activeFiltersCount: number;
+  onClearFilters: () => void;
+}>;
+
+const CatalogEmptyState = ({ activeFiltersCount, onClearFilters }: CatalogEmptyStateProps) => (
+  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-16 text-center sm:py-20">
+    <D20Glyph className="mx-auto mb-5 h-16 w-16 text-white/20" />
+    <p className="text-xl font-bold text-white mb-2">Nenhuma mesa encontrada com esses filtros</p>
+    <p className="text-sm text-white/50 mb-6">Ajuste sistema, modalidade ou estilo, ou limpe os filtros para ver todo o catálogo</p>
+    {activeFiltersCount > 0 && (
+      <button
+        onClick={onClearFilters}
+        className="bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] px-6 py-3 rounded-lg font-semibold transition-colors"
+      >
+        Limpar todos os filtros
+      </button>
+    )}
+  </div>
+);
+
+const renderTableCards = (isLoading: boolean, tables: TableCard[]): ReactNode => {
+  if (isLoading) {
+    return Array.from({ length: 12 }).map((_, idx) => <TableCardSkeleton key={idx} />);
+  }
+
+  return tables.map((table) => <TableCardComponent key={table.id} table={table} />);
+};
+
 export const CatalogoPage = () => {
   const [searchParams] = useSearchParams();
 
@@ -55,39 +139,35 @@ export const CatalogoPage = () => {
   // Estilos reais em uso, por frequência (não é lista fixa)
   const { facets: styleFacets } = useStyleFacets();
 
-  // STATE - Árvore de sistemas e busca
-  const [systemsTree, setSystemsTree] = useState<SystemTreeNode[]>([]);
-  const [systemsTreeError, setSystemsTreeError] = useState<string | null>(null);
-  const [systemsTreeReloadKey, setSystemsTreeReloadKey] = useState(0);
+  // STATE - Árvore de sistemas
+  const {
+    tree: systemsTree,
+    flat: systemsFlat,
+    loading: systemsLoading,
+    error: systemsTreeError,
+    forceRefresh: retrySystemsTree,
+  } = useSystemsCatalog();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Flatten tree para mapear ID -> slug
   const systemsMap = useMemo(() => {
     const map = new Map<string, string>();
-    const flatten = (nodes: SystemTreeNode[]) => {
-      for (const node of nodes) {
-        map.set(node.id, node.slug);
-        if (node.children) flatten(node.children);
-      }
-    };
-    flatten(systemsTree);
+    systemsFlat.forEach((node) => {
+      map.set(node.id, node.slug);
+    });
     return map;
-  }, [systemsTree]);
+  }, [systemsFlat]);
 
   // Flatten tree para mapear ID -> name (usado em trackFilterSistema)
   const systemsNameMap = useMemo(() => {
     const map = new Map<string, string>();
-    const flatten = (nodes: SystemTreeNode[]) => {
-      for (const node of nodes) {
-        map.set(node.id, node.name);
-        if (node.children) flatten(node.children);
-      }
-    };
-    flatten(systemsTree);
+    systemsFlat.forEach((node) => {
+      map.set(node.id, node.name);
+    });
     return map;
-  }, [systemsTree]);
+  }, [systemsFlat]);
 
-  // Converter slug do filtro para ID (para SystemAutocomplete)
+  // Converter slug do filtro para ID (para SystemPicker)
   const selectedSystemId = useMemo(() => {
     if (!filters.system) return null;
     const entry = Array.from(systemsMap.entries()).find(([, slug]) => slug === filters.system);
@@ -174,10 +254,6 @@ export const CatalogoPage = () => {
     }));
   };
 
-  const retrySystemsTree = () => {
-    setSystemsTreeReloadKey((current) => current + 1);
-  };
-
   // ============================================================================
   // COMPUTED
   // ============================================================================
@@ -196,18 +272,8 @@ export const CatalogoPage = () => {
 
   const selectedSystemName = useMemo(() => {
     if (!filters.system) return undefined;
-    const findName = (nodes: SystemTreeNode[]): string | undefined => {
-      for (const node of nodes) {
-        if (node.slug === filters.system) return node.name;
-        if (node.children) {
-          const found = findName(node.children);
-          if (found) return found;
-        }
-      }
-      return undefined;
-    };
-    return findName(systemsTree);
-  }, [systemsTree, filters.system]);
+    return systemsFlat.find((node) => node.slug === filters.system)?.name;
+  }, [systemsFlat, filters.system]);
 
   // ============================================================================
   // EFFECTS
@@ -221,26 +287,6 @@ export const CatalogoPage = () => {
     );
   }, []);
 
-  // Load systems tree
-  useEffect(() => {
-    const loadSystemsTree = async () => {
-      try {
-        setSystemsTreeError(null);
-
-        const res = await fetch('/api/v1/systems?view=tree');
-        if (!res.ok) throw new Error(`Erro ao carregar sistemas (HTTP ${res.status})`);
-
-        const json = await res.json();
-        setSystemsTree(json.data ?? []);
-      } catch (err) {
-        console.error('[CatalogoPage] systems tree', err);
-        setSystemsTreeError('Não foi possível carregar os sistemas agora. Tente novamente.');
-      }
-    };
-
-    loadSystemsTree();
-  }, [systemsTreeReloadKey]);
-
   // Scroll to top quando filtros mudam (não na paginação)
   useEffect(() => {
     if (filters.page === 1) {
@@ -251,7 +297,10 @@ export const CatalogoPage = () => {
   // ============================================================================
   // RENDER
   // ============================================================================
-  
+
+  const showEmptyState = !isLoading && !isRefreshing && tables.length === 0;
+  const tableCards = renderTableCards(isLoading, tables);
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-gradient-to-b from-[#0B1220] to-[#13213f] text-white">
       {/* HEADER */}
@@ -318,12 +367,17 @@ export const CatalogoPage = () => {
                   />
                 </div>
 
-                <SystemAutocomplete
-                  tree={systemsTree}
-                  selectedId={selectedSystemId}
-                  onSelect={handleSystemSelect}
-                  idPrefix="catalog-desktop"
-                />
+                <div className="min-w-0">
+                  <CatalogSystemFilter
+                    tree={systemsTree}
+                    loading={systemsLoading}
+                    error={systemsTreeError}
+                    selectedSystemId={selectedSystemId}
+                    idPrefix="catalog-desktop"
+                    loadingClassName="bg-[#0B1220]"
+                    onSelect={handleSystemSelect}
+                  />
+                </div>
               </div>
             </div>
 
@@ -457,11 +511,14 @@ export const CatalogoPage = () => {
             />
           </div>
 
-          <SystemAutocomplete
+          <CatalogSystemFilter
             tree={systemsTree}
-            selectedId={selectedSystemId}
-            onSelect={handleSystemSelect}
+            loading={systemsLoading}
+            error={systemsTreeError}
+            selectedSystemId={selectedSystemId}
             idPrefix="catalog-mobile"
+            loadingClassName="bg-[#13213f]"
+            onSelect={handleSystemSelect}
           />
         </div>
 
@@ -616,27 +673,13 @@ export const CatalogoPage = () => {
         )}
 
         {/* EMPTY STATE */}
-        {!isLoading && !isRefreshing && tables.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-16 text-center sm:py-20">
-            <D20Glyph className="mx-auto mb-5 h-16 w-16 text-white/20" />
-            <p className="text-xl font-bold text-white mb-2">Nenhuma mesa encontrada com esses filtros</p>
-            <p className="text-sm text-white/50 mb-6">Ajuste sistema, modalidade ou estilo, ou limpe os filtros para ver todo o catálogo</p>
-            {activeFiltersCount > 0 && (
-              <button
-                onClick={clearFilters}
-                className="bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] px-6 py-3 rounded-lg font-semibold transition-colors"
-              >
-                Limpar todos os filtros
-              </button>
-            )}
-          </div>
+        {showEmptyState ? (
+          <CatalogEmptyState activeFiltersCount={activeFiltersCount} onClearFilters={clearFilters} />
         ) : (
           <>
             {/* GRID */}
             <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-[repeat(auto-fit,minmax(280px,1fr))]">
-              {isLoading
-                ? Array.from({ length: 12 }).map((_, idx) => <TableCardSkeleton key={idx} />)
-                : tables.map((table) => <TableCardComponent key={table.id} table={table} />)}
+              {tableCards}
             </div>
 
             {/* PAGINATION */}

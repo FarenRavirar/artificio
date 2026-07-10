@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 297,
-    "uniqueEndpoints": 277,
+    "total": 287,
+    "uniqueEndpoints": 267,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,17 +36,17 @@
         }
       },
       "mesas-frontend": {
-        "total": 181,
+        "total": 171,
         "byConfidence": {
-          "medium": 70,
-          "high": 109,
+          "medium": 68,
+          "high": 101,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
-          "template-literal": 62,
+          "template-literal": 60,
           "service-wrapper": 49,
-          "literal": 62,
+          "literal": 54,
           "concatenation": 2
         }
       },
@@ -1527,7 +1527,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 355
+      "line": 357
     },
     {
       "app": "mesas-frontend",
@@ -1537,7 +1537,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPost",
-      "line": 642
+      "line": 651
     },
     {
       "app": "mesas-frontend",
@@ -1887,7 +1887,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 125
+      "line": 109
     },
     {
       "app": "mesas-frontend",
@@ -1897,7 +1897,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 126
+      "line": 110
     },
     {
       "app": "mesas-frontend",
@@ -1907,7 +1907,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPut",
-      "line": 197
+      "line": 180
     },
     {
       "app": "mesas-frontend",
@@ -1957,7 +1957,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.patch",
-      "line": 236
+      "line": 171
     },
     {
       "app": "mesas-frontend",
@@ -2001,33 +2001,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/hooks/useProfile.ts",
-      "method": "GET",
-      "endpoint": "/api/v1/profile/me",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "api.get",
-      "line": 136
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/hooks/useProfile.ts",
-      "method": "PATCH",
-      "endpoint": "/api/v1/profile/me",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "api.patch",
-      "line": 183
-    },
-    {
-      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/hooks/useProfileQuery.ts",
       "method": "GET",
       "endpoint": "/api/v1/profile/me",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.get",
-      "line": 94
+      "line": 29
     },
     {
       "app": "mesas-frontend",
@@ -2037,17 +2017,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.patch",
-      "line": 110
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/hooks/useProfile.ts",
-      "method": "PATCH",
-      "endpoint": "/api/v1/profile/me/gm",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "api.patch",
-      "line": 227
+      "line": 45
     },
     {
       "app": "mesas-frontend",
@@ -2061,53 +2031,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/hooks/useProfile.ts",
-      "method": "PATCH",
-      "endpoint": "/api/v1/profile/me/player",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "api.patch",
-      "line": 214
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/hooks/useProfile.ts",
-      "method": "PATCH",
-      "endpoint": "/api/v1/profile/me/profile",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "api.patch",
-      "line": 201
-    },
-    {
-      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/hooks/useProfileQuery.ts",
       "method": "PATCH",
       "endpoint": "/api/v1/profile/me/profile",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.patch",
-      "line": 156
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/hooks/useProfile.ts",
-      "method": "POST",
-      "endpoint": "/api/v1/profile/me/systems",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "api.post",
-      "line": 239
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/hooks/useProfile.ts",
-      "method": "DELETE",
-      "endpoint": "/api/v1/profile/me/systems/:param",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "api.delete",
-      "line": 268
+      "line": 91
     },
     {
       "app": "mesas-frontend",
@@ -2117,7 +2047,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.patch",
-      "line": 195
+      "line": 130
     },
     {
       "app": "mesas-frontend",
@@ -2127,7 +2057,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.post",
-      "line": 275
+      "line": 210
     },
     {
       "app": "mesas-frontend",
@@ -2137,7 +2067,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.delete",
-      "line": 294
+      "line": 229
     },
     {
       "app": "mesas-frontend",
@@ -2247,17 +2177,7 @@
       "confidence": "medium",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 121
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/SystemSuggestionModal.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/systems",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "authGet",
-      "line": 75
+      "line": 116
     },
     {
       "app": "mesas-frontend",
@@ -2267,17 +2187,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 356
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/UserSystemsSelector.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/systems",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 35
+      "line": 358
     },
     {
       "app": "mesas-frontend",
@@ -2301,23 +2211,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/draftFormUtils.ts",
+      "consumerFile": "apps/mesas/frontend/src/hooks/useSystemsCatalog.ts",
       "method": "GET",
       "endpoint": "/api/v1/systems",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 571
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/pages/CatalogoPage.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/systems",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "fetch",
-      "line": 230
+      "line": 78
     },
     {
       "app": "mesas-frontend",
@@ -2327,7 +2227,7 @@
       "confidence": "medium",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 121
+      "line": 116
     },
     {
       "app": "mesas-frontend",
@@ -2497,7 +2397,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 401
+      "line": 380
     },
     {
       "app": "mesas-frontend",

@@ -364,6 +364,9 @@ export interface SystemSuggestionsTable {
   name_pt: string | null;
   node_type: SystemNodeType;
   parent_id: string | null;
+  batch_id: string | null;
+  batch_index: number | null;
+  parent_suggestion_index: number | null;
   description: string | null;
   aliases: string[] | null;
   status: Generated<SuggestionStatus>;
@@ -386,6 +389,7 @@ export interface SystemSuggestionsTable {
 export type SuggestionResolutionType =
   | 'create_system'
   | 'create_child'
+  | 'create_chain'
   | 'create_alias'
   | 'merge_existing'
   | 'reject';

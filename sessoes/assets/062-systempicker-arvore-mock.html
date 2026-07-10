@@ -1,0 +1,103 @@
+<!--
+Mockup visual aprovado do SystemPicker — spec 062, mantenedor, 2026-07-09.
+Referência vinculante de estrutura/espaçamento/cor. Ver plan.md da spec 062,
+seção "Referência visual aprovada do SystemPicker" para a especificação
+textual completa (o que cada elemento significa, regras de dado, permissões).
+Este arquivo é standalone: abrir direto no navegador para visualizar.
+-->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>SystemPicker — mock aprovado</title>
+<style>
+body{margin:0;padding:24px;background:#f6f7fa;}
+.ap{--fg:#0b1220;--fg-muted:rgba(11,18,32,.66);--surface:#fff;--surface-subtle:#eef2f8;--line:rgba(2,7,64,.14);--fill:rgba(2,7,64,.08);--brand:#ff5722;--ink:#020740;font-family:"Inter",sans-serif;color:var(--fg);max-width:480px;}
+@media (prefers-color-scheme:dark){
+  body{background:#0f1830;}
+  .ap{--fg:#eef1f8;--fg-muted:#aab3c7;--surface:#1b2a4a;--surface-subtle:#16223e;--line:rgba(255,255,255,.1);--fill:rgba(255,255,255,.1);}
+}
+.ap-card{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.ap-node{display:flex;align-items:center;gap:8px;padding:9px 12px;border-top:1px solid var(--line);cursor:pointer;}
+.ap-node:first-child{border-top:none;}
+.ap-node:hover{background:var(--surface-subtle);}
+.ap-chevron{width:14px;flex-shrink:0;color:var(--fg-muted);font-size:12px;text-align:center;}
+.ap-name{font-size:13px;font-weight:700;margin:0;}
+.ap-pt{font-size:11px;color:var(--fg-muted);margin:0;}
+.ap-alias{font-size:10px;color:var(--fg-muted);background:var(--fill);border-radius:999px;padding:1px 7px;margin-left:auto;}
+.ap-input{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--fg);box-sizing:border-box;}
+.ap-input::placeholder{color:var(--fg-muted);}
+.ap-selected{margin-top:14px;padding:10px 12px;border:1px solid var(--brand);border-radius:8px;background:rgba(255,87,34,.08);display:flex;align-items:center;gap:8px;}
+.ap-check{color:var(--brand);font-size:16px;flex-shrink:0;}
+.ap-hint{font-size:11px;color:var(--fg-muted);margin:8px 0 0;}
+</style>
+</head>
+<body>
+<div class="ap">
+  <label for="ap-search" style="position:absolute;clip:rect(0 0 0 0);clip-path:inset(50%);height:1px;overflow:hidden;white-space:nowrap;width:1px;">Buscar sistema, edição ou variante</label>
+  <input id="ap-search" class="ap-input" placeholder="Buscar sistema, edição ou variante..." value="dungeons" style="margin-bottom:12px;" />
+
+  <div class="ap-card">
+    <div class="ap-node" style="padding-left:12px;">
+      <span class="ap-chevron">&#9662;</span>
+      <div style="flex:1;">
+        <p class="ap-name">Dungeons &amp; Dragons</p>
+        <p class="ap-pt">nome PT: —</p>
+      </div>
+      <span class="ap-alias">D&amp;D +19</span>
+    </div>
+
+    <div class="ap-node" style="padding-left:34px;">
+      <span class="ap-chevron">&#9656;</span>
+      <div style="flex:1;">
+        <p class="ap-name">3.5e</p>
+        <p class="ap-pt">nome PT: —</p>
+      </div>
+    </div>
+
+    <div class="ap-node" style="padding-left:34px;">
+      <span class="ap-chevron">&#9662;</span>
+      <div style="flex:1;">
+        <p class="ap-name">5e</p>
+        <p class="ap-pt">nome PT: 5ª edição</p>
+      </div>
+      <span class="ap-alias">5th ed</span>
+    </div>
+
+    <div class="ap-node" style="padding-left:56px;background:rgba(255,87,34,.1);border-left:3px solid var(--brand);">
+      <span class="ap-chevron" style="font-size:8px;">&#8226;</span>
+      <div style="flex:1;">
+        <p class="ap-name">2024</p>
+        <p class="ap-pt">nome PT: —</p>
+      </div>
+      <span class="ap-check">&#10003;</span>
+    </div>
+
+    <div class="ap-node" style="padding-left:56px;">
+      <span class="ap-chevron" style="font-size:8px;">&#8226;</span>
+      <div style="flex:1;">
+        <p class="ap-name">2014</p>
+        <p class="ap-pt">nome PT: —</p>
+      </div>
+    </div>
+
+    <div class="ap-node" style="padding-left:34px;">
+      <span class="ap-chevron">&#9656;</span>
+      <div style="flex:1;">
+        <p class="ap-name">Advanced Dungeons &amp; Dragons</p>
+        <p class="ap-pt">nome PT: —</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="ap-selected">
+    <span class="ap-check">&#10003;</span>
+    <div>
+      <p style="font-size:12px;font-weight:700;margin:0;color:var(--brand);">Selecionado</p>
+      <p style="font-size:13px;margin:0;">Dungeons &amp; Dragons &#8249; 5e &#8249; 2024</p>
+    </div>
+  </div>
+  <p class="ap-hint">Cada nível (Dungeons &amp; Dragons / 5e / 2024) é um nó com nome, nome PT e aliases próprios — o texto "Dungeons &amp; Dragons &#8249; 5e &#8249; 2024" é só a leitura da árvore de cima a baixo, não um campo salvo.</p>
+</div>
+</body>
+</html>

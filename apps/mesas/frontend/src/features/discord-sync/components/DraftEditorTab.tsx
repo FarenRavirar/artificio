@@ -3,9 +3,9 @@ import type { DraftFieldInsight, DraftFieldKey, DraftForm, DraftTableType, Draft
 import { mapAuditCandidateToForm, VALID_AGE_RATINGS } from '../draftFormUtils';
 import type { AiAutomationConfig, CompletenessAuditCandidate, DiscordSlotsAmbiguity, LlmActivity } from '../types';
 import type { SystemTreeNode } from '../../../types/systems';
-import { SystemSearchSelect } from './SystemSearchSelect';
 import { CatalogSearchSelect } from './CatalogSearchSelect';
 import { SystemSuggestionModal } from '../../../components/SystemSuggestionModal';
+import { SystemPicker } from '../../../components/SystemPicker';
 
 interface DraftEditorTabProps {
   form: DraftForm;
@@ -16,6 +16,7 @@ interface DraftEditorTabProps {
   missingFields: string[];
   systems: SystemTreeNode[];
   systemsLoading: boolean;
+  systemsError?: string | null;
   /** Pendência 2 (spec 058): catálogos de cenário/VTT/comunicação pro combobox com busca. */
   scenarios: SimpleCatalogEntry[];
   scenariosLoading: boolean;
@@ -130,7 +131,7 @@ function FieldInsightNote({
 }
 
 export function DraftEditorTab({
-  form, authorName, missingFields, systems, systemsLoading, contentRaw, contentRawLoading,
+  form, authorName, missingFields, systems, systemsLoading, systemsError, contentRaw, contentRawLoading,
   scenarios, scenariosLoading, vttPlatforms, vttPlatformsLoading,
   communicationPlatforms, communicationPlatformsLoading,
   coverPreviewUrl, coverError, coverUploading, coverInputRef,
@@ -140,6 +141,11 @@ export function DraftEditorTab({
   onSetSlotsInterpretation, onConfirmSlots,
 }: Readonly<DraftEditorTabProps>) {
   const [showSystemSuggestionModal, setShowSystemSuggestionModal] = useState(false);
+  const [systemSuggestionInitialName, setSystemSuggestionInitialName] = useState('');
+  const openSystemSuggestionModal = (query = '') => {
+    setSystemSuggestionInitialName(query);
+    setShowSystemSuggestionModal(true);
+  };
   const aiOff = !aiConfig || aiConfig.mode === 'off' || aiConfig.killSwitch;
   // Achado CodeRabbit (PR #128): auditoria de completude e acao manual sob
   // demanda (T10.9, spec 058), independente do modo automatico — so o kill
@@ -293,14 +299,44 @@ export function DraftEditorTab({
               </button>
               <button
                 type="button"
-                onClick={() => setShowSystemSuggestionModal(true)}
+                onClick={() => openSystemSuggestionModal()}
                 className="text-xs px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
               >
                 + Adicionar Sistema
               </button>
             </div>
           </div>
-          <SystemSearchSelect systems={systems} value={form.system_id} loading={systemsLoading} onChange={onSystemChange} />
+          {systemsLoading ? (
+            <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/50">
+              Carregando sistemas...
+            </p>
+          ) : systemsError ? (
+            <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100" role="alert">
+              <p>{systemsError}</p>
+              <button
+                type="button"
+                className="mt-1 text-xs font-semibold text-amber-50 underline underline-offset-4"
+                onClick={() => void onRefreshSystems()}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : (
+            <SystemPicker
+              tree={systems}
+              selectedIds={form.system_id ? [form.system_id] : []}
+              onSelectionChange={(selectedIds) => {
+                const [systemId] = selectedIds;
+                if (systemId) onSystemChange(systemId);
+              }}
+              idPrefix="discord-draft-system"
+              mode="single"
+              role="admin"
+              searchPlaceholder="Buscar sistema, edição ou variante..."
+              onSuggest={openSystemSuggestionModal}
+              onCreateNow={openSystemSuggestionModal}
+            />
+          )}
           <FieldInsightNote field="system_name" insight={fieldInsights?.system_name} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('system_name') ?? false} />
         </label>
         <label>
@@ -484,7 +520,9 @@ export function DraftEditorTab({
         contexto de render (inclusive testes). */}
     {showSystemSuggestionModal && (
     <SystemSuggestionModal
+      key={systemSuggestionInitialName}
       isOpen={showSystemSuggestionModal}
+      initialName={systemSuggestionInitialName}
       onClose={() => setShowSystemSuggestionModal(false)}
       onSuccess={(createdSystem) => {
         setShowSystemSuggestionModal(false);

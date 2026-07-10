@@ -243,36 +243,6 @@ router.patch('/gm', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-// =============================================================================
-// POST /api/v1/profile/me/systems — Adicionar sistema favorito/gm
-// =============================================================================
-
-router.post('/me/systems', authMiddleware, async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-
-  if (!userId) {
-    return res.status(401).json({ error: 'Não autenticado' });
-  }
-
-  const { system_id, type } = req.body;
-
-  if (!system_id || !type) {
-    return res.status(400).json({ error: 'system_id e type são obrigatórios' });
-  }
-
-  if (type !== 'favorite' && type !== 'gm') {
-    return res.status(400).json({ error: 'type deve ser "favorite" ou "gm"' });
-  }
-
-  try {
-    const userSystem = await profileService.addUserSystem(userId, system_id, type);
-    return res.json({ data: userSystem });
-  } catch (error: any) {
-    console.error('[POST /profile/me/systems]', error);
-    return res.status(500).json({ error: error.message || 'Erro ao adicionar sistema' });
-  }
-});
-
 // Alias para compatibilidade com frontend
 router.post('/systems', authMiddleware, async (req: Request, res: Response) => {
   const userId = req.user?.userId;
@@ -297,28 +267,6 @@ router.post('/systems', authMiddleware, async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('[POST /profile/systems]', error);
     return res.status(500).json({ error: error.message || 'Erro ao adicionar sistema' });
-  }
-});
-
-// =============================================================================
-// DELETE /api/v1/profile/me/systems/:id — Remover sistema
-// =============================================================================
-
-router.delete('/me/systems/:id', authMiddleware, async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-
-  if (!userId) {
-    return res.status(401).json({ error: 'Não autenticado' });
-  }
-
-  const { id } = req.params;
-
-  try {
-    await profileService.removeUserSystem(id, userId);
-    return res.status(204).send();
-  } catch (error: any) {
-    console.error('[DELETE /profile/me/systems/:id]', error);
-    return res.status(500).json({ error: 'Erro ao remover sistema' });
   }
 });
 

@@ -77,3 +77,18 @@
   font-size: 0.9375rem;
   margin: 0;
 }
+
+.user-systems-selector-retry {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+}
+
+.user-systems-selector-retry:hover {
+  border-color: var(--artificio-brand);
+}

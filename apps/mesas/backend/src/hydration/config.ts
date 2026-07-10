@@ -14,7 +14,7 @@ export const SYNC_FIELDS: Record<string, string[]> = {
   gm_profile_metrics: ['id', 'gm_profile_id', 'views_count', 'created_at', 'updated_at'],
   systems: ['id', 'name', 'name_pt', 'slug', 'description', 'parent_id', 'node_type', 'depth', 'path_slug', 'logo_filename', 'website_url', 'created_at'],
   system_aliases: ['id', 'system_id', 'alias', 'alias_slug', 'is_official', 'created_at'],
-  system_suggestions: ['id', 'user_id', 'name', 'name_pt', 'node_type', 'parent_id', 'description', 'aliases', 'status', 'reviewed_by', 'reviewed_at', 'rejection_reason', 'user_notified', 'created_at', 'updated_at'],
+  system_suggestions: ['id', 'user_id', 'name', 'name_pt', 'node_type', 'parent_id', 'batch_id', 'batch_index', 'parent_suggestion_index', 'description', 'aliases', 'status', 'reviewed_by', 'reviewed_at', 'rejection_reason', 'user_notified', 'created_at', 'updated_at'],
   tags: ['id', 'name', 'slug', 'created_at'],
   platforms: ['id', 'name', 'slug', 'created_at'],
   scenarios: ['id', 'name', 'name_pt', 'slug', 'description', 'subgenres', 'created_at'],

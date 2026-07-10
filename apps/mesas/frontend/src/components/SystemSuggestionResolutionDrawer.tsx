@@ -66,7 +66,7 @@ interface CandidateAnalysis {
   has_qualifier_context: boolean;
 }
 
-type ResolutionType = 'create_alias' | 'create_child' | 'create_system' | 'merge_existing' | 'reject';
+type ResolutionType = 'create_alias' | 'create_child' | 'create_chain' | 'create_system' | 'merge_existing' | 'reject';
 
 interface ResolveResultData {
   system_name?: string;
@@ -173,6 +173,7 @@ const REASON_LABELS: Record<string, string> = {
 const RESOLUTION_OPTIONS: Array<{ value: ResolutionType; label: string }> = [
   { value: 'create_alias', label: 'Alias / nome alternativo' },
   { value: 'create_child', label: 'Edição / variante / subsistema' },
+  { value: 'create_chain', label: 'Criar cadeia completa' },
   { value: 'merge_existing', label: 'Mesclar (já existe)' },
   { value: 'create_system', label: 'Sistema novo (raiz)' },
   { value: 'reject', label: 'Rejeitar' },
@@ -182,6 +183,7 @@ const RECOMMENDED_LABELS: Record<string, string> = {
   merge_existing: 'Mesclar com existente',
   create_alias: 'Criar alias',
   create_child: 'Criar edição/variante',
+  create_chain: 'Criar cadeia completa',
   create_system: 'Criar sistema novo',
 };
 
@@ -558,6 +560,8 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
         return parentSystem
           ? `Novo ${NODE_TYPE_LABELS[childNodeType] ?? childNodeType} abaixo de ${systemLabel(parentSystem)}: ${parentSystem.path_slug || parentSystem.name}/${slugifyPreview(childName)}`
           : 'Escolha o sistema pai.';
+      case 'create_chain':
+        return 'Aprovar todas as sugestões pendentes do mesmo lote em uma transação, criando sistema, edição e variante na ordem.';
       case 'create_system':
         return `${editionName.trim()
           ? `Novo sistema: ${slugifyPreview(rootName)} + edição ${slugifyPreview(rootName)}/${slugifyPreview(editionName)}`
@@ -596,6 +600,11 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
           description: description.trim() || undefined,
           aliases: aliases.length > 0 ? aliases : undefined,
           parent_aliases: parentAliases.length > 0 ? parentAliases : undefined,
+          notes: notes.trim() || undefined,
+        };
+      case 'create_chain':
+        return {
+          resolution_type: 'create_chain',
           notes: notes.trim() || undefined,
         };
       case 'create_system':
@@ -846,6 +855,18 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
 
         {/* Formularios por tipo */}
         <div className="space-y-3 mb-4">
+          {resolutionType === 'create_chain' && (
+            <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
+              <p className="text-sm font-semibold text-blue-100">Cadeia completa</p>
+              <p className="mt-1 text-sm text-blue-100/80">
+                Aprova o lote inteiro ligado a esta sugestão. O backend cria cada nível em transação única e usa o nó recém-criado como pai do próximo.
+              </p>
+              <p className="mt-2 text-xs text-blue-100/60">
+                Sugestões antigas sem lote continuam válidas como cadeia de um nó.
+              </p>
+            </div>
+          )}
+
           {(resolutionType === 'create_alias' || resolutionType === 'merge_existing') && (
             <label className="block">
               <span className="text-white/70 text-sm">Sistema alvo</span>

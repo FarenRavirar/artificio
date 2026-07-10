@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, ChevronLeft, ChevronRight, Compass, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/useAuth';
-import { SystemTreeSelector } from '../components/SystemTreeSelector';
-import type { SystemTreeNode } from '../types/systems';
+import { SystemPicker } from '../components/SystemPicker';
+import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
 import { applySeo } from '../utils/seo';
 import { authGet, authPut } from '../services/apiClient';
 
@@ -34,7 +34,6 @@ interface MePayload {
 interface OptionsPayload {
   data: {
     systems: OptionItem[];
-    systems_tree?: SystemTreeNode[];
     tags: OptionItem[];
     platforms: OptionItem[];
   };
@@ -57,41 +56,26 @@ const toggleArrayValue = <T,>(list: T[], value: T): T[] => {
   return [...list, value];
 };
 
-const flattenSystemTree = (nodes: SystemTreeNode[]): SystemTreeNode[] => {
-  const result: SystemTreeNode[] = [];
-
-  const visit = (node: SystemTreeNode) => {
-    result.push(node);
-    if (node.children) {
-      for (const child of node.children) {
-        visit(child);
-      }
-    }
-  };
-
-  for (const node of nodes) {
-    visit(node);
-  }
-
-  return result;
-};
-
 export const OnboardingPage = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const {
+    tree: systemsTree,
+    flat: systemsFlat,
+    loading: systemsLoading,
+    error: systemsError,
+    forceRefresh: retrySystemsTree,
+  } = useSystemsCatalog();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [options, setOptions] = useState<{ systemsTree: SystemTreeNode[]; tags: OptionItem[]; platforms: OptionItem[] }>({
-    systemsTree: [],
+  const [options, setOptions] = useState<{ tags: OptionItem[]; platforms: OptionItem[] }>({
     tags: [],
     platforms: [],
   });
-
-  const [systemSearch, setSystemSearch] = useState('');
 
   const [form, setForm] = useState({
     display_name: '',
@@ -139,7 +123,6 @@ export const OnboardingPage = () => {
         }
 
         setOptions({
-          systemsTree: Array.isArray(optionsJson.data.systems_tree) ? optionsJson.data.systems_tree : [],
           tags: Array.isArray(optionsJson.data.tags) ? optionsJson.data.tags : [],
           platforms: Array.isArray(optionsJson.data.platforms) ? optionsJson.data.platforms : [],
         });
@@ -168,11 +151,11 @@ export const OnboardingPage = () => {
 
   const systemLabelById = useMemo(() => {
     const map = new Map<string, string>();
-    for (const node of flattenSystemTree(options.systemsTree)) {
+    for (const node of systemsFlat) {
       map.set(node.id, node.name);
     }
     return map;
-  }, [options.systemsTree]);
+  }, [systemsFlat]);
 
   const canNextFromStep1 = form.display_name.trim().length >= 2;
   const canNextFromStep2 = form.systems.length > 0;
@@ -284,14 +267,31 @@ export const OnboardingPage = () => {
 
               <div>
                 <label className="text-sm text-white/70 block mb-2">Sistemas favoritos * (mínimo 1)</label>
-                <SystemTreeSelector
-                  tree={options.systemsTree}
-                  selectedIds={form.systems}
-                  onToggle={(systemId) => setForm((prev) => ({ ...prev, systems: toggleArrayValue(prev.systems, systemId) }))}
-                  search={systemSearch}
-                  onSearchChange={setSystemSearch}
-                  idPrefix="onboarding-systems"
-                />
+                {systemsLoading ? (
+                  <p className="rounded-xl border border-white/10 bg-[#13213f] px-4 py-3 text-sm text-white/60">
+                    Carregando sistemas...
+                  </p>
+                ) : systemsError ? (
+                  <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100" role="alert">
+                    <p>{systemsError}</p>
+                    <button
+                      type="button"
+                      className="mt-2 text-xs font-semibold text-amber-50 underline underline-offset-4"
+                      onClick={() => void retrySystemsTree()}
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
+                ) : (
+                  <SystemPicker
+                    tree={systemsTree}
+                    selectedIds={form.systems}
+                    onSelectionChange={(selectedIds) => setForm((prev) => ({ ...prev, systems: selectedIds }))}
+                    idPrefix="onboarding-systems"
+                    mode="multi"
+                    searchPlaceholder="Buscar sistema, edição ou variante..."
+                  />
+                )}
               </div>
 
               <div>

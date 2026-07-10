@@ -12,10 +12,19 @@ vi.mock('./draftFormUtils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./draftFormUtils')>();
   return {
     ...actual,
-    loadSystems: vi.fn().mockResolvedValue([]),
     validateForm: vi.fn().mockImplementation(actual.validateForm),
   };
 });
+
+vi.mock('../../hooks/useSystemsCatalog', () => ({
+  useSystemsCatalog: () => ({
+    tree: [],
+    flat: [],
+    loading: false,
+    error: null,
+    forceRefresh: vi.fn().mockResolvedValue([]),
+  }),
+}));
 
 const mockDraft: DiscordDraft = {
   id: 'draft-1',

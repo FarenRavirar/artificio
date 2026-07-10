@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { authGet } from '../../services/apiClient';
 import type { DiscordCoverQuality, DiscordDraftPayload, DiscordDraftTablePayload, DiscordSlotsAmbiguity } from './types';
-import type { SystemTreeNode } from '../../types/systems';
 
 export type DraftTableType = 'campanha' | 'one-shot' | 'oneshot-serie' | 'aberta';
 export type DraftModality = 'online' | 'presencial' | 'hibrida';
@@ -505,79 +504,13 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function flattenSystems(nodes: SystemTreeNode[]): SystemTreeNode[] {
-  const result: SystemTreeNode[] = [];
-  const walk = (items: SystemTreeNode[]) => {
-    for (const node of items) {
-      result.push(node);
-      if (Array.isArray(node.children)) walk(node.children);
-    }
-  };
-  walk(nodes);
-  return result;
-}
-
-const systemTreeNodeSchema: z.ZodType<SystemTreeNode> = z.lazy(() => z.object({
-  id: z.string(),
-  name: z.string(),
-  name_pt: z.string().nullable(),
-  slug: z.string(),
-  parent_id: z.string().nullable(),
-  node_type: z.enum(['system', 'edition', 'variant', 'subsystem']),
-  depth: z.number().optional(),
-  path_slug: z.string().nullable(),
-  aliases: z.array(z.string()).optional(),
-  has_children: z.boolean().optional(),
-  children: z.array(systemTreeNodeSchema).optional(),
-}));
-
-function normalizeSystemTreeNode(raw: unknown): SystemTreeNode {
-  const parsed = systemTreeNodeSchema.safeParse(raw);
-  if (!parsed.success) throw new Error('Resposta de sistemas em formato inesperado.');
-  return parsed.data;
-}
-
-function normalizeSystemTree(raw: unknown): SystemTreeNode[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((item) => {
-    try { return normalizeSystemTreeNode(item); }
-    catch { return null; }
-  }).filter((x): x is SystemTreeNode => x !== null);
-}
-
 // TTL curto: catálogo pode mudar durante a sessão SPA (outro admin cadastra
 // sistema novo); sem isso o cache serviria lista desatualizada indefinidamente.
 const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 
-// forceRefresh (2026-07-08): após criar sistema novo via SystemSuggestionModal
-// no editor de draft, o cache de 5min serviria a árvore antiga sem o sistema
-// recém-criado — sem opção de invalidar, o combobox só mostraria o novo
-// sistema depois do TTL expirar sozinho.
-export async function loadSystems(forceRefresh = false): Promise<SystemTreeNode[]> {
-  if (forceRefresh || !systemsCache || Date.now() - systemsCacheLoadedAt > CATALOG_CACHE_TTL_MS) {
-    systemsCacheLoadedAt = Date.now();
-    systemsCache = fetchSystems().catch((error) => {
-      systemsCache = null;
-      throw error;
-    });
-  }
-  return systemsCache;
-}
-
-let systemsCache: Promise<SystemTreeNode[]> | null = null;
-let systemsCacheLoadedAt = 0;
-
-async function fetchSystems(): Promise<SystemTreeNode[]> {
-  const res = await authGet('/api/v1/systems?view=tree');
-  if (!res.ok) throw new Error('Erro ao carregar sistemas.');
-  const json: unknown = await res.json();
-  const data = asRecord(json).data;
-  return normalizeSystemTree(data);
-}
-
 /**
- * Fase D (spec 058) — item de catálogo simples (cenário, VTT, comunicação): sem
- * árvore/aliases, só id+nome pra select com busca (mesmo padrão de SystemSearchSelect).
+ * Fase D (spec 058) — item de catálogo simples (cenário, VTT, comunicação):
+ * só id+nome pra select com busca.
  */
 export interface SimpleCatalogEntry {
   id: string;
