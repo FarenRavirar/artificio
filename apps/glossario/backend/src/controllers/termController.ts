@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db } from '../config/database';
 import { sanitizeTermFields } from '../utils/sanitizeText';
 import { notifyTermOwnerOnModeration } from '../services/notificationService';
+import { getCatalogNameMap } from '../services/catalogClient';
 
 export const listTerms = async (req: Request, res: Response) => {
   try {
@@ -15,8 +16,6 @@ export const listTerms = async (req: Request, res: Response) => {
     let query = `
       SELECT t.*,
              t.nucleus as source_tier,
-             s.name as system_name,
-             e.name as edition_name,
              sc.name as scenario_name,
              CASE
                WHEN cg.id IS NOT NULL THEN cp.name
@@ -31,8 +30,6 @@ export const listTerms = async (req: Request, res: Response) => {
              th.last_changed_at,
              COUNT(*) OVER() as total_count
       FROM terms t
-      LEFT JOIN systems s ON t.system_id = s.id
-      LEFT JOIN editions e ON t.edition_id = e.id
       LEFT JOIN scenarios sc ON t.scenario_id = sc.id
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN categories cp ON c.parent_id = cp.id
@@ -85,7 +82,7 @@ export const listTerms = async (req: Request, res: Response) => {
 
     const result = await db.query(query, params);
     const totalCount = result.rows.length > 0 ? Number(result.rows[0].total_count) : 0;
-    const rows = result.rows.map(({ total_count, ...row }) => row);
+    const rows = await hydrateCatalogNames(result.rows.map(({ total_count, ...row }) => row));
     res.setHeader('X-Total-Count', String(totalCount));
     res.json(rows);
   } catch (err) {
@@ -251,8 +248,6 @@ export const updateTerm = async (req: any, res: Response) => {
     const hydrated = await db.query(
       `SELECT t.*,
               t.nucleus as source_tier,
-              s.name as system_name,
-              e.name as edition_name,
               sc.name as scenario_name,
               CASE
                 WHEN cg.id IS NOT NULL THEN cp.name
@@ -265,8 +260,6 @@ export const updateTerm = async (req: any, res: Response) => {
               END as subcategory_name,
               u.full_name as added_by_name
        FROM terms t
-       LEFT JOIN systems s ON t.system_id = s.id
-       LEFT JOIN editions e ON t.edition_id = e.id
        LEFT JOIN scenarios sc ON t.scenario_id = sc.id
        LEFT JOIN categories c ON t.category_id = c.id
        LEFT JOIN categories cp ON c.parent_id = cp.id
@@ -276,7 +269,7 @@ export const updateTerm = async (req: any, res: Response) => {
       [updatedId]
     );
 
-    const updatedTerm = hydrated.rows[0];
+    const [updatedTerm] = await hydrateCatalogNames(hydrated.rows);
     try {
       await notifyTermOwnerOnModeration({
         termId: updatedTerm.id,
@@ -362,3 +355,16 @@ export const getTermHistory = async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Erro ao carregar histórico do termo.' });
   }
 };
+
+// Achado CodeRabbit (PR #145): rows vinha de result.rows (any[] do driver pg)
+// sem validacao de shape antes do .map. Array.isArray + checagem de tipo por
+// campo evita propagar valor inesperado (ex.: system_id nao-string) ao mapa.
+async function hydrateCatalogNames<T extends { system_id?: string | null; edition_id?: string | null }>(rows: T[]): Promise<Array<T & { system_name: string | null; edition_name: string | null }>> {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const names = await getCatalogNameMap();
+  return rows.map((row) => ({
+    ...row,
+    system_name: typeof row.system_id === 'string' ? names.get(row.system_id) ?? null : null,
+    edition_name: typeof row.edition_id === 'string' ? names.get(row.edition_id) ?? null : null,
+  }));
+}

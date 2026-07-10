@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { listSystems, createSystem, updateSystem, deleteSystem, listEditions, createEdition, updateEdition, deleteEdition } from '../controllers/systemController';
+import { catalogHealth, listSystems, createSystem, updateSystem, deleteSystem, listEditions, createEdition, updateEdition, deleteEdition } from '../controllers/systemController';
 import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware';
 import { betaWriteGuard } from '../middlewares/betaWriteGuard';
 import { refreshUserRole } from '../middlewares/refreshUserRole';
 
 const router = Router();
 
+router.get('/health', catalogHealth);
 router.get('/', listSystems);
 router.post('/', authMiddleware, refreshUserRole, betaWriteGuard, createSystem); // Membros sugerem (pendente)
 router.put('/:id', authMiddleware, refreshUserRole, betaWriteGuard, adminMiddleware, updateSystem);

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import ExcelJS from 'exceljs';
 import { db } from '../config/database';
+import { getCatalogNameMap } from '../services/catalogClient';
 
 export const exportToMateCat = async (req: Request, res: Response) => {
   const { system_id, scenario_id } = req.query;
@@ -10,14 +11,13 @@ export const exportToMateCat = async (req: Request, res: Response) => {
       SELECT
         t.name_en,
         t.name_pt,
-        s.name as system_name,
+        t.system_id,
         sc.name as scenario_name,
         c.name as category_name,
         t.book_reference,
         t.page_reference,
         t.nucleus
       FROM public.terms t
-      LEFT JOIN public.systems s ON t.system_id = s.id
       LEFT JOIN public.scenarios sc ON t.scenario_id = sc.id
       LEFT JOIN public.categories c ON t.category_id = c.id
       WHERE t.status = 'verificado'
@@ -36,7 +36,15 @@ export const exportToMateCat = async (req: Request, res: Response) => {
     query += ` ORDER BY t.name_en ASC`;
 
     const result = await db.query(query, params);
-    const terms = result.rows;
+    const names = await getCatalogNameMap();
+    // Achado CodeRabbit (PR #145): result.rows chega como any[] do driver pg —
+    // valida shape minimo (system_id string|null) antes do .map, em vez de
+    // confiar cegamente no formato do banco.
+    const rows = Array.isArray(result.rows) ? result.rows : [];
+    const terms = rows.map((row) => ({
+      ...row,
+      system_name: typeof row?.system_id === 'string' ? names.get(row.system_id) ?? null : null,
+    }));
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('MateCat Glossary');

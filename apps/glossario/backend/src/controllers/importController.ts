@@ -5,6 +5,7 @@ import { slugify } from '../utils/slugify';
 import { randomUUID } from 'crypto';
 import { notifyTermOwnerOnModeration } from '../services/notificationService';
 import { fetchUserRoleFromDb } from '../utils/userRole';
+import { getCatalogNameMap } from '../services/catalogClient';
 
 // ---------------------------------------------------------------------------
 // Tipos internos
@@ -46,13 +47,14 @@ const resolveImportCategoryType = (row: Partial<ImportRow> & { source_type?: str
   return normalized === 'cenario' ? 'cenario' : 'sistema';
 };
 
-async function resolveSystemId(name: string | undefined, executor: QueryExecutor = db): Promise<string | null> {
+async function resolveSystemId(name: string | undefined, _executor: QueryExecutor = db): Promise<string | null> {
   if (!name) return null;
-  const r = await executor.query(
-    `SELECT id FROM public.systems WHERE LOWER(name) = LOWER($1) LIMIT 1`,
-    [name.trim()]
-  );
-  return r.rows[0]?.id ?? null;
+  const normalized = name.trim().toLowerCase();
+  const names = await getCatalogNameMap();
+  for (const [id, catalogName] of names) {
+    if (catalogName.trim().toLowerCase() === normalized) return id;
+  }
+  return null;
 }
 
 async function resolveCategoryId(

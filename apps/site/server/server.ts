@@ -1,6 +1,7 @@
 // Backend HTTP do site: health + admin (SSO role=admin) p/ disparar rebuild SSG (D006) e re-import WP.
 // Canon: Express + @artificio/auth (cookie artificio_session). Estático servido à parte (Astro dist).
 import "dotenv/config";
+import { timingSafeEqual } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -61,6 +62,35 @@ const requireAdmin: RequestHandler = (req, res, next) => {
     return;
   }
   next();
+};
+
+// Achado CodeRabbit (PR #145): comparacao de string simples (===) e vulneravel
+// a timing attack para descobrir o token byte a byte. timingSafeEqual exige
+// buffers do mesmo tamanho, entao a checagem de length precisa vir antes.
+function isValidCatalogToken(received: string | undefined, expected: string): boolean {
+  if (!received) return false;
+  const receivedBuf = Buffer.from(received);
+  const expectedBuf = Buffer.from(expected);
+  if (receivedBuf.length !== expectedBuf.length) return false;
+  return timingSafeEqual(receivedBuf, expectedBuf);
+}
+
+const requireCatalogAuth: RequestHandler = (req, res, next) => {
+  const token = process.env.CATALOG_INTERNAL_TOKEN;
+  if (token && isValidCatalogToken(req.header("x-artificio-catalog-token"), token)) {
+    (req as AuthenticatedRequest).session = {
+      user: {
+        id: "catalog-internal",
+        email: "catalog-internal@artificiorpg.com",
+        name: "Catalog Internal",
+        role: "admin",
+      },
+      exp: Math.floor(Date.now() / 1000) + 60,
+    };
+    next();
+    return;
+  }
+  requireAuth(req, res, next);
 };
 
 // Health (deploy/smoke). Sem auth.
@@ -173,7 +203,7 @@ app.use("/api/catalog/v1", catalogApi());
 
 // API de autoria (CRUD posts/pages/taxonomias/redirects/mídia). Gated requireAuth+requireAdmin.
 app.use("/api/admin/v1", adminApi(requireAuth, requireAdmin));
-app.use("/api/admin/v1/catalog", catalogAdminApi(requireAuth, requireAdmin));
+app.use("/api/admin/v1/catalog", catalogAdminApi(requireCatalogAuth, requireAdmin));
 
 // Mídia em modo local/dev (sem Cloudinary): serve apps/site/uploads em /uploads (público, só leitura).
 // Montado sempre (dir pode não existir ainda no boot; static cai p/ 404 até o 1º upload criá-lo).

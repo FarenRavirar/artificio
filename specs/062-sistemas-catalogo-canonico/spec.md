@@ -375,6 +375,10 @@ Modelo:
 
 Consequência aceita: Postgres não cria FK entre bancos independentes. `system_id`/`edition_id` nos consumidores guardam UUID canônico e são validados pelo serviço/API. A regra de nunca apagar UUID e sempre mesclar preserva referências históricas.
 
+Implementação Mesas I4 (2026-07-10): os endpoints legados de Mesas (`/api/v1/systems*`) passam a ser fachada de compatibilidade sobre o serviço central. Reads usam snapshot central; writes usam API admin central com token interno server-to-server (`CATALOG_INTERNAL_TOKEN`) restrito à API de catálogo. Mesas não cria projeção local nova; contadores de mesas vinculadas continuam sendo agregados localmente porque pertencem ao domínio consumidor. Remoção no endpoint legado vira arquivamento central, não delete físico de UUID.
+
+Implementação Glossário I5 (2026-07-10): os endpoints legados do Glossário (`/api/systems*`) também passam a ser fachada de compatibilidade sobre o serviço central. O Glossário para de consultar/gravar `systems`/`editions` locais nos fluxos de catálogo; termos, cenários, importação e exportação hidratam nomes pelo snapshot central e mantêm apenas UUIDs canônicos nas referências locais. A migração de referências existentes é feita por script dry-run/apply controlado, não por SQL solto.
+
 Contrato conceitual mínimo:
 
 - `catalog_version` monotônico;
@@ -700,8 +704,8 @@ Permanecerá na Spec 062, dividida em fases executáveis:
 4. gestão principal no Site/sidebar;
 5. migração de Mesas para leitura/escrita central;
 6. mapeamento manual e migração do Glossário;
-7. administração contextual em Mesas, Glossário e Downloads;
-8. compatibilidade, observabilidade, beta, rollback e produção.
+7. administração contextual em Mesas, Glossário e Downloads — I6 local começou por Mesas: admin no fluxo contextual pode criar nó central com aliases, Logo e Website Oficial sem sair para o Site Admin;
+8. compatibilidade, observabilidade, beta, rollback e produção — I7 local adicionou readiness explícito do catálogo em Site, Mesas e Glossário; operação beta real segue gated por commit/PR/deploy/env/import/backfill/rollback aprovados.
 
 Specs auxiliares só serão abertas se a implementação revelar um domínio independente que exija isolamento. Não dividir antecipadamente a 062 em sete specs.
 

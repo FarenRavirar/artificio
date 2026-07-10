@@ -95,8 +95,13 @@ export function ModeracaoSection() {
     try {
       const diff = computePayloadDiff(draft.parsed_payload, draft.normalized_payload);
       if (Object.keys(diff).length > 0) {
+        // Achado do mantenedor (2026-07-10): backend rejeita corrections no
+        // shape {before,after} (guard isDiffShapedObject em
+        // routes/discord/utils.ts) — envia só o valor final por campo.
+        const corrections: Record<string, unknown> = {};
+        for (const [key, { after }] of Object.entries(diff)) corrections[key] = after;
         await discordSyncApi.submitCorrection(draft.id, {
-          corrections: diff,
+          corrections,
           reason: 'correção manual antes de sync',
           before: draft.parsed_payload as Record<string, unknown>,
         });

@@ -4,12 +4,12 @@
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
     "accounts": 11,
-    "glossario": 46,
+    "glossario": 47,
     "links": 22,
-    "mesas": 178,
-    "site": 44
+    "mesas": 179,
+    "site": 46
   },
-  "total": 301,
+  "total": 305,
   "operations": [
     {
       "app": "accounts",
@@ -579,6 +579,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "putapi_systems_editions_id"
+    },
+    {
+      "app": "glossario",
+      "method": "GET",
+      "path": "/api/systems/health",
+      "summary": "Consulta api systems health",
+      "owner": "glossario",
+      "scope": "internal",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_systems_health"
     },
     {
       "app": "glossario",
@@ -2863,6 +2875,18 @@
     {
       "app": "mesas",
       "method": "GET",
+      "path": "/api/v1/systems/health",
+      "summary": "Consulta api v1 systems health",
+      "owner": "mesas",
+      "scope": "internal",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_systems_health"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
       "path": "/api/v1/tables",
       "summary": "Consulta api v1 tables",
       "owner": "mesas",
@@ -3159,6 +3183,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "getadmin_status"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/catalog/health",
+      "summary": "Consulta api admin v1 catalog health",
+      "owner": "site",
+      "scope": "internal",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_admin_v1_catalog_health"
     },
     {
       "app": "site",
@@ -3543,6 +3579,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_admin_v1_taxonomies"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/catalog/v1/health",
+      "summary": "Consulta api catalog v1 health",
+      "owner": "site",
+      "scope": "internal",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_catalog_v1_health"
     },
     {
       "app": "site",

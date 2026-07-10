@@ -1,13 +1,18 @@
 import { Request, Response } from 'express';
 import { db } from '../config/database';
 import { slugify } from '../utils/slugify';
+import { getCatalogNameMap } from '../services/catalogClient';
 
 export const listScenarios = async (req: any, res: Response) => {
   try {
     const isAdmin = req.user?.role === 'admin';
     const where = isAdmin ? '' : "WHERE sc.status = 'aprovado'";
-    const result = await db.query(`SELECT sc.*, s.name as system_name FROM scenarios sc LEFT JOIN systems s ON sc.system_id = s.id ${where} ORDER BY sc.name`);
-    res.json(result.rows);
+    const result = await db.query(`SELECT sc.* FROM scenarios sc ${where} ORDER BY sc.name`);
+    const names = await getCatalogNameMap();
+    res.json(result.rows.map((row) => ({
+      ...row,
+      system_name: row.system_id ? names.get(row.system_id) ?? null : null,
+    })));
   } catch (err) { console.error(err); res.status(500).json({ message: 'Erro ao listar cenários.' }); }
 };
 

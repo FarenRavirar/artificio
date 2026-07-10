@@ -21,6 +21,19 @@ type ChainRow = {
   description: string;
 };
 
+const parseAliases = (value: string) =>
+  value
+    .split('\n')
+    .map((alias) => alias.trim())
+    .filter(Boolean);
+
+// Achado Sonar (PR #145): FormDataEntryValue pode ser File — String(file) nao
+// produz o texto esperado. So aceita string antes de qualquer processamento.
+const readFormText = (formData: FormData, key: string): string => {
+  const value = formData.get(key);
+  return typeof value === 'string' ? value : '';
+};
+
 type FlattenedSystemNode = {
   id: string;
   label: string;
@@ -46,6 +59,67 @@ const flattenSystems = (nodes: SystemTreeNode[], depth = 0): FlattenedSystemNode
   return flattened;
 };
 
+// Achado Sonar (PR #145): extraido de handleSubmit para reduzir complexidade
+// cognitiva (16 -> abaixo do limite de 15) e reusar readFormText tipado.
+function buildAdminBody(input: {
+  name: string;
+  namePt: string;
+  description: string;
+  suggestionType: SuggestionType;
+  parentId: string;
+  formData: FormData;
+}) {
+  const aliases = parseAliases(readFormText(input.formData, 'aliases'));
+  const logoFilename = readFormText(input.formData, 'logo_filename').trim();
+  const websiteUrl = readFormText(input.formData, 'website_url').trim();
+  return {
+    name: input.name.trim(),
+    name_pt: input.namePt.trim() || null,
+    description: input.description.trim() || null,
+    parent_id: input.suggestionType === 'system' ? null : input.parentId || null,
+    node_type: input.suggestionType,
+    aliases,
+    logo_filename: logoFilename || null,
+    website_url: websiteUrl || null,
+  };
+}
+
+function buildSuggestionBody(input: {
+  name: string;
+  namePt: string;
+  description: string;
+  suggestionType: SuggestionType;
+  parentId: string;
+  chainRows: ChainRow[];
+}) {
+  const filledChainRows = input.chainRows
+    .map((row) => ({
+      name: row.name.trim(),
+      name_pt: row.namePt.trim() || null,
+      description: row.description.trim() || null,
+    }))
+    .filter((row) => row.name.length > 0);
+
+  if (filledChainRows.length > 1) {
+    return {
+      nodes: filledChainRows.map((row, index) => ({
+        ...row,
+        suggestion_type: index === 0 ? 'system' : index === 1 ? 'edition' : 'variant',
+        parent_id: index === 0 ? null : undefined,
+        parent_suggestion_index: index === 0 ? undefined : index - 1,
+      })),
+    };
+  }
+
+  return {
+    name: input.name.trim(),
+    name_pt: input.namePt.trim() || null,
+    description: input.description.trim() || null,
+    parent_id: input.suggestionType === 'system' ? null : input.parentId || null,
+    suggestion_type: input.suggestionType,
+  };
+}
+
 export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName = '' }: SystemSuggestionModalProps) => {
   const { isAuthenticated, user } = useAuth();
   const {
@@ -58,6 +132,9 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName 
   const [name, setName] = useState(() => initialName.trim());
   const [namePt, setNamePt] = useState('');
   const [description, setDescription] = useState('');
+  const [aliasesText, setAliasesText] = useState('');
+  const [logoFilename, setLogoFilename] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [chainRows, setChainRows] = useState<ChainRow[]>([
     { name: initialName.trim(), namePt: '', description: '' },
     { name: '', namePt: '', description: '' },
@@ -70,7 +147,7 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName 
 
   const parentOptions = useMemo(() => flattenSystems(systemsTree), [systemsTree]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (!isAuthenticated) return;
@@ -80,38 +157,11 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName 
 
     try {
       const isAdmin = user?.role === 'admin';
+      const formData = new FormData(e.currentTarget);
       const endpoint = isAdmin ? '/api/v1/systems/admin' : '/api/v1/system-suggestions';
-      const filledChainRows = chainRows
-        .map((row) => ({
-          name: row.name.trim(),
-          name_pt: row.namePt.trim() || null,
-          description: row.description.trim() || null,
-        }))
-        .filter((row) => row.name.length > 0);
       const body = isAdmin
-        ? {
-            name: name.trim(),
-            name_pt: namePt.trim() || null,
-            description: description.trim() || null,
-            parent_id: suggestionType === 'system' ? null : parentId || null,
-            node_type: suggestionType,
-          }
-        : filledChainRows.length > 1
-          ? {
-              nodes: filledChainRows.map((row, index) => ({
-                ...row,
-                suggestion_type: index === 0 ? 'system' : index === 1 ? 'edition' : 'variant',
-                parent_id: index === 0 ? null : undefined,
-                parent_suggestion_index: index === 0 ? undefined : index - 1,
-              })),
-            }
-        : {
-            name: name.trim(),
-            name_pt: namePt.trim() || null,
-            description: description.trim() || null,
-            parent_id: suggestionType === 'system' ? null : parentId || null,
-            suggestion_type: suggestionType,
-          };
+        ? buildAdminBody({ name, namePt, description, suggestionType, parentId, formData })
+        : buildSuggestionBody({ name, namePt, description, suggestionType, parentId, chainRows });
 
       const response = await authPost(endpoint, body);
 
@@ -125,6 +175,9 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName 
       setName('');
       setNamePt('');
       setDescription('');
+      setAliasesText('');
+      setLogoFilename('');
+      setWebsiteUrl('');
       setChainRows([
         { name: '', namePt: '', description: '' },
         { name: '', namePt: '', description: '' },
@@ -239,7 +292,7 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName 
 
             <div className={user?.role !== 'admin' ? 'hidden' : ''}>
               <label className="block text-white font-semibold mb-2 text-sm">
-                Nome do Sistema *
+                Nome *
               </label>
               <input
                 type="text"
@@ -274,6 +327,51 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName 
                 placeholder="Informações adicionais sobre o sistema..."
                 rows={4}
                 className="w-full px-4 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--color-artificio-orange)] resize-none"
+              />
+            </div>
+
+            <div className={user?.role !== 'admin' ? 'hidden' : ''}>
+              <label htmlFor="system-suggestion-aliases" className="block text-white font-semibold mb-2 text-sm">
+                Aliases (um por linha)
+              </label>
+              <textarea
+                id="system-suggestion-aliases"
+                name="aliases"
+                value={aliasesText}
+                onChange={(e) => setAliasesText(e.target.value)}
+                placeholder={'D&D\nDnD\nDungeons and Dragons'}
+                rows={3}
+                className="w-full px-4 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--color-artificio-orange)] resize-none"
+              />
+            </div>
+
+            <div className={user?.role !== 'admin' ? 'hidden' : ''}>
+              <label htmlFor="system-suggestion-logo" className="block text-white font-semibold mb-2 text-sm">
+                Logo (opcional)
+              </label>
+              <input
+                id="system-suggestion-logo"
+                name="logo_filename"
+                type="text"
+                value={logoFilename}
+                onChange={(e) => setLogoFilename(e.target.value)}
+                placeholder="Ex: dnd.svg ou media id"
+                className="w-full px-4 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--color-artificio-orange)]"
+              />
+            </div>
+
+            <div className={user?.role !== 'admin' ? 'hidden' : ''}>
+              <label htmlFor="system-suggestion-website" className="block text-white font-semibold mb-2 text-sm">
+                Website Oficial (opcional)
+              </label>
+              <input
+                id="system-suggestion-website"
+                name="website_url"
+                type="url"
+                value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full px-4 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--color-artificio-orange)]"
               />
             </div>
 

@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **301 operações**.
+Total: **305 operações**.
 
 ## accounts (11)
 
@@ -22,7 +22,7 @@ Total: **301 operações**.
 | GET | `/health` | internal | none | active | — | Consulta health |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
-## glossario (46)
+## glossario (47)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -61,6 +61,7 @@ Total: **301 operações**.
 | POST | `/api/systems/{systemId}/editions` | public | user | active | — | Cria ou executa api systems systemId editions |
 | DELETE | `/api/systems/editions/{id}` | admin | admin | active | — | Remove api systems editions id |
 | PUT | `/api/systems/editions/{id}` | admin | admin | active | — | Substitui api systems editions id |
+| GET | `/api/systems/health` | internal | none | active | — | Consulta api systems health |
 | GET | `/api/terms` | public | none | active | — | Consulta api terms |
 | POST | `/api/terms` | public | user | active | — | Cria ou executa api terms |
 | DELETE | `/api/terms/{id}` | public | user | active | — | Remove api terms id |
@@ -100,7 +101,7 @@ Total: **301 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (178)
+## mesas (179)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -261,6 +262,7 @@ Total: **301 operações**.
 | POST | `/api/v1/systems/admin` | admin | admin | active | — | Cria ou executa api v1 systems admin |
 | DELETE | `/api/v1/systems/admin/{id}` | admin | admin | active | — | Remove api v1 systems admin id |
 | PUT | `/api/v1/systems/admin/{id}` | admin | admin | active | — | Substitui api v1 systems admin id |
+| GET | `/api/v1/systems/health` | internal | none | active | — | Consulta api v1 systems health |
 | GET | `/api/v1/tables` | public | none | active | — | Consulta api v1 tables |
 | GET | `/api/v1/tables/{slug}` | public | none | active | — | Consulta api v1 tables slug |
 | POST | `/api/v1/tables/{slug}/click` | telemetry | none | active | — | Cria ou executa api v1 tables slug click |
@@ -283,7 +285,7 @@ Total: **301 operações**.
 | POST | `/auth/logout` | self-service | user | active | — | Cria ou executa auth logout |
 | GET | `/og/{type}/{slug}` | media | none | active | — | Consulta og type slug |
 
-## site (44)
+## site (46)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -291,6 +293,7 @@ Total: **301 operações**.
 | GET | `/admin/preview/{type}/{id}` | admin | admin | active | — | Consulta admin preview type id |
 | POST | `/admin/rebuild` | admin | admin | active | — | Cria ou executa admin rebuild |
 | GET | `/admin/status` | admin | admin | active | — | Consulta admin status |
+| GET | `/api/admin/v1/catalog/health` | internal | none | active | — | Consulta api admin v1 catalog health |
 | POST | `/api/admin/v1/catalog/nodes` | admin | admin | active | — | Cria ou executa api admin v1 catalog nodes |
 | PUT | `/api/admin/v1/catalog/nodes/{id}` | admin | admin | active | — | Substitui api admin v1 catalog nodes id |
 | GET | `/api/admin/v1/catalog/nodes/{idOrSlug}` | admin | admin | active | — | Consulta api admin v1 catalog nodes idOrSlug |
@@ -323,6 +326,7 @@ Total: **301 operações**.
 | GET | `/api/admin/v1/slug-check` | admin | admin | active | — | Consulta api admin v1 slug-check |
 | GET | `/api/admin/v1/taxonomies` | admin | admin | active | — | Consulta api admin v1 taxonomies |
 | POST | `/api/admin/v1/taxonomies` | admin | admin | active | — | Cria ou executa api admin v1 taxonomies |
+| GET | `/api/catalog/v1/health` | internal | none | active | — | Consulta api catalog v1 health |
 | POST | `/api/catalog/v1/nodes` | public | user | active | — | Cria ou executa api catalog v1 nodes |
 | PUT | `/api/catalog/v1/nodes/{id}` | public | user | active | — | Substitui api catalog v1 nodes id |
 | GET | `/api/catalog/v1/nodes/{idOrSlug}` | public | none | active | — | Consulta api catalog v1 nodes idOrSlug |
