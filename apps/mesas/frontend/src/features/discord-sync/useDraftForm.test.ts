@@ -80,6 +80,17 @@ describe('useDraftForm', () => {
     expect(result.current.activeTab).toBe('editor');
   });
 
+  it('CodeRabbit PR #144: applySuggestion(system_name) com objeto nao-diff nao grava "[object Object]" no form', () => {
+    const { result } = renderHook(() => useDraftForm(mockDraft, mockApi, vi.fn()));
+
+    act(() => {
+      result.current.applySuggestion('system_name', { some: 'unexpected shape' });
+    });
+
+    expect(result.current.form.system_name).not.toContain('[object Object]');
+    expect(result.current.form.system_name).toBe('D&D');
+  });
+
   it('updateForm altera campo e marca dirty', () => {
     const { result } = renderHook(() => useDraftForm(mockDraft, mockApi, vi.fn()));
 

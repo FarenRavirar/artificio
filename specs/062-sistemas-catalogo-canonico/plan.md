@@ -104,16 +104,83 @@ Serviço independente com DB próprio, oferecido e gerido pelo `artificiorpg.com
 
 Leitura e escrita integrais no serviço central, sem projeções locais. Mesas é catálogo principal correto e base canônica. Glossário mapeia manualmente seus 12 sistemas/17 edições e migra as referências dos termos.
 
-## Etapa II — implementação futura nesta spec
+## Etapa II — implementação nesta spec
 
 0a. Unificação de consumo frontend do catálogo em `apps/mesas` (antecipável, não depende do serviço central).
-1. Fundação central.
-2. Modelo e importação integral do catálogo Mesas.
+1. Fundação central no app `site`, primeiro em `beta.artificiorpg.com`.
+2. Modelo completo e importação integral do catálogo Mesas para o serviço central.
 3. Gestão principal no site.
 4. Migração do Mesas para consumo central.
 5. Reescrita/migração glossário.
 6. Administração distribuída e entrada de downloads.
 7. Hardening/remoção de legado.
+
+## I1 — Fundação central (`apps/site`, beta primeiro)
+
+**Decisão operacional (2026-07-10):** o serviço/banco/API central nasce dentro do app `site`, servido primeiro por `beta.artificiorpg.com`. Não há host técnico separado, não há novo módulo no manifesto e não há prod nesta rodada. A promoção para `main` e deploy prod continuam bloqueados por aprovação nominal futura.
+
+**Escopo de I1:** criar a fundação vazia e testável, ainda sem consumidores conectados. Inclui schema central, repo de domínio e API HTTP mínima. Não importa dados do Mesas, não altera `mesas`, não altera `glossario` e não cria UI de gestão completa.
+
+**Modelo mínimo implementado:**
+
+- `catalog_versions`: versão monotônica do catálogo.
+- `catalog_nodes`: UUID canônico, árvore `system|edition|subsystem|variant`, slug por pai, `path_slug`, status, merge target, metadados e autoria.
+- `catalog_aliases`: aliases próprios do nó.
+- `catalog_redirects`: redirect permanente de UUID após merge.
+- `catalog_suggestions`: entidade separada para sugestões/moderação.
+- `catalog_audit_events`: auditoria imutável de mutações centrais.
+
+**API inicial:**
+
+- Pública/read-only: `GET /api/catalog/v1/systems`, `GET /api/catalog/v1/nodes/:idOrSlug`, `GET /api/catalog/v1/resolve?q=...`.
+- Admin: `GET /api/admin/v1/catalog/snapshot`, `POST /api/admin/v1/catalog/nodes`, `PUT /api/admin/v1/catalog/nodes/:id`.
+
+**Gate de conclusão I1:** TypeScript do site, build/test do site, `verify:api`, migration real em PGlite limpo e smoke de repo criando sistema+edição, gerando snapshot e resolvendo por `path_slug`.
+
+**Próximo código após I1:** I2 importa o catálogo material do Mesas para essas tabelas centrais no ambiente beta, com contagens, checksum e relatório. Consumidores só entram depois.
+
+## I2 — Importação Mesas → catálogo central
+
+**Decisão operacional:** I2 prepara e valida o mecanismo de importação, ainda sem trocar consumidores. A execução real em beta usa fonte Mesas beta e destino Site beta; prod continua fora até nova aprovação.
+
+**Componentes implementados:**
+
+- `catalog_legacy_mappings`: mapa legado→canônico por `source_app`, `source_environment`, tabela e `legacy_id`.
+- `import-mesas-catalog.ts`: importador idempotente que lê `MESAS_DATABASE_URL` ou `MESAS_CATALOG_JSON`.
+- Relatório JSON com contagens de fonte, criados/atualizados/inalterados, mappings, versão e checksum.
+
+**Regras do importador:**
+
+- ordena pais antes dos filhos;
+- preserva `system|edition|subsystem|variant`;
+- usa `slug` do Mesas como `canonical_slug` e reconstrói `path_slug` pelo pai canônico;
+- preserva `name`, `name_pt`, `description`, aliases, logo e website;
+- gera UUID canônico novo por ambiente e mantém estabilidade via `catalog_legacy_mappings`;
+- rerun é idempotente: se checksum da fonte não mudou, não cria nem atualiza nó;
+- `CATALOG_IMPORT_DRY_RUN=true` executa tudo em transação e dá rollback após gerar relatório.
+
+**Gate local de I2:** aplicar migrations 006+007 em PGlite limpo, importar fixture sample, repetir import para provar idempotência, rodar TypeScript/build/test do site e `verify:api`.
+
+**Pendente operacional de beta:** após commit/PR/deploy beta do `site`, executar o importador com `MESAS_DATABASE_URL` apontando para `mesas-beta-db`, `DATABASE_URL` apontando para `site-beta-db`, `CATALOG_SOURCE_ENV=beta` e relatório preservado na sessão.
+
+## I3 — Gestão principal no Site Admin
+
+**Decisão operacional:** a superfície principal de administração do catálogo entra no `site-admin`, dentro da sidebar existente do Site. Continua sendo beta primeiro; nenhum consumidor muda nesta fase.
+
+**Escopo implementado localmente:**
+
+- rota SPA `/admin/catalogo-sistemas`;
+- item "Sistemas" na sidebar;
+- leitura do snapshot central com versão, contagem e checksum;
+- árvore pesquisável por nome, nome PT, slug, path e aliases;
+- formulário admin para criar sistema raiz, criar filho e editar nó;
+- campos preservados: tipo, pai, nome, nome PT, slug, aliases, Logo e Website Oficial.
+
+**Não escopo de I3:** moderação completa de sugestões, merge/redirect destrutivo, import real de beta e cutover de consumidores. Esses passos ficam para I4+I7.
+
+**Gate local de I3:** `site-admin` typecheck/build e `verify:api`.
+
+**Pendente operacional:** smoke visual autenticado em `beta.artificiorpg.com/admin/catalogo-sistemas` após commit/PR/deploy beta do `site`.
 
 ## I0a — Unificação de consumo frontend (`apps/mesas`)
 

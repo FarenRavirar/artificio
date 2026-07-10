@@ -90,9 +90,12 @@ function parseNodeWrite(body: unknown): Catalog.CatalogNodeWrite {
   const value = asRecord(body);
   return {
     parent_id: stringOrNull(value.parent_id),
-    node_type: String(value.node_type || "") as Catalog.CatalogNodeType,
+    // Achado Sonar (PR #144): `String(value || "")` sobre payload unknown
+    // vira "[object Object]" quando o campo chega como objeto malformado;
+    // optionalString já faz o guard `typeof === "string"` correto.
+    node_type: (optionalString(value.node_type) ?? "") as Catalog.CatalogNodeType,
     canonical_slug: optionalString(value.canonical_slug),
-    name: String(value.name || ""),
+    name: optionalString(value.name) ?? "",
     name_pt: stringOrNull(value.name_pt),
     description: stringOrNull(value.description),
     official_website_url: stringOrNull(value.official_website_url),
@@ -106,9 +109,9 @@ function parseNodePatch(body: unknown): Partial<Catalog.CatalogNodeWrite> {
   const value = asRecord(body);
   const patch: Partial<Catalog.CatalogNodeWrite> = {};
   if ("parent_id" in value) patch.parent_id = stringOrNull(value.parent_id);
-  if ("node_type" in value) patch.node_type = String(value.node_type || "") as Catalog.CatalogNodeType;
+  if ("node_type" in value) patch.node_type = (optionalString(value.node_type) ?? "") as Catalog.CatalogNodeType;
   if ("canonical_slug" in value) patch.canonical_slug = optionalString(value.canonical_slug);
-  if ("name" in value) patch.name = String(value.name || "");
+  if ("name" in value) patch.name = optionalString(value.name) ?? "";
   if ("name_pt" in value) patch.name_pt = stringOrNull(value.name_pt);
   if ("description" in value) patch.description = stringOrNull(value.description);
   if ("official_website_url" in value) patch.official_website_url = stringOrNull(value.official_website_url);

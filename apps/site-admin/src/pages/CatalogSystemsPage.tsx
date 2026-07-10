@@ -62,7 +62,7 @@ export function CatalogSystemsPage() {
       official_website_url: node.official_website_url ?? "",
       logo_media_id: node.logo_media_id ?? "",
       status: node.status,
-      aliases: node.aliases.map((alias) => alias.alias),
+      aliases: Array.isArray(node.aliases) ? node.aliases.map((alias) => alias.alias) : [],
     });
   };
 
@@ -90,6 +90,26 @@ export function CatalogSystemsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Sonar (achado PR #144): ternário aninhado extraído — evita a leitura
+  // condicional-dentro-de-condicional inline no JSX.
+  const renderTreePanel = () => {
+    if (loading) return <p className="muted">Carregando...</p>;
+    if (visibleTree.length === 0) return <p className="muted">Nenhum nó encontrado.</p>;
+    return (
+      <div className="catalog-tree">
+        {visibleTree.map((node) => (
+          <CatalogTreeNode
+            key={node.id}
+            node={node}
+            selectedId={selected?.id ?? null}
+            onSelect={selectNode}
+            onCreateChild={startNew}
+          />
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -122,35 +142,23 @@ export function CatalogSystemsPage() {
               aria-label="Buscar no catálogo"
             />
           </div>
-          {loading ? <p className="muted">Carregando...</p> : visibleTree.length === 0 ? (
-            <p className="muted">Nenhum nó encontrado.</p>
-          ) : (
-            <div className="catalog-tree">
-              {visibleTree.map((node) => (
-                <CatalogTreeNode
-                  key={node.id}
-                  node={node}
-                  selectedId={selected?.id ?? null}
-                  onSelect={selectNode}
-                  onCreateChild={startNew}
-                />
-              ))}
-            </div>
-          )}
+          {renderTreePanel()}
         </section>
 
         <aside className="card catalog-editor">
           <h3>{selected ? "Editar nó" : "Novo nó"}</h3>
-          <label>Tipo</label>
+          <label htmlFor="catalog-node-type">Tipo</label>
           <select
+            id="catalog-node-type"
             value={form.node_type}
             onChange={(e) => setForm((current) => ({ ...current, node_type: e.target.value as CatalogNode["node_type"] }))}
           >
             {NODE_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
           </select>
 
-          <label>Pai</label>
+          <label htmlFor="catalog-node-parent">Pai</label>
           <select
+            id="catalog-node-parent"
             value={form.parent_id ?? ""}
             onChange={(e) => setForm((current) => ({ ...current, parent_id: e.target.value || null }))}
           >
@@ -160,31 +168,32 @@ export function CatalogSystemsPage() {
             ))}
           </select>
 
-          <label>Nome</label>
-          <input type="text" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} />
+          <label htmlFor="catalog-node-name">Nome</label>
+          <input id="catalog-node-name" type="text" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} />
 
-          <label>Nome PT</label>
-          <input type="text" value={form.name_pt ?? ""} onChange={(e) => setForm((current) => ({ ...current, name_pt: e.target.value }))} />
+          <label htmlFor="catalog-node-name-pt">Nome PT</label>
+          <input id="catalog-node-name-pt" type="text" value={form.name_pt ?? ""} onChange={(e) => setForm((current) => ({ ...current, name_pt: e.target.value }))} />
 
-          <label>Slug</label>
-          <input type="text" value={form.canonical_slug ?? ""} onChange={(e) => setForm((current) => ({ ...current, canonical_slug: e.target.value }))} />
+          <label htmlFor="catalog-node-slug">Slug</label>
+          <input id="catalog-node-slug" type="text" value={form.canonical_slug ?? ""} onChange={(e) => setForm((current) => ({ ...current, canonical_slug: e.target.value }))} />
 
-          <label>Aliases</label>
+          <label htmlFor="catalog-node-aliases">Aliases</label>
           <textarea
+            id="catalog-node-aliases"
             rows={3}
             value={(form.aliases ?? []).join("\n")}
             onChange={(e) => setForm((current) => ({ ...current, aliases: e.target.value.split("\n") }))}
             placeholder="Um alias por linha"
           />
 
-          <label>Logo</label>
-          <input type="text" value={form.logo_media_id ?? ""} onChange={(e) => setForm((current) => ({ ...current, logo_media_id: e.target.value }))} />
+          <label htmlFor="catalog-node-logo">Logo</label>
+          <input id="catalog-node-logo" type="text" value={form.logo_media_id ?? ""} onChange={(e) => setForm((current) => ({ ...current, logo_media_id: e.target.value }))} />
 
-          <label>Website Oficial</label>
-          <input type="url" value={form.official_website_url ?? ""} onChange={(e) => setForm((current) => ({ ...current, official_website_url: e.target.value }))} />
+          <label htmlFor="catalog-node-website">Website Oficial</label>
+          <input id="catalog-node-website" type="url" value={form.official_website_url ?? ""} onChange={(e) => setForm((current) => ({ ...current, official_website_url: e.target.value }))} />
 
-          <label>Descrição</label>
-          <textarea rows={4} value={form.description ?? ""} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} />
+          <label htmlFor="catalog-node-description">Descrição</label>
+          <textarea id="catalog-node-description" rows={4} value={form.description ?? ""} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} />
 
           <div className="actions" style={{ marginTop: 14 }}>
             <button className="btn primary" disabled={saving || !form.name.trim()} onClick={save}>
@@ -206,13 +215,13 @@ function CatalogTreeNode({
   onSelect,
   onCreateChild,
   depth = 0,
-}: {
+}: Readonly<{
   node: CatalogNode;
   selectedId: string | null;
   onSelect: (node: CatalogNode) => void;
   onCreateChild: (node: CatalogNode) => void;
   depth?: number;
-}) {
+}>) {
   return (
     <div>
       <div className={`catalog-node ${selectedId === node.id ? "on" : ""}`} style={{ paddingLeft: 10 + depth * 18 }}>
@@ -223,7 +232,7 @@ function CatalogTreeNode({
         <span className={`badge ${node.node_type}`}>{node.node_type}</span>
         <button type="button" className="btn tiny" onClick={() => onCreateChild(node)}>+ filho</button>
       </div>
-      {node.children.map((child) => (
+      {(Array.isArray(node.children) ? node.children : []).map((child) => (
         <CatalogTreeNode
           key={child.id}
           node={child}
@@ -256,20 +265,21 @@ function sanitizeForm(form: CatalogNodeInput): CatalogNodeInput {
 }
 
 function flatten(nodes: CatalogNode[]): CatalogNode[] {
-  return nodes.flatMap((node) => [node, ...flatten(node.children)]);
+  return nodes.flatMap((node) => [node, ...flatten(Array.isArray(node.children) ? node.children : [])]);
 }
 
 function filterTree(nodes: CatalogNode[], query: string): CatalogNode[] {
   const normalized = normalize(query);
   if (!normalized) return nodes;
   return nodes.flatMap((node) => {
-    const children = filterTree(node.children, query);
+    const children = filterTree(Array.isArray(node.children) ? node.children : [], query);
+    const aliases = Array.isArray(node.aliases) ? node.aliases : [];
     const ownMatch = [
       node.name,
       node.name_pt ?? "",
       node.canonical_slug,
       node.path_slug,
-      ...node.aliases.map((alias) => alias.alias),
+      ...aliases.map((alias) => alias.alias),
     ].some((value) => normalize(value).includes(normalized));
     return ownMatch || children.length > 0 ? [{ ...node, children }] : [];
   });

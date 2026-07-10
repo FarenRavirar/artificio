@@ -486,3 +486,38 @@ Investigação profunda concluída. Nenhum código, migration, banco, API, deplo
   - `pnpm --filter @artificio/mesas build` ✅ (warning conhecido de chunk >500 kB).
   - `pnpm verify:api` ✅; warnings conhecidos de ambiguous paths; `api:diff` reporta 2 breaking changes em modo relatório, herdados da remoção intencional de rotas órfãs I0a.0.
 - Status: I0a.10-I0a.14 fechadas localmente. I0a.15 parcial local; deploy beta pendente de PR/merge em `dev` e aprovação nominal do workflow.
+
+## Review PR #143 — status I0b.5
+
+- Achado procede: `tasks.md` dizia "Fim do PR 1 (I0b.1-6 + I0a.0-9)", mas I0b.5 ainda estava `[ ]`.
+- Correção local: I0b.5 marcada como `[x]` com evidência consolidada em I0a.1/I0a.2 (`useSystemsCatalog()` preserva árvore/nó próprio e `SystemPicker` monta caminho só em render; testes/lint/build já verdes).
+- Status: correção local aplicada; commit/push pendem autorização nominal nova.
+## 2026-07-10 — Fix pós-deploy beta: SystemPicker no editor Discord
+
+- Achado em beta: no editor de draft do Discord Sync, o `SystemPicker` abria a árvore inteira quando a busca estava vazia, criando uma lista longa/infinita abaixo do campo "Sistema".
+- Correção local: `SystemPicker` ganhou `showEmptySearchResults?: boolean` com default `true`; `DraftEditorTab` usa `showEmptySearchResults={false}` para exibir só a caixa até haver termo de busca.
+- Regressão coberta em `SystemPicker.test.tsx`: sem termo não renderiza resultado; ao digitar, renderiza a busca filtrada.
+- Validação: `pnpm --filter @artificio/mesas-frontend test -- src/components/SystemPicker.test.tsx` ✅; `pnpm --filter @artificio/mesas lint` ✅; `pnpm --filter @artificio/mesas build` ✅.
+
+## 2026-07-10 — I1 fundação central no Site/beta
+
+- Decisão operacional reforçada pelo mantenedor: serviço central fica dentro do `artificiorpg.com`, mas primeiro deploy/validação será em `beta.artificiorpg.com`; prod não entra nesta rodada.
+- Implementado localmente: migration `006_catalog_foundation.sql` no `apps/site` com nós, aliases, redirects, sugestões, auditoria e versões; repo `db/repo/catalog.ts`; rotas públicas `/api/catalog/v1/*`; rotas admin `/api/admin/v1/catalog/*`.
+- Sem consumidor conectado ainda: `mesas`, `glossario` e `downloads` continuam fora do serviço central até I2+I4.
+- Validação: `pnpm --filter @artificio/site exec tsc --noEmit` ✅; `pnpm --filter @artificio/site test` ✅; `pnpm --filter @artificio/site build` ✅; `pnpm verify:api` ✅; migration validada em PGlite limpo ✅; smoke repo com sistema+edição+snapshot+resolve por path ✅.
+
+## 2026-07-10 — I2 importador Mesas → catálogo central
+
+- Implementado localmente: migration `007_catalog_legacy_mappings.sql` com mapa legado→canônico por app/ambiente/tabela/id; script `apps/site/scripts/import-mesas-catalog.ts`; fixture `apps/site/scripts/fixtures/mesas-catalog-sample.json`.
+- Importador lê `MESAS_DATABASE_URL` (fonte real Mesas) ou `MESAS_CATALOG_JSON` (fixture/export), grava no DB do `site` via `DATABASE_URL`/PGlite, aceita `CATALOG_SOURCE_ENV=beta|prod|local`, `CATALOG_IMPORT_DRY_RUN=true` e `CATALOG_IMPORT_REPORT=...`.
+- Preservado: hierarquia, `node_type`, slug, path, nome, nome PT, descrição, aliases, logo e website; UUID canônico é novo por ambiente e fica estável pelo mapa legado.
+- Validação local: migrations 006+007 aplicadas em PGlite limpo ✅; import sample criou 3 nós/2 aliases/3 mappings (`sessoes/assets/062-i2-sample-import-report.json`) ✅; rerun idempotente criou 0 e deixou 3 inalterados (`sessoes/assets/062-i2-sample-import-report-rerun.json`) ✅; `pnpm --filter @artificio/site exec tsc --noEmit` ✅; `pnpm --filter @artificio/site test` ✅; `pnpm --filter @artificio/site build` ✅; `pnpm verify:api` ✅.
+- Pendente operacional: executar import real em beta só depois de commit/PR/deploy beta do `site`, apontando origem para `mesas-beta-db` e destino para `site-beta-db`; prod fora.
+
+## 2026-07-10 — I3 gestão principal no Site Admin
+
+- Implementado localmente: `site-admin` ganhou sidebar "Sistemas", rota `/admin/catalogo-sistemas`, página `CatalogSystemsPage.tsx`, métodos/tipos no `api.ts` e CSS de árvore/formulário.
+- A página lê snapshot central, mostra versão/checksum/contagem, busca a árvore por nome/slug/path/alias, cria sistema raiz, cria filho e edita nó com tipo, pai, nome, nome PT, slug, aliases, Logo e Website Oficial.
+- Não implementado nesta fase: merge/redirect, moderação completa de sugestões, import real beta e troca de consumidores.
+- Validação: `pnpm --filter @artificio/site-admin typecheck` ✅; `pnpm --filter @artificio/site-admin build` ✅; `pnpm verify:api` ✅.
+- Pendente operacional: smoke visual em `beta.artificiorpg.com/admin/catalogo-sistemas` após commit/PR/deploy beta do `site`.

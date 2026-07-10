@@ -2397,7 +2397,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 406
+      "line": 414
     },
     {
       "app": "mesas-frontend",
@@ -2767,7 +2767,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 132
+      "line": 133
     },
     {
       "app": "site-admin",
@@ -2777,7 +2777,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 161
+      "line": 162
     }
   ]
 }

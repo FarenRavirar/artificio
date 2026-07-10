@@ -3,7 +3,14 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { getDb, type DbClient } from "../db/connection.js";
-import { normalizeCatalogWrite, slugifyCatalogSegment, type CatalogNodeType } from "../db/repo/catalog.js";
+import {
+  normalizeCatalogWrite,
+  slugifyCatalogSegment,
+  buildPathSlug,
+  replaceAliases,
+  bumpVersion,
+  type CatalogNodeType,
+} from "../db/repo/catalog.js";
 
 interface MesasSystemRow {
   id: string;
@@ -37,6 +44,31 @@ const sourceEnvironment = parseSourceEnvironment(process.env.CATALOG_SOURCE_ENV 
 const dryRun = process.env.CATALOG_IMPORT_DRY_RUN === "true";
 const reportPath = process.env.CATALOG_IMPORT_REPORT || resolve(process.cwd(), "catalog-import-report.json");
 
+type ImportCounters = { created: number; updated: number; unchanged: number; mappings: number };
+
+/** Importa cada linha ordenada (pai antes de filho), resolvendo o mapeamento
+ * legado→canônico incrementalmente. Extraído de `main` (achado Sonar PR #144:
+ * complexidade cognitiva 17 > 15 — loop com 2 branches + awaits encadeados
+ * dentro de try/catch/finally inflava a métrica da função inteira). */
+async function importOrderedRows(client: DbClient, rows: MesasSystemRow[]): Promise<ImportCounters> {
+  const imported: ImportCounters = { created: 0, updated: 0, unchanged: 0, mappings: 0 };
+  const legacyToCanonical = new Map<string, string>();
+  for (const row of rows) {
+    const parentCanonicalId = row.parent_id ? (legacyToCanonical.get(row.parent_id) ?? null) : null;
+    if (row.parent_id && !parentCanonicalId) {
+      throw new Error(`missing_parent_mapping:${row.id}`);
+    }
+    const result = await upsertCatalogNode(client, row, parentCanonicalId, dryRun ? null : "mesas-import");
+    legacyToCanonical.set(row.id, result.canonicalId);
+    imported[result.action] += 1;
+    if (!dryRun) {
+      await upsertLegacyMapping(client, row, result.canonicalId);
+      imported.mappings += 1;
+    }
+  }
+  return imported;
+}
+
 async function main(): Promise<void> {
   const rows = await loadMesasRows();
   const aliasesCount = rows.reduce((sum, row) => sum + row.aliases.length, 0);
@@ -44,24 +76,10 @@ async function main(): Promise<void> {
   const warnings = validateSource(ordered);
   const db = await getDb();
   const client = await db.getClient();
-  const imported = { created: 0, updated: 0, unchanged: 0, mappings: 0 };
 
   try {
     await client.query("BEGIN");
-    const legacyToCanonical = new Map<string, string>();
-    for (const row of ordered) {
-      const parentCanonicalId = row.parent_id ? (legacyToCanonical.get(row.parent_id) ?? null) : null;
-      if (row.parent_id && !parentCanonicalId) {
-        throw new Error(`missing_parent_mapping:${row.id}`);
-      }
-      const result = await upsertCatalogNode(client, row, parentCanonicalId, dryRun ? null : "mesas-import");
-      legacyToCanonical.set(row.id, result.canonicalId);
-      imported[result.action] += 1;
-      if (!dryRun) {
-        await upsertLegacyMapping(client, row, result.canonicalId);
-        imported.mappings += 1;
-      }
-    }
+    const imported = await importOrderedRows(client, ordered);
     const snapshot = await buildSnapshot(client);
     const report: ImportReport = {
       source_app: SOURCE_APP,
@@ -85,11 +103,35 @@ async function main(): Promise<void> {
   }
 }
 
+// Achado CodeRabbit (PR #144): JSON.parse + `as` cast sem validar shape dos
+// itens — Array.isArray cobria só o container, não os campos de cada linha.
+// Fonte externa (arquivo local editável) tratada como unknown até checar os
+// campos essenciais usados pelo resto do import (id/name/node_type/slug).
+function isValidMesasRow(value: unknown): value is MesasSystemRow {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.id === "string" && typeof row.name === "string"
+    && typeof row.node_type === "string" && typeof row.slug === "string";
+}
+
+function parseMesasCatalogJson(raw: unknown): MesasSystemRow[] {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object" && Array.isArray((raw as Record<string, unknown>).systems)
+      ? (raw as Record<string, unknown>).systems as unknown[]
+      : [];
+  const valid = list.filter(isValidMesasRow).map((row) => ({ ...row, aliases: Array.isArray(row.aliases) ? row.aliases : [] }));
+  if (valid.length !== list.length) {
+    console.warn(`[import-mesas-catalog] ${list.length - valid.length} linha(s) do JSON descartada(s) por shape inválido.`);
+  }
+  return valid;
+}
+
 async function loadMesasRows(): Promise<MesasSystemRow[]> {
   const jsonPath = process.env.MESAS_CATALOG_JSON;
   if (jsonPath) {
-    const parsed = JSON.parse(await readFile(jsonPath, "utf-8")) as { systems?: MesasSystemRow[] } | MesasSystemRow[];
-    return Array.isArray(parsed) ? parsed : (parsed.systems ?? []);
+    const parsed: unknown = JSON.parse(await readFile(jsonPath, "utf-8"));
+    return parseMesasCatalogJson(parsed);
   }
 
   const url = process.env.MESAS_DATABASE_URL;
@@ -244,30 +286,9 @@ async function upsertLegacyMapping(client: DbClient, row: MesasSystemRow, canoni
   );
 }
 
-async function replaceAliases(client: DbClient, nodeId: string, aliases: string[], actorId: string | null): Promise<void> {
-  await client.query("DELETE FROM catalog_aliases WHERE node_id = $1", [nodeId]);
-  for (const alias of Array.from(new Set(aliases.map((value) => value.trim()).filter(Boolean)))) {
-    await client.query("INSERT INTO catalog_aliases (node_id, alias, created_by) VALUES ($1,$2,$3)", [nodeId, alias, actorId]);
-  }
-}
-
-async function buildPathSlug(client: DbClient, parentId: string | null, slug: string): Promise<string> {
-  if (!parentId) return slug;
-  const parent = (await client.query<{ path_slug: string }>("SELECT path_slug FROM catalog_nodes WHERE id = $1", [parentId])).rows[0];
-  if (!parent) throw new Error(`parent_not_found:${parentId}`);
-  return `${parent.path_slug}/${slug}`;
-}
-
-async function bumpVersion(client: DbClient, reason: string, actorId: string | null, nodeId: string, payload: unknown): Promise<void> {
-  const version = (await client.query<{ version: number }>(
-    "SELECT COALESCE(MAX(version), 0)::int + 1 AS version FROM catalog_versions",
-  )).rows[0]?.version ?? 1;
-  await client.query("INSERT INTO catalog_versions (version, reason, created_by) VALUES ($1,$2,$3)", [version, reason, actorId]);
-  await client.query(
-    "INSERT INTO catalog_audit_events (node_id, event_type, actor_id, payload, catalog_version) VALUES ($1,$2,$3,$4::jsonb,$5)",
-    [nodeId, reason, actorId, JSON.stringify(payload), version],
-  );
-}
+// replaceAliases/buildPathSlug/bumpVersion importados de db/repo/catalog.ts
+// (achado CodeRabbit PR #144: eram cópias divergentes daqui — dedup evita
+// que as duas implementações saiam de sincronia).
 
 async function buildSnapshot(client: DbClient): Promise<ImportReport["snapshot"]> {
   const version = (await client.query<{ version: number }>(
@@ -310,7 +331,9 @@ function parseSourceEnvironment(value: string): "beta" | "prod" | "local" {
   throw new Error("bad_source_environment");
 }
 
-void main().catch((error) => {
+try {
+  await main();
+} catch (error) {
   console.error(error);
   process.exit(1);
-});
+}

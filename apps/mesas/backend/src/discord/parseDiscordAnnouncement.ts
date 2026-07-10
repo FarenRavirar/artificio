@@ -813,6 +813,19 @@ function isUrlDelimiter(char: string): boolean {
   return char === '<' || char === '>' || char === '"' || char === "'" || char.trim() === '';
 }
 
+const CONTACT_CONTEXT_LINE_RE = /\b(contato|inscri[cç][aã]?[õo]?[eos]*|candidatura|interesse|ticket|link\s+de\s+contato)\b/i;
+
+/**
+ * true se a URL aparece numa linha com sinal textual de contato/inscrição
+ * ("Contato:", "Inscrição:", "Link de candidatura: <url>"). Usado pro
+ * fallback de `extractContactUrl` distinguir URL genuína de contato de link
+ * incidental (setting page, playlist, review) que só por estar solta no
+ * texto acabava virando contact_url — achado CodeRabbit PR #144.
+ */
+function urlHasContactContext(text: string, url: string): boolean {
+  return text.split(/\r?\n/).some((line) => line.includes(url) && CONTACT_CONTEXT_LINE_RE.test(line));
+}
+
 /**
  * Extrai URL de contato (discord invite, forms, MesaQuest, etc.). Cascata: com
  * 2+ URLs no texto, prioriza domínio de contato/inscrição CONHECIDO sobre
@@ -822,12 +835,21 @@ function isUrlDelimiter(char: string): boolean {
  * de Thylea" em D:\teste.json cita site institucional, link de reviews E link
  * de candidatura no mesmo anúncio, em ordens variadas). Com 0 ou 1 URL
  * conhecida, comportamento é o mesmo de antes (pega a única disponível).
+ *
+ * `confident: false` sinaliza fallback sem domínio conhecido NEM contexto de
+ * linha de contato — URL genuinamente incerta (pode ser link não relacionado
+ * a contato), que o caller deve marcar pra revisão em vez de aceitar como
+ * `ready` (achado CodeRabbit PR #144: qualquer URL sintaticamente válida
+ * virava contact_url mesmo sem nenhum sinal de que era canal de inscrição).
  */
-function extractContactUrl(text: string): string | null {
+function extractContactUrl(text: string): { url: string; confident: boolean } | null {
   const allMatches = extractRawHttpUrls(text).map(trimTrailingUrlWrappers);
   if (allMatches.length === 0) return null;
   const known = allMatches.find(isKnownContactUrl);
-  return known ?? allMatches[0];
+  if (known) return { url: known, confident: true };
+  const withContext = allMatches.find((url) => urlHasContactContext(text, url));
+  if (withContext) return { url: withContext, confident: true };
+  return { url: allMatches[0], confident: false };
 }
 
 function extractContactDiscord(text: string): string | null {
@@ -1265,9 +1287,15 @@ const TITLE_CASE_LOWERCASE_WORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e',
 // palavra com 4+ letras 100% maiúscula (sem dígito, sem minúscula) vira title
 // case; palavra que já tem minúscula ou tem dígito (2D6, D20, D&D, 5e'14)
 // fica intocada, preservando siglas curtas soltas tipo "RPG" (3 letras).
+// Achado CodeRabbit (PR #144): stopword após pontuação de cláusula (":", ".",
+// "!", "?", "-") é início de nova cláusula, não meio de frase — "Vampiro: A
+// Máscara" tinha o "A" rebaixado pra minúsculo por só checar `index > 0`, sem
+// considerar que a palavra anterior fechava uma cláusula com ":".
+const CLAUSE_END_RE = /[:.!?-]$/;
+
 function normalizeTitleCapitalization(value: string): string {
-  return value
-    .split(' ')
+  const words = value.split(' ');
+  return words
     .map((word, index) => {
       if (!word) return word;
       const letters = word.replace(/[^\p{L}]/gu, '');
@@ -1279,11 +1307,13 @@ function normalizeTitleCapitalization(value: string): string {
       // sigla curta solta (RPG, GM) fica intocada — só normaliza palavra de
       // 4+ letras (limite empírico pra não confundir sigla real com stopword
       // gritada); stopword PT-BR curta (DE/DA/DO/E/A/O) sempre vira minúscula
-      // mesmo com <4 letras, pois artigo/preposição não é sigla.
+      // mesmo com <4 letras, pois artigo/preposição não é sigla — exceto no
+      // início de cláusula (índice 0 OU depois de pontuação de frase).
       const lower = word.toLocaleLowerCase('pt-BR');
       const isStopword = TITLE_CASE_LOWERCASE_WORDS.has(lower);
       if (letters.length < 4 && !isStopword) return word;
-      if (index > 0 && isStopword) return lower;
+      const isClauseStart = index === 0 || CLAUSE_END_RE.test(words[index - 1] ?? '');
+      if (!isClauseStart && isStopword) return lower;
       return lower.charAt(0).toLocaleUpperCase('pt-BR') + lower.slice(1);
     })
     .join(' ');
@@ -1367,21 +1397,27 @@ export type HomebrewClass = 'discard' | 'review' | 'none';
 /** Extrai o hint de sistema (campo "Sistema:" ou parte antes do ":" do thread).
  * Só a 1ª linha do valor — `extractLabelValue` agrega linhas de continuação
  * (descrição), e o nome do sistema é a primeira; evita falso-descarte por
- * menção solta de "próprio/autoral" no corpo. */
-function getAnnouncementSystemHint(message: ImportRawMessage): string | null {
+ * menção solta de "próprio/autoral" no corpo.
+ * @param labelAliasesSystem DEB-052-02: rótulos extras aprendidos pro campo
+ * `system_name` (achado CodeRabbit PR #144) — sem isso, um anúncio com rótulo
+ * de sistema não-fixo (ex. "Jogo do dia:") nunca acha o hint aqui, e um
+ * sistema autoral/próprio anunciado sob esse rótulo escapa do descarte. */
+function getAnnouncementSystemHint(message: ImportRawMessage, labelAliasesSystem?: string[]): string | null {
   const threadName = message.discord_thread_name ?? '';
   const rawBody = message.content_raw ?? '';
   const body = stripSeparatorLines(rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []));
   if (!body.trim()) return null;
-  const explicitSystem = normalizeTitle(extractLabelValue(body, ['sistema', 'jogo', 'rpg', 'sistema de jogo', 'sistema utilizado'], { keepParenthetical: true }));
+  const explicitSystem = normalizeTitle(extractLabelValue(body, [
+    'sistema', 'jogo', 'rpg', 'sistema de jogo', 'sistema utilizado', ...(labelAliasesSystem ?? []),
+  ], { keepParenthetical: true }));
   const threadParts = splitThreadName(threadName || body.split('\n')[0] || 'Mesa sem título');
   const hint = explicitSystem ?? threadParts.systemHint;
   return hint ? hint.split(/[\r\n]/)[0].trim() || null : null;
 }
 
 /** DEB-048-27: true se o sistema do anúncio é autoral/próprio (→ descartar). */
-export function classifyHomebrew(message: ImportRawMessage): HomebrewClass {
-  const hint = getAnnouncementSystemHint(message);
+export function classifyHomebrew(message: ImportRawMessage, labelAliasesSystem?: string[]): HomebrewClass {
+  const hint = getAnnouncementSystemHint(message, labelAliasesSystem);
   if (hint == null) return 'none';
   if (RE_HOMEBREW_STRONG.test(hint)) return 'discard';
   if (RE_HOMEBREW_WEAK.test(hint)) return 'review';
@@ -1430,7 +1466,7 @@ export function parseDiscordAnnouncement(
   }
   // DEB-048-27/29: autoria. STRONG (nítido) → descarta. WEAK (ambíguo) → segue
   // como draft, mas marcado _homebrew_suspect → needs_review + badge "autoral?".
-  const homebrew = classifyHomebrew(message);
+  const homebrew = classifyHomebrew(message, labelAliases?.system_name);
   if (homebrew === 'discard') {
     return null;
   }
@@ -1486,7 +1522,11 @@ export function parseDiscordAnnouncement(
       return lowerUrl.startsWith('https://docs.google.com/forms/') || lowerUrl.startsWith('http://docs.google.com/forms/');
     })
     ?? null;
-  const contactUrl = googleFormsUrl ?? extractContactUrl(body);
+  const rawContactUrlMatch = extractContactUrl(body);
+  const contactUrl = googleFormsUrl ?? rawContactUrlMatch?.url ?? null;
+  // Google Forms sempre confiável (detecção por domínio dedicado); URL genérica
+  // sem domínio conhecido nem contexto de linha de contato fica incerta.
+  const contactUrlConfident = googleFormsUrl != null || (rawContactUrlMatch?.confident ?? true);
 
   const explicitContactDiscord = extractContactDiscord(body);
   let hostDiscordId = extractHostDiscordId(body);
@@ -1579,6 +1619,13 @@ export function parseDiscordAnnouncement(
   // T-G2: ambiguidades adicionais
   if (contactUrl && isSuspiciousUrl(contactUrl)) {
     missingFields.push('contact_url:suspicious');
+  }
+  // Achado CodeRabbit (PR #144): domínio desconhecido sem contexto de linha de
+  // contato (não é "Contato:"/"Inscrição:", só a única URL solta no anúncio)
+  // pode ser link não relacionado (site institucional, playlist, review) —
+  // marca pra revisão em vez de aceitar como contact_url confiável.
+  if (contactUrl && !contactUrlConfident) {
+    missingFields.push('contact_url:unconfirmed');
   }
 
   const table: DiscordTableDraftTable = {

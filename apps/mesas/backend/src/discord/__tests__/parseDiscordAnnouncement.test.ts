@@ -49,7 +49,21 @@ describe('parseDiscordAnnouncement — labelAliases (DEB-052-02)', () => {
       { system_name: ['jogo do dia'] },
     );
 
-    expect(draft?.table?.system_name).toBe('Vampiro: a Máscara');
+    expect(draft?.table?.system_name).toBe('Vampiro: A Máscara');
+  });
+});
+
+describe('normalizeTitleCapitalization — stopword apos pontuacao de clausula (CodeRabbit PR #144)', () => {
+  it('titulo com stopword logo apos ":" preserva capitalizacao de inicio de clausula, nao rebaixa pra minusculo', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: 'Sistema: A Lenda dos Cinco Anéis',
+        content_raw: 'Vagas: 3',
+      }),
+    );
+
+    expect(draft?.table?.title).toContain('A Lenda');
+    expect(draft?.table?.title).not.toContain('a Lenda');
   });
 });
 
@@ -1723,6 +1737,26 @@ describe('parseDiscordAnnouncement', () => {
         }),
       );
       expect(draft?.table.contact_url).toBe('https://sanctumveritatis.com/setentrional');
+    });
+
+    it('CodeRabbit PR #144: URL solta sem domínio conhecido nem contexto de contato entra em missing_fields (unconfirmed), não vira ready cego', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: D&D\nSite: https://sanctumveritatis.com/setentrional\nVídeo: https://www.youtube.com/watch?v=fv_KvD2jmsk\nVagas: 3/6',
+        }),
+      );
+      expect(draft?.table.contact_url).toBe('https://sanctumveritatis.com/setentrional');
+      expect(draft?.missing_fields).toContain('contact_url:unconfirmed');
+    });
+
+    it('URL sem domínio conhecido mas em linha com contexto de contato ("Inscrições:") não entra em unconfirmed', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({
+          content_raw: 'Sistema: D&D\nInscrições: https://dm.yanbraga.com/join\nVagas: 3/6',
+        }),
+      );
+      expect(draft?.table.contact_url).toBe('https://dm.yanbraga.com/join');
+      expect(draft?.missing_fields).not.toContain('contact_url:unconfirmed');
     });
 
   describe('Fase 11 - descricao estruturada, tokens Discord, URL e experiencia', () => {

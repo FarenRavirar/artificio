@@ -61,11 +61,12 @@ export interface FeedbackItem {
 export interface CatalogAlias {
   id: number; node_id: string; alias: string; locale: string | null; kind: string;
 }
+export type CatalogNodeStatus = "draft" | "pending" | "active" | "rejected" | "merged";
 export interface CatalogNode {
   id: string; parent_id: string | null; node_type: "system" | "edition" | "subsystem" | "variant";
   canonical_slug: string; path_slug: string; name: string; name_pt: string | null;
   description: string | null; official_website_url: string | null; logo_media_id: string | null;
-  status: string; merged_into_id: string | null; version: number;
+  status: CatalogNodeStatus; merged_into_id: string | null; version: number;
   created_by: string | null; updated_by: string | null; created_at: string; updated_at: string;
   aliases: CatalogAlias[]; children: CatalogNode[];
 }
@@ -75,7 +76,7 @@ export interface CatalogSnapshot {
 export interface CatalogNodeInput {
   parent_id?: string | null; node_type: CatalogNode["node_type"]; canonical_slug?: string;
   name: string; name_pt?: string | null; description?: string | null;
-  official_website_url?: string | null; logo_media_id?: string | null; status?: string; aliases?: string[];
+  official_website_url?: string | null; logo_media_id?: string | null; status?: CatalogNodeStatus; aliases?: string[];
 }
 
 export interface PostFull {

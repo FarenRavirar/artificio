@@ -161,6 +161,65 @@ export async function recordLearningRulesFromCorrections(
  * curadoria manual em vez de cada rótulo virar exceção codificada (achado
  * do mantenedor, 2026-07-10, bug 5 da spec 062).
  */
+/** Entry elegível: campo aprendível, sem valor de entrada (parser não achou
+ * nada — correção é rótulo novo, não troca de valor) e com saída válida. */
+function isLabelAliasCandidate(entry: FieldLearningEntry): boolean {
+  if (!LEARNABLE_SET.has(entry.field)) return false;
+  if (entry.inputValue !== null && entry.inputValue !== undefined && entry.inputValue !== '') return false;
+  return normalizeToken(entry.outputValue) !== null;
+}
+
+/** Acha, nas linhas do raw_text, o rótulo cuja linha `rótulo: valor` bate com
+ * o valor que o humano corrigiu — esse rótulo é o candidato a label_alias. */
+function findMatchedLabelToken(lines: string[], entry: FieldLearningEntry): string | null {
+  const targetValue = normalizeToken(entry.outputValue);
+  const matchedLine = lines
+    .map((line) => splitLabelLine(line))
+    .find((parsed) => parsed && normalizeToken(parsed.value) === targetValue);
+  return matchedLine?.key ?? null;
+}
+
+async function insertLabelAliasRule(
+  conn: Kysely<Database> | Transaction<Database>,
+  field: string,
+  labelToken: string,
+  derived: ReturnType<typeof deriveScope>,
+  userId: string | null,
+): Promise<void> {
+  try {
+    const builder = conn.insertInto('discord_learning_rules');
+    if (!builder || typeof (builder as { values?: unknown }).values !== 'function') return;
+    await builder
+      .values({
+        rule_type: 'label_alias',
+        field,
+        input_token: labelToken,
+        input_pattern: null,
+        output_value: sql`${JSON.stringify(field)}::jsonb`,
+        scope_type: derived.scopeType,
+        scope_json: derived.scopeJson,
+        scope_hash: derived.scopeHash,
+        confidence: CANDIDATE_CONFIDENCE,
+        status: 'candidate',
+        source: 'human',
+      })
+      .onConflict((oc) =>
+        oc.columns(['rule_type', 'field', 'input_token', 'scope_hash']).doUpdateSet({
+          hits: sql`discord_learning_rules.hits + 1`,
+          confidence: sql`LEAST(0.98, discord_learning_rules.confidence + 0.08)`,
+          // Achado CodeRabbit PR #144: threshold tinha que bater com ACTIVE_CONFIDENCE
+          // (filtro de leitura em loadActiveLabelAliases) — 0.72 hardcoded deixava
+          // status='active' com confidence < 0.8, invisível pro parser até mais um hit.
+          status: sql`CASE WHEN discord_learning_rules.confidence + 0.08 >= ${ACTIVE_CONFIDENCE} THEN 'active' ELSE discord_learning_rules.status END`,
+          updated_at: sql`NOW()`,
+        }),
+      )
+      .execute();
+  } catch (error: unknown) {
+    console.error('[recordLabelAliasFromCorrection]', error instanceof Error ? error.message : 'unknown error', userId);
+  }
+}
+
 export async function recordLabelAliasFromCorrection(
   entries: FieldLearningEntry[],
   rawText: string | null,
@@ -173,50 +232,10 @@ export async function recordLabelAliasFromCorrection(
   const derived = deriveScope(scope);
 
   for (const entry of entries) {
-    if (!LEARNABLE_SET.has(entry.field)) continue;
-    // Só aprende rótulo quando o parser não tinha achado valor algum — se já
-    // havia um valor extraído, a correção é troca de valor, não rótulo novo.
-    if (entry.inputValue !== null && entry.inputValue !== undefined && entry.inputValue !== '') continue;
-    const targetValue = normalizeToken(entry.outputValue);
-    if (!targetValue) continue;
-
-    const matchedLine = lines
-      .map((line) => splitLabelLine(line))
-      .find((parsed) => parsed && normalizeToken(parsed.value) === targetValue);
-    if (!matchedLine) continue;
-
-    const labelToken = matchedLine.key;
+    if (!isLabelAliasCandidate(entry)) continue;
+    const labelToken = findMatchedLabelToken(lines, entry);
     if (!labelToken) continue;
-
-    try {
-      const builder = conn.insertInto('discord_learning_rules');
-      if (!builder || typeof (builder as { values?: unknown }).values !== 'function') continue;
-      await builder
-        .values({
-          rule_type: 'label_alias',
-          field: entry.field,
-          input_token: labelToken,
-          input_pattern: null,
-          output_value: sql`${JSON.stringify(entry.field)}::jsonb`,
-          scope_type: derived.scopeType,
-          scope_json: derived.scopeJson,
-          scope_hash: derived.scopeHash,
-          confidence: CANDIDATE_CONFIDENCE,
-          status: 'candidate',
-          source: 'human',
-        })
-        .onConflict((oc) =>
-          oc.columns(['rule_type', 'field', 'input_token', 'scope_hash']).doUpdateSet({
-            hits: sql`discord_learning_rules.hits + 1`,
-            confidence: sql`LEAST(0.98, discord_learning_rules.confidence + 0.08)`,
-            status: sql`CASE WHEN discord_learning_rules.confidence + 0.08 >= 0.72 THEN 'active' ELSE discord_learning_rules.status END`,
-            updated_at: sql`NOW()`,
-          }),
-        )
-        .execute();
-    } catch (error: unknown) {
-      console.error('[recordLabelAliasFromCorrection]', error instanceof Error ? error.message : 'unknown error', userId);
-    }
+    await insertLabelAliasRule(conn, entry.field, labelToken, derived, userId);
   }
 }
 

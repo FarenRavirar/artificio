@@ -58,9 +58,10 @@ export function slugifyCatalogSegment(value: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/&/g, " e ")
+    .replaceAll("&", " e ")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "")
     .slice(0, 80);
 }
 
@@ -160,15 +161,19 @@ export async function updateNode(id: string, input: Partial<CatalogNodeWrite>, a
       await client.query("ROLLBACK");
       return null;
     }
+    // Achado CodeRabbit (PR #144): `??` trata `null` (intenção de limpar campo
+    // via PATCH) igual a `undefined` (campo não enviado) — caía sempre no
+    // existing, tornando impossível limpar campos anuláveis. `undefined` é o
+    // único sinal de "não enviado"; `null` explícito deve prevalecer.
     const next = normalizeCatalogWrite({
-      parent_id: input.parent_id ?? existing.parent_id,
+      parent_id: input.parent_id !== undefined ? input.parent_id : existing.parent_id,
       node_type: input.node_type ?? existing.node_type,
       canonical_slug: input.canonical_slug ?? existing.canonical_slug,
       name: input.name ?? existing.name,
-      name_pt: input.name_pt ?? existing.name_pt,
-      description: input.description ?? existing.description,
-      official_website_url: input.official_website_url ?? existing.official_website_url,
-      logo_media_id: input.logo_media_id ?? existing.logo_media_id,
+      name_pt: input.name_pt !== undefined ? input.name_pt : existing.name_pt,
+      description: input.description !== undefined ? input.description : existing.description,
+      official_website_url: input.official_website_url !== undefined ? input.official_website_url : existing.official_website_url,
+      logo_media_id: input.logo_media_id !== undefined ? input.logo_media_id : existing.logo_media_id,
       status: input.status ?? existing.status,
       aliases: input.aliases,
     });
@@ -217,7 +222,9 @@ async function insertNode(client: DbClient, input: CatalogNodeWrite, actorId: st
   return withAliases!;
 }
 
-async function buildPathSlug(client: DbClient, parentId: string | null, slug: string): Promise<string> {
+// Achado CodeRabbit (PR #144): função exportada pra reuso no importador
+// (import-mesas-catalog.ts) — antes duplicada lá, divergindo do canônico aqui.
+export async function buildPathSlug(client: DbClient, parentId: string | null, slug: string): Promise<string> {
   if (!parentId) return slug;
   const parent = (await client.query<{ path_slug: string }>(
     "SELECT path_slug FROM catalog_nodes WHERE id = $1",
@@ -227,7 +234,8 @@ async function buildPathSlug(client: DbClient, parentId: string | null, slug: st
   return `${parent.path_slug}/${slug}`;
 }
 
-async function replaceAliases(client: DbClient, nodeId: string, aliases: string[], actorId: string | null): Promise<void> {
+// Achado CodeRabbit (PR #144): exportada pro mesmo motivo de buildPathSlug.
+export async function replaceAliases(client: DbClient, nodeId: string, aliases: string[], actorId: string | null): Promise<void> {
   await client.query("DELETE FROM catalog_aliases WHERE node_id = $1", [nodeId]);
   for (const alias of cleanAliases(aliases)) {
     await client.query(
@@ -237,7 +245,14 @@ async function replaceAliases(client: DbClient, nodeId: string, aliases: string[
   }
 }
 
-async function bumpVersion(client: DbClient, reason: string, actorId: string | null, nodeId: string | null, payload: unknown): Promise<void> {
+// Achado CodeRabbit (PR #144): exportada pro mesmo motivo de buildPathSlug.
+export async function bumpVersion(client: DbClient, reason: string, actorId: string | null, nodeId: string | null, payload: unknown): Promise<void> {
+  // Achado CodeRabbit (PR #144): MAX(version)+1 sem lock permite duas
+  // transações concorrentes calcularem o mesmo `next` e uma falhar com
+  // duplicate key (catalog_versions.version é UNIQUE). LOCK TABLE serializa
+  // escritores dentro da mesma transação (BEGIN/COMMIT do caller) sem exigir
+  // migration nova de sequence.
+  await client.query("LOCK TABLE catalog_versions IN SHARE ROW EXCLUSIVE MODE");
   const next = (await client.query<{ version: number }>(
     "SELECT COALESCE(MAX(version), 0)::int + 1 AS version FROM catalog_versions",
   )).rows[0]?.version ?? 1;
