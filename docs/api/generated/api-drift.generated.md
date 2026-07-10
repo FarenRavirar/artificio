@@ -10,12 +10,12 @@
 
 | Estado | Quantidade | Bloqueia? |
 |--------|-----------|:---------:|
-| ✅ OK | 200 | ❌ |
+| ✅ OK | 203 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 2 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 80 | ❌ |
-| 👻 ORPHAN_SUSPECT | 2 | ❌ |
+| 🕳️ UNUSED_ROUTE | 83 | ❌ |
+| 👻 ORPHAN_SUSPECT | 8 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
@@ -316,7 +316,7 @@
 | GET | `/api/v1/profile/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 
-### site (29 rotas no inventário)
+### site (41 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -326,6 +326,10 @@
 | DELETE | `/api/admin/v1/posts/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/admin/preview/:type/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/admin/status` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/admin/v1/catalog/nodes/:idOrSlug` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/admin/v1/catalog/resolve` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/admin/v1/catalog/snapshot` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| GET | `/api/admin/v1/catalog/systems` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/admin/v1/feedback` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/admin/v1/media` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/admin/v1/pages` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -335,9 +339,14 @@
 | GET | `/api/admin/v1/redirects` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/admin/v1/slug-check` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/admin/v1/taxonomies` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| GET | `/api/catalog/v1/nodes/:idOrSlug` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/catalog/v1/resolve` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/catalog/v1/snapshot` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/catalog/v1/systems` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/admin/v1/feedback/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/admin/import` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/admin/rebuild` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/admin/v1/catalog/nodes` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/admin/v1/media` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/admin/v1/pages` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/admin/v1/pages/:id/status` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -346,9 +355,12 @@
 | POST | `/api/admin/v1/preview` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/admin/v1/redirects` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/admin/v1/taxonomies` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/catalog/v1/nodes` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PUT | `/api/admin/v1/catalog/nodes/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/admin/v1/media/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/admin/v1/pages/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/admin/v1/posts/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| PUT | `/api/catalog/v1/nodes/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 
 ### site-admin (0 rotas no inventário)
 
@@ -368,6 +380,16 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 |--------|------|:-----------:|-------|-------|
 | PATCH | `/api/v1/profile/me/gm` | ✅ | public | Sem consumidor e scope não justifica |
 | PATCH | `/api/v1/profile/me/player` | ✅ | public | Sem consumidor e scope não justifica |
+### site (6 rota(s))
+
+| Method | Path | Tem OpenAPI? | Scope | Razão |
+|--------|------|:-----------:|-------|-------|
+| GET | `/api/catalog/v1/nodes/:idOrSlug` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/api/catalog/v1/resolve` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/api/catalog/v1/snapshot` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/api/catalog/v1/systems` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/api/catalog/v1/nodes` | ✅ | public | Sem consumidor e scope não justifica |
+| PUT | `/api/catalog/v1/nodes/:id` | ✅ | public | Sem consumidor e scope não justifica |
 
 ## Consumidores sem rota (CONSUMER_ONLY)
 

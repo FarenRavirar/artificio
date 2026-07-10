@@ -4,6 +4,7 @@ import { sql } from 'kysely';
 import { db } from '../db';
 import type { Database } from '../db/types';
 import { LEARNABLE_FIELDS, normalizeToken, type FieldLearningEntry, type LearnableField } from './fieldLearning';
+import { splitLabelLine } from './parseDiscordAnnouncement';
 
 export type LearningRuleType =
   | 'field_value'
@@ -148,6 +149,107 @@ export async function recordLearningRulesFromCorrections(
     } catch (error: unknown) {
       console.error('[recordLearningRulesFromCorrections]', error instanceof Error ? error.message : 'unknown error', userId);
     }
+  }
+}
+
+/**
+ * DEB-052-02 — aprende rótulo→campo a partir de correção humana, não código
+ * hardcoded. Quando o campo corrigido estava vazio ANTES (parser não achou
+ * nada) e o `rawText` tem uma linha `rótulo: valor` cujo valor bate com o
+ * valor humano corrigido, esse rótulo é um label_alias candidato pro campo:
+ * a forma humana de anunciar é ilimitada, o sistema tem que aprender da
+ * curadoria manual em vez de cada rótulo virar exceção codificada (achado
+ * do mantenedor, 2026-07-10, bug 5 da spec 062).
+ */
+export async function recordLabelAliasFromCorrection(
+  entries: FieldLearningEntry[],
+  rawText: string | null,
+  scope: LearningRuleScope | undefined | null,
+  userId: string | null,
+  conn: Kysely<Database> | Transaction<Database> = db,
+): Promise<void> {
+  if (!rawText) return;
+  const lines = rawText.split(/\r?\n/);
+  const derived = deriveScope(scope);
+
+  for (const entry of entries) {
+    if (!LEARNABLE_SET.has(entry.field)) continue;
+    // Só aprende rótulo quando o parser não tinha achado valor algum — se já
+    // havia um valor extraído, a correção é troca de valor, não rótulo novo.
+    if (entry.inputValue !== null && entry.inputValue !== undefined && entry.inputValue !== '') continue;
+    const targetValue = normalizeToken(entry.outputValue);
+    if (!targetValue) continue;
+
+    const matchedLine = lines
+      .map((line) => splitLabelLine(line))
+      .find((parsed) => parsed && normalizeToken(parsed.value) === targetValue);
+    if (!matchedLine) continue;
+
+    const labelToken = matchedLine.key;
+    if (!labelToken) continue;
+
+    try {
+      const builder = conn.insertInto('discord_learning_rules');
+      if (!builder || typeof (builder as { values?: unknown }).values !== 'function') continue;
+      await builder
+        .values({
+          rule_type: 'label_alias',
+          field: entry.field,
+          input_token: labelToken,
+          input_pattern: null,
+          output_value: sql`${JSON.stringify(entry.field)}::jsonb`,
+          scope_type: derived.scopeType,
+          scope_json: derived.scopeJson,
+          scope_hash: derived.scopeHash,
+          confidence: CANDIDATE_CONFIDENCE,
+          status: 'candidate',
+          source: 'human',
+        })
+        .onConflict((oc) =>
+          oc.columns(['rule_type', 'field', 'input_token', 'scope_hash']).doUpdateSet({
+            hits: sql`discord_learning_rules.hits + 1`,
+            confidence: sql`LEAST(0.98, discord_learning_rules.confidence + 0.08)`,
+            status: sql`CASE WHEN discord_learning_rules.confidence + 0.08 >= 0.72 THEN 'active' ELSE discord_learning_rules.status END`,
+            updated_at: sql`NOW()`,
+          }),
+        )
+        .execute();
+    } catch (error: unknown) {
+      console.error('[recordLabelAliasFromCorrection]', error instanceof Error ? error.message : 'unknown error', userId);
+    }
+  }
+}
+
+/**
+ * Carrega label_alias ativos (confidence >= threshold) por escopo, pra
+ * estender dinamicamente as labels que `extractLabelValue` reconhece por
+ * campo — sem precisar codificar cada variação humana em allowlist fixa.
+ */
+export async function loadActiveLabelAliases(
+  scope: LearningRuleScope | undefined | null,
+  conn: Kysely<Database> = db,
+): Promise<Record<string, string[]>> {
+  const scopeHashes = scopePredicates(scope).map((item) => item.scopeHash);
+  const result: Record<string, string[]> = {};
+  try {
+    const rows = await conn
+      .selectFrom('discord_learning_rules')
+      .select(['field', 'input_token'])
+      .where('rule_type', '=', 'label_alias')
+      .where('status', '=', 'active')
+      .where('confidence', '>=', String(ACTIVE_CONFIDENCE))
+      .where('scope_hash', 'in', scopeHashes)
+      .execute();
+    for (const row of rows) {
+      if (!row.field || !row.input_token) continue;
+      const list = result[row.field] ?? [];
+      list.push(row.input_token);
+      result[row.field] = list;
+    }
+    return result;
+  } catch (error: unknown) {
+    console.error('[loadActiveLabelAliases]', error instanceof Error ? error.message : 'unknown error');
+    return result;
   }
 }
 

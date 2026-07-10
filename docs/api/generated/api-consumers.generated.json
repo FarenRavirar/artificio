@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 287,
-    "uniqueEndpoints": 267,
+    "total": 291,
+    "uniqueEndpoints": 270,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -62,15 +62,15 @@
         }
       },
       "site-admin": {
-        "total": 28,
+        "total": 32,
         "byConfidence": {
           "low": 1,
-          "high": 24,
+          "high": 28,
           "medium": 3
         },
         "byPattern": {
           "concatenation": 1,
-          "service-wrapper": 24,
+          "service-wrapper": 28,
           "template-literal": 3
         }
       }
@@ -2397,7 +2397,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 380
+      "line": 406
     },
     {
       "app": "mesas-frontend",
@@ -2498,6 +2498,36 @@
       "pattern": "concatenation",
       "wrapper": "authFetch",
       "line": 27
+    },
+    {
+      "app": "site-admin",
+      "consumerFile": "apps/site-admin/src/pages/CatalogSystemsPage.tsx",
+      "method": "POST",
+      "endpoint": "/api/admin/v1/catalog/nodes",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "api.createCatalogNode",
+      "line": 84
+    },
+    {
+      "app": "site-admin",
+      "consumerFile": "apps/site-admin/src/pages/CatalogSystemsPage.tsx",
+      "method": "PUT",
+      "endpoint": "/api/admin/v1/catalog/nodes/:param",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "api.updateCatalogNode",
+      "line": 83
+    },
+    {
+      "app": "site-admin",
+      "consumerFile": "apps/site-admin/src/pages/CatalogSystemsPage.tsx",
+      "method": "GET",
+      "endpoint": "/api/admin/v1/catalog/snapshot",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "api.getCatalogSnapshot",
+      "line": 45
     },
     {
       "app": "site-admin",
@@ -2737,7 +2767,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 112
+      "line": 132
     },
     {
       "app": "site-admin",
@@ -2747,7 +2777,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 134
+      "line": 161
     }
   ]
 }

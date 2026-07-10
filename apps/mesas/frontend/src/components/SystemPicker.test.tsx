@@ -113,6 +113,26 @@ describe('SystemPicker', () => {
     expect(onSelectionChange).toHaveBeenCalledWith(['dnd-2024']);
   });
 
+  it('oculta resultados vazios quando configurado como busca fechada', () => {
+    render(
+      <SystemPicker
+        tree={tree}
+        selectedIds={[]}
+        onSelectionChange={vi.fn()}
+        idPrefix="systems"
+        showEmptySearchResults={false}
+      />,
+    );
+
+    expect(screen.queryByText('Dungeons & Dragons')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Buscar sistema, edição ou variante...'), {
+      target: { value: 'Dungeons' },
+    });
+
+    expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument();
+  });
+
   it('mostra ações por role quando busca não encontra resultado', () => {
     const onSuggest = vi.fn();
     const onCreateNow = vi.fn();

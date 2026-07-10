@@ -25,6 +25,34 @@ function makeMessage(overrides: Partial<ImportRawMessage>): ImportRawMessage {
   };
 }
 
+describe('parseDiscordAnnouncement — labelAliases (DEB-052-02)', () => {
+  it('rotulo de sistema desconhecido nao e reconhecido sem alias aprendido', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: 'Mesa sem título',
+        content_raw: 'Jogo do dia: Vampiro: A Máscara\nVagas: 3',
+      }),
+    );
+
+    expect(draft?.table?.system_name ?? null).not.toBe('Vampiro: A Máscara');
+  });
+
+  it('rotulo aprendido via label_alias passa a ser reconhecido pelo campo system_name', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: 'Mesa sem título',
+        content_raw: 'Jogo do dia: Vampiro: A Máscara\nVagas: 3',
+      }),
+      [],
+      undefined,
+      undefined,
+      { system_name: ['jogo do dia'] },
+    );
+
+    expect(draft?.table?.system_name).toBe('Vampiro: a Máscara');
+  });
+});
+
 describe('parseDiscordAnnouncement', () => {
   it('limpa markdown real da descrição sem corromper slugs, URLs e underscores legítimos', () => {
     expect(cleanDescriptionText('**Descrição:** inscricao_mesa d_and_d https://site.test/a_b `ok`')).toBe(
@@ -1896,10 +1924,20 @@ describe('isSuspiciousUrl', () => {
     expect(isSuspiciousUrl('https://mysurvey.typeform.com/to/abc')).toBe(false);
   });
 
-  it('URL desconhecida é suspeita', () => {
-    expect(isSuspiciousUrl('https://meusite.com/formulario')).toBe(true);
-    expect(isSuspiciousUrl('https://bit.ly/abc')).toBe(true);
-    expect(isSuspiciousUrl('https://tinyurl.com/xyz')).toBe(true);
+  // Achado do mantenedor (2026-07-10): allowlist deixou de ser gate de bloqueio —
+  // site pessoal de GM real fora da lista curta não pode travar o draft de virar
+  // 'ready'. Só URL malformada (sem esquema http/https, domínio inválido) é suspeita.
+  it('URL bem formada fora da allowlist não é suspeita (site pessoal de GM)', () => {
+    expect(isSuspiciousUrl('https://meusite.com/formulario')).toBe(false);
+    expect(isSuspiciousUrl('https://bit.ly/abc')).toBe(false);
+    expect(isSuspiciousUrl('https://tinyurl.com/xyz')).toBe(false);
+    expect(isSuspiciousUrl('https://dm.yanbraga.com/join')).toBe(false);
+  });
+
+  it('URL malformada é suspeita', () => {
+    expect(isSuspiciousUrl('ftp://meusite.com/formulario')).toBe(true);
+    expect(isSuspiciousUrl('não é uma url')).toBe(true);
+    expect(isSuspiciousUrl('javascript:alert(1)')).toBe(true);
   });
 
   describe('DEB-052-01 — labels decorados (cleanLabelLine + slotsViaLabel)', () => {

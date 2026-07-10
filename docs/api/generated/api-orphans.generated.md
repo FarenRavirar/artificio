@@ -10,7 +10,7 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 2 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 8 | ❌ |
 
 ## Rotas órfãs suspeitas
 
@@ -22,6 +22,16 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 |--------|------|:-----------:|-------|-------|
 | PATCH | `/api/v1/profile/me/gm` | ✅ | public | Scope "public" sem consumidor |
 | PATCH | `/api/v1/profile/me/player` | ✅ | public | Scope "public" sem consumidor |
+### site (6 rota(s))
+
+| Method | Path | Tem OpenAPI? | Scope | Razão |
+|--------|------|:-----------:|-------|-------|
+| GET | `/api/catalog/v1/nodes/:idOrSlug` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/catalog/v1/resolve` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/catalog/v1/snapshot` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/catalog/v1/systems` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/catalog/v1/nodes` | ✅ | public | Scope "public" sem consumidor |
+| PUT | `/api/catalog/v1/nodes/:id` | ✅ | public | Scope "public" sem consumidor |
 
 ### Observações
 

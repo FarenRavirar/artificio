@@ -277,7 +277,33 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     return value;
   };
 
+  // Achado do mantenedor (2026-07-10): sugestão de sistema do learning-store
+  // só carrega o nome (string) — aplicar via SET_FIELD genérico grava
+  // system_name mas nunca resolve system_id, então o SystemPicker (vinculado
+  // a system_id) não muda nada visualmente ("aplicar" parecia não fazer nada).
+  // Busca por nome/name_pt exato no catálogo achatado; sem match, aplica só o
+  // texto (comportamento anterior) pra não regredir quando o nome sugerido
+  // ainda não existe no catálogo carregado.
+  const applySystemNameSuggestion = (rawValue: unknown) => {
+    const value = unwrapDiffShapedSuggestion(rawValue);
+    const asText = value === null || value === undefined ? '' : String(value).trim();
+    if (!asText) return;
+    const normalized = asText.toLocaleLowerCase('pt-BR');
+    const matched = systemsFlat.find(
+      (s) => s.name.toLocaleLowerCase('pt-BR') === normalized || s.name_pt?.toLocaleLowerCase('pt-BR') === normalized,
+    );
+    if (matched) {
+      handleSystemChange(matched.id, matched.name_pt || matched.name);
+      return;
+    }
+    dispatch({ type: 'SET_FIELD', key: 'system_name', value: asText });
+  };
+
   const applySuggestion = (field: DraftFieldKey, rawValue: unknown) => {
+    if (field === 'system_name') {
+      applySystemNameSuggestion(rawValue);
+      return;
+    }
     const value = unwrapDiffShapedSuggestion(rawValue);
     const asText = value === null || value === undefined ? '' : String(value);
     if (field === 'slots_total' || field === 'slots_open' || field === 'price_value') {

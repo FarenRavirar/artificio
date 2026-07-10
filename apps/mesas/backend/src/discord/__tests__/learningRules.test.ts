@@ -4,6 +4,8 @@ import {
   lookupLearningRules,
   nextRuleState,
   recordLearningRulesFromCorrections,
+  recordLabelAliasFromCorrection,
+  loadActiveLabelAliases,
 } from '../learningRules';
 
 describe('deriveScope', () => {
@@ -58,6 +60,88 @@ describe('recordLearningRulesFromCorrections', () => {
       scope_type: 'guild',
       source: 'human',
     }));
+  });
+});
+
+describe('recordLabelAliasFromCorrection (DEB-052-02)', () => {
+  it('aprende rotulo desconhecido quando campo estava vazio e valor bate com linha do raw_text', async () => {
+    const execute = vi.fn().mockResolvedValue(undefined);
+    const onConflict = vi.fn().mockReturnValue({ execute });
+    const values = vi.fn().mockReturnValue({ onConflict });
+    const insertInto = vi.fn().mockReturnValue({ values });
+
+    await recordLabelAliasFromCorrection(
+      [{ field: 'system_name', inputValue: null, outputValue: 'Vampiro: A Máscara' }],
+      'Sistema Utilizado: Vampiro: A Máscara\nVagas: 3',
+      { guild_id: 'guild-1' },
+      'user-1',
+      { insertInto } as never,
+    );
+
+    expect(insertInto).toHaveBeenCalledWith('discord_learning_rules');
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({
+      rule_type: 'label_alias',
+      field: 'system_name',
+      input_token: 'sistema utilizado',
+      source: 'human',
+    }));
+  });
+
+  it('nao aprende quando o campo ja tinha valor extraido (troca de valor, nao rotulo novo)', async () => {
+    const insertInto = vi.fn();
+
+    await recordLabelAliasFromCorrection(
+      [{ field: 'system_name', inputValue: 'D&D 5e', outputValue: 'D&D 5.2' }],
+      'Sistema: D&D 5e',
+      { guild_id: 'guild-1' },
+      'user-1',
+      { insertInto } as never,
+    );
+
+    expect(insertInto).not.toHaveBeenCalled();
+  });
+
+  it('nao aprende quando nenhuma linha do raw_text bate com o valor corrigido', async () => {
+    const insertInto = vi.fn();
+
+    await recordLabelAliasFromCorrection(
+      [{ field: 'system_name', inputValue: null, outputValue: 'Vampiro: A Máscara' }],
+      'Vagas: 3\nHorário: 20h',
+      { guild_id: 'guild-1' },
+      'user-1',
+      { insertInto } as never,
+    );
+
+    expect(insertInto).not.toHaveBeenCalled();
+  });
+});
+
+describe('loadActiveLabelAliases', () => {
+  it('agrupa rotulos ativos por campo, ignorando abaixo do limiar de confianca', async () => {
+    const rows = [
+      { field: 'system_name', input_token: 'sistema utilizado' },
+      { field: 'system_name', input_token: 'jogo do dia' },
+      { field: 'title', input_token: 'nome da aventura' },
+    ];
+    const selectBuilder: any = {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockResolvedValue(rows),
+    };
+    const conn = { selectFrom: vi.fn().mockReturnValue(selectBuilder) } as never;
+
+    const result = await loadActiveLabelAliases({ guild_id: 'guild-1' }, conn);
+
+    expect(result).toEqual({
+      system_name: ['sistema utilizado', 'jogo do dia'],
+      title: ['nome da aventura'],
+    });
+  });
+
+  it('erro de DB retorna vazio (best-effort)', async () => {
+    const conn = { selectFrom: vi.fn().mockImplementation(() => { throw new Error('db down'); }) } as never;
+    const result = await loadActiveLabelAliases(null, conn);
+    expect(result).toEqual({});
   });
 });
 

@@ -153,6 +153,206 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/admin/v1/catalog/nodes:
+    post:
+      operationId: postapi_admin_v1_catalog_nodes
+      summary: "Cria ou executa api admin v1 catalog nodes"
+      x-artificio-owner: site
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/admin/v1/catalog/nodes/{id}:
+    put:
+      operationId: putapi_admin_v1_catalog_nodes_id
+      summary: "Substitui api admin v1 catalog nodes id"
+      x-artificio-owner: site
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/admin/v1/catalog/nodes/{idOrSlug}:
+    get:
+      operationId: getapi_admin_v1_catalog_nodes_idOrSlug
+      summary: "Consulta api admin v1 catalog nodes idOrSlug"
+      x-artificio-owner: site
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/admin/v1/catalog/resolve:
+    get:
+      operationId: getapi_admin_v1_catalog_resolve
+      summary: "Consulta api admin v1 catalog resolve"
+      x-artificio-owner: site
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/admin/v1/catalog/snapshot:
+    get:
+      operationId: getapi_admin_v1_catalog_snapshot
+      summary: "Consulta api admin v1 catalog snapshot"
+      x-artificio-owner: site
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/admin/v1/catalog/systems:
+    get:
+      operationId: getapi_admin_v1_catalog_systems
+      summary: "Consulta api admin v1 catalog systems"
+      x-artificio-owner: site
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/admin/v1/feedback:
     get:
       operationId: getapi_admin_v1_feedback
@@ -1038,6 +1238,206 @@ paths:
             schema:
               type: object
               additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/catalog/v1/nodes:
+    post:
+      operationId: postapi_catalog_v1_nodes
+      summary: "Cria ou executa api catalog v1 nodes"
+      x-artificio-owner: site
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/catalog/v1/nodes/{id}:
+    put:
+      operationId: putapi_catalog_v1_nodes_id
+      summary: "Substitui api catalog v1 nodes id"
+      x-artificio-owner: site
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/catalog/v1/nodes/{idOrSlug}:
+    get:
+      operationId: getapi_catalog_v1_nodes_idOrSlug
+      summary: "Consulta api catalog v1 nodes idOrSlug"
+      x-artificio-owner: site
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: idOrSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/catalog/v1/resolve:
+    get:
+      operationId: getapi_catalog_v1_resolve
+      summary: "Consulta api catalog v1 resolve"
+      x-artificio-owner: site
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/catalog/v1/snapshot:
+    get:
+      operationId: getapi_catalog_v1_snapshot
+      summary: "Consulta api catalog v1 snapshot"
+      x-artificio-owner: site
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/catalog/v1/systems:
+    get:
+      operationId: getapi_catalog_v1_systems
+      summary: "Consulta api catalog v1 systems"
+      x-artificio-owner: site
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
       responses:
         "200":
           description: OK

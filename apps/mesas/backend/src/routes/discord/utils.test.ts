@@ -47,6 +47,8 @@ vi.mock('../../discord/learningRules', () => ({
   lookupLearningRules: vi.fn().mockResolvedValue({ hits: [], conflicts: [] }),
   recordLearningRuleApplications: vi.fn().mockResolvedValue(undefined),
   recordLearningRulesFromCorrections: vi.fn().mockResolvedValue(undefined),
+  recordLabelAliasFromCorrection: vi.fn().mockResolvedValue(undefined),
+  loadActiveLabelAliases: vi.fn().mockResolvedValue({}),
 }));
 
 vi.mock('../../discord/syncHelpers', () => ({

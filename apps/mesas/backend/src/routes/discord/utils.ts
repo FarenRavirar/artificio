@@ -15,6 +15,8 @@ import {
   lookupLearningRules,
   recordLearningRuleApplications,
   recordLearningRulesFromCorrections,
+  recordLabelAliasFromCorrection,
+  loadActiveLabelAliases,
 } from '../../discord/learningRules';
 import {
   buildParseCaseContract,
@@ -227,6 +229,7 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
   }));
   await recordFieldLearning(learningEntries, guildId, userId);
   await recordLearningRulesFromCorrections(learningEntries, source ?? null, userId);
+  await recordLabelAliasFromCorrection(learningEntries, rawText, source ?? null, userId);
   await recordParseFeedbackForCorrections({
     draftId,
     diff,
@@ -491,7 +494,10 @@ export async function parseDiscordMessage(
     message_created_at: msg.message_created_at ? new Date(msg.message_created_at as string) : null,
     message_edited_at: msg.message_edited_at ? new Date(msg.message_edited_at as string) : null,
   };
-  const parsed = parseDiscordAnnouncement(raw, sys, replyContext, { vtt: vttPlatforms, communication: communicationPlatforms, scenarios });
+  // DEB-052-02: rótulos aprendidos de correção humana (label_alias), escopo
+  // por guild — estende a allowlist fixa sem precisar codificar cada variação.
+  const labelAliases = await loadActiveLabelAliases({ guild_id: raw.discord_guild_id || null });
+  const parsed = parseDiscordAnnouncement(raw, sys, replyContext, { vtt: vttPlatforms, communication: communicationPlatforms, scenarios }, labelAliases);
   if (!parsed) return null;
   const normalized = normalizeDiscordTableDraft(parsed, sys);
   return { parsed, normalized, systems: sys };

@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **289 operações**.
+Total: **301 operações**.
 
 ## accounts (11)
 
@@ -283,7 +283,7 @@ Total: **289 operações**.
 | POST | `/auth/logout` | self-service | user | active | — | Cria ou executa auth logout |
 | GET | `/og/{type}/{slug}` | media | none | active | — | Consulta og type slug |
 
-## site (32)
+## site (44)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -291,6 +291,12 @@ Total: **289 operações**.
 | GET | `/admin/preview/{type}/{id}` | admin | admin | active | — | Consulta admin preview type id |
 | POST | `/admin/rebuild` | admin | admin | active | — | Cria ou executa admin rebuild |
 | GET | `/admin/status` | admin | admin | active | — | Consulta admin status |
+| POST | `/api/admin/v1/catalog/nodes` | admin | admin | active | — | Cria ou executa api admin v1 catalog nodes |
+| PUT | `/api/admin/v1/catalog/nodes/{id}` | admin | admin | active | — | Substitui api admin v1 catalog nodes id |
+| GET | `/api/admin/v1/catalog/nodes/{idOrSlug}` | admin | admin | active | — | Consulta api admin v1 catalog nodes idOrSlug |
+| GET | `/api/admin/v1/catalog/resolve` | admin | admin | active | — | Consulta api admin v1 catalog resolve |
+| GET | `/api/admin/v1/catalog/snapshot` | admin | admin | active | — | Consulta api admin v1 catalog snapshot |
+| GET | `/api/admin/v1/catalog/systems` | admin | admin | active | — | Consulta api admin v1 catalog systems |
 | GET | `/api/admin/v1/feedback` | admin | admin | active | — | Consulta api admin v1 feedback |
 | DELETE | `/api/admin/v1/feedback/{id}` | admin | admin | active | — | Remove api admin v1 feedback id |
 | PATCH | `/api/admin/v1/feedback/{id}` | admin | admin | active | — | Atualiza api admin v1 feedback id |
@@ -317,6 +323,12 @@ Total: **289 operações**.
 | GET | `/api/admin/v1/slug-check` | admin | admin | active | — | Consulta api admin v1 slug-check |
 | GET | `/api/admin/v1/taxonomies` | admin | admin | active | — | Consulta api admin v1 taxonomies |
 | POST | `/api/admin/v1/taxonomies` | admin | admin | active | — | Cria ou executa api admin v1 taxonomies |
+| POST | `/api/catalog/v1/nodes` | public | user | active | — | Cria ou executa api catalog v1 nodes |
+| PUT | `/api/catalog/v1/nodes/{id}` | public | user | active | — | Substitui api catalog v1 nodes id |
+| GET | `/api/catalog/v1/nodes/{idOrSlug}` | public | none | active | — | Consulta api catalog v1 nodes idOrSlug |
+| GET | `/api/catalog/v1/resolve` | public | none | active | — | Consulta api catalog v1 resolve |
+| GET | `/api/catalog/v1/snapshot` | public | none | active | — | Consulta api catalog v1 snapshot |
+| GET | `/api/catalog/v1/systems` | public | none | active | — | Consulta api catalog v1 systems |
 | POST | `/api/feedback` | public | user | active | — | Cria ou executa api feedback |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 

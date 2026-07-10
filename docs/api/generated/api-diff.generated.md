@@ -11,6 +11,7 @@
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
 | mesas | ❌ 2 | ✅ 0 | ⚪ 0 |
+| site | ✅ 0 | ✅ 10 | ⚪ 0 |
 
 ---
 
@@ -22,4 +23,23 @@
 |------|--------|------|--------|
 | `` |  | remove | `path.remove` |
 | `` |  | remove | `path.remove` |
+
+---
+
+### site
+
+#### ✅ Non-breaking (10)
+
+| Path | Method | Ação |
+|------|--------|------|
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
 

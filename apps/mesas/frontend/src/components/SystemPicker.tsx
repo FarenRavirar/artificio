@@ -17,6 +17,7 @@ export type SystemPickerProps = Readonly<{
   onSuggest?: (query: string) => void;
   onCreateNow?: (query: string) => void;
   onEdit?: (node: SystemTreeNode) => void;
+  showEmptySearchResults?: boolean;
 }>;
 
 type VisibleSystemNode = Omit<SystemTreeNode, 'children'> & {
@@ -108,6 +109,7 @@ export function SystemPicker({
   onSuggest,
   onCreateNow,
   onEdit,
+  showEmptySearchResults = true,
 }: SystemPickerProps) {
   const [search, setSearch] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set(collectExpandableIds(tree)));
@@ -117,6 +119,7 @@ export function SystemPicker({
   const visibleTree = useMemo(() => filterTree(tree, search), [tree, search]);
   const allVisibleExpandableIds = useMemo(() => new Set(collectExpandableIds(visibleTree)), [visibleTree]);
   const normalizedSearch = normalizeText(search);
+  const shouldShowResults = showEmptySearchResults || normalizedSearch.length > 0;
 
   const toggleExpanded = (node: SystemTreeNode) => {
     if ((node.children ?? []).length === 0) return;
@@ -233,39 +236,41 @@ export function SystemPicker({
         />
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface)]">
-        {visibleTree.length > 0 ? (
-          visibleTree.map((node) => renderNode(node))
-        ) : (
-          <div className="space-y-3 p-4">
-            <p className="text-sm text-[var(--fg-muted)]">Nenhum sistema encontrado.</p>
-            {(canSuggest || canCreateNow) && (
-              <div className="flex flex-wrap gap-2">
-                {canSuggest && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm font-semibold text-[var(--fg)] hover:border-[var(--artificio-brand)]"
-                    onClick={() => onSuggest(search.trim())}
-                  >
-                    <Send className="h-4 w-4" />
-                    Sugerir cadeia
-                  </button>
-                )}
-                {canCreateNow && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--artificio-brand)] bg-[rgba(255,87,34,.1)] px-3 py-2 text-sm font-semibold text-[var(--artificio-brand)]"
-                    onClick={() => onCreateNow(search.trim())}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Criar agora
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {shouldShowResults && (
+        <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface)]">
+          {visibleTree.length > 0 ? (
+            visibleTree.map((node) => renderNode(node))
+          ) : (
+            <div className="space-y-3 p-4">
+              <p className="text-sm text-[var(--fg-muted)]">Nenhum sistema encontrado.</p>
+              {(canSuggest || canCreateNow) && (
+                <div className="flex flex-wrap gap-2">
+                  {canSuggest && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm font-semibold text-[var(--fg)] hover:border-[var(--artificio-brand)]"
+                      onClick={() => onSuggest(search.trim())}
+                    >
+                      <Send className="h-4 w-4" />
+                      Sugerir cadeia
+                    </button>
+                  )}
+                  {canCreateNow && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--artificio-brand)] bg-[rgba(255,87,34,.1)] px-3 py-2 text-sm font-semibold text-[var(--artificio-brand)]"
+                      onClick={() => onCreateNow(search.trim())}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Criar agora
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {selectedPaths.length > 0 && (
         <div className="space-y-2">
