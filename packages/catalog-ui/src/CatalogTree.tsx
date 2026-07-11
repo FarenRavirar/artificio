@@ -149,7 +149,7 @@ const CatalogTreeLevel = ({
         return (
           <div
             key={node.id}
-            className={`group flex min-h-14 items-center gap-2 border-t border-[var(--line)] px-3 py-2 text-[var(--fg)] first:border-t-0 hover:bg-[var(--surface-subtle)] ${
+            className={`group flex min-h-14 items-center gap-2 border-t border-[var(--line)] px-3 py-2.5 text-[var(--fg)] first:border-t-0 hover:bg-[var(--surface-subtle)] ${
               selected ? 'border-l-[3px] border-l-[var(--artificio-brand)] bg-[rgba(255,87,34,.1)]' : ''
             }`}
           >
@@ -163,14 +163,14 @@ const CatalogTreeLevel = ({
               }}
               aria-pressed={selected}
             >
-              <span className="block truncate text-[13px] font-bold">{node.name}</span>
-              <span className="block truncate text-[11px] text-[var(--fg-muted)]">
+              <span className="block text-[13px] font-bold">{node.name}</span>
+              <span className="block text-[11px] text-[var(--fg-muted)]">
                 nome PT: {node.name_pt || '—'}
               </span>
             </button>
 
             {aliasBadge && (
-              <span className="max-w-24 shrink-0 truncate rounded-full bg-[var(--fill)] px-2 py-0.5 text-[10px] text-[var(--fg-muted)]">
+              <span className="max-w-40 shrink-0 truncate rounded-full bg-[var(--fill)] px-2 py-0.5 text-[10px] text-[var(--fg-muted)] sm:max-w-64">
                 {aliasBadge}
               </span>
             )}
@@ -371,8 +371,13 @@ export function CatalogTree({
 
       {shouldShowResults && (
         <div className="space-y-3">
+          <div
+            className={`grid grid-cols-1 gap-3 ${
+              Math.min(levels.length, 3) === 2 ? 'md:grid-cols-2' : ''
+            } ${Math.min(levels.length, 3) === 3 ? 'md:grid-cols-3' : ''}`}
+          >
           {levels.map(({ depth, nodes }) => (
-            <div key={`level-${depth}`} className="space-y-1">
+            <div key={`level-${depth}`} className="min-w-0 space-y-1">
               {depth > 0 && (
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--fg-muted)]">
                   {LEVEL_LABEL_PLURAL[Math.min(depth, 2)]} de {effectiveNavPath[depth - 1]?.name}
@@ -394,6 +399,7 @@ export function CatalogTree({
               })}
             </div>
           ))}
+          </div>
 
           {noRootResults && (
             <div className="space-y-3 rounded-lg border border-[var(--line)] bg-[var(--surface)] p-4">
