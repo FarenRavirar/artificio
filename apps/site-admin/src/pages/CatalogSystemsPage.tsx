@@ -6,7 +6,17 @@ import { api, type CatalogNode, type CatalogNodeInput, type CatalogSnapshot } fr
  * para CatalogUiNode (pacote compartilhado, aliases como string[]). */
 function toUiNode(node: CatalogNode): CatalogUiNode {
   return {
-    ...node,
+    id: node.id,
+    parent_id: node.parent_id,
+    node_type: node.node_type,
+    name: node.name,
+    name_pt: node.name_pt,
+    canonical_slug: node.canonical_slug,
+    path_slug: node.path_slug,
+    description: node.description,
+    official_website_url: node.official_website_url,
+    logo_media_id: node.logo_media_id,
+    status: node.status,
     aliases: (Array.isArray(node.aliases) ? node.aliases : []).map((alias) => alias.alias),
     children: (Array.isArray(node.children) ? node.children : []).map(toUiNode),
   };
@@ -61,8 +71,12 @@ export function CatalogSystemsPage() {
         ? await api.updateCatalogNode(selected.id, body)
         : await api.createCatalogNode(body);
       note(selected ? "Nó atualizado." : "Nó criado.");
-      await api.getCatalogSnapshot().then(setSnapshot);
       setSelectedIds([node.id]);
+      try {
+        await api.getCatalogSnapshot().then(setSnapshot);
+      } catch (refreshError) {
+        note(`Nó salvo, mas falha ao atualizar a árvore: ${String((refreshError as Error).message)}`, true);
+      }
     } catch (e) {
       note(String((e as Error).message), true);
     } finally {

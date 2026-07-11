@@ -133,7 +133,7 @@ describe('CatalogTree', () => {
     expect(screen.getByText('2024')).toBeInTheDocument();
   });
 
-  it('busca filtra só o nível de sistemas', () => {
+  it('busca por nome distingue sistemas (raiz só mostra quem bate)', () => {
     render(
       <CatalogTree
         tree={tree}
@@ -149,6 +149,24 @@ describe('CatalogTree', () => {
 
     expect(screen.getByText('Vampire')).toBeInTheDocument();
     expect(screen.queryByText('Dungeons & Dragons')).not.toBeInTheDocument();
+  });
+
+  it('busca acha nó em qualquer nível e mostra o sistema ancestral na raiz (achado Codex PR #148)', () => {
+    render(
+      <CatalogTree
+        tree={tree}
+        selectedIds={[]}
+        onSelectionChange={vi.fn()}
+        idPrefix="systems"
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
+      target: { value: '5e' },
+    });
+
+    expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument();
+    expect(screen.queryByText('Vampire')).not.toBeInTheDocument();
   });
 
   it('oculta resultados vazios quando configurado como busca fechada', () => {
@@ -253,5 +271,47 @@ describe('CatalogTree', () => {
 
     expect(screen.getByRole('button', { name: /Adicionar sistema/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Adicionar edição/ })).toBeInTheDocument();
+  });
+
+  it('admin com onEdit vê botão de editar e chama o callback ao clicar', () => {
+    const onEdit = vi.fn();
+
+    render(
+      <CatalogTree
+        tree={tree}
+        selectedIds={[]}
+        onSelectionChange={vi.fn()}
+        idPrefix="systems"
+        role="admin"
+        onEdit={onEdit}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
+      target: { value: 'Dungeons' },
+    });
+
+    fireEvent.click(screen.getByLabelText('Editar Dungeons & Dragons'));
+
+    expect(onEdit).toHaveBeenCalledWith(tree[0]);
+  });
+
+  it('botão "+ Adicionar" chama onAddChildAtLevel com o pai correto quando não há onCreateNow (achado Codex PR #148)', () => {
+    const onAddChildAtLevel = vi.fn();
+
+    render(
+      <CatalogTree
+        tree={tree}
+        selectedIds={['dnd']}
+        onSelectionChange={vi.fn()}
+        idPrefix="systems"
+        role="admin"
+        onAddChildAtLevel={onAddChildAtLevel}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar edição/ }));
+
+    expect(onAddChildAtLevel).toHaveBeenCalledWith(1, tree[0]);
   });
 });

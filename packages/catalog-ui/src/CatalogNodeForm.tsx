@@ -79,9 +79,15 @@ export function CatalogNodeForm({
     selected ? nodeToForm(selected) : { ...EMPTY_FORM, ...newNodeDefaults },
   );
 
+  // Dependência por conteúdo (JSON), não por referência: um objeto newNodeDefaults
+  // recriado a cada render com o mesmo conteúdo não deve resetar o formulário que
+  // o usuário já está preenchendo (achado CodeRabbit PR #148).
+  const newNodeDefaultsKey = JSON.stringify(newNodeDefaults ?? null);
+
   useEffect(() => {
     setForm(selected ? nodeToForm(selected) : { ...EMPTY_FORM, ...newNodeDefaults });
-  }, [selected, newNodeDefaults]);
+    // newNodeDefaultsKey (JSON estável) é a dependência intencional, não newNodeDefaults (referência instável).
+  }, [selected, newNodeDefaultsKey]);
 
   const id = (suffix: string) => `${idPrefix}-${suffix}`;
 
@@ -108,7 +114,9 @@ export function CatalogNodeForm({
       >
         <option value="">Raiz</option>
         {parentOptions.map((node) => (
-          <option key={node.id} value={node.id}>{node.path_slug}</option>
+          <option key={node.id} value={node.id}>
+            {node.path_slug ? `${node.name} (${node.path_slug})` : node.name}
+          </option>
         ))}
       </select>
 

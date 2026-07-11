@@ -18,6 +18,11 @@ export type CatalogTreeProps = Readonly<{
   onCreateNow?: (query: string) => void;
   onEdit?: (node: CatalogUiNode) => void;
   showEmptySearchResults?: boolean;
+  /** Quando fornecida, o botão "+ Adicionar" de cada nível chama isso direto com o nó
+   * pai daquele nível (ou null na raiz) — usado por consumidores com formulário de
+   * criação embutido (ex.: CatalogExplorer), em vez do fluxo de busca+onCreateNow.
+   * Achado Codex (PR #148): sem isto, o botão só marcava um estado sem nenhuma ação. */
+  onAddChildAtLevel?: (depth: number, parent: CatalogUiNode | null) => void;
 }>;
 
 const nodeMatchesQuery = (node: CatalogUiNode, normalizedQuery: string): boolean => {
@@ -28,10 +33,18 @@ const nodeMatchesQuery = (node: CatalogUiNode, normalizedQuery: string): boolean
     || (node.aliases ?? []).some((alias) => normalizeText(alias).includes(normalizedQuery));
 };
 
+/** Acha match em qualquer nível (nome/slug/alias de sistema, edição ou variante) —
+ * comportamento do antigo filterTree do site-admin (achado Codex PR #148): buscar
+ * "5e" precisa achar a edição, não só sistemas de nível raiz cujo próprio nome bate. */
+const subtreeMatchesQuery = (node: CatalogUiNode, normalizedQuery: string): boolean => {
+  if (nodeMatchesQuery(node, normalizedQuery)) return true;
+  return (node.children ?? []).some((child) => subtreeMatchesQuery(child, normalizedQuery));
+};
+
 const filterRoots = (nodes: CatalogUiNode[], query: string): CatalogUiNode[] => {
   const normalizedQuery = normalizeText(query);
   if (!normalizedQuery) return nodes;
-  return nodes.filter((node) => nodeMatchesQuery(node, normalizedQuery));
+  return nodes.filter((node) => subtreeMatchesQuery(node, normalizedQuery));
 };
 
 const findPath = (nodes: CatalogUiNode[], id: string): CatalogUiNode[] | null => {
@@ -165,7 +178,7 @@ const CatalogTreeLevel = ({
             {role === 'admin' && onEdit && (
               <button
                 type="button"
-                className="hidden h-7 w-7 shrink-0 items-center justify-center rounded text-[var(--fg-muted)] hover:bg-[var(--fill)] hover:text-[var(--fg)] group-hover:flex"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-[var(--fg-muted)] opacity-0 hover:bg-[var(--fill)] hover:text-[var(--fg)] focus-visible:opacity-100 group-hover:opacity-100"
                 onClick={() => onEdit(node)}
                 aria-label={`Editar ${node.name}`}
                 title="Editar"
@@ -205,7 +218,7 @@ type RenderLevelContentArgs = Readonly<{
   onSelectAtLevel: (depth: number, node: CatalogUiNode) => void;
   onToggleMultiAtRoot: (node: CatalogUiNode) => void;
   onEdit?: (node: CatalogUiNode) => void;
-  onAddAtLevel: (depth: number) => void;
+  onAddAtLevel: (depth: number, parent: CatalogUiNode | null) => void;
 }>;
 
 /** 3 ramos explícitos: nada a mostrar (raiz vazia já coberta por noRootResults),
@@ -248,7 +261,7 @@ const renderLevelContent = ({
       multiSelectedIds={depth === 0 && mode === 'multi' ? selectedIdSet : undefined}
       role={role}
       onEdit={onEdit}
-      onAdd={role === 'admin' ? () => onAddAtLevel(depth) : undefined}
+      onAdd={role === 'admin' ? () => onAddAtLevel(depth, effectiveNavPath[depth - 1] ?? null) : undefined}
     />
   );
 };
@@ -265,9 +278,15 @@ export function CatalogTree({
   onCreateNow,
   onEdit,
   showEmptySearchResults = false,
+  onAddChildAtLevel,
 }: CatalogTreeProps) {
   const [search, setSearch] = useState('');
   const [pendingAddDepth, setPendingAddDepth] = useState<number | null>(null);
+
+  const handleAddAtLevel = (depth: number, parent: CatalogUiNode | null) => {
+    setPendingAddDepth(depth);
+    onAddChildAtLevel?.(depth, parent);
+  };
 
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedPaths = useMemo(() => collectSelectedPaths(tree, selectedIds), [tree, selectedIds]);
@@ -297,12 +316,15 @@ export function CatalogTree({
       return;
     }
 
-    const basePath = effectiveNavPath.slice(0, depth);
-    setNavPath([...basePath, node]);
-
     if (mode === 'single') {
       onSelectionChange([node.id]);
+      // navPath não precisa ser setado aqui: em modo single, effectiveNavPath deriva
+      // de selectedPaths[0] (achado CodeRabbit PR #148 — setNavPath era sem efeito).
+      return;
     }
+
+    const basePath = effectiveNavPath.slice(0, depth);
+    setNavPath([...basePath, node]);
   };
 
   const toggleMultiAtRoot = (node: CatalogUiNode) => {
@@ -368,7 +390,7 @@ export function CatalogTree({
                 onSelectAtLevel: handleSelectAtLevel,
                 onToggleMultiAtRoot: toggleMultiAtRoot,
                 onEdit,
-                onAddAtLevel: setPendingAddDepth,
+                onAddAtLevel: handleAddAtLevel,
               })}
             </div>
           ))}
