@@ -16,6 +16,7 @@
   "dependencies": {
     "@artificio/analytics": "workspace:*",
     "@artificio/auth": "workspace:*",
+    "@artificio/catalog-ui": "workspace:*",
     "@artificio/config": "workspace:*",
     "@artificio/ui": "workspace:*",
     "@tailwindcss/postcss": "^4.3.1",

@@ -12,6 +12,7 @@
     "test": "echo \"(site-admin) test TODO\""
   },
   "dependencies": {
+    "@artificio/catalog-ui": "workspace:*",
     "@artificio/ui": "workspace:*",
     "@blocknote/core": "^0.51.4",
     "@blocknote/mantine": "^0.51.4",

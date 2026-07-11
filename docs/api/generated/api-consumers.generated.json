@@ -2507,7 +2507,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createCatalogNode",
-      "line": 84
+      "line": 62
     },
     {
       "app": "site-admin",
@@ -2517,7 +2517,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updateCatalogNode",
-      "line": 83
+      "line": 61
     },
     {
       "app": "site-admin",
@@ -2527,7 +2527,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.getCatalogSnapshot",
-      "line": 45
+      "line": 48
     },
     {
       "app": "site-admin",
