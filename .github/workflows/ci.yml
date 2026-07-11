@@ -115,7 +115,11 @@ jobs:
 
       - name: Fetch base ref (for api:diff)
         if: github.event_name == 'pull_request'
-        run: git fetch --no-tags --depth=2 origin ${{ github.base_ref }}
+        # Achado durante revisao PR #145: fetch sem refspec de destino so popula
+        # FETCH_HEAD, nao cria a ref 'origin/<base>' que diff-api.ts espera —
+        # api:diff silenciosamente tratava a base como "arquivo novo" (0 mudancas)
+        # em vez de comparar de verdade contra o branch base real.
+        run: git fetch --no-tags --depth=2 origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
 
       - name: Install
         run: pnpm install --frozen-lockfile
