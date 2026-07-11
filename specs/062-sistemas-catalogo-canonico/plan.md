@@ -380,6 +380,26 @@ Consequência prática pra I0a.9 (Discord) e pras 3 telas mockadas na sessão de
 
 **Gate duro de sincronização migration↔frontend:** antes da correção, `name` de nó contaminado inclui o prefixo do pai; depois, só o nome próprio. Se o deploy do frontend (que exibe `name` direto, sem mais compor nada) não for estritamente posterior à migration confirmada em cada ambiente, há janela de exibição incompleta: frontend exibindo árvore antes da correção mostra nome ainda contaminado (inofensivo, só feio); frontend novo lendo dado ainda não corrigido mostra a mesma coisa (também inofensivo — a diferença de I0b não é mais "duplicar texto", é só "ainda não ficou bonito"). Ordem por ambiente ainda recomendada por disciplina de deploy, mesmo sem o risco de duplicação anterior: (1) rodar I0b.1-4 em beta, confirmar via query, (2) smoke visual em beta, (3) repetir em prod só depois de aprovação explícita de promote+deploy prod (nenhuma automação — segue trava pétrea do AGENTS.md sobre promote nunca disparar deploy).
 
+## I8 — `packages/catalog-ui`: unificar árvore + formulário de nó entre `mesas-frontend` e `site-admin` (mudança de decisão, 2026-07-11)
+
+**Contexto que mudou a decisão anterior.** I6 (ver acima) tinha registrado achado do mantenedor (2026-07-10, pós-deploy PR #144) sobre o `SystemSuggestionModal.tsx` do Mesas não ter campos que o `CatalogSystemsPage.tsx` do site-admin já tinha (aliases, logo, website, criação de cadeia). Na época a decisão foi **rota 1** (ampliar só o formulário do Mesas, campo a campo, sem extrair pacote) — "menor prioridade" que os campos ausentes, avaliar rota 2 "só se o padrão se repetir num terceiro consumidor".
+
+**O padrão se repetiu no próprio 2º consumidor, não no 3º — motivo pra reverter a decisão agora:** o mesmo bug de fundo (árvore inteira renderizada sem filtro, inutilizável com 1289 nós reais pós-import I2) apareceu de forma **independente** em dois lugares com lógica quase idêntica e implementações divergentes:
+
+- `apps/mesas/frontend/src/components/SystemPicker.tsx` — corrigido nesta spec (PR #147): árvore em cascata por nível (sistema→edição→variante), busca só filtra raiz, sem busca não lista nada.
+- `apps/site-admin/src/pages/CatalogSystemsPage.tsx` — mesmo sintoma (`filterTree` retorna a árvore inteira quando `query` vazia), ainda não corrigido; formulário de nó tem os campos completos (tipo, pai, nome, nome PT, slug, aliases, logo, website, descrição) que o Mesas não tem.
+
+**Decisão do mantenedor (2026-07-11):** não são mais 2 fixes pontuais em lugares diferentes — é a mesma função (árvore navegável de catálogo + formulário de edição de nó com aliases por nível) duplicada com drift. Extrair pacote compartilhado agora, consumido por `mesas-frontend` e `site-admin`; corrigir/otimizar num local reflete nos dois. Isso reabre a rota 2 descartada em I6 — motivo documentado aqui para não re-decidir de novo no futuro.
+
+**Escopo (SDD Completo — pacote novo em `packages/*`, trava do AGENTS.md):**
+
+- Novo pacote `packages/catalog-ui` (nome provisório, confirmar disponibilidade/convenção antes de criar): componente de árvore em cascata (extraído de `SystemPicker.tsx`, mesmo comportamento validado na PR #147 — busca só filtra raiz, drill-down por nível, sem listar tudo sem busca) + formulário de edição/criação de nó com todos os campos que hoje só existem em `CatalogSystemsPage` (tipo, pai, nome, nome PT, slug, **aliases próprios por nível** — sistema tem os seus, edição os seus, variante os seus, sem herança —, logo, website oficial, descrição).
+- **Fluxo de edição unificado exigido pelo mantenedor:** ao escolher/selecionar um nó em qualquer consumidor, o painel de edição completo (mesmo formulário do `CatalogSystemsPage` atual) deve aparecer, permitindo editar todos os campos incluindo aliases daquele nível específico — não só nome/seleção como o `SystemPicker` faz hoje no Mesas.
+- `mesas-frontend` (`SystemPicker.tsx` e os 6 consumidores dele) e `site-admin` (`CatalogSystemsPage.tsx`) passam a consumir o pacote novo; lógica de árvore/busca/formulário sai dos apps e vive só no pacote.
+- Cada app mantém as diferenças de **contexto de uso** (papéis `admin`/`user`, ação de sugerir vs. criar direto, integração com `SystemSuggestionModal`, estilos por design system de cada app se necessário) — a lógica compartilhada é a estrutura de dado/árvore/formulário, não a casca visual de cada app.
+- Requer `spec.md`/`plan.md`/`tasks.md` formais de SDD Completo (mudança em pacote compartilhado) antes de codar — este registro em plan.md/tasks.md da própria 062 cobre a decisão e o escopo; detalhamento fase-a-fase entra em tasks.md abaixo.
+- Migration de dados **não é necessária** — dado já vive no serviço central (I1/I2); é reorganização de código de apresentação/edição, sem tocar schema.
+
 ## Gates
 
 - arquitetura aprovada antes da etapa de código — cumprido;

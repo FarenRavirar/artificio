@@ -4,6 +4,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { SystemPicker } from './SystemPicker';
 import type { SystemTreeNode } from '../types/systems';
 
+// Comportamento de árvore em cascata/busca/multi-seleção é coberto em
+// packages/catalog-ui/src/CatalogTree.test.tsx (I8.6, spec 062). Este arquivo
+// cobre só o que é específico do wrapper: mapeamento SystemTreeNode -> CatalogUiNode.
 const tree: SystemTreeNode[] = [
   {
     id: 'dnd',
@@ -14,58 +17,12 @@ const tree: SystemTreeNode[] = [
     node_type: 'system',
     path_slug: 'dungeons-dragons',
     aliases: ['D&D', 'DnD'],
-    children: [
-      {
-        id: 'dnd-3-5',
-        name: '3.5e',
-        name_pt: null,
-        slug: '3-5e',
-        parent_id: 'dnd',
-        node_type: 'edition',
-        path_slug: 'dungeons-dragons/3-5e',
-        aliases: [],
-        children: [],
-      },
-      {
-        id: 'dnd-5e',
-        name: '5e',
-        name_pt: '5ª edição',
-        slug: '5e',
-        parent_id: 'dnd',
-        node_type: 'edition',
-        path_slug: 'dungeons-dragons/5e',
-        aliases: ['5th ed'],
-        children: [
-          {
-            id: 'dnd-2024',
-            name: '2024',
-            name_pt: null,
-            slug: '2024',
-            parent_id: 'dnd-5e',
-            node_type: 'variant',
-            path_slug: 'dungeons-dragons/5e/2024',
-            aliases: [],
-            children: [],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'vampiro',
-    name: 'Vampire',
-    name_pt: 'Vampiro',
-    slug: 'vampire',
-    parent_id: null,
-    node_type: 'system',
-    path_slug: 'vampire',
-    aliases: [],
     children: [],
   },
 ];
 
-describe('SystemPicker', () => {
-  it('mostra só sistemas raiz por padrão, sem expandir edições/variantes', () => {
+describe('SystemPicker (wrapper mesas sobre @artificio/catalog-ui)', () => {
+  it('mapeia slug (SystemTreeNode) e renderiza via CatalogTree', () => {
     render(
       <SystemPicker
         tree={tree}
@@ -75,95 +32,17 @@ describe('SystemPicker', () => {
       />
     );
 
-    expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument();
-    expect(screen.getByText('Vampire')).toBeInTheDocument();
-    expect(screen.queryByText('5e')).not.toBeInTheDocument();
-    expect(screen.queryByText('2024')).not.toBeInTheDocument();
-  });
-
-  it('ao selecionar sistema, mostra edições dele; ao selecionar edição, mostra variantes', () => {
-    const onSelectionChange = vi.fn();
-    const { rerender } = render(
-      <SystemPicker
-        tree={tree}
-        selectedIds={[]}
-        onSelectionChange={onSelectionChange}
-        idPrefix="systems"
-      />
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /Dungeons & Dragons/ }));
-    expect(onSelectionChange).toHaveBeenCalledWith(['dnd']);
-
-    rerender(
-      <SystemPicker
-        tree={tree}
-        selectedIds={['dnd']}
-        onSelectionChange={onSelectionChange}
-        idPrefix="systems"
-      />
-    );
-
-    expect(screen.getByText('3.5e')).toBeInTheDocument();
-    expect(screen.getByText('5e')).toBeInTheDocument();
-    expect(screen.queryByText('2024')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /^5e/ }));
-    expect(onSelectionChange).toHaveBeenCalledWith(['dnd-5e']);
-
-    rerender(
-      <SystemPicker
-        tree={tree}
-        selectedIds={['dnd-5e']}
-        onSelectionChange={onSelectionChange}
-        idPrefix="systems"
-      />
-    );
-
-    expect(screen.getByText('2024')).toBeInTheDocument();
-  });
-
-  it('busca filtra só o nível de sistemas', () => {
-    render(
-      <SystemPicker
-        tree={tree}
-        selectedIds={[]}
-        onSelectionChange={vi.fn()}
-        idPrefix="systems"
-      />
-    );
+    expect(screen.queryByText('Dungeons & Dragons')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
-      target: { value: 'Vamp' },
-    });
-
-    expect(screen.getByText('Vampire')).toBeInTheDocument();
-    expect(screen.queryByText('Dungeons & Dragons')).not.toBeInTheDocument();
-  });
-
-  it('oculta resultados vazios quando configurado como busca fechada', () => {
-    render(
-      <SystemPicker
-        tree={tree}
-        selectedIds={[]}
-        onSelectionChange={vi.fn()}
-        idPrefix="systems"
-        showEmptySearchResults={false}
-      />,
-    );
-
-    expect(screen.queryByText('Dungeons & Dragons')).not.toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText('Buscar sistema...'), {
       target: { value: 'Dungeons' },
     });
 
     expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument();
   });
 
-  it('mostra ações por role quando busca não encontra resultado', () => {
-    const onSuggest = vi.fn();
-    const onCreateNow = vi.fn();
+  it('onEdit recebe o SystemTreeNode original (não o CatalogUiNode mapeado)', () => {
+    const onEdit = vi.fn();
 
     render(
       <SystemPicker
@@ -172,23 +51,20 @@ describe('SystemPicker', () => {
         onSelectionChange={vi.fn()}
         idPrefix="systems"
         role="admin"
-        onSuggest={onSuggest}
-        onCreateNow={onCreateNow}
+        onEdit={onEdit}
       />
     );
 
     fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
-      target: { value: 'Shadowdark' },
+      target: { value: 'Dungeons' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Sugerir/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Criar agora/i }));
+    fireEvent.click(screen.getByLabelText('Editar Dungeons & Dragons'));
 
-    expect(onSuggest).toHaveBeenCalledWith('Shadowdark');
-    expect(onCreateNow).toHaveBeenCalledWith('Shadowdark');
+    expect(onEdit).toHaveBeenCalledWith(tree[0]);
   });
 
-  it('em modo multi, clicar no sistema também revela edições (drill-down independente da seleção)', () => {
+  it('seleção retorna IDs originais (single)', () => {
     const onSelectionChange = vi.fn();
 
     render(
@@ -197,47 +73,15 @@ describe('SystemPicker', () => {
         selectedIds={[]}
         onSelectionChange={onSelectionChange}
         idPrefix="systems"
-        mode="multi"
+        mode="single"
       />
     );
 
+    fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
+      target: { value: 'Dungeons' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /Dungeons & Dragons/ }));
 
     expect(onSelectionChange).toHaveBeenCalledWith(['dnd']);
-    expect(screen.getByText('3.5e')).toBeInTheDocument();
-    expect(screen.getByText('5e')).toBeInTheDocument();
-  });
-
-  it('permite múltipla seleção de sistemas e remoção individual', () => {
-    const onSelectionChange = vi.fn();
-
-    render(
-      <SystemPicker
-        tree={tree}
-        selectedIds={['dnd', 'vampiro']}
-        onSelectionChange={onSelectionChange}
-        idPrefix="systems"
-        mode="multi"
-      />
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Remover Vampire' }));
-    expect(onSelectionChange).toHaveBeenCalledWith(['dnd']);
-  });
-
-  it('admin vê botão de adicionar em cada nível', () => {
-    render(
-      <SystemPicker
-        tree={tree}
-        selectedIds={['dnd']}
-        onSelectionChange={vi.fn()}
-        idPrefix="systems"
-        role="admin"
-        onCreateNow={vi.fn()}
-      />
-    );
-
-    expect(screen.getByRole('button', { name: /Adicionar sistema/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Adicionar edição/ })).toBeInTheDocument();
   });
 });
