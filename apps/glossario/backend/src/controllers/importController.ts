@@ -37,6 +37,15 @@ interface ImportResult {
   term_id?: string;         // Preenchido em update_own
   changed_fields?: string[]; // Preenchido em update_own
   override_author?: string | null; // Preenchido em override
+  // Achado CodeRabbit (PR #145): notificacao de override nao pode rodar
+  // dentro da transacao do import (falha na query aborta o lote inteiro).
+  // Payload guardado aqui e disparado por runApplyImport so depois do COMMIT.
+  pending_notification?: {
+    termId: string;
+    actorId: string;
+    status: string | null;
+    eventType: 'term.updated' | 'term.moderated';
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -618,20 +627,12 @@ async function applyAdminOverrideImportRow(params: ApplyAdminOverrideImportRowPa
 
   await applyTermUpdate(client, userId, found, candidates, historyEntries);
 
-  try {
-    await notifyTermOwnerOnModeration(
-      {
-        termId: found.id,
-        actorId: userId,
-        status: stringifyTrackedValue(candidates.status),
-        eventType: 'term.updated',
-      },
-      client
-    );
-  } catch (notifyError) {
-    console.error('[notifications] Falha ao gerar notificação de override por import:', notifyError);
-  }
-
+  // Achado CodeRabbit (PR #145): notificacao rodava com o mesmo client
+  // transacional, dentro do loop de import. Se a query de notificacao
+  // falhasse, o Postgres aborta a transacao inteira (mesmo com o erro
+  // silenciado aqui) — o COMMIT final em runApplyImport vira rollback
+  // implicito, descartando o lote inteiro por causa de uma notificacao.
+  // Payload devolvido para runApplyImport disparar so apos o COMMIT.
   return {
     action: 'override',
     name_en: row.name_en!,
@@ -639,6 +640,12 @@ async function applyAdminOverrideImportRow(params: ApplyAdminOverrideImportRowPa
     term_id: found.id,
     changed_fields: historyEntries.map((entry) => entry.field),
     override_author: found.added_by_name ?? found.added_by ?? null,
+    pending_notification: {
+      termId: found.id,
+      actorId: userId,
+      status: stringifyTrackedValue(candidates.status),
+      eventType: 'term.updated',
+    },
   };
 }
 
@@ -776,6 +783,18 @@ async function runApplyImport(
 
     await client.query('COMMIT');
 
+    // Achado CodeRabbit (PR #145): notificacoes de override so disparam apos
+    // o COMMIT (fora da transacao) — falha aqui nao pode mais reverter o
+    // lote ja commitado. Melhor esforco: erro de notificacao so loga.
+    for (const result of results) {
+      if (!result.pending_notification) continue;
+      try {
+        await notifyTermOwnerOnModeration(result.pending_notification);
+      } catch (notifyError) {
+        console.error('[notifications] Falha ao gerar notificação de override por import:', notifyError);
+      }
+    }
+
     const summary = {
       total:      results.length,
       inserted:   results.filter(r => r.action === 'insert').length,
@@ -784,7 +803,11 @@ async function runApplyImport(
       duplicates: results.filter(r => r.action === 'duplicate').length,
     };
 
-    return res.status(200).json({ summary, results });
+    // pending_notification é detalhe interno (payload de notificação já
+    // disparada acima) — não deve vazar para o corpo da resposta pública.
+    const publicResults = results.map(({ pending_notification: _pending_notification, ...rest }) => rest);
+
+    return res.status(200).json({ summary, results: publicResults });
   } catch (err) {
     try {
       await client.query('ROLLBACK');
@@ -825,18 +848,31 @@ export const importTerms = async (req: AuthedRequest, res: Response) => {
   const isAdmin = userRole === 'admin';
   const batchId = randomUUID();
 
-  const rows: ImportRow[] = req.body?.terms;
+  // Achado CodeRabbit (PR #145): terms vinha tipado como ImportRow[] direto do
+  // body sem checagem de item — `terms: [null]` passava no Array.isArray e
+  // estourava 500 mais adiante (sanitizeTermFields faz spread do item, que
+  // lanca TypeError em null/undefined). Body de API e' unknown ate' passar
+  // por normalizador: aqui so aceitamos itens que sao objeto nao-nulo antes
+  // de seguir com o processamento (validacao de campo especifico continua
+  // em applyImportRow/previewImportRow, que ja tratam name_en/name_pt vazios).
+  const rawTerms: unknown = req.body?.terms;
   const dryRun: boolean   = req.body?.dry_run === true;
   const adminChosenNucleus: AdminImportNucleus = parseAdminImportNucleus(req.body?.import_nucleus);
   const insertStatus = isAdmin ? 'verificado' : 'pendente';
 
-  if (!Array.isArray(rows) || rows.length === 0) {
+  if (!Array.isArray(rawTerms) || rawTerms.length === 0) {
     return res.status(400).json({ message: 'Nenhum termo enviado para importação.' });
   }
 
-  if (rows.length > 2000) {
+  if (rawTerms.length > 2000) {
     return res.status(400).json({ message: 'Máximo de 2000 termos por importação.' });
   }
+
+  if (rawTerms.some((item) => typeof item !== 'object' || item === null)) {
+    return res.status(400).json({ message: 'Formato inválido: cada termo deve ser um objeto.' });
+  }
+
+  const rows: ImportRow[] = rawTerms as ImportRow[];
 
   const runParams: ImportRunParams = { rows, userId, userRole, isAdmin, adminChosenNucleus, insertStatus, batchId };
 
