@@ -103,33 +103,10 @@ router.patch('/me/profile', authMiddleware, async (req: Request, res: Response) 
 // PATCH /api/v1/profile/me/player — Atualizar perfil de jogador
 // =============================================================================
 
-router.patch('/me/player', authMiddleware, async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-
-  if (!userId) {
-    return res.status(401).json({ error: 'Não autenticado' });
-  }
-
-  const { experience_level, playstyle, preferred_days, preferred_time, pricing_preference } =
-    req.body;
-
-  try {
-    const player = await profileService.updatePlayerProfile(userId, {
-      experience_level,
-      playstyle,
-      preferred_days,
-      preferred_time,
-      pricing_preference,
-    });
-    return res.json({ data: player });
-  } catch (error: unknown) {
-    console.error('[PATCH /profile/me/player]', error);
-    return res.status(500).json({ error: 'Erro ao atualizar perfil de jogador' });
-  }
-});
-
-// Alias para compatibilidade com frontend
-router.patch('/player', authMiddleware, async (req: Request, res: Response) => {
+// Achado Sonar (PR #145): '/me/player' e '/player' (alias de compatibilidade
+// com frontend) tinham handler identico duplicado. Extraido handler
+// compartilhado, registrado nas duas rotas.
+async function updatePlayerProfileHandler(req: Request, res: Response) {
   const userId = req.user?.userId;
 
   if (!userId) {
@@ -152,56 +129,20 @@ router.patch('/player', authMiddleware, async (req: Request, res: Response) => {
     console.error('[PATCH /profile/player]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil de jogador' });
   }
-});
+}
+
+router.patch('/me/player', authMiddleware, updatePlayerProfileHandler);
+// Alias para compatibilidade com frontend
+router.patch('/player', authMiddleware, updatePlayerProfileHandler);
 
 // =============================================================================
 // PATCH /api/v1/profile/me/gm — Atualizar perfil de mestre
 // =============================================================================
 
-router.patch('/me/gm', authMiddleware, async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-
-  if (!userId) {
-    return res.status(401).json({ error: 'Não autenticado' });
-  }
-
-  const {
-    nickname,
-    bio_long,
-    avatar_url,
-    banner_url,
-    languages,
-    specialties,
-    experience_years,
-    average_price,
-    gm_style,
-    tools,
-    game_format,
-  } = req.body;
-
-  try {
-    const gm = await profileService.updateGmProfile(userId, {
-      nickname,
-      bio_long,
-      avatar_url,
-      banner_url,
-      languages,
-      specialties,
-      experience_years,
-      average_price,
-      gm_style,
-      tools,
-      game_format,
-    });
-    return res.json({ data: gm });
-  } catch (error: unknown) {
-    console.error('[PATCH /profile/me/gm]', error);
-    return res.status(500).json({ error: 'Erro ao atualizar perfil de mestre' });
-  }
-});
-
-// Alias para compatibilidade com frontend
-router.patch('/gm', authMiddleware, async (req: Request, res: Response) => {
+// Achado Sonar (PR #145): '/me/gm' e '/gm' (alias de compatibilidade com
+// frontend) tinham handler identico duplicado. Extraido handler
+// compartilhado, registrado nas duas rotas.
+async function updateGmProfileHandler(req: Request, res: Response) {
   const userId = req.user?.userId;
 
   if (!userId) {
@@ -241,7 +182,11 @@ router.patch('/gm', authMiddleware, async (req: Request, res: Response) => {
     console.error('[PATCH /profile/gm]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil de mestre' });
   }
-});
+}
+
+router.patch('/me/gm', authMiddleware, updateGmProfileHandler);
+// Alias para compatibilidade com frontend
+router.patch('/gm', authMiddleware, updateGmProfileHandler);
 
 // Alias para compatibilidade com frontend
 router.post('/systems', authMiddleware, async (req: Request, res: Response) => {

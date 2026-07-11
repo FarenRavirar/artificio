@@ -15,6 +15,7 @@
   "type": "commonjs",
   "dependencies": {
     "@artificio/auth": "workspace:*",
+    "@artificio/catalog-client": "workspace:*",
     "@artificio/changelog": "workspace:*",
     "@artificio/feedback": "workspace:*",
     "bcrypt": "^6.0.0",

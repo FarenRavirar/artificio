@@ -1,6 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
+import {
+  slugifyPlatformName as slugify,
+  normalizePlatformWebsiteUrl as normalizeWebsiteUrl,
+  isPlatformUniqueViolation as isUniqueViolation,
+  getPlatformErrorMessage as getErrorMessage,
+} from '../utils/platformUtils';
 
 const router = Router();
 
@@ -11,44 +17,6 @@ interface CommunicationPlatformPayload {
   sort_order?: number;
   is_active?: boolean;
 }
-
-const slugify = (value: string): string => (
-  value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 100)
-);
-
-const normalizeWebsiteUrl = (value?: string | null): string | null => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  try {
-    const url = new URL(trimmed);
-    return url.toString();
-  } catch {
-    throw new Error('URL da plataforma inválida.');
-  }
-};
-
-const isUniqueViolation = (error: unknown): boolean => {
-  if (!error || typeof error !== 'object' || !('code' in error)) {
-    return false;
-  }
-
-  return (error as { code?: string }).code === '23505';
-};
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  return 'Erro interno';
-};
 
 // GET /api/v1/communication-platforms — Catálogo público (somente ativos)
 router.get('/', async (_req: Request, res: Response) => {

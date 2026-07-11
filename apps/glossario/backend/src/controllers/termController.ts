@@ -171,29 +171,84 @@ export const approveTerm = async (req: AuthedRequest, res: Response) => {
   }
 };
 
+const UPDATE_TERM_ALLOWED_FIELDS = [
+  'name_en',
+  'name_pt',
+  'nucleus',
+  'status',
+  'source_type',
+  'system_id',
+  'edition_id',
+  'scenario_id',
+  'category_id',
+  'book_reference',
+  'page_reference',
+  'additional_info',
+] as const;
+
+const hasText = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
+
+// Achado Sonar (PR #145): updateTerm tinha complexidade cognitiva 19 (validacao
+// de negocio + montagem de UPDATE + hidratacao + notificacao, tudo num bloco).
+// Validacao de negocio extraida para reduzir aninhamento no handler.
+function validateUpdateTermBusinessRules(
+  body: Record<string, unknown>,
+  current: Record<string, unknown>,
+  hasField: (field: (typeof UPDATE_TERM_ALLOWED_FIELDS)[number]) => boolean,
+): string | null {
+  const finalNucleus = hasField('nucleus') ? body.nucleus : current.nucleus;
+  const finalBookReference = hasField('book_reference') ? body.book_reference : current.book_reference;
+  const finalPageReference = hasField('page_reference') ? body.page_reference : current.page_reference;
+  const finalSourceType = hasField('source_type') ? body.source_type : current.source_type;
+  const finalSystemId = hasField('system_id') ? body.system_id : current.system_id;
+  const finalScenarioId = hasField('scenario_id') ? body.scenario_id : current.scenario_id;
+
+  if (finalNucleus === 'oficial' && (!hasText(finalBookReference) || !hasText(finalPageReference))) {
+    return 'Termos oficiais exigem Livro e Página de referência.';
+  }
+  if (finalSourceType === 'sistema' && !finalSystemId) {
+    return 'Termos do tipo sistema exigem um sistema vinculado.';
+  }
+  if (finalSourceType === 'cenario' && !finalScenarioId) {
+    return 'Termos do tipo cenário exigem um cenário vinculado.';
+  }
+  return null;
+}
+
+async function hydrateUpdatedTerm(updatedId: string) {
+  const hydrated = await db.query(
+    `SELECT t.*,
+            t.nucleus as source_tier,
+            sc.name as scenario_name,
+            CASE
+              WHEN cg.id IS NOT NULL THEN cp.name
+              WHEN cp.id IS NOT NULL AND cp.parent_id IS NULL THEN c.name
+              ELSE c.name
+            END as category_name,
+            CASE
+              WHEN cg.id IS NOT NULL THEN c.name
+              ELSE NULL
+            END as subcategory_name,
+            u.full_name as added_by_name
+     FROM terms t
+     LEFT JOIN scenarios sc ON t.scenario_id = sc.id
+     LEFT JOIN categories c ON t.category_id = c.id
+     LEFT JOIN categories cp ON c.parent_id = cp.id
+     LEFT JOIN categories cg ON cp.parent_id = cg.id
+     LEFT JOIN users u ON t.added_by = u.id
+     WHERE t.id = $1`,
+    [updatedId]
+  );
+  const [updatedTerm] = await hydrateCatalogNames(hydrated.rows);
+  return updatedTerm;
+}
+
 export const updateTerm = async (req: AuthedRequest, res: Response) => {
   const { id } = req.params;
   req.body = { ...req.body, ...sanitizeTermFields(req.body) };
 
-  const allowedFields = [
-    'name_en',
-    'name_pt',
-    'nucleus',
-    'status',
-    'source_type',
-    'system_id',
-    'edition_id',
-    'scenario_id',
-    'category_id',
-    'book_reference',
-    'page_reference',
-    'additional_info',
-  ] as const;
-
-  const hasField = (field: (typeof allowedFields)[number]) =>
+  const hasField = (field: (typeof UPDATE_TERM_ALLOWED_FIELDS)[number]) =>
     Object.prototype.hasOwnProperty.call(req.body, field);
-
-  const hasText = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
 
   try {
     const existing = await db.query('SELECT * FROM terms WHERE id = $1', [id]);
@@ -201,30 +256,15 @@ export const updateTerm = async (req: AuthedRequest, res: Response) => {
       return res.status(404).json({ message: 'Termo não encontrado.' });
     }
 
-    const current = existing.rows[0];
-    const finalNucleus = hasField('nucleus') ? req.body.nucleus : current.nucleus;
-    const finalBookReference = hasField('book_reference') ? req.body.book_reference : current.book_reference;
-    const finalPageReference = hasField('page_reference') ? req.body.page_reference : current.page_reference;
-    const finalSourceType = hasField('source_type') ? req.body.source_type : current.source_type;
-    const finalSystemId = hasField('system_id') ? req.body.system_id : current.system_id;
-    const finalScenarioId = hasField('scenario_id') ? req.body.scenario_id : current.scenario_id;
-
-    if (finalNucleus === 'oficial' && (!hasText(finalBookReference) || !hasText(finalPageReference))) {
-      return res.status(400).json({ message: 'Termos oficiais exigem Livro e Página de referência.' });
-    }
-
-    if (finalSourceType === 'sistema' && !finalSystemId) {
-      return res.status(400).json({ message: 'Termos do tipo sistema exigem um sistema vinculado.' });
-    }
-
-    if (finalSourceType === 'cenario' && !finalScenarioId) {
-      return res.status(400).json({ message: 'Termos do tipo cenário exigem um cenário vinculado.' });
+    const businessRuleError = validateUpdateTermBusinessRules(req.body, existing.rows[0], hasField);
+    if (businessRuleError) {
+      return res.status(400).json({ message: businessRuleError });
     }
 
     const updates: string[] = [];
     const values: unknown[] = [];
 
-    for (const field of allowedFields) {
+    for (const field of UPDATE_TERM_ALLOWED_FIELDS) {
       if (hasField(field)) {
         values.push(req.body[field]);
         updates.push(`${field} = $${values.length}`);
@@ -245,32 +285,7 @@ export const updateTerm = async (req: AuthedRequest, res: Response) => {
       values
     );
 
-    const updatedId = updateResult.rows[0]?.id;
-    const hydrated = await db.query(
-      `SELECT t.*,
-              t.nucleus as source_tier,
-              sc.name as scenario_name,
-              CASE
-                WHEN cg.id IS NOT NULL THEN cp.name
-                WHEN cp.id IS NOT NULL AND cp.parent_id IS NULL THEN c.name
-                ELSE c.name
-              END as category_name,
-              CASE
-                WHEN cg.id IS NOT NULL THEN c.name
-                ELSE NULL
-              END as subcategory_name,
-              u.full_name as added_by_name
-       FROM terms t
-       LEFT JOIN scenarios sc ON t.scenario_id = sc.id
-       LEFT JOIN categories c ON t.category_id = c.id
-       LEFT JOIN categories cp ON c.parent_id = cp.id
-       LEFT JOIN categories cg ON cp.parent_id = cg.id
-       LEFT JOIN users u ON t.added_by = u.id
-       WHERE t.id = $1`,
-      [updatedId]
-    );
-
-    const [updatedTerm] = await hydrateCatalogNames(hydrated.rows);
+    const updatedTerm = await hydrateUpdatedTerm(updateResult.rows[0]?.id);
     try {
       await notifyTermOwnerOnModeration({
         termId: updatedTerm.id,

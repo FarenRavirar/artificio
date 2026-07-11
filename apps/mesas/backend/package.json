@@ -41,6 +41,7 @@
   "license": "ISC",
   "dependencies": {
     "@artificio/auth": "workspace:*",
+    "@artificio/catalog-client": "workspace:*",
     "@artificio/changelog": "workspace:*",
     "@artificio/config": "workspace:*",
     "@artificio/feedback": "workspace:*",

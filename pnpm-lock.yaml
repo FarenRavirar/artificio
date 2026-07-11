@@ -152,6 +152,9 @@ importers:
       '@artificio/auth':
         specifier: workspace:*
         version: link:../../../packages/auth
+      '@artificio/catalog-client':
+        specifier: workspace:*
+        version: link:../../../packages/catalog-client
       '@artificio/changelog':
         specifier: workspace:*
         version: link:../../../packages/changelog
@@ -416,6 +419,9 @@ importers:
       '@artificio/auth':
         specifier: workspace:*
         version: link:../../../packages/auth
+      '@artificio/catalog-client':
+        specifier: workspace:*
+        version: link:../../../packages/catalog-client
       '@artificio/changelog':
         specifier: workspace:*
         version: link:../../../packages/changelog
@@ -835,6 +841,16 @@ importers:
       react:
         specifier: ^19.2.7
         version: 19.2.7
+
+  packages/catalog-client:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@artificio/config':
+        specifier: workspace:*
+        version: link:../config
 
   packages/changelog:
     devDependencies:

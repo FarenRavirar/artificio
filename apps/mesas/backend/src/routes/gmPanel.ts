@@ -46,6 +46,19 @@ const getPgErrorColumn = (error: unknown): string | undefined =>
     ? (error as PgDriverError).column
     : undefined;
 
+// Achado Sonar (PR #145): tratamento de 23502/23503 duplicado entre POST e
+// PUT /gm/tables. Extraido para reduzir duplicacao entre os dois handlers.
+function mapPgConstraintErrorToStatus(error: unknown): { status: number; error: string } | null {
+  const code = getPgErrorCode(error);
+  if (code === '23502') {
+    return { status: 400, error: `Campo obrigatório ausente: ${getPgErrorColumn(error) || 'desconhecido'}` };
+  }
+  if (code === '23503') {
+    return { status: 400, error: 'Referência inválida nos dados enviados.' };
+  }
+  return null;
+}
+
 const getErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
@@ -615,13 +628,9 @@ router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
       return res.status(400).json({ error: message });
     }
 
-    const code = getPgErrorCode(error);
-    if (code === '23502') {
-      return res.status(400).json({ error: `Campo obrigatório ausente: ${getPgErrorColumn(error) || 'desconhecido'}` });
-    }
-
-    if (code === '23503') {
-      return res.status(400).json({ error: 'Referência inválida nos dados enviados.' });
+    const pgError = mapPgConstraintErrorToStatus(error);
+    if (pgError) {
+      return res.status(pgError.status).json({ error: pgError.error });
     }
 
     return res.status(500).json({ error: 'Erro ao criar mesa.' });
@@ -811,13 +820,9 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       return res.status(400).json({ error: message });
     }
 
-    const code = getPgErrorCode(error);
-    if (code === '23502') {
-      return res.status(400).json({ error: `Campo obrigatório ausente: ${getPgErrorColumn(error) || 'desconhecido'}` });
-    }
-
-    if (code === '23503') {
-      return res.status(400).json({ error: 'Referência inválida nos dados enviados.' });
+    const pgError = mapPgConstraintErrorToStatus(error);
+    if (pgError) {
+      return res.status(pgError.status).json({ error: pgError.error });
     }
 
     return res.status(500).json({ error: 'Erro ao editar mesa.' });

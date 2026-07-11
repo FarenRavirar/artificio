@@ -1,15 +1,32 @@
 import { z } from 'zod';
 import { db } from '../db';
 import type { SystemNodeType } from '../db/types';
+import {
+  catalogAliasSchema,
+  catalogNodeTypeSchema,
+  catalogFetch,
+  checkCatalogHealth,
+  archiveCatalogNode as sharedArchiveCatalogNode,
+  flattenTree as sharedFlattenTree,
+  type CatalogHealth,
+} from '@artificio/catalog-client';
+
+export type { CatalogHealth };
+export { checkCatalogHealth };
+
+// Wrapper local: alem do PUT status=rejected do pacote compartilhado, mesas
+// precisa invalidar seu proprio cache de arvore (treeCache) apos o archive.
+export async function archiveCatalogNode(id: string): Promise<void> {
+  await sharedArchiveCatalogNode(id);
+  invalidateCatalogCache();
+}
 
 type CatalogNodeType = SystemNodeType;
 
-// Achado CodeRabbit (PR #145): `res.json() as T` mascarava divergencia de shape
-// do site (fonte externa) e permitia .map/.children recursivo sobre payload
-// nao validado. Schemas zod substituem a validacao estrutural manual anterior.
-const catalogAliasSchema = z.object({ alias: z.string() });
-
-const catalogNodeTypeSchema = z.enum(['system', 'edition', 'variant', 'subsystem']);
+// Achado Sonar duplicacao cross-app (PR #145): schemas/fetch/health/archive
+// idênticos entre mesas e glossario extraidos para @artificio/catalog-client.
+// Cada app mantém sua própria lógica de árvore/flat/cache (formatos de saída
+// diferentes o bastante pra não valer unificar).
 
 // Achado Sonar duplicacao (PR #145): campos base extraidos uma vez e reusados
 // tanto pela arvore (com `children` recursivo via lazy) quanto pelo schema de
@@ -61,20 +78,6 @@ const catalogSnapshotSchema = z.object({ tree: z.array(catalogTreeNodeSchema) })
 // proprio para resposta de escrita, reusando catalogNodeBaseSchema (sem
 // `children`); normalizado com children: [] logo apos o parse.
 const catalogNodeWriteResponseSchema = catalogNodeBaseSchema;
-
-const catalogHealthSchema = z.object({
-  ok: z.boolean(),
-  catalog_version: z.number(),
-  nodes_count: z.number(),
-  checksum: z.string(),
-});
-
-export interface CatalogHealth {
-  ok: boolean;
-  catalog_version: number;
-  nodes_count: number;
-  checksum: string;
-}
 
 export interface MesasSystemNode {
   id: string;
@@ -162,10 +165,6 @@ export async function loadCatalogFlat(forceRefresh = false): Promise<MesasSystem
   return flattenTree(await loadCatalogTree(forceRefresh));
 }
 
-export async function checkCatalogHealth(): Promise<CatalogHealth> {
-  return catalogHealthSchema.parse(await catalogFetch<unknown>('/api/catalog/v1/health'));
-}
-
 export async function createCatalogNode(input: CatalogNodeInput): Promise<MesasSystemNode> {
   const created = catalogNodeWriteResponseSchema.parse(await catalogFetch<unknown>('/api/admin/v1/catalog/nodes', {
     method: 'POST',
@@ -191,14 +190,6 @@ export async function updateCatalogNode(id: string, input: CatalogNodeInput): Pr
   return toMesasNode({ ...updated, children: [] }, depthFromPath(updated.path_slug), tableCounts);
 }
 
-export async function archiveCatalogNode(id: string): Promise<void> {
-  await catalogFetch<unknown>(`/api/admin/v1/catalog/nodes/${encodeURIComponent(id)}`, {
-    method: 'PUT',
-    body: JSON.stringify({ status: 'rejected' }),
-  });
-  invalidateCatalogCache();
-}
-
 export function filterCatalogTree(nodes: MesasSystemNode[], search: string): MesasSystemNode[] {
   const normalizedSearch = normalizeText(search);
 
@@ -220,15 +211,7 @@ export function filterCatalogTree(nodes: MesasSystemNode[], search: string): Mes
   return nodes.map(visit).filter((node): node is MesasSystemNode => Boolean(node));
 }
 
-export function flattenTree(nodes: MesasSystemNode[]): MesasSystemNode[] {
-  const flat: MesasSystemNode[] = [];
-  const visit = (node: MesasSystemNode) => {
-    flat.push({ ...node, children: [] });
-    node.children.forEach(visit);
-  };
-  nodes.forEach(visit);
-  return flat;
-}
+export const flattenTree = sharedFlattenTree<MesasSystemNode>;
 
 // Achado Codex (PR #145): tables.system_id agora referencia o catalogo central
 // (migration_144 dropou a FK local), mas 8 pontos de leitura ainda faziam
@@ -297,34 +280,6 @@ export async function hydrateTableSystemFields<T extends { system_id: string | n
       system_website_url: node?.website_url ?? null,
     };
   });
-}
-
-// Achado CodeRabbit (PR #145): fetch sem timeout podia deixar rotas do mesas
-// penduradas indefinidamente numa falha/lentidao do site central.
-const CATALOG_FETCH_TIMEOUT_MS = 8000;
-
-async function catalogFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const baseUrl = process.env.CATALOG_API_URL || process.env.CENTRAL_CATALOG_URL || process.env.SITE_API_URL;
-  if (!baseUrl) {
-    throw new Error('CATALOG_API_URL ausente');
-  }
-
-  const headers = new Headers(init.headers);
-  headers.set('accept', 'application/json');
-  if (init.body && !headers.has('content-type')) headers.set('content-type', 'application/json');
-  const token = process.env.CATALOG_INTERNAL_TOKEN;
-  if (token) headers.set('x-artificio-catalog-token', token);
-
-  const res = await fetch(new URL(path, baseUrl).toString(), {
-    ...init,
-    headers,
-    signal: AbortSignal.timeout(CATALOG_FETCH_TIMEOUT_MS),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`catalog_${res.status}: ${body.slice(0, 300)}`);
-  }
-  return await res.json() as T;
 }
 
 async function loadLocalTableCounts(): Promise<Map<string, number>> {

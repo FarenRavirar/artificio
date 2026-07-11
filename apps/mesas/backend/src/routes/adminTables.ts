@@ -5,9 +5,8 @@ import { authMiddleware } from '../middleware/auth';
 import { TableRepository } from '../repositories/tableRepository';
 import { autoArchiveStaleTables, AUTO_ARCHIVE_AFTER_DAYS } from '../services/tableArchiving';
 import { logActivity } from '../services/activityLogger';
-import type { TableStatus } from '../db/types';
+import type { TableStatus, TablesTable } from '../db/types';
 import type { Updateable } from 'kysely';
-import type { TablesTable } from '../db/types';
 
 const router = Router();
 

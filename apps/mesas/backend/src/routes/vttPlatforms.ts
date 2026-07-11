@@ -2,6 +2,12 @@ import { Router } from 'express';
 import { sql } from 'kysely'; // CORREÇÃO G03: Import sql para queries case-insensitive
 import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth'; // CORREÇÃO A02: Import middleware
+import {
+  slugifyPlatformName as slugify,
+  normalizePlatformWebsiteUrl as normalizeWebsiteUrl,
+  isPlatformUniqueViolation as isUniqueViolation,
+  getPlatformErrorMessage as getErrorMessage,
+} from '../utils/platformUtils';
 import { resolveActorName } from '../services/actorNameResolver';
 
 const router = Router();
@@ -15,31 +21,6 @@ interface VttPlatformPayload {
   is_active?: boolean;
 }
 
-const slugify = (value: string): string => (
-  value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 100)
-);
-
-const normalizeWebsiteUrl = (value?: string | null): string | null => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  try {
-    const url = new URL(trimmed);
-    return url.toString();
-  } catch {
-    throw new Error('URL da plataforma inválida.');
-  }
-};
-
 const normalizeLogoFilename = (value?: string | null): string | null => {
   if (value === undefined || value === null) return null;
   const trimmed = value.trim();
@@ -50,19 +31,6 @@ const normalizeLogoFilename = (value?: string | null): string | null => {
   }
 
   return trimmed;
-};
-
-const isUniqueViolation = (error: unknown): boolean => {
-  if (!error || typeof error !== 'object' || !('code' in error)) {
-    return false;
-  }
-
-  return (error as { code?: string }).code === '23505';
-};
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  return 'Erro interno';
 };
 
 

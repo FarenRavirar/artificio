@@ -68,8 +68,6 @@ router.patch('/scenario-suggestions/:id/approve', async (req: Request, res: Resp
 
       // 4. Copiar aliases para scenario_aliases (se existirem)
       if (suggestion.aliases && suggestion.aliases.length > 0) {
-        const slugify = (str: string) => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        
         for (const alias of suggestion.aliases) {
           await trx
             .insertInto('scenario_aliases')

@@ -31,7 +31,7 @@ interface MappingReport {
 // referencias legadas sem mapeamento que nao apareceriam em `unresolved`.
 function parseLegacySystems(rows: unknown): LegacySystem[] {
   if (!Array.isArray(rows)) {
-    throw new Error('parseLegacySystems: resultado da query não é um array.');
+    throw new TypeError('parseLegacySystems: resultado da query não é um array.');
   }
   return rows.map((row, index) => {
     if (typeof row?.id !== 'string' || typeof row?.name !== 'string' || row.name.trim().length === 0) {
@@ -43,7 +43,7 @@ function parseLegacySystems(rows: unknown): LegacySystem[] {
 
 function parseLegacyEditions(rows: unknown): LegacyEdition[] {
   if (!Array.isArray(rows)) {
-    throw new Error('parseLegacyEditions: resultado da query não é um array.');
+    throw new TypeError('parseLegacyEditions: resultado da query não é um array.');
   }
   return rows.map((row, index) => {
     if (

@@ -179,9 +179,8 @@ export function logDatabaseError(
 
   const errorRecord = error && typeof error === 'object' ? (error as Record<string, unknown>) : undefined;
   const errorCode = typeof errorRecord?.code === 'string' ? errorRecord.code : undefined;
-  const errorMessage = error instanceof Error
-    ? error.message
-    : (typeof errorRecord?.message === 'string' ? errorRecord.message : undefined);
+  const fallbackMessage = typeof errorRecord?.message === 'string' ? errorRecord.message : undefined;
+  const errorMessage = error instanceof Error ? error.message : fallbackMessage;
   const errorStack = error instanceof Error ? error.stack : undefined;
 
   const errorEntry: ErrorLogEntry = {

@@ -1,4 +1,15 @@
 import { z } from 'zod';
+import {
+  catalogAliasSchema,
+  catalogFetch,
+  checkCatalogHealth,
+  archiveCatalogNode as sharedArchiveCatalogNode,
+  flattenTree,
+  type CatalogHealth,
+} from '@artificio/catalog-client';
+
+export type { CatalogHealth };
+export { checkCatalogHealth };
 
 export interface GlossarioSystem {
   id: string;
@@ -12,11 +23,6 @@ export interface GlossarioSystem {
 export interface GlossarioEdition extends GlossarioSystem {
   system_id: string;
 }
-
-// Achado CodeRabbit (PR #145): `res.json() as T` mascarava divergencia de shape
-// do site (fonte externa) e permitia .map/.children recursivo sobre payload
-// nao validado. Schemas zod substituem a validacao estrutural manual anterior.
-const catalogAliasSchema = z.object({ alias: z.string() });
 
 // Achado Sonar duplicacao (PR #145): campos base extraidos uma vez e reusados
 // tanto pela arvore (com `children` recursivo via lazy) quanto pelo schema de
@@ -66,20 +72,6 @@ const catalogSnapshotSchema = z.object({ tree: z.array(catalogTreeNodeSchema) })
 // apos o parse.
 const catalogNodeWriteResponseSchema = catalogNodeBaseSchema;
 
-const catalogHealthSchema = z.object({
-  ok: z.boolean(),
-  catalog_version: z.number(),
-  nodes_count: z.number(),
-  checksum: z.string(),
-});
-
-export interface CatalogHealth {
-  ok: boolean;
-  catalog_version: number;
-  nodes_count: number;
-  checksum: string;
-}
-
 interface CatalogNodeInput {
   name: string;
   slug?: string | null;
@@ -105,10 +97,16 @@ export async function listCatalogSystems(): Promise<GlossarioSystem[]> {
 }
 
 export async function listCatalogEditions(systemId: string): Promise<GlossarioEdition[]> {
-  const parent = (await loadSnapshot()).flat.find((node) => node.id === systemId);
-  if (!parent) return [];
-  return parent.children
-    .filter((node) => node.node_type === 'edition')
+  // Achado durante extracao de flattenTree para @artificio/catalog-client:
+  // node.children populado no item achatado era comportamento so do glossario
+  // (mesas ja zerava children:[] no flat). Migrando para o generico
+  // compartilhado, children some do item achatado — filtra por parent_id em
+  // vez de node.children para nao depender de arvore populada dentro do flat.
+  const { flat } = await loadSnapshot();
+  const parentExists = flat.some((node) => node.id === systemId);
+  if (!parentExists) return [];
+  return flat
+    .filter((node) => node.parent_id === systemId && node.node_type === 'edition')
     .map((node, index) => toEdition(node, index));
 }
 
@@ -142,10 +140,6 @@ export async function getCatalogNodeIndex(): Promise<CatalogNodeIndexEntry[]> {
   }));
 }
 
-export async function checkCatalogHealth(): Promise<CatalogHealth> {
-  return catalogHealthSchema.parse(await catalogFetch<unknown>('/api/catalog/v1/health'));
-}
-
 export async function createCatalogSystem(input: Omit<CatalogNodeInput, 'node_type' | 'parent_id'>): Promise<GlossarioSystem> {
   const created = await writeCatalogNode({ ...input, node_type: 'system', parent_id: null }, 'POST', '/api/admin/v1/catalog/nodes');
   invalidateCatalogCache();
@@ -177,21 +171,32 @@ export async function updateCatalogEdition(id: string, input: Omit<CatalogNodeIn
   return toEdition(updated, 0);
 }
 
+// Wrapper local: alem do PUT status=rejected do pacote compartilhado,
+// glossario precisa invalidar seu proprio cache de snapshot apos o archive.
 export async function archiveCatalogNode(id: string): Promise<void> {
-  await catalogFetch<unknown>(`/api/admin/v1/catalog/nodes/${encodeURIComponent(id)}`, {
-    method: 'PUT',
-    body: JSON.stringify({ status: 'rejected' }),
-  });
+  await sharedArchiveCatalogNode(id);
   invalidateCatalogCache();
 }
 
+// Achado durante revisao PR #145: mesas ja tinha fallback gracioso (serve
+// cache stale se o catalogo cair, senao arvore vazia) em loadCatalogTree;
+// glossario propagava o erro direto, derrubando listCatalogSystems/
+// listCatalogEditions/getCatalogNameMap/etc com 500 sempre que o catalogo
+// central ficasse indisponivel e o cache expirasse. Mesmo padrao aplicado
+// aqui por consistencia entre os dois consumidores do catalogo central.
 async function loadSnapshot(): Promise<{ tree: CatalogTreeNode[]; flat: CatalogTreeNode[] }> {
   const now = Date.now();
   if (snapshotCache && snapshotCache.expiresAt > now) return snapshotCache;
-  const snapshot = catalogSnapshotSchema.parse(await catalogFetch<unknown>('/api/catalog/v1/systems'));
-  const flat = flatten(snapshot.tree);
-  snapshotCache = { tree: snapshot.tree, flat, expiresAt: now + CACHE_TTL_MS };
-  return snapshotCache;
+  try {
+    const snapshot = catalogSnapshotSchema.parse(await catalogFetch<unknown>('/api/catalog/v1/systems'));
+    const flat = flattenTree(snapshot.tree);
+    snapshotCache = { tree: snapshot.tree, flat, expiresAt: now + CACHE_TTL_MS };
+    return snapshotCache;
+  } catch (error) {
+    console.error('[loadSnapshot] Catálogo indisponível:', error);
+    if (snapshotCache) return snapshotCache;
+    return { tree: [], flat: [] };
+  }
 }
 
 async function writeCatalogNode(input: CatalogNodeInput, method: 'POST' | 'PUT', path: string): Promise<CatalogTreeNode> {
@@ -212,39 +217,6 @@ async function writeCatalogNode(input: CatalogNodeInput, method: 'POST' | 'PUT',
     }),
   }));
   return { ...row, children: [] };
-}
-
-// Achado CodeRabbit (PR #145): fetch sem timeout podia deixar controllers do
-// glossario pendurados indefinidamente numa falha/lentidao do site central.
-const CATALOG_FETCH_TIMEOUT_MS = 8000;
-
-async function catalogFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const baseUrl = process.env.CATALOG_API_URL || process.env.CENTRAL_CATALOG_URL || process.env.SITE_API_URL;
-  if (!baseUrl) throw new Error('CATALOG_API_URL ausente');
-
-  const headers = new Headers(init.headers);
-  headers.set('accept', 'application/json');
-  if (init.body && !headers.has('content-type')) headers.set('content-type', 'application/json');
-  const token = process.env.CATALOG_INTERNAL_TOKEN;
-  if (token) headers.set('x-artificio-catalog-token', token);
-
-  const res = await fetch(new URL(path, baseUrl).toString(), {
-    ...init,
-    headers,
-    signal: AbortSignal.timeout(CATALOG_FETCH_TIMEOUT_MS),
-  });
-  if (!res.ok) throw new Error(`catalog_${res.status}: ${(await res.text()).slice(0, 300)}`);
-  return await res.json() as T;
-}
-
-function flatten(nodes: CatalogTreeNode[]): CatalogTreeNode[] {
-  const rows: CatalogTreeNode[] = [];
-  const visit = (node: CatalogTreeNode) => {
-    rows.push(node);
-    node.children.forEach(visit);
-  };
-  nodes.forEach(visit);
-  return rows;
 }
 
 function toSystem(node: CatalogTreeNode, position: number): GlossarioSystem {
