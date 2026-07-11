@@ -14,7 +14,7 @@ import {
 } from '../validators/tableValidators';
 import { TableService } from '../services/tableService';
 import { TableRepository } from '../repositories/tableRepository';
-import { hydrateTableSystemFields } from '../services/catalogClient';
+import { hydrateTableSystemFields, systemExistsInCatalog } from '../services/catalogClient';
 import { BenchmarkService } from '../services/benchmarkService';
 import { logActivity } from '../services/activityLogger';
 import { notifyAdmins } from '../services/adminNotifications';
@@ -558,6 +558,13 @@ router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Perfil de mestre não encontrado. Crie seu perfil primeiro.' });
     }
 
+    // Achado Codex (PR #145): migration_144 removeu a FK local de system_id —
+    // sem esta checagem, system_id inexistente no catalogo central era
+    // persistido silenciosamente (só validava formato UUID no schema Zod).
+    if (data.system_id && !(await systemExistsInCatalog(data.system_id))) {
+      return res.status(400).json({ error: 'Sistema inválido ou não encontrado no catálogo.' });
+    }
+
     // Validações usando Service
     if (data.is_ddal && data.system_id) {
       const isEligible = await TableService.isDdalEligibleSystem(data.system_id);
@@ -690,6 +697,13 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
     if (!existingTable) {
       return res.status(404).json({ error: 'Mesa não encontrada ou sem permissão.' });
+    }
+
+    // Achado Codex (PR #145): mesma checagem do POST /gm/tables — system_id
+    // sem FK local precisa validar existencia no catalogo central antes de
+    // gravar (so entra na checagem quando o campo foi de fato enviado).
+    if (data.system_id && !(await systemExistsInCatalog(data.system_id))) {
+      return res.status(400).json({ error: 'Sistema inválido ou não encontrado no catálogo.' });
     }
 
     // Validações

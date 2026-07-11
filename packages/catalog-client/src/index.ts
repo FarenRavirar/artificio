@@ -58,10 +58,13 @@ export async function catalogFetch<T>(path: string, options: CatalogFetchOptions
   const token = tokenOverride ?? process.env.CATALOG_INTERNAL_TOKEN;
   if (token) headers.set('x-artificio-catalog-token', token);
 
+  const timeoutSignal = AbortSignal.timeout(CATALOG_FETCH_TIMEOUT_MS);
+  const signal = init.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
+
   const res = await fetch(new URL(path, baseUrl).toString(), {
     ...init,
     headers,
-    signal: AbortSignal.timeout(CATALOG_FETCH_TIMEOUT_MS),
+    signal,
   });
   if (!res.ok) {
     const body = await res.text();

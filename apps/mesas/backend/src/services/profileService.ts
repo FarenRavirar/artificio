@@ -7,6 +7,7 @@ import type {
   UserSystem,
   UserUpdate,
 } from '../db/types';
+import { systemExistsInCatalog } from './catalogClient';
 
 /**
  * Serviço de perfil de usuário
@@ -286,12 +287,11 @@ export async function addUserSystem(
   systemId: string,
   type: 'favorite' | 'gm'
 ): Promise<UserSystem> {
-  // Verificar se sistema existe
-  const systemExists = await db
-    .selectFrom('systems')
-    .select('id')
-    .where('id', '=', systemId)
-    .executeTakeFirst();
+  // Achado Codex (PR #145): picker de perfil carrega sistemas de
+  // /api/v1/systems (catalogo central, spec 062), mas esta checagem batia na
+  // tabela local `systems` — nó criado só no catálogo central sempre falhava
+  // aqui ("Sistema não encontrado"), impedindo salvar favorito/sistema-que-mestra.
+  const systemExists = await systemExistsInCatalog(systemId);
 
   if (!systemExists) {
     throw new Error('Sistema não encontrado');

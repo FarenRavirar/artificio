@@ -2,14 +2,13 @@ import { z } from 'zod';
 import {
   catalogAliasSchema,
   catalogFetch,
-  checkCatalogHealth,
   archiveCatalogNode as sharedArchiveCatalogNode,
   flattenTree,
-  type CatalogHealth,
 } from '@artificio/catalog-client';
 
-export type { CatalogHealth };
-export { checkCatalogHealth };
+// Achado Sonar (PR #145): import+export separado de simbolo nao usado
+// localmente e so re-exportado — convencao pede `export ... from` direto.
+export { checkCatalogHealth, type CatalogHealth } from '@artificio/catalog-client';
 
 export interface GlossarioSystem {
   id: string;

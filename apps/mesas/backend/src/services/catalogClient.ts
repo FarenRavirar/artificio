@@ -5,14 +5,13 @@ import {
   catalogAliasSchema,
   catalogNodeTypeSchema,
   catalogFetch,
-  checkCatalogHealth,
   archiveCatalogNode as sharedArchiveCatalogNode,
   flattenTree as sharedFlattenTree,
-  type CatalogHealth,
 } from '@artificio/catalog-client';
 
-export type { CatalogHealth };
-export { checkCatalogHealth };
+// Achado Sonar (PR #145): import+export separado de simbolo nao usado
+// localmente e so re-exportado — convencao pede `export ... from` direto.
+export { checkCatalogHealth, type CatalogHealth } from '@artificio/catalog-client';
 
 // Wrapper local: alem do PUT status=rejected do pacote compartilhado, mesas
 // precisa invalidar seu proprio cache de arvore (treeCache) apos o archive.
@@ -235,6 +234,28 @@ export async function resolveSystemIdBySlug(slug: string): Promise<string | null
   }
   const node = flat.find((n) => n.slug === slug || n.path_slug === slug);
   return node?.id ?? null;
+}
+
+// Achado Codex (PR #145): migration_144 removeu a FK local de tables.system_id
+// -> systems(id) (catalogo central e' a fonte de verdade, UUID central nunca
+// existe em systems local). Sem essa FK, POST/PUT /gm/tables so validava
+// formato UUID de system_id, sem checar existencia real — cliente podia
+// persistir UUID orfao, quebrando filtros/relatorios (hydrateTableSystemFields
+// retorna campos null pra id inexistente). Valida contra o catalogo central
+// (cache de 60s via loadCatalogFlat) antes de aceitar o insert/update.
+export async function systemExistsInCatalog(systemId: string): Promise<boolean> {
+  let flat: Awaited<ReturnType<typeof loadCatalogFlat>>;
+  try {
+    flat = await loadCatalogFlat();
+  } catch (error) {
+    console.error('[systemExistsInCatalog] Catálogo indisponível:', error);
+    // Achado revisao: catalogo fora do ar nao pode travar criacao/edicao de
+    // mesa (mesmo criterio de degradacao graciosa dos outros helpers deste
+    // arquivo) — deixa a escrita passar; a inconsistencia sera corrigida
+    // quando o catalogo voltar (hidratacao ja tolera id sem match).
+    return true;
+  }
+  return flat.some((n) => n.id === systemId);
 }
 
 export type TableSystemFields = {

@@ -156,8 +156,26 @@ jobs:
       - name: API Check (modo estrito — allowlist deve estar vazia)
         run: pnpm api:check --strict
 
-      # api:diff e a checagem de "artefato committed" foram removidos deste job:
-      # ambos dependem de comparar contra o branch base remoto, que e exatamente
-      # a fonte do falso-positivo. Essa validacao continua acontecendo — só que
-      # localmente, via hook pre-commit/pre-push (scripts/api/verify-api.ts),
-      # que roda antes de qualquer commit real chegar ao GitHub.
+      # A checagem de "artefato committed" foi removida deste job: dependia de
+      # comparar contra o branch base remoto (dev), que e a fonte do falso-
+      # positivo (dev pode avancar entre o push do PR e o run do job). Essa
+      # validacao continua acontecendo — só que localmente, via hook
+      # pre-commit/pre-push (scripts/api/verify-api.ts), antes de qualquer
+      # commit real chegar ao GitHub.
+      #
+      # api:diff (achado nitpick pos-#145): restaurado aqui como sinal
+      # informativo (continue-on-error do job inteiro ja cobre), mas comparando
+      # contra o merge-base do PR — SHA fixo no momento do fetch, que NAO se
+      # move durante o run — em vez do branch base remoto (dev) usado antes.
+      # Isso elimina a causa raiz do falso-positivo sem reintroduzir a
+      # comparacao com dev movel. So roda em pull_request (push direto a
+      # dev/main nao tem PR/merge-base).
+      - name: Resolve merge-base do PR (referencia estavel p/ api:diff)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=50 origin "${{ github.event.pull_request.base.sha }}"
+          echo "API_DIFF_BASE=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_ENV"
+
+      - name: API Diff (informativo — base = merge-base do PR, nao bloqueante)
+        if: github.event_name == 'pull_request'
+        run: pnpm api:diff --base "$API_DIFF_BASE"

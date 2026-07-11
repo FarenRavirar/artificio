@@ -23,6 +23,9 @@ export const normalizePlatformWebsiteUrl = (value?: string | null): string | nul
 
   try {
     const url = new URL(trimmed);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new Error('URL da plataforma inválida.');
+    }
     return url.toString();
   } catch {
     throw new Error('URL da plataforma inválida.');

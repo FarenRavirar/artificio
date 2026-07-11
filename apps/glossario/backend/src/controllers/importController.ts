@@ -292,13 +292,20 @@ const EXISTING_TERM_QUERY = `
 
 type HistoryEntry = { field: string; old: string | null; next: string | null };
 
+// Achado Sonar (PR #145): String(valor) sobre unknown produz '[object Object]'
+// quando valor e' objeto/array — mesmo guard ja usado no restante do arquivo
+// (rawId/rawRootId/candidates.status) pra so serializar string/number reais.
+function stringifyTrackedValue(value: unknown): string | null {
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : null;
+}
+
 function computeHistoryEntries(found: ExistingTermRow, candidates: Record<string, unknown>): HistoryEntry[] {
   const entries: HistoryEntry[] = [];
   for (const field of TRACKED_FIELDS) {
     const oldVal = found[field] ?? null;
     const newVal = candidates[field] ?? null;
-    const strOld = oldVal == null ? null : String(oldVal);
-    const strNew = newVal == null ? null : String(newVal);
+    const strOld = stringifyTrackedValue(oldVal);
+    const strNew = stringifyTrackedValue(newVal);
     if (strOld !== strNew) {
       entries.push({ field, old: strOld, next: strNew });
     }
@@ -448,6 +455,184 @@ type ApplyRowContext = {
   batchId: string;
 };
 
+type SanitizedImportRow = ReturnType<typeof sanitizeTermFields>;
+
+async function insertNewImportRow(
+  client: PoolClient,
+  row: SanitizedImportRow,
+  nucleus: ImportNucleus,
+  insertStatus: string,
+  systemId: string | null,
+  categoryId: string | null,
+  userId: string,
+  action: 'insert' | 'duplicate',
+): Promise<ImportResult> {
+  await client.query(
+    `INSERT INTO public.terms
+       (name_en, name_pt, nucleus, status, source_type,
+        system_id, category_id, book_reference, page_reference,
+        additional_info, added_by)
+     VALUES ($1,$2,$3,$4,'tabela',$5,$6,$7,$8,$9,$10)`,
+    [
+      row.name_en, row.name_pt, nucleus,
+      insertStatus,
+      systemId, categoryId,
+      row.book_reference ?? null,
+      row.page_reference ?? null,
+      row.additional_info ?? null,
+      userId,
+    ]
+  );
+  return { action, name_en: row.name_en!, name_pt: row.name_pt! };
+}
+
+async function applyTermUpdate(
+  client: PoolClient,
+  userId: string,
+  found: ExistingTermRow,
+  candidates: Record<string, unknown>,
+  historyEntries: HistoryEntry[],
+): Promise<void> {
+  if (historyEntries.length === 0) return;
+
+  await client.query(
+    `UPDATE public.terms
+        SET name_pt = $1,
+            nucleus = $2,
+            book_reference = $3,
+            page_reference = $4,
+            additional_info = $5,
+            category_id = $6,
+            status = $7
+      WHERE id = $8`,
+    [
+      candidates.name_pt,
+      candidates.nucleus,
+      candidates.book_reference,
+      candidates.page_reference,
+      candidates.additional_info,
+      candidates.category_id,
+      candidates.status,
+      found.id,
+    ]
+  );
+
+  // Gravar term_history (uma linha por campo alterado)
+  for (const entry of historyEntries) {
+    await client.query(
+      `INSERT INTO public.term_history (term_id, changed_by, field, old_value, new_value)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [found.id, userId, entry.field, entry.old, entry.next]
+    );
+  }
+}
+
+async function applyOwnUpdateImportRow(
+  client: PoolClient,
+  userId: string,
+  isAdmin: boolean,
+  row: SanitizedImportRow,
+  nucleus: ImportNucleus,
+  categoryId: string | null,
+  found: ExistingTermRow,
+): Promise<ImportResult> {
+  const candidates: Record<string, unknown> = {
+    name_pt: row.name_pt,
+    nucleus,
+    book_reference: row.book_reference ?? null,
+    page_reference: row.page_reference ?? null,
+    additional_info: row.additional_info ?? null,
+    category_id: categoryId,
+    status: isAdmin ? 'verificado' : found.status,
+  };
+
+  const historyEntries = computeHistoryEntries(found, candidates);
+  await applyTermUpdate(client, userId, found, candidates, historyEntries);
+
+  return {
+    action: 'update_own',
+    name_en: row.name_en!,
+    name_pt: row.name_pt!,
+    term_id: found.id,
+    changed_fields: historyEntries.map((e) => e.field),
+  };
+}
+
+async function applyAdminOverrideImportRow(
+  client: PoolClient,
+  userId: string,
+  userRole: 'admin' | 'member',
+  row: SanitizedImportRow,
+  nucleus: ImportNucleus,
+  insertStatus: string,
+  categoryId: string | null,
+  found: ExistingTermRow,
+  batchId: string,
+): Promise<ImportResult> {
+  const candidates: Record<string, unknown> = {
+    name_pt: row.name_pt,
+    nucleus,
+    book_reference: row.book_reference ?? null,
+    page_reference: row.page_reference ?? null,
+    additional_info: row.additional_info ?? null,
+    category_id: categoryId,
+    status: insertStatus,
+  };
+
+  const historyEntries = computeHistoryEntries(found, candidates);
+
+  await registerAuditOverrideIfAvailable(client, {
+    termId: found.id,
+    actorId: userId,
+    actorRole: userRole,
+    previous: {
+      name_pt: found.name_pt,
+      nucleus: found.nucleus,
+      book_reference: found.book_reference,
+      page_reference: found.page_reference,
+      additional_info: found.additional_info,
+      category_id: found.category_id,
+      status: found.status,
+    },
+    next: {
+      name_pt: candidates.name_pt,
+      nucleus: candidates.nucleus,
+      book_reference: candidates.book_reference,
+      page_reference: candidates.page_reference,
+      additional_info: candidates.additional_info,
+      category_id: candidates.category_id,
+      status: candidates.status,
+    },
+    originalAuthorId: found.added_by ?? null,
+    batchId,
+  });
+
+  await applyTermUpdate(client, userId, found, candidates, historyEntries);
+
+  try {
+    await notifyTermOwnerOnModeration(
+      {
+        termId: found.id,
+        actorId: userId,
+        status: stringifyTrackedValue(candidates.status),
+        eventType: 'term.updated',
+      },
+      client
+    );
+  } catch (notifyError) {
+    console.error('[notifications] Falha ao gerar notificação de override por import:', notifyError);
+  }
+
+  return {
+    action: 'override',
+    name_en: row.name_en!,
+    name_pt: row.name_pt!,
+    term_id: found.id,
+    changed_fields: historyEntries.map((entry) => entry.field),
+    override_author: found.added_by_name ?? found.added_by ?? null,
+  };
+}
+
 async function applyImportRow(rawRow: ImportRow, ctx: ApplyRowContext): Promise<ImportResult | null> {
   const { client, caches, userId, userRole, isAdmin, adminChosenNucleus, insertStatus, batchId } = ctx;
 
@@ -473,200 +658,23 @@ async function applyImportRow(rawRow: ImportRow, ctx: ApplyRowContext): Promise<
 
   // ----- Caso A: Não existe → INSERT como pendente -----
   if (existing.rows.length === 0) {
-    await client.query(
-      `INSERT INTO public.terms
-         (name_en, name_pt, nucleus, status, source_type,
-          system_id, category_id, book_reference, page_reference,
-          additional_info, added_by)
-       VALUES ($1,$2,$3,$4,'tabela',$5,$6,$7,$8,$9,$10)`,
-      [
-        row.name_en, row.name_pt, nucleus,
-        insertStatus,
-        systemId, categoryId,
-        row.book_reference ?? null,
-        row.page_reference ?? null,
-        row.additional_info ?? null,
-        userId,
-      ]
-    );
-    return { action: 'insert', name_en: row.name_en, name_pt: row.name_pt };
+    return insertNewImportRow(client, row, nucleus, insertStatus, systemId, categoryId, userId, 'insert');
   }
 
   const found = existing.rows[0] as ExistingTermRow;
 
   // ----- Caso B: Existe e é do mesmo usuário → UPDATE + term_history -----
   if (found.added_by === userId) {
-    const candidates: Record<string, unknown> = {
-      name_pt: row.name_pt,
-      nucleus,
-      book_reference: row.book_reference ?? null,
-      page_reference: row.page_reference ?? null,
-      additional_info: row.additional_info ?? null,
-      category_id: categoryId,
-      status: isAdmin ? 'verificado' : found.status,
-    };
-
-    const historyEntries = computeHistoryEntries(found, candidates);
-    const changedFields = historyEntries.map((e) => e.field);
-
-    if (historyEntries.length > 0) {
-      await client.query(
-        `UPDATE public.terms
-            SET name_pt = $1,
-                nucleus = $2,
-                book_reference = $3,
-                page_reference = $4,
-                additional_info = $5,
-                category_id = $6,
-                status = $7
-          WHERE id = $8`,
-        [
-          candidates.name_pt,
-          candidates.nucleus,
-          candidates.book_reference,
-          candidates.page_reference,
-          candidates.additional_info,
-          candidates.category_id,
-          candidates.status,
-          found.id,
-        ]
-      );
-
-      // Gravar term_history (uma linha por campo alterado)
-      for (const entry of historyEntries) {
-        await client.query(
-          `INSERT INTO public.term_history (term_id, changed_by, field, old_value, new_value)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [found.id, userId, entry.field, entry.old, entry.next]
-        );
-      }
-    }
-
-    return {
-      action: 'update_own',
-      name_en: row.name_en,
-      name_pt: row.name_pt,
-      term_id: found.id,
-      changed_fields: changedFields,
-    };
+    return applyOwnUpdateImportRow(client, userId, isAdmin, row, nucleus, categoryId, found);
   }
 
   // ----- Caso C: Existe e é de outro usuário, admin faz override -----
   if (isAdmin) {
-    const candidates: Record<string, unknown> = {
-      name_pt: row.name_pt,
-      nucleus,
-      book_reference: row.book_reference ?? null,
-      page_reference: row.page_reference ?? null,
-      additional_info: row.additional_info ?? null,
-      category_id: categoryId,
-      status: insertStatus,
-    };
-
-    const historyEntries = computeHistoryEntries(found, candidates);
-
-    await registerAuditOverrideIfAvailable(client, {
-      termId: found.id,
-      actorId: userId,
-      actorRole: userRole,
-      previous: {
-        name_pt: found.name_pt,
-        nucleus: found.nucleus,
-        book_reference: found.book_reference,
-        page_reference: found.page_reference,
-        additional_info: found.additional_info,
-        category_id: found.category_id,
-        status: found.status,
-      },
-      next: {
-        name_pt: candidates.name_pt,
-        nucleus: candidates.nucleus,
-        book_reference: candidates.book_reference,
-        page_reference: candidates.page_reference,
-        additional_info: candidates.additional_info,
-        category_id: candidates.category_id,
-        status: candidates.status,
-      },
-      originalAuthorId: found.added_by ?? null,
-      batchId,
-    });
-
-    if (historyEntries.length > 0) {
-      await client.query(
-        `UPDATE public.terms
-            SET name_pt = $1,
-                nucleus = $2,
-                book_reference = $3,
-                page_reference = $4,
-                additional_info = $5,
-                category_id = $6,
-                status = $7
-          WHERE id = $8`,
-        [
-          candidates.name_pt,
-          candidates.nucleus,
-          candidates.book_reference,
-          candidates.page_reference,
-          candidates.additional_info,
-          candidates.category_id,
-          candidates.status,
-          found.id,
-        ]
-      );
-
-      for (const entry of historyEntries) {
-        await client.query(
-          `INSERT INTO public.term_history (term_id, changed_by, field, old_value, new_value)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [found.id, userId, entry.field, entry.old, entry.next]
-        );
-      }
-    }
-
-    try {
-      await notifyTermOwnerOnModeration(
-        {
-          termId: found.id,
-          actorId: userId,
-          status: typeof candidates.status === 'string' || typeof candidates.status === 'number'
-            ? String(candidates.status)
-            : null,
-          eventType: 'term.updated',
-        },
-        client
-      );
-    } catch (notifyError) {
-      console.error('[notifications] Falha ao gerar notificação de override por import:', notifyError);
-    }
-
-    return {
-      action: 'override',
-      name_en: row.name_en,
-      name_pt: row.name_pt,
-      term_id: found.id,
-      changed_fields: historyEntries.map((entry) => entry.field),
-      override_author: found.added_by_name ?? found.added_by ?? null,
-    };
+    return applyAdminOverrideImportRow(client, userId, userRole, row, nucleus, insertStatus, categoryId, found, batchId);
   }
 
   // ----- Caso C: Existe e é de outro usuário → INSERT como sugestão pendente -----
-  await client.query(
-    `INSERT INTO public.terms
-       (name_en, name_pt, nucleus, status, source_type,
-        system_id, category_id, book_reference, page_reference,
-        additional_info, added_by)
-     VALUES ($1,$2,$3,$4,'tabela',$5,$6,$7,$8,$9,$10)`,
-    [
-      row.name_en, row.name_pt, nucleus,
-      insertStatus,
-      systemId, categoryId,
-      row.book_reference ?? null,
-      row.page_reference ?? null,
-      row.additional_info ?? null,
-      userId,
-    ]
-  );
-  return { action: 'duplicate', name_en: row.name_en, name_pt: row.name_pt };
+  return insertNewImportRow(client, row, nucleus, insertStatus, systemId, categoryId, userId, 'duplicate');
 }
 
 // ---------------------------------------------------------------------------
