@@ -57,6 +57,10 @@ COPY --from=builder /repo/packages/changelog/dist-cjs ./packages/changelog/dist-
 COPY --from=builder /repo/packages/feedback/dist ./packages/feedback/dist
 COPY --from=builder /repo/packages/feedback/dist-cjs ./packages/feedback/dist-cjs
 COPY --from=builder /repo/packages/media/dist ./packages/media/dist
+# Achado deploy beta (PR #145, spec 062): catalog-client novo faltava aqui —
+# MODULE_NOT_FOUND em runtime (dist-cjs so existia no estagio builder).
+COPY --from=builder /repo/packages/catalog-client/dist ./packages/catalog-client/dist
+COPY --from=builder /repo/packages/catalog-client/dist-cjs ./packages/catalog-client/dist-cjs
 
 # Copiar build compilado
 COPY --from=builder /repo/apps/mesas/backend/dist ./apps/mesas/backend/dist
