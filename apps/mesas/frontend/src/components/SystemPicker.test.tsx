@@ -65,33 +65,25 @@ const tree: SystemTreeNode[] = [
 ];
 
 describe('SystemPicker', () => {
-  it('renderiza árvore com nome próprio, nome PT, aliases e caminho selecionado', () => {
-    const onSelectionChange = vi.fn();
-
+  it('mostra só sistemas raiz por padrão, sem expandir edições/variantes', () => {
     render(
       <SystemPicker
         tree={tree}
-        selectedIds={['dnd-2024']}
-        onSelectionChange={onSelectionChange}
+        selectedIds={[]}
+        onSelectionChange={vi.fn()}
         idPrefix="systems"
       />
     );
 
     expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument();
-    expect(screen.getAllByText('nome PT: —').length).toBeGreaterThan(0);
-    expect(screen.getByText('D&D +1')).toBeInTheDocument();
-    expect(screen.getByText('5e')).toBeInTheDocument();
-    expect(screen.getByText('nome PT: 5ª edição')).toBeInTheDocument();
-    expect(screen.getByText('Dungeons & Dragons › 5e › 2024')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Limpar seleção' }));
-    expect(onSelectionChange).toHaveBeenCalledWith([]);
+    expect(screen.getByText('Vampire')).toBeInTheDocument();
+    expect(screen.queryByText('5e')).not.toBeInTheDocument();
+    expect(screen.queryByText('2024')).not.toBeInTheDocument();
   });
 
-  it('filtra mantendo ancestral visível e seleciona em modo single', () => {
+  it('ao selecionar sistema, mostra edições dele; ao selecionar edição, mostra variantes', () => {
     const onSelectionChange = vi.fn();
-
-    render(
+    const { rerender } = render(
       <SystemPicker
         tree={tree}
         selectedIds={[]}
@@ -100,17 +92,53 @@ describe('SystemPicker', () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText('Buscar sistema, edição ou variante...'), {
-      target: { value: '2024' },
+    fireEvent.click(screen.getByRole('button', { name: /Dungeons & Dragons/ }));
+    expect(onSelectionChange).toHaveBeenCalledWith(['dnd']);
+
+    rerender(
+      <SystemPicker
+        tree={tree}
+        selectedIds={['dnd']}
+        onSelectionChange={onSelectionChange}
+        idPrefix="systems"
+      />
+    );
+
+    expect(screen.getByText('3.5e')).toBeInTheDocument();
+    expect(screen.getByText('5e')).toBeInTheDocument();
+    expect(screen.queryByText('2024')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^5e/ }));
+    expect(onSelectionChange).toHaveBeenCalledWith(['dnd-5e']);
+
+    rerender(
+      <SystemPicker
+        tree={tree}
+        selectedIds={['dnd-5e']}
+        onSelectionChange={onSelectionChange}
+        idPrefix="systems"
+      />
+    );
+
+    expect(screen.getByText('2024')).toBeInTheDocument();
+  });
+
+  it('busca filtra só o nível de sistemas', () => {
+    render(
+      <SystemPicker
+        tree={tree}
+        selectedIds={[]}
+        onSelectionChange={vi.fn()}
+        idPrefix="systems"
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
+      target: { value: 'Vamp' },
     });
 
-    expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument();
-    expect(screen.getByText('5e')).toBeInTheDocument();
-    expect(screen.getByText('2024')).toBeInTheDocument();
-    expect(screen.queryByText('Vampire')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /2024.*nome PT:/ }));
-    expect(onSelectionChange).toHaveBeenCalledWith(['dnd-2024']);
+    expect(screen.getByText('Vampire')).toBeInTheDocument();
+    expect(screen.queryByText('Dungeons & Dragons')).not.toBeInTheDocument();
   });
 
   it('oculta resultados vazios quando configurado como busca fechada', () => {
@@ -126,7 +154,7 @@ describe('SystemPicker', () => {
 
     expect(screen.queryByText('Dungeons & Dragons')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Buscar sistema, edição ou variante...'), {
+    fireEvent.change(screen.getByLabelText('Buscar sistema...'), {
       target: { value: 'Dungeons' },
     });
 
@@ -149,7 +177,7 @@ describe('SystemPicker', () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText('Buscar sistema, edição ou variante...'), {
+    fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
       target: { value: 'Shadowdark' },
     });
 
@@ -160,7 +188,7 @@ describe('SystemPicker', () => {
     expect(onCreateNow).toHaveBeenCalledWith('Shadowdark');
   });
 
-  it('permite múltipla seleção e remoção individual', () => {
+  it('permite múltipla seleção de sistemas e remoção individual', () => {
     const onSelectionChange = vi.fn();
 
     render(
@@ -175,5 +203,21 @@ describe('SystemPicker', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remover Vampire' }));
     expect(onSelectionChange).toHaveBeenCalledWith(['dnd']);
+  });
+
+  it('admin vê botão de adicionar em cada nível', () => {
+    render(
+      <SystemPicker
+        tree={tree}
+        selectedIds={['dnd']}
+        onSelectionChange={vi.fn()}
+        idPrefix="systems"
+        role="admin"
+        onCreateNow={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: /Adicionar sistema/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Adicionar edição/ })).toBeInTheDocument();
   });
 });
