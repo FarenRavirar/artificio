@@ -188,6 +188,26 @@ describe('SystemPicker', () => {
     expect(onCreateNow).toHaveBeenCalledWith('Shadowdark');
   });
 
+  it('em modo multi, clicar no sistema também revela edições (drill-down independente da seleção)', () => {
+    const onSelectionChange = vi.fn();
+
+    render(
+      <SystemPicker
+        tree={tree}
+        selectedIds={[]}
+        onSelectionChange={onSelectionChange}
+        idPrefix="systems"
+        mode="multi"
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Dungeons & Dragons/ }));
+
+    expect(onSelectionChange).toHaveBeenCalledWith(['dnd']);
+    expect(screen.getByText('3.5e')).toBeInTheDocument();
+    expect(screen.getByText('5e')).toBeInTheDocument();
+  });
+
   it('permite múltipla seleção de sistemas e remoção individual', () => {
     const onSelectionChange = vi.fn();
 

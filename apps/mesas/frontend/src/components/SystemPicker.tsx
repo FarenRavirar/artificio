@@ -62,6 +62,18 @@ const LEVEL_LABEL: Record<number, string> = {
   2: 'variante',
 };
 
+const LEVEL_LABEL_PLURAL: Record<number, string> = {
+  0: 'sistemas',
+  1: 'edições',
+  2: 'variantes',
+};
+
+const LEVEL_LABEL_FEMININE: Record<number, boolean> = {
+  0: false,
+  1: true,
+  2: true,
+};
+
 const ADD_LABEL: Record<number, string> = {
   0: 'Adicionar sistema',
   1: 'Adicionar edição',
@@ -112,7 +124,10 @@ const SystemPickerLevel = ({
               type="button"
               id={`${idPrefix}-node-${node.id}`}
               className="min-w-0 flex-1 text-left"
-              onClick={() => (isMulti ? onToggleMulti!(node) : onSelect(node))}
+              onClick={() => {
+                onSelect(node);
+                if (isMulti) onToggleMulti!(node);
+              }}
               aria-pressed={selected}
             >
               <span className="block truncate text-[13px] font-bold">{node.name}</span>
@@ -188,11 +203,18 @@ export function SystemPicker({
 
   const handleSelectAtLevel = (depth: number, node: SystemTreeNode) => {
     setPendingAddDepth(null);
+
+    if (mode === 'single' && selectedIdSet.has(node.id)) {
+      onSelectionChange([]);
+      setNavPath([]);
+      return;
+    }
+
     const basePath = effectiveNavPath.slice(0, depth);
     setNavPath([...basePath, node]);
 
     if (mode === 'single') {
-      onSelectionChange(selectedIdSet.has(node.id) ? [] : [node.id]);
+      onSelectionChange([node.id]);
     }
   };
 
@@ -247,10 +269,10 @@ export function SystemPicker({
             <div key={`level-${depth}`} className="space-y-1">
               {depth > 0 && (
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--fg-muted)]">
-                  {LEVEL_LABEL[Math.min(depth, 2)]}{depth > 1 ? 's' : depth === 0 ? '' : 's'} de {effectiveNavPath[depth - 1]?.name}
+                  {LEVEL_LABEL_PLURAL[Math.min(depth, 2)]} de {effectiveNavPath[depth - 1]?.name}
                 </p>
               )}
-              {nodes.length > 0 || role === 'admin' ? (
+              {nodes.length === 0 && depth === 0 && noRootResults ? null : nodes.length > 0 || role === 'admin' ? (
                 <SystemPickerLevel
                   idPrefix={idPrefix}
                   depth={depth}
@@ -265,7 +287,7 @@ export function SystemPicker({
                 />
               ) : (
                 <p className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--fg-muted)]">
-                  Nenhum{depth === 2 ? 'a' : ''} {LEVEL_LABEL[Math.min(depth, 2)]} cadastrad{depth === 2 ? 'a' : 'o'} ainda.
+                  Nenhum{LEVEL_LABEL_FEMININE[Math.min(depth, 2)] ? 'a' : ''} {LEVEL_LABEL[Math.min(depth, 2)]} cadastrad{LEVEL_LABEL_FEMININE[Math.min(depth, 2)] ? 'a' : 'o'} ainda.
                 </p>
               )}
             </div>
