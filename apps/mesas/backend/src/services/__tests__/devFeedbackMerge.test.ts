@@ -63,8 +63,8 @@ describe('buildMerge', () => {
     const primary = base({ id: 'p', merged_sources: [{ id: 'old' }] });
     const out = buildMerge(primary, [base({ id: 'new' })]);
     expect(out.merged_sources).toHaveLength(2);
-    expect((out.merged_sources[0] as any).id).toBe('old');
-    expect((out.merged_sources[1] as any).id).toBe('new');
+    expect((out.merged_sources[0] as Record<string, unknown>).id).toBe('old');
+    expect((out.merged_sources[1] as Record<string, unknown>).id).toBe('new');
   });
 
   it('limita o total de erros ao cap', () => {

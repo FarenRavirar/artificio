@@ -3,6 +3,7 @@ import { db } from '../config/database';
 import { sanitizeTermFields } from '../utils/sanitizeText';
 import { notifyTermOwnerOnModeration } from '../services/notificationService';
 import { getCatalogNameMap } from '../services/catalogClient';
+import type { AuthedRequest } from '../types/express';
 
 export const listTerms = async (req: Request, res: Response) => {
   try {
@@ -42,7 +43,7 @@ export const listTerms = async (req: Request, res: Response) => {
       ) th ON th.term_id = t.id
       WHERE 1=1
     `;
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (normalizedSearch) {
       params.push(`%${normalizedSearch}%`);
@@ -82,7 +83,7 @@ export const listTerms = async (req: Request, res: Response) => {
 
     const result = await db.query(query, params);
     const totalCount = result.rows.length > 0 ? Number(result.rows[0].total_count) : 0;
-    const rows = await hydrateCatalogNames(result.rows.map(({ total_count, ...row }) => row));
+    const rows = await hydrateCatalogNames(result.rows.map(({ total_count: _total_count, ...row }) => row));
     res.setHeader('X-Total-Count', String(totalCount));
     res.json(rows);
   } catch (err) {
@@ -91,7 +92,7 @@ export const listTerms = async (req: Request, res: Response) => {
   }
 };
 
-export const createTerm = async (req: any, res: Response) => {
+export const createTerm = async (req: AuthedRequest, res: Response) => {
   const raw = req.body;
   const sanitized = sanitizeTermFields(raw);
   const {
@@ -107,7 +108,7 @@ export const createTerm = async (req: any, res: Response) => {
     }
 
     // Se for Admin, já nasce verificado. Se for membro, nasce pendente.
-    const status = req.user.role === 'admin' ? 'verificado' : 'pendente';
+    const status = req.user?.role === 'admin' ? 'verificado' : 'pendente';
 
     const result = await db.query(
       `INSERT INTO terms (
@@ -118,7 +119,7 @@ export const createTerm = async (req: any, res: Response) => {
       [
         name_en, name_pt, nucleus, status, source_type,
         system_id, edition_id, scenario_id, category_id,
-        book_reference, page_reference, additional_info, req.user.id
+        book_reference, page_reference, additional_info, req.user?.id
       ]
     );
 
@@ -130,7 +131,7 @@ export const createTerm = async (req: any, res: Response) => {
   }
 };
 
-export const approveTerm = async (req: Request, res: Response) => {
+export const approveTerm = async (req: AuthedRequest, res: Response) => {
   const { id } = req.params;
   req.body = { ...req.body, ...sanitizeTermFields(req.body) };
   const { nucleus, category_id, status } = req.body; // Permite ao admin corrigir no ato da aprovação
@@ -144,7 +145,7 @@ export const approveTerm = async (req: Request, res: Response) => {
            reviewed_by = $4,
            reviewed_at = NOW()
        WHERE id = $5 RETURNING *`,
-      [status || 'verificado', nucleus || null, category_id || null, (req as any).user.id, id]
+      [status || 'verificado', nucleus || null, category_id || null, req.user?.id, id]
     );
 
     if (result.rows.length === 0) {
@@ -155,7 +156,7 @@ export const approveTerm = async (req: Request, res: Response) => {
     try {
       await notifyTermOwnerOnModeration({
         termId: term.id,
-        actorId: (req as any).user.id,
+        actorId: req.user?.id ?? '',
         status: term.status ?? null,
         eventType: 'term.moderated',
       });
@@ -170,7 +171,7 @@ export const approveTerm = async (req: Request, res: Response) => {
   }
 };
 
-export const updateTerm = async (req: any, res: Response) => {
+export const updateTerm = async (req: AuthedRequest, res: Response) => {
   const { id } = req.params;
   req.body = { ...req.body, ...sanitizeTermFields(req.body) };
 
@@ -221,7 +222,7 @@ export const updateTerm = async (req: any, res: Response) => {
     }
 
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
     for (const field of allowedFields) {
       if (hasField(field)) {
@@ -273,7 +274,7 @@ export const updateTerm = async (req: any, res: Response) => {
     try {
       await notifyTermOwnerOnModeration({
         termId: updatedTerm.id,
-        actorId: req.user.id,
+        actorId: req.user?.id ?? '',
         status: updatedTerm.status ?? null,
         eventType: 'term.updated',
       });

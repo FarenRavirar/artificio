@@ -92,7 +92,7 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
 
     // Fase I (spec 058): content_raw da mensagem original, pro preview lado a lado
     // no editor — nunca perdido mesmo quando campos estruturados falham no parse.
-    let contentRaw: string | null = await loadDraftContentRaw(draft);
+    const contentRaw: string | null = await loadDraftContentRaw(draft);
 
     return res.json({ data: { ...draft, content_raw: contentRaw } });
   } catch (error: unknown) {

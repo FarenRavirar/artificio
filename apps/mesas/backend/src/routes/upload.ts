@@ -22,7 +22,7 @@ const upload = multer({
   },
 });
 
-router.post('/upload', authMiddleware, upload.single('file') as any, async (req, res) => {
+router.post('/upload', authMiddleware, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       res.status(400).json({ error: 'Nenhum arquivo enviado' });
@@ -38,16 +38,17 @@ router.post('/upload', authMiddleware, upload.single('file') as any, async (req,
       secure_url: result.secure_url,
       public_id: result.public_id
     });
-  } catch (error: any) {
-    console.error('[upload] Erro ao fazer upload:', error?.message || error);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : undefined;
+    console.error('[upload] Erro ao fazer upload:', message || error);
 
     if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
       res.status(400).json({ error: 'Arquivo muito grande. Limite de 5 MB.' });
       return;
     }
 
-    if (error?.message === 'Formato inválido. Envie apenas JPG, PNG ou WEBP.') {
-      res.status(400).json({ error: error.message });
+    if (message === 'Formato inválido. Envie apenas JPG, PNG ou WEBP.') {
+      res.status(400).json({ error: message });
       return;
     }
 
@@ -76,10 +77,11 @@ router.post('/upload/url', authMiddleware, async (req, res) => {
       secure_url: result.secure_url,
       public_id: result.public_id,
     });
-  } catch (error: any) {
-    console.error('[upload:url] Erro ao importar imagem:', error?.message || error);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : undefined;
+    console.error('[upload:url] Erro ao importar imagem:', message || error);
     res.status(400).json({
-      error: error?.message || 'Não foi possível importar a imagem desse link.',
+      error: message || 'Não foi possível importar a imagem desse link.',
     });
   }
 });

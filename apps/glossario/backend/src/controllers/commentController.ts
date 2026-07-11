@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { db } from '../config/database';
 import { notifyTermOwnerOnComment } from '../services/notificationService';
+import type { AuthedRequest } from '../types/express';
 
 export const getCommentsByTerm = async (req: Request, res: Response) => {
   const { id: termId } = req.params;
@@ -28,10 +29,10 @@ export const getCommentsByTerm = async (req: Request, res: Response) => {
   }
 };
 
-export const createComment = async (req: Request, res: Response) => {
+export const createComment = async (req: AuthedRequest, res: Response) => {
   const { id: termId } = req.params;
   const { body, parent_id } = req.body;
-  const userId = (req as any).user?.id;
+  const userId = req.user?.id;
 
   if (!userId) {
     return res.status(401).json({ error: 'Usuário não autenticado' });
@@ -67,10 +68,10 @@ export const createComment = async (req: Request, res: Response) => {
   }
 };
 
-export const deleteComment = async (req: Request, res: Response) => {
+export const deleteComment = async (req: AuthedRequest, res: Response) => {
   const { id: commentId } = req.params;
-  const userId = (req as any).user?.id;
-  const userRole = (req as any).user?.role;
+  const userId = req.user?.id;
+  const userRole = req.user?.role;
 
   try {
     // Verificar se o comentário existe e se o usuário tem permissão

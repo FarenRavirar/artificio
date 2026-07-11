@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node dist/server.js",
     "build": "tsc",
+    "lint": "eslint .",
     "dev": "nodemon src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",

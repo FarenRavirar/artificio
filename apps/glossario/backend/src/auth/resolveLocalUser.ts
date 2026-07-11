@@ -13,12 +13,12 @@ export interface LocalUser {
 }
 
 export interface QueryResult {
-  rows: Array<Record<string, any>>;
+  rows: Array<Record<string, unknown>>;
   rowCount?: number | null;
 }
 
 export interface QueryExecutor {
-  query: (text: string, params?: any[]) => Promise<QueryResult>;
+  query: (text: string, params?: unknown[]) => Promise<QueryResult>;
 }
 
 const SELECT_COLS = 'id, email, username, full_name, role, sso_user_id';
@@ -27,7 +27,7 @@ const SELECT_COLS = 'id, email, username, full_name, role, sso_user_id';
 // bcrypt.compare(qualquer, SSO_NO_PASSWORD) === false, então nunca casa no verify.
 export const SSO_NO_PASSWORD = '!sso-no-password';
 
-function mapRow(r: Record<string, any>): LocalUser {
+function mapRow(r: Record<string, unknown>): LocalUser {
   return {
     id: String(r.id),
     email: String(r.email),

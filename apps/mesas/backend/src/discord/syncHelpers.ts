@@ -1,6 +1,6 @@
 import { db } from '../db';
-import { Insertable } from 'kysely';
-import { TablesTable, TableContactsTable, TableSchedulesTable, DayOfWeek, ScheduleFrequency, TableContactChannel } from '../db/types';
+import { Insertable, sql } from 'kysely';
+import { TablesTable, TableContactsTable, TableSchedulesTable, DayOfWeek, ScheduleFrequency, TableContactChannel, Database } from '../db/types';
 import { TableRepository } from '../repositories/tableRepository';
 import { TableService } from '../services/tableService';
 import type { DiscordImageUploadStatus, ImportTableDraft } from './types';
@@ -456,7 +456,7 @@ export async function updateDraftImageUploadState(
   }
   await db
     .updateTable('discord_import_table_drafts')
-    .set(setValues as any)
+    .set(setValues as never)
     .where('id', '=', draftId)
     .execute();
 }
@@ -464,7 +464,7 @@ export async function updateDraftImageUploadState(
 export interface SyncDraftCoreConfig {
   messageFk: string;
   sourceName: string;
-  messageTable: string;
+  messageTable: keyof Database;
   requireFk: boolean;
   getSourceId: (message: Record<string, unknown>) => string;
   getSourceUrl: (message: Record<string, unknown>) => string | null;
@@ -499,10 +499,13 @@ export async function syncDraftToTable(
   }
 
   const messageId = (draft as Record<string, unknown>)[config.messageFk] as string;
-  const message = await (db as any)
+  // messageTable é dinâmico (keyof Database resolvido em runtime pelo caller via config),
+  // então Kysely não consegue inferir estaticamente as colunas da tabela aqui — cast pontual
+  // do query builder, não de `db`, mantendo o restante da cadeia tipado.
+  const message = await db
     .selectFrom(config.messageTable)
     .selectAll()
-    .where('id', '=', messageId)
+    .where(sql.ref('id'), '=', messageId)
     .executeTakeFirst();
 
   const messageRow = message as Record<string, unknown> | undefined;
@@ -625,10 +628,10 @@ export async function syncDraftToTable(
       .where('id', '=', draftId)
       .execute();
 
-    await (trx as any)
+    await trx
       .updateTable(config.messageTable)
-      .set({ status: 'synced', updated_at: new Date() })
-      .where('id', '=', messageRow.id as string)
+      .set({ status: 'synced', updated_at: new Date() } as never)
+      .where(sql.ref('id'), '=', messageRow.id as string)
       .execute();
 
     // Codex P2 (T-G7): fecha o outcome real da decisão shadow (no-op p/ inbox, sem linha shadow).

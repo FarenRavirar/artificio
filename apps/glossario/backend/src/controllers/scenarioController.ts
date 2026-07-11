@@ -2,8 +2,9 @@ import { Request, Response } from 'express';
 import { db } from '../config/database';
 import { slugify } from '../utils/slugify';
 import { getCatalogNameMap } from '../services/catalogClient';
+import type { AuthedRequest } from '../types/express';
 
-export const listScenarios = async (req: any, res: Response) => {
+export const listScenarios = async (req: AuthedRequest, res: Response) => {
   try {
     const isAdmin = req.user?.role === 'admin';
     const where = isAdmin ? '' : "WHERE sc.status = 'aprovado'";
@@ -16,7 +17,7 @@ export const listScenarios = async (req: any, res: Response) => {
   } catch (err) { console.error(err); res.status(500).json({ message: 'Erro ao listar cenários.' }); }
 };
 
-export const createScenario = async (req: any, res: Response) => {
+export const createScenario = async (req: AuthedRequest, res: Response) => {
   const { name, slug, description, system_id } = req.body;
   const isAdmin = req.user?.role === 'admin';
   const status = isAdmin ? 'aprovado' : 'pendente';

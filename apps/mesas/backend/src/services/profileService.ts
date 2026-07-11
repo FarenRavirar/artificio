@@ -1,13 +1,10 @@
 import { db } from '../db';
 import type {
   PlayerProfile,
-  NewPlayerProfile,
   PlayerProfileUpdate,
   GmProfile,
-  NewGmProfile,
   GmProfileUpdate,
   UserSystem,
-  NewUserSystem,
   UserUpdate,
 } from '../db/types';
 

@@ -42,18 +42,23 @@ Definir um banco/catálogo canônico e um gerenciamento únicos de sistemas/edi�
 - plano de migração, compatibilidade, rollout, rollback e testes;
 - fases executáveis da Etapa II nesta própria spec.
 
-## Fora de escopo
+## Fora de escopo (Etapa I)
 
+Na Etapa I (investigação), está fora de escopo:
 - Código, migration ou alteração de dados.
 - Escolher por memória/documentação sem conferir código.
 - Compartilhar todo o banco dos apps.
 - Quebrar IDs/URLs/consumidores existentes.
+
+A Etapa II (código) tem escopo próprio detalhado em `plan.md` e executado conforme `tasks.md`.
 
 ## Investigação material
 
 ### Estado real dos bancos
 
 Inspeção read-only em 2026-07-08:
+
+> **Nota:** Snapshot de 2026-07-08, pré-migration I0b.3 (142). Após a correção, 573 nós em prod e 577 em beta tiveram `name` reescrito para nome próprio. Ver `plan.md` I0b e `tasks.md` I0b.3 para estado pós-migration.
 
 | Ambiente | Mesas `systems` | Mesas aliases | Glossário `systems` | Glossário `editions` | Termos com sistema | Termos com edição |
 |---|---:|---:|---:|---:|---:|---:|

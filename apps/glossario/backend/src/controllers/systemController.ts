@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { db } from '../config/database';
 import { slugify } from '../utils/slugify';
+import type { AuthedRequest } from '../types/express';
 import {
   archiveCatalogNode,
   checkCatalogHealth,
@@ -42,7 +43,7 @@ export const catalogHealth = async (_req: Request, res: Response) => {
   }
 };
 
-export const listSystems = async (_req: any, res: Response) => {
+export const listSystems = async (_req: Request, res: Response) => {
   try {
     res.json(await listCatalogSystems());
   } catch (err) {
@@ -51,7 +52,7 @@ export const listSystems = async (_req: any, res: Response) => {
   }
 };
 
-export const createSystem = async (req: any, res: Response) => {
+export const createSystem = async (req: AuthedRequest, res: Response) => {
   const parsed = parseCatalogNodeWrite(req.body);
   if (!parsed) return res.status(400).json({ message: 'Nome é obrigatório.' });
   try {
@@ -125,7 +126,7 @@ export const deleteSystem = async (req: Request, res: Response) => {
   }
 };
 
-export const listEditions = async (req: any, res: Response) => {
+export const listEditions = async (req: Request, res: Response) => {
   const { systemId } = req.params;
   try {
     res.json(await listCatalogEditions(systemId));
@@ -135,11 +136,20 @@ export const listEditions = async (req: any, res: Response) => {
   }
 };
 
-export const createEdition = async (req: any, res: Response) => {
+export const createEdition = async (req: AuthedRequest, res: Response) => {
   const { systemId } = req.params;
   const parsed = parseCatalogNodeWrite(req.body);
   if (!parsed) return res.status(400).json({ message: 'Nome é obrigatório.' });
   try {
+    // Achado CodeRabbit (PR #145): createEdition nao validava o systemId antes
+    // de criar a edicao — parent_id inexistente ou apontando pra um no que nao
+    // e 'system' seguia direto pro catalogo central, ao contrario de
+    // updateSystem/updateEdition/deleteSystem/deleteEdition que ja checam isso.
+    const parentSystem = await findCatalogNode(systemId);
+    if (!parentSystem) return res.status(404).json({ message: 'Sistema não encontrado.' });
+    if (parentSystem.node_type !== 'system') {
+      return res.status(400).json({ message: 'ID não corresponde a um sistema.' });
+    }
     const edition = await createCatalogEdition(systemId, {
       name: parsed.name,
       slug: parsed.slug || slugify(parsed.name),

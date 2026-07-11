@@ -1,5 +1,8 @@
 export interface TxClient {
-  query: (text: string, params?: any[]) => Promise<{ rows: any[]; rowCount?: number | null }>;
+  query: (
+    text: string,
+    params?: unknown[]
+  ) => Promise<{ rows: Array<Record<string, unknown>>; rowCount?: number | null }>;
 }
 
 /**

@@ -6,7 +6,7 @@ const mockAutoArchive = vi.fn();
 vi.mock('../db', () => ({ db: {} }));
 vi.mock('../repositories/tableRepository', () => ({ TableRepository: class {} }));
 vi.mock('../middleware/auth', () => ({
-  authMiddleware: (_req: any, _res: any, next: any) => next(),
+  authMiddleware: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
 }));
 vi.mock('../services/activityLogger', () => ({ logActivity: vi.fn() }));
 vi.mock('../services/tableArchiving', () => ({

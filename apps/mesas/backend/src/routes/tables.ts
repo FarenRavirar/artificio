@@ -4,6 +4,14 @@ import { db } from '../db';
 import { logDatabaseError } from '../middleware/requestLogger';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
 import { isImportedTableExpired } from '../utils/tableVisibility';
+import {
+  resolveSystemIdBySlug,
+  hydrateTableSystemFields,
+  loadCatalogTree,
+  filterCatalogTree,
+  flattenTree,
+} from '../services/catalogClient';
+import type { TableModality, TableType, TableAudience, PriceType, ExperienceLevel } from '../db/types';
 
 const router = Router();
 
@@ -14,6 +22,14 @@ type PublicTableContact = {
   discord_server_url: string | null;
   sort_order: number;
 };
+
+type VttPlatformSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_filename: string | null;
+  website_url: string | null;
+} | null;
 
 // GET /api/v1/tables — Catálogo público, sem JWT
 router.get('/', async (req: Request, res: Response) => {
@@ -40,12 +56,21 @@ router.get('/', async (req: Request, res: Response) => {
   const offset = (pageNum - 1) * limitNum;
 
   try {
+    // Achado Codex (PR #145): system_id agora referencia o catalogo central,
+    // nao a tabela systems local (migration_144 dropou a FK). Resolve slug ->
+    // id via catalogo central em vez do antigo `s.slug` do join local.
+    const systemIdFilter = system ? await resolveSystemIdBySlug(system) : null;
+    // Busca por nome de sistema tambem migra para o catalogo central: resolve
+    // os ids de sistemas cujo nome/aliases batem com o termo buscado.
+    const systemIdsForSearch = search
+      ? filterCatalogTree(await loadCatalogTree(), search).flatMap((node) => flattenTree([node]).map((n) => n.id))
+      : [];
+
     let query = db
       .selectFrom('tables as t')
       .leftJoin('gm_profiles as gm', 'gm.id', 't.gm_id')
       .leftJoin('users as u', 'u.id', 'gm.user_id')
       .leftJoin('profiles as p', 'p.user_id', 'u.id')
-      .leftJoin('systems as s', 's.id', 't.system_id')
       // CORREÇÃO A-HIGH-01: JOIN com vtt_platforms para consistência com rota de detalhes
       .leftJoin('vtt_platforms as vtt', 'vtt.id', 't.vtt_platform_id')
       .select([
@@ -90,16 +115,13 @@ router.get('/', async (req: Request, res: Response) => {
         't.setting_styles',
         // CORREÇÃO DT-01: Retornar synopsis_narrative para cards
         't.synopsis_narrative',
-        's.name as system_name',
-        's.slug as system_slug',
-        's.logo_filename as system_logo_filename',
-        's.website_url as system_website_url',
+        't.system_id',
         'gm.slug as gm_slug',
         sql<string | null>`COALESCE(gm.avatar_url, p.avatar_url)`.as('gm_avatar_url'),
         'gm.badges as gm_badges',
         sql<string>`COALESCE(gm.nickname, p.display_name)`.as('gm_display_name'),
         // CORREÇÃO A-HIGH-01: Retornar objeto vtt_platform para cards de catálogo
-        sql<any>`
+        sql<VttPlatformSummary>`
           CASE WHEN vtt.id IS NOT NULL THEN
             json_build_object(
               'id', vtt.id,
@@ -117,12 +139,16 @@ router.get('/', async (req: Request, res: Response) => {
       .where('t.archived_at', 'is', null) // D-MESAS1: arquivadas somem do catalogo publico
       .orderBy('t.created_at', 'desc');
 
-    if (system) query = query.where('s.slug', '=', system);
-    if (modality) query = query.where('t.modality', '=', modality as any);
-    if (type) query = query.where('t.type', '=', type as any);
-    if (audience) query = query.where('t.audience', '=', audience as any);
-    if (price_type) query = query.where('t.price_type', '=', price_type as any);
-    if (experience_level) query = query.where('t.experience_level', '=', experience_level as any);
+    if (system) {
+      query = systemIdFilter
+        ? query.where('t.system_id', '=', systemIdFilter)
+        : query.where(sql<boolean>`false`);
+    }
+    if (modality) query = query.where('t.modality', '=', modality as TableModality);
+    if (type) query = query.where('t.type', '=', type as TableType);
+    if (audience) query = query.where('t.audience', '=', audience as TableAudience);
+    if (price_type) query = query.where('t.price_type', '=', price_type as PriceType);
+    if (experience_level) query = query.where('t.experience_level', '=', experience_level as ExperienceLevel);
     if (featured === 'true') query = query.where('t.featured', '=', true);
     if (state) query = query.where('t.state', '=', state);
     if (city) query = query.where('t.city', 'ilike', `%${city}%`);
@@ -138,10 +164,13 @@ router.get('/', async (req: Request, res: Response) => {
 
     if (search) {
       const safeSearch = `%${search}%`;
+      const systemIdsSql = systemIdsForSearch.length > 0
+        ? sql<boolean>`t.system_id IN (${sql.join(systemIdsForSearch.map((id) => sql.lit(id)))})`
+        : sql<boolean>`false`;
       query = query.where(sql<boolean>`(
         t.title ILIKE ${safeSearch}
         OR t.description ILIKE ${safeSearch}
-        OR s.name ILIKE ${safeSearch}
+        OR ${systemIdsSql}
         OR COALESCE(gm.nickname, p.display_name) ILIKE ${safeSearch}
       )`);
     }
@@ -217,7 +246,8 @@ router.get('/', async (req: Request, res: Response) => {
     query = query.limit(limitNum).offset(offset);
 
     const tables = await query.execute();
-    const publicTables = tables.map((table) => ({
+    const tablesWithSystem = await hydrateTableSystemFields(tables);
+    const publicTables = tablesWithSystem.map((table) => ({
       ...table,
       cover_url: sanitizePublicImageUrl(table.cover_url),
     }));
@@ -264,7 +294,7 @@ router.get('/', async (req: Request, res: Response) => {
         total: totalCount, // CORREÇÃO BE-03: totalCount já é número
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     // CORREÇÃO HP-03: Log com contexto de query params
     console.error('[GET /tables]', error, { 
       params: { system, modality, type, audience, price_type, experience_level, state, city, featured, search, seal, sort, page, limit }
@@ -290,7 +320,7 @@ router.get('/style-facets', async (_req: Request, res: Response) => {
     res.json({
       data: result.rows.map((row) => ({ style: row.style, count: Number(row.count) })),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[GET /tables/style-facets]', error);
     res.status(500).json({ error: 'Erro ao buscar estilos.' });
   }
@@ -312,7 +342,6 @@ router.get('/:slug', async (req: Request, res: Response) => {
       .leftJoin('gm_profiles as gm', 'gm.id', 't.gm_id')
       .leftJoin('users as u', 'u.id', 'gm.user_id')
       .leftJoin('profiles as p', 'p.user_id', 'u.id')
-      .leftJoin('systems as s', 's.id', 't.system_id')
       .leftJoin('scenarios as sc', 'sc.id', 't.scenario_id') // CORREÇÃO DT-02: JOIN para retornar cenário
       // CORREÇÃO A01: JOIN com vtt_platforms para retornar dados de VTT
       .leftJoin('vtt_platforms as vtt', 'vtt.id', 't.vtt_platform_id')
@@ -387,14 +416,11 @@ router.get('/:slug', async (req: Request, res: Response) => {
         't.game_platform_custom',
         't.communication_platform_id',
         sql<string | null>`COALESCE(cp.name, t.communication_platform)`.as('communication_platform'),
-        's.name as system_name',
-        's.slug as system_slug',
-        's.logo_filename as system_logo_filename',
-        's.website_url as system_website_url',
+        't.system_id',
         // CORREÇÃO DT-02: Retornar nome do cenário
         'sc.name as scenario_name',
         // CORREÇÃO A01: Retornar objeto vtt_platform completo
-        sql<any>`
+        sql<VttPlatformSummary>`
           CASE WHEN vtt.id IS NOT NULL THEN
             json_build_object(
               'id', vtt.id,
@@ -424,6 +450,8 @@ router.get('/:slug', async (req: Request, res: Response) => {
     if (isImportedTableExpired(table)) {
       return res.status(404).json({ error: 'Mesa não encontrada ou expirada.' });
     }
+
+    const [tableWithSystem] = await hydrateTableSystemFields([table]);
 
     const contacts = await db
       .selectFrom('table_contacts')
@@ -458,30 +486,33 @@ router.get('/:slug', async (req: Request, res: Response) => {
 
     res.json({
       data: {
-        ...table,
+        ...tableWithSystem,
         cover_url: sanitizePublicImageUrl(table.cover_url),
         contacts,
         schedules,
         gm_vtt_platforms: gmVttPlatforms,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     // Log detalhado de erro de banco de dados
     logDatabaseError(req, error, {
       route: 'GET /api/v1/tables/:slug',
       operation: 'fetch_table_details'
     });
-    
+
     // CORREÇÃO A-CRIT-02: Detectar erro de migration pendente
-    console.error('[GET /tables/:slug]', error, { 
-      slug, 
-      errorMessage: error.message,
-      pgCode: error.code,
-      stack: error.stack 
+    const message = error instanceof Error ? error.message : undefined;
+    const pgCode = error && typeof error === 'object' && 'code' in error ? (error as { code?: string }).code : undefined;
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error('[GET /tables/:slug]', error, {
+      slug,
+      errorMessage: message,
+      pgCode,
+      stack
     });
-    
+
     // Detectar erro de tabela inexistente (migration não executada)
-    if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+    if (message?.includes('relation') && message?.includes('does not exist')) {
       console.error('[MIGRATION PENDING] Database table does not exist. Check if migrations were executed.');
       return res.status(503).json({ 
         error: 'Serviço temporariamente indisponível. Tente novamente em alguns minutos.' 
@@ -525,7 +556,7 @@ router.post('/:slug/view', async (req: Request, res: Response) => {
       .execute();
 
     res.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /tables/:slug/view]', error);
     res.status(500).json({ error: 'Erro ao registrar visualização.' });
   }
@@ -581,7 +612,7 @@ router.post('/:slug/click', async (req: Request, res: Response) => {
     }
 
     res.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /tables/:slug/click]', error);
     res.status(500).json({ error: 'Erro ao registrar clique.' });
   }

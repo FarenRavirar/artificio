@@ -2,6 +2,15 @@ import { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
 
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- augmentação do namespace global Express (padrão @types/express) para adicionar requestId ao Request; mesmo padrão de src/middleware/auth.ts.
+  namespace Express {
+    interface Request {
+      requestId?: string;
+    }
+  }
+}
+
 // Diretório de logs dentro do /app onde o container tem permissão
 const LOG_DIR = '/app/logs';
 const LOG_FILE = path.join(LOG_DIR, 'routes.log');
@@ -26,8 +35,8 @@ interface LogEntry {
   timestamp: string;
   method: string;
   path: string;
-  params: Record<string, any>;
-  query: Record<string, any>;
+  params: Record<string, unknown>;
+  query: Record<string, unknown>;
   ip: string;
   userAgent: string;
   requestId: string;
@@ -98,7 +107,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   const startTime = Date.now();
   
   // Adicionar requestId ao objeto de requisição para uso posterior
-  (req as any).requestId = requestId;
+  req.requestId = requestId;
   
   // Log de entrada
   const entry: LogEntry = {
@@ -116,17 +125,25 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   
   // Interceptar resposta para log de erro
   const originalSend = res.send;
-  res.send = function(data: any): Response {
+  res.send = function(data: unknown): Response {
     const duration = Date.now() - startTime;
-    
+
     // Se status >= 400, logar como erro
     if (res.statusCode >= 400) {
       let errorMessage = 'Unknown error';
-      let errorData: any = {};
-      
+
       try {
-        errorData = typeof data === 'string' ? JSON.parse(data) : data;
-        errorMessage = errorData.error || errorData.message || errorMessage;
+        const errorData: unknown = typeof data === 'string' ? JSON.parse(data) : data;
+        if (errorData && typeof errorData === 'object') {
+          const record = errorData as Record<string, unknown>;
+          const parsedError = record.error;
+          const parsedMessage = record.message;
+          if (typeof parsedError === 'string') {
+            errorMessage = parsedError;
+          } else if (typeof parsedMessage === 'string') {
+            errorMessage = parsedMessage;
+          }
+        }
       } catch {
         errorMessage = String(data).substring(0, 200);
       }
@@ -155,11 +172,18 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
  */
 export function logDatabaseError(
   req: Request,
-  error: any,
+  error: unknown,
   context: { route: string; operation: string }
 ): void {
-  const requestId = (req as any).requestId || 'unknown';
-  
+  const requestId = req.requestId || 'unknown';
+
+  const errorRecord = error && typeof error === 'object' ? (error as Record<string, unknown>) : undefined;
+  const errorCode = typeof errorRecord?.code === 'string' ? errorRecord.code : undefined;
+  const errorMessage = error instanceof Error
+    ? error.message
+    : (typeof errorRecord?.message === 'string' ? errorRecord.message : undefined);
+  const errorStack = error instanceof Error ? error.stack : undefined;
+
   const errorEntry: ErrorLogEntry = {
     timestamp: new Date().toISOString(),
     method: req.method,
@@ -170,9 +194,9 @@ export function logDatabaseError(
     userAgent: req.get('user-agent') || 'unknown',
     requestId,
     error: {
-      message: error.message || 'Database error',
-      code: error.code || 'DB_ERROR',
-      stack: error.stack?.split('\n').slice(0, 3).join(' | '),
+      message: errorMessage || 'Database error',
+      code: errorCode || 'DB_ERROR',
+      stack: errorStack?.split('\n').slice(0, 3).join(' | '),
     },
     duration: 0,
   };

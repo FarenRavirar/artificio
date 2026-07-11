@@ -10,6 +10,7 @@ import { syncImportDraftToTable, DraftSyncValidationError } from '../../inbox/sy
 import { handlePatchDraft } from '../discord/utils';
 import { loadSystemsForParser } from '../../discord/shared';
 import { toNumberOrNull, listDraftsSchema } from './utils';
+import type { DiscordImportDraftStatus } from '../../db/types';
 
 const router = Router();
 
@@ -40,10 +41,10 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
       .offset(Number(offset) || 0);
 
     if (status) {
-      query = query.where('discord_import_table_drafts.status', '=', status as any);
+      query = query.where('discord_import_table_drafts.status', '=', status as DiscordImportDraftStatus);
     }
     if (origin) {
-      query = query.where('import_messages.source_type', '=', origin as any);
+      query = query.where('import_messages.source_type', '=', origin);
     }
 
     const rows = await query.execute();
@@ -78,8 +79,7 @@ router.post('/:id/sync', requireAdmin, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'ID do draft obrigatório.' });
     }
 
-    const adminDisplayName =
-      (req as any).user?.displayName ?? (req as any).user?.name ?? undefined;
+    const adminDisplayName = req.user?.name ?? undefined;
 
     const result = await syncImportDraftToTable(draftId, adminDisplayName);
     return res.json({ data: result });

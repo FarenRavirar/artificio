@@ -5,6 +5,7 @@ import { db } from '../db';
 import { upgradeGoogleImageQuality } from '../utils/urlValidation';
 import { isImportedTableExpired } from '../utils/tableVisibility';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
+import { hydrateTableSystemFields } from '../services/catalogClient';
 
 const router = Router();
 
@@ -213,12 +214,14 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
 
         return res.status(200).type('html').send(output);
     } else if (type === 'mesas') {
-      const table = await db
+      // Achado Codex (PR #145): system_id agora referencia o catalogo central,
+      // leftJoin('systems' LOCAL) sempre NULL pra mesas do fluxo novo — join
+      // removido, hidratacao via hydrateTableSystemFields apos a query.
+      const rawTable = await db
         .selectFrom('tables as t')
         .leftJoin('gm_profiles as gm', 'gm.id', 't.gm_id')
         .leftJoin('users as u', 'u.id', 'gm.user_id')
         .leftJoin('profiles as p', 'p.user_id', 'u.id')
-        .leftJoin('systems as s', 's.id', 't.system_id')
         .select([
           't.slug',
           't.title',
@@ -233,11 +236,13 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
           't.listing_excerpt',
           't.synopsis',
           't.synopsis_narrative',
-          's.name as system_name',
+          't.system_id',
           sql<string>`COALESCE(gm.nickname, p.display_name)`.as('gm_display_name'),
         ])
         .where('t.slug', '=', slug)
         .executeTakeFirst();
+
+      const table = rawTable ? (await hydrateTableSystemFields([rawTable]))[0] : rawTable;
 
       const isVisible =
         !!table &&
@@ -272,7 +277,7 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
         const htmlFallback = injectMetaTags(html, getFallbackMeta(`/${type}/${slug}`));
         return res.status(200).type('html').send(htmlFallback);
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /og/:type/:slug]', { type, slug }, error);
 
     try {

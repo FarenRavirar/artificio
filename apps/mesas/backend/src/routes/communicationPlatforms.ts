@@ -37,6 +37,19 @@ const normalizeWebsiteUrl = (value?: string | null): string | null => {
   }
 };
 
+const isUniqueViolation = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object' || !('code' in error)) {
+    return false;
+  }
+
+  return (error as { code?: string }).code === '23505';
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return 'Erro interno';
+};
+
 // GET /api/v1/communication-platforms — Catálogo público (somente ativos)
 router.get('/', async (_req: Request, res: Response) => {
   try {
@@ -104,14 +117,15 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req: Request,
       .executeTakeFirst();
 
     return res.status(201).json({ data: created });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /communication-platforms/admin]', error);
 
-    if (error.message === 'URL da plataforma inválida.') {
-      return res.status(400).json({ error: error.message });
+    const message = getErrorMessage(error);
+    if (message === 'URL da plataforma inválida.') {
+      return res.status(400).json({ error: message });
     }
 
-    if (error.code === '23505') {
+    if (isUniqueViolation(error)) {
       return res.status(409).json({ error: 'Já existe plataforma com este nome ou slug.' });
     }
 
@@ -145,8 +159,8 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req: Reque
   if (payload.website_url !== undefined) {
     try {
       updateData.website_url = normalizeWebsiteUrl(payload.website_url);
-    } catch (error: any) {
-      return res.status(400).json({ error: error.message });
+    } catch (error) {
+      return res.status(400).json({ error: getErrorMessage(error) });
     }
   }
 
@@ -178,10 +192,10 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req: Reque
     }
 
     return res.json({ data: updated });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[PUT /communication-platforms/admin/:id]', error);
 
-    if (error.code === '23505') {
+    if (isUniqueViolation(error)) {
       return res.status(409).json({ error: 'Já existe plataforma com este nome ou slug.' });
     }
 

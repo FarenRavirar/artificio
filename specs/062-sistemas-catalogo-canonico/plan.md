@@ -1,6 +1,6 @@
 # Plano — Spec 062
 
-**Estado:** investigação concluída; implementação não iniciada.
+**Estado:** Etapa I (investigação) concluída e aprovada. Etapa II (código) em andamento: I0a, I0b, I1-I7 implementados localmente; I0a.15 (deploy beta) e I5a (mapeamento manual glossário) pendentes. Primeiro alvo operacional: `beta.artificiorpg.com` via app `site`.
 
 ## Referência visual aprovada do `SystemPicker` (mantenedor, 2026-07-09 — vinculante)
 

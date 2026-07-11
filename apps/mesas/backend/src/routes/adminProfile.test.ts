@@ -20,11 +20,11 @@ vi.mock('../services/profileService', () => ({
 }));
 
 vi.mock('../middleware/auth', () => ({
-  authMiddleware: (req: any, _res: any, next: any) => {
+  authMiddleware: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     req.user = { userId: 'admin-user', role: 'admin', name: 'Admin' };
     next();
   },
-  requireRole: () => (_req: any, _res: any, next: any) => next(),
+  requireRole: () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
 }));
 
 import adminProfileRoutes from './adminProfile';

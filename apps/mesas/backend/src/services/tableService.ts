@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { CreateTableInput, UpdateTableInput } from '../validators/tableValidators';
+import { CreateTableInput } from '../validators/tableValidators';
 import { Insertable, sql } from 'kysely';
 import { TablesTable } from '../db/types';
 

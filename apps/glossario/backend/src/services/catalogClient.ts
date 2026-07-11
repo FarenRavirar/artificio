@@ -18,7 +18,10 @@ export interface GlossarioEdition extends GlossarioSystem {
 // nao validado. Schemas zod substituem a validacao estrutural manual anterior.
 const catalogAliasSchema = z.object({ alias: z.string() });
 
-const catalogTreeNodeSchema: z.ZodType<CatalogTreeNode> = z.lazy(() => z.object({
+// Achado Sonar duplicacao (PR #145): campos base extraidos uma vez e reusados
+// tanto pela arvore (com `children` recursivo via lazy) quanto pelo schema de
+// resposta de escrita (catalogNodeWriteResponseSchema, sem `children`).
+const catalogNodeBaseSchema = z.object({
   id: z.string(),
   parent_id: z.string().nullable(),
   node_type: z.enum(['system', 'edition', 'subsystem', 'variant']),
@@ -28,6 +31,9 @@ const catalogTreeNodeSchema: z.ZodType<CatalogTreeNode> = z.lazy(() => z.object(
   description: z.string().nullable(),
   status: z.enum(['draft', 'pending', 'active', 'rejected', 'merged']),
   aliases: z.array(catalogAliasSchema),
+});
+
+const catalogTreeNodeSchema: z.ZodType<CatalogTreeNode> = z.lazy(() => catalogNodeBaseSchema.extend({
   children: z.array(catalogTreeNodeSchema),
 }));
 
@@ -49,6 +55,16 @@ interface CatalogTreeNode {
 }
 
 const catalogSnapshotSchema = z.object({ tree: z.array(catalogTreeNodeSchema) });
+
+// Achado CodeRabbit (PR #145): writeCatalogNode validava a resposta de
+// POST/PUT com catalogTreeNodeSchema (que exige `children`), mas o endpoint
+// de escrita do site (POST/PUT /api/admin/v1/catalog/nodes) retorna
+// CatalogNodeRow — a linha flat do banco, sem `children` (só a arvore/
+// snapshot publica tem esse campo). O parse falhava sempre em runtime real.
+// Schema proprio para resposta de escrita, reusando catalogNodeBaseSchema
+// (sem `children`); normalizado para CatalogTreeNode (com children: [])
+// apos o parse.
+const catalogNodeWriteResponseSchema = catalogNodeBaseSchema;
 
 const catalogHealthSchema = z.object({
   ok: z.boolean(),
@@ -179,7 +195,7 @@ async function loadSnapshot(): Promise<{ tree: CatalogTreeNode[]; flat: CatalogT
 }
 
 async function writeCatalogNode(input: CatalogNodeInput, method: 'POST' | 'PUT', path: string): Promise<CatalogTreeNode> {
-  return catalogTreeNodeSchema.parse(await catalogFetch<unknown>(path, {
+  const row = catalogNodeWriteResponseSchema.parse(await catalogFetch<unknown>(path, {
     method,
     body: JSON.stringify({
       parent_id: input.parent_id ?? null,
@@ -195,6 +211,7 @@ async function writeCatalogNode(input: CatalogNodeInput, method: 'POST' | 'PUT',
       status: input.status ?? 'pending',
     }),
   }));
+  return { ...row, children: [] };
 }
 
 // Achado CodeRabbit (PR #145): fetch sem timeout podia deixar controllers do

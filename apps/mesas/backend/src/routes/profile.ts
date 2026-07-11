@@ -24,7 +24,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
   try {
     const profile = await profileService.getFullProfile(userId);
     return res.json({ data: profile });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /profile/me]', error);
     return res.status(500).json({ error: 'Erro ao buscar perfil' });
   }
@@ -66,7 +66,7 @@ router.patch('/me', authMiddleware, async (req: Request, res: Response) => {
 
     const user = await profileService.updateUser(userId, { username, location });
     return res.json({ data: user });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /profile/me]', error);
     return res.status(500).json({ error: 'Erro ao atualizar dados' });
   }
@@ -93,7 +93,7 @@ router.patch('/me/profile', authMiddleware, async (req: Request, res: Response) 
       languages,
     });
     return res.json({ data: profile });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /profile/me/profile]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil' });
   }
@@ -122,7 +122,7 @@ router.patch('/me/player', authMiddleware, async (req: Request, res: Response) =
       pricing_preference,
     });
     return res.json({ data: player });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /profile/me/player]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil de jogador' });
   }
@@ -148,7 +148,7 @@ router.patch('/player', authMiddleware, async (req: Request, res: Response) => {
       pricing_preference,
     });
     return res.json({ data: player });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /profile/player]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil de jogador' });
   }
@@ -194,7 +194,7 @@ router.patch('/me/gm', authMiddleware, async (req: Request, res: Response) => {
       game_format,
     });
     return res.json({ data: gm });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /profile/me/gm]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil de mestre' });
   }
@@ -237,7 +237,7 @@ router.patch('/gm', authMiddleware, async (req: Request, res: Response) => {
       game_format,
     });
     return res.json({ data: gm });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /profile/gm]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil de mestre' });
   }
@@ -264,9 +264,10 @@ router.post('/systems', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userSystem = await profileService.addUserSystem(userId, system_id, type);
     return res.json({ data: userSystem });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[POST /profile/systems]', error);
-    return res.status(500).json({ error: error.message || 'Erro ao adicionar sistema' });
+    const message = error instanceof Error ? error.message : undefined;
+    return res.status(500).json({ error: message || 'Erro ao adicionar sistema' });
   }
 });
 
@@ -283,7 +284,7 @@ router.delete('/systems/:id', authMiddleware, async (req: Request, res: Response
   try {
     await profileService.removeUserSystem(id, userId);
     return res.status(204).send();
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[DELETE /profile/systems/:id]', error);
     return res.status(500).json({ error: 'Erro ao remover sistema' });
   }
@@ -303,7 +304,7 @@ router.get('/me/discord', authMiddleware, async (req: Request, res: Response) =>
   try {
     const status = await profileService.getDiscordStatus(userId);
     return res.json({ data: status });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /profile/me/discord]', error);
     return res.status(500).json({ error: 'Erro ao buscar status Discord' });
   }
@@ -329,7 +330,7 @@ router.post('/me/connect/discord', authMiddleware, async (req: Request, res: Res
   try {
     const status = await profileService.connectDiscord(userId, { username, id });
     return res.json({ data: status });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[POST /profile/me/connect/discord]', error);
     return res.status(500).json({ error: 'Erro ao conectar Discord' });
   }
@@ -349,7 +350,7 @@ router.delete('/me/connect/discord', authMiddleware, async (req: Request, res: R
   try {
     await profileService.disconnectDiscord(userId);
     return res.status(204).send();
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[DELETE /profile/me/connect/discord]', error);
     return res.status(500).json({ error: 'Erro ao desconectar Discord' });
   }
@@ -433,7 +434,7 @@ router.post('/me/google-picture', strictRateLimiter, authMiddleware, async (req:
         profile 
       } 
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[POST /profile/me/google-picture]', error);
     return res.status(500).json({ 
       error: 'Erro ao buscar foto do Google. Tente fazer login novamente.' 

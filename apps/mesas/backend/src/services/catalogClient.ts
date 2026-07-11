@@ -11,7 +11,10 @@ const catalogAliasSchema = z.object({ alias: z.string() });
 
 const catalogNodeTypeSchema = z.enum(['system', 'edition', 'variant', 'subsystem']);
 
-const catalogTreeNodeSchema: z.ZodType<CatalogTreeNode> = z.lazy(() => z.object({
+// Achado Sonar duplicacao (PR #145): campos base extraidos uma vez e reusados
+// tanto pela arvore (com `children` recursivo via lazy) quanto pelo schema de
+// resposta de escrita (catalogNodeWriteResponseSchema, sem `children`).
+const catalogNodeBaseSchema = z.object({
   id: z.string(),
   parent_id: z.string().nullable(),
   node_type: catalogNodeTypeSchema,
@@ -23,6 +26,9 @@ const catalogTreeNodeSchema: z.ZodType<CatalogTreeNode> = z.lazy(() => z.object(
   official_website_url: z.string().nullable(),
   logo_media_id: z.string().nullable(),
   aliases: z.array(catalogAliasSchema),
+});
+
+const catalogTreeNodeSchema: z.ZodType<CatalogTreeNode> = z.lazy(() => catalogNodeBaseSchema.extend({
   children: z.array(catalogTreeNodeSchema),
 }));
 
@@ -46,6 +52,15 @@ interface CatalogTreeNode {
 }
 
 const catalogSnapshotSchema = z.object({ tree: z.array(catalogTreeNodeSchema) });
+
+// Achado CodeRabbit (PR #145): createCatalogNode/updateCatalogNode validavam
+// a resposta de POST/PUT com catalogTreeNodeSchema (exige `children`), mas o
+// endpoint de escrita do site (POST/PUT /api/admin/v1/catalog/nodes) retorna
+// CatalogNodeRow — linha flat do banco, sem `children` (so a arvore/snapshot
+// publica tem esse campo). O parse falhava sempre em runtime real. Schema
+// proprio para resposta de escrita, reusando catalogNodeBaseSchema (sem
+// `children`); normalizado com children: [] logo apos o parse.
+const catalogNodeWriteResponseSchema = catalogNodeBaseSchema;
 
 const catalogHealthSchema = z.object({
   ok: z.boolean(),
@@ -139,7 +154,7 @@ export async function checkCatalogHealth(): Promise<CatalogHealth> {
 }
 
 export async function createCatalogNode(input: CatalogNodeInput): Promise<MesasSystemNode> {
-  const created = catalogTreeNodeSchema.parse(await catalogFetch<unknown>('/api/admin/v1/catalog/nodes', {
+  const created = catalogNodeWriteResponseSchema.parse(await catalogFetch<unknown>('/api/admin/v1/catalog/nodes', {
     method: 'POST',
     body: JSON.stringify(toCatalogInput(input)),
   }));
@@ -154,7 +169,7 @@ export async function updateCatalogNode(id: string, input: CatalogNodeInput): Pr
   // e apaga todos os aliases existentes. So inclui o campo quando foi enviado.
   const { aliases, ...body } = toCatalogInput(input);
   const payload = Array.isArray(input.aliases) ? { ...body, aliases } : body;
-  const updated = catalogTreeNodeSchema.parse(await catalogFetch<unknown>(`/api/admin/v1/catalog/nodes/${encodeURIComponent(id)}`, {
+  const updated = catalogNodeWriteResponseSchema.parse(await catalogFetch<unknown>(`/api/admin/v1/catalog/nodes/${encodeURIComponent(id)}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   }));
@@ -200,6 +215,45 @@ export function flattenTree(nodes: MesasSystemNode[]): MesasSystemNode[] {
   };
   nodes.forEach(visit);
   return flat;
+}
+
+// Achado Codex (PR #145): tables.system_id agora referencia o catalogo central
+// (migration_144 dropou a FK local), mas 8 pontos de leitura ainda faziam
+// leftJoin('systems' LOCAL) pra hidratar system_name/system_slug/system_path e
+// filtrar por ?system=slug — sempre NULL/vazio pra mesas criadas/editadas pelo
+// fluxo novo (system_suggestions -> catalogo central). Os dois helpers abaixo
+// substituem esse join local: resolveSystemIdBySlug para o filtro de entrada,
+// hydrateTableSystemFields para preencher os campos de saida a partir do
+// catalogo central (cache de 60s via loadCatalogFlat).
+export async function resolveSystemIdBySlug(slug: string): Promise<string | null> {
+  const node = (await loadCatalogFlat()).find((n) => n.slug === slug || n.path_slug === slug);
+  return node?.id ?? null;
+}
+
+export type TableSystemFields = {
+  system_name: string | null;
+  system_slug: string | null;
+  system_path: string | null;
+  system_logo_filename: string | null;
+  system_website_url: string | null;
+};
+
+export async function hydrateTableSystemFields<T extends { system_id: string | null }>(
+  rows: T[],
+): Promise<Array<T & TableSystemFields>> {
+  const flat = await loadCatalogFlat();
+  const byId = new Map(flat.map((node) => [node.id, node]));
+  return rows.map((row) => {
+    const node = row.system_id ? byId.get(row.system_id) : undefined;
+    return {
+      ...row,
+      system_name: node?.name ?? null,
+      system_slug: node?.slug ?? null,
+      system_path: node?.path_slug ?? null,
+      system_logo_filename: node?.logo_filename ?? null,
+      system_website_url: node?.website_url ?? null,
+    };
+  });
 }
 
 // Achado CodeRabbit (PR #145): fetch sem timeout podia deixar rotas do mesas

@@ -1,7 +1,7 @@
 import { db } from '../config/database';
 
 type QueryExecutor = {
-  query: (text: string, params?: any[]) => Promise<{ rows: any[]; rowCount?: number | null }>;
+  query: (text: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[]; rowCount?: number | null }>;
 };
 
 type VoteDirection = 'up' | 'down';
@@ -44,9 +44,10 @@ const findTermOwner = async (
     return null;
   }
 
+  const row = result.rows[0];
   return {
-    ownerId: result.rows[0]?.added_by ?? null,
-    termName: result.rows[0]?.name_en ?? null,
+    ownerId: typeof row?.added_by === 'string' ? row.added_by : null,
+    termName: typeof row?.name_en === 'string' ? row.name_en : null,
   };
 };
 

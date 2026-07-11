@@ -1,15 +1,16 @@
 import request from 'supertest';
 import express from 'express';
 import adminEnrichmentRoutes from './adminEnrichment';
+import type { UserRole } from '../db/types';
 
-let mockAuthUser: { userId: string; role: string } | null = null;
+let mockAuthUser: { userId: string; role: UserRole } | null = null;
 const { mockProdExecute, mockTransactionExecute } = vi.hoisted(() => ({
   mockProdExecute: vi.fn(),
   mockTransactionExecute: vi.fn(),
 }));
 
 vi.mock('../middleware/auth', () => ({
-  authMiddleware: (req: any, res: any, next: any) => {
+  authMiddleware: (req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (!mockAuthUser) {
       res.status(401).json({ error: 'Token inválido ou expirado.' });
       return;

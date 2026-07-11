@@ -14,7 +14,7 @@ interface LegacyEdition {
 
 interface MappingReport {
   dry_run: boolean;
-  systems: Array<{ legacy_id: string; legacy_name: string; canonical_id: string | null; canonical_name: string | null }>;
+  systems: Array<{ legacy_id: string; legacy_name: string; canonical_id: string | null; canonical_name: string | null; ambiguous: boolean }>;
   editions: Array<{ legacy_id: string; legacy_name: string; legacy_system_id: string; canonical_id: string | null; canonical_name: string | null }>;
   unresolved: Array<{ type: 'system' | 'edition'; legacy_id: string; name: string }>;
   updates: {
@@ -41,39 +41,52 @@ function parseLegacyEditions(rows: unknown): LegacyEdition[] {
     && typeof row?.system_id === 'string');
 }
 
-async function main(): Promise<void> {
-  const apply = process.env.GLOSSARIO_CATALOG_MIGRATION_APPLY === 'true';
-  const [legacySystemsResult, legacyEditionsResult, catalogIndex] = await Promise.all([
-    db.query('SELECT id, name FROM public.systems ORDER BY name'),
-    db.query('SELECT id, name, system_id FROM public.editions ORDER BY name'),
-    getCatalogNodeIndex(),
-  ]);
-  const legacySystems = { rows: parseLegacySystems(legacySystemsResult.rows) };
-  const legacyEditions = { rows: parseLegacyEditions(legacyEditionsResult.rows) };
+type SystemMapping = MappingReport['systems'][number];
+type EditionMapping = MappingReport['editions'][number] & { ambiguous: boolean };
 
-  const canonicalSystemsByName = new Map<string, { id: string; name: string }>();
+// Achado CodeRabbit (PR #145): Map.set sobrescrevia silenciosamente sistemas
+// com o mesmo nome normalizado (ultimo escrito vencia sem aviso). Agrupa por
+// nome normalizado, igual ao tratamento ja usado para edicoes; nome ambiguo
+// (2+ sistemas canonicos) vira unresolved em vez de escolher um ao acaso.
+// Achado Sonar (PR #145): logica de mapeamento extraida de main() para reduzir
+// complexidade cognitiva (21 -> abaixo de 15).
+function buildSystemMappings(legacySystems: LegacySystem[], catalogIndex: Awaited<ReturnType<typeof getCatalogNodeIndex>>): SystemMapping[] {
+  const canonicalSystemsByName = new Map<string, { id: string; name: string }[]>();
   for (const node of catalogIndex) {
     if (node.node_type !== 'system') continue;
-    canonicalSystemsByName.set(normalize(node.name), { id: node.id, name: node.name });
+    const key = normalize(node.name);
+    const bucket = canonicalSystemsByName.get(key) ?? [];
+    bucket.push({ id: node.id, name: node.name });
+    canonicalSystemsByName.set(key, bucket);
   }
 
-  const systemMappings = legacySystems.rows.map((legacy) => {
-    const canonical = canonicalSystemsByName.get(normalize(legacy.name)) ?? null;
+  const ambiguousSystemNames = new Set(
+    [...canonicalSystemsByName.entries()].filter(([, bucket]) => bucket.length > 1).map(([key]) => key),
+  );
+
+  return legacySystems.map((legacy) => {
+    const key = normalize(legacy.name);
+    const ambiguous = ambiguousSystemNames.has(key);
+    const bucket = canonicalSystemsByName.get(key);
+    const canonical = !ambiguous && bucket?.length === 1 ? bucket[0] : null;
     return {
       legacy_id: legacy.id,
       legacy_name: legacy.name,
       canonical_id: canonical?.id ?? null,
       canonical_name: canonical?.name ?? null,
+      ambiguous,
     };
   });
+}
 
-  const canonicalSystemIdByLegacyId = new Map(
-    systemMappings.filter((row) => row.canonical_id).map((row) => [row.legacy_id, row.canonical_id!]),
-  );
-
-  // Achado CodeRabbit (PR #145): edições no catálogo central podem ter nomes
-  // repetidos ("1ª Edição") sob sistemas diferentes. Chave composta
-  // (sistema pai canônico + nome normalizado) evita colisão cruzada.
+// Achado CodeRabbit (PR #145): edições no catálogo central podem ter nomes
+// repetidos ("1ª Edição") sob sistemas diferentes. Chave composta
+// (sistema pai canônico + nome normalizado) evita colisão cruzada.
+function buildEditionMappings(
+  legacyEditions: LegacyEdition[],
+  catalogIndex: Awaited<ReturnType<typeof getCatalogNodeIndex>>,
+  canonicalSystemIdByLegacyId: Map<string, string>,
+): EditionMapping[] {
   const canonicalEditionsByKey = new Map<string, { id: string; name: string }[]>();
   for (const node of catalogIndex) {
     if (node.node_type !== 'edition' || !node.parent_id) continue;
@@ -87,7 +100,7 @@ async function main(): Promise<void> {
     [...canonicalEditionsByKey.entries()].filter(([, bucket]) => bucket.length > 1).map(([key]) => key),
   );
 
-  const editionMappings = legacyEditions.rows.map((legacy) => {
+  return legacyEditions.map((legacy) => {
     const canonicalSystemId = canonicalSystemIdByLegacyId.get(legacy.system_id) ?? null;
     const key = canonicalSystemId ? `${canonicalSystemId}::${normalize(legacy.name)}` : null;
     const bucket = key ? canonicalEditionsByKey.get(key) : undefined;
@@ -102,11 +115,17 @@ async function main(): Promise<void> {
       ambiguous,
     };
   });
+}
 
-  const unresolved: MappingReport['unresolved'] = [
+function buildUnresolved(systemMappings: SystemMapping[], editionMappings: EditionMapping[]): MappingReport['unresolved'] {
+  return [
     ...systemMappings
       .filter((row) => !row.canonical_id)
-      .map((row) => ({ type: 'system' as const, legacy_id: row.legacy_id, name: row.legacy_name })),
+      .map((row) => ({
+        type: 'system' as const,
+        legacy_id: row.legacy_id,
+        name: row.ambiguous ? `${row.legacy_name} (ambíguo: múltiplos sistemas canônicos com este nome)` : row.legacy_name,
+      })),
     ...editionMappings
       .filter((row) => !row.canonical_id)
       .map((row) => ({
@@ -115,6 +134,53 @@ async function main(): Promise<void> {
         name: row.ambiguous ? `${row.legacy_name} (ambíguo: múltiplas edições com este nome sob o mesmo sistema pai)` : row.legacy_name,
       })),
   ];
+}
+
+// Achado CodeRabbit (PR #145): cada UPDATE era confirmado isoladamente — erro
+// no meio deixava terms/scenarios parcialmente migrados. Uma unica transacao
+// (BEGIN/COMMIT/ROLLBACK) garante tudo-ou-nada.
+async function applyMappings(
+  systemMappings: SystemMapping[],
+  editionMappings: EditionMapping[],
+  updates: MappingReport['updates'],
+): Promise<void> {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const row of systemMappings) {
+      if (!row.canonical_id || row.legacy_id === row.canonical_id) continue;
+      updates.terms_system_id += await updateRef(client, 'terms', 'system_id', row.legacy_id, row.canonical_id);
+      updates.scenarios_system_id += await updateRef(client, 'scenarios', 'system_id', row.legacy_id, row.canonical_id);
+    }
+    for (const row of editionMappings) {
+      if (!row.canonical_id || row.legacy_id === row.canonical_id) continue;
+      updates.terms_edition_id += await updateRef(client, 'terms', 'edition_id', row.legacy_id, row.canonical_id);
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function main(): Promise<void> {
+  const apply = process.env.GLOSSARIO_CATALOG_MIGRATION_APPLY === 'true';
+  const [legacySystemsResult, legacyEditionsResult, catalogIndex] = await Promise.all([
+    db.query('SELECT id, name FROM public.systems ORDER BY name'),
+    db.query('SELECT id, name, system_id FROM public.editions ORDER BY name'),
+    getCatalogNodeIndex(),
+  ]);
+  const legacySystems = parseLegacySystems(legacySystemsResult.rows);
+  const legacyEditions = parseLegacyEditions(legacyEditionsResult.rows);
+
+  const systemMappings = buildSystemMappings(legacySystems, catalogIndex);
+  const canonicalSystemIdByLegacyId = new Map(
+    systemMappings.filter((row) => row.canonical_id).map((row) => [row.legacy_id, row.canonical_id!]),
+  );
+  const editionMappings = buildEditionMappings(legacyEditions, catalogIndex, canonicalSystemIdByLegacyId);
+  const unresolved = buildUnresolved(systemMappings, editionMappings);
 
   const report: MappingReport = {
     dry_run: !apply,
@@ -135,28 +201,7 @@ async function main(): Promise<void> {
       const unresolvedLabels = unresolved.map((item) => `${item.type}:${item.name}`);
       throw new Error(`Unresolved catalog refs: ${unresolvedLabels.join(', ')}`);
     }
-    // Achado CodeRabbit (PR #145): cada UPDATE era confirmado isoladamente —
-    // erro no meio deixava terms/scenarios parcialmente migrados. Uma unica
-    // transacao (BEGIN/COMMIT/ROLLBACK) garante tudo-ou-nada.
-    const client = await db.pool.connect();
-    try {
-      await client.query('BEGIN');
-      for (const row of systemMappings) {
-        if (!row.canonical_id || row.legacy_id === row.canonical_id) continue;
-        report.updates.terms_system_id += await updateRef(client, 'terms', 'system_id', row.legacy_id, row.canonical_id);
-        report.updates.scenarios_system_id += await updateRef(client, 'scenarios', 'system_id', row.legacy_id, row.canonical_id);
-      }
-      for (const row of editionMappings) {
-        if (!row.canonical_id || row.legacy_id === row.canonical_id) continue;
-        report.updates.terms_edition_id += await updateRef(client, 'terms', 'edition_id', row.legacy_id, row.canonical_id);
-      }
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    await applyMappings(systemMappings, editionMappings, report.updates);
   }
 
   console.log(JSON.stringify(report, null, 2));

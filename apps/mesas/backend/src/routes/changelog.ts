@@ -30,8 +30,9 @@ router.get('/', async (req: Request, res: Response) => {
         throw new Error('Changelogs deve ser um array');
       }
       changelogs = parsed;
-    } catch (parseError: any) {
-      console.error('[GET /changelog] JSON inválido:', parseError.message);
+    } catch (parseError) {
+      const message = parseError instanceof Error ? parseError.message : String(parseError);
+      console.error('[GET /changelog] JSON inválido:', message);
       return res.status(500).json({ error: 'Erro ao processar atualizações.' });
     }
     
@@ -42,10 +43,12 @@ router.get('/', async (req: Request, res: Response) => {
     cacheTimestamp = now;
 
     res.json({ data: published });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
     console.error('[GET /changelog] Erro:', {
-      message: error.message,
-      stack: error.stack,
+      message,
+      stack,
       timestamp: new Date().toISOString(),
     });
     res.status(500).json({ error: 'Erro ao buscar atualizações.' });

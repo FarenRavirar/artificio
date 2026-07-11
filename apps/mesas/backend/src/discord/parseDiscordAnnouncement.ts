@@ -1253,14 +1253,29 @@ export function cleanDescriptionText(text: string): string {
 // acento)/números/espaço + pontuação presa a palavras de título real
 // (apóstrofo, hífen, `&`, `:`); remove decoração solta. Roda ANTES do parser
 // consumir o valor e antes de qualquer registro em discord_parse_cases.
+// Faixas de controle C0 (\u0000-\u0008, \u000B, \u000C, \u000E-\u001F) filtradas por codigo
+// de caractere (nao regex): no-control-regex proibe intervalo de controle em character class
+// de regex literal, entao a checagem vira funcao pura em vez de casar via regex.
+function isC0ControlChar(code: number): boolean {
+  return code <= 0x08 || code === 0x0b || code === 0x0c || (code >= 0x0e && code <= 0x1f);
+}
+
+function stripC0ControlChars(value: string): string {
+  let result = '';
+  for (const ch of value) {
+    if (!isC0ControlChar(ch.codePointAt(0) ?? -1)) result += ch;
+  }
+  return result;
+}
+
 function stripDecorativeMarkup(value: string): string {
-  const ZERO_WIDTH_AND_CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u200B-\u200F\u202A-\u202E\uFEFF\uFFFD]/g;
+  const ZERO_WIDTH_AND_CONTROL = /[\u200B-\u200F\u202A-\u202E\uFEFF\uFFFD]/g;
   const DECORATIVE_MARKS = /[#*_~`\u25AC\u25AD\u25BA\u25B6\u00BB\u00AB\u2501\u2500\u2503\u2505\u2504\u254D\u2726]+/g;
   const WHITELIST = /[^\p{L}\p{N}\s'&:-]/gu;
 
-  return value
+  return stripC0ControlChars(value)
     .normalize('NFC')
-    // zero-width/BOM/replacement/control chars
+    // zero-width/BOM/replacement chars (controle C0 ja removido acima)
     .replace(ZERO_WIDTH_AND_CONTROL, '')
     // emoji e símbolos pictográficos (fora do alfabeto latino+acentos)
     .replace(/\p{Extended_Pictographic}/gu, '')

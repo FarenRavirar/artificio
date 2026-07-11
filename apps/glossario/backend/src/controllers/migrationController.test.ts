@@ -16,11 +16,11 @@ beforeAll(async () => {
   SSO_NO_PASSWORD = (await import('../auth/resolveLocalUser')).SSO_NO_PASSWORD;
 });
 
-function execReturning(rows: any[]) {
-  const calls: Array<{ text: string; params: any[] }> = [];
+function execReturning(rows: Array<Record<string, unknown>>) {
+  const calls: Array<{ text: string; params: unknown[] }> = [];
   return {
     calls,
-    query: async (text: string, params: any[] = []) => {
+    query: async (text: string, params: unknown[] = []) => {
       calls.push({ text, params });
       return { rows };
     },
@@ -73,14 +73,16 @@ describe('runVerify', () => {
 });
 
 // Fake client que devolve respostas por ordem de chamada e grava o SQL.
-function fakeClient(script: Array<(text: string) => any | undefined>) {
-  const calls: Array<{ text: string; params: any[] }> = [];
+type FakeQueryResult = { rows: Array<Record<string, unknown>> };
+
+function fakeClient(script: Array<(text: string) => FakeQueryResult | undefined>) {
+  const calls: Array<{ text: string; params: unknown[] }> = [];
   let released = false;
   return {
     calls,
     released: () => released,
     release: () => { released = true; },
-    query: async (text: string, params: any[] = []) => {
+    query: async (text: string, params: unknown[] = []) => {
       calls.push({ text, params });
       for (const fn of script) {
         const r = fn(text);
@@ -108,7 +110,7 @@ describe('runClaim', () => {
     ]);
     const out = await ctrl.runClaim(
       { sub: 'sub-9', googleEmail: 'novo@gmail.com', migrationToken: token },
-      { getClient: async () => client as any }
+      { getClient: async () => client }
     );
     expect(out.status).toBe(200);
     expect(out.body.merged).toBe(false);
@@ -126,7 +128,7 @@ describe('runClaim', () => {
     ]);
     const out = await ctrl.runClaim(
       { sub: 'sub-7', googleEmail: 'novo@gmail.com', migrationToken: token },
-      { getClient: async () => client as any }
+      { getClient: async () => client }
     );
     expect(out.status).toBe(200);
     expect(out.body.merged).toBe(true);
@@ -147,7 +149,7 @@ describe('runClaim', () => {
     ]);
     const out = await ctrl.runClaim(
       { sub: 'sub-8', googleEmail: 'novo@gmail.com', migrationToken: token },
-      { getClient: async () => client as any }
+      { getClient: async () => client }
     );
     expect(out.status).toBe(409);
     expect(client.calls.some((c) => /DELETE FROM public\.users WHERE id = \$1/.test(c.text))).toBe(false);
@@ -161,7 +163,7 @@ describe('runClaim', () => {
     ]);
     const out = await ctrl.runClaim(
       { sub: 'sub-5', googleEmail: 'g@gmail.com', migrationToken: token },
-      { getClient: async () => client as any }
+      { getClient: async () => client }
     );
     expect(out.status).toBe(200);
     expect(out.body.already_linked).toBe(true);
@@ -174,7 +176,7 @@ describe('runClaim', () => {
     ]);
     const out = await ctrl.runClaim(
       { sub: 'sub-3', googleEmail: 'g@gmail.com', migrationToken: token },
-      { getClient: async () => client as any }
+      { getClient: async () => client }
     );
     expect(out.status).toBe(409);
     expect(client.calls.some((c) => c.text === 'ROLLBACK')).toBe(true);

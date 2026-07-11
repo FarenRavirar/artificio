@@ -108,7 +108,7 @@ router.post('/', strictRateLimiter, optionalAuth, async (req: Request, res: Resp
     });
 
     return res.status(201).json({ data: created });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /dev-feedback]', error);
     return res.status(500).json({ error: 'Erro ao registrar feedback.' });
   }

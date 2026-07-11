@@ -22,7 +22,7 @@ export const exportToMateCat = async (req: Request, res: Response) => {
       LEFT JOIN public.categories c ON t.category_id = c.id
       WHERE t.status = 'verificado'
     `;
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (system_id) {
       params.push(system_id);

@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import type { PoolClient } from 'pg';
 import { db } from '../config/database';
 import { sanitizeTermFields } from '../utils/sanitizeText';
 import { slugify } from '../utils/slugify';
@@ -6,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { notifyTermOwnerOnModeration } from '../services/notificationService';
 import { fetchUserRoleFromDb } from '../utils/userRole';
 import { getCatalogNameMap } from '../services/catalogClient';
+import type { AuthedRequest } from '../types/express';
 
 // ---------------------------------------------------------------------------
 // Tipos internos
@@ -21,6 +23,9 @@ interface ImportRow {
   book_reference?: string;
   page_reference?: string;
   additional_info?: string;
+  // Origem opcional do termo importado (sistema x cenário); usado só por
+  // resolveImportCategoryType para escolher a raiz correta de categorias.
+  source_type?: string;
 }
 
 type ImportAction = 'insert' | 'update_own' | 'duplicate' | 'override';
@@ -38,11 +43,26 @@ interface ImportResult {
 // Helpers de lookup por nome
 // ---------------------------------------------------------------------------
 
+// Linha crua de public.terms retornada por EXISTING_TERM_QUERY (join com users).
+type ExistingTermRow = {
+  id: string;
+  added_by: string | null;
+  name_pt: string;
+  nucleus: string;
+  status: string;
+  book_reference: string | null;
+  page_reference: string | null;
+  additional_info: string | null;
+  category_id: string | null;
+  system_id: string | null;
+  added_by_name: string | null;
+} & Record<string, unknown>;
+
 type QueryExecutor = {
-  query: (text: string, params?: any[]) => Promise<any>;
+  query: (text: string, params?: unknown[]) => Promise<{ rows: Array<Record<string, unknown>>; rowCount?: number | null }>;
 };
 
-const resolveImportCategoryType = (row: Partial<ImportRow> & { source_type?: string }): 'sistema' | 'cenario' => {
+const resolveImportCategoryType = (row: Partial<ImportRow>): 'sistema' | 'cenario' => {
   const normalized = String(row?.source_type ?? '').trim().toLowerCase();
   return normalized === 'cenario' ? 'cenario' : 'sistema';
 };
@@ -104,7 +124,8 @@ async function resolveCategoryId(
     [categoryType]
   );
 
-  const rootId = rootCanonical.rows[0]?.id ?? rootFallback.rows[0]?.id ?? null;
+  const rawRootId = rootCanonical.rows[0]?.id ?? rootFallback.rows[0]?.id ?? null;
+  const rootId = rawRootId == null ? null : String(rawRootId);
   if (!rootId) return null;
 
   const findByName = async (name: string, parentId: string): Promise<string | null> => {
@@ -117,7 +138,8 @@ async function resolveCategoryId(
         LIMIT 1`,
       [categoryType, parentId, name]
     );
-    return found.rows[0]?.id ?? null;
+    const rawId = found.rows[0]?.id ?? null;
+    return rawId == null ? null : String(rawId);
   };
 
   const findOrCreateByName = async (name: string, parentId: string): Promise<string | null> => {
@@ -134,7 +156,8 @@ async function resolveCategoryId(
        RETURNING id`,
       [name, safeSlug, categoryType, parentId]
     );
-    return inserted.rows[0]?.id ?? null;
+    const rawId = inserted.rows[0]?.id ?? null;
+    return rawId == null ? null : String(rawId);
   };
 
   const parentName = normalizedCategory || normalizedSubcategory;
@@ -187,8 +210,8 @@ const registerAuditOverrideIfAvailable = async (
     termId: string;
     actorId: string;
     actorRole: string;
-    previous: Record<string, any>;
-    next: Record<string, any>;
+    previous: Record<string, unknown>;
+    next: Record<string, unknown>;
     originalAuthorId: string | null;
     batchId: string;
   }
@@ -264,14 +287,14 @@ const EXISTING_TERM_QUERY = `
 // Body: { terms: ImportRow[] }
 // ---------------------------------------------------------------------------
 
-export const importTerms = async (req: any, res: Response) => {
+export const importTerms = async (req: AuthedRequest, res: Response) => {
   const userId = req?.user?.id;
 
   if (!userId || typeof userId !== 'string') {
     return res.status(401).json({ message: 'Usuário não autenticado.' });
   }
 
-  let userRole: 'admin' | 'member' = 'member';
+  let userRole: 'admin' | 'member';
   try {
     const roleFromDb = await fetchUserRoleFromDb(userId);
     if (!roleFromDb) {
@@ -303,7 +326,7 @@ export const importTerms = async (req: any, res: Response) => {
   // Modo dry_run: classifica cada termo SEM gravar no banco
   // ---------------------------------------------------------------------------
   if (dryRun) {
-    let client: any;
+    let client: PoolClient | undefined;
 
     try {
       client = await db.pool.connect();
@@ -316,7 +339,7 @@ export const importTerms = async (req: any, res: Response) => {
       const previewResults: ImportResult[] = [];
       const systemCache = new Map<string, string | null>();
       const categoryCache = new Map<string, string | null>();
-      const existingCache = new Map<string, any | null>();
+      const existingCache = new Map<string, ExistingTermRow | null>();
 
       for (const rawRow of rows) {
         const row = sanitizeTermFields({
@@ -343,7 +366,7 @@ export const importTerms = async (req: any, res: Response) => {
 
         if (found === undefined) {
           const existing = await client.query(EXISTING_TERM_QUERY, [row.name_en, systemId]);
-          found = existing.rows[0] ?? null;
+          found = (existing.rows[0] as ExistingTermRow | undefined) ?? null;
           existingCache.set(existingKey, found);
         }
 
@@ -353,7 +376,7 @@ export const importTerms = async (req: any, res: Response) => {
         }
 
         if (found.added_by === userId) {
-          const categoryType: 'sistema' | 'cenario' = resolveImportCategoryType(rawRow as any);
+          const categoryType: 'sistema' | 'cenario' = resolveImportCategoryType(rawRow);
           const categoryKey = [
             (rawRow.category_name ?? '').trim().toLowerCase(),
             (rawRow.subcategory_name ?? '').trim().toLowerCase(),
@@ -373,7 +396,7 @@ export const importTerms = async (req: any, res: Response) => {
             categoryCache.set(categoryKey, categoryId);
           }
 
-          const candidates: Record<string, any> = {
+          const candidates: Record<string, unknown> = {
             name_pt:         row.name_pt,
             nucleus:         nucleus,
             book_reference:  row.book_reference ?? null,
@@ -426,14 +449,14 @@ export const importTerms = async (req: any, res: Response) => {
       console.error('Erro na pré-visualização da importação:', err);
       return res.status(500).json({ message: 'Erro ao gerar pré-visualização da importação.' });
     } finally {
-      client.release();
+      client?.release();
     }
   }
 
   const results: ImportResult[] = [];
 
   // Processar cada termo dentro de uma transaction única
-  let client: any;
+  let client: PoolClient | undefined;
 
   try {
     client = await db.pool.connect();
@@ -473,7 +496,7 @@ export const importTerms = async (req: any, res: Response) => {
         systemCache.set(systemKey, systemId);
       }
 
-      const categoryType: 'sistema' | 'cenario' = resolveImportCategoryType(rawRow as any);
+      const categoryType: 'sistema' | 'cenario' = resolveImportCategoryType(rawRow);
       const categoryKey = [
         (rawRow.category_name ?? '').trim().toLowerCase(),
         (rawRow.subcategory_name ?? '').trim().toLowerCase(),
@@ -517,13 +540,13 @@ export const importTerms = async (req: any, res: Response) => {
         continue;
       }
 
-      const found = existing.rows[0];
+      const found = existing.rows[0] as ExistingTermRow;
 
       // ----- Caso B: Existe e é do mesmo usuário → UPDATE + term_history -----
       if (found.added_by === userId) {
         const historyEntries: Array<{ field: string; old: string | null; next: string | null }> = [];
 
-        const candidates: Record<string, any> = {
+        const candidates: Record<string, unknown> = {
           name_pt:         row.name_pt,
           nucleus:         nucleus,
           book_reference:  row.book_reference ?? null,
@@ -592,7 +615,7 @@ export const importTerms = async (req: any, res: Response) => {
       // ----- Caso C: Existe e é de outro usuário, admin faz override -----
       if (isAdmin) {
         const historyEntries: Array<{ field: string; old: string | null; next: string | null }> = [];
-        const candidates: Record<string, any> = {
+        const candidates: Record<string, unknown> = {
           name_pt:         row.name_pt,
           nucleus:         nucleus,
           book_reference:  row.book_reference ?? null,
@@ -676,7 +699,7 @@ export const importTerms = async (req: any, res: Response) => {
             {
               termId: found.id,
               actorId: userId,
-              status: candidates.status ?? null,
+              status: candidates.status == null ? null : String(candidates.status),
               eventType: 'term.updated',
             },
             client

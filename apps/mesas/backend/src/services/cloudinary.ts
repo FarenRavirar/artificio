@@ -33,8 +33,9 @@ export async function uploadImageToCloudinary(imageUrl: string) {
       secure_url: result.secure_url,
       public_id: result.public_id
     };
-  } catch (error: any) {
-    console.error('[cloudinary] Upload failed:', error?.message || error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : error;
+    console.error('[cloudinary] Upload failed:', message);
     throw error;
   }
 }
@@ -58,8 +59,9 @@ export async function uploadScreenshotToCloudinary(dataUri: string) {
       secure_url: result.secure_url,
       public_id: result.public_id,
     };
-  } catch (error: any) {
-    console.error('[cloudinary] Screenshot upload failed:', error?.message || error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : error;
+    console.error('[cloudinary] Screenshot upload failed:', message);
     throw error;
   }
 }
@@ -71,8 +73,9 @@ export async function uploadScreenshotToCloudinary(dataUri: string) {
 export async function deleteFromCloudinary(publicId: string): Promise<void> {
   try {
     await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
-  } catch (error: any) {
-    console.error('[cloudinary] Delete failed:', publicId, error?.message || error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : error;
+    console.error('[cloudinary] Delete failed:', publicId, message);
   }
 }
 

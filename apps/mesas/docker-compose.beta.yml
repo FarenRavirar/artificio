@@ -79,7 +79,7 @@ services:
       # Catalogo canonico de sistemas (spec 062): mesas consome catalogo central
       # do site via rede Docker interna (isolamento, decisao do mantenedor 2026-07-10).
       - CATALOG_API_URL=${CATALOG_API_URL:-http://site-beta-app:4322}
-      - CATALOG_INTERNAL_TOKEN=${CATALOG_INTERNAL_TOKEN}
+      - CATALOG_INTERNAL_TOKEN=${CATALOG_INTERNAL_TOKEN:?CATALOG_INTERNAL_TOKEN is required}
     depends_on:
       mesas-beta-db:
         condition: service_healthy

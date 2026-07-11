@@ -15,6 +15,7 @@ export interface AuthDecoded {
 }
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- augmentação do namespace global Express é o padrão oficial do tipo (@types/express) para estender Request; não há alternativa ES2015 module aqui.
   namespace Express {
     interface Request {
       user?: AuthDecoded;

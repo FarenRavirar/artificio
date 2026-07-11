@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { db } from '../db';
-import type { TableSchedule, NewTableSchedule, TableScheduleUpdate } from '../db/types';
+import type { NewTableSchedule, TableScheduleUpdate } from '../db/types';
 
 const router = Router();
 
@@ -35,11 +35,14 @@ router.get('/:tableId/schedules', async (req, res) => {
  * Criar novo horário para uma mesa
  * Requer autenticação: gm (owner) ou admin
  */
-router.post('/:tableId/schedules', authMiddleware, async (req, res) => {
+router.post('/:tableId/schedules', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { tableId } = req.params;
-    const userId = (req as any).user.userId;
-    const userRole = (req as any).user.role;
+    const userId = req.user?.userId;
+    const userRole = req.user?.role;
+    if (!userId) {
+      return res.status(401).json({ error: 'Não autenticado' });
+    }
     const input: Partial<NewTableSchedule> = req.body;
     
     // Verificar se mesa existe
@@ -124,11 +127,14 @@ router.post('/:tableId/schedules', authMiddleware, async (req, res) => {
  * Atualizar horário existente
  * Requer autenticação: gm (owner) ou admin
  */
-router.put('/:tableId/schedules/:id', authMiddleware, async (req, res) => {
+router.put('/:tableId/schedules/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { tableId, id } = req.params;
-    const userId = (req as any).user.userId;
-    const userRole = (req as any).user.role;
+    const userId = req.user?.userId;
+    const userRole = req.user?.role;
+    if (!userId) {
+      return res.status(401).json({ error: 'Não autenticado' });
+    }
     const input: Partial<TableScheduleUpdate> = req.body;
     
     // Verificar ownership
@@ -217,12 +223,15 @@ router.put('/:tableId/schedules/:id', authMiddleware, async (req, res) => {
  * Deletar horário
  * Requer autenticação: gm (owner) ou admin
  */
-router.delete('/:tableId/schedules/:id', authMiddleware, async (req, res) => {
+router.delete('/:tableId/schedules/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { tableId, id } = req.params;
-    const userId = (req as any).user.userId;
-    const userRole = (req as any).user.role;
-    
+    const userId = req.user?.userId;
+    const userRole = req.user?.role;
+    if (!userId) {
+      return res.status(401).json({ error: 'Não autenticado' });
+    }
+
     // Verificar ownership
     const table = await db
       .selectFrom('tables')

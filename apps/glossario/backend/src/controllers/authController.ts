@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { db } from '../config/database';
+import type { AuthedRequest } from '../types/express';
 
 /**
  * Login de sessão e cadastro legados foram DESATIVADOS (spec 015): o único login
@@ -14,11 +15,11 @@ export const gone = (_req: unknown, res: Response) => {
   });
 };
 
-export const getMe = async (req: any, res: Response) => {
+export const getMe = async (req: AuthedRequest, res: Response) => {
   try {
     const result = await db.query(
       'SELECT id, full_name, email, role FROM users WHERE id = $1',
-      [req.user.id]
+      [req.user?.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Usuário não encontrado.' });

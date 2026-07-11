@@ -861,7 +861,7 @@ export async function processDiscordMessageToDraft(
     });
     return discarded ? 'discarded' : 'ignored';
   }
-  const { parsed, systems: resolvedSystems } = result;
+  const { parsed } = result;
 
   // DEB-058-XX: filtro de mesa paga acontece logo após o parse determinístico
   // (já tem price_type), antes do enrich/upsert — mesa paga não vira draft nem

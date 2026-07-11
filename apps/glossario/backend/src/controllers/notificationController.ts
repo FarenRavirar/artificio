@@ -1,5 +1,6 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { db } from '../config/database';
+import type { AuthedRequest } from '../types/express';
 
 const parseLimit = (value: unknown): number => {
   const n = Number(value);
@@ -35,9 +36,9 @@ const isMissingNotificationsTable = (err: unknown): boolean => {
     && pgErr.message.includes('user_notifications');
 };
 
-export const listNotifications = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.id;
-  const userRole = (req as any).user?.role;
+export const listNotifications = async (req: AuthedRequest, res: Response) => {
+  const userId = req.user?.id;
+  const userRole = req.user?.role;
   if (!userId || typeof userId !== 'string') {
     return res.status(401).json({ message: 'Usuário não autenticado.' });
   }
@@ -58,7 +59,7 @@ export const listNotifications = async (req: Request, res: Response) => {
 
   try {
     const filters: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (scopeAll) {
       if (targetUserId) {
@@ -172,8 +173,8 @@ export const listNotifications = async (req: Request, res: Response) => {
   }
 };
 
-export const markNotificationRead = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.id;
+export const markNotificationRead = async (req: AuthedRequest, res: Response) => {
+  const userId = req.user?.id;
   const notificationId = req.params.id;
 
   if (!userId || typeof userId !== 'string') {
@@ -210,8 +211,8 @@ export const markNotificationRead = async (req: Request, res: Response) => {
   }
 };
 
-export const markAllNotificationsRead = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.id;
+export const markAllNotificationsRead = async (req: AuthedRequest, res: Response) => {
+  const userId = req.user?.id;
   if (!userId || typeof userId !== 'string') {
     return res.status(401).json({ message: 'Usuário não autenticado.' });
   }

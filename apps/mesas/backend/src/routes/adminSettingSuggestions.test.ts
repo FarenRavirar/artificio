@@ -12,7 +12,7 @@ vi.mock('../db', () => ({
 }));
 
 vi.mock('../middleware/auth', () => ({
-  requireAdmin: [(req: any, _res: any, next: any) => {
+  requireAdmin: [(req: express.Request, _res: express.Response, next: express.NextFunction) => {
     req.user = { userId: 'admin', role: 'admin' };
     next();
   }],

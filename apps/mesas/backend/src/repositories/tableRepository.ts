@@ -2,18 +2,21 @@ import { db } from '../db';
 import { Insertable, Updateable } from 'kysely';
 import { TablesTable, TableContactsTable, TableSchedulesTable } from '../db/types';
 import { sql } from 'kysely';
+import { hydrateTableSystemFields } from '../services/catalogClient';
 
 export class TableRepository {
+  // Achado Codex (PR #145): system_id agora referencia o catalogo central
+  // (migration_144 dropou a FK local systems); leftJoin('systems' LOCAL)
+  // retornava sempre NULL para system_name/system_path em mesas criadas/
+  // editadas pelo fluxo novo. Join local removido; hidratacao via
+  // hydrateTableSystemFields (catalogo central) depois da query.
   private static baseTableQuery() {
     return db
       .selectFrom('tables as t')
-      .leftJoin('systems as s', 's.id', 't.system_id')
       .leftJoin('scenarios as sc', 'sc.id', 't.scenario_id')
       .leftJoin('communication_platforms as cp', 'cp.id', 't.communication_platform_id')
       .selectAll('t')
       .select([
-        sql<string | null>`s.name`.as('system_name'),
-        sql<string | null>`s.path_slug`.as('system_path'),
         sql<string | null>`sc.name`.as('scenario_name'),
         sql<string | null>`sc.slug`.as('scenario_path'),
         sql<string | null>`COALESCE(cp.name, t.communication_platform)`.as('communication_platform'),
@@ -24,10 +27,13 @@ export class TableRepository {
    * Busca mesa por ID e GM
    */
   static async findByIdAndGm(tableId: string, gmProfileId: string) {
-    return await this.baseTableQuery()
+    const table = await this.baseTableQuery()
       .where('t.id', '=', tableId)
       .where('t.gm_id', '=', gmProfileId)
       .executeTakeFirst();
+    if (!table) return table;
+    const [hydrated] = await hydrateTableSystemFields([table]);
+    return hydrated;
   }
 
   /**
@@ -36,9 +42,12 @@ export class TableRepository {
    * garantir role==='admin' antes de chamar (spec 060).
    */
   static async findById(tableId: string) {
-    return await this.baseTableQuery()
+    const table = await this.baseTableQuery()
       .where('t.id', '=', tableId)
       .executeTakeFirst();
+    if (!table) return table;
+    const [hydrated] = await hydrateTableSystemFields([table]);
+    return hydrated;
   }
 
   /**

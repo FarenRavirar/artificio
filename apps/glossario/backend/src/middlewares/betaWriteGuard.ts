@@ -1,13 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
+import type { AuthedRequest } from '../types/express';
 
 /**
  * Bloqueia escrita de membros no ambiente beta quando a flag de proteção estiver ativa.
  * Admins continuam com acesso para testes controlados.
  */
-export const betaWriteGuard = (req: Request, res: Response, next: NextFunction) => {
+export const betaWriteGuard = (req: AuthedRequest, res: Response, next: NextFunction) => {
   const isBeta = process.env.APP_ENV === 'beta';
   const blockMembers = process.env.BETA_READONLY_MEMBERS === 'true';
-  const userRole = (req as any).user?.role;
+  const userRole = req.user?.role;
 
   if (isBeta && blockMembers && userRole === 'member') {
     return res.status(403).json({

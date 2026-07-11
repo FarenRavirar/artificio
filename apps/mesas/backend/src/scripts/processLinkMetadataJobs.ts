@@ -106,10 +106,10 @@ export async function processPendingLinks() {
           .where('id', '=', job.id)
           .execute();
           
-      } catch (err: any) {
+      } catch (err: unknown) {
         const fails = job.metadata_fail_count + 1;
         const interval = getNextRetryInterval(fails);
-        
+
         await db.updateTable('user_links')
           .set({
             metadata_status: 'failed',
@@ -119,8 +119,9 @@ export async function processPendingLinks() {
           })
           .where('id', '=', job.id)
           .execute();
-          
-        console.log(`  -> Failed (${fails} fails). Next in: ${interval || 'NEVER'}. Error: ${err.message}`);
+
+        const message = err instanceof Error ? err.message : String(err);
+        console.log(`  -> Failed (${fails} fails). Next in: ${interval || 'NEVER'}. Error: ${message}`);
       }
     }
   } catch (error) {

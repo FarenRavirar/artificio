@@ -21,8 +21,22 @@ describe('normalizeToken', () => {
 });
 
 // conn fake p/ lookup: select-chain devolve `row`; update-chain registra uso.
+interface SelectBuilderMock {
+  select: ReturnType<typeof vi.fn>;
+  where: ReturnType<typeof vi.fn>;
+  orderBy: ReturnType<typeof vi.fn>;
+  limit: ReturnType<typeof vi.fn>;
+  executeTakeFirst: ReturnType<typeof vi.fn>;
+}
+
+interface UpdateBuilderMock {
+  set: ReturnType<typeof vi.fn>;
+  where: ReturnType<typeof vi.fn>;
+  execute: ReturnType<typeof vi.fn>;
+}
+
 function makeLookupConn(row: { id: string; output_value: unknown } | undefined) {
-  const selectBuilder: any = {
+  const selectBuilder: SelectBuilderMock = {
     select: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
     orderBy: vi.fn().mockReturnThis(),
@@ -30,7 +44,7 @@ function makeLookupConn(row: { id: string; output_value: unknown } | undefined) 
     executeTakeFirst: vi.fn().mockResolvedValue(row),
   };
   const updateExec = vi.fn().mockResolvedValue(undefined);
-  const updateBuilder: any = {
+  const updateBuilder: UpdateBuilderMock = {
     set: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
     execute: vi.fn().mockReturnValue({ catch: () => updateExec() }),
