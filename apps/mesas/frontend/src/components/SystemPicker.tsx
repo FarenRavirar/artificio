@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Check, Edit2, Plus, Search, Send, X } from 'lucide-react';
 import type { SystemTreeNode } from '../types/systems';
 import { normalizeText } from '../utils/systemTree';
@@ -47,6 +47,27 @@ const collectSelectedPaths = (tree: SystemTreeNode[], selectedIds: string[]): Sy
   return selectedIds
     .map((id) => findPath(tree, id))
     .filter((path): path is SystemTreeNode[] => Boolean(path));
+};
+
+type PickerLevel = { depth: number; nodes: SystemTreeNode[] };
+
+/** Colunas visíveis: raiz (sistemas) + uma por nível já navegado, cada uma mostrando
+ * os filhos do nó anterior. Admin sempre vê a coluna seguinte (mesmo vazia) para
+ * poder usar o botão "+ Adicionar"; usuário comum só vê colunas com filho real.
+ * Extraído do componente (achado Sonar PR #147: complexidade cognitiva 20 > 15). */
+const buildVisibleLevels = (
+  visibleRoots: SystemTreeNode[],
+  navPath: SystemTreeNode[],
+  role: SystemPickerRole,
+): PickerLevel[] => {
+  const levels: PickerLevel[] = [{ depth: 0, nodes: visibleRoots }];
+  navPath.forEach((node, index) => {
+    const children = node.children ?? [];
+    if (children.length > 0 || role === 'admin') {
+      levels.push({ depth: index + 1, nodes: children });
+    }
+  });
+  return levels;
 };
 
 const getAliasBadge = (aliases?: string[]): string | null => {
@@ -173,6 +194,67 @@ const SystemPickerLevel = ({
   );
 };
 
+type RenderLevelContentArgs = Readonly<{
+  depth: number;
+  nodes: SystemTreeNode[];
+  mode: SystemPickerMode;
+  role: SystemPickerRole;
+  idPrefix: string;
+  effectiveNavPath: SystemTreeNode[];
+  noRootResults: boolean;
+  selectedIdSet: Set<string>;
+  onSelectAtLevel: (depth: number, node: SystemTreeNode) => void;
+  onToggleMultiAtRoot: (node: SystemTreeNode) => void;
+  onEdit?: (node: SystemTreeNode) => void;
+  onAddAtLevel: (depth: number) => void;
+}>;
+
+/** Extraído do componente (achado Sonar PR #147: ternário aninhado em JSX).
+ * 3 ramos explícitos: nada a mostrar (raiz vazia já coberta por noRootResults),
+ * lista de nós (ou botão de adicionar pra admin), ou aviso de nível vazio. */
+const renderLevelContent = ({
+  depth,
+  nodes,
+  mode,
+  role,
+  idPrefix,
+  effectiveNavPath,
+  noRootResults,
+  selectedIdSet,
+  onSelectAtLevel,
+  onToggleMultiAtRoot,
+  onEdit,
+  onAddAtLevel,
+}: RenderLevelContentArgs): ReactNode => {
+  const isEmptyRoot = depth === 0 && nodes.length === 0 && noRootResults;
+  if (isEmptyRoot) return null;
+
+  const hasNodesToShow = nodes.length > 0 || role === 'admin';
+  if (!hasNodesToShow) {
+    const feminine = LEVEL_LABEL_FEMININE[Math.min(depth, 2)];
+    return (
+      <p className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--fg-muted)]">
+        Nenhum{feminine ? 'a' : ''} {LEVEL_LABEL[Math.min(depth, 2)]} cadastrad{feminine ? 'a' : 'o'} ainda.
+      </p>
+    );
+  }
+
+  return (
+    <SystemPickerLevel
+      idPrefix={idPrefix}
+      depth={depth}
+      nodes={nodes}
+      selectedId={mode === 'single' ? (effectiveNavPath[depth]?.id ?? null) : null}
+      onSelect={(node) => onSelectAtLevel(depth, node)}
+      onToggleMulti={depth === 0 && mode === 'multi' ? onToggleMultiAtRoot : undefined}
+      multiSelectedIds={depth === 0 && mode === 'multi' ? selectedIdSet : undefined}
+      role={role}
+      onEdit={onEdit}
+      onAdd={role === 'admin' ? () => onAddAtLevel(depth) : undefined}
+    />
+  );
+};
+
 export function SystemPicker({
   tree,
   selectedIds,
@@ -239,14 +321,10 @@ export function SystemPicker({
   const canCreateNow = role === 'admin' && normalizedSearch.length > 0 && onCreateNow;
   const noRootResults = shouldShowResults && visibleRoots.length === 0;
 
-  // Colunas visíveis: raiz (sistemas) + uma por nível já navegado, cada uma mostrando os filhos do nó anterior.
-  const levels: { depth: number; nodes: SystemTreeNode[] }[] = [{ depth: 0, nodes: visibleRoots }];
-  effectiveNavPath.forEach((node, index) => {
-    const children = node.children ?? [];
-    if (children.length > 0 || role === 'admin') {
-      levels.push({ depth: index + 1, nodes: children });
-    }
-  });
+  const levels = useMemo(
+    () => buildVisibleLevels(visibleRoots, effectiveNavPath, role),
+    [visibleRoots, effectiveNavPath, role],
+  );
 
   return (
     <div className="space-y-3 text-[var(--fg)]">
@@ -272,24 +350,20 @@ export function SystemPicker({
                   {LEVEL_LABEL_PLURAL[Math.min(depth, 2)]} de {effectiveNavPath[depth - 1]?.name}
                 </p>
               )}
-              {nodes.length === 0 && depth === 0 && noRootResults ? null : nodes.length > 0 || role === 'admin' ? (
-                <SystemPickerLevel
-                  idPrefix={idPrefix}
-                  depth={depth}
-                  nodes={nodes}
-                  selectedId={mode === 'single' ? (effectiveNavPath[depth]?.id ?? null) : null}
-                  onSelect={(node) => handleSelectAtLevel(depth, node)}
-                  onToggleMulti={depth === 0 && mode === 'multi' ? toggleMultiAtRoot : undefined}
-                  multiSelectedIds={depth === 0 && mode === 'multi' ? selectedIdSet : undefined}
-                  role={role}
-                  onEdit={onEdit}
-                  onAdd={role === 'admin' ? () => setPendingAddDepth(depth) : undefined}
-                />
-              ) : (
-                <p className="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--fg-muted)]">
-                  Nenhum{LEVEL_LABEL_FEMININE[Math.min(depth, 2)] ? 'a' : ''} {LEVEL_LABEL[Math.min(depth, 2)]} cadastrad{LEVEL_LABEL_FEMININE[Math.min(depth, 2)] ? 'a' : 'o'} ainda.
-                </p>
-              )}
+              {renderLevelContent({
+                depth,
+                nodes,
+                mode,
+                role,
+                idPrefix,
+                effectiveNavPath,
+                noRootResults,
+                selectedIdSet,
+                onSelectAtLevel: handleSelectAtLevel,
+                onToggleMultiAtRoot: toggleMultiAtRoot,
+                onEdit,
+                onAddAtLevel: setPendingAddDepth,
+              })}
             </div>
           ))}
 
