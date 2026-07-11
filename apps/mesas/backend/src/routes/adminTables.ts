@@ -5,6 +5,8 @@ import { authMiddleware } from '../middleware/auth';
 import { TableRepository } from '../repositories/tableRepository';
 import { autoArchiveStaleTables, AUTO_ARCHIVE_AFTER_DAYS } from '../services/tableArchiving';
 import { logActivity } from '../services/activityLogger';
+import type { TableStatus, TablesTable } from '../db/types';
+import type { Updateable } from 'kysely';
 
 const router = Router();
 
@@ -43,7 +45,7 @@ router.post('/tables/auto-archive', async (req: Request, res: Response) => {
       metadata: { count: archived.length, slugs: archived.map((t) => t.slug), after_days: AUTO_ARCHIVE_AFTER_DAYS },
     });
     return res.json({ data: { count: archived.length, tables: archived } });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[POST /admin/tables/auto-archive]', error);
     return res.status(500).json({ error: 'Erro no auto-arquivamento.' });
   }
@@ -52,7 +54,7 @@ router.post('/tables/auto-archive', async (req: Request, res: Response) => {
 // POST /api/v1/admin/tables/batch — ações administrativas em lote (T2.5/R15).
 // action: 'archive' | 'unarchive' | 'delete'. Idempotente por id.
 router.post('/tables/batch', authMiddleware, async (req: Request, res: Response) => {
-  const userRole = (req as any).user.role;
+  const userRole = req.user?.role;
   if (userRole !== 'admin') {
     return res.status(403).json({ error: 'Acesso restrito a administradores.' });
   }
@@ -77,8 +79,8 @@ router.post('/tables/batch', authMiddleware, async (req: Request, res: Response)
         updated += 1;
       }
       void logActivity({
-        actorId: (req as any).user?.userId ?? null,
-        actorRole: userRole,
+        actorId: req.user?.userId ?? null,
+        actorRole: userRole ?? null,
         action: 'table.deleted',
         entityType: 'table',
         entityId: null,
@@ -95,8 +97,8 @@ router.post('/tables/batch', authMiddleware, async (req: Request, res: Response)
       .returning('id')
       .execute();
     void logActivity({
-      actorId: (req as any).user?.userId ?? null,
-      actorRole: userRole,
+      actorId: req.user?.userId ?? null,
+      actorRole: userRole ?? null,
       action: action === 'archive' ? 'table.archived' : 'table.unarchived',
       entityType: 'table',
       entityId: null,
@@ -104,7 +106,7 @@ router.post('/tables/batch', authMiddleware, async (req: Request, res: Response)
       metadata: { count: result.length, ids },
     });
     return res.json({ data: { updated: result.length } });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[POST /admin/tables/batch]', error);
     return res.status(500).json({ error: 'Erro na ação em lote de mesas.' });
   }
@@ -112,26 +114,26 @@ router.post('/tables/batch', authMiddleware, async (req: Request, res: Response)
 
 // PUT /api/v1/admin/tables/:id — Ações administrativas (status, covil, etc.)
 router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) => {
-  const userRole = (req as any).user.role;
+  const userRole = req.user?.role;
   const { id } = req.params;
-  const { status, is_covil } = req.body;
+  const { status, is_covil } = req.body as { status?: unknown; is_covil?: unknown };
 
   if (userRole !== 'admin') {
     return res.status(403).json({ error: 'Acesso restrito a administradores.' });
   }
 
   try {
-    const updateData: any = {};
+    const updateData: Updateable<TablesTable> = {};
     if (status !== undefined) {
-      const validStatuses = ['active', 'full', 'cancelled', 'ended'];
-      if (!validStatuses.includes(status)) {
+      const validStatuses: TableStatus[] = ['active', 'full', 'cancelled', 'ended'];
+      if (typeof status !== 'string' || !validStatuses.includes(status as TableStatus)) {
         return res.status(400).json({ error: `Status inválido. Valores: ${validStatuses.join(', ')}` });
       }
-      updateData.status = status;
+      updateData.status = status as TableStatus;
     }
 
     if (is_covil !== undefined) {
-      updateData.is_covil = is_covil;
+      updateData.is_covil = Boolean(is_covil);
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -160,7 +162,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       .execute();
 
     return res.json({ data: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PUT /admin/tables/:id]', error);
     return res.status(500).json({ error: 'Erro ao atualizar mesa.' });
   }
@@ -171,7 +173,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 // fica invisível: GET /api/v1/tables filtra active-only, GET /gm/tables
 // filtra por gm_id do usuário logado — nenhum dos dois serve mesa órfã.
 router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
-  const userRole = (req as any).user.role;
+  const userRole = req.user?.role;
   const { status } = req.query;
 
   if (userRole !== 'admin') {
@@ -185,12 +187,12 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
       .orderBy('created_at', 'desc');
 
     if (typeof status === 'string' && status) {
-      query = query.where('status', '=', status as any);
+      query = query.where('status', '=', status as TableStatus);
     }
 
     const tables = await query.execute();
     return res.json({ data: tables });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /admin/tables]', error);
     return res.status(500).json({ error: 'Erro ao buscar mesas.' });
   }
@@ -198,7 +200,7 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
 
 // GET /api/v1/admin/tables/:id — Detalhe de mesa sem exigir gm_id (spec 060).
 router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) => {
-  const userRole = (req as any).user.role;
+  const userRole = req.user?.role;
   const { id } = req.params;
 
   if (userRole !== 'admin') {
@@ -215,7 +217,7 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
     const schedules = await TableRepository.findSchedulesByTableId(id);
 
     return res.json({ data: { ...table, contacts, schedules } });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /admin/tables/:id]', error);
     return res.status(500).json({ error: 'Erro ao buscar mesa.' });
   }
@@ -223,7 +225,7 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
 // DELETE /api/v1/admin/tables/:id — Exclusão administrativa de mesa
 router.delete('/tables/:id', authMiddleware, async (req: Request, res: Response) => {
-  const userRole = (req as any).user.role;
+  const userRole = req.user?.role;
   const { id } = req.params;
 
   if (userRole !== 'admin') {
@@ -244,7 +246,7 @@ router.delete('/tables/:id', authMiddleware, async (req: Request, res: Response)
     await TableRepository.deleteTableWithRelations(id);
 
     return res.json({ data: { message: `Mesa administrativa "${existingTable.title}" excluída.` } });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[DELETE /admin/tables/:id]', error);
     return res.status(500).json({ error: 'Erro ao excluir mesa.' });
   }

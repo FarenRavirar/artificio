@@ -1,14 +1,16 @@
 import { Response, NextFunction } from 'express';
 import { fetchUserRoleFromDb } from '../utils/userRole';
+import type { AuthedRequest } from '../types/express';
 
 /**
  * Revalida a role no banco em cada requisição autenticada sensível.
  * Mitiga token JWT com claim de role desatualizado.
  */
-export const refreshUserRole = async (req: any, res: Response, next: NextFunction) => {
-  const userId = req?.user?.id;
+export const refreshUserRole = async (req: AuthedRequest, res: Response, next: NextFunction) => {
+  const currentUser = req.user;
+  const userId = currentUser?.id;
 
-  if (!userId || typeof userId !== 'string') {
+  if (!currentUser || !userId || typeof userId !== 'string') {
     return res.status(401).json({ message: 'Usuário não autenticado.' });
   }
 
@@ -17,7 +19,7 @@ export const refreshUserRole = async (req: any, res: Response, next: NextFunctio
     if (!roleFromDb) {
       return res.status(401).json({ message: 'Usuário não encontrado.' });
     }
-    const roleFromToken = typeof req?.user?.role === 'string' ? req.user.role : null;
+    const roleFromToken = typeof currentUser.role === 'string' ? currentUser.role : null;
 
     if (roleFromToken && roleFromToken !== roleFromDb) {
       console.warn(
@@ -26,10 +28,10 @@ export const refreshUserRole = async (req: any, res: Response, next: NextFunctio
     }
 
     // Admin GLOBAL do SSO (superusuário) não é rebaixado pela role local.
-    const isGlobalAdmin = req?.user?.is_global_admin === true;
+    const isGlobalAdmin = currentUser.is_global_admin === true;
 
     req.user = {
-      ...req.user,
+      ...currentUser,
       role: isGlobalAdmin ? 'admin' : roleFromDb,
       role_source: 'db',
     };

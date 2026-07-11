@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { sql } from 'kysely';
+import { sql, type Updateable, type Selectable } from 'kysely';
 import { db } from '../db';
+import type { TablesTable, TableSchedulesTable } from '../db/types';
 import { authMiddleware } from '../middleware/auth';
 import { resolveActorName } from '../services/actorNameResolver';
 import crypto from 'crypto';
@@ -13,12 +14,53 @@ import {
 } from '../validators/tableValidators';
 import { TableService } from '../services/tableService';
 import { TableRepository } from '../repositories/tableRepository';
+import { hydrateTableSystemFields, systemExistsInCatalog } from '../services/catalogClient';
 import { BenchmarkService } from '../services/benchmarkService';
 import { logActivity } from '../services/activityLogger';
 import { notifyAdmins } from '../services/adminNotifications';
 import { isValidEmail } from '../utils/validation';
 
 const router = Router();
+
+interface VttPlatformJson {
+  id: string;
+  name: string;
+  slug: string;
+  logo_filename: string | null;
+  website_url: string | null;
+}
+
+/** Estreita erro de driver Postgres (pg) — código SQLSTATE + coluna, quando presentes. */
+interface PgDriverError {
+  code?: string;
+  column?: string;
+}
+
+const getPgErrorCode = (error: unknown): string | undefined =>
+  (error && typeof error === 'object' && 'code' in error)
+    ? (error as PgDriverError).code
+    : undefined;
+
+const getPgErrorColumn = (error: unknown): string | undefined =>
+  (error && typeof error === 'object' && 'column' in error)
+    ? (error as PgDriverError).column
+    : undefined;
+
+// Achado Sonar (PR #145): tratamento de 23502/23503 duplicado entre POST e
+// PUT /gm/tables. Extraido para reduzir duplicacao entre os dois handlers.
+function mapPgConstraintErrorToStatus(error: unknown): { status: number; error: string } | null {
+  const code = getPgErrorCode(error);
+  if (code === '23502') {
+    return { status: 400, error: `Campo obrigatório ausente: ${getPgErrorColumn(error) || 'desconhecido'}` };
+  }
+  if (code === '23503') {
+    return { status: 400, error: 'Referência inválida nos dados enviados.' };
+  }
+  return null;
+}
+
+const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
 // ============================================================================
 // CONSTANTES
@@ -96,7 +138,7 @@ async function shouldCountMetric(
 
 // POST /api/v1/gm/profile — Cria perfil de mestre
 router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const {
     slug,
     nickname,
@@ -207,7 +249,7 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
       .execute();
 
     return res.status(201).json({ data: gmProfile });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /gm/profile]', error);
     return res.status(500).json({ error: 'Erro ao criar perfil de mestre.' });
   }
@@ -215,7 +257,7 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
 
 // PUT /api/v1/gm/profile — Edita perfil do mestre logado
 router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
   const {
     nickname,
     bio_long,
@@ -399,7 +441,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
       .execute();
 
     return res.json({ data: updated });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[PUT /gm/profile]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil de mestre.' });
   }
@@ -407,7 +449,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
 
 // GET /api/v1/gm/me — Retorna perfil próprio do mestre logado
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
 
   try {
     const gmProfile = await db
@@ -435,7 +477,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
         avg_rating: null,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[GET /gm/me]', error);
     return res.status(500).json({ error: 'Erro ao buscar perfil.' });
   }
@@ -447,8 +489,8 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
 
 // GET /api/v1/gm/tables/:id — Obtém mesa específica para edição
 router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId;
-  const userRole = (req as any).user?.role;
+  const userId = req.user!.userId;
+  const userRole = req.user?.role;
   const { id } = req.params;
 
   try {
@@ -482,7 +524,7 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
     };
 
     return res.json({ data: responseData });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[GET /gm/tables/:id]', error);
     return res.status(500).json({ error: 'Erro ao buscar mesa.' });
   }
@@ -490,8 +532,8 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
 // POST /api/v1/gm/tables — Cria nova mesa
 router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId;
-  const userRole = (req as any).user?.role;
+  const userId = req.user!.userId;
+  const userRole = req.user!.role;
 
   const validation = createTableSchema.safeParse(req.body);
 
@@ -514,6 +556,13 @@ router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
 
     if (!gmProfile) {
       return res.status(403).json({ error: 'Perfil de mestre não encontrado. Crie seu perfil primeiro.' });
+    }
+
+    // Achado Codex (PR #145): migration_144 removeu a FK local de system_id —
+    // sem esta checagem, system_id inexistente no catalogo central era
+    // persistido silenciosamente (só validava formato UUID no schema Zod).
+    if (data.system_id && !(await systemExistsInCatalog(data.system_id))) {
+      return res.status(400).json({ error: 'Sistema inválido ou não encontrado no catálogo.' });
     }
 
     // Validações usando Service
@@ -578,19 +627,17 @@ router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
     }
 
     return res.status(201).json({ data: newTable });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /gm/tables]', error);
 
-    if (error.message === 'Plataforma VTT inválida' || error.message === 'Plataforma de comunicação inválida') {
-      return res.status(400).json({ error: error.message });
+    const message = getErrorMessage(error);
+    if (message === 'Plataforma VTT inválida' || message === 'Plataforma de comunicação inválida') {
+      return res.status(400).json({ error: message });
     }
 
-    if (error.code === '23502') {
-      return res.status(400).json({ error: `Campo obrigatório ausente: ${error.column || 'desconhecido'}` });
-    }
-
-    if (error.code === '23503') {
-      return res.status(400).json({ error: 'Referência inválida nos dados enviados.' });
+    const pgError = mapPgConstraintErrorToStatus(error);
+    if (pgError) {
+      return res.status(pgError.status).json({ error: pgError.error });
     }
 
     return res.status(500).json({ error: 'Erro ao criar mesa.' });
@@ -599,8 +646,8 @@ router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
 
 // PUT /api/v1/gm/tables/:id — Edita mesa própria
 router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId;
-  const userRole = (req as any).user?.role;
+  const userId = req.user!.userId;
+  const userRole = req.user?.role;
   const { id } = req.params;
 
   const validation = updateTableSchema.safeParse(req.body);
@@ -652,6 +699,13 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Mesa não encontrada ou sem permissão.' });
     }
 
+    // Achado Codex (PR #145): mesma checagem do POST /gm/tables — system_id
+    // sem FK local precisa validar existencia no catalogo central antes de
+    // gravar (so entra na checagem quando o campo foi de fato enviado).
+    if (data.system_id && !(await systemExistsInCatalog(data.system_id))) {
+      return res.status(400).json({ error: 'Sistema inválido ou não encontrado no catálogo.' });
+    }
+
     // Validações
     if (data.is_ddal && (data.system_id ?? existingTable.system_id)) {
       const systemId = data.system_id ?? existingTable.system_id;
@@ -679,7 +733,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       : null;
 
     // Preparar dados de atualização
-    const updateData: any = {
+    const updateData: Updateable<TablesTable> = {
       title: data.title,
       description: data.description,
       system_id: data.system_id,
@@ -772,11 +826,17 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
     });
 
     return res.json({ data: updated });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[PUT /gm/tables/:id]', error);
 
-    if (error.message === 'Plataforma VTT inválida' || error.message === 'Plataforma de comunicação inválida') {
-      return res.status(400).json({ error: error.message });
+    const message = getErrorMessage(error);
+    if (message === 'Plataforma VTT inválida' || message === 'Plataforma de comunicação inválida') {
+      return res.status(400).json({ error: message });
+    }
+
+    const pgError = mapPgConstraintErrorToStatus(error);
+    if (pgError) {
+      return res.status(pgError.status).json({ error: pgError.error });
     }
 
     return res.status(500).json({ error: 'Erro ao editar mesa.' });
@@ -785,7 +845,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
 // GET /api/v1/gm/tables — Lista mesas do mestre
 router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
 
   try {
     const gmProfile = await db
@@ -796,9 +856,11 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
 
     if (!gmProfile) return res.status(403).json({ error: 'Perfil de mestre não encontrado.' });
 
+    // Achado Codex (PR #145): system_id agora referencia o catalogo central,
+    // leftJoin('systems' LOCAL) sempre NULL pra mesas do fluxo novo — join
+    // removido, hidratacao via hydrateTableSystemFields apos a query.
     const tables = await db
       .selectFrom('tables as t')
-      .leftJoin('systems as s', 's.id', 't.system_id')
       .leftJoin('table_metrics as tm', 'tm.table_id', 't.id')
       .leftJoin('vtt_platforms as vtt', 'vtt.id', 't.vtt_platform_id')
       .leftJoin('communication_platforms as cp', 'cp.id', 't.communication_platform_id')
@@ -856,7 +918,7 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
         't.table_gm_bio',
         't.vtt_platform_id',
         't.game_platform_custom',
-        sql<any>`
+        sql<VttPlatformJson | null>`
           CASE WHEN vtt.id IS NOT NULL THEN
             json_build_object(
               'id', vtt.id,
@@ -870,7 +932,6 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
         `.as('vtt_platform'),
         't.communication_platform_id',
         sql<string | null>`COALESCE(cp.name, t.communication_platform)`.as('communication_platform'),
-        's.name as system_name',
         sql<number>`COALESCE(tm.views_count, 0)`.as('metrics_views'),
         sql<number>`COALESCE(tm.clicks_count, 0)`.as('metrics_clicks'),
         sql<number>`COALESCE(tm.contacts_count, 0)`.as('metrics_contacts'),
@@ -907,7 +968,7 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
       .orderBy('sort_order', 'asc')
       .execute();
 
-    const schedulesByTable = new Map<string, any[]>();
+    const schedulesByTable = new Map<string, Selectable<TableSchedulesTable>[]>();
     for (const schedule of schedules) {
       if (!schedulesByTable.has(schedule.table_id)) {
         schedulesByTable.set(schedule.table_id, []);
@@ -915,14 +976,15 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
       schedulesByTable.get(schedule.table_id)!.push(schedule);
     }
 
-    const tablesWithData = tables.map((table) => ({
+    const tablesWithSystem = await hydrateTableSystemFields(tables);
+    const tablesWithData = tablesWithSystem.map((table) => ({
       ...table,
       contacts: contactsByTable.get(table.id) ?? [],
       schedules: schedulesByTable.get(table.id) ?? [],
     }));
 
     return res.json({ data: tablesWithData });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[GET /gm/tables]', error);
     return res.status(500).json({ error: 'Erro ao buscar mesas.' });
   }
@@ -930,8 +992,8 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
 
 // PATCH /api/v1/gm/tables/:id/status — Altera status da mesa
 router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId;
-  const userRole = (req as any).user.role;
+  const userId = req.user!.userId;
+  const userRole = req.user!.role;
   const { id } = req.params;
   const { status } = req.body;
 
@@ -1048,7 +1110,7 @@ router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Res
     }
 
     return res.json({ data: result });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[PATCH /gm/tables/:id/status]', error);
     return res.status(500).json({ error: 'Erro ao atualizar status.' });
   }
@@ -1057,8 +1119,8 @@ router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Res
 // PATCH /api/v1/gm/tables/:id/archive — Arquiva/desarquiva mesa (dono ou admin). D-MESAS1.
 // Arquivar tira do catalogo publico sem perder a mesa nem o status; reversivel.
 router.patch('/tables/:id/archive', authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId;
-  const userRole = (req as any).user.role;
+  const userId = req.user!.userId;
+  const userRole = req.user!.role;
   const { id } = req.params;
   const archived = req.body?.archived !== false; // default = arquivar; { archived: false } = desarquivar
 
@@ -1108,7 +1170,7 @@ router.patch('/tables/:id/archive', authMiddleware, async (req: Request, res: Re
     }
 
     return res.json({ data: result });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[PATCH /gm/tables/:id/archive]', error);
     return res.status(500).json({ error: 'Erro ao arquivar mesa.' });
   }
@@ -1116,8 +1178,8 @@ router.patch('/tables/:id/archive', authMiddleware, async (req: Request, res: Re
 
 // DELETE /api/v1/gm/tables/:id — Deleta mesa própria
 router.delete('/tables/:id', authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId;
-  const userRole = (req as any).user?.role;
+  const userId = req.user!.userId;
+  const userRole = req.user?.role;
   const { id } = req.params;
 
   try {
@@ -1162,7 +1224,7 @@ router.delete('/tables/:id', authMiddleware, async (req: Request, res: Response)
     });
 
     return res.json({ data: { message: `Mesa "${existingTable.title}" deletada.` } });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[DELETE /gm/tables/:id]', error);
     return res.status(500).json({ error: 'Erro ao deletar mesa.' });
   }
@@ -1208,7 +1270,7 @@ router.post('/tables/:slug/view', async (req: Request, res: Response) => {
     });
 
     res.sendStatus(200);
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /tables/:slug/view]', error);
     res.sendStatus(500);
   }
@@ -1244,7 +1306,7 @@ router.post('/tables/:id/click', async (req: Request, res: Response) => {
     });
 
     res.sendStatus(200);
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /tables/:id/click]', error);
     res.sendStatus(500);
   }
@@ -1280,7 +1342,7 @@ router.post('/tables/:id/contact', async (req: Request, res: Response) => {
     });
 
     res.sendStatus(200);
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /tables/:id/contact]', error);
     res.sendStatus(500);
   }
@@ -1316,7 +1378,7 @@ router.post('/tables/:id/favorite', async (req: Request, res: Response) => {
     });
 
     res.sendStatus(200);
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /tables/:id/favorite]', error);
     res.sendStatus(500);
   }
@@ -1324,7 +1386,7 @@ router.post('/tables/:id/favorite', async (req: Request, res: Response) => {
 
 // GET /api/v1/gm/insights — Dashboard de insights agregados
 router.get('/insights', authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId;
+  const userId = req.user!.userId;
 
   try {
     // Verificar se usuário tem perfil GM
@@ -1338,17 +1400,18 @@ router.get('/insights', authMiddleware, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Perfil de mestre não encontrado.' });
     }
 
-    // Buscar todas as mesas do GM com métricas
-    const tables = await db
+    // Achado Codex (PR #145): system_id agora referencia o catalogo central,
+    // leftJoin('systems' LOCAL) sempre NULL pra mesas do fluxo novo — join
+    // removido, hidratacao via hydrateTableSystemFields apos a query.
+    const rawTables = await db
       .selectFrom('tables as t')
       .leftJoin('table_metrics as tm', 'tm.table_id', 't.id')
-      .leftJoin('systems as s', 's.id', 't.system_id')
       .select([
         't.id',
         't.slug',
         't.title',
         't.status',
-        's.name as system_name',
+        't.system_id',
         sql<number>`COALESCE(tm.views_count, 0)`.as('views'),
         sql<number>`COALESCE(tm.clicks_count, 0)`.as('clicks'),
         sql<number>`COALESCE(tm.contacts_count, 0)`.as('contacts'),
@@ -1357,6 +1420,7 @@ router.get('/insights', authMiddleware, async (req: Request, res: Response) => {
       .where('t.gm_id', '=', gmProfile.id)
       .where('t.status', 'in', ['active', 'full'])
       .execute();
+    const tables = await hydrateTableSystemFields(rawTables);
 
     // Buscar breakdown de cliques por variant
     const clickBreakdowns = await db
@@ -1582,7 +1646,7 @@ router.get('/insights', authMiddleware, async (req: Request, res: Response) => {
       tables: enrichedTables,
       recommendations,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[GET /gm/insights]', error);
     res.status(500).json({ error: 'Erro ao buscar insights.' });
   }

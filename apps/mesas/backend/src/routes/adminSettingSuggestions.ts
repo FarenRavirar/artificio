@@ -7,6 +7,15 @@ const router = Router();
 // Todas as rotas exigem role admin
 router.use(requireAdmin);
 
+function isPgUniqueViolation(error: unknown): error is { code: string; constraint: string } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    'constraint' in error
+  );
+}
+
 /**
  * GET /api/v1/admin/setting-suggestions
  * Lista todas as sugestões de estilos cadastradas
@@ -68,13 +77,13 @@ router.post('/', async (req: Request, res: Response) => {
       .executeTakeFirstOrThrow();
 
     return res.status(201).json({ suggestion: newSuggestion });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erro ao criar sugestão:', error);
-    
+
     // CORREÇÃO DT-03: Tratamento específico para constraint unique violation
-    if (error.code === '23505' && error.constraint === 'setting_style_suggestions_setting_name_key') {
-      return res.status(409).json({ 
-        error: 'Já existe uma sugestão cadastrada para este cenário. Use PUT para atualizar.' 
+    if (isPgUniqueViolation(error) && error.code === '23505' && error.constraint === 'setting_style_suggestions_setting_name_key') {
+      return res.status(409).json({
+        error: 'Já existe uma sugestão cadastrada para este cenário. Use PUT para atualizar.'
       });
     }
 
@@ -131,13 +140,13 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
 
     return res.json({ suggestion: updated });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erro ao atualizar sugestão:', error);
-    
+
     // CORREÇÃO DT-03: Tratamento específico para constraint unique violation
-    if (error.code === '23505' && error.constraint === 'setting_style_suggestions_setting_name_key') {
-      return res.status(409).json({ 
-        error: 'Já existe outra sugestão cadastrada com este nome de cenário.' 
+    if (isPgUniqueViolation(error) && error.code === '23505' && error.constraint === 'setting_style_suggestions_setting_name_key') {
+      return res.status(409).json({
+        error: 'Já existe outra sugestão cadastrada com este nome de cenário.'
       });
     }
 

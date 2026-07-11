@@ -3,7 +3,6 @@ import type { DiscordImageUploadStatus } from './types';
 import {
   syncDraftToTable,
   uploadCoverForDraft,
-  readCoverSource,
   withCoverUrl,
   updateDraftImageUploadState,
   normalizeImportTableDraft,

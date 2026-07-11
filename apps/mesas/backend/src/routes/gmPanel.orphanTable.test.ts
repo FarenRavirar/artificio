@@ -1,6 +1,7 @@
 import type { Mock } from 'vitest';
 import request from 'supertest';
-import express from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
+import type { UserRole } from '../db/types';
 
 // Achado do mantenedor 2026-07-08: mesa via Discord sync (spec 060) nasce
 // gm_id: null — GET/PUT /api/v1/gm/tables/:id sempre 404 nela, pq os dois
@@ -35,10 +36,10 @@ vi.mock('../services/activityLogger', () => ({ logActivity: vi.fn() }));
 vi.mock('../services/adminNotifications', () => ({ notifyAdmins: vi.fn() }));
 vi.mock('../services/actorNameResolver', () => ({ resolveActorName: vi.fn().mockResolvedValue('Admin Teste') }));
 
-let mockRole = 'admin';
+let mockRole: UserRole = 'admin';
 let mockUserId = 'admin-1';
 vi.mock('../middleware/auth', () => ({
-  authMiddleware: (req: any, _res: any, next: any) => {
+  authMiddleware: (req: Request, _res: Response, next: NextFunction) => {
     req.user = { userId: mockUserId, role: mockRole };
     next();
   },

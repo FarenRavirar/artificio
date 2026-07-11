@@ -10,16 +10,40 @@
 
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
-| site | ✅ 0 | ✅ 10 | ⚪ 0 |
+| mesas | ✅ 0 | ✅ 1 | ⚪ 0 |
+| glossario | ✅ 0 | ✅ 1 | ⚪ 0 |
+| site | ✅ 0 | ✅ 12 | ⚪ 0 |
+
+---
+
+### mesas
+
+#### ✅ Non-breaking (1)
+
+| Path | Method | Ação |
+|------|--------|------|
+| `` |  | add |
+
+---
+
+### glossario
+
+#### ✅ Non-breaking (1)
+
+| Path | Method | Ação |
+|------|--------|------|
+| `` |  | add |
 
 ---
 
 ### site
 
-#### ✅ Non-breaking (10)
+#### ✅ Non-breaking (12)
 
 | Path | Method | Ação |
 |------|--------|------|
+| `` |  | add |
+| `` |  | add |
 | `` |  | add |
 | `` |  | add |
 | `` |  | add |

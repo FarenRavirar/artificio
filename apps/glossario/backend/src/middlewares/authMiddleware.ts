@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { verifyToken } from '@artificio/auth';
 import { resolveLocalUser } from '../auth/resolveLocalUser';
 import { fetchUserRoleFromDb, normalizeRole } from '../utils/userRole';
+import type { AuthedRequest } from '../types/express';
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required');
@@ -13,7 +14,7 @@ if (!process.env.JWT_SECRET) {
  * `@artificio/auth` valida HS256. Retorna a sessão do 1º token válido — um
  * Bearer inválido/legado (`Bearer null`) não bloqueia o cookie válido.
  */
-function resolveSession(req: any) {
+function resolveSession(req: AuthedRequest) {
   const candidates: string[] = [];
   const header = req.headers?.['authorization'];
   if (typeof header === 'string' && header.startsWith('Bearer ')) {
@@ -35,7 +36,7 @@ function resolveSession(req: any) {
  * LOCAL do glossário (account-linking por email — spec 015). `packages/auth`
  * intocado (auth sagrado).
  */
-export const authMiddleware = (req: any, res: Response, next: NextFunction) => {
+export const authMiddleware = (req: AuthedRequest, res: Response, next: NextFunction) => {
   const session = resolveSession(req);
   if (!session) {
     return res.status(401).json({ message: 'Sessão inválida ou expirada.' });
@@ -72,7 +73,7 @@ export const authMiddleware = (req: any, res: Response, next: NextFunction) => {
  * sem token, segue como visitante (não bloqueia). Falha ao resolver usuário local
  * NÃO derruba a requisição — apenas segue anônimo.
  */
-export const optionalAuthMiddleware = (req: any, _res: Response, next: NextFunction) => {
+export const optionalAuthMiddleware = (req: AuthedRequest, _res: Response, next: NextFunction) => {
   const session = resolveSession(req);
   if (!session) return next();
 
@@ -101,7 +102,7 @@ export const optionalAuthMiddleware = (req: any, _res: Response, next: NextFunct
  * Restringe acesso a administradores. Usar APÓS o authMiddleware.
  * Admin global do SSO passa direto; admin LOCAL é revalidado no banco.
  */
-export const adminMiddleware = (req: any, res: Response, next: NextFunction) => {
+export const adminMiddleware = (req: AuthedRequest, res: Response, next: NextFunction) => {
   if (req?.user?.is_global_admin === true) {
     return next();
   }
@@ -114,8 +115,9 @@ export const adminMiddleware = (req: any, res: Response, next: NextFunction) => 
     return next();
   }
 
-  const userId = req?.user?.id;
-  if (!userId || typeof userId !== 'string') {
+  const currentUser = req.user;
+  const userId = currentUser?.id;
+  if (!currentUser || !userId || typeof userId !== 'string') {
     return res.status(401).json({ message: 'Usuário não autenticado.' });
   }
 
@@ -126,7 +128,7 @@ export const adminMiddleware = (req: any, res: Response, next: NextFunction) => 
       }
 
       req.user = {
-        ...req.user,
+        ...currentUser,
         role: roleFromDb,
         role_source: 'db',
       };

@@ -1,5 +1,8 @@
 export interface TxClient {
-  query: (text: string, params?: any[]) => Promise<{ rows: any[]; rowCount?: number | null }>;
+  query: (
+    text: string,
+    params?: unknown[]
+  ) => Promise<{ rows: Array<Record<string, unknown>>; rowCount?: number | null }>;
 }
 
 /**
@@ -43,7 +46,6 @@ export async function mergeUsers(client: TxClient, fromId: string, toId: string)
   await client.query('UPDATE public.terms SET added_by = $2 WHERE added_by = $1', [fromId, toId]);
   await client.query('UPDATE public.terms SET reviewed_by = $2 WHERE reviewed_by = $1', [fromId, toId]);
   await client.query('UPDATE public.term_history SET changed_by = $2 WHERE changed_by = $1', [fromId, toId]);
-  await client.query('UPDATE public.systems SET created_by = $2 WHERE created_by = $1', [fromId, toId]);
   await client.query('UPDATE public.scenarios SET created_by = $2 WHERE created_by = $1', [fromId, toId]);
 
   // 3) remove o usuário auto-provisionado (libera email/sso_user_id para o legado)

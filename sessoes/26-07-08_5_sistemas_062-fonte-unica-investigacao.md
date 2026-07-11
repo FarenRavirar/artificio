@@ -521,3 +521,66 @@ Investigação profunda concluída. Nenhum código, migration, banco, API, deplo
 - Não implementado nesta fase: merge/redirect, moderação completa de sugestões, import real beta e troca de consumidores.
 - Validação: `pnpm --filter @artificio/site-admin typecheck` ✅; `pnpm --filter @artificio/site-admin build` ✅; `pnpm verify:api` ✅.
 - Pendente operacional: smoke visual em `beta.artificiorpg.com/admin/catalogo-sistemas` após commit/PR/deploy beta do `site`.
+
+## 2026-07-10 — I4 Mesas lê/escreve no catálogo central
+
+- Implementado localmente: `apps/mesas/backend/src/services/catalogClient.ts` centraliza acesso HTTP ao serviço `site`, com `CATALOG_API_URL`/`CENTRAL_CATALOG_URL`/`SITE_API_URL`, header interno `x-artificio-catalog-token`, cache transitório e adaptação do shape central para o shape legado de Mesas.
+- `apps/mesas/backend/src/routes/systems.ts` virou fachada compatível:
+  - `GET /api/v1/systems` lê `GET /api/catalog/v1/systems` e preserva `view=tree`, busca, paginação flat, aliases, slug/path, logo/site e contadores locais de mesas.
+  - `POST /api/v1/systems/admin` escreve `POST /api/admin/v1/catalog/nodes`.
+  - `PUT /api/v1/systems/admin/:id` escreve `PUT /api/admin/v1/catalog/nodes/:id`.
+  - `DELETE /api/v1/systems/admin/:id` não apaga UUID; bloqueia filhos/mesas e arquiva no central via `status=rejected`.
+- `apps/site/server/server.ts` ganhou `requireCatalogAuth`: apenas `/api/admin/v1/catalog` aceita `CATALOG_INTERNAL_TOKEN` para chamadas server-to-server; fallback de admin por cookie SSO segue igual.
+- Validação local:
+  - `pnpm --filter @artificio/mesas-backend build` ✅.
+  - `pnpm --filter @artificio/site exec tsc --noEmit` ✅.
+  - `pnpm verify:api` ✅; warnings conhecidos de paths ambíguos.
+  - `pnpm --filter @artificio/mesas build` ✅; warning conhecido de chunk grande.
+  - `pnpm --filter @artificio/mesas lint` ✅.
+  - `pnpm --filter @artificio/site test` ✅.
+  - `pnpm --filter @artificio/mesas-backend test -- src/services/__tests__/systemSuggestionCandidates.test.ts` ✅.
+- Pendente operacional: configurar `CATALOG_API_URL` e `CATALOG_INTERNAL_TOKEN` em beta para `mesas`; configurar o mesmo token no `site`; deploy beta site+mesas; importar catálogo real de Mesas beta para o central antes do smoke; smoke `/api/v1/systems?view=tree` e CRUD admin em beta.
+
+## 2026-07-10 — I5 Glossário lê/escreve no catálogo central
+
+- Implementado localmente: `apps/glossario/backend/src/services/catalogClient.ts` com leitura de snapshot central e escrita admin via `CATALOG_API_URL`/`CATALOG_INTERNAL_TOKEN`.
+- `/api/systems*` permanece como contrato legado do Glossário, mas `systemController.ts` agora lista/cria/edita/arquiva no catálogo central.
+- Deletes legados não apagam UUID: arquivam no central (`status=rejected`) depois de bloquear por termos, cenários e edições.
+- `termController.ts`, `scenarioController.ts` e `exportController.ts` não fazem mais join em `systems`/`editions` locais para nomes; usam `getCatalogNameMap()`.
+- `importController.ts` resolve `system_name` contra nomes do catálogo central; `mergeUsers.ts` não atualiza mais `public.systems`.
+- Criado script `apps/glossario/backend/src/scripts/migrateGlossarioCatalogRefs.ts` e npm script `catalog:migrate-refs`; dry-run por padrão, apply só com `GLOSSARIO_CATALOG_MIGRATION_APPLY=true`.
+- Validação:
+  - `pnpm --filter @artificio/glossario-backend build` ✅.
+  - `pnpm --filter @artificio/glossario-frontend build` ✅; warning conhecido de dynamic import inefetivo em `ResultCard`.
+  - `pnpm --filter @artificio/glossario-frontend lint` ✅.
+  - `pnpm --filter @artificio/glossario-backend test` ✅.
+  - `pnpm verify:api` ✅; warnings conhecidos de paths ambíguos.
+- Pendente operacional: configurar env central em beta, rodar dry-run `catalog:migrate-refs` com relatório, aplicar só com aprovação nominal, deploy beta e smoke de busca/admin/export.
+
+## 2026-07-10 — I6 administração contextual nos consumidores
+
+- Escopo executado localmente: Mesas frontend, fluxo contextual de criação/sugestão de sistema (`SystemSuggestionModal.tsx`), motivado pelo achado beta do editor Discord.
+- Decisão de implementação: usar a rota curta da task I6. Não criar `packages/catalog-ui` agora; persistência já é central via fachada Mesas → serviço `site`, e pacote compartilhado aumentaria escopo.
+- Implementado: admin agora pode preencher `aliases`, `logo_filename`/Logo e `website_url`/Website Oficial ao criar nó via `POST /api/v1/systems/admin`; formulário continua com tipo e pai para criar edição/variante/subsistema um nó por vez.
+- Usuário comum permanece no fluxo de sugestão moderada em cadeia; sem write direto.
+- Teste ajustado: `suggestionModals.test.tsx` cobre payload admin com aliases/logo/site e limpa portal entre testes.
+- Validação:
+  - `pnpm --filter @artificio/mesas-frontend test -- src/test/suggestionModals.test.tsx src/components/SystemPicker.test.tsx` ✅.
+  - `pnpm --filter @artificio/mesas lint` ✅.
+  - `pnpm --filter @artificio/mesas build` ✅.
+- Pendente operacional: I7 — commit/PR/deploy beta, env central `CATALOG_API_URL`/`CATALOG_INTERNAL_TOKEN`, import real Mesas→Site beta, dry-run/apply controlado do mapeamento Glossário, smokes e rollback beta. Prod fora.
+
+## 2026-07-10 — I7 compatibilidade, observabilidade e operação beta
+
+- Escopo executado localmente: readiness/observabilidade do catálogo central, sem deploy, sem VM write, sem DB real.
+- Site: `GET /api/catalog/v1/health` retorna `ok`, `catalog_version`, `nodes_count` e `checksum`.
+- Mesas: `GET /api/v1/systems/health` valida o catálogo central via cliente `catalogClient`; em falha retorna 503 sem afetar o health Docker `/api/v1/health`.
+- Glossário: `GET /api/systems/health` valida o catálogo central via cliente `catalogClient`; em falha retorna 503 sem afetar o health Docker `/health`.
+- Decisão operacional: health de container não depende do catálogo central, para evitar restart por dependência externa durante rollout; readiness de catálogo é smoke separado e explícito.
+- Validação:
+  - `pnpm --filter @artificio/site exec tsc --noEmit` ✅.
+  - `pnpm --filter @artificio/mesas-backend build` ✅.
+  - `pnpm --filter @artificio/glossario-backend build` ✅.
+  - `pnpm --filter @artificio/site test` ✅.
+  - `pnpm verify:api` ✅; warnings legados de paths ambíguos (`mesas gm`, `glossario social comments`, `glossario systems editions`).
+- Pendente operacional: commit/PR/merge para `dev`, configurar `CATALOG_INTERNAL_TOKEN` e `CATALOG_API_URL` nos betas, deploy beta site/mesas/glossário, import real Mesas→Site beta, dry-run/apply controlado Glossário, smokes reais e ensaio de rollback beta. Prod fora.

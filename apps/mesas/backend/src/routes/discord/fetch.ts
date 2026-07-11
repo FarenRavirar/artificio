@@ -5,10 +5,10 @@ import type { SystemEntry } from '../../discord';
 import { ingestForumMessages, ingestMessages } from '../../discord';
 import { loadCommunicationPlatformsForParser, loadScenariosForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
 import { requireAdmin } from '../../middleware/auth';
-import { parseJsonField, ensureSystemSuggestionForDraft, normalizeSourceChannelType, sendDiscordFetchError, parseDiscordMessage, reconcileTerminalDraft } from './utils';
+import type { DiscordImportMessage } from '../../db/types';
+import { ensureSystemSuggestionForDraft, normalizeSourceChannelType, sendDiscordFetchError, parseDiscordMessage, reconcileTerminalDraft } from './utils';
 
 const router = Router();
-const DISCORD_API_BASE = 'https://discord.com/api/v10';
 
 const fetchSchema = z.object({
   source_id: z.string().uuid(),
@@ -30,7 +30,7 @@ const reingestForceSchema = z.object({
 });
 
 async function createOrUpdateDraftFromMessage(
-  message: any,
+  message: DiscordImportMessage,
   systems: SystemEntry[],
   adminId?: string,
   catalogs?: Parameters<typeof parseDiscordMessage>[3],

@@ -5548,6 +5548,35 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/systems/health:
+    get:
+      operationId: getapi_v1_systems_health
+      summary: "Consulta api v1 systems health"
+      x-artificio-owner: mesas
+      x-artificio-scope: internal
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/tables:
     get:
       operationId: getapi_v1_tables

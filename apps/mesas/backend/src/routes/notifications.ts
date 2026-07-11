@@ -23,7 +23,7 @@ router.get('/', async (req: Request, res: Response) => {
       .execute();
 
     return res.json({ data: notifications });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /notifications]', error);
     return res.status(500).json({ error: 'Erro ao buscar notificações.' });
   }
@@ -45,7 +45,7 @@ router.patch('/read-all', async (req: Request, res: Response) => {
       .execute();
 
     return res.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /notifications/read-all]', error);
     return res.status(500).json({ error: 'Erro ao marcar notificações como lidas.' });
   }
@@ -73,7 +73,7 @@ router.patch('/:id/read', async (req: Request, res: Response) => {
     }
 
     return res.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /notifications/:id/read]', error);
     return res.status(500).json({ error: 'Erro ao marcar notificação como lida.' });
   }

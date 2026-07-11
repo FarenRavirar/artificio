@@ -85,7 +85,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     return res.status(201).json({ data: newSuggestion });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[POST /scenario-suggestions]', error);
     return res.status(500).json({ error: 'Erro ao criar sugestão.' });
   }

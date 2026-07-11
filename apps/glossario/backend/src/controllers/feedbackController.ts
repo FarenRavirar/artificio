@@ -6,6 +6,7 @@ import {
   uploadScreenshotToCloudinary,
   deleteFromCloudinary,
 } from '../services/cloudinary';
+import type { AuthedRequest } from '../types/express';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_STATUS = new Set(['new', 'triaged', 'in_progress', 'resolved', 'wont_fix', 'duplicate']);
@@ -15,7 +16,7 @@ const VALID_KIND = new Set(['bug', 'suggestion']);
  * POST /api/feedback — relato de problema/sugestao (publico, anonimo permitido).
  * Spec 021. Upload de screenshot e nao-fatal: falha grava sem imagem (FR-006).
  */
-export const submitFeedback = async (req: Request, res: Response) => {
+export const submitFeedback = async (req: AuthedRequest, res: Response) => {
   try {
     const parsed = parseFeedbackInput(req.body);
     if (!parsed.ok) {
@@ -23,7 +24,7 @@ export const submitFeedback = async (req: Request, res: Response) => {
     }
     const input = parsed.value;
 
-    const user = (req as any).user;
+    const user = req.user;
     const userId: string | null = user?.id ?? null;
     const reporterRole: string = user?.role ?? 'visitor';
 
@@ -87,7 +88,7 @@ export const submitFeedback = async (req: Request, res: Response) => {
 export const listFeedback = async (req: Request, res: Response) => {
   try {
     const where: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     const status = typeof req.query.status === 'string' ? req.query.status : '';
     if (VALID_STATUS.has(status)) {
@@ -131,9 +132,9 @@ export const listFeedback = async (req: Request, res: Response) => {
 /**
  * PATCH /api/admin/feedback/:id — status, notas e/ou arquivar.
  */
-export const updateFeedback = async (req: Request, res: Response) => {
+export const updateFeedback = async (req: AuthedRequest, res: Response) => {
   try {
-    const adminId = (req as any).user?.id;
+    const adminId = req.user?.id;
     if (!adminId) return res.status(401).json({ error: 'Nao autenticado.' });
 
     const id = String(req.params.id ?? '');
@@ -142,7 +143,7 @@ export const updateFeedback = async (req: Request, res: Response) => {
     const body = (req.body && typeof req.body === 'object') ? req.body as Record<string, unknown> : {};
 
     const sets: string[] = ['reviewed_by = $1', 'reviewed_at = NOW()', 'updated_at = NOW()'];
-    const params: any[] = [adminId];
+    const params: unknown[] = [adminId];
 
     if (typeof body.status === 'string') {
       if (!VALID_STATUS.has(body.status)) return res.status(400).json({ error: 'Status invalido.' });
@@ -179,9 +180,9 @@ export const updateFeedback = async (req: Request, res: Response) => {
 /**
  * DELETE /api/admin/feedback/:id — remove registro + screenshot Cloudinary.
  */
-export const deleteFeedback = async (req: Request, res: Response) => {
+export const deleteFeedback = async (req: AuthedRequest, res: Response) => {
   try {
-    const adminId = (req as any).user?.id;
+    const adminId = req.user?.id;
     if (!adminId) return res.status(401).json({ error: 'Nao autenticado.' });
 
     const id = String(req.params.id ?? '');

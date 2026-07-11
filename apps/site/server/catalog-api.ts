@@ -7,6 +7,21 @@ const jsonEtag = (value: string) => `"${value}"`;
 export function catalogApi(): Router {
   const r = Router();
 
+  r.get("/health", async (_req, res) => {
+    try {
+      const snapshot = await Catalog.getSnapshot();
+      res.json({
+        ok: true,
+        catalog_version: snapshot.catalog_version,
+        nodes_count: snapshot.nodes_count,
+        checksum: snapshot.checksum,
+      });
+    } catch (error) {
+      console.error("[catalog] health failed", error);
+      res.status(503).json({ ok: false, error: "catalog_unavailable" });
+    }
+  });
+
   r.get("/systems", async (req, res) => {
     try {
       const snapshot = await Catalog.getSnapshot();

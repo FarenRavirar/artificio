@@ -1,6 +1,6 @@
 # Plano — Spec 062
 
-**Estado:** investigação concluída; implementação não iniciada.
+**Estado:** Etapa I (investigação) concluída e aprovada. Etapa II (código) em andamento: I0a, I0b, I1-I7 implementados localmente; I0a.15 (deploy beta) e I5a (mapeamento manual glossário) pendentes. Primeiro alvo operacional: `beta.artificiorpg.com` via app `site`.
 
 ## Referência visual aprovada do `SystemPicker` (mantenedor, 2026-07-09 — vinculante)
 
@@ -181,6 +181,89 @@ Leitura e escrita integrais no serviço central, sem projeções locais. Mesas �
 **Gate local de I3:** `site-admin` typecheck/build e `verify:api`.
 
 **Pendente operacional:** smoke visual autenticado em `beta.artificiorpg.com/admin/catalogo-sistemas` após commit/PR/deploy beta do `site`.
+
+## I4 — Mesas como consumidor integral do catálogo central
+
+**Decisão técnica (2026-07-10):** Mesas mantém os endpoints legados `/api/v1/systems*` como fachada de compatibilidade, mas leitura e escrita de catálogo passam pelo serviço central no `site`. Não há projeção local nova nem escrita concorrente em `systems`/`system_aliases` para CRUD de catálogo.
+
+Implementação local:
+
+- `apps/mesas/backend/src/services/catalogClient.ts` é o cliente único do catálogo central para Mesas.
+- Leitura usa `GET /api/catalog/v1/systems`.
+- Escrita usa `POST|PUT /api/admin/v1/catalog/nodes`.
+- Autenticação server-to-server usa `CATALOG_INTERNAL_TOKEN` enviado por Mesas como `x-artificio-catalog-token`.
+- `apps/site/server/server.ts` aceita esse token apenas na API admin do catálogo; demais APIs admin continuam por SSO admin.
+- `GET /api/v1/systems` preserva shape legado (`slug`, `path_slug`, `aliases`, `children`, `logo_filename`, `website_url`, contadores) para frontend Mesas.
+- `tables_count` continua calculado no banco Mesas, porque mesas permanecem domínio consumidor local.
+- `DELETE /api/v1/systems/admin/:id` vira arquivamento central (`status=rejected`) após bloquear filhos/mesas; UUID canônico nunca é apagado.
+
+Pendente operacional para beta:
+
+- configurar `CATALOG_API_URL` no backend Mesas apontando para o `site` beta;
+- configurar o mesmo `CATALOG_INTERNAL_TOKEN` em `site` e `mesas`;
+- garantir import real beta I2 antes do smoke de Mesas;
+- deploy beta de `site` e `mesas`;
+- smoke `/api/v1/systems?view=tree`, busca flat e CRUD admin por fachada Mesas.
+
+## I5 — Glossário como consumidor integral do catálogo central
+
+**Decisão técnica (2026-07-10):** Glossário mantém `/api/systems*` como fachada de compatibilidade para o frontend atual, mas deixa de possuir CRUD próprio de sistemas/edições. O backend passa a ler e escrever no serviço central do `site`, usando o mesmo `CATALOG_API_URL` e `CATALOG_INTERNAL_TOKEN` de Mesas.
+
+Implementação local:
+
+- `apps/glossario/backend/src/services/catalogClient.ts` é o cliente único do catálogo central para o Glossário.
+- `systemController.ts` lista sistemas/edições via snapshot central e cria/edita via `POST|PUT /api/admin/v1/catalog/nodes`.
+- Delete legado vira arquivamento central (`status=rejected`) após bloqueio por termos, cenários e edições.
+- `termController.ts`, `scenarioController.ts` e `exportController.ts` deixam de fazer join em `systems`/`editions` locais para nomes; hidratam `system_name`/`edition_name` via snapshot central.
+- `importController.ts` resolve `system_name` de planilhas contra nomes do catálogo central.
+- `mergeUsers.ts` não tenta mais mover autoria em `public.systems`, pois ownership virou central.
+- `apps/glossario/backend/src/scripts/migrateGlossarioCatalogRefs.ts` cria o procedimento de mapeamento de referências locais antigas para UUIDs centrais; dry-run por padrão, apply só com `GLOSSARIO_CATALOG_MIGRATION_APPLY=true`.
+
+Pendente operacional para beta:
+
+- configurar `CATALOG_API_URL` e `CATALOG_INTERNAL_TOKEN` no backend Glossário;
+- rodar `pnpm --filter @artificio/glossario-backend catalog:migrate-refs` em dry-run com relatório visível;
+- aplicar o mapeamento só após aprovação nominal;
+- smoke de busca/lista de termos, admin de estrutura, criação/edição de sistema/edição e export MateCat.
+
+## I6 — Administração contextual nos consumidores
+
+**Decisão técnica (2026-07-10):** I6 começa pelo consumidor que gerou dor real em beta: Mesas, no fluxo de revisão/importação Discord. Não criaremos `packages/catalog-ui` nesta rodada, porque seria pacote compartilhado e ampliaria o blast radius; a lógica de persistência já está centralizada no serviço do `site` e o Mesas só usa a fachada `POST /api/v1/systems/admin`.
+
+Implementação local:
+
+- `SystemSuggestionModal.tsx` passa a oferecer, para admin, os campos de cadastro central que já existiam no contrato: aliases, Logo e Website Oficial.
+- O formulário continua criando um nó por vez, com `node_type` e `parent_id`; edição/variante/subsistema são cobertos pelo seletor de tipo + pai.
+- Usuário comum mantém o fluxo moderado de sugestão em cadeia, sem write direto.
+- Teste `suggestionModals.test.tsx` cobre o payload admin com `aliases`, `logo_filename` e `website_url`.
+
+Não escopo de I6 local:
+
+- extração de pacote compartilhado de UI;
+- criação encadeada admin sistema→edição→variante em uma única submissão;
+- smoke beta real, que fica em I7 junto de deploy, env central, import real e rollback.
+
+## I7 — Compatibilidade, observabilidade e operação beta
+
+**Decisão técnica (2026-07-10):** readiness do catálogo central deve ser explícito e separado do health Docker dos apps consumidores. Se o catálogo central cair, Mesas/Glossário devem mostrar erro acionável nos fluxos de catálogo, mas o container não deve ser reiniciado por depender de outro serviço durante rollout.
+
+Implementação local:
+
+- Site expõe `GET /api/catalog/v1/health`, com `ok`, `catalog_version`, `nodes_count` e `checksum`.
+- Mesas expõe `GET /api/v1/systems/health`, validando o catálogo central via `CATALOG_API_URL`/`CATALOG_INTERNAL_TOKEN` quando aplicável.
+- Glossário expõe `GET /api/systems/health`, com o mesmo contrato de readiness.
+- Endpoints legados de leitura/escrita permanecem compatíveis; os novos endpoints são só smoke/observabilidade.
+
+Pendente operacional para beta:
+
+- commit/PR/merge para `dev`;
+- configurar `CATALOG_INTERNAL_TOKEN` no `site`, `mesas` e `glossario` beta;
+- configurar `CATALOG_API_URL` dos consumidores apontando para o Site beta;
+- deploy beta de `site`, `mesas` e `glossario`;
+- rodar import real Mesas→Site beta;
+- rodar dry-run do mapeamento Glossário e aplicar só após aprovação nominal;
+- smoke das três rotas de readiness, `/api/v1/systems?view=tree`, `/api/systems`, admin Site e export Glossário;
+- ensaio de rollback beta antes de qualquer conversa de produção.
 
 ## I0a — Unificação de consumo frontend (`apps/mesas`)
 

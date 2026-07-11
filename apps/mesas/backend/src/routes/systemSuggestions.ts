@@ -37,7 +37,7 @@ const normalizeSuggestionPayload = (payload: SuggestionPayload, index: number) =
     : null;
 
   if (!name) throw new Error(`Nome é obrigatório no item ${index + 1}.`);
-  if (!suggestionType || !VALID_NODE_TYPES.includes(suggestionType as any)) {
+  if (!suggestionType || !VALID_NODE_TYPES.includes(suggestionType as (typeof VALID_NODE_TYPES)[number])) {
     throw new Error(`Tipo de sugestão inválido no item ${index + 1}.`);
   }
   if (parentSuggestionIndex !== null && (parentSuggestionIndex < 0 || parentSuggestionIndex >= index)) {
@@ -164,7 +164,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
     return res.status(201).json({ data: items.length === 1 ? newSuggestion : newSuggestions });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /system-suggestions]', error);
     return res.status(500).json({ error: 'Erro ao criar sugestão.' });
   }

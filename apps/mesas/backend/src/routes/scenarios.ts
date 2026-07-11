@@ -96,7 +96,7 @@ router.get('/', async (req: Request, res: Response) => {
         has_more: shouldPaginate ? hasMore : false,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /scenarios]', error);
     return res.status(500).json({ error: 'Erro ao buscar cenários.' });
   }
@@ -118,7 +118,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
 
     return res.json({ data: scenario });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /scenarios/:id]', error);
     return res.status(500).json({ error: 'Erro ao buscar cenário.' });
   }
@@ -166,7 +166,7 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req: Request,
       .executeTakeFirst();
 
     return res.status(201).json({ data: newScenario });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[POST /admin/scenarios]', error);
     return res.status(500).json({ error: 'Erro ao criar cenário.' });
   }
@@ -224,7 +224,7 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req: Reque
       .executeTakeFirst();
 
     return res.json({ data: updated });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PUT /admin/scenarios/:id]', error);
     return res.status(500).json({ error: 'Erro ao atualizar cenário.' });
   }
@@ -266,7 +266,7 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req: Re
       .execute();
 
     return res.json({ data: { message: 'Cenário deletado com sucesso.' } });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[DELETE /admin/scenarios/:id]', error);
     return res.status(500).json({ error: 'Erro ao deletar cenário.' });
   }

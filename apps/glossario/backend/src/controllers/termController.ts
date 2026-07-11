@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { db } from '../config/database';
 import { sanitizeTermFields } from '../utils/sanitizeText';
 import { notifyTermOwnerOnModeration } from '../services/notificationService';
+import { getCatalogNameMap } from '../services/catalogClient';
+import type { AuthedRequest } from '../types/express';
 
 export const listTerms = async (req: Request, res: Response) => {
   try {
@@ -15,8 +17,6 @@ export const listTerms = async (req: Request, res: Response) => {
     let query = `
       SELECT t.*,
              t.nucleus as source_tier,
-             s.name as system_name,
-             e.name as edition_name,
              sc.name as scenario_name,
              CASE
                WHEN cg.id IS NOT NULL THEN cp.name
@@ -31,8 +31,6 @@ export const listTerms = async (req: Request, res: Response) => {
              th.last_changed_at,
              COUNT(*) OVER() as total_count
       FROM terms t
-      LEFT JOIN systems s ON t.system_id = s.id
-      LEFT JOIN editions e ON t.edition_id = e.id
       LEFT JOIN scenarios sc ON t.scenario_id = sc.id
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN categories cp ON c.parent_id = cp.id
@@ -45,7 +43,7 @@ export const listTerms = async (req: Request, res: Response) => {
       ) th ON th.term_id = t.id
       WHERE 1=1
     `;
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (normalizedSearch) {
       params.push(`%${normalizedSearch}%`);
@@ -85,7 +83,7 @@ export const listTerms = async (req: Request, res: Response) => {
 
     const result = await db.query(query, params);
     const totalCount = result.rows.length > 0 ? Number(result.rows[0].total_count) : 0;
-    const rows = result.rows.map(({ total_count, ...row }) => row);
+    const rows = await hydrateCatalogNames(result.rows.map(({ total_count: _total_count, ...row }) => row));
     res.setHeader('X-Total-Count', String(totalCount));
     res.json(rows);
   } catch (err) {
@@ -94,7 +92,7 @@ export const listTerms = async (req: Request, res: Response) => {
   }
 };
 
-export const createTerm = async (req: any, res: Response) => {
+export const createTerm = async (req: AuthedRequest, res: Response) => {
   const raw = req.body;
   const sanitized = sanitizeTermFields(raw);
   const {
@@ -110,7 +108,7 @@ export const createTerm = async (req: any, res: Response) => {
     }
 
     // Se for Admin, já nasce verificado. Se for membro, nasce pendente.
-    const status = req.user.role === 'admin' ? 'verificado' : 'pendente';
+    const status = req.user?.role === 'admin' ? 'verificado' : 'pendente';
 
     const result = await db.query(
       `INSERT INTO terms (
@@ -121,7 +119,7 @@ export const createTerm = async (req: any, res: Response) => {
       [
         name_en, name_pt, nucleus, status, source_type,
         system_id, edition_id, scenario_id, category_id,
-        book_reference, page_reference, additional_info, req.user.id
+        book_reference, page_reference, additional_info, req.user?.id
       ]
     );
 
@@ -133,7 +131,7 @@ export const createTerm = async (req: any, res: Response) => {
   }
 };
 
-export const approveTerm = async (req: Request, res: Response) => {
+export const approveTerm = async (req: AuthedRequest, res: Response) => {
   const { id } = req.params;
   req.body = { ...req.body, ...sanitizeTermFields(req.body) };
   const { nucleus, category_id, status } = req.body; // Permite ao admin corrigir no ato da aprovação
@@ -147,7 +145,7 @@ export const approveTerm = async (req: Request, res: Response) => {
            reviewed_by = $4,
            reviewed_at = NOW()
        WHERE id = $5 RETURNING *`,
-      [status || 'verificado', nucleus || null, category_id || null, (req as any).user.id, id]
+      [status || 'verificado', nucleus || null, category_id || null, req.user?.id, id]
     );
 
     if (result.rows.length === 0) {
@@ -158,7 +156,7 @@ export const approveTerm = async (req: Request, res: Response) => {
     try {
       await notifyTermOwnerOnModeration({
         termId: term.id,
-        actorId: (req as any).user.id,
+        actorId: req.user?.id ?? '',
         status: term.status ?? null,
         eventType: 'term.moderated',
       });
@@ -173,29 +171,84 @@ export const approveTerm = async (req: Request, res: Response) => {
   }
 };
 
-export const updateTerm = async (req: any, res: Response) => {
+const UPDATE_TERM_ALLOWED_FIELDS = [
+  'name_en',
+  'name_pt',
+  'nucleus',
+  'status',
+  'source_type',
+  'system_id',
+  'edition_id',
+  'scenario_id',
+  'category_id',
+  'book_reference',
+  'page_reference',
+  'additional_info',
+] as const;
+
+const hasText = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
+
+// Achado Sonar (PR #145): updateTerm tinha complexidade cognitiva 19 (validacao
+// de negocio + montagem de UPDATE + hidratacao + notificacao, tudo num bloco).
+// Validacao de negocio extraida para reduzir aninhamento no handler.
+function validateUpdateTermBusinessRules(
+  body: Record<string, unknown>,
+  current: Record<string, unknown>,
+  hasField: (field: (typeof UPDATE_TERM_ALLOWED_FIELDS)[number]) => boolean,
+): string | null {
+  const finalNucleus = hasField('nucleus') ? body.nucleus : current.nucleus;
+  const finalBookReference = hasField('book_reference') ? body.book_reference : current.book_reference;
+  const finalPageReference = hasField('page_reference') ? body.page_reference : current.page_reference;
+  const finalSourceType = hasField('source_type') ? body.source_type : current.source_type;
+  const finalSystemId = hasField('system_id') ? body.system_id : current.system_id;
+  const finalScenarioId = hasField('scenario_id') ? body.scenario_id : current.scenario_id;
+
+  if (finalNucleus === 'oficial' && (!hasText(finalBookReference) || !hasText(finalPageReference))) {
+    return 'Termos oficiais exigem Livro e Página de referência.';
+  }
+  if (finalSourceType === 'sistema' && !finalSystemId) {
+    return 'Termos do tipo sistema exigem um sistema vinculado.';
+  }
+  if (finalSourceType === 'cenario' && !finalScenarioId) {
+    return 'Termos do tipo cenário exigem um cenário vinculado.';
+  }
+  return null;
+}
+
+async function hydrateUpdatedTerm(updatedId: string) {
+  const hydrated = await db.query(
+    `SELECT t.*,
+            t.nucleus as source_tier,
+            sc.name as scenario_name,
+            CASE
+              WHEN cg.id IS NOT NULL THEN cp.name
+              WHEN cp.id IS NOT NULL AND cp.parent_id IS NULL THEN c.name
+              ELSE c.name
+            END as category_name,
+            CASE
+              WHEN cg.id IS NOT NULL THEN c.name
+              ELSE NULL
+            END as subcategory_name,
+            u.full_name as added_by_name
+     FROM terms t
+     LEFT JOIN scenarios sc ON t.scenario_id = sc.id
+     LEFT JOIN categories c ON t.category_id = c.id
+     LEFT JOIN categories cp ON c.parent_id = cp.id
+     LEFT JOIN categories cg ON cp.parent_id = cg.id
+     LEFT JOIN users u ON t.added_by = u.id
+     WHERE t.id = $1`,
+    [updatedId]
+  );
+  const [updatedTerm] = await hydrateCatalogNames(hydrated.rows);
+  return updatedTerm;
+}
+
+export const updateTerm = async (req: AuthedRequest, res: Response) => {
   const { id } = req.params;
   req.body = { ...req.body, ...sanitizeTermFields(req.body) };
 
-  const allowedFields = [
-    'name_en',
-    'name_pt',
-    'nucleus',
-    'status',
-    'source_type',
-    'system_id',
-    'edition_id',
-    'scenario_id',
-    'category_id',
-    'book_reference',
-    'page_reference',
-    'additional_info',
-  ] as const;
-
-  const hasField = (field: (typeof allowedFields)[number]) =>
+  const hasField = (field: (typeof UPDATE_TERM_ALLOWED_FIELDS)[number]) =>
     Object.prototype.hasOwnProperty.call(req.body, field);
-
-  const hasText = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
 
   try {
     const existing = await db.query('SELECT * FROM terms WHERE id = $1', [id]);
@@ -203,30 +256,15 @@ export const updateTerm = async (req: any, res: Response) => {
       return res.status(404).json({ message: 'Termo não encontrado.' });
     }
 
-    const current = existing.rows[0];
-    const finalNucleus = hasField('nucleus') ? req.body.nucleus : current.nucleus;
-    const finalBookReference = hasField('book_reference') ? req.body.book_reference : current.book_reference;
-    const finalPageReference = hasField('page_reference') ? req.body.page_reference : current.page_reference;
-    const finalSourceType = hasField('source_type') ? req.body.source_type : current.source_type;
-    const finalSystemId = hasField('system_id') ? req.body.system_id : current.system_id;
-    const finalScenarioId = hasField('scenario_id') ? req.body.scenario_id : current.scenario_id;
-
-    if (finalNucleus === 'oficial' && (!hasText(finalBookReference) || !hasText(finalPageReference))) {
-      return res.status(400).json({ message: 'Termos oficiais exigem Livro e Página de referência.' });
-    }
-
-    if (finalSourceType === 'sistema' && !finalSystemId) {
-      return res.status(400).json({ message: 'Termos do tipo sistema exigem um sistema vinculado.' });
-    }
-
-    if (finalSourceType === 'cenario' && !finalScenarioId) {
-      return res.status(400).json({ message: 'Termos do tipo cenário exigem um cenário vinculado.' });
+    const businessRuleError = validateUpdateTermBusinessRules(req.body, existing.rows[0], hasField);
+    if (businessRuleError) {
+      return res.status(400).json({ message: businessRuleError });
     }
 
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
-    for (const field of allowedFields) {
+    for (const field of UPDATE_TERM_ALLOWED_FIELDS) {
       if (hasField(field)) {
         values.push(req.body[field]);
         updates.push(`${field} = $${values.length}`);
@@ -247,40 +285,11 @@ export const updateTerm = async (req: any, res: Response) => {
       values
     );
 
-    const updatedId = updateResult.rows[0]?.id;
-    const hydrated = await db.query(
-      `SELECT t.*,
-              t.nucleus as source_tier,
-              s.name as system_name,
-              e.name as edition_name,
-              sc.name as scenario_name,
-              CASE
-                WHEN cg.id IS NOT NULL THEN cp.name
-                WHEN cp.id IS NOT NULL AND cp.parent_id IS NULL THEN c.name
-                ELSE c.name
-              END as category_name,
-              CASE
-                WHEN cg.id IS NOT NULL THEN c.name
-                ELSE NULL
-              END as subcategory_name,
-              u.full_name as added_by_name
-       FROM terms t
-       LEFT JOIN systems s ON t.system_id = s.id
-       LEFT JOIN editions e ON t.edition_id = e.id
-       LEFT JOIN scenarios sc ON t.scenario_id = sc.id
-       LEFT JOIN categories c ON t.category_id = c.id
-       LEFT JOIN categories cp ON c.parent_id = cp.id
-       LEFT JOIN categories cg ON cp.parent_id = cg.id
-       LEFT JOIN users u ON t.added_by = u.id
-       WHERE t.id = $1`,
-      [updatedId]
-    );
-
-    const updatedTerm = hydrated.rows[0];
+    const updatedTerm = await hydrateUpdatedTerm(updateResult.rows[0]?.id);
     try {
       await notifyTermOwnerOnModeration({
         termId: updatedTerm.id,
-        actorId: req.user.id,
+        actorId: req.user?.id ?? '',
         status: updatedTerm.status ?? null,
         eventType: 'term.updated',
       });
@@ -362,3 +371,16 @@ export const getTermHistory = async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Erro ao carregar histórico do termo.' });
   }
 };
+
+// Achado CodeRabbit (PR #145): rows vinha de result.rows (any[] do driver pg)
+// sem validacao de shape antes do .map. Array.isArray + checagem de tipo por
+// campo evita propagar valor inesperado (ex.: system_id nao-string) ao mapa.
+async function hydrateCatalogNames<T extends { system_id?: string | null; edition_id?: string | null }>(rows: T[]): Promise<Array<T & { system_name: string | null; edition_name: string | null }>> {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const names = await getCatalogNameMap();
+  return rows.map((row) => ({
+    ...row,
+    system_name: typeof row.system_id === 'string' ? names.get(row.system_id) ?? null : null,
+    edition_name: typeof row.edition_id === 'string' ? names.get(row.edition_id) ?? null : null,
+  }));
+}

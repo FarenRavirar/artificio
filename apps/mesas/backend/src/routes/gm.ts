@@ -4,9 +4,11 @@ import { db } from '../db';
 import { authMiddleware, optionalAuth } from '../middleware/auth';
 import { publicRateLimiter, authRateLimiter } from '../middleware/rateLimit';
 import { isValidEmail } from '../utils/validation';
-import { generateEmbedUrl, detectLinkType, LinkType } from '../services/linkService';
+import { generateEmbedUrl, LinkType } from '../services/linkService';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
 import { upgradeGoogleImageQuality } from '../utils/urlValidation';
+import { hydrateTableSystemFields } from '../services/catalogClient';
+import { processPendingLinks } from '../scripts/processLinkMetadataJobs';
 
 const router = Router();
 
@@ -154,9 +156,11 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
     };
 
     // Buscar mesas ativas do mestre (sem métricas sensíveis)
+    // Achado Codex (PR #145): system_id agora referencia o catalogo central,
+    // leftJoin('systems' LOCAL) sempre NULL pra mesas do fluxo novo — join
+    // removido, hidratacao via hydrateTableSystemFields apos a query.
     const tables = await db
       .selectFrom('tables as t')
-      .leftJoin('systems as s', 's.id', 't.system_id')
       .leftJoin('vtt_platforms as vtt', 'vtt.id', 't.vtt_platform_id')
       .select([
         't.id',
@@ -185,11 +189,7 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
         't.created_at',
         't.synopsis_narrative',
         't.features',
-        's.name as system_name',
-        's.slug as system_slug',
-        's.logo_filename as system_logo_filename',
-        's.website_url as system_website_url',
-        sql<any>`
+        sql<{ id: string; name: string; slug: string; logo_filename: string | null; website_url: string | null } | null>`
           CASE WHEN vtt.id IS NOT NULL THEN
             json_build_object(
               'id', vtt.id,
@@ -202,6 +202,7 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
           END
         `.as('vtt_platform'),
         't.game_platform_custom',
+        't.system_id',
       ])
       .where('t.gm_id', '=', gm.id)
       .where('t.status', '=', 'active')
@@ -210,12 +211,13 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
       .orderBy('t.created_at', 'desc')
       .execute();
 
-    const publicTables = tables.map((table) => ({
+    const tablesWithSystem = await hydrateTableSystemFields(tables);
+    const publicTables = tablesWithSystem.map((table) => ({
       ...table,
       cover_url: sanitizePublicImageUrl(table.cover_url),
     }));
 
-    let tablesWithContacts: any[] = [];
+    let tablesWithContacts: Array<(typeof publicTables)[number] & { contacts: PublicTableContact[] }> = [];
 
     if (tables.length > 0) {
       const tableIds = tables.map((table) => table.id);
@@ -274,12 +276,11 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
         .where('id', 'in', linkIdsToTouch)
         .where('metadata_last_accessed_at', '<', sql<Date>`NOW() - interval '6 hours'`)
         .execute()
-        .catch((e: any) => console.error('[GET /gm/:slug] Falha ao atualizar acesso do link:', e));
+        .catch((e: unknown) => console.error('[GET /gm/:slug] Falha ao atualizar acesso do link:', e));
 
       // CORREÇÃO DT-04: Worker "fire-and-forget" para cobrir base de links órfãos ('pending')
-      if (links.some(l => (l as any).metadata_status === 'pending')) {
-        const { processPendingLinks } = require('../scripts/processLinkMetadataJobs');
-        processPendingLinks().catch((err: any) => console.error('Silent processPending error:', err));
+      if (links.some(l => l.metadata_status === 'pending')) {
+        processPendingLinks().catch((err: unknown) => console.error('Silent processPending error:', err));
       }
     }
 
@@ -314,7 +315,20 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
       min_price_cents: gm.closed_group_min_price_cents,
     };
 
-    const { user_id, closed_group_enabled, closed_group_systems, closed_group_description, closed_group_min_price_cents, preferred_vtt_platforms, ...gmPublic } = gm;
+    // Campos internos/sensiveis (closed_group_*, preferred_vtt_platforms, user_id) sao
+    // reexpostos via closed_group/preferredVttPlatforms acima; omitidos aqui do payload
+    // publico bruto sem destructure (evita no-unused-vars sem varsIgnorePattern no config).
+    const omitFromGmPublic = new Set<keyof typeof gm>([
+      'user_id',
+      'closed_group_enabled',
+      'closed_group_systems',
+      'closed_group_description',
+      'closed_group_min_price_cents',
+      'preferred_vtt_platforms',
+    ]);
+    const gmPublic = Object.fromEntries(
+      Object.entries(gm).filter(([key]) => !omitFromGmPublic.has(key as keyof typeof gm)),
+    );
 
     return res.json({
       data: {
@@ -326,7 +340,7 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
         viewer_context,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[GET /gm/:slug]', error);
     return res.status(500).json({ error: 'Erro ao buscar perfil do mestre.' });
   }
@@ -393,7 +407,7 @@ router.post('/:slug/view', async (req: Request, res: Response) => {
     }
 
     return res.json({ success: true, deduped: false });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /gm/:slug/view]', error);
     return res.status(500).json({ error: 'Erro ao registrar visualização do perfil.' });
   }
@@ -447,7 +461,7 @@ router.get('/:slug/insights', authRateLimiter, authMiddleware, async (req: Reque
         recommendations,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[GET /gm/:slug/insights]', error);
     return res.status(500).json({ error: 'Erro ao buscar insights.' });
   }
@@ -478,13 +492,20 @@ router.post('/:slug/contact', publicRateLimiter, async (req: Request, res: Respo
     }
 
     // Buscar email do mestre
+    // display_name vive em profiles, não em gm_profiles (mesmo padrão de GET /gm/:slug:
+    // COALESCE(gm.nickname, p.display_name)). Achado ao remover @ts-ignore legado: a
+    // seleção anterior de 'gp.display_name' não existia na tabela e só compilava
+    // suprimida — corrigido aqui para a fonte real do nome de exibição.
     const profile = await db
       .selectFrom('gm_profiles as gp')
       .innerJoin('users as u', 'gp.user_id', 'u.id')
-      // @ts-ignore - Kysely tem problema de inferência com aliases de tabelas diferentes
-      .select(['u.email', 'gp.display_name'])
+      .innerJoin('profiles as p', 'p.user_id', 'u.id')
+      .select((eb) => [
+        eb.ref('u.email').as('email'),
+        sql<string>`COALESCE(gp.nickname, p.display_name)`.as('display_name'),
+      ])
       .where('gp.slug', '=', slug)
-      .executeTakeFirst() as { email: string; display_name: string } | undefined;
+      .executeTakeFirst();
 
     if (!profile || !profile.email) {
       return res.status(404).json({ error: 'Mestre não encontrado.' });
@@ -505,7 +526,7 @@ router.post('/:slug/contact', publicRateLimiter, async (req: Request, res: Respo
       success: true,
       message: 'Mensagem enviada com sucesso! O mestre receberá seu contato em breve.',
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /gm/:slug/contact]', error);
     return res.status(500).json({ error: 'Erro ao enviar mensagem.' });
   }
@@ -551,7 +572,7 @@ router.post('/:slug/contact-click', publicRateLimiter, async (req: Request, res:
     // await db.insertInto('gm_contact_clicks').values({ gm_profile_id: profile.id, channel }).execute();
 
     res.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /gm/:slug/contact-click]', error);
     res.status(500).json({ error: 'Erro ao registrar clique.' });
   }

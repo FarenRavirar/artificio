@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { db } from '../config/database';
 import { slugify } from '../utils/slugify';
+import type { AuthedRequest } from '../types/express';
 
-export const listCategories = async (req: any, res: Response) => {
+export const listCategories = async (req: AuthedRequest, res: Response) => {
   try {
     const isAdmin = req.user?.role === 'admin';
     const where = isAdmin ? '' : "WHERE status = 'aprovado'";
@@ -11,7 +12,7 @@ export const listCategories = async (req: any, res: Response) => {
   } catch (err) { console.error(err); res.status(500).json({ message: 'Erro ao listar categorias.' }); }
 };
 
-export const createCategory = async (req: any, res: Response) => {
+export const createCategory = async (req: AuthedRequest, res: Response) => {
   const { name, slug, type, parent_id, position } = req.body;
   const isAdmin = req.user?.role === 'admin';
   const status = isAdmin ? 'aprovado' : 'pendente';

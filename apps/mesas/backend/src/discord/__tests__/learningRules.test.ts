@@ -8,6 +8,14 @@ import {
   loadActiveLabelAliases,
 } from '../learningRules';
 
+interface SelectBuilderMock {
+  select: ReturnType<typeof vi.fn>;
+  where: ReturnType<typeof vi.fn>;
+  orderBy?: ReturnType<typeof vi.fn>;
+  limit?: ReturnType<typeof vi.fn>;
+  execute: ReturnType<typeof vi.fn>;
+}
+
 describe('deriveScope', () => {
   it('gera escopo estavel global, guild e composite', () => {
     const global = deriveScope(null);
@@ -123,7 +131,7 @@ describe('loadActiveLabelAliases', () => {
       { field: 'system_name', input_token: 'jogo do dia' },
       { field: 'title', input_token: 'nome da aventura' },
     ];
-    const selectBuilder: any = {
+    const selectBuilder: SelectBuilderMock = {
       select: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
       execute: vi.fn().mockResolvedValue(rows),
@@ -151,7 +159,7 @@ describe('lookupLearningRules', () => {
       { id: 'r1', output_value: 'D&D 5.2', confidence: 0.9, scope_type: 'guild' },
       { id: 'r2', output_value: 'D&D 5.2', confidence: 0.85, scope_type: 'global' },
     ];
-    const selectBuilder: any = {
+    const selectBuilder: SelectBuilderMock = {
       select: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
       orderBy: vi.fn().mockReturnThis(),
@@ -171,7 +179,7 @@ describe('lookupLearningRules', () => {
       { id: 'r1', output_value: 'D&D 5.2', confidence: 0.9, scope_type: 'guild' },
       { id: 'r2', output_value: 'Pathfinder 2e', confidence: 0.88, scope_type: 'global' },
     ];
-    const selectBuilder: any = {
+    const selectBuilder: SelectBuilderMock = {
       select: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
       orderBy: vi.fn().mockReturnThis(),

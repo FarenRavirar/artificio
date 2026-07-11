@@ -83,7 +83,13 @@ function getBaseVersion(filePath: string, baseBranch: string): string | null {
     ? relativePath.slice(repoRoot.length + 1)
     : relativePath;
 
-  const refs = baseBranch.includes('/') ? [baseBranch] : [baseBranch, `origin/${baseBranch}`];
+  // Achado durante revisao PR #145: em runner de CI com checkout raso, um
+  // `git fetch origin <base>` sem refspec de destino so popula FETCH_HEAD —
+  // nao cria as refs 'dev'/'origin/dev' tentadas abaixo. FETCH_HEAD entra como
+  // ultimo fallback pra cobrir esse caso sem depender do fetch ter criado a ref.
+  const refs = baseBranch.includes('/')
+    ? [baseBranch, 'FETCH_HEAD']
+    : [baseBranch, `origin/${baseBranch}`, 'FETCH_HEAD'];
   for (const ref of refs) {
     try {
       return execFileSync('git', ['show', `${ref}:${repoRelative}`], {

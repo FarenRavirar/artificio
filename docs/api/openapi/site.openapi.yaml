@@ -153,6 +153,35 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/admin/v1/catalog/health:
+    get:
+      operationId: getapi_admin_v1_catalog_health
+      summary: "Consulta api admin v1 catalog health"
+      x-artificio-owner: site
+      x-artificio-scope: internal
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/admin/v1/catalog/nodes:
     post:
       operationId: postapi_admin_v1_catalog_nodes
@@ -1238,6 +1267,35 @@ paths:
             schema:
               type: object
               additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/catalog/v1/health:
+    get:
+      operationId: getapi_catalog_v1_health
+      summary: "Consulta api catalog v1 health"
+      x-artificio-owner: site
+      x-artificio-scope: internal
+      x-artificio-status: active
+      x-artificio-auth: none
       responses:
         "200":
           description: OK

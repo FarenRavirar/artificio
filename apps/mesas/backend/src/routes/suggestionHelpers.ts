@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { db } from '../db';
 import { logActivity } from '../services/activityLogger';
 import { resolveActorName } from '../services/actorNameResolver';
+import type { SuggestionStatus } from '../db/types';
 
 export interface RejectConfig {
   tableName: 'scenario_suggestions' | 'system_suggestions';
@@ -85,10 +86,12 @@ export async function rejectHandler(config: RejectConfig, req: Request, res: Res
     });
 
     res.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`[PATCH /admin/${config.logTag}/:id/reject]`, error);
 
-    if (error.message === 'NOT_FOUND_OR_REVIEWED') {
+    const message = error instanceof Error ? error.message : undefined;
+
+    if (message === 'NOT_FOUND_OR_REVIEWED') {
       res.status(404).json({ error: 'Sugestão não encontrada ou já foi revisada.' });
       return;
     }
@@ -109,12 +112,12 @@ export async function listAdminHandler(config: ListAdminConfig, req: Request, re
     let query = db.selectFrom(config.tableName).selectAll().orderBy('created_at', 'desc');
 
     if (status && typeof status === 'string') {
-      query = query.where('status', '=', status as any);
+      query = query.where('status', '=', status as SuggestionStatus);
     }
 
     const suggestions = await query.execute();
     res.json({ data: suggestions });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`[GET /admin/${config.logTag}]`, error);
     res.status(500).json({ error: 'Erro ao listar sugestões.' });
   }
@@ -141,7 +144,7 @@ export async function listMineHandler(config: ListMineConfig, req: Request, res:
       .execute();
 
     res.json({ data: suggestions });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`[GET /${config.logTag}/mine]`, error);
     res.status(500).json({ error: 'Erro ao listar sugestões.' });
   }

@@ -26,6 +26,10 @@ services:
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
+      # Catalogo canonico de sistemas (spec 062): token de servico-a-servico
+      # validando chamadas internas de mesas/glossario. Mesmo valor nos 3 .env prod.
+      # Achado Codex (PR #145): faltava esta wiring no compose PROD (so tinha em beta).
+      - CATALOG_INTERNAL_TOKEN=${CATALOG_INTERNAL_TOKEN:?CATALOG_INTERNAL_TOKEN is required}
       - PUBLIC_GA_ID=${PUBLIC_GA_ID:-}
       - PUBLIC_SITE_URL=https://artificiorpg.com
       - JWT_SECRET=${JWT_SECRET}

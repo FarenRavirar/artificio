@@ -1,6 +1,7 @@
 import type { Mock } from 'vitest';
 import request from 'supertest';
 import express from 'express';
+import type { UserRole } from '../db/types';
 
 vi.mock('../db', () => ({
   db: {
@@ -16,9 +17,9 @@ vi.mock('../repositories/tableRepository', () => ({
     findSchedulesByTableId: vi.fn(),
   },
 }));
-let mockRole = 'admin';
+let mockRole: UserRole = 'admin';
 vi.mock('../middleware/auth', () => ({
-  authMiddleware: (req: any, _res: any, next: any) => {
+  authMiddleware: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     req.user = { userId: 'admin', role: mockRole };
     next();
   },

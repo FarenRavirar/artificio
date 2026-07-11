@@ -1,5 +1,6 @@
 import { db } from '../db/index';
 import type { UserLinks } from '../db/types';
+import { processPendingLinks } from '../scripts/processLinkMetadataJobs';
 
 // Tipos de link suportados
 export type LinkType = 
@@ -15,12 +16,6 @@ export type LinkType =
   | 'podcast'
   | 'article' 
   | 'website';
-
-interface LinkMetadata {
-  title?: string;
-  description?: string;
-  thumbnail_url?: string;
-}
 
 interface CreateLinkInput {
   url: string;
@@ -155,29 +150,6 @@ export function generateEmbedUrl(url: string, type: LinkType): string | null {
 }
 
 /**
- * Extrai metadata básica de uma URL
- * Nota: Implementação simplificada. Para produção, usar biblioteca como metascraper
- */
-async function extractMetadata(url: string, type: LinkType): Promise<LinkMetadata> {
-  // Para YouTube, podemos extrair metadata da URL
-  if (type === 'youtube') {
-    const videoId = extractYouTubeId(url);
-    if (videoId) {
-      return {
-        title: 'Vídeo no YouTube',
-        thumbnail_url: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-      };
-    }
-  }
-  
-  // Para outros tipos, retornar metadata básica
-  // TODO: Implementar extração real via Open Graph quando necessário
-  return {
-    title: new URL(url).hostname,
-  };
-}
-
-/**
  * Lista todos os links de um usuário
  */
 import { sql } from 'kysely';
@@ -201,8 +173,7 @@ export async function getUserLinks(userId: string): Promise<UserLinkWithMetadata
       .catch(e => console.error('[getUserLinks] Falha ao atualizar acesso do link:', e));
 
     if (links.some(l => l.metadata_status === 'pending')) {
-      const { processPendingLinks } = require('../scripts/processLinkMetadataJobs');
-      processPendingLinks().catch((err: any) => console.error('Silent processPending error:', err));
+      processPendingLinks().catch((err: unknown) => console.error('Silent processPending error:', err));
     }
   }
 
@@ -259,8 +230,7 @@ export async function createUserLink(userId: string, input: CreateLinkInput): Pr
     .executeTakeFirstOrThrow();
   
   // Fire and forget o worker pro link novo
-  const { processPendingLinks } = require('../scripts/processLinkMetadataJobs');
-  processPendingLinks().catch((err: any) => console.error('Silent processPending error:', err));
+  processPendingLinks().catch((err: unknown) => console.error('Silent processPending error:', err));
 
   return {
     ...link,

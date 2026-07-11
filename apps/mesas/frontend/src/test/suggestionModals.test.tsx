@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { SystemSuggestionModal } from '../components/SystemSuggestionModal';
 
@@ -51,6 +51,8 @@ describe('SystemSuggestionModal', () => {
 
   afterEach(() => {
     authState.role = 'gm';
+    cleanup();
+    document.body.innerHTML = '';
     vi.restoreAllMocks();
   });
 
@@ -89,16 +91,39 @@ describe('SystemSuggestionModal', () => {
     fireEvent.change(screen.getByPlaceholderText(/vampire/i), {
       target: { value: 'Sistema Teste' },
     });
+    const aliasesInput = screen.getByLabelText('Aliases (um por linha)');
+    const logoInput = screen.getByLabelText('Logo (opcional)');
+    const websiteInput = screen.getByLabelText('Website Oficial (opcional)');
+
+    fireEvent.change(aliasesInput, {
+      target: { value: 'ST\nSistema T' },
+    });
+    fireEvent.change(logoInput, {
+      target: { value: 'sistema-teste.svg' },
+    });
+    fireEvent.change(websiteInput, {
+      target: { value: 'https://example.com/sistema' },
+    });
+
+    await waitFor(() => {
+      expect(aliasesInput).toHaveValue('ST\nSistema T');
+      expect(logoInput).toHaveValue('sistema-teste.svg');
+      expect(websiteInput).toHaveValue('https://example.com/sistema');
+    });
 
     fireEvent.click(screen.getByRole('button', { name: /enviar sugest/i }));
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalledWith({ id: 'system-1', name: 'Sistema Teste' }));
 
-    const postCall = vi.mocked(globalThis.fetch).mock.calls.find(([, init]) => init?.method === 'POST');
+    const postCalls = vi.mocked(globalThis.fetch).mock.calls.filter(([, init]) => init?.method === 'POST');
+    const postCall = postCalls.at(-1);
     expect(String(postCall?.[0])).toContain('/api/v1/systems/admin');
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
       name: 'Sistema Teste',
       node_type: 'system',
+      aliases: ['ST', 'Sistema T'],
+      logo_filename: 'sistema-teste.svg',
+      website_url: 'https://example.com/sistema',
     });
     expect(onOuterSubmit).not.toHaveBeenCalled();
   });

@@ -50,7 +50,7 @@ export const listAdminActivity = async (req: Request, res: Response) => {
 
   try {
     const filters: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (eventType && EVENT_TYPES.has(eventType)) {
       params.push(eventType);

@@ -1,5 +1,6 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { db } from '../config/database';
+import type { AuthedRequest } from '../types/express';
 
 const parseLimit = (value: unknown): number => {
   const n = Number(value);
@@ -35,9 +36,75 @@ const isMissingNotificationsTable = (err: unknown): boolean => {
     && pgErr.message.includes('user_notifications');
 };
 
-export const listNotifications = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.id;
-  const userRole = (req as any).user?.role;
+type ListNotificationsFilters = {
+  scopeAll: boolean;
+  userId: string;
+  targetUserId: string | null;
+  unreadOnly: boolean;
+  readOnly: boolean;
+  eventType: string | null;
+  actorId: string | null;
+  dateFrom: string | null;
+  dateTo: string | null;
+  search: string | null;
+};
+
+// Achado Sonar (PR #145): listNotifications tinha complexidade cognitiva 18
+// (montagem de filtros dinamicos com 8 condicionais, tudo no corpo do handler).
+// Extraido para reduzir aninhamento no handler.
+function buildListNotificationsFilters(opts: ListNotificationsFilters): { whereSql: string; params: unknown[] } {
+  const { scopeAll, userId, targetUserId, unreadOnly, readOnly, eventType, actorId, dateFrom, dateTo, search } = opts;
+  const filters: string[] = [];
+  const params: unknown[] = [];
+
+  if (scopeAll) {
+    if (targetUserId) {
+      params.push(targetUserId);
+      filters.push(`n.user_id = $${params.length}`);
+    }
+  } else {
+    params.push(userId);
+    filters.push(`n.user_id = $${params.length}`);
+  }
+
+  if (unreadOnly) filters.push('n.read_at IS NULL');
+  if (readOnly) filters.push('n.read_at IS NOT NULL');
+
+  if (eventType && EVENT_TYPES.has(eventType)) {
+    params.push(eventType);
+    filters.push(`n.event_type = $${params.length}`);
+  }
+  if (actorId) {
+    params.push(actorId);
+    filters.push(`n.actor_id = $${params.length}`);
+  }
+  if (dateFrom) {
+    params.push(dateFrom);
+    filters.push(`n.created_at >= $${params.length}::timestamptz`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    filters.push(`n.created_at <= $${params.length}::timestamptz`);
+  }
+  if (search) {
+    params.push(`%${search}%`);
+    filters.push(`(
+      COALESCE(actor.full_name, '') ILIKE $${params.length}
+      OR COALESCE(actor.username, '') ILIKE $${params.length}
+      OR COALESCE(target.full_name, '') ILIKE $${params.length}
+      OR COALESCE(target.username, '') ILIKE $${params.length}
+      OR COALESCE(n.payload->>'termName', '') ILIKE $${params.length}
+      OR COALESCE(n.payload->>'fullName', '') ILIKE $${params.length}
+      OR COALESCE(n.payload->>'username', '') ILIKE $${params.length}
+    )`);
+  }
+
+  return { whereSql: filters.length > 0 ? filters.join(' AND ') : '1=1', params };
+}
+
+export const listNotifications = async (req: AuthedRequest, res: Response) => {
+  const userId = req.user?.id;
+  const userRole = req.user?.role;
   if (!userId || typeof userId !== 'string') {
     return res.status(401).json({ message: 'Usuário não autenticado.' });
   }
@@ -57,55 +124,9 @@ export const listNotifications = async (req: Request, res: Response) => {
   const search = normalizeText(req.query.q);
 
   try {
-    const filters: string[] = [];
-    const params: any[] = [];
-
-    if (scopeAll) {
-      if (targetUserId) {
-        params.push(targetUserId);
-        filters.push(`n.user_id = $${params.length}`);
-      }
-    } else {
-      params.push(userId);
-      filters.push(`n.user_id = $${params.length}`);
-    }
-
-    if (unreadOnly) {
-      filters.push('n.read_at IS NULL');
-    }
-    if (readOnly) {
-      filters.push('n.read_at IS NOT NULL');
-    }
-    if (eventType && EVENT_TYPES.has(eventType)) {
-      params.push(eventType);
-      filters.push(`n.event_type = $${params.length}`);
-    }
-    if (actorId) {
-      params.push(actorId);
-      filters.push(`n.actor_id = $${params.length}`);
-    }
-    if (dateFrom) {
-      params.push(dateFrom);
-      filters.push(`n.created_at >= $${params.length}::timestamptz`);
-    }
-    if (dateTo) {
-      params.push(dateTo);
-      filters.push(`n.created_at <= $${params.length}::timestamptz`);
-    }
-    if (search) {
-      params.push(`%${search}%`);
-      filters.push(`(
-        COALESCE(actor.full_name, '') ILIKE $${params.length}
-        OR COALESCE(actor.username, '') ILIKE $${params.length}
-        OR COALESCE(target.full_name, '') ILIKE $${params.length}
-        OR COALESCE(target.username, '') ILIKE $${params.length}
-        OR COALESCE(n.payload->>'termName', '') ILIKE $${params.length}
-        OR COALESCE(n.payload->>'fullName', '') ILIKE $${params.length}
-        OR COALESCE(n.payload->>'username', '') ILIKE $${params.length}
-      )`);
-    }
-
-    const whereSql = filters.length > 0 ? filters.join(' AND ') : '1=1';
+    const { whereSql, params } = buildListNotificationsFilters({
+      scopeAll, userId, targetUserId, unreadOnly, readOnly, eventType, actorId, dateFrom, dateTo, search,
+    });
     const paramsWithPagination = [...params, limit, offset];
 
     const queryItems = `
@@ -172,8 +193,8 @@ export const listNotifications = async (req: Request, res: Response) => {
   }
 };
 
-export const markNotificationRead = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.id;
+export const markNotificationRead = async (req: AuthedRequest, res: Response) => {
+  const userId = req.user?.id;
   const notificationId = req.params.id;
 
   if (!userId || typeof userId !== 'string') {
@@ -210,8 +231,8 @@ export const markNotificationRead = async (req: Request, res: Response) => {
   }
 };
 
-export const markAllNotificationsRead = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.id;
+export const markAllNotificationsRead = async (req: AuthedRequest, res: Response) => {
+  const userId = req.user?.id;
   if (!userId || typeof userId !== 'string') {
     return res.status(401).json({ message: 'Usuário não autenticado.' });
   }

@@ -99,11 +99,12 @@ app.get('/api/v1/health', async (req, res) => {
       db: 'connected',
       usersSampled: result.length > 0,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     res.status(500).json({
       status: 'error',
       message: 'Database connection failed',
-      details: error.message,
+      details: message,
     });
   }
 });
@@ -140,7 +141,14 @@ app.use('/api/v1/changelog', changelogRoutes);
 app.use('/api/v1', uploadRoutes);
 app.use('/og', ogRoutes);
 
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+interface HttpError {
+  type?: string;
+  status?: number;
+  statusCode?: number;
+  message?: string;
+}
+
+app.use((err: HttpError, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('[Global Error]', err);
 
   if (res.headersSent) {

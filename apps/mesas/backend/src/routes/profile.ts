@@ -24,7 +24,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
   try {
     const profile = await profileService.getFullProfile(userId);
     return res.json({ data: profile });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /profile/me]', error);
     return res.status(500).json({ error: 'Erro ao buscar perfil' });
   }
@@ -66,7 +66,7 @@ router.patch('/me', authMiddleware, async (req: Request, res: Response) => {
 
     const user = await profileService.updateUser(userId, { username, location });
     return res.json({ data: user });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /profile/me]', error);
     return res.status(500).json({ error: 'Erro ao atualizar dados' });
   }
@@ -93,7 +93,7 @@ router.patch('/me/profile', authMiddleware, async (req: Request, res: Response) 
       languages,
     });
     return res.json({ data: profile });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /profile/me/profile]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil' });
   }
@@ -103,7 +103,10 @@ router.patch('/me/profile', authMiddleware, async (req: Request, res: Response) 
 // PATCH /api/v1/profile/me/player — Atualizar perfil de jogador
 // =============================================================================
 
-router.patch('/me/player', authMiddleware, async (req: Request, res: Response) => {
+// Achado Sonar (PR #145): '/me/player' e '/player' (alias de compatibilidade
+// com frontend) tinham handler identico duplicado. Extraido handler
+// compartilhado, registrado nas duas rotas.
+async function updatePlayerProfileHandler(req: Request, res: Response) {
   const userId = req.user?.userId;
 
   if (!userId) {
@@ -122,43 +125,24 @@ router.patch('/me/player', authMiddleware, async (req: Request, res: Response) =
       pricing_preference,
     });
     return res.json({ data: player });
-  } catch (error: any) {
-    console.error('[PATCH /profile/me/player]', error);
-    return res.status(500).json({ error: 'Erro ao atualizar perfil de jogador' });
-  }
-});
-
-// Alias para compatibilidade com frontend
-router.patch('/player', authMiddleware, async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-
-  if (!userId) {
-    return res.status(401).json({ error: 'Não autenticado' });
-  }
-
-  const { experience_level, playstyle, preferred_days, preferred_time, pricing_preference } =
-    req.body;
-
-  try {
-    const player = await profileService.updatePlayerProfile(userId, {
-      experience_level,
-      playstyle,
-      preferred_days,
-      preferred_time,
-      pricing_preference,
-    });
-    return res.json({ data: player });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /profile/player]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil de jogador' });
   }
-});
+}
+
+router.patch('/me/player', authMiddleware, updatePlayerProfileHandler);
+// Alias para compatibilidade com frontend
+router.patch('/player', authMiddleware, updatePlayerProfileHandler);
 
 // =============================================================================
 // PATCH /api/v1/profile/me/gm — Atualizar perfil de mestre
 // =============================================================================
 
-router.patch('/me/gm', authMiddleware, async (req: Request, res: Response) => {
+// Achado Sonar (PR #145): '/me/gm' e '/gm' (alias de compatibilidade com
+// frontend) tinham handler identico duplicado. Extraido handler
+// compartilhado, registrado nas duas rotas.
+async function updateGmProfileHandler(req: Request, res: Response) {
   const userId = req.user?.userId;
 
   if (!userId) {
@@ -194,54 +178,15 @@ router.patch('/me/gm', authMiddleware, async (req: Request, res: Response) => {
       game_format,
     });
     return res.json({ data: gm });
-  } catch (error: any) {
-    console.error('[PATCH /profile/me/gm]', error);
-    return res.status(500).json({ error: 'Erro ao atualizar perfil de mestre' });
-  }
-});
-
-// Alias para compatibilidade com frontend
-router.patch('/gm', authMiddleware, async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-
-  if (!userId) {
-    return res.status(401).json({ error: 'Não autenticado' });
-  }
-
-  const {
-    nickname,
-    bio_long,
-    avatar_url,
-    banner_url,
-    languages,
-    specialties,
-    experience_years,
-    average_price,
-    gm_style,
-    tools,
-    game_format,
-  } = req.body;
-
-  try {
-    const gm = await profileService.updateGmProfile(userId, {
-      nickname,
-      bio_long,
-      avatar_url,
-      banner_url,
-      languages,
-      specialties,
-      experience_years,
-      average_price,
-      gm_style,
-      tools,
-      game_format,
-    });
-    return res.json({ data: gm });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /profile/gm]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil de mestre' });
   }
-});
+}
+
+router.patch('/me/gm', authMiddleware, updateGmProfileHandler);
+// Alias para compatibilidade com frontend
+router.patch('/gm', authMiddleware, updateGmProfileHandler);
 
 // Alias para compatibilidade com frontend
 router.post('/systems', authMiddleware, async (req: Request, res: Response) => {
@@ -264,9 +209,9 @@ router.post('/systems', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userSystem = await profileService.addUserSystem(userId, system_id, type);
     return res.json({ data: userSystem });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[POST /profile/systems]', error);
-    return res.status(500).json({ error: error.message || 'Erro ao adicionar sistema' });
+    return res.status(500).json({ error: 'Erro ao adicionar sistema' });
   }
 });
 
@@ -283,7 +228,7 @@ router.delete('/systems/:id', authMiddleware, async (req: Request, res: Response
   try {
     await profileService.removeUserSystem(id, userId);
     return res.status(204).send();
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[DELETE /profile/systems/:id]', error);
     return res.status(500).json({ error: 'Erro ao remover sistema' });
   }
@@ -303,7 +248,7 @@ router.get('/me/discord', authMiddleware, async (req: Request, res: Response) =>
   try {
     const status = await profileService.getDiscordStatus(userId);
     return res.json({ data: status });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /profile/me/discord]', error);
     return res.status(500).json({ error: 'Erro ao buscar status Discord' });
   }
@@ -329,7 +274,7 @@ router.post('/me/connect/discord', authMiddleware, async (req: Request, res: Res
   try {
     const status = await profileService.connectDiscord(userId, { username, id });
     return res.json({ data: status });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[POST /profile/me/connect/discord]', error);
     return res.status(500).json({ error: 'Erro ao conectar Discord' });
   }
@@ -349,7 +294,7 @@ router.delete('/me/connect/discord', authMiddleware, async (req: Request, res: R
   try {
     await profileService.disconnectDiscord(userId);
     return res.status(204).send();
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[DELETE /profile/me/connect/discord]', error);
     return res.status(500).json({ error: 'Erro ao desconectar Discord' });
   }
@@ -433,7 +378,7 @@ router.post('/me/google-picture', strictRateLimiter, authMiddleware, async (req:
         profile 
       } 
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[POST /profile/me/google-picture]', error);
     return res.status(500).json({ 
       error: 'Erro ao buscar foto do Google. Tente fazer login novamente.' 

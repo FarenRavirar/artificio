@@ -7,6 +7,7 @@ import { TableRepository } from '../../repositories/tableRepository';
 import { segmentAnnouncements } from '../../inbox/segmentation';
 import { textToRawMessage } from '../../inbox/adapters/textToRawMessage';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord';
+import type { ImportTableDraft } from '../../discord';
 
 vi.mock('../../db', () => ({
   db: {
@@ -250,7 +251,7 @@ function mockImportMsg() {
   return { raw_text: 'Título: Original', content_raw: 'Título: Original\nSistema: D&D' };
 }
 
-function setupCorrectionMocks(draft: Record<string, unknown>, importMsg: Record<string, unknown> | null = null) {
+function setupCorrectionMocks(draft: Record<string, unknown> | null, importMsg: Record<string, unknown> | null = null) {
   // call 0: draft select, call 1: import_messages select
   let callIdx = 0;
   const execFn = vi.fn().mockImplementation(() => {
@@ -301,7 +302,7 @@ describe('POST /admin/import/drafts/:id/correction', () => {
   });
 
   it('returns 404 for nonexistent draft', async () => {
-    setupCorrectionMocks(null as any);
+    setupCorrectionMocks(null);
     const response = await request(makeApp())
       .post('/admin/import/drafts/nonexistent/correction')
       .send({ corrections: { title: 'Novo Título' } });
@@ -359,11 +360,11 @@ describe('POST /admin/import/drafts/:id/correction', () => {
     expect(mockDb.transaction).toHaveBeenCalled();
 
     // Verificou que raw_text veio do import_messages
-    const insertCall = trx.insertInto.mock.calls.find((c: any) => c[0] === 'import_corrections');
+    const insertCall = trx.insertInto.mock.calls.find((c: unknown[]) => c[0] === 'import_corrections');
     expect(insertCall).toBeDefined();
 
     // Verificou que normalized_payload foi atualizado no draft
-    const updateCall = trx.updateTable.mock.calls.find((c: any) => c[0] === 'discord_import_table_drafts');
+    const updateCall = trx.updateTable.mock.calls.find((c: unknown[]) => c[0] === 'discord_import_table_drafts');
     expect(updateCall).toBeDefined();
   });
 
@@ -420,7 +421,7 @@ describe('syncImportDraftToTable table creation', () => {
     });
 
     vi.mocked(TableRepository.createTableWithRelations)
-      .mockResolvedValue({ id: 'table-new' } as any);
+      .mockResolvedValue({ id: 'table-new' } as Awaited<ReturnType<typeof TableRepository.createTableWithRelations>>);
 
     const payload = {
       table: {
@@ -440,7 +441,6 @@ describe('syncImportDraftToTable table creation', () => {
       source: { author_name: null },
     };
 
-    let callCount = 0;
     const executeTakeFirst = vi.fn()
       .mockResolvedValueOnce({
         id: 'draft-1',
@@ -527,29 +527,16 @@ describe('POST /admin/import/import-text', () => {
       message_edited_at: null,
       discord_thread_name: '',
     });
-    vi.mocked(parseDiscordAnnouncement).mockReturnValue(mockDraft as any);
-    vi.mocked(normalizeDiscordTableDraft).mockReturnValue(mockNormalized as any);
+    vi.mocked(parseDiscordAnnouncement).mockReturnValue(mockDraft as unknown as ImportTableDraft);
+    vi.mocked(normalizeDiscordTableDraft).mockReturnValue(mockNormalized as unknown as ReturnType<typeof normalizeDiscordTableDraft>);
 
     // DB: loadSystemsForParser (2 calls) + dedup check (2 calls) + insert import_messages + insert draft + update import_messages
     let selectCall = 0;
-    const emptyAliasChain = mockChain({
-      execute: vi.fn().mockResolvedValue([]),
-    });
     const systemsChain = mockChain({
       execute: vi.fn().mockResolvedValue([]),
     });
     const dedupNotFoundChain = mockChain({
       executeTakeFirst: vi.fn().mockResolvedValue(null),
-    });
-
-    const insertMsgChain = mockChain({
-      execute: vi.fn().mockResolvedValue([{ id: 'import-1' }]),
-    });
-    const insertDraftChain = mockChain({
-      execute: vi.fn().mockResolvedValue([{ id: 'draft-1', status: 'ready', confidence: 1 }]),
-    });
-    const updateChain = mockChain({
-      execute: vi.fn().mockResolvedValue([]),
     });
 
     // returnUpdateChain needs returningAll
@@ -1113,7 +1100,7 @@ describe('POST /admin/import/drafts/:id/reparse', () => {
       source: {},
       confidence: 1,
       missing_fields: [],
-    } as any);
+    } as unknown as ImportTableDraft);
 
     vi.mocked(normalizeDiscordTableDraft).mockReturnValue({
       draft: {
@@ -1121,7 +1108,7 @@ describe('POST /admin/import/drafts/:id/reparse', () => {
         source: {},
         confidence: 1,
         missing_fields: [],
-      } as any,
+      } as unknown as ImportTableDraft,
       status: 'ready',
     });
 

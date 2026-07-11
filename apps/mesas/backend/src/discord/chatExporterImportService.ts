@@ -113,7 +113,7 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
     sourceId = await ensureDiscordImportSource(channelId, guildId, channelName, channelType);
   } catch (err) {
     console.error('[importDiscordChatExporterJson] Falha ao criar fonte de importação:', err instanceof Error ? err.message : 'unknown error');
-    throw new Error('Erro interno ao criar fonte de importação.');
+    throw new Error('Erro interno ao criar fonte de importação.', { cause: err });
   }
 
   let inserted = 0;
@@ -167,7 +167,7 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
       if (action === 'inserted' || action === 'updated') {
         importedMessages.push({ channelId, messageId: msg.id });
       }
-    } catch (err) {
+    } catch {
       failed++;
     }
   }

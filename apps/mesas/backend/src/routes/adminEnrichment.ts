@@ -2,14 +2,23 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { prodDb } from '../db/prod';
 import { authMiddleware } from '../middleware/auth';
-import { sql } from 'kysely';
+import { sql, type Insertable, type Updateable } from 'kysely';
 import { SYNC_FIELDS } from '../hydration/config';
+import type { Database } from '../db/types';
 
 const router = Router();
 
+interface EnrichmentLogEntry {
+  table: string;
+  candidates: number;
+  inserted: number;
+  updated: number;
+  ignored: number;
+}
+
 router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) => {
-  const userRole = (req as any).user?.role;
-  const userId = (req as any).user?.userId;
+  const userRole = req.user?.role;
+  const userId = req.user?.userId;
 
   if (!userId || userRole !== 'admin') {
     return res.status(403).json({ error: 'Acesso restrito a administradores.' });
@@ -21,7 +30,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
   }
 
   const dryRun = req.query.dry_run === 'true';
-  const logs: any[] = [];
+  const logs: EnrichmentLogEntry[] = [];
 
   try {
     await prodDb.selectFrom('users').select('id').limit(1).execute();
@@ -50,7 +59,9 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
 
       for (const tableName of tablesToSync) {
         // Obter registros de Prod com identificadores semânticos para FKs
-        let prodRecords: any[];
+        // Registros são heterogêneos entre tabelas (colunas variam por tableName);
+        // Record<string, unknown> reflete o shape real dinâmico vindo do prodDb.
+        let prodRecords: Record<string, unknown>[];
 
         if (tableName === 'tables') {
           // T003-T006: Export com LEFT JOINs para capturar slugs das FKs
@@ -69,11 +80,11 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
             ])
             .execute();
         } else {
-          prodRecords = await prodDb.selectFrom(tableName as any).selectAll().execute();
+          prodRecords = await prodDb.selectFrom(tableName as keyof Database).selectAll().execute();
         }
 
         // T010: Contadores
-        let candidates = prodRecords.length;
+        const candidates = prodRecords.length;
         let inserted = 0;
         let updated = 0;
         let ignored = 0;
@@ -127,7 +138,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
             delete updateObj.id;
             delete updateObj.created_at;
 
-            let result: any;
+            let result: { xmax: string } | undefined;
 
             switch (tableName) {
               // 1) CATÁLOGO (ON CONFLICT slug/url/composite DO UPDATE)
@@ -138,7 +149,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
               case 'vtt_platforms':
               case 'communication_platforms':
                 delete updateObj.slug;
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('slug').doUpdateSet(updateObj))
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -147,7 +158,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
 
               case 'sources':
                 delete updateObj.url;
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('url').doUpdateSet(updateObj))
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -157,7 +168,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
               case 'scenario_aliases':
                 delete updateObj.alias_slug;
                 delete updateObj.scenario_id;
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.columns(['scenario_id', 'alias_slug']).doUpdateSet(updateObj))
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -167,7 +178,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
               case 'system_aliases':
                 delete updateObj.alias_slug;
                 delete updateObj.system_id;
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.columns(['system_id', 'alias_slug']).doUpdateSet(updateObj))
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -176,7 +187,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
 
               case 'setting_style_suggestions':
                 delete updateObj.setting_name;
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('setting_name').doUpdateSet(updateObj))
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -187,7 +198,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
               case 'vtt_platform_suggestions':
               case 'scenario_suggestions':
               case 'system_suggestions':
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('id').doNothing())
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -195,21 +206,25 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 break;
 
               // 3) MESAS (ON CONFLICT id DO UPDATE) - COM RESOLUÇÃO SEMÂNTICA DE FKs
-              case 'tables':
+              case 'tables': {
                 // T007-T010: Resolver FKs via subqueries por slug
-                const resolvedRecord: any = { ...safeRecord };
+                const resolvedRecord: Record<string, unknown> = { ...safeRecord };
+                const communicationPlatformSlug = record.communication_platform_slug;
+                const vttPlatformSlug = record.vtt_platform_slug;
+                const systemSlug = record.system_slug;
+                const scenarioSlug = record.scenario_slug;
 
                 // T007: Resolver communication_platform_id por slug
-                if (record.communication_platform_slug) {
+                if (typeof communicationPlatformSlug === 'string' && communicationPlatformSlug) {
                   const cpResult = await trx
                     .selectFrom('communication_platforms')
                     .select('id')
-                    .where('slug', '=', record.communication_platform_slug)
+                    .where('slug', '=', communicationPlatformSlug)
                     .executeTakeFirst();
 
                   if (!cpResult) {
                     // T011: FK órfã - skip com warning
-                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} communication_platform_slug=${record.communication_platform_slug}`);
+                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} communication_platform_slug=${communicationPlatformSlug}`);
                     ignored++;
                     continue;
                   }
@@ -217,16 +232,16 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 }
 
                 // T008: Resolver vtt_platform_id por slug
-                if (record.vtt_platform_slug) {
+                if (typeof vttPlatformSlug === 'string' && vttPlatformSlug) {
                   const vttResult = await trx
                     .selectFrom('vtt_platforms')
                     .select('id')
-                    .where('slug', '=', record.vtt_platform_slug)
+                    .where('slug', '=', vttPlatformSlug)
                     .executeTakeFirst();
 
                   if (!vttResult) {
                     // T011: FK órfã - skip com warning
-                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} vtt_platform_slug=${record.vtt_platform_slug}`);
+                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} vtt_platform_slug=${vttPlatformSlug}`);
                     ignored++;
                     continue;
                   }
@@ -234,16 +249,16 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 }
 
                 // T009: Resolver system_id por slug
-                if (record.system_slug) {
+                if (typeof systemSlug === 'string' && systemSlug) {
                   const sysResult = await trx
                     .selectFrom('systems')
                     .select('id')
-                    .where('slug', '=', record.system_slug)
+                    .where('slug', '=', systemSlug)
                     .executeTakeFirst();
 
                   if (!sysResult) {
                     // T011: FK órfã - skip com warning
-                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} system_slug=${record.system_slug}`);
+                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} system_slug=${systemSlug}`);
                     ignored++;
                     continue;
                   }
@@ -251,16 +266,16 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 }
 
                 // T010: Resolver scenario_id por slug
-                if (record.scenario_slug) {
+                if (typeof scenarioSlug === 'string' && scenarioSlug) {
                   const scResult = await trx
                     .selectFrom('scenarios')
                     .select('id')
-                    .where('slug', '=', record.scenario_slug)
+                    .where('slug', '=', scenarioSlug)
                     .executeTakeFirst();
 
                   if (!scResult) {
                     // T011: FK órfã - skip com warning
-                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} scenario_slug=${record.scenario_slug}`);
+                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} scenario_slug=${scenarioSlug}`);
                     ignored++;
                     continue;
                   }
@@ -273,23 +288,24 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 delete resolvedRecord.system_slug;
                 delete resolvedRecord.scenario_slug;
 
-                const updateObjTables: any = { ...resolvedRecord };
+                const updateObjTables: Record<string, unknown> = { ...resolvedRecord };
                 delete updateObjTables.id;
                 delete updateObjTables.created_at;
 
                 result = await trx.insertInto('tables')
-                  .values(resolvedRecord as any)
-                  .onConflict((oc) => oc.column('id').doUpdateSet(updateObjTables as any))
+                  .values(resolvedRecord as unknown as Insertable<Database['tables']>)
+                  .onConflict((oc) => oc.column('id').doUpdateSet(updateObjTables as Updateable<Database['tables']>))
                   .returning(['id', sql<string>`xmax`.as('xmax')])
                   .executeTakeFirst();
                 break;
+              }
 
               case 'table_contacts':
               case 'table_schedules':
               case 'table_history':
               case 'imported_tables':
               case 'table_interests':
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('id').doUpdateSet(updateObj))
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -298,7 +314,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
 
               case 'table_metrics':
                 delete updateObj.table_id;
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('table_id').doUpdateSet(updateObj))
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -306,41 +322,52 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 break;
 
               // MESAS - COMPOSTAS (ON CONFLICT PK DO UPDATE/NOTHING)
-              case 'table_platforms':
+              // table_platforms/table_tags não existem em `Database` (tabelas legadas sem
+              // definição de schema tipado) — withTables() declara o shape mínimo localmente
+              // para manter segurança de tipos sem introduzir `any`.
+              case 'table_platforms': {
                 delete updateObj.table_id;
                 delete updateObj.platform_id;
+                const legacyTrx = trx.withTables<{
+                  table_platforms: { table_id: string; platform_id: string; [key: string]: unknown };
+                }>();
                 if (Object.keys(updateObj).length > 0) {
-                  result = await trx.insertInto(tableName as any)
-                    .values(safeRecord)
+                  result = await legacyTrx.insertInto('table_platforms')
+                    .values(safeRecord as Insertable<{ table_id: string; platform_id: string; [key: string]: unknown }>)
                     .onConflict((oc) => oc.columns(['table_id', 'platform_id']).doUpdateSet(updateObj))
                     .returning(['table_id', sql<string>`xmax`.as('xmax')])
                     .executeTakeFirst();
                 } else {
-                  result = await trx.insertInto(tableName as any)
-                    .values(safeRecord)
+                  result = await legacyTrx.insertInto('table_platforms')
+                    .values(safeRecord as Insertable<{ table_id: string; platform_id: string; [key: string]: unknown }>)
                     .onConflict((oc) => oc.columns(['table_id', 'platform_id']).doNothing())
                     .returning(['table_id', sql<string>`xmax`.as('xmax')])
                     .executeTakeFirst();
                 }
                 break;
+              }
 
-              case 'table_tags':
+              case 'table_tags': {
                 delete updateObj.table_id;
                 delete updateObj.tag_id;
+                const legacyTrx = trx.withTables<{
+                  table_tags: { table_id: string; tag_id: string; [key: string]: unknown };
+                }>();
                 if (Object.keys(updateObj).length > 0) {
-                  result = await trx.insertInto(tableName as any)
-                    .values(safeRecord)
+                  result = await legacyTrx.insertInto('table_tags')
+                    .values(safeRecord as Insertable<{ table_id: string; tag_id: string; [key: string]: unknown }>)
                     .onConflict((oc) => oc.columns(['table_id', 'tag_id']).doUpdateSet(updateObj))
                     .returning(['table_id', sql<string>`xmax`.as('xmax')])
                     .executeTakeFirst();
                 } else {
-                  result = await trx.insertInto(tableName as any)
-                    .values(safeRecord)
+                  result = await legacyTrx.insertInto('table_tags')
+                    .values(safeRecord as Insertable<{ table_id: string; tag_id: string; [key: string]: unknown }>)
                     .onConflict((oc) => oc.columns(['table_id', 'tag_id']).doNothing())
                     .returning(['table_id', sql<string>`xmax`.as('xmax')])
                     .executeTakeFirst();
                 }
                 break;
+              }
 
               // 4 e 5) IDENTIDADE e INTERAÇÕES (ON CONFLICT id/PK DO NOTHING)
               case 'users':
@@ -350,7 +377,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
               case 'user_links':
               case 'questions':
               case 'answers':
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('id').doNothing())
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -359,7 +386,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
 
               case 'gm_profile_metrics':
                 delete updateObj.gm_profile_id;
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('gm_profile_id').doUpdateSet(updateObj))
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -367,7 +394,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 break;
 
               case 'player_profiles':
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('user_id').doNothing())
                   .returning(['user_id', sql<string>`xmax`.as('xmax')])
@@ -375,7 +402,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 break;
 
               case 'auth_providers':
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('id').doNothing())
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -383,7 +410,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 break;
 
               case 'user_systems':
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('id').doNothing())
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -391,7 +418,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 break;
 
               case 'bookmarks':
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.columns(['user_id', 'table_id']).doNothing())
                   .returning(['user_id', sql<string>`xmax`.as('xmax')])
@@ -399,7 +426,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 break;
 
               case 'reviews':
-                result = await trx.insertInto(tableName as any)
+                result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.columns(['table_id', 'user_id']).doNothing())
                   .returning(['id', sql<string>`xmax`.as('xmax')])
@@ -417,13 +444,14 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
             } else {
               updated++;
             }
-          } catch (e: any) {
+          } catch (e) {
             // T009/spec: Se der erro de FK por estar órfão, apenas ignora
-            if (e.code === '23503') { // foreign_key_violation
+            const pgError = e && typeof e === 'object' ? (e as Record<string, unknown>) : undefined;
+            if (pgError?.code === '23503') { // foreign_key_violation
               console.warn(`[Enrichment] FK violation: tabela=${tableName} id=${record.id}`, {
-                error: e.message,
-                detail: e.detail,
-                constraint: e.constraint
+                error: pgError.message,
+                detail: pgError.detail,
+                constraint: pgError.constraint
               });
               ignored++;
             } else {
@@ -450,8 +478,8 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
     // T011: Retornar payload
     return res.json({ success: true, dry_run: dryRun, data: { tables: logs } });
 
-  } catch (error: any) {
-    if (error.message === 'DRY_RUN_ROLLBACK') {
+  } catch (error) {
+    if (error instanceof Error && error.message === 'DRY_RUN_ROLLBACK') {
       return res.json({ success: true, dry_run: true, data: { tables: logs } });
     }
     console.error('[Enrichment]', error);

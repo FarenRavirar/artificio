@@ -4,6 +4,7 @@ import { db } from '../config/database';
 import { SSO_NO_PASSWORD } from '../auth/resolveLocalUser';
 import { issueMigrationToken, verifyMigrationToken } from '../auth/migrationToken';
 import { mergeUsers, TxClient } from '../auth/mergeUsers';
+import type { AuthedRequest } from '../types/express';
 
 // Hash BCrypt válido só para igualar o tempo de resposta quando o email não
 // existe (anti-enumeração por timing). Nunca casa com senha real.
@@ -16,7 +17,9 @@ const LEGACY_BCRYPT_COST =
     : 10;
 const DUMMY_HASH = bcrypt.hashSync('artificio-dummy-password', LEGACY_BCRYPT_COST);
 
-type Executor = { query: (text: string, params?: any[]) => Promise<{ rows: any[] }> };
+type Executor = {
+  query: (text: string, params?: unknown[]) => Promise<{ rows: Array<Record<string, unknown>> }>;
+};
 
 export interface VerifyDeps {
   exec?: Executor;
@@ -34,15 +37,16 @@ export interface VerifyResult {
  * Em sucesso emite migration_token curto. Resposta uniforme em qualquer falha.
  */
 export async function runVerify(
-  body: any,
+  body: unknown,
   deps: VerifyDeps = {}
 ): Promise<VerifyResult> {
   const exec = deps.exec ?? db;
   const compare = deps.compare ?? bcrypt.compare;
   const issue = deps.issue ?? issueMigrationToken;
 
-  const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
-  const password = typeof body?.password === 'string' ? body.password : '';
+  const bodyObj = (body && typeof body === 'object') ? body as Record<string, unknown> : {};
+  const email = typeof bodyObj.email === 'string' ? bodyObj.email.trim().toLowerCase() : '';
+  const password = typeof bodyObj.password === 'string' ? bodyObj.password : '';
   if (!email || !password) {
     // ainda roda um compare dummy para não vazar timing
     await compare('x', DUMMY_HASH);
@@ -56,7 +60,7 @@ export async function runVerify(
     [email]
   );
   const row = r.rows[0];
-  const hash: string | undefined = row?.password_hash;
+  const hash: string | undefined = typeof row?.password_hash === 'string' ? row.password_hash : undefined;
   const usableHash =
     typeof hash === 'string' && hash && hash !== SSO_NO_PASSWORD ? hash : DUMMY_HASH;
 
@@ -103,7 +107,7 @@ export async function runClaim(
   deps: ClaimDeps = {}
 ): Promise<ClaimOutcome> {
   const verify = deps.verifyToken ?? verifyMigrationToken;
-  const getClient = deps.getClient ?? (() => db.pool.connect() as any);
+  const getClient = deps.getClient ?? (() => db.pool.connect());
 
   const legacyId = verify(input.migrationToken);
   if (!legacyId) {
@@ -123,13 +127,14 @@ export async function runClaim(
       await client.query('ROLLBACK');
       return { status: 404, body: { message: 'Conta legada não encontrada.' } };
     }
+    const legacySsoUserId = typeof legacy.sso_user_id === 'string' ? legacy.sso_user_id : null;
 
-    if (legacy.sso_user_id && legacy.sso_user_id !== input.sub) {
+    if (legacySsoUserId && legacySsoUserId !== input.sub) {
       await client.query('ROLLBACK');
       return { status: 409, body: { message: 'Conta legada já vinculada a outra conta Google.' } };
     }
 
-    if (legacy.sso_user_id === input.sub) {
+    if (legacySsoUserId === input.sub) {
       await client.query('COMMIT');
       return { status: 200, body: { ok: true, already_linked: true } };
     }
@@ -143,7 +148,8 @@ export async function runClaim(
     );
     const auto = autoRes.rows[0];
     if (auto) {
-      if (auto.password_hash !== SSO_NO_PASSWORD) {
+      const autoPasswordHash = typeof auto.password_hash === 'string' ? auto.password_hash : null;
+      if (autoPasswordHash !== SSO_NO_PASSWORD) {
         await client.query('ROLLBACK');
         return {
           status: 409,
@@ -172,14 +178,14 @@ export async function runClaim(
   }
 }
 
-export const claimMigrationHandler = async (req: any, res: Response) => {
+export const claimMigrationHandler = async (req: AuthedRequest, res: Response) => {
   const sub = req.user?.sub;
   const googleEmail = req.user?.sso_email;
   if (typeof sub !== 'string' || !sub || typeof googleEmail !== 'string' || !googleEmail) {
     return res.status(401).json({ message: 'Sessão Google necessária para concluir a migração.' });
   }
-  const migrationToken =
-    typeof req.body?.migration_token === 'string' ? req.body.migration_token : '';
+  const body = (req.body && typeof req.body === 'object') ? req.body as Record<string, unknown> : {};
+  const migrationToken = typeof body.migration_token === 'string' ? body.migration_token : '';
 
   try {
     const out = await runClaim({ sub, googleEmail, migrationToken });

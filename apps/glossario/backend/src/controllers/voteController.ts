@@ -1,11 +1,12 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { db } from '../config/database';
 import { notifyTermOwnerOnVote } from '../services/notificationService';
+import type { AuthedRequest } from '../types/express';
 
-export const upsertVote = async (req: Request, res: Response) => {
+export const upsertVote = async (req: AuthedRequest, res: Response) => {
   const { id: termId } = req.params;
   const { direction } = req.body;
-  const userId = (req as any).user?.id;
+  const userId = req.user?.id;
 
   if (!userId) {
     return res.status(401).json({ error: 'Usuário não autenticado' });

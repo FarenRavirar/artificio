@@ -1,9 +1,22 @@
 import { Router, Request, Response } from 'express';
 import { sql } from 'kysely';
+import type { ExpressionBuilder, SelectQueryBuilder } from 'kysely';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { db } from '../db';
 import * as profileService from '../services/profileService';
-import type { UserRole } from '../db/types';
+import type { UserRole, Database } from '../db/types';
+
+// Achado lint (PR #145): withFilters precisa tipar o SelectQueryBuilder pelo
+// DB efetivo pós-join (Database + aliases curtos u/p/gm, p e gm nullable por
+// causa do leftJoin) — usar o Database bruto ou os nomes de tabela originais
+// como TableExpression não bate com o que baseFrom() realmente devolve.
+type Nullable<T> = { [K in keyof T]: T[K] | null };
+type UsersJoinDb = Database & {
+  u: Database['users'];
+  p: Nullable<Database['profiles']>;
+  gm: Nullable<Database['gm_profiles']>;
+};
+type UsersJoinAlias = 'u' | 'p' | 'gm';
 
 const router = Router();
 
@@ -43,7 +56,7 @@ router.patch(
           verified_at: verified ? new Date() : null,
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[PATCH /admin/users/:id/covil]', error);
       return res.status(500).json({ error: 'Erro ao atualizar selo Covil' });
     }
@@ -67,8 +80,15 @@ router.get('/users', authMiddleware, requireRole('admin'), async (req: Request, 
   const offset = (page - 1) * perPage;
 
   try {
+    const baseFrom = () => db
+      .selectFrom('users as u')
+      .leftJoin('profiles as p', 'p.user_id', 'u.id')
+      .leftJoin('gm_profiles as gm', 'gm.user_id', 'u.id');
+
     // Filtros idênticos aplicados à query de dados e à de contagem (paginação real).
-    const withFilters = <Q extends { where: (...args: any[]) => Q }>(query: Q): Q => {
+    const withFilters = <O>(
+      query: SelectQueryBuilder<UsersJoinDb, UsersJoinAlias, O>,
+    ): SelectQueryBuilder<UsersJoinDb, UsersJoinAlias, O> => {
       let q = query;
       if (typeof role === 'string' && ['visitor', 'player', 'gm', 'admin'].includes(role)) {
         q = q.where('u.role', '=', role as UserRole);
@@ -76,14 +96,14 @@ router.get('/users', authMiddleware, requireRole('admin'), async (req: Request, 
       if (covil_verified === 'true') {
         q = q.where('gm.covil_verified', '=', true);
       } else if (covil_verified === 'false') {
-        q = q.where((eb: any) => eb.or([
+        q = q.where((eb: ExpressionBuilder<UsersJoinDb, UsersJoinAlias>) => eb.or([
           eb('gm.covil_verified', '=', false),
           eb('gm.covil_verified', 'is', null),
         ]));
       }
       if (typeof search === 'string' && search.trim()) {
         const s = `%${search.trim()}%`;
-        q = q.where((eb: any) => eb.or([
+        q = q.where((eb: ExpressionBuilder<UsersJoinDb, UsersJoinAlias>) => eb.or([
           eb('u.email', 'ilike', s),
           eb('u.username', 'ilike', s),
           eb('p.display_name', 'ilike', s),
@@ -92,11 +112,6 @@ router.get('/users', authMiddleware, requireRole('admin'), async (req: Request, 
       }
       return q;
     };
-
-    const baseFrom = () => db
-      .selectFrom('users as u')
-      .leftJoin('profiles as p', 'p.user_id', 'u.id')
-      .leftJoin('gm_profiles as gm', 'gm.user_id', 'u.id');
 
     const users = await withFilters(
       baseFrom()
@@ -114,7 +129,7 @@ router.get('/users', authMiddleware, requireRole('admin'), async (req: Request, 
           'gm.nickname as gm_nickname',
           sql<boolean>`COALESCE(gm.covil_verified, false)`.as('covil_verified'),
           'gm.covil_verified_at',
-        ]) as any,
+        ]),
     )
       .orderBy('u.created_at', 'desc')
       .limit(perPage)
@@ -122,7 +137,7 @@ router.get('/users', authMiddleware, requireRole('admin'), async (req: Request, 
       .execute();
 
     const totalRow = await withFilters(
-      baseFrom().select(sql<number>`COUNT(DISTINCT u.id)::int`.as('count')) as any,
+      baseFrom().select(sql<number>`COUNT(DISTINCT u.id)::int`.as('count')),
     ).executeTakeFirst();
 
     return res.json({
@@ -133,7 +148,7 @@ router.get('/users', authMiddleware, requireRole('admin'), async (req: Request, 
         per_page: perPage,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /admin/users]', error);
     return res.status(500).json({ error: 'Erro ao listar usuários' });
   }
@@ -153,7 +168,7 @@ router.get(
     try {
       const profile = await profileService.getFullProfile(id);
       return res.json({ data: profile });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[GET /admin/users/:id]', error);
       return res.status(500).json({ error: 'Erro ao buscar usuário' });
     }

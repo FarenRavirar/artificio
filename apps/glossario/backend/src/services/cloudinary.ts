@@ -48,7 +48,8 @@ export async function uploadScreenshotToCloudinary(dataUri: string) {
 export async function deleteFromCloudinary(publicId: string): Promise<void> {
   try {
     await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
-  } catch (error: any) {
-    console.error('[cloudinary] Delete failed:', publicId, error?.message || error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : error;
+    console.error('[cloudinary] Delete failed:', publicId, message);
   }
 }

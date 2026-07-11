@@ -1,6 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
+import {
+  slugifyPlatformName as slugify,
+  normalizePlatformWebsiteUrl as normalizeWebsiteUrl,
+  isPlatformUniqueViolation as isUniqueViolation,
+  getPlatformErrorMessage as getErrorMessage,
+} from '../utils/platformUtils';
 
 const router = Router();
 
@@ -11,31 +17,6 @@ interface CommunicationPlatformPayload {
   sort_order?: number;
   is_active?: boolean;
 }
-
-const slugify = (value: string): string => (
-  value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 100)
-);
-
-const normalizeWebsiteUrl = (value?: string | null): string | null => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  try {
-    const url = new URL(trimmed);
-    return url.toString();
-  } catch {
-    throw new Error('URL da plataforma inválida.');
-  }
-};
 
 // GET /api/v1/communication-platforms — Catálogo público (somente ativos)
 router.get('/', async (_req: Request, res: Response) => {
@@ -104,14 +85,15 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req: Request,
       .executeTakeFirst();
 
     return res.status(201).json({ data: created });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /communication-platforms/admin]', error);
 
-    if (error.message === 'URL da plataforma inválida.') {
-      return res.status(400).json({ error: error.message });
+    const message = getErrorMessage(error);
+    if (message === 'URL da plataforma inválida.') {
+      return res.status(400).json({ error: message });
     }
 
-    if (error.code === '23505') {
+    if (isUniqueViolation(error)) {
       return res.status(409).json({ error: 'Já existe plataforma com este nome ou slug.' });
     }
 
@@ -145,8 +127,8 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req: Reque
   if (payload.website_url !== undefined) {
     try {
       updateData.website_url = normalizeWebsiteUrl(payload.website_url);
-    } catch (error: any) {
-      return res.status(400).json({ error: error.message });
+    } catch (error) {
+      return res.status(400).json({ error: getErrorMessage(error) });
     }
   }
 
@@ -178,10 +160,10 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req: Reque
     }
 
     return res.json({ data: updated });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[PUT /communication-platforms/admin/:id]', error);
 
-    if (error.code === '23505') {
+    if (isUniqueViolation(error)) {
       return res.status(409).json({ error: 'Já existe plataforma com este nome ou slug.' });
     }
 

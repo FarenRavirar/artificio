@@ -1,10 +1,13 @@
 import { Response } from 'express';
+import type { PoolClient } from 'pg';
 import { db } from '../config/database';
 import { sanitizeTermFields } from '../utils/sanitizeText';
 import { slugify } from '../utils/slugify';
 import { randomUUID } from 'crypto';
 import { notifyTermOwnerOnModeration } from '../services/notificationService';
 import { fetchUserRoleFromDb } from '../utils/userRole';
+import { getCatalogNameMap } from '../services/catalogClient';
+import type { AuthedRequest } from '../types/express';
 
 // ---------------------------------------------------------------------------
 // Tipos internos
@@ -20,6 +23,9 @@ interface ImportRow {
   book_reference?: string;
   page_reference?: string;
   additional_info?: string;
+  // Origem opcional do termo importado (sistema x cenário); usado só por
+  // resolveImportCategoryType para escolher a raiz correta de categorias.
+  source_type?: string;
 }
 
 type ImportAction = 'insert' | 'update_own' | 'duplicate' | 'override';
@@ -31,28 +37,53 @@ interface ImportResult {
   term_id?: string;         // Preenchido em update_own
   changed_fields?: string[]; // Preenchido em update_own
   override_author?: string | null; // Preenchido em override
+  // Achado CodeRabbit (PR #145): notificacao de override nao pode rodar
+  // dentro da transacao do import (falha na query aborta o lote inteiro).
+  // Payload guardado aqui e disparado por runApplyImport so depois do COMMIT.
+  pending_notification?: {
+    termId: string;
+    actorId: string;
+    status: string | null;
+    eventType: 'term.updated' | 'term.moderated';
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Helpers de lookup por nome
 // ---------------------------------------------------------------------------
 
+// Linha crua de public.terms retornada por EXISTING_TERM_QUERY (join com users).
+type ExistingTermRow = {
+  id: string;
+  added_by: string | null;
+  name_pt: string;
+  nucleus: string;
+  status: string;
+  book_reference: string | null;
+  page_reference: string | null;
+  additional_info: string | null;
+  category_id: string | null;
+  system_id: string | null;
+  added_by_name: string | null;
+} & Record<string, unknown>;
+
 type QueryExecutor = {
-  query: (text: string, params?: any[]) => Promise<any>;
+  query: (text: string, params?: unknown[]) => Promise<{ rows: Array<Record<string, unknown>>; rowCount?: number | null }>;
 };
 
-const resolveImportCategoryType = (row: Partial<ImportRow> & { source_type?: string }): 'sistema' | 'cenario' => {
+const resolveImportCategoryType = (row: Partial<ImportRow>): 'sistema' | 'cenario' => {
   const normalized = String(row?.source_type ?? '').trim().toLowerCase();
   return normalized === 'cenario' ? 'cenario' : 'sistema';
 };
 
-async function resolveSystemId(name: string | undefined, executor: QueryExecutor = db): Promise<string | null> {
+async function resolveSystemId(name: string | undefined, _executor: QueryExecutor = db): Promise<string | null> {
   if (!name) return null;
-  const r = await executor.query(
-    `SELECT id FROM public.systems WHERE LOWER(name) = LOWER($1) LIMIT 1`,
-    [name.trim()]
-  );
-  return r.rows[0]?.id ?? null;
+  const normalized = name.trim().toLowerCase();
+  const names = await getCatalogNameMap();
+  for (const [id, catalogName] of names) {
+    if (catalogName.trim().toLowerCase() === normalized) return id;
+  }
+  return null;
 }
 
 async function resolveCategoryId(
@@ -102,7 +133,8 @@ async function resolveCategoryId(
     [categoryType]
   );
 
-  const rootId = rootCanonical.rows[0]?.id ?? rootFallback.rows[0]?.id ?? null;
+  const rawRootId: unknown = rootCanonical.rows[0]?.id ?? rootFallback.rows[0]?.id ?? null;
+  const rootId = typeof rawRootId === 'string' || typeof rawRootId === 'number' ? String(rawRootId) : null;
   if (!rootId) return null;
 
   const findByName = async (name: string, parentId: string): Promise<string | null> => {
@@ -115,7 +147,8 @@ async function resolveCategoryId(
         LIMIT 1`,
       [categoryType, parentId, name]
     );
-    return found.rows[0]?.id ?? null;
+    const rawId: unknown = found.rows[0]?.id ?? null;
+    return typeof rawId === 'string' || typeof rawId === 'number' ? String(rawId) : null;
   };
 
   const findOrCreateByName = async (name: string, parentId: string): Promise<string | null> => {
@@ -132,7 +165,8 @@ async function resolveCategoryId(
        RETURNING id`,
       [name, safeSlug, categoryType, parentId]
     );
-    return inserted.rows[0]?.id ?? null;
+    const rawId: unknown = inserted.rows[0]?.id ?? null;
+    return typeof rawId === 'string' || typeof rawId === 'number' ? String(rawId) : null;
   };
 
   const parentName = normalizedCategory || normalizedSubcategory;
@@ -185,8 +219,8 @@ const registerAuditOverrideIfAvailable = async (
     termId: string;
     actorId: string;
     actorRole: string;
-    previous: Record<string, any>;
-    next: Record<string, any>;
+    previous: Record<string, unknown>;
+    next: Record<string, unknown>;
     originalAuthorId: string | null;
     batchId: string;
   }
@@ -258,18 +292,548 @@ const EXISTING_TERM_QUERY = `
 `;
 
 // ---------------------------------------------------------------------------
+// Achado Sonar (PR #145): importTerms tinha complexidade cognitiva 121 (fluxo
+// dry-run + fluxo apply, cada um com resolucao de system/category, diff de
+// campos e 3 ramos de acao, tudo num unico handler). Helpers abaixo extraem
+// a logica repetida entre os dois fluxos sem alterar nenhum comportamento —
+// mesmas queries, mesma ordem, mesmos valores.
+// ---------------------------------------------------------------------------
+
+type HistoryEntry = { field: string; old: string | null; next: string | null };
+
+// Achado Sonar (PR #145): String(valor) sobre unknown produz '[object Object]'
+// quando valor e' objeto/array — mesmo guard ja usado no restante do arquivo
+// (rawId/rawRootId/candidates.status) pra so serializar string/number reais.
+function stringifyTrackedValue(value: unknown): string | null {
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : null;
+}
+
+function computeHistoryEntries(found: ExistingTermRow, candidates: Record<string, unknown>): HistoryEntry[] {
+  const entries: HistoryEntry[] = [];
+  for (const field of TRACKED_FIELDS) {
+    const oldVal = found[field] ?? null;
+    const newVal = candidates[field] ?? null;
+    const strOld = stringifyTrackedValue(oldVal);
+    const strNew = stringifyTrackedValue(newVal);
+    if (strOld !== strNew) {
+      entries.push({ field, old: strOld, next: strNew });
+    }
+  }
+  return entries;
+}
+
+async function resolveRowSystemId(
+  systemCache: Map<string, string | null>,
+  systemName: string | undefined,
+  client: QueryExecutor,
+): Promise<string | null> {
+  const systemKey = (systemName ?? '').trim().toLowerCase();
+  let systemId = systemCache.get(systemKey);
+  if (systemId === undefined) {
+    systemId = await resolveSystemId(systemName, client);
+    systemCache.set(systemKey, systemId);
+  }
+  return systemId;
+}
+
+async function resolveRowCategoryId(
+  categoryCache: Map<string, string | null>,
+  rawRow: ImportRow,
+  categoryType: 'sistema' | 'cenario',
+  isAdmin: boolean,
+  allowCreate: boolean,
+  client: QueryExecutor,
+): Promise<string | null> {
+  const categoryKey = [
+    (rawRow.category_name ?? '').trim().toLowerCase(),
+    (rawRow.subcategory_name ?? '').trim().toLowerCase(),
+    categoryType,
+    isAdmin ? 'admin' : 'member',
+  ].join('::');
+  let categoryId = categoryCache.get(categoryKey);
+  if (categoryId === undefined) {
+    categoryId = await resolveCategoryId(rawRow.category_name, rawRow.subcategory_name, categoryType, allowCreate, client);
+    categoryCache.set(categoryKey, categoryId);
+  }
+  return categoryId;
+}
+
+async function findExistingTerm(
+  client: QueryExecutor,
+  existingCache: Map<string, ExistingTermRow | null>,
+  nameEn: string,
+  systemId: string | null,
+): Promise<ExistingTermRow | null> {
+  const existingKey = `${nameEn.trim().toLowerCase()}::${systemId ?? 'null'}`;
+  let found = existingCache.get(existingKey);
+  if (found === undefined) {
+    const existing = await client.query(EXISTING_TERM_QUERY, [nameEn, systemId]);
+    found = (existing.rows[0] as ExistingTermRow | undefined) ?? null;
+    existingCache.set(existingKey, found);
+  }
+  return found;
+}
+
+type DryRunCaches = {
+  systemCache: Map<string, string | null>;
+  categoryCache: Map<string, string | null>;
+  existingCache: Map<string, ExistingTermRow | null>;
+};
+
+async function previewImportRow(
+  rawRow: ImportRow,
+  client: PoolClient,
+  caches: DryRunCaches,
+  userId: string,
+  isAdmin: boolean,
+  adminChosenNucleus: AdminImportNucleus,
+): Promise<ImportResult | null> {
+  const row = sanitizeTermFields({
+    name_en: rawRow.name_en,
+    name_pt: rawRow.name_pt,
+    book_reference: rawRow.book_reference,
+    page_reference: rawRow.page_reference,
+    additional_info: rawRow.additional_info,
+  });
+
+  if (!row.name_en?.trim() || !row.name_pt?.trim()) return null;
+
+  const nucleus: ImportNucleus = isAdmin ? adminChosenNucleus : 'sugestao';
+  const systemId = await resolveRowSystemId(caches.systemCache, rawRow.system_name, client);
+  const found = await findExistingTerm(client, caches.existingCache, row.name_en, systemId);
+
+  if (!found) {
+    return { action: 'insert', name_en: row.name_en, name_pt: row.name_pt };
+  }
+
+  if (found.added_by === userId) {
+    const categoryType = resolveImportCategoryType(rawRow);
+    const categoryId = await resolveRowCategoryId(caches.categoryCache, rawRow, categoryType, isAdmin, false, client);
+
+    const candidates: Record<string, unknown> = {
+      name_pt: row.name_pt,
+      nucleus,
+      book_reference: row.book_reference ?? null,
+      page_reference: row.page_reference ?? null,
+      additional_info: row.additional_info ?? null,
+      category_id: categoryId,
+      status: isAdmin ? 'verificado' : found.status,
+    };
+
+    const changedFields = TRACKED_FIELDS.filter((field) => {
+      const oldVal = found[field] == null ? null : String(found[field]);
+      const newVal = candidates[field] == null ? null : String(candidates[field]);
+      return oldVal !== newVal;
+    });
+
+    return {
+      action: 'update_own',
+      name_en: row.name_en,
+      name_pt: row.name_pt,
+      term_id: found.id,
+      changed_fields: changedFields,
+    };
+  }
+
+  if (isAdmin) {
+    return {
+      action: 'override',
+      name_en: row.name_en,
+      name_pt: row.name_pt,
+      term_id: found.id,
+      override_author: found.added_by_name ?? found.added_by ?? null,
+    };
+  }
+
+  return { action: 'duplicate', name_en: row.name_en, name_pt: row.name_pt };
+}
+
+type ApplyCaches = {
+  systemCache: Map<string, string | null>;
+  categoryCache: Map<string, string | null>;
+};
+
+type ApplyRowContext = {
+  client: PoolClient;
+  caches: ApplyCaches;
+  userId: string;
+  userRole: 'admin' | 'member';
+  isAdmin: boolean;
+  adminChosenNucleus: AdminImportNucleus;
+  insertStatus: string;
+  batchId: string;
+};
+
+type SanitizedImportRow = ReturnType<typeof sanitizeTermFields>;
+
+// Achado Sonar (PR #145): funcao tinha 8 parametros posicionais (max 7).
+// Agrupados em objeto unico — mesma ordem de valores/logica, so muda a forma
+// de passagem.
+type InsertNewImportRowParams = {
+  client: PoolClient;
+  row: SanitizedImportRow;
+  nucleus: ImportNucleus;
+  insertStatus: string;
+  systemId: string | null;
+  categoryId: string | null;
+  userId: string;
+  action: 'insert' | 'duplicate';
+};
+
+async function insertNewImportRow(params: InsertNewImportRowParams): Promise<ImportResult> {
+  const { client, row, nucleus, insertStatus, systemId, categoryId, userId, action } = params;
+  await client.query(
+    `INSERT INTO public.terms
+       (name_en, name_pt, nucleus, status, source_type,
+        system_id, category_id, book_reference, page_reference,
+        additional_info, added_by)
+     VALUES ($1,$2,$3,$4,'tabela',$5,$6,$7,$8,$9,$10)`,
+    [
+      row.name_en, row.name_pt, nucleus,
+      insertStatus,
+      systemId, categoryId,
+      row.book_reference ?? null,
+      row.page_reference ?? null,
+      row.additional_info ?? null,
+      userId,
+    ]
+  );
+  return { action, name_en: row.name_en!, name_pt: row.name_pt! };
+}
+
+async function applyTermUpdate(
+  client: PoolClient,
+  userId: string,
+  found: ExistingTermRow,
+  candidates: Record<string, unknown>,
+  historyEntries: HistoryEntry[],
+): Promise<void> {
+  if (historyEntries.length === 0) return;
+
+  await client.query(
+    `UPDATE public.terms
+        SET name_pt = $1,
+            nucleus = $2,
+            book_reference = $3,
+            page_reference = $4,
+            additional_info = $5,
+            category_id = $6,
+            status = $7
+      WHERE id = $8`,
+    [
+      candidates.name_pt,
+      candidates.nucleus,
+      candidates.book_reference,
+      candidates.page_reference,
+      candidates.additional_info,
+      candidates.category_id,
+      candidates.status,
+      found.id,
+    ]
+  );
+
+  // Gravar term_history (uma linha por campo alterado)
+  for (const entry of historyEntries) {
+    await client.query(
+      `INSERT INTO public.term_history (term_id, changed_by, field, old_value, new_value)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [found.id, userId, entry.field, entry.old, entry.next]
+    );
+  }
+}
+
+async function applyOwnUpdateImportRow(
+  client: PoolClient,
+  userId: string,
+  isAdmin: boolean,
+  row: SanitizedImportRow,
+  nucleus: ImportNucleus,
+  categoryId: string | null,
+  found: ExistingTermRow,
+): Promise<ImportResult> {
+  const candidates: Record<string, unknown> = {
+    name_pt: row.name_pt,
+    nucleus,
+    book_reference: row.book_reference ?? null,
+    page_reference: row.page_reference ?? null,
+    additional_info: row.additional_info ?? null,
+    category_id: categoryId,
+    status: isAdmin ? 'verificado' : found.status,
+  };
+
+  const historyEntries = computeHistoryEntries(found, candidates);
+  await applyTermUpdate(client, userId, found, candidates, historyEntries);
+
+  return {
+    action: 'update_own',
+    name_en: row.name_en!,
+    name_pt: row.name_pt!,
+    term_id: found.id,
+    changed_fields: historyEntries.map((e) => e.field),
+  };
+}
+
+type ApplyAdminOverrideImportRowParams = {
+  client: PoolClient;
+  userId: string;
+  userRole: 'admin' | 'member';
+  row: SanitizedImportRow;
+  nucleus: ImportNucleus;
+  insertStatus: string;
+  categoryId: string | null;
+  found: ExistingTermRow;
+  batchId: string;
+};
+
+async function applyAdminOverrideImportRow(params: ApplyAdminOverrideImportRowParams): Promise<ImportResult> {
+  const { client, userId, userRole, row, nucleus, insertStatus, categoryId, found, batchId } = params;
+  const candidates: Record<string, unknown> = {
+    name_pt: row.name_pt,
+    nucleus,
+    book_reference: row.book_reference ?? null,
+    page_reference: row.page_reference ?? null,
+    additional_info: row.additional_info ?? null,
+    category_id: categoryId,
+    status: insertStatus,
+  };
+
+  const historyEntries = computeHistoryEntries(found, candidates);
+
+  await registerAuditOverrideIfAvailable(client, {
+    termId: found.id,
+    actorId: userId,
+    actorRole: userRole,
+    previous: {
+      name_pt: found.name_pt,
+      nucleus: found.nucleus,
+      book_reference: found.book_reference,
+      page_reference: found.page_reference,
+      additional_info: found.additional_info,
+      category_id: found.category_id,
+      status: found.status,
+    },
+    next: {
+      name_pt: candidates.name_pt,
+      nucleus: candidates.nucleus,
+      book_reference: candidates.book_reference,
+      page_reference: candidates.page_reference,
+      additional_info: candidates.additional_info,
+      category_id: candidates.category_id,
+      status: candidates.status,
+    },
+    originalAuthorId: found.added_by ?? null,
+    batchId,
+  });
+
+  await applyTermUpdate(client, userId, found, candidates, historyEntries);
+
+  // Achado CodeRabbit (PR #145): notificacao rodava com o mesmo client
+  // transacional, dentro do loop de import. Se a query de notificacao
+  // falhasse, o Postgres aborta a transacao inteira (mesmo com o erro
+  // silenciado aqui) — o COMMIT final em runApplyImport vira rollback
+  // implicito, descartando o lote inteiro por causa de uma notificacao.
+  // Payload devolvido para runApplyImport disparar so apos o COMMIT.
+  return {
+    action: 'override',
+    name_en: row.name_en!,
+    name_pt: row.name_pt!,
+    term_id: found.id,
+    changed_fields: historyEntries.map((entry) => entry.field),
+    override_author: found.added_by_name ?? found.added_by ?? null,
+    pending_notification: {
+      termId: found.id,
+      actorId: userId,
+      status: stringifyTrackedValue(candidates.status),
+      eventType: 'term.updated',
+    },
+  };
+}
+
+async function applyImportRow(rawRow: ImportRow, ctx: ApplyRowContext): Promise<ImportResult | null> {
+  const { client, caches, userId, userRole, isAdmin, adminChosenNucleus, insertStatus, batchId } = ctx;
+
+  const row = sanitizeTermFields({
+    name_en: rawRow.name_en,
+    name_pt: rawRow.name_pt,
+    book_reference: rawRow.book_reference,
+    page_reference: rawRow.page_reference,
+    additional_info: rawRow.additional_info,
+  });
+
+  if (!row.name_en?.trim() || !row.name_pt?.trim()) {
+    // Linha inválida — pular silenciosamente (não abortar lote)
+    return null;
+  }
+
+  const nucleus: ImportNucleus = isAdmin ? adminChosenNucleus : 'sugestao';
+  const systemId = await resolveRowSystemId(caches.systemCache, rawRow.system_name, client);
+  const categoryType = resolveImportCategoryType(rawRow);
+  const categoryId = await resolveRowCategoryId(caches.categoryCache, rawRow, categoryType, isAdmin, isAdmin, client);
+
+  const existing = await client.query(EXISTING_TERM_QUERY, [row.name_en, systemId]);
+
+  // ----- Caso A: Não existe → INSERT como pendente -----
+  if (existing.rows.length === 0) {
+    return insertNewImportRow({ client, row, nucleus, insertStatus, systemId, categoryId, userId, action: 'insert' });
+  }
+
+  const found = existing.rows[0] as ExistingTermRow;
+
+  // ----- Caso B: Existe e é do mesmo usuário → UPDATE + term_history -----
+  if (found.added_by === userId) {
+    return applyOwnUpdateImportRow(client, userId, isAdmin, row, nucleus, categoryId, found);
+  }
+
+  // ----- Caso C: Existe e é de outro usuário, admin faz override -----
+  if (isAdmin) {
+    return applyAdminOverrideImportRow({ client, userId, userRole, row, nucleus, insertStatus, categoryId, found, batchId });
+  }
+
+  // ----- Caso C: Existe e é de outro usuário → INSERT como sugestão pendente -----
+  return insertNewImportRow({ client, row, nucleus, insertStatus, systemId, categoryId, userId, action: 'duplicate' });
+}
+
+type ImportRunParams = {
+  rows: ImportRow[];
+  userId: string;
+  userRole: 'admin' | 'member';
+  isAdmin: boolean;
+  adminChosenNucleus: AdminImportNucleus;
+  insertStatus: string;
+  batchId: string;
+};
+
+// Achado Sonar (PR #145): importTerms tinha complexidade cognitiva 24 (auth +
+// validacao + fluxo dry-run inteiro + fluxo apply inteiro, tudo aninhado no
+// mesmo handler). Extraidos os dois fluxos completos (dry-run/apply) em
+// funcoes proprias — mesmas queries, mesma ordem, mesmos valores; importTerms
+// fica so com auth/validacao de entrada e dispatch pro fluxo certo.
+async function runDryRunImport(
+  res: Response,
+  { rows, userId, isAdmin, adminChosenNucleus }: ImportRunParams,
+) {
+  let client: PoolClient | undefined;
+
+  try {
+    client = await db.pool.connect();
+  } catch (err) {
+    console.error('Erro ao conectar ao pool de banco (dry_run):', err);
+    return res.status(503).json({ message: 'Serviço temporariamente indisponível. Tente novamente em instantes.' });
+  }
+
+  try {
+    const previewResults: ImportResult[] = [];
+    const caches: DryRunCaches = {
+      systemCache: new Map<string, string | null>(),
+      categoryCache: new Map<string, string | null>(),
+      existingCache: new Map<string, ExistingTermRow | null>(),
+    };
+
+    for (const rawRow of rows) {
+      const previewResult = await previewImportRow(rawRow, client, caches, userId, isAdmin, adminChosenNucleus);
+      if (previewResult) previewResults.push(previewResult);
+    }
+
+    const summary = {
+      total:      previewResults.length,
+      inserted:   previewResults.filter(r => r.action === 'insert').length,
+      updated:    previewResults.filter(r => r.action === 'update_own').length,
+      overrides:  previewResults.filter(r => r.action === 'override').length,
+      duplicates: previewResults.filter(r => r.action === 'duplicate').length,
+    };
+
+    return res.status(200).json({ summary, results: previewResults, dry_run: true });
+  } catch (err) {
+    console.error('Erro na pré-visualização da importação:', err);
+    return res.status(500).json({ message: 'Erro ao gerar pré-visualização da importação.' });
+  } finally {
+    client?.release();
+  }
+}
+
+async function runApplyImport(
+  res: Response,
+  { rows, userId, userRole, isAdmin, adminChosenNucleus, insertStatus, batchId }: ImportRunParams,
+) {
+  const results: ImportResult[] = [];
+
+  let client: PoolClient | undefined;
+
+  try {
+    client = await db.pool.connect();
+  } catch (err) {
+    console.error('Erro ao conectar ao pool de banco:', err);
+    return res.status(503).json({ message: 'Serviço temporariamente indisponível. Tente novamente em instantes.' });
+  }
+
+  const caches: ApplyCaches = {
+    systemCache: new Map<string, string | null>(),
+    categoryCache: new Map<string, string | null>(),
+  };
+
+  try {
+    await client.query('BEGIN');
+
+    for (const rawRow of rows) {
+      const result = await applyImportRow(rawRow, {
+        client, caches, userId, userRole, isAdmin, adminChosenNucleus, insertStatus, batchId,
+      });
+      if (result) results.push(result);
+    }
+
+    await client.query('COMMIT');
+
+    // Achado CodeRabbit (PR #145): notificacoes de override so disparam apos
+    // o COMMIT (fora da transacao) — falha aqui nao pode mais reverter o
+    // lote ja commitado. Melhor esforco: erro de notificacao so loga.
+    for (const result of results) {
+      if (!result.pending_notification) continue;
+      try {
+        await notifyTermOwnerOnModeration(result.pending_notification);
+      } catch (notifyError) {
+        console.error('[notifications] Falha ao gerar notificação de override por import:', notifyError);
+      }
+    }
+
+    const summary = {
+      total:      results.length,
+      inserted:   results.filter(r => r.action === 'insert').length,
+      updated:    results.filter(r => r.action === 'update_own').length,
+      overrides:  results.filter(r => r.action === 'override').length,
+      duplicates: results.filter(r => r.action === 'duplicate').length,
+    };
+
+    // pending_notification é detalhe interno (payload de notificação já
+    // disparada acima) — não deve vazar para o corpo da resposta pública.
+    const publicResults = results.map(({ pending_notification: _pending_notification, ...rest }) => rest);
+
+    return res.status(200).json({ summary, results: publicResults });
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // noop: rollback de melhor esforço
+    }
+    console.error('Erro na importação em massa:', err);
+    return res.status(500).json({ message: 'Erro interno durante a importação. Nenhum dado foi alterado.' });
+  } finally {
+    if (client) client.release();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/terms/import
 // Body: { terms: ImportRow[] }
 // ---------------------------------------------------------------------------
 
-export const importTerms = async (req: any, res: Response) => {
+export const importTerms = async (req: AuthedRequest, res: Response) => {
   const userId = req?.user?.id;
 
   if (!userId || typeof userId !== 'string') {
     return res.status(401).json({ message: 'Usuário não autenticado.' });
   }
 
-  let userRole: 'admin' | 'member' = 'member';
+  let userRole: 'admin' | 'member';
   try {
     const roleFromDb = await fetchUserRoleFromDb(userId);
     if (!roleFromDb) {
@@ -284,456 +848,37 @@ export const importTerms = async (req: any, res: Response) => {
   const isAdmin = userRole === 'admin';
   const batchId = randomUUID();
 
-  const rows: ImportRow[] = req.body?.terms;
+  // Achado CodeRabbit (PR #145): terms vinha tipado como ImportRow[] direto do
+  // body sem checagem de item — `terms: [null]` passava no Array.isArray e
+  // estourava 500 mais adiante (sanitizeTermFields faz spread do item, que
+  // lanca TypeError em null/undefined). Body de API e' unknown ate' passar
+  // por normalizador: aqui so aceitamos itens que sao objeto nao-nulo antes
+  // de seguir com o processamento (validacao de campo especifico continua
+  // em applyImportRow/previewImportRow, que ja tratam name_en/name_pt vazios).
+  const rawTerms: unknown = req.body?.terms;
   const dryRun: boolean   = req.body?.dry_run === true;
   const adminChosenNucleus: AdminImportNucleus = parseAdminImportNucleus(req.body?.import_nucleus);
   const insertStatus = isAdmin ? 'verificado' : 'pendente';
 
-  if (!Array.isArray(rows) || rows.length === 0) {
+  if (!Array.isArray(rawTerms) || rawTerms.length === 0) {
     return res.status(400).json({ message: 'Nenhum termo enviado para importação.' });
   }
 
-  if (rows.length > 2000) {
+  if (rawTerms.length > 2000) {
     return res.status(400).json({ message: 'Máximo de 2000 termos por importação.' });
   }
 
-  // ---------------------------------------------------------------------------
-  // Modo dry_run: classifica cada termo SEM gravar no banco
-  // ---------------------------------------------------------------------------
+  if (rawTerms.some((item) => typeof item !== 'object' || item === null)) {
+    return res.status(400).json({ message: 'Formato inválido: cada termo deve ser um objeto.' });
+  }
+
+  const rows: ImportRow[] = rawTerms as ImportRow[];
+
+  const runParams: ImportRunParams = { rows, userId, userRole, isAdmin, adminChosenNucleus, insertStatus, batchId };
+
   if (dryRun) {
-    let client: any;
-
-    try {
-      client = await db.pool.connect();
-    } catch (err) {
-      console.error('Erro ao conectar ao pool de banco (dry_run):', err);
-      return res.status(503).json({ message: 'Serviço temporariamente indisponível. Tente novamente em instantes.' });
-    }
-
-    try {
-      const previewResults: ImportResult[] = [];
-      const systemCache = new Map<string, string | null>();
-      const categoryCache = new Map<string, string | null>();
-      const existingCache = new Map<string, any | null>();
-
-      for (const rawRow of rows) {
-        const row = sanitizeTermFields({
-          name_en: rawRow.name_en,
-          name_pt: rawRow.name_pt,
-          book_reference:  rawRow.book_reference,
-          page_reference:  rawRow.page_reference,
-          additional_info: rawRow.additional_info,
-        });
-
-        if (!row.name_en?.trim() || !row.name_pt?.trim()) continue;
-
-        const nucleus: ImportNucleus = isAdmin ? adminChosenNucleus : 'sugestao';
-        const systemKey = (rawRow.system_name ?? '').trim().toLowerCase();
-
-        let systemId = systemCache.get(systemKey);
-        if (systemId === undefined) {
-          systemId = await resolveSystemId(rawRow.system_name, client);
-          systemCache.set(systemKey, systemId);
-        }
-
-        const existingKey = `${row.name_en.trim().toLowerCase()}::${systemId ?? 'null'}`;
-        let found = existingCache.get(existingKey);
-
-        if (found === undefined) {
-          const existing = await client.query(EXISTING_TERM_QUERY, [row.name_en, systemId]);
-          found = existing.rows[0] ?? null;
-          existingCache.set(existingKey, found);
-        }
-
-        if (!found) {
-          previewResults.push({ action: 'insert', name_en: row.name_en, name_pt: row.name_pt });
-          continue;
-        }
-
-        if (found.added_by === userId) {
-          const categoryType: 'sistema' | 'cenario' = resolveImportCategoryType(rawRow as any);
-          const categoryKey = [
-            (rawRow.category_name ?? '').trim().toLowerCase(),
-            (rawRow.subcategory_name ?? '').trim().toLowerCase(),
-            categoryType,
-            isAdmin ? 'admin' : 'member',
-          ].join('::');
-          let categoryId = categoryCache.get(categoryKey);
-
-          if (categoryId === undefined) {
-            categoryId = await resolveCategoryId(
-              rawRow.category_name,
-              rawRow.subcategory_name,
-              categoryType,
-              false,
-              client,
-            );
-            categoryCache.set(categoryKey, categoryId);
-          }
-
-          const candidates: Record<string, any> = {
-            name_pt:         row.name_pt,
-            nucleus:         nucleus,
-            book_reference:  row.book_reference ?? null,
-            page_reference:  row.page_reference ?? null,
-            additional_info: row.additional_info ?? null,
-            category_id:     categoryId,
-            status:          isAdmin ? 'verificado' : found.status,
-          };
-
-          const changedFields = TRACKED_FIELDS.filter((field) => {
-            const oldVal = found[field] == null ? null : String(found[field]);
-            const newVal = candidates[field] == null ? null : String(candidates[field]);
-            return oldVal !== newVal;
-          });
-
-          previewResults.push({
-            action: 'update_own',
-            name_en: row.name_en,
-            name_pt: row.name_pt,
-            term_id: found.id,
-            changed_fields: changedFields,
-          });
-          continue;
-        }
-
-        if (isAdmin) {
-          previewResults.push({
-            action: 'override',
-            name_en: row.name_en,
-            name_pt: row.name_pt,
-            term_id: found.id,
-            override_author: found.added_by_name ?? found.added_by ?? null,
-          });
-          continue;
-        }
-
-        previewResults.push({ action: 'duplicate', name_en: row.name_en, name_pt: row.name_pt });
-      }
-
-      const summary = {
-        total:      previewResults.length,
-        inserted:   previewResults.filter(r => r.action === 'insert').length,
-        updated:    previewResults.filter(r => r.action === 'update_own').length,
-        overrides:  previewResults.filter(r => r.action === 'override').length,
-        duplicates: previewResults.filter(r => r.action === 'duplicate').length,
-      };
-
-      return res.status(200).json({ summary, results: previewResults, dry_run: true });
-    } catch (err) {
-      console.error('Erro na pré-visualização da importação:', err);
-      return res.status(500).json({ message: 'Erro ao gerar pré-visualização da importação.' });
-    } finally {
-      client.release();
-    }
+    return runDryRunImport(res, runParams);
   }
 
-  const results: ImportResult[] = [];
-
-  // Processar cada termo dentro de uma transaction única
-  let client: any;
-
-  try {
-    client = await db.pool.connect();
-  } catch (err) {
-    console.error('Erro ao conectar ao pool de banco:', err);
-    return res.status(503).json({ message: 'Serviço temporariamente indisponível. Tente novamente em instantes.' });
-  }
-
-  const systemCache = new Map<string, string | null>();
-  const categoryCache = new Map<string, string | null>();
-
-  try {
-    await client.query('BEGIN');
-
-    for (const rawRow of rows) {
-      // 1. Sanitizar campos de texto
-      const row = sanitizeTermFields({
-        name_en:        rawRow.name_en,
-        name_pt:        rawRow.name_pt,
-        book_reference: rawRow.book_reference,
-        page_reference: rawRow.page_reference,
-        additional_info: rawRow.additional_info,
-      });
-
-      if (!row.name_en?.trim() || !row.name_pt?.trim()) {
-        // Linha inválida — pular silenciosamente (não abortar lote)
-        continue;
-      }
-
-      const nucleus: ImportNucleus = isAdmin ? adminChosenNucleus : 'sugestao';
-
-      // 2. Resolver system_id e category_id por nome (cache local da requisição)
-      const systemKey = (rawRow.system_name ?? '').trim().toLowerCase();
-      let systemId = systemCache.get(systemKey);
-      if (systemId === undefined) {
-        systemId = await resolveSystemId(rawRow.system_name, client);
-        systemCache.set(systemKey, systemId);
-      }
-
-      const categoryType: 'sistema' | 'cenario' = resolveImportCategoryType(rawRow as any);
-      const categoryKey = [
-        (rawRow.category_name ?? '').trim().toLowerCase(),
-        (rawRow.subcategory_name ?? '').trim().toLowerCase(),
-        categoryType,
-        isAdmin ? 'admin' : 'member',
-      ].join('::');
-      let categoryId = categoryCache.get(categoryKey);
-      if (categoryId === undefined) {
-        categoryId = await resolveCategoryId(
-          rawRow.category_name,
-          rawRow.subcategory_name,
-          categoryType,
-          isAdmin,
-          client,
-        );
-        categoryCache.set(categoryKey, categoryId);
-      }
-
-      // 3. Verificar se existe termo com mesmo name_en (case-insensitive)
-      const existing = await client.query(EXISTING_TERM_QUERY, [row.name_en, systemId]);
-
-      // ----- Caso A: Não existe → INSERT como pendente -----
-      if (existing.rows.length === 0) {
-        await client.query(
-          `INSERT INTO public.terms
-             (name_en, name_pt, nucleus, status, source_type,
-              system_id, category_id, book_reference, page_reference,
-              additional_info, added_by)
-           VALUES ($1,$2,$3,$4,'tabela',$5,$6,$7,$8,$9,$10)`,
-          [
-            row.name_en, row.name_pt, nucleus,
-            insertStatus,
-            systemId, categoryId,
-            row.book_reference ?? null,
-            row.page_reference ?? null,
-            row.additional_info ?? null,
-            userId,
-          ]
-        );
-        results.push({ action: 'insert', name_en: row.name_en, name_pt: row.name_pt });
-        continue;
-      }
-
-      const found = existing.rows[0];
-
-      // ----- Caso B: Existe e é do mesmo usuário → UPDATE + term_history -----
-      if (found.added_by === userId) {
-        const historyEntries: Array<{ field: string; old: string | null; next: string | null }> = [];
-
-        const candidates: Record<string, any> = {
-          name_pt:         row.name_pt,
-          nucleus:         nucleus,
-          book_reference:  row.book_reference ?? null,
-          page_reference:  row.page_reference ?? null,
-          additional_info: row.additional_info ?? null,
-          category_id:     categoryId,
-          status:          isAdmin ? 'verificado' : found.status,
-        };
-
-        for (const field of TRACKED_FIELDS) {
-          const oldVal = found[field] ?? null;
-          const newVal = candidates[field] ?? null;
-          const strOld = oldVal == null ? null : String(oldVal);
-          const strNew = newVal == null ? null : String(newVal);
-
-          if (strOld !== strNew) {
-            historyEntries.push({ field, old: strOld, next: strNew });
-          }
-        }
-
-        const changedFields = historyEntries.map((e) => e.field);
-
-        if (historyEntries.length > 0) {
-          await client.query(
-            `UPDATE public.terms
-                SET name_pt = $1,
-                    nucleus = $2,
-                    book_reference = $3,
-                    page_reference = $4,
-                    additional_info = $5,
-                    category_id = $6,
-                    status = $7
-              WHERE id = $8`,
-            [
-              candidates.name_pt,
-              candidates.nucleus,
-              candidates.book_reference,
-              candidates.page_reference,
-              candidates.additional_info,
-              candidates.category_id,
-              candidates.status,
-              found.id,
-            ]
-          );
-
-          // Gravar term_history (uma linha por campo alterado)
-          for (const entry of historyEntries) {
-            await client.query(
-              `INSERT INTO public.term_history (term_id, changed_by, field, old_value, new_value)
-               VALUES ($1, $2, $3, $4, $5)`,
-              [found.id, userId, entry.field, entry.old, entry.next]
-            );
-          }
-        }
-
-        results.push({
-          action:         'update_own',
-          name_en:        row.name_en,
-          name_pt:        row.name_pt,
-          term_id:        found.id,
-          changed_fields: changedFields,
-        });
-        continue;
-      }
-
-      // ----- Caso C: Existe e é de outro usuário, admin faz override -----
-      if (isAdmin) {
-        const historyEntries: Array<{ field: string; old: string | null; next: string | null }> = [];
-        const candidates: Record<string, any> = {
-          name_pt:         row.name_pt,
-          nucleus:         nucleus,
-          book_reference:  row.book_reference ?? null,
-          page_reference:  row.page_reference ?? null,
-          additional_info: row.additional_info ?? null,
-          category_id:     categoryId,
-          status:          insertStatus,
-        };
-
-        for (const field of TRACKED_FIELDS) {
-          const oldVal = found[field] ?? null;
-          const newVal = candidates[field] ?? null;
-          const strOld = oldVal == null ? null : String(oldVal);
-          const strNew = newVal == null ? null : String(newVal);
-
-          if (strOld !== strNew) {
-            historyEntries.push({ field, old: strOld, next: strNew });
-          }
-        }
-
-        await registerAuditOverrideIfAvailable(client, {
-          termId: found.id,
-          actorId: userId,
-          actorRole: userRole,
-          previous: {
-            name_pt: found.name_pt,
-            nucleus: found.nucleus,
-            book_reference: found.book_reference,
-            page_reference: found.page_reference,
-            additional_info: found.additional_info,
-            category_id: found.category_id,
-            status: found.status,
-          },
-          next: {
-            name_pt: candidates.name_pt,
-            nucleus: candidates.nucleus,
-            book_reference: candidates.book_reference,
-            page_reference: candidates.page_reference,
-            additional_info: candidates.additional_info,
-            category_id: candidates.category_id,
-            status: candidates.status,
-          },
-          originalAuthorId: found.added_by ?? null,
-          batchId,
-        });
-
-        if (historyEntries.length > 0) {
-          await client.query(
-            `UPDATE public.terms
-                SET name_pt = $1,
-                    nucleus = $2,
-                    book_reference = $3,
-                    page_reference = $4,
-                    additional_info = $5,
-                    category_id = $6,
-                    status = $7
-              WHERE id = $8`,
-            [
-              candidates.name_pt,
-              candidates.nucleus,
-              candidates.book_reference,
-              candidates.page_reference,
-              candidates.additional_info,
-              candidates.category_id,
-              candidates.status,
-              found.id,
-            ]
-          );
-
-          for (const entry of historyEntries) {
-            await client.query(
-              `INSERT INTO public.term_history (term_id, changed_by, field, old_value, new_value)
-               VALUES ($1, $2, $3, $4, $5)`,
-              [found.id, userId, entry.field, entry.old, entry.next]
-            );
-          }
-        }
-
-        try {
-          await notifyTermOwnerOnModeration(
-            {
-              termId: found.id,
-              actorId: userId,
-              status: candidates.status ?? null,
-              eventType: 'term.updated',
-            },
-            client
-          );
-        } catch (notifyError) {
-          console.error('[notifications] Falha ao gerar notificação de override por import:', notifyError);
-        }
-
-        results.push({
-          action: 'override',
-          name_en: row.name_en,
-          name_pt: row.name_pt,
-          term_id: found.id,
-          changed_fields: historyEntries.map((entry) => entry.field),
-          override_author: found.added_by_name ?? found.added_by ?? null,
-        });
-        continue;
-      }
-
-      // ----- Caso C: Existe e é de outro usuário → INSERT como sugestão pendente -----
-      await client.query(
-        `INSERT INTO public.terms
-           (name_en, name_pt, nucleus, status, source_type,
-            system_id, category_id, book_reference, page_reference,
-            additional_info, added_by)
-         VALUES ($1,$2,$3,$4,'tabela',$5,$6,$7,$8,$9,$10)`,
-        [
-          row.name_en, row.name_pt, nucleus,
-          insertStatus,
-          systemId, categoryId,
-          row.book_reference ?? null,
-          row.page_reference ?? null,
-          row.additional_info ?? null,
-          userId,
-        ]
-      );
-      results.push({ action: 'duplicate', name_en: row.name_en, name_pt: row.name_pt });
-    }
-
-    await client.query('COMMIT');
-
-    const summary = {
-      total:      results.length,
-      inserted:   results.filter(r => r.action === 'insert').length,
-      updated:    results.filter(r => r.action === 'update_own').length,
-      overrides:  results.filter(r => r.action === 'override').length,
-      duplicates: results.filter(r => r.action === 'duplicate').length,
-    };
-
-    return res.status(200).json({ summary, results });
-  } catch (err) {
-    try {
-      await client.query('ROLLBACK');
-    } catch {
-      // noop: rollback de melhor esforço
-    }
-    console.error('Erro na importação em massa:', err);
-    return res.status(500).json({ message: 'Erro interno durante a importação. Nenhum dado foi alterado.' });
-  } finally {
-    if (client) client.release();
-  }
+  return runApplyImport(res, runParams);
 };

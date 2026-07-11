@@ -4,6 +4,25 @@ import { db } from '../db/index';
 
 const router = Router();
 
+interface DiscordTokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_token?: string;
+  scope: string;
+}
+
+interface DiscordUser {
+  id: string;
+  username: string;
+  discriminator?: string;
+}
+
+interface DiscordGuild {
+  id: string;
+  name: string;
+}
+
 /**
  * Inicia fluxo OAuth Discord
  * Requer usuário logado via Google E perfil GM criado
@@ -70,7 +89,7 @@ router.get('/discord/callback', async (req: Request, res: Response) => {
       throw new Error('Erro ao obter token Discord');
     }
     
-    const tokenData = await tokenResponse.json();
+    const tokenData = await tokenResponse.json() as DiscordTokenResponse;
     const accessToken = tokenData.access_token;
     
     // 2. Buscar dados do usuário Discord
@@ -85,7 +104,7 @@ router.get('/discord/callback', async (req: Request, res: Response) => {
       throw new Error('Erro ao buscar dados do usuário Discord');
     }
     
-    const discordUser = await userResponse.json();
+    const discordUser = await userResponse.json() as DiscordUser;
     
     // 3. Buscar servidores do usuário
     const guildsResponse = await fetch('https://discord.com/api/users/@me/guilds', {
@@ -99,11 +118,12 @@ router.get('/discord/callback', async (req: Request, res: Response) => {
       throw new Error('Erro ao buscar servidores Discord');
     }
     
-    const guilds = await guildsResponse.json();
-    
+    const guildsRaw: unknown = await guildsResponse.json();
+    const guilds: DiscordGuild[] = Array.isArray(guildsRaw) ? guildsRaw as DiscordGuild[] : [];
+
     // 4. Verificar se está no servidor Covil
     const isInCovil = guilds.some(
-      (guild: any) => guild.id === process.env.DISCORD_GUILD_ID
+      (guild) => guild.id === process.env.DISCORD_GUILD_ID
     );
     
     console.log('[Discord OAuth] Usuário:', discordUser.username, 'Covil:', isInCovil);
@@ -128,10 +148,11 @@ router.get('/discord/callback', async (req: Request, res: Response) => {
     // 6. Redirecionar de volta
     res.redirect('/perfil?discord=connected');
     
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Discord OAuth] Erro:', error);
     // CORREÇÃO P03: Diferenciar entre erro de rede e OAuth
-    const reason = error.message?.includes('fetch') ? 'network_error' : 'oauth_failed';
+    const message = error instanceof Error ? error.message : '';
+    const reason = message.includes('fetch') ? 'network_error' : 'oauth_failed';
     res.redirect(`/perfil?discord=error&reason=${reason}`);
   }
 });
@@ -160,7 +181,7 @@ router.delete('/discord/disconnect', authMiddleware, async (req: Request, res: R
       .execute();
     
     res.json({ success: true, message: 'Discord desconectado com sucesso' });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Discord] Erro ao desconectar:', error);
     res.status(500).json({ error: 'Erro ao desconectar Discord' });
   }
@@ -198,7 +219,7 @@ router.post('/discord/verify-covil', authMiddleware, async (req: Request, res: R
       reconnect_required: true 
     });
     
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Discord] Erro ao verificar Covil:', error);
     res.status(500).json({ error: 'Erro ao verificar status Covil' });
   }

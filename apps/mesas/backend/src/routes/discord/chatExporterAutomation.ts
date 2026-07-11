@@ -30,7 +30,7 @@ const globalAuthTypeSchema = z.enum(['user', 'bot']);
 const uuidParamSchema = z.object({ id: z.uuid() });
 const timeZoneSchema = z.string().trim().min(1).refine((value) => {
   try {
-    // eslint-disable-next-line no-new -- só valida se o IANA timezone existe.
+     
     new Intl.DateTimeFormat('en-US', { timeZone: value });
     return true;
   } catch {

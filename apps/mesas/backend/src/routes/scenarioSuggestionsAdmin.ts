@@ -1,8 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { Transaction } from 'kysely';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { db } from '../db';
-import { Database } from '../db/types';
 import { logActivity } from '../services/activityLogger';
 import { resolveActorName } from '../services/actorNameResolver';
 import { listAdminHandler, rejectHandler } from './suggestionHelpers';
@@ -70,8 +68,6 @@ router.patch('/scenario-suggestions/:id/approve', async (req: Request, res: Resp
 
       // 4. Copiar aliases para scenario_aliases (se existirem)
       if (suggestion.aliases && suggestion.aliases.length > 0) {
-        const slugify = (str: string) => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        
         for (const alias of suggestion.aliases) {
           await trx
             .insertInto('scenario_aliases')
@@ -138,16 +134,18 @@ router.patch('/scenario-suggestions/:id/approve', async (req: Request, res: Resp
     });
 
     return res.json({ success: true, data: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PATCH /admin/scenario-suggestions/:id/approve]', error);
-    
-    if (error.message === 'NOT_FOUND_OR_REVIEWED') {
+
+    const message = error instanceof Error ? error.message : undefined;
+
+    if (message === 'NOT_FOUND_OR_REVIEWED') {
       return res.status(404).json({ error: 'Sugestão não encontrada ou já foi revisada.' });
     }
-    if (error.message === 'SLUG_CONFLICT') {
+    if (message === 'SLUG_CONFLICT') {
       return res.status(409).json({ error: 'Já existe um cenário com este nome.' });
     }
-    
+
     return res.status(500).json({ error: 'Erro ao aprovar sugestão.' });
   }
 });

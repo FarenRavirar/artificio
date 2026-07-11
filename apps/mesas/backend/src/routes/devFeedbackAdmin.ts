@@ -97,7 +97,7 @@ router.get('/dev-feedback', async (req: Request, res: Response) => {
     }));
 
     return res.json({ data });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[GET /admin/dev-feedback]', error);
     return res.status(500).json({ error: 'Erro ao listar feedbacks.' });
   }
@@ -170,7 +170,7 @@ router.patch('/dev-feedback/:id', async (req: Request, res: Response) => {
     });
 
     return res.json({ data: updated });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[PATCH /admin/dev-feedback/:id]', error);
     return res.status(500).json({ error: 'Erro ao atualizar feedback.' });
   }
@@ -218,7 +218,7 @@ router.delete('/dev-feedback/:id', async (req: Request, res: Response) => {
     });
 
     return res.json({ data: { id } });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[DELETE /admin/dev-feedback/:id]', error);
     return res.status(500).json({ error: 'Erro ao excluir feedback.' });
   }
@@ -326,7 +326,7 @@ router.post('/dev-feedback/merge', async (req: Request, res: Response) => {
     });
 
     return res.json({ data: { primary_id: primaryId, merged_count: result.merged_count } });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /admin/dev-feedback/merge]', error);
     return res.status(500).json({ error: 'Erro ao mesclar feedbacks.' });
   }

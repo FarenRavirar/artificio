@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node dist/server.js",
     "build": "tsc",
+    "lint": "eslint .",
     "dev": "nodemon src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -40,6 +41,7 @@
   "license": "ISC",
   "dependencies": {
     "@artificio/auth": "workspace:*",
+    "@artificio/catalog-client": "workspace:*",
     "@artificio/changelog": "workspace:*",
     "@artificio/config": "workspace:*",
     "@artificio/feedback": "workspace:*",

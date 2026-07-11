@@ -17,7 +17,7 @@ router.get('/links', authMiddleware, async (req, res) => {
       success: true,
       data: links,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching user links:', error);
     res.status(500).json({
       success: false,
@@ -48,23 +48,25 @@ router.post('/links', authMiddleware, async (req, res) => {
       success: true,
       data: link,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating user link:', error);
-    
-    if (error.message === 'URL inválida') {
+
+    const message = error instanceof Error ? error.message : undefined;
+
+    if (message === 'URL inválida') {
       return res.status(400).json({
         success: false,
-        error: error.message,
+        error: message,
       });
     }
-    
-    if (error.message === 'Limite de 10 links atingido') {
+
+    if (message === 'Limite de 10 links atingido') {
       return res.status(400).json({
         success: false,
-        error: error.message,
+        error: message,
       });
     }
-    
+
     res.status(500).json({
       success: false,
       error: 'Erro ao criar link',
@@ -87,16 +89,18 @@ router.delete('/links/:id', authMiddleware, async (req, res) => {
       success: true,
       message: 'Link removido com sucesso',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting user link:', error);
-    
-    if (error.message === 'Link não encontrado') {
+
+    const message = error instanceof Error ? error.message : undefined;
+
+    if (message === 'Link não encontrado') {
       return res.status(404).json({
         success: false,
-        error: error.message,
+        error: message,
       });
     }
-    
+
     res.status(500).json({
       success: false,
       error: 'Erro ao remover link',
@@ -126,7 +130,7 @@ router.patch('/links/reorder', authMiddleware, async (req, res) => {
       success: true,
       message: 'Ordem atualizada com sucesso',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error reordering links:', error);
     res.status(500).json({
       success: false,

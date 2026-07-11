@@ -31,19 +31,19 @@ function makeSession(over: Partial<Session['user']> = {}): Session {
 
 type Handler = {
   match: (text: string) => boolean;
-  result: (text: string, params: any[]) => QueryResult;
+  result: (text: string, params: unknown[]) => QueryResult;
 };
 
-function makeExecutor(handlers: Handler[]): QueryExecutor & { calls: Array<{ text: string; params: any[] }> } {
-  const calls: Array<{ text: string; params: any[] }> = [];
-  const query = async (text: string, params: any[] = []): Promise<QueryResult> => {
+function makeExecutor(handlers: Handler[]): QueryExecutor & { calls: Array<{ text: string; params: unknown[] }> } {
+  const calls: Array<{ text: string; params: unknown[] }> = [];
+  const query = async (text: string, params: unknown[] = []): Promise<QueryResult> => {
     calls.push({ text, params });
     for (const h of handlers) {
       if (h.match(text)) return h.result(text, params);
     }
     return { rows: [], rowCount: 0 };
   };
-  return { query, calls } as any;
+  return { query, calls };
 }
 
 const isSelectBySso = (t: string) => /^\s*SELECT/i.test(t) && /WHERE sso_user_id = \$1/.test(t);
@@ -107,7 +107,7 @@ describe('resolveLocalUser', () => {
       {
         match: isSelectByEmail,
         result: (_t, p) => {
-          seenEmailParam = p[0];
+          seenEmailParam = typeof p[0] === 'string' ? p[0] : undefined;
           return { rows: [{ id: 'u-ci', email: 'USER@example.com', username: 'ci', full_name: 'CI', role: 'member', sso_user_id: null }] };
         },
       },

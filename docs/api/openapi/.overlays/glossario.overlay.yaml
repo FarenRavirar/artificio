@@ -1,0 +1,41 @@
+# Overlay manual — curadoria de respostas não inferidas pelo gerador (DEB-055-12)
+# merge-openapi.ts mescla este arquivo ao glossario.openapi.yaml gerado, por
+# path+método (overlay tem precedência sobre a operação nativa).
+#
+# Achado CodeRabbit (PR #145): o gerador (scripts/api/generate-openapi.ts)
+# aplica uma lista fixa de status codes (200/400/401/403/500) igual pra toda
+# rota, sem inspecionar o handler real — não detecta o 503 que
+# apps/glossario/backend/src/controllers/systemController.ts:catalogHealth
+# retorna quando o catálogo central (site) está indisponível.
+
+  /api/systems/health:
+    get:
+      operationId: getapi_systems_health
+      summary: "Consulta api systems health"
+      x-artificio-owner: glossario
+      x-artificio-scope: internal
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "503":
+          description: Catálogo central indisponível
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: "Catálogo central indisponível."
+        "500":
+          description: Erro interno

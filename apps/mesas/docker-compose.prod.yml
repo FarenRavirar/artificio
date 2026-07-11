@@ -79,6 +79,12 @@ services:
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
+      # Catalogo canonico de sistemas (spec 062): mesas consome catalogo central
+      # do site via rede Docker interna (isolamento, decisao do mantenedor 2026-07-10).
+      # Achado Codex (PR #145): faltava esta wiring no compose PROD (so tinha em beta),
+      # causando CATALOG_API_URL ausente em GET /api/v1/systems apos deploy prod.
+      - CATALOG_API_URL=${CATALOG_API_URL:-http://site-prod-app:4322}
+      - CATALOG_INTERNAL_TOKEN=${CATALOG_INTERNAL_TOKEN:?CATALOG_INTERNAL_TOKEN is required}
       # Auto-archive de mesas (PROD-only, D-MESAS1): endpoint protegido por
       # x-cron-secret == MESAS_CRON_SECRET, chamado pelo workflow mesas-auto-archive.yml.
       # Sem esta var o backend responde 503 no /admin/tables/auto-archive (arquivar

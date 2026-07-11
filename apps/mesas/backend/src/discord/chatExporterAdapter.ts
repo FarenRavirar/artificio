@@ -13,7 +13,7 @@ export class DiscordChatExporterValidationError extends Error {
 export function parseDiscordChatExporterJson(raw: unknown): DiscordChatExporterExport {
   const parsed = discordChatExporterExportSchema.safeParse(raw);
   if (!parsed.success) {
-    if (raw && typeof raw === 'object' && !('messages' in (raw as any))) {
+    if (raw && typeof raw === 'object' && !('messages' in raw)) {
       throw new DiscordChatExporterValidationError(
         'JSON inválido: o arquivo não parece ser um export do DiscordChatExporter (campo "messages" ausente).'
       );

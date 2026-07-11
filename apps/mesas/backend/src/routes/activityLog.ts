@@ -282,7 +282,7 @@ router.get('/activity', async (req: Request, res: Response) => {
         available_actions: availableActionsRows.map((row) => row.action),
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[GET /admin/activity]', error);
     return res.status(500).json({ error: 'Erro ao buscar atividades administrativas.' });
   }

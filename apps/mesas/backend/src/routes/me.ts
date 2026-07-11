@@ -112,7 +112,7 @@ router.get('/', optionalAuth, async (req: Request, res: Response) => {
         onboarding_completed: getOnboardingCompleted(normalizedPreferences),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /me]', error);
     return res.status(500).json({ error: 'Erro ao buscar dados do usuário.' });
   }
@@ -163,13 +163,13 @@ router.get('/options', authMiddleware, async (_req: Request, res: Response) => {
 
     return res.json({
       data: {
-        systems: systemsFlat.map(({ children, ...node }) => ({ ...node })),
+        systems: systemsFlat.map(({ children: _children, ...node }) => ({ ...node })),
         systems_tree: systemsTree,
         tags,
         platforms,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[GET /me/options]', error);
     return res.status(500).json({ error: 'Erro ao buscar opções de onboarding.' });
   }
@@ -276,7 +276,7 @@ router.put('/preferences', authMiddleware, async (req: Request, res: Response) =
         onboarding_completed: true,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[PUT /me/preferences]', error);
     return res.status(500).json({ error: 'Erro ao salvar preferências.' });
   }

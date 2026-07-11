@@ -4,6 +4,7 @@ Formato: `AA-MM-DD_N_<modulo>_<escopo>.md`. `N` = sequencial do dia. Sessões en
 
 | Sessão | Data | Módulo | Escopo | Estado |
 |---|---|---|---|---|
+| `26-07-11_1_sistemas_062-lint-eslint-backends` | 2026-07-11 | sistemas (mesas/glossario) | Spec 062 PR #145: fixes de review + eslint novo nos 2 backends (achado ~350 erros pré-existentes) | concluída (lint+tsc+build 100% verde nos 2 backends; sem commit ainda) |
 | `26-06-03_1_infra_backup-runbook` | 2026-06-03 | infra | Backup total (Fase 0, Gate A) | concluída (Gate A ✅) |
 | `26-06-04_2_infra_fase1-recriar` | 2026-06-04 | infra | Fase 1: recriar VM limpa (sem telegram) | concluída (Fase 1 ✅) |
 | `26-06-04_3_monorepo_fase2-sso` | 2026-06-04 | monorepo | Fase 2: monorepo + SSO (accounts) | concluída (Gate B/SSO ✅; residuais em backlog) |

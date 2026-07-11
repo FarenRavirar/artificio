@@ -61,7 +61,7 @@ router.post('/parse-batch', requireAdmin, async (req: Request, res: Response) =>
     return res.json({ data: { processed: messages.length, succeeded, discarded, ignored, failed } });
     // T-G6: parse-batch NÃO registra recordImportRun — processa mensagens existentes,
     // não é uma importação nova. A rodada original já foi registrada em import.ts.
-  } catch (error: any) {
+  } catch (error) {
     console.error('[POST /messages/parse-batch]', error);
     return res.status(500).json({ error: 'Erro ao processar mensagens em lote.' });
   }
