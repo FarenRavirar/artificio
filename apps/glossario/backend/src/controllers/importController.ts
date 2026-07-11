@@ -457,16 +457,22 @@ type ApplyRowContext = {
 
 type SanitizedImportRow = ReturnType<typeof sanitizeTermFields>;
 
-async function insertNewImportRow(
-  client: PoolClient,
-  row: SanitizedImportRow,
-  nucleus: ImportNucleus,
-  insertStatus: string,
-  systemId: string | null,
-  categoryId: string | null,
-  userId: string,
-  action: 'insert' | 'duplicate',
-): Promise<ImportResult> {
+// Achado Sonar (PR #145): funcao tinha 8 parametros posicionais (max 7).
+// Agrupados em objeto unico — mesma ordem de valores/logica, so muda a forma
+// de passagem.
+type InsertNewImportRowParams = {
+  client: PoolClient;
+  row: SanitizedImportRow;
+  nucleus: ImportNucleus;
+  insertStatus: string;
+  systemId: string | null;
+  categoryId: string | null;
+  userId: string;
+  action: 'insert' | 'duplicate';
+};
+
+async function insertNewImportRow(params: InsertNewImportRowParams): Promise<ImportResult> {
+  const { client, row, nucleus, insertStatus, systemId, categoryId, userId, action } = params;
   await client.query(
     `INSERT INTO public.terms
        (name_en, name_pt, nucleus, status, source_type,
@@ -558,17 +564,20 @@ async function applyOwnUpdateImportRow(
   };
 }
 
-async function applyAdminOverrideImportRow(
-  client: PoolClient,
-  userId: string,
-  userRole: 'admin' | 'member',
-  row: SanitizedImportRow,
-  nucleus: ImportNucleus,
-  insertStatus: string,
-  categoryId: string | null,
-  found: ExistingTermRow,
-  batchId: string,
-): Promise<ImportResult> {
+type ApplyAdminOverrideImportRowParams = {
+  client: PoolClient;
+  userId: string;
+  userRole: 'admin' | 'member';
+  row: SanitizedImportRow;
+  nucleus: ImportNucleus;
+  insertStatus: string;
+  categoryId: string | null;
+  found: ExistingTermRow;
+  batchId: string;
+};
+
+async function applyAdminOverrideImportRow(params: ApplyAdminOverrideImportRowParams): Promise<ImportResult> {
+  const { client, userId, userRole, row, nucleus, insertStatus, categoryId, found, batchId } = params;
   const candidates: Record<string, unknown> = {
     name_pt: row.name_pt,
     nucleus,
@@ -658,7 +667,7 @@ async function applyImportRow(rawRow: ImportRow, ctx: ApplyRowContext): Promise<
 
   // ----- Caso A: Não existe → INSERT como pendente -----
   if (existing.rows.length === 0) {
-    return insertNewImportRow(client, row, nucleus, insertStatus, systemId, categoryId, userId, 'insert');
+    return insertNewImportRow({ client, row, nucleus, insertStatus, systemId, categoryId, userId, action: 'insert' });
   }
 
   const found = existing.rows[0] as ExistingTermRow;
@@ -670,99 +679,77 @@ async function applyImportRow(rawRow: ImportRow, ctx: ApplyRowContext): Promise<
 
   // ----- Caso C: Existe e é de outro usuário, admin faz override -----
   if (isAdmin) {
-    return applyAdminOverrideImportRow(client, userId, userRole, row, nucleus, insertStatus, categoryId, found, batchId);
+    return applyAdminOverrideImportRow({ client, userId, userRole, row, nucleus, insertStatus, categoryId, found, batchId });
   }
 
   // ----- Caso C: Existe e é de outro usuário → INSERT como sugestão pendente -----
-  return insertNewImportRow(client, row, nucleus, insertStatus, systemId, categoryId, userId, 'duplicate');
+  return insertNewImportRow({ client, row, nucleus, insertStatus, systemId, categoryId, userId, action: 'duplicate' });
 }
 
-// ---------------------------------------------------------------------------
-// POST /api/terms/import
-// Body: { terms: ImportRow[] }
-// ---------------------------------------------------------------------------
+type ImportRunParams = {
+  rows: ImportRow[];
+  userId: string;
+  userRole: 'admin' | 'member';
+  isAdmin: boolean;
+  adminChosenNucleus: AdminImportNucleus;
+  insertStatus: string;
+  batchId: string;
+};
 
-export const importTerms = async (req: AuthedRequest, res: Response) => {
-  const userId = req?.user?.id;
+// Achado Sonar (PR #145): importTerms tinha complexidade cognitiva 24 (auth +
+// validacao + fluxo dry-run inteiro + fluxo apply inteiro, tudo aninhado no
+// mesmo handler). Extraidos os dois fluxos completos (dry-run/apply) em
+// funcoes proprias — mesmas queries, mesma ordem, mesmos valores; importTerms
+// fica so com auth/validacao de entrada e dispatch pro fluxo certo.
+async function runDryRunImport(
+  res: Response,
+  { rows, userId, isAdmin, adminChosenNucleus }: ImportRunParams,
+) {
+  let client: PoolClient | undefined;
 
-  if (!userId || typeof userId !== 'string') {
-    return res.status(401).json({ message: 'Usuário não autenticado.' });
-  }
-
-  let userRole: 'admin' | 'member';
   try {
-    const roleFromDb = await fetchUserRoleFromDb(userId);
-    if (!roleFromDb) {
-      return res.status(401).json({ message: 'Usuário não encontrado.' });
-    }
-    userRole = roleFromDb;
+    client = await db.pool.connect();
   } catch (err) {
-    console.error('[importTerms] Erro ao revalidar role no banco:', err);
+    console.error('Erro ao conectar ao pool de banco (dry_run):', err);
     return res.status(503).json({ message: 'Serviço temporariamente indisponível. Tente novamente em instantes.' });
   }
 
-  const isAdmin = userRole === 'admin';
-  const batchId = randomUUID();
+  try {
+    const previewResults: ImportResult[] = [];
+    const caches: DryRunCaches = {
+      systemCache: new Map<string, string | null>(),
+      categoryCache: new Map<string, string | null>(),
+      existingCache: new Map<string, ExistingTermRow | null>(),
+    };
 
-  const rows: ImportRow[] = req.body?.terms;
-  const dryRun: boolean   = req.body?.dry_run === true;
-  const adminChosenNucleus: AdminImportNucleus = parseAdminImportNucleus(req.body?.import_nucleus);
-  const insertStatus = isAdmin ? 'verificado' : 'pendente';
-
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return res.status(400).json({ message: 'Nenhum termo enviado para importação.' });
-  }
-
-  if (rows.length > 2000) {
-    return res.status(400).json({ message: 'Máximo de 2000 termos por importação.' });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Modo dry_run: classifica cada termo SEM gravar no banco
-  // ---------------------------------------------------------------------------
-  if (dryRun) {
-    let client: PoolClient | undefined;
-
-    try {
-      client = await db.pool.connect();
-    } catch (err) {
-      console.error('Erro ao conectar ao pool de banco (dry_run):', err);
-      return res.status(503).json({ message: 'Serviço temporariamente indisponível. Tente novamente em instantes.' });
+    for (const rawRow of rows) {
+      const previewResult = await previewImportRow(rawRow, client, caches, userId, isAdmin, adminChosenNucleus);
+      if (previewResult) previewResults.push(previewResult);
     }
 
-    try {
-      const previewResults: ImportResult[] = [];
-      const caches: DryRunCaches = {
-        systemCache: new Map<string, string | null>(),
-        categoryCache: new Map<string, string | null>(),
-        existingCache: new Map<string, ExistingTermRow | null>(),
-      };
+    const summary = {
+      total:      previewResults.length,
+      inserted:   previewResults.filter(r => r.action === 'insert').length,
+      updated:    previewResults.filter(r => r.action === 'update_own').length,
+      overrides:  previewResults.filter(r => r.action === 'override').length,
+      duplicates: previewResults.filter(r => r.action === 'duplicate').length,
+    };
 
-      for (const rawRow of rows) {
-        const previewResult = await previewImportRow(rawRow, client, caches, userId, isAdmin, adminChosenNucleus);
-        if (previewResult) previewResults.push(previewResult);
-      }
-
-      const summary = {
-        total:      previewResults.length,
-        inserted:   previewResults.filter(r => r.action === 'insert').length,
-        updated:    previewResults.filter(r => r.action === 'update_own').length,
-        overrides:  previewResults.filter(r => r.action === 'override').length,
-        duplicates: previewResults.filter(r => r.action === 'duplicate').length,
-      };
-
-      return res.status(200).json({ summary, results: previewResults, dry_run: true });
-    } catch (err) {
-      console.error('Erro na pré-visualização da importação:', err);
-      return res.status(500).json({ message: 'Erro ao gerar pré-visualização da importação.' });
-    } finally {
-      client?.release();
-    }
+    return res.status(200).json({ summary, results: previewResults, dry_run: true });
+  } catch (err) {
+    console.error('Erro na pré-visualização da importação:', err);
+    return res.status(500).json({ message: 'Erro ao gerar pré-visualização da importação.' });
+  } finally {
+    client?.release();
   }
+}
 
+async function runApplyImport(
+  res: Response,
+  { rows, userId, userRole, isAdmin, adminChosenNucleus, insertStatus, batchId }: ImportRunParams,
+) {
   const results: ImportResult[] = [];
 
-  // Processar cada termo dentro de uma transaction única
   let client: PoolClient | undefined;
 
   try {
@@ -809,4 +796,53 @@ export const importTerms = async (req: AuthedRequest, res: Response) => {
   } finally {
     if (client) client.release();
   }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/terms/import
+// Body: { terms: ImportRow[] }
+// ---------------------------------------------------------------------------
+
+export const importTerms = async (req: AuthedRequest, res: Response) => {
+  const userId = req?.user?.id;
+
+  if (!userId || typeof userId !== 'string') {
+    return res.status(401).json({ message: 'Usuário não autenticado.' });
+  }
+
+  let userRole: 'admin' | 'member';
+  try {
+    const roleFromDb = await fetchUserRoleFromDb(userId);
+    if (!roleFromDb) {
+      return res.status(401).json({ message: 'Usuário não encontrado.' });
+    }
+    userRole = roleFromDb;
+  } catch (err) {
+    console.error('[importTerms] Erro ao revalidar role no banco:', err);
+    return res.status(503).json({ message: 'Serviço temporariamente indisponível. Tente novamente em instantes.' });
+  }
+
+  const isAdmin = userRole === 'admin';
+  const batchId = randomUUID();
+
+  const rows: ImportRow[] = req.body?.terms;
+  const dryRun: boolean   = req.body?.dry_run === true;
+  const adminChosenNucleus: AdminImportNucleus = parseAdminImportNucleus(req.body?.import_nucleus);
+  const insertStatus = isAdmin ? 'verificado' : 'pendente';
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return res.status(400).json({ message: 'Nenhum termo enviado para importação.' });
+  }
+
+  if (rows.length > 2000) {
+    return res.status(400).json({ message: 'Máximo de 2000 termos por importação.' });
+  }
+
+  const runParams: ImportRunParams = { rows, userId, userRole, isAdmin, adminChosenNucleus, insertStatus, batchId };
+
+  if (dryRun) {
+    return runDryRunImport(res, runParams);
+  }
+
+  return runApplyImport(res, runParams);
 };
