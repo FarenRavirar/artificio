@@ -26,19 +26,35 @@ interface MappingReport {
 
 // Achado CodeRabbit (PR #145): as LegacySystem[]/as LegacyEdition[] confiava
 // cegamente no shape do banco antes de uma migracao com escrita real. Valida
-// campos minimos (id/name/system_id string) antes de usar as linhas.
+// campos minimos (id/name/system_id string) e FALHA a migracao inteira (nao
+// filtra silenciosamente) se achar linha invalida, para nao concluir com
+// referencias legadas sem mapeamento que nao apareceriam em `unresolved`.
 function parseLegacySystems(rows: unknown): LegacySystem[] {
-  if (!Array.isArray(rows)) return [];
-  return rows.filter((row): row is LegacySystem =>
-    typeof row?.id === 'string' && typeof row?.name === 'string' && row.name.trim().length > 0);
+  if (!Array.isArray(rows)) {
+    throw new Error('parseLegacySystems: resultado da query não é um array.');
+  }
+  return rows.map((row, index) => {
+    if (typeof row?.id !== 'string' || typeof row?.name !== 'string' || row.name.trim().length === 0) {
+      throw new Error(`parseLegacySystems: linha inválida no índice ${index}: ${JSON.stringify(row)}`);
+    }
+    return row as LegacySystem;
+  });
 }
 
 function parseLegacyEditions(rows: unknown): LegacyEdition[] {
-  if (!Array.isArray(rows)) return [];
-  return rows.filter((row): row is LegacyEdition =>
-    typeof row?.id === 'string'
-    && typeof row?.name === 'string' && row.name.trim().length > 0
-    && typeof row?.system_id === 'string');
+  if (!Array.isArray(rows)) {
+    throw new Error('parseLegacyEditions: resultado da query não é um array.');
+  }
+  return rows.map((row, index) => {
+    if (
+      typeof row?.id !== 'string'
+      || typeof row?.name !== 'string' || row.name.trim().length === 0
+      || typeof row?.system_id !== 'string'
+    ) {
+      throw new Error(`parseLegacyEditions: linha inválida no índice ${index}: ${JSON.stringify(row)}`);
+    }
+    return row as LegacyEdition;
+  });
 }
 
 type SystemMapping = MappingReport['systems'][number];

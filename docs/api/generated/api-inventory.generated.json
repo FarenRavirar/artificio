@@ -1824,7 +1824,7 @@
       "method": "GET",
       "path": "/api/v1/admin/setting-suggestions",
       "sourceFile": "apps/mesas/backend/src/routes/adminSettingSuggestions.ts",
-      "line": 14,
+      "line": 23,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1833,7 +1833,7 @@
       "method": "POST",
       "path": "/api/v1/admin/setting-suggestions",
       "sourceFile": "apps/mesas/backend/src/routes/adminSettingSuggestions.ts",
-      "line": 33,
+      "line": 42,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1851,7 +1851,7 @@
       "method": "DELETE",
       "path": "/api/v1/admin/setting-suggestions/:id",
       "sourceFile": "apps/mesas/backend/src/routes/adminSettingSuggestions.ts",
-      "line": 154,
+      "line": 161,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1860,7 +1860,7 @@
       "method": "PUT",
       "path": "/api/v1/admin/setting-suggestions/:id",
       "sourceFile": "apps/mesas/backend/src/routes/adminSettingSuggestions.ts",
-      "line": 90,
+      "line": 98,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2193,7 +2193,7 @@
       "method": "GET",
       "path": "/api/v1/gm/insights",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1360,
+      "line": 1369,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2229,7 +2229,7 @@
       "method": "GET",
       "path": "/api/v1/gm/tables",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 819,
+      "line": 828,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2247,7 +2247,7 @@
       "method": "DELETE",
       "path": "/api/v1/gm/tables/:id",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1152,
+      "line": 1161,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2274,7 +2274,7 @@
       "method": "PATCH",
       "path": "/api/v1/gm/tables/:id/archive",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1093,
+      "line": 1102,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2283,7 +2283,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables/:id/click",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1251,
+      "line": 1260,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2292,7 +2292,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables/:id/contact",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1287,
+      "line": 1296,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2301,7 +2301,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables/:id/favorite",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1323,
+      "line": 1332,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2310,7 +2310,7 @@
       "method": "PATCH",
       "path": "/api/v1/gm/tables/:id/status",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 966,
+      "line": 975,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2319,7 +2319,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables/:slug/view",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1209,
+      "line": 1218,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2490,7 +2490,7 @@
       "method": "DELETE",
       "path": "/api/v1/profile/me/connect/discord",
       "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
-      "line": 343,
+      "line": 342,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2499,7 +2499,7 @@
       "method": "POST",
       "path": "/api/v1/profile/me/connect/discord",
       "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
-      "line": 317,
+      "line": 316,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2508,7 +2508,7 @@
       "method": "GET",
       "path": "/api/v1/profile/me/discord",
       "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
-      "line": 297,
+      "line": 296,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2526,7 +2526,7 @@
       "method": "POST",
       "path": "/api/v1/profile/me/google-picture",
       "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
-      "line": 363,
+      "line": 362,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2571,7 +2571,7 @@
       "method": "DELETE",
       "path": "/api/v1/profile/systems/:id",
       "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
-      "line": 275,
+      "line": 274,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2931,7 +2931,7 @@
       "method": "DELETE",
       "path": "/auth/discord/disconnect",
       "sourceFile": "apps/mesas/backend/src/routes/discord.ts",
-      "line": 163,
+      "line": 164,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2940,7 +2940,7 @@
       "method": "POST",
       "path": "/auth/discord/verify-covil",
       "sourceFile": "apps/mesas/backend/src/routes/discord.ts",
-      "line": 193,
+      "line": 194,
       "confidence": "high",
       "kind": "express-route"
     },

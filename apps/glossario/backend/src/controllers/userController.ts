@@ -31,10 +31,15 @@ export const toggleBan = async (req: Request, res: Response) => {
 export const updateProfile = async (req: AuthedRequest, res: Response) => {
   const { full_name } = req.body;
 
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ message: 'Usuário não autenticado.' });
+  }
+
   try {
     const result = await db.query(
       'UPDATE users SET full_name = $1 WHERE id = $2 RETURNING id, full_name, username, email, role',
-      [full_name, req.user?.id]
+      [full_name, userId]
     );
     res.json(result.rows[0]);
   } catch (err) {

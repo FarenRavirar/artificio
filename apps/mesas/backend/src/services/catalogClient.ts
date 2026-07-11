@@ -131,18 +131,31 @@ export const slugifyCatalogSegment = (value: string): string => {
   return collapsed.slice(start, end).slice(0, 80);
 };
 
+// Achado durante revisao PR #145: rotas publicas criticas (GET /tables, filtro
+// ?system= e busca por nome) dependiam hard deste fetch. Catalogo indisponivel
+// e cache expirado derrubava a rota inteira com 500. Se o fetch falhar e ainda
+// houver cache expirado, serve o cache velho (stale) em vez de propagar erro;
+// sem nenhum cache disponivel, retorna arvore vazia (degradacao graciosa).
 export async function loadCatalogTree(forceRefresh = false): Promise<MesasSystemNode[]> {
   const now = Date.now();
   if (!forceRefresh && treeCache && treeCache.expiresAt > now) {
     return treeCache.data;
   }
 
-  const rawSnapshot = await catalogFetch<unknown>('/api/catalog/v1/systems');
-  const snapshot = catalogSnapshotSchema.parse(rawSnapshot);
-  const tableCounts = await loadLocalTableCounts();
-  const tree = snapshot.tree.map((node) => toMesasNode(node, 0, tableCounts));
-  treeCache = { data: tree, expiresAt: now + CATALOG_CACHE_TTL_MS };
-  return tree;
+  try {
+    const rawSnapshot = await catalogFetch<unknown>('/api/catalog/v1/systems');
+    const snapshot = catalogSnapshotSchema.parse(rawSnapshot);
+    const tableCounts = await loadLocalTableCounts();
+    const tree = snapshot.tree.map((node) => toMesasNode(node, 0, tableCounts));
+    treeCache = { data: tree, expiresAt: now + CATALOG_CACHE_TTL_MS };
+    return tree;
+  } catch (error) {
+    console.error('[loadCatalogTree] Catálogo indisponível:', error);
+    if (treeCache) {
+      return treeCache.data;
+    }
+    return [];
+  }
 }
 
 export async function loadCatalogFlat(forceRefresh = false): Promise<MesasSystemNode[]> {
@@ -225,8 +238,19 @@ export function flattenTree(nodes: MesasSystemNode[]): MesasSystemNode[] {
 // substituem esse join local: resolveSystemIdBySlug para o filtro de entrada,
 // hydrateTableSystemFields para preencher os campos de saida a partir do
 // catalogo central (cache de 60s via loadCatalogFlat).
+// Achado durante revisao PR #145: mesmo risco do fallback de
+// hydrateTableSystemFields — sem try/catch, catalogo indisponivel derrubava
+// toda a rota GET /tables (filtro ?system=slug) com 500 em vez de so ignorar
+// o filtro de sistema.
 export async function resolveSystemIdBySlug(slug: string): Promise<string | null> {
-  const node = (await loadCatalogFlat()).find((n) => n.slug === slug || n.path_slug === slug);
+  let flat: Awaited<ReturnType<typeof loadCatalogFlat>>;
+  try {
+    flat = await loadCatalogFlat();
+  } catch (error) {
+    console.error('[resolveSystemIdBySlug] Catálogo indisponível:', error);
+    return null;
+  }
+  const node = flat.find((n) => n.slug === slug || n.path_slug === slug);
   return node?.id ?? null;
 }
 
@@ -238,10 +262,29 @@ export type TableSystemFields = {
   system_website_url: string | null;
 };
 
+const EMPTY_SYSTEM_FIELDS: TableSystemFields = {
+  system_name: null,
+  system_slug: null,
+  system_path: null,
+  system_logo_filename: null,
+  system_website_url: null,
+};
+
+// Achado CodeRabbit (PR #145): rotas criticas (GET /gm/tables, /gm/insights,
+// /tables) dependiam hard do catalogo central via este helper. Se o catalogo
+// cair e o cache de loadCatalogFlat expirar, a hidratacao lancava e a rota
+// inteira respondia 500 mesmo com os dados da mesa ja lidos do banco local.
+// Fallback gracioso: retorna campos de sistema null em vez de propagar erro.
 export async function hydrateTableSystemFields<T extends { system_id: string | null }>(
   rows: T[],
 ): Promise<Array<T & TableSystemFields>> {
-  const flat = await loadCatalogFlat();
+  let flat: Awaited<ReturnType<typeof loadCatalogFlat>>;
+  try {
+    flat = await loadCatalogFlat();
+  } catch (error) {
+    console.error('[hydrateTableSystemFields] Catálogo indisponível, retornando sem campos de sistema:', error);
+    return rows.map((row) => ({ ...row, ...EMPTY_SYSTEM_FIELDS }));
+  }
   const byId = new Map(flat.map((node) => [node.id, node]));
   return rows.map((row) => {
     const node = row.system_id ? byId.get(row.system_id) : undefined;

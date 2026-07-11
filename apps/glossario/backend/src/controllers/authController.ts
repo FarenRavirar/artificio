@@ -17,9 +17,12 @@ export const gone = (_req: unknown, res: Response) => {
 
 export const getMe = async (req: AuthedRequest, res: Response) => {
   try {
+    if (!req.user?.id) {
+      return res.status(401).json({ message: 'Não autenticado.' });
+    }
     const result = await db.query(
       'SELECT id, full_name, email, role FROM users WHERE id = $1',
-      [req.user?.id]
+      [req.user.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Usuário não encontrado.' });

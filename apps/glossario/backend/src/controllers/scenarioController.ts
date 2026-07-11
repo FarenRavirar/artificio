@@ -4,13 +4,43 @@ import { slugify } from '../utils/slugify';
 import { getCatalogNameMap } from '../services/catalogClient';
 import type { AuthedRequest } from '../types/express';
 
+interface ScenarioRow {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  system_id: string | null;
+  status: string;
+  suggested_by: string | null;
+}
+
+function normalizeScenarioRow(row: unknown): ScenarioRow | null {
+  if (typeof row !== 'object' || row === null) return null;
+  const r = row as Record<string, unknown>;
+  if (typeof r.id !== 'string' || typeof r.name !== 'string' || typeof r.slug !== 'string' || typeof r.status !== 'string') {
+    return null;
+  }
+  return {
+    id: r.id,
+    name: r.name,
+    slug: r.slug,
+    description: typeof r.description === 'string' ? r.description : null,
+    system_id: typeof r.system_id === 'string' ? r.system_id : null,
+    status: r.status,
+    suggested_by: typeof r.suggested_by === 'string' ? r.suggested_by : null,
+  };
+}
+
 export const listScenarios = async (req: AuthedRequest, res: Response) => {
   try {
     const isAdmin = req.user?.role === 'admin';
     const where = isAdmin ? '' : "WHERE sc.status = 'aprovado'";
     const result = await db.query(`SELECT sc.* FROM scenarios sc ${where} ORDER BY sc.name`);
     const names = await getCatalogNameMap();
-    res.json(result.rows.map((row) => ({
+    const scenarios = result.rows
+      .map(normalizeScenarioRow)
+      .filter((row): row is ScenarioRow => row !== null);
+    res.json(scenarios.map((row) => ({
       ...row,
       system_name: row.system_id ? names.get(row.system_id) ?? null : null,
     })));

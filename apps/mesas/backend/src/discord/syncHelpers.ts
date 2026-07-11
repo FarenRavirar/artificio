@@ -101,14 +101,14 @@ const draftTableSchema = z.object({
   _slots_ambiguity: z.unknown(),
   _homebrew_suspect: z.unknown(),
   _notes: z.unknown(),
-}).partial().passthrough();
+}).partial().loose();
 
 const importTableDraftSchema = z.object({
   source: z.record(z.string(), z.unknown()),
   table: draftTableSchema,
   confidence: z.number(),
   missing_fields: z.array(z.string()),
-}).partial().passthrough();
+}).partial().loose();
 
 export function normalizeImportTableDraft(raw: unknown): ImportTableDraft {
   if (raw === null || raw === undefined) {
@@ -631,7 +631,7 @@ export async function syncDraftToTable(
     await trx
       .updateTable(config.messageTable)
       .set({ status: 'synced', updated_at: new Date() } as never)
-      .where(sql.ref('id'), '=', messageRow.id as string)
+      .where(sql.ref('id'), '=', String(messageRow.id))
       .execute();
 
     // Codex P2 (T-G7): fecha o outcome real da decisão shadow (no-op p/ inbox, sem linha shadow).

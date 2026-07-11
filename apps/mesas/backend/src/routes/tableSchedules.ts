@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { authMiddleware } from '../middleware/auth';
+import { publicRateLimiter } from '../middleware/rateLimit';
 import { db } from '../db';
 import type { NewTableSchedule, TableScheduleUpdate } from '../db/types';
 
@@ -10,7 +11,7 @@ const router = Router();
  * Listar todos os horários de uma mesa
  * Público (não requer autenticação)
  */
-router.get('/:tableId/schedules', async (req, res) => {
+router.get('/:tableId/schedules', publicRateLimiter, async (req, res) => {
   try {
     const { tableId } = req.params;
     
@@ -35,7 +36,7 @@ router.get('/:tableId/schedules', async (req, res) => {
  * Criar novo horário para uma mesa
  * Requer autenticação: gm (owner) ou admin
  */
-router.post('/:tableId/schedules', authMiddleware, async (req: Request, res: Response) => {
+router.post('/:tableId/schedules', publicRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   try {
     const { tableId } = req.params;
     const userId = req.user?.userId;
@@ -127,7 +128,7 @@ router.post('/:tableId/schedules', authMiddleware, async (req: Request, res: Res
  * Atualizar horário existente
  * Requer autenticação: gm (owner) ou admin
  */
-router.put('/:tableId/schedules/:id', authMiddleware, async (req: Request, res: Response) => {
+router.put('/:tableId/schedules/:id', publicRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   try {
     const { tableId, id } = req.params;
     const userId = req.user?.userId;
@@ -223,7 +224,7 @@ router.put('/:tableId/schedules/:id', authMiddleware, async (req: Request, res: 
  * Deletar horário
  * Requer autenticação: gm (owner) ou admin
  */
-router.delete('/:tableId/schedules/:id', authMiddleware, async (req: Request, res: Response) => {
+router.delete('/:tableId/schedules/:id', publicRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   try {
     const { tableId, id } = req.params;
     const userId = req.user?.userId;

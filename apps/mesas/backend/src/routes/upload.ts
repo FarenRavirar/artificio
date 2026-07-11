@@ -81,7 +81,7 @@ router.post('/upload/url', authMiddleware, async (req, res) => {
     const message = error instanceof Error ? error.message : undefined;
     console.error('[upload:url] Erro ao importar imagem:', message || error);
     res.status(400).json({
-      error: message || 'Não foi possível importar a imagem desse link.',
+      error: 'Não foi possível importar a imagem desse link.',
     });
   }
 });

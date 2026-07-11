@@ -811,6 +811,15 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       return res.status(400).json({ error: message });
     }
 
+    const code = getPgErrorCode(error);
+    if (code === '23502') {
+      return res.status(400).json({ error: `Campo obrigatório ausente: ${getPgErrorColumn(error) || 'desconhecido'}` });
+    }
+
+    if (code === '23503') {
+      return res.status(400).json({ error: 'Referência inválida nos dados enviados.' });
+    }
+
     return res.status(500).json({ error: 'Erro ao editar mesa.' });
   }
 });

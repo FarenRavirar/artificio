@@ -266,8 +266,7 @@ router.post('/systems', authMiddleware, async (req: Request, res: Response) => {
     return res.json({ data: userSystem });
   } catch (error: unknown) {
     console.error('[POST /profile/systems]', error);
-    const message = error instanceof Error ? error.message : undefined;
-    return res.status(500).json({ error: message || 'Erro ao adicionar sistema' });
+    return res.status(500).json({ error: 'Erro ao adicionar sistema' });
   }
 });
 

@@ -73,6 +73,10 @@ export const deleteComment = async (req: AuthedRequest, res: Response) => {
   const userId = req.user?.id;
   const userRole = req.user?.role;
 
+  if (!userId) {
+    return res.status(401).json({ error: 'Usuário não autenticado' });
+  }
+
   try {
     // Verificar se o comentário existe e se o usuário tem permissão
     const findResult = await db.query('SELECT user_id FROM public.term_comments WHERE id = $1', [commentId]);

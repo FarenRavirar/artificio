@@ -118,7 +118,8 @@ router.get('/discord/callback', async (req: Request, res: Response) => {
       throw new Error('Erro ao buscar servidores Discord');
     }
     
-    const guilds = await guildsResponse.json() as DiscordGuild[];
+    const guildsRaw: unknown = await guildsResponse.json();
+    const guilds: DiscordGuild[] = Array.isArray(guildsRaw) ? guildsRaw as DiscordGuild[] : [];
 
     // 4. Verificar se está no servidor Covil
     const isInCovil = guilds.some(
