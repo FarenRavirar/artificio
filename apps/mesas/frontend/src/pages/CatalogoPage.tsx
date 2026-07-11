@@ -350,38 +350,9 @@ export const CatalogoPage = () => {
       {/* FILTROS - DESKTOP */}
       <section className="hidden border-b border-white/10 bg-[#0B1220]/40 md:block">
         <div className="container mx-auto px-6 py-10">
-          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="grid gap-4">
 
-            {/* GAVETA 1 — busca + sistema (filtros primários) */}
-            <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Buscar</p>
-              <div className="grid gap-2.5 sm:grid-cols-2">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-                  <input
-                    type="text"
-                    value={filters.search}
-                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                    placeholder="Buscar mesas..."
-                    className="w-full rounded-lg border border-white/10 bg-[#0B1220] py-2.5 pl-9 pr-3 text-sm outline-none transition-colors focus:border-[var(--color-artificio-orange)]"
-                  />
-                </div>
-
-                <div className="min-w-0">
-                  <CatalogSystemFilter
-                    tree={systemsTree}
-                    loading={systemsLoading}
-                    error={systemsTreeError}
-                    selectedSystemId={selectedSystemId}
-                    idPrefix="catalog-desktop"
-                    loadingClassName="bg-[#0B1220]"
-                    onSelect={handleSystemSelect}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* GAVETA 2 — refinamento por atributo da mesa */}
+            {/* GAVETA 1 — refinamento por atributo da mesa (compacto, acima) */}
             <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4">
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Refinar</p>
               <div className="flex flex-wrap items-center gap-2">
@@ -419,8 +390,33 @@ export const CatalogoPage = () => {
               </div>
             </div>
 
+            {/* GAVETA 2 — busca + sistema (ocupa a largura toda: árvore de sistema precisa de espaço) */}
+            <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Buscar</p>
+              <div className="relative mb-3">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                <input
+                  type="text"
+                  value={filters.search}
+                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                  placeholder="Buscar mesas..."
+                  className="w-full rounded-lg border border-white/10 bg-[#0B1220] py-2.5 pl-9 pr-3 text-sm outline-none transition-colors focus:border-[var(--color-artificio-orange)]"
+                />
+              </div>
+
+              <CatalogSystemFilter
+                tree={systemsTree}
+                loading={systemsLoading}
+                error={systemsTreeError}
+                selectedSystemId={selectedSystemId}
+                idPrefix="catalog-desktop"
+                loadingClassName="bg-[#0B1220]"
+                onSelect={handleSystemSelect}
+              />
+            </div>
+
             {/* GAVETA 3 — selos (curados) e estilos (livres, com contagem) */}
-            <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4 lg:col-span-2">
+            <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4">
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Selos</span>
