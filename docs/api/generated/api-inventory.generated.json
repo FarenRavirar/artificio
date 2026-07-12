@@ -245,7 +245,7 @@
       "method": "POST",
       "path": "/api/v1/admin/sanitize-preview",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 200,
+      "line": 208,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -263,7 +263,7 @@
       "method": "GET",
       "path": "/api/v1/changelog",
       "sourceFile": "apps/downloads/backend/src/routes/changelog.ts",
-      "line": 25,
+      "line": 16,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -578,7 +578,7 @@
       "method": "POST",
       "path": "/api/v1/moderation/:id/approve",
       "sourceFile": "apps/downloads/backend/src/routes/moderation.ts",
-      "line": 123,
+      "line": 127,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -605,7 +605,7 @@
       "method": "PATCH",
       "path": "/api/v1/moderation/batch/:action",
       "sourceFile": "apps/downloads/backend/src/routes/moderation.ts",
-      "line": 188,
+      "line": 196,
       "confidence": "high",
       "kind": "express-route"
     },

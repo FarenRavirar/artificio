@@ -1,23 +1,14 @@
 import { Router, type Request, type Response } from 'express';
-import { rateLimit } from 'express-rate-limit';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { normalizeChangelogEntries, CHANGELOG_CACHE_TTL, type ChangelogEntry } from '@artificio/changelog';
+import { publicRateLimiter } from '../middleware/rateLimit';
 
 // Changelog do downloads no mesmo padrao mesas/glossario (D041): JSON estatico
 // em apps/downloads/database/changelogs.json, cache em memoria, contrato
 // { data: ChangelogEntry[] } via @artificio/changelog (compartilhado).
 
 const router = Router();
-
-// Rota publica sem sessao (achado CodeQL "Missing rate limiting", PR #151,
-// 2026-07-12) — limite generoso porque cache em memoria ja absorve rajada.
-const publicRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 let changelogsCache: ChangelogEntry[] | null = null;
 let cacheTimestamp = 0;

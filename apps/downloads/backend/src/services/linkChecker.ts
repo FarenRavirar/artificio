@@ -25,11 +25,32 @@ function isPrivateOrReservedIpv4(ip: string): boolean {
   return false;
 }
 
+// Extrai o IPv4 embutido de um endereco IPv4-mapped (::ffff:a.b.c.d ou
+// ::ffff:aabb:ccdd em hex) — sem isso, ::ffff:169.254.169.254 passava direto
+// pelos checks de IPv6 puro, um bypass classico de SSRF via IPv6.
+function extractIpv4MappedAddress(normalized: string): string | null {
+  const dotted = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(normalized);
+  if (dotted) return dotted[1];
+
+  const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(normalized);
+  if (hex) {
+    const high = parseInt(hex[1], 16);
+    const low = parseInt(hex[2], 16);
+    return [(high >> 8) & 0xff, high & 0xff, (low >> 8) & 0xff, low & 0xff].join('.');
+  }
+
+  return null;
+}
+
 function isPrivateOrReservedIpv6(ip: string): boolean {
   const normalized = ip.toLowerCase();
   if (normalized === '::1') return true; // loopback
   if (normalized.startsWith('fe80:')) return true; // link-local
   if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true; // unique local
+
+  const mappedIpv4 = extractIpv4MappedAddress(normalized);
+  if (mappedIpv4 && isPrivateOrReservedIpv4(mappedIpv4)) return true;
+
   return false;
 }
 

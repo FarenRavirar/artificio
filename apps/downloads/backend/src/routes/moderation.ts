@@ -100,12 +100,16 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
     .returningAll()
     .executeTakeFirstOrThrow();
 
-  await emitNotification({
-    userId: updated.creator_id,
-    kind: 'material_rejected',
-    materialId: updated.id,
-    body: `Seu material "${updated.title}" foi rejeitado. Motivo: ${parsed.data.reason}`,
-  });
+  try {
+    await emitNotification({
+      userId: updated.creator_id,
+      kind: 'material_rejected',
+      materialId: updated.id,
+      body: `Seu material "${updated.title}" foi rejeitado. Motivo: ${parsed.data.reason}`,
+    });
+  } catch (error) {
+    console.error('[POST /moderation/:id/reject] Falha ao emitir notificação:', error);
+  }
 
   logModerationAudit({
     action: 'reject',
@@ -157,12 +161,16 @@ router.post('/:id/approve', writeRateLimiter, authMiddleware, requireRole(['mode
     .returningAll()
     .executeTakeFirstOrThrow();
 
-  await emitNotification({
-    userId: updated.creator_id,
-    kind: 'material_approved',
-    materialId: updated.id,
-    body: `Seu material "${updated.title}" foi aprovado e publicado.`,
-  });
+  try {
+    await emitNotification({
+      userId: updated.creator_id,
+      kind: 'material_approved',
+      materialId: updated.id,
+      body: `Seu material "${updated.title}" foi aprovado e publicado.`,
+    });
+  } catch (error) {
+    console.error('[POST /moderation/:id/approve] Falha ao emitir notificação:', error);
+  }
 
   logModerationAudit({ action: 'approve', actorUserId: req.user!.userId, materialId: updated.id });
 

@@ -151,7 +151,15 @@ router.post(
   requireRole(['moderator', 'admin']),
   express.raw({ type: '*/*', limit: '20mb' }),
   async (req: Request, res: Response) => {
-    const parsedQuery = evidenceUploadQuerySchema.safeParse(req.query ?? {});
+    // Narrowing explicito antes do Zod (CodeQL js/type-confusion-through-parameter-tampering,
+    // achado #207 PR #151): Express aceita ?filename=a&filename=b como string[];
+    // .safeParse() ja rejeitava em runtime, mas o CodeQL nao reconhece Zod como
+    // sanitizador de tipo no seu data-flow — este guard e so pra fechar o alerta.
+    if (typeof req.query.filename !== 'string') {
+      return res.status(400).json({ error: 'Parâmetro "filename" é obrigatório.' });
+    }
+
+    const parsedQuery = evidenceUploadQuerySchema.safeParse(req.query);
     if (!parsedQuery.success) {
       return res.status(400).json({ error: 'Parâmetro "filename" é obrigatório.' });
     }

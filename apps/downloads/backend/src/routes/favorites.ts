@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { writeRateLimiter } from '../middleware/rateLimit';
+import { writeRateLimiter, readRateLimiter } from '../middleware/rateLimit';
 
 const router = Router();
 
@@ -11,7 +11,7 @@ const favoriteSchema = z.object({
 });
 
 // T5.1 (spec 074) — CRUD minimo de favorito, sempre por sessao.
-router.get('/', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
+router.get('/', readRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const favorites = await db
     .selectFrom('download_favorite')
     .innerJoin('download_material', 'download_material.id', 'download_favorite.material_id')

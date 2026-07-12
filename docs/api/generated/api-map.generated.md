@@ -53,9 +53,9 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | POST | `/api/v1/admin/materials/:id/evidence/upload` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 147 |
 | GET | `/api/v1/admin/materials/:id/link-history` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 43 |
 | GET | `/api/v1/admin/metrics` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 117 |
-| POST | `/api/v1/admin/sanitize-preview` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 200 |
+| POST | `/api/v1/admin/sanitize-preview` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 208 |
 | GET | `/api/v1/admin/summary` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 15 |
-| GET | `/api/v1/changelog` | ✅ high | `apps/downloads/backend/src/routes/changelog.ts` | 25 |
+| GET | `/api/v1/changelog` | ✅ high | `apps/downloads/backend/src/routes/changelog.ts` | 16 |
 | USE | `/api/v1/changelog` | ✅ high | `apps/downloads/backend/src/server.ts` | 88 |
 | GET | `/api/v1/collections` | ✅ high | `apps/downloads/backend/src/routes/collections.ts` | 20 |
 | POST | `/api/v1/collections` | ✅ high | `apps/downloads/backend/src/routes/collections.ts` | 31 |
@@ -90,10 +90,10 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/materials/:slug` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 191 |
 | GET | `/api/v1/materials/mine` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 147 |
 | USE | `/api/v1/moderation` | ✅ high | `apps/downloads/backend/src/server.ts` | 76 |
-| POST | `/api/v1/moderation/:id/approve` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 123 |
+| POST | `/api/v1/moderation/:id/approve` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 127 |
 | POST | `/api/v1/moderation/:id/reject` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 71 |
 | POST | `/api/v1/moderation/:id/submit` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 17 |
-| PATCH | `/api/v1/moderation/batch/:action` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 188 |
+| PATCH | `/api/v1/moderation/batch/:action` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 196 |
 | GET | `/api/v1/moderation/queue` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 54 |
 | GET | `/api/v1/notifications` | ✅ high | `apps/downloads/backend/src/routes/notifications.ts` | 12 |
 | USE | `/api/v1/notifications` | ✅ high | `apps/downloads/backend/src/server.ts` | 86 |
