@@ -243,14 +243,18 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
       .execute();
 
     if (action === 'approve' || action === 'reject') {
-      await emitNotification({
-        userId: material.creator_id,
-        kind: action === 'approve' ? 'material_approved' : 'material_rejected',
-        materialId: material.id,
-        body: action === 'approve'
-          ? `Seu material "${material.title}" foi aprovado e publicado.`
-          : `Seu material "${material.title}" foi rejeitado. Motivo: ${parsed.data.reason}`,
-      });
+      try {
+        await emitNotification({
+          userId: material.creator_id,
+          kind: action === 'approve' ? 'material_approved' : 'material_rejected',
+          materialId: material.id,
+          body: action === 'approve'
+            ? `Seu material "${material.title}" foi aprovado e publicado.`
+            : `Seu material "${material.title}" foi rejeitado. Motivo: ${parsed.data.reason}`,
+        });
+      } catch (error) {
+        console.error(`[PATCH /moderation/batch/${action}] Falha ao emitir notificação para material ${material.id}:`, error);
+      }
     }
 
     logModerationAudit({

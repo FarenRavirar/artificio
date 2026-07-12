@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { AppShell } from './AppShell';
 
@@ -14,7 +14,7 @@ const PAINEL_NAV = [
   { label: 'Configurações', href: '/painel/configuracoes' },
 ];
 
-function PainelNavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function PainelNavLinks({ onNavigate }: Readonly<{ onNavigate?: () => void }>) {
   return (
     <nav className="flex flex-col gap-1">
       {PAINEL_NAV.map((item) => (
@@ -38,8 +38,28 @@ function PainelNavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
 // T1.10 (spec 074) — sidebar de conta desktop + drawer mobile, substitui a
 // sidebar publica (073) dentro de /painel/*.
-export function PainelShell({ children }: { children: ReactNode }) {
+export function PainelShell({ children }: Readonly<{ children: ReactNode }>) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+
+    drawerRef.current?.focus();
+    const triggerButton = menuButtonRef.current;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setDrawerOpen(false);
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      triggerButton?.focus();
+    };
+  }, [drawerOpen]);
 
   return (
     <AppShell>
@@ -50,6 +70,7 @@ export function PainelShell({ children }: { children: ReactNode }) {
 
         <div className="md:hidden">
           <button
+            ref={menuButtonRef}
             type="button"
             onClick={() => setDrawerOpen(true)}
             className="min-h-[44px] min-w-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white"
@@ -66,7 +87,14 @@ export function PainelShell({ children }: { children: ReactNode }) {
                 className="flex-1 bg-black/60"
                 onClick={() => setDrawerOpen(false)}
               />
-              <div className="w-64 bg-[var(--color-artificio-blue)] p-4">
+              <div
+                ref={drawerRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Menu da conta"
+                tabIndex={-1}
+                className="w-64 bg-[var(--color-artificio-blue)] p-4 outline-none"
+              >
                 <PainelNavLinks onNavigate={() => setDrawerOpen(false)} />
               </div>
             </div>

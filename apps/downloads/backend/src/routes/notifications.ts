@@ -9,7 +9,7 @@ const router = Router();
 // 2026-07-12): feed interno so-leitura + marcar como lida. Emissao de
 // notificacao fica a cargo de quem dispara o evento (moderation.ts/
 // reports.ts), fora do escopo desta rota.
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const notifications = await db
     .selectFrom('download_notification')
     .selectAll()
@@ -37,6 +37,7 @@ router.patch('/:id/read', writeRateLimiter, authMiddleware, async (req: Request,
     .updateTable('download_notification')
     .set({ read_at: new Date() })
     .where('id', '=', req.params.id)
+    .where('user_id', '=', req.user!.userId)
     .execute();
 
   return res.status(204).send();

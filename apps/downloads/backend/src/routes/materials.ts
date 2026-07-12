@@ -144,7 +144,7 @@ router.get('/', async (req: Request, res: Response) => {
 // autor (draft/in_review/published/rejected/withdrawn), nao so published.
 // Rota fixa "/mine" precisa vir antes de "/:slug" (Express casaria "mine"
 // como slug senao).
-router.get('/mine', authMiddleware, async (req: Request, res: Response) => {
+router.get('/mine', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const materials = await db
     .selectFrom('download_material')
     .select(PUBLIC_MATERIAL_FIELDS)
@@ -158,7 +158,7 @@ router.get('/mine', authMiddleware, async (req: Request, res: Response) => {
 // T2.3/criterio de aceite 2 e 3 (spec 074) — historico completo por campo,
 // so para o proprio autor ou moderador/admin (serie completa nao vaza para
 // usuario comum; ficha publica mostra so "atualizado em X").
-router.get('/:id/history', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id/history', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const material = await db
     .selectFrom('download_material')
     .select(['id', 'creator_id'])

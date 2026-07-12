@@ -42,7 +42,7 @@ export function ColecoesPage() {
       </form>
 
       {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
-      {collections && collections.length === 0 && <p className="mt-4 text-white/60">Nenhuma coleção ainda.</p>}
+      {collections?.length === 0 && <p className="mt-4 text-white/60">Nenhuma coleção ainda.</p>}
 
       <ul className="mt-6 divide-y divide-white/10">
         {collections?.map((collection) => (

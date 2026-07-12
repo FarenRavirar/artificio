@@ -58,11 +58,11 @@ Total: **355 operações**.
 | GET | `/api/v1/materials/{id}/history` | public | none | active | — | Consulta api v1 materials id history |
 | GET | `/api/v1/materials/{slug}` | public | none | active | — | Consulta api v1 materials slug |
 | GET | `/api/v1/materials/mine` | self-service | user | active | — | Consulta api v1 materials mine |
-| POST | `/api/v1/moderation/{id}/approve` | public | user | active | — | Cria ou executa api v1 moderation id approve |
-| POST | `/api/v1/moderation/{id}/reject` | public | user | active | — | Cria ou executa api v1 moderation id reject |
-| POST | `/api/v1/moderation/{id}/submit` | public | user | active | — | Cria ou executa api v1 moderation id submit |
-| PATCH | `/api/v1/moderation/batch/{action}` | public | user | active | — | Atualiza api v1 moderation batch action |
-| GET | `/api/v1/moderation/queue` | public | none | active | — | Consulta api v1 moderation queue |
+| POST | `/api/v1/moderation/{id}/approve` | admin | admin | active | — | Cria ou executa api v1 moderation id approve |
+| POST | `/api/v1/moderation/{id}/reject` | admin | admin | active | — | Cria ou executa api v1 moderation id reject |
+| POST | `/api/v1/moderation/{id}/submit` | admin | admin | active | — | Cria ou executa api v1 moderation id submit |
+| PATCH | `/api/v1/moderation/batch/{action}` | admin | admin | active | — | Atualiza api v1 moderation batch action |
+| GET | `/api/v1/moderation/queue` | admin | admin | active | — | Consulta api v1 moderation queue |
 | GET | `/api/v1/notifications` | public | user | active | — | Consulta api v1 notifications |
 | PATCH | `/api/v1/notifications/{id}/read` | public | user | active | — | Atualiza api v1 notifications id read |
 | GET | `/api/v1/organizations` | public | none | active | — | Consulta api v1 organizations |
@@ -70,11 +70,11 @@ Total: **355 operações**.
 | GET | `/api/v1/organizations/{id}/members` | public | none | active | — | Consulta api v1 organizations id members |
 | PUT | `/api/v1/ratings` | public | user | active | — | Substitui api v1 ratings |
 | GET | `/api/v1/ratings/{materialId}` | public | none | active | — | Consulta api v1 ratings materialId |
-| GET | `/api/v1/reports` | public | none | active | — | Consulta api v1 reports |
+| GET | `/api/v1/reports` | admin | admin | active | — | Consulta api v1 reports |
 | POST | `/api/v1/reports` | public | user | active | — | Cria ou executa api v1 reports |
 | DELETE | `/api/v1/reports/{id}` | public | user | active | — | Remove api v1 reports id |
-| PATCH | `/api/v1/reports/{id}` | public | user | active | — | Atualiza api v1 reports id |
-| GET | `/api/v1/reports/abuse-check/{userId}` | public | none | active | — | Consulta api v1 reports abuse-check userId |
+| PATCH | `/api/v1/reports/{id}` | admin | admin | active | — | Atualiza api v1 reports id |
+| GET | `/api/v1/reports/abuse-check/{userId}` | admin | admin | active | — | Consulta api v1 reports abuse-check userId |
 | GET | `/api/v1/reports/mine` | self-service | user | active | — | Consulta api v1 reports mine |
 
 ## glossario (47)

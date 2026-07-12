@@ -6,7 +6,7 @@ import { useRatings, useSubmitRating } from '../hooks/useRating';
 // D111 item 5 (spec 074) — avaliacao so disponivel apos download registrado
 // pela mesma conta; guard mostra explicacao visivel, nunca so desabilita
 // sem contexto (criterio de aceite 5).
-export function RatingSection({ materialId }: { materialId: string }) {
+export function RatingSection({ materialId }: Readonly<{ materialId: string }>) {
   const { user } = useSession();
   const { data: ratings } = useRatings(materialId);
   const submitMutation = useSubmitRating(materialId);

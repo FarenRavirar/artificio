@@ -28,7 +28,7 @@ const hasDownloaded = async (userId: string, materialId: string): Promise<boolea
 router.get('/:materialId', async (req: Request, res: Response) => {
   const ratings = await db
     .selectFrom('download_rating')
-    .select(['id', 'material_id', 'user_id', 'score', 'comment', 'created_at'])
+    .select(['id', 'material_id', 'score', 'comment', 'created_at'])
     .where('material_id', '=', req.params.materialId)
     .orderBy('created_at', 'desc')
     .execute();

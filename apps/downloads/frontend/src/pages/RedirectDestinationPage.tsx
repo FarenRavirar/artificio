@@ -12,9 +12,15 @@ export function RedirectDestinationPage() {
   const { data: externalUrl, isLoading, isError } = useDestination(destinationId);
 
   useEffect(() => {
-    if (externalUrl) {
-      window.location.replace(externalUrl);
+    if (!externalUrl) return;
+    let parsed: URL;
+    try {
+      parsed = new URL(externalUrl);
+    } catch {
+      return;
     }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+    window.location.replace(externalUrl);
   }, [externalUrl]);
 
   if (isLoading) {

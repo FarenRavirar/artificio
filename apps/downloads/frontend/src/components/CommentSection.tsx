@@ -17,7 +17,7 @@ const commentsListSchema = z.array(commentSchema);
 // T4.2/T4.3 (spec 074) — comentario exige conta accounts. (criterio de
 // aceite 6); retirada so via denuncia (UI ja existe na ficha via denuncia,
 // nao ha exclusao propria aqui).
-export function CommentSection({ materialId }: { materialId: string }) {
+export function CommentSection({ materialId }: Readonly<{ materialId: string }>) {
   const { user } = useSession();
   const queryClient = useQueryClient();
   const [body, setBody] = useState('');
@@ -76,6 +76,9 @@ export function CommentSection({ materialId }: { materialId: string }) {
       ) : (
         <p className="mt-4 text-sm text-white/60">Entre com sua conta para comentar.</p>
       )}
+
+      {commentsQuery.isLoading && <p className="mt-6 text-sm text-white/60">Carregando comentários...</p>}
+      {commentsQuery.isError && <p className="mt-6 text-sm text-red-400">Falha ao carregar comentários.</p>}
 
       <ul className="mt-6 space-y-3">
         {commentsQuery.data?.map((comment) => (

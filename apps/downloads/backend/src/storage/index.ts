@@ -7,13 +7,7 @@ export type { StorageAdapter, StorageProviderName, StorageUploadInput, StorageUp
 export { StorageQuotaExceededError } from './types';
 export { uploadWithFailover } from './failover';
 
-function parseQuotaBytes(raw: string | undefined, fallback: number | null): number | null {
-  if (!raw) return fallback;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function parseQuotaOps(raw: string | undefined, fallback: number | null): number | null {
+function parseQuota(raw: string | undefined, fallback: number | null): number | null {
   if (!raw) return fallback;
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -50,9 +44,9 @@ export function buildStorageAdapters(): StorageAdapter[] {
       accessKeyId: process.env.R2_ACCESS_KEY_ID,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
       publicBaseUrl: process.env.R2_PUBLIC_BASE_URL ?? '',
-      quotaBytes: parseQuotaBytes(process.env.R2_QUOTA_BYTES, R2_DEFAULT_QUOTA_BYTES),
-      quotaClassAOps: parseQuotaOps(process.env.R2_QUOTA_CLASS_A_OPS, R2_DEFAULT_QUOTA_CLASS_A_OPS),
-      quotaClassBOps: parseQuotaOps(process.env.R2_QUOTA_CLASS_B_OPS, R2_DEFAULT_QUOTA_CLASS_B_OPS),
+      quotaBytes: parseQuota(process.env.R2_QUOTA_BYTES, R2_DEFAULT_QUOTA_BYTES),
+      quotaClassAOps: parseQuota(process.env.R2_QUOTA_CLASS_A_OPS, R2_DEFAULT_QUOTA_CLASS_A_OPS),
+      quotaClassBOps: parseQuota(process.env.R2_QUOTA_CLASS_B_OPS, R2_DEFAULT_QUOTA_CLASS_B_OPS),
     }));
   }
 
@@ -65,9 +59,9 @@ export function buildStorageAdapters(): StorageAdapter[] {
       accessKeyId: process.env.B2_ACCESS_KEY_ID,
       secretAccessKey: process.env.B2_SECRET_ACCESS_KEY,
       publicBaseUrl: process.env.B2_PUBLIC_BASE_URL ?? '',
-      quotaBytes: parseQuotaBytes(process.env.B2_QUOTA_BYTES, null),
-      quotaClassAOps: parseQuotaOps(process.env.B2_QUOTA_CLASS_A_OPS, null),
-      quotaClassBOps: parseQuotaOps(process.env.B2_QUOTA_CLASS_B_OPS, null),
+      quotaBytes: parseQuota(process.env.B2_QUOTA_BYTES, null),
+      quotaClassAOps: parseQuota(process.env.B2_QUOTA_CLASS_A_OPS, null),
+      quotaClassBOps: parseQuota(process.env.B2_QUOTA_CLASS_B_OPS, null),
     }));
   }
 
@@ -77,7 +71,7 @@ export function buildStorageAdapters(): StorageAdapter[] {
       apiKey: process.env.FASTIO_API_KEY,
       bucket: process.env.FASTIO_BUCKET,
       publicBaseUrl: process.env.FASTIO_PUBLIC_BASE_URL ?? '',
-      quotaBytes: parseQuotaBytes(process.env.FASTIO_QUOTA_BYTES, null),
+      quotaBytes: parseQuota(process.env.FASTIO_QUOTA_BYTES, null),
     }));
   }
 

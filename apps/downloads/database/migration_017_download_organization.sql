@@ -23,7 +23,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_download_organization_slug
   ON download_organization(slug);
 
 CREATE TABLE IF NOT EXISTS download_organization_member (
-  organization_id UUID NOT NULL,
+  organization_id UUID NOT NULL REFERENCES download_organization(id) ON DELETE CASCADE,
   user_id UUID NOT NULL,
   role VARCHAR(20) NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'admin')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

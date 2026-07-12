@@ -46,7 +46,7 @@ interface QueueCounts {
   degraded_links: { count: number };
 }
 
-function GestaoNavLinks({ counts, onNavigate }: { counts?: QueueCounts; onNavigate?: () => void }) {
+function GestaoNavLinks({ counts, onNavigate }: Readonly<{ counts?: QueueCounts; onNavigate?: () => void }>) {
   return (
     <nav className="flex flex-col gap-4">
       <NavLink
@@ -111,7 +111,7 @@ function GestaoNavLinks({ counts, onNavigate }: { counts?: QueueCounts; onNaviga
 
 // T1.1/T1.10 (spec 075) — shell de gestao: sidebar desktop fixa + drawer
 // mobile, mesmo padrao de PainelShell (074).
-export function GestaoShell({ children }: { children: ReactNode }) {
+export function GestaoShell({ children }: Readonly<{ children: ReactNode }>) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { data: summary } = useAdminSummary();
 

@@ -20,7 +20,7 @@ export function MeusMateriaisPage() {
 
       {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
 
-      {materials && materials.length === 0 && (
+      {materials?.length === 0 && (
         <p className="mt-4 text-white/60">Você ainda não publicou nenhum material.</p>
       )}
 

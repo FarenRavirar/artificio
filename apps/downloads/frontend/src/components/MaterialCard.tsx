@@ -14,7 +14,7 @@ const ACCESS_LABEL: Record<Material['access_kind'], string> = {
 // inteiro via before:absolute), sem truncamento cego de nome (licao de
 // packages/catalog-ui: nome quebra em ate 2 linhas, nunca corta com ellipsis
 // forcado que esconde parte do titulo).
-export function MaterialCard({ material }: MaterialCardProps) {
+export function MaterialCard({ material }: Readonly<MaterialCardProps>) {
   return (
     <article className="relative rounded-lg border border-white/10 bg-[var(--color-artificio-blue-light)] p-4 transition hover:border-artificio-orange focus-within:ring-2 focus-within:ring-artificio-orange">
       <div className="mb-3 flex h-32 items-center justify-center rounded bg-black/20 text-sm text-white/50">

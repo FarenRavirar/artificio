@@ -38,10 +38,10 @@ export const organizationSchema = z.object({
 export type Organization = z.infer<typeof organizationSchema>;
 
 export const notificationSchema = z.object({
-  id: z.string(),
-  user_id: z.string(),
+  id: z.uuid(),
+  user_id: z.uuid(),
   kind: z.string(),
-  material_id: z.string().nullable(),
+  material_id: z.uuid().nullable(),
   body: z.string(),
   read_at: z.string().nullable(),
   created_at: z.string(),

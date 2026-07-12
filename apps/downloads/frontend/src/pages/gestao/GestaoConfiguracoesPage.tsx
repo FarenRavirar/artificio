@@ -9,7 +9,7 @@ export function GestaoConfiguracoesPage() {
       <h1 className="text-2xl font-bold text-white">Configurações</h1>
       <button
         type="button"
-        onClick={() => void logout()}
+        onClick={() => logout()}
         className="mt-6 min-h-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white"
       >
         Sair

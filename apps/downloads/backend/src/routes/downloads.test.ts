@@ -90,6 +90,8 @@ describe('POST /api/v1/downloads', () => {
   it('retorna 404 quando material nao existe ou nao esta publicado', async () => {
     dbMocks.selectFrom.mockReturnValueOnce(makeMaterialQuery(undefined));
 
-    await request(app()).post('/api/v1/downloads').send({ material_id: 'material-x' }).expect(404);
+    const response = await request(app()).post('/api/v1/downloads').send({ material_id: 'material-x' }).expect(404);
+
+    expect(response.status).toBe(404);
   });
 });

@@ -80,7 +80,7 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
 // DEB-074-02 (spec 074/075) — "minhas denuncias": denunciante ve as proprias,
 // qualquer case_state. Rota fixa precisa vir antes de "/:id" (Express casaria
 // "mine" como id senao).
-router.get('/mine', authMiddleware, async (req: Request, res: Response) => {
+router.get('/mine', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const reports = await db
     .selectFrom('download_report')
     .selectAll()
@@ -175,6 +175,10 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
     return res.status(404).json({ error: 'Denúncia não encontrada.' });
   }
 
+  if (report.case_state === 'resolved' || report.case_state === 'dismissed') {
+    return res.status(409).json({ error: 'Denúncia já foi decidida.' });
+  }
+
   const isTerminal = parsed.data.case_state === 'resolved' || parsed.data.case_state === 'dismissed';
 
   const updated = await db
@@ -189,14 +193,18 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
     .executeTakeFirstOrThrow();
 
   if (isTerminal && report.reporter_user_id) {
-    await emitNotification({
-      userId: report.reporter_user_id,
-      kind: parsed.data.case_state === 'resolved' ? 'report_resolved' : 'report_dismissed',
-      materialId: report.material_id,
-      body: parsed.data.case_state === 'resolved'
-        ? 'Sua denúncia foi analisada e resolvida.'
-        : 'Sua denúncia foi analisada e dispensada.',
-    });
+    try {
+      await emitNotification({
+        userId: report.reporter_user_id,
+        kind: parsed.data.case_state === 'resolved' ? 'report_resolved' : 'report_dismissed',
+        materialId: report.material_id,
+        body: parsed.data.case_state === 'resolved'
+          ? 'Sua denúncia foi analisada e resolvida.'
+          : 'Sua denúncia foi analisada e dispensada.',
+      });
+    } catch (error) {
+      console.error('[PATCH /reports/:id] Falha ao emitir notificação:', error);
+    }
   }
 
   if (isTerminal) {

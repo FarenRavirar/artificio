@@ -19,7 +19,8 @@ services:
       - API_UPSTREAM=downloads-api
       - TRUSTED_REAL_IP_FROM=${TRUSTED_REAL_IP_FROM:-172.18.0.0/16}
     depends_on:
-      - downloads-api
+      downloads-api:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:80 || exit 1"]
       interval: 30s
@@ -40,8 +41,8 @@ services:
       - NODE_ENV=production
       - APP_ENV=production
       - PORT=3000
-      - DATABASE_URL=${DATABASE_URL}
-      - JWT_SECRET=${JWT_SECRET}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - FRONTEND_URL=https://downloads.artificiorpg.com
       - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}

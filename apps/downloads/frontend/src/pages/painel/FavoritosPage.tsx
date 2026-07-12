@@ -11,7 +11,7 @@ export function FavoritosPage() {
       <h1 className="text-2xl font-bold text-white">Favoritos</h1>
 
       {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
-      {favorites && favorites.length === 0 && <p className="mt-4 text-white/60">Nenhum favorito ainda.</p>}
+      {favorites?.length === 0 && <p className="mt-4 text-white/60">Nenhum favorito ainda.</p>}
 
       <ul className="mt-6 divide-y divide-white/10">
         {favorites?.map((favorite) => (

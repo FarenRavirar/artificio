@@ -41,16 +41,20 @@ export function CatalogoPage() {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (searchDraft === q) return;
-      const next = new URLSearchParams(searchParams);
-      if (searchDraft) next.set('q', searchDraft);
-      else next.delete('q');
-      next.set('page', '1');
-      setSearchParams(next, { replace: true });
+      setSearchParams(
+        (prev) => {
+          if (searchDraft === (prev.get('q') ?? '')) return prev;
+          const next = new URLSearchParams(prev);
+          if (searchDraft) next.set('q', searchDraft);
+          else next.delete('q');
+          next.set('page', '1');
+          return next;
+        },
+        { replace: true },
+      );
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchDraft]);
+  }, [searchDraft, setSearchParams]);
 
   const updateParam = useCallback(
     (key: string, value: string) => {
@@ -108,7 +112,7 @@ export function CatalogoPage() {
         {isLoading && <p className="text-white/70">Carregando...</p>}
         {isError && <p className="text-red-400">Falha ao carregar materiais. Tente novamente.</p>}
 
-        {data && data.items.length === 0 && (
+        {data?.items.length === 0 && (
           <p className="text-white/70">Nenhum material encontrado com esses filtros.</p>
         )}
 

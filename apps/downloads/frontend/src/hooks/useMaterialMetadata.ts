@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { apiGet } from '../services/apiClient';
 
-const materialMetadataSchema = z.object({
+export const materialMetadataSchema = z.object({
   material_id: z.string(),
   publisher_name: z.string().nullable(),
   credits: z.string().nullable(),

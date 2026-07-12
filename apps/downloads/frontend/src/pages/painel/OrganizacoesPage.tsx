@@ -42,7 +42,7 @@ export function OrganizacoesPage() {
       </form>
 
       {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
-      {organizations && organizations.length === 0 && <p className="mt-4 text-white/60">Você não participa de nenhuma organização.</p>}
+      {organizations?.length === 0 && <p className="mt-4 text-white/60">Você não participa de nenhuma organização.</p>}
 
       <ul className="mt-6 divide-y divide-white/10">
         {organizations?.map((org) => (

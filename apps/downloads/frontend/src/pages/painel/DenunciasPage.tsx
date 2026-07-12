@@ -18,7 +18,7 @@ export function DenunciasPage() {
       <h1 className="text-2xl font-bold text-white">Minhas denúncias</h1>
 
       {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
-      {reports && reports.length === 0 && (
+      {reports?.length === 0 && (
         <p className="mt-4 text-white/60">Você ainda não abriu nenhuma denúncia.</p>
       )}
 

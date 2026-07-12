@@ -43,8 +43,8 @@ export function useReportDecision() {
       return reportSchema.parse(await response.json());
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'reports'] });
-      void queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'summary'] });
+      queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'reports'] });
+      queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'summary'] });
     },
   });
 }

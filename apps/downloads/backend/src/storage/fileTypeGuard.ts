@@ -26,7 +26,14 @@ function looksLikePlainText(buffer: Buffer): boolean {
  * corresponder a nenhum dos tipos aceitos no MVP (rejeita, inclusive .zip
  * puro que não seja DOCX).
  */
-export function detectAllowedFileType(buffer: Buffer, declaredExtension: string): AllowedMaterialFileType | null {
+export function detectAllowedFileType(buffer: unknown, declaredExtension: unknown): AllowedMaterialFileType | null {
+  if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+    return null;
+  }
+  if (typeof declaredExtension !== 'string') {
+    return null;
+  }
+
   const ext = declaredExtension.toLowerCase().replace(/^\./, '');
 
   if (startsWith(buffer, PDF_MAGIC)) {

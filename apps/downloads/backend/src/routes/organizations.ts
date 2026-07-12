@@ -13,7 +13,7 @@ const createOrganizationSchema = z.object({
 
 // T1.6 (spec 074) — escopo minimo funcional (autorizado nominalmente
 // 2026-07-12): organizacao = grupo de creators, dono vira admin automatico.
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const organizations = await db
     .selectFrom('download_organization_member')
     .innerJoin('download_organization', 'download_organization.id', 'download_organization_member.organization_id')
@@ -48,7 +48,7 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
   return res.status(201).json(organization);
 });
 
-router.get('/:id/members', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id/members', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const membership = await db
     .selectFrom('download_organization_member')
     .select('user_id')

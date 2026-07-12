@@ -33,6 +33,7 @@ export function EditarMaterialPage() {
   const [externalUrl, setExternalUrl] = useState('');
   const [publisherName, setPublisherName] = useState('');
   const [lastLoadedMaterialId, setLastLoadedMaterialId] = useState<string | undefined>(undefined);
+  const [lastLoadedMetadataMaterialId, setLastLoadedMetadataMaterialId] = useState<string | undefined>(undefined);
 
   // Reajusta os campos durante o render quando o material carrega ou muda —
   // padrao React de "ajustar estado durante o render" (sem effect), mesmo
@@ -44,7 +45,15 @@ export function EditarMaterialPage() {
     setSummary(material.summary ?? '');
     setDescription(material.description ?? '');
     setExternalUrl(material.external_url ?? '');
-    setPublisherName(metadata?.publisher_name ?? '');
+  }
+
+  // Metadata chega depois do material (query separada); preenche
+  // publisherName quando resolver, sem sobrescrever com vazio no meio tempo
+  // (mesmo padrao de ajuste durante o render usado acima, evita
+  // react-hooks/set-state-in-effect).
+  if (metadata && lastLoadedMetadataMaterialId !== materialId) {
+    setLastLoadedMetadataMaterialId(materialId);
+    setPublisherName(metadata.publisher_name ?? '');
   }
 
   if (isLoading) {
@@ -85,7 +94,7 @@ export function EditarMaterialPage() {
 
       <form onSubmit={handleSubmit} className="mt-6 flex max-w-xl flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm text-white/80">
-          Título
+          <span>Título</span>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -94,7 +103,7 @@ export function EditarMaterialPage() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-white/80">
-          Resumo
+          <span>Resumo</span>
           <textarea
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
@@ -104,7 +113,7 @@ export function EditarMaterialPage() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-white/80">
-          Descrição
+          <span>Descrição</span>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -114,7 +123,7 @@ export function EditarMaterialPage() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-white/80">
-          Link de destino
+          <span>Link de destino</span>
           <input
             value={externalUrl}
             onChange={(e) => setExternalUrl(e.target.value)}
@@ -123,7 +132,7 @@ export function EditarMaterialPage() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-white/80">
-          Editora/selo
+          <span>Editora/selo</span>
           <input
             value={publisherName}
             onChange={(e) => setPublisherName(e.target.value)}

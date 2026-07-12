@@ -10,13 +10,13 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 45 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 37 | ❌ |
 
 ## Rotas órfãs suspeitas
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique ausência de uso.
 
-### downloads (37 rota(s))
+### downloads (29 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -35,24 +35,16 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/api/v1/materials` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/materials/:slug` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/materials/:id/history` | ✅ | public | Scope "public" sem consumidor |
-| GET | `/api/v1/moderation/queue` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/organizations` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/organizations/:id/members` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/ratings/:materialId` | ✅ | public | Scope "public" sem consumidor |
-| GET | `/api/v1/reports` | ✅ | public | Scope "public" sem consumidor |
-| GET | `/api/v1/reports/abuse-check/:userId` | ✅ | public | Scope "public" sem consumidor |
 | PATCH | `/api/v1/materials/:id` | ✅ | public | Scope "public" sem consumidor |
-| PATCH | `/api/v1/moderation/batch/:action` | ✅ | public | Scope "public" sem consumidor |
-| PATCH | `/api/v1/reports/:id` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/collections` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/collections/:id/items` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/comments` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/downloads` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/favorites` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/materials` | ✅ | public | Scope "public" sem consumidor |
-| POST | `/api/v1/moderation/:id/approve` | ✅ | public | Scope "public" sem consumidor |
-| POST | `/api/v1/moderation/:id/reject` | ✅ | public | Scope "public" sem consumidor |
-| POST | `/api/v1/moderation/:id/submit` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/organizations` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/reports` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/material-metadata/:materialId` | ✅ | public | Scope "public" sem consumidor |

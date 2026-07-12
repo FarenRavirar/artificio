@@ -36,7 +36,7 @@ export function GestaoModeracaoPage() {
       <h1 className="text-2xl font-bold text-white">Moderação</h1>
 
       {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
-      {queue && queue.length === 0 && <p className="mt-4 text-white/60">Fila vazia.</p>}
+      {queue?.length === 0 && <p className="mt-4 text-white/60">Fila vazia.</p>}
 
       {queue && queue.length > 0 && (
         <>
@@ -90,7 +90,7 @@ export function GestaoModeracaoPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => void singleAction.mutateAsync({ id: material.id, action: 'approve' })}
+                  onClick={() => singleAction.mutateAsync({ id: material.id, action: 'approve' }).catch(() => undefined)}
                   className="min-h-[44px] rounded-md border border-white/20 px-3 py-2 text-xs text-white"
                 >
                   Aprovar

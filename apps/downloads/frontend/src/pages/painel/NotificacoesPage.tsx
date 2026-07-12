@@ -10,7 +10,7 @@ export function NotificacoesPage() {
       <h1 className="text-2xl font-bold text-white">Notificações</h1>
 
       {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
-      {notifications && notifications.length === 0 && <p className="mt-4 text-white/60">Nenhuma notificação.</p>}
+      {notifications?.length === 0 && <p className="mt-4 text-white/60">Nenhuma notificação.</p>}
 
       <ul className="mt-6 divide-y divide-white/10">
         {notifications?.map((notification) => (

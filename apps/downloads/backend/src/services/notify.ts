@@ -4,9 +4,11 @@ import { db } from '../db';
 // a tabela download_notification (migration_018) ja previa: material
 // aprovado/rejeitado, denuncia resolvida. Helper puro sobre a tabela; feed de
 // leitura ja existia em routes/notifications.ts.
+export type NotificationKind = 'material_approved' | 'material_rejected' | 'report_resolved' | 'report_dismissed';
+
 export async function emitNotification(input: {
   userId: string;
-  kind: string;
+  kind: NotificationKind;
   materialId?: string | null;
   body: string;
 }): Promise<void> {

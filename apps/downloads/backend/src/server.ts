@@ -37,7 +37,7 @@ const frontendUrls = [
   .filter((url): url is string => Boolean(url))
   .map((url) => new URL(url).origin);
 
-const allowedFrontendOrigins = Array.from(new Set(frontendUrls));
+const allowedFrontendOrigins = new Set(frontendUrls);
 
 const app = express();
 app.disable('x-powered-by');
@@ -49,7 +49,7 @@ app.use(cors({
       callback(null, true);
       return;
     }
-    if (allowedFrontendOrigins.includes(origin)) {
+    if (allowedFrontendOrigins.has(origin)) {
       callback(null, true);
       return;
     }
@@ -105,11 +105,12 @@ app.use((err: HttpError, _req: express.Request, res: express.Response, next: exp
     return res.status(400).json({ error: 'JSON inválido no corpo da requisição.' });
   }
 
-  const status = typeof err?.status === 'number'
-    ? err.status
-    : typeof err?.statusCode === 'number'
-      ? err.statusCode
-      : 500;
+  let status = 500;
+  if (typeof err?.status === 'number') {
+    status = err.status;
+  } else if (typeof err?.statusCode === 'number') {
+    status = err.statusCode;
+  }
 
   if (status >= 500) {
     return res.status(500).json({ error: 'Erro interno no servidor.' });

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiPut } from '../services/apiClient';
+import { materialMetadataSchema } from './useMaterialMetadata';
 
 export interface MaterialMetadataPatch {
   publisher_name?: string | null;
@@ -16,7 +17,7 @@ export function useUpdateMaterialMetadata(materialId: string) {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error ?? `Falha ao salvar metadados: HTTP ${response.status}`);
       }
-      return response.json();
+      return materialMetadataSchema.parse(await response.json());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['downloads', 'material-metadata', materialId] });

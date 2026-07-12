@@ -15,7 +15,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     .where('download_destination.id', '=', req.params.id)
     .executeTakeFirst();
 
-  if (!destination || destination.editorial_state !== 'published' || !destination.external_url) {
+  if (destination?.editorial_state !== 'published' || !destination.external_url) {
     return res.status(404).json({ error: 'Destino não encontrado.' });
   }
 

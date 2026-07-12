@@ -263,7 +263,7 @@
       "method": "GET",
       "path": "/api/v1/changelog",
       "sourceFile": "apps/downloads/backend/src/routes/changelog.ts",
-      "line": 15,
+      "line": 25,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -317,7 +317,7 @@
       "method": "POST",
       "path": "/api/v1/collections/:id/items",
       "sourceFile": "apps/downloads/backend/src/routes/collections.ts",
-      "line": 86,
+      "line": 87,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -326,7 +326,7 @@
       "method": "DELETE",
       "path": "/api/v1/collections/:id/items/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/collections.ts",
-      "line": 106,
+      "line": 107,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -380,7 +380,7 @@
       "method": "GET",
       "path": "/api/v1/creators/:slug",
       "sourceFile": "apps/downloads/backend/src/routes/creators.ts",
-      "line": 21,
+      "line": 22,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -389,7 +389,7 @@
       "method": "GET",
       "path": "/api/v1/creators/me",
       "sourceFile": "apps/downloads/backend/src/routes/creators.ts",
-      "line": 12,
+      "line": 13,
       "confidence": "high",
       "kind": "express-route"
     },

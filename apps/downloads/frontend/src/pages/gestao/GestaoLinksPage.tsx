@@ -25,7 +25,7 @@ export function GestaoLinksPage() {
             </div>
             <button
               type="button"
-              onClick={() => void checkLink.mutateAsync(link.material_id)}
+              onClick={() => checkLink.mutateAsync(link.material_id).catch(() => undefined)}
               disabled={checkLink.isPending}
               className="min-h-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white disabled:opacity-40"
             >

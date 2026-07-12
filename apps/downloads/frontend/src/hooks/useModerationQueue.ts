@@ -35,8 +35,8 @@ export function useModerationBatchAction() {
       return batchResultSchema.parse(await response.json());
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['downloads', 'moderation', 'queue'] });
-      void queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'summary'] });
+      queryClient.invalidateQueries({ queryKey: ['downloads', 'moderation', 'queue'] });
+      queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'summary'] });
     },
   });
 }
@@ -53,8 +53,8 @@ export function useModerationSingleAction() {
       return materialSchema.parse(await response.json());
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['downloads', 'moderation', 'queue'] });
-      void queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'summary'] });
+      queryClient.invalidateQueries({ queryKey: ['downloads', 'moderation', 'queue'] });
+      queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'summary'] });
     },
   });
 }

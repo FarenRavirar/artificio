@@ -138,11 +138,13 @@ describe('POST /api/v1/admin/materials/:id/evidence/upload', () => {
 
     const fakePdf = Buffer.from('isto nao e um pdf de verdade');
 
-    await request(app())
+    const response = await request(app())
       .post('/api/v1/admin/materials/material-1/evidence/upload?filename=doc.pdf')
       .set('Content-Type', 'application/octet-stream')
       .send(fakePdf)
       .expect(422);
+
+    expect(response.status).toBe(422);
   });
 });
 

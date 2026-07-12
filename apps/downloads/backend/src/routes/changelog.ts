@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { normalizeChangelogEntries, CHANGELOG_CACHE_TTL, type ChangelogEntry } from '@artificio/changelog';
@@ -9,10 +10,19 @@ import { normalizeChangelogEntries, CHANGELOG_CACHE_TTL, type ChangelogEntry } f
 
 const router = Router();
 
+// Rota publica sem sessao (achado CodeQL "Missing rate limiting", PR #151,
+// 2026-07-12) — limite generoso porque cache em memoria ja absorve rajada.
+const publicRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 let changelogsCache: ChangelogEntry[] | null = null;
 let cacheTimestamp = 0;
 
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', publicRateLimiter, async (_req: Request, res: Response) => {
   try {
     const now = Date.now();
 
@@ -20,14 +30,14 @@ router.get('/', async (_req: Request, res: Response) => {
       return res.json({ data: changelogsCache });
     }
 
-    const changelogsPath = join(__dirname, '../..', 'database', 'changelogs.json');
+    const changelogsPath = join(__dirname, '../../..', 'database', 'changelogs.json');
     const changelogsData = await readFile(changelogsPath, 'utf-8');
 
     let changelogs: unknown[] = [];
     try {
       const parsed: unknown = JSON.parse(changelogsData);
       if (!Array.isArray(parsed)) {
-        throw new Error('Changelogs deve ser um array');
+        throw new TypeError('Changelogs deve ser um array');
       }
       changelogs = parsed;
     } catch (parseError) {

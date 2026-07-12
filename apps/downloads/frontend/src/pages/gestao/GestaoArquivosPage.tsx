@@ -8,6 +8,7 @@ import { GestaoShell } from '../../components/GestaoShell';
 export function GestaoArquivosPage() {
   const [materialId, setMaterialId] = useState('');
   const [status, setStatus] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleUpload() {
@@ -17,18 +18,25 @@ export function GestaoArquivosPage() {
       return;
     }
 
-    const buffer = await file.arrayBuffer();
-    // apiPost so serializa JSON; upload binario usa fetch direto.
-    const raw = await fetch(
-      `${import.meta.env.VITE_API_URL ?? ''}/api/v1/admin/materials/${materialId}/evidence/upload?filename=${encodeURIComponent(file.name)}`,
-      { method: 'POST', credentials: 'include', body: buffer, headers: { 'Content-Type': 'application/octet-stream' } },
-    );
+    setIsUploading(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      // apiPost so serializa JSON; upload binario usa fetch direto.
+      const raw = await fetch(
+        `${import.meta.env.VITE_API_URL ?? ''}/api/v1/admin/materials/${materialId}/evidence/upload?filename=${encodeURIComponent(file.name)}`,
+        { method: 'POST', credentials: 'include', body: buffer, headers: { 'Content-Type': 'application/octet-stream' } },
+      );
 
-    if (!raw.ok) {
-      setStatus(`Falha: HTTP ${raw.status}`);
-      return;
+      if (!raw.ok) {
+        setStatus(`Falha: HTTP ${raw.status}`);
+        return;
+      }
+      setStatus('Evidência registrada com sucesso.');
+    } catch (error) {
+      setStatus(error instanceof Error ? `Erro: ${error.message}` : 'Falha inesperada ao enviar arquivo.');
+    } finally {
+      setIsUploading(false);
     }
-    setStatus('Evidência registrada com sucesso.');
   }
 
   return (
@@ -50,10 +58,11 @@ export function GestaoArquivosPage() {
         <input ref={fileInputRef} type="file" accept=".pdf,.md,.doc,.docx" className="text-sm text-white/80" />
         <button
           type="button"
-          onClick={() => void handleUpload()}
-          className="min-h-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white"
+          onClick={() => handleUpload()}
+          disabled={isUploading}
+          className="min-h-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white disabled:opacity-50"
         >
-          Enviar
+          {isUploading ? 'Enviando...' : 'Enviar'}
         </button>
         {status && <p className="text-sm text-white/70">{status}</p>}
       </div>

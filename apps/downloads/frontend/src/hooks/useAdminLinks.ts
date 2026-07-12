@@ -39,11 +39,11 @@ export function useCheckLink() {
       if (!response.ok) {
         throw new Error(`Falha ao checar link: HTTP ${response.status}`);
       }
-      return response.json();
+      return linkCheckSchema.parse(await response.json());
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'links'] });
-      void queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'summary'] });
+      queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'links'] });
+      queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'summary'] });
     },
   });
 }

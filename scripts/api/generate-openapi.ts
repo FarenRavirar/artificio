@@ -38,6 +38,22 @@ function classifyRoute(method: string, path: string, app: string): Classificatio
     return { owner: app, scope: 'admin', status: 'active', auth: 'admin', consumers: [] };
   }
 
+  // Downloads moderation/report queues são restritas a requireRole(['moderator','admin'])
+  // (ver apps/downloads/backend/src/routes/moderation.ts e reports.ts) — heurística
+  // genérica de GET/write classificava como 'none'/'public'/'user', divergindo do
+  // código real (achado SonarCloud PR #151, 2026-07-12).
+  if (app === 'downloads' && /(^|\/)moderation(\/|$)/.test(p)) {
+    return { owner: app, scope: 'admin', status: 'active', auth: 'admin', consumers: [] };
+  }
+  if (
+    app === 'downloads' &&
+    p.includes('/reports') &&
+    (p.includes('/abuse-check/') || method === 'GET' || method === 'PATCH') &&
+    !p.includes('/mine')
+  ) {
+    return { owner: app, scope: 'admin', status: 'active', auth: 'admin', consumers: [] };
+  }
+
   // Accounts auth (cross-app — consumed by other frontends)
   if (app === 'accounts' && p.includes('/api/auth/')) {
     if (p.includes('/me') || p.includes('/refresh') || p.includes('/logout')) {

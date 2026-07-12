@@ -11,6 +11,15 @@ export function GestaoAuditoriaPage() {
   const { data: history, isLoading } = useMaterialHistory(materialId);
   const { data: linkHistory } = useAdminLinkHistory(materialId);
 
+  if (!materialId) {
+    return (
+      <GestaoShell>
+        <h1 className="text-2xl font-bold text-white">Auditoria de edição</h1>
+        <p className="mt-4 text-white/60">Selecione um material para ver o histórico de auditoria.</p>
+      </GestaoShell>
+    );
+  }
+
   return (
     <GestaoShell>
       <h1 className="text-2xl font-bold text-white">Auditoria de edição</h1>
@@ -46,7 +55,7 @@ export function GestaoAuditoriaPage() {
               </p>
             </li>
           ))}
-          {linkHistory && linkHistory.length === 0 && <p className="py-3 text-white/60">Nenhuma troca de link registrada.</p>}
+          {linkHistory?.length === 0 && <p className="py-3 text-white/60">Nenhuma troca de link registrada.</p>}
         </ul>
       </section>
     </GestaoShell>

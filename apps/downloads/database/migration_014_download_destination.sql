@@ -9,7 +9,7 @@
 
 CREATE TABLE IF NOT EXISTS download_destination (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  material_id UUID NOT NULL,
+  material_id UUID NOT NULL REFERENCES download_material(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

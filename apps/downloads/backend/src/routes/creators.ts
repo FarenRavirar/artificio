@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
+import { writeRateLimiter } from '../middleware/rateLimit';
 
 const router = Router();
 
@@ -9,7 +10,7 @@ const router = Router();
 // Usado pelo frontend so pra decidir se mostra o link de /gestao — o backend
 // ja valida de verdade em cada rota /admin/* via requireRole, isso e so UX.
 // Rota fixa precisa vir antes de "/:slug" (Express casaria "me" como slug).
-router.get('/me', authMiddleware, async (req: Request, res: Response) => {
+router.get('/me', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   return res.json({ role: req.user!.role });
 });
 

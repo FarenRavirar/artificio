@@ -4,26 +4,14 @@ import { checkLink } from './linkChecker';
 // metadado de nuvem SEM nunca chegar a disparar fetch (mitigacao SSRF).
 
 describe('checkLink — bloqueio SSRF', () => {
-  it('rejeita loopback IPv4', async () => {
-    const result = await checkLink('http://127.0.0.1/secret');
-    expect(result.isHealthy).toBe(false);
-    expect(result.errorDetail).toMatch(/privado|reservado/i);
-  });
-
-  it('rejeita rede privada 10.x', async () => {
-    const result = await checkLink('http://10.0.0.5/internal');
-    expect(result.isHealthy).toBe(false);
-    expect(result.errorDetail).toMatch(/privado|reservado/i);
-  });
-
-  it('rejeita rede privada 192.168.x', async () => {
-    const result = await checkLink('http://192.168.1.1/');
-    expect(result.isHealthy).toBe(false);
-    expect(result.errorDetail).toMatch(/privado|reservado/i);
-  });
-
-  it('rejeita metadado de nuvem 169.254.169.254', async () => {
-    const result = await checkLink('http://169.254.169.254/latest/meta-data/');
+  it.each([
+    ['loopback IPv4', 'http://127.0.0.1/secret'],
+    ['rede privada 10.x', 'http://10.0.0.5/internal'],
+    ['rede privada 172.16.x', 'http://172.16.0.1/'],
+    ['rede privada 192.168.x', 'http://192.168.1.1/'],
+    ['metadado de nuvem 169.254.169.254', 'http://169.254.169.254/latest/meta-data/'],
+  ])('rejeita %s', async (_label, url) => {
+    const result = await checkLink(url);
     expect(result.isHealthy).toBe(false);
     expect(result.errorDetail).toMatch(/privado|reservado|metadado/i);
   });

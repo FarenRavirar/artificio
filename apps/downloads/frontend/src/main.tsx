@@ -18,7 +18,7 @@ if (gaId) {
 // Tema compartilhado cross-subdomínio via cookie `artificio_theme` (D067).
 // Sem cookie -> dark (mesmo default operacional do mesas).
 function resolveDownloadsTheme(): 'light' | 'dark' {
-  const m = document.cookie.match(/(?:^|;\s*)artificio_theme=(dark|light)/)
+  const m = /(?:^|;\s*)artificio_theme=(dark|light)/.exec(document.cookie)
   return m ? (m[1] as 'light' | 'dark') : 'dark'
 }
 document.documentElement.dataset.theme = resolveDownloadsTheme()

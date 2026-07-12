@@ -4,8 +4,17 @@
 // sem exigir jsdom/isomorphic-dompurify so pro backend.
 
 export function sanitizeText(input: string): string {
-  return input
-    .replace(/<[^>]*>/g, '')
-    .replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, '')
-    .trim();
+  let previous: string;
+  let current = input;
+  do {
+    previous = current;
+    current = current.replace(/<[^<>]*>/g, '');
+  } while (current !== previous);
+
+  do {
+    previous = current;
+    current = current.replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, '');
+  } while (current !== previous);
+
+  return current.trim();
 }

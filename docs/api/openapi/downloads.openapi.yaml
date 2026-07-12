@@ -1125,9 +1125,9 @@ paths:
       operationId: postapi_v1_moderation_id_approve
       summary: "Cria ou executa api v1 moderation id approve"
       x-artificio-owner: downloads
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1167,9 +1167,9 @@ paths:
       operationId: postapi_v1_moderation_id_reject
       summary: "Cria ou executa api v1 moderation id reject"
       x-artificio-owner: downloads
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1209,9 +1209,9 @@ paths:
       operationId: postapi_v1_moderation_id_submit
       summary: "Cria ou executa api v1 moderation id submit"
       x-artificio-owner: downloads
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1251,9 +1251,9 @@ paths:
       operationId: patchapi_v1_moderation_batch_action
       summary: "Atualiza api v1 moderation batch action"
       x-artificio-owner: downloads
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: action
           in: path
@@ -1293,9 +1293,9 @@ paths:
       operationId: getapi_v1_moderation_queue
       summary: "Consulta api v1 moderation queue"
       x-artificio-owner: downloads
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: none
+      x-artificio-auth: admin
       responses:
         "200":
           description: OK
@@ -1563,9 +1563,9 @@ paths:
       operationId: getapi_v1_reports
       summary: "Consulta api v1 reports"
       x-artificio-owner: downloads
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: none
+      x-artificio-auth: admin
       responses:
         "200":
           description: OK
@@ -1661,9 +1661,9 @@ paths:
       operationId: patchapi_v1_reports_id
       summary: "Atualiza api v1 reports id"
       x-artificio-owner: downloads
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1703,9 +1703,9 @@ paths:
       operationId: getapi_v1_reports_abuse_check_userId
       summary: "Consulta api v1 reports abuse-check userId"
       x-artificio-owner: downloads
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: none
+      x-artificio-auth: admin
       parameters:
         - name: userId
           in: path

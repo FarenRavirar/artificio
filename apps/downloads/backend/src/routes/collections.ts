@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, optionalAuth } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
 
 const router = Router();
@@ -17,7 +17,7 @@ const addItemSchema = z.object({
 });
 
 // T5.2 (spec 074) — CRUD minimo de colecao (sempre por sessao) + itens.
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const collections = await db
     .selectFrom('download_collection')
     .selectAll()
@@ -57,7 +57,7 @@ async function assertOwnsCollection(collectionId: string, userId: string) {
     .executeTakeFirst();
 }
 
-router.get('/:id/items', async (req: Request, res: Response) => {
+router.get('/:id/items', optionalAuth, async (req: Request, res: Response) => {
   const collection = await db
     .selectFrom('download_collection')
     .select(['id', 'user_id', 'is_public'])
@@ -77,6 +77,7 @@ router.get('/:id/items', async (req: Request, res: Response) => {
     .innerJoin('download_material', 'download_material.id', 'download_collection_item.material_id')
     .select(['download_material.id', 'download_material.slug', 'download_material.title', 'download_material.material_type', 'download_collection_item.added_at'])
     .where('download_collection_item.collection_id', '=', req.params.id)
+    .where('download_material.editorial_state', '=', 'published')
     .orderBy('download_collection_item.added_at', 'desc')
     .execute();
 

@@ -14,8 +14,8 @@
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 2 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 96 | ❌ |
-| 👻 ORPHAN_SUSPECT | 45 | ❌ |
+| 🕳️ UNUSED_ROUTE | 104 | ❌ |
+| 👻 ORPHAN_SUSPECT | 37 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
@@ -62,18 +62,18 @@
 | GET | `/api/v1/materials/:slug` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/:id/history` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/mine` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/moderation/queue` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/moderation/queue` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/notifications` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/organizations` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/organizations/:id/members` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/ratings/:materialId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/reports` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/reports/abuse-check/:userId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/reports` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/reports/abuse-check/:userId` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/reports/mine` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/materials/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| PATCH | `/api/v1/moderation/batch/:action` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PATCH | `/api/v1/moderation/batch/:action` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/notifications/:id/read` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| PATCH | `/api/v1/reports/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PATCH | `/api/v1/reports/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/materials/:id/check-link` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/materials/:id/evidence/upload` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/sanitize-preview` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -83,9 +83,9 @@
 | POST | `/api/v1/downloads` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/favorites` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/materials` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/moderation/:id/approve` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/moderation/:id/reject` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/moderation/:id/submit` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/moderation/:id/approve` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/moderation/:id/reject` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/moderation/:id/submit` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/organizations` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/reports` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/v1/material-metadata/:materialId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -429,7 +429,7 @@
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique.
 
-### downloads (37 rota(s))
+### downloads (29 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -448,24 +448,16 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/api/v1/materials` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/materials/:slug` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/materials/:id/history` | ✅ | public | Sem consumidor e scope não justifica |
-| GET | `/api/v1/moderation/queue` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/organizations` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/organizations/:id/members` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/ratings/:materialId` | ✅ | public | Sem consumidor e scope não justifica |
-| GET | `/api/v1/reports` | ✅ | public | Sem consumidor e scope não justifica |
-| GET | `/api/v1/reports/abuse-check/:userId` | ✅ | public | Sem consumidor e scope não justifica |
 | PATCH | `/api/v1/materials/:id` | ✅ | public | Sem consumidor e scope não justifica |
-| PATCH | `/api/v1/moderation/batch/:action` | ✅ | public | Sem consumidor e scope não justifica |
-| PATCH | `/api/v1/reports/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/collections` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/collections/:id/items` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/comments` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/downloads` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/favorites` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/materials` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/api/v1/moderation/:id/approve` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/api/v1/moderation/:id/reject` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/api/v1/moderation/:id/submit` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/organizations` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/reports` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/material-metadata/:materialId` | ✅ | public | Sem consumidor e scope não justifica |
