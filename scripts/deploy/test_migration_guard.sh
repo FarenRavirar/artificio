@@ -56,6 +56,26 @@ assert_pass "drop_identity"   "ALTER COLUMN y DROP IDENTITY IF EXISTS"
 assert_pass "drop_expression" "ALTER COLUMN z DROP EXPRESSION"
 
 echo ""
+echo "=== Verdes: DROP de objeto idempotente com IF EXISTS (achado real 2026-07-12) ==="
+# apps/downloads/database/migration_003_download_creator.sql tinha
+# "DROP TRIGGER IF EXISTS set_updated_at ON download_creator" (padrao comum antes de
+# recriar trigger) e era barrado como falso-positivo — objeto recriavel, nao
+# destrutivo de dado, mas fora da allowlist antiga (so cobria DROP de atributo).
+assert_pass "drop_trigger_if_exists"  "DROP TRIGGER IF EXISTS trg_audit ON players"
+assert_pass "drop_function_if_exists" "DROP FUNCTION IF EXISTS calc_rating"
+assert_pass "drop_policy_if_exists"   "DROP POLICY IF EXISTS read_own ON players"
+assert_pass "drop_index_if_exists"    "DROP INDEX IF EXISTS idx_name"
+assert_pass "drop_view_if_exists"     "DROP VIEW IF EXISTS campaign_summary"
+assert_pass "drop_sequence_if_exists" "DROP SEQUENCE IF EXISTS seq_id"
+
+echo ""
+echo "=== Vermelhas: DROP de objeto FORA da allowlist idempotente, mesmo com IF EXISTS ==="
+# TABLE/COLUMN/DATABASE/SCHEMA/... continuam bloqueados mesmo com IF EXISTS —
+# so TRIGGER/FUNCTION/POLICY/INDEX/VIEW/SEQUENCE entraram na allowlist.
+assert_block "drop_table_if_exists"    "DROP TABLE IF EXISTS the_campaign"
+assert_block "drop_column_if_exists"   "ALTER TABLE t DROP COLUMN IF EXISTS name"
+
+echo ""
 echo "=== Verdes: comentários (não devem disparar) ==="
 assert_pass "block_comment"   "/* DROP TABLE test */ SELECT 1"
 assert_pass "line_comment"    "-- DROP TABLE destroyed CASCADE"
