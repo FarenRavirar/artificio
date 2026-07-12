@@ -5,7 +5,7 @@
 
 ## Fase atual
 
-**Fase 3 — projetos + conteúdo.** Gates A/B ✅; mesas, glossario e site com Gate D fechado. Site em `artificiorpg.com` (Astro SSG, spec 029/030/031). `beta.artificiorpg.com` = staging. WP desligado da raiz; DNS raiz intocado (Gate C adiado). Migração WP→site concluída (D074, residual zero).
+**Fase 3 — projetos + conteúdo.** Gates A/B/C ✅; mesas, glossario e site com Gate D fechado. Site em `artificiorpg.com` (Astro SSG, spec 029/030/031), cutover de DNS raiz concluído (Gate C encerrado, D074). `beta.artificiorpg.com` = staging. WordPress desligado. Migração WP→site concluída, residual zero.
 
 **Todos os 5 apps em prod** (2026-06-21). **Último promote `dev→main`: 2026-06-24 (`2756346`, ff via `promote-prod-fast-forward.yml`)** — promoveu specs 044-049 (PRs #93/#94 + acumulado). `main == dev`. **⚠️ Deploy prod mesas falhou e fez rollback** (run `28125222995`): guard de migration barrou `migration_128` (falso-positivo `online-safe`). **Spec 050 corrigiu o guard** (regex estreito + teste shell 28/28 no CI + cópia órfã removida). Mesas em prod segue no código pré-049. **Pronto para re-deploy prod** (gated por aprovação nominal do mantenedor).
 
@@ -19,7 +19,7 @@
 - Débitos fechados: `BL-SHELL-B13`, `D-SHELL1`, `BL-UI-THEME-REACT-HEADER-VARIANT`, `BL-UI-THEME-TOGGLE-SITE-REGRESSION`, `BL-GLOSSARIO-CHANGELOG-JSON`
 - 19 revisões de bots + 15 Sonar aplicados (17 itens, 2 agrupados); auditoria changelog 53 ✅
 - **Pós-merge (PR #82):** deploy beta quebrou — contrato de changelog vivia em `@artificio/ui` (ESM-only), backends CJS (glossário/mesas) não conseguiam `require`. Extraído p/ pacote leaf **`@artificio/changelog`** (build dual ESM+CJS, `exports {import,require}`); `@artificio/ui` re-exporta; backends deixam de depender de UI/React. + fix `turbo.json` (`dist-cjs/**` nos outputs). Detalhe em `tasks-2.md` D-041-22/23, `task-revisões.md` §Pós-#80.
-- **PROD (2026-06-21):** glossário, mesas, accounts, links com 041 em prod ✅. Site em beta (raiz `artificiorpg.com` = Gate C, adiado).
+- **PROD (2026-06-21):** glossário, mesas, accounts, links com 041 em prod ✅. Site já em produção na raiz `artificiorpg.com` (Gate C encerrado desde, ver seção Gates).
 - **Spec 041 ENCERRADA.**
 
 ## Gates
@@ -28,7 +28,7 @@
 |------|--------|-------|
 | **A** | ✅ | Backups completos/verificados/off-VM |
 | **B** | ✅ | SSO `accounts.` no ar, cross-subdomínio provado |
-| **C** | ⏸️ | Cutover DNS raiz — adiado (D016). Site já serve em `artificiorpg.com` por redirect Cloudflare, não pelo cutover cerimonial |
+| **C** | ✅ | Cutover DNS raiz concluído (D074, 2026-07-12 confirmado). `artificiorpg.com` = CNAME direto pro Cloudflare Tunnel (`<tunnel-id>.cfargotunnel.com`) → `site-prod-app:4322`. WordPress desligado |
 | **D** | ✅ | `mesas` (2026-06-08), `glossario` (2026-06-12), `site` (2026-06-18 via spec 029/030/031) |
 | **D-link** | ✅ | `links.artificiorpg.com` **no ar** (2026-06-21). Spec 038 completa: **Logos: 12/13 reidratados** (Canal de Notícias null = legítimo, kind=channel). **Report público funcional** ✅. **Cron VM configurado** ✅ (domingo 06:00, crontab ubuntu). `BL-UI-THEME-REACT-HEADER-VARIANT` **fechado** (em prod via spec 041, PR #80/#82). |
 
@@ -86,6 +86,7 @@
 
 ## Log
 
+- 2026-07-12 — **Incidente: `artificiorpg.com` fora do ar (404 edge Cloudflare) + Gate C confirmado encerrado.** Diagnóstico read-only na VM mostrou container `site-prod-app` saudável e respondendo 200 internamente (`/`, `/healthz`), afastando hipótese de app quebrado. Causa real: domínio customizado de bucket R2 (`artificiodownloads`) registrado na raiz `artificiorpg.com` no painel Cloudflare, ocupando o hostname e impedindo o Tunnel de criar/atualizar o `CNAME` — sintoma era 404 cacheado no edge (`Cf-Cache-Status: HIT`, `Age` alto) mesmo com origem saudável. Mantenedor confirmou nesta sessão que o cutover Astro→raiz já tinha acontecido há tempo e WordPress já estava desligado — ou seja, Gate C já estava de fato encerrado, só não registrado como tal em `AGENTS.md`/`project-state.md` (que ainda descreviam DNS raiz como "intocável, WP na raiz, Gate C adiado"). Mantenedor removeu o registro R2 conflitante e recriou o `CNAME` correto (`artificiorpg.com` → `6417d3a0-b98b-42ed-97da-3fb9f6ecfac2.cfargotunnel.com`) via painel Tunnel. Gate C marcado como ✅ encerrado nesta sessão; `AGENTS.md` (trava "DNS raiz intocável pré-Gate C", topologia, regra de aprovação, seção SEO) e `project-state.md` (Fase atual + tabela Gates) atualizados para refletir o estado real. **Lição de diagnóstico:** ao investigar hostname raiz fora do ar, checar sempre o registro DNS real no painel antes de assumir causa (A/AAAA antigo, WordPress) — pode ser qualquer tipo de registro (neste caso R2) conflitando com o nome.
 - 2026-07-09 — **Spec 062 I0b.4 concluída; D110.** Fila manual prod decidida: `Advanced Dungeons & Dragons` é edição de `Dungeons & Dragons`; `Vampire` é nome inglês e `Vampiro` nome português do mesmo sistema; `Anniversary` tem PT `Aniversário`; `Dungeons & Dragons 3.0` e `Dungeons & Dragons 3.5e` são edições irmãs de `Dungeons & Dragons`, não variante uma da outra. `migration_142` corrige só contaminados pelo padrão seguro; esses casos ficam fora de correção automática.
 - 2026-07-09 — **Spec 062 I0b.3 aplicada em beta/dev.** `migration_142_fix_system_child_names.sql` executada em `mesas-beta-db` pelo runner oficial em `/opt/artificio-beta` com `COMPOSE_PROJECT=mesas-beta`, `ALLOW_MANUAL_MIGRATIONS=true` e backup VM-local visível ao guard (`/tmp/artificio-mesas-beta-i0b3-pre-20260709-143715.dump`, 1.5M, SHA256 `3eb7ffc055ca27616033c2449d7f6f9f5d1341b4efd454692233475e5e13b85a`). Resultado: 577 nomes corrigidos, `schema_migrations=1`, clone beta sincronizado com o arquivo da migration, health beta OK. Detector residual `1|0|591` é falso positivo legítimo `Time` → `Time Again`.
 - 2026-07-09 — **Spec 062 I0b.3 aplicada em prod.** `migration_142_fix_system_child_names.sql` executada em `mesas-db` pelo runner oficial em `/opt/artificio` com `COMPOSE_PROJECT=mesas`, `ALLOW_MANUAL_MIGRATIONS=true` e backup VM-local visível ao guard (`/tmp/artificio-mesas-prod-i0b3-pre-20260709-162521.dump`, 1.5M, SHA256 `44d947913ec88505a5db7bdff9fccab27ad7126c153510425ec2114ac16dee75`). Guard pré-prod `573|0|6`; resultado: 573 nomes corrigidos, `schema_migrations=1`, clone prod sincronizado com o arquivo da migration, health prod OK. Detector residual `1|0|578` é falso positivo legítimo `Time` → `Time Again`. Próximo: I0b.6 smoke visual/build/lint em beta antes de I0a.

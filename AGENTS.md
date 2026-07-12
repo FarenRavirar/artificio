@@ -78,13 +78,13 @@ O LSP no OpenCode fornece diagnosticos ao agente, mas:
 
 ## Gates do Programa (regra pétrea de sequência)
 
-O Artifício RPG avança por gates. **Nenhum gate é pulado.** Cada gate exige aprovação explícita do mantenedor. O status operacional detalhado vive em `.specify/memory/project-state.md`; aqui ficam a sequência e as travas duráveis. Gates ativos neste ciclo: A, B e D. Gate C = futuro, adiado (D016).
+O Artifício RPG avança por gates. **Nenhum gate é pulado.** Cada gate exige aprovação explícita do mantenedor. O status operacional detalhado vive em `.specify/memory/project-state.md`; aqui ficam a sequência e as travas duráveis. Gates ativos neste ciclo: A, B e D. **Gate C encerrado (D074/2026-07-12): WordPress desligado, cutover de `artificiorpg.com` para o site Astro concluído e em produção.**
 
 | Gate | Status operacional | Libera | Pré-condição / trava |
 |---|---|---|---|
 | **A** | aprovado; guardrail continua | Recriar/destruir instância Oracle | Backups completos, verificados e copiados off-VM (`C:\projetos\artificiobackup`) |
 | **B** | aprovado; guardrail continua | Importar conteúdo / construir projetos | SSO (`accounts.`) funcionando + 1º projeto no ar em subdomínio |
-| **C** | **adiado (fora de escopo)** | Apontar DNS de `artificiorpg.com` ao novo site e desligar WordPress | Site validado em beta (conteúdo + SEO + 301 + Nielsen/ISO) **e decisão explícita de cutover** |
+| **C** | **✅ encerrado (2026-07-12)** | Site Astro em produção na raiz `artificiorpg.com`, WordPress desligado (D074) | — |
 | **D** | ativo por projeto | Próximo projeto | Projeto atual passou smoke |
 
 **Topologia (subdomínio-por-projeto, D017/D028/D057/D063):**
@@ -92,11 +92,11 @@ O Artifício RPG avança por gates. **Nenhum gate é pulado.** Cada gate exige a
 - Cada projeto/app fica no próprio subdomínio (`glossario.`, `mesas.`, `downloads.`, `esferas.`, `srd.`, `links.`), root próprio, sem basename.
 - Linguagem pública usa **projetos**; `app` é unidade técnica em `apps/*`; `módulo` só aparece em contexto técnico/histórico.
 - `glossariorpg.` foi alias histórico pré-monorepo e não é hostname ativo a preservar.
-- Blog novo em `beta.artificiorpg.com` (BETA; → raiz `artificiorpg.com` no futuro, Gate C).
-- WP fica na raiz agora. SSO central em `accounts.artificiorpg.com` (D018).
+- Blog em `beta.artificiorpg.com` (staging) e em produção na raiz `artificiorpg.com` (site Astro, cutover concluído, Gate C).
+- WordPress desligado (D074). SSO central em `accounts.artificiorpg.com` (D018).
 - Une tudo: cookie `.artificiorpg.com` + nav + design. Cloudflare Tunnel mapeia hostname→container.
 
-**Sempre (Gate C adiado):** o WordPress de produção e o DNS raiz de `artificiorpg.com` são **intocáveis** todo o projeto. WP roda em paralelo. Importador só **lê** do WP (REST API / export/dump read-only), nunca escreve. Nenhum cutover de raiz sem reabrir o Gate C com aprovação explícita.
+**DNS raiz de `artificiorpg.com` não é mais intocável por WordPress (Gate C encerrado) — mas continua exigindo aprovação explícita do mantenedor pra qualquer mudança, como qualquer DNS/tunnel de produção.** `artificiorpg.com` é `CNAME` pro Cloudflare Tunnel (`<tunnel-id>.cfargotunnel.com`), roteando pro container `site-prod-app:4322`. **Incidente real (2026-07-12):** um domínio customizado de bucket R2 (`artificiodownloads`) ficou registrado na raiz `artificiorpg.com`, ocupando o nome e impedindo o Tunnel de criar/atualizar o CNAME — sintoma foi 404 do edge Cloudflare (`Cf-Cache-Status: HIT` com 404 cacheado) mesmo com a origem saudável. Diagnóstico: sempre checar registro DNS real do hostname raiz no painel (não assumir que é WordPress/A record antigo) antes de mexer — pode ser qualquer registro (R2, MX, etc.) conflitando com o nome.
 
 ---
 
@@ -143,7 +143,7 @@ Nunca executar sem aprovação explícita do mantenedor:
 - `npm`/`pnpm run build` no servidor
 - `git commit`; `git push origin dev|main`; `git push --delete`
 - `psql`/SQL write em DB real/VM/prod com `INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE`
-- Qualquer ação contra WordPress de produção ou DNS raiz antes do Gate C
+- Qualquer mudança em registro DNS/Tunnel de produção (inclusive raiz `artificiorpg.com`, já sem WordPress desde o Gate C encerrado — trava aqui é "produção", não mais "pré-Gate C")
 - Recriar/redimensionar instância Oracle, mexer em volume ou tunnel
 - Copiar/sobrescrever arquivos em produção
 - Modificar arquivos fora do escopo solicitado sem aprovação/ampliação explícita de escopo registrada na sessão. Pequenas edições pedidas explicitamente pelo mantenedor no meio da sessão contam como ampliação de escopo e devem ser registradas.
@@ -264,7 +264,7 @@ Regras duras:
 
 - Compromissos inegociáveis: gratuidade, sem anúncios, sem coleta desnecessária de dados.
 - **Google OAuth é o único login.** Sessão única em cookie `Domain=.artificiorpg.com`. E-mail/senha só com autorização explícita. Exceção controlada: fluxo legado de migração do glossário (D061) pode verificar vínculo antigo sem criar sessão por e-mail/senha.
-- **SEO é inegociável no site:** slugs do WordPress preservados, redirects 301 preservados, sem merge que cause regressão de meta/sitemap/canonical. Manter compatível com exigências de Search Console e Lighthouse. Testes completos de Search Console/Lighthouse só entram depois do portal completo e DNS do portal apontado para `artificiorpg.com` (Gate C); antes disso validar local/beta o que for possível.
+- **SEO é inegociável no site:** slugs do WordPress preservados, redirects 301 preservados, sem merge que cause regressão de meta/sitemap/canonical. Manter compatível com exigências de Search Console e Lighthouse. DNS do portal já aponta para `artificiorpg.com` (Gate C encerrado, site em produção) — testes completos de Search Console/Lighthouse liberados.
 - Toda mudança de interface respeita as **10 Heurísticas de Nielsen** e **ISO 9241-11** (eficácia, eficiência, satisfação) antes do merge. Checklist na sessão.
 - Design sóbrio/minimalista com sobriedade de Google-suite (Docs/Gmail), sem copiar marca Google. Cores, logo e padrões vêm de `packages/ui`. Não divergir do design system por app/projeto sem aprovação.
 - Analytics (GA4) cobre rotas públicas via `packages/analytics`. Toda página/rota pública nova é instrumentada. Admin/operacional só instrumenta eventos úteis, sem coletar dado desnecessário.

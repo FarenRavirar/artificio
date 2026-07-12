@@ -57,7 +57,7 @@ async function assertOwnsCollection(collectionId: string, userId: string) {
     .executeTakeFirst();
 }
 
-router.get('/:id/items', optionalAuth, async (req: Request, res: Response) => {
+router.get('/:id/items', writeRateLimiter, optionalAuth, async (req: Request, res: Response) => {
   const collection = await db
     .selectFrom('download_collection')
     .select(['id', 'user_id', 'is_public'])
