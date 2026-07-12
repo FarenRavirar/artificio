@@ -249,6 +249,29 @@ function appendRequiredJsonBody(lines: string[], property: string, propertyLines
   appendRequestBody(lines, true, { name: property, lines: propertyLines });
 }
 
+function appendDownloadsRequestBody(lines: string[], method: string, path: string): boolean {
+  if (method === 'post' && path === '/api/v1/materials') {
+    appendIndented(lines, ``, [
+      `      requestBody:`,
+      `        required: true`,
+      `        content:`,
+      `          application/json:`,
+      `            schema:`,
+      `              type: object`,
+      `              required: [slug, title, material_type]`,
+      `              properties:`,
+      `                slug:`,
+      `                  type: string`,
+      `                title:`,
+      `                  type: string`,
+      `                material_type:`,
+      `                  type: string`,
+    ]);
+    return true;
+  }
+  return false;
+}
+
 function appendAccountRequestBody(lines: string[], method: string, path: string): boolean {
   if (method === 'delete' && path === '/api/account') {
     appendRequiredJsonBody(lines, "confirm", ["type: string", "format: email"]);
@@ -447,7 +470,7 @@ servers:
         }
       }
       if (shouldHaveRequestBody(method, oaPath)) {
-        if (!appendAccountRequestBody(lines, method, oaPath)) {
+        if (!appendAccountRequestBody(lines, method, oaPath) && !appendDownloadsRequestBody(lines, method, oaPath)) {
           appendGenericRequestBody(lines, isRequiredBodyRoute(method, oaPath));
         }
       }

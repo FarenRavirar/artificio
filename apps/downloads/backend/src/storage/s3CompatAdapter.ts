@@ -2,10 +2,11 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import type { StorageAdapter, StorageProviderName, StorageUploadInput, StorageUploadResult, StorageUsage } from './types';
 import { StorageQuotaExceededError } from './types';
-import { assertWithinQuota, recordUsage, getCurrentUsage } from './usageTracker';
+import { assertWithinQuota, recordUsage, getCurrentUsage, QuotaCheckError } from './usageTracker';
 
 // Adapter S3-compativel: usado por R2 (T2.1, primario) e B2 (T2.2, fallback
 // por cota) — ambos expoem API compativel com S3 (T0.1 confirmado no plan.md).
@@ -51,8 +52,11 @@ export function createS3CompatAdapter(config: S3CompatConfig): StorageAdapter {
     async upload(input: StorageUploadInput): Promise<StorageUploadResult> {
       try {
         await assertWithinQuota(config.provider, quota, input.buffer.byteLength, 'a');
-      } catch {
-        throw new StorageQuotaExceededError(config.provider, `Cota de ${config.provider} excedida (upload).`);
+      } catch (err) {
+        if (err instanceof QuotaCheckError) {
+          throw new StorageQuotaExceededError(config.provider, `Cota de ${config.provider} excedida (upload).`);
+        }
+        throw err;
       }
 
       await client.send(new PutObjectCommand({
@@ -68,14 +72,18 @@ export function createS3CompatAdapter(config: S3CompatConfig): StorageAdapter {
     },
 
     getPublicUrl(key: string): string {
-      return `${config.publicBaseUrl.replace(/\/$/, '')}/${key}`;
+      const encodedKey = key.split('/').map(encodeURIComponent).join('/');
+      return `${config.publicBaseUrl.replace(/\/$/, '')}/${encodedKey}`;
     },
 
     async delete(key: string): Promise<void> {
       try {
         await assertWithinQuota(config.provider, quota, 0, 'a');
-      } catch {
-        throw new StorageQuotaExceededError(config.provider, `Cota de ${config.provider} excedida (delete).`);
+      } catch (err) {
+        if (err instanceof QuotaCheckError) {
+          throw new StorageQuotaExceededError(config.provider, `Cota de ${config.provider} excedida (delete).`);
+        }
+        throw err;
       }
 
       await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: key }));
@@ -95,6 +103,22 @@ export function createS3CompatAdapter(config: S3CompatConfig): StorageAdapter {
         quotaClassAOps: config.quotaClassAOps,
         quotaClassBOps: config.quotaClassBOps,
       };
+    },
+
+    async download(key: string): Promise<Buffer> {
+      // Download usado so por reconciliacao/migracao (T4.1/T4.2), nao pelo
+      // fluxo normal de servir arquivo (isso passa por getPublicUrl). Gasta
+      // cota Classe B — chamador decide se registra via recordUsage.
+      const result = await client.send(new GetObjectCommand({ Bucket: config.bucket, Key: key }));
+      const chunks: Buffer[] = [];
+      const body = result.Body as AsyncIterable<Buffer> | undefined;
+      if (!body) {
+        throw new Error(`Download de ${config.provider} falhou: corpo vazio para ${key}`);
+      }
+      for await (const chunk of body) {
+        chunks.push(Buffer.from(chunk));
+      }
+      return Buffer.concat(chunks);
     },
   };
 }

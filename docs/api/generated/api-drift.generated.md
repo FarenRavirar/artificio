@@ -15,7 +15,7 @@
 | 📄 CONTRACT_ONLY | 2 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 87 | ❌ |
-| 👻 ORPHAN_SUSPECT | 11 | ❌ |
+| 👻 ORPHAN_SUSPECT | 26 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
@@ -36,14 +36,29 @@
 | POST | `/api/auth/logout` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/admin/secrets/:name` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 
-### downloads (4 rotas no inventário)
+### downloads (19 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
+| DELETE | `/api/v1/comments/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| DELETE | `/api/v1/reports/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/comments/:materialId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/health` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/material-metadata/:materialId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/:slug` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/moderation/queue` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/reports` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/reports/abuse-check/:userId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/materials/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PATCH | `/api/v1/moderation/batch/:action` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PATCH | `/api/v1/reports/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/comments` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/materials` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/moderation/:id/approve` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/moderation/:id/reject` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/moderation/:id/submit` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/reports` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PUT | `/api/v1/material-metadata/:materialId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 
 ### glossario (45 rotas no inventário)
 
@@ -386,13 +401,28 @@
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique.
 
-### downloads (3 rota(s))
+### downloads (18 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
+| DELETE | `/api/v1/comments/:id` | ✅ | public | Sem consumidor e scope não justifica |
+| DELETE | `/api/v1/reports/:id` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/api/v1/comments/:materialId` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/api/v1/material-metadata/:materialId` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/materials/:slug` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/api/v1/moderation/queue` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/api/v1/reports` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/api/v1/reports/abuse-check/:userId` | ✅ | public | Sem consumidor e scope não justifica |
 | PATCH | `/api/v1/materials/:id` | ✅ | public | Sem consumidor e scope não justifica |
+| PATCH | `/api/v1/moderation/batch/:action` | ✅ | public | Sem consumidor e scope não justifica |
+| PATCH | `/api/v1/reports/:id` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/api/v1/comments` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/materials` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/api/v1/moderation/:id/approve` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/api/v1/moderation/:id/reject` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/api/v1/moderation/:id/submit` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/api/v1/reports` | ✅ | public | Sem consumidor e scope não justifica |
+| PUT | `/api/v1/material-metadata/:materialId` | ✅ | public | Sem consumidor e scope não justifica |
 ### mesas (2 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |

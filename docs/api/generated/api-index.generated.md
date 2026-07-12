@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **309 operações**.
+Total: **324 operações**.
 
 ## accounts (11)
 
@@ -22,14 +22,29 @@ Total: **309 operações**.
 | GET | `/health` | internal | none | active | — | Consulta health |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
-## downloads (4)
+## downloads (19)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
+| POST | `/api/v1/comments` | public | user | active | — | Cria ou executa api v1 comments |
+| DELETE | `/api/v1/comments/{id}` | public | user | active | — | Remove api v1 comments id |
+| GET | `/api/v1/comments/{materialId}` | public | none | active | — | Consulta api v1 comments materialId |
 | GET | `/api/v1/health` | internal | none | active | — | Consulta api v1 health |
+| GET | `/api/v1/material-metadata/{materialId}` | public | none | active | — | Consulta api v1 material-metadata materialId |
+| PUT | `/api/v1/material-metadata/{materialId}` | public | user | active | — | Substitui api v1 material-metadata materialId |
 | POST | `/api/v1/materials` | public | user | active | — | Cria ou executa api v1 materials |
 | PATCH | `/api/v1/materials/{id}` | public | user | active | — | Atualiza api v1 materials id |
 | GET | `/api/v1/materials/{slug}` | public | none | active | — | Consulta api v1 materials slug |
+| POST | `/api/v1/moderation/{id}/approve` | public | user | active | — | Cria ou executa api v1 moderation id approve |
+| POST | `/api/v1/moderation/{id}/reject` | public | user | active | — | Cria ou executa api v1 moderation id reject |
+| POST | `/api/v1/moderation/{id}/submit` | public | user | active | — | Cria ou executa api v1 moderation id submit |
+| PATCH | `/api/v1/moderation/batch/{action}` | public | user | active | — | Atualiza api v1 moderation batch action |
+| GET | `/api/v1/moderation/queue` | public | none | active | — | Consulta api v1 moderation queue |
+| GET | `/api/v1/reports` | public | none | active | — | Consulta api v1 reports |
+| POST | `/api/v1/reports` | public | user | active | — | Cria ou executa api v1 reports |
+| DELETE | `/api/v1/reports/{id}` | public | user | active | — | Remove api v1 reports id |
+| PATCH | `/api/v1/reports/{id}` | public | user | active | — | Atualiza api v1 reports id |
+| GET | `/api/v1/reports/abuse-check/{userId}` | public | none | active | — | Consulta api v1 reports abuse-check userId |
 
 ## glossario (47)
 

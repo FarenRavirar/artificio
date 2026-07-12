@@ -24,6 +24,7 @@ function makeAdapter(provider: StorageAdapter['provider'], behavior: 'ok' | 'quo
       quotaClassAOps: null,
       quotaClassBOps: null,
     })),
+    download: vi.fn(async () => Buffer.from('x')),
   };
 }
 

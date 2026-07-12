@@ -12,6 +12,112 @@ servers:
     description: Desenvolvimento
 security: []
 paths:
+  /api/v1/comments:
+    post:
+      operationId: postapi_v1_comments
+      summary: "Cria ou executa api v1 comments"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/comments/{id}:
+    delete:
+      operationId: deleteapi_v1_comments_id
+      summary: "Remove api v1 comments id"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/comments/{materialId}:
+    get:
+      operationId: getapi_v1_comments_materialId
+      summary: "Consulta api v1 comments materialId"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/health:
     get:
       operationId: getapi_v1_health
@@ -20,6 +126,82 @@ paths:
       x-artificio-scope: internal
       x-artificio-status: active
       x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/material-metadata/{materialId}:
+    get:
+      operationId: getapi_v1_material_metadata_materialId
+      summary: "Consulta api v1 material-metadata materialId"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+    put:
+      operationId: putapi_v1_material_metadata_materialId
+      summary: "Substitui api v1 material-metadata materialId"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
       responses:
         "200":
           description: OK
@@ -55,7 +237,14 @@ paths:
           application/json:
             schema:
               type: object
-              additionalProperties: true
+              required: [slug, title, material_type]
+              properties:
+                slug:
+                  type: string
+                title:
+                  type: string
+                material_type:
+                  type: string
       responses:
         "201":
           description: Material criado
@@ -129,6 +318,378 @@ paths:
       x-artificio-auth: none
       parameters:
         - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/moderation/{id}/approve:
+    post:
+      operationId: postapi_v1_moderation_id_approve
+      summary: "Cria ou executa api v1 moderation id approve"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/moderation/{id}/reject:
+    post:
+      operationId: postapi_v1_moderation_id_reject
+      summary: "Cria ou executa api v1 moderation id reject"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/moderation/{id}/submit:
+    post:
+      operationId: postapi_v1_moderation_id_submit
+      summary: "Cria ou executa api v1 moderation id submit"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/moderation/batch/{action}:
+    patch:
+      operationId: patchapi_v1_moderation_batch_action
+      summary: "Atualiza api v1 moderation batch action"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/moderation/queue:
+    get:
+      operationId: getapi_v1_moderation_queue
+      summary: "Consulta api v1 moderation queue"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/reports:
+    get:
+      operationId: getapi_v1_reports
+      summary: "Consulta api v1 reports"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+    post:
+      operationId: postapi_v1_reports
+      summary: "Cria ou executa api v1 reports"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/reports/{id}:
+    delete:
+      operationId: deleteapi_v1_reports_id
+      summary: "Remove api v1 reports id"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+    patch:
+      operationId: patchapi_v1_reports_id
+      summary: "Atualiza api v1 reports id"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/reports/abuse-check/{userId}:
+    get:
+      operationId: getapi_v1_reports_abuse_check_userId
+      summary: "Consulta api v1 reports abuse-check userId"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: userId
           in: path
           required: true
           schema:

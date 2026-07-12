@@ -10,7 +10,7 @@
 
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
-| downloads | ❌ 1 | ✅ 1 | ⚪ 0 |
+| downloads | ❌ 1 | ✅ 11 | ⚪ 0 |
 | mesas | ✅ 0 | ✅ 1 | ⚪ 0 |
 | glossario | ✅ 0 | ✅ 1 | ⚪ 0 |
 | site | ✅ 0 | ✅ 12 | ⚪ 0 |
@@ -23,13 +23,23 @@
 
 | Path | Method | Ação | Código |
 |------|--------|------|--------|
-| `/api/v1/materials` | POST | remove | `response.status-code.remove` |
+| `/api/v1/materials` | POST | remove | `request.body.scope.remove` |
 
-#### ✅ Non-breaking (1)
+#### ✅ Non-breaking (11)
 
 | Path | Method | Ação |
 |------|--------|------|
-| `/api/v1/materials` | POST | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
 
 ---
 

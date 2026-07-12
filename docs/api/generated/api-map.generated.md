@@ -20,12 +20,12 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | App | Total | HIGH | MEDIUM | LOW | Methods |
 |-----|-------|------|--------|-----|---------|
 | accounts | 11 | 11 | 0 | 0 | GET, POST, PUT |
-| downloads | 5 | 5 | 0 | 0 | GET, PATCH, POST, USE |
+| downloads | 24 | 24 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | glossario | 62 | 62 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 229 | 229 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 52 | 52 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **382** | 382 | 0 | 0 | |
+| **Total** | **401** | 401 | 0 | 0 | |
 
 ## accounts
 
@@ -47,11 +47,30 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| GET | `/api/v1/health` | ✅ high | `apps/downloads/backend/src/server.ts` | 50 |
+| POST | `/api/v1/comments` | ✅ high | `apps/downloads/backend/src/routes/comments.ts` | 16 |
+| USE | `/api/v1/comments` | ✅ high | `apps/downloads/backend/src/server.ts` | 68 |
+| DELETE | `/api/v1/comments/:id` | ✅ high | `apps/downloads/backend/src/routes/comments.ts` | 61 |
+| GET | `/api/v1/comments/:materialId` | ✅ high | `apps/downloads/backend/src/routes/comments.ts` | 46 |
+| GET | `/api/v1/health` | ✅ high | `apps/downloads/backend/src/server.ts` | 54 |
+| USE | `/api/v1/material-metadata` | ✅ high | `apps/downloads/backend/src/server.ts` | 65 |
+| GET | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 33 |
+| PUT | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 47 |
 | POST | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 63 |
-| USE | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/server.ts` | 60 |
+| USE | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/server.ts` | 64 |
 | PATCH | `/api/v1/materials/:id` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 88 |
 | GET | `/api/v1/materials/:slug` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 46 |
+| USE | `/api/v1/moderation` | ✅ high | `apps/downloads/backend/src/server.ts` | 66 |
+| POST | `/api/v1/moderation/:id/approve` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 105 |
+| POST | `/api/v1/moderation/:id/reject` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 67 |
+| POST | `/api/v1/moderation/:id/submit` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 15 |
+| PATCH | `/api/v1/moderation/batch/:action` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 161 |
+| GET | `/api/v1/moderation/queue` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 50 |
+| GET | `/api/v1/reports` | ✅ high | `apps/downloads/backend/src/routes/reports.ts` | 126 |
+| POST | `/api/v1/reports` | ✅ high | `apps/downloads/backend/src/routes/reports.ts` | 32 |
+| USE | `/api/v1/reports` | ✅ high | `apps/downloads/backend/src/server.ts` | 67 |
+| DELETE | `/api/v1/reports/:id` | ✅ high | `apps/downloads/backend/src/routes/reports.ts` | 80 |
+| PATCH | `/api/v1/reports/:id` | ✅ high | `apps/downloads/backend/src/routes/reports.ts` | 146 |
+| GET | `/api/v1/reports/abuse-check/:userId` | ✅ high | `apps/downloads/backend/src/routes/reports.ts` | 110 |
 
 ## glossario
 

@@ -42,5 +42,15 @@ export function createCloudinaryAdapter(): StorageAdapter {
         quotaClassBOps: null,
       };
     },
+
+    async download(key: string): Promise<Buffer> {
+      // Cloudinary raw asset e servido por URL publica estavel (key aqui e o
+      // public_id, que dobra como URL — ver getPublicUrl acima).
+      const response = await fetch(key);
+      if (!response.ok) {
+        throw new Error(`Cloudinary download falhou: HTTP ${response.status}`);
+      }
+      return Buffer.from(await response.arrayBuffer());
+    },
   };
 }

@@ -4,13 +4,13 @@
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
     "accounts": 11,
-    "downloads": 4,
+    "downloads": 19,
     "glossario": 47,
     "links": 22,
     "mesas": 179,
     "site": 46
   },
-  "total": 309,
+  "total": 324,
   "operations": [
     {
       "app": "accounts",
@@ -163,6 +163,42 @@
     },
     {
       "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/comments",
+      "summary": "Cria ou executa api v1 comments",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_comments"
+    },
+    {
+      "app": "downloads",
+      "method": "DELETE",
+      "path": "/api/v1/comments/{id}",
+      "summary": "Remove api v1 comments id",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "deleteapi_v1_comments_id"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/comments/{materialId}",
+      "summary": "Consulta api v1 comments materialId",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_comments_materialId"
+    },
+    {
+      "app": "downloads",
       "method": "GET",
       "path": "/api/v1/health",
       "summary": "Consulta api v1 health",
@@ -172,6 +208,30 @@
       "auth": "none",
       "consumers": [],
       "operationId": "getapi_v1_health"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/material-metadata/{materialId}",
+      "summary": "Consulta api v1 material-metadata materialId",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_material_metadata_materialId"
+    },
+    {
+      "app": "downloads",
+      "method": "PUT",
+      "path": "/api/v1/material-metadata/{materialId}",
+      "summary": "Substitui api v1 material-metadata materialId",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "putapi_v1_material_metadata_materialId"
     },
     {
       "app": "downloads",
@@ -208,6 +268,126 @@
       "auth": "none",
       "consumers": [],
       "operationId": "getapi_v1_materials_slug"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/moderation/{id}/approve",
+      "summary": "Cria ou executa api v1 moderation id approve",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_moderation_id_approve"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/moderation/{id}/reject",
+      "summary": "Cria ou executa api v1 moderation id reject",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_moderation_id_reject"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/moderation/{id}/submit",
+      "summary": "Cria ou executa api v1 moderation id submit",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_moderation_id_submit"
+    },
+    {
+      "app": "downloads",
+      "method": "PATCH",
+      "path": "/api/v1/moderation/batch/{action}",
+      "summary": "Atualiza api v1 moderation batch action",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "patchapi_v1_moderation_batch_action"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/moderation/queue",
+      "summary": "Consulta api v1 moderation queue",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_moderation_queue"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/reports",
+      "summary": "Consulta api v1 reports",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_reports"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/reports",
+      "summary": "Cria ou executa api v1 reports",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_reports"
+    },
+    {
+      "app": "downloads",
+      "method": "DELETE",
+      "path": "/api/v1/reports/{id}",
+      "summary": "Remove api v1 reports id",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "deleteapi_v1_reports_id"
+    },
+    {
+      "app": "downloads",
+      "method": "PATCH",
+      "path": "/api/v1/reports/{id}",
+      "summary": "Atualiza api v1 reports id",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "patchapi_v1_reports_id"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/reports/abuse-check/{userId}",
+      "summary": "Consulta api v1 reports abuse-check userId",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_reports_abuse_check_userId"
     },
     {
       "app": "glossario",

@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 382,
+    "total": 401,
     "byApp": {
       "accounts": {
         "total": 11,
@@ -14,15 +14,17 @@
         }
       },
       "downloads": {
-        "total": 5,
+        "total": 24,
         "byMethod": {
-          "GET": 2,
-          "POST": 1,
-          "USE": 1,
-          "PATCH": 1
+          "GET": 7,
+          "POST": 6,
+          "USE": 5,
+          "PATCH": 3,
+          "DELETE": 2,
+          "PUT": 1
         },
         "byConfidence": {
-          "high": 5
+          "high": 24
         }
       },
       "glossario": {
@@ -186,10 +188,73 @@
     },
     {
       "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/comments",
+      "sourceFile": "apps/downloads/backend/src/routes/comments.ts",
+      "line": 16,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "USE",
+      "path": "/api/v1/comments",
+      "sourceFile": "apps/downloads/backend/src/server.ts",
+      "line": 68,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "downloads",
+      "method": "DELETE",
+      "path": "/api/v1/comments/:id",
+      "sourceFile": "apps/downloads/backend/src/routes/comments.ts",
+      "line": 61,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/comments/:materialId",
+      "sourceFile": "apps/downloads/backend/src/routes/comments.ts",
+      "line": 46,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
       "method": "GET",
       "path": "/api/v1/health",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 50,
+      "line": 54,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "USE",
+      "path": "/api/v1/material-metadata",
+      "sourceFile": "apps/downloads/backend/src/server.ts",
+      "line": 65,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/material-metadata/:materialId",
+      "sourceFile": "apps/downloads/backend/src/routes/materialMetadata.ts",
+      "line": 33,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "PUT",
+      "path": "/api/v1/material-metadata/:materialId",
+      "sourceFile": "apps/downloads/backend/src/routes/materialMetadata.ts",
+      "line": 47,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -207,7 +272,7 @@
       "method": "USE",
       "path": "/api/v1/materials",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 60,
+      "line": 64,
       "confidence": "high",
       "kind": "mount"
     },
@@ -226,6 +291,114 @@
       "path": "/api/v1/materials/:slug",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
       "line": 46,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "USE",
+      "path": "/api/v1/moderation",
+      "sourceFile": "apps/downloads/backend/src/server.ts",
+      "line": 66,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/moderation/:id/approve",
+      "sourceFile": "apps/downloads/backend/src/routes/moderation.ts",
+      "line": 105,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/moderation/:id/reject",
+      "sourceFile": "apps/downloads/backend/src/routes/moderation.ts",
+      "line": 67,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/moderation/:id/submit",
+      "sourceFile": "apps/downloads/backend/src/routes/moderation.ts",
+      "line": 15,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "PATCH",
+      "path": "/api/v1/moderation/batch/:action",
+      "sourceFile": "apps/downloads/backend/src/routes/moderation.ts",
+      "line": 161,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/moderation/queue",
+      "sourceFile": "apps/downloads/backend/src/routes/moderation.ts",
+      "line": 50,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/reports",
+      "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
+      "line": 126,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/reports",
+      "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
+      "line": 32,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "USE",
+      "path": "/api/v1/reports",
+      "sourceFile": "apps/downloads/backend/src/server.ts",
+      "line": 67,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "downloads",
+      "method": "DELETE",
+      "path": "/api/v1/reports/:id",
+      "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
+      "line": 80,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "PATCH",
+      "path": "/api/v1/reports/:id",
+      "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
+      "line": 146,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/reports/abuse-check/:userId",
+      "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
+      "line": 110,
       "confidence": "high",
       "kind": "express-route"
     },

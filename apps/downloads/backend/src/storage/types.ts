@@ -32,6 +32,8 @@ export interface StorageAdapter {
   getPublicUrl(key: string): string;
   delete(key: string): Promise<void>;
   getUsage(): Promise<StorageUsage>;
+  /** Baixa o objeto para reconciliacao/migracao (T4.1/T4.2, spec 071). */
+  download(key: string): Promise<Buffer>;
 }
 
 export class StorageQuotaExceededError extends Error {

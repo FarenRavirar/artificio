@@ -14,6 +14,14 @@ export interface ProviderQuota {
   maxClassBOps: number | null;
 }
 
+/** Erro de cota efetivamente estourada (distinto de falha de infra ao checar). */
+export class QuotaCheckError extends Error {
+  constructor(readonly provider: StorageProviderName, message: string) {
+    super(message);
+    this.name = 'QuotaCheckError';
+  }
+}
+
 function currentYearMonth(): string {
   // process.env.TZ nao influencia toISOString (sempre UTC) — mes de
   // faturamento do Cloudflare tambem e UTC, mantem consistencia.
@@ -64,17 +72,17 @@ export async function assertWithinQuota(
 
   const projectedBytes = row.bytes_used + extraBytes;
   if (quota.maxBytes !== null && projectedBytes > quota.maxBytes) {
-    throw new Error(`quota_bytes_exceeded:${provider}`);
+    throw new QuotaCheckError(provider, `quota_bytes_exceeded:${provider}`);
   }
 
   const projectedClassA = row.class_a_ops + (opsClass === 'a' ? 1 : 0);
   if (quota.maxClassAOps !== null && projectedClassA > quota.maxClassAOps) {
-    throw new Error(`quota_class_a_exceeded:${provider}`);
+    throw new QuotaCheckError(provider, `quota_class_a_exceeded:${provider}`);
   }
 
   const projectedClassB = row.class_b_ops + (opsClass === 'b' ? 1 : 0);
   if (quota.maxClassBOps !== null && projectedClassB > quota.maxClassBOps) {
-    throw new Error(`quota_class_b_exceeded:${provider}`);
+    throw new QuotaCheckError(provider, `quota_class_b_exceeded:${provider}`);
   }
 }
 

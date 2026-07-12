@@ -7,6 +7,8 @@ import { StorageQuotaExceededError } from './types';
 // padrao REST generico documentado publicamente e deve ser revisada contra a
 // doc oficial antes do primeiro deploy com credencial real.
 
+const FASTIO_TIMEOUT_MS = 15_000;
+
 export interface FastioConfig {
   apiBaseUrl: string;
   apiKey: string;
@@ -38,6 +40,7 @@ export function createFastioAdapter(config: FastioConfig): StorageAdapter {
         method: 'PUT',
         headers: { ...authHeaders(), 'Content-Type': input.contentType },
         body: new Uint8Array(input.buffer),
+        signal: AbortSignal.timeout(FASTIO_TIMEOUT_MS),
       });
 
       if (!response.ok) {
@@ -48,13 +51,15 @@ export function createFastioAdapter(config: FastioConfig): StorageAdapter {
     },
 
     getPublicUrl(key: string): string {
-      return `${config.publicBaseUrl.replace(/\/$/, '')}/${key}`;
+      const encodedKey = key.split('/').map(encodeURIComponent).join('/');
+      return `${config.publicBaseUrl.replace(/\/$/, '')}/${encodedKey}`;
     },
 
     async delete(key: string): Promise<void> {
       const response = await fetchImpl(`${config.apiBaseUrl}/buckets/${encodeURIComponent(config.bucket)}/objects/${encodeURIComponent(key)}`, {
         method: 'DELETE',
         headers: authHeaders(),
+        signal: AbortSignal.timeout(FASTIO_TIMEOUT_MS),
       });
       if (!response.ok && response.status !== 404) {
         throw new Error(`Fastio delete falhou: HTTP ${response.status}`);
@@ -64,6 +69,7 @@ export function createFastioAdapter(config: FastioConfig): StorageAdapter {
     async getUsage(): Promise<StorageUsage> {
       const response = await fetchImpl(`${config.apiBaseUrl}/buckets/${encodeURIComponent(config.bucket)}/usage`, {
         headers: authHeaders(),
+        signal: AbortSignal.timeout(FASTIO_TIMEOUT_MS),
       });
       if (!response.ok) {
         throw new Error(`Fastio usage falhou: HTTP ${response.status}`);
@@ -80,6 +86,17 @@ export function createFastioAdapter(config: FastioConfig): StorageAdapter {
         quotaClassAOps: null,
         quotaClassBOps: null,
       };
+    },
+
+    async download(key: string): Promise<Buffer> {
+      const response = await fetchImpl(`${config.apiBaseUrl}/buckets/${encodeURIComponent(config.bucket)}/objects/${encodeURIComponent(key)}`, {
+        headers: authHeaders(),
+        signal: AbortSignal.timeout(FASTIO_TIMEOUT_MS),
+      });
+      if (!response.ok) {
+        throw new Error(`Fastio download falhou: HTTP ${response.status}`);
+      }
+      return Buffer.from(await response.arrayBuffer());
     },
   };
 }

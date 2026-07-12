@@ -2,6 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import materialsRoutes from './routes/materials';
+import materialMetadataRoutes from './routes/materialMetadata';
+import moderationRoutes from './routes/moderation';
+import reportsRoutes from './routes/reports';
+import commentsRoutes from './routes/comments';
 import { parseCookies } from './middleware/parseCookies';
 import { db } from './db';
 
@@ -58,6 +62,10 @@ app.get('/api/v1/health', async (_req, res) => {
 });
 
 app.use('/api/v1/materials', materialsRoutes);
+app.use('/api/v1/material-metadata', materialMetadataRoutes);
+app.use('/api/v1/moderation', moderationRoutes);
+app.use('/api/v1/reports', reportsRoutes);
+app.use('/api/v1/comments', commentsRoutes);
 
 interface HttpError {
   type?: string;

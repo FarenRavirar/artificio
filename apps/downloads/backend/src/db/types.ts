@@ -6,7 +6,7 @@ export type DownloadCreatorRole = 'user' | 'publisher' | 'moderator' | 'admin';
 export type DownloadReportPriority = 'P0' | 'P1' | 'P2' | 'P3';
 export type DownloadReportState = 'open' | 'in_review' | 'resolved' | 'dismissed';
 
-type JSONColumnType<T> = ColumnType<T, T | undefined, T>;
+export type JSONColumnType<T> = ColumnType<T, T | undefined, T>;
 
 export interface DownloadMaterialTable {
   id: Generated<string>;
@@ -23,6 +23,8 @@ export interface DownloadMaterialTable {
   external_url: string | null;
   storage_provider: string | null;
   storage_key: string | null;
+  rejection_reason: string | null;
+  auto_publish_enabled: Generated<boolean>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -184,6 +186,20 @@ export type DownloadStorageUsage = Selectable<DownloadStorageUsageTable>;
 export type NewDownloadStorageUsage = Insertable<DownloadStorageUsageTable>;
 export type DownloadStorageUsageUpdate = Updateable<DownloadStorageUsageTable>;
 
+export interface DownloadCommentTable {
+  id: Generated<string>;
+  material_id: string;
+  user_id: string;
+  body: string;
+  removed_at: Date | null;
+  removed_reason: string | null;
+  created_at: Generated<Date>;
+}
+
+export type DownloadComment = Selectable<DownloadCommentTable>;
+export type NewDownloadComment = Insertable<DownloadCommentTable>;
+export type DownloadCommentUpdate = Updateable<DownloadCommentTable>;
+
 export interface Database {
   download_material: DownloadMaterialTable;
   download_material_version: DownloadMaterialVersionTable;
@@ -197,4 +213,5 @@ export interface Database {
   download_link_check: DownloadLinkCheckTable;
   download_metric_daily: DownloadMetricDailyTable;
   download_storage_usage: DownloadStorageUsageTable;
+  download_comment: DownloadCommentTable;
 }
