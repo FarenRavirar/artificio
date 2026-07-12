@@ -51,15 +51,24 @@ parse_header() {
 validate_sql_against_class() {
   local filepath="$1"
   local class="$2"
+  local rc=0
 
   if [[ "$class" != "online-safe" ]]; then
     return 0
   fi
 
   # DEB-050-07 (spec 050): ALLOWLIST — bloqueia QUALQUER `DROP` que não seja atributo
-  # seguro conhecido (NOT NULL, CONSTRAINT, DEFAULT, IDENTITY, EXPRESSION), além de
-  # TRUNCATE e DELETE FROM. A denylist anterior (lista fixa de tipos de objeto) era
-  # furada: DROP POLICY/DOMAIN/FOREIGN TABLE/PUBLICATION/SERVER/... escapavam como online-safe.
+  # seguro conhecido (NOT NULL, CONSTRAINT, DEFAULT, IDENTITY, EXPRESSION) ou objeto
+  # idempotente com IF EXISTS (TRIGGER/FUNCTION/POLICY/INDEX/VIEW/SEQUENCE — recriável,
+  # não destrutivo de DADO), além de TRUNCATE e DELETE FROM. A denylist anterior (lista
+  # fixa de tipos de objeto) era furada: DROP POLICY/DOMAIN/FOREIGN TABLE/PUBLICATION/
+  # SERVER/... escapavam como online-safe.
+  # Achado real (2026-07-12, deploy inicial downloads): `DROP TRIGGER IF EXISTS` em
+  # migration_003_download_creator.sql (padrão idempotente comum antes de recriar
+  # trigger) foi barrado como falso-positivo — guard so cobria DROP de atributo, nao
+  # de objeto idempotente. Sem objeto/IF EXISTS na allowlist, todo padrao
+  # "DROP <objeto> IF EXISTS ... ; CREATE <objeto> ..." (comum p/ triggers/funcoes)
+  # ficaria barrado mesmo sendo seguro.
   # DEB-050-08 (CodeRabbit PR #95): o strip naive `s{--...}{}g` engolia `--` DENTRO de
   # string literal ('...'), escondendo o resto da linha — ex.: INSERT ... VALUES('--'); DROP
   # TABLE x; passava como online-safe. Trocado por tokenizer de 1 passada que ignora o
@@ -98,12 +107,17 @@ validate_sql_against_class() {
         $code .= $c; $i++;
       }
     }
-    exit 1 if $code =~ /\bDROP\b(?!\s+(?:NOT\s+NULL|CONSTRAINT|DEFAULT|IDENTITY|EXPRESSION)\b)/i;
+    exit 1 if $code =~ /\bDROP\b(?!\s+(?:NOT\s+NULL|CONSTRAINT|DEFAULT|IDENTITY|EXPRESSION|(?:TRIGGER|FUNCTION|POLICY|INDEX|VIEW|SEQUENCE)\s+IF\s+EXISTS)\b)/i;
     exit 1 if $code =~ /\bTRUNCATE\b/i;
     exit 1 if $code =~ /\bDELETE\s+FROM\b/i;
     exit 0;
-  ' "$filepath"
-  local rc=$?
+  ' "$filepath" && rc=0 || rc=$?
+  # Achado real (2026-07-12): com `set -e` no caller, o comando perl acima matava
+  # o script INTEIRO quando retornava exit 1 (DROP destrutivo real detectado) —
+  # nunca chegava a imprimir a mensagem "::error::" abaixo nem a diferenciar de um
+  # exit >1 (perl quebrado). "&& rc=0 || rc=$?" mantem o proprio guard como o unico
+  # comando testado (nao propaga falha pro `set -e` do caller), preservando o codigo
+  # real em $rc pra decisao correta logo abaixo.
 
   if [[ "$rc" -eq 0 ]]; then
     return 0
