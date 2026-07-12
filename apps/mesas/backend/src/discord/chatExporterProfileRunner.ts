@@ -2,7 +2,7 @@ import { mkdir } from 'fs/promises';
 import path from 'path';
 import { db } from '../db';
 import type { DiscordChatExporterProfile, NewDiscordImportRun } from '../db/types';
-import { DISCORD_CHAT_EXPORTER_RETENTION } from './chatExporterAutomationConfig';
+import { DISCORD_CHAT_EXPORTER_RETENTION, resolveChatExporterBaseDir } from './chatExporterAutomationConfig';
 import { runChatExporterCli } from './chatExporterCliRunner';
 import { processDiscordChatExporterFolder } from './chatExporterFolderImportService';
 
@@ -15,6 +15,7 @@ export function resolveChatExporterBinary(): string {
 export async function runFolderImport(rootDir: string, userId: string | undefined) {
   const result = await processDiscordChatExporterFolder({
     rootDir,
+    allowedBaseDir: resolveChatExporterBaseDir(),
     retention: DISCORD_CHAT_EXPORTER_RETENTION,
   });
   const totals = result.files.reduce(

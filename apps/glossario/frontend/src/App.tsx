@@ -6,6 +6,7 @@ import { FeedbackButton } from './features/dev-feedback/FeedbackButton';
 import { GlossarioHeader } from './components/GlossarioHeader';
 import { SearchBar } from './components/SearchBar';
 import { BuscaPage } from './pages/BuscaPage';
+import { ResultCard } from './components/ResultCard';
 import { FilterPanel } from './components/FilterPanel';
 import { LandingSection } from './components/LandingSection';
 import { useGlossario } from './hooks/useGlossario';
@@ -28,7 +29,6 @@ const termScore = (t: { nucleus?: string; status?: string; source_type?: string 
   (statusRank[t.status ?? ''] ?? 0) * 10 +
   (sourceRank[t.source_type ?? ''] ?? 0);
 
-const ResultCard = lazy(() => import('./components/ResultCard'));
 const AddTermModal = lazy(() => import('./components/AddTermModal'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));

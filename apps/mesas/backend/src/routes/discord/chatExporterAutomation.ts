@@ -13,6 +13,7 @@ import type {
 import { buildChatExporterCliCommand, redactedChatExporterCliCommand, runChatExporterCli } from '../../discord/chatExporterCliRunner';
 import { discoverChannelDelta, validateDiscordToken, DiscordDiscoveryError } from '../../discord/discovery';
 import { resolveChatExporterBinary, runFolderImport, runProfileExport } from '../../discord/chatExporterProfileRunner';
+import { resolveChatExporterBaseDir } from '../../discord/chatExporterAutomationConfig';
 import { getDiscordBotToken } from '../../discord/config';
 import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError, DiscordSettingsDecryptError } from '../../discord/settingsCrypto';
 import { requireAdmin } from '../../middleware/auth';
@@ -99,10 +100,7 @@ function defaultConfig(): Partial<ChatExporterConfig> {
 }
 
 function defaultImportDir(profileId: string): string {
-  const base = process.env.DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR?.trim()
-    || process.env.DISCORD_CHAT_EXPORTER_IMPORT_DIR?.trim()
-    || '/data/chat-exporter';
-  return path.join(base, profileId);
+  return path.join(resolveChatExporterBaseDir(), profileId);
 }
 
 function maskSecret(value: string): string {

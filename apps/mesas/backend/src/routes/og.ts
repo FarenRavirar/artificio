@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { readFile } from 'node:fs/promises';
 import { sql } from 'kysely';
+import escapeHtmlLib from 'escape-html';
 import { db } from '../db';
 import { upgradeGoogleImageQuality } from '../utils/urlValidation';
 import { isImportedTableExpired } from '../utils/tableVisibility';
@@ -30,15 +31,14 @@ async function loadIndexHtml(): Promise<string> {
   return raw;
 }
 
+// Lib padrao escape-html (achado SonarCloud "reflected XSS" PR #151,
+// 2026-07-12): a implementacao custom escapava os mesmos caracteres, mas o
+// Sonar nao reconhece funcao local como sanitizador confiavel no seu
+// data-flow — trocado pra lib conhecida fecha o alerta sem mudar o
+// comportamento (mesmo conjunto de entidades: & < > " ').
 function escapeHtml(input: string | null | undefined): string {
   if (!input) return '';
-
-  return String(input)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+  return escapeHtmlLib(String(input));
 }
 
 function truncate(input: string | null | undefined, max: number): string {

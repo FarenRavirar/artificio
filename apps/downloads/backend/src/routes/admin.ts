@@ -151,18 +151,17 @@ router.post(
   requireRole(['moderator', 'admin']),
   express.raw({ type: '*/*', limit: '20mb' }),
   async (req: Request, res: Response) => {
-    // Narrowing explicito antes do Zod (CodeQL js/type-confusion-through-parameter-tampering,
-    // achado #207 PR #151): Express aceita ?filename=a&filename=b como string[];
-    // .safeParse() ja rejeitava em runtime, mas o CodeQL nao reconhece Zod como
-    // sanitizador de tipo no seu data-flow — este guard e so pra fechar o alerta.
-    if (typeof req.query.filename !== 'string') {
-      return res.status(400).json({ error: 'Parâmetro "filename" é obrigatório.' });
-    }
-
-    const parsedQuery = evidenceUploadQuerySchema.safeParse(req.query);
+    // Narrowing explicito e isolado (CodeQL js/type-confusion-through-parameter-tampering,
+    // achados #207/#208 PR #151): Express aceita ?filename=a&filename=b como
+    // string[]. `filenameRaw` e a UNICA leitura de req.query.filename nesta rota;
+    // todo uso posterior (Zod, split, detectAllowedFileType) parte dela, ja
+    // estreitada para string, nunca do req.query cru de novo.
+    const filenameRaw: unknown = Array.isArray(req.query.filename) ? undefined : req.query.filename;
+    const parsedQuery = evidenceUploadQuerySchema.safeParse({ filename: filenameRaw });
     if (!parsedQuery.success) {
       return res.status(400).json({ error: 'Parâmetro "filename" é obrigatório.' });
     }
+    const filename: string = parsedQuery.data.filename;
 
     const material = await db
       .selectFrom('download_material')
@@ -178,7 +177,7 @@ router.post(
       return res.status(400).json({ error: 'Corpo da requisição deve ser o arquivo binário.' });
     }
 
-    const extension = parsedQuery.data.filename.split('.').pop() ?? '';
+    const extension: string = filename.includes('.') ? (filename.split('.').pop() as string) : '';
     const detectedType = detectAllowedFileType(req.body, extension);
 
     if (!detectedType) {
