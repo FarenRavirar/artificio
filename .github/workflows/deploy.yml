@@ -51,6 +51,7 @@ on:
           - site
           - accounts
           - links
+          - downloads
       mode:
         description: "ci = build/test only; deploy = deploy via git-pull on VM"
         required: true
