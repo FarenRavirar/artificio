@@ -5297,3 +5297,592 @@ Não registrar texto de busca sensível, conteúdo de prova ou notas administrat
 25. comportamento é coberto por testes de rota, foco e viewport nas specs futuras.
 
 T4.2 está concluída. Próximo: T4.3, busca, filtros, ordenação e paginação.
+
+## F4/T4.3 — Busca, filtros, ordenação e paginação
+
+### Princípio
+
+Busca e filtros do Downloads seguem o mesmo padrão de URL-como-estado já usado em mesas/glossário: nada de estado de filtro preso só em memória React. Facetas vêm de T3.1; sidebar/drawer vêm de T4.2. Esta task fecha comportamento, não componente.
+
+### Campo de busca
+
+- busca textual cobre nome, descrição curta, sistema/edição, criador, tags e aliases;
+- busca do header (T4.2) redireciona/foca a busca do catálogo, não abre um segundo motor de busca paralelo;
+- busca é debounced (ordem de 300ms), não dispara requisição por tecla;
+- resultado parcial mostra contagem enquanto carrega, sem “piscar” lista vazia antes do primeiro fetch;
+- vazio + termo preenchido mostra estado dedicado com sugestões de relaxar filtro, nunca tela genérica de erro;
+- busca sem termo mostra o catálogo padrão (populares/recentes), nunca uma tela em branco — mesma lição de "não despejar tudo" já aplicada em `CatalogTree` (busca vazia = nenhum resultado despejado, mas aqui o padrão é catálogo com faceta, não árvore, então a lista default é curada, não a árvore inteira).
+
+### Filtros (facetas do MVP, herdadas de T3.1)
+
+Grupos disponíveis na sidebar/drawer do catálogo:
+
+- sistema/edição (dependente: edição só aparece após sistema, com opção "qualquer edição");
+- tipo de material;
+- gênero/tema;
+- idioma;
+- formato de conteúdo;
+- origem (`external_link` / `managed_upload`);
+- gratuito/PWYW externo (rótulo, nunca corte por preço numérico);
+- licença (agrupada por classe A1–A10, não pelo rótulo jurídico cru);
+- barreiras de acesso (login/newsletter/nenhuma) como filtro de transparência, nunca ocultando resultado sem aviso.
+
+Regras:
+
+- cada grupo mostra contagem de resultados por valor quando o custo de cálculo for aceitável; quando não for, grupo funciona sem contagem em vez de contagem falsa/travada;
+- filtro multi-valor dentro do mesmo grupo é união (OR); entre grupos é interseção (AND);
+- limpar grupo e limpar tudo sempre disponíveis quando há filtro ativo;
+- filtro aplicado aparece como chip removível no topo do conteúdo, espelhando a sidebar;
+- filtro inválido/removido no backend (ex.: sistema despublicado) cai silenciosamente da URL no próximo carregamento, sem 500.
+
+### Ordenação
+
+Opções do MVP:
+
+- Relevância (default quando há termo de busca);
+- Mais recentes (default quando não há termo de busca);
+- Mais populares (métrica de acesso qualificado, T2.5);
+- Nome (A–Z).
+
+Regras:
+
+- ordenação é parâmetro de URL próprio, independente de filtros;
+- popularidade nunca conta clique como download (mesma regra de T2.5);
+- ausência de dado de popularidade (item novo) usa fallback determinístico (data de publicação), nunca posição aleatória.
+
+### Paginação
+
+- paginação por página numerada no desktop, com opção de “carregar mais” no mobile quando validado por teste real de uso;
+- tamanho de página fixo por faceta de contexto (catálogo geral vs. resultado de sistema específico podem diferir, mas o valor é config, não mágico no componente);
+- página corrente é parâmetro de URL (`?pagina=N`), nunca só estado de scroll;
+- troca de página não perde filtros nem posição do scroll do resultado anterior de forma abrupta — rola para o topo da lista, não da página inteira;
+- página fora do intervalo redireciona para a última válida, não 404 nem lista vazia enganosa.
+
+### Estado combinado na URL
+
+Contrato de query string (nomes definitivos ficam com a spec filha de implementação, mas a forma é fixada aqui):
+
+- busca, filtros, ordenação e página coexistem na mesma URL compartilhável;
+- URL compartilhada reproduz exatamente o resultado visto por quem a gerou (mesmo filtro, mesma ordenação, mesma página), respeitando apenas diferença de permissão/sessão;
+- estado inválido/depreciado (parâmetro desconhecido) é ignorado, não quebra a página;
+- back/forward do navegador navega entre estados de filtro coerentemente (sem exigir animação, só sem perder o URL como fonte de verdade).
+
+### Performance e carregamento
+
+- resultado usa esqueleto de carregamento que preserva altura da sidebar e do grid, evitando layout shift;
+- falha de rede mostra estado de erro com ação de tentar novamente, preservando filtros já aplicados;
+- filtros que dependem de contagem cara podem ser calculados de forma assíncrona/aproximada; a interface não trava esperando o número exato.
+
+### Critérios de aceite para specs executáveis
+
+1. busca, filtros, ordenação e página são um único contrato de URL;
+2. busca sem termo mostra catálogo curado, nunca tela vazia;
+3. filtro dependente (edição) exige sistema ou opção agnóstica;
+4. chip de filtro ativo espelha sidebar/drawer;
+5. limpar grupo e limpar tudo sempre presentes quando há filtro ativo;
+6. popularidade nunca conta clique como download;
+7. paginação é parâmetro de URL, nunca só estado de scroll;
+8. página fora do intervalo redireciona para a última válida;
+9. URL compartilhada reproduz o mesmo resultado para o mesmo papel/sessão;
+10. estado de erro preserva filtros aplicados e oferece nova tentativa;
+11. esqueleto de carregamento evita layout shift na sidebar e no grid;
+12. contagem por faceta pode ser omitida quando cara, nunca falsa.
+
+T4.3 está concluída. Próximo: T4.4, detalhe/cards/perfil/submissão/gestão.
+
+## F4/T4.4 — Detalhe, cards, perfil do publicador, submissão e gestão
+
+### Card de material (listagem/catálogo)
+
+Elementos mínimos:
+
+- capa (T3.5) ou placeholder por tipo/sistema quando ausente;
+- nome e sistema/edição associada;
+- badge de origem (link externo/arquivo) e badge de licença por classe, nunca texto jurídico cru no card;
+- indicador de barreira (login/newsletter) quando existir, visível antes do clique;
+- métrica pública leve (ex.: “usado X vezes” conforme T2.5), sem número de clique cru;
+- estado de moderação nunca aparece a usuário comum (rascunho/reprovado não entram na listagem pública).
+
+Regras:
+
+- card inteiro é alvo de clique único (sem links aninhados conflitantes);
+- foco de teclado visível no card completo;
+- truncamento de nome nunca corta a palavra-chave que identifica o sistema (lição já aplicada em `packages/catalog-ui`: nome/nome PT sem `truncate` cego — aqui cabe grid/aspect-ratio fixo em vez de cortar texto).
+
+### Ficha do material (`/materiais/:materialSlug`)
+
+Seções, na ordem:
+
+1. capa + nome + sistema/edição + criador/curador + selo de licença;
+2. bloco de acesso (CTA), conforme T4.2 “Ficha e CTA sticky”: tipo de destino, barreiras, PWYW, botão de ação única e clara;
+3. descrição/sinopse;
+4. metadados completos (T3.1): idioma, formato, plataforma, público, avisos, tags;
+5. créditos e licença detalhados (T3.2);
+6. materiais relacionados (mesmo sistema/criador/coleção);
+7. denúncia e compartilhar, como ações secundárias;
+8. rodapé com data de publicação/atualização e proveniência (link externo vs. arquivo Artifício).
+
+Regras:
+
+- clique em "acessar" sempre passa por evento de funil (T2.5) antes de redirecionar/servir arquivo;
+- material com destino degradado (T3.4) mostra aviso no lugar do CTA normal, nunca falha silenciosa;
+- variantes de sistema/edição reaproveitam o catálogo canônico da 062, sem rótulo divergente.
+
+### Perfil do publicador/criador (`/criadores/:slug`)
+
+- nome, avatar/identidade visual, biografia curta, links oficiais declarados;
+- lista de materiais publicados por ele, com os mesmos cards do catálogo;
+- selo de verificação quando aplicável (curadoria oficial vs. comunidade);
+- perfil de criador é distinto de perfil de usuário comum (`/usuarios/:username`, já fixado em T4.1); um material pode citar um criador que nunca teve conta no Artifício (créditos sem conta, conforme T3.2).
+
+### Submissão (`/enviar`)
+
+Fluxo em etapas, não formulário único gigante:
+
+1. escolher origem: link externo ou arquivo (upload gerenciado, sujeito a T5.4/T5.4a);
+2. preencher metadados obrigatórios de T3.1 (sistema/edição via catálogo 062, tipo, idioma, formato, licença);
+3. declarar prova conforme D100 (T3.2a): URL, captura ou base jurídica;
+4. revisão final com prévia do card e da ficha antes de enviar;
+5. confirmação com estado esperado (fila de moderação) e prazo estimado, sem prometer SLA que T6.4 ainda não fixou.
+
+Regras:
+
+- rascunho de submissão persiste localmente (localStorage/rascunho de sessão) para não perder trabalho em conexão instável, mas nunca substitui a validação de prova no envio final;
+- submissão nunca fica ambiguamente "em algum lugar": usuário sempre vê no painel (T4.2) o estado da própria submissão;
+- reenvio após reprovação reaproveita os dados anteriores, mostra o motivo da reprovação (T3.3) e não exige recomeçar do zero.
+
+### Gestão de material (dentro de `/gestao`, herdando T4.2)
+
+- lista de materiais em fila (pendente/aprovado/reprovado/denunciado) com filtro por estado;
+- ação de aprovar/reprovar exige motivo estruturado (T3.3), nunca texto livre obrigatório sozinho;
+- diff entre versão pública e versão em revisão fica visível ao moderador (T3.3 "versões imutáveis");
+- vínculo com denúncia (T3.4) navega para o caso relacionado sem duplicar tela;
+- ações em lote (aprovar/reprovar/arquivar múltiplos) seguem o mesmo padrão batch já usado em `apps/mesas` (`PATCH .../batch`), não reinventado.
+
+### Critérios de aceite para specs executáveis
+
+1. card tem alvo de clique único e foco visível;
+2. card nunca expõe estado de moderação a público comum;
+3. ficha segue a ordem de seções fixada aqui;
+4. CTA de acesso dispara evento de funil antes do redirecionamento;
+5. destino degradado substitui CTA por aviso, nunca falha silenciosa;
+6. perfil de criador aceita créditos sem conta associada;
+7. submissão é dividida em etapas, com revisão antes do envio;
+8. prova (D100) é etapa obrigatória e não pode ser pulada;
+9. rascunho de submissão sobrevive a queda de conexão sem burlar validação de prova;
+10. reenvio após reprovação preserva dados e mostra motivo;
+11. gestão de material reaproveita ações batch já validadas em outro módulo;
+12. moderador vê diff entre versão pública e em revisão sem tela duplicada.
+
+T4.4 está concluída. Próximo: T4.5, wireframes textuais e requisitos AA/responsivos.
+
+## F4/T4.5 — Wireframes textuais e requisitos AA/responsivos
+
+### Método
+
+Wireframe textual descreve região, ordem de leitura e comportamento — não pixel. Serve de contrato para a spec filha de UI, que produzirá layout real dentro do design system (`packages/ui`).
+
+### Catálogo (desktop ≥1280px)
+
+```text
+[Header global — sticky]
+[Submenu Downloads — sticky]
+┌───────────────┬─────────────────────────────────────────────┐
+│ Sidebar        │ Barra de busca + ordenação + contagem total │
+│ (facetas,      ├───────────────────────────────────────────── │
+│ ~272px,        │ Chips de filtro ativo (se houver)            │
+│ sticky,        ├───────────────────────────────────────────── │
+│ scroll próprio)│ Grid de cards (responsivo, 2–4 colunas)      │
+│                │ Paginação no rodapé do grid                  │
+└───────────────┴─────────────────────────────────────────────┘
+[Footer compartilhado]
+```
+
+### Catálogo (mobile <1024px)
+
+```text
+[Header compacto — sticky]
+[Submenu horizontal rolável — sticky]
+[Busca]
+[Botão "Filtros" com badge de contagem]
+[Grid de cards — 1–2 colunas]
+[Paginação/"carregar mais"]
+[Footer compartilhado]
+```
+
+Drawer de filtros abre por cima, conforme T4.2.
+
+### Ficha (desktop)
+
+```text
+┌───────────────────────────────┬───────────────────────────────┐
+│ Capa + nome + sistema/edição   │ Bloco de acesso (CTA), sticky │
+│ Descrição                      │ dentro do grid                │
+│ Metadados completos            │                                │
+│ Créditos e licença              │                                │
+│ Relacionados                    │                                │
+└───────────────────────────────┴───────────────────────────────┘
+```
+
+### Ficha (mobile)
+
+```text
+Capa + nome + sistema/edição
+Bloco de acesso (CTA no fluxo, não sticky no MVP)
+Descrição
+Metadados
+Créditos e licença
+Relacionados
+```
+
+### Submissão (todas as larguras, fluxo vertical)
+
+```text
+Indicador de etapa (1/4, 2/4...)
+Conteúdo da etapa atual
+Ações: Voltar | Continuar (ou Revisar/Enviar na última etapa)
+```
+
+Uma etapa por tela em mobile; desktop pode compactar em coluna única também — não é layout que ganha com 2 colunas.
+
+### Requisitos AA/responsivos transversais
+
+- contraste mínimo AA (4.5:1 texto normal, 3:1 texto grande/ícone) em todos os estados (default/hover/focus/active/disabled);
+- alvos de toque mínimos 44×44px;
+- toda imagem informativa tem alternativa textual; capa decorativa usa alt vazio;
+- formulário de submissão tem rótulo associado a cada campo, mensagens de erro ligadas via `aria-describedby`;
+- foco visível em todo elemento interativo, nunca suprimido sem substituto equivalente;
+- ordem de tabulação segue ordem de leitura, não ordem visual do grid quando divergirem;
+- `prefers-reduced-motion` desliga transições não essenciais;
+- zoom 200% e reflow a 320px CSS não quebram layout nem escondem funcionalidade (WCAG 1.4.10);
+- nenhuma informação é transmitida só por cor (badges de origem/licença/barreira sempre têm texto/ícone);
+- breakpoints seguem os três definidos em T4.2 (`≥1280`, `1024–1279`, `<1024`), sem quebra isolada por página.
+
+### Critérios de aceite para specs executáveis
+
+1. wireframes desta task são o contrato mínimo de região/ordem para a spec de UI;
+2. catálogo e ficha têm variante desktop e mobile descritas;
+3. submissão é vertical/etapas em qualquer largura;
+4. contraste AA e alvo mínimo 44×44 valem para todo estado interativo;
+5. zoom 200% e reflow 320px não quebram funcionalidade;
+6. nenhum badge depende só de cor;
+7. foco visível e ordem de tabulação são verificáveis por teste automatizado nas specs futuras.
+
+F4 está encerrada (T4.1–T4.5 concluídas). Próximo: F5, técnica/segurança.
+
+## F5 — Técnica/segurança
+
+### T5.1 — Modelo de dados e índices
+
+Downloads consome o catálogo canônico de sistemas/edições da spec 062 via API/serviço central (D097/D099) — nunca projeção local nem CRUD concorrente. As entidades abaixo são exclusivas do domínio Downloads.
+
+Entidades conceituais (nomes definitivos ficam com a spec filha de schema):
+
+- `download_material` — entidade principal: slug, nome, descrição, tipo, sistema/edição (FK lógica ao catálogo 062, por ID central), origem (`external_link`/`managed_upload`), estado editorial (T3.3), estado de verificação de destino (T1.2a), publicador (criador com ou sem conta, T3.2), timestamps;
+- `download_material_version` — versão imutável do material (T3.3 "versões imutáveis"); publicação atual aponta para a versão vigente;
+- `download_material_metadata` — campos de taxonomia (T3.1): idioma, formato, plataforma, público, avisos, tags, licença/classe (T3.2), armazenados de forma consultável para facetas, não como blob único;
+- `download_creator` — perfil de criador/publicador, podendo existir sem conta de usuário (créditos sem conta);
+- `download_evidence` — prova de gratuidade/permissão (D100): tipo (URL/captura/licença), conteúdo, submissor, timestamp, revalidação;
+- `download_report` — denúncia (T3.4): categoria, estado, prioridade, material/versão referenciado, decisão, auditoria;
+- `download_favorite`, `download_collection`, `download_collection_item` — interações do usuário (T2.2 MVP);
+- `download_link_check` — resultado de verificação periódica de destino (T3.4 "links quebrados");
+- `download_metric_daily` (ou equivalente agregado) — métricas de resultado (T2.5), nunca telemetria bruta de clique como tabela pública.
+
+Índices mínimos:
+
+- índice único em `slug`;
+- índice composto por (sistema/edição central, tipo, estado editorial) para o catálogo público;
+- índice em `estado editorial` + `criado_em` para filas de moderação;
+- índice de busca textual (trigram/full-text, mesmo padrão `pg_trgm` já usado em `discord_parse_cases` no mesas) sobre nome/descrição/tags;
+- índice em `criador_id` para perfil público;
+- FK lógica ao catálogo 062 nunca vira FK física cross-database — é ID + cache de nome/slug revalidado, pelo mesmo motivo de isolamento de banco por app já em vigor (`.specify/arquiteture.md`, "cada app/projeto tem seu schema/banco lógico isolado").
+
+Cada app/projeto tem schema/banco lógico isolado (regra já pétrea do monorepo); Downloads não é exceção.
+
+### T5.2 — Contratos API usando governança canônica
+
+- toda rota nova segue `docs/api/README.md` e passa por `pnpm verify:api` antes de qualquer commit, igual aos demais apps;
+- descoberta de rota por agente usa `artificio-api-governance` (bundle gerado), nunca memória de chat, desde o primeiro commit de código;
+- rotas públicas de leitura (catálogo, ficha, perfil) não exigem sessão; rotas de submissão, favoritos, coleções, painel e gestão exigem SSO;
+- rotas de escrita no catálogo canônico de sistemas/edições (062) não são reimplementadas em Downloads — Downloads consome a API central, nunca grava linha de sistema/edição localmente;
+- endpoints batch de moderação seguem o padrão já testado em mesas (`PATCH .../batch`), evitando reinvenção;
+- contrato de paginação/filtro/ordenação da T4.3 vira parâmetros de query documentados no OpenAPI do módulo, não formato ad hoc por endpoint.
+
+### T5.3 — SSO, roles, ownership e autorização
+
+- login único via `accounts.artificiorpg.com` (D018), mesmo cookie `Domain=.artificiorpg.com`, sem login local;
+- roles mínimas: usuário comum, publicador (dono de material), moderador, admin — mesma lógica de escopo já usada nos outros apps (permissão filtra visualmente, backend é autoridade final, conforme T4.2);
+- ownership de material: publicador só edita/reenvia os próprios materiais; moderador opera qualquer material dentro da fila;
+- ações de gestão central de sistemas/edições nunca são replicadas como permissão local de Downloads — o link em T4.2 "Sistemas e edições aponta ao Site" é o único caminho;
+- denúncia pode ser feita por usuário anônimo/sem conta quando a T3.4 permitir, mas ações de mérito (aprovar/reprovar/banir) sempre exigem role autenticada;
+- auditoria de ação administrativa (quem aprovou/reprovou/removeu) é obrigatória e imutável, mesmo padrão já usado em `discord_import_runs`/logs de integração do mesas.
+
+### T5.4 — Cloudinary para capas e PDF como último fallback
+
+- capas seguem T3.5: upload assinado (`signed preset`) sempre feito pelo Backend, nunca credencial Cloudinary exposta no frontend — regra já pétrea do monorepo (AGENTS.md, "Upload e processamento de imagem ocorrem sempre no Backend");
+- capa reaproveita o Cloudinary compartilhado já usado por outros módulos (mesma conta/preset governado), sem provisionar conta paralela;
+- limites por tipo (a fixar com número exato na spec filha, escala de referência): capa ≤ 5MB, dimensão máxima compatível com o derivado 800×1200 de T3.5;
+- PDF entra como **último fallback de storage de arquivo** (T5.4a), nunca como destino primário — a ordem de preferência de armazenamento é R2 → B2 → Fastio → Cloudinary PDF (D091), decidida antes desta task;
+- Cloudinary para PDF usa `resource_type: raw` (ou equivalente vigente na API Cloudinary no momento da implementação — não travar nome de parâmetro específico aqui) com o mesmo signed preset do backend, nunca upload direto do cliente.
+
+### T5.4a — Adapter obrigatório R2 → B2 → Fastio → Cloudinary PDF
+
+Especificação de implementação obrigatória (D091):
+
+- interface única de storage no backend (`StorageAdapter` conceitual) com métodos `upload`, `getPublicUrl`, `delete`, `getUsage`;
+- ordem de tentativa fixa: Cloudflare R2 (primário) → Backblaze B2 (fallback por cota) → Fastio (fallback seguinte, pendente T5.4b) → Cloudinary `raw`/PDF (último fallback);
+- cada provider implementa a mesma interface; a troca de provider é decisão de runtime (config), nunca condicional espalhada pelo código de negócio;
+- URL pública retornada ao cliente é sempre um caminho estável do domínio Artifício (ex.: `downloads.artificiorpg.com/arquivos/:id`) que redireciona/serve do provider real por trás — nunca expõe URL crua do provider ao usuário final, permitindo trocar provider sem quebrar link já compartilhado;
+- upload deste adapter é sempre iniciado pelo backend (signed/mediado), nunca upload direto do navegador ao provider, pela mesma razão de segurança do Cloudinary acima;
+- adapter registra qual provider guarda cada arquivo (campo `storage_provider` em `download_material_version` ou tabela própria), permitindo migração seletiva depois.
+
+### T5.4b — Confirmação de "Fastio" antes de implementação obrigatória
+
+Pendência que bloqueia esta subtask: não há confirmação registrada nesta spec sobre o que é o produto/contrato "Fastio" (nome pode estar impreciso — provedor real precisa ser confirmado com o mantenedor antes de qualquer código tocar esse fallback). Esta é uma das perguntas bloqueantes de F7 (pergunta 9). Até confirmação:
+
+- adapter (T5.4a) deve ser desenhado com a 3ª posição como "slot vazio" plugável — R2 e B2 podem ser implementados e testados sem esperar a resposta;
+- nenhum código deve hardcodar nome de SDK/API de um provider não confirmado;
+- se "Fastio" não existir ou não servir, a posição 3 pode ser removida do adapter (R2 → B2 → Cloudinary) sem redesenho, pois a interface já é plugável por construção.
+
+### T5.4c — Medição de cota, failover, migração e URL estável
+
+- cada provider expõe (ou é medido externamente) uso corrente vs. cota contratada; adapter consulta cota antes de decidir destino de novo upload quando o provider corrente estiver perto do limite;
+- failover para novo upload é automático (grava no próximo provider da ordem) e registrado em log de auditoria (qual provider, motivo, timestamp) — mesmo princípio de observabilidade já usado em `discord_import_runs`;
+- migração de arquivo já existente entre providers (ex.: mover de B2 para R2 após ampliar cota) é operação manual/deliberada, gated por aprovação nominal (mexe em dado real), nunca automática por cron sem supervisão — decisão explícita adiada para não bloquear R2/B2 no MVP; escopo exato (só novo upload vs. também migra existente) é pergunta bloqueante de F7 (pergunta 8);
+- URL pública (T5.4a) permanece estável mesmo após migração entre providers, pois o caminho servido é sempre do domínio Artifício, nunca do provider;
+- reconciliação: rotina de auditoria compara metadado do banco (`storage_provider`, tamanho, checksum) com o que o provider realmente tem, sinalizando divergência sem apagar nada automaticamente — mesmo espírito do `reconcile_migrations.sh` já usado em banco (idempotente, nunca destrutivo por padrão).
+
+### T5.5 — Threat model
+
+| Vetor | Superfície | Mitigação |
+|---|---|---|
+| Link malicioso (phishing/malware disfarçado de material gratuito) | `external_link`, prova D100 | moderação prévia obrigatória (T3.3); denúncia com contenção cautelar (T3.4); nunca auto-publicação de link não revisado |
+| Spam de submissão em massa | `/enviar`, API de criação | rate limit por conta/IP; fila de moderação absorve pico sem auto-aprovar; CAPTCHA/verificação SSO já resolve conta descartável em parte |
+| SSRF via verificação automática de link (link checker, T3.4) | `download_link_check` | checker roda em worker isolado, sem acesso a rede interna/VM; nega requisição para IP privado/loopback/metadados de nuvem explicitamente |
+| XSS via descrição/metadados/nome de material | render público da ficha/card | sanitização (mesmo padrão DOMPurify já pétreo no monorepo para HTML hostil) em qualquer campo de texto livre antes de renderizar; campos estruturados (taxonomia) não aceitam HTML |
+| Upload de arquivo malicioso disfarçado de PDF/imagem | upload gerenciado (T5.4) | validação de tipo real (magic bytes, não só extensão/MIME declarado) no backend antes de enviar ao provider; scan antivírus/heurística como gate quando o provider oferecer, senão fila de moderação humana cobre |
+| Abuso de denúncia (denúncia maliciosa para censurar concorrente/material legítimo) | `download_report` | T3.4 já define categoria "abuso e denúncias maliciosas"; reincidência de denúncia infundada é rastreável por conta |
+| Credencial de storage exposta no cliente | upload de capa/arquivo | upload sempre mediado pelo backend com signed preset/URL assinada, nunca chave de provider no frontend (mesma regra já pétrea de Cloudinary, estendida a R2/B2/Fastio) |
+| Enumeração/scraping massivo do catálogo | rotas públicas de listagem | rate limit básico por IP; paginação nunca expõe contagem exata de registros internos sensíveis (ex.: fila de moderação) em rota pública |
+| Falsificação de prova de gratuidade (D100) | `download_evidence` | prova é revisada por humano na moderação (T3.3), nunca aceita automaticamente; revalidação periódica (T3.4 "links quebrados e destinos degradados") reduz janela de prova obsoleta |
+| Copyright (upload/link de material sob direito autoral sem permissão) | qualquer publicação | classes de licença/prova (T3.2, D100) já exigem base jurídica verificável antes de aprovar; denúncia de terceiro (T3.4) cobre o que passar da moderação |
+
+### T5.6 — SEO, analytics, privacidade e retenção
+
+- SEO segue o padrão já pétreo do monorepo: slugs estáveis, canonical, sitemap, redirects 301 quando slug mudar (T4.1 já fixou rotas/canonical/sitemap conceituais);
+- analytics usa `packages/analytics` (GA4) como os demais apps, instrumentando toda rota pública nova; eventos e dimensões permitidos já fechados em T2.5, sem novo campo proibido introduzido aqui;
+- privacidade: dado de denúncia/prova (T3.4/D100) tem acesso restrito a moderação/admin, nunca exposto em rota pública nem em analytics genérico;
+- retenção: segue os prazos já fixados por task de conteúdo (T3.4 "retenção e privacidade", T3.5 "retenção" de imagens); esta task não introduz prazo novo, apenas confirma que schema (T5.1) tem campos de timestamp suficientes para aplicar essas políticas depois;
+- cookie de tema/sessão reaproveita os já compartilhados (`artificio_theme`, `artificio_session`/`artificio_refresh`), sem cookie proprietário de Downloads.
+
+### Critérios de aceite para specs executáveis (F5)
+
+1. Downloads nunca grava linha de sistema/edição fora da API central da 062;
+2. schema mantém versão imutável de material, separada da entidade "atual";
+3. toda rota nova passa por `verify:api` e aparece no bundle de governança;
+4. upload de capa/arquivo é sempre mediado pelo backend com credencial assinada, nunca exposta ao cliente;
+5. adapter de storage é plugável por interface única, sem condicional de provider espalhada;
+6. URL pública de arquivo nunca expõe o provider real, permanece estável entre migrações;
+7. failover e migração entre providers são auditados, nunca silenciosos;
+8. link checker roda isolado e nega requisição a rede interna/IP privado (mitigação SSRF);
+9. todo campo de texto livre é sanitizado antes de renderizar publicamente;
+10. upload de arquivo valida tipo real (magic bytes), não só extensão declarada;
+11. prova de gratuidade (D100) é revisada por humano, nunca auto-aceita;
+12. SEO/analytics/privacidade/retenção reaproveitam os contratos já pétreos do monorepo, sem exceção não justificada.
+
+F5 fica **parcialmente bloqueada**: T5.4b depende da pergunta 9 (o que é "Fastio") e T5.4c depende da pergunta 8 (escopo do fallback); o restante de F5 (T5.1, T5.2, T5.3, T5.4/T5.4a estrutural, T5.5, T5.6) está definido e não exige decisão adicional para virar spec filha.
+
+## F6 — Infra/operação
+
+### T6.1 — Padrão beta/prod vigente (a remapear na implementação)
+
+Esta spec foi escrita ao longo de 2026-07; o padrão operacional dos módulos já mudou desde a abertura (specs 054/055/057/058/062 mexeram em CI, deploy, migrations e governança de API). **Regra pétrea desta task: a spec filha de infra do Downloads deve re-ler, no momento da implementação, `docs/agents/infra-map.md`, `deploy-manifest.json`, `_deploy-module.yml` e `AGENTS.md` §Git/Branch/Deploy vigentes — nunca copiar o que está descrito aqui como se fosse o estado atual.** O que segue é o padrão observado nesta data, só para orientar o formato esperado, não para ser citado como fonte de verdade futura:
+
+- deploy por manifesto declarativo (`deploy-manifest.json`), com `deploy_paths` por módulo — só dispara build/deploy real se o path do módulo mudou;
+- `dev` protegido por branch protection, exige check `lint + build + test` verde, merge só via PR;
+- promoção `dev→main` por fast-forward (`promote-prod-fast-forward.yml`), nunca aciona deploy sozinha;
+- deploy de prod é sempre `workflow_dispatch` manual explícito (`gh workflow run deploy.yml --ref main -f module=... -f mode=deploy -f env=prod`);
+- migrations exigem header de 5 campos (`@class`, `@requires-backup`, `@author`, `@created`, `@description`) validado pelo guard antes do deploy aplicar.
+
+### T6.2 — Paridade `downloadsbeta.`/`downloads.`
+
+- Downloads ganha módulo próprio no manifesto de deploy, com `deploy_paths` cobrindo `apps/downloads` (frontend+backend, mesmo padrão dos apps atuais);
+- `downloadsbeta.artificiorpg.com` recebe `dev`; `downloads.artificiorpg.com` recebe `main` após promoção — já fixado por D093;
+- compose, secrets, containers e DB isolados por ambiente (beta nunca lê/escreve dado de prod, mesma regra já aplicada a mesas/glossário/site/links/accounts);
+- Cloudflare Tunnel mapeia o novo hostname exatamente como os módulos existentes — nenhum tunnel/container `cloudflared` paralelo (regra já pétrea);
+- zero fluxo de CI/CD específico para Downloads: mesmo `ci.yml`, mesmo `_deploy-module.yml`, mesmo `deploy.yml` genérico — só entra no manifesto como mais um módulo.
+
+### T6.2a — Isolamento herdado
+
+- Downloads herda as mesmas guardas de isolamento de app/projeto já em vigor (AGENTS.md §Isolamento de App/Projeto): sessão de trabalho em `apps/downloads` não toca outro app/pacote sem aprovação e ampliação de escopo explícita;
+- qualquer diferença de tratamento (ex.: storage multi-provider que nenhum outro módulo usa hoje, T5.4a) é decisão explícita já registrada nesta spec (D091), não invenção da implementação;
+- consumo do catálogo central (062) segue o mesmo contrato que outros consumidores (mesas/glossário/site-admin) usam, sem rota especial só para Downloads.
+
+### T6.3 — Backup, rollback, observabilidade e link checker
+
+- backup de DB do Downloads segue o mesmo runbook já usado pelos outros módulos (dump antes de migration manual-risk, backup verificado off-VM quando aplicável ao Gate A);
+- rollback de deploy usa o mesmo mecanismo automático já existente no pipeline (guard de migration aborta e reverte, como documentado em `errors.md` E010/E011);
+- observabilidade mínima: logs de container acessíveis via `docker logs`/`ssh faren` read-only, health check HTTP padrão (`/health` ou equivalente), e auditoria de ações de moderação (T5.3) como trilha própria, não misturada a log genérico de aplicação;
+- link checker (T3.4) roda como job agendado (cron na VM, mesmo padrão do cron de `links` já em produção — spec 038) verificando destino de `download_material` periodicamente e alimentando `download_link_check`; frequência exata (diária/semanal) é decisão de implementação dentro do SLA que T6.4 ainda vai fixar.
+
+### T6.4 — Rotina de moderação e SLA inicial
+
+Sem número de SLA fixado ainda — depende de volume real que só aparece pós-lançamento. Esta task fixa o **modelo** de rotina, deixando o número exato como parâmetro ajustável:
+
+- fila de moderação (T3.3) é revisada por humano designado (mantenedor ou moderador delegado), sem meta de tempo prometida publicamente no MVP;
+- prioridade de fila seguindo T3.4: denúncia com risco inequívoco (P0) sempre à frente de cadastro/edição comum;
+- SLA interno inicial é conservador e não public-facing: revisão "em dias", não em horas, até haver dado real de volume para prometer algo mais agressivo;
+- painel de gestão (T4.4) mostra idade da fila (há quanto tempo o item mais antigo espera), permitindo ajuste de rotina sem precisar de spec nova só para calibrar SLA;
+- se o volume crescer além da capacidade de revisão humana única, a resposta é escalar humanos (moderador delegado) antes de considerar qualquer auto-aprovação — auto-publicação continua desligada por padrão/kill switch (T3.3) até decisão nominal futura.
+
+### Critérios de aceite para specs executáveis (F6)
+
+1. spec filha de infra relê o padrão vigente no momento da implementação, nunca copia T6.1 como fonte de verdade;
+2. Downloads usa exatamente o mesmo `ci.yml`/`deploy.yml`/manifesto que os módulos existentes, sem pipeline paralelo;
+3. beta e prod são isolados em compose/secrets/DB, mesma regra dos demais módulos;
+4. isolamento de app/projeto vale para Downloads como vale para qualquer outro `apps/*`;
+5. backup/rollback de Downloads seguem o mesmo runbook, sem exceção não registrada;
+6. link checker roda isolado (mitigação SSRF de T5.5) e agendado, alimentando estado de destino degradado (T3.4);
+7. SLA de moderação nasce conservador e não public-facing, com idade de fila visível ao moderador;
+8. escalada de volume de moderação é sempre humana antes de qualquer auto-aprovação.
+
+F6 está concluída (T6.1–T6.4 fechadas, sem pergunta bloqueante pendente). Próximo: F7, saída — resolver as 10 perguntas abertas, consolidar decisões e abrir specs filhas.
+
+## F7/T7.1 — Resolução das perguntas bloqueantes
+
+Decisões do mantenedor (2026-07-11), fecham as 10 perguntas de `tasks.md` §Perguntas abertas prioritárias:
+
+1. **Destino deixou de ser gratuito pós-publicação** — detecção é só por **revisão humana via denúncia** (T3.4). Sem scan automático de conteúdo/preço da página de destino no MVP. Link checker (T3.4/T6.3) continua cobrindo só saúde técnica do link (200/404/timeout), não julgamento de "ainda é grátis".
+2. **Retenção da prova D100** — **ilimitada**. `download_evidence` (T5.1) nunca expurga por prazo; prova vive enquanto o material/versão existir. Revoga T3.4 "retenção e privacidade" onde citava prazo fixo hipotético para prova — prazo fixo vale para outros dados pessoais, não para a prova em si.
+3. **Critério de auto-publicação** — **ainda não definido**. Continua desligada por padrão/kill switch (T3.3), sem limiar/critério fixado nesta spec. Decisão de critério fica para spec futura dedicada, com aprovação nominal antes de qualquer ativação.
+4. **Flags externas obrigatórias além de login/newsletter** — **nenhuma nova**. Login via `accounts.` cobre a barreira principal; newsletter/captura externa (quando o próprio destino exigir) já estava coberta em T3.1 "barreiras de acesso". Nada a acrescentar no MVP.
+5. **Avaliação — quem pode avaliar** — **só quem já baixou o material** (download = clique logado que redirecionou, item 7). Avaliação exige `download_metric` prévia da mesma conta para aquele material; sem essa marca, ação de avaliar fica indisponível/oculta, não apenas desabilitada visualmente sem explicação.
+6. **Comentários — moderação** — **sem moderação prévia nem posterior de rotina; retirada só por denúncia** (T3.4). Só conta registrada em `accounts.` comenta (mesma exigência de login do restante). Comentário anônimo não existe no Downloads.
+7. **Métrica de download e edição pública com histórico** — decisão ampliada pelo mantenedor além da métrica original de T2.5:
+   - **download = clique logado** no botão de acesso, que redireciona para link externo ou serve arquivo do storage próprio; conta **1 download único por conta autenticada por material** (2ª+ clique da mesma conta não incrementa contador, mas pode continuar redirecionando normalmente);
+   - contagem pública simples aparece no card/ficha (ex.: "usado por N pessoas"), sem detalhe fino (país/dispositivo/horário) — isso seguia já reservado a autor/admin em T5.6/T2.5, mantido;
+   - **edição de material pelo autor:** autor tem área própria (painel, T4.2) listando os materiais que postou, com ação de editar/atualizar campos, **incluindo o link/arquivo de destino**;
+   - **todo campo editado (inclusive link) precisa expor publicamente a data da última atualização** daquele campo/material — ficha mostra "atualizado em X" quando há edição pós-publicação, não é opcional;
+   - **admin vê histórico completo de toda edição**: quem editou, quando, valor antigo → valor novo, campo a campo, **incluindo todo histórico de links já usados**, não só o atual. Isso é auditoria completa, mesma exigência já pétrea para ação de moderação (T5.3), estendida a autoedição do próprio material.
+8. **Migração de storage entre providers** — **migra também arquivo já existente**, não só novo upload. T5.4c muda de "manual/deliberado, gated" para: migração automatizável por job, mas **sempre com aprovação nominal por rodada** (mexe em arquivo real de usuário) e reconciliação pós-migração confirmando checksum antes de apagar do provider de origem.
+9. **Fastio** — confirmado como produto real (`fast.io`), storage voltado a agentes de IA (REST API própria, não S3 puro). **Mantido na cadeia** R2 → B2 → Fastio → Cloudinary PDF (D091 integralmente confirmado, sem alteração de ordem). Adapter (T5.4a) deixa de ser "slot vazio pendente" — Fastio é 3º provider real a implementar; detalhe de API/quota/auth exato é levantado na spec filha de storage (T5.4a/T5.4b), não nesta spec de produto.
+10. **Tipos de arquivo no MVP** — **apenas documentos**: PDF, Markdown (`.md`), Word (`.doc`/`.docx`). **Sem `.zip`/pacote compactado** no lançamento. Imagem solta, VTT (Foundry/Roll20), mapas/tokens ficam fora do MVP (podem entrar em fase pós-MVP com decisão própria).
+
+### Ajustes derivados nas tasks já fechadas
+
+- **T5.1 (modelo de dados)** — `download_material_version` precisa registrar histórico completo de edição por campo (autor: campo, valor antigo, valor novo, timestamp, quem editou) para atender o item 7; ficha pública consulta apenas "última atualização" agregada, admin consulta a série completa. Link de destino é um campo versionado como qualquer outro — nunca sobrescrito sem deixar rastro.
+- **T5.1 / `download_evidence`** — sem coluna de expurgo por prazo (item 2); revalidação (T3.4) continua existindo, mas não apaga prova antiga, só adiciona revalidação nova.
+- **T2.5 / métricas** — "acesso qualificado" (métrica principal já fixada) passa a ter definição operacional exata: clique logado no CTA de acesso, deduplicado por (conta, material). Funil de T2.5 já prevê "clique não é download concluído" para visitante anônimo; para conta autenticada, clique no CTA **é** o evento de download em si (não existe etapa de confirmação posterior, pois o Artifício não controla se o destino externo realmente entregou o arquivo).
+- **T5.4a/T5.4c (storage)** — adapter mantém Fastio como 3ª posição real; migração de existentes vira operação suportada pelo adapter (não só novo upload), sempre atrás de aprovação nominal por rodada + reconciliação por checksum.
+- **T3.1 (taxonomia de formato)** — vocabulário de "formato de conteúdo" restringe-se a documento (PDF/MD/DOC) para o campo que determina upload gerenciado; providers/links externos continuam podendo apontar a qualquer tipo de arquivo (o Artifício não hospeda, então não limita o que está do lado de fora).
+
+### Critérios de aceite adicionais (F7)
+
+1. denúncia é o único gatilho de revisão de "destino deixou de ser grátis";
+2. prova de gratuidade nunca expira automaticamente;
+3. avaliação exige registro prévio de download da mesma conta para o mesmo material;
+4. comentário exige conta `accounts.`, sem anônimo;
+5. contador de download é deduplicado por (conta, material), incrementado no clique do CTA;
+6. edição de material (incluindo link) grava histórico versionado; ficha pública mostra última atualização; admin vê série completa com valores antigos/novos;
+7. upload gerenciado aceita apenas PDF/MD/DOC no MVP, rejeitando `.zip` e demais tipos;
+8. adapter de storage suporta migração de arquivo já existente entre providers, sempre com aprovação nominal e checksum de reconciliação;
+9. Fastio entra como 3º provider real da cadeia, não mais pendência bloqueante.
+
+F7/T7.1 concluída. T7.2 concluída (D111 em `decisions.md`). Próximo: T7.3.
+
+## F7/T7.3 — Mapa de specs filhas (proposta para aprovação nominal)
+
+Nenhuma spec filha é aberta pela 061 sozinha — este mapa é proposta; abertura de cada spec exige aprovação nominal em separado, uma por uma, na ordem abaixo. Nenhum código/migration/container/DNS/API é criado nesta task (R12).
+
+### Ordem e dependências
+
+```text
+062 (catálogo único sistemas/edições) — JÁ EM ANDAMENTO, pré-requisito duro (D096)
+   │
+   ▼
+Downloads-A — Schema, API base e ownership
+   │
+   ├──▶ Downloads-B — Storage multi-provider (R2→B2→Fastio→Cloudinary PDF)
+   │        (pode rodar em paralelo com C, ambas dependem só de A)
+   │
+   ├──▶ Downloads-C — Submissão, moderação e taxonomia (backend)
+   │        │
+   │        ▼
+   │    Downloads-D — Descoberta pública (catálogo/busca/ficha) — frontend
+   │        (depende de A+B+C: precisa de dado real publicável e storage funcionando)
+   │        │
+   │        ▼
+   │    Downloads-E — Painel do usuário e edição com histórico
+   │        (depende de D: reaproveita componentes de ficha/card)
+   │        │
+   │        ▼
+   │    Downloads-F — Gestão/moderação admin, denúncias, link checker
+   │        (depende de C+E: opera sobre o que C e E já produzem)
+   │
+   ▼
+Downloads-G — Infra beta/prod, deploy real, smoke, promoção (Gate D)
+   (depende de TODAS as anteriores terem passado por lint+build+test local;
+    é o único bloco que efetivamente sobe `downloadsbeta.`/`downloads.`)
+```
+
+### Downloads-A — Schema, API base e ownership
+
+- Objetivo: criar o schema do domínio Downloads (T5.1), rotas base de leitura/escrita autenticadas (T5.2), integração de consumo do catálogo 062 (nunca CRUD local de sistema/edição), SSO/roles/ownership (T5.3).
+- Depende de: spec 062 ter API central estável e consumível (mesmo que 062 ainda esteja com frentes internas em andamento, desde que a superfície de leitura pública do catálogo já sirva consumidores externos, como já serve mesas/glossario/site-admin hoje).
+- Entregáveis: migrations do banco Downloads, tipos Kysely, rotas CRUD básicas de `download_material`/`download_material_version`/`download_creator`, middleware de auth reaproveitado de `@artificio/auth`, `verify:api` verde.
+- Gate: lint+build+test locais verdes; `pnpm verify:api` sem breaking não intencional; nenhuma escrita de sistema/edição fora da API 062 (auditável por grep/teste).
+- Testes: unitário de schema/validação Zod, teste de integração de ownership (usuário só edita o próprio material), teste de que rota de sistema/edição é sempre proxy/consumo, nunca tabela local.
+
+### Downloads-B — Storage multi-provider
+
+- Objetivo: implementar o `StorageAdapter` (T5.4a) com R2, B2, Fastio e Cloudinary PDF, medição de cota/failover (T5.4c), migração de arquivo existente com aprovação nominal por rodada + checksum (D111 item 8).
+- Depende de: Downloads-A (schema `download_material_version` com campo `storage_provider` e histórico versionado já existir).
+- Entregáveis: adapter com 4 providers reais, endpoint de upload mediado pelo backend (nunca credencial no cliente), reconciliação/checksum, teste de failover simulado.
+- Gate: upload real de teste em ambiente controlado sobe em pelo menos R2 (primário) com sucesso; failover simulado (mock de cota estourada) comprovado localmente; migração de arquivo já existente testada com reconciliação verificando checksum antes de apagar da origem.
+- Testes: unitário por provider (mock de API), teste de ordem de fallback, teste de que URL pública nunca muda mesmo trocando provider.
+
+### Downloads-C — Submissão, moderação e taxonomia (backend)
+
+- Objetivo: fluxo completo de submissão (T4.4 backend), fila de moderação e estados editoriais (T3.3), taxonomia/metadados (T3.1), prova D100 (retenção ilimitada, D111 item 2), denúncias (T3.4).
+- Depende de: Downloads-A.
+- Entregáveis: rotas de submissão em etapas, fila de moderação com motivo estruturado, `download_evidence` sem expurgo, `download_report` com estados/prioridade, endpoints batch de moderação (reaproveitando padrão `PATCH .../batch` do mesas).
+- Gate: lint+build+test; teste de que reprovação preserva motivo e dados para reenvio; teste de que denúncia sem conta é aceita (T3.4) mas ação de mérito exige role autenticada.
+- Testes: máquina de estados (transições válidas/inválidas), teste de auditoria imutável de decisão de moderador.
+
+### Downloads-D — Descoberta pública (catálogo/busca/ficha)
+
+- Objetivo: frontend público — submenu/sidebar (T4.2), busca/filtros/ordenação/paginação (T4.3), card/ficha/perfil de criador (T4.4), wireframes AA (T4.5).
+- Depende de: Downloads-A (dado real), Downloads-B (CTA de acesso funcional), Downloads-C (só material aprovado aparece).
+- Entregáveis: páginas `/`, `/catalogo`, `/materiais/:slug`, `/criadores/:slug`, componentes reaproveitando `packages/ui`/Header compartilhado.
+- Gate: lint+build+test; auditoria AA básica (contraste, foco, zoom 200%) local; teste de que filtro/busca/ordenação/página vivem na URL.
+- Testes: componente (card, ficha, filtros), e2e leve de fluxo busca→filtro→ficha→CTA.
+
+### Downloads-E — Painel do usuário e edição com histórico
+
+- Objetivo: `/painel/*` (T4.2), edição de material publicado pelo autor incluindo link (D111 item 7), histórico versionado público ("última atualização") e admin (série completa).
+- Depende de: Downloads-D (reaproveita card/ficha).
+- Entregáveis: telas de "meus materiais", edição com trilha de auditoria, favoritos/coleções (T2.2 MVP), avaliação condicionada a download prévio (D111 item 5), comentário condicionado a conta (D111 item 6).
+- Gate: lint+build+test; teste de que edição sem trocar valor não cria entrada de histórico espúria; teste de que avaliação é bloqueada sem download prévio da mesma conta.
+- Testes: unitário de dedup de contador de download por (conta, material); teste de histórico campo a campo.
+
+### Downloads-F — Gestão/moderação admin, denúncias, link checker
+
+- Objetivo: `/gestao/*` (T4.2/T4.4), fila de moderação visual, link checker agendado (T3.4/T6.3), métricas administrativas (T2.5/T5.6), threat model aplicado (T5.5: sanitização, magic bytes, SSRF do checker).
+- Depende de: Downloads-C (dados de moderação), Downloads-E (material/edições já fluindo).
+- Entregáveis: painel admin completo, job de link checker isolado (sem acesso a rede interna), relatórios de auditoria de edição/moderação.
+- Gate: lint+build+test; teste de que checker rejeita IP privado/loopback/metadado de nuvem; teste de sanitização de campo de texto livre.
+- Testes: unitário de threat model (XSS/SSRF/magic bytes), teste de auditoria completa (quem, quando, valor antigo/novo).
+
+### Downloads-G — Infra beta/prod, deploy real, smoke, Gate D
+
+- Objetivo: T6.1 (remapear padrão vigente na hora), T6.2/T6.2a (paridade de manifesto/compose/isolamento), T6.3 (backup/rollback/observabilidade), T6.4 (rotina de moderação/SLA inicial).
+- Depende de: todas as specs A–F terem passado localmente (lint+build+test); não depende de estarem "perfeitas", mas de estarem funcionalmente completas o suficiente para smoke real.
+- Entregáveis: módulo `downloads` no `deploy-manifest.json`, hosts `downloadsbeta.`/`downloads.`, migrations com header completo, smoke beta real, promoção `dev→main`, deploy prod gated por aprovação nominal (mesma trava pétrea de todos os outros módulos).
+- Gate: Gate D do módulo (igual aos demais projetos) — smoke real em beta antes de promover; deploy prod só via `workflow_dispatch` manual explícito.
+- Testes: smoke HTTP (200/401/404 conforme rota), teste de migration guard (5 campos de header), verificação de isolamento beta≠prod.
+
+### Regra de abertura
+
+Cada spec filha (A a G) é aberta como SDD Completo próprio (`spec.md`/`plan.md`/`tasks.md`/`reviews.md`/`debitos.md`), pois todas tocam `packages/*` compartilhados e/ou banco/infra — nenhuma cabe em SDD Lite pela regra já pétrea "tudo que é compartilhado é SDD Completo". Abertura de cada uma exige aprovação nominal em separado; esta spec 061 não pré-aprova nenhuma delas.
+
+T7.3 está concluída como **proposta**. Abertura efetiva de Downloads-A (primeira da fila) depende de aprovação nominal do mantenedor em sessão própria. Próximo: T7.5, encerrar sessão da 061.

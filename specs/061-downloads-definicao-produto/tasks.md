@@ -49,47 +49,47 @@
 
 - [x] T4.1 — Definir mapa de páginas e rotas conceituais. Rotas públicas, catálogo/ficha, criadores versus usuários, landings, painel, gestão, saída técnica, erros, redirects, canonical, sitemap, ownership e aceite registrados em `spec.md` §T4.1.
 - [x] T4.2 — Definir submenu abaixo do nav e sidebar desktop/mobile. Hierarquia global/módulo/contexto, itens, shells público/painel/gestão, catálogo, drawer, breakpoints, sticky, persistência, acessibilidade, estados e aceite registrados em `spec.md` §T4.2.
-- [ ] T4.3 — Definir busca, filtros, ordenação e paginação.
-- [ ] T4.4 — Definir detalhe, cards, perfil do publicador, submissão e gestão.
-- [ ] T4.5 — Produzir wireframes textuais e requisitos AA/responsivos.
+- [x] T4.3 — Definir busca, filtros, ordenação e paginação. Contrato de URL, facetas do MVP, ordenação, paginação e performance registrados em `spec.md` §F4/T4.3.
+- [x] T4.4 — Definir detalhe, cards, perfil do publicador, submissão e gestão. Card, ficha, perfil de criador, fluxo de submissão em etapas e gestão de material registrados em `spec.md` §F4/T4.4.
+- [x] T4.5 — Produzir wireframes textuais e requisitos AA/responsivos. Wireframes de catálogo/ficha/submissão (desktop/mobile) e requisitos AA transversais registrados em `spec.md` §F4/T4.5.
 
 ## F5 — Técnica/segurança
 
-- [ ] T5.1 — Propor modelo de dados e índices.
-- [ ] T5.2 — Propor contratos API usando governança canônica.
-- [ ] T5.3 — Definir SSO, roles, ownership e autorização.
-- [ ] T5.4 — Definir Cloudinary signed para capas e, como último fallback, PDFs; fixar limites por tipo.
-- [ ] T5.4a — Especificar implementação obrigatória do adapter R2 → B2 → Fastio → Cloudinary PDF.
-- [ ] T5.4b — Confirmar produto/contrato “Fastio”, APIs, autenticação, quotas, egress e disponibilidade antes da implementação obrigatória.
-- [ ] T5.4c — Definir medição de cota, failover para novos uploads, migração, reconciliação e URL pública estável.
-- [ ] T5.5 — Threat model: links maliciosos, spam, phishing, XSS, SSRF, abuso e copyright.
-- [ ] T5.6 — Definir SEO, analytics, privacidade e retenção.
+- [x] T5.1 — Propor modelo de dados e índices. Entidades conceituais, FK lógica ao catálogo 062 (nunca física cross-DB) e índices mínimos registrados em `spec.md` §F5/T5.1.
+- [x] T5.2 — Propor contratos API usando governança canônica. Regras de rota pública/autenticada, reuso de batch e `verify:api` registradas em `spec.md` §F5/T5.2.
+- [x] T5.3 — Definir SSO, roles, ownership e autorização. Roles, ownership de material e auditoria imutável registrados em `spec.md` §F5/T5.3.
+- [x] T5.4 — Definir Cloudinary signed para capas e, como último fallback, PDFs; fixar limites por tipo. Registrado em `spec.md` §F5/T5.4 (limite exato de MB fica para a spec filha).
+- [x] T5.4a — Especificar implementação obrigatória do adapter R2 → B2 → Fastio → Cloudinary PDF. Interface `StorageAdapter` plugável, ordem fixa e URL pública estável registradas em `spec.md` §F5/T5.4a.
+- [ ] T5.4b — Confirmar produto/contrato “Fastio”, APIs, autenticação, quotas, egress e disponibilidade antes da implementação obrigatória. **Bloqueado pela pergunta aberta 9** (o que é "Fastio" de fato); adapter já desenhado com posição 3 plugável/removível (§F5/T5.4b).
+- [ ] T5.4c — Definir medição de cota, failover para novos uploads, migração, reconciliação e URL pública estável. **Parcialmente bloqueado pela pergunta aberta 8** (escopo do fallback: só novo upload ou também migra existente); medição/failover/reconciliação de novo upload já registrados em `spec.md` §F5/T5.4c.
+- [x] T5.5 — Threat model: links maliciosos, spam, phishing, XSS, SSRF, abuso e copyright. Tabela vetor/superfície/mitigação registrada em `spec.md` §F5/T5.5.
+- [x] T5.6 — Definir SEO, analytics, privacidade e retenção. Registrado em `spec.md` §F5/T5.6, reaproveitando contratos já pétreos do monorepo.
 
 ## F6 — Infra/operação
 
-- [ ] T6.1 — Mapear o padrão beta/prod vigente dos módulos no momento da implementação; não usar memória desta spec como contrato operacional.
-- [ ] T6.2 — Planejar `downloadsbeta.`/`downloads.` com paridade exata de compose, manifesto, DNS/Tunnel, gates e promoção; zero fluxo específico.
-- [ ] T6.2a — Herdar as mesmas guardas de isolamento usadas pelos outros módulos; qualquer diferença exige decisão explícita.
-- [ ] T6.3 — Planejar backup, rollback, observabilidade e link checker.
-- [ ] T6.4 — Dimensionar rotina humana de moderação e SLA inicial.
+- [x] T6.1 — Mapear o padrão beta/prod vigente dos módulos no momento da implementação; não usar memória desta spec como contrato operacional. Padrão observado nesta data registrado em `spec.md` §F6/T6.1 com aviso explícito de re-leitura obrigatória na implementação.
+- [x] T6.2 — Planejar `downloadsbeta.`/`downloads.` com paridade exata de compose, manifesto, DNS/Tunnel, gates e promoção; zero fluxo específico. Registrado em `spec.md` §F6/T6.2.
+- [x] T6.2a — Herdar as mesmas guardas de isolamento usadas pelos outros módulos; qualquer diferença exige decisão explícita. Registrado em `spec.md` §F6/T6.2a.
+- [x] T6.3 — Planejar backup, rollback, observabilidade e link checker. Registrado em `spec.md` §F6/T6.3.
+- [x] T6.4 — Dimensionar rotina humana de moderação e SLA inicial. Modelo de rotina (sem número de SLA prometido publicamente ainda) registrado em `spec.md` §F6/T6.4.
 
 ## F7 — Saída
 
-- [ ] T7.1 — Resolver perguntas bloqueantes com o mantenedor.
-- [ ] T7.2 — Consolidar decisões firmes em `decisions.md`.
-- [ ] T7.3 — Criar specs filhas aprovadas, cada uma com dependências/gates/testes.
+- [x] T7.1 — Resolver perguntas bloqueantes com o mantenedor. 10 perguntas resolvidas em 2026-07-11, registradas em `spec.md` §F7/T7.1.
+- [x] T7.2 — Consolidar decisões firmes em `decisions.md`. D111 registrada em `.specify/memory/decisions.md`.
+- [x] T7.3 — Mapa de specs filhas (Downloads-A a G, ordem/dependências/gates/testes) proposto em `spec.md` §F7/T7.3 e **estrutura criada** (2026-07-11, mantenedor autorizou "abrir as 7 specs filhas"): `specs/070-downloads-a-schema-api-ownership`, `071-downloads-b-storage-multiprovider`, `072-downloads-c-submissao-moderacao-taxonomia`, `073-downloads-d-descoberta-publica`, `074-downloads-e-painel-usuario-edicao`, `075-downloads-f-gestao-admin`, `076-downloads-g-infra-deploy` — cada uma com `spec.md`/`plan.md`/`tasks.md`/`reviews.md`/`debitos.md`. Zero código, zero migration, zero commit. Implementação de cada spec segue gated por aprovação nominal própria por fase, conforme regra pétrea.
 - [x] T7.4 — Atualizar `specs/backlog.md`, `specs/README.md`, roadmap, README e `project-state.md`.
-- [ ] T7.5 — Encerrar sessão com evidências e próximos passos; nenhum código.
+- [x] T7.5 — Sessão encerrada. Evidência: 5 arquivos por spec filha (35 no total) criados em `specs/070` a `specs/076`; `spec.md` da 061 com F4–F7 completas; `decisions.md` D111; `tasks.md` da 061 com F4–F7 marcadas. Próximo passo real: autorização nominal para começar a spec 070 (Downloads-A), a primeira da fila — nenhuma implementação iniciada.
 
-## Perguntas abertas prioritárias
+## Perguntas abertas prioritárias — RESOLVIDAS (2026-07-11)
 
-1. Como detectar e tratar destino que deixou de ser gratuito após publicação?
-2. Como armazenar, proteger, revalidar e reter as provas obrigatórias definidas por D100?
-3. Quais critérios permitem conceder/revogar auto-publicação?
-4. Quais flags externas serão obrigatórias além de login/cadastro/newsletter?
-5. Qual escala, peso e política anti-abuso das avaliações?
-6. Comentários exigem moderação prévia, posterior ou por denúncia?
-7. Quais métricas ficam públicas e quais só para autor/admin?
-8. O fallback troca apenas novos uploads ou também migra arquivos existentes?
-9. Qual é o serviço/contrato exato “Fastio”?
-10. Quais tipos e limites de arquivo entram no MVP além de PDF?
+1. ~~Como detectar e tratar destino que deixou de ser gratuito após publicação?~~ → só revisão humana via denúncia, sem scan automático.
+2. ~~Como armazenar, proteger, revalidar e reter as provas obrigatórias definidas por D100?~~ → retenção ilimitada, nunca expurga.
+3. ~~Quais critérios permitem conceder/revogar auto-publicação?~~ → ainda não definido; continua desligada por kill switch; critério fica para spec futura.
+4. ~~Quais flags externas serão obrigatórias além de login/cadastro/newsletter?~~ → nenhuma nova; login `accounts.` cobre.
+5. ~~Qual escala, peso e política anti-abuso das avaliações?~~ → só quem já baixou (download registrado) pode avaliar.
+6. ~~Comentários exigem moderação prévia, posterior ou por denúncia?~~ → só por denúncia; exige conta `accounts.`, sem anônimo.
+7. ~~Quais métricas ficam públicas e quais só para autor/admin?~~ → download = clique logado deduplicado por conta+material, contagem simples pública; edição de material (incl. link) grava histórico, última atualização pública, série completa só admin.
+8. ~~O fallback troca apenas novos uploads ou também migra arquivos existentes?~~ → também migra existentes, sempre com aprovação nominal + checksum.
+9. ~~Qual é o serviço/contrato exato “Fastio”?~~ → confirmado (`fast.io`, storage para agentes de IA); mantido na cadeia R2→B2→Fastio→Cloudinary PDF.
+10. ~~Quais tipos e limites de arquivo entram no MVP além de PDF?~~ → apenas documentos (PDF/MD/DOC), sem `.zip`.
