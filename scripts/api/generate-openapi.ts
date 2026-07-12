@@ -38,6 +38,22 @@ function classifyRoute(method: string, path: string, app: string): Classificatio
     return { owner: app, scope: 'admin', status: 'active', auth: 'admin', consumers: [] };
   }
 
+  // Downloads moderation/report queues são restritas a requireRole(['moderator','admin'])
+  // (ver apps/downloads/backend/src/routes/moderation.ts e reports.ts) — heurística
+  // genérica de GET/write classificava como 'none'/'public'/'user', divergindo do
+  // código real (achado SonarCloud PR #151, 2026-07-12).
+  if (app === 'downloads' && /(^|\/)moderation(\/|$)/.test(p)) {
+    return { owner: app, scope: 'admin', status: 'active', auth: 'admin', consumers: [] };
+  }
+  if (
+    app === 'downloads' &&
+    p.includes('/reports') &&
+    (p.includes('/abuse-check/') || method === 'GET' || method === 'PATCH') &&
+    !p.includes('/mine')
+  ) {
+    return { owner: app, scope: 'admin', status: 'active', auth: 'admin', consumers: [] };
+  }
+
   // Accounts auth (cross-app — consumed by other frontends)
   if (app === 'accounts' && p.includes('/api/auth/')) {
     if (p.includes('/me') || p.includes('/refresh') || p.includes('/logout')) {
@@ -235,12 +251,41 @@ function appendRequestBody(
   appendIndented(lines, `                  `, property.lines);
 }
 
-function appendGenericRequestBody(lines: string[]): void {
-  appendRequestBody(lines, false);
+function appendGenericRequestBody(lines: string[], required = false): void {
+  appendRequestBody(lines, required);
+}
+
+// Rotas cujo corpo e sempre obrigatorio na implementacao real, mas nao se
+// encaixam na heuristica generica nem no overlay de account.
+function isRequiredBodyRoute(method: string, path: string): boolean {
+  return method === 'post' && path === '/api/v1/materials';
 }
 
 function appendRequiredJsonBody(lines: string[], property: string, propertyLines: string[]): void {
   appendRequestBody(lines, true, { name: property, lines: propertyLines });
+}
+
+function appendDownloadsRequestBody(lines: string[], method: string, path: string): boolean {
+  if (method === 'post' && path === '/api/v1/materials') {
+    appendIndented(lines, ``, [
+      `      requestBody:`,
+      `        required: true`,
+      `        content:`,
+      `          application/json:`,
+      `            schema:`,
+      `              type: object`,
+      `              required: [slug, title, material_type]`,
+      `              properties:`,
+      `                slug:`,
+      `                  type: string`,
+      `                title:`,
+      `                  type: string`,
+      `                material_type:`,
+      `                  type: string`,
+    ]);
+    return true;
+  }
+  return false;
 }
 
 function appendAccountRequestBody(lines: string[], method: string, path: string): boolean {
@@ -250,6 +295,20 @@ function appendAccountRequestBody(lines: string[], method: string, path: string)
   }
   if (method === 'patch' && path === '/api/account/avatar') {
     appendRequiredJsonBody(lines, "dataUrl", ["type: string", "description: Data URL base64 PNG, JPEG ou WebP ate 2MB"]);
+    return true;
+  }
+  return false;
+}
+
+function appendDownloadsResponses(lines: string[], method: string, path: string): boolean {
+  if (method === 'post' && path === '/api/v1/materials') {
+    appendResponses(lines, [
+      { status: "201", description: "Material criado", jsonObject: true },
+      { status: "400", description: "Requisição inválida", jsonObject: true },
+      { status: "401", description: "Não autenticado" },
+      { status: "403", description: "Sem permissão" },
+      { status: "500", description: "Erro interno" },
+    ]);
     return true;
   }
   return false;
@@ -339,6 +398,7 @@ function generateOpenApi(appName: string, routes: RouteEntry[], overlayPath?: st
   // não hardcodar URL de subdomínio). Importado do source p/ não exigir build no CI.
   const SERVER_CONFIG: Record<string, { prod: string; prodLabel: string; devPort: number }> = {
     accounts:  { prod: moduleOrigin('accounts'),  prodLabel: 'Produção',        devPort: 4000 },
+    downloads: { prod: moduleOrigin('downloads'), prodLabel: 'Produção',        devPort: 3004 },
     mesas:     { prod: moduleOrigin('mesas'),     prodLabel: 'Produção',        devPort: 4000 },
     glossario: { prod: moduleOrigin('glossario'), prodLabel: 'Produção',        devPort: 3000 },
     links:     { prod: moduleOrigin('links'),     prodLabel: 'Produção',        devPort: 3001 },
@@ -426,11 +486,11 @@ servers:
         }
       }
       if (shouldHaveRequestBody(method, oaPath)) {
-        if (!appendAccountRequestBody(lines, method, oaPath)) {
-          appendGenericRequestBody(lines);
+        if (!appendAccountRequestBody(lines, method, oaPath) && !appendDownloadsRequestBody(lines, method, oaPath)) {
+          appendGenericRequestBody(lines, isRequiredBodyRoute(method, oaPath));
         }
       }
-      if (!appendAccountResponses(lines, method, oaPath)) {
+      if (!appendAccountResponses(lines, method, oaPath) && !appendDownloadsResponses(lines, method, oaPath)) {
         appendGenericResponses(lines);
       }
       block.methods.set(method, lines);

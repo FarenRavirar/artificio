@@ -64,7 +64,7 @@ interface AppDiff {
 //  CONSTANTES
 // ═══════════════════════════════════════════════
 
-const APPS = ['accounts', 'mesas', 'glossario', 'links', 'site'];
+const APPS = ['accounts', 'downloads', 'mesas', 'glossario', 'links', 'site'];
 const OPENAPI_DIR = resolve(import.meta.dirname, '../../docs/api/openapi');
 const OUTPUT_DIR = resolve(import.meta.dirname, '../../docs/api/generated');
 const DEFAULT_BASE = process.env.GITHUB_BASE_REF || 'dev';

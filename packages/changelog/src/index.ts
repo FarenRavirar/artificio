@@ -8,6 +8,7 @@ export const CHANGELOG_UPDATE_MARKERS = {
   links: "2026-06-21-shell-unificado",
   mesas: "2026-06-21-shell-unificado",
   glossario: "2026-06-21-shell-unificado",
+  downloads: "2026-07-12-gestao-admin-e-notificacoes",
 } as const;
 
 export interface ChangelogEntry {

@@ -10,12 +10,45 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 8 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 37 | ❌ |
 
 ## Rotas órfãs suspeitas
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique ausência de uso.
 
+### downloads (29 rota(s))
+
+| Method | Path | Tem OpenAPI? | Scope | Razão |
+|--------|------|:-----------:|-------|-------|
+| DELETE | `/api/v1/collections/:id/items/:materialId` | ✅ | public | Scope "public" sem consumidor |
+| DELETE | `/api/v1/comments/:id` | ✅ | public | Scope "public" sem consumidor |
+| DELETE | `/api/v1/favorites/:materialId` | ✅ | public | Scope "public" sem consumidor |
+| DELETE | `/api/v1/reports/:id` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/collections` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/collections/:id/items` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/comments/:materialId` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/creators/:slug` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/creators/me` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/destinations/:id` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/favorites` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/material-metadata/:materialId` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/materials` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/materials/:slug` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/materials/:id/history` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/organizations` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/organizations/:id/members` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/ratings/:materialId` | ✅ | public | Scope "public" sem consumidor |
+| PATCH | `/api/v1/materials/:id` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/collections` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/collections/:id/items` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/comments` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/downloads` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/favorites` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/materials` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/organizations` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/reports` | ✅ | public | Scope "public" sem consumidor |
+| PUT | `/api/v1/material-metadata/:materialId` | ✅ | public | Scope "public" sem consumidor |
+| PUT | `/api/v1/ratings` | ✅ | public | Scope "public" sem consumidor |
 ### mesas (2 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |

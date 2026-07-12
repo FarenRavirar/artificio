@@ -22,7 +22,7 @@ import { join, resolve } from 'node:path';
 //  CONSTANTES
 // ═══════════════════════════════════════════════
 
-const APPS = ['accounts', 'mesas', 'glossario', 'links', 'site'] as const;
+const APPS = ['accounts', 'downloads', 'mesas', 'glossario', 'links', 'site'] as const;
 const APP_SET = new Set<string>(APPS);
 const OPENAPI_DIR = resolve(import.meta.dirname, '../../docs/api/openapi');
 const OUTPUT_DIR = resolve(import.meta.dirname, '../../docs/api/generated');

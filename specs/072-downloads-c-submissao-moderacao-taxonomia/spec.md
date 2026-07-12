@@ -19,7 +19,7 @@ Fluxo completo de submissão em etapas, fila de moderação com máquina de esta
 - `download_evidence`: prova obrigatória (D100), sem expurgo por prazo.
 - Estados editoriais e máquina de transição (T3.3): versão imutável, publicação atual, fila de moderação, motivo estruturado obrigatório em reprovação.
 - Auto-publicação: campo/estrutura existe, **desligada por padrão e kill switch** (T3.3/D111 item 3) — nenhum critério de liberação implementado nesta spec.
-- Denúncia (T3.4): canais, categorias, prioridade P0–P3, contenção proporcional, contraditório, recurso, abuso, retirada voluntária, abandono/reivindicação.
+- Denúncia (T3.4): canais, categorias, prioridade P0–P3, contenção proporcional, contraditório, recurso, abuso, retirada voluntária, abandono/reivindicação. **Exige conta `accounts.` (revogado anonimato, 2026-07-12).**
 - Reenvio após reprovação preserva dados e mostra motivo.
 - Ações batch de moderação (aprovar/reprovar/arquivar múltiplos), reaproveitando o padrão já testado em `apps/mesas` (`PATCH .../batch`).
 - Comentário: exige conta `accounts.` (sem anônimo), retirada só por denúncia, sem moderação prévia/posterior de rotina (D111 item 6).
@@ -37,7 +37,7 @@ Fluxo completo de submissão em etapas, fila de moderação com máquina de esta
 2. Reprovação sempre grava motivo estruturado, nunca só texto livre solto.
 3. Reenvio após reprovação preserva dados anteriores.
 4. Prova (`download_evidence`) nunca é aceita automaticamente — sempre passa por revisão humana.
-5. Denúncia sem conta é aceita, mas decisão de mérito exige role autenticada (moderador/admin).
+5. **[Revogado 2026-07-12, decisão nominal do mantenedor]** Denúncia exige conta `accounts.` (login obrigatório para denunciar, não só para decisão de mérito) — habilita rastreio de abuso por usuário (T5.4). Decisão de mérito continua exigindo role autenticada (moderador/admin).
 6. Comentário exige conta `accounts.`; sem fluxo de comentário anônimo.
 7. Ações batch de moderação seguem o mesmo contrato de API já usado no mesas.
 8. Auto-publicação existe como campo/flag, nunca ativa por si (kill switch confirmado desligado).

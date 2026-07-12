@@ -113,6 +113,36 @@
       "critical_routes_beta": []
     },
     {
+      "module": "downloads",
+      "_comment": "Spec 076: Downloads-G, ultima spec filha da 061. Bootstrap-safe (dispatch-only) ate 1o deploy verde. Front+back separados (padrao mesas). Migrations em apps/downloads/database (19 arquivos ate spec 075, todas com header de 5 campos).",
+      "env_override": "",
+      "compose_file": "docker-compose.prod.yml",
+      "compose_file_beta": "docker-compose.beta.yml",
+      "compose_project": "downloads",
+      "compose_project_beta": "downloads-beta",
+      "db_service": "downloads-db",
+      "db_service_beta": "downloads-beta-db",
+      "db_name": "downloads",
+      "db_name_beta": "downloads",
+      "db_user": "admin",
+      "reconcile_same_project_orphans": false,
+      "auto_deploy_on_push": false,
+      "push_branches": ["dev"],
+      "deploy_paths": ["apps/downloads"],
+      "health_containers": ["downloads-api", "downloads-app"],
+      "health_containers_beta": ["downloads-beta-api", "downloads-beta-app"],
+      "critical_routes": [
+        {"name": "health", "url": "https://downloads.artificiorpg.com/api/v1/health", "expected": "200"},
+        {"name": "home", "url": "https://downloads.artificiorpg.com/", "expected": "200"},
+        {"name": "private_no_cookie", "url": "https://downloads.artificiorpg.com/api/v1/materials/mine", "expected": "401"}
+      ],
+      "critical_routes_beta": [
+        {"name": "health", "url": "https://downloadsbeta.artificiorpg.com/api/v1/health", "expected": "200"},
+        {"name": "home", "url": "https://downloadsbeta.artificiorpg.com/", "expected": "200"},
+        {"name": "private_no_cookie", "url": "https://downloadsbeta.artificiorpg.com/api/v1/materials/mine", "expected": "401"}
+      ]
+    },
+    {
       "module": "accounts",
       "_comment": "Spec 026 F5 (BL-CDX-310): SSO central, snowflake reconciliado a _deploy-module. PROD-ONLY: D042 nao tem accountsbeta (beta reusa accounts PROD; .env.beta so tem JWT). env_override=prod forca prod em qualquer ref; build-matrix BLOQUEIA dispatch env=beta p/ accounts. dispatch-only (auto_deploy_on_push=false). Migrations no-op: accounts migra in-container no boot (Dockerfile CMD node dist/migrate.js), sem dir database/ -> runner no-op (como glossario/site). Campos *_beta espelham prod por defensividade; nunca exercitados.",
       "env_override": "prod",

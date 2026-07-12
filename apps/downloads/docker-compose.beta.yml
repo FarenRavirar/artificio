@@ -1,0 +1,96 @@
+services:
+  downloads-beta-app:
+    build:
+      context: ../..
+      dockerfile: apps/downloads/frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://downloadsbeta.artificiorpg.com}
+        VITE_PUBLIC_SITE_URL: ${VITE_PUBLIC_SITE_URL:-https://downloadsbeta.artificiorpg.com}
+        VITE_ACCOUNTS_URL: ${VITE_ACCOUNTS_URL:-https://accounts.artificiorpg.com}
+        VITE_GA_ID: ${VITE_GA_ID:-G-8XN5BGPJP3}
+        VITE_SITE_ADMIN_SYSTEMS_URL: ${VITE_SITE_ADMIN_SYSTEMS_URL:-https://beta.artificiorpg.com/admin/sistemas}
+    container_name: downloads-beta-app
+    restart: always
+    expose:
+      - "80"
+    networks:
+      - artificio_net
+    environment:
+      - API_UPSTREAM=downloads-beta-api
+      - TRUSTED_REAL_IP_FROM=${TRUSTED_REAL_IP_FROM:-172.18.0.0/16}
+    depends_on:
+      - downloads-beta-api
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:80 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  downloads-beta-api:
+    build:
+      context: ../..
+      dockerfile: apps/downloads/backend/Dockerfile
+    container_name: downloads-beta-api
+    restart: always
+    expose:
+      - "3000"
+    networks:
+      - artificio_net
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=beta
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - FRONTEND_URL=https://downloadsbeta.artificiorpg.com
+      - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      # Catalogo canonico de sistemas (spec 062): downloads consome catalogo
+      # central do site via rede Docker interna, mesmo padrao mesas/glossario.
+      - CATALOG_API_URL=${CATALOG_API_URL:-http://site-beta-app:4322}
+      - CATALOG_INTERNAL_TOKEN=${CATALOG_INTERNAL_TOKEN:?CATALOG_INTERNAL_TOKEN is required}
+    depends_on:
+      downloads-beta-db:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 256m
+
+  downloads-beta-db:
+    image: postgres:16-alpine
+    container_name: downloads-beta-db
+    restart: always
+    networks:
+      - artificio_net
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: downloads
+    volumes:
+      - pgdata_downloads_beta:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d downloads"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata_downloads_beta:
+
+networks:
+  artificio_net:
+    external: true

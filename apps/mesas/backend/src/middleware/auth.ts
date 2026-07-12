@@ -25,30 +25,68 @@ declare global {
 
 const toMesasRole = (role: 'user' | 'admin'): UserRole => role === 'admin' ? 'admin' : 'player';
 
+// Usuário local do mesas provisionado via SSO (accounts.) na primeira vez que
+// aparece — sem isto, req.user.userId caía no fallback session.user.id (UUID
+// do accounts, não existente em mesas.users), quebrando com FK violation
+// 23503 em toda rota que grava user_id (achado real, 2026-07-12: contas
+// wildbladewhd@gmail.com e marcio.grove@gmail.com nunca logaram no mesas
+// antes, POST /gm/profile morria com "not present in table users").
+const isUniqueViolation = (error: unknown): boolean =>
+  error !== null && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === '23505';
+
 const resolveMesasUser = async (session: Session) => {
+  const existing = await db
+    .selectFrom('users')
+    .select(['id', 'email', 'role'])
+    .where((eb) => eb.or([
+      eb('google_id', '=', session.user.id),
+      eb('email', '=', session.user.email),
+    ]))
+    .executeTakeFirst();
+  if (existing) return existing;
+
   try {
-    return await db
-      .selectFrom('users')
-      .select(['id', 'email', 'role'])
-      .where((eb) => eb.or([
-        eb('google_id', '=', session.user.id),
-        eb('email', '=', session.user.email),
-      ]))
-      .executeTakeFirst();
-  } catch {
-    return undefined;
+    const [created] = await db
+      .insertInto('users')
+      .values({
+        google_id: session.user.id,
+        email: session.user.email,
+        role: toMesasRole(session.user.role),
+      })
+      .onConflict((oc) => oc.column('email').doNothing())
+      .returning(['id', 'email', 'role'])
+      .execute();
+    if (created) return created;
+  } catch (error) {
+    // Só recupera de corrida real (23505 — outro request provisionou entre o
+    // SELECT e o INSERT via google_id, não coberto pelo onConflict de email).
+    // Qualquer outro erro (DB fora do ar, timeout etc.) deve propagar, não
+    // virar 401 silencioso.
+    if (!isUniqueViolation(error)) throw error;
   }
+
+  // corrida: outro request provisionou primeiro entre o SELECT e o INSERT
+  // (email ou google_id, ambos únicos) — relê pelos mesmos critérios do SELECT inicial.
+  return await db
+    .selectFrom('users')
+    .select(['id', 'email', 'role'])
+    .where((eb) => eb.or([
+      eb('google_id', '=', session.user.id),
+      eb('email', '=', session.user.email),
+    ]))
+    .executeTakeFirst();
 };
 
 const attachLegacyUser = async (req: Request): Promise<boolean> => {
   const session = (req as unknown as AuthenticatedRequest).session;
   if (!session) return false;
   const mesasUser = await resolveMesasUser(session);
+  if (!mesasUser) return false;
 
   req.user = {
-    userId: mesasUser?.id ?? session.user.id,
-    role: session.user.role === 'admin' ? 'admin' : mesasUser?.role ?? toMesasRole(session.user.role),
-    email: mesasUser?.email ?? session.user.email,
+    userId: mesasUser.id,
+    role: session.user.role === 'admin' ? 'admin' : mesasUser.role,
+    email: mesasUser.email,
     name: session.user.name,
     avatar: session.user.avatar,
     exp: session.exp,

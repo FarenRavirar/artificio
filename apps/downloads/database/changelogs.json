@@ -1,0 +1,26 @@
+[
+  {
+    "id": "2026-07-12-gestao-admin-e-notificacoes",
+    "title": "Painel de gestão para moderadores e notificações reais",
+    "body": "Lançamos o painel administrativo do Downloads e destravamos notificações que ainda eram só leitura:\n\n• **Painel de gestão** - Moderadores e admins agora têm `/gestao` completo: fila de moderação com ações em lote, denúncias por prioridade, auditoria com histórico completo de links já usados, checagem de link sob demanda e métricas\n• **Notificações de verdade** - Você recebe aviso quando seu material é aprovado ou rejeitado, e quando uma denúncia sua é resolvida\n• **Minhas denúncias** - O painel agora mostra o andamento das denúncias que você mesmo abriu\n• **Adicionar à coleção na ficha** - Dá para adicionar um material a uma das suas coleções direto na página dele, sem precisar ir ao painel\n• **Campo de editora** - Materiais podem informar a editora/selo responsável\n\n_Atualização publicada em 12/07/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-07-12T18:00:00-03:00"
+  },
+  {
+    "id": "2026-07-12-painel-do-usuario",
+    "title": "Painel do usuário: edição, favoritos, coleções e avaliação",
+    "body": "O Downloads ganhou um painel completo para quem publica e para quem baixa material:\n\n• **Meus materiais** - Veja todos os seus materiais em qualquer estado (rascunho, em revisão, publicado, rejeitado) e edite título, resumo, descrição e link\n• **Histórico de edição** - Cada alteração fica registrada, incluindo trocas de link\n• **Favoritos e coleções** - Salve materiais favoritos e organize coleções próprias\n• **Avaliação e comentários** - Quem já baixou um material pode avaliar de 1 a 5 estrelas e comentar\n• **Contador de download confiável** - Cada download é contado uma única vez por conta\n\n_Atualização publicada em 12/07/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-07-12T12:00:00-03:00"
+  },
+  {
+    "id": "2026-07-12-catalogo-e-busca-publica",
+    "title": "Catálogo de materiais gratuitos no ar",
+    "body": "O Downloads chegou com busca e descoberta pública de materiais gratuitos de RPG:\n\n• **Catálogo com busca e filtros** - Busque por nome, filtre por sistema, edição e tipo de material, ordene por relevância, mais recentes ou mais populares\n• **Ficha de cada material** - Resumo, descrição, criador e botão de acesso ao link do material\n• **Perfil de criador** - Veja todos os materiais publicados por um mesmo criador\n\n_Atualização publicada em 12/07/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-07-12T09:00:00-03:00"
+  }
+]
