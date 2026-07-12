@@ -50,15 +50,15 @@ paths:
       x-artificio-status: active
       x-artificio-auth: user
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
               additionalProperties: true
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Material criado
           content:
             application/json:
               schema:

@@ -22,3 +22,6 @@ CREATE INDEX IF NOT EXISTS idx_download_material_creator
 
 CREATE INDEX IF NOT EXISTS idx_download_material_title_trgm
   ON download_material USING gin (title gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS idx_download_material_summary_trgm
+  ON download_material USING gin (summary gin_trgm_ops);

@@ -6,11 +6,13 @@ import express from 'express';
 
 const dbMocks = vi.hoisted(() => ({
   selectFrom: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock('../db', () => ({
   db: {
     selectFrom: dbMocks.selectFrom,
+    transaction: dbMocks.transaction,
   },
 }));
 
@@ -52,10 +54,11 @@ describe('PATCH /api/v1/materials/:id — ownership', () => {
 
   beforeEach(() => {
     dbMocks.selectFrom.mockReset();
+    dbMocks.transaction.mockReset();
   });
 
-  it('publicador (role user) não pode editar material de outro criador', async () => {
-    mockUser = { userId: 'owner-user', role: 'user' };
+  it('publicador (role publisher) não pode editar material de outro criador', async () => {
+    mockUser = { userId: 'owner-user', role: 'publisher' };
     dbMocks.selectFrom.mockReturnValue(makeSelectQuery(foreignMaterial));
 
     const response = await request(app())
@@ -85,8 +88,7 @@ describe('PATCH /api/v1/materials/:id — ownership', () => {
       }),
     };
 
-    const dbModule = await import('../db');
-    (dbModule.db as unknown as { transaction: () => { execute: (fn: (trx: unknown) => unknown) => unknown } }).transaction = () => ({
+    dbMocks.transaction.mockReturnValue({
       execute: (fn: (trx: unknown) => unknown) => fn(trx),
     });
 

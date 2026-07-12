@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import materialsRoutes from './routes/materials';
+import { parseCookies } from './middleware/parseCookies';
 import { db } from './db';
 
 dotenv.config();
@@ -43,6 +44,7 @@ app.use(cors({
   credentials: true,
 }));
 
+app.use(parseCookies);
 app.use(express.json({ limit: '4mb' }));
 
 app.get('/api/v1/health', async (_req, res) => {
@@ -50,8 +52,8 @@ app.get('/api/v1/health', async (_req, res) => {
     const result = await db.selectFrom('download_material').select('id').limit(1).execute();
     res.json({ status: 'ok', db: 'connected', sampled: result.length > 0 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    res.status(500).json({ status: 'error', message: 'Database connection failed', details: message });
+    console.error('[health] Falha na conexão com o banco:', error);
+    res.status(500).json({ status: 'error', message: 'Database connection failed' });
   }
 });
 

@@ -158,7 +158,7 @@ export type NewDownloadLinkCheck = Insertable<DownloadLinkCheckTable>;
 
 export interface DownloadMetricDailyTable {
   material_id: string;
-  metric_date: string;
+  metric_date: Date;
   download_count: Generated<number>;
   view_count: Generated<number>;
 }
@@ -166,6 +166,23 @@ export interface DownloadMetricDailyTable {
 export type DownloadMetricDaily = Selectable<DownloadMetricDailyTable>;
 export type NewDownloadMetricDaily = Insertable<DownloadMetricDailyTable>;
 export type DownloadMetricDailyUpdate = Updateable<DownloadMetricDailyTable>;
+
+// Contador mensal LOCAL de bytes/operacoes por provider de storage (spec 071).
+// Nunca bate no provider pra medir uso (isso gastaria cota Classe B); cota e
+// checada ANTES de cada operacao real, com margem de 10% — regra petrea do
+// mantenedor: zero risco de cobranca no free tier.
+export interface DownloadStorageUsageTable {
+  provider: string;
+  year_month: string;
+  bytes_used: Generated<number>;
+  class_a_ops: Generated<number>;
+  class_b_ops: Generated<number>;
+  updated_at: Generated<Date>;
+}
+
+export type DownloadStorageUsage = Selectable<DownloadStorageUsageTable>;
+export type NewDownloadStorageUsage = Insertable<DownloadStorageUsageTable>;
+export type DownloadStorageUsageUpdate = Updateable<DownloadStorageUsageTable>;
 
 export interface Database {
   download_material: DownloadMaterialTable;
@@ -179,4 +196,5 @@ export interface Database {
   download_collection_item: DownloadCollectionItemTable;
   download_link_check: DownloadLinkCheckTable;
   download_metric_daily: DownloadMetricDailyTable;
+  download_storage_usage: DownloadStorageUsageTable;
 }

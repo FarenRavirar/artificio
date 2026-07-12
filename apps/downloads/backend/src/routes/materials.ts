@@ -1,8 +1,34 @@
 import { Router, type Request, type Response } from 'express';
+import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
+import { writeRateLimiter } from '../middleware/rateLimit';
 
 const router = Router();
+
+const patchMaterialSchema = z.object({
+  title: z.string().trim().min(1).optional(),
+  summary: z.string().trim().nullable().optional(),
+  description: z.string().trim().nullable().optional(),
+  external_url: z.url().trim().nullable().optional(),
+});
+
+// Campos publicos da ficha; exclui storage_provider/storage_key (achado
+// chatgpt-codex-connector P2 — vazamento de detalhes internos de storage).
+const PUBLIC_MATERIAL_FIELDS = [
+  'id',
+  'slug',
+  'title',
+  'summary',
+  'description',
+  'material_type',
+  'access_kind',
+  'external_url',
+  'creator_id',
+  'editorial_state',
+  'created_at',
+  'updated_at',
+] as const;
 
 // Campos editaveis por publicador; toda mudanca grava download_material_version
 // por campo (D111 item 7 — historico desde o primeiro commit, incl. link).
@@ -20,7 +46,7 @@ type EditableField = (typeof EDITABLE_FIELDS)[number];
 router.get('/:slug', async (req: Request, res: Response) => {
   const material = await db
     .selectFrom('download_material')
-    .selectAll()
+    .select(PUBLIC_MATERIAL_FIELDS)
     .where('slug', '=', req.params.slug)
     .where('editorial_state', '=', 'published')
     .executeTakeFirst();
@@ -34,7 +60,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
 
 // T2.2 — criacao autenticada. Estado editorial sempre nasce 'draft'; fila de
 // moderacao completa fica na spec 072.
-router.post('/', authMiddleware, async (req: Request, res: Response) => {
+router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const { slug, title, material_type: materialType } = req.body ?? {};
 
   if (typeof slug !== 'string' || typeof title !== 'string' || typeof materialType !== 'string') {
@@ -59,7 +85,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 
 // T2.2 + Ownership (T3.2) — publicador so edita o proprio material; moderador
 // e admin editam qualquer um (autorizacao fina fica na spec 072).
-router.patch('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const material = await db
     .selectFrom('download_material')
     .selectAll()
@@ -77,7 +103,12 @@ router.patch('/:id', authMiddleware, async (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Você não tem permissão para editar este material.' });
   }
 
-  const patch = req.body ?? {};
+  const parsed = patchMaterialSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Payload inválido.', details: z.treeifyError(parsed.error) });
+  }
+
+  const patch = parsed.data;
   const changes = EDITABLE_FIELDS.filter((field) => field in patch) as EditableField[];
 
   if (changes.length === 0) {

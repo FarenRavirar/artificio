@@ -235,8 +235,14 @@ function appendRequestBody(
   appendIndented(lines, `                  `, property.lines);
 }
 
-function appendGenericRequestBody(lines: string[]): void {
-  appendRequestBody(lines, false);
+function appendGenericRequestBody(lines: string[], required = false): void {
+  appendRequestBody(lines, required);
+}
+
+// Rotas cujo corpo e sempre obrigatorio na implementacao real, mas nao se
+// encaixam na heuristica generica nem no overlay de account.
+function isRequiredBodyRoute(method: string, path: string): boolean {
+  return method === 'post' && path === '/api/v1/materials';
 }
 
 function appendRequiredJsonBody(lines: string[], property: string, propertyLines: string[]): void {
@@ -250,6 +256,20 @@ function appendAccountRequestBody(lines: string[], method: string, path: string)
   }
   if (method === 'patch' && path === '/api/account/avatar') {
     appendRequiredJsonBody(lines, "dataUrl", ["type: string", "description: Data URL base64 PNG, JPEG ou WebP ate 2MB"]);
+    return true;
+  }
+  return false;
+}
+
+function appendDownloadsResponses(lines: string[], method: string, path: string): boolean {
+  if (method === 'post' && path === '/api/v1/materials') {
+    appendResponses(lines, [
+      { status: "201", description: "Material criado", jsonObject: true },
+      { status: "400", description: "Requisição inválida", jsonObject: true },
+      { status: "401", description: "Não autenticado" },
+      { status: "403", description: "Sem permissão" },
+      { status: "500", description: "Erro interno" },
+    ]);
     return true;
   }
   return false;
@@ -428,10 +448,10 @@ servers:
       }
       if (shouldHaveRequestBody(method, oaPath)) {
         if (!appendAccountRequestBody(lines, method, oaPath)) {
-          appendGenericRequestBody(lines);
+          appendGenericRequestBody(lines, isRequiredBodyRoute(method, oaPath));
         }
       }
-      if (!appendAccountResponses(lines, method, oaPath)) {
+      if (!appendAccountResponses(lines, method, oaPath) && !appendDownloadsResponses(lines, method, oaPath)) {
         appendGenericResponses(lines);
       }
       block.methods.set(method, lines);

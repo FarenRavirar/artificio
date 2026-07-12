@@ -189,7 +189,7 @@
       "method": "GET",
       "path": "/api/v1/health",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 48,
+      "line": 50,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -198,7 +198,7 @@
       "method": "POST",
       "path": "/api/v1/materials",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 37,
+      "line": 63,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -207,7 +207,7 @@
       "method": "USE",
       "path": "/api/v1/materials",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 58,
+      "line": 60,
       "confidence": "high",
       "kind": "mount"
     },
@@ -216,7 +216,7 @@
       "method": "PATCH",
       "path": "/api/v1/materials/:id",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 62,
+      "line": 88,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -225,7 +225,7 @@
       "method": "GET",
       "path": "/api/v1/materials/:slug",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 20,
+      "line": 46,
       "confidence": "high",
       "kind": "express-route"
     },

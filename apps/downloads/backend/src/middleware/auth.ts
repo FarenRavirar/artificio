@@ -32,7 +32,8 @@ const resolveCreatorRole = async (userId: string): Promise<DownloadCreatorRole> 
       .where('user_id', '=', userId)
       .executeTakeFirst();
     return creator?.role ?? 'user';
-  } catch {
+  } catch (error) {
+    console.warn('[auth] Falha ao resolver role de download_creator, fallback para "user":', error);
     return 'user';
   }
 };

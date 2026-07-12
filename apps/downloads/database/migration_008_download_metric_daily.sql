@@ -11,7 +11,7 @@
 CREATE TABLE IF NOT EXISTS download_metric_daily (
   material_id UUID NOT NULL REFERENCES download_material(id) ON DELETE CASCADE,
   metric_date DATE NOT NULL,
-  download_count INTEGER NOT NULL DEFAULT 0,
-  view_count INTEGER NOT NULL DEFAULT 0,
+  download_count INTEGER NOT NULL DEFAULT 0 CHECK (download_count >= 0),
+  view_count INTEGER NOT NULL DEFAULT 0 CHECK (view_count >= 0),
   PRIMARY KEY (material_id, metric_date)
 );

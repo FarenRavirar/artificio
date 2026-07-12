@@ -18,8 +18,10 @@ CREATE TABLE IF NOT EXISTS download_material (
   system_id UUID,
   edition_id UUID,
   creator_id UUID NOT NULL,
-  editorial_state VARCHAR(30) NOT NULL DEFAULT 'draft',
-  access_kind VARCHAR(30) NOT NULL DEFAULT 'external_link',
+  editorial_state VARCHAR(30) NOT NULL DEFAULT 'draft'
+    CHECK (editorial_state IN ('draft','in_review','published','rejected','withdrawn')),
+  access_kind VARCHAR(30) NOT NULL DEFAULT 'external_link'
+    CHECK (access_kind IN ('external_link','managed_upload')),
   external_url TEXT,
   storage_provider VARCHAR(30),
   storage_key TEXT,

@@ -47,11 +47,11 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| GET | `/api/v1/health` | ✅ high | `apps/downloads/backend/src/server.ts` | 48 |
-| POST | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 37 |
-| USE | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/server.ts` | 58 |
-| PATCH | `/api/v1/materials/:id` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 62 |
-| GET | `/api/v1/materials/:slug` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 20 |
+| GET | `/api/v1/health` | ✅ high | `apps/downloads/backend/src/server.ts` | 50 |
+| POST | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 63 |
+| USE | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/server.ts` | 60 |
+| PATCH | `/api/v1/materials/:id` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 88 |
+| GET | `/api/v1/materials/:slug` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 46 |
 
 ## glossario
 

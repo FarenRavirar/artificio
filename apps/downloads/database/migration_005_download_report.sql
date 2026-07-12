@@ -11,8 +11,10 @@ CREATE TABLE IF NOT EXISTS download_report (
   material_id UUID NOT NULL REFERENCES download_material(id) ON DELETE CASCADE,
   reporter_user_id UUID,
   category VARCHAR(40) NOT NULL,
-  priority VARCHAR(4) NOT NULL DEFAULT 'P3',
-  case_state VARCHAR(30) NOT NULL DEFAULT 'open',
+  priority VARCHAR(4) NOT NULL DEFAULT 'P3'
+    CHECK (priority IN ('P0','P1','P2','P3')),
+  case_state VARCHAR(30) NOT NULL DEFAULT 'open'
+    CHECK (case_state IN ('open','in_review','resolved','dismissed')),
   details TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   resolved_at TIMESTAMPTZ
