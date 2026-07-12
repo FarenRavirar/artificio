@@ -39,7 +39,7 @@ describe('migrateItem', () => {
     const source = makeAdapter('fastio', sourceStore);
     const destination = makeAdapter('r2', destStore);
 
-    const result = await migrateItem({ key: 'a.pdf' }, source, destination);
+    const result = await migrateItem({ key: 'a.pdf', contentType: 'application/pdf' }, source, destination);
 
     expect(result.status).toBe('migrated');
     expect(sourceStore.has('a.pdf')).toBe(false);
@@ -58,7 +58,7 @@ describe('migrateItem', () => {
       return { provider: 'r2' as const, key: input.key };
     });
 
-    const result = await migrateItem({ key: 'a.pdf' }, source, destination);
+    const result = await migrateItem({ key: 'a.pdf', contentType: 'application/pdf' }, source, destination);
 
     expect(result.status).toBe('checksum_mismatch');
     expect(sourceStore.has('a.pdf')).toBe(true);
@@ -71,7 +71,7 @@ describe('migrateItem', () => {
     const source = makeAdapter('fastio', sourceStore);
     const destination = makeAdapter('r2', destStore);
 
-    const result = await migrateItem({ key: 'inexistente.pdf' }, source, destination);
+    const result = await migrateItem({ key: 'inexistente.pdf', contentType: 'application/pdf' }, source, destination);
 
     expect(result.status).toBe('error');
     expect(result.error).toContain('objeto nao encontrado');
@@ -87,7 +87,11 @@ describe('runMigrationBatch', () => {
     const source = makeAdapter('fastio', sourceStore);
     const destination = makeAdapter('r2', destStore);
 
-    const results = await runMigrationBatch([{ key: 'ok.pdf' }, { key: 'falta.pdf' }], source, destination);
+    const results = await runMigrationBatch(
+      [{ key: 'ok.pdf', contentType: 'application/pdf' }, { key: 'falta.pdf', contentType: 'application/pdf' }],
+      source,
+      destination,
+    );
 
     expect(results).toHaveLength(2);
     expect(results[0].status).toBe('migrated');

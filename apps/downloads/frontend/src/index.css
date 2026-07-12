@@ -1,0 +1,10 @@
+@import 'tailwindcss';
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
+
+@theme {
+  /* Laranja/navy canônicos (D064/D040), puxados da fonte única @artificio/ui. */
+  --color-artificio-blue: #1B2A4A;
+  --color-artificio-blue-light: #2A3F6D;
+  --color-artificio-orange: var(--artificio-brand);
+  --color-artificio-orange-hover: var(--artificio-brand-deep);
+}

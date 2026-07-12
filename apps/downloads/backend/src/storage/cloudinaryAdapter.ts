@@ -5,6 +5,8 @@ import type { StorageAdapter, StorageUploadInput, StorageUploadResult, StorageUs
 // pacote compartilhado ja usado por mesas/glossario) em vez de client proprio
 // — evita segunda config de credencial Cloudinary no repo.
 
+const CLOUDINARY_DOWNLOAD_TIMEOUT_MS = 15_000;
+
 export function createCloudinaryAdapter(): StorageAdapter {
   return {
     provider: 'cloudinary',
@@ -20,9 +22,16 @@ export function createCloudinaryAdapter(): StorageAdapter {
     },
 
     getPublicUrl(key: string): string {
-      // URL publica estavel via rota propria do backend — nunca expoe URL
-      // crua do Cloudinary ao cliente (spec 071 §Escopo).
-      return key;
+      // key aqui e o public_id do Cloudinary (nao uma URL); reconstroi a URL
+      // real do asset raw a partir do cloud_name configurado (mesmo padrao
+      // que @artificio/media usa internamente). Achado de review (PR #151):
+      // versao anterior retornava a key crua, quebrando download() e
+      // qualquer consumidor que precisasse da URL publica de fato.
+      const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+      if (!cloudName) {
+        throw new Error('CLOUDINARY_CLOUD_NAME não configurado — impossível montar URL pública do Cloudinary.');
+      }
+      return `https://res.cloudinary.com/${cloudName}/raw/upload/${key}`;
     },
 
     async delete(key: string): Promise<void> {
@@ -44,9 +53,7 @@ export function createCloudinaryAdapter(): StorageAdapter {
     },
 
     async download(key: string): Promise<Buffer> {
-      // Cloudinary raw asset e servido por URL publica estavel (key aqui e o
-      // public_id, que dobra como URL — ver getPublicUrl acima).
-      const response = await fetch(key);
+      const response = await fetch(this.getPublicUrl(key), { signal: AbortSignal.timeout(CLOUDINARY_DOWNLOAD_TIMEOUT_MS) });
       if (!response.ok) {
         throw new Error(`Cloudinary download falhou: HTTP ${response.status}`);
       }

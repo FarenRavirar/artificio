@@ -61,6 +61,9 @@ export interface DownloadMaterialMetadataTable {
   age_rating: string | null;
   content_warnings: Generated<JSONColumnType<string[]>>;
   tags: Generated<JSONColumnType<string[]>>;
+  // T-editora (spec 075, migration_019) — credito de editora/selo, texto
+  // livre (nao e conta/entidade de login, so credito estruturado).
+  publisher_name: string | null;
   updated_at: Generated<Date>;
 }
 
@@ -70,7 +73,7 @@ export type DownloadMaterialMetadataUpdate = Updateable<DownloadMaterialMetadata
 
 export interface DownloadCreatorTable {
   id: Generated<string>;
-  user_id: string;
+  user_id: string | null;
   slug: string;
   display_name: string;
   bio: string | null;
@@ -105,6 +108,7 @@ export interface DownloadReportTable {
   priority: Generated<DownloadReportPriority>;
   case_state: Generated<DownloadReportState>;
   details: string | null;
+  resolution_note: string | null;
   created_at: Generated<Date>;
   resolved_at: Date | null;
 }
@@ -200,8 +204,92 @@ export type DownloadComment = Selectable<DownloadCommentTable>;
 export type NewDownloadComment = Insertable<DownloadCommentTable>;
 export type DownloadCommentUpdate = Updateable<DownloadCommentTable>;
 
+export interface DownloadDestinationTable {
+  id: Generated<string>;
+  material_id: string;
+  created_at: Generated<Date>;
+}
+
+export type DownloadDestination = Selectable<DownloadDestinationTable>;
+export type NewDownloadDestination = Insertable<DownloadDestinationTable>;
+
+// D111 item 7 (spec 074) — dedup de download por conta: PK composta
+// (user_id, material_id) garante no maximo 1 registro por conta+material;
+// so a primeira insercao incrementa download_metric_daily (T3.2).
+export interface DownloadUserMaterialDownloadTable {
+  user_id: string;
+  material_id: string;
+  created_at: Generated<Date>;
+}
+
+export type DownloadUserMaterialDownload = Selectable<DownloadUserMaterialDownloadTable>;
+export type NewDownloadUserMaterialDownload = Insertable<DownloadUserMaterialDownloadTable>;
+
+// D111 item 5 (spec 074) — avaliacao 1-5 + comentario opcional curto, 1 por
+// conta+material (indice unico). Gate de escrita (so quem baixou) fica em
+// services/ratingGuard.ts, nao em constraint de banco.
+export interface DownloadRatingTable {
+  id: Generated<string>;
+  material_id: string;
+  user_id: string;
+  score: number;
+  comment: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type DownloadRating = Selectable<DownloadRatingTable>;
+export type NewDownloadRating = Insertable<DownloadRatingTable>;
+export type DownloadRatingUpdate = Updateable<DownloadRatingTable>;
+
+export type DownloadOrganizationMemberRole = 'member' | 'admin';
+
+// T1.6 (spec 074) — escopo minimo funcional autorizado nominalmente
+// (2026-07-12), sem spec previa detalhando o dominio. Organizacao = grupo de
+// creators sob nome comum; sem vinculo com download_material nesta rodada.
+export interface DownloadOrganizationTable {
+  id: Generated<string>;
+  slug: string;
+  name: string;
+  owner_user_id: string;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type DownloadOrganization = Selectable<DownloadOrganizationTable>;
+export type NewDownloadOrganization = Insertable<DownloadOrganizationTable>;
+export type DownloadOrganizationUpdate = Updateable<DownloadOrganizationTable>;
+
+export interface DownloadOrganizationMemberTable {
+  organization_id: string;
+  user_id: string;
+  role: Generated<DownloadOrganizationMemberRole>;
+  created_at: Generated<Date>;
+}
+
+export type DownloadOrganizationMember = Selectable<DownloadOrganizationMemberTable>;
+export type NewDownloadOrganizationMember = Insertable<DownloadOrganizationMemberTable>;
+
+// T1.7 (spec 074) — escopo minimo funcional autorizado nominalmente
+// (2026-07-12): feed interno de eventos ja emitidos por moderation.ts/
+// reports.ts (aprovado/rejeitado/denuncia resolvida), sem envio externo.
+export interface DownloadNotificationTable {
+  id: Generated<string>;
+  user_id: string;
+  kind: string;
+  material_id: string | null;
+  body: string;
+  read_at: Date | null;
+  created_at: Generated<Date>;
+}
+
+export type DownloadNotification = Selectable<DownloadNotificationTable>;
+export type NewDownloadNotification = Insertable<DownloadNotificationTable>;
+export type DownloadNotificationUpdate = Updateable<DownloadNotificationTable>;
+
 export interface Database {
   download_material: DownloadMaterialTable;
+  download_destination: DownloadDestinationTable;
   download_material_version: DownloadMaterialVersionTable;
   download_material_metadata: DownloadMaterialMetadataTable;
   download_creator: DownloadCreatorTable;
@@ -214,4 +302,9 @@ export interface Database {
   download_metric_daily: DownloadMetricDailyTable;
   download_storage_usage: DownloadStorageUsageTable;
   download_comment: DownloadCommentTable;
+  download_user_material_download: DownloadUserMaterialDownloadTable;
+  download_rating: DownloadRatingTable;
+  download_organization: DownloadOrganizationTable;
+  download_organization_member: DownloadOrganizationMemberTable;
+  download_notification: DownloadNotificationTable;
 }

@@ -24,13 +24,27 @@ const upsertMetadataSchema = z.object({
   license_kind: z.string().trim().max(60).nullable().optional(),
   license_url: z.url().trim().nullable().optional(),
   credits: z.string().trim().nullable().optional(),
+  publisher_name: z.string().trim().max(120).nullable().optional(),
   target_audience: z.string().trim().max(60).nullable().optional(),
   age_rating: z.string().trim().max(20).nullable().optional(),
   content_warnings: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
 });
 
+// Leitura publica so para material ja aprovado — draft/rejected/withdrawn
+// nao vazam metadados a quem nao tem permissao de ver o proprio material
+// (mesmo padrao de acesso de materials.ts GET /:slug).
 router.get('/:materialId', async (req: Request, res: Response) => {
+  const material = await db
+    .selectFrom('download_material')
+    .select('editorial_state')
+    .where('id', '=', req.params.materialId)
+    .executeTakeFirst();
+
+  if (!material || material.editorial_state !== 'published') {
+    return res.status(404).json({ error: 'Material não encontrado.' });
+  }
+
   const metadata = await db
     .selectFrom('download_material_metadata')
     .selectAll()
@@ -84,6 +98,7 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     license_kind: patch.license_kind ?? null,
     license_url: patch.license_url ?? null,
     credits: patch.credits ?? null,
+    publisher_name: patch.publisher_name ?? null,
     target_audience: patch.target_audience ?? null,
     age_rating: patch.age_rating ?? null,
   };

@@ -18,6 +18,7 @@
   "dependencies": {
     "@artificio/auth": "workspace:*",
     "@artificio/catalog-client": "workspace:*",
+    "@artificio/changelog": "workspace:*",
     "@artificio/config": "workspace:*",
     "@artificio/media": "workspace:*",
     "@aws-sdk/client-s3": "^3.1085.0",

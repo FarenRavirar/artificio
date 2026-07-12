@@ -5,6 +5,8 @@ import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
 import { assertValidTransition, InvalidEditorialTransitionError } from '../services/editorialStateMachine';
 import { ABUSE_DISMISSED_STREAK_THRESHOLD, isReporterAbusive } from '../services/reportAbuseGuard';
+import { emitNotification } from '../services/notify';
+import { logModerationAudit } from '../services/moderationAuditLog';
 
 const router = Router();
 
@@ -75,9 +77,23 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
   return res.status(201).json(created);
 });
 
+// DEB-074-02 (spec 074/075) — "minhas denuncias": denunciante ve as proprias,
+// qualquer case_state. Rota fixa precisa vir antes de "/:id" (Express casaria
+// "mine" como id senao).
+router.get('/mine', authMiddleware, async (req: Request, res: Response) => {
+  const reports = await db
+    .selectFrom('download_report')
+    .selectAll()
+    .where('reporter_user_id', '=', req.user!.userId)
+    .orderBy('created_at', 'desc')
+    .execute();
+
+  return res.json(reports);
+});
+
 // T5.4 — retirada voluntária: o próprio autor da denúncia pode cancelar,
 // desde que ainda esteja aberta (decisão de mérito já tomada não se desfaz).
-router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.delete('/:id', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const report = await db
     .selectFrom('download_report')
     .select(['id', 'reporter_user_id', 'case_state'])
@@ -98,7 +114,7 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
 
   await db
     .updateTable('download_report')
-    .set({ case_state: 'dismissed', resolved_at: new Date(), details: 'Retirada voluntária pelo denunciante.' })
+    .set({ case_state: 'dismissed', resolved_at: new Date(), resolution_note: 'Retirada voluntária pelo denunciante.' })
     .where('id', '=', req.params.id)
     .execute();
 
@@ -107,7 +123,7 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
 
 // T5.4 — abuso: sinaliza (nunca bane sozinho) usuário cuja última sequência
 // de denúncias terminou "dismissed" — moderador decide a ação real.
-router.get('/abuse-check/:userId', authMiddleware, requireRole(['moderator', 'admin']), async (req: Request, res: Response) => {
+router.get('/abuse-check/:userId', writeRateLimiter, authMiddleware, requireRole(['moderator', 'admin']), async (req: Request, res: Response) => {
   const recentReports = await db
     .selectFrom('download_report')
     .select(['case_state'])
@@ -123,7 +139,7 @@ router.get('/abuse-check/:userId', authMiddleware, requireRole(['moderator', 'ad
 });
 
 // T5.2 — fila de denuncias por prioridade (P0 primeiro), so moderador/admin.
-router.get('/', authMiddleware, requireRole(['moderator', 'admin']), async (_req: Request, res: Response) => {
+router.get('/', writeRateLimiter, authMiddleware, requireRole(['moderator', 'admin']), async (_req: Request, res: Response) => {
   const reports = await db
     .selectFrom('download_report')
     .selectAll()
@@ -151,7 +167,7 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
 
   const report = await db
     .selectFrom('download_report')
-    .select('id')
+    .select(['id', 'reporter_user_id', 'material_id', 'case_state'])
     .where('id', '=', req.params.id)
     .executeTakeFirst();
 
@@ -165,12 +181,33 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
     .updateTable('download_report')
     .set({
       case_state: parsed.data.case_state,
-      details: parsed.data.resolution_note ?? undefined,
+      resolution_note: parsed.data.resolution_note ?? undefined,
       resolved_at: isTerminal ? new Date() : null,
     })
     .where('id', '=', req.params.id)
     .returningAll()
     .executeTakeFirstOrThrow();
+
+  if (isTerminal && report.reporter_user_id) {
+    await emitNotification({
+      userId: report.reporter_user_id,
+      kind: parsed.data.case_state === 'resolved' ? 'report_resolved' : 'report_dismissed',
+      materialId: report.material_id,
+      body: parsed.data.case_state === 'resolved'
+        ? 'Sua denúncia foi analisada e resolvida.'
+        : 'Sua denúncia foi analisada e dispensada.',
+    });
+  }
+
+  if (isTerminal) {
+    logModerationAudit({
+      action: 'report_decide',
+      actorUserId: req.user!.userId,
+      materialId: report.material_id,
+      reportId: report.id,
+      reason: parsed.data.resolution_note ?? undefined,
+    });
+  }
 
   return res.json(updated);
 });

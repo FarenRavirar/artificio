@@ -4,6 +4,8 @@ import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
 import { assertValidTransition, InvalidEditorialTransitionError } from '../services/editorialStateMachine';
+import { emitNotification } from '../services/notify';
+import { logModerationAudit } from '../services/moderationAuditLog';
 import type { DownloadEditorialState } from '../db/types';
 
 const router = Router();
@@ -43,11 +45,13 @@ router.post('/:id/submit', writeRateLimiter, authMiddleware, async (req: Request
     .returningAll()
     .executeTakeFirstOrThrow();
 
+  logModerationAudit({ action: 'submit', actorUserId: req.user!.userId, materialId: updated.id });
+
   return res.json(updated);
 });
 
 // T4.2 — fila de moderacao: so material em revisao, mais antigo primeiro.
-router.get('/queue', authMiddleware, requireRole(['moderator', 'admin']), async (_req: Request, res: Response) => {
+router.get('/queue', writeRateLimiter, authMiddleware, requireRole(['moderator', 'admin']), async (_req: Request, res: Response) => {
   const queue = await db
     .selectFrom('download_material')
     .selectAll()
@@ -96,6 +100,20 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
     .returningAll()
     .executeTakeFirstOrThrow();
 
+  await emitNotification({
+    userId: updated.creator_id,
+    kind: 'material_rejected',
+    materialId: updated.id,
+    body: `Seu material "${updated.title}" foi rejeitado. Motivo: ${parsed.data.reason}`,
+  });
+
+  logModerationAudit({
+    action: 'reject',
+    actorUserId: req.user!.userId,
+    materialId: updated.id,
+    reason: parsed.data.reason,
+  });
+
   return res.json(updated);
 });
 
@@ -139,11 +157,20 @@ router.post('/:id/approve', writeRateLimiter, authMiddleware, requireRole(['mode
     .returningAll()
     .executeTakeFirstOrThrow();
 
+  await emitNotification({
+    userId: updated.creator_id,
+    kind: 'material_approved',
+    materialId: updated.id,
+    body: `Seu material "${updated.title}" foi aprovado e publicado.`,
+  });
+
+  logModerationAudit({ action: 'approve', actorUserId: req.user!.userId, materialId: updated.id });
+
   return res.json(updated);
 });
 
 const batchSchema = z.object({
-  ids: z.array(z.string()).min(1),
+  ids: z.array(z.string()).min(1).max(100),
   reason: z.string().trim().min(1).optional(),
 });
 
@@ -179,7 +206,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
   for (const id of parsed.data.ids) {
     const material = await db
       .selectFrom('download_material')
-      .select(['id', 'editorial_state'])
+      .select(['id', 'editorial_state', 'creator_id', 'title'])
       .where('id', '=', id)
       .executeTakeFirst();
 
@@ -214,6 +241,24 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
       })
       .where('id', '=', id)
       .execute();
+
+    if (action === 'approve' || action === 'reject') {
+      await emitNotification({
+        userId: material.creator_id,
+        kind: action === 'approve' ? 'material_approved' : 'material_rejected',
+        materialId: material.id,
+        body: action === 'approve'
+          ? `Seu material "${material.title}" foi aprovado e publicado.`
+          : `Seu material "${material.title}" foi rejeitado. Motivo: ${parsed.data.reason}`,
+      });
+    }
+
+    logModerationAudit({
+      action,
+      actorUserId: req.user!.userId,
+      materialId: material.id,
+      reason: action === 'reject' ? parsed.data.reason : undefined,
+    });
 
     results.push({ id, status: 'updated' });
   }

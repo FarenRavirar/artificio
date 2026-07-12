@@ -10,6 +10,7 @@ import type { StorageAdapter, StorageProviderName } from './types';
 
 export interface MigrationItem {
   key: string;
+  contentType: string;
 }
 
 export interface MigrationResult {
@@ -48,7 +49,7 @@ export async function migrateItem(
     await destination.upload({
       key: item.key,
       buffer: sourceBuffer,
-      contentType: 'application/octet-stream',
+      contentType: item.contentType,
     });
 
     const destBuffer = await destination.download(item.key);

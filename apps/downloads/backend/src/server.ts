@@ -6,6 +6,16 @@ import materialMetadataRoutes from './routes/materialMetadata';
 import moderationRoutes from './routes/moderation';
 import reportsRoutes from './routes/reports';
 import commentsRoutes from './routes/comments';
+import creatorsRoutes from './routes/creators';
+import destinationsRoutes from './routes/destinations';
+import downloadsRoutes from './routes/downloads';
+import ratingsRoutes from './routes/ratings';
+import favoritesRoutes from './routes/favorites';
+import collectionsRoutes from './routes/collections';
+import organizationsRoutes from './routes/organizations';
+import notificationsRoutes from './routes/notifications';
+import adminRoutes from './routes/admin';
+import changelogRoutes from './routes/changelog';
 import { parseCookies } from './middleware/parseCookies';
 import { db } from './db';
 
@@ -66,6 +76,16 @@ app.use('/api/v1/material-metadata', materialMetadataRoutes);
 app.use('/api/v1/moderation', moderationRoutes);
 app.use('/api/v1/reports', reportsRoutes);
 app.use('/api/v1/comments', commentsRoutes);
+app.use('/api/v1/creators', creatorsRoutes);
+app.use('/api/v1/destinations', destinationsRoutes);
+app.use('/api/v1/downloads', downloadsRoutes);
+app.use('/api/v1/ratings', ratingsRoutes);
+app.use('/api/v1/favorites', favoritesRoutes);
+app.use('/api/v1/collections', collectionsRoutes);
+app.use('/api/v1/organizations', organizationsRoutes);
+app.use('/api/v1/notifications', notificationsRoutes);
+app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/changelog', changelogRoutes);
 
 interface HttpError {
   type?: string;

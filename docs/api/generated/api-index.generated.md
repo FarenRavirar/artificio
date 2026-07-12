@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **324 operações**.
+Total: **355 operações**.
 
 ## accounts (11)
 
@@ -22,29 +22,60 @@ Total: **324 operações**.
 | GET | `/health` | internal | none | active | — | Consulta health |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
-## downloads (19)
+## downloads (50)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
+| GET | `/api/v1/admin/links` | admin | admin | active | — | Consulta api v1 admin links |
+| POST | `/api/v1/admin/materials/{id}/check-link` | admin | admin | active | — | Cria ou executa api v1 admin materials id check-link |
+| POST | `/api/v1/admin/materials/{id}/evidence/upload` | admin | admin | active | — | Cria ou executa api v1 admin materials id evidence upload |
+| GET | `/api/v1/admin/materials/{id}/link-history` | admin | admin | active | — | Consulta api v1 admin materials id link-history |
+| GET | `/api/v1/admin/metrics` | admin | admin | active | — | Consulta api v1 admin metrics |
+| POST | `/api/v1/admin/sanitize-preview` | admin | admin | active | — | Cria ou executa api v1 admin sanitize-preview |
+| GET | `/api/v1/admin/summary` | admin | admin | active | — | Consulta api v1 admin summary |
+| GET | `/api/v1/changelog` | public | none | active | — | Consulta api v1 changelog |
+| GET | `/api/v1/collections` | public | none | active | — | Consulta api v1 collections |
+| POST | `/api/v1/collections` | public | user | active | — | Cria ou executa api v1 collections |
+| GET | `/api/v1/collections/{id}/items` | public | none | active | — | Consulta api v1 collections id items |
+| POST | `/api/v1/collections/{id}/items` | public | user | active | — | Cria ou executa api v1 collections id items |
+| DELETE | `/api/v1/collections/{id}/items/{materialId}` | public | user | active | — | Remove api v1 collections id items materialId |
 | POST | `/api/v1/comments` | public | user | active | — | Cria ou executa api v1 comments |
 | DELETE | `/api/v1/comments/{id}` | public | user | active | — | Remove api v1 comments id |
 | GET | `/api/v1/comments/{materialId}` | public | none | active | — | Consulta api v1 comments materialId |
+| GET | `/api/v1/creators/{slug}` | public | none | active | — | Consulta api v1 creators slug |
+| GET | `/api/v1/creators/me` | public | user | active | — | Consulta api v1 creators me |
+| GET | `/api/v1/destinations/{id}` | public | none | active | — | Consulta api v1 destinations id |
+| POST | `/api/v1/downloads` | public | user | active | — | Cria ou executa api v1 downloads |
+| GET | `/api/v1/favorites` | public | none | active | — | Consulta api v1 favorites |
+| POST | `/api/v1/favorites` | public | user | active | — | Cria ou executa api v1 favorites |
+| DELETE | `/api/v1/favorites/{materialId}` | public | user | active | — | Remove api v1 favorites materialId |
 | GET | `/api/v1/health` | internal | none | active | — | Consulta api v1 health |
 | GET | `/api/v1/material-metadata/{materialId}` | public | none | active | — | Consulta api v1 material-metadata materialId |
 | PUT | `/api/v1/material-metadata/{materialId}` | public | user | active | — | Substitui api v1 material-metadata materialId |
+| GET | `/api/v1/materials` | public | none | active | — | Consulta api v1 materials |
 | POST | `/api/v1/materials` | public | user | active | — | Cria ou executa api v1 materials |
 | PATCH | `/api/v1/materials/{id}` | public | user | active | — | Atualiza api v1 materials id |
+| GET | `/api/v1/materials/{id}/history` | public | none | active | — | Consulta api v1 materials id history |
 | GET | `/api/v1/materials/{slug}` | public | none | active | — | Consulta api v1 materials slug |
+| GET | `/api/v1/materials/mine` | self-service | user | active | — | Consulta api v1 materials mine |
 | POST | `/api/v1/moderation/{id}/approve` | public | user | active | — | Cria ou executa api v1 moderation id approve |
 | POST | `/api/v1/moderation/{id}/reject` | public | user | active | — | Cria ou executa api v1 moderation id reject |
 | POST | `/api/v1/moderation/{id}/submit` | public | user | active | — | Cria ou executa api v1 moderation id submit |
 | PATCH | `/api/v1/moderation/batch/{action}` | public | user | active | — | Atualiza api v1 moderation batch action |
 | GET | `/api/v1/moderation/queue` | public | none | active | — | Consulta api v1 moderation queue |
+| GET | `/api/v1/notifications` | public | user | active | — | Consulta api v1 notifications |
+| PATCH | `/api/v1/notifications/{id}/read` | public | user | active | — | Atualiza api v1 notifications id read |
+| GET | `/api/v1/organizations` | public | none | active | — | Consulta api v1 organizations |
+| POST | `/api/v1/organizations` | public | user | active | — | Cria ou executa api v1 organizations |
+| GET | `/api/v1/organizations/{id}/members` | public | none | active | — | Consulta api v1 organizations id members |
+| PUT | `/api/v1/ratings` | public | user | active | — | Substitui api v1 ratings |
+| GET | `/api/v1/ratings/{materialId}` | public | none | active | — | Consulta api v1 ratings materialId |
 | GET | `/api/v1/reports` | public | none | active | — | Consulta api v1 reports |
 | POST | `/api/v1/reports` | public | user | active | — | Cria ou executa api v1 reports |
 | DELETE | `/api/v1/reports/{id}` | public | user | active | — | Remove api v1 reports id |
 | PATCH | `/api/v1/reports/{id}` | public | user | active | — | Atualiza api v1 reports id |
 | GET | `/api/v1/reports/abuse-check/{userId}` | public | none | active | — | Consulta api v1 reports abuse-check userId |
+| GET | `/api/v1/reports/mine` | self-service | user | active | — | Consulta api v1 reports mine |
 
 ## glossario (47)
 
