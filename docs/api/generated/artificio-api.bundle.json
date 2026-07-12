@@ -4,12 +4,13 @@
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
     "accounts": 11,
+    "downloads": 4,
     "glossario": 47,
     "links": 22,
     "mesas": 179,
     "site": 46
   },
-  "total": 305,
+  "total": 309,
   "operations": [
     {
       "app": "accounts",
@@ -159,6 +160,54 @@
       "auth": "none",
       "consumers": [],
       "operationId": "getlogin"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/health",
+      "summary": "Consulta api v1 health",
+      "owner": "downloads",
+      "scope": "internal",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_health"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/materials",
+      "summary": "Cria ou executa api v1 materials",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_materials"
+    },
+    {
+      "app": "downloads",
+      "method": "PATCH",
+      "path": "/api/v1/materials/{id}",
+      "summary": "Atualiza api v1 materials id",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "patchapi_v1_materials_id"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/materials/{slug}",
+      "summary": "Consulta api v1 materials slug",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_materials_slug"
     },
     {
       "app": "glossario",

@@ -20,11 +20,12 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | App | Total | HIGH | MEDIUM | LOW | Methods |
 |-----|-------|------|--------|-----|---------|
 | accounts | 11 | 11 | 0 | 0 | GET, POST, PUT |
+| downloads | 5 | 5 | 0 | 0 | GET, PATCH, POST, USE |
 | glossario | 62 | 62 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 229 | 229 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 52 | 52 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **377** | 377 | 0 | 0 | |
+| **Total** | **382** | 382 | 0 | 0 | |
 
 ## accounts
 
@@ -41,6 +42,16 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 178 |
 | GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 89 |
 | GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 178 |
+
+## downloads
+
+| Método | Path | Confiança | Arquivo | Linha |
+|--------|------|-----------|---------|------|
+| GET | `/api/v1/health` | ✅ high | `apps/downloads/backend/src/server.ts` | 48 |
+| POST | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 37 |
+| USE | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/server.ts` | 58 |
+| PATCH | `/api/v1/materials/:id` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 62 |
+| GET | `/api/v1/materials/:slug` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 20 |
 
 ## glossario
 

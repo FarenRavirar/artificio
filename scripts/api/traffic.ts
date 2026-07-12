@@ -141,6 +141,7 @@ function detectAppFromUrl(url: string): string | null {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
     if (hostname.includes('accounts')) return 'accounts';
+    if (hostname.includes('downloads')) return 'downloads';
     if (hostname.includes('mesas') || hostname === 'localhost:3001') return 'mesas';
     if (hostname.includes('glossario') || hostname === 'localhost:3002') return 'glossario';
     if (hostname.includes('links') || hostname === 'localhost:3003') return 'links';
@@ -157,6 +158,7 @@ function detectAppFromUrl(url: string): string | null {
 
 const DEFAULT_API_DOMAINS = [
   'accounts.artificiorpg.com', 'accounts',
+  'downloads.artificiorpg.com', 'downloadsbeta.artificiorpg.com', 'downloads',
   'mesas.artificiorpg.com', 'mesasbeta.artificiorpg.com', 'mesas',
   'glossario.artificiorpg.com', 'glossariobeta.artificiorpg.com', 'glossario',
   'links.artificiorpg.com', 'links',

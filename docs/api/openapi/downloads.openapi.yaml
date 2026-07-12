@@ -1,0 +1,156 @@
+# Gerado automaticamente por scripts/api/generate-openapi.ts
+# A partir do inventário: docs/api/generated/api-inventory.generated.json
+openapi: "3.0.3"
+info:
+  title: "Downloads API — Artifício RPG"
+  description: "API do módulo Downloads. Metadados x-artificio-* definidos por heurística de path."
+  version: "0.1.0"
+servers:
+  - url: https://downloads.artificiorpg.com
+    description: Produção
+  - url: http://localhost:3004
+    description: Desenvolvimento
+security: []
+paths:
+  /api/v1/health:
+    get:
+      operationId: getapi_v1_health
+      summary: "Consulta api v1 health"
+      x-artificio-owner: downloads
+      x-artificio-scope: internal
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/materials:
+    post:
+      operationId: postapi_v1_materials
+      summary: "Cria ou executa api v1 materials"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/materials/{id}:
+    patch:
+      operationId: patchapi_v1_materials_id
+      summary: "Atualiza api v1 materials id"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/materials/{slug}:
+    get:
+      operationId: getapi_v1_materials_slug
+      summary: "Consulta api v1 materials slug"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno

@@ -10,12 +10,19 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 8 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 11 | ❌ |
 
 ## Rotas órfãs suspeitas
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique ausência de uso.
 
+### downloads (3 rota(s))
+
+| Method | Path | Tem OpenAPI? | Scope | Razão |
+|--------|------|:-----------:|-------|-------|
+| GET | `/api/v1/materials/:slug` | ✅ | public | Scope "public" sem consumidor |
+| PATCH | `/api/v1/materials/:id` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/materials` | ✅ | public | Scope "public" sem consumidor |
 ### mesas (2 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |

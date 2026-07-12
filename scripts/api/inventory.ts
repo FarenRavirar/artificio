@@ -60,6 +60,7 @@ interface AppConfig {
 
 const APPS: AppConfig[] = [
   { name: 'accounts', entryFile: 'apps/accounts/src/app.ts', appVarName: 'app' },
+  { name: 'downloads', entryFile: 'apps/downloads/backend/src/server.ts', appVarName: 'app' },
   { name: 'glossario', entryFile: 'apps/glossario/backend/src/index.ts', appVarName: 'app' },
   { name: 'links', entryFile: 'apps/links/server/server.ts', appVarName: 'app' },
   { name: 'mesas', entryFile: 'apps/mesas/backend/src/server.ts', appVarName: 'app' },

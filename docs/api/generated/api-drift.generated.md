@@ -15,7 +15,7 @@
 | 📄 CONTRACT_ONLY | 2 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 87 | ❌ |
-| 👻 ORPHAN_SUSPECT | 8 | ❌ |
+| 👻 ORPHAN_SUSPECT | 11 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
@@ -35,6 +35,15 @@
 | GET | `/login` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/auth/logout` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/admin/secrets/:name` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+
+### downloads (4 rotas no inventário)
+
+| Method | Path | Estado | OpenAPI | Consumidor | Obs |
+|--------|------|:-----:|:-------:|:----------:|-----|
+| GET | `/api/v1/health` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/materials/:slug` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PATCH | `/api/v1/materials/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/materials` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 
 ### glossario (45 rotas no inventário)
 
@@ -126,7 +135,7 @@
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/groups/:param/report` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 
-### mesas (177 rotas no inventário)
+### mesas (176 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -186,7 +195,6 @@
 | GET | `/api/v1/gm/me` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/gm/tables` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/gm/tables/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/health` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/me` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/me/options` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/notifications` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -378,6 +386,13 @@
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique.
 
+### downloads (3 rota(s))
+
+| Method | Path | Tem OpenAPI? | Scope | Razão |
+|--------|------|:-----------:|-------|-------|
+| GET | `/api/v1/materials/:slug` | ✅ | public | Sem consumidor e scope não justifica |
+| PATCH | `/api/v1/materials/:id` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/api/v1/materials` | ✅ | public | Sem consumidor e scope não justifica |
 ### mesas (2 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |

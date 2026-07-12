@@ -18,7 +18,7 @@ const REQUIRED_FIELDS = [
 ] as const;
 
 const ENUMS: Record<string, Set<string>> = {
-  'x-artificio-owner': new Set(['accounts', 'mesas', 'glossario', 'links', 'site']),
+  'x-artificio-owner': new Set(['accounts', 'downloads', 'mesas', 'glossario', 'links', 'site']),
   'x-artificio-scope': new Set([
     'internal',
     'public',

@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 377,
+    "total": 382,
     "byApp": {
       "accounts": {
         "total": 11,
@@ -11,6 +11,18 @@
         },
         "byConfidence": {
           "high": 11
+        }
+      },
+      "downloads": {
+        "total": 5,
+        "byMethod": {
+          "GET": 2,
+          "POST": 1,
+          "USE": 1,
+          "PATCH": 1
+        },
+        "byConfidence": {
+          "high": 5
         }
       },
       "glossario": {
@@ -169,6 +181,51 @@
       "path": "/login",
       "sourceFile": "apps/accounts/src/app.ts",
       "line": 178,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/health",
+      "sourceFile": "apps/downloads/backend/src/server.ts",
+      "line": 48,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/materials",
+      "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
+      "line": 37,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "USE",
+      "path": "/api/v1/materials",
+      "sourceFile": "apps/downloads/backend/src/server.ts",
+      "line": 58,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "downloads",
+      "method": "PATCH",
+      "path": "/api/v1/materials/:id",
+      "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
+      "line": 62,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/materials/:slug",
+      "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
+      "line": 20,
       "confidence": "high",
       "kind": "express-route"
     },

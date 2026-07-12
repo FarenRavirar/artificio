@@ -339,6 +339,7 @@ function generateOpenApi(appName: string, routes: RouteEntry[], overlayPath?: st
   // não hardcodar URL de subdomínio). Importado do source p/ não exigir build no CI.
   const SERVER_CONFIG: Record<string, { prod: string; prodLabel: string; devPort: number }> = {
     accounts:  { prod: moduleOrigin('accounts'),  prodLabel: 'Produção',        devPort: 4000 },
+    downloads: { prod: moduleOrigin('downloads'), prodLabel: 'Produção',        devPort: 3004 },
     mesas:     { prod: moduleOrigin('mesas'),     prodLabel: 'Produção',        devPort: 4000 },
     glossario: { prod: moduleOrigin('glossario'), prodLabel: 'Produção',        devPort: 3000 },
     links:     { prod: moduleOrigin('links'),     prodLabel: 'Produção',        devPort: 3001 },
