@@ -12,6 +12,12 @@ interface SystemSuggestionModalProps {
   onClose: () => void;
   onSuccess?: (createdSystem?: { id: string; name?: string }) => void;
   initialName?: string;
+  /** Pré-seleciona tipo/pai ao abrir o modal a partir de "Adicionar edição/variante"
+   * na árvore em cascata (CatalogTree.onAddChildAtLevel) — sem isto o modal sempre
+   * abria em suggestionType="system" e o usuário tinha que re-selecionar o pai
+   * manualmente mesmo já tendo navegado até o nó certo na árvore. */
+  initialSuggestionType?: SuggestionType;
+  initialParentId?: string;
 }
 
 type SuggestionType = 'system' | 'edition' | 'variant' | 'subsystem';
@@ -84,6 +90,38 @@ function buildAdminBody(input: {
   };
 }
 
+const CHAIN_TYPES_FROM_DEPTH: Record<number, SuggestionType[]> = {
+  0: ['system', 'edition', 'variant'],
+  1: ['edition', 'variant'],
+  2: ['variant'],
+};
+const CHAIN_LABEL_FROM_TYPE: Record<SuggestionType, string> = {
+  system: 'Sistema',
+  edition: 'Edição',
+  variant: 'Variante',
+  subsystem: 'Subsistema',
+};
+const CHAIN_PLACEHOLDER_FROM_TYPE: Record<SuggestionType, string> = {
+  system: 'Ex: Vampire: The Masquerade',
+  edition: 'Ex: Aniversário',
+  variant: 'Ex: 20th Anniversary',
+  subsystem: 'Ex: subsistema',
+};
+
+/** Nível de partida da cadeia: se o modal abriu a partir de "Adicionar edição/
+ * variante" na árvore (initialParentId setado), a cadeia começa nesse nível em
+ * vez de sempre recomeçar do zero como sistema novo. */
+function chainStartDepth(suggestionType: SuggestionType, hasInitialParent: boolean): number {
+  if (!hasInitialParent) return 0;
+  return suggestionType === 'variant' ? 2 : 1;
+}
+
+// Achado real (2026-07-13): quando o modal abre a partir de "Adicionar edição/
+// variante" na árvore (initialParentId setado), a cadeia sempre tratava a 1a
+// linha preenchida como "system" com parent_id=null — ignorando o pai que já
+// tinha sido escolhido na árvore. Corrigido: se initialParentId existe, a
+// cadeia começa no nível de initialSuggestionType (edition/variant), ancorada
+// nesse pai, em vez de sempre recomeçar do zero como sistema novo.
 function buildSuggestionBody(input: {
   name: string;
   namePt: string;
@@ -91,6 +129,7 @@ function buildSuggestionBody(input: {
   suggestionType: SuggestionType;
   parentId: string;
   chainRows: ChainRow[];
+  initialParentId: string;
 }) {
   const filledChainRows = input.chainRows
     .map((row) => ({
@@ -100,12 +139,16 @@ function buildSuggestionBody(input: {
     }))
     .filter((row) => row.name.length > 0);
 
+  const anchoredToExistingParent = Boolean(input.initialParentId);
+  const startDepth = chainStartDepth(input.suggestionType, anchoredToExistingParent);
+  const chainTypes = CHAIN_TYPES_FROM_DEPTH[startDepth] ?? CHAIN_TYPES_FROM_DEPTH[0];
+
   if (filledChainRows.length > 1) {
     return {
       nodes: filledChainRows.map((row, index) => ({
         ...row,
-        suggestion_type: index === 0 ? 'system' : index === 1 ? 'edition' : 'variant',
-        parent_id: index === 0 ? null : undefined,
+        suggestion_type: chainTypes[Math.min(index, chainTypes.length - 1)],
+        parent_id: index === 0 ? (anchoredToExistingParent ? input.initialParentId : null) : undefined,
         parent_suggestion_index: index === 0 ? undefined : index - 1,
       })),
     };
@@ -120,7 +163,14 @@ function buildSuggestionBody(input: {
   };
 }
 
-export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName = '' }: SystemSuggestionModalProps) => {
+export const SystemSuggestionModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  initialName = '',
+  initialSuggestionType = 'system',
+  initialParentId = '',
+}: SystemSuggestionModalProps) => {
   const { isAuthenticated, user } = useAuth();
   const {
     tree: systemsTree,
@@ -140,12 +190,18 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName 
     { name: '', namePt: '', description: '' },
     { name: '', namePt: '', description: '' },
   ]);
-  const [parentId, setParentId] = useState('');
-  const [suggestionType, setSuggestionType] = useState<SuggestionType>('system');
+  const [parentId, setParentId] = useState(initialParentId);
+  const [suggestionType, setSuggestionType] = useState<SuggestionType>(initialSuggestionType);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const parentOptions = useMemo(() => flattenSystems(systemsTree), [systemsTree]);
+
+  const chainStartDepthValue = chainStartDepth(initialSuggestionType, Boolean(initialParentId));
+  const chainTypes = CHAIN_TYPES_FROM_DEPTH[chainStartDepthValue] ?? CHAIN_TYPES_FROM_DEPTH[0];
+  const parentLabel = initialParentId
+    ? (parentOptions.find((option) => option.id === initialParentId)?.label ?? null)
+    : null;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -161,7 +217,7 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName 
       const endpoint = isAdmin ? '/api/v1/systems/admin' : '/api/v1/system-suggestions';
       const body = isAdmin
         ? buildAdminBody({ name, namePt, description, suggestionType, parentId, formData })
-        : buildSuggestionBody({ name, namePt, description, suggestionType, parentId, chainRows });
+        : buildSuggestionBody({ name, namePt, description, suggestionType, parentId, chainRows, initialParentId });
 
       const response = await authPost(endpoint, body);
 
@@ -232,11 +288,18 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName 
             {user?.role !== 'admin' && (
               <div className="rounded-lg border border-white/10 bg-white/5 p-3">
                 <p className="mb-3 text-sm font-semibold text-white">Sugerir cadeia</p>
+                {parentLabel && (
+                  <p className="mb-3 text-xs text-white/50">
+                    A partir de <span className="font-semibold text-white/70">{parentLabel}</span>, já selecionado na árvore.
+                  </p>
+                )}
                 <div className="space-y-3">
-                  {chainRows.map((row, index) => (
+                  {chainRows.map((row, index) => {
+                    const rowType = chainTypes[Math.min(index, chainTypes.length - 1)];
+                    return (
                     <div key={index} className="grid gap-2 sm:grid-cols-[120px_1fr]">
                       <span className="pt-2 text-xs font-semibold uppercase tracking-wide text-white/50">
-                        {index === 0 ? 'Sistema' : index === 1 ? 'Edição' : 'Variante'}
+                        {CHAIN_LABEL_FROM_TYPE[rowType]}
                       </span>
                       <div className="space-y-2">
                         <input
@@ -248,7 +311,7 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName 
                             setChainRows(next);
                             if (index === 0) setName(event.target.value);
                           }}
-                          placeholder={index === 0 ? 'Ex: Vampire: The Masquerade' : index === 1 ? 'Ex: Aniversário' : 'Ex: 20th Anniversary'}
+                          placeholder={CHAIN_PLACEHOLDER_FROM_TYPE[rowType]}
                           required={index === 0}
                           className="w-full px-4 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--color-artificio-orange)]"
                         />
@@ -266,7 +329,8 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName 
                         />
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -376,7 +440,7 @@ export const SystemSuggestionModal = ({ isOpen, onClose, onSuccess, initialName 
             </div>
 
             {suggestionType !== 'system' && (
-              <div>
+              <div className={user?.role !== 'admin' ? 'hidden' : ''}>
                 <label className="block text-white font-semibold mb-2 text-sm">
                   Sistema pai (opcional)
                 </label>

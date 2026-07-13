@@ -142,8 +142,24 @@ export function DraftEditorTab({
 }: Readonly<DraftEditorTabProps>) {
   const [showSystemSuggestionModal, setShowSystemSuggestionModal] = useState(false);
   const [systemSuggestionInitialName, setSystemSuggestionInitialName] = useState('');
+  const [systemSuggestionInitialType, setSystemSuggestionInitialType] = useState<'system' | 'edition' | 'variant'>('system');
+  const [systemSuggestionInitialParentId, setSystemSuggestionInitialParentId] = useState('');
   const openSystemSuggestionModal = (query = '') => {
     setSystemSuggestionInitialName(query);
+    setSystemSuggestionInitialType('system');
+    setSystemSuggestionInitialParentId('');
+    setShowSystemSuggestionModal(true);
+  };
+  // Achado real (2026-07-13): "Adicionar edição/variante" na árvore em cascata
+  // (CatalogTree.onAddChildAtLevel) só marcava um estado local sem nenhuma ação —
+  // o botão real de criação só existia no fluxo de busca vazia de sistema raiz.
+  // Reaproveita o mesmo modal de sugestão/moderação, pré-preenchendo tipo e pai
+  // pelo nível clicado na árvore (depth 0/1/2 -> system/edition/variant).
+  const DEPTH_TO_SUGGESTION_TYPE = ['system', 'edition', 'variant'] as const;
+  const openSystemSuggestionModalAtLevel = (depth: number, parent: SystemTreeNode | null) => {
+    setSystemSuggestionInitialName('');
+    setSystemSuggestionInitialType(DEPTH_TO_SUGGESTION_TYPE[Math.min(depth, 2)]);
+    setSystemSuggestionInitialParentId(parent?.id ?? '');
     setShowSystemSuggestionModal(true);
   };
   const aiOff = !aiConfig || aiConfig.mode === 'off' || aiConfig.killSwitch;
@@ -335,6 +351,7 @@ export function DraftEditorTab({
               searchPlaceholder="Buscar sistema, edição ou variante..."
               onSuggest={openSystemSuggestionModal}
               onCreateNow={openSystemSuggestionModal}
+              onAddChildAtLevel={openSystemSuggestionModalAtLevel}
               showEmptySearchResults={false}
             />
           )}
@@ -521,9 +538,11 @@ export function DraftEditorTab({
         contexto de render (inclusive testes). */}
     {showSystemSuggestionModal && (
     <SystemSuggestionModal
-      key={systemSuggestionInitialName}
+      key={`${systemSuggestionInitialType}:${systemSuggestionInitialParentId}:${systemSuggestionInitialName}`}
       isOpen={showSystemSuggestionModal}
       initialName={systemSuggestionInitialName}
+      initialSuggestionType={systemSuggestionInitialType}
+      initialParentId={systemSuggestionInitialParentId}
       onClose={() => setShowSystemSuggestionModal(false)}
       onSuccess={(createdSystem) => {
         setShowSystemSuggestionModal(false);

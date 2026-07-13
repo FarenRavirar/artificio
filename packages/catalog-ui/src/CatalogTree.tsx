@@ -140,6 +140,28 @@ const CatalogTreeLevel = ({
 }: CatalogTreeLevelProps) => {
   const isMulti = Boolean(onToggleMulti && multiSelectedIds);
 
+  const isEmpty = nodes.length === 0;
+
+  // Achado real (2026-07-13): coluna vazia (ex.: "Adicionar edição" logo após
+  // criar o sistema, sem nenhuma edição ainda) usava o mesmo card cheio com
+  // borda sólida das colunas com conteúdo — 2-3 colunas vazias lado a lado
+  // (sistema/edição/variante) ficavam repetitivas e visualmente pesadas
+  // ("muito feios e lotados", relatado pelo mantenedor). Coluna vazia agora
+  // usa borda tracejada + botão centralizado, visualmente mais leve que uma
+  // lista de itens.
+  if (isEmpty && onAdd) {
+    return (
+      <button
+        type="button"
+        className="flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--line)] bg-[var(--surface)] px-3 py-5 text-[13px] font-semibold text-[var(--fg-muted)] hover:border-[var(--artificio-brand)] hover:text-[var(--fg)]"
+        onClick={onAdd}
+      >
+        <Plus className="h-4 w-4" />
+        {ADD_LABEL[depth]}
+      </button>
+    );
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface)]">
       {nodes.map((node) => {
@@ -431,7 +453,13 @@ export function CatalogTree({
             </div>
           )}
 
-          {pendingAddDepth !== null && role === 'admin' && onCreateNow && (
+          {/* Achado real (2026-07-13): esta instrução só faz sentido no fluxo de
+              fallback por busca (sem onAddChildAtLevel) — quando o consumidor
+              fornece onAddChildAtLevel, o clique em "+ Adicionar" já dispara a
+              ação real (ex.: abre modal pré-preenchido), e mostrar esta mensagem
+              por cima virava instrução órfã sem nenhum botão correspondente
+              visível (bug relatado: "Adicionar edição" não fazia nada). */}
+          {pendingAddDepth !== null && role === 'admin' && onCreateNow && !onAddChildAtLevel && (
             <div className="flex items-center gap-2 rounded-lg border border-[var(--artificio-brand)] bg-[rgba(255,87,34,.08)] px-3 py-2.5">
               <p className="flex-1 text-[13px] text-[var(--fg)]">
                 Use o botão "Criar agora" na busca acima informando o nome, ou "Sugerir" para enviar para moderação.
