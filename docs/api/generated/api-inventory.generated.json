@@ -3602,7 +3602,7 @@
       "method": "USE",
       "path": "/admin",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 241,
+      "line": 248,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3611,7 +3611,7 @@
       "method": "USE",
       "path": "/admin",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 243,
+      "line": 250,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3629,7 +3629,7 @@
       "method": "GET",
       "path": "/admin/preview/:type/:id",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 213,
+      "line": 220,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3656,7 +3656,7 @@
       "method": "USE",
       "path": "/api/admin/v1",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 205,
+      "line": 213,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3665,7 +3665,7 @@
       "method": "USE",
       "path": "/api/admin/v1/catalog",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 206,
+      "line": 211,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4061,7 +4061,7 @@
       "method": "USE",
       "path": "/uploads",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 210,
+      "line": 217,
       "confidence": "high",
       "kind": "mount"
     }
