@@ -5,6 +5,7 @@ import { authMiddleware } from '../middleware/auth';
 import { TableRepository } from '../repositories/tableRepository';
 import { autoArchiveStaleTables, AUTO_ARCHIVE_AFTER_DAYS } from '../services/tableArchiving';
 import { logActivity } from '../services/activityLogger';
+import { triggerMetaScrapeOnPublish } from '../services/metaScrapeClient';
 import type { TableStatus, TablesTable } from '../db/types';
 import type { Updateable } from 'kysely';
 
@@ -143,12 +144,14 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
     // 1a publicacao via ativacao admin grava published_at (mesma ancora do fluxo GM,
     // gmPanel). Sem isso, ativar um rascunho/importado antigo deixaria o auto-arquivamento
     // (D-MESAS1) arquivá-lo de imediato por created_at em vez de 30 dias após publicar.
+    let previousStatus: string | null = null;
     if (updateData.status === 'active') {
       const current = await db
         .selectFrom('tables')
-        .select(['published_at'])
+        .select(['published_at', 'status'])
         .where('id', '=', id)
         .executeTakeFirst();
+      previousStatus = current?.status ?? null;
       if (current && !current.published_at) {
         updateData.published_at = new Date();
       }
@@ -160,6 +163,12 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       .where('id', '=', id)
       .returning(['id', 'slug', 'title', 'status', 'is_covil'])
       .execute();
+
+    // Achado Codex (PR #157): PUT /admin/tables/:id (acoes administrativas de
+    // status) tambem publica mesa e nao disparava o scrape automatico de OG.
+    if (result && updateData.status) {
+      triggerMetaScrapeOnPublish(result.slug, result.status, previousStatus);
+    }
 
     return res.json({ data: result });
   } catch (error: unknown) {

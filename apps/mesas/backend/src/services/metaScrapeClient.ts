@@ -46,3 +46,19 @@ export async function triggerMetaScrape(url: string): Promise<void> {
     clearTimeout(timeout);
   }
 }
+
+const SITE_URL = process.env.PUBLIC_SITE_URL || 'https://mesas.artificiorpg.com';
+
+/** Dispara o scrape só quando o status realmente transiciona pra `active`
+ * (1ª publicação ou republicação após outro status) — evita chamar o Graph
+ * API à toa em updates que não mudam o status de publicação. Centraliza a
+ * regra usada pelos 3 pontos que publicam mesa (POST /gm/tables,
+ * PATCH /gm/tables/:id/status, PUT /admin/tables/:id — achado Codex PR #157). */
+export function triggerMetaScrapeOnPublish(
+  slug: string,
+  newStatus: string,
+  previousStatus: string | null,
+): void {
+  if (newStatus !== 'active' || previousStatus === 'active') return;
+  void triggerMetaScrape(`${SITE_URL}/mesas/${slug}`);
+}

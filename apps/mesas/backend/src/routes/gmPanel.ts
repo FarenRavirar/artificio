@@ -19,7 +19,7 @@ import { BenchmarkService } from '../services/benchmarkService';
 import { logActivity } from '../services/activityLogger';
 import { notifyAdmins } from '../services/adminNotifications';
 import { isValidEmail } from '../utils/validation';
-import { triggerMetaScrape } from '../services/metaScrapeClient';
+import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaScrapeClient';
 
 const router = Router();
 
@@ -618,15 +618,21 @@ router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
     });
 
     // Notifica admins quando a mesa ja nasce publicada (status active), exceto se quem criou e admin.
-    if (newTable.status === 'active' && userRole !== 'admin') {
-      void notifyAdmins({
-        type: 'table_published',
-        title: 'Nova mesa publicada',
-        message: `${gmName} publicou a mesa "${newTable.title}".`,
-        action_url: `/mesas/${newTable.slug}`,
-        metadata: { table_id: newTable.id, table_slug: newTable.slug },
-        excludeUserId: userId,
-      });
+    if (newTable.status === 'active') {
+      if (userRole !== 'admin') {
+        void notifyAdmins({
+          type: 'table_published',
+          title: 'Nova mesa publicada',
+          message: `${gmName} publicou a mesa "${newTable.title}".`,
+          action_url: `/mesas/${newTable.slug}`,
+          metadata: { table_id: newTable.id, table_slug: newTable.slug },
+          excludeUserId: userId,
+        });
+      }
+      // Achado Codex (PR #157): mesa que ja nasce publicada (status active na
+      // criacao) tambem precisa do scrape automatico, nao so a transicao via
+      // PATCH /status.
+      triggerMetaScrapeOnPublish(newTable.slug, newTable.status, null);
     }
 
     return res.status(201).json({ data: newTable });
@@ -1069,6 +1075,11 @@ router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Res
             to: result.status,
           },
         });
+
+        // Achado Codex (PR #157): branch admin retornava antes do scrape que
+        // so existia no branch GM abaixo — publicacao feita por admin nunca
+        // disparava o refresh de OG.
+        triggerMetaScrapeOnPublish(result.slug, result.status, table.status);
       }
 
       return res.json({ data: result });
@@ -1123,7 +1134,7 @@ router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Res
         // Achado do mantenedor (2026-07-13): OG preview no WhatsApp/Facebook so
         // aparece apos scrape manual no Sharing Debugger. Dispara automatico na
         // 1a publicacao (draft/outro -> active) pra nao depender disso.
-        void triggerMetaScrape(`${SITE_URL}/mesas/${result.slug}`);
+        triggerMetaScrapeOnPublish(result.slug, result.status, table.status);
       }
     }
 

@@ -110,6 +110,7 @@ jobs:
           KEEP=10
           STAMP="$(date -u +%Y%m%d-%H%M%S)"
           OUT_FILE="$BACKUP_DIR/site-prod-catalog-${STAMP}.sql"
+          TMP_FILE="$BACKUP_DIR/.tmp-site-prod-catalog-${STAMP}.sql"
 
           mkdir -p "$BACKUP_DIR"
 
@@ -118,15 +119,20 @@ jobs:
             exit 1
           fi
 
-          # Dump completo do banco `site` (catalog_nodes e as demais tabelas do
-          # blog/portal moram no mesmo banco; nao ha volume separado so p/ catalogo).
-          docker exec site-prod-db pg_dump -U admin -d site -F p > "$OUT_FILE"
+          # Dump primeiro num arquivo temp fora do glob de poda (site-prod-catalog-*.sql)
+          # — se pg_dump falhar no meio, o arquivo truncado nunca vira um backup "valido"
+          # nem entra na contagem de KEEP. So renomeia pro nome final apos validar.
+          trap 'rm -f "$TMP_FILE"' EXIT
 
-          if [ ! -s "$OUT_FILE" ]; then
-            echo "ERRO: dump vazio ou falhou (${OUT_FILE})"
-            rm -f "$OUT_FILE"
+          docker exec site-prod-db pg_dump -U admin -d site -F p > "$TMP_FILE"
+
+          if [ ! -s "$TMP_FILE" ]; then
+            echo "ERRO: dump vazio ou falhou (${TMP_FILE})"
             exit 1
           fi
+
+          mv "$TMP_FILE" "$OUT_FILE"
+          trap - EXIT
 
           echo "backup ok: $OUT_FILE ($(du -h "$OUT_FILE" | cut -f1))"
 
