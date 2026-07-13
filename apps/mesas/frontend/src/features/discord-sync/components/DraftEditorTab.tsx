@@ -416,10 +416,12 @@ export function DraftEditorTab({
           </select>
           <FieldInsightNote field="day_of_week" insight={fieldInsights?.day_of_week} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('day_of_week') ?? false} />
         </label>
-        <label>
+        <div>
           <span className={labelClass}>Horário</span>
           {/* Padrão do form manual (SessionRepeater.tsx): checkbox "a definir"
-              zera/desabilita o input — vazio já significa "a definir". */}
+              zera/desabilita o input — vazio já significa "a definir".
+              <label> externo virou <div> (achado bot review 2026-07-13):
+              <label> aninhado em <label> é HTML inválido. */}
           <label className="mb-1 flex items-center gap-1.5 text-xs text-white/70">
             <input
               type="checkbox"
@@ -436,7 +438,7 @@ export function DraftEditorTab({
             disabled={form.start_time.trim() === ''}
           />
           <FieldInsightNote field="start_time" insight={fieldInsights?.start_time} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('start_time') ?? false} />
-        </label>
+        </div>
         <label>
           <span className={labelClass}>Frequência</span>
           <select value={form.frequency} onChange={(e) => onUpdateForm('frequency', e.target.value as DraftFrequency)} className="app-select w-full">

@@ -323,6 +323,7 @@ function matchSystem(text: string, systems: SystemEntry[]): SystemMatchResult | 
 // "sistema: título" (achado mantenedor 2026-07-13: linha com heading +
 // link de anexo do Discord na mesma linha corrompia o título com a URL).
 const RE_INLINE_URL = /https?:\/\/\S+/i;
+const RE_INLINE_URL_GLOBAL = /https?:\/\/\S+/gi;
 
 // Tenta extrair "sistema: titulo" do nome do thread
 // Achado do mantenedor (2026-07-10): quando não há thread_name real, o título
@@ -330,13 +331,14 @@ const RE_INLINE_URL = /https?:\/\/\S+/i;
 // normalizeTitle/normalizeTitleCapitalization, título em CAPS LOCK sobrevivia.
 function splitThreadName(threadName: string): { systemHint: string | null; title: string } {
   const urlMatch = RE_INLINE_URL.exec(threadName);
-  // Separador ":" só é buscado na porção ANTES de uma URL inline — o ":" de
+  // Separador ":" só é buscado na porção ANTES da primeira URL inline — o ":" de
   // "https://" nunca deve ser tratado como separador de "sistema: título".
   const searchScope = urlMatch ? threadName.slice(0, urlMatch.index) : threadName;
   const colonIdx = searchScope.indexOf(':');
-  // afterColon vem só até o início da URL (ou até o fim, se não houver) — o
-  // link de anexo/CDN não deve sobreviver nem no beforeColon nem no afterColon.
-  const textWithoutUrl = urlMatch ? `${threadName.slice(0, urlMatch.index)}${threadName.slice(urlMatch.index + urlMatch[0].length)}` : threadName;
+  // Remove TODAS as URLs inline (não só a primeira) — múltiplos links de anexo
+  // na mesma linha não podem sobreviver nem no beforeColon nem no afterColon
+  // (achado bot review 2026-07-13: RE_INLINE_URL.exec só pegava o 1º match).
+  const textWithoutUrl = threadName.replace(RE_INLINE_URL_GLOBAL, '');
   if (colonIdx > 0 && colonIdx < searchScope.length - 2) {
     const beforeColon = cleanTrademark(stripDecorativeMarkup(threadName.slice(0, colonIdx).trim()));
     const afterColon = cleanTrademark(stripDecorativeMarkup(textWithoutUrl.slice(colonIdx + 1).trim()));

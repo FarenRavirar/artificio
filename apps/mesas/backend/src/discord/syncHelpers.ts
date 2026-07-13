@@ -156,7 +156,7 @@ export function validateDraftForSync(draft: Pick<ImportTableDraft, 'table'>): st
   // 2026-07-13 — ver extractSchedules/buildTableDraftFields). Só falta de
   // verdade quando não é o sentinela E também não bate no formato esperado.
   if (t.day_of_week !== 'to_define' && !isDayOfWeek(t.day_of_week)) missing.push('day_of_week');
-  const timeIsToDefine = typeof t.start_time !== 'string' || t.start_time.trim() === '';
+  const timeIsToDefine = t.start_time == null || (typeof t.start_time === 'string' && t.start_time.trim() === '');
   if (!timeIsToDefine && !isValidTime(t.start_time)) missing.push('start_time');
 
   return missing;
@@ -582,7 +582,7 @@ export async function syncDraftToTable(
 
   const existingTable = await db
     .selectFrom('tables')
-    .select(['id', 'status'])
+    .select(['id'])
     .where('source_id', '=', sourceId)
     .executeTakeFirst();
 
@@ -593,20 +593,21 @@ export async function syncDraftToTable(
     tableId = existingTable.id;
     created = false;
 
-    // Achado do mantenedor (2026-07-13): ressincronizar um draft já vinculado
-    // a uma mesa PUBLICADA (status !== 'draft') resetava ela pra 'draft'
-    // incondicionalmente — mesa some da listagem pública sem aviso. Só força
-    // 'draft' se a mesa ainda não saiu desse estado; status avançado
-    // (active/full/cancelled/ended/pending_review) é preservado no resync.
-    const nextStatus = existingTable.status === 'draft' ? 'draft' : existingTable.status;
-
     await db.transaction().execute(async (trx) => {
       if (!payload.table.title) throw new config.ValidationError(['title']);
+      // Achado do mantenedor (2026-07-13): ressincronizar um draft já vinculado
+      // a uma mesa PUBLICADA (status !== 'draft') resetava ela pra 'draft'
+      // incondicionalmente — mesa some da listagem pública sem aviso. Status
+      // só é forçado pra 'draft' se JÁ FOR 'draft' no momento do UPDATE em si
+      // (CASE no SQL, não um snapshot lido antes da transação) — evita
+      // sobrescrever com valor obsoleto uma transição concorrente de status
+      // que tenha ocorrido entre o SELECT e este UPDATE (achado bot review
+      // 2026-07-13).
       await trx
         .updateTable('tables')
         .set({
           ...buildTableDraftFields(payload, gmName, coverUrl),
-          status: nextStatus,
+          status: sql`CASE WHEN status = 'draft' THEN 'draft' ELSE status END`,
           updated_at: new Date(),
         })
         .where('id', '=', tableId)

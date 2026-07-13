@@ -309,10 +309,15 @@ export async function hydrateTableSystemFields<T extends { system_id: string | n
 // sozinho nao basta quando o no vinculado nao e a raiz da arvore.
 function composeSystemDisplayName(node: MesasSystemNode, byId: Map<string, MesasSystemNode>): string {
   const chain: string[] = [node.name];
+  // Guarda de ciclo (achado bot review 2026-07-13): autorreferência ou ciclo
+  // entre nós na hierarquia travaria esse while em loop infinito — dado de
+  // catálogo é externo/DB, não confiável por padrão.
+  const visited = new Set<string>([node.id]);
   let parentId = node.parent_id;
-  while (parentId) {
+  while (parentId && !visited.has(parentId)) {
     const parent = byId.get(parentId);
     if (!parent) break;
+    visited.add(parentId);
     chain.unshift(parent.name);
     parentId = parent.parent_id;
   }
