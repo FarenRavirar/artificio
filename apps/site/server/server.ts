@@ -201,9 +201,16 @@ app.post("/api/feedback", feedbackLimiter, async (req, res) => {
 // API central pública do catálogo canônico (Spec 062 I1). Sem consumidor conectado ainda.
 app.use("/api/catalog/v1", catalogApi());
 
+// Achado real (2026-07-13, deploy prod mesas/glossario/site): /api/admin/v1/catalog
+// nunca era alcançada — Express casa por prefixo na ordem de registro, e o mount
+// mais genérico /api/admin/v1 (linha abaixo) interceptava a requisição antes,
+// aplicando requireAuth (sessão) em vez de requireCatalogAuth (bypass por token
+// machine-to-machine). Resultado: toda chamada server-to-server de mesas/glossario
+// pro catálogo central batia 401 mesmo com token correto. Mount mais específico
+// (catalog) precisa vir antes do mais genérico (admin v1).
+app.use("/api/admin/v1/catalog", catalogAdminApi(requireCatalogAuth, requireAdmin));
 // API de autoria (CRUD posts/pages/taxonomias/redirects/mídia). Gated requireAuth+requireAdmin.
 app.use("/api/admin/v1", adminApi(requireAuth, requireAdmin));
-app.use("/api/admin/v1/catalog", catalogAdminApi(requireCatalogAuth, requireAdmin));
 
 // Mídia em modo local/dev (sem Cloudinary): serve apps/site/uploads em /uploads (público, só leitura).
 // Montado sempre (dir pode não existir ainda no boot; static cai p/ 404 até o 1º upload criá-lo).

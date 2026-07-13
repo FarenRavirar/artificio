@@ -446,14 +446,14 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| USE | `/admin` | ✅ high | `apps/site/server/server.ts` | 241 |
-| USE | `/admin` | ✅ high | `apps/site/server/server.ts` | 243 |
+| USE | `/admin` | ✅ high | `apps/site/server/server.ts` | 248 |
+| USE | `/admin` | ✅ high | `apps/site/server/server.ts` | 250 |
 | POST | `/admin/import` | ✅ high | `apps/site/server/server.ts` | 129 |
-| GET | `/admin/preview/:type/:id` | ✅ high | `apps/site/server/server.ts` | 213 |
+| GET | `/admin/preview/:type/:id` | ✅ high | `apps/site/server/server.ts` | 220 |
 | POST | `/admin/rebuild` | ✅ high | `apps/site/server/server.ts` | 123 |
 | GET | `/admin/status` | ✅ high | `apps/site/server/server.ts` | 108 |
-| USE | `/api/admin/v1` | ✅ high | `apps/site/server/server.ts` | 205 |
-| USE | `/api/admin/v1/catalog` | ✅ high | `apps/site/server/server.ts` | 206 |
+| USE | `/api/admin/v1` | ✅ high | `apps/site/server/server.ts` | 213 |
+| USE | `/api/admin/v1/catalog` | ✅ high | `apps/site/server/server.ts` | 211 |
 | GET | `/api/admin/v1/catalog/health` | ✅ high | `apps/site/server/catalog-api.ts` | 10 |
 | POST | `/api/admin/v1/catalog/nodes` | ✅ high | `apps/site/server/catalog-api.ts` | 79 |
 | PUT | `/api/admin/v1/catalog/nodes/:id` | ✅ high | `apps/site/server/catalog-api.ts` | 88 |
@@ -497,5 +497,5 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/catalog/v1/systems` | ✅ high | `apps/site/server/catalog-api.ts` | 25 |
 | POST | `/api/feedback` | ✅ high | `apps/site/server/server.ts` | 156 |
 | GET | `/healthz` | ✅ high | `apps/site/server/server.ts` | 97 |
-| USE | `/uploads` | ✅ high | `apps/site/server/server.ts` | 210 |
+| USE | `/uploads` | ✅ high | `apps/site/server/server.ts` | 217 |
 
