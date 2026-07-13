@@ -533,6 +533,32 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
   }
 });
 
+// Achado Codex (PR #157): mesa que ja nasce publicada (status active na
+// criacao) tambem precisa do scrape automatico, nao so a transicao via
+// PATCH /status. Extraida do handler POST /tables (SonarQube: reduz
+// Cognitive Complexity do handler).
+function notifyTablePublishedOnCreate(
+  newTable: { id: string; slug: string; title: string; status: string },
+  userId: string,
+  userRole: string,
+  gmName: string
+): void {
+  if (newTable.status !== 'active') return;
+
+  // Notifica admins quando a mesa ja nasce publicada (status active), exceto se quem criou e admin.
+  if (userRole !== 'admin') {
+    void notifyAdmins({
+      type: 'table_published',
+      title: 'Nova mesa publicada',
+      message: `${gmName} publicou a mesa "${newTable.title}".`,
+      action_url: `/mesas/${newTable.slug}`,
+      metadata: { table_id: newTable.id, table_slug: newTable.slug },
+      excludeUserId: userId,
+    });
+  }
+  triggerMetaScrapeOnPublish(newTable.slug, newTable.status, null);
+}
+
 // POST /api/v1/gm/tables — Cria nova mesa
 router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
   const userId = req.user!.userId;
@@ -617,23 +643,7 @@ router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
       },
     });
 
-    // Notifica admins quando a mesa ja nasce publicada (status active), exceto se quem criou e admin.
-    if (newTable.status === 'active') {
-      if (userRole !== 'admin') {
-        void notifyAdmins({
-          type: 'table_published',
-          title: 'Nova mesa publicada',
-          message: `${gmName} publicou a mesa "${newTable.title}".`,
-          action_url: `/mesas/${newTable.slug}`,
-          metadata: { table_id: newTable.id, table_slug: newTable.slug },
-          excludeUserId: userId,
-        });
-      }
-      // Achado Codex (PR #157): mesa que ja nasce publicada (status active na
-      // criacao) tambem precisa do scrape automatico, nao so a transicao via
-      // PATCH /status.
-      triggerMetaScrapeOnPublish(newTable.slug, newTable.status, null);
-    }
+    notifyTablePublishedOnCreate(newTable, userId, userRole, gmName);
 
     return res.status(201).json({ data: newTable });
   } catch (error) {

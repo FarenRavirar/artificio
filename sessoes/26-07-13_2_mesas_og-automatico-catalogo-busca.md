@@ -35,9 +35,27 @@
 - Hook 2 — `PUT /api/v1/gm/tables/:id` (`gmPanel.ts`): `existingTable` agora seleciona também `slug`/`banner_url`/`status`; dispara scrape só quando `banner_url` muda de fato **e** a mesa já está `active` (edição de rascunho não dispara à toa).
 - `.env.example` do backend mesas ganhou `META_APP_ID`/`META_APP_SECRET` (documentado, sem valor real).
 - Validado: `tsc --noEmit` limpo, `pnpm --filter @artificio/mesas-backend lint` limpo, `pnpm --filter @artificio/mesas-backend build` verde.
-- **Credencial:** mantenedor colou o App Token em texto no chat durante a criação do App — tratado como potencialmente exposto; mantenedor vai configurar `META_APP_ID`/`META_APP_SECRET` manualmente no `.env` da VM (nunca passou pelo agente em texto persistente) e resetar o App Secret depois por precaução.
-- **Não testado ponta-a-ponta com credencial real** (depende do mantenedor configurar `.env` na VM depois). Teste real de scrape fica pendente até isso + deploy.
-- Nenhum commit/push feito ainda.
+- **Credencial:** mantenedor colou o App Token em texto no chat durante a criação do App ("Artificio OG", App ID `1672654770507526`) — tratado como potencialmente exposto, guia próprio publicado (sem passo de reset, por decisão do mantenedor) orientando a configurar `META_APP_ID`/`META_APP_SECRET` manualmente no `.env` da VM. **Confirmado configurado** (`grep` read-only em `/opt/artificio/apps/mesas/.env`, valores não impressos).
+- `apps/mesas/docker-compose.prod.yml` (`mesas-api`): adicionadas `META_APP_ID`/`META_APP_SECRET` opcionais (`${VAR:-}`) no bloco `environment:` — sem isso as vars do `.env` não chegariam ao container mesmo estando no host.
+
+**Review do bot (`chatgpt-codex-connector`) na PR #157, corrigido na mesma sessão (2 rodadas):**
+
+**Rodada 1** — achado real: hook do scrape só existia no branch **GM** do `PATCH /gm/tables/:id/status`; 3 caminhos de publish ficavam sem scrape: (a) branch **admin** do mesmo PATCH (retornava antes do hook), (b) `POST /gm/tables` quando mesa já nasce `status='active'`, (c) `PUT /api/v1/admin/tables/:id` (ação administrativa de status, `adminTables.ts`). Adicionado disparo nos 3 pontos (duplicando a condição `newStatus==='active' && previousStatus!=='active'` inline).
+
+**Rodada 2** — 2 novos achados do mesmo bot, verificados contra o código antes de corrigir:
+1. **Válido** — duplicação: a condição de disparo estava repetida em 4 call-sites. Extraída `triggerMetaScrapeOnPublish(slug, newStatus, previousStatus)` em `metaScrapeClient.ts`, usada nos 4 pontos (`POST /gm/tables`, `PATCH /gm/tables/:id/status` × 2 branches, `PUT /admin/tables/:id`).
+2. **Válido** — `catalog-backup.yml` gravava `pg_dump` direto no arquivo final (dentro do glob usado pela poda de `KEEP=10`); falha no meio do dump deixaria backup truncado contado como válido. Corrigido: dump em arquivo temp fora do glob, `trap` de limpeza em qualquer saída, valida não-vazio, só então `mv` atômico pro nome final.
+
+Validado após cada rodada: `tsc --noEmit`, `pnpm --filter @artificio/mesas-backend lint`, `build`, **449 testes backend** (nenhuma regressão), `pnpm verify:api` (0 breaking changes).
+
+**Backfill retroativo (pedido do mantenedor):** mesas já `active` antes desta feature nunca tiveram scrape disparado — código novo só cobre eventos futuros. Criado `apps/mesas/backend/src/scripts/backfillOgScrape.ts` (mesmo padrão dos demais scripts one-off do backend mesas, não é rota/serviço permanente — inicialmente criado fora de `src/`, movido pra dentro por exigência do ESLint/`tsconfig.json` do pacote, que só inclui `src/**/*`): lista `tables WHERE status='active'`, chama `triggerMetaScrape` pra cada uma com 500ms de intervalo (não martela o Graph API), idempotente. Uso: `docker exec mesas-api node_modules/.bin/tsx src/scripts/backfillOgScrape.ts`, só depois do deploy do PR #157 em prod. `tsc --noEmit`/lint/build verdes. Incluído no PR #157 (autorizado pelo mantenedor: "coloca no próximo commit").
+
+**Estado do PR:**
+- [PR #157](https://github.com/FarenRavirar/artificio/pull/157) aberta contra `dev`, branch `feat/mesas-og-scrape-catalog-backup` (criada a partir de `origin/dev` sincronizado, conforme trava pétrea).
+- Commit 1 (`369bf35`): implementação inicial (scrape OG achado A + backup catálogo + restauração achado B + ajuste CSS solto do draft).
+- Commit 2 (`10ebb7f`): correção dos 2 achados do bot review da rodada 2 (helper único + fix do backup atômico). Ambos commits com autorização nominal própria (commit+push separados).
+- `backfillOgScrape.ts` **não commitado ainda** — pendente decisão de escopo.
+- Deploy prod do mesas **não disparado ainda** — só depois disso o scrape (novo e retroativo) entra em uso real.
 
 ## Achado B — Busca de sistema no catálogo não encontra "sistemas antigos do compartilhado"
 
@@ -79,10 +97,18 @@
 
 **Causa raiz do esvaziamento original permanece não identificada** (sem log). Débito registrado abaixo pra decidir se vale investigar mais fundo (auditoria de deploy history do site, versão anterior do compose, etc.) — não bloqueia o catálogo já estar restaurado.
 
-## Checklist de fechamento (desta sessão, fase de registro)
+## Checklist de fechamento
 
-- [x] Achado A (OG) — causa raiz identificada (falta de scrape automático), caminho técnico documentado, sem código alterado
+- [x] Achado A (OG) — **IMPLEMENTADO E COMMITADO.** `metaScrapeClient.ts` dispara scrape automático nos 4 pontos de publish + hook de troca de banner. PR #157 aberta, 2 commits (implementação + correção de review), push confirmado.
 - [x] Achado B (busca catálogo) — **RESOLVIDO.** Catálogo central em prod estava esvaziado (só 9 nós manuais de teste); reimportado de `mesas.systems` (fonte legada intacta, 1269 linhas). Aprovação nominal do mantenedor obtida. Snapshot pré-mudança feito e copiado off-VM. 9 nós manuais + filhas (audit/aliases) apagados, dry-run validado, import real rodado: 1269 nós criados. Confirmado na API pública que busca "dung" agora encontra D&D.
 - [x] Causa raiz do esvaziamento original — **não identificada** (sem log disponível de DROP/DELETE; logs do `site-prod-app` só cobrem 72h). Não bloqueia — dado já restaurado da fonte legada. Registrado como débito aberto (`BL-CATALOG-EMPTY-ROOT-CAUSE`) caso o mantenedor queira investigar mais fundo depois.
-- [x] Backup semanal automático do catálogo central — **workflow criado localmente**: `.github/workflows/catalog-backup.yml`. Cron domingos 04:00 UTC (1h depois do `docker-cleanup.yml`) + `workflow_dispatch`. Mesmo padrão/gate de promoção `main` do `docker-cleanup.yml` (D073). `pg_dump -U admin -d site` de `site-prod-db` → `/opt/artificio/_catalog_backups/site-prod-catalog-<timestamp>.sql` na VM, mantém as **10 cópias mais recentes** (`ls | sort | head -n -10` remove excedente). Escopo decidido com o mantenedor: só `site-prod-db` (única fonte real do catálogo central — mesas/glossario/downloads só consomem via `CATALOG_API_URL`, não são fonte; replicar backup nos consumidores não faria sentido arquitetural). **Não copia off-VM automaticamente** (mantenedor copia manualmente pra `C:\projetos\artificiobackup` quando quiser, mesmo padrão dos outros backups). **Nenhum commit/push feito ainda** — aguardando autorização nominal própria pra isso.
-- [ ] `specs/backlog.md` — pendente registrar: (1) débito `BL-CATALOG-EMPTY-ROOT-CAUSE`, (2) `catalog-backup.yml` quando promovido/mergeado
+- [x] Backup semanal automático do catálogo central — `.github/workflows/catalog-backup.yml` no PR #157, corrigido (dump atômico via temp+trap+rename) na rodada 2 de review.
+- [x] Review do bot (`chatgpt-codex-connector`) — 2 rodadas, 4 achados no total, todos verificados contra código atual e corrigidos (nenhum descartado). Validado com testes/lint/build/verify:api a cada rodada.
+- [ ] Script de backfill retroativo (`backfillOgScrape.ts`) — criado, `tsc` verde, **decisão pendente**: incluir no PR #157 ou rodar à parte, não commitado ainda.
+- [ ] Deploy prod do mesas — só depois disso o scrape (automático e retroativo) entra em uso real; nenhum deploy disparado nesta sessão.
+- [ ] `specs/backlog.md` — pendente registrar: (1) débito `BL-CATALOG-EMPTY-ROOT-CAUSE`, (2) status do PR #157 (OG scrape + backup catálogo) quando mergeado/deployado
+
+## Codex 2026-07-13 — remover Serena dos agentes
+- Escopo ampliado pelo mantenedor: remover Serena das instruções ativas e configurações MCP de Codex, Claude Code e OpenCode. Histórico em specs/sessões permanece como registro.
+- Plano: retirar regras/referências operacionais de Serena, remover os três registros MCP locais e validar as configurações restantes.
+- Feito: removidos os registros MCP em `C:\Users\paulo\.codex\config.toml`, `C:\Users\paulo\.claude.json` e `opencode.json`; T0 e `AGENTS.md` atualizados. JSON de Claude/OpenCode válido; nenhuma referência ativa a Serena ficou.
