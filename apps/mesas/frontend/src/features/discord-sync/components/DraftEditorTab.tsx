@@ -273,14 +273,16 @@ export function DraftEditorTab({
       {shouldShowSlotsDisambiguation && slotsAmbiguity && (
         <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-50">
           <p className="font-medium">Como interpretar {slotsAmbiguity.first}/{slotsAmbiguity.second} deste post?</p>
+          {/* Maior número = total, menor = a outra metade (regra do mantenedor
+              2026-07-13) — independente da ordem em que apareceram no texto. */}
           <div className="mt-3 space-y-2">
             <label className="flex items-center gap-2">
               <input type="radio" name="slots-interpretation" checked={slotsInterpretation === 'filled_total'} onChange={() => onSetSlotsInterpretation('filled_total')} className="accent-amber-400" />
-              <span>{slotsAmbiguity.first} inscritos / {Math.max(slotsAmbiguity.first, slotsAmbiguity.second)} total</span>
+              <span>{Math.min(slotsAmbiguity.first, slotsAmbiguity.second)} inscritos / {Math.max(slotsAmbiguity.first, slotsAmbiguity.second)} total</span>
             </label>
             <label className="flex items-center gap-2">
               <input type="radio" name="slots-interpretation" checked={slotsInterpretation === 'open_total'} onChange={() => onSetSlotsInterpretation('open_total')} className="accent-amber-400" />
-              <span>{slotsAmbiguity.first} disponíveis / {Math.max(slotsAmbiguity.first, slotsAmbiguity.second)} máximo</span>
+              <span>{Math.min(slotsAmbiguity.first, slotsAmbiguity.second)} disponíveis / {Math.max(slotsAmbiguity.first, slotsAmbiguity.second)} máximo</span>
             </label>
           </div>
           <button type="button" onClick={onConfirmSlots} disabled={savingFields} className="mt-3 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
@@ -352,7 +354,7 @@ export function DraftEditorTab({
               onSuggest={openSystemSuggestionModal}
               onCreateNow={openSystemSuggestionModal}
               onAddChildAtLevel={openSystemSuggestionModalAtLevel}
-              showEmptySearchResults={false}
+              showEmptySearchResults={Boolean(form.system_id)}
             />
           )}
           <FieldInsightNote field="system_name" insight={fieldInsights?.system_name} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('system_name') ?? false} />
@@ -403,6 +405,7 @@ export function DraftEditorTab({
           <span className={labelClass}>Dia</span>
           <select value={form.day_of_week} onChange={(e) => onUpdateForm('day_of_week', e.target.value as DraftDayOfWeek)} className="app-select w-full">
             <option value="">Selecione</option>
+            <option value="to_define">Dia da semana a definir</option>
             <option value="segunda">Segunda</option>
             <option value="terça">Terça</option>
             <option value="quarta">Quarta</option>
@@ -413,11 +416,29 @@ export function DraftEditorTab({
           </select>
           <FieldInsightNote field="day_of_week" insight={fieldInsights?.day_of_week} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('day_of_week') ?? false} />
         </label>
-        <label>
+        <div>
           <span className={labelClass}>Horário</span>
-          <input value={form.start_time} onChange={(e) => onUpdateForm('start_time', e.target.value)} className={inputClass} placeholder="19:00" />
+          {/* Padrão do form manual (SessionRepeater.tsx): checkbox "a definir"
+              zera/desabilita o input — vazio já significa "a definir".
+              <label> externo virou <div> (achado bot review 2026-07-13):
+              <label> aninhado em <label> é HTML inválido. */}
+          <label className="mb-1 flex items-center gap-1.5 text-xs text-white/70">
+            <input
+              type="checkbox"
+              checked={form.start_time.trim() === ''}
+              onChange={(e) => onUpdateForm('start_time', e.target.checked ? '' : '19:00')}
+            />
+            Horário a definir
+          </label>
+          <input
+            value={form.start_time}
+            onChange={(e) => onUpdateForm('start_time', e.target.value)}
+            className={inputClass}
+            placeholder="19:00"
+            disabled={form.start_time.trim() === ''}
+          />
           <FieldInsightNote field="start_time" insight={fieldInsights?.start_time} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('start_time') ?? false} />
-        </label>
+        </div>
         <label>
           <span className={labelClass}>Frequência</span>
           <select value={form.frequency} onChange={(e) => onUpdateForm('frequency', e.target.value as DraftFrequency)} className="app-select w-full">
@@ -425,7 +446,6 @@ export function DraftEditorTab({
             <option value="quinzenal">Quinzenal</option>
             <option value="mensal">Mensal</option>
             <option value="avulsa">Única</option>
-            <option value="outra">Outra</option>
           </select>
           <FieldInsightNote field="frequency" insight={fieldInsights?.frequency} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('frequency') ?? false} />
         </label>

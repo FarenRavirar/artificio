@@ -434,9 +434,15 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     if (!slotsAmbiguity) return;
     setSavingFields(true);
     try {
+      // Regra do mantenedor (2026-07-13): maior número = total, menor = a outra
+      // metade (preenchidas OU disponíveis, conforme a interpretação escolhida)
+      // — independente de qual valor apareceu primeiro no texto ("1/5" e "5/1"
+      // resolvem igual). Antes usava `first` cru, que dava `open=0` errado
+      // quando o maior número vinha primeiro no texto original.
       const total = Math.max(slotsAmbiguity.first, slotsAmbiguity.second);
-      const filled = slotsInterpretation === 'filled_total' ? slotsAmbiguity.first : Math.max(0, total - slotsAmbiguity.first);
-      const open = slotsInterpretation === 'filled_total' ? Math.max(0, total - slotsAmbiguity.first) : slotsAmbiguity.first;
+      const smaller = Math.min(slotsAmbiguity.first, slotsAmbiguity.second);
+      const filled = slotsInterpretation === 'filled_total' ? smaller : Math.max(0, total - smaller);
+      const open = slotsInterpretation === 'filled_total' ? Math.max(0, total - smaller) : smaller;
       const nextForm = {
         ...state.form,
         slots_total: String(total),

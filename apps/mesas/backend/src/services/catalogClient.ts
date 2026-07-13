@@ -294,13 +294,34 @@ export async function hydrateTableSystemFields<T extends { system_id: string | n
     const node = row.system_id ? byId.get(row.system_id) : undefined;
     return {
       ...row,
-      system_name: node?.name ?? null,
+      system_name: node ? composeSystemDisplayName(node, byId) : null,
       system_slug: node?.slug ?? null,
       system_path: node?.path_slug ?? null,
       system_logo_filename: node?.logo_filename ?? null,
       system_website_url: node?.website_url ?? null,
     };
   });
+}
+
+// Achado draft mesas (2026-07-13): mesa vinculada a um no folha da hierarquia
+// sistema->edicao->variante (ex: "7a Edicao" dentro de "Call of Cthulhu")
+// mostrava so o nome do proprio no ("7e"), sem o sistema pai — node.name
+// sozinho nao basta quando o no vinculado nao e a raiz da arvore.
+function composeSystemDisplayName(node: MesasSystemNode, byId: Map<string, MesasSystemNode>): string {
+  const chain: string[] = [node.name];
+  // Guarda de ciclo (achado bot review 2026-07-13): autorreferência ou ciclo
+  // entre nós na hierarquia travaria esse while em loop infinito — dado de
+  // catálogo é externo/DB, não confiável por padrão.
+  const visited = new Set<string>([node.id]);
+  let parentId = node.parent_id;
+  while (parentId && !visited.has(parentId)) {
+    const parent = byId.get(parentId);
+    if (!parent) break;
+    visited.add(parentId);
+    chain.unshift(parent.name);
+    parentId = parent.parent_id;
+  }
+  return chain.join(' ');
 }
 
 async function loadLocalTableCounts(): Promise<Map<string, number>> {

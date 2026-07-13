@@ -6,7 +6,7 @@ import {
   validateForm, buildDraftFieldInsights, buildForm, buildUpdatedPayload, buildMissingFields,
   MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES,
 } from './draftFormUtils';
-import type { DraftForm } from './draftFormUtils';
+import type { DraftForm, DraftFrequency } from './draftFormUtils';
 import type { DiscordDraftPayload, DiscordDraftTablePayload } from './types';
 
 describe('isRecord', () => {
@@ -169,6 +169,8 @@ describe('validateForm', () => {
   });
 
   it('retorna campos obrigatorios faltando', () => {
+    // start_time '' é válido agora ("a definir", achado 2026-07-13) — usa
+    // valor malformado pra testar o caso genuinamente faltando/inválido.
     const missing = validateForm({
       ...validForm,
       title: '',
@@ -179,7 +181,7 @@ describe('validateForm', () => {
       contact_url: '',
       contact_discord: '',
       day_of_week: '' as DraftForm['day_of_week'],
-      start_time: '',
+      start_time: '19h',
     });
     expect(missing).toContain('Título');
     expect(missing).toContain('Descrição');
@@ -187,6 +189,12 @@ describe('validateForm', () => {
     expect(missing).toContain('Contato');
     expect(missing).toContain('Dia');
     expect(missing).toContain('Horário');
+  });
+
+  it('aceita day_of_week "to_define" e start_time vazio como "a definir" (achado 2026-07-13)', () => {
+    const missing = validateForm({ ...validForm, day_of_week: 'to_define', start_time: '' });
+    expect(missing).not.toContain('Dia');
+    expect(missing).not.toContain('Horário');
   });
 
   it('retorna Vagas como pendente se ambos slots forem vazios', () => {
@@ -208,8 +216,10 @@ describe('validateForm', () => {
     expect(missing2).not.toContain('Contato');
   });
 
-  it('retorna Frequencia como pendente se for "outra"', () => {
-    const missing = validateForm({ ...validForm, frequency: 'outra' });
+  it('retorna Frequencia como pendente se for valor fora do enum', () => {
+    // "outra" foi removida do tipo (achado 2026-07-13, form manual nunca teve
+    // essa opcao) — testa fora do enum via cast, igual aos outros campos.
+    const missing = validateForm({ ...validForm, frequency: 'fora_do_enum' as DraftFrequency });
     expect(missing).toContain('Frequência');
   });
 });
@@ -272,11 +282,13 @@ describe('buildMissingFields', () => {
 
   it('inclui campos que estao vazios no form', () => {
     const base = makeBase({ table: { raw_system_hint: 'D&D' } as DiscordDraftTablePayload });
+    // start_time '' é válido agora ("a definir", achado 2026-07-13) — usa
+    // valor malformado pra testar o caso genuinamente faltando/inválido.
     const form: DraftForm = {
       title: '', description: 'ok', system_id: '', system_name: '',
       type: '' as DraftForm['type'], modality: 'online', price_type: 'gratuita', price_value: '',
       slots_total: '', slots_open: '', day_of_week: '' as DraftForm['day_of_week'],
-      start_time: '', frequency: 'semanal', contact_url: '', contact_discord: '',
+      start_time: '19h', frequency: 'semanal', contact_url: '', contact_discord: '',
       cover_url: '', cover_url_source: '', cover_quality: '',
       age_rating: '', experience_level: '', table_level: '', setting_name: '', setting_styles: '',
       requires_pc: false, requires_camera: false, requires_microphone: false, session_zero_free: false,
@@ -291,6 +303,23 @@ describe('buildMissingFields', () => {
     expect(missing).toContain('contact_url');
     expect(missing).toContain('day_of_week');
     expect(missing).toContain('start_time');
+  });
+
+  it('nao inclui day_of_week/start_time quando sao "a definir" (achado 2026-07-13)', () => {
+    const base = makeBase({ table: { raw_system_hint: 'D&D' } as DiscordDraftTablePayload });
+    const form: DraftForm = {
+      title: 'ok', description: 'ok', system_id: 'sys-1', system_name: '',
+      type: 'campanha', modality: 'online', price_type: 'gratuita', price_value: '',
+      slots_total: '4', slots_open: '4', day_of_week: 'to_define',
+      start_time: '', frequency: 'semanal', contact_url: 'https://example.com', contact_discord: '',
+      cover_url: '', cover_url_source: '', cover_quality: '',
+      age_rating: '', experience_level: '', table_level: '', setting_name: '', setting_styles: '',
+      requires_pc: false, requires_camera: false, requires_microphone: false, session_zero_free: false,
+      scenario_id: '', vtt_platform_id: '', communication_platform_id: '',
+    };
+    const missing = buildMissingFields(base, form);
+    expect(missing).not.toContain('day_of_week');
+    expect(missing).not.toContain('start_time');
   });
 });
 

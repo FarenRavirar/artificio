@@ -23,6 +23,9 @@ export const patchDraftTableSchema = z.object({
   modality: z.enum(['online', 'presencial', 'hibrida']).nullable().optional(),
   price_type: z.enum(['gratuita', 'paga']).nullable().optional(),
   frequency: z.enum(['semanal', 'quinzenal', 'mensal', 'avulsa']).nullable().optional(),
+  // 'to_define' espelha o sentinela do form manual (SessionRepeater.tsx) —
+  // achado do mantenedor 2026-07-13, draft precisa aceitar dia "a definir".
+  day_of_week: z.enum(['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo', 'to_define']).nullable().optional(),
 }).passthrough();
 
 export const patchNormalizedPayloadSchema = z.object({
