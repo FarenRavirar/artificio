@@ -15,11 +15,22 @@ export type DraftPriceType = 'gratuita' | 'paga';
 const VALID_TABLE_TYPES: ReadonlySet<DraftTableType> = new Set(['campanha', 'one-shot', 'oneshot-serie', 'aberta']);
 const VALID_MODALITIES: ReadonlySet<DraftModality> = new Set(['online', 'presencial', 'hibrida']);
 const VALID_PRICE_TYPES: ReadonlySet<DraftPriceType> = new Set(['gratuita', 'paga']);
-export type DraftDayOfWeek = 'segunda' | 'terça' | 'quarta' | 'quinta' | 'sexta' | 'sábado' | 'domingo';
-export type DraftFrequency = 'semanal' | 'quinzenal' | 'mensal' | 'avulsa' | 'outra';
+// Espelha VALID_FREQ do backend (mesmo motivo do bloco acima).
+const VALID_FREQUENCIES: ReadonlySet<DraftFrequency> = new Set(['semanal', 'quinzenal', 'mensal', 'avulsa']);
+// "to_define" espelha o mesmo sentinela de SessionRepeater.tsx (form manual de
+// mesa) — achado do mantenedor (2026-07-13): draft importado não tinha a
+// opção "a definir" pra dia/horário, presente no form manual. Precisa
+// funcionar fim a fim (não só exibir): ver VALID_DAYS abaixo e o mapeamento
+// pra schedule_day_status/schedule_time_status no sync (syncHelpers.ts).
+export type DraftDayOfWeek = 'segunda' | 'terça' | 'quarta' | 'quinta' | 'sexta' | 'sábado' | 'domingo' | 'to_define';
+// "outra" removida (achado do mantenedor 2026-07-13): form manual de mesa
+// (SessionRepeater.tsx) nunca teve essa opção — só os 4 valores do enum real
+// do banco (VALID_FREQ em syncHelpers.ts). Draft precisa espelhar exatamente
+// o mesmo conjunto, sem valor fantasma que nunca persiste de verdade.
+export type DraftFrequency = 'semanal' | 'quinzenal' | 'mensal' | 'avulsa';
 // Espelha VALID_DAYS do backend (mesmo motivo do bloco acima) — day_of_week
 // sujo (fora do enum) travava sync como "day_of_week" sem explicação.
-const VALID_DAYS: ReadonlySet<DraftDayOfWeek> = new Set(['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo']);
+const VALID_DAYS: ReadonlySet<DraftDayOfWeek> = new Set(['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo', 'to_define']);
 // Espelha isValidTime (TIME_REGEX) do backend — start_time é <input> de texto
 // livre no editor (sem type="time"), então "19h"/"as 19" passava no front
 // (.trim() truthy) e travava no sync (regex HH:MM do backend rejeita).
@@ -330,8 +341,11 @@ export function validateForm(form: DraftForm, hostDiscordId?: string | null): st
   // form, so preenchido automaticamente pelo parser.
   if (!form.contact_url.trim() && !form.contact_discord.trim() && !hostDiscordId?.trim()) missing.push('Contato');
   if (!form.day_of_week || !VALID_DAYS.has(form.day_of_week)) missing.push('Dia');
-  if (!isValidTimeString(form.start_time)) missing.push('Horário');
-  if (form.frequency === 'outra') missing.push('Frequência');
+  // Horário vazio é válido quando é "a definir" (mesma convenção do form
+  // manual, SessionRepeater.tsx: string vazia = a definir) — só falta de
+  // verdade quando não vazio E também não bate no formato HH:MM.
+  if (form.start_time.trim() !== '' && !isValidTimeString(form.start_time)) missing.push('Horário');
+  if (!VALID_FREQUENCIES.has(form.frequency)) missing.push('Frequência');
   return missing;
 }
 
@@ -353,8 +367,8 @@ export function buildMissingFields(base: DiscordDraftPayload, form: DraftForm): 
   setByState('slots_total', parseOptionalNonNegativeInt(form.slots_total) == null && parseOptionalNonNegativeInt(form.slots_open) == null);
   setByState('contact_url', !form.contact_url.trim() && !form.contact_discord.trim() && !table.host_discord_id?.trim());
   setByState('day_of_week', !form.day_of_week || !VALID_DAYS.has(form.day_of_week));
-  setByState('start_time', !isValidTimeString(form.start_time));
-  setByState('frequency', form.frequency === 'outra');
+  setByState('start_time', form.start_time.trim() !== '' && !isValidTimeString(form.start_time));
+  setByState('frequency', !VALID_FREQUENCIES.has(form.frequency));
 
   return Array.from(missing);
 }

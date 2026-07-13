@@ -152,8 +152,12 @@ export function validateDraftForSync(draft: Pick<ImportTableDraft, 'table'>): st
   if (!hasText(t.contact_url) && !hasText(t.contact_discord) && !hasText(t.host_discord_id)) {
     missing.push('contact_url/contact_discord');
   }
-  if (!isDayOfWeek(t.day_of_week)) missing.push('day_of_week');
-  if (!isValidTime(t.start_time)) missing.push('start_time');
+  // "to_define"/vazio são válidos (sentinela "a definir", achado do mantenedor
+  // 2026-07-13 — ver extractSchedules/buildTableDraftFields). Só falta de
+  // verdade quando não é o sentinela E também não bate no formato esperado.
+  if (t.day_of_week !== 'to_define' && !isDayOfWeek(t.day_of_week)) missing.push('day_of_week');
+  const timeIsToDefine = typeof t.start_time !== 'string' || t.start_time.trim() === '';
+  if (!timeIsToDefine && !isValidTime(t.start_time)) missing.push('start_time');
 
   return missing;
 }
@@ -235,7 +239,18 @@ export function extractSchedules(
 ): Array<Omit<Insertable<TableSchedulesTable>, 'table_id'>> {
   const { day_of_week, start_time, frequency } = draft.table;
 
-  if (!isDayOfWeek(day_of_week) || !start_time) return [];
+  // Achado do mantenedor (2026-07-13): dia/horário "a definir" (mesmo
+  // sentinela do form manual, 'to_define'/string vazia — ver SessionRepeater.tsx)
+  // descartava a sessão inteira em silêncio aqui — VALID_DAYS/isDayOfWeek não
+  // reconheciam o sentinela e a função retornava [] igual a "sem agenda
+  // nenhuma", sem gravar o estado "a definir" em lugar nenhum. table_schedules
+  // é NOT NULL em day_of_week/start_time (migration_01) — mesmo design do form
+  // manual: dia/horário "a definir" nunca vira linha em table_schedules, o
+  // estado vive só em tables.schedule_day_status/schedule_time_status/*_hint
+  // (migration_124), setado em buildTableDraftFields. Aqui só decide se cria
+  // sessão real ou não; o sentinela em si é tratado lá.
+  if (day_of_week === 'to_define' || !start_time || start_time.trim() === '') return [];
+  if (!isDayOfWeek(day_of_week)) return [];
 
   const normalized = normalizeTime(start_time);
   if (!normalized) return [];
@@ -345,6 +360,17 @@ function buildTableDraftFields(
     is_covil: false,
     cover_url: coverUrl,
     banner_url: coverUrl,
+    // Achado do mantenedor (2026-07-13): draft "a definir" (dia/horário) nunca
+    // propagava esse estado pra tables — colunas ficavam no default 'defined'
+    // mesmo quando o draft dizia explicitamente "a definir", divergindo da
+    // mesa manual (SessionRepeater.tsx grava o mesmo sentinela e o form
+    // principal já seta essas colunas). hint só é setado quando HÁ um palpite
+    // e o status correspondente é 'defined' (CHECK tables_schedule_tbd_hint_check
+    // proíbe hint não-nulo quando status='to_define').
+    schedule_day_status: t.day_of_week === 'to_define' ? 'to_define' : 'defined',
+    schedule_time_status: (!t.start_time || t.start_time.trim() === '') ? 'to_define' : 'defined',
+    schedule_day_hint: isDayOfWeek(t.day_of_week) ? t.day_of_week : null,
+    schedule_time_hint: (t.start_time && t.start_time.trim() !== '') ? normalizeTime(t.start_time) : null,
   };
 }
 
@@ -556,7 +582,7 @@ export async function syncDraftToTable(
 
   const existingTable = await db
     .selectFrom('tables')
-    .select(['id'])
+    .select(['id', 'status'])
     .where('source_id', '=', sourceId)
     .executeTakeFirst();
 
@@ -567,13 +593,20 @@ export async function syncDraftToTable(
     tableId = existingTable.id;
     created = false;
 
+    // Achado do mantenedor (2026-07-13): ressincronizar um draft já vinculado
+    // a uma mesa PUBLICADA (status !== 'draft') resetava ela pra 'draft'
+    // incondicionalmente — mesa some da listagem pública sem aviso. Só força
+    // 'draft' se a mesa ainda não saiu desse estado; status avançado
+    // (active/full/cancelled/ended/pending_review) é preservado no resync.
+    const nextStatus = existingTable.status === 'draft' ? 'draft' : existingTable.status;
+
     await db.transaction().execute(async (trx) => {
       if (!payload.table.title) throw new config.ValidationError(['title']);
       await trx
         .updateTable('tables')
         .set({
           ...buildTableDraftFields(payload, gmName, coverUrl),
-          status: 'draft',
+          status: nextStatus,
           updated_at: new Date(),
         })
         .where('id', '=', tableId)

@@ -273,6 +273,61 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table._slots_ambiguity).toBeNull();
   });
 
+  // Achado do mantenedor (2026-07-13, caso real D:/teste.json): "Vagas
+  // Disponíveis: N/M" não disparava a pergunta de ambiguidade — o label
+  // composto "Disponíveis" entre "Vagas" e o separador não era reconhecido
+  // por RE_SLOT_AMBIG_SLASH, e RE_SLOT_OPEN (que roda antes na cascata)
+  // casava só o "N" e ignorava o "/M", resolvendo silenciosamente como se
+  // fosse um valor único em vez de cair na ambiguidade real.
+  it('keeps slash slots ambiguous with composite label "Vagas Disponíveis: N/M" (achado real 2026-07-13)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          '**📌Dia/Horário:** Terça, às 19h:30min.',
+          '**📌Vagas Disponíveis:** 1/4',
+          '**📌Sistema:** T20 JdA',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.slots_total).toBe(4);
+    expect(draft?.table.slots_open).toBeNull();
+    expect(draft?.table._slots_ambiguity).toEqual({ first: 1, second: 4, source: 'x_slash_y' });
+  });
+
+  it('keeps slash slots ambiguous with composite label "Vagas Ocupadas: N/M" (achado real 2026-07-13)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          '- **Sistema**: Dungeons & Dragons 5e',
+          '- **Vagas Ocupadas**: 0/6 atualmente (mínimo 4 jogadores)',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.slots_total).toBe(6);
+    expect(draft?.table.slots_open).toBeNull();
+    expect(draft?.table._slots_ambiguity).toEqual({ first: 0, second: 6, source: 'x_slash_y' });
+  });
+
+  it('keeps slash slots ambiguous with symbol bullet "» Vagas disponíveis: N/M" (achado real 2026-07-13)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          '» Sistema: Ordem Paranormal',
+          '» Vagas disponíveis: 4/6 (2 vagas)',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.slots_total).toBe(6);
+    expect(draft?.table.slots_open).toBeNull();
+    expect(draft?.table._slots_ambiguity).toEqual({ first: 4, second: 6, source: 'x_slash_y' });
+  });
+
   it('keeps Vagas: 0 as an explicit closed table instead of missing slots (spec 017 Fase E regression)', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({

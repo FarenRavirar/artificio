@@ -1,4 +1,4 @@
-import { isValidTime, normalizeTime, extractContacts, validateDraftForSync, buildTableData } from '../syncHelpers';
+import { isValidTime, normalizeTime, extractContacts, validateDraftForSync, buildTableData, extractSchedules } from '../syncHelpers';
 import type { ImportTableDraft, DiscordTableDraftTable } from '../types';
 
 function makeDraftTable(overrides: Partial<DiscordTableDraftTable> = {}): DiscordTableDraftTable {
@@ -210,6 +210,75 @@ describe('buildTableData — Fase E (spec 058): campos novos da Fase B/C propaga
       requires_camera: false,
       requires_microphone: false,
       session_zero_free: false,
+    });
+  });
+});
+
+// Achado do mantenedor (2026-07-13): draft "a definir" (dia/horário, mesmo
+// sentinela 'to_define'/vazio do form manual SessionRepeater.tsx) descartava
+// a sessão inteira em silêncio em extractSchedules e travava 422 em
+// validateDraftForSync — precisa funcionar fim a fim, não só na UI.
+describe('extractSchedules — dia/horário "a definir" (achado 2026-07-13)', () => {
+  it('não cria sessão quando day_of_week é "to_define" (mesmo com horário válido)', () => {
+    const draft = makeDraft({ day_of_week: 'to_define', start_time: '19:00' });
+    expect(extractSchedules(draft)).toEqual([]);
+  });
+
+  it('não cria sessão quando start_time está vazio (mesmo com dia válido)', () => {
+    const draft = makeDraft({ day_of_week: 'sabado', start_time: '' });
+    expect(extractSchedules(draft)).toEqual([]);
+  });
+
+  it('continua criando sessão normal quando dia e horário são válidos', () => {
+    const draft = makeDraft({ day_of_week: 'sábado', start_time: '19:00' });
+    const schedules = extractSchedules(draft);
+    expect(schedules).toHaveLength(1);
+    expect(schedules[0]).toMatchObject({ day_of_week: 'sábado', start_time: '19:00' });
+  });
+});
+
+describe('validateDraftForSync — dia/horário "a definir" não bloqueia sync (achado 2026-07-13)', () => {
+  it('não bloqueia sync quando day_of_week é "to_define"', () => {
+    const draft = makeDraft({ day_of_week: 'to_define' as ImportTableDraft['table']['day_of_week'] });
+    const missing = validateDraftForSync(draft);
+    expect(missing).not.toContain('day_of_week');
+  });
+
+  it('não bloqueia sync quando start_time está vazio', () => {
+    const draft = makeDraft({ start_time: '' });
+    const missing = validateDraftForSync(draft);
+    expect(missing).not.toContain('start_time');
+  });
+
+  it('continua bloqueando sync quando dia é valor inválido (nem enum nem to_define)', () => {
+    const draft = makeDraft({ day_of_week: 'dia-invalido' as ImportTableDraft['table']['day_of_week'] });
+    const missing = validateDraftForSync(draft);
+    expect(missing).toContain('day_of_week');
+  });
+});
+
+describe('buildTableData — schedule_day_status/schedule_time_status propagam "a definir" (achado 2026-07-13)', () => {
+  it('marca schedule_day_status/schedule_time_status como to_define quando draft é "a definir"', () => {
+    const draft = makeDraft({ day_of_week: 'to_define', start_time: '' });
+    const tableData = buildTableData(draft, { sourceId: 'src-1', sourceUrl: null, gmName: 'GM' }, 'slug-1', null);
+
+    expect(tableData).toMatchObject({
+      schedule_day_status: 'to_define',
+      schedule_time_status: 'to_define',
+      schedule_day_hint: null,
+      schedule_time_hint: null,
+    });
+  });
+
+  it('marca schedule_day_status/schedule_time_status como defined + hint quando draft tem dia/horário reais', () => {
+    const draft = makeDraft({ day_of_week: 'sábado', start_time: '19:00' });
+    const tableData = buildTableData(draft, { sourceId: 'src-1', sourceUrl: null, gmName: 'GM' }, 'slug-1', null);
+
+    expect(tableData).toMatchObject({
+      schedule_day_status: 'defined',
+      schedule_time_status: 'defined',
+      schedule_day_hint: 'sábado',
+      schedule_time_hint: '19:00',
     });
   });
 });

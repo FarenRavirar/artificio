@@ -318,20 +318,33 @@ function matchSystem(text: string, systems: SystemEntry[]): SystemMatchResult | 
   return null;
 }
 
+// URL completa (http/https) em qualquer ponto da string — usada por
+// splitThreadName pra não confundir o ":" de "https://" com o separador
+// "sistema: título" (achado mantenedor 2026-07-13: linha com heading +
+// link de anexo do Discord na mesma linha corrompia o título com a URL).
+const RE_INLINE_URL = /https?:\/\/\S+/i;
+
 // Tenta extrair "sistema: titulo" do nome do thread
 // Achado do mantenedor (2026-07-10): quando não há thread_name real, o título
 // cai aqui via `body.split('\n')[0]` (1ª linha do anúncio) — sem passar por
 // normalizeTitle/normalizeTitleCapitalization, título em CAPS LOCK sobrevivia.
 function splitThreadName(threadName: string): { systemHint: string | null; title: string } {
-  const colonIdx = threadName.indexOf(':');
-  if (colonIdx > 0 && colonIdx < threadName.length - 2) {
+  const urlMatch = RE_INLINE_URL.exec(threadName);
+  // Separador ":" só é buscado na porção ANTES de uma URL inline — o ":" de
+  // "https://" nunca deve ser tratado como separador de "sistema: título".
+  const searchScope = urlMatch ? threadName.slice(0, urlMatch.index) : threadName;
+  const colonIdx = searchScope.indexOf(':');
+  // afterColon vem só até o início da URL (ou até o fim, se não houver) — o
+  // link de anexo/CDN não deve sobreviver nem no beforeColon nem no afterColon.
+  const textWithoutUrl = urlMatch ? `${threadName.slice(0, urlMatch.index)}${threadName.slice(urlMatch.index + urlMatch[0].length)}` : threadName;
+  if (colonIdx > 0 && colonIdx < searchScope.length - 2) {
     const beforeColon = cleanTrademark(stripDecorativeMarkup(threadName.slice(0, colonIdx).trim()));
-    const afterColon = cleanTrademark(stripDecorativeMarkup(threadName.slice(colonIdx + 1).trim()));
+    const afterColon = cleanTrademark(stripDecorativeMarkup(textWithoutUrl.slice(colonIdx + 1).trim()));
     if (beforeColon.length > 0 && afterColon.length > 0) {
       return { systemHint: beforeColon, title: normalizeTitleCapitalization(afterColon) };
     }
   }
-  const fallbackTitle = cleanTrademark(stripDecorativeMarkup(threadName));
+  const fallbackTitle = cleanTrademark(stripDecorativeMarkup(textWithoutUrl));
   return { systemHint: null, title: fallbackTitle ? normalizeTitleCapitalization(fallbackTitle) : fallbackTitle };
 }
 
@@ -460,17 +473,32 @@ const D = String.raw`(\d+)(?!\d)`;          // dígitos atômicos
 const SP0 = String.raw`\s{0,3}`;            // 0–3 espaços
 const SP1 = String.raw`\s{1,3}`;            // 1–3 espaços
 const SEP = String.raw`[:=]`;               // separador rótulo:valor
-const BULLETS = String.raw`[\s▬•\-–—]{0,8}`; // bullets no começo da linha
+// Achado real (dado D:/teste.json, 2026-07-13): bullets reais em anúncios são
+// diversos demais pra listar caractere a caractere (▬, », 〔, ┆, emoji, etc)
+// — \p{S}/\p{P} (símbolo/pontuação Unicode) cobre a família toda; regra
+// própria (?!(\d|https?)) evita engolir número/URL que caia logo após um
+// separador tipo ":". Regex que usa BULLETS precisa da flag 'u' (\p{} exige).
+const BULLETS = String.raw`[\s\p{S}\p{P}\p{Emoji_Presentation}\p{Extended_Pictographic}]{0,8}`; // bullets/decoração no começo da linha
 const LINE = String.raw`(?:^|\n)`;          // início de linha
 
 const RE_SLOT_VIA_FORMS = new RegExp(`${D}${SP1}vaga${SP1}via${SP1}forms`, 'i');
 const RE_SLOT_X_DE_Y = new RegExp(`${D}${SP1}de${SP1}${D}`, 'i');
-const RE_SLOT_TOTAL = new RegExp(`vagas?${SP1}(?:totais|total)${SP0}${SEP}${SP0}${D}`, 'i');
-const RE_SLOT_OPEN = new RegExp(`vagas?${SP1}(?:dispon[ií]veis|dispon[ií]vel|abertas|aberta)${SP0}${SEP}${SP0}${D}`, 'i');
-const RE_SLOT_AMBIG_SLASH = new RegExp(`${LINE}${BULLETS}(?:vagas|jogadores)${SP0}${SEP}${SP0}${D}${SP0}/${SP0}${D}(?!${SP0}vagas?)`, 'i');
+// Lookahead negativo `(?!${SP0}/${SP0}\d)` em ambas: sem ele, "Vagas
+// Disponíveis: 1/4" casava só o "1" e ignorava o "/4" (mesma classe de bug já
+// documentada abaixo pro caso "grupo de 5 pessoas" vs slotsGroupSize) — a
+// forma "N/M" precisa cair em slotsAmbiguousSlash, não ser resolvida aqui
+// como se fosse um valor único (achado real, dado D:/teste.json, 2026-07-13).
+const RE_SLOT_TOTAL = new RegExp(`vagas?${SP1}(?:totais|total)${SP0}${SEP}${SP0}${D}(?!${SP0}/${SP0}\\d)`, 'i');
+const RE_SLOT_OPEN = new RegExp(`vagas?${SP1}(?:dispon[ií]veis|dispon[ií]vel|abertas|aberta)${SP0}${SEP}${SP0}${D}(?!${SP0}/${SP0}\\d)`, 'i');
+// Achado real (dado D:/teste.json, 2026-07-13): "Vagas Disponíveis: 1/4" e
+// "Vagas disponíveis: 0/5" não disparavam a pergunta de ambiguidade — o label
+// exigia "vagas"/"jogadores" IMEDIATAMENTE antes do separador, sem espaço pro
+// qualificador "disponíveis/ocupadas/etc" que aparece entre o dois nesses
+// casos reais (mesmo padrão que RE_SLOT_LABELED já suporta).
+const RE_SLOT_AMBIG_SLASH = new RegExp(`${LINE}${BULLETS}(?:vagas(?:${SP1}(?:dispon[ií]veis|dispon[ií]vel|ocupadas|ocupada))?|jogadores)${SP0}${SEP}${SP0}${D}${SP0}/${SP0}${D}(?!${SP0}vagas?)`, 'iu');
 // "1 vaga / grupo de 5 pessoas": vaga(s) aberta(s) seguida de tamanho do grupo (total).
 const RE_SLOT_GROUP_SIZE = new RegExp(`${D}${SP1}vagas?${SP0}/${SP0}grupo${SP1}de${SP1}${D}${SP1}pessoas?`, 'i');
-const RE_SLOT_LABELED = new RegExp(`${LINE}${BULLETS}(?:vagas(?:${SP1}dispon[ií]veis)?|jogadores)${SP0}${SEP}${SP0}${D}(?!${SP0}/)`, 'i');
+const RE_SLOT_LABELED = new RegExp(`${LINE}${BULLETS}(?:vagas(?:${SP1}dispon[ií]veis)?|jogadores)${SP0}${SEP}${SP0}${D}(?!${SP0}/)`, 'iu');
 const RE_SLOT_SLASH_VAGAS = new RegExp(`${D}${SP0}/${SP0}${D}${SP0}vagas?`, 'i');
 const RE_SLOT_N_VAGAS = new RegExp(`${D}${SP0}vagas?`, 'i');
 const RE_SLOT_VAGAS_LABEL = new RegExp(`vagas?(?:${SP0}disponíveis?)?${SP0}${SEP}${SP0}${D}`, 'i');
