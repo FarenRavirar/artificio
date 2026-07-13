@@ -17,6 +17,9 @@ export type SystemPickerProps = Readonly<{
   onCreateNow?: (query: string) => void;
   onEdit?: (node: SystemTreeNode) => void;
   showEmptySearchResults?: boolean;
+  /** Repassado direto pra CatalogTree — ver doc da prop lá (criação em cascata
+   * sistema->edição->variante a partir do botão "+ Adicionar" de cada nível). */
+  onAddChildAtLevel?: (depth: number, parent: SystemTreeNode | null) => void;
 }>;
 
 /** SystemTreeNode (mesas, slug) -> CatalogUiNode (pacote compartilhado, canonical_slug). */
@@ -40,6 +43,7 @@ function toUiNode(node: SystemTreeNode): CatalogUiNode {
 export function SystemPicker({
   tree,
   onEdit,
+  onAddChildAtLevel,
   ...rest
 }: SystemPickerProps) {
   const uiTree = useMemo(() => tree.map(toUiNode), [tree]);
@@ -62,6 +66,10 @@ export function SystemPicker({
       onEdit={onEdit ? (uiNode) => {
         const original = byId.get(uiNode.id);
         if (original) onEdit(original);
+      } : undefined}
+      onAddChildAtLevel={onAddChildAtLevel ? (depth, uiParent) => {
+        const original = uiParent ? (byId.get(uiParent.id) ?? null) : null;
+        onAddChildAtLevel(depth, original);
       } : undefined}
     />
   );
