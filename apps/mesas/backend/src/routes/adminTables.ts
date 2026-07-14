@@ -122,6 +122,9 @@ router.post('/tables/batch', authMiddleware, async (req: Request, res: Response)
 });
 
 // Spec 077: scanner sob demanda. Nunca decide, mescla ou apaga mesa sozinho.
+// Compara só mesas status='active' e archived_at IS NULL (ver
+// scanTableDuplicateCandidates) — rascunho, arquivada ou pausada nunca entra
+// no par comparado, só draft×mesa-ativa e mesa-ativa×mesa-ativa.
 router.post('/tables/duplicates/scan', authMiddleware, async (req: Request, res: Response) => {
   if (!requireAdminRole(req, res)) return;
   try {
@@ -179,6 +182,9 @@ router.patch('/table-duplicate-candidates/:id', authMiddleware, async (req: Requ
     if (!existing) return res.status(404).json({ error: 'Candidato de duplicata não encontrado.' });
 
     const updated = await db.transaction().execute(async (trx) => {
+      // Achado bot review PR #159: filtrar por status='candidate' na própria
+      // transação evita decisão concorrente duplicada (TOCTOU entre o SELECT
+      // acima e este UPDATE); 409 sinaliza "já resolvido" sem criar feedback.
       const result = await trx
         .updateTable('table_duplicate_candidates')
         .set({
@@ -188,8 +194,11 @@ router.patch('/table-duplicate-candidates/:id', authMiddleware, async (req: Requ
           updated_at: new Date(),
         })
         .where('id', '=', existing.id)
+        .where('status', '=', 'candidate')
         .returningAll()
-        .executeTakeFirstOrThrow();
+        .executeTakeFirst();
+
+      if (!result) return null;
 
       if (existing.candidate_parse_case_id) {
         await trx.insertInto('discord_parse_feedback').values({
@@ -206,6 +215,7 @@ router.patch('/table-duplicate-candidates/:id', authMiddleware, async (req: Requ
       }
       return result;
     });
+    if (!updated) return res.status(409).json({ error: 'Candidato já foi resolvido.' });
     return res.json({ data: { ...updated, score: Number(updated.score) } });
   } catch (error: unknown) {
     console.error('[PATCH /admin/table-duplicate-candidates/:id]', error);

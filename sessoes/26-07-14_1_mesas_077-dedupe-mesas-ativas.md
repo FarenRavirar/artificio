@@ -134,3 +134,12 @@ rota ou UI havia sido alterado; gates seriam executados após implementação.
 - DEB-077-05: registro estava desatualizado; os dois erros `set-state-in-effect` já foram corrigidos e lint repo-wide havia passado.
 - Testes: `catalog-ui` 12/12; `mesas-frontend` 174/174; `mesas-backend` 456/456.
 - Gates finais: `pnpm verify:api` verde (3 mudanças não-breaking já esperadas da 077); `pnpm run lint` 21/21; `pnpm run build` 21/21.
+
+## Retomada — SonarCloud PR #159
+
+- Mantenedor pediu corrigir 5 reports: complexidade cognitiva no scanner,
+  2 ternários aninhados, comparação SQL nullable e operador `void` no effect.
+- Plano: registrar review; extrair builders/mapas sem mudar contrato; tornar
+  nullabilidade explícita; validar testes/lint/build proporcionais.
+- Arquivos previstos: os 4 apontados pelo Sonar, `reviews.md` e esta sessão.
+- Backlog: nada a atualizar; achados serão corrigidos agora, sem pendência.

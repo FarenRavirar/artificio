@@ -144,7 +144,14 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
     if (!requestedDraftId) return;
     const requestedDraft = drafts.find((draft) => draft.id === requestedDraftId);
     if (!requestedDraft) return;
-    const timer = setTimeout(() => setSelectedDraft(requestedDraft), 0);
+    const timer = setTimeout(() => {
+      setSelectedDraft(requestedDraft);
+      // Achado bot review PR #159: sem remover o param, qualquer novo `drafts`
+      // (poll, refresh pós-decisão) reabre o modal do mesmo draft de novo.
+      const url = new URL(window.location.href);
+      url.searchParams.delete('draft');
+      window.history.replaceState(null, '', url);
+    }, 0);
     return () => clearTimeout(timer);
   }, [drafts]);
 

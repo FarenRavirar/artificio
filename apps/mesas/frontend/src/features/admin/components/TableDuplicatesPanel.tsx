@@ -41,7 +41,9 @@ export function TableDuplicatesPanel() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => { void load(); }, 0);
+    // SonarCloud PR #159: catch explícito evita promise solta sem operador void;
+    // load já mostra toast e fecha loading, fallback cobre rejeição inesperada.
+    const timer = setTimeout(() => { load().catch(() => undefined); }, 0);
     return () => clearTimeout(timer);
   }, [load]);
 
@@ -74,7 +76,7 @@ export function TableDuplicatesPanel() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-white/60">Comparação sob demanda. Nenhuma mesa é alterada ou apagada automaticamente.</p>
-        <button type="button" onClick={scan} disabled={scanning} className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+        <button type="button" onClick={scan} disabled={scanning || loading} className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
           {scanning ? 'Verificando…' : 'Checar duplicatas'}
         </button>
       </div>
@@ -91,14 +93,15 @@ export function TableDuplicatesPanel() {
                 <span className="rounded-full bg-amber-500/20 px-2 py-1 text-xs text-amber-200">{Math.round(candidate.score * 100)}% provável</span>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
                   <a className="text-orange-300 underline" href={`/mesas/${candidate.table_slug}`} target="_blank" rel="noreferrer">{candidate.table_title}</a>
-                  <a className="text-white/50 underline" href={`/gestao/catalogo?tableId=${candidate.table_id}`}>editar</a>
+                  {/* Achado bot review PR #159: /gestao/catalogo?tableId= não é rota tratada; deep link real é /painel?edit=. */}
+                  <a className="text-white/50 underline" href={`/painel?edit=${candidate.table_id}`}>editar</a>
                   <span className="text-white/30">×</span>
                   {isDraftPair ? (
                     <a className="text-cyan-300 underline" href={`/gestao/mesas/rascunhos?draft=${candidate.candidate_draft_id}`}>{readDraftTitle(candidate)}</a>
                   ) : (
                     <>
                       <a className="text-orange-300 underline" href={`/mesas/${candidate.candidate_table_slug}`} target="_blank" rel="noreferrer">{candidate.candidate_table_title}</a>
-                      <a className="text-white/50 underline" href={`/gestao/catalogo?tableId=${candidate.candidate_table_id}`}>editar</a>
+                      <a className="text-white/50 underline" href={`/painel?edit=${candidate.candidate_table_id}`}>editar</a>
                     </>
                   )}
                 </div>
@@ -109,7 +112,7 @@ export function TableDuplicatesPanel() {
             {candidate.status === 'candidate' && (
               <div className="mt-4 flex flex-wrap gap-2">
                 {decisions.map((decision) => (
-                  <button key={decision.status} type="button" disabled={resolvingId === candidate.id} onClick={() => resolve(candidate.id, decision.status)} className="rounded-lg border border-white/15 px-3 py-2 text-xs text-white hover:bg-white/10 disabled:opacity-50">
+                  <button key={decision.status} type="button" disabled={resolvingId !== null || loading} onClick={() => resolve(candidate.id, decision.status)} className="rounded-lg border border-white/15 px-3 py-2 text-xs text-white hover:bg-white/10 disabled:opacity-50">
                     {decision.label}
                   </button>
                 ))}

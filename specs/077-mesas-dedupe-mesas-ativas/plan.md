@@ -94,7 +94,7 @@ output, arquivo:linha) em `sessoes/` — não fechar por dedução.
   (`migration_137_discord_duplicate_candidates.sql:7`).
 - Produção, consulta read-only: **31 mesas ativas**. Full-scan mesa×mesa = 465
   pares; custo pequeno para botão sob demanda.
-- Teste exploratório executado: `exploratory-active-pairs.sql`. Resultado: 3
+- Teste exploratório executado: `exploratory-active-pairs.sql.txt`. Resultado: 3
   pares fortes, todos com similaridade 1.000 em título e descrição:
   `a-voz-nas-cartas-*`, `ecos-bastardos-*`, `mascaras-de-nyarlathotep-*`.
   Dois pares têm `system_id` diferente; sistema deve corroborar, nunca vetar.

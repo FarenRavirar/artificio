@@ -25,7 +25,7 @@ describe('tableDuplicateDetection', () => {
       { ...base, id: 'b', title: 'Outro título', description: '', sourceUrl: 'https://example.com/form' },
     );
     expect(result.signals.same_source_url).toBe(true);
-    expect(result.score).toBeGreaterThan(0.3);
+    expect(result.score).toBeGreaterThanOrEqual(0.75);
   });
 
   it('mantém mesas sem relação abaixo do limiar', () => {

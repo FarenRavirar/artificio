@@ -11,6 +11,21 @@ import { TableDuplicatesPanel } from './TableDuplicatesPanel';
 
 type ModSubTab = 'mensagens' | 'rascunhos' | 'duplicatas';
 
+const SUB_TAB_CONTENT: Record<ModSubTab, { title: string; description: string }> = {
+  rascunhos: {
+    title: 'Rascunhos de mesas',
+    description: 'Revisão unificada de entradas do Bot, Exporter e texto colado antes de publicar mesas reais.',
+  },
+  mensagens: {
+    title: 'Mensagens capturadas',
+    description: 'Apuração das mensagens brutas antes de gerar ou ignorar rascunhos.',
+  },
+  duplicatas: {
+    title: 'Possíveis duplicatas',
+    description: 'Pares mesa×mesa e draft×mesa para decisão manual do administrador.',
+  },
+};
+
 /**
  * Computa diff entre campos editáveis de dois payloads para correction-tracking.
  * Compara apenas o nível `table` (campos que o admin pode editar).
@@ -136,15 +151,10 @@ export function ModeracaoSection() {
         </button>
       </div>
 
+      {/* SonarCloud PR #159: conteúdo por subaba evita ternários aninhados e mantém título/descrição sincronizados. */}
       <SectionCard
-        title={subTab === 'rascunhos' ? 'Rascunhos de mesas' : subTab === 'mensagens' ? 'Mensagens capturadas' : 'Possíveis duplicatas'}
-        description={
-          subTab === 'rascunhos'
-            ? 'Revisão unificada de entradas do Bot, Exporter e texto colado antes de publicar mesas reais.'
-            : subTab === 'mensagens'
-              ? 'Apuração das mensagens brutas antes de gerar ou ignorar rascunhos.'
-              : 'Pares mesa×mesa e draft×mesa para decisão manual do administrador.'
-        }
+        title={SUB_TAB_CONTENT[subTab].title}
+        description={SUB_TAB_CONTENT[subTab].description}
         bodyClassName="p-5"
       >
         {subTab === 'mensagens' && <MessagesView />}

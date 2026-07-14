@@ -2522,7 +2522,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/table-duplicate-candidates/:id",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 168,
+      "line": 171,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2531,7 +2531,7 @@
       "method": "GET",
       "path": "/api/v1/admin/tables",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 284,
+      "line": 294,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2540,7 +2540,7 @@
       "method": "DELETE",
       "path": "/api/v1/admin/tables/:id",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 336,
+      "line": 346,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2549,7 +2549,7 @@
       "method": "GET",
       "path": "/api/v1/admin/tables/:id",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 311,
+      "line": 321,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2558,7 +2558,7 @@
       "method": "PUT",
       "path": "/api/v1/admin/tables/:id",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 217,
+      "line": 227,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2585,7 +2585,7 @@
       "method": "GET",
       "path": "/api/v1/admin/tables/duplicates",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 136,
+      "line": 139,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2594,7 +2594,7 @@
       "method": "POST",
       "path": "/api/v1/admin/tables/duplicates/scan",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 125,
+      "line": 128,
       "confidence": "high",
       "kind": "express-route"
     },
