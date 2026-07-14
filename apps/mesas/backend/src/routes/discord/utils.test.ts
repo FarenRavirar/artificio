@@ -39,14 +39,13 @@ vi.mock('../../discord/fieldLearning', () => ({
     'contact_url',
     'description',
   ],
-  lookupFieldLearning: vi.fn().mockResolvedValue([]),
-  recordFieldLearning: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../../discord/learningRules', () => ({
   lookupLearningRules: vi.fn().mockResolvedValue({ hits: [], conflicts: [] }),
   recordLearningRuleApplications: vi.fn().mockResolvedValue(undefined),
   recordLearningRulesFromCorrections: vi.fn().mockResolvedValue(undefined),
+  recordSystemEntityRule: vi.fn().mockResolvedValue(undefined),
   recordLabelAliasFromCorrection: vi.fn().mockResolvedValue(undefined),
   loadActiveLabelAliases: vi.fn().mockResolvedValue({}),
 }));
@@ -73,7 +72,6 @@ import { DiscordChatExporterValidationError } from '../../discord/chatExporterAd
 import { db } from '../../db';
 import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord';
 import { assistDiscordParseWithContextPack } from '../../discord/llmAssist';
-import { lookupFieldLearning } from '../../discord/fieldLearning';
 import { lookupLearningRules, recordLearningRuleApplications } from '../../discord/learningRules';
 import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers';
 import type { DiscordImportMessagesTable } from '../../db/types';
@@ -123,7 +121,6 @@ describe('processDiscordMessageToDraft', () => {
     (normalizeDiscordTableDraft as Mock).mockReset();
     (assistDiscordParseWithContextPack as Mock).mockReset();
     (lookupLearningRules as Mock).mockResolvedValue({ hits: [], conflicts: [] });
-    (lookupFieldLearning as Mock).mockResolvedValue([]);
     (recordLearningRuleApplications as Mock).mockResolvedValue(undefined);
 
     (db.selectFrom as Mock).mockReturnValue(chain({ executeTakeFirst: vi.fn().mockResolvedValue(undefined) }));
@@ -216,7 +213,7 @@ describe('processDiscordMessageToDraft', () => {
     }));
   });
 
-  it('applies learning-store suggestions even when DeepSeek mode is off', async () => {
+  it('applies active human learning to the draft even when DeepSeek mode is off', async () => {
     delete process.env.MESAS_AI_AUTOMATION_MODE;
     const parsed = {
       source: { guild_id: 'guild-1', channel_id: 'channel-1', message_id: '1441138618755448997' },
@@ -225,6 +222,7 @@ describe('processDiscordMessageToDraft', () => {
         system_name: 'D&D 5e',
         system_id: null,
         raw_system_hint: 'D&D 5e',
+        _system_source_hint: 'D&D 5e',
         type: 'campanha',
         modality: 'online',
         price_type: null,
@@ -249,7 +247,7 @@ describe('processDiscordMessageToDraft', () => {
       },
       confidence: 0.8,
       confidence_tier: 'alta',
-      missing_fields: [],
+      missing_fields: ['system_name:unmatched_hint'],
     };
 
     (parseDiscordAnnouncement as Mock).mockReturnValue(parsed);
@@ -257,7 +255,14 @@ describe('processDiscordMessageToDraft', () => {
       .mockReturnValueOnce({ draft: parsed, status: 'needs_review' })
       .mockImplementationOnce((draft) => ({ draft, status: 'needs_review' }));
     (lookupLearningRules as Mock).mockResolvedValue({
-      hits: [{ ruleId: 'rule-1', field: 'system_name', value: 'D&D 5.2', confidence: 0.91, scopeType: 'guild' }],
+      hits: [{
+        ruleId: 'rule-1',
+        field: 'system_entity',
+        value: { system_id: 'dnd-52', system_name: 'D&D 5.2' },
+        inputToken: 'd&d 5e',
+        confidence: 0.91,
+        scopeType: 'guild',
+      }],
       conflicts: [],
     });
 
@@ -273,13 +278,28 @@ describe('processDiscordMessageToDraft', () => {
     expect(insertChain.values).toHaveBeenCalledWith(expect.objectContaining({
       normalized_payload: expect.objectContaining({
         table: expect.objectContaining({
-          _ai_suggestions: expect.objectContaining({
+          system_name: 'D&D 5.2',
+          system_id: 'dnd-52',
+          _learning_applied: expect.objectContaining({
             provider: 'learning-rules',
-            fields: expect.objectContaining({ system_name: 'D&D 5.2' }),
+            fields: expect.objectContaining({ system_id: 'dnd-52', system_name: 'D&D 5.2' }),
+            applications: [expect.objectContaining({
+              rule_id: 'rule-1',
+              field: 'system_entity',
+              affected_fields: ['system_id', 'system_name'],
+              confidence: 0.91,
+              evidence: { text: 'D&D 5e', start: null, end: null },
+            })],
           }),
+          _notes: expect.arrayContaining([
+            expect.stringContaining('Aprendizado humano aplicado automaticamente'),
+          ]),
         }),
+        missing_fields: [],
       }),
     }));
+    const insertedPayload = insertChain.values.mock.calls[0]?.[0]?.normalized_payload;
+    expect(insertedPayload.table._ai_suggestions).toBeUndefined();
   });
 
   it('asks DeepSeek only for missing or ambiguous target fields', async () => {

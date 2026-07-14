@@ -29,7 +29,7 @@ export interface GlossarioEdition extends GlossarioSystem {
 const catalogNodeBaseSchema = z.object({
   id: z.string(),
   parent_id: z.string().nullable(),
-  node_type: z.enum(['system', 'edition', 'subsystem', 'variant']),
+  node_type: z.enum(['system', 'edition', 'variant']),
   canonical_slug: z.string(),
   path_slug: z.string(),
   name: z.string(),
@@ -49,7 +49,7 @@ interface CatalogAlias {
 interface CatalogTreeNode {
   id: string;
   parent_id: string | null;
-  node_type: 'system' | 'edition' | 'subsystem' | 'variant';
+  node_type: 'system' | 'edition' | 'variant';
   canonical_slug: string;
   path_slug: string;
   name: string;
@@ -122,7 +122,7 @@ export interface CatalogNodeIndexEntry {
   id: string;
   name: string;
   parent_id: string | null;
-  node_type: 'system' | 'edition' | 'subsystem' | 'variant';
+  node_type: 'system' | 'edition' | 'variant';
 }
 
 // Achado CodeRabbit (PR #145): script de migração cruzava edições só por nome

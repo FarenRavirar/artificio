@@ -11,7 +11,7 @@ const catalogNodeSchema = z.object({
   id: z.string(),
   name: z.string(),
   slug: z.string(),
-  node_type: z.enum(['system', 'edition', 'variant', 'subsystem']),
+  node_type: z.enum(['system', 'edition', 'variant']),
 });
 
 export type CatalogNode = z.infer<typeof catalogNodeSchema>;

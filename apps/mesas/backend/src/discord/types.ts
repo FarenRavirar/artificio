@@ -64,6 +64,15 @@ export interface DiscordTableDraftTable {
    * o que chegou do Discord antes de qualquer normalização.
    */
   raw_system_hint: string | null;
+  /** Texto efetivamente usado no matching, preservado mesmo quando houve match. */
+  _system_source_hint?: string | null;
+  /** Alternativas determinísticas do catálogo para revisão rápida no picker. */
+  _system_candidates?: Array<{
+    system_id: string;
+    name: string;
+    score: number;
+    reasons: string[];
+  }> | null;
   type: TableDraftType | null;
   modality: TableDraftModality | null;
   price_type: TableDraftPriceType | null;
@@ -143,6 +152,21 @@ export interface DiscordTableDraftTable {
     provider: string;
     model: string;
     fields: Record<string, unknown>;
+  } | null;
+  /** Regras humanas ativas já aplicadas deterministicamente ao draft. */
+  _learning_applied?: {
+    provider: string;
+    fields: Record<string, unknown>;
+    applications?: Array<{
+      rule_id: string;
+      field: string;
+      affected_fields: string[];
+      before: unknown;
+      after: unknown;
+      confidence: number;
+      scope_type: string;
+      evidence: { text: string; start: number | null; end: number | null };
+    }>;
   } | null;
   _notes: string[];
 }

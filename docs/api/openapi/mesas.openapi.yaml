@@ -1062,6 +1062,30 @@ paths:
           description: Payload inválido
         "404":
           description: Draft não encontrado
+  /api/v1/admin/discord/drafts/{id}/correction/retry-learning:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: postapi_v1_admin_discord_drafts_id_correction_retry_learning
+      summary: Reprocessa feedback de aprendizado pendente ou falho do draft de Discord
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: provisional
+      x-artificio-auth: admin
+      description: "Reprocessa no outbox as correções cujo aprendizado está pendente ou falhou. Fonte: createCorrectionHandler via discord/corrections.ts."
+      responses:
+        "200":
+          description: Feedbacks reprocessados
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/admin/discord/drafts/{id}/duplicates:
     get:
       operationId: getapi_v1_admin_discord_drafts_id_duplicates
@@ -2268,6 +2292,30 @@ paths:
           description: Payload inválido
         "404":
           description: Draft não encontrado
+  /api/v1/admin/import/drafts/{id}/correction/retry-learning:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: postapi_v1_admin_import_drafts_id_correction_retry_learning
+      summary: Reprocessa feedback de aprendizado pendente ou falho do draft de importação
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: provisional
+      x-artificio-auth: admin
+      description: "Reprocessa no outbox as correções cujo aprendizado está pendente ou falhou. Fonte: createCorrectionHandler via inbox/corrections.ts."
+      responses:
+        "200":
+          description: Feedbacks reprocessados
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/admin/import/drafts/{id}/reparse:
     post:
       operationId: postapi_v1_admin_import_drafts_id_reparse

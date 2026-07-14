@@ -3,10 +3,26 @@ import toast from 'react-hot-toast';
 import { buildDraftFieldInsights, buildForm, buildUpdatedPayload, formatFileSize, isRecord, asString, asRecord, asStringArray, asSlotsAmbiguity, validateForm, getDraftTable, loadScenarios, loadVttPlatforms, loadCommunicationPlatforms, MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES } from './draftFormUtils';
 import { authPost } from '../../services/apiClient';
 import type { DraftFieldKey, DraftForm, SimpleCatalogEntry } from './draftFormUtils';
-import type { AiAutomationConfig, CompletenessAuditCandidate, DiscordDraft, DiscordImportDraftStatus, DiscordSlotsAmbiguity, DraftApiOperations, LlmActivity } from './types';
+import type { AiAutomationConfig, CompletenessAuditCandidate, DiscordDraft, DiscordImportDraftStatus, DiscordSlotsAmbiguity, DiscordSystemCandidate, DraftApiOperations, LlmActivity } from './types';
 import { useSystemsCatalog } from '../../hooks/useSystemsCatalog';
 
 type SlotsInterpretation = 'filled_total' | 'open_total';
+
+function parseSystemCandidates(value: unknown): DiscordSystemCandidate[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((candidate) => {
+    const record = asRecord(candidate);
+    const systemId = asString(record.system_id);
+    const name = asString(record.name);
+    if (!systemId || !name || typeof record.score !== 'number') return [];
+    return [{
+      system_id: systemId,
+      name,
+      score: record.score,
+      reasons: asStringArray(record.reasons),
+    }];
+  });
+}
 
 /** Carrega um catálogo simples (cenários/VTT/comunicação) uma vez ao montar,
  * com loading flag e toast de erro — os 3 catálogos seguem o mesmo padrão,
@@ -86,8 +102,8 @@ async function submitCorrectionDiff(
   basePayload: unknown,
   updatedPayload: unknown,
   complete: boolean,
-): Promise<void> {
-  if (!draftApi.submitCorrection) return;
+): Promise<import('./types').CorrectionFeedbackResult | null> {
+  if (!draftApi.submitCorrection) return null;
   const beforeTable = asRecord(asRecord(basePayload).table);
   const afterTable = asRecord(asRecord(updatedPayload).table);
   const corrections: Record<string, unknown> = {};
@@ -101,13 +117,17 @@ async function submitCorrectionDiff(
       before[key] = beforeTable[key];
     }
   }
-  if (Object.keys(corrections).length === 0) return;
-  await draftApi.submitCorrection(draftId, {
+  const confirmedFields = Object.keys(afterTable)
+    .filter((key) => !key.startsWith('_') && !key.startsWith('raw_'))
+    .filter((key) => JSON.stringify(afterTable[key]) === JSON.stringify(beforeTable[key]))
+    .filter((key) => afterTable[key] !== null && afterTable[key] !== undefined && afterTable[key] !== '')
+    .slice(0, 64);
+  if (Object.keys(corrections).length === 0 && confirmedFields.length === 0) return null;
+  return draftApi.submitCorrection(draftId, {
     corrections,
     before,
+    confirmed_fields: confirmedFields,
     reason: complete ? 'Preenchimento completo de campos pendentes.' : undefined,
-  }).catch(() => {
-    // registro de correção é best-effort — não trava o save
   });
 }
 
@@ -210,6 +230,10 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   const slotsAmbiguity = useMemo<DiscordSlotsAmbiguity | null>(
     () => asSlotsAmbiguity(asRecord(asRecord(payload).table)._slots_ambiguity),
     [payload]
+  );
+  const systemCandidates = useMemo(
+    () => parseSystemCandidates(asRecord(asRecord(payload).table)._system_candidates),
+    [payload],
   );
 
   useEffect(() => {
@@ -373,13 +397,29 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
           : `Campos pendentes: ${nextMissing.join(', ')}`,
       });
 
-      // T-G3: registra correção (antes/depois) se o draft veio de Discord ou Inbox
+      let learningRecorded = false;
+      let learningPending = false;
+      // Onda A: salvar também confirma campos mantidos. Falha de learning não
+      // desfaz o draft já salvo, mas deixa de ser silenciosa e tenta o outbox.
       if (draftApi.submitCorrection) {
-        await submitCorrectionDiff(draftApi, draft.id, basePayload, updatedPayload, nextMissing.length === 0);
+        try {
+          const correction = await submitCorrectionDiff(draftApi, draft.id, basePayload, updatedPayload, nextMissing.length === 0);
+          let learning = correction?.learning ?? null;
+          if (learning?.status === 'failed' && draftApi.retryLearningFeedback) {
+            const retried = await draftApi.retryLearningFeedback(draft.id);
+            learning = retried.results.find((item) => item.correction_id === learning?.correction_id) ?? learning;
+          }
+          learningRecorded = learning?.status === 'completed';
+          learningPending = Boolean(learning && learning.status !== 'completed');
+        } catch {
+          learningPending = true;
+        }
       }
 
       dispatch({ type: 'MARK_PERSISTED' });
       toast.success(nextMissing.length === 0 ? 'Draft pronto para sincronizar.' : 'Draft salvo para revisão.');
+      if (learningRecorded) toast.success('Curadoria registrada no aprendizado.');
+      if (learningPending) toast.error('Draft salvo, mas aprendizado ficou pendente. Tente salvar novamente.');
       applyUpdate(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar campos do draft.');
@@ -553,7 +593,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   return {
     form: state.form, updateForm,
     dirty: state.dirty,
-    systems, systemsLoading, systemsError, refreshSystems,
+    systems, systemsLoading, systemsError, refreshSystems, systemCandidates,
     scenarios, scenariosLoading,
     vttPlatforms, vttPlatformsLoading,
     communicationPlatforms, communicationPlatformsLoading,

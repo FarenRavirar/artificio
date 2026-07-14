@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent } from 'react';
 import type { DraftFieldInsight, DraftFieldKey, DraftForm, DraftTableType, DraftModality, DraftPriceType, DraftFrequency, DraftDayOfWeek, DraftAgeRating, DraftExperienceLevel, DraftTableLevel, SimpleCatalogEntry } from '../draftFormUtils';
 import { mapAuditCandidateToForm, VALID_AGE_RATINGS } from '../draftFormUtils';
-import type { AiAutomationConfig, CompletenessAuditCandidate, DiscordSlotsAmbiguity, LlmActivity } from '../types';
+import type { AiAutomationConfig, CompletenessAuditCandidate, DiscordSlotsAmbiguity, DiscordSystemCandidate, LlmActivity } from '../types';
 import type { SystemTreeNode } from '../../../types/systems';
 import { CatalogSearchSelect } from './CatalogSearchSelect';
 import { SystemSuggestionModal } from '../../../components/SystemSuggestionModal';
@@ -17,6 +17,7 @@ interface DraftEditorTabProps {
   systems: SystemTreeNode[];
   systemsLoading: boolean;
   systemsError?: string | null;
+  systemCandidates?: DiscordSystemCandidate[];
   /** Pendência 2 (spec 058): catálogos de cenário/VTT/comunicação pro combobox com busca. */
   scenarios: SimpleCatalogEntry[];
   scenariosLoading: boolean;
@@ -131,7 +132,7 @@ function FieldInsightNote({
 }
 
 export function DraftEditorTab({
-  form, authorName, missingFields, systems, systemsLoading, systemsError, contentRaw, contentRawLoading,
+  form, authorName, missingFields, systems, systemsLoading, systemsError, systemCandidates, contentRaw, contentRawLoading,
   scenarios, scenariosLoading, vttPlatforms, vttPlatformsLoading,
   communicationPlatforms, communicationPlatformsLoading,
   coverPreviewUrl, coverError, coverUploading, coverInputRef,
@@ -291,12 +292,17 @@ export function DraftEditorTab({
         </div>
       )}
 
+      <label className="block">
+        <span className="text-sm font-medium text-white/70">Título</span>
+        <input
+          value={form.title}
+          onChange={(e) => onUpdateForm('title', e.target.value)}
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 outline-none focus:border-[var(--color-artificio-orange)]/60 focus:ring-1 focus:ring-[var(--color-artificio-orange)]/30 transition-all mt-1"
+        />
+        <FieldInsightNote field="title" insight={fieldInsights?.title} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('title') ?? false} />
+      </label>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <label>
-          <span className={labelClass}>Título</span>
-          <input value={form.title} onChange={(e) => onUpdateForm('title', e.target.value)} className={inputClass} />
-          <FieldInsightNote field="title" insight={fieldInsights?.title} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('title') ?? false} />
-        </label>
         <label className="md:col-span-2">
           <div className="flex items-center justify-between gap-2">
             <span className={labelClass}>Sistema</span>
@@ -355,6 +361,24 @@ export function DraftEditorTab({
               onCreateNow={openSystemSuggestionModal}
               onAddChildAtLevel={openSystemSuggestionModalAtLevel}
             />
+          )}
+          {Boolean(systemCandidates?.length) && (
+            <div className="mt-2 flex flex-wrap items-center gap-2" aria-label="Possibilidades de sistema">
+              <span className="text-xs text-white/50">
+                {form.system_id ? 'Outras possibilidades:' : 'Possibilidades do catálogo:'}
+              </span>
+              {systemCandidates?.map((candidate) => (
+                <button
+                  key={candidate.system_id}
+                  type="button"
+                  className="rounded-full border border-orange-400/30 bg-orange-500/10 px-2.5 py-1 text-xs text-orange-100 hover:bg-orange-500/20"
+                  title={`${candidate.reasons.join(' · ')} · score ${candidate.score}`}
+                  onClick={() => onSystemChange(candidate.system_id, candidate.name)}
+                >
+                  {candidate.name}
+                </button>
+              ))}
+            </div>
           )}
           <FieldInsightNote field="system_name" insight={fieldInsights?.system_name} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('system_name') ?? false} />
         </label>

@@ -10,21 +10,22 @@ import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/
 import { assistDiscordParseWithContextPack } from '../../discord/llmAssist';
 import { getAiAutomationConfig, isAiAssistEnabled } from '../../discord/aiAutomationConfig';
 import { attachAiSuggestions, buildAiSuggestionFields } from '../../discord/aiSuggestions';
-import { LEARNABLE_FIELDS, lookupFieldLearning, recordFieldLearning } from '../../discord/fieldLearning';
 import {
   lookupLearningRules,
   recordLearningRuleApplications,
-  recordLearningRulesFromCorrections,
-  recordLabelAliasFromCorrection,
   loadActiveLabelAliases,
 } from '../../discord/learningRules';
+import {
+  processLearningFeedbackCorrection,
+  retryLearningFeedbackForDraft,
+  type LearningFeedbackResult,
+} from '../../discord/learningFeedbackOutbox';
 import {
   buildParseCaseContract,
   extractDraftScope,
   parseActionFromNormalizedStatus,
   recordParseCase,
   recordParseFeedback,
-  recordParseFeedbackForCorrections,
 } from '../../discord/parseLearning';
 import { loadRetrievalContextForCurrent } from '../../discord/parseRetrieval';
 import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
@@ -76,6 +77,7 @@ interface CorrectionInput {
   corrections: Record<string, unknown>;
   reason?: string;
   before?: Record<string, unknown>;
+  confirmedFields?: string[];
   userId?: string;
 }
 
@@ -83,6 +85,32 @@ interface CorrectionResult {
   draft_id: string;
   fields_corrected: number;
   diff: Record<string, { before: unknown; after: unknown }>;
+  learning: LearningFeedbackResult;
+}
+
+function pruneRejectedLearningMetadata(
+  table: Record<string, unknown>,
+  correctedFields: ReadonlySet<string>,
+): Record<string, unknown> {
+  const learning = table._learning_applied;
+  if (!learning || typeof learning !== 'object' || Array.isArray(learning)) return table;
+  const record = learning as Record<string, unknown>;
+  const applications = Array.isArray(record.applications) ? record.applications : [];
+  const retained = applications.filter((raw) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+    const affected = Array.isArray((raw as Record<string, unknown>).affected_fields)
+      ? (raw as Record<string, unknown>).affected_fields as unknown[]
+      : [];
+    return !affected.some((field) => typeof field === 'string' && correctedFields.has(field));
+  });
+  const fields = record.fields && typeof record.fields === 'object' && !Array.isArray(record.fields)
+    ? Object.fromEntries(Object.entries(record.fields as Record<string, unknown>)
+      .filter(([field]) => !correctedFields.has(field)))
+    : {};
+  if (retained.length === 0 && Object.keys(fields).length === 0) {
+    return { ...table, _learning_applied: null };
+  }
+  return { ...table, _learning_applied: { ...record, fields, applications: retained } };
 }
 
 // Achado do mantenedor (2026-07-08): 3 drafts em prod com table.description/
@@ -126,7 +154,7 @@ function findDiffShapedPath(value: unknown, depth = 0): boolean {
 }
 
 export async function registerDraftCorrection(input: CorrectionInput): Promise<CorrectionResult> {
-  const { draftId, corrections, reason, before } = input;
+  const { draftId, corrections, reason, before, confirmedFields = [] } = input;
 
   const poisoned = Object.entries(corrections).filter(([, value]) => findDiffShapedPath(value));
   if (poisoned.length > 0) {
@@ -171,8 +199,6 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
     parsedTable && typeof parsedTable === 'object' && !Array.isArray(parsedTable)
       ? (parsedTable as Record<string, unknown>)
       : {};
-  const humanCorrected = { ...parsedBefore, table: { ...tableBefore, ...corrections } };
-
   const diff: Record<string, { before: unknown; after: unknown }> = {};
   for (const key of Object.keys(corrections)) {
     const beforeVal = before?.[key] ?? tableBefore[key];
@@ -181,11 +207,16 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
       diff[key] = { before: beforeVal, after };
     }
   }
+  const correctedTable = pruneRejectedLearningMetadata(
+    { ...tableBefore, ...corrections },
+    new Set(Object.keys(diff)),
+  );
+  const humanCorrected = { ...parsedBefore, table: correctedTable };
 
   const userId = input.userId ?? null;
 
-  await db.transaction().execute(async (trx) => {
-    await trx
+  const correction = await db.transaction().execute(async (trx) => {
+    const created = await trx
       .insertInto('import_corrections')
       .values({
         draft_id: draftId,
@@ -196,8 +227,10 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
         diff,
         reason: reason ?? null,
         corrected_by: userId,
+        confirmed_fields: confirmedFields,
       })
-      .execute();
+      .returning('id')
+      .executeTakeFirstOrThrow();
 
     // CodeRabbit (TOCTOU): status foi checado fora da tx; condiciona o UPDATE a
     // estado não-terminal e verifica linhas afetadas. 0 linhas → draft virou
@@ -215,36 +248,10 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
     if (updateResult.numUpdatedRows === 0n) {
       throw Object.assign(new Error('Draft mudou de estado durante a correção.'), { statusCode: 409 });
     }
+    return created;
   });
-
-  // D087 — alimenta o learning-store DEPOIS do commit, NUNCA dentro da tx da
-  // correção: um erro SQL aqui abortaria a transação do Postgres (COMMIT vira
-  // ROLLBACK) e a correção humana seria perdida. Best-effort, conn própria (db).
-  const source = parsedBefore.source as Record<string, unknown> | undefined;
-  const guildId = typeof source?.guild_id === 'string' ? source.guild_id : null;
-  const learningEntries = Object.entries(diff).map(([field, { before, after }]) => ({
-    field,
-    inputValue: before,
-    outputValue: after,
-  }));
-  // Achado CodeRabbit (PR #144): as 4 chamadas são independentes (tabelas ou
-  // rule_type diferentes, cada uma best-effort com erro tratado internamente,
-  // sem risco de conflito de onConflict entre si) — Promise.all reduz latência
-  // do endpoint de correção em vez de esperar sequencialmente.
-  await Promise.all([
-    recordFieldLearning(learningEntries, guildId, userId),
-    recordLearningRulesFromCorrections(learningEntries, source ?? null, userId),
-    recordLabelAliasFromCorrection(learningEntries, rawText, source ?? null, userId),
-    recordParseFeedbackForCorrections({
-      draftId,
-      diff,
-      reason: reason ?? null,
-      adminUserId: userId,
-      scope: source ?? {},
-    }),
-  ]);
-
-  return { draft_id: draftId, fields_corrected: Object.keys(diff).length, diff };
+  const learning = await processLearningFeedbackCorrection(correction.id);
+  return { draft_id: draftId, fields_corrected: Object.keys(diff).length, diff, learning };
 }
 
 // REV-016 onda 3: factory DRY — POST /:id/correction (inbox + discord)
@@ -268,6 +275,7 @@ export function createCorrectionHandler(routeLabel: string): Router {
         corrections: parsed.data.corrections,
         reason: parsed.data.reason,
         before: parsed.data.before,
+        confirmedFields: parsed.data.confirmed_fields,
         userId: req.user?.userId ?? undefined,
       });
 
@@ -279,6 +287,16 @@ export function createCorrectionHandler(routeLabel: string): Router {
       }
       console.error(`[POST ${routeLabel}]`, error);
       return res.status(500).json({ error: 'Erro ao registrar correção.' });
+    }
+  });
+
+  router.post('/:id/correction/retry-learning', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const results = await retryLearningFeedbackForDraft(req.params.id);
+      return res.json({ data: { results } });
+    } catch (error: unknown) {
+      console.error(`[POST ${routeLabel}/retry-learning]`, error);
+      return res.status(500).json({ error: 'Erro ao reprocessar feedback de aprendizado.' });
     }
   });
 
@@ -570,6 +588,7 @@ async function enrichDraftWithLlm(
   message: Selectable<DiscordImportMessagesTable>,
   parsed: NonNullable<ReturnType<typeof parseDiscordAnnouncement>>,
   normalized: ReturnType<typeof normalizeDiscordTableDraft>,
+  systems: SystemEntry[],
 ): Promise<ReturnType<typeof normalizeDiscordTableDraft>> {
   const aiConfig = getAiAutomationConfig();
   if (!normalized.draft.table) return normalized;
@@ -578,28 +597,70 @@ async function enrichDraftWithLlm(
 
   // D087 — camada learning-store (token-zero) ANTES da IA. Correções humanas
   // passadas resolvem valores errados/repetidos sem chamar o provider.
-  const lookupQueries = LEARNABLE_FIELDS
-    .filter((f) => table[f] !== null && table[f] !== undefined && table[f] !== '')
-    .map((f) => ({ field: f as string, value: table[f] }));
-  const guildId = normalized.draft.source?.guild_id ?? null;
+  const sourceSystemHint = table._system_source_hint ?? table.raw_system_hint;
+  const lookupQueries = sourceSystemHint
+    ? [{ field: 'system_entity', value: sourceSystemHint }]
+    : [];
   const learningScope = {
     guild_id: normalized.draft.source?.guild_id ?? null,
     channel_id: normalized.draft.source?.channel_id ?? null,
     author_id: normalized.draft.source?.author_id ?? null,
   };
   const ruleLookup = await lookupLearningRules(lookupQueries, learningScope);
-  const storeHits = await lookupFieldLearning(lookupQueries, guildId);
   const storeFields: Record<string, unknown> = {};
+  const learningApplications: NonNullable<ImportTableDraft['table']['_learning_applied']>['applications'] = [];
   for (const hit of ruleLookup.hits) {
-    if (JSON.stringify(table[hit.field]) !== JSON.stringify(hit.value)) {
-      storeFields[hit.field] = hit.value;
-    }
+    if (hit.field !== 'system_entity' || !hit.value || typeof hit.value !== 'object' || Array.isArray(hit.value)) continue;
+    const entity = hit.value as Record<string, unknown>;
+    if (typeof entity.system_id !== 'string' || typeof entity.system_name !== 'string') continue;
+    if (table.system_id !== entity.system_id) storeFields.system_id = entity.system_id;
+    if (table.system_name !== entity.system_name) storeFields.system_name = entity.system_name;
+    storeFields.raw_system_hint = null;
+    const rawText = String(message.content_raw ?? '');
+    const evidenceText = String(sourceSystemHint ?? hit.inputToken);
+    const evidenceStart = rawText.indexOf(evidenceText);
+    learningApplications.push({
+      rule_id: hit.ruleId,
+      field: hit.field,
+      affected_fields: ['system_id', 'system_name'],
+      before: { system_id: table.system_id ?? null, system_name: table.system_name ?? null },
+      after: hit.value,
+      confidence: hit.confidence,
+      scope_type: hit.scopeType,
+      evidence: {
+        text: evidenceText,
+        start: evidenceStart >= 0 ? evidenceStart : null,
+        end: evidenceStart >= 0 ? evidenceStart + evidenceText.length : null,
+      },
+    });
   }
-  for (const hit of storeHits) {
-    if (JSON.stringify(table[hit.field]) !== JSON.stringify(hit.value)) {
-      storeFields[hit.field] = hit.value;
-    }
-  }
+
+  const usedRules = ruleLookup.hits.length > 0;
+  const learningProvider = usedRules ? 'learning-rules' : 'learning-store';
+  const learnedNormalized = Object.keys(storeFields).length > 0
+    ? normalizeDiscordTableDraft({
+      ...normalized.draft,
+      table: {
+        ...normalized.draft.table,
+        ...storeFields,
+        _learning_applied: {
+          provider: learningProvider,
+          fields: storeFields,
+          applications: learningApplications,
+        },
+        _notes: [
+          ...(normalized.draft.table._notes ?? []),
+          `Aprendizado humano aplicado automaticamente (${learningProvider}): ${Object.keys(storeFields).join(', ')}.`,
+        ],
+      },
+      // Remove apenas o marcador antigo do campo que recebeu valor; o
+      // normalizador canônico recoloca a falta se o valor continuar inválido.
+      missing_fields: normalized.draft.missing_fields.filter(
+        (missing) => !(missing.split(':')[0] in storeFields),
+      ),
+    }, systems)
+    : normalized;
+  const learnedTable = learnedNormalized.draft.table as unknown as Record<string, unknown>;
 
   // Se o store já resolveu todos os campos faltantes, não gasta token de IA.
   // missing_fields pode ter marcador `campo:motivo` (ex.: system_name:unmatched_hint);
@@ -610,16 +671,16 @@ async function enrichDraftWithLlm(
   const rawText = typeof message.content_raw === 'string' ? message.content_raw : '';
   let iaFields: Record<string, unknown> = {};
   let iaModel = 'n/a';
-  const targetFields = getLlmTargetFields(normalized.draft.missing_fields, table, storeFields);
+  const targetFields = getLlmTargetFields(learnedNormalized.draft.missing_fields, learnedTable, storeFields);
   if (isAiAssistEnabled(aiConfig) && !storeResolvedAllMissing && rawText.length > 50 && targetFields.length > 0) {
     const existingFields = Object.fromEntries(
-      Object.entries(table).filter(([, value]) => value !== null && value !== undefined && value !== ''),
+      Object.entries(learnedTable).filter(([, value]) => value !== null && value !== undefined && value !== ''),
     );
 
     const draftForContext = {
-      ...normalized.draft,
+      ...learnedNormalized.draft,
       table: {
-        ...normalized.draft.table,
+        ...learnedNormalized.draft.table,
         ...existingFields,
       },
     };
@@ -634,22 +695,11 @@ async function enrichDraftWithLlm(
       targetFields,
     });
     if (llmResult) {
-      iaFields = buildAiSuggestionFields(llmResult.extracted, normalized.draft.table);
+      iaFields = buildAiSuggestionFields(llmResult.extracted, learnedNormalized.draft.table);
       iaModel = llmResult.model;
     }
   }
 
-  // Store tem precedência (correção humana > palpite da IA).
-  const merged = { ...iaFields, ...storeFields };
-  if (Object.keys(merged).length === 0) return normalized;
-
-  const usedIa = Object.keys(iaFields).length > 0;
-  const usedStore = Object.keys(storeFields).length > 0;
-  const usedRules = ruleLookup.hits.length > 0;
-  const learningProvider = usedRules ? 'learning-rules' : 'learning-store';
-  let provider = learningProvider;
-  if (usedIa) provider = usedStore ? `${learningProvider}+${aiConfig.provider}` : aiConfig.provider;
-  const model = usedIa ? iaModel : 'n/a';
   if (ruleLookup.hits.length > 0) {
     void recordLearningRuleApplications({
       hits: ruleLookup.hits,
@@ -659,9 +709,13 @@ async function enrichDraftWithLlm(
     });
   }
 
+  // DeepSeek continua separado e pendente de confirmação humana. Learning
+  // ativo já foi aplicado acima; não reaparece como botão "Aplicar sugestão".
+  if (Object.keys(iaFields).length === 0) return learnedNormalized;
+
   return {
-    ...normalized,
-    draft: attachAiSuggestions(normalized.draft, merged, provider, model),
+    ...learnedNormalized,
+    draft: attachAiSuggestions(learnedNormalized.draft, iaFields, aiConfig.provider, iaModel),
   };
 }
 
@@ -877,7 +931,7 @@ export async function processDiscordMessageToDraft(
 
   // WS3: enriquecimento LLM (best-effort) antes do upsert, p/ o draft salvo já
   // conter o melhor resultado disponível. Extraído p/ helper (REV-039).
-  const normalizedResult = await enrichDraftWithLlm(message, parsed, result.normalized);
+  const normalizedResult = await enrichDraftWithLlm(message, parsed, result.normalized, result.systems);
 
   const draftId = await upsertDraftWithShadow(existing?.id, message.id, parsed, normalizedResult);
   await recordParseCase({

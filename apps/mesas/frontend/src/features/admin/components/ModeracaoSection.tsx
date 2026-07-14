@@ -93,8 +93,9 @@ export function ModeracaoSection() {
       id,
       body.corrections as Record<string, unknown>,
       body.reason,
-      { before: body.before as Record<string, unknown> | undefined },
+      { before: body.before as Record<string, unknown> | undefined, confirmed_fields: body.confirmed_fields },
     ),
+    retryLearningFeedback: (id) => inboxApi.retryLearningFeedback(id),
   }), []);
 
   const selectSubTab = (tab: ModSubTab) => {

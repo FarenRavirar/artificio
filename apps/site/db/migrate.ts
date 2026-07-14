@@ -4,6 +4,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDb } from "./connection";
+import { assertMigrationAllowed, readMigrationPolicy } from "./migrationPolicy";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIG_DIR = resolve(here, "migrations");
@@ -27,6 +28,8 @@ try {
     const version = file.replace(/\.sql$/, "");
     if (applied.has(version)) continue;
     const sql = readFileSync(join(MIG_DIR, file), "utf8");
+    const policy = readMigrationPolicy(sql, file);
+    assertMigrationAllowed(file, policy);
     await db.exec("BEGIN");
     try {
       await db.exec(sql);

@@ -1,0 +1,46 @@
+-- @class: manual-risk
+-- @requires-backup: true
+-- @author: spec-077
+-- @created: 2026-07-14
+-- @description: Remapeia UUID central duplicado D&D/2024 para D&D/5e/2024.
+-- IMPORTANTE: aplicar antes de apps/site migration 009.
+-- BLOQUEANTE: só executar após backup completo, verificado e copiado off-VM.
+
+DO $$
+DECLARE
+  old_id constant text := 'ac74d486-e3d3-4635-b7a0-7847f04050f5';
+  new_id constant text := 'c3d31503-b4af-4663-af10-c1ef062102c3';
+BEGIN
+  UPDATE tables SET system_id = new_id::uuid WHERE system_id = old_id::uuid;
+
+  UPDATE discord_import_table_drafts
+  SET parsed_payload = jsonb_set(parsed_payload::jsonb, '{table,system_id}', to_jsonb(new_id), false)
+  WHERE parsed_payload::jsonb #>> '{table,system_id}' = old_id;
+
+  UPDATE discord_import_table_drafts
+  SET normalized_payload = jsonb_set(normalized_payload::jsonb, '{table,system_id}', to_jsonb(new_id), false)
+  WHERE normalized_payload IS NOT NULL
+    AND normalized_payload::jsonb #>> '{table,system_id}' = old_id;
+
+  UPDATE discord_field_learning
+  SET output_value = jsonb_set(output_value, '{system_id}', to_jsonb(new_id), false),
+      updated_at = now()
+  WHERE field = 'system_entity' AND output_value->>'system_id' = old_id;
+
+  UPDATE discord_learning_rules
+  SET output_value = jsonb_set(output_value, '{system_id}', to_jsonb(new_id), false),
+      updated_at = now()
+  WHERE field = 'system_entity' AND output_value->>'system_id' = old_id;
+
+  IF EXISTS (SELECT 1 FROM tables WHERE system_id = old_id::uuid)
+     OR EXISTS (
+       SELECT 1 FROM discord_import_table_drafts
+       WHERE parsed_payload::jsonb #>> '{table,system_id}' = old_id
+          OR normalized_payload::jsonb #>> '{table,system_id}' = old_id
+     )
+     OR EXISTS (SELECT 1 FROM discord_field_learning WHERE output_value->>'system_id' = old_id)
+     OR EXISTS (SELECT 1 FROM discord_learning_rules WHERE output_value->>'system_id' = old_id) THEN
+    RAISE EXCEPTION 'dnd_2024_reference_remap_incomplete';
+  END IF;
+END;
+$$;

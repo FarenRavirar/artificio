@@ -47,6 +47,7 @@ export type CandidateReason =
   | 'base_plus_edition'
   | 'base_plus_qualifier'
   | 'existing_child_match'
+  | 'hierarchy_parent'
   | 'fuzzy_similar';
 
 export interface SystemCandidate {
@@ -72,7 +73,7 @@ export interface CandidateResult {
     base: string;
     edition_tokens: string[];
     suggested_child_name: string | null;
-    suggested_child_type: 'edition' | 'variant' | 'subsystem';
+    suggested_child_type: 'edition' | 'variant';
     has_edition_context: boolean;
     has_qualifier_context: boolean;
   };
@@ -102,11 +103,18 @@ function stripAccents(value: string): string {
 function isEditionToken(token: string): boolean {
   return (
     /^(?:19|20)\d{2}$/.test(token) || // ano: 2024
-    /^\d{1,2}e$/.test(token) || // edicao em ingles: 5e, 2e
+    /^\d{1,2}(?:e|ed)$/.test(token) || // edicao: 5e, 5ed, 2e
     /^\d{1,2}a$/.test(token) || // ordinal PT apos remover acento: 5a (de 5ª)
-    /^\d+\.\d+$/.test(token) || // versao pontuada: 1.3
+    /^\d+\.\d+e?$/.test(token) || // versao pontuada: 1.3, 5.5e
     /^v\d+(?:\.\d+)?$/.test(token) // v2, v2.1
   );
+}
+
+function canonicalizeEditionToken(token: string): string {
+  if (/^\d{1,2}a$/.test(token)) return `${token.slice(0, -1)}e`;
+  if (/^\d{1,2}ed$/.test(token)) return `${token.slice(0, -2)}e`;
+  if (/^\d+\.\d+e$/.test(token)) return token.slice(0, -1);
+  return token;
 }
 
 function buildMatchKeys(tokens: string[]): string[] {
@@ -170,7 +178,7 @@ export function normalizeSystemName(raw: unknown): NormalizedSystemName {
 
   for (const token of tokens) {
     if (isEditionToken(token)) {
-      editionTokens.push(token);
+      editionTokens.push(canonicalizeEditionToken(token));
     } else if (EDITION_WORDS.has(token)) {
       // palavra de edicao: descartada da base, nao vira token util
     } else {
@@ -239,19 +247,46 @@ interface ScoredMatch {
   reasons: CandidateReason[];
 }
 
+function aliasBelongsToCanonicalSystem(
+  alias: NormalizedSystemName,
+  canonical: NormalizedSystemName,
+): boolean {
+  if (sharesMatchKey(alias, canonical)) return true;
+  const acronym = canonical.baseTokens
+    .map((token) => (token === 'and' ? 'n' : token[0] ?? ''))
+    .join('');
+  return acronym.length > 1 && alias.matchKeys.includes(acronym);
+}
+
+type NormalizedAliasCandidate = {
+  value: NormalizedSystemName;
+  uniqueOwner: boolean;
+};
+
 function scoreOne(
   suggestion: NormalizedSystemName,
   system: CandidateSystemInput,
-  aliasesNormalized: NormalizedSystemName[],
+  aliasesNormalized: NormalizedAliasCandidate[],
 ): ScoredMatch | null {
-  const fields: Array<{ value: NormalizedSystemName; reason: CandidateReason; weight: number }> = [];
+  const fields: Array<{
+    value: NormalizedSystemName;
+    reason: CandidateReason;
+    weight: number;
+    trustedForExtension: boolean;
+  }> = [];
 
-  fields.push({ value: normalizeSystemName(system.name), reason: 'name_exact', weight: 1.0 });
+  const canonicalSystem = normalizeSystemName(system.name);
+  fields.push({ value: canonicalSystem, reason: 'name_exact', weight: 1.0, trustedForExtension: true });
   if (system.name_pt) {
-    fields.push({ value: normalizeSystemName(system.name_pt), reason: 'name_pt_exact', weight: 1.0 });
+    fields.push({ value: normalizeSystemName(system.name_pt), reason: 'name_pt_exact', weight: 1.0, trustedForExtension: true });
   }
   for (const alias of aliasesNormalized) {
-    fields.push({ value: alias, reason: 'alias_exact', weight: 0.98 });
+    fields.push({
+      value: alias.value,
+      reason: 'alias_exact',
+      weight: 0.98,
+      trustedForExtension: alias.uniqueOwner || aliasBelongsToCanonicalSystem(alias.value, canonicalSystem),
+    });
   }
 
   let best: ScoredMatch | null = null;
@@ -265,10 +300,25 @@ function scoreOne(
       consider({ score: field.weight, reasons: [field.reason] });
       continue;
     }
+    if (!field.trustedForExtension) continue;
     // 2. Mesma base.
     if (suggestion.base && sharesMatchKey(suggestion, field.value)) {
+      const exactBase = suggestion.base === field.value.base;
       if (suggestion.editionTokens.length > 0) {
-        consider({ score: 0.85, reasons: ['base_plus_edition'] });
+        const fieldEditions = new Set(field.value.editionTokens);
+        const exactEdition = fieldEditions.size > 0
+          && field.value.editionTokens.length === suggestion.editionTokens.length
+          && suggestion.editionTokens.every((token) => fieldEditions.has(token));
+        const compatibleEdition = fieldEditions.size > 0
+          && field.value.editionTokens.every((token) => suggestion.editionTokens.includes(token));
+        if (fieldEditions.size > 0 && !compatibleEdition) continue;
+        const canonicalField = field.reason !== 'alias_exact';
+        const score = exactEdition && canonicalField ? 0.99
+          : compatibleEdition && canonicalField ? 0.95
+            : exactBase && field.reason === 'alias_exact' ? 0.92
+              : exactBase ? 0.9
+                : 0.85;
+        consider({ score, reasons: ['base_plus_edition'] });
       } else {
         consider({ score: 0.9, reasons: ['base_match'] });
       }
@@ -299,7 +349,10 @@ function titleCaseToken(token: string): string {
 
 function inferChildName(suggestion: NormalizedSystemName, best: SystemCandidate | undefined, systems: CandidateSystemInput[]): string | null {
   if (suggestion.editionTokens.length > 0) {
-    return suggestion.editionTokens.join(' ');
+    const bestSystem = best ? systems.find((item) => item.id === best.system_id) : undefined;
+    const consumed = new Set(bestSystem ? editionTokensForSystem(bestSystem) : []);
+    const remaining = suggestion.editionTokens.filter((token) => !consumed.has(token));
+    return (remaining.length > 0 ? remaining : suggestion.editionTokens).join(' ');
   }
   if (!best || !best.reasons.includes('base_plus_qualifier')) return null;
   const system = systems.find((item) => item.id === best.system_id);
@@ -315,36 +368,75 @@ function inferChildName(suggestion: NormalizedSystemName, best: SystemCandidate 
   return null;
 }
 
-function sameSuggestedChild(system: CandidateSystemInput, suggestedChildName: string): boolean {
-  const wanted = normalizeSystemName(suggestedChildName);
-  const systemName = normalizeSystemName(system.name);
-  if (wanted.normalized && wanted.normalized === systemName.normalized) return true;
-  if (wanted.slug && system.slug === wanted.slug) return true;
-  if (wanted.slug && system.path_slug?.endsWith(`/${wanted.slug}`)) return true;
-  return false;
+function editionTokensForSystem(system: CandidateSystemInput): string[] {
+  const representations = [system.name, system.name_pt, system.slug, system.path_slug?.split('/').at(-1)]
+    .filter((value): value is string => Boolean(value));
+  return [...new Set(representations.flatMap((value) => normalizeSystemName(
+    value.replace(/\b(\d{1,2})-(\d{1,2}e?)\b/gi, '$1.$2'),
+  ).editionTokens))];
 }
 
-function findExistingChildMatch(
+function childTextMatchScore(system: CandidateSystemInput, suggestion: NormalizedSystemName): number {
+  const representations = [system.name, system.name_pt]
+    .filter((value): value is string => Boolean(value));
+  let score = 0;
+  for (const representation of representations) {
+    const child = normalizeSystemName(representation);
+    if (child.baseTokens.length === 0) continue;
+    const index = suggestion.baseTokens.findIndex((token, start) => (
+      child.baseTokens.every((childToken, offset) => suggestion.baseTokens[start + offset] === childToken)
+    ));
+    if (index >= 0) score = Math.max(score, 80 + child.baseTokens.length * 2 - index);
+  }
+  return score;
+}
+
+function findHierarchicalDescendantMatch(
   parentCandidate: SystemCandidate | undefined,
-  suggestedChildName: string | null,
+  suggestion: NormalizedSystemName,
   systems: CandidateSystemInput[],
-): SystemCandidate | null {
-  if (!parentCandidate || !suggestedChildName) return null;
-  const candidateSystem = systems.find((system) => system.id === parentCandidate.system_id);
-  const parentSystemId = candidateSystem?.parent_id ?? parentCandidate.system_id;
-  const child = systems.find((system) => (
-    system.parent_id === parentSystemId
-    && sameSuggestedChild(system, suggestedChildName)
-  ));
-  if (!child) return null;
+): { candidate: SystemCandidate; complete: boolean } | null {
+  if (!parentCandidate) return null;
+  let current = systems.find((system) => system.id === parentCandidate.system_id);
+  if (!current) return null;
+  const consumed = new Set(editionTokensForSystem(current));
+  let matchedDescendant: CandidateSystemInput | null = null;
+  let matchedTextualChild = false;
+  const visited = new Set<string>();
+  while (!visited.has(current.id)) {
+    visited.add(current.id);
+    const remaining = suggestion.editionTokens.filter((token) => !consumed.has(token));
+    const rankedChildren = systems
+      .filter((system) => system.parent_id === current?.id)
+      .map((system) => {
+        const editions = editionTokensForSystem(system);
+        const editionScore = remaining[0] && editions.includes(remaining[0]) ? 100 : 0;
+        const textScore = childTextMatchScore(system, suggestion);
+        return { system, score: Math.max(editionScore, textScore), textScore };
+      })
+      .filter((candidate) => candidate.score > 0)
+      .sort((left, right) => right.score - left.score || left.system.name.localeCompare(right.system.name));
+    if (!rankedChildren[0] || (rankedChildren[1] && rankedChildren[1].score === rankedChildren[0].score)) break;
+    const child = rankedChildren[0].system;
+    matchedTextualChild ||= rankedChildren[0].textScore > 0;
+    matchedDescendant = child;
+    for (const token of editionTokensForSystem(child)) consumed.add(token);
+    current = child;
+  }
+  if (!matchedDescendant) return null;
+  const complete = suggestion.editionTokens.every((token) => consumed.has(token))
+    && (suggestion.editionTokens.length > 0 || matchedTextualChild);
   return {
-    system_id: child.id,
-    name: child.name,
-    path_slug: child.path_slug,
-    node_type: child.node_type,
-    parent_id: child.parent_id,
-    score: 0.99,
-    reasons: ['existing_child_match'],
+    complete,
+    candidate: {
+      system_id: matchedDescendant.id,
+      name: matchedDescendant.name,
+      path_slug: matchedDescendant.path_slug,
+      node_type: matchedDescendant.node_type,
+      parent_id: matchedDescendant.parent_id,
+      score: complete ? 0.99 : 0.96,
+      reasons: [complete ? 'existing_child_match' : 'hierarchy_parent'],
+    },
   };
 }
 
@@ -371,10 +463,21 @@ export function scoreSystemCandidates(
 ): CandidateResult {
   const suggestion = normalizeSystemName(suggestionName);
 
-  const aliasesBySystem = new Map<string, NormalizedSystemName[]>();
-  for (const alias of aliases) {
+  const normalizedAliases = aliases.map((alias) => ({ ...alias, value: normalizeSystemName(alias.alias) }));
+  const aliasOwners = new Map<string, Set<string>>();
+  for (const alias of normalizedAliases) {
+    if (!alias.value.normalized) continue;
+    const owners = aliasOwners.get(alias.value.normalized) ?? new Set<string>();
+    owners.add(alias.system_id);
+    aliasOwners.set(alias.value.normalized, owners);
+  }
+  const aliasesBySystem = new Map<string, NormalizedAliasCandidate[]>();
+  for (const alias of normalizedAliases) {
     const list = aliasesBySystem.get(alias.system_id) ?? [];
-    list.push(normalizeSystemName(alias.alias));
+    list.push({
+      value: alias.value,
+      uniqueOwner: (aliasOwners.get(alias.value.normalized)?.size ?? 0) === 1,
+    });
     aliasesBySystem.set(alias.system_id, list);
   }
 
@@ -398,20 +501,23 @@ export function scoreSystemCandidates(
   const candidates = scored.slice(0, Math.max(0, limit));
 
   const best = candidates[0];
+  const hierarchyMatch = findHierarchicalDescendantMatch(best, suggestion, systems);
+  const effectiveParent = hierarchyMatch && !hierarchyMatch.complete ? hierarchyMatch.candidate : best;
   const analysis = emptyAnalysis(suggestion);
   analysis.has_qualifier_context = Boolean(best?.reasons.includes('base_plus_qualifier'));
-  analysis.suggested_child_name = inferChildName(suggestion, best, systems) ?? analysis.suggested_child_name;
-  analysis.suggested_child_type = analysis.has_edition_context ? 'edition' : 'subsystem';
-  const existingChild = findExistingChildMatch(best, analysis.suggested_child_name, systems);
-  const finalCandidates = existingChild
+  analysis.suggested_child_name = inferChildName(suggestion, effectiveParent, systems) ?? analysis.suggested_child_name;
+  const bestSystem = effectiveParent ? systems.find((system) => system.id === effectiveParent.system_id) : undefined;
+  analysis.suggested_child_type = bestSystem?.node_type === 'edition' ? 'variant' : 'edition';
+  const hierarchyCandidate = hierarchyMatch?.candidate ?? null;
+  const finalCandidates = hierarchyCandidate
     ? [
-      existingChild,
-      ...candidates.filter((candidate) => candidate.system_id !== existingChild.system_id),
+      hierarchyCandidate,
+      ...candidates.filter((candidate) => candidate.system_id !== hierarchyCandidate.system_id),
     ].slice(0, Math.max(0, limit))
     : candidates;
 
   let recommended_action: RecommendedAction;
-  if (existingChild) {
+  if (hierarchyMatch?.complete) {
     recommended_action = 'merge_existing';
   } else if (!best) {
     recommended_action = 'create_system';

@@ -7,7 +7,8 @@ import { resolveActorName } from '../services/actorNameResolver';
 import { listAdminHandler, rejectHandler } from './suggestionHelpers';
 import { scoreSystemCandidates } from '../services/systemSuggestionCandidates';
 import type { CandidateSystemInput, CandidateAliasInput, CandidateResult } from '../services/systemSuggestionCandidates';
-import { slugify, VALID_PARENT } from './systems';
+import { slugify } from './systems';
+import { validateSystemParentType } from '../services/systemHierarchy';
 import type { Database, SystemNodeType } from '../db/types';
 import { normalizeDraftPayload } from '../discord';
 // Achado CodeRabbit (PR #145): esta rota aprovava/resolvia sugestoes gravando
@@ -224,8 +225,7 @@ async function assertValidChainParent(nodeType: SystemNodeType, parentId: string
   if (!parent) {
     throw new Error('PARENT_NOT_FOUND');
   }
-  const allowedParents = VALID_PARENT[nodeType];
-  if (allowedParents && !allowedParents.includes(parent.node_type)) {
+  if (validateSystemParentType(nodeType, parent.node_type) !== null) {
     throw new Error('HIERARCHY_INVALID');
   }
 }
@@ -837,7 +837,7 @@ async function resolveCreateChild(ctx: ResolveContext): Promise<ResolveOutcome> 
   const namePt = readTrimmed(body.name_pt) ?? suggestion.name_pt;
   const description = readTrimmed(body.description) ?? suggestion.description;
 
-  if (!nodeType || !['edition', 'variant', 'subsystem'].includes(nodeType)) {
+  if (!nodeType || !['edition', 'variant'].includes(nodeType)) {
     throw new Error('NODE_TYPE_INVALID');
   }
   if (!parentId) {
@@ -849,8 +849,7 @@ async function resolveCreateChild(ctx: ResolveContext): Promise<ResolveOutcome> 
     throw new Error('PARENT_NOT_FOUND');
   }
 
-  const allowedParents = VALID_PARENT[nodeType];
-  if (allowedParents && !allowedParents.includes(parent.node_type)) {
+  if (validateSystemParentType(nodeType, parent.node_type) !== null) {
     throw new Error('HIERARCHY_INVALID');
   }
 
@@ -1050,7 +1049,7 @@ function resolveErrorResponse(res: Response, error: unknown) {
     case 'TARGET_NOT_FOUND':
       return res.status(404).json({ error: 'Sistema alvo não encontrado.' });
     case 'NODE_TYPE_INVALID':
-      return res.status(400).json({ error: 'Tipo de nó inválido. Use edition, variant ou subsystem.' });
+      return res.status(400).json({ error: 'Tipo de nó inválido. Use edition ou variant.' });
     case 'PARENT_REQUIRED':
       return res.status(400).json({ error: 'É necessário escolher o sistema pai.' });
     case 'PARENT_NOT_FOUND':

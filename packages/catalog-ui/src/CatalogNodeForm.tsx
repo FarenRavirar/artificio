@@ -4,7 +4,6 @@ import type { CatalogUiNode, CatalogUiNodeInput, CatalogNodeType } from './types
 const NODE_TYPES: Array<{ value: CatalogNodeType; label: string }> = [
   { value: 'system', label: 'Sistema' },
   { value: 'edition', label: 'Edição' },
-  { value: 'subsystem', label: 'Subsistema' },
   { value: 'variant', label: 'Variante' },
 ];
 
@@ -90,6 +89,14 @@ export function CatalogNodeForm({
   }, [selected, newNodeDefaultsKey]);
 
   const id = (suffix: string) => `${idPrefix}-${suffix}`;
+  const expectedParentType: CatalogNodeType | null = form.node_type === 'system'
+    ? null
+    : form.node_type === 'edition'
+      ? 'system'
+      : 'edition';
+  const validParentOptions = expectedParentType
+    ? parentOptions.filter((node) => node.node_type === expectedParentType)
+    : [];
 
   return (
     <div>
@@ -99,7 +106,11 @@ export function CatalogNodeForm({
       <select
         id={id('type')}
         value={form.node_type}
-        onChange={(e) => setForm((current) => ({ ...current, node_type: e.target.value as CatalogNodeType }))}
+        onChange={(e) => setForm((current) => ({
+          ...current,
+          node_type: e.target.value as CatalogNodeType,
+          parent_id: null,
+        }))}
       >
         {NODE_TYPES.map((type) => (
           <option key={type.value} value={type.value}>{type.label}</option>
@@ -112,8 +123,8 @@ export function CatalogNodeForm({
         value={form.parent_id ?? ''}
         onChange={(e) => setForm((current) => ({ ...current, parent_id: e.target.value || null }))}
       >
-        <option value="">Raiz</option>
-        {parentOptions.map((node) => (
+        <option value="">{expectedParentType ? 'Selecione o pai' : 'Raiz'}</option>
+        {validParentOptions.map((node) => (
           <option key={node.id} value={node.id}>
             {node.path_slug ? `${node.name} (${node.path_slug})` : node.name}
           </option>
@@ -181,7 +192,7 @@ export function CatalogNodeForm({
         <button
           type="button"
           className="btn primary"
-          disabled={saving || !form.name.trim()}
+          disabled={saving || !form.name.trim() || (expectedParentType !== null && !form.parent_id)}
           onClick={() => onSave(sanitizeCatalogForm(form))}
         >
           {saving ? 'Salvando...' : 'Salvar'}

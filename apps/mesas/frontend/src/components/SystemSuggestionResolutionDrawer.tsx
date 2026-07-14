@@ -9,7 +9,6 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   system: 'Sistema',
   edition: 'Edição',
   variant: 'Variante',
-  subsystem: 'Subsistema',
 };
 
 const EMPTY_SYSTEMS: SystemOption[] = [];
@@ -30,7 +29,7 @@ export interface ResolvableSuggestion {
   id: string;
   name: string;
   description: string | null;
-  node_type: 'system' | 'edition' | 'variant' | 'subsystem';
+  node_type: 'system' | 'edition' | 'variant';
   parent_id: string | null;
 }
 
@@ -61,7 +60,7 @@ interface CandidateAnalysis {
   base: string;
   edition_tokens: string[];
   suggested_child_name: string | null;
-  suggested_child_type: 'edition' | 'variant' | 'subsystem';
+  suggested_child_type: 'edition' | 'variant';
   has_edition_context: boolean;
   has_qualifier_context: boolean;
 }
@@ -151,7 +150,7 @@ const normalizeCandidateAnalysis = (value: unknown): CandidateAnalysis => {
       : [],
     suggested_child_name: readNullableString(row.suggested_child_name),
     suggested_child_type:
-      suggestedChildType === 'variant' || suggestedChildType === 'subsystem' || suggestedChildType === 'edition'
+      suggestedChildType === 'variant' || suggestedChildType === 'edition'
         ? suggestedChildType
         : 'edition',
     has_edition_context: row.has_edition_context === true,
@@ -172,7 +171,7 @@ const REASON_LABELS: Record<string, string> = {
 
 const RESOLUTION_OPTIONS: Array<{ value: ResolutionType; label: string }> = [
   { value: 'create_alias', label: 'Alias / nome alternativo' },
-  { value: 'create_child', label: 'Edição / variante / subsistema' },
+  { value: 'create_child', label: 'Edição / variante' },
   { value: 'create_chain', label: 'Criar cadeia completa' },
   { value: 'merge_existing', label: 'Mesclar (já existe)' },
   { value: 'create_system', label: 'Sistema novo (raiz)' },
@@ -282,7 +281,7 @@ const SystemContextPanel = ({ title, system, children, note, risks = [] }: Syste
       </p>
       {note && <p className="mt-2 text-sm text-white/70">{note}</p>}
       <ContextChips label="Aliases existentes" values={system.aliases} />
-      <ContextChips label="Edições / variantes / subsistemas existentes" values={childLabels} tone="white" limit={8} />
+      <ContextChips label="Edições / variantes existentes" values={childLabels} tone="white" limit={8} />
       <ContextChips label="Risco / conflito" values={risks} tone="amber" />
     </div>
   );
@@ -333,7 +332,7 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
   const [resolutionType, setResolutionType] = useState<ResolutionType>('create_alias');
   const [targetSystemId, setTargetSystemId] = useState('');
   const [parentId, setParentId] = useState('');
-  const [childNodeType, setChildNodeType] = useState<'edition' | 'variant' | 'subsystem'>('edition');
+  const [childNodeType, setChildNodeType] = useState<'edition' | 'variant'>('edition');
   const [rootName, setRootName] = useState(suggestion.name);
   const [childName, setChildName] = useState(suggestion.name);
   const [editionName, setEditionName] = useState('');
@@ -403,8 +402,8 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
   }, [suggestion.id]);
 
   const rootSystems = useMemo(() => systems.filter((s) => s.node_type === 'system'), [systems]);
-  const editionsAndSubsystems = useMemo(
-    () => systems.filter((s) => s.node_type === 'edition' || s.node_type === 'subsystem'),
+  const editions = useMemo(
+    () => systems.filter((s) => s.node_type === 'edition'),
     [systems],
   );
   const systemById = useMemo(() => {
@@ -433,12 +432,12 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
     setTargetSystemId(systemId);
     const system = systemById.get(systemId);
     if (!system) return;
-    if (system.node_type === 'system') {
+    if (childNodeType === 'edition' && system.node_type === 'system') {
       setParentId(system.id);
       return;
     }
-    if (system.parent_id) {
-      setParentId(system.parent_id);
+    if (childNodeType === 'variant' && system.node_type === 'edition') {
+      setParentId(system.id);
     }
   };
 
@@ -478,9 +477,9 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
 
   // Pais validos por tipo de filho (espelha VALID_PARENT do backend).
   const validParents = useMemo(() => {
-    if (childNodeType === 'variant') return editionsAndSubsystems;
-    return rootSystems; // edition e subsystem -> filhos de system
-  }, [childNodeType, editionsAndSubsystems, rootSystems]);
+    if (childNodeType === 'variant') return editions;
+    return rootSystems;
+  }, [childNodeType, editions, rootSystems]);
 
   const systemOptions = useMemo(() => systems.map(toSearchOption), [systems]);
   const parentOptions = useMemo(() => validParents.map(toSearchOption), [validParents]);
@@ -887,7 +886,7 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
               note="Confira nomes, aliases e filhos já cadastrados antes de confirmar."
               risks={[
                 ...(analysis.has_edition_context || analysis.has_qualifier_context
-                  ? ['A sugestão parece edição/variante; confira a aba Edição / variante / subsistema antes de criar alias.']
+                  ? ['A sugestão parece edição/variante; confira a aba Edição / variante antes de criar alias.']
                   : []),
                 ...aliasMatchRisks
                   .filter((system) => system.id !== targetSystemId)
@@ -912,7 +911,7 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
               title="Nada será criado"
               system={targetSystem}
               children={targetChildren}
-              note="A sugestão será resolvida como item já coberto pelo catálogo. Esta ação não cria alias, edição, variante ou subsistema."
+              note="A sugestão será resolvida como item já coberto pelo catálogo. Esta ação não cria alias, edição ou variante."
               risks={[
                 ...(analysis.has_edition_context || analysis.has_qualifier_context
                   ? ['Há sinal de edição/variante na sugestão; mesclar não cria esse item.']
@@ -952,12 +951,11 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
                   className="app-select w-full mt-1"
                   value={childNodeType}
                   onChange={(e) => {
-                    setChildNodeType(e.target.value as 'edition' | 'variant' | 'subsystem');
+                    setChildNodeType(e.target.value as 'edition' | 'variant');
                     setParentId('');
                   }}
                 >
                   <option value="edition">Edição</option>
-                  <option value="subsystem">Subsistema</option>
                   <option value="variant">Variante</option>
                 </select>
               </label>
@@ -977,7 +975,7 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
                 title="Filhos já existentes neste pai"
                 system={parentSystem}
                 children={parentChildren}
-                note="Confira edições, variantes e subsistemas existentes para evitar duplicar valores como 5e, 2024 ou 1.3."
+                note="Confira edições e variantes existentes para evitar duplicar valores como 5e, 2024 ou 1.3."
                 risks={childNameRisks.map((child) => `Nome parecido já existe: ${systemLabel(child)}`)}
               />
               {suggestedParentAlias && (

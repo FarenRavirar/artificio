@@ -1,6 +1,7 @@
 # Plano — 077 mesas dedupe mesas ativas
 
-Status: Fase 0 executada; decisões propostas, aguardando aprovação de implementação.
+Status: dedupe implementado localmente, smoke runtime pendente; frente parser
+implementada e validada localmente em 2026-07-14, sem commit/push/deploy.
 Execução prevista: Codex. Este plano define ordem obrigatória —
 investigação (com testes que provam o achado) sempre antes de qualquer
 código de feature.
@@ -78,11 +79,14 @@ output, arquivo:linha) em `sessoes/` — não fechar por dedução.
 
 ## Decisões pendentes de aprovação do mantenedor
 
-- Tabela nova vs. extensão de schema existente (impacta migration).
-- Gatilho sob demanda vs. automático (impacta UX e custo).
-- Se o merge de duplicata confirmada ganha alguma ação além de marcação
-  manual (ex.: sugestão de campos a copiar) — mantido fora de escopo por
-  padrão, confirmar antes de expandir.
+- Resolvido: tabela nova `table_duplicate_candidates`.
+- Resolvido: gatilho sob demanda no MVP.
+- Resolvido: merge de duplicata permanece marcação manual; copiar campos continua
+  fora de escopo.
+- Pendente de curadoria: classificar os pares Mage/Anniversary,
+  Mothership/2024, Old-School Essentials/Essentials e Shadowrun/Anniversary.
+- Pendente de execução autorizada: backup verificado/off-VM, migrations ordenadas
+  e smokes reais antes de qualquer merge/deploy.
 
 ## Evidência da Fase 0 — 2026-07-14
 
@@ -116,3 +120,52 @@ output, arquivo:linha) em `sessoes/` — não fechar por dedução.
    testes unitários.
 4. **Decisão manual somente.** Confirmar/rejeitar/atualizar existente; nenhum
    merge, cópia ou delete automático.
+
+## Frente parser — ordem e checkpoints obrigatórios
+
+Ampliação pedida pelo mantenedor em 2026-07-14. Cada fase só começa depois de o
+checkpoint anterior ser persistido em `spec.md` + `tasks.md`.
+
+1. **P0 — diagnóstico real:** auditar corpora, arquitetura, aliases e caminho do
+   learning. Checkpoint registrado em `spec.md`.
+2. **P1 — extração determinística:** requisitos técnicos conservadores e consumo
+   integral dos aliases já aprendidos. Antes de testar, registrar o delta e os
+   casos de regressão escolhidos.
+3. **P2 — aplicação do learning:** corrigir `field_value` para aplicar correção
+   humana ativa ao draft, recalcular sistema/missing/status e manter proveniência.
+   Antes de editar, registrar contrato exato e guardas.
+4. **P3 — validação:** testes focados + auditoria novamente nos dois corpora;
+   registrar métricas antes de partir para lint/build globais.
+5. **P4 — gates finais:** lint/build repo-wide e revisão do diff. Sem commit,
+   push, deploy ou DeepSeek automático sem autorização nominal própria.
+
+Resultado da frente parser: P0-P4 concluídos localmente. O mantenedor escolheu
+**Onda A — feedback confiável** em 2026-07-14. Implementação local precede
+qualquer autorização própria de commit/push/PR; depois, smoke em beta deve
+confirmar o learning em draft real. Isso não fecha o smoke pendente do dedupe
+original.
+
+## Frente parser P5 — rumo à autonomia segura
+
+Pedido do mantenedor em 2026-07-14: avaliar não só bugs pontuais, mas o que o
+produto ainda precisa aprender e quais fluxos lógicos impedem operação cada vez
+mais automática. Antes de nova implementação:
+
+1. Auditar unidade real de aprendizado: valor, label, sinal semântico, autor,
+   canal e catálogo.
+2. Separar fatos por anúncio (nunca generalizar) de convenções reutilizáveis.
+3. Mapear campos sem aprendizado e relações compostas (`system_name/system_id`,
+   plataformas, requisitos, agenda/vagas/preço).
+4. Auditar promoção candidate -> active, conflitos, rejeição, rollback, métricas
+   offline/shadow e gates de automação.
+5. Registrar diagnóstico e proposta de ondas antes de editar código.
+
+Decisão: executar Onda A primeiro. Ordem interna obrigatória: localizar fluxo e
+schema; definir contrato de auditoria/rejeição/confirmação/retry; implementar;
+validar focado; reauditar corpora; gates globais. Cada transição exige checkpoint
+prévio na spec e em tasks.
+
+Estado após auditoria: implementação e gates locais concluídos. Falta provar a
+Onda A contra Postgres/UI real em beta, incluindo outbox, retry e confirmação com
+DeepSeek automático desligado; isso exige migrations e segue bloqueado pelo
+backup/autorização operacional.

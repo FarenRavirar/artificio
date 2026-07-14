@@ -215,3 +215,84 @@ Bug 3 segue aberto — se reaparecer, capturar print do estado do campo ANTES de
 Bug 8 (422 PATCH drafts) e bug 9 (401 notifications) seguem sem investigação aprofundada — precisam de mais contexto/evidência do mantenedor (corpo da resposta 422; se o 401 ocorreu com sessão ativa).
 
 Sem commit/push/PR nesta sessão — aguardando autorização.
+
+## Retomada 2026-07-14 — melhoria geral do parser
+
+**Pedido nominal do mantenedor:** entender o que o parser produz no draft e melhorar a identificação.
+
+### Escopo desta retomada
+
+- Auditar `DiscordTableDraftTable` campo a campo (T11.10), confrontando extractor, `missing_fields`, editor e testes.
+- Preservar princípio R1: ausência de evidência = `null`; negação explícita = `false`; conflito = revisão, nunca chute.
+- Corrigir requisitos técnicos (`requires_pc`, `requires_camera`, `requires_microphone`) por cascata de sinal explícito. O diff local recebido inferia PC de qualquer VTT e microfone de qualquer uso de Discord; hipótese não será aceita sem prova porque conflita com R1.
+- Ampliar consumo de `label_alias` nos extractors baseados em rótulo, para curadoria humana reduzir hardcodes futuros.
+- Adicionar testes de regressão no parser antes de considerar qualquer mudança pronta.
+
+### Já feito nesta retomada
+
+- T0 completo relido.
+- Handoff `apps/mesas/docs/legacy/HANDOFF_PARSER_LEARNING_2026-07-14.md` reconciliado com código e working tree.
+- T1 da spec 058 (`spec.md`, `tasks.md`, `debitos.md`) relido.
+- Contrato `DiscordTableDraftTable`, montagem do draft, `missing_fields`, learning rules e suíte atual mapeados.
+
+### Falta
+
+- Implementar extractors/aliases escolhidos sem sobrescrever diffs concorrentes.
+- Testes pontuais do parser.
+- `pnpm run lint` e `pnpm run build` antes de conclusão.
+- Registrar limitações: `rtk cat` não funciona neste Windows porque o binário `cat` não existe; leitura usa PowerShell. LSP e MCPs preferidos não estão expostos neste cliente.
+
+### Trava de continuidade adicionada pelo mantenedor
+
+- Antes de cada avanço, persistir descobertas e aprendizados na Spec 077.
+- Ampliação, requisitos, baseline dos dois corpora e checkpoint P0 registrados em
+  `specs/077-mesas-dedupe-mesas-ativas/{spec,plan,tasks}.md` antes de continuar.
+
+### Resultado final da retomada 2026-07-14
+
+- Spec 077 atualizada antes de cada avanço P0-P4, incluindo achados, guardas,
+  métricas e evidências.
+- Aliases aprendidos agora chegam a preço, vagas, dia, horário, contato e
+  descrição; título/sistema já funcionavam.
+- Requisitos técnicos agora usam obrigação/negação explícita e ambiguidade; mera
+  plataforma não inventa PC/microfone.
+- Learning ativo agora altera o campo real do draft, renormaliza sistema/faltas/
+  status, fica em `_learning_applied` e aparece na UI como `learning-store`, sem
+  botão pendente de reaplicação. DeepSeek automático permaneceu desligado.
+- Corpora `D:\teste.json` + `D:\teste [part 2].json`: 200 mensagens, 169 drafts;
+  47/63 sinais técnicos capturados contra 0/63 no baseline.
+- Evidência: backend 467/467; frontend focado 37/37; lint 21/21; build 21/21;
+  `git diff --check` verde.
+- Sem commit/push/PR/deploy. Smoke beta com banco real continua dependente do
+  fluxo Git/deploy autorizado.
+## 2026-07-14 — Spec 077 / parser P6: regra única para vagas X/Y
+
+- Pedido do mantenedor: maior número = total; menor = vagas disponíveis.
+- Localizado: a normalização `max/min` já existia na curadoria frontend, mas o
+  backend mantinha três semânticas conflitantes (`slotsAmbiguousSlash`,
+  `slotsSlashVagas`, `slotsViaLabel`).
+- Próximo passo registrado antes da edição: centralizar par numérico simples no
+  backend e preservar expressões explícitas como “3 de 5 preenchidas”.
+- Implementado `slotsFromNumericPair`; três caminhos agora usam total=max e
+  abertas=min. Teste focado do parser: 142/142 verde. Próximo: corpora reais e
+  gates completos.
+- Corpus: 33 linhas X/Y; 10 ainda escapam por Markdown, `Nº/N°`, separador
+  ausente ou cascata que captura só o primeiro número. Registrado na 077 antes
+  do novo matcher estrutural.
+- Reauditoria corrigida: 5/10 eram `draft=null` por descarte autoral esperado.
+  Matcher resolveu as 5 falhas reais; resultado atual = 28/28 drafts elegíveis,
+  5 descartes, 149/149 testes focados.
+- Backend completo: 44 arquivos, 477/477 testes verdes. Próximo gate: lint.
+- Lint repo-wide: 21/21 pacotes verdes. Próximo gate: build.
+- Build repo-wide: 21/21 pacotes verdes; diff-check verde. Frente P6 concluída
+  localmente, sem commit/push/deploy.
+
+## 2026-07-14 — Spec 077 / parser P7: sistema e alternativas
+
+- Relato: sistema correto passou a ser raro e sugestões alternativas sumiram da
+  UI. Registrado como seleção/ranking + transporte/exibição, inicialmente
+  independentes. Próximo: rastrear parser → learning → payload → frontend.
+- Causas: versão removida antes do match completo; learning generaliza nome
+  canônico errado em vez do texto bruto; aplicação automática apaga a sugestão
+  visual; payload não possui candidatos determinísticos. Banco local sem
+  `DATABASE_URL`; correção seguirá com testes sintéticos e scorer existente.

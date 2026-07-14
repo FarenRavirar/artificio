@@ -76,6 +76,12 @@ const inboxCorrectionResultSchema = z.object({
     before: z.unknown(),
     after: z.unknown(),
   })),
+  learning: z.object({
+    correction_id: z.string(),
+    status: z.enum(['pending', 'processing', 'completed', 'failed']),
+    attempts: z.number(),
+    error: z.string().nullable(),
+  }),
 });
 
 const inboxSyncResultSchema = z.object({
@@ -154,11 +160,14 @@ export const inboxApi = {
   reparseDraft: async (id: string): Promise<InboxDraft> =>
     parseInboxDraft(await apiFetch<unknown>(`/drafts/${id}/reparse`, { method: 'POST' })),
 
-  registerCorrection: async (id: string, corrections: Record<string, unknown>, reason?: string, options?: { before?: Record<string, unknown> }): Promise<InboxCorrectionResult> =>
+  registerCorrection: async (id: string, corrections: Record<string, unknown>, reason?: string, options?: { before?: Record<string, unknown>; confirmed_fields?: string[] }): Promise<InboxCorrectionResult> =>
     parseInboxCorrectionResult(await apiFetch<unknown>(`/drafts/${id}/correction`, {
       method: 'POST',
-      body: JSON.stringify({ corrections, reason, before: options?.before }),
+      body: JSON.stringify({ corrections, reason, before: options?.before, confirmed_fields: options?.confirmed_fields }),
     })),
+
+  retryLearningFeedback: async (id: string): Promise<{ results: InboxCorrectionResult['learning'][] }> =>
+    apiFetch<{ results: InboxCorrectionResult['learning'][] }>(`/drafts/${id}/correction/retry-learning`, { method: 'POST' }),
 
   syncDraft: async (id: string): Promise<InboxSyncResult> =>
     parseInboxSyncResult(await apiFetch<unknown>(`/drafts/${id}/sync`, { method: 'POST' })),

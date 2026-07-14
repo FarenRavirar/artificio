@@ -81,6 +81,8 @@ const draftTableSchema = z.object({
   system_name: z.unknown(),
   system_id: z.unknown(),
   raw_system_hint: z.unknown(),
+  _system_source_hint: z.unknown(),
+  _system_candidates: z.unknown(),
   type: z.unknown(),
   modality: z.unknown(),
   price_type: z.unknown(),

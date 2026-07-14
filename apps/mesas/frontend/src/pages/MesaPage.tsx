@@ -154,9 +154,9 @@ export const MesaPage = () => {
       <header className="container mx-auto px-6 py-6 text-sm text-white/60">
         <nav aria-label="breadcrumb" className="flex items-center gap-2">
           <Link to="/" className="hover:text-white transition-colors" id="mesa-breadcrumb-home">Home</Link>
-          <span>/</span>
+          <span>›</span>
           <Link to="/catalogo" className="hover:text-white transition-colors" id="mesa-breadcrumb-catalogo">Catálogo</Link>
-          <span>/</span>
+          <span>›</span>
           <span className="text-white/85">{table.title}</span>
         </nav>
       </header>
@@ -167,6 +167,11 @@ export const MesaPage = () => {
             {/* Fase 2.2: TableHero (substituindo hero section de 74 linhas) */}
             {/* showOverlay={false} = banner limpo (apenas imagem), informações estão na sidebar */}
             {vm && <TableHero vm={vm} variant="full" showOverlay={false} />}
+
+            {/* Achado do mantenedor 2026-07-14: showOverlay={false} não renderiza o
+                <h1> do TableHero (só existe com overlay=true) — título nunca aparecia
+                na MesaPage. Título dedicado abaixo do banner, acima dos horários. */}
+            {vm && <h1 className="text-3xl font-black text-white">{vm.title}</h1>}
 
             {/* Fase 2.3: TableSchedules (substituindo schedules section de 68 linhas) */}
             {vm && <TableSchedules vm={vm} />}

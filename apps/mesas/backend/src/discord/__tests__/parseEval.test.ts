@@ -71,6 +71,22 @@ describe('parse eval dataset', () => {
     });
   });
 
+  it('reconhece learning já aplicado sem depender de sugestão pendente', () => {
+    const final = payload();
+    final.table.system_name = 'Dungeons & Dragons 5e';
+    Object.assign(final.table, {
+      _learning_applied: {
+        provider: 'learning-rules',
+        fields: { system_name: 'Dungeons & Dragons 5e' },
+      },
+    });
+
+    expect(buildLayerPrediction('learning', payload(), final)?.table).toMatchObject({
+      system_name: 'Dungeons & Dragons 5e',
+    });
+    expect(buildLayerPrediction('deepseek', payload(), final)).toBeNull();
+  });
+
   it('mede impacto incremental por camada e campo', () => {
     const example = buildParseEvalExample({
       id: 'case-1',

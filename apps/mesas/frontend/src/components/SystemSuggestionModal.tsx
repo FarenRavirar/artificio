@@ -20,7 +20,7 @@ interface SystemSuggestionModalProps {
   initialParentId?: string;
 }
 
-type SuggestionType = 'system' | 'edition' | 'variant' | 'subsystem';
+type SuggestionType = 'system' | 'edition' | 'variant';
 type ChainRow = {
   name: string;
   namePt: string;
@@ -43,6 +43,7 @@ const readFormText = (formData: FormData, key: string): string => {
 type FlattenedSystemNode = {
   id: string;
   label: string;
+  node_type: SystemTreeNode['node_type'];
 };
 
 const flattenSystems = (nodes: SystemTreeNode[], depth = 0): FlattenedSystemNode[] => {
@@ -55,6 +56,7 @@ const flattenSystems = (nodes: SystemTreeNode[], depth = 0): FlattenedSystemNode
     flattened.push({
       id: node.id,
       label: `${prefix}${displayName}`,
+      node_type: node.node_type,
     });
 
     if (node.children && node.children.length > 0) {
@@ -99,13 +101,11 @@ const CHAIN_LABEL_FROM_TYPE: Record<SuggestionType, string> = {
   system: 'Sistema',
   edition: 'Edição',
   variant: 'Variante',
-  subsystem: 'Subsistema',
 };
 const CHAIN_PLACEHOLDER_FROM_TYPE: Record<SuggestionType, string> = {
   system: 'Ex: Vampire: The Masquerade',
   edition: 'Ex: Aniversário',
   variant: 'Ex: 20th Anniversary',
-  subsystem: 'Ex: subsistema',
 };
 
 /** Nível de partida da cadeia: se o modal abriu a partir de "Adicionar edição/
@@ -195,12 +195,17 @@ export const SystemSuggestionModal = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const parentOptions = useMemo(() => flattenSystems(systemsTree), [systemsTree]);
+  const allParentOptions = useMemo(() => flattenSystems(systemsTree), [systemsTree]);
+  const parentOptions = useMemo(() => {
+    if (suggestionType === 'system') return [];
+    const requiredType = suggestionType === 'edition' ? 'system' : 'edition';
+    return allParentOptions.filter((option) => option.node_type === requiredType);
+  }, [allParentOptions, suggestionType]);
 
   const chainStartDepthValue = chainStartDepth(initialSuggestionType, Boolean(initialParentId));
   const chainTypes = CHAIN_TYPES_FROM_DEPTH[chainStartDepthValue] ?? CHAIN_TYPES_FROM_DEPTH[0];
   const parentLabel = initialParentId
-    ? (parentOptions.find((option) => option.id === initialParentId)?.label ?? null)
+    ? (allParentOptions.find((option) => option.id === initialParentId)?.label ?? null)
     : null;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -349,8 +354,7 @@ export const SystemSuggestionModal = ({
               >
                 <option value="system">Novo Sistema</option>
                 <option value="edition">Edição de Sistema Existente</option>
-                <option value="variant">Variante de Sistema</option>
-                <option value="subsystem">Subsistema</option>
+                <option value="variant">Variante de Edição</option>
               </select>
             </div>
 
@@ -442,7 +446,7 @@ export const SystemSuggestionModal = ({
             {suggestionType !== 'system' && (
               <div className={user?.role !== 'admin' ? 'hidden' : ''}>
                 <label className="block text-white font-semibold mb-2 text-sm">
-                  Sistema pai (opcional)
+                  {suggestionType === 'variant' ? 'Edição pai *' : 'Sistema pai *'}
                 </label>
                 <select
                   value={parentId}
@@ -451,7 +455,7 @@ export const SystemSuggestionModal = ({
                   disabled={systemsLoading}
                 >
                   <option value="">
-                    {systemsLoading ? 'Carregando sistemas...' : 'Selecione um sistema pai'}
+                    {systemsLoading ? 'Carregando catálogo...' : `Selecione ${suggestionType === 'variant' ? 'uma edição' : 'um sistema'}`}
                   </option>
                   {parentOptions.map((option) => (
                     <option key={option.id} value={option.id}>

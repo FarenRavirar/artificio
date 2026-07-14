@@ -54,6 +54,12 @@ export interface InboxCorrectionResult {
   draft_id: string;
   fields_corrected: number;
   diff: Record<string, { before: unknown; after: unknown }>;
+  learning: {
+    correction_id: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    attempts: number;
+    error: string | null;
+  };
 }
 
 export interface InboxSyncResult {

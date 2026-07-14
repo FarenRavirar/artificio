@@ -636,8 +636,11 @@ export const discordSyncApi = {
   updateDraft: (id: string, body: { normalized_payload?: Record<string, unknown>; status?: DiscordImportDraftStatus; review_notes?: string }) =>
     apiFetch<DiscordDraft>(`/drafts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
 
-  submitCorrection: (id: string, body: { corrections: Record<string, unknown>; reason?: string; before?: Record<string, unknown> }) =>
-    apiFetch<{ draft_id: string; fields_corrected: number; diff: Record<string, { before: unknown; after: unknown }> }>(`/drafts/${id}/correction`, { method: 'POST', body: JSON.stringify(body) }),
+  submitCorrection: (id: string, body: { corrections: Record<string, unknown>; reason?: string; before?: Record<string, unknown>; confirmed_fields?: string[] }) =>
+    apiFetch<import('../types').CorrectionFeedbackResult>(`/drafts/${id}/correction`, { method: 'POST', body: JSON.stringify(body) }),
+
+  retryLearningFeedback: (id: string) =>
+    apiFetch<{ results: import('../types').LearningFeedbackResult[] }>(`/drafts/${id}/correction/retry-learning`, { method: 'POST' }),
 
   syncDraft: (id: string) =>
     apiFetch<{ tableId: string; created: boolean }>(`/drafts/${id}/sync`, { method: 'POST' }),

@@ -78,6 +78,23 @@ function renderTab(overrides: Partial<ComponentProps<typeof DraftEditorTab>> = {
 }
 
 describe('DraftEditorTab', () => {
+  it('mostra possibilidades de sistema e aplica ID e nome juntos', () => {
+    const onSystemChange = vi.fn();
+    renderTab({
+      systemCandidates: [{
+        system_id: 'pathfinder-2e',
+        name: 'Pathfinder 2e',
+        score: 91,
+        reasons: ['alias exato'],
+      }],
+      onSystemChange,
+    });
+
+    expect(screen.getByText('Possibilidades do catálogo:')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Pathfinder 2e' }));
+    expect(onSystemChange).toHaveBeenCalledWith('pathfinder-2e', 'Pathfinder 2e');
+  });
+
   it('mostra origem e evidencia por campo sem adicionar formulario extra', () => {
     renderTab({
       fieldInsights: {

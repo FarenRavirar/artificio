@@ -82,11 +82,11 @@ const shouldIgnoreNode = (node: ParsedTreeNode): boolean => {
   return node.lineDepth < 2;
 };
 
-const deriveNodeType = (normalizedDepth: number): 'system' | 'edition' | 'variant' | 'subsystem' => {
+const deriveNodeType = (normalizedDepth: number): 'system' | 'edition' | 'variant' => {
   if (normalizedDepth <= 0) return 'system';
   if (normalizedDepth === 1) return 'edition';
   if (normalizedDepth === 2) return 'variant';
-  return 'subsystem';
+  throw new Error(`Profundidade inválida ${normalizedDepth}: catálogo aceita somente sistema > edição > variante.`);
 };
 
 const acronymFrom = (name: string): string | null => {

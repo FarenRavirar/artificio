@@ -45,11 +45,16 @@ const importSystems = async () => {
   const jsonContent = fs.readFileSync(jsonPath, 'utf8');
   const systems: SystemJSON[] = JSON.parse(jsonContent);
 
+  if (systems.some((system) => system.variants.length > 0)) {
+    throw new Error(
+      'sistemas.json legado não informa a edição-pai de cada variante. Importação bloqueada para impedir produto cartesiano; use systems:import-tree.',
+    );
+  }
+
   console.log(`[import-sistemas] ${systems.length} sistemas encontrados no JSON.`);
 
   let systemsInserted = 0;
   let editionsInserted = 0;
-  let variantsInserted = 0;
   let aliasesInserted = 0;
 
   await db.transaction().execute(async (trx) => {
@@ -130,54 +135,6 @@ const importSystems = async () => {
           }
 
           editionsInserted++;
-
-          // 4. INSERIR VARIANTES (filhas da edição)
-          for (const variant of sys.variants) {
-            if (!variant || variant.trim().length === 0) continue;
-
-            const varSlug = slugify(variant);
-            const varPathSlug = `${baseSlug}/${edSlug}/${varSlug}`;
-            const varName = `${sys.name} ${edition} ${variant}`;
-
-            await trx
-              .insertInto('systems')
-              .values({
-                name: varName,
-                slug: `${baseSlug}--${edSlug}--${varSlug}`,
-                node_type: 'variant',
-                depth: 2,
-                path_slug: varPathSlug,
-                parent_id: ed.id,
-              })
-              .onConflict((oc) => oc.column('slug').doNothing())
-              .execute();
-
-            variantsInserted++;
-          }
-        }
-      } else if (sys.variants.length > 0) {
-        // 5. VARIANTES SEM EDIÇÃO (tratar como edições)
-        for (const variant of sys.variants) {
-          if (!variant || variant.trim().length === 0) continue;
-
-          const varSlug = slugify(variant);
-          const varPathSlug = `${baseSlug}/${varSlug}`;
-          const varName = `${sys.name} ${variant}`;
-
-          await trx
-            .insertInto('systems')
-            .values({
-              name: varName,
-              slug: `${baseSlug}--${varSlug}`,
-              node_type: 'edition',
-              depth: 1,
-              path_slug: varPathSlug,
-              parent_id: base.id,
-            })
-            .onConflict((oc) => oc.column('slug').doNothing())
-            .execute();
-
-          editionsInserted++;
         }
       }
     }
@@ -186,7 +143,6 @@ const importSystems = async () => {
   console.log('[import-sistemas] Importação concluída com sucesso!');
   console.log(`- Sistemas base inseridos: ${systemsInserted}`);
   console.log(`- Edições inseridas: ${editionsInserted}`);
-  console.log(`- Variantes inseridas: ${variantsInserted}`);
   console.log(`- Aliases inseridos: ${aliasesInserted}`);
 
   await db.destroy();
