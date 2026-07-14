@@ -350,22 +350,13 @@ As ferramentas locais abaixo foram adotadas para reduzir retrabalho, detectar er
 - **Origem/registro:** Spec 044 consolidou LSP como parte do ecossistema de agentes; o mantenedor reforçou em 2026-07-08 que ele detecta erros automáticos que antes passavam despercebidos.
 - **Função:** diagnóstico semântico contínuo: tipos quebrados, imports inválidos, símbolos inexistentes, assinaturas incompatíveis e erros que busca textual não revela.
 - **Usar para:** checar arquivos tocados antes/depois de edição; confirmar impacto local de refactor; achar erro rápido enquanto ainda é barato corrigir.
-- **Clientes:** OpenCode expõe LSP diretamente; Serena usa LSP por baixo; Claude Code pode usar plugin LSP; Codex depende das ferramentas disponíveis no turno/config local.
+- **Clientes:** OpenCode expõe LSP diretamente; Claude Code pode usar plugin LSP; Codex depende das ferramentas disponíveis no turno/config local.
 - **Trava:** LSP é importante, mas auxiliar. Diagnóstico limpo não substitui `pnpm run lint`, `pnpm run build`, testes pontuais e `pnpm verify:api` quando exigidos.
-
-### Serena MCP
-
-- **Origem/registro:** Spec 044 / DEB-044-01. Implementado localmente em 2026-06-22 com `serena-agent` v1.5.3; OpenCode configurado em `opencode.json`; Claude Code configurado via MCP local; Codex usa config MCP local do usuário.
-- **Função:** navegação e edição semântica por símbolo via LSP. Útil quando o alvo é função, classe, método, referência ou impacto de mudança.
-- **Ferramentas esperadas:** `get_symbols_overview`, `find_symbol`, `find_referencing_symbols`, `replace_symbol_body`, `insert_before_symbol`, `insert_after_symbol`, `rename_symbol`, `get_diagnostics_for_file`.
-- **Usar para:** entender símbolos top-level de arquivo novo; ler corpo exato com `include_body=true`; localizar referências antes de editar; fazer edição cirúrgica por símbolo.
-- **Não usar para:** string literal, mensagem de erro, config, JSON/YAML, shell, Dockerfile ou símbolo que o LSP não resolveu. Use `rtk rg`/leitura direta nesses casos.
-- **Trava:** diagnóstico LSP é auxiliar. Nunca substitui `pnpm run lint`, `pnpm run build` e testes/validação CLI exigidos pela tarefa.
 
 ### codebase-memory-mcp
 
 - **Origem/registro:** Spec 044 / DEB-044-02. Implementado localmente em 2026-06-22 com `codebase-memory-mcp` v0.8.1; smoke registrou grafo com ~10.6k nós / 18.1k arestas e `search_graph` OK. OpenCode e Claude Code configurados; Codex usa config MCP local do usuário.
-- **Função:** grafo persistente do código para descoberta estrutural, chamadas, arquitetura e impacto. Complementa Serena; não substitui busca textual.
+- **Função:** grafo persistente do código para descoberta estrutural, chamadas, arquitetura e impacto. Complementa LSP e busca textual.
 - **Ferramentas esperadas:** `search_graph`, `trace_path`, `get_code_snippet`, `query_graph`, `get_architecture`.
 - **Usar para:** achar funções/classes/rotas/variáveis por padrão; rastrear quem chama quem; ler snippet específico; consultar fan-out/fan-in; obter visão de arquitetura.
 - **Não usar para:** literais, mensagens, configs, docs, YAML/JSON, shell, Dockerfile ou quando o grafo estiver desatualizado/insuficiente. Fallback = `rtk rg`, `ast-grep`, leitura direta.
@@ -384,18 +375,17 @@ As ferramentas locais abaixo foram adotadas para reduzir retrabalho, detectar er
 
 1. `artificio-api-governance` para qualquer pergunta/mudança de API.
 2. LSP para diagnóstico automático de arquivos tocados e impacto semântico.
-3. Serena MCP para navegação/edição por símbolo quando o símbolo é conhecido ou localizável.
-4. `codebase-memory-mcp` para mapa estrutural, dependências, chamadas e arquitetura.
-5. `ast-grep`, `rtk rg`, `rtk read`, `git`, leitura direta e validação CLI.
+3. `codebase-memory-mcp` para mapa estrutural, dependências, chamadas e arquitetura.
+4. `ast-grep`, `rtk rg`, `rtk read`, `git`, leitura direta e validação CLI.
 
-**Mapeamento operação → ferramenta (não usar Grep/Read por hábito quando LSP/Serena resolve):**
+**Mapeamento operação → ferramenta:**
 
-- Onde X está definido → LSP `workspaceSymbol`/`goToDefinition` ou Serena `find_symbol`.
-- Quem usa/chama X → LSP `findReferences` ou Serena `find_referencing_symbols`.
+- Onde X está definido → LSP `workspaceSymbol`/`goToDefinition`.
+- Quem usa/chama X → LSP `findReferences` ou `codebase-memory-mcp`.
 - Interface → implementação concreta → LSP `goToImplementation`.
-- Tipo/assinatura sem abrir arquivo inteiro → LSP `hover` ou Serena `get_symbols_overview`.
+- Tipo/assinatura sem abrir arquivo inteiro → LSP `hover`.
 - Depois de escrever/editar código → checar diagnostics do LSP e corrigir antes de prosseguir; não substitui `pnpm run lint`/`pnpm run build`.
-- Grep/`rtk rg` só para texto/padrão literal (comentário, string, config, YAML/JSON/Dockerfile/shell) ou quando LSP/Serena não cobre a linguagem/arquivo.
+- Grep/`rtk rg` para texto/padrão literal (comentário, string, config, YAML/JSON/Dockerfile/shell) ou quando LSP não cobre a linguagem/arquivo.
 
 Config local pode diferir entre clientes:
 - **OpenCode:** `opencode.json`.
@@ -458,9 +448,8 @@ Quando disponíveis, agentes devem seguir a seção **Ferramentas MCP / Agentes*
 
 1. `artificio-api-governance` para API.
 2. LSP para diagnóstico automático.
-3. Serena MCP para símbolo/edição semântica.
-4. `codebase-memory-mcp` para grafo/impacto.
-5. `ast-grep`, `rtk rg`, `rtk read`, `git` e leitura direta.
+3. `codebase-memory-mcp` para grafo/impacto.
+4. `ast-grep`, `rtk rg`, `rtk read`, `git` e leitura direta.
 
 Se essas ferramentas não estiverem disponíveis, usar fallback local e registrar a limitação.
 

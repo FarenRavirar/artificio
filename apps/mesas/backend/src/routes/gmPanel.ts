@@ -19,8 +19,11 @@ import { BenchmarkService } from '../services/benchmarkService';
 import { logActivity } from '../services/activityLogger';
 import { notifyAdmins } from '../services/adminNotifications';
 import { isValidEmail } from '../utils/validation';
+import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaScrapeClient';
 
 const router = Router();
+
+const SITE_URL = process.env.PUBLIC_SITE_URL || 'https://mesas.artificiorpg.com';
 
 interface VttPlatformJson {
   id: string;
@@ -530,6 +533,32 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
   }
 });
 
+// Achado Codex (PR #157): mesa que ja nasce publicada (status active na
+// criacao) tambem precisa do scrape automatico, nao so a transicao via
+// PATCH /status. Extraida do handler POST /tables (SonarQube: reduz
+// Cognitive Complexity do handler).
+function notifyTablePublishedOnCreate(
+  newTable: { id: string; slug: string; title: string; status: string },
+  userId: string,
+  userRole: string,
+  gmName: string
+): void {
+  if (newTable.status !== 'active') return;
+
+  // Notifica admins quando a mesa ja nasce publicada (status active), exceto se quem criou e admin.
+  if (userRole !== 'admin') {
+    void notifyAdmins({
+      type: 'table_published',
+      title: 'Nova mesa publicada',
+      message: `${gmName} publicou a mesa "${newTable.title}".`,
+      action_url: `/mesas/${newTable.slug}`,
+      metadata: { table_id: newTable.id, table_slug: newTable.slug },
+      excludeUserId: userId,
+    });
+  }
+  triggerMetaScrapeOnPublish(newTable.slug, newTable.status, null);
+}
+
 // POST /api/v1/gm/tables — Cria nova mesa
 router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
   const userId = req.user!.userId;
@@ -614,17 +643,7 @@ router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
       },
     });
 
-    // Notifica admins quando a mesa ja nasce publicada (status active), exceto se quem criou e admin.
-    if (newTable.status === 'active' && userRole !== 'admin') {
-      void notifyAdmins({
-        type: 'table_published',
-        title: 'Nova mesa publicada',
-        message: `${gmName} publicou a mesa "${newTable.title}".`,
-        action_url: `/mesas/${newTable.slug}`,
-        metadata: { table_id: newTable.id, table_slug: newTable.slug },
-        excludeUserId: userId,
-      });
-    }
+    notifyTablePublishedOnCreate(newTable, userId, userRole, gmName);
 
     return res.status(201).json({ data: newTable });
   } catch (error) {
@@ -667,12 +686,12 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
     // gm_id abaixo. Achado do mantenedor 2026-07-08: editar mesa órfã pelo painel
     // do mestre dava 404 sempre. Admin edita qualquer mesa (órfã ou não) reusando
     // este mesmo form/validação, em vez de duplicar handler em adminTables.ts.
-    let existingTable: { id: string; gm_id: string | null; system_id: string | null } | undefined;
+    let existingTable: { id: string; gm_id: string | null; system_id: string | null; slug: string; banner_url: string | null; status: string } | undefined;
     let updaterGmProfileId: string | null = null;
     if (userRole === 'admin') {
       existingTable = await db
         .selectFrom('tables')
-        .select(['id', 'gm_id', 'system_id'])
+        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status'])
         .where('id', '=', id)
         .executeTakeFirst();
     } else {
@@ -689,7 +708,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
       existingTable = await db
         .selectFrom('tables')
-        .select(['id', 'gm_id', 'system_id'])
+        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status'])
         .where('id', '=', id)
         .where('gm_id', '=', gmProfile.id)
         .executeTakeFirst();
@@ -824,6 +843,17 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
         table_slug: updated.slug,
       },
     });
+
+    // Achado do mantenedor (2026-07-13): trocar o banner de mesa ja publicada
+    // nao atualizava o preview no WhatsApp/Facebook (scrape antigo em cache).
+    // Dispara novo scrape so quando a imagem muda de fato e a mesa ja e publica.
+    if (
+      existingTable.status === 'active'
+      && data.banner_url !== undefined
+      && data.banner_url !== existingTable.banner_url
+    ) {
+      void triggerMetaScrape(`${SITE_URL}/mesas/${existingTable.slug}`);
+    }
 
     return res.json({ data: updated });
   } catch (error) {
@@ -1055,6 +1085,11 @@ router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Res
             to: result.status,
           },
         });
+
+        // Achado Codex (PR #157): branch admin retornava antes do scrape que
+        // so existia no branch GM abaixo — publicacao feita por admin nunca
+        // disparava o refresh de OG.
+        triggerMetaScrapeOnPublish(result.slug, result.status, table.status);
       }
 
       return res.json({ data: result });
@@ -1106,6 +1141,10 @@ router.patch('/tables/:id/status', authMiddleware, async (req: Request, res: Res
           metadata: { table_id: result.id, table_slug: result.slug },
           excludeUserId: userId,
         });
+        // Achado do mantenedor (2026-07-13): OG preview no WhatsApp/Facebook so
+        // aparece apos scrape manual no Sharing Debugger. Dispara automatico na
+        // 1a publicacao (draft/outro -> active) pra nao depender disso.
+        triggerMetaScrapeOnPublish(result.slug, result.status, table.status);
       }
     }
 

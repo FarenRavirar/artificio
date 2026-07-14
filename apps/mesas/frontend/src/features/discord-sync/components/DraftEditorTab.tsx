@@ -297,7 +297,7 @@ export function DraftEditorTab({
           <input value={form.title} onChange={(e) => onUpdateForm('title', e.target.value)} className={inputClass} />
           <FieldInsightNote field="title" insight={fieldInsights?.title} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('title') ?? false} />
         </label>
-        <label>
+        <label className="md:col-span-2">
           <div className="flex items-center justify-between gap-2">
             <span className={labelClass}>Sistema</span>
             <div className="mb-1 flex items-center gap-1">

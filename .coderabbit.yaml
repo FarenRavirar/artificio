@@ -1,0 +1,5 @@
+reviews:
+  path_filters:
+    - "!**/*.md"
+    - "!docs/api/generated/**"
+    - "!docs/api/openapi/**"

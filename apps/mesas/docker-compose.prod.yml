@@ -90,6 +90,11 @@ services:
       # Sem esta var o backend responde 503 no /admin/tables/auto-archive (arquivar
       # manual independe). Valor vem do .env prod (gitignored) + secret GH casado.
       - MESAS_CRON_SECRET=${MESAS_CRON_SECRET:-}
+      # Scrape automático de OG no WhatsApp/Facebook ao publicar mesa ou trocar
+      # banner (achado do mantenedor 2026-07-13, sessão 26-07-13_2). Opcionais:
+      # sem elas o backend só loga aviso e segue normal (metaScrapeClient.ts).
+      - META_APP_ID=${META_APP_ID:-}
+      - META_APP_SECRET=${META_APP_SECRET:-}
     depends_on:
       mesas-db:
         condition: service_healthy

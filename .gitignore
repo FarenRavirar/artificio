@@ -59,7 +59,7 @@ opencode.json
 # Astro auto-generated types
 .astro/
 
-# Serena MCP (local, configs e indices nao versionados)
+# Indice local legado (nao versionado)
 .serena/
 .codex/
 /spec047-backup

@@ -1,0 +1,174 @@
+# ============================================================================
+# WORKFLOW: Catalog Backup
+# RESPONSABILIDADE: Backup semanal do catalogo central (unica fonte de
+#   catalog_nodes/catalog_aliases/catalog_legacy_mappings, hospedada em
+#   site-prod-db; mesas/glossario/downloads so consomem via CATALOG_API_URL).
+# TRIGGER: Agendado (domingos 04:00 UTC, apos docker-cleanup 03:00) ou manual.
+# ESCOPO: VM Oracle, banco `site` em site-prod-db. Mantem as 10 copias mais
+#   recentes na VM (/opt/artificio/_catalog_backups); nao copia off-VM
+#   automaticamente (mantenedor copia manualmente quando quiser, como ja faz
+#   com outros backups em C:\projetos\artificiobackup).
+# ORIGEM: incidente 2026-07-13 (sessao 26-07-13_2) - catalog_nodes esvaziou em
+#   prod sem nenhum backup disponivel; causa raiz nao identificada por falta
+#   de log/backup. Recuperado via reimport de mesas.systems (fonte legada
+#   intacta). Este workflow existe para nao depender de novo dessa sorte.
+# ============================================================================
+
+name: Catalog Backup
+
+# Mesmo gate de promocao do docker-cleanup.yml (D073): cron so dispara da copia
+# de `dev` (branch default), mas so libera o backup na VM se este workflow ja
+# estiver identico a origin/main (promovido). Fail-safe contra rodar versao
+# nao revisada direto em prod.
+on:
+  schedule:
+    - cron: '0 4 * * 0' # domingos 04:00 UTC, semanal (1h depois do docker-cleanup)
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  guard:
+    name: Guard - so versao promovida (main)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      promoted: ${{ steps.check.outputs.promoted }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Comparar workflow com origin/main
+        id: check
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if git diff --quiet origin/main -- .github/workflows/catalog-backup.yml; then
+            echo "promoted=true" >> "$GITHUB_OUTPUT"
+            echo "workflow == origin/main: ok para backup na VM"
+          else
+            echo "promoted=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::catalog-backup.yml difere de origin/main (nao promovido). Pulando backup ate promover (ff dev->main)."
+          fi
+
+  backup:
+    name: Backup do catalogo central (site-prod-db)
+    needs: guard
+    if: needs.guard.outputs.promoted == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: artificio-catalog-backup-lock
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+    steps:
+      - name: Validate secrets
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_KNOWN_HOSTS DEPLOY_PORT DEPLOY_SSH_PRIVATE_KEY DEPLOY_USER; do
+            if [ -z "${!name:-}" ]; then
+              echo "$name=missing"
+              exit 1
+            fi
+            echo "$name=present"
+          done
+
+      - name: Prepare SSH
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/artificio_deploy_key
+          chmod 600 ~/.ssh/artificio_deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Backup site-prod-db na VM
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "${GITHUB_RUN_ID:-}" | grep -Eq '^[0-9]+$'; then
+            echo "ERRO: GITHUB_RUN_ID nao numerico: '${GITHUB_RUN_ID:-}'"
+            exit 1
+          fi
+          ssh_base=(ssh -i ~/.ssh/artificio_deploy_key -p "$DEPLOY_PORT" -o BatchMode=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=10 "$DEPLOY_USER@$DEPLOY_HOST")
+
+          remote_script="/tmp/artificio-catalog-backup-${GITHUB_RUN_ID}.sh"
+          local_script=$(mktemp)
+
+          cat > "$local_script" <<'REMOTE'
+          set -euo pipefail
+
+          BACKUP_DIR="/opt/artificio/_catalog_backups"
+          KEEP=10
+          STAMP="$(date -u +%Y%m%d-%H%M%S)"
+          OUT_FILE="$BACKUP_DIR/site-prod-catalog-${STAMP}.sql"
+          TMP_FILE="$BACKUP_DIR/.tmp-site-prod-catalog-${STAMP}.sql"
+
+          mkdir -p "$BACKUP_DIR"
+
+          if ! docker inspect site-prod-db >/dev/null 2>&1; then
+            echo "ERRO: container site-prod-db nao encontrado"
+            exit 1
+          fi
+
+          # Dump primeiro num arquivo temp fora do glob de poda (site-prod-catalog-*.sql)
+          # — se pg_dump falhar no meio, o arquivo truncado nunca vira um backup "valido"
+          # nem entra na contagem de KEEP. So renomeia pro nome final apos validar.
+          trap 'rm -f "$TMP_FILE"' EXIT
+
+          docker exec site-prod-db pg_dump -U admin -d site -F p > "$TMP_FILE"
+
+          if [ ! -s "$TMP_FILE" ]; then
+            echo "ERRO: dump vazio ou falhou (${TMP_FILE})"
+            exit 1
+          fi
+
+          mv "$TMP_FILE" "$OUT_FILE"
+          trap - EXIT
+
+          echo "backup ok: $OUT_FILE ($(du -h "$OUT_FILE" | cut -f1))"
+
+          # Mantem so as KEEP copias mais recentes (ordenacao por nome = por
+          # timestamp no proprio nome do arquivo, sem depender de mtime).
+          cd "$BACKUP_DIR"
+          ls -1 site-prod-catalog-*.sql 2>/dev/null | sort | head -n -"$KEEP" | while read -r old; do
+            echo "removendo backup antigo: $old"
+            rm -f "$old"
+          done
+
+          echo "== backups mantidos =="
+          ls -la "$BACKUP_DIR"
+          REMOTE
+
+          scp -i ~/.ssh/artificio_deploy_key -P "$DEPLOY_PORT" -o BatchMode=yes "$local_script" "$DEPLOY_USER@$DEPLOY_HOST:$remote_script"
+          rm -f "$local_script"
+
+          "${ssh_base[@]}" "set -euo pipefail
+            chmod 700 '$remote_script'
+            cleanup() { rm -f '$remote_script'; }
+            trap cleanup EXIT
+            bash '$remote_script'" | tee "$RUNNER_TEMP/backup-out.txt"
+
+      - name: Resumo do backup
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/backup-out.txt"
+          {
+            echo "### Backup do catalogo central (site-prod-db)"
+            echo ""
+            if [ -f "$out" ]; then
+              echo '```'
+              sed -n '1,200p' "$out"
+              echo '```'
+            else
+              echo "sem saida capturada"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY" || true
