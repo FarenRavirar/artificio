@@ -16,7 +16,6 @@ export type SystemPickerProps = Readonly<{
   onSuggest?: (query: string) => void;
   onCreateNow?: (query: string) => void;
   onEdit?: (node: SystemTreeNode) => void;
-  showEmptySearchResults?: boolean;
   /** Repassado direto pra CatalogTree — ver doc da prop lá (criação em cascata
    * sistema->edição->variante a partir do botão "+ Adicionar" de cada nível). */
   onAddChildAtLevel?: (depth: number, parent: SystemTreeNode | null) => void;

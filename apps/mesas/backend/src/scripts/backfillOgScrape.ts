@@ -24,15 +24,26 @@ async function main(): Promise<void> {
 
   console.log(`[backfillOgScrape] ${tables.length} mesa(s) ativa(s) encontrada(s).`);
 
+  // Achado CodeRabbit (PR #157): triggerMetaScrape engolia toda falha
+  // internamente (credencial ausente/timeout/resposta nao-2xx), entao o
+  // backfill terminava "concluido" com exit 0 mesmo sem disparar nenhum
+  // scrape de verdade. Agora acumula falhas e sai com codigo != 0.
+  const failedSlugs: string[] = [];
   let done = 0;
   for (const table of tables) {
-    await triggerMetaScrape(`${SITE_URL}/mesas/${table.slug}`);
+    const ok = await triggerMetaScrape(`${SITE_URL}/mesas/${table.slug}`);
+    if (!ok) failedSlugs.push(table.slug);
     done += 1;
-    console.log(`[backfillOgScrape] (${done}/${tables.length}) ${table.slug} — "${table.title}"`);
+    console.log(`[backfillOgScrape] (${done}/${tables.length}) ${table.slug} — "${table.title}" — ${ok ? 'ok' : 'FALHOU'}`);
     await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
   }
 
-  console.log('[backfillOgScrape] concluído.');
+  if (failedSlugs.length > 0) {
+    console.error(`[backfillOgScrape] ${failedSlugs.length}/${tables.length} falharam: ${failedSlugs.join(', ')}`);
+    process.exit(1);
+  }
+
+  console.log('[backfillOgScrape] concluído, todas as mesas processadas com sucesso.');
   process.exit(0);
 }
 

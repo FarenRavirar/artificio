@@ -7,8 +7,9 @@ import { DiscordDraftReviewTable } from '../../../features/discord-sync/componen
 import { discordSyncApi } from '../../../features/discord-sync/api/discordSyncApi';
 import { inboxApi } from '../../../features/inbox/api/inboxApi';
 import { PageHeader, SectionCard, tabButtonClass } from './ui';
+import { TableDuplicatesPanel } from './TableDuplicatesPanel';
 
-type ModSubTab = 'mensagens' | 'rascunhos';
+type ModSubTab = 'mensagens' | 'rascunhos' | 'duplicatas';
 
 /**
  * Computa diff entre campos editáveis de dois payloads para correction-tracking.
@@ -52,6 +53,7 @@ export function ModeracaoSection() {
   const [subTab, setSubTab] = useState<ModSubTab>(() => {
     if (sub === 'rascunhos') return 'rascunhos';
     if (sub === 'mensagens') return 'mensagens';
+    if (sub === 'duplicatas') return 'duplicatas';
     return 'rascunhos';
   });
 
@@ -60,6 +62,7 @@ export function ModeracaoSection() {
     const timer = setTimeout(() => {
       if (sub === 'rascunhos') setSubTab('rascunhos');
       else if (sub === 'mensagens') setSubTab('mensagens');
+      else if (sub === 'duplicatas') setSubTab('duplicatas');
       else setSubTab('rascunhos');
     }, 0);
     return () => clearTimeout(timer);
@@ -128,14 +131,19 @@ export function ModeracaoSection() {
         <button onClick={() => selectSubTab('mensagens')} className={subTabClass('mensagens')} aria-pressed={subTab === 'mensagens'}>
           Mensagens
         </button>
+        <button onClick={() => selectSubTab('duplicatas')} className={subTabClass('duplicatas')} aria-pressed={subTab === 'duplicatas'}>
+          Duplicatas
+        </button>
       </div>
 
       <SectionCard
-        title={subTab === 'rascunhos' ? 'Rascunhos de mesas' : 'Mensagens capturadas'}
+        title={subTab === 'rascunhos' ? 'Rascunhos de mesas' : subTab === 'mensagens' ? 'Mensagens capturadas' : 'Possíveis duplicatas'}
         description={
           subTab === 'rascunhos'
             ? 'Revisão unificada de entradas do Bot, Exporter e texto colado antes de publicar mesas reais.'
-            : 'Apuração das mensagens brutas antes de gerar ou ignorar rascunhos.'
+            : subTab === 'mensagens'
+              ? 'Apuração das mensagens brutas antes de gerar ou ignorar rascunhos.'
+              : 'Pares mesa×mesa e draft×mesa para decisão manual do administrador.'
         }
         bodyClassName="p-5"
       >
@@ -144,6 +152,7 @@ export function ModeracaoSection() {
         {subTab === 'rascunhos' && (
           <DiscordDraftReviewTable inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} />
         )}
+        {subTab === 'duplicatas' && <TableDuplicatesPanel />}
       </SectionCard>
     </div>
   );

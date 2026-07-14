@@ -17,7 +17,6 @@ export type CatalogTreeProps = Readonly<{
   onSuggest?: (query: string) => void;
   onCreateNow?: (query: string) => void;
   onEdit?: (node: CatalogUiNode) => void;
-  showEmptySearchResults?: boolean;
   /** Quando fornecida, o botão "+ Adicionar" de cada nível chama isso direto com o nó
    * pai daquele nível (ou null na raiz) — usado por consumidores com formulário de
    * criação embutido (ex.: CatalogExplorer), em vez do fluxo de busca+onCreateNow.
@@ -236,6 +235,7 @@ type RenderLevelContentArgs = Readonly<{
   idPrefix: string;
   effectiveNavPath: CatalogUiNode[];
   noRootResults: boolean;
+  shouldShowRootLevel: boolean;
   selectedIdSet: Set<string>;
   onSelectAtLevel: (depth: number, node: CatalogUiNode) => void;
   onToggleMultiAtRoot: (node: CatalogUiNode) => void;
@@ -243,8 +243,9 @@ type RenderLevelContentArgs = Readonly<{
   onAddAtLevel: (depth: number, parent: CatalogUiNode | null) => void;
 }>;
 
-/** 3 ramos explícitos: nada a mostrar (raiz vazia já coberta por noRootResults),
- * lista de nós (ou botão de adicionar pra admin), ou aviso de nível vazio. */
+/** 3 ramos explícitos: nada a mostrar (raiz vazia já coberta por noRootResults
+ * ou por shouldShowRootLevel=false), lista de nós (ou botão de adicionar pra
+ * admin), ou aviso de nível vazio. */
 const renderLevelContent = ({
   depth,
   nodes,
@@ -253,13 +254,22 @@ const renderLevelContent = ({
   idPrefix,
   effectiveNavPath,
   noRootResults,
+  shouldShowRootLevel,
   selectedIdSet,
   onSelectAtLevel,
   onToggleMultiAtRoot,
   onEdit,
   onAddAtLevel,
 }: RenderLevelContentArgs): ReactNode => {
-  const isEmptyRoot = depth === 0 && nodes.length === 0 && noRootResults;
+  // Achado do mantenedor (2026-07-14, DEB-077-01): com sistema já selecionado
+  // e sem busca digitada, shouldShowResults fica true (por causa da navegação
+  // já aberta pro nó selecionado), incluindo a coluna depth:0 (raiz) mesmo
+  // vazia por design (raiz só aparece com busca — regra de 2026-07-13 acima).
+  // noRootResults sozinho não cobre esse caso (ele só é true quando HÁ busca
+  // e ela não bateu nada) — sem o check de shouldShowRootLevel, a coluna
+  // raiz vazia caía no branch de "nível vazio" abaixo e mostrava a mensagem
+  // errada "Nenhum sistema cadastrado ainda." mesmo com catálogo populado.
+  const isEmptyRoot = depth === 0 && nodes.length === 0 && (noRootResults || !shouldShowRootLevel);
   if (isEmptyRoot) return null;
 
   const hasNodesToShow = nodes.length > 0 || role === 'admin';
@@ -299,7 +309,6 @@ export function CatalogTree({
   onSuggest,
   onCreateNow,
   onEdit,
-  showEmptySearchResults = false,
   onAddChildAtLevel,
 }: CatalogTreeProps) {
   const [search, setSearch] = useState('');
@@ -319,11 +328,14 @@ export function CatalogTree({
   const effectiveNavPath = mode === 'single' && selectedPaths.length > 0 ? selectedPaths[0] : navPath;
 
   const normalizedSearch = normalizeText(search);
-  // Nível raiz (sistemas) só aparece com busca vazia se showEmptySearchResults=true
-  // (com dado real, 1000+ sistemas listados sem busca é inutilizável). Níveis já
-  // navegados (edição/variante) sempre aparecem, independente da busca — busca filtra
-  // só sistemas, não desfaz uma navegação em curso.
-  const shouldShowRootLevel = showEmptySearchResults || normalizedSearch.length > 0;
+  // Nível raiz (sistemas) só aparece com busca digitada (achado do mantenedor
+  // 2026-07-14: regressão visual pós-PR #156 — showEmptySearchResults=true por
+  // ter seleção fazia a lista completa de 1269 sistemas vazar a caixa mesmo sem
+  // busca. Regra correta: sem busca não mostra nada (ou só o já selecionado,
+  // no bloco abaixo); com busca, filtra e mostra resultados — igual esteja ou
+  // não selecionado. Níveis já navegados (edição/variante) sempre aparecem,
+  // independente da busca — busca filtra só sistemas, não desfaz navegação em curso.
+  const shouldShowRootLevel = normalizedSearch.length > 0;
   const visibleRoots = useMemo(
     () => (shouldShowRootLevel ? filterRoots(tree, search) : []),
     [tree, search, shouldShowRootLevel],
@@ -413,6 +425,7 @@ export function CatalogTree({
                 idPrefix,
                 effectiveNavPath,
                 noRootResults,
+                shouldShowRootLevel,
                 selectedIdSet,
                 onSelectAtLevel: handleSelectAtLevel,
                 onToggleMultiAtRoot: toggleMultiAtRoot,

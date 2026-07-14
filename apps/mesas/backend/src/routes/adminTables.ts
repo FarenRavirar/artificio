@@ -8,8 +8,16 @@ import { logActivity } from '../services/activityLogger';
 import { triggerMetaScrapeOnPublish } from '../services/metaScrapeClient';
 import type { TableStatus, TablesTable } from '../db/types';
 import type { Updateable } from 'kysely';
+import { z } from 'zod';
+import { scanTableDuplicateCandidates } from '../services/tableDuplicateDetection';
 
 const router = Router();
+
+function requireAdminRole(req: Request, res: Response): boolean {
+  if (req.user?.role === 'admin') return true;
+  res.status(403).json({ error: 'Acesso restrito a administradores.' });
+  return false;
+}
 
 // POST /api/v1/admin/tables/auto-archive — rotina de auto-arquivamento (D-MESAS1).
 // PROD-only por decisão de produto (beta/local não auto-arquivam por idade, p/ não
@@ -110,6 +118,98 @@ router.post('/tables/batch', authMiddleware, async (req: Request, res: Response)
   } catch (error: unknown) {
     console.error('[POST /admin/tables/batch]', error);
     return res.status(500).json({ error: 'Erro na ação em lote de mesas.' });
+  }
+});
+
+// Spec 077: scanner sob demanda. Nunca decide, mescla ou apaga mesa sozinho.
+router.post('/tables/duplicates/scan', authMiddleware, async (req: Request, res: Response) => {
+  if (!requireAdminRole(req, res)) return;
+  try {
+    const result = await scanTableDuplicateCandidates();
+    return res.json({ data: result });
+  } catch (error: unknown) {
+    console.error('[POST /admin/tables/duplicates/scan]', error);
+    return res.status(500).json({ error: 'Erro ao verificar mesas duplicadas.' });
+  }
+});
+
+router.get('/tables/duplicates', authMiddleware, async (req: Request, res: Response) => {
+  if (!requireAdminRole(req, res)) return;
+  try {
+    const rows = await db
+      .selectFrom('table_duplicate_candidates as candidate')
+      .innerJoin('tables as active_table', 'active_table.id', 'candidate.table_id')
+      .leftJoin('tables as other_table', 'other_table.id', 'candidate.candidate_table_id')
+      .leftJoin('discord_parse_cases as parse_case', 'parse_case.id', 'candidate.candidate_parse_case_id')
+      .leftJoin('discord_import_table_drafts as draft', 'draft.id', 'parse_case.draft_id')
+      .select([
+        'candidate.id', 'candidate.score', 'candidate.signals_json', 'candidate.status',
+        'candidate.reviewed_by', 'candidate.reviewed_at', 'candidate.created_at',
+        'active_table.id as table_id', 'active_table.slug as table_slug', 'active_table.title as table_title',
+        'other_table.id as candidate_table_id', 'other_table.slug as candidate_table_slug', 'other_table.title as candidate_table_title',
+        'parse_case.id as candidate_parse_case_id', 'draft.id as candidate_draft_id',
+        'draft.normalized_payload as candidate_draft_payload', 'draft.parsed_payload as candidate_draft_parsed_payload',
+      ])
+      .orderBy('candidate.status', 'asc')
+      .orderBy('candidate.score', 'desc')
+      .execute();
+
+    return res.json({ data: rows.map((row) => ({ ...row, score: Number(row.score) })) });
+  } catch (error: unknown) {
+    console.error('[GET /admin/tables/duplicates]', error);
+    return res.status(500).json({ error: 'Erro ao listar mesas duplicadas.' });
+  }
+});
+
+const duplicateDecisionSchema = z.object({
+  status: z.enum(['confirmed_duplicate', 'rejected_duplicate', 'update_existing']),
+});
+
+router.patch('/table-duplicate-candidates/:id', authMiddleware, async (req: Request, res: Response) => {
+  if (!requireAdminRole(req, res)) return;
+  const parsed = duplicateDecisionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Payload inválido.' });
+
+  try {
+    const existing = await db
+      .selectFrom('table_duplicate_candidates')
+      .selectAll()
+      .where('id', '=', req.params.id)
+      .executeTakeFirst();
+    if (!existing) return res.status(404).json({ error: 'Candidato de duplicata não encontrado.' });
+
+    const updated = await db.transaction().execute(async (trx) => {
+      const result = await trx
+        .updateTable('table_duplicate_candidates')
+        .set({
+          status: parsed.data.status,
+          reviewed_by: req.user?.userId ?? null,
+          reviewed_at: new Date(),
+          updated_at: new Date(),
+        })
+        .where('id', '=', existing.id)
+        .returningAll()
+        .executeTakeFirstOrThrow();
+
+      if (existing.candidate_parse_case_id) {
+        await trx.insertInto('discord_parse_feedback').values({
+          parse_case_id: existing.candidate_parse_case_id,
+          draft_id: null,
+          feedback_type: parsed.data.status === 'rejected_duplicate' ? 'not_duplicate' : 'duplicate',
+          field: null,
+          before_value: { table_id: existing.table_id, previous_status: existing.status },
+          after_value: { table_id: existing.table_id, status: parsed.data.status },
+          reason: null,
+          scope_json: { table_duplicate_candidate_id: existing.id },
+          admin_user_id: req.user?.userId ?? null,
+        }).execute();
+      }
+      return result;
+    });
+    return res.json({ data: { ...updated, score: Number(updated.score) } });
+  } catch (error: unknown) {
+    console.error('[PATCH /admin/table-duplicate-candidates/:id]', error);
+    return res.status(500).json({ error: 'Erro ao resolver candidato de duplicata.' });
   }
 });
 

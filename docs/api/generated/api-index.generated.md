@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **355 operações**.
+Total: **358 operações**.
 
 ## accounts (11)
 
@@ -156,7 +156,7 @@ Total: **355 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (179)
+## mesas (182)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -240,12 +240,15 @@ Total: **355 operações**.
 | GET | `/api/v1/admin/system-suggestions/{id}/candidates` | admin | admin | active | — | Consulta api v1 admin system-suggestions id candidates |
 | PATCH | `/api/v1/admin/system-suggestions/{id}/reject` | admin | admin | active | — | Atualiza api v1 admin system-suggestions id reject |
 | POST | `/api/v1/admin/system-suggestions/{id}/resolve` | admin | admin | active | — | Cria ou executa api v1 admin system-suggestions id resolve |
+| PATCH | `/api/v1/admin/table-duplicate-candidates/{id}` | admin | admin | active | — | Atualiza api v1 admin table-duplicate-candidates id |
 | GET | `/api/v1/admin/tables` | admin | admin | active | — | Consulta api v1 admin tables |
 | DELETE | `/api/v1/admin/tables/{id}` | admin | admin | active | — | Remove api v1 admin tables id |
 | GET | `/api/v1/admin/tables/{id}` | admin | admin | active | — | Consulta api v1 admin tables id |
 | PUT | `/api/v1/admin/tables/{id}` | admin | admin | active | — | Substitui api v1 admin tables id |
 | POST | `/api/v1/admin/tables/auto-archive` | admin | admin | active | — | Cria ou executa api v1 admin tables auto-archive |
 | POST | `/api/v1/admin/tables/batch` | admin | admin | active | — | Cria ou executa api v1 admin tables batch |
+| GET | `/api/v1/admin/tables/duplicates` | admin | admin | active | — | Consulta api v1 admin tables duplicates |
+| POST | `/api/v1/admin/tables/duplicates/scan` | admin | admin | active | — | Cria ou executa api v1 admin tables duplicates scan |
 | GET | `/api/v1/admin/users` | admin | admin | active | — | Consulta api v1 admin users |
 | GET | `/api/v1/admin/users/{id}` | admin | admin | active | — | Consulta api v1 admin users id |
 | PATCH | `/api/v1/admin/users/{id}/covil` | admin | admin | active | — | Atualiza api v1 admin users id covil |

@@ -796,6 +796,21 @@ export type DiscordDuplicateCandidate = Selectable<DiscordDuplicateCandidatesTab
 export type NewDiscordDuplicateCandidate = Insertable<DiscordDuplicateCandidatesTable>;
 export type DiscordDuplicateCandidateUpdate = Updateable<DiscordDuplicateCandidatesTable>;
 
+// Migration 145 (Spec 077): dedupe de mesa ativa x mesa ativa/draft.
+export interface TableDuplicateCandidatesTable {
+  id: Generated<string>;
+  table_id: string;
+  candidate_table_id: string | null;
+  candidate_parse_case_id: string | null;
+  score: ColumnType<string, number, number>;
+  signals_json: ColumnType<unknown, unknown, unknown>;
+  status: Generated<DiscordDuplicateCandidateStatus>;
+  reviewed_by: string | null;
+  reviewed_at: Date | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 // Migration 138 (Spec 058): regras ampliadas de aprendizado.
 export type DiscordLearningRuleType =
   | 'field_value'
@@ -1064,6 +1079,7 @@ export interface Database {
   discord_parse_cases: DiscordParseCasesTable;
   discord_parse_feedback: DiscordParseFeedbackTable;
   discord_duplicate_candidates: DiscordDuplicateCandidatesTable;
+  table_duplicate_candidates: TableDuplicateCandidatesTable;
   discord_learning_rules: DiscordLearningRulesTable;
   discord_learning_rule_applications: DiscordLearningRuleApplicationsTable;
   discord_llm_decisions: DiscordLlmDecisionsTable;

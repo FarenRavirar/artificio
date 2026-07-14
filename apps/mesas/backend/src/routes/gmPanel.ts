@@ -20,6 +20,7 @@ import { logActivity } from '../services/activityLogger';
 import { notifyAdmins } from '../services/adminNotifications';
 import { isValidEmail } from '../utils/validation';
 import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaScrapeClient';
+import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
 
 const router = Router();
 
@@ -521,6 +522,13 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
     const responseData = {
       ...tableData,
+      // Achado do mantenedor (2026-07-14): mesa importada via Discord pode ter
+      // banner_url ainda apontando pra CDN efêmero do Discord (URL assinada com
+      // expiração, ex=/is=/hm=) quando o upload retroativo pro Cloudinary nunca
+      // rodou pra essa mesa. GET /gm/:slug e GET /tables/:slug já sanitizavam;
+      // esta rota (usada por /painel?edit=) não sanitizava, causando 404 no
+      // browser ao tentar carregar a imagem expirada direto do Discord.
+      banner_url: sanitizePublicImageUrl(tableData.banner_url),
       contacts,
       schedules,
       slots_available: (tableData.slots_total ?? 0) - (tableData.slots_filled ?? 0),

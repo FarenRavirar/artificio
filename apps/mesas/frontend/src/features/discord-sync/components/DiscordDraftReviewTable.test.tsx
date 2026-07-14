@@ -20,6 +20,11 @@ const mockUpdateDraft = vi.fn();
 const mockSyncDraft = vi.fn();
 const mockReparseDraft = vi.fn();
 const mockPurgeRejected = vi.fn();
+const mockListTableDuplicates = vi.fn();
+
+vi.mock('../../admin/api/tableDuplicatesApi', () => ({
+  listTableDuplicateCandidates: (...args: unknown[]) => mockListTableDuplicates(...args),
+}));
 
 vi.mock('../api/discordSyncApi', () => ({
   discordSyncApi: {
@@ -85,6 +90,7 @@ describe('DiscordDraftReviewTable', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetDrafts.mockResolvedValue(mockDrafts);
+    mockListTableDuplicates.mockResolvedValue([]);
   });
 
   it('renderiza sem crash', async () => {
@@ -103,6 +109,16 @@ describe('DiscordDraftReviewTable', () => {
       expect(screen.getByText('Mesa B')).toBeInTheDocument();
       expect(screen.getByText('Mesa C')).toBeInTheDocument();
     });
+  });
+
+  it('mostra badge quando draft bate com mesa ativa', async () => {
+    mockListTableDuplicates.mockResolvedValue([{
+      id: 'dup-1', score: 0.9, signals_json: {}, status: 'candidate',
+      table_id: 'table-1', table_slug: 'mesa-publicada', table_title: 'Mesa publicada',
+      candidate_draft_id: 'draft-1',
+    }]);
+    render(<DiscordDraftReviewTable />);
+    expect(await screen.findByText('possível duplicata (1)')).toBeInTheDocument();
   });
 
   it('mostra status dos drafts', async () => {

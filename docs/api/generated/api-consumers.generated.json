@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 291,
-    "uniqueEndpoints": 270,
+    "total": 294,
+    "uniqueEndpoints": 273,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,17 +36,17 @@
         }
       },
       "mesas-frontend": {
-        "total": 171,
+        "total": 174,
         "byConfidence": {
-          "medium": 68,
-          "high": 101,
+          "medium": 69,
+          "high": 103,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
-          "template-literal": 60,
+          "template-literal": 61,
           "service-wrapper": 49,
-          "literal": 54,
+          "literal": 56,
           "concatenation": 2
         }
       },
@@ -917,7 +917,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "refreshSession",
-      "line": 138
+      "line": 143
     },
     {
       "app": "mesas-frontend",
@@ -1127,7 +1127,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 115
+      "line": 117
     },
     {
       "app": "mesas-frontend",
@@ -1137,7 +1137,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.submitCorrection",
-      "line": 103
+      "line": 106
     },
     {
       "app": "mesas-frontend",
@@ -1377,7 +1377,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.updateDraft",
-      "line": 72
+      "line": 75
     },
     {
       "app": "mesas-frontend",
@@ -1387,7 +1387,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.getDraft",
-      "line": 73
+      "line": 76
     },
     {
       "app": "mesas-frontend",
@@ -1397,7 +1397,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.registerCorrection",
-      "line": 74
+      "line": 77
     },
     {
       "app": "mesas-frontend",
@@ -1407,7 +1407,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.reparseDraft",
-      "line": 71
+      "line": 74
     },
     {
       "app": "mesas-frontend",
@@ -1417,7 +1417,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.syncDraft",
-      "line": 70
+      "line": 73
     },
     {
       "app": "mesas-frontend",
@@ -1541,6 +1541,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/api/tableDuplicatesApi.ts",
+      "method": "PATCH",
+      "endpoint": "/api/v1/admin/table-duplicate-candidates/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authPatch",
+      "line": 52
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/admin/components/ConteudoSection.tsx",
       "method": "GET",
       "endpoint": "/api/v1/admin/tables",
@@ -1618,6 +1628,26 @@
       "pattern": "literal",
       "wrapper": "authPost",
       "line": 185
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/api/tableDuplicatesApi.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/tables/duplicates",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authGet",
+      "line": 38
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/api/tableDuplicatesApi.ts",
+      "method": "POST",
+      "endpoint": "/api/v1/admin/tables/duplicates/scan",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authPost",
+      "line": 45
     },
     {
       "app": "mesas-frontend",

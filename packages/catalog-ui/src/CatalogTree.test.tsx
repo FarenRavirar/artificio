@@ -169,14 +169,13 @@ describe('CatalogTree', () => {
     expect(screen.queryByText('Vampire')).not.toBeInTheDocument();
   });
 
-  it('oculta resultados vazios quando configurado como busca fechada', () => {
+  it('oculta a raiz sem busca', () => {
     render(
       <CatalogTree
         tree={tree}
         selectedIds={[]}
         onSelectionChange={vi.fn()}
         idPrefix="systems"
-        showEmptySearchResults={false}
       />,
     );
 
@@ -187,6 +186,20 @@ describe('CatalogTree', () => {
     });
 
     expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument();
+  });
+
+  it('não mostra falso vazio quando há seleção prévia e nenhuma busca', () => {
+    render(
+      <CatalogTree
+        tree={tree}
+        selectedIds={['dnd-5e']}
+        onSelectionChange={vi.fn()}
+        idPrefix="systems"
+      />,
+    );
+
+    expect(screen.getByText('Selecionado')).toBeInTheDocument();
+    expect(screen.queryByText('Nenhum sistema cadastrado ainda.')).not.toBeInTheDocument();
   });
 
   it('mostra ações por role quando busca não encontra resultado', () => {
@@ -268,6 +281,10 @@ describe('CatalogTree', () => {
         onCreateNow={vi.fn()}
       />
     );
+
+    fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
+      target: { value: 'Dungeons' },
+    });
 
     expect(screen.getByRole('button', { name: /Adicionar sistema/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Adicionar edição/ })).toBeInTheDocument();

@@ -2867,6 +2867,48 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/admin/table-duplicate-candidates/{id}:
+    patch:
+      operationId: patchapi_v1_admin_table_duplicate_candidates_id
+      summary: "Atualiza api v1 admin table-duplicate-candidates id"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/admin/tables:
     get:
       operationId: getapi_v1_admin_tables
@@ -3046,6 +3088,71 @@ paths:
     post:
       operationId: postapi_v1_admin_tables_batch
       summary: "Cria ou executa api v1 admin tables batch"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/tables/duplicates:
+    get:
+      operationId: getapi_v1_admin_tables_duplicates
+      summary: "Consulta api v1 admin tables duplicates"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/tables/duplicates/scan:
+    post:
+      operationId: postapi_v1_admin_tables_duplicates_scan
+      summary: "Cria ou executa api v1 admin tables duplicates scan"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active

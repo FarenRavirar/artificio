@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 442,
+    "total": 445,
     "byApp": {
       "accounts": {
         "total": 11,
@@ -55,17 +55,17 @@
         }
       },
       "mesas": {
-        "total": 229,
+        "total": 232,
         "byMethod": {
-          "GET": 65,
-          "POST": 61,
+          "GET": 66,
+          "POST": 62,
           "USE": 51,
-          "PATCH": 25,
+          "PATCH": 26,
           "DELETE": 16,
           "PUT": 11
         },
         "byConfidence": {
-          "high": 229
+          "high": 232
         }
       },
       "site": {
@@ -2519,10 +2519,19 @@
     },
     {
       "app": "mesas",
+      "method": "PATCH",
+      "path": "/api/v1/admin/table-duplicate-candidates/:id",
+      "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
+      "line": 168,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/tables",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 184,
+      "line": 284,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2531,7 +2540,7 @@
       "method": "DELETE",
       "path": "/api/v1/admin/tables/:id",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 236,
+      "line": 336,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2540,7 +2549,7 @@
       "method": "GET",
       "path": "/api/v1/admin/tables/:id",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 211,
+      "line": 311,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2549,7 +2558,7 @@
       "method": "PUT",
       "path": "/api/v1/admin/tables/:id",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 117,
+      "line": 217,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2558,7 +2567,7 @@
       "method": "POST",
       "path": "/api/v1/admin/tables/auto-archive",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 18,
+      "line": 26,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2567,7 +2576,25 @@
       "method": "POST",
       "path": "/api/v1/admin/tables/batch",
       "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
-      "line": 57,
+      "line": 65,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/tables/duplicates",
+      "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
+      "line": 136,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/tables/duplicates/scan",
+      "sourceFile": "apps/mesas/backend/src/routes/adminTables.ts",
+      "line": 125,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2792,7 +2819,7 @@
       "method": "GET",
       "path": "/api/v1/gm/insights",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1427,
+      "line": 1435,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2801,7 +2828,7 @@
       "method": "GET",
       "path": "/api/v1/gm/me",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 454,
+      "line": 455,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2810,7 +2837,7 @@
       "method": "POST",
       "path": "/api/v1/gm/profile",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 143,
+      "line": 144,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2819,7 +2846,7 @@
       "method": "PUT",
       "path": "/api/v1/gm/profile",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 262,
+      "line": 263,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2828,7 +2855,7 @@
       "method": "GET",
       "path": "/api/v1/gm/tables",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 877,
+      "line": 885,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2837,7 +2864,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 563,
+      "line": 571,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2846,7 +2873,7 @@
       "method": "DELETE",
       "path": "/api/v1/gm/tables/:id",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1219,
+      "line": 1227,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2855,7 +2882,7 @@
       "method": "GET",
       "path": "/api/v1/gm/tables/:id",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 494,
+      "line": 495,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2864,7 +2891,7 @@
       "method": "PUT",
       "path": "/api/v1/gm/tables/:id",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 667,
+      "line": 675,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2873,7 +2900,7 @@
       "method": "PATCH",
       "path": "/api/v1/gm/tables/:id/archive",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1160,
+      "line": 1168,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2882,7 +2909,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables/:id/click",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1318,
+      "line": 1326,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2891,7 +2918,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables/:id/contact",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1354,
+      "line": 1362,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2900,7 +2927,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables/:id/favorite",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1390,
+      "line": 1398,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2909,7 +2936,7 @@
       "method": "PATCH",
       "path": "/api/v1/gm/tables/:id/status",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1024,
+      "line": 1032,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2918,7 +2945,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables/:slug/view",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1276,
+      "line": 1284,
       "confidence": "high",
       "kind": "express-route"
     },
