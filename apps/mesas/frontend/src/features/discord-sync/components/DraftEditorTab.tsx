@@ -354,7 +354,6 @@ export function DraftEditorTab({
               onSuggest={openSystemSuggestionModal}
               onCreateNow={openSystemSuggestionModal}
               onAddChildAtLevel={openSystemSuggestionModalAtLevel}
-              showEmptySearchResults={Boolean(form.system_id)}
             />
           )}
           <FieldInsightNote field="system_name" insight={fieldInsights?.system_name} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('system_name') ?? false} />

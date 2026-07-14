@@ -32,7 +32,6 @@ export type CatalogExplorerProps = Readonly<{
   searchPlaceholder?: string;
   onSuggest?: (query: string) => void;
   onCreateNow?: (query: string) => void;
-  showEmptySearchResults?: boolean;
   /** Painel de edição completo só existe quando role="admin" e onSaveNode é fornecido. */
   onSaveNode?: (form: CatalogUiNodeInput, selected: CatalogUiNode | null) => void;
   saving?: boolean;
@@ -51,7 +50,6 @@ export function CatalogExplorer({
   searchPlaceholder,
   onSuggest,
   onCreateNow,
-  showEmptySearchResults,
   onSaveNode,
   saving,
 }: CatalogExplorerProps) {
@@ -102,7 +100,6 @@ export function CatalogExplorer({
         searchPlaceholder={searchPlaceholder}
         onSuggest={onSuggest}
         onCreateNow={onCreateNow}
-        showEmptySearchResults={showEmptySearchResults}
         onAddChildAtLevel={handleAddChildAtLevel}
       />
 

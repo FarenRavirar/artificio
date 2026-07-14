@@ -7,10 +7,10 @@
     "downloads": 50,
     "glossario": 47,
     "links": 22,
-    "mesas": 179,
+    "mesas": 182,
     "site": 46
   },
-  "total": 355,
+  "total": 358,
   "operations": [
     {
       "app": "accounts",
@@ -2551,6 +2551,18 @@
     },
     {
       "app": "mesas",
+      "method": "PATCH",
+      "path": "/api/v1/admin/table-duplicate-candidates/{id}",
+      "summary": "Atualiza api v1 admin table-duplicate-candidates id",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "patchapi_v1_admin_table_duplicate_candidates_id"
+    },
+    {
+      "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/tables",
       "summary": "Consulta api v1 admin tables",
@@ -2620,6 +2632,30 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_v1_admin_tables_batch"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/tables/duplicates",
+      "summary": "Consulta api v1 admin tables duplicates",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_tables_duplicates"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/tables/duplicates/scan",
+      "summary": "Cria ou executa api v1 admin tables duplicates scan",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_tables_duplicates_scan"
     },
     {
       "app": "mesas",

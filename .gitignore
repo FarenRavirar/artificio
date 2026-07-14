@@ -48,7 +48,12 @@ artifacts/
 
 # Docs internas de operação — NÃO publicar (recon de infra: containers, rotas, cofre)
 # Mantidas só localmente + em C:\projetos\artificiobackup\docs-agents-internal-*
-docs/agents/
+# Nota: usar /docs/agents/* (não docs/agents/) para permitir exceção de arquivo
+# abaixo — padrão de diretório puro bloqueia negação (!) de arquivos dentro dele.
+/docs/agents/*
+# Exceção: fluxo Supervisor do OpenCode não tem recon de infra, é governança
+# de agente pura — referenciado publicamente por AGENTS.md, precisa ser versionado.
+!/docs/agents/opencode-supervisor-flow.md
 
 # Editor
 .vscode/

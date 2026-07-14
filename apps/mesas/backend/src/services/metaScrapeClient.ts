@@ -17,14 +17,16 @@ function getAppToken(): string | null {
   return `${appId}|${appSecret}`;
 }
 
-/** Dispara o scrape do Graph API para a URL pública informada. Fire-and-forget
- * por design: falha de rede/credencial ausente nunca deve derrubar o fluxo de
- * publish/edit de mesa que chamou isto. */
-export async function triggerMetaScrape(url: string): Promise<void> {
+/** Dispara o scrape do Graph API para a URL pública informada. Retorna se deu
+ * certo (achado CodeRabbit PR #157: o script de backfill precisa saber se o
+ * scrape falhou, em vez de contar como concluído com sucesso). Nos 4 hooks de
+ * publish/edit de mesa o retorno é ignorado de propósito — fire-and-forget,
+ * falha de rede/credencial nunca deve derrubar esse fluxo. */
+export async function triggerMetaScrape(url: string): Promise<boolean> {
   const appToken = getAppToken();
   if (!appToken) {
     console.warn('[metaScrapeClient] META_APP_ID/META_APP_SECRET ausentes — scrape pulado para', url);
-    return;
+    return false;
   }
 
   const params = new URLSearchParams({ id: url, scrape: 'true', access_token: appToken });
@@ -39,9 +41,12 @@ export async function triggerMetaScrape(url: string): Promise<void> {
     if (!response.ok) {
       const body = await response.text().catch(() => '');
       console.error(`[metaScrapeClient] scrape falhou (${response.status}) para ${url}:`, body);
+      return false;
     }
+    return true;
   } catch (error) {
     console.error(`[metaScrapeClient] erro ao disparar scrape para ${url}:`, error);
+    return false;
   } finally {
     clearTimeout(timeout);
   }

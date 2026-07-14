@@ -88,9 +88,14 @@ async function executeHttpRequest(
 
   const requestKey = `${init.method || 'GET'}:${url}`;
 
-  // REV-056: Cancelar requisição duplicada anterior — só para métodos seguros
+  // REV-056: Cancelar requisição duplicada anterior — só para métodos seguros.
+  // Log só em dev (achado do mantenedor 2026-07-14, DEB-077-04): esperado em
+  // StrictMode/re-render rápido (2+ efeitos pedindo o mesmo GET no mount), a
+  // chamada sobrevivente resolve normal — mas poluía o console em produção.
   if (isIdempotent && pendingRequests.has(requestKey)) {
-    console.log('[api] Cancelando requisição duplicada:', requestKey);
+    if (import.meta.env.DEV) {
+      console.log('[api] Cancelando requisição duplicada:', requestKey);
+    }
     pendingRequests.get(requestKey)?.abort();
   }
 

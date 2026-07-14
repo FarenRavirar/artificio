@@ -1,0 +1,33 @@
+-- Spec 077 / Fase 0 — teste exploratório read-only.
+-- Executar no banco Mesas. Não persiste candidatos nem altera dados.
+WITH pairs AS (
+  SELECT
+    a.id AS left_id,
+    a.slug AS left_slug,
+    b.id AS right_id,
+    b.slug AS right_slug,
+    similarity(lower(a.title), lower(b.title)) AS title_similarity,
+    similarity(
+      lower(coalesce(a.description, '')),
+      lower(coalesce(b.description, ''))
+    ) AS description_similarity,
+    -- SonarCloud PR #159: NULL não representa sistema compartilhado.
+    a.system_id IS NOT NULL AND a.system_id = b.system_id AS same_system,
+    coalesce(a.source_url <> '' AND a.source_url = b.source_url, false) AS same_source_url
+  FROM tables a
+  JOIN tables b ON a.id < b.id
+  WHERE a.status = 'active'
+    AND b.status = 'active'
+)
+SELECT
+  left_slug,
+  right_slug,
+  round(title_similarity::numeric, 3) AS title_similarity,
+  round(description_similarity::numeric, 3) AS description_similarity,
+  same_system,
+  same_source_url
+FROM pairs
+WHERE title_similarity >= 0.60
+   OR description_similarity >= 0.75
+   OR same_source_url
+ORDER BY greatest(title_similarity, description_similarity) DESC;

@@ -7,8 +7,24 @@ import { DiscordDraftReviewTable } from '../../../features/discord-sync/componen
 import { discordSyncApi } from '../../../features/discord-sync/api/discordSyncApi';
 import { inboxApi } from '../../../features/inbox/api/inboxApi';
 import { PageHeader, SectionCard, tabButtonClass } from './ui';
+import { TableDuplicatesPanel } from './TableDuplicatesPanel';
 
-type ModSubTab = 'mensagens' | 'rascunhos';
+type ModSubTab = 'mensagens' | 'rascunhos' | 'duplicatas';
+
+const SUB_TAB_CONTENT: Record<ModSubTab, { title: string; description: string }> = {
+  rascunhos: {
+    title: 'Rascunhos de mesas',
+    description: 'Revisão unificada de entradas do Bot, Exporter e texto colado antes de publicar mesas reais.',
+  },
+  mensagens: {
+    title: 'Mensagens capturadas',
+    description: 'Apuração das mensagens brutas antes de gerar ou ignorar rascunhos.',
+  },
+  duplicatas: {
+    title: 'Possíveis duplicatas',
+    description: 'Pares mesa×mesa e draft×mesa para decisão manual do administrador.',
+  },
+};
 
 /**
  * Computa diff entre campos editáveis de dois payloads para correction-tracking.
@@ -52,6 +68,7 @@ export function ModeracaoSection() {
   const [subTab, setSubTab] = useState<ModSubTab>(() => {
     if (sub === 'rascunhos') return 'rascunhos';
     if (sub === 'mensagens') return 'mensagens';
+    if (sub === 'duplicatas') return 'duplicatas';
     return 'rascunhos';
   });
 
@@ -60,6 +77,7 @@ export function ModeracaoSection() {
     const timer = setTimeout(() => {
       if (sub === 'rascunhos') setSubTab('rascunhos');
       else if (sub === 'mensagens') setSubTab('mensagens');
+      else if (sub === 'duplicatas') setSubTab('duplicatas');
       else setSubTab('rascunhos');
     }, 0);
     return () => clearTimeout(timer);
@@ -128,15 +146,15 @@ export function ModeracaoSection() {
         <button onClick={() => selectSubTab('mensagens')} className={subTabClass('mensagens')} aria-pressed={subTab === 'mensagens'}>
           Mensagens
         </button>
+        <button onClick={() => selectSubTab('duplicatas')} className={subTabClass('duplicatas')} aria-pressed={subTab === 'duplicatas'}>
+          Duplicatas
+        </button>
       </div>
 
+      {/* SonarCloud PR #159: conteúdo por subaba evita ternários aninhados e mantém título/descrição sincronizados. */}
       <SectionCard
-        title={subTab === 'rascunhos' ? 'Rascunhos de mesas' : 'Mensagens capturadas'}
-        description={
-          subTab === 'rascunhos'
-            ? 'Revisão unificada de entradas do Bot, Exporter e texto colado antes de publicar mesas reais.'
-            : 'Apuração das mensagens brutas antes de gerar ou ignorar rascunhos.'
-        }
+        title={SUB_TAB_CONTENT[subTab].title}
+        description={SUB_TAB_CONTENT[subTab].description}
         bodyClassName="p-5"
       >
         {subTab === 'mensagens' && <MessagesView />}
@@ -144,6 +162,7 @@ export function ModeracaoSection() {
         {subTab === 'rascunhos' && (
           <DiscordDraftReviewTable inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} />
         )}
+        {subTab === 'duplicatas' && <TableDuplicatesPanel />}
       </SectionCard>
     </div>
   );

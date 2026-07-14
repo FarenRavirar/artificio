@@ -47,7 +47,9 @@ export const validators = {
       if (!session.day_of_week) return `Sessão ${i + 1}: dia da semana obrigatório`;
       if (session.day_of_week === 'to_define' || !session.start_time) continue;
       if (!session.start_time) return `Sessão ${i + 1}: horário de início obrigatório`;
-      if (!session.end_time) return `Sessão ${i + 1}: horário de término obrigatório`;
+      // Horário de término é opcional (achado do mantenedor 2026-07-14, DEB-077-02):
+      // mesas reais frequentemente não têm hora fixa de encerramento ("sessão até
+      // acabar"), e o rótulo do campo na UI já não marca como obrigatório (*).
     }
     
     return null;

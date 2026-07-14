@@ -5,6 +5,7 @@ import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from 
 import { discordSyncApi } from '../api/discordSyncApi';
 import { DiscordDraftPreview } from './DiscordDraftPreview';
 import { isRecord } from '../draftFormUtils';
+import { listTableDuplicateCandidates } from '../../admin/api/tableDuplicatesApi';
 
 // REV-038: alias p/ a união repetida do filtro de origem.
 type OriginFilter = 'discord' | 'inbox' | 'all';
@@ -93,6 +94,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   const resolveApi = (draft: DiscordDraft): DraftApiOperations =>
     !draft.discord_message_id && inboxApi ? inboxApi : draftApi;
   const [drafts, setDrafts] = useState<DiscordDraft[]>([]);
+  const [duplicateCounts, setDuplicateCounts] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<DiscordImportDraftStatus | ''>('');
   const [originFilter, setOriginFilter] = useState<OriginFilter>('all');
@@ -113,12 +115,19 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
     setSelectedIds(new Set());
     try {
       const fetchFn = listDraftsProp ?? ((params) => discordSyncApi.getDrafts(params));
-      const data = await fetchFn({
-        status: statusFilter || undefined,
-        limit: 100,
-        origin: originFilter,
-      });
+      const [data, duplicateCandidates] = await Promise.all([
+        fetchFn({ status: statusFilter || undefined, limit: 100, origin: originFilter }),
+        // Badge é enriquecimento: falha da rota nova nunca pode esconder a fila
+        // principal de rascunhos (Spec 077, rollout antes da migration em beta).
+        listTableDuplicateCandidates().catch(() => []),
+      ]);
       setDrafts(Array.isArray(data) ? data : []);
+      const counts = new Map<string, number>();
+      for (const candidate of duplicateCandidates) {
+        if (candidate.status !== 'candidate' || !candidate.candidate_draft_id) continue;
+        counts.set(candidate.candidate_draft_id, (counts.get(candidate.candidate_draft_id) ?? 0) + 1);
+      }
+      setDuplicateCounts(counts);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar drafts.');
     } finally {
@@ -129,6 +138,22 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   useEffect(() => {
     void (async () => { await loadDrafts(); })();
   }, [loadDrafts]);
+
+  useEffect(() => {
+    const requestedDraftId = new URLSearchParams(window.location.search).get('draft');
+    if (!requestedDraftId) return;
+    const requestedDraft = drafts.find((draft) => draft.id === requestedDraftId);
+    if (!requestedDraft) return;
+    const timer = setTimeout(() => {
+      setSelectedDraft(requestedDraft);
+      // Achado bot review PR #159: sem remover o param, qualquer novo `drafts`
+      // (poll, refresh pós-decisão) reabre o modal do mesmo draft de novo.
+      const url = new URL(window.location.href);
+      url.searchParams.delete('draft');
+      window.history.replaceState(null, '', url);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [drafts]);
 
   const handleSyncReady = async () => {
     const confirmed = await confirm({
@@ -431,6 +456,11 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                     {draftMissing(draft).includes('system_name:homebrew_suspect') && (
                       <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-300" title="Possível sistema autoral — revisar e decidir">
                         ⚠ autoral?
+                      </span>
+                    )}
+                    {(duplicateCounts.get(draft.id) ?? 0) > 0 && (
+                      <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-200" title="Este rascunho bate com mesa ativa existente">
+                        possível duplicata ({duplicateCounts.get(draft.id)})
                       </span>
                     )}
                   </span>

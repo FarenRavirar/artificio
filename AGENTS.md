@@ -96,7 +96,7 @@ O Artifício RPG avança por gates. **Nenhum gate é pulado.** Cada gate exige a
 - WordPress desligado (D074). SSO central em `accounts.artificiorpg.com` (D018).
 - Une tudo: cookie `.artificiorpg.com` + nav + design. Cloudflare Tunnel mapeia hostname→container.
 
-**DNS raiz de `artificiorpg.com` não é mais intocável por WordPress (Gate C encerrado) — mas continua exigindo aprovação explícita do mantenedor pra qualquer mudança, como qualquer DNS/tunnel de produção.** `artificiorpg.com` é `CNAME` pro Cloudflare Tunnel (`<tunnel-id>.cfargotunnel.com`), roteando pro container `site-prod-app:4322`. **Incidente real (2026-07-12):** um domínio customizado de bucket R2 (`artificiodownloads`) ficou registrado na raiz `artificiorpg.com`, ocupando o nome e impedindo o Tunnel de criar/atualizar o CNAME — sintoma foi 404 do edge Cloudflare (`Cf-Cache-Status: HIT` com 404 cacheado) mesmo com a origem saudável. Diagnóstico: sempre checar registro DNS real do hostname raiz no painel (não assumir que é WordPress/A record antigo) antes de mexer — pode ser qualquer registro (R2, MX, etc.) conflitando com o nome.
+**DNS raiz de `artificiorpg.com` exige aprovação explícita do mantenedor pra qualquer mudança, como qualquer DNS/tunnel de produção.** `artificiorpg.com` é `CNAME` pro Cloudflare Tunnel (`<tunnel-id>.cfargotunnel.com`), roteando pro container `site-prod-app:4322`. **Incidente real (2026-07-12):** um domínio customizado de bucket R2 (`artificiodownloads`) ficou registrado na raiz `artificiorpg.com`, ocupando o nome e impedindo o Tunnel de criar/atualizar o CNAME — sintoma foi 404 do edge Cloudflare (`Cf-Cache-Status: HIT` com 404 cacheado) mesmo com a origem saudável. Diagnóstico: sempre checar registro DNS real do hostname raiz no painel (não assumir que é WordPress/A record antigo) antes de mexer — pode ser qualquer registro (R2, MX, etc.) conflitando com o nome.
 
 ---
 
@@ -143,20 +143,20 @@ Nunca executar sem aprovação explícita do mantenedor:
 - `npm`/`pnpm run build` no servidor
 - `git commit`; `git push origin dev|main`; `git push --delete`
 - `psql`/SQL write em DB real/VM/prod com `INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE`
-- Qualquer mudança em registro DNS/Tunnel de produção (inclusive raiz `artificiorpg.com`, já sem WordPress desde o Gate C encerrado — trava aqui é "produção", não mais "pré-Gate C")
+- Qualquer mudança em registro DNS/Tunnel de produção (inclusive raiz `artificiorpg.com`)
 - Recriar/redimensionar instância Oracle, mexer em volume ou tunnel
 - Copiar/sobrescrever arquivos em produção
 - Modificar arquivos fora do escopo solicitado sem aprovação/ampliação explícita de escopo registrada na sessão. Pequenas edições pedidas explicitamente pelo mantenedor no meio da sessão contam como ampliação de escopo e devem ser registradas.
 - Usar Chrome do mantenedor para verificação/autenticação (`Chrome` plugin, perfil logado, cookies/sessão reais) sem autorização explícita. Preferir validação read-only por HTTP, Browser interno sem sessão real, logs ou artefatos locais quando suficiente. Chrome só entra quando o mantenedor autorizar nominalmente e a tarefa precisar de sessão/perfil real.
 - Acionar outro agente de IA em nome do mantenedor (ex.: Claude Code ↔ OpenCode via MCP `opencode`/DeepSeek). Nenhum agente ativa o outro, inicia subprocessos, roda comandos, altera arquivos/configurações ou faz chamadas de ferramenta em nome do outro sem aprovação nominal. Comunicação entre agentes prioriza read-only (análise, inspeção, revisão, diagnóstico); o agente informa qual ferramenta/MCP vai usar antes de acionar. Comandos documentados são referência, não autorização permanente. Detalhe operacional (interno): `docs/agents/operating-model.md`.
 
-**Regra de obediência estrita:** se uma ação está nesta lista, o agente **não infere autorização** de frases genéricas como "pode seguir", "corrija", "resolve isso", "faz o resto", "promova" ou "termina". A autorização precisa nomear a ação perigosa ou o bloco de comandos (`commit`, `push`, `merge`, `workflow_dispatch`, comando VM, deploy etc.). Na dúvida, parar e pedir aprovação no formato abaixo.
+**Regra de obediência estrita:** se uma ação está nesta lista, o agente **não infere autorização** de frases genéricas como "pode seguir", "corrija", "resolve isso", "faz o resto", "promova" ou "termina". A autorização precisa nomear a ação perigosa ou o bloco de comandos (`commit`, `push`, `merge`, `workflow_dispatch`, comando VM, deploy etc.). Na dúvida, parar e pedir aprovação no formato abaixo. Detalhe de escopo/granularidade da autorização de commit/push/PR: ver §Git, Branch e Deploy (bloco canônico único, não repetido aqui).
 
 **Read-only é SEMPRE permitido (pétrea), nunca exige aprovação por ação** — local ou via PowerShell/`ssh faren`: `docker ps|logs|stats|inspect|images|system df`, `df`, `ls`, `cat`, `rg`/`grep`, `find`, `head`, `tail`, `curl -s` GET, `psql` com `SELECT`, `pg_dump` (read-only no DB), `git status|diff|log|show`, e qualquer subcomando de inspeção/diagnóstico que não muta estado. Inspeção read-only na VM é barata e **deve preceder** qualquer correção de infra "no chute" (anti-retrabalho). Única obrigação: filtrar segredos da saída (nunca imprimir `*PASSWORD*|*TOKEN*|*SECRET*`). Se uma ferramenta/harness bloquear um comando comprovadamente read-only, tratar como falso-bloqueio: explicar ao mantenedor e pedir liberação pontual — não é motivo para pular a inspeção nem para inferir que precisa de aprovação de mérito.
 
 **Pacotes apt ausentes e libs/frameworks novos (dependência de app/pacote):** o agente pode usar lib nova ou pacote `apt` quando a tarefa precisar — a barreira não é "nunca sem aprovação prévia", é "nunca sem perguntar primeiro". Antes de instalar/adicionar, o agente **sempre para e pergunta** ao mantenedor (formato de pergunta simples, não precisa do bloco de APROVAÇÃO NECESSÁRIA completo salvo se for `apt`/infra de VM): qual pacote/lib, por que é necessário, alternativa já existente no repo (se houver) e tamanho/impacto aproximado. Só instala depois da resposta. Isso vale tanto para dependência de app/projeto quanto para `apt` (ex.: `git`, `jq`, `tree`, `p7zip-full`, `postgresql-client`, `curl`, `ca-certificates`). Pra `apt` especificamente, comando após aprovação: `sudo apt-get update && sudo apt-get install -y <pacote>`. Proibido usar aprovação de uma lib/pacote pra instalar serviço persistente novo, alterar arquitetura, mexer em WP/DNS/tunnel, ou executar deploy — isso continua exigindo aprovação própria e nominal.
 
-**Escopo da aprovação (pétrea):** aprovação vale **por ação, não por sessão**. Um "pode prosseguir" autoriza APENAS o bloco de comandos apresentado naquele momento. Não se estende a commits/pushes/deploys/correções posteriores. Editar arquivo local dentro do escopo pedido não precisa de aprovação; `git commit`, `git push`, merge, promoção, deploy e comando write na VM sempre precisam de aprovação explícita própria, a cada vez. **Mesmo PR:** commit autorizado + push autorizado não cobre novo commit — cada `git commit` exige autorização nova, cada `git push` exige autorização nova. Não inferir que "estou no mesmo PR" nem que "é só uma correçãozinha".
+**Escopo da aprovação (pétrea):** aprovação vale **por ação, não por sessão** — nunca acumula entre commits/pushes/merges/deploys posteriores, nem "mesmo PR" ou "correçãozinha" dispensam nova autorização. Editar arquivo local dentro do escopo pedido não precisa de aprovação; commit/push/merge/promoção/deploy/write na VM sempre precisam, a cada vez. Detalhe granular (regra canônica única): §Git, Branch e Deploy.
 
 Formato obrigatório para pedir aprovação:
 
@@ -319,6 +319,16 @@ Se uma validação real expõe que a tarefa "fechada" ainda não roda, reabrir a
 
 ---
 
+## Review guidelines
+
+Seção lida pelo Codex code-review (GitHub App, `chatgpt-codex-connector`) em PRs — convenção própria do produto, não um filtro de path garantido como `.coderabbit.yaml` (`path_filters`). É instrução textual best-effort: o bot pode ainda ler o diff completo, só é pedido pra não focar comentário/achado nesses casos. Não existe `.codexignore` (feature só em discussão, não implementada em 2026-07 — ver `openai/codex` discussion #3456).
+
+- Não revisar/comentar mudanças só em `.md` (documentação, specs, sessões) — cobertura de conteúdo/redação é responsabilidade do mantenedor, não do bot.
+- Não revisar/comentar `docs/api/generated/**` nem `docs/api/openapi/**` — artefatos auto-gerados por `pnpm verify:api`/`pnpm api:bundle`, nunca editados à mão.
+- Focar em `apps/**`, `packages/**`, `scripts/**` e config de infra/CI (lógica, contrato, segurança) — mesmo escopo já usado pelo CodeRabbit (`.coderabbit.yaml`).
+
+---
+
 ## Documentação Canônica
 
 | Tipo | Fonte |
@@ -394,93 +404,4 @@ Config local pode diferir entre clientes:
 
 Não acionar outro agente em nome do mantenedor sem aprovação nominal; usar MCPs locais de leitura/navegação não muda esta regra.
 
----
-
-# Artifício Supervisor Flow
-
-Este projeto usa um fluxo de agentes para OpenCode com um único agente primário: `artificio-orquestrador`.
-
-## Regra central
-
-O usuário conversa apenas com o orquestrador.
-Subagentes trabalham em tarefas fechadas e devolvem relatório ao orquestrador.
-
-## Fases
-
-1. fix ou feature
-2. registro
-3. investigação
-4. implementação
-5. revisão de documentação atualizada
-6. commit
-
-O orquestrador deve pedir autorização antes de cada fase.
-A autorização vale apenas para a fase e o escopo descritos.
-
-## Bloqueios
-
-- Jamais commitar sem autorização explícita.
-- Jamais push sem autorização explícita.
-- Jamais merge sem autorização explícita.
-- Jamais abrir PR sem autorização explícita.
-- Jamais avançar fase sem autorização explícita.
-- Se houver dúvida, parar e perguntar em tom leigo com opções claras.
-
-## Specs
-
-Estrutura padrão:
-
-```text
-specs/NNN-<modulo>-<slug>/
-  spec.md
-  plan.md
-  tasks.md
-  reviews.md
-  debitos.md
-```
-
-`reviews.md` deve receber apenas reviews externos: usuário, bots, PRs ou checks.
-Achados internos de investigação, lint, build ou auditoria entram em `debitos.md`, salvo instrução explícita.
-
-## Ferramentas preferidas
-
-Quando disponíveis, agentes devem seguir a seção **Ferramentas MCP / Agentes** acima. Resumo operacional:
-
-1. `artificio-api-governance` para API.
-2. LSP para diagnóstico automático.
-3. `codebase-memory-mcp` para grafo/impacto.
-4. `ast-grep`, `rtk rg`, `rtk read`, `git` e leitura direta.
-
-Se essas ferramentas não estiverem disponíveis, usar fallback local e registrar a limitação.
-
-## Comandos principais
-
-```text
-/fluxo-spec
-/fix-spec
-/feature-spec
-/registrar-spec
-/investigar-spec
-/implementar-spec
-/auditar-spec
-/documentar-spec
-/preparar-git-spec
-/continuar-spec
-```
-
-## Formato final do orquestrador
-
-Ao final de cada fase, responder com:
-
-```md
-## Estado
-- Fase concluída:
-- Próxima fase:
-- Bloqueios ativos:
-
-## Resultado
-...
-
-## Próximo command pronto
-/<comando sugerido>
-```
+Fluxo de orquestrador/fases específico do OpenCode (agente único `artificio-orquestrador`, fases fix→registro→investigação→implementação→doc→commit) não se aplica ao Claude Code — ver `docs/agents/opencode-supervisor-flow.md`.
