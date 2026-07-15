@@ -405,11 +405,7 @@ export function CatalogTree({
 
       {shouldShowResults && (
         <div className="space-y-3">
-          <div
-            className={`grid grid-cols-1 gap-3 ${
-              Math.min(levels.length, 3) === 2 ? 'md:grid-cols-2' : ''
-            } ${Math.min(levels.length, 3) === 3 ? 'md:grid-cols-3' : ''}`}
-          >
+          <div className="flex flex-col gap-3">
           {levels.map(({ depth, nodes }) => (
             <div key={`level-${depth}`} className="min-w-0 space-y-1">
               {depth > 0 && (
