@@ -193,3 +193,9 @@ qualquer task de código de feature.
 - [x] R160.4 Adicionar/ajustar regressões proporcionais.
 - [x] R160.5 Rodar testes focados, `verify:api`, lint e build.
 - [x] R160.6 Revisar diff final; sem responder bots, commit ou push.
+## PR #160 — segunda rodada de review
+
+- [x] R160.7 Validar os dois novos achados contra código/schema.
+- [x] R160.8 Restringir policy ao cabeçalho inicial e adicionar regressões.
+- [x] R160.9 Tornar comparação de `type` null-safe.
+- [x] R160.10 Validar testes focados, lint e build.

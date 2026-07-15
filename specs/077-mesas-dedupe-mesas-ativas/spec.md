@@ -1543,3 +1543,41 @@ de rastreabilidade, recorreção e persistência observável do feedback humano.
   regenerado pelo gate de API e permanece no conjunto.
 - Estado: mudanças somente locais; nenhum bot respondido/thread resolvida;
   nenhum commit ou push realizado nesta rodada.
+### Checkpoint PR #160 — segunda rodada de review
+
+- `readMigrationPolicy`: achado válido. Cortar em 20 linhas não impede policy
+  falsa depois do primeiro comando ou dentro de string/bloco SQL. O parser deve
+  aceitar somente comentários `--` consecutivos desde a primeira linha.
+- `user_systems.type`: coluna canônica é `NOT NULL`; mesmo assim,
+  `IS NOT DISTINCT FROM` é equivalente no estado válido e protege contra drift
+  legado sem ampliar o escopo da migration.
+- Próximo avanço: dois deltas mínimos + regressões da policy; depois testes.
+
+### Checkpoint PR #160 — segunda rodada implementada
+
+- Policy agora lê somente comentários `--` consecutivos a partir da primeira
+  linha, ainda limitada a 20; SQL, blank ou início de bloco encerram o cabeçalho.
+- Regressões cobrem diretivas depois de SQL e dentro de bloco multilinha.
+- Cleanup usa `IS NOT DISTINCT FROM` em `type`.
+- Próximo avanço: teste focado do site; depois gates globais.
+
+### Checkpoint PR #160 — segunda rodada teste focado
+
+- Site: 3 arquivos, 37/37 testes verdes; policy 7/7.
+- Próximo avanço: `verify:api`, lint e build.
+
+### Checkpoint PR #160 — segunda rodada API
+
+- `verify:api` verde: 0 breaking; mesmos 5 non-breaking e 3 warnings históricos.
+- Próximo avanço: lint repo-wide; depois registrar antes do build.
+
+### Checkpoint PR #160 — segunda rodada lint
+
+- Lint repo-wide: 21/21 verde.
+- Próximo avanço: build repo-wide e revisão final.
+
+### Checkpoint PR #160 — segunda rodada concluída localmente
+
+- Build repo-wide: 21/21 verde.
+- Os dois achados foram aplicados; nenhum item descartado nesta rodada.
+- Estado local, sem commit/push e sem interação com threads.

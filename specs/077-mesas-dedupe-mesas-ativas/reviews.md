@@ -26,3 +26,9 @@ Todos classificados como correção imediata, sem débito novo.
   Motivo: ganho não material, falso positivo, ou ampliação arquitetural que pede
   decisão própria e não é necessária para corrigir a PR.
 - Threads não serão respondidas nem resolvidas pelo agente, conforme governança.
+## PR #160 — segunda rodada (2026-07-14)
+
+- **Aplicar:** cabeçalho inicial estrito em `readMigrationPolicy` e comparação
+  `IS NOT DISTINCT FROM` no cleanup de `user_systems`.
+- O segundo é hardening: `type` é `NOT NULL`, mas a semântica null-safe não muda
+  dados válidos e evita falha diante de drift legado.

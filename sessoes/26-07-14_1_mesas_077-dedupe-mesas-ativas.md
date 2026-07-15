@@ -607,3 +607,28 @@ rota ou UI havia sido alterado; gates seriam executados após implementação.
 
 - `git diff --check` verde; 16 arquivos no diff, incluindo artefato API gerado.
 - Sem commit/push e sem interação com threads/bots.
+## PR #160 — segunda rodada antes da edição
+
+- Dois achados verificados: policy válido; null-safe defensivo e inofensivo.
+- Plano registrado na spec 077. Sem autorização de commit/push.
+
+## PR #160 — segunda rodada implementada
+
+- Cabeçalho estrito + 2 regressões; comparação SQL null-safe.
+- Próximo passo: teste focado do site, API, lint e build.
+
+## PR #160 — segunda rodada teste focado
+
+- Site 37/37 verde; policy 7/7. Próximo: gates globais.
+
+## PR #160 — segunda rodada API
+
+- `verify:api` verde, 0 breaking. Próximo: lint.
+
+## PR #160 — segunda rodada lint
+
+- 21/21 verde. Próximo: build e revisão final.
+
+## PR #160 — segunda rodada concluída localmente
+
+- Build 21/21; diff pendente somente local; sem commit/push.

@@ -24,6 +24,16 @@ describe("migration policy", () => {
     expect(readMigrationPolicy(sql, "legacy.sql")).toBeNull();
   });
 
+  it("ignores policy markers after SQL inside the first 20 lines", () => {
+    const sql = "SELECT 1;\n-- @class: manual-risk\n-- @requires-backup: true";
+    expect(readMigrationPolicy(sql, "legacy.sql")).toBeNull();
+  });
+
+  it("ignores policy-like text inside a multiline SQL string", () => {
+    const sql = "DO $$\n-- @class: manual-risk\n-- @requires-backup: true\nBEGIN\n  NULL;\nEND\n$$;";
+    expect(readMigrationPolicy(sql, "legacy.sql")).toBeNull();
+  });
+
   it("blocks manual migration without explicit authorization and backup evidence", () => {
     const policy = readMigrationPolicy(manualSql, "009.sql");
     expect(() => assertMigrationAllowed("009.sql", policy, {}))

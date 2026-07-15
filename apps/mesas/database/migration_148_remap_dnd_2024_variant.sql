@@ -21,7 +21,7 @@ BEGIN
       SELECT 1 FROM user_systems new_link
       WHERE new_link.user_id = old_link.user_id
         AND new_link.system_id = new_id::uuid
-        AND new_link.type = old_link.type
+        AND new_link.type IS NOT DISTINCT FROM old_link.type
     );
   UPDATE user_systems SET system_id = new_id::uuid WHERE system_id = old_id::uuid;
 

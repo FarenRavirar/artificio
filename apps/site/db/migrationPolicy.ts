@@ -8,7 +8,12 @@ export type MigrationPolicy = {
 type MigrationEnvironment = Record<string, string | undefined>;
 
 export function readMigrationPolicy(sql: string, file: string): MigrationPolicy | null {
-  const headerText = sql.split('\n').slice(0, 20).join('\n');
+  const headerLines: string[] = [];
+  for (const line of sql.split(/\r?\n/).slice(0, 20)) {
+    if (!line.trimStart().startsWith('--')) break;
+    headerLines.push(line);
+  }
+  const headerText = headerLines.join('\n');
   const classValue = /^-- @class:\s*(\S+)\s*$/m.exec(headerText)?.[1];
   const backupValue = /^-- @requires-backup:\s*(\S+)\s*$/m.exec(headerText)?.[1];
 
