@@ -11,7 +11,7 @@ const systemTreeNodeSchema: z.ZodType<SystemTreeNode> = z.lazy(() => z.object({
   name_pt: z.string().nullable(),
   slug: z.string(),
   parent_id: z.string().nullable(),
-  node_type: z.enum(['system', 'edition', 'variant', 'subsystem']),
+  node_type: z.enum(['system', 'edition', 'variant']),
   depth: z.number().optional(),
   path_slug: z.string().nullable(),
   logo_filename: z.string().nullable().optional(),

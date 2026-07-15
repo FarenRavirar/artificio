@@ -323,6 +323,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
               systems={h.systems}
               systemsLoading={h.systemsLoading}
               systemsError={h.systemsError}
+              systemCandidates={h.systemCandidates}
               scenarios={h.scenarios}
               scenariosLoading={h.scenariosLoading}
               vttPlatforms={h.vttPlatforms}

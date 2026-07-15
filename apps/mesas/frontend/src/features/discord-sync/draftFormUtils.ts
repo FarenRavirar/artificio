@@ -215,6 +215,24 @@ function addSuggestionInsights(
   }
 }
 
+function addAppliedLearningInsights(
+  insights: Partial<Record<DraftFieldKey, DraftFieldInsight>>,
+  currentTable: DiscordDraftTablePayload,
+) {
+  const applied = asRecord(currentTable._learning_applied);
+  const fields = asRecord(applied.fields);
+  const provider = asString(applied.provider) || 'learning-store';
+
+  for (const [field] of Object.entries(fields)) {
+    if (!INSIGHT_FIELD_SET.has(field as DraftFieldKey)) continue;
+    insights[field as DraftFieldKey] = {
+      source: 'learning-store',
+      provider,
+      evidence: [`Regra humana ativa de ${provider} aplicada automaticamente.`],
+    };
+  }
+}
+
 function addConfirmedSuggestionInsights(
   insights: Partial<Record<DraftFieldKey, DraftFieldInsight>>,
   currentTable: DiscordDraftTablePayload,
@@ -258,6 +276,7 @@ export function buildDraftFieldInsights(
   const insights: Partial<Record<DraftFieldKey, DraftFieldInsight>> = {};
 
   addParserAndHumanInsights(insights, parsedTable, currentTable);
+  addAppliedLearningInsights(insights, currentTable);
   addSuggestionInsights(insights, currentTable);
   addConfirmedSuggestionInsights(insights, currentTable);
   addRawEvidenceInsights(insights, currentTable);

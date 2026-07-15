@@ -11,7 +11,7 @@ interface SystemSuggestion {
   name: string;
   description: string | null;
   parent_id: string | null;
-  node_type: 'system' | 'edition' | 'variant' | 'subsystem';
+  node_type: 'system' | 'edition' | 'variant';
   status: 'pending' | 'approved' | 'rejected';
   rejection_reason: string | null;
   created_at: string;
@@ -49,7 +49,7 @@ const normalizeSystemSuggestions = (value: unknown): SystemSuggestion[] => {
     const status = row.status;
     const nodeType = row.node_type;
     if (!isSuggestionStatus(status)) continue;
-    if (nodeType !== 'system' && nodeType !== 'edition' && nodeType !== 'variant' && nodeType !== 'subsystem') continue;
+    if (nodeType !== 'system' && nodeType !== 'edition' && nodeType !== 'variant') continue;
     suggestions.push({
       kind: 'system',
       id: readString(row.id),

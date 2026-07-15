@@ -63,7 +63,7 @@ export interface CatalogAlias {
 }
 export type CatalogNodeStatus = "draft" | "pending" | "active" | "rejected" | "merged";
 export interface CatalogNode {
-  id: string; parent_id: string | null; node_type: "system" | "edition" | "subsystem" | "variant";
+  id: string; parent_id: string | null; node_type: "system" | "edition" | "variant";
   canonical_slug: string; path_slug: string; name: string; name_pt: string | null;
   description: string | null; official_website_url: string | null; logo_media_id: string | null;
   status: CatalogNodeStatus; merged_into_id: string | null; version: number;

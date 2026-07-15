@@ -124,7 +124,6 @@ textarea { resize: vertical; min-height: 64px; }
 .catalog-editor { position: sticky; top: 18px; }
 .badge.system { background: #def7e5; color: #14632b; }
 .badge.edition { background: #e4e9fb; color: #2b3d7a; }
-.badge.subsystem { background: #ede1f1; color: #5a2b7a; }
 .badge.variant { background: #fdf0d5; color: #7a5b00; }
 
 @media (max-width: 980px) {

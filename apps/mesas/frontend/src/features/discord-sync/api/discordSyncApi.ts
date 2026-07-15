@@ -25,6 +25,8 @@ import type {
   AiAutomationConfig,
   LlmActivity,
   CompletenessAuditResult,
+  CorrectionFeedbackResult,
+  LearningFeedbackResult,
 } from '../types';
 import { z } from 'zod';
 import { authenticatedFetch } from '../../../services/apiClient';
@@ -472,6 +474,32 @@ const completenessAuditSchema = z.object({
     issue_type: z.enum(['missing', 'incorrect']).optional(),
   })).catch([]),
 });
+
+const learningFeedbackResultSchema = z.object({
+  correction_id: z.string(),
+  status: z.enum(['pending', 'processing', 'completed', 'failed']),
+  attempts: z.number(),
+  error: z.string().nullable(),
+});
+const correctionFeedbackResultSchema = z.object({
+  draft_id: z.string(),
+  fields_corrected: z.number(),
+  diff: z.record(z.string(), z.object({ before: z.unknown(), after: z.unknown() })),
+  learning: learningFeedbackResultSchema,
+});
+const retryLearningFeedbackSchema = z.object({ results: z.array(learningFeedbackResultSchema) });
+
+function parseCorrectionFeedback(data: unknown): CorrectionFeedbackResult {
+  const parsed = correctionFeedbackResultSchema.safeParse(data);
+  if (!parsed.success) throw new Error('Resposta de correção em formato inesperado.');
+  return parsed.data;
+}
+
+function parseRetryLearningFeedback(data: unknown): { results: LearningFeedbackResult[] } {
+  const parsed = retryLearningFeedbackSchema.safeParse(data);
+  if (!parsed.success) throw new Error('Resposta de retry do aprendizado em formato inesperado.');
+  return parsed.data;
+}
 function parseCompletenessAudit(data: unknown): CompletenessAuditResult {
   const parsed = completenessAuditSchema.safeParse(data);
   if (!parsed.success) throw new Error('Resposta da auditoria em formato inesperado.');
@@ -636,8 +664,11 @@ export const discordSyncApi = {
   updateDraft: (id: string, body: { normalized_payload?: Record<string, unknown>; status?: DiscordImportDraftStatus; review_notes?: string }) =>
     apiFetch<DiscordDraft>(`/drafts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
 
-  submitCorrection: (id: string, body: { corrections: Record<string, unknown>; reason?: string; before?: Record<string, unknown> }) =>
-    apiFetch<{ draft_id: string; fields_corrected: number; diff: Record<string, { before: unknown; after: unknown }> }>(`/drafts/${id}/correction`, { method: 'POST', body: JSON.stringify(body) }),
+  submitCorrection: async (id: string, body: { corrections: Record<string, unknown>; reason?: string; before?: Record<string, unknown>; confirmed_fields?: string[] }) =>
+    parseCorrectionFeedback(await apiFetch<unknown>(`/drafts/${id}/correction`, { method: 'POST', body: JSON.stringify(body) })),
+
+  retryLearningFeedback: async (id: string) =>
+    parseRetryLearningFeedback(await apiFetch<unknown>(`/drafts/${id}/correction/retry-learning`, { method: 'POST' })),
 
   syncDraft: (id: string) =>
     apiFetch<{ tableId: string; created: boolean }>(`/drafts/${id}/sync`, { method: 'POST' }),

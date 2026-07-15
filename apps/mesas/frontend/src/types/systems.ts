@@ -1,4 +1,4 @@
-export type SystemNodeType = 'system' | 'edition' | 'variant' | 'subsystem';
+export type SystemNodeType = 'system' | 'edition' | 'variant';
 
 export interface SystemTreeNode {
   id: string;

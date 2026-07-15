@@ -29,6 +29,7 @@ export interface LearningRuleHit {
   ruleId: string;
   field: string;
   value: unknown;
+  inputToken: string;
   confidence: number;
   scopeType: LearningRuleScopeType;
 }
@@ -46,8 +47,20 @@ export interface LearningRuleLookupResult {
 }
 
 const LEARNABLE_SET = new Set<string>(LEARNABLE_FIELDS);
+// `field_value` generaliza um valor entre anúncios. Isso só é seguro para
+// normalização de entidade estável; fatos da mesa (vagas, preço, agenda,
+// título, descrição, contato) pertencem a uma ocorrência e nunca podem virar
+// regra `4 -> 5`, `sexta -> sábado`, etc. Esses campos aprendem apenas labels.
+// Regras legadas `system_name -> system_name` são inseguras: a entrada pode ser
+// o nome canônico que o parser escolheu errado, não o texto do anúncio. Mantém
+// o mecanismo fechado até a regra `system_entity` (token bruto -> ID estável).
+const FIELD_VALUE_RULE_FIELDS = new Set<string>(['system_entity']);
 const ACTIVE_CONFIDENCE = 0.8;
 const CANDIDATE_CONFIDENCE = 0.65;
+
+interface LearningWriteOptions {
+  throwOnError?: boolean;
+}
 
 function stableJson(value: unknown): string {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return JSON.stringify(value ?? {});
@@ -90,7 +103,7 @@ function normalizeJsonValue(value: unknown): string {
 }
 
 function isLearnableCorrection(entry: FieldLearningEntry): entry is FieldLearningEntry & { field: LearnableField } {
-  return LEARNABLE_SET.has(entry.field)
+  return FIELD_VALUE_RULE_FIELDS.has(entry.field)
     && normalizeToken(entry.inputValue) !== null
     && entry.outputValue !== null
     && entry.outputValue !== undefined
@@ -109,6 +122,7 @@ export async function recordLearningRulesFromCorrections(
   scope: LearningRuleScope | undefined | null,
   userId: string | null,
   conn: Kysely<Database> | Transaction<Database> = db,
+  options: LearningWriteOptions = {},
 ): Promise<void> {
   const derived = deriveScope(scope);
   for (const entry of entries) {
@@ -140,7 +154,7 @@ export async function recordLearningRulesFromCorrections(
             hits: sql`discord_learning_rules.hits + 1`,
             rejections: sql`CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN discord_learning_rules.rejections + 1 ELSE discord_learning_rules.rejections END`,
             confidence: sql`LEAST(0.98, CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN GREATEST(0.10, discord_learning_rules.confidence - 0.20) ELSE discord_learning_rules.confidence + 0.08 END)`,
-            status: sql`CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN 'suppressed' ELSE CASE WHEN discord_learning_rules.confidence >= 0.72 THEN 'active' ELSE discord_learning_rules.status END END`,
+            status: sql`CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN 'suppressed' ELSE CASE WHEN discord_learning_rules.confidence + 0.08 >= ${ACTIVE_CONFIDENCE} THEN 'active' ELSE discord_learning_rules.status END END`,
             last_rejected_at: sql`CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN NOW() ELSE discord_learning_rules.last_rejected_at END`,
             updated_at: sql`NOW()`,
           }),
@@ -148,7 +162,55 @@ export async function recordLearningRulesFromCorrections(
         .execute();
     } catch (error: unknown) {
       console.error('[recordLearningRulesFromCorrections]', error instanceof Error ? error.message : 'unknown error', userId);
+      if (options.throwOnError) throw error;
     }
+  }
+}
+
+export async function recordSystemEntityRule(input: {
+  sourceHint: unknown;
+  systemId: unknown;
+  systemName: unknown;
+  scope: LearningRuleScope | undefined | null;
+  userId: string | null;
+}, conn: Kysely<Database> | Transaction<Database> = db, options: LearningWriteOptions = {}): Promise<void> {
+  const inputToken = normalizeToken(input.sourceHint);
+  const systemId = typeof input.systemId === 'string' ? input.systemId.trim() : '';
+  const systemName = typeof input.systemName === 'string' ? input.systemName.trim() : '';
+  if (!inputToken || !systemId || !systemName) return;
+
+  const derived = deriveScope(input.scope);
+  const outputJson = JSON.stringify({ system_id: systemId, system_name: systemName });
+  try {
+    await conn.insertInto('discord_learning_rules')
+      .values({
+        rule_type: 'field_value',
+        field: 'system_entity',
+        input_token: inputToken,
+        input_pattern: null,
+        output_value: sql`${outputJson}::jsonb`,
+        scope_type: derived.scopeType,
+        scope_json: derived.scopeJson,
+        scope_hash: derived.scopeHash,
+        confidence: CANDIDATE_CONFIDENCE,
+        status: 'candidate',
+        source: 'human',
+      })
+      .onConflict((oc) =>
+        oc.columns(['rule_type', 'field', 'input_token', 'scope_hash']).doUpdateSet({
+          output_value: sql`${outputJson}::jsonb`,
+          hits: sql`discord_learning_rules.hits + 1`,
+          rejections: sql`CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN discord_learning_rules.rejections + 1 ELSE discord_learning_rules.rejections END`,
+          confidence: sql`LEAST(0.98, CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN GREATEST(0.10, discord_learning_rules.confidence - 0.20) ELSE discord_learning_rules.confidence + 0.08 END)`,
+          status: sql`CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN 'suppressed' ELSE CASE WHEN discord_learning_rules.confidence + 0.08 >= ${ACTIVE_CONFIDENCE} THEN 'active' ELSE discord_learning_rules.status END END`,
+          last_rejected_at: sql`CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN NOW() ELSE discord_learning_rules.last_rejected_at END`,
+          updated_at: sql`NOW()`,
+        }),
+      )
+      .execute();
+  } catch (error: unknown) {
+    console.error('[recordSystemEntityRule]', error instanceof Error ? error.message : 'unknown error', input.userId);
+    if (options.throwOnError) throw error;
   }
 }
 
@@ -185,6 +247,7 @@ async function insertLabelAliasRule(
   labelToken: string,
   derived: ReturnType<typeof deriveScope>,
   userId: string | null,
+  options: LearningWriteOptions,
 ): Promise<void> {
   try {
     const builder = conn.insertInto('discord_learning_rules');
@@ -217,6 +280,7 @@ async function insertLabelAliasRule(
       .execute();
   } catch (error: unknown) {
     console.error('[recordLabelAliasFromCorrection]', error instanceof Error ? error.message : 'unknown error', userId);
+    if (options.throwOnError) throw error;
   }
 }
 
@@ -226,6 +290,7 @@ export async function recordLabelAliasFromCorrection(
   scope: LearningRuleScope | undefined | null,
   userId: string | null,
   conn: Kysely<Database> | Transaction<Database> = db,
+  options: LearningWriteOptions = {},
 ): Promise<void> {
   if (!rawText) return;
   const lines = rawText.split(/\r?\n/);
@@ -235,7 +300,7 @@ export async function recordLabelAliasFromCorrection(
     if (!isLabelAliasCandidate(entry)) continue;
     const labelToken = findMatchedLabelToken(lines, entry);
     if (!labelToken) continue;
-    await insertLabelAliasRule(conn, entry.field, labelToken, derived, userId);
+    await insertLabelAliasRule(conn, entry.field, labelToken, derived, userId, options);
   }
 }
 
@@ -298,7 +363,7 @@ export async function lookupLearningRules(
 ): Promise<LearningRuleLookupResult> {
   const keyed = queries
     .map((query) => ({ field: query.field, token: normalizeToken(query.value) }))
-    .filter((query): query is { field: string; token: string } => Boolean(query.token) && LEARNABLE_SET.has(query.field));
+    .filter((query): query is { field: string; token: string } => Boolean(query.token) && FIELD_VALUE_RULE_FIELDS.has(query.field));
   if (keyed.length === 0) return { hits: [], conflicts: [] };
 
   const scopeHashes = scopePredicates(scope).map((item) => item.scopeHash);
@@ -337,6 +402,7 @@ export async function lookupLearningRules(
         ruleId: best.id,
         field,
         value: best.output_value,
+        inputToken: token,
         confidence: Number(best.confidence),
         scopeType: best.scope_type as LearningRuleScopeType,
       });

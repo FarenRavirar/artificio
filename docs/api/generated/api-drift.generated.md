@@ -12,7 +12,7 @@
 |--------|-----------|:---------:|
 | ✅ OK | 206 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
-| 📄 CONTRACT_ONLY | 2 | ❌ |
+| 📄 CONTRACT_ONLY | 4 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 104 | ❌ |
 | 👻 ORPHAN_SUSPECT | 37 | ❌ |
@@ -299,6 +299,7 @@
 | POST | `/api/v1/admin/discord/drafts/:id/audit-completeness` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/drafts/:id/audit-field/:field` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/drafts/{id}/correction` | 📄 CONTRACT_ONLY | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/admin/discord/drafts/{id}/correction/retry-learning` | 📄 CONTRACT_ONLY | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/drafts/:id/refresh-image` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/drafts/:id/reparse` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/drafts/:id/sync` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -315,6 +316,7 @@
 | POST | `/api/v1/admin/discord/sources/:sourceId/reingest-force` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/sync-ready` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/import/drafts/{id}/correction` | 📄 CONTRACT_ONLY | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/admin/import/drafts/{id}/correction/retry-learning` | 📄 CONTRACT_ONLY | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/import/drafts/:id/reparse` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/import/drafts/:id/sync` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/import/import-text` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |

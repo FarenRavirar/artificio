@@ -4,6 +4,7 @@ import {
   lookupLearningRules,
   nextRuleState,
   recordLearningRulesFromCorrections,
+  recordSystemEntityRule,
   recordLabelAliasFromCorrection,
   loadActiveLabelAliases,
 } from '../learningRules';
@@ -41,7 +42,7 @@ describe('nextRuleState', () => {
 });
 
 describe('recordLearningRulesFromCorrections', () => {
-  it('faz upsert apenas de campo aprendivel com token e saida', async () => {
+  it('não grava mais regra legada system_name -> system_name', async () => {
     const execute = vi.fn().mockResolvedValue(undefined);
     const onConflict = vi.fn().mockReturnValue({ execute });
     const values = vi.fn().mockReturnValue({ onConflict });
@@ -53,21 +54,72 @@ describe('recordLearningRulesFromCorrections', () => {
         { field: 'campo_x', inputValue: 'a', outputValue: 'b' },
         { field: 'title', inputValue: null, outputValue: 'Mesa' },
         { field: 'price_type', inputValue: 'pago', outputValue: '' },
+        { field: 'slots_total', inputValue: 4, outputValue: 5 },
+        { field: 'price_value', inputValue: 30, outputValue: 40 },
+        { field: 'day_of_week', inputValue: 'sexta', outputValue: 'sábado' },
+        { field: 'contact_url', inputValue: 'https://a.test', outputValue: 'https://b.test' },
       ],
       { guild_id: 'guild-1' },
       'user-1',
       { insertInto } as never,
     );
 
-    expect(insertInto).toHaveBeenCalledTimes(1);
-    expect(insertInto).toHaveBeenCalledWith('discord_learning_rules');
+    expect(insertInto).not.toHaveBeenCalled();
+    expect(values).not.toHaveBeenCalled();
+  });
+
+  it('não generaliza fatos de uma mesa como regra de valor para outra', async () => {
+    const insertInto = vi.fn();
+
+    await recordLearningRulesFromCorrections(
+      [
+        { field: 'slots_total', inputValue: 4, outputValue: 5 },
+        { field: 'price_value', inputValue: 30, outputValue: 40 },
+        { field: 'start_time', inputValue: '20:00', outputValue: '21:00' },
+        { field: 'title', inputValue: 'Mesa A', outputValue: 'Mesa B' },
+      ],
+      { guild_id: 'guild-1', channel_id: 'channel-1', author_id: 'author-1' },
+      'user-1',
+      { insertInto } as never,
+    );
+
+    expect(insertInto).not.toHaveBeenCalled();
+  });
+});
+
+describe('recordSystemEntityRule', () => {
+  it('aprende token bruto para entidade estável, não nome canônico errado', async () => {
+    const execute = vi.fn().mockResolvedValue(undefined);
+    const onConflict = vi.fn().mockReturnValue({ execute });
+    const values = vi.fn().mockReturnValue({ onConflict });
+    const insertInto = vi.fn().mockReturnValue({ values });
+
+    await recordSystemEntityRule({
+      sourceHint: 'D&D 5e da casa',
+      systemId: 'dnd-5e',
+      systemName: 'D&D 5e',
+      scope: { guild_id: 'guild-1' },
+      userId: 'user-1',
+    }, { insertInto } as never);
+
     expect(values).toHaveBeenCalledWith(expect.objectContaining({
-      rule_type: 'field_value',
-      field: 'system_name',
-      input_token: 'd&d 5e',
+      field: 'system_entity',
+      input_token: 'd&d 5e da casa',
       scope_type: 'guild',
       source: 'human',
     }));
+  });
+
+  it('propaga erro no modo transacional estrito da outbox', async () => {
+    const execute = vi.fn().mockRejectedValue(new Error('db down'));
+    const onConflict = vi.fn().mockReturnValue({ execute });
+    const values = vi.fn().mockReturnValue({ onConflict });
+    const insertInto = vi.fn().mockReturnValue({ values });
+
+    await expect(recordSystemEntityRule({
+      sourceHint: 'D&D 5e', systemId: 'dnd-5e', systemName: 'D&D 5e',
+      scope: null, userId: 'user-1',
+    }, { insertInto } as never, { throwOnError: true })).rejects.toThrow('db down');
   });
 });
 
@@ -154,7 +206,24 @@ describe('loadActiveLabelAliases', () => {
 });
 
 describe('lookupLearningRules', () => {
-  it('retorna hit ativo e separa conflito de valores divergentes', async () => {
+  it('ignora regras legadas de valor para fatos específicos do anúncio', async () => {
+    const selectFrom = vi.fn();
+
+    const result = await lookupLearningRules(
+      [
+        { field: 'slots_total', value: 4 },
+        { field: 'price_value', value: 30 },
+        { field: 'day_of_week', value: 'sexta' },
+      ],
+      { guild_id: 'guild-1' },
+      { selectFrom } as never,
+    );
+
+    expect(result).toEqual({ hits: [], conflicts: [] });
+    expect(selectFrom).not.toHaveBeenCalled();
+  });
+
+  it('ignora hit legado system_name mesmo se estiver ativo', async () => {
     const rows = [
       { id: 'r1', output_value: 'D&D 5.2', confidence: 0.9, scope_type: 'guild' },
       { id: 'r2', output_value: 'D&D 5.2', confidence: 0.85, scope_type: 'global' },
@@ -171,10 +240,10 @@ describe('lookupLearningRules', () => {
     const result = await lookupLearningRules([{ field: 'system_name', value: 'D&D 5e' }], { guild_id: 'guild-1' }, conn);
 
     expect(result.conflicts).toEqual([]);
-    expect(result.hits).toEqual([expect.objectContaining({ ruleId: 'r1', field: 'system_name', value: 'D&D 5.2' })]);
+    expect(result.hits).toEqual([]);
   });
 
-  it('bloqueia aplicacao quando ha conflito', async () => {
+  it('ignora conflito legado system_name porque o contrato foi aposentado', async () => {
     const rows = [
       { id: 'r1', output_value: 'D&D 5.2', confidence: 0.9, scope_type: 'guild' },
       { id: 'r2', output_value: 'Pathfinder 2e', confidence: 0.88, scope_type: 'global' },
@@ -191,6 +260,33 @@ describe('lookupLearningRules', () => {
     const result = await lookupLearningRules([{ field: 'system_name', value: 'D&D 5e' }], { guild_id: 'guild-1' }, conn);
 
     expect(result.hits).toEqual([]);
-    expect(result.conflicts).toEqual([expect.objectContaining({ field: 'system_name', ruleIds: ['r1', 'r2'] })]);
+    expect(result.conflicts).toEqual([]);
+  });
+
+  it('retorna entidade de sistema ativa pelo token bruto exato', async () => {
+    const rows = [{
+      id: 'entity-1',
+      output_value: { system_id: 'dnd-5e', system_name: 'D&D 5e' },
+      confidence: 0.91,
+      scope_type: 'guild',
+    }];
+    const selectBuilder: SelectBuilderMock = {
+      select: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockResolvedValue(rows),
+    };
+    const conn = { selectFrom: vi.fn().mockReturnValue(selectBuilder) } as never;
+
+    const result = await lookupLearningRules(
+      [{ field: 'system_entity', value: 'D&D 5e da casa' }],
+      { guild_id: 'guild-1' },
+      conn,
+    );
+
+    expect(result.hits).toEqual([expect.objectContaining({
+      ruleId: 'entity-1',
+      field: 'system_entity',
+      value: { system_id: 'dnd-5e', system_name: 'D&D 5e' },
+    })]);
   });
 });

@@ -1,9 +1,8 @@
-import { Package, BookOpen, GitBranch, Layers } from 'lucide-react';
+import { Package, BookOpen, Layers } from 'lucide-react';
 
 const BADGE_META = {
   system:    { Icon: Package,   label: 'Sistema',    color: 'text-blue-400 bg-blue-500/10' },
   edition:   { Icon: BookOpen,  label: 'Edição',     color: 'text-purple-400 bg-purple-500/10' },
-  subsystem: { Icon: GitBranch, label: 'Subsistema', color: 'text-cyan-400 bg-cyan-500/10' },
   variant:   { Icon: Layers,    label: 'Variante',   color: 'text-amber-400 bg-amber-500/10' },
 } as const;
 

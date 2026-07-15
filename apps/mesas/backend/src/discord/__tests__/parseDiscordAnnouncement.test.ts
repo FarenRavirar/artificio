@@ -51,6 +51,97 @@ describe('parseDiscordAnnouncement — labelAliases (DEB-052-02)', () => {
 
     expect(draft?.table?.system_name).toBe('Vampiro: A Máscara');
   });
+
+  it('consome aliases aprendidos de vagas, preço e descrição', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Cadeiras livres: 3',
+          'Contribuição da aventura: 30',
+          'Enredo compartilhado: Uma investigação no litoral.',
+        ].join('\n'),
+      }),
+      [],
+      undefined,
+      undefined,
+      {
+        slots_open: ['cadeiras livres'],
+        price_value: ['contribuição da aventura'],
+        description: ['enredo compartilhado'],
+      },
+    );
+
+    expect(draft?.table.slots_open).toBe(3);
+    expect(draft?.table.price_type).toBe('paga');
+    expect(draft?.table.price_value).toBe(30);
+    expect(draft?.table.description).toBe('Uma investigação no litoral.');
+  });
+
+  it('alias aprendido de contato confirma URL de domínio desconhecido', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Canal do narrador: https://dm.example/join\nVagas: 3' }),
+      [],
+      undefined,
+      undefined,
+      { contact_url: ['canal do narrador'] },
+    );
+
+    expect(draft?.table.contact_url).toBe('https://dm.example/join');
+    expect(draft?.missing_fields).not.toContain('contact_url:unconfirmed');
+  });
+});
+
+describe('parseDiscordAnnouncement — requisitos técnicos conservadores', () => {
+  it('captura obrigação explícita de PC e microfone por sinais do corpus real', () => {
+    const draft = parseDiscordAnnouncement(makeMessage({
+      content_raw: 'Plataformas: Discord e Foundry\nNecessário ter PC. Ter um microfone com qualidade aceitável.',
+    }));
+
+    expect(draft?.table.requires_pc).toBe(true);
+    expect(draft?.table.requires_microphone).toBe(true);
+    expect(draft?.table.requires_camera).toBeNull();
+  });
+
+  it('preserva falso explícito para requisito opcional ou não obrigatório', () => {
+    const draft = parseDiscordAnnouncement(makeMessage({
+      content_raw: 'Não sendo obrigatório ter um PC, mas desejável. Câmera opcional.',
+    }));
+
+    expect(draft?.table.requires_pc).toBe(false);
+    expect(draft?.table.requires_camera).toBe(false);
+  });
+
+  it('não inventa PC ou microfone só porque VTT e Discord foram citados', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Plataformas: Discord e Foundry\nVagas: 4' }),
+      [],
+      undefined,
+      {
+        vtt: [{ id: 'foundry', name: 'Foundry VTT', aliases: ['Foundry'] }],
+        communication: [{ id: 'discord', name: 'Discord', aliases: [] }],
+      },
+    );
+
+    expect(draft?.table.vtt_platform_id).toBe('foundry');
+    expect(draft?.table.communication_platform_id).toBe('discord');
+    expect(draft?.table.requires_pc).toBeNull();
+    expect(draft?.table.requires_microphone).toBeNull();
+  });
+
+  it('sinal contraditório não escolhe lado e força revisão', () => {
+    const draft = parseDiscordAnnouncement(makeMessage({
+      content_raw: 'PC não obrigatório; para esta modalidade, computador obrigatório.',
+    }));
+
+    expect(draft?.table.requires_pc).toBeNull();
+    expect(draft?.missing_fields).toContain('requires_pc:ambiguous');
+    expect(draft?.table._notes).toContain('Requisito de PC contraditório — revisar manualmente.');
+  });
+
+  it('captura abreviação MIC acompanhada de qualidade exigida', () => {
+    const draft = parseDiscordAnnouncement(makeMessage({ content_raw: 'Requisito: um MIC audível.' }));
+    expect(draft?.table.requires_microphone).toBe(true);
+  });
 });
 
 describe('normalizeTitleCapitalization — stopword apos pontuacao de clausula (CodeRabbit PR #144)', () => {
@@ -222,7 +313,7 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table._slots_ambiguity).toBeNull();
   });
 
-  it('keeps slash slots ambiguous when Covil writes Vagas: 0/6 (spec 017 T-F1-A-02)', () => {
+  it('keeps Vagas: 0/6 ambiguous because it may mean open/total or filled/total', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({
         content_raw: [
@@ -239,7 +330,7 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table._slots_ambiguity).toEqual({ first: 0, second: 6, source: 'x_slash_y' });
   });
 
-  it('keeps slash slots ambiguous even when both numbers match (spec 017 T-F1-A-02)', () => {
+  it('keeps an unqualified 5/5 pair ambiguous despite equal numbers', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({
         content_raw: [
@@ -273,13 +364,8 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table._slots_ambiguity).toBeNull();
   });
 
-  // Achado do mantenedor (2026-07-13, caso real D:/teste.json): "Vagas
-  // Disponíveis: N/M" não disparava a pergunta de ambiguidade — o label
-  // composto "Disponíveis" entre "Vagas" e o separador não era reconhecido
-  // por RE_SLOT_AMBIG_SLASH, e RE_SLOT_OPEN (que roda antes na cascata)
-  // casava só o "N" e ignorava o "/M", resolvendo silenciosamente como se
-  // fosse um valor único em vez de cair na ambiguidade real.
-  it('keeps slash slots ambiguous with composite label "Vagas Disponíveis: N/M" (achado real 2026-07-13)', () => {
+  // Semântica vem do rótulo, não da ordem/tamanho dos números.
+  it('resolves composite label "Vagas Disponíveis: N/M" as open/total', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({
         content_raw: [
@@ -292,11 +378,11 @@ describe('parseDiscordAnnouncement', () => {
     );
 
     expect(draft?.table.slots_total).toBe(4);
-    expect(draft?.table.slots_open).toBeNull();
-    expect(draft?.table._slots_ambiguity).toEqual({ first: 1, second: 4, source: 'x_slash_y' });
+    expect(draft?.table.slots_open).toBe(1);
+    expect(draft?.table._slots_ambiguity).toBeNull();
   });
 
-  it('keeps slash slots ambiguous with composite label "Vagas Ocupadas: N/M" (achado real 2026-07-13)', () => {
+  it('resolves composite label "Vagas Ocupadas: N/M" as filled/total', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({
         content_raw: [
@@ -308,11 +394,11 @@ describe('parseDiscordAnnouncement', () => {
     );
 
     expect(draft?.table.slots_total).toBe(6);
-    expect(draft?.table.slots_open).toBeNull();
-    expect(draft?.table._slots_ambiguity).toEqual({ first: 0, second: 6, source: 'x_slash_y' });
+    expect(draft?.table.slots_open).toBe(6);
+    expect(draft?.table._slots_ambiguity).toBeNull();
   });
 
-  it('keeps slash slots ambiguous with symbol bullet "» Vagas disponíveis: N/M" (achado real 2026-07-13)', () => {
+  it('resolves symbol bullet "» Vagas disponíveis: N/M" by the canonical pair rule', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({
         content_raw: [
@@ -324,8 +410,26 @@ describe('parseDiscordAnnouncement', () => {
     );
 
     expect(draft?.table.slots_total).toBe(6);
+    expect(draft?.table.slots_open).toBe(4);
+    expect(draft?.table._slots_ambiguity).toBeNull();
+  });
+
+  it.each([
+    ['__**VAGAS:**__ 2/5', 5, 2, 5],
+    ['**▬ Nº de Vagas: ** 1/4', 4, 1, 4],
+    ['▬ Nº de Vagas: 4 / 5', 5, 4, 5],
+    ['🔢 Vagas 1/5:', 5, 1, 5],
+    ['**Quantas vagas:**Sexta-Feira 5/6', 6, 5, 6],
+    ['- *Vagas:* 0/5', 5, 0, 5],
+    ['» Vagas disponíveis: 4/1 Vagas Abertas', 4, 4, 1],
+  ])('keeps decorated generic/conflicting slot pair %s ambiguous', (slotLine, total, first, second) => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: `${slotLine}\nSistema: D&D 5e\nContato: https://forms.gle/example` }),
+    );
+
+    expect(draft?.table.slots_total).toBe(total);
     expect(draft?.table.slots_open).toBeNull();
-    expect(draft?.table._slots_ambiguity).toEqual({ first: 4, second: 6, source: 'x_slash_y' });
+    expect(draft?.table._slots_ambiguity).toEqual({ first, second, source: 'x_slash_y' });
   });
 
   it('keeps Vagas: 0 as an explicit closed table instead of missing slots (spec 017 Fase E regression)', () => {
@@ -482,7 +586,7 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.host_discord_id).toBeNull();
   });
 
-  it('marks ambiguous slash slots as missing slots_open during normalization (spec 017 T-F1-A-06)', () => {
+  it('preserves generic slash ambiguity during normalization', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({
         content_raw: [
@@ -500,8 +604,9 @@ describe('parseDiscordAnnouncement', () => {
       { id: 'dnd', name: 'Dungeons & Dragons', name_pt: null, aliases: ['D&D'] },
     ]);
 
+    expect(normalized.draft.table.slots_total).toBe(6);
+    expect(normalized.draft.table.slots_open).toBeNull();
     expect(normalized.draft.missing_fields).toContain('slots_open:ambiguous_x_of_y');
-    expect(normalized.status).toBe('needs_review');
   });
 
   it('matches systems by specific names before generic aliases and version suffixes', () => {
@@ -699,6 +804,82 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.system_id).toBe('dnd');
     expect(draft?.table.system_name).toBe('Dungeons & Dragons');
     expect(draft?.table.raw_system_hint).toBeNull();
+  });
+
+  it('prefers an exact edition before falling back to the parent system', () => {
+    const systems = [
+      { id: 'dnd', name: 'Dungeons & Dragons', name_pt: null, aliases: ['D&D'], node_type: 'system', parent_id: null },
+      { id: 'dnd-5e', name: 'D&D 5e', name_pt: null, aliases: ['Dungeons & Dragons 5e'], node_type: 'edition', parent_id: 'dnd' },
+      { id: 'dnd-2024', name: 'D&D 2024', name_pt: null, aliases: ['D&D 5.5e'], node_type: 'edition', parent_id: 'dnd' },
+    ];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: 'A Mina Perdida',
+        content_raw: 'Sistema: Dungeons & Dragons 5e\nVagas: 4\nSexta 20h\nContato: https://forms.gle/example',
+      }),
+      systems,
+    );
+
+    expect(draft?.table.system_id).toBe('dnd-5e');
+    expect(draft?.table.system_name).toBe('D&D 5e');
+    expect(draft?.table._system_source_hint).toBe('Dungeons & Dragons 5e');
+  });
+
+  it('transports deterministic catalog alternatives below the selected system', () => {
+    const systems = [
+      { id: 'dnd', name: 'Dungeons & Dragons', name_pt: null, aliases: ['D&D'], node_type: 'system', parent_id: null },
+      { id: 'dnd-5e', name: 'D&D 5e', name_pt: null, aliases: ['Dungeons & Dragons 5e'], node_type: 'edition', parent_id: 'dnd' },
+      { id: 'dnd-2024', name: 'D&D 2024', name_pt: null, aliases: ['D&D 5.5e'], node_type: 'edition', parent_id: 'dnd' },
+    ];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\nVagas: 4\nSexta 20h\nContato: https://forms.gle/example' }),
+      systems,
+    );
+
+    expect(draft?.table._system_candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ system_id: 'dnd' }),
+    ]));
+    expect(draft?.table._system_candidates).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ system_id: draft?.table.system_id }),
+    ]));
+  });
+
+  it('prefers canonical acronym and edition over a colliding alias from another system', () => {
+    const systems = [
+      { id: 'gamma', name: 'Gamma World', name_pt: null, aliases: ['D&D'], node_type: 'system', parent_id: null },
+      { id: 'dnd', name: 'Dungeons & Dragons', name_pt: null, aliases: [], node_type: 'system', parent_id: null },
+      { id: 'dnd-5e', name: 'Dungeons & Dragons 5e', name_pt: null, aliases: [], node_type: 'edition', parent_id: 'dnd' },
+    ];
+    for (const spelling of ['D&D 5ª Edição', 'D&D 5e', 'D&D 5ed']) {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({ content_raw: `Sistema: ${spelling}\nVagas: 4\nSexta 20h\nContato: https://forms.gle/example` }),
+        systems,
+      );
+
+      expect(draft?.table.system_id).toBe('dnd-5e');
+      expect(draft?.table.system_name).toBe('Dungeons & Dragons 5e');
+      expect(draft?.table._system_candidates).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ system_id: 'gamma' }),
+      ]));
+    }
+  });
+
+  it('resolves base token first and then an edition-only child inside that root', () => {
+    const systems = [
+      { id: 'gamma', name: 'Gamma World', name_pt: null, aliases: ['D&D'], node_type: 'system', parent_id: null, slug: 'gamma-world', path_slug: 'gamma-world' },
+      { id: 'dnd', name: 'Dungeons & Dragons', name_pt: null, aliases: [], node_type: 'system', parent_id: null, slug: 'dnd', path_slug: 'dnd' },
+      { id: 'dnd-5e', name: '5th Edition', name_pt: '5ª Edição', aliases: [], node_type: 'edition', parent_id: 'dnd', slug: '5e', path_slug: 'dnd/5e' },
+    ];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\nVagas disponíveis: 2/6\nContato: https://forms.gle/example' }),
+      systems,
+    );
+
+    expect(draft?.table.system_id).toBe('dnd-5e');
+    expect(draft?.table.system_name).toBe('5th Edition');
+    expect(draft?.table._system_candidates).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ system_id: 'gamma' }),
+    ]));
   });
 
   it('matches Starfinder after stripping 2e version suffix and records a note (spec 017 T-F1-B-01)', () => {
@@ -2056,12 +2237,22 @@ describe('isSuspiciousUrl', () => {
       expect(draft?.missing_fields).not.toContain('slots_total');
     });
 
-    it('slotsViaLabel: rótulo genérico X/Y = preenchidas/total ("Lugares: 2/5")', () => {
+    it('slotsViaLabel: rótulo genérico X/Y permanece ambíguo ("Lugares: 2/5")', () => {
       const draft = parseDiscordAnnouncement(
         makeMessage({ content_raw: 'Mesa\n» Lugares: 2/5\n» Data: Sexta 21h' }),
       );
       expect(draft?.table.slots_total).toBe(5);
-      expect(draft?.table.slots_open).toBe(3); // 5 total - 2 preenchidas
+      expect(draft?.table.slots_open).toBeNull();
+      expect(draft?.table._slots_ambiguity).toEqual({ first: 2, second: 5, source: 'x_slash_y' });
+    });
+
+    it('preserva ambiguidade mesmo quando o maior número vem primeiro ("Lugares: 5/2")', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Mesa\n» Lugares: 5/2\n» Data: Sexta 21h' }),
+      );
+      expect(draft?.table.slots_total).toBe(5);
+      expect(draft?.table.slots_open).toBeNull();
+      expect(draft?.table._slots_ambiguity).toEqual({ first: 5, second: 2, source: 'x_slash_y' });
     });
 
     it('URL não é engolida como continuação do rótulo anterior (Sistema)', () => {

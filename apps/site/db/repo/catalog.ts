@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb, type DbClient } from "../connection.js";
 
-export type CatalogNodeType = "system" | "edition" | "subsystem" | "variant";
+export type CatalogNodeType = "system" | "edition" | "variant";
 export type CatalogNodeStatus = "draft" | "pending" | "active" | "rejected" | "merged";
 
 export interface CatalogAlias {
@@ -50,8 +50,23 @@ export interface CatalogNodeWrite {
   aliases?: string[];
 }
 
-const NODE_TYPES = new Set<CatalogNodeType>(["system", "edition", "subsystem", "variant"]);
+const NODE_TYPES = new Set<CatalogNodeType>(["system", "edition", "variant"]);
 const STATUSES = new Set<CatalogNodeStatus>(["draft", "pending", "active", "rejected", "merged"]);
+export const CATALOG_PARENT_TYPE: Record<CatalogNodeType, CatalogNodeType | null> = {
+  system: null,
+  edition: "system",
+  variant: "edition",
+};
+
+export function validateCatalogHierarchyShape(
+  nodeType: CatalogNodeType,
+  parentType: CatalogNodeType | null,
+): "parent_required" | "root_parent_forbidden" | "hierarchy_invalid" | null {
+  const expected = CATALOG_PARENT_TYPE[nodeType];
+  if (expected === null) return parentType === null ? null : "root_parent_forbidden";
+  if (parentType === null) return "parent_required";
+  return parentType === expected ? null : "hierarchy_invalid";
+}
 
 export function slugifyCatalogSegment(value: string): string {
   return value
@@ -138,7 +153,9 @@ export async function createNode(input: CatalogNodeWrite, actorId: string | null
   const client = await db.getClient();
   try {
     await client.query("BEGIN");
-    const row = await insertNode(client, normalizeCatalogWrite(input), actorId);
+    const normalized = normalizeCatalogWrite(input);
+    await assertCatalogHierarchy(client, normalized.node_type, normalized.parent_id ?? null);
+    const row = await insertNode(client, normalized, actorId);
     await bumpVersion(client, "catalog_node_created", actorId, row.id, { node_type: row.node_type });
     await client.query("COMMIT");
     return row;
@@ -176,6 +193,7 @@ export async function updateNode(id: string, input: Partial<CatalogNodeWrite>, a
       status: input.status ?? existing.status,
       aliases: input.aliases,
     });
+    await assertCatalogHierarchy(client, next.node_type, next.parent_id ?? null, id);
     const path_slug = await buildPathSlug(client, next.parent_id ?? null, next.canonical_slug!);
     const row = (await client.query<Omit<CatalogNodeRow, "aliases">>(
       `UPDATE catalog_nodes
@@ -200,6 +218,38 @@ export async function updateNode(id: string, input: Partial<CatalogNodeWrite>, a
   } finally {
     client.release();
   }
+}
+
+async function assertCatalogHierarchy(
+  client: DbClient,
+  nodeType: CatalogNodeType,
+  parentId: string | null,
+  nodeId?: string,
+): Promise<void> {
+  if (!parentId) {
+    const shapeError = validateCatalogHierarchyShape(nodeType, null);
+    if (shapeError) throw new Error(shapeError);
+    return;
+  }
+  if (nodeId && parentId === nodeId) throw new Error("hierarchy_cycle");
+  const parent = (await client.query<{ node_type: CatalogNodeType }>(
+    "SELECT node_type FROM catalog_nodes WHERE id = $1",
+    [parentId],
+  )).rows[0];
+  if (!parent) throw new Error("parent_not_found");
+  const shapeError = validateCatalogHierarchyShape(nodeType, parent.node_type);
+  if (shapeError) throw new Error(shapeError);
+  if (!nodeId) return;
+  const createsCycle = (await client.query<{ cycle: boolean }>(
+    `WITH RECURSIVE descendants AS (
+       SELECT id FROM catalog_nodes WHERE parent_id = $1
+       UNION ALL
+       SELECT child.id FROM catalog_nodes child JOIN descendants parent ON child.parent_id = parent.id
+     )
+     SELECT EXISTS (SELECT 1 FROM descendants WHERE id = $2) AS cycle`,
+    [nodeId, parentId],
+  )).rows[0]?.cycle ?? false;
+  if (createsCycle) throw new Error("hierarchy_cycle");
 }
 
 async function insertNode(client: DbClient, input: CatalogNodeWrite, actorId: string | null): Promise<CatalogNodeRow> {

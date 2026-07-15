@@ -125,6 +125,30 @@ describe('useDraftForm', () => {
     expect(onUpdate).toHaveBeenCalledWith(updatedDraft);
   });
 
+  it('Onda A confirma campos mantidos e tenta retry quando learning falha', async () => {
+    const updatedDraft: DiscordDraft = { ...mockDraft, status: 'ready' as const };
+    const api: DraftApiOperations = {
+      ...mockApi,
+      updateDraft: vi.fn().mockResolvedValue(updatedDraft),
+      submitCorrection: vi.fn().mockResolvedValue({
+        draft_id: 'draft-1', fields_corrected: 0, diff: {},
+        learning: { correction_id: 'correction-1', status: 'failed', attempts: 1, error: 'db down' },
+      }),
+      retryLearningFeedback: vi.fn().mockResolvedValue({
+        results: [{ correction_id: 'correction-1', status: 'completed', attempts: 2, error: null }],
+      }),
+    };
+    const { result } = renderHook(() => useDraftForm(mockDraft, api, vi.fn()));
+
+    await act(async () => { await result.current.handleSaveFields(); });
+
+    expect(api.submitCorrection).toHaveBeenCalledWith('draft-1', expect.objectContaining({
+      corrections: expect.any(Object),
+      confirmed_fields: expect.arrayContaining(['title', 'description', 'system_name']),
+    }));
+    expect(api.retryLearningFeedback).toHaveBeenCalledWith('draft-1');
+  });
+
   it('handleSaveFields marca como needs_review se houver campos pendentes', async () => {
     const draftSemTitulo: DiscordDraft = {
       ...mockDraft,

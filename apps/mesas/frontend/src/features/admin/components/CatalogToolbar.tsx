@@ -14,7 +14,6 @@ interface Props {
 const TYPE_OPTIONS: Array<{ value: System['node_type']; label: string }> = [
   { value: 'system', label: 'Sistemas' },
   { value: 'edition', label: 'Edições' },
-  { value: 'subsystem', label: 'Subsistemas' },
   { value: 'variant', label: 'Variantes' },
 ];
 

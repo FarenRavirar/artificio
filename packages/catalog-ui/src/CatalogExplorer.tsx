@@ -16,10 +16,10 @@ function findNode(nodes: CatalogUiNode[], id: string): CatalogUiNode | null {
   return null;
 }
 
-function nextChildType(type: CatalogNodeType): CatalogNodeType {
+function nextChildType(type: CatalogNodeType): CatalogNodeType | null {
   if (type === 'system') return 'edition';
-  if (type === 'edition' || type === 'subsystem') return 'variant';
-  return 'variant';
+  if (type === 'edition') return 'variant';
+  return null;
 }
 
 export type CatalogExplorerProps = Readonly<{
@@ -73,10 +73,12 @@ export function CatalogExplorer({
   const [newNodeDefaults, setNewNodeDefaults] = useState<Partial<CatalogUiNodeInput> | null>(null);
 
   const handleAddChildAtLevel = onCreateNow ? undefined : (_depth: number, parent: CatalogUiNode | null) => {
+    const nodeType = parent ? nextChildType(parent.node_type) : 'system';
+    if (!nodeType) return;
     onSelectionChange([]);
     setNewNodeDefaults({
       parent_id: parent?.id ?? null,
-      node_type: parent ? nextChildType(parent.node_type) : 'system',
+      node_type: nodeType,
     });
   };
 

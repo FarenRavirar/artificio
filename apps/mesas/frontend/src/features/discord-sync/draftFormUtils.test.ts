@@ -427,6 +427,28 @@ describe('buildDraftFieldInsights', () => {
       model: 'deepseek-chat',
     });
   });
+
+  it('marca learning já aplicado sem expor botão de sugestão pendente', () => {
+    const parsed = { table: { system_name: 'D&D 5e' } } as unknown as DiscordDraftPayload;
+    const current = {
+      table: {
+        system_name: 'D&D 5.2',
+        _learning_applied: {
+          provider: 'learning-rules',
+          fields: { system_name: 'D&D 5.2' },
+        },
+      },
+    } as unknown as DiscordDraftPayload;
+
+    const insights = buildDraftFieldInsights(parsed, current);
+
+    expect(insights.system_name).toEqual({
+      source: 'learning-store',
+      provider: 'learning-rules',
+      evidence: ['Regra humana ativa de learning-rules aplicada automaticamente.'],
+    });
+    expect(insights.system_name?.suggestion).toBeUndefined();
+  });
 });
 
 describe('MAX_COVER_FILE_SIZE_BYTES', () => {

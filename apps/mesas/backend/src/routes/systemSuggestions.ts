@@ -7,6 +7,8 @@ import { logActivity } from '../services/activityLogger';
 import { notifyAdmins } from '../services/adminNotifications';
 import { resolveActorName } from '../services/actorNameResolver';
 import { listMineHandler } from './suggestionHelpers';
+import { loadCatalogFlat } from '../services/catalogClient';
+import { validateSystemSuggestionHierarchy } from '../services/systemHierarchy';
 
 const router = Router();
 
@@ -22,7 +24,7 @@ type SuggestionPayload = {
   parent_suggestion_index?: unknown;
 };
 
-const VALID_NODE_TYPES = ['system', 'edition', 'variant', 'subsystem'] as const;
+const VALID_NODE_TYPES = ['system', 'edition', 'variant'] as const;
 
 const readTrimmed = (value: unknown): string | null =>
   typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
@@ -57,6 +59,12 @@ const normalizeSuggestionPayload = (payload: SuggestionPayload, index: number) =
   };
 };
 
+async function validateSuggestionHierarchy(items: ReturnType<typeof normalizeSuggestionPayload>[]): Promise<string | null> {
+  const catalog = await loadCatalogFlat();
+  const byId = new Map(catalog.map((node) => [node.id, node.node_type]));
+  return validateSystemSuggestionHierarchy(items, byId);
+}
+
 // POST /api/v1/system-suggestions - Criar sugestao unica ou cadeia em lote
 router.post('/', async (req: Request, res: Response) => {
   try {
@@ -81,6 +89,8 @@ router.post('/', async (req: Request, res: Response) => {
       const message = validationError instanceof Error ? validationError.message : 'Payload inválido.';
       return res.status(400).json({ error: message });
     }
+    const hierarchyError = await validateSuggestionHierarchy(items);
+    if (hierarchyError) return res.status(400).json({ error: hierarchyError });
 
     // Verificar limite de 5 sugestões pendentes
     const pendingCount = await db

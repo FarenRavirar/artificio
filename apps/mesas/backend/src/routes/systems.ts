@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { db } from '../db';
 import type { SystemNodeType } from '../db/types';
+import { SYSTEM_PARENT_TYPE, validateSystemParentType } from '../services/systemHierarchy';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import {
   archiveCatalogNode,
@@ -17,13 +18,6 @@ import {
 export { slugifyCatalogSegment as slugify } from '../services/catalogClient';
 
 const router = Router();
-
-export const VALID_PARENT: Record<SystemNodeType, SystemNodeType[] | null> = {
-  system: null,
-  edition: ['system'],
-  subsystem: ['system'],
-  variant: ['edition', 'subsystem'],
-};
 
 router.get('/health', async (_req: Request, res: Response) => {
   try {
@@ -193,8 +187,8 @@ function validateSystemInput(name: unknown, nodeType: unknown, parentId: unknown
   if (typeof name !== 'string' || name.trim().length === 0 || typeof nodeType !== 'string') {
     return { status: 400, message: 'Nome e tipo são obrigatórios.' };
   }
-  if (!['system', 'edition', 'variant', 'subsystem'].includes(nodeType)) {
-    return { status: 400, message: 'Tipo inválido. Use: system, edition, variant ou subsystem.' };
+  if (!['system', 'edition', 'variant'].includes(nodeType)) {
+    return { status: 400, message: 'Tipo inválido. Use: system, edition ou variant.' };
   }
   if (nodeType !== 'system' && (typeof parentId !== 'string' || parentId.trim().length === 0)) {
     return { status: 400, message: `${nodeType} precisa de um sistema pai.` };
@@ -206,12 +200,12 @@ function validateSystemInput(name: unknown, nodeType: unknown, parentId: unknown
 }
 
 async function assertValidParent(nodeType: SystemNodeType, parentId: string | null | undefined): Promise<void> {
-  const allowedParentTypes = VALID_PARENT[nodeType];
-  if (!allowedParentTypes || !parentId) return;
+  const expectedParentType = SYSTEM_PARENT_TYPE[nodeType];
+  if (!parentId) return;
   const parent = (await loadCatalogFlat()).find((node) => node.id === parentId);
   if (!parent) throw new Error('parent_not_found');
-  if (!allowedParentTypes.includes(parent.node_type)) {
-    throw new Error(`${nodeType} só pode ser filho de: ${allowedParentTypes.join(' ou ')}.`);
+  if (validateSystemParentType(nodeType, parent.node_type) !== null) {
+    throw new Error(`${nodeType} só pode ser filho de: ${expectedParentType}.`);
   }
 }
 

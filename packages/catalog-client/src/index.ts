@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 export const catalogAliasSchema = z.object({ alias: z.string() });
 
-export const catalogNodeTypeSchema = z.enum(['system', 'edition', 'variant', 'subsystem']);
+export const catalogNodeTypeSchema = z.enum(['system', 'edition', 'variant']);
 
 export interface CatalogAlias {
   alias: string;

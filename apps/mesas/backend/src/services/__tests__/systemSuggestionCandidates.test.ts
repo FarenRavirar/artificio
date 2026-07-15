@@ -21,8 +21,8 @@ describe('normalizeSystemName', () => {
 
   it('detects year edition token and keeps base clean (D&D 5a edicao 2024)', () => {
     const n = normalizeSystemName('D&D 5ª edição 2024');
-    // '5a' (PT ordinal) e '2024' sao tokens de edicao; 'edicao' e palavra de edicao removida
-    expect(n.editionTokens).toEqual(expect.arrayContaining(['5a', '2024']));
+    // Ordinal PT e sufixo inglês convergem no mesmo token canônico de edição.
+    expect(n.editionTokens).toEqual(expect.arrayContaining(['5e', '2024']));
     expect(n.base).toBe('d and d');
   });
 
@@ -60,7 +60,7 @@ describe('normalizeSystemName', () => {
 const SYSTEMS: CandidateSystemInput[] = [
   { id: 'dd', name: 'Dungeons & Dragons', name_pt: null, slug: 'dungeons-dragons', path_slug: 'dungeons-dragons', node_type: 'system', parent_id: null },
   { id: 'dd5e', name: '5th Edition', name_pt: '5ª Edição', slug: '5e', path_slug: 'dungeons-dragons/5e', node_type: 'edition', parent_id: 'dd' },
-  { id: 'dd2024', name: '2024', name_pt: null, slug: '2024', path_slug: 'dungeons-dragons/2024', node_type: 'edition', parent_id: 'dd' },
+  { id: 'dd2024', name: '2024', name_pt: null, slug: '2024', path_slug: 'dungeons-dragons/5e/2024', node_type: 'variant', parent_id: 'dd5e' },
   { id: 'cain', name: 'CAIN', name_pt: null, slug: 'cain', path_slug: 'cain', node_type: 'system', parent_id: null },
   { id: 'pokemon', name: 'Pokémon', name_pt: null, slug: 'pokemon', path_slug: 'pokemon', node_type: 'system', parent_id: null },
   { id: 'tor', name: 'The One Ring Roleplaying Game', name_pt: null, slug: 'the-one-ring-roleplaying-game', path_slug: 'the-one-ring-roleplaying-game', node_type: 'system', parent_id: null },
@@ -94,13 +94,13 @@ describe('scoreSystemCandidates', () => {
     expect(r.recommended_action).toBe('create_child');
   });
 
-  it('recognizes D&D 5e 2014. as edition context of existing Dungeons & Dragons, not a new root', () => {
+  it('recognizes D&D 5e 2014 as a variant context under the existing 5e edition', () => {
     const r = scoreSystemCandidates('D&D 5e 2014.', SYSTEMS, [{ system_id: 'dd', alias: 'DnD' }]);
-    expect(r.candidates[0].system_id).toBe('dd');
-    expect(r.candidates[0].reasons).toContain('base_plus_edition');
+    expect(r.candidates[0].system_id).toBe('dd5e');
+    expect(r.candidates[0].reasons).toContain('hierarchy_parent');
     expect(r.recommended_action).toBe('create_child');
-    expect(r.analysis.suggested_child_name).toBe('5e 2014');
-    expect(r.analysis.suggested_child_type).toBe('edition');
+    expect(r.analysis.suggested_child_name).toBe('2014');
+    expect(r.analysis.suggested_child_type).toBe('variant');
   });
 
   it('does not infer translated aliases that are not in catalog data', () => {
@@ -126,12 +126,26 @@ describe('scoreSystemCandidates', () => {
     expect(r.analysis.has_edition_context).toBe(false);
   });
 
-  it('recommends merge when the suggested edition already exists under the matched parent', () => {
-    const r = scoreSystemCandidates('D&D 2024', SYSTEMS, ALIASES);
+  it('recommends merge when the suggested variant exists under the matched edition', () => {
+    const r = scoreSystemCandidates('D&D 5e 2024', SYSTEMS, ALIASES);
     expect(r.candidates[0].system_id).toBe('dd2024');
     expect(r.candidates[0].reasons).toContain('existing_child_match');
     expect(r.recommended_action).toBe('merge_existing');
     expect(r.analysis.suggested_child_name).toBe('2024');
+    expect(r.analysis.suggested_child_type).toBe('variant');
+  });
+
+  it('normalizes dotted edition with or without e to the same token', () => {
+    expect(normalizeSystemName('D&D 3.5').editionTokens).toEqual(['3.5']);
+    expect(normalizeSystemName('D&D 3.5e').editionTokens).toEqual(['3.5']);
+  });
+
+  it('does not skip the edition level to attach a variant directly to the root', () => {
+    const r = scoreSystemCandidates('D&D 2024', SYSTEMS, ALIASES);
+    expect(r.candidates[0].system_id).toBe('dd');
+    expect(r.candidates[0].reasons).not.toContain('existing_child_match');
+    expect(r.recommended_action).toBe('create_child');
+    expect(r.analysis.suggested_child_type).toBe('edition');
   });
 
   it('recognizes The One Ring Strider Mode as child context, not a new root', () => {
@@ -140,7 +154,7 @@ describe('scoreSystemCandidates', () => {
     expect(r.candidates[0].reasons).toContain('base_plus_qualifier');
     expect(r.recommended_action).toBe('create_child');
     expect(r.analysis.suggested_child_name).toBe('Strider Mode');
-    expect(r.analysis.suggested_child_type).toBe('subsystem');
+    expect(r.analysis.suggested_child_type).toBe('edition');
   });
 
   it('matches Pokemon RPG to existing Pokemon by base', () => {
@@ -171,6 +185,24 @@ describe('scoreSystemCandidates', () => {
     for (let i = 1; i < r.candidates.length; i += 1) {
       expect(r.candidates[i - 1].score).toBeGreaterThanOrEqual(r.candidates[i].score);
     }
+  });
+
+  it('prioritizes a canonical acronym plus exact edition over a colliding alias', () => {
+    const systems: CandidateSystemInput[] = [
+      { id: 'gamma', name: 'Gamma World', name_pt: null, slug: 'gamma-world', path_slug: 'gamma-world', node_type: 'system', parent_id: null },
+      { id: 'drakar', name: 'Drakar och Demoner', name_pt: null, slug: 'drakar-och-demoner', path_slug: 'drakar-och-demoner', node_type: 'system', parent_id: null },
+      { id: 'dnd', name: 'Dungeons & Dragons', name_pt: null, slug: 'dnd', path_slug: 'dnd', node_type: 'system', parent_id: null },
+      { id: 'dnd-5e', name: 'Dungeons & Dragons 5e', name_pt: null, slug: 'dnd-5e', path_slug: 'dnd/5e', node_type: 'edition', parent_id: 'dnd' },
+    ];
+    const result = scoreSystemCandidates('D&D 5ª Edição', systems, [
+      { system_id: 'gamma', alias: 'D&D' },
+      { system_id: 'dnd', alias: 'D&D' },
+    ]);
+
+    expect(result.candidates[0].system_id).toBe('dnd-5e');
+    expect(result.candidates[0].score).toBe(0.99);
+    expect(result.candidates.map((candidate) => candidate.system_id)).not.toContain('gamma');
+    expect(result.candidates.map((candidate) => candidate.system_id)).not.toContain('drakar');
   });
 
   it('does not throw on empty catalog and recommends create_system', () => {

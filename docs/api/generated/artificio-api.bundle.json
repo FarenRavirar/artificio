@@ -7,10 +7,10 @@
     "downloads": 50,
     "glossario": 47,
     "links": 22,
-    "mesas": 182,
+    "mesas": 184,
     "site": 46
   },
-  "total": 358,
+  "total": 360,
   "operations": [
     {
       "app": "accounts",
@@ -1951,6 +1951,18 @@
     },
     {
       "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/discord/drafts/{id}/correction/retry-learning",
+      "summary": "Reprocessa feedback de aprendizado pendente ou falho do draft de Discord",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "provisional",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_discord_drafts_id_correction_retry_learning"
+    },
+    {
+      "app": "mesas",
       "method": "GET",
       "path": "/api/v1/admin/discord/drafts/{id}/duplicates",
       "summary": "Consulta api v1 admin discord drafts id duplicates",
@@ -2356,6 +2368,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_v1_admin_import_drafts_id_correction"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/import/drafts/{id}/correction/retry-learning",
+      "summary": "Reprocessa feedback de aprendizado pendente ou falho do draft de importação",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "provisional",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_import_drafts_id_correction_retry_learning"
     },
     {
       "app": "mesas",

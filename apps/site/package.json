@@ -16,7 +16,7 @@
     "rebuild": "node scripts/rebuild.mjs",
     "serve": "tsx server/server.ts",
     "lint": "echo \"(site) lint TODO\"",
-    "test": "vitest run importer/media.test.ts"
+    "test": "vitest run importer/media.test.ts db/migrationPolicy.test.ts db/repo/catalog.test.ts"
   },
   "dependencies": {
     "@artificio/analytics": "workspace:*",

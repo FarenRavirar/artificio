@@ -3,7 +3,7 @@ export interface System {
   name: string;
   name_pt?: string | null;
   slug: string;
-  node_type: 'system' | 'edition' | 'variant' | 'subsystem';
+  node_type: 'system' | 'edition' | 'variant';
   parent_id: string | null;
   depth?: number;
   path_slug: string | null;
