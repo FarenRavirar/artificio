@@ -2,7 +2,7 @@ import { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysel
 import type { ChangelogEntry } from '@artificio/changelog';
 
 export type UserRole = 'visitor' | 'player' | 'gm' | 'admin';
-export type SystemNodeType = 'system' | 'edition' | 'variant' | 'subsystem';
+export type SystemNodeType = 'system' | 'edition' | 'variant';
 export type AuthProvider = 'google' | 'discord';
 export type ExperienceLevelPlayer = 'iniciante' | 'intermediario' | 'veterano';
 export type PreferredTime = 'manha' | 'tarde' | 'noite';
@@ -694,6 +694,12 @@ export interface ImportCorrectionsTable {
   diff: unknown;
   reason: string | null;
   corrected_by: string | null;
+  confirmed_fields: ColumnType<unknown, unknown, unknown>;
+  learning_status: Generated<'pending' | 'processing' | 'completed' | 'failed'>;
+  learning_attempts: Generated<number>;
+  learning_error: string | null;
+  learning_processed_at: Date | null;
+  learning_updated_at: Generated<Date>;
   created_at: Generated<Date>;
 }
 
@@ -765,6 +771,7 @@ export interface DiscordParseFeedbackTable {
   reason: string | null;
   scope_json: unknown;
   admin_user_id: string | null;
+  correction_id: string | null;
   created_at: Generated<Date>;
 }
 
@@ -822,7 +829,7 @@ export type DiscordLearningRuleType =
 export type DiscordLearningRuleScopeType = 'global' | 'guild' | 'channel' | 'profile' | 'author' | 'composite';
 export type DiscordLearningRuleStatus = 'candidate' | 'active' | 'suppressed' | 'retired';
 export type DiscordLearningRuleSource = 'human' | 'confirmed_ai' | 'migration_seed';
-export type DiscordLearningRuleApplicationOutcome = 'applied' | 'conflict' | 'rejected_by_guard' | 'shadow';
+export type DiscordLearningRuleApplicationOutcome = 'applied' | 'conflict' | 'rejected_by_guard' | 'rejected_by_human' | 'shadow';
 
 export interface DiscordLearningRulesTable {
   id: Generated<string>;

@@ -1,4 +1,4 @@
-export type CatalogNodeType = 'system' | 'edition' | 'subsystem' | 'variant';
+export type CatalogNodeType = 'system' | 'edition' | 'variant';
 export type CatalogNodeStatus = 'draft' | 'pending' | 'active' | 'rejected' | 'merged';
 
 /** Superset de SystemTreeNode (mesas) e CatalogNode (site-admin): árvore + campos de formulário completo. */

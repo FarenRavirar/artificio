@@ -43,6 +43,11 @@ export async function triggerMetaScrape(url: string): Promise<boolean> {
       console.error(`[metaScrapeClient] scrape falhou (${response.status}) para ${url}:`, body);
       return false;
     }
+    // Achado do mantenedor (2026-07-14): caminho de sucesso não deixava rastro
+    // nenhum em log — impossível diferenciar "nunca chamou" de "chamou e deu
+    // certo" sem essa linha, o que travava qualquer diagnóstico de preview
+    // desatualizado no WhatsApp/Discord.
+    console.log(`[metaScrapeClient] scrape disparado com sucesso para ${url}`);
     return true;
   } catch (error) {
     console.error(`[metaScrapeClient] erro ao disparar scrape para ${url}:`, error);

@@ -3,8 +3,10 @@ import React from 'react';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { SystemSuggestionModal } from '../components/SystemSuggestionModal';
+import { invalidateSystemsCatalogCache } from '../hooks/useSystemsCatalog';
 
 const authState = vi.hoisted(() => ({ role: 'gm' as 'gm' | 'admin' }));
+const catalogState = vi.hoisted(() => ({ tree: [] as unknown[] }));
 
 vi.mock('../contexts/useAuth', () => ({
   useAuth: () => ({
@@ -21,6 +23,8 @@ vi.mock('react-hot-toast', () => ({
 
 describe('SystemSuggestionModal', () => {
   beforeEach(() => {
+    catalogState.tree = [];
+    invalidateSystemsCatalogCache();
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
@@ -38,7 +42,7 @@ describe('SystemSuggestionModal', () => {
       if (url.includes('/api/v1/systems')) {
         return {
           ok: true,
-          json: async () => ({ data: [] }),
+          json: async () => ({ data: catalogState.tree }),
         } as Response;
       }
 
@@ -126,5 +130,38 @@ describe('SystemSuggestionModal', () => {
       website_url: 'https://example.com/sistema',
     });
     expect(onOuterSubmit).not.toHaveBeenCalled();
+  });
+
+  it('admin escolhe sistema para edição e edição para variante', async () => {
+    authState.role = 'admin';
+    catalogState.tree = [{
+      id: 'root', name: 'Sistema Raiz', name_pt: null, slug: 'sistema-raiz',
+      parent_id: null, node_type: 'system', path_slug: 'sistema-raiz', aliases: [],
+      children: [{
+        id: 'edition', name: 'Edição Um', name_pt: null, slug: 'edicao-um',
+        parent_id: 'root', node_type: 'edition', path_slug: 'sistema-raiz/edicao-um', aliases: [],
+        children: [{
+          id: 'variant', name: 'Variante Um', name_pt: null, slug: 'variante-um',
+          parent_id: 'edition', node_type: 'variant', path_slug: 'sistema-raiz/edicao-um/variante-um',
+          aliases: [], children: [],
+        }],
+      }],
+    }];
+
+    render(<SystemSuggestionModal isOpen onClose={vi.fn()} />);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+
+    const typeSelect = screen.getAllByRole('combobox')[0]!;
+    fireEvent.change(typeSelect, { target: { value: 'edition' } });
+    let parentSelect = screen.getAllByRole('combobox')[1]!;
+    expect(parentSelect).toHaveTextContent('Sistema Raiz');
+    expect(parentSelect).not.toHaveTextContent('Edição Um');
+
+    fireEvent.change(typeSelect, { target: { value: 'variant' } });
+    parentSelect = screen.getAllByRole('combobox')[1]!;
+    expect(parentSelect).not.toHaveTextContent('Sistema Raiz');
+    expect(parentSelect).toHaveTextContent('Edição Um');
+    expect(parentSelect).not.toHaveTextContent('Variante Um');
+    expect(screen.queryByText(/Subsistema/i)).not.toBeInTheDocument();
   });
 });

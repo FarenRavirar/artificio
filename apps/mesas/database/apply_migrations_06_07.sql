@@ -1,7 +1,14 @@
 -- =============================================================================
 -- Script consolidado de migrações para CRUD de Sistemas + Notificações
--- Execute este script no banco de dados de desenvolvimento
+-- LEGADO DESATIVADO: use o runner canônico de migrations. Este arquivo não pode
+-- mais criar schema porque cristalizava uma taxonomia inválida.
 -- =============================================================================
+
+DO $$
+BEGIN
+  RAISE EXCEPTION 'legacy_script_disabled_use_canonical_migrations';
+END;
+$$;
 
 -- Verificar se as tabelas já existem
 DO $$ 
@@ -29,7 +36,7 @@ CREATE TABLE IF NOT EXISTS system_suggestions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
-  node_type TEXT NOT NULL CHECK (node_type IN ('system', 'edition', 'variant', 'subsystem')),
+  node_type TEXT NOT NULL CHECK (node_type IN ('system', 'edition', 'variant')),
   parent_id UUID REFERENCES systems(id) ON DELETE CASCADE,
   description TEXT,
   aliases TEXT[],

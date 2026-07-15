@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 294,
-    "uniqueEndpoints": 273,
+    "total": 295,
+    "uniqueEndpoints": 274,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,16 +36,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 174,
+        "total": 175,
         "byConfidence": {
           "medium": 69,
-          "high": 103,
+          "high": 104,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 61,
-          "service-wrapper": 49,
+          "service-wrapper": 50,
           "literal": 56,
           "concatenation": 2
         }
@@ -1137,7 +1137,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.submitCorrection",
-      "line": 121
+      "line": 122
     },
     {
       "app": "mesas-frontend",
@@ -1403,6 +1403,16 @@
       "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/admin/components/ModeracaoSection.tsx",
       "method": "POST",
+      "endpoint": "/api/v1/admin/import/drafts/:param/correction/retry-learning",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "inboxApi.retryLearningFeedback",
+      "line": 98
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ModeracaoSection.tsx",
+      "method": "POST",
       "endpoint": "/api/v1/admin/import/drafts/:param/reparse",
       "confidence": "high",
       "pattern": "service-wrapper",
@@ -1527,7 +1537,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 357
+      "line": 356
     },
     {
       "app": "mesas-frontend",
@@ -1537,7 +1547,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPost",
-      "line": 651
+      "line": 652
     },
     {
       "app": "mesas-frontend",
@@ -2207,7 +2217,7 @@
       "confidence": "medium",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 222
+      "line": 233
     },
     {
       "app": "mesas-frontend",
@@ -2217,7 +2227,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 358
+      "line": 357
     },
     {
       "app": "mesas-frontend",
@@ -2257,7 +2267,7 @@
       "confidence": "medium",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 222
+      "line": 233
     },
     {
       "app": "mesas-frontend",
@@ -2427,7 +2437,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 409
+      "line": 453
     },
     {
       "app": "mesas-frontend",

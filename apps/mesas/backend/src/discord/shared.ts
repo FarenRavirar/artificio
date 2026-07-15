@@ -30,7 +30,7 @@ export function asJsonbArray(value: unknown): JsonbArray {
 export async function loadSystemsForParser(): Promise<SystemEntry[]> {
   const systems = await db
     .selectFrom('systems')
-    .select(['id', 'name', 'name_pt'])
+    .select(['id', 'name', 'name_pt', 'slug', 'path_slug', 'node_type', 'parent_id'])
     .execute();
 
   const aliases = await db
@@ -49,6 +49,10 @@ export async function loadSystemsForParser(): Promise<SystemEntry[]> {
     id: s.id,
     name: s.name,
     name_pt: s.name_pt,
+    slug: s.slug,
+    path_slug: s.path_slug,
+    node_type: s.node_type,
+    parent_id: s.parent_id,
     aliases: aliasMap.get(s.id) ?? [],
   }));
 }

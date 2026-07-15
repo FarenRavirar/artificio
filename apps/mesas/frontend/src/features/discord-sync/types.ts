@@ -128,12 +128,21 @@ export interface DiscordSlotsAmbiguity {
 
 export type DiscordCoverQuality = 'standard' | 'low';
 
+export interface DiscordSystemCandidate {
+  system_id: string;
+  name: string;
+  score: number;
+  reasons: string[];
+}
+
 export interface DiscordDraftTablePayload extends Record<string, unknown> {
   title?: string | null;
   description?: string | null;
   system_id?: string | null;
   system_name?: string | null;
   raw_system_hint?: string | null;
+  _system_source_hint?: string | null;
+  _system_candidates?: DiscordSystemCandidate[] | null;
   type?: string | null;
   modality?: string | null;
   price_type?: string | null;
@@ -335,7 +344,13 @@ export interface DraftApiOperations {
   reparseDraft: (id: string) => Promise<DiscordDraft>;
   refreshDraftImage?: (id: string) => Promise<{ draftId: string; tableId: string | null; status: string; url: string | null; error: string | null }>;
   getDraft?: (id: string) => Promise<DiscordDraft>;
-  submitCorrection?: (id: string, body: { corrections: Record<string, unknown>; reason?: string; before?: Record<string, unknown> }) => Promise<unknown>;
+  submitCorrection?: (id: string, body: {
+    corrections: Record<string, unknown>;
+    reason?: string;
+    before?: Record<string, unknown>;
+    confirmed_fields?: string[];
+  }) => Promise<CorrectionFeedbackResult>;
+  retryLearningFeedback?: (id: string) => Promise<{ results: LearningFeedbackResult[] }>;
   auditCompleteness?: (id: string) => Promise<CompletenessAuditResult>;
   /** Botão pequeno por campo (2026-07-07): reaudita só um campo via IA. */
   auditField?: (id: string, field: string) => Promise<CompletenessAuditResult>;
@@ -343,6 +358,20 @@ export interface DraftApiOperations {
   getLlmActivity?: () => Promise<LlmActivity>;
   listDuplicateCandidates?: (draftId: string) => Promise<DuplicateCandidate[]>;
   resolveDuplicateCandidate?: (candidateId: string, status: DuplicateCandidateDecision) => Promise<DuplicateCandidate>;
+}
+
+export interface LearningFeedbackResult {
+  correction_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  attempts: number;
+  error: string | null;
+}
+
+export interface CorrectionFeedbackResult {
+  draft_id: string;
+  fields_corrected: number;
+  diff: Record<string, { before: unknown; after: unknown }>;
+  learning: LearningFeedbackResult;
 }
 
 // Fase 5 (spec 058) — candidatos de duplicata em shadow, decisão humana.

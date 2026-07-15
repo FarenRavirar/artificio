@@ -2513,7 +2513,7 @@
       "method": "POST",
       "path": "/api/v1/admin/system-suggestions/:id/resolve",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 1081,
+      "line": 1080,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3305,7 +3305,7 @@
       "method": "POST",
       "path": "/api/v1/system-suggestions",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestions.ts",
-      "line": 61,
+      "line": 69,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3323,7 +3323,7 @@
       "method": "GET",
       "path": "/api/v1/system-suggestions/mine",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestions.ts",
-      "line": 174,
+      "line": 184,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3332,7 +3332,7 @@
       "method": "GET",
       "path": "/api/v1/systems",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 38,
+      "line": 32,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3350,7 +3350,7 @@
       "method": "POST",
       "path": "/api/v1/systems/admin",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 83,
+      "line": 77,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3359,7 +3359,7 @@
       "method": "DELETE",
       "path": "/api/v1/systems/admin/:id",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 139,
+      "line": 133,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3368,7 +3368,7 @@
       "method": "PUT",
       "path": "/api/v1/systems/admin/:id",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 109,
+      "line": 103,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3377,7 +3377,7 @@
       "method": "GET",
       "path": "/api/v1/systems/health",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 28,
+      "line": 22,
       "confidence": "high",
       "kind": "express-route"
     },

@@ -1,10 +1,15 @@
 import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType, TableDraftFrequency, TableDraftAgeRating, TableDraftExperienceLevel, TableDraftTableLevel } from './types';
+import { normalizeSystemName, scoreSystemCandidates } from '../services/systemSuggestionCandidates';
 
 export interface SystemEntry {
   id: string;
   name: string;
   name_pt: string | null;
   aliases: string[];
+  slug?: string | null;
+  path_slug?: string | null;
+  node_type?: string;
+  parent_id?: string | null;
 }
 
 interface SystemMatchResult {
@@ -278,17 +283,238 @@ function findEntryMatch<T>(
   return matches[0].entry;
 }
 
-function findSystemMatch(text: string, systems: SystemEntry[], allowShortAliases = false): SystemEntry | null {
-  return findEntryMatch(
-    text,
-    systems,
-    (system) => [
-      { value: system.name, priority: 3 },
-      ...(system.name_pt ? [{ value: system.name_pt, priority: 3 }] : []),
-      ...system.aliases.map((alias) => ({ value: alias, priority: 1 })),
-    ],
-    allowShortAliases,
-  );
+function sharesSystemBase(left: ReturnType<typeof normalizeSystemName>, right: ReturnType<typeof normalizeSystemName>): boolean {
+  if (left.base && left.base === right.base) return true;
+  return left.matchKeys.some((key) => right.matchKeys.includes(key));
+}
+
+function normalizeSystemHint(text: string): ReturnType<typeof normalizeSystemName> {
+  const restoredDecimal = text.replace(/\b(\d{1,2})\s+(\d{1,2})(e|ed)?\b/gi, (_match, major, minor, suffix = '') => (
+    `${major}.${minor}${suffix}`
+  ));
+  return normalizeSystemName(restoredDecimal);
+}
+
+function normalizeSystemRepresentation(text: string): ReturnType<typeof normalizeSystemName> {
+  // Slugs do catálogo codificam 3.5e como "3-5e". Sem restaurar o ponto,
+  // o tokenizador lê base "3" + edição "5e" e empata com a edição 5e real.
+  return normalizeSystemName(text.replace(/\b(\d{1,2})-(\d{1,2}e?)\b/gi, '$1.$2'));
+}
+
+function hasCompactVersionSuffix(
+  canonical: ReturnType<typeof normalizeSystemName>,
+  hint: ReturnType<typeof normalizeSystemName>,
+): boolean {
+  const base = canonical.normalized.replaceAll(' ', '');
+  const complete = hint.normalized.replaceAll(' ', '');
+  return Boolean(base) && new RegExp(String.raw`^${base}\d+(?:e|ed)?$`).test(complete);
+}
+
+function tokenSequenceIndex(needle: string[], haystack: string[]): number {
+  if (needle.length === 0 || needle.length > haystack.length) return -1;
+  for (let start = 0; start <= haystack.length - needle.length; start += 1) {
+    if (needle.every((token, offset) => haystack[start + offset] === token)) return start;
+  }
+  return -1;
+}
+
+function sequenceMatchScore(baseScore: number, needle: string[], haystack: string[]): number {
+  const index = tokenSequenceIndex(needle, haystack);
+  if (index < 0) return 0;
+  const lengthBonus = Math.min(8, needle.length * 2);
+  const positionBonus = Math.max(0, 10 - index);
+  return baseScore + lengthBonus + positionBonus;
+}
+
+function isAcronymLike(value: ReturnType<typeof normalizeSystemName>): boolean {
+  const semanticTokens = value.baseTokens.filter((token) => token !== 'and');
+  return semanticTokens.length > 1 && semanticTokens.every((token) => token.length === 1);
+}
+
+function isSystemRoot(system: SystemEntry): boolean {
+  return (system.parent_id === null || system.parent_id === undefined)
+    && !['edition', 'variant'].includes(system.node_type ?? 'system');
+}
+
+function scoreRootName(
+  hint: ReturnType<typeof normalizeSystemName>,
+  name: string,
+): number {
+  const canonical = normalizeSystemName(name);
+  if (canonical.normalized === hint.normalized) return 120;
+  if (sharesSystemBase(canonical, hint)) return 100;
+  if (hasCompactVersionSuffix(canonical, hint)) return 90;
+  return sequenceMatchScore(90, canonical.baseTokens, hint.baseTokens);
+}
+
+function scoreSystemRoot(hint: ReturnType<typeof normalizeSystemName>, system: SystemEntry): number {
+  let score = 0;
+  for (const name of [system.name, system.name_pt].filter((value): value is string => Boolean(value))) {
+    score = Math.max(score, scoreRootName(hint, name));
+  }
+  const canonicalName = normalizeSystemName(system.name);
+  for (const alias of system.aliases) {
+    const normalizedAlias = normalizeSystemName(alias);
+    if (isAcronymLike(normalizedAlias) && !sharesSystemBase(normalizedAlias, canonicalName)) continue;
+    if (['rpg', 'ttrpg', 'system', 'sistema', 'jogo'].includes(normalizedAlias.base)) continue;
+    if (normalizedAlias.normalized === hint.normalized) score = Math.max(score, 80);
+    else if (sharesSystemBase(normalizedAlias, hint)) score = Math.max(score, 70);
+    else score = Math.max(score, sequenceMatchScore(60, normalizedAlias.baseTokens, hint.baseTokens));
+  }
+  return score;
+}
+
+function findRootSystem(text: string, systems: SystemEntry[]): SystemEntry | null {
+  const hint = normalizeSystemHint(text);
+  const ranked = systems
+    .filter(isSystemRoot)
+    .map((system) => ({ system, score: scoreSystemRoot(hint, system) }))
+    .filter((candidate) => candidate.score > 0)
+    .sort((left, right) => right.score - left.score || left.system.name.localeCompare(right.system.name));
+  if (!ranked[0] || ranked[1]?.score === ranked[0].score) return null;
+  return ranked[0].system;
+}
+
+function scoreSystemDescendant(text: string, system: SystemEntry): number {
+  const hint = normalizeSystemHint(text);
+  const representations = [
+    system.name,
+    system.name_pt,
+    ...system.aliases,
+  ].filter((value): value is string => Boolean(value));
+  let score = 0;
+  for (const representation of representations) {
+    const candidate = normalizeSystemRepresentation(representation);
+    const hintEditions = new Set(hint.editionTokens);
+    const shortYearMatches = candidate.editionTokens.filter((token) => (
+      /^(?:19|20)\d{2}$/.test(token) && hint.baseTokens.includes(token.slice(-2))
+    ));
+    const hasEditionSignal = hint.editionTokens.length > 0 || shortYearMatches.length > 0;
+    const hasIncompatibleEdition = candidate.editionTokens.length > 0
+      && (!hasEditionSignal
+        || !candidate.editionTokens.every((token) => (
+          hintEditions.has(token) || shortYearMatches.includes(token)
+        )));
+    // Um alias como "D&D 5.5" não pode pontuar pela base "D&D" contra
+    // "D&D 5e". A edição faz parte do mesmo sinal.
+    if (hasIncompatibleEdition) continue;
+    if (candidate.normalized && candidate.normalized === hint.normalized) {
+      score = Math.max(score, 140);
+      continue;
+    }
+    if (candidate.baseTokens.length > 0) {
+      score = Math.max(score, sequenceMatchScore(90, candidate.baseTokens, hint.baseTokens));
+    }
+    if (candidate.editionTokens.length === 0 || !hasEditionSignal) continue;
+    const availableEditionSignals = hint.editionTokens.length + shortYearMatches.length;
+    const exactSet = candidate.editionTokens.length === availableEditionSignals;
+    const firstTokenIndex = Math.min(...candidate.editionTokens.map((token) => {
+      const exactIndex = hint.editionTokens.indexOf(token);
+      return exactIndex >= 0 ? exactIndex : hint.editionTokens.length + hint.baseTokens.indexOf(token.slice(-2));
+    }));
+    const orderBonus = Math.max(0, 5 - firstTokenIndex);
+    const nodeBonus = system.node_type === 'edition' ? 5 : 0;
+    score = Math.max(score, (exactSet ? 120 : 110) + nodeBonus + orderBonus);
+  }
+  return score;
+}
+
+function collectSystemDescendants(parentId: string, systems: SystemEntry[]): SystemEntry[] {
+  const result: SystemEntry[] = [];
+  const queue = systems.filter((system) => system.parent_id === parentId);
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    if (visited.has(node.id)) continue;
+    visited.add(node.id);
+    result.push(node);
+    queue.push(...systems.filter((system) => system.parent_id === node.id));
+  }
+  return result;
+}
+
+function localSystemNames(system: SystemEntry): Set<string> {
+  return new Set([system.name, system.name_pt, ...system.aliases]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => normalizeSystemRepresentation(value).normalized)
+    .filter(Boolean));
+}
+
+function findSystemMatch(text: string, systems: SystemEntry[]): SystemEntry | null {
+  const root = findRootSystem(text, systems);
+  if (!root) return null;
+  let current = root;
+  const visited = new Set<string>();
+  while (!visited.has(current.id)) {
+    visited.add(current.id);
+    const children = systems
+      .filter((system) => system.parent_id === current.id)
+      .map((system) => ({ system, score: scoreSystemDescendant(text, system) }))
+      .filter((candidate) => candidate.score > 0)
+      .sort((left, right) => right.score - left.score || left.system.name.localeCompare(right.system.name));
+    if (!children[0]) {
+      break;
+    }
+    if (children[1]?.score === children[0].score) break;
+    const winningNames = localSystemNames(children[0].system);
+    const duplicatedAtDeeperLevel = collectSystemDescendants(current.id, systems)
+      .filter((system) => system.parent_id !== current.id)
+      .some((system) => scoreSystemDescendant(text, system) > 0
+        && [...localSystemNames(system)].some((name) => winningNames.has(name)));
+    if (duplicatedAtDeeperLevel) break;
+    current = children[0].system;
+  }
+  return current;
+}
+
+function isAncestorOf(
+  candidateId: string,
+  selected: SystemEntry,
+  byId: ReadonlyMap<string, SystemEntry>,
+): boolean {
+  let current = selected;
+  const visited = new Set<string>();
+  while (current.parent_id && !visited.has(current.id)) {
+    visited.add(current.id);
+    if (current.parent_id === candidateId) return true;
+    const parent = byId.get(current.parent_id);
+    if (!parent) return false;
+    current = parent;
+  }
+  return false;
+}
+
+function isExactSystemMatch(text: string, system: SystemEntry): boolean {
+  const target = normalize(text);
+  if ([system.name, system.name_pt, ...system.aliases]
+    .some((candidate) => candidate != null && normalize(candidate) === target)) return true;
+
+  const hint = normalizeSystemHint(text);
+  const canonicalNameMatch = [system.name, system.name_pt]
+    .filter((candidate): candidate is string => Boolean(candidate))
+    .some((candidate) => {
+      const canonical = normalizeSystemName(candidate);
+      const sharedKey = canonical.base === hint.base
+        || canonical.matchKeys.some((key) => hint.matchKeys.includes(key));
+      if (!sharedKey) return false;
+      if (canonical.editionTokens.length !== hint.editionTokens.length) return false;
+      const hintEditions = new Set(hint.editionTokens);
+      return canonical.editionTokens.every((token) => hintEditions.has(token));
+    });
+  if (canonicalNameMatch) return true;
+
+  // Folhas podem se chamar somente "5ª Edição"/"5e". A raiz já foi
+  // escolhida antes de chegar aqui; nesta etapa basta confirmar a edição da
+  // folha, sem exigir que ela repita o nome da raiz.
+  if (system.parent_id === null || system.parent_id === undefined || hint.editionTokens.length === 0) {
+    return false;
+  }
+  const hintEditions = new Set(hint.editionTokens);
+  return [system.name, system.name_pt, ...system.aliases]
+    .filter((candidate): candidate is string => Boolean(candidate))
+    .map((candidate) => normalizeSystemRepresentation(candidate).editionTokens)
+    .some((editions) => editions.length === hint.editionTokens.length
+      && editions.every((token) => hintEditions.has(token)));
 }
 
 /** Fase A (spec 058): matching de VTT/plataforma de comunicação — só nome+aliases, sem edição/versão. */
@@ -305,17 +531,87 @@ function findPlatformMatch(text: string, entries: MatchEntry[]): MatchEntry | nu
 }
 
 function matchSystem(text: string, systems: SystemEntry[]): SystemMatchResult | null {
+  // Texto completo primeiro: uma edição/variante exata deve vencer o sistema
+  // pai. A ordem antiga removia "5e/2e/2024" antes e tornava o filho invisível.
+  const direct = findSystemMatch(text, systems);
+  if (direct && isExactSystemMatch(text, direct)) return { system: direct, notes: [] };
+  // Nomes dos nós filhos são deliberadamente locais ("5ª Edição", "2024"),
+  // então o texto completo raramente é igualdade literal. Se a travessia da
+  // árvore chegou a um filho por sinais explícitos, stripping não pode subir
+  // de volta ao pai.
+  if (direct?.parent_id && scoreSystemDescendant(text, direct) > 0) {
+    return { system: direct, notes: [] };
+  }
+
   const { stripped, version } = stripVersionSuffix(text);
   if (version && stripped !== text) {
-    const strippedMatch = findSystemMatch(stripped, systems, true);
+    const strippedMatch = findSystemMatch(stripped, systems);
     if (strippedMatch) {
       return { system: strippedMatch, notes: [`version_mismatch:${version}`] };
     }
   }
-
-  const direct = findSystemMatch(text, systems);
   if (direct) return { system: direct, notes: [] };
+
   return null;
+}
+
+function buildSystemCandidates(
+  hint: string | null,
+  systems: SystemEntry[],
+  selectedId: string | null,
+): NonNullable<DiscordTableDraftTable['_system_candidates']> {
+  if (!hint || systems.length === 0) return [];
+  const aliases = systems.flatMap((system) =>
+    system.aliases.map((alias) => ({ system_id: system.id, alias })),
+  );
+  const scored = scoreSystemCandidates(
+    hint,
+    systems.map((system) => ({
+      id: system.id,
+      name: system.name,
+      name_pt: system.name_pt,
+      slug: system.slug ?? null,
+      path_slug: system.path_slug ?? null,
+      node_type: system.node_type ?? 'system',
+      parent_id: system.parent_id ?? null,
+    })),
+    aliases,
+    selectedId ? systems.length : 6,
+  );
+  const byId = new Map(systems.map((system) => [system.id, system]));
+  const selected = selectedId ? byId.get(selectedId) : null;
+  const hierarchyChildren = selected
+    ? systems
+      .filter((system) => system.parent_id === selected.id)
+      .map((system) => ({
+        system_id: system.id,
+        name: system.name,
+        score: 0.49,
+        reasons: ['hierarchy_child'],
+      }))
+    : [];
+  const seen = new Set<string>();
+  return [...scored.candidates, ...hierarchyChildren]
+    .filter((candidate) => candidate.system_id !== selectedId)
+    .filter((candidate) => {
+      if (seen.has(candidate.system_id)) return false;
+      seen.add(candidate.system_id);
+      return true;
+    })
+    .filter((candidate) => {
+      if (!selected) return true;
+      const system = byId.get(candidate.system_id);
+      if (!system) return false;
+      return isAncestorOf(system.id, selected, byId)
+        || system.parent_id === selected.id;
+    })
+    .slice(0, 5)
+    .map((candidate) => ({
+      system_id: candidate.system_id,
+      name: candidate.name,
+      score: candidate.score,
+      reasons: candidate.reasons,
+    }));
 }
 
 // URL completa (http/https) em qualquer ponto da string — usada por
@@ -419,7 +715,10 @@ function stripFreePricePhrases(value: string): string {
   return value.replace(FREE_PRICE_LABEL_RE, '').replace(NEGATED_PAID_RE, '');
 }
 
-function extractPrice(text: string): { priceType: TableDraftPriceType | null; priceValue: number | null; ambiguous: boolean } {
+function extractPrice(
+  text: string,
+  labelAliases: string[] = [],
+): { priceType: TableDraftPriceType | null; priceValue: number | null; ambiguous: boolean } {
   // Nível 1 — valor numérico explícito: "R$ 30", "30 reais", ou label "Valor: 30,00"
   // (sem exigir R$/reais — anúncios reais citam só o número após o rótulo).
   // Sinal mais forte que existe: número > 0 citado como preço é sempre PAGA,
@@ -427,9 +726,11 @@ function extractPrice(text: string): { priceType: TableDraftPriceType | null; pr
   // pontual, não o preço da mesa). Markdown (`**Valor**:`) é removido antes do
   // regex de label — senão `**` entre a palavra e o `:` quebra o match.
   const cleaned = text.replaceAll('*', '');
-  const priceMatch = /R\$\s{0,3}(\d+(?:[,.]\d{1,2})?)(?!\d)/i.exec(cleaned)
-    ?? /(\d+(?:[,.]\d{1,2})?)(?!\d)\s{0,3}(?:R\$|reais)/i.exec(cleaned)
-    ?? /\bvalor\s*:?\s{0,3}(\d+(?:[,.]\d{1,2})?)(?!\d)/i.exec(cleaned);
+  const learnedLabelValue = labelAliases.length > 0 ? extractLabelValue(text, labelAliases) : null;
+  const priceMatch = (learnedLabelValue ? /(\d{1,9}(?:[,.]\d{1,2})?)\b/.exec(learnedLabelValue) : null)
+    ?? /R\$\s{0,3}(\d{1,9}(?:[,.]\d{1,2})?)\b/i.exec(cleaned)
+    ?? /(\d{1,9}(?:[,.]\d{1,2})?)\b\s{0,3}(?:R\$|reais)/i.exec(cleaned)
+    ?? /\bvalor\s*:?\s{0,3}(\d{1,9}(?:[,.]\d{1,2})?)\b/i.exec(cleaned);
   if (priceMatch) {
     const value = parseFloat(priceMatch[1].replace(',', '.'));
     if (!Number.isNaN(value) && value > 0) {
@@ -488,16 +789,10 @@ const RE_SLOT_X_DE_Y = new RegExp(`${D}${SP1}de${SP1}${D}`, 'i');
 // Lookahead negativo `(?!${SP0}/${SP0}\d)` em ambas: sem ele, "Vagas
 // Disponíveis: 1/4" casava só o "1" e ignorava o "/4" (mesma classe de bug já
 // documentada abaixo pro caso "grupo de 5 pessoas" vs slotsGroupSize) — a
-// forma "N/M" precisa cair em slotsAmbiguousSlash, não ser resolvida aqui
-// como se fosse um valor único (achado real, dado D:/teste.json, 2026-07-13).
+// forma "N/M" precisa cair em slotsLabeledNumericPair, não ser resolvida aqui
+// como valor único (achado real, dado D:/teste.json, 2026-07-13).
 const RE_SLOT_TOTAL = new RegExp(`vagas?${SP1}(?:totais|total)${SP0}${SEP}${SP0}${D}(?!${SP0}/${SP0}\\d)`, 'i');
 const RE_SLOT_OPEN = new RegExp(`vagas?${SP1}(?:dispon[ií]veis|dispon[ií]vel|abertas|aberta)${SP0}${SEP}${SP0}${D}(?!${SP0}/${SP0}\\d)`, 'i');
-// Achado real (dado D:/teste.json, 2026-07-13): "Vagas Disponíveis: 1/4" e
-// "Vagas disponíveis: 0/5" não disparavam a pergunta de ambiguidade — o label
-// exigia "vagas"/"jogadores" IMEDIATAMENTE antes do separador, sem espaço pro
-// qualificador "disponíveis/ocupadas/etc" que aparece entre o dois nesses
-// casos reais (mesmo padrão que RE_SLOT_LABELED já suporta).
-const RE_SLOT_AMBIG_SLASH = new RegExp(`${LINE}${BULLETS}(?:vagas(?:${SP1}(?:dispon[ií]veis|dispon[ií]vel|ocupadas|ocupada))?|jogadores)${SP0}${SEP}${SP0}${D}${SP0}/${SP0}${D}(?!${SP0}vagas?)`, 'iu');
 // "1 vaga / grupo de 5 pessoas": vaga(s) aberta(s) seguida de tamanho do grupo (total).
 const RE_SLOT_GROUP_SIZE = new RegExp(`${D}${SP1}vagas?${SP0}/${SP0}grupo${SP1}de${SP1}${D}${SP1}pessoas?`, 'i');
 const RE_SLOT_LABELED = new RegExp(`${LINE}${BULLETS}(?:vagas(?:${SP1}dispon[ií]veis)?|jogadores)${SP0}${SEP}${SP0}${D}(?!${SP0}/)`, 'iu');
@@ -532,12 +827,69 @@ function slotsTotalOpen(cleaned: string): SlotsResult | null {
   return { total, open, ambiguity: null };
 }
 
-function slotsAmbiguousSlash(cleaned: string): SlotsResult | null {
-  const m = RE_SLOT_AMBIG_SLASH.exec(cleaned);
-  if (!m) return null;
-  const first = Number.parseInt(m[1], 10);
-  const second = Number.parseInt(m[2], 10);
-  return { total: Math.max(first, second), open: null, ambiguity: { first, second, source: 'x_slash_y' } };
+type SlotPairMeaning = 'open' | 'filled' | 'generic';
+type SlotPairQualifierPosition = 'before' | 'after' | 'conflicting';
+
+function slotsFromNumericPair(
+  first: number,
+  second: number,
+  meaning: SlotPairMeaning,
+  qualifierPosition: SlotPairQualifierPosition = 'before',
+): SlotsResult {
+  const ambiguous = (): SlotsResult => ({
+    total: Math.max(first, second),
+    open: null,
+    ambiguity: { first, second, source: 'x_slash_y' },
+  });
+  if (meaning === 'generic' || qualifierPosition === 'conflicting') return ambiguous();
+
+  const total = qualifierPosition === 'before' ? second : first;
+  const count = qualifierPosition === 'before' ? first : second;
+  if (total < 1 || count < 0 || count > total) return ambiguous();
+  return meaning === 'open'
+    ? { total, open: count, ambiguity: null }
+    : { total, open: total - count, ambiguity: null };
+}
+
+function classifySlotPairLine(
+  line: string,
+  pairIndex: number,
+  pairLength: number,
+): { meaning: SlotPairMeaning; position: SlotPairQualifierPosition } {
+  const before = normalize(line.slice(0, pairIndex));
+  const after = normalize(line.slice(pairIndex + pairLength));
+  const openSignal = /\b(?:disponiveis?|abertas?|livres?|restantes?|sobrando)\b/;
+  const filledSignal = /\b(?:ocupadas?|preenchidas?|preenchidos?|inscritos?|ocupados?)\b/;
+  const beforeOpen = openSignal.test(before);
+  const afterOpen = openSignal.test(after);
+  const beforeFilled = filledSignal.test(before);
+  const afterFilled = filledSignal.test(after);
+  const hasOpen = beforeOpen || afterOpen;
+  const hasFilled = beforeFilled || afterFilled;
+  if (!hasOpen && !hasFilled) return { meaning: 'generic', position: 'before' };
+  if (hasOpen && hasFilled) return { meaning: 'generic', position: 'conflicting' };
+  const onBothSides = (beforeOpen && afterOpen) || (beforeFilled && afterFilled);
+  let position: SlotPairQualifierPosition = 'after';
+  if (onBothSides) position = 'conflicting';
+  else if (beforeOpen || beforeFilled) position = 'before';
+  return { meaning: hasOpen ? 'open' : 'filled', position };
+}
+
+function slotsLabeledNumericPair(text: string): SlotsResult | null {
+  // Matcher estrutural por linha: anúncios reais fecham Markdown depois do
+  // separador, omitem ":", usam Nº/N° e até põem o par antes de "Vagas".
+  // Vincular label + par na mesma linha evita depender dessa decoração.
+  for (const line of text.split(/\r?\n/)) {
+    if (!/(?:vagas?|lugares?|jogadores?)/i.test(line)) continue;
+    const pair = /(\d{1,3})[^\S\r\n]{0,3}\/[^\S\r\n]{0,3}(\d{1,3})/.exec(line);
+    if (!pair) continue;
+    const first = Number.parseInt(pair[1], 10);
+    const second = Number.parseInt(pair[2], 10);
+    if (first > 100 || second > 100) continue;
+    const semantic = classifySlotPairLine(line, pair.index, pair[0].length);
+    return slotsFromNumericPair(first, second, semantic.meaning, semantic.position);
+  }
+  return null;
 }
 
 function slotsGroupSize(cleaned: string): SlotsResult | null {
@@ -561,9 +913,9 @@ function slotsLabeled(cleaned: string): SlotsResult | null {
 function slotsSlashVagas(text: string): SlotsResult | null {
   const m = RE_SLOT_SLASH_VAGAS.exec(text);
   if (!m) return null;
-  const filled = Number.parseInt(m[1], 10);
-  const total = Number.parseInt(m[2], 10);
-  return { total, open: Math.max(0, total - filled), ambiguity: null };
+  const first = Number.parseInt(m[1], 10);
+  const second = Number.parseInt(m[2], 10);
+  return slotsFromNumericPair(first, second, 'generic');
 }
 
 function slotsNVagas(text: string): SlotsResult | null {
@@ -573,7 +925,10 @@ function slotsNVagas(text: string): SlotsResult | null {
   return { total: n, open: n, ambiguity: null };
 }
 
-function extractSlots(text: string): SlotsResult {
+function extractSlots(
+  text: string,
+  labelAliases?: { open?: string[]; total?: string[] },
+): SlotsResult {
   const cleaned = text.replaceAll('*', '');
   // Ordem: padrões explícitos primeiro; "mesa em andamento" (sem padrão explícito)
   // cai no fallback null/null (idêntico ao default) — DEB-048-16.
@@ -584,44 +939,56 @@ function extractSlots(text: string): SlotsResult {
     // (retorna {total:null, open:1} e a cascata para, "grupo de 5" nunca é
     // lido) — achado em teste real ponta a ponta, 2026-07-07.
     ?? slotsGroupSize(cleaned)
+    ?? slotsLabeledNumericPair(text)
     ?? slotsTotalOpen(cleaned)
-    ?? slotsAmbiguousSlash(cleaned)
     ?? slotsLabeled(cleaned)
     ?? slotsSlashVagas(text)
     ?? slotsNVagas(text)
-    ?? slotsViaLabel(text)
+    ?? slotsViaLabel(text, labelAliases)
     ?? { total: null, open: null, ambiguity: null };
 }
 
 // TC.8/DEB-052-01: fallback por rótulo — pega o valor de labels do template da
 // comunidade (decorados são limpos por cleanLabelLine) e extrai o número. Cobre
 // variações que as regexes ancoradas em linha perdiam ("» Vagas disponíveis: 5").
-function slotsViaLabel(text: string): SlotsResult | null {
-  // Rótulos "disponíveis/abertas": o 1º número de X/Y é VAGAS ABERTAS (não
-  // preenchidas). Rótulos genéricos/"totais": X/Y = preenchidas/total.
-  const openLabelValue = extractLabelValue(text, ['vagas disponiveis', 'vagas disponíveis', 'vagas abertas']);
-  const value = openLabelValue ?? extractLabelValue(text, [
+function slotsViaLabel(
+  text: string,
+  labelAliases?: { open?: string[]; total?: string[] },
+): SlotsResult | null {
+  // Rótulo decide a semântica. Sem qualificador, X/Y permanece ambíguo.
+  const openLabelValue = extractLabelValue(text, [
+    'vagas disponiveis', 'vagas disponíveis', 'vagas abertas', ...(labelAliases?.open ?? []),
+  ]);
+  const filledLabelValue = extractLabelValue(text, [
+    'vagas ocupadas', 'vagas preenchidas', 'jogadores inscritos', 'jogadores atuais',
+  ]);
+  const value = openLabelValue ?? filledLabelValue ?? extractLabelValue(text, [
     'vagas', 'vagas totais', 'nº de vagas', 'n de vagas',
-    'numero de vagas', 'número de vagas', 'lugares', 'jogadores',
+    'numero de vagas', 'número de vagas', 'lugares', 'jogadores', ...(labelAliases?.total ?? []),
   ]);
   if (!value) return null;
   const slash = /(\d+)\s{0,3}\/\s{0,3}(\d+)/.exec(value);
   if (slash) {
     const first = Number.parseInt(slash[1], 10);
-    const total = Number.parseInt(slash[2], 10);
-    if (!Number.isFinite(total)) return null;
-    return { total, open: openLabelValue ? first : Math.max(0, total - first), ambiguity: null };
+    const second = Number.parseInt(slash[2], 10);
+    if (!Number.isFinite(first) || !Number.isFinite(second)) return null;
+    let meaning: SlotPairMeaning = 'generic';
+    if (openLabelValue) meaning = 'open';
+    else if (filledLabelValue) meaning = 'filled';
+    return slotsFromNumericPair(first, second, meaning);
   }
   const single = /(\d{1,3})/.exec(value);
   if (!single) return null;
   const n = Number.parseInt(single[1], 10);
   if (!Number.isFinite(n) || n <= 0) return null;
   // número único sob rótulo "disponíveis" = vagas abertas (total desconhecido)
-  return openLabelValue ? { total: null, open: n, ambiguity: null } : { total: n, open: n, ambiguity: null };
+  if (openLabelValue) return { total: null, open: n, ambiguity: null };
+  if (filledLabelValue) return { total: null, open: null, ambiguity: null };
+  return { total: n, open: n, ambiguity: null };
 }
 
 // Extrai dia da semana do texto
-function extractDayOfWeek(text: string): string | null {
+function extractDayOfWeek(text: string, labelAliases: string[] = []): string | null {
   const days: Record<string, string> = {
     segunda: 'segunda', 'segunda-feira': 'segunda',
     terça: 'terça', 'terça-feira': 'terça', terca: 'terça',
@@ -631,7 +998,8 @@ function extractDayOfWeek(text: string): string | null {
     sábado: 'sábado', sabado: 'sábado',
     domingo: 'domingo',
   };
-  const lower = text.toLowerCase();
+  const learnedLabelValue = labelAliases.length > 0 ? extractLabelValue(text, labelAliases) : null;
+  const lower = (learnedLabelValue ?? text).toLowerCase();
   for (const [key, value] of Object.entries(days)) {
     if (lower.includes(key)) return value;
   }
@@ -639,9 +1007,11 @@ function extractDayOfWeek(text: string): string | null {
 }
 
 // Extrai horário do texto: "19h", "19:00", "às 20h30"
-function extractStartTime(text: string): string | null {
-  const match = /\b(\d{1,2})[hH:](\d{0,2})\b/.exec(text)
-    ?? /\bàs\s{1,3}(\d{1,2})h(\d{0,2})/i.exec(text);
+function extractStartTime(text: string, labelAliases: string[] = []): string | null {
+  const learnedLabelValue = labelAliases.length > 0 ? extractLabelValue(text, labelAliases) : null;
+  const target = learnedLabelValue ?? text;
+  const match = /\b(\d{1,2})[hH:](\d{0,2})\b/.exec(target)
+    ?? /\bàs\s{1,3}(\d{1,2})h(\d{0,2})/i.exec(target);
   if (match) {
     const h = match[1].padStart(2, '0');
     const m = (match[2] || '00').padStart(2, '0');
@@ -769,6 +1139,70 @@ function extractTableLevel(text: string): TableDraftTableLevel | null {
   return null;
 }
 
+type RequirementExtraction = { value: boolean | null; ambiguous: boolean };
+
+/**
+ * Extrai requisito técnico como tri-state. O campo significa OBRIGATÓRIO,
+ * não apenas tecnologia citada: "Foundry + Discord" fica `null`; "necessário
+ * ter PC" vira `true`; "PC recomendável, não obrigatório" vira `false`.
+ *
+ * Frases negativas/opcionais são removidas antes de procurar sinal positivo,
+ * evitando que "não é necessário ter PC" também case o trecho interno
+ * "necessário ter PC". Se o anúncio traz sinais positivos e negativos
+ * distintos pro mesmo item, não decide: `ambiguous=true` leva o draft à revisão.
+ */
+function extractTechnicalRequirement(
+  text: string,
+  subjectPattern: string,
+  qualityPattern?: string,
+): RequirementExtraction {
+  const source = normalize(text);
+  const negativePatterns = [
+    new RegExp(String.raw`\bnao\s+(?:(?:e|sendo)\s+)?(?:necessari[oa]|obrigatori[oa]|exigid[oa])\s+(?:ter|possuir|usar)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'gi'),
+    new RegExp(String.raw`\bnao\s+precisa(?:m)?\s+(?:ter|possuir|usar)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'gi'),
+    new RegExp(String.raw`\b(?:${subjectPattern})\b[^.\n;]{0,32}\b(?:opcional|dispensavel|nao\s+obrigatori[oa])\b`, 'gi'),
+    new RegExp(String.raw`\b(?:recomendavel|recomendo|desejavel|preferencia\s+por)\b[^.\n;]{0,32}\b(?:${subjectPattern})\b`, 'gi'),
+  ];
+
+  let positiveScope = source;
+  let hasNegative = false;
+  for (const pattern of negativePatterns) {
+    positiveScope = positiveScope.replace(pattern, () => {
+      hasNegative = true;
+      return ' ';
+    });
+  }
+
+  const positivePatterns = [
+    new RegExp(String.raw`\b(?:necessari[oa]|obrigatori[oa]|exigid[oa])\s+(?:ter|possuir|usar)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'i'),
+    new RegExp(String.raw`\b(?:${subjectPattern})\b[^.\n;]{0,24}\b(?:necessari[oa]|obrigatori[oa]|exigid[oa])\b`, 'i'),
+    new RegExp(String.raw`\b(?:precisa|precisam|deve|devem|tem\s+que|ter\s+que)\s+(?:ter|possuir|usar)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'i'),
+    new RegExp(String.raw`\b(?:requisito|exigencia)\b[^.\n;]{0,32}\b(?:${subjectPattern})\b`, 'i'),
+    new RegExp(String.raw`\b(?:somente|apenas)\s+(?:via|por|com)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'i'),
+    ...(qualityPattern
+      ? [new RegExp(String.raw`\b(?:${subjectPattern})\b[^.\n;]{0,16}\b(?:${qualityPattern})\b`, 'i')]
+      : []),
+  ];
+  const hasPositive = positivePatterns.some((pattern) => pattern.test(positiveScope));
+
+  if (hasPositive && hasNegative) return { value: null, ambiguous: true };
+  if (hasPositive) return { value: true, ambiguous: false };
+  if (hasNegative) return { value: false, ambiguous: false };
+  return { value: null, ambiguous: false };
+}
+
+function extractTechnicalRequirements(text: string): {
+  pc: RequirementExtraction;
+  camera: RequirementExtraction;
+  microphone: RequirementExtraction;
+} {
+  return {
+    pc: extractTechnicalRequirement(text, 'pc|computador|notebook'),
+    camera: extractTechnicalRequirement(text, 'camera|webcam', 'ligad[ao]|abert[ao]|ativad[ao]|funcionando'),
+    microphone: extractTechnicalRequirement(text, 'mic|microfone', String.raw`bom|audivel|ligad[ao]|ativad[ao]|funcionando|com\s+qualidade`),
+  };
+}
+
 /** Fase C (spec 058): normaliza lista de texto livre separada por `/`, `,` ou "e"/"ou". */
 function splitFreeTextList(value: string): string[] | null {
   const parts = value
@@ -872,9 +1306,14 @@ function urlHasContactContext(text: string, url: string): boolean {
  * `ready` (achado CodeRabbit PR #144: qualquer URL sintaticamente válida
  * virava contact_url mesmo sem nenhum sinal de que era canal de inscrição).
  */
-function extractContactUrl(text: string): { url: string; confident: boolean } | null {
+function extractContactUrl(text: string, labelAliases: string[] = []): { url: string; confident: boolean } | null {
   const allMatches = extractRawHttpUrls(text).map(trimTrailingUrlWrappers);
   if (allMatches.length === 0) return null;
+  const learnedLabelValue = labelAliases.length > 0 ? extractLabelValue(text, labelAliases) : null;
+  const learnedUrl = learnedLabelValue
+    ? extractRawHttpUrls(learnedLabelValue).map(trimTrailingUrlWrappers)[0] ?? null
+    : null;
+  if (learnedUrl) return { url: learnedUrl, confident: true };
   const known = allMatches.find(isKnownContactUrl);
   if (known) return { url: known, confident: true };
   const withContext = allMatches.find((url) => urlHasContactContext(text, url));
@@ -1544,16 +1983,23 @@ export function parseDiscordAnnouncement(
   // Preserva o hint bruto quando não há correspondência: usado para criar
   // system_suggestion automática e para o revisor ver o que veio do Discord.
   const rawSystemHint = (!matchedSystem && systemHint) ? systemHint : null;
+  const systemCandidates = buildSystemCandidates(systemHint, systems, systemId);
 
   // Campos extraídos do corpo
   const modality = extractModality(body) ?? 'online';
   const type = extractType(fullText) ?? (threadName ? 'campanha' : null);
-  const { priceType, priceValue, ambiguous: priceAmbiguous } = extractPrice(body);
-  const { total: slotsTotal, open: slotsOpen, ambiguity: slotsAmbiguity } = extractSlots(body);
+  const { priceType, priceValue, ambiguous: priceAmbiguous } = extractPrice(body, [
+    ...(labelAliases?.price_type ?? []),
+    ...(labelAliases?.price_value ?? []),
+  ]);
+  const { total: slotsTotal, open: slotsOpen, ambiguity: slotsAmbiguity } = extractSlots(body, {
+    open: labelAliases?.slots_open,
+    total: labelAliases?.slots_total,
+  });
   // T-C1: Discord timestamp (preferível a texto incidental)
   const discordTs = extractDiscordTimestamp(body);
-  const dayOfWeek = discordTs?.dayOfWeek ?? extractDayOfWeek(body);
-  const startTime = discordTs?.startTime ?? extractStartTime(body);
+  const dayOfWeek = discordTs?.dayOfWeek ?? extractDayOfWeek(body, labelAliases?.day_of_week);
+  const startTime = discordTs?.startTime ?? extractStartTime(body, labelAliases?.start_time);
   const scheduleAmbiguous = discordTs?.ambiguous === true;
 
   // T-C2: Google Forms URL (prioridade sobre URLs genéricas)
@@ -1567,7 +2013,7 @@ export function parseDiscordAnnouncement(
       return lowerUrl.startsWith('https://docs.google.com/forms/') || lowerUrl.startsWith('http://docs.google.com/forms/');
     })
     ?? null;
-  const rawContactUrlMatch = extractContactUrl(body);
+  const rawContactUrlMatch = extractContactUrl(body, labelAliases?.contact_url);
   const contactUrl = googleFormsUrl ?? rawContactUrlMatch?.url ?? null;
   // Google Forms sempre confiável (detecção por domínio dedicado); URL genérica
   // sem domínio conhecido nem contexto de linha de contato fica incerta.
@@ -1602,7 +2048,10 @@ export function parseDiscordAnnouncement(
   // body INTEIRO (Sistema/Estilo/Data/Plataformas/Regras dentro da descrição).
   const rawDescription = extractLabelValue(
     body,
-    ['descricao', 'descrição', 'sinopse', 'sinopse da historia', 'sinopse da história', 'proposta'],
+    [
+      'descricao', 'descrição', 'sinopse', 'sinopse da historia', 'sinopse da história', 'proposta',
+      ...(labelAliases?.description ?? []),
+    ],
     { multiParagraph: true },
   ) ?? buildFallbackDescription(body);
   const descriptionSource = rawDescription ? removeKnownContactUrlsFromDescription(rawDescription, contactUrl) : null;
@@ -1616,7 +2065,15 @@ export function parseDiscordAnnouncement(
   const resolvedType = type ?? (explicitFrequency ? 'campanha' : null);
 
   // Fase C: VTT/plataforma de comunicação — mesmo motor de matching do sistema.
-  const platformsLabelValue = extractLabelValue(body, ['plataforma', 'plataformas', 'local do jogo']);
+  // Achado do mantenedor (2026-07-14): "Plataforma(s)" e "Local do Jogo" são labels
+  // DISTINTOS no template real da comunidade ("Local do Jogo: Servidor próprio no
+  // Discord" + "Plataformas: Roll20 com a extensão BetterR20" no mesmo anúncio) —
+  // tratá-los como sinônimo fazia extractLabelValue parar no 1º que aparecesse no
+  // texto (Local do Jogo), descartando o valor real de VTT (Roll20) sem nunca
+  // chegar a comparar contra o catálogo. "Local do jogo" só serve de fallback
+  // quando não há label "Plataforma(s)" dedicado.
+  const platformsLabelValue = extractLabelValue(body, ['plataforma', 'plataformas'])
+    ?? extractLabelValue(body, ['local do jogo']);
   const vttMatch = platforms?.vtt?.length
     ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.vtt)
     : null;
@@ -1639,11 +2096,13 @@ export function parseDiscordAnnouncement(
     : null;
   const rawScenarioHint = settingName && !scenarioMatch ? settingName : null;
 
-  // Fase C: requisitos técnicos — menção explícita no corpo (meta-exemplo do
-  // mantenedor: "se descrição cita que tem que ter microfone, já temos campo pra isso").
-  const requiresPc = /\bs[oó]\s+(?:via|por|de)\s+pc\b|\bobrigat[oó]rio\s+pc\b/i.test(fullText) ? true : null;
-  const requiresCamera = /\bc[aâ]mera\s+obrigat[oó]ria\b|\bc[aâ]mera\s+ligada\s+obrigat[oó]ria\b/i.test(fullText) ? true : null;
-  const requiresMicrophone = /\b(?:bom\s+)?mic(?:rofone)?\s+obrigat[oó]rio\b|\bobrigat[oó]rio\s+ter\s+microfone\b/i.test(fullText) ? true : null;
+  // Requisito significa obrigação explícita. Citar Discord/Foundry/Roll20 não
+  // autoriza inferir microfone/PC: há mesas por texto, mobile e exceções reais.
+  // Sinais positivos e negativos no mesmo anúncio ficam ambíguos para curadoria.
+  const technicalRequirements = extractTechnicalRequirements(fullText);
+  const requiresPc = technicalRequirements.pc.value;
+  const requiresCamera = technicalRequirements.camera.value;
+  const requiresMicrophone = technicalRequirements.microphone.value;
 
   // Fase C: sessão zero gratuita — menção explícita.
   const sessionZeroFree = /\bsess[aã]o\s+zero\s+gratuita\b|\bsess[aã]o\s+zero\s+gr[aá]tis\b/i.test(fullText) ? true : null;
@@ -1660,6 +2119,9 @@ export function parseDiscordAnnouncement(
   if (!description) missingFields.push('description');
   if (priceAmbiguous) missingFields.push('price_type:ambiguous');
   if (scheduleAmbiguous) missingFields.push('day_of_week:multiple_schedules');
+  if (technicalRequirements.pc.ambiguous) missingFields.push('requires_pc:ambiguous');
+  if (technicalRequirements.camera.ambiguous) missingFields.push('requires_camera:ambiguous');
+  if (technicalRequirements.microphone.ambiguous) missingFields.push('requires_microphone:ambiguous');
 
   // T-G2: ambiguidades adicionais
   if (contactUrl && isSuspiciousUrl(contactUrl)) {
@@ -1678,6 +2140,8 @@ export function parseDiscordAnnouncement(
     system_name: systemName,
     system_id: systemId,
     raw_system_hint: rawSystemHint,
+    _system_source_hint: systemHint,
+    _system_candidates: systemCandidates.length > 0 ? systemCandidates : null,
     type: resolvedType,
     modality,
     price_type: priceType,
@@ -1721,6 +2185,9 @@ export function parseDiscordAnnouncement(
       ...(rawEvidence?.embeds?.map((embed) => `Embed: ${embed.title ?? embed.url ?? 'sem titulo'}`) ?? []),
       ...(priceAmbiguous ? ['Preço ambíguo: texto cita gratuidade e cobrança sem padrão de período promocional reconhecido — revisar manualmente.'] : []),
       ...(scheduleAmbiguous ? ['Múltiplos horários detectados: texto cita 2+ dias/horários diferentes — revisar manualmente qual usar.'] : []),
+      ...(technicalRequirements.pc.ambiguous ? ['Requisito de PC contraditório — revisar manualmente.'] : []),
+      ...(technicalRequirements.camera.ambiguous ? ['Requisito de câmera contraditório — revisar manualmente.'] : []),
+      ...(technicalRequirements.microphone.ambiguous ? ['Requisito de microfone contraditório — revisar manualmente.'] : []),
       // Defesa: normaliza/trunca o snippet aqui, mesmo que o caller já corte.
       ...(() => {
         const snippet = replyContext?.replace(/\s+/g, ' ').trim().slice(0, 80);

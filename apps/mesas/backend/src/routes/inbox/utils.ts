@@ -42,4 +42,5 @@ export const correctionSchema = z.object({
   corrections: z.record(z.string(), z.unknown()),
   reason: z.string().optional(),
   before: z.record(z.string(), z.unknown()).optional(),
+  confirmed_fields: z.array(z.string().min(1)).max(64).optional(),
 });

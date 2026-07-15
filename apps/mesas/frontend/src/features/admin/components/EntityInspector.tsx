@@ -20,30 +20,28 @@ interface Props {
 export interface SystemFormData {
   name: string;
   name_pt: string | null;
-  node_type: 'system' | 'edition' | 'subsystem' | 'variant';
+  node_type: 'system' | 'edition' | 'variant';
   parent_id: string | null;
   aliases: string[];
   logo_filename?: string | null;
   website_url?: string | null;
 }
 
-const VALID_CHILDREN: Record<string, Array<'system'|'edition'|'subsystem'|'variant'>> = {
+const VALID_CHILDREN: Record<string, Array<'system'|'edition'|'variant'>> = {
   __root__:  ['system'],
-  system:    ['edition', 'subsystem'],
+  system:    ['edition'],
   edition:   ['variant'],
-  subsystem: ['variant'],
   variant:   [],
 };
 
 const TYPE_LABEL = {
   system: 'Sistema',
   edition: 'Edição',
-  subsystem: 'Subsistema',
   variant: 'Variante'
 } as const;
 
 function isSystemNodeType(value: string): value is SystemFormData['node_type'] {
-  return value === 'system' || value === 'edition' || value === 'subsystem' || value === 'variant';
+  return value === 'system' || value === 'edition' || value === 'variant';
 }
 
 export function EntityInspector(props: Props) {

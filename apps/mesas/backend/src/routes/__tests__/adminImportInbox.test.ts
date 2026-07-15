@@ -60,6 +60,13 @@ vi.mock('../../discord', async () => {
   };
 });
 
+vi.mock('../../discord/learningFeedbackOutbox', () => ({
+  processLearningFeedbackCorrection: vi.fn().mockResolvedValue({
+    correction_id: 'correction-1', status: 'completed', attempts: 1, error: null,
+  }),
+  retryLearningFeedbackForDraft: vi.fn().mockResolvedValue([]),
+}));
+
 const mockDb = db as unknown as {
   insertInto: Mock;
   updateTable: Mock;
@@ -268,12 +275,14 @@ function setupCorrectionMocks(draft: Record<string, unknown> | null, importMsg: 
     insertInto: vi.fn().mockReturnThis(),
     updateTable: vi.fn().mockReturnThis(),
     values: vi.fn().mockReturnThis(),
+    returning: vi.fn().mockReturnThis(),
     set: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
     execute: vi.fn().mockResolvedValue([]),
     // TOCTOU guard (CodeRabbit): update do draft agora usa executeTakeFirst e checa
     // numUpdatedRows. Simula 1 linha afetada (draft não-terminal).
     executeTakeFirst: vi.fn().mockResolvedValue({ numUpdatedRows: 1n }),
+    executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'correction-1' }),
   };
     mockDb.transaction.mockReturnValue({
       execute: vi.fn().mockImplementation(async (fn: (trx: typeof mockTrx) => Promise<unknown>) => {

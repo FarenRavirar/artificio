@@ -161,7 +161,10 @@ function actorOf(req: unknown): string | null {
 
 function handleCatalogWriteError(error: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }): void {
   const message = error instanceof Error ? error.message : "catalog_write_failed";
-  if (["bad_payload", "name_required", "slug_required", "bad_node_type", "bad_status", "parent_not_found"].includes(message)) {
+  if ([
+    "bad_payload", "name_required", "slug_required", "bad_node_type", "bad_status",
+    "parent_not_found", "parent_required", "root_parent_forbidden", "hierarchy_invalid", "hierarchy_cycle",
+  ].includes(message)) {
     res.status(400).json({ error: message });
     return;
   }

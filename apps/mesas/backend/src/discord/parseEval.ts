@@ -101,6 +101,11 @@ function suggestionFields(payload: unknown): Record<string, unknown> {
   return asRecord(suggestions?.fields) ?? {};
 }
 
+function appliedLearningFields(payload: unknown): Record<string, unknown> {
+  const applied = asRecord(tableOf(payload)._learning_applied);
+  return asRecord(applied?.fields) ?? {};
+}
+
 export function buildLayerPrediction(
   layer: ParsePredictionLayer,
   deterministicResult: unknown,
@@ -109,6 +114,11 @@ export function buildLayerPrediction(
   if (layer === 'parser') return asRecord(deterministicResult) ?? {};
 
   const provider = suggestionProvider(finalResult);
+  const learningFields = appliedLearningFields(finalResult);
+
+  if (layer === 'learning' && Object.keys(learningFields).length > 0) {
+    return withTablePatch(finalResult, learningFields);
+  }
   if (!provider) return null;
 
   if (layer === 'learning' && !provider.includes('learning')) return null;

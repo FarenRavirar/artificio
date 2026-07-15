@@ -348,7 +348,7 @@ Pode conter informações desatualizadas ou incorretas.
 - `children` — Array recursivo (só em `view=tree`)
 
 **Campos aceitos por `POST /admin` e `PUT /admin/:id`:**
-- **Obrigatórios:** `name` (string), `node_type` (string: 'system' | 'edition' | 'variant' | 'subsystem')
+- **Obrigatórios:** `name` (string), `node_type` (string: 'system' | 'edition' | 'variant')
 - **Opcionais:** `name_pt` (string | null), `parent_id` (uuid | null), `aliases` (string[])
 - **Opcionais (apenas `node_type='system'`):** `logo_filename` (string | null), `website_url` (string | null)
 
