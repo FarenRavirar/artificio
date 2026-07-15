@@ -59,6 +59,9 @@ BEGIN
     IF NEW.parent_id IS NOT NULL THEN
       RAISE EXCEPTION 'root_parent_forbidden';
     END IF;
+    IF EXISTS (SELECT 1 FROM catalog_nodes WHERE parent_id = NEW.id) THEN
+      RAISE EXCEPTION 'hierarchy_invalid';
+    END IF;
     RETURN NEW;
   END IF;
 
@@ -77,6 +80,16 @@ BEGIN
     RAISE EXCEPTION 'hierarchy_invalid';
   END IF;
   IF NEW.node_type = 'variant' AND parent_type <> 'edition' THEN
+    RAISE EXCEPTION 'hierarchy_invalid';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM catalog_nodes child
+    WHERE child.parent_id = NEW.id
+      AND NOT (
+        (NEW.node_type = 'system' AND child.node_type = 'edition')
+        OR (NEW.node_type = 'edition' AND child.node_type = 'variant')
+      )
+  ) THEN
     RAISE EXCEPTION 'hierarchy_invalid';
   END IF;
   IF EXISTS (

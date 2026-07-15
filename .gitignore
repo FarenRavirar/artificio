@@ -71,7 +71,3 @@ opencode.json
 # Amostras reais de import (dado real — nunca commitar). Ver specs/048 ambiente de teste.
 temp/
 /temp
-/apps/mesas/backend/src/discord/__tests__
-/apps/mesas/backend/src/discord/__tests__
-/apps/mesas/backend/src/routes/__tests__
-/apps/mesas/backend/src/discord/__tests__

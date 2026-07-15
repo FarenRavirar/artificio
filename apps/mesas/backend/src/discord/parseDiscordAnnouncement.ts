@@ -453,14 +453,7 @@ function findSystemMatch(text: string, systems: SystemEntry[]): SystemEntry | nu
       .filter((candidate) => candidate.score > 0)
       .sort((left, right) => right.score - left.score || left.system.name.localeCompare(right.system.name));
     if (!children[0]) {
-      const deeper = collectSystemDescendants(current.id, systems)
-        .filter((system) => system.parent_id !== current.id)
-        .map((system) => ({ system, score: scoreSystemDescendant(text, system) }))
-        .filter((candidate) => candidate.score > 0)
-        .sort((left, right) => right.score - left.score || left.system.name.localeCompare(right.system.name));
-      if (!deeper[0] || deeper[1]?.score === deeper[0].score) break;
-      current = deeper[0].system;
-      continue;
+      break;
     }
     if (children[1]?.score === children[0].score) break;
     const winningNames = localSystemNames(children[0].system);
@@ -989,7 +982,9 @@ function slotsViaLabel(
   const n = Number.parseInt(single[1], 10);
   if (!Number.isFinite(n) || n <= 0) return null;
   // número único sob rótulo "disponíveis" = vagas abertas (total desconhecido)
-  return openLabelValue ? { total: null, open: n, ambiguity: null } : { total: n, open: n, ambiguity: null };
+  if (openLabelValue) return { total: null, open: n, ambiguity: null };
+  if (filledLabelValue) return { total: null, open: null, ambiguity: null };
+  return { total: n, open: n, ambiguity: null };
 }
 
 // Extrai dia da semana do texto

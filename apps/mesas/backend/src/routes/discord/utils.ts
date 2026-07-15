@@ -250,7 +250,18 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
     }
     return created;
   });
-  const learning = await processLearningFeedbackCorrection(correction.id);
+  let learning: LearningFeedbackResult;
+  try {
+    learning = await processLearningFeedbackCorrection(correction.id);
+  } catch (error) {
+    console.error('[createCorrection] learning feedback deferred', error instanceof Error ? error.message : 'unknown error');
+    learning = {
+      correction_id: correction.id,
+      status: 'pending',
+      attempts: 0,
+      error: null,
+    };
+  }
   return { draft_id: draftId, fields_corrected: Object.keys(diff).length, diff, learning };
 }
 

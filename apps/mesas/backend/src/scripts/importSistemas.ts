@@ -13,6 +13,34 @@ interface SystemJSON {
   variants: string[];
 }
 
+function normalizeStringList(value: unknown, field: string, index: number): string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+    throw new TypeError(`sistemas.json inválido: ${field} do item ${index} deve ser uma lista de textos.`);
+  }
+  return value.map((item) => item.trim()).filter(Boolean);
+}
+
+function normalizeSystems(value: unknown): SystemJSON[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError('sistemas.json inválido: a raiz deve ser uma lista de sistemas.');
+  }
+  return value.map((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw new TypeError(`sistemas.json inválido: item ${index} deve ser um objeto.`);
+    }
+    const record = item as Record<string, unknown>;
+    if (typeof record.name !== 'string' || !record.name.trim()) {
+      throw new TypeError(`sistemas.json inválido: name do item ${index} deve ser texto não vazio.`);
+    }
+    return {
+      name: record.name.trim(),
+      aliases: normalizeStringList(record.aliases, 'aliases', index),
+      editions: normalizeStringList(record.editions, 'editions', index),
+      variants: normalizeStringList(record.variants ?? [], 'variants', index),
+    };
+  });
+}
+
 // =============================================================================
 // UTILITÁRIOS
 // =============================================================================
@@ -43,19 +71,10 @@ const importSystems = async () => {
   }
 
   const jsonContent = fs.readFileSync(jsonPath, 'utf8');
-  const parsedSystems: unknown = JSON.parse(jsonContent);
-  if (!Array.isArray(parsedSystems)) {
-    throw new TypeError('sistemas.json inválido: a raiz deve ser uma lista de sistemas.');
-  }
-  const systems = parsedSystems as SystemJSON[];
+  const systems = normalizeSystems(JSON.parse(jsonContent));
 
-  const hasVariants = systems.some((system, index) => {
-    const variants = (system as unknown as Record<string, unknown>)?.variants;
-    if (variants === undefined) return false;
-    if (!Array.isArray(variants)) {
-      throw new TypeError(`sistemas.json inválido: variants do item ${index} deve ser uma lista.`);
-    }
-    return variants.length > 0;
+  const hasVariants = systems.some((system) => {
+    return system.variants.length > 0;
   });
   if (hasVariants) {
     throw new Error(

@@ -3,6 +3,9 @@ import { assertMigrationAllowed, readMigrationPolicy } from "./migrationPolicy";
 
 const manualSql = `-- @class: manual-risk
 -- @requires-backup: true
+-- @author: test
+-- @created: 2026-07-15
+-- @description: test migration
 SELECT 1;`;
 
 describe("migration policy", () => {
@@ -16,7 +19,18 @@ describe("migration policy", () => {
     expect(() => readMigrationPolicy(
       "-- @class: manual-risk\n-- @requires-backup: false",
       "008.sql",
+    )).toThrow("migration_policy_incomplete");
+    expect(() => readMigrationPolicy(
+      "-- @class: manual-risk\n-- @requires-backup: false\n-- @author: test\n-- @created: 2026-07-15\n-- @description: unsafe",
+      "008.sql",
     )).toThrow("manual_migration_must_require_backup");
+  });
+
+  it("requires all five fields when any policy metadata is present", () => {
+    expect(() => readMigrationPolicy(
+      "-- @class: online-safe\n-- @requires-backup: false\n-- @author: test\n-- @created: 2026-07-15",
+      "008.sql",
+    )).toThrow("migration_policy_incomplete");
   });
 
   it("ignores policy markers outside the first 20 lines", () => {

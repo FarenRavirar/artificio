@@ -5,8 +5,6 @@
 -- @description: torna import_corrections uma outbox observavel/idempotente para
 --               feedback humano; adiciona confirmacao e rejeicao humana de regra.
 
-BEGIN;
-
 ALTER TABLE import_corrections
   ADD COLUMN IF NOT EXISTS confirmed_fields JSONB NOT NULL DEFAULT '[]'::jsonb,
   -- Linhas históricas já foram tratadas pelo fluxo legado. Não entram na outbox.
@@ -24,9 +22,11 @@ ALTER TABLE import_corrections
   DROP CONSTRAINT IF EXISTS import_corrections_learning_status_check;
 ALTER TABLE import_corrections
   ADD CONSTRAINT import_corrections_learning_status_check
-  CHECK (learning_status IN ('pending', 'processing', 'completed', 'failed'));
+  CHECK (learning_status IN ('pending', 'processing', 'completed', 'failed')) NOT VALID;
+ALTER TABLE import_corrections
+  VALIDATE CONSTRAINT import_corrections_learning_status_check;
 
-CREATE INDEX IF NOT EXISTS idx_import_corrections_learning_outbox
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_import_corrections_learning_outbox
   ON import_corrections(learning_status, learning_updated_at)
   WHERE learning_status IN ('pending', 'failed');
 
@@ -41,8 +41,10 @@ ALTER TABLE discord_parse_feedback
       'field_correction', 'field_confirmation', 'status_change', 'discard',
       'undiscard', 'duplicate', 'not_duplicate', 'ignore', 'publish'
     )
-  );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_discord_parse_feedback_correction_field
+  ) NOT VALID;
+ALTER TABLE discord_parse_feedback
+  VALIDATE CONSTRAINT discord_parse_feedback_type_check;
+CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_discord_parse_feedback_correction_field
   ON discord_parse_feedback(correction_id, feedback_type, field)
   WHERE correction_id IS NOT NULL;
 
@@ -51,7 +53,9 @@ ALTER TABLE discord_learning_rule_applications
 ALTER TABLE discord_learning_rule_applications
   ADD CONSTRAINT discord_learning_rule_applications_outcome_check CHECK (
     outcome IN ('applied', 'conflict', 'rejected_by_guard', 'rejected_by_human', 'shadow')
-  );
+  ) NOT VALID;
+ALTER TABLE discord_learning_rule_applications
+  VALIDATE CONSTRAINT discord_learning_rule_applications_outcome_check;
 
 DO $$
 BEGIN
@@ -69,5 +73,3 @@ BEGIN
   END IF;
   RAISE NOTICE 'migration_146: learning feedback outbox ok';
 END $$;
-
-COMMIT;

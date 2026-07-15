@@ -110,13 +110,19 @@ async function markFailed(correctionId: string, error: unknown): Promise<Learnin
       learning_updated_at: new Date(),
     })
     .where('id', '=', correctionId)
+    .where('learning_status', '!=', 'completed')
     .returning(['id', 'learning_status', 'learning_attempts', 'learning_error'])
+    .executeTakeFirst();
+  const current = row ?? await db
+    .selectFrom('import_corrections')
+    .select(['id', 'learning_status', 'learning_attempts', 'learning_error'])
+    .where('id', '=', correctionId)
     .executeTakeFirst();
   return {
     correction_id: correctionId,
-    status: row?.learning_status ?? 'failed',
-    attempts: row?.learning_attempts ?? 1,
-    error: row?.learning_error ?? message,
+    status: current?.learning_status ?? 'failed',
+    attempts: current?.learning_attempts ?? 1,
+    error: current?.learning_error ?? message,
   };
 }
 

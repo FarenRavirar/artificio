@@ -78,9 +78,9 @@ describe('parseDiscordAnnouncement — hierarquia de sistemas', () => {
     expect(parsed?.table.system_name).toBe('Pulp');
   });
 
-  it('resolve variante única mesmo quando o anúncio omite a edição', () => {
+  it('não anexa variante quando o anúncio omite a edição', () => {
     const parsed = parseDiscordAnnouncement(message('D&D 2014'), SYSTEMS);
-    expect(parsed?.table.system_id).toBe('dnd-5e-2014');
+    expect(parsed?.table.system_id).toBe('dnd');
   });
 
   it('mantém o pai quando o mesmo sinal existe em níveis diferentes', () => {

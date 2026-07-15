@@ -398,6 +398,15 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table._slots_ambiguity).toBeNull();
   });
 
+  it('does not treat a single filled count as open capacity', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\nVagas ocupadas: 2\nContato: https://forms.gle/example' }),
+    );
+
+    expect(draft?.table.slots_total).toBeNull();
+    expect(draft?.table.slots_open).toBeNull();
+  });
+
   it('resolves symbol bullet "» Vagas disponíveis: N/M" by the canonical pair rule', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({
