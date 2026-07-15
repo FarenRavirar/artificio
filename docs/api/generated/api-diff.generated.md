@@ -6,24 +6,5 @@
 
 ---
 
-## Sumário
-
-| App | Breaking | Non-breaking | Unclassified |
-|-----|:--------:|:------------:|:------------:|
-| mesas | ✅ 0 | ✅ 6 | ⚪ 0 |
-
----
-
-### mesas
-
-#### ✅ Non-breaking (6)
-
-| Path | Method | Ação |
-|------|--------|------|
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
+✅ **Nenhuma mudança detectada entre a versão atual e dev.**
 

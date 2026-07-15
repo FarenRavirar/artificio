@@ -26,7 +26,7 @@ ALTER TABLE import_corrections
 ALTER TABLE import_corrections
   VALIDATE CONSTRAINT import_corrections_learning_status_check;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_import_corrections_learning_outbox
+CREATE INDEX IF NOT EXISTS idx_import_corrections_learning_outbox
   ON import_corrections(learning_status, learning_updated_at)
   WHERE learning_status IN ('pending', 'failed');
 
@@ -44,7 +44,7 @@ ALTER TABLE discord_parse_feedback
   ) NOT VALID;
 ALTER TABLE discord_parse_feedback
   VALIDATE CONSTRAINT discord_parse_feedback_type_check;
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_discord_parse_feedback_correction_field
+CREATE UNIQUE INDEX IF NOT EXISTS idx_discord_parse_feedback_correction_field
   ON discord_parse_feedback(correction_id, feedback_type, field)
   WHERE correction_id IS NOT NULL;
 
