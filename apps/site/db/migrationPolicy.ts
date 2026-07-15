@@ -8,8 +8,9 @@ export type MigrationPolicy = {
 type MigrationEnvironment = Record<string, string | undefined>;
 
 export function readMigrationPolicy(sql: string, file: string): MigrationPolicy | null {
-  const classValue = /^-- @class:\s*(\S+)\s*$/m.exec(sql)?.[1];
-  const backupValue = /^-- @requires-backup:\s*(\S+)\s*$/m.exec(sql)?.[1];
+  const headerText = sql.split('\n').slice(0, 20).join('\n');
+  const classValue = /^-- @class:\s*(\S+)\s*$/m.exec(headerText)?.[1];
+  const backupValue = /^-- @requires-backup:\s*(\S+)\s*$/m.exec(headerText)?.[1];
 
   // Migrations anteriores à adoção da política continuam compatíveis. Qualquer
   // arquivo novo que declare parte da política precisa declará-la por inteiro.

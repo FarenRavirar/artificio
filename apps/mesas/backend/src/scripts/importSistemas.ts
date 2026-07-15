@@ -43,9 +43,21 @@ const importSystems = async () => {
   }
 
   const jsonContent = fs.readFileSync(jsonPath, 'utf8');
-  const systems: SystemJSON[] = JSON.parse(jsonContent);
+  const parsedSystems: unknown = JSON.parse(jsonContent);
+  if (!Array.isArray(parsedSystems)) {
+    throw new Error('sistemas.json inválido: a raiz deve ser uma lista de sistemas.');
+  }
+  const systems = parsedSystems as SystemJSON[];
 
-  if (systems.some((system) => system.variants.length > 0)) {
+  const hasVariants = systems.some((system, index) => {
+    const variants = (system as unknown as Record<string, unknown>)?.variants;
+    if (variants === undefined) return false;
+    if (!Array.isArray(variants)) {
+      throw new Error(`sistemas.json inválido: variants do item ${index} deve ser uma lista.`);
+    }
+    return variants.length > 0;
+  });
+  if (hasVariants) {
     throw new Error(
       'sistemas.json legado não informa a edição-pai de cada variante. Importação bloqueada para impedir produto cartesiano; use systems:import-tree.',
     );

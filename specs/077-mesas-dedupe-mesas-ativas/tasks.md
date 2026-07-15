@@ -185,3 +185,11 @@ qualquer task de código de feature.
         - [ ] P7.4b.2g.10 Após migrations em beta: smoke `D&D 5e`, `5e 2014`,
               `5e 2024`, ano sem edição e alternativas; nenhum Gamma/Drakar e
               `D&D 2024` não pode permanecer na raiz.
+## PR #160 — revisão de bots
+
+- [x] R160.1 Inventariar reviews inline, comentários colapsados e checks.
+- [x] R160.2 Classificar impacto e registrar descartes prejudiciais/sem ganho.
+- [x] R160.3 Aplicar correções funcionais e hardenings seguros.
+- [x] R160.4 Adicionar/ajustar regressões proporcionais.
+- [x] R160.5 Rodar testes focados, `verify:api`, lint e build.
+- [x] R160.6 Revisar diff final; sem responder bots, commit ou push.

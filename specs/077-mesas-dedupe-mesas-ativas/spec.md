@@ -1482,3 +1482,64 @@ de rastreabilidade, recorreção e persistência observável do feedback humano.
   reuso, pra não acoplar dois domínios diferentes na mesma FK.
 - Rota nova de listagem ampla de duplicatas — restringir a `role === 'admin'`,
   mesmo padrão de `requireAdmin` já usado nas rotas de duplicatas atuais.
+### Checkpoint PR #160 — auditoria de bots antes das correções
+
+- Checks: 32 verdes; SonarCloud, CodeQL, Semgrep e OSV aprovados.
+- Achados funcionais confirmados: remapeamento incompleto de `user_systems`;
+  seleção de pai inválida para variantes; aplicação de learning sem mudança real;
+  validação frágil do JSON de sistemas; respostas novas sem validação runtime;
+  limiar de promoção divergente; teste novo fora do script do site.
+- Hardening seguro confirmado: filtrar chaves proibidas em `confirmedFields` e
+  limitar leitura de metadata de migration às primeiras 20 linhas.
+- Achados não aplicados neste avanço: refatorações cosméticas/complexidade do
+  Sonar, constantes artificiais em SQL, remoção genérica de `EXISTS`, troca de
+  CHECK por `NOT VALID` em migration ainda não executada, centralização ampla de
+  helpers e mudança arquitetural do retry síncrono. Esses itens ampliam risco ou
+  escopo sem corrigir defeito material comprovado nesta PR.
+- Próximo avanço: correções mínimas + regressões; depois novo checkpoint antes
+  dos testes. Nenhuma resposta, resolução de thread, commit ou push autorizados.
+
+### Checkpoint PR #160 — correções aplicadas antes dos testes
+
+- Migration 148 agora remapeia `user_systems`, elimina somente duplicata que
+  colidiria com `UNIQUE(user_id, system_id, type)` e verifica referência órfã.
+- Drawer escolhe sistema como pai de edição e edição como pai de variante, tanto
+  na sugestão automática quanto na seleção manual.
+- Learning só registra aplicação/campo afetado quando mudou valor real; evidência
+  não string não cai mais em `[object Object]`.
+- JSON legado falha com mensagens controladas; respostas correction/retry passam
+  por Zod; promoção usa `ACTIVE_CONFIDENCE`; chaves proibidas foram filtradas.
+- Script do site inclui teste do catálogo; policy lê somente 20 linhas, com
+  regressão dedicada. `git diff --check` verde.
+- Próximo avanço: testes focados. Depois registrar resultado antes de API/lint/build.
+
+### Checkpoint PR #160 — testes verdes antes dos gates globais
+
+- Backend Mesas: 47 arquivos, 511 testes verdes.
+- Frontend Mesas: 18 arquivos, 178 testes verdes.
+- Site: 3 arquivos, 35 testes verdes, incluindo catálogo e policy.
+- Próximo avanço: `pnpm verify:api`; registrar resultado antes de lint/build.
+
+### Checkpoint PR #160 — API verde antes do lint
+
+- `pnpm verify:api` verde: 0 breaking; 5 mudanças não-breaking já pertencentes
+  à PR; 3 warnings históricos de paths ambíguos, sem falha.
+- Próximo avanço: `pnpm run lint`; registrar antes do build.
+
+### Checkpoint PR #160 — lint verde antes do build
+
+- `pnpm run lint`: 21/21 pacotes verdes.
+- Próximo avanço: `pnpm run build`; depois revisão final local.
+
+### Checkpoint PR #160 — gates finais
+
+- `pnpm run build`: 21/21 pacotes verdes.
+- Correções de review validadas por 724 testes nas suites afetadas, API, lint e
+  build. Falta somente revisão mecânica final do diff; sem commit/push.
+
+### Checkpoint PR #160 — revisão local concluída
+
+- `git diff --check` verde; diff revisado. Artefato de consumidores foi
+  regenerado pelo gate de API e permanece no conjunto.
+- Estado: mudanças somente locais; nenhum bot respondido/thread resolvida;
+  nenhum commit ou push realizado nesta rodada.

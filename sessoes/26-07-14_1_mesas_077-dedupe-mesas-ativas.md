@@ -571,3 +571,39 @@ rota ou UI havia sido alterado; gates seriam executados após implementação.
 - Build pós-delta 21/21 verde. Próximo: diff-check final.
 - Diff-check final verde. Auditoria concluída; spec permanece aberta pelos itens
   reais listados em `tasks.md`.
+## PR #160 — auditoria de bots antes das correções
+
+- Pedido: avaliar todos os reviews e aplicar tudo não prejudicial.
+- Evidência: 32 checks verdes; 6 clusters inline únicos; 2 comentários fora do
+  diff; 5 nitpicks; 40 smells Sonar agrupados em 11 arquivos.
+- Corte registrado em `spec.md` e `reviews.md`. Correções serão mínimas e com
+  regressões. Sem interação com bots, commit ou push.
+
+## PR #160 — implementação antes dos testes
+
+- Nove correções/hardenings aplicados; migration trata colisão de favorito/GM.
+- Regressão adicionada para metadata fora das primeiras 20 linhas.
+- `git diff --check` verde. Próximo passo: testes focados.
+
+## PR #160 — testes
+
+- Mesas backend 511/511; Mesas frontend 178/178; site 35/35.
+- Próximo gate registrado: `pnpm verify:api`.
+
+## PR #160 — verify:api
+
+- Verde: breaking=0; 5 non-breaking da PR; 3 warnings históricos.
+- Próximo gate: lint repo-wide.
+
+## PR #160 — lint
+
+- Repo-wide 21/21 verde. Próximo gate: build repo-wide.
+
+## PR #160 — build
+
+- Repo-wide 21/21 verde. Próximo passo: revisão mecânica final do diff local.
+
+## PR #160 — fechamento local da revisão
+
+- `git diff --check` verde; 16 arquivos no diff, incluindo artefato API gerado.
+- Sem commit/push e sem interação com threads/bots.

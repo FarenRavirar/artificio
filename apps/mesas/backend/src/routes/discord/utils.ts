@@ -613,16 +613,24 @@ async function enrichDraftWithLlm(
     if (hit.field !== 'system_entity' || !hit.value || typeof hit.value !== 'object' || Array.isArray(hit.value)) continue;
     const entity = hit.value as Record<string, unknown>;
     if (typeof entity.system_id !== 'string' || typeof entity.system_name !== 'string') continue;
-    if (table.system_id !== entity.system_id) storeFields.system_id = entity.system_id;
-    if (table.system_name !== entity.system_name) storeFields.system_name = entity.system_name;
+    const affectedFields: string[] = [];
+    if (table.system_id !== entity.system_id) {
+      storeFields.system_id = entity.system_id;
+      affectedFields.push('system_id');
+    }
+    if (table.system_name !== entity.system_name) {
+      storeFields.system_name = entity.system_name;
+      affectedFields.push('system_name');
+    }
+    if (affectedFields.length === 0) continue;
     storeFields.raw_system_hint = null;
     const rawText = String(message.content_raw ?? '');
-    const evidenceText = String(sourceSystemHint ?? hit.inputToken);
+    const evidenceText = typeof sourceSystemHint === 'string' ? sourceSystemHint : hit.inputToken;
     const evidenceStart = rawText.indexOf(evidenceText);
     learningApplications.push({
       rule_id: hit.ruleId,
       field: hit.field,
-      affected_fields: ['system_id', 'system_name'],
+      affected_fields: affectedFields,
       before: { system_id: table.system_id ?? null, system_name: table.system_name ?? null },
       after: hit.value,
       confidence: hit.confidence,

@@ -154,7 +154,7 @@ export async function recordLearningRulesFromCorrections(
             hits: sql`discord_learning_rules.hits + 1`,
             rejections: sql`CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN discord_learning_rules.rejections + 1 ELSE discord_learning_rules.rejections END`,
             confidence: sql`LEAST(0.98, CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN GREATEST(0.10, discord_learning_rules.confidence - 0.20) ELSE discord_learning_rules.confidence + 0.08 END)`,
-            status: sql`CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN 'suppressed' ELSE CASE WHEN discord_learning_rules.confidence >= 0.72 THEN 'active' ELSE discord_learning_rules.status END END`,
+            status: sql`CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN 'suppressed' ELSE CASE WHEN discord_learning_rules.confidence + 0.08 >= ${ACTIVE_CONFIDENCE} THEN 'active' ELSE discord_learning_rules.status END END`,
             last_rejected_at: sql`CASE WHEN discord_learning_rules.output_value IS DISTINCT FROM ${outputJson}::jsonb THEN NOW() ELSE discord_learning_rules.last_rejected_at END`,
             updated_at: sql`NOW()`,
           }),

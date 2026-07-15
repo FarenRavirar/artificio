@@ -19,6 +19,11 @@ describe("migration policy", () => {
     )).toThrow("manual_migration_must_require_backup");
   });
 
+  it("ignores policy markers outside the first 20 lines", () => {
+    const sql = `${Array.from({ length: 20 }, () => "-- header").join("\n")}\n-- @class: manual-risk\n-- @requires-backup: true`;
+    expect(readMigrationPolicy(sql, "legacy.sql")).toBeNull();
+  });
+
   it("blocks manual migration without explicit authorization and backup evidence", () => {
     const policy = readMigrationPolicy(manualSql, "009.sql");
     expect(() => assertMigrationAllowed("009.sql", policy, {}))

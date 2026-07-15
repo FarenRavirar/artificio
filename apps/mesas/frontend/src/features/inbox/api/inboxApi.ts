@@ -69,6 +69,13 @@ const inboxDraftSchema = z.object({
   updated_at: z.string(),
 });
 
+const inboxLearningFeedbackSchema = z.object({
+  correction_id: z.string(),
+  status: z.enum(['pending', 'processing', 'completed', 'failed']),
+  attempts: z.number(),
+  error: z.string().nullable(),
+});
+
 const inboxCorrectionResultSchema = z.object({
   draft_id: z.string(),
   fields_corrected: z.number(),
@@ -76,12 +83,11 @@ const inboxCorrectionResultSchema = z.object({
     before: z.unknown(),
     after: z.unknown(),
   })),
-  learning: z.object({
-    correction_id: z.string(),
-    status: z.enum(['pending', 'processing', 'completed', 'failed']),
-    attempts: z.number(),
-    error: z.string().nullable(),
-  }),
+  learning: inboxLearningFeedbackSchema,
+});
+
+const inboxRetryLearningFeedbackSchema = z.object({
+  results: z.array(inboxLearningFeedbackSchema),
 });
 
 const inboxSyncResultSchema = z.object({
@@ -118,6 +124,12 @@ function parseInboxDraft(value: unknown): InboxDraft {
 function parseInboxCorrectionResult(value: unknown): InboxCorrectionResult {
   const parsed = inboxCorrectionResultSchema.safeParse(value);
   if (!parsed.success) throw new Error('Resultado de correção em formato inesperado.');
+  return parsed.data;
+}
+
+function parseInboxRetryLearningFeedback(value: unknown): { results: InboxCorrectionResult['learning'][] } {
+  const parsed = inboxRetryLearningFeedbackSchema.safeParse(value);
+  if (!parsed.success) throw new Error('Resultado de retry do aprendizado em formato inesperado.');
   return parsed.data;
 }
 
@@ -167,7 +179,7 @@ export const inboxApi = {
     })),
 
   retryLearningFeedback: async (id: string): Promise<{ results: InboxCorrectionResult['learning'][] }> =>
-    apiFetch<{ results: InboxCorrectionResult['learning'][] }>(`/drafts/${id}/correction/retry-learning`, { method: 'POST' }),
+    parseInboxRetryLearningFeedback(await apiFetch<unknown>(`/drafts/${id}/correction/retry-learning`, { method: 'POST' })),
 
   syncDraft: async (id: string): Promise<InboxSyncResult> =>
     parseInboxSyncResult(await apiFetch<unknown>(`/drafts/${id}/sync`, { method: 'POST' })),

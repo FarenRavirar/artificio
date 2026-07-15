@@ -432,12 +432,12 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
     setTargetSystemId(systemId);
     const system = systemById.get(systemId);
     if (!system) return;
-    if (childNodeType === 'edition' && system.node_type === 'system') {
-      setParentId(system.id);
-      return;
-    }
-    if (childNodeType === 'variant' && system.node_type === 'edition') {
-      setParentId(system.id);
+    if (childNodeType === 'edition') {
+      if (system.node_type === 'system') setParentId(system.id);
+      else if (system.node_type === 'edition' && system.parent_id) setParentId(system.parent_id);
+    } else if (childNodeType === 'variant') {
+      if (system.node_type === 'edition') setParentId(system.id);
+      else if (system.node_type === 'variant' && system.parent_id) setParentId(system.parent_id);
     }
   };
 
@@ -466,14 +466,16 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
     void (async () => {
       await Promise.resolve();
       if (!active) return;
-      if (candidate.node_type === 'system') {
-        setParentId(candidate.id);
-      } else if (candidate.parent_id) {
-        setParentId(candidate.parent_id);
+      if (childNodeType === 'edition') {
+        if (candidate.node_type === 'system') setParentId(candidate.id);
+        else if (candidate.node_type === 'edition' && candidate.parent_id) setParentId(candidate.parent_id);
+      } else if (childNodeType === 'variant') {
+        if (candidate.node_type === 'edition') setParentId(candidate.id);
+        else if (candidate.node_type === 'variant' && candidate.parent_id) setParentId(candidate.parent_id);
       }
     })();
     return () => { active = false; };
-  }, [recommended, parentId, candidates, systems, systemById]);
+  }, [recommended, parentId, candidates, systems, systemById, childNodeType]);
 
   // Pais validos por tipo de filho (espelha VALID_PARENT do backend).
   const validParents = useMemo(() => {

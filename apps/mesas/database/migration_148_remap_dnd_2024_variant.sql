@@ -13,6 +13,18 @@ DECLARE
 BEGIN
   UPDATE tables SET system_id = new_id::uuid WHERE system_id = old_id::uuid;
 
+  -- Evita violar UNIQUE(user_id, system_id, type) quando o usuário já possui
+  -- o destino e remove apenas a relação redundante com o nó duplicado.
+  DELETE FROM user_systems old_link
+  WHERE old_link.system_id = old_id::uuid
+    AND EXISTS (
+      SELECT 1 FROM user_systems new_link
+      WHERE new_link.user_id = old_link.user_id
+        AND new_link.system_id = new_id::uuid
+        AND new_link.type = old_link.type
+    );
+  UPDATE user_systems SET system_id = new_id::uuid WHERE system_id = old_id::uuid;
+
   UPDATE discord_import_table_drafts
   SET parsed_payload = jsonb_set(parsed_payload::jsonb, '{table,system_id}', to_jsonb(new_id), false)
   WHERE parsed_payload::jsonb #>> '{table,system_id}' = old_id;
@@ -33,6 +45,7 @@ BEGIN
   WHERE field = 'system_entity' AND output_value->>'system_id' = old_id;
 
   IF EXISTS (SELECT 1 FROM tables WHERE system_id = old_id::uuid)
+     OR EXISTS (SELECT 1 FROM user_systems WHERE system_id = old_id::uuid)
      OR EXISTS (
        SELECT 1 FROM discord_import_table_drafts
        WHERE parsed_payload::jsonb #>> '{table,system_id}' = old_id

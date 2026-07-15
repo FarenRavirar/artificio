@@ -118,7 +118,7 @@ async function submitCorrectionDiff(
     }
   }
   const confirmedFields = Object.keys(afterTable)
-    .filter((key) => !key.startsWith('_') && !key.startsWith('raw_'))
+    .filter((key) => !key.startsWith('_') && !key.startsWith('raw_') && !FORBIDDEN_KEYS.has(key))
     .filter((key) => JSON.stringify(afterTable[key]) === JSON.stringify(beforeTable[key]))
     .filter((key) => afterTable[key] !== null && afterTable[key] !== undefined && afterTable[key] !== '')
     .slice(0, 64);
