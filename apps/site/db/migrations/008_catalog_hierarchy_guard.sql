@@ -10,18 +10,42 @@
 
 -- Decisão explícita do mantenedor: D&D 1e é edição. O filho Basic Set (Mentzer)
 -- já é variante e passa a ter pai correto quando o tipo de 1e é corrigido.
-UPDATE catalog_nodes
-SET node_type = 'edition', updated_at = now(), version = version + 1
-WHERE id = 'd8251bc2-c5f5-4bf7-98c7-dacf431e07de'
-  AND node_type = 'variant'
-  AND parent_id = '36698ed7-2d51-4edb-95ea-b1fcddd1e9c9';
+DO $$
+DECLARE
+  affected integer;
+BEGIN
+  UPDATE catalog_nodes
+  SET node_type = 'edition', updated_at = now(), version = version + 1
+  WHERE id = 'd8251bc2-c5f5-4bf7-98c7-dacf431e07de'
+    AND node_type = 'variant'
+    AND parent_id = '36698ed7-2d51-4edb-95ea-b1fcddd1e9c9';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected = 0 AND NOT EXISTS (
+    SELECT 1 FROM catalog_nodes
+    WHERE id = 'd8251bc2-c5f5-4bf7-98c7-dacf431e07de'
+      AND node_type = 'edition'
+      AND parent_id = '36698ed7-2d51-4edb-95ea-b1fcddd1e9c9'
+  ) THEN
+    RAISE EXCEPTION 'dnd_1e_reclassification_state_diverged';
+  END IF;
 
--- Decisão explícita do mantenedor: Victory é edição de 3D&T.
-UPDATE catalog_nodes
-SET node_type = 'edition', updated_at = now(), version = version + 1
-WHERE id = 'e077650d-af85-4d6b-8355-e69f8f86ab38'
-  AND node_type = 'subsystem'
-  AND parent_id = '71db463c-515c-4631-988d-b0efa6c51524';
+  -- Decisão explícita do mantenedor: Victory é edição de 3D&T.
+  UPDATE catalog_nodes
+  SET node_type = 'edition', updated_at = now(), version = version + 1
+  WHERE id = 'e077650d-af85-4d6b-8355-e69f8f86ab38'
+    AND node_type = 'subsystem'
+    AND parent_id = '71db463c-515c-4631-988d-b0efa6c51524';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected = 0 AND NOT EXISTS (
+    SELECT 1 FROM catalog_nodes
+    WHERE id = 'e077650d-af85-4d6b-8355-e69f8f86ab38'
+      AND node_type = 'edition'
+      AND parent_id = '71db463c-515c-4631-988d-b0efa6c51524'
+  ) THEN
+    RAISE EXCEPTION '3det_victory_reclassification_state_diverged';
+  END IF;
+END;
+$$;
 
 DO $$
 BEGIN

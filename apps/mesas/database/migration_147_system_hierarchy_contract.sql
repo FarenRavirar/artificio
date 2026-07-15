@@ -7,17 +7,43 @@
 -- Decisões explícitas do mantenedor:
 -- - D&D 1e é edição de Dungeons & Dragons; Basic Set (Mentzer) permanece variante.
 -- - 3D&T Victory é edição de 3D&T; subsystem não existe no produto.
-UPDATE systems
-SET node_type = 'edition', depth = 1, updated_at = now()
-WHERE id = '2b87932e-9938-463f-b1fc-b1693bfb94ba'
-  AND node_type = 'variant'
-  AND parent_id = '5092ddb4-b9a8-40cc-bf07-afdec155cab7';
+DO $$
+DECLARE
+  affected integer;
+BEGIN
+  UPDATE systems
+  SET node_type = 'edition', depth = 1, updated_at = now()
+  WHERE id = '2b87932e-9938-463f-b1fc-b1693bfb94ba'
+    AND node_type = 'variant'
+    AND parent_id = '5092ddb4-b9a8-40cc-bf07-afdec155cab7';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected = 0 AND NOT EXISTS (
+    SELECT 1 FROM systems
+    WHERE id = '2b87932e-9938-463f-b1fc-b1693bfb94ba'
+      AND node_type = 'edition'
+      AND depth = 1
+      AND parent_id = '5092ddb4-b9a8-40cc-bf07-afdec155cab7'
+  ) THEN
+    RAISE EXCEPTION 'dnd_1e_reclassification_state_diverged';
+  END IF;
 
-UPDATE systems
-SET node_type = 'edition', depth = 1, updated_at = now()
-WHERE id = '169b6b26-f82b-429e-9acd-05e7138688a9'
-  AND node_type = 'subsystem'
-  AND parent_id = '3a5327e2-5842-4c77-9e9d-51cc9989f711';
+  UPDATE systems
+  SET node_type = 'edition', depth = 1, updated_at = now()
+  WHERE id = '169b6b26-f82b-429e-9acd-05e7138688a9'
+    AND node_type = 'subsystem'
+    AND parent_id = '3a5327e2-5842-4c77-9e9d-51cc9989f711';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected = 0 AND NOT EXISTS (
+    SELECT 1 FROM systems
+    WHERE id = '169b6b26-f82b-429e-9acd-05e7138688a9'
+      AND node_type = 'edition'
+      AND depth = 1
+      AND parent_id = '3a5327e2-5842-4c77-9e9d-51cc9989f711'
+  ) THEN
+    RAISE EXCEPTION '3det_victory_reclassification_state_diverged';
+  END IF;
+END;
+$$;
 
 -- Nunca reclassificar automaticamente: nomes não determinam semântica. Se algum
 -- ambiente ainda possui legado ou parentesco inválido, a curadoria deve decidir.
