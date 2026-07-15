@@ -35,10 +35,15 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
 
   const dryRun = req.query.dry_run === 'true';
   const logs: EnrichmentLogEntry[] = [];
+  let systemProjection: { catalog_version: number; references: number } | null = null;
 
   try {
     await prodDb.selectFrom('users').select('id').limit(1).execute();
     const systemGuard = await assertMesasHydrationSystemReady();
+    systemProjection = {
+      catalog_version: systemGuard.catalog_version,
+      references: systemGuard.references,
+    };
     // T006: Transação única
     await db.transaction().execute(async (trx) => {
 
@@ -484,24 +489,18 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
       dry_run: dryRun,
       data: {
         tables: logs,
-        system_projection: {
-          catalog_version: systemGuard.catalog_version,
-          references: systemGuard.references,
-        },
+        system_projection: systemProjection,
       },
     });
 
   } catch (error) {
-    if (error instanceof Error && error.message === 'DRY_RUN_ROLLBACK') {
+    if (error instanceof Error && error.message === 'DRY_RUN_ROLLBACK' && systemProjection) {
       return res.json({
         success: true,
         dry_run: true,
         data: {
           tables: logs,
-          system_projection: {
-            catalog_version: systemGuard.catalog_version,
-            references: systemGuard.references,
-          },
+          system_projection: systemProjection,
         },
       });
     }
