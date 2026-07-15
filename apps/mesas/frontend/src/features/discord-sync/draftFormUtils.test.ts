@@ -321,6 +321,43 @@ describe('buildMissingFields', () => {
     expect(missing).not.toContain('day_of_week');
     expect(missing).not.toContain('start_time');
   });
+
+  it('limpa marcadores de ambiguidade/incerteza do parser ao salvar (achado 2026-07-15: draft travava em ready mesmo apos revisao humana)', () => {
+    const base = makeBase({
+      missing_fields: [
+        'contact_url:suspicious',
+        'contact_url:unconfirmed',
+        'price_type:ambiguous',
+        'day_of_week:multiple_schedules',
+        'requires_pc:ambiguous',
+        'requires_camera:ambiguous',
+        'requires_microphone:ambiguous',
+      ],
+      table: {} as DiscordDraftTablePayload,
+    });
+    const form: DraftForm = {
+      title: 'ok', description: 'ok', system_id: 'sys-1', system_name: '',
+      type: 'campanha', modality: 'online', price_type: 'gratuita', price_value: '',
+      slots_total: '4', slots_open: '4', day_of_week: 'sábado',
+      start_time: '20:00', frequency: 'semanal', contact_url: 'https://example.com', contact_discord: '',
+      cover_url: '', cover_url_source: '', cover_quality: '',
+      age_rating: '', experience_level: '', table_level: '', setting_name: '', setting_styles: '',
+      requires_pc: false, requires_camera: false, requires_microphone: false, session_zero_free: false,
+      scenario_id: '', vtt_platform_id: '', communication_platform_id: '',
+    };
+    const missing = buildMissingFields(base, form);
+    expect(missing).not.toContain('contact_url:suspicious');
+    expect(missing).not.toContain('contact_url:unconfirmed');
+    expect(missing).not.toContain('price_type:ambiguous');
+    expect(missing).not.toContain('day_of_week:multiple_schedules');
+    // requires_pc/camera/microphone:ambiguous NÃO são limpos aqui (achado Codex
+    // PR #167): buildForm colapsa null (ambiguidade) em false (checkbox
+    // desmarcado) — limpeza automática no save deixaria a ambiguidade sumir
+    // sem o curador nunca ter revisado/decidido esses 3 campos.
+    expect(missing).toContain('requires_pc:ambiguous');
+    expect(missing).toContain('requires_camera:ambiguous');
+    expect(missing).toContain('requires_microphone:ambiguous');
+  });
 });
 
 describe('buildUpdatedPayload', () => {

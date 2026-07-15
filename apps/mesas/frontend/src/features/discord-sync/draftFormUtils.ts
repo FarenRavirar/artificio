@@ -389,6 +389,25 @@ export function buildMissingFields(base: DiscordDraftPayload, form: DraftForm): 
   setByState('start_time', form.start_time.trim() !== '' && !isValidTimeString(form.start_time));
   setByState('frequency', !VALID_FREQUENCIES.has(form.frequency));
 
+  // Marcadores de incerteza/ambiguidade do parser (achado 2026-07-15): o parser
+  // grava ':suspicious'/':unconfirmed'/':ambiguous'/':multiple_schedules' quando
+  // não tem confiança suficiente pra decidir sozinho, mas nenhum desses sufixos
+  // era limpo ao salvar o form — draft ficava travado em 'ready' pra sempre mesmo
+  // com o campo revisado e preenchido manualmente pelo curador. O save do form É
+  // a revisão humana: limpa os marcadores cujo campo correspondente é visível e
+  // editável no form (o valor exibido já é a decisão do curador).
+  missing.delete('contact_url:suspicious');
+  missing.delete('contact_url:unconfirmed');
+  missing.delete('price_type:ambiguous');
+  missing.delete('day_of_week:multiple_schedules');
+  // Achado Codex (PR #167): requires_pc/camera/microphone:ambiguous NÃO pode
+  // ser limpo aqui. buildForm colapsa null (ambiguidade real) em false
+  // (checkbox desmarcado) — indistinguível de "confirmado que não precisa".
+  // Limpar incondicionalmente deixava o curador salvar um campo qualquer e a
+  // ambiguidade sumia sem nunca ter sido vista/decidida por ninguém. Fica
+  // como débito: só limpar quando houver sinal explícito de revisão desses
+  // 3 campos (checkbox tri-state ou toggle "revisado"), não implícito no save.
+
   return Array.from(missing);
 }
 
