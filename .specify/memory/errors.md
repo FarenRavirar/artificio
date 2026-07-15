@@ -139,3 +139,30 @@
 - **Feature nova (pedido do mantenedor):** botão pequeno "IA" por campo (ao lado do badge "Parser" em cada input do editor de draft) — reaudita só aquele campo sob demanda, em vez de só a auditoria geral do draft inteiro.
 - **Prevenção:** teste `parseDiscordAnnouncement.test.ts` atualizado pra nova regra (id, não nome). Nenhum gate automático detecta esse tipo de "campo populado mas semanticamente inútil" — fica como lição: extração automática que preenche um campo não é garantia de que o valor é utilizável pelo humano do outro lado.
 - **Data:** 2026-07-07
+
+### E014 — [STATUS: RESOLVIDO, confirmado em prod] migration referencia coluna inexistente: `column "updated_at" of relation "systems" does not exist`
+- **Módulo/Pacote:** apps/mesas/database — `migration_147_system_hierarchy_contract.sql` (spec-077/078) · `scripts/deploy/apply_required_migrations.sh`
+- **Sintoma:** aplicação manual de migrations manual-risk pendentes (`ALLOW_MANUAL_MIGRATIONS=true`) aborta com:
+  ```
+  ERROR:  column "updated_at" of relation "systems" does not exist
+  LINE 2:   SET node_type = 'edition', depth = 1, updated_at = now()
+  ```
+  Reproduzido primeiro em beta; mesmo schema real em prod (coluna nunca existiu em nenhum ambiente). Rollback de transação (`BEGIN...COMMIT` do script) preservou integridade do banco em ambos os ambientes — sem dano em nenhum ponto.
+- **Causa raiz:** `UPDATE systems SET ... updated_at = now()` em `migration_147` referenciava coluna `systems.updated_at` que **nunca foi criada** por nenhuma migration anterior (`\d systems` na VM confirma ausência). Nenhum gate de CI valida a migration contra o schema real antes do merge — só estoura na aplicação manual/deploy, igual ao padrão de [[E011]].
+- **Solução:** removidas as 2 ocorrências de `, updated_at = now()` das linhas 15 e 31 de `migration_147_system_hierarchy_contract.sql` (coluna não usada em nenhum outro lugar da migration). PR #164 (branch `fix/mesas-078-migration-147-updated-at`), mergeada em `dev` (`1b7aef5`) e promovida a `main`. Reaplicada com sucesso em **beta** (2026-07-15, run manual via SSH) e depois em **prod** (2026-07-15, run manual via SSH, junto com [[E015]] corrigida) — `schema em conformidade` em ambos. Deploy prod mesas subsequente (`gh run 29454298339`) `success`.
+- **Prevenção:** nenhuma automática ainda. Mesmo gap estrutural do E011: rodar as migrations manual-risk contra uma cópia real do schema (não só sintaxe) antes do merge seria o gate correto — registrar como débito relacionado a [[E011]] em `specs/backlog.md`.
+- **Relacionados:** [[E011]] (header incompleto só estoura fora do CI), [[E015]] (mesmo lote de aplicação, migration seguinte, mesma sessão de deploy spec-078).
+- **Data:** 2026-07-15
+
+### E015 — [STATUS: RESOLVIDO, confirmado em prod] `CREATE INDEX CONCURRENTLY cannot run inside a transaction block`
+- **Módulo/Pacote:** apps/mesas/database — `migration_146_learning_feedback_outbox.sql` (spec-077-onda-a) · `scripts/deploy/apply_required_migrations.sh`
+- **Sintoma:** aplicação manual de migrations pendentes em **prod** aborta com:
+  ```
+  ERROR:  CREATE INDEX CONCURRENTLY cannot run inside a transaction block
+  ```
+  Rollback de transação limpo (`schema_migrations` sem registro parcial da 146, banco íntegro). Beta já tinha os índices resultantes aplicados por fora deste script antes desta sessão (origem não investigada, fora do escopo desta correção).
+- **Causa raiz:** `apply_required_migrations.sh` envolve **toda** migration (independente de `@class`) em `BEGIN; ... COMMIT;` no loop principal de aplicação. `CREATE INDEX CONCURRENTLY`/`CREATE UNIQUE INDEX CONCURRENTLY` é proibido pelo Postgres dentro de bloco de transação — limitação estrutural do banco, não específica de prod/beta. Qualquer migration futura com `CONCURRENTLY` falha do mesmo jeito via este runner.
+- **Solução:** removido `CONCURRENTLY` das 2 ocorrências em `migration_146_learning_feedback_outbox.sql` (`idx_import_corrections_learning_outbox` e `idx_discord_parse_feedback_correction_field`) — lock breve tolerável, tabelas não são hot-path crítico. PR #165 (branch `fix/mesas-146-remove-concurrently`), mergeada em `dev` (`9d0c76e`) e promovida a `main`. Reaplicada com sucesso em **beta** (2026-07-15, deploy `gh run 29453579920` `success`) e em **prod** (2026-07-15, run manual via SSH — `CREATE INDEX` sem erro, `schema em conformidade`). Deploy prod mesas subsequente (`gh run 29454298339`) `success`.
+- **Prevenção:** nenhuma automática ainda. Possível gate: `lib_migrations.sh` recusar `CREATE INDEX CONCURRENTLY`/`CREATE UNIQUE INDEX CONCURRENTLY` na validação de classe (mesmo padrão do guard `validate_sql_against_class` de [[E010]]), já que o runner NUNCA consegue rodar isso — registrar como débito.
+- **Relacionados:** [[E014]] (mesmo lote de aplicação, migration anterior, mesma sessão de deploy spec-078), [[E010]] (guard de validação de classe de migration), [[E012]] (mesmo runner, guard de quantidade pendente).
+- **Data:** 2026-07-15
