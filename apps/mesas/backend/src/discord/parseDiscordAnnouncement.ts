@@ -450,7 +450,10 @@ function findUniqueExactEditionAlias(text: string, systems: SystemEntry[]): Syst
     if (!parent || !isSystemRoot(parent)) return false;
     return system.aliases.some((alias) => normalizeSystemRepresentation(alias).normalized === normalizedHint);
   });
-  return matches.length === 1 ? matches[0] : null;
+  if (matches.length !== 1) return null;
+  return systems.some((system) => system.id !== matches[0].id && localSystemNames(system).has(normalizedHint))
+    ? null
+    : matches[0];
 }
 
 function findSystemMatch(text: string, systems: SystemEntry[]): SystemEntry | null {

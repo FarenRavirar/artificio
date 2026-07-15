@@ -12,7 +12,7 @@ DECLARE
   affected integer;
 BEGIN
   UPDATE systems
-  SET node_type = 'edition', depth = 1
+  SET node_type = 'edition', depth = 1, updated_at = now()
   WHERE id = '2b87932e-9938-463f-b1fc-b1693bfb94ba'
     AND node_type = 'variant'
     AND parent_id = '5092ddb4-b9a8-40cc-bf07-afdec155cab7';
@@ -28,7 +28,7 @@ BEGIN
   END IF;
 
   UPDATE systems
-  SET node_type = 'edition', depth = 1
+  SET node_type = 'edition', depth = 1, updated_at = now()
   WHERE id = '169b6b26-f82b-429e-9acd-05e7138688a9'
     AND node_type = 'subsystem'
     AND parent_id = '3a5327e2-5842-4c77-9e9d-51cc9989f711';

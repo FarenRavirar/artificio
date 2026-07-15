@@ -9,6 +9,8 @@ DO $$
 DECLARE
   changed boolean := false;
   affected integer;
+  mapping_count integer;
+  alias_count integer;
   next_version bigint;
 BEGIN
   CREATE TEMP TABLE spec078_identity_mapping (
@@ -66,7 +68,8 @@ BEGIN
      OR catalog_legacy_mappings.source_payload IS DISTINCT FROM EXCLUDED.source_payload
      OR catalog_legacy_mappings.checksum IS DISTINCT FROM EXCLUDED.checksum;
   GET DIAGNOSTICS affected = ROW_COUNT;
-  changed := affected > 0;
+  mapping_count := affected;
+  changed := mapping_count > 0;
 
   INSERT INTO catalog_aliases (node_id, alias, kind, created_by)
   VALUES
@@ -74,7 +77,8 @@ BEGIN
     ('fc9887fa-0b71-47bc-8f62-fac9001be272', 'Mutants And Masterminds', 'alias', 'spec-078')
   ON CONFLICT DO NOTHING;
   GET DIAGNOSTICS affected = ROW_COUNT;
-  changed := changed OR affected > 0;
+  alias_count := affected;
+  changed := changed OR alias_count > 0;
 
   IF changed THEN
     LOCK TABLE catalog_versions IN SHARE ROW EXCLUSIVE MODE;
@@ -83,7 +87,8 @@ BEGIN
     VALUES (next_version, 'spec078_beta_identity_mappings', 'spec-078');
     INSERT INTO catalog_audit_events (event_type, payload, catalog_version)
     VALUES ('catalog_identity_mappings_added', jsonb_build_object(
-      'mapping_count', (SELECT count(*) FROM spec078_identity_mapping),
+      'mapping_count', mapping_count,
+      'alias_count', alias_count,
       'decision', 'D115'
     ), next_version);
   END IF;

@@ -149,11 +149,11 @@ export async function listActiveNodes(): Promise<CatalogNodeRow[]> {
   return attachAliases(nodes, await listAliases(nodes.map((node) => node.id)));
 }
 
-export async function getSnapshot(): Promise<CatalogSnapshot> {
+export async function getSnapshot(legacyMappings: CatalogLegacyMapping[] = []): Promise<CatalogSnapshot> {
   const catalog_version = await getCatalogVersion();
   const nodes = await listActiveNodes();
   const [inactive_nodes, redirects] = await Promise.all([listInactiveNodes(), listRedirects()]);
-  const checksum = await buildChecksum(catalog_version, nodes, inactive_nodes, redirects);
+  const checksum = await buildChecksum(catalog_version, nodes, inactive_nodes, redirects, legacyMappings);
   return {
     catalog_version,
     generated_at: new Date().toISOString(),
@@ -166,8 +166,9 @@ export async function getSnapshot(): Promise<CatalogSnapshot> {
 }
 
 export async function getProjectionSnapshot(): Promise<CatalogProjectionSnapshot> {
-  const snapshot = await getSnapshot();
-  return { ...snapshot, legacy_mappings: await listMesasLegacyMappings() };
+  const legacy_mappings = await listMesasLegacyMappings();
+  const snapshot = await getSnapshot(legacy_mappings);
+  return { ...snapshot, legacy_mappings };
 }
 
 export async function resolveNode(idOrPath: string): Promise<CatalogNodeRow | { redirect: true; source_id: string; target_id: string } | null> {
@@ -365,7 +366,7 @@ async function listAliases(nodeIds: string[]): Promise<CatalogAlias[]> {
 async function listInactiveNodes(): Promise<CatalogInactiveNode[]> {
   const db = await getDb();
   return (await db.query<CatalogInactiveNode>(
-    `SELECT id, status, merged_into_id, version
+    `SELECT id, status, merged_into_id, version::int AS version
        FROM catalog_nodes
       WHERE status <> 'active'
       ORDER BY id ASC`,
@@ -416,6 +417,7 @@ async function buildChecksum(
   nodes: CatalogNodeRow[],
   inactiveNodes: CatalogInactiveNode[],
   redirects: CatalogRedirect[],
+  legacyMappings: CatalogLegacyMapping[],
 ): Promise<string> {
   const { createHash } = await import("node:crypto");
   return createHash("sha256")
@@ -424,6 +426,9 @@ async function buildChecksum(
       nodes: nodes.map(({ id, path_slug, version: nodeVersion }) => [id, path_slug, nodeVersion]),
       inactiveNodes,
       redirects,
+      legacyMappings: [...legacyMappings]
+        .sort((left, right) => left.legacy_id.localeCompare(right.legacy_id))
+        .map(({ legacy_id, canonical_id }) => [legacy_id, canonical_id]),
     }))
     .digest("hex");
 }

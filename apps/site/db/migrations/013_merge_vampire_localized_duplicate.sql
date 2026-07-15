@@ -97,7 +97,9 @@ BEGIN
 
   UPDATE catalog_nodes
   SET name_pt = 'Aniversário', updated_at = now(), version = version + 1
-  WHERE name = 'Anniversary' AND name_pt IS DISTINCT FROM 'Aniversário';
+  WHERE id = '606cee08-7de9-4bfb-90a9-c3453bed90c2'
+    AND parent_id = target_root
+    AND name = 'Anniversary' AND name_pt IS DISTINCT FROM 'Aniversário';
 
   UPDATE catalog_legacy_mappings SET canonical_id = target_5e, updated_at = now()
   WHERE canonical_id = source_5e;

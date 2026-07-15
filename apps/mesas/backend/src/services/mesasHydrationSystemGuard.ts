@@ -27,9 +27,15 @@ export function createSystemIdResolver(snapshot: SystemProjectionSnapshot): Syst
   };
 }
 
-function remapSystemIdArray(value: unknown, resolveSystemId: SystemIdResolver): unknown {
-  if (!Array.isArray(value)) return value;
-  const remapped = value.map((id) => typeof id === 'string' ? resolveSystemId(id) : id);
+function requireSystemIdArray(value: unknown, field: string): string[] {
+  if (!Array.isArray(value) || !value.every((id): id is string => typeof id === 'string')) {
+    throw new Error(`system_projection_invalid_${field}_array`);
+  }
+  return value;
+}
+
+function remapSystemIdArray(value: unknown, field: string, resolveSystemId: SystemIdResolver): string[] {
+  const remapped = requireSystemIdArray(value, field).map(resolveSystemId);
   return [...new Set(remapped)];
 }
 
@@ -42,10 +48,10 @@ export function remapHydratedSystemReferences(
     record.system_id = resolveSystemId(record.system_id);
   }
   if (tableName === 'user_preferences') {
-    record.systems = remapSystemIdArray(record.systems, resolveSystemId);
+    record.systems = remapSystemIdArray(record.systems, 'systems', resolveSystemId);
   }
   if (tableName === 'gm_profiles') {
-    record.closed_group_systems = remapSystemIdArray(record.closed_group_systems, resolveSystemId);
+    record.closed_group_systems = remapSystemIdArray(record.closed_group_systems, 'closed_group_systems', resolveSystemId);
   }
   return record;
 }
@@ -68,8 +74,10 @@ export async function assertMesasHydrationSystemReady(): Promise<MesasHydrationS
   const referenced = new Set<string>();
   tables.forEach((row) => { if (row.system_id) referenced.add(resolveSystemId(row.system_id)); });
   userSystems.forEach((row) => referenced.add(resolveSystemId(row.system_id)));
-  preferences.forEach((row) => row.systems?.forEach((id) => referenced.add(resolveSystemId(id))));
-  gmProfiles.forEach((row) => row.closed_group_systems?.forEach((id) => referenced.add(resolveSystemId(id))));
+  preferences.forEach((row) => requireSystemIdArray(row.systems, 'systems')
+    .forEach((id) => referenced.add(resolveSystemId(id))));
+  gmProfiles.forEach((row) => requireSystemIdArray(row.closed_group_systems, 'closed_group_systems')
+    .forEach((id) => referenced.add(resolveSystemId(id))));
 
   const localIds = new Set(localSystems.map((row) => row.id));
   const missing = [...referenced].filter((id) => !localIds.has(id));

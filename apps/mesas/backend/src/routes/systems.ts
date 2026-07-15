@@ -104,7 +104,7 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req: Reque
   if (validationError) return res.status(validationError.status).json({ error: validationError.message });
 
   try {
-    const exists = (await getSystemCatalogProvider().loadFlat()).some((node) => node.id === id);
+    const exists = await getSystemCatalogProvider().exists(id);
     if (!exists) return res.status(404).json({ error: 'Sistema não encontrado.' });
 
     await assertValidParent(node_type, parent_id);

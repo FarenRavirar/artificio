@@ -17,7 +17,8 @@ DECLARE
   already_merged boolean;
   next_version bigint;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM catalog_nodes WHERE id IN (v_source_id, v_target_id)) THEN
+  IF NOT EXISTS (SELECT 1 FROM catalog_nodes WHERE id = v_source_id)
+     OR NOT EXISTS (SELECT 1 FROM catalog_nodes WHERE id = v_target_id) THEN
     RAISE NOTICE 'dnd_2024_merge_not_applicable_in_this_environment';
     RETURN;
   END IF;

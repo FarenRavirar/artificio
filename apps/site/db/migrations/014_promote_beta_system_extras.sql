@@ -9,13 +9,14 @@ DO $$
 DECLARE
   next_version bigint;
   inserted_count integer;
+  alias_count integer;
   affected integer;
   changed boolean := false;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM catalog_nodes WHERE id = '3dcc4d63-a3d7-45de-b7f4-0f313b71d6ab')
-     OR NOT EXISTS (SELECT 1 FROM catalog_nodes WHERE id = '36698ed7-2d51-4edb-95ea-b1fcddd1e9c9')
-     OR NOT EXISTS (SELECT 1 FROM catalog_nodes WHERE id = '34106f28-795a-4444-b6d5-d2b4f64af1cd')
-     OR NOT EXISTS (SELECT 1 FROM catalog_nodes WHERE id = 'fe9cc052-3824-4aec-853e-4141c540f3ce') THEN
+  IF NOT EXISTS (SELECT 1 FROM catalog_nodes WHERE id = '3dcc4d63-a3d7-45de-b7f4-0f313b71d6ab' AND node_type = 'system' AND parent_id IS NULL AND status = 'active')
+     OR NOT EXISTS (SELECT 1 FROM catalog_nodes WHERE id = '36698ed7-2d51-4edb-95ea-b1fcddd1e9c9' AND node_type = 'system' AND parent_id IS NULL AND status = 'active')
+     OR NOT EXISTS (SELECT 1 FROM catalog_nodes WHERE id = '34106f28-795a-4444-b6d5-d2b4f64af1cd' AND node_type = 'system' AND parent_id IS NULL AND status = 'active')
+     OR NOT EXISTS (SELECT 1 FROM catalog_nodes WHERE id = 'fe9cc052-3824-4aec-853e-4141c540f3ce' AND node_type = 'system' AND parent_id IS NULL AND status = 'active') THEN
     RAISE EXCEPTION 'beta_extra_parent_precondition_failed';
   END IF;
 
@@ -112,7 +113,8 @@ BEGIN
     ('6465ff64-4cec-44bd-9bac-066b81f6b43c', 'TWRPG', NULL, 'abbreviation', 'spec-078')
   ON CONFLICT DO NOTHING;
   GET DIAGNOSTICS affected = ROW_COUNT;
-  changed := changed OR affected > 0;
+  alias_count := affected;
+  changed := changed OR alias_count > 0;
 
   IF changed THEN
     LOCK TABLE catalog_versions IN SHARE ROW EXCLUSIVE MODE;
@@ -120,7 +122,7 @@ BEGIN
     INSERT INTO catalog_versions (version, reason, created_by)
     VALUES (next_version, 'spec078_promote_beta_extras', 'spec-078');
     INSERT INTO catalog_audit_events (event_type, payload, catalog_version)
-    VALUES ('catalog_beta_extras_promoted', jsonb_build_object('count', 16), next_version);
+    VALUES ('catalog_beta_extras_promoted', jsonb_build_object('count', inserted_count, 'alias_count', alias_count), next_version);
   END IF;
 END;
 $$;

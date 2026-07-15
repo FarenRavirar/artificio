@@ -82,7 +82,7 @@ services:
       - CATALOG_INTERNAL_TOKEN=${CATALOG_INTERNAL_TOKEN:?CATALOG_INTERNAL_TOKEN is required}
       # Spec 078: origem fixa do snapshot que hidrata a projeção local Beta.
       - CENTRAL_SYSTEMS_API_URL=${CENTRAL_SYSTEMS_API_URL:-http://site-prod-app:4322}
-      - CENTRAL_SYSTEMS_INTERNAL_TOKEN=${CENTRAL_SYSTEMS_INTERNAL_TOKEN:-}
+      - CENTRAL_SYSTEMS_INTERNAL_TOKEN=${CENTRAL_SYSTEMS_INTERNAL_TOKEN:?CENTRAL_SYSTEMS_INTERNAL_TOKEN is required}
     depends_on:
       mesas-beta-db:
         condition: service_healthy

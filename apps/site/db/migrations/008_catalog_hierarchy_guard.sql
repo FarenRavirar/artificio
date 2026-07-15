@@ -21,11 +21,13 @@ BEGIN
   SELECT canonical_id INTO dnd_1e_id
   FROM catalog_legacy_mappings
   WHERE source_app = 'mesas'
+    AND source_environment = 'prod'
     AND source_table = 'systems'
     AND legacy_id = '2b87932e-9938-463f-b1fc-b1693bfb94ba';
   SELECT canonical_id INTO dnd_root_id
   FROM catalog_legacy_mappings
   WHERE source_app = 'mesas'
+    AND source_environment = 'prod'
     AND source_table = 'systems'
     AND legacy_id = '5092ddb4-b9a8-40cc-bf07-afdec155cab7';
   IF dnd_1e_id IS NULL OR dnd_root_id IS NULL THEN

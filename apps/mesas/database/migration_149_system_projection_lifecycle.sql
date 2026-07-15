@@ -1,5 +1,5 @@
--- @class: online-safe
--- @requires-backup: false
+-- @class: manual-risk
+-- @requires-backup: true
 -- @author: spec-078
 -- @created: 2026-07-15
 -- @description: Adiciona origem e lifecycle soft à projeção local de sistemas RPG.
@@ -49,15 +49,15 @@ ALTER TABLE systems
 -- ativo sem apagar o registro histórico.
 ALTER TABLE systems DROP CONSTRAINT IF EXISTS systems_slug_key;
 ALTER TABLE systems DROP CONSTRAINT IF EXISTS systems_path_slug_key;
-DROP INDEX CONCURRENTLY IF EXISTS uq_systems_path_slug;
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS uq_systems_active_slug
+DROP INDEX IF EXISTS uq_systems_path_slug;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_systems_active_slug
   ON systems(slug) WHERE catalog_status = 'active';
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS uq_systems_active_path_slug
+CREATE UNIQUE INDEX IF NOT EXISTS uq_systems_active_path_slug
   ON systems(path_slug) WHERE catalog_status = 'active' AND path_slug IS NOT NULL;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_systems_catalog_status
+CREATE INDEX IF NOT EXISTS idx_systems_catalog_status
   ON systems(catalog_status);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_systems_catalog_source_version
+CREATE INDEX IF NOT EXISTS idx_systems_catalog_source_version
   ON systems(catalog_source, central_version);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_systems_merged_into_id
+CREATE INDEX IF NOT EXISTS idx_systems_merged_into_id
   ON systems(merged_into_id) WHERE merged_into_id IS NOT NULL;

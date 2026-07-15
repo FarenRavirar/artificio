@@ -126,7 +126,7 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                     .set({ nickname: null })
                     .where('id', '=', nicknameOwner.id)
                     .execute();
-                  console.warn(`[Enrichment] nickname Prod sobrescreveu conflito Beta: ${rawSafeRecord.nickname}`);
+                  console.warn('[Enrichment] nickname Prod sobrescreveu conflito Beta');
                 }
               }
               if (typeof rawSafeRecord.slug === 'string') {
@@ -493,7 +493,17 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
 
   } catch (error) {
     if (error instanceof Error && error.message === 'DRY_RUN_ROLLBACK') {
-      return res.json({ success: true, dry_run: true, data: { tables: logs } });
+      return res.json({
+        success: true,
+        dry_run: true,
+        data: {
+          tables: logs,
+          system_projection: {
+            catalog_version: systemGuard.catalog_version,
+            references: systemGuard.references,
+          },
+        },
+      });
     }
     console.error('[Enrichment]', error);
     return res.status(500).json({ error: 'Erro durante o enriquecimento' });

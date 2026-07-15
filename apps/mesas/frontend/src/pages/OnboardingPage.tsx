@@ -476,7 +476,7 @@ export const OnboardingPage = () => {
           </footer>
         </section>
       </div>
-      <SystemSuggestionModal
+      {showSystemModal && <SystemSuggestionModal
         isOpen={showSystemModal}
         onClose={() => setShowSystemModal(false)}
         initialName={systemModalName}
@@ -488,7 +488,7 @@ export const OnboardingPage = () => {
             setForm((prev) => ({ ...prev, systems: Array.from(new Set([...prev.systems, created.id])) }));
           }
         }}
-      />
+      />}
     </main>
   );
 };

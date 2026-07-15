@@ -111,7 +111,7 @@ export async function systemExistsInCatalog(systemId: string): Promise<boolean> 
     return await getSystemCatalogProvider().exists(systemId);
   } catch (error) {
     console.error('[systemExistsInCatalog] Fonte de sistemas indisponível:', error);
-    return true;
+    return false;
   }
 }
 
@@ -341,6 +341,11 @@ async function archiveLocalNode(id: string): Promise<void> {
       .where('catalog_status', '=', 'active')
       .executeTakeFirst();
     if (activeChild) throw new Error('archive_has_children');
+    const tableReference = await trx.selectFrom('tables')
+      .select('id')
+      .where('system_id', '=', id)
+      .executeTakeFirst();
+    if (tableReference) throw new Error('archive_has_tables');
     const result = await trx.updateTable('systems').set({
       catalog_status: 'archived',
       merged_into_id: null,

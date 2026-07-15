@@ -91,7 +91,15 @@ export interface SystemProjectionPlan {
 export async function fetchCentralSystemsSnapshot(): Promise<SystemProjectionSnapshot> {
   const baseUrl = process.env.CENTRAL_SYSTEMS_API_URL?.trim();
   if (!baseUrl) throw new Error('CENTRAL_SYSTEMS_API_URL_missing');
-  if (/site-beta|beta\.artificiorpg/i.test(baseUrl)) throw new Error('CENTRAL_SYSTEMS_API_URL_must_be_site_prod');
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(baseUrl);
+  } catch {
+    throw new Error('CENTRAL_SYSTEMS_API_URL_invalid');
+  }
+  if (parsedUrl.origin !== 'http://site-prod-app:4322') {
+    throw new Error('CENTRAL_SYSTEMS_API_URL_must_be_site_prod');
+  }
   const token = process.env.CENTRAL_SYSTEMS_INTERNAL_TOKEN?.trim() || process.env.CATALOG_INTERNAL_TOKEN;
   if (!token) throw new Error('CENTRAL_SYSTEMS_INTERNAL_TOKEN_missing');
   const raw = await catalogFetch<unknown>('/api/admin/v1/catalog/snapshot', { baseUrl, token });
@@ -228,6 +236,14 @@ export async function applySystemProjection(plan: SystemProjectionPlan): Promise
   const redirects = new Map(plan.snapshot.redirects.map((redirect) => [redirect.source_id, redirect.target_id]));
 
   await db.transaction().execute(async (trx) => {
+    await sql`SELECT pg_advisory_xact_lock(780078)`.execute(trx);
+    const persisted = await trx.selectFrom('systems')
+      .select(sql<string>`MAX(central_version)`.as('central_version'))
+      .where('catalog_source', '=', 'central')
+      .executeTakeFirst();
+    if (persisted?.central_version && Number(persisted.central_version) > plan.catalog_version) {
+      throw new Error('system_projection_stale_plan');
+    }
     const projectionNodes = plan.nodes.map((node) => ({
       id: node.id,
       name: node.name,
