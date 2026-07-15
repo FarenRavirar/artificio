@@ -199,3 +199,12 @@ qualquer task de código de feature.
 - [x] R160.8 Restringir policy ao cabeçalho inicial e adicionar regressões.
 - [x] R160.9 Tornar comparação de `type` null-safe.
 - [x] R160.10 Validar testes focados, lint e build.
+## PR #160 — merge e deploy Beta
+
+- [x] R160.11 Backup + restore-test de Mesas/Site Beta e cópia off-VM.
+- [ ] R160.12 Aplicar migrations por operação excepcional sem alterar a esteira
+      central; wiring experimental rejeitado após auditoria arquitetural.
+- [ ] R160.13 Commit/push único e checks verdes.
+- [ ] R160.14 Merge da PR #160 em `dev`.
+- [ ] R160.15 Deploy Mesas Beta + smoke.
+- [ ] R160.16 Deploy Site Beta + smoke.

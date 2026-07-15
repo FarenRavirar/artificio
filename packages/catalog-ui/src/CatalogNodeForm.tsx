@@ -89,11 +89,9 @@ export function CatalogNodeForm({
   }, [selected, newNodeDefaultsKey]);
 
   const id = (suffix: string) => `${idPrefix}-${suffix}`;
-  const expectedParentType: CatalogNodeType | null = form.node_type === 'system'
-    ? null
-    : form.node_type === 'edition'
-      ? 'system'
-      : 'edition';
+  let expectedParentType: CatalogNodeType | null = null;
+  if (form.node_type === 'edition') expectedParentType = 'system';
+  else if (form.node_type === 'variant') expectedParentType = 'edition';
   const validParentOptions = expectedParentType
     ? parentOptions.filter((node) => node.node_type === expectedParentType)
     : [];

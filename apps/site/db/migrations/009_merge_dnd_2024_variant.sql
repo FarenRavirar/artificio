@@ -42,12 +42,7 @@ BEGIN
   SELECT target_id, source.alias, source.locale, source.kind, source.created_by
   FROM catalog_aliases source
   WHERE source.node_id = source_id
-    AND NOT EXISTS (
-      SELECT 1 FROM catalog_aliases target
-      WHERE target.node_id = target_id
-        AND lower(target.alias) = lower(source.alias)
-        AND COALESCE(target.locale, '') = COALESCE(source.locale, '')
-    );
+  ON CONFLICT DO NOTHING;
   DELETE FROM catalog_aliases WHERE node_id = source_id;
 
   INSERT INTO catalog_redirects (source_id, target_id, reason)

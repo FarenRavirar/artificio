@@ -1581,3 +1581,48 @@ de rastreabilidade, recorreção e persistência observável do feedback humano.
 - Build repo-wide: 21/21 verde.
 - Os dois achados foram aplicados; nenhum item descartado nesta rodada.
 - Estado local, sem commit/push e sem interação com threads.
+### Checkpoint operacional PR #160 — merge/deploy autorizado
+
+- Mantenedor autorizou o bloco completo: backup Mesas/Site Beta, restore-test
+  temporário, wiring do gate manual, commit/push, checks, merge e deploy Beta.
+- Ordem obrigatória: backup verificado/off-VM antes de qualquer wiring/merge;
+  Mesas e Site serão deployados separadamente a partir de `dev`.
+
+### Checkpoint operacional PR #160 — backup liberou wiring
+
+- Mesas Beta: dump custom 1.558.642 bytes; restore-test completo em banco
+  temporário; 62 tabelas públicas; SHA-256 remoto/local
+  `950c641eb40dfa3f9b7f6643a97cedb924f6aaca4ea586a4dd41bc0e45a9ed26`.
+- Site Beta: dump custom 1.536.440 bytes; restore-test completo; 17 tabelas;
+  SHA-256 remoto/local
+  `d8e309bcdb893bbbfafdf3cd6911b6cbd2d9d2c738590bd5133879a6a9a81811`.
+- Cópia off-VM: `C:\projetos\artificiobackup\spec-077-pr160-20260715-0148`.
+- Bancos temporários removidos. Próximo avanço: auditar o caminho operacional
+  sem presumir alteração da esteira central.
+
+### Experimento descartado — wiring no deploy central
+
+- Foi prototipado localmente um wiring de flags e snapshot no workflow/compose.
+- A abordagem foi rejeitada antes de commit: tratava uma operação excepcional
+  dentro do motor central estabilizado e ampliava desnecessariamente o blast radius.
+- As 46 linhas experimentais foram removidas integralmente; workflows, matriz e
+  composes voltaram ao conteúdo original da branch.
+
+### Evidência do experimento descartado
+
+- YAML dos dois workflows e dois composes parseado com `js-yaml`: verde.
+- Site: 37/37 testes verdes.
+- Teste shell local ficou indisponível porque `bash` resolve para WSL sem distro.
+- Esses resultados não aprovam nem reintroduzem a abordagem descartada.
+
+### Reavaliação do deploy centralizado (2026-07-15)
+
+- `deploy.yml` transforma `.github/deploy-manifest.json` em matriz e chama
+  `_deploy-module.yml`; diferenças de módulo devem permanecer dados.
+- O wiring experimental de 46 linhas não deve avançar: amplia o blast radius da
+  esteira estabilizada para atender uma operação excepcional.
+- Beta read-only: Mesas aplicado até 145; Site até 007; containers saudáveis;
+  clone limpo em `c0965e6`.
+- Caminho preferido: aplicar Mesas 146→147→148 e Site 008→009 em operação
+  excepcional auditável; depois usar o dispatch central normal, sem alterar
+  matriz, workflow reutilizável ou compose.

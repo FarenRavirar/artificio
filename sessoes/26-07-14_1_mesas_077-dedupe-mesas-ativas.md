@@ -632,3 +632,35 @@ rota ou UI havia sido alterado; gates seriam executados após implementação.
 ## PR #160 — segunda rodada concluída localmente
 
 - Build 21/21; diff pendente somente local; sem commit/push.
+## PR #160 — autorização de merge/deploy
+
+- Bloco completo autorizado nominalmente: backup/restore-test, wiring,
+  commit/push, checks, merge e deploy Mesas+Site em Beta.
+- Execução começa pelos backups; merge permanece bloqueado até evidência off-VM.
+
+## PR #160 — backup verificado/off-VM
+
+- Mesas Beta: 62 tabelas restauradas em DB temporário; dump 1.558.642 bytes.
+- Site Beta: 17 tabelas restauradas; dump 1.536.440 bytes.
+- Checksums remoto/local iguais; temporários removidos; cópia off-VM em
+  `C:\projetos\artificiobackup\spec-077-pr160-20260715-0148`.
+
+## PR #160 — experimento de wiring descartado
+
+- Wiring de dispatch/snapshot foi prototipado localmente e depois rejeitado por
+  conflitar com o desenho centralizado e estabilizado da esteira.
+- As 46 linhas foram removidas integralmente antes de commit/push.
+
+## PR #160 — evidência do experimento descartado
+
+- YAML 4/4 parseado; site 37/37.
+- Bash local bloqueado por WSL sem distro. Evidência preservada apenas como
+  histórico; não valida nem reintroduz a abordagem descartada.
+
+## PR #160 — reavaliação do deploy central
+
+- Auditoria confirmou `deploy.yml` → matriz do manifesto → `_deploy-module.yml`.
+- Wiring experimental não seguirá. Beta read-only: Mesas 145, Site 007,
+  containers saudáveis e clone limpo em `c0965e6`.
+- Próximo: operação excepcional de migrations antes do dispatch normal,
+  preservando integralmente matriz, workflows e composes.

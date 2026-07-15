@@ -27,6 +27,11 @@ type ChainRow = {
   description: string;
 };
 
+function parentFieldCopy(type: SuggestionType): { label: string; prompt: string } {
+  if (type === 'variant') return { label: 'Edição pai *', prompt: 'uma edição' };
+  return { label: 'Sistema pai *', prompt: 'um sistema' };
+}
+
 const parseAliases = (value: string) =>
   value
     .split('\n')
@@ -192,6 +197,7 @@ export const SystemSuggestionModal = ({
   ]);
   const [parentId, setParentId] = useState(initialParentId);
   const [suggestionType, setSuggestionType] = useState<SuggestionType>(initialSuggestionType);
+  const { label: parentFieldLabel, prompt: parentPrompt } = parentFieldCopy(suggestionType);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -446,7 +452,7 @@ export const SystemSuggestionModal = ({
             {suggestionType !== 'system' && (
               <div className={user?.role !== 'admin' ? 'hidden' : ''}>
                 <label className="block text-white font-semibold mb-2 text-sm">
-                  {suggestionType === 'variant' ? 'Edição pai *' : 'Sistema pai *'}
+                  {parentFieldLabel}
                 </label>
                 <select
                   value={parentId}
@@ -455,7 +461,7 @@ export const SystemSuggestionModal = ({
                   disabled={systemsLoading}
                 >
                   <option value="">
-                    {systemsLoading ? 'Carregando catálogo...' : `Selecione ${suggestionType === 'variant' ? 'uma edição' : 'um sistema'}`}
+                    {systemsLoading ? 'Carregando catálogo...' : `Selecione ${parentPrompt}`}
                   </option>
                   {parentOptions.map((option) => (
                     <option key={option.id} value={option.id}>

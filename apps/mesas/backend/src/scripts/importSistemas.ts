@@ -45,7 +45,7 @@ const importSystems = async () => {
   const jsonContent = fs.readFileSync(jsonPath, 'utf8');
   const parsedSystems: unknown = JSON.parse(jsonContent);
   if (!Array.isArray(parsedSystems)) {
-    throw new Error('sistemas.json inválido: a raiz deve ser uma lista de sistemas.');
+    throw new TypeError('sistemas.json inválido: a raiz deve ser uma lista de sistemas.');
   }
   const systems = parsedSystems as SystemJSON[];
 
@@ -53,7 +53,7 @@ const importSystems = async () => {
     const variants = (system as unknown as Record<string, unknown>)?.variants;
     if (variants === undefined) return false;
     if (!Array.isArray(variants)) {
-      throw new Error(`sistemas.json inválido: variants do item ${index} deve ser uma lista.`);
+      throw new TypeError(`sistemas.json inválido: variants do item ${index} deve ser uma lista.`);
     }
     return variants.length > 0;
   });

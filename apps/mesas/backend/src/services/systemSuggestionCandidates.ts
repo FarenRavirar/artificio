@@ -313,11 +313,11 @@ function scoreOne(
           && field.value.editionTokens.every((token) => suggestion.editionTokens.includes(token));
         if (fieldEditions.size > 0 && !compatibleEdition) continue;
         const canonicalField = field.reason !== 'alias_exact';
-        const score = exactEdition && canonicalField ? 0.99
-          : compatibleEdition && canonicalField ? 0.95
-            : exactBase && field.reason === 'alias_exact' ? 0.92
-              : exactBase ? 0.9
-                : 0.85;
+        let score = 0.85;
+        if (exactEdition && canonicalField) score = 0.99;
+        else if (compatibleEdition && canonicalField) score = 0.95;
+        else if (exactBase && field.reason === 'alias_exact') score = 0.92;
+        else if (exactBase) score = 0.9;
         consider({ score, reasons: ['base_plus_edition'] });
       } else {
         consider({ score: 0.9, reasons: ['base_match'] });
@@ -405,18 +405,18 @@ function findHierarchicalDescendantMatch(
   const visited = new Set<string>();
   while (!visited.has(current.id)) {
     visited.add(current.id);
-    const remaining = suggestion.editionTokens.filter((token) => !consumed.has(token));
+    const nextEditionToken = suggestion.editionTokens.find((token) => !consumed.has(token));
     const rankedChildren = systems
       .filter((system) => system.parent_id === current?.id)
       .map((system) => {
         const editions = editionTokensForSystem(system);
-        const editionScore = remaining[0] && editions.includes(remaining[0]) ? 100 : 0;
+        const editionScore = nextEditionToken && editions.includes(nextEditionToken) ? 100 : 0;
         const textScore = childTextMatchScore(system, suggestion);
         return { system, score: Math.max(editionScore, textScore), textScore };
       })
       .filter((candidate) => candidate.score > 0)
       .sort((left, right) => right.score - left.score || left.system.name.localeCompare(right.system.name));
-    if (!rankedChildren[0] || (rankedChildren[1] && rankedChildren[1].score === rankedChildren[0].score)) break;
+    if (!rankedChildren[0] || rankedChildren[1]?.score === rankedChildren[0].score) break;
     const child = rankedChildren[0].system;
     matchedTextualChild ||= rankedChildren[0].textScore > 0;
     matchedDescendant = child;
@@ -451,6 +451,49 @@ function emptyAnalysis(suggestion: NormalizedSystemName): CandidateResult['analy
   };
 }
 
+function indexAliases(aliases: CandidateAliasInput[]): Map<string, NormalizedAliasCandidate[]> {
+  const normalized = aliases.map((alias) => ({ ...alias, value: normalizeSystemName(alias.alias) }));
+  const owners = new Map<string, Set<string>>();
+  for (const alias of normalized) {
+    if (!alias.value.normalized) continue;
+    const ids = owners.get(alias.value.normalized) ?? new Set<string>();
+    ids.add(alias.system_id);
+    owners.set(alias.value.normalized, ids);
+  }
+  const bySystem = new Map<string, NormalizedAliasCandidate[]>();
+  for (const alias of normalized) {
+    const list = bySystem.get(alias.system_id) ?? [];
+    list.push({
+      value: alias.value,
+      uniqueOwner: (owners.get(alias.value.normalized)?.size ?? 0) === 1,
+    });
+    bySystem.set(alias.system_id, list);
+  }
+  return bySystem;
+}
+
+function collectCandidates(
+  suggestion: NormalizedSystemName,
+  systems: CandidateSystemInput[],
+  aliasesBySystem: Map<string, NormalizedAliasCandidate[]>,
+): SystemCandidate[] {
+  const scored: SystemCandidate[] = [];
+  for (const system of systems) {
+    const match = scoreOne(suggestion, system, aliasesBySystem.get(system.id) ?? []);
+    if (!match || match.score < 0.5) continue;
+    scored.push({
+      system_id: system.id,
+      name: system.name,
+      path_slug: system.path_slug,
+      node_type: system.node_type,
+      parent_id: system.parent_id,
+      score: round2(match.score),
+      reasons: match.reasons,
+    });
+  }
+  return scored;
+}
+
 /**
  * Pontua os candidatos do catalogo contra o nome sugerido. Funcao pura:
  * recebe os arrays do catalogo ja carregados e nao toca em banco.
@@ -463,39 +506,8 @@ export function scoreSystemCandidates(
 ): CandidateResult {
   const suggestion = normalizeSystemName(suggestionName);
 
-  const normalizedAliases = aliases.map((alias) => ({ ...alias, value: normalizeSystemName(alias.alias) }));
-  const aliasOwners = new Map<string, Set<string>>();
-  for (const alias of normalizedAliases) {
-    if (!alias.value.normalized) continue;
-    const owners = aliasOwners.get(alias.value.normalized) ?? new Set<string>();
-    owners.add(alias.system_id);
-    aliasOwners.set(alias.value.normalized, owners);
-  }
-  const aliasesBySystem = new Map<string, NormalizedAliasCandidate[]>();
-  for (const alias of normalizedAliases) {
-    const list = aliasesBySystem.get(alias.system_id) ?? [];
-    list.push({
-      value: alias.value,
-      uniqueOwner: (aliasOwners.get(alias.value.normalized)?.size ?? 0) === 1,
-    });
-    aliasesBySystem.set(alias.system_id, list);
-  }
-
-  const scored: SystemCandidate[] = [];
-  for (const system of systems) {
-    const match = scoreOne(suggestion, system, aliasesBySystem.get(system.id) ?? []);
-    if (match && match.score >= 0.5) {
-      scored.push({
-        system_id: system.id,
-        name: system.name,
-        path_slug: system.path_slug,
-        node_type: system.node_type,
-        parent_id: system.parent_id,
-        score: round2(match.score),
-        reasons: match.reasons,
-      });
-    }
-  }
+  const aliasesBySystem = indexAliases(aliases);
+  const scored = collectCandidates(suggestion, systems, aliasesBySystem);
 
   scored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   const candidates = scored.slice(0, Math.max(0, limit));

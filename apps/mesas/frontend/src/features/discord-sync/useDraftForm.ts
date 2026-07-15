@@ -131,6 +131,12 @@ async function submitCorrectionDiff(
   });
 }
 
+function buildReviewNotes(missingFields: string[], notes: string): string | undefined {
+  if (missingFields.length > 0) return `Campos pendentes: ${missingFields.join(', ')}`;
+  if (notes === '') return '';
+  return notes || undefined;
+}
+
 function editorReducer(state: DraftEditorState, action: DraftEditorAction): DraftEditorState {
   switch (action.type) {
     case 'RESET':
@@ -392,9 +398,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       const updated = await draftApi.updateDraft(draft.id, {
         normalized_payload: updatedPayload,
         status: nextMissing.length === 0 ? 'ready' : 'needs_review',
-        review_notes: nextMissing.length === 0
-          ? (state.reviewNotes === '' ? '' : state.reviewNotes || undefined)
-          : `Campos pendentes: ${nextMissing.join(', ')}`,
+        review_notes: buildReviewNotes(nextMissing, state.reviewNotes),
       });
 
       let learningRecorded = false;

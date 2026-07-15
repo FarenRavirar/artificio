@@ -307,7 +307,7 @@ function hasCompactVersionSuffix(
 ): boolean {
   const base = canonical.normalized.replaceAll(' ', '');
   const complete = hint.normalized.replaceAll(' ', '');
-  return Boolean(base) && new RegExp(`^${base}\\d+(?:e|ed)?$`).test(complete);
+  return Boolean(base) && new RegExp(String.raw`^${base}\d+(?:e|ed)?$`).test(complete);
 }
 
 function tokenSequenceIndex(needle: string[], haystack: string[]): number {
@@ -336,14 +336,21 @@ function isSystemRoot(system: SystemEntry): boolean {
     && !['edition', 'variant'].includes(system.node_type ?? 'system');
 }
 
+function scoreRootName(
+  hint: ReturnType<typeof normalizeSystemName>,
+  name: string,
+): number {
+  const canonical = normalizeSystemName(name);
+  if (canonical.normalized === hint.normalized) return 120;
+  if (sharesSystemBase(canonical, hint)) return 100;
+  if (hasCompactVersionSuffix(canonical, hint)) return 90;
+  return sequenceMatchScore(90, canonical.baseTokens, hint.baseTokens);
+}
+
 function scoreSystemRoot(hint: ReturnType<typeof normalizeSystemName>, system: SystemEntry): number {
   let score = 0;
   for (const name of [system.name, system.name_pt].filter((value): value is string => Boolean(value))) {
-    const canonical = normalizeSystemName(name);
-    if (canonical.normalized === hint.normalized) score = Math.max(score, 120);
-    else if (sharesSystemBase(canonical, hint)) score = Math.max(score, 100);
-    else if (hasCompactVersionSuffix(canonical, hint)) score = Math.max(score, 90);
-    else score = Math.max(score, sequenceMatchScore(90, canonical.baseTokens, hint.baseTokens));
+    score = Math.max(score, scoreRootName(hint, name));
   }
   const canonicalName = normalizeSystemName(system.name);
   for (const alias of system.aliases) {
@@ -364,7 +371,7 @@ function findRootSystem(text: string, systems: SystemEntry[]): SystemEntry | nul
     .map((system) => ({ system, score: scoreSystemRoot(hint, system) }))
     .filter((candidate) => candidate.score > 0)
     .sort((left, right) => right.score - left.score || left.system.name.localeCompare(right.system.name));
-  if (!ranked[0] || (ranked[1] && ranked[1].score === ranked[0].score)) return null;
+  if (!ranked[0] || ranked[1]?.score === ranked[0].score) return null;
   return ranked[0].system;
 }
 
@@ -451,11 +458,11 @@ function findSystemMatch(text: string, systems: SystemEntry[]): SystemEntry | nu
         .map((system) => ({ system, score: scoreSystemDescendant(text, system) }))
         .filter((candidate) => candidate.score > 0)
         .sort((left, right) => right.score - left.score || left.system.name.localeCompare(right.system.name));
-      if (!deeper[0] || (deeper[1] && deeper[1].score === deeper[0].score)) break;
+      if (!deeper[0] || deeper[1]?.score === deeper[0].score) break;
       current = deeper[0].system;
       continue;
     }
-    if (children[1] && children[1].score === children[0].score) break;
+    if (children[1]?.score === children[0].score) break;
     const winningNames = localSystemNames(children[0].system);
     const duplicatedAtDeeperLevel = collectSystemDescendants(current.id, systems)
       .filter((system) => system.parent_id !== current.id)
@@ -727,10 +734,10 @@ function extractPrice(
   // regex de label — senão `**` entre a palavra e o `:` quebra o match.
   const cleaned = text.replaceAll('*', '');
   const learnedLabelValue = labelAliases.length > 0 ? extractLabelValue(text, labelAliases) : null;
-  const priceMatch = (learnedLabelValue ? /(\d+(?:[,.]\d{1,2})?)(?!\d)/.exec(learnedLabelValue) : null)
-    ?? /R\$\s{0,3}(\d+(?:[,.]\d{1,2})?)(?!\d)/i.exec(cleaned)
-    ?? /(\d+(?:[,.]\d{1,2})?)(?!\d)\s{0,3}(?:R\$|reais)/i.exec(cleaned)
-    ?? /\bvalor\s*:?\s{0,3}(\d+(?:[,.]\d{1,2})?)(?!\d)/i.exec(cleaned);
+  const priceMatch = (learnedLabelValue ? /(\d{1,9}(?:[,.]\d{1,2})?)\b/.exec(learnedLabelValue) : null)
+    ?? /R\$\s{0,3}(\d{1,9}(?:[,.]\d{1,2})?)\b/i.exec(cleaned)
+    ?? /(\d{1,9}(?:[,.]\d{1,2})?)\b\s{0,3}(?:R\$|reais)/i.exec(cleaned)
+    ?? /\bvalor\s*:?\s{0,3}(\d{1,9}(?:[,.]\d{1,2})?)\b/i.exec(cleaned);
   if (priceMatch) {
     const value = parseFloat(priceMatch[1].replace(',', '.'));
     if (!Number.isNaN(value) && value > 0) {
@@ -869,10 +876,10 @@ function classifySlotPairLine(
   if (!hasOpen && !hasFilled) return { meaning: 'generic', position: 'before' };
   if (hasOpen && hasFilled) return { meaning: 'generic', position: 'conflicting' };
   const onBothSides = (beforeOpen && afterOpen) || (beforeFilled && afterFilled);
-  return {
-    meaning: hasOpen ? 'open' : 'filled',
-    position: onBothSides ? 'conflicting' : (beforeOpen || beforeFilled ? 'before' : 'after'),
-  };
+  let position: SlotPairQualifierPosition = 'after';
+  if (onBothSides) position = 'conflicting';
+  else if (beforeOpen || beforeFilled) position = 'before';
+  return { meaning: hasOpen ? 'open' : 'filled', position };
 }
 
 function slotsLabeledNumericPair(text: string): SlotsResult | null {
@@ -972,7 +979,9 @@ function slotsViaLabel(
     const first = Number.parseInt(slash[1], 10);
     const second = Number.parseInt(slash[2], 10);
     if (!Number.isFinite(first) || !Number.isFinite(second)) return null;
-    const meaning: SlotPairMeaning = openLabelValue ? 'open' : filledLabelValue ? 'filled' : 'generic';
+    let meaning: SlotPairMeaning = 'generic';
+    if (openLabelValue) meaning = 'open';
+    else if (filledLabelValue) meaning = 'filled';
     return slotsFromNumericPair(first, second, meaning);
   }
   const single = /(\d{1,3})/.exec(value);
@@ -1154,10 +1163,10 @@ function extractTechnicalRequirement(
 ): RequirementExtraction {
   const source = normalize(text);
   const negativePatterns = [
-    new RegExp(`\\bnao\\s+(?:(?:e|sendo)\\s+)?(?:necessari[oa]|obrigatori[oa]|exigid[oa])\\s+(?:ter|possuir|usar)?\\s*(?:um|uma)?\\s*(?:${subjectPattern})\\b`, 'gi'),
-    new RegExp(`\\bnao\\s+precisa(?:m)?\\s+(?:ter|possuir|usar)?\\s*(?:um|uma)?\\s*(?:${subjectPattern})\\b`, 'gi'),
-    new RegExp(`\\b(?:${subjectPattern})\\b[^.\\n;]{0,32}\\b(?:opcional|dispensavel|nao\\s+obrigatori[oa])\\b`, 'gi'),
-    new RegExp(`\\b(?:recomendavel|recomendo|desejavel|preferencia\\s+por)\\b[^.\\n;]{0,32}\\b(?:${subjectPattern})\\b`, 'gi'),
+    new RegExp(String.raw`\bnao\s+(?:(?:e|sendo)\s+)?(?:necessari[oa]|obrigatori[oa]|exigid[oa])\s+(?:ter|possuir|usar)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'gi'),
+    new RegExp(String.raw`\bnao\s+precisa(?:m)?\s+(?:ter|possuir|usar)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'gi'),
+    new RegExp(String.raw`\b(?:${subjectPattern})\b[^.\n;]{0,32}\b(?:opcional|dispensavel|nao\s+obrigatori[oa])\b`, 'gi'),
+    new RegExp(String.raw`\b(?:recomendavel|recomendo|desejavel|preferencia\s+por)\b[^.\n;]{0,32}\b(?:${subjectPattern})\b`, 'gi'),
   ];
 
   let positiveScope = source;
@@ -1170,13 +1179,13 @@ function extractTechnicalRequirement(
   }
 
   const positivePatterns = [
-    new RegExp(`\\b(?:necessari[oa]|obrigatori[oa]|exigid[oa])\\s+(?:ter|possuir|usar)?\\s*(?:um|uma)?\\s*(?:${subjectPattern})\\b`, 'i'),
-    new RegExp(`\\b(?:${subjectPattern})\\b[^.\\n;]{0,24}\\b(?:necessari[oa]|obrigatori[oa]|exigid[oa])\\b`, 'i'),
-    new RegExp(`\\b(?:precisa|precisam|deve|devem|tem\\s+que|ter\\s+que)\\s+(?:ter|possuir|usar)?\\s*(?:um|uma)?\\s*(?:${subjectPattern})\\b`, 'i'),
-    new RegExp(`\\b(?:requisito|exigencia)\\b[^.\\n;]{0,32}\\b(?:${subjectPattern})\\b`, 'i'),
-    new RegExp(`\\b(?:somente|apenas)\\s+(?:via|por|com)?\\s*(?:um|uma)?\\s*(?:${subjectPattern})\\b`, 'i'),
+    new RegExp(String.raw`\b(?:necessari[oa]|obrigatori[oa]|exigid[oa])\s+(?:ter|possuir|usar)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'i'),
+    new RegExp(String.raw`\b(?:${subjectPattern})\b[^.\n;]{0,24}\b(?:necessari[oa]|obrigatori[oa]|exigid[oa])\b`, 'i'),
+    new RegExp(String.raw`\b(?:precisa|precisam|deve|devem|tem\s+que|ter\s+que)\s+(?:ter|possuir|usar)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'i'),
+    new RegExp(String.raw`\b(?:requisito|exigencia)\b[^.\n;]{0,32}\b(?:${subjectPattern})\b`, 'i'),
+    new RegExp(String.raw`\b(?:somente|apenas)\s+(?:via|por|com)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'i'),
     ...(qualityPattern
-      ? [new RegExp(`\\b(?:${subjectPattern})\\b[^.\\n;]{0,16}\\b(?:${qualityPattern})\\b`, 'i')]
+      ? [new RegExp(String.raw`\b(?:${subjectPattern})\b[^.\n;]{0,16}\b(?:${qualityPattern})\b`, 'i')]
       : []),
   ];
   const hasPositive = positivePatterns.some((pattern) => pattern.test(positiveScope));
@@ -1195,7 +1204,7 @@ function extractTechnicalRequirements(text: string): {
   return {
     pc: extractTechnicalRequirement(text, 'pc|computador|notebook'),
     camera: extractTechnicalRequirement(text, 'camera|webcam', 'ligad[ao]|abert[ao]|ativad[ao]|funcionando'),
-    microphone: extractTechnicalRequirement(text, 'mic|microfone', 'bom|audivel|ligad[ao]|ativad[ao]|funcionando|com\\s+qualidade'),
+    microphone: extractTechnicalRequirement(text, 'mic|microfone', String.raw`bom|audivel|ligad[ao]|ativad[ao]|funcionando|com\s+qualidade`),
   };
 }
 
