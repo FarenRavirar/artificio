@@ -7,7 +7,9 @@ import { isImportedTableExpired } from '../utils/tableVisibility';
 import {
   resolveSystemIdBySlug,
   hydrateTableSystemFields,
-  loadCatalogTree,
+  loadSystemCatalogTree,
+} from '../services/systemCatalogProvider';
+import {
   filterCatalogTree,
   flattenTree,
 } from '../services/catalogClient';
@@ -63,7 +65,7 @@ router.get('/', async (req: Request, res: Response) => {
     // Busca por nome de sistema tambem migra para o catalogo central: resolve
     // os ids de sistemas cujo nome/aliases batem com o termo buscado.
     const systemIdsForSearch = search
-      ? filterCatalogTree(await loadCatalogTree(), search).flatMap((node) => flattenTree([node]).map((n) => n.id))
+      ? filterCatalogTree(await loadSystemCatalogTree(), search).flatMap((node) => flattenTree([node]).map((n) => n.id))
       : [];
 
     let query = db

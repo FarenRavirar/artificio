@@ -440,7 +440,25 @@ function localSystemNames(system: SystemEntry): Set<string> {
     .filter(Boolean));
 }
 
+function findUniqueExactEditionAlias(text: string, systems: SystemEntry[]): SystemEntry | null {
+  const normalizedHint = normalizeSystemHint(text).normalized;
+  if (!normalizedHint) return null;
+  const byId = new Map(systems.map((system) => [system.id, system]));
+  const matches = systems.filter((system) => {
+    if (system.node_type !== 'edition' || !system.parent_id) return false;
+    const parent = byId.get(system.parent_id);
+    if (!parent || !isSystemRoot(parent)) return false;
+    return system.aliases.some((alias) => normalizeSystemRepresentation(alias).normalized === normalizedHint);
+  });
+  return matches.length === 1 ? matches[0] : null;
+}
+
 function findSystemMatch(text: string, systems: SystemEntry[]): SystemEntry | null {
+  // Um alias exato da edição (ex.: "V5") já contém semanticamente sistema +
+  // edição. A exceção é restrita a edição filha direta e alias único; variante
+  // continua proibida de pular o nível intermediário.
+  const exactEditionAlias = findUniqueExactEditionAlias(text, systems);
+  if (exactEditionAlias) return exactEditionAlias;
   const root = findRootSystem(text, systems);
   if (!root) return null;
   let current = root;

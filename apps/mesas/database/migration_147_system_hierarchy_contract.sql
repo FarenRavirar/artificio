@@ -12,7 +12,7 @@ DECLARE
   affected integer;
 BEGIN
   UPDATE systems
-  SET node_type = 'edition', depth = 1, updated_at = now()
+  SET node_type = 'edition', depth = 1
   WHERE id = '2b87932e-9938-463f-b1fc-b1693bfb94ba'
     AND node_type = 'variant'
     AND parent_id = '5092ddb4-b9a8-40cc-bf07-afdec155cab7';
@@ -28,12 +28,14 @@ BEGIN
   END IF;
 
   UPDATE systems
-  SET node_type = 'edition', depth = 1, updated_at = now()
+  SET node_type = 'edition', depth = 1
   WHERE id = '169b6b26-f82b-429e-9acd-05e7138688a9'
     AND node_type = 'subsystem'
     AND parent_id = '3a5327e2-5842-4c77-9e9d-51cc9989f711';
   GET DIAGNOSTICS affected = ROW_COUNT;
-  IF affected = 0 AND NOT EXISTS (
+  IF affected = 0
+    AND EXISTS (SELECT 1 FROM systems WHERE id = '169b6b26-f82b-429e-9acd-05e7138688a9')
+    AND NOT EXISTS (
     SELECT 1 FROM systems
     WHERE id = '169b6b26-f82b-429e-9acd-05e7138688a9'
       AND node_type = 'edition'
@@ -95,6 +97,15 @@ DECLARE
   parent_type text;
 BEGIN
   IF NEW.node_type = 'system' THEN
+    IF NEW.parent_id IS NOT NULL OR NEW.depth <> 0 THEN
+      RAISE EXCEPTION 'system_must_be_root';
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM systems child
+      WHERE child.parent_id = NEW.id AND child.node_type <> 'edition'
+    ) THEN
+      RAISE EXCEPTION 'system_children_incompatible';
+    END IF;
     RETURN NEW;
   END IF;
 
@@ -111,6 +122,13 @@ BEGIN
   END IF;
   IF NEW.node_type = 'variant' AND parent_type <> 'edition' THEN
     RAISE EXCEPTION 'variant_parent_must_be_edition';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM systems child
+    WHERE child.parent_id = NEW.id
+      AND NOT (NEW.node_type = 'edition' AND child.node_type = 'variant')
+  ) THEN
+    RAISE EXCEPTION 'system_children_incompatible';
   END IF;
 
   IF EXISTS (

@@ -4,6 +4,7 @@ Formato: `AA-MM-DD_N_<modulo>_<escopo>.md`. `N` = sequencial do dia. Sessões en
 
 | Sessão | Data | Módulo | Escopo | Estado |
 |---|---|---|---|---|
+| `26-07-15_1_mesas_078-sistemas-central-hidratacao` | 2026-07-15 | mesas/site-sistemas | Spec 078: Central Site Prod, projeção local Mesas Beta, hidratações e fluxos unificados | planejamento completo; zero implementação |
 | `26-07-14_1_mesas_077-dedupe-mesas-ativas` | 2026-07-14 | mesas | Spec 077: investigar dedupe mesa ativa × mesa ativa e draft × mesa ativa | em andamento (Fase 0; implementação bloqueada por decisões do mantenedor) |
 | `26-07-12_1_downloads_070-076-merge-dev-pr151` | 2026-07-12 | downloads | Merge de conflito PR #151 contra `dev` (branch divergente desde PR #150) | concluída (merge resolvido sem perda, pushado; PR deve destravar) |
 | `26-07-11_1_sistemas_062-lint-eslint-backends` | 2026-07-11 | sistemas (mesas/glossario) | Spec 062 PR #145: fixes de review + eslint novo nos 2 backends (achado ~350 erros pré-existentes) | concluída (lint+tsc+build 100% verde nos 2 backends; sem commit ainda) |

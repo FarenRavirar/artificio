@@ -14,7 +14,7 @@
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 4 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 104 | ❌ |
+| 🕳️ UNUSED_ROUTE | 105 | ❌ |
 | 👻 ORPHAN_SUSPECT | 37 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
@@ -181,7 +181,7 @@
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/groups/:param/report` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 
-### mesas (176 rotas no inventário)
+### mesas (177 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -323,6 +323,7 @@
 | POST | `/api/v1/admin/setting-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/sync/enrich` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/system-suggestions/:id/resolve` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/admin/systems/projection-sync` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/tables/auto-archive` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/tables/batch` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/tables/duplicates/scan` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |

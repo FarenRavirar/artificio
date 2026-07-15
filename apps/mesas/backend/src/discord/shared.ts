@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { sql } from 'kysely';
 import { db } from '../db';
+import { loadSystemCatalogFlat } from '../services/systemCatalogProvider';
 import type { SystemEntry, MatchEntry } from './parseDiscordAnnouncement';
 
 interface HashableMessage {
@@ -26,26 +27,9 @@ export function asJsonbArray(value: unknown): JsonbArray {
 
 // ─── REV-036 / D013 — loadSystemsForParser (DB query) ─────────────────────────
 
-/** Carrega sistemas e aliases do banco para o parse de anúncios Discord. */
+/** Carrega sistemas e aliases da fonte canônica do ambiente. */
 export async function loadSystemsForParser(): Promise<SystemEntry[]> {
-  const systems = await db
-    .selectFrom('systems')
-    .select(['id', 'name', 'name_pt', 'slug', 'path_slug', 'node_type', 'parent_id'])
-    .execute();
-
-  const aliases = await db
-    .selectFrom('system_aliases')
-    .select(['system_id', 'alias'])
-    .execute();
-
-  const aliasMap = new Map<string, string[]>();
-  for (const a of aliases) {
-    const list = aliasMap.get(a.system_id) ?? [];
-    list.push(a.alias);
-    aliasMap.set(a.system_id, list);
-  }
-
-  return systems.map((s) => ({
+  return (await loadSystemCatalogFlat()).map((s) => ({
     id: s.id,
     name: s.name,
     name_pt: s.name_pt,
@@ -53,7 +37,7 @@ export async function loadSystemsForParser(): Promise<SystemEntry[]> {
     path_slug: s.path_slug,
     node_type: s.node_type,
     parent_id: s.parent_id,
-    aliases: aliasMap.get(s.id) ?? [],
+    aliases: s.aliases,
   }));
 }
 

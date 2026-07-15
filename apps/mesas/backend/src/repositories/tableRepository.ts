@@ -2,7 +2,7 @@ import { db } from '../db';
 import { Insertable, Updateable } from 'kysely';
 import { TablesTable, TableContactsTable, TableSchedulesTable } from '../db/types';
 import { sql } from 'kysely';
-import { hydrateTableSystemFields } from '../services/catalogClient';
+import { hydrateTableSystemFields } from '../services/systemCatalogProvider';
 
 export class TableRepository {
   // Achado Codex (PR #145): system_id agora referencia o catalogo central

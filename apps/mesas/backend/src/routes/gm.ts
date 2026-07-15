@@ -7,7 +7,7 @@ import { isValidEmail } from '../utils/validation';
 import { generateEmbedUrl, LinkType } from '../services/linkService';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
 import { upgradeGoogleImageQuality } from '../utils/urlValidation';
-import { hydrateTableSystemFields } from '../services/catalogClient';
+import { getSystemCatalogProvider, hydrateTableSystemFields } from '../services/systemCatalogProvider';
 import { processPendingLinks } from '../scripts/processLinkMetadataJobs';
 
 const router = Router();
@@ -291,11 +291,10 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
 
     let closedGroupSystems: Array<{ id: string; name: string }> = [];
     if (gm.closed_group_enabled && Array.isArray(gm.closed_group_systems) && gm.closed_group_systems.length > 0) {
-      closedGroupSystems = await db
-        .selectFrom('systems')
-        .select(['id', 'name'])
-        .where('id', 'in', gm.closed_group_systems as string[])
-        .execute();
+      const selected = new Set(gm.closed_group_systems as string[]);
+      closedGroupSystems = (await getSystemCatalogProvider().loadFlat())
+        .filter((node) => selected.has(node.id))
+        .map(({ id, name }) => ({ id, name }));
     }
 
     // Buscar VTT platforms preferidas do mestre

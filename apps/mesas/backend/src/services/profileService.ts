@@ -7,7 +7,7 @@ import type {
   UserSystem,
   UserUpdate,
 } from '../db/types';
-import { systemExistsInCatalog } from './catalogClient';
+import { systemExistsInCatalog } from './systemCatalogProvider';
 
 /**
  * Serviço de perfil de usuário

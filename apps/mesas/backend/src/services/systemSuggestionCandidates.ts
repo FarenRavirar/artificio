@@ -177,7 +177,11 @@ export function normalizeSystemName(raw: unknown): NormalizedSystemName {
   const baseTokens: string[] = [];
 
   for (const token of tokens) {
-    if (isEditionToken(token)) {
+    const compactSystemEdition = token.match(/^([a-z]{2,})(\d{1,2})$/);
+    if (compactSystemEdition) {
+      baseTokens.push(compactSystemEdition[1]);
+      editionTokens.push(`${compactSystemEdition[2]}e`);
+    } else if (isEditionToken(token)) {
       editionTokens.push(canonicalizeEditionToken(token));
     } else if (EDITION_WORDS.has(token)) {
       // palavra de edicao: descartada da base, nao vira token util

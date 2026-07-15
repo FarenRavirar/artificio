@@ -38,6 +38,12 @@ describe('normalizeSystemName', () => {
     expect(n.base).toBe('pathfinder');
   });
 
+  it('separates compact system and edition tokens like dnd5', () => {
+    const n = normalizeSystemName('dnd5');
+    expect(n.editionTokens).toEqual(['5e']);
+    expect(n.base).toBe('dnd');
+  });
+
   it('strips trailing generic RPG suffix for base (Pokemon RPG)', () => {
     const n = normalizeSystemName('Pokémon RPG');
     expect(n.base).toBe('pokemon');

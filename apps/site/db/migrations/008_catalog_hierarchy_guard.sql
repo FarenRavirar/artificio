@@ -13,34 +13,68 @@
 DO $$
 DECLARE
   affected integer;
+  dnd_1e_id text;
+  dnd_root_id text;
+  victory_id text;
+  victory_root_id text;
 BEGIN
+  SELECT canonical_id INTO dnd_1e_id
+  FROM catalog_legacy_mappings
+  WHERE source_app = 'mesas'
+    AND source_table = 'systems'
+    AND legacy_id = '2b87932e-9938-463f-b1fc-b1693bfb94ba';
+  SELECT canonical_id INTO dnd_root_id
+  FROM catalog_legacy_mappings
+  WHERE source_app = 'mesas'
+    AND source_table = 'systems'
+    AND legacy_id = '5092ddb4-b9a8-40cc-bf07-afdec155cab7';
+  IF dnd_1e_id IS NULL OR dnd_root_id IS NULL THEN
+    RAISE EXCEPTION 'dnd_1e_legacy_mapping_missing';
+  END IF;
+
   UPDATE catalog_nodes
   SET node_type = 'edition', updated_at = now(), version = version + 1
-  WHERE id = 'd8251bc2-c5f5-4bf7-98c7-dacf431e07de'
+  WHERE id = dnd_1e_id
     AND node_type = 'variant'
-    AND parent_id = '36698ed7-2d51-4edb-95ea-b1fcddd1e9c9';
+    AND parent_id = dnd_root_id;
   GET DIAGNOSTICS affected = ROW_COUNT;
   IF affected = 0 AND NOT EXISTS (
     SELECT 1 FROM catalog_nodes
-    WHERE id = 'd8251bc2-c5f5-4bf7-98c7-dacf431e07de'
+    WHERE id = dnd_1e_id
       AND node_type = 'edition'
-      AND parent_id = '36698ed7-2d51-4edb-95ea-b1fcddd1e9c9'
+      AND parent_id = dnd_root_id
   ) THEN
     RAISE EXCEPTION 'dnd_1e_reclassification_state_diverged';
   END IF;
 
-  -- Decisão explícita do mantenedor: Victory é edição de 3D&T.
+  SELECT canonical_id INTO victory_id
+  FROM catalog_legacy_mappings
+  WHERE source_app = 'mesas'
+    AND source_table = 'systems'
+    AND legacy_id = '169b6b26-f82b-429e-9acd-05e7138688a9';
+  IF victory_id IS NOT NULL THEN
+    SELECT canonical_id INTO victory_root_id
+    FROM catalog_legacy_mappings
+    WHERE source_app = 'mesas'
+      AND source_table = 'systems'
+      AND legacy_id = '3a5327e2-5842-4c77-9e9d-51cc9989f711';
+    IF victory_root_id IS NULL THEN
+      RAISE EXCEPTION '3det_victory_parent_mapping_missing';
+    END IF;
+  END IF;
+
+  -- Victory só existe no snapshot Beta; se mapeada, deve ser edição de 3D&T.
   UPDATE catalog_nodes
   SET node_type = 'edition', updated_at = now(), version = version + 1
-  WHERE id = 'e077650d-af85-4d6b-8355-e69f8f86ab38'
+  WHERE id = victory_id
     AND node_type = 'subsystem'
-    AND parent_id = '71db463c-515c-4631-988d-b0efa6c51524';
+    AND parent_id = victory_root_id;
   GET DIAGNOSTICS affected = ROW_COUNT;
-  IF affected = 0 AND NOT EXISTS (
+  IF victory_id IS NOT NULL AND affected = 0 AND NOT EXISTS (
     SELECT 1 FROM catalog_nodes
-    WHERE id = 'e077650d-af85-4d6b-8355-e69f8f86ab38'
+    WHERE id = victory_id
       AND node_type = 'edition'
-      AND parent_id = '71db463c-515c-4631-988d-b0efa6c51524'
+      AND parent_id = victory_root_id
   ) THEN
     RAISE EXCEPTION '3det_victory_reclassification_state_diverged';
   END IF;
@@ -90,7 +124,10 @@ BEGIN
     IF NEW.parent_id IS NOT NULL THEN
       RAISE EXCEPTION 'root_parent_forbidden';
     END IF;
-    IF EXISTS (SELECT 1 FROM catalog_nodes WHERE parent_id = NEW.id) THEN
+    IF EXISTS (
+      SELECT 1 FROM catalog_nodes child
+      WHERE child.parent_id = NEW.id AND child.node_type <> 'edition'
+    ) THEN
       RAISE EXCEPTION 'hierarchy_invalid';
     END IF;
     RETURN NEW;

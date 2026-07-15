@@ -18,6 +18,13 @@ const SYSTEMS = [
   { id: 'coc', name: 'Call of Cthulhu', name_pt: null, aliases: ['CoC'], slug: 'call-of-cthulhu', path_slug: 'call-of-cthulhu', node_type: 'system', parent_id: null },
   { id: 'coc-7e', name: '7e', name_pt: '7ª Edição', aliases: [], slug: 'call-of-cthulhu--7e', path_slug: 'call-of-cthulhu/call-of-cthulhu--7e', node_type: 'edition', parent_id: 'coc' },
   { id: 'coc-7e-pulp', name: 'Pulp', name_pt: null, aliases: [], slug: 'call-of-cthulhu--7e--pulp', path_slug: 'call-of-cthulhu/call-of-cthulhu--7e/call-of-cthulhu--7e--pulp', node_type: 'variant', parent_id: 'coc-7e' },
+  { id: '3det', name: '3D&T', name_pt: null, aliases: ['3DeT'], slug: '3d-t', path_slug: '3d-t', node_type: 'system', parent_id: null },
+  { id: '3det-victory', name: 'Victory', name_pt: null, aliases: ['3D&T Victory', '3DeT Victory'], slug: 'victory', path_slug: '3d-t/victory', node_type: 'edition', parent_id: '3det' },
+  { id: 'ose', name: 'Old-School Essentials', name_pt: null, aliases: ['OSE'], slug: 'old-school-essentials', path_slug: 'old-school-essentials', node_type: 'system', parent_id: null },
+  { id: 'vampire', name: 'Vampire', name_pt: 'Vampiro', aliases: ['VtM'], slug: 'vampire', path_slug: 'vampire', node_type: 'system', parent_id: null },
+  { id: 'vampire-5e', name: 'Vampire 5e', name_pt: null, aliases: ['V5'], slug: 'vampire-5e', path_slug: 'vampire/vampire-5e', node_type: 'edition', parent_id: 'vampire' },
+  { id: 'werewolf', name: 'Werewolf', name_pt: null, aliases: ['Lobisomem: O Apocalipse', 'Lobisomem o Apocalipse'], slug: 'werewolf', path_slug: 'werewolf', node_type: 'system', parent_id: null },
+  { id: 'mutants-masterminds', name: 'Mutants & Masterminds', name_pt: 'Mutantes e Malfeitores', aliases: ['Mutants And Masterminds'], slug: 'mutants-masterminds', path_slug: 'mutants-masterminds', node_type: 'system', parent_id: null },
 ] satisfies NonNullable<Parameters<typeof parseDiscordAnnouncement>[1]>;
 
 function message(system: string): ImportRawMessage {
@@ -91,6 +98,27 @@ describe('parseDiscordAnnouncement — hierarquia de sistemas', () => {
   it('resolve ano curto depois de uma edição explícita', () => {
     const parsed = parseDiscordAnnouncement(message("D&D 5e'24"), SYSTEMS);
     expect(parsed?.table.system_id).toBe('dnd-5e-2024');
+  });
+
+  it('resolve edição por alias textual completo sem parar no sistema', () => {
+    const parsed = parseDiscordAnnouncement(message('3DeT Victory'), SYSTEMS);
+    expect(parsed?.table.system_id).toBe('3det-victory');
+  });
+
+  it('separa sistema e edição escritos sem espaço', () => {
+    const parsed = parseDiscordAnnouncement(message('dnd5'), SYSTEMS);
+    expect(parsed?.table.system_id).toBe('dnd-5e');
+  });
+
+  it.each([
+    ['OSE', 'ose'],
+    ['V5', 'vampire-5e'],
+    ['Vampiro', 'vampire'],
+    ['Mutantes e Malfeitores', 'mutants-masterminds'],
+    ['Lobisomem: O Apocalipse', 'werewolf'],
+  ])('resolve alias real %s sem aproximação inventada', (hint, expectedId) => {
+    const parsed = parseDiscordAnnouncement(message(hint), SYSTEMS);
+    expect(parsed?.table.system_id).toBe(expectedId);
   });
 
   it('trata versão decimal com ou sem e como a mesma edição', () => {

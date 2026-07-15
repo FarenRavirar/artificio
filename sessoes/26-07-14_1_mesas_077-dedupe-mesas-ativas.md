@@ -664,3 +664,23 @@ rota ou UI havia sido alterado; gates seriam executados após implementação.
   containers saudáveis e clone limpo em `c0965e6`.
 - Próximo: operação excepcional de migrations antes do dispatch normal,
   preservando integralmente matriz, workflows e composes.
+
+## PR #162 — auditoria arquitetural antes de nova tentativa
+
+- Pedido: corrigir migrations e registrar no T0 o modelo estrutural descoberto.
+- Confirmado no código: `POST /api/v1/admin/sync/enrich` faz enriquecimento
+  transacional Prod→Beta do Mesas via `PROD_DB_URL` read-only; não clona nem
+  limpa Beta. Catálogo usa upsert semântico por `slug`, preserva extras locais.
+- Site mantém catálogo canônico próprio por ambiente. Relação com IDs legados
+  do Mesas vive em `catalog_legacy_mappings`; UUID canônico Beta/Prod diverge.
+- Correção em curso: migrations idempotentes, ausência opcional tolerada,
+  identidade resolvida pelo mapa legado, sem UUID canônico cross-environment.
+- Nenhuma escrita em banco real, deploy, commit ou push nesta rodada.
+
+## Transferência arquitetural para Spec 078
+
+- Mantenedor separou formalmente dados Mesas de sistemas de RPG.
+- Central = Site Prod; Mesas Beta mantém projeção local hidratada por upsert
+  aditivo; Mesas Prod→Beta exclui sistemas.
+- Adapter único e unificação onboarding/draft JSON saem da 077 e passam à 078.
+- Rollout SQL da 077 fica bloqueado até ensaio de identidade/projeção da 078.

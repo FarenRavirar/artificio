@@ -5,6 +5,10 @@ import { authMiddleware } from '../middleware/auth';
 import { sql, type Insertable, type Updateable } from 'kysely';
 import { SYNC_FIELDS } from '../hydration/config';
 import type { Database } from '../db/types';
+import {
+  assertMesasHydrationSystemReady,
+  remapHydratedSystemReferences,
+} from '../services/mesasHydrationSystemGuard';
 
 const router = Router();
 
@@ -34,15 +38,16 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
 
   try {
     await prodDb.selectFrom('users').select('id').limit(1).execute();
+    const systemGuard = await assertMesasHydrationSystemReady();
     // T006: Transação única
     await db.transaction().execute(async (trx) => {
 
       // T008: Ordem topológica de FKs
       const tablesToSync = [
         // Raízes
-        'systems', 'scenarios', 'platforms', 'tags', 'vtt_platforms', 'communication_platforms', 'sources',
+        'scenarios', 'platforms', 'tags', 'vtt_platforms', 'communication_platforms', 'sources',
         // Extensões
-        'scenario_aliases', 'scenario_suggestions', 'system_aliases', 'system_suggestions', 'vtt_platform_suggestions', 'setting_style_suggestions',
+        'scenario_aliases', 'scenario_suggestions', 'vtt_platform_suggestions', 'setting_style_suggestions',
         // Identidade
         'users',
         // Dependentes diretos
@@ -69,13 +74,11 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
             .selectFrom('tables')
             .leftJoin('communication_platforms', 'tables.communication_platform_id', 'communication_platforms.id')
             .leftJoin('vtt_platforms', 'tables.vtt_platform_id', 'vtt_platforms.id')
-            .leftJoin('systems', 'tables.system_id', 'systems.id')
             .leftJoin('scenarios', 'tables.scenario_id', 'scenarios.id')
             .selectAll('tables')
             .select([
               'communication_platforms.slug as communication_platform_slug',
               'vtt_platforms.slug as vtt_platform_slug',
-              'systems.slug as system_slug',
               'scenarios.slug as scenario_slug'
             ])
             .execute();
@@ -92,7 +95,11 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
         for (const record of prodRecords) {
           try {
             // T009: Tratamento de PII e exclusão de colunas
-            const rawSafeRecord = { ...record };
+            const rawSafeRecord = remapHydratedSystemReferences(
+              tableName,
+              { ...record },
+              systemGuard.resolveSystemId,
+            );
 
             if (tableName === 'users') {
               rawSafeRecord.email = `fake_${record.id}@example.com`;
@@ -108,6 +115,33 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
               rawSafeRecord.discord_id = null;
               rawSafeRecord.discord_username = null;
               rawSafeRecord.contact_methods = null;
+              if (typeof rawSafeRecord.nickname === 'string') {
+                const nicknameOwner = await trx
+                  .selectFrom('gm_profiles')
+                  .select('id')
+                  .where('nickname', '=', rawSafeRecord.nickname)
+                  .executeTakeFirst();
+                if (nicknameOwner && nicknameOwner.id !== rawSafeRecord.id) {
+                  await trx.updateTable('gm_profiles')
+                    .set({ nickname: null })
+                    .where('id', '=', nicknameOwner.id)
+                    .execute();
+                  console.warn(`[Enrichment] nickname Prod sobrescreveu conflito Beta: ${rawSafeRecord.nickname}`);
+                }
+              }
+              if (typeof rawSafeRecord.slug === 'string') {
+                const slugOwner = await trx
+                  .selectFrom('gm_profiles')
+                  .select('id')
+                  .where('slug', '=', rawSafeRecord.slug)
+                  .executeTakeFirst();
+                if (slugOwner && slugOwner.id !== rawSafeRecord.id) {
+                  await trx.updateTable('gm_profiles')
+                    .set({ slug: `${rawSafeRecord.slug}-beta-${slugOwner.id.slice(0, 8)}` })
+                    .where('id', '=', slugOwner.id)
+                    .execute();
+                }
+              }
             }
             if (tableName === 'table_contacts') {
               rawSafeRecord.value = 'dummy_contact';
@@ -142,7 +176,6 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
 
             switch (tableName) {
               // 1) CATÁLOGO (ON CONFLICT slug/url/composite DO UPDATE)
-              case 'systems':
               case 'scenarios':
               case 'platforms':
               case 'tags':
@@ -175,16 +208,6 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                   .executeTakeFirst();
                 break;
 
-              case 'system_aliases':
-                delete updateObj.alias_slug;
-                delete updateObj.system_id;
-                result = await trx.insertInto(tableName as keyof Database)
-                  .values(safeRecord)
-                  .onConflict((oc) => oc.columns(['system_id', 'alias_slug']).doUpdateSet(updateObj))
-                  .returning(['id', sql<string>`xmax`.as('xmax')])
-                  .executeTakeFirst();
-                break;
-
               case 'setting_style_suggestions':
                 delete updateObj.setting_name;
                 result = await trx.insertInto(tableName as keyof Database)
@@ -197,7 +220,6 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
               // 2) SUGGESTIONS (ON CONFLICT id DO NOTHING)
               case 'vtt_platform_suggestions':
               case 'scenario_suggestions':
-              case 'system_suggestions':
                 result = await trx.insertInto(tableName as keyof Database)
                   .values(safeRecord)
                   .onConflict((oc) => oc.column('id').doNothing())
@@ -211,7 +233,6 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 const resolvedRecord: Record<string, unknown> = { ...safeRecord };
                 const communicationPlatformSlug = record.communication_platform_slug;
                 const vttPlatformSlug = record.vtt_platform_slug;
-                const systemSlug = record.system_slug;
                 const scenarioSlug = record.scenario_slug;
 
                 // T007: Resolver communication_platform_id por slug
@@ -248,23 +269,6 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                   resolvedRecord.vtt_platform_id = vttResult.id;
                 }
 
-                // T009: Resolver system_id por slug
-                if (typeof systemSlug === 'string' && systemSlug) {
-                  const sysResult = await trx
-                    .selectFrom('systems')
-                    .select('id')
-                    .where('slug', '=', systemSlug)
-                    .executeTakeFirst();
-
-                  if (!sysResult) {
-                    // T011: FK órfã - skip com warning
-                    console.warn(`[Enrichment] FK órfã: tabela=tables id=${record.id} system_slug=${systemSlug}`);
-                    ignored++;
-                    continue;
-                  }
-                  resolvedRecord.system_id = sysResult.id;
-                }
-
                 // T010: Resolver scenario_id por slug
                 if (typeof scenarioSlug === 'string' && scenarioSlug) {
                   const scResult = await trx
@@ -285,7 +289,6 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
                 // Remover campos de slug do registro final (não existem no schema)
                 delete resolvedRecord.communication_platform_slug;
                 delete resolvedRecord.vtt_platform_slug;
-                delete resolvedRecord.system_slug;
                 delete resolvedRecord.scenario_slug;
 
                 const updateObjTables: Record<string, unknown> = { ...resolvedRecord };
@@ -476,7 +479,17 @@ router.post('/sync/enrich', authMiddleware, async (req: Request, res: Response) 
     });
 
     // T011: Retornar payload
-    return res.json({ success: true, dry_run: dryRun, data: { tables: logs } });
+    return res.json({
+      success: true,
+      dry_run: dryRun,
+      data: {
+        tables: logs,
+        system_projection: {
+          catalog_version: systemGuard.catalog_version,
+          references: systemGuard.references,
+        },
+      },
+    });
 
   } catch (error) {
     if (error instanceof Error && error.message === 'DRY_RUN_ROLLBACK') {

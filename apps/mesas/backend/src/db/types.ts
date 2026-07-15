@@ -155,6 +155,11 @@ export interface SystemsTable {
   path_slug: string | null;
   logo_filename: string | null;
   website_url: string | null;
+  catalog_source: Generated<'central' | 'beta'>;
+  catalog_status: Generated<'active' | 'archived' | 'merged'>;
+  merged_into_id: string | null;
+  central_version: number | null;
+  central_synced_at: Date | null;
   created_at: Generated<Date>;
 }
 

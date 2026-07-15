@@ -2,6 +2,7 @@ import { db } from '../db';
 import { CreateTableInput } from '../validators/tableValidators';
 import { Insertable, sql } from 'kysely';
 import { TablesTable } from '../db/types';
+import { getSystemCatalogProvider } from './systemCatalogProvider';
 
 const DDAL_ELIGIBLE_PATH = 'dungeons-dragons/5e/2024';
 
@@ -10,11 +11,7 @@ export class TableService {
      * Valida se o sistema é elegível para selo DDAL
      */
     static async isDdalEligibleSystem(systemId: string): Promise<boolean> {
-        const system = await db
-            .selectFrom('systems')
-            .select(['path_slug'])
-            .where('id', '=', systemId)
-            .executeTakeFirst();
+        const system = (await getSystemCatalogProvider().loadFlat()).find((node) => node.id === systemId);
 
         const path = system?.path_slug ?? null;
         if (!path) return false;

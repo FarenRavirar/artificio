@@ -539,7 +539,7 @@ describe('POST /admin/import/import-text', () => {
     vi.mocked(parseDiscordAnnouncement).mockReturnValue(mockDraft as unknown as ImportTableDraft);
     vi.mocked(normalizeDiscordTableDraft).mockReturnValue(mockNormalized as unknown as ReturnType<typeof normalizeDiscordTableDraft>);
 
-    // DB: loadSystemsForParser (2 calls) + dedup check (2 calls) + insert import_messages + insert draft + update import_messages
+    // DB: provider local (systems + aliases + contagem de mesas) + dedup (2 calls)
     let selectCall = 0;
     const systemsChain = mockChain({
       execute: vi.fn().mockResolvedValue([]),
@@ -601,8 +601,8 @@ describe('POST /admin/import/import-text', () => {
 
     mockDb.selectFrom.mockImplementation(() => {
       selectCall++;
-      if (selectCall <= 2) return systemsChain; // loadSystemsForParser
-      if (selectCall <= 4) return dedupNotFoundChain; // dedup: import_messages + discord_import_table_drafts
+      if (selectCall <= 3) return systemsChain; // systemCatalogProvider local
+      if (selectCall <= 5) return dedupNotFoundChain; // dedup: import_messages + discord_import_table_drafts
       return systemsChain;
     });
 
