@@ -6,7 +6,7 @@ import { db } from '../db';
 import { upgradeGoogleImageQuality } from '../utils/urlValidation';
 import { isImportedTableExpired } from '../utils/tableVisibility';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
-import { hydrateTableSystemFields } from '../services/catalogClient';
+import { hydrateTableSystemFields } from '../services/systemCatalogProvider';
 
 const router = Router();
 

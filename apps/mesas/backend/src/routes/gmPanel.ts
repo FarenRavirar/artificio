@@ -14,7 +14,7 @@ import {
 } from '../validators/tableValidators';
 import { TableService } from '../services/tableService';
 import { TableRepository } from '../repositories/tableRepository';
-import { hydrateTableSystemFields, systemExistsInCatalog } from '../services/catalogClient';
+import { hydrateTableSystemFields, systemExistsInCatalog } from '../services/systemCatalogProvider';
 import { BenchmarkService } from '../services/benchmarkService';
 import { logActivity } from '../services/activityLogger';
 import { notifyAdmins } from '../services/adminNotifications';

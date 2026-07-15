@@ -73,7 +73,7 @@ export function catalogAdminApi(requireAuth: RequestHandler, requireAdmin: Reque
   r.use(requireAuth, requireAdmin);
 
   r.get("/snapshot", async (_req, res) => {
-    res.json(await Catalog.getSnapshot());
+    res.json(await Catalog.getProjectionSnapshot());
   });
 
   r.post("/nodes", async (req, res) => {

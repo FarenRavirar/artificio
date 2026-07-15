@@ -184,6 +184,8 @@ Leitura e escrita integrais no serviço central, sem projeções locais. Mesas �
 
 ## I4 — Mesas como consumidor integral do catálogo central
 
+> **Superação parcial D114/Spec 078 (2026-07-15):** Mesas Prod permanece consumidor direto do Central Site Prod. Mesas Beta usa adapter local sobre projeção hidratada do Central. Consumidores restantes e unificação onboarding/draft pertencem à 078.
+
 **Decisão técnica (2026-07-10):** Mesas mantém os endpoints legados `/api/v1/systems*` como fachada de compatibilidade, mas leitura e escrita de catálogo passam pelo serviço central no `site`. Não há projeção local nova nem escrita concorrente em `systems`/`system_aliases` para CRUD de catálogo.
 
 Implementação local:

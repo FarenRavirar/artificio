@@ -1,53 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { authMiddleware, optionalAuth } from '../middleware/auth';
-import type { SystemNodeType } from '../db/types';
+import { flattenTree } from '../services/catalogClient';
+import { getSystemCatalogProvider } from '../services/systemCatalogProvider';
 
 const router = Router();
-
-interface SystemRecord {
-  id: string;
-  name: string;
-  slug: string;
-  parent_id: string | null;
-  node_type: SystemNodeType;
-  depth: number;
-  path_slug: string | null;
-}
-
-interface SystemTreeNode extends SystemRecord {
-  aliases: string[];
-  has_children: boolean;
-  children: SystemTreeNode[];
-}
-
-const buildTree = (nodes: SystemTreeNode[]): SystemTreeNode[] => {
-  const byId = new Map<string, SystemTreeNode>();
-  const roots: SystemTreeNode[] = [];
-
-  for (const node of nodes) {
-    byId.set(node.id, node);
-  }
-
-  for (const node of nodes) {
-    if (node.parent_id && byId.has(node.parent_id)) {
-      byId.get(node.parent_id)?.children.push(node);
-      continue;
-    }
-
-    roots.push(node);
-  }
-
-  const sortNodes = (list: SystemTreeNode[]) => {
-    list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-    for (const node of list) {
-      sortNodes(node.children);
-    }
-  };
-
-  sortNodes(roots);
-  return roots;
-};
 
 const sanitizeStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -121,45 +78,12 @@ router.get('/', optionalAuth, async (req: Request, res: Response) => {
 // GET /api/v1/me/options — Opções de taxonomia para onboarding
 router.get('/options', authMiddleware, async (_req: Request, res: Response) => {
   try {
-    const [systems, aliases, tags, platforms] = await Promise.all([
-      db
-        .selectFrom('systems')
-        .select(['id', 'name', 'slug', 'parent_id', 'node_type', 'depth', 'path_slug'])
-        .orderBy('depth', 'asc')
-        .orderBy('name', 'asc')
-        .execute() as Promise<SystemRecord[]>,
-      db
-        .selectFrom('system_aliases')
-        .select(['system_id', 'alias'])
-        .execute(),
+    const [systemsTree, tags, platforms] = await Promise.all([
+      getSystemCatalogProvider().loadTree(),
       db.selectFrom('tags').select(['id', 'name', 'slug']).orderBy('name', 'asc').execute(),
       db.selectFrom('platforms').select(['id', 'name', 'slug']).orderBy('name', 'asc').execute(),
     ]);
-
-    const aliasesBySystem = new Map<string, string[]>();
-    for (const row of aliases) {
-      const current = aliasesBySystem.get(row.system_id) ?? [];
-      aliasesBySystem.set(row.system_id, [...current, row.alias]);
-    }
-
-    const parentIds = new Set<string>();
-    for (const system of systems) {
-      if (system.parent_id) parentIds.add(system.parent_id);
-    }
-
-    const systemsFlat: SystemTreeNode[] = systems.map((system) => ({
-      ...system,
-      aliases: aliasesBySystem.get(system.id) ?? [],
-      has_children: parentIds.has(system.id),
-      children: [],
-    }));
-
-    const systemsTree = buildTree(
-      systemsFlat.map((node) => ({
-        ...node,
-        children: [],
-      }))
-    );
+    const systemsFlat = flattenTree(systemsTree);
 
     return res.json({
       data: {
@@ -208,13 +132,8 @@ router.put('/preferences', authMiddleware, async (req: Request, res: Response) =
   const safeWeekdays = sanitizeNumberArray(weekdays);
 
   try {
-    const validSystems = await db
-      .selectFrom('systems')
-      .select('id')
-      .where('id', 'in', safeSystemsInput)
-      .execute();
-
-    const safeSystems = Array.from(new Set(validSystems.map((row) => row.id)));
+    const validIds = new Set((await getSystemCatalogProvider().loadFlat()).map((node) => node.id));
+    const safeSystems = Array.from(new Set(safeSystemsInput.filter((id) => validIds.has(id))));
 
     if (safeSystems.length === 0) {
       return res.status(400).json({ error: 'Nenhum sistema válido foi selecionado.' });

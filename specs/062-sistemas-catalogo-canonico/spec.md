@@ -367,6 +367,8 @@ Todos os consumidores puxam os dados desse serviço. Não haverá catálogo hosp
 
 ### API central, sem projeções locais
 
+> **Superação parcial D114/Spec 078 (2026-07-15):** regra continua para Prod e demais consumidores, mas Mesas Beta mantém projeção local persistente de sistemas de RPG, hidratada do Central Site Prod por upsert aditivo com UUID preservado e zero delete de extras Beta. Exceção decidida após implementação parcial revelar consumidores locais e hidratação incompatíveis.
+
 Decisão: todos leem e registram integralmente no serviço central. Não haverá cópia/projeção local do catálogo nos bancos consumidores.
 
 Modelo:

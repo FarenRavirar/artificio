@@ -4,16 +4,11 @@ import type { SystemNodeType } from '../db/types';
 import { SYSTEM_PARENT_TYPE, validateSystemParentType } from '../services/systemHierarchy';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import {
-  archiveCatalogNode,
-  checkCatalogHealth,
-  createCatalogNode,
   filterCatalogTree,
   flattenTree,
   invalidateCatalogCache,
-  loadCatalogFlat,
-  loadCatalogTree,
-  updateCatalogNode,
 } from '../services/catalogClient';
+import { getSystemCatalogProvider } from '../services/systemCatalogProvider';
 
 export { slugifyCatalogSegment as slugify } from '../services/catalogClient';
 
@@ -21,7 +16,7 @@ const router = Router();
 
 router.get('/health', async (_req: Request, res: Response) => {
   try {
-    const catalog = await checkCatalogHealth();
+    const catalog = await getSystemCatalogProvider().checkHealth();
     return res.json({ status: 'ok', catalog });
   } catch (error) {
     console.error('[GET /systems/health] central catalog failed', error);
@@ -41,7 +36,7 @@ router.get('/', async (req: Request, res: Response) => {
 
   try {
     if (view === 'tree') {
-      const tree = await loadCatalogTree();
+      const tree = await getSystemCatalogProvider().loadTree();
       const filteredTree = search.trim().length > 0 ? filterCatalogTree(tree, search) : tree;
       return res.json({
         data: filteredTree,
@@ -49,9 +44,9 @@ router.get('/', async (req: Request, res: Response) => {
       });
     }
 
-    const flat = await loadCatalogFlat();
+    const flat = await getSystemCatalogProvider().loadFlat();
     const filtered = search.trim().length > 0
-      ? flattenTree(filterCatalogTree(await loadCatalogTree(), search))
+      ? flattenTree(filterCatalogTree(await getSystemCatalogProvider().loadTree(), search))
       : flat;
 
     const shouldPaginate = limit !== undefined && limit > 0;
@@ -83,7 +78,7 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req: Request,
 
   try {
     await assertValidParent(node_type, parent_id);
-    const created = await createCatalogNode({
+    const created = await getSystemCatalogProvider().createNode({
       name,
       name_pt,
       description,
@@ -109,11 +104,11 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req: Reque
   if (validationError) return res.status(validationError.status).json({ error: validationError.message });
 
   try {
-    const exists = (await loadCatalogFlat()).some((node) => node.id === id);
+    const exists = await getSystemCatalogProvider().exists(id);
     if (!exists) return res.status(404).json({ error: 'Sistema não encontrado.' });
 
     await assertValidParent(node_type, parent_id);
-    const updated = await updateCatalogNode(id, {
+    const updated = await getSystemCatalogProvider().updateNode(id, {
       name,
       name_pt,
       description,
@@ -134,7 +129,7 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req: Re
   const { id } = req.params;
 
   try {
-    const existing = (await loadCatalogFlat()).find((node) => node.id === id);
+    const existing = (await getSystemCatalogProvider().loadFlat()).find((node) => node.id === id);
     if (!existing) return res.status(404).json({ error: 'Sistema não encontrado.' });
 
     const tablesBlocked = await countLocalTables(id);
@@ -150,8 +145,8 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req: Re
       return res.status(409).json({ error: `Não é possível arquivar este sistema. Bloqueado por ${details}.`, blocked_by: blockedBy });
     }
 
-    await archiveCatalogNode(id);
-    return res.json({ data: { message: 'Sistema arquivado no catálogo central.' } });
+    await getSystemCatalogProvider().archiveNode(id);
+    return res.json({ data: { message: 'Sistema arquivado.' } });
   } catch (error) {
     invalidateCatalogCache();
     return handleCatalogWriteError(error, res, '[DELETE /admin/systems/:id]');
@@ -202,7 +197,7 @@ function validateSystemInput(name: unknown, nodeType: unknown, parentId: unknown
 async function assertValidParent(nodeType: SystemNodeType, parentId: string | null | undefined): Promise<void> {
   const expectedParentType = SYSTEM_PARENT_TYPE[nodeType];
   if (!parentId) return;
-  const parent = (await loadCatalogFlat()).find((node) => node.id === parentId);
+  const parent = (await getSystemCatalogProvider().loadFlat()).find((node) => node.id === parentId);
   if (!parent) throw new Error('parent_not_found');
   if (validateSystemParentType(nodeType, parent.node_type) !== null) {
     throw new Error(`${nodeType} só pode ser filho de: ${expectedParentType}.`);

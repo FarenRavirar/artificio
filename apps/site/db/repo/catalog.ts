@@ -37,6 +37,38 @@ export interface CatalogTreeNode extends CatalogNodeRow {
   children: CatalogTreeNode[];
 }
 
+export interface CatalogInactiveNode {
+  id: string;
+  status: Exclude<CatalogNodeStatus, "active">;
+  merged_into_id: string | null;
+  version: number;
+}
+
+export interface CatalogRedirect {
+  source_id: string;
+  target_id: string;
+  reason: string | null;
+}
+
+export interface CatalogSnapshot {
+  catalog_version: number;
+  generated_at: string;
+  checksum: string;
+  nodes_count: number;
+  tree: CatalogTreeNode[];
+  inactive_nodes: CatalogInactiveNode[];
+  redirects: CatalogRedirect[];
+}
+
+export interface CatalogLegacyMapping {
+  legacy_id: string;
+  canonical_id: string;
+}
+
+export interface CatalogProjectionSnapshot extends CatalogSnapshot {
+  legacy_mappings: CatalogLegacyMapping[];
+}
+
 export interface CatalogNodeWrite {
   parent_id?: string | null;
   node_type: CatalogNodeType;
@@ -117,17 +149,26 @@ export async function listActiveNodes(): Promise<CatalogNodeRow[]> {
   return attachAliases(nodes, await listAliases(nodes.map((node) => node.id)));
 }
 
-export async function getSnapshot(): Promise<{ catalog_version: number; generated_at: string; checksum: string; nodes_count: number; tree: CatalogTreeNode[] }> {
+export async function getSnapshot(legacyMappings: CatalogLegacyMapping[] = []): Promise<CatalogSnapshot> {
   const catalog_version = await getCatalogVersion();
   const nodes = await listActiveNodes();
-  const checksum = await buildChecksum(catalog_version, nodes);
+  const [inactive_nodes, redirects] = await Promise.all([listInactiveNodes(), listRedirects()]);
+  const checksum = await buildChecksum(catalog_version, nodes, inactive_nodes, redirects, legacyMappings);
   return {
     catalog_version,
     generated_at: new Date().toISOString(),
     checksum,
     nodes_count: nodes.length,
     tree: buildTree(nodes),
+    inactive_nodes,
+    redirects,
   };
+}
+
+export async function getProjectionSnapshot(): Promise<CatalogProjectionSnapshot> {
+  const legacy_mappings = await listMesasLegacyMappings();
+  const snapshot = await getSnapshot(legacy_mappings);
+  return { ...snapshot, legacy_mappings };
 }
 
 export async function resolveNode(idOrPath: string): Promise<CatalogNodeRow | { redirect: true; source_id: string; target_id: string } | null> {
@@ -322,6 +363,36 @@ async function listAliases(nodeIds: string[]): Promise<CatalogAlias[]> {
   )).rows;
 }
 
+async function listInactiveNodes(): Promise<CatalogInactiveNode[]> {
+  const db = await getDb();
+  return (await db.query<CatalogInactiveNode>(
+    `SELECT id, status, merged_into_id, version::int AS version
+       FROM catalog_nodes
+      WHERE status <> 'active'
+      ORDER BY id ASC`,
+  )).rows;
+}
+
+async function listRedirects(): Promise<CatalogRedirect[]> {
+  const db = await getDb();
+  return (await db.query<CatalogRedirect>(
+    `SELECT source_id, target_id, reason
+       FROM catalog_redirects
+      ORDER BY source_id ASC`,
+  )).rows;
+}
+
+async function listMesasLegacyMappings(): Promise<CatalogLegacyMapping[]> {
+  const db = await getDb();
+  return (await db.query<CatalogLegacyMapping>(
+    `SELECT legacy_id, canonical_id
+       FROM catalog_legacy_mappings
+      WHERE source_app = 'mesas' AND source_environment = 'prod'
+        AND source_table = 'systems'
+      ORDER BY legacy_id ASC`,
+  )).rows;
+}
+
 async function attachAliases<T extends Omit<CatalogNodeRow, "aliases">>(nodes: T[], aliases: CatalogAlias[]): Promise<CatalogNodeRow[]> {
   const byNode = new Map<string, CatalogAlias[]>();
   for (const alias of aliases) {
@@ -341,10 +412,24 @@ function buildTree(nodes: CatalogNodeRow[]): CatalogTreeNode[] {
   return roots;
 }
 
-async function buildChecksum(version: number, nodes: CatalogNodeRow[]): Promise<string> {
+async function buildChecksum(
+  version: number,
+  nodes: CatalogNodeRow[],
+  inactiveNodes: CatalogInactiveNode[],
+  redirects: CatalogRedirect[],
+  legacyMappings: CatalogLegacyMapping[],
+): Promise<string> {
   const { createHash } = await import("node:crypto");
   return createHash("sha256")
-    .update(JSON.stringify({ version, nodes: nodes.map(({ id, path_slug, version: nodeVersion }) => [id, path_slug, nodeVersion]) }))
+    .update(JSON.stringify({
+      version,
+      nodes: nodes.map(({ id, path_slug, version: nodeVersion }) => [id, path_slug, nodeVersion]),
+      inactiveNodes,
+      redirects,
+      legacyMappings: [...legacyMappings]
+        .sort((left, right) => left.legacy_id.localeCompare(right.legacy_id))
+        .map(({ legacy_id, canonical_id }) => [legacy_id, canonical_id]),
+    }))
     .digest("hex");
 }
 

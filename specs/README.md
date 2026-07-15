@@ -62,6 +62,7 @@ Toda spec SDD deve:
 | 059 | mesas copiar anuncio WhatsApp + OG | **Fases 0-7 concluidas localmente (2026-07-08).** Formatter WhatsApp, botoes (pagina publica/painel/gestao) e OG de `/mesas/:slug` implementados. `age_rating` exposto no detalhe publico. Decisoes de faixa etaria, comissionada e gestao fechadas. Pendente: smoke beta (T6.3 curl OG, T7.5 copiar em beta) e deploy. SDD Completo. |
 | 061 | downloads definição do produto | **Investigação aberta (2026-07-08), zero código.** Catálogo comunitário de materiais gratuitos; SSO para submissão; arquivos ficam em links externos; capas podem usar Cloudinary shared. Define produto, políticas, taxonomia, UX, arquitetura, segurança, infra e specs filhas ordenadas. |
 | 062 | catálogo canônico de sistemas/edições | **Etapa I investigação concluída e aprovada (2026-07-08); Etapa II código pendente.** Serviço independente no `artificiorpg.com`, leitura/escrita central sem projeções, Mesas como fonte principal, Glossário mapeado manualmente, merge obrigatório sem delete/archive. |
+| 078 | sistemas centrais + projeção Mesas Beta | **Planejada (2026-07-15).** D114 supera “sem projeções” só para Mesas Beta: Central=Site Prod; Beta local hidratado por upsert aditivo; sync Mesas exclui sistemas; adapter único; onboarding e draft JSON unificados. |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.

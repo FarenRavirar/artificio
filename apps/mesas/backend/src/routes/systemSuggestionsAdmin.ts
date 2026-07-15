@@ -19,13 +19,15 @@ import { normalizeDraftPayload } from '../discord';
 // Postgres local so cobre system_suggestions/notifications/activity_log e
 // o relink de drafts Discord, nunca mais systems/system_aliases.
 import {
-  createCatalogNode,
-  loadCatalogFlat,
-  updateCatalogNode,
   invalidateCatalogCache,
   type CatalogNodeInput,
   type MesasSystemNode,
 } from '../services/catalogClient';
+import { getSystemCatalogProvider } from '../services/systemCatalogProvider';
+
+const loadCatalogFlat = () => getSystemCatalogProvider().loadFlat();
+const createCatalogNode = (input: CatalogNodeInput) => getSystemCatalogProvider().createNode(input);
+const updateCatalogNode = (id: string, input: CatalogNodeInput) => getSystemCatalogProvider().updateNode(id, input);
 
 const router = Router();
 

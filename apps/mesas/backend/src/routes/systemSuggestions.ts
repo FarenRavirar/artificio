@@ -7,7 +7,7 @@ import { logActivity } from '../services/activityLogger';
 import { notifyAdmins } from '../services/adminNotifications';
 import { resolveActorName } from '../services/actorNameResolver';
 import { listMineHandler } from './suggestionHelpers';
-import { loadCatalogFlat } from '../services/catalogClient';
+import { loadSystemCatalogFlat } from '../services/systemCatalogProvider';
 import { validateSystemSuggestionHierarchy } from '../services/systemHierarchy';
 
 const router = Router();
@@ -60,7 +60,7 @@ const normalizeSuggestionPayload = (payload: SuggestionPayload, index: number) =
 };
 
 async function validateSuggestionHierarchy(items: ReturnType<typeof normalizeSuggestionPayload>[]): Promise<string | null> {
-  const catalog = await loadCatalogFlat();
+  const catalog = await loadSystemCatalogFlat();
   const byId = new Map(catalog.map((node) => [node.id, node.node_type]));
   return validateSystemSuggestionHierarchy(items, byId);
 }

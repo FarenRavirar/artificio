@@ -7,10 +7,10 @@
     "downloads": 50,
     "glossario": 47,
     "links": 22,
-    "mesas": 184,
+    "mesas": 185,
     "site": 46
   },
-  "total": 360,
+  "total": 361,
   "operations": [
     {
       "app": "accounts",
@@ -2572,6 +2572,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_v1_admin_system_suggestions_id_resolve"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/systems/projection-sync",
+      "summary": "Cria ou executa api v1 admin systems projection-sync",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_systems_projection_sync"
     },
     {
       "app": "mesas",

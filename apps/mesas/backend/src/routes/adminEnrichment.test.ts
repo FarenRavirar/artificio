@@ -41,6 +41,10 @@ vi.mock('../db', () => ({
   },
 }));
 
+vi.mock('../services/mesasHydrationSystemGuard', () => ({
+  assertMesasHydrationSystemReady: vi.fn().mockResolvedValue({ catalog_version: 1, references: 0 }),
+}));
+
 const app = express();
 app.use('/api/v1/admin', adminEnrichmentRoutes);
 

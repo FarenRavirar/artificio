@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, ChevronLeft, ChevronRight, Compass, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/useAuth';
 import { SystemPicker } from '../components/SystemPicker';
+import { SystemSuggestionModal } from '../components/SystemSuggestionModal';
 import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
+import type { SystemTreeNode } from '../types/systems';
 import { applySeo } from '../utils/seo';
 import { authGet, authPut } from '../services/apiClient';
 
@@ -71,6 +73,10 @@ export const OnboardingPage = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSystemModal, setShowSystemModal] = useState(false);
+  const [systemModalName, setSystemModalName] = useState('');
+  const [systemModalType, setSystemModalType] = useState<'system' | 'edition' | 'variant'>('system');
+  const [systemModalParentId, setSystemModalParentId] = useState('');
 
   const [options, setOptions] = useState<{ tags: OptionItem[]; platforms: OptionItem[] }>({
     tags: [],
@@ -168,6 +174,21 @@ export const OnboardingPage = () => {
   const goBack = () => {
     if (step === 3) setStep(2);
     if (step === 2) setStep(1);
+  };
+
+  const openSystemModal = (query = '') => {
+    setSystemModalName(query);
+    setSystemModalType('system');
+    setSystemModalParentId('');
+    setShowSystemModal(true);
+  };
+
+  const openSystemModalAtLevel = (depth: number, parent: SystemTreeNode | null) => {
+    const types = ['system', 'edition', 'variant'] as const;
+    setSystemModalName('');
+    setSystemModalType(types[Math.min(depth, 2)]);
+    setSystemModalParentId(parent?.id ?? '');
+    setShowSystemModal(true);
   };
 
   const submitOnboarding = async () => {
@@ -289,7 +310,11 @@ export const OnboardingPage = () => {
                     onSelectionChange={(selectedIds) => setForm((prev) => ({ ...prev, systems: selectedIds }))}
                     idPrefix="onboarding-systems"
                     mode="multi"
+                    role={user?.role === 'admin' ? 'admin' : 'user'}
                     searchPlaceholder="Buscar sistema, edição ou variante..."
+                    onSuggest={openSystemModal}
+                    onCreateNow={user?.role === 'admin' ? openSystemModal : undefined}
+                    onAddChildAtLevel={openSystemModalAtLevel}
                   />
                 )}
               </div>
@@ -451,6 +476,19 @@ export const OnboardingPage = () => {
           </footer>
         </section>
       </div>
+      {showSystemModal && <SystemSuggestionModal
+        isOpen={showSystemModal}
+        onClose={() => setShowSystemModal(false)}
+        initialName={systemModalName}
+        initialSuggestionType={systemModalType}
+        initialParentId={systemModalParentId}
+        onSuccess={(created) => {
+          void retrySystemsTree();
+          if (created?.id) {
+            setForm((prev) => ({ ...prev, systems: Array.from(new Set([...prev.systems, created.id])) }));
+          }
+        }}
+      />}
     </main>
   );
 };
