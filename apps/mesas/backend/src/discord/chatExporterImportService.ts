@@ -2,6 +2,7 @@ import { sql } from 'kysely';
 import { db } from '../db';
 import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from './chatExporterAdapter';
 import { getContentHash } from './shared';
+import { sanitizeJsonValue } from './parseDiscordAnnouncement';
 import type { ImportResult } from './chatExporterAdapter';
 import type { DiscordChatExporterExport } from './discordChatExporterTypes';
 
@@ -141,10 +142,10 @@ export async function importDiscordChatExporterJson(raw: unknown): Promise<Impor
           ${sourceId}::uuid, ${msg.id}, ${channelId}, ${guildId},
           ${adapted.discord_parent_channel_id ?? null}, ${adapted.discord_thread_id ?? null}, ${adapted.discord_thread_name ?? null},
           ${adapted.discord_author_id ?? null}, ${adapted.discord_author_name ?? null}, ${adapted.discord_message_url ?? ''},
-          ${adapted.content_raw}, ${JSON.stringify(adapted.attachments ?? [])}::jsonb, ${JSON.stringify(adapted.embeds ?? [])}::jsonb,
+          ${adapted.content_raw}, ${JSON.stringify(sanitizeJsonValue(adapted.attachments) ?? [])}::jsonb, ${JSON.stringify(sanitizeJsonValue(adapted.embeds) ?? [])}::jsonb,
           ${adapted.message_created_at}::timestamptz, ${adapted.message_edited_at}::timestamptz,
           ${contentHash}, 'discord_chat_exporter_json', 'pending',
-          ${adapted.reference ? JSON.stringify(adapted.reference) : null}::jsonb
+          ${adapted.reference ? JSON.stringify(sanitizeJsonValue(adapted.reference)) : null}::jsonb
         )
         ON CONFLICT (discord_channel_id, discord_message_id) DO UPDATE SET
           content_raw = EXCLUDED.content_raw,

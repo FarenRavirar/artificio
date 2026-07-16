@@ -1,5 +1,6 @@
 import { discordChatExporterExportSchema } from './discordChatExporterTypes';
 import { getContentHash } from './shared';
+import { stripNullBytes } from './parseDiscordAnnouncement';
 import type { DiscordChatExporterExport, DiscordChatExporterMessage } from './discordChatExporterTypes';
 import type { ImportRawMessage } from './types';
 
@@ -54,7 +55,10 @@ export function adaptMessageToImportRaw(
     discord_author_id: author.id ?? null,
     discord_author_name: authorName ?? null,
     discord_message_url: messageUrl,
-    content_raw: msg.content ?? '',
+    // Achado 2026-07-16: mesma sanitização de ingestMessages.ts — 0x00 no
+    // conteúdo exportado quebra o INSERT em discord_import_messages antes de
+    // qualquer parse.
+    content_raw: stripNullBytes(msg.content ?? ''),
     attachments: msg.attachments ?? [],
     embeds: msg.embeds ?? [],
     // reference vem normalizado pelo Zod. channelId/guildId podem ser null

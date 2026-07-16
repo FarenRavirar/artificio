@@ -1724,6 +1724,40 @@ function buildFallbackDescription(body: string): string | null {
 // normal, que a versão de título não precisa preservar.
 const LINE_PREFIX_MARKDOWN_RE = /^[^\S\n]{0,3}(?:#{1,6}|>)[^\S\n]*/gm;
 
+// Achado 2026-07-15: caractere nulo (0x00) em texto colado do Discord
+// sobrevive em string JS mas quebra serialização JSONB no Postgres
+// ("invalid input syntax for type json") em qualquer insert/update
+// subsequente do draft. Remove na entrada do parser, antes de extrair
+// qualquer campo (title/description/hints).
+// eslint-disable-next-line no-control-regex -- remoção intencional do byte nulo
+const NULL_BYTE_RE = /\x00/g;
+
+export function stripNullBytes(text: string): string {
+  return text.replace(NULL_BYTE_RE, '');
+}
+
+// Achado Codex (PR #168): stripNullBytes só cobre string_raw — embeds/
+// attachments do Discord (objetos/arrays aninhados) também podem carregar
+// 0x00 em campos de texto (description, field.value, filename) e quebram o
+// mesmo jsonb::INSERT. Sanitiza recursivamente qualquer valor antes de virar
+// JSON persistido.
+export function sanitizeJsonValue<T>(value: T): T {
+  if (typeof value === 'string') {
+    return stripNullBytes(value) as unknown as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeJsonValue(item)) as unknown as T;
+  }
+  if (value && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      result[key] = sanitizeJsonValue(val);
+    }
+    return result as T;
+  }
+  return value;
+}
+
 export function cleanDescriptionText(text: string): string {
   return text
     .replace(RAW_DISCORD_TOKEN_RE, '')
@@ -1908,8 +1942,8 @@ export type HomebrewClass = 'discard' | 'review' | 'none';
  * de sistema não-fixo (ex. "Jogo do dia:") nunca acha o hint aqui, e um
  * sistema autoral/próprio anunciado sob esse rótulo escapa do descarte. */
 function getAnnouncementSystemHint(message: ImportRawMessage, labelAliasesSystem?: string[]): string | null {
-  const threadName = message.discord_thread_name ?? '';
-  const rawBody = message.content_raw ?? '';
+  const threadName = stripNullBytes(message.discord_thread_name ?? '');
+  const rawBody = stripNullBytes(message.content_raw ?? '');
   const body = stripSeparatorLines(rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []));
   if (!body.trim()) return null;
   const explicitSystem = normalizeTitle(extractLabelValue(body, [
@@ -1956,8 +1990,14 @@ export function parseDiscordAnnouncement(
   platforms?: { vtt?: MatchEntry[]; communication?: MatchEntry[]; scenarios?: MatchEntry[] },
   labelAliases?: Record<string, string[]>,
 ): ImportTableDraft | null {
-  const threadName = message.discord_thread_name ?? '';
-  const rawBody = message.content_raw ?? '';
+  // Achado 2026-07-15: mensagem do Discord com caractere nulo (byte 0x00,
+  // provável de colagem/emoji corrompido) sobrevivia até virar description/
+  // title no draft e quebrava toda serialização JSONB subsequente (correction,
+  // learning feedback) com "invalid input syntax for type json" — Postgres
+  // aceita 0x00 dentro de string JSON escapada, mas rejeita ao extrair/
+  // re-inserir como texto. Sanitiza na entrada, antes de qualquer extração.
+  const threadName = stripNullBytes(message.discord_thread_name ?? '');
+  const rawBody = stripNullBytes(message.content_raw ?? '');
   // Fóruns Discord frequentemente colocam o conteúdo em embeds em vez do campo content
   // DEB-058-XX: linhas separadoras de seção (▬▬▬, ━━━, ═══) removidas ANTES de
   // qualquer extração de campo — nunca contaminam título/sistema/descrição/vagas.

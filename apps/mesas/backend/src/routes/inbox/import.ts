@@ -5,6 +5,7 @@ import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPay
 import { requireAdmin } from '../../middleware/auth';
 import { textToRawMessage } from '../../inbox/adapters/textToRawMessage';
 import { segmentAnnouncements } from '../../inbox/segmentation';
+import { stripNullBytes } from '../../discord/parseDiscordAnnouncement';
 import { loadSystemsForParser } from '../../discord/shared';
 import { parseActionFromNormalizedStatus, recordParseCase } from '../../discord/parseLearning';
 import { toNumberOrNull, importTextSchema } from './utils';
@@ -76,7 +77,12 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
       missing_fields: string[];
     }> = [];
 
-    for (const segment of segments) {
+    for (const rawSegment of segments) {
+      // Achado Codex (PR #168): createImportMessage gravava o segmento cru —
+      // 0x00 vindo da colagem manual quebrava o INSERT em import_messages
+      // antes mesmo de textToRawMessage (que só sanitiza pro parse, não pro
+      // persist) entrar em ação. Sanitiza uma vez, usa em hash/insert/parse.
+      const segment = stripNullBytes(rawSegment);
       const contentHash = crypto.createHash('sha256').update(segment).digest('hex');
 
       const existingMessage = await db

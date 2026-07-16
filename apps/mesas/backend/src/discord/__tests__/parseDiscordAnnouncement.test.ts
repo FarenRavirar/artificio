@@ -1,4 +1,4 @@
-import { parseDiscordAnnouncement, classifyConfidence, isSuspiciousUrl, isHomebrewSystem, classifyHomebrew, cleanDescriptionText } from '../parseDiscordAnnouncement';
+import { parseDiscordAnnouncement, classifyConfidence, isSuspiciousUrl, isHomebrewSystem, classifyHomebrew, cleanDescriptionText, stripNullBytes } from '../parseDiscordAnnouncement';
 import { normalizeDiscordTableDraft } from '../normalizeDiscordTableDraft';
 import type { ImportRawMessage } from '../types';
 import { chatExporterSampleMessages } from './fixtures/chatExporterSample';
@@ -2270,5 +2270,27 @@ describe('isSuspiciousUrl', () => {
       );
       expect(draft?.table.raw_system_hint).toBe('D&D');
     });
+  });
+});
+
+describe('stripNullBytes (achado 2026-07-15: JSONB do Postgres rejeita 0x00)', () => {
+  it('remove caractere nulo preservando o resto do texto', () => {
+    const input = `Mesa${String.fromCharCode(0)} de teste`;
+    expect(stripNullBytes(input)).toBe('Mesa de teste');
+  });
+
+  it('não afeta texto sem caractere nulo', () => {
+    expect(stripNullBytes('Mesa de teste normal')).toBe('Mesa de teste normal');
+  });
+
+  it('parseDiscordAnnouncement sanitiza 0x00 no content_raw antes de extrair campos', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: `Mesa Dragonlance${String.fromCharCode(0)}\nSistema: D&D\nVagas: 3`,
+      }),
+    );
+    expect(draft?.table.description ?? '').not.toContain(String.fromCharCode(0));
+    expect(draft?.table.raw_system_hint ?? '').not.toContain(String.fromCharCode(0));
+    expect(JSON.stringify(draft)).not.toContain('\\u0000');
   });
 });
