@@ -104,6 +104,10 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   // então não precisa mais filtrar visualmente aqui.
   const visibleDrafts = drafts;
   const [selectedDraft, setSelectedDraft] = useState<DiscordDraft | null>(null);
+  // Achado do mantenedor (2026-07-16): badge de duplicata clicável precisa
+  // abrir o preview já na aba certa — guarda a intenção separada do draft
+  // selecionado pra não forçar toda abertura de preview a passar tab.
+  const [previewInitialTab, setPreviewInitialTab] = useState<'editor' | 'duplicates'>('editor');
   const [syncingAll, setSyncingAll] = useState(false);
   // Multi-seleção p/ ação em lote (rejeitar).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -415,7 +419,11 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
             return (
               <div
                 key={draft.id}
-                className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex items-center gap-3 hover:bg-white/[0.08] transition-colors"
+                // Achado do mantenedor (2026-07-16): sem flex-wrap, badge extra
+                // (ex.: "possível duplicata") empurrava os botões Revisar/Rejeitar
+                // pra fora da linha em telas estreitas — pareciam ter sumido,
+                // mas eram cortados pelo overflow do flex row sem quebra.
+                className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex flex-wrap items-center gap-3 hover:bg-white/[0.08] transition-colors"
               >
                 {draft.status !== 'synced' && draft.status !== 'rejected' && (
                   <input
@@ -427,11 +435,23 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                     className="h-4 w-4 shrink-0 accent-blue-600"
                   />
                 )}
-                <button
-                  type="button"
-                  className="flex flex-1 min-w-0 items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+                {/* Achado do mantenedor (2026-07-16): era <button>, mas o badge
+                    de duplicata clicável dentro dele virou <button> aninhado —
+                    HTML inválido (nesting interativo). div+role="button" com
+                    handler de teclado mantém acessibilidade sem aninhar. */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
                   aria-label={`Abrir preview do rascunho ${title}`}
-                  onClick={() => setSelectedDraft(draft)}
+                  onClick={() => { setPreviewInitialTab('editor'); setSelectedDraft(draft); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setPreviewInitialTab('editor');
+                      setSelectedDraft(draft);
+                    }
+                  }}
                 >
                 <span className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-white/10 bg-white/5">
                   {coverUrl ? (
@@ -466,9 +486,18 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                       </span>
                     )}
                     {(duplicateCounts.get(draft.id) ?? 0) > 0 && (
-                      <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-200" title="Este rascunho bate com mesa ativa existente">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewInitialTab('duplicates');
+                          setSelectedDraft(draft);
+                        }}
+                        className="rounded-full bg-red-500/20 hover:bg-red-500/30 px-2 py-0.5 text-xs text-red-200 transition-colors"
+                        title="Este rascunho bate com mesa ativa existente — clique para ver o candidato"
+                      >
                         possível duplicata ({duplicateCounts.get(draft.id)})
-                      </span>
+                      </button>
                     )}
                   </span>
                   <span className="block text-white font-medium text-sm truncate">{title}</span>
@@ -477,12 +506,12 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                     {coverQuality === 'low' && <span className="text-amber-300 text-xs">capa baixa</span>}
                   </span>
                 </span>
-                </button>
+                </div>
                 {draft.status !== 'synced' && draft.status !== 'rejected' && (
                   <span className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setSelectedDraft(draft)}
+                      onClick={() => { setPreviewInitialTab('editor'); setSelectedDraft(draft); }}
                       className="px-2 py-1 bg-white/10 hover:bg-white/20 text-white text-xs rounded-md transition-colors"
                     >
                       Revisar
@@ -514,6 +543,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
           onClose={() => setSelectedDraft(null)}
           api={resolveApi(selectedDraft)}
           onBeforeSync={onBeforeSync}
+          initialTab={previewInitialTab}
         />
       )}
     </div>

@@ -992,7 +992,13 @@ export async function processDiscordMessageToDraft(
     return discardParsedMessage(message, existing, parsed);
   }
 
-  if (requireExplicitContact && !parsed.table.contact_url && !(parsed.table.contact_discord && parsed.table.contact_discord_explicit)) {
+  // Achado do mantenedor (2026-07-16): contact_discord_explicit (menção <@id>
+  // numa linha "contato") NÃO é contato usável de verdade — o ID cru do
+  // Discord não é clicável nem pesquisável fora do servidor, só serve de
+  // referência interna (host_discord_id). "Contato explícito" pro filtro de
+  // qualidade exige link (contact_url) — sem isso o interessado não tem como
+  // agir a partir do anúncio.
+  if (requireExplicitContact && !parsed.table.contact_url) {
     return discardParsedMessage(message, existing, parsed);
   }
 

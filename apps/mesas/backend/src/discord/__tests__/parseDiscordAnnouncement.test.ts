@@ -746,6 +746,93 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.slots_total).toBe(5);
   });
 
+  it('reconhece typo de plataforma via fuzzy matching (ex.: "owbear" → Owlbear Rodeo, achado do mantenedor 2026-07-16, caso real "Duskwood")', () => {
+    const vttPlatforms = [{ id: 'owlbear', name: 'Owlbear Rodeo', aliases: ['Owlbear'] }];
+    const communicationPlatforms = [{ id: 'discord-plat', name: 'Discord', aliases: [] }];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: 'Plataformas: Discord, owbear\nVagas: 4\nSistema: D&D 5e',
+      }),
+      undefined,
+      undefined,
+      { vtt: vttPlatforms, communication: communicationPlatforms },
+    );
+    expect(draft?.table.vtt_platform_id).toBe('owlbear');
+  });
+
+  it('não aplica fuzzy matching quando a similaridade é baixa demais (evita falso positivo)', () => {
+    const vttPlatforms = [{ id: 'owlbear', name: 'Owlbear Rodeo', aliases: ['Owlbear'] }];
+    const communicationPlatforms = [{ id: 'discord-plat', name: 'Discord', aliases: [] }];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: 'Plataformas: Zoom\nVagas: 4\nSistema: D&D 5e',
+      }),
+      undefined,
+      undefined,
+      { vtt: vttPlatforms, communication: communicationPlatforms },
+    );
+    expect(draft?.table.vtt_platform_id).toBeNull();
+  });
+
+  it('extrai setting_name do label "Época" (sinônimo de ambientação, achado do mantenedor 2026-07-16, caso real "Duskwood")', () => {
+    const draft = parseDiscordAnnouncement(makeMessage({
+      content_raw: 'Época: atual\nVagas: 4\nSistema: D&D 5e',
+    }));
+    expect(draft?.table.setting_name).toBe('atual');
+  });
+
+  it('caso real completo "somewhere in Duskwood" (achado do mantenedor 2026-07-16, texto exato exportado do Discord, D:/teste [part 2].json) — fuzzy de plataforma, Época e menção sem link não contam como contato explícito', () => {
+    const vttPlatforms = [{ id: 'owlbear', name: 'Owlbear Rodeo', aliases: ['Owlbear'] }];
+    const communicationPlatforms = [{ id: 'discord-plat', name: 'Discord', aliases: [] }];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: 'somewhere in Duskwood',
+        content_raw: [
+          '# » Título:somewhere in Duskwood',
+          ' ',
+          '▬▬▬▬▬▬▬▬▬▬▬▬▬▬',
+          '» Sistema: +2D6 ',
+          '',
+          '» Dias e horários da mesa: Quarta - feira ',
+          '20:00 - 22:00/23:00',
+          '',
+          '» Vagas disponíveis: 0/4',
+          '',
+          '» Classificação Indicativa: +16 ',
+          '',
+          '» Plataformas: Discord, owbear ',
+          '',
+          '» Regras & observações: ',
+          '',
+          'Respeito com todos, Sem metagame, sem avacalhar com o jogo dos outros jogadores, Deixar um ambiente confortável para todos, qualquer incômodo falar diretamente com o mestre para que possamos resolver o assunto.',
+          '',
+          '» Época: atual ',
+          '',
+          '» Estilo: Investigação, sobrevivência, suspense, terror ',
+          '',
+          '',
+          '» Entrar em contato com: <@994729259153248256> ',
+          '▬▬▬▬▬▬▬▬▬▬▬▬',
+          '» Resumo da história:',
+          'Um grupo de amigos Consegue finalmente um tempo de férias, para esquecer os problemas de trabalho, família etc.',
+        ].join('\n'),
+      }),
+      undefined,
+      undefined,
+      { vtt: vttPlatforms, communication: communicationPlatforms },
+    );
+
+    // Fuzzy: "owbear" (typo) reconhece Owlbear Rodeo mesmo sem alias exato.
+    expect(draft?.table.vtt_platform_id).toBe('owlbear');
+    // "Época" reconhecida como sinônimo de ambientação/cenário.
+    expect(draft?.table.setting_name).toBe('atual');
+    // Menção <@id> preenche contact_discord (exibição), mas NÃO é link —
+    // contact_url continua null. O filtro requireExplicitContact (utils.ts)
+    // não deve tratar isso como contato usável.
+    expect(draft?.table.contact_discord).toBe('<@994729259153248256>');
+    expect(draft?.table.contact_url).toBeNull();
+  });
+
   it('extracts explicit cadence (quinzenal) and infers type=campanha when missing (DEB-058 41% gap)', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({

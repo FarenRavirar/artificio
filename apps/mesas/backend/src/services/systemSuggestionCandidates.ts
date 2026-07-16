@@ -200,7 +200,11 @@ export function normalizeSystemName(raw: unknown): NormalizedSystemName {
   return { raw: original, normalized, base, baseTokens: trimmedBaseTokens, canonicalTokens, matchKeys, editionTokens, slug };
 }
 
-function levenshtein(a: string, b: string): number {
+// Achado do mantenedor (2026-07-16): typo simples ("owbear" por "Owlbear")
+// não batia em nenhum alias hardcoded do matcher de plataformas — exportada
+// pra reuso em findPlatformMatch (parseDiscordAnnouncement.ts), em vez de
+// duplicar a implementação ou trazer dependência nova de fuzzy matching.
+export function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
@@ -220,7 +224,7 @@ function levenshtein(a: string, b: string): number {
   return prev[b.length];
 }
 
-function similarity(a: string, b: string): number {
+export function similarity(a: string, b: string): number {
   if (!a && !b) return 1;
   const max = Math.max(a.length, b.length);
   if (max === 0) return 1;

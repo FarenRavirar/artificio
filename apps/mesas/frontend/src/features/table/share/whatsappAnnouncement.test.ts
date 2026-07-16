@@ -172,6 +172,12 @@ describe('buildWhatsAppTableAnnouncement', () => {
     expect(text).not.toMatch(/\{[^}]+\}/);
   });
 
+  it('rotula nível de experiência em vez de deixar sair cru (achado do mantenedor 2026-07-16, caso real "Crônicas do Fim dos Dias" — "todos" aparecia sem contexto)', () => {
+    const text = buildWhatsAppTableAnnouncement(makeTable({ experience_level: 'todos', level_range: null }));
+    expect(text).toContain('Experiência: todos');
+    expect(text).not.toMatch(/\n\ntodos\n\n/);
+  });
+
   it('keeps age rating empty when absent and converts markdown/html to plain text', () => {
     const text = buildWhatsAppTableAnnouncement(makeTable({
       age_rating: null,

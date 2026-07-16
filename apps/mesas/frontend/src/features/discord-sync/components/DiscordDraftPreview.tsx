@@ -31,13 +31,22 @@ interface Props {
   readonly onClose: () => void;
   readonly api: DraftApiOperations;
   readonly onBeforeSync?: (draft: DiscordDraft) => Promise<{ tableId: string; created: boolean } | null>;
+  /** Achado do mantenedor (2026-07-16): badge "possível duplicata" na lista só
+   * mostrava contagem, sem apontar pra qual candidato — abre o preview direto
+   * na aba Duplicatas em vez de forçar o usuário a navegar manualmente. */
+  readonly initialTab?: 'editor' | 'parsed' | 'normalized' | 'duplicates';
 }
 
-export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSync }: Props) {
+export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSync, initialTab }: Props) {
   const { confirm } = useConfirm();
   const h = useDraftForm(draft, api, onUpdate);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (initialTab) h.setActiveTab(initialTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTab]);
   const [refreshingImage, setRefreshingImage] = useState(false);
   const [detailLoadFailedDraftId, setDetailLoadFailedDraftId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);

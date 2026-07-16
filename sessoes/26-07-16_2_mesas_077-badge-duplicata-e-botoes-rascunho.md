@@ -184,6 +184,90 @@ mesma classe de bug do Pedido 5; nada corrigido (não havia o que corrigir).
 Validado: `tsc -b && vite build` (frontend mesas) limpo; `eslint` limpo;
 suíte `discord-sync` + `ModeracaoSection` 183/183.
 
+## Pedido 9 — commit/push/PR/merge/deploy de U8-U13 (autorizado)
+
+Mantenedor autorizou nominalmente: commit + push (branch `fix/mesas-import-text-jsonb-parser`
+a partir de `origin/dev`), depois merge PR #170 + deploy beta + promote +
+deploy prod, cada ação confirmada em separado.
+
+- `pnpm verify:api` rodado manualmente antes do commit (verde).
+- Commit `5674805` (18 arquivos), push, PR #170 aberta contra `dev` (ready,
+  não draft).
+- PR #170 merged. Deploy Mesas Beta (run 29509312900, `deploy=true`
+  confirmado no log). Promote `dev→main` fast-forward (run 29509886305,
+  `main`=`dev`=`9c720f6` confirmado). Deploy Mesas Prod (run 29509927847,
+  `deploy=true env=prod` confirmado no log).
+
+## Pedido 10 — review Sonar + Codex da PR #170
+
+5 achados Sonar (regex/cognitive complexity, todos introduzidos no próprio
+PR) + 2 achados Codex (cover URL bypassa upload real; slots_total abaixo do
+open real) + 1 achado próprio (`setSelectedDraft` reabre modal fechado) —
+todos válidos, todos corrigidos no commit `6cf92ee`, mesmo PR (ainda aberta
+na hora do fix). Detalhe completo em `tasks.md` U15/U16.
+
+Validado: `pnpm run lint` (21/21), `pnpm run build` (21/21), `pnpm run test`
+(31/31 tasks, 549 mesas-backend), `pnpm verify:api` (exit 0, 0 breaking).
+
+## Pedido 11 — bugs pós-deploy (badge duplicata, botões sumidos, contato,
+plataforma typo, época, badge "todos")
+
+Mantenedor reportou (com screenshots) 2 bugs na tela `/gestao/mesas/rascunhos`
+(badge "possível duplicata" sem apontar destino; botões Revisar/Rejeitar
+sumidos) e 4 achados no editor de draft + saída WhatsApp (caso real
+"somewhere in Duskwood"): filtro de contato, plataforma "owbear" não
+reconhecida, campo "Época" não capturado, badge "todos" solto na saída.
+
+Investigação prévia a qualquer correção (regra pétrea — bug achado exige
+pergunta antes de corrigir/registrar):
+- Filtro de contato: confirmado que o draft real tem
+  `contact_discord_explicit=true` (menção Discord numa linha "contato") e
+  passou pelo filtro. Comportamento do código bateu com o dado real — não
+  era bug até o mantenedor esclarecer a regra de negócio (ver abaixo).
+- "owbear": confirmado, sem fuzzy matching hoje, só alias exato hardcoded.
+- "Época: atual": confirmado, `extractLabelValue` não cobria o label.
+- Badge "todos": confirmado, `experience_level` sem rótulo em
+  `buildAboutTable` (whatsappAnnouncement.ts).
+
+Mantenedor esclareceu regra de negócio nova: menção Discord `<@id>` sozinha
+NÃO é contato usável (ID cru não é clicável/pesquisável fora do servidor) —
+"contato explícito" de verdade exige link. Mudou a lógica do filtro
+`requireExplicitContact`, não só um enriquecimento de dado.
+
+Mantenedor pediu fuzzy matching de verdade (não só alias literal) para
+tolerância a typo — "é imperativo usar as melhores ferramentas" dado que o
+espaço de erros de digitação é ilimitado. Verificado: já existe
+implementação própria de Levenshtein/similaridade em
+`systemSuggestionCandidates.ts` (usada pro matching de sistemas) — exportada
+e reusada em `findPlatformMatch`, sem dependência nova.
+
+Mantenedor apontou os arquivos de teste reais no disco D:
+(`D:\teste.json`, `D:\teste [part 2].json`, `D:\teste [part 3].json`,
+formato de export DiscordChatExporter) — texto exato da mensagem
+"somewhere in Duskwood" extraído de `teste [part 2].json` e usado como
+fixture de teste de integração (não commitado o JSON inteiro, só o texto
+relevante inline no teste, mesmo padrão dos demais "achado do mantenedor").
+
+Fixes aplicados (detalhe completo em `tasks.md` U17):
+- Badge duplicata clicável → abre preview na aba Duplicatas
+  (`initialTab` novo em `DiscordDraftPreview`).
+- `flex-wrap` na row da lista de drafts (botões sumindo por overflow, não
+  removidos).
+- Wrapper da linha trocado de `<button>` pra `div role="button"`
+  (nesting HTML inválido causado pelo badge virar `<button>` aninhado).
+- `requireExplicitContact` agora exige `contact_url`, não aceita mais
+  `contact_discord_explicit` como substituto.
+- `findPlatformMatch` com fallback de fuzzy matching (Levenshtein
+  reusado, limiar de similaridade 0.75, só quando exato falha).
+- `extractLabelValue` de `setting_name` ganhou label "época"/"Época".
+- `whatsappAnnouncement.ts` rotula `level_range`/`experience_level` antes
+  de incluir no texto.
+
+Validado: tsc limpo (frontend+backend), 165 testes parser backend (3 novos
++ 1 teste de integração completo com texto real do Discord), 6 testes
+`whatsappAnnouncement` (1 novo), teste de `utils.test.ts` invertido pra
+refletir a nova regra de contato.
+
 ## Critério de conclusão
 
-Botões Revisar/Rejeitar validados por tsc+lint (feito). Scan automático implementado e validado por tsc+lint no backend, sem regressão nas rotas de import (feito). Inferência requires_pc/requires_microphone por VTT/Discord implementada e validada por tsc + suíte discord completa (feito). 500 real em /correction (confirmed_fields/jsonb) corrigido e provado por reprodução real com Docker (feito). Faixa etária >18→+18, day_of_week "to_define" por texto e slots_total default 5 implementados e testados (feito). 429/texto original/campo apagando no fluxo de import por texto corrigidos e validados por build+lint+testes (feito). Campo de URL de capa (CDN) adicionado (feito). Auditoria das 11 colunas `ColumnType<unknown,unknown,unknown>` restantes concluída — nenhuma vulnerável (feito). `specs/077-mesas-dedupe-mesas-ativas/tasks.md` atualizado com U8-U14 (feito). Nenhum commit/push/PR sem autorização nominal explícita do mantenedor — ainda não solicitada.
+Botões Revisar/Rejeitar validados por tsc+lint (feito). Scan automático implementado e validado por tsc+lint no backend, sem regressão nas rotas de import (feito). Inferência requires_pc/requires_microphone por VTT/Discord implementada e validada por tsc + suíte discord completa (feito). 500 real em /correction (confirmed_fields/jsonb) corrigido e provado por reprodução real com Docker (feito). Faixa etária >18→+18, day_of_week "to_define" por texto e slots_total default 5 implementados e testados (feito). 429/texto original/campo apagando no fluxo de import por texto corrigidos e validados por build+lint+testes (feito). Campo de URL de capa (CDN) adicionado (feito). Auditoria das 11 colunas `ColumnType<unknown,unknown,unknown>` restantes concluída — nenhuma vulnerável (feito). Commit/push/PR/merge/deploy beta/promote/deploy prod de U8-U13 concluídos com autorização nominal (feito). Review Sonar+Codex da PR #170 corrigido e validado (feito). Badge duplicata clicável, botões sumidos, filtro de contato (link real), fuzzy matching de plataforma, label "Época" e rótulo de experience_level no WhatsApp corrigidos e validados por tsc+testes (feito, U17). `specs/077-mesas-dedupe-mesas-ativas/tasks.md` atualizado com U8-U18 (feito). Commit/push/PR de U17 (U18) ainda não solicitado pelo mantenedor.

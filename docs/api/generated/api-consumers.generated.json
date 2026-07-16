@@ -1127,7 +1127,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getDrafts",
-      "line": 117
+      "line": 121
     },
     {
       "app": "mesas-frontend",
@@ -1597,7 +1597,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPut",
-      "line": 60
+      "line": 69
     },
     {
       "app": "mesas-frontend",
@@ -1607,7 +1607,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 161
+      "line": 170
     },
     {
       "app": "mesas-frontend",

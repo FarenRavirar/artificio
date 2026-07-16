@@ -300,11 +300,18 @@ function buildAboutTable(table: TableDetail, synopsisSource: string): string {
     table.safety_tools?.length ? `Ferramentas de segurança: ${table.safety_tools.join(', ')}` : '',
   ], '\n');
 
+  // Achado do mantenedor (2026-07-16): "todos" (experience_level) saía cru,
+  // sem rótulo, no anúncio final — sem contexto, parecia lixo/campo errado.
+  const experience = joinNonEmpty([
+    table.level_range ? `Nível: ${table.level_range}` : '',
+    table.experience_level ? `Experiência: ${table.experience_level}` : '',
+  ], '\n');
+
   blocks.push(
     cleanText(table.benefits_text),
     cleanText(table.style_text),
     setting ? `Cenário e estilo: ${setting}` : '',
-    joinNonEmpty([table.level_range, table.experience_level], '\n'),
+    experience,
     ddal,
     price,
     requirements,
