@@ -45,7 +45,16 @@ FROM nginx:1.31-alpine AS production
 # Remover config padrão do Nginx
 RUN rm /etc/nginx/conf.d/default.conf
 
-RUN apk add --no-cache libexpat=2.8.1-r0
+# Sem pin de versão (achado 2026-07-16): libexpat=2.8.1-r0 fixo quebrava o
+# build assim que o mirror Alpine avançava o pacote (2.8.1-r0 saiu de catálogo,
+# só 2.8.2-r0 disponível) — apk falhava com "unable to select packages". Pin
+# de lib de sistema sem processo de bump vira bomba-relógio certa.
+# --upgrade obrigatório (achado Codex, PR #169): o pin original remediava
+# CVE-2026-45186/41080 (sessoes/26-06-20_5_infra_dockerfile-sonar-debts.md) —
+# sem --upgrade, `apk add` não troca a lib se a imagem base (nginx:1.31-alpine)
+# já satisfaz a dependência com a versão vulnerável já instalada, reabrindo o
+# CVE silenciosamente. --upgrade força a versão mais nova do mirror sempre.
+RUN apk add --no-cache --upgrade libexpat
 
 COPY apps/mesas/frontend/nginx.conf /etc/nginx/templates/default.conf.template
 
