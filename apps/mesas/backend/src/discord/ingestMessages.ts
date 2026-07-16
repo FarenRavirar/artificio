@@ -4,6 +4,7 @@ import type { DiscordImportSourceKind, DiscordSourceChannelType } from './types'
 import { requireDiscordBotToken } from './config';
 import { asJsonbArray, getContentHash } from './shared';
 import type { JsonbArray } from './shared';
+import { stripNullBytes } from './parseDiscordAnnouncement';
 
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 
@@ -204,9 +205,14 @@ async function persistMessages(params: {
   const newestMessageId = messages[0]?.id ?? null;
   if (messages.length === 0) return { inserted: 0, updated: 0, total: 0, newestMessageId: null };
 
+  // Achado 2026-07-16 (teste e2e do fix de stripNullBytes): sanitizar só no
+  // parser não bastava — content_raw chega aqui direto da API do Discord e é
+  // persistido cru em discord_import_messages ANTES de qualquer parse. Se tiver
+  // 0x00 embutido, o próprio INSERT desta função já quebra ("invalid byte
+  // sequence for encoding UTF8: 0x00"), nem chega no parser pra sanitizar.
   const msgData = messages.map((msg) => ({
     msg,
-    contentRaw: msg.content ?? '',
+    contentRaw: stripNullBytes(msg.content ?? ''),
     contentHash: getContentHash(msg),
     messageUrl: `https://discord.com/channels/${guildId}/${channelId}/${msg.id}`,
   }));

@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { stripNullBytes } from '../../discord/parseDiscordAnnouncement';
 import type { ImportRawMessage } from '../types';
 
 export function textToRawMessage(rawText: string, threadName?: string): ImportRawMessage {
@@ -10,7 +11,9 @@ export function textToRawMessage(rawText: string, threadName?: string): ImportRa
     discord_author_id: null,
     discord_author_name: null,
     discord_message_url: null,
-    content_raw: rawText.trim(),
+    // Achado 2026-07-16: mesma sanitização dos demais adapters de ingestão —
+    // colagem manual também pode trazer 0x00 (copy/paste corrompido).
+    content_raw: stripNullBytes(rawText.trim()),
     attachments: [],
     embeds: [],
     message_created_at: new Date(),

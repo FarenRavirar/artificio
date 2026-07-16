@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { sql } from 'kysely';
 import { db } from '../db';
 import { loadSystemCatalogFlat } from '../services/systemCatalogProvider';
+import { sanitizeJsonValue } from './parseDiscordAnnouncement';
 import type { SystemEntry, MatchEntry } from './parseDiscordAnnouncement';
 
 interface HashableMessage {
@@ -22,7 +23,10 @@ export function getContentHash(msg: HashableMessage): string {
 export type JsonbArray = ReturnType<typeof sql<unknown[]>>;
 
 export function asJsonbArray(value: unknown): JsonbArray {
-  return sql<unknown[]>`${JSON.stringify(value ?? [])}::jsonb`;
+  // Achado Codex (PR #168): embeds/attachments podem carregar 0x00 em campos
+  // de texto (description, field.value, filename) — sanitiza recursivamente
+  // antes de virar jsonb, mesmo risco que content_raw.
+  return sql<unknown[]>`${JSON.stringify(sanitizeJsonValue(value) ?? [])}::jsonb`;
 }
 
 // ─── REV-036 / D013 — loadSystemsForParser (DB query) ─────────────────────────
