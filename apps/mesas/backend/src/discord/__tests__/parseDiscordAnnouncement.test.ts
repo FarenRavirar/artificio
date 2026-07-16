@@ -774,6 +774,23 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.vtt_platform_id).toBeNull();
   });
 
+  it('não aplica fuzzy matching no corpo inteiro quando não há label de plataforma (achado Codex, PR #171: falso positivo em texto livre)', () => {
+    const vttPlatforms = [{ id: 'owlbear', name: 'Owlbear Rodeo', aliases: ['Owlbear'] }];
+    const communicationPlatforms = [{ id: 'discord-plat', name: 'Discord', aliases: [] }];
+    // "Owlbear" (7 chars) tem similaridade alta com "sobrevivência"/outros tokens
+    // longos do corpo livre por acaso — sem label "Plataformas:" dedicado, o fuzzy
+    // não deve rodar contra fullText, só o match exato (que aqui não existe).
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: 'Vagas: 4\nSistema: D&D 5e\nResumo: uma aventura de sobrevivência e suspense no pântano sombrio',
+      }),
+      undefined,
+      undefined,
+      { vtt: vttPlatforms, communication: communicationPlatforms },
+    );
+    expect(draft?.table.vtt_platform_id).toBeNull();
+  });
+
   it('extrai setting_name do label "Época" (sinônimo de ambientação, achado do mantenedor 2026-07-16, caso real "Duskwood")', () => {
     const draft = parseDiscordAnnouncement(makeMessage({
       content_raw: 'Época: atual\nVagas: 4\nSistema: D&D 5e',

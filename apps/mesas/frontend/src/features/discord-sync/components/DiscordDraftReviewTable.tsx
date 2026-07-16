@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useConfirm } from '@artificio/ui';
 import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from '../types';
@@ -87,6 +88,7 @@ function readString(value: unknown): string | null {
 
 export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync, updateDraftsBatch, purgeRejectedDrafts }: Props) {
   const { confirm } = useConfirm();
+  const navigate = useNavigate();
   const draftApi = api ?? discordSyncApi;
   const batchReject = updateDraftsBatch ?? discordSyncApi.updateDraftsBatch;
   const purgeRejected = purgeRejectedDrafts ?? discordSyncApi.purgeRejectedDrafts;
@@ -104,10 +106,6 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   // então não precisa mais filtrar visualmente aqui.
   const visibleDrafts = drafts;
   const [selectedDraft, setSelectedDraft] = useState<DiscordDraft | null>(null);
-  // Achado do mantenedor (2026-07-16): badge de duplicata clicável precisa
-  // abrir o preview já na aba certa — guarda a intenção separada do draft
-  // selecionado pra não forçar toda abertura de preview a passar tab.
-  const [previewInitialTab, setPreviewInitialTab] = useState<'editor' | 'duplicates'>('editor');
   const [syncingAll, setSyncingAll] = useState(false);
   // Multi-seleção p/ ação em lote (rejeitar).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -435,23 +433,17 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                     className="h-4 w-4 shrink-0 accent-blue-600"
                   />
                 )}
-                {/* Achado do mantenedor (2026-07-16): era <button>, mas o badge
-                    de duplicata clicável dentro dele virou <button> aninhado —
-                    HTML inválido (nesting interativo). div+role="button" com
-                    handler de teclado mantém acessibilidade sem aninhar. */}
-                <div
-                  role="button"
-                  tabIndex={0}
+                {/* Achado Codex (PR #171): badge de duplicata clicável precisa ficar
+                    FORA do wrapper clicável (era <div role="button"> pra evitar
+                    <button> aninhado quando o badge vivia dentro) — como sibling,
+                    o wrapper volta a ser <button> nativo de verdade (acessibilidade
+                    real, sem role sintético) e não há mais bubbling de keydown
+                    entre badge e wrapper. */}
+                <button
+                  type="button"
                   className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
                   aria-label={`Abrir preview do rascunho ${title}`}
-                  onClick={() => { setPreviewInitialTab('editor'); setSelectedDraft(draft); }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setPreviewInitialTab('editor');
-                      setSelectedDraft(draft);
-                    }
-                  }}
+                  onClick={() => setSelectedDraft(draft)}
                 >
                 <span className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-white/10 bg-white/5">
                   {coverUrl ? (
@@ -485,20 +477,6 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                         ⚠ autoral?
                       </span>
                     )}
-                    {(duplicateCounts.get(draft.id) ?? 0) > 0 && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPreviewInitialTab('duplicates');
-                          setSelectedDraft(draft);
-                        }}
-                        className="rounded-full bg-red-500/20 hover:bg-red-500/30 px-2 py-0.5 text-xs text-red-200 transition-colors"
-                        title="Este rascunho bate com mesa ativa existente — clique para ver o candidato"
-                      >
-                        possível duplicata ({duplicateCounts.get(draft.id)})
-                      </button>
-                    )}
                   </span>
                   <span className="block text-white font-medium text-sm truncate">{title}</span>
                   <span className="flex items-center gap-2">
@@ -506,12 +484,29 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                     {coverQuality === 'low' && <span className="text-amber-300 text-xs">capa baixa</span>}
                   </span>
                 </span>
-                </div>
+                </button>
+                {(duplicateCounts.get(draft.id) ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Achado Codex (PR #171): esse badge conta via listTableDuplicateCandidates
+                      // (mesa ativa × draft), API/modelo diferente do que DuplicatesTab carrega
+                      // (listDuplicateCandidates(draftId), duplicata parser×parser) — abrir o
+                      // preview aqui mostrava "Nenhum candidato" ou dado errado. Navega pro
+                      // painel real que já lista e resolve esse tipo de candidato.
+                      navigate('/gestao/mesas/duplicatas');
+                    }}
+                    className="shrink-0 rounded-full bg-red-500/20 hover:bg-red-500/30 px-2 py-0.5 text-xs text-red-200 transition-colors"
+                    title="Este rascunho bate com mesa ativa existente — ver em Possíveis duplicatas"
+                  >
+                    possível duplicata ({duplicateCounts.get(draft.id)})
+                  </button>
+                )}
                 {draft.status !== 'synced' && draft.status !== 'rejected' && (
                   <span className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => { setPreviewInitialTab('editor'); setSelectedDraft(draft); }}
+                      onClick={() => setSelectedDraft(draft)}
                       className="px-2 py-1 bg-white/10 hover:bg-white/20 text-white text-xs rounded-md transition-colors"
                     >
                       Revisar
@@ -543,7 +538,6 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
           onClose={() => setSelectedDraft(null)}
           api={resolveApi(selectedDraft)}
           onBeforeSync={onBeforeSync}
-          initialTab={previewInitialTab}
         />
       )}
     </div>

@@ -565,8 +565,12 @@ function findPlatformMatchFuzzy(text: string, entries: MatchEntry[]): MatchEntry
   return best?.entry ?? null;
 }
 
-/** Fase A (spec 058): matching de VTT/plataforma de comunicação — só nome+aliases, sem edição/versão. */
-function findPlatformMatch(text: string, entries: MatchEntry[]): MatchEntry | null {
+/** Fase A (spec 058): matching de VTT/plataforma de comunicação — só nome+aliases, sem edição/versão.
+ * `fuzzyText` é opcional e só deve vir preenchido com um valor de label isolado
+ * (ex.: linha "Plataformas:") — nunca com `fullText`. Achado Codex (PR #171):
+ * rodar fuzzy contra o corpo inteiro do anúncio gera falso positivo (qualquer
+ * token ≥4 chars da sinopse/regras pode bater 0.75 de similaridade por acaso). */
+function findPlatformMatch(text: string, entries: MatchEntry[], fuzzyText?: string | null): MatchEntry | null {
   const exact = findEntryMatch(
     text,
     entries,
@@ -576,7 +580,8 @@ function findPlatformMatch(text: string, entries: MatchEntry[]): MatchEntry | nu
     ],
     true,
   );
-  return exact ?? findPlatformMatchFuzzy(text, entries);
+  if (exact) return exact;
+  return fuzzyText ? findPlatformMatchFuzzy(fuzzyText, entries) : null;
 }
 
 function matchSystem(text: string, systems: SystemEntry[]): SystemMatchResult | null {
@@ -2220,10 +2225,10 @@ export function parseDiscordAnnouncement(
   const platformsLabelValue = extractLabelValue(body, ['plataforma', 'plataformas'])
     ?? extractLabelValue(body, ['local do jogo']);
   const vttMatch = platforms?.vtt?.length
-    ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.vtt)
+    ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.vtt, platformsLabelValue)
     : null;
   const communicationMatch = platforms?.communication?.length
-    ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.communication)
+    ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.communication, platformsLabelValue)
     : null;
 
   // Fase C: classificação indicativa (enum fixo, regex livre no corpo inteiro).
