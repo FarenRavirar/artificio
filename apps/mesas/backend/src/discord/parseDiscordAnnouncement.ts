@@ -976,7 +976,16 @@ function extractSlots(
     ?? { total: null, open: null, ambiguity: null };
 
   if (result.total == null && result.open != null && result.ambiguity == null) {
-    return { ...result, total: DEFAULT_SLOTS_TOTAL_WHEN_ONLY_OPEN };
+    // Achado Codex (2026-07-16, PR #170): default fixo de 5 abaixo de `open`
+    // publicava total menor que as vagas abertas anunciadas (ex.: "vagas
+    // disponíveis: 8" virava total:5), e normalizeSlots clampava slots_open
+    // pro total depois, escondendo vagas reais. Só usa o default quando ele
+    // já cobre o open lido; senão o open é o próprio total (sem preenchidas
+    // conhecidas, mesa inteira ainda aberta).
+    const total = result.open <= DEFAULT_SLOTS_TOTAL_WHEN_ONLY_OPEN
+      ? DEFAULT_SLOTS_TOTAL_WHEN_ONLY_OPEN
+      : result.open;
+    return { ...result, total };
   }
   return result;
 }
@@ -1028,7 +1037,15 @@ function slotsViaLabel(
 // definir" já resolvido. `to_define` é o sentinela real do form (ver
 // draftFormUtils.ts DraftDayOfWeek/VALID_DAYS) — precisa ser setado
 // explicitamente, `null` sozinho não basta.
-const DAY_TO_DEFINE_RE = /\b(?:a\s+)?(?:decidir|combinar|definir)\s+com\s+os?\s+jogadores?\b|\bdias?\s+(?:e\s+hor[aá]rios?\s+)?a\s+(?:decidir|combinar|definir)\b|\bhor[aá]rios?\s+a\s+(?:decidir|combinar|definir)\b|\bdia\s+a\s+(?:decidir|combinar|definir)\b/;
+// Achado Sonar (PR #170): 1 regex com 4 alternativas estourava complexidade
+// (59 > 20 permitido) — split em array testado com .some(), sem alternância
+// aninhada, mesma cobertura.
+const DAY_TO_DEFINE_PATTERNS = [
+  /\b(?:a\s+)?(?:decidir|combinar|definir)\s+com\s+os?\s+jogadores?\b/,
+  /\bdias?\s+(?:e\s+hor[aá]rios?\s+)?a\s+(?:decidir|combinar|definir)\b/,
+  /\bhor[aá]rios?\s+a\s+(?:decidir|combinar|definir)\b/,
+  /\bdia\s+a\s+(?:decidir|combinar|definir)\b/,
+];
 
 function extractDayOfWeek(text: string, labelAliases: string[] = []): string | null {
   const days: Record<string, string> = {
@@ -1046,7 +1063,7 @@ function extractDayOfWeek(text: string, labelAliases: string[] = []): string | n
   for (const [key, value] of Object.entries(days)) {
     if (lower.includes(key)) return value;
   }
-  if (DAY_TO_DEFINE_RE.test(lower)) return 'to_define';
+  if (DAY_TO_DEFINE_PATTERNS.some((re) => re.test(lower))) return 'to_define';
   return null;
 }
 
@@ -1132,7 +1149,15 @@ function extractAgeRating(text: string): TableDraftAgeRating | null {
   // padrão (enum só vai até +18) e ficava null — qualquer N ≥ 18 com sinal
   // "+"/"maiores de" é tratado como +18 (teto do enum, não existe faixa
   // adulta mais restritiva que isso no catálogo).
-  if (/\+\s?(?:1[89]|[2-9]\d)\b|\b(?:1[89]|[2-9]\d)\s?\+|\bmaiores\s{1,3}de\s{1,3}(?:1[89]|[2-9]\d)\b/.test(lower)) return '+18';
+  // Achado Sonar (PR #170): alternância única com 3 ramos estourava
+  // complexidade de regex (22 > 20 permitido) — 3 testes separados no mesmo
+  // número (1[89]|[2-9]\d), sem alternância aninhada, mantêm a leitura igual.
+  const AGE_18_PLUS_NUM = '(?:1[89]|[2-9]\\d)';
+  if (
+    new RegExp(`\\+\\s?${AGE_18_PLUS_NUM}\\b`).test(lower) ||
+    new RegExp(`\\b${AGE_18_PLUS_NUM}\\s?\\+`).test(lower) ||
+    new RegExp(`\\bmaiores\\s{1,3}de\\s{1,3}${AGE_18_PLUS_NUM}\\b`).test(lower)
+  ) return '+18';
   if (/\+\s?16\b|\b16\s?\+|\bmaiores\s{1,3}de\s{1,3}16\b/.test(lower)) return '+16';
   if (/\+\s?14\b|\b14\s?\+|\bmaiores\s{1,3}de\s{1,3}14\b/.test(lower)) return '+14';
   if (/\+\s?12\b|\b12\s?\+|\bmaiores\s{1,3}de\s{1,3}12\b/.test(lower)) return '+12';

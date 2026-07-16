@@ -281,9 +281,13 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   // Achado do mantenedor (2026-07-16): função recriada a cada render virava
   // dependência instável do useEffect de fetch de content_raw em
   // DiscordDraftPreview.tsx, causando loop de GET /drafts/:id e 429.
+  // Achado Codex (PR #170): setSelectedDraft(updated) incondicional reabria o
+  // modal de preview se o mantenedor tivesse fechado (selectedDraft=null)
+  // enquanto o update async ainda estava em voo. Updater funcional só aplica
+  // se algum draft segue selecionado, preservando null.
   const handleDraftUpdate = useCallback((updated: DiscordDraft) => {
     setDrafts(prev => prev.map(d => (d.id === updated.id ? updated : d)));
-    setSelectedDraft(updated);
+    setSelectedDraft(prev => (prev ? updated : null));
   }, []);
 
   // T-F1-06: o backend agora garante (CHECK CONSTRAINT) que status='ready' implica
