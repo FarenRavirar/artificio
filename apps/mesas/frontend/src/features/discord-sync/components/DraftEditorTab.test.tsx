@@ -70,6 +70,7 @@ function renderTab(overrides: Partial<ComponentProps<typeof DraftEditorTab>> = {
       onSystemChange={vi.fn()}
       onCoverUpload={vi.fn()}
       onRemoveCover={vi.fn()}
+      onSetCoverUrl={vi.fn()}
       onSetSlotsInterpretation={vi.fn()}
       onConfirmSlots={vi.fn()}
       {...overrides}

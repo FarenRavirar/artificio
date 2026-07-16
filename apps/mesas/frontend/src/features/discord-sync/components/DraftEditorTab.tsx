@@ -55,6 +55,9 @@ interface DraftEditorTabProps {
   onRefreshSystems: () => void;
   onCoverUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemoveCover: () => void;
+  /** Pedido do mantenedor (2026-07-16): colar URL de imagem já hospedada (CDN)
+   * direto, sem exigir upload de arquivo — útil quando importa via texto colado. */
+  onSetCoverUrl: (url: string) => void;
   onSetSlotsInterpretation: (v: 'filled_total' | 'open_total') => void;
   onConfirmSlots: () => void;
 }
@@ -138,9 +141,16 @@ export function DraftEditorTab({
   coverPreviewUrl, coverError, coverUploading, coverInputRef,
   shouldShowSlotsDisambiguation, slotsAmbiguity, slotsInterpretation, fieldInsights, savingFields,
   aiConfig, llmActivity, auditingCompleteness, auditingFields, completenessSuggestions,
-  onUpdateForm, onApplySuggestion, onAuditCompleteness, onAuditField, onSystemChange, onRefreshSystems, onCoverUpload, onRemoveCover,
+  onUpdateForm, onApplySuggestion, onAuditCompleteness, onAuditField, onSystemChange, onRefreshSystems, onCoverUpload, onRemoveCover, onSetCoverUrl,
   onSetSlotsInterpretation, onConfirmSlots,
 }: Readonly<DraftEditorTabProps>) {
+  const [coverUrlInput, setCoverUrlInput] = useState('');
+  const handleApplyCoverUrl = () => {
+    const trimmed = coverUrlInput.trim();
+    if (!trimmed) return;
+    onSetCoverUrl(trimmed);
+    setCoverUrlInput('');
+  };
   const [showSystemSuggestionModal, setShowSystemSuggestionModal] = useState(false);
   const [systemSuggestionInitialName, setSystemSuggestionInitialName] = useState('');
   const [systemSuggestionInitialType, setSystemSuggestionInitialType] = useState<'system' | 'edition' | 'variant'>('system');
@@ -266,6 +276,18 @@ export function DraftEditorTab({
                   Remover
                 </button>
               )}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <input
+                type="url"
+                value={coverUrlInput}
+                onChange={(e) => setCoverUrlInput(e.target.value)}
+                placeholder="Colar URL de imagem (CDN)..."
+                className="min-w-0 flex-1 px-2 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-xs placeholder-white/30"
+              />
+              <button type="button" onClick={handleApplyCoverUrl} disabled={!coverUrlInput.trim()} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-lg transition-colors disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
+                Usar URL
+              </button>
             </div>
           </div>
         </div>

@@ -40,6 +40,143 @@ qualquer task de código de feature.
       candidato na tela de gestão (não fechar só com teste unitário).
 - [ ] Atualizar `specs/backlog.md` e `project-state.md` (fechamento/status).
 
+## Frente UX — ações rápidas e scan automático (2026-07-16)
+
+Continuação da spec 077 pedida pelo mantenedor após confirmar que o badge de
+duplicata (Fase 1+, já `[x]` acima) funcionava conforme desenhado. Sessão:
+`sessoes/26-07-16_2_mesas_077-badge-duplicata-e-botoes-rascunho.md`.
+
+- [x] U1 Confirmar badge "possível duplicata (N)" já visível no card de
+      rascunho, do lado do %, sem necessidade de código novo
+      (`DiscordDraftReviewTable.tsx:461-465`, populado por
+      `listTableDuplicateCandidates()`).
+- [x] U2 Adicionar botões "Revisar"/"Rejeitar" por linha no card de rascunho
+      (do lado esquerdo da data), mantendo a seleção em lote existente
+      (checkbox + "Rejeitar selecionados"). Reusa `setSelectedDraft` e
+      `rejectDraftIds([draft.id], ...)`. Só visível quando
+      `status !== 'synced' && status !== 'rejected'`.
+      Arquivo: `apps/mesas/frontend/src/features/discord-sync/components/DiscordDraftReviewTable.tsx`.
+      Validado: `tsc --noEmit` + `eslint` limpos. Preview visual local
+      bloqueado por SSO cross-domain (cookie de `mesas.artificiorpg.com` não
+      atravessa pra `localhost:5173`); confirmado por leitura estrutural do
+      JSX + type-check, não por screenshot.
+- [x] U3 Disparar `scanTableDuplicateCandidates()` automaticamente ao final do
+      import de arquivo/paste DiscordChatExporter (tela `/gestao/importacao`
+      → "Importar arquivo"), sem exigir clique manual em "Checar duplicatas".
+      Fire-and-forget (`.catch()`, não atrasa a resposta HTTP), condicionado a
+      `autoParse.parsed > 0` (só roda se o parser efetivamente criou/atualizou
+      draft — scan é full-scan, sem sentido em import vazio).
+      Arquivo: `apps/mesas/backend/src/routes/discord/import.ts`
+      (`respondImportSuccess`, cobre `POST /` e `POST /file`).
+      Validado: `tsc --noEmit` + `eslint` limpos.
+      Escopo explicitamente confirmado pelo mantenedor: só o fluxo de
+      import de arquivo/paste JSON. Fetch automático do bot, reparse
+      individual e inbox de texto colado (`routes/inbox/import.ts`) ficaram
+      fora do pedido — mapeados em `sessoes/26-07-16_2_...md` como ampliação
+      de escopo futura, não decidida.
+- [ ] U4 `pnpm run lint` + build repo-wide (validação pontual já rodada por
+      pacote; falta rodar suíte completa antes de fechar a frente).
+- [ ] U5 Smoke manual real: importar JSON com mesa parecida a uma ativa,
+      confirmar candidato aparece na aba Duplicatas e badge aparece no card
+      de Rascunhos sem clique manual.
+- [ ] U6 Autorização do mantenedor para commit/push/PR (nenhuma autorização
+      dada ainda; regra pétrea — não commitar por inferência).
+- [x] U7 Bug real reportado pelo mantenedor com caso de produção (anúncio "O
+      Sangue das Estrelas"): parser não marcava `requires_pc`/
+      `requires_microphone` mesmo com VTT (Roll20) e Discord detectados por
+      catálogo — regra antiga só contava texto explícito tipo "necessário ter
+      PC" (comentário em `parseDiscordAnnouncement.ts:2160`, agora
+      atualizado). Mantenedor decidiu inverter a regra: VTT detectado infere
+      `requires_pc=true`; plataforma de comunicação = Discord infere
+      `requires_microphone=true`. Texto explícito continua tendo prioridade
+      (positivo/negativo/ambíguo do texto nunca é sobrescrito pela inferência).
+      Arquivo: `apps/mesas/backend/src/discord/parseDiscordAnnouncement.ts`
+      (bloco `technicalRequirements`, ~linha 2160-2170).
+      Teste antigo que validava a regra revogada
+      ("não inventa PC ou microfone só porque VTT e Discord foram citados")
+      substituído por 2 novos: infere true por VTT/Discord, e texto explícito
+      vence a inferência.
+      Validado: `tsc --noEmit` limpo; suíte `src/discord` completa 324/324.
+- [x] U8 Bug real de produção: `POST /admin/discord/drafts/:id/correction`
+      retornava 500 mascarado como "aprendizado ficou pendente". Causa raiz
+      **provada por reprodução real** (Docker Postgres 16 isolado, schema-only
+      de prod via `pg_dump`, script Kysely local): `confirmed_fields` é
+      `string[]` gravado direto numa coluna `jsonb`; o driver `pg`
+      (`lib/utils.js prepareValue`) serializa array JS como array-literal
+      Postgres (`{a,b,c}`), não JSON — só objetos passam por
+      `JSON.stringify()`. Postgres rejeita com `22P02 invalid input syntax for
+      type json`, `detail: Expected ":", but found ","` — assinatura idêntica
+      ao erro real de produção. Fix: `confirmed_fields: asJsonbArray(confirmedFields)`
+      (helper já existente em `discord/shared.ts`) em
+      `apps/mesas/backend/src/routes/discord/utils.ts` (`registerDraftCorrection`).
+      Mensagem de erro do backend também ampliada (log com `pgCode`/`pgDetail`/
+      `pgWhere`) e frontend (`useDraftForm.ts handleSaveFields`) parou de
+      mascarar erro real como "pendente" quando `submitCorrectionDiff` lança.
+      Auditoria de escopo (2026-07-16): as outras 11 colunas
+      `ColumnType<unknown,unknown,unknown>` em `db/types.ts` (`signals_json`,
+      `output_value`, `scope_json`, `before_value`, `after_value`,
+      `request_json`, `response_json`, `validated_result_json`,
+      `predicted_payload`, `actual_payload`) foram checadas — todas recebem
+      objeto genérico ou já usam `sql...::jsonb` explícito, nenhuma recebe
+      array JS puro. Não são vulneráveis à mesma classe de bug; nada a
+      corrigir.
+      Validado: `tsc --noEmit` limpo; suíte backend completa 549/549; eslint
+      limpo. Recursos de teste (container Docker, scripts temporários)
+      removidos ao final.
+- [x] U9 Bug real de produção: faixa etária "20+" (e qualquer N>18) não era
+      reconhecida pelo parser. Regra do mantenedor: qualquer valor acima de
+      18 é tratado como `+18`. Fix em `extractAgeRating`
+      (`parseDiscordAnnouncement.ts`, regex ampliada pra `1[89]|[2-9]\d`) e em
+      `normalizeLegacyAgeRating` (`draftFormUtils.ts`, converte legado `NN+`
+      pra `+18` quando `N>=18`).
+      Validado: `tsc --noEmit` limpo; testes novos em
+      `parseDiscordAnnouncement.test.ts` e `draftFormUtils.test.ts`.
+- [x] U10 Bug real de produção (anúncio "As Crônicas do Norte"): texto
+      "Dias e horários da mesa: A decidir com os jogadores!" marcava
+      `start_time` como pendência resolvida mas não `day_of_week`. Fix:
+      `DAY_TO_DEFINE_RE` novo em `parseDiscordAnnouncement.ts`
+      (`extractDayOfWeek`), reconhece "a decidir/combinar/definir com os
+      jogadores" e retorna sentinela `to_define` (mesmo contrato já usado pra
+      `start_time`).
+      Validado: `tsc --noEmit` limpo; teste novo com texto real do anúncio.
+- [x] U11 Regra do mantenedor: quando só `slots_open` está declarado no
+      anúncio (sem total explícito), assumir `slots_total=5` por padrão. Fix:
+      `DEFAULT_SLOTS_TOTAL_WHEN_ONLY_OPEN=5` em `extractSlots`
+      (`parseDiscordAnnouncement.ts`).
+      Validado: `tsc --noEmit` limpo; suíte `src/discord` completa 327/327
+      (progressão 158→159→161 no arquivo principal ao longo dos fixes U9-U11).
+- [x] U12 Bug real de produção (import via texto, anúncio "Hero Academy -
+      Neo Neon", tela `/gestao/importacao` → Importar texto): `GET
+      /admin/import/drafts/:id` em loop → 429 Too Many Requests; "Texto
+      original" nunca carregava ("Sem texto original disponível"); campo
+      "Contato Discord" apagava sozinho ao digitar. Causa raiz única:
+      `handleDraftUpdate` em `DiscordDraftReviewTable.tsx` era recriada a
+      cada render (não memoizada), virando dependência instável do
+      `useEffect` de fetch em `DiscordDraftPreview.tsx` — cada resposta
+      disparava novo fetch em loop, e cada reset do draft reescrevia o form
+      por cima do que o usuário tinha acabado de digitar. Fix:
+      `useCallback` em `handleDraftUpdate`.
+      Bug adicional (mesmo sintoma, causa própria): o adapter `inboxDraftApi`
+      em `ModeracaoSection.tsx` fazia `as Promise<DiscordDraft>` (cast sem
+      runtime real) sobre `InboxDraft`, que tem `raw_text`, não
+      `content_raw` — o campo ficava sempre `undefined` mesmo com resposta OK
+      do backend. Fix: mapeamento explícito `inboxDraftToDiscordDraft`
+      (`raw_text` → `content_raw`) aplicado em `getDraft`/`reparseDraft`/
+      `updateDraft` do adapter.
+      Validado: `tsc -b && vite build` limpo; `eslint` limpo; suíte
+      `discord-sync` + `ModeracaoSection` 183/183.
+- [x] U13 Pedido do mantenedor: campo "Capa" no editor de draft só permitia
+      upload de arquivo, sem opção de colar URL de imagem já hospedada (CDN)
+      — útil especificamente pro fluxo de import via texto colado. Adicionado
+      input "Colar URL de imagem (CDN)" + botão "Usar URL" em
+      `DraftEditorTab.tsx`, ligado a `onSetCoverUrl` (novo,
+      `useDraftForm.ts handleSetCoverUrl`, despacha o mesmo `SET_COVER` do
+      reducer usado pelo upload).
+      Validado: `tsc -b && vite build` limpo; `eslint` limpo; testes
+      atualizados (`DraftEditorTab.test.tsx`).
+- [ ] U14 Autorização do mantenedor para commit/push/PR de U8-U13 (nenhuma
+      autorização dada ainda; regra pétrea — não commitar por inferência).
+
 ## Frente parser — ampliação de escopo (2026-07-14)
 
 - [x] P0.1 Ler handoff/arquitetura e confirmar caminho do parser, learning e dois

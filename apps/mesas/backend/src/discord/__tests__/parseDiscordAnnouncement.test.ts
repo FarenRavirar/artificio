@@ -111,7 +111,7 @@ describe('parseDiscordAnnouncement — requisitos técnicos conservadores', () =
     expect(draft?.table.requires_camera).toBe(false);
   });
 
-  it('não inventa PC ou microfone só porque VTT e Discord foram citados', () => {
+  it('infere PC obrigatório por VTT detectado e microfone obrigatório por Discord detectado (achado do mantenedor 2026-07-16)', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({ content_raw: 'Plataformas: Discord e Foundry\nVagas: 4' }),
       [],
@@ -124,8 +124,28 @@ describe('parseDiscordAnnouncement — requisitos técnicos conservadores', () =
 
     expect(draft?.table.vtt_platform_id).toBe('foundry');
     expect(draft?.table.communication_platform_id).toBe('discord');
-    expect(draft?.table.requires_pc).toBeNull();
-    expect(draft?.table.requires_microphone).toBeNull();
+    // VTT sempre roda em navegador/app desktop — exige computador estrutural,
+    // mesmo sem menção textual explícita ("necessário ter PC").
+    expect(draft?.table.requires_pc).toBe(true);
+    // Discord como plataforma de comunicação implica chamada de voz — exige
+    // microfone estrutural, mesmo sem menção textual explícita.
+    expect(draft?.table.requires_microphone).toBe(true);
+  });
+
+  it('texto explícito continua tendo prioridade sobre a inferência por VTT/Discord', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Plataformas: Discord e Foundry\nNão é necessário ter PC, jogamos por celular.\nVagas: 4' }),
+      [],
+      undefined,
+      {
+        vtt: [{ id: 'foundry', name: 'Foundry VTT', aliases: ['Foundry'] }],
+        communication: [{ id: 'discord', name: 'Discord', aliases: [] }],
+      },
+    );
+
+    // Negação explícita no texto vence a inferência estrutural do VTT.
+    expect(draft?.table.requires_pc).toBe(false);
+    expect(draft?.table.requires_microphone).toBe(true);
   });
 
   it('sinal contraditório não escolhe lado e força revisão', () => {
@@ -697,6 +717,33 @@ describe('parseDiscordAnnouncement', () => {
 
     expect(draft?.table.age_rating).toBe('+18');
     expect(draft?.table.setting_styles).toEqual(['Fantasia', 'Investigação', 'Mistério']);
+  });
+
+  it('trata faixa etária acima de 18 (ex.: "20+") como +18 — não existe faixa mais restrita no enum (achado do mantenedor 2026-07-16)', () => {
+    const draft = parseDiscordAnnouncement(makeMessage({ content_raw: 'Faixa Etária: 20+\nVagas: 4' }));
+    expect(draft?.table.age_rating).toBe('+18');
+  });
+
+  it('marca day_of_week como "to_define" quando dia e horário estão explicitamente "a decidir com os jogadores" (caso real "As Crônicas do Norte", achado 2026-07-16)', () => {
+    const draft = parseDiscordAnnouncement(makeMessage({
+      content_raw: [
+        'Sistema: Dharma + (suplemento de Everlast)',
+        'Dias e horários da mesa: A decidir com os jogadores!',
+        'Vagas disponíveis: 3',
+        'Classificação Indicativa: +16',
+        'Plataformas: Discord e Owlbear Rodeo',
+      ].join('\n'),
+    }));
+    expect(draft?.table.day_of_week).toBe('to_define');
+    expect(draft?.table.start_time).toBeNull();
+  });
+
+  it('assume slots_total=5 quando só slots_open é declarado (achado 2026-07-16, mesmo caso "As Crônicas do Norte")', () => {
+    const draft = parseDiscordAnnouncement(makeMessage({
+      content_raw: 'Vagas disponíveis: 3\nSistema: D&D 5e',
+    }));
+    expect(draft?.table.slots_open).toBe(3);
+    expect(draft?.table.slots_total).toBe(5);
   });
 
   it('extracts explicit cadence (quinzenal) and infers type=campanha when missing (DEB-058 41% gap)', () => {

@@ -1137,7 +1137,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.submitCorrection",
-      "line": 122
+      "line": 132
     },
     {
       "app": "mesas-frontend",
@@ -1377,7 +1377,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.updateDraft",
-      "line": 90
+      "line": 100
     },
     {
       "app": "mesas-frontend",
@@ -1387,7 +1387,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.getDraft",
-      "line": 91
+      "line": 101
     },
     {
       "app": "mesas-frontend",
@@ -1397,7 +1397,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.registerCorrection",
-      "line": 92
+      "line": 102
     },
     {
       "app": "mesas-frontend",
@@ -1407,7 +1407,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.retryLearningFeedback",
-      "line": 98
+      "line": 108
     },
     {
       "app": "mesas-frontend",
@@ -1417,7 +1417,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.reparseDraft",
-      "line": 89
+      "line": 99
     },
     {
       "app": "mesas-frontend",
@@ -1427,7 +1427,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.syncDraft",
-      "line": 88
+      "line": 98
     },
     {
       "app": "mesas-frontend",
@@ -2437,7 +2437,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 453
+      "line": 462
     },
     {
       "app": "mesas-frontend",

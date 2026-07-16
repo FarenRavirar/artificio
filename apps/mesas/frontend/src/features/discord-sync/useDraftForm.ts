@@ -403,6 +403,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
 
       let learningRecorded = false;
       let learningPending = false;
+      let learningError: string | null = null;
       // Onda A: salvar também confirma campos mantidos. Falha de learning não
       // desfaz o draft já salvo, mas deixa de ser silenciosa e tenta o outbox.
       if (draftApi.submitCorrection) {
@@ -415,8 +416,15 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
           }
           learningRecorded = learning?.status === 'completed';
           learningPending = Boolean(learning && learning.status !== 'completed');
-        } catch {
-          learningPending = true;
+        } catch (err) {
+          // Achado do mantenedor (2026-07-16): erro real (500 do backend, rede
+          // caída) virava "aprendizado ficou pendente" — mensagem de retry
+          // implica que o outbox vai reprocessar sozinho, mas um 500 nunca
+          // chegou a criar a correção, retry manual repete o mesmo erro.
+          // Mostra a mensagem real do backend (ex.: "Erro ao registrar
+          // correção (Postgres 22P02)") em vez de mascarar como "pendente".
+          learningError = err instanceof Error ? err.message : 'Erro desconhecido ao registrar correção.';
+          console.error('[handleSaveFields] submitCorrectionDiff falhou', err);
         }
       }
 
@@ -424,6 +432,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
       toast.success(nextMissing.length === 0 ? 'Draft pronto para sincronizar.' : 'Draft salvo para revisão.');
       if (learningRecorded) toast.success('Curadoria registrada no aprendizado.');
       if (learningPending) toast.error('Draft salvo, mas aprendizado ficou pendente. Tente salvar novamente.');
+      if (learningError) toast.error(`Draft salvo, mas a correção não foi registrada: ${learningError}`);
       applyUpdate(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar campos do draft.');
@@ -472,6 +481,13 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   const handleRemoveCover = () => {
     setCoverError(null);
     dispatch({ type: 'REMOVE_COVER' });
+  };
+
+  // Pedido do mantenedor (2026-07-16): colar URL de imagem já hospedada (CDN)
+  // direto, sem exigir upload de arquivo — útil quando importa via texto colado.
+  const handleSetCoverUrl = (url: string) => {
+    setCoverError(null);
+    dispatch({ type: 'SET_COVER', secureUrl: url });
   };
 
   const handleConfirmSlots = async () => {
@@ -625,7 +641,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     handleAuditField,
     handleSystemChange,
     handleSaveFields,
-    handleCoverUpload, handleRemoveCover,
+    handleCoverUpload, handleRemoveCover, handleSetCoverUrl,
     handleConfirmSlots,
     handleSync, handleReparse,
     handleSaveStatus,

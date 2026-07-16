@@ -2,10 +2,20 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { DiscordDraft } from '../../../features/discord-sync/types';
 import type { DraftApiOperations } from '../../../features/discord-sync/types';
+import type { InboxDraft } from '../../../features/inbox/types';
 import { MessagesView } from '../../../features/discord-sync/components/MessagesView';
 import { DiscordDraftReviewTable } from '../../../features/discord-sync/components/DiscordDraftReviewTable';
 import { discordSyncApi } from '../../../features/discord-sync/api/discordSyncApi';
 import { inboxApi } from '../../../features/inbox/api/inboxApi';
+
+// Achado do mantenedor (2026-07-16): cast direto `as DiscordDraft` compilava mas
+// nunca preenchia content_raw de verdade — o inbox devolve o texto original em
+// raw_text, não content_raw. Sem esse mapeamento, DiscordDraftPreview.tsx via
+// draft.content_raw sempre undefined e reentrava no useEffect de fetch a cada
+// re-render, gerando 429 (GET /drafts/:id em loop) e "Sem texto original disponível".
+function inboxDraftToDiscordDraft(draft: InboxDraft): DiscordDraft {
+  return { ...draft, content_raw: draft.raw_text ?? null } as DiscordDraft;
+}
 import { PageHeader, SectionCard, tabButtonClass } from './ui';
 import { TableDuplicatesPanel } from './TableDuplicatesPanel';
 
@@ -86,9 +96,9 @@ export function ModeracaoSection() {
   // Adapter: inboxApi → DraftApiOperations (sync/reparse/get usam rotas /admin/import/...)
   const inboxDraftApi = useMemo<DraftApiOperations>(() => ({
     syncDraft: (id) => inboxApi.syncDraft(id),
-    reparseDraft: (id) => inboxApi.reparseDraft(id) as Promise<DiscordDraft>,
-    updateDraft: (id, body) => inboxApi.updateDraft(id, body) as Promise<DiscordDraft>,
-    getDraft: (id) => inboxApi.getDraft(id) as Promise<DiscordDraft>,
+    reparseDraft: (id) => inboxApi.reparseDraft(id).then(inboxDraftToDiscordDraft),
+    updateDraft: (id, body) => inboxApi.updateDraft(id, body).then(inboxDraftToDiscordDraft),
+    getDraft: (id) => inboxApi.getDraft(id).then(inboxDraftToDiscordDraft),
     submitCorrection: (id, body) => inboxApi.registerCorrection(
       id,
       body.corrections as Record<string, unknown>,
