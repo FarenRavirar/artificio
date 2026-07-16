@@ -13,16 +13,35 @@ const MIN_SEGMENT_CHARS = 10;
 // separador começa com um rótulo típico de início de anúncio novo.
 const NEW_ANNOUNCEMENT_START_RE = /^\s*(?:t[ií]tulo|mesa|sistema)\s*[:：]/i;
 
+// Captura o tipo de separador em cada split point (grupo 1 = "-=*", grupo 2 =
+// "▬") pra decidir o merge por tipo — achado de review (Codex, PR #172): um
+// regex único sem essa distinção tratava "---"/"==="/"***" com a mesma guarda
+// de "▬", mesclando indevidamente anúncios reais separados por eles quando o
+// próximo começava com nome de campanha/"Jogo:"/heading em vez de "Título:".
+const SEPARATOR_SPLIT_RE = /\r?\n\s*(?:([-=*]{3,})|([▬]{3,}))\s*\r?\n/;
+
 function splitBySeparators(rawText: string): string[] {
-  const separatorPattern = /(?:\r?\n\s*[-=*]{3,}\s*\r?\n)|(?:\r?\n\s*[▬]{3,}\s*\r?\n)/;
-  const parts = rawText.split(separatorPattern);
+  const parts: string[] = [];
+  const separatorTypes: Array<'dash' | 'block'> = [];
+  let rest = rawText;
+  let match: RegExpMatchArray | null;
+  while ((match = rest.match(SEPARATOR_SPLIT_RE))) {
+    parts.push(rest.slice(0, match.index));
+    separatorTypes.push(match[1] ? 'dash' : 'block');
+    rest = rest.slice((match.index ?? 0) + match[0].length);
+  }
+  parts.push(rest);
+
   if (parts.length <= 1) return parts.map((s) => s.trim()).filter((s) => s.length >= MIN_SEGMENT_CHARS);
 
-  // Reagrupa partes cujo separador não foi seguido de início de anúncio novo —
-  // eram decoração inline, não fronteira real.
+  // "-=*" sempre foi fronteira real de anúncio (comportamento já coberto por
+  // teste). "▬" só é fronteira quando o texto seguinte começa com rótulo
+  // típico de início de anúncio novo — senão é decoração inline (bug real,
+  // ver comentário acima da regex).
   const merged: string[] = [parts[0]];
   for (let i = 1; i < parts.length; i++) {
-    if (NEW_ANNOUNCEMENT_START_RE.test(parts[i])) {
+    const isDashSeparator = separatorTypes[i - 1] === 'dash';
+    if (isDashSeparator || NEW_ANNOUNCEMENT_START_RE.test(parts[i])) {
       merged.push(parts[i]);
     } else {
       merged[merged.length - 1] = `${merged[merged.length - 1]}\n${parts[i]}`;

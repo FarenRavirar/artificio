@@ -2212,12 +2212,17 @@ export function parseDiscordAnnouncement(
     ?? null;
   const rawContactUrlMatch = extractContactUrl(body, labelAliases?.contact_url);
   const explicitContactDiscord = extractContactDiscord(body);
-  // Requisito 4: telefone/WhatsApp só entra quando não há forms/URL/menção
-  // Discord explícita — sinal mais fraco, nunca sobrepõe canal já confirmado.
-  const whatsappUrl = (!googleFormsUrl && !rawContactUrlMatch && !explicitContactDiscord)
+  // Requisito 4: telefone/WhatsApp só entra quando não há forms/menção Discord
+  // explícita nem URL CONFIRMADA — sinal mais fraco, nunca sobrepõe canal já
+  // confirmado. Achado de review (Codex, PR #172): bloquear WhatsApp mesmo com
+  // rawContactUrlMatch.confident===false publicava URL incidental não
+  // confirmada ("93 992155816 no Whatsapp" + link solto no texto) em vez do
+  // telefone explícito, que é o sinal mais forte dos dois nesse caso.
+  const hasConfidentUrlMatch = rawContactUrlMatch != null && rawContactUrlMatch.confident;
+  const whatsappUrl = (!googleFormsUrl && !hasConfidentUrlMatch && !explicitContactDiscord)
     ? extractContactPhoneUrl(body)
     : null;
-  const contactUrl = googleFormsUrl ?? rawContactUrlMatch?.url ?? whatsappUrl ?? null;
+  const contactUrl = googleFormsUrl ?? whatsappUrl ?? rawContactUrlMatch?.url ?? null;
   // Google Forms sempre confiável (detecção por domínio dedicado); WhatsApp
   // extraído por regex de número é igualmente confiável (número BR completo,
   // sem ambiguidade); URL genérica sem domínio conhecido nem contexto de linha
