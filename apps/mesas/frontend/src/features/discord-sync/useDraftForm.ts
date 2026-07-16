@@ -71,6 +71,7 @@ type DraftEditorAction =
   | { type: 'SET_FIELD'; key: keyof DraftForm; value: DraftForm[keyof DraftForm] }
   | { type: 'SET_SYSTEM'; systemId: string; systemName: string }
   | { type: 'SET_COVER'; secureUrl: string }
+  | { type: 'SET_COVER_SOURCE'; url: string }
   | { type: 'REMOVE_COVER' }
   | { type: 'SET_STATUS_FIELD'; key: 'newStatus' | 'reviewNotes'; value: string }
   | { type: 'MARK_PERSISTED' }
@@ -137,6 +138,52 @@ function buildReviewNotes(missingFields: string[], notes: string): string | unde
   return notes || undefined;
 }
 
+interface LearningOutcome {
+  recorded: boolean;
+  pending: boolean;
+  error: string | null;
+}
+
+// Achado Sonar (PR #170): extraída de handleSaveFields pra reduzir
+// complexidade cognitiva (19 > 15 permitido). Onda A: salvar também confirma
+// campos mantidos. Falha de learning não desfaz o draft já salvo, mas deixa
+// de ser silenciosa e tenta o outbox.
+async function recordLearningForSave(
+  draftApi: DraftApiOperations,
+  draftId: string,
+  basePayload: unknown,
+  updatedPayload: unknown,
+  complete: boolean,
+): Promise<LearningOutcome> {
+  if (!draftApi.submitCorrection) return { recorded: false, pending: false, error: null };
+  try {
+    const correction = await submitCorrectionDiff(draftApi, draftId, basePayload, updatedPayload, complete);
+    let learning = correction?.learning ?? null;
+    if (learning?.status === 'failed' && draftApi.retryLearningFeedback) {
+      const retried = await draftApi.retryLearningFeedback(draftId);
+      learning = retried.results.find((item) => item.correction_id === learning?.correction_id) ?? learning;
+    }
+    return {
+      recorded: learning?.status === 'completed',
+      pending: Boolean(learning && learning.status !== 'completed'),
+      error: null,
+    };
+  } catch (err) {
+    // Achado do mantenedor (2026-07-16): erro real (500 do backend, rede
+    // caída) virava "aprendizado ficou pendente" — mensagem de retry
+    // implica que o outbox vai reprocessar sozinho, mas um 500 nunca
+    // chegou a criar a correção, retry manual repete o mesmo erro.
+    // Mostra a mensagem real do backend (ex.: "Erro ao registrar
+    // correção (Postgres 22P02)") em vez de mascarar como "pendente".
+    console.error('[handleSaveFields] submitCorrectionDiff falhou', err);
+    return {
+      recorded: false,
+      pending: false,
+      error: err instanceof Error ? err.message : 'Erro desconhecido ao registrar correção.',
+    };
+  }
+}
+
 function editorReducer(state: DraftEditorState, action: DraftEditorAction): DraftEditorState {
   switch (action.type) {
     case 'RESET':
@@ -150,6 +197,19 @@ function editorReducer(state: DraftEditorState, action: DraftEditorAction): Draf
         ...state,
         form: { ...state.form, cover_url: action.secureUrl, cover_url_source: '', cover_quality: 'standard' },
         coverPreviewUrl: action.secureUrl,
+        dirty: true,
+      };
+    // Achado Codex (2026-07-16, PR #170): URL colada não passou por upload
+    // (Cloudinary), diferente de SET_COVER (upload de arquivo já persistido).
+    // Vai em cover_url_source (pendente) — uploadCoverForDraft no sync real
+    // baixa e sobe pro Cloudinary antes de confirmar em cover_url. Evita
+    // publicar link expirável/hotlinked (ex.: CDN assinado do Discord) direto
+    // como capa da mesa.
+    case 'SET_COVER_SOURCE':
+      return {
+        ...state,
+        form: { ...state.form, cover_url: '', cover_url_source: action.url, cover_quality: '' },
+        coverPreviewUrl: action.url,
         dirty: true,
       };
     case 'REMOVE_COVER':
@@ -401,29 +461,13 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
         review_notes: buildReviewNotes(nextMissing, state.reviewNotes),
       });
 
-      let learningRecorded = false;
-      let learningPending = false;
-      // Onda A: salvar também confirma campos mantidos. Falha de learning não
-      // desfaz o draft já salvo, mas deixa de ser silenciosa e tenta o outbox.
-      if (draftApi.submitCorrection) {
-        try {
-          const correction = await submitCorrectionDiff(draftApi, draft.id, basePayload, updatedPayload, nextMissing.length === 0);
-          let learning = correction?.learning ?? null;
-          if (learning?.status === 'failed' && draftApi.retryLearningFeedback) {
-            const retried = await draftApi.retryLearningFeedback(draft.id);
-            learning = retried.results.find((item) => item.correction_id === learning?.correction_id) ?? learning;
-          }
-          learningRecorded = learning?.status === 'completed';
-          learningPending = Boolean(learning && learning.status !== 'completed');
-        } catch {
-          learningPending = true;
-        }
-      }
+      const learning = await recordLearningForSave(draftApi, draft.id, basePayload, updatedPayload, nextMissing.length === 0);
 
       dispatch({ type: 'MARK_PERSISTED' });
       toast.success(nextMissing.length === 0 ? 'Draft pronto para sincronizar.' : 'Draft salvo para revisão.');
-      if (learningRecorded) toast.success('Curadoria registrada no aprendizado.');
-      if (learningPending) toast.error('Draft salvo, mas aprendizado ficou pendente. Tente salvar novamente.');
+      if (learning.recorded) toast.success('Curadoria registrada no aprendizado.');
+      if (learning.pending) toast.error('Draft salvo, mas aprendizado ficou pendente. Tente salvar novamente.');
+      if (learning.error) toast.error(`Draft salvo, mas a correção não foi registrada: ${learning.error}`);
       applyUpdate(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar campos do draft.');
@@ -472,6 +516,16 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
   const handleRemoveCover = () => {
     setCoverError(null);
     dispatch({ type: 'REMOVE_COVER' });
+  };
+
+  // Pedido do mantenedor (2026-07-16): colar URL de imagem já hospedada (CDN)
+  // direto, sem exigir upload de arquivo — útil quando importa via texto colado.
+  // Achado Codex (PR #170): vai como cover_url_source (pendente), não
+  // cover_url direto — sync real (uploadCoverForDraft) baixa e sobe pro
+  // Cloudinary antes de confirmar, evitando publicar link expirável/hotlinked.
+  const handleSetCoverUrl = (url: string) => {
+    setCoverError(null);
+    dispatch({ type: 'SET_COVER_SOURCE', url });
   };
 
   const handleConfirmSlots = async () => {
@@ -625,7 +679,7 @@ export function useDraftForm(draft: DiscordDraft, draftApi: DraftApiOperations, 
     handleAuditField,
     handleSystemChange,
     handleSaveFields,
-    handleCoverUpload, handleRemoveCover,
+    handleCoverUpload, handleRemoveCover, handleSetCoverUrl,
     handleConfirmSlots,
     handleSync, handleReparse,
     handleSaveStatus,

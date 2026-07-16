@@ -293,7 +293,11 @@ export function normalizeLegacyAgeRating(value: string): string {
   const trimmed = value.trim();
   if ((VALID_AGE_RATINGS as readonly string[]).includes(trimmed)) return trimmed;
   const inverted = /^(\d{2})\+$/.exec(trimmed);
-  return inverted ? `+${inverted[1]}` : '';
+  if (!inverted) return '';
+  const age = Number(inverted[1]);
+  // Achado do mantenedor (2026-07-16): "20+" (ou qualquer N > 18) é formato
+  // legado sem enum próprio — teto real é +18, não existe faixa mais restrita.
+  return age >= 18 ? '+18' : `+${inverted[1]}`;
 }
 
 export function buildForm(payload: DiscordDraftPayload): DraftForm {

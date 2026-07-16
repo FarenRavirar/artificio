@@ -278,10 +278,17 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
     }
   };
 
-  const handleDraftUpdate = (updated: DiscordDraft) => {
+  // Achado do mantenedor (2026-07-16): função recriada a cada render virava
+  // dependência instável do useEffect de fetch de content_raw em
+  // DiscordDraftPreview.tsx, causando loop de GET /drafts/:id e 429.
+  // Achado Codex (PR #170): setSelectedDraft(updated) incondicional reabria o
+  // modal de preview se o mantenedor tivesse fechado (selectedDraft=null)
+  // enquanto o update async ainda estava em voo. Updater funcional só aplica
+  // se algum draft segue selecionado, preservando null.
+  const handleDraftUpdate = useCallback((updated: DiscordDraft) => {
     setDrafts(prev => prev.map(d => (d.id === updated.id ? updated : d)));
-    setSelectedDraft(updated);
-  };
+    setSelectedDraft(prev => (prev ? updated : null));
+  }, []);
 
   // T-F1-06: o backend agora garante (CHECK CONSTRAINT) que status='ready' implica
   // missing_fields=[]. A UI usa o mesmo gate para nunca prometer um sync que o
@@ -470,11 +477,30 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                     {coverQuality === 'low' && <span className="text-amber-300 text-xs">capa baixa</span>}
                   </span>
                 </span>
+                </button>
+                {draft.status !== 'synced' && draft.status !== 'rejected' && (
+                  <span className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDraft(draft)}
+                      className="px-2 py-1 bg-white/10 hover:bg-white/20 text-white text-xs rounded-md transition-colors"
+                    >
+                      Revisar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => rejectDraftIds([draft.id], `Rejeitar o rascunho "${title}"?`)}
+                      disabled={rejectingAll}
+                      className="px-2 py-1 bg-red-700/80 hover:bg-red-700 text-white text-xs rounded-md transition-colors disabled:opacity-50"
+                    >
+                      Rejeitar
+                    </button>
+                  </span>
+                )}
                 <span className="text-white/30 text-xs shrink-0 text-right">
                   <span className="block">{new Date(draft.created_at).toLocaleDateString('pt-BR')}</span>
                   {draft.table_id && <span className="block text-blue-400/60">mesa vinculada</span>}
                 </span>
-                </button>
               </div>
             );
           })}

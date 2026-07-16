@@ -354,6 +354,7 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
               onRefreshSystems={h.refreshSystems}
               onCoverUpload={h.handleCoverUpload}
               onRemoveCover={h.handleRemoveCover}
+              onSetCoverUrl={h.handleSetCoverUrl}
               onSetSlotsInterpretation={h.setSlotsInterpretation}
               onConfirmSlots={h.handleConfirmSlots}
             />

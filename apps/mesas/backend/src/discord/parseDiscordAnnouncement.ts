@@ -946,6 +946,13 @@ function slotsNVagas(text: string): SlotsResult | null {
   return { total: n, open: n, ambiguity: null };
 }
 
+// Achado do mantenedor (2026-07-16): "Vagas disponíveis: 3" sem nenhuma
+// menção a total vira {total:null, open:3} em toda a cascata abaixo — draft
+// ficava pendente de slots_total mesmo com vaga aberta clara. Convenção real
+// de mesa de RPG sem grupo declarado: 5 jogadores. Só entra quando total
+// nunca foi decidido (null) E open foi (evita mascarar ambiguidade real).
+const DEFAULT_SLOTS_TOTAL_WHEN_ONLY_OPEN = 5;
+
 function extractSlots(
   text: string,
   labelAliases?: { open?: string[]; total?: string[] },
@@ -953,7 +960,7 @@ function extractSlots(
   const cleaned = text.replaceAll('*', '');
   // Ordem: padrões explícitos primeiro; "mesa em andamento" (sem padrão explícito)
   // cai no fallback null/null (idêntico ao default) — DEB-048-16.
-  return slotsViaForms(cleaned)
+  const result = slotsViaForms(cleaned)
     ?? slotsXdeY(cleaned)
     // slotsGroupSize ANTES de slotsTotalOpen: "vagas disponíveis: 1 vaga /
     // grupo de 5 pessoas" bate no RE_SLOT_OPEN de slotsTotalOpen primeiro
@@ -967,6 +974,20 @@ function extractSlots(
     ?? slotsNVagas(text)
     ?? slotsViaLabel(text, labelAliases)
     ?? { total: null, open: null, ambiguity: null };
+
+  if (result.total == null && result.open != null && result.ambiguity == null) {
+    // Achado Codex (2026-07-16, PR #170): default fixo de 5 abaixo de `open`
+    // publicava total menor que as vagas abertas anunciadas (ex.: "vagas
+    // disponíveis: 8" virava total:5), e normalizeSlots clampava slots_open
+    // pro total depois, escondendo vagas reais. Só usa o default quando ele
+    // já cobre o open lido; senão o open é o próprio total (sem preenchidas
+    // conhecidas, mesa inteira ainda aberta).
+    const total = result.open <= DEFAULT_SLOTS_TOTAL_WHEN_ONLY_OPEN
+      ? DEFAULT_SLOTS_TOTAL_WHEN_ONLY_OPEN
+      : result.open;
+    return { ...result, total };
+  }
+  return result;
 }
 
 // TC.8/DEB-052-01: fallback por rótulo — pega o valor de labels do template da
@@ -1009,6 +1030,23 @@ function slotsViaLabel(
 }
 
 // Extrai dia da semana do texto
+// Achado do mantenedor (2026-07-16): "Dias e horários da mesa: A decidir com
+// os jogadores!" marcava start_time como "a definir" (ausência silenciosa já
+// tratada como sentinela — ver extractSchedules), mas day_of_week ficava
+// `null`, que a UI trata como pendência real de seleção, não como "a
+// definir" já resolvido. `to_define` é o sentinela real do form (ver
+// draftFormUtils.ts DraftDayOfWeek/VALID_DAYS) — precisa ser setado
+// explicitamente, `null` sozinho não basta.
+// Achado Sonar (PR #170): 1 regex com 4 alternativas estourava complexidade
+// (59 > 20 permitido) — split em array testado com .some(), sem alternância
+// aninhada, mesma cobertura.
+const DAY_TO_DEFINE_PATTERNS = [
+  /\b(?:a\s+)?(?:decidir|combinar|definir)\s+com\s+os?\s+jogadores?\b/,
+  /\bdias?\s+(?:e\s+hor[aá]rios?\s+)?a\s+(?:decidir|combinar|definir)\b/,
+  /\bhor[aá]rios?\s+a\s+(?:decidir|combinar|definir)\b/,
+  /\bdia\s+a\s+(?:decidir|combinar|definir)\b/,
+];
+
 function extractDayOfWeek(text: string, labelAliases: string[] = []): string | null {
   const days: Record<string, string> = {
     segunda: 'segunda', 'segunda-feira': 'segunda',
@@ -1020,10 +1058,12 @@ function extractDayOfWeek(text: string, labelAliases: string[] = []): string | n
     domingo: 'domingo',
   };
   const learnedLabelValue = labelAliases.length > 0 ? extractLabelValue(text, labelAliases) : null;
-  const lower = (learnedLabelValue ?? text).toLowerCase();
+  const scope = learnedLabelValue ?? text;
+  const lower = scope.toLowerCase();
   for (const [key, value] of Object.entries(days)) {
     if (lower.includes(key)) return value;
   }
+  if (DAY_TO_DEFINE_PATTERNS.some((re) => re.test(lower))) return 'to_define';
   return null;
 }
 
@@ -1105,7 +1145,19 @@ function extractAgeRating(text: string): TableDraftAgeRating | null {
   const lower = text.toLowerCase();
   // Retorno no formato do enum Postgres real: `+18` (sinal ANTES) — `18+`
   // estourava 500 no sync (achado do mantenedor 2026-07-08).
-  if (/\+\s?18\b|\b18\s?\+|\bmaiores\s{1,3}de\s{1,3}18\b/.test(lower)) return '+18';
+  // Achado do mantenedor (2026-07-16): "Faixa Etária: 20+" não casava nenhum
+  // padrão (enum só vai até +18) e ficava null — qualquer N ≥ 18 com sinal
+  // "+"/"maiores de" é tratado como +18 (teto do enum, não existe faixa
+  // adulta mais restritiva que isso no catálogo).
+  // Achado Sonar (PR #170): alternância única com 3 ramos estourava
+  // complexidade de regex (22 > 20 permitido) — 3 testes separados no mesmo
+  // número (1[89]|[2-9]\d), sem alternância aninhada, mantêm a leitura igual.
+  const AGE_18_PLUS_NUM = '(?:1[89]|[2-9]\\d)';
+  if (
+    new RegExp(`\\+\\s?${AGE_18_PLUS_NUM}\\b`).test(lower) ||
+    new RegExp(`\\b${AGE_18_PLUS_NUM}\\s?\\+`).test(lower) ||
+    new RegExp(`\\bmaiores\\s{1,3}de\\s{1,3}${AGE_18_PLUS_NUM}\\b`).test(lower)
+  ) return '+18';
   if (/\+\s?16\b|\b16\s?\+|\bmaiores\s{1,3}de\s{1,3}16\b/.test(lower)) return '+16';
   if (/\+\s?14\b|\b14\s?\+|\bmaiores\s{1,3}de\s{1,3}14\b/.test(lower)) return '+14';
   if (/\+\s?12\b|\b12\s?\+|\bmaiores\s{1,3}de\s{1,3}12\b/.test(lower)) return '+12';
@@ -1163,9 +1215,13 @@ function extractTableLevel(text: string): TableDraftTableLevel | null {
 type RequirementExtraction = { value: boolean | null; ambiguous: boolean };
 
 /**
- * Extrai requisito técnico como tri-state. O campo significa OBRIGATÓRIO,
- * não apenas tecnologia citada: "Foundry + Discord" fica `null`; "necessário
- * ter PC" vira `true`; "PC recomendável, não obrigatório" vira `false`.
+ * Extrai requisito técnico via TEXTO como tri-state: "necessário ter PC" vira
+ * `true`; "PC recomendável, não obrigatório" vira `false`; sem menção textual
+ * fica `null` (decidido depois por inferência estrutural de VTT/plataforma —
+ * ver extractTechnicalRequirements/parseDiscordAnnouncement, achado do
+ * mantenedor 2026-07-16: citar "Discord"/VTT sozinho não bastava aqui, mas
+ * VTT/Discord detectados por catálogo agora inferem PC/microfone quando o
+ * texto não decidiu nada).
  *
  * Frases negativas/opcionais são removidas antes de procurar sinal positivo,
  * evitando que "não é necessário ter PC" também case o trecho interno
@@ -2157,13 +2213,19 @@ export function parseDiscordAnnouncement(
     : null;
   const rawScenarioHint = settingName && !scenarioMatch ? settingName : null;
 
-  // Requisito significa obrigação explícita. Citar Discord/Foundry/Roll20 não
-  // autoriza inferir microfone/PC: há mesas por texto, mobile e exceções reais.
-  // Sinais positivos e negativos no mesmo anúncio ficam ambíguos para curadoria.
+  // Achado do mantenedor (2026-07-16): a regra antiga (só texto explícito tipo
+  // "necessário ter PC" contava) deixava passar caso óbvio — anúncio com VTT
+  // (Roll20/Foundry/etc) citava só "Ter um computador para usar o roll20" e o
+  // parser não marcava requires_pc; Discord como plataforma de voz nunca
+  // marcava requires_microphone mesmo sendo pré-requisito estrutural de VC.
+  // VTT/plataforma detectados (vttMatch/communicationMatch, já resolvidos
+  // acima) agora inferem o requisito por si só — texto explícito continua
+  // tendo prioridade (positivo/negativo/ambíguo do texto nunca é sobrescrito).
   const technicalRequirements = extractTechnicalRequirements(fullText);
-  const requiresPc = technicalRequirements.pc.value;
+  const isDiscordCommunication = communicationMatch?.name?.toLowerCase() === 'discord';
+  const requiresPc = technicalRequirements.pc.value ?? (vttMatch ? true : null);
   const requiresCamera = technicalRequirements.camera.value;
-  const requiresMicrophone = technicalRequirements.microphone.value;
+  const requiresMicrophone = technicalRequirements.microphone.value ?? (isDiscordCommunication ? true : null);
 
   // Fase C: sessão zero gratuita — menção explícita.
   const sessionZeroFree = /\bsess[aã]o\s+zero\s+gratuita\b|\bsess[aã]o\s+zero\s+gr[aá]tis\b/i.test(fullText) ? true : null;

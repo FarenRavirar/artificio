@@ -6,6 +6,7 @@ import { db } from '../../db';
 import { validateReparseMessageIds, buildContentIndex, reparseOneMessage, recordImportRun } from './utils';
 import { uploadJsonFile } from './preview';
 import { loadCommunicationPlatformsForParser, loadScenariosForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
+import { scanTableDuplicateCandidates } from '../../services/tableDuplicateDetection';
 
 const router = Router();
 
@@ -36,6 +37,16 @@ function respondImportSuccess(
     messagesFailed: result.failed,
     userId,
   }).catch(() => {});
+  // Achado do mantenedor (2026-07-16): scan de duplicata era só manual (botão
+  // "Checar duplicatas" na aba Duplicatas) — mantenedor não quer clicar toda
+  // importação. Dispara fire-and-forget (não atrasa a resposta HTTP) só quando
+  // o parser efetivamente criou/atualizou draft; scan é full-scan (compara
+  // todas mesas ativas + drafts pendentes), sem sentido rodar em import vazio.
+  if ((autoParse?.parsed ?? 0) > 0) {
+    scanTableDuplicateCandidates().catch((err: unknown) => {
+      console.error('[import-json] scan de duplicatas pós-import falhou', err instanceof Error ? err.message : err);
+    });
+  }
   res.json({
     data: {
       total: result.total,

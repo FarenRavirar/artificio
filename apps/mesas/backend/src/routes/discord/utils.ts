@@ -31,7 +31,7 @@ import { loadRetrievalContextForCurrent } from '../../discord/parseRetrieval';
 import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
-import { loadSystemsForParser, loadVttPlatformsForParser, loadCommunicationPlatformsForParser, loadScenariosForParser } from '../../discord/shared';
+import { loadSystemsForParser, loadVttPlatformsForParser, loadCommunicationPlatformsForParser, loadScenariosForParser, asJsonbArray } from '../../discord/shared';
 import { requireAdmin } from '../../middleware/auth';
 import { notifyAdmins } from '../../services/adminNotifications';
 import { patchDraftSchema, correctionSchema } from '../inbox/utils';
@@ -227,7 +227,17 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
         diff,
         reason: reason ?? null,
         corrected_by: userId,
-        confirmed_fields: confirmedFields,
+        // Achado real (2026-07-16, investigação do 500 "invalid input syntax
+        // for type json"): confirmedFields é ARRAY JS (string[]) passado direto
+        // pro node-postgres numa coluna jsonb. O driver pg (lib/utils.js
+        // prepareValue) trata array JS como array literal do Postgres
+        // ("{a,b,c}"), não como JSON — só objetos viram JSON.stringify. Coluna
+        // jsonb recebendo "{a,b,c}" quebra com 22P02 "Expected ':', but found
+        // ','" (o "{"type",..." visto no log de erro é exatamente essa sintaxe
+        // de array Postgres, não JSON malformado). Cast explícito via
+        // asJsonbArray (já usado em discord/shared.ts pra embeds/attachments)
+        // força o valor a virar JSON de verdade antes do bind.
+        confirmed_fields: asJsonbArray(confirmedFields),
       })
       .returning('id')
       .executeTakeFirstOrThrow();
@@ -265,6 +275,43 @@ export async function registerDraftCorrection(input: CorrectionInput): Promise<C
   return { draft_id: draftId, fields_corrected: Object.keys(diff).length, diff, learning };
 }
 
+// Achado do mantenedor (2026-07-16): 500 sem detalhe suficiente pra
+// diagnosticar sem SSH na VM. Loga o VALOR de cada campo de corrections
+// (truncado a 300 chars, não só as chaves) junto do erro real do
+// Postgres (code/detail/where do node-postgres) — "where" do 22P02
+// aponta a posição do JSON quebrado, mas sem o valor bruto não dá pra
+// saber qual chave carregava a string malformada.
+// Achado Sonar (PR #170): extraída do catch do handler pra reduzir
+// complexidade cognitiva (16 > 15 permitido).
+function buildCorrectionsPreview(bodyCorrections: Record<string, unknown>): Record<string, string> {
+  const preview: Record<string, string> = {};
+  for (const [key, value] of Object.entries(bodyCorrections)) {
+    try {
+      preview[key] = JSON.stringify(value)?.slice(0, 300) ?? String(value);
+    } catch (stringifyErr) {
+      // valor não-serializável (circular, BigInt, etc.) é EXATAMENTE o
+      // tipo de causa que este log existe pra pegar — registra o motivo.
+      preview[key] = `<JSON.stringify falhou: ${stringifyErr instanceof Error ? stringifyErr.message : String(stringifyErr)}>`;
+    }
+  }
+  return preview;
+}
+
+function logCorrectionFailure(routeLabel: string, draftId: string, req: Request, error: unknown): { code?: string } {
+  const pgError = error as { code?: string; detail?: string; where?: string; message?: string };
+  const bodyCorrections = (req.body as { corrections?: Record<string, unknown> })?.corrections ?? {};
+  console.error(`[POST ${routeLabel}]`, {
+    draftId,
+    correctionsPreview: buildCorrectionsPreview(bodyCorrections),
+    pgCode: pgError?.code,
+    pgDetail: pgError?.detail,
+    pgWhere: pgError?.where,
+    pgMessage: pgError?.message,
+    error,
+  });
+  return pgError;
+}
+
 // REV-016 onda 3: factory DRY — POST /:id/correction (inbox + discord)
 export function createCorrectionHandler(routeLabel: string): Router {
   const router = Router();
@@ -296,8 +343,9 @@ export function createCorrectionHandler(routeLabel: string): Router {
       if (typeof statusCode === 'number') {
         return res.status(statusCode).json({ error: (error as Error).message });
       }
-      console.error(`[POST ${routeLabel}]`, error);
-      return res.status(500).json({ error: 'Erro ao registrar correção.' });
+      const pgError = logCorrectionFailure(routeLabel, req.params.id, req, error);
+      const pgSuffix = pgError?.code ? ` (Postgres ${pgError.code})` : '';
+      return res.status(500).json({ error: `Erro ao registrar correção${pgSuffix}.` });
     }
   });
 

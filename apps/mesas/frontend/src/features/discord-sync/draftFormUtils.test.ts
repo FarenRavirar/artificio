@@ -4,10 +4,32 @@ import {
   isRecord, asRecord, asString, asNumberString, asStringArray, asSlotsAmbiguity,
   formatFileSize, parseOptionalNonNegativeInt, parseOptionalMoney,
   validateForm, buildDraftFieldInsights, buildForm, buildUpdatedPayload, buildMissingFields,
+  normalizeLegacyAgeRating,
   MAX_COVER_FILE_SIZE_BYTES, COVER_MIME_TYPES,
 } from './draftFormUtils';
 import type { DraftForm, DraftFrequency } from './draftFormUtils';
 import type { DiscordDraftPayload, DiscordDraftTablePayload } from './types';
+
+describe('normalizeLegacyAgeRating', () => {
+  it('mantém valores já no enum canônico', () => {
+    expect(normalizeLegacyAgeRating('+18')).toBe('+18');
+    expect(normalizeLegacyAgeRating('livre')).toBe('livre');
+  });
+
+  it('inverte formato legado NN+ para +NN', () => {
+    expect(normalizeLegacyAgeRating('16+')).toBe('+16');
+  });
+
+  it('trata qualquer N > 18 (ex.: 20+) como +18 — teto do enum (achado do mantenedor 2026-07-16)', () => {
+    expect(normalizeLegacyAgeRating('20+')).toBe('+18');
+    expect(normalizeLegacyAgeRating('25+')).toBe('+18');
+    expect(normalizeLegacyAgeRating('18+')).toBe('+18');
+  });
+
+  it('retorna vazio para valor irreconhecível', () => {
+    expect(normalizeLegacyAgeRating('abacate')).toBe('');
+  });
+});
 
 describe('isRecord', () => {
   it('retorna true para objeto', () => {
