@@ -32,7 +32,10 @@ ENV API_UPSTREAM=glossario-api
 
 RUN rm /etc/nginx/conf.d/default.conf
 
-RUN apk add --no-cache libexpat=2.8.1-r0
+# Sem pin de versão + --upgrade obrigatório (mesmo achado 2026-07-16 de
+# apps/mesas/frontend/Dockerfile, incluindo achado Codex sobre CVE-2026-45186/
+# 41080). Ver comentário completo lá.
+RUN apk add --no-cache --upgrade libexpat
 
 COPY apps/glossario/frontend/nginx.conf.template /etc/nginx/templates/default.conf.template
 
