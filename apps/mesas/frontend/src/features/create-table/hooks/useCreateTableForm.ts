@@ -66,6 +66,9 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     initialData?.publisherRole || 'gm'
   );
   const [actualGmName, setActualGmName] = useState(initialData?.actualGmName || '');
+  // Requisito 8 (spec 079): id do discord_parse_case do preview — reenviado
+  // no submit pra fechar o loop de aprendizado. Não editável pelo usuário.
+  const [parseCaseId] = useState(initialData?.parseCaseId ?? null);
 
   // Contatos
   const [contacts, setContacts] = useState<ContactFormEntry[]>(
@@ -187,6 +190,7 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     synopsisNarrative,
     benefitsText,
     tableGmBio,
+    parseCaseId,
   };
 
   // Função de submissão com state machine

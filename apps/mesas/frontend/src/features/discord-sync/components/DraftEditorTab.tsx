@@ -505,9 +505,22 @@ export function DraftEditorTab({
           <FieldInsightNote field="contact_url" insight={fieldInsights?.contact_url} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('contact_url') ?? false} />
           {authorName && (
             <span className="mt-1 block text-xs text-white/45">
-              Divulgado por: {authorName} (autor Discord do anúncio — vira "Mestre responsável" ao sincronizar)
+              Divulgado por: {authorName} (autor Discord do anúncio — vira "Mestre responsável" só se o campo abaixo estiver vazio)
             </span>
           )}
+        </label>
+        <label className="md:col-span-2">
+          <span className={labelClass}>Nome do mestre (opcional)</span>
+          <input
+            value={form.raw_gm_name}
+            onChange={(e) => onUpdateForm('raw_gm_name', e.target.value)}
+            className={inputClass}
+            placeholder={authorName ? `Ex: ${authorName}` : 'Ex: Mestre Arandur'}
+          />
+          <span className="mt-1 block text-xs text-white/45">
+            Extraído do texto quando o anúncio traz "Mestre:"/"Narrador:"/"GM:"/"DM:" explícito.
+            Sem preencher, "Mestre responsável" usa quem postou o anúncio no Discord — nem sempre é o mestre de fato.
+          </span>
         </label>
         <label className="md:col-span-2">
           <span className={labelClass}>Descrição</span>

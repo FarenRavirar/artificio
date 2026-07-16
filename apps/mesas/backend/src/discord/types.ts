@@ -92,6 +92,15 @@ export interface DiscordTableDraftTable {
   contact_discord_explicit: boolean;
   contact_url: string | null;
   host_discord_id: string | null;
+  /**
+   * Requisito 7 (spec 079): nome do mestre extraído como TEXTO de labels
+   * `Mestre:`/`Narrador:`/`GM:`/`DM:` (distinto de `host_discord_id`, que só
+   * captura menção `<@id>`). Achado real: divulgador do anúncio nem sempre é
+   * o mestre de fato ("Narrador: um conhecido meu, apenas estou postando por
+   * ele") — sem isso, `syncHelpers.ts` só tinha o autor da mensagem Discord
+   * como fonte de `actual_gm_name`, que fica errado nesse caso.
+   */
+  raw_gm_name: string | null;
   /** Fase B/C (spec 058): campos novos de auto-preenchimento — ver `auto-preenchimento-draft.md`. */
   scenario_id: string | null;
   raw_scenario_hint: string | null;

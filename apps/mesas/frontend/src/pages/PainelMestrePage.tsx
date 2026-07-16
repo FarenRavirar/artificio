@@ -14,6 +14,7 @@ import { ContactMethodsEditor } from '../components/mestre/ContactMethodsEditor'
 import { GmInsightsDashboard } from '../components/mestre/GmInsightsDashboard';
 // Componente refatorado
 import { CreateTableForm } from '../features/create-table/components/CreateTableForm';
+import { ParsePreviewTextArea } from '../features/create-table/components/ParsePreviewTextArea';
 import { MarkdownEditor } from '../components/MarkdownEditor';
 import type { FormState } from '../features/create-table/types/createTable.types';
 
@@ -278,6 +279,13 @@ export const PainelMestrePage = () => {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [editingTableId, setEditingTableId] = useState<string | null>(null);
   const [editingTableData, setEditingTableData] = useState<Partial<FormState> | null>(null);
+  // Requisito 8 (spec 079): passo 0 do fluxo de criação (não aparece ao
+  // editar mesa existente) — mestre escolhe entre form em branco ou colar
+  // anúncio pra pré-preencher. Nunca lembrada entre sessões (sempre pergunta
+  // de novo em cada "Nova Mesa"), reflete melhor a realidade de nem sempre
+  // ter um anúncio pronto.
+  const [createTableEntryMode, setCreateTableEntryMode] = useState<'choice' | 'manual' | 'paste'>('choice');
+  const [pastePreviewData, setPastePreviewData] = useState<Partial<FormState> | null>(null);
   const [togglingTableId, setTogglingTableId] = useState<string | null>(null); // CORREÇÃO B3
   const [deletingTableId, setDeletingTableId] = useState<string | null>(null); // CORREÇÃO B4
   const [archivingTableId, setArchivingTableId] = useState<string | null>(null); // D-MESAS1
@@ -337,6 +345,7 @@ export const PainelMestrePage = () => {
         if (!urlParams.has('edit') && urlParams.get('action') !== 'nova-mesa') {
           setView('dashboard');
         } else if (urlParams.get('action') === 'nova-mesa') {
+          setCreateTableEntryMode('choice');
           setView('create-table');
         }
       } catch {
@@ -376,6 +385,9 @@ export const PainelMestrePage = () => {
           const { mapTableApiToInitialData } = await import('../features/create-table/utils/mapTableApiToInitialData');
           if (!active) return;
           setEditingTableData(mapTableApiToInitialData(getPayloadData(data)));
+          // Edição de mesa existente pula o passo 0 (escolha só faz sentido
+          // ao CRIAR — mesa editada já tem dados reais, não precisa de preview).
+          setCreateTableEntryMode('manual');
           setView('create-table');
         } else {
           toast.error('Mesa não encontrada');
@@ -565,17 +577,75 @@ export const PainelMestrePage = () => {
             </div>
             <CreateGmProfileForm onSuccess={refreshData} />
           </div>
+        ) : view === 'create-table' && createTableEntryMode === 'choice' ? (
+          <div className="max-w-3xl mx-auto space-y-8">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setView('dashboard')} className="text-white/40 hover:text-white transition-colors cursor-pointer text-sm">← Voltar</button>
+              <ChevronRight className="w-4 h-4 text-white/20" />
+              <h1 className="text-2xl font-bold">Nova Mesa</h1>
+            </div>
+            <p className="text-white/60">Como você quer começar?</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => { setPastePreviewData(null); setCreateTableEntryMode('manual'); }}
+                className="text-left rounded-2xl border border-white/15 bg-white/3 p-6 hover:border-white/30 transition-colors cursor-pointer"
+              >
+                <h2 className="text-lg font-bold mb-2">Preencher manualmente</h2>
+                <p className="text-sm text-white/50">Comece do zero e preencha cada campo do formulário.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreateTableEntryMode('paste')}
+                className="text-left rounded-2xl border-2 border-[var(--color-artificio-orange)] bg-[var(--color-artificio-orange)]/10 p-6 hover:brightness-110 transition-all cursor-pointer relative"
+              >
+                <span className="absolute -top-2.5 right-4 rounded-full bg-[var(--color-artificio-orange)] px-2.5 py-0.5 text-xs font-semibold text-white">
+                  Mais rápido
+                </span>
+                <h2 className="text-lg font-bold mb-2">Colar anúncio</h2>
+                <p className="text-sm text-white/50">Já tem o texto do anúncio pronto? Cole aqui e a gente pré-preenche o formulário pra você revisar.</p>
+              </button>
+            </div>
+            <p className="text-xs text-white/40">
+              Em nenhum dos dois casos a mesa é publicada sozinha — você sempre revisa e confirma cada campo antes de salvar.
+            </p>
+          </div>
+        ) : view === 'create-table' && createTableEntryMode === 'paste' ? (
+          <div className="max-w-3xl mx-auto space-y-8">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setCreateTableEntryMode('choice')} className="text-white/40 hover:text-white transition-colors cursor-pointer text-sm">← Voltar</button>
+              <ChevronRight className="w-4 h-4 text-white/20" />
+              <h1 className="text-2xl font-bold">Colar anúncio</h1>
+            </div>
+            <div className="bg-white/3 border border-white/8 rounded-2xl p-8">
+              <ParsePreviewTextArea
+                onPreviewReady={(initialData) => {
+                  setPastePreviewData(initialData);
+                  setCreateTableEntryMode('manual');
+                }}
+              />
+            </div>
+            <p className="text-xs text-white/40">
+              A mesa não é publicada sozinha — depois de analisar o texto, você revisa e confirma cada campo antes de salvar.
+            </p>
+          </div>
         ) : view === 'create-table' ? (
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="flex items-center gap-3">
-              <button onClick={() => setView('dashboard')} className="text-white/40 hover:text-white transition-colors cursor-pointer text-sm">← Voltar</button>
+              <button
+                onClick={() => (editingTableId ? setView('dashboard') : setCreateTableEntryMode('choice'))}
+                className="text-white/40 hover:text-white transition-colors cursor-pointer text-sm"
+              >
+                ← Voltar
+              </button>
               <ChevronRight className="w-4 h-4 text-white/20" />
               <h1 className="text-2xl font-bold">{editingTableId ? 'Editar Mesa' : 'Nova Mesa'}</h1>
             </div>
             <div className="bg-white/3 border border-white/8 rounded-2xl p-8">
               <CreateTableForm
+                key={pastePreviewData ? 'from-paste-preview' : 'manual'}
                 onSuccess={refreshData}
-                initialData={editingTableData || undefined}
+                initialData={editingTableData || pastePreviewData || undefined}
               />
             </div>
           </div>
@@ -625,7 +695,7 @@ export const PainelMestrePage = () => {
                 )}
                 <button
                   id="btn-nova-mesa"
-                  onClick={() => setView('create-table')}
+                  onClick={() => { setCreateTableEntryMode('choice'); setView('create-table'); }}
                   className="flex items-center gap-2 px-5 py-3 bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] text-white font-semibold rounded-xl transition-colors cursor-pointer"
                 >
                   <PlusCircle className="w-5 h-5" />

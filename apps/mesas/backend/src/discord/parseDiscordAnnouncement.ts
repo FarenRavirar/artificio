@@ -1078,6 +1078,13 @@ const DAY_TO_DEFINE_PATTERNS = [
   /\bdias?\s+(?:e\s+hor[aá]rios?\s+)?a\s+(?:decidir|combinar|definir)\b/,
   /\bhor[aá]rios?\s+a\s+(?:decidir|combinar|definir)\b/,
   /\bdia\s+a\s+(?:decidir|combinar|definir)\b/,
+  // Achado real (2026-07-16, anúncio "A Censura"): label "Data e hora: a
+  // definir" — sem "dia(s)"/"horário(s)" no valor em si (o rótulo já diz
+  // isso), os 4 padrões acima nunca batiam. `[:：]?` opcional cobre o rótulo
+  // colado ("hora: a definir"). Só ativa quando "data" aparece perto de "a
+  // decidir/definir/combinar" (evita falso positivo em frase livre tipo "vou
+  // definir a data depois de fechar elenco").
+  /\bdatas?\s+(?:e\s+hor[aá]rios?|e\s+horas?)?\s*[:：]?\s*a\s+(?:decidir|combinar|definir)\b/,
 ];
 
 function extractDayOfWeek(text: string, labelAliases: string[] = []): string | null {
@@ -1440,6 +1447,23 @@ function extractContactDiscord(text: string): string | null {
   return match ? match[0] : null;
 }
 
+// Requisito 4 (spec 079, achado real 2026-07-16): "93 992155816 no Whatsapp",
+// "62994292879 no Whatsapp" — número BR (DDD 2 dígitos + 8/9 dígitos, com
+// espaço/traço opcional entre grupos) seguido da palavra "whatsapp"/"zap"
+// perto. Sem isso o dado ficava só na descrição e o draft marcava contato
+// pendente mesmo com telefone explícito no texto. Reaproveita `contact_url`
+// (link wa.me clicável) em vez de campo novo — sem mudança de schema.
+const WHATSAPP_PHONE_RE = /(\d{2}\s?-?\s?9?\d{4}\s?-?\s?\d{4})\s*(?:no|via|pelo)?\s*(?:whats\s?app|whatsapp|zap\s?zap|zap)\b/i;
+
+function extractContactPhoneUrl(text: string): string | null {
+  const match = WHATSAPP_PHONE_RE.exec(text);
+  if (!match) return null;
+  const digits = match[1].replace(/\D/g, '');
+  // DDD (2) + 8 ou 9 dígitos = 10 ou 11 total. Fora disso não é número BR válido.
+  if (digits.length < 10 || digits.length > 11) return null;
+  return `https://wa.me/55${digits}`;
+}
+
 function cleanLabelLine(line: string): string {
   // DEB-052-01: remover markdown ANTES da decoração (a ordem inversa deixava
   // `▬` órfão em `**▬ label`); classe de bullets ampliada (`»«►▶●…`) + emoji de
@@ -1500,7 +1524,20 @@ function extractHostDiscordId(text: string): string | null {
   return null;
 }
 
-const BARE_LABEL_STOP_KEYS = new Set([
+// Requisito 7 (spec 079): nome do mestre como TEXTO, não menção Discord.
+// Reaproveita `extractLabelValue` (mesma engine dos demais campos) — não
+// duplica lógica de parsing de label. Valor puramente de menção (`<@id>`
+// sozinho) ou vazio após limpar a menção não conta como nome de texto — isso
+// já é coberto por `extractHostDiscordId`.
+function extractHostName(text: string): string | null {
+  const raw = extractLabelValue(text, ['mestre', 'gm', 'narrador', 'dm']);
+  if (!raw) return null;
+  const withoutMention = raw.replace(/<@!?\d+>/g, '').trim();
+  if (!withoutMention) return null;
+  return withoutMention;
+}
+
+export const BARE_LABEL_STOP_KEYS = new Set([
   'sistema',
   'jogo',
   'rpg',
@@ -2108,9 +2145,19 @@ export function parseDiscordAnnouncement(
 
   // Título e dica de sistema (a partir do nome do thread)
   const threadParts = splitThreadName(threadName || body.split('\n')[0] || 'Mesa sem título');
-  const explicitTitle = normalizeTitle(extractLabelValue(body, [
+  // Achado real (spec 079, anúncio "Vampiro A Máscara Dark Ages"): template usa
+  // "Mesa:" com DOIS sentidos diferentes conforme o autor — nome da mesa
+  // ("Mesa: Curse of Strahd") OU modalidade de cobrança ("Mesa: Paga (75
+  // Mensal...)"). Sem essa guarda, o segundo sentido vazava como título
+  // ("Paga"). Só descarta quando o valor claramente descreve preço/gratuidade,
+  // não quando é nome real.
+  const MESA_PRICE_VALUE_RE = /^(?:paga|gr[aá]tis|gratuita|r\$)\b/i;
+  const rawExplicitTitle = extractLabelValue(body, [
     'mesa', 'titulo', 'título', 'nome da mesa', 'aventura', ...(labelAliases?.title ?? []),
-  ]));
+  ]);
+  const explicitTitle = normalizeTitle(
+    rawExplicitTitle && MESA_PRICE_VALUE_RE.test(rawExplicitTitle) ? null : rawExplicitTitle,
+  );
   const explicitSystem = normalizeTitle(extractLabelValue(body, [
     'sistema', 'jogo', 'rpg', 'sistema de jogo', 'sistema utilizado', ...(labelAliases?.system_name ?? []),
   ]));
@@ -2164,13 +2211,21 @@ export function parseDiscordAnnouncement(
     })
     ?? null;
   const rawContactUrlMatch = extractContactUrl(body, labelAliases?.contact_url);
-  const contactUrl = googleFormsUrl ?? rawContactUrlMatch?.url ?? null;
-  // Google Forms sempre confiável (detecção por domínio dedicado); URL genérica
-  // sem domínio conhecido nem contexto de linha de contato fica incerta.
-  const contactUrlConfident = googleFormsUrl != null || (rawContactUrlMatch?.confident ?? true);
-
   const explicitContactDiscord = extractContactDiscord(body);
+  // Requisito 4: telefone/WhatsApp só entra quando não há forms/URL/menção
+  // Discord explícita — sinal mais fraco, nunca sobrepõe canal já confirmado.
+  const whatsappUrl = (!googleFormsUrl && !rawContactUrlMatch && !explicitContactDiscord)
+    ? extractContactPhoneUrl(body)
+    : null;
+  const contactUrl = googleFormsUrl ?? rawContactUrlMatch?.url ?? whatsappUrl ?? null;
+  // Google Forms sempre confiável (detecção por domínio dedicado); WhatsApp
+  // extraído por regex de número é igualmente confiável (número BR completo,
+  // sem ambiguidade); URL genérica sem domínio conhecido nem contexto de linha
+  // de contato fica incerta.
+  const contactUrlConfident = googleFormsUrl != null || whatsappUrl != null || (rawContactUrlMatch?.confident ?? true);
+
   let hostDiscordId = extractHostDiscordId(body);
+  const hostName = extractHostName(body);
 
   // DEB-048-26: contato = AUTOR do Discord quando não há contato explícito.
   // Quem publicou o anúncio é o contato padrão. Precedência: forms/url/menção
@@ -2317,6 +2372,7 @@ export function parseDiscordAnnouncement(
     contact_discord_explicit: explicitContactDiscord !== null,
     contact_url: contactUrl,
     host_discord_id: hostDiscordId,
+    raw_gm_name: hostName,
     scenario_id: scenarioMatch?.id ?? null,
     raw_scenario_hint: rawScenarioHint,
     vtt_platform_id: vttMatch?.id ?? null,

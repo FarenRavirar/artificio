@@ -13,14 +13,19 @@ export class DraftSyncValidationError extends Error {
   }
 }
 
-const inboxSyncConfig: SyncDraftCoreConfig = {
+export const inboxSyncConfig: SyncDraftCoreConfig = {
   messageFk: 'import_message_id',
   sourceName: 'inbox',
   messageTable: 'import_messages',
   requireFk: true,
   getSourceId: (message) => message.id as string,
   getSourceUrl: () => null,
-  getGmName: (payload, adminDisplayName) => adminDisplayName ?? payload.source.author_name ?? null,
+  // Requisito 7 (spec 079): admin logado editando o draft (adminDisplayName)
+  // continua tendo prioridade máxima — é confirmação humana explícita. Abaixo
+  // disso, prefere o nome extraído do texto do anúncio (raw_gm_name) sobre o
+  // autor da mensagem (que em texto colado manual é sempre null de qualquer
+  // forma — textToRawMessage não inventa metadado Discord).
+  getGmName: (payload, adminDisplayName) => adminDisplayName ?? payload.table.raw_gm_name ?? payload.source.author_name ?? null,
   ValidationError: DraftSyncValidationError,
 };
 

@@ -153,5 +153,8 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
   if (state.benefitsText) payload.benefits_text = state.benefitsText;
   if (state.tableGmBio) payload.table_gm_bio = state.tableGmBio;
 
+  // Requisito 8 (spec 079): fecha o loop de aprendizado do pré-preenchimento.
+  if (state.parseCaseId) payload.parse_case_id = state.parseCaseId;
+
   return payload;
 }

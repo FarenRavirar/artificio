@@ -615,6 +615,70 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.host_discord_id).toBeNull();
   });
 
+  it('extracts raw_gm_name as text from Mestre/Narrador/GM/DM label (requisito 7, spec 079)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          '▬ **Sistema:** Dungeons & Dragons',
+          '▬ **Mestre:** Mariana',
+          '▬ **Data & Horário:** Segunda-feira das 20h às 00h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.raw_gm_name).toBe('Mariana');
+  });
+
+  it('raw_gm_name captures free text even when publisher note explains they are not the GM (achado real: "Narrador: um conhecido meu, apenas estou postando por ele")', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          '▬ **Sistema:** City of Mist',
+          '▬ **Narrador:** um conhecido meu, apenas estou postando por ele',
+          '▬ **Data & Horário:** Segunda-feira das 20h às 00h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.raw_gm_name).toBe('um conhecido meu, apenas estou postando por ele');
+  });
+
+  it('raw_gm_name is null when the value is only a Discord mention (covered by host_discord_id instead)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          '▬ **Sistema:** Dungeons & Dragons',
+          '▬ **Mestre:** <@225275653333843970>',
+          '▬ **Data & Horário:** Segunda-feira das 20h às 00h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.raw_gm_name).toBeNull();
+    expect(draft?.table.host_discord_id).toBe('225275653333843970');
+  });
+
+  it('keeps raw_gm_name null without a host label (regression: field stays optional)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          '▬ **Sistema:** Dungeons & Dragons',
+          '▬ **Data & Horário:** Segunda-feira das 20h às 00h',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.raw_gm_name).toBeNull();
+  });
+
   it('preserves generic slash ambiguity during normalization', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({

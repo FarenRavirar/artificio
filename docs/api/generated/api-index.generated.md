@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **361 operações**.
+Total: **362 operações**.
 
 ## accounts (11)
 
@@ -156,7 +156,7 @@ Total: **361 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (185)
+## mesas (186)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -272,6 +272,7 @@ Total: **361 operações**.
 | POST | `/api/v1/gm/{slug}/view` | telemetry | none | active | — | Cria ou executa api v1 gm slug view |
 | GET | `/api/v1/gm/insights` | public | user | active | — | Consulta api v1 gm insights |
 | GET | `/api/v1/gm/me` | public | user | active | — | Consulta api v1 gm me |
+| POST | `/api/v1/gm/parse-preview` | public | user | active | — | Cria ou executa api v1 gm parse-preview |
 | POST | `/api/v1/gm/profile` | public | user | active | — | Cria ou executa api v1 gm profile |
 | PUT | `/api/v1/gm/profile` | public | user | active | — | Substitui api v1 gm profile |
 | GET | `/api/v1/gm/tables` | public | user | active | — | Consulta api v1 gm tables |

@@ -16,9 +16,17 @@ vi.mock('../syncHelpers', () => ({
   updateDraftImageUploadState: vi.fn(),
 }));
 
-import { DiscordDraftSyncValidationError, syncDiscordDraftToTable, refreshDiscordDraftImage } from '../syncDiscordDraftToTable';
+import { DiscordDraftSyncValidationError, syncDiscordDraftToTable, refreshDiscordDraftImage, discordSyncConfig } from '../syncDiscordDraftToTable';
 import { syncDraftToTable, normalizeImportTableDraft, uploadCoverForDraft, withCoverUrl, updateDraftImageUploadState } from '../syncHelpers';
 import { db } from '../../db';
+import type { ImportTableDraft } from '../types';
+
+function makePayload(overrides: { raw_gm_name?: string | null; author_name?: string | null } = {}): ImportTableDraft {
+  return {
+    table: { raw_gm_name: overrides.raw_gm_name ?? null } as ImportTableDraft['table'],
+    source: { author_name: overrides.author_name ?? null } as ImportTableDraft['source'],
+  } as ImportTableDraft;
+}
 
 function mockChain(overrides: Record<string, Mock> = {}) {
   const methods = ['select', 'selectAll', 'where', 'returning', 'execute', 'executeTakeFirst', 'executeTakeFirstOrThrow', 'set'];
@@ -58,6 +66,23 @@ describe('syncDiscordDraftToTable', () => {
 
     expect(syncDraftToTable).toHaveBeenCalledWith('draft-1', expect.any(Object));
     expect(result).toEqual(mockResult);
+  });
+});
+
+describe('discordSyncConfig.getGmName (requisito 7, spec 079)', () => {
+  it('prefere raw_gm_name (extraído do texto) quando presente', () => {
+    const payload = makePayload({ raw_gm_name: 'Mariana', author_name: 'EzPhilipp' });
+    expect(discordSyncConfig.getGmName(payload)).toBe('Mariana');
+  });
+
+  it('cai para author_name quando raw_gm_name está ausente (comportamento estável anterior)', () => {
+    const payload = makePayload({ raw_gm_name: null, author_name: 'EzPhilipp' });
+    expect(discordSyncConfig.getGmName(payload)).toBe('EzPhilipp');
+  });
+
+  it('retorna null quando nem texto nem autor têm nome', () => {
+    const payload = makePayload({ raw_gm_name: null, author_name: null });
+    expect(discordSyncConfig.getGmName(payload)).toBeNull();
   });
 });
 
