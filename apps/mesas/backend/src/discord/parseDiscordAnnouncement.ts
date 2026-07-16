@@ -1,5 +1,5 @@
 import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType, TableDraftFrequency, TableDraftAgeRating, TableDraftExperienceLevel, TableDraftTableLevel } from './types';
-import { normalizeSystemName, scoreSystemCandidates } from '../services/systemSuggestionCandidates';
+import { normalizeSystemName, scoreSystemCandidates, similarity } from '../services/systemSuggestionCandidates';
 
 export interface SystemEntry {
   id: string;
@@ -538,9 +538,40 @@ function isExactSystemMatch(text: string, system: SystemEntry): boolean {
       && editions.every((token) => hintEditions.has(token)));
 }
 
-/** Fase A (spec 058): matching de VTT/plataforma de comunicação — só nome+aliases, sem edição/versão. */
-function findPlatformMatch(text: string, entries: MatchEntry[]): MatchEntry | null {
-  return findEntryMatch(
+const PLATFORM_FUZZY_MIN_SIMILARITY = 0.75;
+
+// Achado do mantenedor (2026-07-16): "owbear" (typo real de "Owlbear", falta
+// "l") não batia em nenhum alias hardcoded — texto livre de anúncio tem erro
+// de digitação com frequência ilimitada, alias exato nunca cobre tudo. Fuzzy
+// só entra como fallback (match exato sempre vence) e só compara contra
+// tokens curtos da linha de plataformas (não o body inteiro — texto livre
+// longo geraria falsos positivos com limiar de similaridade).
+function findPlatformMatchFuzzy(text: string, entries: MatchEntry[]): MatchEntry | null {
+  const tokens = normalize(text).split(/[\s,;/]+/).filter((t) => t.length >= 4);
+  if (tokens.length === 0) return null;
+
+  let best: { entry: MatchEntry; score: number } | null = null;
+  for (const entry of entries) {
+    const names = [entry.name, ...entry.aliases].map(normalize).filter(Boolean);
+    for (const token of tokens) {
+      for (const name of names) {
+        const score = similarity(token, name);
+        if (score >= PLATFORM_FUZZY_MIN_SIMILARITY && (!best || score > best.score)) {
+          best = { entry, score };
+        }
+      }
+    }
+  }
+  return best?.entry ?? null;
+}
+
+/** Fase A (spec 058): matching de VTT/plataforma de comunicação — só nome+aliases, sem edição/versão.
+ * `fuzzyText` é opcional e só deve vir preenchido com um valor de label isolado
+ * (ex.: linha "Plataformas:") — nunca com `fullText`. Achado Codex (PR #171):
+ * rodar fuzzy contra o corpo inteiro do anúncio gera falso positivo (qualquer
+ * token ≥4 chars da sinopse/regras pode bater 0.75 de similaridade por acaso). */
+function findPlatformMatch(text: string, entries: MatchEntry[], fuzzyText?: string | null): MatchEntry | null {
+  const exact = findEntryMatch(
     text,
     entries,
     (entry) => [
@@ -549,6 +580,8 @@ function findPlatformMatch(text: string, entries: MatchEntry[]): MatchEntry | nu
     ],
     true,
   );
+  if (exact) return exact;
+  return fuzzyText ? findPlatformMatchFuzzy(fuzzyText, entries) : null;
 }
 
 function matchSystem(text: string, systems: SystemEntry[]): SystemMatchResult | null {
@@ -2192,10 +2225,10 @@ export function parseDiscordAnnouncement(
   const platformsLabelValue = extractLabelValue(body, ['plataforma', 'plataformas'])
     ?? extractLabelValue(body, ['local do jogo']);
   const vttMatch = platforms?.vtt?.length
-    ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.vtt)
+    ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.vtt, platformsLabelValue)
     : null;
   const communicationMatch = platforms?.communication?.length
-    ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.communication)
+    ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.communication, platformsLabelValue)
     : null;
 
   // Fase C: classificação indicativa (enum fixo, regex livre no corpo inteiro).
@@ -2207,7 +2240,11 @@ export function parseDiscordAnnouncement(
   // de UI, SettingStylesField). Sem banco de referência — texto livre normalizado.
   const settingStylesLabelValue = extractLabelValue(body, ['estilo', 'indicado']);
   const settingStyles = settingStylesLabelValue ? splitFreeTextList(settingStylesLabelValue) : null;
-  const settingName = extractLabelValue(body, ['ambientacao', 'ambientação', 'cenario', 'cenário']);
+  // Achado do mantenedor (2026-07-16): "Época: atual" no anúncio (Duskwood)
+  // não caía em nenhum label conhecido — "época" é sinônimo real de
+  // ambientação/cenário no template da comunidade (define quando/onde a
+  // história se passa), faltava na lista.
+  const settingName = extractLabelValue(body, ['ambientacao', 'ambientação', 'cenario', 'cenário', 'epoca', 'época']);
   const scenarioMatch = settingName && platforms?.scenarios?.length
     ? findPlatformMatch(settingName, platforms.scenarios)
     : null;

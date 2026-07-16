@@ -471,7 +471,12 @@ describe('processDiscordMessageToDraft', () => {
     expect(messageUpdate?.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'ignored' }));
   });
 
-  it('keeps parsing when requireExplicitContact is true and contact_discord is an explicit mention', async () => {
+  // Achado do mantenedor (2026-07-16): menção Discord <@id> sozinha não é
+  // contato usável — ID cru não é clicável/pesquisável fora do servidor.
+  // requireExplicitContact agora exige contact_url (link) de verdade, não
+  // mais aceita contact_discord_explicit como substituto. Teste invertido:
+  // antes provava que a menção bastava, agora prova que não basta mais.
+  it('discards when requireExplicitContact is true and only an explicit mention exists (no contact_url)', async () => {
     const parsed = {
       source: { guild_id: 'guild-1', channel_id: 'channel-1', message_id: '1441138618755448997' },
       table: {
@@ -493,6 +498,52 @@ describe('processDiscordMessageToDraft', () => {
         contact_discord: 'contato-explicito',
         contact_discord_explicit: true,
         contact_url: null,
+        host_discord_id: null,
+        cover_url: null,
+        cover_url_source: null,
+        cover_quality: null,
+        _slots_ambiguity: null,
+        _homebrew_suspect: null,
+        _notes: [],
+      },
+      confidence: 0.9,
+      confidence_tier: 'alta',
+      missing_fields: [],
+    };
+
+    (db.selectFrom as Mock).mockReturnValue(chain({ executeTakeFirst: vi.fn().mockResolvedValue(null) }));
+    (parseDiscordAnnouncement as Mock).mockReturnValue(parsed);
+    (normalizeDiscordTableDraft as Mock)
+      .mockReturnValueOnce({ draft: parsed, status: 'needs_review' })
+      .mockImplementationOnce((draft) => ({ draft, status: 'needs_review' }));
+
+    await expect(
+      processDiscordMessageToDraft(message(), [], undefined, 'admin-1', true, undefined, true),
+    ).resolves.toBe('discarded');
+  });
+
+  it('keeps parsing when requireExplicitContact is true and contact_url exists', async () => {
+    const parsed = {
+      source: { guild_id: 'guild-1', channel_id: 'channel-1', message_id: '1441138618755448998' },
+      table: {
+        title: 'Mesa com link de contato',
+        system_name: 'D&D',
+        system_id: null,
+        raw_system_hint: 'D&D',
+        type: 'campanha',
+        modality: 'online',
+        price_type: 'gratuita',
+        price_value: null,
+        slots_total: 4,
+        slots_filled: null,
+        slots_open: 4,
+        day_of_week: 'sexta',
+        start_time: '20:00',
+        frequency: null,
+        description: 'descricao',
+        contact_discord: null,
+        contact_discord_explicit: false,
+        contact_url: 'https://forms.gle/exemplo',
         host_discord_id: null,
         cover_url: null,
         cover_url_source: null,

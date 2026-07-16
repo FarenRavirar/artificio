@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useConfirm } from '@artificio/ui';
 import type { DiscordDraft, DiscordImportDraftStatus, DraftApiOperations } from '../types';
@@ -87,6 +88,7 @@ function readString(value: unknown): string | null {
 
 export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync, updateDraftsBatch, purgeRejectedDrafts }: Props) {
   const { confirm } = useConfirm();
+  const navigate = useNavigate();
   const draftApi = api ?? discordSyncApi;
   const batchReject = updateDraftsBatch ?? discordSyncApi.updateDraftsBatch;
   const purgeRejected = purgeRejectedDrafts ?? discordSyncApi.purgeRejectedDrafts;
@@ -415,7 +417,11 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
             return (
               <div
                 key={draft.id}
-                className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex items-center gap-3 hover:bg-white/[0.08] transition-colors"
+                // Achado do mantenedor (2026-07-16): sem flex-wrap, badge extra
+                // (ex.: "possível duplicata") empurrava os botões Revisar/Rejeitar
+                // pra fora da linha em telas estreitas — pareciam ter sumido,
+                // mas eram cortados pelo overflow do flex row sem quebra.
+                className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex flex-wrap items-center gap-3 hover:bg-white/[0.08] transition-colors"
               >
                 {draft.status !== 'synced' && draft.status !== 'rejected' && (
                   <input
@@ -427,9 +433,15 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                     className="h-4 w-4 shrink-0 accent-blue-600"
                   />
                 )}
+                {/* Achado Codex (PR #171): badge de duplicata clicável precisa ficar
+                    FORA do wrapper clicável (era <div role="button"> pra evitar
+                    <button> aninhado quando o badge vivia dentro) — como sibling,
+                    o wrapper volta a ser <button> nativo de verdade (acessibilidade
+                    real, sem role sintético) e não há mais bubbling de keydown
+                    entre badge e wrapper. */}
                 <button
                   type="button"
-                  className="flex flex-1 min-w-0 items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+                  className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
                   aria-label={`Abrir preview do rascunho ${title}`}
                   onClick={() => setSelectedDraft(draft)}
                 >
@@ -465,11 +477,6 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                         ⚠ autoral?
                       </span>
                     )}
-                    {(duplicateCounts.get(draft.id) ?? 0) > 0 && (
-                      <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-200" title="Este rascunho bate com mesa ativa existente">
-                        possível duplicata ({duplicateCounts.get(draft.id)})
-                      </span>
-                    )}
                   </span>
                   <span className="block text-white font-medium text-sm truncate">{title}</span>
                   <span className="flex items-center gap-2">
@@ -478,6 +485,23 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                   </span>
                 </span>
                 </button>
+                {(duplicateCounts.get(draft.id) ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Achado Codex (PR #171): esse badge conta via listTableDuplicateCandidates
+                      // (mesa ativa × draft), API/modelo diferente do que DuplicatesTab carrega
+                      // (listDuplicateCandidates(draftId), duplicata parser×parser) — abrir o
+                      // preview aqui mostrava "Nenhum candidato" ou dado errado. Navega pro
+                      // painel real que já lista e resolve esse tipo de candidato.
+                      navigate('/gestao/mesas/duplicatas');
+                    }}
+                    className="shrink-0 rounded-full bg-red-500/20 hover:bg-red-500/30 px-2 py-0.5 text-xs text-red-200 transition-colors"
+                    title="Este rascunho bate com mesa ativa existente — ver em Possíveis duplicatas"
+                  >
+                    possível duplicata ({duplicateCounts.get(draft.id)})
+                  </button>
+                )}
                 {draft.status !== 'synced' && draft.status !== 'rejected' && (
                   <span className="flex shrink-0 items-center gap-2">
                     <button

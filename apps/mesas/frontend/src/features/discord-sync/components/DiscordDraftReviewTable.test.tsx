@@ -10,6 +10,11 @@ vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },
 }));
 
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => mockNavigate,
+}));
+
 vi.mock('@artificio/ui', () => ({
   useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(true) }),
 }));
@@ -119,6 +124,18 @@ describe('DiscordDraftReviewTable', () => {
     }]);
     render(<DiscordDraftReviewTable />);
     expect(await screen.findByText('possível duplicata (1)')).toBeInTheDocument();
+  });
+
+  it('navega pro painel de duplicatas ao clicar no badge (achado Codex PR #171: badge usava API de mesa ativa, mas abria preview com API de duplicata de draft — dado errado/inexistente)', async () => {
+    mockListTableDuplicates.mockResolvedValue([{
+      id: 'dup-1', score: 0.9, signals_json: {}, status: 'candidate',
+      table_id: 'table-1', table_slug: 'mesa-publicada', table_title: 'Mesa publicada',
+      candidate_draft_id: 'draft-1',
+    }]);
+    render(<DiscordDraftReviewTable />);
+    const badge = await screen.findByText('possível duplicata (1)');
+    fireEvent.click(badge);
+    expect(mockNavigate).toHaveBeenCalledWith('/gestao/mesas/duplicatas');
   });
 
   it('mostra status dos drafts', async () => {

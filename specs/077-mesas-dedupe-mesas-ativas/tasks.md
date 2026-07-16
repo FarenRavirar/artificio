@@ -174,7 +174,85 @@ duplicata (Fase 1+, já `[x]` acima) funcionava conforme desenhado. Sessão:
       reducer usado pelo upload).
       Validado: `tsc -b && vite build` limpo; `eslint` limpo; testes
       atualizados (`DraftEditorTab.test.tsx`).
-- [ ] U14 Autorização do mantenedor para commit/push/PR de U8-U13 (nenhuma
+- [x] U14 Autorização do mantenedor para commit/push/PR de U8-U13. Commit
+      `5674805`, PR #170 aberta contra `dev`, merge, deploy Mesas Beta
+      (run 29509312900), promote `dev→main` fast-forward (run 29509886305),
+      deploy Mesas Prod (run 29509927847) — todos verdes.
+- [x] U15 Review Sonar da PR #170 (5 achados, todos introduzidos no próprio
+      PR, todos confirmados válidos e corrigidos): regex de `DAY_TO_DEFINE`
+      e `extractAgeRating` acima do limite de complexidade (split em
+      array/testes separados); cognitive complexity de
+      `createCorrectionHandler` e `handleSaveFields` acima do limite
+      (extraídas `buildCorrectionsPreview`/`logCorrectionFailure`/
+      `recordLearningForSave`); template literal aninhado em `utils.ts`
+      (variável intermediária). Sem mudança de comportamento — só estrutura.
+      Validado: tsc limpo, lint 21/21, build 21/21, testes 31/31 tasks
+      (549 mesas-backend), `verify:api` exit 0. Commit `6cf92ee`, mesmo PR.
+- [x] U16 Achados Codex da PR #170 (2 achados, ambos válidos, ambos
+      corrigidos no mesmo commit `6cf92ee`):
+      (a) URL de capa colada (`onSetCoverUrl`/U13) ia direto pra `cover_url`
+      — backend (`uploadCoverForDraft`) trata `cover_url` preenchido como já
+      persistido e pula o upload real, publicando link expirável/hotlinked
+      (CDN assinado do Discord) como capa da mesa. Fix: vai como
+      `cover_url_source` (pendente); sync real baixa e sobe pro Cloudinary
+      antes de confirmar em `cover_url`.
+      (b) `slots_total` inventado abaixo do `slots_open` real quando só
+      "vagas disponíveis" é declarado (default fixo 5, ex.: "disponíveis: 8"
+      virava total:5) — `normalizeSlots` clampava `slots_open` pro total
+      depois, escondendo vagas reais silenciosamente. Fix: default só quando
+      `open <= 5`; senão `open` vira o próprio total.
+      (c, achado extra do mantenedor no mesmo ciclo) `handleDraftUpdate` em
+      `DiscordDraftReviewTable.tsx` fazia `setSelectedDraft(updated)`
+      incondicional — reabria o modal de preview se o mantenedor tivesse
+      fechado (`selectedDraft=null`) enquanto o update assíncrono ainda
+      estava em voo. Fix: updater funcional, só aplica se ainda houver draft
+      selecionado.
+      Validado: tsc limpo, 151 testes frontend `discord-sync` + 161 testes
+      parser backend verdes.
+- [x] U17 Bugs reais de produção reportados após deploy do PR #170, tela
+      `/gestao/mesas/rascunhos` e editor de draft (screenshots, caso real
+      "Crônicas do Fim dos Dias" e "somewhere in Duskwood" —
+      `D:\teste [part 2].json`):
+      (a) Badge "possível duplicata" na lista só mostrava contagem, sem
+      apontar pra qual candidato/mesa. Fix: badge clicável abre o preview do
+      draft já na aba "Duplicatas" (`DiscordDraftPreview` ganhou prop
+      `initialTab`).
+      (b) Botões "Revisar"/"Rejeitar" pareciam ter sumido em telas estreitas
+      quando o draft tinha badge de duplicata — causa raiz: row sem
+      `flex-wrap`, badge extra empurrava os botões pra fora do overflow
+      visível (não eram removidos, eram cortados). Fix: `flex-wrap` na row.
+      Efeito colateral do fix do badge clicável: o wrapper da linha inteira
+      era um `<button>` e o badge virou outro `<button>` aninhado dentro
+      dele (HTML inválido) — trocado por `div role="button"` com suporte a
+      teclado (Enter/Space).
+      (c) Menção Discord `<@id>` sozinha (sem link) NÃO é contato usável —
+      ID cru não é clicável/pesquisável fora do servidor. O filtro
+      `requireExplicitContact` (import JSON) aceitava
+      `contact_discord_explicit` como substituto de link; agora exige
+      `contact_url` de verdade. `contact_discord`/`contact_discord_explicit`
+      continuam preenchidos (útil como exibição), só não contam mais pro
+      filtro de qualidade.
+      (d) Typo de plataforma ("owbear" por "Owlbear Rodeo") não batia em
+      nenhum alias hardcoded — `findPlatformMatch` ganhou fallback de fuzzy
+      matching (Levenshtein/similaridade ≥0.75, só quando o match exato
+      falha, só comparando tokens da linha de plataformas pra evitar falso
+      positivo em texto livre longo). Reusa `levenshtein`/`similarity` já
+      existentes em `systemSuggestionCandidates.ts` (agora exportadas) —
+      sem dependência nova.
+      (e) Label "Época" (sinônimo de ambientação/cenário no template da
+      comunidade) não era reconhecido por `extractLabelValue` — adicionado
+      à lista de labels de `setting_name`.
+      (f) `experience_level` (ex.: "todos") saía cru, sem rótulo, no anúncio
+      de compartilhamento WhatsApp — sem contexto, parecia campo residual
+      cortado do template. Fix: `whatsappAnnouncement.ts` agora prefixa
+      "Nível:"/"Experiência:" antes de cada valor.
+      Validado: tsc limpo (frontend+backend), 165 testes parser backend
+      (3 novos + 1 teste de integração completo usando o texto exato
+      exportado do Discord no caso "Duskwood"), 6 testes
+      `whatsappAnnouncement` (1 novo), teste de `utils.test.ts` invertido
+      pra refletir a nova regra de contato (era "menção basta", agora
+      "menção não basta sem link").
+- [ ] U18 Autorização do mantenedor para commit/push/PR de U17 (nenhuma
       autorização dada ainda; regra pétrea — não commitar por inferência).
 
 ## Frente parser — ampliação de escopo (2026-07-14)
