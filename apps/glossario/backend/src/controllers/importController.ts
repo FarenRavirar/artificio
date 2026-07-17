@@ -1,13 +1,13 @@
 import { Response } from 'express';
 import type { PoolClient } from 'pg';
-import { db } from '../config/database';
-import { sanitizeTermFields } from '../utils/sanitizeText';
-import { slugify } from '../utils/slugify';
+import { db } from '../config/database.js';
+import { sanitizeTermFields } from '../utils/sanitizeText.js';
+import { slugify } from '../utils/slugify.js';
 import { randomUUID } from 'crypto';
-import { notifyTermOwnerOnModeration } from '../services/notificationService';
-import { fetchUserRoleFromDb } from '../utils/userRole';
-import { getCatalogNameMap } from '../services/catalogClient';
-import type { AuthedRequest } from '../types/express';
+import { notifyTermOwnerOnModeration } from '../services/notificationService.js';
+import { fetchUserRoleFromDb } from '../utils/userRole.js';
+import { getCatalogNameMap } from '../services/catalogClient.js';
+import type { AuthedRequest } from '../types/express.js';
 
 // ---------------------------------------------------------------------------
 // Tipos internos

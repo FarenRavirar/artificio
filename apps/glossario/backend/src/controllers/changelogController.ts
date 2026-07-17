@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { normalizeChangelogEntries, CHANGELOG_CACHE_TTL, type ChangelogEntry } from '@artificio/changelog';
 
 let changelogsCache: ChangelogEntry[] | null = null;
@@ -14,7 +15,7 @@ export const getChangelogs = async (_req: Request, res: Response) => {
       return res.json({ data: changelogsCache });
     }
 
-    const changelogsPath = join(__dirname, '../../../database/changelogs.json');
+    const changelogsPath = join(fileURLToPath(new URL('.', import.meta.url)), '../../../database/changelogs.json');
     const raw = await readFile(changelogsPath, 'utf-8');
 
     let parsed: unknown;

@@ -1,4 +1,4 @@
-import { db } from '../config/database';
+import { db } from '../config/database.js';
 
 type QueryExecutor = {
   query: (text: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[]; rowCount?: number | null }>;

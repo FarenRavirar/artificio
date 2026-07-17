@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { updateProfile, listUsers, toggleBan } from '../controllers/userController';
-import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware';
-import { betaWriteGuard } from '../middlewares/betaWriteGuard';
-import { refreshUserRole } from '../middlewares/refreshUserRole';
+import { updateProfile, listUsers, toggleBan } from '../controllers/userController.js';
+import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware.js';
+import { betaWriteGuard } from '../middlewares/betaWriteGuard.js';
+import { refreshUserRole } from '../middlewares/refreshUserRole.js';
 
 const router = Router();
 

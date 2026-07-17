@@ -32,6 +32,7 @@ import adminInboxRoutes from './routes/adminImportInbox';
 import activityLogRoutes from './routes/activityLog';
 import uploadRoutes from './routes/upload';
 import ogRoutes from './routes/og';
+import sitemapRoutes from './routes/sitemap';
 import { db } from './db';
 import { requestLogger } from './middleware/requestLogger';
 import { csrfProtection } from './middleware/csrfProtection';
@@ -142,6 +143,7 @@ app.use('/api/v1/communication-platforms', communicationPlatformsRoutes);
 app.use('/api/v1/changelog', changelogRoutes);
 app.use('/api/v1', uploadRoutes);
 app.use('/og', ogRoutes);
+app.use('/', sitemapRoutes);
 
 interface HttpError {
   type?: string;

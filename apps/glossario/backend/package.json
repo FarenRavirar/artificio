@@ -12,11 +12,12 @@
     "catalog:migrate-refs": "ts-node src/scripts/migrateGlossarioCatalogRefs.ts"
   },
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "@artificio/auth": "workspace:*",
     "@artificio/catalog-client": "workspace:*",
     "@artificio/changelog": "workspace:*",
+    "@artificio/content": "workspace:*",
     "@artificio/feedback": "workspace:*",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.5.1",

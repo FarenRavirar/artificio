@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware';
-import { exportToMateCat } from '../controllers/exportController';
-import { refreshUserRole } from '../middlewares/refreshUserRole';
+import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware.js';
+import { exportToMateCat } from '../controllers/exportController.js';
+import { refreshUserRole } from '../middlewares/refreshUserRole.js';
 
 const router = Router();
 

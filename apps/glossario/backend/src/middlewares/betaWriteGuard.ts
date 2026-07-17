@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import type { AuthedRequest } from '../types/express';
+import type { AuthedRequest } from '../types/express.js';
 
 /**
  * Bloqueia escrita de membros no ambiente beta quando a flag de proteção estiver ativa.

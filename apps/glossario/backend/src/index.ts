@@ -3,21 +3,23 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { rateLimit } from 'express-rate-limit';
 import dotenv from 'dotenv';
-import authRoutes from './routes/authRoutes';
-import termRoutes from './routes/termRoutes';
-import userRoutes from './routes/userRoutes';
-import categoryRoutes from './routes/categoryRoutes';
-import systemRoutes from './routes/systemRoutes';
-import scenarioRoutes from './routes/scenarioRoutes';
-import changelogRoutes from './routes/changelogRoutes';
-import socialRoutes from './routes/socialRoutes';
-import exportRoutes from './routes/exportRoutes';
-import importRoutes from './routes/importRoutes';
-import notificationRoutes from './routes/notificationRoutes';
-import adminActivityRoutes from './routes/adminActivityRoutes';
-import migrationRoutes from './routes/migrationRoutes';
-import feedbackRoutes from './routes/feedbackRoutes';
-import feedbackAdminRoutes from './routes/feedbackAdminRoutes';
+import authRoutes from './routes/authRoutes.js';
+import termRoutes from './routes/termRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import categoryRoutes from './routes/categoryRoutes.js';
+import systemRoutes from './routes/systemRoutes.js';
+import scenarioRoutes from './routes/scenarioRoutes.js';
+import changelogRoutes from './routes/changelogRoutes.js';
+import socialRoutes from './routes/socialRoutes.js';
+import exportRoutes from './routes/exportRoutes.js';
+import importRoutes from './routes/importRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import adminActivityRoutes from './routes/adminActivityRoutes.js';
+import migrationRoutes from './routes/migrationRoutes.js';
+import feedbackRoutes from './routes/feedbackRoutes.js';
+import feedbackAdminRoutes from './routes/feedbackAdminRoutes.js';
+import sitemapRoutes from './routes/sitemapRoutes.js';
+import ogRoutes from './routes/ogRoutes.js';
 
 dotenv.config();
 
@@ -75,6 +77,8 @@ app.use(cookieParser());
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'OK', message: 'Backend v2 operacional!' });
 });
+app.use('/', sitemapRoutes);
+app.use('/og', ogRoutes);
 
 // Rotas da API
 app.use('/api/auth', authRoutes);

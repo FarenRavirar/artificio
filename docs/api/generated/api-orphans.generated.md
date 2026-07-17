@@ -10,7 +10,7 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 37 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 38 | ❌ |
 
 ## Rotas órfãs suspeitas
 
@@ -49,6 +49,11 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/api/v1/reports` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/material-metadata/:materialId` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/ratings` | ✅ | public | Scope "public" sem consumidor |
+### glossario (1 rota(s))
+
+| Method | Path | Tem OpenAPI? | Scope | Razão |
+|--------|------|:-----------:|-------|-------|
+| GET | `/sitemap.xml` | ✅ | public | Scope "public" sem consumidor |
 ### mesas (2 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |

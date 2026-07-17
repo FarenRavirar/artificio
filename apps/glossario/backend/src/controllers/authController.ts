@@ -1,6 +1,6 @@
 import { Response } from 'express';
-import { db } from '../config/database';
-import type { AuthedRequest } from '../types/express';
+import { db } from '../config/database.js';
+import type { AuthedRequest } from '../types/express.js';
 
 /**
  * Login de sessão e cadastro legados foram DESATIVADOS (spec 015): o único login

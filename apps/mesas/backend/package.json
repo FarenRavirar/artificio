@@ -44,6 +44,7 @@
     "@artificio/catalog-client": "workspace:*",
     "@artificio/changelog": "workspace:*",
     "@artificio/config": "workspace:*",
+    "@artificio/content": "workspace:*",
     "@artificio/feedback": "workspace:*",
     "@artificio/media": "workspace:*",
     "@types/he": "^1.2.3",

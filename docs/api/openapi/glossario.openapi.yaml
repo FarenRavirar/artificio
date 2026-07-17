@@ -1665,3 +1665,67 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /og/termo/{id}:
+    get:
+      operationId: getog_termo_id
+      summary: "Consulta og termo id"
+      x-artificio-owner: glossario
+      x-artificio-scope: media
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /sitemap.xml:
+    get:
+      operationId: getsitemap_xml
+      summary: "Consulta sitemap.xml"
+      x-artificio-owner: glossario
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno

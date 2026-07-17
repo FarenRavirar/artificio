@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { db } from '../config/database';
-import type { AuthedRequest } from '../types/express';
+import { db } from '../config/database.js';
+import type { AuthedRequest } from '../types/express.js';
 
 export const listUsers = async (req: Request, res: Response) => {
   try {

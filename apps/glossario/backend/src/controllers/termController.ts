@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { db } from '../config/database';
-import { sanitizeTermFields } from '../utils/sanitizeText';
-import { notifyTermOwnerOnModeration } from '../services/notificationService';
-import { getCatalogNameMap } from '../services/catalogClient';
-import type { AuthedRequest } from '../types/express';
+import { db } from '../config/database.js';
+import { sanitizeTermFields } from '../utils/sanitizeText.js';
+import { notifyTermOwnerOnModeration } from '../services/notificationService.js';
+import { getCatalogNameMap } from '../services/catalogClient.js';
+import type { AuthedRequest } from '../types/express.js';
 
 export const listTerms = async (req: Request, res: Response) => {
   try {

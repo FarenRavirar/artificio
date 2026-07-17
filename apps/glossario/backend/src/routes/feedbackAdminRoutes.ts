@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { listFeedback, updateFeedback, deleteFeedback } from '../controllers/feedbackController';
-import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware';
-import { refreshUserRole } from '../middlewares/refreshUserRole';
+import { listFeedback, updateFeedback, deleteFeedback } from '../controllers/feedbackController.js';
+import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware.js';
+import { refreshUserRole } from '../middlewares/refreshUserRole.js';
 
 const router = Router();
 

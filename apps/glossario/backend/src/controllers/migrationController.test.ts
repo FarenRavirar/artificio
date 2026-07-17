@@ -4,16 +4,16 @@ import bcrypt from 'bcrypt';
 // migrationController importa ../config/database (exige POSTGRES_PASSWORD) e
 // migrationToken (exige JWT_SECRET). Setamos antes do import dinâmico; os testes
 // injetam exec/client/issue, sem tocar o Pool.
-let ctrl: typeof import('./migrationController');
-let issueMigrationToken: typeof import('../auth/migrationToken').issueMigrationToken;
+let ctrl: typeof import('./migrationController.js');
+let issueMigrationToken: typeof import('../auth/migrationToken.js').issueMigrationToken;
 let SSO_NO_PASSWORD: string;
 
 beforeAll(async () => {
   process.env.POSTGRES_PASSWORD = process.env.POSTGRES_PASSWORD || 'test-only';
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-please';
-  ctrl = await import('./migrationController');
-  issueMigrationToken = (await import('../auth/migrationToken')).issueMigrationToken;
-  SSO_NO_PASSWORD = (await import('../auth/resolveLocalUser')).SSO_NO_PASSWORD;
+  ctrl = await import('./migrationController.js');
+  issueMigrationToken = (await import('../auth/migrationToken.js')).issueMigrationToken;
+  SSO_NO_PASSWORD = (await import('../auth/resolveLocalUser.js')).SSO_NO_PASSWORD;
 });
 
 function execReturning(rows: Array<Record<string, unknown>>) {

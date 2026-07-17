@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { db } from '../config/database';
+import { db } from '../config/database.js';
 
 const parseLimit = (value: unknown): number => {
   const n = Number(value);

@@ -1,5 +1,5 @@
-import { db } from '../config/database';
-import { getCatalogNodeIndex } from '../services/catalogClient';
+import { db } from '../config/database.js';
+import { getCatalogNodeIndex } from '../services/catalogClient.js';
 
 interface LegacySystem {
   id: string;

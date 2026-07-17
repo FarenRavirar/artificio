@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
-import { db } from '../config/database';
-import { parseFeedbackInput } from '../validators/feedbackValidator';
+import { db } from '../config/database.js';
+import { parseFeedbackInput } from '../validators/feedbackValidator.js';
 import {
   isCloudinaryConfigured,
   uploadScreenshotToCloudinary,
   deleteFromCloudinary,
-} from '../services/cloudinary';
-import type { AuthedRequest } from '../types/express';
+} from '../services/cloudinary.js';
+import type { AuthedRequest } from '../types/express.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_STATUS = new Set(['new', 'triaged', 'in_progress', 'resolved', 'wont_fix', 'duplicate']);

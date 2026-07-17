@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { listAdminActivity } from '../controllers/adminActivityController';
-import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware';
-import { refreshUserRole } from '../middlewares/refreshUserRole';
+import { listAdminActivity } from '../controllers/adminActivityController.js';
+import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware.js';
+import { refreshUserRole } from '../middlewares/refreshUserRole.js';
 
 const router = Router();
 
