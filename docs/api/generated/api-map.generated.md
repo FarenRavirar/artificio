@@ -182,7 +182,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/health` | ✅ high | `apps/glossario/backend/src/index.ts` | 77 |
 | USE | `/og` | ✅ high | `apps/glossario/backend/src/index.ts` | 81 |
 | GET | `/og/termo/:id` | ✅ high | `apps/glossario/backend/src/routes/ogRoutes.ts` | 13 |
-| GET | `/sitemap.xml` | ✅ high | `apps/glossario/backend/src/routes/sitemapRoutes.ts` | 8 |
+| GET | `/sitemap.xml` | ✅ high | `apps/glossario/backend/src/routes/sitemapRoutes.ts` | 7 |
 
 ## links
 

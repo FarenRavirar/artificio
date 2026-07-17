@@ -88,6 +88,8 @@
 - [x] OG Glossário gera documento HTML próprio; não depende de arquivo frontend ausente no container. Cache público curto aplicado.
 - [x] Nginx Glossário intercepta crawler somente em `/termo/`; demais rotas continuam fallback SPA. Nginx Mesas passa headers proxy completos no sitemap.
 - [x] Nota inline sobre `String.replace` descartada: rota não faz mais replace de HTML, portanto não existe interpretação de `$` em metadata.
+- [x] Guard CLI de `processLinkMetadataJobs` migrado de `require.main` para `import.meta.url`; backend Mesas ESM inicia sem `require` indefinido.
+- [x] Sitemap Glossário não lista mais `/termo/:id`: a SPA ainda não possui rota pública de detalhe; URLs serão incluídas quando a página real existir.
 
 - [x] T8.1 — `verify:api`, `pnpm run lint` e `pnpm run build` verdes localmente (2026-07-17).
 - [ ] T8.2 — Atualizar `specs/backlog.md`: fechar/ajustar `BL-SITE-PRINCIPAL-GAPS` item D e `BL-SITE-CUTOVER-029` T10 conforme resultado real.

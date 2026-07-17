@@ -1,6 +1,7 @@
 import { db } from '../db/index.js';
 import { sql } from 'kysely';
-import { decode } from 'he';
+import he from 'he';
+import { pathToFileURL } from 'node:url';
 
 // Mocks simples de timeout nativo usando AbortController
 async function fetchOgMetadata(url: string) {
@@ -42,8 +43,8 @@ async function fetchOgMetadata(url: string) {
     }
 
     return {
-      title: titleMatch ? decode(titleMatch[1]) : null,
-      description: descMatch ? decode(descMatch[1]) : null,
+      title: titleMatch ? he.decode(titleMatch[1]) : null,
+      description: descMatch ? he.decode(descMatch[1]) : null,
       thumbnail_url: thumbnailUrl,
     };
   } finally {
@@ -130,6 +131,6 @@ export async function processPendingLinks() {
 }
 
 // Suporte para rodar independente no package.json (via npm run og:worker ou cron)
-if (require.main === module) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   processPendingLinks().catch(console.error).finally(() => process.exit(0));
 }

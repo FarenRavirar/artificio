@@ -1361,7 +1361,7 @@
       "method": "GET",
       "path": "/sitemap.xml",
       "sourceFile": "apps/glossario/backend/src/routes/sitemapRoutes.ts",
-      "line": 8,
+      "line": 7,
       "confidence": "high",
       "kind": "express-route"
     },

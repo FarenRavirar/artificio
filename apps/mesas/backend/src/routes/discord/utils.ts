@@ -3,9 +3,18 @@ import { z } from 'zod';
 import type { Selectable } from 'kysely';
 import { db } from '../../db/index.js';
 import type { DiscordSourceChannelType, DiscordImportMessagesTable, NewDiscordImportRun } from '../../db/types.js';
-import type { SystemEntry, ImportRawMessage, ImportTableDraft } from '../../discord/index.js';
 import type { MatchEntry } from '../../discord/parseDiscordAnnouncement.js';
-import { normalizeDiscordTableDraft, parseDiscordAnnouncement, normalizeDraftPayload, assertDraftReadyTransition } from '../../discord/index.js';
+import {
+  normalizeDiscordTableDraft,
+  parseDiscordAnnouncement,
+  normalizeDraftPayload,
+  assertDraftReadyTransition,
+  DiscordDiscoveryError,
+  DiscordIngestError,
+  type SystemEntry,
+  type ImportRawMessage,
+  type ImportTableDraft,
+} from '../../discord/index.js';
 import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers.js';
 import { assistDiscordParseWithContextPack } from '../../discord/llmAssist.js';
 import { getAiAutomationConfig, isAiAssistEnabled } from '../../discord/aiAutomationConfig.js';
@@ -29,7 +38,6 @@ import {
   recordParseFeedback,
 } from '../../discord/parseLearning.js';
 import { loadRetrievalContextForCurrent } from '../../discord/parseRetrieval.js';
-import { DiscordDiscoveryError, DiscordIngestError } from '../../discord/index.js';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter.js';
 import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto.js';
 import { loadSystemsForParser, loadVttPlatformsForParser, loadCommunicationPlatformsForParser, loadScenariosForParser, asJsonbArray } from '../../discord/shared.js';
