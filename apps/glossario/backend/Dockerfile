@@ -29,7 +29,13 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
 COPY apps/glossario/backend/package.json ./apps/glossario/backend/package.json
 COPY patches ./patches
-RUN pnpm install --prod --filter @artificio/glossario-backend --frozen-lockfile
+# pnpm --prod nao instala deps de workspace packages no node_modules local
+# (achado spec 062/PR #145, reconfirmado spec 080: config/auth/catalog-client
+# tem deps proprias - zod, jsonwebtoken - que ficam ausentes em runtime se so
+# o app for filtrado). Instalar cada pacote workspace usado em runtime.
+RUN pnpm install --prod --filter @artificio/glossario-backend --filter @artificio/config \
+  --filter @artificio/content --filter @artificio/auth --filter @artificio/changelog \
+  --filter @artificio/feedback --filter @artificio/catalog-client --frozen-lockfile
 
 # Workspace packages are linked in production; copy built outputs they export at runtime.
 COPY --from=builder /repo/packages/config/dist ./packages/config/dist
