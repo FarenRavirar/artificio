@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
-import { uploadImageToCloudinary, uploadRemoteImageToCloudinary } from '../services/cloudinary';
-import { authMiddleware } from '../middleware/auth';
+import { uploadImageToCloudinary, uploadRemoteImageToCloudinary } from '../services/cloudinary.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 const upload = multer({

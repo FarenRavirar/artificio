@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { db } from '../config/database';
-import { slugify } from '../utils/slugify';
-import type { AuthedRequest } from '../types/express';
+import { db } from '../config/database.js';
+import { slugify } from '../utils/slugify.js';
+import type { AuthedRequest } from '../types/express.js';
 import {
   archiveCatalogNode,
   checkCatalogHealth,
@@ -12,7 +12,7 @@ import {
   listCatalogSystems,
   updateCatalogEdition,
   updateCatalogSystem,
-} from '../services/catalogClient';
+} from '../services/catalogClient.js';
 
 interface CatalogNodeWriteDto {
   name: string;

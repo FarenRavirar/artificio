@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../../db';
-import { requireAdmin } from '../../middleware/auth';
-import type { DiscordImportDraftStatus } from '../../discord';
-import { syncDiscordDraftToTable, DiscordDraftSyncValidationError, DraftNotFoundError, DraftStateError } from '../../discord';
+import { db } from '../../db/index.js';
+import { requireAdmin } from '../../middleware/auth.js';
+import type { DiscordImportDraftStatus } from '../../discord/index.js';
+import { syncDiscordDraftToTable, DiscordDraftSyncValidationError, DraftNotFoundError, DraftStateError } from '../../discord/index.js';
 
 const router = Router();
 

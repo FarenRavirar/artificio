@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { catalogHealth, listSystems, createSystem, updateSystem, deleteSystem, listEditions, createEdition, updateEdition, deleteEdition } from '../controllers/systemController';
-import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware';
-import { betaWriteGuard } from '../middlewares/betaWriteGuard';
-import { refreshUserRole } from '../middlewares/refreshUserRole';
+import { catalogHealth, listSystems, createSystem, updateSystem, deleteSystem, listEditions, createEdition, updateEdition, deleteEdition } from '../controllers/systemController.js';
+import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware.js';
+import { betaWriteGuard } from '../middlewares/betaWriteGuard.js';
+import { refreshUserRole } from '../middlewares/refreshUserRole.js';
 
 const router = Router();
 

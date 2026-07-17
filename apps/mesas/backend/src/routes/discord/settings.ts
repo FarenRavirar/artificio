@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { db } from '../../db';
-import type { NewDiscordSetting } from '../../db/types';
-import { requireAdmin } from '../../middleware/auth';
-import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError, DiscordSettingsDecryptError } from '../../discord/settingsCrypto';
+import { db } from '../../db/index.js';
+import type { NewDiscordSetting } from '../../db/types.js';
+import { requireAdmin } from '../../middleware/auth.js';
+import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError, DiscordSettingsDecryptError } from '../../discord/settingsCrypto.js';
 
 const router = Router();
 

@@ -1,19 +1,19 @@
 import { Router, Request, Response } from 'express';
 import { sql } from 'kysely';
-import { db } from '../db';
-import { logDatabaseError } from '../middleware/requestLogger';
-import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
-import { isImportedTableExpired } from '../utils/tableVisibility';
+import { db } from '../db/index.js';
+import { logDatabaseError } from '../middleware/requestLogger.js';
+import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
+import { isImportedTableExpired } from '../utils/tableVisibility.js';
 import {
   resolveSystemIdBySlug,
   hydrateTableSystemFields,
   loadSystemCatalogTree,
-} from '../services/systemCatalogProvider';
+} from '../services/systemCatalogProvider.js';
 import {
   filterCatalogTree,
   flattenTree,
-} from '../services/catalogClient';
-import type { TableModality, TableType, TableAudience, PriceType, ExperienceLevel } from '../db/types';
+} from '../services/catalogClient.js';
+import type { TableModality, TableType, TableAudience, PriceType, ExperienceLevel } from '../db/types.js';
 
 const router = Router();
 

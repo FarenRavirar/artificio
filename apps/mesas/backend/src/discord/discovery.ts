@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { requireDiscordBotToken } from './config';
-import { DiscordSettingsDecryptError, DiscordSettingsSecretUnavailableError } from './settingsCrypto';
-import type { DiscordSourceChannelType } from './types';
+import { requireDiscordBotToken } from './config.js';
+import { DiscordSettingsDecryptError, DiscordSettingsSecretUnavailableError } from './settingsCrypto.js';
+import type { DiscordSourceChannelType } from './types.js';
 
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 // UA de navegador só p/ token de USUÁRIO — sem ele Cloudflare devolve 401 mesmo

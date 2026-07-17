@@ -3,9 +3,9 @@ import {
   listNotifications,
   markNotificationRead,
   markAllNotificationsRead,
-} from '../controllers/notificationController';
-import { authMiddleware } from '../middlewares/authMiddleware';
-import { refreshUserRole } from '../middlewares/refreshUserRole';
+} from '../controllers/notificationController.js';
+import { authMiddleware } from '../middlewares/authMiddleware.js';
+import { refreshUserRole } from '../middlewares/refreshUserRole.js';
 
 const router = Router();
 

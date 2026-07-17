@@ -1,4 +1,4 @@
-import type { DevFeedbackKind } from '../db/types';
+import type { DevFeedbackKind } from '../db/types.js';
 
 /**
  * Validador/normalizador puro do payload de feedback de desenvolvimento (Spec 022).

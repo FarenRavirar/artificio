@@ -1,5 +1,5 @@
-import { db } from '../db';
-import { decryptDiscordSetting } from './settingsCrypto';
+import { db } from '../db/index.js';
+import { decryptDiscordSetting } from './settingsCrypto.js';
 
 /**
  * Configurações do módulo Discord.

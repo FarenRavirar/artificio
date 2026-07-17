@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { authMiddleware } from '../middleware/auth';
-import { strictRateLimiter } from '../middleware/rateLimit';
-import * as profileService from '../services/profileService';
+import { authMiddleware } from '../middleware/auth.js';
+import { strictRateLimiter } from '../middleware/rateLimit.js';
+import * as profileService from '../services/profileService.js';
 
 const router = Router();
 

@@ -1,4 +1,4 @@
-import { db } from '../config/database';
+import { db } from '../config/database.js';
 import type { Session } from '@artificio/auth';
 
 export type LocalRole = 'admin' | 'member';

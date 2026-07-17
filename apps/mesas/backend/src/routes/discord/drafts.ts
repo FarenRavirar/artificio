@@ -1,15 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { db } from '../../db';
-import { requireAdmin } from '../../middleware/auth';
-import type { DiscordImportDraftStatus } from '../../discord';
-import { normalizeDraftPayload, refreshDiscordDraftImage } from '../../discord';
-import { getAiAutomationConfig } from '../../discord/aiAutomationConfig';
-import { auditDiscordDraftCompleteness } from '../../discord/llmAssist';
-import { extractDraftScope, recordParseFeedback } from '../../discord/parseLearning';
-import { stripSeparatorLines } from '../../discord/parseDiscordAnnouncement';
+import { db } from '../../db/index.js';
+import { requireAdmin } from '../../middleware/auth.js';
+import type { DiscordImportDraftStatus } from '../../discord/index.js';
+import { normalizeDraftPayload, refreshDiscordDraftImage } from '../../discord/index.js';
+import { getAiAutomationConfig } from '../../discord/aiAutomationConfig.js';
+import { auditDiscordDraftCompleteness } from '../../discord/llmAssist.js';
+import { extractDraftScope, recordParseFeedback } from '../../discord/parseLearning.js';
+import { stripSeparatorLines } from '../../discord/parseDiscordAnnouncement.js';
 import { destroyAssetResult } from '@artificio/media';
-import { parseDiscordMessage, ensureSystemSuggestionForDraft, handlePatchDraft } from './utils';
+import { parseDiscordMessage, ensureSystemSuggestionForDraft, handlePatchDraft } from './utils.js';
 
 const router = Router();
 

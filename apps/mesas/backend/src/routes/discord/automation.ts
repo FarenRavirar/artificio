@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { sql } from 'kysely';
-import { db } from '../../db';
-import { getAiAutomationConfig, assertAutoApprovalAllowed, getAiAutomationRollbackPlan } from '../../discord/aiAutomationConfig';
-import { evaluatePredictions } from '../../discord/aiEval';
-import { evaluateParseLayers, loadParseEvalDataset } from '../../discord/parseEval';
-import { requireAdmin } from '../../middleware/auth';
+import { db } from '../../db/index.js';
+import { getAiAutomationConfig, assertAutoApprovalAllowed, getAiAutomationRollbackPlan } from '../../discord/aiAutomationConfig.js';
+import { evaluatePredictions } from '../../discord/aiEval.js';
+import { evaluateParseLayers, loadParseEvalDataset } from '../../discord/parseEval.js';
+import { requireAdmin } from '../../middleware/auth.js';
 
 const router = Router();
 

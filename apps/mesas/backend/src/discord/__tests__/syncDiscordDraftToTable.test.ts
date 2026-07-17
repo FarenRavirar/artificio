@@ -16,10 +16,10 @@ vi.mock('../syncHelpers', () => ({
   updateDraftImageUploadState: vi.fn(),
 }));
 
-import { DiscordDraftSyncValidationError, syncDiscordDraftToTable, refreshDiscordDraftImage, discordSyncConfig } from '../syncDiscordDraftToTable';
-import { syncDraftToTable, normalizeImportTableDraft, uploadCoverForDraft, withCoverUrl, updateDraftImageUploadState } from '../syncHelpers';
-import { db } from '../../db';
-import type { ImportTableDraft } from '../types';
+import { DiscordDraftSyncValidationError, syncDiscordDraftToTable, refreshDiscordDraftImage, discordSyncConfig } from '../syncDiscordDraftToTable.js';
+import { syncDraftToTable, normalizeImportTableDraft, uploadCoverForDraft, withCoverUrl, updateDraftImageUploadState } from '../syncHelpers.js';
+import { db } from '../../db/index.js';
+import type { ImportTableDraft } from '../types.js';
 
 function makePayload(overrides: { raw_gm_name?: string | null; author_name?: string | null } = {}): ImportTableDraft {
   return {

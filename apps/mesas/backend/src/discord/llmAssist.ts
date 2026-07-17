@@ -12,17 +12,17 @@
  */
 import crypto from 'node:crypto';
 import { z } from 'zod';
-import { db } from '../db';
-import { getSecret } from '../services/adminSecrets';
+import { db } from '../db/index.js';
+import { getSecret } from '../services/adminSecrets.js';
 import {
   CONTEXT_PACK_PROMPT_VERSION,
   buildContextPack,
   hashContextPack,
   type ContextPack,
-} from './llmContextPack';
-import type { ImportTableDraft } from './types';
-import type { RetrievalContext } from './parseRetrieval';
-import type { LearningRuleConflict, LearningRuleHit } from './learningRules';
+} from './llmContextPack.js';
+import type { ImportTableDraft } from './types.js';
+import type { RetrievalContext } from './parseRetrieval.js';
+import type { LearningRuleConflict, LearningRuleHit } from './learningRules.js';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 const LLM_TIMEOUT_MS = 15000;

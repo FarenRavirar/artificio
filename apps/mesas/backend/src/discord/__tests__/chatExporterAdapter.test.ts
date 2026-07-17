@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from '../chatExporterAdapter';
-import { exportWithoutGuild, exportWithNonArrayMessages } from './fixtures/chatExporterSample';
+import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from '../chatExporterAdapter.js';
+import { exportWithoutGuild, exportWithNonArrayMessages } from './fixtures/chatExporterSample.js';
 
 // Fixture minima espelhando o shape real do DiscordChatExporter:
 // embeds com campos `null` (timestamp/image/description) — regressao da Spec 048,

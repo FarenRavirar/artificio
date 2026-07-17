@@ -1,41 +1,49 @@
 import { Router, Response, Request } from 'express';
 import { z } from 'zod';
 import type { Selectable } from 'kysely';
-import { db } from '../../db';
-import type { DiscordSourceChannelType, DiscordImportMessagesTable, NewDiscordImportRun } from '../../db/types';
-import type { SystemEntry, ImportRawMessage, ImportTableDraft } from '../../discord';
-import type { MatchEntry } from '../../discord/parseDiscordAnnouncement';
-import { normalizeDiscordTableDraft, parseDiscordAnnouncement, normalizeDraftPayload, assertDraftReadyTransition } from '../../discord';
-import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers';
-import { assistDiscordParseWithContextPack } from '../../discord/llmAssist';
-import { getAiAutomationConfig, isAiAssistEnabled } from '../../discord/aiAutomationConfig';
-import { attachAiSuggestions, buildAiSuggestionFields } from '../../discord/aiSuggestions';
+import { db } from '../../db/index.js';
+import type { DiscordSourceChannelType, DiscordImportMessagesTable, NewDiscordImportRun } from '../../db/types.js';
+import type { MatchEntry } from '../../discord/parseDiscordAnnouncement.js';
+import {
+  normalizeDiscordTableDraft,
+  parseDiscordAnnouncement,
+  normalizeDraftPayload,
+  assertDraftReadyTransition,
+  DiscordDiscoveryError,
+  DiscordIngestError,
+  type SystemEntry,
+  type ImportRawMessage,
+  type ImportTableDraft,
+} from '../../discord/index.js';
+import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers.js';
+import { assistDiscordParseWithContextPack } from '../../discord/llmAssist.js';
+import { getAiAutomationConfig, isAiAssistEnabled } from '../../discord/aiAutomationConfig.js';
+import { attachAiSuggestions, buildAiSuggestionFields } from '../../discord/aiSuggestions.js';
 import {
   lookupLearningRules,
   recordLearningRuleApplications,
   loadActiveLabelAliases,
   ENTITY_HINT_FIELDS,
-} from '../../discord/learningRules';
+} from '../../discord/learningRules.js';
 import {
   processLearningFeedbackCorrection,
   retryLearningFeedbackForDraft,
   type LearningFeedbackResult,
-} from '../../discord/learningFeedbackOutbox';
+} from '../../discord/learningFeedbackOutbox.js';
 import {
   buildParseCaseContract,
   extractDraftScope,
   parseActionFromNormalizedStatus,
   recordParseCase,
   recordParseFeedback,
-} from '../../discord/parseLearning';
-import { loadRetrievalContextForCurrent } from '../../discord/parseRetrieval';
-import { DiscordDiscoveryError, DiscordIngestError } from '../../discord';
-import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
-import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto';
-import { loadSystemsForParser, loadVttPlatformsForParser, loadCommunicationPlatformsForParser, loadScenariosForParser, asJsonbArray } from '../../discord/shared';
-import { requireAdmin } from '../../middleware/auth';
-import { notifyAdmins } from '../../services/adminNotifications';
-import { patchDraftSchema, correctionSchema } from '../inbox/utils';
+} from '../../discord/parseLearning.js';
+import { loadRetrievalContextForCurrent } from '../../discord/parseRetrieval.js';
+import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter.js';
+import { DiscordSettingsSecretUnavailableError } from '../../discord/settingsCrypto.js';
+import { loadSystemsForParser, loadVttPlatformsForParser, loadCommunicationPlatformsForParser, loadScenariosForParser, asJsonbArray } from '../../discord/shared.js';
+import { requireAdmin } from '../../middleware/auth.js';
+import { notifyAdmins } from '../../services/adminNotifications.js';
+import { patchDraftSchema, correctionSchema } from '../inbox/utils.js';
 
 /** Catálogos de VTT/comunicação pré-carregados, reaproveitados por várias mensagens
  * do mesmo batch (evita N+1 de query por mensagem). Compartilhado por
@@ -397,7 +405,7 @@ export async function recordImportRun(counts: {
 
 // ─── T-G7 — registra decisão shadow (o que o sistema teria autoaprovado?) ──
 
-import { classifyConfidence, isHomebrewSystem } from '../../discord/parseDiscordAnnouncement';
+import { classifyConfidence, isHomebrewSystem } from '../../discord/parseDiscordAnnouncement.js';
 
 function buildShadowReason(
   tier: ReturnType<typeof classifyConfidence> | null,

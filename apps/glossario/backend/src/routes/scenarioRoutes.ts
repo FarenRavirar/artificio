@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { listScenarios, createScenario, updateScenario, deleteScenario } from '../controllers/scenarioController';
-import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware';
-import { betaWriteGuard } from '../middlewares/betaWriteGuard';
-import { refreshUserRole } from '../middlewares/refreshUserRole';
+import { listScenarios, createScenario, updateScenario, deleteScenario } from '../controllers/scenarioController.js';
+import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware.js';
+import { betaWriteGuard } from '../middlewares/betaWriteGuard.js';
+import { refreshUserRole } from '../middlewares/refreshUserRole.js';
 
 const router = Router();
 

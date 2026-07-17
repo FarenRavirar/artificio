@@ -1,7 +1,7 @@
 import {
   parseDevFeedbackInput,
   DEV_FEEDBACK_LIMITS,
-} from '../devFeedbackValidator';
+} from '../devFeedbackValidator.js';
 
 const baseInput = () => ({
   kind: 'bug',

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { db } from '../config/database';
-import { slugify } from '../utils/slugify';
-import type { AuthedRequest } from '../types/express';
+import { db } from '../config/database.js';
+import { slugify } from '../utils/slugify.js';
+import type { AuthedRequest } from '../types/express.js';
 
 export const listCategories = async (req: AuthedRequest, res: Response) => {
   try {

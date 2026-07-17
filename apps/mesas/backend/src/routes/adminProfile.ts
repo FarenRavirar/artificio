@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { sql } from 'kysely';
 import type { ExpressionBuilder, SelectQueryBuilder } from 'kysely';
-import { authMiddleware, requireRole } from '../middleware/auth';
-import { db } from '../db';
-import * as profileService from '../services/profileService';
-import type { UserRole, Database } from '../db/types';
+import { authMiddleware, requireRole } from '../middleware/auth.js';
+import { db } from '../db/index.js';
+import * as profileService from '../services/profileService.js';
+import type { UserRole, Database } from '../db/types.js';
 
 // Achado lint (PR #145): withFilters precisa tipar o SelectQueryBuilder pelo
 // DB efetivo pós-join (Database + aliases curtos u/p/gm, p e gm nullable por

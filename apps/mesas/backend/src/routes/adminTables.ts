@@ -1,15 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { timingSafeEqual } from 'node:crypto';
-import { db } from '../db';
-import { authMiddleware } from '../middleware/auth';
-import { TableRepository } from '../repositories/tableRepository';
-import { autoArchiveStaleTables, AUTO_ARCHIVE_AFTER_DAYS } from '../services/tableArchiving';
-import { logActivity } from '../services/activityLogger';
-import { triggerMetaScrapeOnPublish } from '../services/metaScrapeClient';
-import type { TableStatus, TablesTable } from '../db/types';
+import { db } from '../db/index.js';
+import { authMiddleware } from '../middleware/auth.js';
+import { TableRepository } from '../repositories/tableRepository.js';
+import { autoArchiveStaleTables, AUTO_ARCHIVE_AFTER_DAYS } from '../services/tableArchiving.js';
+import { logActivity } from '../services/activityLogger.js';
+import { triggerMetaScrapeOnPublish } from '../services/metaScrapeClient.js';
+import type { TableStatus, TablesTable } from '../db/types.js';
 import type { Updateable } from 'kysely';
 import { z } from 'zod';
-import { scanTableDuplicateCandidates } from '../services/tableDuplicateDetection';
+import { scanTableDuplicateCandidates } from '../services/tableDuplicateDetection.js';
 
 const router = Router();
 

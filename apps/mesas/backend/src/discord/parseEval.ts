@@ -1,7 +1,7 @@
 import { sql } from 'kysely';
 import { z } from 'zod';
-import { db } from '../db';
-import type { ParseFinalAction } from './parseLearning';
+import { db } from '../db/index.js';
+import type { ParseFinalAction } from './parseLearning.js';
 
 export const PARSE_EVAL_FIELDS = [
   'action',

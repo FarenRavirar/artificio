@@ -1,7 +1,7 @@
 import { Response } from 'express';
-import { db } from '../config/database';
-import { notifyTermOwnerOnVote } from '../services/notificationService';
-import type { AuthedRequest } from '../types/express';
+import { db } from '../config/database.js';
+import { notifyTermOwnerOnVote } from '../services/notificationService.js';
+import type { AuthedRequest } from '../types/express.js';
 
 export const upsertVote = async (req: AuthedRequest, res: Response) => {
   const { id: termId } = req.params;

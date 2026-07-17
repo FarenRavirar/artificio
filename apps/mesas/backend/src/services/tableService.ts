@@ -1,8 +1,8 @@
-import { db } from '../db';
-import { CreateTableInput } from '../validators/tableValidators';
+import { db } from '../db/index.js';
+import { CreateTableInput } from '../validators/tableValidators.js';
 import { Insertable, sql } from 'kysely';
-import { TablesTable } from '../db/types';
-import { getSystemCatalogProvider } from './systemCatalogProvider';
+import { TablesTable } from '../db/types.js';
+import { getSystemCatalogProvider } from './systemCatalogProvider.js';
 
 const DDAL_ELIGIBLE_PATH = 'dungeons-dragons/5e/2024';
 

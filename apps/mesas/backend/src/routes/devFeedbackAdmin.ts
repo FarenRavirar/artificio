@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { authMiddleware, requireRole } from '../middleware/auth';
-import { db } from '../db';
-import { logActivity } from '../services/activityLogger';
-import { deleteFromCloudinary } from '../services/cloudinary';
-import { buildMerge, MAX_MERGE_SOURCES, type MergeableFeedback } from '../services/devFeedbackMerge';
-import type { DevFeedbackStatus } from '../db/types';
+import { authMiddleware, requireRole } from '../middleware/auth.js';
+import { db } from '../db/index.js';
+import { logActivity } from '../services/activityLogger.js';
+import { deleteFromCloudinary } from '../services/cloudinary.js';
+import { buildMerge, MAX_MERGE_SOURCES, type MergeableFeedback } from '../services/devFeedbackMerge.js';
+import type { DevFeedbackStatus } from '../db/types.js';
 
 const router = Router();
 

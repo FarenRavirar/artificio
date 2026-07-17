@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 import { Kysely, PostgresDialect } from 'kysely';
-import { Database } from './types';
+import { Database } from './types.js';
 import dotenv from 'dotenv';
 
 // CORREÇÃO DT-007: Sanitizar URL para logs (remover credenciais)

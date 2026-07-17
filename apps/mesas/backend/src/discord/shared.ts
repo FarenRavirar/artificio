@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
 import { sql } from 'kysely';
-import { db } from '../db';
-import { loadSystemCatalogFlat } from '../services/systemCatalogProvider';
-import { sanitizeJsonValue } from './parseDiscordAnnouncement';
-import type { SystemEntry, MatchEntry } from './parseDiscordAnnouncement';
+import { db } from '../db/index.js';
+import { loadSystemCatalogFlat } from '../services/systemCatalogProvider.js';
+import { sanitizeJsonValue } from './parseDiscordAnnouncement.js';
+import type { SystemEntry, MatchEntry } from './parseDiscordAnnouncement.js';
 
 interface HashableMessage {
   content?: string;

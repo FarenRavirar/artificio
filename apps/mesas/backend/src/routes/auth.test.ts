@@ -1,6 +1,6 @@
 import express from 'express';
 import request from 'supertest';
-import authRouter from './auth';
+import authRouter from './auth.js';
 
 describe('SSO auth redirect', () => {
   const originalEnv = process.env;

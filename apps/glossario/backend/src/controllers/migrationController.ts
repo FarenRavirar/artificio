@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import { db } from '../config/database';
-import { SSO_NO_PASSWORD } from '../auth/resolveLocalUser';
-import { issueMigrationToken, verifyMigrationToken } from '../auth/migrationToken';
-import { mergeUsers, TxClient } from '../auth/mergeUsers';
-import type { AuthedRequest } from '../types/express';
+import { db } from '../config/database.js';
+import { SSO_NO_PASSWORD } from '../auth/resolveLocalUser.js';
+import { issueMigrationToken, verifyMigrationToken } from '../auth/migrationToken.js';
+import { mergeUsers, TxClient } from '../auth/mergeUsers.js';
+import type { AuthedRequest } from '../types/express.js';
 
 // Hash BCrypt válido só para igualar o tempo de resposta quando o email não
 // existe (anti-enumeração por timing). Nunca casa com senha real.

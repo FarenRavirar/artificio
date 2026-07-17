@@ -221,7 +221,7 @@ importers:
         version: 7.2.0
       '@vitest/coverage-v8':
         specifier: ^3.2.4
-        version: 3.2.6(supports-color@5.5.0)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.13.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(supports-color@5.5.0)(tsx@4.22.4))
+        version: 3.2.6(supports-color@5.5.0)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.13.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.22.4))
       nodemon:
         specifier: ^3.1.0
         version: 3.1.14
@@ -367,6 +367,9 @@ importers:
       '@artificio/changelog':
         specifier: workspace:*
         version: link:../../../packages/changelog
+      '@artificio/content':
+        specifier: workspace:*
+        version: link:../../../packages/content
       '@artificio/feedback':
         specifier: workspace:*
         version: link:../../../packages/feedback
@@ -655,6 +658,9 @@ importers:
       '@artificio/config':
         specifier: workspace:*
         version: link:../../../packages/config
+      '@artificio/content':
+        specifier: workspace:*
+        version: link:../../../packages/content
       '@artificio/feedback':
         specifier: workspace:*
         version: link:../../../packages/feedback
@@ -739,7 +745,7 @@ importers:
         version: 7.2.0
       '@vitest/coverage-v8':
         specifier: ^3.2.4
-        version: 3.2.6(supports-color@5.5.0)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.13.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(supports-color@5.5.0)(tsx@4.22.4))
+        version: 3.2.6(supports-color@5.5.0)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.13.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.22.4))
       nodemon:
         specifier: ^3.1.0
         version: 3.1.14
@@ -9381,7 +9387,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)
 
-  '@vitest/coverage-v8@3.2.6(supports-color@5.5.0)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.13.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(supports-color@5.5.0)(tsx@4.22.4))':
+  '@vitest/coverage-v8@3.2.6(supports-color@5.5.0)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.13.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.22.4))':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@bcoe/v8-coverage': 1.0.2

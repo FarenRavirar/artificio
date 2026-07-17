@@ -2,8 +2,8 @@ import { mkdtemp, readdir, readFile, rm, utimes, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanupDiscordChatExporterFolder, processDiscordChatExporterFolder } from '../chatExporterFolderImportService';
-import type { ImportResult } from '../chatExporterAdapter';
+import { cleanupDiscordChatExporterFolder, processDiscordChatExporterFolder } from '../chatExporterFolderImportService.js';
+import type { ImportResult } from '../chatExporterAdapter.js';
 
 const tempDirs: string[] = [];
 

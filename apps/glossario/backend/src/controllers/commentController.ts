@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { db } from '../config/database';
-import { notifyTermOwnerOnComment } from '../services/notificationService';
-import type { AuthedRequest } from '../types/express';
+import { db } from '../config/database.js';
+import { notifyTermOwnerOnComment } from '../services/notificationService.js';
+import type { AuthedRequest } from '../types/express.js';
 
 export const getCommentsByTerm = async (req: Request, res: Response) => {
   const { id: termId } = req.params;

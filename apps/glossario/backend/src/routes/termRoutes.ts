@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { listTerms, createTerm, approveTerm, updateTerm, deleteTerm, getTermHistory } from '../controllers/termController';
-import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware';
-import { betaWriteGuard } from '../middlewares/betaWriteGuard';
-import { refreshUserRole } from '../middlewares/refreshUserRole';
+import { listTerms, createTerm, approveTerm, updateTerm, deleteTerm, getTermHistory } from '../controllers/termController.js';
+import { authMiddleware, adminMiddleware } from '../middlewares/authMiddleware.js';
+import { betaWriteGuard } from '../middlewares/betaWriteGuard.js';
+import { refreshUserRole } from '../middlewares/refreshUserRole.js';
 
 const router = Router();
 

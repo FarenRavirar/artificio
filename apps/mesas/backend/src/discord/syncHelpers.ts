@@ -1,12 +1,12 @@
-import { db } from '../db';
+import { db } from '../db/index.js';
 import { Insertable, sql } from 'kysely';
-import { TablesTable, TableContactsTable, TableSchedulesTable, DayOfWeek, ScheduleFrequency, TableContactChannel, Database } from '../db/types';
-import { TableRepository } from '../repositories/tableRepository';
-import { TableService } from '../services/tableService';
-import type { DiscordImageUploadStatus, ImportTableDraft } from './types';
-import { uploadDiscordImageToCloudinary } from './uploadDiscordImage';
-import { getDiscordBotToken } from './config';
-import { extractDraftScope, recordParseFeedback } from './parseLearning';
+import { TablesTable, TableContactsTable, TableSchedulesTable, DayOfWeek, ScheduleFrequency, TableContactChannel, Database } from '../db/types.js';
+import { TableRepository } from '../repositories/tableRepository.js';
+import { TableService } from '../services/tableService.js';
+import type { DiscordImageUploadStatus, ImportTableDraft } from './types.js';
+import { uploadDiscordImageToCloudinary } from './uploadDiscordImage.js';
+import { getDiscordBotToken } from './config.js';
+import { extractDraftScope, recordParseFeedback } from './parseLearning.js';
 import { z } from 'zod';
 
 export class DraftNotFoundError extends Error {

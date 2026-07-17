@@ -41,11 +41,11 @@ vi.mock('../shared', () => ({
   getContentHash: vi.fn(() => 'test-hash'),
 }));
 
-import { importDiscordChatExporterJson, extractJsonPayload, buildPreviewFromExport, parseUploadedJsonBuffer, MAX_IMPORT_MESSAGES } from '../chatExporterImportService';
-import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from '../chatExporterAdapter';
-import { getContentHash } from '../shared';
-import { db } from '../../db';
-import { truncatedJsonString, truncatedTailJsonBuffer } from './fixtures/chatExporterSample';
+import { importDiscordChatExporterJson, extractJsonPayload, buildPreviewFromExport, parseUploadedJsonBuffer, MAX_IMPORT_MESSAGES } from '../chatExporterImportService.js';
+import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from '../chatExporterAdapter.js';
+import { getContentHash } from '../shared.js';
+import { db } from '../../db/index.js';
+import { truncatedJsonString, truncatedTailJsonBuffer } from './fixtures/chatExporterSample.js';
 
 function mockChain(overrides: Record<string, Mock> = {}) {
   const methods = ['select', 'selectAll', 'where', 'returning', 'values', 'execute', 'executeTakeFirst', 'executeTakeFirstOrThrow'];

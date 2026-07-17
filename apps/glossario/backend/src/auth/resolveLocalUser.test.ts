@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import type { Session } from '@artificio/auth';
-import type { QueryExecutor, QueryResult } from './resolveLocalUser';
+import type { QueryExecutor, QueryResult } from './resolveLocalUser.js';
 
 // resolveLocalUser importa ../config/database (que exige POSTGRES_PASSWORD ou
 // process.exit). Os testes injetam executor e nunca tocam o Pool; basta setar a
 // env antes do import dinâmico.
-let resolveLocalUser: typeof import('./resolveLocalUser').resolveLocalUser;
+let resolveLocalUser: typeof import('./resolveLocalUser.js').resolveLocalUser;
 let SSO_NO_PASSWORD: string;
 
 beforeAll(async () => {
   process.env.POSTGRES_PASSWORD = process.env.POSTGRES_PASSWORD || 'test-only';
-  const mod = await import('./resolveLocalUser');
+  const mod = await import('./resolveLocalUser.js');
   resolveLocalUser = mod.resolveLocalUser;
   SSO_NO_PASSWORD = mod.SSO_NO_PASSWORD;
 });

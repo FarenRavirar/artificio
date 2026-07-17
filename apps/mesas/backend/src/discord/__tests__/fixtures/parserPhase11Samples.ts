@@ -1,4 +1,4 @@
-import type { ImportRawMessage } from '../../types';
+import type { ImportRawMessage } from '../../types.js';
 
 type Phase11Sample = {
   name: string;

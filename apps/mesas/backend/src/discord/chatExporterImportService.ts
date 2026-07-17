@@ -1,10 +1,10 @@
 import { sql } from 'kysely';
-import { db } from '../db';
-import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from './chatExporterAdapter';
-import { getContentHash } from './shared';
-import { sanitizeJsonValue } from './parseDiscordAnnouncement';
-import type { ImportResult } from './chatExporterAdapter';
-import type { DiscordChatExporterExport } from './discordChatExporterTypes';
+import { db } from '../db/index.js';
+import { parseDiscordChatExporterJson, adaptMessageToImportRaw, DiscordChatExporterValidationError } from './chatExporterAdapter.js';
+import { getContentHash } from './shared.js';
+import { sanitizeJsonValue } from './parseDiscordAnnouncement.js';
+import type { ImportResult } from './chatExporterAdapter.js';
+import type { DiscordChatExporterExport } from './discordChatExporterTypes.js';
 
 /** Limite de segurança: número máximo de mensagens por importação (evita DoS / O(n) massivo). */
 export const MAX_IMPORT_MESSAGES = 2000;

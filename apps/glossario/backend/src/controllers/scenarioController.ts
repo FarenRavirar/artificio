@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import { db } from '../config/database';
-import { slugify } from '../utils/slugify';
-import { getCatalogNameMap } from '../services/catalogClient';
-import type { AuthedRequest } from '../types/express';
+import { db } from '../config/database.js';
+import { slugify } from '../utils/slugify.js';
+import { getCatalogNameMap } from '../services/catalogClient.js';
+import type { AuthedRequest } from '../types/express.js';
 
 interface ScenarioRow {
   id: string;

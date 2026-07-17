@@ -5,12 +5,12 @@
   "apps": {
     "accounts": 11,
     "downloads": 50,
-    "glossario": 47,
+    "glossario": 49,
     "links": 22,
-    "mesas": 186,
+    "mesas": 187,
     "site": 46
   },
-  "total": 362,
+  "total": 365,
   "operations": [
     {
       "app": "accounts",
@@ -1324,6 +1324,30 @@
       "auth": "none",
       "consumers": [],
       "operationId": "gethealth"
+    },
+    {
+      "app": "glossario",
+      "method": "GET",
+      "path": "/og/termo/{id}",
+      "summary": "Consulta og termo id",
+      "owner": "glossario",
+      "scope": "media",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getog_termo_id"
+    },
+    {
+      "app": "glossario",
+      "method": "GET",
+      "path": "/sitemap.xml",
+      "summary": "Consulta sitemap.xml",
+      "owner": "glossario",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getsitemap_xml"
     },
     {
       "app": "links",
@@ -3820,6 +3844,18 @@
       "auth": "none",
       "consumers": [],
       "operationId": "getog_type_slug"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/sitemap.xml",
+      "summary": "Consulta sitemap.xml",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getsitemap_xml"
     },
     {
       "app": "site",

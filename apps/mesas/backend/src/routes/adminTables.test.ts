@@ -1,7 +1,7 @@
 import type { Mock } from 'vitest';
 import request from 'supertest';
 import express from 'express';
-import type { UserRole } from '../db/types';
+import type { UserRole } from '../db/types.js';
 
 vi.mock('../db', () => ({
   db: {
@@ -28,10 +28,10 @@ vi.mock('../middleware/auth', () => ({
 vi.mock('../services/activityLogger', () => ({ logActivity: vi.fn() }));
 vi.mock('../services/tableDuplicateDetection', () => ({ scanTableDuplicateCandidates: vi.fn() }));
 
-import adminTablesRoutes from './adminTables';
-import { db } from '../db';
-import { TableRepository } from '../repositories/tableRepository';
-import { scanTableDuplicateCandidates } from '../services/tableDuplicateDetection';
+import adminTablesRoutes from './adminTables.js';
+import { db } from '../db/index.js';
+import { TableRepository } from '../repositories/tableRepository.js';
+import { scanTableDuplicateCandidates } from '../services/tableDuplicateDetection.js';
 
 function mockTransaction(trxChain: Record<string, Mock>) {
   (db.transaction as Mock).mockReturnValue({

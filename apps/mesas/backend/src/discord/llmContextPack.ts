@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
-import type { ImportTableDraft } from './types';
-import type { RetrievalContext, ScoredParseCase } from './parseRetrieval';
-import type { LearningRuleConflict, LearningRuleHit } from './learningRules';
+import type { ImportTableDraft } from './types.js';
+import type { RetrievalContext, ScoredParseCase } from './parseRetrieval.js';
+import type { LearningRuleConflict, LearningRuleHit } from './learningRules.js';
 
 export const CONTEXT_PACK_PROMPT_VERSION = '058-fase4-contextpack-v1';
 

@@ -1,7 +1,7 @@
 import type { Mock } from 'vitest';
 import request from 'supertest';
 import express, { type Request, type Response, type NextFunction } from 'express';
-import type { UserRole } from '../db/types';
+import type { UserRole } from '../db/types.js';
 
 // T5.11 (spec 079): cobertura do loop de aprendizado do pré-preenchimento
 // público — POST /gm/parse-preview (T5.3) grava discord_parse_cases com
@@ -62,9 +62,9 @@ vi.mock('../middleware/auth', () => ({
   },
 }));
 
-import gmPanelRoutes from './gmPanel';
-import { db } from '../db';
-import { TableRepository } from '../repositories/tableRepository';
+import gmPanelRoutes from './gmPanel.js';
+import { db } from '../db/index.js';
+import { TableRepository } from '../repositories/tableRepository.js';
 
 function mockSelectChain(overrides: Record<string, Mock> = {}) {
   const methods = ['select', 'selectAll', 'where', 'returning', 'executeTakeFirst'];

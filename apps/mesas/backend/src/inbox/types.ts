@@ -6,4 +6,4 @@
  * e `DiscordTableDraft` existem para retrocompatibilidade do pipeline Discord.
  */
 
-export type { ImportRawMessage, ImportTableDraft } from '../discord/types';
+export type { ImportRawMessage, ImportTableDraft } from '../discord/types.js';

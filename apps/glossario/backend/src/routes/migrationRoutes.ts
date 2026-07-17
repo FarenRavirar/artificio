@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
-import { verifyMigrationHandler, claimMigrationHandler } from '../controllers/migrationController';
-import { authMiddleware } from '../middlewares/authMiddleware';
+import { verifyMigrationHandler, claimMigrationHandler } from '../controllers/migrationController.js';
+import { authMiddleware } from '../middlewares/authMiddleware.js';
 
 const router = Router();
 

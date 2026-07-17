@@ -1,8 +1,8 @@
 import express from 'express';
 import request from 'supertest';
 import type { Mock } from 'vitest';
-import draftsDuplicateRouter, { duplicatesRouter } from './duplicates';
-import { db } from '../../db';
+import draftsDuplicateRouter, { duplicatesRouter } from './duplicates.js';
+import { db } from '../../db/index.js';
 
 vi.mock('../../db', () => ({
   db: {

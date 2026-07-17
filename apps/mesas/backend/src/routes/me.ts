@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../db';
-import { authMiddleware, optionalAuth } from '../middleware/auth';
-import { flattenTree } from '../services/catalogClient';
-import { getSystemCatalogProvider } from '../services/systemCatalogProvider';
+import { db } from '../db/index.js';
+import { authMiddleware, optionalAuth } from '../middleware/auth.js';
+import { flattenTree } from '../services/catalogClient.js';
+import { getSystemCatalogProvider } from '../services/systemCatalogProvider.js';
 
 const router = Router();
 

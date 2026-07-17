@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { sql } from 'kysely';
-import { db } from '../db';
-import { authMiddleware, requireRole } from '../middleware/auth';
-import { authRateLimiter } from '../middleware/rateLimit';
+import { db } from '../db/index.js';
+import { authMiddleware, requireRole } from '../middleware/auth.js';
+import { authRateLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 

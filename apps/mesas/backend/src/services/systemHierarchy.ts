@@ -1,4 +1,4 @@
-import type { SystemNodeType } from '../db/types';
+import type { SystemNodeType } from '../db/types.js';
 
 export const SYSTEM_PARENT_TYPE: Record<SystemNodeType, SystemNodeType | null> = {
   system: null,

@@ -1,5 +1,5 @@
-import { db } from '../db';
-import { refreshDiscordDraftImage } from '../discord/syncDiscordDraftToTable';
+import { db } from '../db/index.js';
+import { refreshDiscordDraftImage } from '../discord/syncDiscordDraftToTable.js';
 
 async function main(): Promise<void> {
   const drafts = await db

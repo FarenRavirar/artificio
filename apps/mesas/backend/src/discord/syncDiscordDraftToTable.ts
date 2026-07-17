@@ -1,13 +1,13 @@
-import { db } from '../db';
-import type { DiscordImageUploadStatus } from './types';
+import { db } from '../db/index.js';
+import type { DiscordImageUploadStatus } from './types.js';
 import {
   syncDraftToTable,
   uploadCoverForDraft,
   withCoverUrl,
   updateDraftImageUploadState,
   normalizeImportTableDraft,
-} from './syncHelpers';
-import type { SyncDraftCoreConfig } from './syncHelpers';
+} from './syncHelpers.js';
+import type { SyncDraftCoreConfig } from './syncHelpers.js';
 
 export interface SyncResult {
   tableId: string;

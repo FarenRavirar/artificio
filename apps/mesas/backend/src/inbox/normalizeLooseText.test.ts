@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeLooseText } from './normalizeLooseText';
+import { normalizeLooseText } from './normalizeLooseText.js';
 
 describe('normalizeLooseText (spec 079, requisito 1)', () => {
   it('quebra labels grudados numa linha corrida', () => {

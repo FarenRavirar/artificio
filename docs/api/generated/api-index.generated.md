@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **362 operações**.
+Total: **365 operações**.
 
 ## accounts (11)
 
@@ -77,7 +77,7 @@ Total: **362 operações**.
 | GET | `/api/v1/reports/abuse-check/{userId}` | admin | admin | active | — | Consulta api v1 reports abuse-check userId |
 | GET | `/api/v1/reports/mine` | self-service | user | active | — | Consulta api v1 reports mine |
 
-## glossario (47)
+## glossario (49)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -128,6 +128,8 @@ Total: **362 operações**.
 | POST | `/api/users/admin/{id}/ban` | admin | admin | active | — | Cria ou executa api users admin id ban |
 | PATCH | `/api/users/profile` | public | user | active | — | Atualiza api users profile |
 | GET | `/health` | internal | none | active | — | Consulta health |
+| GET | `/og/termo/{id}` | media | none | active | — | Consulta og termo id |
+| GET | `/sitemap.xml` | public | none | active | — | Consulta sitemap.xml |
 
 ## links (22)
 
@@ -156,7 +158,7 @@ Total: **362 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (186)
+## mesas (187)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -346,6 +348,7 @@ Total: **362 operações**.
 | GET | `/auth/google/callback` | external | none | active | — | Consulta auth google callback |
 | POST | `/auth/logout` | self-service | user | active | — | Cria ou executa auth logout |
 | GET | `/og/{type}/{slug}` | media | none | active | — | Consulta og type slug |
+| GET | `/sitemap.xml` | public | none | active | — | Consulta sitemap.xml |
 
 ## site (46)
 

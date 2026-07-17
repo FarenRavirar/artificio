@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../db';
+import { db } from '../db/index.js';
 import { sql } from 'kysely';
 
 const router = Router();

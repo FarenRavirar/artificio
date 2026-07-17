@@ -1,8 +1,8 @@
 import express from 'express';
 import request from 'supertest';
 import type { Mock } from 'vitest';
-import adminDiscordSyncRoutes from '../adminDiscordSync';
-import { db } from '../../db';
+import adminDiscordSyncRoutes from '../adminDiscordSync.js';
+import { db } from '../../db/index.js';
 import { destroyAssetResult } from '@artificio/media';
 
 vi.mock('../../db', () => ({

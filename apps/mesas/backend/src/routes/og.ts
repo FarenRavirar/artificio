@@ -2,11 +2,11 @@ import { Router, Request, Response } from 'express';
 import { readFile } from 'node:fs/promises';
 import { sql } from 'kysely';
 import escapeHtmlLib from 'escape-html';
-import { db } from '../db';
-import { upgradeGoogleImageQuality } from '../utils/urlValidation';
-import { isImportedTableExpired } from '../utils/tableVisibility';
-import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
-import { hydrateTableSystemFields } from '../services/systemCatalogProvider';
+import { db } from '../db/index.js';
+import { upgradeGoogleImageQuality } from '../utils/urlValidation.js';
+import { isImportedTableExpired } from '../utils/tableVisibility.js';
+import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
+import { hydrateTableSystemFields } from '../services/systemCatalogProvider.js';
 
 const router = Router();
 

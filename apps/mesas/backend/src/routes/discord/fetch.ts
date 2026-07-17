@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { db } from '../../db';
-import type { SystemEntry } from '../../discord';
-import { ingestForumMessages, ingestMessages } from '../../discord';
-import { loadCommunicationPlatformsForParser, loadScenariosForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
-import { requireAdmin } from '../../middleware/auth';
-import type { DiscordImportMessage } from '../../db/types';
-import { ensureSystemSuggestionForDraft, normalizeSourceChannelType, sendDiscordFetchError, parseDiscordMessage, reconcileTerminalDraft } from './utils';
+import { db } from '../../db/index.js';
+import type { SystemEntry } from '../../discord/index.js';
+import { ingestForumMessages, ingestMessages } from '../../discord/index.js';
+import { loadCommunicationPlatformsForParser, loadScenariosForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared.js';
+import { requireAdmin } from '../../middleware/auth.js';
+import type { DiscordImportMessage } from '../../db/types.js';
+import { ensureSystemSuggestionForDraft, normalizeSourceChannelType, sendDiscordFetchError, parseDiscordMessage, reconcileTerminalDraft } from './utils.js';
 
 const router = Router();
 

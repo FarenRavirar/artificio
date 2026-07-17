@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import ExcelJS from 'exceljs';
-import { db } from '../config/database';
-import { getCatalogNameMap } from '../services/catalogClient';
+import { db } from '../config/database.js';
+import { getCatalogNameMap } from '../services/catalogClient.js';
 
 export const exportToMateCat = async (req: Request, res: Response) => {
   const { system_id, scenario_id } = req.query;

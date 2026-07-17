@@ -6,7 +6,7 @@
  * Destrói o asset no Cloudinary via public_id e nula as colunas de imagem no draft.
  * Idempotente. Executado pelo cronRunner a cada 24h.
  */
-import { db } from '../db';
+import { db } from '../db/index.js';
 import { destroyAssetResult } from '@artificio/media';
 
 /** Remove o cover_url do payload normalizado (asset não existe mais). */

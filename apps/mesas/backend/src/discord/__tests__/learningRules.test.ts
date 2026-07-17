@@ -8,7 +8,7 @@ import {
   recordEntityHintRule,
   recordLabelAliasFromCorrection,
   loadActiveLabelAliases,
-} from '../learningRules';
+} from '../learningRules.js';
 
 interface SelectBuilderMock {
   select: ReturnType<typeof vi.fn>;

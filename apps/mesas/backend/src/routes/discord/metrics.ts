@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { sql } from 'kysely';
-import { db } from '../../db';
-import { requireAdmin } from '../../middleware/auth';
+import { db } from '../../db/index.js';
+import { requireAdmin } from '../../middleware/auth.js';
 
 const router = Router();
 

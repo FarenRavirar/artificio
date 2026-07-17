@@ -2,7 +2,7 @@ import {
   buildMerge,
   MAX_MERGED_ERRORS,
   type MergeableFeedback,
-} from '../devFeedbackMerge';
+} from '../devFeedbackMerge.js';
 
 const base = (over: Partial<MergeableFeedback>): MergeableFeedback => ({
   id: over.id ?? 'id',

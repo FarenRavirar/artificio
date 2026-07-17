@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { inboxSyncConfig } from './syncImportDraftToTable';
-import type { ImportTableDraft } from '../discord/types';
+import { inboxSyncConfig } from './syncImportDraftToTable.js';
+import type { ImportTableDraft } from '../discord/types.js';
 
 function makePayload(overrides: { raw_gm_name?: string | null; author_name?: string | null } = {}): ImportTableDraft {
   return {

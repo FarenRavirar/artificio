@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Transaction } from 'kysely';
-import { db } from '../db';
-import type { Database, SystemNodeType } from '../db/types';
+import { db } from '../db/index.js';
+import type { Database, SystemNodeType } from '../db/types.js';
 import {
   archiveCatalogNode,
   checkCatalogHealth,
@@ -12,8 +12,8 @@ import {
   updateCatalogNode,
   type CatalogNodeInput,
   type MesasSystemNode,
-} from './catalogClient';
-import { validateSystemParentType } from './systemHierarchy';
+} from './catalogClient.js';
+import { validateSystemParentType } from './systemHierarchy.js';
 
 export type SystemCatalogSource = 'central' | 'local';
 

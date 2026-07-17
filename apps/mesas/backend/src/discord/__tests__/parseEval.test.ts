@@ -4,8 +4,8 @@ import {
   buildParseEvalExample,
   evaluateParseLayers,
   recordParseLayerShadowDecisions,
-} from '../parseEval';
-import { db } from '../../db';
+} from '../parseEval.js';
+import { db } from '../../db/index.js';
 
 vi.mock('../../db', () => ({
   db: {

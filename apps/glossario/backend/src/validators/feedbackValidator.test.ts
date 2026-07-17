@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFeedbackInput, FEEDBACK_LIMITS } from './feedbackValidator';
+import { parseFeedbackInput, FEEDBACK_LIMITS } from './feedbackValidator.js';
 
 describe('parseFeedbackInput', () => {
   it('rejeita corpo nao-objeto', () => {

@@ -2,10 +2,10 @@ import 'dotenv/config';
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
-import { db } from '../db';
-import { buildChatExporterCliCommand, redactedChatExporterCliCommand, runChatExporterCli } from '../discord/chatExporterCliRunner';
-import { getDiscordBotToken } from '../discord/config';
-import { decryptDiscordSetting } from '../discord/settingsCrypto';
+import { db } from '../db/index.js';
+import { buildChatExporterCliCommand, redactedChatExporterCliCommand, runChatExporterCli } from '../discord/chatExporterCliRunner.js';
+import { getDiscordBotToken } from '../discord/config.js';
+import { decryptDiscordSetting } from '../discord/settingsCrypto.js';
 
 const configSchema = z.object({
   enabled: z.boolean().default(false),

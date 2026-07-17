@@ -1,16 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { db } from '../../db';
-import { DraftNotFoundError, DraftStateError } from '../../discord/syncHelpers';
-import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../../discord';
-import { stripSeparatorLines } from '../../discord/parseDiscordAnnouncement';
-import { requireAdmin } from '../../middleware/auth';
-import { textToRawMessage } from '../../inbox/adapters/textToRawMessage';
-import { syncImportDraftToTable, DraftSyncValidationError } from '../../inbox/syncImportDraftToTable';
-import { handlePatchDraft } from '../discord/utils';
-import { loadSystemsForParser } from '../../discord/shared';
-import { toNumberOrNull, listDraftsSchema } from './utils';
-import type { DiscordImportDraftStatus } from '../../db/types';
+import { db } from '../../db/index.js';
+import { DraftNotFoundError, DraftStateError } from '../../discord/syncHelpers.js';
+import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../../discord/index.js';
+import { stripSeparatorLines } from '../../discord/parseDiscordAnnouncement.js';
+import { requireAdmin } from '../../middleware/auth.js';
+import { textToRawMessage } from '../../inbox/adapters/textToRawMessage.js';
+import { syncImportDraftToTable, DraftSyncValidationError } from '../../inbox/syncImportDraftToTable.js';
+import { handlePatchDraft } from '../discord/utils.js';
+import { loadSystemsForParser } from '../../discord/shared.js';
+import { toNumberOrNull, listDraftsSchema } from './utils.js';
+import type { DiscordImportDraftStatus } from '../../db/types.js';
 
 const router = Router();
 

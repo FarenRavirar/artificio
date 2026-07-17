@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { getSystemCatalogProvider, resolveSystemCatalogSource } from './systemCatalogProvider';
+import { getSystemCatalogProvider, resolveSystemCatalogSource } from './systemCatalogProvider.js';
 
 describe('resolveSystemCatalogSource', () => {
   afterEach(() => {

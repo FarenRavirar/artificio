@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { sql } from 'kysely'; // CORREÇÃO G03: Import sql para queries case-insensitive
-import { db } from '../db';
-import { authMiddleware, requireRole } from '../middleware/auth'; // CORREÇÃO A02: Import middleware
+import { db } from '../db/index.js';
+import { authMiddleware, requireRole } from '../middleware/auth.js'; // CORREÇÃO A02: Import middleware
 import {
   slugifyPlatformName as slugify,
   normalizePlatformWebsiteUrl as normalizeWebsiteUrl,
   isPlatformUniqueViolation as isUniqueViolation,
   getPlatformErrorMessage as getErrorMessage,
-} from '../utils/platformUtils';
-import { resolveActorName } from '../services/actorNameResolver';
+} from '../utils/platformUtils.js';
+import { resolveActorName } from '../services/actorNameResolver.js';
 
 const router = Router();
 

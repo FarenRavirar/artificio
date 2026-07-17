@@ -1,4 +1,4 @@
-import { uploadDiscordImageToCloudinary } from '../uploadDiscordImage';
+import { uploadDiscordImageToCloudinary } from '../uploadDiscordImage.js';
 
 function imageResponse(body: string, init: ResponseInit = {}): Response {
   return new Response(Buffer.from(body), {

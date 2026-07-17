@@ -1,16 +1,16 @@
 import { Router, type Request, type Response } from 'express';
-import { db } from '../db';
-import type { SystemNodeType } from '../db/types';
-import { SYSTEM_PARENT_TYPE, validateSystemParentType } from '../services/systemHierarchy';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { db } from '../db/index.js';
+import type { SystemNodeType } from '../db/types.js';
+import { SYSTEM_PARENT_TYPE, validateSystemParentType } from '../services/systemHierarchy.js';
+import { authMiddleware, requireRole } from '../middleware/auth.js';
 import {
   filterCatalogTree,
   flattenTree,
   invalidateCatalogCache,
-} from '../services/catalogClient';
-import { getSystemCatalogProvider } from '../services/systemCatalogProvider';
+} from '../services/catalogClient.js';
+import { getSystemCatalogProvider } from '../services/systemCatalogProvider.js';
 
-export { slugifyCatalogSegment as slugify } from '../services/catalogClient';
+export { slugifyCatalogSegment as slugify } from '../services/catalogClient.js';
 
 const router = Router();
 

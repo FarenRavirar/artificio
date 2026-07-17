@@ -1,8 +1,8 @@
 import { Response, NextFunction } from 'express';
 import { verifyToken } from '@artificio/auth';
-import { resolveLocalUser } from '../auth/resolveLocalUser';
-import { fetchUserRoleFromDb, normalizeRole } from '../utils/userRole';
-import type { AuthedRequest } from '../types/express';
+import { resolveLocalUser } from '../auth/resolveLocalUser.js';
+import { fetchUserRoleFromDb, normalizeRole } from '../utils/userRole.js';
+import type { AuthedRequest } from '../types/express.js';
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required');

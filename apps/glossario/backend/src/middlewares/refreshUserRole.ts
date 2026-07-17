@@ -1,6 +1,6 @@
 import { Response, NextFunction } from 'express';
-import { fetchUserRoleFromDb } from '../utils/userRole';
-import type { AuthedRequest } from '../types/express';
+import { fetchUserRoleFromDb } from '../utils/userRole.js';
+import type { AuthedRequest } from '../types/express.js';
 
 /**
  * Revalida a role no banco em cada requisição autenticada sensível.

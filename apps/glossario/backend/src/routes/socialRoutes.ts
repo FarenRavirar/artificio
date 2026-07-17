@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { authMiddleware } from '../middlewares/authMiddleware';
-import { betaWriteGuard } from '../middlewares/betaWriteGuard';
-import { refreshUserRole } from '../middlewares/refreshUserRole';
-import { upsertVote } from '../controllers/voteController';
-import { getCommentsByTerm, createComment, deleteComment } from '../controllers/commentController';
+import { authMiddleware } from '../middlewares/authMiddleware.js';
+import { betaWriteGuard } from '../middlewares/betaWriteGuard.js';
+import { refreshUserRole } from '../middlewares/refreshUserRole.js';
+import { upsertVote } from '../controllers/voteController.js';
+import { getCommentsByTerm, createComment, deleteComment } from '../controllers/commentController.js';
 
 const router = Router();
 

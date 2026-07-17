@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { optionalAuth } from '../middleware/auth';
-import { strictRateLimiter } from '../middleware/rateLimit';
-import { db } from '../db';
-import { parseDevFeedbackInput } from '../validators/devFeedbackValidator';
-import { uploadScreenshotToCloudinary, deleteFromCloudinary } from '../services/cloudinary';
-import { notifyAdmins } from '../services/adminNotifications';
-import { logActivity } from '../services/activityLogger';
-import type { UserRole, DevFeedbackKind, DevFeedbackStatus } from '../db/types';
+import { optionalAuth } from '../middleware/auth.js';
+import { strictRateLimiter } from '../middleware/rateLimit.js';
+import { db } from '../db/index.js';
+import { parseDevFeedbackInput } from '../validators/devFeedbackValidator.js';
+import { uploadScreenshotToCloudinary, deleteFromCloudinary } from '../services/cloudinary.js';
+import { notifyAdmins } from '../services/adminNotifications.js';
+import { logActivity } from '../services/activityLogger.js';
+import type { UserRole, DevFeedbackKind, DevFeedbackStatus } from '../db/types.js';
 
 type CreatedDevFeedback = {
   id: string;

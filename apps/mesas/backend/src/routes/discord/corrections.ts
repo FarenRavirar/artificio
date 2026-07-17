@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { db } from '../../db';
-import { requireAdmin } from '../../middleware/auth';
-import { authRateLimiter } from '../../middleware/rateLimit';
-import { createCorrectionHandler } from './utils';
+import { db } from '../../db/index.js';
+import { requireAdmin } from '../../middleware/auth.js';
+import { authRateLimiter } from '../../middleware/rateLimit.js';
+import { createCorrectionHandler } from './utils.js';
 
 // REV-016 onda 3: handler compartilhado com inbox/corrections.ts
 const router = createCorrectionHandler('/admin/discord/drafts/:id/correction');

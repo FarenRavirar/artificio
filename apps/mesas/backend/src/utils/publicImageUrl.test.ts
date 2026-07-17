@@ -1,4 +1,4 @@
-import { isEphemeralDiscordImageUrl, sanitizePublicImageUrl } from './publicImageUrl';
+import { isEphemeralDiscordImageUrl, sanitizePublicImageUrl } from './publicImageUrl.js';
 
 describe('publicImageUrl', () => {
   it('remove Discord CDN images from public payloads', () => {

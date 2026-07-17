@@ -1,8 +1,8 @@
 import { Router, type Request, type Response } from 'express';
-import { authMiddleware } from '../middleware/auth';
-import { publicRateLimiter } from '../middleware/rateLimit';
-import { db } from '../db';
-import type { NewTableSchedule, TableScheduleUpdate } from '../db/types';
+import { authMiddleware } from '../middleware/auth.js';
+import { publicRateLimiter } from '../middleware/rateLimit.js';
+import { db } from '../db/index.js';
+import type { NewTableSchedule, TableScheduleUpdate } from '../db/types.js';
 
 const router = Router();
 

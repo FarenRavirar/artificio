@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildContextPack, contextPackSchema, hashContextPack } from '../llmContextPack';
-import type { ImportTableDraft } from '../types';
+import { buildContextPack, contextPackSchema, hashContextPack } from '../llmContextPack.js';
+import type { ImportTableDraft } from '../types.js';
 
 function draft(): ImportTableDraft {
   return {

@@ -1,12 +1,12 @@
 import { sql } from 'kysely';
-import { db } from '../db';
+import { db } from '../db/index.js';
 import {
   recordLabelAliasFromCorrection,
   recordLearningRulesFromCorrections,
   recordSystemEntityRule,
   recordEntityHintRule,
   type LearningRuleScope,
-} from './learningRules';
+} from './learningRules.js';
 
 export type LearningFeedbackStatus = 'pending' | 'processing' | 'completed' | 'failed';
 

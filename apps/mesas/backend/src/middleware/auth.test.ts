@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
-import { authMiddleware } from './auth';
+import { authMiddleware } from './auth.js';
 
 vi.mock('../db', () => ({
   db: {

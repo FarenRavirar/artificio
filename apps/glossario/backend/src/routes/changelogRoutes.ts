@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getChangelogs } from '../controllers/changelogController';
+import { getChangelogs } from '../controllers/changelogController.js';
 
 const router = Router();
 

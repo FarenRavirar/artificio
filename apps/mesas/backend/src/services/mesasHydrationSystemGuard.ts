@@ -1,6 +1,6 @@
-import { db } from '../db';
-import { prodDb } from '../db/prod';
-import { planSystemProjection, type SystemProjectionSnapshot } from './systemProjectionHydrator';
+import { db } from '../db/index.js';
+import { prodDb } from '../db/prod.js';
+import { planSystemProjection, type SystemProjectionSnapshot } from './systemProjectionHydrator.js';
 
 export type SystemIdResolver = (id: string) => string;
 

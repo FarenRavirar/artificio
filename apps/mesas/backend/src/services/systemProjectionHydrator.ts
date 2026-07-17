@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { sql } from 'kysely';
-import { db } from '../db';
+import { db } from '../db/index.js';
 import { catalogFetch } from '@artificio/catalog-client';
-import { slugifyCatalogSegment } from './catalogClient';
+import { slugifyCatalogSegment } from './catalogClient.js';
 
 const aliasSchema = z.object({ alias: z.string().trim().min(1) });
 const nodeBaseSchema = z.object({

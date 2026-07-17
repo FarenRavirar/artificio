@@ -1,6 +1,6 @@
 import { sql } from 'kysely';
-import { db } from '../db';
-import type { DiscordParseCase } from '../db/types';
+import { db } from '../db/index.js';
+import type { DiscordParseCase } from '../db/types.js';
 
 export type RetrievedExampleGroup =
   | 'duplicate_candidates'

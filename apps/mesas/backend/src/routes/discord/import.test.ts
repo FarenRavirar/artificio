@@ -1,10 +1,10 @@
 import express from 'express';
 import request from 'supertest';
 import type { Mock } from 'vitest';
-import importRouter from './import';
-import { db } from '../../db';
-import { importDiscordChatExporterJson } from '../../discord/chatExporterImportService';
-import { reparseOneMessage } from './utils';
+import importRouter from './import.js';
+import { db } from '../../db/index.js';
+import { importDiscordChatExporterJson } from '../../discord/chatExporterImportService.js';
+import { reparseOneMessage } from './utils.js';
 
 vi.mock('../../db', () => ({
   db: {

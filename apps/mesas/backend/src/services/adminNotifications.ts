@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db } from '../db/index.js';
 
 // Tipos canonicos de notificacao para o feed do admin.
 export type AdminNotificationType =

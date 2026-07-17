@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateSystemParentType, validateSystemSuggestionHierarchy } from './systemHierarchy';
+import { validateSystemParentType, validateSystemSuggestionHierarchy } from './systemHierarchy.js';
 
 describe('validateSystemParentType', () => {
   it.each([

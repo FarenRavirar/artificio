@@ -27,8 +27,8 @@ vi.mock('../middleware/auth', () => ({
   requireRole: () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
 }));
 
-import adminProfileRoutes from './adminProfile';
-import * as profileService from '../services/profileService';
+import adminProfileRoutes from './adminProfile.js';
+import * as profileService from '../services/profileService.js';
 
 function makeQueryBuilder() {
   return {

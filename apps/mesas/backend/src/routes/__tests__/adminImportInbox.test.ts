@@ -1,13 +1,13 @@
 import express from 'express';
 import request from 'supertest';
 import type { Mock } from 'vitest';
-import adminInboxRoutes from '../adminImportInbox';
-import { db } from '../../db';
-import { TableRepository } from '../../repositories/tableRepository';
-import { segmentAnnouncements } from '../../inbox/segmentation';
-import { textToRawMessage } from '../../inbox/adapters/textToRawMessage';
-import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord';
-import type { ImportTableDraft } from '../../discord';
+import adminInboxRoutes from '../adminImportInbox.js';
+import { db } from '../../db/index.js';
+import { TableRepository } from '../../repositories/tableRepository.js';
+import { segmentAnnouncements } from '../../inbox/segmentation.js';
+import { textToRawMessage } from '../../inbox/adapters/textToRawMessage.js';
+import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord/index.js';
+import type { ImportTableDraft } from '../../discord/index.js';
 
 vi.mock('../../db', () => ({
   db: {
@@ -51,8 +51,8 @@ vi.mock('../../inbox/adapters/textToRawMessage', () => ({
   textToRawMessage: vi.fn(),
 }));
 
-vi.mock('../../discord', async () => {
-  const actual = await vi.importActual<typeof import('../../discord')>('../../discord');
+vi.mock('../../discord/index.js', async () => {
+  const actual = await vi.importActual<typeof import('../../discord/index.js')>('../../discord/index.js');
   return {
     ...actual,
     parseDiscordAnnouncement: vi.fn(),

@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { db } from '../../db';
-import { requireAdmin } from '../../middleware/auth';
-import type { DiscordImportMessageStatus } from '../../discord';
-import { DiscordIngestError } from '../../discord';
-import { requireDiscordBotToken } from '../../discord/config';
-import { sendDiscordFetchError } from './utils';
+import { db } from '../../db/index.js';
+import { requireAdmin } from '../../middleware/auth.js';
+import type { DiscordImportMessageStatus } from '../../discord/index.js';
+import { DiscordIngestError } from '../../discord/index.js';
+import { requireDiscordBotToken } from '../../discord/config.js';
+import { sendDiscordFetchError } from './utils.js';
 
 const router = Router();
 const DISCORD_API_BASE = 'https://discord.com/api/v10';

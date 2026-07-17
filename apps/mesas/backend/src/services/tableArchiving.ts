@@ -1,5 +1,5 @@
 import { sql } from 'kysely';
-import { db } from '../db';
+import { db } from '../db/index.js';
 
 /** Idade (dias) após a publicação a partir da qual uma mesa é auto-arquivada. D-MESAS1. */
 export const AUTO_ARCHIVE_AFTER_DAYS = 30;

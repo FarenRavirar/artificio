@@ -1,4 +1,4 @@
-import { listForumThreads } from '../ingestMessages';
+import { listForumThreads } from '../ingestMessages.js';
 
 describe('listForumThreads', () => {
   const originalFetch = global.fetch;

@@ -1,8 +1,8 @@
 import { Router } from 'express';
 
-import importRouter from './inbox/import';
-import draftsRouter from './inbox/drafts';
-import correctionsRouter from './inbox/corrections';
+import importRouter from './inbox/import.js';
+import draftsRouter from './inbox/drafts.js';
+import correctionsRouter from './inbox/corrections.js';
 
 const router = Router();
 

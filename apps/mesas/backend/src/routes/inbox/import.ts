@@ -1,15 +1,15 @@
 import crypto from 'node:crypto';
 import { Router, Request, Response } from 'express';
-import { db } from '../../db';
-import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../../discord';
-import { requireAdmin } from '../../middleware/auth';
-import { textToRawMessage } from '../../inbox/adapters/textToRawMessage';
-import { segmentAnnouncements } from '../../inbox/segmentation';
-import { stripNullBytes } from '../../discord/parseDiscordAnnouncement';
-import { loadSystemsForParser } from '../../discord/shared';
-import { normalizeLooseText } from '../../inbox/normalizeLooseText';
-import { parseActionFromNormalizedStatus, recordParseCase } from '../../discord/parseLearning';
-import { toNumberOrNull, importTextSchema } from './utils';
+import { db } from '../../db/index.js';
+import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeDraftPayload } from '../../discord/index.js';
+import { requireAdmin } from '../../middleware/auth.js';
+import { textToRawMessage } from '../../inbox/adapters/textToRawMessage.js';
+import { segmentAnnouncements } from '../../inbox/segmentation.js';
+import { stripNullBytes } from '../../discord/parseDiscordAnnouncement.js';
+import { loadSystemsForParser } from '../../discord/shared.js';
+import { normalizeLooseText } from '../../inbox/normalizeLooseText.js';
+import { parseActionFromNormalizedStatus, recordParseCase } from '../../discord/parseLearning.js';
+import { toNumberOrNull, importTextSchema } from './utils.js';
 
 const router = Router();
 

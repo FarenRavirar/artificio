@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { segmentAnnouncements } from '../segmentation';
-import { normalizeLooseText } from '../normalizeLooseText';
-import { parseDiscordAnnouncement, stripNullBytes } from '../../discord/parseDiscordAnnouncement';
-import { textToRawMessage } from '../adapters/textToRawMessage';
-import type { ImportTableDraft } from '../../discord/types';
+import { segmentAnnouncements } from '../segmentation.js';
+import { normalizeLooseText } from '../normalizeLooseText.js';
+import { parseDiscordAnnouncement, stripNullBytes } from '../../discord/parseDiscordAnnouncement.js';
+import { textToRawMessage } from '../adapters/textToRawMessage.js';
+import type { ImportTableDraft } from '../../discord/types.js';
 
 // Spec 079: fixture com histórico REAL de canal Discord colado pelo mantenedor
 // (2026-07-16, ampliada em 2026-07-17 pra 33 anúncios — fixture original de 22
@@ -23,7 +24,7 @@ function parseFixtureSegment(segment: string): ImportTableDraft | null {
 
 function loadFixtureSegments(): string[] {
   const raw = readFileSync(
-    path.join(__dirname, 'fixtures/discord-announcements-real.txt'),
+    path.join(fileURLToPath(new URL('.', import.meta.url)), 'fixtures/discord-announcements-real.txt'),
     'utf-8',
   );
   return segmentAnnouncements(raw);

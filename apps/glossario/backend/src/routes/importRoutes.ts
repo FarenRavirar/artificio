@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { importTerms } from '../controllers/importController';
-import { authMiddleware } from '../middlewares/authMiddleware';
-import { betaWriteGuard } from '../middlewares/betaWriteGuard';
-import { refreshUserRole } from '../middlewares/refreshUserRole';
+import { importTerms } from '../controllers/importController.js';
+import { authMiddleware } from '../middlewares/authMiddleware.js';
+import { betaWriteGuard } from '../middlewares/betaWriteGuard.js';
+import { refreshUserRole } from '../middlewares/refreshUserRole.js';
 
 const router = Router();
 
