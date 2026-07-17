@@ -2367,6 +2367,13 @@ export function parseDiscordAnnouncement(
     ? findPlatformMatch(settingName, platforms.scenarios)
     : null;
   const rawScenarioHint = settingName && !scenarioMatch ? settingName : null;
+  // Achado Codex (PR #173, P2): raw_scenario_hint só preenche quando NÃO
+  // casou — correção de cenário errado-mas-casado (parser achou entrada
+  // errada do catálogo) nunca tinha hint pro learning aprender, porque
+  // scenarioMatch existia e zerava rawScenarioHint. Hint separado, sempre
+  // preenchido quando há texto de cenário (igual _vtt_source_hint/
+  // _communication_source_hint), independente de ter casado ou não.
+  const scenarioSourceHint = settingName;
 
   // Achado do mantenedor (2026-07-16): a regra antiga (só texto explícito tipo
   // "necessário ter PC" contava) deixava passar caso óbvio — anúncio com VTT
@@ -2439,6 +2446,7 @@ export function parseDiscordAnnouncement(
     raw_gm_name: hostName,
     scenario_id: scenarioMatch?.id ?? null,
     raw_scenario_hint: rawScenarioHint,
+    _scenario_source_hint: scenarioSourceHint,
     vtt_platform_id: vttMatch?.id ?? null,
     _vtt_source_hint: platformsLabelValue,
     communication_platform_id: communicationMatch?.id ?? null,

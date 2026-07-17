@@ -623,14 +623,8 @@ const LLM_FIELD_MAP: Record<string, string> = {
 const ENTITY_HINT_CONFIG: Record<string, { hintKey: string; outputFields: string[] }> = {
   vtt_entity: { hintKey: '_vtt_source_hint', outputFields: ['vtt_platform_id'] },
   communication_entity: { hintKey: '_communication_source_hint', outputFields: ['communication_platform_id'] },
-  scenario_entity: { hintKey: 'raw_scenario_hint', outputFields: ['scenario_id', 'setting_name'] },
+  scenario_entity: { hintKey: '_scenario_source_hint', outputFields: ['scenario_id', 'setting_name'] },
 };
-
-// Enums simples de catálogo/classificação (sem hint textual isolado — o
-// próprio valor anterior do campo é o token de entrada do mecanismo
-// field_value genérico). Espelha os campos de FIELD_VALUE_RULE_FIELDS em
-// learningRules.ts que não são `*_entity`.
-const SIMPLE_ENUM_LEARNING_FIELDS = ['age_rating', 'experience_level', 'table_level', 'modality', 'price_type', 'type', 'frequency'] as const;
 
 const AMBIGUITY_TARGETS: Record<string, string[]> = {
   _price_ambiguity: ['price_type', 'price_value'],
@@ -678,22 +672,19 @@ async function enrichDraftWithLlm(
   const sourceSystemHint = table._system_source_hint ?? table.raw_system_hint;
   // Achado do mantenedor (2026-07-17, IMPERATIVO): generalização — antes só
   // system_entity era consultado aqui. Cada ENTITY_HINT_FIELDS busca pelo
-  // hint bruto persistido (quando existe); enums simples buscam pelo VALOR
-  // ATUAL do campo (o mecanismo field_value já resolve token→valor a partir
-  // do valor anterior, sem precisar de hint textual isolado).
+  // hint bruto persistido (quando existe). Achado Codex (PR #173, P2): enums
+  // simples (age_rating/modality/etc) foram removidos deste mecanismo — o
+  // valor anterior do campo não é um token seguro (ver comentário em
+  // FIELD_VALUE_RULE_FIELDS, learningRules.ts).
   function hasQueryValue(q: { field: string; value: unknown }): boolean {
     return q.value !== null && q.value !== undefined && q.value !== '';
   }
   const entityHintQueries: { field: string; value: unknown }[] = ENTITY_HINT_FIELDS
     .map((field) => ({ field, value: table[ENTITY_HINT_CONFIG[field].hintKey] }))
     .filter(hasQueryValue);
-  const simpleEnumQueries: { field: string; value: unknown }[] = SIMPLE_ENUM_LEARNING_FIELDS
-    .map((field) => ({ field, value: table[field] }))
-    .filter(hasQueryValue);
   const lookupQueries = [
     ...(sourceSystemHint ? [{ field: 'system_entity', value: sourceSystemHint }] : []),
     ...entityHintQueries,
-    ...simpleEnumQueries,
   ];
   const learningScope = {
     guild_id: normalized.draft.source?.guild_id ?? null,
@@ -752,21 +743,22 @@ async function enrichDraftWithLlm(
       const before: Record<string, unknown> = {};
       for (const outputField of entityConfig.outputFields) {
         before[outputField] = table[outputField] ?? null;
-        if (Object.hasOwn(entity, outputField) && table[outputField] !== entity[outputField]) {
-          storeFields[outputField] = entity[outputField];
-          affectedFields.push(outputField);
-        }
+        if (!Object.hasOwn(entity, outputField)) continue;
+        const candidate = entity[outputField];
+        // Achado Codex (PR #173): output_value vem do banco (JSONB gravado
+        // por recordEntityHintRule) sem contrato de schema — id de catálogo
+        // (scenario_id/vtt_platform_id/communication_platform_id) malformado
+        // (vazio, corrompido, tipo errado) não pode ser escrito direto no
+        // draft sem checagem. setting_name é texto livre, aceita string não-
+        // vazia; os *_id são sempre string não-vazia (UUID de catálogo).
+        const isValid = typeof candidate === 'string' && candidate.trim().length > 0;
+        if (!isValid || table[outputField] === candidate) continue;
+        storeFields[outputField] = candidate;
+        affectedFields.push(outputField);
       }
       if (affectedFields.length === 0) continue;
       storeFields[entityConfig.hintKey] = null;
       pushApplication(hit, affectedFields, before, hit.inputToken);
-      continue;
-    }
-
-    if ((SIMPLE_ENUM_LEARNING_FIELDS as readonly string[]).includes(hit.field)) {
-      if (table[hit.field] === hit.value) continue;
-      storeFields[hit.field] = hit.value;
-      pushApplication(hit, [hit.field], { [hit.field]: table[hit.field] ?? null }, hit.inputToken);
     }
   }
 

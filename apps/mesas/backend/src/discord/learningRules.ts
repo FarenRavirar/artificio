@@ -64,24 +64,25 @@ const LEARNABLE_SET = new Set<string>(LEARNABLE_FIELDS);
 //
 // Achado do mantenedor (2026-07-17, IMPERATIVO): campo travado só em
 // `system_entity` era gap real — correção manual de VTT/comunicação/cenário
-// no draft nunca ensinava nada ao sistema. Decisão: espelhar o form de
-// onboarding manual — TODO campo fixo/catálogo/enum aprende por correção,
-// exceto texto livre (título, descrição, regras da mesa). `*_entity` usa
-// hint textual bruto (`recordEntityHintRule`); os enums simples abaixo usam
-// o valor anterior do campo como token de entrada (mecanismo `field_value`
-// já existente, sem função nova — o valor de um enum É a entidade estável,
-// diferente de "4 vagas" que é fato da ocorrência).
-const FIELD_VALUE_RULE_FIELDS = new Set<string>([
-  'system_entity',
-  ...ENTITY_HINT_FIELDS,
-  'age_rating',
-  'experience_level',
-  'table_level',
-  'modality',
-  'price_type',
-  'type',
-  'frequency',
-]);
+// no draft nunca ensinava nada ao sistema. `*_entity` usa hint textual bruto
+// (`recordEntityHintRule`) — token de entrada é o TEXTO específico daquele
+// anúncio, não o valor do campo, então a regra aprendida é segura mesmo
+// sendo global (o mesmo texto tende a significar a mesma entidade em
+// qualquer anúncio).
+//
+// Achado Codex (PR #173, P2): tentativa inicial de incluir enums simples
+// (age_rating, experience_level, table_level, modality, price_type, type,
+// frequency) aqui usando o VALOR ANTERIOR do campo como token de entrada
+// era insegura — dois anúncios diferentes com o mesmo valor anterior (ex.:
+// `+16`) não têm relação nenhuma entre si; uma correção `+16→+18` legítima
+// num anúncio viraria regra global que reescreve `+16` certo de OUTRO
+// anúncio pra `+18` errado. Diferente de `*_entity` (token = texto bruto
+// específico do anúncio), aqui o "token" seria o próprio valor do campo —
+// exatamente o mesmo problema que já impedia `system_name -> system_name`
+// (ver comentário acima). Reduzido de volta pra só `*_entity`; enums simples
+// ficam sem aprendizado automático até existir um hint textual seguro
+// (mesmo padrão de `_vtt_source_hint`) pra cada um.
+const FIELD_VALUE_RULE_FIELDS = new Set<string>(['system_entity', ...ENTITY_HINT_FIELDS]);
 const ACTIVE_CONFIDENCE = 0.8;
 const CANDIDATE_CONFIDENCE = 0.65;
 

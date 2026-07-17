@@ -171,28 +171,43 @@ export async function processLearningFeedbackCorrection(correctionId: string): P
       // comunicação/cenário no draft agora ensina o sistema, igual sistema
       // já fazia. Sem hint persistido (beforeTable.*_source_hint/raw_*_hint
       // null), a chamada é no-op (recordEntityHintRule exige inputToken).
-      await recordEntityHintRule({
-        field: 'vtt_entity',
-        sourceHint: beforeTable._vtt_source_hint,
-        outputValue: { vtt_platform_id: correctedTable.vtt_platform_id },
-        scope: source,
-        userId: correction.corrected_by,
-      }, trx, strict);
-      await recordEntityHintRule({
-        field: 'communication_entity',
-        sourceHint: beforeTable._communication_source_hint,
-        outputValue: { communication_platform_id: correctedTable.communication_platform_id },
-        scope: source,
-        userId: correction.corrected_by,
-      }, trx, strict);
-      await recordEntityHintRule({
-        field: 'scenario_entity',
-        sourceHint: beforeTable.raw_scenario_hint,
-        outputValue: { scenario_id: correctedTable.scenario_id, setting_name: correctedTable.setting_name },
-        scope: source,
-        userId: correction.corrected_by,
-      }, trx, strict);
-
+      //
+      // Achado Codex (PR #173): sem gate por diff, toda correção (mesmo em
+      // campo não relacionado) reforçava `hits`/confidence da regra de VTT/
+      // comunicação/cenário — o humano não confirmou nada sobre esses campos
+      // especificamente, só corrigiu outro campo do mesmo draft. Só grava
+      // quando o campo de saída realmente mudou nesta correção.
+      if (Object.hasOwn(diff, 'vtt_platform_id')) {
+        await recordEntityHintRule({
+          field: 'vtt_entity',
+          sourceHint: beforeTable._vtt_source_hint,
+          outputValue: { vtt_platform_id: correctedTable.vtt_platform_id },
+          scope: source,
+          userId: correction.corrected_by,
+        }, trx, strict);
+      }
+      if (Object.hasOwn(diff, 'communication_platform_id')) {
+        await recordEntityHintRule({
+          field: 'communication_entity',
+          sourceHint: beforeTable._communication_source_hint,
+          outputValue: { communication_platform_id: correctedTable.communication_platform_id },
+          scope: source,
+          userId: correction.corrected_by,
+        }, trx, strict);
+      }
+      if (Object.hasOwn(diff, 'scenario_id') || Object.hasOwn(diff, 'setting_name')) {
+        await recordEntityHintRule({
+          field: 'scenario_entity',
+          // Achado Codex (PR #173, P2): raw_scenario_hint zera quando o
+          // cenário CASOU (mesmo que na entrada errada) — usar
+          // _scenario_source_hint, que fica preenchido independente de match,
+          // pra correção de cenário errado-mas-casado também ensinar a regra.
+          sourceHint: beforeTable._scenario_source_hint,
+          outputValue: { scenario_id: correctedTable.scenario_id, setting_name: correctedTable.setting_name },
+          scope: source,
+          userId: correction.corrected_by,
+        }, trx, strict);
+      }
       const parseCase = await trx
         .selectFrom('discord_parse_cases')
         .select('id')

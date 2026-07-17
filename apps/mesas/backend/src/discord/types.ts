@@ -112,6 +112,13 @@ export interface DiscordTableDraftTable {
   /** Fase B/C (spec 058): campos novos de auto-preenchimento — ver `auto-preenchimento-draft.md`. */
   scenario_id: string | null;
   raw_scenario_hint: string | null;
+  /** Achado Codex (PR #173, P2): `raw_scenario_hint` só preenche quando o
+   * cenário NÃO casou no catálogo — correção de cenário errado-mas-casado
+   * (parser achou entrada errada) nunca tinha hint pro learning aprender.
+   * Hint separado, sempre preenchido quando há texto de cenário no anúncio,
+   * independente de ter casado ou não (mesmo princípio de
+   * `_vtt_source_hint`/`_communication_source_hint`). */
+  _scenario_source_hint?: string | null;
   vtt_platform_id: string | null;
   /** Achado do mantenedor (2026-07-17): texto isolado da linha "Plataforma(s)"/
    * "Local do jogo" usado no match de VTT — persistido pro learning genérico
