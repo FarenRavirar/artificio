@@ -112,6 +112,12 @@ const baseTableSchema = z.object({
   table_gm_bio: z.string().max(2000).nullable().optional(),
   contacts: z.array(contactSchema).min(1, 'Informe ao menos um canal de contato'),
   schedules: z.array(scheduleSchema).optional(),
+  // Requisito 8 (spec 079): quando a mesa nasce de um pré-preenchimento via
+  // texto colado (POST /gm/parse-preview), o front reenvia esse id pra fechar
+  // o loop de aprendizado — compara o payload publicado (com as correções do
+  // mestre) contra a sugestão original do parser. Opcional: form em branco
+  // não tem preview correlacionado.
+  parse_case_id: z.string().uuid().nullable().optional(),
 });
 
 export const createTableSchema = baseTableSchema

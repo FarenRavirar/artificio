@@ -62,7 +62,7 @@ export async function refreshDiscordDraftImage(draftId: string): Promise<Discord
   };
 }
 
-const discordSyncConfig: SyncDraftCoreConfig = {
+export const discordSyncConfig: SyncDraftCoreConfig = {
   messageFk: 'discord_message_id',
   sourceName: 'Discord',
   messageTable: 'discord_import_messages',
@@ -73,7 +73,13 @@ const discordSyncConfig: SyncDraftCoreConfig = {
   // Paridade com inbox (getSourceId: message.id). O snowflake já vai em source_url.
   getSourceId: (message) => message.id as string,
   getSourceUrl: (message) => (message.discord_message_url as string) ?? null,
-  getGmName: (payload) => payload.source.author_name ?? null,
+  // Requisito 7 (spec 079): prefere o nome extraído do TEXTO do anúncio
+  // ("Mestre:"/"Narrador:"/"GM:"/"DM:") quando presente — quem posta a
+  // mensagem no Discord nem sempre é o mestre de fato (achado real: "Narrador:
+  // um conhecido meu, apenas estou postando por ele"). Fallback pro autor da
+  // mensagem preserva o comportamento estável de sempre quando o texto não
+  // traz o label.
+  getGmName: (payload) => payload.table.raw_gm_name ?? payload.source.author_name ?? null,
   ValidationError: DiscordDraftSyncValidationError,
 };
 

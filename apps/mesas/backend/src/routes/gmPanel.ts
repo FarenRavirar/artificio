@@ -21,6 +21,9 @@ import { notifyAdmins } from '../services/adminNotifications';
 import { isValidEmail } from '../utils/validation';
 import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaScrapeClient';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
+import { parseTextForPreview } from '../discord/parseTextForPreview';
+import { loadSystemsForParser } from '../discord/shared';
+import { z } from 'zod';
 
 const router = Router();
 
@@ -567,6 +570,98 @@ function notifyTablePublishedOnCreate(
   triggerMetaScrapeOnPublish(newTable.slug, newTable.status, null);
 }
 
+const parsePreviewSchema = z.object({
+  text: z.string().min(1, 'Texto obrigatório.').max(20000, 'Texto muito longo.'),
+});
+
+// Requisito 8 (spec 079): fecha o loop de aprendizado do preview público —
+// UPDATE direto (não recria o contrato via buildParseCaseContract, que exige
+// a mensagem original de novo) em vez de um novo recordParseCase, pra não
+// duplicar o caso em discord_parse_cases. Best-effort — nunca deve travar
+// nem atrasar a resposta de criação de mesa.
+async function recordPublishedParseCase(parseCaseId: string, publishedPayload: unknown): Promise<void> {
+  try {
+    // Achado de review (CodeRabbit, PR #172): correlação por parseCaseId sem
+    // checar estado permitia qualquer usuário reenviar um parse_case_id
+    // alheio no payload de POST /gm/tables e sobrescrever o final_result_json
+    // de um case já sincronizado por outro mestre. discord_parse_cases não
+    // tem coluna de owner (não é migration deste PR) — o reforço possível
+    // sem mudança de schema é exigir final_action='draft': só correlaciona
+    // um case que ainda não foi fechado por ninguém, fechando o vetor de dano
+    // concreto (sobrescrever publicação alheia já confirmada).
+    const result = await db
+      .updateTable('discord_parse_cases')
+      .set({
+        final_result_json: JSON.stringify(publishedPayload),
+        final_action: 'synced',
+        updated_at: new Date(),
+      })
+      .where('id', '=', parseCaseId)
+      .where('final_action', '=', 'draft')
+      .executeTakeFirst();
+
+    if (!result.numUpdatedRows || result.numUpdatedRows === BigInt(0)) {
+      console.warn('[recordPublishedParseCase] parse_case_id não encontrado ou já fechado', { parseCaseId });
+    }
+  } catch (error) {
+    console.error('[recordPublishedParseCase]', error instanceof Error ? error.message : 'unknown error');
+  }
+}
+
+// POST /api/v1/gm/parse-preview — Requisito 8 (spec 079): mestre cola texto
+// livre (mesmo formato de anúncio Discord) e recebe sugestão de campos pra
+// pré-preencher o form de criação de mesa. Nunca publica sozinho — reaproveita
+// a mesma engine de parser/aprendizado do fluxo admin (parseTextForPreview),
+// sem duplicar lógica. Auth de mestre logado (SSO), não admin — é fluxo
+// público. Não persiste em discord_import_table_drafts/import_messages (não é
+// curadoria admin); só grava o caso de aprendizado em discord_parse_cases
+// pra correlacionar com a submissão real depois (parse_case_id).
+router.post('/parse-preview', authMiddleware, async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+
+  const validation = parsePreviewSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json({ error: validation.error.issues[0]?.message ?? 'Payload inválido.' });
+  }
+
+  try {
+    // Achado de review (CodeRabbit, PR #172): rota validava só login (SSO),
+    // não checava gm_profiles como POST /gm/tables já faz — comentário da
+    // rota dizia "Auth de mestre logado" mas o código deixava qualquer
+    // usuário autenticado acionar o parser. Mesma checagem do submit real.
+    const gmProfile = await db
+      .selectFrom('gm_profiles')
+      .select(['id'])
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+
+    if (!gmProfile) {
+      return res.status(403).json({ error: 'Perfil de mestre não encontrado. Crie seu perfil primeiro.' });
+    }
+
+    const systems = await loadSystemsForParser();
+    const result = await parseTextForPreview(validation.data.text, systems);
+
+    if (!result.table) {
+      return res.json({
+        data: { parse_case_id: result.parseCaseId, table: null, contacts: [], schedules: [] },
+      });
+    }
+
+    return res.json({
+      data: {
+        parse_case_id: result.parseCaseId,
+        table: result.table,
+        contacts: result.contacts,
+        schedules: result.schedules,
+      },
+    });
+  } catch (error) {
+    console.error('[POST /gm/parse-preview]', error);
+    return res.status(500).json({ error: 'Erro ao processar texto colado.' });
+  }
+});
+
 // POST /api/v1/gm/tables — Cria nova mesa
 router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
   const userId = req.user!.userId;
@@ -632,6 +727,16 @@ router.post('/tables', authMiddleware, async (req: Request, res: Response) => {
       data.contacts,
       data.schedules
     );
+
+    // Requisito 8 (spec 079): fecha o loop de aprendizado quando a mesa nasceu
+    // de um pré-preenchimento (parse_case_id veio do POST /gm/parse-preview).
+    // Reaproveita o mesmo `discord_parse_cases` do preview — atualiza
+    // final_result_json com o payload REALMENTE publicado (já com as
+    // correções do mestre) e final_action='synced'. Best-effort: nunca bloqueia
+    // a criação da mesa se isso falhar.
+    if (data.parse_case_id) {
+      void recordPublishedParseCase(data.parse_case_id, data);
+    }
 
     const gmName = await resolveActorName(userId, { logTag: 'gmPanel' });
 

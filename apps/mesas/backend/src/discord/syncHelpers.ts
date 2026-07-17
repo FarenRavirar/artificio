@@ -322,7 +322,7 @@ function normalizeSlots(
   return { slots_total: total, slots_filled: filled, slots_open: open };
 }
 
-function buildTableDraftFields(
+export function buildTableDraftFields(
   draft: ImportTableDraft,
   gmName: string | null,
   coverUrl: string | null,

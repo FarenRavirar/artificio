@@ -34,6 +34,7 @@ function draft(): ImportTableDraft {
       contact_discord_explicit: false,
       contact_url: null,
       host_discord_id: null,
+      raw_gm_name: null,
       scenario_id: null,
       raw_scenario_hint: null,
       vtt_platform_id: null,

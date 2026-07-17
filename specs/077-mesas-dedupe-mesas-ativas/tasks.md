@@ -255,6 +255,28 @@ duplicata (Fase 1+, já `[x]` acima) funcionava conforme desenhado. Sessão:
 - [ ] U18 Autorização do mantenedor para commit/push/PR de U17 (nenhuma
       autorização dada ainda; regra pétrea — não commitar por inferência).
 
+## MIGRADO PARA SPEC 079 (2026-07-16)
+
+Bug real de produção (anúncio "A Censura", import via texto colado) revelou
+escopo maior que essa frente comporta — parser de texto colado tem bug
+estrutural (labels grudados em linha corrida) presente em ~8/13 anúncios
+reais testados, não só o caso pontual relatado. Mantenedor decidiu: todo
+trabalho de parser de texto colado (segmentação `▬▬▬` inline, sentinela
+"data e hora: a definir", e tudo que vier depois) passa a viver inteiro em
+`specs/079-mesas-import-texto-polimento/`, não fica fragmentado entre specs.
+
+- [x] (migrado) Fix `▬▬▬` inline não fragmenta segmento —
+      `apps/mesas/backend/src/inbox/segmentation.ts`. Implementado e validado
+      nesta sessão (339/339 backend, tsc limpo); dono de manutenção passa a
+      ser a spec 079.
+- [x] (migrado) Fix "Data e hora: a definir" → `day_of_week=to_define` sem
+      exigir "dia(s)"/"horário(s)" explícito —
+      `apps/mesas/backend/src/discord/parseDiscordAnnouncement.ts`
+      `DAY_TO_DEFINE_PATTERNS`. Implementado e validado nesta sessão; dono de
+      manutenção passa a ser a spec 079.
+- Commit/push/PR desses dois fixes: pendente, será feito junto com o resto do
+  trabalho da spec 079 (mantenedor optou por não fechar/commitar parcial).
+
 ## Frente parser — ampliação de escopo (2026-07-14)
 
 - [x] P0.1 Ler handoff/arquitetura e confirmar caminho do parser, learning e dois

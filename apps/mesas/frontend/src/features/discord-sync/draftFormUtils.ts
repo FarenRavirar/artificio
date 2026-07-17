@@ -68,6 +68,8 @@ export interface DraftForm {
   frequency: DraftFrequency;
   contact_url: string;
   contact_discord: string;
+  /** Requisito 7 (spec 079): nome do mestre extraído do texto ("Mestre:"/"Narrador:"/etc), editável antes do sync. */
+  raw_gm_name: string;
   cover_url: string;
   cover_url_source: string;
   cover_quality: '' | DiscordCoverQuality;
@@ -318,6 +320,7 @@ export function buildForm(payload: DiscordDraftPayload): DraftForm {
     frequency: (asString(table.frequency) as DraftFrequency) || 'semanal',
     contact_url: asString(table.contact_url),
     contact_discord: asString(table.contact_discord),
+    raw_gm_name: asString(table.raw_gm_name),
     cover_url: asString(table.cover_url),
     cover_url_source: asString(table.cover_url_source),
     cover_quality: (asString(table.cover_quality) as DraftForm['cover_quality']) || '',
@@ -437,6 +440,7 @@ export function buildUpdatedPayload(base: DiscordDraftPayload, form: DraftForm):
     frequency: form.frequency,
     contact_url: form.contact_url.trim() || null,
     contact_discord: form.contact_discord.trim() || null,
+    raw_gm_name: form.raw_gm_name.trim() || null,
     cover_url: form.cover_url.trim() || null,
     cover_url_source: form.cover_url_source.trim() || null,
     cover_quality: form.cover_quality || null,

@@ -7,10 +7,10 @@
     "downloads": 50,
     "glossario": 47,
     "links": 22,
-    "mesas": 185,
+    "mesas": 186,
     "site": 46
   },
-  "total": 361,
+  "total": 362,
   "operations": [
     {
       "app": "accounts",
@@ -2932,6 +2932,18 @@
       "auth": "user",
       "consumers": [],
       "operationId": "getapi_v1_gm_me"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/gm/parse-preview",
+      "summary": "Cria ou executa api v1 gm parse-preview",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_gm_parse_preview"
     },
     {
       "app": "mesas",

@@ -99,6 +99,15 @@ export interface FormState {
   synopsisNarrative: string;
   benefitsText: string;
   tableGmBio: string;
+
+  /**
+   * Requisito 8 (spec 079): id do discord_parse_case gerado pelo preview de
+   * pré-preenchimento (POST /gm/parse-preview). Reenviado na submissão real
+   * (POST /gm/tables) pra fechar o loop de aprendizado — compara o que o
+   * parser sugeriu com o que o mestre efetivamente publicou. null quando o
+   * form nasceu em branco (fluxo manual, sem preview).
+   */
+  parseCaseId: string | null;
 }
 
 export interface CreateTablePayload {
@@ -121,6 +130,7 @@ export interface CreateTablePayload {
   }>;
   publisher_role: 'gm' | 'announcer';
   actual_gm_name: string | null;
+  parse_case_id?: string | null;
   rules_notes: string;
   banner_url?: string;
   banner_crop_data?: { x: number; y: number; width: number; height: number };

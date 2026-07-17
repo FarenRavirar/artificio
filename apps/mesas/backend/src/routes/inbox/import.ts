@@ -7,6 +7,7 @@ import { textToRawMessage } from '../../inbox/adapters/textToRawMessage';
 import { segmentAnnouncements } from '../../inbox/segmentation';
 import { stripNullBytes } from '../../discord/parseDiscordAnnouncement';
 import { loadSystemsForParser } from '../../discord/shared';
+import { normalizeLooseText } from '../../inbox/normalizeLooseText';
 import { parseActionFromNormalizedStatus, recordParseCase } from '../../discord/parseLearning';
 import { toNumberOrNull, importTextSchema } from './utils';
 
@@ -82,7 +83,10 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
       // 0x00 vindo da colagem manual quebrava o INSERT em import_messages
       // antes mesmo de textToRawMessage (que só sanitiza pro parse, não pro
       // persist) entrar em ação. Sanitiza uma vez, usa em hash/insert/parse.
-      const segment = stripNullBytes(rawSegment);
+      // Spec 079: só o caminho de texto colado manual perde `\n` reais entre
+      // labels ao ser copiado do cliente Discord — normaliza antes do hash/
+      // parse. Import via JSON nunca passa por esta rota.
+      const segment = normalizeLooseText(stripNullBytes(rawSegment));
       const contentHash = crypto.createHash('sha256').update(segment).digest('hex');
 
       const existingMessage = await db
