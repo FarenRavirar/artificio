@@ -41,10 +41,14 @@ COPY packages ./packages
 COPY apps/mesas/backend/package.json ./apps/mesas/backend/package.json
 COPY patches ./patches
 
-# pnpm --prod nao instala deps de workspace packages no node_modules local.
-# @artificio/media depende de cloudinary; instalar explicitamente antes do fail-fast.
-RUN pnpm install --prod --filter @artificio/mesas-backend --frozen-lockfile \
-  && pnpm install --prod --filter @artificio/media --frozen-lockfile \
+# pnpm --prod nao instala deps de workspace packages no node_modules local
+# (achado spec 062/PR #145, reconfirmado spec 080: config/auth/catalog-client
+# tem deps proprias - zod, jsonwebtoken - que ficam ausentes em runtime se so
+# o app for filtrado). Instalar cada pacote workspace usado em runtime.
+RUN pnpm install --prod --filter @artificio/mesas-backend --filter @artificio/config \
+  --filter @artificio/content --filter @artificio/auth --filter @artificio/changelog \
+  --filter @artificio/feedback --filter @artificio/media --filter @artificio/catalog-client \
+  --frozen-lockfile \
   && test -d packages/media/node_modules/cloudinary \
   || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
 
