@@ -132,6 +132,55 @@ describe('parseDiscordAnnouncement — requisitos técnicos conservadores', () =
     expect(draft?.table.requires_microphone).toBe(true);
   });
 
+  it('reconhece "Roll 20" (com espaço, texto livre) contra alias "Roll20" (sem espaço, catálogo) — achado real do mantenedor 2026-07-17, anúncio "Ātman: Nowhere kings"', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Plataformas: Discord e Roll 20 (necessário PC)\nVagas: 4' }),
+      [],
+      undefined,
+      {
+        vtt: [{ id: 'roll20', name: 'Roll20', aliases: [] }],
+        communication: [{ id: 'discord', name: 'Discord', aliases: [] }],
+      },
+    );
+
+    expect(draft?.table.vtt_platform_id).toBe('roll20');
+    expect(draft?.table.communication_platform_id).toBe('discord');
+  });
+
+  it('não cola letra+dígito de plataformas distintas em falso positivo (ex.: "Discord e Roll20" nunca vira match de "discorderoll20")', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Plataformas: Discord e Roll 20\nVagas: 4' }),
+      [],
+      undefined,
+      { vtt: [{ id: 'fake', name: 'DiscordeRoll20', aliases: [] }], communication: [] },
+    );
+
+    expect(draft?.table.vtt_platform_id).toBeNull();
+  });
+
+  it('extrai rules_notes ("Regras da mesa") do texto colado — achado real do mantenedor 2026-07-17, campo existia só no form manual', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Título: Ātman: Nowhere kings',
+          'Sistema: Nobilis 2ed',
+          '### Regras da mesa:',
+          '1. Respeito acima de tudo',
+          '2. Foco narrativo',
+          '4. Compromisso com as sessões',
+          '5. Comunicação aberta',
+          '### - Sinopse da História:',
+          '> Há, por trás do mundo ordinário, uma realidade mais profunda.',
+        ].join('\n'),
+      }),
+      [],
+    );
+
+    expect(draft?.table.rules_notes).toContain('Respeito acima de tudo');
+    expect(draft?.table.rules_notes).toContain('Comunicação aberta');
+    expect(draft?.table.rules_notes).not.toContain('Sinopse');
+  });
+
   it('texto explícito continua tendo prioridade sobre a inferência por VTT/Discord', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({ content_raw: 'Plataformas: Discord e Foundry\nNão é necessário ter PC, jogamos por celular.\nVagas: 4' }),

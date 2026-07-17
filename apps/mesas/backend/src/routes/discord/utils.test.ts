@@ -46,8 +46,10 @@ vi.mock('../../discord/learningRules', () => ({
   recordLearningRuleApplications: vi.fn().mockResolvedValue(undefined),
   recordLearningRulesFromCorrections: vi.fn().mockResolvedValue(undefined),
   recordSystemEntityRule: vi.fn().mockResolvedValue(undefined),
+  recordEntityHintRule: vi.fn().mockResolvedValue(undefined),
   recordLabelAliasFromCorrection: vi.fn().mockResolvedValue(undefined),
   loadActiveLabelAliases: vi.fn().mockResolvedValue({}),
+  ENTITY_HINT_FIELDS: ['vtt_entity', 'communication_entity', 'scenario_entity'],
 }));
 
 vi.mock('../../discord/syncHelpers', () => ({
@@ -300,6 +302,81 @@ describe('processDiscordMessageToDraft', () => {
     }));
     const insertedPayload = insertChain.values.mock.calls[0]?.[0]?.normalized_payload;
     expect(insertedPayload.table._ai_suggestions).toBeUndefined();
+  });
+
+  it('aplica aprendizado de vtt_entity ao draft (achado do mantenedor 2026-07-17, IMPERATIVO: generalização além de system_entity — correção manual de VTT agora ensina o sistema)', async () => {
+    delete process.env.MESAS_AI_AUTOMATION_MODE;
+    const parsed = {
+      source: { guild_id: 'guild-1', channel_id: 'channel-1', message_id: '1441138618755448997' },
+      table: {
+        title: 'Mesa com VTT corrigido antes',
+        system_name: 'D&D 5e',
+        system_id: 'dnd-5e',
+        raw_system_hint: null,
+        type: 'campanha',
+        modality: 'online',
+        price_type: 'gratuita',
+        price_value: null,
+        slots_total: 4,
+        slots_filled: null,
+        slots_open: null,
+        day_of_week: null,
+        start_time: null,
+        frequency: null,
+        description: 'Mesa com VTT já corrigido em anúncio anterior.',
+        contact_discord: null,
+        contact_url: 'https://forms.gle/x',
+        host_discord_id: null,
+        vtt_platform_id: null,
+        _vtt_source_hint: 'Roll 20',
+        cover_url: null,
+        cover_url_source: null,
+        cover_quality: null,
+        _slots_ambiguity: null,
+        _price_ambiguity: null,
+        _homebrew_suspect: null,
+        _notes: [],
+      },
+      confidence: 0.8,
+      confidence_tier: 'alta',
+      missing_fields: [],
+    };
+
+    (parseDiscordAnnouncement as Mock).mockReturnValue(parsed);
+    (normalizeDiscordTableDraft as Mock)
+      .mockReturnValueOnce({ draft: parsed, status: 'needs_review' })
+      .mockImplementationOnce((draft) => ({ draft, status: 'needs_review' }));
+    (lookupLearningRules as Mock).mockResolvedValue({
+      hits: [{
+        ruleId: 'rule-vtt-1',
+        field: 'vtt_entity',
+        value: { vtt_platform_id: 'roll20' },
+        inputToken: 'roll 20',
+        confidence: 0.91,
+        scopeType: 'guild',
+      }],
+      conflicts: [],
+    });
+
+    await expect(processDiscordMessageToDraft(message(), [], undefined, 'admin-1')).resolves.toBe('parsed');
+
+    const insertChain = (db.insertInto as Mock).mock.results[0]?.value as { values: Mock };
+    expect(insertChain.values).toHaveBeenCalledWith(expect.objectContaining({
+      normalized_payload: expect.objectContaining({
+        table: expect.objectContaining({
+          vtt_platform_id: 'roll20',
+          _vtt_source_hint: null,
+          _learning_applied: expect.objectContaining({
+            fields: expect.objectContaining({ vtt_platform_id: 'roll20' }),
+            applications: [expect.objectContaining({
+              rule_id: 'rule-vtt-1',
+              field: 'vtt_entity',
+              affected_fields: ['vtt_platform_id'],
+            })],
+          }),
+        }),
+      }),
+    }));
   });
 
   it('asks DeepSeek only for missing or ambiguous target fields', async () => {

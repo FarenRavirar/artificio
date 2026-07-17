@@ -14,6 +14,7 @@ import {
   lookupLearningRules,
   recordLearningRuleApplications,
   loadActiveLabelAliases,
+  ENTITY_HINT_FIELDS,
 } from '../../discord/learningRules';
 import {
   processLearningFeedbackCorrection,
@@ -613,6 +614,18 @@ const LLM_FIELD_MAP: Record<string, string> = {
   description: 'description',
 };
 
+// Achado do mantenedor (2026-07-17, IMPERATIVO): generalização do learning
+// token→entidade (antes só system_entity) — cada ENTITY_HINT_FIELDS mapeia
+// pro campo de hint bruto persistido no draft (parseDiscordAnnouncement.ts)
+// e pros campos de saída que o hit aplica. Mesmo padrão do bloco system_id/
+// system_name abaixo, generalizado em tabela em vez de duplicar o loop por
+// campo (evita 3 blocos quase-idênticos, só o output shape muda).
+const ENTITY_HINT_CONFIG: Record<string, { hintKey: string; outputFields: string[] }> = {
+  vtt_entity: { hintKey: '_vtt_source_hint', outputFields: ['vtt_platform_id'] },
+  communication_entity: { hintKey: '_communication_source_hint', outputFields: ['communication_platform_id'] },
+  scenario_entity: { hintKey: '_scenario_source_hint', outputFields: ['scenario_id', 'setting_name'] },
+};
+
 const AMBIGUITY_TARGETS: Record<string, string[]> = {
   _price_ambiguity: ['price_type', 'price_value'],
   _schedule_ambiguity: ['day_of_week', 'start_time'],
@@ -657,9 +670,22 @@ async function enrichDraftWithLlm(
   // D087 — camada learning-store (token-zero) ANTES da IA. Correções humanas
   // passadas resolvem valores errados/repetidos sem chamar o provider.
   const sourceSystemHint = table._system_source_hint ?? table.raw_system_hint;
-  const lookupQueries = sourceSystemHint
-    ? [{ field: 'system_entity', value: sourceSystemHint }]
-    : [];
+  // Achado do mantenedor (2026-07-17, IMPERATIVO): generalização — antes só
+  // system_entity era consultado aqui. Cada ENTITY_HINT_FIELDS busca pelo
+  // hint bruto persistido (quando existe). Achado Codex (PR #173, P2): enums
+  // simples (age_rating/modality/etc) foram removidos deste mecanismo — o
+  // valor anterior do campo não é um token seguro (ver comentário em
+  // FIELD_VALUE_RULE_FIELDS, learningRules.ts).
+  function hasQueryValue(q: { field: string; value: unknown }): boolean {
+    return q.value !== null && q.value !== undefined && q.value !== '';
+  }
+  const entityHintQueries: { field: string; value: unknown }[] = ENTITY_HINT_FIELDS
+    .map((field) => ({ field, value: table[ENTITY_HINT_CONFIG[field].hintKey] }))
+    .filter(hasQueryValue);
+  const lookupQueries = [
+    ...(sourceSystemHint ? [{ field: 'system_entity', value: sourceSystemHint }] : []),
+    ...entityHintQueries,
+  ];
   const learningScope = {
     guild_id: normalized.draft.source?.guild_id ?? null,
     channel_id: normalized.draft.source?.channel_id ?? null,
@@ -667,30 +693,16 @@ async function enrichDraftWithLlm(
   };
   const ruleLookup = await lookupLearningRules(lookupQueries, learningScope);
   const storeFields: Record<string, unknown> = {};
-  const learningApplications: NonNullable<ImportTableDraft['table']['_learning_applied']>['applications'] = [];
-  for (const hit of ruleLookup.hits) {
-    if (hit.field !== 'system_entity' || !hit.value || typeof hit.value !== 'object' || Array.isArray(hit.value)) continue;
-    const entity = hit.value as Record<string, unknown>;
-    if (typeof entity.system_id !== 'string' || typeof entity.system_name !== 'string') continue;
-    const affectedFields: string[] = [];
-    if (table.system_id !== entity.system_id) {
-      storeFields.system_id = entity.system_id;
-      affectedFields.push('system_id');
-    }
-    if (table.system_name !== entity.system_name) {
-      storeFields.system_name = entity.system_name;
-      affectedFields.push('system_name');
-    }
-    if (affectedFields.length === 0) continue;
-    storeFields.raw_system_hint = null;
-    const rawText = String(message.content_raw ?? '');
-    const evidenceText = typeof sourceSystemHint === 'string' ? sourceSystemHint : hit.inputToken;
-    const evidenceStart = rawText.indexOf(evidenceText);
+  const learningApplications: NonNullable<NonNullable<ImportTableDraft['table']['_learning_applied']>['applications']> = [];
+  const rawTextForEvidence = String(message.content_raw ?? '');
+
+  function pushApplication(hit: (typeof ruleLookup.hits)[number], affectedFields: string[], before: Record<string, unknown>, evidenceText: string): void {
+    const evidenceStart = rawTextForEvidence.indexOf(evidenceText);
     learningApplications.push({
       rule_id: hit.ruleId,
       field: hit.field,
       affected_fields: affectedFields,
-      before: { system_id: table.system_id ?? null, system_name: table.system_name ?? null },
+      before,
       after: hit.value,
       confidence: hit.confidence,
       scope_type: hit.scopeType,
@@ -700,6 +712,54 @@ async function enrichDraftWithLlm(
         end: evidenceStart >= 0 ? evidenceStart + evidenceText.length : null,
       },
     });
+  }
+
+  for (const hit of ruleLookup.hits) {
+    if (hit.field === 'system_entity') {
+      if (!hit.value || typeof hit.value !== 'object' || Array.isArray(hit.value)) continue;
+      const entity = hit.value as Record<string, unknown>;
+      if (typeof entity.system_id !== 'string' || typeof entity.system_name !== 'string') continue;
+      const affectedFields: string[] = [];
+      if (table.system_id !== entity.system_id) {
+        storeFields.system_id = entity.system_id;
+        affectedFields.push('system_id');
+      }
+      if (table.system_name !== entity.system_name) {
+        storeFields.system_name = entity.system_name;
+        affectedFields.push('system_name');
+      }
+      if (affectedFields.length === 0) continue;
+      storeFields.raw_system_hint = null;
+      const evidenceText = typeof sourceSystemHint === 'string' ? sourceSystemHint : hit.inputToken;
+      pushApplication(hit, affectedFields, { system_id: table.system_id ?? null, system_name: table.system_name ?? null }, evidenceText);
+      continue;
+    }
+
+    const entityConfig = ENTITY_HINT_CONFIG[hit.field];
+    if (entityConfig) {
+      if (!hit.value || typeof hit.value !== 'object' || Array.isArray(hit.value)) continue;
+      const entity = hit.value as Record<string, unknown>;
+      const affectedFields: string[] = [];
+      const before: Record<string, unknown> = {};
+      for (const outputField of entityConfig.outputFields) {
+        before[outputField] = table[outputField] ?? null;
+        if (!Object.hasOwn(entity, outputField)) continue;
+        const candidate = entity[outputField];
+        // Achado Codex (PR #173): output_value vem do banco (JSONB gravado
+        // por recordEntityHintRule) sem contrato de schema — id de catálogo
+        // (scenario_id/vtt_platform_id/communication_platform_id) malformado
+        // (vazio, corrompido, tipo errado) não pode ser escrito direto no
+        // draft sem checagem. setting_name é texto livre, aceita string não-
+        // vazia; os *_id são sempre string não-vazia (UUID de catálogo).
+        const isValid = typeof candidate === 'string' && candidate.trim().length > 0;
+        if (!isValid || table[outputField] === candidate) continue;
+        storeFields[outputField] = candidate;
+        affectedFields.push(outputField);
+      }
+      if (affectedFields.length === 0) continue;
+      storeFields[entityConfig.hintKey] = null;
+      pushApplication(hit, affectedFields, before, hit.inputToken);
+    }
   }
 
   const usedRules = ruleLookup.hits.length > 0;

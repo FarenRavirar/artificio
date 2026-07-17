@@ -17,7 +17,9 @@ import { sql } from 'kysely';
 import { db } from '../db';
 import type { Database } from '../db/types';
 
-/** Campos elegíveis ao aprendizado (espelha o FIELD_MAP de aiSuggestions). */
+/** Campos elegíveis ao aprendizado de LABEL (espelha o FIELD_MAP de aiSuggestions).
+ * Usado por `label_alias` (learningRules.ts) — aprende "rótulo → campo", não
+ * "valor → valor", então é seguro incluir rules_notes aqui. */
 export const LEARNABLE_FIELDS = [
   'title',
   'system_name',
@@ -29,14 +31,27 @@ export const LEARNABLE_FIELDS = [
   'price_value',
   'contact_url',
   'description',
+  'rules_notes',
 ] as const;
 
 export type LearnableField = (typeof LEARNABLE_FIELDS)[number];
 
+/**
+ * Achado Codex (PR #173): rules_notes é texto livre por natureza (regras de
+ * cada comunidade não se repetem entre mesas) — incluí-lo na mesma lista
+ * usada por `lookupFieldLearning`/`recordFieldLearning` (mecanismo
+ * `key_type='value'`, token de entrada→valor de saída reaproveitável entre
+ * anúncios) criaria regra "regras da mesa X → aplica na mesa Y", que não faz
+ * sentido nenhum. Lista separada, sem rules_notes, só pro mecanismo de
+ * valor — LEARNABLE_FIELDS continua servindo label_alias (aprender rótulo,
+ * não valor).
+ */
+const VALUE_LEARNABLE_FIELDS = LEARNABLE_FIELDS.filter((field) => field !== 'rules_notes');
+
 /** Tipo de chave: 'value' (token = valor de entrada) hoje; 'label' = futuro (DEB-052-02). */
 export type FieldLearningKeyType = 'value' | 'label';
 
-const LEARNABLE_SET = new Set<string>(LEARNABLE_FIELDS);
+const VALUE_LEARNABLE_SET = new Set<string>(VALUE_LEARNABLE_FIELDS);
 
 /** Normaliza um valor em token estável de busca (NFD, sem acento, minúsculo, espaços colapsados). */
 export function normalizeToken(value: unknown): string | null {
@@ -76,7 +91,7 @@ export async function lookupFieldLearning(
 ): Promise<FieldLearningHit[]> {
   const keyed = queries
     .map((q) => ({ field: q.field, token: normalizeToken(q.value) }))
-    .filter((q): q is { field: string; token: string } => q.token !== null && LEARNABLE_SET.has(q.field));
+    .filter((q): q is { field: string; token: string } => q.token !== null && VALUE_LEARNABLE_SET.has(q.field));
   if (keyed.length === 0) return [];
 
   try {
@@ -139,7 +154,7 @@ export async function recordFieldLearning(
   keyType: FieldLearningKeyType = 'value',
 ): Promise<void> {
   for (const entry of entries) {
-    if (!LEARNABLE_SET.has(entry.field)) continue;
+    if (!VALUE_LEARNABLE_SET.has(entry.field)) continue;
     const token = normalizeToken(entry.inputValue);
     if (token === null) continue; // sem token de entrada (campo faltante) — futuro: key_type 'label'
     if (entry.outputValue === null || entry.outputValue === undefined || entry.outputValue === '') continue;

@@ -5,6 +5,7 @@ import {
   nextRuleState,
   recordLearningRulesFromCorrections,
   recordSystemEntityRule,
+  recordEntityHintRule,
   recordLabelAliasFromCorrection,
   loadActiveLabelAliases,
 } from '../learningRules';
@@ -123,6 +124,58 @@ describe('recordSystemEntityRule', () => {
   });
 });
 
+describe('recordEntityHintRule (achado do mantenedor 2026-07-17, IMPERATIVO: generalização do learning de entidade além de system_entity)', () => {
+  it('aprende hint bruto de VTT ("roll 20") para o id do catálogo, igual system_entity já fazia', async () => {
+    const execute = vi.fn().mockResolvedValue(undefined);
+    const onConflict = vi.fn().mockReturnValue({ execute });
+    const values = vi.fn().mockReturnValue({ onConflict });
+    const insertInto = vi.fn().mockReturnValue({ values });
+
+    await recordEntityHintRule({
+      field: 'vtt_entity',
+      sourceHint: 'Discord e Roll 20 (necessário PC)',
+      outputValue: { vtt_platform_id: 'roll20' },
+      scope: { guild_id: 'guild-1' },
+      userId: 'user-1',
+    }, { insertInto } as never);
+
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({
+      field: 'vtt_entity',
+      input_token: 'discord e roll 20 (necessario pc)',
+      scope_type: 'guild',
+      source: 'human',
+    }));
+  });
+
+  it('não grava regra sem hint de entrada (sem texto isolado pra aprender)', async () => {
+    const insertInto = vi.fn();
+
+    await recordEntityHintRule({
+      field: 'vtt_entity',
+      sourceHint: null,
+      outputValue: { vtt_platform_id: 'roll20' },
+      scope: null,
+      userId: 'user-1',
+    }, { insertInto } as never);
+
+    expect(insertInto).not.toHaveBeenCalled();
+  });
+
+  it('não grava regra sem valor de saída válido (correção limpou o campo, não ensina nada)', async () => {
+    const insertInto = vi.fn();
+
+    await recordEntityHintRule({
+      field: 'vtt_entity',
+      sourceHint: 'Roll 20',
+      outputValue: { vtt_platform_id: null },
+      scope: null,
+      userId: 'user-1',
+    }, { insertInto } as never);
+
+    expect(insertInto).not.toHaveBeenCalled();
+  });
+});
+
 describe('recordLabelAliasFromCorrection (DEB-052-02)', () => {
   it('aprende rotulo desconhecido quando campo estava vazio e valor bate com linha do raw_text', async () => {
     const execute = vi.fn().mockResolvedValue(undefined);
@@ -221,6 +274,29 @@ describe('lookupLearningRules', () => {
 
     expect(result).toEqual({ hits: [], conflicts: [] });
     expect(selectFrom).not.toHaveBeenCalled();
+  });
+
+  it('consulta vtt_entity e age_rating (achado do mantenedor 2026-07-17: campos de catálogo/enum agora aprendem, generalização de FIELD_VALUE_RULE_FIELDS)', async () => {
+    const rows = [{ id: 'r1', output_value: { vtt_platform_id: 'roll20' }, confidence: 0.9, scope_type: 'guild' }];
+    const selectBuilder: SelectBuilderMock = {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockResolvedValue(rows),
+    };
+    const selectFrom = vi.fn().mockReturnValue(selectBuilder);
+    const conn = { selectFrom } as never;
+
+    const result = await lookupLearningRules(
+      [{ field: 'vtt_entity', value: 'roll 20' }],
+      { guild_id: 'guild-1' },
+      conn,
+    );
+
+    expect(selectFrom).toHaveBeenCalledWith('discord_learning_rules');
+    expect(result.hits).toHaveLength(1);
+    expect(result.hits[0]).toMatchObject({ field: 'vtt_entity', value: { vtt_platform_id: 'roll20' } });
   });
 
   it('ignora hit legado system_name mesmo se estiver ativo', async () => {

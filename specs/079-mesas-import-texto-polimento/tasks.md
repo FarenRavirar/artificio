@@ -161,9 +161,64 @@
       de T5.12 — sem ambiente local com backend+Postgres).
 - [x] T4.5 `specs/backlog.md` (`BL-079-PARSER-TEXTO`) e `project-state.md`
       atualizados (2026-07-17).
-- [ ] T4.6 Autorização do mantenedor para commit/push/PR — **pendente**
-      (regra pétrea, nada commitado ainda; PR #172 já existe pro conteúdo
-      commitado anteriormente, mas correções desta auditoria seguem locais).
+- [x] T4.6 Autorização do mantenedor concedida (2026-07-17, "commit + push") —
+      commit `038f51e` pushado, PR #172 merged em `dev` (2026-07-17T05:00:20Z),
+      deploy beta + prod (mesas) disparados e confirmados verdes no mesmo dia.
+
+## Fase 6 — Achados reais pós-merge (mestre testou draft real, 2026-07-17)
+
+Mantenedor colou anúncio real ("Ātman: Nowhere kings") no fluxo público
+pós-deploy — primeiro uso real do pipeline em produção. Revelou 3 gaps novos,
+todos com causa raiz confirmada por leitura de código (não suposição):
+
+- [x] T6.1 Campo "Regras da mesa" (`rules_notes`) implementado
+      (2026-07-17): extraído no parser (`extractLabelValue`, labels
+      `regras da mesa`/`regras`/`regras do jogo`, multi-parágrafo, mesmo
+      padrão de description), propagado em `DiscordTableDraftTable`
+      (`discord/types.ts`), `syncHelpers.ts` (`buildTableDraftFields` — hardcode
+      `null` removido do caller `buildTableData`), `LEARNABLE_FIELDS`
+      (`fieldLearning.ts`, aprende label como description). Frontend já tinha
+      todo o pipeline pronto (`mapTableApiToInitialData.ts`/
+      `useCreateTableForm.ts`/`CreateTableForm.tsx` — form manual já usava
+      `rulesNotes`), zero mudança necessária lá. Testes:
+      `parseDiscordAnnouncement.test.ts` (extração real do caso "Ātman:
+      Nowhere kings"), fixtures de `aiAutomation.test.ts`/
+      `llmContextPack.test.ts`/`syncHelpers.test.ts` atualizadas.
+- [x] T6.2 VTT "Roll 20"/"Roll20" implementado (2026-07-17): fix genérico em
+      `candidateMatchesText` (`parseDiscordAnnouncement.ts`) — colapsa espaço
+      só na fronteira letra↔dígito antes de comparar (`collapseLetterDigitSpace`),
+      cobre qualquer plataforma futura com o mesmo padrão de digitação livre
+      sem hardcode de nome específico. Testado que não cria falso positivo
+      colando palavras inteiras ("Discord e Roll20" não vira match de
+      "discorderoll20"). Testes: 2 casos novos em
+      `parseDiscordAnnouncement.test.ts`.
+- [x] T6.3 **Mecanismo de aprendizado generalizado** (2026-07-17,
+      implementado no mesmo turno da decisão do mantenedor — sem spec/plan.md
+      próprio, escopo ficou contido e testável). `recordSystemEntityRule`
+      generalizada em `recordEntityHintRule(field, sourceHint, outputValue, ...)`
+      (`learningRules.ts`) — `system_entity` agora é um caso específico dela
+      (mesmo output shape, sem quebrar leitores existentes). Novo
+      `ENTITY_HINT_FIELDS = ['vtt_entity', 'communication_entity', 'scenario_entity']`
+      com hint textual bruto persistido no draft (`_vtt_source_hint`/
+      `_communication_source_hint` novos em `types.ts`; `raw_scenario_hint` já
+      existia). `FIELD_VALUE_RULE_FIELDS` expandido com os 3 `*_entity` +
+      enums simples sem hint isolado (`age_rating`, `experience_level`,
+      `table_level`, `modality`, `price_type`, `type`, `frequency` — usam o
+      mecanismo `field_value` já existente, token = valor anterior do campo).
+      `learningFeedbackOutbox.ts`: 3 chamadas novas de `recordEntityHintRule`
+      ao lado da existente de `recordSystemEntityRule` (grava ao corrigir).
+      `routes/discord/utils.ts` (`enrichDraftWithLlm`): lookup/aplicação
+      generalizados via `ENTITY_HINT_CONFIG`/`SIMPLE_ENUM_LEARNING_FIELDS`
+      (lê ao parsear novo anúncio) — antes só `system_entity` era
+      consultado/aplicado. **Excluídos** (confirmado do mantenedor): título,
+      descrição, "Regras da mesa" (T6.1) — texto livre, não cabem no
+      mecanismo token→entidade. Testes: `recordEntityHintRule` (3 casos),
+      `lookupLearningRules` com `vtt_entity` (1 caso) em
+      `learningRules.test.ts`; fluxo completo de aplicação
+      (parse→lookup→storeFields→draft) em `utils.test.ts` (1 caso, mocks de
+      `utils.test.ts` atualizados com `recordEntityHintRule`/
+      `ENTITY_HINT_FIELDS`). 607/607 testes backend verdes, tsc/lint/
+      verify:api limpos.
 
 ## Nota de execução
 
@@ -171,3 +226,9 @@ Mantenedor vai enviar mais textos/anúncios reais ao longo da spec — cada novo
 lote amplia a fixture da Fase 1 (T1.1) e pode revelar bugs pontuais novos para
 a Fase 2. Não fechar a Fase 1/2 prematuramente; reabrir T1.5/T2.x conforme
 novos casos chegarem, antes de avançar para Fase 5.
+
+Fase 6 (2026-07-17): pipeline já em produção (deploy beta+prod confirmados),
+uso real do mantenedor no fluxo público revelou os 3 gaps acima. Tratar como
+extensão da mesma spec (mesmo módulo, mesmo requisito 8 de pré-preenchimento)
+— não spec nova, salvo se T6.3 for grande o bastante para justificar
+plan.md próprio.
