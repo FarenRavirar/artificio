@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { db } from '../db';
+import { fileURLToPath } from 'node:url';
+import { db } from '../db/index.js';
 
 // =============================================================================
 // INTERFACES
@@ -64,7 +65,7 @@ const importSystems = async () => {
   console.log('[import-sistemas] Iniciando importação de sistemas.json...');
 
   // Ler arquivo JSON
-  const jsonPath = path.resolve(__dirname, '../../sistemas.json');
+  const jsonPath = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '../../sistemas.json');
   
   if (!fs.existsSync(jsonPath)) {
     throw new Error(`Arquivo não encontrado: ${jsonPath}`);

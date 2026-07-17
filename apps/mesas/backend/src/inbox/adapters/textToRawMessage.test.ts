@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { textToRawMessage } from './textToRawMessage';
+import { textToRawMessage } from './textToRawMessage.js';
 
 describe('textToRawMessage', () => {
   it('adapts pasted text without inventing Discord metadata', () => {

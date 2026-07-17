@@ -1,14 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { sql } from 'kysely';
-import { db } from '../db';
-import { authMiddleware, optionalAuth } from '../middleware/auth';
-import { publicRateLimiter, authRateLimiter } from '../middleware/rateLimit';
-import { isValidEmail } from '../utils/validation';
-import { generateEmbedUrl, LinkType } from '../services/linkService';
-import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
-import { upgradeGoogleImageQuality } from '../utils/urlValidation';
-import { getSystemCatalogProvider, hydrateTableSystemFields } from '../services/systemCatalogProvider';
-import { processPendingLinks } from '../scripts/processLinkMetadataJobs';
+import { db } from '../db/index.js';
+import { authMiddleware, optionalAuth } from '../middleware/auth.js';
+import { publicRateLimiter, authRateLimiter } from '../middleware/rateLimit.js';
+import { isValidEmail } from '../utils/validation.js';
+import { generateEmbedUrl, LinkType } from '../services/linkService.js';
+import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
+import { upgradeGoogleImageQuality } from '../utils/urlValidation.js';
+import { getSystemCatalogProvider, hydrateTableSystemFields } from '../services/systemCatalogProvider.js';
+import { processPendingLinks } from '../scripts/processLinkMetadataJobs.js';
 
 const router = Router();
 

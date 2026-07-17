@@ -1,8 +1,8 @@
 import { createHash } from 'crypto';
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'fs/promises';
 import path from 'path';
-import { importDiscordChatExporterJson } from './chatExporterImportService';
-import type { ImportResult } from './chatExporterAdapter';
+import { importDiscordChatExporterJson } from './chatExporterImportService.js';
+import type { ImportResult } from './chatExporterAdapter.js';
 
 export type FolderImportStatus = 'processed' | 'error';
 

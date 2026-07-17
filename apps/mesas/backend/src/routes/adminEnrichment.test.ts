@@ -1,7 +1,7 @@
 import request from 'supertest';
 import express from 'express';
-import adminEnrichmentRoutes from './adminEnrichment';
-import type { UserRole } from '../db/types';
+import adminEnrichmentRoutes from './adminEnrichment.js';
+import type { UserRole } from '../db/types.js';
 
 let mockAuthUser: { userId: string; role: UserRole } | null = null;
 const { mockProdExecute, mockTransactionExecute } = vi.hoisted(() => ({

@@ -3,7 +3,7 @@ import {
   scoreSystemCandidates,
   type CandidateSystemInput,
   type CandidateAliasInput,
-} from '../systemSuggestionCandidates';
+} from '../systemSuggestionCandidates.js';
 
 describe('normalizeSystemName', () => {
   it('lower-cases, removes accents and commercial symbols', () => {

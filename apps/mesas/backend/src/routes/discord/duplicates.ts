@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import type { Kysely, Transaction } from 'kysely';
-import { db } from '../../db';
-import type { Database, DiscordDuplicateCandidateStatus } from '../../db/types';
-import { requireAdmin } from '../../middleware/auth';
-import { parseFeedbackContractSchema } from '../../discord/parseLearning';
+import { db } from '../../db/index.js';
+import type { Database, DiscordDuplicateCandidateStatus } from '../../db/types.js';
+import { requireAdmin } from '../../middleware/auth.js';
+import { parseFeedbackContractSchema } from '../../discord/parseLearning.js';
 
 const router = Router();
 

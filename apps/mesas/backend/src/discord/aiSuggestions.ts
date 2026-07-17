@@ -1,5 +1,5 @@
-import type { ImportTableDraft, DiscordTableDraftTable } from './types';
-import type { LlmExtractedFields } from './llmAssist';
+import type { ImportTableDraft, DiscordTableDraftTable } from './types.js';
+import type { LlmExtractedFields } from './llmAssist.js';
 
 const FIELD_MAP: Array<[keyof LlmExtractedFields, keyof DiscordTableDraftTable]> = [
   ['title', 'title'],

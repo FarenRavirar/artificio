@@ -1,4 +1,4 @@
-import { scoreTableDuplicate, textSimilarity } from './tableDuplicateDetection';
+import { scoreTableDuplicate, textSimilarity } from './tableDuplicateDetection.js';
 
 const base = {
   id: 'a',

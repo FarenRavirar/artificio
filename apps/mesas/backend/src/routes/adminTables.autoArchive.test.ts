@@ -14,7 +14,7 @@ vi.mock('../services/tableArchiving', () => ({
   autoArchiveStaleTables: (...args: unknown[]) => mockAutoArchive(...args),
 }));
 
-import adminTablesRoutes from './adminTables';
+import adminTablesRoutes from './adminTables.js';
 
 function makeApp() {
   const app = express();

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../db';
-import { requireAdmin } from '../middleware/auth';
+import { db } from '../db/index.js';
+import { requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
 

@@ -4,9 +4,9 @@ vi.mock('../config', () => ({
   requireDiscordBotToken: vi.fn(),
 }));
 
-import { discoverDiscordGuilds, discoverDiscordChannels, DiscordDiscoveryError } from '../discovery';
-import { requireDiscordBotToken } from '../config';
-import { DiscordSettingsDecryptError } from '../settingsCrypto';
+import { discoverDiscordGuilds, discoverDiscordChannels, DiscordDiscoveryError } from '../discovery.js';
+import { requireDiscordBotToken } from '../config.js';
+import { DiscordSettingsDecryptError } from '../settingsCrypto.js';
 
 function mockFetch(status: number, body: unknown): void {
   global.fetch = vi.fn().mockResolvedValue(

@@ -1,4 +1,4 @@
-import type { DiscordChatExporterProfile } from '../db/types';
+import type { DiscordChatExporterProfile } from '../db/types.js';
 
 export type ChatExporterFrequency = 'hourly' | 'daily' | 'weekly';
 

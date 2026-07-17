@@ -4,8 +4,8 @@ vi.mock('../parseLearning', () => ({
   recordParseCase: vi.fn().mockResolvedValue('parse-case-fake-id'),
 }));
 
-import { parseTextForPreview } from '../parseTextForPreview';
-import { recordParseCase } from '../parseLearning';
+import { parseTextForPreview } from '../parseTextForPreview.js';
+import { recordParseCase } from '../parseLearning.js';
 
 describe('parseTextForPreview (requisito 8, spec 079)', () => {
   it('reaproveita a engine do parser e devolve campos sugeridos + parseCaseId', async () => {

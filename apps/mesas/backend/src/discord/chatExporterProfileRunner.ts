@@ -1,10 +1,10 @@
 import { mkdir } from 'fs/promises';
 import path from 'path';
-import { db } from '../db';
-import type { DiscordChatExporterProfile, NewDiscordImportRun } from '../db/types';
-import { DISCORD_CHAT_EXPORTER_RETENTION, resolveChatExporterBaseDir } from './chatExporterAutomationConfig';
-import { runChatExporterCli } from './chatExporterCliRunner';
-import { processDiscordChatExporterFolder } from './chatExporterFolderImportService';
+import { db } from '../db/index.js';
+import type { DiscordChatExporterProfile, NewDiscordImportRun } from '../db/types.js';
+import { DISCORD_CHAT_EXPORTER_RETENTION, resolveChatExporterBaseDir } from './chatExporterAutomationConfig.js';
+import { runChatExporterCli } from './chatExporterCliRunner.js';
+import { processDiscordChatExporterFolder } from './chatExporterFolderImportService.js';
 
 /** Binário resolvido só no servidor (env/deploy), nunca a partir de payload — evita execução arbitrária. */
 export function resolveChatExporterBinary(): string {

@@ -18,8 +18,8 @@ vi.mock('../middleware/auth', () => ({
   }],
 }));
 
-import adminSettingSuggestionsRoutes from './adminSettingSuggestions';
-import { db } from '../db';
+import adminSettingSuggestionsRoutes from './adminSettingSuggestions.js';
+import { db } from '../db/index.js';
 
 function mockChain(overrides: Record<string, Mock> = {}) {
   const methods = ['select', 'selectAll', 'where', 'orderBy', 'returningAll', 'returning', 'set', 'values', 'execute', 'executeTakeFirst', 'executeTakeFirstOrThrow'];

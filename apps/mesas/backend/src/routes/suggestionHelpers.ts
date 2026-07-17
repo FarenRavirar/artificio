@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
-import { db } from '../db';
-import { logActivity } from '../services/activityLogger';
-import { resolveActorName } from '../services/actorNameResolver';
-import type { SuggestionStatus } from '../db/types';
+import { db } from '../db/index.js';
+import { logActivity } from '../services/activityLogger.js';
+import { resolveActorName } from '../services/actorNameResolver.js';
+import type { SuggestionStatus } from '../db/types.js';
 
 export interface RejectConfig {
   tableName: 'scenario_suggestions' | 'system_suggestions';

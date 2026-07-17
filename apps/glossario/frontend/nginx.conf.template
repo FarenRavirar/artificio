@@ -25,12 +25,15 @@ server {
         proxy_set_header Host $host;
     }
 
-    # Support for SPA routing
-    location / {
-        error_page 418 = @og_proxy;
+    # Só verbetes têm OG SSR. Outras rotas continuam usando SPA normal para bots e usuários.
+    error_page 418 = @og_proxy;
+    location ^~ /termo/ {
         if ($is_crawler = 1) { return 418; }
         try_files $uri $uri/ /index.html;
     }
+
+    # Support for SPA routing
+    location / { try_files $uri $uri/ /index.html; }
 
     location @og_proxy {
         rewrite ^/(.*)$ /og/$1 break;

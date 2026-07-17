@@ -9,8 +9,8 @@
 // Delay entre chamadas para nao martelar o Graph API. Idempotente: rodar de novo
 // so refaz o scrape (sem efeito colateral no banco).
 
-import { db } from '../db';
-import { triggerMetaScrape } from '../services/metaScrapeClient';
+import { db } from '../db/index.js';
+import { triggerMetaScrape } from '../services/metaScrapeClient.js';
 
 const SITE_URL = process.env.PUBLIC_SITE_URL || 'https://mesas.artificiorpg.com';
 const DELAY_MS = 500;

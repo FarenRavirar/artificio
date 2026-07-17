@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { normalizeChangelogEntries, CHANGELOG_CACHE_TTL, type ChangelogEntry } from '@artificio/changelog';
 
 const router = Router();
@@ -19,7 +20,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     // CORREÇÃO INT-02: Path relativo mais robusto
-    const changelogsPath = join(__dirname, '../..', 'database', 'changelogs.json');
+    const changelogsPath = join(fileURLToPath(new URL('.', import.meta.url)), '../..', 'database', 'changelogs.json');
     const changelogsData = await readFile(changelogsPath, 'utf-8');
     
     // CORREÇÃO BE-02: Validar JSON antes de parsear

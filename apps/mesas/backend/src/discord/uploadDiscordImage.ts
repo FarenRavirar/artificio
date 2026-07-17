@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { uploadBuffer as sharedUploadBuffer } from '@artificio/media';
-import type { DiscordImageUploadStatus } from './types';
+import type { DiscordImageUploadStatus } from './types.js';
 
 export type DiscordImageUploadFailureStatus = Exclude<
   DiscordImageUploadStatus,

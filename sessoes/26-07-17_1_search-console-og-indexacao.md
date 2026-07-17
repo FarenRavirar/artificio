@@ -44,6 +44,15 @@ Ver `specs/080-search-console-opengraph-indexacao/plan.md`. Fase 0 = investigaç
 - [x] GSC esclarecido: propriedade de domínio `artificiorpg.com` já verificada por DNS cobre subdomínios; meta tags descartadas. Sitemap Site confirmado publicamente como XML 200 em `sitemap-index.xml`; mantenedor iniciou submissão no dashboard.
 - [ ] Bloqueios externos restantes: deploy beta, smokes reais e submissão dos sitemaps Mesas/Glossário após deploy.
 
+## Correções pós-PR #174 (2026-07-17, locais)
+
+- Comentários do bot validados no código/Docker. Mesas CommonJS era incompatível com `@artificio/content` ESM; backend modernizado inteiro para ESM/NodeNext, com imports explícitos e `import.meta.url` nos caminhos de arquivo.
+- Docker Mesas e Glossário agora levam `packages/content/dist` para runtime.
+- OG Glossário deixa de ler `INDEX_HTML_PATH` inexistente: responde documento HTML SSR próprio, cache 300s. Nginx só envia crawlers de `/termo/` ao backend; demais rotas permanecem SPA.
+- Testes Mesas: 607/607 verdes; builds Mesas e Glossário verdes; lint focado verde.
+- Correção adicional: scripts locais de desenvolvimento/importação do Mesas passaram de `ts-node` para `ts-node --esm`; não ficou consumidor CommonJS no backend migrado.
+- Validação global: `pnpm run lint` e `pnpm run build` verdes (21/21). `pnpm verify:api` falhou duas vezes ao tentar escrever `docs/api/openapi/glossario.openapi.yaml` com `UNKNOWN` do Windows; não houve erro de rota/contrato reportado antes do bloqueio. A causa é lock externo ainda não identificada; não marcar o check como verde.
+
 - [x] Fase 0 investigação completa (T0.1-T0.4, achados registrados em `tasks.md`)
 - [ ] Fase 1a: `@artificio/content` consumível por CJS+ESM (bloqueante, em andamento — decisão de correção de `@artificio/config` pendente)
 - [ ] Fases 1,2,5,7 implementação (glossario sitemap+OG, mesas sitemap, GSC tags — bloqueadas por Fase 1a)

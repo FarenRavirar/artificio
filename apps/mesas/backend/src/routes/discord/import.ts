@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { requireAdmin } from '../../middleware/auth';
-import { importDiscordChatExporterJson, extractJsonPayload, parseUploadedJsonBuffer } from '../../discord/chatExporterImportService';
-import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
-import { db } from '../../db';
-import { validateReparseMessageIds, buildContentIndex, reparseOneMessage, recordImportRun } from './utils';
-import { uploadJsonFile } from './preview';
-import { loadCommunicationPlatformsForParser, loadScenariosForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
-import { scanTableDuplicateCandidates } from '../../services/tableDuplicateDetection';
+import { requireAdmin } from '../../middleware/auth.js';
+import { importDiscordChatExporterJson, extractJsonPayload, parseUploadedJsonBuffer } from '../../discord/chatExporterImportService.js';
+import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter.js';
+import { db } from '../../db/index.js';
+import { validateReparseMessageIds, buildContentIndex, reparseOneMessage, recordImportRun } from './utils.js';
+import { uploadJsonFile } from './preview.js';
+import { loadCommunicationPlatformsForParser, loadScenariosForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared.js';
+import { scanTableDuplicateCandidates } from '../../services/tableDuplicateDetection.js';
 
 const router = Router();
 

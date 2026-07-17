@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildChatExporterCliCommand, redactedChatExporterCliCommand } from '../chatExporterCliRunner';
+import { buildChatExporterCliCommand, redactedChatExporterCliCommand } from '../chatExporterCliRunner.js';
 
 describe('chatExporterCliRunner', () => {
   it('monta comando pinado por env e redige token no log', () => {

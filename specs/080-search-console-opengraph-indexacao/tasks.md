@@ -81,6 +81,14 @@
 
 ## Fase 8 — Fechamento
 
+### Correções de revisão PR #174 (2026-07-17)
+
+- [x] Mesas migrado integralmente para ESM/NodeNext; imports relativos e cinco usos de `__dirname` atualizados. Remove o runtime CommonJS que impediria `@artificio/content` ESM.
+- [x] Imagens runtime Mesas/Glossário copiam `packages/content/dist`.
+- [x] OG Glossário gera documento HTML próprio; não depende de arquivo frontend ausente no container. Cache público curto aplicado.
+- [x] Nginx Glossário intercepta crawler somente em `/termo/`; demais rotas continuam fallback SPA. Nginx Mesas passa headers proxy completos no sitemap.
+- [x] Nota inline sobre `String.replace` descartada: rota não faz mais replace de HTML, portanto não existe interpretação de `$` em metadata.
+
 - [x] T8.1 — `verify:api`, `pnpm run lint` e `pnpm run build` verdes localmente (2026-07-17).
 - [ ] T8.2 — Atualizar `specs/backlog.md`: fechar/ajustar `BL-SITE-PRINCIPAL-GAPS` item D e `BL-SITE-CUTOVER-029` T10 conforme resultado real.
 - [ ] T8.3 — Atualizar `project-state.md` se mudar estado operacional.

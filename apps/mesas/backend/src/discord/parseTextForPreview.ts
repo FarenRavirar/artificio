@@ -1,12 +1,12 @@
 import crypto from 'node:crypto';
-import { normalizeLooseText } from '../inbox/normalizeLooseText';
-import { segmentAnnouncements } from '../inbox/segmentation';
-import { textToRawMessage } from '../inbox/adapters/textToRawMessage';
-import { parseDiscordAnnouncement, stripNullBytes } from './parseDiscordAnnouncement';
-import type { SystemEntry } from './parseDiscordAnnouncement';
-import { buildTableDraftFields, extractContacts, extractSchedules, DraftStateError } from './syncHelpers';
-import { recordParseCase } from './parseLearning';
-import type { ImportTableDraft } from './types';
+import { normalizeLooseText } from '../inbox/normalizeLooseText.js';
+import { segmentAnnouncements } from '../inbox/segmentation.js';
+import { textToRawMessage } from '../inbox/adapters/textToRawMessage.js';
+import { parseDiscordAnnouncement, stripNullBytes } from './parseDiscordAnnouncement.js';
+import type { SystemEntry } from './parseDiscordAnnouncement.js';
+import { buildTableDraftFields, extractContacts, extractSchedules, DraftStateError } from './syncHelpers.js';
+import { recordParseCase } from './parseLearning.js';
+import type { ImportTableDraft } from './types.js';
 
 export interface ParsePreviewResult {
   parseCaseId: string | null;

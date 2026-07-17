@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
-import { stripNullBytes } from '../../discord/parseDiscordAnnouncement';
-import type { ImportRawMessage } from '../types';
+import { stripNullBytes } from '../../discord/parseDiscordAnnouncement.js';
+import type { ImportRawMessage } from '../types.js';
 
 export function textToRawMessage(rawText: string, threadName?: string): ImportRawMessage {
   return {

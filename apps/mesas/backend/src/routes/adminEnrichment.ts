@@ -1,14 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../db';
-import { prodDb } from '../db/prod';
-import { authMiddleware } from '../middleware/auth';
+import { db } from '../db/index.js';
+import { prodDb } from '../db/prod.js';
+import { authMiddleware } from '../middleware/auth.js';
 import { sql, type Insertable, type Updateable } from 'kysely';
-import { SYNC_FIELDS } from '../hydration/config';
-import type { Database } from '../db/types';
+import { SYNC_FIELDS } from '../hydration/config.js';
+import type { Database } from '../db/types.js';
 import {
   assertMesasHydrationSystemReady,
   remapHydratedSystemReferences,
-} from '../services/mesasHydrationSystemGuard';
+} from '../services/mesasHydrationSystemGuard.js';
 
 const router = Router();
 

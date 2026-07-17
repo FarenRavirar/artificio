@@ -1,5 +1,5 @@
-import { isValidTime, normalizeTime, extractContacts, validateDraftForSync, buildTableData, extractSchedules } from '../syncHelpers';
-import type { ImportTableDraft, DiscordTableDraftTable } from '../types';
+import { isValidTime, normalizeTime, extractContacts, validateDraftForSync, buildTableData, extractSchedules } from '../syncHelpers.js';
+import type { ImportTableDraft, DiscordTableDraftTable } from '../types.js';
 
 function makeDraftTable(overrides: Partial<DiscordTableDraftTable> = {}): DiscordTableDraftTable {
   return {

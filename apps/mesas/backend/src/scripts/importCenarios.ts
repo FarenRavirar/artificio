@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { db } from '../db';
+import { fileURLToPath } from 'node:url';
+import { db } from '../db/index.js';
 
 // =============================================================================
 // INTERFACES
@@ -45,7 +46,7 @@ const importScenarios = async () => {
   console.log('[import-cenarios] Iniciando importação de cenarios.json...');
 
   // Ler arquivo JSON
-  const jsonPath = path.resolve(__dirname, '../../cenarios.json');
+  const jsonPath = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '../../cenarios.json');
 
   if (!fs.existsSync(jsonPath)) {
     throw new Error(`Arquivo não encontrado: ${jsonPath}`);

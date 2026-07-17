@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { db } from '../db';
-import type { DiscordImportSourceKind, DiscordSourceChannelType } from './types';
-import { requireDiscordBotToken } from './config';
-import { asJsonbArray, getContentHash } from './shared';
-import type { JsonbArray } from './shared';
-import { stripNullBytes } from './parseDiscordAnnouncement';
+import { db } from '../db/index.js';
+import type { DiscordImportSourceKind, DiscordSourceChannelType } from './types.js';
+import { requireDiscordBotToken } from './config.js';
+import { asJsonbArray, getContentHash } from './shared.js';
+import type { JsonbArray } from './shared.js';
+import { stripNullBytes } from './parseDiscordAnnouncement.js';
 
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isProfileDue, selectDueProfiles, type SchedulableProfile } from '../chatExporterSchedule';
+import { isProfileDue, selectDueProfiles, type SchedulableProfile } from '../chatExporterSchedule.js';
 
 function profile(overrides: Partial<SchedulableProfile> = {}): SchedulableProfile {
   return {

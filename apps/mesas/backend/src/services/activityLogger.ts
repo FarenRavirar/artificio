@@ -1,6 +1,6 @@
 import { Transaction } from 'kysely';
-import { db } from '../db';
-import { Database, UserRole } from '../db/types';
+import { db } from '../db/index.js';
+import { Database, UserRole } from '../db/types.js';
 
 export type ActivityAction =
   | 'user.registered' | 'user.role_changed'

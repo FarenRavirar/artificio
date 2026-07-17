@@ -1,4 +1,4 @@
-import { assertDraftReadyTransition } from '../draftValidation';
+import { assertDraftReadyTransition } from '../draftValidation.js';
 
 describe('assertDraftReadyTransition (T-F1-02)', () => {
   it('allows any patch when status is not changing to ready', () => {

@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { requireAdmin } from '../../middleware/auth';
-import { discoverDiscordGuilds, discoverDiscordChannels } from '../../discord';
-import { snowflakeParamSchema, sendDiscordDiscoveryError } from './utils';
+import { requireAdmin } from '../../middleware/auth.js';
+import { discoverDiscordGuilds, discoverDiscordChannels } from '../../discord/index.js';
+import { snowflakeParamSchema, sendDiscordDiscoveryError } from './utils.js';
 
 const router = Router();
 

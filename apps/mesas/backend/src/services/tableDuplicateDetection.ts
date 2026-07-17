@@ -1,6 +1,6 @@
 import { sql } from 'kysely';
-import { db } from '../db';
-import { normalizeDraftPayload } from '../discord/syncHelpers';
+import { db } from '../db/index.js';
+import { normalizeDraftPayload } from '../discord/syncHelpers.js';
 
 export type DuplicateSignals = {
   title_similarity: number;

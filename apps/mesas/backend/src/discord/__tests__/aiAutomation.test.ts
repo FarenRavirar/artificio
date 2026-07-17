@@ -1,14 +1,14 @@
-import { attachAiSuggestions, buildAiSuggestionFields } from '../aiSuggestions';
-import { evaluatePredictions } from '../aiEval';
+import { attachAiSuggestions, buildAiSuggestionFields } from '../aiSuggestions.js';
+import { evaluatePredictions } from '../aiEval.js';
 import {
   assertAutoApprovalAllowed,
   evaluateAutonomyGate,
   getAiAutomationConfig,
   getAiAutomationRollbackPlan,
   isAiAssistEnabled,
-} from '../aiAutomationConfig';
-import { minimizeAnnouncementForLlm } from '../llmAssist';
-import type { ImportTableDraft } from '../types';
+} from '../aiAutomationConfig.js';
+import { minimizeAnnouncementForLlm } from '../llmAssist.js';
+import type { ImportTableDraft } from '../types.js';
 
 function makeDraft(): ImportTableDraft {
   return {

@@ -1,22 +1,22 @@
 import { Router } from 'express';
 
-import previewRouter from './discord/preview';
-import importRouter from './discord/import';
-import syncRouter from './discord/sync';
-import settingsRouter from './discord/settings';
-import draftsRouter from './discord/drafts';
-import messageParseRouter from './discord/messageParse';
-import messagesRouter from './discord/messages';
-import parseBatchRouter from './discord/parse-batch';
-import discoveryRouter from './discord/discovery';
-import fetchRouter from './discord/fetch';
-import sourcesRouter from './discord/sources';
+import previewRouter from './discord/preview.js';
+import importRouter from './discord/import.js';
+import syncRouter from './discord/sync.js';
+import settingsRouter from './discord/settings.js';
+import draftsRouter from './discord/drafts.js';
+import messageParseRouter from './discord/messageParse.js';
+import messagesRouter from './discord/messages.js';
+import parseBatchRouter from './discord/parse-batch.js';
+import discoveryRouter from './discord/discovery.js';
+import fetchRouter from './discord/fetch.js';
+import sourcesRouter from './discord/sources.js';
 
-import correctionRouter from './discord/corrections';
-import metricsRouter from './discord/metrics';
-import automationRouter from './discord/automation';
-import chatExporterAutomationRouter from './discord/chatExporterAutomation';
-import duplicatesRouter, { duplicatesRouter as duplicateCandidatesRouter } from './discord/duplicates';
+import correctionRouter from './discord/corrections.js';
+import metricsRouter from './discord/metrics.js';
+import automationRouter from './discord/automation.js';
+import chatExporterAutomationRouter from './discord/chatExporterAutomation.js';
+import duplicatesRouter, { duplicatesRouter as duplicateCandidatesRouter } from './discord/duplicates.js';
 
 const router = Router();
 

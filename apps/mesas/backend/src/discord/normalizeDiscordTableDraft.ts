@@ -1,6 +1,6 @@
-import type { ImportTableDraft, DiscordTableDraftTable } from './types';
-import type { SystemEntry } from './parseDiscordAnnouncement';
-import { validateDraftForSync } from './syncHelpers';
+import type { ImportTableDraft, DiscordTableDraftTable } from './types.js';
+import type { SystemEntry } from './parseDiscordAnnouncement.js';
+import { validateDraftForSync } from './syncHelpers.js';
 
 export type NormalizedDraftStatus = 'ready' | 'needs_review';
 

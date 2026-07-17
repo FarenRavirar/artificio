@@ -1,14 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { sql } from 'kysely';
 import crypto from 'node:crypto';
-import { authMiddleware } from '../middleware/auth';
-import { db } from '../db';
-import { logActivity } from '../services/activityLogger';
-import { notifyAdmins } from '../services/adminNotifications';
-import { resolveActorName } from '../services/actorNameResolver';
-import { listMineHandler } from './suggestionHelpers';
-import { loadSystemCatalogFlat } from '../services/systemCatalogProvider';
-import { validateSystemSuggestionHierarchy } from '../services/systemHierarchy';
+import { authMiddleware } from '../middleware/auth.js';
+import { db } from '../db/index.js';
+import { logActivity } from '../services/activityLogger.js';
+import { notifyAdmins } from '../services/adminNotifications.js';
+import { resolveActorName } from '../services/actorNameResolver.js';
+import { listMineHandler } from './suggestionHelpers.js';
+import { loadSystemCatalogFlat } from '../services/systemCatalogProvider.js';
+import { validateSystemSuggestionHierarchy } from '../services/systemHierarchy.js';
 
 const router = Router();
 

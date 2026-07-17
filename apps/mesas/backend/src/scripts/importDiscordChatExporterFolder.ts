@@ -1,8 +1,8 @@
 import 'dotenv/config';
-import { db } from '../db';
-import { processDiscordChatExporterFolder } from '../discord/chatExporterFolderImportService';
-import { DISCORD_CHAT_EXPORTER_RETENTION } from '../discord/chatExporterAutomationConfig';
-import type { NewDiscordImportRun } from '../db/types';
+import { db } from '../db/index.js';
+import { processDiscordChatExporterFolder } from '../discord/chatExporterFolderImportService.js';
+import { DISCORD_CHAT_EXPORTER_RETENTION } from '../discord/chatExporterAutomationConfig.js';
+import type { NewDiscordImportRun } from '../db/types.js';
 
 async function loadConfiguredRootDir(): Promise<{ enabled: boolean; importDir: string | null }> {
   const row = await db.selectFrom('discord_settings')

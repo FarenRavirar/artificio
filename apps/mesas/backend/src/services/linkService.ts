@@ -1,6 +1,6 @@
-import { db } from '../db/index';
-import type { UserLinks } from '../db/types';
-import { processPendingLinks } from '../scripts/processLinkMetadataJobs';
+import { db } from '../db/index.js';
+import type { UserLinks } from '../db/types.js';
+import { processPendingLinks } from '../scripts/processLinkMetadataJobs.js';
 
 // Tipos de link suportados
 export type LinkType = 

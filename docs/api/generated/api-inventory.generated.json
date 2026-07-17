@@ -1352,7 +1352,7 @@
       "method": "GET",
       "path": "/og/termo/:id",
       "sourceFile": "apps/glossario/backend/src/routes/ogRoutes.ts",
-      "line": 11,
+      "line": 13,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2729,7 +2729,7 @@
       "method": "GET",
       "path": "/api/v1/changelog",
       "sourceFile": "apps/mesas/backend/src/routes/changelog.ts",
-      "line": 12,
+      "line": 13,
       "confidence": "high",
       "kind": "express-route"
     },

@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db } from '../db/index.js';
 import type {
   PlayerProfile,
   PlayerProfileUpdate,
@@ -6,8 +6,8 @@ import type {
   GmProfileUpdate,
   UserSystem,
   UserUpdate,
-} from '../db/types';
-import { systemExistsInCatalog } from './systemCatalogProvider';
+} from '../db/types.js';
+import { systemExistsInCatalog } from './systemCatalogProvider.js';
 
 /**
  * Serviço de perfil de usuário

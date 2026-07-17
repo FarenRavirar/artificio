@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../db';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { db } from '../db/index.js';
+import { authMiddleware, requireRole } from '../middleware/auth.js';
 import {
   slugifyPlatformName as slugify,
   normalizePlatformWebsiteUrl as normalizeWebsiteUrl,
   isPlatformUniqueViolation as isUniqueViolation,
   getPlatformErrorMessage as getErrorMessage,
-} from '../utils/platformUtils';
+} from '../utils/platformUtils.js';
 
 const router = Router();
 

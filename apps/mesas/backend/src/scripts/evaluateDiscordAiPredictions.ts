@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { evaluatePredictions, type EvalExample, type EvalPrediction } from '../discord/aiEval';
+import { evaluatePredictions, type EvalExample, type EvalPrediction } from '../discord/aiEval.js';
 
 interface CandidateFile {
   name: string;

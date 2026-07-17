@@ -1,11 +1,11 @@
 import 'dotenv/config';
 import { z } from 'zod';
-import { db } from '../db';
-import type { DiscordChatExporterProfile } from '../db/types';
-import { getDiscordBotToken } from '../discord/config';
-import { selectDueProfiles } from '../discord/chatExporterSchedule';
-import { runProfileExport } from '../discord/chatExporterProfileRunner';
-import { decryptDiscordSetting } from '../discord/settingsCrypto';
+import { db } from '../db/index.js';
+import type { DiscordChatExporterProfile } from '../db/types.js';
+import { getDiscordBotToken } from '../discord/config.js';
+import { selectDueProfiles } from '../discord/chatExporterSchedule.js';
+import { runProfileExport } from '../discord/chatExporterProfileRunner.js';
+import { decryptDiscordSetting } from '../discord/settingsCrypto.js';
 
 const LOG = '[discord-chat-exporter-schedule]';
 

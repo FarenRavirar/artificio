@@ -1,4 +1,4 @@
-import { BARE_LABEL_STOP_KEYS, normalizeLabelKey } from '../discord/parseDiscordAnnouncement';
+import { BARE_LABEL_STOP_KEYS, normalizeLabelKey } from '../discord/parseDiscordAnnouncement.js';
 
 // Bug real (spec 079, 2026-07-16, bateria de 13 anúncios reais colados do
 // Discord): colar texto do cliente Discord no navegador frequentemente perde

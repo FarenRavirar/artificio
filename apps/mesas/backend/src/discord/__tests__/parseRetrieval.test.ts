@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { DiscordParseCase } from '../../db/types';
+import type { DiscordParseCase } from '../../db/types.js';
 import {
   buildDuplicateSignals,
   buildRetrievalContext,
   extractStructuralUrls,
   scoreDuplicateCandidate,
   type RetrievedParseCase,
-} from '../parseRetrieval';
+} from '../parseRetrieval.js';
 
 function parseCase(overrides: Partial<DiscordParseCase> = {}): DiscordParseCase {
   return {

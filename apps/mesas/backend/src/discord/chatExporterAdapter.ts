@@ -1,8 +1,8 @@
-import { discordChatExporterExportSchema } from './discordChatExporterTypes';
-import { getContentHash } from './shared';
-import { stripNullBytes } from './parseDiscordAnnouncement';
-import type { DiscordChatExporterExport, DiscordChatExporterMessage } from './discordChatExporterTypes';
-import type { ImportRawMessage } from './types';
+import { discordChatExporterExportSchema } from './discordChatExporterTypes.js';
+import { getContentHash } from './shared.js';
+import { stripNullBytes } from './parseDiscordAnnouncement.js';
+import type { DiscordChatExporterExport, DiscordChatExporterMessage } from './discordChatExporterTypes.js';
+import type { ImportRawMessage } from './types.js';
 
 export class DiscordChatExporterValidationError extends Error {
   constructor(message: string, public readonly details?: unknown) {

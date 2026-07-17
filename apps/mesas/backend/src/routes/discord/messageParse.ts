@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../../db';
-import { requireAdmin } from '../../middleware/auth';
-import { parseDiscordMessage, ensureSystemSuggestionForDraft } from './utils';
+import { db } from '../../db/index.js';
+import { requireAdmin } from '../../middleware/auth.js';
+import { parseDiscordMessage, ensureSystemSuggestionForDraft } from './utils.js';
 
 const router = Router();
 

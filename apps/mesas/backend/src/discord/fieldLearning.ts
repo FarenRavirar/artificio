@@ -14,8 +14,8 @@
  */
 import type { Kysely, Transaction } from 'kysely';
 import { sql } from 'kysely';
-import { db } from '../db';
-import type { Database } from '../db/types';
+import { db } from '../db/index.js';
+import type { Database } from '../db/types.js';
 
 /** Campos elegíveis ao aprendizado de LABEL (espelha o FIELD_MAP de aiSuggestions).
  * Usado por `label_alias` (learningRules.ts) — aprende "rótulo → campo", não

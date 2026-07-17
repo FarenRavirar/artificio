@@ -1,10 +1,10 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
-import { db } from '../db';
-import type { DiscordParseShadowAction } from '../db/types';
-import { persistDuplicateCandidatesForCase } from './parseRetrieval';
-import { recordParseLayerShadowDecisions } from './parseEval';
-import { stripSeparatorLines } from './parseDiscordAnnouncement';
+import { db } from '../db/index.js';
+import type { DiscordParseShadowAction } from '../db/types.js';
+import { persistDuplicateCandidatesForCase } from './parseRetrieval.js';
+import { recordParseLayerShadowDecisions } from './parseEval.js';
+import { stripSeparatorLines } from './parseDiscordAnnouncement.js';
 
 export const PARSE_LEARNING_PARSER_VERSION = '058-fase3-v1';
 

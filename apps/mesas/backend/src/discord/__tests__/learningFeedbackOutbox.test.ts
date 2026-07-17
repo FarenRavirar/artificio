@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLearningFeedbackPlan } from '../learningFeedbackOutbox';
+import { buildLearningFeedbackPlan } from '../learningFeedbackOutbox.js';
 
 describe('buildLearningFeedbackPlan', () => {
   const parsedBefore = {

@@ -1,6 +1,6 @@
 import type { Transaction } from 'kysely';
-import type { Database } from '../db/types';
-import { db } from '../db';
+import type { Database } from '../db/types.js';
+import { db } from '../db/index.js';
 
 export interface ResolveActorNameOptions {
   trx?: Transaction<Database>;

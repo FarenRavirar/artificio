@@ -8,8 +8,8 @@ vi.mock('../../db', () => ({
   },
 }));
 
-vi.mock('../../discord', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../discord')>();
+vi.mock('../../discord/index.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../discord/index.js')>();
   return {
     ...actual,
     parseDiscordAnnouncement: vi.fn(),
@@ -69,14 +69,14 @@ vi.mock('../../services/adminNotifications', () => ({
 }));
 
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { processDiscordMessageToDraft, validateReparseMessageIds, MAX_REPARSE_MESSAGE_IDS } from './utils';
-import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter';
-import { db } from '../../db';
-import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord';
-import { assistDiscordParseWithContextPack } from '../../discord/llmAssist';
-import { lookupLearningRules, recordLearningRuleApplications } from '../../discord/learningRules';
-import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers';
-import type { DiscordImportMessagesTable } from '../../db/types';
+import { processDiscordMessageToDraft, validateReparseMessageIds, MAX_REPARSE_MESSAGE_IDS } from './utils.js';
+import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter.js';
+import { db } from '../../db/index.js';
+import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord/index.js';
+import { assistDiscordParseWithContextPack } from '../../discord/llmAssist.js';
+import { lookupLearningRules, recordLearningRuleApplications } from '../../discord/learningRules.js';
+import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers.js';
+import type { DiscordImportMessagesTable } from '../../db/types.js';
 import type { Selectable } from 'kysely';
 
 function chain(overrides: Record<string, Mock> = {}) {

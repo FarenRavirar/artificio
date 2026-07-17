@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { db } from '../db';
-import type { SystemNodeType } from '../db/types';
+import { db } from '../db/index.js';
+import type { SystemNodeType } from '../db/types.js';
 import {
   catalogAliasSchema,
   catalogNodeTypeSchema,

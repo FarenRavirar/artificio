@@ -1,8 +1,8 @@
-import { parseDiscordAnnouncement, classifyConfidence, isSuspiciousUrl, isHomebrewSystem, classifyHomebrew, cleanDescriptionText, stripNullBytes } from '../parseDiscordAnnouncement';
-import { normalizeDiscordTableDraft } from '../normalizeDiscordTableDraft';
-import type { ImportRawMessage } from '../types';
-import { chatExporterSampleMessages } from './fixtures/chatExporterSample';
-import { parserPhase11Samples } from './fixtures/parserPhase11Samples';
+import { parseDiscordAnnouncement, classifyConfidence, isSuspiciousUrl, isHomebrewSystem, classifyHomebrew, cleanDescriptionText, stripNullBytes } from '../parseDiscordAnnouncement.js';
+import { normalizeDiscordTableDraft } from '../normalizeDiscordTableDraft.js';
+import type { ImportRawMessage } from '../types.js';
+import { chatExporterSampleMessages } from './fixtures/chatExporterSample.js';
+import { parserPhase11Samples } from './fixtures/parserPhase11Samples.js';
 
 function makeMessage(overrides: Partial<ImportRawMessage>): ImportRawMessage {
   return {

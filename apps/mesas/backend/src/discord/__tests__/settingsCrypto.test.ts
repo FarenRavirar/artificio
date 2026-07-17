@@ -1,4 +1,4 @@
-import { decryptDiscordSetting, encryptDiscordSetting } from '../settingsCrypto';
+import { decryptDiscordSetting, encryptDiscordSetting } from '../settingsCrypto.js';
 
 const previousJwtSecret = process.env.JWT_SECRET;
 

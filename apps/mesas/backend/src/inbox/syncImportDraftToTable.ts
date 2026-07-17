@@ -1,5 +1,5 @@
-import { syncDraftToTable } from '../discord/syncHelpers';
-import type { SyncDraftCoreConfig } from '../discord/syncHelpers';
+import { syncDraftToTable } from '../discord/syncHelpers.js';
+import type { SyncDraftCoreConfig } from '../discord/syncHelpers.js';
 
 export interface SyncResult {
   tableId: string;

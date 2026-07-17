@@ -1,16 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { sql, type Transaction } from 'kysely';
-import { authMiddleware, requireRole } from '../middleware/auth';
-import { db } from '../db';
-import { logActivity } from '../services/activityLogger';
-import { resolveActorName } from '../services/actorNameResolver';
-import { listAdminHandler, rejectHandler } from './suggestionHelpers';
-import { scoreSystemCandidates } from '../services/systemSuggestionCandidates';
-import type { CandidateSystemInput, CandidateAliasInput, CandidateResult } from '../services/systemSuggestionCandidates';
-import { slugify } from './systems';
-import { validateSystemParentType } from '../services/systemHierarchy';
-import type { Database, SystemNodeType } from '../db/types';
-import { normalizeDraftPayload } from '../discord';
+import { authMiddleware, requireRole } from '../middleware/auth.js';
+import { db } from '../db/index.js';
+import { logActivity } from '../services/activityLogger.js';
+import { resolveActorName } from '../services/actorNameResolver.js';
+import { listAdminHandler, rejectHandler } from './suggestionHelpers.js';
+import { scoreSystemCandidates } from '../services/systemSuggestionCandidates.js';
+import type { CandidateSystemInput, CandidateAliasInput, CandidateResult } from '../services/systemSuggestionCandidates.js';
+import { slugify } from './systems.js';
+import { validateSystemParentType } from '../services/systemHierarchy.js';
+import type { Database, SystemNodeType } from '../db/types.js';
+import { normalizeDraftPayload } from '../discord/index.js';
 // Achado CodeRabbit (PR #145): esta rota aprovava/resolvia sugestoes gravando
 // direto em systems/system_aliases LOCAIS, enquanto GET /api/v1/systems ja le
 // so do catalogo central (spec 062). Sistema aprovado por sugestao ficava
@@ -22,8 +22,8 @@ import {
   invalidateCatalogCache,
   type CatalogNodeInput,
   type MesasSystemNode,
-} from '../services/catalogClient';
-import { getSystemCatalogProvider } from '../services/systemCatalogProvider';
+} from '../services/catalogClient.js';
+import { getSystemCatalogProvider } from '../services/systemCatalogProvider.js';
 
 const loadCatalogFlat = () => getSystemCatalogProvider().loadFlat();
 const createCatalogNode = (input: CatalogNodeInput) => getSystemCatalogProvider().createNode(input);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseDiscordAnnouncement } from './parseDiscordAnnouncement';
-import type { ImportRawMessage } from './types';
+import { parseDiscordAnnouncement } from './parseDiscordAnnouncement.js';
+import type { ImportRawMessage } from './types.js';
 
 const SYSTEMS = [
   { id: 'dnd', name: 'Dungeons & Dragons', name_pt: null, aliases: ['D&D', 'DD', 'DnD', 'Dungeons and Dragons', 'Dungeons n dragons'], slug: 'dungeons-dragons', path_slug: 'dungeons-dragons', node_type: 'system', parent_id: null },

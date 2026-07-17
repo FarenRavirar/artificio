@@ -4,19 +4,19 @@ import { randomUUID } from 'crypto';
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { sql } from 'kysely';
-import { db } from '../../db';
+import { db } from '../../db/index.js';
 import type {
   DiscordChatExporterProfile,
   NewDiscordChatExporterProfile,
   NewDiscordSetting,
-} from '../../db/types';
-import { buildChatExporterCliCommand, redactedChatExporterCliCommand, runChatExporterCli } from '../../discord/chatExporterCliRunner';
-import { discoverChannelDelta, validateDiscordToken, DiscordDiscoveryError } from '../../discord/discovery';
-import { resolveChatExporterBinary, runFolderImport, runProfileExport } from '../../discord/chatExporterProfileRunner';
-import { resolveChatExporterBaseDir } from '../../discord/chatExporterAutomationConfig';
-import { getDiscordBotToken } from '../../discord/config';
-import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError, DiscordSettingsDecryptError } from '../../discord/settingsCrypto';
-import { requireAdmin } from '../../middleware/auth';
+} from '../../db/types.js';
+import { buildChatExporterCliCommand, redactedChatExporterCliCommand, runChatExporterCli } from '../../discord/chatExporterCliRunner.js';
+import { discoverChannelDelta, validateDiscordToken, DiscordDiscoveryError } from '../../discord/discovery.js';
+import { resolveChatExporterBinary, runFolderImport, runProfileExport } from '../../discord/chatExporterProfileRunner.js';
+import { resolveChatExporterBaseDir } from '../../discord/chatExporterAutomationConfig.js';
+import { getDiscordBotToken } from '../../discord/config.js';
+import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError, DiscordSettingsDecryptError } from '../../discord/settingsCrypto.js';
+import { requireAdmin } from '../../middleware/auth.js';
 
 const router = Router();
 

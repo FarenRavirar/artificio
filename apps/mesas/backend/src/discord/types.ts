@@ -204,7 +204,7 @@ export interface DiscordTableDraftTable {
   _notes: string[];
 }
 
-import type { ConfidenceTier } from './parseDiscordAnnouncement';
+import type { ConfidenceTier } from './parseDiscordAnnouncement.js';
 
 export interface ImportTableDraft {
   source: DiscordTableDraftSource;

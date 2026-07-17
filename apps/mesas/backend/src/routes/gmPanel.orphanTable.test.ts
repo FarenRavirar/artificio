@@ -1,7 +1,7 @@
 import type { Mock } from 'vitest';
 import request from 'supertest';
 import express, { type Request, type Response, type NextFunction } from 'express';
-import type { UserRole } from '../db/types';
+import type { UserRole } from '../db/types.js';
 
 // Achado do mantenedor 2026-07-08: mesa via Discord sync (spec 060) nasce
 // gm_id: null — GET/PUT /api/v1/gm/tables/:id sempre 404 nela, pq os dois
@@ -45,9 +45,9 @@ vi.mock('../middleware/auth', () => ({
   },
 }));
 
-import gmPanelRoutes from './gmPanel';
-import { db } from '../db';
-import { TableRepository } from '../repositories/tableRepository';
+import gmPanelRoutes from './gmPanel.js';
+import { db } from '../db/index.js';
+import { TableRepository } from '../repositories/tableRepository.js';
 
 function mockChain(overrides: Record<string, Mock> = {}) {
   const methods = ['select', 'selectAll', 'where', 'returning', 'set', 'execute', 'executeTakeFirst', 'executeTakeFirstOrThrow'];

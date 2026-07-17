@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { normalizeToken, lookupFieldLearning, recordFieldLearning } from '../fieldLearning';
+import { normalizeToken, lookupFieldLearning, recordFieldLearning } from '../fieldLearning.js';
 
 describe('normalizeToken', () => {
   it('minúscula, tira acento, colapsa espaços', () => {

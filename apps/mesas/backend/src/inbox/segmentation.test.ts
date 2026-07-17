@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { segmentAnnouncements } from './segmentation';
+import { segmentAnnouncements } from './segmentation.js';
 
 describe('segmentAnnouncements', () => {
   it('returns an empty list for blank or too-short input', () => {

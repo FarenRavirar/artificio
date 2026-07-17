@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { sql, type Updateable, type Selectable } from 'kysely';
-import { db } from '../db';
-import type { TablesTable, TableSchedulesTable } from '../db/types';
-import { authMiddleware } from '../middleware/auth';
-import { resolveActorName } from '../services/actorNameResolver';
+import { db } from '../db/index.js';
+import type { TablesTable, TableSchedulesTable } from '../db/types.js';
+import { authMiddleware } from '../middleware/auth.js';
+import { resolveActorName } from '../services/actorNameResolver.js';
 import crypto from 'crypto';
 import {
   createTableSchema,
@@ -11,18 +11,18 @@ import {
   CreateTableInput,
   UpdateTableInput,
   TableContact,
-} from '../validators/tableValidators';
-import { TableService } from '../services/tableService';
-import { TableRepository } from '../repositories/tableRepository';
-import { hydrateTableSystemFields, systemExistsInCatalog } from '../services/systemCatalogProvider';
-import { BenchmarkService } from '../services/benchmarkService';
-import { logActivity } from '../services/activityLogger';
-import { notifyAdmins } from '../services/adminNotifications';
-import { isValidEmail } from '../utils/validation';
-import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaScrapeClient';
-import { sanitizePublicImageUrl } from '../utils/publicImageUrl';
-import { parseTextForPreview } from '../discord/parseTextForPreview';
-import { loadSystemsForParser } from '../discord/shared';
+} from '../validators/tableValidators.js';
+import { TableService } from '../services/tableService.js';
+import { TableRepository } from '../repositories/tableRepository.js';
+import { hydrateTableSystemFields, systemExistsInCatalog } from '../services/systemCatalogProvider.js';
+import { BenchmarkService } from '../services/benchmarkService.js';
+import { logActivity } from '../services/activityLogger.js';
+import { notifyAdmins } from '../services/adminNotifications.js';
+import { isValidEmail } from '../utils/validation.js';
+import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaScrapeClient.js';
+import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
+import { parseTextForPreview } from '../discord/parseTextForPreview.js';
+import { loadSystemsForParser } from '../discord/shared.js';
 import { z } from 'zod';
 
 const router = Router();

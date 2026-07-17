@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { authMiddleware, requireRole } from '../middleware/auth';
-import { db } from '../db';
-import { logActivity } from '../services/activityLogger';
-import { resolveActorName } from '../services/actorNameResolver';
-import { listAdminHandler, rejectHandler } from './suggestionHelpers';
+import { authMiddleware, requireRole } from '../middleware/auth.js';
+import { db } from '../db/index.js';
+import { logActivity } from '../services/activityLogger.js';
+import { resolveActorName } from '../services/actorNameResolver.js';
+import { listAdminHandler, rejectHandler } from './suggestionHelpers.js';
 
 const router = Router();
 

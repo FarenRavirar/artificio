@@ -181,7 +181,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | PATCH | `/api/users/profile` | ✅ high | `apps/glossario/backend/src/routes/userRoutes.ts` | 10 |
 | GET | `/health` | ✅ high | `apps/glossario/backend/src/index.ts` | 77 |
 | USE | `/og` | ✅ high | `apps/glossario/backend/src/index.ts` | 81 |
-| GET | `/og/termo/:id` | ✅ high | `apps/glossario/backend/src/routes/ogRoutes.ts` | 11 |
+| GET | `/og/termo/:id` | ✅ high | `apps/glossario/backend/src/routes/ogRoutes.ts` | 13 |
 | GET | `/sitemap.xml` | ✅ high | `apps/glossario/backend/src/routes/sitemapRoutes.ts` | 8 |
 
 ## links
@@ -344,7 +344,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/auth/google` | ✅ high | `apps/mesas/backend/src/routes/auth.ts` | 21 |
 | GET | `/api/v1/auth/google/callback` | ✅ high | `apps/mesas/backend/src/routes/auth.ts` | 27 |
 | POST | `/api/v1/auth/logout` | ✅ high | `apps/mesas/backend/src/routes/auth.ts` | 31 |
-| GET | `/api/v1/changelog` | ✅ high | `apps/mesas/backend/src/routes/changelog.ts` | 12 |
+| GET | `/api/v1/changelog` | ✅ high | `apps/mesas/backend/src/routes/changelog.ts` | 13 |
 | USE | `/api/v1/changelog` | ✅ high | `apps/mesas/backend/src/server.ts` | 143 |
 | GET | `/api/v1/communication-platforms` | ✅ high | `apps/mesas/backend/src/routes/communicationPlatforms.ts` | 22 |
 | USE | `/api/v1/communication-platforms` | ✅ high | `apps/mesas/backend/src/server.ts` | 142 |

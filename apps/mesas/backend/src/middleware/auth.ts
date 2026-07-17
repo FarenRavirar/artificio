@@ -1,9 +1,9 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { requireAuth as sharedRequireAuth, verifyToken } from '@artificio/auth';
 import type { AuthenticatedRequest } from '@artificio/auth';
-import type { UserRole } from '../db/types';
+import type { UserRole } from '../db/types.js';
 import type { Session } from '@artificio/auth';
-import { db } from '../db';
+import { db } from '../db/index.js';
 
 export interface AuthDecoded {
   userId: string;

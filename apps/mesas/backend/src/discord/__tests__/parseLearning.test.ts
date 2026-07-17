@@ -5,7 +5,7 @@ import {
   parseActionFromDraftStatus,
   parseActionFromNormalizedStatus,
   parseFeedbackContractSchema,
-} from '../parseLearning';
+} from '../parseLearning.js';
 
 function message() {
   return {

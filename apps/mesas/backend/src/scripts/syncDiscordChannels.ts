@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { db } from '../db';
-import { ingestMessages } from '../discord';
-import { discordConfig } from '../discord';
+import { db } from '../db/index.js';
+import { ingestMessages } from '../discord/index.js';
+import { discordConfig } from '../discord/index.js';
 
 async function main() {
   const botToken = discordConfig.botToken;

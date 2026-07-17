@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { sitemapXml } from '@artificio/content';
-import { db } from '../db';
+import { db } from '../db/index.js';
 
 const router = Router();
 const SITE_URL = process.env.PUBLIC_SITE_URL || 'https://mesas.artificiorpg.com';

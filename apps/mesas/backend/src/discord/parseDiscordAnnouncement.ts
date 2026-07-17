@@ -1,5 +1,5 @@
-import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType, TableDraftFrequency, TableDraftAgeRating, TableDraftExperienceLevel, TableDraftTableLevel } from './types';
-import { normalizeSystemName, scoreSystemCandidates, similarity } from '../services/systemSuggestionCandidates';
+import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType, TableDraftFrequency, TableDraftAgeRating, TableDraftExperienceLevel, TableDraftTableLevel } from './types.js';
+import { normalizeSystemName, scoreSystemCandidates, similarity } from '../services/systemSuggestionCandidates.js';
 
 export interface SystemEntry {
   id: string;

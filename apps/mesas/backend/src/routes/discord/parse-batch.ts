@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../../db';
-import { requireAdmin } from '../../middleware/auth';
-import { processDiscordMessageToDraft, buildContentIndex, resolveReplyContext } from './utils';
-import { loadCommunicationPlatformsForParser, loadScenariosForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared';
+import { db } from '../../db/index.js';
+import { requireAdmin } from '../../middleware/auth.js';
+import { processDiscordMessageToDraft, buildContentIndex, resolveReplyContext } from './utils.js';
+import { loadCommunicationPlatformsForParser, loadScenariosForParser, loadSystemsForParser, loadVttPlatformsForParser } from '../../discord/shared.js';
 
 const router = Router();
 

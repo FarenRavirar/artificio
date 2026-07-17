@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
-import { authMiddleware, requireRole } from '../middleware/auth';
-import { applySystemProjection, planSystemProjection } from '../services/systemProjectionHydrator';
+import { authMiddleware, requireRole } from '../middleware/auth.js';
+import { applySystemProjection, planSystemProjection } from '../services/systemProjectionHydrator.js';
 
 const router = Router();
 

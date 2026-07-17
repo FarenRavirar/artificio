@@ -1,4 +1,4 @@
-import type { ImportRawMessage } from '../../types';
+import type { ImportRawMessage } from '../../types.js';
 
 /**
  * Fixture com dados fictícios que reproduzem padrões reais encontrados no

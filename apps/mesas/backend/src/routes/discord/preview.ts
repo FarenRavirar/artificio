@@ -1,9 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
-import { requireAdmin } from '../../middleware/auth';
-import { extractJsonPayload, buildPreviewFromExport, MAX_IMPORT_JSON_BYTES, MAX_IMPORT_MESSAGES, parseUploadedJsonBuffer } from '../../discord/chatExporterImportService';
-import { discordChatExporterExportSchema } from '../../discord/discordChatExporterTypes';
+import { requireAdmin } from '../../middleware/auth.js';
+import { extractJsonPayload, buildPreviewFromExport, MAX_IMPORT_JSON_BYTES, MAX_IMPORT_MESSAGES, parseUploadedJsonBuffer } from '../../discord/chatExporterImportService.js';
+import { discordChatExporterExportSchema } from '../../discord/discordChatExporterTypes.js';
 
 const router = Router();
 

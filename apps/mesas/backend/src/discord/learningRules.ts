@@ -1,10 +1,10 @@
 import crypto from 'node:crypto';
 import type { Kysely, Transaction } from 'kysely';
 import { sql } from 'kysely';
-import { db } from '../db';
-import type { Database } from '../db/types';
-import { LEARNABLE_FIELDS, normalizeToken, type FieldLearningEntry, type LearnableField } from './fieldLearning';
-import { splitLabelLine } from './parseDiscordAnnouncement';
+import { db } from '../db/index.js';
+import type { Database } from '../db/types.js';
+import { LEARNABLE_FIELDS, normalizeToken, type FieldLearningEntry, type LearnableField } from './fieldLearning.js';
+import { splitLabelLine } from './parseDiscordAnnouncement.js';
 
 export type LearningRuleType =
   | 'field_value'
