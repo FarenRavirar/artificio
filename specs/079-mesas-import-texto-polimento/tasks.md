@@ -22,21 +22,26 @@
 
 ## Fase 1 — Normalizador de labels grudados (requisito 1, maior prioridade)
 
-- [ ] T1.1 Criar fixture única com os 13 anúncios reais (texto verbatim,
-      sem edição) em `apps/mesas/backend/src/inbox/__tests__/fixtures/` ou
-      similar — reusar como base de TODAS as tasks seguintes.
-- [ ] T1.2 Exportar lista de labels conhecidos de `parseDiscordAnnouncement.ts`
-      (reusar, não duplicar strings).
-- [ ] T1.3 Implementar `normalizeLooseText` (ou nome decidido): insere `\n`
-      antes de label conhecido colado em linha corrida.
-- [ ] T1.4 Teste negativo: texto livre com palavra-label dentro de frase
-      (não cabeçalho) não ganha quebra espúria.
-- [ ] T1.5 Rodar fixture completa (13 casos) após T1.3 — registrar quantos
-      bugs dos requisitos 5/6 "somem" só com o normalizador.
-- [ ] T1.6 Ligar normalizador em `routes/inbox/import.ts` (só nesse caminho,
-      nunca no JSON).
-- [ ] T1.7 Validar: suíte `src/discord` + `segmentation.test.ts` completa
-      100% verde (regressão zero JSON).
+- [x] T1.1 Fixture criada em
+      `apps/mesas/backend/src/inbox/__tests__/fixtures/discord-announcements-real.txt`
+      — ampliada em 2026-07-17 pra 33 anúncios reais (verbatim de
+      `D:\texto_colado.txt`, 1030 linhas; o recorte original de 13/22 era
+      parcial do mesmo arquivo).
+- [x] T1.2 `BARE_LABEL_STOP_KEYS` exportado de `parseDiscordAnnouncement.ts`
+      (era privado), reaproveitado por `normalizeLooseText.ts` sem duplicar
+      strings.
+- [x] T1.3 `normalizeLooseText.ts` implementado: insere `\n` antes de label
+      conhecido colado em linha corrida (guarda de 2+ `:` na linha, evita
+      falso positivo tipo "Regras da Mesa:").
+- [x] T1.4 Teste negativo cobrindo texto livre com palavra-label dentro de
+      frase — `normalizeLooseText.test.ts`.
+- [x] T1.5 Fixture completa rodada após T1.3 — confirmado que requisitos 5/6
+      "somem" só com o normalizador (ver T2.0).
+- [x] T1.6 Normalizador ligado em `routes/inbox/import.ts` (só nesse
+      caminho — JSON não tocado, `chatExporterAdapter.ts` preserva `\n`
+      reais da API Discord).
+- [x] T1.7 Suíte `src/discord` + `src/inbox` 100% verde (498 testes,
+      regressão zero no caminho JSON).
 
 ## Fase 2 — Bugs pontuais remanescentes (requisitos 4, 5, 6)
 
@@ -48,15 +53,18 @@
       de regex separados. **Não precisam fix próprio** — só validar que
       seguem corretos após T1.3/T1.6 (T2.1/T2.2 viram só confirmação, não
       implementação).
-- [ ] T2.1 Confirmar requisito 5 (vagas) segue correto na fixture completa
-      pós-T1.6 — sem código novo esperado, só assert de regressão.
-- [ ] T2.2 Confirmar requisito 6 (system_name) segue correto na fixture
-      completa pós-T1.6 — sem código novo esperado, só assert de regressão.
-- [ ] T2.3 Implementar requisito 4 (contato telefone/WhatsApp) — este SIM é
-      bug de extração real, não efeito do normalizador (número de telefone
-      nunca teve regex própria). Decisão de campo de destino registrada em
-      `plan.md` antes de codar.
-- [ ] T2.4 Regressão do fix de T2.3 nos testes focados do arquivo tocado.
+- [x] T2.1 Confirmado: requisito 5 (vagas) correto na fixture completa
+      pós-T1.6 — assert de regressão em `realWorldFixture.test.ts`.
+- [x] T2.2 Confirmado: requisito 6 (system_name) correto na fixture
+      completa pós-T1.6 — assert de regressão em `realWorldFixture.test.ts`.
+- [x] T2.3 Requisito 4 (contato telefone/WhatsApp) implementado —
+      `WHATSAPP_PHONE_RE`/`extractContactPhoneUrl` em
+      `parseDiscordAnnouncement.ts`, gera link `wa.me` como `contact_url`
+      (weakest-priority fallback, atrás de forms/URL confirmada/menção
+      Discord explícita — corrigido em review pra vencer URL *não*-confirmada).
+- [x] T2.4 Regressão do fix de T2.3 coberta em
+      `parseDiscordAnnouncement.test.ts` + fixture real (casos "A Censura" e
+      "Vampiro a Máscara Dark Ages").
 
 ## Fase 3 — Campo "Nome do Mestre" (requisito 7)
 
@@ -67,76 +75,95 @@
       (`payload.source.author_name`), não um valor extraído do texto — errado
       quando divulgador ≠ mestre real (caso #11 do lote: "Narrador: um
       conhecido meu, apenas estou postando por ele").
-- [ ] T3.1 Parser: extrair `Mestre:`/`Narrador:`/`GM:`/`DM:` como texto (não
-      só menção `<@id>`, que já existe via `extractHostDiscordId`) — novo
-      campo em `TableDraftPayload` (`discord/types.ts`), nome a decidir
-      (`raw_gm_name`/`host_name`).
-- [ ] T3.2 `syncHelpers.ts`: `gmName` prefere valor extraído do texto quando
-      presente e não-vazio; fallback pro `author_name` atual quando ausente
-      (não regride comportamento hoje estável).
-- [ ] T3.3 Frontend `DraftEditorTab.tsx`: expor campo (já existe UI
-      equivalente em `StepConfig.tsx` do form manual — reaproveitar padrão),
-      populado pela sugestão do parser, editável antes do sync.
-- [ ] T3.4 Testes focados backend (parser + syncHelpers fallback) + frontend.
+- [x] T3.1 Parser extrai `Mestre:`/`Narrador:`/`GM:`/`DM:` como texto
+      (`extractHostName` em `parseDiscordAnnouncement.ts`) — campo novo
+      `raw_gm_name` em `DiscordTableDraftTable` (`discord/types.ts`).
+- [x] T3.2 `syncHelpers.ts`/`syncDiscordDraftToTable.ts`/
+      `syncImportDraftToTable.ts`: `gmName` prefere `raw_gm_name` extraído
+      do texto quando presente; fallback pro `author_name`/
+      `adminDisplayName` conforme fluxo (admin explícito sempre vence).
+- [x] T3.3 Frontend `DraftEditorTab.tsx`: campo "Nome do mestre (opcional)"
+      exposto, populado pela sugestão do parser, editável antes do sync.
+- [x] T3.4 Testes focados backend (`parseDiscordAnnouncement.test.ts`,
+      `syncDiscordDraftToTable.test.ts`, `syncImportDraftToTable.test.ts`)
+      cobrindo extração + prioridade de fallback.
 
 ## Fase 5 — Pré-preenchimento assistido no fluxo público `create-table` (requisito 8)
 
-- [ ] T5.1 Confirmar/decidir com mantenedor antes de codar: namespace da rota
-      nova de preview (`POST /api/v1/tables/parse-preview` ou similar), se
-      `import_message_id`/persistência intermediária é aceitável ou se deve
-      ser 100% stateless (ver plan.md — decisão de correlação preview↔submissão).
-- [ ] T5.2 Backend: extrair/criar `parseTextForPreview(text)` reaproveitando
-      normalizador (Fase 1) + `parseDiscordAnnouncement`, sem persistir em
+- [x] T5.1 Decisão: rota `POST /api/v1/gm/parse-preview` (namespace `gm`,
+      não `tables` — consistente com o resto das rotas de mestre logado).
+      Correlação preview↔submissão via `discord_parse_cases` existente
+      (`final_action: 'draft'` no preview, UPDATE pra `'synced'` no submit
+      real) — sem tabela/persistência intermediária nova.
+- [x] T5.2 `parseTextForPreview.ts` criado, reaproveitando
+      `normalizeLooseText` + `segmentAnnouncements` + `parseDiscordAnnouncement`
+      + `buildTableDraftFields`/`extractContacts`/`extractSchedules` do
+      fluxo admin — zero duplicação de tradução de campo. Não persiste em
       `discord_import_table_drafts`/`import_messages`.
-- [ ] T5.3 Backend: rota nova, auth de mestre logado (SSO, não
-      `requireAdmin`), devolve campos sugeridos no formato consumível por
+- [x] T5.3 Rota `POST /gm/parse-preview` — `authMiddleware` + checagem de
+      `gm_profiles` (igual `POST /gm/tables`, corrigido em review — a
+      checagem faltava na 1ª versão). Devolve formato consumível por
       `mapTableApiToInitialData.ts`/`FormState`.
-- [ ] T5.4 Backend: mecanismo de correlação preview↔submissão (ID de sessão
-      curto, sem depender de tabelas do fluxo admin).
-- [ ] T5.5 Verificar `discord_parse_cases`/`final_action` aceita novo valor de
-      origem (`create_table` ou equivalente) — migration de enum se schema
-      for fechado (checar `db/types.ts` antes de codar).
-- [ ] T5.6 Backend: na submissão real de criação de mesa
-      (`useCreateTableForm.ts` → rota de criar mesa), SE havia preview
-      pendente correlacionado, chamar `recordParseCase`/
-      `buildParseCaseContract` com `finalResult` = payload publicado —
-      fecha o loop de aprendizado.
-- [ ] T5.7 Frontend: novo passo 0 em `PainelMestrePage.tsx` (view
-      `create-table`) — tela de escolha com 2 cards: "Preencher manualmente"
-      (fluxo atual, sem mudança) vs "Colar anúncio" (destacado, borda de
-      accent, badge "mais rápido"). Aviso fixo: nunca publica sozinho.
-      Escolha não é lembrada entre sessões — pergunta sempre. Reaproveitar
-      `TextPasteArea.tsx` adaptado pra rota de preview (não `/import-text`)
-      dentro do card 2.
-- [ ] T5.8 Frontend: mapear resposta do preview em `useCreateTableForm.ts`
-      (reaproveitar `mapTableApiToInitialData.ts`), preencher form, mestre
-      segue fluxo normal de edição/revisão/submissão — nunca publica sozinho.
-- [ ] T5.9 Frontend: campo Nome do Mestre (requisito 7) nesse fluxo mostra
-      sugestão secundária quando diverge do nome de exibição da conta, sem
-      sobrescrever identidade automaticamente.
-- [ ] T5.10 Degrade gracioso: campos não extraídos mantêm default atual do
-      form, não ficam em branco/quebrado.
-- [ ] T5.11 Testes focados: preview retorna campos esperados para 2-3 dos 13
-      casos reais; submissão com correção manual gera registro de
-      aprendizado com `final_result_json` divergente do
-      `deterministic_result_json`.
+- [x] T5.4 Correlação via `discord_parse_cases.id` (`parse_case_id`),
+      reenviado pelo front no submit real — sem ID de sessão separado.
+- [x] T5.5 Confirmado: `final_action` é `string` livre em
+      `DiscordParseCasesTable` (não enum fechado) — `'synced'` já era valor
+      aceito, sem migration necessária.
+- [x] T5.6 `gmPanel.ts` `POST /tables`: quando `data.parse_case_id` presente,
+      `recordPublishedParseCase` (fire-and-forget, best-effort) fecha o loop
+      — UPDATE `final_result_json`/`final_action='synced'`, com proteção
+      `WHERE final_action='draft'` (corrigido em review — impede
+      sobrescrever case já fechado por outro mestre).
+- [x] T5.7 `PainelMestrePage.tsx`: `createTableEntryMode`
+      ('choice'/'manual'/'paste') — tela de escolha com 2 cards
+      ("Preencher manualmente" vs "Colar anúncio", badge "Mais rápido",
+      borda de accent), disclaimer fixo de nunca publicar sozinho. Escolha
+      não persiste entre sessões.
+- [x] T5.8 `ParsePreviewTextArea.tsx` + `useCreateTableForm.ts`: resposta do
+      preview mapeada via `mapTableApiToInitialData` (import dinâmico,
+      alinhado ao padrão já usado no modo edição — corrigido em review por
+      anular code-split), popula o form; mestre segue fluxo normal de
+      edição/revisão/submissão.
+- [x] T5.9 `ParsePreviewTextArea.tsx`: banner de sugestão (`suggestedGmName`)
+      quando `actual_gm_name` extraído diverge do `user.name` da conta
+      logada — nunca sobrescreve automaticamente, só avisa pra revisar o
+      campo no form abaixo. Implementado na auditoria de 2026-07-17 (não
+      existia antes).
+- [x] T5.10 Degrade gracioso: `mapTableApiToInitialData` já tem fallback por
+      campo (`stringValue`/`nullableStringValue` com default); preview sem
+      alguns campos não quebra o form, mantém default atual.
+- [x] T5.11 Testes focados: `parseTextForPreview.test.ts` (5 casos) +
+      `gmPanel.parsePreview.test.ts` (8 casos, criado na auditoria de
+      2026-07-17 — cobre autorização, resposta com/sem match, e o loop de
+      aprendizado completo: UPDATE synced, proteção contra sobrescrita,
+      falha best-effort não derruba publicação).
 - [ ] T5.12 Smoke manual real: colar anúncio real no fluxo público, confirmar
       pré-preenchimento, corrigir 1+ campo, publicar, confirmar registro em
-      `discord_parse_cases` (read-only, `psql SELECT`).
+      `discord_parse_cases` (read-only, `psql SELECT`). **Bloqueado**
+      (2026-07-17): sem backend local com Postgres/SSO configurado nesta
+      sessão; não improvisado contra beta/prod sem autorização nominal.
 
 ## Fase 4 — Validação e fechamento
 
-- [ ] T4.1 Fixture dos 13 casos passando com campos corretos nos pontos dos
-      requisitos 1, 4, 5, 6 (assert por caso, não só smoke visual).
-- [ ] T4.2 `pnpm run lint` + `pnpm run build` (mesas backend+frontend no
-      mínimo; repo-wide antes do fechamento).
-- [ ] T4.3 `pnpm verify:api` SE rota/payload admin OU rota nova de preview
-      (Fase 5) mudou/criou payload público.
-- [ ] T4.4 Smoke manual real: colar 3+ dos 13 casos em
-      `/gestao/importacao` → "Importar texto", conferir draft criado.
-- [ ] T4.5 Atualizar `specs/backlog.md` e `project-state.md`.
-- [ ] T4.6 Autorização do mantenedor para commit/push/PR (regra pétrea — não
-      commitar por inferência).
+- [x] T4.1 Fixture completa (33 anúncios reais) passando com campos corretos
+      nos pontos dos requisitos 1, 4, 5, 6 — assert por caso em
+      `realWorldFixture.test.ts` (10 testes), não só smoke visual.
+- [x] T4.2 `turbo run lint` (21/21) + `turbo run build` (21/21) repo-wide
+      verdes (2026-07-17). Nota: `pnpm run lint`/`pnpm run build` na raiz
+      (via script npm) batem num bug de infra pré-existente não relacionado
+      a esta spec — `turbo run lint`/`turbo run build` direto contorna e
+      confirma o resultado real.
+- [x] T4.3 `pnpm verify:api` rodado (rota nova `POST /gm/parse-preview` +
+      `createTableSchema`/`CreateTablePayload` alterados) — 0 breaking
+      changes, 1 non-breaking (a rota nova).
+- [ ] T4.4 Smoke manual real: colar 3+ casos reais em `/gestao/importacao` →
+      "Importar texto", conferir draft criado. **Bloqueado** (mesmo motivo
+      de T5.12 — sem ambiente local com backend+Postgres).
+- [x] T4.5 `specs/backlog.md` (`BL-079-PARSER-TEXTO`) e `project-state.md`
+      atualizados (2026-07-17).
+- [ ] T4.6 Autorização do mantenedor para commit/push/PR — **pendente**
+      (regra pétrea, nada commitado ainda; PR #172 já existe pro conteúdo
+      commitado anteriormente, mas correções desta auditoria seguem locais).
 
 ## Nota de execução
 

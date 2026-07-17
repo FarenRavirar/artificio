@@ -581,7 +581,15 @@ const parsePreviewSchema = z.object({
 // nem atrasar a resposta de criação de mesa.
 async function recordPublishedParseCase(parseCaseId: string, publishedPayload: unknown): Promise<void> {
   try {
-    await db
+    // Achado de review (CodeRabbit, PR #172): correlação por parseCaseId sem
+    // checar estado permitia qualquer usuário reenviar um parse_case_id
+    // alheio no payload de POST /gm/tables e sobrescrever o final_result_json
+    // de um case já sincronizado por outro mestre. discord_parse_cases não
+    // tem coluna de owner (não é migration deste PR) — o reforço possível
+    // sem mudança de schema é exigir final_action='draft': só correlaciona
+    // um case que ainda não foi fechado por ninguém, fechando o vetor de dano
+    // concreto (sobrescrever publicação alheia já confirmada).
+    const result = await db
       .updateTable('discord_parse_cases')
       .set({
         final_result_json: JSON.stringify(publishedPayload),
@@ -589,7 +597,12 @@ async function recordPublishedParseCase(parseCaseId: string, publishedPayload: u
         updated_at: new Date(),
       })
       .where('id', '=', parseCaseId)
-      .execute();
+      .where('final_action', '=', 'draft')
+      .executeTakeFirst();
+
+    if (!result.numUpdatedRows || result.numUpdatedRows === BigInt(0)) {
+      console.warn('[recordPublishedParseCase] parse_case_id não encontrado ou já fechado', { parseCaseId });
+    }
   } catch (error) {
     console.error('[recordPublishedParseCase]', error instanceof Error ? error.message : 'unknown error');
   }
@@ -604,12 +617,28 @@ async function recordPublishedParseCase(parseCaseId: string, publishedPayload: u
 // curadoria admin); só grava o caso de aprendizado em discord_parse_cases
 // pra correlacionar com a submissão real depois (parse_case_id).
 router.post('/parse-preview', authMiddleware, async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+
   const validation = parsePreviewSchema.safeParse(req.body);
   if (!validation.success) {
     return res.status(400).json({ error: validation.error.issues[0]?.message ?? 'Payload inválido.' });
   }
 
   try {
+    // Achado de review (CodeRabbit, PR #172): rota validava só login (SSO),
+    // não checava gm_profiles como POST /gm/tables já faz — comentário da
+    // rota dizia "Auth de mestre logado" mas o código deixava qualquer
+    // usuário autenticado acionar o parser. Mesma checagem do submit real.
+    const gmProfile = await db
+      .selectFrom('gm_profiles')
+      .select(['id'])
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+
+    if (!gmProfile) {
+      return res.status(403).json({ error: 'Perfil de mestre não encontrado. Crie seu perfil primeiro.' });
+    }
+
     const systems = await loadSystemsForParser();
     const result = await parseTextForPreview(validation.data.text, systems);
 

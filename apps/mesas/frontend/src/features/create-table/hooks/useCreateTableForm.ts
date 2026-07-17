@@ -67,8 +67,13 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
   );
   const [actualGmName, setActualGmName] = useState(initialData?.actualGmName || '');
   // Requisito 8 (spec 079): id do discord_parse_case do preview — reenviado
-  // no submit pra fechar o loop de aprendizado. Não editável pelo usuário.
-  const [parseCaseId] = useState(initialData?.parseCaseId ?? null);
+  // no submit pra fechar o loop de aprendizado. Não editável pelo usuário na
+  // UI, mas precisa de setter (achado de review, Codex PR #172): draft
+  // autosalvo restaurado via handleRestoreDraft não carrega parseCaseId (não
+  // é campo persistido no draft local) — sem setter, o id do preview inicial
+  // ficava preso e era reenviado no submit mesmo quando o conteúdo do form
+  // era substituído pelo draft de outra mesa, contaminando discord_parse_cases.
+  const [parseCaseId, setParseCaseId] = useState(initialData?.parseCaseId ?? null);
 
   // Contatos
   const [contacts, setContacts] = useState<ContactFormEntry[]>(
@@ -351,7 +356,9 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     setPublisherRole,
     actualGmName,
     setActualGmName,
-    
+    parseCaseId,
+    setParseCaseId,
+
     // Contatos
     contacts,
     setContacts,

@@ -1084,7 +1084,12 @@ const DAY_TO_DEFINE_PATTERNS = [
   // colado ("hora: a definir"). Só ativa quando "data" aparece perto de "a
   // decidir/definir/combinar" (evita falso positivo em frase livre tipo "vou
   // definir a data depois de fechar elenco").
-  /\bdatas?\s+(?:e\s+hor[aá]rios?|e\s+horas?)?\s*[:：]?\s*a\s+(?:decidir|combinar|definir)\b/,
+  // Achado de review (catastrophic backtracking, PR #172): `\s*[:：]?\s*`
+  // com opcional em ambos os lados do grupo opcional gerava caminhos de
+  // backtrack redundantes. Reescrito com grupo único determinístico —
+  // mesma cobertura ("data: a definir", "data a definir", "data e horário a
+  // definir"), sem sobreposição de quantificadores.
+  /\bdatas?(?:\s+e\s+hor[aá]rios?|\s+e\s+horas?)?(?:\s*[:：]|\s)\s*a\s+(?:decidir|combinar|definir)\b/,
 ];
 
 function extractDayOfWeek(text: string, labelAliases: string[] = []): string | null {
@@ -1453,7 +1458,12 @@ function extractContactDiscord(text: string): string | null {
 // perto. Sem isso o dado ficava só na descrição e o draft marcava contato
 // pendente mesmo com telefone explícito no texto. Reaproveita `contact_url`
 // (link wa.me clicável) em vez de campo novo — sem mudança de schema.
-const WHATSAPP_PHONE_RE = /(\d{2}\s?-?\s?9?\d{4}\s?-?\s?\d{4})\s*(?:no|via|pelo)?\s*(?:whats\s?app|whatsapp|zap\s?zap|zap)\b/i;
+// Achado de review (catastrophic backtracking, PR #172): `\s?-?\s?` repetido
+// (espaço opcional + traço opcional + espaço opcional, 2x) gerava caminhos de
+// backtrack sobrepostos; "whats\s?app|whatsapp" e "zap\s?zap|zap" eram
+// alternativas redundantes (a primeira já cobre a segunda). Conector opcional
+// vira um grupo único "[\s-]?"; alternativas de app consolidadas sem overlap.
+const WHATSAPP_PHONE_RE = /(\d{2}[\s-]?9?\d{4}[\s-]?\d{4})\s*(?:no|via|pelo)?\s*(?:whats\s?app|zap(?:\s?zap)?)\b/i;
 
 function extractContactPhoneUrl(text: string): string | null {
   const match = WHATSAPP_PHONE_RE.exec(text);
@@ -1551,6 +1561,14 @@ export const BARE_LABEL_STOP_KEYS = new Set([
   'dias e horarios da mesa',
   'horario',
   'data',
+  // Achado de review (Codex, PR #172): normalizeLooseText só consulta este
+  // Set (não FALLBACK_DESCRIPTION_KNOWN_LABEL_KEYS, que já tinha os aliases
+  // compostos) — sem eles, "Sistema: D&D Data e Hora: Segunda às 20h" numa
+  // linha só não quebrava antes de "Data e Hora", e o valor de Sistema
+  // engolia o label seguinte inteiro.
+  'data e hora',
+  'data e horario',
+  'dias e horarios',
   'valor',
   'preco',
   'plataforma',

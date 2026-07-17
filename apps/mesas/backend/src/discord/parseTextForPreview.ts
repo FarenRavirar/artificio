@@ -4,7 +4,7 @@ import { segmentAnnouncements } from '../inbox/segmentation';
 import { textToRawMessage } from '../inbox/adapters/textToRawMessage';
 import { parseDiscordAnnouncement, stripNullBytes } from './parseDiscordAnnouncement';
 import type { SystemEntry } from './parseDiscordAnnouncement';
-import { buildTableDraftFields, extractContacts, extractSchedules } from './syncHelpers';
+import { buildTableDraftFields, extractContacts, extractSchedules, DraftStateError } from './syncHelpers';
 import { recordParseCase } from './parseLearning';
 import type { ImportTableDraft } from './types';
 
@@ -53,7 +53,20 @@ export async function parseTextForPreview(
   }
 
   const gmName = draft.table.raw_gm_name;
-  const tableFields = buildTableDraftFields(draft, gmName, draft.table.cover_url ?? null);
+  // Achado de review (CodeRabbit, PR #172): buildTableDraftFields lança
+  // DraftStateError quando draft.table.title está ausente — correto pro
+  // fluxo real de sync (admin/Discord confirmado, nunca deve gravar tabela
+  // sem título), mas no preview público título ausente é um resultado válido
+  // e comum (parser reconheceu o anúncio mas não achou label de título — o
+  // mestre completa na UI). Sem capturar aqui, a rota /gm/parse-preview
+  // devolvia 500 em vez do preview parcial esperado pelo requisito 8.
+  let tableFields: Record<string, unknown> | null;
+  try {
+    tableFields = buildTableDraftFields(draft, gmName, draft.table.cover_url ?? null) as unknown as Record<string, unknown>;
+  } catch (err) {
+    if (!(err instanceof DraftStateError)) throw err;
+    tableFields = null;
+  }
   const contacts = extractContacts(draft);
   const schedules = extractSchedules(draft);
 
@@ -61,7 +74,7 @@ export async function parseTextForPreview(
 
   return {
     parseCaseId,
-    table: tableFields as unknown as Record<string, unknown>,
+    table: tableFields,
     contacts,
     schedules,
   };

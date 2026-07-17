@@ -64,12 +64,15 @@ describe('segmentAnnouncements', () => {
     expect(segments[1]).not.toContain('Ícone de cargo');
   });
 
-  it('cabeçalho de autor isolado (1 só) não ativa a estratégia de split-por-autor — cai no fallback normal de segmentação', () => {
+  it('cabeçalho de autor isolado (1 só) não ativa split-por-autor, mas ainda é removido do texto (achado de review, Codex PR #172)', () => {
     const text = 'Fulano [TAG], Ícone de cargo, Narradores — 09:40\nTítulo: Mesa única\nSistema: D&D 5e';
-    // com só 1 header, splitByAuthorHeader não ativa (exige 2+); o texto vira
-    // 2 segmentos aqui só porque splitByHeaders (fallback pré-existente)
-    // reconhece "Título:" como fronteira — não relacionado à mudança desta spec.
+    // com só 1 header, splitByAuthorHeader não ativa (exige 2+) — mas a linha
+    // de header é metadado de export, não conteúdo do anúncio, e precisa ser
+    // removida antes dos fallbacks (splitBySeparators/splitByHeaders), senão
+    // vaza pro segments[0] e contamina o parser (bug real: preview usa só
+    // segments[0], virava metadado de autor em vez do anúncio real).
     const segments = segmentAnnouncements(text);
-    expect(segments.some((s) => s.includes('Ícone de cargo'))).toBe(true);
+    expect(segments.some((s) => s.includes('Ícone de cargo'))).toBe(false);
+    expect(segments.some((s) => s.includes('Título: Mesa única'))).toBe(true);
   });
 });

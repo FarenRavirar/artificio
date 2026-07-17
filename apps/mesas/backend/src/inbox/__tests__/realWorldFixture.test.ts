@@ -8,11 +8,13 @@ import { textToRawMessage } from '../adapters/textToRawMessage';
 import type { ImportTableDraft } from '../../discord/types';
 
 // Spec 079: fixture com histórico REAL de canal Discord colado pelo mantenedor
-// (2026-07-16), 22 anúncios de autores diferentes numa cola só — o mesmo tipo
-// de texto que o fluxo "Importar texto" recebe na prática. Cobre requisitos 1
-// (labels grudados), 2 (▬▬▬ inline, herdado spec 077), 3 (data/hora "a
-// definir", herdado spec 077), 4 (WhatsApp), 5/6 (vagas/sistema contaminados —
-// provados como sintoma do requisito 1, sem fix próprio).
+// (2026-07-16, ampliada em 2026-07-17 pra 33 anúncios — fixture original de 22
+// era um recorte parcial do mesmo arquivo D:\texto_colado.txt), autores
+// diferentes numa cola só — o mesmo tipo de texto que o fluxo "Importar texto"
+// recebe na prática. Cobre requisitos 1 (labels grudados), 2 (▬▬▬ inline,
+// herdado spec 077), 3 (data/hora "a definir", herdado spec 077), 4
+// (WhatsApp), 5/6 (vagas/sistema contaminados — provados como sintoma do
+// requisito 1, sem fix próprio).
 function parseFixtureSegment(segment: string): ImportTableDraft | null {
   const normalized = normalizeLooseText(stripNullBytes(segment));
   const rawMessage = textToRawMessage(normalized, undefined);
@@ -28,26 +30,34 @@ function loadFixtureSegments(): string[] {
 }
 
 describe('fixture real de 22 anúncios colados (spec 079)', () => {
-  it('segmenta em 22 anúncios (cabeçalho de autor Discord "Ícone de cargo, Narradores — HH:MM")', () => {
+  it('segmenta em 33 anúncios (cabeçalho de autor Discord "Ícone de cargo, <cargo> — <timestamp>")', () => {
     const segments = loadFixtureSegments();
-    expect(segments).toHaveLength(22);
+    expect(segments).toHaveLength(33);
   });
 
   it('não deixa nenhuma linha de cabeçalho de autor sobrevivendo dentro de um segmento', () => {
     const segments = loadFixtureSegments();
     for (const segment of segments) {
-      expect(segment).not.toMatch(/Ícone de cargo, Narradores/);
+      expect(segment).not.toMatch(/Ícone de cargo,/);
     }
   });
 
-  it('5 dos 22 são sistema autoral nítido ("próprio"/"autoral") e são corretamente descartados (DEB-048-27, comportamento intencional, não bug)', () => {
+  it('não deixa a linha placeholder de anexo de imagem ("Imagem" sozinha) sobrevivendo em nenhum segmento', () => {
+    const segments = loadFixtureSegments();
+    for (const segment of segments) {
+      expect(segment).not.toMatch(/^\s*Imagem\s*$/m);
+    }
+  });
+
+  it('6 dos 33 são sistema autoral nítido ("próprio"/"autoral") e são corretamente descartados (DEB-048-27, comportamento intencional, não bug)', () => {
     const segments = loadFixtureSegments();
     const drafts = segments.map(parseFixtureSegment);
     const discarded = drafts.filter((d) => d === null);
     // "Arvore morta" (Olthin, Próprio), "Wonderland" (Sistema: Próprio),
-    // "Residente" (Próprio D20), "Aventuras do Vôlei" (sistema próprio de
-    // vôlei) e "Homestuck" (autoral) — todos batem RE_HOMEBREW_STRONG.
-    expect(discarded).toHaveLength(5);
+    // "Residente" x2 (Próprio D20, dois anúncios distintos na fixture
+    // ampliada), "Aventuras do Vôlei" (sistema próprio de vôlei) e
+    // "Homestuck" (autoral) — todos batem RE_HOMEBREW_STRONG.
+    expect(discarded).toHaveLength(6);
   });
 
   it('requisito 1: título não fica contaminado por texto de outro label grudado na mesma linha', () => {

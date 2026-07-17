@@ -15,6 +15,7 @@ import { GmInsightsDashboard } from '../components/mestre/GmInsightsDashboard';
 // Componente refatorado
 import { CreateTableForm } from '../features/create-table/components/CreateTableForm';
 import { ParsePreviewTextArea } from '../features/create-table/components/ParsePreviewTextArea';
+import { draftStorage } from '../features/create-table/utils/draftStorage';
 import { MarkdownEditor } from '../components/MarkdownEditor';
 import type { FormState } from '../features/create-table/types/createTable.types';
 
@@ -619,7 +620,14 @@ export const PainelMestrePage = () => {
             </div>
             <div className="bg-white/3 border border-white/8 rounded-2xl p-8">
               <ParsePreviewTextArea
+                currentUserName={user?.name}
                 onPreviewReady={(initialData) => {
+                  // Achado de review (CodeRabbit, PR #172, nitpick): sem
+                  // limpar o autosave local antes, CreateTableForm ainda
+                  // detecta o draft antigo (de sessão anterior não
+                  // descartada) e mostra o modal de restore, competindo com
+                  // o resultado recém-analisado do preview.
+                  draftStorage.clear('create-table-draft');
                   setPastePreviewData(initialData);
                   setCreateTableEntryMode('manual');
                 }}

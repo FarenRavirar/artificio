@@ -140,6 +140,13 @@ export function CreateTableForm({
   const handleRestoreDraft = () => {
     if (!savedDraft) return;
 
+    // Achado de review (Codex, PR #172): draft autosalvo não carrega
+    // parseCaseId (não é campo persistido no draft local) — sem limpar aqui,
+    // o id do preview de pré-preenchimento inicial ficava preso e era
+    // reenviado no submit mesmo com o form substituído pelo draft restaurado,
+    // contaminando discord_parse_cases com o resultado de mesa não relacionada.
+    formHook.setParseCaseId(null);
+
     // Restaurar estados
     if (savedDraft.form) formHook.setForm(savedDraft.form);
     if (savedDraft.sessions) formHook.setSessions(savedDraft.sessions);
