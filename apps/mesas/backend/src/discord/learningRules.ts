@@ -46,15 +46,42 @@ export interface LearningRuleLookupResult {
   conflicts: LearningRuleConflict[];
 }
 
+// Campos de catálogo/entidade com hint textual capturável no anúncio (nome/
+// alias comparado contra tabela de referência) — mesmo princípio de
+// `system_entity`, generalizado pelo achado do mantenedor 2026-07-17.
+export const ENTITY_HINT_FIELDS = ['vtt_entity', 'communication_entity', 'scenario_entity'] as const;
+export type EntityHintField = (typeof ENTITY_HINT_FIELDS)[number];
+
 const LEARNABLE_SET = new Set<string>(LEARNABLE_FIELDS);
 // `field_value` generaliza um valor entre anúncios. Isso só é seguro para
 // normalização de entidade estável; fatos da mesa (vagas, preço, agenda,
-// título, descrição, contato) pertencem a uma ocorrência e nunca podem virar
-// regra `4 -> 5`, `sexta -> sábado`, etc. Esses campos aprendem apenas labels.
-// Regras legadas `system_name -> system_name` são inseguras: a entrada pode ser
-// o nome canônico que o parser escolheu errado, não o texto do anúncio. Mantém
-// o mecanismo fechado até a regra `system_entity` (token bruto -> ID estável).
-const FIELD_VALUE_RULE_FIELDS = new Set<string>(['system_entity']);
+// título, descrição, contato, regras da mesa) pertencem a uma ocorrência e
+// nunca podem virar regra `4 -> 5`, `sexta -> sábado`, etc. Esses campos
+// aprendem apenas labels. Regras legadas `system_name -> system_name` são
+// inseguras: a entrada pode ser o nome canônico que o parser escolheu
+// errado, não o texto do anúncio — daí `*_entity` usar hint bruto, não o
+// valor do campo em si (ver `recordEntityHintRule`/`ENTITY_HINT_FIELDS`).
+//
+// Achado do mantenedor (2026-07-17, IMPERATIVO): campo travado só em
+// `system_entity` era gap real — correção manual de VTT/comunicação/cenário
+// no draft nunca ensinava nada ao sistema. Decisão: espelhar o form de
+// onboarding manual — TODO campo fixo/catálogo/enum aprende por correção,
+// exceto texto livre (título, descrição, regras da mesa). `*_entity` usa
+// hint textual bruto (`recordEntityHintRule`); os enums simples abaixo usam
+// o valor anterior do campo como token de entrada (mecanismo `field_value`
+// já existente, sem função nova — o valor de um enum É a entidade estável,
+// diferente de "4 vagas" que é fato da ocorrência).
+const FIELD_VALUE_RULE_FIELDS = new Set<string>([
+  'system_entity',
+  ...ENTITY_HINT_FIELDS,
+  'age_rating',
+  'experience_level',
+  'table_level',
+  'modality',
+  'price_type',
+  'type',
+  'frequency',
+]);
 const ACTIVE_CONFIDENCE = 0.8;
 const CANDIDATE_CONFIDENCE = 0.65;
 
@@ -167,25 +194,35 @@ export async function recordLearningRulesFromCorrections(
   }
 }
 
-export async function recordSystemEntityRule(input: {
+/**
+ * Achado do mantenedor (2026-07-17, IMPERATIVO): correção manual de VTT no
+ * draft não ensinava nada ao sistema — só `system_entity` tinha mecanismo de
+ * aprendizado token bruto→entidade. Generalizado pra `recordEntityHintRule`
+ * genérica, reaproveitável por qualquer campo de catálogo/entidade estável
+ * (mesmo princípio de segurança do comentário de FIELD_VALUE_RULE_FIELDS
+ * acima: só entidade estável pode virar regra `token->valor`, nunca fato da
+ * ocorrência). `recordSystemEntityRule` abaixo é o caso system_entity
+ * migrado pra cima desta função, mantendo o mesmo output shape (`system_id`+
+ * `system_name`) para não quebrar leitores existentes de `output_value`.
+ */
+export async function recordEntityHintRule(input: {
+  field: string;
   sourceHint: unknown;
-  systemId: unknown;
-  systemName: unknown;
+  outputValue: Record<string, unknown>;
   scope: LearningRuleScope | undefined | null;
   userId: string | null;
 }, conn: Kysely<Database> | Transaction<Database> = db, options: LearningWriteOptions = {}): Promise<void> {
   const inputToken = normalizeToken(input.sourceHint);
-  const systemId = typeof input.systemId === 'string' ? input.systemId.trim() : '';
-  const systemName = typeof input.systemName === 'string' ? input.systemName.trim() : '';
-  if (!inputToken || !systemId || !systemName) return;
+  const hasValue = Object.values(input.outputValue).some((v) => typeof v === 'string' && v.trim().length > 0);
+  if (!inputToken || !hasValue) return;
 
   const derived = deriveScope(input.scope);
-  const outputJson = JSON.stringify({ system_id: systemId, system_name: systemName });
+  const outputJson = JSON.stringify(input.outputValue);
   try {
     await conn.insertInto('discord_learning_rules')
       .values({
         rule_type: 'field_value',
-        field: 'system_entity',
+        field: input.field,
         input_token: inputToken,
         input_pattern: null,
         output_value: sql`${outputJson}::jsonb`,
@@ -209,9 +246,27 @@ export async function recordSystemEntityRule(input: {
       )
       .execute();
   } catch (error: unknown) {
-    console.error('[recordSystemEntityRule]', error instanceof Error ? error.message : 'unknown error', input.userId);
+    console.error(`[recordEntityHintRule:${input.field}]`, error instanceof Error ? error.message : 'unknown error', input.userId);
     if (options.throwOnError) throw error;
   }
+}
+
+export async function recordSystemEntityRule(input: {
+  sourceHint: unknown;
+  systemId: unknown;
+  systemName: unknown;
+  scope: LearningRuleScope | undefined | null;
+  userId: string | null;
+}, conn: Kysely<Database> | Transaction<Database> = db, options: LearningWriteOptions = {}): Promise<void> {
+  const systemId = typeof input.systemId === 'string' ? input.systemId.trim() : '';
+  const systemName = typeof input.systemName === 'string' ? input.systemName.trim() : '';
+  return recordEntityHintRule({
+    field: 'system_entity',
+    sourceHint: input.sourceHint,
+    outputValue: { system_id: systemId, system_name: systemName },
+    scope: input.scope,
+    userId: input.userId,
+  }, conn, options);
 }
 
 /**

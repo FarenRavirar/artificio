@@ -4,6 +4,7 @@ import {
   recordLabelAliasFromCorrection,
   recordLearningRulesFromCorrections,
   recordSystemEntityRule,
+  recordEntityHintRule,
   type LearningRuleScope,
 } from './learningRules';
 
@@ -161,6 +162,33 @@ export async function processLearningFeedbackCorrection(correctionId: string): P
         sourceHint: beforeTable._system_source_hint ?? beforeTable.raw_system_hint,
         systemId: correctedTable.system_id,
         systemName: correctedTable.system_name,
+        scope: source,
+        userId: correction.corrected_by,
+      }, trx, strict);
+      // Achado do mantenedor (2026-07-17, IMPERATIVO): generalização de
+      // recordSystemEntityRule (system_entity) pros demais campos de
+      // catálogo com hint textual capturável — correção manual de VTT/
+      // comunicação/cenário no draft agora ensina o sistema, igual sistema
+      // já fazia. Sem hint persistido (beforeTable.*_source_hint/raw_*_hint
+      // null), a chamada é no-op (recordEntityHintRule exige inputToken).
+      await recordEntityHintRule({
+        field: 'vtt_entity',
+        sourceHint: beforeTable._vtt_source_hint,
+        outputValue: { vtt_platform_id: correctedTable.vtt_platform_id },
+        scope: source,
+        userId: correction.corrected_by,
+      }, trx, strict);
+      await recordEntityHintRule({
+        field: 'communication_entity',
+        sourceHint: beforeTable._communication_source_hint,
+        outputValue: { communication_platform_id: correctedTable.communication_platform_id },
+        scope: source,
+        userId: correction.corrected_by,
+      }, trx, strict);
+      await recordEntityHintRule({
+        field: 'scenario_entity',
+        sourceHint: beforeTable.raw_scenario_hint,
+        outputValue: { scenario_id: correctedTable.scenario_id, setting_name: correctedTable.setting_name },
         scope: source,
         userId: correction.corrected_by,
       }, trx, strict);

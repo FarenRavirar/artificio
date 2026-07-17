@@ -94,6 +94,7 @@ const draftTableSchema = z.object({
   start_time: z.unknown(),
   frequency: z.unknown(),
   description: z.unknown(),
+  rules_notes: z.unknown(),
   contact_discord: z.unknown(),
   contact_url: z.unknown(),
   host_discord_id: z.unknown(),
@@ -286,7 +287,6 @@ export function buildTableData(
     source_id: source.sourceId,
     source_url: source.sourceUrl ?? null,
     status: 'draft',
-    rules_notes: null,
     is_ddal: false,
   };
 }
@@ -327,7 +327,7 @@ export function buildTableDraftFields(
   gmName: string | null,
   coverUrl: string | null,
 ): Omit<Insertable<TablesTable>,
-  'slug' | 'gm_id' | 'audience' | 'language' | 'publisher_role' | 'origin' | 'source_id' | 'source_url' | 'status' | 'rules_notes' | 'is_ddal'
+  'slug' | 'gm_id' | 'audience' | 'language' | 'publisher_role' | 'origin' | 'source_id' | 'source_url' | 'status' | 'is_ddal'
 > {
   const t = draft.table;
   if (!t.title) throw new DraftStateError('Título obrigatório para sync.');
@@ -337,6 +337,7 @@ export function buildTableDraftFields(
     scenario_id: t.scenario_id ?? null,
     title: t.title,
     description: t.description ?? null,
+    rules_notes: t.rules_notes ?? null,
     type: t.type ?? 'campanha',
     age_rating: normalizeAgeRating(t.age_rating) as Insertable<TablesTable>['age_rating'],
     modality: t.modality ?? 'online',

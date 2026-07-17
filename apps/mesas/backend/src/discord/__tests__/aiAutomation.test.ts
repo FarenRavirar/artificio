@@ -37,6 +37,7 @@ function makeDraft(): ImportTableDraft {
       start_time: null,
       frequency: null,
       description: 'Texto',
+      rules_notes: null,
       contact_discord: null,
       contact_discord_explicit: false,
       contact_url: null,

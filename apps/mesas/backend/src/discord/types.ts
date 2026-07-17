@@ -84,6 +84,14 @@ export interface DiscordTableDraftTable {
   start_time: string | null;
   frequency: TableDraftFrequency | null;
   description: string | null;
+  /**
+   * Achado do mantenedor (2026-07-17): campo já existe na tabela `tables`
+   * (`rules_notes`, migration_04) e no form manual de onboarding, mas nunca
+   * era extraído do texto/Discord — anúncio com "Regras da mesa:" (heading
+   * ou label simples) se perdia no draft de import. Texto livre, distinto de
+   * `description` — opcional, sem impacto em missing_fields/confidence.
+   */
+  rules_notes: string | null;
   contact_discord: string | null;
   /** Achado CodeRabbit (PR #140): contact_discord pode ser fallback pro autor
    * da mensagem quando não há menção/URL explícita (DEB-048-26). Este campo
@@ -105,7 +113,16 @@ export interface DiscordTableDraftTable {
   scenario_id: string | null;
   raw_scenario_hint: string | null;
   vtt_platform_id: string | null;
+  /** Achado do mantenedor (2026-07-17): texto isolado da linha "Plataforma(s)"/
+   * "Local do jogo" usado no match de VTT — persistido pro learning genérico
+   * (`ENTITY_HINT_FIELDS`) conseguir aprender token bruto→entidade quando o
+   * mestre corrige vtt_platform_id manualmente no draft (antes o mecanismo
+   * só existia pra system_entity). Null quando não há label dedicado (match
+   * caiu no fullText, sem hint isolado seguro pra aprender). */
+  _vtt_source_hint?: string | null;
   communication_platform_id: string | null;
+  /** Mesmo princípio de `_vtt_source_hint`, para communication_platform_id. */
+  _communication_source_hint?: string | null;
   age_rating: TableDraftAgeRating | null;
   setting_name: string | null;
   setting_styles: string[] | null;

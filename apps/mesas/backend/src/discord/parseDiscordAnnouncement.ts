@@ -226,11 +226,30 @@ function stripVersionSuffix(value: string): { stripped: string; version: string 
  */
 type CandidateName = { value: string | null; priority: number };
 
+// Achado do mantenedor (2026-07-17): "Roll 20" (texto livre, com espaço) não
+// batia com "Roll20" (nome/alias do catálogo, sem espaço) — candidateMatchesText
+// exige boundary de espaço/pontuação nas duas pontas do candidato, então
+// "roll20" nunca é substring de "roll 20" (2 tokens). Bug de comparação, não
+// falta de alias — texto humano cola/separa letra+dígito de forma imprevisível
+// ("Roll20"/"Roll 20"/"D&D5e"/"D&D 5e"), então a correção certa é colapsar o
+// espaço SÓ na fronteira letra↔dígito (nunca entre duas palavras inteiras,
+// senão "Discord e Roll20" viraria "discorderoll20" e criaria falso positivo).
+function collapseLetterDigitSpace(normalized: string): string {
+  return normalized.replace(/([a-z])\s+(\d)/g, '$1$2').replace(/(\d)\s+([a-z])/g, '$1$2');
+}
+
 function candidateMatchesText(normCandidate: string, normText: string): boolean {
   const escaped = normCandidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(`(?:^|[\\s,;:])${escaped}(?:[\\s,;:]|$)`);
   const versionedPattern = new RegExp(`^${escaped}\\s*\\d`);
-  return normText === normCandidate || pattern.test(` ${normText} `) || versionedPattern.test(normText);
+  if (normText === normCandidate || pattern.test(` ${normText} `) || versionedPattern.test(normText)) return true;
+
+  const collapsedCandidate = collapseLetterDigitSpace(normCandidate);
+  const collapsedText = collapseLetterDigitSpace(normText);
+  if (collapsedCandidate === normCandidate && collapsedText === normText) return false;
+  const escapedCollapsed = collapsedCandidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const collapsedPattern = new RegExp(`(?:^|[\\s,;:])${escapedCollapsed}(?:[\\s,;:]|$)`);
+  return collapsedText === collapsedCandidate || collapsedPattern.test(` ${collapsedText} `);
 }
 
 type CandidateMatch<T> = { entry: T; candidate: string; priority: number; exact: boolean };
@@ -2285,6 +2304,19 @@ export function parseDiscordAnnouncement(
   const descriptionSource = rawDescription ? removeKnownContactUrlsFromDescription(rawDescription, contactUrl) : null;
   const description = descriptionSource ? cleanDescriptionText(descriptionSource) || null : null;
 
+  // Achado do mantenedor (2026-07-17, draft real "Ātman: Nowhere kings"):
+  // campo "Regras da mesa" (rules_notes) já existe na tabela `tables` e no
+  // form manual de onboarding (StepConfig.tsx), mas nunca foi extraído do
+  // texto colado/Discord — anúncio com "### Regras da mesa:" + lista numerada
+  // se perdia no draft de import. Mesmo padrão de extração multi-parágrafo
+  // da description, labels distintos (não é sinônimo de descrição/sinopse).
+  const rawRulesNotes = extractLabelValue(
+    body,
+    ['regras da mesa', 'regras', 'regras do jogo', ...(labelAliases?.rules_notes ?? [])],
+    { multiParagraph: true },
+  );
+  const rulesNotes = rawRulesNotes ? cleanDescriptionText(rawRulesNotes) || null : null;
+
   // Fase C (spec 058): cadência explícita no texto ("semanal"/"quinzenal"/"mensal"/
   // "avulsa") tem prioridade sobre o fallback de deriveFrequency. Achado da simulação
   // real: quando cadência é citada mas `type` está null, também confirma type=campanha
@@ -2308,6 +2340,14 @@ export function parseDiscordAnnouncement(
   const communicationMatch = platforms?.communication?.length
     ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.communication, platformsLabelValue)
     : null;
+  // Achado do mantenedor (2026-07-17, IMPERATIVO): correção manual de
+  // vtt_platform_id/communication_platform_id no draft nunca ensinava nada
+  // ao sistema — só system_entity tinha hint bruto persistido pro learning
+  // token→entidade aprender. platformsLabelValue é o texto isolado da linha
+  // "Plataforma(s)"/"Local do jogo" (nunca fullText inteiro — evitaria ruído
+  // no aprendizado); sem label dedicado, não há hint seguro, aprendizado
+  // fica indisponível pra esse caso (mesma limitação que já existe pra
+  // outros campos sem hint capturável).
 
   // Fase C: classificação indicativa (enum fixo, regex livre no corpo inteiro).
   const ageRating = extractAgeRating(fullText);
@@ -2391,6 +2431,7 @@ export function parseDiscordAnnouncement(
     start_time: startTime,
     frequency: explicitFrequency ?? deriveFrequency(resolvedType, dayOfWeek),
     description,
+    rules_notes: rulesNotes,
     contact_discord: contactDiscord,
     contact_discord_explicit: explicitContactDiscord !== null,
     contact_url: contactUrl,
@@ -2399,7 +2440,9 @@ export function parseDiscordAnnouncement(
     scenario_id: scenarioMatch?.id ?? null,
     raw_scenario_hint: rawScenarioHint,
     vtt_platform_id: vttMatch?.id ?? null,
+    _vtt_source_hint: platformsLabelValue,
     communication_platform_id: communicationMatch?.id ?? null,
+    _communication_source_hint: platformsLabelValue,
     age_rating: ageRating,
     setting_name: settingName,
     setting_styles: settingStyles,

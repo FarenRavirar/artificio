@@ -18,6 +18,7 @@ function makeDraftTable(overrides: Partial<DiscordTableDraftTable> = {}): Discor
     start_time: '19:00',
     frequency: null,
     description: 'descricao',
+    rules_notes: null,
     contact_discord: null,
     contact_discord_explicit: false,
     contact_url: null,

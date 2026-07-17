@@ -29,6 +29,7 @@ export const LEARNABLE_FIELDS = [
   'price_value',
   'contact_url',
   'description',
+  'rules_notes',
 ] as const;
 
 export type LearnableField = (typeof LEARNABLE_FIELDS)[number];
