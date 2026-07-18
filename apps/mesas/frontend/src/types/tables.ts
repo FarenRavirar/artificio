@@ -63,6 +63,8 @@ export interface TableCard {
   gm_avatar_url: string | null;
   gm_display_name: string | null;
   gm_bio_long: string | null; // CORREÇÃO HP-10: Bio global do perfil do mestre
+  gm_avg_rating?: number | null; // T3.7/T6/T8.6 (spec 081): rating resumido do GM
+  gm_reviews_count?: number | null;
   is_ddal: boolean;
   is_covil: boolean; // CORREÇÃO C01: Padronizado para is_covil (mesmo nome do backend)
   ddal_code?: string | null;

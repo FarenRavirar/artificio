@@ -45,6 +45,8 @@ export { FileDropzone } from "./FileDropzone.js";
 export type { FileDropzoneProps } from "./FileDropzone.js";
 export { DEFAULT_CHANGELOG_LABELS, isChangelogEntry, normalizeChangelogEntries, CHANGELOG_CACHE_TTL, CHANGELOG_UPDATE_MARKERS } from "./changelog.js";
 export type { NavProps } from "./Nav.js";
+export { GmReviewSummary, GmReviewList, GmReviewForm, GM_REVIEW_TAG_LABELS } from "./GmReviewPanel.js";
+export type { GmReviewItem, GmReviewSummaryProps, GmReviewListProps, GmReviewFormProps } from "./GmReviewPanel.js";
 export type { NavItem } from "./modules.js";
 export type {
   BadgeProps,

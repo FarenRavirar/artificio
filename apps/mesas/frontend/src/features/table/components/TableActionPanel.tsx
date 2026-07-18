@@ -32,12 +32,23 @@ function PricePanel({ vm, className = '' }: { readonly vm: PanelVm; readonly cla
 
   return (
     <div className={`p-4 rounded-xl bg-[var(--surface-subtle)] border border-[var(--state-warning-line)] ${className}`.trim()}>
-      <p className="text-xs text-[var(--fg-muted)] uppercase tracking-wide">Investimento</p>
+      <div className="flex items-center gap-2">
+        <p className="text-xs text-[var(--fg-muted)] uppercase tracking-wide">Investimento</p>
+        {/* T9.2 (spec 081): selo de mesa paga em destaque visual */}
+        <span className="rounded-full bg-yellow-500 px-2 py-0.5 text-[10px] font-black tracking-wide text-black">
+          💰 Paga
+        </span>
+      </div>
       <p className="text-2xl font-bold text-[var(--state-warning-fg)] mt-1">
         R$ {vm.price}
         {vm.priceFrequency && (
           <span className="text-sm text-[var(--fg-muted)] font-normal ml-1">/ {vm.priceFrequency}</span>
         )}
+      </p>
+      {/* T6.4 (spec 081): mesa paga é anúncio dentro de plataforma gratuita —
+          cobrança é acordo direto com o mestre, não passa pela Artifício. */}
+      <p className="text-xs text-[var(--fg-muted)] mt-2">
+        💬 Cobrança combinada diretamente com o mestre, fora da plataforma.
       </p>
     </div>
   );
@@ -114,12 +125,8 @@ function QuickInfoPanel({ vm, showStatus = false, className = '' }: { readonly v
         <span className="text-[var(--fg-muted)]">Modalidade</span>
         <span className="text-[var(--fg)] font-medium">{vm.modality}</span>
       </div>
-      <div className="flex justify-between">
-        <span className="text-[var(--fg-muted)]">Vagas</span>
-        <span className="text-[var(--fg)] font-medium">
-          {vm.slotsLeft} {vm.slotsLeft === 1 ? 'disponível' : 'disponíveis'}
-        </span>
-      </div>
+      {/* Vagas removida daqui (T4.3) — duplicava o aviso de urgência acima
+          (vm.urgency.label, "🔥 Últimas N vagas") que já cobre o mesmo dado com mais contexto. */}
       {showStatus && (
         <div className="flex justify-between">
           <span className="text-[var(--fg-muted)]">Status</span>

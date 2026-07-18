@@ -1,4 +1,15 @@
 import type { TableViewModel } from '../types/tableView.types';
+import { Calendar, Clock, Repeat } from 'lucide-react';
+
+const dayAbbrev: Record<string, string> = {
+  segunda: 'SEG',
+  terça: 'TER',
+  quarta: 'QUA',
+  quinta: 'QUI',
+  sexta: 'SEX',
+  sábado: 'SAB',
+  domingo: 'DOM',
+};
 
 interface TableSchedulesProps {
   vm: TableViewModel;
@@ -24,13 +35,13 @@ export function TableSchedules({ vm }: TableSchedulesProps) {
       <h2 className="text-lg font-bold mb-4">📅 Horários das Sessões</h2>
       
       {!hasSchedules && hasDefinedStatus ? (
-        <div className="flex items-center justify-between p-3 rounded-xl bg-[#13213f] border border-white/10">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🗓️</span>
-            <div>
-              <p className="font-semibold text-white">{dayLabel}</p>
-              <p className="text-sm text-white/60">{timeLabel}</p>
-            </div>
+        <div className="flex items-center gap-4 rounded-xl border border-white/10 bg-[#13213f] p-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--color-artificio-orange)]/15 text-[var(--color-artificio-orange)]">
+            <Calendar className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="font-semibold text-white">{dayLabel}</p>
+            <p className="text-sm text-white/60">{timeLabel}</p>
           </div>
         </div>
       ) : !hasSchedules ? (
@@ -39,29 +50,33 @@ export function TableSchedules({ vm }: TableSchedulesProps) {
         </p>
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             {vm.schedules.map((schedule) => (
               <div
                 key={schedule.id}
-                className="flex items-center justify-between p-3 rounded-xl bg-[#13213f] border border-white/10"
+                className="flex items-center gap-4 rounded-xl border border-white/10 bg-[#13213f] p-4"
               >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">🗓️</span>
-                  <div>
-                    <p className="font-semibold text-white">
-                      {schedule.day_of_week}
-                    </p>
-                    <p className="text-sm text-white/60">
-                      {schedule.start_time}{schedule.end_time ? ` - ${schedule.end_time}` : ''}
-                    </p>
-                  </div>
-                </div>
-                
-                {schedule.frequency && (
-                  <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-medium">
-                    {schedule.frequency}
+                <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-[var(--color-artificio-orange)]/15 text-[var(--color-artificio-orange)]">
+                  <span className="text-[10px] font-bold uppercase tracking-wide">
+                    {/* Normaliza pra lowercase antes de indexar dayAbbrev (achado Codex):
+                        backend pode mandar "Sábado" capitalizado, dayAbbrev usa chaves
+                        lowercase — sem normalizar, cai no fallback e corta acento errado. */}
+                    {dayAbbrev[schedule.day_of_week.toLowerCase()] ?? schedule.day_of_week.slice(0, 3).toUpperCase()}
                   </span>
-                )}
+                  <Calendar className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold capitalize text-white">{schedule.day_of_week}</p>
+                  <p className="flex items-center gap-1.5 text-sm text-white/60">
+                    <Clock className="h-3.5 w-3.5 shrink-0" />
+                    {schedule.start_time}{schedule.end_time ? ` - ${schedule.end_time}` : ''}
+                  </p>
+                  {schedule.frequency && (
+                    <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-blue-500/20 px-2.5 py-0.5 text-xs font-medium text-blue-300">
+                      <Repeat className="h-3 w-3" /> {schedule.frequency}
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -71,7 +86,6 @@ export function TableSchedules({ vm }: TableSchedulesProps) {
               Início: {new Date(vm.startsAt).toLocaleDateString('pt-BR')}
             </p>
           )}
-
         </>
       )}
     </section>

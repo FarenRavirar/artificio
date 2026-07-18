@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { sql } from 'kysely';
 import { db } from '../db/index.js';
+import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { logDatabaseError } from '../middleware/requestLogger.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { isImportedTableExpired } from '../utils/tableVisibility.js';
@@ -13,7 +14,9 @@ import {
   filterCatalogTree,
   flattenTree,
 } from '../services/catalogClient.js';
-import type { TableModality, TableType, TableAudience, PriceType, ExperienceLevel } from '../db/types.js';
+import type { TableModality, TableType, TableAudience, PriceType, ExperienceLevel, TableReportReason } from '../db/types.js';
+
+const VALID_REPORT_REASONS: Set<TableReportReason> = new Set(['golpe', 'conteudo_inadequado', 'spam', 'informacao_falsa', 'outro']);
 
 const router = Router();
 
@@ -122,6 +125,8 @@ router.get('/', async (req: Request, res: Response) => {
         sql<string | null>`COALESCE(gm.avatar_url, p.avatar_url)`.as('gm_avatar_url'),
         'gm.badges as gm_badges',
         sql<string>`COALESCE(gm.nickname, p.display_name)`.as('gm_display_name'),
+        'gm.avg_rating as gm_avg_rating', // T3.7/T8.6 (spec 081): rating resumido no card do catálogo
+        'gm.reviews_count as gm_reviews_count',
         // CORREÇÃO A-HIGH-01: Retornar objeto vtt_platform para cards de catálogo
         sql<VttPlatformSummary>`
           CASE WHEN vtt.id IS NOT NULL THEN
@@ -440,6 +445,8 @@ router.get('/:slug', async (req: Request, res: Response) => {
         'u.id as gm_user_id', // CORREÇÃO DT-025: Adicionar user_id para verificação de ownership
         sql<string>`COALESCE(gm.nickname, p.display_name)`.as('gm_display_name'),
         'gm.bio_long as gm_bio_long', // CORREÇÃO REG-13: Renomeado para evitar conflito com t.gm_bio
+        'gm.avg_rating as gm_avg_rating', // T6 (spec 081): rating resumido no card da mesa
+        'gm.reviews_count as gm_reviews_count',
       ])
       .where('t.slug', '=', slug)
       .executeTakeFirst();
@@ -617,6 +624,151 @@ router.post('/:slug/click', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[POST /tables/:slug/click]', error);
     res.status(500).json({ error: 'Erro ao registrar clique.' });
+  }
+});
+
+// GET /api/v1/tables/:slug/favorite — Estado de favorito do usuário logado (401 se não logado)
+router.get('/:slug/favorite', authMiddleware, async (req: Request, res: Response) => {
+  const { slug } = req.params;
+  const userId = req.user!.userId;
+
+  try {
+    const table = await db
+      .selectFrom('tables as t')
+      .select(['t.id'])
+      .where('t.slug', '=', slug)
+      .where('t.status', '=', 'active')
+      .executeTakeFirst();
+
+    if (!table) {
+      return res.status(404).json({ error: 'Mesa não encontrada.' });
+    }
+
+    const favorite = await db
+      .selectFrom('table_favorites')
+      .select(['id'])
+      .where('table_id', '=', table.id)
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+
+    res.json({ favorited: Boolean(favorite) });
+  } catch (error) {
+    logDatabaseError(req, error, { route: '/tables/:slug/favorite', operation: 'select' });
+    res.status(500).json({ error: 'Erro ao consultar favorito.' });
+  }
+});
+
+// POST /api/v1/tables/:slug/favorite — Alterna favorito do usuário logado
+router.post('/:slug/favorite', authMiddleware, async (req: Request, res: Response) => {
+  const { slug } = req.params;
+  const userId = req.user!.userId;
+
+  try {
+    const table = await db
+      .selectFrom('tables as t')
+      .select(['t.id'])
+      .where('t.slug', '=', slug)
+      .where('t.status', '=', 'active')
+      .executeTakeFirst();
+
+    if (!table) {
+      return res.status(404).json({ error: 'Mesa não encontrada.' });
+    }
+
+    // Transação serializa leitura+delete/insert de table_favorites com o
+    // update de table_metrics (achado Codex): evita corrida entre toggles
+    // concorrentes do mesmo usuário/mesa decrementarem/incrementarem em duplicidade.
+    const favorited = await db.transaction().execute(async (trx) => {
+      const existing = await trx
+        .selectFrom('table_favorites')
+        .select(['id'])
+        .where('table_id', '=', table.id)
+        .where('user_id', '=', userId)
+        .forUpdate()
+        .executeTakeFirst();
+
+      if (existing) {
+        await trx.deleteFrom('table_favorites').where('id', '=', existing.id).execute();
+        await trx
+          .updateTable('table_metrics')
+          .set({ favorites_count: sql`GREATEST(favorites_count - 1, 0)`, updated_at: sql`NOW()` })
+          .where('table_id', '=', table.id)
+          .execute();
+        return false;
+      }
+
+      await trx
+        .insertInto('table_favorites')
+        .values({ table_id: table.id, user_id: userId })
+        .execute();
+      await trx
+        .insertInto('table_metrics')
+        .values({ table_id: table.id, favorites_count: 1 })
+        .onConflict((oc) =>
+          oc.column('table_id').doUpdateSet({
+            favorites_count: sql`table_metrics.favorites_count + 1`,
+            updated_at: sql`NOW()`,
+          })
+        )
+        .execute();
+      return true;
+    });
+
+    res.json({ favorited });
+  } catch (error) {
+    logDatabaseError(req, error, { route: '/tables/:slug/favorite', operation: 'toggle' });
+    res.status(500).json({ error: 'Erro ao favoritar mesa.' });
+  }
+});
+
+// POST /api/v1/tables/:slug/report — Denúncia de mesa específica (T6.6, spec 081).
+// Diferente do dev_feedback (feedback do sistema): denuncia o ANÚNCIO, aceita
+// denunciante anônimo (optionalAuth), sem retornar dado sensível na resposta.
+router.post('/:slug/report', optionalAuth, async (req: Request, res: Response) => {
+  const { slug } = req.params;
+
+  // Body tratado como unknown até normalização (achado Codex).
+  const rawBody: unknown = req.body;
+  if (!rawBody || typeof rawBody !== 'object') {
+    return res.status(400).json({ error: 'Corpo da requisição inválido.' });
+  }
+  const body = rawBody as Record<string, unknown>;
+  const reason = typeof body.reason === 'string' ? body.reason : undefined;
+  const details = typeof body.details === 'string' ? body.details : undefined;
+
+  if (!reason || !VALID_REPORT_REASONS.has(reason as TableReportReason)) {
+    return res.status(400).json({ error: 'Motivo de denúncia inválido.' });
+  }
+
+  if (details !== undefined && (typeof details !== 'string' || details.length > 2000)) {
+    return res.status(400).json({ error: 'Detalhes inválidos (máximo 2000 caracteres).' });
+  }
+
+  try {
+    const table = await db
+      .selectFrom('tables as t')
+      .select(['t.id'])
+      .where('t.slug', '=', slug)
+      .executeTakeFirst();
+
+    if (!table) {
+      return res.status(404).json({ error: 'Mesa não encontrada.' });
+    }
+
+    await db
+      .insertInto('table_reports')
+      .values({
+        table_id: table.id,
+        reporter_user_id: req.user?.userId ?? null,
+        reason: reason as TableReportReason,
+        details: details ?? null,
+      })
+      .execute();
+
+    res.status(201).json({ success: true });
+  } catch (error) {
+    logDatabaseError(req, error, { route: '/tables/:slug/report', operation: 'insert' });
+    res.status(500).json({ error: 'Erro ao registrar denúncia.' });
   }
 });
 

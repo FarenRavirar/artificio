@@ -37,6 +37,10 @@ export interface MestrePublicData {
   promo_badge_text?: string | null;
   closed_group?: ClosedGroupInfo | null;
   tables_count: number;
+  /** T9.1 (spec 081): total histórico de mesas hospedadas (inclui encerradas), diferente de tables_count (só ativas). */
+  tables_hosted_count?: number;
+  /** T9.1 (spec 081): anos na plataforma, calculado via created_at — DIFERENTE de experience_years (autodeclarado). */
+  years_on_platform?: number;
   avg_rating: number | null;
   reviews_count: number;
   created_at: string;

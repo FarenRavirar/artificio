@@ -15,6 +15,7 @@ import { MestreTablesSection } from '../components/mestre/MestreTablesSection';
 import { MestreVttPlatforms } from '../components/mestre/MestreVttPlatforms';
 import { MestreContactMethods } from '../components/mestre/MestreContactMethods';
 import { MestreContactForm } from '../components/mestre/MestreContactForm';
+import { MestreReviewsSection } from '../components/mestre/MestreReviewsSection';
 import { applySeo } from '../utils/seo';
 import { useMestre } from '../hooks/useMestre';
 import { useMestreInsights } from '../hooks/useMestreInsights';
@@ -123,6 +124,8 @@ export const MestrePage = () => {
       )}
 
       <MestreTablesSection mappedTables={mappedTables} />
+
+      {slug && <MestreReviewsSection slug={slug} />}
 
       <MestreClosedGroupSection closedGroup={profile.closed_group} />
 

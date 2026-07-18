@@ -519,6 +519,58 @@ export interface UserLinksTable {
 }
 
 export type UserLinks = Selectable<UserLinksTable>;
+
+export interface TableFavoritesTable {
+  id: Generated<string>;
+  user_id: string;
+  table_id: string;
+  created_at: Generated<Date>;
+}
+
+export type TableFavorites = Selectable<TableFavoritesTable>;
+
+export type TableReportReason = 'golpe' | 'conteudo_inadequado' | 'spam' | 'informacao_falsa' | 'outro';
+export type TableReportStatus = 'new' | 'reviewed' | 'dismissed';
+
+export interface TableReportsTable {
+  id: Generated<string>;
+  table_id: string;
+  reporter_user_id: string | null;
+  reason: TableReportReason;
+  details: string | null;
+  status: Generated<TableReportStatus>;
+  created_at: Generated<Date>;
+}
+
+export type TableReports = Selectable<TableReportsTable>;
+export type NewTableReport = Insertable<TableReportsTable>;
+
+export const GM_REVIEW_TAGS = [
+  'pontual',
+  'bom_narrador',
+  'justo_com_regras',
+  'cria_bom_ambiente',
+  'flexivel_horarios',
+  'responde_rapido',
+  'organizado',
+  'recomendaria',
+] as const;
+export type GmReviewTag = typeof GM_REVIEW_TAGS[number];
+
+export interface GmReviewsTable {
+  id: Generated<string>;
+  gm_user_id: string;
+  author_user_id: string;
+  rating: number;
+  tags: string[];
+  comment: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type GmReviews = Selectable<GmReviewsTable>;
+export type NewGmReview = Insertable<GmReviewsTable>;
+
 export type NewUserLink = Insertable<UserLinksTable>;
 export type UserLinkUpdate = Updateable<UserLinksTable>;
 
@@ -1049,6 +1101,9 @@ export interface Database {
   setting_style_suggestions: SettingStyleSuggestionsTable;
 
   user_links: UserLinksTable;
+  table_favorites: TableFavoritesTable;
+  table_reports: TableReportsTable;
+  gm_reviews: GmReviewsTable;
   table_metrics: TableMetricsTable;
   gm_profile_metrics: GmProfileMetricsTable;
   gm_profile_view_events: GmProfileViewEventsTable;

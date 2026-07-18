@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 296,
-    "uniqueEndpoints": 275,
+    "total": 301,
+    "uniqueEndpoints": 280,
     "byApp": {
       "accounts-frontend": {
         "total": 2,
@@ -36,15 +36,15 @@
         }
       },
       "mesas-frontend": {
-        "total": 176,
+        "total": 181,
         "byConfidence": {
-          "medium": 69,
+          "medium": 74,
           "high": 105,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
-          "template-literal": 61,
+          "template-literal": 66,
           "service-wrapper": 50,
           "literal": 57,
           "concatenation": 2
@@ -1617,7 +1617,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 283
+      "line": 290
     },
     {
       "app": "mesas-frontend",
@@ -1717,7 +1717,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 89
+      "line": 93
     },
     {
       "app": "mesas-frontend",
@@ -1751,13 +1751,33 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/mestre/MestreReviewsSection.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/gm/:param/reviews",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 37
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/mestre/MestreReviewsSection.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/gm/:param/reviews",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authPost",
+      "line": 62
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/pages/MestrePage.tsx",
       "method": "POST",
       "endpoint": "/api/v1/gm/:param/view",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPost",
-      "line": 79
+      "line": 80
     },
     {
       "app": "mesas-frontend",
@@ -1847,7 +1867,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 283
+      "line": 290
     },
     {
       "app": "mesas-frontend",
@@ -2347,7 +2367,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 71
+      "line": 221
     },
     {
       "app": "mesas-frontend",
@@ -2377,7 +2397,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 81
+      "line": 230
     },
     {
       "app": "mesas-frontend",
@@ -2398,6 +2418,36 @@
       "pattern": "template-literal",
       "wrapper": "fetch",
       "line": 15
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/TableCard.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/tables/:param/favorite",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 73
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/TableCard.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/tables/:param/favorite",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 98
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/table/components/ReportTableButton.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/tables/:param/report",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 33
     },
     {
       "app": "mesas-frontend",
@@ -2517,7 +2567,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 99
+      "line": 98
     },
     {
       "app": "packages/auth",

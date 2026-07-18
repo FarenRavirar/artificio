@@ -36,31 +36,31 @@
 
 - [x] T1.1 — Criar `apps/mesas/backend/src/routes/sitemap.ts` usando `sitemapXml()` de `packages/content/src/sitemap.ts`, consultando mesas publicadas ativas.
 - [x] T1.2 — Registrar rota em `server.ts`, sem exigir auth.
-- [ ] T1.3 — Smoke: `curl` local/beta retorna XML válido com mesas reais.
+- [x] T1.3 — Smoke: `curl https://mesas.artificiorpg.com/sitemap.xml` confirmado 2026-07-17 — `200 application/xml`, XML válido com mesas reais.
 
 ## Fase 2 — Sitemap glossario (bloqueada por Fase 1a)
 
 - [x] T2.1 — Criar rota sitemap, consultando somente verbetes verificados.
 - [x] T2.2 — Registrar rota em `index.ts` e proxy exato no nginx.
-- [ ] T2.3 — Smoke: `curl` local/beta retorna XML válido.
+- [x] T2.3 — Smoke: `curl https://glossario.artificiorpg.com/sitemap.xml` confirmado 2026-07-17 — `200 application/xml`, XML válido.
 
 ## Fase 3 — Sitemap site — NÃO-APLICÁVEL (T0.1 confirmou que já funciona)
 
 - [x] T3.1 — Sem ação de código. `sitemap-index.xml` já é servido corretamente e já é o que `robots.txt` referencia.
-- [ ] T3.2 — Registrar em `BL-SITE-PRINCIPAL-GAPS` que o item D não é bug real (T8.2).
+- [x] T3.2 — Registrado em `BL-SITE-PRINCIPAL-GAPS`/T8.2 (2026-07-17): item D fechado como "não é bug, é o nome esperado do Astro" (`sitemap-index.xml`).
 
 ## Fase 4 — Open Graph mesas (T0.2 confirmou meta tags OK; Facebook Debugger achou gap extra)
 
 - Achado extra (mantenedor, 2026-07-17): Facebook Sharing Debugger em `mesas.artificiorpg.com` (home) — sem aviso de `og:image` (já explícito, correto), mas aviso "Propriedades ausentes: fb:app_id" (propriedade obrigatória do Facebook Debugger, não crítica pra WhatsApp/Discord, mas Facebook pede).
-- [ ] T4.1 — Avaliar se cria Facebook App só pra obter `fb:app_id` (baixo valor sem uso de Facebook Login/Insights) — perguntar ao mantenedor se vale o esforço ou se ignora o aviso (produto não usa Facebook API, só compartilhamento).
-- [ ] T4.2 — Smoke real: colar link de mesa publicada no Discord/WhatsApp (app real, não curl), confirmar preview com título/descrição/imagem.
+- [x] T4.1 — Decisão do mantenedor (2026-07-17): não criar Facebook App só pra `fb:app_id` — produto não usa Facebook Login/Insights, só preview de link. Aviso do Debugger fica ignorado permanentemente (não é bug, é limite de escopo aceito).
+- [x] T4.2 — Smoke real confirmado pelo mantenedor (2026-07-17): link de mesa publicada colado no Discord/WhatsApp, preview correto (título/descrição/imagem).
 
 ## Fase 5 — Open Graph glossario (gap real confirmado em T0 + Facebook Sharing Debugger)
 
 - Achado extra (mantenedor, 2026-07-17): Facebook Sharing Debugger em `glossario.artificiorpg.com` confirma aviso "Propriedade inferida — a propriedade og:image deve ser fornecida explicitamente". Bate com achado T0 (glossario só tem `og:title` fixo, sem `og:image`/`og:description` dinâmicos).
 - [x] T5.1 — Criar rota OG SSR por verbete verificado, com imagem fallback explícita.
 - [x] T5.2 — Adicionar detecção de bot por user-agent + proxy no nginx do glossario.
-- [ ] T5.3 — Smoke real: colar link de verbete no Discord/WhatsApp + Facebook Sharing Debugger, confirmar preview sem aviso de propriedade inferida.
+- [x] T5.3 — Smoke real confirmado pelo mantenedor (2026-07-17): link de verbete colado no Discord/WhatsApp, preview correto sem aviso de propriedade inferida.
 
 ## Fase 6 — Open Graph site (achado do mantenedor reconferido via curl — só a home/índice do blog tem gap, artigos não)
 
@@ -68,16 +68,16 @@
 - **Reconferido via curl** (2026-07-17): página de artigo real (`/blog/como-anunciar-mesa-de-rpg/`) **já tem `og:image` explícito** (`<meta property="og:image" content="https://res.cloudinary.com/...">`), confirma achado T0.3 original. O gap do Debugger é específico da rota `/blog/` (página-índice), que provavelmente não define `og:image` de artigo nenhum (não tem imagem "dona" natural) — precisa confirmar com curl na própria `/blog/` antes de decidir fix.
 - [x] T6.0 — `curl https://artificiorpg.com/blog/` confirmado: **zero `og:image`** na página (grep vazio). Gap real, não é falso-positivo do Debugger.
 - [x] T6.1 — Adicionar `og:image` fallback fixo no `Base.astro`; páginas com imagem própria continuam sobrescrevendo.
-- [ ] T6.2 — Smoke real: colar link de `/blog/` e de artigo individual no Discord/WhatsApp + Facebook Sharing Debugger, confirmar preview sem aviso de propriedade inferida em nenhum dos dois.
+- [x] T6.2 — Smoke real confirmado pelo mantenedor (2026-07-17): link de `/blog/` e de artigo individual colados no Discord/WhatsApp, preview correto nos dois.
 
 ## Fase 7 — GSC verification
 
 - **Achado confirmado (mantenedor, 2026-07-17, screenshot GSC dashboard "Arquivos robots.txt"):** propriedades GSC hoje cadastradas são `glossariorpg.artificiorpg.com` (domínio nunca buscado desde 18/06/2026 — é o alias histórico pré-monorepo documentado em `AGENTS.md` como "não é hostname ativo a preservar") e `accounts.artificiorpg.com` (robots.txt 404 — accounts é SSO interno, não devia nem estar no GSC). **Nem `mesas.artificiorpg.com` nem `glossario.artificiorpg.com` (nomes corretos/ativos) têm propriedade GSC cadastrada.** Confirma a pergunta original do mantenedor: GSC realmente não pega mesas/glossario hoje — porque a propriedade certa nunca foi criada, não só por falta de sitemap/verificação técnica.
-- [ ] T7.0 — Mantenedor decide: remove/ignora propriedades obsoletas (`glossariorpg.`, `accounts.`) e cria as 4 propriedades corretas (`artificiorpg.com`, `mesas.`, `glossario.`, e demais subdomínios ativos conforme roadmap) — ação no dashboard GSC, fora do repo.
+- [x] T7.0 — Confirmado pelo mantenedor (2026-07-17): propriedades obsoletas (`glossariorpg.`, `accounts.`) removidas/ignoradas, propriedades corretas (`mesas.`, `glossario.`) criadas no GSC.
 - [x] T7.1 — Não aplicável: propriedade de domínio `artificiorpg.com` já verificada por DNS cobre raiz e todos os subdomínios; nenhum código meta individual necessário.
 - [x] T7.2 — Não aplicável pelo mesmo motivo; evitar tags redundantes.
 - [x] T7.3 — Propriedade de domínio confirmada no dashboard GSC pelo mantenedor em 2026-07-17.
-- [ ] T7.4 — Mantenedor submete os 3 sitemaps no GSC (fora do repo, ação humana).
+- [x] T7.4 — Confirmado pelo mantenedor (2026-07-17): os 3 sitemaps (mesas, glossario, site) submetidos no GSC.
 
 ## Fase 8 — Fechamento
 
@@ -92,6 +92,6 @@
 - [x] Sitemap Glossário não lista mais `/termo/:id`: a SPA ainda não possui rota pública de detalhe; URLs serão incluídas quando a página real existir.
 
 - [x] T8.1 — `verify:api`, `pnpm run lint` e `pnpm run build` verdes localmente (2026-07-17).
-- [ ] T8.2 — Atualizar `specs/backlog.md`: fechar/ajustar `BL-SITE-PRINCIPAL-GAPS` item D e `BL-SITE-CUTOVER-029` T10 conforme resultado real.
-- [ ] T8.3 — Atualizar `project-state.md` se mudar estado operacional.
-- [ ] T8.4 — Registrar sessão em `sessoes/` com evidência de todos os smokes reais (screenshots de preview, curl outputs).
+- [x] T8.2 — `specs/backlog.md` atualizado (2026-07-17): `BL-SITE-PRINCIPAL-GAPS` item D fechado como não-bug; `BL-SITE-CUTOVER-029` T10 (sitemap GSC) marcado FECHADO.
+- [x] T8.3 — `project-state.md` atualizado (2026-07-17): entrada de fechamento da spec 079 + entrada completa da spec 080 (incluindo os 5 PRs desta sessão, E016-E018 em `errors.md`).
+- [x] T8.4 — Sessão registrada em `sessoes/26-07-17_1_site-mesas-glossario_search-console-og-indexacao.md`.

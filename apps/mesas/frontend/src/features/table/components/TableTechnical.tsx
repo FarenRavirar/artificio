@@ -1,6 +1,6 @@
 import type { TableViewModel } from '../types/tableView.types';
 import { MetaField } from '../../../components/MetaField';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Monitor, Video, Mic } from 'lucide-react';
 
 interface TableTechnicalProps {
   vm: TableViewModel;
@@ -68,20 +68,20 @@ export function TableTechnical({ vm }: TableTechnicalProps) {
           {vm.technicalRequirements && (
             <p className="text-white/80 leading-relaxed mb-3">{vm.technicalRequirements}</p>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {vm.requiresPC && (
-              <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-medium">
-                💻 PC necessário
+              <span className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-200 text-sm font-semibold">
+                <Monitor className="w-5 h-5" /> PC necessário
               </span>
             )}
             {vm.requiresCamera && (
-              <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-medium">
-                📹 Câmera necessária
+              <span className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-200 text-sm font-semibold">
+                <Video className="w-5 h-5" /> Câmera necessária
               </span>
             )}
             {vm.requiresMicrophone && (
-              <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-medium">
-                🎤 Microfone necessário
+              <span className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-200 text-sm font-semibold">
+                <Mic className="w-5 h-5" /> Microfone necessário
               </span>
             )}
           </div>

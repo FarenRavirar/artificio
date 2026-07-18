@@ -33,7 +33,21 @@ ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 # Dependências de runtime do Sharp (processamento de imagem WebP) e do
 # DiscordChatExporter self-contained (ICU/tzdata em Alpine).
-RUN apk add --no-cache vips-dev fftw-dev build-base icu-libs icu-data-full tzdata libstdc++
+# Versões fixadas em curl/libcurl/c-ares/libexpat (achado Snyk + nitpick Codex,
+# spec 081, 2026-07-18): CVEs abertos na imagem base (alpine 3.23) —
+# CVE-2026-6276 (SSRF/cleartext alto), CVE-2026-5773 (SSRF), CVE-2026-7168
+# (auth bypass), CVE-2026-56131/... (expat use-after-free/integer overflow).
+# Versão confirmada via `docker run --rm node:24-alpine apk info` (VM, 2026-07-18):
+# mirror já tem c-ares 1.34.8-r0 / curl+libcurl 8.21.0-r0 / expat 2.8.2-r0
+# corrigidos. Fixar (em vez de --upgrade solto) trava build reprodutível —
+# bump manual exigido a cada novo CVE, checar de novo via apk info na imagem real.
+RUN apk add --no-cache --upgrade \
+    curl=8.21.0-r0 \
+    libcurl=8.21.0-r0 \
+    c-ares=1.34.8-r0 \
+    libexpat=2.8.2-r0 \
+  && apk add --no-cache \
+    vips-dev fftw-dev build-base icu-libs icu-data-full tzdata libstdc++
 
 RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./

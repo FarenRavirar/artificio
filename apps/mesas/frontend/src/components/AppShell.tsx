@@ -18,8 +18,7 @@ const userMenu: UserMenuItem[] = [
 ];
 
 const moduleNav: NavItem[] = [
-  { label: 'Início', href: '/' },
-  { label: 'Catálogo', href: '/catalogo' },
+  { label: 'Catálogo', href: '/' },
   { label: 'Painel', href: '/painel' },
 ];
 

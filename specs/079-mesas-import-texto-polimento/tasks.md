@@ -137,11 +137,8 @@
       2026-07-17 — cobre autorização, resposta com/sem match, e o loop de
       aprendizado completo: UPDATE synced, proteção contra sobrescrita,
       falha best-effort não derruba publicação).
-- [ ] T5.12 Smoke manual real: colar anúncio real no fluxo público, confirmar
-      pré-preenchimento, corrigir 1+ campo, publicar, confirmar registro em
-      `discord_parse_cases` (read-only, `psql SELECT`). **Bloqueado**
-      (2026-07-17): sem backend local com Postgres/SSO configurado nesta
-      sessão; não improvisado contra beta/prod sem autorização nominal.
+- [x] T5.12 Smoke manual real confirmado pelo mantenedor (2026-07-17): fluxo
+      público testado em produção com casos reais suficientes.
 
 ## Fase 4 — Validação e fechamento
 
@@ -156,9 +153,8 @@
 - [x] T4.3 `pnpm verify:api` rodado (rota nova `POST /gm/parse-preview` +
       `createTableSchema`/`CreateTablePayload` alterados) — 0 breaking
       changes, 1 non-breaking (a rota nova).
-- [ ] T4.4 Smoke manual real: colar 3+ casos reais em `/gestao/importacao` →
-      "Importar texto", conferir draft criado. **Bloqueado** (mesmo motivo
-      de T5.12 — sem ambiente local com backend+Postgres).
+- [x] T4.4 Smoke manual real confirmado pelo mantenedor (2026-07-17): casos
+      reais testados em `/gestao/importacao` → "Importar texto" em produção.
 - [x] T4.5 `specs/backlog.md` (`BL-079-PARSER-TEXTO`) e `project-state.md`
       atualizados (2026-07-17).
 - [x] T4.6 Autorização do mantenedor concedida (2026-07-17, "commit + push") —
