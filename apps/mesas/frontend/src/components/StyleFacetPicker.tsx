@@ -20,6 +20,7 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const visibleFacets = facets.slice(0, VISIBLE_COUNT);
   const overflowFacets = facets.slice(VISIBLE_COUNT);
@@ -43,7 +44,10 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
       }
     };
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false);
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
@@ -78,6 +82,7 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
       {overflowFacets.length > 0 && (
         <div ref={containerRef} className="relative shrink-0">
           <button
+            ref={triggerRef}
             type="button"
             onClick={() => setIsOpen((prev) => !prev)}
             aria-expanded={isOpen}
@@ -100,6 +105,7 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Buscar estilo..."
+                  aria-label="Buscar estilo"
                   autoFocus
                   className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] py-1.5 pl-8 pr-2 text-xs text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted)] focus:border-[var(--artificio-brand)]"
                 />
