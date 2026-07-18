@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchCatalogTables, getCatalogErrorMessage, type CatalogFilters } from '../services/catalogService';
-import type { TablesResponse } from '../types/tables';
+import type { TableCard, TablesResponse } from '../types/tables';
+
+// Referência estável: `[]` literal no retorno do hook cria array novo a cada
+// render, entra como dependência de useEffect em useInfiniteCatalogTables e
+// causa "Maximum update depth exceeded" (setState nunca estabiliza porque a
+// referência de `tables` muda toda vez, mesmo com conteúdo idêntico vazio).
+const EMPTY_TABLES: TableCard[] = [];
 
 /**
  * Hook para buscar mesas do catálogo com React Query
@@ -29,7 +35,7 @@ export function useCatalogTables(filters: CatalogFilters, searchParamsString: st
   const isRefetching = query.isFetching && !!query.data;
 
   return {
-    tables: query.data?.data ?? [],
+    tables: query.data?.data ?? EMPTY_TABLES,
     pagination: query.data?.pagination,
     isLoading: isInitialLoading,
     isRefreshing: isRefetching,

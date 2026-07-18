@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { RotateCcw, Search, ShieldCheck, Star, SlidersHorizontal, Megaphone } from 'lucide-react';
 import { TableCardComponent, TableCardSkeleton } from '../components/TableCard';
 import { SealToggle } from '../components/SealToggle';
+import { StyleFacetPicker } from '../components/StyleFacetPicker';
 import { FilterDrawer } from '../components/FilterDrawer';
 import { ActiveFiltersChips } from '../components/ActiveFiltersChips';
 import { ResultsHeader } from '../components/ResultsHeader';
@@ -128,8 +129,6 @@ const CatalogEmptyState = ({ activeFiltersCount, onClearFilters }: CatalogEmptyS
     )}
   </div>
 );
-
-const SUGGESTIONS = ['D&D 5e', 'Ordem Paranormal', 'Vampiro', 'Tormenta'];
 
 const renderTableCards = (isLoading: boolean, tables: TableCard[]): ReactNode => {
   if (isLoading) {
@@ -294,11 +293,6 @@ export const CatalogoPage = () => {
     setFilters(prev => ({ ...prev, search: term, page: 1 }));
   };
 
-  const handleHeroSuggestionClick = (suggestion: string) => {
-    setHeroSearchInput(suggestion);
-    setFilters(prev => ({ ...prev, search: suggestion, page: 1 }));
-  };
-
   const handleAnnounceTable = () => {
     if (isAuthenticated) {
       navigate('/painel?action=nova-mesa');
@@ -383,128 +377,58 @@ export const CatalogoPage = () => {
           Fix: usar a MESMA variável que o resto do app (AppShell) usa pro
           fundo sempre-escuro-que-também-vira-light, pra fundo e texto
           remaparem juntos e coerente com o resto do produto. */}
-      <section className="relative w-full overflow-hidden bg-[var(--color-artificio-blue)] text-white py-16 lg:py-20">
+      <section className="relative w-full overflow-hidden bg-[var(--color-artificio-blue)] text-white py-10 lg:py-12">
         <div className="orange-glow" />
-        <div className="container relative z-10 mx-auto space-y-6 px-6 text-center">
+        <div className="container relative z-10 mx-auto space-y-4 px-6 text-center">
           <p className="eyebrow">
             ◆ {totalCount}+ mesas abertas · comunidade Artifício RPG
           </p>
 
-          <h1 className="text-4xl font-extrabold tracking-tight lg:text-6xl">
+          <h1 className="text-3xl font-extrabold tracking-tight lg:text-5xl">
             Encontre uma mesa de RPG em{' '}
             <span className="text-[var(--color-artificio-orange)]">30 segundos</span>
           </h1>
 
-          <p className="mx-auto max-w-xl text-base leading-relaxed text-white/70">
+          <p className="mx-auto max-w-xl text-sm leading-relaxed text-white/70">
             D&amp;D, Tormenta, Vampiro e dezenas de outros sistemas. Online ou presencial.
             De mestres da comunidade Artifício e parceiros.
           </p>
 
-          <div className="glass mx-auto mt-6 flex max-w-2xl items-center rounded-full p-2 shadow-2xl transition-all focus-within:ring-2 focus-within:ring-[var(--color-artificio-orange)]/50">
-            <Search className="ml-4 hidden h-6 w-6 text-white/50 sm:block" />
-            <input
-              id="input-busca-mesas"
-              type="text"
-              aria-label="Buscar mesas"
-              value={heroSearchInput}
-              onChange={(e) => setHeroSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleHeroSearch()}
-              placeholder="Ex: D&D, Vampiro, Mesa iniciante..."
-              className="flex-1 border-none bg-transparent px-4 py-3 text-white placeholder-white/50 outline-none"
-            />
-            <button
-              id="btn-buscar-mesas"
-              type="button"
-              onClick={handleHeroSearch}
-              className="cursor-pointer rounded-full bg-[var(--color-artificio-orange)] px-6 py-3 font-semibold text-white transition-colors duration-200 hover:bg-[var(--color-artificio-orange-hover)]"
-            >
-              Buscar
-            </button>
-          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <div className="glass flex w-full max-w-md items-center rounded-full p-1.5 shadow-2xl transition-all focus-within:ring-2 focus-within:ring-[var(--color-artificio-orange)]/50">
+              <Search className="ml-3 hidden h-5 w-5 text-white/50 sm:block" />
+              <input
+                id="input-busca-mesas"
+                type="text"
+                aria-label="Buscar mesas"
+                value={heroSearchInput}
+                onChange={(e) => setHeroSearchInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleHeroSearch()}
+                placeholder="Ex: D&D, Vampiro, Mesa iniciante..."
+                className="flex-1 border-none bg-transparent px-3 py-2 text-sm text-white placeholder-white/50 outline-none"
+              />
+              <button
+                id="btn-buscar-mesas"
+                type="button"
+                onClick={handleHeroSearch}
+                className="cursor-pointer rounded-full bg-[var(--color-artificio-orange)] px-5 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[var(--color-artificio-orange-hover)]"
+              >
+                Buscar
+              </button>
+            </div>
 
-          <div className="mt-4 flex justify-center">
             <button
               id="btn-anunciar-mesa-home"
               type="button"
               onClick={handleAnnounceTable}
-              className="flex cursor-pointer items-center gap-2 rounded-full bg-[var(--color-artificio-orange)] px-5 py-3 font-semibold text-white transition-colors duration-200 hover:bg-[var(--color-artificio-orange-hover)]"
+              className="flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-full bg-[var(--color-artificio-orange)] px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[var(--color-artificio-orange-hover)]"
             >
-              <Megaphone className="h-5 w-5" />
+              <Megaphone className="h-4 w-4" />
               Anunciar Mesa
             </button>
           </div>
-
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {SUGGESTIONS.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => handleHeroSuggestionClick(item)}
-                className="rounded-full bg-white/10 px-3 py-1 text-sm transition-colors hover:bg-white/20"
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-2 flex flex-wrap justify-center gap-2">
-            <SealToggle variant="pill" active={filters.seal === ''} onClick={() => toggleSeal('' as CatalogSeal)}>
-              Todas as mesas
-            </SealToggle>
-            <SealToggle
-              variant="pill"
-              active={filters.seal === 'ddal'}
-              onClick={() => toggleSeal('ddal')}
-              icon={<ShieldCheck className="w-3.5 h-3.5" />}
-              activeClassName="bg-amber-500 font-semibold text-white"
-            >
-              DDAL
-            </SealToggle>
-            <SealToggle
-              variant="pill"
-              active={filters.seal === 'covil-do-lich'}
-              onClick={() => toggleSeal('covil-do-lich')}
-              icon={<Star className="w-3.5 h-3.5" />}
-              activeClassName="bg-purple-500 font-semibold text-white"
-            >
-              Covil do Lich
-            </SealToggle>
-            <SealToggle
-              variant="pill"
-              active={filters.priceType === 'gratuita'}
-              onClick={() => updateFilter(setFilters, 'priceType', filters.priceType === 'gratuita' ? '' : 'gratuita')}
-            >
-              Gratuitas
-            </SealToggle>
-          </div>
         </div>
       </section>
-
-      {/* TRANSIÇÃO hero->toolbar: eyebrow de contexto (achado do mantenedor,
-          2026-07-18) — antes tinha um <h1> "Catálogo de Mesas" redundante com
-          o <h1> do hero acima (duas tags h1 na mesma página, quebra hierarquia
-          semântica) e um subtítulo que só repetia o que o hero já dizia melhor.
-          Vira <h2> real (subseção do hero, não título concorrente) + eyebrow
-          reaproveitando a mesma classe do hero, sinalizando "você saiu da
-          landing, entrou na área de navegação/filtro". Botão Limpar mantido. */}
-      <div className="relative overflow-hidden border-b border-[var(--line)] bg-[var(--surface)]">
-        <D20Glyph className="pointer-events-none absolute -right-10 -top-16 h-64 w-64 text-[var(--color-artificio-orange)]/[0.06] sm:h-80 sm:w-80" />
-        <div className="relative px-4 py-6 sm:px-6 sm:py-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <p className="eyebrow">◆ Catálogo</p>
-            {activeFiltersCount > 0 && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="hidden items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm font-semibold text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)] md:flex"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Limpar
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
 
       {systemsTreeError && (
         <section className="container mx-auto px-4 pt-10 pb-4 sm:px-6" aria-live="polite">
@@ -610,31 +534,26 @@ export const CatalogoPage = () => {
             >
               Covil do Lich
             </SealToggle>
+
+            {activeFiltersCount > 0 && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="ml-auto flex shrink-0 items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)]"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Limpar
+              </button>
+            )}
           </div>
 
-          {/* ESTILOS — linha própria com scroll horizontal (evita quebra de 48 botões) */}
-          {styleFacets.length > 0 && (
-            <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
-              <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--fg-muted)]">Estilos</span>
-              <div className="flex shrink-0 gap-2">
-                {styleFacets.map(({ style, count }) => (
-                  <button
-                    key={style}
-                    type="button"
-                    onClick={() => toggleStyle(style)}
-                    aria-pressed={filters.styles.includes(style)}
-                    className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs transition-all whitespace-nowrap ${
-                      filters.styles.includes(style)
-                        ? 'border-orange-500 bg-orange-500/20 text-orange-100'
-                        : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--line)] hover:bg-[var(--surface-strong)]'
-                    }`}
-                  >
-                    {style} <span className="text-[var(--fg-muted)]">({count})</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* ESTILOS — top N sempre visível (já vem ordenado por frequência do
+              backend) + popover com busca pro resto. Achado do mantenedor
+              (2026-07-18): scroll horizontal sem indicador visual pros 48
+              estilos lia como "quebrado". */}
+          <div className="mt-3">
+            <StyleFacetPicker facets={styleFacets} selected={filters.styles} onToggle={toggleStyle} />
+          </div>
         </div>
       </section>
 

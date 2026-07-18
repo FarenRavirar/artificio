@@ -308,7 +308,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
               Lotada
             </span>
           ) : (
-            <span className="rounded-md bg-black/55 px-2 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
+            <span className="rounded-md bg-[var(--surface-panel)]/85 px-2 py-1 text-[11px] font-bold text-[var(--fg)] backdrop-blur-sm">
               {slotsLeft} {slotsLeft === 1 ? 'vaga' : 'vagas'}
             </span>
           )}
@@ -321,9 +321,9 @@ export function TableCardComponent({ table }: { table: TableCard }) {
           disabled={isTogglingFavorite}
           aria-pressed={isFavorited}
           aria-label={isFavorited ? 'Remover dos favoritos' : 'Favoritar mesa'}
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg border border-white/20 bg-black/55 backdrop-blur-sm transition-colors hover:bg-black/70 hover:border-white/40 disabled:opacity-50"
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-panel)]/85 backdrop-blur-sm transition-colors hover:bg-[var(--surface-panel)] hover:border-[var(--border-strong)] disabled:opacity-50"
         >
-          <Bookmark className={`h-4 w-4 ${isFavorited ? 'fill-[var(--color-artificio-orange)] text-[var(--color-artificio-orange)]' : 'text-white'}`} />
+          <Bookmark className={`h-4 w-4 ${isFavorited ? 'fill-[var(--color-artificio-orange)] text-[var(--color-artificio-orange)]' : 'text-[var(--fg)]'}`} />
         </button>
 
         {table.featured && (
