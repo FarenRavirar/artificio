@@ -57,15 +57,17 @@ RUN rm /etc/nginx/conf.d/default.conf
 # Achado Snyk (spec 081, 2026-07-18): curl/libcurl e c-ares na imagem base
 # (alpine 3.23) tinham CVEs abertos (CVE-2026-6276 SSRF/cleartext alto,
 # CVE-2026-5773 SSRF, CVE-2026-7168 auth bypass, entre outros).
-# Versão fixada (nitpick Codex) em vez de --upgrade solto: confirmada via
-# `docker run --rm nginx:1.31-alpine apk info` (VM, 2026-07-18) — mirror
-# tem c-ares 1.34.8-r0 / curl+libcurl 8.20.0-r0 / expat 2.8.2-r0 corrigidos.
-# Build reprodutível; bump manual exigido a cada novo CVE (checar via apk
-# info na imagem real antes de trocar o número).
+# Versão fixada (nitpick Codex) em vez de --upgrade solto: pin original
+# (curl/libcurl=8.20.0-r0, VM aarch64, 2026-07-18) quebrou o deploy beta
+# (runner GH Actions é x86_64 e o mirror lá já tinha avançado o pacote pra
+# 8.21.0-r0 — "breaks: world[curl=8.20.0-r0]"). Corrigido pra 8.21.0-r0,
+# igual ao pin já usado em apps/mesas/backend/Dockerfile (esse passou no
+# mesmo deploy). Build reprodutível; bump manual exigido a cada novo CVE —
+# checar via apk info na imagem real (mesma arch do runner) antes de trocar.
 RUN apk add --no-cache --upgrade \
     libexpat=2.8.2-r0 \
-    curl=8.20.0-r0 \
-    libcurl=8.20.0-r0 \
+    curl=8.21.0-r0 \
+    libcurl=8.21.0-r0 \
     c-ares=1.34.8-r0
 
 COPY apps/mesas/frontend/nginx.conf /etc/nginx/templates/default.conf.template
