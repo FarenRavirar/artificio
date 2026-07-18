@@ -260,11 +260,13 @@ export const CatalogoPage = () => {
       setFilters(prev => ({
         ...prev,
         styles: prev.styles.filter((s) => s !== value),
+        page: 1,
       }));
     } else {
       setFilters(prev => ({
         ...prev,
         [key]: '',
+        page: 1,
       }));
     }
   };
@@ -307,7 +309,7 @@ export const CatalogoPage = () => {
 
   const handleSystemSelect = (systemId: string | null) => {
     if (!systemId) {
-      setFilters(prev => ({ ...prev, system: '' }));
+      setFilters(prev => ({ ...prev, system: '', page: 1 }));
       return;
     }
     const slug = systemsMap.get(systemId);
@@ -319,6 +321,7 @@ export const CatalogoPage = () => {
     setFilters(prev => ({
       ...prev,
       system: newSystem,
+      page: 1,
     }));
   };
 
@@ -668,7 +671,7 @@ export const CatalogoPage = () => {
               value={filters.search}
               onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
               placeholder="Buscar mesas..."
-              className="w-full rounded-lg bg-[#13213f] border border-white/10 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-[var(--color-artificio-orange)] transition-colors"
+              className="w-full rounded-lg bg-[var(--surface)] border border-[var(--line)] pl-9 pr-3 py-2.5 text-sm outline-none focus:border-[var(--color-artificio-orange)] transition-colors"
             />
           </div>
 
@@ -678,7 +681,7 @@ export const CatalogoPage = () => {
             error={systemsTreeError}
             selectedSystemId={selectedSystemId}
             idPrefix="catalog-mobile"
-            loadingClassName="bg-[#13213f]"
+            loadingClassName="bg-[var(--surface)]"
             onSelect={handleSystemSelect}
           />
         </div>
@@ -770,7 +773,7 @@ export const CatalogoPage = () => {
                 className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${
                   filters.styles.includes(style)
                     ? 'border-orange-500 bg-orange-500/20 text-orange-100'
-                    : 'border-white/10 bg-[#13213f] text-white/70'
+                    : 'border-[var(--line)] bg-[var(--surface)] text-white/70'
                 }`}
               >
                 {style} <span className="text-white/40">({count})</span>

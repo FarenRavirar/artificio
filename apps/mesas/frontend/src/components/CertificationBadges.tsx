@@ -20,13 +20,18 @@ export function CertificationBadges({ is_covil, is_ddal, className = '' }: Certi
 
   return (
     <div className={`flex flex-wrap gap-2 ${className}`}>
+      {/* Achado Codex (PR #182): fundo bg-black/70 é overlay sempre-escuro
+          (badge sobre banner/imagem), não remapeia com tema — usa hex
+          arbitrário em vez de text-purple-100/text-amber-100 pra escapar do
+          remap global de index.css (que trocaria a cor pra tom escuro em
+          light, quebrando contraste contra o preto fixo). */}
       {is_covil && (
-        <span className="px-2 py-1 rounded-md text-[11px] font-black tracking-wide text-purple-100 bg-black/70 backdrop-blur-sm border border-purple-500/40">
+        <span className="px-2 py-1 rounded-md text-[11px] font-black tracking-wide text-[#f3e8ff] bg-black/70 backdrop-blur-sm border border-purple-500/40">
           👑 Covil do Lich
         </span>
       )}
       {is_ddal && (
-        <span className="px-2 py-1 rounded-md text-[11px] font-black tracking-wide text-amber-100 bg-black/70 backdrop-blur-sm border border-amber-500/30">
+        <span className="px-2 py-1 rounded-md text-[11px] font-black tracking-wide text-[#fef3c7] bg-black/70 backdrop-blur-sm border border-amber-500/30">
           🛡️ DDAL
         </span>
       )}
