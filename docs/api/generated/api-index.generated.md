@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **365 operações**.
+Total: **370 operações**.
 
 ## accounts (11)
 
@@ -158,7 +158,7 @@ Total: **365 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (187)
+## mesas (192)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -271,6 +271,8 @@ Total: **365 operações**.
 | POST | `/api/v1/gm/{slug}/contact` | telemetry | none | active | — | Cria ou executa api v1 gm slug contact |
 | POST | `/api/v1/gm/{slug}/contact-click` | public | user | active | — | Cria ou executa api v1 gm slug contact-click |
 | GET | `/api/v1/gm/{slug}/insights` | public | user | active | — | Consulta api v1 gm slug insights |
+| GET | `/api/v1/gm/{slug}/reviews` | public | user | active | — | Consulta api v1 gm slug reviews |
+| POST | `/api/v1/gm/{slug}/reviews` | public | user | active | — | Cria ou executa api v1 gm slug reviews |
 | POST | `/api/v1/gm/{slug}/view` | telemetry | none | active | — | Cria ou executa api v1 gm slug view |
 | GET | `/api/v1/gm/insights` | public | user | active | — | Consulta api v1 gm insights |
 | GET | `/api/v1/gm/me` | public | user | active | — | Consulta api v1 gm me |
@@ -330,6 +332,9 @@ Total: **365 operações**.
 | GET | `/api/v1/tables` | public | none | active | — | Consulta api v1 tables |
 | GET | `/api/v1/tables/{slug}` | public | none | active | — | Consulta api v1 tables slug |
 | POST | `/api/v1/tables/{slug}/click` | telemetry | none | active | — | Cria ou executa api v1 tables slug click |
+| GET | `/api/v1/tables/{slug}/favorite` | telemetry | none | active | — | Consulta api v1 tables slug favorite |
+| POST | `/api/v1/tables/{slug}/favorite` | telemetry | none | active | — | Cria ou executa api v1 tables slug favorite |
+| POST | `/api/v1/tables/{slug}/report` | public | user | active | — | Cria ou executa api v1 tables slug report |
 | POST | `/api/v1/tables/{slug}/view` | telemetry | none | active | — | Cria ou executa api v1 tables slug view |
 | GET | `/api/v1/tables/style-facets` | public | none | active | — | Consulta api v1 tables style-facets |
 | POST | `/api/v1/upload` | public | user | active | — | Cria ou executa api v1 upload |

@@ -7,10 +7,10 @@
     "downloads": 50,
     "glossario": 49,
     "links": 22,
-    "mesas": 187,
+    "mesas": 192,
     "site": 46
   },
-  "total": 365,
+  "total": 370,
   "operations": [
     {
       "app": "accounts",
@@ -2923,6 +2923,30 @@
     },
     {
       "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/gm/{slug}/reviews",
+      "summary": "Consulta api v1 gm slug reviews",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "getapi_v1_gm_slug_reviews"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/gm/{slug}/reviews",
+      "summary": "Cria ou executa api v1 gm slug reviews",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_gm_slug_reviews"
+    },
+    {
+      "app": "mesas",
       "method": "POST",
       "path": "/api/v1/gm/{slug}/view",
       "summary": "Cria ou executa api v1 gm slug view",
@@ -3628,6 +3652,42 @@
       "auth": "none",
       "consumers": [],
       "operationId": "postapi_v1_tables_slug_click"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/tables/{slug}/favorite",
+      "summary": "Consulta api v1 tables slug favorite",
+      "owner": "mesas",
+      "scope": "telemetry",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_tables_slug_favorite"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/tables/{slug}/favorite",
+      "summary": "Cria ou executa api v1 tables slug favorite",
+      "owner": "mesas",
+      "scope": "telemetry",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "postapi_v1_tables_slug_favorite"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/tables/{slug}/report",
+      "summary": "Cria ou executa api v1 tables slug report",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_tables_slug_report"
     },
     {
       "app": "mesas",

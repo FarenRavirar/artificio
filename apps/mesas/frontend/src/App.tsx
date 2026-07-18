@@ -7,7 +7,6 @@ import { ConfirmProvider } from "@artificio/ui";
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppShell } from './components/AppShell';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { PainelMestrePage } from './pages/PainelMestrePage';
 import { OnboardingPage } from './pages/OnboardingPage';
@@ -48,7 +47,7 @@ function LegacyModeracaoRedirect() {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
+      <Route path="/" element={<CatalogoPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/catalogo" element={<CatalogoPage />} />
       <Route path="/busca" element={<Navigate to="/catalogo" replace />} />

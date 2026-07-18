@@ -19,7 +19,9 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
   const hasAnyTrust =
     (profile.tables_count ?? 0) > 0 ||
     profile.covil_verified ||
-    (profile.experience_years ?? 0) >= 3;
+    (profile.experience_years ?? 0) >= 3 ||
+    (profile.years_on_platform ?? 0) >= 1 ||
+    (profile.tables_hosted_count ?? 0) > 0;
 
   const scrollTo = (id: string) => () => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -131,6 +133,20 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
               <span className="trust-item">
                 <CheckCircle2 className="w-4 h-4" />
                 {profile.experience_years}+ anos de experiência
+              </span>
+            )}
+            {/* T9.1 (spec 081): calculado (created_at), rótulo distinto do
+                autodeclarado acima para não confundir os dois dados (achado D2). */}
+            {(profile.years_on_platform ?? 0) >= 1 && (
+              <span className="trust-item">
+                <CheckCircle2 className="w-4 h-4" />
+                Na plataforma desde {new Date(profile.created_at).getFullYear()}
+              </span>
+            )}
+            {(profile.tables_hosted_count ?? 0) > 0 && (
+              <span className="trust-item">
+                <CheckCircle2 className="w-4 h-4" />
+                {profile.tables_hosted_count} {profile.tables_hosted_count === 1 ? 'mesa hospedada' : 'mesas hospedadas'}
               </span>
             )}
           </div>

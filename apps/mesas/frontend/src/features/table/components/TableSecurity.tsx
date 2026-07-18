@@ -1,5 +1,6 @@
 import type { TableViewModel } from '../types/tableView.types';
 import { Shield, AlertTriangle } from 'lucide-react';
+import { getContentWarningDescription, getSafetyToolDescription } from '../../../utils/safetyToolsGlossary';
 
 interface TableSecurityProps {
   vm: TableViewModel;
@@ -31,15 +32,28 @@ export function TableSecurity({ vm }: TableSecurityProps) {
               <h3 className="font-semibold text-white">Avisos de Conteúdo</h3>
             </div>
             <div className="flex flex-wrap gap-2">
-              {vm.contentWarnings.map((warning, idx) => (
-                <span
-                  key={idx}
-                  className="px-3 py-1 rounded-full bg-yellow-500/20 text-yellow-300 text-xs font-medium"
-                >
-                  {warning}
-                </span>
-              ))}
+              {vm.contentWarnings.map((warning) => {
+                const description = getContentWarningDescription(warning);
+                return (
+                  <span
+                    key={warning}
+                    className="px-3 py-1 rounded-full bg-yellow-500/20 text-yellow-300 text-xs font-medium"
+                    title={description ?? undefined}
+                  >
+                    {warning}
+                  </span>
+                );
+              })}
             </div>
+            {/* Descrições completas abaixo (title de span não é acessível/visível no mobile) */}
+            {vm.contentWarnings.some((w) => getContentWarningDescription(w)) && (
+              <ul className="mt-2 space-y-1 text-xs text-white/50">
+                {vm.contentWarnings.map((warning) => {
+                  const description = getContentWarningDescription(warning);
+                  return description ? <li key={warning}><strong className="text-white/70">{warning}:</strong> {description}</li> : null;
+                })}
+              </ul>
+            )}
           </div>
         )}
 
@@ -51,15 +65,27 @@ export function TableSecurity({ vm }: TableSecurityProps) {
               <h3 className="font-semibold text-white">Ferramentas de Segurança</h3>
             </div>
             <div className="flex flex-wrap gap-2">
-              {vm.safetyTools.map((tool, idx) => (
-                <span
-                  key={idx}
-                  className="px-3 py-1 rounded-full bg-green-500/20 text-green-300 text-xs font-medium"
-                >
-                  {tool}
-                </span>
-              ))}
+              {vm.safetyTools.map((tool) => {
+                const description = getSafetyToolDescription(tool);
+                return (
+                  <span
+                    key={tool}
+                    className="px-3 py-1 rounded-full bg-green-500/20 text-green-300 text-xs font-medium"
+                    title={description ?? undefined}
+                  >
+                    {tool}
+                  </span>
+                );
+              })}
             </div>
+            {vm.safetyTools.some((t) => getSafetyToolDescription(t)) && (
+              <ul className="mt-2 space-y-1 text-xs text-white/50">
+                {vm.safetyTools.map((tool) => {
+                  const description = getSafetyToolDescription(tool);
+                  return description ? <li key={tool}><strong className="text-white/70">{tool}:</strong> {description}</li> : null;
+                })}
+              </ul>
+            )}
           </div>
         )}
       </div>

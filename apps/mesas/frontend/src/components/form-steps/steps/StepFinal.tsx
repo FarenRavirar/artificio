@@ -268,7 +268,7 @@ export function StepFinal(props: StepFinalProps) {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-white/70">Estilo de Jogo (opcional)</label>
+              <label className="text-sm font-medium text-white/70">Descrição do Estilo de Jogo (opcional)</label>
               <MarkdownEditor
                 value={props.styleText}
                 onChange={(text) => props.setStyleText(text.slice(0, 500))}
@@ -276,6 +276,13 @@ export function StepFinal(props: StepFinalProps) {
                 height={180}
               />
               <p className="text-xs text-white/40 text-right">{props.styleText.length}/500</p>
+              {/* T5.2 (spec 081): este campo é texto livre pro FLAVOR do estilo — não
+                  gera as pills de estilo do catálogo/filtro. Achado real: mestres
+                  confundiam com o campo abaixo ("Estilos/Temáticas") por nome
+                  quase idêntico e digitavam o estilo só aqui, sem pill aparecer. */}
+              <p className="text-xs text-amber-300/80 mt-1">
+                ⚠️ Isto é só um texto descritivo. Para os estilos aparecerem como filtro/tag no catálogo, use o campo <strong>"Estilos/Temáticas"</strong> logo abaixo.
+              </p>
             </div>
             
             <InputField

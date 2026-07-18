@@ -8,10 +8,10 @@ import { TableActionPanel } from '../features/table/components/TableActionPanel'
 import { TableHero } from '../features/table/components/TableHero';
 import { TableSchedules } from '../features/table/components/TableSchedules';
 import { TableContent } from '../features/table/components/TableContent';
-import { TableMaster } from '../features/table/components/TableMaster';
 import { TableSecurity } from '../features/table/components/TableSecurity';
 import { TableTechnical } from '../features/table/components/TableTechnical';
 import { MasterCard } from '../features/table/components/MasterCard';
+import { ReportTableButton } from '../features/table/components/ReportTableButton';
 import { useAuth } from '../contexts/useAuth'; // CORREÇÃO DT-026: Importar useAuth
 import { handleCTA, getButtonStyle } from '../features/table/utils/uiHelpers';
 import { trackSelectMesa } from '@artificio/analytics';
@@ -121,7 +121,11 @@ export const MesaPage = () => {
   const isOwner = !!(user && table && table.gm_user_id === user.id);
   const isAdmin = user?.role === 'admin';
   const canManage = isOwner || isAdmin;
-  const showMasterCard = table?.publisher_role === 'gm';
+  const isAnnouncerTable = table?.publisher_role === 'announcer';
+  // T6.2: card do mestre aparece também para mesa anunciada por terceiro,
+  // usando o que houver disponível (nome do mestre responsável, sem perfil/slug).
+  const masterCardName = isAnnouncerTable ? (vm?.actualGmName ?? vm?.masterName) : vm?.masterName;
+  const showMasterCard = Boolean(masterCardName);
 
   if (loading) {
     return (
@@ -151,36 +155,40 @@ export const MesaPage = () => {
 
   return (
     <main className="min-h-screen bg-[var(--color-artificio-blue)] text-white pb-16">
-      <header className="container mx-auto px-6 py-6 text-sm text-white/60">
-        <nav aria-label="breadcrumb" className="flex items-center gap-2">
-          <Link to="/" className="hover:text-white transition-colors" id="mesa-breadcrumb-home">Home</Link>
-          <span>›</span>
-          <Link to="/catalogo" className="hover:text-white transition-colors" id="mesa-breadcrumb-catalogo">Catálogo</Link>
-          <span>›</span>
-          <span className="text-white/85">{table.title}</span>
-        </nav>
-      </header>
-
       <section className="container mx-auto px-6">
         <article className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start">
           <div className="space-y-5">
+            {/* Breadcrumb 3 níveis (Home já é o catálogo pós-fusão T1) rente ao título (T4.1) */}
+            <nav aria-label="breadcrumb" className="flex items-center gap-2 text-sm text-white/60">
+              <Link to="/" className="hover:text-white transition-colors" id="mesa-breadcrumb-home">Home</Link>
+              <span>›</span>
+              {table.system_name ? (
+                <Link
+                  to={`/?system=${encodeURIComponent(table.system_slug ?? '')}`}
+                  className="hover:text-white transition-colors"
+                  id="mesa-breadcrumb-sistema"
+                >
+                  {table.system_name}
+                </Link>
+              ) : (
+                <span className="text-white/60">Sistema</span>
+              )}
+              <span>›</span>
+              <span className="text-white/85">{table.title}</span>
+            </nav>
+
+            {/* Título ANTES da imagem de capa (T4.2) */}
+            {vm && <h1 className="text-3xl font-black text-white">{vm.title}</h1>}
+
             {/* Fase 2.2: TableHero (substituindo hero section de 74 linhas) */}
             {/* showOverlay={false} = banner limpo (apenas imagem), informações estão na sidebar */}
             {vm && <TableHero vm={vm} variant="full" showOverlay={false} />}
-
-            {/* Achado do mantenedor 2026-07-14: showOverlay={false} não renderiza o
-                <h1> do TableHero (só existe com overlay=true) — título nunca aparecia
-                na MesaPage. Título dedicado abaixo do banner, acima dos horários. */}
-            {vm && <h1 className="text-3xl font-black text-white">{vm.title}</h1>}
 
             {/* Fase 2.3: TableSchedules (substituindo schedules section de 68 linhas) */}
             {vm && <TableSchedules vm={vm} />}
 
             {/* Fase 2.4: TableContent (substituindo seções de conteúdo narrativo) */}
             {vm && <TableContent vm={vm} />}
-
-            {/* Fase 2.5: TableMaster (substituindo seção do mestre) */}
-            {vm && <TableMaster vm={vm} />}
 
             {/* Fase 2.6: TableSecurity (substituindo seção de segurança) */}
             {vm && <TableSecurity vm={vm} />}
@@ -215,16 +223,25 @@ export const MesaPage = () => {
               />
             )}
 
-            {/* Card do Mestre */}
+            {/* Card do Mestre — unificado (T6.1/T6.2), aparece também em mesa de anunciante */}
             {vm && showMasterCard && (
               <MasterCard
-                masterName={vm.masterName}
-                masterSlug={vm.masterSlug}
-                masterAvatar={vm.masterAvatar}
-                masterBio={vm.masterBio}
-                masterVttPlatforms={vm.masterVttPlatforms}
+                masterName={masterCardName}
+                masterSlug={isAnnouncerTable ? undefined : vm.masterSlug}
+                masterAvatar={isAnnouncerTable ? undefined : vm.masterAvatar}
+                masterBio={isAnnouncerTable ? undefined : vm.masterBio}
+                masterVttPlatforms={isAnnouncerTable ? undefined : vm.masterVttPlatforms}
+                isCovilMember={vm.certifications.covil?.isMember}
+                isAnnouncer={isAnnouncerTable}
+                avgRating={isAnnouncerTable ? undefined : table.gm_avg_rating}
+                reviewsCount={isAnnouncerTable ? undefined : table.gm_reviews_count}
               />
             )}
+
+            {/* Denunciar mesa (T6.6) — separado do FAB de feedback do sistema */}
+            <div className="flex justify-center pt-1">
+              <ReportTableButton slug={table.slug} />
+            </div>
           </aside>
         </article>
       </section>

@@ -9,6 +9,9 @@ import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { upgradeGoogleImageQuality } from '../utils/urlValidation.js';
 import { getSystemCatalogProvider, hydrateTableSystemFields } from '../services/systemCatalogProvider.js';
 import { processPendingLinks } from '../scripts/processLinkMetadataJobs.js';
+import { logDatabaseError } from '../middleware/requestLogger.js';
+import { GM_REVIEW_TAGS } from '../db/types.js';
+import type { GmReviewTag } from '../db/types.js';
 
 const router = Router();
 
@@ -122,6 +125,13 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
         'gm.closed_group_description',
         'gm.closed_group_min_price_cents',
         sql<number>`(SELECT COUNT(*)::int FROM tables WHERE gm_id = gm.id AND status = 'active')`.as('tables_count'),
+        // T9.1 (spec 081): "mesas hospedadas" = total histórico (inclui encerradas/canceladas),
+        // diferente de tables_count acima (só ativas, usado na sidebar de detalhes rápidos).
+        sql<number>`(SELECT COUNT(*)::int FROM tables WHERE gm_id = gm.id)`.as('tables_hosted_count'),
+        // T9.1: "anos na plataforma" — calculado via created_at do perfil GM, DIFERENTE
+        // de gm.experience_years (autodeclarado pelo mestre no formulário, achado D2
+        // da investigação): não fundir os dois campos na UI.
+        sql<number>`GREATEST(0, EXTRACT(YEAR FROM AGE(NOW(), gm.created_at))::int)`.as('years_on_platform'),
         'gm.avg_rating',
         'gm.reviews_count',
         'gm.created_at',
@@ -574,6 +584,141 @@ router.post('/:slug/contact-click', publicRateLimiter, async (req: Request, res:
   } catch (error) {
     console.error('[POST /gm/:slug/contact-click]', error);
     res.status(500).json({ error: 'Erro ao registrar clique.' });
+  }
+});
+
+// GET /api/v1/gm/:slug/reviews — Lista completa de reviews individuais + agregação (T8, spec 081)
+router.get('/:slug/reviews', publicRateLimiter, async (req: Request, res: Response) => {
+  const { slug } = req.params;
+
+  try {
+    const gm = await db
+      .selectFrom('gm_profiles')
+      .select(['user_id'])
+      .where('slug', '=', slug)
+      .executeTakeFirst();
+
+    if (!gm) {
+      return res.status(404).json({ error: 'Mestre não encontrado.' });
+    }
+
+    const reviews = await db
+      .selectFrom('gm_reviews as r')
+      .innerJoin('users as u', 'u.id', 'r.author_user_id')
+      .innerJoin('profiles as p', 'p.user_id', 'u.id')
+      .select([
+        'r.id',
+        'r.rating',
+        'r.tags',
+        'r.comment',
+        'r.created_at',
+        'p.display_name as author_name',
+        'p.avatar_url as author_avatar',
+      ])
+      .where('r.gm_user_id', '=', gm.user_id)
+      .orderBy('r.created_at', 'desc')
+      .execute();
+
+    res.json({ data: reviews });
+  } catch (error) {
+    logDatabaseError(req, error, { route: '/gm/:slug/reviews', operation: 'select' });
+    res.status(500).json({ error: 'Erro ao buscar reviews.' });
+  }
+});
+
+// POST /api/v1/gm/:slug/reviews — Cria/atualiza review (upsert, só usuário logado, T8, spec 081)
+router.post('/:slug/reviews', authRateLimiter, authMiddleware, async (req: Request, res: Response) => {
+  const { slug } = req.params;
+  const authorUserId = req.user!.userId;
+
+  // Body tratado como unknown até normalização — achado Codex (PR spec 081).
+  const rawBody: unknown = req.body;
+  const body = rawBody && typeof rawBody === 'object' ? (rawBody as Record<string, unknown>) : {};
+  const rating = typeof body.rating === 'number' ? body.rating : undefined;
+  const tags = Array.isArray(body.tags) ? body.tags : undefined;
+  const comment = typeof body.comment === 'string' ? body.comment : undefined;
+
+  if (typeof rating !== 'number' || rating < 1 || rating > 5 || !Number.isInteger(rating)) {
+    return res.status(400).json({ error: 'Nota inválida (1 a 5).' });
+  }
+
+  const validTags = Array.isArray(tags) ? tags.filter((t): t is GmReviewTag => GM_REVIEW_TAGS.includes(t as GmReviewTag)) : [];
+
+  if (comment !== undefined && (typeof comment !== 'string' || comment.length > 2000)) {
+    return res.status(400).json({ error: 'Comentário inválido (máximo 2000 caracteres).' });
+  }
+
+  try {
+    const gm = await db
+      .selectFrom('gm_profiles')
+      .select(['user_id'])
+      .where('slug', '=', slug)
+      .executeTakeFirst();
+
+    if (!gm) {
+      return res.status(404).json({ error: 'Mestre não encontrado.' });
+    }
+
+    if (gm.user_id === authorUserId) {
+      return res.status(400).json({ error: 'Não é possível avaliar a si mesmo.' });
+    }
+
+    // Transação com lock de linha (achado Codex): serializa upsert + recálculo
+    // de agregado + update do perfil, evitando race entre reviews concorrentes
+    // do mesmo GM produzirem avg_rating/reviews_count inconsistentes.
+    const { avgRating, reviewsCount } = await db.transaction().execute(async (trx) => {
+      await trx
+        .selectFrom('gm_profiles')
+        .select(['user_id'])
+        .where('user_id', '=', gm.user_id)
+        .forUpdate()
+        .executeTakeFirst();
+
+      await trx
+        .insertInto('gm_reviews')
+        .values({
+          gm_user_id: gm.user_id,
+          author_user_id: authorUserId,
+          rating,
+          tags: validTags,
+          comment: comment?.trim() || null,
+        })
+        .onConflict((oc) => oc.columns(['gm_user_id', 'author_user_id']).doUpdateSet({
+          rating,
+          tags: validTags,
+          comment: comment?.trim() || null,
+          updated_at: sql`NOW()`,
+        }))
+        .execute();
+
+      const agg = await trx
+        .selectFrom('gm_reviews')
+        .select([
+          // Achado Codex (PR spec 081): AVG(...)::numeric volta como string com o
+          // parser pg default (db/index.ts); ::float8 força number real, evitando
+          // profile.avg_rating!.toFixed(1) quebrar no frontend com string.
+          sql<number>`ROUND(AVG(rating)::numeric, 2)::float8`.as('avg_rating'),
+          sql<number>`COUNT(*)::int`.as('reviews_count'),
+        ])
+        .where('gm_user_id', '=', gm.user_id)
+        .executeTakeFirst();
+
+      await trx
+        .updateTable('gm_profiles')
+        .set({
+          avg_rating: agg?.avg_rating ?? null,
+          reviews_count: agg?.reviews_count ?? 0,
+        })
+        .where('user_id', '=', gm.user_id)
+        .execute();
+
+      return { avgRating: agg?.avg_rating ?? null, reviewsCount: agg?.reviews_count ?? 0 };
+    });
+
+    res.status(201).json({ success: true, avg_rating: avgRating, reviews_count: reviewsCount });
+  } catch (error) {
+    logDatabaseError(req, error, { route: '/gm/:slug/reviews', operation: 'upsert' });
+    res.status(500).json({ error: 'Erro ao salvar review.' });
   }
 });
 

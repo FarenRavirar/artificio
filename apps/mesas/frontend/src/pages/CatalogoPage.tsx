@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { RotateCcw, Search, ShieldCheck, Star, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { RotateCcw, Search, ShieldCheck, Star, SlidersHorizontal, Megaphone } from 'lucide-react';
 import { TableCardComponent, TableCardSkeleton } from '../components/TableCard';
 import { FilterDrawer } from '../components/FilterDrawer';
 import { ActiveFiltersChips } from '../components/ActiveFiltersChips';
@@ -9,11 +9,13 @@ import { SystemPicker } from '../components/SystemPicker';
 import { D20Glyph } from '../components/D20Glyph';
 import type { CatalogSeal, TableCard } from '../types/tables';
 import { applySeo } from '../utils/seo';
-import { useCatalogTables } from '../hooks/useCatalogTables';
+import { useInfiniteCatalogTables } from '../hooks/useInfiniteCatalogTables';
 import { useCatalogFilters } from '../hooks/useCatalogFilters';
 import { useStyleFacets } from '../hooks/useStyleFacets';
 import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
 import { trackFilterSistema } from '@artificio/analytics';
+import { useAuth } from '../contexts/useAuth';
+import { startSsoLogin } from '../utils/auth';
 import type { SystemTreeNode } from '../types/systems';
 import type {
   CatalogFilters,
@@ -44,7 +46,10 @@ const updateFilter = <K extends keyof CatalogFilters>(
   key: K,
   value: CatalogFilters[K]
 ) => {
-  setFilters((prev) => ({ ...prev, [key]: value }));
+  // Achado Codex: qualquer mutação de filtro (exceto page em si) precisa
+  // resetar page=1 — com scroll infinito acumulando resultados client-side,
+  // trocar filtro sem resetar busca a página N do filtro antigo com o filtro novo.
+  setFilters((prev) => ({ ...prev, [key]: value, ...(key === 'page' ? {} : { page: 1 }) }));
 };
 
 type CatalogSystemFilterProps = Readonly<{
@@ -113,6 +118,7 @@ const CatalogEmptyState = ({ activeFiltersCount, onClearFilters }: CatalogEmptyS
     <p className="text-sm text-white/50 mb-6">Ajuste sistema, modalidade ou estilo, ou limpe os filtros para ver todo o catálogo</p>
     {activeFiltersCount > 0 && (
       <button
+        type="button"
         onClick={onClearFilters}
         className="bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] px-6 py-3 rounded-lg font-semibold transition-colors"
       >
@@ -121,6 +127,8 @@ const CatalogEmptyState = ({ activeFiltersCount, onClearFilters }: CatalogEmptyS
     )}
   </div>
 );
+
+const SUGGESTIONS = ['D&D 5e', 'Ordem Paranormal', 'Vampiro', 'Tormenta'];
 
 const renderTableCards = (isLoading: boolean, tables: TableCard[]): ReactNode => {
   if (isLoading) {
@@ -131,7 +139,10 @@ const renderTableCards = (isLoading: boolean, tables: TableCard[]): ReactNode =>
 };
 
 export const CatalogoPage = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [searchParams] = useSearchParams();
+  const [heroSearchInput, setHeroSearchInput] = useState('');
 
   // STATE - URL-driven filters (hook genérico)
   const [filters, setFilters] = useCatalogFilters();
@@ -178,15 +189,51 @@ export const CatalogoPage = () => {
   // DATA - React Query
   // ============================================================================
   
-  const { tables, pagination, isLoading, isRefreshing, error } = useCatalogTables(filters, searchParams.toString());
+  const { tables, pagination, isLoading, isRefreshing, error } = useInfiniteCatalogTables(filters, searchParams.toString());
 
   const totalCount = useMemo(() => {
     if (!pagination) return 0;
     if (pagination.total !== undefined) return pagination.total;
-    return (filters.page - 1) * 24 + tables.length;
-  }, [pagination, filters.page, tables.length]);
+    return tables.length;
+  }, [pagination, tables.length]);
 
   const hasMore = pagination?.hasMore ?? false;
+
+  // Sentinela de scroll infinito — carrega próxima página ao entrar em viewport
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  // Achado Codex: observer (viewport) e botão fallback podiam disparar
+  // avanço de página simultaneamente — trava com ref até o fetch assentar
+  // em isLoading/isRefreshing (sinal de que a página nova já chegou).
+  const isAdvancingPageRef = useRef(false);
+
+  useEffect(() => {
+    if (!isLoading && !isRefreshing) {
+      isAdvancingPageRef.current = false;
+    }
+  }, [isLoading, isRefreshing]);
+
+  const loadNextPage = useCallback(() => {
+    if (isAdvancingPageRef.current || !hasMore || isLoading || isRefreshing) return;
+    isAdvancingPageRef.current = true;
+    setFilters(prev => ({ ...prev, page: prev.page + 1 }));
+  }, [hasMore, isLoading, isRefreshing, setFilters]);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !hasMore || isLoading || isRefreshing) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadNextPage();
+        }
+      },
+      { rootMargin: '400px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, isRefreshing, loadNextPage]);
 
   // ============================================================================
   // HANDLERS
@@ -227,6 +274,7 @@ export const CatalogoPage = () => {
       styles: prev.styles.includes(style)
         ? prev.styles.filter((s) => s !== style)
         : [...prev.styles, style],
+      page: 1,
     }));
   };
 
@@ -234,7 +282,26 @@ export const CatalogoPage = () => {
     setFilters(prev => ({
       ...prev,
       seal: prev.seal === seal ? '' : seal,
+      page: 1,
     }));
+  };
+
+  const handleHeroSearch = () => {
+    const term = heroSearchInput.trim();
+    setFilters(prev => ({ ...prev, search: term, page: 1 }));
+  };
+
+  const handleHeroSuggestionClick = (suggestion: string) => {
+    setHeroSearchInput(suggestion);
+    setFilters(prev => ({ ...prev, search: suggestion, page: 1 }));
+  };
+
+  const handleAnnounceTable = () => {
+    if (isAuthenticated) {
+      navigate('/painel?action=nova-mesa');
+    } else {
+      startSsoLogin('/painel?action=nova-mesa');
+    }
   };
 
   const handleSystemSelect = (systemId: string | null) => {
@@ -303,10 +370,124 @@ export const CatalogoPage = () => {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-gradient-to-b from-[#0B1220] to-[#13213f] text-white">
+      {/* HERO */}
+      <section className="relative w-full overflow-hidden py-16 lg:py-20">
+        <div className="orange-glow" />
+        <div className="container relative z-10 mx-auto space-y-6 px-6 text-center">
+          <p className="eyebrow">
+            ◆ {totalCount}+ mesas abertas · comunidade Artifício RPG
+          </p>
+
+          <h1 className="text-4xl font-extrabold tracking-tight lg:text-6xl">
+            Encontre uma mesa de RPG em{' '}
+            <span className="text-[var(--color-artificio-orange)]">30 segundos</span>
+          </h1>
+
+          <p className="mx-auto max-w-xl text-base leading-relaxed text-white/70">
+            D&amp;D, Tormenta, Vampiro e dezenas de outros sistemas. Online ou presencial.
+            De mestres da comunidade Artifício e parceiros.
+          </p>
+
+          <div className="glass mx-auto mt-6 flex max-w-2xl items-center rounded-full p-2 shadow-2xl transition-all focus-within:ring-2 focus-within:ring-[var(--color-artificio-orange)]/50">
+            <Search className="ml-4 hidden h-6 w-6 text-white/50 sm:block" />
+            <input
+              id="input-busca-mesas"
+              type="text"
+              aria-label="Buscar mesas"
+              value={heroSearchInput}
+              onChange={(e) => setHeroSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleHeroSearch()}
+              placeholder="Ex: D&D, Vampiro, Mesa iniciante..."
+              className="flex-1 border-none bg-transparent px-4 py-3 text-white placeholder-white/50 outline-none"
+            />
+            <button
+              id="btn-buscar-mesas"
+              type="button"
+              onClick={handleHeroSearch}
+              className="cursor-pointer rounded-full bg-[var(--color-artificio-orange)] px-6 py-3 font-semibold text-white transition-colors duration-200 hover:bg-[var(--color-artificio-orange-hover)]"
+            >
+              Buscar
+            </button>
+          </div>
+
+          <div className="mt-4 flex justify-center">
+            <button
+              id="btn-anunciar-mesa-home"
+              type="button"
+              onClick={handleAnnounceTable}
+              className="flex cursor-pointer items-center gap-2 rounded-full bg-[var(--color-artificio-orange)] px-5 py-3 font-semibold text-white transition-colors duration-200 hover:bg-[var(--color-artificio-orange-hover)]"
+            >
+              <Megaphone className="h-5 w-5" />
+              Anunciar Mesa
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {SUGGESTIONS.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => handleHeroSuggestionClick(item)}
+                className="rounded-full bg-white/10 px-3 py-1 text-sm transition-colors hover:bg-white/20"
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => toggleSeal('' as CatalogSeal)}
+              aria-pressed={filters.seal === ''}
+              className={`rounded-full px-3 py-1 text-xs transition-colors ${
+                filters.seal === ''
+                  ? 'bg-[var(--color-artificio-orange)] font-semibold text-white'
+                  : 'bg-white/10 text-white/70 hover:bg-white/20'
+              }`}
+            >
+              Todas as mesas
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleSeal('ddal')}
+              aria-pressed={filters.seal === 'ddal'}
+              className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs transition-colors ${
+                filters.seal === 'ddal'
+                  ? 'bg-amber-500 font-semibold text-white'
+                  : 'bg-white/10 text-white/70 hover:bg-white/20'
+              }`}
+            >
+              🛡️ DDAL
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleSeal('covil-do-lich')}
+              aria-pressed={filters.seal === 'covil-do-lich'}
+              className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs transition-colors ${
+                filters.seal === 'covil-do-lich'
+                  ? 'bg-purple-500 font-semibold text-white'
+                  : 'bg-white/10 text-white/70 hover:bg-white/20'
+              }`}
+            >
+              👑 Covil do Lich
+            </button>
+            <button
+              type="button"
+              onClick={() => updateFilter(setFilters, 'priceType', filters.priceType === 'gratuita' ? '' : 'gratuita')}
+              aria-pressed={filters.priceType === 'gratuita'}
+              className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/70 transition-colors hover:bg-white/20"
+            >
+              Gratuitas
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* HEADER */}
       <div className="relative overflow-hidden border-b border-white/10 bg-[#0B1220]">
         <D20Glyph className="pointer-events-none absolute -right-10 -top-16 h-64 w-64 text-[var(--color-artificio-orange)]/[0.06] sm:h-80 sm:w-80" />
-        <div className="container relative mx-auto px-4 py-12 sm:px-6 sm:py-16">
+        <div className="relative px-4 py-12 sm:px-6 sm:py-16">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-artificio-orange)]">
@@ -315,18 +496,16 @@ export const CatalogoPage = () => {
               <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl">Catálogo de Mesas</h1>
               <p className="mt-2.5 text-sm text-white/60">Encontre a mesa perfeita para você</p>
             </div>
-            <div className="flex items-center gap-3 text-xs text-white/50">
-              <span>{totalCount} {totalCount === 1 ? 'mesa encontrada' : 'mesas encontradas'}</span>
-              {activeFiltersCount > 0 && (
-                <button
-                  onClick={clearFilters}
-                  className="hidden items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 md:flex"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Limpar
-                </button>
-              )}
-            </div>
+            {activeFiltersCount > 0 && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="hidden items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 md:flex"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Limpar
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -347,63 +526,24 @@ export const CatalogoPage = () => {
         </section>
       )}
 
-      {/* FILTROS - DESKTOP */}
+      {/* FILTROS - DESKTOP (barra horizontal única, full-bleed) */}
       <section className="hidden border-b border-white/10 bg-[#0B1220]/40 md:block">
-        <div className="container mx-auto px-6 py-10">
-          <div className="grid gap-4">
-
-            {/* GAVETA 1 — refinamento por atributo da mesa (compacto, acima) */}
-            <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Refinar</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={filters.modality}
-                  onChange={(e) => updateFilter(setFilters, 'modality', pickOptionalOption(e.target.value, VALID_MODALITIES))}
-                  className="app-select py-2.5"
-                >
-                  <option value="">Modalidade</option>
-                  <option value="online">Online</option>
-                  <option value="presencial">Presencial</option>
-                  <option value="hibrida">Híbrida</option>
-                </select>
-
-                <select
-                  value={filters.priceType}
-                  onChange={(e) => updateFilter(setFilters, 'priceType', pickOptionalOption(e.target.value, VALID_PRICE_TYPES))}
-                  className="app-select py-2.5"
-                >
-                  <option value="">Preço</option>
-                  <option value="gratuita">Gratuita</option>
-                  <option value="paga">Paga</option>
-                </select>
-
-                <select
-                  value={filters.experience}
-                  onChange={(e) => updateFilter(setFilters, 'experience', pickOptionalOption(e.target.value, VALID_EXPERIENCE_LEVELS))}
-                  className="app-select py-2.5"
-                >
-                  <option value="">Nível</option>
-                  <option value="iniciante">Iniciante</option>
-                  <option value="intermediario">Intermediário</option>
-                  <option value="veterano">Veterano</option>
-                </select>
-              </div>
+        <div className="px-6 py-5">
+          <div className="flex flex-wrap items-center gap-3 overflow-x-auto pb-1">
+            <div className="relative min-w-[220px]">
+              <label htmlFor="catalog-desktop-search" className="sr-only">Buscar mesas</label>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+              <input
+                id="catalog-desktop-search"
+                type="text"
+                value={filters.search}
+                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
+                placeholder="Buscar mesas..."
+                className="w-full rounded-lg border border-white/10 bg-[#0B1220] py-2.5 pl-9 pr-3 text-sm outline-none transition-colors focus:border-[var(--color-artificio-orange)]"
+              />
             </div>
 
-            {/* GAVETA 2 — busca + sistema (ocupa a largura toda: árvore de sistema precisa de espaço) */}
-            <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Buscar</p>
-              <div className="relative mb-3">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-                <input
-                  type="text"
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  placeholder="Buscar mesas..."
-                  className="w-full rounded-lg border border-white/10 bg-[#0B1220] py-2.5 pl-9 pr-3 text-sm outline-none transition-colors focus:border-[var(--color-artificio-orange)]"
-                />
-              </div>
-
+            <div className="min-w-[180px] shrink-0">
               <CatalogSystemFilter
                 tree={systemsTree}
                 loading={systemsLoading}
@@ -415,66 +555,102 @@ export const CatalogoPage = () => {
               />
             </div>
 
-            {/* GAVETA 3 — selos (curados) e estilos (livres, com contagem) */}
-            <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4">
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Selos</span>
+            <label htmlFor="catalog-desktop-modality" className="sr-only">Modalidade</label>
+            <select
+              id="catalog-desktop-modality"
+              value={filters.modality}
+              onChange={(e) => updateFilter(setFilters, 'modality', pickOptionalOption(e.target.value, VALID_MODALITIES))}
+              className="app-select shrink-0 py-2.5"
+            >
+              <option value="">Modalidade</option>
+              <option value="online">Online</option>
+              <option value="presencial">Presencial</option>
+              <option value="hibrida">Híbrida</option>
+            </select>
+
+            <label htmlFor="catalog-desktop-price" className="sr-only">Preço</label>
+            <select
+              id="catalog-desktop-price"
+              value={filters.priceType}
+              onChange={(e) => updateFilter(setFilters, 'priceType', pickOptionalOption(e.target.value, VALID_PRICE_TYPES))}
+              className="app-select shrink-0 py-2.5"
+            >
+              <option value="">Preço</option>
+              <option value="gratuita">Gratuita</option>
+              <option value="paga">Paga</option>
+            </select>
+
+            <label htmlFor="catalog-desktop-experience" className="sr-only">Nível de experiência</label>
+            <select
+              id="catalog-desktop-experience"
+              value={filters.experience}
+              onChange={(e) => updateFilter(setFilters, 'experience', pickOptionalOption(e.target.value, VALID_EXPERIENCE_LEVELS))}
+              className="app-select shrink-0 py-2.5"
+            >
+              <option value="">Nível</option>
+              <option value="iniciante">Iniciante</option>
+              <option value="intermediario">Intermediário</option>
+              <option value="veterano">Veterano</option>
+            </select>
+
+            <div className="h-6 w-px shrink-0 bg-white/10" />
+
+            <button
+              type="button"
+              onClick={() => toggleSeal('ddal')}
+              aria-pressed={filters.seal === 'ddal'}
+              className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap ${
+                filters.seal === 'ddal'
+                  ? 'border-amber-300/50 bg-amber-500/20 text-amber-100'
+                  : 'border-white/10 bg-[#0B1220] text-white/70 hover:border-white/20 hover:bg-white/5'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" /> DDAL
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleSeal('covil-do-lich')}
+              aria-pressed={filters.seal === 'covil-do-lich'}
+              className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap ${
+                filters.seal === 'covil-do-lich'
+                  ? 'border-purple-300/50 bg-purple-500/20 text-purple-100'
+                  : 'border-white/10 bg-[#0B1220] text-white/70 hover:border-white/20 hover:bg-white/5'
+              }`}
+            >
+              <Star className="w-3.5 h-3.5" /> Covil do Lich
+            </button>
+          </div>
+
+          {/* ESTILOS — linha própria com scroll horizontal (evita quebra de 48 botões) */}
+          {styleFacets.length > 0 && (
+            <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+              <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Estilos</span>
+              <div className="flex shrink-0 gap-2">
+                {styleFacets.map(({ style, count }) => (
                   <button
+                    key={style}
                     type="button"
-                    onClick={() => toggleSeal('ddal')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all whitespace-nowrap ${
-                      filters.seal === 'ddal'
-                        ? 'border-amber-300/50 bg-amber-500/20 text-amber-100'
+                    onClick={() => toggleStyle(style)}
+                    aria-pressed={filters.styles.includes(style)}
+                    className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs transition-all whitespace-nowrap ${
+                      filters.styles.includes(style)
+                        ? 'border-orange-500 bg-orange-500/20 text-orange-100'
                         : 'border-white/10 bg-[#0B1220] text-white/70 hover:border-white/20 hover:bg-white/5'
                     }`}
                   >
-                    <ShieldCheck className="w-3.5 h-3.5" /> DDAL
+                    {style} <span className="text-white/40">({count})</span>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => toggleSeal('covil-do-lich')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all whitespace-nowrap ${
-                      filters.seal === 'covil-do-lich'
-                        ? 'border-purple-300/50 bg-purple-500/20 text-purple-100'
-                        : 'border-white/10 bg-[#0B1220] text-white/70 hover:border-white/20 hover:bg-white/5'
-                    }`}
-                  >
-                    <Star className="w-3.5 h-3.5" /> Covil do Lich
-                  </button>
-                </div>
-
-                {styleFacets.length > 0 && (
-                  <>
-                    <div className="hidden h-6 w-px bg-white/10 sm:block" />
-                    <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Estilos</span>
-                      {styleFacets.map(({ style, count }) => (
-                        <button
-                          key={style}
-                          type="button"
-                          onClick={() => toggleStyle(style)}
-                          className={`px-3 py-1.5 rounded-lg border text-xs transition-all whitespace-nowrap ${
-                            filters.styles.includes(style)
-                              ? 'border-orange-500 bg-orange-500/20 text-orange-100'
-                              : 'border-white/10 bg-[#0B1220] text-white/70 hover:border-white/20 hover:bg-white/5'
-                          }`}
-                        >
-                          {style} <span className="text-white/40">({count})</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
+                ))}
               </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 
       {/* BOTÃO FILTROS - MOBILE (acima do FAB de feedback, que fica em bottom-5) */}
       <button
+        type="button"
         onClick={() => setIsFilterOpen(true)}
         className="fixed bottom-20 right-4 z-30 flex items-center gap-2 rounded-full bg-[var(--color-artificio-orange)] px-5 py-3 font-bold text-white shadow-lg transition-colors hover:bg-[var(--color-artificio-orange-hover)] md:hidden"
       >
@@ -497,11 +673,13 @@ export const CatalogoPage = () => {
         {/* BLOCO 1 — busca textual + sistema (filtros primários) */}
         <div className="space-y-3">
           <div className="relative">
+            <label htmlFor="catalog-mobile-search" className="sr-only">Buscar mesas</label>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
             <input
+              id="catalog-mobile-search"
               type="text"
               value={filters.search}
-              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
               placeholder="Buscar mesas..."
               className="w-full rounded-lg bg-[#13213f] border border-white/10 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-[var(--color-artificio-orange)] transition-colors"
             />
@@ -620,7 +798,7 @@ export const CatalogoPage = () => {
       </FilterDrawer>
 
       {/* CONTEÚDO */}
-      <section className="container mx-auto px-4 py-8 sm:px-6 lg:py-10">
+      <section className="px-4 py-8 sm:px-6 lg:py-10">
         {/* LINHA DE CONTEXTO */}
         <div className="mb-6 space-y-4">
           {isRefreshing && (
@@ -660,6 +838,7 @@ export const CatalogoPage = () => {
           <div className="mb-6 flex flex-col gap-3 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-200 sm:flex-row sm:items-center sm:justify-between">
             <span>{error}</span>
             <button
+              type="button"
               onClick={() => window.location.reload()}
               className="px-3 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-sm font-semibold transition-colors"
             >
@@ -678,35 +857,20 @@ export const CatalogoPage = () => {
               {tableCards}
             </div>
 
-            {/* PAGINATION */}
-            {!isLoading && tables.length > 0 && (filters.page > 1 || hasMore) && (
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-2 pb-20 md:pb-0">
-                <button
-                  onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
-                  disabled={filters.page === 1}
-                  className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="Página anterior"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-
-                <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-lg border border-white/10 bg-white/5">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-white/70">Página</span>
-                    <span className="font-semibold text-white">{filters.page}</span>
-                    {hasMore && <span className="text-white/50">de muitas</span>}
-                  </div>
-                  <span className="text-xs text-white/50">{tables.length} resultados nesta página</span>
-                </div>
-
-                <button
-                  onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
-                  disabled={!hasMore}
-                  className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="Próxima página"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
+            {/* SCROLL INFINITO — sentinela invisível + fallback manual */}
+            {!isLoading && tables.length > 0 && hasMore && (
+              <div ref={sentinelRef} className="mt-8 flex justify-center pb-20 md:pb-0">
+                {isRefreshing ? (
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={loadNextPage}
+                    className="rounded-lg border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                  >
+                    Carregar mais mesas
+                  </button>
+                )}
               </div>
             )}
           </>

@@ -135,7 +135,7 @@ export const SettingStylesField: React.FC<SettingStylesFieldProps> = ({
 
       <div className="form-group">
         <label htmlFor="setting-styles">
-          Estilos/Temáticas <span className="optional">(opcional)</span>
+          Estilos/Temáticas <span className="optional">(opcional — aparece como filtro/tag no catálogo)</span>
         </label>
 
         {/* CORREÇÃO DT-23: Indicação visual quando campo está vazio */}
