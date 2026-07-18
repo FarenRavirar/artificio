@@ -295,6 +295,8 @@ router.get('/', async (req: Request, res: Response) => {
         .select(['table_id', 'day_of_week', 'start_time', 'frequency', 'sort_order'])
         .where('table_id', 'in', tableIds)
         .orderBy('sort_order', 'asc')
+        .orderBy('day_of_week', 'asc')
+        .orderBy('start_time', 'asc')
         .execute();
 
       const nextScheduleByTable = new Map<string, { day_of_week: string; start_time: string; frequency: string }>();
