@@ -286,9 +286,32 @@ router.get('/', async (req: Request, res: Response) => {
         });
       }
 
+      // T3.4 (spec 081): dia/horário da próxima sessão no card do catálogo.
+      // Schedules são recorrentes (day_of_week + start_time), sem data absoluta —
+      // não há "próxima ocorrência" calculável no banco; expõe o primeiro
+      // horário configurado (menor sort_order) como representativo do padrão da mesa.
+      const schedules = await db
+        .selectFrom('table_schedules')
+        .select(['table_id', 'day_of_week', 'start_time', 'frequency', 'sort_order'])
+        .where('table_id', 'in', tableIds)
+        .orderBy('sort_order', 'asc')
+        .execute();
+
+      const nextScheduleByTable = new Map<string, { day_of_week: string; start_time: string; frequency: string }>();
+      for (const schedule of schedules) {
+        if (!nextScheduleByTable.has(schedule.table_id)) {
+          nextScheduleByTable.set(schedule.table_id, {
+            day_of_week: schedule.day_of_week,
+            start_time: schedule.start_time,
+            frequency: schedule.frequency,
+          });
+        }
+      }
+
       tablesWithContacts = publicTables.map((table) => ({
         ...table,
         contacts: contactsByTable.get(table.id) ?? [],
+        next_schedule: nextScheduleByTable.get(table.id) ?? null,
       }));
     }
 
