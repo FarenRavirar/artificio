@@ -2367,7 +2367,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 120
+      "line": 221
     },
     {
       "app": "mesas-frontend",
@@ -2397,7 +2397,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 129
+      "line": 230
     },
     {
       "app": "mesas-frontend",

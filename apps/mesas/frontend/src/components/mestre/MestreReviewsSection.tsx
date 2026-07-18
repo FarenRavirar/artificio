@@ -6,7 +6,7 @@ import { startSsoLogin } from '../../utils/auth';
 import toast from 'react-hot-toast';
 
 interface MestreReviewsSectionProps {
-  slug: string;
+  readonly slug: string;
 }
 
 // Achado Codex: resposta de /reviews é unknown até validada — normaliza cada

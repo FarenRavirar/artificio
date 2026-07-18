@@ -46,7 +46,8 @@ RUN apk add --no-cache --upgrade \
     libcurl=8.21.0-r0 \
     c-ares=1.34.8-r0 \
     libexpat=2.8.2-r0 \
-  && apk add --no-cache vips-dev fftw-dev build-base icu-libs icu-data-full tzdata libstdc++
+  && apk add --no-cache \
+    vips-dev fftw-dev build-base icu-libs icu-data-full tzdata libstdc++
 
 RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./

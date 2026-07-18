@@ -108,6 +108,107 @@ function useTableFavorite(slug: string) {
   return { isFavorited, isTogglingFavorite, handleToggleFavorite };
 }
 
+function handleVttLogoError(event: React.SyntheticEvent<HTMLImageElement>) {
+  event.currentTarget.parentElement?.classList.add('hidden');
+}
+
+// Extraído pra achatar nesting (achado Sonar: >4 níveis no JSX principal
+// por causa do ternário link-vs-span dentro do condicional de plataforma).
+function VttPlatformBadge({ table }: { table: TableCard }) {
+  const showBadge = (table.modality === 'online' || table.modality === 'hibrida') && table.vtt_platform?.logo_filename;
+  if (!showBadge || !table.vtt_platform) return null;
+
+  const logo = (
+    <img
+      src={`/vtt-logos/${table.vtt_platform.logo_filename}`}
+      alt={table.vtt_platform.name}
+      className="h-5 w-auto object-contain"
+      onError={handleVttLogoError}
+    />
+  );
+
+  if (table.vtt_platform.website_url) {
+    return (
+      <a
+        href={table.vtt_platform.website_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-lg bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center hover:bg-black/70 hover:border-white/40 transition-colors"
+        title={`${table.vtt_platform.name} - Abrir site oficial`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {logo}
+      </a>
+    );
+  }
+
+  return (
+    <span
+      className="absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-lg bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center"
+      title={table.vtt_platform.name}
+    >
+      {logo}
+    </span>
+  );
+}
+
+// Bloco de mestre + rating (achado Sonar: reduz complexidade da função principal)
+function TableCardMasterRow({ table }: { table: TableCard }) {
+  if (!table.gm_display_name) return null;
+
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      {isUsableImageSrc(table.gm_avatar_url) ? (
+        <img
+          src={table.gm_avatar_url}
+          alt={table.gm_display_name}
+          className="w-6 h-6 rounded-full border border-white/20"
+        />
+      ) : (
+        <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs">
+          👤
+        </div>
+      )}
+      {table.gm_slug ? (
+        <Link
+          to={`/mestre/${table.gm_slug}`}
+          onClick={(e) => e.stopPropagation()}
+          className="min-w-0 truncate text-sm font-medium text-white/70 transition-colors hover:text-white hover:underline"
+        >
+          {table.gm_display_name}
+        </Link>
+      ) : (
+        <span className="min-w-0 truncate text-sm font-medium text-white/70">
+          {table.gm_display_name}
+        </span>
+      )}
+      {/* T3.7 (spec 081): rating resumido do GM no card, depende de T8 (review) */}
+      {typeof table.gm_reviews_count === 'number' && table.gm_reviews_count > 0 && (
+        <GmReviewSummary
+          avgRating={table.gm_avg_rating ?? null}
+          reviewsCount={table.gm_reviews_count}
+          className="shrink-0 ml-auto"
+        />
+      )}
+    </div>
+  );
+}
+
+// Preço em destaque (T3.3) — extraído pra reduzir complexidade da função principal
+function TableCardPrice({ table }: { table: TableCard }) {
+  if (table.price_type === 'gratuita') {
+    return <span className="shrink-0 text-lg font-black text-green-400">Gratuito</span>;
+  }
+  if (table.price_value) {
+    return (
+      <span className="flex shrink-0 items-baseline gap-1 whitespace-nowrap text-lg font-black text-yellow-400">
+        R$ {table.price_value}<span className="text-[10px] font-semibold text-white/50">/ sessão</span>
+      </span>
+    );
+  }
+  return null;
+}
+
 // Prefetch no hover (debounce) + tracking de clique
 function useTableCardTracking(slug: string) {
   const queryClient = useQueryClient();
@@ -204,41 +305,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
           </span>
         )}
 
-        {(table.modality === 'online' || table.modality === 'hibrida') && table.vtt_platform?.logo_filename && (
-          table.vtt_platform.website_url ? (
-            <a
-              href={table.vtt_platform.website_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-lg bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center hover:bg-black/70 hover:border-white/40 transition-colors"
-              title={`${table.vtt_platform.name} - Abrir site oficial`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img
-                src={`/vtt-logos/${table.vtt_platform.logo_filename}`}
-                alt={table.vtt_platform.name}
-                className="h-5 w-auto object-contain"
-                onError={(event) => {
-                  event.currentTarget.parentElement?.classList.add('hidden');
-                }}
-              />
-            </a>
-          ) : (
-            <span
-              className="absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-lg bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center"
-              title={table.vtt_platform.name}
-            >
-              <img
-                src={`/vtt-logos/${table.vtt_platform.logo_filename}`}
-                alt={table.vtt_platform.name}
-                className="h-5 w-auto object-contain"
-                onError={(event) => {
-                  event.currentTarget.parentElement?.classList.add('hidden');
-                }}
-              />
-            </span>
-          )
-        )}
+        <VttPlatformBadge table={table} />
       </div>
 
       {/* BLOCO 2: CONTENT (Título + Sistema/Modalidade) */}
@@ -263,42 +330,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
 
         {/* BLOCO 3: METADATA (Mestre + Vagas + Preço) */}
         <div className="mt-auto min-w-0 space-y-3">
-          {table.gm_display_name && (
-            <div className="flex min-w-0 items-center gap-2">
-              {isUsableImageSrc(table.gm_avatar_url) ? (
-                <img
-                  src={table.gm_avatar_url}
-                  alt={table.gm_display_name}
-                  className="w-6 h-6 rounded-full border border-white/20"
-                />
-              ) : (
-                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs">
-                  👤
-                </div>
-              )}
-              {table.gm_slug ? (
-                <Link
-                  to={`/mestre/${table.gm_slug}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="min-w-0 truncate text-sm font-medium text-white/70 transition-colors hover:text-white hover:underline"
-                >
-                  {table.gm_display_name}
-                </Link>
-              ) : (
-                <span className="min-w-0 truncate text-sm font-medium text-white/70">
-                  {table.gm_display_name}
-                </span>
-              )}
-              {/* T3.7 (spec 081): rating resumido do GM no card, depende de T8 (review) */}
-              {typeof table.gm_reviews_count === 'number' && table.gm_reviews_count > 0 && (
-                <GmReviewSummary
-                  avgRating={table.gm_avg_rating ?? null}
-                  reviewsCount={table.gm_reviews_count}
-                  className="shrink-0 ml-auto"
-                />
-              )}
-            </div>
-          )}
+          <TableCardMasterRow table={table} />
 
           <div className="flex min-w-0 flex-wrap items-end justify-between gap-x-3 gap-y-2">
             {/* Vagas — X/Y preenchidas (T3.2), badge de "N vagas" já sobre a imagem (T3.1).
@@ -313,13 +345,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
             </div>
 
             {/* Preço — destaque de fonte maior (T3.3) */}
-            {table.price_type === 'gratuita' ? (
-              <span className="shrink-0 text-lg font-black text-green-400">Gratuito</span>
-            ) : table.price_value ? (
-              <span className="flex shrink-0 items-baseline gap-1 whitespace-nowrap text-lg font-black text-yellow-400">
-                R$ {table.price_value}<span className="text-[10px] font-semibold text-white/50">/ sessão</span>
-              </span>
-            ) : null}
+            <TableCardPrice table={table} />
           </div>
 
           {/* BLOCO 4: ACTION (CTA primário + secundário opcional) */}

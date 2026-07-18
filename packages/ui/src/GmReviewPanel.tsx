@@ -23,9 +23,9 @@ export interface GmReviewItem {
 }
 
 export interface GmReviewSummaryProps {
-  avgRating: number | null;
-  reviewsCount: number;
-  className?: string;
+  readonly avgRating: number | null;
+  readonly reviewsCount: number;
+  readonly className?: string;
 }
 
 /** Resumo compacto de rating — usável em card do catálogo e sidebar (T3.7/T8.6). */
@@ -47,7 +47,7 @@ export function GmReviewSummary({ avgRating, reviewsCount, className }: GmReview
 }
 
 export interface GmReviewListProps {
-  reviews: GmReviewItem[];
+  readonly reviews: GmReviewItem[];
 }
 
 /** Lista completa de reviews individuais (T8.5) — usada no perfil público do mestre. */
@@ -90,8 +90,8 @@ export function GmReviewList({ reviews }: GmReviewListProps) {
 }
 
 export interface GmReviewFormProps {
-  onSubmit: (data: { rating: number; tags: string[]; comment: string }) => Promise<void>;
-  isSubmitting?: boolean;
+  readonly onSubmit: (data: { rating: number; tags: string[]; comment: string }) => Promise<void>;
+  readonly isSubmitting?: boolean;
 }
 
 /** Formulário de novo review — só usuário logado deve ver este componente (guard fica na página consumidora). */
