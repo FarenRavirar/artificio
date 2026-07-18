@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Globe, MapPin, Bookmark } from 'lucide-react';
+import { Globe, MapPin, Bookmark, Clock } from 'lucide-react';
 import type { TableCard } from '../types/tables';
 import { getSlotsVisualState } from '../utils/slots';
 import { SlotsIndicator } from './SlotsIndicator';
@@ -209,6 +209,33 @@ function TableCardPrice({ table }: { table: TableCard }) {
   return null;
 }
 
+const dayAbbrev: Record<string, string> = {
+  segunda: 'SEG',
+  terça: 'TER',
+  quarta: 'QUA',
+  quinta: 'QUI',
+  sexta: 'SEX',
+  sábado: 'SAB',
+  domingo: 'DOM',
+};
+
+// Dia/horário do primeiro schedule configurado (T3.4, spec 081) — extraído
+// pra reduzir complexidade da função principal.
+function TableCardSchedule({ table }: { table: TableCard }) {
+  const schedule = table.next_schedule;
+  if (!schedule) return null;
+
+  const dayLabel = dayAbbrev[schedule.day_of_week.toLowerCase()] ?? schedule.day_of_week.slice(0, 3).toUpperCase();
+  const time = schedule.start_time.slice(0, 5);
+
+  return (
+    <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-white/50">
+      <Clock className="h-3 w-3" />
+      {dayLabel} {time}
+    </span>
+  );
+}
+
 // Prefetch no hover (debounce) + tracking de clique
 function useTableCardTracking(slug: string) {
   const queryClient = useQueryClient();
@@ -331,6 +358,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
         {/* BLOCO 3: METADATA (Mestre + Vagas + Preço) */}
         <div className="mt-auto min-w-0 space-y-3">
           <TableCardMasterRow table={table} />
+          <TableCardSchedule table={table} />
 
           <div className="flex min-w-0 flex-wrap items-end justify-between gap-x-3 gap-y-2">
             {/* Vagas — X/Y preenchidas (T3.2), badge de "N vagas" já sobre a imagem (T3.1).

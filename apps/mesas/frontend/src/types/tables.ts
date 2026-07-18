@@ -65,6 +65,9 @@ export interface TableCard {
   gm_bio_long: string | null; // CORREÇÃO HP-10: Bio global do perfil do mestre
   gm_avg_rating?: number | null; // T3.7/T6/T8.6 (spec 081): rating resumido do GM
   gm_reviews_count?: number | null;
+  // T3.4 (spec 081): primeiro horário configurado (day_of_week/start_time recorrentes,
+  // sem data absoluta — não existe "próxima sessão" calculável, é o padrão da mesa).
+  next_schedule?: { day_of_week: DayOfWeek; start_time: string; frequency: ScheduleFrequency } | null;
   is_ddal: boolean;
   is_covil: boolean; // CORREÇÃO C01: Padronizado para is_covil (mesmo nome do backend)
   ddal_code?: string | null;

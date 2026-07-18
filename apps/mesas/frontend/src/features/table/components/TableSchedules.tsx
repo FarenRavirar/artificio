@@ -50,7 +50,9 @@ export function TableSchedules({ vm }: TableSchedulesProps) {
         </p>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
+          {/* Grid 2 colunas só quando há 2+ horários — achado do mantenedor:
+              1 único schedule sobrava espaço vazio à direita com sm:grid-cols-2 fixo. */}
+          <div className={`grid gap-3 ${vm.schedules.length > 1 ? 'sm:grid-cols-2' : ''}`}>
             {vm.schedules.map((schedule) => (
               <div
                 key={schedule.id}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { RotateCcw, Search, ShieldCheck, Star, SlidersHorizontal, Megaphone } from 'lucide-react';
 import { TableCardComponent, TableCardSkeleton } from '../components/TableCard';
+import { SealToggle } from '../components/SealToggle';
 import { FilterDrawer } from '../components/FilterDrawer';
 import { ActiveFiltersChips } from '../components/ActiveFiltersChips';
 import { ResultsHeader } from '../components/ResultsHeader';
@@ -436,66 +437,50 @@ export const CatalogoPage = () => {
           </div>
 
           <div className="mt-2 flex flex-wrap justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => toggleSeal('' as CatalogSeal)}
-              aria-pressed={filters.seal === ''}
-              className={`rounded-full px-3 py-1 text-xs transition-colors ${
-                filters.seal === ''
-                  ? 'bg-[var(--color-artificio-orange)] font-semibold text-white'
-                  : 'bg-white/10 text-white/70 hover:bg-white/20'
-              }`}
-            >
+            <SealToggle variant="pill" active={filters.seal === ''} onClick={() => toggleSeal('' as CatalogSeal)}>
               Todas as mesas
-            </button>
-            <button
-              type="button"
+            </SealToggle>
+            <SealToggle
+              variant="pill"
+              active={filters.seal === 'ddal'}
               onClick={() => toggleSeal('ddal')}
-              aria-pressed={filters.seal === 'ddal'}
-              className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs transition-colors ${
-                filters.seal === 'ddal'
-                  ? 'bg-amber-500 font-semibold text-white'
-                  : 'bg-white/10 text-white/70 hover:bg-white/20'
-              }`}
+              icon={<ShieldCheck className="w-3.5 h-3.5" />}
+              activeClassName="bg-amber-500 font-semibold text-white"
             >
-              🛡️ DDAL
-            </button>
-            <button
-              type="button"
+              DDAL
+            </SealToggle>
+            <SealToggle
+              variant="pill"
+              active={filters.seal === 'covil-do-lich'}
               onClick={() => toggleSeal('covil-do-lich')}
-              aria-pressed={filters.seal === 'covil-do-lich'}
-              className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs transition-colors ${
-                filters.seal === 'covil-do-lich'
-                  ? 'bg-purple-500 font-semibold text-white'
-                  : 'bg-white/10 text-white/70 hover:bg-white/20'
-              }`}
+              icon={<Star className="w-3.5 h-3.5" />}
+              activeClassName="bg-purple-500 font-semibold text-white"
             >
-              👑 Covil do Lich
-            </button>
-            <button
-              type="button"
+              Covil do Lich
+            </SealToggle>
+            <SealToggle
+              variant="pill"
+              active={filters.priceType === 'gratuita'}
               onClick={() => updateFilter(setFilters, 'priceType', filters.priceType === 'gratuita' ? '' : 'gratuita')}
-              aria-pressed={filters.priceType === 'gratuita'}
-              className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/70 transition-colors hover:bg-white/20"
             >
               Gratuitas
-            </button>
+            </SealToggle>
           </div>
         </div>
       </section>
 
-      {/* HEADER */}
+      {/* TRANSIÇÃO hero->toolbar: eyebrow de contexto (achado do mantenedor,
+          2026-07-18) — antes tinha um <h1> "Catálogo de Mesas" redundante com
+          o <h1> do hero acima (duas tags h1 na mesma página, quebra hierarquia
+          semântica) e um subtítulo que só repetia o que o hero já dizia melhor.
+          Vira <h2> real (subseção do hero, não título concorrente) + eyebrow
+          reaproveitando a mesma classe do hero, sinalizando "você saiu da
+          landing, entrou na área de navegação/filtro". Botão Limpar mantido. */}
       <div className="relative overflow-hidden border-b border-white/10 bg-[#0B1220]">
         <D20Glyph className="pointer-events-none absolute -right-10 -top-16 h-64 w-64 text-[var(--color-artificio-orange)]/[0.06] sm:h-80 sm:w-80" />
-        <div className="relative px-4 py-12 sm:px-6 sm:py-16">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="min-w-0">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-artificio-orange)]">
-                Artifício Mesas
-              </p>
-              <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl">Catálogo de Mesas</h1>
-              <p className="mt-2.5 text-sm text-white/60">Encontre a mesa perfeita para você</p>
-            </div>
+        <div className="relative px-4 py-6 sm:px-6 sm:py-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <p className="eyebrow">◆ Catálogo</p>
             {activeFiltersCount > 0 && (
               <button
                 type="button"
@@ -539,7 +524,7 @@ export const CatalogoPage = () => {
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
                 placeholder="Buscar mesas..."
-                className="w-full rounded-lg border border-white/10 bg-[#0B1220] py-2.5 pl-9 pr-3 text-sm outline-none transition-colors focus:border-[var(--color-artificio-orange)]"
+                className="w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] py-2.5 pl-9 pr-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted)] transition-colors focus:border-[var(--artificio-brand)]"
               />
             </div>
 
@@ -595,31 +580,25 @@ export const CatalogoPage = () => {
 
             <div className="h-6 w-px shrink-0 bg-white/10" />
 
-            <button
-              type="button"
+            <SealToggle
+              variant="toolbar"
+              active={filters.seal === 'ddal'}
               onClick={() => toggleSeal('ddal')}
-              aria-pressed={filters.seal === 'ddal'}
-              className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap ${
-                filters.seal === 'ddal'
-                  ? 'border-amber-300/50 bg-amber-500/20 text-amber-100'
-                  : 'border-white/10 bg-[#0B1220] text-white/70 hover:border-white/20 hover:bg-white/5'
-              }`}
+              icon={<ShieldCheck className="w-3.5 h-3.5" />}
+              activeClassName="border-amber-300/50 bg-amber-500/20 text-amber-100"
             >
-              <ShieldCheck className="w-3.5 h-3.5" /> DDAL
-            </button>
+              DDAL
+            </SealToggle>
 
-            <button
-              type="button"
+            <SealToggle
+              variant="toolbar"
+              active={filters.seal === 'covil-do-lich'}
               onClick={() => toggleSeal('covil-do-lich')}
-              aria-pressed={filters.seal === 'covil-do-lich'}
-              className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap ${
-                filters.seal === 'covil-do-lich'
-                  ? 'border-purple-300/50 bg-purple-500/20 text-purple-100'
-                  : 'border-white/10 bg-[#0B1220] text-white/70 hover:border-white/20 hover:bg-white/5'
-              }`}
+              icon={<Star className="w-3.5 h-3.5" />}
+              activeClassName="border-purple-300/50 bg-purple-500/20 text-purple-100"
             >
-              <Star className="w-3.5 h-3.5" /> Covil do Lich
-            </button>
+              Covil do Lich
+            </SealToggle>
           </div>
 
           {/* ESTILOS — linha própria com scroll horizontal (evita quebra de 48 botões) */}
@@ -749,29 +728,25 @@ export const CatalogoPage = () => {
         <div>
           <p className="text-xs text-white/50 mb-2 font-semibold">Selos</p>
           <div className="flex gap-2">
-            <button
-              type="button"
+            <SealToggle
+              variant="drawer"
+              active={filters.seal === 'ddal'}
               onClick={() => toggleSeal('ddal')}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
-                filters.seal === 'ddal'
-                  ? 'border-amber-300/50 bg-amber-500/20 text-amber-100'
-                  : 'border-white/10 bg-[#13213f] text-white/70'
-              }`}
+              icon={<ShieldCheck className="w-3.5 h-3.5" />}
+              activeClassName="border-amber-300/50 bg-amber-500/20 text-amber-100"
             >
-              <ShieldCheck className="w-3.5 h-3.5" /> DDAL
-            </button>
+              DDAL
+            </SealToggle>
 
-            <button
-              type="button"
+            <SealToggle
+              variant="drawer"
+              active={filters.seal === 'covil-do-lich'}
               onClick={() => toggleSeal('covil-do-lich')}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
-                filters.seal === 'covil-do-lich'
-                  ? 'border-purple-300/50 bg-purple-500/20 text-purple-100'
-                  : 'border-white/10 bg-[#13213f] text-white/70'
-              }`}
+              icon={<Star className="w-3.5 h-3.5" />}
+              activeClassName="border-purple-300/50 bg-purple-500/20 text-purple-100"
             >
-              <Star className="w-3.5 h-3.5" /> Covil
-            </button>
+              Covil
+            </SealToggle>
           </div>
         </div>
 
