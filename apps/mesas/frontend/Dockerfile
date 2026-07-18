@@ -57,15 +57,26 @@ RUN rm /etc/nginx/conf.d/default.conf
 # Achado Snyk (spec 081, 2026-07-18): curl/libcurl e c-ares na imagem base
 # (alpine 3.23) tinham CVEs abertos (CVE-2026-6276 SSRF/cleartext alto,
 # CVE-2026-5773 SSRF, CVE-2026-7168 auth bypass, entre outros).
-# Versão fixada (nitpick Codex) em vez de --upgrade solto: confirmada via
-# `docker run --rm nginx:1.31-alpine apk info` (VM, 2026-07-18) — mirror
-# tem c-ares 1.34.8-r0 / curl+libcurl 8.20.0-r0 / expat 2.8.2-r0 corrigidos.
-# Build reprodutível; bump manual exigido a cada novo CVE (checar via apk
-# info na imagem real antes de trocar o número).
+# Versão fixada (nitpick Codex) em vez de --upgrade solto: pin original
+# (curl/libcurl=8.20.0-r0, 2026-07-18) quebrou o deploy beta — não é questão
+# de arch/runner (build roda via SSH na mesma VM aarch64 pros dois estágios,
+# frontend e backend). Log real da run (29645440355): no mesmo build, o
+# estágio mesas-beta-api instalou curl/libcurl=8.21.0-r0 com sucesso
+# ("Installing curl (8.21.0-r0)", OK), enquanto o estágio mesas-beta-app
+# (este arquivo) falhou pedindo 8.20.0-r0 com "breaks: world[curl=8.20.0-r0]"
+# — o resolvedor do apk queria 8.21.0-r0 pra satisfazer dependência interna
+# e o pin antigo virou inconsistente entre estágios da mesma run (mirror
+# Alpine avança o índice entre o momento em que confirmei a versão via
+# `apk info`/cache local e o momento real do build via BuildKit, que busca
+# índice próprio). Corrigido pra 8.21.0-r0 igual ao backend. Build
+# reprodutível; bump manual exigido a cada novo CVE — antes de fixar,
+# confirmar candidato via `apk update && apk policy <pacote>` (não `apk
+# info` sozinho, que só lista cache local desatualizado) na mesma VM que
+# roda o deploy real.
 RUN apk add --no-cache --upgrade \
     libexpat=2.8.2-r0 \
-    curl=8.20.0-r0 \
-    libcurl=8.20.0-r0 \
+    curl=8.21.0-r0 \
+    libcurl=8.21.0-r0 \
     c-ares=1.34.8-r0
 
 COPY apps/mesas/frontend/nginx.conf /etc/nginx/templates/default.conf.template
