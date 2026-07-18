@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-07-18-favoritar-review-stats-mestre",
+    "title": "Favoritar mesas, avaliar mestres e novo catálogo com estatísticas",
+    "body": "Publicamos um pacote grande de novidades para quem busca e quem hospeda mesas:\n\n• **Favoritar mesas** - Marque mesas de interesse com um clique e encontre-as depois direto nos favoritos\n• **Avaliação de mestres** - Jogadores agora podem deixar uma avaliação e comentário sobre a experiência com o mestre, visível no perfil dele\n• **Estatísticas do mestre** - O perfil público do mestre mostra há quanto tempo está na plataforma e quantas mesas já hospedou\n• **Selo de mesa paga** - Mesas com cobrança aparecem com selo próprio no catálogo, facilitando a busca por mesas gratuitas ou pagas\n• **Denunciar mesa** - Novo botão para reportar uma mesa com problema direto na página dela\n• **Catálogo renovado** - Página inicial e catálogo se fundiram em uma única tela com rolagem contínua; os cards agora mostram vagas restantes, preço em destaque e o horário da próxima sessão\n• **Correção de contraste no tema claro** - Corrigido texto escuro sobre fundo escuro no catálogo, na tela de boas-vindas e em telas administrativas quando o tema claro estava ativo\n\n_Atualização publicada em 18/07/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-07-18T18:00:00-03:00"
+  },
+  {
     "id": "2026-07-09-anunciar-mesa-e-filtros",
     "title": "Botão de anunciar mesa na home e filtros mais completos",
     "body": "Publicamos melhorias para facilitar quem quer criar mesa e quem quer encontrar uma:\n\n• **Botão \"Anunciar Mesa\" na página inicial** - Agora dá para ir direto para a criação de mesa a partir da home; se você ainda não estiver logado, é levado para o login e volta direto para a criação depois\n• **Filtros de estilo com todas as opções em uso** - O filtro de estilo do catálogo passa a mostrar todos os estilos que os mestres realmente cadastraram nas mesas, com a contagem de mesas de cada um, em vez de uma lista fixa curta\n• **Correção: erro ao publicar mesa sem capa** - Corrigido um erro (\"Invalid URL\") que impedia publicar uma mesa nova quando nenhuma imagem de capa era enviada\n\n_Atualização publicada em 09/07/2026_",
