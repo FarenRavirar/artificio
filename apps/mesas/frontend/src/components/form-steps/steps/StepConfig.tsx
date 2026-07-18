@@ -116,7 +116,7 @@ export function StepConfig({
   return (
     <div className="space-y-6">
       {/* Publisher Role */}
-      <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4 space-y-3">
+      <div className="rounded-2xl border border-white/10 bg-[var(--surface-input)]/60 p-4 space-y-3">
         <div>
           <p className="text-sm font-semibold text-white">Quem está publicando esta mesa?</p>
           <p className="text-xs text-white/60 mt-1">Você pode publicar como mestre narrador ou como apenas anunciante.</p>

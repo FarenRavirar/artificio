@@ -47,7 +47,7 @@ export function AliasesEditor({ value, onChange }: Props) {
             }
           }}
           placeholder="Ex: D&D"
-          className="flex-1 px-3 py-2 bg-[#0F1A2E] border border-white/10 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+          className="flex-1 px-3 py-2 bg-[var(--admin-surface)] border border-white/10 rounded text-white text-sm focus:outline-none focus:border-blue-500"
         />
         <button
           onClick={add}

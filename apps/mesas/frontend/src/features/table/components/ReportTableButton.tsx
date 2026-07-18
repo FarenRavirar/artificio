@@ -62,7 +62,7 @@ export function ReportTableButton({ slug }: ReportTableButtonProps) {
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-[#13213f] p-4 space-y-3">
+    <div className="rounded-xl border border-white/10 bg-[var(--surface-input)] p-4 space-y-3">
       <p className="text-sm font-semibold text-white">Denunciar esta mesa</p>
 
       <fieldset className="space-y-1.5">
@@ -90,7 +90,7 @@ export function ReportTableButton({ slug }: ReportTableButtonProps) {
         placeholder="Detalhes (opcional)"
         maxLength={2000}
         rows={3}
-        className="w-full rounded-lg border border-white/10 bg-[#0B1220] p-2 text-sm text-white outline-none focus:border-[var(--color-artificio-orange)]"
+        className="w-full rounded-lg border border-white/10 bg-[var(--surface-input)] p-2 text-sm text-white outline-none focus:border-[var(--color-artificio-orange)]"
       />
 
       <div className="flex gap-2">

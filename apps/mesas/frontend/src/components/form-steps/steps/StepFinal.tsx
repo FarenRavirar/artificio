@@ -183,7 +183,7 @@ export function StepFinal(props: StepFinalProps) {
 
       {/* Campos Avançados (colapsável) */}
       {showAdvanced && (
-        <section className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-5 space-y-4">
+        <section className="rounded-2xl border border-white/10 bg-[var(--surface-input)]/60 p-5 space-y-4">
           <div>
             <h3 className="text-lg font-bold text-white mb-1">Campos Avançados (Opcional)</h3>
             <p className="text-xs text-white/60">Informações adicionais para enriquecer o anúncio da mesa</p>

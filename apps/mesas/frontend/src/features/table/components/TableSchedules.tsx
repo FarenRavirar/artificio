@@ -35,7 +35,7 @@ export function TableSchedules({ vm }: TableSchedulesProps) {
       <h2 className="text-lg font-bold mb-4">📅 Horários das Sessões</h2>
       
       {!hasSchedules && hasDefinedStatus ? (
-        <div className="flex items-center gap-4 rounded-xl border border-white/10 bg-[#13213f] p-4">
+        <div className="flex items-center gap-4 rounded-xl border border-white/10 bg-[var(--surface-input)] p-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--color-artificio-orange)]/15 text-[var(--color-artificio-orange)]">
             <Calendar className="h-6 w-6" />
           </div>
@@ -56,7 +56,7 @@ export function TableSchedules({ vm }: TableSchedulesProps) {
             {vm.schedules.map((schedule) => (
               <div
                 key={schedule.id}
-                className="flex items-center gap-4 rounded-xl border border-white/10 bg-[#13213f] p-4"
+                className="flex items-center gap-4 rounded-xl border border-white/10 bg-[var(--surface-input)] p-4"
               >
                 <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-[var(--color-artificio-orange)]/15 text-[var(--color-artificio-orange)]">
                   <span className="text-[10px] font-bold uppercase tracking-wide">

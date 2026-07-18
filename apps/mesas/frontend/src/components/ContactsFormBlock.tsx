@@ -46,7 +46,7 @@ export function ContactsFormBlock({ contacts, onChange, error }: ContactsFormBlo
   };
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4 space-y-4" id="painel-mestre-contacts-block">
+    <section className="rounded-2xl border border-white/10 bg-[var(--surface-input)]/60 p-4 space-y-4" id="painel-mestre-contacts-block">
       <div>
         <h2 className="text-sm font-semibold text-white inline-flex items-center gap-2">
           Canais de recrutamento *

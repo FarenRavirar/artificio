@@ -143,7 +143,7 @@ export function EntityInspector(props: Props) {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 bg-[#0F1A2E] border border-white/10 rounded text-white focus:outline-none focus:border-blue-500"
+            className="w-full px-3 py-2 bg-[var(--admin-surface)] border border-white/10 rounded text-white focus:outline-none focus:border-blue-500"
             autoFocus={mode === 'create'}
           />
         </Field>
@@ -153,7 +153,7 @@ export function EntityInspector(props: Props) {
             value={namePt}
             onChange={(e) => setNamePt(e.target.value)}
             placeholder="Ex: Dungeons & Dragons"
-            className="w-full px-3 py-2 bg-[#0F1A2E] border border-white/10 rounded text-white focus:outline-none focus:border-blue-500"
+            className="w-full px-3 py-2 bg-[var(--admin-surface)] border border-white/10 rounded text-white focus:outline-none focus:border-blue-500"
           />
         </Field>
 
@@ -205,7 +205,7 @@ export function EntityInspector(props: Props) {
                 value={logoFilename}
                 onChange={(e) => setLogoFilename(e.target.value)}
                 placeholder="dnd.svg"
-                className="w-full px-3 py-2 bg-[#0F1A2E] border border-white/10 rounded text-white focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2 bg-[var(--admin-surface)] border border-white/10 rounded text-white focus:outline-none focus:border-blue-500"
               />
             </Field>
 
@@ -215,7 +215,7 @@ export function EntityInspector(props: Props) {
                 value={websiteUrl}
                 onChange={(e) => setWebsiteUrl(e.target.value)}
                 placeholder="https://..."
-                className="w-full px-3 py-2 bg-[#0F1A2E] border border-white/10 rounded text-white focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2 bg-[var(--admin-surface)] border border-white/10 rounded text-white focus:outline-none focus:border-blue-500"
               />
             </Field>
           </>

@@ -37,7 +37,7 @@ export function CatalogToolbar(props: Props) {
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Buscar por nome, slug ou alias..."
-            className="w-full pl-10 pr-3 py-2 bg-[#0F1A2E] border border-white/10 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+            className="w-full pl-10 pr-3 py-2 bg-[var(--admin-surface)] border border-white/10 rounded text-white text-sm focus:outline-none focus:border-blue-500"
           />
         </div>
         <button

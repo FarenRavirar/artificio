@@ -81,7 +81,7 @@ const CatalogSystemFilter = ({
 
   if (loading) {
     return (
-      <p className={`rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white/60 ${loadingClassName}`}>
+      <p className={`rounded-lg border border-[var(--line)] px-3 py-2.5 text-sm text-[var(--fg-muted)] ${loadingClassName}`}>
         Carregando sistemas...
       </p>
     );
@@ -113,10 +113,10 @@ type CatalogEmptyStateProps = Readonly<{
 }>;
 
 const CatalogEmptyState = ({ activeFiltersCount, onClearFilters }: CatalogEmptyStateProps) => (
-  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-16 text-center sm:py-20">
-    <D20Glyph className="mx-auto mb-5 h-16 w-16 text-white/20" />
-    <p className="text-xl font-bold text-white mb-2">Nenhuma mesa encontrada com esses filtros</p>
-    <p className="text-sm text-white/50 mb-6">Ajuste sistema, modalidade ou estilo, ou limpe os filtros para ver todo o catálogo</p>
+  <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-subtle)] px-4 py-16 text-center sm:py-20">
+    <D20Glyph className="mx-auto mb-5 h-16 w-16 text-[var(--fg-muted)]/40" />
+    <p className="text-xl font-bold text-[var(--fg)] mb-2">Nenhuma mesa encontrada com esses filtros</p>
+    <p className="text-sm text-[var(--fg-muted)] mb-6">Ajuste sistema, modalidade ou estilo, ou limpe os filtros para ver todo o catálogo</p>
     {activeFiltersCount > 0 && (
       <button
         type="button"
@@ -260,11 +260,13 @@ export const CatalogoPage = () => {
       setFilters(prev => ({
         ...prev,
         styles: prev.styles.filter((s) => s !== value),
+        page: 1,
       }));
     } else {
       setFilters(prev => ({
         ...prev,
         [key]: '',
+        page: 1,
       }));
     }
   };
@@ -307,7 +309,7 @@ export const CatalogoPage = () => {
 
   const handleSystemSelect = (systemId: string | null) => {
     if (!systemId) {
-      setFilters(prev => ({ ...prev, system: '' }));
+      setFilters(prev => ({ ...prev, system: '', page: 1 }));
       return;
     }
     const slug = systemsMap.get(systemId);
@@ -319,6 +321,7 @@ export const CatalogoPage = () => {
     setFilters(prev => ({
       ...prev,
       system: newSystem,
+      page: 1,
     }));
   };
 
@@ -370,9 +373,17 @@ export const CatalogoPage = () => {
   const tableCards = renderTableCards(isLoading, tables);
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-gradient-to-b from-[#0B1220] to-[#13213f] text-white">
-      {/* HERO */}
-      <section className="relative w-full overflow-hidden py-16 lg:py-20">
+    <main className="min-h-screen overflow-x-hidden bg-[var(--surface)] text-[var(--fg)]">
+      {/* HERO — bug real achado pelo mantenedor (2026-07-18): fundo usava hex
+          cru (#0B1220/#13213f), que NUNCA remapeia em tema light (só
+          bg-[var(--color-artificio-blue)] tem essa regra em index.css), mas
+          o texto (text-white) remapeia pra tinta escura em light — resultado:
+          texto escuro sobre fundo que continua escuro. Bug pré-existente,
+          nunca notado porque ninguém tinha testado o catálogo em light antes.
+          Fix: usar a MESMA variável que o resto do app (AppShell) usa pro
+          fundo sempre-escuro-que-também-vira-light, pra fundo e texto
+          remaparem juntos e coerente com o resto do produto. */}
+      <section className="relative w-full overflow-hidden bg-[var(--color-artificio-blue)] text-white py-16 lg:py-20">
         <div className="orange-glow" />
         <div className="container relative z-10 mx-auto space-y-6 px-6 text-center">
           <p className="eyebrow">
@@ -476,7 +487,7 @@ export const CatalogoPage = () => {
           Vira <h2> real (subseção do hero, não título concorrente) + eyebrow
           reaproveitando a mesma classe do hero, sinalizando "você saiu da
           landing, entrou na área de navegação/filtro". Botão Limpar mantido. */}
-      <div className="relative overflow-hidden border-b border-white/10 bg-[#0B1220]">
+      <div className="relative overflow-hidden border-b border-[var(--line)] bg-[var(--surface)]">
         <D20Glyph className="pointer-events-none absolute -right-10 -top-16 h-64 w-64 text-[var(--color-artificio-orange)]/[0.06] sm:h-80 sm:w-80" />
         <div className="relative px-4 py-6 sm:px-6 sm:py-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -485,7 +496,7 @@ export const CatalogoPage = () => {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="hidden items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 md:flex"
+                className="hidden items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm font-semibold text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)] md:flex"
               >
                 <RotateCcw className="h-4 w-4" />
                 Limpar
@@ -512,12 +523,12 @@ export const CatalogoPage = () => {
       )}
 
       {/* FILTROS - DESKTOP (barra horizontal única, full-bleed) */}
-      <section className="hidden border-b border-white/10 bg-[#0B1220]/40 md:block">
+      <section className="hidden border-b border-[var(--line)] bg-[var(--surface-subtle)] md:block">
         <div className="px-6 py-5">
           <div className="flex flex-wrap items-center gap-3 overflow-x-auto pb-1">
             <div className="relative min-w-[220px]">
               <label htmlFor="catalog-desktop-search" className="sr-only">Buscar mesas</label>
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fg-muted)]" />
               <input
                 id="catalog-desktop-search"
                 type="text"
@@ -535,7 +546,7 @@ export const CatalogoPage = () => {
                 error={systemsTreeError}
                 selectedSystemId={selectedSystemId}
                 idPrefix="catalog-desktop"
-                loadingClassName="bg-[#0B1220]"
+                loadingClassName="bg-[var(--surface)]"
                 onSelect={handleSystemSelect}
               />
             </div>
@@ -578,7 +589,7 @@ export const CatalogoPage = () => {
               <option value="veterano">Veterano</option>
             </select>
 
-            <div className="h-6 w-px shrink-0 bg-white/10" />
+            <div className="h-6 w-px shrink-0 bg-[var(--line)]" />
 
             <SealToggle
               variant="toolbar"
@@ -604,7 +615,7 @@ export const CatalogoPage = () => {
           {/* ESTILOS — linha própria com scroll horizontal (evita quebra de 48 botões) */}
           {styleFacets.length > 0 && (
             <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
-              <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">Estilos</span>
+              <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--fg-muted)]">Estilos</span>
               <div className="flex shrink-0 gap-2">
                 {styleFacets.map(({ style, count }) => (
                   <button
@@ -615,10 +626,10 @@ export const CatalogoPage = () => {
                     className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs transition-all whitespace-nowrap ${
                       filters.styles.includes(style)
                         ? 'border-orange-500 bg-orange-500/20 text-orange-100'
-                        : 'border-white/10 bg-[#0B1220] text-white/70 hover:border-white/20 hover:bg-white/5'
+                        : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--line)] hover:bg-[var(--surface-strong)]'
                     }`}
                   >
-                    {style} <span className="text-white/40">({count})</span>
+                    {style} <span className="text-[var(--fg-muted)]">({count})</span>
                   </button>
                 ))}
               </div>
@@ -660,7 +671,7 @@ export const CatalogoPage = () => {
               value={filters.search}
               onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
               placeholder="Buscar mesas..."
-              className="w-full rounded-lg bg-[#13213f] border border-white/10 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-[var(--color-artificio-orange)] transition-colors"
+              className="w-full rounded-lg bg-[var(--surface)] border border-[var(--line)] pl-9 pr-3 py-2.5 text-sm outline-none focus:border-[var(--color-artificio-orange)] transition-colors"
             />
           </div>
 
@@ -670,7 +681,7 @@ export const CatalogoPage = () => {
             error={systemsTreeError}
             selectedSystemId={selectedSystemId}
             idPrefix="catalog-mobile"
-            loadingClassName="bg-[#13213f]"
+            loadingClassName="bg-[var(--surface)]"
             onSelect={handleSystemSelect}
           />
         </div>
@@ -762,7 +773,7 @@ export const CatalogoPage = () => {
                 className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${
                   filters.styles.includes(style)
                     ? 'border-orange-500 bg-orange-500/20 text-orange-100'
-                    : 'border-white/10 bg-[#13213f] text-white/70'
+                    : 'border-[var(--line)] bg-[var(--surface)] text-white/70'
                 }`}
               >
                 {style} <span className="text-white/40">({count})</span>
@@ -841,7 +852,7 @@ export const CatalogoPage = () => {
                   <button
                     type="button"
                     onClick={loadNextPage}
-                    className="rounded-lg border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                    className="rounded-lg border border-[var(--line)] bg-[var(--surface-subtle)] px-5 py-2.5 text-sm font-semibold text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)]"
                   >
                     Carregar mais mesas
                   </button>
