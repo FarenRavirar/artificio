@@ -263,7 +263,7 @@ export const OnboardingPage = () => {
                     id="onboarding-display-name"
                     value={form.display_name}
                     onChange={(e) => setForm((prev) => ({ ...prev, display_name: e.target.value }))}
-                    className="w-full rounded-xl border border-white/15 bg-[#13213f] px-4 py-3 outline-none focus:border-[var(--color-artificio-orange)]"
+                    className="w-full rounded-xl border border-white/15 bg-[var(--surface-input)] px-4 py-3 outline-none focus:border-[var(--color-artificio-orange)]"
                     placeholder="Como você quer aparecer na comunidade"
                   />
                 </div>
@@ -274,7 +274,7 @@ export const OnboardingPage = () => {
                     value={form.bio}
                     onChange={(e) => setForm((prev) => ({ ...prev, bio: e.target.value }))}
                     rows={4}
-                    className="w-full rounded-xl border border-white/15 bg-[#13213f] px-4 py-3 outline-none focus:border-[var(--color-artificio-orange)]"
+                    className="w-full rounded-xl border border-white/15 bg-[var(--surface-input)] px-4 py-3 outline-none focus:border-[var(--color-artificio-orange)]"
                     placeholder="Conte rapidamente o que você curte em RPG"
                   />
                 </div>
@@ -289,7 +289,7 @@ export const OnboardingPage = () => {
               <div>
                 <label className="text-sm text-white/70 block mb-2">Sistemas favoritos * (mínimo 1)</label>
                 {systemsLoading ? (
-                  <p className="rounded-xl border border-white/10 bg-[#13213f] px-4 py-3 text-sm text-white/60">
+                  <p className="rounded-xl border border-white/10 bg-[var(--surface-input)] px-4 py-3 text-sm text-white/60">
                     Carregando sistemas...
                   </p>
                 ) : systemsError ? (

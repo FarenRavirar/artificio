@@ -34,7 +34,7 @@ export function StepSystem({
   return (
     <div className="space-y-6">
       {/* Sistema */}
-      <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4 space-y-3">
+      <div className="rounded-2xl border border-white/10 bg-[var(--surface-input)]/60 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm text-white/70">
             <Dice1 className="w-4 h-4 text-[var(--color-artificio-orange)]" />
@@ -67,7 +67,7 @@ export function StepSystem({
       </div>
 
       {/* Cenário */}
-      <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4 space-y-3">
+      <div className="rounded-2xl border border-white/10 bg-[var(--surface-input)]/60 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-sm font-semibold text-white">Cenário (opcional)</p>

@@ -57,7 +57,7 @@ const ACTION_GROUPS: ActionGroup[] = [
 ];
 
 const INPUT_CLASS =
-  'rounded border border-white/10 bg-[#0F1A2E] px-3 py-2 text-sm text-white focus:border-[var(--color-artificio-orange)] focus:outline-none';
+  'rounded border border-white/10 bg-[var(--admin-surface)] px-3 py-2 text-sm text-white focus:border-[var(--color-artificio-orange)] focus:outline-none';
 
 function labelForAction(action: string): string {
   return ACTION_LABELS[action] ?? action;
@@ -129,7 +129,7 @@ export function ActivityFilters({ filters, filtersMeta, onChange, onClear }: Act
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-white/10 bg-[#0F1A2E]/40 p-4">
+    <div className="space-y-3 rounded-lg border border-white/10 bg-[var(--admin-surface)]/40 p-4">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/80">
         <Filter size={14} />
         Filtros

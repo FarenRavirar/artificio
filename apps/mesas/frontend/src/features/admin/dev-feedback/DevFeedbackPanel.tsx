@@ -185,7 +185,7 @@ export const DevFeedbackPanel = () => {
             <select
               value={primaryId ?? ''}
               onChange={(e) => setPrimaryId(e.target.value)}
-              className="rounded border border-white/10 bg-[#1B2A4A] px-2 py-1 text-sm text-white"
+              className="rounded border border-white/10 bg-[var(--admin-surface)] px-2 py-1 text-sm text-white"
             >
               {selectedIds.map((id) => {
                 const it = items.find((i) => i.id === id);

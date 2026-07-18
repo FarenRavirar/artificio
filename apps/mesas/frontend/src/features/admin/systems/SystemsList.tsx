@@ -21,7 +21,7 @@ export function SystemsList({ systems, onEdit, onDelete }: SystemsListProps) {
       {systems.map((sys) => (
         <div
           key={sys.id}
-          className="bg-[#1B2A4A]/50 border border-white/10 rounded-lg p-4 hover:border-white/20 transition-colors flex items-center justify-between"
+          className="bg-[var(--admin-surface)]/50 border border-white/10 rounded-lg p-4 hover:border-white/20 transition-colors flex items-center justify-between"
         >
           <div>
             <h3 className="text-lg font-bold text-white">{sys.name}</h3>

@@ -32,7 +32,7 @@ export function ActivityFeed({
 
   if (!loading && entries.length === 0) {
     return (
-      <div className="rounded-lg border border-white/10 bg-[#0F1A2E]/40 p-8 text-center">
+      <div className="rounded-lg border border-white/10 bg-[var(--admin-surface)]/40 p-8 text-center">
         <Inbox size={22} className="mx-auto mb-3 text-white/40" />
         <p className="text-sm text-white/60">Nenhuma atividade registrada para os filtros atuais.</p>
       </div>

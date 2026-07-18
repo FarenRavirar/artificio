@@ -21,7 +21,7 @@ export function StepSessions({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-white/10 bg-[#13213f]/60 p-4">
+      <div className="rounded-2xl border border-white/10 bg-[var(--surface-input)]/60 p-4">
         <SessionRepeater
           sessions={sessions}
           onChange={setSessions}

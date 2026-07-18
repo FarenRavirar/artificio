@@ -31,13 +31,13 @@ export function TableTechnical({ vm }: TableTechnicalProps) {
           <h2 className="text-lg font-bold mb-4">📊 Detalhes da Campanha</h2>
           <div className="grid md:grid-cols-2 gap-3">
             {vm.campaignLength && (
-              <div className="rounded-xl border border-white/10 bg-[#13213f] p-3">
+              <div className="rounded-xl border border-white/10 bg-[var(--surface-input)] p-3">
                 <p className="text-white/60 text-xs uppercase tracking-wide">Duração</p>
                 <p className="font-semibold text-white mt-1">{vm.campaignLength}</p>
               </div>
             )}
             {vm.levelRange && (
-              <div className="rounded-xl border border-white/10 bg-[#13213f] p-3">
+              <div className="rounded-xl border border-white/10 bg-[var(--surface-input)] p-3">
                 <p className="text-white/60 text-xs uppercase tracking-wide">Níveis</p>
                 <p className="font-semibold text-white mt-1">{vm.levelRange}</p>
               </div>
@@ -130,7 +130,7 @@ export function TableTechnical({ vm }: TableTechnicalProps) {
               className="md:col-span-2"
             />
             {vm.certifications.ddal.rulesNotes && (
-              <div className="rounded-xl border border-amber-200/15 bg-[#13213f]/70 p-3 md:col-span-2">
+              <div className="rounded-xl border border-amber-200/15 bg-[var(--surface-input)]/70 p-3 md:col-span-2">
                 <p className="text-amber-100/80 text-xs uppercase tracking-wide">Notas de regras da temporada</p>
                 <p className="text-white/85 mt-1 leading-relaxed">{vm.certifications.ddal.rulesNotes}</p>
               </div>

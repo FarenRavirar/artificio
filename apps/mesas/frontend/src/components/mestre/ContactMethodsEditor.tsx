@@ -254,7 +254,7 @@ export function ContactMethodsEditor({ contacts, onSave }: ContactMethodsEditorP
         </button>
 
         {showAddMenu && (
-          <div className="absolute top-full mt-2 left-0 right-0 p-2 rounded-lg bg-[#0a1628] border border-white/10 shadow-xl z-10 grid grid-cols-2 gap-2">
+          <div className="absolute top-full mt-2 left-0 right-0 p-2 rounded-lg bg-[var(--surface-input)] border border-white/10 shadow-xl z-10 grid grid-cols-2 gap-2">
             {Object.entries(CHANNEL_CONFIG).map(([channel, config]) => {
               const Icon = config.icon;
               return (

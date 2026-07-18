@@ -58,7 +58,7 @@ export function ActivityItem({ entry }: ActivityItemProps) {
   const { Icon, color, bgColor } = getActionVisual(entry.action);
 
   return (
-    <li className="flex items-start gap-3 rounded-lg border border-white/10 bg-[#0F1A2E]/60 p-4 transition-colors hover:border-white/20">
+    <li className="flex items-start gap-3 rounded-lg border border-white/10 bg-[var(--admin-surface)]/60 p-4 transition-colors hover:border-white/20">
       <div className={`shrink-0 rounded p-2 ${bgColor}`}>
         <Icon size={16} className={color} />
       </div>

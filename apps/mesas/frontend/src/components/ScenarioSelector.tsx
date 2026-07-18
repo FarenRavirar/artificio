@@ -87,10 +87,10 @@ export const ScenarioSelector = ({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar cenário (ex: Forgotten Realms, Eberron)..."
             disabled={disabled || loading}
-            className="w-full rounded-xl border border-white/15 bg-[#13213f] py-2.5 pl-9 pr-3 outline-none focus:border-[var(--color-artificio-orange)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-xl border border-white/15 bg-[var(--surface-input)] py-2.5 pl-9 pr-3 outline-none focus:border-[var(--color-artificio-orange)] disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
-        <div className="flex rounded-xl border border-white/15 bg-[#13213f] p-1">
+        <div className="flex rounded-xl border border-white/15 bg-[var(--surface-input)] p-1">
           <button
             type="button"
             onClick={() => setLanguage('pt')}

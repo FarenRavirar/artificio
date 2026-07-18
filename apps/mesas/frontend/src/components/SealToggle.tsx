@@ -25,7 +25,7 @@ export function SealToggle({ active, onClick, variant, icon, children, activeCla
 
   const inactive = {
     pill: 'bg-white/10 text-white/70 hover:bg-white/20',
-    toolbar: 'border-white/10 bg-[#0B1220] text-white/70 hover:border-white/20 hover:bg-white/5',
+    toolbar: 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--line)] hover:bg-[var(--surface-strong)]',
     drawer: 'border-white/10 bg-[#13213f] text-white/70',
   }[variant];
 
