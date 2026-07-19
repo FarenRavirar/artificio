@@ -18,6 +18,15 @@ function nullableStringValue(data: ApiRecord, key: string): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+// Achado de review (Codex): id vazio/whitespace-only nao pode ativar modo
+// edicao (isEditing = initialData?.id !== null no useCreateTableForm).
+function trimmedIdOrUndefined(data: ApiRecord, key: string): string | undefined {
+  const value = data[key];
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 function booleanValue(data: ApiRecord, key: string, fallback = false): boolean {
   const value = data[key];
   return typeof value === 'boolean' ? value : fallback;
@@ -90,7 +99,7 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> &
     // era incluido aqui, entao useCreateTableForm.submit (initialData?.id)
     // sempre calculava isEditing=false e toda edicao de mesa criava mesa nova
     // via POST em vez de atualizar via PUT.
-    id: nullableStringValue(data, 'id') ?? undefined,
+    id: trimmedIdOrUndefined(data, 'id'),
 
     form: {
       title: stringValue(data, 'title'),

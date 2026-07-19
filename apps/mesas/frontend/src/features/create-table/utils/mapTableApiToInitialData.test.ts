@@ -12,6 +12,21 @@ describe('mapTableApiToInitialData', () => {
     expect(result.id).toBeUndefined();
   });
 
+  it('id fica undefined para string vazia (nao pode ativar modo edicao)', () => {
+    const result = mapTableApiToInitialData({ id: '', title: 'Mesa X' });
+    expect(result.id).toBeUndefined();
+  });
+
+  it('id fica undefined para string whitespace-only (nao pode ativar modo edicao)', () => {
+    const result = mapTableApiToInitialData({ id: '   ', title: 'Mesa X' });
+    expect(result.id).toBeUndefined();
+  });
+
+  it('id fica undefined para valor nao-string (nao pode ativar modo edicao)', () => {
+    const result = mapTableApiToInitialData({ id: 12345, title: 'Mesa X' });
+    expect(result.id).toBeUndefined();
+  });
+
   it('retorna objeto vazio para payload invalido, sem quebrar', () => {
     const result = mapTableApiToInitialData(null);
     expect(result).toEqual({});
