@@ -2,11 +2,11 @@
 -- @requires-backup: false
 -- @author: bugfix-500-resolve-system-suggestion
 -- @created: 2026-07-18
--- @description: remove FKs obsoletas de system_suggestions para systems/system_aliases locais e corrige tipo de created_alias_id (UUID->TEXT), quebradas em Prod desde a spec 078 (Central Site Prod).
+-- @description: remove FKs obsoletas de system_suggestions (resolved_system_id, created_system_id, created_alias_id, parent_id) para systems/system_aliases locais e corrige tipo de created_alias_id (UUID->TEXT), quebradas em Prod desde a spec 078 (Central Site Prod).
 
--- Migration 123 (2026-06-01) assumia `systems`/`system_aliases` locais como
--- fonte unica de sistemas de RPG. Spec 078 (2026-07-15) mudou Mesas Prod para
--- consumir o catalogo central (site-prod) via HTTP; resolveCreateSystem/
+-- Migration 06/123 (2026-06-01) assumiam `systems`/`system_aliases` locais
+-- como fonte unica de sistemas de RPG. Spec 078 (2026-07-15) mudou Mesas Prod
+-- para consumir o catalogo central (site-prod) via HTTP; resolveCreateSystem/
 -- resolveCreateAlias/resolveCreateChain/resolveCreateChild/resolveMergeExisting
 -- (systemSuggestionsAdmin.ts) passaram a gravar UUIDs/slugs do Central em
 -- resolved_system_id/created_system_id/created_alias_id, que nunca existem na
@@ -16,11 +16,17 @@
 -- referencial desses campos passa a ser responsabilidade do
 -- SystemCatalogProvider (systemCatalogProvider.ts), nao mais do Postgres --
 -- mesmo padrao ja adotado pelo resto da spec 078 para o dominio de sistemas.
+--
+-- Achado de review (Codex, PR #184): mesmo bug atinge parent_id (migration_06,
+-- linha 15) -- sugestao de edicao/variante enviada com parent_id apontando
+-- para um sistema ja existente no Central (systemSuggestions.ts:35/56/118)
+-- quebra a mesma FK obsoleta no INSERT, antes mesmo da aprovacao.
 
 ALTER TABLE system_suggestions
   DROP CONSTRAINT IF EXISTS system_suggestions_resolved_system_id_fkey,
   DROP CONSTRAINT IF EXISTS system_suggestions_created_system_id_fkey,
-  DROP CONSTRAINT IF EXISTS system_suggestions_created_alias_id_fkey;
+  DROP CONSTRAINT IF EXISTS system_suggestions_created_alias_id_fkey,
+  DROP CONSTRAINT IF EXISTS system_suggestions_parent_id_fkey;
 
 -- resolveCreateAlias (systemSuggestionsAdmin.ts) grava o slug normalizado do
 -- alias em created_alias_id (nao ha endpoint de alias-id proprio no catalogo
@@ -30,7 +36,7 @@ ALTER TABLE system_suggestions
 ALTER TABLE system_suggestions
   ALTER COLUMN created_alias_id TYPE TEXT USING created_alias_id::TEXT;
 
--- Validacao: garantir que as 3 constraints nao existem mais.
+-- Validacao: garantir que as 4 constraints nao existem mais.
 DO $$
 BEGIN
   IF EXISTS (
@@ -38,7 +44,8 @@ BEGIN
     WHERE conname IN (
       'system_suggestions_resolved_system_id_fkey',
       'system_suggestions_created_system_id_fkey',
-      'system_suggestions_created_alias_id_fkey'
+      'system_suggestions_created_alias_id_fkey',
+      'system_suggestions_parent_id_fkey'
     )
     AND conrelid = 'system_suggestions'::regclass
   ) THEN
