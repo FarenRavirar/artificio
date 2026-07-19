@@ -4,6 +4,7 @@ Formato: `AA-MM-DD_N_<modulo>_<escopo>.md`. `N` = sequencial do dia. Sessões en
 
 | Sessão | Data | Módulo | Escopo | Estado |
 |---|---|---|---|---|
+| `26-07-18_1_mesas_bugs-catalogo-e-edicao-mesa` | 2026-07-18 | mesas | **Bug 1:** 500 em `POST .../system-suggestions/:id/resolve` (FK obsoleta pós-spec 078). **Bug 2:** editar mesa criava mesa nova (`mapTableApiToInitialData` sem `id`). Ambos corrigidos; lint/tsc/vitest 100% verde (188+607 testes) | fixes prontos e validados; aguardando autorização p/ commit/push/PR/deploy |
 | `26-07-16_2_mesas_077-badge-duplicata-e-botoes-rascunho` | 2026-07-16 | mesas | Spec 077: confirmar badge de duplicata no card, botões Revisar/Rejeitar por linha, trigger automático de scan pós-import de JSON | em andamento |
 | `26-07-15_1_mesas_078-sistemas-central-hidratacao` | 2026-07-15 | mesas/site-sistemas | Spec 078: Central Site Prod, projeção local Mesas Beta, hidratações e fluxos unificados | planejamento completo; zero implementação |
 | `26-07-14_1_mesas_077-dedupe-mesas-ativas` | 2026-07-14 | mesas | Spec 077: investigar dedupe mesa ativa × mesa ativa e draft × mesa ativa | em andamento (Fase 0; implementação bloqueada por decisões do mantenedor) |

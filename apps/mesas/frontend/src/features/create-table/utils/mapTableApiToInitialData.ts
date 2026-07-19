@@ -78,7 +78,7 @@ function defaultSession(data: ApiRecord): SessionSchedule {
  * para a estrutura aninhada Partial<FormState> esperada pelo
  * useCreateTableForm como `initialData`.
  */
-export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> {
+export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> & { id?: string } {
   const data = asRecord(apiData);
   if (!data) return {};
 
@@ -86,6 +86,12 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> {
   const contacts = Array.isArray(data.contacts) ? data.contacts.filter(isContactEntry) : [];
 
   return {
+    // Bug real (spec 081, reporte GM Douglas dos Santos 2026-07-10): id nunca
+    // era incluido aqui, entao useCreateTableForm.submit (initialData?.id)
+    // sempre calculava isEditing=false e toda edicao de mesa criava mesa nova
+    // via POST em vez de atualizar via PUT.
+    id: nullableStringValue(data, 'id') ?? undefined,
+
     form: {
       title: stringValue(data, 'title'),
       description: stringValue(data, 'description'),
