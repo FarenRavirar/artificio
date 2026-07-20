@@ -131,7 +131,8 @@ for file in "${PENDING[@]}"; do
 BEGIN;
 SELECT pg_advisory_xact_lock($MIGRATION_LOCK_ID);
 $(cat "$path")
-INSERT INTO schema_migrations (migration_name, applied_by) VALUES ('$file', 'ci:$(whoami)@$(hostname)');
+INSERT INTO schema_migrations (migration_name, applied_by) VALUES ('$file', 'ci:$(whoami)@$(hostname)')
+  ON CONFLICT (migration_name) DO NOTHING;
 COMMIT;
 SQL
 done
