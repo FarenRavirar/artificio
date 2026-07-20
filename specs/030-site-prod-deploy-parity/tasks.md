@@ -1,3 +1,5 @@
+> **⚠️ Nota GA4 (D117, 2026-07-20):** secret `PUBLIC_GA_ID=G-8XN5BGPJP3` (T5 abaixo) foi removido do GitHub Environment; GA ID virou default hardcoded no compose, 1 property por app. Ver D117.
+
 # Tasks — 030 Site deploy PROD próprio (paridade)
 
 > Ordem pétrea: código (PR) → stand-up prod (sem rota) → seed DB (mantenedor) → flip rota (mantenedor) → noindex beta. DNS/Tunnel = mantenedor. Cada deploy/VM-write/seed/rota = aprovação nominal por ação.

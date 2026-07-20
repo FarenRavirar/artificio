@@ -1,3 +1,5 @@
+> **⚠️ SUPERADA por D117 (2026-07-20):** GA4 mudou de property única (D020) para 1 property por app. `G-8XN5BGPJP3` abaixo é a property antiga aposentada.
+
 # Tasks — 032
 
 > Execução por **opencode** (fatias isoladas por app/pacote). Planejamento/revisão = Claude.

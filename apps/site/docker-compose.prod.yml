@@ -30,7 +30,7 @@ services:
       # validando chamadas internas de mesas/glossario. Mesmo valor nos 3 .env prod.
       # Achado Codex (PR #145): faltava esta wiring no compose PROD (so tinha em beta).
       - CATALOG_INTERNAL_TOKEN=${CATALOG_INTERNAL_TOKEN:?CATALOG_INTERNAL_TOKEN is required}
-      - PUBLIC_GA_ID=${PUBLIC_GA_ID:-}
+      - PUBLIC_GA_ID=${PUBLIC_GA_ID:-G-2H50PCM950}
       - PUBLIC_SITE_URL=https://artificiorpg.com
       - JWT_SECRET=${JWT_SECRET}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}

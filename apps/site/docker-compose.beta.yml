@@ -29,7 +29,7 @@ services:
       # Catalogo canonico de sistemas (spec 062): token de servico-a-servico
       # validando chamadas internas de mesas/glossario. Mesmo valor nos 3 .env.beta.
       - CATALOG_INTERNAL_TOKEN=${CATALOG_INTERNAL_TOKEN}
-      - PUBLIC_GA_ID=${PUBLIC_GA_ID:-}
+      - PUBLIC_GA_ID=${PUBLIC_GA_ID:-G-2H50PCM950}
       - PUBLIC_SITE_URL=https://beta.artificiorpg.com
       - SITE_NOINDEX=true
       - JWT_SECRET=${JWT_SECRET}

@@ -1,3 +1,5 @@
+> **⚠️ Nota GA4 (D117, 2026-07-20):** referência a `G-8XN5BGPJP3` abaixo é histórico. Ver D117.
+
 # Plano — 035 (Débitos de Infra)
 
 > Alinhado com `spec.md` (fonte única) e `tasks.md` (granular + descobertas). Ordem = bloqueio.
