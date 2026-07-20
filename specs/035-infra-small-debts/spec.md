@@ -1,3 +1,5 @@
+> **⚠️ Nota GA4 (D117, 2026-07-20):** referências a `PUBLIC_GA_ID=G-8XN5BGPJP3` abaixo são histórico. Property GA4 mudou de única (D020) para 1-por-app; ver `.specify/memory/decisions.md` D117.
+
 # 035 — Débitos de Infra: Plano de Resolução (doc único)
 
 - **Propósito:** Documento ÚNICO e completo para resolver todos os débitos abertos em série, ordenados por bloqueio. Cada item tem estado real verificado, ação, arquivos, validação e rollback.

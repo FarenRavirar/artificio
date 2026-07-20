@@ -1,3 +1,5 @@
+> **⚠️ SUPERADA por D117 (2026-07-20):** decisão de property GA4 única (D020) foi revogada. Modelo atual = 1 property por app (site/mesas/glossario/downloads, IDs novos). `G-8XN5BGPJP3` citado abaixo é a property antiga aposentada. Ver `.specify/memory/decisions.md` D117 e `sessoes/26-07-20_1_analytics_ga4-property-por-app.md`.
+
 # 032 — Adoção compartilhada de analytics (GA4 unificado)
 
 - **Módulo/Pacote:** packages/analytics + apps/site + apps/glossario + apps/mesas

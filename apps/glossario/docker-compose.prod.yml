@@ -5,7 +5,7 @@ services:
       context: ../..
       dockerfile: apps/glossario/frontend/Dockerfile
       args:
-        VITE_GA_ID: ${VITE_GA_ID:-G-8XN5BGPJP3}
+        VITE_GA_ID: ${VITE_GA_ID:-G-YVHMJEVTE4}
     container_name: glossario-app
     restart: always
     expose:

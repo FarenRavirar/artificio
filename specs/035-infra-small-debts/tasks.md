@@ -1,3 +1,5 @@
+> **⚠️ Nota GA4 (D117, 2026-07-20):** referências a `G-8XN5BGPJP3` abaixo são histórico. Ver D117.
+
 # Tasks — 035 (granular, por fase de bloqueio)
 
 > Fonte única = `spec.md`. Estratégia = `plan.md`. Este arquivo = checklist executável + **descobertas completas** + **R0 RE-INVESTIGAR** por débito.

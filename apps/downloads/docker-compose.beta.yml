@@ -7,7 +7,7 @@ services:
         VITE_API_URL: ${VITE_API_URL:-https://downloadsbeta.artificiorpg.com}
         VITE_PUBLIC_SITE_URL: ${VITE_PUBLIC_SITE_URL:-https://downloadsbeta.artificiorpg.com}
         VITE_ACCOUNTS_URL: ${VITE_ACCOUNTS_URL:-https://accounts.artificiorpg.com}
-        VITE_GA_ID: ${VITE_GA_ID:-G-8XN5BGPJP3}
+        VITE_GA_ID: ${VITE_GA_ID:-G-2H50PCM950}
         VITE_SITE_ADMIN_SYSTEMS_URL: ${VITE_SITE_ADMIN_SYSTEMS_URL:-https://beta.artificiorpg.com/admin/sistemas}
     container_name: downloads-beta-app
     restart: always
