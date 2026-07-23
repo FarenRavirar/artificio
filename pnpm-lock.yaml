@@ -188,6 +188,9 @@ importers:
       kysely:
         specifier: ^0.29.2
         version: 0.29.2
+      node-cron:
+        specifier: ^4.6.0
+        version: 4.6.0
       pg:
         specifier: ^8.20.0
         version: 8.21.0
@@ -213,6 +216,9 @@ importers:
       '@types/node':
         specifier: ^24
         version: 24.13.0
+      '@types/node-cron':
+        specifier: ^3.0.11
+        version: 3.0.11
       '@types/pg':
         specifier: ^8.11.6
         version: 8.20.0
@@ -221,7 +227,7 @@ importers:
         version: 7.2.0
       '@vitest/coverage-v8':
         specifier: ^3.2.4
-        version: 3.2.6(supports-color@5.5.0)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.13.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.22.4))
+        version: 3.2.6(supports-color@5.5.0)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.13.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(supports-color@5.5.0)(tsx@4.22.4))
       nodemon:
         specifier: ^3.1.0
         version: 3.1.14
@@ -745,7 +751,7 @@ importers:
         version: 7.2.0
       '@vitest/coverage-v8':
         specifier: ^3.2.4
-        version: 3.2.6(supports-color@5.5.0)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.13.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.22.4))
+        version: 3.2.6(supports-color@5.5.0)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.13.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(supports-color@5.5.0)(tsx@4.22.4))
       nodemon:
         specifier: ^3.1.0
         version: 3.1.14
@@ -3155,6 +3161,9 @@ packages:
   '@types/nlcst@2.0.3':
     resolution: {integrity: sha512-vSYNSDe6Ix3q+6Z7ri9lyWqgGhJTmzRjZRqyq15N0Z/1/UnVsno9G/N40NBijoYx2seFDIl0+B2mgAb9mezUCA==}
 
+  '@types/node-cron@3.0.11':
+    resolution: {integrity: sha512-0ikrnug3/IyneSHqCBeslAhlK2aBfYek1fGo4bP4QnZPmiqSGRK+Oy7ZMisLWkesffJvQ1cqAcBnJC+8+nxIAg==}
+
   '@types/node@14.18.63':
     resolution: {integrity: sha512-fAtCfv4jJg+ExtXhvCkCqUKZ+4ok/JQk01qDKhL5BDDoS3AxKXhV5/MAVUZyQnSEd2GT92fkgZl0pz0Q0AzcIQ==}
 
@@ -5359,6 +5368,10 @@ packages:
   node-addon-api@8.8.0:
     resolution: {integrity: sha512-c5Ko1fZJIJmzhFIkhRN76WTq+fC6tWnGy9CXA0fA+XygsWZmEwG8vmbkNqxMyoaa0Tin4djul49NzdVcJJcjeA==}
     engines: {node: ^18 || ^20 || >= 21}
+
+  node-cron@4.6.0:
+    resolution: {integrity: sha512-Si/bzYiKRHOB8/a99T2+SDGN582ONDMSTlJr5oCkT6GtnqPjZ2s10eoQRYkW9ZHwjVxONL+W8Fb+qR0AHMQsdg==}
+    engines: {node: '>=20'}
 
   node-domexception@1.0.0:
     resolution: {integrity: sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==}
@@ -9121,6 +9134,8 @@ snapshots:
     dependencies:
       '@types/unist': 3.0.3
 
+  '@types/node-cron@3.0.11': {}
+
   '@types/node@14.18.63': {}
 
   '@types/node@24.13.0':
@@ -9387,7 +9402,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)
 
-  '@vitest/coverage-v8@3.2.6(supports-color@5.5.0)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.13.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.22.4))':
+  '@vitest/coverage-v8@3.2.6(supports-color@5.5.0)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.13.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(supports-color@5.5.0)(tsx@4.22.4))':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@bcoe/v8-coverage': 1.0.2
@@ -11988,6 +12003,8 @@ snapshots:
       '@types/nlcst': 2.0.3
 
   node-addon-api@8.8.0: {}
+
+  node-cron@4.6.0: {}
 
   node-domexception@1.0.0: {}
 

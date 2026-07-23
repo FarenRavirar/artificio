@@ -94,7 +94,7 @@ export function MaterialPage() {
               Acessar material
             </button>
           ) : (
-            <p role="alert" className="rounded-md border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-amber-200">
+            <p role="alert" className="artificio-banner-warning rounded-md border px-4 py-3">
               Este material está temporariamente indisponível. O destino de acesso não pôde ser confirmado.
             </p>
           )}
@@ -103,7 +103,7 @@ export function MaterialPage() {
             <button
               type="button"
               onClick={handleToggleFavorite}
-              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white hover:border-artificio-orange"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] hover:border-artificio-orange"
             >
               {isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             </button>

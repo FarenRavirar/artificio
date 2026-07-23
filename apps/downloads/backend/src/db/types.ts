@@ -64,6 +64,9 @@ export interface DownloadMaterialMetadataTable {
   // T-editora (spec 075, migration_019) — credito de editora/selo, texto
   // livre (nao e conta/entidade de login, so credito estruturado).
   publisher_name: string | null;
+  // T2.7 (spec 082, migration_020) — MVP de Gestao de Midias: URL de texto
+  // (sem upload/storage novo), coerente com T2.3 (MVP somente-link-externo).
+  cover_image_url: string | null;
   updated_at: Generated<Date>;
 }
 

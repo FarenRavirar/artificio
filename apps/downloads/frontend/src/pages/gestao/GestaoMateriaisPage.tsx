@@ -31,7 +31,7 @@ export function GestaoMateriaisPage() {
             </div>
             <Link
               to={`/gestao/auditoria/${material.id}`}
-              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white hover:border-artificio-orange"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] hover:border-artificio-orange"
             >
               Auditoria
             </Link>

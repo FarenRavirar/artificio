@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **370 operações**.
+Total: **372 operações**.
 
 ## accounts (11)
 
@@ -22,14 +22,16 @@ Total: **370 operações**.
 | GET | `/health` | internal | none | active | — | Consulta health |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
-## downloads (50)
+## downloads (52)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
+| GET | `/api/v1/admin/creators` | admin | admin | active | — | Consulta api v1 admin creators |
 | GET | `/api/v1/admin/links` | admin | admin | active | — | Consulta api v1 admin links |
 | POST | `/api/v1/admin/materials/{id}/check-link` | admin | admin | active | — | Cria ou executa api v1 admin materials id check-link |
 | POST | `/api/v1/admin/materials/{id}/evidence/upload` | admin | admin | active | — | Cria ou executa api v1 admin materials id evidence upload |
 | GET | `/api/v1/admin/materials/{id}/link-history` | admin | admin | active | — | Consulta api v1 admin materials id link-history |
+| GET | `/api/v1/admin/media` | admin | admin | active | — | Consulta api v1 admin media |
 | GET | `/api/v1/admin/metrics` | admin | admin | active | — | Consulta api v1 admin metrics |
 | POST | `/api/v1/admin/sanitize-preview` | admin | admin | active | — | Cria ou executa api v1 admin sanitize-preview |
 | GET | `/api/v1/admin/summary` | admin | admin | active | — | Consulta api v1 admin summary |

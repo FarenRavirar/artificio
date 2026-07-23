@@ -20,12 +20,12 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | App | Total | HIGH | MEDIUM | LOW | Methods |
 |-----|-------|------|--------|-----|---------|
 | accounts | 11 | 11 | 0 | 0 | GET, POST, PUT |
-| downloads | 65 | 65 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
+| downloads | 67 | 67 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | glossario | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 242 | 242 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 52 | 52 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **459** | 459 | 0 | 0 | |
+| **Total** | **461** | 461 | 0 | 0 | |
 
 ## accounts
 
@@ -47,67 +47,69 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| USE | `/api/v1/admin` | ✅ high | `apps/downloads/backend/src/server.ts` | 87 |
+| USE | `/api/v1/admin` | ✅ high | `apps/downloads/backend/src/server.ts` | 88 |
+| GET | `/api/v1/admin/creators` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 233 |
 | GET | `/api/v1/admin/links` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 93 |
 | POST | `/api/v1/admin/materials/:id/check-link` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 59 |
 | POST | `/api/v1/admin/materials/:id/evidence/upload` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 147 |
 | GET | `/api/v1/admin/materials/:id/link-history` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 43 |
+| GET | `/api/v1/admin/media` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 204 |
 | GET | `/api/v1/admin/metrics` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 117 |
-| POST | `/api/v1/admin/sanitize-preview` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 207 |
+| POST | `/api/v1/admin/sanitize-preview` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 277 |
 | GET | `/api/v1/admin/summary` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 15 |
 | GET | `/api/v1/changelog` | ✅ high | `apps/downloads/backend/src/routes/changelog.ts` | 16 |
-| USE | `/api/v1/changelog` | ✅ high | `apps/downloads/backend/src/server.ts` | 88 |
+| USE | `/api/v1/changelog` | ✅ high | `apps/downloads/backend/src/server.ts` | 89 |
 | GET | `/api/v1/collections` | ✅ high | `apps/downloads/backend/src/routes/collections.ts` | 20 |
 | POST | `/api/v1/collections` | ✅ high | `apps/downloads/backend/src/routes/collections.ts` | 31 |
-| USE | `/api/v1/collections` | ✅ high | `apps/downloads/backend/src/server.ts` | 84 |
+| USE | `/api/v1/collections` | ✅ high | `apps/downloads/backend/src/server.ts` | 85 |
 | GET | `/api/v1/collections/:id/items` | ✅ high | `apps/downloads/backend/src/routes/collections.ts` | 60 |
 | POST | `/api/v1/collections/:id/items` | ✅ high | `apps/downloads/backend/src/routes/collections.ts` | 87 |
 | DELETE | `/api/v1/collections/:id/items/:materialId` | ✅ high | `apps/downloads/backend/src/routes/collections.ts` | 107 |
 | POST | `/api/v1/comments` | ✅ high | `apps/downloads/backend/src/routes/comments.ts` | 16 |
-| USE | `/api/v1/comments` | ✅ high | `apps/downloads/backend/src/server.ts` | 78 |
+| USE | `/api/v1/comments` | ✅ high | `apps/downloads/backend/src/server.ts` | 79 |
 | DELETE | `/api/v1/comments/:id` | ✅ high | `apps/downloads/backend/src/routes/comments.ts` | 61 |
 | GET | `/api/v1/comments/:materialId` | ✅ high | `apps/downloads/backend/src/routes/comments.ts` | 46 |
-| USE | `/api/v1/creators` | ✅ high | `apps/downloads/backend/src/server.ts` | 79 |
+| USE | `/api/v1/creators` | ✅ high | `apps/downloads/backend/src/server.ts` | 80 |
 | GET | `/api/v1/creators/:slug` | ✅ high | `apps/downloads/backend/src/routes/creators.ts` | 22 |
 | GET | `/api/v1/creators/me` | ✅ high | `apps/downloads/backend/src/routes/creators.ts` | 13 |
-| USE | `/api/v1/destinations` | ✅ high | `apps/downloads/backend/src/server.ts` | 80 |
+| USE | `/api/v1/destinations` | ✅ high | `apps/downloads/backend/src/server.ts` | 81 |
 | GET | `/api/v1/destinations/:id` | ✅ high | `apps/downloads/backend/src/routes/destinations.ts` | 10 |
 | POST | `/api/v1/downloads` | ✅ high | `apps/downloads/backend/src/routes/downloads.ts` | 18 |
-| USE | `/api/v1/downloads` | ✅ high | `apps/downloads/backend/src/server.ts` | 81 |
+| USE | `/api/v1/downloads` | ✅ high | `apps/downloads/backend/src/server.ts` | 82 |
 | GET | `/api/v1/favorites` | ✅ high | `apps/downloads/backend/src/routes/favorites.ts` | 14 |
 | POST | `/api/v1/favorites` | ✅ high | `apps/downloads/backend/src/routes/favorites.ts` | 26 |
-| USE | `/api/v1/favorites` | ✅ high | `apps/downloads/backend/src/server.ts` | 83 |
+| USE | `/api/v1/favorites` | ✅ high | `apps/downloads/backend/src/server.ts` | 84 |
 | DELETE | `/api/v1/favorites/:materialId` | ✅ high | `apps/downloads/backend/src/routes/favorites.ts` | 52 |
-| GET | `/api/v1/health` | ✅ high | `apps/downloads/backend/src/server.ts` | 64 |
-| USE | `/api/v1/material-metadata` | ✅ high | `apps/downloads/backend/src/server.ts` | 75 |
-| GET | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 37 |
-| PUT | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 61 |
+| GET | `/api/v1/health` | ✅ high | `apps/downloads/backend/src/server.ts` | 65 |
+| USE | `/api/v1/material-metadata` | ✅ high | `apps/downloads/backend/src/server.ts` | 76 |
+| GET | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 38 |
+| PUT | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 62 |
 | GET | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 75 |
 | POST | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 242 |
-| USE | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/server.ts` | 74 |
+| USE | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/server.ts` | 75 |
 | PATCH | `/api/v1/materials/:id` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 267 |
 | GET | `/api/v1/materials/:id/history` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 161 |
 | GET | `/api/v1/materials/:slug` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 191 |
 | GET | `/api/v1/materials/mine` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 147 |
-| USE | `/api/v1/moderation` | ✅ high | `apps/downloads/backend/src/server.ts` | 76 |
+| USE | `/api/v1/moderation` | ✅ high | `apps/downloads/backend/src/server.ts` | 77 |
 | POST | `/api/v1/moderation/:id/approve` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 127 |
 | POST | `/api/v1/moderation/:id/reject` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 71 |
 | POST | `/api/v1/moderation/:id/submit` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 17 |
 | PATCH | `/api/v1/moderation/batch/:action` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 196 |
 | GET | `/api/v1/moderation/queue` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 54 |
 | GET | `/api/v1/notifications` | ✅ high | `apps/downloads/backend/src/routes/notifications.ts` | 12 |
-| USE | `/api/v1/notifications` | ✅ high | `apps/downloads/backend/src/server.ts` | 86 |
+| USE | `/api/v1/notifications` | ✅ high | `apps/downloads/backend/src/server.ts` | 87 |
 | PATCH | `/api/v1/notifications/:id/read` | ✅ high | `apps/downloads/backend/src/routes/notifications.ts` | 24 |
 | GET | `/api/v1/organizations` | ✅ high | `apps/downloads/backend/src/routes/organizations.ts` | 16 |
 | POST | `/api/v1/organizations` | ✅ high | `apps/downloads/backend/src/routes/organizations.ts` | 27 |
-| USE | `/api/v1/organizations` | ✅ high | `apps/downloads/backend/src/server.ts` | 85 |
+| USE | `/api/v1/organizations` | ✅ high | `apps/downloads/backend/src/server.ts` | 86 |
 | GET | `/api/v1/organizations/:id/members` | ✅ high | `apps/downloads/backend/src/routes/organizations.ts` | 51 |
 | PUT | `/api/v1/ratings` | ✅ high | `apps/downloads/backend/src/routes/ratings.ts` | 39 |
-| USE | `/api/v1/ratings` | ✅ high | `apps/downloads/backend/src/server.ts` | 82 |
+| USE | `/api/v1/ratings` | ✅ high | `apps/downloads/backend/src/server.ts` | 83 |
 | GET | `/api/v1/ratings/:materialId` | ✅ high | `apps/downloads/backend/src/routes/ratings.ts` | 28 |
 | GET | `/api/v1/reports` | ✅ high | `apps/downloads/backend/src/routes/reports.ts` | 142 |
 | POST | `/api/v1/reports` | ✅ high | `apps/downloads/backend/src/routes/reports.ts` | 34 |
-| USE | `/api/v1/reports` | ✅ high | `apps/downloads/backend/src/server.ts` | 77 |
+| USE | `/api/v1/reports` | ✅ high | `apps/downloads/backend/src/server.ts` | 78 |
 | DELETE | `/api/v1/reports/:id` | ✅ high | `apps/downloads/backend/src/routes/reports.ts` | 96 |
 | PATCH | `/api/v1/reports/:id` | ✅ high | `apps/downloads/backend/src/routes/reports.ts` | 162 |
 | GET | `/api/v1/reports/abuse-check/:userId` | ✅ high | `apps/downloads/backend/src/routes/reports.ts` | 126 |

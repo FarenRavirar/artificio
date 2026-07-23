@@ -9,6 +9,10 @@ export function GestaoLinksPage() {
   return (
     <GestaoShell>
       <h1 className="text-2xl font-bold text-[var(--fg)]">Links</h1>
+      <p className="mt-2 text-sm text-[var(--fg-muted)]">
+        Checagem automática diária (03:00) cobre todo material publicado; use "Checar agora" para forçar uma checagem
+        imediata.
+      </p>
 
       {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
       {links && links.length === 0 && <p className="mt-4 text-[var(--fg-muted)]">Nenhum link checado ainda.</p>}
@@ -27,7 +31,7 @@ export function GestaoLinksPage() {
               type="button"
               onClick={() => checkLink.mutateAsync(link.material_id).catch(() => undefined)}
               disabled={checkLink.isPending}
-              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white disabled:opacity-40"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] disabled:opacity-40"
             >
               Checar agora
             </button>

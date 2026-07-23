@@ -16,13 +16,13 @@ export function FavoritosPage() {
       <ul className="mt-6 divide-y divide-[var(--line)]">
         {favorites?.map((favorite) => (
           <li key={favorite.id} className="flex items-center justify-between gap-4 py-3">
-            <Link to={`/materiais/${favorite.slug}`} className="font-semibold text-white hover:text-artificio-orange">
+            <Link to={`/materiais/${favorite.slug}`} className="font-semibold text-[var(--fg)] hover:text-artificio-orange">
               {favorite.title}
             </Link>
             <button
               type="button"
               onClick={() => removeMutation.mutate(favorite.id)}
-              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white hover:border-red-400"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] hover:border-red-400"
             >
               Remover
             </button>

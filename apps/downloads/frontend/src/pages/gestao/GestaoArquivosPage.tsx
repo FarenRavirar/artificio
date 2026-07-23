@@ -60,7 +60,7 @@ export function GestaoArquivosPage() {
           type="button"
           onClick={() => handleUpload()}
           disabled={isUploading}
-          className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] disabled:opacity-50"
         >
           {isUploading ? 'Enviando...' : 'Enviar'}
         </button>

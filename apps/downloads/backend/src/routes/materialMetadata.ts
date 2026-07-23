@@ -25,6 +25,7 @@ const upsertMetadataSchema = z.object({
   license_url: z.url().trim().nullable().optional(),
   credits: z.string().trim().nullable().optional(),
   publisher_name: z.string().trim().max(120).nullable().optional(),
+  cover_image_url: z.url().trim().nullable().optional(),
   target_audience: z.string().trim().max(60).nullable().optional(),
   age_rating: z.string().trim().max(20).nullable().optional(),
   content_warnings: z.array(z.string()).optional(),
@@ -99,6 +100,7 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     license_url: patch.license_url ?? null,
     credits: patch.credits ?? null,
     publisher_name: patch.publisher_name ?? null,
+    cover_image_url: patch.cover_image_url ?? null,
     target_audience: patch.target_audience ?? null,
     age_rating: patch.age_rating ?? null,
   };

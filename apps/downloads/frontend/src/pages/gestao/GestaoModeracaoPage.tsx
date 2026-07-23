@@ -52,7 +52,7 @@ export function GestaoModeracaoPage() {
               type="button"
               disabled={selected.size === 0 || batchAction.isPending}
               onClick={() => runBatch('approve')}
-              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white disabled:opacity-40"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] disabled:opacity-40"
             >
               Aprovar selecionados
             </button>
@@ -60,7 +60,7 @@ export function GestaoModeracaoPage() {
               type="button"
               disabled={selected.size === 0 || batchAction.isPending}
               onClick={() => runBatch('reject')}
-              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white disabled:opacity-40"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] disabled:opacity-40"
             >
               Reprovar selecionados
             </button>
@@ -68,7 +68,7 @@ export function GestaoModeracaoPage() {
               type="button"
               disabled={selected.size === 0 || batchAction.isPending}
               onClick={() => runBatch('archive')}
-              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white disabled:opacity-40"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] disabled:opacity-40"
             >
               Arquivar selecionados
             </button>

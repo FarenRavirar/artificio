@@ -16,7 +16,7 @@ export function NotificacoesPage() {
         {notifications?.map((notification) => (
           <li key={notification.id} className="flex items-center justify-between gap-4 py-3">
             <div>
-              <p className={notification.read_at ? 'text-[var(--fg-muted)]' : 'font-semibold text-white'}>{notification.body}</p>
+              <p className={notification.read_at ? 'text-[var(--fg-muted)]' : 'font-semibold text-[var(--fg)]'}>{notification.body}</p>
               <p className="text-xs text-[var(--fg-muted)]">{new Date(notification.created_at).toLocaleString('pt-BR')}</p>
             </div>
             {!notification.read_at && (

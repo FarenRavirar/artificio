@@ -17,10 +17,10 @@ const ACCESS_LABEL: Record<Material['access_kind'], string> = {
 export function MaterialCard({ material }: Readonly<MaterialCardProps>) {
   return (
     <article className="relative rounded-lg border border-[var(--line)] bg-[var(--surface-subtle)] p-4 transition hover:border-artificio-orange focus-within:ring-2 focus-within:ring-artificio-orange">
-      <div className="mb-3 flex h-32 items-center justify-center rounded bg-black/20 text-sm text-[var(--fg-muted)]">
+      <div className="mb-3 flex h-32 items-center justify-center rounded bg-[var(--surface-strong)] text-sm text-[var(--fg-muted)]">
         Sem capa
       </div>
-      <h3 className="text-base font-semibold leading-snug text-white break-words">
+      <h3 className="text-base font-semibold leading-snug text-[var(--fg)] break-words">
         <Link
           to={`/materiais/${material.slug}`}
           className="before:absolute before:inset-0 focus:outline-none"

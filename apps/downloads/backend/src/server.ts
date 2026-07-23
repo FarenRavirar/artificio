@@ -18,6 +18,7 @@ import adminRoutes from './routes/admin';
 import changelogRoutes from './routes/changelog';
 import { parseCookies } from './middleware/parseCookies';
 import { db } from './db';
+import { startLinkCheckerScheduler } from './services/linkCheckerScheduler';
 
 dotenv.config();
 
@@ -121,4 +122,5 @@ app.use((err: HttpError, _req: express.Request, res: express.Response, next: exp
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
+  startLinkCheckerScheduler();
 });
