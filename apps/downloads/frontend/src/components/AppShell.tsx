@@ -36,7 +36,7 @@ export const AppShell = ({ children }: AppShellProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-artificio-blue)] text-white flex flex-col">
+    <div className="min-h-screen bg-[var(--canvas)] text-[var(--fg)] flex flex-col">
       <Header
         variant={theme === 'light' ? 'light' : 'dark'}
         brandHref="/"

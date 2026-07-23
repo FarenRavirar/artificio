@@ -26,7 +26,7 @@ export function RedirectDestinationPage() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-white/70">Redirecionando...</div>
+        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-[var(--fg-muted)]">Redirecionando...</div>
       </AppShell>
     );
   }
@@ -35,8 +35,8 @@ export function RedirectDestinationPage() {
     return (
       <AppShell>
         <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold text-white">Destino indisponível</h1>
-          <p className="mt-2 text-white/70">Não foi possível confirmar o link de acesso deste material.</p>
+          <h1 className="text-2xl font-bold text-[var(--fg)]">Destino indisponível</h1>
+          <p className="mt-2 text-[var(--fg-muted)]">Não foi possível confirmar o link de acesso deste material.</p>
         </div>
       </AppShell>
     );

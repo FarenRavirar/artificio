@@ -12,19 +12,19 @@ export function VisaoGeralPage() {
 
   return (
     <PainelShell>
-      <h1 className="text-2xl font-bold text-white">Olá, {user?.name ?? 'usuário'}</h1>
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Olá, {user?.name ?? 'usuário'}</h1>
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-md border border-white/10 p-4">
+        <div className="rounded-md border border-[var(--line)] p-4">
           <p className="text-3xl font-bold text-artificio-orange">{published}</p>
-          <p className="text-sm text-white/60">Materiais publicados</p>
+          <p className="text-sm text-[var(--fg-muted)]">Materiais publicados</p>
         </div>
-        <div className="rounded-md border border-white/10 p-4">
+        <div className="rounded-md border border-[var(--line)] p-4">
           <p className="text-3xl font-bold text-artificio-orange">{inReview}</p>
-          <p className="text-sm text-white/60">Em revisão</p>
+          <p className="text-sm text-[var(--fg-muted)]">Em revisão</p>
         </div>
-        <div className="rounded-md border border-white/10 p-4">
+        <div className="rounded-md border border-[var(--line)] p-4">
           <p className="text-3xl font-bold text-artificio-orange">{draft}</p>
-          <p className="text-sm text-white/60">Rascunhos</p>
+          <p className="text-sm text-[var(--fg-muted)]">Rascunhos</p>
         </div>
       </div>
     </PainelShell>

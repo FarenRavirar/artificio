@@ -8,17 +8,17 @@ export function GestaoLinksPage() {
 
   return (
     <GestaoShell>
-      <h1 className="text-2xl font-bold text-white">Links</h1>
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Links</h1>
 
-      {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
-      {links && links.length === 0 && <p className="mt-4 text-white/60">Nenhum link checado ainda.</p>}
+      {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
+      {links && links.length === 0 && <p className="mt-4 text-[var(--fg-muted)]">Nenhum link checado ainda.</p>}
 
-      <ul className="mt-6 divide-y divide-white/10">
+      <ul className="mt-6 divide-y divide-[var(--line)]">
         {links?.map((link) => (
           <li key={link.id} className="flex items-center justify-between gap-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold text-white">{link.material_title}</p>
-              <p className="flex items-center gap-1 text-xs text-white/60">
+              <p className="truncate font-semibold text-[var(--fg)]">{link.material_title}</p>
+              <p className="flex items-center gap-1 text-xs text-[var(--fg-muted)]">
                 <span aria-hidden="true">{link.is_healthy ? '✅' : '⚠️'}</span>
                 {link.is_healthy ? 'saudável' : `degradado (${link.error_detail ?? link.http_status ?? 'sem resposta'})`}
               </p>
@@ -27,7 +27,7 @@ export function GestaoLinksPage() {
               type="button"
               onClick={() => checkLink.mutateAsync(link.material_id).catch(() => undefined)}
               disabled={checkLink.isPending}
-              className="min-h-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white disabled:opacity-40"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white disabled:opacity-40"
             >
               Checar agora
             </button>

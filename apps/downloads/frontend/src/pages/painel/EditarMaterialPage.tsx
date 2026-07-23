@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { PainelShell } from '../../components/PainelShell';
 import { useMyMaterials } from '../../hooks/useMyMaterials';
 import { useUpdateMaterial } from '../../hooks/useUpdateMaterial';
+import { useSubmitMaterial } from '../../hooks/useSubmitMaterial';
 import { useMaterialHistory } from '../../hooks/useMaterialHistory';
 import { useMaterialMetadata } from '../../hooks/useMaterialMetadata';
 import { useUpdateMaterialMetadata } from '../../hooks/useUpdateMaterialMetadata';
@@ -23,6 +24,7 @@ export function EditarMaterialPage() {
   const { data: materials, isLoading } = useMyMaterials();
   const material = materials?.find((m) => m.id === materialId);
   const updateMutation = useUpdateMaterial(materialId ?? '');
+  const submitMutation = useSubmitMaterial(materialId ?? '');
   const { data: history } = useMaterialHistory(materialId);
   const { data: metadata } = useMaterialMetadata(materialId);
   const updateMetadataMutation = useUpdateMaterialMetadata(materialId ?? '');
@@ -59,7 +61,7 @@ export function EditarMaterialPage() {
   if (isLoading) {
     return (
       <PainelShell>
-        <p className="text-white/60">Carregando...</p>
+        <p className="text-[var(--fg-muted)]">Carregando...</p>
       </PainelShell>
     );
   }
@@ -67,7 +69,7 @@ export function EditarMaterialPage() {
   if (!material) {
     return (
       <PainelShell>
-        <p className="text-white/70">Material não encontrado ou não pertence à sua conta.</p>
+        <p className="text-[var(--fg-muted)]">Material não encontrado ou não pertence à sua conta.</p>
       </PainelShell>
     );
   }
@@ -88,76 +90,100 @@ export function EditarMaterialPage() {
     }
   };
 
+  const canSubmitForReview = material.editorial_state === 'draft' || material.editorial_state === 'rejected';
+
+  const handleSubmitForReview = async () => {
+    try {
+      await submitMutation.mutateAsync();
+      toast.success('Material enviado para revisão.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao enviar para revisão.');
+    }
+  };
+
   return (
     <PainelShell>
-      <h1 className="text-2xl font-bold text-white">Editar material</h1>
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Editar material</h1>
 
       <form onSubmit={handleSubmit} className="mt-6 flex max-w-xl flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm text-white/80">
+        <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
           <span>Título</span>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="min-h-[44px] rounded-md border border-white/20 bg-transparent px-3 py-2 text-white"
+            className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-white/80">
+        <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
           <span>Resumo</span>
           <textarea
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
-            className="rounded-md border border-white/20 bg-transparent px-3 py-2 text-white"
+            className="rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
             rows={2}
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-white/80">
+        <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
           <span>Descrição</span>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="rounded-md border border-white/20 bg-transparent px-3 py-2 text-white"
+            className="rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
             rows={5}
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-white/80">
+        <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
           <span>Link de destino</span>
           <input
             value={externalUrl}
             onChange={(e) => setExternalUrl(e.target.value)}
-            className="min-h-[44px] rounded-md border border-white/20 bg-transparent px-3 py-2 text-white"
+            className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-white/80">
+        <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
           <span>Editora/selo</span>
           <input
             value={publisherName}
             onChange={(e) => setPublisherName(e.target.value)}
             placeholder="Nome da editora ou selo (opcional)"
-            className="min-h-[44px] rounded-md border border-white/20 bg-transparent px-3 py-2 text-white"
+            className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
           />
         </label>
 
-        <button
-          type="submit"
-          disabled={updateMutation.isPending}
-          className="min-h-[44px] w-fit rounded-md bg-artificio-orange px-6 py-2 font-semibold text-white hover:bg-artificio-orange-hover disabled:opacity-50"
-        >
-          {updateMutation.isPending ? 'Salvando...' : 'Salvar'}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="submit"
+            disabled={updateMutation.isPending}
+            className="min-h-[44px] w-fit rounded-md bg-artificio-orange px-6 py-2 font-semibold text-white hover:bg-artificio-orange-hover disabled:opacity-50"
+          >
+            {updateMutation.isPending ? 'Salvando...' : 'Salvar'}
+          </button>
+
+          {canSubmitForReview && (
+            <button
+              type="button"
+              onClick={handleSubmitForReview}
+              disabled={submitMutation.isPending}
+              className="min-h-[44px] w-fit rounded-md border border-[var(--line)] px-6 py-2 font-semibold text-white hover:border-artificio-orange disabled:opacity-50"
+            >
+              {submitMutation.isPending ? 'Enviando...' : 'Enviar para revisão'}
+            </button>
+          )}
+        </div>
       </form>
 
-      <h2 className="mt-10 text-lg font-semibold text-white">Histórico de edição</h2>
-      {history && history.length === 0 && <p className="mt-2 text-white/60">Nenhuma edição registrada ainda.</p>}
-      <ul className="mt-4 space-y-2 text-sm text-white/70">
+      <h2 className="mt-10 text-lg font-semibold text-[var(--fg)]">Histórico de edição</h2>
+      {history && history.length === 0 && <p className="mt-2 text-[var(--fg-muted)]">Nenhuma edição registrada ainda.</p>}
+      <ul className="mt-4 space-y-2 text-sm text-[var(--fg-muted)]">
         {history?.map((entry) => (
-          <li key={entry.id} className="rounded-md border border-white/10 px-3 py-2">
-            <span className="font-semibold text-white">{FIELD_LABEL[entry.field_name] ?? entry.field_name}</span>{' '}
+          <li key={entry.id} className="rounded-md border border-[var(--line)] px-3 py-2">
+            <span className="font-semibold text-[var(--fg)]">{FIELD_LABEL[entry.field_name] ?? entry.field_name}</span>{' '}
             alterado em {new Date(entry.changed_at).toLocaleString('pt-BR')}
-            <div className="mt-1 text-xs text-white/50">
+            <div className="mt-1 text-xs text-[var(--fg-muted)]">
               De: {entry.old_value ?? '(vazio)'} → Para: {entry.new_value ?? '(vazio)'}
             </div>
           </li>

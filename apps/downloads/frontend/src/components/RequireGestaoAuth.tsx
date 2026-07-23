@@ -14,7 +14,7 @@ export function RequireGestaoAuth({ children }: { children: ReactNode }) {
   if (sessionLoading || (user && roleLoading)) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-white/70">Carregando...</div>
+        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-[var(--fg-muted)]">Carregando...</div>
       </AppShell>
     );
   }
@@ -23,7 +23,7 @@ export function RequireGestaoAuth({ children }: { children: ReactNode }) {
     redirectToLogin();
     return (
       <AppShell>
-        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-white/70">Redirecionando para login...</div>
+        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-[var(--fg-muted)]">Redirecionando para login...</div>
       </AppShell>
     );
   }
@@ -33,7 +33,7 @@ export function RequireGestaoAuth({ children }: { children: ReactNode }) {
   if (!hasAccess) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-white/70">
+        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-[var(--fg-muted)]">
           Você não tem permissão para acessar a gestão do downloads.
         </div>
       </AppShell>

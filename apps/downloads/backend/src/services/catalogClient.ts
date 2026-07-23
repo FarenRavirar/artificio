@@ -18,7 +18,7 @@ export type CatalogNode = z.infer<typeof catalogNodeSchema>;
 
 export async function getCatalogNodeById(id: string): Promise<CatalogNode | null> {
   try {
-    const node = await catalogFetch<unknown>(`/api/catalog/v1/systems/${encodeURIComponent(id)}`);
+    const node = await catalogFetch<unknown>(`/api/catalog/v1/nodes/${encodeURIComponent(id)}`);
     return catalogNodeSchema.parse(node);
   } catch {
     return null;

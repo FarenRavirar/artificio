@@ -41,8 +41,8 @@ export function GestaoArquivosPage() {
 
   return (
     <GestaoShell>
-      <h1 className="text-2xl font-bold text-white">Arquivos</h1>
-      <p className="mt-2 text-sm text-white/60">
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Arquivos</h1>
+      <p className="mt-2 text-sm text-[var(--fg-muted)]">
         Upload de evidência com validação real de tipo (magic bytes). Storage real de arquivo (071 T6.2) ainda depende de
         credencial de provider — este fluxo valida e registra a evidência, sem armazenar o binário.
       </p>
@@ -53,18 +53,18 @@ export function GestaoArquivosPage() {
           value={materialId}
           onChange={(e) => setMaterialId(e.target.value)}
           placeholder="ID do material"
-          className="min-h-[44px] rounded-md border border-white/20 bg-transparent px-3 py-2 text-sm text-white"
+          className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm text-[var(--fg)]"
         />
-        <input ref={fileInputRef} type="file" accept=".pdf,.md,.doc,.docx" className="text-sm text-white/80" />
+        <input ref={fileInputRef} type="file" accept=".pdf,.md,.doc,.docx" className="text-sm text-[var(--fg-muted)]" />
         <button
           type="button"
           onClick={() => handleUpload()}
           disabled={isUploading}
-          className="min-h-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white disabled:opacity-50"
         >
           {isUploading ? 'Enviando...' : 'Enviar'}
         </button>
-        {status && <p className="text-sm text-white/70">{status}</p>}
+        {status && <p className="text-sm text-[var(--fg-muted)]">{status}</p>}
       </div>
     </GestaoShell>
   );

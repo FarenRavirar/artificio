@@ -129,6 +129,20 @@
 - **Solução aplicada (caso real 2026-07-07):** aplicar as migrations pendentes manualmente via SSH usando o MESMO script oficial (`bash scripts/deploy/apply_required_migrations.sh <compose> <db_service> <db_name> <db_user> <migrations_dir>`), só com `MAX_AUTO_PENDING=9` (ou N igual ao total pendente) passado como env var pra essa rodada pontual — preserva todo o lock/checksum/header-validation do script real, não é SQL solto nem escrita direta em `schema_migrations`. Depois do schema em conformidade, reroda `deploy.yml` normal (que só cuida do código/containers). **Cuidado:** dividir em "lotes" artificiais não funciona — o script sempre compara o total pendente contra `MAX_AUTO_PENDING` de uma vez (não há suporte nativo a lote parcial); ajustar o limite pro total real é o caminho, não fatiar chamadas.
 - **Prevenção:** nenhuma automática ainda — considerar (a) promover `dev→main` com mais frequência (reduz acúmulo), ou (b) um step opcional no `promote-prod-fast-forward.yml` que aplica migrations pendentes logo após o fast-forward (antes de qualquer deploy de código ficar bloqueado), ou (c) alertar/contar pendentes quando `dev` diverge de `main` por N commits. Registrado como débito em `specs/backlog.md`.
 - **Data:** 2026-07-07
+- **Caso repetido (spec 082, downloads, 2026-07-23):** mesmo padrão em projeto novo, não por acúmulo de promotes — Downloads nunca teve deploy Beta bem-sucedido; primeiro deploy real trouxe as 19 migrations completas de uma vez e estourou `MAX_AUTO_PENDING=5`. Confirma que o guard não é bug/defeito a corrigir, é proteção funcionando como projetado; solução é a mesma independente da causa do acúmulo (promotes atrasados ou primeiro deploy de projeto novo).
+  - **Pré-requisitos operacionais descobertos ao rodar a solução manual (faltavam nesta entrada):**
+    1. `apply_required_migrations.sh`/`lib_migrations.sh` só aplicam `-p <projeto>` ao `docker compose` se `COMPOSE_PROJECT` estiver exportado (`compose_project_flag()`). Sem essa env var, compose resolve o nome do projeto pelo diretório e não enxerga containers subidos sob outro nome de projeto (ex.: `downloads-beta`) — dá erro `service "<db>" is not running` mesmo com o container healthy.
+    2. O script não aceita `--env-file`; ele roda `docker compose` cru no cwd, que só lê `.env` (nome fixo), nunca `.env.beta`. Nos clones (`/opt/artificio-beta`), o env real do módulo vive em `apps/<modulo>/.env.beta`, não `.env`. Sem copiar/linkar para `.env` antes de rodar, a interpolação do compose falha em variáveis obrigatórias do OUTRO serviço do mesmo compose file (ex.: `CATALOG_INTERNAL_TOKEN` do serviço `api` quebra até uma migration que só mexe no serviço `db`), porque `docker compose exec` interpola o arquivo inteiro, não só o serviço alvo.
+  - **Comando completo validado (caso downloads-beta):**
+    ```bash
+    cd /opt/artificio-beta
+    cp apps/downloads/.env.beta apps/downloads/.env   # temporário; docker compose só lê .env
+    COMPOSE_PROJECT=downloads-beta MAX_AUTO_PENDING=19 \
+      bash scripts/deploy/apply_required_migrations.sh \
+      apps/downloads/docker-compose.beta.yml downloads-beta-db downloads admin apps/downloads/database
+    rm -f apps/downloads/.env   # remover a cópia temporária logo depois
+    ```
+    Sempre fazer `pg_dump` (snapshot pré-migration) antes, mesmo em banco declarado vazio — é o rollback manual se algo falhar no meio do lote.
 
 ### E013 — contato Discord de fallback usava nome de exibição do servidor (não contactável fora dele)
 - **Módulo/Pacote:** `apps/mesas/backend/src/discord/parseDiscordAnnouncement.ts` (fallback de contato, DEB-048-26) + `syncHelpers.ts` + `apps/mesas/frontend/src/components/TableContacts.tsx`

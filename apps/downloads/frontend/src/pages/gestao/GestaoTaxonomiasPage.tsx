@@ -8,8 +8,8 @@ import { GestaoShell } from '../../components/GestaoShell';
 export function GestaoTaxonomiasPage() {
   return (
     <GestaoShell>
-      <h1 className="text-2xl font-bold text-white">Taxonomias</h1>
-      <p className="mt-4 text-white/60">
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Taxonomias</h1>
+      <p className="mt-4 text-[var(--fg-muted)]">
         Sistemas e edições são geridos no Site (link "Sistemas e edições" na sidebar). material_type/access_kind são enums
         fixos no backend do downloads, sem taxonomia editável local hoje.
       </p>

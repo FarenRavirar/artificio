@@ -10,7 +10,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (loading) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-white/70">Carregando...</div>
+        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-[var(--fg-muted)]">Carregando...</div>
       </AppShell>
     );
   }
@@ -19,7 +19,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     redirectToLogin();
     return (
       <AppShell>
-        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-white/70">Redirecionando para login...</div>
+        <div className="mx-auto max-w-2xl px-4 py-16 text-center text-[var(--fg-muted)]">Redirecionando para login...</div>
       </AppShell>
     );
   }

@@ -16,25 +16,25 @@ export function GestaoVisaoGeralPage() {
 
   return (
     <GestaoShell>
-      <h1 className="text-2xl font-bold text-white">Gestão — Visão geral</h1>
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Gestão — Visão geral</h1>
 
-      {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
+      {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
 
       {summary && (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-md border border-white/10 p-4">
+          <div className="rounded-md border border-[var(--line)] p-4">
             <p className="text-3xl font-bold text-artificio-orange">{summary.moderation_queue.count}</p>
-            <p className="text-sm text-white/60">Em revisão</p>
-            <p className="text-xs text-white/40">mais antigo: {formatAge(summary.moderation_queue.oldest_since)}</p>
+            <p className="text-sm text-[var(--fg-muted)]">Em revisão</p>
+            <p className="text-xs text-[var(--fg-muted)]">mais antigo: {formatAge(summary.moderation_queue.oldest_since)}</p>
           </div>
-          <div className="rounded-md border border-white/10 p-4">
+          <div className="rounded-md border border-[var(--line)] p-4">
             <p className="text-3xl font-bold text-artificio-orange">{summary.reports_open.count}</p>
-            <p className="text-sm text-white/60">Denúncias abertas</p>
-            <p className="text-xs text-white/40">mais antigo: {formatAge(summary.reports_open.oldest_since)}</p>
+            <p className="text-sm text-[var(--fg-muted)]">Denúncias abertas</p>
+            <p className="text-xs text-[var(--fg-muted)]">mais antigo: {formatAge(summary.reports_open.oldest_since)}</p>
           </div>
-          <div className="rounded-md border border-white/10 p-4">
+          <div className="rounded-md border border-[var(--line)] p-4">
             <p className="text-3xl font-bold text-artificio-orange">{summary.degraded_links.count}</p>
-            <p className="text-sm text-white/60">Links degradados</p>
+            <p className="text-sm text-[var(--fg-muted)]">Links degradados</p>
           </div>
         </div>
       )}

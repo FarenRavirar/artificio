@@ -25,7 +25,7 @@ function PainelNavLinks({ onNavigate }: Readonly<{ onNavigate?: () => void }>) {
           onClick={onNavigate}
           className={({ isActive }) =>
             `min-h-[44px] rounded-md px-3 py-2 text-sm ${
-              isActive ? 'bg-artificio-orange/20 text-artificio-orange font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white'
+              isActive ? 'bg-artificio-orange/20 text-artificio-orange font-semibold' : 'text-[var(--fg-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--fg)]'
             }`
           }
         >
@@ -73,7 +73,7 @@ export function PainelShell({ children }: Readonly<{ children: ReactNode }>) {
             ref={menuButtonRef}
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="min-h-[44px] min-w-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white"
+            className="min-h-[44px] min-w-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)]"
             aria-expanded={drawerOpen}
           >
             Menu da conta
@@ -93,7 +93,7 @@ export function PainelShell({ children }: Readonly<{ children: ReactNode }>) {
                 aria-modal="true"
                 aria-label="Menu da conta"
                 tabIndex={-1}
-                className="w-64 bg-[var(--color-artificio-blue)] p-4 outline-none"
+                className="w-64 bg-[var(--surface)] p-4 outline-none"
               >
                 <PainelNavLinks onNavigate={() => setDrawerOpen(false)} />
               </div>
