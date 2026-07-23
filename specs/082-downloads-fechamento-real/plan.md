@@ -5,15 +5,19 @@
 - Ler estado de deploy vigente e listar containers/volumes/labels Downloads Beta/Prod read-only.
 - Comparar os dois volumes Beta por `pg_restore`, contagens, schema e presença das 19 migrations; nunca remover volume antes de backup e decisão.
 - Criar backup off-VM e restore-test isolado.
-- Decidir, por evidência, se o volume legado contém schema/dados a preservar. A inspeção exata exige container/restore temporário e autorização nominal de write na VM.
+- Decisão concluída: Beta/dev usa `downloads-beta_pgdata_downloads_beta`; Produção usará `downloads_pgdata_downloads_prod`; legado `downloads_pgdata_downloads_beta` fica fora de runtime e retido por auditoria/rollback até os smokes.
 
 ## Fase 1 — runtime Beta
 
 - Preservar o projeto Compose canônico `downloads-beta`; o volume legado foi criado sob projeto `downloads`, provavelmente por execução manual/pré-canônica.
-- Definir bootstrap seguro das 19 migrations `online-safe`: limite por módulo/primeiro deploy ou operação controlada, sem elevar globalmente `MAX_AUTO_PENDING=5`.
-- Corrigir o comportamento de falha/rollback de primeiro deploy para não deixar o serviço apontando a banco vazio.
+- Definir bootstrap seguro das 19 migrations `online-safe`: banco vazio/projeto novo pode executar lote inicial controlado seguindo o precedente já documentado em `E012` (`.specify/memory/errors.md`) — `MAX_AUTO_PENDING=<N>` pontual só nessa rodada, via mesmo script oficial; banco existente mantém `MAX_AUTO_PENDING=5`. Guard funciona como projetado (proteção deliberada); não é bug a corrigir, não elevar limite globalmente.
+- Preservar guard histórico: allowlist de DDL idempotente, tokenizer de comentários/strings, fail-closed e `CLASS` validada. Preservar tracking idempotente com `ON CONFLICT`.
+- Aplicar o bootstrap inicial (rodada única `MAX_AUTO_PENDING=19`) antes/fora do fluxo de deploy padrão, para que o próximo `deploy.yml` normal encontre banco já em conformidade e não acione o guard nem o rollback de snapshot vazio.
 - Aplicar migrations no volume correto pelo runner canônico e registrar tracking exatamente uma vez.
 - Recriar/reconciliar Beta somente com autorização nominal quando houver write de VM/container.
+- Usar volumes por ambiente: `downloads-beta_pgdata_downloads_beta` em Beta/dev e `downloads_pgdata_downloads_prod` em Produção. Não reutilizar o legado `downloads_pgdata_downloads_beta` como runtime.
+- Não criar banco/projeção local de sistemas RPG. Validar Downloads→Site central via `@artificio/catalog-client`, `CATALOG_API_URL` e `CATALOG_INTERNAL_TOKEN`.
+- Executar matriz de compatibilidade dos pacotes compartilhados consumidos por Downloads contra Mesas, Glossário e Links.
 
 ## Fase 2 — fechamento funcional
 
@@ -39,5 +43,5 @@
 
 ## Riscos/rollback
 
-- Risco principal: escolher volume vazio e perder dados/estado Beta. Mitigação: dumps, hashes, restore-test e retenção dos volumes.
+- Risco principal atual: bootstrap incompleto deixar API apontando para banco vazio. Não há dados de domínio a perder nos volumes comparados; mitigação é dump off-VM validado, restore-test e bootstrap controlado no volume por ambiente.
 - Rollback: restaurar dump/volume validado, reverter branch por PR e usar rollback da esteira; não apagar dados sem aprovação.
