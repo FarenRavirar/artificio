@@ -4,6 +4,6 @@ node scripts/api/pre-commit-verify.mjs
 
 # Installed by code-review-graph. Remove this block to disable pre-commit graph checks.
 if command -v uvx >/dev/null 2>&1; then
-    PYTHONUTF8=1 uvx code-review-graph==2.3.7 update || true
-    PYTHONUTF8=1 uvx code-review-graph==2.3.7 detect-changes --brief || true
+    PYTHONUTF8=1 uvx code-review-graph@2.3.7 update || true
+    PYTHONUTF8=1 uvx code-review-graph@2.3.7 detect-changes --brief || true
 fi
