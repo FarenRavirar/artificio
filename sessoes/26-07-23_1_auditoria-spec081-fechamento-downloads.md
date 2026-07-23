@@ -45,6 +45,12 @@ Nenhuma spec será marcada concluída sem smoke real e evidência de runtime; pr
 - Pedido do mantenedor: incluir todo o diff local, sem diferenciação de arquivos.
 - Próximo: branch nova baseada em `origin/dev`, commit único, push e PR pronta contra `dev`.
 
+## Pós-PR — correção code-review-graph
+
+- Erro reproduzido: Python tentou imprimir painel Unicode em `cp1252` no Windows.
+- Correção: forçar `PYTHONUTF8=1` nos hooks `.githooks/pre-commit` e `.claude/settings.json`.
+- Próximo: validar saída UTF-8 e diff-check; alteração aguarda novo commit/push autorizado.
+
 Pedido do mantenedor: investigar integralmente o estado necessário para avançar à implementação/correção da 082. Escopo desta etapa: inspeção read-only de código, build, VM, containers, volumes, banco, migrations, API, storage, tema e gaps funcionais. Nenhum write na VM, banco, deploy, commit ou push autorizado nesta etapa.
 
 Estado de entrada:
