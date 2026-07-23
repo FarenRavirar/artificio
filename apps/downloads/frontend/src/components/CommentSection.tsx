@@ -53,8 +53,8 @@ export function CommentSection({ materialId }: Readonly<{ materialId: string }>)
   };
 
   return (
-    <div className="mt-10 border-t border-white/10 pt-6">
-      <h2 className="text-lg font-semibold text-white">Comentários</h2>
+    <div className="mt-10 border-t border-[var(--line)] pt-6">
+      <h2 className="text-lg font-semibold text-[var(--fg)]">Comentários</h2>
 
       {user ? (
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2">
@@ -63,7 +63,7 @@ export function CommentSection({ materialId }: Readonly<{ materialId: string }>)
             onChange={(e) => setBody(e.target.value)}
             rows={3}
             placeholder="Escreva um comentário..."
-            className="rounded-md border border-white/20 bg-transparent px-3 py-2 text-white"
+            className="rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
           />
           <button
             type="submit"
@@ -74,15 +74,15 @@ export function CommentSection({ materialId }: Readonly<{ materialId: string }>)
           </button>
         </form>
       ) : (
-        <p className="mt-4 text-sm text-white/60">Entre com sua conta para comentar.</p>
+        <p className="mt-4 text-sm text-[var(--fg-muted)]">Entre com sua conta para comentar.</p>
       )}
 
-      {commentsQuery.isLoading && <p className="mt-6 text-sm text-white/60">Carregando comentários...</p>}
+      {commentsQuery.isLoading && <p className="mt-6 text-sm text-[var(--fg-muted)]">Carregando comentários...</p>}
       {commentsQuery.isError && <p className="mt-6 text-sm text-red-400">Falha ao carregar comentários.</p>}
 
       <ul className="mt-6 space-y-3">
         {commentsQuery.data?.map((comment) => (
-          <li key={comment.id} className="rounded-md border border-white/10 px-3 py-2 text-sm text-white/80">
+          <li key={comment.id} className="rounded-md border border-[var(--line)] px-3 py-2 text-sm text-[var(--fg-muted)]">
             {comment.body}
           </li>
         ))}

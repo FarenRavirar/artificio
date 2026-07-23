@@ -23,14 +23,14 @@ export function ColecoesPage() {
 
   return (
     <PainelShell>
-      <h1 className="text-2xl font-bold text-white">Coleções</h1>
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Coleções</h1>
 
       <form onSubmit={handleCreate} className="mt-4 flex gap-2">
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Nome da coleção"
-          className="min-h-[44px] flex-1 rounded-md border border-white/20 bg-transparent px-3 py-2 text-white"
+          className="min-h-[44px] flex-1 rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
         />
         <button
           type="submit"
@@ -41,14 +41,14 @@ export function ColecoesPage() {
         </button>
       </form>
 
-      {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
-      {collections?.length === 0 && <p className="mt-4 text-white/60">Nenhuma coleção ainda.</p>}
+      {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
+      {collections?.length === 0 && <p className="mt-4 text-[var(--fg-muted)]">Nenhuma coleção ainda.</p>}
 
-      <ul className="mt-6 divide-y divide-white/10">
+      <ul className="mt-6 divide-y divide-[var(--line)]">
         {collections?.map((collection) => (
           <li key={collection.id} className="py-3">
-            <p className="font-semibold text-white">{collection.title}</p>
-            <p className="text-xs text-white/60">{collection.is_public ? 'Pública' : 'Privada'}</p>
+            <p className="font-semibold text-[var(--fg)]">{collection.title}</p>
+            <p className="text-xs text-[var(--fg-muted)]">{collection.is_public ? 'Pública' : 'Privada'}</p>
           </li>
         ))}
       </ul>

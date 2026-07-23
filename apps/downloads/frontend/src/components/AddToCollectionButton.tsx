@@ -29,16 +29,16 @@ export function AddToCollectionButton({ materialId }: Readonly<{ materialId: str
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="min-h-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white hover:border-artificio-orange"
+        className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white hover:border-artificio-orange"
         aria-expanded={open}
       >
         Adicionar à coleção
       </button>
 
       {open && (
-        <div className="absolute z-10 mt-2 w-64 rounded-md border border-white/10 bg-[var(--color-artificio-blue)] p-2 shadow-lg">
+        <div className="absolute z-10 mt-2 w-64 rounded-md border border-[var(--line)] bg-[var(--surface)] p-2 shadow-lg">
           {collections?.length === 0 && (
-            <p className="px-2 py-1 text-sm text-white/60">Você ainda não tem coleções. Crie uma no painel.</p>
+            <p className="px-2 py-1 text-sm text-[var(--fg-muted)]">Você ainda não tem coleções. Crie uma no painel.</p>
           )}
           <ul className="flex flex-col gap-1">
             {collections?.map((collection) => (
@@ -86,7 +86,7 @@ function CollectionOption({
         type="button"
         onClick={() => handleAdd()}
         disabled={addItem.isPending}
-        className="min-h-[36px] w-full rounded-md px-2 py-1 text-left text-sm text-white/80 hover:bg-white/5 disabled:opacity-50"
+        className="min-h-[36px] w-full rounded-md px-2 py-1 text-left text-sm text-[var(--fg-muted)] hover:bg-[var(--surface-subtle)] disabled:opacity-50"
       >
         {title}
       </button>

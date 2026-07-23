@@ -8,22 +8,22 @@ export function GestaoMetricasPage() {
 
   return (
     <GestaoShell>
-      <h1 className="text-2xl font-bold text-white">Métricas</h1>
-      {data?.note && <p className="mt-2 text-xs text-white/40">{data.note}</p>}
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Métricas</h1>
+      {data?.note && <p className="mt-2 text-xs text-[var(--fg-muted)]">{data.note}</p>}
 
-      {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
+      {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
 
       <table className="mt-6 w-full text-left text-sm">
         <thead>
-          <tr className="text-white/50">
+          <tr className="text-[var(--fg-muted)]">
             <th className="pb-2">Material</th>
             <th className="pb-2">Downloads</th>
             <th className="pb-2">Views</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/10">
+        <tbody className="divide-y divide-[var(--line)]">
           {data?.per_material.map((row) => (
-            <tr key={row.material_id} className="text-white/80">
+            <tr key={row.material_id} className="text-[var(--fg-muted)]">
               <td className="py-2">{row.material_title}</td>
               <td className="py-2">{row.total_downloads}</td>
               <td className="py-2">{row.total_views}</td>

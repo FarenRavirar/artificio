@@ -27,7 +27,7 @@ export function MaterialPage() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-3xl px-4 py-16 text-white/70">Carregando...</div>
+        <div className="mx-auto max-w-3xl px-4 py-16 text-[var(--fg-muted)]">Carregando...</div>
       </AppShell>
     );
   }
@@ -36,8 +36,8 @@ export function MaterialPage() {
     return (
       <AppShell>
         <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold text-white">Material não encontrado</h1>
-          <p className="mt-2 text-white/70">Ele pode ter sido removido ou ainda não foi publicado.</p>
+          <h1 className="text-2xl font-bold text-[var(--fg)]">Material não encontrado</h1>
+          <p className="mt-2 text-[var(--fg-muted)]">Ele pode ter sido removido ou ainda não foi publicado.</p>
         </div>
       </AppShell>
     );
@@ -77,12 +77,12 @@ export function MaterialPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-2xl font-bold text-white">{material.title}</h1>
-        <div className="mt-2 flex flex-wrap gap-2 text-xs text-white/60">
-          <span className="rounded-full border border-white/20 px-2 py-0.5">{material.material_type}</span>
+        <h1 className="text-2xl font-bold text-[var(--fg)]">{material.title}</h1>
+        <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--fg-muted)]">
+          <span className="rounded-full border border-[var(--line)] px-2 py-0.5">{material.material_type}</span>
         </div>
 
-        {material.summary && <p className="mt-4 text-white/80">{material.summary}</p>}
+        {material.summary && <p className="mt-4 text-[var(--fg-muted)]">{material.summary}</p>}
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
           {hasDestination ? (
@@ -103,7 +103,7 @@ export function MaterialPage() {
             <button
               type="button"
               onClick={handleToggleFavorite}
-              className="min-h-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white hover:border-artificio-orange"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white hover:border-artificio-orange"
             >
               {isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             </button>
@@ -113,16 +113,16 @@ export function MaterialPage() {
         </div>
 
         {material.description && (
-          <div className="mt-8 whitespace-pre-wrap text-white/80">{material.description}</div>
+          <div className="mt-8 whitespace-pre-wrap text-[var(--fg-muted)]">{material.description}</div>
         )}
 
         {metadata?.publisher_name && (
-          <p className="mt-4 text-sm text-white/60">
-            Editora/selo: <span className="text-white/80">{metadata.publisher_name}</span>
+          <p className="mt-4 text-sm text-[var(--fg-muted)]">
+            Editora/selo: <span className="text-[var(--fg-muted)]">{metadata.publisher_name}</span>
           </p>
         )}
 
-        <div className="mt-8 border-t border-white/10 pt-4 text-sm text-white/60">
+        <div className="mt-8 border-t border-[var(--line)] pt-4 text-sm text-[var(--fg-muted)]">
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             {material.creator_slug && (
               <Link to={`/criadores/${material.creator_slug}`} className="hover:text-artificio-orange">

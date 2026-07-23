@@ -6,8 +6,8 @@ import { GestaoShell } from '../../components/GestaoShell';
 export function GestaoPublicadoresPage() {
   return (
     <GestaoShell>
-      <h1 className="text-2xl font-bold text-white">Publicadores</h1>
-      <p className="mt-4 text-white/60">
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Publicadores</h1>
+      <p className="mt-4 text-[var(--fg-muted)]">
         Não há rota de listagem de todos os publicadores ainda (só busca individual por slug em /criadores/:slug).
         Listagem paginada fica como débito para próxima rodada.
       </p>

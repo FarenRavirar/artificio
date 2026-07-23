@@ -55,7 +55,7 @@ function GestaoNavLinks({ counts, onNavigate }: Readonly<{ counts?: QueueCounts;
         onClick={onNavigate}
         className={({ isActive }) =>
           `min-h-[44px] rounded-md px-3 py-2 text-sm font-semibold ${
-            isActive ? 'bg-artificio-orange/20 text-artificio-orange' : 'text-white/70 hover:bg-white/5 hover:text-white'
+            isActive ? 'bg-artificio-orange/20 text-artificio-orange' : 'text-[var(--fg-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--fg)]'
           }`
         }
       >
@@ -64,7 +64,7 @@ function GestaoNavLinks({ counts, onNavigate }: Readonly<{ counts?: QueueCounts;
 
       {GESTAO_NAV_GROUPS.map((group) => (
         <div key={group.label}>
-          <p className="px-3 text-xs font-semibold uppercase tracking-wide text-white/40">{group.label}</p>
+          <p className="px-3 text-xs font-semibold uppercase tracking-wide text-[var(--fg-muted)]">{group.label}</p>
           <div className="mt-1 flex flex-col gap-1">
             {group.items.map((item) => {
               const count = item.countKey ? counts?.[item.countKey]?.count : undefined;
@@ -76,7 +76,7 @@ function GestaoNavLinks({ counts, onNavigate }: Readonly<{ counts?: QueueCounts;
                   onClick={onNavigate}
                   className={({ isActive }) =>
                     `flex min-h-[44px] items-center justify-between rounded-md px-3 py-2 text-sm ${
-                      isActive ? 'bg-artificio-orange/20 text-artificio-orange font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white'
+                      isActive ? 'bg-artificio-orange/20 text-artificio-orange font-semibold' : 'text-[var(--fg-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--fg)]'
                     }`
                   }
                 >
@@ -85,7 +85,7 @@ function GestaoNavLinks({ counts, onNavigate }: Readonly<{ counts?: QueueCounts;
                     {item.label}
                   </span>
                   {Boolean(count) && (
-                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs" aria-label={`${count} pendente(s)`}>
+                    <span className="rounded-full bg-[var(--surface-subtle)] px-2 py-0.5 text-xs" aria-label={`${count} pendente(s)`}>
                       {count}
                     </span>
                   )}
@@ -100,7 +100,7 @@ function GestaoNavLinks({ counts, onNavigate }: Readonly<{ counts?: QueueCounts;
         href={import.meta.env.VITE_SITE_ADMIN_SYSTEMS_URL ?? 'https://artificiorpg.com/admin/sistemas'}
         target="_blank"
         rel="noreferrer"
-        className="mt-2 flex min-h-[44px] items-center gap-1 rounded-md border border-white/10 px-3 py-2 text-sm text-white/60 hover:text-white"
+        className="mt-2 flex min-h-[44px] items-center gap-1 rounded-md border border-[var(--line)] px-3 py-2 text-sm text-[var(--fg-muted)] hover:text-[var(--fg)]"
       >
         Sistemas e edições <span aria-hidden="true">↗</span>
         <span className="sr-only">(abre gestão no Site)</span>
@@ -126,7 +126,7 @@ export function GestaoShell({ children }: Readonly<{ children: ReactNode }>) {
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="min-h-[44px] min-w-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white"
+            className="min-h-[44px] min-w-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)]"
             aria-expanded={drawerOpen}
           >
             Menu de gestão
@@ -140,7 +140,7 @@ export function GestaoShell({ children }: Readonly<{ children: ReactNode }>) {
                 className="flex-1 bg-black/60"
                 onClick={() => setDrawerOpen(false)}
               />
-              <div className="w-64 overflow-y-auto bg-[var(--color-artificio-blue)] p-4">
+              <div className="w-64 overflow-y-auto bg-[var(--surface)] p-4">
                 <GestaoNavLinks counts={summary} onNavigate={() => setDrawerOpen(false)} />
               </div>
             </div>

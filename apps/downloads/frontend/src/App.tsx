@@ -10,6 +10,7 @@ import { ObterArquivoPage } from './pages/ObterArquivoPage';
 import { RequireAuth } from './components/RequireAuth';
 import { VisaoGeralPage } from './pages/painel/VisaoGeralPage';
 import { MeusMateriaisPage } from './pages/painel/MeusMateriaisPage';
+import { NovoMaterialPage } from './pages/painel/NovoMaterialPage';
 import { EditarMaterialPage } from './pages/painel/EditarMaterialPage';
 import { FavoritosPage } from './pages/painel/FavoritosPage';
 import { ColecoesPage } from './pages/painel/ColecoesPage';
@@ -52,6 +53,7 @@ function AppRoutes() {
 
       <Route path="/painel" element={<RequireAuth><VisaoGeralPage /></RequireAuth>} />
       <Route path="/painel/materiais" element={<RequireAuth><MeusMateriaisPage /></RequireAuth>} />
+      <Route path="/painel/materiais/novo" element={<RequireAuth><NovoMaterialPage /></RequireAuth>} />
       <Route path="/painel/materiais/:materialId/editar" element={<RequireAuth><EditarMaterialPage /></RequireAuth>} />
       <Route path="/painel/favoritos" element={<RequireAuth><FavoritosPage /></RequireAuth>} />
       <Route path="/painel/colecoes" element={<RequireAuth><ColecoesPage /></RequireAuth>} />

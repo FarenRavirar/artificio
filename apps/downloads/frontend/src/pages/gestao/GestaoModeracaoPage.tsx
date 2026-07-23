@@ -33,10 +33,10 @@ export function GestaoModeracaoPage() {
 
   return (
     <GestaoShell>
-      <h1 className="text-2xl font-bold text-white">Moderação</h1>
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Moderação</h1>
 
-      {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
-      {queue?.length === 0 && <p className="mt-4 text-white/60">Fila vazia.</p>}
+      {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
+      {queue?.length === 0 && <p className="mt-4 text-[var(--fg-muted)]">Fila vazia.</p>}
 
       {queue && queue.length > 0 && (
         <>
@@ -46,13 +46,13 @@ export function GestaoModeracaoPage() {
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="Motivo (obrigatório para reprovar)"
-              className="min-h-[44px] flex-1 rounded-md border border-white/20 bg-transparent px-3 py-2 text-sm text-white"
+              className="min-h-[44px] flex-1 rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm text-[var(--fg)]"
             />
             <button
               type="button"
               disabled={selected.size === 0 || batchAction.isPending}
               onClick={() => runBatch('approve')}
-              className="min-h-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white disabled:opacity-40"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white disabled:opacity-40"
             >
               Aprovar selecionados
             </button>
@@ -60,7 +60,7 @@ export function GestaoModeracaoPage() {
               type="button"
               disabled={selected.size === 0 || batchAction.isPending}
               onClick={() => runBatch('reject')}
-              className="min-h-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white disabled:opacity-40"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white disabled:opacity-40"
             >
               Reprovar selecionados
             </button>
@@ -68,13 +68,13 @@ export function GestaoModeracaoPage() {
               type="button"
               disabled={selected.size === 0 || batchAction.isPending}
               onClick={() => runBatch('archive')}
-              className="min-h-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white disabled:opacity-40"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white disabled:opacity-40"
             >
               Arquivar selecionados
             </button>
           </div>
 
-          <ul className="mt-6 divide-y divide-white/10">
+          <ul className="mt-6 divide-y divide-[var(--line)]">
             {queue.map((material) => (
               <li key={material.id} className="flex items-center gap-4 py-3">
                 <input
@@ -85,13 +85,13 @@ export function GestaoModeracaoPage() {
                   aria-label={`Selecionar ${material.title}`}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-white">{material.title}</p>
-                  <p className="text-xs text-white/60">{material.material_type}</p>
+                  <p className="truncate font-semibold text-[var(--fg)]">{material.title}</p>
+                  <p className="text-xs text-[var(--fg-muted)]">{material.material_type}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => singleAction.mutateAsync({ id: material.id, action: 'approve' }).catch(() => undefined)}
-                  className="min-h-[44px] rounded-md border border-white/20 px-3 py-2 text-xs text-white"
+                  className="min-h-[44px] rounded-md border border-[var(--line)] px-3 py-2 text-xs text-[var(--fg)]"
                 >
                   Aprovar
                 </button>

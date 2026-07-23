@@ -9,10 +9,10 @@ export function PerfilPage() {
 
   return (
     <PainelShell>
-      <h1 className="text-2xl font-bold text-white">Perfil</h1>
-      <div className="mt-6 max-w-md space-y-3 text-white/80">
-        <p><span className="text-white/50">Nome:</span> {user?.name}</p>
-        <p><span className="text-white/50">E-mail:</span> {user?.email}</p>
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Perfil</h1>
+      <div className="mt-6 max-w-md space-y-3 text-[var(--fg-muted)]">
+        <p><span className="text-[var(--fg-muted)]">Nome:</span> {user?.name}</p>
+        <p><span className="text-[var(--fg-muted)]">E-mail:</span> {user?.email}</p>
       </div>
     </PainelShell>
   );

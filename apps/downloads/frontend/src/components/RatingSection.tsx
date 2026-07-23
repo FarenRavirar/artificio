@@ -30,21 +30,21 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
     : null;
 
   return (
-    <div className="mt-10 border-t border-white/10 pt-6">
-      <h2 className="text-lg font-semibold text-white">Avaliações</h2>
-      {average && <p className="mt-1 text-sm text-white/70">Média: {average} / 5 ({ratings?.length} avaliações)</p>}
+    <div className="mt-10 border-t border-[var(--line)] pt-6">
+      <h2 className="text-lg font-semibold text-[var(--fg)]">Avaliações</h2>
+      {average && <p className="mt-1 text-sm text-[var(--fg-muted)]">Média: {average} / 5 ({ratings?.length} avaliações)</p>}
 
-      {!user && <p className="mt-4 text-sm text-white/60">Entre com sua conta para avaliar.</p>}
+      {!user && <p className="mt-4 text-sm text-[var(--fg-muted)]">Entre com sua conta para avaliar.</p>}
 
       {user && (
         <form onSubmit={handleSubmit} className="mt-4 flex items-center gap-2">
           <select
             value={score}
             onChange={(e) => setScore(Number(e.target.value))}
-            className="min-h-[44px] rounded-md border border-white/20 bg-transparent px-3 py-2 text-white"
+            className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
           >
             {[1, 2, 3, 4, 5].map((value) => (
-              <option key={value} value={value} className="bg-[var(--color-artificio-blue)]">
+              <option key={value} value={value} className="bg-[var(--surface)]">
                 {value}
               </option>
             ))}

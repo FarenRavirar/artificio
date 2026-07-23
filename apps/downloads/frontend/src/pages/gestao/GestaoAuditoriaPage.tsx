@@ -14,48 +14,48 @@ export function GestaoAuditoriaPage() {
   if (!materialId) {
     return (
       <GestaoShell>
-        <h1 className="text-2xl font-bold text-white">Auditoria de edição</h1>
-        <p className="mt-4 text-white/60">Selecione um material para ver o histórico de auditoria.</p>
+        <h1 className="text-2xl font-bold text-[var(--fg)]">Auditoria de edição</h1>
+        <p className="mt-4 text-[var(--fg-muted)]">Selecione um material para ver o histórico de auditoria.</p>
       </GestaoShell>
     );
   }
 
   return (
     <GestaoShell>
-      <h1 className="text-2xl font-bold text-white">Auditoria de edição</h1>
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Auditoria de edição</h1>
 
-      {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
+      {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
 
       <section className="mt-6">
-        <h2 className="text-lg font-semibold text-white">Histórico completo por campo</h2>
-        <ul className="mt-2 divide-y divide-white/10">
+        <h2 className="text-lg font-semibold text-[var(--fg)]">Histórico completo por campo</h2>
+        <ul className="mt-2 divide-y divide-[var(--line)]">
           {history?.map((version) => (
-            <li key={version.id} className="py-3 text-sm text-white/80">
+            <li key={version.id} className="py-3 text-sm text-[var(--fg-muted)]">
               <p>
                 <span className="font-semibold">{version.field_name}</span>: "{version.old_value ?? '(vazio)'}" →{' '}
                 "{version.new_value ?? '(vazio)'}"
               </p>
-              <p className="text-xs text-white/40">
+              <p className="text-xs text-[var(--fg-muted)]">
                 por {version.changed_by} em {new Date(version.changed_at).toLocaleString('pt-BR')}
               </p>
             </li>
           ))}
-          {history && history.length === 0 && <p className="py-3 text-white/60">Sem histórico registrado.</p>}
+          {history && history.length === 0 && <p className="py-3 text-[var(--fg-muted)]">Sem histórico registrado.</p>}
         </ul>
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-semibold text-white">Todos os links já usados</h2>
-        <ul className="mt-2 divide-y divide-white/10">
+        <h2 className="text-lg font-semibold text-[var(--fg)]">Todos os links já usados</h2>
+        <ul className="mt-2 divide-y divide-[var(--line)]">
           {linkHistory?.map((version) => (
-            <li key={version.id} className="py-3 text-sm text-white/80">
+            <li key={version.id} className="py-3 text-sm text-[var(--fg-muted)]">
               <p>"{version.old_value ?? '(vazio)'}" → "{version.new_value ?? '(vazio)'}"</p>
-              <p className="text-xs text-white/40">
+              <p className="text-xs text-[var(--fg-muted)]">
                 por {version.changed_by} em {new Date(version.changed_at).toLocaleString('pt-BR')}
               </p>
             </li>
           ))}
-          {linkHistory?.length === 0 && <p className="py-3 text-white/60">Nenhuma troca de link registrada.</p>}
+          {linkHistory?.length === 0 && <p className="py-3 text-[var(--fg-muted)]">Nenhuma troca de link registrada.</p>}
         </ul>
       </section>
     </GestaoShell>

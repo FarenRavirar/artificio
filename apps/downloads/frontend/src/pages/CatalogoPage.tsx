@@ -79,7 +79,7 @@ export function CatalogoPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl px-4 py-8">
-        <h1 className="mb-6 text-2xl font-bold text-white">Catálogo</h1>
+        <h1 className="mb-6 text-2xl font-bold text-[var(--fg)]">Catálogo</h1>
 
         <div className="mb-6 flex flex-wrap gap-3">
           <label className="flex-1 min-w-[200px]">
@@ -89,7 +89,7 @@ export function CatalogoPage() {
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}
               placeholder="Buscar por nome ou resumo..."
-              className="min-h-[44px] w-full rounded-md border border-white/20 bg-black/20 px-3 py-2 text-white placeholder:text-white/50 focus:border-artificio-orange focus:outline-none"
+              className="min-h-[44px] w-full rounded-md border border-[var(--line)] bg-black/20 px-3 py-2 text-white placeholder:text-[var(--fg-muted)] focus:border-artificio-orange focus:outline-none"
             />
           </label>
 
@@ -98,7 +98,7 @@ export function CatalogoPage() {
             <select
               value={sort}
               onChange={(event) => updateParam('sort', event.target.value)}
-              className="min-h-[44px] w-full rounded-md border border-white/20 bg-black/20 px-3 py-2 text-white focus:border-artificio-orange focus:outline-none"
+              className="min-h-[44px] w-full rounded-md border border-[var(--line)] bg-black/20 px-3 py-2 text-white focus:border-artificio-orange focus:outline-none"
             >
               {SORT_OPTIONS.map((option) => (
                 <option key={option} value={option}>
@@ -109,11 +109,11 @@ export function CatalogoPage() {
           </label>
         </div>
 
-        {isLoading && <p className="text-white/70">Carregando...</p>}
+        {isLoading && <p className="text-[var(--fg-muted)]">Carregando...</p>}
         {isError && <p className="text-red-400">Falha ao carregar materiais. Tente novamente.</p>}
 
         {data?.items.length === 0 && (
-          <p className="text-white/70">Nenhum material encontrado com esses filtros.</p>
+          <p className="text-[var(--fg-muted)]">Nenhum material encontrado com esses filtros.</p>
         )}
 
         {data && data.items.length > 0 && (
@@ -129,18 +129,18 @@ export function CatalogoPage() {
                 type="button"
                 disabled={page <= 1}
                 onClick={() => updateParam('page', String(page - 1))}
-                className="min-h-[44px] min-w-[44px] rounded-md border border-white/20 px-4 disabled:opacity-40"
+                className="min-h-[44px] min-w-[44px] rounded-md border border-[var(--line)] px-4 disabled:opacity-40"
               >
                 Anterior
               </button>
-              <span className="text-white/70">
+              <span className="text-[var(--fg-muted)]">
                 Página {data.page} de {data.total_pages}
               </span>
               <button
                 type="button"
                 disabled={page >= data.total_pages}
                 onClick={() => updateParam('page', String(page + 1))}
-                className="min-h-[44px] min-w-[44px] rounded-md border border-white/20 px-4 disabled:opacity-40"
+                className="min-h-[44px] min-w-[44px] rounded-md border border-[var(--line)] px-4 disabled:opacity-40"
               >
                 Próxima
               </button>

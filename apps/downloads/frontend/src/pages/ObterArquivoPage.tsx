@@ -8,8 +8,8 @@ export function ObterArquivoPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-white">Download indisponível no momento</h1>
-        <p className="mt-2 text-white/70">
+        <h1 className="text-2xl font-bold text-[var(--fg)]">Download indisponível no momento</h1>
+        <p className="mt-2 text-[var(--fg-muted)]">
           O download direto de arquivos hospedados ainda está em preparação.
         </p>
       </div>

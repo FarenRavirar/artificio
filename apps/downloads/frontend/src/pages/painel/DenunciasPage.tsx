@@ -15,24 +15,24 @@ export function DenunciasPage() {
 
   return (
     <PainelShell>
-      <h1 className="text-2xl font-bold text-white">Minhas denúncias</h1>
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Minhas denúncias</h1>
 
-      {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
+      {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
       {reports?.length === 0 && (
-        <p className="mt-4 text-white/60">Você ainda não abriu nenhuma denúncia.</p>
+        <p className="mt-4 text-[var(--fg-muted)]">Você ainda não abriu nenhuma denúncia.</p>
       )}
 
-      <ul className="mt-6 divide-y divide-white/10">
+      <ul className="mt-6 divide-y divide-[var(--line)]">
         {reports?.map((report) => (
           <li key={report.id} className="py-4">
-            <p className="font-semibold text-white">
-              {report.category} — <span className="text-white/60">{STATE_LABEL[report.case_state]}</span>
+            <p className="font-semibold text-[var(--fg)]">
+              {report.category} — <span className="text-[var(--fg-muted)]">{STATE_LABEL[report.case_state]}</span>
             </p>
-            {report.details && <p className="mt-1 text-sm text-white/70">{report.details}</p>}
+            {report.details && <p className="mt-1 text-sm text-[var(--fg-muted)]">{report.details}</p>}
             {report.resolution_note && (
-              <p className="mt-1 text-sm text-white/50">Resolução: {report.resolution_note}</p>
+              <p className="mt-1 text-sm text-[var(--fg-muted)]">Resolução: {report.resolution_note}</p>
             )}
-            <p className="mt-1 text-xs text-white/40">
+            <p className="mt-1 text-xs text-[var(--fg-muted)]">
               Aberta em {new Date(report.created_at).toLocaleDateString('pt-BR')}
             </p>
           </li>

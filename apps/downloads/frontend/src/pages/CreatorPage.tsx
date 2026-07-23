@@ -10,7 +10,7 @@ export function CreatorPage() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-3xl px-4 py-16 text-white/70">Carregando...</div>
+        <div className="mx-auto max-w-3xl px-4 py-16 text-[var(--fg-muted)]">Carregando...</div>
       </AppShell>
     );
   }
@@ -19,7 +19,7 @@ export function CreatorPage() {
     return (
       <AppShell>
         <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold text-white">Criador não encontrado</h1>
+          <h1 className="text-2xl font-bold text-[var(--fg)]">Criador não encontrado</h1>
         </div>
       </AppShell>
     );
@@ -28,22 +28,22 @@ export function CreatorPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-2xl font-bold text-white">{creator.display_name}</h1>
-        {creator.bio && <p className="mt-2 text-white/70">{creator.bio}</p>}
+        <h1 className="text-2xl font-bold text-[var(--fg)]">{creator.display_name}</h1>
+        {creator.bio && <p className="mt-2 text-[var(--fg-muted)]">{creator.bio}</p>}
 
-        <h2 className="mt-8 mb-4 text-lg font-semibold text-white">Materiais publicados</h2>
+        <h2 className="mt-8 mb-4 text-lg font-semibold text-[var(--fg)]">Materiais publicados</h2>
         {creator.materials.length === 0 ? (
-          <p className="text-white/70">Nenhum material publicado ainda.</p>
+          <p className="text-[var(--fg-muted)]">Nenhum material publicado ainda.</p>
         ) : (
           <ul className="space-y-3">
             {creator.materials.map((material) => (
               <li key={material.id}>
                 <Link
                   to={`/materiais/${material.slug}`}
-                  className="block rounded-md border border-white/10 p-3 hover:border-artificio-orange"
+                  className="block rounded-md border border-[var(--line)] p-3 hover:border-artificio-orange"
                 >
-                  <span className="font-medium text-white">{material.title}</span>
-                  {material.summary && <p className="mt-1 text-sm text-white/60">{material.summary}</p>}
+                  <span className="font-medium text-[var(--fg)]">{material.title}</span>
+                  {material.summary && <p className="mt-1 text-sm text-[var(--fg-muted)]">{material.summary}</p>}
                 </Link>
               </li>
             ))}

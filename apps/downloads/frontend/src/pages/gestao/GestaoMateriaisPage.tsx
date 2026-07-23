@@ -18,20 +18,20 @@ export function GestaoMateriaisPage() {
 
   return (
     <GestaoShell>
-      <h1 className="text-2xl font-bold text-white">Materiais</h1>
+      <h1 className="text-2xl font-bold text-[var(--fg)]">Materiais</h1>
 
-      {isLoading && <p className="mt-4 text-white/60">Carregando...</p>}
+      {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
 
-      <ul className="mt-6 divide-y divide-white/10">
+      <ul className="mt-6 divide-y divide-[var(--line)]">
         {data?.items.map((material) => (
           <li key={material.id} className="flex items-center justify-between gap-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold text-white">{material.title}</p>
-              <p className="text-xs text-white/60">{STATE_LABEL[material.editorial_state] ?? material.editorial_state}</p>
+              <p className="truncate font-semibold text-[var(--fg)]">{material.title}</p>
+              <p className="text-xs text-[var(--fg-muted)]">{STATE_LABEL[material.editorial_state] ?? material.editorial_state}</p>
             </div>
             <Link
               to={`/gestao/auditoria/${material.id}`}
-              className="min-h-[44px] rounded-md border border-white/20 px-4 py-2 text-sm text-white hover:border-artificio-orange"
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white hover:border-artificio-orange"
             >
               Auditoria
             </Link>
