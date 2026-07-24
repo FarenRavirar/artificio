@@ -51,15 +51,34 @@ Quando um moderador reprova um material, o motivo precisa ser estruturado (categ
 
 - `logModerationAudit` (já existente) passa a registrar também `rejection_category_id`/`rejection_category_slug` no evento de `reject`, não só o texto livre.
 - E-mail contém dado pessoal (endereço de e-mail, nome) tratado apenas para a finalidade de notificação transacional — não é marketing, não precisa de opt-in LGPD (base legal: execução de contrato/interesse legítimo, já coberto pelos termos de uso do submissão de material). Isso precisa estar documentado em `plan.md` como decisão registrada, não assumido implicitamente.
-- `download_email_log.to_email` é dado pessoal — retenção segue a mesma política do restante do banco (sem TTL automático nesta spec; TTL de log é debito possível, registrar se não for feito).
+- **`download_email_log.to_email` é dado pessoal — retenção com TTL de 90 dias (decisão nominal do mantenedor, 2026-07-24, revisão que corrige esta spec — ver nota abaixo).** Job de expurgo automático (reusa scheduler já existente do link-checker/spec 082, mesmo padrão de job periódico inline no processo do backend) apaga linhas de `download_email_log` com `created_at` mais antigo que 90 dias. Expurgo remove a linha inteira (não é anonimização parcial) — o histórico de auditoria de moderação (`download_material_version`, `logModerationAudit`) não depende de `download_email_log` sobreviver, então apagar a linha de e-mail não perde rastreabilidade da decisão de moderação em si, só o detalhe de tentativa de envio antigo.
+
+### Webhook de status de entrega (Resend — bounce/complaint)
+
+**Nota de correção (2026-07-24):** esta seção não existia na versão original da spec — tinha sido incorretamente registrada como "fora de escopo"/"decisão do mantenedor" sem que o mantenedor tivesse de fato decidido isso; era decisão unilateral do agente. Corrigido após o mantenedor confirmar que quer implementar.
+
+- Nova rota pública em `downloads/backend`: `POST /webhooks/resend` — recebe eventos de entrega do Resend (`email.delivered`, `email.bounced`, `email.complained`, conforme payload real da Resend Webhooks API). **Fica em `downloads`, não em `accounts.`** (decisão nominal 2026-07-24): `download_email_log` já vive aqui, não há motivo pra essa rota tocar superfície de SSO/auth.
+- Validação de assinatura HMAC do Resend (header `svix-signature` ou equivalente conforme documentação do provider — confirmar formato exato na Fase de implementação) antes de processar qualquer payload — rota rejeita com 401 qualquer requisição sem assinatura válida, nunca confia em payload não-verificado.
+- Evento de bounce/complaint localiza a linha correspondente em `download_email_log` (por `provider_message_id`, já persistido no envio original) e atualiza `status` pra `bounced`/`complained` (novos valores no enum, além de `sent`/`failed`/`skipped_no_email`).
+- **Sem caminho feliz:** evento chega pra `provider_message_id` que não existe mais no log (já expurgado pelo TTL de 90 dias) — rota responde 200 (Resend não deve reenviar/retry o webhook por isso) mas não cria linha nova, só loga que o evento não encontrou correspondência. Evento duplicado (Resend pode reenviar o mesmo webhook) é idempotente — atualizar pro mesmo status já gravado não é erro.
+- Painel de gestão (`/gestao/moderacao` ou `EmailLogPanel.tsx`) passa a exibir os novos status (`bounced`/`complained`) distintos de `failed` — bounce é o e-mail não existir/ser rejeitado no destino, diferente de falha ao chamar o Resend.
+
+### Editor de template de e-mail (UI admin)
+
+**Nota de correção (2026-07-24):** mesma situação do webhook — estava registrado como fora de escopo por decisão unilateral do agente, corrigido após confirmação do mantenedor.
+
+- `download_rejection_category`... na verdade os templates de e-mail (`MaterialRejectedEmail`/`MaterialApprovedEmail`) não são por categoria, são por `kind` (`material_rejected`/`material_approved`) — nova tabela `download_email_template` (`id`, `kind` UNIQUE, `subject_template`, `body_template` — texto com placeholders tipo `{{materialTitle}}`/`{{categoryLabel}}`/`{{reason}}`, `updated_at`, `updated_by`).
+- Seed inicial popula os 2 registros (`material_rejected`/`material_approved`) com o texto que hoje está fixo no código (`packages/email/src/templates.ts` vira o fallback/seed, não mais a única fonte).
+- `sendModerationEmail` passa a buscar o template em `download_email_template` por `kind` em vez de chamar a função TS fixa diretamente — função TS vira só o motor de substituição de placeholder + `escapeHtml`/`safeHttpsUrl` (sanitização continua obrigatória, texto do template é confiável — vem de admin — mas dados interpolados como `materialTitle`/`reason` continuam vindo de conteúdo de usuário e precisam de escape).
+- Admin CRUD: `GET/PATCH /admin/email-templates` (`role='admin'`, não moderador — mudar copy legal/institucional é ação de maior responsabilidade que reprovar material). `PATCH` grava `updated_by`, sem histórico versionado nesta rodada (edição substitui, sem "desfazer" — se isso for insuficiente na prática, é débito a levantar depois, não presumido agora).
+- Preview no admin antes de salvar (renderiza o template com dados de exemplo) — evita publicar template com placeholder quebrado sem querer.
 
 ## Fora de escopo
 
-- Editor de template de e-mail pela UI admin (`email_template_key` é fixo no código nesta rodada; troca de copy exige deploy, não é dado editável em runtime).
 - E-mail de outros eventos (denúncia resolvida, comentário removido, etc.) — só reject/approve nesta spec.
 - Internacionalização do e-mail (só PT-BR).
-- Webhook de status de entrega do Resend (bounce/complaint) — fica como débito explícito (ver `debitos.md`), pois exige endpoint público novo + validação de assinatura do provider, escopo maior que esta spec.
 - Mudança de fila/worker dedicado para envio (roda inline no processo do backend downloads, mesmo padrão do link checker agendado da spec 082) — se o volume crescer a ponto de precisar de fila real (SQS/BullMQ), é decisão futura.
+- Histórico versionado de edição de template (fica só "última versão salva" nesta rodada).
 
 ## Critérios de aceite
 
@@ -73,10 +92,14 @@ Quando um moderador reprova um material, o motivo precisa ser estruturado (categ
 8. `accounts.` expõe rota interna server-to-server autenticada por secret, nunca acessível publicamente sem o header correto (teste de rota retorna 401/403 sem secret).
 9. Reenvio manual de e-mail falhado (`POST /admin/email-log/:id/retry`) funciona e atualiza o log existente com nova tentativa.
 10. Todo envio (sucesso ou falha) é auditável via `download_email_log` — nenhum envio "silencioso" sem rastro.
+11. `POST /webhooks/resend` rejeita com 401 qualquer payload sem assinatura HMAC válida; evento `bounced`/`complained` válido atualiza `download_email_log.status` correspondente; evento pra `provider_message_id` já expurgado responde 200 sem criar linha nova (idempotente, sem erro).
+12. Job de expurgo apaga `download_email_log` com mais de 90 dias — teste confirma que linha com 91 dias some e linha com 89 dias permanece.
+13. `GET/PATCH /admin/email-templates` (`role=admin`) edita `subject_template`/`body_template` de `material_rejected`/`material_approved`; `sendModerationEmail` usa o template salvo (não mais a função TS fixa como única fonte); preview renderiza com dado de exemplo antes de salvar.
 
 ## Dependências
 
 - Specs 072, 075.
 - Mudança em `accounts.`: segue trava pétrea de `packages/auth`/SSO (aprovação nominal + SDD Completo + smoke de login/me/logout + todos os consumidores SSO, mesmo sendo só uma rota nova server-to-server — qualquer código em `accounts.`/auth entra nessa trava).
 - Pacote novo `@artificio/email`: dependência nova (Resend SDK) — segue regra pétrea de "perguntar antes de instalar" já respondida nesta sessão (decisão do mantenedor 2026-07-23: Resend).
+- Webhook/editor de template/TTL (2026-07-24): sem dependência nova de pacote — reusa Resend SDK já presente (webhook só precisa de verificação HMAC, biblioteca de crypto nativa do Node cobre) e scheduler já existente do link-checker (spec 082) pro job de expurgo.
 - Bloqueia: nenhuma spec depende desta para avançar: é aditiva ao fluxo de moderação já em produção.

@@ -3,14 +3,14 @@
   "_description": "Índice único e machine-readable de todas as APIs do Artifício RPG. Fonte primária de descoberta para agentes de IA. Gerado por scripts/api/bundle-api.ts a partir dos contratos OpenAPI por-app. Não editar à mão.",
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
-    "accounts": 11,
-    "downloads": 52,
+    "accounts": 12,
+    "downloads": 57,
     "glossario": 49,
     "links": 22,
     "mesas": 192,
     "site": 46
   },
-  "total": 372,
+  "total": 378,
   "operations": [
     {
       "app": "accounts",
@@ -152,6 +152,18 @@
     {
       "app": "accounts",
       "method": "GET",
+      "path": "/internal/users/{id}",
+      "summary": "Consulta internal users id",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getinternal_users_id"
+    },
+    {
+      "app": "accounts",
+      "method": "GET",
       "path": "/login",
       "summary": "Consulta login",
       "owner": "accounts",
@@ -172,6 +184,30 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "getapi_v1_admin_creators"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/admin/email-log",
+      "summary": "Consulta api v1 admin email-log",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_email_log"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/admin/email-log/{id}/retry",
+      "summary": "Cria ou executa api v1 admin email-log id retry",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_email_log_id_retry"
     },
     {
       "app": "downloads",
@@ -244,6 +280,42 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "getapi_v1_admin_metrics"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/admin/rejection-categories",
+      "summary": "Consulta api v1 admin rejection-categories",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_rejection_categories"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/admin/rejection-categories",
+      "summary": "Cria ou executa api v1 admin rejection-categories",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_rejection_categories"
+    },
+    {
+      "app": "downloads",
+      "method": "PATCH",
+      "path": "/api/v1/admin/rejection-categories/{id}",
+      "summary": "Atualiza api v1 admin rejection-categories id",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "patchapi_v1_admin_rejection_categories_id"
     },
     {
       "app": "downloads",

@@ -23,12 +23,13 @@ const batchResultSchema = z.object({
   results: z.array(z.object({ id: z.string(), status: z.enum(['updated', 'skipped']), reason: z.string().optional() })),
 });
 
-// T2.2/T2.3 (spec 075) — acoes batch (aprovar/reprovar/arquivar).
+// T2.2/T2.3 (spec 075) — acoes batch (aprovar/reprovar/arquivar). T5.1 (spec
+// 083) — reprovar exige rejection_category_id junto do motivo em texto.
 export function useModerationBatchAction() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ action, ids, reason }: { action: 'approve' | 'reject' | 'archive'; ids: string[]; reason?: string }) => {
-      const response = await apiPatch(`/api/v1/moderation/batch/${action}`, { ids, reason });
+    mutationFn: async ({ action, ids, reason, rejectionCategoryId }: { action: 'approve' | 'reject' | 'archive'; ids: string[]; reason?: string; rejectionCategoryId?: string }) => {
+      const response = await apiPatch(`/api/v1/moderation/batch/${action}`, { ids, reason, rejection_category_id: rejectionCategoryId });
       if (!response.ok) {
         throw new Error(`Falha na ação em lote: HTTP ${response.status}`);
       }
@@ -45,8 +46,11 @@ export function useModerationBatchAction() {
 export function useModerationSingleAction() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, action, reason }: { id: string; action: 'approve' | 'reject'; reason?: string }) => {
-      const response = await apiPost(`/api/v1/moderation/${id}/${action}`, action === 'reject' ? { reason } : undefined);
+    mutationFn: async ({ id, action, reason, rejectionCategoryId }: { id: string; action: 'approve' | 'reject'; reason?: string; rejectionCategoryId?: string }) => {
+      const response = await apiPost(
+        `/api/v1/moderation/${id}/${action}`,
+        action === 'reject' ? { reason, rejection_category_id: rejectionCategoryId } : undefined,
+      );
       if (!response.ok) {
         throw new Error(`Falha na moderação: HTTP ${response.status}`);
       }

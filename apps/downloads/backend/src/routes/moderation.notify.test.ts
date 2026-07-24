@@ -26,6 +26,10 @@ vi.mock('../middleware/rateLimit', () => ({
   writeRateLimiter: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
 }));
 
+vi.mock('../services/moderationEmail', () => ({
+  sendModerationEmail: vi.fn().mockResolvedValue(undefined),
+}));
+
 import moderationRoutes from './moderation';
 
 function app() {
@@ -52,7 +56,7 @@ describe('POST /api/v1/moderation/:id/approve — emite notificacao', () => {
   });
 
   it('insere download_notification apos aprovar', async () => {
-    const material = { id: 'material-1', creator_id: 'owner-1', title: 'Meu material', editorial_state: 'in_review' };
+    const material = { id: 'material-1', creator_id: 'owner-1', title: 'Meu material', editorial_state: 'in_review', slug: 'meu-material' };
     dbMocks.selectFrom
       .mockReturnValueOnce(makeMaterialQuery(material))
       .mockReturnValueOnce(makeMaterialQuery({ id: 'evidence-1' }));

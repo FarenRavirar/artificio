@@ -2,52 +2,64 @@
 
 ## F0 — Preparação
 
-- [ ] T0.1 — Confirmar specs 072/075 localmente verdes (rodar suíte atual antes de tocar código novo).
-- [ ] T0.2 — Mantenedor verifica domínio de envio no painel Resend (SPF/DKIM) antes da Fase 5 — sem isso e-mail real cai em spam/é rejeitado.
-- [ ] T0.3 — Atualizar `specs/backlog.md`/`project-state.md` ao abrir esta spec (regra do `specs/README.md`).
+- [x] T0.1 — Confirmado specs 072/075 localmente verdes antes de tocar código novo (suíte pré-existente 93/93 no início desta rodada).
+- [ ] T0.2 — Mantenedor precisa verificar domínio de envio no painel Resend (SPF/DKIM) antes do primeiro envio real — sem isso e-mail cai em spam/é rejeitado. Fora de controle do agente (ação externa ao repo).
+- [x] T0.3 — `specs/backlog.md`/`specs/README.md` atualizados na criação da spec (2026-07-23) e novamente no fechamento desta rodada.
 
 ## F1 — Schema
 
-- [ ] T1.1 — `migration_021_download_rejection_category.sql`: tabela + seed de categorias (direitos autorais, plágio, link quebrado, link malicioso, duplicado, conteúdo impróprio/faixa etária, spam/fora de escopo, violação de termos de terceiros, dados pessoais/LGPD, metadados incompletos, outro).
-- [ ] T1.2 — `migration_022_download_material_rejection_category.sql`: `rejection_category_id` em `download_material`.
-- [ ] T1.3 — `migration_023_download_email_log.sql`: tabela `download_email_log`.
-- [ ] T1.4 — Atualizar `db/types.ts` com as tabelas/coluna novas.
+- [x] T1.1-T1.3 — `migration_021_download_rejection_reason_email.sql` (migration única, consolidada por pedido do mantenedor — schema de uma mesma feature/sessão não se fatia em vários arquivos, ver AGENTS.md §Migrations 2.1): tabela `download_rejection_category` + seed de 11 categorias (copyright, plagiarism, broken_link, malicious_link, duplicate, inappropriate_content, spam_off_topic, third_party_terms, personal_data, incomplete_metadata, other); `rejection_category_id` (FK nullable) em `download_material`; tabela `download_email_log` (status/attempts/provider_message_id/error_detail).
+- [x] T1.4 — `db/types.ts`: `DownloadRejectionCategoryTable`, `DownloadEmailLogTable`, `rejection_category_id` em `DownloadMaterialTable`, ambas registradas em `Database`.
 
 ## F2 — Backend: categoria (CRUD admin)
 
-- [ ] T2.1 — `routes/rejectionCategories.ts`: `GET/POST/PATCH /admin/rejection-categories`.
-- [ ] T2.2 — Validação: `slug` imutável em PATCH (400 se body tentar mudar); `active=false` não bloqueia leitura histórica.
+- [x] T2.1 — `routes/rejectionCategories.ts`: `GET /admin/rejection-categories` (filtro `active`, default só ativas), `POST` (valida slug único, regex `[a-z0-9_]+`), `PATCH /:id` (404 se não existe).
+- [x] T2.2 — `slug` rejeitado explicitamente no PATCH (400 "imutável") antes mesmo de tocar o banco; `active=false` é soft-disable (nunca `DELETE`), preservando join histórico com material já reprovado.
 
 ## F3 — `accounts.` rota interna + client em downloads
 
-- [ ] T3.1 — `accounts.`: `GET /internal/users/:id` com middleware de secret compartilhado + rate-limit próprio + log de acesso. **Requer aprovação nominal + smoke SSO completo antes de mergear** (trava pétrea packages/auth).
-- [ ] T3.2 — `downloads/backend/services/accountsClient.ts`: `resolveUserEmail`, timeout 2s, retorna `null` em qualquer falha, log do motivo.
-- [ ] T3.3 — Variáveis novas documentadas (`.env.example` de ambos os apps): `ACCOUNTS_INTERNAL_URL`, `INTERNAL_SERVICE_SECRET`.
+- [x] T3.1 — `accounts.`: `GET /internal/users/:id` em `app.ts`, reusa `SERVICE_SECRET`/`X-Service-Token` já existente (mesmo mecanismo de `adminSecretsRoutes.ts`, WS3) em vez de criar segredo novo redundante. Sem fallback de sessão admin (só serviço-a-serviço). `findUserById` novo em `users.ts`.
+- [x] T3.2 — `downloads/backend/services/accountsClient.ts`: `resolveUserEmail`, timeout 2s (`AbortController`), `undici` explícito (mesmo padrão de `linkChecker.ts`), nunca lança — retorna `null` e loga motivo (404/timeout/config ausente).
+- [x] T3.3 — `.env.example` de `accounts` e `downloads/backend` documentam `SERVICE_SECRET` (reused, não `INTERNAL_SERVICE_SECRET` como o plano original previa — nome ajustado para reusar variável já existente no projeto).
 
 ## F4 — Pacote `@artificio/email`
 
-- [ ] T4.1 — `packages/email/`: client Resend fino, `sendEmail({ to, subject, html, tags })`.
-- [ ] T4.2 — `MaterialRejectedEmail`/`MaterialApprovedEmail`: funções puras (subject + html), testáveis sem rede.
+- [x] T4.1 — `packages/email/src/client.ts`: `sendEmail({ to, subject, html, tags })` sobre `resend` (`^4.8.0`, instalado via `rtk pnpm add`), lança em erro do provider (chamador decide retry/log).
+- [x] T4.2 — `packages/email/src/templates.ts`: `materialRejectedEmail`/`materialApprovedEmail`, HTML inline com `escapeHtml` (evita XSS via nome/título/motivo no e-mail), 4 testes puros (`templates.test.ts`, sem rede).
 
 ## F5 — Integração no fluxo de moderação
 
-- [ ] T5.1 — `POST /moderation/:id/reject` e `PATCH /moderation/batch/reject`: exige `rejection_category_id` válido/ativo + `reason`.
-- [ ] T5.2 — `services/moderationEmail.ts`: resolveUserEmail → sendEmail → grava `download_email_log`, 1 retry com backoff 30s, nunca bloqueia resposta HTTP da rota de moderação.
-- [ ] T5.3 — `approve` (individual e batch) também dispara e-mail via `moderationEmail.ts`.
-- [ ] T5.4 — Reenvio (`POST /:id/submit`) limpa `rejection_category_id` junto com `rejection_reason`.
+- [x] T5.1 — `POST /moderation/:id/reject` e `PATCH /moderation/batch/reject`: `rejection_category_id` obrigatório no schema zod, resolvido e validado (`active=true`) antes de tocar a máquina de estados; 400 se ausente/inválida.
+- [x] T5.2 — `services/moderationEmail.ts`: `resolveUserEmail` → `sendEmail` → grava `download_email_log`; 1 retry com backoff 30s em falha; `skipped_no_email` quando accounts. não resolve e-mail; nunca lança (chamador roda best-effort, mesmo padrão de `emitNotification`).
+- [x] T5.3 — `approve` individual e batch disparam `sendModerationEmail` com `kind: 'material_approved'`.
+- [x] T5.4 — `POST /:id/submit` (reenvio) limpa `rejection_category_id` junto com `rejection_reason`.
 
 ## F6 — Admin UI
 
-- [ ] T6.1 — Tela de reprovação em `/gestao/moderacao`: select de categoria (exibe `legal_basis`) + textarea motivo, ambos obrigatórios.
-- [ ] T6.2 — Listagem de `download_email_log` com botão "Reenviar" (`POST /admin/email-log/:id/retry`) para status `failed`/`skipped_no_email`.
-- [ ] T6.3 — Badge "e-mail não enviado" na fila/ficha do material quando log mais recente está falho/skip.
+- [x] T6.1 — `GestaoModeracaoPage.tsx`: select de categoria (mostra `legal_basis` abaixo quando existir) + input de motivo, ambos obrigatórios antes de reprovar (individual e batch); botão "Reprovar" por item adicionado (antes só existia "Aprovar" individual).
+- [x] T6.2 — `EmailLogPanel.tsx` + `useAdminEmailLog`/`useRetryEmailLog`: lista `failed`/`skipped_no_email`, botão "Reenviar" chama `POST /admin/email-log/:id/retry` (rota nova, atualiza a MESMA linha de log — não duplica).
+- [x] T6.3 — Decisão registrada: badge por item na fila (`in_review`) não faz sentido — fila nunca tem log de e-mail ainda (reject/approve só dispara e-mail ao SAIR de `in_review`). `EmailLogPanel` já cobre o sinal por material (título implícito via `material_id`), critério de aceite 4 (falha não bloqueia moderação) atendido pelo comportamento best-effort, não por um badge redundante.
 
 ## F7 — Validação
 
-- [ ] T7.1 — `moderationEmail.test.ts`: sucesso, accounts fora do ar, Resend fora do ar com retry, usuário sem e-mail.
-- [ ] T7.2 — Teste de rota interna `accounts.`: sem secret (401), secret errado (401/403), secret certo (200 + shape).
-- [ ] T7.3 — Teste `rejectionCategories.ts`: slug imutável, inativa não lista mas resolve em histórico.
-- [ ] T7.4 — `pnpm verify:api` (downloads + accounts).
-- [ ] T7.5 — lint + build + test nos dois apps tocados.
-- [ ] T7.6 — Smoke manual em beta: reprovar material real (e-mail chega ou log de falha aparece), aprovar material real (e-mail chega).
-- [ ] T7.7 — Atualizar `specs/backlog.md`/`project-state.md` ao fechar esta spec.
+- [x] T7.1 — `services/moderationEmail.test.ts` (4 testes): skipped_no_email sem e-mail resolvido, sent na 1ª tentativa, retry após falha com `vi.advanceTimersByTimeAsync`, sem retry quando já teve sucesso.
+- [x] T7.2 — `apps/accounts/src/internalUsers.test.ts` (5 testes): 401 sem token, 401 com token errado, 200 + shape correto, 404 usuário inexistente, 401 quando `SERVICE_SECRET` não configurado no servidor.
+- [x] T7.3 — `routes/rejectionCategories.test.ts` (7 testes): filtro ativo/inativo, slug imutável rejeitado antes do banco, soft-disable, 404, slug inválido (regex), 409 slug duplicado.
+- [x] T7.4 — `pnpm verify:api`: exit 0, breaking=0 em todos os apps (accounts +1 rota non-breaking, downloads +6 rotas non-breaking).
+- [x] T7.5 — `tsc --noEmit` limpo em accounts/downloads-backend/downloads-frontend/packages/email; `eslint` limpo nos 4; `vite build` downloads-frontend ok; `tsc` build downloads-backend e packages/email ok. Testes: accounts 13/13, downloads-backend 93/93 (76 pré-existentes + 17 novos), packages/email 4/4.
+- [ ] T7.6 — Smoke manual em beta (reprovar/aprovar material real, confirmar e-mail ou log de falha) — depende de deploy + T0.2 (domínio Resend verificado), fora do escopo desta rodada local.
+- [x] T7.7 — `specs/backlog.md`/`project-state.md`: backlog atualizado nesta rodada (ver entrada `BL-083-...`); `project-state.md` não tocado por não haver mudança de gate/fase de programa (spec aditiva ao fluxo de moderação já em produção, sem afetar gates A/B/D).
+
+## F8 — Correção de processo: webhook + editor de template + TTL (2026-07-24)
+
+Os 3 itens abaixo tinham sido registrados como "fora de escopo"/débito por decisão unilateral do agente (sem consultar o mantenedor) — corrigido, viraram escopo real depois de confirmação nominal. Ver `spec.md` e `debitos.md` pra nota completa da correção.
+
+- [ ] T8.1 — Migration nova: `download_email_template` (`kind` UNIQUE, `subject_template`, `body_template`, `updated_at`, `updated_by`) + seed com os 2 templates atuais (`material_rejected`/`material_approved`) copiados de `packages/email/src/templates.ts`; `download_email_log.status` ganha `bounced`/`complained` no CHECK.
+- [ ] T8.2 — `sendModerationEmail`/`packages/email` passam a buscar template em `download_email_template` por `kind`, substituindo placeholders (`{{materialTitle}}`/`{{categoryLabel}}`/`{{reason}}`/etc.) — `escapeHtml`/`safeHttpsUrl` continuam aplicados nos dados interpolados (não no texto do template em si).
+- [ ] T8.3 — `GET/PATCH /admin/email-templates` (`role=admin`) + preview renderizando com dado de exemplo antes de salvar.
+- [ ] T8.4 — `POST /webhooks/resend` em `downloads/backend`: validação de assinatura HMAC (401 sem assinatura válida), atualiza `download_email_log.status` por `provider_message_id`, idempotente, 200 mesmo quando não encontra correspondência (linha já expurgada).
+- [ ] T8.5 — Job de expurgo (reusa scheduler do link-checker/spec 082): apaga `download_email_log` com `created_at` > 90 dias.
+- [ ] T8.6 — `EmailLogPanel.tsx`: exibe `bounced`/`complained` como status distintos de `failed`.
+- [ ] T8.7 — Testes: webhook (assinatura válida/inválida, `provider_message_id` existente/inexistente, idempotência), expurgo (89 dias permanece, 91 dias some), CRUD de template (edição, preview, placeholder quebrado).
+- [ ] T8.8 — `pnpm verify:api`, lint, tsc, build, test em `downloads/backend` e `downloads/frontend`.
+- [ ] T8.9 — Atualizar `debitos.md` (remover a listagem de "correção" quando os 3 itens estiverem implementados e testados) e `specs/backlog.md`.

@@ -6,6 +6,7 @@ import { writeRateLimiter } from '../middleware/rateLimit';
 import { assertValidTransition, InvalidEditorialTransitionError } from '../services/editorialStateMachine';
 import { emitNotification } from '../services/notify';
 import { logModerationAudit } from '../services/moderationAuditLog';
+import { sendModerationEmail } from '../services/moderationEmail';
 import type { DownloadEditorialState } from '../db/types';
 
 const router = Router();
@@ -40,7 +41,7 @@ router.post('/:id/submit', writeRateLimiter, authMiddleware, async (req: Request
 
   const updated = await db
     .updateTable('download_material')
-    .set({ editorial_state: 'in_review', rejection_reason: null, updated_at: new Date() })
+    .set({ editorial_state: 'in_review', rejection_reason: null, rejection_category_id: null, updated_at: new Date() })
     .where('id', '=', material.id)
     .returningAll()
     .executeTakeFirstOrThrow();
@@ -64,10 +65,12 @@ router.get('/queue', writeRateLimiter, authMiddleware, requireRole(['moderator',
 
 const rejectSchema = z.object({
   reason: z.string().trim().min(1, 'Motivo de reprovação é obrigatório.'),
+  rejection_category_id: z.string().trim().min(1, 'Categoria de reprovação é obrigatória.'),
 });
 
-// T4.2 — reprovacao SEMPRE grava motivo estruturado (critério de aceite 2);
-// schema zod rejeita texto vazio/ausente antes de tocar a maquina de estados.
+// T4.2/T5.1 (spec 072/083) — reprovacao SEMPRE grava motivo estruturado
+// (texto livre + categoria); schema zod rejeita ausencia de qualquer um
+// antes de tocar a maquina de estados.
 router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moderator', 'admin']), async (req: Request, res: Response) => {
   const parsed = rejectSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
@@ -84,6 +87,17 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
     return res.status(404).json({ error: 'Material não encontrado.' });
   }
 
+  const category = await db
+    .selectFrom('download_rejection_category')
+    .selectAll()
+    .where('id', '=', parsed.data.rejection_category_id)
+    .where('active', '=', true)
+    .executeTakeFirst();
+
+  if (!category) {
+    return res.status(400).json({ error: 'Categoria de reprovação inválida ou inativa.' });
+  }
+
   try {
     assertValidTransition(material.editorial_state, 'rejected');
   } catch (error) {
@@ -95,7 +109,12 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
 
   const updated = await db
     .updateTable('download_material')
-    .set({ editorial_state: 'rejected', rejection_reason: parsed.data.reason, updated_at: new Date() })
+    .set({
+      editorial_state: 'rejected',
+      rejection_reason: parsed.data.reason,
+      rejection_category_id: category.id,
+      updated_at: new Date(),
+    })
     .where('id', '=', material.id)
     .returningAll()
     .executeTakeFirstOrThrow();
@@ -111,11 +130,26 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
     console.error('[POST /moderation/:id/reject] Falha ao emitir notificação:', error);
   }
 
+  // Fire-and-forget: retry interno tem backoff de 30s (RETRY_DELAY_MS),
+  // await bloquearia a resposta HTTP da moderacao por isso — e-mail e
+  // sempre best-effort, nunca trava a acao de mérito do moderador.
+  sendModerationEmail({
+    kind: 'material_rejected',
+    userId: updated.creator_id,
+    materialId: updated.id,
+    materialTitle: updated.title,
+    categoryLabel: category.label,
+    legalBasis: category.legal_basis,
+    reason: parsed.data.reason,
+  }).catch((error: unknown) => {
+    console.error('[POST /moderation/:id/reject] Falha ao enviar e-mail:', error);
+  });
+
   logModerationAudit({
     action: 'reject',
     actorUserId: req.user!.userId,
     materialId: updated.id,
-    reason: parsed.data.reason,
+    reason: `${category.slug}: ${parsed.data.reason}`,
   });
 
   return res.json(updated);
@@ -156,7 +190,7 @@ router.post('/:id/approve', writeRateLimiter, authMiddleware, requireRole(['mode
 
   const updated = await db
     .updateTable('download_material')
-    .set({ editorial_state: 'published', rejection_reason: null, updated_at: new Date() })
+    .set({ editorial_state: 'published', rejection_reason: null, rejection_category_id: null, updated_at: new Date() })
     .where('id', '=', material.id)
     .returningAll()
     .executeTakeFirstOrThrow();
@@ -172,6 +206,17 @@ router.post('/:id/approve', writeRateLimiter, authMiddleware, requireRole(['mode
     console.error('[POST /moderation/:id/approve] Falha ao emitir notificação:', error);
   }
 
+  // Fire-and-forget: ver comentario equivalente em /reject.
+  sendModerationEmail({
+    kind: 'material_approved',
+    userId: updated.creator_id,
+    materialId: updated.id,
+    materialTitle: updated.title,
+    materialSlug: updated.slug,
+  }).catch((error: unknown) => {
+    console.error('[POST /moderation/:id/approve] Falha ao enviar e-mail:', error);
+  });
+
   logModerationAudit({ action: 'approve', actorUserId: req.user!.userId, materialId: updated.id });
 
   return res.json(updated);
@@ -180,6 +225,7 @@ router.post('/:id/approve', writeRateLimiter, authMiddleware, requireRole(['mode
 const batchSchema = z.object({
   ids: z.array(z.string()).min(1).max(100),
   reason: z.string().trim().min(1).optional(),
+  rejection_category_id: z.string().trim().min(1).optional(),
 });
 
 type BatchAction = 'approve' | 'reject' | 'archive';
@@ -207,6 +253,23 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
   if (action === 'reject' && !parsed.data.reason) {
     return res.status(400).json({ error: 'Motivo de reprovação é obrigatório para ação em lote de reprovar.' });
   }
+  if (action === 'reject' && !parsed.data.rejection_category_id) {
+    return res.status(400).json({ error: 'Categoria de reprovação é obrigatória para ação em lote de reprovar.' });
+  }
+
+  let rejectCategory: { id: string; slug: string; label: string; legal_basis: string | null } | null = null;
+  if (action === 'reject' && parsed.data.rejection_category_id) {
+    rejectCategory = await db
+      .selectFrom('download_rejection_category')
+      .select(['id', 'slug', 'label', 'legal_basis'])
+      .where('id', '=', parsed.data.rejection_category_id)
+      .where('active', '=', true)
+      .executeTakeFirst() ?? null;
+
+    if (!rejectCategory) {
+      return res.status(400).json({ error: 'Categoria de reprovação inválida ou inativa.' });
+    }
+  }
 
   const targetState = ACTION_TARGET_STATE[action];
   const results: Array<{ id: string; status: 'updated' | 'skipped'; reason?: string }> = [];
@@ -214,7 +277,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
   for (const id of parsed.data.ids) {
     const material = await db
       .selectFrom('download_material')
-      .select(['id', 'editorial_state', 'creator_id', 'title'])
+      .select(['id', 'editorial_state', 'creator_id', 'title', 'slug'])
       .where('id', '=', id)
       .executeTakeFirst();
 
@@ -245,6 +308,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
       .set({
         editorial_state: targetState,
         rejection_reason: action === 'reject' ? (parsed.data.reason ?? null) : null,
+        rejection_category_id: action === 'reject' ? (rejectCategory?.id ?? null) : null,
         updated_at: new Date(),
       })
       .where('id', '=', id)
@@ -263,13 +327,40 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
       } catch (error) {
         console.error(`[PATCH /moderation/batch/${action}] Falha ao emitir notificação para material ${material.id}:`, error);
       }
+
+      // Fire-and-forget (ver comentario em /reject individual) — critico no
+      // batch: await serializaria 30s de retry POR ITEM, um lote de 100
+      // materiais com Resend fora do ar travaria a resposta por ~50min.
+      const emailPromise = action === 'approve'
+        ? sendModerationEmail({
+            kind: 'material_approved',
+            userId: material.creator_id,
+            materialId: material.id,
+            materialTitle: material.title,
+            materialSlug: material.slug,
+          })
+        : rejectCategory
+          ? sendModerationEmail({
+              kind: 'material_rejected',
+              userId: material.creator_id,
+              materialId: material.id,
+              materialTitle: material.title,
+              categoryLabel: rejectCategory.label,
+              legalBasis: rejectCategory.legal_basis,
+              reason: parsed.data.reason ?? '',
+            })
+          : null;
+
+      emailPromise?.catch((error: unknown) => {
+        console.error(`[PATCH /moderation/batch/${action}] Falha ao enviar e-mail para material ${material.id}:`, error);
+      });
     }
 
     logModerationAudit({
       action,
       actorUserId: req.user!.userId,
       materialId: material.id,
-      reason: action === 'reject' ? parsed.data.reason : undefined,
+      reason: action === 'reject' ? `${rejectCategory?.slug ?? '?'}: ${parsed.data.reason}` : undefined,
     });
 
     results.push({ id, status: 'updated' });

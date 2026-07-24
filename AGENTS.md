@@ -149,6 +149,7 @@ Ver também §Regras Pétreas → Escopo.
 ### Bug achado / débito
 
 - **Todo bug achado é reporte obrigatório — dentro ou fora do escopo da tarefa/chat atual, sem exceção.** Bug, regressão, falha de validação, comportamento estranho recorrente, contrato quebrado, smoke que falha, ou defeito de ferramenta/harness/CI: mesmo que não tenha relação nenhuma com o que está sendo feito no momento, o agente **nunca** ignora, guarda só na cabeça/chat, nem decide sozinho. Sempre reporta ao mantenedor e **pergunta**: corrigir agora (nesta tarefa/PR) ou registrar como débito no backlog. "Não deu tempo", "era lateral", "fora de escopo" ou "parece pequeno" não dispensam o reporte nem a pergunta.
+- **Regra vale igual pra achado de spec/investigação, não só bug de código já escrito.** Lacuna jurídica, risco operacional, incerteza técnica, limitação de escopo descoberta durante pesquisa/investigação de uma spec nova: mesma trava — o agente **nunca** decide sozinho que "isso fica fora de escopo" ou "isso vira débito" e já escreve `spec.md`/`Fora de escopo`/`debitos.md` como se fosse decisão fechada. Escrever "decisão do mantenedor" numa spec sem o mantenedor ter de fato respondido é o mesmo erro que mascarar bug — sempre pergunta primeiro (AskUserQuestion ou texto direto), só documenta como decidido depois da resposta.
 - Só depois da resposta do mantenedor:
   - corrigir agora: corrige dentro do escopo autorizado.
   - registrar débito: evidência concreta (comando, run, arquivo, trecho, métrica ou URL) em sessão + `specs/backlog.md` (salvo item ativo já cobrindo o mesmo problema) + `tasks.md` da spec quando muda status/critério/próxima ação + `project-state.md` quando afeta retomada/gate.
@@ -252,6 +253,8 @@ Mecânica de branch/PR/commit/push: §Regras Pétreas → PR, Commit e Push.
 - Antes de dizer "pronto": validar copiando o header do vizinho verde mais recente (maior `migration_NNN` já em prod) e conferir os 5 campos.
 
 **2. Idempotência obrigatória.** Toda migration roda 2x sem erro: `IF NOT EXISTS`/`IF EXISTS` em `ALTER`/`CREATE`/`DROP`; `ADD CONSTRAINT` não aceita `IF NOT EXISTS` no Postgres 16 — envolver em `DO $$ ... END $$` checando `pg_constraint` antes. Se uma migration já aplicada falhar/rodar pela metade, **nunca reescrever o arquivo original** — criar migration nova de correção.
+
+**2.1. Não fatiar em várias migrations o schema de uma mesma spec/feature no mesmo diff/PR.** Se as tabelas/colunas novas nascem juntas na mesma sessão de trabalho e uma depende logicamente da outra (ex.: tabela nova + FK que aponta pra ela + tabela de log relacionada), isso é **uma migration só**, não 2-3 arquivos separados por tabela. Fatiar sem necessidade não ajuda reversão (o guard `MAX_AUTO_PENDING=5` conta cada arquivo como uma migration pendente) e só multiplica header/arquivo pra revisar. Migrations diferentes se justificam quando entram em PRs/sessões diferentes, ou quando uma é reversível/independente da outra em produção — não pela conveniência de "uma tabela por arquivo".
 
 **3. Fluxo padrão:** criar `migration_XXX_descricao.sql` em `./database/` → commit/PR pra `dev` → CI valida header/diretório/drift → merge em `dev`/`main` aplica via `apply_required_migrations.sh` antes de re-subir a aplicação. Nunca aplicar manualmente como primeira tentativa.
 

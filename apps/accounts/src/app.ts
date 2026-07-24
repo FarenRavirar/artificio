@@ -2,6 +2,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import { rateLimit } from "express-rate-limit";
+import { timingSafeEqual } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,8 +14,20 @@ import type { Database } from "./db.js";
 import type { AccountsEnv } from "./env.js";
 import { createGoogleClient, readGoogleProfile } from "./google.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./tokens.js";
-import { upsertGoogleUser } from "./users.js";
+import { findUserById, upsertGoogleUser } from "./users.js";
 import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
+
+// Comparacao constante mesmo com tamanhos diferentes (timingSafeEqual exige
+// buffers do mesmo length) — evita vazar por timing quanto do token bate.
+function timingSafeEqualStrings(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
 
 export function isAllowedReturnUrl(value: string): boolean {
   try {
@@ -170,6 +183,29 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
 
   // WS3: admin secrets (DeepSeek key, etc.) — admin-gated + X-Service-Token
   app.use(createAdminSecretsRoutes(db, env as unknown as Record<string, string | undefined>));
+
+  // Spec 083 (downloads: rejeicao com e-mail) — rota interna server-to-server,
+  // resolve email/nome do autor por user_id. So X-Service-Token, sem fallback
+  // de sessao admin (nunca chamada por humano, so por outro backend).
+  app.get("/internal/users/:id", (req, res, next) => {
+    const serviceSecret = env.SERVICE_SECRET;
+    const token = req.headers["x-service-token"];
+
+    if (!serviceSecret || typeof token !== "string" || !timingSafeEqualStrings(token, serviceSecret)) {
+      res.status(401).json({ error: "unauthorized" });
+      return;
+    }
+
+    findUserById(db, req.params.id)
+      .then((user) => {
+        if (!user) {
+          res.status(404).json({ error: "user_not_found" });
+          return;
+        }
+        res.json({ id: user.id, email: user.email, display_name: user.name });
+      })
+      .catch(next);
+  });
 
   const currentDir = dirname(fileURLToPath(import.meta.url));
   const clientDir = join(currentDir, "client");
