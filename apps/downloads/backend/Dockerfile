@@ -35,6 +35,7 @@ COPY patches ./patches
 
 RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile \
   && pnpm install --prod --filter @artificio/media --frozen-lockfile \
+  && pnpm install --prod --filter @artificio/email --frozen-lockfile \
   && test -d packages/media/node_modules/cloudinary \
   || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
 
