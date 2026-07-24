@@ -42,6 +42,13 @@ RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile 
 # imagem builda mas qualquer fonte que cair no Modo 2a/2b quebra em runtime.
 COPY apps/downloads/backend/scripts ./apps/downloads/backend/scripts
 
+# Achado de review PR #195 (codex) — sem PLAYWRIGHT_BROWSERS_PATH fixo, o
+# install roda como root (cache em /root/.cache/ms-playwright) mas o runtime
+# roda como USER node (linha abaixo, HOME=/home/node): chromium.launch() em
+# patchrightClient.ts nao acharia o browser instalado. Fixar o path dentro de
+# /repo garante que o chown -R node:node /repo (mais abaixo) cubra o cache.
+ENV PLAYWRIGHT_BROWSERS_PATH=/repo/.playwright-browsers
+
 RUN apk add --no-cache python3 py3-pip \
   && pnpm --filter @artificio/downloads-backend exec patchright install --with-deps chromium \
   && python3 -m venv ./apps/downloads/backend/scripts/camoufox/.venv \
