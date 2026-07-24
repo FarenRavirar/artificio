@@ -4,7 +4,10 @@
 # =============================================================================
 
 # Estágio 1: build TypeScript
-FROM node:24-alpine AS builder
+# node:24-slim (Debian/glibc), nao alpine — achado de review PR #195 (codex):
+# Patchright (Modo 2a, spec 084) exige apt-get + glibc para instalar Chromium;
+# Alpine (musl) nao e suportado oficialmente por Playwright/Patchright.
+FROM node:24-slim AS builder
 
 WORKDIR /repo
 RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
@@ -19,7 +22,7 @@ RUN pnpm -w turbo run build --filter=@artificio/downloads-backend
 
 # =============================================================================
 # Estágio 2: imagem de produção (apenas o necessário)
-FROM node:24-alpine AS production
+FROM node:24-slim AS production
 
 WORKDIR /repo
 ENV NODE_PATH=/repo/apps/downloads/backend/node_modules
@@ -49,7 +52,9 @@ COPY apps/downloads/backend/scripts ./apps/downloads/backend/scripts
 # /repo garante que o chown -R node:node /repo (mais abaixo) cubra o cache.
 ENV PLAYWRIGHT_BROWSERS_PATH=/repo/.playwright-browsers
 
-RUN apk add --no-cache python3 py3-pip \
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 python3-pip python3-venv wget \
+  && rm -rf /var/lib/apt/lists/* \
   && pnpm --filter @artificio/downloads-backend exec patchright install --with-deps chromium \
   && python3 -m venv ./apps/downloads/backend/scripts/camoufox/.venv \
   && ./apps/downloads/backend/scripts/camoufox/.venv/bin/pip install --no-cache-dir \
