@@ -43,7 +43,7 @@ RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile 
 COPY apps/downloads/backend/scripts ./apps/downloads/backend/scripts
 
 RUN apk add --no-cache python3 py3-pip \
-  && pnpm exec patchright install --with-deps chromium \
+  && pnpm --filter @artificio/downloads-backend exec patchright install --with-deps chromium \
   && python3 -m venv ./apps/downloads/backend/scripts/camoufox/.venv \
   && ./apps/downloads/backend/scripts/camoufox/.venv/bin/pip install --no-cache-dir \
        -r ./apps/downloads/backend/scripts/camoufox/requirements.txt
