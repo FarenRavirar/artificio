@@ -228,6 +228,28 @@ export interface DownloadScraperItemLogTable {
 export type DownloadScraperItemLog = Selectable<DownloadScraperItemLogTable>;
 export type NewDownloadScraperItemLog = Insertable<DownloadScraperItemLogTable>;
 
+// Spec 085 (Fase 4) — auditoria minima do parser HTML determinístico
+// (/parse-html), tabela nova (T4.1: enums de download_scraper_run/
+// download_scraper_item_log são fechados demais, conceito não bate).
+export type DownloadScraperParsePriceSignal =
+  | 'pwyw_tag_present'
+  | 'zero_price_no_pwyw_tag'
+  | 'nonzero_price_no_pwyw_tag';
+
+export interface DownloadScraperParseLogTable {
+  parse_case_id: Generated<string>;
+  source_platform: 'dms_guild' | 'drivethrurpg';
+  admin_user_id: string;
+  fields_extracted: unknown;
+  price_signal: DownloadScraperParsePriceSignal;
+  confirmed_material_id: string | null;
+  created_at: Generated<Date>;
+}
+
+export type DownloadScraperParseLog = Selectable<DownloadScraperParseLogTable>;
+export type NewDownloadScraperParseLog = Insertable<DownloadScraperParseLogTable>;
+export type DownloadScraperParseLogUpdate = Updateable<DownloadScraperParseLogTable>;
+
 export interface DownloadMetricDailyTable {
   material_id: string;
   metric_date: Date;
@@ -412,4 +434,5 @@ export interface Database {
   download_email_log: DownloadEmailLogTable;
   download_scraper_run: DownloadScraperRunTable;
   download_scraper_item_log: DownloadScraperItemLogTable;
+  download_scraper_parse_log: DownloadScraperParseLogTable;
 }

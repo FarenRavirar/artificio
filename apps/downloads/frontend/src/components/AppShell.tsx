@@ -56,7 +56,7 @@ export const AppShell = ({ children }: AppShellProps) => {
         serviceAccount={{ label: 'Conta Downloads', href: '/painel' }}
       />
       <main className="flex-1">{children}</main>
-      <Footer />
+      <Footer variant={theme === 'light' ? 'light' : 'dark'} />
       <ChangelogModal isOpen={isChangelogOpen} onClose={() => setIsChangelogOpen(false)} />
     </div>
   );

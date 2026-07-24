@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 474,
+    "total": 475,
     "byApp": {
       "accounts": {
         "total": 12,
@@ -14,17 +14,17 @@
         }
       },
       "downloads": {
-        "total": 79,
+        "total": 80,
         "byMethod": {
           "GET": 32,
+          "POST": 19,
           "USE": 18,
-          "POST": 18,
           "PATCH": 5,
           "DELETE": 4,
           "PUT": 2
         },
         "byConfidence": {
-          "high": 79
+          "high": 80
         }
       },
       "glossario": {
@@ -353,7 +353,16 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/ingest",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 142,
+      "line": 149,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/admin/scraper/parse-html",
+      "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
+      "line": 241,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -362,7 +371,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/run",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 69,
+      "line": 71,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -371,7 +380,7 @@
       "method": "GET",
       "path": "/api/v1/admin/scraper/run/:id",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 93,
+      "line": 95,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -380,7 +389,7 @@
       "method": "GET",
       "path": "/api/v1/admin/scraper/runs",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 114,
+      "line": 116,
       "confidence": "high",
       "kind": "express-route"
     },
