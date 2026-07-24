@@ -301,6 +301,41 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /internal/users/{id}:
+    get:
+      operationId: getinternal_users_id
+      summary: "Consulta internal users id"
+      x-artificio-owner: accounts
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /login:
     get:
       operationId: getlogin

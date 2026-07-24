@@ -25,6 +25,23 @@ function toUser(row: {
   };
 }
 
+// Spec 083 (downloads: rejeicao com e-mail) — resolucao server-to-server de
+// e-mail/nome por user_id. Downloads nao tem tabela users propria (SSO puro),
+// entao precisa consultar accounts. sob demanda (nunca cacheia — e-mail pode
+// mudar na conta Google, cache ficaria stale sem invalidacao).
+export async function findUserById(
+  db: Kysely<Database>,
+  id: string,
+): Promise<{ id: string; email: string; name: string } | null> {
+  const row = await db
+    .selectFrom("users")
+    .select(["id", "email", "name"])
+    .where("id", "=", id)
+    .executeTakeFirst();
+
+  return row ?? null;
+}
+
 export async function upsertGoogleUser(
   db: Kysely<Database>,
   profile: GoogleUserProfile,

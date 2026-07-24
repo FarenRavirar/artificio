@@ -24,6 +24,7 @@ export interface DownloadMaterialTable {
   storage_provider: string | null;
   storage_key: string | null;
   rejection_reason: string | null;
+  rejection_category_id: string | null;
   auto_publish_enabled: Generated<boolean>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
@@ -290,6 +291,42 @@ export type DownloadNotification = Selectable<DownloadNotificationTable>;
 export type NewDownloadNotification = Insertable<DownloadNotificationTable>;
 export type DownloadNotificationUpdate = Updateable<DownloadNotificationTable>;
 
+export interface DownloadRejectionCategoryTable {
+  id: Generated<string>;
+  slug: string;
+  label: string;
+  legal_basis: string | null;
+  email_template_key: Generated<string>;
+  active: Generated<boolean>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type DownloadRejectionCategory = Selectable<DownloadRejectionCategoryTable>;
+export type NewDownloadRejectionCategory = Insertable<DownloadRejectionCategoryTable>;
+export type DownloadRejectionCategoryUpdate = Updateable<DownloadRejectionCategoryTable>;
+
+export type DownloadEmailKind = 'material_rejected' | 'material_approved';
+export type DownloadEmailStatus = 'sent' | 'failed' | 'skipped_no_email';
+
+export interface DownloadEmailLogTable {
+  id: Generated<string>;
+  user_id: string;
+  material_id: string | null;
+  kind: DownloadEmailKind;
+  to_email: string | null;
+  status: DownloadEmailStatus;
+  provider_message_id: string | null;
+  error_detail: string | null;
+  attempts: Generated<number>;
+  created_at: Generated<Date>;
+  last_attempt_at: Generated<Date>;
+}
+
+export type DownloadEmailLog = Selectable<DownloadEmailLogTable>;
+export type NewDownloadEmailLog = Insertable<DownloadEmailLogTable>;
+export type DownloadEmailLogUpdate = Updateable<DownloadEmailLogTable>;
+
 export interface Database {
   download_material: DownloadMaterialTable;
   download_destination: DownloadDestinationTable;
@@ -310,4 +347,6 @@ export interface Database {
   download_organization: DownloadOrganizationTable;
   download_organization_member: DownloadOrganizationMemberTable;
   download_notification: DownloadNotificationTable;
+  download_rejection_category: DownloadRejectionCategoryTable;
+  download_email_log: DownloadEmailLogTable;
 }
