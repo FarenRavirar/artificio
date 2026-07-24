@@ -4,13 +4,13 @@
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
     "accounts": 12,
-    "downloads": 57,
+    "downloads": 61,
     "glossario": 49,
     "links": 22,
     "mesas": 192,
     "site": 46
   },
-  "total": 378,
+  "total": 382,
   "operations": [
     {
       "app": "accounts",
@@ -328,6 +328,54 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_v1_admin_sanitize_preview"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/admin/scraper/ingest",
+      "summary": "Cria ou executa api v1 admin scraper ingest",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_scraper_ingest"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/admin/scraper/run",
+      "summary": "Cria ou executa api v1 admin scraper run",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_scraper_run"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/admin/scraper/run/{id}",
+      "summary": "Consulta api v1 admin scraper run id",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_scraper_run_id"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/admin/scraper/runs",
+      "summary": "Consulta api v1 admin scraper runs",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_scraper_runs"
     },
     {
       "app": "downloads",

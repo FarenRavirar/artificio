@@ -34,6 +34,11 @@ export function MaterialCard({ material }: Readonly<MaterialCardProps>) {
       <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--fg-muted)]">
         <span className="rounded-full border border-[var(--line)] px-2 py-0.5">{material.material_type}</span>
         <span className="rounded-full border border-[var(--line)] px-2 py-0.5">{ACCESS_LABEL[material.access_kind]}</span>
+        {/* T9.4 (spec 084) — D119 garante que TODO material publicado e
+            portugues; selo estatico, sem depender de campo dinamico (idioma
+            vive em download_material_metadata, join separado nao presente
+            nesta listagem). */}
+        <span className="rounded-full border border-[var(--line)] px-2 py-0.5">Em português</span>
       </div>
     </article>
   );

@@ -69,7 +69,10 @@ CREATE TABLE IF NOT EXISTS download_email_log (
   material_id UUID REFERENCES download_material(id) ON DELETE SET NULL,
   kind VARCHAR(40) NOT NULL CHECK (kind IN ('material_rejected', 'material_approved')),
   to_email TEXT,
-  status VARCHAR(20) NOT NULL CHECK (status IN ('sent', 'failed', 'skipped_no_email')),
+  -- 'sending' e claim atomico transitorio (retry so envia se UPDATE ... WHERE
+  -- status != 'sending' afetar a linha) — evita duplo envio em retry
+  -- concorrente (achado de review PR #192).
+  status VARCHAR(20) NOT NULL CHECK (status IN ('sent', 'failed', 'skipped_no_email', 'sending')),
   provider_message_id TEXT,
   error_detail TEXT,
   attempts INT NOT NULL DEFAULT 1 CHECK (attempts >= 1),

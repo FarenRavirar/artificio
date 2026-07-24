@@ -155,6 +155,7 @@ O scraper precisa de 4 modos de acesso, escalando conforme bloqueio, cada um com
 
 - `download_creator` já suporta `user_id` nullable (crédito de autor terceiro sem conta) — mas aqui não é crédito de autor, é o próprio agente que cadastrou. Criar `download_creator` de sistema (`role=admin`, `display_name` tipo "Indexação automática", `user_id=NULL`) reusado por todo material de origem scraper — não inventar `creator_id` novo por item.
 - Autoria real (nome do criador do produto original) vai nos metadados (`download_material_metadata.publisher_name`/`credits`), extraído da página raspada — nunca é confundida com o `creator_id`/dono técnico do registro.
+- **Correção de design (T2.2):** `download_material.creator_id` normalmente casa com `download_creator.user_id` (JOIN da rota pública + check de dono). Como o ator de sistema tem `user_id=NULL`, material de scraper grava `creator_id = download_creator.id` (não `user_id`) — caso especial só pra esse ator; material humano não muda. `GET /materials/:slug` aceita os dois casos no JOIN (`user_id = creator_id OR id = creator_id`); check de dono nunca bate positivo pra material de scraper (correto — só moderador/admin editam).
 
 ### 7. Rota admin e disparo
 
