@@ -25,7 +25,7 @@ const upsertMetadataSchema = z.object({
   license_url: z.url().trim().nullable().optional(),
   credits: z.string().trim().nullable().optional(),
   publisher_name: z.string().trim().max(120).nullable().optional(),
-  cover_image_url: z.url().trim().nullable().optional(),
+  cover_image_url: z.url({ protocol: /^https?$/ }).trim().nullable().optional(),
   target_audience: z.string().trim().max(60).nullable().optional(),
   age_rating: z.string().trim().max(20).nullable().optional(),
   content_warnings: z.array(z.string()).optional(),

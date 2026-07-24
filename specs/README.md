@@ -63,6 +63,7 @@ Toda spec SDD deve:
 | 061 | downloads definição do produto | **Investigação aberta (2026-07-08), zero código.** Catálogo comunitário de materiais gratuitos; SSO para submissão; arquivos ficam em links externos; capas podem usar Cloudinary shared. Define produto, políticas, taxonomia, UX, arquitetura, segurança, infra e specs filhas ordenadas. |
 | 062 | catálogo canônico de sistemas/edições | **Etapa I investigação concluída e aprovada (2026-07-08); Etapa II código pendente.** Serviço independente no `artificiorpg.com`, leitura/escrita central sem projeções, Mesas como fonte principal, Glossário mapeado manualmente, merge obrigatório sem delete/archive. |
 | 078 | sistemas centrais + projeção Mesas Beta | **Planejada (2026-07-15).** D114 supera “sem projeções” só para Mesas Beta: Central=Site Prod; Beta local hidratado por upsert aditivo; sync Mesas exclui sistemas; adapter único; onboarding e draft JSON unificados. |
+| 083 | downloads rejeição motivo legal + e-mail | **Planejada (2026-07-23).** Reprovação ganha categoria estruturada (enum configurável via admin, com enquadramento legal BR) + e-mail transacional (Resend) para reject/approve. Exige rota interna nova em `accounts.` (trava pétrea SSO) e pacote `@artificio/email` novo. Zero código ainda. |
 
 ## Convencao de status no backlog
 - `aberto`: ainda precisa execucao.
