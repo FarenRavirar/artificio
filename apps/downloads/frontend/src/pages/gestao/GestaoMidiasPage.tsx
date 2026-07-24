@@ -15,7 +15,7 @@ const STATE_LABEL: Record<string, string> = {
 // upload/storage novo (coerente com T2.3, MVP somente-link-externo). Upload
 // real via Cloudinary fica como task futura (ver tasks.md T2.7).
 export function GestaoMidiasPage() {
-  const { data, isLoading } = useAdminMedia();
+  const { data, isLoading, isError, error, refetch } = useAdminMedia();
   const updateCover = useUpdateCoverImage();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
@@ -39,6 +39,18 @@ export function GestaoMidiasPage() {
       </p>
 
       {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
+      {isError && (
+        <div className="mt-4 flex items-center gap-3">
+          <p className="text-sm text-red-400">{error instanceof Error ? error.message : 'Falha ao carregar mídias.'}</p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="rounded-md border border-[var(--line)] px-3 py-1 text-sm text-[var(--fg)]"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
       {data?.items.length === 0 && <p className="mt-4 text-[var(--fg-muted)]">Nenhum material cadastrado ainda.</p>}
 
       <ul className="mt-6 divide-y divide-[var(--line)]">

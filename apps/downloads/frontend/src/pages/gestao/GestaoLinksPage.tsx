@@ -10,8 +10,8 @@ export function GestaoLinksPage() {
     <GestaoShell>
       <h1 className="text-2xl font-bold text-[var(--fg)]">Links</h1>
       <p className="mt-2 text-sm text-[var(--fg-muted)]">
-        Checagem automática diária (03:00) cobre todo material publicado; use "Checar agora" para forçar uma checagem
-        imediata.
+        Checagem automática diária (03:00) cobre todo material publicado com link externo; use "Checar agora" para
+        forçar uma checagem imediata.
       </p>
 
       {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}

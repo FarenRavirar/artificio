@@ -8,7 +8,7 @@ export interface MaterialCreatePayload {
   material_type: string;
 }
 
-const materialCreatedSchema = z.object({ id: z.string() });
+const materialCreatedSchema = z.object({ id: z.string().min(1) });
 
 // T2.1 (spec 082) — criacao de material pelo autor. Backend so aceita
 // slug/title/material_type e fixa access_kind='external_link' (materials.ts

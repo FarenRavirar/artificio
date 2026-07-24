@@ -89,6 +89,11 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
   }
 
   const patch = parsed.data;
+  // Insert usa default null/[] pra linha nova; update so toca as chaves que
+  // vieram no body — PUT parcial (ex.: so publisher_name) nao pode apagar
+  // cover_image_url/scenario/etc. salvos por outra tela (achado de review,
+  // ver PR #190).
+  const bodyKeys = new Set(Object.keys(req.body ?? {}));
 
   const commonFields = {
     scenario: patch.scenario ?? null,
@@ -114,12 +119,15 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     tags: (patch.tags ?? []) as unknown as JSONColumnType<string[]>,
   };
 
+  const updateFields = Object.fromEntries(
+    Object.entries({ ...commonFields, ...jsonFields }).filter(([key]) => bodyKeys.has(key)),
+  );
+
   const updated = await db
     .insertInto('download_material_metadata')
     .values({ material_id: material.id, ...commonFields, ...jsonFields })
     .onConflict((oc) => oc.column('material_id').doUpdateSet({
-      ...commonFields,
-      ...(jsonFields as unknown as { access_barriers: string[]; content_warnings: string[]; tags: string[] }),
+      ...updateFields,
       updated_at: new Date(),
     }))
     .returningAll()

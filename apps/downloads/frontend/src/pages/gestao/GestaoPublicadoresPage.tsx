@@ -8,7 +8,7 @@ export function GestaoPublicadoresPage() {
   const [searchDraft, setSearchDraft] = useState('');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
-  const { data, isLoading } = useAdminCreators({ q: q || undefined, page });
+  const { data, isLoading, isError, error, refetch } = useAdminCreators({ q: q || undefined, page });
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 1;
 
@@ -39,6 +39,18 @@ export function GestaoPublicadoresPage() {
       </form>
 
       {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
+      {isError && (
+        <div className="mt-4 flex items-center gap-3">
+          <p className="text-sm text-red-400">{error instanceof Error ? error.message : 'Falha ao carregar publicadores.'}</p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="rounded-md border border-[var(--line)] px-3 py-1 text-sm text-[var(--fg)]"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
       {data?.items.length === 0 && <p className="mt-4 text-[var(--fg-muted)]">Nenhum publicador encontrado.</p>}
 
       <ul className="mt-6 divide-y divide-[var(--line)]">
