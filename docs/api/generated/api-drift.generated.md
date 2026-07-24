@@ -14,7 +14,7 @@
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 4 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 117 | ❌ |
+| 🕳️ UNUSED_ROUTE | 118 | ❌ |
 | 👻 ORPHAN_SUSPECT | 39 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
@@ -37,7 +37,7 @@
 | POST | `/api/auth/logout` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/admin/secrets/:name` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 
-### downloads (61 rotas no inventário)
+### downloads (62 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -88,6 +88,7 @@
 | POST | `/api/v1/admin/rejection-categories` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/sanitize-preview` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/scraper/ingest` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/admin/scraper/parse-html` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/scraper/run` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/collections` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/collections/:id/items` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |

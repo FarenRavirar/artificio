@@ -1,5 +1,7 @@
 import request from 'supertest';
 import express from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // T5.1-T5.3 (spec 084) — rotas admin do scraper: disparo manual
 // (fire-and-forget), consulta de run, listagem, ingest de Modo 3.
@@ -52,7 +54,10 @@ import scraperRoutes from './scraper';
 
 function app() {
   const server = express();
-  server.use(express.json());
+  // limite igual ao real (server.ts:67) — sem isso, payload de teste acima
+  // de 100kb (default do express.json) estoura 413 no body-parser antes de
+  // chegar no handler, mascarando o 422 que o schema Zod deveria produzir.
+  server.use(express.json({ limit: '4mb' }));
   server.use('/api/v1/admin/scraper', scraperRoutes);
   return server;
 }
@@ -191,5 +196,203 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
       .expect(502);
 
     expect(res.body.error).toMatch(/falha no pipeline/);
+  });
+
+  // T4.3 — item com parse_case_id linka confirmed_material_id em
+  // download_scraper_parse_log após o pipeline gravar o material criado.
+  it('linka parse_case_id ao material criado quando o item veio de /parse-html', async () => {
+    dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-4' }));
+    dbMocks.selectFrom
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        execute: vi.fn().mockResolvedValue([{ source_url: validItem.sourceUrl, material_id: 'mat-nova' }]),
+      })
+      .mockReturnValueOnce({
+        selectAll: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'run-4', status: 'completed' }),
+      });
+    const updateParseLogChain = updateChain();
+    dbMocks.updateTable.mockReturnValueOnce(updateChain()).mockReturnValueOnce(updateParseLogChain);
+
+    const itemWithParseCaseId = { ...validItem, parse_case_id: '9f8e7d6c-1234-4abc-8def-0123456789ab' };
+    await request(app())
+      .post('/api/v1/admin/scraper/ingest')
+      .send({ source_platform: 'itch_io', items: [itemWithParseCaseId] })
+      .expect(200);
+
+    expect(dbMocks.selectFrom).toHaveBeenCalledWith('download_scraper_item_log');
+    expect(updateParseLogChain.set).toHaveBeenCalledWith({ confirmed_material_id: 'mat-nova' });
+  });
+
+  it('não quebra quando item não tem parse_case_id (uso direto do Modo 3, sem passar por /parse-html)', async () => {
+    dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-5' }));
+    dbMocks.selectFrom.mockReturnValueOnce({
+      selectAll: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'run-5', status: 'completed' }),
+    });
+
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/ingest')
+      .send({ source_platform: 'itch_io', items: [validItem] })
+      .expect(200);
+
+    expect(res.body.id).toBe('run-5');
+    // selectFrom('download_scraper_item_log') nunca chamado — sem
+    // parse_case_id no payload, o bloco de link nem consulta o banco.
+    expect(dbMocks.selectFrom).not.toHaveBeenCalledWith('download_scraper_item_log');
+  });
+});
+
+// T2.2 (spec 085) — payload grande demais rejeitado dentro do handler (via
+// schema Zod .max(MAX_HTML_LENGTH)), sem middleware de body-parser dedicado.
+const FIXTURES_DIR = path.resolve(__dirname, '../../test/fixtures');
+function loadFixtureHtml(name: string): string {
+  return fs.readFileSync(path.join(FIXTURES_DIR, name), 'utf-8');
+}
+
+function duplicateCheckChain(result: unknown[] = []) {
+  return {
+    select: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    execute: vi.fn().mockResolvedValue(result),
+  };
+}
+
+// T4.2 — cada chamada bem-sucedida grava em download_scraper_parse_log.
+function parseLogInsertChain(parseCaseId = 'parse-case-1') {
+  return {
+    values: vi.fn().mockReturnThis(),
+    returning: vi.fn().mockReturnThis(),
+    executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ parse_case_id: parseCaseId }),
+  };
+}
+
+describe('POST /api/v1/admin/scraper/parse-html', () => {
+  it('200 com preview real — fixture DMs Guild (PWYW)', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(duplicateCheckChain());
+    dbMocks.insertInto.mockReturnValueOnce(parseLogInsertChain());
+    const html = loadFixtureHtml('dms-guild-product-1.html');
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/parse-html')
+      .send({ source_platform: 'dms_guild', html })
+      .expect(200);
+
+    expect(res.body.preview.title).toBe('Classe O Lutador (5E)- Playtest');
+    expect(res.body.preview.priceSignal).toBe('pwyw_tag_present');
+    expect(res.body.preview.isFreeOrPwyw).toBe(true);
+    expect(res.body.duplicateCandidates).toEqual([]);
+    expect(res.body.parse_case_id).toBe('parse-case-1');
+  });
+
+  it('200 com preview real — fixture DriveThruRPG (grátis fixo)', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(duplicateCheckChain());
+    dbMocks.insertInto.mockReturnValueOnce(parseLogInsertChain('parse-case-2'));
+    const html = loadFixtureHtml('drivethrurpg-product-1.html');
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/parse-html')
+      .send({ source_platform: 'drivethrurpg', html })
+      .expect(200);
+
+    expect(res.body.preview.title).toBe('RPG Bíblico - Tomada de Jerusalém');
+    expect(res.body.preview.priceSignal).toBe('zero_price_no_pwyw_tag');
+  });
+
+  it('200 com preview mesmo quando há candidato de duplicata (T3.3, endpoint nunca bloqueia)', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(
+      duplicateCheckChain([{ id: 'mat-existente', slug: 'classe-o-lutador-5e', title: 'Classe O Lutador (5E)', similarity: 0.95 }]),
+    );
+    dbMocks.insertInto.mockReturnValueOnce(parseLogInsertChain());
+    const html = loadFixtureHtml('dms-guild-product-1.html');
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/parse-html')
+      .send({ source_platform: 'dms_guild', html })
+      .expect(200);
+
+    expect(res.body.duplicateCandidates).toHaveLength(1);
+    expect(res.body.duplicateCandidates[0].id).toBe('mat-existente');
+    expect(res.body.preview.title).toBe('Classe O Lutador (5E)- Playtest');
+  });
+
+  it('T4.2 — grava auditoria sem o HTML bruto em nenhum campo, com admin_user_id/source_platform/price_signal corretos', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(duplicateCheckChain());
+    const insertChainSpy = parseLogInsertChain();
+    dbMocks.insertInto.mockReturnValueOnce(insertChainSpy);
+    const html = loadFixtureHtml('dms-guild-product-1.html');
+
+    await request(app())
+      .post('/api/v1/admin/scraper/parse-html')
+      .send({ source_platform: 'dms_guild', html })
+      .expect(200);
+
+    expect(dbMocks.insertInto).toHaveBeenCalledWith('download_scraper_parse_log');
+    const insertedValues = insertChainSpy.values.mock.calls[0][0];
+    expect(insertedValues.admin_user_id).toBe('admin-1');
+    expect(insertedValues.source_platform).toBe('dms_guild');
+    expect(insertedValues.price_signal).toBe('pwyw_tag_present');
+    expect(JSON.stringify(insertedValues)).not.toContain('obs-product-format-pwyw-options');
+    expect(JSON.stringify(insertedValues).length).toBeLessThan(1000); // fields_extracted é só booleans, não o HTML (158KB)
+  });
+
+  it('422 domínio incompatível — fixture StorytellersVault declarado como drivethrurpg (requisito 8a)', async () => {
+    const html = loadFixtureHtml('storytellersvault-product-1.html');
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/parse-html')
+      .send({ source_platform: 'drivethrurpg', html })
+      .expect(422);
+
+    expect(res.body.code).toBe('domain_mismatch');
+  });
+
+  it('422 quando source_platform está ausente', async () => {
+    const html = loadFixtureHtml('dms-guild-product-1.html');
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/parse-html')
+      .send({ html })
+      .expect(422);
+
+    expect(res.body.error).toMatch(/inválido/);
+  });
+
+  it('422 quando html está ausente', async () => {
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/parse-html')
+      .send({ source_platform: 'dms_guild' })
+      .expect(422);
+
+    expect(res.body.error).toMatch(/inválido/);
+  });
+
+  it('422 quando html excede o limite de tamanho', async () => {
+    const oversized = 'x'.repeat(1_000_001);
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/parse-html')
+      .send({ source_platform: 'dms_guild', html: oversized })
+      .expect(422);
+
+    expect(res.body.error).toMatch(/inválido/);
+  });
+
+  // T2.3 — html do body nunca deve aparecer em log, nem no caminho de
+  // sucesso nem no de erro (422 de HTML inválido/malformado).
+  it('nunca loga o conteúdo do html recebido (sucesso ou erro)', async () => {
+    const marker = 'MARCADOR_HTML_UNICO_NAO_PODE_VAZAR_PRO_LOG_zzz123';
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await request(app())
+      .post('/api/v1/admin/scraper/parse-html')
+      .send({ source_platform: 'dms_guild', html: `<html>${marker}</html>` })
+      .expect(422); // sem JSON-LD, cai no branch de erro tipado
+
+    const allLoggedText = [...logSpy.mock.calls, ...errorSpy.mock.calls].flat().map(String).join('\n');
+    expect(allLoggedText).not.toContain(marker);
+
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 });
