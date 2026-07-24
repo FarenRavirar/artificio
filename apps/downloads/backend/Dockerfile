@@ -53,7 +53,7 @@ COPY apps/downloads/backend/scripts ./apps/downloads/backend/scripts
 ENV PLAYWRIGHT_BROWSERS_PATH=/repo/.playwright-browsers
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 python3-pip python3-venv \
+  && apt-get install -y --no-install-recommends python3 python3-pip python3-venv wget \
   && rm -rf /var/lib/apt/lists/* \
   && pnpm --filter @artificio/downloads-backend exec patchright install --with-deps chromium \
   && python3 -m venv ./apps/downloads/backend/scripts/camoufox/.venv \
