@@ -5,7 +5,10 @@ export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ["dist/**", "node_modules/**", "coverage/**", "vitest.config.ts"],
+    // scripts/camoufox/.venv: venv Python isolado (T3.3, spec 084) com deps
+    // vendored (playwright/urllib3) — nao e codigo do projeto, nunca deve
+    // ser lintado.
+    ignores: ["dist/**", "node_modules/**", "coverage/**", "vitest.config.ts", "scripts/camoufox/.venv/**"],
   },
   {
     files: ["**/*.{ts,tsx}"],
