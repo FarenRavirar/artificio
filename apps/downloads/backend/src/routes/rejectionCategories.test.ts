@@ -119,10 +119,12 @@ describe('PATCH /api/v1/admin/rejection-categories/:id', () => {
     };
     dbMocks.selectFrom.mockReturnValue(findQuery);
 
-    await request(app())
+    const res = await request(app())
       .patch('/api/v1/admin/rejection-categories/does-not-exist')
       .send({ active: false })
       .expect(404);
+
+    expect(res.body.error).toMatch(/não encontrada/);
   });
 });
 
@@ -134,6 +136,22 @@ describe('POST /api/v1/admin/rejection-categories', () => {
       .expect(400);
 
     expect(res.body.error).toBe('Payload inválido.');
+  });
+
+  it('409 quando slug ja existe retorna corpo com erro', async () => {
+    const findQuery = {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      executeTakeFirst: vi.fn().mockResolvedValue({ id: 'cat-existing' }),
+    };
+    dbMocks.selectFrom.mockReturnValue(findQuery);
+
+    const res = await request(app())
+      .post('/api/v1/admin/rejection-categories')
+      .send({ slug: 'copyright', label: 'Direitos autorais' })
+      .expect(409);
+
+    expect(res.body.error).toMatch(/já existe/i);
   });
 
   it('409 quando slug ja existe', async () => {

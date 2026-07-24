@@ -55,6 +55,7 @@ Catálogo comunitário de materiais gratuitos para RPG, inspirado na utilidade d
 17. DriveThruRPG é referência máxima de configuração, metadados, taxonomia e filtros; Dungeonist é referência visual, sem importar seu modelo comercial.
 18. Antes de implementar qualquer parte de `downloads`, a primeira spec filha deve planejar a migração para um banco/catálogo canônico único de sistemas/edições compartilhado por `mesas`, `glossario` e `downloads`.
 19. Material PWYW é aceito somente por link para página externa de aquisição, com opção zero verificável e sinalização pública; nunca pode ser enviado ou armazenado pelos providers do Artifício.
+20. **Regra pétrea (D119, 2026-07-24): catálogo é só material em português.** Nenhum material em outro idioma é aceito, cadastrado, aprovado ou exibido — vale para submissão humana e para o scraper (spec 084). Campo de idioma (`download_material_metadata.language`) é enum fechado (`pt`), obrigatório, com verificação automática de idioma do conteúdo além da auto-declaração do usuário. Página institucional de termos/política do catálogo declara essa regra publicamente; SEO do app reflete "catálogo em português", não texto genérico.
 
 ## Questões ainda abertas
 

@@ -42,10 +42,12 @@ describe("GET /internal/users/:id", () => {
   it("401 com X-Service-Token errado", async () => {
     const app = createApp(env, fakeDb({ id: "user-1", email: "a@example.com", name: "Ana" }));
 
-    await request(app)
+    const response = await request(app)
       .get("/internal/users/user-1")
       .set("X-Service-Token", "token-errado")
       .expect(401);
+
+    expect(response.body).toEqual({ error: "unauthorized" });
   });
 
   it("200 com secret correto e usuario existente", async () => {
@@ -62,19 +64,23 @@ describe("GET /internal/users/:id", () => {
   it("404 quando usuario nao existe", async () => {
     const app = createApp(env, fakeDb(undefined));
 
-    await request(app)
+    const response = await request(app)
       .get("/internal/users/does-not-exist")
       .set("X-Service-Token", env.SERVICE_SECRET as string)
       .expect(404);
+
+    expect(response.body).toEqual({ error: "user_not_found" });
   });
 
   it("401 quando SERVICE_SECRET nao esta configurado no servidor", async () => {
     const envWithoutSecret = { ...env, SERVICE_SECRET: undefined };
     const app = createApp(envWithoutSecret, fakeDb({ id: "user-1", email: "a@example.com", name: "Ana" }));
 
-    await request(app)
+    const response = await request(app)
       .get("/internal/users/user-1")
       .set("X-Service-Token", "qualquer-coisa")
       .expect(401);
+
+    expect(response.body).toEqual({ error: "unauthorized" });
   });
 });

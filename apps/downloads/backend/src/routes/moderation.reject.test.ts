@@ -134,10 +134,15 @@ describe('POST /api/v1/moderation/:id/reject', () => {
     dbMocks.insertInto.mockReturnValue({ values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) });
     sendModerationEmailMock.mockRejectedValueOnce(new Error('Resend fora do ar'));
 
-    await request(app())
+    const res = await request(app())
       .post('/api/v1/moderation/material-1/reject')
       .send({ reason: 'motivo', rejection_category_id: 'cat-1' })
       .expect(200);
+
+    expect(res.body.editorial_state).toBe('rejected');
+    expect(sendModerationEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'material_rejected' }),
+    );
   });
 });
 

@@ -49,3 +49,17 @@
 - [x] T7.5 — `tsc --noEmit` limpo em accounts/downloads-backend/downloads-frontend/packages/email; `eslint` limpo nos 4; `vite build` downloads-frontend ok; `tsc` build downloads-backend e packages/email ok. Testes: accounts 13/13, downloads-backend 93/93 (76 pré-existentes + 17 novos), packages/email 4/4.
 - [ ] T7.6 — Smoke manual em beta (reprovar/aprovar material real, confirmar e-mail ou log de falha) — depende de deploy + T0.2 (domínio Resend verificado), fora do escopo desta rodada local.
 - [x] T7.7 — `specs/backlog.md`/`project-state.md`: backlog atualizado nesta rodada (ver entrada `BL-083-...`); `project-state.md` não tocado por não haver mudança de gate/fase de programa (spec aditiva ao fluxo de moderação já em produção, sem afetar gates A/B/D).
+
+## F8 — Correção de processo: webhook + editor de template + TTL (2026-07-24)
+
+Os 3 itens abaixo tinham sido registrados como "fora de escopo"/débito por decisão unilateral do agente (sem consultar o mantenedor) — corrigido, viraram escopo real depois de confirmação nominal. Ver `spec.md` e `debitos.md` pra nota completa da correção.
+
+- [ ] T8.1 — Migration nova: `download_email_template` (`kind` UNIQUE, `subject_template`, `body_template`, `updated_at`, `updated_by`) + seed com os 2 templates atuais (`material_rejected`/`material_approved`) copiados de `packages/email/src/templates.ts`; `download_email_log.status` ganha `bounced`/`complained` no CHECK.
+- [ ] T8.2 — `sendModerationEmail`/`packages/email` passam a buscar template em `download_email_template` por `kind`, substituindo placeholders (`{{materialTitle}}`/`{{categoryLabel}}`/`{{reason}}`/etc.) — `escapeHtml`/`safeHttpsUrl` continuam aplicados nos dados interpolados (não no texto do template em si).
+- [ ] T8.3 — `GET/PATCH /admin/email-templates` (`role=admin`) + preview renderizando com dado de exemplo antes de salvar.
+- [ ] T8.4 — `POST /webhooks/resend` em `downloads/backend`: validação de assinatura HMAC (401 sem assinatura válida), atualiza `download_email_log.status` por `provider_message_id`, idempotente, 200 mesmo quando não encontra correspondência (linha já expurgada).
+- [ ] T8.5 — Job de expurgo (reusa scheduler do link-checker/spec 082): apaga `download_email_log` com `created_at` > 90 dias.
+- [ ] T8.6 — `EmailLogPanel.tsx`: exibe `bounced`/`complained` como status distintos de `failed`.
+- [ ] T8.7 — Testes: webhook (assinatura válida/inválida, `provider_message_id` existente/inexistente, idempotência), expurgo (89 dias permanece, 91 dias some), CRUD de template (edição, preview, placeholder quebrado).
+- [ ] T8.8 — `pnpm verify:api`, lint, tsc, build, test em `downloads/backend` e `downloads/frontend`.
+- [ ] T8.9 — Atualizar `debitos.md` (remover a listagem de "correção" quando os 3 itens estiverem implementados e testados) e `specs/backlog.md`.
