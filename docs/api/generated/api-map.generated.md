@@ -65,10 +65,10 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | PATCH | `/api/v1/admin/rejection-categories/:id` | ✅ high | `apps/downloads/backend/src/routes/rejectionCategories.ts` | 66 |
 | POST | `/api/v1/admin/sanitize-preview` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 277 |
 | USE | `/api/v1/admin/scraper` | ✅ high | `apps/downloads/backend/src/server.ts` | 95 |
-| POST | `/api/v1/admin/scraper/ingest` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 131 |
-| POST | `/api/v1/admin/scraper/run` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 64 |
-| GET | `/api/v1/admin/scraper/run/:id` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 82 |
-| GET | `/api/v1/admin/scraper/runs` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 103 |
+| POST | `/api/v1/admin/scraper/ingest` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 142 |
+| POST | `/api/v1/admin/scraper/run` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 69 |
+| GET | `/api/v1/admin/scraper/run/:id` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 93 |
+| GET | `/api/v1/admin/scraper/runs` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 114 |
 | GET | `/api/v1/admin/summary` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 15 |
 | GET | `/api/v1/changelog` | ✅ high | `apps/downloads/backend/src/routes/changelog.ts` | 16 |
 | USE | `/api/v1/changelog` | ✅ high | `apps/downloads/backend/src/server.ts` | 96 |

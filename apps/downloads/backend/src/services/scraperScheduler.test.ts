@@ -55,7 +55,7 @@ describe('runScheduledScraperCron', () => {
     expect(dbMocks.insertInto).not.toHaveBeenCalled();
   });
 
-  it('sempre libera o lock (finally), mesmo se executeScraperRun falhar', async () => {
+  it('1 fonte falhando nao trava as demais nem propaga (achado de review PR #193: deadline defensivo) — lock sempre libera', async () => {
     const unlockExecute = vi.fn().mockResolvedValue(undefined);
     dbMocks.selectNoFrom
       .mockReturnValueOnce(lockChain(true))
@@ -68,7 +68,11 @@ describe('runScheduledScraperCron', () => {
     });
     executeScraperRunMock.mockRejectedValueOnce(new Error('falha simulada'));
 
-    await expect(runScheduledScraperCron()).rejects.toThrow('falha simulada');
+    const result = await runScheduledScraperCron();
+
+    // Falha de 1 fonte nao interrompe as demais (todas continuam marcadas
+    // como "triggered" — o outcome real de cada uma fica em download_scraper_run).
+    expect(result.triggered).toEqual(['itch_io', 'grimorios_e_dados', 'opera_rpg']);
     expect(unlockExecute).toHaveBeenCalledTimes(1);
   });
 });

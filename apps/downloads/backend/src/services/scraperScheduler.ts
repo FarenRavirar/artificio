@@ -11,6 +11,23 @@ import type { DownloadSourcePlatform } from '../db/types';
 const SCHEDULE = '0 4 * * *'; // 04:00 diario (apos link-checker as 03:00)
 const ADVISORY_LOCK_KEY = 827_501_004;
 const CRON_SOURCE_PLATFORMS: DownloadSourcePlatform[] = ['itch_io', 'grimorios_e_dados', 'opera_rpg'];
+// Achado de review PR #193 (codeRabbit, nitpick): deadline defensivo por
+// fonte — sem isso, uma fonte travada (rede pendurada, subprocess Camoufox
+// que nunca retorna) prende o advisory lock indefinidamente, bloqueando
+// TODAS as execucoes seguintes do cron ate reinicio manual do processo.
+const SOURCE_TIMEOUT_MS = 5 * 60_000;
+
+async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: NodeJS.Timeout;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`Timeout de ${timeoutMs}ms excedido em ${label}`)), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}
 
 export async function runScheduledScraperCron(): Promise<{ triggered: DownloadSourcePlatform[] }> {
   const lockRow = await db
@@ -32,7 +49,15 @@ export async function runScheduledScraperCron(): Promise<{ triggered: DownloadSo
 
       // Sequencial (nao paralelo) — evita rajada simultanea contra multiplos
       // terceiros ao mesmo tempo, coerente com rate-limit de saida por fonte.
-      await executeScraperRun(run.id, sourcePlatform);
+      try {
+        await withDeadline(executeScraperRun(run.id, sourcePlatform), SOURCE_TIMEOUT_MS, `scraper ${sourcePlatform}`);
+      } catch (error: unknown) {
+        // executeScraperRun ja grava status=failed em erro normal — aqui so
+        // cobre o caso do deadline estourar (execucao real pode continuar
+        // pendurada em segundo plano, mas o cron segue pras proximas fontes
+        // e libera o lock, nunca trava o scheduler inteiro).
+        console.error(`[scraper-scheduler] ${sourcePlatform} excedeu deadline ou falhou:`, error instanceof Error ? error.message : error);
+      }
       triggered.push(sourcePlatform);
     }
     return { triggered };

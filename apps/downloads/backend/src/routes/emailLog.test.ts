@@ -82,16 +82,14 @@ describe('POST /api/v1/admin/email-log/:id/retry', () => {
     expect(res.body.error).toMatch(/sem material associado/);
   });
 
-  it('409 quando material associado nao existe mais', async () => {
+  it('409 quando material associado nao existe mais (checado ANTES do claim — log nunca fica preso em sending)', async () => {
     dbMocks.selectFrom
       .mockReturnValueOnce(chainable({ id: 'log-1', status: 'failed', material_id: 'material-1', user_id: 'user-1', attempts: 1 }))
       .mockReturnValueOnce(chainable(undefined));
 
-    const claimChain = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(), executeTakeFirst: vi.fn().mockResolvedValue({ id: 'log-1', status: 'sending' }) };
-    dbMocks.updateTable.mockReturnValueOnce(claimChain);
-
     const res = await request(app()).post('/api/v1/admin/email-log/log-1/retry').expect(409);
     expect(res.body.error).toMatch(/não existe mais/);
+    expect(dbMocks.updateTable).not.toHaveBeenCalled();
   });
 
   it('409 e atualiza log para skipped_no_email quando accounts. nao resolve o e-mail', async () => {

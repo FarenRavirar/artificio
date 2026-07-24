@@ -32,6 +32,16 @@ ALTER TABLE download_material
 CREATE INDEX IF NOT EXISTS idx_download_material_source_platform
   ON download_material(source_platform);
 
+-- Achado de review PR #193 (codeRabbit): o dedupe de scraperIngest.ts checava
+-- so em codigo (SELECT antes do INSERT), o que deixa uma corrida real entre
+-- 2 runs concorrentes da MESMA fonte processando a MESMA URL simultaneamente
+-- (ex.: disparo manual + cron no mesmo minuto). Indice UNIQUE parcial fecha a
+-- corrida no proprio banco; parcial porque so se aplica a material com
+-- source_url preenchido (manual continua sem essa restricao).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_download_material_source_platform_url
+  ON download_material(source_platform, source_url)
+  WHERE source_url IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS download_scraper_run (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   source_platform VARCHAR(30) NOT NULL,

@@ -52,6 +52,20 @@ router.post('/:id/retry', writeRateLimiter, authMiddleware, requireRole(['modera
     return res.status(409).json({ error: 'Log sem material associado — não é possível remontar o e-mail.' });
   }
 
+  // Achado de review PR #193 (codeRabbit): checar material ANTES do claim —
+  // se o claim acontecesse primeiro e o material nao existisse mais, o log
+  // ficaria travado em 'sending' pra sempre (nenhum caminho reverte pra
+  // failed/skipped_no_email nesse caso).
+  const material = await db
+    .selectFrom('download_material')
+    .select(['id', 'title', 'slug', 'creator_id', 'rejection_reason', 'rejection_category_id'])
+    .where('id', '=', log.material_id)
+    .executeTakeFirst();
+
+  if (!material) {
+    return res.status(409).json({ error: 'Material associado não existe mais.' });
+  }
+
   // Claim atomico (achado de review PR #192): so segue se ESTE request
   // transicionar failed/skipped_no_email -> sending. Retry concorrente do
   // mesmo log perde o WHERE (0 linhas afetadas) e retorna 409 sem enviar
@@ -67,16 +81,6 @@ router.post('/:id/retry', writeRateLimiter, authMiddleware, requireRole(['modera
 
   if (!claimed) {
     return res.status(409).json({ error: 'Reenvio já em andamento ou concluído para este log.' });
-  }
-
-  const material = await db
-    .selectFrom('download_material')
-    .select(['id', 'title', 'slug', 'creator_id', 'rejection_reason', 'rejection_category_id'])
-    .where('id', '=', log.material_id)
-    .executeTakeFirst();
-
-  if (!material) {
-    return res.status(409).json({ error: 'Material associado não existe mais.' });
   }
 
   const resolved = await resolveUserEmail(log.user_id);

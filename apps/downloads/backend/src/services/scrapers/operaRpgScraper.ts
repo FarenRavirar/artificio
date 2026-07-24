@@ -19,7 +19,19 @@ import type { ScraperAdapter, ScrapedItem } from './types';
 const BASE_URL = 'https://operarpg.com.br';
 const SECTIONS = ['/downloads/aventuras', '/downloads/cenarios', '/downloads/personagens', '/downloads/personagens-digitais', '/downloads/regras-e-fichas', '/downloads/outros'];
 
-const DOWNLOAD_ITEM_RE = /<a class="download-item" href="([^"]+)"[^>]*><span><b>([^<]*)<\/b><br\/><small>([^<]*)<\/small>/g;
+// Achado de review PR #193 (codeRabbit): mesma licao do itch.io
+// (itchIoParser.ts) — aceita href/class em qualquer ordem no <a> e <br>
+// tanto fechado (<br/>) quanto nao (<br>), nunca depender de uma so forma.
+// Achado de review SonarQube (PR #193): a versao anterior combinava 2
+// grupos [^"]+/[^>]* aninhados na mesma alternativa, criando risco de
+// backtracking super-linear. Dividido em 2 passos — 1a regex so isola cada
+// bloco <a class="download-item"...>...</a> (charset restrito, sem grupos
+// aninhados ambíguos), 2a regex extrai href/titulo/descricao de dentro do
+// bloco já isolado (entrada sempre curta, sem exposição a HTML arbitrário).
+const DOWNLOAD_ITEM_BLOCK_RE = /<a [^>]*class="download-item"[^>]*>[^<]*<span><b>[^<]*<\/b><br\s*\/?><small>[^<]*<\/small>/g;
+const HREF_RE = /href="([^"]+)"/;
+const TITLE_RE = /<b>([^<]*)<\/b>/;
+const AUTHOR_DESCRIPTION_RE = /<small>([^<]*)<\/small>/;
 
 interface ParsedDownloadItem {
   url: string;
@@ -29,10 +41,15 @@ interface ParsedDownloadItem {
 
 function parseSection(html: string): ParsedDownloadItem[] {
   const items: ParsedDownloadItem[] = [];
-  let match: RegExpExecArray | null;
-  const regex = new RegExp(DOWNLOAD_ITEM_RE);
-  while ((match = regex.exec(html)) !== null) {
-    items.push({ url: match[1], title: match[2], authorAndDescription: match[3] });
+  let blockMatch: RegExpExecArray | null;
+  const blockRegex = new RegExp(DOWNLOAD_ITEM_BLOCK_RE);
+  while ((blockMatch = blockRegex.exec(html)) !== null) {
+    const block = blockMatch[0];
+    const href = HREF_RE.exec(block)?.[1];
+    const title = TITLE_RE.exec(block)?.[1];
+    const authorAndDescription = AUTHOR_DESCRIPTION_RE.exec(block)?.[1];
+    if (!href || title === undefined || authorAndDescription === undefined) continue;
+    items.push({ url: href, title, authorAndDescription });
   }
   return items;
 }

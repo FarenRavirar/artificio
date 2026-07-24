@@ -80,7 +80,8 @@ beforeEach(() => {
 
 describe('POST /api/v1/admin/scraper/run', () => {
   it('400 quando source_platform ausente/inválido', async () => {
-    await request(app()).post('/api/v1/admin/scraper/run').send({ source_platform: 'nao_existe' }).expect(400);
+    const res = await request(app()).post('/api/v1/admin/scraper/run').send({ source_platform: 'nao_existe' }).expect(400);
+    expect(res.body.error).toMatch(/source_platform inválido/);
   });
 
   it('202 com run_id — fire-and-forget, não aguarda execução completa', async () => {
@@ -151,14 +152,16 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
   };
 
   it('400 quando payload inválido (source_platform ausente)', async () => {
-    await request(app()).post('/api/v1/admin/scraper/ingest').send({ items: [validItem] }).expect(400);
+    const res = await request(app()).post('/api/v1/admin/scraper/ingest').send({ items: [validItem] }).expect(400);
+    expect(res.body.error).toMatch(/Payload de ingest inválido/);
   });
 
   it('400 quando items vazio', async () => {
-    await request(app())
+    const res = await request(app())
       .post('/api/v1/admin/scraper/ingest')
       .send({ source_platform: 'itch_io', items: [] })
       .expect(400);
+    expect(res.body.error).toMatch(/Payload de ingest inválido/);
   });
 
   it('200 com run completa quando ingest roda o pipeline com sucesso', async () => {

@@ -45,8 +45,17 @@ export class CamoufoxEngine implements HeadlessEngine {
         }
 
         try {
-          const parsed = JSON.parse(stdout.trim()) as CamoufoxSuccess;
-          resolve({ html: parsed.html, status: parsed.status });
+          const parsed: unknown = JSON.parse(stdout.trim());
+          if (
+            typeof parsed !== 'object' || parsed === null
+            || typeof (parsed as Record<string, unknown>).html !== 'string'
+            || !Number.isInteger((parsed as Record<string, unknown>).status)
+          ) {
+            reject(new Error(`Resposta do Camoufox com shape inválido: ${stdout.slice(0, 200)}`));
+            return;
+          }
+          const validated = parsed as CamoufoxSuccess;
+          resolve({ html: validated.html, status: validated.status });
         } catch {
           reject(new Error(`Resposta do Camoufox não é JSON válido: ${stdout.slice(0, 200)}`));
         }

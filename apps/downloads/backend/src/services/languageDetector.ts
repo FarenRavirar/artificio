@@ -55,10 +55,10 @@ const DEEPSEEK_TIMEOUT_MS = 15_000;
 // silenciosa (retorna null): chamador trata como nao-confirmado, nunca como
 // aprovacao — regra pétrea D119 nunca assume portugues na duvida.
 async function detectWithDeepSeekFallback(text: string): Promise<DeepSeekLanguageResponse | null> {
-  const apiKey = await getSecret('deepseek_api_key');
-  if (!apiKey) return null;
-
   try {
+    const apiKey = await getSecret('deepseek_api_key');
+    if (!apiKey) return null;
+
     const res = await fetch(DEEPSEEK_API_URL, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -84,9 +84,14 @@ async function detectWithDeepSeekFallback(text: string): Promise<DeepSeekLanguag
     if (!content) return null;
 
     const parsed = JSON.parse(content) as Partial<DeepSeekLanguageResponse>;
-    if (typeof parsed.isPortuguese !== 'boolean' || typeof parsed.detectedLanguage !== 'string') return null;
+    // Achado de review PR #193 (codeRabbit): deriva isPortuguese SO do
+    // codigo ISO retornado, nunca do booleano solto do modelo — o LLM pode
+    // alucinar os 2 campos inconsistentes entre si (ex.: isPortuguese=true
+    // com detectedLanguage="en"); codigo ISO 2 letras e o unico sinal
+    // validavel estruturalmente.
+    if (typeof parsed.detectedLanguage !== 'string' || !/^[a-z]{2}$/.test(parsed.detectedLanguage)) return null;
 
-    return { isPortuguese: parsed.isPortuguese, detectedLanguage: parsed.detectedLanguage };
+    return { isPortuguese: parsed.detectedLanguage === 'pt', detectedLanguage: parsed.detectedLanguage };
   } catch (error: unknown) {
     console.warn('[languageDetector] DeepSeek fallback falhou:', error instanceof Error ? error.message : 'unknown');
     return null;

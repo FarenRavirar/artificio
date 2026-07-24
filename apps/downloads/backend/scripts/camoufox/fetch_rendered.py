@@ -32,7 +32,9 @@ def main() -> None:
     try:
         result = fetch_rendered(url)
         print(json.dumps(result))
-    except Exception as error:  # noqa: BLE001 — subprocess isolado, erro vira stderr/exit != 0 pro chamador tratar
+    except Exception as error:  # noqa: BLE001
+        # Subprocess isolado (1 URL por invocacao) — erro vira stderr/exit != 0
+        # pro chamador (camoufoxClient.ts) tratar, nunca propaga stack Python.
         print(json.dumps({"error": str(error)}), file=sys.stderr)
         sys.exit(1)
 

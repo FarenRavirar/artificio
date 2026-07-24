@@ -131,6 +131,10 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     .values({ material_id: material.id, ...commonFields, ...jsonFields })
     .onConflict((oc) => oc.column('material_id').doUpdateSet({
       ...updateFields,
+      // Achado de review PR #193 (codeRabbit): D119 e regra petrea — mesmo
+      // em PUT parcial que nao envia "language" no body, forca 'pt' no
+      // UPDATE (nao so no INSERT), nunca deixa linha existente divergir.
+      language: 'pt',
       updated_at: new Date(),
     }))
     .returningAll()

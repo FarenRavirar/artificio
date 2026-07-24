@@ -48,6 +48,10 @@ async function generateUniqueSlug(title: string, sourceUrl: string): Promise<str
   return `${base}-${suffix}`.slice(0, 140);
 }
 
+// Achado de review PR #193 (codeRabbit): falha ao GRAVAR o log de auditoria
+// nunca pode mudar a classificacao do item nem abortar o processamento do
+// restante da run — log e best-effort/observabilidade, o outcome real (item
+// criado/deduplicado/rejeitado) ja aconteceu antes desta chamada.
 async function logItem(
   runId: string,
   item: ScrapedItem,
@@ -56,22 +60,32 @@ async function logItem(
   detectedLanguage: string | null,
   errorDetail: string | null,
 ): Promise<void> {
-  await db
-    .insertInto('download_scraper_item_log')
-    .values({
-      run_id: runId,
-      material_id: materialId,
-      source_url: item.sourceUrl,
-      outcome,
-      detected_language: detectedLanguage,
-      error_detail: errorDetail,
-    })
-    .execute();
+  try {
+    await db
+      .insertInto('download_scraper_item_log')
+      .values({
+        run_id: runId,
+        material_id: materialId,
+        source_url: item.sourceUrl,
+        outcome,
+        detected_language: detectedLanguage,
+        error_detail: errorDetail,
+      })
+      .execute();
+  } catch (error: unknown) {
+    console.error('[scraperIngest] falha ao gravar log de item (outcome real preservado):', error instanceof Error ? error.message : error);
+  }
+}
+
+// Driver pg anexa .code (SQLSTATE) ao erro; '23505' = unique_violation.
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { code?: string }).code === '23505';
 }
 
 async function processItem(
   runId: string,
   sourcePlatform: DownloadSourcePlatform,
+  scraperCreatorId: string,
   item: ScrapedItem,
 ): Promise<DownloadScraperItemOutcome> {
   // 1. Idioma primeiro (D119) — nunca avalia preco/dedupe antes disso.
@@ -115,7 +129,6 @@ async function processItem(
   // 4. Cria material + metadata, dentro de transacao (nunca material orfao
   // sem metadata, nunca metadata sem material).
   try {
-    const scraperCreatorId = await getOrCreateScraperCreatorId();
     const slug = await generateUniqueSlug(item.title, item.sourceUrl);
 
     const materialId = await db.transaction().execute(async (trx) => {
@@ -154,6 +167,15 @@ async function processItem(
     await logItem(runId, item, 'created', materialId, detectedLanguage, null);
     return 'created';
   } catch (error: unknown) {
+    // Achado de review PR #193 (codeRabbit): violacao do indice UNIQUE
+    // parcial (migration_022) e corrida real entre 2 runs concorrentes
+    // processando a mesma (source_platform, source_url) — trata como
+    // duplicata, nao como erro generico (o SELECT de dedupe acima ja cobre
+    // o caso sequencial; isso fecha so a janela de corrida concorrente).
+    if (isUniqueViolation(error)) {
+      await logItem(runId, item, 'skipped_duplicate', null, detectedLanguage, null);
+      return 'skipped_duplicate';
+    }
     const message = error instanceof Error ? error.message : 'Falha desconhecida ao criar material.';
     await logItem(runId, item, 'skipped_error', null, detectedLanguage, message);
     return 'skipped_error';
@@ -173,9 +195,14 @@ export async function runScraperIngest(
     itemsSkippedError: 0,
   };
 
+  // Achado de review PR #193 (codeRabbit): resolvido 1x por run, nao por
+  // item — getOrCreateScraperCreatorId ja e idempotente, mas nao ha motivo
+  // pra repetir a consulta/insert-on-conflict a cada item da mesma run.
+  const scraperCreatorId = await getOrCreateScraperCreatorId();
+
   for await (const item of items) {
     result.itemsFound += 1;
-    const outcome = await processItem(runId, sourcePlatform, item);
+    const outcome = await processItem(runId, sourcePlatform, scraperCreatorId, item);
 
     switch (outcome) {
       case 'created':

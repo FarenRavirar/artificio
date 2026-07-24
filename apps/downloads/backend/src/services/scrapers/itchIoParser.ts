@@ -14,7 +14,15 @@ import type { ScrapedItem } from './types';
 // tem href antes de class; storefront de dev individual tem class antes de
 // href — confirmado via fetch real durante esta implementacao). Regex
 // aceita as 2 ordens em vez de depender de uma so.
-const GAME_LINK_RE = /<a (?:href="(https:\/\/[a-z0-9.-]+\.itch\.io\/[a-z0-9-]+)"[^>]*class="title game_link"|class="title game_link"[^>]*href="(https:\/\/[a-z0-9.-]+\.itch\.io\/[a-z0-9-]+)")[^>]*>([^<]*)</g;
+// Achado de review SonarQube (PR #193): a regex combinada excedia o limite
+// de complexidade (23 > 20) e alternava 2 grupos [^>]* aninhados na mesma
+// alternancia. Dividida em 2 passos — 1a isola cada bloco <a ...>Titulo</a>
+// com class="title game_link" (sem se importar com a ordem do atributo
+// dentro do proprio bloco isolado), 2a extrai href/titulo de dentro do
+// bloco ja isolado (entrada curta, sem exposicao a HTML arbitrario).
+const GAME_LINK_BLOCK_RE = /<a [^>]*class="title game_link"[^>]*>[^<]*</g;
+const GAME_HREF_RE = /href="(https:\/\/[a-z0-9.-]+\.itch\.io\/[a-z0-9-]+)"/;
+const GAME_TITLE_RE = />([^<]*)<$/;
 const OG_IMAGE_RE = /content="([^"]+)"\s*property="og:image"/;
 const OG_DESCRIPTION_RE = /content="([^"]*)"\s*property="og:description"/;
 const AUTHOR_LINK_RE = /<a href="https:\/\/[a-z0-9.-]+\.itch\.io"[^>]*>([^<]*)</;
@@ -29,9 +37,18 @@ export async function fetchItchPageHtml(url: string, rateLimiter: ScraperRateLim
   }
 
   await rateLimiter.wait();
-  const patchright = await new PatchrightEngine().fetchRendered(url);
-  if (patchright.status < 400) {
-    return patchright.html;
+  // Achado de review PR #193 (codex) — PatchrightEngine.fetchRendered pode
+  // REJEITAR (timeout de navegacao, browser ausente, falha de subprocess),
+  // nao so retornar status>=400. Sem o try/catch, a excecao subia direto e
+  // nunca escalonava pro Modo 2b (Camoufox), justamente no cenario em que o
+  // fallback mais importa (anti-bot bloqueando o Modo 2a).
+  try {
+    const patchright = await new PatchrightEngine().fetchRendered(url);
+    if (patchright.status < 400) {
+      return patchright.html;
+    }
+  } catch {
+    // cai pro Camoufox abaixo
   }
 
   await rateLimiter.wait();
@@ -46,11 +63,14 @@ export interface DiscoveredGame {
 
 export function parseItchListing(html: string): DiscoveredGame[] {
   const games: DiscoveredGame[] = [];
-  let match: RegExpExecArray | null;
-  const regex = new RegExp(GAME_LINK_RE);
-  while ((match = regex.exec(html)) !== null) {
-    const url = match[1] ?? match[2];
-    games.push({ url, title: match[3] });
+  let blockMatch: RegExpExecArray | null;
+  const blockRegex = new RegExp(GAME_LINK_BLOCK_RE);
+  while ((blockMatch = blockRegex.exec(html)) !== null) {
+    const block = blockMatch[0];
+    const url = GAME_HREF_RE.exec(block)?.[1];
+    const title = GAME_TITLE_RE.exec(block)?.[1];
+    if (!url || title === undefined) continue;
+    games.push({ url, title });
   }
   return games;
 }
@@ -82,17 +102,23 @@ export async function* discoverItchGames(
 
   for (const game of games) {
     await rateLimiter.wait();
-    const gamePage = await fetchSimple(game.url);
-    if (looksBlocked(gamePage)) {
+    // Achado de review PR #193 (codeRabbit): reusa o mesmo fallback
+    // fetch->patchright->camoufox da listagem — antes, pagina de jogo
+    // bloqueada so dava `continue` sem tentar Modo 2a/2b, perdendo item
+    // real justamente quando o item individual esta sob anti-bot.
+    let gameHtml: string;
+    try {
+      gameHtml = await fetchItchPageHtml(game.url, rateLimiter);
+    } catch {
       continue;
     }
 
-    const isFreeOrPwyw = parseItchIsFreeOrPwyw(gamePage.html);
+    const isFreeOrPwyw = parseItchIsFreeOrPwyw(gameHtml);
     if (isFreeOrPwyw !== true) {
       continue;
     }
 
-    const detail = parseItchGameDetail(gamePage.html);
+    const detail = parseItchGameDetail(gameHtml);
 
     yield {
       sourceUrl: game.url,

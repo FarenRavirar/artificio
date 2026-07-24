@@ -28,8 +28,13 @@ const ADAPTERS: Partial<Record<DownloadSourcePlatform, () => ScraperAdapter>> = 
   dms_guild: () => new DmsGuildScraper(),
 };
 
+// Achado de review PR #193 (codeRabbit, nitpick): deriva a validacao de
+// source_platform do proprio ADAPTERS, nunca repete os literais — se um
+// adapter for adicionado/removido, a validacao acompanha sem editar 2 lugares.
+const IMPLEMENTED_SOURCE_PLATFORMS = Object.keys(ADAPTERS) as [DownloadSourcePlatform, ...DownloadSourcePlatform[]];
+
 const runBodySchema = z.object({
-  source_platform: z.enum(['itch_io', 'grimorios_e_dados', 'opera_rpg', 'drivethrurpg', 'dms_guild']),
+  source_platform: z.enum(IMPLEMENTED_SOURCE_PLATFORMS),
 });
 
 export async function executeScraperRun(runId: string, sourcePlatform: DownloadSourcePlatform): Promise<void> {
@@ -74,7 +79,13 @@ router.post('/run', writeRateLimiter, authMiddleware, requireRole('admin'), asyn
     .executeTakeFirstOrThrow();
 
   // Fire-and-forget: nao aguarda a execucao completa antes de responder.
-  void executeScraperRun(run.id, parsed.data.source_platform);
+  // executeScraperRun ja captura toda excecao internamente e grava
+  // status='failed' na run — catch aqui e defensivo (achado de review PR
+  // #193), cobre so o caso de alguem remover esse try/catch interno no
+  // futuro sem essa rejeicao virar unhandled rejection silenciosa.
+  executeScraperRun(run.id, parsed.data.source_platform).catch((error: unknown) => {
+    console.error('[scraper] executeScraperRun rejeitou inesperadamente:', error);
+  });
 
   return res.status(202).json({ run_id: run.id });
 });
@@ -124,7 +135,7 @@ const ingestItemSchema = z.object({
 });
 
 const ingestBodySchema = z.object({
-  source_platform: z.enum(['itch_io', 'grimorios_e_dados', 'opera_rpg', 'drivethrurpg', 'dms_guild']),
+  source_platform: z.enum(IMPLEMENTED_SOURCE_PLATFORMS),
   items: z.array(ingestItemSchema).min(1).max(500),
 });
 

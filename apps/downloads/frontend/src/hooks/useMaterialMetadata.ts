@@ -9,7 +9,7 @@ export const materialMetadataSchema = z.object({
   license_kind: z.string().nullable(),
   license_url: z.string().nullable(),
   // D119 (spec 084) — sempre 'pt' para material publicado.
-  language: z.string().nullable(),
+  language: z.literal('pt').nullable(),
 });
 
 // T-editora (spec 075) — metadados publicos do material (so credito de

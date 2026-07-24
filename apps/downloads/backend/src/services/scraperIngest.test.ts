@@ -163,6 +163,23 @@ describe('runScraperIngest', () => {
     );
   });
 
+  it('violação do índice UNIQUE (corrida entre runs concorrentes): outcome=skipped_duplicate, não skipped_error', async () => {
+    dbMocks.selectFrom
+      .mockReturnValueOnce(selectChain(undefined))
+      .mockReturnValueOnce(selectChain([]));
+    getOrCreateScraperCreatorIdMock.mockResolvedValue('scraper-creator-id');
+    dbMocks.transaction.mockReturnValue({
+      execute: async () => { throw Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }); },
+    });
+
+    const item = makeItem({ sourceLanguageHint: 'pt' });
+    const result = await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
+
+    expect(result.itemsSkippedDuplicate).toBe(1);
+    expect(result.itemsSkippedError).toBe(0);
+    expect(result.itemsCreated).toBe(0);
+  });
+
   it('falha na transação de criação: outcome=skipped_error, nunca lança pro chamador', async () => {
     dbMocks.selectFrom
       .mockReturnValueOnce(selectChain(undefined))
@@ -177,6 +194,33 @@ describe('runScraperIngest', () => {
 
     expect(result.itemsSkippedError).toBe(1);
     expect(result.itemsCreated).toBe(0);
+  });
+
+  it('falha ao gravar log de item criado: outcome ainda reporta created (log e best-effort, nao afeta classificacao)', async () => {
+    dbMocks.selectFrom
+      .mockReturnValueOnce(selectChain(undefined)) // dedupe: nao existe
+      .mockReturnValueOnce(selectChain([])); // generateUniqueSlug: nenhum slug parecido
+    getOrCreateScraperCreatorIdMock.mockResolvedValue('scraper-creator-id');
+
+    const materialInsert = { values: vi.fn().mockReturnThis(), returning: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'material-novo' }) };
+    const metadataInsert = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+    const trxInsertInto = vi.fn()
+      .mockReturnValueOnce(materialInsert)
+      .mockReturnValueOnce(metadataInsert);
+
+    dbMocks.transaction.mockReturnValue({
+      execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) =>
+        cb({ insertInto: trxInsertInto }),
+    });
+
+    // download_scraper_item_log insert falha — nao deve propagar nem mudar outcome.
+    dbMocks.insertInto.mockReturnValueOnce({ values: vi.fn().mockReturnThis(), execute: vi.fn().mockRejectedValue(new Error('log write failed')) });
+
+    const item = makeItem({ sourceLanguageHint: 'pt' });
+    const result = await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
+
+    expect(result.itemsCreated).toBe(1);
+    expect(result.itemsSkippedError).toBe(0);
   });
 
   it('atualiza contadores de download_scraper_run incrementalmente, um update por item', async () => {

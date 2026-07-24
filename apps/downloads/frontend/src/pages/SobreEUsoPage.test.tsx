@@ -34,6 +34,6 @@ describe('SobreEUsoPage', () => {
     renderPage();
 
     expect(screen.getByText(/Indexação automática/i)).toBeInTheDocument();
-    expect(screen.getByText(/nunca hospeda cópia/i)).toBeInTheDocument();
+    expect(screen.getByText(/nunca armazena cópia de arquivo/i)).toBeInTheDocument();
   });
 });

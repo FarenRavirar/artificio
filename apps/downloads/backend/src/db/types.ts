@@ -77,7 +77,7 @@ export interface DownloadMaterialMetadataTable {
   scenario: string | null;
   genre: string | null;
   // D119 (regra petrea): so 'pt' — CHECK/NOT NULL aplicados na migration 022.
-  language: 'pt' | null;
+  language: 'pt';
   file_format: string | null;
   vtt_platform: string | null;
   access_barriers: Generated<JSONColumnType<string[]>>;

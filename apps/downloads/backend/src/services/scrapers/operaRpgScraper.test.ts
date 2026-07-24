@@ -61,6 +61,23 @@ describe('OperaRpgScraper', () => {
     expect(items.length).toBeGreaterThan(0);
   });
 
+  it('reconhece item quando class vem antes de href e <br> sem barra de fechamento (achado de review PR #193)', async () => {
+    const fixture = '<a class="download-item" href="https://arquivos.operarpg.com.br/aventuras/Teste.pdf" target="_blank"><span><b>Item Teste</b><br><small>por Autor Teste · Descrição de teste.</small></span></a>';
+    fetchSimpleMock.mockResolvedValue({ html: fixture, status: 200 });
+
+    const items = [];
+    for await (const item of new OperaRpgScraper().discoverItems()) {
+      items.push(item);
+    }
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      sourceUrl: 'https://arquivos.operarpg.com.br/aventuras/Teste.pdf',
+      title: 'Item Teste',
+      publisherName: 'Autor Teste',
+    });
+  });
+
   it('nao duplica item com mesma sourceUrl em seções diferentes', async () => {
     fetchSimpleMock.mockResolvedValue({ html: SECTION_HTML_FIXTURE, status: 200 });
 

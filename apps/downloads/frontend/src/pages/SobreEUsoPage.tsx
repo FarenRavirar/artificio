@@ -30,11 +30,15 @@ export function SobreEUsoPage() {
         </section>
 
         <section className="mt-8 space-y-3">
-          <h2 className="text-xl font-semibold">Somos um hub de descoberta, não hospedamos arquivos</h2>
+          <h2 className="text-xl font-semibold">Como funciona o download</h2>
           <p className="text-[var(--fg-muted)]">
-            O Artifício Downloads nunca hospeda cópia de arquivo de terceiros. Todo material aponta
-            para o link original da fonte (itch.io, site do autor, editora etc.) — clicar em
-            &quot;baixar&quot; sempre redireciona para onde o material foi publicado originalmente.
+            O Artifício Downloads nunca armazena cópia de arquivo em nossos próprios servidores.
+            Material indexado automaticamente ou cadastrado com link externo aponta sempre para a
+            fonte original (itch.io, site do autor, editora etc.) — clicar em &quot;baixar&quot;
+            redireciona para onde o material foi publicado. Quando o autor opta por enviar o próprio
+            arquivo pela plataforma, o upload é hospedado por um serviço de mídia gerenciado de
+            terceiros (nunca em nossa própria infraestrutura), e o download também é servido a
+            partir desse serviço externo.
           </p>
         </section>
 

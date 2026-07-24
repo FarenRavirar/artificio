@@ -133,11 +133,30 @@ describe('ItchIoScraper', () => {
     expect(items).toHaveLength(1);
   });
 
-  it('pula item cuja pagina individual e bloqueada, sem escalonar por item', async () => {
+  it('pagina individual bloqueada: escalona pra patchright/camoufox antes de desistir (achado de review PR #193)', async () => {
+    fetchSimpleMock
+      .mockResolvedValueOnce({ html: LISTING_HTML_FIXTURE, status: 200 })
+      .mockResolvedValueOnce({ html: '', status: 403 }) // pagina do 1o jogo, Modo 1 bloqueado
+      .mockResolvedValueOnce({ html: PAID_GAME_HTML_FIXTURE, status: 200 }); // pagina do 2o jogo, Modo 1 ok
+    patchrightFetchMock.mockResolvedValueOnce({ html: PWYW_GAME_HTML_FIXTURE, status: 200 });
+
+    const items = [];
+    for await (const item of new ItchIoScraper().discoverItems()) {
+      items.push(item);
+    }
+
+    expect(patchrightFetchMock).toHaveBeenCalledTimes(1);
+    expect(items).toHaveLength(1);
+    expect(items[0].sourceUrl).toBe('https://twistandscream.itch.io/exorcist-candy');
+  });
+
+  it('pagina individual bloqueada em todos os modos: pula o item, nunca lança pro chamador', async () => {
     fetchSimpleMock
       .mockResolvedValueOnce({ html: LISTING_HTML_FIXTURE, status: 200 })
       .mockResolvedValueOnce({ html: '', status: 403 })
       .mockResolvedValueOnce({ html: PAID_GAME_HTML_FIXTURE, status: 200 });
+    patchrightFetchMock.mockResolvedValueOnce({ html: '', status: 403 });
+    camoufoxFetchMock.mockResolvedValueOnce({ html: '', status: 403 });
 
     const items = [];
     for await (const item of new ItchIoScraper().discoverItems()) {
@@ -145,6 +164,6 @@ describe('ItchIoScraper', () => {
     }
 
     expect(items).toHaveLength(0);
-    expect(patchrightFetchMock).not.toHaveBeenCalled();
+    expect(camoufoxFetchMock).toHaveBeenCalledTimes(1);
   });
 });

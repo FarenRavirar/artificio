@@ -43,27 +43,15 @@ beforeEach(() => {
 });
 
 describe('runPriceRecheck', () => {
-  it('pula material de fonte manual (source_platform=manual não é re-checado)', async () => {
-    dbMocks.selectFrom.mockReturnValueOnce(materialsQuery([]));
+  it('query so busca fontes com parser de preco confiavel (materials de manual/opera_rpg/drivethrurpg nunca retornam)', async () => {
+    const query = materialsQuery([]);
+    dbMocks.selectFrom.mockReturnValueOnce(query);
 
     const result = await runPriceRecheck();
 
     expect(result.checked).toBe(0);
     expect(fetchSimpleMock).not.toHaveBeenCalled();
-  });
-
-  it('pula material de fonte sem parser de preço confiável (ex.: opera_rpg, drivethrurpg)', async () => {
-    dbMocks.selectFrom.mockReturnValueOnce(
-      materialsQuery([
-        { id: 'material-1', source_platform: 'opera_rpg', source_url: 'https://operarpg.com.br/x.pdf', editorial_state: 'published' },
-        { id: 'material-2', source_platform: 'drivethrurpg', source_url: 'https://drivethrurpg.com/x', editorial_state: 'published' },
-      ]),
-    );
-
-    const result = await runPriceRecheck();
-
-    expect(result.checked).toBe(0);
-    expect(fetchSimpleMock).not.toHaveBeenCalled();
+    expect(query.where).toHaveBeenCalledWith('source_platform', 'in', ['itch_io', 'grimorios_e_dados']);
   });
 
   it('cenário obrigatório: bloqueio de acesso (403) NUNCA confirma "virou pago" — material continua published', async () => {
@@ -106,6 +94,25 @@ describe('runPriceRecheck', () => {
     expect(insertVersion.values).toHaveBeenCalledWith(
       expect.objectContaining({ field_name: 'editorial_state', new_value: 'withdrawn', changed_by: 'scraper-creator-id' }),
     );
+  });
+
+  it('preço confirmado como pago mas transição inválida no estado atual: não grava "suspenso automaticamente" no audit, não muda estado', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(
+      materialsQuery([{ id: 'material-1', source_platform: 'itch_io', source_url: 'https://a.itch.io/game', editorial_state: 'withdrawn' }]),
+    );
+    fetchSimpleMock.mockResolvedValueOnce({
+      html: '<div class="header_buy_row"><div class="bundle_row">preço fixo</div></div>',
+      status: 200,
+    });
+
+    const linkCheckInsert = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+    dbMocks.insertInto.mockReturnValue(linkCheckInsert);
+
+    const result = await runPriceRecheck();
+
+    expect(result.withdrawn).toBe(0);
+    expect(dbMocks.transaction).not.toHaveBeenCalled();
+    expect(linkCheckInsert.values).toHaveBeenCalledWith(expect.objectContaining({ error_detail: null }));
   });
 
   it('preço continua grátis/PWYW: não muda estado, não toca transaction', async () => {

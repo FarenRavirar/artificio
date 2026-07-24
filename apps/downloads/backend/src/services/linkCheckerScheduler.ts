@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { db } from '../db';
 import { checkLink } from './linkChecker';
-import { runPriceRecheck } from './priceRecheckJob';
+import { runPriceRecheck, type PriceRecheckResult } from './priceRecheckJob';
 
 // T2.7 (spec 082) — DEB-075-01 fechado: job agendado interno (node-cron, sem
 // dependencia de infra CI externa), roda 1x/dia checando o link de todo
@@ -15,7 +15,7 @@ const SCHEDULE = '0 3 * * *'; // 03:00 diario (horario de baixo trafego)
 // nova (Redis) — usa o Postgres ja compartilhado pelo modulo.
 const ADVISORY_LOCK_KEY = 827_501_003;
 
-export async function runScheduledLinkCheck(): Promise<{ checked: number; unhealthy: number; priceRecheck: { checked: number; withdrawn: number; blockedOrUnconfirmed: number } }> {
+export async function runScheduledLinkCheck(): Promise<{ checked: number; unhealthy: number; priceRecheck: PriceRecheckResult }> {
   const lockRow = await db
     .selectNoFrom((eb) => eb.fn<boolean>('pg_try_advisory_lock', [eb.val(ADVISORY_LOCK_KEY)]).as('acquired'))
     .executeTakeFirstOrThrow();

@@ -25,8 +25,11 @@
 //     --user-data-dir "C:\Users\SEU_USUARIO\AppData\Local\Google\Chrome\User Data" \
 //     --profile "Default" \
 //     --api-url "https://downloads.artificiorpg.com/api/v1/admin/scraper/ingest" \
-//     --auth-token "SEU_TOKEN_DE_SESSAO_ADMIN" \
 //     --dry-run
+//
+// Sem --dry-run, definir o token via env (preferido, não fica no histórico
+// do shell) ou --auth-token (override pontual explícito):
+//   ARTIFICIO_SCRAPER_AUTH_TOKEN="SEU_TOKEN_DE_SESSAO_ADMIN" node scripts/scraper-local/fetch-and-ingest.mjs ...
 
 import { chromium } from 'patchright';
 import { writeFileSync } from 'node:fs';
@@ -132,8 +135,14 @@ async function main() {
       return;
     }
 
-    if (!args['api-url'] || !args['auth-token']) {
-      console.error('Sem --dry-run, --api-url e --auth-token são obrigatórios para enviar o payload.');
+    // Achado de review PR #193 (codeRabbit): token vem de env/config local
+    // gitignored por padrão (evita token de sessão admin em texto puro no
+    // histórico do shell/processo); --auth-token continua aceito como
+    // override explícito pontual.
+    const authToken = args['auth-token'] ?? process.env.ARTIFICIO_SCRAPER_AUTH_TOKEN;
+
+    if (!args['api-url'] || !authToken) {
+      console.error('Sem --dry-run, --api-url e (--auth-token ou env ARTIFICIO_SCRAPER_AUTH_TOKEN) são obrigatórios para enviar o payload.');
       process.exit(1);
     }
 
@@ -141,9 +150,10 @@ async function main() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${args['auth-token']}`,
+        Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30_000),
     });
 
     const body = await response.json();
@@ -153,7 +163,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+// Achado de review SonarQube (PR #193): .mjs suporta top-level await
+// nativamente — preferido a promise chain (main().catch(...)).
+try {
+  await main();
+} catch (error) {
   console.error('Falha na execução:', error);
   process.exit(1);
-});
+}
