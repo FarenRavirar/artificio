@@ -460,6 +460,142 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/admin/scraper/ingest:
+    post:
+      operationId: postapi_v1_admin_scraper_ingest
+      summary: "Cria ou executa api v1 admin scraper ingest"
+      x-artificio-owner: downloads
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/scraper/run:
+    post:
+      operationId: postapi_v1_admin_scraper_run
+      summary: "Cria ou executa api v1 admin scraper run"
+      x-artificio-owner: downloads
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/scraper/run/{id}:
+    get:
+      operationId: getapi_v1_admin_scraper_run_id
+      summary: "Consulta api v1 admin scraper run id"
+      x-artificio-owner: downloads
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/scraper/runs:
+    get:
+      operationId: getapi_v1_admin_scraper_runs
+      summary: "Consulta api v1 admin scraper runs"
+      x-artificio-owner: downloads
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/admin/summary:
     get:
       operationId: getapi_v1_admin_summary

@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAnalyticsPageviews } from '@artificio/analytics/react';
 import { HomePage } from './pages/HomePage';
+import { SobreEUsoPage } from './pages/SobreEUsoPage';
 import { CatalogoPage } from './pages/CatalogoPage';
 import { MaterialPage } from './pages/MaterialPage';
 import { CreatorPage } from './pages/CreatorPage';
@@ -45,6 +46,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/sobre-e-uso" element={<SobreEUsoPage />} />
       <Route path="/catalogo" element={<CatalogoPage />} />
       <Route path="/materiais/:materialSlug" element={<MaterialPage />} />
       <Route path="/criadores/:slug" element={<CreatorPage />} />

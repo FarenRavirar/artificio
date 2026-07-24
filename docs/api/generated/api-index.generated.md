@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **378 operações**.
+Total: **382 operações**.
 
 ## accounts (12)
 
@@ -23,7 +23,7 @@ Total: **378 operações**.
 | GET | `/internal/users/{id}` | public | none | active | — | Consulta internal users id |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
-## downloads (57)
+## downloads (61)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -40,6 +40,10 @@ Total: **378 operações**.
 | POST | `/api/v1/admin/rejection-categories` | admin | admin | active | — | Cria ou executa api v1 admin rejection-categories |
 | PATCH | `/api/v1/admin/rejection-categories/{id}` | admin | admin | active | — | Atualiza api v1 admin rejection-categories id |
 | POST | `/api/v1/admin/sanitize-preview` | admin | admin | active | — | Cria ou executa api v1 admin sanitize-preview |
+| POST | `/api/v1/admin/scraper/ingest` | admin | admin | active | — | Cria ou executa api v1 admin scraper ingest |
+| POST | `/api/v1/admin/scraper/run` | admin | admin | active | — | Cria ou executa api v1 admin scraper run |
+| GET | `/api/v1/admin/scraper/run/{id}` | admin | admin | active | — | Consulta api v1 admin scraper run id |
+| GET | `/api/v1/admin/scraper/runs` | admin | admin | active | — | Consulta api v1 admin scraper runs |
 | GET | `/api/v1/admin/summary` | admin | admin | active | — | Consulta api v1 admin summary |
 | GET | `/api/v1/changelog` | public | none | active | — | Consulta api v1 changelog |
 | GET | `/api/v1/collections` | public | none | active | — | Consulta api v1 collections |

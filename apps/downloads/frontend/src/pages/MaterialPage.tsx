@@ -80,6 +80,12 @@ export function MaterialPage() {
         <h1 className="text-2xl font-bold text-[var(--fg)]">{material.title}</h1>
         <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--fg-muted)]">
           <span className="rounded-full border border-[var(--line)] px-2 py-0.5">{material.material_type}</span>
+          {/* T9.4 (spec 084) — D119: metadata.language sempre 'pt' pra
+              material publicado (CHECK/NOT NULL no schema); exibe quando
+              metadata ja carregou. */}
+          {metadata?.language && (
+            <span className="rounded-full border border-[var(--line)] px-2 py-0.5">Em português</span>
+          )}
         </div>
 
         {material.summary && <p className="mt-4 text-[var(--fg-muted)]">{material.summary}</p>}

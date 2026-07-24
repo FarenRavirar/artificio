@@ -35,6 +35,19 @@ RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile 
   && test -d packages/media/node_modules/cloudinary \
   || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
 
+# Achado de review PR #193 (codex) — scraper de spec 084 (Modo 2a/2b) precisa
+# de runtime headless real na imagem: patchright exige Chromium instalado
+# (patchright install --with-deps chromium), Camoufox exige venv Python com
+# o pacote camoufox (subprocess chamado por camoufoxClient.ts). Sem isso a
+# imagem builda mas qualquer fonte que cair no Modo 2a/2b quebra em runtime.
+COPY apps/downloads/backend/scripts ./apps/downloads/backend/scripts
+
+RUN apk add --no-cache python3 py3-pip \
+  && pnpm exec patchright install --with-deps chromium \
+  && python3 -m venv ./apps/downloads/backend/scripts/camoufox/.venv \
+  && ./apps/downloads/backend/scripts/camoufox/.venv/bin/pip install --no-cache-dir \
+       -r ./apps/downloads/backend/scripts/camoufox/requirements.txt
+
 # Workspace packages sao linkados em producao; copiar so o dist que exportam em runtime.
 COPY --from=builder /repo/packages/config/dist ./packages/config/dist
 COPY --from=builder /repo/packages/auth/dist ./packages/auth/dist

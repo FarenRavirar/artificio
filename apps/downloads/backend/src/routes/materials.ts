@@ -191,7 +191,16 @@ router.get('/:id/history', writeRateLimiter, authMiddleware, async (req: Request
 router.get('/:slug', async (req: Request, res: Response) => {
   const material = await db
     .selectFrom('download_material')
-    .leftJoin('download_creator', 'download_creator.user_id', 'download_material.creator_id')
+    // Spec 084 — material de origem scraper grava creator_id = download_creator.id
+    // (ator de sistema, sem user_id/SSO real); material humano continua
+    // gravando creator_id = user_id do SSO. OR cobre os 2 casos no mesmo JOIN
+    // sem mudar o contrato do fluxo humano ja existente.
+    .leftJoin('download_creator', (join) =>
+      join.on((eb) => eb.or([
+        eb('download_creator.user_id', '=', eb.ref('download_material.creator_id')),
+        eb('download_creator.id', '=', eb.ref('download_material.creator_id')),
+      ])),
+    )
     .select([...PUBLIC_MATERIAL_FIELDS.map((field) => `download_material.${field}` as const), 'download_creator.slug as creator_slug'])
     .where('download_material.slug', '=', req.params.slug)
     .where('download_material.editorial_state', '=', 'published')

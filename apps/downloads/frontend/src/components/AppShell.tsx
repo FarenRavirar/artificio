@@ -17,6 +17,9 @@ const userMenu: UserMenuItem[] = [
 const moduleNav: NavItem[] = [
   { label: 'Início', href: '/' },
   { label: 'Catálogo', href: '/catalogo' },
+  // Spec 084 (T9.3) — pagina institucional que declara D119 (so portugues),
+  // hub/redirecionamento e transparencia do scraper.
+  { label: 'Sobre e uso', href: '/sobre-e-uso' },
 ];
 
 export const AppShell = ({ children }: AppShellProps) => {

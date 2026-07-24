@@ -1,6 +1,7 @@
 # Dependências
 node_modules/
 .pnpm-store/
+.venv/
 
 # Build
 dist/
