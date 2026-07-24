@@ -7,6 +7,7 @@ import { assertValidTransition, InvalidEditorialTransitionError } from '../servi
 import { emitNotification } from '../services/notify';
 import { logModerationAudit } from '../services/moderationAuditLog';
 import { sendModerationEmail } from '../services/moderationEmail';
+import { detectPortuguese } from '../services/languageDetector';
 import type { DownloadEditorialState } from '../db/types';
 
 const router = Router();
@@ -39,9 +40,24 @@ router.post('/:id/submit', writeRateLimiter, authMiddleware, async (req: Request
     throw error;
   }
 
+  // T8.1 (spec 084) — roda detectPortuguese 1x no submit (nunca bloqueia o
+  // envio — decisão do mantenedor: alerta o moderador na fila, quem decide
+  // reprovar é humano). Persistido pra GET /queue não re-rodar detecção
+  // (custo de chamada DeepSeek) a cada carregamento da fila.
+  const combinedText = `${material.title}\n${material.description ?? material.summary ?? ''}`;
+  const languageDetection = await detectPortuguese(combinedText);
+
   const updated = await db
     .updateTable('download_material')
-    .set({ editorial_state: 'in_review', rejection_reason: null, rejection_category_id: null, updated_at: new Date() })
+    .set({
+      editorial_state: 'in_review',
+      rejection_reason: null,
+      rejection_category_id: null,
+      detected_language: languageDetection.detectedLanguage,
+      language_confident: languageDetection.confident,
+      language_checked_at: new Date(),
+      updated_at: new Date(),
+    })
     .where('id', '=', material.id)
     .returningAll()
     .executeTakeFirstOrThrow();

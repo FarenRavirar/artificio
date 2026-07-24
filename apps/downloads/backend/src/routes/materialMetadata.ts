@@ -17,7 +17,10 @@ const router = Router();
 const upsertMetadataSchema = z.object({
   scenario: z.string().trim().max(100).nullable().optional(),
   genre: z.string().trim().max(100).nullable().optional(),
-  language: z.string().trim().max(20).nullable().optional(),
+  // D119 (regra petrea, migration 022): so 'pt' e aceito. Unico valor
+  // possivel hoje, entao formulario/PUT nao expoe escolha real — default
+  // automatico evita 400 desnecessario quando o campo vem ausente/null.
+  language: z.literal('pt').nullable().optional(),
   file_format: z.string().trim().max(30).nullable().optional(),
   vtt_platform: z.string().trim().max(60).nullable().optional(),
   access_barriers: z.array(z.string()).optional(),
@@ -98,7 +101,7 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
   const commonFields = {
     scenario: patch.scenario ?? null,
     genre: patch.genre ?? null,
-    language: patch.language ?? null,
+    language: 'pt' as const,
     file_format: patch.file_format ?? null,
     vtt_platform: patch.vtt_platform ?? null,
     license_kind: patch.license_kind ?? null,

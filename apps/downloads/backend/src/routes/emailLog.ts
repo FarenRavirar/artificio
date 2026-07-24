@@ -14,7 +14,7 @@ router.get('/', writeRateLimiter, authMiddleware, requireRole(['moderator', 'adm
 
   let query = db.selectFrom('download_email_log').selectAll().orderBy('created_at', 'desc').limit(200);
   if (statusFilter) {
-    query = query.where('status', '=', statusFilter as 'sent' | 'failed' | 'skipped_no_email');
+    query = query.where('status', '=', statusFilter as 'sent' | 'failed' | 'skipped_no_email' | 'sending');
   }
 
   const items = await query.execute();
@@ -44,8 +44,29 @@ router.post('/:id/retry', writeRateLimiter, authMiddleware, requireRole(['modera
     return res.status(409).json({ error: 'Este e-mail já foi enviado com sucesso.' });
   }
 
+  if (log.status === 'sending') {
+    return res.status(409).json({ error: 'Reenvio já em andamento para este log.' });
+  }
+
   if (!log.material_id) {
     return res.status(409).json({ error: 'Log sem material associado — não é possível remontar o e-mail.' });
+  }
+
+  // Claim atomico (achado de review PR #192): so segue se ESTE request
+  // transicionar failed/skipped_no_email -> sending. Retry concorrente do
+  // mesmo log perde o WHERE (0 linhas afetadas) e retorna 409 sem enviar
+  // e-mail duplicado.
+  const claimed = await db
+    .updateTable('download_email_log')
+    .set({ status: 'sending', last_attempt_at: new Date() })
+    .where('id', '=', log.id)
+    .where('status', '!=', 'sending')
+    .where('status', '!=', 'sent')
+    .returningAll()
+    .executeTakeFirst();
+
+  if (!claimed) {
+    return res.status(409).json({ error: 'Reenvio já em andamento ou concluído para este log.' });
   }
 
   const material = await db

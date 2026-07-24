@@ -5,6 +5,21 @@ export type DownloadAccessKind = 'external_link' | 'managed_upload';
 export type DownloadCreatorRole = 'user' | 'publisher' | 'moderator' | 'admin';
 export type DownloadReportPriority = 'P0' | 'P1' | 'P2' | 'P3';
 export type DownloadReportState = 'open' | 'in_review' | 'resolved' | 'dismissed';
+// Spec 084 — origem do material: 'manual' (humano) ou uma das 8 fontes do
+// scraper (Fase 3, cada adapter usa exatamente um destes valores).
+export type DownloadSourcePlatform =
+  | 'manual'
+  | 'itch_io'
+  | 'drivethrurpg'
+  | 'dms_guild'
+  | 'rpg_gratis'
+  | 'grimorios_e_dados'
+  | 'opera_rpg'
+  | 'catarse'
+  | 'newton_rocha';
+export type DownloadScraperTriggerKind = 'manual' | 'cron' | 'local_ingest';
+export type DownloadScraperRunStatus = 'running' | 'completed' | 'failed';
+export type DownloadScraperItemOutcome = 'created' | 'skipped_duplicate' | 'skipped_not_portuguese' | 'skipped_error';
 
 export type JSONColumnType<T> = ColumnType<T, T | undefined, T>;
 
@@ -26,6 +41,16 @@ export interface DownloadMaterialTable {
   rejection_reason: string | null;
   rejection_category_id: string | null;
   auto_publish_enabled: Generated<boolean>;
+  // Spec 084 — rastreabilidade de origem (scraper ou manual).
+  source_platform: Generated<DownloadSourcePlatform>;
+  source_url: string | null;
+  source_scraped_at: Date | null;
+  // Spec 084 (Fase 8) — resultado de detectPortuguese rodado no submit
+  // (draft->in_review), persistido pra fila de moderação exibir sem
+  // re-rodar detecção a cada GET /queue.
+  detected_language: string | null;
+  language_confident: boolean | null;
+  language_checked_at: Date | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -51,7 +76,8 @@ export interface DownloadMaterialMetadataTable {
   material_id: string;
   scenario: string | null;
   genre: string | null;
-  language: string | null;
+  // D119 (regra petrea): so 'pt' — CHECK/NOT NULL aplicados na migration 022.
+  language: 'pt' | null;
   file_format: string | null;
   vtt_platform: string | null;
   access_barriers: Generated<JSONColumnType<string[]>>;
@@ -160,11 +186,47 @@ export interface DownloadLinkCheckTable {
   http_status: number | null;
   is_healthy: boolean;
   error_detail: string | null;
+  // Spec 084 (Fase 7) — distingue re-checagem de material de origem scraper
+  // (falha nunca deriva pra 'withdrawn' sem confirmacao real de preco pago).
+  is_scraper_origin: Generated<boolean>;
   checked_at: Generated<Date>;
 }
 
 export type DownloadLinkCheck = Selectable<DownloadLinkCheckTable>;
 export type NewDownloadLinkCheck = Insertable<DownloadLinkCheckTable>;
+
+export interface DownloadScraperRunTable {
+  id: Generated<string>;
+  source_platform: DownloadSourcePlatform;
+  trigger_kind: DownloadScraperTriggerKind;
+  status: Generated<DownloadScraperRunStatus>;
+  items_found: Generated<number>;
+  items_created: Generated<number>;
+  items_skipped_duplicate: Generated<number>;
+  items_skipped_not_portuguese: Generated<number>;
+  items_skipped_error: Generated<number>;
+  error_detail: string | null;
+  started_at: Generated<Date>;
+  finished_at: Date | null;
+}
+
+export type DownloadScraperRun = Selectable<DownloadScraperRunTable>;
+export type NewDownloadScraperRun = Insertable<DownloadScraperRunTable>;
+export type DownloadScraperRunUpdate = Updateable<DownloadScraperRunTable>;
+
+export interface DownloadScraperItemLogTable {
+  id: Generated<string>;
+  run_id: string;
+  material_id: string | null;
+  source_url: string;
+  outcome: DownloadScraperItemOutcome;
+  detected_language: string | null;
+  error_detail: string | null;
+  created_at: Generated<Date>;
+}
+
+export type DownloadScraperItemLog = Selectable<DownloadScraperItemLogTable>;
+export type NewDownloadScraperItemLog = Insertable<DownloadScraperItemLogTable>;
 
 export interface DownloadMetricDailyTable {
   material_id: string;
@@ -306,7 +368,7 @@ export type NewDownloadRejectionCategory = Insertable<DownloadRejectionCategoryT
 export type DownloadRejectionCategoryUpdate = Updateable<DownloadRejectionCategoryTable>;
 
 export type DownloadEmailKind = 'material_rejected' | 'material_approved';
-export type DownloadEmailStatus = 'sent' | 'failed' | 'skipped_no_email';
+export type DownloadEmailStatus = 'sent' | 'failed' | 'skipped_no_email' | 'sending';
 
 export interface DownloadEmailLogTable {
   id: Generated<string>;
@@ -348,4 +410,6 @@ export interface Database {
   download_notification: DownloadNotificationTable;
   download_rejection_category: DownloadRejectionCategoryTable;
   download_email_log: DownloadEmailLogTable;
+  download_scraper_run: DownloadScraperRunTable;
+  download_scraper_item_log: DownloadScraperItemLogTable;
 }

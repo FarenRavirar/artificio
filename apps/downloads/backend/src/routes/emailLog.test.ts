@@ -87,6 +87,9 @@ describe('POST /api/v1/admin/email-log/:id/retry', () => {
       .mockReturnValueOnce(chainable({ id: 'log-1', status: 'failed', material_id: 'material-1', user_id: 'user-1', attempts: 1 }))
       .mockReturnValueOnce(chainable(undefined));
 
+    const claimChain = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(), executeTakeFirst: vi.fn().mockResolvedValue({ id: 'log-1', status: 'sending' }) };
+    dbMocks.updateTable.mockReturnValueOnce(claimChain);
+
     const res = await request(app()).post('/api/v1/admin/email-log/log-1/retry').expect(409);
     expect(res.body.error).toMatch(/não existe mais/);
   });
@@ -97,8 +100,9 @@ describe('POST /api/v1/admin/email-log/:id/retry', () => {
       .mockReturnValueOnce(chainable({ id: 'material-1', title: 'Material X', slug: 'material-x', creator_id: 'user-1', rejection_reason: null, rejection_category_id: null }));
     resolveUserEmailMock.mockResolvedValue(null);
 
+    const claimChain = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(), executeTakeFirst: vi.fn().mockResolvedValue({ id: 'log-1', status: 'sending' }) };
     const updateChain = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
-    dbMocks.updateTable.mockReturnValue(updateChain);
+    dbMocks.updateTable.mockReturnValueOnce(claimChain).mockReturnValueOnce(updateChain);
 
     const res = await request(app()).post('/api/v1/admin/email-log/log-1/retry').expect(409);
     expect(res.body.error).toMatch(/Não foi possível resolver e-mail/);
@@ -112,16 +116,59 @@ describe('POST /api/v1/admin/email-log/:id/retry', () => {
     resolveUserEmailMock.mockResolvedValue({ email: 'autor@example.com', displayName: 'Autor' });
     sendEmailMock.mockResolvedValue({ messageId: 'msg-1' });
 
+    const claimChain = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(), executeTakeFirst: vi.fn().mockResolvedValue({ id: 'log-1', status: 'sending' }) };
     const updateChain = {
       set: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
       returningAll: vi.fn().mockReturnThis(),
       executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'log-1', status: 'sent' }),
     };
-    dbMocks.updateTable.mockReturnValue(updateChain);
+    dbMocks.updateTable.mockReturnValueOnce(claimChain).mockReturnValueOnce(updateChain);
 
     await request(app()).post('/api/v1/admin/email-log/log-1/retry').expect(200);
     expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'sent', attempts: 2 }));
+  });
+
+  it('409 quando log ja esta sending (claim em andamento)', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(chainable({ id: 'log-1', status: 'sending', material_id: 'material-1' }));
+
+    const res = await request(app()).post('/api/v1/admin/email-log/log-1/retry').expect(409);
+    expect(res.body.error).toMatch(/já em andamento/);
+  });
+
+  it('retry concorrente do mesmo log: so 1 chamada consegue o claim e so 1 envio acontece', async () => {
+    const logRow = { id: 'log-1', status: 'failed', material_id: 'material-1', user_id: 'user-1', attempts: 1, kind: 'material_approved' };
+    const materialRow = { id: 'material-1', title: 'Material X', slug: 'material-x', creator_id: 'user-1', rejection_reason: null, rejection_category_id: null };
+
+    // Duas requisicoes leem a MESMA linha (ambas veem status='failed').
+    dbMocks.selectFrom
+      .mockReturnValueOnce(chainable(logRow))
+      .mockReturnValueOnce(chainable(materialRow))
+      .mockReturnValueOnce(chainable(logRow))
+      .mockReturnValueOnce(chainable(materialRow));
+
+    resolveUserEmailMock.mockResolvedValue({ email: 'autor@example.com', displayName: 'Autor' });
+    sendEmailMock.mockResolvedValue({ messageId: 'msg-1' });
+
+    // Primeiro UPDATE (claim) da 1a requisicao ganha; segundo UPDATE (claim)
+    // da 2a requisicao nao afeta linha nenhuma (simula WHERE status != 'sending' perder a corrida).
+    const claimWinner = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(), executeTakeFirst: vi.fn().mockResolvedValue({ ...logRow, status: 'sending' }) };
+    const claimLoser = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(), executeTakeFirst: vi.fn().mockResolvedValue(undefined) };
+    const finalUpdate = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'log-1', status: 'sent' }) };
+
+    dbMocks.updateTable
+      .mockReturnValueOnce(claimWinner)
+      .mockReturnValueOnce(finalUpdate)
+      .mockReturnValueOnce(claimLoser);
+
+    const [first, second] = await Promise.all([
+      request(app()).post('/api/v1/admin/email-log/log-1/retry'),
+      request(app()).post('/api/v1/admin/email-log/log-1/retry'),
+    ]);
+
+    const statuses = [first.status, second.status].sort();
+    expect(statuses).toEqual([200, 409]);
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
   });
 
   it('502 e grava failed quando envio lanca', async () => {
@@ -131,13 +178,14 @@ describe('POST /api/v1/admin/email-log/:id/retry', () => {
     resolveUserEmailMock.mockResolvedValue({ email: 'autor@example.com', displayName: 'Autor' });
     sendEmailMock.mockRejectedValue(new Error('Resend fora do ar'));
 
+    const claimChain = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(), executeTakeFirst: vi.fn().mockResolvedValue({ id: 'log-1', status: 'sending' }) };
     const updateChain = {
       set: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
       returningAll: vi.fn().mockReturnThis(),
       executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'log-1', status: 'failed' }),
     };
-    dbMocks.updateTable.mockReturnValue(updateChain);
+    dbMocks.updateTable.mockReturnValueOnce(claimChain).mockReturnValueOnce(updateChain);
 
     await request(app()).post('/api/v1/admin/email-log/log-1/retry').expect(502);
     expect(updateChain.set).toHaveBeenCalledWith(
