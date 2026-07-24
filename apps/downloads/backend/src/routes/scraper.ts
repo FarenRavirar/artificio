@@ -191,22 +191,30 @@ router.post('/ingest', writeRateLimiter, authMiddleware, requireRole('admin'), a
   // T4.3 — linka parse_case_id -> material_id criado, best-effort (falha
   // aqui nunca deve mudar o resultado do ingest, mesmo principio de logItem
   // em scraperIngest.ts: link e observabilidade, nao parte do pipeline core).
+  // Achado real (review PR #199): sem try/catch, falha nesta auditoria
+  // devolvia 500 mesmo com ingest já concluído com sucesso, e um retry do
+  // admin batia em duplicata. Envolvido pra nunca sobrescrever a resposta 200.
   if (parseCaseIdBySourceUrl.size > 0) {
-    const itemLogs = await db
-      .selectFrom('download_scraper_item_log')
-      .select(['source_url', 'material_id'])
-      .where('run_id', '=', run.id)
-      .where('material_id', 'is not', null)
-      .execute();
-
-    for (const log of itemLogs) {
-      const parseCaseId = parseCaseIdBySourceUrl.get(log.source_url);
-      if (!parseCaseId || !log.material_id) continue;
-      await db
-        .updateTable('download_scraper_parse_log')
-        .set({ confirmed_material_id: log.material_id })
-        .where('parse_case_id', '=', parseCaseId)
+    try {
+      const itemLogs = await db
+        .selectFrom('download_scraper_item_log')
+        .select(['source_url', 'material_id'])
+        .where('run_id', '=', run.id)
+        .where('material_id', 'is not', null)
         .execute();
+
+      for (const log of itemLogs) {
+        const parseCaseId = parseCaseIdBySourceUrl.get(log.source_url);
+        if (!parseCaseId || !log.material_id) continue;
+        await db
+          .updateTable('download_scraper_parse_log')
+          .set({ confirmed_material_id: log.material_id })
+          .where('parse_case_id', '=', parseCaseId)
+          .execute();
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Falha desconhecida.';
+      console.error(`[scraper] Falha ao vincular parse_case_id -> material_id (run ${run.id}): ${message}`);
     }
   }
 

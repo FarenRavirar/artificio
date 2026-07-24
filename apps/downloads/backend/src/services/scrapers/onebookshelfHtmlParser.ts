@@ -5,8 +5,9 @@
 // (JSON-LD Schema.org idêntico nas 3 marcas OneBookShelf).
 
 import { z } from 'zod';
+import { sanitizeText } from '../sanitizeText';
 
-const JSON_LD_BLOCK_RE = /<script type="application\/ld\+json">(.*?)<\/script>/s;
+const JSON_LD_BLOCK_RE = /<script type="application\/ld\+json">(.*?)<\/script>/gs;
 const CANONICAL_RE = /<link rel="canonical" href="([^"]+)"/;
 const OG_IMAGE_RE = /property="og:image" content="([^"]+)"|content="([^"]+)" property="og:image"/;
 const HTML_LANG_RE = /<html[^>]*\blang="([^"]+)"/;
@@ -22,16 +23,39 @@ export type OneBookShelfPriceSignal =
   | 'zero_price_no_pwyw_tag'
   | 'nonzero_price_no_pwyw_tag';
 
+// Achado real (review PR #199): z.url() só valida sintaxe — HTML adulterado
+// podia colar canonical/og:image com protocolo não-http(s) (ex.: ftp://) ou
+// apontando pra host interno/privado/metadata cloud. Só http(s) público
+// passa; nunca persistir URL fora desse contrato.
+const LOCAL_OR_PRIVATE_HOST_RE =
+  /^(localhost|127\.|0\.|10\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|::1$|\[::1\]$|\[fc|\[fd)/i;
+
+function isPublicHttpUrl(value: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+  if (LOCAL_OR_PRIVATE_HOST_RE.test(parsed.hostname)) return false;
+  return true;
+}
+
+const publicHttpUrlSchema = z.string().refine(isPublicHttpUrl, {
+  message: 'URL precisa ser http(s) pública (sem host local/privado/metadata).',
+});
+
 // Schema fechado (.strict()) — T1.5: rejeita qualquer chave extra que o
 // parser tente devolver além do shape esperado (achado real: sem isso, um
 // campo acidental do JSON-LD/regex vazaria pro preview sem detecção).
 export const oneBookShelfParsePreviewSchema = z
   .object({
-    sourceUrl: z.url(),
+    sourceUrl: publicHttpUrlSchema,
     title: z.string().min(1),
     description: z.string().nullable(),
     isFreeOrPwyw: z.boolean().nullable(),
-    coverImageUrl: z.url().nullable(),
+    coverImageUrl: publicHttpUrlSchema.nullable(),
     publisherName: z.string().nullable(),
     sourceLanguageHint: z.enum(['pt', 'not_pt']).nullable(),
     extractedPriceValue: z.number().nullable(),
@@ -46,7 +70,8 @@ export type OneBookShelfParseErrorCode =
   | 'missing_json_ld'
   | 'invalid_json_ld'
   | 'missing_canonical'
-  | 'domain_mismatch';
+  | 'domain_mismatch'
+  | 'invalid_url';
 
 export class OneBookShelfParseError extends Error {
   constructor(
@@ -64,22 +89,39 @@ export class OneBookShelfParseError extends Error {
 export const MAX_HTML_LENGTH = 1_000_000; // maior fixture real: 158KB, folga ampla
 
 interface OneBookShelfJsonLd {
+  '@type'?: string;
   name?: string;
   description?: string;
   brand?: { name?: string };
-  offers?: { price?: number };
+  offers?: { price?: number | string };
 }
 
+// Achado real (review PR #199): página pode conter JSON-LD de
+// organização/breadcrumb antes do bloco de produto; pegar só o primeiro
+// bloco (regex sem /g) devolvia name/description de entidade errada.
+// Percorre todos os blocos e usa o primeiro cujo @type seja "Product".
 function extractJsonLd(html: string): OneBookShelfJsonLd {
-  const match = JSON_LD_BLOCK_RE.exec(html);
-  if (!match) {
+  const blocks = html.matchAll(JSON_LD_BLOCK_RE);
+  let sawAnyBlock = false;
+  let sawValidJson = false;
+  for (const block of blocks) {
+    sawAnyBlock = true;
+    let parsed: OneBookShelfJsonLd;
+    try {
+      parsed = JSON.parse(block[1]) as OneBookShelfJsonLd;
+    } catch {
+      continue;
+    }
+    sawValidJson = true;
+    if (parsed['@type'] === 'Product') return parsed;
+  }
+  if (!sawAnyBlock) {
     throw new OneBookShelfParseError('missing_json_ld', 'HTML não contém bloco <script type="application/ld+json">.');
   }
-  try {
-    return JSON.parse(match[1]) as OneBookShelfJsonLd;
-  } catch {
+  if (!sawValidJson) {
     throw new OneBookShelfParseError('invalid_json_ld', 'Bloco JSON-LD presente mas não é JSON válido.');
   }
+  throw new OneBookShelfParseError('invalid_json_ld', 'Nenhum bloco JSON-LD com @type "Product" encontrado.');
 }
 
 function resolvePriceSignal(html: string, price: number | null): { isFreeOrPwyw: boolean | null; priceSignal: OneBookShelfPriceSignal } {
@@ -108,13 +150,11 @@ export function parseOneBookShelfHtml(
   }
   const sourceUrl = canonicalMatch[1];
 
-  const expectedDomain = SOURCE_DOMAIN[sourcePlatform];
-  let canonicalHost: string;
-  try {
-    canonicalHost = new URL(sourceUrl).hostname;
-  } catch {
-    throw new OneBookShelfParseError('domain_mismatch', `Canonical não é uma URL válida: ${sourceUrl}`);
+  if (!isPublicHttpUrl(sourceUrl)) {
+    throw new OneBookShelfParseError('invalid_url', `Canonical não é uma URL http(s) pública: ${sourceUrl}`);
   }
+  const expectedDomain = SOURCE_DOMAIN[sourcePlatform];
+  const canonicalHost = new URL(sourceUrl).hostname;
   if (canonicalHost !== expectedDomain && !canonicalHost.endsWith(`.${expectedDomain}`)) {
     throw new OneBookShelfParseError(
       'domain_mismatch',
@@ -128,17 +168,29 @@ export function parseOneBookShelfHtml(
   }
 
   const coverImageMatch = OG_IMAGE_RE.exec(html);
-  const coverImageUrl = coverImageMatch?.[1] ?? coverImageMatch?.[2] ?? null;
+  const rawCoverImageUrl = coverImageMatch?.[1] ?? coverImageMatch?.[2] ?? null;
+  const coverImageUrl = rawCoverImageUrl && isPublicHttpUrl(rawCoverImageUrl) ? rawCoverImageUrl : null;
   const langMatch = HTML_LANG_RE.exec(html);
   const sourceLanguageHint = langMatch?.[1]?.toLowerCase().startsWith('pt') ? 'pt' : langMatch ? 'not_pt' : null;
 
-  const extractedPriceValue = typeof jsonLd.offers?.price === 'number' ? jsonLd.offers.price : null;
+  // Schema.org offers.price aceita Number ou Text (achado review PR #199):
+  // OneBookShelf pode emitir string numérica ("4.00"); só rejeita se não for
+  // um número finito de fato.
+  const rawPrice = jsonLd.offers?.price;
+  const extractedPriceValue =
+    typeof rawPrice === 'number'
+      ? Number.isFinite(rawPrice)
+        ? rawPrice
+        : null
+      : typeof rawPrice === 'string' && rawPrice.trim() !== '' && Number.isFinite(Number(rawPrice))
+        ? Number(rawPrice)
+        : null;
   const { isFreeOrPwyw, priceSignal } = resolvePriceSignal(html, extractedPriceValue);
 
   const preview = {
     sourceUrl,
     title: jsonLd.name,
-    description: jsonLd.description ?? null,
+    description: jsonLd.description ? sanitizeText(jsonLd.description) : null,
     isFreeOrPwyw,
     coverImageUrl,
     publisherName: jsonLd.brand?.name ?? null,
