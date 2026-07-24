@@ -12,9 +12,7 @@
 
 ## Fase 1 — Schema: categoria + log de e-mail
 
-- `apps/downloads/database/migration_021_download_rejection_category.sql`: cria `download_rejection_category` + seed das ~10 categorias identificadas na pesquisa (ver spec.md).
-- `apps/downloads/database/migration_022_download_material_rejection_category.sql`: adiciona `rejection_category_id` a `download_material` (FK, nullable).
-- `apps/downloads/database/migration_023_download_email_log.sql`: cria `download_email_log`.
+- `apps/downloads/database/migration_021_download_rejection_reason_email.sql` (migration única — mesma spec/sessão, sem motivo pra fatiar por tabela, ver AGENTS.md §Migrations 2.1): cria `download_rejection_category` + seed das ~10 categorias identificadas na pesquisa (ver spec.md), adiciona `rejection_category_id` a `download_material` (FK, nullable) e cria `download_email_log`.
 - Atualizar `apps/downloads/backend/src/db/types.ts` com as 2 tabelas novas + coluna nova.
 
 ## Fase 2 — Backend: categoria (CRUD admin)

@@ -24,7 +24,6 @@ const createSchema = z.object({
   slug: z.string().trim().min(1).max(60).regex(/^[a-z0-9_]+$/, 'slug deve usar apenas letras minúsculas, números e underscore.'),
   label: z.string().trim().min(1).max(120),
   legal_basis: z.string().trim().max(300).nullable().optional(),
-  email_template_key: z.string().trim().min(1).max(60).optional(),
 });
 
 router.post('/', writeRateLimiter, authMiddleware, requireRole(['moderator', 'admin']), async (req: Request, res: Response) => {
@@ -48,7 +47,6 @@ router.post('/', writeRateLimiter, authMiddleware, requireRole(['moderator', 'ad
       slug: parsed.data.slug,
       label: parsed.data.label,
       legal_basis: parsed.data.legal_basis ?? null,
-      email_template_key: parsed.data.email_template_key ?? 'rejection_generic',
     })
     .returningAll()
     .executeTakeFirstOrThrow();
@@ -62,7 +60,6 @@ router.post('/', writeRateLimiter, authMiddleware, requireRole(['moderator', 'ad
 const patchSchema = z.object({
   label: z.string().trim().min(1).max(120).optional(),
   legal_basis: z.string().trim().max(300).nullable().optional(),
-  email_template_key: z.string().trim().min(1).max(60).optional(),
   active: z.boolean().optional(),
 });
 

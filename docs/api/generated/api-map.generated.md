@@ -31,18 +31,18 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 201 |
+| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 214 |
 | GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 112 |
 | PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 73 |
-| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 93 |
-| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 106 |
-| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 144 |
-| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 140 |
-| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 149 |
-| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 201 |
-| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 89 |
-| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 177 |
-| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 201 |
+| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 106 |
+| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 119 |
+| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 157 |
+| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 153 |
+| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 162 |
+| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 214 |
+| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 102 |
+| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 190 |
+| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 214 |
 
 ## downloads
 
@@ -60,9 +60,9 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/admin/media` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 204 |
 | GET | `/api/v1/admin/metrics` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 117 |
 | GET | `/api/v1/admin/rejection-categories` | ✅ high | `apps/downloads/backend/src/routes/rejectionCategories.ts` | 11 |
-| POST | `/api/v1/admin/rejection-categories` | ✅ high | `apps/downloads/backend/src/routes/rejectionCategories.ts` | 30 |
+| POST | `/api/v1/admin/rejection-categories` | ✅ high | `apps/downloads/backend/src/routes/rejectionCategories.ts` | 29 |
 | USE | `/api/v1/admin/rejection-categories` | ✅ high | `apps/downloads/backend/src/server.ts` | 91 |
-| PATCH | `/api/v1/admin/rejection-categories/:id` | ✅ high | `apps/downloads/backend/src/routes/rejectionCategories.ts` | 69 |
+| PATCH | `/api/v1/admin/rejection-categories/:id` | ✅ high | `apps/downloads/backend/src/routes/rejectionCategories.ts` | 66 |
 | POST | `/api/v1/admin/sanitize-preview` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 277 |
 | GET | `/api/v1/admin/summary` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 15 |
 | GET | `/api/v1/changelog` | ✅ high | `apps/downloads/backend/src/routes/changelog.ts` | 16 |
@@ -100,7 +100,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/materials/:slug` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 191 |
 | GET | `/api/v1/materials/mine` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 147 |
 | USE | `/api/v1/moderation` | ✅ high | `apps/downloads/backend/src/server.ts` | 79 |
-| POST | `/api/v1/moderation/:id/approve` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 160 |
+| POST | `/api/v1/moderation/:id/approve` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 161 |
 | POST | `/api/v1/moderation/:id/reject` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 74 |
 | POST | `/api/v1/moderation/:id/submit` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 18 |
 | PATCH | `/api/v1/moderation/batch/:action` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 242 |

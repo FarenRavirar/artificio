@@ -45,6 +45,33 @@ describe('materialRejectedEmail', () => {
     expect(result.html).not.toContain('<script>');
     expect(result.html).toContain('&lt;script&gt;');
   });
+
+  it('rejeita editUrl com protocolo nao-https (javascript:) e usa fallback seguro', () => {
+    const result = materialRejectedEmail({
+      authorName: 'Fulano',
+      materialTitle: 'Aventura X',
+      categoryLabel: 'Outro',
+      legalBasis: null,
+      reason: 'motivo',
+      editUrl: 'javascript:alert(1)',
+    });
+
+    expect(result.html).not.toContain('javascript:');
+    expect(result.html).toContain('href="#"');
+  });
+
+  it('rejeita editUrl invalida/malformada e usa fallback seguro', () => {
+    const result = materialRejectedEmail({
+      authorName: 'Fulano',
+      materialTitle: 'Aventura X',
+      categoryLabel: 'Outro',
+      legalBasis: null,
+      reason: 'motivo',
+      editUrl: 'nao-e-uma-url',
+    });
+
+    expect(result.html).toContain('href="#"');
+  });
 });
 
 describe('materialApprovedEmail', () => {

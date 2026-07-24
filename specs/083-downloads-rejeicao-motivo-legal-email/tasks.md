@@ -8,9 +8,7 @@
 
 ## F1 — Schema
 
-- [x] T1.1 — `migration_021_download_rejection_category.sql`: tabela + seed de 11 categorias (copyright, plagiarism, broken_link, malicious_link, duplicate, inappropriate_content, spam_off_topic, third_party_terms, personal_data, incomplete_metadata, other).
-- [x] T1.2 — `migration_022_download_material_rejection_category.sql`: `rejection_category_id` (FK nullable) em `download_material`.
-- [x] T1.3 — `migration_023_download_email_log.sql`: tabela `download_email_log` (status/attempts/provider_message_id/error_detail).
+- [x] T1.1-T1.3 — `migration_021_download_rejection_reason_email.sql` (migration única, consolidada por pedido do mantenedor — schema de uma mesma feature/sessão não se fatia em vários arquivos, ver AGENTS.md §Migrations 2.1): tabela `download_rejection_category` + seed de 11 categorias (copyright, plagiarism, broken_link, malicious_link, duplicate, inappropriate_content, spam_off_topic, third_party_terms, personal_data, incomplete_metadata, other); `rejection_category_id` (FK nullable) em `download_material`; tabela `download_email_log` (status/attempts/provider_message_id/error_detail).
 - [x] T1.4 — `db/types.ts`: `DownloadRejectionCategoryTable`, `DownloadEmailLogTable`, `rejection_category_id` em `DownloadMaterialTable`, ambas registradas em `Database`.
 
 ## F2 — Backend: categoria (CRUD admin)

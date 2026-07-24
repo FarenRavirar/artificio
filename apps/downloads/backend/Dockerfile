@@ -44,6 +44,7 @@ COPY --from=builder /repo/packages/catalog-client/dist ./packages/catalog-client
 COPY --from=builder /repo/packages/catalog-client/dist-cjs ./packages/catalog-client/dist-cjs
 COPY --from=builder /repo/packages/changelog/dist ./packages/changelog/dist
 COPY --from=builder /repo/packages/changelog/dist-cjs ./packages/changelog/dist-cjs
+COPY --from=builder /repo/packages/email/dist ./packages/email/dist
 
 COPY --from=builder /repo/apps/downloads/backend/dist ./apps/downloads/backend/dist
 

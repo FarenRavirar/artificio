@@ -11,6 +11,17 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
+// So aceita URL absoluta https:, evita injetar javascript:/data:/protocolo
+// arbitrario no href caso a env de frontend/slug fique mal configurada.
+function safeHttpsUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' ? url.toString() : '#';
+  } catch {
+    return '#';
+  }
+}
+
 function wrapLayout(bodyHtml: string): string {
   return `<!doctype html>
 <html lang="pt-BR">
@@ -43,7 +54,7 @@ export function materialRejectedEmail(params: MaterialRejectedEmailParams): { su
     ${legalBasisHtml}
     <p><strong>Motivo:</strong> ${escapeHtml(params.reason)}</p>
     <p>Você pode editar o material e reenviar para uma nova revisão:</p>
-    <p><a href="${params.editUrl}" style="color: #d97706;">Editar e reenviar</a></p>
+    <p><a href="${escapeHtml(safeHttpsUrl(params.editUrl))}" style="color: #d97706;">Editar e reenviar</a></p>
   `);
 
   return {
@@ -63,7 +74,7 @@ export function materialApprovedEmail(params: MaterialApprovedEmailParams): { su
     <h1 style="font-size: 20px;">Seu material foi aprovado</h1>
     <p>Olá, ${escapeHtml(params.authorName)}.</p>
     <p>O material <strong>${escapeHtml(params.materialTitle)}</strong> foi aprovado e já está publicado.</p>
-    <p><a href="${params.publicUrl}" style="color: #d97706;">Ver material publicado</a></p>
+    <p><a href="${escapeHtml(safeHttpsUrl(params.publicUrl))}" style="color: #d97706;">Ver material publicado</a></p>
   `);
 
   return {

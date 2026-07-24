@@ -130,19 +130,20 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
     console.error('[POST /moderation/:id/reject] Falha ao emitir notificação:', error);
   }
 
-  try {
-    await sendModerationEmail({
-      kind: 'material_rejected',
-      userId: updated.creator_id,
-      materialId: updated.id,
-      materialTitle: updated.title,
-      categoryLabel: category.label,
-      legalBasis: category.legal_basis,
-      reason: parsed.data.reason,
-    });
-  } catch (error) {
+  // Fire-and-forget: retry interno tem backoff de 30s (RETRY_DELAY_MS),
+  // await bloquearia a resposta HTTP da moderacao por isso — e-mail e
+  // sempre best-effort, nunca trava a acao de mérito do moderador.
+  sendModerationEmail({
+    kind: 'material_rejected',
+    userId: updated.creator_id,
+    materialId: updated.id,
+    materialTitle: updated.title,
+    categoryLabel: category.label,
+    legalBasis: category.legal_basis,
+    reason: parsed.data.reason,
+  }).catch((error: unknown) => {
     console.error('[POST /moderation/:id/reject] Falha ao enviar e-mail:', error);
-  }
+  });
 
   logModerationAudit({
     action: 'reject',
@@ -205,17 +206,16 @@ router.post('/:id/approve', writeRateLimiter, authMiddleware, requireRole(['mode
     console.error('[POST /moderation/:id/approve] Falha ao emitir notificação:', error);
   }
 
-  try {
-    await sendModerationEmail({
-      kind: 'material_approved',
-      userId: updated.creator_id,
-      materialId: updated.id,
-      materialTitle: updated.title,
-      materialSlug: updated.slug,
-    });
-  } catch (error) {
+  // Fire-and-forget: ver comentario equivalente em /reject.
+  sendModerationEmail({
+    kind: 'material_approved',
+    userId: updated.creator_id,
+    materialId: updated.id,
+    materialTitle: updated.title,
+    materialSlug: updated.slug,
+  }).catch((error: unknown) => {
     console.error('[POST /moderation/:id/approve] Falha ao enviar e-mail:', error);
-  }
+  });
 
   logModerationAudit({ action: 'approve', actorUserId: req.user!.userId, materialId: updated.id });
 
@@ -328,29 +328,32 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
         console.error(`[PATCH /moderation/batch/${action}] Falha ao emitir notificação para material ${material.id}:`, error);
       }
 
-      try {
-        if (action === 'approve') {
-          await sendModerationEmail({
+      // Fire-and-forget (ver comentario em /reject individual) — critico no
+      // batch: await serializaria 30s de retry POR ITEM, um lote de 100
+      // materiais com Resend fora do ar travaria a resposta por ~50min.
+      const emailPromise = action === 'approve'
+        ? sendModerationEmail({
             kind: 'material_approved',
             userId: material.creator_id,
             materialId: material.id,
             materialTitle: material.title,
             materialSlug: material.slug,
-          });
-        } else if (rejectCategory) {
-          await sendModerationEmail({
-            kind: 'material_rejected',
-            userId: material.creator_id,
-            materialId: material.id,
-            materialTitle: material.title,
-            categoryLabel: rejectCategory.label,
-            legalBasis: rejectCategory.legal_basis,
-            reason: parsed.data.reason ?? '',
-          });
-        }
-      } catch (error) {
+          })
+        : rejectCategory
+          ? sendModerationEmail({
+              kind: 'material_rejected',
+              userId: material.creator_id,
+              materialId: material.id,
+              materialTitle: material.title,
+              categoryLabel: rejectCategory.label,
+              legalBasis: rejectCategory.legal_basis,
+              reason: parsed.data.reason ?? '',
+            })
+          : null;
+
+      emailPromise?.catch((error: unknown) => {
         console.error(`[PATCH /moderation/batch/${action}] Falha ao enviar e-mail para material ${material.id}:`, error);
-      }
+      });
     }
 
     logModerationAudit({

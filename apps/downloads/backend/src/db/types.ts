@@ -296,7 +296,6 @@ export interface DownloadRejectionCategoryTable {
   slug: string;
   label: string;
   legal_basis: string | null;
-  email_template_key: Generated<string>;
   active: Generated<boolean>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;

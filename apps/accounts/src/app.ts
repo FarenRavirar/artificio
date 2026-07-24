@@ -2,6 +2,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import { rateLimit } from "express-rate-limit";
+import { timingSafeEqual } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +16,18 @@ import { createGoogleClient, readGoogleProfile } from "./google.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./tokens.js";
 import { findUserById, upsertGoogleUser } from "./users.js";
 import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
+
+// Comparacao constante mesmo com tamanhos diferentes (timingSafeEqual exige
+// buffers do mesmo length) — evita vazar por timing quanto do token bate.
+function timingSafeEqualStrings(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
 
 export function isAllowedReturnUrl(value: string): boolean {
   try {
@@ -178,7 +191,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
     const serviceSecret = env.SERVICE_SECRET;
     const token = req.headers["x-service-token"];
 
-    if (!serviceSecret || typeof token !== "string" || token !== serviceSecret) {
+    if (!serviceSecret || typeof token !== "string" || !timingSafeEqualStrings(token, serviceSecret)) {
       res.status(401).json({ error: "unauthorized" });
       return;
     }

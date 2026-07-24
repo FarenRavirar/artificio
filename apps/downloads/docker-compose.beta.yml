@@ -45,6 +45,11 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - FRONTEND_URL=https://downloadsbeta.artificiorpg.com
       - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
+      # Spec 083: resolucao server-to-server de e-mail do autor (accounts.)
+      # e envio transacional (Resend) de reprovacao/aprovacao de material.
+      - SERVICE_SECRET=${SERVICE_SECRET}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - EMAIL_FROM_ADDRESS=${EMAIL_FROM_ADDRESS:-no-reply@artificiorpg.com}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
