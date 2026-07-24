@@ -89,7 +89,7 @@ export function CatalogoPage() {
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}
               placeholder="Buscar por nome ou resumo..."
-              className="min-h-[44px] w-full rounded-md border border-[var(--line)] bg-black/20 px-3 py-2 text-white placeholder:text-[var(--fg-muted)] focus:border-artificio-orange focus:outline-none"
+              className="min-h-[44px] w-full rounded-md border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-[var(--fg)] placeholder:text-[var(--fg-muted)] focus:border-artificio-orange focus:outline-none"
             />
           </label>
 
@@ -98,7 +98,7 @@ export function CatalogoPage() {
             <select
               value={sort}
               onChange={(event) => updateParam('sort', event.target.value)}
-              className="min-h-[44px] w-full rounded-md border border-[var(--line)] bg-black/20 px-3 py-2 text-white focus:border-artificio-orange focus:outline-none"
+              className="min-h-[44px] w-full rounded-md border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-[var(--fg)] focus:border-artificio-orange focus:outline-none"
             >
               {SORT_OPTIONS.map((option) => (
                 <option key={option} value={option}>

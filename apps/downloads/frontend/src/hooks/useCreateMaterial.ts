@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 import { apiPost } from '../services/apiClient';
 
 export interface MaterialCreatePayload {
@@ -6,6 +7,8 @@ export interface MaterialCreatePayload {
   title: string;
   material_type: string;
 }
+
+const materialCreatedSchema = z.object({ id: z.string().min(1) });
 
 // T2.1 (spec 082) — criacao de material pelo autor. Backend so aceita
 // slug/title/material_type e fixa access_kind='external_link' (materials.ts
@@ -19,7 +22,7 @@ export function useCreateMaterial() {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error ?? `Falha ao criar: HTTP ${response.status}`);
       }
-      return response.json();
+      return materialCreatedSchema.parse(await response.json());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['downloads', 'materials', 'mine'] });

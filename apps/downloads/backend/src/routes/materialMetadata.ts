@@ -25,6 +25,7 @@ const upsertMetadataSchema = z.object({
   license_url: z.url().trim().nullable().optional(),
   credits: z.string().trim().nullable().optional(),
   publisher_name: z.string().trim().max(120).nullable().optional(),
+  cover_image_url: z.url().trim().nullable().optional(),
   target_audience: z.string().trim().max(60).nullable().optional(),
   age_rating: z.string().trim().max(20).nullable().optional(),
   content_warnings: z.array(z.string()).optional(),
@@ -88,6 +89,11 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
   }
 
   const patch = parsed.data;
+  // Insert usa default null/[] pra linha nova; update so toca as chaves que
+  // vieram no body — PUT parcial (ex.: so publisher_name) nao pode apagar
+  // cover_image_url/scenario/etc. salvos por outra tela (achado de review,
+  // ver PR #190).
+  const bodyKeys = new Set(Object.keys(req.body ?? {}));
 
   const commonFields = {
     scenario: patch.scenario ?? null,
@@ -99,6 +105,7 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     license_url: patch.license_url ?? null,
     credits: patch.credits ?? null,
     publisher_name: patch.publisher_name ?? null,
+    cover_image_url: patch.cover_image_url ?? null,
     target_audience: patch.target_audience ?? null,
     age_rating: patch.age_rating ?? null,
   };
@@ -112,12 +119,15 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     tags: (patch.tags ?? []) as unknown as JSONColumnType<string[]>,
   };
 
+  const updateFields = Object.fromEntries(
+    Object.entries({ ...commonFields, ...jsonFields }).filter(([key]) => bodyKeys.has(key)),
+  );
+
   const updated = await db
     .insertInto('download_material_metadata')
     .values({ material_id: material.id, ...commonFields, ...jsonFields })
     .onConflict((oc) => oc.column('material_id').doUpdateSet({
-      ...commonFields,
-      ...(jsonFields as unknown as { access_barriers: string[]; content_warnings: string[]; tags: string[] }),
+      ...updateFields,
       updated_at: new Date(),
     }))
     .returningAll()

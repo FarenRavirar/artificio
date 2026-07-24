@@ -168,7 +168,7 @@ export function EditarMaterialPage() {
               type="button"
               onClick={handleSubmitForReview}
               disabled={submitMutation.isPending}
-              className="min-h-[44px] w-fit rounded-md border border-[var(--line)] px-6 py-2 font-semibold text-white hover:border-artificio-orange disabled:opacity-50"
+              className="min-h-[44px] w-fit rounded-md border border-[var(--line)] px-6 py-2 font-semibold text-[var(--fg)] hover:border-artificio-orange disabled:opacity-50"
             >
               {submitMutation.isPending ? 'Enviando...' : 'Enviar para revisão'}
             </button>

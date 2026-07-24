@@ -12,6 +12,35 @@ servers:
     description: Desenvolvimento
 security: []
 paths:
+  /api/v1/admin/creators:
+    get:
+      operationId: getapi_v1_admin_creators
+      summary: "Consulta api v1 admin creators"
+      x-artificio-owner: downloads
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/admin/links:
     get:
       operationId: getapi_v1_admin_links
@@ -139,6 +168,35 @@ paths:
           required: true
           schema:
             type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/media:
+    get:
+      operationId: getapi_v1_admin_media
+      summary: "Consulta api v1 admin media"
+      x-artificio-owner: downloads
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
       responses:
         "200":
           description: OK

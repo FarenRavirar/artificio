@@ -10,8 +10,20 @@
 
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
+| downloads | ✅ 0 | ✅ 2 | ⚪ 0 |
 | mesas | ✅ 0 | ✅ 5 | ⚪ 0 |
 | glossario | ✅ 0 | ✅ 2 | ⚪ 0 |
+
+---
+
+### downloads
+
+#### ✅ Non-breaking (2)
+
+| Path | Method | Ação |
+|------|--------|------|
+| `` |  | add |
+| `` |  | add |
 
 ---
 

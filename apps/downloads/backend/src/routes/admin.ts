@@ -198,6 +198,76 @@ router.post(
   },
 );
 
+// T2.7 (spec 082) — Gestao de Midias: lista todos os materiais (qualquer
+// estado editorial, ao contrario de GET /materials publico que so mostra
+// published) com cover_image_url resolvido, pra edicao pelo admin/moderador.
+router.get('/media', writeRateLimiter, authMiddleware, requireRole(['moderator', 'admin']), async (_req: Request, res: Response) => {
+  const materials = await db
+    .selectFrom('download_material')
+    .leftJoin('download_material_metadata', 'download_material_metadata.material_id', 'download_material.id')
+    .select([
+      'download_material.id as material_id',
+      'download_material.slug as material_slug',
+      'download_material.title as material_title',
+      'download_material.editorial_state as editorial_state',
+      'download_material_metadata.cover_image_url as cover_image_url',
+    ])
+    .orderBy('download_material.updated_at', 'desc')
+    .execute();
+
+  return res.json({ items: materials });
+});
+
+const MAX_CREATORS_PAGE_SIZE = 60;
+const DEFAULT_CREATORS_PAGE_SIZE = 20;
+
+const listCreatorsQuerySchema = z.object({
+  q: z.string().trim().max(200).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  page_size: z.coerce.number().int().min(1).max(MAX_CREATORS_PAGE_SIZE).optional(),
+});
+
+// T2.7 (spec 082) — Gestao de Publicadores: listagem paginada de todos os
+// creators (antes so havia busca individual por slug em GET /creators/:slug,
+// publica). Busca por nome/slug via ILIKE (mesmo padrao de GET /materials).
+router.get('/creators', writeRateLimiter, authMiddleware, requireRole(['moderator', 'admin']), async (req: Request, res: Response) => {
+  const parsed = listCreatorsQuerySchema.safeParse(req.query ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Parâmetros de busca inválidos.', details: z.treeifyError(parsed.error) });
+  }
+
+  const { q } = parsed.data;
+  const page = parsed.data.page ?? 1;
+  const pageSize = parsed.data.page_size ?? DEFAULT_CREATORS_PAGE_SIZE;
+
+  let baseQuery = db.selectFrom('download_creator');
+  if (q) {
+    baseQuery = baseQuery.where((eb) =>
+      eb.or([
+        eb('display_name', 'ilike', `%${q}%`),
+        eb('slug', 'ilike', `%${q}%`),
+      ]),
+    );
+  }
+
+  const [items, totalRow] = await Promise.all([
+    baseQuery
+      .select(['id', 'slug', 'display_name', 'role', 'created_at'])
+      .orderBy('display_name', 'asc')
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+      .execute(),
+    baseQuery.select(({ fn }) => fn.countAll<number>().as('count')).executeTakeFirstOrThrow(),
+  ]);
+
+  return res.json({
+    items,
+    total: Number(totalRow.count),
+    page,
+    page_size: pageSize,
+  });
+});
+
 const sanitizePreviewSchema = z.object({
   text: z.string().max(8000),
 });

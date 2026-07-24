@@ -29,7 +29,7 @@ export function AddToCollectionButton({ materialId }: Readonly<{ materialId: str
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-white hover:border-artificio-orange"
+        className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] hover:border-artificio-orange"
         aria-expanded={open}
       >
         Adicionar à coleção

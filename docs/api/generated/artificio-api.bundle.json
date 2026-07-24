@@ -4,13 +4,13 @@
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
     "accounts": 11,
-    "downloads": 50,
+    "downloads": 52,
     "glossario": 49,
     "links": 22,
     "mesas": 192,
     "site": 46
   },
-  "total": 370,
+  "total": 372,
   "operations": [
     {
       "app": "accounts",
@@ -164,6 +164,18 @@
     {
       "app": "downloads",
       "method": "GET",
+      "path": "/api/v1/admin/creators",
+      "summary": "Consulta api v1 admin creators",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_creators"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
       "path": "/api/v1/admin/links",
       "summary": "Consulta api v1 admin links",
       "owner": "downloads",
@@ -208,6 +220,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "getapi_v1_admin_materials_id_link_history"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/admin/media",
+      "summary": "Consulta api v1 admin media",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_media"
     },
     {
       "app": "downloads",
