@@ -62,9 +62,10 @@ export function NovoMaterialPage() {
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
-          <span>Tipo de material</span>
+        <div className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
+          <label htmlFor="material-type">Tipo de material</label>
           <select
+            id="material-type"
             required
             value={materialType}
             onChange={(e) => setMaterialType(e.target.value)}
@@ -77,9 +78,22 @@ export function NovoMaterialPage() {
             ))}
           </select>
           {materialTypesQuery.isError && (
-            <span role="alert" className="text-xs text-red-600">Tipos indisponíveis. Tente novamente.</span>
+            <div role="alert" className="flex items-center gap-2 text-xs text-red-600">
+              <span>Tipos indisponíveis.</span>
+              {/* Achado real (review PR #205, Codex): mensagem sem ação deixava
+                  o formulário travado após falha transitória. Refetch permite
+                  recuperar sem recarregar/perder os campos preenchidos. */}
+              <button
+                type="button"
+                onClick={() => void materialTypesQuery.refetch()}
+                disabled={materialTypesQuery.isFetching}
+                className="min-h-[44px] rounded-md border border-current px-3 font-semibold disabled:opacity-50"
+              >
+                Tentar novamente
+              </button>
+            </div>
           )}
-        </label>
+        </div>
 
         <button
           type="submit"

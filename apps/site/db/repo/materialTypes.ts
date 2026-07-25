@@ -63,13 +63,42 @@ export async function createMaterialType(input: MaterialTypeWrite, actorId: stri
 
 export async function updateMaterialType(id: string, input: Partial<MaterialTypeWrite>, actorId: string | null): Promise<MaterialType | null> {
   const db = await getDb();
-  const current = (await db.query<MaterialType>("SELECT id, slug, name, aliases, status, created_at, updated_at FROM catalog_material_types WHERE id=$1", [id])).rows[0];
-  if (!current) return null;
-  const value = normalizeMaterialTypeWrite({ name: input.name ?? current.name, slug: input.slug ?? current.slug, aliases: input.aliases ?? cleanAliases(current.aliases), status: input.status ?? current.status });
+  // Achado real (review PR #205, Codex): read-then-write reenviava todos os
+  // campos e perdia edição concorrente feita depois do SELECT. UPDATE dinâmico
+  // toca apenas propriedades presentes no PATCH; actor/timestamp sempre ficam.
+  const assignments: string[] = [];
+  const values: unknown[] = [];
+  const set = (column: string, value: unknown, cast = "") => {
+    values.push(value);
+    assignments.push(`${column}=$${values.length}${cast}`);
+  };
+
+  if (Object.hasOwn(input, "name")) {
+    const name = input.name?.trim() ?? "";
+    if (!name) throw new Error("name_required");
+    set("name", name);
+  }
+  if (Object.hasOwn(input, "slug")) {
+    const slug = input.slug?.trim().slice(0, 80) ?? "";
+    if (!slug) throw new Error("slug_required");
+    set("slug", slug);
+  }
+  if (Object.hasOwn(input, "aliases")) {
+    set("aliases", JSON.stringify(cleanAliases(input.aliases)), "::jsonb");
+  }
+  if (Object.hasOwn(input, "status")) {
+    const status = input.status;
+    if (!status || !STATUSES.has(status)) throw new Error("bad_status");
+    set("status", status);
+  }
+
+  set("updated_by", actorId);
+  assignments.push("updated_at=now()");
+  values.push(id);
   const row = (await db.query<MaterialType>(
-    `UPDATE catalog_material_types SET slug=$1, name=$2, aliases=$3::jsonb, status=$4, updated_by=$5, updated_at=now()
-     WHERE id=$6 RETURNING id, slug, name, aliases, status, created_at, updated_at`,
-    [value.slug, value.name, JSON.stringify(value.aliases), value.status, actorId, id],
-  )).rows[0]!;
-  return { ...row, aliases: cleanAliases(row.aliases) };
+    `UPDATE catalog_material_types SET ${assignments.join(", ")}
+     WHERE id=$${values.length} RETURNING id, slug, name, aliases, status, created_at, updated_at`,
+    values,
+  )).rows[0];
+  return row ? { ...row, aliases: cleanAliases(row.aliases) } : null;
 }

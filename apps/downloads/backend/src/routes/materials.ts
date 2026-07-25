@@ -187,7 +187,11 @@ router.get('/', async (req: Request, res: Response) => {
 // Site; Downloads continua validando a mesma fonte canônica no POST.
 router.get('/types', async (_req: Request, res: Response) => {
   try {
-    res.json({ items: await loadCatalogMaterialTypes() });
+    // Achado real (review PR #205, Codex): o proxy confiava que todo item
+    // remoto era selecionável. Filtrar aqui mantém tipos pending/rejeitados
+    // fora do formulário mesmo se o contrato Central ampliar a resposta.
+    const items = (await loadCatalogMaterialTypes()).filter((item) => item.status === 'active');
+    res.json({ items });
   } catch (error) {
     console.error('[materials] material types unavailable', error);
     res.status(503).json({ error: 'Catálogo de tipos de material indisponível.' });
@@ -359,9 +363,18 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
     return res.status(400).json({ error: 'slug, title e material_type_id são obrigatórios.', details: z.treeifyError(parsed.error) });
   }
 
-  const materialType = await getCatalogMaterialTypeById(parsed.data.material_type_id);
-  if (!materialType) {
-    return res.status(400).json({ error: 'Tipo de material inexistente ou inativo.' });
+  let materialType;
+  try {
+    materialType = await getCatalogMaterialTypeById(parsed.data.material_type_id);
+    // Achado real (review PR #205, Codex): existência não basta; um tipo pode
+    // ficar pending/rejeitado entre a carga do formulário e o POST.
+    if (!materialType || materialType.status !== 'active') {
+      return res.status(400).json({ error: 'Tipo de material inexistente ou inativo.' });
+    }
+  } catch (error) {
+    // Falha Central é indisponibilidade (503), não payload inválido (400).
+    console.error('[materials] material type validation unavailable', error);
+    return res.status(503).json({ error: 'Catálogo de tipos de material indisponível.' });
   }
 
   const created = await db
@@ -425,8 +438,17 @@ async function enrichMaterialsWithTaxonomy<T extends MaterialWithTaxonomyIds>(ma
   } catch (error) {
     // Catálogo público continua útil durante falha transitória do Central;
     // IDs seguem no payload e nomes podem reaparecer na próxima leitura.
+    // Achado real (review PR #205, Codex): o fallback devolvia shape menor que
+    // o sucesso. Nulos explícitos mantêm contrato estável durante a falha.
     console.error('[materials] taxonomy enrichment unavailable', error);
-    return materials.map((material) => ({ ...material, taxonomy_chain: [] }));
+    return materials.map((material) => ({
+      ...material,
+      taxonomy_chain: [],
+      system_name: null,
+      edition_name: null,
+      variant_name: null,
+      system_path_slug: null,
+    }));
   }
 }
 

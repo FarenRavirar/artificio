@@ -44,21 +44,23 @@ export function catalogMaterialTypesAdminApi(requireAuth: RequestHandler, requir
 
 function parseWrite(body: unknown): MaterialTypes.MaterialTypeWrite {
   const value = asRecord(body);
-  return {
-    name: optionalString(value.name) ?? '',
-    slug: optionalString(value.slug),
-    aliases: stringArray(value.aliases),
-    status: optionalString(value.status) as MaterialTypes.MaterialTypeStatus | undefined,
-  };
+  // Achado real (review PR #205, Codex): coerção silenciosa transformava tipo
+  // inválido em omissão/array filtrado. Campo enviado com shape errado é 400;
+  // campo ausente continua ausente para preservar PATCH parcial.
+  const parsed: MaterialTypes.MaterialTypeWrite = { name: readString(value, 'name') ?? '' };
+  if ('slug' in value) parsed.slug = readString(value, 'slug');
+  if ('aliases' in value) parsed.aliases = readStringArray(value, 'aliases');
+  if ('status' in value) parsed.status = readString(value, 'status') as MaterialTypes.MaterialTypeStatus;
+  return parsed;
 }
 
 function parsePatch(body: unknown): Partial<MaterialTypes.MaterialTypeWrite> {
   const value = asRecord(body);
   const patch: Partial<MaterialTypes.MaterialTypeWrite> = {};
-  if ('name' in value) patch.name = optionalString(value.name) ?? '';
-  if ('slug' in value) patch.slug = optionalString(value.slug);
-  if ('aliases' in value) patch.aliases = stringArray(value.aliases);
-  if ('status' in value) patch.status = optionalString(value.status) as MaterialTypes.MaterialTypeStatus | undefined;
+  if ('name' in value) patch.name = readString(value, 'name');
+  if ('slug' in value) patch.slug = readString(value, 'slug');
+  if ('aliases' in value) patch.aliases = readStringArray(value, 'aliases');
+  if ('status' in value) patch.status = readString(value, 'status') as MaterialTypes.MaterialTypeStatus;
   return patch;
 }
 
@@ -67,13 +69,18 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function optionalString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value.trim() : undefined;
+function readString(value: Record<string, unknown>, key: string): string | undefined {
+  if (!(key in value)) return undefined;
+  if (typeof value[key] !== 'string') throw new Error('bad_payload');
+  return value[key].trim();
 }
 
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === 'string');
+function readStringArray(value: Record<string, unknown>, key: string): string[] {
+  const field = value[key];
+  if (!Array.isArray(field) || !field.every((item) => typeof item === 'string')) {
+    throw new Error('bad_payload');
+  }
+  return field;
 }
 
 function actorOf(req: unknown): string | null {

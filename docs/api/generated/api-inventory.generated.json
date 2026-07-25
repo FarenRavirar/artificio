@@ -713,7 +713,7 @@
       "method": "POST",
       "path": "/api/v1/materials",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 356,
+      "line": 360,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -731,7 +731,7 @@
       "method": "PATCH",
       "path": "/api/v1/materials/:id",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 435,
+      "line": 457,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -740,7 +740,7 @@
       "method": "GET",
       "path": "/api/v1/materials/:id/history",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 266,
+      "line": 270,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -749,7 +749,7 @@
       "method": "GET",
       "path": "/api/v1/materials/:slug",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 296,
+      "line": 300,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -758,7 +758,7 @@
       "method": "GET",
       "path": "/api/v1/materials/facets",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 200,
+      "line": 204,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -767,7 +767,7 @@
       "method": "GET",
       "path": "/api/v1/materials/mine",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 252,
+      "line": 256,
       "confidence": "high",
       "kind": "express-route"
     },

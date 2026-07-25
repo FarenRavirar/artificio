@@ -69,4 +69,24 @@ describe('catalog material types admin API', () => {
       method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Outro' }),
     })).status).toBe(404);
   });
+
+  it.each([
+    ['POST', '/', { name: 42 }],
+    ['POST', '/', { name: 'Aventura', slug: {} }],
+    ['POST', '/', { name: 'Aventura', status: false }],
+    ['POST', '/', { name: 'Aventura', aliases: ['ok', 7] }],
+    ['PUT', '/type-1', { name: null }],
+    ['PUT', '/type-1', { aliases: 'adventure' }],
+  ])('rejeita payload malformado em %s %s', async (method, path, body) => {
+    const response = await call(path, {
+      method,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'bad_payload' });
+    expect(materialTypeMocks.createMaterialType).not.toHaveBeenCalled();
+    expect(materialTypeMocks.updateMaterialType).not.toHaveBeenCalled();
+  });
 });

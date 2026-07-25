@@ -7,8 +7,10 @@ import * as useCreateMaterialModule from '../../hooks/useCreateMaterial';
 import * as useMaterialTypesModule from '../../hooks/useMaterialTypes';
 
 // Débito (27 páginas sem teste de componente) — cobertura de NovoMaterialPage
-// (T2.1 spec 082): criação de rascunho de material (slug/title/material_type),
+// (T2.1 spec 082): criação de rascunho de material (slug/title/material_type_id),
 // navegação para edição em caso de sucesso e toast de erro em caso de falha.
+// Achado real (review PR #205, Codex): comentário anterior ainda nomeava o
+// campo livre removido, contrariando o contrato canônico exercitado abaixo.
 
 
 vi.mock('react-hot-toast', () => ({
@@ -133,17 +135,23 @@ describe('NovoMaterialPage', () => {
     expect(screen.getByRole('button', { name: 'Criando...' })).toBeDisabled();
   });
 
-  it('bloqueia criação e avisa quando vocabulário Central falha', () => {
+  it('bloqueia criação e permite tentar novamente quando vocabulário Central falha', () => {
     mockCreateMaterial();
+    const refetch = vi.fn();
     vi.spyOn(useMaterialTypesModule, 'useMaterialTypes').mockReturnValue({
       data: undefined,
       isPending: false,
       isError: true,
+      isFetching: false,
+      refetch,
     } as unknown as ReturnType<typeof useMaterialTypesModule.useMaterialTypes>);
 
     renderPage();
 
     expect(screen.getByRole('alert')).toHaveTextContent('Tipos indisponíveis');
+    expect(screen.getByRole('combobox', { name: 'Tipo de material' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Criar rascunho' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });

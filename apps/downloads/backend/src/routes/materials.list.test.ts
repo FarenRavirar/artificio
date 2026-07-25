@@ -141,6 +141,23 @@ describe('GET /api/v1/materials — listagem publica', () => {
     expect(response.body.items[1].taxonomy_chain).toHaveLength(3);
   });
 
+  it('mantém shape taxonômico completo quando o Central falha', async () => {
+    const item = { id: 'm1', system_id: 'sys', edition_id: null };
+    dbMocks.selectFrom.mockReturnValue(makeQueryBuilder([item], 1));
+    catalogMocks.loadCatalogSystemsFlat.mockRejectedValue(new Error('catalog_503'));
+
+    const response = await request(app()).get('/api/v1/materials').expect(200);
+
+    expect(response.body.items).toEqual([{
+      ...item,
+      taxonomy_chain: [],
+      system_name: null,
+      edition_name: null,
+      variant_name: null,
+      system_path_slug: null,
+    }]);
+  });
+
   it('facets agrega somente linhas fornecidas como publicadas e resolve tipos no Central', async () => {
     const typeId = 'b071ab5e-2d16-4c58-8f0e-086000000001';
     dbMocks.selectFrom
@@ -164,15 +181,18 @@ describe('GET /api/v1/materials — listagem publica', () => {
   });
 
   it('expõe vocabulário Central para o formulário sem lista hardcoded', async () => {
-    const items = [{
+    const active = {
       id: 'b071ab5e-2d16-4c58-8f0e-086000000001',
       slug: 'aventura', name: 'Aventura', aliases: ['adventure'], status: 'active',
-    }];
-    catalogMocks.loadCatalogMaterialTypes.mockResolvedValue(items);
+    };
+    catalogMocks.loadCatalogMaterialTypes.mockResolvedValue([
+      active,
+      { ...active, id: 'b071ab5e-2d16-4c58-8f0e-086000000002', status: 'rejected' },
+    ]);
 
     const response = await request(app()).get('/api/v1/materials/types').expect(200);
 
-    expect(response.body).toEqual({ items });
+    expect(response.body).toEqual({ items: [active] });
     expect(catalogMocks.loadCatalogMaterialTypes).toHaveBeenCalledTimes(1);
   });
 
@@ -207,6 +227,23 @@ describe('GET /api/v1/materials — listagem publica', () => {
     await request(app()).post('/api/v1/materials').send({
       slug: 'inexistente', title: 'Inexistente', material_type_id: 'b071ab5e-2d16-4c58-8f0e-086000000099',
     }).expect(400);
+    expect(dbMocks.insertInto).not.toHaveBeenCalled();
+  });
+
+  it('rejeita tipo inativo e distingue indisponibilidade Central', async () => {
+    const typeId = 'b071ab5e-2d16-4c58-8f0e-086000000001';
+    catalogMocks.getCatalogMaterialTypeById.mockResolvedValue({
+      id: typeId, slug: 'aventura', name: 'Aventura', aliases: [], status: 'rejected',
+    });
+    await request(app()).post('/api/v1/materials').send({
+      slug: 'inativo', title: 'Inativo', material_type_id: typeId,
+    }).expect(400);
+
+    catalogMocks.getCatalogMaterialTypeById.mockRejectedValue(new Error('catalog_503'));
+    const response = await request(app()).post('/api/v1/materials').send({
+      slug: 'indisponivel', title: 'Indisponível', material_type_id: typeId,
+    }).expect(503);
+    expect(response.body).toEqual({ error: 'Catálogo de tipos de material indisponível.' });
     expect(dbMocks.insertInto).not.toHaveBeenCalled();
   });
 });

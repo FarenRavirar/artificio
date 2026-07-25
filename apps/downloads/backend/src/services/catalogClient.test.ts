@@ -120,6 +120,23 @@ describe('material types catalog', () => {
 
     await expect(loadCatalogMaterialTypes()).rejects.toThrow();
   });
+
+  it('preserva Aventura quando a rota ainda não existe no rollout isolado do Site', async () => {
+    catalogFetchMock.mockRejectedValue(new Error('catalog_404: not_found'));
+
+    expect(await loadCatalogMaterialTypes()).toEqual([{
+      ...adventure,
+      aliases: ['adventure', 'aventuras'],
+    }]);
+    expect(await getCatalogMaterialTypeBySlug('aventuras')).toMatchObject({ id: adventure.id });
+    expect(catalogFetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('não mascara falha Central diferente de rota ausente', async () => {
+    catalogFetchMock.mockRejectedValue(new Error('catalog_503: unavailable'));
+
+    await expect(loadCatalogMaterialTypes()).rejects.toThrow('catalog_503');
+  });
 });
 
 describe('createCatalogNode', () => {

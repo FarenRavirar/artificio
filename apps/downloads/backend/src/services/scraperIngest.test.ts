@@ -286,6 +286,21 @@ describe('runScraperIngest', () => {
     await runScraperIngest('run-1', 'itch_io', asyncIterableOf(items));
 
     expect(dbMocks.updateTable).toHaveBeenCalledTimes(2);
+    expect(getCatalogMaterialTypeBySlugMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('falha uma vez antes do loop quando o tipo canônico não existe', async () => {
+    getCatalogMaterialTypeBySlugMock.mockResolvedValue(null);
+
+    await expect(runScraperIngest(
+      'run-1',
+      'itch_io',
+      asyncIterableOf([makeItem({ sourceLanguageHint: 'pt' }), makeItem({ sourceLanguageHint: 'pt' })]),
+    )).rejects.toThrow('catalog_material_type_not_found: aventura');
+
+    expect(getCatalogMaterialTypeBySlugMock).toHaveBeenCalledTimes(1);
+    expect(getOrCreateScraperCreatorIdMock).not.toHaveBeenCalled();
+    expect(dbMocks.selectFrom).not.toHaveBeenCalled();
   });
 
   // T4.5 (spec 086, Fase 4) — resolução de taxonomia: auto-match EXATO

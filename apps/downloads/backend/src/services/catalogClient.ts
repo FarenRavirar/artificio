@@ -104,6 +104,14 @@ const catalogMaterialTypesResponseSchema = z.object({
 
 export type CatalogMaterialType = z.infer<typeof catalogMaterialTypeSchema>;
 
+const MATERIAL_TYPES_ROLLOUT_FALLBACK: CatalogMaterialType[] = [{
+  id: 'b071ab5e-2d16-4c58-8f0e-086000000001',
+  slug: 'aventura',
+  name: 'Aventura',
+  aliases: ['adventure', 'aventuras'],
+  status: 'active',
+}];
+
 export interface FlatCatalogSystem {
   id: string;
   name: string;
@@ -182,8 +190,23 @@ export async function loadCatalogMaterialTypes(forceRefresh = false): Promise<Ca
     return materialTypesCache.data;
   }
 
-  const raw = await catalogFetch<unknown>('/api/catalog/v1/material-types');
-  const data = catalogMaterialTypesResponseSchema.parse(raw).items;
+  let data: CatalogMaterialType[];
+  try {
+    const raw = await catalogFetch<unknown>('/api/catalog/v1/material-types');
+    data = catalogMaterialTypesResponseSchema.parse(raw).items;
+  } catch (error: unknown) {
+    // Achado real (review PR #205, Codex, P1): Site e Downloads têm deploy
+    // isolado/dispatch-only. Se Downloads subir primeiro, a versão anterior do
+    // Site responde 404 nesta rota e bloquearia criação humana + ingest inteiro.
+    // O bootstrap usa exatamente o UUID/valor da migration 015/028 até o Site
+    // receber o contrato; somente rota ausente aceita fallback. Rede/5xx/schema
+    // inválido continuam falhando para não mascarar indisponibilidade Central.
+    if (error instanceof Error && error.message.startsWith('catalog_404')) {
+      data = MATERIAL_TYPES_ROLLOUT_FALLBACK;
+    } else {
+      throw error;
+    }
+  }
   materialTypesCache = { data, expiresAt: now + CATALOG_SNAPSHOT_CACHE_TTL_MS };
   return data;
 }

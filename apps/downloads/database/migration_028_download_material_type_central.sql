@@ -22,7 +22,31 @@ BEGIN
 END
 $$;
 
+-- Achado real (review PR #205, Codex): SET NOT NULL direto pode escanear a
+-- tabela segurando ACCESS EXCLUSIVE. O CHECK NOT VALID entra rápido; VALIDATE
+-- faz o scan com lock mais leve; SET NOT NULL reaproveita a prova validada.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'download_material'::regclass
+      AND conname = 'download_material_material_type_id_not_null'
+  ) THEN
+    ALTER TABLE download_material
+      ADD CONSTRAINT download_material_material_type_id_not_null
+      CHECK (material_type_id IS NOT NULL) NOT VALID;
+  END IF;
+END
+$$;
+
+ALTER TABLE download_material
+  VALIDATE CONSTRAINT download_material_material_type_id_not_null;
+
 ALTER TABLE download_material ALTER COLUMN material_type_id SET NOT NULL;
+
+ALTER TABLE download_material
+  DROP CONSTRAINT IF EXISTS download_material_material_type_id_not_null;
+
 CREATE INDEX IF NOT EXISTS idx_download_material_material_type_id
   ON download_material (material_type_id)
   WHERE material_type_id IS NOT NULL;
