@@ -65,7 +65,7 @@ describe('GestaoDenunciasPage', () => {
 
     renderPage();
 
-    expect(screen.getByText('Carregando...')).toBeInTheDocument();
+    expect(screen.getByText('Carregando…')).toBeInTheDocument();
   });
 
   it('mostra mensagem quando não há denúncias pendentes', () => {

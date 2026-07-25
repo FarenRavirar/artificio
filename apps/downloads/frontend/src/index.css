@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '@artificio/ui/admin/admin.css';
 @source "../../../../packages/ui/src/**/*.{ts,tsx}";
 
 @theme {

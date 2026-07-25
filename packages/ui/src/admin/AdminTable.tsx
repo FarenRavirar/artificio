@@ -67,14 +67,18 @@ export interface AdminTableProps<T> {
 function valueToText(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value.toLowerCase();
-  if (["number", "boolean", "bigint"].includes(typeof value)) return `${value}`.toLowerCase();
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value).toLowerCase();
+  }
   if (value instanceof Date) return value.toISOString().toLowerCase();
   return "";
 }
 
 function valueToDisplay(value: unknown): ReactNode {
   if (value == null) return "";
-  if (["string", "number", "boolean", "bigint"].includes(typeof value)) return `${value}`;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
   if (value instanceof Date) return value.toLocaleString("pt-BR");
   return "";
 }
@@ -174,8 +178,8 @@ export function AdminTable<T>({
     try {
       await action.onRun(ids);
       setSelected(new Set());
-    } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : "Falha ao executar a ação.");
+    } catch (error_) {
+      setActionError(error_ instanceof Error ? error_.message : "Falha ao executar a ação.");
     } finally {
       inFlightRef.current = false;
       setBusy(false);
@@ -189,8 +193,8 @@ export function AdminTable<T>({
     setActionError(null);
     try {
       await action.onRun(row);
-    } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : "Falha ao executar a ação.");
+    } catch (error_) {
+      setActionError(error_ instanceof Error ? error_.message : "Falha ao executar a ação.");
     } finally {
       inFlightRef.current = false;
       setBusy(false);

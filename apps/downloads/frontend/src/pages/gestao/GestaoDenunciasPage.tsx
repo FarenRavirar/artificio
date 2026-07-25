@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageHeader, SectionCard, StatusPill, type PillTone } from '@artificio/ui/admin';
 import { GestaoShell } from '../../components/GestaoShell';
 import { useReportDecision, useReportsQueue } from '../../hooks/useReportsQueue';
 
@@ -9,8 +10,18 @@ const PRIORITY_ICON: Record<string, string> = {
   P3: 'ℹ️',
 };
 
+const PRIORITY_TONE: Record<string, PillTone> = {
+  P0: 'danger',
+  P1: 'warn',
+  P2: 'brand',
+  P3: 'neutral',
+};
+
 // T4.1/T4.2 (spec 075) — fila de denuncia com prioridade P0-P3 (P0 com
-// indicador nao-so-cor), fluxo de decisao com resolution_note.
+// indicador nao-so-cor), fluxo de decisao com resolution_note. Fase 5C
+// (spec 086): reconstruida sobre PageHeader/SectionCard/StatusPill do kit
+// compartilhado (T5C.5) — cada denuncia continua sendo um cartao com nota
+// livre + Resolver/Dispensar, nao uma tabela (a acao tem input por item).
 export function GestaoDenunciasPage() {
   const { data: reports, isLoading } = useReportsQueue();
   const decision = useReportDecision();
@@ -18,19 +29,25 @@ export function GestaoDenunciasPage() {
 
   return (
     <GestaoShell>
-      <h1 className="text-2xl font-bold text-[var(--fg)]">Denúncias</h1>
+      <PageHeader title="Denúncias" />
 
-      {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
-      {reports?.length === 0 && <p className="mt-4 text-[var(--fg-muted)]">Nenhuma denúncia pendente.</p>}
+      {isLoading && <p className="mt-4 text-[var(--admin-fg-low)]">Carregando…</p>}
+      {reports?.length === 0 && <p className="mt-4 text-[var(--admin-fg-low)]">Nenhuma denúncia pendente.</p>}
 
-      <ul className="mt-6 divide-y divide-[var(--line)]">
+      <div className="mt-6 flex flex-col gap-4">
         {reports?.map((report) => (
-          <li key={report.id} className="py-4">
-            <p className="flex items-center gap-2 font-semibold text-[var(--fg)]">
-              <span aria-hidden="true">{PRIORITY_ICON[report.priority]}</span>
-              {report.priority} — {report.category}
-            </p>
-            {report.details && <p className="mt-1 text-sm text-[var(--fg-muted)]">{report.details}</p>}
+          <SectionCard
+            key={report.id}
+            title={
+              <span className="flex items-center gap-2">
+                <StatusPill tone={PRIORITY_TONE[report.priority] ?? 'neutral'}>
+                  <span aria-hidden="true">{PRIORITY_ICON[report.priority]}</span> {report.priority}
+                </StatusPill>
+                {report.priority} — {report.category}
+              </span>
+            }
+          >
+            {report.details && <p className="text-sm text-[var(--admin-fg-low)]">{report.details}</p>}
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <input
@@ -38,14 +55,14 @@ export function GestaoDenunciasPage() {
                 value={notes[report.id] ?? ''}
                 onChange={(e) => setNotes((prev) => ({ ...prev, [report.id]: e.target.value }))}
                 placeholder="Nota de resolução"
-                className="min-h-[44px] flex-1 rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm text-[var(--fg)]"
+                className="min-h-[44px] flex-1 rounded-md border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-fg)]"
               />
               <button
                 type="button"
                 onClick={() =>
                   decision.mutateAsync({ id: report.id, case_state: 'resolved', resolution_note: notes[report.id] }).catch(() => undefined)
                 }
-                className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)]"
+                className="min-h-[44px] rounded-md border border-[var(--admin-border)] px-4 py-2 text-sm text-[var(--admin-fg)]"
               >
                 Resolver
               </button>
@@ -54,14 +71,14 @@ export function GestaoDenunciasPage() {
                 onClick={() =>
                   decision.mutateAsync({ id: report.id, case_state: 'dismissed', resolution_note: notes[report.id] }).catch(() => undefined)
                 }
-                className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)]"
+                className="min-h-[44px] rounded-md border border-[var(--admin-border)] px-4 py-2 text-sm text-[var(--admin-fg)]"
               >
                 Dispensar
               </button>
             </div>
-          </li>
+          </SectionCard>
         ))}
-      </ul>
+      </div>
     </GestaoShell>
   );
 }

@@ -19,8 +19,17 @@ function makeMaterial(overrides: Partial<ReturnType<typeof baseMaterial>> = {}) 
 function baseMaterial() {
   return {
     id: 'material-1',
+    slug: 'manual-do-aventureiro',
     title: 'Manual do Aventureiro',
+    summary: null,
+    description: null,
     material_type: 'pdf',
+    access_kind: 'external_link' as const,
+    external_url: 'https://example.com/manual.pdf',
+    creator_id: 'creator-1',
+    editorial_state: 'in_review' as const,
+    created_at: '2026-07-01T00:00:00.000Z',
+    updated_at: '2026-07-01T00:00:00.000Z',
   };
 }
 
@@ -95,7 +104,7 @@ describe('GestaoModeracaoPage', () => {
 
     renderPage();
 
-    expect(screen.getByText('Carregando...')).toBeInTheDocument();
+    expect(screen.getByText('Carregando…')).toBeInTheDocument();
   });
 
   it('mostra mensagem quando a fila está vazia', () => {
@@ -184,7 +193,7 @@ describe('GestaoModeracaoPage', () => {
 
     renderPage();
 
-    fireEvent.click(screen.getByLabelText('Selecionar Manual do Aventureiro'));
+    fireEvent.click(screen.getByLabelText('Selecionar material-1'));
     fireEvent.click(screen.getByRole('button', { name: 'Aprovar selecionados' }));
 
     expect(batchMutateAsync).toHaveBeenCalledWith({
@@ -202,7 +211,7 @@ describe('GestaoModeracaoPage', () => {
 
     renderPage();
 
-    fireEvent.click(screen.getByLabelText('Selecionar Manual do Aventureiro'));
+    fireEvent.click(screen.getByLabelText('Selecionar material-1'));
     fireEvent.click(screen.getByRole('button', { name: 'Reprovar selecionados' }));
 
     expect(alertSpy).toHaveBeenCalledWith('Categoria e motivo de reprovação são obrigatórios para ação em lote.');
@@ -216,7 +225,7 @@ describe('GestaoModeracaoPage', () => {
 
     renderPage();
 
-    fireEvent.click(screen.getByLabelText('Selecionar Manual do Aventureiro'));
+    fireEvent.click(screen.getByLabelText('Selecionar material-1'));
     fireEvent.click(screen.getByRole('button', { name: 'Arquivar selecionados' }));
 
     expect(batchMutateAsync).toHaveBeenCalledWith({
@@ -227,15 +236,15 @@ describe('GestaoModeracaoPage', () => {
     });
   });
 
-  it('mantém ação em lote desabilitada sem itens selecionados', () => {
+  it('não mostra ações em lote sem itens selecionados', () => {
     mockModerationQueue({ data: [makeMaterial()], isLoading: false });
     mockBatchAction();
     mockSingleAction();
 
     renderPage();
 
-    expect(screen.getByRole('button', { name: 'Aprovar selecionados' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Reprovar selecionados' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Arquivar selecionados' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Aprovar selecionados' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reprovar selecionados' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Arquivar selecionados' })).not.toBeInTheDocument();
   });
 });

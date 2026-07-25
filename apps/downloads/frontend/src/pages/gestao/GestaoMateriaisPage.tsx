@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { AdminTable, PageHeader, StatusPill, type AdminColumn } from '@artificio/ui/admin';
 import { GestaoShell } from '../../components/GestaoShell';
 import { useMaterialsCatalog } from '../../hooks/useMaterialsCatalog';
 
@@ -10,34 +11,57 @@ const STATE_LABEL: Record<string, string> = {
   withdrawn: 'Retirado',
 };
 
+const STATE_TONE: Record<string, 'neutral' | 'brand' | 'success' | 'warn' | 'danger'> = {
+  draft: 'neutral',
+  in_review: 'warn',
+  published: 'success',
+  rejected: 'danger',
+  withdrawn: 'neutral',
+};
+
+interface MaterialRow {
+  id: string;
+  title: string;
+  editorial_state: string;
+}
+
 // T1.1 (spec 075) — visao geral de materiais publicados (busca/lista ja
 // existente na 073, aqui reusada no contexto admin); auditoria por item
-// aponta pra /gestao/auditoria/:id.
+// aponta pra /gestao/auditoria/:id. Fase 5C (spec 086): reconstruida sobre
+// PageHeader/AdminTable/StatusPill do kit compartilhado (T5C.5).
 export function GestaoMateriaisPage() {
   const { data, isLoading } = useMaterialsCatalog({});
+  const navigate = useNavigate();
+
+  const columns: Array<AdminColumn<MaterialRow>> = [
+    { key: 'title', header: 'Título', render: (row) => row.title },
+    {
+      key: 'editorial_state',
+      header: 'Estado',
+      render: (row) => (
+        <StatusPill tone={STATE_TONE[row.editorial_state] ?? 'neutral'}>
+          {STATE_LABEL[row.editorial_state] ?? row.editorial_state}
+        </StatusPill>
+      ),
+    },
+  ];
 
   return (
     <GestaoShell>
-      <h1 className="text-2xl font-bold text-[var(--fg)]">Materiais</h1>
+      <PageHeader title="Materiais" />
 
-      {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
-
-      <ul className="mt-6 divide-y divide-[var(--line)]">
-        {data?.items.map((material) => (
-          <li key={material.id} className="flex items-center justify-between gap-4 py-3">
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold text-[var(--fg)]">{material.title}</p>
-              <p className="text-xs text-[var(--fg-muted)]">{STATE_LABEL[material.editorial_state] ?? material.editorial_state}</p>
-            </div>
-            <Link
-              to={`/gestao/auditoria/${material.id}`}
-              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] hover:border-artificio-orange"
-            >
-              Auditoria
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <div className="mt-6">
+        <AdminTable<MaterialRow>
+          tableId="gestao-materiais"
+          rows={data?.items ?? []}
+          getRowId={(row) => row.id}
+          columns={columns}
+          searchKeys={['title']}
+          loading={isLoading}
+          rowActions={[{ key: 'auditoria', label: 'Auditoria', onRun: (row) => navigate(`/gestao/auditoria/${row.id}`) }]}
+          emptyTitle="Nenhum material encontrado"
+        />
+      </div>
     </GestaoShell>
   );
 }

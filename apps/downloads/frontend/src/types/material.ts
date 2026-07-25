@@ -17,6 +17,15 @@ export const materialSchema = z.object({
   edition_id: z.string().nullable().optional(),
   system_name: z.string().nullable().optional(),
   edition_name: z.string().nullable().optional(),
+  // Fase 6 (spec 086, T6.1) — metadata rica pro card/ficha: capa real, creditos
+  // (autor+artista combinados numa string unica pelo backend — combineCredits
+  // em scraperIngest.ts nao separa os dois, achado real registrado como
+  // debito de contrato) e cenario/ambientacao do material.
+  cover_image_url: z.string().nullable().optional(),
+  credits: z.string().nullable().optional(),
+  scenario: z.string().nullable().optional(),
+  variant_name: z.string().nullable().optional(),
+  system_path_slug: z.string().nullable().optional(),
   editorial_state: z.enum(['draft', 'in_review', 'published', 'rejected', 'withdrawn']),
   created_at: z.string(),
   updated_at: z.string(),
