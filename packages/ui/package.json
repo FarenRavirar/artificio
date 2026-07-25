@@ -28,6 +28,11 @@
       "types": "./dist/changelog.d.ts",
       "import": "./dist/changelog.js"
     },
+    "./admin": {
+      "types": "./dist/admin/index.d.ts",
+      "import": "./dist/admin/index.js"
+    },
+    "./admin/admin.css": "./src/admin/admin.css",
     "./styles.css": "./src/styles.css",
     "./tailwind-preset": "./tailwind-preset.js"
   },

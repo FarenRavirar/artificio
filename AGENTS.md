@@ -223,6 +223,10 @@ Mecânica de branch/PR/commit/push: §Regras Pétreas → PR, Commit e Push.
 
 ## VM, Banco e Infra
 
+### Worktrees locais (multi-agente paralelo)
+
+Trabalho paralelo em branch diferente usa `git worktree add ../artificio-<escopo> <branch>`, nunca checkout na mesma pasta enquanto outro agente roda ali. Worktree ativo, propósito e branch ficam registrados em `.specify/memory/project-state.md` (ou sessão ativa), pra chat novo achar via T0/T1 sem precisar o usuário repetir contexto. `node_modules` só reinstala no worktree se for rodar build/test/dev ali (pnpm store global evita duplicar peso).
+
 ### Acesso à VM (Oracle)
 
 - Acesso direto por alias SSH configurado em `~/.ssh/config` local (**não versionado**; host/IP/chave fora do git). Mapa de infra: doc interna fora do repositório público (`docs/agents/`, gitignored).
