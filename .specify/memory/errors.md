@@ -143,6 +143,20 @@
     rm -f apps/downloads/.env   # remover a cópia temporária logo depois
     ```
     Sempre fazer `pg_dump` (snapshot pré-migration) antes, mesmo em banco declarado vazio — é o rollback manual se algo falhar no meio do lote.
+  - **Caso repetido (spec 085, downloads, 2026-07-25) — desta vez guard de CLASSE (`manual-risk`), não de QUANTIDADE.** `migration_025_download_scraper_platform.sql` (`@class: manual-risk`, tem `DROP CONSTRAINT`) bloqueou `deploy.yml env=beta` com `Existem migrations manual-risk pendentes. Use ALLOW_MANUAL_MIGRATIONS=true.` Rollback automático do workflow funcionou limpo (snapshot restaurado, containers healthy). **Achado novo confirmado por busca exaustiva:** nenhum workflow do repo (`deploy.yml`, `_deploy-module.yml`, `break-glass-deploy-prod.yml` — que só cobre `mesas`/prod) expõe `ALLOW_MANUAL_MIGRATIONS` nem `REQUIRE_PROD_BACKUP_FOR_MANUAL` como input de `workflow_dispatch` — não existe caminho via `gh workflow run` pra aplicar migration `manual-risk`, é sempre SSH manual (mesmo padrão E012 acima, script oficial). **Achado extra:** rodar em **beta** (não prod) o script ainda aborta com `Backup PROD_BACKUP_FILE ausente para manual-risk` — `REQUIRE_PROD_BACKUP_FOR_MANUAL` (default `true`) não distingue ambiente sozinho; precisa passar `REQUIRE_PROD_BACKUP_FOR_MANUAL=false` explícito em beta (com snapshot manual já feito antes, mesma disciplina do E012). Comando validado (variação deste caso — 1 migration manual-risk isolada, não acúmulo de `MAX_AUTO_PENDING`):
+    ```bash
+    cd /opt/artificio-beta
+    cp apps/downloads/.env.beta apps/downloads/.env
+    docker exec downloads-beta-db pg_dump -U admin -d downloads -Fc -f /tmp/predeploy_manual.dump
+    docker cp downloads-beta-db:/tmp/predeploy_manual.dump /tmp/artificio-downloads-beta-manual-$(date +%s).dump
+    docker exec downloads-beta-db rm -f /tmp/predeploy_manual.dump
+    ALLOW_MANUAL_MIGRATIONS=true REQUIRE_PROD_BACKUP_FOR_MANUAL=false COMPOSE_PROJECT=downloads-beta \
+      bash scripts/deploy/apply_required_migrations.sh \
+      apps/downloads/docker-compose.beta.yml downloads-beta-db downloads admin apps/downloads/database
+    rm -f apps/downloads/.env
+    ```
+    Depois: `gh workflow run deploy.yml --ref dev -f module=downloads -f mode=deploy -f env=beta` normal (schema já em conformidade) — `success` confirmado (`gh run view 30146119480`).
+  - **Débito registrado (2026-07-25), não corrigido nesta sessão (mantenedor optou por só documentar):** adicionar `allow_manual_migrations`/`require_prod_backup_for_manual` como inputs de `workflow_dispatch` em `deploy.yml`/`_deploy-module.yml` eliminaria o SSH manual pra esse caso — mudança de infra/CI, pede spec/PR própria, fora do escopo da spec 085.
 
 ### E013 — contato Discord de fallback usava nome de exibição do servidor (não contactável fora dele)
 - **Módulo/Pacote:** `apps/mesas/backend/src/discord/parseDiscordAnnouncement.ts` (fallback de contato, DEB-048-26) + `syncHelpers.ts` + `apps/mesas/frontend/src/components/TableContacts.tsx`
