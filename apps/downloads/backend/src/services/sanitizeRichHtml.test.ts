@@ -13,7 +13,7 @@ describe('sanitizeRichHtml', () => {
     expect(result).toContain('href="https://example.com"');
     expect(result).toContain('target="_blank"');
     expect(result).toContain('rel="nofollow noopener noreferrer"');
-    expect(result).toContain('<img src="https://example.com/capa.png" alt="Capa" />');
+    expect(result).toContain('<img src="https://example.com/capa.png" alt="Capa">');
     expect(result).not.toMatch(/script|style|iframe|onclick|onerror|javascript:/i);
   });
 

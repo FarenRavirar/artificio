@@ -31,6 +31,9 @@ export type DownloadScraperRunStatus = 'running' | 'completed' | 'failed';
 export type DownloadScraperItemOutcome = 'created' | 'skipped_duplicate' | 'skipped_not_portuguese' | 'skipped_error';
 
 export type JSONColumnType<T> = ColumnType<T, T | undefined, T>;
+// Achado real (review PR #203, CodeRabbit, P2): Zod não pode aceitar valor
+// maior que a coluna PostgreSQL INTEGER comporta.
+export const POSTGRES_INTEGER_MAX = 2_147_483_647;
 
 export interface DownloadMaterialTable {
   id: Generated<string>;

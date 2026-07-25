@@ -353,7 +353,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/ingest",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 206,
+      "line": 215,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -362,7 +362,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/parse-html",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 292,
+      "line": 301,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -371,7 +371,7 @@
       "method": "GET",
       "path": "/api/v1/admin/scraper/platforms",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 389,
+      "line": 398,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -380,7 +380,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/platforms",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 399,
+      "line": 408,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -389,7 +389,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/run",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 74,
+      "line": 78,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -398,7 +398,7 @@
       "method": "GET",
       "path": "/api/v1/admin/scraper/run/:id",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 98,
+      "line": 102,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -407,7 +407,7 @@
       "method": "GET",
       "path": "/api/v1/admin/scraper/runs",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 119,
+      "line": 123,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -659,7 +659,7 @@
       "method": "PUT",
       "path": "/api/v1/material-metadata/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/materialMetadata.ts",
-      "line": 77,
+      "line": 81,
       "confidence": "high",
       "kind": "express-route"
     },

@@ -12,7 +12,7 @@ import { z } from 'zod';
 import ipaddr from 'ipaddr.js';
 import { sanitizeText } from '../sanitizeText';
 import { applyPlatformOverride, type PlatformOverrideInput } from './platformOverrides';
-import type { DownloadScraperPlatform } from '../../db/types';
+import { POSTGRES_INTEGER_MAX, type DownloadScraperPlatform } from '../../db/types';
 
 const sourceFilterSchema = z.object({
   facet: z.string().min(1),
@@ -95,7 +95,7 @@ export const genericParsePreviewSchema = z
     tags: z.array(z.string().min(1)).optional(),
     fileSizeText: z.string().nullable().optional(),
     format: z.string().nullable().optional(),
-    pageCount: z.number().int().nonnegative().nullable().optional(),
+    pageCount: z.number().int().nonnegative().max(POSTGRES_INTEGER_MAX).nullable().optional(),
     sourceCategory: z.string().nullable().optional(),
     descriptionHtml: z.string().nullable().optional(),
   })
@@ -344,8 +344,9 @@ export async function parseHtml(html: string, findPlatformByDomain: FindPlatform
   };
 
   // T7.2 — override em código roda por último, só sobrescreve o que
-  // declara (ex.: onebookshelf sobrescreve isFreeOrPwyw/priceSignal via
-  // tag PWYW; nunca reimplementa title/description/publisher/image).
+  // declara. OneBookShelf troca isFreeOrPwyw/priceSignal via tag PWYW e,
+  // quando houver descrição rica, description/descriptionHtml (spec 086,
+  // Fase 2; revisão PR #203). Title, publisher e imagem seguem JSON-LD.
   const finalPreview = applyPlatformOverride(platform.parser_kind, basePreview, html);
 
   return genericParsePreviewSchema.parse(finalPreview);

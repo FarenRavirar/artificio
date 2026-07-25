@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
-import type { JSONColumnType } from '../db/types';
+import { POSTGRES_INTEGER_MAX, type JSONColumnType } from '../db/types';
 import { sanitizeRichHtml } from '../services/sanitizeRichHtml';
 
 const router = Router();
@@ -35,7 +35,7 @@ const upsertMetadataSchema = z.object({
   content_warnings: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   file_size_text: z.string().trim().max(50).nullable().optional(),
-  page_count: z.number().int().nonnegative().nullable().optional(),
+  page_count: z.number().int().nonnegative().max(POSTGRES_INTEGER_MAX).nullable().optional(),
   creation_method: z.string().trim().max(100).nullable().optional(),
   source_category: z.string().trim().max(200).nullable().optional(),
   source_filters: z.array(z.object({
@@ -71,7 +71,11 @@ router.get('/:materialId', async (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Metadados não encontrados.' });
   }
 
-  return res.json(metadata);
+  // Spec 086: dado rico de banco/importação também é hostil. Sanitizar na
+  // leitura impede XSS armazenado se outro writer ignorar a fronteira de PUT.
+  // Achado real (review PR #203, Codex, P2): importação/migration/SQL pode
+  // contornar o PUT. Re-sanitiza a leitura na fronteira de renderização.
+  return res.json({ ...metadata, description_html: metadata.description_html ? sanitizeRichHtml(metadata.description_html) : null });
 });
 
 router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {

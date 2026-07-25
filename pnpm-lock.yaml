@@ -191,6 +191,9 @@ importers:
       ipaddr.js:
         specifier: ^2.4.0
         version: 2.4.0
+      isomorphic-dompurify:
+        specifier: ^3.19.0
+        version: 3.19.0(@noble/hashes@1.8.0)
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
@@ -206,9 +209,6 @@ importers:
       pg:
         specifier: ^8.20.0
         version: 8.21.0
-      sanitize-html:
-        specifier: ^2.17.4
-        version: 2.17.4
       undici:
         specifier: ^8.7.0
         version: 8.7.0
@@ -234,9 +234,6 @@ importers:
       '@types/pg':
         specifier: ^8.11.6
         version: 8.20.0
-      '@types/sanitize-html':
-        specifier: ^2.16.1
-        version: 2.16.1
       '@types/supertest':
         specifier: ^7.2.0
         version: 7.2.0
@@ -4112,6 +4109,9 @@ packages:
   dompurify@3.4.11:
     resolution: {integrity: sha512-zhlUV12GsaRzMsf9q5M254YhA4+VuF0fG+QFqu6aYpoGlKtz+w8//jBcGVYBgQkR5GHjUomejY84AV+/uPbWdw==}
 
+  dompurify@3.4.12:
+    resolution: {integrity: sha512-zQvGet8Z2sWbQhCmfFz/T5QWH2oBmjnqK3qvOjaqaNLrLEF912WamU+ohnTp0TCep/MFVHpdJuCZEdFOdTnEFg==}
+
   domutils@3.2.2:
     resolution: {integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==}
 
@@ -4807,6 +4807,10 @@ packages:
 
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
+
+  isomorphic-dompurify@3.19.0:
+    resolution: {integrity: sha512-ynZ/6cVv4Trpt1FEd5TkHsHtLs+y/YQGb+ocIIVRdc+DkiYRbxlEL/IiSeSeQXwopQcG5FhoeIUJa1l26IgSpw==}
+    engines: {node: ^20.19.0 || ^22.13.0 || >=24.0.0}
 
   isomorphic.js@0.2.5:
     resolution: {integrity: sha512-PIeMbHqMt4DnUP3MA/Flc0HElYjMXArsw1qwJZcm9sqR8mq3l8NYizFMty0pWwE/tzIGH3EKK5+jes5mAr85yw==}
@@ -10523,6 +10527,10 @@ snapshots:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
+  dompurify@3.4.12:
+    optionalDependencies:
+      '@types/trusted-types': 2.0.7
+
   domutils@3.2.2:
     dependencies:
       dom-serializer: 2.0.0
@@ -11380,6 +11388,14 @@ snapshots:
   isarray@1.0.0: {}
 
   isexe@2.0.0: {}
+
+  isomorphic-dompurify@3.19.0(@noble/hashes@1.8.0):
+    dependencies:
+      dompurify: 3.4.12
+      jsdom: 29.1.1(@noble/hashes@1.8.0)
+    transitivePeerDependencies:
+      - '@noble/hashes'
+      - canvas
 
   isomorphic.js@0.2.5: {}
 

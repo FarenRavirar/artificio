@@ -9,7 +9,7 @@
 // padrao, generic Schema.org).
 
 import type { PlatformOverrideInput } from './index';
-import { sanitizeRichHtml } from '../../sanitizeRichHtml';
+import { richHtmlToPlainText, sanitizeRichHtml } from '../../sanitizeRichHtml';
 import { sanitizeText } from '../../sanitizeText';
 import type { SourceFilter } from '../types';
 
@@ -20,7 +20,7 @@ const TD_RE = /<td\b[^>]*>([\s\S]*?)<\/td>/gi;
 const CODE_ID_RE = /\bdata-codeid\s*=\s*(["'])([^"']+)\1/i;
 const CLASS_ATTR_RE = /\bclass\s*=\s*(["'])(.*?)\1/i;
 const LI_RE = /<li\b[^>]*>([\s\S]*?)<\/li>/gi;
-const ANCHOR_RE = /<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi;
+const HREF_ATTR_RE = /\bhref\s*=\s*(["'])([^"']*)\1/i;
 const PARAGRAPH_RE = /<p\b[^>]*>([\s\S]*?)<\/p>/gi;
 const TILE_MARKER_RE = /\bproduct-detail-tile-\d+\b/gi;
 const RICH_DESCRIPTION_RE = /<obs-product-description\b[^>]*>([\s\S]*?)<\/obs-product-description>/i;
@@ -53,6 +53,49 @@ function extractDetailValues(html: string): Map<string, string> {
   return values;
 }
 
+// Achado real (Sonar, performance): regex de <a> combinava múltiplos
+// quantificadores amplos sobre HTML externo. Scanner linear evita backtracking.
+function extractAnchors(html: string): Array<{ href: string; content: string }> {
+  const anchors: Array<{ href: string; content: string }> = [];
+  const lowerHtml = html.toLowerCase();
+  let cursor = 0;
+
+  while (cursor < html.length) {
+    const openStart = lowerHtml.indexOf('<a', cursor);
+    if (openStart === -1) break;
+    const nextCharacter = lowerHtml[openStart + 2];
+    if (nextCharacter !== '>' && !/\s/.test(nextCharacter ?? '')) {
+      cursor = openStart + 2;
+      continue;
+    }
+
+    let quote: string | null = null;
+    let openEnd = -1;
+    for (let index = openStart + 2; index < html.length; index += 1) {
+      const character = html[index];
+      if (quote) {
+        if (character === quote) quote = null;
+      } else if (character === '"' || character === "'") {
+        quote = character;
+      } else if (character === '>') {
+        openEnd = index;
+        break;
+      }
+    }
+    if (openEnd === -1) break;
+
+    const closeStart = lowerHtml.indexOf('</a>', openEnd + 1);
+    if (closeStart === -1) {
+      cursor = openEnd + 1;
+      continue;
+    }
+    const href = HREF_ATTR_RE.exec(html.slice(openStart, openEnd + 1))?.[2];
+    if (href !== undefined) anchors.push({ href, content: html.slice(openEnd + 1, closeStart) });
+    cursor = closeStart + 4;
+  }
+  return anchors;
+}
+
 function extractSourceFilters(filtersHtml: string | undefined): SourceFilter[] {
   if (!filtersHtml) return [];
   const filters: SourceFilter[] = [];
@@ -64,10 +107,16 @@ function extractSourceFilters(filtersHtml: string | undefined): SourceFilter[] {
       facet = null;
       path = [];
     };
-    for (const anchor of listItem[1].matchAll(ANCHOR_RE)) {
-      const text = nullableText(anchor[3]);
+    for (const anchor of extractAnchors(listItem[1])) {
+      const text = nullableText(anchor.content);
       if (!text) continue;
-      const url = new URL(anchor[2], 'https://onebookshelf.invalid');
+      let url: URL;
+      try {
+        url = new URL(anchor.href, 'https://onebookshelf.invalid');
+      } catch {
+        // HTML externo malformado não pode abortar a extração dos demais filtros.
+        continue;
+      }
       const nextFacet = [...url.searchParams.keys()].find((key) => FILTER_FACETS.has(key));
       if (!nextFacet) continue;
       if (facet && facet !== nextFacet) flush();
@@ -97,7 +146,7 @@ function extractTileMetadata(html: string): Pick<PlatformOverrideInput, 'pageCou
     const value = paragraphs.at(-1);
     if (!label || !value) continue;
     if (label === 'número de páginas' || label === 'page count') {
-      const parsed = Number.parseInt(value.replace(/[^0-9]/g, ''), 10);
+      const parsed = Number.parseInt(value.replace(/\D/g, ''), 10);
       pageCount = Number.isFinite(parsed) ? parsed : null;
     }
     if (label === 'categoria' || label === 'category') sourceCategory = value;
@@ -115,7 +164,7 @@ export function applyOneBookShelfOverride(preview: PlatformOverrideInput, html: 
   const descriptionHtml = extractedDescriptionHtml ? sanitizeRichHtml(extractedDescriptionHtml) : null;
   const sourceFilters = extractSourceFilters(details.get('filters'));
   const tiles = extractTileMetadata(html);
-  const description = descriptionHtml ? sanitizeText(descriptionHtml) : preview.description;
+  const description = descriptionHtml ? richHtmlToPlainText(descriptionHtml) : preview.description;
   const richFields: Pick<PlatformOverrideInput, 'scenario' | 'authorsCredits' | 'artistsCredits' | 'creationMethod' | 'sourceFilters' | 'tags' | 'fileSizeText' | 'format' | 'pageCount' | 'sourceCategory' | 'descriptionHtml' | 'description'> = {
     scenario: nullableText(details.get('ruleSystem')),
     authorsCredits: nullableText(details.get('authors')),
