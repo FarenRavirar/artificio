@@ -401,7 +401,14 @@ interface MaterialWithTaxonomyIds {
 
 function taxonomyChainFor(material: MaterialWithTaxonomyIds, nodes: FlatCatalogSystem[]) {
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const leaf = material.edition_id ? byId.get(material.edition_id) : material.system_id ? byId.get(material.system_id) : undefined;
+  // Achado real (review PR #205, Sonar, Major): ternário aninhado escondia a
+  // precedência edition → system. Fluxo explícito mantém a regra legível.
+  let leaf: FlatCatalogSystem | undefined;
+  if (material.edition_id) {
+    leaf = byId.get(material.edition_id);
+  } else if (material.system_id) {
+    leaf = byId.get(material.system_id);
+  }
   if (!leaf) return [];
 
   const chain: FlatCatalogSystem[] = [];

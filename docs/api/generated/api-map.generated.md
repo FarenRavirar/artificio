@@ -107,7 +107,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 114 |
 | POST | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 360 |
 | USE | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/server.ts` | 81 |
-| PATCH | `/api/v1/materials/:id` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 457 |
+| PATCH | `/api/v1/materials/:id` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 464 |
 | GET | `/api/v1/materials/:id/history` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 270 |
 | GET | `/api/v1/materials/:slug` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 300 |
 | GET | `/api/v1/materials/facets` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 204 |

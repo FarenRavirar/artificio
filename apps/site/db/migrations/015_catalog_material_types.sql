@@ -23,13 +23,15 @@ CREATE INDEX IF NOT EXISTS idx_catalog_material_types_status
 -- Vocabulário inicial cobre valor que o Downloads já persiste desde seu MVP.
 -- UUID fixo permite backfill transacional no banco isolado do Downloads sem
 -- criar FK cross-serviço nem depender de chamada HTTP durante migration.
-INSERT INTO catalog_material_types (id, slug, name, aliases, status)
+-- Achado real (review PR #205, Sonar, Critical): o seed repetia 'active' além
+-- do DEFAULT/CHECK. Omitir status usa o DEFAULT e EXCLUDED.status mantém o
+-- mesmo upsert canônico sem terceira fonte literal.
+INSERT INTO catalog_material_types (id, slug, name, aliases)
 VALUES (
   'b071ab5e-2d16-4c58-8f0e-086000000001',
   'aventura',
   'Aventura',
-  '["adventure", "aventuras"]'::jsonb,
-  'active'
+  '["adventure", "aventuras"]'::jsonb
 )
 ON CONFLICT (id) DO UPDATE SET
   slug = EXCLUDED.slug,

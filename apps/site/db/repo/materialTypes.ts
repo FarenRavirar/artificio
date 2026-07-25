@@ -23,8 +23,15 @@ export interface MaterialTypeWrite {
 const STATUSES = new Set<MaterialTypeStatus>(["pending", "active", "merged", "rejected"]);
 
 export function slugifyMaterialType(value: string): string {
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+  const collapsed = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-");
+  // Achado real (review PR #205, Sonar, Major): /^-+|-+$/ podia sofrer
+  // backtracking superlinear. Varredura linear preserva o trim de hífens.
+  let start = 0;
+  let end = collapsed.length;
+  while (start < end && collapsed[start] === "-") start += 1;
+  while (end > start && collapsed[end - 1] === "-") end -= 1;
+  return collapsed.slice(start, end).slice(0, 80);
 }
 
 function cleanAliases(value: unknown): string[] {
