@@ -8,14 +8,6 @@ import { logout } from '@artificio/auth/client';
 // T1.1 (spec 075) — página de configurações admin: só título + botão de
 // logout (mesma ação do painel de usuário 074, contexto admin).
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 vi.mock('@artificio/auth/client', () => ({
   logout: vi.fn(),

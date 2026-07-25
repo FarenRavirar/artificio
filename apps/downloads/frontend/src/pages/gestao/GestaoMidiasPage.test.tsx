@@ -9,14 +9,6 @@ import * as useAdminMediaModule from '../../hooks/useAdminMedia';
 // editar URL de capa + salvar (sucesso e falha), coerente com o MVP
 // somente-link-externo descrito no comentário da página.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },
@@ -55,6 +47,8 @@ function mockUpdateCover(overrides: Partial<ReturnType<typeof useAdminMediaModul
 describe('GestaoMidiasPage', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    (toast.success as ReturnType<typeof vi.fn>).mockClear();
+    (toast.error as ReturnType<typeof vi.fn>).mockClear();
   });
 
   it('mostra estado de carregamento', () => {

@@ -7,14 +7,6 @@ import * as useMyMaterialsModule from '../../hooks/useMyMaterials';
 // Débito (27 páginas sem teste de componente, spec 075): cobre loading,
 // lista vazia, lista com estados editoriais traduzidos e link de edição.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function makeMaterial(overrides: Partial<ReturnType<typeof baseMaterial>> = {}) {
   return { ...baseMaterial(), ...overrides };

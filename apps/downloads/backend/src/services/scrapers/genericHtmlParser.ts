@@ -9,21 +9,47 @@
 // declara, pra peculiaridade de site (ex.: tag PWYW do OneBookShelf).
 
 import { z } from 'zod';
+import ipaddr from 'ipaddr.js';
 import { sanitizeText } from '../sanitizeText';
 import { applyPlatformOverride, type PlatformOverrideInput } from './platformOverrides';
 import type { DownloadScraperPlatform } from '../../db/types';
 
-const JSON_LD_BLOCK_RE = /<script type="application\/ld\+json">(.*?)<\/script>/gs;
-const CANONICAL_RE = /<link rel="canonical" href="([^"]+)"/;
-const OG_IMAGE_RE = /property="og:image" content="([^"]+)"|content="([^"]+)" property="og:image"/;
-const HTML_LANG_RE = /<html[^>]*\blang="([^"]+)"/;
+// Achado real (review PR #201, Codex, P2): regex original exigia
+// <script type="application/ld+json"> literal no início da tag e
+// <link rel="canonical" href="..."> nessa ordem exata — HTML real de
+// terceiros (não testado nos fixtures que temos) pode ter atributos extras
+// antes (ex.: <script nonce="..." type="application/ld+json">) ou aspas
+// simples. Como o objetivo desta spec é cadastrar site novo SEM código
+// (parser_kind='json_ld_generic'), a extração não pode depender de ordem
+// de atributos — só de type="application/ld+json" e rel="canonical"
+// aparecerem em algum ponto da tag, aspas simples ou duplas.
+const JSON_LD_BLOCK_RE = /<script\b[^>]*\btype\s*=\s*(["'])application\/ld\+json\1[^>]*>(.*?)<\/script>/gis;
+const LINK_TAG_RE = /<link\b[^>]*>/gi;
+const HREF_ATTR_RE = /\bhref\s*=\s*(["'])(.*?)\1/i;
+const META_TAG_RE = /<meta\b[^>]*>/gi;
+const CONTENT_ATTR_RE = /\bcontent\s*=\s*(["'])(.*?)\1/i;
+const HTML_LANG_RE = /<html[^>]*\blang\s*=\s*(["'])(.*?)\1/i;
 
 // Achado real (review PR #199, preservado): z.url() só valida sintaxe —
 // HTML adulterado podia colar canonical/og:image com protocolo não-http(s)
 // (ex.: ftp://) ou apontando pra host interno/privado/metadata cloud. Só
 // http(s) público passa; nunca persistir URL fora desse contrato.
-const LOCAL_OR_PRIVATE_HOST_RE =
-  /^(localhost|127\.|0\.|10\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|::1$|\[::1\]$|\[fc|\[fd)/i;
+// Achado real (review PR #201, CodeRabbit): regex string matching não pega
+// IPv4-mapped IPv6 (::ffff:127.0.0.1) nem fe80::/10 link-local. Troca por
+// ipaddr.js: parse real do host (quando é IP literal) + range() cobre
+// loopback/private/linkLocal/uniqueLocal/carrierGradeNat pros dois protocolos.
+const LOCAL_HOSTNAME_RE = /^(localhost)$/i;
+
+function isPrivateOrLocalIp(hostname: string): boolean {
+  let addr: ReturnType<typeof ipaddr.process>;
+  try {
+    addr = ipaddr.process(hostname);
+  } catch {
+    return false;
+  }
+  const range = addr.range();
+  return range !== 'unicast';
+}
 
 export function isPublicHttpUrl(value: string): boolean {
   let parsed: URL;
@@ -33,7 +59,9 @@ export function isPublicHttpUrl(value: string): boolean {
     return false;
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
-  if (LOCAL_OR_PRIVATE_HOST_RE.test(parsed.hostname)) return false;
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
+  if (LOCAL_HOSTNAME_RE.test(hostname)) return false;
+  if (ipaddr.isValid(hostname) && isPrivateOrLocalIp(hostname)) return false;
   return true;
 }
 
@@ -99,7 +127,7 @@ function extractJsonLd(html: string): GenericJsonLd {
     sawAnyBlock = true;
     let parsed: GenericJsonLd;
     try {
-      parsed = JSON.parse(block[1]) as GenericJsonLd;
+      parsed = JSON.parse(block[2]) as GenericJsonLd;
     } catch {
       continue;
     }
@@ -135,16 +163,40 @@ function resolveDefaultPriceSignal(price: number | null): {
 // (facilita teste unitário do parser com fixture, sem mockar banco).
 export type FindPlatformByDomain = (domain: string) => Promise<DownloadScraperPlatform | null>;
 
+// Achado real (review PR #201, Codex, P2): extrai a tag inteira primeiro
+// (<link ...>/<meta ...>), depois procura rel="canonical"/property="og:image"
+// e href/content dentro dela, independente de ordem entre os atributos —
+// site cadastrado via parser_kind='json_ld_generic' não deve exigir que o
+// HTML siga uma ordem de atributos específica.
+function findCanonicalUrl(html: string): string | null {
+  for (const tagMatch of html.matchAll(LINK_TAG_RE)) {
+    const tag = tagMatch[0];
+    if (!/\brel\s*=\s*(["'])canonical\1/i.test(tag)) continue;
+    const href = HREF_ATTR_RE.exec(tag);
+    if (href) return href[2];
+  }
+  return null;
+}
+
+function findOgImageUrl(html: string): string | null {
+  for (const tagMatch of html.matchAll(META_TAG_RE)) {
+    const tag = tagMatch[0];
+    if (!/\bproperty\s*=\s*(["'])og:image\1/i.test(tag)) continue;
+    const content = CONTENT_ATTR_RE.exec(tag);
+    if (content) return content[2];
+  }
+  return null;
+}
+
 export async function parseHtml(html: string, findPlatformByDomain: FindPlatformByDomain): Promise<GenericParsePreview> {
   if (html.length > MAX_HTML_LENGTH) {
     throw new GenericParseError('html_too_large', `HTML maior que o limite de ${MAX_HTML_LENGTH} bytes.`);
   }
 
-  const canonicalMatch = CANONICAL_RE.exec(html);
-  if (!canonicalMatch) {
+  const sourceUrl = findCanonicalUrl(html);
+  if (!sourceUrl) {
     throw new GenericParseError('missing_canonical', 'HTML não contém <link rel="canonical">.');
   }
-  const sourceUrl = canonicalMatch[1];
 
   if (!isPublicHttpUrl(sourceUrl)) {
     throw new GenericParseError('invalid_url', `Canonical não é uma URL http(s) pública: ${sourceUrl}`);
@@ -164,11 +216,10 @@ export async function parseHtml(html: string, findPlatformByDomain: FindPlatform
     throw new GenericParseError('invalid_json_ld', 'JSON-LD não contém campo "name".');
   }
 
-  const coverImageMatch = OG_IMAGE_RE.exec(html);
-  const rawCoverImageUrl = coverImageMatch?.[1] ?? coverImageMatch?.[2] ?? null;
+  const rawCoverImageUrl = findOgImageUrl(html);
   const coverImageUrl = rawCoverImageUrl && isPublicHttpUrl(rawCoverImageUrl) ? rawCoverImageUrl : null;
   const langMatch = HTML_LANG_RE.exec(html);
-  const sourceLanguageHint = langMatch?.[1]?.toLowerCase().startsWith('pt') ? 'pt' : langMatch ? 'not_pt' : null;
+  const sourceLanguageHint = langMatch?.[2]?.toLowerCase().startsWith('pt') ? 'pt' : langMatch ? 'not_pt' : null;
 
   // Schema.org offers.price aceita Number ou Text (achado review PR #199,
   // preservado): sites podem emitir string numérica ("4.00"); só rejeita

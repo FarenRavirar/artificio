@@ -11,14 +11,6 @@ import * as useAdminEmailLogModule from '../../hooks/useAdminEmailLog';
 // (aprovar/reprovar/arquivar) e ação individual (aprovar/reprovar), com
 // categoria+motivo obrigatórios em reprovação (T6.1 spec 083).
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function makeMaterial(overrides: Partial<ReturnType<typeof baseMaterial>> = {}) {
   return { ...baseMaterial(), ...overrides };

@@ -169,13 +169,27 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
     expect(res.body.error).toMatch(/Payload de ingest inválido/);
   });
 
+  // Achado real (review PR #201, Codex, P1): /ingest agora valida
+  // source_platform contra o registry (download_scraper_platform), não
+  // mais contra IMPLEMENTED_SOURCE_PLATFORMS — cada teste precisa mockar
+  // essa consulta extra (1ª chamada de selectFrom) antes das demais.
+  function platformExistsChain(slug = 'itch_io') {
+    return {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      executeTakeFirst: vi.fn().mockResolvedValue({ slug }),
+    };
+  }
+
   it('200 com run completa quando ingest roda o pipeline com sucesso', async () => {
     dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-2' }));
-    dbMocks.selectFrom.mockReturnValueOnce({
-      selectAll: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'run-2', status: 'completed' }),
-    });
+    dbMocks.selectFrom
+      .mockReturnValueOnce(platformExistsChain())
+      .mockReturnValueOnce({
+        selectAll: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'run-2', status: 'completed' }),
+      });
 
     const res = await request(app())
       .post('/api/v1/admin/scraper/ingest')
@@ -186,7 +200,24 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
     expect(runScraperIngestMock).toHaveBeenCalledTimes(1);
   });
 
+  it('400 quando source_platform não está cadastrado no registry', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce({
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/ingest')
+      .send({ source_platform: 'site_inexistente', items: [validItem] })
+      .expect(400);
+
+    expect(res.body.error).toMatch(/não está cadastrado no registry/);
+    expect(dbMocks.insertInto).not.toHaveBeenCalled();
+  });
+
   it('502 quando runScraperIngest lança — grava status=failed', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(platformExistsChain());
     dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-3' }));
     runScraperIngestMock.mockRejectedValueOnce(new Error('falha no pipeline'));
 
@@ -203,6 +234,7 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
   it('linka parse_case_id ao material criado quando o item veio de /parse-html', async () => {
     dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-4' }));
     dbMocks.selectFrom
+      .mockReturnValueOnce(platformExistsChain())
       .mockReturnValueOnce({
         select: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
@@ -228,11 +260,13 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
 
   it('não quebra quando item não tem parse_case_id (uso direto do Modo 3, sem passar por /parse-html)', async () => {
     dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-5' }));
-    dbMocks.selectFrom.mockReturnValueOnce({
-      selectAll: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'run-5', status: 'completed' }),
-    });
+    dbMocks.selectFrom
+      .mockReturnValueOnce(platformExistsChain())
+      .mockReturnValueOnce({
+        selectAll: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'run-5', status: 'completed' }),
+      });
 
     const res = await request(app())
       .post('/api/v1/admin/scraper/ingest')

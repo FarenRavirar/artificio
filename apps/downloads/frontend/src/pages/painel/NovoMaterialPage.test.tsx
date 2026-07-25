@@ -9,14 +9,6 @@ import * as useCreateMaterialModule from '../../hooks/useCreateMaterial';
 // (T2.1 spec 082): criação de rascunho de material (slug/title/material_type),
 // navegação para edição em caso de sucesso e toast de erro em caso de falha.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },

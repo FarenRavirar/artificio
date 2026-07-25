@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { GestaoImportarPage } from './GestaoImportarPage';
 import * as useParseModule from '../../hooks/useParseHtml';
 import * as useIngestModule from '../../hooks/useIngestScrapedItems';
@@ -14,13 +15,9 @@ import type { ParseHtmlResponse } from '../../hooks/useParseHtml';
 // payload de analisar passa a ser só { html }, plataforma vem detectada
 // na resposta (detectedPlatform), exibida como texto no preview.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
+
+vi.mock('react-hot-toast', () => ({
+  default: { success: vi.fn(), error: vi.fn() },
 }));
 
 function renderPage() {
@@ -61,6 +58,8 @@ function makeParseResponse(overrides: Partial<ParseHtmlResponse['preview']> = {}
 describe('GestaoImportarPage', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    (toast.success as ReturnType<typeof vi.fn>).mockClear();
+    (toast.error as ReturnType<typeof vi.fn>).mockClear();
   });
 
   it('mostra preview extraído após analisar, sem escolher plataforma (payload só { html })', async () => {
@@ -117,6 +116,8 @@ describe('GestaoImportarPage', () => {
     expect(ingestMutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({ source_platform: 'dms_guild' }),
     );
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Item pulado: já existe material duplicado.'));
+    expect(toast.success).not.toHaveBeenCalled();
     // formulario nao deve ser limpo quando nada foi criado
     expect(await screen.findByDisplayValue('Aventura Teste')).toBeInTheDocument();
   });

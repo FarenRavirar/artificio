@@ -143,14 +143,34 @@ const ingestItemSchema = z.object({
 });
 
 const ingestBodySchema = z.object({
-  source_platform: z.enum(IMPLEMENTED_SOURCE_PLATFORMS),
+  source_platform: z.string().min(1),
   items: z.array(ingestItemSchema).min(1).max(500),
 });
 
+// Achado real (review PR #201, Codex, P1): /ingest validava source_platform
+// contra IMPLEMENTED_SOURCE_PLATFORMS (Object.keys(ADAPTERS), só as 5
+// fontes com scraper automático) — vestígio da Fase 5. Depois da Fase 6
+// (registry em banco), qualquer site cadastrado só via /gestao/plataformas
+// (ex.: storytellersvault, ou site novo do admin) nunca teria adapter em
+// ADAPTERS, então /parse-html funcionava mas /ingest sempre devolvia 400 —
+// quebra o fluxo prometido pela emenda (cadastrar site sem deploy).
+// runScraperIngest só usa o slug como string (dedupe/gravação), não chama
+// ADAPTERS — então a allowlist certa aqui é "está cadastrado no registry",
+// não "tem adapter automático" (essa trava continua em ADAPTERS/executeScraperRun,
+// só relevante pro disparo de scraping automático via /run e pelo cron).
 router.post('/ingest', writeRateLimiter, authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   const parsed = ingestBodySchema.safeParse(req.body ?? {});
   if (!parsed.success) {
     return res.status(400).json({ error: 'Payload de ingest inválido.', details: z.treeifyError(parsed.error) });
+  }
+
+  const platform = await db
+    .selectFrom('download_scraper_platform')
+    .select('slug')
+    .where('slug', '=', parsed.data.source_platform)
+    .executeTakeFirst();
+  if (!platform) {
+    return res.status(400).json({ error: `source_platform "${parsed.data.source_platform}" não está cadastrado no registry de plataformas.` });
   }
 
   const run = await db
@@ -349,12 +369,13 @@ router.post('/platforms', writeRateLimiter, authMiddleware, requireRole('admin')
   }
 
   try {
+    const normalizedDomain = parsed.data.domain?.toLowerCase() ?? null;
     const platform = await db
       .insertInto('download_scraper_platform')
       .values({
         slug: parsed.data.slug,
         name: parsed.data.name,
-        domain: parsed.data.domain,
+        domain: normalizedDomain,
         supports_auto_scrape: parsed.data.supports_auto_scrape,
         supports_price_recheck: parsed.data.supports_price_recheck,
         parser_kind: parsed.data.parser_kind,

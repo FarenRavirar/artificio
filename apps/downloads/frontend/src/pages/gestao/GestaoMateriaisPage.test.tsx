@@ -8,14 +8,6 @@ import * as useMaterialsCatalogModule from '../../hooks/useMaterialsCatalog';
 // componente): render de loading/lista vazia/lista com itens, rótulo de
 // editorial_state e link de auditoria por item.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function makeMaterial(overrides: Partial<ReturnType<typeof baseMaterial>> = {}) {
   return { ...baseMaterial(), ...overrides };

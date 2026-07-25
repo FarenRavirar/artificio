@@ -8,14 +8,6 @@ import * as useAdminSummaryModule from '../../hooks/useAdminSummary';
 // T8.2/T8.4 (spec 085, Fase 8) — página de cadastro de plataforma
 // (D-D): lista cadastradas + form de cadastro, consumindo o CRUD da T6.4.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

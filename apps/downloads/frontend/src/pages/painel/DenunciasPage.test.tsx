@@ -8,14 +8,6 @@ import * as useMyReportsModule from '../../hooks/useMyReports';
 // DenunciasPage (painel do usuário): loading/vazio e render da lista de
 // denúncias abertas pelo próprio usuário (GET /reports/mine).
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function makeReport(overrides: Partial<ReturnType<typeof baseReport>> = {}) {
   return { ...baseReport(), ...overrides };

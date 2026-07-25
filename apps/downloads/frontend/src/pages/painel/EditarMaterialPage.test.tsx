@@ -16,14 +16,6 @@ import * as useUpdateMaterialMetadataModule from '../../hooks/useUpdateMaterialM
 // encontrado via useMyMaterials + materialId da rota, submissão do PATCH de
 // edição (sucesso e erro) e histórico de edição por campo.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },
@@ -122,6 +114,8 @@ function mockDefaults() {
 describe('EditarMaterialPage', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    (toast.success as ReturnType<typeof vi.fn>).mockClear();
+    (toast.error as ReturnType<typeof vi.fn>).mockClear();
   });
 
   it('mostra "Carregando..." enquanto useMyMaterials está pendente', () => {

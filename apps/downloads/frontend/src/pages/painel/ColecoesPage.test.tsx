@@ -8,14 +8,6 @@ import * as useCollectionsModule from '../../hooks/useCollections';
 // Débito (27 páginas sem teste de componente) — cobertura de ColecoesPage
 // (painel do usuário comum, spec 074): listagem de coleções e criação via form.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },

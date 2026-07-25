@@ -9,14 +9,6 @@ import * as useMyMaterialsModule from '../../hooks/useMyMaterials';
 // (painel do usuário comum, spec 074): saudação com nome do usuário logado
 // via useSession, e contadores de materiais por estado editorial.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function makeMaterial(overrides: Partial<{ editorial_state: string }> = {}) {
   return {

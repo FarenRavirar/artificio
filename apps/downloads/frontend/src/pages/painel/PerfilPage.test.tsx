@@ -7,14 +7,6 @@ import * as authClientModule from '@artificio/auth/client';
 // (painel do usuário comum, spec 074): perfil somente-leitura, dados vêm
 // do SSO via useSession (nome e e-mail), sem formulário/edição.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function renderPage() {
   return render(

@@ -84,6 +84,26 @@ describe('runPriceRecheck', () => {
     expect(fetchSimpleMock).not.toHaveBeenCalled();
   });
 
+  // Achado real (review PR #201, Codex, P1): supports_price_recheck=TRUE
+  // sozinha não garante que existe parser de preço testado pra aquela
+  // plataforma — se um admin marcar a flag numa plataforma cadastrada via
+  // /gestao/plataformas sem checker implementado (PRICE_CHECKER_BY_SLUG),
+  // o slug precisa ser ignorado, nunca rodar parseItchIsFreeOrPwyw (parser
+  // específico do itch.io) contra HTML de outro layout — falso-positivo de
+  // "pago" suspenderia material publicado por engano.
+  it('plataforma com supports_price_recheck=TRUE mas sem checker de preço implementado é ignorada, nunca roda parser errado', async () => {
+    dbMocks.selectFrom.mockReset();
+    dbMocks.selectFrom.mockReturnValueOnce(registryQuery(['itch_io', 'site_generico_sem_checker']));
+    const query = materialsQuery([]);
+    dbMocks.selectFrom.mockReturnValueOnce(query);
+
+    await runPriceRecheck();
+
+    // site_generico_sem_checker nunca entra na query de materials — só
+    // itch_io (o único com PRICE_CHECKER_BY_SLUG conhecido).
+    expect(query.where).toHaveBeenCalledWith('source_platform', 'in', ['itch_io']);
+  });
+
   it('cenário obrigatório: bloqueio de acesso (403) NUNCA confirma "virou pago" — material continua published', async () => {
     dbMocks.selectFrom.mockReturnValueOnce(
       materialsQuery([{ id: 'material-1', source_platform: 'itch_io', source_url: 'https://a.itch.io/game', editorial_state: 'published' }]),

@@ -131,6 +131,37 @@ describe('parseHtml', () => {
     expect(result.isFreeOrPwyw).toBe(true);
   });
 
+  // Achado real (review PR #201, Codex, P2): regex original exigia
+  // <script type="..."> e <link rel="..." href="..."> nessa ordem exata de
+  // atributos — HTML real de terceiros pode ter nonce/id/outros atributos
+  // antes, ou usar aspas simples. Objetivo da spec é cadastrar site novo
+  // SEM código (parser_kind='json_ld_generic'); extração não pode depender
+  // de ordem/estilo de aspas dos atributos HTML.
+  it('extrai mesmo com atributos fora de ordem e aspas simples (JSON-LD com nonce antes de type, canonical com href antes de rel, aspas simples)', async () => {
+    const syntheticHtml = `<!DOCTYPE html>
+<html lang='pt-BR'>
+<head>
+<link href='https://loja2.exemplo.com.br/produto/outra-aventura' rel='canonical'>
+<meta content='https://loja2.exemplo.com.br/img/capa2.jpg' property='og:image'>
+<script nonce="abc123" type='application/ld+json'>{"@type":"Product","name":"Outra Aventura","description":"Descrição.","brand":{"name":"Editora Dois"},"offers":{"price":0}}</script>
+</head>
+<body></body>
+</html>`;
+    const genericPlatform = makePlatform({
+      slug: 'loja2_exemplo',
+      name: 'Loja Dois',
+      domain: 'loja2.exemplo.com.br',
+      parser_kind: 'json_ld_generic',
+    });
+
+    const result = await parseHtml(syntheticHtml, registryOf([genericPlatform]));
+
+    expect(result.title).toBe('Outra Aventura');
+    expect(result.sourceUrl).toBe('https://loja2.exemplo.com.br/produto/outra-aventura');
+    expect(result.coverImageUrl).toBe('https://loja2.exemplo.com.br/img/capa2.jpg');
+    expect(result.sourceLanguageHint).toBe('pt');
+  });
+
   it('sinaliza produto pago sem tag PWYW como priceSignal nonzero_price_no_pwyw_tag, sem sugerir isFreeOrPwyw (override onebookshelf)', async () => {
     const dmsGuildHtml = loadFixture('dms-guild-product-1.html');
     const paidHtml = dmsGuildHtml

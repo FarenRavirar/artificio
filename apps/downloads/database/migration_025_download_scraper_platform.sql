@@ -112,3 +112,16 @@ END $$;
 
 -- download_scraper_item_log nao tem coluna source_platform (herda via
 -- run_id, confirmado em db/types.ts:216-226) — nada a fazer aqui.
+
+-- Achado real (review PR #201, CodeRabbit, nitpick): FK sem indice no lado
+-- referenciante forca seq scan em UPDATE/DELETE no lado referenciado
+-- (download_scraper_platform.slug) pra checar violacao, e em filtro por
+-- source_platform nas 3 tabelas.
+CREATE INDEX IF NOT EXISTS idx_download_material_source_platform
+  ON download_material (source_platform);
+
+CREATE INDEX IF NOT EXISTS idx_download_scraper_parse_log_source_platform
+  ON download_scraper_parse_log (source_platform);
+
+CREATE INDEX IF NOT EXISTS idx_download_scraper_run_source_platform
+  ON download_scraper_run (source_platform);

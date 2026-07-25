@@ -9,19 +9,29 @@ import type { DownloadSourcePlatform, DownloadEditorialState } from '../db/types
 // material de origem scraper (spec.md §5): reusa e estende download_link_check
 // (P10), NAO cria mecanismo de verificacao paralelo. Regra petrea: falha de
 // ACESSO (403/timeout/rede) NUNCA deriva pra withdrawn — so confirmacao
-// POSITIVA de preco pago move o material. Spec 085 (Fase 6, T6.3): quais
-// fontes tem parser de preco confiavel deixa de ser hardcode — vem do
-// registry (download_scraper_platform.supports_price_recheck). Hoje so
-// itch.io/grimorios_e_dados tem a flag TRUE (parseItchIsFreeOrPwyw), mesmo
-// comportamento de antes; admin pode ligar a flag pra plataforma nova sem
-// deploy quando existir parser de preco pra ela.
+// POSITIVA de preco pago move o material.
+// Achado real (review PR #201, Codex, P1): supports_price_recheck sozinha
+// nao basta pra decidir QUAL parser rodar — parseItchIsFreeOrPwyw so
+// entende o HTML do itch.io (procura class="bundle_row" etc). Se um admin
+// marcar a flag numa plataforma nova (ex.: site generico cadastrado via
+// /gestao/plataformas), esse parser especifico rodaria contra HTML de
+// outro layout e podia confirmar falso-positivo de "pago", suspendendo
+// material publicado por engano. PRICE_CHECKER_BY_SLUG mapeia slug ->
+// parser real testado (mesmo espirito de platformOverrides — peculiaridade
+// de site sempre em codigo, nunca so uma flag generica). Plataforma com a
+// flag TRUE mas sem entrada aqui e ignorada (nunca "tenta" parser errado).
+const PRICE_CHECKER_BY_SLUG: Record<string, (html: string) => boolean | null> = {
+  itch_io: parseItchIsFreeOrPwyw,
+  grimorios_e_dados: parseItchIsFreeOrPwyw,
+};
+
 async function getPriceCheckablePlatforms(): Promise<Set<DownloadSourcePlatform>> {
   const rows = await db
     .selectFrom('download_scraper_platform')
     .select('slug')
     .where('supports_price_recheck', '=', true)
     .execute();
-  return new Set(rows.map((row) => row.slug));
+  return new Set(rows.map((row) => row.slug).filter((slug) => slug in PRICE_CHECKER_BY_SLUG));
 }
 
 export interface PriceRecheckResult {
@@ -36,7 +46,9 @@ async function confirmsPaid(
   priceCheckablePlatforms: Set<DownloadSourcePlatform>,
 ): Promise<boolean | null> {
   if (!priceCheckablePlatforms.has(sourcePlatform)) return null;
-  return parseItchIsFreeOrPwyw(html) === false ? true : null;
+  const checker = PRICE_CHECKER_BY_SLUG[sourcePlatform];
+  if (!checker) return null;
+  return checker(html) === false ? true : null;
 }
 
 type MaterialRow = { id: string; source_platform: DownloadSourcePlatform; source_url: string | null; editorial_state: DownloadEditorialState };

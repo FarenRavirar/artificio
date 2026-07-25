@@ -8,14 +8,6 @@ import * as useAdminCreatorsModule from '../../hooks/useAdminCreators';
 // GestaoPublicadoresPage — loading/vazio/erro/lista, busca por
 // nome/slug e paginação (T2.7, spec 082).
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function makeCreator(overrides: Partial<ReturnType<typeof baseCreator>> = {}) {
   return { ...baseCreator(), ...overrides };

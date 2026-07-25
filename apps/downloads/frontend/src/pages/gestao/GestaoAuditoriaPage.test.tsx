@@ -9,14 +9,6 @@ import * as useAdminLinkHistoryModule from '../../hooks/useAdminLinkHistory';
 // de links. Testa os dois caminhos de rota (com e sem :materialId) e os
 // estados de loading/lista vazia/lista preenchida.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function renderPage(initialEntry: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

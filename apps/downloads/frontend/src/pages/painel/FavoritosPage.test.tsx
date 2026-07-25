@@ -9,14 +9,6 @@ import type { Favorite } from '../../types/panel';
 // (painel do usuário comum, spec 074): lista de favoritos, loading, vazio e
 // remoção de favorito.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function makeFavorite(overrides: Partial<Favorite> = {}): Favorite {
   return {

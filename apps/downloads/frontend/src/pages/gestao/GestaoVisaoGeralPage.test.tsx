@@ -8,14 +8,6 @@ import * as useAdminSummaryModule from '../../hooks/useAdminSummary';
 // T1.1 (spec 075) — visao geral: contagem por fila (moderacao, denuncias,
 // links degradados) e idade da fila mais antiga, estado de loading.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

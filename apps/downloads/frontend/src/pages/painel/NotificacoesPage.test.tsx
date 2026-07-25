@@ -9,14 +9,6 @@ import type { Notification } from '../../types/panel';
 // NotificacoesPage: loading/vazio, render da lista (lida/não lida) e
 // fluxo de marcar como lida.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function makeNotification(overrides: Partial<Notification> = {}): Notification {
   return {

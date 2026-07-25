@@ -8,14 +8,6 @@ import * as useReportsQueueModule from '../../hooks/useReportsQueue';
 // teste de componente): render de loading/vazio/lista, e fluxo de
 // decisão (resolver/dispensar) passando resolution_note digitada.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function makeReport(overrides: Partial<ReturnType<typeof baseReport>> = {}) {
   return { ...baseReport(), ...overrides };

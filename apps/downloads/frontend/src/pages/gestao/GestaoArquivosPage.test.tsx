@@ -8,14 +8,6 @@ import * as useAdminSummaryModule from '../../hooks/useAdminSummary';
 // real conectado. Cobre estado inicial, validação de campos obrigatórios e
 // os caminhos de sucesso/falha do upload via fetch mockado.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -39,6 +31,7 @@ function makeFile(name = 'evidencia.pdf', content = 'conteudo-fake') {
 describe('GestaoArquivosPage', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('renderiza titulo, descricao e formulario de upload', () => {

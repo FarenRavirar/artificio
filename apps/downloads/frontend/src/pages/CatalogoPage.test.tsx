@@ -7,14 +7,6 @@ import type { Material, MaterialListResponse } from '../types/material';
 
 // T6.2 (spec 073) — busca/filtro/paginacao vivem como contrato unico de URL.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function makeMaterial(overrides: Partial<Material> = {}): Material {
   return {
