@@ -146,7 +146,20 @@ describe('runScraperIngest', () => {
         cb({ insertInto: trxInsertInto }),
     });
 
-    const item = makeItem({ sourceLanguageHint: 'pt' });
+    const item = makeItem({
+      sourceLanguageHint: 'pt',
+      scenario: 'Qualquer mundo',
+      authorsCredits: 'Autora',
+      artistsCredits: 'Artista',
+      format: 'PDF',
+      tags: ['Aventura', '5e'],
+      fileSizeText: '44,49 MB',
+      pageCount: 15,
+      creationMethod: 'Human-Created Without AI',
+      sourceCategory: 'Linha de produto',
+      sourceFilters: [{ facet: 'tipoDeProduto', path: ['Aventura', 'Campanha'] }],
+      descriptionHtml: '<p>Descrição <strong>rica</strong></p>',
+    });
     const result = await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
     expect(result.itemsCreated).toBe(1);
@@ -158,8 +171,24 @@ describe('runScraperIngest', () => {
         source_platform: 'itch_io',
       }),
     );
+    const materialValues = materialInsert.values.mock.calls[0][0];
+    expect(materialValues.summary).toBe(item.description);
+    expect(materialValues.summary).not.toContain('<');
     expect(metadataInsert.values).toHaveBeenCalledWith(
-      expect.objectContaining({ material_id: 'material-novo', language: 'pt' }),
+      expect.objectContaining({
+        material_id: 'material-novo',
+        language: 'pt',
+        scenario: 'Qualquer mundo',
+        credits: 'Autora\nArtista',
+        file_format: 'PDF',
+        tags: ['Aventura', '5e'],
+        file_size_text: '44,49 MB',
+        page_count: 15,
+        creation_method: 'Human-Created Without AI',
+        source_category: 'Linha de produto',
+        source_filters: [{ facet: 'tipoDeProduto', path: ['Aventura', 'Campanha'] }],
+        description_html: '<p>Descrição <strong>rica</strong></p>',
+      }),
     );
   });
 

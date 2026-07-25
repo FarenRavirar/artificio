@@ -2,7 +2,7 @@ import { db } from '../db';
 import { detectPortuguese } from './languageDetector';
 import { getOrCreateScraperCreatorId } from './scraperCreator';
 import type { ScrapedItem } from './scrapers/types';
-import type { DownloadSourcePlatform, DownloadScraperItemOutcome } from '../db/types';
+import type { DownloadSourcePlatform, DownloadScraperItemOutcome, JSONColumnType } from '../db/types';
 
 // T4.2 (spec 084) — pipeline unico de criacao/dedupe, reusado por todo
 // adapter (Fase 3) e pelo Modo 3 (payload de ingest manual, Fase 6). Ordem
@@ -28,6 +28,13 @@ function slugify(title: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 140);
+}
+
+function combineCredits(authors: string | null | undefined, artists: string | null | undefined): string | null {
+  const values = [authors, artists]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .map((value) => value.trim());
+  return values.length > 0 ? values.join('\n') : null;
 }
 
 async function generateUniqueSlug(title: string, sourceUrl: string): Promise<string> {
@@ -137,6 +144,8 @@ async function processItem(
         .values({
           slug,
           title: item.title.slice(0, 200),
+          // Spec 086: description já é texto plano; descriptionHtml fica só
+          // em metadata. summary nunca pode cortar HTML no meio de uma tag.
           summary: item.description?.slice(0, 500) ?? null,
           description: item.description ?? null,
           material_type: DEFAULT_MATERIAL_TYPE,
@@ -158,6 +167,16 @@ async function processItem(
           language: 'pt',
           publisher_name: item.publisherName,
           cover_image_url: item.coverImageUrl,
+          scenario: item.scenario ?? null,
+          credits: combineCredits(item.authorsCredits, item.artistsCredits),
+          file_format: item.format ?? null,
+          tags: (item.tags ?? []) as unknown as JSONColumnType<string[]>,
+          file_size_text: item.fileSizeText ?? null,
+          page_count: item.pageCount ?? null,
+          creation_method: item.creationMethod ?? null,
+          source_category: item.sourceCategory ?? null,
+          source_filters: (item.sourceFilters ?? []) as unknown as JSONColumnType<Array<{ facet: string; path: string[] }>>,
+          description_html: item.descriptionHtml ?? null,
         })
         .execute();
 

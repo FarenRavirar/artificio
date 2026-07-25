@@ -26,7 +26,6 @@ Pacotes compartilhados: `auth`, `ui`, `analytics`, `config`, `content`, `crossli
 
 **T0 obrigatório, toda sessão, antes de agir:**
 1. Este arquivo (`AGENTS.md`) inteiro, uma vez por sessão.
-2. `sessoes/` — checar sessão ativa incompleta; se houver, continuar nela salvo pedido explícito de sessão dedicada. Registrar na sessão antes de alterar: o que vai fazer, o que falta, o que já foi feito.
 
 **Resumo inegociável (detalhe completo em §Regras Pétreas → Autorização/Escopo/PR, Commit e Push):**
 - Autorização é **por ação**, nunca por sessão/PR — não acumula, não se infere de frase genérica.
@@ -38,6 +37,7 @@ Pacotes compartilhados: `auth`, `ui`, `analytics`, `config`, `content`, `crossli
 
 **Escalada T1 (consultar quando a tarefa exigir, não por padrão):**
 - Retomar spec/trabalho em andamento → `.specify/memory/project-state.md` + `.specify/memory/decisions.md` (evita redecidir).
+- `sessoes/` — checar sessão ativa incompleta/retomar só quando o mantenedor pedir explicitamente ("retoma a sessão", "continua de onde parou") ou quando não houver spec cobrindo o trabalho. Codificação hoje passa por spec madura (`specs/*/spec.md,plan.md,tasks.md`), que já carrega o contexto de retomada — não abrir/escanear `sessoes/` por padrão todo chat novo. Quando `sessoes/` for tocado (por pedido ou por falta de spec), registrar antes de alterar: o que vai fazer, o que falta, o que já foi feito.
 - Infra/deploy/CI/CD/VM/DNS/banco → `docs/agents/deploy-runbook.md`, §VM/Banco/Infra e §Deploy e Infra de CI/CD deste arquivo.
 - Specs/backlog → `specs/README.md` + spec/tasks/backlog.
 - Diagnóstico de código/API antes de editar → §Ferramentas MCP/Agentes (LSP, codebase-memory-mcp, artificio-api-governance) + comandos abaixo.

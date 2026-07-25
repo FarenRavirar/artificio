@@ -31,6 +31,9 @@ export type DownloadScraperRunStatus = 'running' | 'completed' | 'failed';
 export type DownloadScraperItemOutcome = 'created' | 'skipped_duplicate' | 'skipped_not_portuguese' | 'skipped_error';
 
 export type JSONColumnType<T> = ColumnType<T, T | undefined, T>;
+// Achado real (review PR #203, CodeRabbit, P2): Zod não pode aceitar valor
+// maior que a coluna PostgreSQL INTEGER comporta.
+export const POSTGRES_INTEGER_MAX = 2_147_483_647;
 
 export interface DownloadMaterialTable {
   id: Generated<string>;
@@ -103,6 +106,14 @@ export interface DownloadMaterialMetadataTable {
   // T2.7 (spec 082, migration_020) — MVP de Gestao de Midias: URL de texto
   // (sem upload/storage novo), coerente com T2.3 (MVP somente-link-externo).
   cover_image_url: string | null;
+  // Spec 086 (migration_026) — metadados preservados da fonte. source_filters
+  // mantém facet + caminho; tags continua a versão achatada para busca simples.
+  file_size_text: string | null;
+  page_count: number | null;
+  creation_method: string | null;
+  source_category: string | null;
+  source_filters: Generated<JSONColumnType<Array<{ facet: string; path: string[] }>>>;
+  description_html: string | null;
   updated_at: Generated<Date>;
 }
 

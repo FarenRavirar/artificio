@@ -12,7 +12,18 @@ import { z } from 'zod';
 import ipaddr from 'ipaddr.js';
 import { sanitizeText } from '../sanitizeText';
 import { applyPlatformOverride, type PlatformOverrideInput } from './platformOverrides';
-import type { DownloadScraperPlatform } from '../../db/types';
+import { POSTGRES_INTEGER_MAX, type DownloadScraperPlatform } from '../../db/types';
+
+// Achado real (review Codex, PR #203): preview (/parse-html) aceitava
+// descriptionHtml maior que o teto que /ingest impõe (SCRAPER_DESCRIPTION_HTML_MAX_LENGTH
+// em routes/scraper.ts) — reenviar o mesmo preview ao ingest falhava com 400.
+// Constante compartilhada elimina o descompasso entre os dois pontos.
+export const SCRAPER_DESCRIPTION_HTML_MAX_LENGTH = 100_000;
+
+const sourceFilterSchema = z.object({
+  facet: z.string().min(1),
+  path: z.array(z.string().min(1)).min(1),
+});
 
 // Achado real (review PR #201, Codex, P2): regex original exigia
 // <script type="application/ld+json"> literal no início da tag e
@@ -82,6 +93,17 @@ export const genericParsePreviewSchema = z
     sourceLanguageHint: z.enum(['pt', 'not_pt']).nullable(),
     extractedPriceValue: z.number().nullable(),
     priceSignal: z.enum(['pwyw_tag_present', 'zero_price_no_pwyw_tag', 'nonzero_price_no_pwyw_tag']),
+    scenario: z.string().nullable().optional(),
+    authorsCredits: z.string().nullable().optional(),
+    artistsCredits: z.string().nullable().optional(),
+    creationMethod: z.string().nullable().optional(),
+    sourceFilters: z.array(sourceFilterSchema).optional(),
+    tags: z.array(z.string().min(1)).optional(),
+    fileSizeText: z.string().nullable().optional(),
+    format: z.string().nullable().optional(),
+    pageCount: z.number().int().nonnegative().max(POSTGRES_INTEGER_MAX).nullable().optional(),
+    sourceCategory: z.string().nullable().optional(),
+    descriptionHtml: z.string().max(SCRAPER_DESCRIPTION_HTML_MAX_LENGTH).nullable().optional(),
   })
   .strict();
 
@@ -314,11 +336,23 @@ export async function parseHtml(html: string, findPlatformByDomain: FindPlatform
     sourceLanguageHint,
     extractedPriceValue,
     priceSignal: defaultSignal.priceSignal,
+    scenario: null,
+    authorsCredits: null,
+    artistsCredits: null,
+    creationMethod: null,
+    sourceFilters: [],
+    tags: [],
+    fileSizeText: null,
+    format: null,
+    pageCount: null,
+    sourceCategory: null,
+    descriptionHtml: null,
   };
 
   // T7.2 — override em código roda por último, só sobrescreve o que
-  // declara (ex.: onebookshelf sobrescreve isFreeOrPwyw/priceSignal via
-  // tag PWYW; nunca reimplementa title/description/publisher/image).
+  // declara. OneBookShelf troca isFreeOrPwyw/priceSignal via tag PWYW e,
+  // quando houver descrição rica, description/descriptionHtml (spec 086,
+  // Fase 2; revisão PR #203). Title, publisher e imagem seguem JSON-LD.
   const finalPreview = applyPlatformOverride(platform.parser_kind, basePreview, html);
 
   return genericParsePreviewSchema.parse(finalPreview);

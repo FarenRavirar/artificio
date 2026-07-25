@@ -56,6 +56,17 @@ describe('parseHtml', () => {
     expect(result.priceSignal).toBe('pwyw_tag_present');
     expect(result.isFreeOrPwyw).toBe(true);
     expect(result.description).toContain('O Lutador');
+    expect(result.scenario).toBe('Inespecífico/Qualquer mundo');
+    expect(result.authorsCredits).toBe('Felix Klaus');
+    expect(result.pageCount).toBe(15);
+    expect(result.sourceFilters).toEqual(
+      expect.arrayContaining([
+        { facet: 'tipoDeProduto', path: ['Opções para personagens', 'Classe/Arquétipo'] },
+        { facet: 'edicao', path: ['5th Edition', '5e'] },
+      ]),
+    );
+    expect(result.tags).toEqual(expect.arrayContaining(['Opções para personagens', 'Classe/Arquétipo', '5th Edition', '5e']));
+    expect(result.descriptionHtml).toContain('<img');
   });
 
   it('extrai campos do fixture DriveThruRPG real (produto grátis fixo)', async () => {

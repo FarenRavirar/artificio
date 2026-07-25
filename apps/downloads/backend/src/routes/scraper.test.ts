@@ -200,6 +200,91 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
     expect(runScraperIngestMock).toHaveBeenCalledTimes(1);
   });
 
+  it('sanitiza descriptionHtml reenviado manualmente antes de entregar ao pipeline', async () => {
+    dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-rich-html' }));
+    dbMocks.selectFrom
+      .mockReturnValueOnce(platformExistsChain())
+      .mockReturnValueOnce({
+        selectAll: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'run-rich-html', status: 'completed' }),
+      });
+
+    await request(app())
+      .post('/api/v1/admin/scraper/ingest')
+      .send({
+        source_platform: 'itch_io',
+        items: [{
+          ...validItem,
+          description: '<p>Resumo <strong>sem HTML</strong></p>',
+          descriptionHtml: '<p onclick="alert(1)">Seguro</p><script>alert(1)</script>',
+        }],
+      })
+      .expect(200);
+
+    const items = runScraperIngestMock.mock.calls[0][2] as AsyncIterable<{ description?: string | null; descriptionHtml?: string | null }>;
+    const parsedItems: Array<{ description?: string | null; descriptionHtml?: string | null }> = [];
+    for await (const item of items) parsedItems.push(item);
+    expect(parsedItems[0]?.descriptionHtml).toBe('<p>Seguro</p>');
+    expect(parsedItems[0]?.description).toBe('Resumo sem HTML');
+  });
+
+  // Achado real (review, PR #203): description rodava richHtmlToPlainText
+  // (regex) sem teto de tamanho, ao contrário de descriptionHtml — mesmo
+  // limite (SCRAPER_DESCRIPTION_HTML_MAX_LENGTH) evita DoS por payload gigante
+  // antes de processar; 400 rejeita antes do transform rodar.
+  it('400 quando description excede SCRAPER_DESCRIPTION_HTML_MAX_LENGTH', async () => {
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/ingest')
+      .send({
+        source_platform: 'itch_io',
+        items: [{ ...validItem, description: 'a'.repeat(100_001) }],
+      })
+      .expect(400);
+
+    expect(res.body.error).toMatch(/Payload de ingest inválido/);
+    expect(runScraperIngestMock).not.toHaveBeenCalled();
+  });
+
+  it('preserva todos os campos ricos do preview até o payload entregue ao ingest', async () => {
+    dbMocks.selectFrom
+      .mockReturnValueOnce(platformChain(DMS_GUILD_PLATFORM_ROW))
+      .mockReturnValueOnce(duplicateCheckChain())
+      .mockReturnValueOnce(platformExistsChain('dms_guild'))
+      .mockReturnValueOnce({
+        selectAll: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'run-rich-preview', status: 'completed' }),
+      });
+    dbMocks.insertInto
+      .mockReturnValueOnce(parseLogInsertChain('parse-rich-preview'))
+      .mockReturnValueOnce(insertChain({ id: 'run-rich-preview' }));
+
+    const parsed = await request(app())
+      .post('/api/v1/admin/scraper/parse-html')
+      .send({ html: loadFixtureHtml('dms-guild-product-1.html') })
+      .expect(200);
+
+    await request(app())
+      .post('/api/v1/admin/scraper/ingest')
+      .send({ source_platform: 'dms_guild', items: [parsed.body.preview] })
+      .expect(200);
+
+    const items = runScraperIngestMock.mock.calls[0][2] as AsyncIterable<Record<string, unknown>>;
+    const forwarded: Record<string, unknown>[] = [];
+    for await (const item of items) forwarded.push(item);
+    expect(forwarded[0]?.scenario).toBe(parsed.body.preview.scenario);
+    expect(forwarded[0]?.authorsCredits).toBe(parsed.body.preview.authorsCredits);
+    expect(forwarded[0]?.artistsCredits).toBe(parsed.body.preview.artistsCredits);
+    expect(forwarded[0]?.creationMethod).toBe(parsed.body.preview.creationMethod);
+    expect(forwarded[0]?.fileSizeText).toBe(parsed.body.preview.fileSizeText);
+    expect(forwarded[0]?.format).toBe(parsed.body.preview.format);
+    expect(forwarded[0]?.pageCount).toBe(parsed.body.preview.pageCount);
+    expect(forwarded[0]?.sourceCategory).toBe(parsed.body.preview.sourceCategory);
+    expect(forwarded[0]?.sourceFilters).toEqual(parsed.body.preview.sourceFilters);
+    expect(forwarded[0]?.descriptionHtml).toContain('<ul>');
+  });
+
   it('400 quando source_platform não está cadastrado no registry', async () => {
     dbMocks.selectFrom.mockReturnValueOnce({
       select: vi.fn().mockReturnThis(),
@@ -334,6 +419,24 @@ describe('POST /api/v1/admin/scraper/parse-html', () => {
     expect(res.body.preview.title).toBe('Classe O Lutador (5E)- Playtest');
     expect(res.body.preview.priceSignal).toBe('pwyw_tag_present');
     expect(res.body.preview.isFreeOrPwyw).toBe(true);
+    expect(res.body.preview).toMatchObject({
+      scenario: 'Inespecífico/Qualquer mundo',
+      authorsCredits: 'Felix Klaus',
+      artistsCredits: 'Angevine, Dall.e',
+      creationMethod: 'Contains AI-Generated Content',
+      sourceFilters: [
+        { facet: 'tipoDeProduto', path: ['Opções para personagens', 'Classe/Arquétipo'] },
+        { facet: 'conteudo', path: ['DMsGuild'] },
+        { facet: 'edicao', path: ['5th Edition', '5e'] },
+      ],
+      tags: ['Opções para personagens', 'Classe/Arquétipo', 'DMsGuild', '5th Edition', '5e'],
+      fileSizeText: '44,49 MB',
+      format: 'PDF',
+      pageCount: 15,
+      sourceCategory: 'N / D',
+    });
+    expect(res.body.preview.descriptionHtml).toContain('<ul>');
+    expect(res.body.preview.description).not.toContain('<');
     expect(res.body.duplicateCandidates).toEqual([]);
     expect(res.body.parse_case_id).toBe('parse-case-1');
     expect(res.body.detectedPlatform).toEqual({ slug: 'dms_guild', name: 'DMs Guild' });

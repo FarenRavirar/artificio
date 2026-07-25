@@ -353,7 +353,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/ingest",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 189,
+      "line": 217,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -362,7 +362,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/parse-html",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 275,
+      "line": 303,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -371,7 +371,7 @@
       "method": "GET",
       "path": "/api/v1/admin/scraper/platforms",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 372,
+      "line": 400,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -380,7 +380,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/platforms",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 382,
+      "line": 410,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -389,7 +389,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/run",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 72,
+      "line": 77,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -398,7 +398,7 @@
       "method": "GET",
       "path": "/api/v1/admin/scraper/run/:id",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 96,
+      "line": 101,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -407,7 +407,7 @@
       "method": "GET",
       "path": "/api/v1/admin/scraper/runs",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 117,
+      "line": 122,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -650,7 +650,7 @@
       "method": "GET",
       "path": "/api/v1/material-metadata/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/materialMetadata.ts",
-      "line": 41,
+      "line": 53,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -659,7 +659,7 @@
       "method": "PUT",
       "path": "/api/v1/material-metadata/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/materialMetadata.ts",
-      "line": 65,
+      "line": 81,
       "confidence": "high",
       "kind": "express-route"
     },

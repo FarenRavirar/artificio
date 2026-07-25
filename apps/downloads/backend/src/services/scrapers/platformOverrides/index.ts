@@ -6,6 +6,7 @@
 // código, nunca configurável na UI (E1-E7).
 
 import { applyOneBookShelfOverride } from './onebookshelf';
+import type { SourceFilter } from '../types';
 
 export interface PlatformOverrideInput {
   sourceUrl: string;
@@ -17,6 +18,17 @@ export interface PlatformOverrideInput {
   sourceLanguageHint: 'pt' | 'not_pt' | null;
   extractedPriceValue: number | null;
   priceSignal: 'pwyw_tag_present' | 'zero_price_no_pwyw_tag' | 'nonzero_price_no_pwyw_tag';
+  scenario?: string | null;
+  authorsCredits?: string | null;
+  artistsCredits?: string | null;
+  creationMethod?: string | null;
+  sourceFilters?: SourceFilter[];
+  tags?: string[];
+  fileSizeText?: string | null;
+  format?: string | null;
+  pageCount?: number | null;
+  sourceCategory?: string | null;
+  descriptionHtml?: string | null;
 }
 
 type OverrideFn = (preview: PlatformOverrideInput, html: string) => PlatformOverrideInput;
