@@ -19,11 +19,13 @@ vi.mock('./scraperCreator', () => ({
 // resolveTaxonomyIds é lógica pura (sem I/O) — usa a implementação real via
 // importOriginal em vez de mockar, evita duplicar a regra no teste.
 const loadCatalogSystemsFlatMock = vi.hoisted(() => vi.fn());
+const getCatalogMaterialTypeBySlugMock = vi.hoisted(() => vi.fn());
 vi.mock('./catalogClient', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./catalogClient')>();
   return {
     resolveTaxonomyIds: actual.resolveTaxonomyIds,
     loadCatalogSystemsFlat: loadCatalogSystemsFlatMock,
+    getCatalogMaterialTypeBySlug: getCatalogMaterialTypeBySlugMock,
   };
 });
 
@@ -73,6 +75,14 @@ beforeEach(() => {
   getOrCreateScraperCreatorIdMock.mockReset();
   loadCatalogSystemsFlatMock.mockReset();
   loadCatalogSystemsFlatMock.mockResolvedValue([]);
+  getCatalogMaterialTypeBySlugMock.mockReset();
+  getCatalogMaterialTypeBySlugMock.mockResolvedValue({
+    id: 'b071ab5e-2d16-4c58-8f0e-086000000001',
+    slug: 'aventura',
+    name: 'Aventura',
+    aliases: ['adventure'],
+    status: 'active',
+  });
 
   dbMocks.updateTable.mockReturnValue({
     set: vi.fn().mockReturnThis(),

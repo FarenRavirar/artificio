@@ -32,6 +32,6 @@ describe('GestaoTaxonomiasPage', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { name: 'Taxonomias' })).toBeInTheDocument();
-    expect(screen.getByText(/sistemas e edições são geridos no site/i)).toBeInTheDocument();
+    expect(screen.getByText(/sistemas, edições e tipos de material usam o catálogo central/i)).toBeInTheDocument();
   });
 });

@@ -90,6 +90,20 @@ const catalogTreeNodeSchema: z.ZodType<CatalogTreeNode> = catalogTreeNodeBaseSch
 
 const catalogSnapshotSchema = z.object({ tree: z.array(catalogTreeNodeSchema) });
 
+const catalogMaterialTypeSchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string(),
+  name: z.string(),
+  aliases: z.array(z.string()),
+  status: z.enum(['pending', 'active', 'merged', 'rejected']),
+});
+
+const catalogMaterialTypesResponseSchema = z.object({
+  items: z.array(catalogMaterialTypeSchema),
+});
+
+export type CatalogMaterialType = z.infer<typeof catalogMaterialTypeSchema>;
+
 export interface FlatCatalogSystem {
   id: string;
   name: string;
@@ -149,7 +163,7 @@ export async function loadCatalogSystemsFlat(forceRefresh = false): Promise<Flat
     return snapshotCache.data;
   }
 
-  const raw = await catalogFetch<unknown>('/api/catalog/v1/systems');
+  const raw = await catalogFetch<unknown>('/api/catalog/v1/snapshot');
   const snapshot = catalogSnapshotSchema.parse(raw);
   const flat = flattenSnapshotTree(snapshot.tree);
   snapshotCache = { data: flat, expiresAt: now + CATALOG_SNAPSHOT_CACHE_TTL_MS };
@@ -158,6 +172,38 @@ export async function loadCatalogSystemsFlat(forceRefresh = false): Promise<Flat
 
 export function invalidateCatalogSnapshotCache(): void {
   snapshotCache = null;
+}
+
+let materialTypesCache: { data: CatalogMaterialType[]; expiresAt: number } | null = null;
+
+export async function loadCatalogMaterialTypes(forceRefresh = false): Promise<CatalogMaterialType[]> {
+  const now = Date.now();
+  if (!forceRefresh && materialTypesCache && materialTypesCache.expiresAt > now) {
+    return materialTypesCache.data;
+  }
+
+  const raw = await catalogFetch<unknown>('/api/catalog/v1/material-types');
+  const data = catalogMaterialTypesResponseSchema.parse(raw).items;
+  materialTypesCache = { data, expiresAt: now + CATALOG_SNAPSHOT_CACHE_TTL_MS };
+  return data;
+}
+
+export function invalidateCatalogMaterialTypesCache(): void {
+  materialTypesCache = null;
+}
+
+export async function getCatalogMaterialTypeById(id: string): Promise<CatalogMaterialType | null> {
+  const materialTypes = await loadCatalogMaterialTypes();
+  return materialTypes.find((item) => item.id === id) ?? null;
+}
+
+export async function getCatalogMaterialTypeBySlug(slug: string): Promise<CatalogMaterialType | null> {
+  const normalized = slug.trim().toLocaleLowerCase('pt-BR');
+  const materialTypes = await loadCatalogMaterialTypes();
+  return materialTypes.find((item) =>
+    item.slug.toLocaleLowerCase('pt-BR') === normalized
+    || item.aliases.some((alias) => alias.toLocaleLowerCase('pt-BR') === normalized),
+  ) ?? null;
 }
 
 const catalogNodeWriteResponseSchema = catalogTreeNodeBaseSchema;

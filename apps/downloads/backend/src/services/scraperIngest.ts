@@ -3,7 +3,12 @@ import { matchSystemNameExact, type MatchableSystemEntry } from '@artificio/cata
 import { db } from '../db';
 import { detectPortuguese } from './languageDetector';
 import { getOrCreateScraperCreatorId } from './scraperCreator';
-import { loadCatalogSystemsFlat, resolveTaxonomyIds, type FlatCatalogSystem } from './catalogClient';
+import {
+  getCatalogMaterialTypeBySlug,
+  loadCatalogSystemsFlat,
+  resolveTaxonomyIds,
+  type FlatCatalogSystem,
+} from './catalogClient';
 import type { ScrapedItem } from './scrapers/types';
 import type { Database, DownloadSourcePlatform, DownloadScraperItemOutcome, JSONColumnType } from '../db/types';
 
@@ -13,7 +18,7 @@ import type { Database, DownloadSourcePlatform, DownloadScraperItemOutcome, JSON
 // qualquer outra checagem: material nao-portugues nunca deve "quase" entrar
 // no catalogo por falha de ordem (ex.: dedupe rodando antes esconderia o
 // filtro de idioma numa 2a execucao do mesmo item).
-const DEFAULT_MATERIAL_TYPE = 'adventure';
+const DEFAULT_MATERIAL_TYPE_SLUG = 'aventura';
 
 export interface ScraperIngestResult {
   itemsFound: number;
@@ -199,6 +204,10 @@ async function processItem(
     // cacheada por loadCatalogSystemsFlat; nao faz sentido segurar a
     // transacao do Postgres esperando fetch externo).
     const systemResolution = await resolveSystemHint(item.systemHint);
+    const materialType = await getCatalogMaterialTypeBySlug(DEFAULT_MATERIAL_TYPE_SLUG);
+    if (!materialType) {
+      throw new Error(`catalog_material_type_not_found: ${DEFAULT_MATERIAL_TYPE_SLUG}`);
+    }
 
     const materialId = await db.transaction().execute(async (trx) => {
       const material = await trx
@@ -210,7 +219,8 @@ async function processItem(
           // em metadata. summary nunca pode cortar HTML no meio de uma tag.
           summary: item.description?.slice(0, 500) ?? null,
           description: item.description ?? null,
-          material_type: DEFAULT_MATERIAL_TYPE,
+          material_type_id: materialType.id,
+          material_type: materialType.name,
           creator_id: scraperCreatorId,
           editorial_state: 'published',
           access_kind: 'external_link',

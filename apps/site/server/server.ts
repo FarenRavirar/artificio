@@ -14,6 +14,7 @@ import { getDb } from "../db/connection.js";
 import { runJob, jobState } from "./jobs.js";
 import { adminApi } from "./admin-api.js";
 import { catalogAdminApi, catalogApi } from "./catalog-api.js";
+import { catalogMaterialTypesAdminApi } from "./catalog-material-types-admin-api.js";
 import { renderPreview } from "./preview.js";
 import { reloadRedirects, lookupRedirect } from "./redirect-cache.js";
 import { UPLOADS_DIR, storeUpload } from "./lib/media-store.js";
@@ -209,6 +210,7 @@ app.use("/api/catalog/v1", catalogApi());
 // pro catálogo central batia 401 mesmo com token correto. Mount mais específico
 // (catalog) precisa vir antes do mais genérico (admin v1).
 app.use("/api/admin/v1/catalog", catalogAdminApi(requireCatalogAuth, requireAdmin));
+app.use("/api/admin/v1/catalog/material-types", catalogMaterialTypesAdminApi(requireCatalogAuth, requireAdmin));
 // API de autoria (CRUD posts/pages/taxonomias/redirects/mídia). Gated requireAuth+requireAdmin.
 app.use("/api/admin/v1", adminApi(requireAuth, requireAdmin));
 

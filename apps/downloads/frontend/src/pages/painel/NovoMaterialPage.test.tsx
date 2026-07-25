@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { NovoMaterialPage } from './NovoMaterialPage';
 import * as useCreateMaterialModule from '../../hooks/useCreateMaterial';
+import * as useMaterialTypesModule from '../../hooks/useMaterialTypes';
 
 // Débito (27 páginas sem teste de componente) — cobertura de NovoMaterialPage
 // (T2.1 spec 082): criação de rascunho de material (slug/title/material_type),
@@ -35,6 +36,8 @@ function renderPage() {
   );
 }
 
+const ADVENTURE_ID = 'b071ab5e-2d16-4c58-8f0e-086000000001';
+
 function mockCreateMaterial(overrides: Partial<ReturnType<typeof useCreateMaterialModule.useCreateMaterial>> = {}) {
   const mutateAsync = vi.fn();
   vi.spyOn(useCreateMaterialModule, 'useCreateMaterial').mockReturnValue({
@@ -46,6 +49,14 @@ function mockCreateMaterial(overrides: Partial<ReturnType<typeof useCreateMateri
 }
 
 describe('NovoMaterialPage', () => {
+  beforeEach(() => {
+    vi.spyOn(useMaterialTypesModule, 'useMaterialTypes').mockReturnValue({
+      data: [{ id: ADVENTURE_ID, slug: 'aventura', name: 'Aventura', aliases: ['adventure'], status: 'active' }],
+      isPending: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useMaterialTypesModule.useMaterialTypes>);
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     navigateMock.mockReset();
@@ -81,14 +92,14 @@ describe('NovoMaterialPage', () => {
 
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Meu Material' } });
     fireEvent.change(screen.getByLabelText('Slug'), { target: { value: 'meu-material' } });
-    fireEvent.change(screen.getByLabelText('Tipo de material'), { target: { value: 'adventure' } });
+    fireEvent.change(screen.getByLabelText('Tipo de material'), { target: { value: ADVENTURE_ID } });
     fireEvent.click(screen.getByRole('button', { name: 'Criar rascunho' }));
 
     await waitFor(() => {
       expect(mutateAsync).toHaveBeenCalledWith({
         slug: 'meu-material',
         title: 'Meu Material',
-        material_type: 'adventure',
+        material_type_id: ADVENTURE_ID,
       });
     });
 
@@ -104,7 +115,7 @@ describe('NovoMaterialPage', () => {
 
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Meu Material' } });
     fireEvent.change(screen.getByLabelText('Slug'), { target: { value: 'meu-material' } });
-    fireEvent.change(screen.getByLabelText('Tipo de material'), { target: { value: 'adventure' } });
+    fireEvent.change(screen.getByLabelText('Tipo de material'), { target: { value: ADVENTURE_ID } });
     fireEvent.click(screen.getByRole('button', { name: 'Criar rascunho' }));
 
     await waitFor(() => {
@@ -120,5 +131,19 @@ describe('NovoMaterialPage', () => {
     renderPage();
 
     expect(screen.getByRole('button', { name: 'Criando...' })).toBeDisabled();
+  });
+
+  it('bloqueia criação e avisa quando vocabulário Central falha', () => {
+    mockCreateMaterial();
+    vi.spyOn(useMaterialTypesModule, 'useMaterialTypes').mockReturnValue({
+      data: undefined,
+      isPending: false,
+      isError: true,
+    } as unknown as ReturnType<typeof useMaterialTypesModule.useMaterialTypes>);
+
+    renderPage();
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Tipos indisponíveis');
+    expect(screen.getByRole('button', { name: 'Criar rascunho' })).toBeDisabled();
   });
 });

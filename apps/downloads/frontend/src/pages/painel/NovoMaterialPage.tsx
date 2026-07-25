@@ -3,14 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { PainelShell } from '../../components/PainelShell';
 import { useCreateMaterial } from '../../hooks/useCreateMaterial';
+import { useMaterialTypes } from '../../hooks/useMaterialTypes';
 
 // T2.1 (spec 082) — criacao de material pelo autor. Backend so aceita
-// slug/title/material_type (materials.ts POST /); demais campos (resumo,
+// slug/title/material_type_id (materials.ts POST /); demais campos (resumo,
 // descricao, link, editora) sao preenchidos depois em EditarMaterialPage,
 // que ja cobre esses campos via PATCH.
 export function NovoMaterialPage() {
   const navigate = useNavigate();
   const createMutation = useCreateMaterial();
+  const materialTypesQuery = useMaterialTypes();
 
   const [slug, setSlug] = useState('');
   const [title, setTitle] = useState('');
@@ -22,7 +24,7 @@ export function NovoMaterialPage() {
       const created = await createMutation.mutateAsync({
         slug: slug.trim(),
         title: title.trim(),
-        material_type: materialType.trim(),
+        material_type_id: materialType,
       });
       toast.success('Material criado como rascunho.');
       navigate(`/painel/materiais/${created.id}/editar`);
@@ -62,18 +64,26 @@ export function NovoMaterialPage() {
 
         <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
           <span>Tipo de material</span>
-          <input
+          <select
             required
             value={materialType}
             onChange={(e) => setMaterialType(e.target.value)}
-            placeholder="ex.: adventure, sourcebook, supplement"
+            disabled={materialTypesQuery.isPending || materialTypesQuery.isError}
             className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
-          />
+          >
+            <option value="">Selecione um tipo</option>
+            {(materialTypesQuery.data ?? []).map((type) => (
+              <option key={type.id} value={type.id}>{type.name}</option>
+            ))}
+          </select>
+          {materialTypesQuery.isError && (
+            <span role="alert" className="text-xs text-red-600">Tipos indisponíveis. Tente novamente.</span>
+          )}
         </label>
 
         <button
           type="submit"
-          disabled={createMutation.isPending}
+          disabled={createMutation.isPending || materialTypesQuery.isPending || materialTypesQuery.isError}
           className="min-h-[44px] w-fit rounded-md bg-artificio-orange px-6 py-2 font-semibold text-white hover:bg-artificio-orange-hover disabled:opacity-50"
         >
           {createMutation.isPending ? 'Criando...' : 'Criar rascunho'}

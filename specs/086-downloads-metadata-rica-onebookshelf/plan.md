@@ -83,7 +83,7 @@ WHERE editorial_state = 'published' GROUP BY material_type ORDER BY COUNT(*) DES
 
 Devolve também os `system_id`/`edition_id` em uso, para a sidebar não oferecer filtro que retorna zero resultado (regra de Nielsen: não oferecer ação sem efeito). Cache curto em memória (o valor muda pouco). Isso é rota nova → `pnpm verify:api` obrigatório.
 
-**Débito honesto a registrar:** `material_type` ser texto livre digitado significa que o catálogo real pode ter "aventura", "Aventura", "aventuras" como valores distintos, e a faceta vai exibir os três. Normalizar/enumerar `material_type` é problema pré-existente, fora do escopo desta spec — registrar no backlog em vez de resolver por conta própria aqui.
+**Decisão nominal posterior (2026-07-25):** `material_type` não fica local nem vira enum. Vira vocabulário Central próprio, separado da árvore `system > edition > variant`: tipos de material são faceta ortogonal, e ampliar `CatalogNodeType` quebraria contratos de árvore, matching e projeção já usados por Mesas/Glossário. O Central mantém ID, slug, nome, aliases e status; cada app lê e pode registrar por API autenticada. Downloads guarda `material_type_id` canônico, conserva o texto legado só durante migração e oferece facetas pelo vocabulário Central em uso.
 
 ### Backend — sanitização de HTML rico (frente de segurança)
 
