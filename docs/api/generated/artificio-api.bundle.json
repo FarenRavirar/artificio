@@ -4,13 +4,13 @@
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
     "accounts": 12,
-    "downloads": 64,
+    "downloads": 69,
     "glossario": 49,
     "links": 22,
     "mesas": 192,
     "site": 46
   },
-  "total": 385,
+  "total": 390,
   "operations": [
     {
       "app": "accounts",
@@ -424,6 +424,42 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "getapi_v1_admin_summary"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/admin/system-suggestions",
+      "summary": "Consulta api v1 admin system-suggestions",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_system_suggestions"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/admin/system-suggestions/{id}/candidates",
+      "summary": "Consulta api v1 admin system-suggestions id candidates",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_system_suggestions_id_candidates"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/admin/system-suggestions/{id}/resolve",
+      "summary": "Cria ou executa api v1 admin system-suggestions id resolve",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_system_suggestions_id_resolve"
     },
     {
       "app": "downloads",
@@ -940,6 +976,30 @@
       "auth": "user",
       "consumers": [],
       "operationId": "getapi_v1_reports_mine"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/system-suggestions",
+      "summary": "Cria ou executa api v1 system-suggestions",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_system_suggestions"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/system-suggestions/mine",
+      "summary": "Consulta api v1 system-suggestions mine",
+      "owner": "downloads",
+      "scope": "self-service",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "getapi_v1_system_suggestions_mine"
     },
     {
       "app": "glossario",

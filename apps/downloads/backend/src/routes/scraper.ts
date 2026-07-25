@@ -150,6 +150,11 @@ const ingestItemSchema = z.object({
   publisherName: z.string().nullable(),
   sourceLanguageHint: z.enum(['pt', 'not_pt']).nullable(),
   scenario: z.string().max(100).nullable().optional(),
+  // Spec 086 (Fase 4): texto bruto de sistema/regra extraído pelo scraper
+  // ("Universo de jogo" no OneBookShelf). Ponto 3 da cadeia de propagação —
+  // sem isto, o Zod removeria o campo em silêncio e Fase 4 nunca teria dado
+  // pra resolver contra o catálogo nem preencher raw_system_hint.
+  systemHint: z.string().max(200).nullable().optional(),
   // credits é TEXT na migration: 10k por autoria/artista é limite explícito
   // de ingest em lote, sem impor largura inexistente ao campo persistido.
   authorsCredits: z.string().max(SCRAPER_CREDITS_MAX_LENGTH).nullable().optional(),

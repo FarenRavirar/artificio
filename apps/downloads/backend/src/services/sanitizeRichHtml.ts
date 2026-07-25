@@ -3,10 +3,7 @@ import DOMPurify from 'isomorphic-dompurify';
 const ALLOWED_TAGS = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'ul', 'ol', 'li', 'a', 'img', 'h2', 'h3', 'h4', 'blockquote', 'hr'];
 const ALLOWED_ATTR = ['href', 'title', 'target', 'rel', 'src', 'alt', 'width', 'height'];
 const HTTP_URL_RE = /^https?:/i;
-const IFRAME_TAG_RE = /<\/?iframe\b[^>]*>/gi;
-const BLOCK_TAG_RE = /<\/?(?:p|div|section|article|h[1-6]|ul|ol|li|blockquote|pre|table|tr|hr)\b[^>]*>/gi;
-const BREAK_TAG_RE = /<br\b[^>]*>/gi;
-const HTML_TAG_RE = /<[^>]*>/g;
+const BLOCK_TAGS = new Set(['p', 'div', 'section', 'article', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'table', 'tr', 'hr']);
 const NAMED_ENTITIES: Readonly<Record<string, string>> = {
   amp: '&', apos: "'", gt: '>', lt: '<', nbsp: ' ', quot: '"',
 };
@@ -28,6 +25,56 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   node.setAttribute('rel', 'nofollow noopener noreferrer');
 });
 
+function findTagEnd(value: string, start: number): number {
+  let quote: string | null = null;
+  for (let index = start + 1; index < value.length; index += 1) {
+    const character = value[index];
+    if (quote) {
+      if (character === quote) quote = null;
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '>') {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function getTagName(tag: string): string {
+  const match = /^<\s*\/?\s*([a-z][a-z0-9:-]*)\b/i.exec(tag);
+  return match?.[1].toLowerCase() ?? '';
+}
+
+// Scanner linear: HTML externo pode conter atributos longos/malformados; regex
+// com classes amplas tinha backtracking super-linear (Sonar, PR fase 4).
+function replaceHtmlTags(value: string, replacement: (tagName: string) => string | null): string {
+  let output = '';
+  let cursor = 0;
+  while (cursor < value.length) {
+    const tagStart = value.indexOf('<', cursor);
+    if (tagStart === -1) return output + value.slice(cursor);
+    output += value.slice(cursor, tagStart);
+    const tagEnd = findTagEnd(value, tagStart);
+    if (tagEnd === -1) return output + value.slice(tagStart);
+    const tag = value.slice(tagStart, tagEnd + 1);
+    const tagName = getTagName(tag);
+    output += replacement(tagName) ?? tag;
+    cursor = tagEnd + 1;
+  }
+  return output;
+}
+
+function removeIframeTags(value: string): string {
+  return replaceHtmlTags(value, (tagName) => (tagName === 'iframe' ? '' : null));
+}
+
+function stripHtmlTags(value: string): string {
+  return replaceHtmlTags(value, (tagName) => {
+    if (tagName === 'br' || BLOCK_TAGS.has(tagName)) return '\n';
+    return '';
+  });
+}
+
 export function sanitizeRichHtml(html: string): string {
   // sanitize-html com disallowedTagsMode='discard' removia a tag e mantinha
   // texto fallback. DOMPurify trata iframe como conteúdo proibido; desembrulha
@@ -39,18 +86,22 @@ export function sanitizeRichHtml(html: string): string {
   let previousIframePass: string;
   do {
     previousIframePass = withoutIframe;
-    withoutIframe = withoutIframe.replace(IFRAME_TAG_RE, '');
+    withoutIframe = removeIframeTags(withoutIframe);
   } while (withoutIframe !== previousIframePass);
   return DOMPurify.sanitize(withoutIframe, { ALLOWED_TAGS, ALLOWED_ATTR, ALLOWED_URI_REGEXP: HTTP_URL_RE });
+}
+
+function decodeNumericEntity(token: string): number {
+  if (token.startsWith('#x')) return Number.parseInt(token.slice(2), 16);
+  if (token.startsWith('#')) return Number.parseInt(token.slice(1), 10);
+  return Number.NaN;
 }
 
 function decodeHtmlEntities(value: string): string {
   return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (entity, token: string) => {
     const normalizedToken = token.toLowerCase();
     if (normalizedToken in NAMED_ENTITIES) return NAMED_ENTITIES[normalizedToken]!;
-    const codePoint = normalizedToken.startsWith('#x')
-      ? Number.parseInt(normalizedToken.slice(2), 16)
-      : normalizedToken.startsWith('#') ? Number.parseInt(normalizedToken.slice(1), 10) : Number.NaN;
+    const codePoint = decodeNumericEntity(normalizedToken);
     if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return entity;
     return String.fromCodePoint(codePoint);
   });
@@ -68,7 +119,7 @@ export function richHtmlToPlainText(html: string): string {
   let previousStripPass: string;
   do {
     previousStripPass = stripped;
-    stripped = stripped.replace(BREAK_TAG_RE, '\n').replace(BLOCK_TAG_RE, '\n').replace(HTML_TAG_RE, '');
+    stripped = stripHtmlTags(stripped);
   } while (stripped !== previousStripPass);
   return decodeHtmlEntities(stripped)
     .replace(/[ \t]+\n/g, '\n')

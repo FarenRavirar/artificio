@@ -63,6 +63,11 @@ export interface DownloadMaterialTable {
   detected_language: string | null;
   language_confident: boolean | null;
   language_checked_at: Date | null;
+  // Spec 086 (Fase 4, migration_027) — texto bruto de sistema/regra quando o
+  // scraper nao casa contra o catalogo central (equivalente a raw_system_hint
+  // do apps/mesas). Material nunca perde essa informacao; limpo quando uma
+  // download_system_suggestion e aprovada ou uma re-tentativa de match casa.
+  raw_system_hint: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -287,6 +292,34 @@ export type DownloadScraperPlatform = Selectable<DownloadScraperPlatformTable>;
 export type NewDownloadScraperPlatform = Insertable<DownloadScraperPlatformTable>;
 export type DownloadScraperPlatformUpdate = Updateable<DownloadScraperPlatformTable>;
 
+// Spec 086 (Fase 4, migration_027) — fila de triagem de sistema/regra,
+// espelhando o fluxo de draft do mesas (systemSuggestionCandidates.ts +
+// suggestionHelpers.ts): scraper abre 'pending' automatico quando nao casa
+// contra o catalogo central; usuario comum tambem pode sugerir; admin
+// aprova/recusa. resolution_action registra o que o revisor de fato fez.
+export type DownloadSystemSuggestionSource = 'scraper' | 'user';
+export type DownloadSystemSuggestionStatus = 'pending' | 'approved' | 'rejected';
+export type DownloadSystemSuggestionResolutionAction = 'merge_existing' | 'create_alias' | 'create_child' | 'create_system';
+
+export interface DownloadSystemSuggestionTable {
+  id: Generated<string>;
+  material_id: string;
+  raw_value: string;
+  source: DownloadSystemSuggestionSource;
+  status: Generated<DownloadSystemSuggestionStatus>;
+  suggested_by_user_id: string | null;
+  resolution_action: DownloadSystemSuggestionResolutionAction | null;
+  resolved_node_id: string | null;
+  rejection_reason: string | null;
+  reviewed_by: string | null;
+  reviewed_at: Date | null;
+  created_at: Generated<Date>;
+}
+
+export type DownloadSystemSuggestion = Selectable<DownloadSystemSuggestionTable>;
+export type NewDownloadSystemSuggestion = Insertable<DownloadSystemSuggestionTable>;
+export type DownloadSystemSuggestionUpdate = Updateable<DownloadSystemSuggestionTable>;
+
 export interface DownloadMetricDailyTable {
   material_id: string;
   metric_date: Date;
@@ -473,4 +506,5 @@ export interface Database {
   download_scraper_item_log: DownloadScraperItemLogTable;
   download_scraper_parse_log: DownloadScraperParseLogTable;
   download_scraper_platform: DownloadScraperPlatformTable;
+  download_system_suggestion: DownloadSystemSuggestionTable;
 }

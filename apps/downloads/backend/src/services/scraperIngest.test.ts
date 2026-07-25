@@ -12,6 +12,21 @@ vi.mock('./scraperCreator', () => ({
   getOrCreateScraperCreatorId: getOrCreateScraperCreatorIdMock,
 }));
 
+// T4.5 (spec 086) — loadCatalogSystemsFlat faz chamada de rede real
+// (catalogFetch); mockado pra runScraperIngest nunca depender de rede em
+// teste unitário. Default: catálogo vazio (nenhum item existente casa por
+// exato) — casos específicos de match sobrescrevem com mockResolvedValueOnce.
+// resolveTaxonomyIds é lógica pura (sem I/O) — usa a implementação real via
+// importOriginal em vez de mockar, evita duplicar a regra no teste.
+const loadCatalogSystemsFlatMock = vi.hoisted(() => vi.fn());
+vi.mock('./catalogClient', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./catalogClient')>();
+  return {
+    resolveTaxonomyIds: actual.resolveTaxonomyIds,
+    loadCatalogSystemsFlat: loadCatalogSystemsFlatMock,
+  };
+});
+
 const dbMocks = vi.hoisted(() => ({
   selectFrom: vi.fn(),
   insertInto: vi.fn(),
@@ -56,6 +71,8 @@ beforeEach(() => {
   dbMocks.transaction.mockReset();
   detectPortugueseMock.mockReset();
   getOrCreateScraperCreatorIdMock.mockReset();
+  loadCatalogSystemsFlatMock.mockReset();
+  loadCatalogSystemsFlatMock.mockResolvedValue([]);
 
   dbMocks.updateTable.mockReturnValue({
     set: vi.fn().mockReturnThis(),
@@ -259,5 +276,151 @@ describe('runScraperIngest', () => {
     await runScraperIngest('run-1', 'itch_io', asyncIterableOf(items));
 
     expect(dbMocks.updateTable).toHaveBeenCalledTimes(2);
+  });
+
+  // T4.5 (spec 086, Fase 4) — resolução de taxonomia: auto-match EXATO
+  // (matchSystemNameExact) contra o catálogo carregado; não casando,
+  // preserva o texto bruto e abre sugestão pending.
+  describe('resolução de systemHint (Fase 4)', () => {
+    // resolveTaxonomyIds sobe parent_id até a raiz (node_type='system') —
+    // fixture precisa incluir a raiz pro lookup não cair no fallback
+    // (matchedId usado como system_id quando a cadeia não fecha).
+    const ROOT_NODE = { id: 'dnd', name: 'Dungeons & Dragons', name_pt: null, slug: 'dnd', path_slug: 'dnd', node_type: 'system' as const, parent_id: null, aliases: [] };
+
+    function catalogNode(overrides: Partial<{ id: string; name: string; name_pt: string | null; aliases: string[] }> = {}) {
+      return {
+        id: 'dd5e', name: 'Dungeons & Dragons 5e', name_pt: null, slug: 'dnd-5e', path_slug: 'dnd/5e',
+        node_type: 'edition' as const, parent_id: 'dnd', aliases: ['D&D 5e'],
+        ...overrides,
+      };
+    }
+
+    it('sem systemHint: system_id e raw_system_hint ficam null, nenhuma sugestão aberta', async () => {
+      dbMocks.selectFrom
+        .mockReturnValueOnce(selectChain(undefined))
+        .mockReturnValueOnce(selectChain([]));
+      getOrCreateScraperCreatorIdMock.mockResolvedValue('scraper-creator-id');
+
+      const materialInsert = { values: vi.fn().mockReturnThis(), returning: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'material-novo' }) };
+      const metadataInsert = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+      const trxInsertInto = vi.fn().mockReturnValueOnce(materialInsert).mockReturnValueOnce(metadataInsert);
+      dbMocks.transaction.mockReturnValue({
+        execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) => cb({ insertInto: trxInsertInto }),
+      });
+
+      const item = makeItem({ sourceLanguageHint: 'pt' });
+      await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
+
+      expect(loadCatalogSystemsFlatMock).not.toHaveBeenCalled();
+      expect(trxInsertInto).toHaveBeenCalledTimes(2);
+      const materialValues = materialInsert.values.mock.calls[0][0];
+      expect(materialValues.system_id).toBeNull();
+      expect(materialValues.raw_system_hint).toBeNull();
+    });
+
+    it('systemHint casa nó folha (edition): system_id vira a RAIZ, edition_id vira o nó casado (achado real PR #204)', async () => {
+      loadCatalogSystemsFlatMock.mockResolvedValue([ROOT_NODE, catalogNode()]);
+      dbMocks.selectFrom
+        .mockReturnValueOnce(selectChain(undefined))
+        .mockReturnValueOnce(selectChain([]));
+      getOrCreateScraperCreatorIdMock.mockResolvedValue('scraper-creator-id');
+
+      const materialInsert = { values: vi.fn().mockReturnThis(), returning: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'material-novo' }) };
+      const metadataInsert = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+      const trxInsertInto = vi.fn().mockReturnValueOnce(materialInsert).mockReturnValueOnce(metadataInsert);
+      dbMocks.transaction.mockReturnValue({
+        execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) => cb({ insertInto: trxInsertInto }),
+      });
+
+      const item = makeItem({ sourceLanguageHint: 'pt', systemHint: 'D&D 5e' });
+      await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
+
+      expect(trxInsertInto).toHaveBeenCalledTimes(2);
+      const materialValues = materialInsert.values.mock.calls[0][0];
+      expect(materialValues.system_id).toBe('dnd');
+      expect(materialValues.edition_id).toBe('dd5e');
+      expect(materialValues.raw_system_hint).toBeNull();
+    });
+
+    it('systemHint casa nó raiz (system): system_id vira o próprio nó, edition_id fica null', async () => {
+      loadCatalogSystemsFlatMock.mockResolvedValue([ROOT_NODE]);
+      dbMocks.selectFrom
+        .mockReturnValueOnce(selectChain(undefined))
+        .mockReturnValueOnce(selectChain([]));
+      getOrCreateScraperCreatorIdMock.mockResolvedValue('scraper-creator-id');
+
+      const materialInsert = { values: vi.fn().mockReturnThis(), returning: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'material-novo' }) };
+      const metadataInsert = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+      const trxInsertInto = vi.fn().mockReturnValueOnce(materialInsert).mockReturnValueOnce(metadataInsert);
+      dbMocks.transaction.mockReturnValue({
+        execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) => cb({ insertInto: trxInsertInto }),
+      });
+
+      const item = makeItem({ sourceLanguageHint: 'pt', systemHint: 'Dungeons & Dragons' });
+      await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
+
+      const materialValues = materialInsert.values.mock.calls[0][0];
+      expect(materialValues.system_id).toBe('dnd');
+      expect(materialValues.edition_id).toBeNull();
+    });
+
+    it('systemHint NÃO casa (nem aproximado): preserva texto bruto e abre download_system_suggestion pending', async () => {
+      loadCatalogSystemsFlatMock.mockResolvedValue([catalogNode()]);
+      dbMocks.selectFrom
+        .mockReturnValueOnce(selectChain(undefined))
+        .mockReturnValueOnce(selectChain([]));
+      getOrCreateScraperCreatorIdMock.mockResolvedValue('scraper-creator-id');
+
+      const materialInsert = { values: vi.fn().mockReturnThis(), returning: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'material-novo' }) };
+      const metadataInsert = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+      const suggestionInsert = { values: vi.fn().mockReturnThis(), onConflict: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+      const trxInsertInto = vi.fn()
+        .mockReturnValueOnce(materialInsert)
+        .mockReturnValueOnce(suggestionInsert)
+        .mockReturnValueOnce(metadataInsert);
+      dbMocks.transaction.mockReturnValue({
+        execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) => cb({ insertInto: trxInsertInto }),
+      });
+
+      const item = makeItem({ sourceLanguageHint: 'pt', systemHint: 'Sistema Totalmente Desconhecido XYZ' });
+      await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
+
+      expect(trxInsertInto).toHaveBeenCalledTimes(3);
+      const materialValues = materialInsert.values.mock.calls[0][0];
+      expect(materialValues.system_id).toBeNull();
+      expect(materialValues.raw_system_hint).toBe('Sistema Totalmente Desconhecido XYZ');
+      expect(suggestionInsert.values).toHaveBeenCalledWith(
+        expect.objectContaining({
+          material_id: 'material-novo',
+          raw_value: 'Sistema Totalmente Desconhecido XYZ',
+          source: 'scraper',
+          status: 'pending',
+        }),
+      );
+    });
+
+    it('systemHint casa por alias (não só nome canônico)', async () => {
+      // Achado real (review PR #204, Codex): aliases:[] com systemHint igual
+      // ao name torna o teste indistinguível de "casa por nome canônico" —
+      // alias real e diferente do nome prova que o match usa mesmo o alias.
+      loadCatalogSystemsFlatMock.mockResolvedValue([{ ...catalogNode({ id: 'cain', name: 'CAIN Roleplaying Game', aliases: ['CAIN'] }), node_type: 'system' as const, parent_id: null }]);
+      dbMocks.selectFrom
+        .mockReturnValueOnce(selectChain(undefined))
+        .mockReturnValueOnce(selectChain([]));
+      getOrCreateScraperCreatorIdMock.mockResolvedValue('scraper-creator-id');
+
+      const materialInsert = { values: vi.fn().mockReturnThis(), returning: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'material-novo' }) };
+      const metadataInsert = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+      const trxInsertInto = vi.fn().mockReturnValueOnce(materialInsert).mockReturnValueOnce(metadataInsert);
+      dbMocks.transaction.mockReturnValue({
+        execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) => cb({ insertInto: trxInsertInto }),
+      });
+
+      const item = makeItem({ sourceLanguageHint: 'pt', systemHint: 'CAIN' });
+      await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
+
+      const materialValues = materialInsert.values.mock.calls[0][0];
+      expect(materialValues.system_id).toBe('cain');
+    });
   });
 });

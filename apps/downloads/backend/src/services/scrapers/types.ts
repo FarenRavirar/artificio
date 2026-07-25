@@ -16,6 +16,13 @@ export interface ScrapedItem {
   // nao oferece nenhum sinal proprio — languageDetector decide sozinho.
   sourceLanguageHint: 'pt' | 'not_pt' | null;
   scenario?: string | null;
+  // Achado real (spec 086, Fase 4): onebookshelf.ts mapeava details.get('ruleSystem')
+  // (texto bruto de SISTEMA/regra, ex. "D&D 5e") para 'scenario' — campo errado,
+  // so notado agora que a Fase 4 precisa desse valor pra resolver taxonomia contra
+  // o catalogo (scraperIngest.ts) e alimentar download_material.raw_system_hint
+  // quando nao casa. 'scenario' continua so cenario de ambientacao (ex. "Forgotten
+  // Realms"), nunca mais recebe sistema.
+  systemHint?: string | null;
   authorsCredits?: string | null;
   artistsCredits?: string | null;
   creationMethod?: string | null;

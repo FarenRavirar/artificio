@@ -25,6 +25,8 @@ const PARAGRAPH_RE = /<p\b[^>]*>([\s\S]*?)<\/p>/gi;
 const TILE_MARKER_RE = /\bproduct-detail-tile-\d+\b/gi;
 const RICH_DESCRIPTION_RE = /<obs-product-description\b[^>]*>([\s\S]*?)<\/obs-product-description>/i;
 const FILTER_FACETS = new Set(['tipoDeProduto', 'edicao', 'cenario', 'conteudo']);
+type Anchor = { href: string; content: string };
+type SourceFilterEntry = { facet: string; text: string };
 
 function normalizedText(html: string): string {
   return sanitizeText(html.replace(/<br\b[^>]*>/gi, ' ')).replace(/\s+/g, ' ').trim();
@@ -55,33 +57,39 @@ function extractDetailValues(html: string): Map<string, string> {
 
 // Achado real (Sonar, performance): regex de <a> combinava múltiplos
 // quantificadores amplos sobre HTML externo. Scanner linear evita backtracking.
-function extractAnchors(html: string): Array<{ href: string; content: string }> {
-  const anchors: Array<{ href: string; content: string }> = [];
+function isAnchorStart(html: string, start: number): boolean {
+  const nextCharacter = html[start + 2];
+  return nextCharacter === '>' || /\s/.test(nextCharacter ?? '');
+}
+
+function findTagEnd(html: string, start: number): number {
+  let quote: string | null = null;
+  for (let index = start + 2; index < html.length; index += 1) {
+    const character = html[index];
+    if (quote) {
+      if (character === quote) quote = null;
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '>') {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function extractAnchors(html: string): Anchor[] {
+  const anchors: Anchor[] = [];
   const lowerHtml = html.toLowerCase();
   let cursor = 0;
 
   while (cursor < html.length) {
     const openStart = lowerHtml.indexOf('<a', cursor);
     if (openStart === -1) break;
-    const nextCharacter = lowerHtml[openStart + 2];
-    if (nextCharacter !== '>' && !/\s/.test(nextCharacter ?? '')) {
+    if (!isAnchorStart(lowerHtml, openStart)) {
       cursor = openStart + 2;
       continue;
     }
-
-    let quote: string | null = null;
-    let openEnd = -1;
-    for (let index = openStart + 2; index < html.length; index += 1) {
-      const character = html[index];
-      if (quote) {
-        if (character === quote) quote = null;
-      } else if (character === '"' || character === "'") {
-        quote = character;
-      } else if (character === '>') {
-        openEnd = index;
-        break;
-      }
-    }
+    const openEnd = findTagEnd(html, openStart);
     if (openEnd === -1) break;
 
     const closeStart = lowerHtml.indexOf('</a>', openEnd + 1);
@@ -96,36 +104,37 @@ function extractAnchors(html: string): Array<{ href: string; content: string }> 
   return anchors;
 }
 
-function extractSourceFilters(filtersHtml: string | undefined): SourceFilter[] {
-  if (!filtersHtml) return [];
+function toSourceFilterEntry(anchor: Anchor): SourceFilterEntry | null {
+  const text = nullableText(anchor.content);
+  if (!text) return null;
+  try {
+    const url = new URL(anchor.href, 'https://onebookshelf.invalid');
+    const facet = [...url.searchParams.keys()].find((key) => FILTER_FACETS.has(key));
+    return facet ? { facet, text } : null;
+  } catch {
+    // HTML externo malformado não pode abortar a extração dos demais filtros.
+    return null;
+  }
+}
+
+function extractListSourceFilters(listHtml: string): SourceFilter[] {
   const filters: SourceFilter[] = [];
-  for (const listItem of filtersHtml.matchAll(LI_RE)) {
-    let facet: string | null = null;
-    let path: string[] = [];
-    const flush = () => {
-      if (facet && path.length > 0) filters.push({ facet, path });
-      facet = null;
-      path = [];
-    };
-    for (const anchor of extractAnchors(listItem[1])) {
-      const text = nullableText(anchor.content);
-      if (!text) continue;
-      let url: URL;
-      try {
-        url = new URL(anchor.href, 'https://onebookshelf.invalid');
-      } catch {
-        // HTML externo malformado não pode abortar a extração dos demais filtros.
-        continue;
-      }
-      const nextFacet = [...url.searchParams.keys()].find((key) => FILTER_FACETS.has(key));
-      if (!nextFacet) continue;
-      if (facet && facet !== nextFacet) flush();
-      facet = nextFacet;
-      path.push(text);
+  let current: SourceFilter | null = null;
+  for (const anchor of extractAnchors(listHtml)) {
+    const entry = toSourceFilterEntry(anchor);
+    if (!entry) continue;
+    if (!current || current.facet !== entry.facet) {
+      current = { facet: entry.facet, path: [] };
+      filters.push(current);
     }
-    flush();
+    current.path.push(entry.text);
   }
   return filters;
+}
+
+function extractSourceFilters(filtersHtml: string | undefined): SourceFilter[] {
+  if (!filtersHtml) return [];
+  return [...filtersHtml.matchAll(LI_RE)].flatMap((listItem) => extractListSourceFilters(listItem[1]));
 }
 
 function flattenFilterTags(sourceFilters: SourceFilter[]): string[] {
@@ -165,8 +174,17 @@ export function applyOneBookShelfOverride(preview: PlatformOverrideInput, html: 
   const sourceFilters = extractSourceFilters(details.get('filters'));
   const tiles = extractTileMetadata(html);
   const description = descriptionHtml ? richHtmlToPlainText(descriptionHtml) : preview.description;
-  const richFields: Pick<PlatformOverrideInput, 'scenario' | 'authorsCredits' | 'artistsCredits' | 'creationMethod' | 'sourceFilters' | 'tags' | 'fileSizeText' | 'format' | 'pageCount' | 'sourceCategory' | 'descriptionHtml' | 'description'> = {
-    scenario: nullableText(details.get('ruleSystem')),
+  const richFields: Pick<PlatformOverrideInput, 'systemHint' | 'authorsCredits' | 'artistsCredits' | 'creationMethod' | 'sourceFilters' | 'tags' | 'fileSizeText' | 'format' | 'pageCount' | 'sourceCategory' | 'descriptionHtml' | 'description'> = {
+    // Achado real (spec 086, Fase 4): data-codeid="ruleSystem" (label real
+    // do site: "Universo de jogo") e o SISTEMA/regra do material (ex.
+    // "Vampire the Masquerade", "D&D 5e") — antes desta correcao ia pro
+    // campo 'scenario', que na verdade nunca teve extrator proprio.
+    // Correcao de comentario (review PR #204, Codex): 'scenario' NAO e
+    // zerado aqui — nem entra no Pick<> de richFields, entao continua
+    // herdado de preview.scenario via spread no return. A tabela de
+    // detalhes do OneBookShelf so nao tem campo separado pra cenario de
+    // ambientacao (por isso nenhum extrator dedicado foi escrito pra ele).
+    systemHint: nullableText(details.get('ruleSystem')),
     authorsCredits: nullableText(details.get('authors')),
     artistsCredits: nullableText(details.get('artists')),
     creationMethod: nullableText(details.get('creationMethod')),
