@@ -2,34 +2,36 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { GestaoShell } from '../../components/GestaoShell';
-import {
-  useParseOneBookShelfHtml,
-  oneBookShelfSourcePlatformSchema,
-  type OneBookShelfPreview,
-  type OneBookShelfSourcePlatform,
-  type DuplicateCandidate,
-} from '../../hooks/useParseOneBookShelfHtml';
-import { useIngestScrapedItems } from '../../hooks/useIngestScrapedItems';
+import { useParseHtml, type ParsePreview, type DetectedPlatform, type DuplicateCandidate } from '../../hooks/useParseHtml';
+import { useIngestScrapedItems, describeIngestOutcome } from '../../hooks/useIngestScrapedItems';
 
-const PRICE_SIGNAL_LABEL: Record<OneBookShelfPreview['priceSignal'], string> = {
+const PRICE_SIGNAL_LABEL: Record<ParsePreview['priceSignal'], string> = {
   pwyw_tag_present: 'Pague quanto quiser (confirmado no HTML)',
   zero_price_no_pwyw_tag: 'Grátis (preço $0.00, sem opção de PWYW)',
   nonzero_price_no_pwyw_tag: 'Preço diferente de zero, sem tag de PWYW — parece pago',
 };
 
 // T5.1 (spec 085) — pagina nova (/gestao/materiais/importar): admin cola
-// HTML de produto DMs Guild/DriveThruRPG, ve preview extraido +
-// candidatos de duplicata (Fase 3), edita campos e confirma publicacao
-// (T5.2, POST /ingest ja existente). priceSignal='nonzero_price_no_pwyw_tag'
-// bloqueia confirmar ate o admin editar manualmente isFreeOrPwyw (D119).
+// HTML de produto, ve preview extraido + candidatos de duplicata
+// (Fase 3), edita campos e confirma publicacao (T5.2, POST /ingest ja
+// existente). priceSignal='nonzero_price_no_pwyw_tag' bloqueia confirmar
+// ate o admin editar manualmente isFreeOrPwyw (D119).
+// T8.1 (spec 085, Fase 8) — <select> de plataforma removido: resolvia a
+// raiz do bug P2 (review PR #200, achado original) so em mitigacao (state
+// previewSourcePlatform travado ao resultado da analise); agora a
+// plataforma nao e mais escolhida pelo admin, e DETECTADA pelo backend
+// via canonical do HTML (T7.3) e exibida aqui so como leitura apos
+// analisar. previewDetectedPlatform preserva o mesmo principio do achado
+// original (nunca usar um state editavel ao vivo pra publicar) — aqui so
+// nao existe mais o <select> que causava a divergencia.
 export function GestaoImportarPage() {
-  const parseMutation = useParseOneBookShelfHtml();
+  const parseMutation = useParseHtml();
   const ingestMutation = useIngestScrapedItems();
 
-  const [sourcePlatform, setSourcePlatform] = useState<OneBookShelfSourcePlatform>('dms_guild');
   const [html, setHtml] = useState('');
 
-  const [preview, setPreview] = useState<OneBookShelfPreview | null>(null);
+  const [preview, setPreview] = useState<ParsePreview | null>(null);
+  const [previewDetectedPlatform, setPreviewDetectedPlatform] = useState<DetectedPlatform | null>(null);
   const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateCandidate[]>([]);
   const [parseCaseId, setParseCaseId] = useState<string | null>(null);
 
@@ -43,8 +45,9 @@ export function GestaoImportarPage() {
   const handleAnalisar = async (event: FormEvent) => {
     event.preventDefault();
     try {
-      const result = await parseMutation.mutateAsync({ source_platform: sourcePlatform, html });
+      const result = await parseMutation.mutateAsync({ html });
       setPreview(result.preview);
+      setPreviewDetectedPlatform(result.detectedPlatform);
       setDuplicateCandidates(result.duplicateCandidates);
       setParseCaseId(result.parse_case_id);
       setTitle(result.preview.title);
@@ -62,10 +65,10 @@ export function GestaoImportarPage() {
   const canConfirm = !needsManualPriceReview || priceSignalOverridden;
 
   const handleConfirmar = async () => {
-    if (!preview) return;
+    if (!preview || !previewDetectedPlatform) return;
     try {
-      await ingestMutation.mutateAsync({
-        source_platform: sourcePlatform,
+      const result = await ingestMutation.mutateAsync({
+        source_platform: previewDetectedPlatform.slug,
         items: [
           {
             sourceUrl: preview.sourceUrl,
@@ -79,8 +82,16 @@ export function GestaoImportarPage() {
           },
         ],
       });
+
+      const skipReason = describeIngestOutcome(result);
+      if (skipReason) {
+        toast.error(skipReason);
+        return;
+      }
+
       toast.success('Material publicado.');
       setPreview(null);
+      setPreviewDetectedPlatform(null);
       setDuplicateCandidates([]);
       setParseCaseId(null);
       setHtml('');
@@ -93,23 +104,17 @@ export function GestaoImportarPage() {
     <GestaoShell>
       <h1 className="text-2xl font-bold text-[var(--fg)]">Importar de HTML colado</h1>
       <p className="mt-2 text-sm text-[var(--fg-muted)]">
-        Cole o HTML de um produto DMs Guild ou DriveThruRPG (View Source pós-carregamento). Nenhum HTML é armazenado —
-        só o preview extraído é gravado.
+        Cole o HTML de um produto de uma plataforma cadastrada em{' '}
+        <Link to="/gestao/plataformas" className="underline">
+          Plataformas
+        </Link>
+        . A plataforma é detectada automaticamente pelo domínio no HTML — não precisa escolher. Em sites com renderização
+        via JavaScript (ex.: Angular), o JSON-LD exigido pelo parser só existe depois do carregamento — use DevTools →
+        Elements, copie o elemento &lt;html&gt; renderizado (não &quot;Exibir código-fonte da página&quot;, que devolve o
+        HTML original sem esse bloco). Nenhum HTML é armazenado — só o preview extraído é gravado.
       </p>
 
       <form onSubmit={handleAnalisar} className="mt-6 flex max-w-2xl flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
-          <span>Plataforma</span>
-          <select
-            value={sourcePlatform}
-            onChange={(e) => setSourcePlatform(oneBookShelfSourcePlatformSchema.parse(e.target.value))}
-            className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
-          >
-            <option value="dms_guild">DMs Guild</option>
-            <option value="drivethrurpg">DriveThruRPG</option>
-          </select>
-        </label>
-
         <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
           <span>HTML da página do produto</span>
           <textarea
@@ -136,6 +141,9 @@ export function GestaoImportarPage() {
           <h2 className="text-lg font-semibold text-[var(--fg)]">Preview extraído</h2>
 
           <div className="mt-2 rounded-md border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--fg)]">
+            <p>
+              Plataforma detectada: <strong>{previewDetectedPlatform?.name ?? '—'}</strong>
+            </p>
             <p>
               Preço extraído: <strong>{preview.extractedPriceValue ?? 'não identificado'}</strong>
             </p>

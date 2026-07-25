@@ -37,6 +37,9 @@ const GESTAO_NAV_GROUPS = [
     items: [
       { label: 'Métricas', href: '/gestao/metricas' },
       { label: 'Configurações', href: '/gestao/configuracoes' },
+      // D-D (spec 085, Fase 6/8) — cadastro de plataforma e configuracao do
+      // sistema (registry em banco), nao parte do fluxo de importar material.
+      { label: 'Plataformas', href: '/gestao/plataformas' },
     ],
   },
 ];

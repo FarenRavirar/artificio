@@ -253,6 +253,14 @@ function loadFixtureHtml(name: string): string {
   return fs.readFileSync(path.join(FIXTURES_DIR, name), 'utf-8');
 }
 
+function platformChain(platform: unknown | null) {
+  return {
+    selectAll: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    executeTakeFirst: vi.fn().mockResolvedValue(platform ?? undefined),
+  };
+}
+
 function duplicateCheckChain(result: unknown[] = []) {
   return {
     select: vi.fn().mockReturnThis(),
@@ -272,14 +280,21 @@ function parseLogInsertChain(parseCaseId = 'parse-case-1') {
   };
 }
 
+const DMS_GUILD_PLATFORM_ROW = { slug: 'dms_guild', name: 'DMs Guild', domain: 'www.dmsguild.com', parser_kind: 'onebookshelf' };
+const DRIVETHRURPG_PLATFORM_ROW = { slug: 'drivethrurpg', name: 'DriveThruRPG', domain: 'www.drivethrurpg.com', parser_kind: 'onebookshelf' };
+
+// T7.3 — payload de /parse-html passou a ser só { html }, sem source_platform
+// (plataforma é DETECTADA pelo canonical, não escolhida). Toda chamada
+// bem-sucedida faz selectFrom 2x nesta ordem: 1ª = registry
+// (findPlatformByDomain), 2ª = dedupe (findDuplicateCandidates).
 describe('POST /api/v1/admin/scraper/parse-html', () => {
-  it('200 com preview real — fixture DMs Guild (PWYW)', async () => {
-    dbMocks.selectFrom.mockReturnValueOnce(duplicateCheckChain());
+  it('200 com preview real — fixture DMs Guild (PWYW), plataforma detectada pelo canonical', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(platformChain(DMS_GUILD_PLATFORM_ROW)).mockReturnValueOnce(duplicateCheckChain());
     dbMocks.insertInto.mockReturnValueOnce(parseLogInsertChain());
     const html = loadFixtureHtml('dms-guild-product-1.html');
     const res = await request(app())
       .post('/api/v1/admin/scraper/parse-html')
-      .send({ source_platform: 'dms_guild', html })
+      .send({ html })
       .expect(200);
 
     expect(res.body.preview.title).toBe('Classe O Lutador (5E)- Playtest');
@@ -287,15 +302,16 @@ describe('POST /api/v1/admin/scraper/parse-html', () => {
     expect(res.body.preview.isFreeOrPwyw).toBe(true);
     expect(res.body.duplicateCandidates).toEqual([]);
     expect(res.body.parse_case_id).toBe('parse-case-1');
+    expect(res.body.detectedPlatform).toEqual({ slug: 'dms_guild', name: 'DMs Guild' });
   });
 
   it('200 com preview real — fixture DriveThruRPG (grátis fixo)', async () => {
-    dbMocks.selectFrom.mockReturnValueOnce(duplicateCheckChain());
+    dbMocks.selectFrom.mockReturnValueOnce(platformChain(DRIVETHRURPG_PLATFORM_ROW)).mockReturnValueOnce(duplicateCheckChain());
     dbMocks.insertInto.mockReturnValueOnce(parseLogInsertChain('parse-case-2'));
     const html = loadFixtureHtml('drivethrurpg-product-1.html');
     const res = await request(app())
       .post('/api/v1/admin/scraper/parse-html')
-      .send({ source_platform: 'drivethrurpg', html })
+      .send({ html })
       .expect(200);
 
     expect(res.body.preview.title).toBe('RPG Bíblico - Tomada de Jerusalém');
@@ -303,14 +319,14 @@ describe('POST /api/v1/admin/scraper/parse-html', () => {
   });
 
   it('200 com preview mesmo quando há candidato de duplicata (T3.3, endpoint nunca bloqueia)', async () => {
-    dbMocks.selectFrom.mockReturnValueOnce(
-      duplicateCheckChain([{ id: 'mat-existente', slug: 'classe-o-lutador-5e', title: 'Classe O Lutador (5E)', similarity: 0.95 }]),
-    );
+    dbMocks.selectFrom
+      .mockReturnValueOnce(platformChain(DMS_GUILD_PLATFORM_ROW))
+      .mockReturnValueOnce(duplicateCheckChain([{ id: 'mat-existente', slug: 'classe-o-lutador-5e', title: 'Classe O Lutador (5E)', similarity: 0.95 }]));
     dbMocks.insertInto.mockReturnValueOnce(parseLogInsertChain());
     const html = loadFixtureHtml('dms-guild-product-1.html');
     const res = await request(app())
       .post('/api/v1/admin/scraper/parse-html')
-      .send({ source_platform: 'dms_guild', html })
+      .send({ html })
       .expect(200);
 
     expect(res.body.duplicateCandidates).toHaveLength(1);
@@ -318,15 +334,15 @@ describe('POST /api/v1/admin/scraper/parse-html', () => {
     expect(res.body.preview.title).toBe('Classe O Lutador (5E)- Playtest');
   });
 
-  it('T4.2 — grava auditoria sem o HTML bruto em nenhum campo, com admin_user_id/source_platform/price_signal corretos', async () => {
-    dbMocks.selectFrom.mockReturnValueOnce(duplicateCheckChain());
+  it('T4.2 — grava auditoria sem o HTML bruto em nenhum campo, com admin_user_id/source_platform (detectado)/price_signal corretos', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(platformChain(DMS_GUILD_PLATFORM_ROW)).mockReturnValueOnce(duplicateCheckChain());
     const insertChainSpy = parseLogInsertChain();
     dbMocks.insertInto.mockReturnValueOnce(insertChainSpy);
     const html = loadFixtureHtml('dms-guild-product-1.html');
 
     await request(app())
       .post('/api/v1/admin/scraper/parse-html')
-      .send({ source_platform: 'dms_guild', html })
+      .send({ html })
       .expect(200);
 
     expect(dbMocks.insertInto).toHaveBeenCalledWith('download_scraper_parse_log');
@@ -338,30 +354,24 @@ describe('POST /api/v1/admin/scraper/parse-html', () => {
     expect(JSON.stringify(insertedValues).length).toBeLessThan(1000); // fields_extracted é só booleans, não o HTML (158KB)
   });
 
-  it('422 domínio incompatível — fixture StorytellersVault declarado como drivethrurpg (requisito 8a)', async () => {
+  // T7.4 — StorytellersVault deixou de ser negativo (E3): agora é
+  // positivo quando cadastrado no registry (testado em genericHtmlParser.test.ts).
+  // Aqui testa o caso real de rejeição: domínio não cadastrado.
+  it('422 unsupported_platform — domínio não cadastrado no registry', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(platformChain(null));
     const html = loadFixtureHtml('storytellersvault-product-1.html');
-    const res = await request(app())
-      .post('/api/v1/admin/scraper/parse-html')
-      .send({ source_platform: 'drivethrurpg', html })
-      .expect(422);
-
-    expect(res.body.code).toBe('domain_mismatch');
-  });
-
-  it('422 quando source_platform está ausente', async () => {
-    const html = loadFixtureHtml('dms-guild-product-1.html');
     const res = await request(app())
       .post('/api/v1/admin/scraper/parse-html')
       .send({ html })
       .expect(422);
 
-    expect(res.body.error).toMatch(/inválido/);
+    expect(res.body.code).toBe('unsupported_platform');
   });
 
   it('422 quando html está ausente', async () => {
     const res = await request(app())
       .post('/api/v1/admin/scraper/parse-html')
-      .send({ source_platform: 'dms_guild' })
+      .send({})
       .expect(422);
 
     expect(res.body.error).toMatch(/inválido/);
@@ -371,7 +381,7 @@ describe('POST /api/v1/admin/scraper/parse-html', () => {
     const oversized = 'x'.repeat(1_000_001);
     const res = await request(app())
       .post('/api/v1/admin/scraper/parse-html')
-      .send({ source_platform: 'dms_guild', html: oversized })
+      .send({ html: oversized })
       .expect(422);
 
     expect(res.body.error).toMatch(/inválido/);
@@ -386,7 +396,7 @@ describe('POST /api/v1/admin/scraper/parse-html', () => {
 
     await request(app())
       .post('/api/v1/admin/scraper/parse-html')
-      .send({ source_platform: 'dms_guild', html: `<html>${marker}</html>` })
+      .send({ html: `<html>${marker}</html>` })
       .expect(422); // sem JSON-LD, cai no branch de erro tipado
 
     const allLoggedText = [...logSpy.mock.calls, ...errorSpy.mock.calls].flat().map(String).join('\n');
@@ -394,5 +404,73 @@ describe('POST /api/v1/admin/scraper/parse-html', () => {
 
     logSpy.mockRestore();
     errorSpy.mockRestore();
+  });
+});
+
+// T6.4/T6.5 (spec 085, Fase 6) — CRUD minimo do registry de plataformas:
+// admin cadastra site novo sem deploy. 403 sem admin não testado aqui
+// (mesma lacuna pré-existente documentada em T2.4: authMiddleware/requireRole
+// são mockados como pass-through em todo este arquivo).
+describe('GET/POST /api/v1/admin/scraper/platforms', () => {
+  it('GET lista plataformas cadastradas ordenadas por nome', async () => {
+    const rows = [{ slug: 'dms_guild', name: 'DMs Guild', domain: 'www.dmsguild.com', supports_auto_scrape: false, supports_price_recheck: false, parser_kind: 'onebookshelf', created_at: new Date() }];
+    dbMocks.selectFrom.mockReturnValueOnce({
+      selectAll: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockResolvedValue(rows),
+    });
+
+    const res = await request(app()).get('/api/v1/admin/scraper/platforms').expect(200);
+
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].slug).toBe('dms_guild');
+  });
+
+  it('POST cadastra plataforma nova com defaults corretos (flags omitidas ficam false, parser_kind omitido fica json_ld_generic)', async () => {
+    const created = { slug: 'novo_site', name: 'Novo Site', domain: 'novosite.com.br', supports_auto_scrape: false, supports_price_recheck: false, parser_kind: 'json_ld_generic', created_at: new Date() };
+    const insertChainSpy = { values: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue(created) };
+    dbMocks.insertInto.mockReturnValueOnce(insertChainSpy);
+
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/platforms')
+      .send({ slug: 'novo_site', name: 'Novo Site', domain: 'novosite.com.br' })
+      .expect(201);
+
+    expect(res.body.slug).toBe('novo_site');
+    expect(dbMocks.insertInto).toHaveBeenCalledWith('download_scraper_platform');
+  });
+
+  it('POST 422 quando slug tem caractere inválido (maiúscula/espaço)', async () => {
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/platforms')
+      .send({ slug: 'Novo Site', name: 'Novo Site', domain: 'novosite.com.br' })
+      .expect(422);
+
+    expect(res.body.error).toMatch(/inválido/);
+  });
+
+  it('POST 422 quando parser_kind não está entre os overrides conhecidos', async () => {
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/platforms')
+      .send({ slug: 'novo_site', name: 'Novo Site', domain: 'novosite.com.br', parser_kind: 'inexistente' })
+      .expect(422);
+
+    expect(res.body.error).toMatch(/inválido/);
+  });
+
+  it('POST 422 quando slug ou domain já cadastrado (violação de UNIQUE, código 23505)', async () => {
+    const uniqueViolation = Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
+    dbMocks.insertInto.mockReturnValueOnce({
+      values: vi.fn().mockReturnThis(),
+      returningAll: vi.fn().mockReturnThis(),
+      executeTakeFirstOrThrow: vi.fn().mockRejectedValue(uniqueViolation),
+    });
+
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/platforms')
+      .send({ slug: 'dms_guild', name: 'Duplicado', domain: 'duplicado.com.br' })
+      .expect(422);
+
+    expect(res.body.error).toMatch(/já cadastrado/);
   });
 });

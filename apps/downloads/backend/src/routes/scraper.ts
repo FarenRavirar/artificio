@@ -9,9 +9,10 @@ import { GrimoriosEDadosScraper } from '../services/scrapers/grimoriosEDadosScra
 import { OperaRpgScraper } from '../services/scrapers/operaRpgScraper';
 import { DriveThruRpgScraper } from '../services/scrapers/driveThruRpgScraper';
 import { DmsGuildScraper } from '../services/scrapers/dmsGuildScraper';
-import { parseOneBookShelfHtml, OneBookShelfParseError, MAX_HTML_LENGTH } from '../services/scrapers/onebookshelfHtmlParser';
+import { parseHtml, GenericParseError, MAX_HTML_LENGTH } from '../services/scrapers/genericHtmlParser';
+import { KNOWN_PARSER_KINDS } from '../services/scrapers/platformOverrides';
 import { findDuplicateCandidates } from '../services/scrapers/onebookshelfDuplicateCheck';
-import type { DownloadSourcePlatform } from '../db/types';
+import type { DownloadSourcePlatform, DownloadScraperPlatform } from '../db/types';
 import type { ScraperAdapter, ScrapedItem } from '../services/scrapers/types';
 
 const router = Router();
@@ -227,16 +228,23 @@ router.post('/ingest', writeRateLimiter, authMiddleware, requireRole('admin'), a
   return res.json(finalRun);
 });
 
-// T2.1 (spec 085) — parser HTML determinístico (sem IA), admin cola HTML
-// real de produto DMs Guild/DriveThruRPG (WAF bloqueia scraper automático).
-// Escopo intencionalmente menor que IMPLEMENTED_SOURCE_PLATFORMS — não
-// reaproveita a allowlist do scraper automático, só as 2 fontes bloqueadas.
-const PARSE_HTML_SOURCE_PLATFORMS = ['dms_guild', 'drivethrurpg'] as const;
-
+// T7.3 (spec 085, Fase 7) — parser HTML determinístico (sem IA), admin cola
+// HTML de qualquer site cadastrado no registry. Payload passa a ser SÓ
+// `{ html }` — remove `source_platform` do body: elimina o bug P2 do
+// review PR #200 na raiz (admin não pode escolher a plataforma errada
+// porque não escolhe mais nenhuma, é sempre detectada pelo canonical).
 const parseHtmlBodySchema = z.object({
-  source_platform: z.enum(PARSE_HTML_SOURCE_PLATFORMS),
   html: z.string().min(1).max(MAX_HTML_LENGTH),
 });
+
+async function findPlatformByDomain(domain: string): Promise<DownloadScraperPlatform | null> {
+  const row = await db
+    .selectFrom('download_scraper_platform')
+    .selectAll()
+    .where('domain', '=', domain)
+    .executeTakeFirst();
+  return row ?? null;
+}
 
 router.post('/parse-html', writeRateLimiter, authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   const parsed = parseHtmlBodySchema.safeParse(req.body ?? {});
@@ -244,14 +252,23 @@ router.post('/parse-html', writeRateLimiter, authMiddleware, requireRole('admin'
     return res.status(422).json({ error: 'Payload de parse-html inválido.', details: z.treeifyError(parsed.error) });
   }
 
+  let detectedPlatform: DownloadScraperPlatform | null = null;
   try {
-    const preview = parseOneBookShelfHtml(parsed.data.html, parsed.data.source_platform);
+    const preview = await parseHtml(parsed.data.html, async (domain) => {
+      detectedPlatform = await findPlatformByDomain(domain);
+      return detectedPlatform;
+    });
+    // detectedPlatform sempre setado aqui — parseHtml lança unsupported_platform
+    // antes de prosseguir quando findPlatformByDomain devolve null.
+    const platform = detectedPlatform!;
+
     // T3.3 — candidatos de duplicata nunca bloqueiam o preview (sempre 200,
     // mesmo com candidato encontrado); admin decide no frontend.
     const duplicateCandidates = await findDuplicateCandidates(preview.title);
 
     // T4.2 — auditoria minima: quais campos vieram preenchidos vs. vazios,
-    // nunca o HTML bruto (mesma trava do requisito 6 da spec).
+    // nunca o HTML bruto (mesma trava do requisito 6 da spec). source_platform
+    // grava a plataforma DETECTADA (T7.3), não mais escolhida pelo admin.
     const fieldsExtracted = {
       title: Boolean(preview.title),
       description: preview.description !== null,
@@ -264,7 +281,7 @@ router.post('/parse-html', writeRateLimiter, authMiddleware, requireRole('admin'
     const parseLog = await db
       .insertInto('download_scraper_parse_log')
       .values({
-        source_platform: parsed.data.source_platform,
+        source_platform: platform.slug,
         admin_user_id: req.user!.userId,
         fields_extracted: fieldsExtracted,
         price_signal: preview.priceSignal,
@@ -272,10 +289,85 @@ router.post('/parse-html', writeRateLimiter, authMiddleware, requireRole('admin'
       .returning('parse_case_id')
       .executeTakeFirstOrThrow();
 
-    return res.json({ preview, duplicateCandidates, parse_case_id: parseLog.parse_case_id });
+    return res.json({
+      preview,
+      duplicateCandidates,
+      parse_case_id: parseLog.parse_case_id,
+      detectedPlatform: { slug: platform.slug, name: platform.name },
+    });
   } catch (error: unknown) {
-    if (error instanceof OneBookShelfParseError) {
+    if (error instanceof GenericParseError) {
       return res.status(422).json({ error: error.message, code: error.code });
+    }
+    throw error;
+  }
+});
+
+// T6.4 (spec 085, Fase 6) — CRUD minimo do registry de plataformas
+// (download_scraper_platform): admin cadastra site novo (100+ previstos)
+// sem deploy. parser_kind restrito aos overrides que de fato existem em
+// codigo (T7.2, KNOWN_PARSER_KINDS importado — fonte unica, nunca lista
+// duplicada aqui) — cadastrar um kind inexistente so falharia na hora de
+// usar (parse-html), 422 aqui evita esse erro tardio e confuso.
+
+const platformSlugSchema = z
+  .string()
+  .min(1)
+  .max(30)
+  .regex(/^[a-z0-9_]+$/, 'slug deve conter só letras minúsculas, números e underscore.');
+
+const platformDomainSchema = z
+  .string()
+  .min(1)
+  .max(253)
+  .regex(/^[a-z0-9.-]+$/i, 'domain deve ser um hostname puro, sem scheme/path/porta.')
+  .nullable();
+
+const createPlatformBodySchema = z.object({
+  slug: platformSlugSchema,
+  name: z.string().min(1).max(100),
+  domain: platformDomainSchema,
+  supports_auto_scrape: z.boolean().optional(),
+  supports_price_recheck: z.boolean().optional(),
+  parser_kind: z.enum(KNOWN_PARSER_KINDS).optional(),
+});
+
+router.get('/platforms', writeRateLimiter, authMiddleware, requireRole('admin'), async (_req: Request, res: Response) => {
+  const platforms = await db
+    .selectFrom('download_scraper_platform')
+    .selectAll()
+    .orderBy('name', 'asc')
+    .execute();
+
+  return res.json({ items: platforms });
+});
+
+router.post('/platforms', writeRateLimiter, authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+  const parsed = createPlatformBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(422).json({ error: 'Payload de plataforma inválido.', details: z.treeifyError(parsed.error) });
+  }
+
+  try {
+    const platform = await db
+      .insertInto('download_scraper_platform')
+      .values({
+        slug: parsed.data.slug,
+        name: parsed.data.name,
+        domain: parsed.data.domain,
+        supports_auto_scrape: parsed.data.supports_auto_scrape,
+        supports_price_recheck: parsed.data.supports_price_recheck,
+        parser_kind: parsed.data.parser_kind,
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    return res.status(201).json(platform);
+  } catch (error: unknown) {
+    // Violação de UNIQUE (slug/domain) — mesmo padrão de erro 422 já usado
+    // no resto da rota, sem vazar detalhe interno do Postgres pro cliente.
+    if (error instanceof Error && 'code' in error && (error as { code?: string }).code === '23505') {
+      return res.status(422).json({ error: 'slug ou domain já cadastrado.' });
     }
     throw error;
   }

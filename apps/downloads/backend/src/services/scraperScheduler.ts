@@ -5,12 +5,23 @@ import type { DownloadSourcePlatform } from '../db/types';
 
 // T5.4 (spec 084) — cron diario SO nas fontes sem anti-bot conhecido
 // (D119/spec — DriveThruRPG/DMs Guild NUNCA entram aqui, so disparo manual
-// via POST /admin/scraper/run). RPG Gratis/Newton Rocha/Catarse ficam fora
-// da lista abaixo por nao terem adapter implementado ainda (D-084-06/07/08)
-// — cron so roda fonte com adapter real, nunca "tenta" fonte sem codigo.
+// via POST /admin/scraper/run). Spec 085 (Fase 6, T6.3): lista deixa de
+// ser hardcode, vem do registry (download_scraper_platform.supports_auto_scrape)
+// — admin cadastra plataforma nova com a flag e o cron passa a rodar sem
+// deploy. Cron so roda fonte com adapter real de qualquer forma
+// (executeScraperRun falha explicito se supports_auto_scrape=TRUE sem
+// entrada em ADAPTERS, scraper.ts:43-50).
 const SCHEDULE = '0 4 * * *'; // 04:00 diario (apos link-checker as 03:00)
 const ADVISORY_LOCK_KEY = 827_501_004;
-const CRON_SOURCE_PLATFORMS: DownloadSourcePlatform[] = ['itch_io', 'grimorios_e_dados', 'opera_rpg'];
+
+async function getCronSourcePlatforms(): Promise<DownloadSourcePlatform[]> {
+  const rows = await db
+    .selectFrom('download_scraper_platform')
+    .select('slug')
+    .where('supports_auto_scrape', '=', true)
+    .execute();
+  return rows.map((row) => row.slug);
+}
 // Achado de review PR #193 (codeRabbit, nitpick): deadline defensivo por
 // fonte — sem isso, uma fonte travada (rede pendurada, subprocess Camoufox
 // que nunca retorna) prende o advisory lock indefinidamente, bloqueando
@@ -40,7 +51,8 @@ export async function runScheduledScraperCron(): Promise<{ triggered: DownloadSo
 
   try {
     const triggered: DownloadSourcePlatform[] = [];
-    for (const sourcePlatform of CRON_SOURCE_PLATFORMS) {
+    const cronSourcePlatforms = await getCronSourcePlatforms();
+    for (const sourcePlatform of cronSourcePlatforms) {
       const run = await db
         .insertInto('download_scraper_run')
         .values({ source_platform: sourcePlatform, trigger_kind: 'cron' })

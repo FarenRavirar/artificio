@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 475,
+    "total": 477,
     "byApp": {
       "accounts": {
         "total": 12,
@@ -14,17 +14,17 @@
         }
       },
       "downloads": {
-        "total": 80,
+        "total": 82,
         "byMethod": {
-          "GET": 32,
-          "POST": 19,
+          "GET": 33,
+          "POST": 20,
           "USE": 18,
           "PATCH": 5,
           "DELETE": 4,
           "PUT": 2
         },
         "byConfidence": {
-          "high": 80
+          "high": 82
         }
       },
       "glossario": {
@@ -353,7 +353,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/ingest",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 149,
+      "line": 150,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -362,7 +362,25 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/parse-html",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 241,
+      "line": 249,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/admin/scraper/platforms",
+      "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
+      "line": 335,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/admin/scraper/platforms",
+      "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
+      "line": 345,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -371,7 +389,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/run",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 71,
+      "line": 72,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -380,7 +398,7 @@
       "method": "GET",
       "path": "/api/v1/admin/scraper/run/:id",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 95,
+      "line": 96,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -389,7 +407,7 @@
       "method": "GET",
       "path": "/api/v1/admin/scraper/runs",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 116,
+      "line": 117,
       "confidence": "high",
       "kind": "express-route"
     },

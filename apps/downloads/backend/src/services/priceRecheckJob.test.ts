@@ -1,6 +1,11 @@
 // Fase 7 (spec 084) — 2 cenários obrigatórios (spec.md §5, critério de
 // aceite 5): bloqueio de acesso NUNCA confirma "virou pago"; confirmação
 // positiva de preço muda estado. Testados isoladamente.
+// T6.3/T6.5 (spec 085, Fase 6) — PRICE_CHECKABLE_PLATFORMS deixou de ser
+// hardcode, agora vem do registry (download_scraper_platform.supports_price_recheck).
+// runPriceRecheck chama selectFrom 2x: 1ª (registry) sempre mockada com
+// itch_io/grimorios_e_dados (mesmo comportamento de antes — não-regressão),
+// 2ª (materials) é o que cada teste varia.
 
 const fetchSimpleMock = vi.hoisted(() => vi.fn());
 vi.mock('./scrapers/httpFetch', () => ({
@@ -29,6 +34,14 @@ function materialsQuery(rows: unknown[]) {
   };
 }
 
+function registryQuery(slugs: string[] = ['itch_io', 'grimorios_e_dados']) {
+  return {
+    select: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    execute: vi.fn().mockResolvedValue(slugs.map((slug) => ({ slug }))),
+  };
+}
+
 beforeEach(() => {
   dbMocks.selectFrom.mockReset();
   dbMocks.insertInto.mockReset();
@@ -40,18 +53,35 @@ beforeEach(() => {
     values: vi.fn().mockReturnThis(),
     execute: vi.fn().mockResolvedValue(undefined),
   });
+  // 1ª chamada de selectFrom em toda runPriceRecheck é sempre o registry —
+  // default aqui, sobrescrito por mockReturnValueOnce quando o teste precisa
+  // de comportamento diferente antes da query de materials.
+  dbMocks.selectFrom.mockReturnValueOnce(registryQuery());
 });
 
 describe('runPriceRecheck', () => {
-  it('query so busca fontes com parser de preco confiavel (materials de manual/opera_rpg/drivethrurpg nunca retornam)', async () => {
+  it('lê o registry (supports_price_recheck=TRUE) e busca só as fontes com parser de preço confiável (não-regressão: itch_io/grimorios_e_dados, nunca manual/opera_rpg/drivethrurpg)', async () => {
     const query = materialsQuery([]);
     dbMocks.selectFrom.mockReturnValueOnce(query);
 
     const result = await runPriceRecheck();
 
+    expect(dbMocks.selectFrom).toHaveBeenNthCalledWith(1, 'download_scraper_platform');
+    expect(dbMocks.selectFrom).toHaveBeenNthCalledWith(2, 'download_material');
     expect(result.checked).toBe(0);
     expect(fetchSimpleMock).not.toHaveBeenCalled();
     expect(query.where).toHaveBeenCalledWith('source_platform', 'in', ['itch_io', 'grimorios_e_dados']);
+  });
+
+  it('registry sem nenhuma plataforma com supports_price_recheck=TRUE: não consulta materials, retorna zerado', async () => {
+    dbMocks.selectFrom.mockReset();
+    dbMocks.selectFrom.mockReturnValueOnce(registryQuery([]));
+
+    const result = await runPriceRecheck();
+
+    expect(result).toEqual({ checked: 0, withdrawn: 0, blockedOrUnconfirmed: 0 });
+    expect(dbMocks.selectFrom).toHaveBeenCalledTimes(1);
+    expect(fetchSimpleMock).not.toHaveBeenCalled();
   });
 
   it('cenário obrigatório: bloqueio de acesso (403) NUNCA confirma "virou pago" — material continua published', async () => {
