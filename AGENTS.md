@@ -34,6 +34,7 @@ Pacotes compartilhados: `auth`, `ui`, `analytics`, `config`, `content`, `crossli
 - `git commit`/`git push`/merge/deploy/write em VM: só com autorização nomeada explícita, a cada vez.
 - Ação destrutiva ou difícil de reverter (DNS/tunnel prod, SQL write, recriar infra, `--amend`, `--force`): sempre aprovação nominal + formato "APROVAÇÃO NECESSÁRIA".
 - Bug/débito achado: parar e perguntar (corrigir agora ou registrar) — nunca decidir sozinho.
+- `rtk` disponível no PATH: usar sempre no lugar de comando cru equivalente (ver lista completa em §Diagnóstico local → rtk). Comandos obrigatórios: `rtk git status`/`rtk git diff`/`rtk git log` (nunca `git` cru pra esses três), `rtk read <arquivo>` (nunca `cat`/Read direto pra arquivo grande sem justificar), `rtk rg <padrão> <path>` (busca textual, nunca `grep`/`rg` cru), `rtk find <path> -iname "..."`, `rtk tsc`, `rtk lint`, `rtk cargo test`/`rtk pytest`/`rtk jest`/`rtk vitest`/`rtk go test` (testes, sempre via rtk pra saída filtrada), `rtk pnpm <args>`.
 
 **Escalada T1 (consultar quando a tarefa exigir, não por padrão):**
 - Retomar spec/trabalho em andamento → `.specify/memory/project-state.md` + `.specify/memory/decisions.md` (evita redecidir).
@@ -149,7 +150,7 @@ Ver também §Regras Pétreas → Escopo.
 ### Bug achado / débito
 
 - **Todo bug achado é reporte obrigatório — dentro ou fora do escopo da tarefa/chat atual, sem exceção.** Bug, regressão, falha de validação, comportamento estranho recorrente, contrato quebrado, smoke que falha, ou defeito de ferramenta/harness/CI: mesmo que não tenha relação nenhuma com o que está sendo feito no momento, o agente **nunca** ignora, guarda só na cabeça/chat, nem decide sozinho. Sempre reporta ao mantenedor e **pergunta**: corrigir agora (nesta tarefa/PR) ou registrar como débito no backlog. "Não deu tempo", "era lateral", "fora de escopo" ou "parece pequeno" não dispensam o reporte nem a pergunta.
-- **Regra vale igual pra achado de spec/investigação, não só bug de código já escrito.** Lacuna jurídica, risco operacional, incerteza técnica, limitação de escopo descoberta durante pesquisa/investigação de uma spec nova: mesma trava — o agente **nunca** decide sozinho que "isso fica fora de escopo" ou "isso vira débito" e já escreve `spec.md`/`Fora de escopo`/`debitos.md` como se fosse decisão fechada. Escrever "decisão do mantenedor" numa spec sem o mantenedor ter de fato respondido é o mesmo erro que mascarar bug — sempre pergunta primeiro (AskUserQuestion ou texto direto), só documenta como decidido depois da resposta.
+- **Regra vale igual pra achado de spec/investigação, não só bug de código já escrito.** Lacuna jurídica, risco operacional, incerteza técnica, limitação de escopo descoberta durante pesquisa/investigação de uma spec nova: mesma trava — o agente **nunca** decide sozinho que "isso fica fora de escopo" ou "isso vira débito" e já escreve `spec.md`/`Fora de escopo`/`specs/backlog.md` como se fosse decisão fechada. Escrever "decisão do mantenedor" numa spec sem o mantenedor ter de fato respondido é o mesmo erro que mascarar bug — sempre pergunta primeiro (AskUserQuestion ou texto direto), só documenta como decidido depois da resposta.
 - Só depois da resposta do mantenedor:
   - corrigir agora: corrige dentro do escopo autorizado.
   - registrar débito: evidência concreta (comando, run, arquivo, trecho, métrica ou URL) em sessão + `specs/backlog.md` (salvo item ativo já cobrindo o mesmo problema) + `tasks.md` da spec quando muda status/critério/próxima ação + `project-state.md` quando afeta retomada/gate.
@@ -349,6 +350,42 @@ Seção lida pelo Codex code-review (GitHub App, `chatgpt-codex-connector`) em P
 ## Ferramentas MCP / Agentes
 
 As ferramentas locais abaixo foram adotadas para reduzir retrabalho, detectar erros cedo e evitar descoberta de API por memória de chat. São opcionais por ambiente, não-versionadas quando dependem de config local, e devem funcionar em **Codex**, **Claude Code** e **OpenCode** quando disponíveis. Se uma delas não aparecer no cliente atual, registrar a limitação na sessão e usar fallback local (`rtk rg`, `ast-grep`, leitura direta e `pnpm verify:api` quando aplicável).
+
+### rtk — proxy CLI de compressão de saída (T1, ref. `rtk_readme.md`)
+
+- **Função:** filtra/comprime saída de comando shell antes de chegar ao contexto do agente (até -90% bytes). Usar sempre que disponível no lugar do comando cru equivalente — trava resumida em §T0.
+- **Verificação de sessão:** `rtk --version` / `rtk gain` (se falhar, tratar como indisponível e cair pro fallback cru — não travar a sessão).
+
+**Comandos obrigatórios por categoria:**
+
+| Categoria | Comando rtk | Substitui |
+|---|---|---|
+| Arquivos | `rtk ls .` | `ls`/`tree` |
+| Arquivos | `rtk read <arquivo>` | `cat`/leitura crua de arquivo grande |
+| Arquivos | `rtk find "<padrão>" <path>` | `find` |
+| Arquivos | `rtk rg "<padrão>" <path>` (preferir a `rtk grep`, que sem `-r` cai no grep nativo) | `grep`/`rg` cru |
+| Git | `rtk git status` | `git status` |
+| Git | `rtk git log -n <N>` | `git log` |
+| Git | `rtk git diff` | `git diff` |
+| Git | `rtk git push` | `git push` (saída vira `ok <branch>`) |
+| Testes | `rtk jest` / `rtk vitest` / `rtk pytest` / `rtk go test` / `rtk cargo test` | runner de teste cru |
+| Testes | `rtk test <cmd>` | qualquer comando de teste não coberto acima (só falhas) |
+| Build/Lint | `rtk lint` | ESLint cru |
+| Build/Lint | `rtk tsc` | `tsc` cru |
+| Build/Lint | `rtk cargo build` | `cargo build` |
+| Build/Lint | `rtk ruff check` | `ruff check` cru |
+| Análise | `rtk gain` / `rtk gain --graph` | — (estatística de economia, não substitui nada) |
+| Análise | `rtk discover` | — (aponta economia perdida, rodar periodicamente) |
+| Pacote | `rtk pnpm <args>` | `pnpm` cru |
+
+- **Pegadinhas conhecidas:** `rtk grep <dir>` sem `-r` falha (proxy pro grep nativo, não ripgrep — usar `rtk rg`); `rtk diff <arquivo>` sozinho não é o uso certo — usar `rtk git diff <arquivo>`. Comando novo do rtk sem uso prévio confirmado: testar antes de assumir que roda igual aos outros.
+- **Trava anti-hábito:** ferramenta instalada e no PATH não é ferramenta indisponível — se uma sessão inteira de diagnóstico rodou sem usar `rtk` onde cabia, é falha de execução do agente, não ausência de ferramenta.
+
+**Erros cometidos em smoke test (2026-07-25, build develop `bee2178`) — não repetir:**
+- `rtk gain --graph` truncado com `| head -20`: gráfico ASCII de 30 dias vem DEPOIS da tabela "By Command", que já ocupa ~15 linhas — `head` curto corta o gráfico fora e parece bug no rtk quando não é. **Nunca concluir "comando não fez X" a partir de saída truncada por `head`/`tail`/pipe curto — rodar sem corte antes de reportar falha.**
+- `rtk cargo test --lib` no repo `rtk` (binário puro, sem lib target) falhou com `no library targets found in package`: erro é do argumento `--lib`, não do rtk. **Antes de passar flag de escopo (`--lib`, `--bin`, `-p`), confirmar a estrutura do pacote (`Cargo.toml`/`cargo metadata`) — não assumir que todo crate Rust tem lib target.**
+- `rtk discover` sem flag deu "Scanned: 0 sessions" (parecia bug); com `--all` achou 138 sessões/20712 comandos. Comportamento é **default por design** (escopo = projeto atual, filtro por path), não falha. **Ler `rtk <subcomando> --help` antes de declarar resultado vazio como bug — comportamento default restrito pode ser intencional, não regressão.**
+- Comando em background (`run_in_background`) não herdou `PATH` setado manualmente na sessão anterior (`cargo` sumiu do PATH) — cada shell/background job tem seu próprio ambiente. **Ao rodar comando `rtk`/`cargo`/etc em background após ajustar PATH manualmente, re-exportar o PATH dentro do MESMO comando (`export PATH=...; rtk ...`), nunca assumir que persiste entre chamadas de shell.**
 
 ### LSP / diagnósticos semânticos
 

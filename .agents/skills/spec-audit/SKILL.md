@@ -1,7 +1,7 @@
 ---
 
 name: spec-audit
-description: Audita specs SDD e documentação operacional do Artifício RPG, cruzando spec.md, plan.md, tasks.md, reviews.md, debitos.md, backlog, sessões e project-state com código real usando Serena, LSP, codebase-memory-mcp e ferramentas locais. Use antes de implementar, antes de merge ou para revisar consistência documental.
+description: Audita specs SDD e documentação operacional do Artifício RPG, cruzando spec.md, plan.md, tasks.md, backlog, sessões e project-state com código real usando Serena, LSP, codebase-memory-mcp e ferramentas locais. Use antes de implementar, antes de merge ou para revisar consistência documental.
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Auditoria de spec SDD
@@ -16,12 +16,12 @@ Use para auditar uma spec SDD do Artifício RPG quando o pedido for:
 * auditar débitos;
 * auditar documentação operacional;
 * conferir se uma spec está coerente com código, backlog, sessão e project-state;
-* investigar se faltou registrar algo em `tasks.md`, `debitos.md` ou `specs/backlog.md`.
+* investigar se faltou registrar algo em `tasks.md`, na sessão ou em `specs/backlog.md`.
 
 ## Regras
 
 * Não implemente código.
-* Pode editar documentação da spec quando encontrar divergência: `spec.md`, `plan.md`, `tasks.md`, `reviews.md`, `debitos.md`.
+* Pode editar documentação da spec quando encontrar divergência: `spec.md`, `plan.md`, `tasks.md`.
 * Não altere código-fonte.
 * Jamais faça commit, push, merge ou PR sem autorização explícita do usuário.
 * Não avance fase sem autorização.
@@ -31,8 +31,8 @@ Use para auditar uma spec SDD do Artifício RPG quando o pedido for:
 * Use arquivo e linha sempre que possível.
 * Não apague histórico sem justificativa.
 * Não trate caminho feliz como prova suficiente.
-* Se encontrar algo fora do escopo, registre como débito em `debitos.md`.
-* Se o débito for acionável fora da spec, também registre em `specs/backlog.md`.
+* Achado fora do escopo da spec: **parar e perguntar** ao mantenedor se corrige agora ou registra débito (`AGENTS.md` §Bug achado — o agente nunca decide sozinho). Depois da resposta, registrar na sessão + `tasks.md` quando muda status/critério, e em `specs/backlog.md` quando for acionável fora desta spec.
+* Achado que toque o frontend/backend do escopo da spec **é resolvido na própria spec**, não empurrado pra backlog.
 * Se parecer falso positivo, registre a justificativa antes de descartar.
 
 ## Ferramentas
@@ -78,8 +78,6 @@ Na spec indicada, verifique:
 * `spec.md`
 * `plan.md`
 * `tasks.md`
-* `reviews.md`
-* `debitos.md`
 
 Cruze com:
 
@@ -104,7 +102,7 @@ Verifique se:
 * declara fora de escopo;
 * registra riscos e impacto em outros módulos;
 * não contém solução técnica detalhada que deveria estar no `plan.md`;
-* aponta para `reviews.md` e `debitos.md`.
+* aponta para a sessão vinculada em `sessoes/`.
 
 ### plan.md
 
@@ -125,29 +123,24 @@ Verifique se:
 * tasks são pequenas e verificáveis;
 * cada task tem critério de conclusão;
 * existe task final para atualizar `specs/backlog.md`, sessão e `project-state.md`;
-* tasks com débito apontam para `debitos.md`;
-* tasks relacionadas a review apontam para `reviews.md`;
 * não há task ampla demais, vaga ou sem evidência.
 
-### reviews.md
+### Débitos e reviews (não têm arquivo próprio)
 
-Verifique apenas estrutura e consistência.
+`reviews.md` e `debitos.md` foram **deprecados**. Onde cada coisa vive agora:
 
-`reviews.md` é somente para reviews enviados pelo usuário depois da abertura de PR, vindos de bots, checks ou revisores automatizados do PR.
+* **Achado de review de bot** (CodeRabbit/Codex/Sonar/Amazon Q, depois do PR aberto) que **vira código**: o fix é commit normal **com comentário no próprio código**, citando origem (PR + bot + severidade), o que estava errado e por que a correção é essa — padrão `Achado real (review PR #NNN, <bot>, <P1|P2|nitpick>): …`, consolidado nesta base. Não é registro de documento: o comentário fica onde o próximo agente vai ler. Achado que **não** vira código (descartado, ou virou débito) vai pra `tasks.md` + `specs/backlog.md`, com o porquê. O agente **nunca** responde, comenta, resolve thread ou reage no PR (`AGENTS.md`) — isso é do mantenedor.
+* **Achado desta auditoria** (investigação, build, teste, lint, revisão manual): vai pra `tasks.md` quando muda status/critério/próxima ação, e pra sessão sempre, com evidência concreta (comando, arquivo:linha, run, métrica ou URL).
+* **Débito acionável fora desta spec**: linha em `specs/backlog.md`, com origem rastreável, evidência e próximo passo. IDs no padrão do arquivo (`BL-*` para fatia planejada, `D-*` para débito nomeado).
+* **Débito que toca o frontend/backend do escopo da spec**: resolvido na própria spec, não empurrado pro backlog.
 
-Não registre em `reviews.md` achados descobertos durante investigação, build, teste, lint, compilação ou revisão manual feita nesta auditoria. Esses achados devem ir para `tasks.md` ou `debitos.md`.
+Auditando, verifique se:
 
-### debitos.md
-
-Verifique se:
-
-* todo débito tem ID;
-* todo débito tem origem;
-* todo débito tem task vinculada, quando possível;
-* todo débito tem evidência;
-* todo débito tem impacto, severidade, prioridade, status e critério de resolução;
-* débitos acionáveis também aparecem em `specs/backlog.md`;
-* débitos fora do escopo estão marcados como tal.
+* **correção de review de bot tem comentário no código** explicando origem/erro/razão — código corrigido sem comentário, ou com comentário genérico (`// fix review`), é achado da auditoria;
+* comentário de decisão preexistente não foi **apagado** por edição posterior (`AGENTS.md`): se a razão mudou, devia ter sido reescrito, não removido;
+* todo débito registrado em `specs/backlog.md` tem origem rastreável, evidência e próximo passo;
+* nenhum achado ficou só no chat, sem registro em sessão/`tasks.md`/backlog;
+* nenhum achado foi transformado em débito **sem o mantenedor ter respondido** — spec dizendo "decisão do mantenedor" sem a resposta de fato é o mesmo erro que mascarar bug (`AGENTS.md`).
 
 ### specs/backlog.md
 

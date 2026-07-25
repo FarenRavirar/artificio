@@ -82,7 +82,7 @@ Antes de alterar código, identificar:
 * riscos;
 * limite exato do split.
 
-Se o impacto sair do candidato atual, registrar em `debitos.md` e parar.
+Se o impacto sair do candidato atual, **parar e perguntar** ao mantenedor se amplia o escopo ou registra débito (`AGENTS.md` §Bug achado: o agente não decide sozinho). Depois da resposta, registrar em `tasks.md` + sessão, e em `specs/backlog.md` se for acionável fora deste trabalho.
 
 ### 2. Planejar
 
@@ -130,15 +130,14 @@ Atualizar, quando aplicável:
 
 * `tasks.md`;
 * `plan.md`;
-* `debitos.md`;
 * `specs/backlog.md`;
 * sessão em `sessoes/`.
 
-Não registrar achados próprios em `reviews.md`. `reviews.md` é apenas para reviews enviados pelo usuário após abertura de PR, vindos de bots, checks ou revisores automatizados.
+`reviews.md` e `debitos.md` foram **deprecados** — não criar nem procurar esses arquivos. Correção de review de bot que vira código é documentada em **comentário no próprio código**, citando origem (PR + bot + severidade), o erro e a razão da correção (padrão `Achado real (review PR #NNN, <bot>, <P1|P2|nitpick>): …`). Achado que não vira código vai pra `tasks.md` + `specs/backlog.md`. Nunca responder no PR (`AGENTS.md`).
 
 ## Débitos
 
-Registrar em `debitos.md` quando encontrar:
+**Parar e perguntar** ao mantenedor (corrigir agora ou registrar débito) quando encontrar:
 
 * split maior que o candidato atual;
 * impacto em outro módulo;
@@ -150,7 +149,7 @@ Registrar em `debitos.md` quando encontrar:
 * solução provisória, frágil ou inferior;
 * melhoria útil que não deve entrar neste split.
 
-Se o débito for acionável fora da spec atual, também registrar em `specs/backlog.md`.
+Depois da resposta do mantenedor: registrar em `tasks.md` + sessão, com evidência concreta (arquivo:linha, comando, saída). Se for acionável fora da spec atual, também em `specs/backlog.md`, com origem rastreável e próximo passo.
 
 ## Saída
 
