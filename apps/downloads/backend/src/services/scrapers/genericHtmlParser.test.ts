@@ -162,6 +162,54 @@ describe('parseHtml', () => {
     expect(result.sourceLanguageHint).toBe('pt');
   });
 
+  // Achado real (review PR #201, Codex, P1): JSON-LD raiz nem sempre é um
+  // objeto Product isolado — @graph, array no topo, @type como array e
+  // offers como array são formatos Schema.org comuns em CMS/e-commerce.
+  it('extrai Product de dentro de @graph, com @type array e offers array', async () => {
+    const syntheticHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<link rel="canonical" href="https://loja3.exemplo.com.br/produto/aventura-grafo">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","name":"Página"},{"@type":["Product","Thing"],"name":"Aventura Via Graph","description":"Via @graph.","brand":{"name":"Editora Graph"},"offers":[{"price":0},{"price":10}]}]}</script>
+</head>
+<body></body>
+</html>`;
+    const genericPlatform = makePlatform({
+      slug: 'loja3_exemplo',
+      name: 'Loja Três',
+      domain: 'loja3.exemplo.com.br',
+      parser_kind: 'json_ld_generic',
+    });
+
+    const result = await parseHtml(syntheticHtml, registryOf([genericPlatform]));
+
+    expect(result.title).toBe('Aventura Via Graph');
+    expect(result.publisherName).toBe('Editora Graph');
+    expect(result.extractedPriceValue).toBe(0);
+  });
+
+  it('extrai Product de array no topo do bloco JSON-LD', async () => {
+    const syntheticHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<link rel="canonical" href="https://loja4.exemplo.com.br/produto/aventura-array">
+<script type="application/ld+json">[{"@type":"BreadcrumbList"},{"@type":"Product","name":"Aventura Via Array","description":"Via array raiz.","brand":{"name":"Editora Array"},"offers":{"price":5}}]</script>
+</head>
+<body></body>
+</html>`;
+    const genericPlatform = makePlatform({
+      slug: 'loja4_exemplo',
+      name: 'Loja Quatro',
+      domain: 'loja4.exemplo.com.br',
+      parser_kind: 'json_ld_generic',
+    });
+
+    const result = await parseHtml(syntheticHtml, registryOf([genericPlatform]));
+
+    expect(result.title).toBe('Aventura Via Array');
+    expect(result.extractedPriceValue).toBe(5);
+  });
+
   it('sinaliza produto pago sem tag PWYW como priceSignal nonzero_price_no_pwyw_tag, sem sugerir isFreeOrPwyw (override onebookshelf)', async () => {
     const dmsGuildHtml = loadFixture('dms-guild-product-1.html');
     const paidHtml = dmsGuildHtml

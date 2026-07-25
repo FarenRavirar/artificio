@@ -108,31 +108,57 @@ export class GenericParseError extends Error {
 export const MAX_HTML_LENGTH = 1_000_000; // maior fixture real: 158KB, folga ampla
 
 interface GenericJsonLd {
-  '@type'?: string;
+  '@type'?: string | string[];
+  '@graph'?: unknown[];
   name?: string;
   description?: string;
   brand?: { name?: string };
-  offers?: { price?: number | string };
+  offers?: { price?: number | string } | { price?: number | string }[];
+}
+
+function hasProductType(node: GenericJsonLd): boolean {
+  const type = node['@type'];
+  return type === 'Product' || (Array.isArray(type) && type.includes('Product'));
+}
+
+// Achado real (review PR #201, Codex, P1): JSON-LD raiz nem sempre é um
+// objeto Product isolado — sites podem envolver em @graph (grupo de
+// entidades), array no topo (vários objetos no mesmo bloco <script>), ou
+// declarar @type como array (["Product", "Thing"]). Normaliza cada bloco
+// candidato pra uma lista plana de nós antes de procurar Product, em vez
+// de assumir objeto raiz único.
+function flattenJsonLdCandidates(parsedBlock: unknown): GenericJsonLd[] {
+  if (Array.isArray(parsedBlock)) {
+    return parsedBlock.flatMap((item) => flattenJsonLdCandidates(item));
+  }
+  if (parsedBlock && typeof parsedBlock === 'object') {
+    const node = parsedBlock as GenericJsonLd;
+    const graph = Array.isArray(node['@graph']) ? node['@graph'].flatMap((item) => flattenJsonLdCandidates(item)) : [];
+    return [node, ...graph];
+  }
+  return [];
 }
 
 // Achado real (review PR #199, preservado): página pode conter JSON-LD de
 // organização/breadcrumb antes do bloco de produto; pegar só o primeiro
 // bloco (regex sem /g) devolvia name/description de entidade errada.
-// Percorre todos os blocos e usa o primeiro cujo @type seja "Product".
+// Percorre todos os blocos (e seus nós aninhados via @graph/array) e usa o
+// primeiro cujo @type seja/contenha "Product".
 function extractJsonLd(html: string): GenericJsonLd {
   const blocks = html.matchAll(JSON_LD_BLOCK_RE);
   let sawAnyBlock = false;
   let sawValidJson = false;
   for (const block of blocks) {
     sawAnyBlock = true;
-    let parsed: GenericJsonLd;
+    let parsedBlock: unknown;
     try {
-      parsed = JSON.parse(block[2]) as GenericJsonLd;
+      parsedBlock = JSON.parse(block[2]);
     } catch {
       continue;
     }
     sawValidJson = true;
-    if (parsed['@type'] === 'Product') return parsed;
+    const product = flattenJsonLdCandidates(parsedBlock).find(hasProductType);
+    if (product) return product;
   }
   if (!sawAnyBlock) {
     throw new GenericParseError('missing_json_ld', 'HTML não contém bloco <script type="application/ld+json">.');
@@ -188,6 +214,26 @@ function findOgImageUrl(html: string): string | null {
   return null;
 }
 
+// Achado real (review PR #201, Sonar): ternário aninhado — extraído em
+// função nomeada só pra deixar a intenção explícita (pt / not_pt / null).
+function resolveSourceLanguageHint(langMatch: RegExpExecArray | null): 'pt' | 'not_pt' | null {
+  if (!langMatch) return null;
+  return langMatch[2]?.toLowerCase().startsWith('pt') ? 'pt' : 'not_pt';
+}
+
+// Achado real (review PR #201, Sonar): ternário aninhado — extraído em
+// função nomeada, mesma regra de aceitar Number ou Text do Schema.org
+// (achado review PR #199, preservado): só aceita se for número finito.
+function extractPriceValue(rawPrice: number | string | undefined): number | null {
+  if (typeof rawPrice === 'number') {
+    return Number.isFinite(rawPrice) ? rawPrice : null;
+  }
+  if (typeof rawPrice === 'string' && rawPrice.trim() !== '' && Number.isFinite(Number(rawPrice))) {
+    return Number(rawPrice);
+  }
+  return null;
+}
+
 export async function parseHtml(html: string, findPlatformByDomain: FindPlatformByDomain): Promise<GenericParsePreview> {
   if (html.length > MAX_HTML_LENGTH) {
     throw new GenericParseError('html_too_large', `HTML maior que o limite de ${MAX_HTML_LENGTH} bytes.`);
@@ -219,20 +265,15 @@ export async function parseHtml(html: string, findPlatformByDomain: FindPlatform
   const rawCoverImageUrl = findOgImageUrl(html);
   const coverImageUrl = rawCoverImageUrl && isPublicHttpUrl(rawCoverImageUrl) ? rawCoverImageUrl : null;
   const langMatch = HTML_LANG_RE.exec(html);
-  const sourceLanguageHint = langMatch?.[2]?.toLowerCase().startsWith('pt') ? 'pt' : langMatch ? 'not_pt' : null;
+  const sourceLanguageHint = resolveSourceLanguageHint(langMatch);
 
   // Schema.org offers.price aceita Number ou Text (achado review PR #199,
   // preservado): sites podem emitir string numérica ("4.00"); só rejeita
   // se não for um número finito de fato.
-  const rawPrice = jsonLd.offers?.price;
-  const extractedPriceValue =
-    typeof rawPrice === 'number'
-      ? Number.isFinite(rawPrice)
-        ? rawPrice
-        : null
-      : typeof rawPrice === 'string' && rawPrice.trim() !== '' && Number.isFinite(Number(rawPrice))
-        ? Number(rawPrice)
-        : null;
+  // Achado real (review PR #201, Codex, P1): offers também pode ser array
+  // (múltiplas ofertas/variações) — usa o preço da primeira oferta válida.
+  const firstOffer = Array.isArray(jsonLd.offers) ? jsonLd.offers[0] : jsonLd.offers;
+  const extractedPriceValue = extractPriceValue(firstOffer?.price);
 
   const defaultSignal = resolveDefaultPriceSignal(extractedPriceValue);
 

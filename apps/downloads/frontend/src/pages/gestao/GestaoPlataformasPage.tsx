@@ -141,7 +141,7 @@ export function GestaoPlataformasPage() {
 
         {isLoading && <p className="mt-2 text-sm text-[var(--fg-muted)]">Carregando…</p>}
 
-        {!isLoading && platforms && platforms.length === 0 && (
+        {!isLoading && platforms?.length === 0 && (
           <p className="mt-2 text-sm text-[var(--fg-muted)]">Nenhuma plataforma cadastrada.</p>
         )}
 

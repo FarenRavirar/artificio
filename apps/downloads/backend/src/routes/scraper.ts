@@ -158,6 +158,34 @@ const ingestBodySchema = z.object({
 // ADAPTERS — então a allowlist certa aqui é "está cadastrado no registry",
 // não "tem adapter automático" (essa trava continua em ADAPTERS/executeScraperRun,
 // só relevante pro disparo de scraping automático via /run e pelo cron).
+// Achado real (review PR #201, Sonar): extraído do handler /ingest pra
+// reduzir complexidade cognitiva — mesmo comportamento de antes (T4.3,
+// best-effort, nunca sobrescreve a resposta 200 do ingest).
+async function linkParseCaseIdsToMaterials(runId: string, parseCaseIdBySourceUrl: Map<string, string>): Promise<void> {
+  if (parseCaseIdBySourceUrl.size === 0) return;
+  try {
+    const itemLogs = await db
+      .selectFrom('download_scraper_item_log')
+      .select(['source_url', 'material_id'])
+      .where('run_id', '=', runId)
+      .where('material_id', 'is not', null)
+      .execute();
+
+    for (const log of itemLogs) {
+      const parseCaseId = parseCaseIdBySourceUrl.get(log.source_url);
+      if (!parseCaseId || !log.material_id) continue;
+      await db
+        .updateTable('download_scraper_parse_log')
+        .set({ confirmed_material_id: log.material_id })
+        .where('parse_case_id', '=', parseCaseId)
+        .execute();
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Falha desconhecida.';
+    console.error(`[scraper] Falha ao vincular parse_case_id -> material_id (run ${runId}): ${message}`);
+  }
+}
+
 router.post('/ingest', writeRateLimiter, authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   const parsed = ingestBodySchema.safeParse(req.body ?? {});
   if (!parsed.success) {
@@ -215,29 +243,7 @@ router.post('/ingest', writeRateLimiter, authMiddleware, requireRole('admin'), a
   // Achado real (review PR #199): sem try/catch, falha nesta auditoria
   // devolvia 500 mesmo com ingest já concluído com sucesso, e um retry do
   // admin batia em duplicata. Envolvido pra nunca sobrescrever a resposta 200.
-  if (parseCaseIdBySourceUrl.size > 0) {
-    try {
-      const itemLogs = await db
-        .selectFrom('download_scraper_item_log')
-        .select(['source_url', 'material_id'])
-        .where('run_id', '=', run.id)
-        .where('material_id', 'is not', null)
-        .execute();
-
-      for (const log of itemLogs) {
-        const parseCaseId = parseCaseIdBySourceUrl.get(log.source_url);
-        if (!parseCaseId || !log.material_id) continue;
-        await db
-          .updateTable('download_scraper_parse_log')
-          .set({ confirmed_material_id: log.material_id })
-          .where('parse_case_id', '=', parseCaseId)
-          .execute();
-      }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Falha desconhecida.';
-      console.error(`[scraper] Falha ao vincular parse_case_id -> material_id (run ${run.id}): ${message}`);
-    }
-  }
+  await linkParseCaseIdsToMaterials(run.id, parseCaseIdBySourceUrl);
 
   const finalRun = await db
     .selectFrom('download_scraper_run')

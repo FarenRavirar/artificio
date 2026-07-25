@@ -1,12 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { apiPost } from '../services/apiClient';
-// T8.3 (spec 085, Fase 8) — plataforma deixou de ser enum fechado
-// (DownloadSourcePlatform ja e hibrido, apps/downloads/backend/src/db/types.ts);
-// no frontend, source_platform passa a ser o slug detectado por
-// useParseHtml (nunca escolhido pelo admin), qualquer string do registry.
-export type SourcePlatformSlug = string;
-
 export interface IngestItemPayload {
   sourceUrl: string;
   title: string;
@@ -18,8 +12,12 @@ export interface IngestItemPayload {
   parse_case_id?: string;
 }
 
+// T8.3 (spec 085, Fase 8) — plataforma deixou de ser enum fechado
+// (DownloadSourcePlatform ja e hibrido, apps/downloads/backend/src/db/types.ts);
+// no frontend, source_platform passa a ser o slug detectado por
+// useParseHtml (nunca escolhido pelo admin), qualquer string do registry.
 export interface IngestPayload {
-  source_platform: SourcePlatformSlug;
+  source_platform: string;
   items: IngestItemPayload[];
 }
 

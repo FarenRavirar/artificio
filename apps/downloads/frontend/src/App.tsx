@@ -81,7 +81,7 @@ function AppRoutes() {
       <Route path="/gestao/taxonomias" element={<RequireGestaoAuth><GestaoTaxonomiasPage /></RequireGestaoAuth>} />
       <Route path="/gestao/metricas" element={<RequireGestaoAuth><GestaoMetricasPage /></RequireGestaoAuth>} />
       <Route path="/gestao/configuracoes" element={<RequireGestaoAuth><GestaoConfiguracoesPage /></RequireGestaoAuth>} />
-      <Route path="/gestao/plataformas" element={<RequireGestaoAuth><GestaoPlataformasPage /></RequireGestaoAuth>} />
+      <Route path="/gestao/plataformas" element={<RequireGestaoAuth requiredRole="admin"><GestaoPlataformasPage /></RequireGestaoAuth>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

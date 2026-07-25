@@ -7,7 +7,18 @@ import { useCreatorRole } from '../hooks/useCreatorRole';
 // moderator/admin no dominio downloads (download_creator.role). Backend
 // valida de verdade em cada rota /admin/*; isso e so UX (evita expor o link
 // e a tela pra quem nao tem acesso).
-export function RequireGestaoAuth({ children }: { children: ReactNode }) {
+// Achado real (review PR #201, Codex, P2): /gestao/plataformas liberava
+// pra moderator no frontend, mas GET/POST /platforms exige role=admin no
+// backend — moderator via a pagina e o item de sidebar, mas tudo dava 403.
+// requiredRole opcional restringe o guard pra admin-only quando a rota
+// espelha uma API admin-only, sem duplicar RequireGestaoAuth pra isso.
+export function RequireGestaoAuth({
+  children,
+  requiredRole = 'moderator',
+}: {
+  children: ReactNode;
+  requiredRole?: 'moderator' | 'admin';
+}) {
   const { user, loading: sessionLoading } = useSession();
   const { data: creatorRole, isLoading: roleLoading } = useCreatorRole();
 
@@ -28,7 +39,8 @@ export function RequireGestaoAuth({ children }: { children: ReactNode }) {
     );
   }
 
-  const hasAccess = creatorRole?.role === 'moderator' || creatorRole?.role === 'admin';
+  const hasAccess =
+    requiredRole === 'admin' ? creatorRole?.role === 'admin' : creatorRole?.role === 'moderator' || creatorRole?.role === 'admin';
 
   if (!hasAccess) {
     return (
