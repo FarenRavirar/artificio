@@ -22,7 +22,7 @@ beforeEach(() => {
 
 describe('getCatalogNodeById', () => {
   it('devolve o node quando a resposta é ok', async () => {
-    catalogFetchMock.mockResolvedValue({ id: 'dd', name: 'D&D', name_pt: null, slug: 'dnd', node_type: 'system', aliases: [{ alias: 'DnD' }] });
+    catalogFetchMock.mockResolvedValue({ id: 'dd', name: 'D&D', name_pt: null, canonical_slug: 'dnd', node_type: 'system', aliases: [{ alias: 'DnD' }] });
 
     const node = await getCatalogNodeById('dd');
 
@@ -38,12 +38,10 @@ describe('getCatalogNodeById', () => {
     expect(node).toBeNull();
   });
 
-  it('devolve null em timeout/erro de rede', async () => {
+  it('propaga timeout/erro de rede (achado real PR #204: não é o mesmo que 404)', async () => {
     catalogFetchMock.mockRejectedValue(new Error('The operation was aborted'));
 
-    const node = await getCatalogNodeById('dd');
-
-    expect(node).toBeNull();
+    await expect(getCatalogNodeById('dd')).rejects.toThrow('The operation was aborted');
   });
 });
 
@@ -118,7 +116,7 @@ describe('createCatalogNode', () => {
 
 describe('addCatalogNodeAlias', () => {
   it('adiciona alias novo preservando os existentes (nunca aliases:[])', async () => {
-    catalogFetchMock.mockResolvedValueOnce({ id: 'dd', name: 'D&D', name_pt: null, slug: 'dnd', node_type: 'system', aliases: [{ alias: 'DnD' }] });
+    catalogFetchMock.mockResolvedValueOnce({ id: 'dd', name: 'D&D', name_pt: null, canonical_slug: 'dnd', node_type: 'system', aliases: [{ alias: 'DnD' }] });
     catalogFetchMock.mockResolvedValueOnce({});
 
     await addCatalogNodeAlias('dd', 'Hint Novo');
@@ -131,7 +129,7 @@ describe('addCatalogNodeAlias', () => {
   });
 
   it('não duplica alias já existente (não chama PUT)', async () => {
-    catalogFetchMock.mockResolvedValueOnce({ id: 'dd', name: 'D&D', name_pt: null, slug: 'dnd', node_type: 'system', aliases: [{ alias: 'DnD' }] });
+    catalogFetchMock.mockResolvedValueOnce({ id: 'dd', name: 'D&D', name_pt: null, canonical_slug: 'dnd', node_type: 'system', aliases: [{ alias: 'DnD' }] });
 
     await addCatalogNodeAlias('dd', 'DnD');
 

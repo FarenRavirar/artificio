@@ -29,23 +29,39 @@ import { z } from 'zod';
 
 const catalogAliasSchema = z.object({ alias: z.string() });
 
+// Achado real (review PR #204, Codex, P1): GET /api/catalog/v1/nodes/:idOrSlug
+// (apps/site/server/catalog-api.ts) devolve CatalogNodeRow — campo real é
+// canonical_slug, nunca slug. catalogNodeSchema exigia slug: todo parse
+// falhava, caía no catch e getCatalogNodeById sempre devolvia null, fazendo
+// addCatalogNodeAlias (approve merge_existing/create_alias) sempre lançar
+// catalog_node_not_found mesmo com o node existindo de verdade.
 const catalogNodeSchema = z.object({
   id: z.string(),
   name: z.string(),
   name_pt: z.string().nullable().optional(),
-  slug: z.string(),
+  canonical_slug: z.string(),
+  parent_id: z.string().nullable().optional(),
   node_type: z.enum(['system', 'edition', 'variant']),
   aliases: z.array(catalogAliasSchema).optional(),
 });
 
 export type CatalogNode = z.infer<typeof catalogNodeSchema>;
 
+// Achado real (review PR #204, Codex): catch genérico tratava QUALQUER falha
+// (timeout, 500, DNS) como "node não existe" — addCatalogNodeAlias então
+// lançava catalog_node_not_found mesmo em falha transitória de rede,
+// mascarando o erro real. catalogFetch formata erro HTTP como
+// "catalog_<status>: <body>" (packages/catalog-client); só 404 vira null
+// aqui, qualquer outro erro (rede/5xx) propaga pro chamador como falha real.
 export async function getCatalogNodeById(id: string): Promise<CatalogNode | null> {
   try {
     const node = await catalogFetch<unknown>(`/api/catalog/v1/nodes/${encodeURIComponent(id)}`);
     return catalogNodeSchema.parse(node);
-  } catch {
-    return null;
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message.startsWith('catalog_404')) {
+      return null;
+    }
+    throw error;
   }
 }
 
@@ -104,6 +120,24 @@ function flattenSnapshotTree(nodes: CatalogTreeNode[]): FlatCatalogSystem[] {
   return flat;
 }
 
+// Achado real (review PR #204, Codex, P1): resolver um node folha (edition/
+// variant) direto em system_id quebra os dois filtros de routes/materials.ts
+// (`system_id` filtra só a raiz, `edition_id` filtra o resto — material
+// casado numa edição sumia do filtro por sistema raiz e nunca aparecia no
+// filtro por edição). Compartilhado entre scraperIngest.ts (auto-match) e
+// routes/systemSuggestionsAdmin.ts (triagem admin) — mesma regra nos dois
+// pontos que gravam taxonomia em download_material.
+export function resolveTaxonomyIds(matchedId: string, catalogNodes: FlatCatalogSystem[]): { systemId: string; editionId: string | null } {
+  const byId = new Map(catalogNodes.map((node) => [node.id, node]));
+  let current = byId.get(matchedId);
+  while (current && current.node_type !== 'system' && current.parent_id) {
+    current = byId.get(current.parent_id);
+  }
+  const systemId = current?.id ?? matchedId;
+  const editionId = systemId === matchedId ? null : matchedId;
+  return { systemId, editionId };
+}
+
 const CATALOG_SNAPSHOT_CACHE_TTL_MS = 60 * 1000;
 let snapshotCache: { data: FlatCatalogSystem[]; expiresAt: number } | null = null;
 
@@ -136,6 +170,9 @@ export interface CatalogNodeCreateInput {
   aliases?: string[];
 }
 
+// Achado real (review PR #204, Codex): truncar em 80 chars após remover
+// hifens das pontas podia deixar hifen trailing de volta (corte no meio de
+// um separador). Trim final garante canonical_slug nunca termina em hifen.
 function slugifyCatalogSegment(value: string): string {
   const collapsed = value
     .normalize('NFD')
@@ -147,7 +184,8 @@ function slugifyCatalogSegment(value: string): string {
   let end = collapsed.length;
   while (start < end && collapsed[start] === '-') start += 1;
   while (end > start && collapsed[end - 1] === '-') end -= 1;
-  return collapsed.slice(start, end).slice(0, 80);
+  const truncated = collapsed.slice(start, end).slice(0, 80);
+  return truncated.replace(/-+$/, '');
 }
 
 // T4.9 — escrita no catalogo central so por acao admin na triagem (nunca

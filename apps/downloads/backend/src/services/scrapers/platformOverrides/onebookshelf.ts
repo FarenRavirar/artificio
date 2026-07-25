@@ -179,8 +179,11 @@ export function applyOneBookShelfOverride(preview: PlatformOverrideInput, html: 
     // do site: "Universo de jogo") e o SISTEMA/regra do material (ex.
     // "Vampire the Masquerade", "D&D 5e") — antes desta correcao ia pro
     // campo 'scenario', que na verdade nunca teve extrator proprio.
-    // 'scenario' fica null aqui de proposito: a tabela de detalhes do
-    // OneBookShelf nao tem campo separado pra cenario de ambientacao.
+    // Correcao de comentario (review PR #204, Codex): 'scenario' NAO e
+    // zerado aqui — nem entra no Pick<> de richFields, entao continua
+    // herdado de preview.scenario via spread no return. A tabela de
+    // detalhes do OneBookShelf so nao tem campo separado pra cenario de
+    // ambientacao (por isso nenhum extrator dedicado foi escrito pra ele).
     systemHint: nullableText(details.get('ruleSystem')),
     authorsCredits: nullableText(details.get('authors')),
     artistsCredits: nullableText(details.get('artists')),

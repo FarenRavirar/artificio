@@ -575,27 +575,33 @@ export interface MatchableSystemEntry {
   aliases: string[];
 }
 
+// Achado (review PR #204, Codex, nitpick perf): normalizar name/name_pt/
+// aliases de TODO o catálogo a cada chamada é redundante quando o chamador
+// processa N itens contra o mesmo snapshot (ex.: scraperIngest.ts roda 1
+// resolveSystemHint por item de um run inteiro). buildExactMatchIndex constrói
+// o Map<normalizado, entry> uma vez; matchSystemNameExact aceita systems OU
+// o índice já pronto (index.has/get), então chamadas isoladas (ex.: testes)
+// continuam funcionando sem precisar do índice.
+export function buildExactMatchIndex(systems: MatchableSystemEntry[]): Map<string, MatchableSystemEntry> {
+  const index = new Map<string, MatchableSystemEntry>();
+  for (const system of systems) {
+    const candidates = [system.name, ...(system.name_pt ? [system.name_pt] : []), ...system.aliases];
+    for (const candidate of candidates) {
+      const normalized = normalizeSystemName(candidate).normalized;
+      if (normalized && !index.has(normalized)) index.set(normalized, system);
+    }
+  }
+  return index;
+}
+
 export function matchSystemNameExact(
   value: string | null | undefined,
-  systems: MatchableSystemEntry[],
+  systemsOrIndex: MatchableSystemEntry[] | Map<string, MatchableSystemEntry>,
 ): MatchableSystemEntry | null {
   if (!value) return null;
   const target = normalizeSystemName(value).normalized;
   if (!target) return null;
 
-  for (const system of systems) {
-    const candidates = [
-      system.name,
-      ...(system.name_pt ? [system.name_pt] : []),
-      ...system.aliases,
-    ];
-
-    for (const candidate of candidates) {
-      if (normalizeSystemName(candidate).normalized === target) {
-        return system;
-      }
-    }
-  }
-
-  return null;
+  const index = Array.isArray(systemsOrIndex) ? buildExactMatchIndex(systemsOrIndex) : systemsOrIndex;
+  return index.get(target) ?? null;
 }

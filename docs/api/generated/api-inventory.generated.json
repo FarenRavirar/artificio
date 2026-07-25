@@ -425,7 +425,7 @@
       "method": "GET",
       "path": "/api/v1/admin/system-suggestions",
       "sourceFile": "apps/downloads/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 24,
+      "line": 25,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -443,7 +443,7 @@
       "method": "GET",
       "path": "/api/v1/admin/system-suggestions/:id/candidates",
       "sourceFile": "apps/downloads/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 45,
+      "line": 46,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -452,7 +452,7 @@
       "method": "POST",
       "path": "/api/v1/admin/system-suggestions/:id/resolve",
       "sourceFile": "apps/downloads/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 255,
+      "line": 299,
       "confidence": "high",
       "kind": "express-route"
     },

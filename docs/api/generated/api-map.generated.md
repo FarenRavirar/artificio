@@ -73,10 +73,10 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/admin/scraper/run/:id` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 101 |
 | GET | `/api/v1/admin/scraper/runs` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 122 |
 | GET | `/api/v1/admin/summary` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 15 |
-| GET | `/api/v1/admin/system-suggestions` | ✅ high | `apps/downloads/backend/src/routes/systemSuggestionsAdmin.ts` | 24 |
+| GET | `/api/v1/admin/system-suggestions` | ✅ high | `apps/downloads/backend/src/routes/systemSuggestionsAdmin.ts` | 25 |
 | USE | `/api/v1/admin/system-suggestions` | ✅ high | `apps/downloads/backend/src/server.ts` | 99 |
-| GET | `/api/v1/admin/system-suggestions/:id/candidates` | ✅ high | `apps/downloads/backend/src/routes/systemSuggestionsAdmin.ts` | 45 |
-| POST | `/api/v1/admin/system-suggestions/:id/resolve` | ✅ high | `apps/downloads/backend/src/routes/systemSuggestionsAdmin.ts` | 255 |
+| GET | `/api/v1/admin/system-suggestions/:id/candidates` | ✅ high | `apps/downloads/backend/src/routes/systemSuggestionsAdmin.ts` | 46 |
+| POST | `/api/v1/admin/system-suggestions/:id/resolve` | ✅ high | `apps/downloads/backend/src/routes/systemSuggestionsAdmin.ts` | 299 |
 | GET | `/api/v1/changelog` | ✅ high | `apps/downloads/backend/src/routes/changelog.ts` | 16 |
 | USE | `/api/v1/changelog` | ✅ high | `apps/downloads/backend/src/server.ts` | 100 |
 | GET | `/api/v1/collections` | ✅ high | `apps/downloads/backend/src/routes/collections.ts` | 20 |

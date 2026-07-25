@@ -218,6 +218,22 @@ describe('scoreSystemCandidates', () => {
     expect(r.candidates).toEqual([]);
     expect(r.recommended_action).toBe('create_system');
   });
+
+  it('limit=0 returns no candidates even when matches exist', () => {
+    const r = scoreSystemCandidates('CAIN', SYSTEMS, ALIASES, 0);
+    expect(r.candidates).toEqual([]);
+  });
+
+  it('limit truncates candidates to the requested size', () => {
+    const r = scoreSystemCandidates('D&D 5e', SYSTEMS, ALIASES, 1);
+    expect(r.candidates.length).toBe(1);
+  });
+
+  it('classifies a close typo as fuzzy_similar via approximate base similarity', () => {
+    const r = scoreSystemCandidates('Xungeons xnd Xragons', SYSTEMS, []);
+    expect(r.candidates[0].system_id).toBe('dd');
+    expect(r.candidates[0].reasons).toContain('fuzzy_similar');
+  });
 });
 
 describe('matchSystemNameExact', () => {

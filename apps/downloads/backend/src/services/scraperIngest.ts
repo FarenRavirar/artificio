@@ -3,7 +3,7 @@ import { matchSystemNameExact, type MatchableSystemEntry } from '@artificio/cata
 import { db } from '../db';
 import { detectPortuguese } from './languageDetector';
 import { getOrCreateScraperCreatorId } from './scraperCreator';
-import { loadCatalogSystemsFlat, type FlatCatalogSystem } from './catalogClient';
+import { loadCatalogSystemsFlat, resolveTaxonomyIds, type FlatCatalogSystem } from './catalogClient';
 import type { ScrapedItem } from './scrapers/types';
 import type { Database, DownloadSourcePlatform, DownloadScraperItemOutcome, JSONColumnType } from '../db/types';
 
@@ -105,26 +105,35 @@ function toMatchableEntry(node: FlatCatalogSystem): MatchableSystemEntry {
 // fase: catalogo central resolve sistema, nao versao de regra por texto raso).
 interface SystemHintResolution {
   systemId: string | null;
+  editionId: string | null;
   rawSystemHint: string | null;
 }
 
 async function resolveSystemHint(systemHint: string | null | undefined): Promise<SystemHintResolution> {
   const hint = systemHint?.trim() || null;
-  if (!hint) return { systemId: null, rawSystemHint: null };
+  if (!hint) return { systemId: null, editionId: null, rawSystemHint: null };
 
   const catalogNodes = await loadCatalogSystemsFlat();
   const matched = matchSystemNameExact(hint, catalogNodes.map(toMatchableEntry));
-  if (matched) return { systemId: matched.id, rawSystemHint: null };
+  if (matched) {
+    const { systemId, editionId } = resolveTaxonomyIds(matched.id, catalogNodes);
+    return { systemId, editionId, rawSystemHint: null };
+  }
 
   // Nao casou — preserva o texto bruto (equivalente a raw_system_hint do
   // mesas). O material nunca perde essa informacao nem finge que nao tem
   // sistema (requisito 6a da spec 086).
-  return { systemId: null, rawSystemHint: hint };
+  return { systemId: null, editionId: null, rawSystemHint: hint };
 }
 
 // T4.5 — abre a fila de triagem quando o scraper nao casou o hint contra o
 // catalogo (source='scraper', sempre 'pending'). Nunca escreve no catalogo
 // central diretamente — so a triagem admin faz isso (requisito 8).
+// Achado real (review PR #204, Codex): sem trava, reprocessar o mesmo item
+// empilhava suggestion 'pending' duplicada pro mesmo (material_id, raw_value).
+// migration_027 (uidx_download_system_suggestion_scraper_pending) adiciona
+// indice unico parcial so em source='scraper'+status='pending' — onConflict
+// doNothing() torna este insert idempotente contra essa trava.
 async function openSystemSuggestion(trx: Kysely<Database> | Transaction<Database>, materialId: string, rawValue: string): Promise<void> {
   await trx
     .insertInto('download_system_suggestion')
@@ -134,6 +143,7 @@ async function openSystemSuggestion(trx: Kysely<Database> | Transaction<Database
       source: 'scraper',
       status: 'pending',
     })
+    .onConflict((oc) => oc.columns(['material_id', 'raw_value']).where('source', '=', 'scraper').where('status', '=', 'pending').doNothing())
     .execute();
 }
 
@@ -208,10 +218,12 @@ async function processItem(
           source_platform: sourcePlatform,
           source_url: item.sourceUrl,
           source_scraped_at: new Date(),
-          // T4.5 — casou por igualdade exata contra o catalogo -> system_id;
+          // T4.5 — casou por igualdade exata contra o catalogo -> system_id
+          // (raiz) + edition_id (folha, se o node casado nao for a raiz);
           // nao casou -> preserva o texto bruto em raw_system_hint (nunca
           // perde a informacao nem finge que o material nao tem sistema).
           system_id: systemResolution.systemId,
+          edition_id: systemResolution.editionId,
           raw_system_hint: systemResolution.rawSystemHint,
         })
         .returning('id')

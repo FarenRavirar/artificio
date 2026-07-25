@@ -28,11 +28,17 @@ vi.mock('kysely', async () => {
 const loadCatalogSystemsFlatMock = vi.hoisted(() => vi.fn());
 const createCatalogNodeMock = vi.hoisted(() => vi.fn());
 const addCatalogNodeAliasMock = vi.hoisted(() => vi.fn());
-vi.mock('../services/catalogClient', () => ({
-  loadCatalogSystemsFlat: loadCatalogSystemsFlatMock,
-  createCatalogNode: createCatalogNodeMock,
-  addCatalogNodeAlias: addCatalogNodeAliasMock,
-}));
+// resolveTaxonomyIds é lógica pura (sem I/O) — usa a implementação real via
+// importActual em vez de mockar, evita duplicar a regra no teste.
+vi.mock('../services/catalogClient', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/catalogClient')>();
+  return {
+    resolveTaxonomyIds: actual.resolveTaxonomyIds,
+    loadCatalogSystemsFlat: loadCatalogSystemsFlatMock,
+    createCatalogNode: createCatalogNodeMock,
+    addCatalogNodeAlias: addCatalogNodeAliasMock,
+  };
+});
 
 const emitNotificationMock = vi.hoisted(() => vi.fn());
 vi.mock('../services/notify', () => ({ emitNotification: emitNotificationMock }));
@@ -82,20 +88,19 @@ const SUGGESTION = { id: 's1', material_id: 'material-1', raw_value: 'D&D 5e', s
 // JS default param só ativa quando o argumento é `undefined` — chamar
 // makeTrx(undefined) explicitamente cai no default SUGGESTION, não no que
 // se quer testar. Usar makeTrx(null) pro caso "lock não achou nada".
+// Achado real (review PR #204, Codex, P2): relinkPendingSuggestions passou a
+// usar UM update com .returning() (não select-then-update) — suggestionUpdate
+// precisa suportar .returning().execute() (T4.6) além de .execute() (approve
+// da própria sugestão). otherPendingUpdate simula o resultado desse update
+// único: por default vazio (nenhuma outra sugestão pending casada).
 function makeTrx(lockedSuggestion: unknown = SUGGESTION) {
-  const suggestionUpdate = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+  const otherPendingUpdate = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), returning: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue([]) };
+  const suggestionUpdate = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), returning: vi.fn(() => otherPendingUpdate), execute: vi.fn().mockResolvedValue(undefined) };
   const materialUpdate = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
-  const otherPendingSelect = { select: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue([]) };
   const lockSelect = { selectAll: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), executeTakeFirst: vi.fn().mockResolvedValue(lockedSuggestion) };
   const updateTable = vi.fn((table: string) => (table === 'download_system_suggestion' ? suggestionUpdate : materialUpdate));
-  // 1ª chamada de selectFrom('download_system_suggestion') = checagem do lock
-  // (selectAll+executeTakeFirst); chamadas seguintes = re-tentativa T4.6
-  // (select+execute). Sequência fixa por mockImplementationOnce, sem
-  // condicional frágil baseada em contagem de outro mock.
-  const selectFrom = vi.fn()
-    .mockImplementationOnce(() => lockSelect)
-    .mockImplementation(() => otherPendingSelect);
-  return { updateTable, selectFrom, suggestionUpdate, materialUpdate, otherPendingSelect, lockSelect };
+  const selectFrom = vi.fn(() => lockSelect);
+  return { updateTable, selectFrom, suggestionUpdate, materialUpdate, otherPendingUpdate, lockSelect };
 }
 
 beforeEach(() => {
@@ -109,6 +114,10 @@ beforeEach(() => {
   currentUser = { userId: 'admin-1', role: 'admin' };
 
   dbMocks.updateTable.mockReturnValue({ set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) });
+  // Default: catálogo vazio — resolveTaxonomyIds cai no fallback (systemId =
+  // matchedId, editionId = null) quando o node não está no snapshot mockado.
+  // Testes que precisam de hierarquia real (raiz/edição) sobrescrevem.
+  loadCatalogSystemsFlatMock.mockResolvedValue([]);
 });
 
 describe('GET /api/v1/admin/system-suggestions', () => {
@@ -198,9 +207,88 @@ describe('POST /api/v1/admin/system-suggestions/:id/resolve', () => {
     expect(trx.materialUpdate.set).toHaveBeenCalledWith(expect.objectContaining({ system_id: 'edicao-nova' }));
   });
 
+  it('create_alias: registra alias, grava system_id no material, nunca notifica scraper', async () => {
+    const trx = makeTrx({ ...SUGGESTION, source: 'scraper', suggested_by_user_id: null });
+    dbMocks.transaction.mockReturnValue({ execute: async (cb: (trx: unknown) => Promise<unknown>) => cb(trx) });
+    dbMocks.selectFrom.mockReturnValueOnce(selectChain({ material_id: 'material-1', raw_value: 'D&D 5e', source: 'scraper', suggested_by_user_id: null }));
+
+    const res = await request(app())
+      .post('/api/v1/admin/system-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_alias', target_node_id: 'dd5e' });
+
+    expect(res.status).toBe(200);
+    expect(addCatalogNodeAliasMock).toHaveBeenCalledWith('dd5e', 'D&D 5e');
+    expect(trx.materialUpdate.set).toHaveBeenCalledWith(expect.objectContaining({ system_id: 'dd5e' }));
+    expect(emitNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it('400 quando create_alias sem target_node_id', async () => {
+    const trx = makeTrx({ ...SUGGESTION, source: 'scraper' });
+    dbMocks.transaction.mockReturnValue({ execute: async (cb: (trx: unknown) => Promise<unknown>) => cb(trx) });
+
+    const res = await request(app())
+      .post('/api/v1/admin/system-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_alias' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('create_child: cria node sob parent existente com raw_value como alias', async () => {
+    const trx = makeTrx({ ...SUGGESTION, source: 'scraper', suggested_by_user_id: null });
+    dbMocks.transaction.mockReturnValue({ execute: async (cb: (trx: unknown) => Promise<unknown>) => cb(trx) });
+    loadCatalogSystemsFlatMock.mockResolvedValue([
+      { id: 'dd', name: 'Dungeons & Dragons', name_pt: null, slug: 'dnd', path_slug: 'dnd', node_type: 'system', parent_id: null, aliases: [] },
+      { id: 'edicao-nova', name: '5e', name_pt: null, slug: '5e', path_slug: 'dnd/5e', node_type: 'edition', parent_id: 'dd', aliases: [] },
+    ]);
+    createCatalogNodeMock.mockResolvedValue({ id: 'edicao-nova' });
+    dbMocks.selectFrom.mockReturnValueOnce(selectChain({ material_id: 'material-1', raw_value: 'D&D 5e', source: 'scraper', suggested_by_user_id: null }));
+
+    const res = await request(app())
+      .post('/api/v1/admin/system-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_child', parent_id: 'dd', node_type: 'edition', name: '5e' });
+
+    expect(res.status).toBe(200);
+    expect(createCatalogNodeMock).toHaveBeenCalledWith(expect.objectContaining({ name: '5e', node_type: 'edition', parent_id: 'dd', aliases: ['D&D 5e'] }));
+    expect(trx.materialUpdate.set).toHaveBeenCalledWith(expect.objectContaining({ system_id: 'dd', edition_id: 'edicao-nova' }));
+  });
+
+  it('400 quando create_child sem parent_id', async () => {
+    const trx = makeTrx({ ...SUGGESTION, source: 'scraper' });
+    dbMocks.transaction.mockReturnValue({ execute: async (cb: (trx: unknown) => Promise<unknown>) => cb(trx) });
+
+    const res = await request(app())
+      .post('/api/v1/admin/system-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_child', node_type: 'edition' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('404 quando create_child com parent_id inexistente no catálogo', async () => {
+    const trx = makeTrx({ ...SUGGESTION, source: 'scraper' });
+    dbMocks.transaction.mockReturnValue({ execute: async (cb: (trx: unknown) => Promise<unknown>) => cb(trx) });
+    loadCatalogSystemsFlatMock.mockResolvedValue([]);
+
+    const res = await request(app())
+      .post('/api/v1/admin/system-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_child', parent_id: 'inexistente', node_type: 'edition' });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('400 quando create_child com node_type inválido', async () => {
+    const trx = makeTrx({ ...SUGGESTION, source: 'scraper' });
+    dbMocks.transaction.mockReturnValue({ execute: async (cb: (trx: unknown) => Promise<unknown>) => cb(trx) });
+
+    const res = await request(app())
+      .post('/api/v1/admin/system-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_child', parent_id: 'dd', node_type: 'invalido' });
+
+    expect(res.status).toBe(400);
+  });
+
   it('T4.6 — re-tentativa: casa outras sugestões pending com o mesmo raw_value no mesmo commit', async () => {
     const trx = makeTrx({ ...SUGGESTION, source: 'scraper', suggested_by_user_id: null });
-    trx.otherPendingSelect.execute = vi.fn().mockResolvedValue([{ id: 's2', material_id: 'material-2' }]);
+    trx.otherPendingUpdate.execute = vi.fn().mockResolvedValue([{ id: 's2', material_id: 'material-2' }]);
     dbMocks.transaction.mockReturnValue({ execute: async (cb: (trx: unknown) => Promise<unknown>) => cb(trx) });
     dbMocks.selectFrom.mockReturnValueOnce(selectChain({ material_id: 'material-1', raw_value: 'D&D 5e', source: 'scraper', suggested_by_user_id: null }));
 
@@ -211,7 +299,9 @@ describe('POST /api/v1/admin/system-suggestions/:id/resolve', () => {
     expect(res.status).toBe(200);
     expect(trx.updateTable).toHaveBeenCalledWith('download_system_suggestion');
     expect(trx.updateTable).toHaveBeenCalledWith('download_material');
+    // 1 update da própria sugestão (approve) + 1 update-em-lote da re-tentativa (.returning()).
     expect(trx.suggestionUpdate.set).toHaveBeenCalledTimes(2);
+    // 1 material da própria sugestão + 1 material da sugestão relinkada (s2).
     expect(trx.materialUpdate.set).toHaveBeenCalledTimes(2);
   });
 

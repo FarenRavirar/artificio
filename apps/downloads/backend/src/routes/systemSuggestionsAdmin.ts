@@ -8,7 +8,8 @@ import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
 import { emitNotification } from '../services/notify';
 import { logModerationAudit } from '../services/moderationAuditLog';
-import { loadCatalogSystemsFlat, createCatalogNode, addCatalogNodeAlias, type FlatCatalogSystem } from '../services/catalogClient';
+import { archiveCatalogNode } from '@artificio/catalog-client';
+import { loadCatalogSystemsFlat, createCatalogNode, addCatalogNodeAlias, resolveTaxonomyIds, type FlatCatalogSystem } from '../services/catalogClient';
 
 const router = Router();
 
@@ -106,37 +107,51 @@ function readTrimmed(value: unknown): string | null {
 // momento em que o catálogo efetivamente aprendeu o alias/node novo — não
 // existe fluxo de "reprocessar material" isolado no Downloads (decisão do
 // mantenedor, spec 086).
+// Achado real (review PR #204, Codex, P2): select-then-update separado tinha
+// TOCTOU — se 2 sugestões com o mesmo raw_value resolvem simultaneamente
+// para nodes DIFERENTES, cada advisory lock (withSuggestionLock) só protege
+// seu próprio id; o select de "outras pending" podia incluir uma linha que a
+// transação concorrente já resolveu, e o update do material rodava mesmo
+// perdendo a corrida no update da suggestion. Fix: um único
+// UPDATE ... WHERE status='pending' RETURNING id/material_id — só as linhas
+// que ESTE update de fato mudou (venceu a corrida) entram no relink do
+// material, nunca um select desacoplado do update real.
 async function relinkPendingSuggestions(
   trx: Transaction<Database>,
   resolvedNodeId: string,
+  systemId: string,
+  editionId: string | null,
   rawValue: string,
   excludeSuggestionId: string,
   adminId: string,
 ): Promise<void> {
-  const others = await trx
-    .selectFrom('download_system_suggestion')
-    .select(['id', 'material_id'])
+  const relinked = await trx
+    .updateTable('download_system_suggestion')
+    .set({ status: 'approved', resolution_action: 'create_alias', resolved_node_id: resolvedNodeId, reviewed_by: adminId, reviewed_at: new Date() })
     .where('status', '=', 'pending')
     .where('raw_value', '=', rawValue)
     .where('id', '!=', excludeSuggestionId)
+    .returning(['id', 'material_id'])
     .execute();
 
-  for (const other of others) {
-    await trx
-      .updateTable('download_system_suggestion')
-      .set({ status: 'approved', resolution_action: 'create_alias', resolved_node_id: resolvedNodeId, reviewed_by: adminId, reviewed_at: new Date() })
-      .where('id', '=', other.id)
-      .where('status', '=', 'pending')
-      .execute();
+  for (const row of relinked) {
     await trx
       .updateTable('download_material')
-      .set({ system_id: resolvedNodeId, raw_system_hint: null, updated_at: new Date() })
-      .where('id', '=', other.material_id)
+      .set({ system_id: systemId, edition_id: editionId, raw_system_hint: null, updated_at: new Date() })
+      .where('id', '=', row.material_id)
       .execute();
   }
 }
 
+// Achado real (review PR #204, Codex, P1): resolvedNodeId pode ser um node
+// edition/variant (ex. resolveCreateChild, ou create_system com edition_name)
+// — gravar direto em system_id quebra os dois filtros de routes/materials.ts.
+// resolveTaxonomyIds (compartilhado com scraperIngest.ts) sobe até a raiz
+// pra distribuir system_id (raiz) / edition_id (folha) corretamente.
 async function applyResolution(trx: Transaction<Database>, suggestion: DownloadSystemSuggestion, resolvedNodeId: string, resolutionAction: DownloadSystemSuggestionResolutionAction, adminId: string): Promise<void> {
+  const catalogNodes = await loadCatalogSystemsFlat(true);
+  const { systemId, editionId } = resolveTaxonomyIds(resolvedNodeId, catalogNodes);
+
   await trx
     .updateTable('download_system_suggestion')
     .set({ status: 'approved', resolution_action: resolutionAction, resolved_node_id: resolvedNodeId, reviewed_by: adminId, reviewed_at: new Date() })
@@ -145,10 +160,10 @@ async function applyResolution(trx: Transaction<Database>, suggestion: DownloadS
     .execute();
   await trx
     .updateTable('download_material')
-    .set({ system_id: resolvedNodeId, raw_system_hint: null, updated_at: new Date() })
+    .set({ system_id: systemId, edition_id: editionId, raw_system_hint: null, updated_at: new Date() })
     .where('id', '=', suggestion.material_id)
     .execute();
-  await relinkPendingSuggestions(trx, resolvedNodeId, suggestion.raw_value, suggestion.id, adminId);
+  await relinkPendingSuggestions(trx, resolvedNodeId, systemId, editionId, suggestion.raw_value, suggestion.id, adminId);
 }
 
 // T4.9 — merge com node existente: registra raw_value como alias, no
@@ -197,9 +212,25 @@ async function resolveCreateSystem(ctx: ResolveContext): Promise<ResolveOutcome>
   const editionName = readTrimmed(ctx.body.edition_name);
 
   const system = await createCatalogNode({ name, node_type: 'system', aliases: [ctx.suggestion.raw_value] });
-  const resolvedNodeId = editionName
-    ? (await createCatalogNode({ name: editionName, node_type: 'edition', parent_id: system.id })).id
-    : system.id;
+
+  let resolvedNodeId = system.id;
+  if (editionName) {
+    // Achado real (review PR #204, Codex, P1): se o 2º POST (edição) falhar
+    // depois do 1º (sistema) já ter persistido no catálogo central, a
+    // sugestão volta a 'pending' (transação local reverte) mas o sistema
+    // órfão continua lá — retry colide de slug e a fila trava. Compensação:
+    // arquiva o sistema recém-criado (archiveCatalogNode, soft, mesmo
+    // mecanismo de D099) antes de relançar o erro original, deixando o
+    // catálogo limpo pra um retry real criar de novo.
+    try {
+      resolvedNodeId = (await createCatalogNode({ name: editionName, node_type: 'edition', parent_id: system.id })).id;
+    } catch (error) {
+      await archiveCatalogNode(system.id).catch((archiveError: unknown) => {
+        console.error('[resolveCreateSystem] Falha ao compensar (arquivar) sistema órfão após falha na edição:', system.id, archiveError);
+      });
+      throw error;
+    }
+  }
 
   await applyResolution(ctx.trx, ctx.suggestion, resolvedNodeId, 'create_system', ctx.adminId);
   return { resolution_action: 'create_system', resolved_node_id: resolvedNodeId };
@@ -224,8 +255,21 @@ const RESOLVERS: Record<string, (ctx: ResolveContext) => Promise<ResolveOutcome>
   reject: resolveReject,
 };
 
+// Achado real (review PR #204, Codex, nitpick): campos condicionais por
+// resolution_type (target_node_id/parent_id/node_type/name/edition_name/
+// reason) só passavam por readTrimmed dentro de cada resolver, sem limite de
+// tamanho/formato — payload absurdo (string gigante) chegava até createCatalogNode.
+// Validação de tamanho/formato aqui, na fronteira da rota; readTrimmed nos
+// resolvers continua fazendo o trim/presença condicional por tipo de resolução
+// (cada resolution_type usa um subconjunto diferente de campos).
 const resolveBodySchema = z.looseObject({
   resolution_type: z.enum(['merge_existing', 'create_alias', 'create_child', 'create_system', 'reject']),
+  target_node_id: z.string().trim().min(1).max(100).optional(),
+  parent_id: z.string().trim().min(1).max(100).optional(),
+  node_type: z.enum(['edition', 'variant']).optional(),
+  name: z.string().trim().min(1).max(200).optional(),
+  edition_name: z.string().trim().min(1).max(200).optional(),
+  reason: z.string().trim().max(2000).optional(),
 });
 
 function resolveErrorResponse(res: Response, error: unknown) {

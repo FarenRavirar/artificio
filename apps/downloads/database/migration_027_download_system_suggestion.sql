@@ -48,3 +48,16 @@ CREATE INDEX IF NOT EXISTS idx_download_system_suggestion_status_pending
 
 CREATE INDEX IF NOT EXISTS idx_download_system_suggestion_material_id
   ON download_system_suggestion (material_id);
+
+-- Achado real (review PR #204, Codex): scraperIngest.ts abre suggestion
+-- automatica toda vez que o hint nao casa. Sem esta trava, reprocessar o
+-- mesmo item (retry de run, ou 2 fixtures com o mesmo raw_value pro mesmo
+-- material) empilha sugestoes 'pending' identicas indefinidamente pro mesmo
+-- (material_id, raw_value). Indice unico parcial so em source='scraper'
+-- AND status='pending' — sugestao de usuario (source='user') pode repetir
+-- (pessoas diferentes sugerindo o mesmo texto e legitimo), e sugestao ja
+-- resolvida (approved/rejected) nao conta pra unicidade (novo ciclo depois
+-- de rejeitada precisa poder reabrir).
+CREATE UNIQUE INDEX IF NOT EXISTS uidx_download_system_suggestion_scraper_pending
+  ON download_system_suggestion (material_id, raw_value)
+  WHERE source = 'scraper' AND status = 'pending';
