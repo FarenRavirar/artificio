@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -200,13 +200,13 @@ describe('EditarMaterialPage', () => {
 
   it('salva as alterações do formulário e mostra toast de sucesso', async () => {
     const { updateMutateAsync, updateMetadataMutateAsync } = mockDefaults();
-    const user = userEvent.setup();
 
     renderPage();
 
-    await user.clear(screen.getByLabelText('Título'));
-    await user.type(screen.getByLabelText('Título'), 'Título Editado');
-    await user.click(screen.getByRole('button', { name: 'Salvar' }));
+    // Esse caso valida o payload/submissão, não a digitação por tecla. Usar
+    // change evita timeout sob a concorrência do Turbo sem ampliar timeout.
+    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Título Editado' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     expect(updateMutateAsync).toHaveBeenCalledWith({
       title: 'Título Editado',

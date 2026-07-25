@@ -15,6 +15,22 @@ export interface ScrapedItem {
   // precisar do fallback franc-min/DeepSeek da Fase 4). null quando a fonte
   // nao oferece nenhum sinal proprio — languageDetector decide sozinho.
   sourceLanguageHint: 'pt' | 'not_pt' | null;
+  scenario?: string | null;
+  authorsCredits?: string | null;
+  artistsCredits?: string | null;
+  creationMethod?: string | null;
+  sourceFilters?: SourceFilter[];
+  tags?: string[];
+  fileSizeText?: string | null;
+  format?: string | null;
+  pageCount?: number | null;
+  sourceCategory?: string | null;
+  descriptionHtml?: string | null;
+}
+
+export interface SourceFilter {
+  facet: string;
+  path: string[];
 }
 
 export interface ScraperAdapter {

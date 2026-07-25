@@ -14,6 +14,11 @@ import { sanitizeText } from '../sanitizeText';
 import { applyPlatformOverride, type PlatformOverrideInput } from './platformOverrides';
 import type { DownloadScraperPlatform } from '../../db/types';
 
+const sourceFilterSchema = z.object({
+  facet: z.string().min(1),
+  path: z.array(z.string().min(1)).min(1),
+});
+
 // Achado real (review PR #201, Codex, P2): regex original exigia
 // <script type="application/ld+json"> literal no início da tag e
 // <link rel="canonical" href="..."> nessa ordem exata — HTML real de
@@ -82,6 +87,17 @@ export const genericParsePreviewSchema = z
     sourceLanguageHint: z.enum(['pt', 'not_pt']).nullable(),
     extractedPriceValue: z.number().nullable(),
     priceSignal: z.enum(['pwyw_tag_present', 'zero_price_no_pwyw_tag', 'nonzero_price_no_pwyw_tag']),
+    scenario: z.string().nullable().optional(),
+    authorsCredits: z.string().nullable().optional(),
+    artistsCredits: z.string().nullable().optional(),
+    creationMethod: z.string().nullable().optional(),
+    sourceFilters: z.array(sourceFilterSchema).optional(),
+    tags: z.array(z.string().min(1)).optional(),
+    fileSizeText: z.string().nullable().optional(),
+    format: z.string().nullable().optional(),
+    pageCount: z.number().int().nonnegative().nullable().optional(),
+    sourceCategory: z.string().nullable().optional(),
+    descriptionHtml: z.string().nullable().optional(),
   })
   .strict();
 
@@ -314,6 +330,17 @@ export async function parseHtml(html: string, findPlatformByDomain: FindPlatform
     sourceLanguageHint,
     extractedPriceValue,
     priceSignal: defaultSignal.priceSignal,
+    scenario: null,
+    authorsCredits: null,
+    artistsCredits: null,
+    creationMethod: null,
+    sourceFilters: [],
+    tags: [],
+    fileSizeText: null,
+    format: null,
+    pageCount: null,
+    sourceCategory: null,
+    descriptionHtml: null,
   };
 
   // T7.2 — override em código roda por último, só sobrescreve o que

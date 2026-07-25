@@ -4,6 +4,8 @@ import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
 import { runScraperIngest } from '../services/scraperIngest';
+import { sanitizeRichHtml } from '../services/sanitizeRichHtml';
+import { sanitizeText } from '../services/sanitizeText';
 import { ItchIoScraper } from '../services/scrapers/itchIoScraper';
 import { GrimoriosEDadosScraper } from '../services/scrapers/grimoriosEDadosScraper';
 import { OperaRpgScraper } from '../services/scrapers/operaRpgScraper';
@@ -134,11 +136,26 @@ router.get('/runs', writeRateLimiter, authMiddleware, requireRole('admin'), asyn
 const ingestItemSchema = z.object({
   sourceUrl: z.url(),
   title: z.string().min(1).max(200),
-  description: z.string().nullable(),
+  // Spec 086: description é busca/summary/SEO, logo sempre texto plano.
+  // HTML rico pertence exclusivamente a descriptionHtml e cruza sanitizeRichHtml.
+  description: z.string().nullable().transform((value) => (value === null ? null : sanitizeText(value))),
   isFreeOrPwyw: z.boolean(),
   coverImageUrl: z.url().nullable(),
   publisherName: z.string().nullable(),
   sourceLanguageHint: z.enum(['pt', 'not_pt']).nullable(),
+  scenario: z.string().nullable().optional(),
+  authorsCredits: z.string().nullable().optional(),
+  artistsCredits: z.string().nullable().optional(),
+  creationMethod: z.string().nullable().optional(),
+  sourceFilters: z.array(z.object({ facet: z.string().min(1), path: z.array(z.string().min(1)).min(1) })).optional(),
+  tags: z.array(z.string().min(1)).optional(),
+  fileSizeText: z.string().nullable().optional(),
+  format: z.string().nullable().optional(),
+  pageCount: z.number().int().nonnegative().nullable().optional(),
+  sourceCategory: z.string().nullable().optional(),
+  // Spec 086: preview e payload manual convergem neste limite. Assim, a
+  // Fase 3 nunca recebe HTML rico bruto para persistir por engano.
+  descriptionHtml: z.string().nullable().optional().transform((value) => (value === null || value === undefined ? value : sanitizeRichHtml(value))),
   parse_case_id: z.uuid().optional(),
 });
 
