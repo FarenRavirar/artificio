@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { cn } from "./cn.js";
 
 export interface AdminColumn<T> {
@@ -128,6 +128,7 @@ export function AdminTable<T>({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
   const query = searchValue ?? internalQuery;
 
   const setQuery = (value: string) => {
@@ -163,9 +164,11 @@ export function AdminTable<T>({
   };
 
   const runBulk = async (action: AdminBulkAction) => {
+    if (inFlightRef.current) return;
     const ids = visibleSelectedIds;
     if (ids.length === 0) return;
     if (action.confirm && !globalThis.confirm(`${action.confirm}\n\n${ids.length} item(ns) selecionado(s).`)) return;
+    inFlightRef.current = true;
     setBusy(true);
     setActionError(null);
     try {
@@ -174,16 +177,23 @@ export function AdminTable<T>({
     } catch (caught) {
       setActionError(caught instanceof Error ? caught.message : "Falha ao executar a ação.");
     } finally {
+      inFlightRef.current = false;
       setBusy(false);
     }
   };
 
   const runRowAction = async (action: AdminRowAction<T>, row: T) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    setBusy(true);
     setActionError(null);
     try {
       await action.onRun(row);
     } catch (caught) {
       setActionError(caught instanceof Error ? caught.message : "Falha ao executar a ação.");
+    } finally {
+      inFlightRef.current = false;
+      setBusy(false);
     }
   };
 
@@ -200,7 +210,7 @@ export function AdminTable<T>({
       <div className="flex flex-wrap items-center gap-2">
         {searchKeys && searchKeys.length > 0 && (
           <div className="relative">
-            {icons.search && <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--fg-ghost)]">{icons.search}</span>}
+            {icons.search && <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--admin-fg-ghost)]">{icons.search}</span>}
             <input
               type="search"
               value={query}
@@ -208,7 +218,7 @@ export function AdminTable<T>({
               placeholder={searchPlaceholder}
               aria-label={searchPlaceholder}
               className={cn(
-                "h-8 w-56 rounded-lg border border-[var(--border)] bg-[var(--surface-input)] pr-2 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-ghost)] focus:border-[var(--border-strong)]",
+                "h-8 w-56 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-input)] pr-2 text-sm text-[var(--admin-fg)] outline-none placeholder:text-[var(--admin-fg-ghost)] focus:border-[var(--admin-border-strong)]",
                 icons.search ? "pl-8" : "pl-2.5",
               )}
             />
@@ -220,20 +230,20 @@ export function AdminTable<T>({
               value={facetValues[facet.key] ?? ""}
               onChange={(event) => onFacetChange?.(facet.key, event.target.value)}
               aria-label={facet.label}
-              className="h-8 appearance-none rounded-lg border border-[var(--border)] bg-[var(--surface-input)] pl-2.5 pr-7 text-sm text-[var(--fg)] outline-none focus:border-[var(--border-strong)]"
+              className="h-8 appearance-none rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-input)] pl-2.5 pr-7 text-sm text-[var(--admin-fg)] outline-none focus:border-[var(--admin-border-strong)]"
             >
               <option value="">{facet.label}: todos</option>
               {facet.options.map((option) => <option key={option.value} value={option.value}>{facet.label}: {option.label}</option>)}
             </select>
-            {icons.chevronDown && <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--fg-ghost)]">{icons.chevronDown}</span>}
+            {icons.chevronDown && <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--admin-fg-ghost)]">{icons.chevronDown}</span>}
           </div>
         ))}
-        <span className="ml-auto text-xs text-[var(--fg-faint)]">{filtered.length} de {rows.length}</span>
+        <span className="ml-auto text-xs text-[var(--admin-fg-faint)]">{filtered.length} de {rows.length}</span>
       </div>
 
       {hasSelection && someSelected && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-orange-soft)] bg-[color-mix(in_srgb,var(--artificio-brand)_8%,transparent)] px-3 py-2">
-          <span className="text-sm text-[var(--fg-muted)]">{visibleSelectedIds.length} selecionado(s)</span>
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--admin-border-orange-soft)] bg-[color-mix(in_srgb,var(--artificio-brand)_8%,transparent)] px-3 py-2">
+          <span className="text-sm text-[var(--admin-fg-muted)]">{visibleSelectedIds.length} selecionado(s)</span>
           <div className="ml-auto flex items-center gap-2">
             {bulkActions.map((action) => (
               <button
@@ -244,14 +254,14 @@ export function AdminTable<T>({
                 className={cn(
                   "inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm font-medium disabled:opacity-50",
                   action.tone === "danger"
-                    ? "border-[color-mix(in_srgb,var(--danger)_40%,transparent)] text-[var(--danger-soft)] hover:bg-[color-mix(in_srgb,var(--danger)_12%,transparent)]"
-                    : "border-[var(--border)] text-[var(--fg-muted)] hover:bg-[var(--admin-hover)]",
+                    ? "border-[color-mix(in_srgb,var(--admin-danger)_40%,transparent)] text-[var(--admin-danger-soft)] hover:bg-[color-mix(in_srgb,var(--admin-danger)_12%,transparent)]"
+                    : "border-[var(--admin-border)] text-[var(--admin-fg-muted)] hover:bg-[var(--admin-hover)]",
                 )}
               >
                 {action.icon}{action.label}
               </button>
             ))}
-            <button type="button" onClick={() => setSelected(new Set())} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 py-1 text-sm text-[var(--fg-faint)] hover:text-[var(--fg)]">
+            <button type="button" onClick={() => setSelected(new Set())} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 py-1 text-sm text-[var(--admin-fg-faint)] hover:text-[var(--admin-fg)]">
               {icons.clear} limpar
             </button>
           </div>
@@ -259,42 +269,42 @@ export function AdminTable<T>({
       )}
 
       {actionError && (
-        <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-[color-mix(in_srgb,var(--danger)_40%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-2 text-sm text-[var(--danger-soft)]">
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-[color-mix(in_srgb,var(--admin-danger)_40%,transparent)] bg-[color-mix(in_srgb,var(--admin-danger)_12%,transparent)] px-3 py-2 text-sm text-[var(--admin-danger-soft)]">
           <span>{actionError}</span>
-          <button type="button" aria-label="Fechar erro" onClick={() => setActionError(null)} className="min-h-11 min-w-11 text-[var(--fg-faint)] hover:text-[var(--fg)]">{icons.clear ?? "×"}</button>
+          <button type="button" aria-label="Fechar erro" onClick={() => setActionError(null)} className="min-h-11 min-w-11 text-[var(--admin-fg-faint)] hover:text-[var(--admin-fg)]">{icons.clear ?? "×"}</button>
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--admin-surface)]">
+      <div className="overflow-x-auto rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)]">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--fg-faint)]">
+            <tr className="border-b border-[var(--admin-border)] text-left text-xs uppercase tracking-wide text-[var(--admin-fg-faint)]">
               {hasSelection && <th className="w-10 px-3 py-2.5"><input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Selecionar todos" className="accent-[var(--artificio-brand)]" /></th>}
               {columns.map((column) => <th key={column.key} className={cn("px-3 py-2.5 font-medium", column.className)}>{column.header}</th>)}
               {builtinRowActions.length > 0 && <th className="px-3 py-2.5 text-right font-medium">Ações</th>}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={columnSpan} className="px-3 py-10 text-center text-[var(--fg-faint)]">Carregando…</td></tr>}
-            {!loading && error && <tr><td colSpan={columnSpan} className="px-3 py-10 text-center text-[var(--danger-soft)]">{error}</td></tr>}
+            {loading && <tr><td colSpan={columnSpan} className="px-3 py-10 text-center text-[var(--admin-fg-faint)]">Carregando…</td></tr>}
+            {!loading && error && <tr><td colSpan={columnSpan} className="px-3 py-10 text-center text-[var(--admin-danger-soft)]">{error}</td></tr>}
             {!loading && !error && filtered.length === 0 && (
-              <tr><td colSpan={columnSpan} className="px-3 py-12 text-center"><div className="text-sm font-medium text-[var(--fg-muted)]">{emptyTitle}</div>{emptyHint && <div className="mt-1 text-xs text-[var(--fg-faint)]">{emptyHint}</div>}</td></tr>
+              <tr><td colSpan={columnSpan} className="px-3 py-12 text-center"><div className="text-sm font-medium text-[var(--admin-fg-muted)]">{emptyTitle}</div>{emptyHint && <div className="mt-1 text-xs text-[var(--admin-fg-faint)]">{emptyHint}</div>}</td></tr>
             )}
             {!loading && !error && filtered.map((row) => {
               const id = getRowId(row);
               const isSelected = selected.has(id);
               return (
-                <tr key={id} className={cn("border-b border-[var(--border-soft)] transition-colors last:border-0 hover:bg-[var(--admin-hover)]", isSelected && "bg-[color-mix(in_srgb,var(--artificio-brand)_6%,transparent)]")}>
+                <tr key={id} className={cn("border-b border-[var(--admin-border-soft)] transition-colors last:border-0 hover:bg-[var(--admin-hover)]", isSelected && "bg-[color-mix(in_srgb,var(--artificio-brand)_6%,transparent)]")}>
                   {hasSelection && <td className="px-3 py-2.5"><input type="checkbox" checked={isSelected} onChange={() => toggleOne(id)} aria-label={`Selecionar ${id}`} className="accent-[var(--artificio-brand)]" /></td>}
                   {columns.map((column) => (
-                    <td key={column.key} className={cn("px-3 py-2.5 text-[var(--fg-muted)]", column.className)}>
+                    <td key={column.key} className={cn("px-3 py-2.5 text-[var(--admin-fg-muted)]", column.className)}>
                       {column.render ? column.render(row) : valueToDisplay((row as Record<string, unknown>)[column.key])}
                     </td>
                   ))}
                   {builtinRowActions.length > 0 && (
                     <td className="px-3 py-2.5"><div className="flex items-center justify-end gap-1">
                       {builtinRowActions.filter((action) => !action.hidden?.(row)).map((action) => (
-                        <button key={action.key} type="button" title={action.label} aria-label={action.label} onClick={() => void runRowAction(action, row)} className={cn("inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md border border-transparent px-1.5 py-1 text-xs hover:border-[var(--border)] hover:bg-[var(--admin-hover)]", action.tone === "danger" ? "text-[var(--danger-soft)]" : "text-[var(--fg-low)]")}>
+                        <button key={action.key} type="button" title={action.label} aria-label={action.label} disabled={busy} onClick={() => void runRowAction(action, row)} className={cn("inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md border border-transparent px-1.5 py-1 text-xs disabled:opacity-50 hover:border-[var(--admin-border)] hover:bg-[var(--admin-hover)]", action.tone === "danger" ? "text-[var(--admin-danger-soft)]" : "text-[var(--admin-fg-low)]")}>
                           {action.icon ?? action.label}
                         </button>
                       ))}

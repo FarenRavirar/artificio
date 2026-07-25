@@ -70,9 +70,9 @@ export function AdminSidebar({
   }, [groups, normalizedQuery]);
 
   return (
-    <nav aria-label={ariaLabel} className={cn("flex w-60 shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--admin-rail)]", className)}>
-      <div className="border-b border-[var(--border)] px-5 py-4">
-        <span className="eyebrow block text-[var(--fg-low)]">{eyebrow}</span>
+    <nav aria-label={ariaLabel} className={cn("flex w-60 shrink-0 flex-col overflow-y-auto border-r border-[var(--admin-border)] bg-[var(--admin-rail)]", className)}>
+      <div className="border-b border-[var(--admin-border)] px-5 py-4">
+        <span className="eyebrow block text-[var(--admin-fg-low)]">{eyebrow}</span>
         {searchable && (
           <input
             type="search"
@@ -80,7 +80,7 @@ export function AdminSidebar({
             onChange={(event) => setQuery(event.target.value)}
             placeholder={searchPlaceholder}
             aria-label={searchPlaceholder}
-            className="mt-3 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-input)] px-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-ghost)] focus:border-[var(--border-strong)]"
+            className="mt-3 h-11 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-input)] px-3 text-sm text-[var(--admin-fg)] outline-none placeholder:text-[var(--admin-fg-ghost)] focus:border-[var(--admin-border-strong)]"
           />
         )}
       </div>
@@ -90,7 +90,7 @@ export function AdminSidebar({
           const groupLabelId = `${groupIdPrefix}-group-${groupIndex}`;
           return (
           <section key={group.label} aria-labelledby={groupLabelId}>
-            <h2 id={groupLabelId} className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-[var(--fg-faint)]">
+            <h2 id={groupLabelId} className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-[var(--admin-fg-faint)]">
               {group.label}
             </h2>
             <ul className="flex flex-col gap-1">
@@ -100,7 +100,7 @@ export function AdminSidebar({
                   "flex min-h-11 items-center gap-3 rounded-lg border-l-[3px] px-3 py-2.5 text-sm font-medium transition-colors",
                   active
                     ? "border-[var(--artificio-brand)] bg-[color-mix(in_srgb,var(--artificio-brand)_12%,transparent)] text-[var(--artificio-brand)]"
-                    : "border-transparent text-[var(--fg-low)] hover:bg-[var(--admin-hover)] hover:text-[var(--fg-muted)]",
+                    : "border-transparent text-[var(--admin-fg-low)] hover:bg-[var(--admin-hover)] hover:text-[var(--admin-fg-muted)]",
                 );
                 const content = (
                   <>
@@ -138,12 +138,12 @@ export function AdminSidebar({
           );
         })}
         {filteredGroups.length === 0 && (
-          <p role="status" className="px-3 text-sm text-[var(--fg-faint)]">{emptySearchLabel}</p>
+          <p role="status" className="px-3 text-sm text-[var(--admin-fg-faint)]">{emptySearchLabel}</p>
         )}
       </div>
 
       {pendingCount !== undefined && pendingCount > 0 && (
-        <div className="border-t border-[var(--border)] px-5 py-3 text-xs tabular-nums text-[var(--fg-faint)]">
+        <div className="border-t border-[var(--admin-border)] px-5 py-3 text-xs tabular-nums text-[var(--admin-fg-faint)]">
           {pendingCount} {pendingLabel}{pendingCount === 1 ? "" : "s"}
         </div>
       )}

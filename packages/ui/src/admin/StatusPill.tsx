@@ -4,12 +4,12 @@ import { cn } from "./cn.js";
 export type PillTone = "neutral" | "brand" | "success" | "warn" | "danger" | "info";
 
 const TONE: Record<PillTone, string> = {
-  neutral: "bg-[var(--admin-hover)] text-[var(--fg-low)] border-[var(--border)]",
-  brand: "bg-[color-mix(in_srgb,var(--artificio-brand)_18%,transparent)] text-[var(--artificio-brand)] border-[var(--border-orange-soft)]",
-  success: "bg-[color-mix(in_srgb,var(--success)_16%,transparent)] text-[var(--success)] border-[color-mix(in_srgb,var(--success)_30%,transparent)]",
-  warn: "bg-[color-mix(in_srgb,var(--warn)_16%,transparent)] text-[var(--warn)] border-[color-mix(in_srgb,var(--warn)_30%,transparent)]",
-  danger: "bg-[color-mix(in_srgb,var(--danger)_16%,transparent)] text-[var(--danger-soft)] border-[color-mix(in_srgb,var(--danger)_30%,transparent)]",
-  info: "bg-[color-mix(in_srgb,var(--info)_16%,transparent)] text-[var(--info)] border-[color-mix(in_srgb,var(--info)_30%,transparent)]",
+  neutral: "bg-[var(--admin-hover)] text-[var(--admin-fg-low)] border-[var(--admin-border)]",
+  brand: "bg-[color-mix(in_srgb,var(--artificio-brand)_18%,transparent)] text-[var(--artificio-brand)] border-[var(--admin-border-orange-soft)]",
+  success: "bg-[color-mix(in_srgb,var(--admin-success)_16%,transparent)] text-[var(--admin-success)] border-[color-mix(in_srgb,var(--admin-success)_30%,transparent)]",
+  warn: "bg-[color-mix(in_srgb,var(--admin-warn)_16%,transparent)] text-[var(--admin-warn)] border-[color-mix(in_srgb,var(--admin-warn)_30%,transparent)]",
+  danger: "bg-[color-mix(in_srgb,var(--admin-danger)_16%,transparent)] text-[var(--admin-danger-soft)] border-[color-mix(in_srgb,var(--admin-danger)_30%,transparent)]",
+  info: "bg-[color-mix(in_srgb,var(--admin-info)_16%,transparent)] text-[var(--admin-info)] border-[color-mix(in_srgb,var(--admin-info)_30%,transparent)]",
 };
 
 export interface StatusPillProps {

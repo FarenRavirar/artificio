@@ -3,7 +3,7 @@ import { tabButtonClass } from "./tabButtonClass.js";
 
 describe("tabButtonClass", () => {
   it("distingue estado ativo", () => {
-    expect(tabButtonClass(true)).toContain("text-[var(--fg)]");
-    expect(tabButtonClass(false)).toContain("text-[var(--fg-low)]");
+    expect(tabButtonClass(true)).toContain("text-[var(--admin-fg)]");
+    expect(tabButtonClass(false)).toContain("text-[var(--admin-fg-low)]");
   });
 });

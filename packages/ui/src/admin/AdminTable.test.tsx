@@ -1,5 +1,7 @@
+// @vitest-environment jsdom
+import { fireEvent, render } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AdminTable, filterAdminRows, type AdminFacet } from "./AdminTable.js";
 
 interface Row { id: string; name: string; status: string }
@@ -19,5 +21,23 @@ describe("AdminTable", () => {
     expect(html).toContain("Alpha");
     expect(html).not.toContain("Beta");
     expect(html).toContain('aria-label="Selecionar todos"');
+  });
+
+  it("duplo clique em ação de linha chama onRun apenas uma vez", async () => {
+    const onRun = vi.fn(() => new Promise<void>((resolve) => setTimeout(resolve, 20)));
+    const { getAllByRole } = render(
+      <AdminTable
+        tableId="items"
+        rows={rows}
+        getRowId={(row) => row.id}
+        columns={[{ key: "name", header: "Nome" }]}
+        rowActions={[{ key: "view", label: "Ver", onRun }]}
+      />,
+    );
+    const [button] = getAllByRole("button", { name: "Ver" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(onRun).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,31 +1,33 @@
 /* Spec 086: tokens do kit administrativo compartilhado.
-   Valores copiados do tema real do Mesas; arquivo isolado evita mudar consumidores
-   que ainda não importam @artificio/ui/admin/admin.css. */
+   Valores copiados do tema real do Mesas. Todo token é prefixado com --admin-:
+   importar este arquivo NÃO é isolado — variáveis vivem em :root global e,
+   sem o prefixo, colidiriam com tokens homônimos de outro app que já defina
+   --fg/--border/etc. em seu próprio :root. */
 :root {
   --admin-rail: #0e1a38;
   --admin-surface: #16223e;
   --admin-canvas: #0b1430;
   --admin-hover: rgba(255, 255, 255, 0.05);
-  --surface-input: #0f1a2e;
+  --admin-surface-input: #0f1a2e;
 
-  --fg: #ffffff;
-  --fg-muted: rgba(255, 255, 255, 0.75);
-  --fg-low: rgba(255, 255, 255, 0.60);
-  --fg-faint: rgba(255, 255, 255, 0.50);
-  --fg-ghost: rgba(255, 255, 255, 0.40);
+  --admin-fg: #ffffff;
+  --admin-fg-muted: rgba(255, 255, 255, 0.75);
+  --admin-fg-low: rgba(255, 255, 255, 0.60);
+  --admin-fg-faint: rgba(255, 255, 255, 0.50);
+  --admin-fg-ghost: rgba(255, 255, 255, 0.40);
 
-  --border-soft: rgba(255, 255, 255, 0.05);
-  --border: rgba(255, 255, 255, 0.10);
-  --border-strong: rgba(255, 255, 255, 0.20);
-  --border-orange-soft: rgba(255, 87, 34, 0.20);
+  --admin-border-soft: rgba(255, 255, 255, 0.05);
+  --admin-border: rgba(255, 255, 255, 0.10);
+  --admin-border-strong: rgba(255, 255, 255, 0.20);
+  --admin-border-orange-soft: rgba(255, 87, 34, 0.20);
 
-  --success: #34d399;
-  --warn: #fbbf24;
-  --danger: #ef4444;
-  --danger-soft: #f87171;
-  --info: #38bdf8;
+  --admin-success: #34d399;
+  --admin-warn: #fbbf24;
+  --admin-danger: #ef4444;
+  --admin-danger-soft: #f87171;
+  --admin-info: #38bdf8;
 
-  --shadow-card: 0 10px 15px -3px rgba(0, 0, 0, 0.30), 0 4px 6px -4px rgba(0, 0, 0, 0.25);
+  --admin-shadow-card: 0 10px 15px -3px rgba(0, 0, 0, 0.30), 0 4px 6px -4px rgba(0, 0, 0, 0.25);
 }
 
 :root[data-theme="light"] {
@@ -33,16 +35,16 @@
   --admin-surface: var(--artificio-light-surface, #ffffff);
   --admin-canvas: var(--artificio-light-canvas, #f4f6fb);
   --admin-hover: rgba(2, 7, 64, 0.05);
-  --surface-input: var(--artificio-light-surface, #ffffff);
+  --admin-surface-input: var(--artificio-light-surface, #ffffff);
 
-  --fg: var(--artificio-light-ink, #0b1220);
-  --fg-muted: rgba(11, 18, 32, 0.74);
-  --fg-low: rgba(11, 18, 32, 0.60);
-  --fg-faint: rgba(11, 18, 32, 0.52);
-  --fg-ghost: rgba(11, 18, 32, 0.44);
+  --admin-fg: var(--artificio-light-ink, #0b1220);
+  --admin-fg-muted: rgba(11, 18, 32, 0.74);
+  --admin-fg-low: rgba(11, 18, 32, 0.60);
+  --admin-fg-faint: rgba(11, 18, 32, 0.52);
+  --admin-fg-ghost: rgba(11, 18, 32, 0.44);
 
-  --border-soft: rgba(2, 7, 64, 0.08);
-  --border: rgba(2, 7, 64, 0.14);
-  --border-strong: rgba(2, 7, 64, 0.24);
-  --shadow-card: 0 8px 16px -6px rgba(2, 7, 64, 0.12), 0 2px 6px -3px rgba(2, 7, 64, 0.10);
+  --admin-border-soft: rgba(2, 7, 64, 0.08);
+  --admin-border: rgba(2, 7, 64, 0.14);
+  --admin-border-strong: rgba(2, 7, 64, 0.24);
+  --admin-shadow-card: 0 8px 16px -6px rgba(2, 7, 64, 0.12), 0 2px 6px -3px rgba(2, 7, 64, 0.10);
 }

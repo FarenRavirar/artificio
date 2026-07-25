@@ -25,14 +25,14 @@ export function SectionCard({
   bodyClassName,
 }: Readonly<SectionCardProps>) {
   return (
-    <section className={cn("rounded-xl border border-[var(--border)] bg-[var(--admin-surface)] shadow-[var(--shadow-card)]", className)}>
-      {(title || description || action) && (
-        <header className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-4">
+    <section className={cn("rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow-card)]", className)}>
+      {(title != null || description != null || action != null) && (
+        <header className="flex items-start justify-between gap-4 border-b border-[var(--admin-border)] px-5 py-4">
           <div className="min-w-0">
-            {title && <h3 className="text-sm font-semibold text-[var(--fg)]">{title}</h3>}
-            {description && <p className="mt-1 text-xs text-[var(--fg-low)]">{description}</p>}
+            {title != null && <h3 className="text-sm font-semibold text-[var(--admin-fg)]">{title}</h3>}
+            {description != null && <p className="mt-1 text-xs text-[var(--admin-fg-low)]">{description}</p>}
           </div>
-          {action && <div className="shrink-0">{action}</div>}
+          {action != null && <div className="shrink-0">{action}</div>}
         </header>
       )}
       <div className={cn("px-5 py-4", bodyClassName)}>{children}</div>
