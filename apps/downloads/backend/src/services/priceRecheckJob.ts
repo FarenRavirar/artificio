@@ -9,15 +9,30 @@ import type { DownloadSourcePlatform, DownloadEditorialState } from '../db/types
 // material de origem scraper (spec.md §5): reusa e estende download_link_check
 // (P10), NAO cria mecanismo de verificacao paralelo. Regra petrea: falha de
 // ACESSO (403/timeout/rede) NUNCA deriva pra withdrawn — so confirmacao
-// POSITIVA de preco pago move o material. As 2 fontes com parser de preco
-// confiavel hoje sao itch.io/grimorios_e_dados (parseItchIsFreeOrPwyw) e
-// opera_rpg (dominio proprio sem paywall, tratado como sempre gratuito por
-// omissao de mecanismo de cobranca — mesma logica do adapter). Fontes sem
-// adapter de preco confiavel (drivethrurpg/dms_guild sem parser real ainda;
-// rpg_gratis/newton_rocha/catarse sem adapter nenhum) sao puladas: sem forma
-// de reconfirmar preco = nunca suspende automaticamente, so fica auditavel
-// via is_healthy/error_detail do link-check basico ja existente.
-const PRICE_CHECKABLE_PLATFORMS = new Set<DownloadSourcePlatform>(['itch_io', 'grimorios_e_dados']);
+// POSITIVA de preco pago move o material.
+// Achado real (review PR #201, Codex, P1): supports_price_recheck sozinha
+// nao basta pra decidir QUAL parser rodar — parseItchIsFreeOrPwyw so
+// entende o HTML do itch.io (procura class="bundle_row" etc). Se um admin
+// marcar a flag numa plataforma nova (ex.: site generico cadastrado via
+// /gestao/plataformas), esse parser especifico rodaria contra HTML de
+// outro layout e podia confirmar falso-positivo de "pago", suspendendo
+// material publicado por engano. PRICE_CHECKER_BY_SLUG mapeia slug ->
+// parser real testado (mesmo espirito de platformOverrides — peculiaridade
+// de site sempre em codigo, nunca so uma flag generica). Plataforma com a
+// flag TRUE mas sem entrada aqui e ignorada (nunca "tenta" parser errado).
+const PRICE_CHECKER_BY_SLUG: Record<string, (html: string) => boolean | null> = {
+  itch_io: parseItchIsFreeOrPwyw,
+  grimorios_e_dados: parseItchIsFreeOrPwyw,
+};
+
+async function getPriceCheckablePlatforms(): Promise<Set<DownloadSourcePlatform>> {
+  const rows = await db
+    .selectFrom('download_scraper_platform')
+    .select('slug')
+    .where('supports_price_recheck', '=', true)
+    .execute();
+  return new Set(rows.map((row) => row.slug).filter((slug) => slug in PRICE_CHECKER_BY_SLUG));
+}
 
 export interface PriceRecheckResult {
   checked: number;
@@ -25,9 +40,15 @@ export interface PriceRecheckResult {
   blockedOrUnconfirmed: number;
 }
 
-async function confirmsPaid(sourcePlatform: DownloadSourcePlatform, html: string): Promise<boolean | null> {
-  if (!PRICE_CHECKABLE_PLATFORMS.has(sourcePlatform)) return null;
-  return parseItchIsFreeOrPwyw(html) === false ? true : null;
+async function confirmsPaid(
+  sourcePlatform: DownloadSourcePlatform,
+  html: string,
+  priceCheckablePlatforms: Set<DownloadSourcePlatform>,
+): Promise<boolean | null> {
+  if (!priceCheckablePlatforms.has(sourcePlatform)) return null;
+  const checker = PRICE_CHECKER_BY_SLUG[sourcePlatform];
+  if (!checker) return null;
+  return checker(html) === false ? true : null;
 }
 
 type MaterialRow = { id: string; source_platform: DownloadSourcePlatform; source_url: string | null; editorial_state: DownloadEditorialState };
@@ -75,7 +96,10 @@ async function withdrawMaterial(material: MaterialRow): Promise<void> {
 // cognitiva 17 (limite 15) por acumular fetch+erro+status+preco+transicao+
 // persistencia num so bloco. Extraida em recordLinkCheck/withdrawMaterial —
 // mesmo comportamento, so redistribuido.
-async function recheckOneMaterial(material: MaterialRow): Promise<'withdrawn' | 'blocked' | 'ok'> {
+async function recheckOneMaterial(
+  material: MaterialRow,
+  priceCheckablePlatforms: Set<DownloadSourcePlatform>,
+): Promise<'withdrawn' | 'blocked' | 'ok'> {
   if (!material.source_url) return 'ok';
 
   let response: { html: string; status: number };
@@ -94,7 +118,7 @@ async function recheckOneMaterial(material: MaterialRow): Promise<'withdrawn' | 
     return 'blocked';
   }
 
-  const paidConfirmed = await confirmsPaid(material.source_platform, response.html);
+  const paidConfirmed = await confirmsPaid(material.source_platform, response.html, priceCheckablePlatforms);
 
   // Achado de review PR #193 (codeRabbit): validar a transição ANTES de
   // gravar o audit log — o texto "suspenso automaticamente" não pode ser
@@ -124,11 +148,17 @@ async function recheckOneMaterial(material: MaterialRow): Promise<'withdrawn' | 
 }
 
 export async function runPriceRecheck(): Promise<PriceRecheckResult> {
+  const priceCheckablePlatforms = await getPriceCheckablePlatforms();
+
+  if (priceCheckablePlatforms.size === 0) {
+    return { checked: 0, withdrawn: 0, blockedOrUnconfirmed: 0 };
+  }
+
   const materials = await db
     .selectFrom('download_material')
     .select(['id', 'source_platform', 'source_url', 'editorial_state'])
     .where('editorial_state', '=', 'published')
-    .where('source_platform', 'in', [...PRICE_CHECKABLE_PLATFORMS])
+    .where('source_platform', 'in', [...priceCheckablePlatforms])
     .where('source_url', 'is not', null)
     .execute();
 
@@ -140,7 +170,7 @@ export async function runPriceRecheck(): Promise<PriceRecheckResult> {
     if (!material.source_url) continue;
     checked += 1;
 
-    const outcome = await recheckOneMaterial(material);
+    const outcome = await recheckOneMaterial(material, priceCheckablePlatforms);
     if (outcome === 'withdrawn') withdrawn += 1;
     else if (outcome === 'blocked') blockedOrUnconfirmed += 1;
   }

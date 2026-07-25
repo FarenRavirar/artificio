@@ -5,9 +5,16 @@ export type DownloadAccessKind = 'external_link' | 'managed_upload';
 export type DownloadCreatorRole = 'user' | 'publisher' | 'moderator' | 'admin';
 export type DownloadReportPriority = 'P0' | 'P1' | 'P2' | 'P3';
 export type DownloadReportState = 'open' | 'in_review' | 'resolved' | 'dismissed';
-// Spec 084 — origem do material: 'manual' (humano) ou uma das 8 fontes do
-// scraper (Fase 3, cada adapter usa exatamente um destes valores).
-export type DownloadSourcePlatform =
+// Spec 085 (emenda E1-E7, D-A) — origem do material deixa de ser enum
+// fechado: registry vive em download_scraper_platform (banco), admin
+// cadastra site novo sem deploy. Tipo hibrido mantem autocomplete/DX para
+// as plataformas de seed conhecidas (literais abaixo), mas aceita
+// qualquer slug cadastrado em runtime via `string & {}` — validacao real
+// e sempre contra o registry (FK), nunca so contra o tipo. Trade-off
+// aceito (D-A): perde exaustividade de switch; nenhum switch sobre este
+// tipo existe hoje no backend, so Set.has/.includes, mas codigo novo que
+// fizer switch precisa de `default` explicito.
+export type KnownSourcePlatform =
   | 'manual'
   | 'itch_io'
   | 'drivethrurpg'
@@ -16,7 +23,9 @@ export type DownloadSourcePlatform =
   | 'grimorios_e_dados'
   | 'opera_rpg'
   | 'catarse'
-  | 'newton_rocha';
+  | 'newton_rocha'
+  | 'storytellersvault';
+export type DownloadSourcePlatform = KnownSourcePlatform | (string & {});
 export type DownloadScraperTriggerKind = 'manual' | 'cron' | 'local_ingest';
 export type DownloadScraperRunStatus = 'running' | 'completed' | 'failed';
 export type DownloadScraperItemOutcome = 'created' | 'skipped_duplicate' | 'skipped_not_portuguese' | 'skipped_error';
@@ -238,7 +247,7 @@ export type DownloadScraperParsePriceSignal =
 
 export interface DownloadScraperParseLogTable {
   parse_case_id: Generated<string>;
-  source_platform: 'dms_guild' | 'drivethrurpg';
+  source_platform: DownloadSourcePlatform;
   admin_user_id: string;
   fields_extracted: unknown;
   price_signal: DownloadScraperParsePriceSignal;
@@ -249,6 +258,23 @@ export interface DownloadScraperParseLogTable {
 export type DownloadScraperParseLog = Selectable<DownloadScraperParseLogTable>;
 export type NewDownloadScraperParseLog = Insertable<DownloadScraperParseLogTable>;
 export type DownloadScraperParseLogUpdate = Updateable<DownloadScraperParseLogTable>;
+
+// Spec 085 (Fase 6, D-B/D-C) — registry de plataformas, PK=slug (nao UUID,
+// as tabelas que ja guardam source_platform guardam esse texto). parser_kind
+// referencia o slug do override em codigo (T7.2), nunca caminho de arquivo.
+export interface DownloadScraperPlatformTable {
+  slug: string;
+  name: string;
+  domain: string | null;
+  supports_auto_scrape: Generated<boolean>;
+  supports_price_recheck: Generated<boolean>;
+  parser_kind: Generated<string>;
+  created_at: Generated<Date>;
+}
+
+export type DownloadScraperPlatform = Selectable<DownloadScraperPlatformTable>;
+export type NewDownloadScraperPlatform = Insertable<DownloadScraperPlatformTable>;
+export type DownloadScraperPlatformUpdate = Updateable<DownloadScraperPlatformTable>;
 
 export interface DownloadMetricDailyTable {
   material_id: string;
@@ -435,4 +461,5 @@ export interface Database {
   download_scraper_run: DownloadScraperRunTable;
   download_scraper_item_log: DownloadScraperItemLogTable;
   download_scraper_parse_log: DownloadScraperParseLogTable;
+  download_scraper_platform: DownloadScraperPlatformTable;
 }

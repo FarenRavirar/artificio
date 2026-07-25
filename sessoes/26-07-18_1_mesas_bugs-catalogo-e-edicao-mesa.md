@@ -143,4 +143,32 @@ Afeta **toda edição de mesa existente** via painel do GM (`/painel?edit=<id>`)
 
 **Não verificado (fora do alcance sem ambiente local completo):** fluxo real em browser (editar mesa via UI, aprovar sugestão via UI) — mesas exige backend+frontend+Postgres rodando e login SSO Google real; não hà `.claude/launch.json` configurado e subir stack completo pra este fix pontual está fora de escopo. Verificação de UI/deploy real fica para o mantenedor ou pipeline de CI+deploy beta.
 
-**Nenhum commit, push, PR, merge ou write na VM/DB real executado** — regra pétrea de aprovação por ação (AGENTS.md). Ambos os fixes estão prontos no working tree, aguardando autorização nominal para commit/push/PR/deploy.
+## Review Codex (PR #184) — achado adicional confirmado e corrigido
+
+**Achado 1 (P2, CONFIRMED):** `system_suggestions_parent_id_fkey` (migration_06, coluna `parent_id`) tinha a mesma classe de bug das outras 3 FKs, mas não estava no escopo da migration original. Sugestão de edição/variante com `parent_id` apontando pra sistema já existente no Central (`systemSuggestions.ts:35/56/118`) quebraria essa FK no INSERT, antes mesmo da aprovação. Migration 155 atualizada para dropar as 4 FKs (não 3).
+
+**Achado 2 (nitpick, aplicado):** `mapTableApiToInitialData` aceitava `id` vazio/whitespace-only como válido, o que ativaria `isEditing` indevidamente. Novo helper `trimmedIdOrUndefined` normaliza (trim + rejeita string vazia). 3 testes novos cobrindo vazio/whitespace/não-string.
+
+Ambos verificados contra código real (não aplicados no chute): nomes de FK confirmados via `pg_constraint` em beta E prod real (read-only) antes de editar a migration; caminho de gravação de `parent_id` confirmado em `systemSuggestions.ts`.
+
+## Validação exaustiva da migration antes do merge (pedido explícito do mantenedor)
+
+Antes de autorizar merge/deploy, mantenedor pediu para não "chutar" — auditoria completa da migration 155 contra bancos reais (read-only):
+- Nomes das 4 FKs confirmados idênticos em `mesas-beta-db` E `mesas-db` (prod) via `pg_constraint` real — batem exatamente com o que a migration tenta dropar.
+- Tipos de coluna confirmados `uuid` em ambos os bancos (bate a suposição do `ALTER COLUMN ... TYPE TEXT`).
+- Dados existentes contados em prod: 35 sugestões totais, 2/3/1/0 linhas com valor não-null nas 4 colunas tocadas — cast UUID→TEXT trivial, sem risco de quebra.
+- Sequência de migration confirmada: `migration_154` já era a última aplicada em prod (`schema_migrations` real), `155` é a próxima válida.
+- Header (5 campos) e diretório allowlisted confirmados.
+
+**Nenhuma divergência encontrada entre a migration e o estado real do banco — migration aprovada para produção sem alteração adicional.**
+
+## Deploy real executado (2026-07-19, autorizado nominalmente pelo mantenedor)
+
+Sequência completa autorizada e executada, cada etapa confirmada com evidência real antes de avançar para a próxima:
+
+1. **Merge PR #184 → `dev`** (rebase, branch protection): confirmado `state: MERGED` via `gh pr view`.
+2. **Deploy beta (mesas)**: `gh workflow run deploy.yml --ref dev -f module=mesas -f mode=deploy -f env=beta` (run 29670168905) — 100% verde. Confirmado real: `schema_migrations` no `mesas-beta-db` lista `migration_155...`; `pg_constraint` mostra só as 2 FKs legítimas restantes (`reviewed_by`, `user_id`).
+3. **Promote `dev→main`**: `gh workflow run promote-prod-fast-forward.yml -f confirm=PROMOTE_DEV_TO_MAIN` (run 29670352278) — sucesso. Confirmado `origin/main` e `origin/dev` no mesmo SHA (`90b80802...`).
+4. **Deploy prod (mesas)**: `gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod` (run 29670372087) — 100% verde. Confirmado real: `schema_migrations` no `mesas-db` (prod) lista `migration_155...`; `pg_constraint` mostra só as 2 FKs legítimas restantes; `GET https://mesas.artificiorpg.com/healthz` → 200.
+
+**Ambos os bugs (500 em resolve de sugestão de sistema + editar mesa criando mesa nova) estão corrigidos e em produção, confirmado com evidência real de banco e HTTP — não apenas "deploy rodou".**

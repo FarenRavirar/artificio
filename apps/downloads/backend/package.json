@@ -29,6 +29,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "8.5.2",
     "franc-min": "^6.2.0",
+    "ipaddr.js": "^2.4.0",
     "jsonwebtoken": "^9.0.3",
     "kysely": "^0.29.2",
     "node-cron": "^4.6.0",

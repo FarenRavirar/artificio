@@ -5,14 +5,6 @@ import { SobreEUsoPage } from './SobreEUsoPage';
 // T10.3 (spec 084) — página institucional real (não placeholder), cobre
 // D119 (só português) e transparência do scraper.
 
-vi.mock('@artificio/ui', () => ({
-  Header: () => <div data-testid="header" />,
-  Footer: () => <div data-testid="footer" />,
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-}));
 
 function renderPage() {
   return render(

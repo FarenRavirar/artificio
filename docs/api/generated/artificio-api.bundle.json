@@ -4,13 +4,13 @@
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
     "accounts": 12,
-    "downloads": 62,
+    "downloads": 64,
     "glossario": 49,
     "links": 22,
     "mesas": 192,
     "site": 46
   },
-  "total": 383,
+  "total": 385,
   "operations": [
     {
       "app": "accounts",
@@ -352,6 +352,30 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_v1_admin_scraper_parse_html"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/admin/scraper/platforms",
+      "summary": "Consulta api v1 admin scraper platforms",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_scraper_platforms"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/admin/scraper/platforms",
+      "summary": "Cria ou executa api v1 admin scraper platforms",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_scraper_platforms"
     },
     {
       "app": "downloads",
