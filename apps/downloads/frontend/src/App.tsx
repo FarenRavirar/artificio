@@ -24,6 +24,7 @@ import { RequireGestaoAuth } from './components/RequireGestaoAuth';
 import { GestaoVisaoGeralPage } from './pages/gestao/GestaoVisaoGeralPage';
 import { GestaoModeracaoPage } from './pages/gestao/GestaoModeracaoPage';
 import { GestaoMateriaisPage } from './pages/gestao/GestaoMateriaisPage';
+import { GestaoImportarPage } from './pages/gestao/GestaoImportarPage';
 import { GestaoAuditoriaPage } from './pages/gestao/GestaoAuditoriaPage';
 import { GestaoDenunciasPage } from './pages/gestao/GestaoDenunciasPage';
 import { GestaoLinksPage } from './pages/gestao/GestaoLinksPage';
@@ -68,6 +69,7 @@ function AppRoutes() {
       <Route path="/gestao" element={<RequireGestaoAuth><GestaoVisaoGeralPage /></RequireGestaoAuth>} />
       <Route path="/gestao/moderacao" element={<RequireGestaoAuth><GestaoModeracaoPage /></RequireGestaoAuth>} />
       <Route path="/gestao/materiais" element={<RequireGestaoAuth><GestaoMateriaisPage /></RequireGestaoAuth>} />
+      <Route path="/gestao/materiais/importar" element={<RequireGestaoAuth><GestaoImportarPage /></RequireGestaoAuth>} />
       <Route path="/gestao/auditoria/:materialId" element={<RequireGestaoAuth><GestaoAuditoriaPage /></RequireGestaoAuth>} />
       <Route path="/gestao/auditoria" element={<RequireGestaoAuth><GestaoAuditoriaPage /></RequireGestaoAuth>} />
       <Route path="/gestao/denuncias" element={<RequireGestaoAuth><GestaoDenunciasPage /></RequireGestaoAuth>} />

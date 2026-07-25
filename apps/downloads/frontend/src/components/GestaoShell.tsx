@@ -11,6 +11,7 @@ const GESTAO_NAV_GROUPS = [
     label: 'Conteúdo',
     items: [
       { label: 'Materiais', href: '/gestao/materiais' },
+      { label: 'Importar de HTML', href: '/gestao/materiais/importar' },
       { label: 'Moderação', href: '/gestao/moderacao', countKey: 'moderation_queue' as const },
       { label: 'Auditoria', href: '/gestao/auditoria' },
       { label: 'Taxonomias', href: '/gestao/taxonomias' },
