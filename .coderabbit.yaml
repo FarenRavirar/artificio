@@ -3,3 +3,4 @@ reviews:
     - "!**/*.md"
     - "!docs/api/generated/**"
     - "!docs/api/openapi/**"
+    - "!.claude/**"

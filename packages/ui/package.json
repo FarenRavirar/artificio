@@ -28,6 +28,11 @@
       "types": "./dist/changelog.d.ts",
       "import": "./dist/changelog.js"
     },
+    "./admin": {
+      "types": "./dist/admin/index.d.ts",
+      "import": "./dist/admin/index.js"
+    },
+    "./admin/admin.css": "./src/admin/admin.css",
     "./styles.css": "./src/styles.css",
     "./tailwind-preset": "./tailwind-preset.js"
   },
@@ -45,8 +50,10 @@
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^6.0.2",
+    "jsdom": "^29.1.1",
     "vite": "^8.0.16"
   }
 }
