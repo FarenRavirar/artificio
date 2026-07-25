@@ -42,6 +42,9 @@ export interface DownloadMaterialTable {
   summary: string | null;
   description: string | null;
   material_type: string;
+  // Spec 086 Fase 5: referencia o vocabulario Central de tipos de material.
+  // Sem FK SQL: Central vive no banco do Site e e acessado por API.
+  material_type_id: string;
   system_id: string | null;
   edition_id: string | null;
   creator_id: string;

@@ -3,7 +3,12 @@ import { matchSystemNameExact, type MatchableSystemEntry } from '@artificio/cata
 import { db } from '../db';
 import { detectPortuguese } from './languageDetector';
 import { getOrCreateScraperCreatorId } from './scraperCreator';
-import { loadCatalogSystemsFlat, resolveTaxonomyIds, type FlatCatalogSystem } from './catalogClient';
+import {
+  getCatalogMaterialTypeBySlug,
+  loadCatalogSystemsFlat,
+  resolveTaxonomyIds,
+  type FlatCatalogSystem,
+} from './catalogClient';
 import type { ScrapedItem } from './scrapers/types';
 import type { Database, DownloadSourcePlatform, DownloadScraperItemOutcome, JSONColumnType } from '../db/types';
 
@@ -13,7 +18,7 @@ import type { Database, DownloadSourcePlatform, DownloadScraperItemOutcome, JSON
 // qualquer outra checagem: material nao-portugues nunca deve "quase" entrar
 // no catalogo por falha de ordem (ex.: dedupe rodando antes esconderia o
 // filtro de idioma numa 2a execucao do mesmo item).
-const DEFAULT_MATERIAL_TYPE = 'adventure';
+const DEFAULT_MATERIAL_TYPE_SLUG = 'aventura';
 
 export interface ScraperIngestResult {
   itemsFound: number;
@@ -151,6 +156,7 @@ async function processItem(
   runId: string,
   sourcePlatform: DownloadSourcePlatform,
   scraperCreatorId: string,
+  materialType: { id: string; name: string },
   item: ScrapedItem,
 ): Promise<DownloadScraperItemOutcome> {
   // 1. Idioma primeiro (D119) — nunca avalia preco/dedupe antes disso.
@@ -199,7 +205,6 @@ async function processItem(
     // cacheada por loadCatalogSystemsFlat; nao faz sentido segurar a
     // transacao do Postgres esperando fetch externo).
     const systemResolution = await resolveSystemHint(item.systemHint);
-
     const materialId = await db.transaction().execute(async (trx) => {
       const material = await trx
         .insertInto('download_material')
@@ -210,7 +215,8 @@ async function processItem(
           // em metadata. summary nunca pode cortar HTML no meio de uma tag.
           summary: item.description?.slice(0, 500) ?? null,
           description: item.description ?? null,
-          material_type: DEFAULT_MATERIAL_TYPE,
+          material_type_id: materialType.id,
+          material_type: materialType.name,
           creator_id: scraperCreatorId,
           editorial_state: 'published',
           access_kind: 'external_link',
@@ -290,6 +296,14 @@ export async function runScraperIngest(
     itemsSkippedError: 0,
   };
 
+  // Achado real (review PR #205, Codex, nitpick): resolver o tipo dentro de
+  // processItem repetia lookup/cache e convertia ausência canônica em um erro
+  // por item. Falha uma vez antes do loop e reutiliza a referência no run.
+  const materialType = await getCatalogMaterialTypeBySlug(DEFAULT_MATERIAL_TYPE_SLUG);
+  if (!materialType || materialType.status !== 'active') {
+    throw new Error(`catalog_material_type_not_found: ${DEFAULT_MATERIAL_TYPE_SLUG}`);
+  }
+
   // Achado de review PR #193 (codeRabbit): resolvido 1x por run, nao por
   // item — getOrCreateScraperCreatorId ja e idempotente, mas nao ha motivo
   // pra repetir a consulta/insert-on-conflict a cada item da mesma run.
@@ -297,7 +311,7 @@ export async function runScraperIngest(
 
   for await (const item of items) {
     result.itemsFound += 1;
-    const outcome = await processItem(runId, sourcePlatform, scraperCreatorId, item);
+    const outcome = await processItem(runId, sourcePlatform, scraperCreatorId, materialType, item);
 
     switch (outcome) {
       case 'created':

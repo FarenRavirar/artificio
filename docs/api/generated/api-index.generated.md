@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **390 operações**.
+Total: **396 operações**.
 
 ## accounts (12)
 
@@ -23,7 +23,7 @@ Total: **390 operações**.
 | GET | `/internal/users/{id}` | public | none | active | — | Consulta internal users id |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
-## downloads (69)
+## downloads (71)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -75,7 +75,9 @@ Total: **390 operações**.
 | PATCH | `/api/v1/materials/{id}` | public | user | active | — | Atualiza api v1 materials id |
 | GET | `/api/v1/materials/{id}/history` | public | none | active | — | Consulta api v1 materials id history |
 | GET | `/api/v1/materials/{slug}` | public | none | active | — | Consulta api v1 materials slug |
+| GET | `/api/v1/materials/facets` | public | none | active | — | Consulta api v1 materials facets |
 | GET | `/api/v1/materials/mine` | self-service | user | active | — | Consulta api v1 materials mine |
+| GET | `/api/v1/materials/types` | public | none | active | — | Consulta api v1 materials types |
 | POST | `/api/v1/moderation/{id}/approve` | admin | admin | active | — | Cria ou executa api v1 moderation id approve |
 | POST | `/api/v1/moderation/{id}/reject` | admin | admin | active | — | Cria ou executa api v1 moderation id reject |
 | POST | `/api/v1/moderation/{id}/submit` | admin | admin | active | — | Cria ou executa api v1 moderation id submit |
@@ -375,7 +377,7 @@ Total: **390 operações**.
 | GET | `/og/{type}/{slug}` | media | none | active | — | Consulta og type slug |
 | GET | `/sitemap.xml` | public | none | active | — | Consulta sitemap.xml |
 
-## site (46)
+## site (50)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -384,6 +386,9 @@ Total: **390 operações**.
 | POST | `/admin/rebuild` | admin | admin | active | — | Cria ou executa admin rebuild |
 | GET | `/admin/status` | admin | admin | active | — | Consulta admin status |
 | GET | `/api/admin/v1/catalog/health` | internal | none | active | — | Consulta api admin v1 catalog health |
+| GET | `/api/admin/v1/catalog/material-types` | admin | admin | active | — | Consulta api admin v1 catalog material-types |
+| POST | `/api/admin/v1/catalog/material-types` | admin | admin | active | — | Cria ou executa api admin v1 catalog material-types |
+| PUT | `/api/admin/v1/catalog/material-types/{id}` | admin | admin | active | — | Substitui api admin v1 catalog material-types id |
 | POST | `/api/admin/v1/catalog/nodes` | admin | admin | active | — | Cria ou executa api admin v1 catalog nodes |
 | PUT | `/api/admin/v1/catalog/nodes/{id}` | admin | admin | active | — | Substitui api admin v1 catalog nodes id |
 | GET | `/api/admin/v1/catalog/nodes/{idOrSlug}` | admin | admin | active | — | Consulta api admin v1 catalog nodes idOrSlug |
@@ -417,6 +422,7 @@ Total: **390 operações**.
 | GET | `/api/admin/v1/taxonomies` | admin | admin | active | — | Consulta api admin v1 taxonomies |
 | POST | `/api/admin/v1/taxonomies` | admin | admin | active | — | Cria ou executa api admin v1 taxonomies |
 | GET | `/api/catalog/v1/health` | internal | none | active | — | Consulta api catalog v1 health |
+| GET | `/api/catalog/v1/material-types` | public | none | active | — | Consulta api catalog v1 material-types |
 | POST | `/api/catalog/v1/nodes` | public | user | active | — | Cria ou executa api catalog v1 nodes |
 | PUT | `/api/catalog/v1/nodes/{id}` | public | user | active | — | Substitui api catalog v1 nodes id |
 | GET | `/api/catalog/v1/nodes/{idOrSlug}` | public | none | active | — | Consulta api catalog v1 nodes idOrSlug |

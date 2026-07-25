@@ -4,13 +4,13 @@
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
     "accounts": 12,
-    "downloads": 69,
+    "downloads": 71,
     "glossario": 49,
     "links": 22,
     "mesas": 192,
-    "site": 46
+    "site": 50
   },
-  "total": 390,
+  "total": 396,
   "operations": [
     {
       "app": "accounts",
@@ -752,6 +752,18 @@
     {
       "app": "downloads",
       "method": "GET",
+      "path": "/api/v1/materials/facets",
+      "summary": "Consulta api v1 materials facets",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_materials_facets"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
       "path": "/api/v1/materials/mine",
       "summary": "Consulta api v1 materials mine",
       "owner": "downloads",
@@ -760,6 +772,18 @@
       "auth": "user",
       "consumers": [],
       "operationId": "getapi_v1_materials_mine"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/materials/types",
+      "summary": "Consulta api v1 materials types",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_materials_types"
     },
     {
       "app": "downloads",
@@ -4219,6 +4243,42 @@
     },
     {
       "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/catalog/material-types",
+      "summary": "Consulta api admin v1 catalog material-types",
+      "owner": "site",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_admin_v1_catalog_material_types"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/admin/v1/catalog/material-types",
+      "summary": "Cria ou executa api admin v1 catalog material-types",
+      "owner": "site",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_admin_v1_catalog_material_types"
+    },
+    {
+      "app": "site",
+      "method": "PUT",
+      "path": "/api/admin/v1/catalog/material-types/{id}",
+      "summary": "Substitui api admin v1 catalog material-types id",
+      "owner": "site",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "putapi_admin_v1_catalog_material_types_id"
+    },
+    {
+      "app": "site",
       "method": "POST",
       "path": "/api/admin/v1/catalog/nodes",
       "summary": "Cria ou executa api admin v1 catalog nodes",
@@ -4612,6 +4672,18 @@
       "auth": "none",
       "consumers": [],
       "operationId": "getapi_catalog_v1_health"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/catalog/v1/material-types",
+      "summary": "Consulta api catalog v1 material-types",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_catalog_v1_material_types"
     },
     {
       "app": "site",

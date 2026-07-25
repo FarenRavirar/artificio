@@ -19,11 +19,13 @@ vi.mock('./scraperCreator', () => ({
 // resolveTaxonomyIds é lógica pura (sem I/O) — usa a implementação real via
 // importOriginal em vez de mockar, evita duplicar a regra no teste.
 const loadCatalogSystemsFlatMock = vi.hoisted(() => vi.fn());
+const getCatalogMaterialTypeBySlugMock = vi.hoisted(() => vi.fn());
 vi.mock('./catalogClient', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./catalogClient')>();
   return {
     resolveTaxonomyIds: actual.resolveTaxonomyIds,
     loadCatalogSystemsFlat: loadCatalogSystemsFlatMock,
+    getCatalogMaterialTypeBySlug: getCatalogMaterialTypeBySlugMock,
   };
 });
 
@@ -73,6 +75,14 @@ beforeEach(() => {
   getOrCreateScraperCreatorIdMock.mockReset();
   loadCatalogSystemsFlatMock.mockReset();
   loadCatalogSystemsFlatMock.mockResolvedValue([]);
+  getCatalogMaterialTypeBySlugMock.mockReset();
+  getCatalogMaterialTypeBySlugMock.mockResolvedValue({
+    id: 'b071ab5e-2d16-4c58-8f0e-086000000001',
+    slug: 'aventura',
+    name: 'Aventura',
+    aliases: ['adventure'],
+    status: 'active',
+  });
 
   dbMocks.updateTable.mockReturnValue({
     set: vi.fn().mockReturnThis(),
@@ -276,6 +286,21 @@ describe('runScraperIngest', () => {
     await runScraperIngest('run-1', 'itch_io', asyncIterableOf(items));
 
     expect(dbMocks.updateTable).toHaveBeenCalledTimes(2);
+    expect(getCatalogMaterialTypeBySlugMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('falha uma vez antes do loop quando o tipo canônico não existe', async () => {
+    getCatalogMaterialTypeBySlugMock.mockResolvedValue(null);
+
+    await expect(runScraperIngest(
+      'run-1',
+      'itch_io',
+      asyncIterableOf([makeItem({ sourceLanguageHint: 'pt' }), makeItem({ sourceLanguageHint: 'pt' })]),
+    )).rejects.toThrow('catalog_material_type_not_found: aventura');
+
+    expect(getCatalogMaterialTypeBySlugMock).toHaveBeenCalledTimes(1);
+    expect(getOrCreateScraperCreatorIdMock).not.toHaveBeenCalled();
+    expect(dbMocks.selectFrom).not.toHaveBeenCalled();
   });
 
   // T4.5 (spec 086, Fase 4) — resolução de taxonomia: auto-match EXATO

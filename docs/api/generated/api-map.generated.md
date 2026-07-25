@@ -20,12 +20,12 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | App | Total | HIGH | MEDIUM | LOW | Methods |
 |-----|-------|------|--------|-----|---------|
 | accounts | 12 | 12 | 0 | 0 | GET, POST, PUT |
-| downloads | 89 | 89 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
+| downloads | 91 | 91 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | glossario | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 242 | 242 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| site | 52 | 52 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **484** | 484 | 0 | 0 | |
+| site | 60 | 60 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
+| **Total** | **494** | 494 | 0 | 0 | |
 
 ## accounts
 
@@ -104,13 +104,15 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | USE | `/api/v1/material-metadata` | ✅ high | `apps/downloads/backend/src/server.ts` | 82 |
 | GET | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 53 |
 | PUT | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 81 |
-| GET | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 75 |
-| POST | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 251 |
+| GET | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 114 |
+| POST | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 360 |
 | USE | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/server.ts` | 81 |
-| PATCH | `/api/v1/materials/:id` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 276 |
-| GET | `/api/v1/materials/:id/history` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 161 |
-| GET | `/api/v1/materials/:slug` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 191 |
-| GET | `/api/v1/materials/mine` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 147 |
+| PATCH | `/api/v1/materials/:id` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 464 |
+| GET | `/api/v1/materials/:id/history` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 270 |
+| GET | `/api/v1/materials/:slug` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 300 |
+| GET | `/api/v1/materials/facets` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 204 |
+| GET | `/api/v1/materials/mine` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 256 |
+| GET | `/api/v1/materials/types` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 188 |
 | USE | `/api/v1/moderation` | ✅ high | `apps/downloads/backend/src/server.ts` | 83 |
 | POST | `/api/v1/moderation/:id/approve` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 177 |
 | POST | `/api/v1/moderation/:id/reject` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 90 |
@@ -488,21 +490,27 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| USE | `/admin` | ✅ high | `apps/site/server/server.ts` | 248 |
 | USE | `/admin` | ✅ high | `apps/site/server/server.ts` | 250 |
-| POST | `/admin/import` | ✅ high | `apps/site/server/server.ts` | 129 |
-| GET | `/admin/preview/:type/:id` | ✅ high | `apps/site/server/server.ts` | 220 |
-| POST | `/admin/rebuild` | ✅ high | `apps/site/server/server.ts` | 123 |
-| GET | `/admin/status` | ✅ high | `apps/site/server/server.ts` | 108 |
-| USE | `/api/admin/v1` | ✅ high | `apps/site/server/server.ts` | 213 |
-| USE | `/api/admin/v1/catalog` | ✅ high | `apps/site/server/server.ts` | 211 |
-| GET | `/api/admin/v1/catalog/health` | ✅ high | `apps/site/server/catalog-api.ts` | 10 |
-| POST | `/api/admin/v1/catalog/nodes` | ✅ high | `apps/site/server/catalog-api.ts` | 79 |
-| PUT | `/api/admin/v1/catalog/nodes/:id` | ✅ high | `apps/site/server/catalog-api.ts` | 88 |
-| GET | `/api/admin/v1/catalog/nodes/:idOrSlug` | ✅ high | `apps/site/server/catalog-api.ts` | 41 |
-| GET | `/api/admin/v1/catalog/resolve` | ✅ high | `apps/site/server/catalog-api.ts` | 45 |
-| GET | `/api/admin/v1/catalog/snapshot` | ✅ high | `apps/site/server/catalog-api.ts` | 75 |
-| GET | `/api/admin/v1/catalog/systems` | ✅ high | `apps/site/server/catalog-api.ts` | 25 |
+| USE | `/admin` | ✅ high | `apps/site/server/server.ts` | 252 |
+| POST | `/admin/import` | ✅ high | `apps/site/server/server.ts` | 130 |
+| GET | `/admin/preview/:type/:id` | ✅ high | `apps/site/server/server.ts` | 222 |
+| POST | `/admin/rebuild` | ✅ high | `apps/site/server/server.ts` | 124 |
+| GET | `/admin/status` | ✅ high | `apps/site/server/server.ts` | 109 |
+| USE | `/api/admin/v1` | ✅ high | `apps/site/server/server.ts` | 215 |
+| USE | `/api/admin/v1/catalog` | ✅ high | `apps/site/server/server.ts` | 212 |
+| GET | `/api/admin/v1/catalog/health` | ✅ high | `apps/site/server/catalog-api.ts` | 11 |
+| GET | `/api/admin/v1/catalog/material-types` | ✅ high | `apps/site/server/catalog-api.ts` | 72 |
+| GET | `/api/admin/v1/catalog/material-types` | ✅ high | `apps/site/server/catalog-material-types-admin-api.ts` | 12 |
+| POST | `/api/admin/v1/catalog/material-types` | ✅ high | `apps/site/server/catalog-material-types-admin-api.ts` | 21 |
+| USE | `/api/admin/v1/catalog/material-types` | ✅ high | `apps/site/server/server.ts` | 213 |
+| PUT | `/api/admin/v1/catalog/material-types/:id` | ✅ high | `apps/site/server/catalog-material-types-admin-api.ts` | 29 |
+| POST | `/api/admin/v1/catalog/nodes` | ✅ high | `apps/site/server/catalog-api.ts` | 111 |
+| PUT | `/api/admin/v1/catalog/nodes/:id` | ✅ high | `apps/site/server/catalog-api.ts` | 120 |
+| GET | `/api/admin/v1/catalog/nodes/:idOrSlug` | ✅ high | `apps/site/server/catalog-api.ts` | 42 |
+| GET | `/api/admin/v1/catalog/resolve` | ✅ high | `apps/site/server/catalog-api.ts` | 46 |
+| GET | `/api/admin/v1/catalog/snapshot` | ✅ high | `apps/site/server/catalog-api.ts` | 53 |
+| GET | `/api/admin/v1/catalog/snapshot` | ✅ high | `apps/site/server/catalog-api.ts` | 107 |
+| GET | `/api/admin/v1/catalog/systems` | ✅ high | `apps/site/server/catalog-api.ts` | 26 |
 | GET | `/api/admin/v1/feedback` | ✅ high | `apps/site/server/admin-api.ts` | 277 |
 | DELETE | `/api/admin/v1/feedback/:id` | ✅ high | `apps/site/server/admin-api.ts` | 300 |
 | PATCH | `/api/admin/v1/feedback/:id` | ✅ high | `apps/site/server/admin-api.ts` | 286 |
@@ -529,15 +537,17 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/admin/v1/slug-check` | ✅ high | `apps/site/server/admin-api.ts` | 46 |
 | GET | `/api/admin/v1/taxonomies` | ✅ high | `apps/site/server/admin-api.ts` | 180 |
 | POST | `/api/admin/v1/taxonomies` | ✅ high | `apps/site/server/admin-api.ts` | 183 |
-| USE | `/api/catalog/v1` | ✅ high | `apps/site/server/server.ts` | 202 |
-| GET | `/api/catalog/v1/health` | ✅ high | `apps/site/server/catalog-api.ts` | 10 |
-| POST | `/api/catalog/v1/nodes` | ✅ high | `apps/site/server/catalog-api.ts` | 79 |
-| PUT | `/api/catalog/v1/nodes/:id` | ✅ high | `apps/site/server/catalog-api.ts` | 88 |
-| GET | `/api/catalog/v1/nodes/:idOrSlug` | ✅ high | `apps/site/server/catalog-api.ts` | 41 |
-| GET | `/api/catalog/v1/resolve` | ✅ high | `apps/site/server/catalog-api.ts` | 45 |
-| GET | `/api/catalog/v1/snapshot` | ✅ high | `apps/site/server/catalog-api.ts` | 75 |
-| GET | `/api/catalog/v1/systems` | ✅ high | `apps/site/server/catalog-api.ts` | 25 |
-| POST | `/api/feedback` | ✅ high | `apps/site/server/server.ts` | 156 |
-| GET | `/healthz` | ✅ high | `apps/site/server/server.ts` | 97 |
-| USE | `/uploads` | ✅ high | `apps/site/server/server.ts` | 217 |
+| USE | `/api/catalog/v1` | ✅ high | `apps/site/server/server.ts` | 203 |
+| GET | `/api/catalog/v1/health` | ✅ high | `apps/site/server/catalog-api.ts` | 11 |
+| GET | `/api/catalog/v1/material-types` | ✅ high | `apps/site/server/catalog-api.ts` | 72 |
+| POST | `/api/catalog/v1/nodes` | ✅ high | `apps/site/server/catalog-api.ts` | 111 |
+| PUT | `/api/catalog/v1/nodes/:id` | ✅ high | `apps/site/server/catalog-api.ts` | 120 |
+| GET | `/api/catalog/v1/nodes/:idOrSlug` | ✅ high | `apps/site/server/catalog-api.ts` | 42 |
+| GET | `/api/catalog/v1/resolve` | ✅ high | `apps/site/server/catalog-api.ts` | 46 |
+| GET | `/api/catalog/v1/snapshot` | ✅ high | `apps/site/server/catalog-api.ts` | 53 |
+| GET | `/api/catalog/v1/snapshot` | ✅ high | `apps/site/server/catalog-api.ts` | 107 |
+| GET | `/api/catalog/v1/systems` | ✅ high | `apps/site/server/catalog-api.ts` | 26 |
+| POST | `/api/feedback` | ✅ high | `apps/site/server/server.ts` | 157 |
+| GET | `/healthz` | ✅ high | `apps/site/server/server.ts` | 98 |
+| USE | `/uploads` | ✅ high | `apps/site/server/server.ts` | 219 |
 

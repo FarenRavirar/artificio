@@ -62,6 +62,14 @@ Mantenedor pediu extrair a parte visual/UX de gestão do mesas (`https://mesas.a
 
 ## O que falta
 
+### Retomada — Fases 5, 5B e 5C (2026-07-25)
+
+- Pedido atual do mantenedor: implementar as Fases 5, 5B e 5C.
+- Decisão nominal posterior para T5.5: `material_type` não será enum local. Será uma taxonomia Central separada de `system > edition > variant`, com identificador estável no material; projetos leem e podem registrar no Central sob o mesmo modelo de governança distribuída. Não adicionar um novo `node_type` à árvore de sistemas, pois ela é uma dimensão ortogonal e consumidores atuais validam somente `system`/`edition`/`variant`.
+- Próximo trabalho: criar contrato Central de tipos de material, migrar o Downloads para a referência canônica e implementar o join/facetas; extrair kit administrativo aditivo em `packages/ui/src/admin/`; reconstruir a gestão do Downloads sobre o kit. `apps/mesas/**` permanece intocado.
+- Execução iniciada: Central recebeu schema/API local de `material_types`; Downloads recebeu migration de referência e `GET /materials` ganhou `leftJoin` de metadata + `/facets`. Estado ainda **em andamento**: sem testes, gate, `verify:api`, commit ou PR.
+- Ainda falta: validação local completa e aprovação visual do mantenedor para T5C.8. Nenhum commit, push, PR, deploy ou write em VM foi autorizado.
+
 - **Nada bloqueado por decisão** — Fase 0 fechada. Uma pergunta pontual permanece **dentro** da Fase 2 (T2.1): qual lib de sanitização de HTML rico (`sanitize-html` Node puro vs. `isomorphic-dompurify` com jsdom) — perguntar antes de instalar, conforme `AGENTS.md`.
 - Uma confirmação pontual na Fase 9 (T9.3): onde o editor rich-text aparece — só gestão, ou também painel do criador.
 - Uma verificação antes de editar na Fase 10 (T10.1): se o `Footer` de `packages/ui` aceita link extra por app (se exigir mudança no pacote compartilhado, pedir aprovação).

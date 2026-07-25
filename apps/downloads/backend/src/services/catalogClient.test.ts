@@ -13,11 +13,16 @@ import {
   invalidateCatalogSnapshotCache,
   createCatalogNode,
   addCatalogNodeAlias,
+  loadCatalogMaterialTypes,
+  getCatalogMaterialTypeById,
+  getCatalogMaterialTypeBySlug,
+  invalidateCatalogMaterialTypesCache,
 } from './catalogClient';
 
 beforeEach(() => {
   catalogFetchMock.mockReset();
   invalidateCatalogSnapshotCache();
+  invalidateCatalogMaterialTypesCache();
 });
 
 describe('getCatalogNodeById', () => {
@@ -68,6 +73,7 @@ describe('loadCatalogSystemsFlat', () => {
     expect(flat).toHaveLength(2);
     expect(flat.find((n) => n.id === 'dd5e')).toMatchObject({ parent_id: 'dd', name: '5th Edition', name_pt: '5ª Edição' });
     expect(flat.find((n) => n.id === 'dd')?.aliases).toEqual(['D&D']);
+    expect(catalogFetchMock).toHaveBeenCalledWith('/api/catalog/v1/snapshot');
   });
 
   it('usa cache dentro do TTL — uma única chamada de rede pra 2 leituras seguidas', async () => {
@@ -86,6 +92,50 @@ describe('loadCatalogSystemsFlat', () => {
     await loadCatalogSystemsFlat(true);
 
     expect(catalogFetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('material types catalog', () => {
+  const adventure = {
+    id: 'b071ab5e-2d16-4c58-8f0e-086000000001',
+    slug: 'aventura',
+    name: 'Aventura',
+    aliases: ['adventure'],
+    status: 'active',
+  };
+
+  it('normaliza resposta externa e usa cache compartilhado', async () => {
+    catalogFetchMock.mockResolvedValue({ items: [adventure] });
+
+    expect(await getCatalogMaterialTypeById(adventure.id)).toEqual(adventure);
+    expect(await getCatalogMaterialTypeBySlug('ADVENTURE')).toEqual(adventure);
+    expect(await loadCatalogMaterialTypes()).toEqual([adventure]);
+
+    expect(catalogFetchMock).toHaveBeenCalledTimes(1);
+    expect(catalogFetchMock).toHaveBeenCalledWith('/api/catalog/v1/material-types');
+  });
+
+  it('rejeita payload Central malformado', async () => {
+    catalogFetchMock.mockResolvedValue({ items: [{ ...adventure, id: 'nao-uuid' }] });
+
+    await expect(loadCatalogMaterialTypes()).rejects.toThrow();
+  });
+
+  it('preserva Aventura quando a rota ainda não existe no rollout isolado do Site', async () => {
+    catalogFetchMock.mockRejectedValue(new Error('catalog_404: not_found'));
+
+    expect(await loadCatalogMaterialTypes()).toEqual([{
+      ...adventure,
+      aliases: ['adventure', 'aventuras'],
+    }]);
+    expect(await getCatalogMaterialTypeBySlug('aventuras')).toMatchObject({ id: adventure.id });
+    expect(catalogFetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('não mascara falha Central diferente de rota ausente', async () => {
+    catalogFetchMock.mockRejectedValue(new Error('catalog_503: unavailable'));
+
+    await expect(loadCatalogMaterialTypes()).rejects.toThrow('catalog_503');
   });
 });
 

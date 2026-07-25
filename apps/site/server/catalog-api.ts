@@ -1,6 +1,7 @@
 import { Router, type RequestHandler } from "express";
 import type { AuthenticatedRequest } from "@artificio/auth";
 import * as Catalog from "../db/repo/catalog.js";
+import * as MaterialTypes from "../db/repo/materialTypes.js";
 
 const jsonEtag = (value: string) => `"${value}"`;
 
@@ -44,6 +45,37 @@ export function catalogApi(): Router {
 
   r.get("/resolve", async (req, res) => {
     await resolveCatalogNode(String(req.query.q || ""), res);
+  });
+
+  // Snapshot público canônico. `/systems` permanece como alias retrocompatível;
+  // consumidores novos usam este nome porque o payload também inclui lifecycle
+  // e redirects, não apenas sistemas ativos.
+  r.get("/snapshot", async (req, res) => {
+    try {
+      const snapshot = await Catalog.getSnapshot();
+      const etag = jsonEtag(snapshot.checksum);
+      if (req.header("if-none-match") === etag) {
+        res.status(304).end();
+        return;
+      }
+      res.setHeader("ETag", etag);
+      res.json(snapshot);
+    } catch (error) {
+      console.error("[catalog] snapshot failed", error);
+      res.status(500).json({ error: "catalog_unavailable" });
+    }
+  });
+
+  // Vocabulário ortogonal à árvore de sistemas. Não entra no snapshot de
+  // system > edition > variant: consumidores desse contrato dependem daquela
+  // hierarquia estrita (Spec 086, requisito 25).
+  r.get("/material-types", async (_req, res) => {
+    try {
+      res.json({ items: await MaterialTypes.listMaterialTypes() });
+    } catch (error) {
+      console.error("[catalog] material types failed", error);
+      res.status(500).json({ error: "catalog_unavailable" });
+    }
   });
 
   return r;

@@ -5,13 +5,13 @@ import { apiPost } from '../services/apiClient';
 export interface MaterialCreatePayload {
   slug: string;
   title: string;
-  material_type: string;
+  material_type_id: string;
 }
 
 const materialCreatedSchema = z.object({ id: z.string().min(1) });
 
 // T2.1 (spec 082) — criacao de material pelo autor. Backend so aceita
-// slug/title/material_type e fixa access_kind='external_link' (materials.ts
+// slug/title/material_type_id e fixa access_kind='external_link' (materials.ts
 // POST /, storage gerenciado ainda sem rota real — DEB-073-03).
 export function useCreateMaterial() {
   const queryClient = useQueryClient();

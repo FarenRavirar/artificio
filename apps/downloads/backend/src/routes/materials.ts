@@ -4,7 +4,13 @@ import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
-import { getCatalogNodeById } from '../services/catalogClient';
+import {
+  getCatalogMaterialTypeById,
+  getCatalogNodeById,
+  loadCatalogMaterialTypes,
+  loadCatalogSystemsFlat,
+  type FlatCatalogSystem,
+} from '../services/catalogClient';
 
 const router = Router();
 
@@ -18,7 +24,8 @@ const listMaterialsQuerySchema = z.object({
   q: z.string().trim().max(200).optional(),
   system_id: z.string().trim().optional(),
   edition_id: z.string().trim().optional(),
-  material_type: z.string().trim().optional(),
+  // Nome do query param fica retrocompatível; valor agora é ID Central.
+  material_type: z.string().uuid().optional(),
   access_kind: z.enum(['external_link', 'managed_upload']).optional(),
   sort: z.enum(SORT_OPTIONS).optional(),
   page: z.coerce.number().int().min(1).optional(),
@@ -41,21 +48,53 @@ const patchMaterialSchema = z.object({
 // Campos publicos da ficha; exclui storage_provider/storage_key (achado
 // chatgpt-codex-connector P2 — vazamento de detalhes internos de storage).
 const PUBLIC_MATERIAL_FIELDS = [
-  'id',
-  'slug',
-  'title',
-  'summary',
-  'description',
-  'material_type',
-  'access_kind',
-  'external_url',
-  'system_id',
-  'edition_id',
-  'creator_id',
-  'editorial_state',
-  'created_at',
-  'updated_at',
+  'download_material.id',
+  'download_material.slug',
+  'download_material.title',
+  'download_material.summary',
+  'download_material.description',
+  'download_material.material_type',
+  'download_material.material_type_id',
+  'download_material.access_kind',
+  'download_material.external_url',
+  'download_material.system_id',
+  'download_material.edition_id',
+  'download_material.creator_id',
+  'download_material.editorial_state',
+  'download_material.created_at',
+  'download_material.updated_at',
 ] as const;
+
+const CARD_METADATA_FIELDS = [
+  'download_material_metadata.cover_image_url',
+  'download_material_metadata.credits',
+  'download_material_metadata.scenario',
+] as const;
+
+const createMaterialSchema = z.object({
+  slug: z.string().trim().min(1).max(200),
+  title: z.string().trim().min(1).max(200),
+  material_type_id: z.string().uuid(),
+});
+
+const FACETS_CACHE_TTL_MS = 30 * 1000;
+let facetsCache: { data: MaterialFacetsResponse; expiresAt: number } | null = null;
+
+interface FacetCount {
+  id: string;
+  count: number;
+}
+
+interface MaterialTypeFacet extends FacetCount {
+  slug: string;
+  name: string;
+}
+
+interface MaterialFacetsResponse {
+  material_types: MaterialTypeFacet[];
+  systems: FacetCount[];
+  editions: FacetCount[];
+}
 
 // Campos editaveis por publicador; toda mudanca grava download_material_version
 // por campo (D111 item 7 — historico desde o primeiro commit, incl. link).
@@ -89,7 +128,7 @@ router.get('/', async (req: Request, res: Response) => {
 
   if (systemId) baseQuery = baseQuery.where('system_id', '=', systemId);
   if (editionId) baseQuery = baseQuery.where('edition_id', '=', editionId);
-  if (materialType) baseQuery = baseQuery.where('material_type', '=', materialType);
+  if (materialType) baseQuery = baseQuery.where('material_type_id', '=', materialType);
   if (accessKind) baseQuery = baseQuery.where('access_kind', '=', accessKind);
   if (q) {
     baseQuery = baseQuery.where((eb) =>
@@ -104,7 +143,11 @@ router.get('/', async (req: Request, res: Response) => {
     .select(({ fn }) => [fn.countAll<number>().as('count')])
     .executeTakeFirstOrThrow();
 
-  let resultsQuery = baseQuery.select(PUBLIC_MATERIAL_FIELDS);
+  // Fase 5: metadata e opcional. leftJoin preserva material publicado antigo
+  // sem linha metadata; innerJoin faria esse material desaparecer do catálogo.
+  let resultsQuery = baseQuery
+    .leftJoin('download_material_metadata', 'download_material_metadata.material_id', 'download_material.id')
+    .select([...PUBLIC_MATERIAL_FIELDS, ...CARD_METADATA_FIELDS]);
 
   if (sort === 'popular') {
     resultsQuery = resultsQuery
@@ -119,11 +162,11 @@ router.get('/', async (req: Request, res: Response) => {
       .orderBy(sql`coalesce(material_downloads.total_downloads, 0)`, 'desc')
       .orderBy('download_material.created_at', 'desc');
   } else if (sort === 'name') {
-    resultsQuery = resultsQuery.orderBy('title', 'asc');
+    resultsQuery = resultsQuery.orderBy('download_material.title', 'asc');
   } else {
     // 'relevance' sem busca textual de rank equivale a 'recent' (MVP —
     // ranking real de relevancia fica para quando houver motor de busca).
-    resultsQuery = resultsQuery.orderBy('created_at', 'desc');
+    resultsQuery = resultsQuery.orderBy('download_material.created_at', 'desc');
   }
 
   const materials = await resultsQuery
@@ -132,12 +175,78 @@ router.get('/', async (req: Request, res: Response) => {
     .execute();
 
   return res.json({
-    items: materials,
+    items: await enrichMaterialsWithTaxonomy(materials),
     page,
     page_size: pageSize,
     total: Number(count),
     total_pages: Math.max(1, Math.ceil(Number(count) / pageSize)),
   });
+});
+
+// Proxy público do vocabulário Central. Frontend não precisa conhecer host do
+// Site; Downloads continua validando a mesma fonte canônica no POST.
+router.get('/types', async (_req: Request, res: Response) => {
+  try {
+    // Achado real (review PR #205, Codex): o proxy confiava que todo item
+    // remoto era selecionável. Filtrar aqui mantém tipos pending/rejeitados
+    // fora do formulário mesmo se o contrato Central ampliar a resposta.
+    const items = (await loadCatalogMaterialTypes()).filter((item) => item.status === 'active');
+    res.json({ items });
+  } catch (error) {
+    console.error('[materials] material types unavailable', error);
+    res.status(503).json({ error: 'Catálogo de tipos de material indisponível.' });
+  }
+});
+
+// Deve ficar antes de /:slug: Express interpretaria "facets" como slug.
+// Retorna só valores que têm material publicado: sidebar não oferece filtro
+// sem resultado (Nielsen) e o catálogo não vaza rascunho/retirado.
+router.get('/facets', async (_req: Request, res: Response) => {
+  if (facetsCache && facetsCache.expiresAt > Date.now()) {
+    res.json(facetsCache.data);
+    return;
+  }
+
+  try {
+    const [materialTypeRows, systemRows, editionRows, centralTypes] = await Promise.all([
+      db.selectFrom('download_material')
+        .select(['material_type_id', ({ fn }) => fn.countAll<number>().as('count')])
+        .where('editorial_state', '=', 'published')
+        .groupBy('material_type_id')
+        .orderBy('count', 'desc')
+        .execute(),
+      db.selectFrom('download_material')
+        .select(['system_id', ({ fn }) => fn.countAll<number>().as('count')])
+        .where('editorial_state', '=', 'published')
+        .where('system_id', 'is not', null)
+        .groupBy('system_id')
+        .orderBy('count', 'desc')
+        .execute(),
+      db.selectFrom('download_material')
+        .select(['edition_id', ({ fn }) => fn.countAll<number>().as('count')])
+        .where('editorial_state', '=', 'published')
+        .where('edition_id', 'is not', null)
+        .groupBy('edition_id')
+        .orderBy('count', 'desc')
+        .execute(),
+      loadCatalogMaterialTypes(),
+    ]);
+
+    const centralById = new Map(centralTypes.map((item) => [item.id, item]));
+    const data: MaterialFacetsResponse = {
+      material_types: materialTypeRows.flatMap((row) => {
+        const type = centralById.get(row.material_type_id);
+        return type ? [{ id: type.id, slug: type.slug, name: type.name, count: Number(row.count) }] : [];
+      }),
+      systems: systemRows.flatMap((row) => row.system_id ? [{ id: row.system_id, count: Number(row.count) }] : []),
+      editions: editionRows.flatMap((row) => row.edition_id ? [{ id: row.edition_id, count: Number(row.count) }] : []),
+    };
+    facetsCache = { data, expiresAt: Date.now() + FACETS_CACHE_TTL_MS };
+    res.json(data);
+  } catch (error) {
+    console.error('[materials] facets unavailable', error);
+    res.status(503).json({ error: 'Facetas indisponíveis.' });
+  }
 });
 
 // T1.2 (spec 074) — "Meus materiais": todos os estados editoriais do proprio
@@ -201,7 +310,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
         eb('download_creator.id', '=', eb.ref('download_material.creator_id')),
       ])),
     )
-    .select([...PUBLIC_MATERIAL_FIELDS.map((field) => `download_material.${field}` as const), 'download_creator.slug as creator_slug'])
+    .select([...PUBLIC_MATERIAL_FIELDS, 'download_creator.slug as creator_slug'])
     .where('download_material.slug', '=', req.params.slug)
     .where('download_material.editorial_state', '=', 'published')
     .executeTakeFirst();
@@ -249,18 +358,32 @@ router.get('/:slug', async (req: Request, res: Response) => {
 // T2.2 — criacao autenticada. Estado editorial sempre nasce 'draft'; fila de
 // moderacao completa fica na spec 072.
 router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
-  const { slug, title, material_type: materialType } = req.body ?? {};
+  const parsed = createMaterialSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'slug, title e material_type_id são obrigatórios.', details: z.treeifyError(parsed.error) });
+  }
 
-  if (typeof slug !== 'string' || typeof title !== 'string' || typeof materialType !== 'string') {
-    return res.status(400).json({ error: 'slug, title e material_type são obrigatórios.' });
+  let materialType;
+  try {
+    materialType = await getCatalogMaterialTypeById(parsed.data.material_type_id);
+    // Achado real (review PR #205, Codex): existência não basta; um tipo pode
+    // ficar pending/rejeitado entre a carga do formulário e o POST.
+    if (!materialType || materialType.status !== 'active') {
+      return res.status(400).json({ error: 'Tipo de material inexistente ou inativo.' });
+    }
+  } catch (error) {
+    // Falha Central é indisponibilidade (503), não payload inválido (400).
+    console.error('[materials] material type validation unavailable', error);
+    return res.status(503).json({ error: 'Catálogo de tipos de material indisponível.' });
   }
 
   const created = await db
     .insertInto('download_material')
     .values({
-      slug,
-      title,
-      material_type: materialType,
+      slug: parsed.data.slug,
+      title: parsed.data.title,
+      material_type_id: materialType.id,
+      material_type: materialType.name,
       creator_id: req.user!.userId,
       editorial_state: 'draft',
       access_kind: 'external_link',
@@ -270,6 +393,71 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
 
   return res.status(201).json(created);
 });
+
+interface MaterialWithTaxonomyIds {
+  system_id: string | null;
+  edition_id: string | null;
+}
+
+function taxonomyChainFor(material: MaterialWithTaxonomyIds, nodes: FlatCatalogSystem[]) {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  // Achado real (review PR #205, Sonar, Major): ternário aninhado escondia a
+  // precedência edition → system. Fluxo explícito mantém a regra legível.
+  let leaf: FlatCatalogSystem | undefined;
+  if (material.edition_id) {
+    leaf = byId.get(material.edition_id);
+  } else if (material.system_id) {
+    leaf = byId.get(material.system_id);
+  }
+  if (!leaf) return [];
+
+  const chain: FlatCatalogSystem[] = [];
+  const visited = new Set<string>();
+  let current: FlatCatalogSystem | undefined = leaf;
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    chain.unshift(current);
+    current = current.parent_id ? byId.get(current.parent_id) : undefined;
+  }
+  return chain;
+}
+
+async function enrichMaterialsWithTaxonomy<T extends MaterialWithTaxonomyIds>(materials: T[]) {
+  if (!materials.some((material) => material.system_id || material.edition_id)) {
+    return materials.map((material) => ({ ...material, taxonomy_chain: [] }));
+  }
+
+  try {
+    // Uma leitura Central por página (cache TTL em catalogClient), nunca uma
+    // chamada por card. A árvore achatada resolve toda cadeia em memória.
+    const nodes = await loadCatalogSystemsFlat();
+    return materials.map((material) => {
+      const chain = taxonomyChainFor(material, nodes);
+      return {
+        ...material,
+        taxonomy_chain: chain.map(({ id, name, name_pt, node_type, path_slug }) => ({ id, name, name_pt, node_type, path_slug })),
+        system_name: chain.find((node) => node.node_type === 'system')?.name ?? null,
+        edition_name: chain.find((node) => node.node_type === 'edition')?.name ?? null,
+        variant_name: chain.find((node) => node.node_type === 'variant')?.name ?? null,
+        system_path_slug: chain.at(-1)?.path_slug ?? null,
+      };
+    });
+  } catch (error) {
+    // Catálogo público continua útil durante falha transitória do Central;
+    // IDs seguem no payload e nomes podem reaparecer na próxima leitura.
+    // Achado real (review PR #205, Codex): o fallback devolvia shape menor que
+    // o sucesso. Nulos explícitos mantêm contrato estável durante a falha.
+    console.error('[materials] taxonomy enrichment unavailable', error);
+    return materials.map((material) => ({
+      ...material,
+      taxonomy_chain: [],
+      system_name: null,
+      edition_name: null,
+      variant_name: null,
+      system_path_slug: null,
+    }));
+  }
+}
 
 // T2.2 + Ownership (T3.2) — publicador so edita o proprio material; moderador
 // e admin editam qualquer um (autorizacao fina fica na spec 072).

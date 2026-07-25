@@ -7,6 +7,7 @@ export const materialSchema = z.object({
   summary: z.string().nullable(),
   description: z.string().nullable(),
   material_type: z.string(),
+  material_type_id: z.uuid().nullable().optional(),
   access_kind: z.enum(['external_link', 'managed_upload']),
   external_url: z.string().nullable(),
   creator_id: z.string(),
@@ -40,6 +41,7 @@ export interface MaterialListFilters {
   q?: string;
   system_id?: string;
   edition_id?: string;
+  /** ID canônico; nome do query param permanece por compatibilidade de URL. */
   material_type?: string;
   access_kind?: 'external_link' | 'managed_upload';
   sort?: SortOption;
