@@ -19,6 +19,8 @@ export interface PlatformOverrideInput {
   extractedPriceValue: number | null;
   priceSignal: 'pwyw_tag_present' | 'zero_price_no_pwyw_tag' | 'nonzero_price_no_pwyw_tag';
   scenario?: string | null;
+  // Achado real (spec 086, Fase 4) — ver mesmo comentario em services/scrapers/types.ts.
+  systemHint?: string | null;
   authorsCredits?: string | null;
   artistsCredits?: string | null;
   creationMethod?: string | null;

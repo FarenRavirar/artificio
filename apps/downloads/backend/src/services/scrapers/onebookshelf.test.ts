@@ -29,10 +29,14 @@ describe('applyOneBookShelfOverride', () => {
     ['dms-guild-product-1.html', 'Inespecífico/Qualquer mundo', 15],
     ['drivethrurpg-product-1.html', 'Outros sistemas exclusivos', 18],
     ['storytellersvault-product-1.html', 'Vampire the Masquerade', 58],
-  ])('extrai metadata rica do fixture real %s', (fixture, scenario, pageCount) => {
+  ])('extrai metadata rica do fixture real %s', (fixture, systemHint, pageCount) => {
     const result = applyOneBookShelfOverride(preview(), loadFixture(fixture));
 
-    expect(result.scenario).toBe(scenario);
+    // Achado real (spec 086, Fase 4): data-codeid="ruleSystem" (label real
+    // "Universo de jogo") é o SISTEMA/regra do material, não o cenário de
+    // ambientação — antes desta correção ia pro campo 'scenario' por engano.
+    expect(result.systemHint).toBe(systemHint);
+    expect(result.scenario).toBeUndefined();
     expect(result.pageCount).toBe(pageCount);
     expect(result.authorsCredits).not.toBeNull();
     expect(result.fileSizeText).not.toBeNull();
@@ -44,7 +48,7 @@ describe('applyOneBookShelfOverride', () => {
   it('não captura data-codeid do bloco de avaliações fora da table-list', () => {
     const result = applyOneBookShelfOverride(preview(), loadFixture('storytellersvault-product-1.html'));
 
-    expect(result.scenario).toBe('Vampire the Masquerade');
+    expect(result.systemHint).toBe('Vampire the Masquerade');
     expect(result.authorsCredits).toMatch(/^Lobo Loss/);
     expect(result.sourceFilters?.flatMap(({ path }) => path).join(' ')).not.toMatch(/comment|customer|badge|discussion/i);
     expect(result).not.toHaveProperty('commentText');

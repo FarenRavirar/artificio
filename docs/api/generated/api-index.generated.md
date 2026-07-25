@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **385 operações**.
+Total: **390 operações**.
 
 ## accounts (12)
 
@@ -23,7 +23,7 @@ Total: **385 operações**.
 | GET | `/internal/users/{id}` | public | none | active | — | Consulta internal users id |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
-## downloads (64)
+## downloads (69)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -48,6 +48,9 @@ Total: **385 operações**.
 | GET | `/api/v1/admin/scraper/run/{id}` | admin | admin | active | — | Consulta api v1 admin scraper run id |
 | GET | `/api/v1/admin/scraper/runs` | admin | admin | active | — | Consulta api v1 admin scraper runs |
 | GET | `/api/v1/admin/summary` | admin | admin | active | — | Consulta api v1 admin summary |
+| GET | `/api/v1/admin/system-suggestions` | admin | admin | active | — | Consulta api v1 admin system-suggestions |
+| GET | `/api/v1/admin/system-suggestions/{id}/candidates` | admin | admin | active | — | Consulta api v1 admin system-suggestions id candidates |
+| POST | `/api/v1/admin/system-suggestions/{id}/resolve` | admin | admin | active | — | Cria ou executa api v1 admin system-suggestions id resolve |
 | GET | `/api/v1/changelog` | public | none | active | — | Consulta api v1 changelog |
 | GET | `/api/v1/collections` | public | none | active | — | Consulta api v1 collections |
 | POST | `/api/v1/collections` | public | user | active | — | Cria ou executa api v1 collections |
@@ -91,6 +94,8 @@ Total: **385 operações**.
 | PATCH | `/api/v1/reports/{id}` | admin | admin | active | — | Atualiza api v1 reports id |
 | GET | `/api/v1/reports/abuse-check/{userId}` | admin | admin | active | — | Consulta api v1 reports abuse-check userId |
 | GET | `/api/v1/reports/mine` | self-service | user | active | — | Consulta api v1 reports mine |
+| POST | `/api/v1/system-suggestions` | public | user | active | — | Cria ou executa api v1 system-suggestions |
+| GET | `/api/v1/system-suggestions/mine` | self-service | user | active | — | Consulta api v1 system-suggestions mine |
 
 ## glossario (49)
 

@@ -56,7 +56,9 @@ describe('parseHtml', () => {
     expect(result.priceSignal).toBe('pwyw_tag_present');
     expect(result.isFreeOrPwyw).toBe(true);
     expect(result.description).toContain('O Lutador');
-    expect(result.scenario).toBe('Inespecífico/Qualquer mundo');
+    // Achado real (spec 086, Fase 4): "Inespecífico/Qualquer mundo" é o
+    // valor de data-codeid="ruleSystem" (sistema/regra), não cenário.
+    expect(result.systemHint).toBe('Inespecífico/Qualquer mundo');
     expect(result.authorsCredits).toBe('Felix Klaus');
     expect(result.pageCount).toBe(15);
     expect(result.sourceFilters).toEqual(

@@ -37,7 +37,7 @@
 | POST | `/api/auth/logout` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/admin/secrets/:name` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 
-### downloads (64 rotas no inventário)
+### downloads (69 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -56,6 +56,8 @@
 | GET | `/api/v1/admin/scraper/run/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/scraper/runs` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/summary` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/admin/system-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/admin/system-suggestions/:id/candidates` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/changelog` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/collections` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/collections/:id/items` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -78,6 +80,7 @@
 | GET | `/api/v1/reports` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/reports/abuse-check/:userId` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/reports/mine` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/system-suggestions/mine` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/rejection-categories/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/materials/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/moderation/batch/:action` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -92,6 +95,7 @@
 | POST | `/api/v1/admin/scraper/parse-html` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/scraper/platforms` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/scraper/run` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/admin/system-suggestions/:id/resolve` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/collections` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/collections/:id/items` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/comments` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -103,6 +107,7 @@
 | POST | `/api/v1/moderation/:id/submit` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/organizations` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/reports` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/system-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/v1/material-metadata/:materialId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/v1/ratings` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 
@@ -198,7 +203,7 @@
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/groups/:param/report` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 
-### mesas (183 rotas no inventário)
+### mesas (178 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -241,8 +246,6 @@
 | GET | `/api/v1/admin/import/drafts/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/scenario-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/setting-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/admin/system-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/admin/system-suggestions/:id/candidates` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/tables` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/tables/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/tables/duplicates` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -268,7 +271,6 @@
 | GET | `/api/v1/scenarios` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/scenarios/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/settings/suggest-styles` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/system-suggestions/mine` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/systems` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/systems/health` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/tables` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -341,7 +343,6 @@
 | POST | `/api/v1/admin/import/import-text` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/setting-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/sync/enrich` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/admin/system-suggestions/:id/resolve` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/systems/projection-sync` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/tables/auto-archive` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/tables/batch` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -366,7 +367,6 @@
 | POST | `/api/v1/profile/systems` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/scenario-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/scenarios/admin` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/system-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/systems/admin` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/tables/:slug/click` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/tables/:slug/favorite` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |

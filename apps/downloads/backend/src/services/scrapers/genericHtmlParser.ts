@@ -94,6 +94,8 @@ export const genericParsePreviewSchema = z
     extractedPriceValue: z.number().nullable(),
     priceSignal: z.enum(['pwyw_tag_present', 'zero_price_no_pwyw_tag', 'nonzero_price_no_pwyw_tag']),
     scenario: z.string().nullable().optional(),
+    // Spec 086 (Fase 4) — ver comentário em routes/scraper.ts ingestItemSchema.
+    systemHint: z.string().nullable().optional(),
     authorsCredits: z.string().nullable().optional(),
     artistsCredits: z.string().nullable().optional(),
     creationMethod: z.string().nullable().optional(),

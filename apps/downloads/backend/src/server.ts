@@ -19,6 +19,8 @@ import changelogRoutes from './routes/changelog';
 import rejectionCategoriesRoutes from './routes/rejectionCategories';
 import emailLogRoutes from './routes/emailLog';
 import scraperRoutes from './routes/scraper';
+import systemSuggestionsRoutes from './routes/systemSuggestions';
+import systemSuggestionsAdminRoutes from './routes/systemSuggestionsAdmin';
 import { parseCookies } from './middleware/parseCookies';
 import { db } from './db';
 import { startLinkCheckerScheduler } from './services/linkCheckerScheduler';
@@ -93,6 +95,8 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/admin/rejection-categories', rejectionCategoriesRoutes);
 app.use('/api/v1/admin/email-log', emailLogRoutes);
 app.use('/api/v1/admin/scraper', scraperRoutes);
+app.use('/api/v1/system-suggestions', systemSuggestionsRoutes);
+app.use('/api/v1/admin/system-suggestions', systemSuggestionsAdminRoutes);
 app.use('/api/v1/changelog', changelogRoutes);
 
 interface HttpError {

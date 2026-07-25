@@ -725,6 +725,112 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/admin/system-suggestions:
+    get:
+      operationId: getapi_v1_admin_system_suggestions
+      summary: "Consulta api v1 admin system-suggestions"
+      x-artificio-owner: downloads
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/system-suggestions/{id}/candidates:
+    get:
+      operationId: getapi_v1_admin_system_suggestions_id_candidates
+      summary: "Consulta api v1 admin system-suggestions id candidates"
+      x-artificio-owner: downloads
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/system-suggestions/{id}/resolve:
+    post:
+      operationId: postapi_v1_admin_system_suggestions_id_resolve
+      summary: "Cria ou executa api v1 admin system-suggestions id resolve"
+      x-artificio-owner: downloads
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/changelog:
     get:
       operationId: getapi_v1_changelog
@@ -2208,6 +2314,71 @@ paths:
     get:
       operationId: getapi_v1_reports_mine
       summary: "Consulta api v1 reports mine"
+      x-artificio-owner: downloads
+      x-artificio-scope: self-service
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/system-suggestions:
+    post:
+      operationId: postapi_v1_system_suggestions
+      summary: "Cria ou executa api v1 system-suggestions"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/system-suggestions/mine:
+    get:
+      operationId: getapi_v1_system_suggestions_mine
+      summary: "Consulta api v1 system-suggestions mine"
       x-artificio-owner: downloads
       x-artificio-scope: self-service
       x-artificio-status: active

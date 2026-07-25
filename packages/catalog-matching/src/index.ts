@@ -1,6 +1,13 @@
-// Helper puro e testavel para resolucao de sugestoes de sistemas (Spec 018).
-// Normaliza nomes de sistemas e pontua candidatos do catalogo para evitar
-// redundancia (alias/edicao/duplicata) antes de criar um sistema novo.
+// Extraido de apps/mesas/backend/src/services/systemSuggestionCandidates.ts
+// (spec 086, Fase 4, decisao do mantenedor: extrair pacote compartilhado em
+// vez de duplicar o arquivo no Downloads). apps/mesas NAO foi alterado por
+// esta extracao (requisito 17 da spec 086) — o arquivo original la continua
+// existindo e sera migrado para este pacote pelo mantenedor em spec futura,
+// fora do escopo desta.
+//
+// Helper puro e testavel para resolucao de sugestoes de sistemas. Normaliza
+// nomes de sistemas e pontua candidatos do catalogo para evitar redundancia
+// (alias/edicao/duplicata) antes de criar um sistema novo.
 //
 // Sem dependencias externas: comparacao local por igualdade normalizada,
 // match de base + token de edicao e similaridade Levenshtein.
@@ -200,10 +207,10 @@ export function normalizeSystemName(raw: unknown): NormalizedSystemName {
   return { raw: original, normalized, base, baseTokens: trimmedBaseTokens, canonicalTokens, matchKeys, editionTokens, slug };
 }
 
-// Achado do mantenedor (2026-07-16): typo simples ("owbear" por "Owlbear")
-// não batia em nenhum alias hardcoded do matcher de plataformas — exportada
-// pra reuso em findPlatformMatch (parseDiscordAnnouncement.ts), em vez de
-// duplicar a implementação ou trazer dependência nova de fuzzy matching.
+// Achado do mantenedor (2026-07-16, apps/mesas): typo simples ("owbear" por
+// "Owlbear") nao batia em nenhum alias hardcoded do matcher de plataformas —
+// exportada pra reuso em findPlatformMatch (apps/mesas), em vez de duplicar
+// a implementacao ou trazer dependencia nova de fuzzy matching.
 export function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
   if (a.length === 0) return b.length;
@@ -391,11 +398,6 @@ function childTextMatchScore(system: CandidateSystemInput, suggestion: Normalize
   for (const representation of representations) {
     const child = normalizeSystemName(representation);
     if (child.baseTokens.length === 0) continue;
-    // Achado LSP (spec 086, extracao para packages/catalog-matching):
-    // parametro 'token' nunca lido no callback, so 'start'. Excecao nominal
-    // aprovada pelo mantenedor ao requisito 17 (zero arquivo de apps/mesas
-    // tocado) — fix trivial de lint espelhado aqui pra nao divergir do
-    // pacote compartilhado, sem mudanca de comportamento/logica.
     const index = suggestion.baseTokens.findIndex((_token, start) => (
       child.baseTokens.every((childToken, offset) => suggestion.baseTokens[start + offset] === childToken)
     ));
@@ -557,4 +559,43 @@ export function scoreSystemCandidates(
   }
 
   return { candidates: finalCandidates, recommended_action, analysis };
+}
+
+// Extraido de apps/mesas/backend/src/discord/normalizeDiscordTableDraft.ts
+// (spec 086, Fase 4) — auto-match AUTOMATICO (sem humano), camada separada
+// e deliberadamente mais conservadora que scoreSystemCandidates: so aceita
+// IGUALDADE EXATA normalizada contra name/name_pt/aliases, nunca score
+// aproximado. Fuzzy/pontuado fica reservado pra tela de triagem admin
+// (recommended_action), onde um humano decide — evita falso-positivo
+// automatico gravando system_id errado sem revisao.
+export interface MatchableSystemEntry {
+  id: string;
+  name: string;
+  name_pt: string | null;
+  aliases: string[];
+}
+
+export function matchSystemNameExact(
+  value: string | null | undefined,
+  systems: MatchableSystemEntry[],
+): MatchableSystemEntry | null {
+  if (!value) return null;
+  const target = normalizeSystemName(value).normalized;
+  if (!target) return null;
+
+  for (const system of systems) {
+    const candidates = [
+      system.name,
+      ...(system.name_pt ? [system.name_pt] : []),
+      ...system.aliases,
+    ];
+
+    for (const candidate of candidates) {
+      if (normalizeSystemName(candidate).normalized === target) {
+        return system;
+      }
+    }
+  }
+
+  return null;
 }

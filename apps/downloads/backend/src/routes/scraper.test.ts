@@ -420,7 +420,9 @@ describe('POST /api/v1/admin/scraper/parse-html', () => {
     expect(res.body.preview.priceSignal).toBe('pwyw_tag_present');
     expect(res.body.preview.isFreeOrPwyw).toBe(true);
     expect(res.body.preview).toMatchObject({
-      scenario: 'Inespecífico/Qualquer mundo',
+      // Achado real (spec 086, Fase 4): "Inespecífico/Qualquer mundo" é o
+      // valor de data-codeid="ruleSystem" (sistema/regra), não cenário.
+      systemHint: 'Inespecífico/Qualquer mundo',
       authorsCredits: 'Felix Klaus',
       artistsCredits: 'Angevine, Dall.e',
       creationMethod: 'Contains AI-Generated Content',

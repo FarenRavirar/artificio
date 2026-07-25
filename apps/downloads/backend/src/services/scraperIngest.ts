@@ -1,8 +1,11 @@
+import type { Kysely, Transaction } from 'kysely';
+import { matchSystemNameExact, type MatchableSystemEntry } from '@artificio/catalog-matching';
 import { db } from '../db';
 import { detectPortuguese } from './languageDetector';
 import { getOrCreateScraperCreatorId } from './scraperCreator';
+import { loadCatalogSystemsFlat, type FlatCatalogSystem } from './catalogClient';
 import type { ScrapedItem } from './scrapers/types';
-import type { DownloadSourcePlatform, DownloadScraperItemOutcome, JSONColumnType } from '../db/types';
+import type { Database, DownloadSourcePlatform, DownloadScraperItemOutcome, JSONColumnType } from '../db/types';
 
 // T4.2 (spec 084) — pipeline unico de criacao/dedupe, reusado por todo
 // adapter (Fase 3) e pelo Modo 3 (payload de ingest manual, Fase 6). Ordem
@@ -89,6 +92,51 @@ function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: string }).code === '23505';
 }
 
+function toMatchableEntry(node: FlatCatalogSystem): MatchableSystemEntry {
+  return { id: node.id, name: node.name, name_pt: node.name_pt, aliases: node.aliases };
+}
+
+// T4.5 (spec 086, Fase 4) — auto-match AUTOMATICO (sem humano), igualdade
+// exata normalizada contra nome/name_pt/aliases do catalogo carregado.
+// Deliberadamente conservador (decisao do mantenedor): scoreSystemCandidates
+// (fuzzy/pontuado) fica reservado pra triagem admin, onde um humano decide
+// (routes/systemSuggestionsAdmin.ts). Resolve so system_id — edition_id fica
+// pra quando o hint distinguir edicao explicitamente (fora do escopo desta
+// fase: catalogo central resolve sistema, nao versao de regra por texto raso).
+interface SystemHintResolution {
+  systemId: string | null;
+  rawSystemHint: string | null;
+}
+
+async function resolveSystemHint(systemHint: string | null | undefined): Promise<SystemHintResolution> {
+  const hint = systemHint?.trim() || null;
+  if (!hint) return { systemId: null, rawSystemHint: null };
+
+  const catalogNodes = await loadCatalogSystemsFlat();
+  const matched = matchSystemNameExact(hint, catalogNodes.map(toMatchableEntry));
+  if (matched) return { systemId: matched.id, rawSystemHint: null };
+
+  // Nao casou — preserva o texto bruto (equivalente a raw_system_hint do
+  // mesas). O material nunca perde essa informacao nem finge que nao tem
+  // sistema (requisito 6a da spec 086).
+  return { systemId: null, rawSystemHint: hint };
+}
+
+// T4.5 — abre a fila de triagem quando o scraper nao casou o hint contra o
+// catalogo (source='scraper', sempre 'pending'). Nunca escreve no catalogo
+// central diretamente — so a triagem admin faz isso (requisito 8).
+async function openSystemSuggestion(trx: Kysely<Database> | Transaction<Database>, materialId: string, rawValue: string): Promise<void> {
+  await trx
+    .insertInto('download_system_suggestion')
+    .values({
+      material_id: materialId,
+      raw_value: rawValue,
+      source: 'scraper',
+      status: 'pending',
+    })
+    .execute();
+}
+
 async function processItem(
   runId: string,
   sourcePlatform: DownloadSourcePlatform,
@@ -137,6 +185,10 @@ async function processItem(
   // sem metadata, nunca metadata sem material).
   try {
     const slug = await generateUniqueSlug(item.title, item.sourceUrl);
+    // T4.5 — resolve fora da transacao (chamada de rede ao catalogo central,
+    // cacheada por loadCatalogSystemsFlat; nao faz sentido segurar a
+    // transacao do Postgres esperando fetch externo).
+    const systemResolution = await resolveSystemHint(item.systemHint);
 
     const materialId = await db.transaction().execute(async (trx) => {
       const material = await trx
@@ -156,9 +208,21 @@ async function processItem(
           source_platform: sourcePlatform,
           source_url: item.sourceUrl,
           source_scraped_at: new Date(),
+          // T4.5 — casou por igualdade exata contra o catalogo -> system_id;
+          // nao casou -> preserva o texto bruto em raw_system_hint (nunca
+          // perde a informacao nem finge que o material nao tem sistema).
+          system_id: systemResolution.systemId,
+          raw_system_hint: systemResolution.rawSystemHint,
         })
         .returning('id')
         .executeTakeFirstOrThrow();
+
+      // T4.5 — nao casou (rawSystemHint preenchido) abre a fila de triagem,
+      // equivalente a missing_fields: ['system_name:unmatched_hint'] do
+      // mesas: "nao achei sistema, mas tenho o texto".
+      if (systemResolution.rawSystemHint) {
+        await openSystemSuggestion(trx, material.id, systemResolution.rawSystemHint);
+      }
 
       await trx
         .insertInto('download_material_metadata')

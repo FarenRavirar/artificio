@@ -8,13 +8,16 @@ export type ModerationAuditAction =
   | 'approve'
   | 'reject'
   | 'archive'
-  | 'report_decide';
+  | 'report_decide'
+  // Spec 086 (Fase 4) — decisão de triagem de sugestão de sistema/taxonomia.
+  | 'system_suggestion_decide';
 
 export interface ModerationAuditEntry {
   action: ModerationAuditAction;
   actorUserId: string;
   materialId?: string;
   reportId?: string;
+  suggestionId?: string;
   reason?: string | null;
 }
 
