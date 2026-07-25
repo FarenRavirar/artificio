@@ -8,8 +8,9 @@ import { useCreatorRole } from '../hooks/useCreatorRole';
 // valida de verdade em cada rota /admin/*; isso e so UX (evita expor o link
 // e a tela pra quem nao tem acesso).
 // Achado real (review PR #201, Codex, P2): /gestao/plataformas liberava
-// pra moderator no frontend, mas GET/POST /platforms exige role=admin no
-// backend — moderator via a pagina e o item de sidebar, mas tudo dava 403.
+// pra moderator no frontend, mas GET/POST /admin/scraper/platforms exige
+// role=admin no backend — moderator via a pagina e o item de sidebar, mas
+// tudo dava 403.
 // requiredRole opcional restringe o guard pra admin-only quando a rota
 // espelha uma API admin-only, sem duplicar RequireGestaoAuth pra isso.
 export function RequireGestaoAuth({

@@ -107,14 +107,28 @@ export class GenericParseError extends Error {
 
 export const MAX_HTML_LENGTH = 1_000_000; // maior fixture real: 158KB, folga ampla
 
-interface GenericJsonLd {
-  '@type'?: string | string[];
-  '@graph'?: unknown[];
-  name?: string;
-  description?: string;
-  brand?: { name?: string };
-  offers?: { price?: number | string } | { price?: number | string }[];
-}
+// Achado real (review PR #201, Codex, follow-up): JSON-LD é conteúdo
+// externo não confiável (normalização obrigatória — AGENTS.md), cast direto
+// `as GenericJsonLd` deixava campo com tipo errado (ex.: description como
+// number/objeto) passar sem validação até sanitizeText/render. Schema
+// tolerante (campos extra ignorados, tipo errado vira undefined em vez de
+// lançar) — nó só é candidato a Product se bater o shape mínimo esperado.
+const genericJsonLdNodeSchema = z.looseObject({
+  '@type': z.union([z.string(), z.array(z.string())]).optional().catch(undefined),
+  '@graph': z.array(z.unknown()).optional().catch(undefined),
+  name: z.string().optional().catch(undefined),
+  description: z.string().optional().catch(undefined),
+  brand: z.looseObject({ name: z.string().optional().catch(undefined) }).optional().catch(undefined),
+  offers: z
+    .union([
+      z.looseObject({ price: z.union([z.number(), z.string()]).optional().catch(undefined) }),
+      z.array(z.looseObject({ price: z.union([z.number(), z.string()]).optional().catch(undefined) })),
+    ])
+    .optional()
+    .catch(undefined),
+});
+
+type GenericJsonLd = z.infer<typeof genericJsonLdNodeSchema>;
 
 function hasProductType(node: GenericJsonLd): boolean {
   const type = node['@type'];
@@ -126,17 +140,17 @@ function hasProductType(node: GenericJsonLd): boolean {
 // entidades), array no topo (vários objetos no mesmo bloco <script>), ou
 // declarar @type como array (["Product", "Thing"]). Normaliza cada bloco
 // candidato pra uma lista plana de nós antes de procurar Product, em vez
-// de assumir objeto raiz único.
+// de assumir objeto raiz único. Nó que não bate genericJsonLdNodeSchema
+// (não é objeto, ou campos com tipo incompatível demais) é descartado.
 function flattenJsonLdCandidates(parsedBlock: unknown): GenericJsonLd[] {
   if (Array.isArray(parsedBlock)) {
     return parsedBlock.flatMap((item) => flattenJsonLdCandidates(item));
   }
-  if (parsedBlock && typeof parsedBlock === 'object') {
-    const node = parsedBlock as GenericJsonLd;
-    const graph = Array.isArray(node['@graph']) ? node['@graph'].flatMap((item) => flattenJsonLdCandidates(item)) : [];
-    return [node, ...graph];
-  }
-  return [];
+  const parsedNode = genericJsonLdNodeSchema.safeParse(parsedBlock);
+  if (!parsedNode.success) return [];
+  const node = parsedNode.data;
+  const graph = node['@graph'] ? node['@graph'].flatMap((item) => flattenJsonLdCandidates(item)) : [];
+  return [node, ...graph];
 }
 
 // Achado real (review PR #199, preservado): página pode conter JSON-LD de
@@ -234,6 +248,19 @@ function extractPriceValue(rawPrice: number | string | undefined): number | null
   return null;
 }
 
+// Achado real (review PR #201, Codex, follow-up): offers como array pode
+// ter a primeira entrada sem preço válido (variação sem preço definido) —
+// pegar só offers[0] perdia o preço de uma oferta posterior válida. Percorre
+// até achar a primeira oferta cujo price normaliza pra número finito.
+function extractPriceFromOffers(offers: GenericJsonLd['offers']): number | null {
+  const offerList = Array.isArray(offers) ? offers : [offers];
+  for (const offer of offerList) {
+    const price = extractPriceValue(offer?.price);
+    if (price !== null) return price;
+  }
+  return null;
+}
+
 export async function parseHtml(html: string, findPlatformByDomain: FindPlatformByDomain): Promise<GenericParsePreview> {
   if (html.length > MAX_HTML_LENGTH) {
     throw new GenericParseError('html_too_large', `HTML maior que o limite de ${MAX_HTML_LENGTH} bytes.`);
@@ -270,10 +297,10 @@ export async function parseHtml(html: string, findPlatformByDomain: FindPlatform
   // Schema.org offers.price aceita Number ou Text (achado review PR #199,
   // preservado): sites podem emitir string numérica ("4.00"); só rejeita
   // se não for um número finito de fato.
-  // Achado real (review PR #201, Codex, P1): offers também pode ser array
-  // (múltiplas ofertas/variações) — usa o preço da primeira oferta válida.
-  const firstOffer = Array.isArray(jsonLd.offers) ? jsonLd.offers[0] : jsonLd.offers;
-  const extractedPriceValue = extractPriceValue(firstOffer?.price);
+  // Achado real (review PR #201, Codex, P1 + follow-up): offers também pode
+  // ser array (múltiplas ofertas/variações) — usa o preço da primeira
+  // oferta com preço válido, não literalmente offers[0].
+  const extractedPriceValue = extractPriceFromOffers(jsonLd.offers);
 
   const defaultSignal = resolveDefaultPriceSignal(extractedPriceValue);
 

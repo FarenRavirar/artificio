@@ -188,6 +188,31 @@ describe('parseHtml', () => {
     expect(result.extractedPriceValue).toBe(0);
   });
 
+  // Achado real (review PR #201, Codex, follow-up): extractedPriceValue
+  // deve usar a primeira oferta com PREÇO VÁLIDO, não literalmente
+  // offers[0] — primeira oferta sem price definido não pode "vencer" e
+  // devolver null quando existe oferta posterior com preço válido.
+  it('extrai preço da primeira oferta VÁLIDA quando offers[0] não tem price', async () => {
+    const syntheticHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<link rel="canonical" href="https://loja5.exemplo.com.br/produto/aventura-oferta-sem-preco">
+<script type="application/ld+json">{"@type":"Product","name":"Aventura Multi-Oferta","description":"Teste.","brand":{"name":"Editora Cinco"},"offers":[{"availability":"InStock"},{"price":10}]}</script>
+</head>
+<body></body>
+</html>`;
+    const genericPlatform = makePlatform({
+      slug: 'loja5_exemplo',
+      name: 'Loja Cinco',
+      domain: 'loja5.exemplo.com.br',
+      parser_kind: 'json_ld_generic',
+    });
+
+    const result = await parseHtml(syntheticHtml, registryOf([genericPlatform]));
+
+    expect(result.extractedPriceValue).toBe(10);
+  });
+
   it('extrai Product de array no topo do bloco JSON-LD', async () => {
     const syntheticHtml = `<!DOCTYPE html>
 <html lang="pt-BR">

@@ -208,17 +208,21 @@ describe('EditarMaterialPage', () => {
     await user.type(screen.getByLabelText('Título'), 'Título Editado');
     await user.click(screen.getByRole('button', { name: 'Salvar' }));
 
-    await waitFor(() => {
-      expect(updateMutateAsync).toHaveBeenCalledWith({
-        title: 'Título Editado',
-        summary: 'Resumo original',
-        description: 'Descrição original',
-        external_url: 'https://exemplo.com/original',
-      });
+    expect(updateMutateAsync).toHaveBeenCalledWith({
+      title: 'Título Editado',
+      summary: 'Resumo original',
+      description: 'Descrição original',
+      external_url: 'https://exemplo.com/original',
     });
 
-    expect(updateMetadataMutateAsync).toHaveBeenCalledWith({ publisher_name: null });
-    expect(toast.success).toHaveBeenCalledWith('Material atualizado.');
+    // Achado real (review PR #201, Codex, follow-up): handleSubmit encadeia
+    // updateMutateAsync -> updateMetadataMutateAsync -> toast.success; um
+    // waitFor que só espera o primeiro não garante que os efeitos
+    // posteriores já rodaram (flaky). waitFor aqui cobre o fim da cadeia.
+    await waitFor(() => {
+      expect(updateMetadataMutateAsync).toHaveBeenCalledWith({ publisher_name: null });
+      expect(toast.success).toHaveBeenCalledWith('Material atualizado.');
+    });
   });
 
   it('mostra toast de erro quando a atualização do material falha', async () => {

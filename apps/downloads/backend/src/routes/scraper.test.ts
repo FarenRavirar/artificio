@@ -492,6 +492,33 @@ describe('GET/POST /api/v1/admin/scraper/platforms', () => {
     expect(res.body.error).toMatch(/inválido/);
   });
 
+  // Achado real (review PR #201, Codex, P2): supports_auto_scrape=true pra
+  // slug sem entrada em ADAPTERS era aceito no cadastro, cron selecionava a
+  // plataforma diariamente e toda run falhava silenciosamente. 422 explícito
+  // no cadastro evita o erro tardio.
+  it('POST 422 quando supports_auto_scrape=true pra slug sem adapter implementado', async () => {
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/platforms')
+      .send({ slug: 'novo_site', name: 'Novo Site', domain: 'novosite.com.br', supports_auto_scrape: true })
+      .expect(422);
+
+    expect(res.body.error).toMatch(/inválido/);
+    expect(dbMocks.insertInto).not.toHaveBeenCalled();
+  });
+
+  it('POST aceita supports_auto_scrape=true pra slug com adapter implementado (itch_io)', async () => {
+    const created = { slug: 'itch_io', name: 'itch.io', domain: 'itch.io', supports_auto_scrape: true, supports_price_recheck: false, parser_kind: 'json_ld_generic', created_at: new Date() };
+    const insertChainSpy = { values: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue(created) };
+    dbMocks.insertInto.mockReturnValueOnce(insertChainSpy);
+
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/platforms')
+      .send({ slug: 'itch_io', name: 'itch.io', domain: 'itch.io', supports_auto_scrape: true })
+      .expect(201);
+
+    expect(res.body.slug).toBe('itch_io');
+  });
+
   it('POST 422 quando slug ou domain já cadastrado (violação de UNIQUE, código 23505)', async () => {
     const uniqueViolation = Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
     dbMocks.insertInto.mockReturnValueOnce({

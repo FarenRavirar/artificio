@@ -12,6 +12,10 @@ expect.extend(matchers);
 // aqui elimina a duplicação sem precisar de vi.mock por arquivo (que exige
 // factory inline por causa do hoisting do vitest — import de helper externo
 // dentro da factory quebra com "Cannot access before initialization").
+// Achado real (review PR #201, Codex, follow-up): main.tsx chama
+// applyFavicon() no import do módulo — mock sem esse stub quebra qualquer
+// teste que acabe importando main.tsx (direto ou via reexport) com
+// "applyFavicon is not a function".
 vi.mock('@artificio/ui', () => ({
   Header: () => React.createElement('div', { 'data-testid': 'header' }),
   Footer: () => React.createElement('div', { 'data-testid': 'footer' }),
@@ -19,6 +23,7 @@ vi.mock('@artificio/ui', () => ({
   useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
   CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
   DynamicChangelogModal: () => null,
+  applyFavicon: () => undefined,
 }));
 
 afterEach(() => {

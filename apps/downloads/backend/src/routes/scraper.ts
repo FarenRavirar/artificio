@@ -349,14 +349,25 @@ const platformDomainSchema = z
   .regex(/^[a-z0-9.-]+$/i, 'domain deve ser um hostname puro, sem scheme/path/porta.')
   .nullable();
 
-const createPlatformBodySchema = z.object({
-  slug: platformSlugSchema,
-  name: z.string().min(1).max(100),
-  domain: platformDomainSchema,
-  supports_auto_scrape: z.boolean().optional(),
-  supports_price_recheck: z.boolean().optional(),
-  parser_kind: z.enum(KNOWN_PARSER_KINDS).optional(),
-});
+// Achado real (review PR #201, Codex, P2): supports_auto_scrape=true pra
+// slug sem entrada em ADAPTERS era aceito no cadastro — cron seleciona a
+// plataforma diariamente (scraperScheduler.ts), executeScraperRun grava
+// status='failed' toda vez (nunca quebra o processo, mas gera lixo de run
+// falha sem o admin entender por quê). 422 explícito no cadastro evita o
+// erro tardio e silencioso, mesmo espírito do parser_kind logo abaixo.
+const createPlatformBodySchema = z
+  .object({
+    slug: platformSlugSchema,
+    name: z.string().min(1).max(100),
+    domain: platformDomainSchema,
+    supports_auto_scrape: z.boolean().optional(),
+    supports_price_recheck: z.boolean().optional(),
+    parser_kind: z.enum(KNOWN_PARSER_KINDS).optional(),
+  })
+  .refine((body) => !body.supports_auto_scrape || IMPLEMENTED_SOURCE_PLATFORMS.includes(body.slug as DownloadSourcePlatform), {
+    message: `supports_auto_scrape só pode ser true pra slug com scraper automático implementado: ${IMPLEMENTED_SOURCE_PLATFORMS.join(', ')}.`,
+    path: ['supports_auto_scrape'],
+  });
 
 router.get('/platforms', writeRateLimiter, authMiddleware, requireRole('admin'), async (_req: Request, res: Response) => {
   const platforms = await db

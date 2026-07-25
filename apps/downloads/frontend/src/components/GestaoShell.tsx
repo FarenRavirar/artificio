@@ -2,11 +2,19 @@ import { useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { AppShell } from './AppShell';
 import { useAdminSummary } from '../hooks/useAdminSummary';
+import { useCreatorRole } from '../hooks/useCreatorRole';
+
+interface GestaoNavItem {
+  label: string;
+  href: string;
+  countKey?: 'moderation_queue' | 'reports_open' | 'degraded_links';
+  adminOnly?: boolean;
+}
 
 // T1.2 (spec 075) — sidebar de RECURSOS (nao verbos), agrupada em
 // Conteudo/Operacao/Comunidade/Sistema, com contagem por fila. P0 (denuncia
 // aberta) sinaliza com icone + texto, nunca so cor (criterio de aceite 1/8).
-const GESTAO_NAV_GROUPS = [
+const GESTAO_NAV_GROUPS: { label: string; items: GestaoNavItem[] }[] = [
   {
     label: 'Conteúdo',
     items: [
@@ -39,7 +47,11 @@ const GESTAO_NAV_GROUPS = [
       { label: 'Configurações', href: '/gestao/configuracoes' },
       // D-D (spec 085, Fase 6/8) — cadastro de plataforma e configuracao do
       // sistema (registry em banco), nao parte do fluxo de importar material.
-      { label: 'Plataformas', href: '/gestao/plataformas' },
+      // Achado real (review PR #201, Codex, P2): rota exige requiredRole
+      // "admin" (RequireGestaoAuth), mas moderator continuava vendo o item
+      // e caindo na tela de "sem permissão" ao clicar — adminOnly filtra
+      // aqui, espelhando o guard da rota.
+      { label: 'Plataformas', href: '/gestao/plataformas', adminOnly: true },
     ],
   },
 ];
@@ -51,6 +63,9 @@ interface QueueCounts {
 }
 
 function GestaoNavLinks({ counts, onNavigate }: Readonly<{ counts?: QueueCounts; onNavigate?: () => void }>) {
+  const { data: creatorRole } = useCreatorRole();
+  const isAdmin = creatorRole?.role === 'admin';
+
   return (
     <nav className="flex flex-col gap-4">
       <NavLink
@@ -70,7 +85,7 @@ function GestaoNavLinks({ counts, onNavigate }: Readonly<{ counts?: QueueCounts;
         <div key={group.label}>
           <p className="px-3 text-xs font-semibold uppercase tracking-wide text-[var(--fg-muted)]">{group.label}</p>
           <div className="mt-1 flex flex-col gap-1">
-            {group.items.map((item) => {
+            {group.items.filter((item) => !item.adminOnly || isAdmin).map((item) => {
               const count = item.countKey ? counts?.[item.countKey]?.count : undefined;
               const isP0Queue = item.countKey === 'reports_open' && Boolean(count);
               return (
