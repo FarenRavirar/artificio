@@ -10,7 +10,7 @@ import { GrimoriosEDadosScraper } from '../services/scrapers/grimoriosEDadosScra
 import { OperaRpgScraper } from '../services/scrapers/operaRpgScraper';
 import { DriveThruRpgScraper } from '../services/scrapers/driveThruRpgScraper';
 import { DmsGuildScraper } from '../services/scrapers/dmsGuildScraper';
-import { parseHtml, GenericParseError, MAX_HTML_LENGTH } from '../services/scrapers/genericHtmlParser';
+import { parseHtml, GenericParseError, MAX_HTML_LENGTH, SCRAPER_DESCRIPTION_HTML_MAX_LENGTH } from '../services/scrapers/genericHtmlParser';
 import { KNOWN_PARSER_KINDS } from '../services/scrapers/platformOverrides';
 import { findDuplicateCandidates } from '../services/scrapers/onebookshelfDuplicateCheck';
 import { POSTGRES_INTEGER_MAX, type DownloadSourcePlatform, type DownloadScraperPlatform } from '../db/types';
@@ -37,7 +37,6 @@ const ADAPTERS: Partial<Record<DownloadSourcePlatform, () => ScraperAdapter>> = 
 // adapter for adicionado/removido, a validacao acompanha sem editar 2 lugares.
 const IMPLEMENTED_SOURCE_PLATFORMS = Object.keys(ADAPTERS) as [DownloadSourcePlatform, ...DownloadSourcePlatform[]];
 const SCRAPER_CREDITS_MAX_LENGTH = 10_000;
-const SCRAPER_DESCRIPTION_HTML_MAX_LENGTH = 100_000;
 const SCRAPER_SOURCE_FILTERS_MAX = 50;
 const SCRAPER_SOURCE_FILTER_PATH_MAX = 20;
 const SCRAPER_TAGS_MAX = 50;
@@ -142,7 +141,10 @@ const ingestItemSchema = z.object({
   title: z.string().min(1).max(200),
   // Spec 086: description é busca/summary/SEO, logo sempre texto plano.
   // HTML rico pertence exclusivamente a descriptionHtml e cruza sanitizeRichHtml.
-  description: z.string().nullable().transform((value) => (value === null ? null : richHtmlToPlainText(value))),
+  // Achado CodeQL/review (PR #203): richHtmlToPlainText roda regex sobre o
+  // valor bruto; mesmo teto de descriptionHtml evita DoS por payload gigante
+  // antes de processar.
+  description: z.string().max(SCRAPER_DESCRIPTION_HTML_MAX_LENGTH).nullable().transform((value) => (value === null ? null : richHtmlToPlainText(value))),
   isFreeOrPwyw: z.boolean(),
   coverImageUrl: z.url().nullable(),
   publisherName: z.string().nullable(),

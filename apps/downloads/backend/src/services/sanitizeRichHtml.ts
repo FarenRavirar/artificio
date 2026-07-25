@@ -15,7 +15,15 @@ const NAMED_ENTITIES: Readonly<Record<string, string>> = {
 // (review PR #203, Codex, P2): AGENTS.md exige DOMPurify na fronteira de
 // persistência/renderização; esta configuração também restringe URLs a HTTP(S).
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.nodeName.toLowerCase() !== 'a' || !node.hasAttribute('href')) return;
+  const tagName = node.nodeName.toLowerCase();
+  // Achado real (review PR #203): ALLOWED_URI_REGEXP do DOMPurify não cobre
+  // img[src] neste build — "data:image/..." sobrevive à sanitização. Remove
+  // src fora de HTTP(S) manualmente para manter o contrato desta config.
+  if (tagName === 'img' && node.hasAttribute('src') && !HTTP_URL_RE.test(node.getAttribute('src') ?? '')) {
+    node.removeAttribute('src');
+    return;
+  }
+  if (tagName !== 'a' || !node.hasAttribute('href')) return;
   node.setAttribute('target', '_blank');
   node.setAttribute('rel', 'nofollow noopener noreferrer');
 });
@@ -24,7 +32,16 @@ export function sanitizeRichHtml(html: string): string {
   // sanitize-html com disallowedTagsMode='discard' removia a tag e mantinha
   // texto fallback. DOMPurify trata iframe como conteúdo proibido; desembrulha
   // só a tag antes para preservar o contrato sem permitir o elemento perigoso.
-  return DOMPurify.sanitize(html.replace(IFRAME_TAG_RE, ''), { ALLOWED_TAGS, ALLOWED_ATTR, ALLOWED_URI_REGEXP: HTTP_URL_RE });
+  // Achado CodeQL (github-advanced-security, PR #203): replace de passagem
+  // única não pega tag reconstruída por sobreposição (ex.: "<ifr<iframe>ame>");
+  // repete até fixpoint antes de entregar ao DOMPurify.
+  let withoutIframe = html;
+  let previousIframePass: string;
+  do {
+    previousIframePass = withoutIframe;
+    withoutIframe = withoutIframe.replace(IFRAME_TAG_RE, '');
+  } while (withoutIframe !== previousIframePass);
+  return DOMPurify.sanitize(withoutIframe, { ALLOWED_TAGS, ALLOWED_ATTR, ALLOWED_URI_REGEXP: HTTP_URL_RE });
 }
 
 function decodeHtmlEntities(value: string): string {
@@ -44,7 +61,16 @@ function decodeHtmlEntities(value: string): string {
 // preserva separadores de bloco e decodifica entidades antes de busca/SEO.
 export function richHtmlToPlainText(html: string): string {
   const sanitizedHtml = sanitizeRichHtml(html);
-  return decodeHtmlEntities(sanitizedHtml.replace(BREAK_TAG_RE, '\n').replace(BLOCK_TAG_RE, '\n').replace(HTML_TAG_RE, ''))
+  // Achado CodeQL (github-advanced-security, PR #203): mesma classe do fix acima
+  // — strip de tag em cadeia única deixa resíduo reconstruído por sobreposição;
+  // repete até fixpoint.
+  let stripped = sanitizedHtml;
+  let previousStripPass: string;
+  do {
+    previousStripPass = stripped;
+    stripped = stripped.replace(BREAK_TAG_RE, '\n').replace(BLOCK_TAG_RE, '\n').replace(HTML_TAG_RE, '');
+  } while (stripped !== previousStripPass);
+  return decodeHtmlEntities(stripped)
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n[ \t]+/g, '\n')
     .replace(/[ \t]{2,}/g, ' ')

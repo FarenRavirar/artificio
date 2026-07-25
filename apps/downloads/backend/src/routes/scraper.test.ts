@@ -229,6 +229,23 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
     expect(parsedItems[0]?.description).toBe('Resumo sem HTML');
   });
 
+  // Achado real (review, PR #203): description rodava richHtmlToPlainText
+  // (regex) sem teto de tamanho, ao contrário de descriptionHtml — mesmo
+  // limite (SCRAPER_DESCRIPTION_HTML_MAX_LENGTH) evita DoS por payload gigante
+  // antes de processar; 400 rejeita antes do transform rodar.
+  it('400 quando description excede SCRAPER_DESCRIPTION_HTML_MAX_LENGTH', async () => {
+    const res = await request(app())
+      .post('/api/v1/admin/scraper/ingest')
+      .send({
+        source_platform: 'itch_io',
+        items: [{ ...validItem, description: 'a'.repeat(100_001) }],
+      })
+      .expect(400);
+
+    expect(res.body.error).toMatch(/Payload de ingest inválido/);
+    expect(runScraperIngestMock).not.toHaveBeenCalled();
+  });
+
   it('preserva todos os campos ricos do preview até o payload entregue ao ingest', async () => {
     dbMocks.selectFrom
       .mockReturnValueOnce(platformChain(DMS_GUILD_PLATFORM_ROW))

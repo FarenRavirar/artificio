@@ -14,6 +14,12 @@ import { sanitizeText } from '../sanitizeText';
 import { applyPlatformOverride, type PlatformOverrideInput } from './platformOverrides';
 import { POSTGRES_INTEGER_MAX, type DownloadScraperPlatform } from '../../db/types';
 
+// Achado real (review Codex, PR #203): preview (/parse-html) aceitava
+// descriptionHtml maior que o teto que /ingest impõe (SCRAPER_DESCRIPTION_HTML_MAX_LENGTH
+// em routes/scraper.ts) — reenviar o mesmo preview ao ingest falhava com 400.
+// Constante compartilhada elimina o descompasso entre os dois pontos.
+export const SCRAPER_DESCRIPTION_HTML_MAX_LENGTH = 100_000;
+
 const sourceFilterSchema = z.object({
   facet: z.string().min(1),
   path: z.array(z.string().min(1)).min(1),
@@ -97,7 +103,7 @@ export const genericParsePreviewSchema = z
     format: z.string().nullable().optional(),
     pageCount: z.number().int().nonnegative().max(POSTGRES_INTEGER_MAX).nullable().optional(),
     sourceCategory: z.string().nullable().optional(),
-    descriptionHtml: z.string().nullable().optional(),
+    descriptionHtml: z.string().max(SCRAPER_DESCRIPTION_HTML_MAX_LENGTH).nullable().optional(),
   })
   .strict();
 
