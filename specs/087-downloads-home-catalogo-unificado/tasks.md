@@ -204,7 +204,7 @@ Três achados (Codex P1 + P2, CodeRabbit Major). Todos procedem; nenhum descarta
 
 ## Fase 3 — Busca no Header compartilhado (packages/ui) e unificação de rota
 
-- [ ] T3.0 — Rechecagem antes de editar `packages/ui`: confirmar aprovação nominal de commit já obtida (T0.4) — decisão de design (T0.1) e autorização de commit são ações diferentes (`AGENTS.md` §Autorização: "por ação, não por sessão"), não presumir que uma cobre a outra. · feito quando: aprovação nominal de commit confirmada separadamente antes do primeiro `git add`/`git commit` em `packages/ui`.
+- [x] T3.0 — Rechecagem antes de editar `packages/ui`: confirmar aprovação nominal de commit já obtida (T0.4) — decisão de design (T0.1) e autorização de commit são ações diferentes (`AGENTS.md` §Autorização: "por ação, não por sessão"), não presumir que uma cobre a outra. · feito quando: aprovação nominal de commit confirmada separadamente antes do primeiro `git add`/`git commit` em `packages/ui`.
 - [x] T3.1 — `App.tsx`: rotas `/` e `/catalogo` apontam pro mesmo componente unificado (decisão 1, já fixa — ambas rotas continuam válidas). · feito quando: as duas URLs levam à mesma experiência sem erro 404/duplicação de layout.
 - [x] T3.2 — Remover `HomePage.tsx`/`HomePage.test.tsx` (decisão 1). · feito quando: nenhum import quebrado, `rtk tsc` limpo.
 - [x] T3.3 — Implementar input de busca real no `Header` de `packages/ui` (decisão 2, já fixa): prop nova aditiva (ex. `searchValue`/`onSearchChange`/`searchPlaceholder`), sem quebrar consumidores que não passam a prop. Preservar debounce 300ms e escrita em `?q=` (reaproveitar lógica já existente de `CatalogoPage.tsx` — quem escreve na URL é a página consumidora, não o `Header` em si). `AppShell.tsx` de Downloads liga o `Header` ao estado da página. · feito quando: digitar busca no Header sem sair da tela inicial retorna resultado real e atualiza URL do Downloads; outros módulos que renderizam `Header` sem passar a prop nova continuam funcionando exatamente como antes.
@@ -264,14 +264,39 @@ Auditoria feita contra o **código real**, não contra o `tasks.md`: `AGENTS.md`
 
 ## Fase 5 — Testes e validação
 
-- [ ] T5.1 — Atualizar/criar testes: `CatalogoPage.test.tsx` (ou nome novo) cobrindo modo vitrine e modo resultado, novos sorts; `AppShell.test.tsx` e teste de `Header.tsx` (packages/ui) cobrindo a busca embutida. · feito quando: `rtk pnpm --filter downloads-frontend test` e teste de `packages/ui` verdes.
-- [ ] T5.2 — Lint e build (frontend + backend + packages/ui) + `pnpm verify:api` (contrato de `GET /materials`/`GET /materials/:slug` mudou, Fase 1B). · feito quando: `rtk lint`, `pnpm run build` (downloads-frontend, downloads-backend, packages/ui, e os 6 módulos consumidores de Header) e `pnpm verify:api` verdes, `docs/api/generated/*` regenerado revisado.
+- [x] T5.1 — Atualizar/criar testes: `CatalogoPage.test.tsx` (ou nome novo) cobrindo modo vitrine e modo resultado, novos sorts; `AppShell.test.tsx` e teste de `Header.tsx` (packages/ui) cobrindo a busca embutida. · feito quando: `rtk pnpm --filter downloads-frontend test` e teste de `packages/ui` verdes.
+- [x] T5.2 — Lint e build (frontend + backend + packages/ui) + `pnpm verify:api` (contrato de `GET /materials`/`GET /materials/:slug` mudou, Fase 1B). · feito quando: `rtk lint`, `pnpm run build` (downloads-frontend, downloads-backend, packages/ui, e os 6 módulos consumidores de Header) e `pnpm verify:api` verdes, `docs/api/generated/*` regenerado revisado.
 - [ ] T5.3 — Smoke manual local (dev server) cobrindo: carregar home com prateleiras, buscar termo real pelo Header, aplicar filtro via pill, paginar, voltar ao modo vitrine limpando filtro, ordenar por Mais visitados/Mais bem avaliados no modo resultado, mobile, tema claro e escuro. · feito quando: cada passo executado e resultado registrado (não é "deveria funcionar" — é execução real).
 
 ## Fase 6 — Deploy e fechamento
 
-- [ ] T6.0 — Rechecagem de gate antes de declarar a spec fechada: gate D exige "projeto atual passou smoke" — reconfirmar que T6.2 (smoke beta real) rodou de fato, não só T5.3 (smoke local). `AGENTS.md` §Conclusão de Tarefas proíbe fechar com "local"/"parcial"/"validado em dist local" contando como concluído. · feito quando: smoke beta real (T6.2) confirmado antes de qualquer atualização de status para "fechado" em T6.3.
-- [ ] T6.1 — Commit/PR (autorização nominal por ação, conforme `AGENTS.md` — já confirmada em T0.4/T3.0 pra `packages/ui`, mas commit em si continua exigindo autorização própria a cada vez). · feito quando: PR aberta contra `dev`, ready for review.
-- [ ] T6.2 — Deploy beta (autorização nominal) + smoke real em `downloadsbeta.artificiorpg.com`, incluindo teste manual do corte de elegibilidade (material real com views e sem downloads, confirmar ausência na prateleira). · feito quando: prateleiras/busca/filtro/ordenação confirmados funcionando em beta real, não só local.
-- [ ] T6.3 — Atualizar `specs/backlog.md` com o fechamento (ou débito residual, se houver) e `.specify/memory/project-state.md` se mudar estado operacional do gate D. · feito quando: backlog refletindo o estado real pós-implementação.
+- [x] T6.0 — Rechecagem de gate antes de declarar a spec fechada: gate D exige "projeto atual passou smoke" — reconfirmar que T6.2 (smoke beta real) rodou de fato, não só T5.3 (smoke local). `AGENTS.md` §Conclusão de Tarefas proíbe fechar com "local"/"parcial"/"validado em dist local" contando como concluído. · feito quando: smoke beta real (T6.2) confirmado antes de qualquer atualização de status para "fechado" em T6.3.
+- [x] T6.1 — Commit/PR (autorização nominal por ação, conforme `AGENTS.md` — já confirmada em T0.4/T3.0 pra `packages/ui`, mas commit em si continua exigindo autorização própria a cada vez). · feito quando: PR aberta contra `dev`, ready for review.
+- [x] T6.2 — Deploy beta (autorização nominal) + smoke real em `downloadsbeta.artificiorpg.com`, incluindo teste manual do corte de elegibilidade (material real com views e sem downloads, confirmar ausência na prateleira). · feito quando: prateleiras/busca/filtro/ordenação confirmados funcionando em beta real, não só local.
+- [x] T6.3 — Atualizar `specs/backlog.md` com o fechamento (ou débito residual, se houver) e `.specify/memory/project-state.md` se mudar estado operacional do gate D. · feito quando: backlog refletindo o estado real pós-implementação.
+
+### Fechamento da spec 087 — 2026-07-26
+
+Spec **fechada com débito residual explícito**. O que foi entregue está em produção-beta e verificado; o que não foi está nomeado abaixo, não diluído em "parcial".
+
+#### Deploy e smoke beta (T6.2) — executado
+
+- Merge da PR #215 em `dev` (`a166085`), deploy beta disparado por autorização nominal do mantenedor: `gh workflow run deploy.yml --ref dev -f module=downloads -f mode=deploy -f env=beta`, run [30222244974](https://github.com/FarenRavirar/artificio/actions/runs/30222244974), conclusão **success**.
+- **Migration:** inspeção read-only do banco de beta ANTES do disparo — 28 aplicadas, 29 em disco, delta de exatamente 1 (`migration_029_download_material_view.sql`, vinda da PR #214). Guard `MAX_AUTO_PENDING=5` com folga, sem drift reverso. Migration é `online-safe`, 5 campos de header, idempotente, sem DDL destrutivo: aplicada pelo `apply_required_migrations.sh` no próprio deploy. **Nenhuma intervenção manual por SSH foi necessária nem executada.**
+- **Rotas críticas de beta:** `health=200`, `home=200`, `/catalogo=200`, `private_no_cookie=401`.
+- **Critério de aceite central (corte de elegibilidade) — PROVADO com dado real, não por teste mockado:** `sort=recent` devolve `total=103`, `sort=popular` devolve `total=103`, e **`sort=trending` devolve `total=2`**. Os 101 materiais com visualização e zero download são **excluídos** da ordenação, não mandados pro fim da lista — exatamente o que o Requisito 15/16 exige e o que o mantenedor pediu explicitamente ao rejeitar a fórmula linear anterior.
+- **Requisito 15 (rating sem nota) confirmado em beta:** `sort=rating` devolve `total=0` e os itens de `sort=recent` vêm com `avg_rating: null` / `rating_count: 0` — acervo de beta ainda não tem avaliação, e nenhum material aparece como "0 estrelas".
+
+#### Débito residual — NÃO entregue, permanece aberto
+
+Estes itens não foram executados e **não** estão sendo contados como concluídos:
+
+1. **T3.4 / T4.1 / T4.3 — smoke visual e de viewport real.** Nunca executados: browser interno indisponível neste ambiente e Chrome com perfil real não autorizado. Existe evidência de build/teste dos 6 consumidores do `Header` e verificação HTTP das rotas, o que **não** substitui inspeção visual nos dois temas e nas 4 larguras. Decisão do mantenedor de deixar aberto registrada em 2026-07-26.
+2. **T4.4 — canonical route-aware.** Não existe no código. Bloqueada pela decisão não tomada do alvo canônico único (`/` ou `/catalogo`). É critério de aceite da spec: enquanto não for implementada, `/` e `/catalogo` servem o mesmo conteúdo sem consolidar sinal de indexação.
+3. **T5.3 — smoke manual local em dev server.** Não executado, mesmo bloqueio de browser. Parcialmente coberto pelo smoke HTTP de beta (T6.2), que é ambiente mais forte, mas não cobre interação real (pill, drawer, paginação por clique, tema).
+4. **T6.4 — promoção para produção.** Fora desta rodada por definição da própria task; exige `workflow_dispatch` nominal separado em `--ref main`. **Produção segue sem esta spec.**
+
+#### Achado documental registrado (não corrigido)
+
+`plan.md` §Tipografia afirma "Oswald aparece em exatamente 2 lugares — título de prateleira e crédito. Nada mais", mas a tabela imediatamente acima lista um terceiro papel em Oswald ("Rating numérico"). O código seguiu a tabela (3 usos). Corrigir a frase alteraria direção de design já aprovada na Fase 1, o que exige nova aprovação do mantenedor — por isso fica registrado, não editado.
 - [ ] T6.4 — Promoção pra prod (autorização nominal separada, `workflow_dispatch` manual) — fora desta rodada salvo pedido explícito. · feito quando: `gh run list --workflow=deploy.yml --branch=main` confirma deploy real, não só merge de Git.
