@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
-import { POSTGRES_INTEGER_MAX, type JSONColumnType } from '../db/types';
+import { POSTGRES_INTEGER_MAX } from '../db/types';
+import { toJsonColumnValue } from '../db/jsonColumn';
 import { sanitizeRichHtml } from '../services/sanitizeRichHtml';
 
 const router = Router();
@@ -147,10 +148,10 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
   // de entregar ao Kysely, forçando o parâmetro a chegar como texto JSON —
   // scraperIngest.ts tem o mesmo bug e precisa do mesmo fix (ver TODO lá).
   const jsonFields = {
-    access_barriers: JSON.stringify(patch.access_barriers ?? []) as unknown as JSONColumnType<string[]>,
-    content_warnings: JSON.stringify(patch.content_warnings ?? []) as unknown as JSONColumnType<string[]>,
-    tags: JSON.stringify(patch.tags ?? []) as unknown as JSONColumnType<string[]>,
-    source_filters: JSON.stringify(patch.source_filters ?? []) as unknown as JSONColumnType<Array<{ facet: string; path: string[] }>>,
+    access_barriers: toJsonColumnValue(patch.access_barriers ?? []),
+    content_warnings: toJsonColumnValue(patch.content_warnings ?? []),
+    tags: toJsonColumnValue(patch.tags ?? []),
+    source_filters: toJsonColumnValue(patch.source_filters ?? []),
   };
 
   const updateFields = Object.fromEntries(

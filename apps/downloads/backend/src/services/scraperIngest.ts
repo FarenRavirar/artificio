@@ -10,7 +10,8 @@ import {
   type FlatCatalogSystem,
 } from './catalogClient';
 import type { ScrapedItem } from './scrapers/types';
-import type { Database, DownloadSourcePlatform, DownloadScraperItemOutcome, JSONColumnType } from '../db/types';
+import type { Database, DownloadSourcePlatform, DownloadScraperItemOutcome } from '../db/types';
+import { toJsonColumnValue } from '../db/jsonColumn';
 
 // T4.2 (spec 084) — pipeline unico de criacao/dedupe, reusado por todo
 // adapter (Fase 3) e pelo Modo 3 (payload de ingest manual, Fase 6). Ordem
@@ -258,12 +259,12 @@ async function processItem(
           // `{}` no banco (sintaxe JSON válida como objeto vazio, quebra o
           // parse Zod que espera array). JSON.stringify explícito força o
           // parâmetro a chegar como texto JSON.
-          tags: JSON.stringify(item.tags ?? []) as unknown as JSONColumnType<string[]>,
+          tags: toJsonColumnValue(item.tags ?? []),
           file_size_text: item.fileSizeText ?? null,
           page_count: item.pageCount ?? null,
           creation_method: item.creationMethod ?? null,
           source_category: item.sourceCategory ?? null,
-          source_filters: JSON.stringify(item.sourceFilters ?? []) as unknown as JSONColumnType<Array<{ facet: string; path: string[] }>>,
+          source_filters: toJsonColumnValue(item.sourceFilters ?? []),
           description_html: item.descriptionHtml ?? null,
         })
         .execute();
