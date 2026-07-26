@@ -89,6 +89,14 @@
   --state-info-bg:      rgba(56, 189, 248, 0.16);
   --state-info-line:    rgba(56, 189, 248, 0.30);
   --state-info-fg:      var(--artificio-info-text);
+  /* estado "de marca" (filtro ativo, badge de destaque): mesma familia dos
+     demais --state-*, sobre o laranja --artificio-brand. Existia solto como
+     rgba cru em .artificio-badge-brand; virou token no review da PR #214
+     (Codex, P1) pra que filtro ativo do Downloads e badge de marca nao
+     divirjam de tema nem precisem repetir a cor. */
+  --state-brand-bg:     rgba(255, 87, 34, 0.14);
+  --state-brand-line:   rgba(255, 87, 34, 0.34);
+  --state-brand-fg:     var(--artificio-brand-deep);
 
   /* botão primário unificado (espelha .artificio-login-button): navy sólido + texto branco
      no claro; laranja sólido + texto navy no escuro (acento de marca legível). */
@@ -125,6 +133,9 @@
   --state-warning-fg: #fcd34d;
   --state-danger-fg:  #fca5a5;
   --state-info-fg:    #93c5fd;
+  /* --artificio-brand-deep (#e64a19) e escuro demais sobre o navy do tema
+     escuro; clareia p/ AA, mesmo tratamento dos outros estados. */
+  --state-brand-fg:   #ffab91;
 
   /* botão primário no escuro: laranja sólido + texto navy */
   --btn-primary-bg: var(--artificio-brand);
@@ -739,9 +750,9 @@
 }
 
 .artificio-badge-brand {
-  background: rgba(255, 87, 34, 0.14);
-  border-color: rgba(255, 87, 34, 0.34);
-  color: var(--artificio-brand-deep);
+  background: var(--state-brand-bg);
+  border-color: var(--state-brand-line);
+  color: var(--state-brand-fg);
 }
 
 .artificio-badge-success {

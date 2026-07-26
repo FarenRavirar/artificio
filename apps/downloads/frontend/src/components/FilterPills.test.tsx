@@ -94,4 +94,44 @@ describe('FilterPills', () => {
 
     expect(tipo).toHaveAttribute('aria-expanded', 'false');
   });
+
+  it('fecha o popover ao clicar fora', () => {
+    mockFacets();
+    render(<FilterPills values={EMPTY} onChange={vi.fn()} activeLabels={{}} />);
+
+    const tipo = screen.getByRole('button', { name: 'Tipo' });
+    fireEvent.click(tipo);
+    fireEvent.pointerDown(document.body);
+
+    expect(tipo).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  // Fechar por teclado sem devolver o foco joga quem navega por Tab de volta
+  // pro inicio do documento.
+  it('devolve o foco à pill ao fechar com Escape', () => {
+    mockFacets();
+    render(<FilterPills values={EMPTY} onChange={vi.fn()} activeLabels={{}} />);
+
+    const tipo = screen.getByRole('button', { name: 'Tipo' });
+    fireEvent.click(tipo);
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(tipo).toHaveFocus();
+  });
+
+  // activeLabels chega depois das facetas; ate la a pill nao pode exibir o UUID
+  // que esta no filtro.
+  it('não mostra o id cru enquanto o rótulo do valor ativo não chegou', () => {
+    mockFacets();
+    render(
+      <FilterPills
+        values={{ ...EMPTY, system_id: 'sys-1' }}
+        onChange={vi.fn()}
+        activeLabels={{}}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: /sys-1/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sistema: …' })).toBeInTheDocument();
+  });
 });

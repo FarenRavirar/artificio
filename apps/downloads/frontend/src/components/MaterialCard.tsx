@@ -35,7 +35,10 @@ export function MaterialCard({ material }: Readonly<MaterialCardProps>) {
   // D119) — o oposto de uma loja, que esconde quem fez. Sem credito, o acervo
   // assume a autoria em vez de deixar buraco: o eyebrow nunca colapsa a altura
   // do card nem fica em branco.
-  const creditLabel = material.credits ?? 'Acervo Artifício';
+  // `??` sozinho nao basta: credits vem de scraper e de formulario, entao ""
+  // e "   " chegam ate aqui e passariam pelo null-check, renderizando um
+  // eyebrow em branco (achado de review PR #214, CodeRabbit).
+  const creditLabel = material.credits?.trim() || 'Acervo Artifício';
 
   return (
     <article className="relative overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface-subtle)] transition hover:border-artificio-orange focus-within:ring-2 focus-within:ring-artificio-orange">

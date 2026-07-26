@@ -57,17 +57,18 @@ export function MaterialShelf({
       {isLoading ? (
         <p className="text-[var(--fg-muted)]">Carregando...</p>
       ) : (
-        <ul
-          className="flex snap-x gap-3 overflow-x-auto pb-2"
-          style={{ scrollSnapType: 'x proximity' }}
-        >
+        // `snap-proximity`, nao `snap-mandatory`: o trilho sugere parada nos
+        // cards sem sequestrar o gesto de rolagem no meio do caminho.
+        <ul className="flex snap-x snap-proximity gap-3 overflow-x-auto pb-2">
           {items.map((material, index) => (
             <li
               key={material.id}
-              className="w-[220px] shrink-0 lg:w-[240px]"
-              // Ultimo card alinha pelo fim pra prateleira nao parar cortando
-              // o item final no meio.
-              style={{ scrollSnapAlign: index === items.length - 1 ? 'end' : 'start' }}
+              className={[
+                'w-[220px] shrink-0 lg:w-[240px]',
+                // Ultimo card alinha pelo fim pra prateleira nao parar cortando
+                // o item final no meio.
+                index === items.length - 1 ? 'snap-end' : 'snap-start',
+              ].join(' ')}
             >
               <MaterialCard material={material} />
             </li>

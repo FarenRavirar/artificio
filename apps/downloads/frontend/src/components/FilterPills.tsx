@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { FilterControls, type CatalogFilterValues, type FilterGroupKey } from './FilterControls';
 
 interface FilterPillsProps {
@@ -23,7 +23,16 @@ const PILLS: readonly { key: FilterGroupKey; label: string }[] = [
 export function FilterPills({ values, onChange, activeLabels }: Readonly<FilterPillsProps>) {
   const [openPill, setOpenPill] = useState<FilterGroupKey | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRefs = useRef<Partial<Record<FilterGroupKey, HTMLButtonElement | null>>>({});
   const popoverId = useId();
+
+  // Fechar o popover devolve o foco pro gatilho que o abriu (achado de review
+  // PR #214, CodeRabbit): sem isso, quem navega por teclado perde a posicao e
+  // volta pro inicio do documento quando o popover some.
+  const closeAndRestoreFocus = useCallback((key: FilterGroupKey | null) => {
+    setOpenPill(null);
+    if (key) triggerRefs.current[key]?.focus();
+  }, []);
 
   // Escape e clique-fora fecham o popover — mesmas affordances do
   // .artificio-usermenu-dropdown de packages/ui, pra que o comportamento de
@@ -31,7 +40,7 @@ export function FilterPills({ values, onChange, activeLabels }: Readonly<FilterP
   useEffect(() => {
     if (!openPill) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenPill(null);
+      if (event.key === 'Escape') closeAndRestoreFocus(openPill);
     };
     const onPointerDown = (event: PointerEvent) => {
       if (!containerRef.current?.contains(event.target as Node)) setOpenPill(null);
@@ -42,30 +51,43 @@ export function FilterPills({ values, onChange, activeLabels }: Readonly<FilterP
       document.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('pointerdown', onPointerDown);
     };
-  }, [openPill]);
+  }, [openPill, closeAndRestoreFocus]);
 
   return (
     <div ref={containerRef} className="flex flex-wrap gap-2">
       {PILLS.map(({ key, label }) => {
-        const activeLabel = values[key] ? activeLabels[key] ?? values[key] : null;
+        // Sem rotulo resolvido ainda (facetas em voo), mostra reticencia em vez
+        // do valor cru (achado de review PR #214, CodeRabbit): values[key] e um
+        // UUID, e "Sistema: 9f3a-..." nao diz nada a ninguem.
+        const isActive = Boolean(values[key]);
+        const activeLabel = isActive ? activeLabels[key] ?? '…' : null;
         const isOpen = openPill === key;
 
         return (
           <div key={key} className="relative">
+            {/* Achado de review PR #214 (Codex, P1): a pill usava
+                rgba(255,87,34,0.10) cru, fora do design system e cego a tema.
+                Agora consome --state-brand-*, criado em packages/ui na mesma
+                familia dos outros estados (success/warning/danger/info). */}
             <span
               className={[
-                'inline-flex h-9 items-center gap-1 rounded-full border px-3 text-sm font-semibold transition',
+                'inline-flex min-h-11 items-center gap-1 rounded-full border px-3 text-sm font-semibold transition',
                 activeLabel
-                  ? 'border-artificio-orange bg-[rgba(255,87,34,0.10)] text-[var(--artificio-brand-deep)]'
+                  ? 'border-[var(--state-brand-line)] bg-[var(--state-brand-bg)] text-[var(--state-brand-fg)]'
                   : 'border-[var(--line)] bg-[var(--fill-subtle)] text-[var(--fg)] hover:border-[var(--line-strong)] hover:bg-[var(--fill)]',
               ].join(' ')}
             >
+              {/* Achado de review PR #214 (Codex, P1): min-h-11 (44px) em CADA
+                  alvo, nao so no container — a altura da pill nao vira area
+                  clicavel do botao interno, entao abrir e remover filtro
+                  ficavam abaixo do minimo de toque. Antecipa T4.2. */}
               <button
                 type="button"
+                ref={(node) => { triggerRefs.current[key] = node; }}
                 aria-expanded={isOpen}
                 aria-controls={isOpen ? `${popoverId}-${key}` : undefined}
                 onClick={() => setOpenPill(isOpen ? null : key)}
-                className="focus:outline-none focus-visible:underline"
+                className="inline-flex min-h-11 items-center focus:outline-none focus-visible:underline"
               >
                 {activeLabel ? `${label}: ${activeLabel}` : label}
               </button>
@@ -76,7 +98,7 @@ export function FilterPills({ values, onChange, activeLabels }: Readonly<FilterP
                     onChange(key, '');
                     setOpenPill(null);
                   }}
-                  className="text-base leading-none focus:outline-none focus-visible:underline"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center text-base leading-none focus:outline-none focus-visible:underline"
                 >
                   <span aria-hidden="true">⊗</span>
                   <span className="sr-only">Remover filtro {label}</span>
@@ -94,7 +116,9 @@ export function FilterPills({ values, onChange, activeLabels }: Readonly<FilterP
                   groups={[key]}
                   onChange={(changedKey, value) => {
                     onChange(changedKey, value);
-                    setOpenPill(null);
+                    // Escolher uma opcao fecha o popover; o foco volta pra pill
+                    // pra que o teclado continue de onde estava.
+                    closeAndRestoreFocus(key);
                   }}
                 />
               </div>

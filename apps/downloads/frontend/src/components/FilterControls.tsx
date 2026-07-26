@@ -60,9 +60,14 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
 
   return (
     <div className="flex flex-col gap-5 p-3">
+      {/* fieldset/legend, nao section/h2 (achado de review PR #214,
+          CodeRabbit): o titulo do grupo precisa ser o NOME ACESSIVEL do
+          conjunto de radios, senao o leitor de tela anuncia so "Todos" sem
+          dizer todos de que. Como bonus, some com <h2> solto de dentro de um
+          popover, que bagunçava a hierarquia de cabecalhos da pagina. */}
       {shows('material_type') && (
-        <section>
-          <h2 className={GROUP_TITLE_CLASS}>Tipo de material</h2>
+        <fieldset>
+          <legend className={GROUP_TITLE_CLASS}>Tipo de material</legend>
           <div className="flex flex-col gap-1">
             <label className={RADIO_CLASS}>
               <input
@@ -85,12 +90,12 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
               </label>
             ))}
           </div>
-        </section>
+        </fieldset>
       )}
 
       {shows('system_id') && systemOptions.length > 0 && (
-        <section>
-          <h2 className={GROUP_TITLE_CLASS}>Sistema</h2>
+        <fieldset>
+          <legend className={GROUP_TITLE_CLASS}>Sistema</legend>
           <div className="flex flex-col gap-1">
             <label className={RADIO_CLASS}>
               <input
@@ -113,12 +118,12 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
               </label>
             ))}
           </div>
-        </section>
+        </fieldset>
       )}
 
       {shows('edition_id') && editionOptions.length > 0 && (
-        <section>
-          <h2 className={GROUP_TITLE_CLASS}>Edição</h2>
+        <fieldset>
+          <legend className={GROUP_TITLE_CLASS}>Edição</legend>
           <div className="flex flex-col gap-1">
             <label className={RADIO_CLASS}>
               <input
@@ -141,7 +146,7 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
               </label>
             ))}
           </div>
-        </section>
+        </fieldset>
       )}
     </div>
   );

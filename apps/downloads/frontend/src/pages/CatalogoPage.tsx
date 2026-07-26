@@ -94,12 +94,20 @@ export function CatalogoPage() {
   // Spec 087 (T2.2) — modo vitrine vs. modo resultado.
   //
   // A rota e UMA so (decisao central da spec: home = catalogo). O que muda o
-  // modo e a ausencia de intencao do usuario: sem busca e sem filtro, nao ha
-  // "resultado" a mostrar — ha um acervo a apresentar. Nota: `sort` NAO entra
-  // nessa conta de proposito. Trocar a ordenacao e navegar pela vitrine, nao
-  // buscar; se `sort` derrubasse o modo, clicar em "Ver tudo" numa prateleira
-  // pareceria uma busca vazia.
-  const isBrowsing = !q && !materialType && !systemId && !editionId;
+  // modo e a ausencia de intencao do usuario: sem busca, sem filtro e sem
+  // ordenacao escolhida, nao ha "resultado" a mostrar — ha um acervo a
+  // apresentar.
+  //
+  // `sort` EXPLICITO na URL conta como intencao (achado de review PR #214,
+  // Codex P1). O comentario anterior aqui dizia o oposto — que sort nao devia
+  // derrubar a vitrine pra "Ver tudo" nao parecer busca vazia — e estava
+  // invertido: "Ver tudo" aponta justamente pra `?sort=trending|rating|recent`,
+  // entao ignorar sort fazia o link voltar pra vitrine com as mesmas tres
+  // prateleiras, sem nunca abrir a lista paginada que ele promete.
+  //
+  // Testado por `has`, nao pelo valor: `sort` tem default 'recent', entao
+  // comparar valor nao distinguiria "/catalogo" de "/catalogo?sort=recent".
+  const isBrowsing = !q && !materialType && !systemId && !editionId && !searchParams.has('sort');
 
   const { data, isLoading, isError } = useMaterialsCatalog(
     {
@@ -146,6 +154,11 @@ export function CatalogoPage() {
         <div className="mb-6 flex flex-wrap gap-3">
           <label className="flex-1 min-w-[200px]">
             <span className="sr-only">Buscar materiais</span>
+            {/* O placeholder so promete o que o backend entrega: a busca cobre
+                title/summary, nome do autor (download_creator) e nome do
+                sistema resolvido no Catalogo Central — routes/materials.ts,
+                cobertura ampliada no review da PR #214 (Codex, P2). Mudar um
+                lado exige mudar o outro. */}
             <input
               type="search"
               value={searchDraft}

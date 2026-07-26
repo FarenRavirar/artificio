@@ -88,9 +88,30 @@ describe('CatalogoPage — modo vitrine vs. modo resultado', () => {
     });
   });
 
-  it('trocar so a ordenação continua sendo vitrine, não vira busca vazia', async () => {
-    // `sort` deliberadamente NAO entra no calculo de isBrowsing: clicar em
-    // "Ver tudo" numa prateleira nao pode parecer um resultado de busca.
+  // Achado de review PR #214 (Codex, P1): `sort` explicito na URL e o destino
+  // dos links "Ver tudo" das prateleiras. Antes ele nao derrubava a vitrine,
+  // entao "Ver tudo" devolvia as mesmas tres prateleiras em vez da lista
+  // paginada que promete.
+  it('"Ver tudo" de uma prateleira (sort explícito) abre o modo resultado', async () => {
+    mockEmptyList();
+    renderPage(['/catalogo?sort=trending']);
+
+    expect(await screen.findByLabelText('Ordenar por')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Recém adicionados' })).not.toBeInTheDocument();
+  });
+
+  // O default de `sort` e 'recent'; o modo tem que sair de haver ou nao o
+  // parametro, nunca do valor — senao /catalogo e /catalogo?sort=recent
+  // renderizariam igual e "Ver tudo" da prateleira de recentes quebraria.
+  it('sort=recent explícito também é modo resultado, apesar de ser o default', async () => {
+    mockEmptyList();
+    renderPage(['/catalogo?sort=recent']);
+
+    expect(await screen.findByLabelText('Ordenar por')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Recém adicionados' })).not.toBeInTheDocument();
+  });
+
+  it('sem nenhum parâmetro, segue vitrine e não mostra lista vazia', async () => {
     // Prateleira precisa de item pra renderizar (Requisito 16), entao aqui o
     // mock devolve material — com lista vazia a ausencia de cabecalho seria
     // ambigua entre "e vitrine sem item" e "virou modo resultado".
@@ -100,7 +121,7 @@ describe('CatalogoPage — modo vitrine vs. modo resultado', () => {
       isError: false,
     } as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
 
-    renderPage(['/catalogo?sort=trending']);
+    renderPage(['/catalogo']);
 
     expect(await screen.findByRole('heading', { name: 'Recém adicionados' })).toBeInTheDocument();
     expect(screen.queryByText(/nenhum material com esses filtros/i)).not.toBeInTheDocument();

@@ -14,6 +14,9 @@ const catalogMocks = vi.hoisted(() => ({
   loadCatalogMaterialTypes: vi.fn(),
   getCatalogMaterialTypeById: vi.fn(),
   getCatalogNodeById: vi.fn(),
+  // Spec 087 (achado de review PR #214) — busca textual passa a casar tambem
+  // nome de sistema, resolvido no snapshot do Catalogo Central.
+  matchTaxonomyIdsByName: vi.fn(),
 }));
 
 vi.mock('../db', () => ({
@@ -42,6 +45,7 @@ const metricsMocks = vi.hoisted(() => ({
   loadTrendingOrder: vi.fn(),
   loadRatingOrder: vi.fn(),
   registerMaterialView: vi.fn(),
+  invalidateCatalogAnchorCache: vi.fn(),
 }));
 
 vi.mock('../services/materialMetrics', () => metricsMocks);
@@ -92,6 +96,8 @@ describe('GET /api/v1/materials — listagem publica', () => {
     catalogMocks.loadCatalogMaterialTypes.mockResolvedValue([]);
     catalogMocks.getCatalogMaterialTypeById.mockReset();
     catalogMocks.getCatalogNodeById.mockReset();
+    catalogMocks.matchTaxonomyIdsByName.mockReset();
+    catalogMocks.matchTaxonomyIdsByName.mockResolvedValue([]);
     metricsMocks.loadRatingAggregates.mockReset();
     metricsMocks.loadRatingAggregates.mockResolvedValue(new Map());
     metricsMocks.loadPopularityScores.mockReset();
@@ -156,6 +162,49 @@ describe('GET /api/v1/materials — listagem publica', () => {
     await request(app())
       .get('/api/v1/materials')
       .query({ q: 'aventura', material_type: 'b071ab5e-2d16-4c58-8f0e-086000000001' })
+      .expect(200);
+
+    expect(builder.where).toHaveBeenCalled();
+  });
+
+  // Achado de review PR #214 (Codex, P2): o placeholder prometia busca por
+  // "título, autor ou sistema" mas a query so cobria title/summary.
+  it('busca textual consulta a taxonomia pelo termo, para casar nome de sistema', async () => {
+    const builder = makeQueryBuilder([], 0);
+    dbMocks.selectFrom.mockReturnValue(builder);
+    catalogMocks.matchTaxonomyIdsByName.mockResolvedValue(['sys-dnd']);
+
+    await request(app())
+      .get('/api/v1/materials')
+      .query({ q: 'D&D' })
+      .expect(200);
+
+    expect(catalogMocks.matchTaxonomyIdsByName).toHaveBeenCalledWith('D&D');
+  });
+
+  // Sem termo de busca nao ha o que casar na taxonomia — evita ida inutil ao
+  // snapshot em toda listagem sem `q` (a vitrine inteira cai nesse caso).
+  it('não consulta a taxonomia quando não há termo de busca', async () => {
+    const builder = makeQueryBuilder([], 0);
+    dbMocks.selectFrom.mockReturnValue(builder);
+
+    await request(app())
+      .get('/api/v1/materials')
+      .expect(200);
+
+    expect(catalogMocks.matchTaxonomyIdsByName).not.toHaveBeenCalled();
+  });
+
+  // Catalogo Central fora do ar nao pode derrubar a busca: matchTaxonomyIdsByName
+  // devolve [] e a listagem segue casando titulo/resumo/autor.
+  it('responde 200 quando a taxonomia não devolve nenhum id para o termo', async () => {
+    const builder = makeQueryBuilder([], 0);
+    dbMocks.selectFrom.mockReturnValue(builder);
+    catalogMocks.matchTaxonomyIdsByName.mockResolvedValue([]);
+
+    await request(app())
+      .get('/api/v1/materials')
+      .query({ q: 'termo-sem-sistema' })
       .expect(200);
 
     expect(builder.where).toHaveBeenCalled();

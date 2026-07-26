@@ -7,8 +7,17 @@ interface MaterialRatingProps {
 
 const STAR_COUNT = 5;
 
+// Intl com locale explicito em vez de `toFixed(1).replace('.', ',')` (achado
+// de review PR #214, CodeRabbit): o replace assume que o separador decimal e
+// sempre ponto, o que quebraria se a formatacao passasse a depender do locale
+// do runtime. pt-BR fixo porque o produto e pt-BR.
+const ratingFormatter = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
 function formatRating(value: number): string {
-  return value.toFixed(1).replace('.', ',');
+  return ratingFormatter.format(value);
 }
 
 function pluralizeReviews(count: number): string {

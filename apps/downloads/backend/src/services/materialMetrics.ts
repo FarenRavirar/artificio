@@ -99,6 +99,82 @@ export interface RatingAggregate {
 }
 
 /**
+ * TTL das ancoras de catalogo (o `C` da formula). Curto de proposito: a ancora
+ * so muda quando o catalogo INTEIRO se move, o que e lento por natureza, mas
+ * 30s garantem que uma avaliacao nova apareca refletida quase de imediato.
+ * Mesmo TTL e mesmo formato do facetsCache de routes/materials.ts.
+ */
+const CATALOG_ANCHOR_CACHE_TTL_MS = 30 * 1000;
+
+/**
+ * Achado de review PR #214 (CodeRabbit): as duas ancoras eram recalculadas a
+ * cada request — e a de popularidade, duas vezes no mesmo request quando
+ * `sort=trending` (loadTrendingOrder + loadPopularityScores repetiam a mesma
+ * agregacao de 30 dias). Sao agregacoes sobre o catalogo inteiro, iguais pra
+ * todos os materiais e para todas as paginas, entao ficam em cache.
+ */
+let ratingAnchorCache: { value: number; expiresAt: number } | null = null;
+let popularityAnchorCache: { value: number; expiresAt: number } | null = null;
+
+/** Media geral das avaliacoes (C do rating). Ancora estavel entre paginas. */
+async function loadRatingAnchor(): Promise<number> {
+  const now = Date.now();
+  if (ratingAnchorCache && ratingAnchorCache.expiresAt > now) return ratingAnchorCache.value;
+
+  const catalogRow = await db
+    .selectFrom('download_rating')
+    .select(({ fn }) => [fn.avg<number>('score').as('catalog_mean')])
+    .executeTakeFirst();
+
+  const value = Number(catalogRow?.catalog_mean ?? 0);
+  ratingAnchorCache = { value, expiresAt: now + CATALOG_ANCHOR_CACHE_TTL_MS };
+  return value;
+}
+
+/**
+ * Taxa de conversao do catalogo ELEGIVEL na janela (C da popularidade). Nao
+ * dilui a ancora com material que nunca converteu — senao a media geral
+ * despencaria e qualquer download isolado pareceria excelente.
+ */
+async function loadPopularityAnchor(): Promise<number> {
+  const now = Date.now();
+  if (popularityAnchorCache && popularityAnchorCache.expiresAt > now) return popularityAnchorCache.value;
+
+  const catalogRow = await db
+    .selectFrom(
+      db
+        .selectFrom('download_metric_daily')
+        .select(({ fn }) => [
+          'material_id',
+          fn.sum<number>('download_count').as('downloads'),
+          fn.sum<number>('view_count').as('views'),
+        ])
+        .where('metric_date', '>=', popularityWindowStart())
+        .groupBy('material_id')
+        .having(({ fn, eb }) => eb(fn.sum<number>('download_count'), '>=', 1))
+        .as('eligible'),
+    )
+    .select(({ fn }) => [
+      fn.sum<number>('eligible.downloads').as('total_downloads'),
+      fn.sum<number>('eligible.views').as('total_views'),
+    ])
+    .executeTakeFirst();
+
+  const catalogDownloads = Number(catalogRow?.total_downloads ?? 0);
+  const catalogViews = Number(catalogRow?.total_views ?? 0);
+  const catalogEvents = catalogDownloads + catalogViews;
+  const value = catalogEvents > 0 ? catalogDownloads / catalogEvents : 0;
+  popularityAnchorCache = { value, expiresAt: now + CATALOG_ANCHOR_CACHE_TTL_MS };
+  return value;
+}
+
+/** Zera as ancoras (usado em teste, e apos escrita que mova o catalogo). */
+export function invalidateCatalogAnchorCache(): void {
+  ratingAnchorCache = null;
+  popularityAnchorCache = null;
+}
+
+/**
  * Rating Bayesian por material (T1B.2). `avg_rating` sai ajustado; a contagem
  * sai crua, porque o card exibe "12 avaliacoes" real — mostrar contagem
  * ajustada seria mentir sobre quantas pessoas opinaram.
@@ -110,12 +186,7 @@ export async function loadRatingAggregates(materialIds: string[]): Promise<Map<s
   // C da formula: media geral do catalogo inteiro, nao so da pagina — a ancora
   // precisa ser estavel entre paginas, senao o mesmo material teria score
   // diferente dependendo de onde aparece.
-  const catalogRow = await db
-    .selectFrom('download_rating')
-    .select(({ fn }) => [fn.avg<number>('score').as('catalog_mean')])
-    .executeTakeFirst();
-
-  const catalogMean = Number(catalogRow?.catalog_mean ?? 0);
+  const catalogMean = await loadRatingAnchor();
 
   const rows = await db
     .selectFrom('download_rating')
@@ -159,33 +230,10 @@ export async function loadPopularityScores(materialIds: string[]): Promise<Map<s
 
   const windowStart = popularityWindowStart();
 
-  // C: taxa de conversao do catalogo ELEGIVEL (>= 1 download na janela). Nao
-  // dilui a ancora com material que nunca converteu — senao a media geral
-  // despencaria e qualquer download isolado pareceria excelente.
-  const catalogRow = await db
-    .selectFrom(
-      db
-        .selectFrom('download_metric_daily')
-        .select(({ fn }) => [
-          'material_id',
-          fn.sum<number>('download_count').as('downloads'),
-          fn.sum<number>('view_count').as('views'),
-        ])
-        .where('metric_date', '>=', windowStart)
-        .groupBy('material_id')
-        .having(({ fn, eb }) => eb(fn.sum<number>('download_count'), '>=', 1))
-        .as('eligible'),
-    )
-    .select(({ fn }) => [
-      fn.sum<number>('eligible.downloads').as('total_downloads'),
-      fn.sum<number>('eligible.views').as('total_views'),
-    ])
-    .executeTakeFirst();
-
-  const catalogDownloads = Number(catalogRow?.total_downloads ?? 0);
-  const catalogViews = Number(catalogRow?.total_views ?? 0);
-  const catalogEvents = catalogDownloads + catalogViews;
-  const catalogMean = catalogEvents > 0 ? catalogDownloads / catalogEvents : 0;
+  // C: taxa de conversao do catalogo ELEGIVEL (>= 1 download na janela),
+  // cacheada em loadPopularityAnchor — a mesma agregacao servia aqui e em
+  // loadTrendingOrder, rodando duas vezes no mesmo request de `sort=trending`.
+  const catalogMean = await loadPopularityAnchor();
 
   const rows = await db
     .selectFrom('download_metric_daily')
@@ -237,15 +285,10 @@ export async function loadTrendingOrder(): Promise<string[]> {
 
   if (rows.length === 0) return [];
 
-  const totals = rows.reduce(
-    (acc, row) => ({
-      downloads: acc.downloads + Number(row.downloads),
-      views: acc.views + Number(row.views),
-    }),
-    { downloads: 0, views: 0 },
-  );
-  const catalogEvents = totals.downloads + totals.views;
-  const catalogMean = catalogEvents > 0 ? totals.downloads / catalogEvents : 0;
+  // Mesma ancora de loadPopularityScores (cacheada): as duas agregavam o
+  // catalogo elegivel por conta propria, entao `sort=trending` pagava a conta
+  // duas vezes por request.
+  const catalogMean = await loadPopularityAnchor();
 
   return rows
     .flatMap((row) => {
@@ -266,12 +309,9 @@ export async function loadTrendingOrder(): Promise<string[]> {
  * Material sem nota nenhuma fica de fora (nunca aparece como "0 estrelas").
  */
 export async function loadRatingOrder(): Promise<string[]> {
-  const catalogRow = await db
-    .selectFrom('download_rating')
-    .select(({ fn }) => [fn.avg<number>('score').as('catalog_mean')])
-    .executeTakeFirst();
-
-  const catalogMean = Number(catalogRow?.catalog_mean ?? 0);
+  // Mesma ancora cacheada de loadRatingAggregates — `sort=rating` chamava as
+  // duas no mesmo request, repetindo o AVG sobre download_rating inteiro.
+  const catalogMean = await loadRatingAnchor();
 
   const rows = await db
     .selectFrom('download_rating')
@@ -310,36 +350,67 @@ export async function registerMaterialView(materialId: string, req: Request): Pr
     const isoDate = today.toISOString().slice(0, 10);
     const viewHash = viewOriginHash(req, isoDate);
 
-    const inserted = await db
-      .insertInto('download_material_view')
-      .values({ material_id: materialId, view_hash: viewHash, view_date: today })
-      .onConflict((oc) => oc.columns(['material_id', 'view_hash', 'view_date']).doNothing())
-      .returning('material_id')
-      .executeTakeFirst();
+    // Achado de review PR #214 (Codex, P2): os dois writes sao um so fato
+    // ("esta origem viu este material hoje"). Fora de transacao, se o insert de
+    // dedup commitasse e o incremento falhasse, a view estaria marcada como ja
+    // contada sem nunca ter entrado no contador — e todo retry no mesmo dia
+    // colidiria na PK, perdendo a contagem em definitivo. Na transacao, falha
+    // no incremento desfaz tambem a marca de dedup, entao o proximo acesso
+    // reconta.
+    return await db.transaction().execute(async (trx) => {
+      const inserted = await trx
+        .insertInto('download_material_view')
+        .values({ material_id: materialId, view_hash: viewHash, view_date: today })
+        .onConflict((oc) => oc.columns(['material_id', 'view_hash', 'view_date']).doNothing())
+        .returning('material_id')
+        .executeTakeFirst();
 
-    // Só a PRIMEIRA view daquela origem no dia incrementa — refresh repetido
-    // colide na PK e vira no-op. Mesmo padrão de dedup que
-    // download_user_material_download já usa pra download por conta.
-    if (!inserted) return false;
+      // Só a PRIMEIRA view daquela origem no dia incrementa — refresh repetido
+      // colide na PK e vira no-op. Mesmo padrão de dedup que
+      // download_user_material_download já usa pra download por conta.
+      if (!inserted) return false;
 
-    await db
-      .insertInto('download_metric_daily')
-      .values({ material_id: materialId, metric_date: today, view_count: 1 })
-      .onConflict((oc) => oc.columns(['material_id', 'metric_date']).doUpdateSet((eb) => ({
-        view_count: eb('download_metric_daily.view_count', '+', 1),
-      })))
-      .execute();
+      await trx
+        .insertInto('download_metric_daily')
+        .values({ material_id: materialId, metric_date: today, view_count: 1 })
+        .onConflict((oc) => oc.columns(['material_id', 'metric_date']).doUpdateSet((eb) => ({
+          view_count: eb('download_metric_daily.view_count', '+', 1),
+        })))
+        .execute();
 
-    return true;
+      return true;
+    });
   } catch (error) {
     console.error('[materials] view metric unavailable', error);
     return false;
   }
 }
 
-/** Expurgo das linhas de dedup que ja passaram da janela util. */
-export async function purgeStaleViewDedup(): Promise<void> {
+/**
+ * Retencao das linhas de dedup, em dias. A dedup so precisa responder "esta
+ * origem ja viu este material HOJE", entao 2 dias cobrem a janela util com
+ * folga pra virada de fuso (as chaves sao UTC, o publico e BR).
+ *
+ * Guardar alem disso seria reter hash de origem sem proposito — coleta
+ * desnecessaria de dado, contra compromisso petreo de produto.
+ */
+export const VIEW_DEDUP_RETENTION_DAYS = 2;
+
+/**
+ * Expurgo das linhas de dedup que ja passaram da janela util.
+ *
+ * Achado de review PR #214 (Codex, P2): a funcao existia sem chamador nenhum,
+ * entao a tabela crescia sem limite apesar da retencao curta declarada na
+ * migration. Agendamento em services/metricsScheduler.ts.
+ *
+ * Retorna quantas linhas sairam, pro agendador logar volume real em vez de "ok".
+ */
+export async function purgeStaleViewDedup(): Promise<number> {
   const cutoff = utcToday();
-  cutoff.setUTCDate(cutoff.getUTCDate() - 2);
-  await db.deleteFrom('download_material_view').where('view_date', '<', cutoff).execute();
+  cutoff.setUTCDate(cutoff.getUTCDate() - VIEW_DEDUP_RETENTION_DAYS);
+  const result = await db
+    .deleteFrom('download_material_view')
+    .where('view_date', '<', cutoff)
+    .executeTakeFirst();
+  return Number(result?.numDeletedRows ?? 0);
 }
