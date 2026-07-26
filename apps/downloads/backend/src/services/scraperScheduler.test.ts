@@ -32,13 +32,20 @@ vi.mock('./advisoryLock', () => lockMocks);
 import { runScheduledScraperCron } from './scraperScheduler';
 
 /**
- * Concede o lock e entrega ao callback uma transacao que reusa os mesmos stubs
- * de `db` — o cron passou a inserir `download_scraper_run` pela transacao do
- * lock, nao pela conexao global.
+ * Concede o lock. A transacao entregue ao callback e deliberadamente INERTE
+ * (usa-la estoura): o cron precisa gravar `download_scraper_run` pela conexao
+ * global, nao pela transacao do lock — achado de review PR #214 (Codex P1),
+ * porque executeScraperRun roda noutra conexao e nao enxergaria uma run ainda
+ * sem commit.
  */
 function grantLock() {
+  const forbiddenTrx = {
+    insertInto: () => {
+      throw new Error('run do cron não pode ser gravada na transação do lock');
+    },
+  };
   lockMocks.withAdvisoryLock.mockImplementation(async (_key: number, fn: (trx: unknown) => Promise<unknown>) =>
-    fn({ insertInto: dbMocks.insertInto }),
+    fn(forbiddenTrx),
   );
 }
 

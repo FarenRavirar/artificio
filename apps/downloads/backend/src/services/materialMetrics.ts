@@ -121,6 +121,22 @@ export interface RatingAggregate {
 }
 
 /**
+ * Ordena por score decrescente, desempatando por `materialId` (achado de review
+ * PR #214, Codex P2).
+ *
+ * O desempate nao e cosmetico: empate e comum (poucas avaliacoes, metricas
+ * iguais) e o comparator por score sozinho devolve 0, preservando a ordem
+ * arbitraria do `GROUP BY` — que o Postgres nao garante estavel entre queries.
+ * Como a paginacao fatia esta lista, duas requisicoes de paginas diferentes
+ * poderiam repetir ou omitir o mesmo material. `materialId` e estavel e unico,
+ * entao a ordem total fica deterministica.
+ */
+function byScoreThenId(a: { materialId: string; score: number }, b: { materialId: string; score: number }): number {
+  if (b.score !== a.score) return b.score - a.score;
+  return a.materialId.localeCompare(b.materialId);
+}
+
+/**
  * TTL das ancoras de catalogo (o `C` da formula). Curto de proposito: a ancora
  * so muda quando o catalogo INTEIRO se move, o que e lento por natureza, mas
  * 30s garantem que uma avaliacao nova apareca refletida quase de imediato.
@@ -321,7 +337,7 @@ export async function loadTrendingOrder(): Promise<string[]> {
       const score = bayesianAverage(downloads / events, events, catalogMean, POPULARITY_CONFIDENCE_M);
       return score === null ? [] : [{ materialId: row.material_id, score }];
     })
-    .sort((a, b) => b.score - a.score)
+    .sort(byScoreThenId)
     .map((entry) => entry.materialId);
 }
 
@@ -355,7 +371,7 @@ export async function loadRatingOrder(): Promise<string[]> {
       );
       return score === null ? [] : [{ materialId: row.material_id, score }];
     })
-    .sort((a, b) => b.score - a.score)
+    .sort(byScoreThenId)
     .map((entry) => entry.materialId);
 }
 

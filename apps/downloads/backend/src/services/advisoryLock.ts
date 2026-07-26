@@ -22,8 +22,20 @@ import type { Database } from '../db/types';
  * Devolve `null` quando o lock ja esta ocupado (outra replica esta rodando o
  * mesmo job) — o chamador distingue "nao rodou" de um resultado real.
  *
- * O callback recebe a transacao: todo trabalho tem que usa-la, senao roda fora
- * do escopo do lock e o proposito se perde.
+ * O callback recebe a transacao que segura o lock. Usa-la e obrigatorio pra
+ * escrita que deve ser atomica COM o lock (ex.: o expurgo de
+ * metricsScheduler.ts, onde o DELETE tem que estar protegido).
+ *
+ * Nao e obrigatorio pra escrita que precisa ficar VISIVEL a outras conexoes
+ * antes de `fn` terminar (achado de review PR #214, Codex P1). O scraper e o
+ * caso: ele grava a run e a entrega a um pipeline que roda na conexao global,
+ * entao a run precisa estar commitada — dentro da transacao ela seria
+ * invisivel, quebrando FK de log e deixando a run presa em `running`. Nesses
+ * casos o callback ignora `trx` e usa `db`; o lock segue cumprindo seu
+ * proposito, que e impedir DUAS EXECUCOES concorrentes do job.
+ *
+ * Cuidado ao usar com trabalho longo: a transacao fica aberta enquanto `fn`
+ * roda, e transacao longa segura recursos no Postgres.
  */
 export async function withAdvisoryLock<T>(
   lockKey: number,

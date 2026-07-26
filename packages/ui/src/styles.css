@@ -96,7 +96,13 @@
      divirjam de tema nem precisem repetir a cor. */
   --state-brand-bg:     rgba(255, 87, 34, 0.14);
   --state-brand-line:   rgba(255, 87, 34, 0.34);
-  --state-brand-fg:     var(--artificio-brand-deep);
+  /* NAO usar --artificio-brand-deep (#e64a19) aqui: sobre o fill de marca em
+     superficie clara ele da 3.3:1, abaixo do minimo AA de 4.5:1 pra texto
+     normal (achado de review PR #214, CodeRabbit). Este tom mais fechado da
+     5.2:1 no mesmo fundo e continua laranja de marca — trocar por --fg (navy)
+     passaria com folga, mas apagaria justamente a identidade que o token
+     existe pra carregar. */
+  --state-brand-fg:     #b3350f;
 
   /* botão primário unificado (espelha .artificio-login-button): navy sólido + texto branco
      no claro; laranja sólido + texto navy no escuro (acento de marca legível). */

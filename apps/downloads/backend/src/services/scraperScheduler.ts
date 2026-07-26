@@ -48,11 +48,22 @@ export async function runScheduledScraperCron(): Promise<{ triggered: DownloadSo
   // nao liberava o lock — o cron ficava travado ate a conexao original morrer.
   // `pg_try_advisory_xact_lock` e liberado pelo proprio Postgres no fim da
   // transacao, sem unlock explicito que possa vazar.
-  const triggered = await withAdvisoryLock(ADVISORY_LOCK_KEY, async (trx) => {
+  const triggered = await withAdvisoryLock(ADVISORY_LOCK_KEY, async () => {
     const executed: DownloadSourcePlatform[] = [];
     const cronSourcePlatforms = await getCronSourcePlatforms();
     for (const sourcePlatform of cronSourcePlatforms) {
-      const run = await trx
+      // A run e gravada com a conexao GLOBAL, nunca com a transacao do lock
+      // (achado de review PR #214, Codex P1): executeScraperRun roda em outra
+      // conexao e escreve log com FK, contadores e status por conta propria —
+      // se a run so existisse dentro da transacao ainda aberta, essa outra
+      // conexao nao a enxergaria, os logs quebrariam por FK e a run ficaria
+      // presa em `running` pra sempre. Mesmo padrao da rota manual
+      // (routes/scraper.ts POST /run), que ja gravava fora de transacao.
+      //
+      // O lock continua cobrindo o cron inteiro: ele impede DUAS EXECUCOES
+      // concorrentes do agendador, que e o seu proposito — nao precisa (nem
+      // deve) envolver a escrita da run.
+      const run = await db
         .insertInto('download_scraper_run')
         .values({ source_platform: sourcePlatform, trigger_kind: 'cron' })
         .returning('id')

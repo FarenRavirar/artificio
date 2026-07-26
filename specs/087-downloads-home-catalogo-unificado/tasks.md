@@ -184,6 +184,24 @@ Achados de Codex (3 P2) e Sonar (10), verificados contra o código real. Dois ex
 
 **`VIEW_HASH_SECRET` precisa existir no `.env` da VM antes do próximo deploy de beta/prod.** Os composes usam `:?`, então o container **não sobe** sem ela. Gerar com `openssl rand -hex 32`, valor próprio deste app (não compartilhar com outro módulo). Sem isso, T6.2 falha no start do container.
 
+### Evidência da 3ª rodada de review da PR #214 — 2026-07-26
+
+Três achados (Codex P1 + P2, CodeRabbit Major). Todos procedem; nenhum descartado.
+
+1. **Regressão que eu introduzi na 2ª rodada (Codex P1).** Ao migrar o `scraperScheduler` para o helper de lock, movi o `INSERT` de `download_scraper_run` para **dentro** da transação. Mas `executeScraperRun` (`routes/scraper.ts`) usa a conexão **global**: a run ficava sem commit enquanto o pipeline rodava noutra conexão, que não a enxergava — log com FK quebraria, contadores e `status` não achariam a linha, e a run ficaria presa em `running` para sempre, sem auditoria. A rota manual (`POST /run`) sempre gravou fora de transação; foi o padrão que quebrei. Run volta a ser gravada com `db` global. **O lock não perde propósito**: ele existe para impedir duas execuções concorrentes do agendador, não para tornar a escrita da run atômica. A doc de `advisoryLock.ts` foi corrigida — dizia "todo trabalho tem que usar a transação", o que passou a ser falso; agora distingue os dois casos (expurgo **precisa** da transação, scraper **não pode** usá-la) e alerta sobre transação longa. O teste do scraper passou a injetar uma transação **inerte que estoura se usada**, então a regressão não volta em silêncio.
+
+2. **Desempate determinístico nos rankings (Codex P2).** `.sort((a, b) => b.score - a.score)` devolve `0` no empate — comum com poucas avaliações ou métricas iguais — preservando a ordem arbitrária do `GROUP BY` sem `ORDER BY`, que o Postgres não garante estável entre queries. Como a paginação fatia essa lista, páginas diferentes podiam repetir ou omitir o mesmo material. Comparator `byScoreThenId` compartilhado pelos dois rankings (a regra é a mesma; duplicar seria convite a divergirem). 3 testes novos em `rankingOrder.test.ts`, incluindo o caso decisivo: mesma ordem final mesmo quando o banco devolve as linhas embaralhadas.
+
+3. **Contraste AA do token de marca (CodeRabbit Major).** Confirmado por cálculo, não por confiança no bot: `--artificio-brand-deep` (#e64a19) sobre o fill de marca em superfície clara dá **3.32:1**, abaixo do mínimo AA de 4.5:1 para texto normal. **Não** adotei a sugestão literal de usar `--fg`: daria 16:1, mas apagaria o tom de marca que é a razão de o token existir. Usei um laranja mais fechado (#b3350f) — **5.19:1** sobre superfície branca e **4.66:1** sobre `--surface-subtle` (pior caso do tema claro), ambos acima do mínimo, mantendo a identidade. Tema escuro conferido e preservado: #ffab91 dá **6.77:1**.
+
+#### Validação
+
+`rtk tsc` limpo · `rtk vitest` **310 backend** (+3) + **215 frontend** verdes · `rtk pnpm run lint` verde repo-wide (23 tasks) · `rtk pnpm verify:api` `breaking=0 non-breaking=1`.
+
+#### Pendência de deploy (inalterada)
+
+`VIEW_HASH_SECRET` continua obrigatória no `.env` da VM antes de T6.2 — os composes usam `:?` e o container não sobe sem ela.
+
 ## Fase 3 — Busca no Header compartilhado (packages/ui) e unificação de rota
 
 - [ ] T3.0 — Rechecagem antes de editar `packages/ui`: confirmar aprovação nominal de commit já obtida (T0.4) — decisão de design (T0.1) e autorização de commit são ações diferentes (`AGENTS.md` §Autorização: "por ação, não por sessão"), não presumir que uma cobre a outra. · feito quando: aprovação nominal de commit confirmada separadamente antes do primeiro `git add`/`git commit` em `packages/ui`.
