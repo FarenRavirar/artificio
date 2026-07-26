@@ -45,6 +45,7 @@ export interface AdminTableProps<T> {
   tableId: string;
   rows: T[];
   getRowId: (row: T) => string;
+  getRowLabel?: (row: T) => string;
   columns: Array<AdminColumn<T>>;
   searchKeys?: Array<keyof T | ((row: T) => string)>;
   searchPlaceholder?: string;
@@ -110,6 +111,7 @@ export function AdminTable<T>({
   tableId,
   rows,
   getRowId,
+  getRowLabel,
   columns,
   searchKeys,
   searchPlaceholder = "Buscar…",
@@ -299,7 +301,7 @@ export function AdminTable<T>({
               const isSelected = selected.has(id);
               return (
                 <tr key={id} className={cn("border-b border-[var(--admin-border-soft)] transition-colors last:border-0 hover:bg-[var(--admin-hover)]", isSelected && "bg-[color-mix(in_srgb,var(--artificio-brand)_6%,transparent)]")}>
-                  {hasSelection && <td className="px-3 py-2.5"><input type="checkbox" checked={isSelected} onChange={() => toggleOne(id)} aria-label={`Selecionar ${id}`} className="accent-[var(--artificio-brand)]" /></td>}
+                  {hasSelection && <td className="px-3 py-2.5"><input type="checkbox" checked={isSelected} onChange={() => toggleOne(id)} aria-label={`Selecionar ${getRowLabel ? getRowLabel(row) : id}`} className="accent-[var(--artificio-brand)]" /></td>}
                   {columns.map((column) => (
                     <td key={column.key} className={cn("px-3 py-2.5 text-[var(--admin-fg-muted)]", column.className)}>
                       {column.render ? column.render(row) : valueToDisplay((row as Record<string, unknown>)[column.key])}

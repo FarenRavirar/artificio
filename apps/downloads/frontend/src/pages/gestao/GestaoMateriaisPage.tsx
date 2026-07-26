@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { AdminTable, PageHeader, StatusPill, type AdminColumn } from '@artificio/ui/admin';
+import { AdminTable, PageHeader, StatusPill, type AdminColumn, type PillTone } from '@artificio/ui/admin';
 import { GestaoShell } from '../../components/GestaoShell';
 import { useMaterialsCatalog } from '../../hooks/useMaterialsCatalog';
 
@@ -11,7 +11,7 @@ const STATE_LABEL: Record<string, string> = {
   withdrawn: 'Retirado',
 };
 
-const STATE_TONE: Record<string, 'neutral' | 'brand' | 'success' | 'warn' | 'danger'> = {
+const STATE_TONE: Record<string, PillTone> = {
   draft: 'neutral',
   in_review: 'warn',
   published: 'success',

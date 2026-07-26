@@ -472,7 +472,11 @@ function useFocusTrap(open: boolean, containerRef: { current: HTMLElement | null
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Tab" || !container) return;
       const current = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
-      if (current.length === 0) return;
+      if (current.length === 0) {
+        event.preventDefault();
+        container.focus();
+        return;
+      }
       const first = current[0];
       const last = current[current.length - 1];
       if (event.shiftKey && document.activeElement === first) {

@@ -166,6 +166,7 @@ export function GestaoPlataformasPage() {
           rows={platforms ?? []}
           getRowId={(row) => row.slug}
           columns={columns}
+          searchKeys={['name', 'slug', 'domain']}
           loading={isLoading}
           emptyTitle="Nenhuma plataforma cadastrada."
         />

@@ -158,5 +158,6 @@ describe('GestaoShell sidebar', () => {
     expect(screen.getAllByRole('link', { name: 'Materiais' }).length).toBeGreaterThan(0);
 
     fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

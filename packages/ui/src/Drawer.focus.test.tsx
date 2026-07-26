@@ -29,6 +29,10 @@ describe("Drawer focus trap (D108)", () => {
     fireEvent.click(opener);
 
     expect(document.activeElement).toBe(getByLabelText("Fechar"));
+
+    fireEvent.click(getByLabelText("Fechar"));
+
+    expect(document.activeElement).toBe(opener);
   });
 
   it("Tab no último item focável volta pro primeiro (loop preso)", () => {
@@ -53,5 +57,19 @@ describe("Drawer focus trap (D108)", () => {
     fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
 
     expect(document.activeElement).toBe(last);
+  });
+
+  it("Tab não escapa do painel quando não há elementos focáveis", () => {
+    const { getByRole } = render(
+      <Drawer open title="Sem controles">
+        <p>Conteúdo sem foco</p>
+      </Drawer>,
+    );
+
+    const panel = getByRole("dialog");
+    panel.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+
+    expect(document.activeElement).toBe(panel);
   });
 });

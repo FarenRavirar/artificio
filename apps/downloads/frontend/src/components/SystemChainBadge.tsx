@@ -19,7 +19,7 @@ export function SystemChainBadge({ systemName, editionName, variantName, classNa
 
   return (
     <span
-      className={`flex min-w-0 max-w-full items-center gap-1 rounded-md border border-white/10 bg-[#13213f] px-2 py-1 text-xs font-semibold text-[var(--color-artificio-orange)] ${className}`}
+      className={`flex min-w-0 max-w-full items-center gap-1 rounded-md border border-white/10 bg-[var(--admin-surface)] px-2 py-1 text-xs font-semibold text-[var(--color-artificio-orange)] ${className}`}
       title={chain.join(' › ')}
     >
       <Dices className="h-3 w-3 shrink-0" aria-hidden="true" />

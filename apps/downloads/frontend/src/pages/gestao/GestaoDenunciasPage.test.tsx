@@ -83,7 +83,7 @@ describe('GestaoDenunciasPage', () => {
 
     renderPage();
 
-    expect(screen.getByText(/P0 — copyright/)).toBeInTheDocument();
+    expect(screen.getByText('copyright')).toBeInTheDocument();
     expect(screen.getByText('Conteúdo infringe direitos autorais')).toBeInTheDocument();
   });
 

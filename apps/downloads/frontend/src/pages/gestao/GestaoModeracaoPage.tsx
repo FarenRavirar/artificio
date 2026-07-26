@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { AdminTable, PageHeader, type AdminBulkAction, type AdminColumn, type AdminRowAction } from '@artificio/ui/admin';
 import { GestaoShell } from '../../components/GestaoShell';
 import { useModerationBatchAction, useModerationQueue, useModerationSingleAction } from '../../hooks/useModerationQueue';
@@ -31,16 +32,21 @@ export function GestaoModeracaoPage() {
   async function runBatch(action: 'approve' | 'reject' | 'archive', ids: string[]) {
     if (action === 'reject' && (!rejectReason.trim() || !rejectCategoryId)) {
       window.alert('Categoria e motivo de reprovação são obrigatórios para ação em lote.');
-      return;
+      throw new Error('Categoria e motivo de reprovação são obrigatórios.');
     }
-    await batchAction.mutateAsync({
-      action,
-      ids,
-      reason: rejectReason || undefined,
-      rejectionCategoryId: action === 'reject' ? rejectCategoryId : undefined,
-    });
-    setRejectReason('');
-    setRejectCategoryId('');
+    try {
+      await batchAction.mutateAsync({
+        action,
+        ids,
+        reason: rejectReason || undefined,
+        rejectionCategoryId: action === 'reject' ? rejectCategoryId : undefined,
+      });
+      setRejectReason('');
+      setRejectCategoryId('');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao executar ação em lote.');
+      throw error;
+    }
   }
 
   async function rejectSingle(materialId: string) {
@@ -48,14 +54,19 @@ export function GestaoModeracaoPage() {
       window.alert('Selecione a categoria e preencha o motivo antes de reprovar.');
       return;
     }
-    await singleAction.mutateAsync({
-      id: materialId,
-      action: 'reject',
-      reason: rejectReason,
-      rejectionCategoryId: rejectCategoryId,
-    });
-    setRejectReason('');
-    setRejectCategoryId('');
+    try {
+      await singleAction.mutateAsync({
+        id: materialId,
+        action: 'reject',
+        reason: rejectReason,
+        rejectionCategoryId: rejectCategoryId,
+      });
+      setRejectReason('');
+      setRejectCategoryId('');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao reprovar material.');
+      throw error;
+    }
   }
 
   const columns: Array<AdminColumn<ModerationRow>> = [
@@ -73,7 +84,14 @@ export function GestaoModeracaoPage() {
     {
       key: 'approve',
       label: 'Aprovar',
-      onRun: (row) => singleAction.mutateAsync({ id: row.id, action: 'approve' }).then(() => undefined),
+      onRun: (row) =>
+        singleAction.mutateAsync({ id: row.id, action: 'approve' }).then(
+          () => undefined,
+          (error) => {
+            toast.error(error instanceof Error ? error.message : 'Falha ao aprovar material.');
+            throw error;
+          },
+        ),
     },
     { key: 'reject', label: 'Reprovar', tone: 'danger', onRun: (row) => rejectSingle(row.id) },
   ];
@@ -84,7 +102,9 @@ export function GestaoModeracaoPage() {
 
       {queue && queue.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
+          <label htmlFor="reject-category" className="sr-only">Categoria de reprovação</label>
           <select
+            id="reject-category"
             value={rejectCategoryId}
             onChange={(e) => setRejectCategoryId(e.target.value)}
             className="min-h-[44px] rounded-md border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-fg)]"
@@ -94,7 +114,9 @@ export function GestaoModeracaoPage() {
               <option key={category.id} value={category.id}>{category.label}</option>
             ))}
           </select>
+          <label htmlFor="reject-reason" className="sr-only">Motivo da reprovação</label>
           <input
+            id="reject-reason"
             type="text"
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
@@ -112,6 +134,7 @@ export function GestaoModeracaoPage() {
           tableId="gestao-moderacao"
           rows={queue ?? []}
           getRowId={(row) => row.id}
+          getRowLabel={(row) => row.title}
           columns={columns}
           searchKeys={['title']}
           loading={isLoading}

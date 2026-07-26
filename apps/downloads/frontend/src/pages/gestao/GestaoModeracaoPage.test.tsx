@@ -193,7 +193,7 @@ describe('GestaoModeracaoPage', () => {
 
     renderPage();
 
-    fireEvent.click(screen.getByLabelText('Selecionar material-1'));
+    fireEvent.click(screen.getByLabelText('Selecionar Manual do Aventureiro'));
     fireEvent.click(screen.getByRole('button', { name: 'Aprovar selecionados' }));
 
     expect(batchMutateAsync).toHaveBeenCalledWith({
@@ -211,7 +211,7 @@ describe('GestaoModeracaoPage', () => {
 
     renderPage();
 
-    fireEvent.click(screen.getByLabelText('Selecionar material-1'));
+    fireEvent.click(screen.getByLabelText('Selecionar Manual do Aventureiro'));
     fireEvent.click(screen.getByRole('button', { name: 'Reprovar selecionados' }));
 
     expect(alertSpy).toHaveBeenCalledWith('Categoria e motivo de reprovação são obrigatórios para ação em lote.');
@@ -225,7 +225,7 @@ describe('GestaoModeracaoPage', () => {
 
     renderPage();
 
-    fireEvent.click(screen.getByLabelText('Selecionar material-1'));
+    fireEvent.click(screen.getByLabelText('Selecionar Manual do Aventureiro'));
     fireEvent.click(screen.getByRole('button', { name: 'Arquivar selecionados' }));
 
     expect(batchMutateAsync).toHaveBeenCalledWith({

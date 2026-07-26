@@ -21,6 +21,11 @@ const ACCESS_LABEL: Record<Material['access_kind'], string> = {
 // de cadeia de sistema/edicao/variante.
 export function MaterialCard({ material }: Readonly<MaterialCardProps>) {
   const [coverFailed, setCoverFailed] = useState(false);
+  const [lastCoverUrl, setLastCoverUrl] = useState(material.cover_image_url);
+  if (material.cover_image_url !== lastCoverUrl) {
+    setLastCoverUrl(material.cover_image_url);
+    setCoverFailed(false);
+  }
   const showCover = Boolean(material.cover_image_url) && !coverFailed;
 
   return (

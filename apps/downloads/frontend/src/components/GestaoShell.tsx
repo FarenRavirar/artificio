@@ -68,8 +68,13 @@ interface QueueCounts {
   degraded_links: { count: number };
 }
 
+const OVERVIEW_GROUP: { label: string; items: GestaoNavItem[] } = {
+  label: '',
+  items: [{ label: 'Visão geral', href: '/gestao' }],
+};
+
 function buildSidebarGroups(counts: QueueCounts | undefined, isAdmin: boolean): AdminSidebarGroup[] {
-  return GESTAO_NAV_GROUPS.map((group) => ({
+  return [OVERVIEW_GROUP, ...GESTAO_NAV_GROUPS].map((group) => ({
     label: group.label,
     items: group.items
       .filter((item) => !item.adminOnly || isAdmin)

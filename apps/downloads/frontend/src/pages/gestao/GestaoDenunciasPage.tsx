@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { PageHeader, SectionCard, StatusPill, type PillTone } from '@artificio/ui/admin';
 import { GestaoShell } from '../../components/GestaoShell';
 import { useReportDecision, useReportsQueue } from '../../hooks/useReportsQueue';
@@ -43,7 +44,7 @@ export function GestaoDenunciasPage() {
                 <StatusPill tone={PRIORITY_TONE[report.priority] ?? 'neutral'}>
                   <span aria-hidden="true">{PRIORITY_ICON[report.priority]}</span> {report.priority}
                 </StatusPill>
-                {report.priority} — {report.category}
+                {report.category}
               </span>
             }
           >
@@ -60,7 +61,9 @@ export function GestaoDenunciasPage() {
               <button
                 type="button"
                 onClick={() =>
-                  decision.mutateAsync({ id: report.id, case_state: 'resolved', resolution_note: notes[report.id] }).catch(() => undefined)
+                  decision
+                    .mutateAsync({ id: report.id, case_state: 'resolved', resolution_note: notes[report.id] })
+                    .catch((error) => toast.error(error instanceof Error ? error.message : 'Falha ao resolver denúncia.'))
                 }
                 className="min-h-[44px] rounded-md border border-[var(--admin-border)] px-4 py-2 text-sm text-[var(--admin-fg)]"
               >
@@ -69,7 +72,9 @@ export function GestaoDenunciasPage() {
               <button
                 type="button"
                 onClick={() =>
-                  decision.mutateAsync({ id: report.id, case_state: 'dismissed', resolution_note: notes[report.id] }).catch(() => undefined)
+                  decision
+                    .mutateAsync({ id: report.id, case_state: 'dismissed', resolution_note: notes[report.id] })
+                    .catch((error) => toast.error(error instanceof Error ? error.message : 'Falha ao dispensar denúncia.'))
                 }
                 className="min-h-[44px] rounded-md border border-[var(--admin-border)] px-4 py-2 text-sm text-[var(--admin-fg)]"
               >
