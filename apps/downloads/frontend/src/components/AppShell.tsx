@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Footer, Header, useTheme, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type NavItem, type UserMenuItem } from '@artificio/ui';
 import { ChangelogModal } from './ChangelogModal';
@@ -24,17 +24,48 @@ const moduleNav: NavItem[] = [
 // autorais) e vira link no footer via Footer.moduleLinks (packages/ui,
 // spec 086 T10.1). Rota /sobre-e-uso preservada no router (SEO, sem 404).
 const footerModuleLinks: NavItem[] = [{ label: 'Sobre e uso', href: '/sobre-e-uso' }];
+const SEARCH_DEBOUNCE_MS = 300;
 
 export const AppShell = ({ children }: AppShellProps) => {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const { theme } = useTheme();
   const { hasNewUpdate, markSeen } = useChangelogBadge('downloads_last_seen_update', CHANGELOG_UPDATE_MARKERS.downloads);
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
+  const urlSearchValue = new URLSearchParams(search).get('q') ?? '';
+  const [searchDraft, setSearchDraft] = useState(urlSearchValue);
+  const [lastUrlSearchValue, setLastUrlSearchValue] = useState(urlSearchValue);
 
-  const handleSearch = () => {
-    navigate('/catalogo');
-  };
+  // Mantém o input alinhado com voltar/avançar e links compartilhados sem
+  // efeito que cause render em cascata. Mesmo padrão já usado na página do
+  // catálogo antes de a busca subir para o Header compartilhado.
+  if (lastUrlSearchValue !== urlSearchValue) {
+    setLastUrlSearchValue(urlSearchValue);
+    setSearchDraft(urlSearchValue);
+  }
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (searchDraft === urlSearchValue) return;
+
+      const isCatalogRoute = pathname === '/' || pathname === '/catalogo';
+      const next = new URLSearchParams(isCatalogRoute ? search : '');
+      if (searchDraft) next.set('q', searchDraft);
+      else next.delete('q');
+      next.set('page', '1');
+
+      const serialized = next.toString();
+      void navigate(
+        {
+          pathname: isCatalogRoute ? pathname : '/catalogo',
+          search: serialized ? `?${serialized}` : '',
+        },
+        { replace: isCatalogRoute },
+      );
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timeout);
+  }, [navigate, pathname, search, searchDraft, urlSearchValue]);
 
   const openChangelog = () => {
     setIsChangelogOpen(true);
@@ -52,7 +83,10 @@ export const AppShell = ({ children }: AppShellProps) => {
         userMenu={userMenu}
         showThemeToggle
         showSearch
-        onSearch={handleSearch}
+        searchValue={searchDraft}
+        onSearchChange={setSearchDraft}
+        searchPlaceholder="Buscar por título, autor ou sistema"
+        searchLabel="Buscar materiais"
         showChangelog
         onOpenChangelog={openChangelog}
         changelogHasBadge={hasNewUpdate}

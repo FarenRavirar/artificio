@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { ActiveFilterChips, type ActiveFilter } from '../components/ActiveFilterChips';
@@ -32,8 +32,6 @@ const SHELVES: readonly ShelfDefinition[] = [
   { id: 'avaliados', title: 'Mais bem avaliados', sort: 'rating' },
 ];
 
-const SEARCH_DEBOUNCE_MS = 300;
-
 // T4.3 (spec 073) — busca/filtro/ordenacao/paginacao como UNICO contrato de
 // URL (criterio de aceite 1 da 073): tudo que o usuario ve na tela cabe em
 // query params, compartilhavel via link.
@@ -46,35 +44,6 @@ export function CatalogoPage() {
   const editionId = searchParams.get('edition_id') ?? '';
   const sort = (searchParams.get('sort') as SortOption | null) ?? 'recent';
   const page = Number(searchParams.get('page') ?? '1');
-
-  const [searchDraft, setSearchDraft] = useState(q);
-  const [lastUrlQ, setLastUrlQ] = useState(q);
-
-  // Reajusta o rascunho durante o render quando a URL muda por fora (voltar
-  // no historico, link compartilhado) — padrao React de "ajustar estado
-  // durante o render" (sem effect, evita cascata de render; achado de lint
-  // react-hooks/set-state-in-effect).
-  if (lastUrlQ !== q) {
-    setLastUrlQ(q);
-    setSearchDraft(q);
-  }
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setSearchParams(
-        (prev) => {
-          if (searchDraft === (prev.get('q') ?? '')) return prev;
-          const next = new URLSearchParams(prev);
-          if (searchDraft) next.set('q', searchDraft);
-          else next.delete('q');
-          next.set('page', '1');
-          return next;
-        },
-        { replace: true },
-      );
-    }, SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timeout);
-  }, [searchDraft, setSearchParams]);
 
   const updateParam = useCallback(
     (key: string, value: string) => {
@@ -130,6 +99,9 @@ export function CatalogoPage() {
   // o refetch da lista.
   const activeFilters: ActiveFilter[] = [];
   const activePillLabels: Partial<Record<'material_type' | 'system_id' | 'edition_id', string>> = {};
+  if (q) {
+    activeFilters.push({ key: 'q', label: 'Busca', value: q });
+  }
   if (materialType) {
     const label = facets?.material_types.find((option) => option.id === materialType)?.name ?? materialType;
     activeFilters.push({ key: 'material_type', label: 'Tipo', value: label });
@@ -148,31 +120,15 @@ export function CatalogoPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl px-4 py-8">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
         <h1 className="mb-6 text-2xl font-bold text-[var(--fg)]">Catálogo</h1>
 
-        <div className="mb-6 flex flex-wrap gap-3">
-          <label className="flex-1 min-w-[200px]">
-            <span className="sr-only">Buscar materiais</span>
-            {/* O placeholder so promete o que o backend entrega: a busca cobre
-                title/summary, nome do autor (download_creator) e nome do
-                sistema resolvido no Catalogo Central — routes/materials.ts,
-                cobertura ampliada no review da PR #214 (Codex, P2). Mudar um
-                lado exige mudar o outro. */}
-            <input
-              type="search"
-              value={searchDraft}
-              onChange={(event) => setSearchDraft(event.target.value)}
-              placeholder="Buscar por título, autor ou sistema"
-              className="min-h-[44px] w-full rounded-md border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-[var(--fg)] placeholder:text-[var(--fg-muted)] focus:border-artificio-orange focus:outline-none"
-            />
-          </label>
-
-          {/* Ordenacao so aparece no modo resultado: na vitrine, cada
-              prateleira JA e um criterio de ordenacao, entao um dropdown
-              global ali competiria com elas dizendo a mesma coisa. */}
-          {!isBrowsing && (
-            <label className="min-w-[160px]">
+        {/* Ordenacao so aparece no modo resultado: na vitrine, cada
+            prateleira JA e um criterio de ordenacao, entao um dropdown
+            global ali competiria com elas dizendo a mesma coisa. */}
+        {!isBrowsing && (
+          <div className="mb-6 flex justify-end">
+            <label className="w-full sm:w-auto sm:min-w-[160px]">
               <span className="sr-only">Ordenar por</span>
               <select
                 value={sort}
@@ -186,8 +142,8 @@ export function CatalogoPage() {
                 ))}
               </select>
             </label>
-          )}
-        </div>
+          </div>
+        )}
 
         {isBrowsing ? (
           <>
@@ -211,7 +167,13 @@ export function CatalogoPage() {
               <ActiveFilterChips filters={activeFilters} onRemove={(key) => updateParam(key, '')} />
 
               {isLoading && <p className="text-[var(--fg-muted)]">Carregando...</p>}
-              {isError && <p className="text-red-400">Falha ao carregar materiais. Tente novamente.</p>}
+              {isError && <p className="text-[var(--state-danger-fg)]">Falha ao carregar materiais. Tente novamente.</p>}
+
+              {data && !isLoading && !isError && (
+                <p className="mb-4 text-sm text-[var(--fg-muted)]">
+                  {data.total === 1 ? '1 material encontrado' : `${data.total} materiais encontrados`}
+                </p>
+              )}
 
               {data?.items.length === 0 && (
                 <p className="text-[var(--fg-muted)]">

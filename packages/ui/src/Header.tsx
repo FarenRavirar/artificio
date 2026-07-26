@@ -58,8 +58,22 @@ export interface HeaderProps {
   showThemeToggle?: boolean;
   /** Exibe o botão de busca do header (ícone lupa). Ação injetada pelo app. */
   showSearch?: boolean;
-  /** Handler acionado ao clicar no botão de busca. Sem handler, o botão não é renderizado. */
+  /**
+   * Handler legado do botão de lupa. Continua aditivo para módulos que ainda
+   * navegam a uma página própria de busca.
+   */
   onSearch?: () => void;
+  /** Valor controlado do campo de busca embutido. */
+  searchValue?: string;
+  /**
+   * Habilita o campo de busca embutido. O app continua dono do estado, do
+   * debounce e da URL; o Header não conhece router nem contrato de query.
+   */
+  onSearchChange?: (value: string) => void;
+  /** Placeholder do campo embutido. */
+  searchPlaceholder?: string;
+  /** Nome acessível do campo embutido. */
+  searchLabel?: string;
   /** Exibe o botão de changelog central (ícone raio + badge de novidade). Conteúdo/modal é do app. */
   showChangelog?: boolean;
   /** Handler acionado ao clicar no botão de changelog. */
@@ -96,6 +110,10 @@ export function Header({
   showThemeToggle = false,
   showSearch = false,
   onSearch,
+  searchValue = "",
+  onSearchChange,
+  searchPlaceholder = "Buscar",
+  searchLabel = "Buscar",
   showChangelog = false,
   onOpenChangelog,
   changelogHasBadge = false,
@@ -105,6 +123,7 @@ export function Header({
   const { user, loading } = sessionOverride ?? session;
   const logo = variant === "dark" ? brandLogoNeg : brandLogoNavy;
   const hasModuleNav = Boolean(moduleNav && moduleNav.length > 0);
+  const hasEmbeddedSearch = showSearch && Boolean(onSearchChange);
 
   const [open, setOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
@@ -224,7 +243,7 @@ export function Header({
       data-variant={variant}
       data-sticky={sticky ? "true" : undefined}
     >
-      <div className="artificio-header-main">
+      <div className="artificio-header-main" data-has-search={hasEmbeddedSearch ? "true" : undefined}>
         <a className="artificio-brand" href={brandHref}>
           <img
             alt={logo.alt}
@@ -235,8 +254,35 @@ export function Header({
           />
         </a>
         <Nav currentHref={currentHref} items={navItems} />
+        {hasEmbeddedSearch ? (
+          <label className="artificio-header-search">
+            <svg
+              className="artificio-header-search-icon"
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              type="search"
+              className="artificio-header-search-input"
+              aria-label={searchLabel}
+              placeholder={searchPlaceholder}
+              value={searchValue}
+              onChange={(event) => onSearchChange?.(event.target.value)}
+            />
+          </label>
+        ) : null}
         <div className="artificio-session" aria-live="polite">
-          {showSearch && onSearch ? (
+          {showSearch && !hasEmbeddedSearch && onSearch ? (
             <button
               type="button"
               className="artificio-header-action"

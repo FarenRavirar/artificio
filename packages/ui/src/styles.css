@@ -178,6 +178,49 @@
   padding: 0 24px;
 }
 
+/* Spec 087 — busca controlada embutida. Header fornece só apresentação e
+   evento; debounce/URL continuam responsabilidade do módulo consumidor. */
+.artificio-header-main[data-has-search="true"] {
+  grid-template-columns: auto minmax(0, 1fr) minmax(220px, 360px) auto;
+}
+
+.artificio-header-search {
+  align-items: center;
+  color: var(--fg-muted);
+  display: flex;
+  min-width: 0;
+  position: relative;
+  width: 100%;
+}
+
+.artificio-header-search-icon {
+  left: 12px;
+  pointer-events: none;
+  position: absolute;
+}
+
+.artificio-header-search-input {
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--fg);
+  font: inherit;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 14px 0 40px;
+  width: 100%;
+}
+
+.artificio-header-search-input::placeholder {
+  color: var(--fg-muted);
+}
+
+.artificio-header-search-input:focus-visible {
+  border-color: var(--artificio-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--artificio-focus) 24%, transparent);
+  outline: none;
+}
+
 /* 2ª linha: nav interno do módulo (Catálogo/Painel). */
 .artificio-subnav {
   border-top: 1px solid var(--artificio-line);
@@ -1497,6 +1540,15 @@
   .artificio-header-main {
     grid-template-columns: 1fr auto;
     padding: 8px 16px;
+  }
+
+  .artificio-header-main[data-has-search="true"] {
+    grid-template-columns: 1fr auto;
+  }
+
+  .artificio-header-main[data-has-search="true"] .artificio-header-search {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 
   /* Esconde navs inline; nav vai pro menu colapsável. */

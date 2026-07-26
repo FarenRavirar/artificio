@@ -67,8 +67,8 @@ Regra que carrega a direção: **Oswald aparece em exatamente 2 lugares — tít
 - Título Oswald uppercase à esquerda; "Ver tudo →" à direita, `align-items: baseline`, `--fg-muted` → `--artificio-brand` no hover.
 - Trilho `overflow-x: auto`, `scroll-snap-type: x proximity` (**proximity, não mandatory** — mandatory briga com trackpad e dá sensação de trava).
 - Card 220px fixo; 240px em ≥1024px. Último card `scroll-snap-align: end` (prateleira não para cortando).
-- Sem setas de navegação na v1: scroll nativo + Tab sequencial (browser rola o card focado pra dentro sozinho, ver T4.2). Se o smoke mobile (T4.3) apontar problema, vira ajuste registrado, não bloqueio.
-- Sem `scroll-behavior: smooth` forçado — deixa o browser honrar `prefers-reduced-motion` (T4.2).
+- Sem setas de navegação na v1: scroll nativo. Se o smoke mobile (T4.3) apontar problema de uso por toque, corrigir e registrar; não criar um segundo sistema de navegação preventivamente.
+- Sem `scroll-behavior: smooth` forçado — preservar o comportamento nativo do browser.
 
 ### Card — ajustes pontuais autorizados pelo Requisito 8
 
@@ -94,6 +94,48 @@ Métrica base de `.artificio-badge` (raio 999px), altura 36px, peso 600 (leem co
 ### Trava de cor (Requisito 9a)
 
 Zero cor nova. Todo elemento desta direção usa exclusivamente tokens semânticos já existentes em `packages/ui/src/styles.css`, que viram automaticamente entre `:root` e `:root[data-theme="dark"]`. `--artificio-brand` é o único acento (estrelas, pill ativa, hover de "Ver tudo") — sem amarelo-genérico-de-rating, sem segunda cor de acento.
+
+## Handoff de implementação — Fase 4 (auditoria de lacunas, 2026-07-26)
+
+Esta seção é o ponto de retomada para o agente que implementar a Fase 4. Não reabrir a direção visual da Fase 1: ela já foi aprovada. O trabalho é conferir o código real, completar lacunas e provar o resultado.
+
+### Decisão do mantenedor: acessibilidade não é frente desta fase
+
+O comentário manual foi reconfirmado ao iniciar a Fase 4: **não executar auditoria AA, checklist de teclado, contraste, leitor de tela ou `prefers-reduced-motion` nesta rodada**. Isto supersede a redação antiga de T4.2. Não remover proteções já existentes e não introduzir regressão deliberada, mas também não ampliar escopo para “melhorar acessibilidade”. T4.2 registra somente esta decisão e não exige implementação.
+
+### Estado material já presente na branch
+
+A Fase 2 antecipou grande parte de T4.1. Antes de escrever, verificar o código atual; não reconstruir o que já existe:
+
+- `MaterialCard.tsx`: capa sangrada, crédito acima do título em Oswald, fallback “Acervo Artifício”, rating e badges.
+- `MaterialRating.tsx`: estrelas fracionárias, número formatado em pt-BR e contagem real.
+- `MaterialShelf.tsx`/`CatalogShowcase.tsx`: trilho horizontal, 220/240px, snap `proximity`, último item em `snap-end`, 40px entre prateleiras e ausência de seção vazia.
+- `FilterPills.tsx`: três pills com popover, estado ativo por token semântico e reaproveitamento de `FilterControls`.
+- `CatalogoPage.tsx`: vitrine/resultado, sidebar/drawer no resultado, sorts novos e chip removível de busca.
+- `Header.tsx`/`styles.css`: busca controlada e regra mobile já estão no diff local da Fase 3.
+
+Durante a auditoria desta retomada, ajustes preparatórios locais foram aplicados e **não devem ser refeitos nem revertidos**: “Ver tudo →”; trilho com gesto horizontal/overscroll contido; popover das pills limitado à largura mobile; tipografia de badges 11px/600; `SystemChainBadge` sem `border-white/10`; erro por token semântico; ordenação em largura total no mobile; contagem “N materiais encontrados”. Ainda precisam de testes/validação pelo implementador.
+
+### Lacunas restantes — T4.1/T4.3
+
+1. Comparar a renderização final, nos dois temas, contra cada trava de `§Direção de design`: Oswald só em título de prateleira e eyebrow; Inter no restante; espaçamentos 12/40; card sem lombada redundante; único acento laranja; nenhuma cor literal/Tailwind cromática fora de token.
+2. Validar conteúdo com e sem capa, crédito vazio, título longo, cenário ausente, zero avaliações e cadeia de sistema longa. Nenhum desses estados pode mudar a altura/hierarquia de forma que quebre a prateleira.
+3. Rodar viewport real em 320px, 375px, 768px e desktop ≥1024px. Em mobile: busca do Header ocupa linha própria sem overflow; popover cabe na viewport; prateleira rola por toque e deixa parte do próximo card visível; sort ocupa largura útil; drawer abre/fecha e aplica filtro; paginação não estoura horizontalmente.
+4. Rodar os dois modos: vitrine limpa e resultado com `q` + filtro + sort. Confirmar transição sem navegação extra, contagem total, vazio orientativo e “Ver tudo →” abrindo o sort correspondente.
+5. Não marcar T4.1/T4.3 só por teste unitário ou build: o aceite pede inspeção visual/renderização real. Se o ambiente não tiver Browser interno, usar browser autorizado pelo mantenedor ou deixar o smoke explicitamente aberto.
+
+### Lacuna SEO — T4.4
+
+`apps/downloads/frontend` é SPA Vite servida por fallback do Nginx (`try_files ... /index.html`). Isso cria duas travas que a redação antiga não conciliava:
+
+- canonical estática em `index.html` também seria entregue em `/materiais/:slug`, `/painel/*` e `/gestao/*`, canonicalizando páginas distintas para o catálogo — incorreto;
+- canonical inserida por React não aparece em `curl`/“view source”; aparece somente no DOM depois da renderização. Portanto o aceite antigo por `curl/view-source` era incompatível com a alternativa sem dependência sugerida pela própria task.
+
+Implementação recomendada, sem biblioteca nova: componente/hook pequeno montado por `CatalogoPage` que cria ou atualiza **um único** `link[rel="canonical"]` no `document.head`, usa URL absoluta, mantém o mesmo alvo para `/`, `/catalogo` e suas query strings, e remove a tag no cleanup para não vazar ao navegar para ficha/painel/gestão. Cobrir criação, unicidade, alvo e cleanup em teste JSDOM. Validar manualmente no DOM renderizado (`document.querySelector('link[rel="canonical"]')`), não em `view-source`.
+
+Google Search Central confirma que canonical injetada por JavaScript é coletada durante a renderização, embora HTML seja preferível; também alerta para nunca produzir múltiplas canonicals conflitantes: https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics#set-canonical-urls-correctly-with-javascript
+
+**Decisão ainda bloqueante do mantenedor:** escolher o alvo único — `https://downloads.artificiorpg.com/` ou `https://downloads.artificiorpg.com/catalogo`. Não inferir. A implementação começa depois dessa resposta. Se o mantenedor exigir canonical visível na resposta HTTP, isso deixa de ser ajuste React e amplia o escopo para Nginx/prerenderização; registrar e aprovar essa ampliação antes.
 
 ## Arquitetura da solução
 
