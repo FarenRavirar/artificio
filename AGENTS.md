@@ -286,6 +286,15 @@ rm -f apps/<modulo>/.env   # remover cópia temporária
 
 **8. Procedimento de emergência (migration `manual-risk` bloqueada ou drift `BLOCKED`):** acessar VM só após aprovação explícita, seguir gates de `PRE_DEPLOY_CHECKLIST.md`, disparar com `ALLOW_MANUAL_MIGRATIONS=true` (exige backup) quando for `manual-risk` legítima, reconciliar depois (item 5).
 
+### Dockerfile de produção — incidente recorrente (E016/E017, `.specify/memory/errors.md`)
+
+Já aconteceu 2 vezes: pacote `@artificio/*` novo vira dependency de um app, mas o `Dockerfile` do stage `production` não copia o `dist`/`dist-cjs` dele — build/CI passam verdes, container sobe e crasha só depois, com `MODULE_NOT_FOUND`, direto em beta/prod.
+
+**Regra simples:** toda vez que adicionar/trocar import `from '@artificio/<pacote>'` num app com `Dockerfile` de produção (`apps/*/backend/Dockerfile`, `apps/*/frontend/Dockerfile`), antes de disparar deploy real:
+1. Listar todos os `@artificio/*` importados pelo `src` do app (grep).
+2. Conferir que cada um tem `COPY --from=builder .../dist` (e `dist-cjs` se o `package.json` do pacote tiver `main`/`require`) no Dockerfile.
+3. Se Docker Desktop estiver rodando, `docker build --target production` local antes do deploy real.
+
 ---
 
 ## Regras de Produto e SEO
