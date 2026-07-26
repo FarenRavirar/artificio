@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **396 operações**.
+Total: **397 operações**.
 
 ## accounts (12)
 
@@ -23,7 +23,7 @@ Total: **396 operações**.
 | GET | `/internal/users/{id}` | public | none | active | — | Consulta internal users id |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
-## downloads (71)
+## downloads (72)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -75,6 +75,7 @@ Total: **396 operações**.
 | PATCH | `/api/v1/materials/{id}` | public | user | active | — | Atualiza api v1 materials id |
 | GET | `/api/v1/materials/{id}/history` | public | none | active | — | Consulta api v1 materials id history |
 | GET | `/api/v1/materials/{slug}` | public | none | active | — | Consulta api v1 materials slug |
+| GET | `/api/v1/materials/catalog-systems` | public | none | active | — | Consulta api v1 materials catalog-systems |
 | GET | `/api/v1/materials/facets` | public | none | active | — | Consulta api v1 materials facets |
 | GET | `/api/v1/materials/mine` | self-service | user | active | — | Consulta api v1 materials mine |
 | GET | `/api/v1/materials/types` | public | none | active | — | Consulta api v1 materials types |

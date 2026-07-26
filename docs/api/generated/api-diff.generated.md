@@ -11,7 +11,7 @@
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
 | accounts | ✅ 0 | ✅ 1 | ⚪ 0 |
-| downloads | ✅ 0 | ✅ 19 | ⚪ 0 |
+| downloads | ✅ 0 | ✅ 20 | ⚪ 0 |
 | mesas | ✅ 0 | ✅ 5 | ⚪ 0 |
 | glossario | ✅ 0 | ✅ 2 | ⚪ 0 |
 | site | ✅ 0 | ✅ 3 | ⚪ 0 |
@@ -30,10 +30,11 @@
 
 ### downloads
 
-#### ✅ Non-breaking (19)
+#### ✅ Non-breaking (20)
 
 | Path | Method | Ação |
 |------|--------|------|
+| `` |  | add |
 | `` |  | add |
 | `` |  | add |
 | `` |  | add |

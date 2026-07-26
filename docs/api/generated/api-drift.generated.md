@@ -15,7 +15,7 @@
 | 📄 CONTRACT_ONLY | 4 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 123 | ❌ |
-| 👻 ORPHAN_SUSPECT | 42 | ❌ |
+| 👻 ORPHAN_SUSPECT | 43 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
@@ -37,7 +37,7 @@
 | POST | `/api/auth/logout` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/admin/secrets/:name` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 
-### downloads (71 rotas no inventário)
+### downloads (72 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -71,6 +71,7 @@
 | GET | `/api/v1/materials` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/:slug` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/:id/history` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/materials/catalog-systems` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/facets` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/mine` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/types` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -469,7 +470,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | GET | `/internal/users/:id` | ✅ | public | Sem consumidor e scope não justifica |
-### downloads (31 rota(s))
+### downloads (32 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -488,6 +489,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/api/v1/materials` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/materials/:slug` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/materials/:id/history` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/api/v1/materials/catalog-systems` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/materials/facets` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/materials/types` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/organizations` | ✅ | public | Sem consumidor e scope não justifica |

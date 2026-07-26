@@ -20,12 +20,12 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | App | Total | HIGH | MEDIUM | LOW | Methods |
 |-----|-------|------|--------|-----|---------|
 | accounts | 12 | 12 | 0 | 0 | GET, POST, PUT |
-| downloads | 91 | 91 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
+| downloads | 92 | 92 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | glossario | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 242 | 242 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 60 | 60 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **494** | 494 | 0 | 0 | |
+| **Total** | **495** | 495 | 0 | 0 | |
 
 ## accounts
 
@@ -105,13 +105,14 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 53 |
 | PUT | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 81 |
 | GET | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 114 |
-| POST | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 360 |
+| POST | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 384 |
 | USE | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/server.ts` | 81 |
-| PATCH | `/api/v1/materials/:id` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 464 |
-| GET | `/api/v1/materials/:id/history` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 270 |
-| GET | `/api/v1/materials/:slug` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 300 |
-| GET | `/api/v1/materials/facets` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 204 |
-| GET | `/api/v1/materials/mine` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 256 |
+| PATCH | `/api/v1/materials/:id` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 488 |
+| GET | `/api/v1/materials/:id/history` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 294 |
+| GET | `/api/v1/materials/:slug` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 324 |
+| GET | `/api/v1/materials/catalog-systems` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 207 |
+| GET | `/api/v1/materials/facets` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 228 |
+| GET | `/api/v1/materials/mine` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 280 |
 | GET | `/api/v1/materials/types` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 188 |
 | USE | `/api/v1/moderation` | ✅ high | `apps/downloads/backend/src/server.ts` | 83 |
 | POST | `/api/v1/moderation/:id/approve` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 177 |

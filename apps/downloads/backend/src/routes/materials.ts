@@ -198,6 +198,30 @@ router.get('/types', async (_req: Request, res: Response) => {
   }
 });
 
+// T8.1 (spec 086, Fase 8) — proxy público do catálogo de sistema/edição/
+// variante Central, mesmo padrão de /types acima: frontend não precisa
+// conhecer host do Site nem tratar CORS cross-origin, e reusa o cache de
+// loadCatalogSystemsFlat (60s TTL, services/catalogClient.ts) já usado pelo
+// backend. Sidebar de filtro (CatalogFilterSidebar) usa isto pra exibir
+// nome/hierarquia legível, não só o id cru que /facets devolve.
+router.get('/catalog-systems', async (_req: Request, res: Response) => {
+  try {
+    const nodes = await loadCatalogSystemsFlat();
+    res.json({
+      items: nodes.map((node) => ({
+        id: node.id,
+        name: node.name_pt ?? node.name,
+        slug: node.slug,
+        node_type: node.node_type,
+        parent_id: node.parent_id,
+      })),
+    });
+  } catch (error) {
+    console.error('[materials] catalog systems unavailable', error);
+    res.status(503).json({ error: 'Catálogo de sistemas indisponível.' });
+  }
+});
+
 // Deve ficar antes de /:slug: Express interpretaria "facets" como slug.
 // Retorna só valores que têm material publicado: sidebar não oferece filtro
 // sem resultado (Nielsen) e o catálogo não vaza rascunho/retirado.
