@@ -3,6 +3,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CatalogoPage } from './CatalogoPage';
 import * as useMaterialsCatalogModule from '../hooks/useMaterialsCatalog';
+import * as useCatalogSystemsModule from '../hooks/useCatalogSystems';
+import * as useMaterialFacetsModule from '../hooks/useMaterialFacets';
 import type { Material, MaterialListResponse } from '../types/material';
 
 // T6.2 (spec 073) — busca/filtro/paginacao vivem como contrato unico de URL.
@@ -91,6 +93,42 @@ describe('CatalogoPage', () => {
     await waitFor(() => {
       expect(useMaterialsCatalogModule.useMaterialsCatalog).toHaveBeenLastCalledWith(
         expect.objectContaining({ q: 'aventura' }),
+      );
+    }, { timeout: 1000 });
+  });
+
+  // Achado real (review PR #208, CodeRabbit): trocar de sistema sem limpar
+  // edition_id deixava a URL com uma edicao de outro sistema presa no filtro.
+  it('limpa edition_id ao trocar de sistema selecionado', async () => {
+    const response: MaterialListResponse = { items: [], page: 1, page_size: 20, total: 0, total_pages: 1 };
+    vi.spyOn(useMaterialsCatalogModule, 'useMaterialsCatalog').mockReturnValue({
+      data: response,
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
+    vi.spyOn(useCatalogSystemsModule, 'useCatalogSystems').mockReturnValue({
+      data: [
+        { id: 'sys-1', name: 'Sistema 1', slug: 'sistema-1', node_type: 'system', parent_id: null },
+        { id: 'sys-2', name: 'Sistema 2', slug: 'sistema-2', node_type: 'system', parent_id: null },
+        { id: 'ed-1', name: 'Edição 1', slug: 'edicao-1', node_type: 'edition', parent_id: 'sys-1' },
+      ],
+    } as ReturnType<typeof useCatalogSystemsModule.useCatalogSystems>);
+    vi.spyOn(useMaterialFacetsModule, 'useMaterialFacets').mockReturnValue({
+      data: {
+        material_types: [] as { id: string; slug: string; name: string; count: number }[],
+        systems: [{ id: 'sys-1', count: 1 }, { id: 'sys-2', count: 1 }],
+        editions: [{ id: 'ed-1', count: 1 }],
+      },
+    } as ReturnType<typeof useMaterialFacetsModule.useMaterialFacets>);
+
+    renderPage(['/catalogo?system_id=sys-1&edition_id=ed-1']);
+
+    const system2Radio = await screen.findByRole('radio', { name: 'Sistema 2' });
+    fireEvent.click(system2Radio);
+
+    await waitFor(() => {
+      expect(useMaterialsCatalogModule.useMaterialsCatalog).toHaveBeenLastCalledWith(
+        expect.objectContaining({ system_id: 'sys-2', edition_id: undefined }),
       );
     }, { timeout: 1000 });
   });

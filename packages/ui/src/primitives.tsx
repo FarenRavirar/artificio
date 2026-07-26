@@ -478,7 +478,7 @@ function useFocusTrap(open: boolean, containerRef: { current: HTMLElement | null
         return;
       }
       const first = current[0];
-      const last = current[current.length - 1];
+      const last = current.at(-1) ?? first;
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
