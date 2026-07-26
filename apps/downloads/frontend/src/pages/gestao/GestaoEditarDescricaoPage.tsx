@@ -7,10 +7,29 @@ import { RichTextEditor } from '../../components/RichTextEditor';
 import { useAdminMedia } from '../../hooks/useAdminMedia';
 import { useUpdateMaterialMetadata } from '../../hooks/useUpdateMaterialMetadata';
 
+// Achado real (review PR #209, GitHub Advanced Security/CodeQL, high):
+// strip de tag por regex (/<[^>]*>/g) é sanitização incompleta — string com
+// tag quebrada/aninhada pode manter "<script" de fora do match e o linter
+// sinaliza injeção potencial. Isto aqui só decide se o HTML é "vazio" pra
+// gravar null (não é a sanitização real: essa é sempre no servidor,
+// sanitizeRichHtml.ts, AGENTS.md). Troca pra DOMParser: extrai texto via
+// árvore DOM real, sem regex tentando emular parser de HTML.
+// Tags sem texto próprio que ainda assim são conteúdo real (o TipTap emite
+// <p></p> pra documento genuinamente vazio, e isso continua devendo virar
+// null — só as tags abaixo contam como "tem algo" sem precisar de texto).
+const STRUCTURAL_EMPTY_TAGS = new Set(['img', 'hr']);
+
 function normalizedRichHtml(value: string): string | null {
-  const containsImage = /<img\b/i.test(value);
-  const text = value.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim();
-  return containsImage || text ? value : null;
+  const parsed = new DOMParser().parseFromString(value, 'text/html');
+  const text = (parsed.body.textContent ?? '').replace(/ /g, ' ').trim();
+  // Achado real (review PR #209, Codex, nitpick): checar só <img> descartava
+  // descrição com outro conteúdo estrutural sem texto próprio (ex.: só
+  // <hr>) como se fosse vazia. Generaliza pra qualquer tag da lista acima,
+  // em vez de checar só <img> — mas continua exigindo texto ou uma dessas
+  // tags: <p></p> sozinho (documento vazio real do TipTap) segue virando
+  // null.
+  const hasStructuralContent = parsed.body.querySelector([...STRUCTURAL_EMPTY_TAGS].join(',')) !== null;
+  return hasStructuralContent || text ? value : null;
 }
 
 // Spec 086, T9.3: editor vive na gestão. Painel do criador mantém descrição

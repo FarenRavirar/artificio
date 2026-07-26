@@ -33,20 +33,54 @@ export function GestaoSugestoesSistemaPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [targetNodeId, setTargetNodeId] = useState('');
   const [newNodeName, setNewNodeName] = useState('');
-  const [editionName, setEditionName] = useState('');
+  // Achado real (review PR #209, CodeRabbit): "Sistema raiz" e "Filho do
+  // candidato selecionado" compartilhavam o mesmo estado editionName —
+  // digitar num campo sujava o outro se o admin alternasse entre os dois
+  // blocos. Separado em estado próprio por bloco.
+  const [rootEditionName, setRootEditionName] = useState('');
+  const [childName, setChildName] = useState('');
   const [childType, setChildType] = useState<'edition' | 'variant'>('edition');
   const [rejectReason, setRejectReason] = useState('');
-  const { data: candidateData, isLoading: candidatesLoading } = useSystemSuggestionCandidates(activeId);
+  const {
+    data: candidateData,
+    isLoading: candidatesLoading,
+    error: candidatesError,
+  } = useSystemSuggestionCandidates(activeId);
   const resolveMutation = useResolveSystemSuggestion();
   const activeSuggestion = suggestions.find((suggestion) => suggestion.id === activeId) ?? candidateData?.suggestion;
+  // Achado real (review PR #209, Codex, P1): candidatos carregando/falhando
+  // não pode ser tratado como "lista vazia" — isso deixava "Criar sistema"
+  // habilitado (newNodeName já vinha preenchido no openSuggestion) mesmo sem
+  // o admin ter visto os candidatos existentes, criando node duplicado no
+  // catálogo compartilhado. Toda ação de resolução trava até a consulta
+  // terminar OK.
+  const candidatesReady = Boolean(candidateData) && !candidatesLoading && !candidatesError;
 
   function openSuggestion(suggestion: SystemSuggestion) {
     setActiveId(suggestion.id);
     setTargetNodeId('');
     setNewNodeName(suggestion.raw_value);
-    setEditionName('');
+    setRootEditionName('');
+    setChildName('');
     setChildType('edition');
     setRejectReason('');
+  }
+
+  // Achado real (review PR #209, Codex, P2): backend calcula
+  // analysis.suggested_child_type/suggested_child_name (ex.: "variant" pra
+  // valor que representa variante de uma edição existente), mas a tela
+  // sempre reiniciava childType em 'edition' e nunca aplicava o nome
+  // sugerido — admin criava edição sob edição apesar da recomendação.
+  // Aplica a análise assim que os candidatos da sugestão ativa chegam.
+  // Ajuste durante a própria renderização (padrão React, não useEffect —
+  // setState síncrono em efeito causa cascata de renders, achado de lint
+  // react-hooks/set-state-in-effect; mesmo padrão já usado em
+  // CatalogoPage.tsx).
+  const [appliedAnalysisFor, setAppliedAnalysisFor] = useState<string | null>(null);
+  if (candidateData && candidateData.suggestion.id === activeId && appliedAnalysisFor !== activeId) {
+    setAppliedAnalysisFor(activeId);
+    setChildType(candidateData.analysis.suggested_child_type);
+    setChildName(candidateData.analysis.suggested_child_name ?? candidateData.suggestion.raw_value);
   }
 
   async function resolve(payload: ResolveSystemSuggestionPayload) {
@@ -115,6 +149,7 @@ export function GestaoSugestoesSistemaPage() {
               getRowLabel={(row) => row.name}
               columns={candidateColumns}
               loading={candidatesLoading}
+              error={candidatesError instanceof Error ? candidatesError.message : null}
               rowActions={candidateActions}
               emptyTitle="Nenhum candidato próximo."
               emptyHint="Crie um sistema raiz ou escolha manualmente um nome."
@@ -124,8 +159,8 @@ export function GestaoSugestoesSistemaPage() {
 
           <SectionCard title="Casar ou ensinar alias" description="Use um candidato existente; o valor bruto passa a resolver automaticamente nos próximos materiais.">
             <div className="flex flex-wrap gap-3">
-              <button type="button" disabled={!targetNodeId || resolveMutation.isPending} onClick={() => void resolve({ resolution_type: 'merge_existing', target_node_id: targetNodeId })} className="min-h-11 rounded-md bg-artificio-orange px-4 py-2 font-semibold text-white disabled:opacity-50">Casar com existente</button>
-              <button type="button" disabled={!targetNodeId || resolveMutation.isPending} onClick={() => void resolve({ resolution_type: 'create_alias', target_node_id: targetNodeId })} className="min-h-11 rounded-md border border-[var(--admin-border)] px-4 py-2 text-[var(--admin-fg)] disabled:opacity-50">Criar alias no existente</button>
+              <button type="button" disabled={!candidatesReady || !targetNodeId || resolveMutation.isPending} onClick={() => void resolve({ resolution_type: 'merge_existing', target_node_id: targetNodeId })} className="min-h-11 rounded-md bg-artificio-orange px-4 py-2 font-semibold text-white disabled:opacity-50">Casar com existente</button>
+              <button type="button" disabled={!candidatesReady || !targetNodeId || resolveMutation.isPending} onClick={() => void resolve({ resolution_type: 'create_alias', target_node_id: targetNodeId })} className="min-h-11 rounded-md border border-[var(--admin-border)] px-4 py-2 text-[var(--admin-fg)] disabled:opacity-50">Criar alias no existente</button>
             </div>
           </SectionCard>
 
@@ -139,9 +174,9 @@ export function GestaoSugestoesSistemaPage() {
                 </label>
                 <label className="flex flex-col gap-1 text-sm text-[var(--admin-fg-low)]">
                   Edição opcional
-                  <input value={editionName} onChange={(event) => setEditionName(event.target.value)} className={inputClass} />
+                  <input value={rootEditionName} onChange={(event) => setRootEditionName(event.target.value)} className={inputClass} />
                 </label>
-                <button type="button" disabled={!newNodeName.trim() || resolveMutation.isPending} onClick={() => void resolve({ resolution_type: 'create_system', name: newNodeName.trim(), edition_name: editionName.trim() || undefined })} className="min-h-11 w-fit rounded-md bg-artificio-orange px-4 py-2 font-semibold text-white disabled:opacity-50">Criar sistema</button>
+                <button type="button" disabled={!candidatesReady || !newNodeName.trim() || resolveMutation.isPending} onClick={() => void resolve({ resolution_type: 'create_system', name: newNodeName.trim(), edition_name: rootEditionName.trim() || undefined })} className="min-h-11 w-fit rounded-md bg-artificio-orange px-4 py-2 font-semibold text-white disabled:opacity-50">Criar sistema</button>
               </div>
 
               <div className="flex flex-col gap-3">
@@ -155,9 +190,9 @@ export function GestaoSugestoesSistemaPage() {
                 </label>
                 <label className="flex flex-col gap-1 text-sm text-[var(--admin-fg-low)]">
                   Nome do filho
-                  <input value={editionName} onChange={(event) => setEditionName(event.target.value)} className={inputClass} />
+                  <input value={childName} onChange={(event) => setChildName(event.target.value)} className={inputClass} />
                 </label>
-                <button type="button" disabled={!targetNodeId || !editionName.trim() || resolveMutation.isPending} onClick={() => void resolve({ resolution_type: 'create_child', parent_id: targetNodeId, node_type: childType, name: editionName.trim() })} className="min-h-11 w-fit rounded-md border border-[var(--admin-border)] px-4 py-2 font-semibold text-[var(--admin-fg)] disabled:opacity-50">Criar {childType === 'edition' ? 'edição' : 'variante'}</button>
+                <button type="button" disabled={!candidatesReady || !targetNodeId || !childName.trim() || resolveMutation.isPending} onClick={() => void resolve({ resolution_type: 'create_child', parent_id: targetNodeId, node_type: childType, name: childName.trim() })} className="min-h-11 w-fit rounded-md border border-[var(--admin-border)] px-4 py-2 font-semibold text-[var(--admin-fg)] disabled:opacity-50">Criar {childType === 'edition' ? 'edição' : 'variante'}</button>
               </div>
             </div>
 
