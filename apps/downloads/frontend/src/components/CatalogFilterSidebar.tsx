@@ -31,9 +31,15 @@ function FilterControls({ values, onChange }: Readonly<CatalogFilterSidebarProps
     return system && system.node_type === 'system' ? [system] : [];
   });
 
+  // Achado real (review PR #208, CodeRabbit): sem filtrar por parent_id do
+  // sistema selecionado, a lista mostrava edicoes de todos os sistemas ao
+  // mesmo tempo. Sem sistema selecionado, mantem todas (D073 nao restringe
+  // filtro incompleto).
   const editionOptions = (facets?.editions ?? []).flatMap((facet) => {
     const edition = systemsById.get(facet.id);
-    return edition && edition.node_type === 'edition' ? [edition] : [];
+    if (!edition || edition.node_type !== 'edition') return [];
+    if (values.system_id && edition.parent_id !== values.system_id) return [];
+    return [edition];
   });
 
   return (

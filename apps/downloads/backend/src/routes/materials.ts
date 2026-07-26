@@ -6,7 +6,6 @@ import { authMiddleware } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
 import {
   getCatalogMaterialTypeById,
-  getCatalogNodeById,
   loadCatalogMaterialTypes,
   loadCatalogSystemsFlat,
   type FlatCatalogSystem,
@@ -334,7 +333,11 @@ router.get('/:slug', async (req: Request, res: Response) => {
         eb('download_creator.id', '=', eb.ref('download_material.creator_id')),
       ])),
     )
-    .select([...PUBLIC_MATERIAL_FIELDS, 'download_creator.slug as creator_slug'])
+    // Achado real (review PR #208, Codex P1): ficha nao devolvia cover_image_url
+    // (so a listagem fazia esse join); mesmo leftJoin + CARD_METADATA_FIELDS
+    // da listagem, replicado aqui.
+    .leftJoin('download_material_metadata', 'download_material_metadata.material_id', 'download_material.id')
+    .select([...PUBLIC_MATERIAL_FIELDS, ...CARD_METADATA_FIELDS, 'download_creator.slug as creator_slug'])
     .where('download_material.slug', '=', req.params.slug)
     .where('download_material.editorial_state', '=', 'published')
     .executeTakeFirst();
@@ -363,19 +366,18 @@ router.get('/:slug', async (req: Request, res: Response) => {
       .where('material_id', '=', material.id)
       .executeTakeFirstOrThrow();
 
-  // T-relacionados (spec 075) — nome legivel de sistema/edicao pra ficha
-  // linkar ao catalogo filtrado; fail-soft (nao derruba a ficha se catalogo
-  // central estiver fora do ar).
-  const [systemNode, editionNode] = await Promise.all([
-    material.system_id ? getCatalogNodeById(material.system_id) : Promise.resolve(null),
-    material.edition_id ? getCatalogNodeById(material.edition_id) : Promise.resolve(null),
-  ]);
+  // T-relacionados (spec 075) — nome legivel de sistema/edicao/variante pra
+  // ficha linkar ao catalogo filtrado; fail-soft (nao derruba a ficha se
+  // catalogo central estiver fora do ar). Achado real (review PR #208,
+  // Codex P2): resolucao direta por getCatalogNodeById tratava edition_id
+  // apontando pra uma variante como se fosse a propria edicao (variant_name
+  // nunca saia no payload); reusa enrichMaterialsWithTaxonomy (mesma logica
+  // de cadeia usada na listagem) pra devolver a cadeia completa.
+  const [enriched] = await enrichMaterialsWithTaxonomy([material]);
 
   return res.json({
-    ...material,
+    ...enriched,
     destination_id: destination.id,
-    system_name: systemNode?.name ?? null,
-    edition_name: editionNode?.name ?? null,
   });
 });
 

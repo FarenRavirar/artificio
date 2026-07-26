@@ -65,6 +65,10 @@ export function CatalogoPage() {
       const next = new URLSearchParams(searchParams);
       if (value) next.set(key, value);
       else next.delete(key);
+      // Achado real (review PR #208, CodeRabbit): trocar de sistema sem
+      // limpar edition_id deixava a URL com edicao de outro sistema presa
+      // (filtro invalido, sidebar ja escondia a opcao mas a URL mantinha).
+      if (key === 'system_id') next.delete('edition_id');
       if (key !== 'page') next.set('page', '1');
       setSearchParams(next, { replace: true });
     },
