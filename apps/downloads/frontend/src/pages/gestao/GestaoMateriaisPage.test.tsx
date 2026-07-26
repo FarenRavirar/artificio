@@ -87,6 +87,7 @@ describe('GestaoMateriaisPage', () => {
     expect(screen.getByText('Manual do Aventureiro')).toBeInTheDocument();
     expect(screen.getByText('Publicado')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Auditoria' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Editar' })).toBeInTheDocument();
   });
 
   it('usa o valor bruto de editorial_state quando não há rótulo mapeado', () => {

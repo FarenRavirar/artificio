@@ -59,6 +59,7 @@ export function GestaoMateriaisPage() {
           searchKeys={['title']}
           loading={isLoading}
           rowActions={[{ key: 'auditoria', label: 'Auditoria', onRun: (row) => navigate(`/gestao/auditoria/${row.id}`) }]}
+          onEdit={(row) => navigate(`/gestao/materiais/${row.id}/editar-descricao`)}
           emptyTitle="Nenhum material encontrado"
         />
       </div>

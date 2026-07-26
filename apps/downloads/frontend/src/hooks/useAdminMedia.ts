@@ -8,9 +8,12 @@ const mediaItemSchema = z.object({
   material_title: z.string(),
   editorial_state: z.string(),
   cover_image_url: z.string().nullable(),
+  description_html: z.string().nullable().optional(),
 });
 
 const mediaListSchema = z.object({ items: z.array(mediaItemSchema) });
+
+export type AdminMediaItem = z.infer<typeof mediaItemSchema>;
 
 // T2.7 (spec 082) — Gestao de Midias: lista todos os materiais com capa
 // resolvida (qualquer estado editorial), pra edicao pelo admin/moderador.

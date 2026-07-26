@@ -10,6 +10,10 @@ export const FOOTER_NAV_LABEL = "Projetos";
 
 export const FOOTER_NAV_ARIA = `Projetos do ${BRAND_NAME}`;
 
+export const FOOTER_MODULE_LABEL = "Este projeto";
+
+export const FOOTER_MODULE_ARIA = "Links institucionais deste projeto";
+
 export const FOOTER_COPYRIGHT =
   `${BRAND_NAME} © {year}. Todos os direitos reservados. Leitura, citação curta e compartilhamento de links são permitidos com crédito e link para a fonte. Reprodução integral, espelhamento, raspagem e uso comercial dependem de autorização prévia.`;
 

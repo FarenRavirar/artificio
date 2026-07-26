@@ -17,10 +17,13 @@ const userMenu: UserMenuItem[] = [
 const moduleNav: NavItem[] = [
   { label: 'Início', href: '/' },
   { label: 'Catálogo', href: '/catalogo' },
-  // Spec 084 (T9.3) — pagina institucional que declara D119 (so portugues),
-  // hub/redirecionamento e transparencia do scraper.
-  { label: 'Sobre e uso', href: '/sobre-e-uso' },
 ];
+
+// Spec 086 (T10.2/T10.3) — "Sobre e uso" sai do moduleNav (não é catálogo,
+// é 100% institucional: D119, PWYW, download, moderação, direitos
+// autorais) e vira link no footer via Footer.moduleLinks (packages/ui,
+// spec 086 T10.1). Rota /sobre-e-uso preservada no router (SEO, sem 404).
+const footerModuleLinks: NavItem[] = [{ label: 'Sobre e uso', href: '/sobre-e-uso' }];
 
 export const AppShell = ({ children }: AppShellProps) => {
   const { pathname } = useLocation();
@@ -56,7 +59,7 @@ export const AppShell = ({ children }: AppShellProps) => {
         serviceAccount={{ label: 'Conta Downloads', href: '/painel' }}
       />
       <main className="flex-1">{children}</main>
-      <Footer variant={theme === 'light' ? 'light' : 'dark'} />
+      <Footer variant={theme === 'light' ? 'light' : 'dark'} moduleLinks={footerModuleLinks} />
       <ChangelogModal isOpen={isChangelogOpen} onClose={() => setIsChangelogOpen(false)} />
     </div>
   );

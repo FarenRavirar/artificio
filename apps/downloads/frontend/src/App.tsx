@@ -35,6 +35,8 @@ import { GestaoTaxonomiasPage } from './pages/gestao/GestaoTaxonomiasPage';
 import { GestaoMetricasPage } from './pages/gestao/GestaoMetricasPage';
 import { GestaoConfiguracoesPage } from './pages/gestao/GestaoConfiguracoesPage';
 import { GestaoPlataformasPage } from './pages/gestao/GestaoPlataformasPage';
+import { GestaoSugestoesSistemaPage } from './pages/gestao/GestaoSugestoesSistemaPage';
+import { GestaoEditarDescricaoPage } from './pages/gestao/GestaoEditarDescricaoPage';
 
 function AnalyticsPageviews() {
   useAnalyticsPageviews();
@@ -82,6 +84,8 @@ function AppRoutes() {
       <Route path="/gestao/metricas" element={<RequireGestaoAuth><GestaoMetricasPage /></RequireGestaoAuth>} />
       <Route path="/gestao/configuracoes" element={<RequireGestaoAuth><GestaoConfiguracoesPage /></RequireGestaoAuth>} />
       <Route path="/gestao/plataformas" element={<RequireGestaoAuth requiredRole="admin"><GestaoPlataformasPage /></RequireGestaoAuth>} />
+      <Route path="/gestao/sugestoes-sistema" element={<RequireGestaoAuth requiredRole="admin"><GestaoSugestoesSistemaPage /></RequireGestaoAuth>} />
+      <Route path="/gestao/materiais/:materialId/editar-descricao" element={<RequireGestaoAuth><GestaoEditarDescricaoPage /></RequireGestaoAuth>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

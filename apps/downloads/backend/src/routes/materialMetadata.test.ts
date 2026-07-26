@@ -40,7 +40,7 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
     dbMocks.insertInto.mockReset();
   });
 
-  it('aceita metadata rica, sanitiza HTML e preserva source_filters como array', async () => {
+  it('aceita metadata rica, limpa HTML hostil colado no editor e preserva source_filters como array', async () => {
     dbMocks.selectFrom.mockReturnValueOnce(materialQuery({ id: 'material-1', creator_id: 'creator-1', system_id: null }));
     const insert = {
       values: vi.fn().mockReturnThis(),
@@ -61,7 +61,7 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
         creation_method: 'Human-Created Without AI',
         source_category: 'Linha de produto',
         source_filters: [{ facet: 'tipoDeProduto', path: ['Aventura', 'Campanha'] }],
-        description_html: '<p onclick="alert(1)">Seguro</p><script>alert(1)</script>',
+        description_html: '<p onclick="alert(1)">Seguro</p><a href="javascript:alert(1)">link</a><img src="https://example.com/capa.png" onerror="alert(1)"><iframe src="https://evil.example"></iframe><script>alert(1)</script>',
       })
       .expect(200);
 
@@ -72,7 +72,7 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
       creation_method: 'Human-Created Without AI',
       source_category: 'Linha de produto',
       source_filters: [{ facet: 'tipoDeProduto', path: ['Aventura', 'Campanha'] }],
-      description_html: '<p>Seguro</p>',
+      description_html: '<p>Seguro</p><a>link</a><img src="https://example.com/capa.png">',
     }));
   });
 

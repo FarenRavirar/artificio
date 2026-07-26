@@ -60,6 +60,34 @@ describe('GET /api/v1/admin/summary', () => {
     expect(response.body.moderation_queue.count).toBe(3);
     expect(response.body.reports_open.count).toBe(3);
     expect(response.body.degraded_links.count).toBe(3);
+    expect(response.body.system_suggestions_pending.count).toBe(3);
+    expect(dbMocks.selectFrom).toHaveBeenCalledWith('download_system_suggestion');
+  });
+});
+
+describe('GET /api/v1/admin/media', () => {
+  beforeEach(() => {
+    dbMocks.selectFrom.mockReset();
+  });
+
+  it('serve description_html sanitizado para o editor da gestão', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce({
+      leftJoin: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockResolvedValue([{
+        material_id: 'material-1',
+        material_slug: 'manual',
+        material_title: 'Manual',
+        editorial_state: 'published',
+        cover_image_url: null,
+        description_html: '<p onclick="alert(1)">Seguro</p><script>alert(1)</script>',
+      }]),
+    });
+
+    const response = await request(app()).get('/api/v1/admin/media').expect(200);
+
+    expect(response.body.items[0].description_html).toBe('<p>Seguro</p>');
   });
 });
 

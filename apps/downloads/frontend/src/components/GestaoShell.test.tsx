@@ -18,7 +18,7 @@ import * as useCreatorRoleModule from '../hooks/useCreatorRole';
 // "sem permissão". adminOnly no item filtra a sidebar espelhando o guard.
 
 function mockSummary(
-  counts?: { moderation_queue?: number; reports_open?: number; degraded_links?: number },
+  counts?: { moderation_queue?: number; reports_open?: number; degraded_links?: number; system_suggestions_pending?: number },
 ) {
   vi.spyOn(useAdminSummaryModule, 'useAdminSummary').mockReturnValue({
     data: counts
@@ -26,6 +26,7 @@ function mockSummary(
           moderation_queue: { count: counts.moderation_queue ?? 0 },
           reports_open: { count: counts.reports_open ?? 0 },
           degraded_links: { count: counts.degraded_links ?? 0 },
+          system_suggestions_pending: { count: counts.system_suggestions_pending ?? 0 },
         }
       : undefined,
   } as unknown as ReturnType<typeof useAdminSummaryModule.useAdminSummary>);
@@ -72,6 +73,7 @@ describe('GestaoShell sidebar', () => {
     renderShell();
 
     expect(screen.getByRole('link', { name: 'Plataformas' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sugestões de sistema' })).toBeInTheDocument();
   });
 
   it('mostra itens não admin-only pra moderator normalmente', () => {
@@ -82,6 +84,7 @@ describe('GestaoShell sidebar', () => {
 
     expect(screen.getByRole('link', { name: 'Materiais' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Configurações' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Sugestões de sistema' })).not.toBeInTheDocument();
   });
 
   it('(1) preserva os 4 grupos Conteúdo/Operação/Comunidade/Sistema', () => {
@@ -97,13 +100,14 @@ describe('GestaoShell sidebar', () => {
   });
 
   it('(2) mostra contagem por fila (moderação, denúncias, links degradados)', () => {
-    mockSummary({ moderation_queue: 3, reports_open: 1, degraded_links: 2 });
+    mockSummary({ moderation_queue: 3, reports_open: 1, degraded_links: 2, system_suggestions_pending: 4 });
     mockCreatorRole('admin');
 
     renderShell();
 
     expect(screen.getByRole('link', { name: /Moderação/ })).toHaveTextContent('3');
     expect(screen.getByRole('link', { name: /Links/ })).toHaveTextContent('2');
+    expect(screen.getByRole('link', { name: /Sugestões de sistema/ })).toHaveTextContent('4');
   });
 
   it('(3) fila P0 (denúncia aberta) sinaliza com ícone + texto, nunca só cor', () => {

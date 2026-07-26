@@ -209,7 +209,7 @@
       "method": "GET",
       "path": "/api/v1/admin/creators",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 233,
+      "line": 247,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -245,7 +245,7 @@
       "method": "GET",
       "path": "/api/v1/admin/links",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 93,
+      "line": 98,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -254,7 +254,7 @@
       "method": "POST",
       "path": "/api/v1/admin/materials/:id/check-link",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 59,
+      "line": 64,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -263,7 +263,7 @@
       "method": "POST",
       "path": "/api/v1/admin/materials/:id/evidence/upload",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 147,
+      "line": 152,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -272,7 +272,7 @@
       "method": "GET",
       "path": "/api/v1/admin/materials/:id/link-history",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 43,
+      "line": 48,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -281,7 +281,7 @@
       "method": "GET",
       "path": "/api/v1/admin/media",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 204,
+      "line": 209,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -290,7 +290,7 @@
       "method": "GET",
       "path": "/api/v1/admin/metrics",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 117,
+      "line": 122,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -335,7 +335,7 @@
       "method": "POST",
       "path": "/api/v1/admin/sanitize-preview",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 277,
+      "line": 291,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -416,7 +416,7 @@
       "method": "GET",
       "path": "/api/v1/admin/summary",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 15,
+      "line": 16,
       "confidence": "high",
       "kind": "express-route"
     },

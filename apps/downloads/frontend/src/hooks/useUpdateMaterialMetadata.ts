@@ -4,6 +4,7 @@ import { materialMetadataSchema } from './useMaterialMetadata';
 
 export interface MaterialMetadataPatch {
   publisher_name?: string | null;
+  description_html?: string | null;
 }
 
 // T-editora (spec 075) — grava so publisher_name por ora (demais campos de
@@ -21,6 +22,11 @@ export function useUpdateMaterialMetadata(materialId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['downloads', 'material-metadata', materialId] });
+      // Achado real (review PR #209, CodeRabbit): GestaoEditarDescricaoPage
+      // lê description_html via useAdminMedia (['downloads', 'admin',
+      // 'media']), não via useMaterialMetadata — sem invalidar essa chave
+      // também, o editor mostrava HTML desatualizado até reload manual.
+      queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'media'] });
     },
   });
 }
