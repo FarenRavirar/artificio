@@ -1668,35 +1668,6 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
-  /api/v1/materials/catalog-systems:
-    get:
-      operationId: getapi_v1_materials_catalog_systems
-      summary: "Consulta api v1 materials catalog-systems"
-      x-artificio-owner: downloads
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: none
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
   /api/v1/materials/facets:
     get:
       operationId: getapi_v1_materials_facets

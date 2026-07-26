@@ -10,85 +10,15 @@
 
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
-| accounts | ✅ 0 | ✅ 1 | ⚪ 0 |
-| downloads | ✅ 0 | ✅ 20 | ⚪ 0 |
-| mesas | ✅ 0 | ✅ 5 | ⚪ 0 |
-| glossario | ✅ 0 | ✅ 2 | ⚪ 0 |
-| site | ✅ 0 | ✅ 3 | ⚪ 0 |
-
----
-
-### accounts
-
-#### ✅ Non-breaking (1)
-
-| Path | Method | Ação |
-|------|--------|------|
-| `` |  | add |
+| downloads | ❌ 1 | ✅ 0 | ⚪ 0 |
 
 ---
 
 ### downloads
 
-#### ✅ Non-breaking (20)
+#### ❌ Breaking Changes (1)
 
-| Path | Method | Ação |
-|------|--------|------|
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-
----
-
-### mesas
-
-#### ✅ Non-breaking (5)
-
-| Path | Method | Ação |
-|------|--------|------|
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-
----
-
-### glossario
-
-#### ✅ Non-breaking (2)
-
-| Path | Method | Ação |
-|------|--------|------|
-| `` |  | add |
-| `` |  | add |
-
----
-
-### site
-
-#### ✅ Non-breaking (3)
-
-| Path | Method | Ação |
-|------|--------|------|
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
+| Path | Method | Ação | Código |
+|------|--------|------|--------|
+| `` |  | remove | `path.remove` |
 

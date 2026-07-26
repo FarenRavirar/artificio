@@ -180,28 +180,6 @@ describe('GET /api/v1/materials — listagem publica', () => {
     }
   });
 
-  it('expõe sistemas/edições do Central achatados para a sidebar de filtro (T8.1)', async () => {
-    catalogMocks.loadCatalogSystemsFlat.mockResolvedValue([
-      { id: 'sys-1', name: 'Warhammer', name_pt: null, slug: 'warhammer', path_slug: 'warhammer', node_type: 'system', parent_id: null, aliases: [] },
-      { id: 'ed-1', name: 'Fourth Edition', name_pt: 'Quarta Edição', slug: 'fourth-edition', path_slug: 'warhammer/fourth-edition', node_type: 'edition', parent_id: 'sys-1', aliases: [] },
-    ]);
-
-    const response = await request(app()).get('/api/v1/materials/catalog-systems').expect(200);
-
-    expect(response.body).toEqual({
-      items: [
-        { id: 'sys-1', name: 'Warhammer', slug: 'warhammer', node_type: 'system', parent_id: null },
-        { id: 'ed-1', name: 'Quarta Edição', slug: 'fourth-edition', node_type: 'edition', parent_id: 'sys-1' },
-      ],
-    });
-  });
-
-  it('catalog-systems devolve 503 quando o Central falha', async () => {
-    catalogMocks.loadCatalogSystemsFlat.mockRejectedValue(new Error('catalog_503'));
-
-    await request(app()).get('/api/v1/materials/catalog-systems').expect(503);
-  });
-
   it('expõe vocabulário Central para o formulário sem lista hardcoded', async () => {
     const active = {
       id: 'b071ab5e-2d16-4c58-8f0e-086000000001',

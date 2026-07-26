@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
-import { ActiveFilterChips, type ActiveFilter } from '../components/ActiveFilterChips';
-import { CatalogFilterSidebar } from '../components/CatalogFilterSidebar';
 import { MaterialCard } from '../components/MaterialCard';
-import { useCatalogSystems } from '../hooks/useCatalogSystems';
-import { useMaterialFacets } from '../hooks/useMaterialFacets';
 import { useMaterialsCatalog } from '../hooks/useMaterialsCatalog';
 import { SORT_OPTIONS, type SortOption } from '../types/material';
 
@@ -80,25 +76,6 @@ export function CatalogoPage() {
     page,
   });
 
-  const { data: facets } = useMaterialFacets();
-  const { data: systems } = useCatalogSystems();
-  const systemsById = new Map((systems ?? []).map((system) => [system.id, system]));
-
-  // T8.4 — chips derivados diretamente dos query params (D073, contrato
-  // unico); remover um chip so atualiza a URL (updateParam), que ja dispara
-  // o refetch da lista.
-  const activeFilters: ActiveFilter[] = [];
-  if (materialType) {
-    const label = facets?.material_types.find((option) => option.id === materialType)?.name ?? materialType;
-    activeFilters.push({ key: 'material_type', label: 'Tipo', value: label });
-  }
-  if (systemId) {
-    activeFilters.push({ key: 'system_id', label: 'Sistema', value: systemsById.get(systemId)?.name ?? systemId });
-  }
-  if (editionId) {
-    activeFilters.push({ key: 'edition_id', label: 'Edição', value: systemsById.get(editionId)?.name ?? editionId });
-  }
-
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl px-4 py-8">
@@ -132,58 +109,44 @@ export function CatalogoPage() {
           </label>
         </div>
 
-        <div className="flex flex-col gap-6 lg:flex-row">
-          <CatalogFilterSidebar
-            values={{ material_type: materialType, system_id: systemId, edition_id: editionId }}
-            onChange={updateParam}
-          />
+        {isLoading && <p className="text-[var(--fg-muted)]">Carregando...</p>}
+        {isError && <p className="text-red-400">Falha ao carregar materiais. Tente novamente.</p>}
 
-          <div className="min-w-0 flex-1">
-            <ActiveFilterChips
-              filters={activeFilters}
-              onRemove={(key) => updateParam(key, '')}
-            />
+        {data?.items.length === 0 && (
+          <p className="text-[var(--fg-muted)]">Nenhum material encontrado com esses filtros.</p>
+        )}
 
-            {isLoading && <p className="text-[var(--fg-muted)]">Carregando...</p>}
-            {isError && <p className="text-red-400">Falha ao carregar materiais. Tente novamente.</p>}
+        {data && data.items.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {data.items.map((material) => (
+                <MaterialCard key={material.id} material={material} />
+              ))}
+            </div>
 
-            {data?.items.length === 0 && (
-              <p className="text-[var(--fg-muted)]">Nenhum material encontrado com esses filtros.</p>
-            )}
-
-            {data && data.items.length > 0 && (
-              <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {data.items.map((material) => (
-                    <MaterialCard key={material.id} material={material} />
-                  ))}
-                </div>
-
-                <div className="mt-8 flex items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    disabled={page <= 1}
-                    onClick={() => updateParam('page', String(page - 1))}
-                    className="min-h-[44px] min-w-[44px] rounded-md border border-[var(--line)] px-4 disabled:opacity-40"
-                  >
-                    Anterior
-                  </button>
-                  <span className="text-[var(--fg-muted)]">
-                    Página {data.page} de {data.total_pages}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={page >= data.total_pages}
-                    onClick={() => updateParam('page', String(page + 1))}
-                    className="min-h-[44px] min-w-[44px] rounded-md border border-[var(--line)] px-4 disabled:opacity-40"
-                  >
-                    Próxima
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => updateParam('page', String(page - 1))}
+                className="min-h-[44px] min-w-[44px] rounded-md border border-[var(--line)] px-4 disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <span className="text-[var(--fg-muted)]">
+                Página {data.page} de {data.total_pages}
+              </span>
+              <button
+                type="button"
+                disabled={page >= data.total_pages}
+                onClick={() => updateParam('page', String(page + 1))}
+                className="min-h-[44px] min-w-[44px] rounded-md border border-[var(--line)] px-4 disabled:opacity-40"
+              >
+                Próxima
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </AppShell>
   );
