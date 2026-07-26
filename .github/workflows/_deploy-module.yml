@@ -436,6 +436,12 @@ jobs:
             fi
             if [ "$i" -eq 60 ]; then
               echo "ERRO: banco $DB_SERVICE nao ficou pronto"
+              # Achado real (E017, .specify/memory/errors.md): `exit 1`
+              # explicito NUNCA dispara `trap ... ERR` no bash (so comando
+              # que falha com set -e dispara) — confirmado com teste
+              # isolado. Chamar rollback direto antes do exit, em vez de
+              # confiar no trap pra esse padrao.
+              rollback
               exit 1
             fi
             sleep 2
@@ -464,6 +470,9 @@ jobs:
               if [ "$i" -eq 60 ]; then
                 echo "ERRO: $container nao ficou healthy"
                 docker logs "$container" --tail=120 || true
+                # Achado real (E017): exit 1 explicito nao dispara trap ERR
+                # (mesma nota da checagem do banco acima).
+                rollback
                 exit 1
               fi
               sleep 3
@@ -481,10 +490,14 @@ jobs:
             echo "smoke_${name}=$code"
             if [ "$code" != "$expected" ]; then
               echo "ERRO: smoke $name esperava $expected recebeu $code"
+              # Achado real (E017): exit 1 explicito nao dispara trap ERR
+              # (mesma nota da checagem do banco/health acima).
+              rollback
               exit 1
             fi
             if [ -n "$contains" ] && ! grep -qi "location: .*${contains}" "$headers"; then
               echo "ERRO: smoke $name location sem $contains"
+              rollback
               exit 1
             fi
           done < <(printf '%s' "$CRITICAL_ROUTES" | jq -c '.[]')
