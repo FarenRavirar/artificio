@@ -68,6 +68,14 @@ COPY --from=builder /repo/packages/auth/dist-cjs ./packages/auth/dist-cjs
 COPY --from=builder /repo/packages/media/dist ./packages/media/dist
 COPY --from=builder /repo/packages/catalog-client/dist ./packages/catalog-client/dist
 COPY --from=builder /repo/packages/catalog-client/dist-cjs ./packages/catalog-client/dist-cjs
+# Achado real (deploy beta downloads, 2026-07-26, mesmo padrao de E016 —
+# resend/email esquecido antes): scraperIngest.ts e systemSuggestionsAdmin.ts
+# importam @artificio/catalog-matching (fase 4/9 da spec 086), mas o
+# Dockerfile nunca copiou o dist/dist-cjs desse pacote pra imagem de
+# producao — container subia mas crashava em runtime com MODULE_NOT_FOUND
+# no 1o request que tocasse taxonomia.
+COPY --from=builder /repo/packages/catalog-matching/dist ./packages/catalog-matching/dist
+COPY --from=builder /repo/packages/catalog-matching/dist-cjs ./packages/catalog-matching/dist-cjs
 COPY --from=builder /repo/packages/changelog/dist ./packages/changelog/dist
 COPY --from=builder /repo/packages/changelog/dist-cjs ./packages/changelog/dist-cjs
 COPY --from=builder /repo/packages/email/dist ./packages/email/dist
