@@ -21,7 +21,12 @@ const STRUCTURAL_EMPTY_TAGS = new Set(['img', 'hr']);
 
 function normalizedRichHtml(value: string): string | null {
   const parsed = new DOMParser().parseFromString(value, 'text/html');
-  const text = (parsed.body.textContent ?? '').replace(/ /g, ' ').trim();
+  // Achado real (review PR #209, GitHub Advanced Security/CodeQL): fix
+  // anterior tinha o caractere non-breaking space literal digitado direto
+  // no regex em vez do escape unicode \u2014 replace virava no-op (mesmo
+  // caractere nos dois lados). Escape expl\u00EDcito, alvo \u00E9 o non-breaking
+  // space (\u00A0) que vira espa\u00E7o normal.
+  const text = (parsed.body.textContent ?? '').replace(/\u00A0/g, ' ').trim();
   // Achado real (review PR #209, Codex, nitpick): checar só <img> descartava
   // descrição com outro conteúdo estrutural sem texto próprio (ex.: só
   // <hr>) como se fosse vazia. Generaliza pra qualquer tag da lista acima,
