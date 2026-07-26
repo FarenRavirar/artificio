@@ -180,9 +180,9 @@ Achados de Codex (3 P2) e Sonar (10), verificados contra o código real. Dois ex
 
 `rtk tsc` limpo (backend e frontend) · `rtk vitest` **307 backend** (+11) + **215 frontend** verdes · `rtk pnpm run lint` verde repo-wide (23 tasks) · `rtk pnpm run build` verde · `rtk pnpm verify:api` `breaking=0 non-breaking=1`.
 
-#### Pendência nova de deploy (bloqueante para T6.2)
+#### Pendência nova de deploy ✅ resolvida (2026-07-26)
 
-**`VIEW_HASH_SECRET` precisa existir no `.env` da VM antes do próximo deploy de beta/prod.** Os composes usam `:?`, então o container **não sobe** sem ela. Gerar com `openssl rand -hex 32`, valor próprio deste app (não compartilhar com outro módulo). Sem isso, T6.2 falha no start do container.
+**`VIEW_HASH_SECRET`** injetado no `.env.beta` da VM (`/opt/artificio-beta/apps/downloads/.env.beta`). Backup em `.env.beta.bak-20260726`. Composes agora sobem sem travar no `:?`. **Prod** continua sem `.env.prod` (Downloads nunca foi deployado em prod) — quando chegar a hora, repetir o mesmo procedimento.
 
 ### Evidência da 3ª rodada de review da PR #214 — 2026-07-26
 
@@ -198,9 +198,9 @@ Três achados (Codex P1 + P2, CodeRabbit Major). Todos procedem; nenhum descarta
 
 `rtk tsc` limpo · `rtk vitest` **310 backend** (+3) + **215 frontend** verdes · `rtk pnpm run lint` verde repo-wide (23 tasks) · `rtk pnpm verify:api` `breaking=0 non-breaking=1`.
 
-#### Pendência de deploy (inalterada)
+#### Pendência de deploy ✅ resolvida (2026-07-26)
 
-`VIEW_HASH_SECRET` continua obrigatória no `.env` da VM antes de T6.2 — os composes usam `:?` e o container não sobe sem ela.
+`VIEW_HASH_SECRET` injetado no `.env.beta`. Backup criado. T6.2 desbloqueado deste lado.
 
 ## Fase 3 — Busca no Header compartilhado (packages/ui) e unificação de rota
 
