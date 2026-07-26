@@ -102,8 +102,8 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | DELETE | `/api/v1/favorites/:materialId` | ✅ high | `apps/downloads/backend/src/routes/favorites.ts` | 52 |
 | GET | `/api/v1/health` | ✅ high | `apps/downloads/backend/src/server.ts` | 71 |
 | USE | `/api/v1/material-metadata` | ✅ high | `apps/downloads/backend/src/server.ts` | 82 |
-| GET | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 53 |
-| PUT | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 81 |
+| GET | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 54 |
+| PUT | `/api/v1/material-metadata/:materialId` | ✅ high | `apps/downloads/backend/src/routes/materialMetadata.ts` | 82 |
 | GET | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 113 |
 | POST | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 386 |
 | USE | `/api/v1/materials` | ✅ high | `apps/downloads/backend/src/server.ts` | 81 |

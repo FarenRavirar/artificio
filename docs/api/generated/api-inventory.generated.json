@@ -686,7 +686,7 @@
       "method": "GET",
       "path": "/api/v1/material-metadata/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/materialMetadata.ts",
-      "line": 53,
+      "line": 54,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -695,7 +695,7 @@
       "method": "PUT",
       "path": "/api/v1/material-metadata/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/materialMetadata.ts",
-      "line": 81,
+      "line": 82,
       "confidence": "high",
       "kind": "express-route"
     },

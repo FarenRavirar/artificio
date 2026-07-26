@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
-import { POSTGRES_INTEGER_MAX, type JSONColumnType } from '../db/types';
+import { POSTGRES_INTEGER_MAX } from '../db/types';
+import { toJsonColumnValue } from '../db/jsonColumn';
 import { sanitizeRichHtml } from '../services/sanitizeRichHtml';
 
 const router = Router();
@@ -133,15 +134,24 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     source_category: patch.source_category ?? null,
     description_html: patch.description_html ?? null,
   };
-  // Kysely tipa colunas JSONB como Generated<ColumnType<T[], T[]|undefined, T[]>>,
-  // mas insert/onConflict.doUpdateSet esperam formas ligeiramente distintas
-  // desse tipo — array JS puro (driver pg serializa pra jsonb automaticamente),
-  // asserção pontual evita duplicar os literais para cada contexto.
+  // Achado real (smoke visual pós-deploy da spec 086, 2026-07-26): a premissa
+  // anterior deste comentário ("driver pg serializa pra jsonb automaticamente")
+  // estava errada. `node-postgres` sem type hint explícito serializa array JS
+  // como array literal do Postgres (`{}` pra vazio), não como JSON — e `{}` é
+  // sintaxe JSON válida para "objeto vazio", não "array vazio". Resultado: PUT
+  // gravava `tags`/`source_filters` como `{}` no banco, e o GET seguinte
+  // quebrava o parse Zod do frontend (`expected array, code: invalid_type`).
+  // Confirmado em produção (beta): 3 linhas reais gravadas como object antes
+  // do fix, 93 linhas anteriores (via scraperIngest.ts, mesmo padrão bugado)
+  // como array — só não estourava porque a maioria nunca passou por um PUT
+  // deste endpoint depois de escrita. Fix: `JSON.stringify` explícito antes
+  // de entregar ao Kysely, forçando o parâmetro a chegar como texto JSON —
+  // scraperIngest.ts tem o mesmo bug e precisa do mesmo fix (ver TODO lá).
   const jsonFields = {
-    access_barriers: (patch.access_barriers ?? []) as unknown as JSONColumnType<string[]>,
-    content_warnings: (patch.content_warnings ?? []) as unknown as JSONColumnType<string[]>,
-    tags: (patch.tags ?? []) as unknown as JSONColumnType<string[]>,
-    source_filters: (patch.source_filters ?? []) as unknown as JSONColumnType<Array<{ facet: string; path: string[] }>>,
+    access_barriers: toJsonColumnValue(patch.access_barriers ?? []),
+    content_warnings: toJsonColumnValue(patch.content_warnings ?? []),
+    tags: toJsonColumnValue(patch.tags ?? []),
+    source_filters: toJsonColumnValue(patch.source_filters ?? []),
   };
 
   const updateFields = Object.fromEntries(
