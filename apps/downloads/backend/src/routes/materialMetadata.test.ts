@@ -71,7 +71,12 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
       page_count: 15,
       creation_method: 'Human-Created Without AI',
       source_category: 'Linha de produto',
-      source_filters: [{ facet: 'tipoDeProduto', path: ['Aventura', 'Campanha'] }],
+      // Achado real (smoke visual pós-deploy, 2026-07-26): node-postgres sem
+      // type hint serializa array JS como array literal do Postgres ('[]'
+      // virava '{}' no banco, quebrando o parse Zod do GET seguinte). Fix é
+      // JSON.stringify explícito antes do Kysely — o valor aqui é a STRING
+      // serializada, não o array em si.
+      source_filters: JSON.stringify([{ facet: 'tipoDeProduto', path: ['Aventura', 'Campanha'] }]),
       description_html: '<p>Seguro</p><a>link</a><img src="https://example.com/capa.png">',
     }));
   });
@@ -95,7 +100,7 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
       .send({ file_size_text: '1 MB' })
       .expect(200);
 
-    expect(insert.values).toHaveBeenCalledWith(expect.objectContaining({ source_filters: [] }));
+    expect(insert.values).toHaveBeenCalledWith(expect.objectContaining({ source_filters: JSON.stringify([]) }));
     expect(doUpdateSet).toHaveBeenCalledWith(expect.not.objectContaining({
       description_html: expect.anything(),
       source_filters: expect.anything(),

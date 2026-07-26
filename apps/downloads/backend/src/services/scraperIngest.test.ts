@@ -208,12 +208,17 @@ describe('runScraperIngest', () => {
         scenario: 'Qualquer mundo',
         credits: 'Autora\nArtista',
         file_format: 'PDF',
-        tags: ['Aventura', '5e'],
+        // Achado real (smoke visual pós-deploy, 2026-07-26): node-postgres
+        // sem type hint serializa array JS como array literal do Postgres
+        // ('[]' virava '{}' no banco) — fix é JSON.stringify explícito
+        // antes de entregar ao Kysely, então o valor passado pro insert é
+        // a STRING serializada, não o array em si.
+        tags: JSON.stringify(['Aventura', '5e']),
         file_size_text: '44,49 MB',
         page_count: 15,
         creation_method: 'Human-Created Without AI',
         source_category: 'Linha de produto',
-        source_filters: [{ facet: 'tipoDeProduto', path: ['Aventura', 'Campanha'] }],
+        source_filters: JSON.stringify([{ facet: 'tipoDeProduto', path: ['Aventura', 'Campanha'] }]),
         description_html: '<p>Descrição <strong>rica</strong></p>',
       }),
     );
