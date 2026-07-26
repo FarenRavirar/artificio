@@ -10,15 +10,15 @@
 
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
-| downloads | ❌ 1 | ✅ 0 | ⚪ 0 |
+| downloads | ✅ 0 | ✅ 1 | ⚪ 0 |
 
 ---
 
 ### downloads
 
-#### ❌ Breaking Changes (1)
+#### ✅ Non-breaking (1)
 
-| Path | Method | Ação | Código |
-|------|--------|------|--------|
-| `` |  | remove | `path.remove` |
+| Path | Method | Ação |
+|------|--------|------|
+| `` |  | add |
 
