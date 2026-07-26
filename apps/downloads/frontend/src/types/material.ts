@@ -26,6 +26,16 @@ export const materialSchema = z.object({
   scenario: z.string().nullable().optional(),
   variant_name: z.string().nullable().optional(),
   system_path_slug: z.string().nullable().optional(),
+  // Spec 087 (T1B/T3.5) — metricas calculadas pelo backend
+  // (services/materialMetrics.ts), nunca colunas cruas: `avg_rating` e a media
+  // bayesiana ja ancorada na media do catalogo e `popularity_score` a taxa de
+  // conversao download/view ancorada do mesmo jeito. Ambos sao `null` quando
+  // nao ha volume — ausencia de dado NUNCA vira 0, senao material sem
+  // avaliacao apareceria como "0 estrelas" (Requisito 15). `rating_count` e
+  // contagem bruta e e o unico gatilho de exibicao das estrelas.
+  avg_rating: z.number().nullable().optional(),
+  rating_count: z.number().optional(),
+  popularity_score: z.number().nullable().optional(),
   editorial_state: z.enum(['draft', 'in_review', 'published', 'rejected', 'withdrawn']),
   created_at: z.string(),
   updated_at: z.string(),
@@ -43,7 +53,12 @@ export const materialListResponseSchema = z.object({
 
 export type MaterialListResponse = z.infer<typeof materialListResponseSchema>;
 
-export const SORT_OPTIONS = ['relevance', 'recent', 'popular', 'name'] as const;
+// Spec 087 (T2.6, decisao 5) — `trending` e `rating` sao ordenacoes formais do
+// catalogo, nao um modo separado de home: a mesma rota atende vitrine e
+// resultado, entao a prateleira "Mais visitados" e o dropdown de ordenacao
+// falam exatamente o mesmo contrato de URL. Ordem do array e a ordem exibida
+// no dropdown.
+export const SORT_OPTIONS = ['relevance', 'recent', 'popular', 'trending', 'rating', 'name'] as const;
 export type SortOption = (typeof SORT_OPTIONS)[number];
 
 export interface MaterialListFilters {

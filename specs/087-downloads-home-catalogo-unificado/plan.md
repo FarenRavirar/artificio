@@ -11,6 +11,90 @@ Estas 6 decisões mudavam o raio/comportamento da implementação e foram levada
 5. **`sort` formal vs. prateleira fixa: DECIDIDO — ambos.** "Mais bem avaliados" e "Mais visitados" viram opções formais em `SORT_OPTIONS` (usáveis no modo resultado, com busca/filtro ativo) E aparecem como prateleira fixa na home — mesma métrica central serve os 2 lugares, coerente com o objetivo de reaproveitamento desta rodada.
 6. **Piso mínimo de avaliações (N): DECIDIDO — REJEITADO piso fixo, substituído por Bayesian average também no rating.** Mesmo método da decisão 4 aplicado à métrica de avaliação: sem N de corte abrupto, material com 1+ avaliação participa da prateleira/ordenação, ancorado na média geral do catálogo até acumular avaliações suficientes pra pesar pelo próprio desempenho. Elimina a inconsistência de ter 2 métricas de destaque com estratégias diferentes (uma com corte fixo, outra sem).
 
+## Direção de design (Fase 1 — aprovada pelo mantenedor em 2026-07-26)
+
+Fonte única da direção visual desta spec. T4.1 aplica **isto**; divergir exige nova aprovação.
+
+### Tese
+
+Downloads é **acervo comunitário doado**, não loja. `credits`/`creator_slug` são campos de primeira classe no schema, e o propósito do produto é o usuário SAIR pro site do autor (D107/D119) — o oposto de DriveThruRPG, que retém. Pergunta que orienta a direção: *o que uma vitrine de e-commerce nunca faria?* Resposta: dar mais destaque ao autor do que ao item.
+
+### Assinatura — crédito do autor promovido a eyebrow
+
+O crédito sai da 3ª linha do card (12px, `--fg-muted`, "Por X") e sobe **acima do título**, em Oswald caixa-alta com tracking aberto, em `--fg` (não muted). Prateleira rolando vira sequência de nomes de criadores brasileiros.
+
+```
+┌─────────────────────────┐
+│ [capa sangrada / "Sem capa"] │
+│ ESTÚDIO FENRIS          │  ← Oswald 11px/600/0.10em/uppercase, --fg
+│ Masmorra do Corvo       │  ← Inter 15px/600/-0.01em, 2 linhas
+│ Cinzento                │
+│ Para Forgotten Realms   │  ← Inter 12px/400, --fg-muted
+│ ★★★★☆ 4.1 (7 avaliações)│
+│ [Aventura] [Link ext.]  │
+└─────────────────────────┘
+```
+
+Travas de implementação:
+- Eyebrow é **texto (`<p>`), nunca link** nesta spec — fica dentro da área coberta pelo `before:absolute before:inset-0` do `<Link>` do card (Requisito 8 / T2.5). Virar link pro criador é mudança de comportamento, fora de escopo.
+- `credits === null` (permitido pelo schema): eyebrow lê **"ACERVO ARTIFÍCIO"**. Nunca em branco, nunca colapsa a altura do card.
+- Escolhida porque escala com a verdade do produto: maioria dos itens não tem `cover_image_url`, então o card precisa de hierarquia forte sem imagem.
+
+**Assinatura descartada (registro):** "lombada" colorida por `material_type` na borda esquerda foi proposta e cortada — duplicava a informação do badge `[Aventura]` que continua no card (decoração redundante disfarçada de estrutura).
+
+### Tipografia
+
+| Papel | Face | px / peso / tracking / caixa |
+|---|---|---|
+| Título de prateleira | Oswald | 20 / 600 / `0.06em` / uppercase |
+| Crédito (eyebrow) | Oswald | 11 / 600 / `0.10em` / uppercase |
+| Título de card | Inter | 15 / 600 / `-0.01em` / line-height 1.3 |
+| Cenário ("Para X") | Inter | 12 / 400 / `--fg-muted` |
+| Rating numérico | Oswald | 13 / 600 / tabular |
+| Contagem de avaliações | Inter | 12 / 400 / `--fg-muted` |
+| Badge | Inter | 11 / 600 / `0.02em` |
+
+Regra que carrega a direção: **Oswald aparece em exatamente 2 lugares — título de prateleira e crédito.** Nada mais. Rima visual entre "o rótulo da estante" e "quem fez isto". Inter cuida de todo conteúdo corrido. O tratamento (condensada + caixa alta + tracking largo) já existe em `.artificio-footer-nav-title` — é aplicação de padrão estabelecido, não invenção.
+
+### Espaçamento (base 4)
+
+- Dentro do card: capa→eyebrow 12, eyebrow→título 6, título→cenário 4, cenário→rating 8, rating→badges 12. Padding 14.
+- Entre cards na prateleira: 12. Cabeçalho da prateleira→trilho: 12.
+- **Entre prateleiras: 40** (passo grande deliberado — prateleiras horizontais próximas viram grade indistinta; marca a batida de seção sem linha divisória).
+
+### MaterialShelf
+
+- Título Oswald uppercase à esquerda; "Ver tudo →" à direita, `align-items: baseline`, `--fg-muted` → `--artificio-brand` no hover.
+- Trilho `overflow-x: auto`, `scroll-snap-type: x proximity` (**proximity, não mandatory** — mandatory briga com trackpad e dá sensação de trava).
+- Card 220px fixo; 240px em ≥1024px. Último card `scroll-snap-align: end` (prateleira não para cortando).
+- Sem setas de navegação na v1: scroll nativo + Tab sequencial (browser rola o card focado pra dentro sozinho, ver T4.2). Se o smoke mobile (T4.3) apontar problema, vira ajuste registrado, não bloqueio.
+- Sem `scroll-behavior: smooth` forçado — deixa o browser honrar `prefers-reduced-motion` (T4.2).
+
+### Card — ajustes pontuais autorizados pelo Requisito 8
+
+1. Eyebrow de crédito (acima).
+2. **Capa sangra até bordas laterais e topo** (hoje é `mb-3 h-32 w-full rounded` dentro do padding). Card vira ficha; placeholder "Sem capa" sangra igual, então card com e sem capa têm a mesma silhueta.
+
+Intacto: título 2 linhas sem truncamento cego, cenário, badges de tipo/acesso/idioma, `SystemChainBadge`, alvo de clique único.
+
+### Estrelas (T2.5)
+
+`★★★★☆ 4.1 (7 avaliações)`. Preenchida `--artificio-brand`, vazia `--line-strong`, **meia-estrela por gradiente** (arredondar mente: 4.4 não são 4 cheias). Número em Oswald tabular, contagem em Inter `--fg-muted`. Glifos `aria-hidden` + `<span class="sr-only">` "Avaliação 4,1 de 5 em 7 avaliações". Cinco `<span>`, **nunca `<button>`** — não entra na ordem de tabulação, não disputa o `before:absolute` do link do card. `rating_count === 0`: bloco some inteiro, sem texto substituto.
+
+### Pills de filtro (T2.3)
+
+Métrica base de `.artificio-badge` (raio 999px), altura 36px, peso 600 (leem como controle, não rótulo passivo). Idle `--fill-subtle`/`--line`; hover `--fill`/`--line-strong`; ativa borda `--artificio-brand` + texto `--artificio-brand-deep` + fundo `rgba(255,87,34,.10)`. Pill ativa mostra o valor no lugar do label (`Sistema: D&D 5e ⊗`) — mesmo vocabulário do chip de busca (Síntese item 3: filtro e busca são a mesma coisa). Popover reusa a receita de `.artificio-usermenu-dropdown` (posicionamento/sombra/borda/Escape/clique-fora já resolvidos); conteúdo é `FilterControls` extraído de `CatalogFilterSidebar.tsx` — composição, não reescrita.
+
+### Copy
+
+- Títulos de prateleira descritivos, sem hype: "Recém adicionados", "Mais visitados", "Mais bem avaliados".
+- Busca: `Buscar por título, autor ou sistema`.
+- Vazio no modo resultado: **"Nenhum material com esses filtros. Tente remover um filtro ou buscar outro termo."** (diz o que houve e o que fazer, sem pedir desculpa). Prateleira sem item elegível não renderiza (Requisito 16).
+
+### Trava de cor (Requisito 9a)
+
+Zero cor nova. Todo elemento desta direção usa exclusivamente tokens semânticos já existentes em `packages/ui/src/styles.css`, que viram automaticamente entre `:root` e `:root[data-theme="dark"]`. `--artificio-brand` é o único acento (estrelas, pill ativa, hover de "Ver tudo") — sem amarelo-genérico-de-rating, sem segunda cor de acento.
+
 ## Arquitetura da solução
 
 ### Estado atual (antes)
