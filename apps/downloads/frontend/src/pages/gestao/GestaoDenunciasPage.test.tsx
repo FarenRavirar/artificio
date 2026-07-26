@@ -65,7 +65,7 @@ describe('GestaoDenunciasPage', () => {
 
     renderPage();
 
-    expect(screen.getByText('Carregando...')).toBeInTheDocument();
+    expect(screen.getByText('Carregando…')).toBeInTheDocument();
   });
 
   it('mostra mensagem quando não há denúncias pendentes', () => {
@@ -83,7 +83,7 @@ describe('GestaoDenunciasPage', () => {
 
     renderPage();
 
-    expect(screen.getByText(/P0 — copyright/)).toBeInTheDocument();
+    expect(screen.getByText('copyright')).toBeInTheDocument();
     expect(screen.getByText('Conteúdo infringe direitos autorais')).toBeInTheDocument();
   });
 

@@ -138,7 +138,7 @@ export function AdminSidebar({
           );
         })}
         {filteredGroups.length === 0 && (
-          <p role="status" className="px-3 text-sm text-[var(--admin-fg-faint)]">{emptySearchLabel}</p>
+          <output className="px-3 text-sm text-[var(--admin-fg-faint)]">{emptySearchLabel}</output>
         )}
       </div>
 

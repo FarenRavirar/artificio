@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useEffect,
+  useRef,
   type AnchorHTMLAttributes,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
@@ -402,6 +403,8 @@ export function Drawer({
   className,
 }: DrawerProps) {
   useEscapeClose(open, onClose);
+  const panelRef = useRef<HTMLElement>(null);
+  useFocusTrap(open, panelRef);
   if (!open) return null;
   const titleId = "artificio-drawer-title";
 
@@ -409,6 +412,8 @@ export function Drawer({
     <div className="artificio-drawer-root">
       <div className="artificio-drawer-backdrop" onClick={onClose} />
       <aside
+        ref={panelRef}
+        tabIndex={-1}
         className={cx("artificio-drawer", `artificio-drawer-${side}`, className)}
         role="dialog"
         aria-modal="true"
@@ -445,6 +450,50 @@ function useEscapeClose(open: boolean, onClose?: () => void) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+}
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+// D108 — Drawer/Modal exigem foco preso e restaurado (achado spec 086 T5C.4:
+// primitivo tinha Escape/backdrop mas nao prendia foco). Ao abrir, foco vai
+// pro primeiro elemento focavel do painel; Tab/Shift+Tab ficam presos dentro
+// dele; ao fechar, foco volta pro elemento que tinha foco antes de abrir.
+function useFocusTrap(open: boolean, containerRef: { current: HTMLElement | null }) {
+  useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const container = containerRef.current;
+    const focusables = container
+      ? Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+      : [];
+    (focusables[0] ?? container)?.focus();
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Tab" || !container) return;
+      const current = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+      if (current.length === 0) {
+        event.preventDefault();
+        container.focus();
+        return;
+      }
+      const first = current[0];
+      const last = current[current.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [open, containerRef]);
 }
 
 export interface HeaderActionProps {

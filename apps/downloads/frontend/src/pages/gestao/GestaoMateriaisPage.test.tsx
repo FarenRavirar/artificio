@@ -3,22 +3,36 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestaoMateriaisPage } from './GestaoMateriaisPage';
 import * as useMaterialsCatalogModule from '../../hooks/useMaterialsCatalog';
+import type { Material } from '../../types/material';
 
 // T4.x (spec 075) — cobertura de teste do débito (páginas sem teste de
 // componente): render de loading/lista vazia/lista com itens, rótulo de
 // editorial_state e link de auditoria por item.
 
 
-function makeMaterial(overrides: Partial<ReturnType<typeof baseMaterial>> = {}) {
+function makeMaterial(overrides: Partial<Material> = {}): Material {
   return { ...baseMaterial(), ...overrides };
 }
 
-function baseMaterial() {
+function baseMaterial(): Material {
   return {
     id: 'material-1',
+    slug: 'manual-do-aventureiro',
     title: 'Manual do Aventureiro',
+    summary: null,
+    description: null,
+    material_type: 'pdf',
+    access_kind: 'external_link',
+    external_url: 'https://example.com/manual.pdf',
+    creator_id: 'creator-1',
     editorial_state: 'published',
+    created_at: '2026-07-01T00:00:00.000Z',
+    updated_at: '2026-07-01T00:00:00.000Z',
   };
+}
+
+function makeListResponse(items: Material[]) {
+  return { items, page: 1, page_size: 20, total: items.length, total_pages: 1 };
 }
 
 function renderPage() {
@@ -50,22 +64,21 @@ describe('GestaoMateriaisPage', () => {
 
     renderPage();
 
-    expect(screen.getByText('Carregando...')).toBeInTheDocument();
+    expect(screen.getByText('Carregando…')).toBeInTheDocument();
   });
 
   it('renderiza lista vazia sem itens quando não há materiais', () => {
-    mockMaterialsCatalog({ data: { items: [], total: 0 }, isLoading: false });
+    mockMaterialsCatalog({ data: makeListResponse([]), isLoading: false });
 
     renderPage();
 
-    expect(screen.queryByText('Carregando...')).not.toBeInTheDocument();
-    const list = document.querySelector('ul.mt-6');
-    expect(list?.children.length ?? 0).toBe(0);
+    expect(screen.queryByText('Carregando…')).not.toBeInTheDocument();
+    expect(screen.getByText('Nenhum material encontrado')).toBeInTheDocument();
   });
 
-  it('renderiza a lista de materiais com título, estado editorial e link de auditoria', () => {
+  it('renderiza a lista de materiais com título, estado editorial e ação de auditoria', () => {
     mockMaterialsCatalog({
-      data: { items: [makeMaterial()], total: 1 },
+      data: makeListResponse([makeMaterial()]),
       isLoading: false,
     });
 
@@ -73,16 +86,14 @@ describe('GestaoMateriaisPage', () => {
 
     expect(screen.getByText('Manual do Aventureiro')).toBeInTheDocument();
     expect(screen.getByText('Publicado')).toBeInTheDocument();
-
-    const link = screen
-      .getAllByRole('link', { name: 'Auditoria' })
-      .find((el) => el.getAttribute('href') === '/gestao/auditoria/material-1');
-    expect(link).toHaveAttribute('href', '/gestao/auditoria/material-1');
+    expect(screen.getByRole('button', { name: 'Auditoria' })).toBeInTheDocument();
   });
 
   it('usa o valor bruto de editorial_state quando não há rótulo mapeado', () => {
     mockMaterialsCatalog({
-      data: { items: [makeMaterial({ id: 'material-2', editorial_state: 'unknown_state' })], total: 1 },
+      data: makeListResponse([
+        { ...makeMaterial({ id: 'material-2' }), editorial_state: 'unknown_state' as unknown as 'draft' },
+      ]),
       isLoading: false,
     });
 

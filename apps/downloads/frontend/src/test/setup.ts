@@ -16,15 +16,22 @@ expect.extend(matchers);
 // applyFavicon() no import do módulo — mock sem esse stub quebra qualquer
 // teste que acabe importando main.tsx (direto ou via reexport) com
 // "applyFavicon is not a function".
-vi.mock('@artificio/ui', () => ({
-  Header: () => React.createElement('div', { 'data-testid': 'header' }),
-  Footer: () => React.createElement('div', { 'data-testid': 'footer' }),
-  useTheme: () => ({ theme: 'dark' }),
-  useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
-  CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
-  DynamicChangelogModal: () => null,
-  applyFavicon: () => undefined,
-}));
+// Fase 5C (spec 086): Drawer real preservado via importOriginal — GestaoShell
+// usa o Drawer de @artificio/ui pro menu mobile e o foco preso (T5C.4) só é
+// testável se o mock não substituir o componente real por um stub.
+vi.mock('@artificio/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@artificio/ui')>();
+  return {
+    ...actual,
+    Header: () => React.createElement('div', { 'data-testid': 'header' }),
+    Footer: () => React.createElement('div', { 'data-testid': 'footer' }),
+    useTheme: () => ({ theme: 'dark' }),
+    useChangelogBadge: () => ({ hasNewUpdate: false, markSeen: () => undefined }),
+    CHANGELOG_UPDATE_MARKERS: { downloads: 'test-marker' },
+    DynamicChangelogModal: () => null,
+    applyFavicon: () => undefined,
+  };
+});
 
 afterEach(() => {
   cleanup();

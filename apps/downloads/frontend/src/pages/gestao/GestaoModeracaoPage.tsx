@@ -1,49 +1,52 @@
 import { useState } from 'react';
+import toast from 'react-hot-toast';
+import { AdminTable, PageHeader, type AdminBulkAction, type AdminColumn, type AdminRowAction } from '@artificio/ui/admin';
 import { GestaoShell } from '../../components/GestaoShell';
 import { useModerationBatchAction, useModerationQueue, useModerationSingleAction } from '../../hooks/useModerationQueue';
 import { useAdminRejectionCategories } from '../../hooks/useAdminRejectionCategories';
 import { EmailLogPanel } from '../../components/EmailLogPanel';
 
+interface ModerationRow {
+  id: string;
+  title: string;
+  material_type: string;
+}
+
 // T2.1-T2.3 (spec 075) — fila filtravel (so in_review chega da API), acoes
 // batch e motivo estruturado obrigatorio em reprovacao. T6.1 (spec 083):
 // categoria (com base legal quando houver) + motivo em texto, ambos
-// obrigatorios antes de reprovar.
+// obrigatorios antes de reprovar. Fase 5C (spec 086): reconstruida sobre
+// PageHeader/AdminTable do kit compartilhado (T5C.5) — seleção, ações em
+// lote e ações de linha vêm nativas do AdminTable.
 export function GestaoModeracaoPage() {
   const { data: queue, isLoading } = useModerationQueue();
   const { data: categoriesData } = useAdminRejectionCategories();
   const batchAction = useModerationBatchAction();
   const singleAction = useModerationSingleAction();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [rejectReason, setRejectReason] = useState('');
   const [rejectCategoryId, setRejectCategoryId] = useState('');
 
   const categories = categoriesData?.items ?? [];
   const selectedCategory = categories.find((c) => c.id === rejectCategoryId);
 
-  function toggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  async function runBatch(action: 'approve' | 'reject' | 'archive') {
-    if (selected.size === 0) return;
+  async function runBatch(action: 'approve' | 'reject' | 'archive', ids: string[]) {
     if (action === 'reject' && (!rejectReason.trim() || !rejectCategoryId)) {
       window.alert('Categoria e motivo de reprovação são obrigatórios para ação em lote.');
-      return;
+      throw new Error('Categoria e motivo de reprovação são obrigatórios.');
     }
-    await batchAction.mutateAsync({
-      action,
-      ids: Array.from(selected),
-      reason: rejectReason || undefined,
-      rejectionCategoryId: action === 'reject' ? rejectCategoryId : undefined,
-    });
-    setSelected(new Set());
-    setRejectReason('');
-    setRejectCategoryId('');
+    try {
+      await batchAction.mutateAsync({
+        action,
+        ids,
+        reason: rejectReason || undefined,
+        rejectionCategoryId: action === 'reject' ? rejectCategoryId : undefined,
+      });
+      setRejectReason('');
+      setRejectCategoryId('');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao executar ação em lote.');
+      throw error;
+    }
   }
 
   async function rejectSingle(materialId: string) {
@@ -51,106 +54,95 @@ export function GestaoModeracaoPage() {
       window.alert('Selecione a categoria e preencha o motivo antes de reprovar.');
       return;
     }
-    await singleAction.mutateAsync({
-      id: materialId,
-      action: 'reject',
-      reason: rejectReason,
-      rejectionCategoryId: rejectCategoryId,
-    });
-    setRejectReason('');
-    setRejectCategoryId('');
+    try {
+      await singleAction.mutateAsync({
+        id: materialId,
+        action: 'reject',
+        reason: rejectReason,
+        rejectionCategoryId: rejectCategoryId,
+      });
+      setRejectReason('');
+      setRejectCategoryId('');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao reprovar material.');
+      throw error;
+    }
   }
+
+  const columns: Array<AdminColumn<ModerationRow>> = [
+    { key: 'title', header: 'Título', render: (row) => row.title },
+    { key: 'material_type', header: 'Tipo', render: (row) => row.material_type },
+  ];
+
+  const bulkActions: AdminBulkAction[] = [
+    { key: 'approve', label: 'Aprovar selecionados', onRun: (ids) => runBatch('approve', ids) },
+    { key: 'reject', label: 'Reprovar selecionados', tone: 'danger', onRun: (ids) => runBatch('reject', ids) },
+    { key: 'archive', label: 'Arquivar selecionados', onRun: (ids) => runBatch('archive', ids) },
+  ];
+
+  const rowActions: Array<AdminRowAction<ModerationRow>> = [
+    {
+      key: 'approve',
+      label: 'Aprovar',
+      onRun: (row) =>
+        singleAction.mutateAsync({ id: row.id, action: 'approve' }).then(
+          () => undefined,
+          (error) => {
+            toast.error(error instanceof Error ? error.message : 'Falha ao aprovar material.');
+            throw error;
+          },
+        ),
+    },
+    { key: 'reject', label: 'Reprovar', tone: 'danger', onRun: (row) => rejectSingle(row.id) },
+  ];
 
   return (
     <GestaoShell>
-      <h1 className="text-2xl font-bold text-[var(--fg)]">Moderação</h1>
-
-      {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
-      {queue?.length === 0 && <p className="mt-4 text-[var(--fg-muted)]">Fila vazia.</p>}
+      <PageHeader title="Moderação" />
 
       {queue && queue.length > 0 && (
-        <>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <select
-              value={rejectCategoryId}
-              onChange={(e) => setRejectCategoryId(e.target.value)}
-              className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm text-[var(--fg)]"
-            >
-              <option value="">Categoria de reprovação...</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>{category.label}</option>
-              ))}
-            </select>
-            <input
-              type="text"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Motivo (obrigatório para reprovar)"
-              className="min-h-[44px] flex-1 rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm text-[var(--fg)]"
-            />
-            <button
-              type="button"
-              disabled={selected.size === 0 || batchAction.isPending}
-              onClick={() => runBatch('approve')}
-              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] disabled:opacity-40"
-            >
-              Aprovar selecionados
-            </button>
-            <button
-              type="button"
-              disabled={selected.size === 0 || batchAction.isPending}
-              onClick={() => runBatch('reject')}
-              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] disabled:opacity-40"
-            >
-              Reprovar selecionados
-            </button>
-            <button
-              type="button"
-              disabled={selected.size === 0 || batchAction.isPending}
-              onClick={() => runBatch('archive')}
-              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--fg)] disabled:opacity-40"
-            >
-              Arquivar selecionados
-            </button>
-          </div>
-          {selectedCategory?.legal_basis && (
-            <p className="mt-2 text-xs text-[var(--fg-muted)]">Base: {selectedCategory.legal_basis}</p>
-          )}
-
-          <ul className="mt-6 divide-y divide-[var(--line)]">
-            {queue.map((material) => (
-              <li key={material.id} className="flex items-center gap-4 py-3">
-                <input
-                  type="checkbox"
-                  checked={selected.has(material.id)}
-                  onChange={() => toggle(material.id)}
-                  className="h-5 w-5"
-                  aria-label={`Selecionar ${material.title}`}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-[var(--fg)]">{material.title}</p>
-                  <p className="text-xs text-[var(--fg-muted)]">{material.material_type}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => singleAction.mutateAsync({ id: material.id, action: 'approve' }).catch(() => undefined)}
-                  className="min-h-[44px] rounded-md border border-[var(--line)] px-3 py-2 text-xs text-[var(--fg)]"
-                >
-                  Aprovar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => rejectSingle(material.id)}
-                  disabled={singleAction.isPending}
-                  className="min-h-[44px] rounded-md border border-[var(--line)] px-3 py-2 text-xs text-[var(--fg)] disabled:opacity-40"
-                >
-                  Reprovar
-                </button>
-              </li>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <label htmlFor="reject-category" className="sr-only">Categoria de reprovação</label>
+          <select
+            id="reject-category"
+            value={rejectCategoryId}
+            onChange={(e) => setRejectCategoryId(e.target.value)}
+            className="min-h-[44px] rounded-md border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-fg)]"
+          >
+            <option value="">Categoria de reprovação...</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>{category.label}</option>
             ))}
-          </ul>
-        </>
+          </select>
+          <label htmlFor="reject-reason" className="sr-only">Motivo da reprovação</label>
+          <input
+            id="reject-reason"
+            type="text"
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Motivo (obrigatório para reprovar)"
+            className="min-h-[44px] flex-1 rounded-md border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-fg)]"
+          />
+        </div>
       )}
+      {selectedCategory?.legal_basis && (
+        <p className="mt-2 text-xs text-[var(--admin-fg-low)]">Base: {selectedCategory.legal_basis}</p>
+      )}
+
+      <div className="mt-6">
+        <AdminTable<ModerationRow>
+          tableId="gestao-moderacao"
+          rows={queue ?? []}
+          getRowId={(row) => row.id}
+          getRowLabel={(row) => row.title}
+          columns={columns}
+          searchKeys={['title']}
+          loading={isLoading}
+          bulkActions={bulkActions}
+          rowActions={rowActions}
+          emptyTitle="Fila vazia."
+        />
+      </div>
 
       <EmailLogPanel />
     </GestaoShell>
