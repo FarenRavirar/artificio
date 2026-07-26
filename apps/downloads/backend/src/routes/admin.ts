@@ -7,18 +7,20 @@ import { writeRateLimiter } from '../middleware/rateLimit';
 import { checkLink } from '../services/linkChecker';
 import { detectAllowedFileType } from '../storage/fileTypeGuard';
 import { sanitizeText } from '../services/sanitizeText';
+import { sanitizeRichHtml } from '../services/sanitizeRichHtml';
 
 const router = Router();
 
 // T1.1 (spec 075) — dashboard admin: contagem por fila, usada pela sidebar de
 // recursos (criterio de aceite 1/8: idade da fila visivel ao moderador).
 router.get('/summary', writeRateLimiter, authMiddleware, requireRole(['moderator', 'admin']), async (_req: Request, res: Response) => {
-  const [moderationQueue, oldestInReview, reportsOpen, oldestReport, degradedLinks] = await Promise.all([
+  const [moderationQueue, oldestInReview, reportsOpen, oldestReport, degradedLinks, systemSuggestionsPending] = await Promise.all([
     db.selectFrom('download_material').select(({ fn }) => fn.countAll<number>().as('count')).where('editorial_state', '=', 'in_review').executeTakeFirstOrThrow(),
     db.selectFrom('download_material').select('updated_at').where('editorial_state', '=', 'in_review').orderBy('updated_at', 'asc').executeTakeFirst(),
     db.selectFrom('download_report').select(({ fn }) => fn.countAll<number>().as('count')).where('case_state', 'in', ['open', 'in_review']).executeTakeFirstOrThrow(),
     db.selectFrom('download_report').select('created_at').where('case_state', 'in', ['open', 'in_review']).orderBy('created_at', 'asc').executeTakeFirst(),
     db.selectFrom('download_link_check').select(({ fn }) => fn.countAll<number>().as('count')).where('is_healthy', '=', false).executeTakeFirstOrThrow(),
+    db.selectFrom('download_system_suggestion').select(({ fn }) => fn.countAll<number>().as('count')).where('status', '=', 'pending').executeTakeFirstOrThrow(),
   ]);
 
   return res.json({
@@ -32,6 +34,9 @@ router.get('/summary', writeRateLimiter, authMiddleware, requireRole(['moderator
     },
     degraded_links: {
       count: Number(degradedLinks.count),
+    },
+    system_suggestions_pending: {
+      count: Number(systemSuggestionsPending.count),
     },
   });
 });
@@ -211,11 +216,20 @@ router.get('/media', writeRateLimiter, authMiddleware, requireRole(['moderator',
       'download_material.title as material_title',
       'download_material.editorial_state as editorial_state',
       'download_material_metadata.cover_image_url as cover_image_url',
+      'download_material_metadata.description_html as description_html',
     ])
     .orderBy('download_material.updated_at', 'desc')
     .execute();
 
-  return res.json({ items: materials });
+  return res.json({
+    items: materials.map((material) => ({
+      ...material,
+      // Spec 086, Fase 9: editor admin lê HTML pelo backend; banco continua
+      // hostil mesmo após writes sanitizados, então a fronteira de leitura
+      // repete sanitizeRichHtml antes de devolver ao TipTap.
+      description_html: material.description_html ? sanitizeRichHtml(material.description_html) : null,
+    })),
+  });
 });
 
 const MAX_CREATORS_PAGE_SIZE = 60;

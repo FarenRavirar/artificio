@@ -104,6 +104,7 @@ Nunca executar sem aprovação explícita do mantenedor:
 - Copiar/sobrescrever arquivos em produção
 - Usar Chrome do mantenedor para verificação/autenticação (`Chrome` plugin, perfil logado, cookies/sessão reais) sem autorização explícita. Preferir validação read-only por HTTP, Browser interno sem sessão real, logs ou artefatos locais quando suficiente. Chrome só entra quando o mantenedor autorizar nominalmente e a tarefa precisar de sessão/perfil real.
 - Acionar outro agente de IA em nome do mantenedor (ex.: Claude Code ↔ OpenCode via MCP `opencode`/DeepSeek). Nenhum agente ativa o outro, inicia subprocessos, roda comandos, altera arquivos/configurações ou faz chamadas de ferramenta em nome do outro sem aprovação nominal. Comunicação entre agentes prioriza read-only (análise, inspeção, revisão, diagnóstico); o agente informa qual ferramenta/MCP vai usar antes de acionar. Comandos documentados são referência, não autorização permanente.
+- Criar, mover ou remover `git worktree`; fazer checkout de branch em diretório temporário/paralelo (`C:\tmp`, `../artificio-*` ou qualquer caminho fora do cwd); ou transferir diff/trabalho entre worktrees. **Sempre exige aprovação nominal prévia**, mesmo quando a branch em si poderia ser criada automaticamente, mesmo para contornar `cherry-pick`/rebase/merge/checkout bloqueado, preservar estado alheio ou permitir trabalho paralelo. O agente primeiro explica por que o cwd não pode ser usado, o caminho exato, o que será criado/removido e como o trabalho volta ao cwd. `git worktree list` e inspeção read-only continuam livres.
 
 *(item "modificar arquivos fora do escopo solicitado" saiu desta lista — cobertura única em §Regras Pétreas → Escopo.)*
 
@@ -226,7 +227,7 @@ Mecânica de branch/PR/commit/push: §Regras Pétreas → PR, Commit e Push.
 
 ### Worktrees locais (multi-agente paralelo)
 
-Trabalho paralelo em branch diferente usa `git worktree add ../artificio-<escopo> <branch>`, nunca checkout na mesma pasta enquanto outro agente roda ali. Worktree ativo, propósito e branch ficam registrados em `.specify/memory/project-state.md` (ou sessão ativa), pra chat novo achar via T0/T1 sem precisar o usuário repetir contexto. `node_modules` só reinstala no worktree se for rodar build/test/dev ali (pnpm store global evita duplicar peso).
+Worktree **não é fallback automático**. Antes de qualquer `git worktree add|move|remove`, pedir aprovação nominal do mantenedor conforme §Autorização — incluindo worktree em `C:\tmp`, diretório irmão, uso para escapar de operação Git inacabada ou transferência posterior de alterações. Sem aprovação: parar, reportar o estado que bloqueia o cwd e perguntar como proceder. Depois de aprovado, trabalho paralelo em branch diferente usa `git worktree add ../artificio-<escopo> <branch>`, nunca checkout na mesma pasta enquanto outro agente roda ali. Informar o caminho exato antes de criar. Worktree ativo, propósito e branch ficam registrados em `.specify/memory/project-state.md` (ou sessão ativa), pra chat novo achar via T0/T1 sem precisar o usuário repetir contexto. `node_modules` só reinstala no worktree se for rodar build/test/dev ali (pnpm store global evita duplicar peso). Remoção só após confirmar worktree limpo e trabalho preservado em commit ou stash identificado; nunca usar `--force` por inferência.
 
 ### Acesso à VM (Oracle)
 

@@ -10,7 +10,7 @@ import { useCreatorRole } from '../hooks/useCreatorRole';
 interface GestaoNavItem {
   label: string;
   href: string;
-  countKey?: 'moderation_queue' | 'reports_open' | 'degraded_links';
+  countKey?: 'moderation_queue' | 'reports_open' | 'degraded_links' | 'system_suggestions_pending';
   adminOnly?: boolean;
 }
 
@@ -51,6 +51,7 @@ const GESTAO_NAV_GROUPS: { label: string; items: GestaoNavItem[] }[] = [
     items: [
       { label: 'Métricas', href: '/gestao/metricas' },
       { label: 'Configurações', href: '/gestao/configuracoes' },
+      { label: 'Sugestões de sistema', href: '/gestao/sugestoes-sistema', countKey: 'system_suggestions_pending', adminOnly: true },
       // D-D (spec 085, Fase 6/8) — cadastro de plataforma e configuracao do
       // sistema (registry em banco), nao parte do fluxo de importar material.
       // Achado real (review PR #201, Codex, P2): rota exige requiredRole
@@ -66,6 +67,7 @@ interface QueueCounts {
   moderation_queue: { count: number };
   reports_open: { count: number };
   degraded_links: { count: number };
+  system_suggestions_pending: { count: number };
 }
 
 const OVERVIEW_GROUP: { label: string; items: GestaoNavItem[] } = {

@@ -6,6 +6,8 @@ import {
   FOOTER_GIFT_TEXT,
   FOOTER_NAV_LABEL,
   FOOTER_NAV_ARIA,
+  FOOTER_MODULE_LABEL,
+  FOOTER_MODULE_ARIA,
   FOOTER_BRAND,
   FOOTER_COPYRIGHT,
   FOOTER_TERMS_LABEL,
@@ -21,6 +23,12 @@ export interface FooterProps {
   brandHref?: string;
   /** URL dos termos de uso e direitos autorais. */
   copyrightHref?: string;
+  /**
+   * Links institucionais próprios do app consumidor (ex.: "Sobre e uso" do
+   * Downloads, spec 086 T10.1) — opcional, sem default. Aditivo: consumidor
+   * que não passar nada mantém o footer igual a antes desta prop existir.
+   */
+  moduleLinks?: NavItem[];
 }
 
 export function Footer({
@@ -28,6 +36,7 @@ export function Footer({
   navItems = defaultNavItems,
   brandHref = BRAND_ORIGIN,
   copyrightHref = `${BRAND_ORIGIN}/termos-de-uso-e-direitos-autorais/`,
+  moduleLinks,
 }: FooterProps) {
   const logo = variant === "dark" ? brandLogoNeg : brandLogoNavy;
   const year = new Date().getFullYear();
@@ -60,6 +69,21 @@ export function Footer({
             ))}
           </ul>
         </nav>
+
+        {moduleLinks && moduleLinks.length > 0 && (
+          <nav className="artificio-footer-nav" aria-label={FOOTER_MODULE_ARIA}>
+            <span className="artificio-footer-nav-title">{FOOTER_MODULE_LABEL}</span>
+            <ul className="artificio-footer-nav-list">
+              {moduleLinks.map((item) => (
+                <li key={item.href}>
+                  <a className="artificio-footer-nav-link" href={item.href}>
+                    {item.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
       </div>
 
       <p className="artificio-footer-gift">{FOOTER_GIFT_TEXT}</p>

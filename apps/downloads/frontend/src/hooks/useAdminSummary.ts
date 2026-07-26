@@ -11,6 +11,7 @@ const adminSummarySchema = z.object({
   moderation_queue: queueSummarySchema,
   reports_open: queueSummarySchema,
   degraded_links: z.object({ count: z.number() }),
+  system_suggestions_pending: z.object({ count: z.number() }),
 });
 
 // T1.1/T1.2 (spec 075) — contagem por fila pra sidebar de gestao.

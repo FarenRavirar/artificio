@@ -49,21 +49,21 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
 | USE | `/api/v1/admin` | ✅ high | `apps/downloads/backend/src/server.ts` | 94 |
-| GET | `/api/v1/admin/creators` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 233 |
+| GET | `/api/v1/admin/creators` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 247 |
 | GET | `/api/v1/admin/email-log` | ✅ high | `apps/downloads/backend/src/routes/emailLog.ts` | 12 |
 | USE | `/api/v1/admin/email-log` | ✅ high | `apps/downloads/backend/src/server.ts` | 96 |
 | POST | `/api/v1/admin/email-log/:id/retry` | ✅ high | `apps/downloads/backend/src/routes/emailLog.ts` | 32 |
-| GET | `/api/v1/admin/links` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 93 |
-| POST | `/api/v1/admin/materials/:id/check-link` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 59 |
-| POST | `/api/v1/admin/materials/:id/evidence/upload` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 147 |
-| GET | `/api/v1/admin/materials/:id/link-history` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 43 |
-| GET | `/api/v1/admin/media` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 204 |
-| GET | `/api/v1/admin/metrics` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 117 |
+| GET | `/api/v1/admin/links` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 98 |
+| POST | `/api/v1/admin/materials/:id/check-link` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 64 |
+| POST | `/api/v1/admin/materials/:id/evidence/upload` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 152 |
+| GET | `/api/v1/admin/materials/:id/link-history` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 48 |
+| GET | `/api/v1/admin/media` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 209 |
+| GET | `/api/v1/admin/metrics` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 122 |
 | GET | `/api/v1/admin/rejection-categories` | ✅ high | `apps/downloads/backend/src/routes/rejectionCategories.ts` | 11 |
 | POST | `/api/v1/admin/rejection-categories` | ✅ high | `apps/downloads/backend/src/routes/rejectionCategories.ts` | 29 |
 | USE | `/api/v1/admin/rejection-categories` | ✅ high | `apps/downloads/backend/src/server.ts` | 95 |
 | PATCH | `/api/v1/admin/rejection-categories/:id` | ✅ high | `apps/downloads/backend/src/routes/rejectionCategories.ts` | 66 |
-| POST | `/api/v1/admin/sanitize-preview` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 277 |
+| POST | `/api/v1/admin/sanitize-preview` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 291 |
 | USE | `/api/v1/admin/scraper` | ✅ high | `apps/downloads/backend/src/server.ts` | 97 |
 | POST | `/api/v1/admin/scraper/ingest` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 222 |
 | POST | `/api/v1/admin/scraper/parse-html` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 308 |
@@ -72,7 +72,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | POST | `/api/v1/admin/scraper/run` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 77 |
 | GET | `/api/v1/admin/scraper/run/:id` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 101 |
 | GET | `/api/v1/admin/scraper/runs` | ✅ high | `apps/downloads/backend/src/routes/scraper.ts` | 122 |
-| GET | `/api/v1/admin/summary` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 15 |
+| GET | `/api/v1/admin/summary` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 16 |
 | GET | `/api/v1/admin/system-suggestions` | ✅ high | `apps/downloads/backend/src/routes/systemSuggestionsAdmin.ts` | 25 |
 | USE | `/api/v1/admin/system-suggestions` | ✅ high | `apps/downloads/backend/src/server.ts` | 99 |
 | GET | `/api/v1/admin/system-suggestions/:id/candidates` | ✅ high | `apps/downloads/backend/src/routes/systemSuggestionsAdmin.ts` | 46 |
