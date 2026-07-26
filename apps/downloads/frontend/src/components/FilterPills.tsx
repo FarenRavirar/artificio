@@ -54,7 +54,7 @@ export function FilterPills({ values, onChange, activeLabels }: Readonly<FilterP
   }, [openPill, closeAndRestoreFocus]);
 
   return (
-    <div ref={containerRef} className="flex flex-wrap gap-2">
+    <div ref={containerRef} className="relative flex flex-wrap gap-2">
       {PILLS.map(({ key, label }) => {
         // Sem rotulo resolvido ainda (facetas em voo), mostra reticencia em vez
         // do valor cru (achado de review PR #214, CodeRabbit): values[key] e um
@@ -64,7 +64,7 @@ export function FilterPills({ values, onChange, activeLabels }: Readonly<FilterP
         const isOpen = openPill === key;
 
         return (
-          <div key={key} className="relative">
+          <div key={key} className="static sm:relative">
             {/* Achado de review PR #214 (Codex, P1): a pill usava
                 rgba(255,87,34,0.10) cru, fora do design system e cego a tema.
                 Agora consome --state-brand-*, criado em packages/ui na mesma
@@ -109,7 +109,7 @@ export function FilterPills({ values, onChange, activeLabels }: Readonly<FilterP
             {isOpen && (
               <div
                 id={`${popoverId}-${key}`}
-                className="absolute left-0 top-full z-20 mt-2 max-h-80 w-64 overflow-y-auto rounded-lg border border-[var(--admin-border)] bg-[var(--admin-rail)] shadow-lg"
+                className="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-y-auto rounded-lg border border-[var(--line)] bg-[var(--surface)] shadow-lg sm:right-auto sm:w-64"
               >
                 <FilterControls
                   values={values}

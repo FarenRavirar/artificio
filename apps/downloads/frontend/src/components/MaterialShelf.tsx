@@ -50,7 +50,9 @@ export function MaterialShelf({
           to={seeAllTo}
           className="shrink-0 text-sm text-[var(--fg-muted)] transition hover:text-artificio-orange focus-visible:text-artificio-orange"
         >
-          Ver tudo
+          {/* Seta e decorativa (direcao visual do "Ver tudo" da direcao de
+              design da Fase 1); fica fora do nome acessivel do link. */}
+          Ver tudo <span aria-hidden="true">→</span>
         </Link>
       </div>
 
@@ -59,7 +61,7 @@ export function MaterialShelf({
       ) : (
         // `snap-proximity`, nao `snap-mandatory`: o trilho sugere parada nos
         // cards sem sequestrar o gesto de rolagem no meio do caminho.
-        <ul className="flex snap-x snap-proximity gap-3 overflow-x-auto pb-2">
+        <ul className="flex touch-pan-x snap-x snap-proximity gap-3 overflow-x-auto overscroll-x-contain pb-2">
           {items.map((material, index) => (
             <li
               key={material.id}

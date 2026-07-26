@@ -184,7 +184,7 @@ describe('CatalogoPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('atualiza a query string ao digitar na busca', async () => {
+  it('representa o termo da busca como chip removível', async () => {
     const response: MaterialListResponse = { items: [], page: 1, page_size: 20, total: 0, total_pages: 1 };
     vi.spyOn(useMaterialsCatalogModule, 'useMaterialsCatalog').mockReturnValue({
       data: response,
@@ -192,16 +192,15 @@ describe('CatalogoPage', () => {
       isError: false,
     } as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
 
-    renderPage(['/catalogo?q=a']);
+    renderPage(['/catalogo?q=aventura']);
 
-    const input = screen.getByPlaceholderText(/buscar por título, autor ou sistema/i);
-    fireEvent.change(input, { target: { value: 'aventura' } });
+    const chip = await screen.findByRole('button', { name: /remover filtro busca/i });
+    expect(chip).toHaveTextContent('aventura');
+    fireEvent.click(chip);
 
     await waitFor(() => {
-      expect(useMaterialsCatalogModule.useMaterialsCatalog).toHaveBeenLastCalledWith(
-        expect.objectContaining({ q: 'aventura' }),
-        expect.anything(),
-      );
+      expect(screen.queryByRole('button', { name: /remover filtro busca/i })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Ordenar por')).not.toBeInTheDocument();
     }, { timeout: 1000 });
   });
 

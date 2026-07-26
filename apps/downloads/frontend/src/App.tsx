@@ -1,7 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAnalyticsPageviews } from '@artificio/analytics/react';
-import { HomePage } from './pages/HomePage';
 import { SobreEUsoPage } from './pages/SobreEUsoPage';
 import { CatalogoPage } from './pages/CatalogoPage';
 import { MaterialPage } from './pages/MaterialPage';
@@ -46,10 +45,10 @@ function AnalyticsPageviews() {
 // T4.1 (spec 073) — rotas publicas de descoberta. Painel (074) e gestao (075)
 // entram em specs seguintes; /usuarios/:username aponta ao perfil comunitario
 // compartilhado (fora do escopo desta spec, placeholder de redirect por ora).
-function AppRoutes() {
+export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
+      <Route path="/" element={<CatalogoPage />} />
       <Route path="/sobre-e-uso" element={<SobreEUsoPage />} />
       <Route path="/catalogo" element={<CatalogoPage />} />
       <Route path="/materiais/:materialSlug" element={<MaterialPage />} />
