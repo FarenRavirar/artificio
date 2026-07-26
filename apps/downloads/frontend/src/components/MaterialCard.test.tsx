@@ -69,14 +69,38 @@ describe('MaterialCard', () => {
     expect(screen.getByText('Sem capa')).toBeInTheDocument();
   });
 
-  it('mostra "Por <credits>" quando há autores/artistas', () => {
+  // Spec 087 (T2.5) — o credito virou a ASSINATURA do card: sobe acima do
+  // titulo, sem o prefixo "Por" (o eyebrow ja e posicionalmente o autor), e
+  // nunca some. Antes desta spec era a 3a linha, em "Por <credits>", e sumia
+  // quando `credits` era null.
+  it('mostra o crédito como eyebrow quando há autores/artistas', () => {
     renderCard({ ...baseMaterial, credits: 'Autora Exemplo' });
-    expect(screen.getByText('Por Autora Exemplo')).toBeInTheDocument();
+    expect(screen.getByText('Autora Exemplo')).toBeInTheDocument();
   });
 
-  it('não mostra linha de autores quando credits ausente', () => {
+  it('assume a autoria do acervo quando credits ausente, sem deixar buraco', () => {
     renderCard();
-    expect(screen.queryByText(/^Por /)).not.toBeInTheDocument();
+    expect(screen.getByText('Acervo Artifício')).toBeInTheDocument();
+  });
+
+  it('mostra estrelas e contagem quando há avaliações', () => {
+    renderCard({ ...baseMaterial, avg_rating: 4.1, rating_count: 7 });
+    expect(screen.getByText('4,1')).toBeInTheDocument();
+    expect(screen.getByText('(7 avaliações)')).toBeInTheDocument();
+    expect(screen.getByText('Avaliação 4,1 de 5 em 7 avaliações')).toBeInTheDocument();
+  });
+
+  it('não mostra bloco de avaliação quando rating_count é 0', () => {
+    renderCard({ ...baseMaterial, avg_rating: null, rating_count: 0 });
+    expect(screen.queryByText(/avaliaç/i)).not.toBeInTheDocument();
+  });
+
+  it('mantém alvo de clique único mesmo com estrelas presentes', () => {
+    // As estrelas sao <span>, nunca <button>: se virarem focaveis, roubam o
+    // clique do <Link> que cobre o card via before:absolute.
+    renderCard({ ...baseMaterial, avg_rating: 4.5, rating_count: 12 });
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('mostra "Para <cenário>" quando há cenário', () => {

@@ -182,6 +182,41 @@ export function invalidateCatalogSnapshotCache(): void {
   snapshotCache = null;
 }
 
+/**
+ * IDs de nodes da taxonomia cujo nome casa com o termo buscado (spec 087,
+ * achado de review PR #214). Serve a busca textual da listagem publica, que
+ * precisa aceitar "D&D" ou "Tormenta" e devolver material daquele sistema.
+ *
+ * Roda sobre o snapshot ja cacheado, em memoria: a taxonomia nao tem tabela
+ * local pra join SQL, e ir na rede a cada busca seria caro e fragil.
+ *
+ * Casa contra name, name_pt, slug E aliases — os aliases sao exatamente o
+ * vocabulario alternativo que o publico usa ("dnd", "5e"), entao ignora-los
+ * faria a busca falhar justamente nos termos mais digitados.
+ *
+ * Fail-soft: Catalogo Central fora do ar degrada a busca pra titulo/autor em
+ * vez de derrubar a listagem publica inteira com 500.
+ */
+export async function matchTaxonomyIdsByName(term: string): Promise<string[]> {
+  const needle = term.trim().toLowerCase();
+  if (!needle) return [];
+
+  let nodes: FlatCatalogSystem[];
+  try {
+    nodes = await loadCatalogSystemsFlat();
+  } catch (error: unknown) {
+    console.error('[catalog] busca por sistema indisponível:', error instanceof Error ? error.message : error);
+    return [];
+  }
+
+  return nodes
+    .filter((node) => {
+      const haystack = [node.name, node.name_pt, node.slug, ...node.aliases];
+      return haystack.some((value) => value?.toLowerCase().includes(needle));
+    })
+    .map((node) => node.id);
+}
+
 let materialTypesCache: { data: CatalogMaterialType[]; expiresAt: number } | null = null;
 
 export async function loadCatalogMaterialTypes(forceRefresh = false): Promise<CatalogMaterialType[]> {

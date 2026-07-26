@@ -8,15 +8,26 @@ import {
   getCatalogMaterialTypeById,
   loadCatalogMaterialTypes,
   loadCatalogSystemsFlat,
+  matchTaxonomyIdsByName,
   type FlatCatalogSystem,
 } from '../services/catalogClient';
+import {
+  loadPopularityScores,
+  loadRatingAggregates,
+  loadRatingOrder,
+  loadTrendingOrder,
+  registerMaterialView,
+} from '../services/materialMetrics';
 
 const router = Router();
 
 const MAX_PAGE_SIZE = 60;
 const DEFAULT_PAGE_SIZE = 20;
 
-const SORT_OPTIONS = ['relevance', 'recent', 'popular', 'name'] as const;
+// Spec 087 (T1B.4) — 'rating' e 'trending' entram como sort formal, nao so
+// como prateleira fixa da home: a mesma metrica central serve a vitrine e o
+// dropdown de ordenacao do modo resultado (decisao 5 do mantenedor).
+const SORT_OPTIONS = ['relevance', 'recent', 'popular', 'name', 'rating', 'trending'] as const;
 type SortOption = (typeof SORT_OPTIONS)[number];
 
 const listMaterialsQuerySchema = z.object({
@@ -130,12 +141,75 @@ router.get('/', async (req: Request, res: Response) => {
   if (materialType) baseQuery = baseQuery.where('material_type_id', '=', materialType);
   if (accessKind) baseQuery = baseQuery.where('access_kind', '=', accessKind);
   if (q) {
-    baseQuery = baseQuery.where((eb) =>
-      eb.or([
-        eb('title', 'ilike', `%${q}%`),
-        eb('summary', 'ilike', `%${q}%`),
-      ]),
-    );
+    // Spec 087 (achado de review PR #214, Codex P2): a busca prometia "título,
+    // autor ou sistema" no placeholder mas so cobria title/summary, entao
+    // procurar por autor ou sistema voltava vazio. Cobertura ampliada pros 4
+    // campos que o card de fato exibe.
+    //
+    // Autor sai de download_creator (tabela local, ilike direto). Sistema NAO:
+    // a taxonomia vive no Catalogo Central e chega por HTTP
+    // (services/catalogClient.ts), sem tabela local pra join — por isso o nome
+    // do sistema e resolvido em memoria sobre o snapshot ja cacheado (TTL 60s,
+    // o mesmo que a listagem consome pra montar taxonomy_chain) e vira filtro
+    // por ID. Sem chamada extra de rede no caminho da busca.
+    const matchedTaxonomyIds = await matchTaxonomyIdsByName(q);
+
+    baseQuery = baseQuery.where((eb) => {
+      const clauses = [
+        eb('download_material.title', 'ilike', `%${q}%`),
+        eb('download_material.summary', 'ilike', `%${q}%`),
+        // Espelha o OR de creator_id do GET /:slug (spec 084): material de
+        // scraper grava creator_id = download_creator.id, material humano grava
+        // o user_id do SSO. Sem os dois lados, busca por autor perderia
+        // metade do acervo.
+        eb.exists(
+          eb.selectFrom('download_creator')
+            .select('download_creator.id')
+            .where('download_creator.display_name', 'ilike', `%${q}%`)
+            .where((inner) => inner.or([
+              inner('download_creator.user_id', '=', inner.ref('download_material.creator_id')),
+              inner('download_creator.id', '=', inner.ref('download_material.creator_id')),
+            ])),
+        ),
+      ];
+
+      if (matchedTaxonomyIds.length > 0) {
+        clauses.push(
+          eb('download_material.system_id', 'in', matchedTaxonomyIds),
+          eb('download_material.edition_id', 'in', matchedTaxonomyIds),
+        );
+      }
+
+      return eb.or(clauses);
+    });
+  }
+
+  // Spec 087 (T1B.3/T1B.4) — 'trending' e 'rating' ordenam por metrica
+  // calculada (Bayesian average), nao por coluna do banco, entao a ordem tem
+  // que ser resolvida sobre o CATALOGO INTEIRO antes de paginar: ordenar so a
+  // pagina atual daria ordem incoerente entre paginas.
+  //
+  // Para 'trending' o corte de elegibilidade (download_count >= 1 na janela)
+  // ja vem aplicado na lista de IDs — material so-visualizado nao esta la, e
+  // por isso desaparece da ordenacao em vez de ir pro fim dela (Requisito 15).
+  let rankedIds: string[] | null = null;
+  if (sort === 'trending') {
+    rankedIds = await loadTrendingOrder();
+  } else if (sort === 'rating') {
+    rankedIds = await loadRatingOrder();
+  }
+
+  if (rankedIds !== null) {
+    if (rankedIds.length === 0) {
+      return res.json({
+        items: [],
+        page,
+        page_size: pageSize,
+        total: 0,
+        total_pages: 1,
+      });
+    }
+    baseQuery = baseQuery.where('download_material.id', 'in', rankedIds);
   }
 
   const { count } = await baseQuery
@@ -162,6 +236,22 @@ router.get('/', async (req: Request, res: Response) => {
       .orderBy('download_material.created_at', 'desc');
   } else if (sort === 'name') {
     resultsQuery = resultsQuery.orderBy('download_material.title', 'asc');
+  } else if (rankedIds !== null) {
+    // Ordem ja decidida pelo Bayesian average. `array_position` reproduz a
+    // sequencia da lista ranqueada dentro do SQL, preservando a paginacao
+    // normal (limit/offset) sem trazer o catalogo inteiro pra memoria.
+    //
+    // Review PR #214 (CodeRabbit) sugeriu trocar por `unnest(...) WITH
+    // ORDINALITY`, que evita a varredura linear do array por linha. A troca e
+    // legitima em SQL, mas NAO entrou aqui: esta suite roda 100% sobre mock de
+    // Kysely, entao a forma nova passaria no teste sem nunca ter sido
+    // executada contra Postgres. Trocar SQL que roda em producao por SQL nao
+    // exercitado, por ganho teorico num ranking que hoje e pequeno, e risco
+    // sem retorno. Reavaliar quando houver teste de integracao com banco real
+    // ou quando o ranking crescer a ponto do custo aparecer em medicao.
+    resultsQuery = resultsQuery.orderBy(
+      sql`array_position(${sql.val(rankedIds)}::uuid[], download_material.id)`,
+    );
   } else {
     // 'relevance' sem busca textual de rank equivale a 'recent' (MVP —
     // ranking real de relevancia fica para quando houver motor de busca).
@@ -173,8 +263,32 @@ router.get('/', async (req: Request, res: Response) => {
     .offset((page - 1) * pageSize)
     .execute();
 
+  // Requisito 14 — a listagem passa a expor as metricas de curadoria. Duas
+  // consultas agregadas por pagina (nao uma por card), no mesmo espirito do
+  // enriquecimento de taxonomia logo abaixo.
+  const pageIds = materials.map((material) => material.id);
+  const [ratings, popularity, enriched] = await Promise.all([
+    loadRatingAggregates(pageIds),
+    loadPopularityScores(pageIds),
+    enrichMaterialsWithTaxonomy(materials),
+  ]);
+
+  const items = enriched.map((material) => {
+    const rating = ratings.get(material.id);
+    return {
+      ...material,
+      // Sem avaliacao nenhuma: `null`, nunca 0 — o card precisa distinguir
+      // "ninguem avaliou" de "avaliaram mal" (Requisito 15).
+      avg_rating: rating?.avgRating ?? null,
+      rating_count: rating?.ratingCount ?? 0,
+      // `null` = nao elegivel (zero download na janela). E o sinal que o
+      // frontend usa pra nunca incluir o material em "Mais visitados".
+      popularity_score: popularity.get(material.id) ?? null,
+    };
+  });
+
   return res.json({
-    items: await enrichMaterialsWithTaxonomy(materials),
+    items,
     page,
     page_size: pageSize,
     total: Number(count),
@@ -345,6 +459,23 @@ router.get('/:slug', async (req: Request, res: Response) => {
   if (!material) {
     return res.status(404).json({ error: 'Material não encontrado.' });
   }
+
+  // Spec 087 (T1B.1, Requisito 13) — fecha o debito de `view_count`: a coluna
+  // existe desde a migration_008 (spec 070) mas nenhuma rota jamais a
+  // incrementou, entao o painel admin de metricas sempre mostrou 0 views.
+  //
+  // Aqui e o lugar certo: ficha publica, sem exigir login (visualizacao e
+  // anonima por natureza, diferente de download, que exige conta por D111
+  // item 7). Dedup por (origem, material, dia) vive em registerMaterialView;
+  // a chamada e fail-soft de proposito — metrica nunca derruba a ficha.
+  //
+  // Sem `await` (achado de review PR #214, CodeRabbit): sao dois writes que o
+  // leitor da ficha nao precisa esperar. registerMaterialView ja engole o
+  // proprio erro internamente; o .catch aqui e a rede de seguranca contra
+  // unhandled rejection caso isso mude.
+  void registerMaterialView(material.id, req).catch((error: unknown) => {
+    console.error('[materials] falha ao registrar view', error);
+  });
 
   // DEB-073-02 — destino opaco desacoplado do slug (download_destination,
   // migration_014). Get-or-create: primeiro acesso publico a ficha cria o

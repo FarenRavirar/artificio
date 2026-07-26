@@ -40,6 +40,111 @@ function renderPage(initialEntries: string[] = ['/catalogo']) {
   );
 }
 
+// Spec 087 (T2.2) — a rota e uma so; o que muda e o MODO. Sem busca e sem
+// filtro a pagina apresenta o acervo (prateleiras); com qualquer um dos dois,
+// vira lista de resultado paginada.
+describe('CatalogoPage — modo vitrine vs. modo resultado', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function mockEmptyList() {
+    const response: MaterialListResponse = {
+      items: [],
+      page: 1,
+      page_size: 20,
+      total: 0,
+      total_pages: 1,
+    };
+    return vi.spyOn(useMaterialsCatalogModule, 'useMaterialsCatalog').mockReturnValue({
+      data: response,
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
+  }
+
+  it('sem busca nem filtro, mostra as prateleiras e nenhuma lista paginada', async () => {
+    vi.spyOn(useMaterialsCatalogModule, 'useMaterialsCatalog').mockReturnValue({
+      data: { items: [makeMaterial()], page: 1, page_size: 20, total: 1, total_pages: 1 },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
+
+    renderPage(['/catalogo']);
+
+    expect(await screen.findByRole('heading', { name: 'Recém adicionados' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Mais visitados' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Mais bem avaliados' })).toBeInTheDocument();
+    // Paginacao e do modo resultado; na vitrine nao existe.
+    expect(screen.queryByRole('button', { name: 'Próxima' })).not.toBeInTheDocument();
+  });
+
+  it('desabilita a listagem principal no modo vitrine (nao paga fetch ocioso)', async () => {
+    const spy = mockEmptyList();
+    renderPage(['/catalogo']);
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith(expect.anything(), { enabled: false });
+    });
+  });
+
+  // Achado de review PR #214 (Codex, P1): `sort` explicito na URL e o destino
+  // dos links "Ver tudo" das prateleiras. Antes ele nao derrubava a vitrine,
+  // entao "Ver tudo" devolvia as mesmas tres prateleiras em vez da lista
+  // paginada que promete.
+  it('"Ver tudo" de uma prateleira (sort explícito) abre o modo resultado', async () => {
+    mockEmptyList();
+    renderPage(['/catalogo?sort=trending']);
+
+    expect(await screen.findByLabelText('Ordenar por')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Recém adicionados' })).not.toBeInTheDocument();
+  });
+
+  // O default de `sort` e 'recent'; o modo tem que sair de haver ou nao o
+  // parametro, nunca do valor — senao /catalogo e /catalogo?sort=recent
+  // renderizariam igual e "Ver tudo" da prateleira de recentes quebraria.
+  it('sort=recent explícito também é modo resultado, apesar de ser o default', async () => {
+    mockEmptyList();
+    renderPage(['/catalogo?sort=recent']);
+
+    expect(await screen.findByLabelText('Ordenar por')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Recém adicionados' })).not.toBeInTheDocument();
+  });
+
+  it('sem nenhum parâmetro, segue vitrine e não mostra lista vazia', async () => {
+    // Prateleira precisa de item pra renderizar (Requisito 16), entao aqui o
+    // mock devolve material — com lista vazia a ausencia de cabecalho seria
+    // ambigua entre "e vitrine sem item" e "virou modo resultado".
+    vi.spyOn(useMaterialsCatalogModule, 'useMaterialsCatalog').mockReturnValue({
+      data: { items: [makeMaterial()], page: 1, page_size: 20, total: 1, total_pages: 1 },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
+
+    renderPage(['/catalogo']);
+
+    expect(await screen.findByRole('heading', { name: 'Recém adicionados' })).toBeInTheDocument();
+    expect(screen.queryByText(/nenhum material com esses filtros/i)).not.toBeInTheDocument();
+  });
+
+  it('com filtro aplicado, vira modo resultado com dropdown de ordenação', async () => {
+    mockEmptyList();
+    renderPage(['/catalogo?material_type=adventure']);
+
+    expect(await screen.findByLabelText('Ordenar por')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Recém adicionados' })).not.toBeInTheDocument();
+  });
+
+  it('oferece as ordenações novas de métrica calculada (T2.6)', async () => {
+    mockEmptyList();
+    renderPage(['/catalogo?q=aventura']);
+
+    const select = await screen.findByLabelText('Ordenar por');
+    expect(select).toContainHTML('Mais visitados');
+    expect(select).toContainHTML('Mais bem avaliados');
+  });
+});
+
 describe('CatalogoPage', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -59,7 +164,7 @@ describe('CatalogoPage', () => {
       isError: false,
     } as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
 
-    renderPage();
+    renderPage(['/catalogo?q=aventura']);
 
     expect(await screen.findByText('Material 1')).toBeInTheDocument();
   });
@@ -72,9 +177,11 @@ describe('CatalogoPage', () => {
       isError: false,
     } as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
 
-    renderPage();
+    renderPage(['/catalogo?q=inexistente']);
 
-    expect(await screen.findByText(/nenhum material encontrado/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/nenhum material com esses filtros/i),
+    ).toBeInTheDocument();
   });
 
   it('atualiza a query string ao digitar na busca', async () => {
@@ -85,14 +192,15 @@ describe('CatalogoPage', () => {
       isError: false,
     } as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
 
-    renderPage();
+    renderPage(['/catalogo?q=a']);
 
-    const input = screen.getByPlaceholderText(/buscar por nome ou resumo/i);
+    const input = screen.getByPlaceholderText(/buscar por título, autor ou sistema/i);
     fireEvent.change(input, { target: { value: 'aventura' } });
 
     await waitFor(() => {
       expect(useMaterialsCatalogModule.useMaterialsCatalog).toHaveBeenLastCalledWith(
         expect.objectContaining({ q: 'aventura' }),
+        expect.anything(),
       );
     }, { timeout: 1000 });
   });
@@ -129,6 +237,7 @@ describe('CatalogoPage', () => {
     await waitFor(() => {
       expect(useMaterialsCatalogModule.useMaterialsCatalog).toHaveBeenLastCalledWith(
         expect.objectContaining({ system_id: 'sys-2', edition_id: undefined }),
+        expect.anything(),
       );
     }, { timeout: 1000 });
   });

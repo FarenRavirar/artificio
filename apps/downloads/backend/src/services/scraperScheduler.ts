@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { db } from '../db';
+import { withAdvisoryLock } from './advisoryLock';
 import { executeScraperRun } from '../routes/scraper';
 import type { DownloadSourcePlatform } from '../db/types';
 
@@ -41,18 +42,27 @@ async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, label: st
 }
 
 export async function runScheduledScraperCron(): Promise<{ triggered: DownloadSourcePlatform[] }> {
-  const lockRow = await db
-    .selectNoFrom((eb) => eb.fn<boolean>('pg_try_advisory_lock', [eb.val(ADVISORY_LOCK_KEY)]).as('acquired'))
-    .executeTakeFirstOrThrow();
-
-  if (!lockRow.acquired) {
-    return { triggered: [] };
-  }
-
-  try {
-    const triggered: DownloadSourcePlatform[] = [];
+  // Advisory lock TRANSACIONAL via helper compartilhado (achado de review PR
+  // #214, Codex P2): o par `pg_try_advisory_lock`/`pg_advisory_unlock` de
+  // sessao podia cair em conexoes diferentes do pg.Pool, e nesse caso o unlock
+  // nao liberava o lock — o cron ficava travado ate a conexao original morrer.
+  // `pg_try_advisory_xact_lock` e liberado pelo proprio Postgres no fim da
+  // transacao, sem unlock explicito que possa vazar.
+  const triggered = await withAdvisoryLock(ADVISORY_LOCK_KEY, async () => {
+    const executed: DownloadSourcePlatform[] = [];
     const cronSourcePlatforms = await getCronSourcePlatforms();
     for (const sourcePlatform of cronSourcePlatforms) {
+      // A run e gravada com a conexao GLOBAL, nunca com a transacao do lock
+      // (achado de review PR #214, Codex P1): executeScraperRun roda em outra
+      // conexao e escreve log com FK, contadores e status por conta propria —
+      // se a run so existisse dentro da transacao ainda aberta, essa outra
+      // conexao nao a enxergaria, os logs quebrariam por FK e a run ficaria
+      // presa em `running` pra sempre. Mesmo padrao da rota manual
+      // (routes/scraper.ts POST /run), que ja gravava fora de transacao.
+      //
+      // O lock continua cobrindo o cron inteiro: ele impede DUAS EXECUCOES
+      // concorrentes do agendador, que e o seu proposito — nao precisa (nem
+      // deve) envolver a escrita da run.
       const run = await db
         .insertInto('download_scraper_run')
         .values({ source_platform: sourcePlatform, trigger_kind: 'cron' })
@@ -66,16 +76,17 @@ export async function runScheduledScraperCron(): Promise<{ triggered: DownloadSo
       } catch (error: unknown) {
         // executeScraperRun ja grava status=failed em erro normal — aqui so
         // cobre o caso do deadline estourar (execucao real pode continuar
-        // pendurada em segundo plano, mas o cron segue pras proximas fontes
-        // e libera o lock, nunca trava o scheduler inteiro).
+        // pendurada em segundo plano, mas o cron segue pras proximas fontes,
+        // nunca trava o scheduler inteiro).
         console.error(`[scraper-scheduler] ${sourcePlatform} excedeu deadline ou falhou:`, error instanceof Error ? error.message : error);
       }
-      triggered.push(sourcePlatform);
+      executed.push(sourcePlatform);
     }
-    return { triggered };
-  } finally {
-    await db.selectNoFrom((eb) => eb.fn('pg_advisory_unlock', [eb.val(ADVISORY_LOCK_KEY)]).as('released')).execute();
-  }
+    return executed;
+  });
+
+  // `null` = lock ocupado (outra replica ja esta rodando): nada disparado.
+  return { triggered: triggered ?? [] };
 }
 
 export function startScraperScheduler(): void {

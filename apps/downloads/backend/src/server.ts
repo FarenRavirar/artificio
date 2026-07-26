@@ -25,6 +25,7 @@ import { parseCookies } from './middleware/parseCookies';
 import { db } from './db';
 import { startLinkCheckerScheduler } from './services/linkCheckerScheduler';
 import { startScraperScheduler } from './services/scraperScheduler';
+import { startMetricsScheduler } from './services/metricsScheduler';
 
 dotenv.config();
 
@@ -48,6 +49,16 @@ const allowedFrontendOrigins = new Set(frontendUrls);
 
 const app = express();
 app.disable('x-powered-by');
+
+// Achado de review PR #214 (Codex, P1): sem isto `req.ip` e o IP do nginx que
+// faz proxy de /api (frontend/nginx.conf), nao o do visitante — a dedup de
+// visualizacao por (origem, material, dia) de services/materialMetrics.ts
+// colapsaria quase tudo num hash so e corromperia o ranking `trending`.
+// CIDR restrito (nao `true`), mesma env var e mesmo default de rede docker que
+// mesas/site/links/glossario/accounts ja usam: confiar em proxy arbitrario
+// deixaria qualquer cliente forjar X-Forwarded-For e escapar da dedup.
+app.set('trust proxy', process.env.TRUSTED_PROXY_CIDR || '172.18.0.0/16');
+
 const port = process.env.PORT || 3000;
 
 app.use(cors({
@@ -135,4 +146,5 @@ app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
   startLinkCheckerScheduler();
   startScraperScheduler();
+  startMetricsScheduler();
 });

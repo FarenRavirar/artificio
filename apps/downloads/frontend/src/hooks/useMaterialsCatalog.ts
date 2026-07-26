@@ -16,8 +16,12 @@ function buildQueryString(filters: MaterialListFilters): string {
 
 // T4.3 (spec 073) — fetch da listagem publica; filtros/ordenacao/paginacao
 // como contrato de URL vivem no componente que le/escreve searchParams.
-export function useMaterialsCatalog(filters: MaterialListFilters) {
+export function useMaterialsCatalog(filters: MaterialListFilters, options?: { enabled?: boolean }) {
   return useQuery<MaterialListResponse>({
+    // Spec 087 (T2.2) — no modo vitrine a listagem principal nao e usada (as
+    // prateleiras fazem as proprias consultas), entao o chamador desabilita a
+    // query em vez de pagar um fetch cujo resultado ninguem renderiza.
+    enabled: options?.enabled ?? true,
     queryKey: ['downloads', 'materials', filters],
     queryFn: async () => {
       const response = await apiGet(`/api/v1/materials?${buildQueryString(filters)}`);

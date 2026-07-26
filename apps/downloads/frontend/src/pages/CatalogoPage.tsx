@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { ActiveFilterChips, type ActiveFilter } from '../components/ActiveFilterChips';
 import { CatalogFilterSidebar } from '../components/CatalogFilterSidebar';
+import { CatalogShowcase, type ShelfDefinition } from '../components/CatalogShowcase';
+import { FilterPills } from '../components/FilterPills';
 import { MaterialCard } from '../components/MaterialCard';
 import { useCatalogSystems } from '../hooks/useCatalogSystems';
 import { useMaterialFacets } from '../hooks/useMaterialFacets';
@@ -13,8 +15,22 @@ const SORT_LABELS: Record<SortOption, string> = {
   relevance: 'Relevância',
   recent: 'Mais recentes',
   popular: 'Mais populares',
+  // Spec 087 (T2.6) — mesmos criterios das prateleiras da vitrine, com o mesmo
+  // nome: o usuario que clica em "Ver tudo" numa prateleira cai no modo
+  // resultado com essa opcao ja selecionada no dropdown, e reconhece de onde
+  // veio. Rotulo diferente aqui quebraria essa continuidade.
+  trending: 'Mais visitados',
+  rating: 'Mais bem avaliados',
   name: 'Nome (A-Z)',
 };
+
+// Spec 087 (T2.4) — as 3 prateleiras da vitrine. `sort` e a mesma chave do
+// contrato de URL, entao "Ver tudo" e so `?sort=<...>`.
+const SHELVES: readonly ShelfDefinition[] = [
+  { id: 'recentes', title: 'Recém adicionados', sort: 'recent' },
+  { id: 'visitados', title: 'Mais visitados', sort: 'trending' },
+  { id: 'avaliados', title: 'Mais bem avaliados', sort: 'rating' },
+];
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -75,14 +91,35 @@ export function CatalogoPage() {
     [searchParams, setSearchParams],
   );
 
-  const { data, isLoading, isError } = useMaterialsCatalog({
-    q: q || undefined,
-    material_type: materialType || undefined,
-    system_id: systemId || undefined,
-    edition_id: editionId || undefined,
-    sort,
-    page,
-  });
+  // Spec 087 (T2.2) — modo vitrine vs. modo resultado.
+  //
+  // A rota e UMA so (decisao central da spec: home = catalogo). O que muda o
+  // modo e a ausencia de intencao do usuario: sem busca, sem filtro e sem
+  // ordenacao escolhida, nao ha "resultado" a mostrar — ha um acervo a
+  // apresentar.
+  //
+  // `sort` EXPLICITO na URL conta como intencao (achado de review PR #214,
+  // Codex P1). O comentario anterior aqui dizia o oposto — que sort nao devia
+  // derrubar a vitrine pra "Ver tudo" nao parecer busca vazia — e estava
+  // invertido: "Ver tudo" aponta justamente pra `?sort=trending|rating|recent`,
+  // entao ignorar sort fazia o link voltar pra vitrine com as mesmas tres
+  // prateleiras, sem nunca abrir a lista paginada que ele promete.
+  //
+  // Testado por `has`, nao pelo valor: `sort` tem default 'recent', entao
+  // comparar valor nao distinguiria "/catalogo" de "/catalogo?sort=recent".
+  const isBrowsing = !q && !materialType && !systemId && !editionId && !searchParams.has('sort');
+
+  const { data, isLoading, isError } = useMaterialsCatalog(
+    {
+      q: q || undefined,
+      material_type: materialType || undefined,
+      system_id: systemId || undefined,
+      edition_id: editionId || undefined,
+      sort,
+      page,
+    },
+    { enabled: !isBrowsing },
+  );
 
   const { data: facets } = useMaterialFacets();
   const { data: systems } = useCatalogSystems();
@@ -92,15 +129,21 @@ export function CatalogoPage() {
   // unico); remover um chip so atualiza a URL (updateParam), que ja dispara
   // o refetch da lista.
   const activeFilters: ActiveFilter[] = [];
+  const activePillLabels: Partial<Record<'material_type' | 'system_id' | 'edition_id', string>> = {};
   if (materialType) {
     const label = facets?.material_types.find((option) => option.id === materialType)?.name ?? materialType;
     activeFilters.push({ key: 'material_type', label: 'Tipo', value: label });
+    activePillLabels.material_type = label;
   }
   if (systemId) {
-    activeFilters.push({ key: 'system_id', label: 'Sistema', value: systemsById.get(systemId)?.name ?? systemId });
+    const label = systemsById.get(systemId)?.name ?? systemId;
+    activeFilters.push({ key: 'system_id', label: 'Sistema', value: label });
+    activePillLabels.system_id = label;
   }
   if (editionId) {
-    activeFilters.push({ key: 'edition_id', label: 'Edição', value: systemsById.get(editionId)?.name ?? editionId });
+    const label = systemsById.get(editionId)?.name ?? editionId;
+    activeFilters.push({ key: 'edition_id', label: 'Edição', value: label });
+    activePillLabels.edition_id = label;
   }
 
   return (
@@ -111,83 +154,105 @@ export function CatalogoPage() {
         <div className="mb-6 flex flex-wrap gap-3">
           <label className="flex-1 min-w-[200px]">
             <span className="sr-only">Buscar materiais</span>
+            {/* O placeholder so promete o que o backend entrega: a busca cobre
+                title/summary, nome do autor (download_creator) e nome do
+                sistema resolvido no Catalogo Central — routes/materials.ts,
+                cobertura ampliada no review da PR #214 (Codex, P2). Mudar um
+                lado exige mudar o outro. */}
             <input
               type="search"
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}
-              placeholder="Buscar por nome ou resumo..."
+              placeholder="Buscar por título, autor ou sistema"
               className="min-h-[44px] w-full rounded-md border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-[var(--fg)] placeholder:text-[var(--fg-muted)] focus:border-artificio-orange focus:outline-none"
             />
           </label>
 
-          <label className="min-w-[160px]">
-            <span className="sr-only">Ordenar por</span>
-            <select
-              value={sort}
-              onChange={(event) => updateParam('sort', event.target.value)}
-              className="min-h-[44px] w-full rounded-md border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-[var(--fg)] focus:border-artificio-orange focus:outline-none"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {SORT_LABELS[option]}
-                </option>
-              ))}
-            </select>
-          </label>
+          {/* Ordenacao so aparece no modo resultado: na vitrine, cada
+              prateleira JA e um criterio de ordenacao, entao um dropdown
+              global ali competiria com elas dizendo a mesma coisa. */}
+          {!isBrowsing && (
+            <label className="min-w-[160px]">
+              <span className="sr-only">Ordenar por</span>
+              <select
+                value={sort}
+                onChange={(event) => updateParam('sort', event.target.value)}
+                className="min-h-[44px] w-full rounded-md border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-[var(--fg)] focus:border-artificio-orange focus:outline-none"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {SORT_LABELS[option]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
 
-        <div className="flex flex-col gap-6 lg:flex-row">
-          <CatalogFilterSidebar
-            values={{ material_type: materialType, system_id: systemId, edition_id: editionId }}
-            onChange={updateParam}
-          />
-
-          <div className="min-w-0 flex-1">
-            <ActiveFilterChips
-              filters={activeFilters}
-              onRemove={(key) => updateParam(key, '')}
+        {isBrowsing ? (
+          <>
+            <div className="mb-8">
+              <FilterPills
+                values={{ material_type: materialType, system_id: systemId, edition_id: editionId }}
+                onChange={updateParam}
+                activeLabels={activePillLabels}
+              />
+            </div>
+            <CatalogShowcase shelves={SHELVES} />
+          </>
+        ) : (
+          <div className="flex flex-col gap-6 lg:flex-row">
+            <CatalogFilterSidebar
+              values={{ material_type: materialType, system_id: systemId, edition_id: editionId }}
+              onChange={updateParam}
             />
 
-            {isLoading && <p className="text-[var(--fg-muted)]">Carregando...</p>}
-            {isError && <p className="text-red-400">Falha ao carregar materiais. Tente novamente.</p>}
+            <div className="min-w-0 flex-1">
+              <ActiveFilterChips filters={activeFilters} onRemove={(key) => updateParam(key, '')} />
 
-            {data?.items.length === 0 && (
-              <p className="text-[var(--fg-muted)]">Nenhum material encontrado com esses filtros.</p>
-            )}
+              {isLoading && <p className="text-[var(--fg-muted)]">Carregando...</p>}
+              {isError && <p className="text-red-400">Falha ao carregar materiais. Tente novamente.</p>}
 
-            {data && data.items.length > 0 && (
-              <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {data.items.map((material) => (
-                    <MaterialCard key={material.id} material={material} />
-                  ))}
-                </div>
+              {data?.items.length === 0 && (
+                <p className="text-[var(--fg-muted)]">
+                  Nenhum material com esses filtros. Tente remover um filtro ou buscar outro termo.
+                </p>
+              )}
 
-                <div className="mt-8 flex items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    disabled={page <= 1}
-                    onClick={() => updateParam('page', String(page - 1))}
-                    className="min-h-[44px] min-w-[44px] rounded-md border border-[var(--line)] px-4 disabled:opacity-40"
-                  >
-                    Anterior
-                  </button>
-                  <span className="text-[var(--fg-muted)]">
-                    Página {data.page} de {data.total_pages}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={page >= data.total_pages}
-                    onClick={() => updateParam('page', String(page + 1))}
-                    className="min-h-[44px] min-w-[44px] rounded-md border border-[var(--line)] px-4 disabled:opacity-40"
-                  >
-                    Próxima
-                  </button>
-                </div>
-              </>
-            )}
+              {data && data.items.length > 0 && (
+                <>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {data.items.map((material) => (
+                      <MaterialCard key={material.id} material={material} />
+                    ))}
+                  </div>
+
+                  <div className="mt-8 flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      disabled={page <= 1}
+                      onClick={() => updateParam('page', String(page - 1))}
+                      className="min-h-[44px] min-w-[44px] rounded-md border border-[var(--line)] px-4 disabled:opacity-40"
+                    >
+                      Anterior
+                    </button>
+                    <span className="text-[var(--fg-muted)]">
+                      Página {data.page} de {data.total_pages}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={page >= data.total_pages}
+                      onClick={() => updateParam('page', String(page + 1))}
+                      className="min-h-[44px] min-w-[44px] rounded-md border border-[var(--line)] px-4 disabled:opacity-40"
+                    >
+                      Próxima
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </AppShell>
   );

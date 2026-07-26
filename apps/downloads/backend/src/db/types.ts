@@ -334,6 +334,21 @@ export type DownloadMetricDaily = Selectable<DownloadMetricDailyTable>;
 export type NewDownloadMetricDaily = Insertable<DownloadMetricDailyTable>;
 export type DownloadMetricDailyUpdate = Updateable<DownloadMetricDailyTable>;
 
+// Spec 087 (T1B.1, migration_029) — dedup de visualizacao. A PK composta
+// (material_id, view_hash, view_date) E o mecanismo: a 2a view da mesma
+// origem no mesmo dia colide e nao incrementa view_count de novo. view_hash e
+// digest opaco da origem, nunca IP cru (visualizacao e anonima; guardar IP em
+// claro seria coleta desnecessaria de dado).
+export interface DownloadMaterialViewTable {
+  material_id: string;
+  view_hash: string;
+  view_date: Date;
+  created_at: Generated<Date>;
+}
+
+export type DownloadMaterialView = Selectable<DownloadMaterialViewTable>;
+export type NewDownloadMaterialView = Insertable<DownloadMaterialViewTable>;
+
 // Contador mensal LOCAL de bytes/operacoes por provider de storage (spec 071).
 // Nunca bate no provider pra medir uso (isso gastaria cota Classe B); cota e
 // checada ANTES de cada operacao real, com margem de 10% — regra petrea do
@@ -496,6 +511,7 @@ export interface Database {
   download_collection_item: DownloadCollectionItemTable;
   download_link_check: DownloadLinkCheckTable;
   download_metric_daily: DownloadMetricDailyTable;
+  download_material_view: DownloadMaterialViewTable;
   download_storage_usage: DownloadStorageUsageTable;
   download_comment: DownloadCommentTable;
   download_user_material_download: DownloadUserMaterialDownloadTable;
