@@ -64,10 +64,12 @@ export function CatalogShowcase({ shelves }: Readonly<{ shelves: readonly ShelfD
 
   return (
     <div className="flex flex-col gap-10">
+      {/* <output> em vez de role="status" (Sonar): elemento nativo com a mesma
+          semantica de live region, melhor suportado por leitor de tela. */}
       {allFailed && (
-        <p role="status" className="text-sm text-[var(--fg-muted)]">
+        <output className="text-sm text-[var(--fg-muted)]">
           Não foi possível carregar o acervo agora. Tente recarregar a página.
-        </p>
+        </output>
       )}
       {shelves.map((shelf) => (
         <Shelf key={shelf.id} {...shelf} onError={handleShelfError} />

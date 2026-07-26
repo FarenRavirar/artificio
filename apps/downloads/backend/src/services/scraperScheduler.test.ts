@@ -19,10 +19,32 @@ const dbMocks = vi.hoisted(() => ({
 }));
 vi.mock('../db', () => ({ db: dbMocks }));
 
+// Spec 087 (achado de review PR #214, Codex P2): o advisory lock saiu daqui pro
+// helper compartilhado services/advisoryLock.ts, agora TRANSACIONAL
+// (pg_try_advisory_xact_lock) — o par lock/unlock de sessao podia cair em
+// conexoes diferentes do pool e deixar o lock preso. O helper tem suite propria
+// (advisoryLock.test.ts); aqui ele e mockado pra isolar o comportamento do cron.
+const lockMocks = vi.hoisted(() => ({
+  withAdvisoryLock: vi.fn(),
+}));
+vi.mock('./advisoryLock', () => lockMocks);
+
 import { runScheduledScraperCron } from './scraperScheduler';
 
-function lockChain(acquired: boolean) {
-  return { fn: undefined, executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ acquired }) };
+/**
+ * Concede o lock e entrega ao callback uma transacao que reusa os mesmos stubs
+ * de `db` — o cron passou a inserir `download_scraper_run` pela transacao do
+ * lock, nao pela conexao global.
+ */
+function grantLock() {
+  lockMocks.withAdvisoryLock.mockImplementation(async (_key: number, fn: (trx: unknown) => Promise<unknown>) =>
+    fn({ insertInto: dbMocks.insertInto }),
+  );
+}
+
+/** Lock ocupado: o helper devolve null sem rodar o callback. */
+function denyLock() {
+  lockMocks.withAdvisoryLock.mockResolvedValue(null);
 }
 
 function platformSelectChain(slugs: string[]) {
@@ -37,14 +59,13 @@ beforeEach(() => {
   dbMocks.selectFrom.mockReset();
   dbMocks.selectNoFrom.mockReset();
   dbMocks.insertInto.mockReset();
+  lockMocks.withAdvisoryLock.mockReset();
   executeScraperRunMock.mockClear();
 });
 
 describe('runScheduledScraperCron', () => {
   it('dispara exatamente as plataformas com supports_auto_scrape=TRUE no registry (itch_io, grimorios_e_dados, opera_rpg)', async () => {
-    dbMocks.selectNoFrom
-      .mockReturnValueOnce(lockChain(true)) // pg_try_advisory_lock
-      .mockReturnValueOnce({ execute: vi.fn().mockResolvedValue(undefined) }); // pg_advisory_unlock (finally)
+    grantLock();
     dbMocks.selectFrom.mockReturnValue(platformSelectChain(['itch_io', 'grimorios_e_dados', 'opera_rpg']));
 
     dbMocks.insertInto.mockReturnValue({
@@ -63,9 +84,7 @@ describe('runScheduledScraperCron', () => {
   });
 
   it('não dispara nada quando o registry não tem nenhuma plataforma com supports_auto_scrape=TRUE', async () => {
-    dbMocks.selectNoFrom
-      .mockReturnValueOnce(lockChain(true))
-      .mockReturnValueOnce({ execute: vi.fn().mockResolvedValue(undefined) });
+    grantLock();
     dbMocks.selectFrom.mockReturnValue(platformSelectChain([]));
 
     const result = await runScheduledScraperCron();
@@ -75,7 +94,7 @@ describe('runScheduledScraperCron', () => {
   });
 
   it('lock ocupado (outra instância já rodando): não dispara nada, retorna vazio, nem consulta o registry', async () => {
-    dbMocks.selectNoFrom.mockReturnValueOnce(lockChain(false));
+    denyLock();
 
     const result = await runScheduledScraperCron();
 
@@ -86,10 +105,7 @@ describe('runScheduledScraperCron', () => {
   });
 
   it('1 fonte falhando nao trava as demais nem propaga (achado de review PR #193: deadline defensivo) — lock sempre libera', async () => {
-    const unlockExecute = vi.fn().mockResolvedValue(undefined);
-    dbMocks.selectNoFrom
-      .mockReturnValueOnce(lockChain(true))
-      .mockReturnValueOnce({ execute: unlockExecute });
+    grantLock();
     dbMocks.selectFrom.mockReturnValue(platformSelectChain(['itch_io', 'grimorios_e_dados', 'opera_rpg']));
 
     dbMocks.insertInto.mockReturnValue({
@@ -104,6 +120,10 @@ describe('runScheduledScraperCron', () => {
     // Falha de 1 fonte nao interrompe as demais (todas continuam marcadas
     // como "triggered" — o outcome real de cada uma fica em download_scraper_run).
     expect(result.triggered).toEqual(['itch_io', 'grimorios_e_dados', 'opera_rpg']);
-    expect(unlockExecute).toHaveBeenCalledTimes(1);
+    // O lock nao vaza: com xact_lock o Postgres libera no fim da transacao, entao
+    // o que se prova aqui e que o cron NAO propagou a falha da fonte (a
+    // transacao fecha normal). O antigo `expect(unlockExecute)` sumiu junto com
+    // o unlock explicito, que deixou de existir.
+    expect(lockMocks.withAdvisoryLock).toHaveBeenCalledTimes(1);
   });
 });

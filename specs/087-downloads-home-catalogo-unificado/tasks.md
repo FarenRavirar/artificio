@@ -155,6 +155,35 @@ Achados de Codex e CodeRabbit na PR #214, verificados **contra o código real** 
 
 As duas pendências da Fase 2 continuam abertas e dependem de T6.2: `migration_029` não aplicada em banco nenhum, e validação ponta-a-ponta das prateleiras com dado real.
 
+### Evidência da 2ª rodada de review da PR #214 — 2026-07-26
+
+Achados de Codex (3 P2) e Sonar (10), verificados contra o código real. Dois exigiram decisão do mantenedor (registradas abaixo, não inferidas).
+
+#### Corrigidos
+
+1. **`TRUSTED_PROXY_CIDR` não chegava ao container (Codex P2).** O fix da 1ª rodada ficou **pela metade**: `app.set('trust proxy', ...)` foi adicionado, mas a variável não era injetada em `docker-compose.beta.yml`/`prod.yml` — funcionava só porque o default coincide com a rede real, e voltaria a quebrar se `artificio_net` mudasse de CIDR. Confirmado por busca: `site`, `links`, `glossario`, `mesas` e `accounts` já injetavam nos dois composes; downloads era o único fora. Injetada nos dois, no mesmo formato dos demais.
+
+2. **Advisory lock podia liberar em conexão diferente (Codex P2).** Com `pg.Pool`, `pg_try_advisory_lock`, o trabalho e o `pg_advisory_unlock` podem cair em sessões distintas — nesse caso o unlock não libera nada e o job fica travado até a conexão original morrer. **`scraperScheduler.ts` tinha o mesmo bug** (o padrão foi copiado dele). Decisão do mantenedor: corrigir os dois com helper compartilhado. Criado `services/advisoryLock.ts` com `pg_try_advisory_xact_lock` — o lock é preso à transação e o Postgres o libera sozinho no commit/rollback, sem unlock explícito que possa vazar. `purgeStaleViewDedup` passou a aceitar o executor, para o DELETE rodar **dentro** da transação que segura o lock (senão o lock seria decorativo). Suíte própria (`advisoryLock.test.ts`, 4 testes) incluindo asserção de que usa a variante `xact`, não a de sessão.
+
+3. **Hash da origem da view era reversível (Codex P2).** O achado mais sério da rodada: SHA-256 de `data:IP:user-agent` com sal público e espaço IPv4 enumerável é quebrável por força bruta offline — e o comentário no código **afirmava** que a tabela "não permite reconstruir histórico de navegação de ninguém", o que era **falso**. Decisão do mantenedor: HMAC com segredo do servidor. `VIEW_HASH_SECRET` obrigatório, sem default (cair numa chave fixa reintroduziria a reversibilidade em silêncio; falhar no boot é melhor). O `throw` está dentro do `try` fail-soft de `registerMaterialView`, então a ficha pública não cai — perde a métrica e loga. Registrado em `.env.example` com `openssl rand -hex 32` e injetado nos dois composes com `:?`. Cobertura nova em `viewOriginHash.test.ts` (6 testes), incluindo que o digest depende do segredo e que nunca contém o IP em claro.
+
+4. **Sonar (nits aplicados):** `<output>` no lugar de `role="status"` (elemento nativo, mesma semântica de live region — os testes que buscam por role seguem passando, o role é implícito); optional chain em `FilterControls` (2 ocorrências); texto de label envolvido em `<span>` nas 6 opções de rádio, removendo a ambiguidade de espaçamento JSX sem mudar render (o espaço vem do `gap` do flex).
+
+#### Descartados, com motivo
+
+- **Sonar Blocker "Add at least one assertion" (`materials.list.test.ts:439`).** Falso positivo: o teste valida por `.expect(200)`/`.expect(400)` do supertest, que **é** asserção real e lança em falha. Sonar não reconhece o padrão. Não vou adicionar `expect` decorativo só para satisfazer a regra.
+- **Sonar "Complete the task associated to this TODO" (`materialMetrics.ts:356`).** Falso positivo: não existe nenhum `TODO` no arquivo (`rtk rg "TODO"` retorna vazio). Provável leitura de linha deslocada.
+- **Sonar "hardcoded IP 172.18.0.0/16" (`server.ts:60`).** É o default da rede docker interna, idêntico ao usado pelos outros 5 apps, e sobrescrevível por env — agora inclusive injetado explicitamente no compose. Marcar como safe no painel.
+- **Sonar "Replace these 3 tests with a single Parameterized one" (`CatalogoPage.test.tsx:95`).** Os três testam comportamentos distintos (vitrine sem parâmetro, sort explícito, sort default explícito). Parametrizar juntaria casos que falham por razões diferentes e tornaria o diagnóstico pior.
+
+#### Validação
+
+`rtk tsc` limpo (backend e frontend) · `rtk vitest` **307 backend** (+11) + **215 frontend** verdes · `rtk pnpm run lint` verde repo-wide (23 tasks) · `rtk pnpm run build` verde · `rtk pnpm verify:api` `breaking=0 non-breaking=1`.
+
+#### Pendência nova de deploy (bloqueante para T6.2)
+
+**`VIEW_HASH_SECRET` precisa existir no `.env` da VM antes do próximo deploy de beta/prod.** Os composes usam `:?`, então o container **não sobe** sem ela. Gerar com `openssl rand -hex 32`, valor próprio deste app (não compartilhar com outro módulo). Sem isso, T6.2 falha no start do container.
+
 ## Fase 3 — Busca no Header compartilhado (packages/ui) e unificação de rota
 
 - [ ] T3.0 — Rechecagem antes de editar `packages/ui`: confirmar aprovação nominal de commit já obtida (T0.4) — decisão de design (T0.1) e autorização de commit são ações diferentes (`AGENTS.md` §Autorização: "por ação, não por sessão"), não presumir que uma cobre a outra. · feito quando: aprovação nominal de commit confirmada separadamente antes do primeiro `git add`/`git commit` em `packages/ui`.

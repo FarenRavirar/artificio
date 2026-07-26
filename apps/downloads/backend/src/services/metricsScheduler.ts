@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { db } from '../db';
+import { withAdvisoryLock } from './advisoryLock';
 import { purgeStaleViewDedup } from './materialMetrics';
 
 // Spec 087 — manutencao diaria das metricas de curadoria.
@@ -16,25 +16,17 @@ const SCHEDULE = '30 4 * * *'; // 04:30 diario (apos link-checker 03:00 e scrape
 const ADVISORY_LOCK_KEY = 827_501_005;
 
 /**
- * Roda o expurgo sob advisory lock. O lock e o que torna o agendamento seguro
- * com mais de uma replica do container: sem ele, N replicas disparariam o mesmo
- * DELETE no mesmo minuto. Quem nao pegar o lock sai em no-op.
+ * Roda o expurgo sob advisory lock transacional (services/advisoryLock.ts). O
+ * lock e o que torna o agendamento seguro com mais de uma replica do
+ * container: sem ele, N replicas disparariam o mesmo DELETE no mesmo minuto.
+ * Quem nao pegar o lock sai em no-op (`purged: null`).
+ *
+ * O DELETE roda DENTRO da mesma transacao do lock — e o que garante que o
+ * expurgo esta de fato protegido por ele.
  */
 export async function runScheduledMetricsMaintenance(): Promise<{ purged: number | null }> {
-  const lockRow = await db
-    .selectNoFrom((eb) => eb.fn<boolean>('pg_try_advisory_lock', [eb.val(ADVISORY_LOCK_KEY)]).as('acquired'))
-    .executeTakeFirstOrThrow();
-
-  if (!lockRow.acquired) {
-    return { purged: null };
-  }
-
-  try {
-    const purged = await purgeStaleViewDedup();
-    return { purged };
-  } finally {
-    await db.selectNoFrom((eb) => eb.fn('pg_advisory_unlock', [eb.val(ADVISORY_LOCK_KEY)]).as('released')).execute();
-  }
+  const purged = await withAdvisoryLock(ADVISORY_LOCK_KEY, (trx) => purgeStaleViewDedup(trx));
+  return { purged };
 }
 
 export function startMetricsScheduler(): void {

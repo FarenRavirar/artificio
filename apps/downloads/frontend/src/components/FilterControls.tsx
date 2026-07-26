@@ -44,7 +44,7 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
 
   const systemOptions = (facets?.systems ?? []).flatMap((facet) => {
     const system = systemsById.get(facet.id);
-    return system && system.node_type === 'system' ? [system] : [];
+    return system?.node_type === 'system' ? [system] : [];
   });
 
   // Achado real (review PR #208, CodeRabbit): sem filtrar por parent_id do
@@ -53,7 +53,7 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
   // filtro incompleto).
   const editionOptions = (facets?.editions ?? []).flatMap((facet) => {
     const edition = systemsById.get(facet.id);
-    if (!edition || edition.node_type !== 'edition') return [];
+    if (edition?.node_type !== 'edition') return [];
     if (values.system_id && edition.parent_id !== values.system_id) return [];
     return [edition];
   });
@@ -76,7 +76,10 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
                 checked={values.material_type === ''}
                 onChange={() => onChange('material_type', '')}
               />
-              Todos
+              {/* Texto em <span> (Sonar, "ambiguous spacing"): o espaco entre
+                  input e rotulo vem do `gap` do flex, nao do whitespace do
+                  JSX — envolver deixa isso explicito. */}
+              <span>Todos</span>
             </label>
             {materialTypeOptions.map((option) => (
               <label key={option.id} className={RADIO_CLASS}>
@@ -86,7 +89,7 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
                   checked={values.material_type === option.id}
                   onChange={() => onChange('material_type', option.id)}
                 />
-                {option.name} ({option.count})
+                <span>{option.name} ({option.count})</span>
               </label>
             ))}
           </div>
@@ -104,7 +107,7 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
                 checked={values.system_id === ''}
                 onChange={() => onChange('system_id', '')}
               />
-              Todos
+              <span>Todos</span>
             </label>
             {systemOptions.map((system) => (
               <label key={system.id} className={RADIO_CLASS}>
@@ -114,7 +117,7 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
                   checked={values.system_id === system.id}
                   onChange={() => onChange('system_id', system.id)}
                 />
-                {system.name}
+                <span>{system.name}</span>
               </label>
             ))}
           </div>
@@ -132,7 +135,7 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
                 checked={values.edition_id === ''}
                 onChange={() => onChange('edition_id', '')}
               />
-              Todas
+              <span>Todas</span>
             </label>
             {editionOptions.map((edition) => (
               <label key={edition.id} className={RADIO_CLASS}>
@@ -142,7 +145,7 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
                   checked={values.edition_id === edition.id}
                   onChange={() => onChange('edition_id', edition.id)}
                 />
-                {edition.name}
+                <span>{edition.name}</span>
               </label>
             ))}
           </div>

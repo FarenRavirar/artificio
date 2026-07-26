@@ -1,6 +1,15 @@
-import { createHash } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import type { Request } from 'express';
+import type { Kysely, Transaction } from 'kysely';
 import { db } from '../db';
+import type { Database } from '../db/types';
+
+/**
+ * Executor de query: a instancia global ou uma transacao. Existe pra que o
+ * expurgo possa rodar DENTRO da transacao que segura o advisory lock
+ * (services/advisoryLock.ts) sem duplicar a query.
+ */
+type MetricsExecutor = Kysely<Database> | Transaction<Database>;
 
 // Spec 087 (Fase 1B) — metricas de curadoria das prateleiras da vitrine.
 //
@@ -68,15 +77,28 @@ export function bayesianAverage(
  * Digest opaco da origem de uma visualizacao, pra dedup por (origem, material,
  * dia) — Requisito 13.
  *
- * Nunca persiste IP em claro: visualizacao e anonima por natureza e guardar
- * IP identificavel seria coleta desnecessaria de dado (compromisso petreo de
- * produto). O sal diario faz o mesmo IP gerar hash diferente a cada dia, entao
- * a tabela nao permite reconstruir historico de navegacao de ninguem.
+ * Nunca persiste IP em claro: visualizacao e anonima por natureza e guardar IP
+ * identificavel seria coleta desnecessaria de dado (compromisso petreo de
+ * produto).
+ *
+ * HMAC, nao SHA-256 puro (achado de review PR #214, Codex P2). O hash simples
+ * NAO anonimizava de fato: a data do sal e publica e o espaco de IPv4 +
+ * user-agent e pequeno o bastante pra enumerar offline, entao quem lesse a
+ * tabela poderia recuperar o IP testando candidatos. Com HMAC, sem o segredo
+ * do servidor o ataque nao roda — e o segredo nunca esta na tabela.
+ *
+ * Segredo obrigatorio, sem default: cair pra uma chave fixa em producao
+ * reintroduziria silenciosamente a reversibilidade que este codigo existe pra
+ * impedir. Melhor falhar no boot.
  */
 export function viewOriginHash(req: Request, isoDate: string): string {
+  const secret = process.env.VIEW_HASH_SECRET;
+  if (!secret) {
+    throw new Error('VIEW_HASH_SECRET não configurado: exigido para anonimizar a origem das visualizações.');
+  }
   const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
   const userAgent = req.get('user-agent') ?? 'unknown';
-  return createHash('sha256').update(`${isoDate}:${ip}:${userAgent}`).digest('hex');
+  return createHmac('sha256', secret).update(`${isoDate}:${ip}:${userAgent}`).digest('hex');
 }
 
 /** Data UTC de hoje, normalizada a meia-noite (chave diaria das metricas). */
@@ -405,10 +427,10 @@ export const VIEW_DEDUP_RETENTION_DAYS = 2;
  *
  * Retorna quantas linhas sairam, pro agendador logar volume real em vez de "ok".
  */
-export async function purgeStaleViewDedup(): Promise<number> {
+export async function purgeStaleViewDedup(executor: MetricsExecutor = db): Promise<number> {
   const cutoff = utcToday();
   cutoff.setUTCDate(cutoff.getUTCDate() - VIEW_DEDUP_RETENTION_DAYS);
-  const result = await db
+  const result = await executor
     .deleteFrom('download_material_view')
     .where('view_date', '<', cutoff)
     .executeTakeFirst();
