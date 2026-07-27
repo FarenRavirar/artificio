@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Material } from '../types/material';
+import { MaterialCover } from './MaterialCover';
 import { MaterialRating } from './MaterialRating';
 import { SystemChainBadge } from './SystemChainBadge';
 
@@ -21,50 +21,72 @@ const ACCESS_LABEL: Record<Material['access_kind'], string> = {
 // string ja combinada pelo backend, ver types/material.ts), cenario e badge
 // de cadeia de sistema/edicao/variante.
 export function MaterialCard({ material }: Readonly<MaterialCardProps>) {
-  const [coverFailed, setCoverFailed] = useState(false);
-  const [lastCoverUrl, setLastCoverUrl] = useState(material.cover_image_url);
-  if (material.cover_image_url !== lastCoverUrl) {
-    setLastCoverUrl(material.cover_image_url);
-    setCoverFailed(false);
-  }
-  const showCover = Boolean(material.cover_image_url) && !coverFailed;
-
-  // Spec 087 (T2.5, assinatura da direcao de design) — o credito do autor e a
-  // assinatura visual desta spec: sobe ACIMA do titulo, em Oswald caixa-alta,
-  // porque o proposito do produto e mandar o usuario pro site do autor (D107/
-  // D119) — o oposto de uma loja, que esconde quem fez. Sem credito, o acervo
-  // assume a autoria em vez de deixar buraco: o eyebrow nunca colapsa a altura
-  // do card nem fica em branco.
-  // `??` sozinho nao basta: credits vem de scraper e de formulario, entao ""
-  // e "   " chegam ate aqui e passariam pelo null-check, renderizando um
-  // eyebrow em branco (achado de review PR #214, CodeRabbit).
-  const creditLabel = material.credits?.trim() || 'Acervo Artifício';
+  // Spec 087 (T2.5, assinatura da direcao de design) — o credito sobe ACIMA do
+  // titulo, em Oswald caixa-alta, porque o proposito do produto e mandar o
+  // usuario pro site do autor (D107/D119), o oposto de uma loja que esconde
+  // quem fez.
+  //
+  // Spec 088 (T1.5) — o fallback `'Acervo Artificio'` foi REMOVIDO: o
+  // Artificio nao e autor de material importado de terceiro, e afirmar isso
+  // contradiz frontalmente o proposito acima. Evitar um buraco visual nao
+  // justifica uma afirmacao falsa de autoria.
+  //
+  // Editora e autoria sao campos DISTINTOS e nenhum e fallback do outro
+  // (requisito 30): exibir a editora sob rotulo de autor repetiria o mesmo
+  // erro com outro nome. Por isso cada um sai com seu proprio rotulo, e a
+  // ordem e publicante primeiro, autor depois (decisao do mantenedor,
+  // 2026-07-26).
+  //
+  // O `.trim()` e obrigatorio, nao estetico: os dois campos vem de scraper e
+  // de formulario, entao `""` e `"   "` chegam ate aqui e passariam por um
+  // null-check ingenuo, renderizando eyebrow em branco (achado de review da
+  // PR #214, CodeRabbit).
+  const publisher = material.publisher_name?.trim();
+  const author = material.credits?.trim();
+  const hasCredit = Boolean(publisher) || Boolean(author);
 
   return (
     <article className="relative overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface-subtle)] transition hover:border-artificio-orange focus-within:ring-2 focus-within:ring-artificio-orange">
       {/* Capa sangra ate as bordas laterais e o topo (sem padding em volta):
           card com capa e card sem capa passam a ter a MESMA silhueta, o que
-          importa porque a maioria dos itens do acervo nao tem cover_image_url. */}
-      {showCover ? (
-        <img
-          src={material.cover_image_url ?? undefined}
-          alt={`Capa de ${material.title}`}
-          className="h-32 w-full object-cover"
-          onError={() => setCoverFailed(true)}
-        />
-      ) : (
-        <div className="flex h-32 items-center justify-center bg-[var(--surface-strong)] text-sm text-[var(--fg-muted)]">
-          Sem capa
-        </div>
-      )}
+          importa porque a maioria dos itens do acervo nao tem cover_image_url.
+          Spec 088 (T1.4a): a regra de exibicao (contem sem cortar, piso/teto,
+          placeholder desenhado e tratamento de `onError`) vive inteira em
+          `MaterialCover` — mesma regra que a ficha usa. */}
+      <MaterialCover
+        src={material.cover_image_url}
+        title={material.title}
+        materialType={material.material_type}
+        size="card"
+      />
       <div className="p-[14px]">
-        <p
-          className="text-[11px] font-semibold uppercase leading-none tracking-[0.10em] text-[var(--fg)]"
-          style={{ fontFamily: 'var(--artificio-font-display)' }}
+        {/* Sem editora E sem autor, o eyebrow simplesmente nao existe — nenhum
+            texto substituto ocupa o lugar (requisito 32). O `mt-1.5` do titulo
+            vira `mt-0` nesse caso pra nao sobrar respiro de um elemento
+            ausente. */}
+        {hasCredit && (
+          <p
+            className="text-[11px] font-semibold uppercase leading-none tracking-[0.10em] text-[var(--fg)]"
+            style={{ fontFamily: 'var(--artificio-font-display)' }}
+          >
+            {publisher && (
+              <span>
+                <span className="text-[var(--fg-muted)]">Editora </span>
+                {publisher}
+              </span>
+            )}
+            {publisher && author && <span className="text-[var(--fg-muted)]"> · </span>}
+            {author && (
+              <span>
+                <span className="text-[var(--fg-muted)]">Por </span>
+                {author}
+              </span>
+            )}
+          </p>
+        )}
+        <h3
+          className={`${hasCredit ? 'mt-1.5' : ''} text-[15px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--fg)] break-words`}
         >
-          {creditLabel}
-        </p>
-        <h3 className="mt-1.5 text-[15px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--fg)] break-words">
           <Link
             to={`/materiais/${material.slug}`}
             className="before:absolute before:inset-0 focus:outline-none"

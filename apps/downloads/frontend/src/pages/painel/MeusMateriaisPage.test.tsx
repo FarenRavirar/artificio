@@ -3,21 +3,25 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MeusMateriaisPage } from './MeusMateriaisPage';
 import * as useMyMaterialsModule from '../../hooks/useMyMaterials';
+import type { Material } from '../../types/material';
+import { makeMaterial as baseMaterial } from '../../test/fixtures';
 
 // Débito (27 páginas sem teste de componente, spec 075): cobre loading,
 // lista vazia, lista com estados editoriais traduzidos e link de edição.
 
 
-function makeMaterial(overrides: Partial<ReturnType<typeof baseMaterial>> = {}) {
-  return { ...baseMaterial(), ...overrides };
-}
-
-function baseMaterial() {
-  return {
+// Spec 088 — usa a fixture compartilhada (`src/test/fixtures`), so trocando o
+// que as assercoes deste arquivo esperam (material em rascunho). Antes
+// devolvia 3 campos de um tipo que exige 13, e o tipo era inferido do proprio
+// valor, o que escondia a divergencia: nenhum tsconfig incluia os testes.
+function makeMaterial(overrides: Partial<Material> = {}): Material {
+  return baseMaterial({
     id: 'material-1',
+    slug: 'bestiario-sombrio',
     title: 'Bestiário Sombrio',
     editorial_state: 'draft',
-  };
+    ...overrides,
+  });
 }
 
 function renderPage() {
@@ -79,7 +83,12 @@ describe('MeusMateriaisPage', () => {
 
   it('mostra o estado editorial cru quando não mapeado', () => {
     mockMyMaterials({
-      data: [makeMaterial({ editorial_state: 'estado_desconhecido' })],
+      // O valor e invalido DE PROPOSITO: o caso existe pra provar que a UI
+      // degrada mostrando o estado cru se o backend enviar algo fora do enum
+      // (payload externo e `unknown` ate ser normalizado — AGENTS.md §Regras
+      // Gerais de Codigo). O cast e o unico jeito de expressar "payload que o
+      // contrato nao preve" numa fixture tipada; sem ele o caso nao existiria.
+      data: [makeMaterial({ editorial_state: 'estado_desconhecido' as Material['editorial_state'] })],
       isLoading: false,
     });
 

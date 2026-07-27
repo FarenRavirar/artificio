@@ -1,0 +1,22 @@
+{
+  // Spec 088 — os arquivos de teste NAO tinham cobertura de tipo nenhuma.
+  // `tsconfig.app.json` os exclui de proposito (teste nao entra no bundle) e
+  // nenhum outro projeto os incluia, entao mock incompleto, assercao sobre
+  // campo inexistente e fixture fora do schema real passavam direto pelo CI —
+  // o `tsc -b` do build nunca abria esses arquivos. Mesma lacuna que os
+  // backends de downloads e mesas ja resolviam com `vitest/globals`, corrigida
+  // no frontend do downloads na mesma spec.
+  //
+  // Herda o rigor de `tsconfig.app.json`; muda so o alcance (inclui teste) e
+  // os tipos globais (`describe`/`it`/`expect`/`vi` do vitest e os matchers
+  // de jest-dom). O `src` inteiro entra porque o teste importa o codigo que
+  // exercita — checar so o arquivo de teste isolado nao resolveria os tipos
+  // do que ele importa.
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": ["src"],
+  "exclude": []
+}

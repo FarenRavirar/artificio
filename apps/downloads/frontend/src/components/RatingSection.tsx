@@ -13,6 +13,16 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
   const [score, setScore] = useState(5);
   const [blockedReason, setBlockedReason] = useState<string | null>(null);
 
+  // Spec 088 (T1.17) — o controle reflete a nota que o usuario JA enviou, em
+  // vez do `useState(5)` fixo de antes: a pessoa ve o que avaliou e reavalia a
+  // partir desse estado, nao de um 5 que ela nunca escolheu.
+  const myRating = user ? ratings?.find((rating) => rating.user_id === user.id) : undefined;
+  const [lastSyncedRatingId, setLastSyncedRatingId] = useState<string | null>(null);
+  if (myRating && myRating.id !== lastSyncedRatingId) {
+    setLastSyncedRatingId(myRating.id);
+    setScore(myRating.score);
+  }
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setBlockedReason(null);
@@ -38,17 +48,43 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
 
       {user && (
         <form onSubmit={handleSubmit} className="mt-4 flex items-center gap-2">
-          <select
-            value={score}
-            onChange={(e) => setScore(Number(e.target.value))}
-            className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
+          {/* Spec 088 (T1.14-T1.16) — cinco estrelas clicaveis no lugar do
+              `<select>` de 1 a 5.
+              Trocar controle nativo por glifo e exatamente onde acessibilidade
+              se perde, entao o grupo reimplementa o que o `<select>` dava de
+              graca: `radiogroup` com nome, cada estrela e um `<button>` real
+              (focavel por Tab, acionavel por Enter/Espaco pelo comportamento
+              nativo do elemento), `aria-checked` expoe a selecao a tecnologia
+              assistiva, e o nome acessivel de cada uma comunica o VALOR
+              ("3 de 5 estrelas"), nao a posicao.
+              O alvo de toque e 44px (`h-11 w-11`) sem colisao visual entre as
+              estrelas, e o estado selecionado difere por PREENCHIMENTO
+              (`★` vs `☆`), nao so por cor — a distincao sobrevive em escala de
+              cinza (T1.16). */}
+          <div
+            role="radiogroup"
+            aria-label="Sua nota"
+            className="flex items-center"
           >
-            {[1, 2, 3, 4, 5].map((value) => (
-              <option key={value} value={value} className="bg-[var(--surface)]">
-                {value}
-              </option>
-            ))}
-          </select>
+            {[1, 2, 3, 4, 5].map((value) => {
+              const selected = value === score;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  aria-label={`${value} de 5 estrelas`}
+                  onClick={() => setScore(value)}
+                  className={`flex h-11 w-11 items-center justify-center rounded-md text-2xl leading-none transition focus:outline-none focus-visible:ring-2 focus-visible:ring-artificio-orange ${
+                    value <= score ? 'text-artificio-orange' : 'text-[var(--fg-muted)]'
+                  }`}
+                >
+                  <span aria-hidden="true">{value <= score ? '★' : '☆'}</span>
+                </button>
+              );
+            })}
+          </div>
           <button
             type="submit"
             disabled={submitMutation.isPending}

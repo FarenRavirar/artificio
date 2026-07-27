@@ -4,20 +4,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { VisaoGeralPage } from './VisaoGeralPage';
 import * as authClientModule from '@artificio/auth/client';
 import * as useMyMaterialsModule from '../../hooks/useMyMaterials';
+import type { Material } from '../../types/material';
+import { makeMaterial as baseMaterial } from '../../test/fixtures';
 
 // Débito (27 páginas sem teste de componente) — cobertura de VisaoGeralPage
 // (painel do usuário comum, spec 074): saudação com nome do usuário logado
 // via useSession, e contadores de materiais por estado editorial.
 
 
-function makeMaterial(overrides: Partial<{ editorial_state: string }> = {}) {
-  return {
-    id: 'material-1',
-    slug: 'material-1',
-    title: 'Material 1',
-    editorial_state: 'published',
-    ...overrides,
-  };
+// Spec 088 — usa a fixture compartilhada (`src/test/fixtures`), so trocando o
+// `id` que as assercoes deste arquivo esperam. Antes o `Partial` local so
+// admitia `editorial_state` e o retorno tinha 4 dos 13 campos exigidos.
+function makeMaterial(overrides: Partial<Material> = {}): Material {
+  return baseMaterial({ id: 'material-1', ...overrides });
 }
 
 function renderPage() {

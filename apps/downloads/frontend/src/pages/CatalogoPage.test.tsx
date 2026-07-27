@@ -2,32 +2,15 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CatalogoPage } from './CatalogoPage';
+import { SobreEUsoPage } from './SobreEUsoPage';
 import * as useMaterialsCatalogModule from '../hooks/useMaterialsCatalog';
 import * as useCatalogSystemsModule from '../hooks/useCatalogSystems';
 import * as useMaterialFacetsModule from '../hooks/useMaterialFacets';
-import type { Material, MaterialListResponse } from '../types/material';
+import type { MaterialListResponse } from '../types/material';
+import { makeMaterial } from '../test/fixtures';
 
 // T6.2 (spec 073) — busca/filtro/paginacao vivem como contrato unico de URL.
 
-
-function makeMaterial(overrides: Partial<Material> = {}): Material {
-  return {
-    id: 'mat-1',
-    slug: 'material-1',
-    title: 'Material 1',
-    summary: null,
-    description: null,
-    material_type: 'adventure',
-    access_kind: 'external_link',
-    external_url: 'https://example.test/a.pdf',
-    creator_id: 'user-1',
-    creator_slug: 'criador-1',
-    editorial_state: 'published',
-    created_at: '2026-01-01T00:00:00.000Z',
-    updated_at: '2026-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
 
 function renderPage(initialEntries: string[] = ['/catalogo']) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -239,5 +222,65 @@ describe('CatalogoPage', () => {
         expect.anything(),
       );
     }, { timeout: 1000 });
+  });
+});
+
+// Spec 088 (T0.4) — a canonical e da pagina, nao do app. Estes dois casos
+// juntos sao o que impede alguem de "simplificar" movendo a tag pro
+// `index.html`: o fallback SPA serve o mesmo HTML pra ficha, painel e gestao,
+// e todas herdariam um canonical apontando pro catalogo.
+describe('CatalogoPage — canonical', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.head.querySelectorAll('link[rel="canonical"]').forEach((tag) => tag.remove());
+  });
+
+  function mockList() {
+    const response: MaterialListResponse = { items: [], page: 1, page_size: 20, total: 0, total_pages: 1 };
+    return vi.spyOn(useMaterialsCatalogModule, 'useMaterialsCatalog').mockReturnValue({
+      data: response,
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
+  }
+
+  function canonicalHrefs(): string[] {
+    return Array.from(
+      document.head.querySelectorAll<HTMLLinkElement>('link[rel="canonical"]'),
+    ).map((tag) => tag.href);
+  }
+
+  it('declara canonical unica apontando pra raiz', async () => {
+    mockList();
+
+    // Ancora no `h1`, presente nos DOIS modos — o dropdown de sort so existe
+    // no modo resultado, e sem filtro na URL a pagina abre em modo vitrine.
+    renderPage(['/catalogo']);
+    await screen.findByRole('heading', { name: 'Catálogo' });
+
+    expect(canonicalHrefs()).toEqual([`${window.location.origin}/`]);
+  });
+
+  it('mantem o alvo na raiz mesmo com filtro e paginacao na URL', async () => {
+    mockList();
+
+    renderPage(['/catalogo?q=aventura&sort=rating&page=2']);
+    await screen.findByLabelText('Ordenar por');
+
+    // Recorte da listagem consolida na raiz — nao aponta pra si mesmo.
+    expect(canonicalHrefs()).toEqual([`${window.location.origin}/`]);
+  });
+
+  it('rota alheia nao herda a canonical do catalogo', () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/sobre']}>
+          <SobreEUsoPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(canonicalHrefs()).toEqual([]);
   });
 });

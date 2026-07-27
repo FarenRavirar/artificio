@@ -8,6 +8,8 @@ import * as useMyMaterialsModule from '../../hooks/useMyMaterials';
 import * as useUpdateMaterialModule from '../../hooks/useUpdateMaterial';
 import * as useSubmitMaterialModule from '../../hooks/useSubmitMaterial';
 import * as useMaterialHistoryModule from '../../hooks/useMaterialHistory';
+import type { Material } from '../../types/material';
+import { makeMaterial as baseMaterial } from '../../test/fixtures';
 import * as useMaterialMetadataModule from '../../hooks/useMaterialMetadata';
 import * as useUpdateMaterialMetadataModule from '../../hooks/useUpdateMaterialMetadata';
 
@@ -21,17 +23,21 @@ vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },
 }));
 
-function makeMaterial(overrides: Partial<Record<string, unknown>> = {}) {
-  return {
+// Spec 088 — usa a fixture compartilhada (`src/test/fixtures`), so trocando o
+// que as assercoes deste arquivo esperam (rascunho com resumo e descricao
+// preenchidos, pra o formulario ter o que editar). Antes o
+// `Partial<Record<string, unknown>>` aceitava QUALQUER chave com QUALQUER
+// valor: era tipagem nominal, sem verificacao nenhuma.
+function makeMaterial(overrides: Partial<Material> = {}): Material {
+  return baseMaterial({
     id: 'material-1',
-    slug: 'material-1',
     title: 'Material Original',
     summary: 'Resumo original',
     description: 'Descrição original',
     external_url: 'https://exemplo.com/original',
     editorial_state: 'draft',
     ...overrides,
-  };
+  });
 }
 
 function renderPage(materialId = 'material-1') {
@@ -293,9 +299,11 @@ describe('EditarMaterialPage', () => {
       data: [
         {
           id: 'history-1',
+          material_id: 'material-1',
           field_name: 'title',
           old_value: 'Título Antigo',
           new_value: 'Material Original',
+          changed_by: 'user-1',
           changed_at: '2026-07-01T12:00:00.000Z',
         },
       ],

@@ -5,6 +5,8 @@ import { GestaoModeracaoPage } from './GestaoModeracaoPage';
 import * as useModerationQueueModule from '../../hooks/useModerationQueue';
 import * as useAdminRejectionCategoriesModule from '../../hooks/useAdminRejectionCategories';
 import * as useAdminEmailLogModule from '../../hooks/useAdminEmailLog';
+import type { Material } from '../../types/material';
+import { makeMaterial as baseMaterial } from '../../test/fixtures';
 
 // Débito: 27 páginas sem teste de componente (spec 075). Cobertura de
 // GestaoModeracaoPage: loading/vazio/lista, seleção + ação em lote
@@ -12,25 +14,25 @@ import * as useAdminEmailLogModule from '../../hooks/useAdminEmailLog';
 // categoria+motivo obrigatórios em reprovação (T6.1 spec 083).
 
 
-function makeMaterial(overrides: Partial<ReturnType<typeof baseMaterial>> = {}) {
-  return { ...baseMaterial(), ...overrides };
-}
-
-function baseMaterial() {
-  return {
+// Spec 088 — usa a fixture compartilhada (`src/test/fixtures`), so trocando o
+// que as assercoes deste arquivo esperam (item de fila de moderacao, logo
+// `in_review`). A fila usa `z.array(materialSchema)`, entao o tipo e o mesmo
+// `Material`. Antes o tipo era inferido do proprio valor: faltava
+// `creator_slug` e o `as const` congelava `editorial_state` em `'in_review'`,
+// rejeitando qualquer outro estado valido do enum.
+function makeMaterial(overrides: Partial<Material> = {}): Material {
+  return baseMaterial({
     id: 'material-1',
     slug: 'manual-do-aventureiro',
     title: 'Manual do Aventureiro',
-    summary: null,
-    description: null,
     material_type: 'pdf',
-    access_kind: 'external_link' as const,
     external_url: 'https://example.com/manual.pdf',
     creator_id: 'creator-1',
-    editorial_state: 'in_review' as const,
+    editorial_state: 'in_review',
     created_at: '2026-07-01T00:00:00.000Z',
     updated_at: '2026-07-01T00:00:00.000Z',
-  };
+    ...overrides,
+  });
 }
 
 function renderPage() {

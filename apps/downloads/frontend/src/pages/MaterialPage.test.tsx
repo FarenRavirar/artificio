@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MaterialPage } from './MaterialPage';
@@ -6,6 +6,8 @@ import * as authClientModule from '@artificio/auth/client';
 import * as useMaterialModule from '../hooks/useMaterial';
 import * as useMaterialMetadataModule from '../hooks/useMaterialMetadata';
 import * as useFavoritesModule from '../hooks/useFavorites';
+import * as useRegisterDownloadModule from '../hooks/useRegisterDownload';
+import * as analyticsModule from '@artificio/analytics';
 
 // Fase 7 (spec 086, T7.8) — primeiro teste da ficha (MaterialPage nunca teve
 // .test.tsx antes desta spec). Cobre: com/sem metadata rica, com/sem
@@ -106,7 +108,9 @@ describe('MaterialPage', () => {
     renderPage();
 
     expect(screen.getByText('Sylvania The Cursed County')).toBeInTheDocument();
-    expect(screen.getByText('Sem capa')).toBeInTheDocument();
+    // Spec 088 (T1.4b) — a ficha usa a MESMA regra de capa do card: sem capa,
+    // o que aparece e o placeholder desenhado, nao mais o texto "Sem capa".
+    expect(screen.queryByText('Sem capa')).not.toBeInTheDocument();
     expect(screen.getByText('Descrição em texto puro.')).toBeInTheDocument();
     expect(screen.queryByText(/undefined/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Detalhes')).not.toBeInTheDocument();
@@ -185,5 +189,92 @@ describe('MaterialPage', () => {
     const strong = screen.getByText('rica');
     expect(strong.tagName).toBe('STRONG');
     expect(screen.queryByText('<p>Descrição <strong>rica</strong>.</p>')).not.toBeInTheDocument();
+  });
+});
+
+// Spec 088 (T1.9-T1.13) — o acesso ao material virou ancora nativa em nova
+// aba. O botao anterior navegava na mesma aba e o usuario perdia a ficha que
+// estava lendo.
+describe('MaterialPage - acesso ao material', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function setup(material = baseMaterial()) {
+    mockSession();
+    mockMaterial(material);
+    mockMetadata(null);
+    mockFavorites();
+    return renderPage();
+  }
+
+  it('abre o destino em nova aba por ancora nativa, nao por botao', () => {
+    setup();
+
+    const cta = screen.getByRole('link', { name: 'Acessar material' });
+    expect(cta.tagName).toBe('A');
+    expect(cta).toHaveAttribute('target', '_blank');
+    // `window.open` chamado depois do await da API perderia o gesto do
+    // usuario e seria bloqueado por popup blocker — por isso ancora.
+    expect(screen.queryByRole('button', { name: 'Acessar material' })).not.toBeInTheDocument();
+  });
+
+  it('carrega rel="noopener noreferrer" (seguranca, nao formalidade)', () => {
+    setup();
+
+    const rel = screen.getByRole('link', { name: 'Acessar material' }).getAttribute('rel') ?? '';
+    // Sem `noopener`, o destino recebe `window.opener` e pode manipular a aba
+    // de origem; sem `noreferrer`, o `Referer` vaza a URL de origem.
+    expect(rel).toContain('noopener');
+    expect(rel).toContain('noreferrer');
+  });
+
+  it('aponta para a rota interna opaca, nunca para a URL externa', () => {
+    setup(baseMaterial({ external_url: 'https://exemplo-externo.test/arquivo.pdf' }));
+
+    const cta = screen.getByRole('link', { name: 'Acessar material' });
+    // DEB-073-02 — `destination_id` opaco: a URL real nao e pre-resolvida nem
+    // embutida no HTML, o que faz o link sobreviver a troca futura de slug.
+    expect(cta).toHaveAttribute('href', '/ir/dest-1');
+    expect(document.body.innerHTML).not.toContain('exemplo-externo.test');
+  });
+
+  // T1.11 — trocar o elemento NAO pode custar a instrumentacao de funil: o
+  // handler perdeu o `navigate` final, mas mantem `trackEvent` e o registro
+  // de download, disparados antes da navegacao como antes.
+  it('dispara o evento de funil no clique da ancora', () => {
+    const trackEvent = vi.spyOn(analyticsModule, 'trackEvent').mockImplementation(() => undefined);
+    setup();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Acessar material' }));
+
+    expect(trackEvent).toHaveBeenCalledWith(
+      'download_cta_click',
+      expect.objectContaining({ material_id: 'material-1', material_slug: 'material-1' }),
+    );
+  });
+
+  it('registra o download quando ha usuario logado', () => {
+    const mutate = vi.fn();
+    vi.spyOn(useRegisterDownloadModule, 'useRegisterDownload').mockReturnValue({
+      mutate,
+    } as unknown as ReturnType<typeof useRegisterDownloadModule.useRegisterDownload>);
+    vi.spyOn(analyticsModule, 'trackEvent').mockImplementation(() => undefined);
+    mockSession({ user: { id: 'user-1' } } as never);
+    mockMaterial(baseMaterial());
+    mockMetadata(null);
+    mockFavorites();
+    renderPage();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Acessar material' }));
+
+    expect(mutate).toHaveBeenCalledWith('material-1');
+  });
+
+  it('material sem destino segue mostrando aviso, sem link clicavel', () => {
+    setup(baseMaterial({ external_url: null }));
+
+    expect(screen.queryByRole('link', { name: 'Acessar material' })).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/temporariamente indispon/i);
   });
 });

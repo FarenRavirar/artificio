@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { MaterialCard } from './MaterialCard';
 import type { Material } from '../types/material';
@@ -51,36 +51,160 @@ describe('MaterialCard', () => {
     expect(screen.getByText('Link externo')).toBeInTheDocument();
   });
 
-  it('mostra placeholder quando não há capa', () => {
+  // Spec 088 (T1.8) — o placeholder deixou de ser um retangulo cinza com o
+  // texto "Sem capa" e virou desenho (SVG inline). Os testes abaixo provam o
+  // que mudou: nao existe mais texto anunciando a ausencia, e o desenho e
+  // DECORATIVO — nao tem nome acessivel competindo com o titulo do material.
+  it('mostra placeholder desenhado quando não há capa, sem texto "Sem capa"', () => {
     renderCard();
-    expect(screen.getByText('Sem capa')).toBeInTheDocument();
+    expect(screen.queryByText('Sem capa')).not.toBeInTheDocument();
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+
+  it('placeholder não tem nome acessível (é decorativo)', () => {
+    const { container } = renderCard();
+    const svg = container.querySelector('svg');
+    expect(svg).not.toBeNull();
+    expect(svg).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  // O desenho varia por `material_type` pra que uma prateleira de materiais
+  // sem capa nao seja uma fileira de retangulos identicos.
+  it('placeholder varia por material_type', () => {
+    const { container: adventure } = renderCard({ ...baseMaterial, material_type: 'Aventura' });
+    const adventurePath = adventure.querySelector('svg path')?.getAttribute('d');
+
+    cleanup();
+
+    const { container: setting } = renderCard({ ...baseMaterial, material_type: 'Cenário' });
+    const settingPath = setting.querySelector('svg path')?.getAttribute('d');
+
+    expect(adventurePath).toBeTruthy();
+    expect(settingPath).toBeTruthy();
+    expect(adventurePath).not.toBe(settingPath);
+  });
+
+  it('tipo desconhecido cai num placeholder padrão sem quebrar', () => {
+    const { container } = renderCard({ ...baseMaterial, material_type: 'tipo-que-nao-existe' });
+    expect(container.querySelector('svg path')?.getAttribute('d')).toBeTruthy();
   });
 
   it('mostra capa real quando cover_image_url existe', () => {
     renderCard({ ...baseMaterial, cover_image_url: 'https://example.test/capa.jpg' });
     expect(screen.getByRole('img')).toHaveAttribute('src', 'https://example.test/capa.jpg');
-    expect(screen.queryByText('Sem capa')).not.toBeInTheDocument();
   });
 
-  it('cai pro placeholder quando a capa falha ao carregar (onError)', () => {
-    renderCard({ ...baseMaterial, cover_image_url: 'https://example.test/quebrada.jpg' });
+  // Spec 088 (T1.1) — a capa CONTEM, nunca corta: `object-cover` recortava
+  // topo e base, justamente onde vive o titulo numa capa vertical de RPG.
+  it('capa real usa object-contain e respeita piso e teto de altura', () => {
+    const { container } = renderCard({ ...baseMaterial, cover_image_url: 'https://example.test/capa.jpg' });
+    const img = screen.getByRole('img');
+    expect(img.className).toContain('object-contain');
+    expect(img.className).not.toContain('object-cover');
+
+    // O TETO fica na imagem, nao no frame: no frame, o `overflow-hidden`
+    // CORTARIA a capa alta em vez de reduzi-la proporcionalmente — e cortar e
+    // o que a regra existe pra impedir (requisito 22).
+    expect(img.className).toContain('max-h-44');
+    // Largura deriva da altura e nunca ultrapassa o card, entao capa
+    // horizontal/quadrada cai na mesma regra sem caso especial (requisito 23).
+    expect(img.className).toContain('w-auto');
+    expect(img.className).toContain('max-w-full');
+
+    // O PISO fica no frame: e ele que mantem a silhueta compativel entre card
+    // com capa e card sem capa (requisito 24).
+    const frame = container.querySelector('.min-h-32');
+    expect(frame).not.toBeNull();
+    // O frame nao pode cortar nada.
+    expect(frame?.className).not.toContain('overflow-hidden');
+  });
+
+  // Requisito 24 — o placeholder ocupa altura dentro da MESMA faixa da capa
+  // real; se saísse dela, a prateleira desalinharia entre card com e sem capa.
+  it('placeholder ocupa altura dentro da faixa piso-teto', () => {
+    const { container } = renderCard();
+    const svg = container.querySelector('svg');
+    expect(svg?.getAttribute('class')).toContain('h-40');
+  });
+
+  it('cai pro placeholder desenhado quando a capa falha ao carregar (onError)', () => {
+    const { container } = renderCard({ ...baseMaterial, cover_image_url: 'https://example.test/quebrada.jpg' });
     fireEvent.error(screen.getByRole('img'));
-    expect(screen.getByText('Sem capa')).toBeInTheDocument();
+
+    // Imagem quebrada seria pior que o placeholder — o desenho E o tratamento
+    // de falha, por isso nao depende de rede pra aparecer.
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(container.querySelector('svg')).not.toBeNull();
   });
 
-  // Spec 087 (T2.5) — o credito virou a ASSINATURA do card: sobe acima do
-  // titulo, sem o prefixo "Por" (o eyebrow ja e posicionalmente o autor), e
-  // nunca some. Antes desta spec era a 3a linha, em "Por <credits>", e sumia
-  // quando `credits` era null.
-  it('mostra o crédito como eyebrow quando há autores/artistas', () => {
+  // Spec 087 (T2.5) — o credito e a ASSINATURA do card: sobe acima do titulo.
+  //
+  // Spec 088 (T1.5/T1.7) — o que mudou: editora e autoria viraram campos
+  // DISTINTOS, cada um com seu rotulo, publicante primeiro. E o fallback
+  // 'Acervo Artificio' morreu: o Artificio nao e autor de material importado
+  // de terceiro, e afirmar isso contradiz o proposito do produto (D107/D119).
+  // Os casos abaixo quebram se alguem reintroduzir o fallback OU passar a
+  // exibir editora sob rotulo de autoria.
+  it('mostra o autor rotulado quando há credits', () => {
     renderCard({ ...baseMaterial, credits: 'Autora Exemplo' });
     expect(screen.getByText('Autora Exemplo')).toBeInTheDocument();
+    expect(screen.getByText('Por')).toBeInTheDocument();
   });
 
-  it('assume a autoria do acervo quando credits ausente, sem deixar buraco', () => {
+  it('mostra a editora rotulada quando há publisher_name', () => {
+    renderCard({ ...baseMaterial, publisher_name: 'Editora Exemplo' });
+    expect(screen.getByText('Editora Exemplo')).toBeInTheDocument();
+    expect(screen.getByText('Editora')).toBeInTheDocument();
+    // Editora NUNCA aparece como autoria — nao existe rotulo "Por" aqui.
+    expect(screen.queryByText('Por')).not.toBeInTheDocument();
+  });
+
+  it('mostra editora e autor juntos, publicante primeiro', () => {
+    renderCard({
+      ...baseMaterial,
+      publisher_name: 'Editora Exemplo',
+      credits: 'Autora Exemplo',
+    });
+
+    const eyebrow = screen.getByText('Editora Exemplo').closest('p');
+    expect(eyebrow).not.toBeNull();
+    // A ordem e decisao do mantenedor (2026-07-26): editora antes de autor.
+    expect(eyebrow?.textContent?.indexOf('Editora Exemplo')).toBeLessThan(
+      eyebrow?.textContent?.indexOf('Autora Exemplo') ?? -1,
+    );
+  });
+
+  it('não renderiza eyebrow quando não há editora nem autor', () => {
     renderCard();
-    expect(screen.getByText('Acervo Artifício')).toBeInTheDocument();
+    expect(screen.queryByText('Acervo Artifício')).not.toBeInTheDocument();
+    expect(screen.queryByText('Editora')).not.toBeInTheDocument();
+    expect(screen.queryByText('Por')).not.toBeInTheDocument();
+  });
+
+  // Os dois campos vem de scraper e de formulario, entao `""` e `"   "`
+  // chegam ate o componente e passariam por um null-check ingenuo, deixando um
+  // eyebrow em branco (achado de review da PR #214).
+  it('trata string vazia e só-espaços como ausência', () => {
+    renderCard({ ...baseMaterial, publisher_name: '   ', credits: '' });
+    expect(screen.queryByText('Editora')).not.toBeInTheDocument();
+    expect(screen.queryByText('Por')).not.toBeInTheDocument();
+  });
+
+  // T1.6 — o card sem eyebrow tem que continuar coerente na prateleira: sem
+  // colapso de layout e sem titulo encostando na borda da capa. Altura
+  // variavel entre cards e custo aceito da decisao; layout quebrado nao.
+  it('card sem eyebrow nao deixa o titulo encostar na capa', () => {
+    const { container: semCredito } = renderCard();
+    // Sem eyebrow o titulo nao herda o respiro de um elemento ausente...
+    expect(screen.getByRole('heading', { level: 3 }).className).not.toContain('mt-1.5');
+    // ...e o card continua inteiro (nenhum colapso de estrutura).
+    expect(semCredito.querySelector('article')).not.toBeNull();
+
+    cleanup();
+
+    renderCard({ ...baseMaterial, credits: 'Autora Exemplo' });
+    // Com eyebrow, o espacamento volta.
+    expect(screen.getByRole('heading', { level: 3 }).className).toContain('mt-1.5');
   });
 
   it('mostra estrelas e contagem quando há avaliações', () => {

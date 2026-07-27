@@ -82,6 +82,10 @@ describe('DuplicatesTab', () => {
   });
 
   it('limpa candidatos antigos e volta para loading quando draftId muda', async () => {
+    // Spec 088 — o tipo precisa da anotacao explicita porque a atribuicao
+    // acontece dentro do callback do `Promise`, que o TS nao sabe que ja
+    // rodou: sem ela o narrowing reduz a variavel a `null` e a chamada la
+    // embaixo vira `never has no call signatures`.
     let resolveSecondRequest: ((value: DuplicateCandidate[]) => void) | null = null;
     const listDuplicateCandidates = vi.fn()
       .mockResolvedValueOnce([baseCandidate])
@@ -110,7 +114,13 @@ describe('DuplicatesTab', () => {
     expect(screen.getByText('Buscando candidatos de duplicata...')).toBeInTheDocument();
     expect(screen.queryByText('mesa igual ja importada')).not.toBeInTheDocument();
 
-    resolveSecondRequest?.([]);
+    // O `?.` de antes escondia um risco: se a segunda requisicao nunca
+    // tivesse sido disparada, `resolveSecondRequest` seria `null`, a chamada
+    // viraria no-op e o teste passaria sem exercitar nada. Assertar primeiro
+    // transforma isso em falha visivel — e o `expect` tambem quebra o
+    // narrowing que reduzia a variavel a `never`.
+    expect(resolveSecondRequest).not.toBeNull();
+    (resolveSecondRequest as unknown as (value: DuplicateCandidate[]) => void)([]);
     expect(await screen.findByText('Nenhum candidato de duplicata encontrado para este draft.')).toBeInTheDocument();
   });
 });
