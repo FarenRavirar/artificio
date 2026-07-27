@@ -10,15 +10,18 @@
 
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
-| downloads | ✅ 0 | ✅ 1 | ⚪ 0 |
+| downloads | ✅ 0 | ✅ 4 | ⚪ 0 |
 
 ---
 
 ### downloads
 
-#### ✅ Non-breaking (1)
+#### ✅ Non-breaking (4)
 
 | Path | Method | Ação |
 |------|--------|------|
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
 | `` |  | add |
 

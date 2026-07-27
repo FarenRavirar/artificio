@@ -118,8 +118,10 @@ describe('ItchIoScraper', () => {
     }
 
     expect(items[0].publisherName).toBe('Twist And Scream');
-    expect(items[0].authorsCredits ?? null).toBeNull();
-    expect(items[0].artistsCredits ?? null).toBeNull();
+    // Asserção direta, sem `?? null`: o normalizador mascararia um campo
+    // omitido, e ausência declarada (`null`) é justamente o que se testa aqui.
+    expect(items[0].authorsCredits).toBeNull();
+    expect(items[0].artistsCredits).toBeNull();
   });
 
   it('escalona pra patchright quando Modo 1 da listagem e bloqueado (403)', async () => {

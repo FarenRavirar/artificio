@@ -183,6 +183,10 @@ describe('runScraperIngest', () => {
   // por execução, fora do laço, aplicado a todos os itens. Resultado real em
   // beta: 103 materiais, todos "Aventura", nenhum classificado de fato.
   describe('T2.9d/T2.9e — resolução de tipo por item', () => {
+    // Mock keyed por TABELA, não posicional: o insert da fila de tipo entra
+    // entre o material e o metadata quando o hint não casa, e um
+    // mockReturnValueOnce em sequência entregaria o chain do metadata para a
+    // sugestão (e nada para o metadata), mascarando qual insert recebeu o quê.
     function setupCreate() {
       dbMocks.selectFrom
         .mockReturnValueOnce(selectChain(undefined))
@@ -190,11 +194,18 @@ describe('runScraperIngest', () => {
       getOrCreateScraperCreatorIdMock.mockResolvedValue('scraper-creator-id');
       const materialInsert = { values: vi.fn().mockReturnThis(), returning: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'material-novo' }) };
       const metadataInsert = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
-      const trxInsertInto = vi.fn().mockReturnValueOnce(materialInsert).mockReturnValueOnce(metadataInsert);
+      const typeSuggestionInsert = { values: vi.fn().mockReturnThis(), onConflict: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+      const systemSuggestionInsert = { values: vi.fn().mockReturnThis(), onConflict: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+      const trxInsertInto = vi.fn((table: string) => {
+        if (table === 'download_material') return materialInsert;
+        if (table === 'download_material_metadata') return metadataInsert;
+        if (table === 'download_material_type_suggestion') return typeSuggestionInsert;
+        return systemSuggestionInsert;
+      });
       dbMocks.transaction.mockReturnValue({
         execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) => cb({ insertInto: trxInsertInto }),
       });
-      return materialInsert;
+      return Object.assign(materialInsert, { typeSuggestionInsert });
     }
 
     it('resolve o hint da fonte contra a taxonomia, em vez do default', async () => {
@@ -226,6 +237,47 @@ describe('runScraperIngest', () => {
         material_type: 'Não classificado',
         raw_material_type_hint: 'Grimório de Feitiços',
       }));
+    });
+
+    // Achado de review PR #218 (Codex, P2): antes desta correção o valor bruto
+    // era gravado e nenhum consumidor administrativo o lia — o dado ficava
+    // invisível, sem caminho de resolução, ao contrário de raw_system_hint que
+    // já abria fila desde a spec 086.
+    it('hint que não casa ABRE a fila de triagem, não só grava o valor bruto', async () => {
+      const materialInsert = setupCreate();
+
+      await runScraperIngest('run-1', 'itch_io', asyncIterableOf([
+        makeItem({ sourceLanguageHint: 'pt', materialTypeHint: 'Grimório de Feitiços' }),
+      ]));
+
+      expect(materialInsert.typeSuggestionInsert.values).toHaveBeenCalledWith(expect.objectContaining({
+        material_id: 'material-novo',
+        raw_value: 'Grimório de Feitiços',
+        // Requisito 8/56: o scraper abre a fila, nunca escreve na taxonomia
+        // central — essa escrita é exclusiva da triagem admin.
+        source: 'scraper',
+        status: 'pending',
+      }));
+    });
+
+    it('hint que casa não abre fila — não há nada a triar', async () => {
+      const materialInsert = setupCreate();
+
+      await runScraperIngest('run-1', 'itch_io', asyncIterableOf([
+        makeItem({ sourceLanguageHint: 'pt', materialTypeHint: 'regras' }),
+      ]));
+
+      expect(materialInsert.typeSuggestionInsert.values).not.toHaveBeenCalled();
+    });
+
+    it('item sem hint nenhum não abre fila — ausência não é sugestão', async () => {
+      const materialInsert = setupCreate();
+
+      await runScraperIngest('run-1', 'itch_io', asyncIterableOf([
+        makeItem({ sourceLanguageHint: 'pt' }),
+      ]));
+
+      expect(materialInsert.typeSuggestionInsert.values).not.toHaveBeenCalled();
     });
 
     it('item sem hint cai no tipo NEUTRO, nunca em "Aventura"', async () => {

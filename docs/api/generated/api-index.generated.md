@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **397 operações**.
+Total: **400 operações**.
 
 ## accounts (12)
 
@@ -23,7 +23,7 @@ Total: **397 operações**.
 | GET | `/internal/users/{id}` | public | none | active | — | Consulta internal users id |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
-## downloads (72)
+## downloads (75)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -31,6 +31,9 @@ Total: **397 operações**.
 | GET | `/api/v1/admin/email-log` | admin | admin | active | — | Consulta api v1 admin email-log |
 | POST | `/api/v1/admin/email-log/{id}/retry` | admin | admin | active | — | Cria ou executa api v1 admin email-log id retry |
 | GET | `/api/v1/admin/links` | admin | admin | active | — | Consulta api v1 admin links |
+| GET | `/api/v1/admin/material-type-suggestions` | admin | admin | active | — | Consulta api v1 admin material-type-suggestions |
+| GET | `/api/v1/admin/material-type-suggestions/{id}/candidates` | admin | admin | active | — | Consulta api v1 admin material-type-suggestions id candidates |
+| POST | `/api/v1/admin/material-type-suggestions/{id}/resolve` | admin | admin | active | — | Cria ou executa api v1 admin material-type-suggestions id resolve |
 | POST | `/api/v1/admin/materials/{id}/check-link` | admin | admin | active | — | Cria ou executa api v1 admin materials id check-link |
 | POST | `/api/v1/admin/materials/{id}/evidence/upload` | admin | admin | active | — | Cria ou executa api v1 admin materials id evidence upload |
 | GET | `/api/v1/admin/materials/{id}/link-history` | admin | admin | active | — | Consulta api v1 admin materials id link-history |

@@ -189,6 +189,23 @@ async function openSystemSuggestion(trx: Kysely<Database> | Transaction<Database
     .execute();
 }
 
+// Spec 088 (achado de review PR #218, Codex P2) — espelha openSystemSuggestion,
+// inclusive na trava de idempotencia: migration_031 tem o mesmo indice unico
+// parcial (source='scraper' AND status='pending'), entao reprocessar o mesmo
+// item nao empilha pending duplicada pro mesmo (material_id, raw_value).
+async function openMaterialTypeSuggestion(trx: Kysely<Database> | Transaction<Database>, materialId: string, rawValue: string): Promise<void> {
+  await trx
+    .insertInto('download_material_type_suggestion')
+    .values({
+      material_id: materialId,
+      raw_value: rawValue,
+      source: 'scraper',
+      status: 'pending',
+    })
+    .onConflict((oc) => oc.columns(['material_id', 'raw_value']).where('source', '=', 'scraper').where('status', '=', 'pending').doNothing())
+    .execute();
+}
+
 async function processItem(
   runId: string,
   sourcePlatform: DownloadSourcePlatform,
@@ -289,6 +306,14 @@ async function processItem(
       // mesas: "nao achei sistema, mas tenho o texto".
       if (systemResolution.rawSystemHint) {
         await openSystemSuggestion(trx, material.id, systemResolution.rawSystemHint);
+      }
+
+      // Spec 088 (achado de review PR #218, Codex P2) — simetrico ao bloco
+      // acima: gravar raw_material_type_hint sem abrir a fila deixava o dado
+      // invisivel, sem nenhum caminho administrativo pra resolve-lo. O tipo
+      // nao reconhecido agora chega na triagem pelo mesmo mecanismo do sistema.
+      if (typeResolution.rawMaterialTypeHint) {
+        await openMaterialTypeSuggestion(trx, material.id, typeResolution.rawMaterialTypeHint);
       }
 
       await trx

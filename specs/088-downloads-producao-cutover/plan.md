@@ -26,7 +26,7 @@ downloads-db       →  volume pgdata_downloads_prod                →  POSTGRE
 A sequência de execução é rígida porque cada passo é pré-requisito do seguinte, e inverter dois deles produz falhas silenciosas:
 
 ```
-1. Atualizar clone prod  ──►  disco passa a ter as 30 migrations
+1. Atualizar clone prod  ──►  disco passa a ter as 31 migrations
         │                     (sem isso, o passo 3 aplicaria só 20 e o schema
         │                      sairia incompleto SEM ERRO APARENTE)
         ▼
@@ -37,7 +37,7 @@ A sequência de execução é rígida porque cada passo é pré-requisito do seg
 3. Subir SÓ downloads-db ──►  volume criado, banco vazio, healthy
         │
         ▼
-4. pg_dump + aplicar 30  ──►  script oficial, MAX_AUTO_PENDING=30, execução única
+4. pg_dump + aplicar 31  ──►  script oficial, MAX_AUTO_PENDING=31, execução única
         │                     (fatiar em lotes é proibido: o script compara o
         │                      conjunto inteiro de uma vez)
         ▼
@@ -312,13 +312,14 @@ Cada linha dessa tabela é uma aprovação **separada**. Autorizar o `.env` não
 
 **Subdomínio / DNS / tunnel:** **nenhuma mudança**. `downloads.artificiorpg.com` já resolve para o Cloudflare e o tunnel já tem ingress para o hostname — é precisamente por isso que a resposta é 502 (roteia, não encontra origem) e não erro de DNS. Nenhum registro é criado ou alterado, o que mantém esta spec fora da trava de aprovação de DNS de produção. Se o 502 persistir com containers saudáveis, aí sim existe problema de roteamento — e mexer no tunnel exigiria aprovação nominal própria, fora do escopo atual.
 
-**Schema de banco:** as 30 migrations são aplicadas a um banco **novo e vazio**. Nenhuma altera schema de outro módulo; todas vivem em `apps/downloads/database/` e o runner é escopado por `MIGRATIONS_DIR`. A `migration_029` é `online-safe` e idempotente.
+**Schema de banco:** as 31 migrations são aplicadas a um banco **novo e vazio**. Nenhuma altera schema de outro módulo; todas vivem em `apps/downloads/database/` e o runner é escopado por `MIGRATIONS_DIR`. A `migration_029` é `online-safe` e idempotente.
 
-> **Correção da Fase 2 (2026-07-27) — esta seção dizia "nenhuma migration nova é escrita nesta spec", e isso deixou de ser verdade.** A Fase 2 escreveu **duas**, ambas `online-safe` e idempotentes:
-> - `apps/downloads/database/migration_030_download_raw_material_type_hint.sql` — coluna `raw_material_type_hint`, simétrica a `raw_system_hint` (requisito 55b). É o que eleva a contagem do Downloads de 29 para 30 e obriga `MAX_AUTO_PENDING=30` na Fase 5.
-> - `apps/site/db/migrations/016_catalog_material_types_seed.sql` — semeia a taxonomia central (requisito 55a). **Fica no banco do Site, não no do Downloads**, portanto **não** entra na contagem das 30 nem no runner do Downloads. Vai pela esteira própria do site (migração no entrypoint do container, ver `AGENTS.md` §Migrations item 7), o que significa que a Fase 5 **não** a aplica — se ela não estiver aplicada no Site, o ingest do Downloads falha com `catalog_material_type_not_found: nao-classificado`.
+> **Correção da Fase 2 (2026-07-27) — esta seção dizia "nenhuma migration nova é escrita nesta spec", e isso deixou de ser verdade.** A Fase 2 escreveu **três**, todas `online-safe` e idempotentes:
+> - `apps/downloads/database/migration_030_download_raw_material_type_hint.sql` — coluna `raw_material_type_hint`, simétrica a `raw_system_hint` (requisito 55b).
+> - `apps/downloads/database/migration_031_download_material_type_suggestion.sql` — fila de triagem do hint (requisito 56c), acrescentada após o achado de review da PR #218. Junto com a `030`, eleva a contagem do Downloads de 29 para **31**, o que obriga `MAX_AUTO_PENDING=31` na Fase 5.
+> - `apps/site/db/migrations/016_catalog_material_types_seed.sql` — semeia a taxonomia central (requisito 55a). **Fica no banco do Site, não no do Downloads**, portanto **não** entra na contagem das 31 nem no runner do Downloads. Vai pela esteira própria do site (migração no entrypoint do container, ver `AGENTS.md` §Migrations item 7), o que significa que a Fase 5 **não** a aplica — se ela não estiver aplicada no Site, o ingest do Downloads falha com `catalog_material_type_not_found: nao-classificado`.
 
-**API:** nenhuma rota criada, removida ou alterada. `pnpm verify:api` roda por obrigação de path (`apps/**`), não porque o contrato muda.
+**API:** ~~nenhuma rota criada, removida ou alterada~~ — **desatualizado desde a Fase 2 (2026-07-27)**. A fila de triagem de tipo (requisito 56c) acrescentou **três rotas admin** em `/api/v1/admin/material-type-suggestions` (`GET /`, `GET /:id/candidates`, `POST /:id/resolve`). `pnpm verify:api` acusa `downloads: breaking=0 non-breaking=4` — aditivo puro, nenhum contrato existente muda, e são rotas `requireRole('admin')` que não afetam consumo público. `verify:api` continua obrigatório por path (`apps/**`) de qualquer forma.
 
 **`CATALOG_API_URL`:** `downloads-api` de produção passa a chamar `http://site-prod-app:4322` pela rede Docker interna, com `CATALOG_INTERNAL_TOKEN`. É consumo de contrato existente e estável — o mesas já faz idêntico em produção. Token errado degrada resolução de sistemas sem derrubar o app, o que torna essa uma falha silenciosa a checar no smoke.
 
@@ -397,6 +398,10 @@ select material_type, count(*) from download_material group by 1;  -- Aventura |
 
 Os números importam **juntos**, não isoladamente. `com_sistema > 0` prova que o casamento funciona; `hint_bruto > 0` prova que o caminho de não-casamento também passou a ser exercitado — código que existe, está testado e nunca rodou de fato; `com_credito > 0` prova que a extração rica passou a ser chamada no pipeline automático; `material_type` com mais de uma linha prova classificação real; `total` estável prova que o reprocessamento não duplicou material.
 
+> **Correção crítica (2026-07-27, achado de review da PR #218 — Codex, P1): este bloco só é executável sobre banco LIMPO.** `processItem` faz dedupe por `(source_platform, source_url)` e retorna `skipped_duplicate` **antes** de resolver tipo, sistema ou autoria — o pipeline só cria, nunca atualizou material existente. Rodar o scraper sobre os 103 de beta descartaria todos como duplicata e **nenhum dos números acima mudaria**, fazendo a correção parecer não ter entrado quando na verdade nunca teria sido exercitada. Decisão do mantenedor: limpar o acervo de beta antes (T2.10b), já que ele é descartável e produção nasce vazia.
+>
+> Consequência direta na leitura dos números: **`total = estável` deixa de ser o critério**, porque a baseline passa a ser zero. O que `total` prova agora é recoleta completa — esperado ~99 das três fontes acessíveis (`opera_rpg`, `itch_io`, `grimorios_e_dados`); os 4 de `dms_guild` **não** voltam enquanto o 403 persistir (T2.3a), e sua ausência é resultado esperado, não falha. `total` muito abaixo de 99 indica falha de coleta, não dedupe furado — a inversão exata do que T2.11 vigiava.
+
 `com_publicante` serve de **controle**: já era 87 antes e deve continuar em pelo menos isso. Cair indicaria regressão na extração que já funcionava.
 
 ### Migrations — evidência no banco, não no log do script
@@ -404,7 +409,7 @@ Os números importam **juntos**, não isoladamente. `com_sistema > 0` prova que 
 ```bash
 # na VM, após a aplicação
 docker exec downloads-db psql -U admin -d downloads -c 'select count(*) from schema_migrations;'
-# esperado: 29 — idêntico ao beta
+# esperado: 31 — idêntico ao beta
 ```
 
 Contagem igual à do beta é o critério. Contar arquivos em disco não prova aplicação; ler `schema_migrations` prova.

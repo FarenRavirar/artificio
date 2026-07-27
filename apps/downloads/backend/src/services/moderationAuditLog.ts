@@ -10,7 +10,10 @@ export type ModerationAuditAction =
   | 'archive'
   | 'report_decide'
   // Spec 086 (Fase 4) — decisão de triagem de sugestão de sistema/taxonomia.
-  | 'system_suggestion_decide';
+  | 'system_suggestion_decide'
+  // Spec 088 — decisão de triagem de sugestão de TIPO de material (fila
+  // simétrica à de sistema, criada pela migration_031).
+  | 'material_type_suggestion_decide';
 
 export interface ModerationAuditEntry {
   action: ModerationAuditAction;

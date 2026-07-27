@@ -139,6 +139,12 @@ export async function* discoverItchGames(
       isFreeOrPwyw: true,
       coverImageUrl: detail.coverImageUrl,
       publisherName: detail.publisherName,
+      // `null` explícito, não campo omitido: a página do itch.io não declara
+      // autoria nem arte separadas da conta publicadora, e ausência declarada
+      // é o contrato (requisito 38). Omitir deixaria `undefined`, que lê como
+      // "não extraído ainda" em vez de "a fonte não afirma isso".
+      authorsCredits: null,
+      artistsCredits: null,
       sourceLanguageHint,
     };
   }

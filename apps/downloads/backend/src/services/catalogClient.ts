@@ -346,3 +346,39 @@ export async function addCatalogNodeAlias(nodeId: string, alias: string): Promis
   });
   invalidateCatalogSnapshotCache();
 }
+
+// Spec 088 (achado de review PR #218, Codex P2) — escrita de TIPO no catalogo
+// central, mesma regra da escrita de sistema: so por acao admin na triagem,
+// nunca pelo scraper (requisito 8). Chamado so por
+// routes/materialTypeSuggestionsAdmin.ts.
+//
+// O contrato do Site (catalog-material-types-admin-api.ts) e mais simples que o
+// de nodes: POST exige `name` e deriva o slug quando ausente; PUT e um PATCH
+// parcial de verdade (so toca as chaves presentes no corpo), entao mandar
+// apenas `aliases` nao apaga name/slug/status.
+export async function createCatalogMaterialType(name: string, aliases: string[] = []): Promise<CatalogMaterialType> {
+  const created = catalogMaterialTypeSchema.parse(await catalogFetch<unknown>('/api/admin/v1/catalog/material-types', {
+    method: 'POST',
+    body: JSON.stringify({ name, aliases, status: 'active' }),
+  }));
+  invalidateCatalogMaterialTypesCache();
+  return created;
+}
+
+// Simetrico a addCatalogNodeAlias: aprovar merge_existing ENSINA o vocabulario,
+// senao o mesmo raw_value volta pra fila em todo reprocessamento. Le os aliases
+// atuais antes pra so ACRESCENTAR — PUT com aliases:[novo] substituiria a lista
+// inteira, apagando o vocabulario ja aprendido.
+export async function addCatalogMaterialTypeAlias(materialTypeId: string, alias: string): Promise<void> {
+  const materialType = await getCatalogMaterialTypeById(materialTypeId);
+  if (!materialType) {
+    throw new Error(`catalog_material_type_not_found: ${materialTypeId}`);
+  }
+  if (materialType.aliases.includes(alias)) return;
+
+  await catalogFetch<unknown>(`/api/admin/v1/catalog/material-types/${encodeURIComponent(materialTypeId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ aliases: [...materialType.aliases, alias] }),
+  });
+  invalidateCatalogMaterialTypesCache();
+}

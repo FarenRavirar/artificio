@@ -15,9 +15,9 @@
 | Volume `downloads_pgdata_downloads_prod` | **não existe** |
 | `/opt/artificio/apps/downloads/.env` | **não existe** (mesas, site e glossário têm o seu) |
 | `https://downloads.artificiorpg.com/` | **502** |
-| `https://downloadsbeta.artificiorpg.com/api/v1/health` | 200 (beta saudável, 30 migrations aplicadas) |
+| `https://downloadsbeta.artificiorpg.com/api/v1/health` | 200 (beta saudável, 31 migrations aplicadas) |
 | Clone prod `/opt/artificio` | `main` em `90ec6ee`, **8 commits atrás de `dev`** |
-| `apps/downloads/database/` no clone prod | **20 arquivos** — disco desatualizado; `dev` tem 29 |
+| `apps/downloads/database/` no clone prod | **20 arquivos** — disco desatualizado; `dev` tem 31 |
 
 O efeito para o usuário é direto: o projeto Downloads existe, está pronto e validado em beta, mas **é inalcançável publicamente**. Todo material submetido, aprovado e catalogado só existe num ambiente de teste. O 502 é pior que um 404 — sinaliza serviço quebrado a crawler e a visitante, num hostname que já está publicado na navegação compartilhada dos outros projetos.
 
@@ -106,12 +106,15 @@ Fica claro também por que `publisher_name` é a exceção com 87: é um dos pou
 
 1. O banco de produção do Downloads roda em **container e volume próprios**, fisicamente separados do beta: `downloads-db` sobre `pgdata_downloads_prod`, enquanto o beta permanece em `downloads-beta-db` sobre `downloads-beta_pgdata_downloads_beta`. Nenhum dos dois compartilha volume, container ou processo com o outro.
 2. O banco de produção **nasce vazio**. Nenhum dado é copiado do beta — nem material, nem usuário, nem métrica, nem log. Beta permanece como ambiente de teste independente e descartável; produção recebe conteúdo apenas pelo fluxo normal de submissão e aprovação.
-3. As **30 migrations** de `apps/downloads/database/` são aplicadas ao banco de produção pelo **script oficial** `scripts/deploy/apply_required_migrations.sh`, nunca por `psql` avulso, arquivo por arquivo, ou SQL colado à mão.
+3. As **31 migrations** de `apps/downloads/database/` são aplicadas ao banco de produção pelo **script oficial** `scripts/deploy/apply_required_migrations.sh`, nunca por `psql` avulso, arquivo por arquivo, ou SQL colado à mão.
 
-   > **Eram 29 até 2026-07-27.** A Fase 2 acrescentou `migration_030_download_raw_material_type_hint.sql` (requisito 55b), então toda contagem desta spec passou de 29 para 30 — incluindo o critério de aceite, o `MAX_AUTO_PENDING` da execução manual e a conferência de arquivos no clone da VM. Deixar 29 faria o guard abortar o deploy em 30 pendências e o critério de aceite comparar contra um número errado.
-4. Como 30 pendências excedem o guard `MAX_AUTO_PENDING=5`, a aplicação é feita em **uma execução manual controlada e única** com `MAX_AUTO_PENDING` elevado ao total pendente — o script compara o conjunto inteiro de uma vez, então **fatiar em lotes é proibido**.
+   > **Eram 29 até 2026-07-27.** A Fase 2 acrescentou duas migrations, e toda contagem desta spec passou de 29 para **31** — incluindo o critério de aceite, o `MAX_AUTO_PENDING` da execução manual e a conferência de arquivos no clone da VM. Deixar o número desatualizado faria o guard abortar o deploy e o critério de aceite comparar contra um valor errado.
+   >
+   > - `migration_030_download_raw_material_type_hint.sql` (requisito 55b) — coluna do hint bruto.
+   > - `migration_031_download_material_type_suggestion.sql` (requisito 56c) — fila de triagem do hint, acrescentada em 2026-07-27 pelo achado de review da PR #218.
+4. Como 31 pendências excedem o guard `MAX_AUTO_PENDING=5`, a aplicação é feita em **uma execução manual controlada e única** com `MAX_AUTO_PENDING` elevado ao total pendente — o script compara o conjunto inteiro de uma vez, então **fatiar em lotes é proibido**.
 5. Um `pg_dump` do banco de produção é gerado **antes** da aplicação das migrations, mesmo o banco estando vazio, e guardado fora do container. É o único rollback manual disponível se algo falhar no meio.
-6. Ao final, `schema_migrations` do banco de produção contém **as mesmas 30 linhas** que o beta, e nenhuma migration fica pendente ou parcialmente aplicada.
+6. Ao final, `schema_migrations` do banco de produção contém **as mesmas 31 linhas** que o beta, e nenhuma migration fica pendente ou parcialmente aplicada.
 
 ### Ambiente e segredos
 
@@ -230,7 +233,15 @@ No itch.io, copiar a conta para `credits` faria a ficha exibir o mesmo nome duas
 56a. **Propagação por schema `.strict()` — armadilha encontrada e fechada.** `materialTypeHint` precisou ser declarado em **dois** schemas Zod `.strict()` (`genericHtmlParser.ts` e `routes/scraper.ts`): sem isso o campo seria **rejeitado**, não apenas ignorado, e o ingest cairia sempre no tipo neutro como se a fonte nunca tivesse publicado a classificação. É exatamente a armadilha que o comentário do `systemHint` já documentava na spec 086 ("o Zod removeria o campo em silêncio").
 
 56b. **Vereditos por fonte quanto ao hint de tipo.** OneBookShelf: **extrai**, do facet `tipoDeProduto`/`productType`, usando a folha do caminho. OPERA RPG: **a fonte não expõe** — a listagem tem só título, autoria e descrição; `null` explícito é o comportamento correto. itch.io / Grimórios & Dados: **adiado** por decisão do mantenedor (2026-07-27), por falta de DOM real da página de jogo — o parser atual lê apenas `og:image`, `og:description` e o link da conta, e escrever extração contra estrutura não observada violaria o requisito 43.
+56c. **O hint bruto precisa de uma FILA, não só de uma coluna — achado de review da PR #218 (Codex, P2, 2026-07-27).** A `migration_030` (requisito 55b) criou `raw_material_type_hint` e o ingest passou a gravá-la, mas **nenhum consumidor administrativo lia a coluna**: busca no repositório não achou uma única leitura. O dado ficava gravado e invisível, sem nenhum caminho para ser resolvido — enquanto o simétrico `raw_system_hint` já abria `download_system_suggestion` e tinha rota de triagem desde a spec 086. Preservar o dado sem oferecer como resolvê-lo cumpre a letra do requisito 54 e falha no propósito dele: o material fica preso no tipo neutro para sempre, e a taxonomia nunca aprende o vocabulário que as fontes de fato publicam.
+
+   Decisão do mantenedor (2026-07-27): fechar a simetria agora, não registrar como débito. Materializado em `migration_031_download_material_type_suggestion.sql` + `routes/materialTypeSuggestionsAdmin.ts`, espelhando o fluxo de sistema, com **uma diferença estrutural**: a taxonomia de tipo é uma **lista plana**, não uma árvore `system/edition/variant`. Por isso não há candidatos pontuados por hierarquia, nem `create_child`, nem distinção `system_id`/`edition_id` — as resoluções possíveis são `merge_existing` (aponta para um tipo existente) e `create_type` (cria um tipo novo), mais `reject`. Aprovar **ensina o vocabulário**: registra o `raw_value` como alias do tipo escolhido, sem o que a mesma sugestão voltaria à fila em todo reprocessamento. A escrita no catálogo central continua exclusiva da triagem admin (requisitos 48/56) — o scraper só abre a fila.
+
 57. A correção é comprovada por **reprocessamento real em beta**: a distribuição de `material_type` deixa de ser uma única linha com 100% do acervo.
+
+57a. **O reprocessamento não atualiza material já existente — achado de review da PR #218 (Codex, P1, 2026-07-27).** `processItem` faz dedupe por `(source_platform, source_url)` e retorna `skipped_duplicate` **antes** de qualquer resolução de tipo, sistema ou autoria. O pipeline só cria; nunca atualizou. Rodar o scraper de novo sobre os 103 materiais de beta os descartaria todos como duplicata, e `material_type`, `raw_system_hint`, `credits` e `publisher_name` **continuariam com os valores antigos** — nenhum dos números do requisito 57 mudaria, e a correção pareceria não ter entrado quando na verdade nunca foi exercitada.
+
+   Decisão do mantenedor (2026-07-27): **limpar o acervo de beta antes do reprocessamento**, em vez de introduzir um caminho de refresh no ingest. Os 103 materiais são de beta e descartáveis (a mesma premissa que autorizou semear a taxonomia, requisito 55a), e produção nasce vazia — não há dado real em risco. A alternativa (duplicata passar a fazer `UPDATE`) foi descartada por mudar o comportamento do pipeline: sobrescreveria edição manual feita pelo admin, que é justamente o que a triagem produz.
 
 ### Acesso ao material em nova aba
 
@@ -270,7 +281,7 @@ A spec só está concluída quando **todos** os itens abaixo têm evidência rea
 
 1. `docker ps` na VM lista `downloads-app`, `downloads-api` e `downloads-db` como `Up ... (healthy)`.
 2. `docker volume ls` lista `downloads_pgdata_downloads_prod`, e `downloads-beta_pgdata_downloads_beta` continua existindo, intacto.
-3. `SELECT count(*) FROM schema_migrations` no banco de produção retorna **30**, idêntico ao beta.
+3. `SELECT count(*) FROM schema_migrations` no banco de produção retorna **31**, idêntico ao beta.
 4. As três `critical_routes` de produção retornam os códigos do Requisito 12, verificadas por `curl` contra o hostname público.
 5. Nenhuma rota pública responde 5xx.
 6. O run de `deploy.yml` em `--ref main` com `env=prod` conclui com `conclusion: success`.
@@ -315,7 +326,7 @@ A spec só está concluída quando **todos** os itens abaixo têm evidência rea
 
 ### Risco alto
 
-**Guard de migrations abortando o deploy (E012).** 30 pendências contra um limite de 5 fazem o deploy automático abortar com `Muitas migrations pendentes`. O rollback automático preserva o estado, sem dano — não é bug, é a proteção funcionando. Mitigação: aplicar as migrations manualmente **antes** de disparar o deploy, pelo script oficial, com `MAX_AUTO_PENDING=30` numa execução única. Depois disso o deploy encontra zero pendências e passa direto.
+**Guard de migrations abortando o deploy (E012).** 31 pendências contra um limite de 5 fazem o deploy automático abortar com `Muitas migrations pendentes`. O rollback automático preserva o estado, sem dano — não é bug, é a proteção funcionando. Mitigação: aplicar as migrations manualmente **antes** de disparar o deploy, pelo script oficial, com `MAX_AUTO_PENDING=31` numa execução única. Depois disso o deploy encontra zero pendências e passa direto.
 
 **Ausência de `.env` em produção derruba o boot.** Seis variáveis usam `:?` no compose e abortam o container se faltarem. Sem o `.env` posto na VM **antes** do deploy, `downloads-api` nem sobe e o 502 persiste — agora com container em crash loop em vez de container ausente. Mitigação: criar e conferir o `.env` como passo bloqueante anterior ao deploy, validando chave por chave contra o compose.
 
@@ -327,9 +338,9 @@ A spec só está concluída quando **todos** os itens abaixo têm evidência rea
 
 **Reprocessar scraper em beta pode duplicar material.** O dedupe é por `(source_platform, source_url)` e existe justamente para isso, mas um scraper alterado que mude a URL de origem escaparia da chave e criaria duplicata. Mitigação: conferir a contagem de materiais antes e depois do reprocessamento; crescimento inesperado indica dedupe furado, não sucesso de extração.
 
-**Drift de migrations por intervenção manual.** A aplicação manual das 30 é feita pelo script oficial justamente para registrar tudo em `schema_migrations` e não gerar drift. Qualquer `psql` avulso fora do script criaria divergência entre banco e disco, bloqueando o próximo deploy automático. Mitigação: script oficial sempre; se houver qualquer intervenção fora dele, reconciliar com `reconcile_migrations.sh --mark-applied` antes de considerar a fase fechada.
+**Drift de migrations por intervenção manual.** A aplicação manual das 31 é feita pelo script oficial justamente para registrar tudo em `schema_migrations` e não gerar drift. Qualquer `psql` avulso fora do script criaria divergência entre banco e disco, bloqueando o próximo deploy automático. Mitigação: script oficial sempre; se houver qualquer intervenção fora dele, reconciliar com `reconcile_migrations.sh --mark-applied` antes de considerar a fase fechada.
 
-**Clone de produção desatualizado.** `/opt/artificio` está 8 commits atrás e tem só 20 dos 30 arquivos de migration em disco. O deploy faz `git fetch/reset`, o que resolve — mas se a aplicação manual das migrations rodar **antes** do clone ser atualizado, ela só enxergaria 20 arquivos e aplicaria um schema incompleto, sem erro aparente. Mitigação: atualizar o clone de produção **antes** de contar ou aplicar migrations, e conferir que `ls apps/downloads/database/migration_*.sql | wc -l` retorna 30 na VM.
+**Clone de produção desatualizado.** `/opt/artificio` está 8 commits atrás e tem só 20 dos 31 arquivos de migration em disco. O deploy faz `git fetch/reset`, o que resolve — mas se a aplicação manual das migrations rodar **antes** do clone ser atualizado, ela só enxergaria 20 arquivos e aplicaria um schema incompleto, sem erro aparente. Mitigação: atualizar o clone de produção **antes** de contar ou aplicar migrations, e conferir que `ls apps/downloads/database/migration_*.sql | wc -l` retorna 31 na VM.
 
 **Dependência de `packages/ui` fora do `deploy_paths` do Downloads.** O manifesto declara `deploy_paths: ["apps/downloads"]`, sem `packages/ui`. Mudanças no Header compartilhado feitas na spec 087 chegam ao Downloads porque o build é do monorepo inteiro, mas **não** disparam deploy dos outros consumidores. O contrato é aditivo, então consumidores não migrados não quebram — mas mesas, glossário e site só recebem o Header novo no próprio deploy. Impacto benigno, registrado para não virar surpresa.
 
