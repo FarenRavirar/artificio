@@ -1,4 +1,4 @@
-// Runner de jobs single-flight (rebuild SSG / import WP). Um job por vez (lock em memória).
+// Runner de jobs single-flight (rebuild SSG). Um job por vez (lock em memória).
 // rebuild = export(store->posts.json) + astro build + pagefind. Gatilho do SSG incremental (D006).
 import { spawn } from "node:child_process";
 import { dirname, resolve } from "node:path";
@@ -51,7 +51,7 @@ function spawnJob(name: string, script: string): StartResult {
   return { started: true, job: current };
 }
 
-/** Dispara um script pnpm do apps/site (ex.: "rebuild", "import"). Não bloqueia a request.
+/** Dispara um script pnpm do apps/site (hoje só "rebuild"). Não bloqueia a request.
  *  Single-flight; um rebuild pedido durante outro job fica pendente (coalesced) e roda ao final. */
 export function runJob(name: string, script: string): StartResult {
   if (jobBusy()) {

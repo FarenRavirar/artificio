@@ -14,7 +14,7 @@
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 4 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 126 | ❌ |
+| 🕳️ UNUSED_ROUTE | 125 | ❌ |
 | 👻 ORPHAN_SUSPECT | 43 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
@@ -404,7 +404,7 @@
 | GET | `/api/v1/profile/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/:param` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 
-### site (47 rotas no inventário)
+### site (46 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -436,7 +436,6 @@
 | GET | `/api/catalog/v1/snapshot` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/catalog/v1/systems` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/admin/v1/feedback/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/admin/import` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/admin/rebuild` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/admin/v1/catalog/material-types` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/admin/v1/catalog/nodes` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |

@@ -8,9 +8,9 @@
     "glossario": 49,
     "links": 22,
     "mesas": 192,
-    "site": 50
+    "site": 49
   },
-  "total": 400,
+  "total": 399,
   "operations": [
     {
       "app": "accounts",
@@ -4228,18 +4228,6 @@
       "auth": "none",
       "consumers": [],
       "operationId": "getsitemap_xml"
-    },
-    {
-      "app": "site",
-      "method": "POST",
-      "path": "/admin/import",
-      "summary": "Cria ou executa admin import",
-      "owner": "site",
-      "scope": "admin",
-      "status": "active",
-      "auth": "admin",
-      "consumers": [],
-      "operationId": "postadmin_import"
     },
     {
       "app": "site",

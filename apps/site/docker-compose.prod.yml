@@ -17,10 +17,8 @@ services:
       - NODE_ENV=production
       - PORT=4322
       - DATABASE_URL=${DATABASE_URL}
-      - WP_BASE=${WP_BASE:-https://artificiorpg.com/wp-json/wp/v2}
-      # OFF por padrao (spec 029/030): migracao WP concluida, store e a fonte de verdade.
-      # Ligar so com opt-in explicito e WP vivo. Ver docker-entrypoint.sh.
-      - SITE_IMPORT_ON_START=${SITE_IMPORT_ON_START:-false}
+      # WP_BASE e SITE_IMPORT_ON_START removidos em 2026-07-27 junto com o importador do WordPress
+      # (WP fora do ar; store Postgres e a fonte de verdade desde D074/spec 029).
       # Cloudinary: aceita a forma URL unica OU as 3 vars (mesmas que o mesas ja usa na VM).
       - CLOUDINARY_URL=${CLOUDINARY_URL:-}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
@@ -37,9 +35,10 @@ services:
     depends_on:
       site-prod-db:
         condition: service_healthy
-    # SITE_FORCE_REBUILD: docker-entrypoint.sh:8-11 faz rebuild Astro se nao encontrar dist/index.html.
+    # SITE_FORCE_REBUILD: o entrypoint faz rebuild Astro se nao encontrar dist/index.html.
     # Com dist cacheado (ex.: reinicio apos seed), defina SITE_FORCE_REBUILD=true para regenerar.
-    # Sem dist (1o boot), rebuild roda naturalmente; SITE_IMPORT_ON_START=false garante que nao tenta importar WP.
+    # Sem dist (1o boot), rebuild roda naturalmente.
+    # As MIGRATIONS nao dependem desta flag desde 2026-07-27 (E018): rodam sempre, antes do guard.
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:4322/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
